@@ -10,3 +10,8 @@
 *.lai
 *.la
 *.a
+
+*~
+
+/.lock-wscript
+/build/
