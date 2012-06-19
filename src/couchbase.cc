@@ -339,6 +339,28 @@ v8::Handle<v8::Value> Couchbase::SetHandler(const v8::Arguments& args)
     return v8::True();
 }
 
+class CommandCallbackCookie {
+public:
+    CommandCallbackCookie(const v8::Local<v8::Value>& func, int r = 1) : refcount(r) {
+        assert(func->IsFunction());
+        handler = v8::Persistent<v8::Function>::New(
+                        v8::Local<v8::Function>::Cast(func));
+    }
+
+    ~CommandCallbackCookie() {
+        handler.Dispose();
+    }
+
+    void release() {
+        if (--refcount == 0) {
+            delete this;
+        }
+    }
+
+    int refcount;
+    v8::Persistent<v8::Function> handler;
+};
+
 v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
 {
     if (args.Length() == 0) {
@@ -349,16 +371,28 @@ v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
     v8::HandleScope scope;
     Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
-    int tot = args.Length();
+    void* commandCookie = NULL;
+    int offset = 0;
+    if (args[0]->IsFunction()) {
+        if (args.Length() == 1) {
+            const char *msg = "Illegal arguments";
+            return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        }
+
+        commandCookie = static_cast<void*>(new CommandCallbackCookie(args[0], args.Length() - 1));
+        offset = 1;
+    }
+
+    int tot = args.Length() - offset;
     char* *keys = new char*[tot];
     libcouchbase_size_t *lengths = new libcouchbase_size_t[tot];
     // @todo handle allocation failures
 
-    for (int ii = 0; ii < args.Length(); ++ii) {
+    for (int ii = offset; ii < args.Length(); ++ii) {
         if (args[ii]->IsString()) {
             v8::Local<v8::String> s = args[ii]->ToString();
-            keys[ii] = new char[s->Length() + 1];
-            lengths[ii] = s->WriteAscii(keys[ii]);
+            keys[ii - offset] = new char[s->Length() + 1];
+            lengths[ii - offset] = s->WriteAscii(keys[ii - offset]);
         } else {
             // @todo handle NULL
             // Clean up allocated memory!
@@ -368,7 +402,7 @@ v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
         }
     }
 
-    me->lastError = libcouchbase_mget(me->instance, NULL, tot,
+    me->lastError = libcouchbase_mget(me->instance, commandCookie, tot,
             reinterpret_cast<const void * const *> (keys), lengths, NULL);
 
     if (me->lastError == LIBCOUCHBASE_SUCCESS) {
@@ -428,7 +462,7 @@ v8::Handle<v8::Value> Couchbase::Wait(const v8::Arguments& args)
 
 struct CouchbaseObject {
     CouchbaseObject() :
-        key(NULL), nkey(0), data(NULL), ndata(0), flags(0), exptime(0), cas(0)
+        commandCookie(NULL), key(NULL), nkey(0), data(NULL), ndata(0), flags(0), exptime(0), cas(0)
     {
         // empty
     }
@@ -447,7 +481,13 @@ struct CouchbaseObject {
         }
 
         int idx = 0;
-        // The first argument _MUST_ be the key
+        // First we might have a callback function...
+        if (args[0]->IsFunction()) {
+            ++idx;
+            commandCookie = static_cast<void*>(new CommandCallbackCookie(args[0]));
+        }
+
+        // but the next _must_ be the key
         if (args[idx]->IsString()) {
             v8::Local<v8::String> str = args[idx]->ToString();
             key = new char[str->Length()];
@@ -499,6 +539,7 @@ struct CouchbaseObject {
         return true;
     }
 
+    void *commandCookie;
     char *key;
     size_t nkey;
     char *data;
@@ -514,11 +555,12 @@ v8::Handle<v8::Value> Couchbase::store(const v8::Arguments& args,
 
     CouchbaseObject obj;
     if (!obj.parse(args)) {
+        delete static_cast<CommandCallbackCookie*>(obj.commandCookie);
         const char *msg = "Illegal arguments";
         return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
     }
 
-    lastError = libcouchbase_store(instance, NULL, operation, obj.key,
+    lastError = libcouchbase_store(instance, obj.commandCookie, operation, obj.key,
             obj.nkey, obj.data, obj.ndata, obj.flags, obj.exptime, obj.cas);
 
     if (lastError == LIBCOUCHBASE_SUCCESS) {
@@ -547,7 +589,8 @@ void Couchbase::getCallback(const void *commandCookie,
 {
     lastError = error;
 
-    if (!getHandler.IsEmpty()) {
+    CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie*>(const_cast<void*>(commandCookie));
+    if (data || !getHandler.IsEmpty()) {
         // Ignore everything if the user hasn't set up a get handler
         if (error == LIBCOUCHBASE_SUCCESS) {
             using namespace v8;
@@ -559,7 +602,12 @@ void Couchbase::getCallback(const void *commandCookie,
             argv[3] = Local<Value>::New(Integer::NewFromUnsigned(flags));
             argv[4] = Local<Value>::New(Number::New(cas));
 
-            getHandler->Call(Context::GetEntered()->Global(), 5, argv);
+            if (data) {
+                data->handler->Call(Context::GetEntered()->Global(), 5, argv);
+                data->release();
+            } else {
+                getHandler->Call(Context::GetEntered()->Global(), 5, argv);
+            }
         } else {
             using namespace v8;
             Local<Value> argv[3];
@@ -567,7 +615,12 @@ void Couchbase::getCallback(const void *commandCookie,
             argv[1] = Local<Value>::New(String::New((const char*) key, nkey));
             argv[2] = Local<Value>::New(
                     String::New(libcouchbase_strerror(instance, error)));
-            getHandler->Call(Context::GetEntered()->Global(), 3, argv);
+            if (data) {
+                data->handler->Call(Context::GetEntered()->Global(), 3, argv);
+                data->release();
+            } else {
+                getHandler->Call(Context::GetEntered()->Global(), 3, argv);
+            }
         }
     }
 }
@@ -577,8 +630,8 @@ void Couchbase::storageCallback(const void *commandCookie,
         const void *key, libcouchbase_size_t nkey, libcouchbase_cas_t cas)
 {
     lastError = error;
-
-    if (!getHandler.IsEmpty()) {
+    CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie*>(const_cast<void*>(commandCookie));
+    if (data || !getHandler.IsEmpty()) {
         // Ignore everything if the user hasn't set up a get handler
         using namespace v8;
         Local<Value> argv[3];
@@ -591,6 +644,11 @@ void Couchbase::storageCallback(const void *commandCookie,
             argv[2] = Local<Value>::New(
                     String::New(libcouchbase_strerror(instance, error)));
         }
-        storeHandler->Call(Context::GetEntered()->Global(), 3, argv);
+        if (data) {
+            data->handler->Call(Context::GetEntered()->Global(), 3, argv);
+            data->release();
+        } else {
+            storeHandler->Call(Context::GetEntered()->Global(), 3, argv);
+        }
     }
 }

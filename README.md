@@ -135,7 +135,9 @@ one of the storage methods: add, set, replace, append, prepend. Even
 though they return a boolean, the methods does not return the final
 action of the operation (you need to check the callback for that), but
 if the operation was _intitated_ or not. All parameters excepts the
-key are optional
+key are optional. You *may* also specify the callback function as
+the first parameter. If you choose to do so the global callback
+function will _not_ be called.
 
     Boolean add(String key,
                 String value,
@@ -180,6 +182,9 @@ Now that we know how to store objects in the cluster we probably want
 to know how we can get them back. This is performed by the get method:
 
     Boolean get(String key [, String keyn ]*);
+
+You may also specify the callback function as the first parameter to
+the get call.
 
 So to continue on our example we would now have:
 

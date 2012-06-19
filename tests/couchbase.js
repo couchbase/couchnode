@@ -59,12 +59,27 @@ if (!cb.connect()) {
 cb.wait();
 
 // Schedule a couple of operations
-cb.add("key", "add")
+cb.add(function onAdd(state, key, cas) {
+	if (state) {
+		console.log("Added \"" + key + "\" - [" + cas + "]");
+	} else {
+		console.log("Failed to add \"" + key + "\" [" + cas + "]");
+	}
+}, "key", "add")
 cb.replace("key", "replaced")
 cb.set("key", "set")
 cb.append("key", "append")
 cb.prepend("key", "prepend")
-cb.get("key");
+cb.get(function onGet(state, key, value, flags, cas) {
+	if (state) {
+		console.log("onGet found \"" + key + "\" - [" + value + "]");
+	} else {
+		console.log("onGet failed for \"" + key + "\" [" + value + "]");
+	}
+}, "key", "bar");
+
+cb.get("key2", "bar2");
+
 
 // Wait for all operations to complete
 cb.wait();
