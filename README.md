@@ -67,9 +67,9 @@ libcouchbase, the next thing we need to do is to specify the callbacks
 libcouchbase will call when an operation completes. This is done with
 the following methods:
 
-    cb.setErrorHandler(errorHandler);
-    cb.setGetHandler(getHandler);
-    cb.setStorageHandler(storageHandler);
+    cb.on('error', errorHandler);
+    cb.on('get', getHandler);
+    cb.on('store', storageHandler);
 
 All of these handlers should be changed. They are not thought true,
 and is a result that I just wanted to get something up'n running so
@@ -129,6 +129,9 @@ complete. In order to wait for the completion of the pending
 operation(s), we can call wait():
 
     Boolean wait();
+
+Alternatively you may pass a function to be called when the server is
+connected as the first parameter to connect().
 
 So how do we store stuff in the couchbase cluster? We do that by using
 one of the storage methods: add, set, replace, append, prepend. Even
@@ -219,9 +222,9 @@ So to continue on our example we would now have:
     var cb = new driver.Couchbase("myserver");
 
     // Set up the handlers
-    cb.setErrorHandler(errorHandler);
-    cb.setGetHandler(getHandler);
-    cb.setStorageHandler(storageHandler);
+    cb.on('error', errorHandler);
+    cb.on('get', getHandler);
+    cb.on('store', storageHandler);
 
     // Try to connect to the server
     if (!cb.connect()) {

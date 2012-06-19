@@ -22,10 +22,18 @@
 
 using namespace std;
 
-//v8::Persistent<v8::FunctionTemplate> Couchbase::s_ct;
 
+// libcouchbase handlers keep a C linkage...
 extern "C" {
-    // libcouchbase handlers keep a C linkage...
+
+    static void configuration_callback(libcouchbase_t instance,
+                                       libcouchbase_configuration_t config)
+    {
+        void *cookie = const_cast<void*> (libcouchbase_get_cookie(instance));
+        Couchbase *me = reinterpret_cast<Couchbase*> (cookie);
+        me->onConnect(config);
+    }
+
     static void error_callback(libcouchbase_t instance,
             libcouchbase_error_t err, const char *errinfo)
     {
@@ -73,20 +81,19 @@ Couchbase::Couchbase(libcouchbase_t inst) :
     libcouchbase_set_error_callback(instance, error_callback);
     libcouchbase_set_get_callback(instance, get_callback);
     libcouchbase_set_storage_callback(instance, storage_callback);
+    libcouchbase_set_configuration_callback(instance, configuration_callback);
 }
 
 Couchbase::~Couchbase()
 {
     libcouchbase_destroy(instance);
 
-    if (!getHandler.IsEmpty()) {
-        getHandler.Dispose();
-    }
-    if (!storeHandler.IsEmpty()) {
-        storeHandler.Dispose();
-    }
-    if (!errorHandler.IsEmpty()) {
-        errorHandler.Dispose();
+    EventMap::iterator iter = events.begin();
+    while (iter != events.end()) {
+        if (!iter->second.IsEmpty()) {
+            iter->second.Dispose();
+        }
+        ++iter;
     }
 }
 
@@ -109,9 +116,6 @@ void Couchbase::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "isSynchronous", IsSynchronous);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "connect", Connect);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getLastError", GetLastError);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setErrorHandler", SetHandler);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setGetHandler", SetHandler);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setStorageHandler", SetHandler);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "get", Get);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "set", Set);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "add", Add);
@@ -119,8 +123,44 @@ void Couchbase::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "append", Append);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "prepend", Prepend);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "wait", Wait);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "on", On);
 
     target->Set(v8::String::NewSymbol("Couchbase"), s_ct->GetFunction());
+}
+
+v8::Handle<v8::Value> Couchbase::On(const v8::Arguments& args)
+{
+    if (args.Length() != 2 || !args[0]->IsString() || !args[1]->IsFunction()) {
+        const char *msg = "Usage: cb.on('event', 'callback')";
+        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+    }
+
+    // @todo verify that the user specifies a valid monitor ;)
+    v8::HandleScope scope;
+    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    v8::Handle<v8::Value> ret = me->on(args);
+    return scope.Close(ret);
+}
+
+v8::Handle<v8::Value> Couchbase::on(const v8::Arguments& args)
+{
+    v8::HandleScope scope;
+    v8::Local<v8::String> s = args[0]->ToString();
+    char *func = new char[s->Length() + 1];
+    memset(func, 0, s->Length() + 1);
+    s->WriteAscii(func);
+
+    string function(func);
+    delete []func;
+
+    EventMap::iterator iter = events.find(function);
+    if (iter != events.end() && !iter->second.IsEmpty()) {
+        iter->second.Dispose();
+    }
+
+    events[function] = v8::Persistent<v8::Function>::New(v8::Local<v8::Function>::Cast(args[0]));
+
+    return scope.Close(v8::True());
 }
 
 v8::Handle<v8::Value> Couchbase::New(const v8::Arguments& args)
@@ -265,13 +305,13 @@ v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments& args)
 
 v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments& args)
 {
+    v8::HandleScope scope;
+    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+
     if (args.Length() != 0) {
         const char *msg = "Illegal arguments";
         return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
     }
-
-    v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
     me->lastError = libcouchbase_connect(me->instance);
     if (me->lastError == LIBCOUCHBASE_SUCCESS) {
@@ -292,51 +332,6 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments& args)
     Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
     const char *msg = libcouchbase_strerror(me->instance, me->lastError);
     return scope.Close(v8::String::New(msg));
-}
-
-/**
- * Set the callback handler. The handler to specify is set in the
- * name of the callback
- *
- * @todo the name of the callbacks should be set as constants so that
- *       I have a single place to change them ;)
- */
-v8::Handle<v8::Value> Couchbase::SetHandler(const v8::Arguments& args)
-{
-    // @todo it should be possible to do this more efficient
-
-    if (args.Length() != 1 || !args[0]->IsFunction()) {
-        const char *msg = "You may only specify a single callback at a time";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
-    }
-    v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
-
-    v8::Local<v8::String> name = args.Callee()->GetName()->ToString();
-    if (name->Equals(v8::String::New("setGetHandler"))) {
-        if (!me->getHandler.IsEmpty()) {
-            me->getHandler.Dispose();
-        }
-        me->getHandler = v8::Persistent<v8::Function>::New(
-                v8::Local<v8::Function>::Cast(args[0]));
-    } else if (name->Equals(v8::String::New("setStorageHandler"))) {
-        if (!me->storeHandler.IsEmpty()) {
-            me->storeHandler.Dispose();
-        }
-        me->storeHandler = v8::Persistent<v8::Function>::New(
-                v8::Local<v8::Function>::Cast(args[0]));
-    } else if (name->Equals(v8::String::New("setErrorHandler"))) {
-        if (!me->errorHandler.IsEmpty()) {
-            me->errorHandler.Dispose();
-        }
-        me->errorHandler = v8::Persistent<v8::Function>::New(
-                v8::Local<v8::Function>::Cast(args[0]));
-    } else {
-        const char *msg = "Unknown callback";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
-    }
-
-    return v8::True();
 }
 
 class CommandCallbackCookie {
@@ -572,13 +567,16 @@ v8::Handle<v8::Value> Couchbase::store(const v8::Arguments& args,
 
 void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
 {
+    if (err == LIBCOUCHBASE_ETIMEDOUT && onTimeout()) {
+        return;
+    }
+
     lastError = err;
-    if (errorHandler.IsEmpty()) {
-        cout << "ERROR: " << errinfo << endl;
-    } else {
+    EventMap::iterator iter = events.find("error");
+    if (iter != events.end() && !iter->second.IsEmpty()) {
         using namespace v8;
         Local<Value> argv[1] = { Local<Value>::New(String::New(errinfo)) };
-        errorHandler->Call(Context::GetEntered()->Global(), 1, argv);
+        iter->second->Call(Context::GetEntered()->Global(), 1, argv);
     }
 }
 
@@ -590,7 +588,9 @@ void Couchbase::getCallback(const void *commandCookie,
     lastError = error;
 
     CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie*>(const_cast<void*>(commandCookie));
-    if (data || !getHandler.IsEmpty()) {
+
+    EventMap::iterator iter = events.find("get");
+    if (data || (iter != events.end() && !iter->second.IsEmpty())) {
         // Ignore everything if the user hasn't set up a get handler
         if (error == LIBCOUCHBASE_SUCCESS) {
             using namespace v8;
@@ -606,7 +606,7 @@ void Couchbase::getCallback(const void *commandCookie,
                 data->handler->Call(Context::GetEntered()->Global(), 5, argv);
                 data->release();
             } else {
-                getHandler->Call(Context::GetEntered()->Global(), 5, argv);
+                iter->second->Call(Context::GetEntered()->Global(), 5, argv);
             }
         } else {
             using namespace v8;
@@ -619,7 +619,7 @@ void Couchbase::getCallback(const void *commandCookie,
                 data->handler->Call(Context::GetEntered()->Global(), 3, argv);
                 data->release();
             } else {
-                getHandler->Call(Context::GetEntered()->Global(), 3, argv);
+                iter->second->Call(Context::GetEntered()->Global(), 3, argv);
             }
         }
     }
@@ -631,7 +631,8 @@ void Couchbase::storageCallback(const void *commandCookie,
 {
     lastError = error;
     CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie*>(const_cast<void*>(commandCookie));
-    if (data || !getHandler.IsEmpty()) {
+    EventMap::iterator iter = events.find("store");
+    if (data || (iter != events.end() && !iter->second.IsEmpty())) {
         // Ignore everything if the user hasn't set up a get handler
         using namespace v8;
         Local<Value> argv[3];
@@ -648,7 +649,31 @@ void Couchbase::storageCallback(const void *commandCookie,
             data->handler->Call(Context::GetEntered()->Global(), 3, argv);
             data->release();
         } else {
-            storeHandler->Call(Context::GetEntered()->Global(), 3, argv);
+            iter->second->Call(Context::GetEntered()->Global(), 3, argv);
         }
     }
+}
+
+void Couchbase::onConnect(libcouchbase_configuration_t config)
+{
+    EventMap::iterator iter = events.find("connect");
+    if (iter != events.end() && !iter->second.IsEmpty()) {
+        // @todo pass on the config parameter ;)
+        using namespace v8;
+        Local<Value> argv[0];
+        iter->second->Call(v8::Context::GetEntered()->Global(), 0, argv);
+    }
+}
+
+bool Couchbase::onTimeout()
+{
+    EventMap::iterator iter = events.find("timeout");
+    if (iter != events.end() && !iter->second.IsEmpty()) {
+        using namespace v8;
+        Local<Value> argv[0];
+        iter->second->Call(v8::Context::GetEntered()->Global(), 0, argv);
+        return true;
+    }
+
+    return false;
 }

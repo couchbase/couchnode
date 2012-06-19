@@ -45,10 +45,15 @@ function storageHandler(state, key, cas) {
 var driver = require('couchbase');
 var cb = new driver.Couchbase("freebsd:9000");
 
+function connectHandler() {
+   console.log("connected");
+}
+
 // Set up the handlers
-cb.setErrorHandler(errorHandler);
-cb.setGetHandler(getHandler);
-cb.setStorageHandler(storageHandler);
+cb.on('error', errorHandler);
+cb.on('get', getHandler);
+cb.on('store', storageHandler);
+cb.on('connect', connectHandler);
 
 // Try to connect to the server
 if (!cb.connect()) {

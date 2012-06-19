@@ -21,6 +21,7 @@
 #include <node.h>
 
 #include <iostream>
+#include <map>
 #include <string>
 
 #include <libcouchbase/couchbase.h>
@@ -52,7 +53,18 @@ public:
     static v8::Handle<v8::Value> Prepend(const v8::Arguments&);
     static v8::Handle<v8::Value> Wait(const v8::Arguments&);
 
+
+    // Setting up the event emitter
+    static v8::Handle<v8::Value> On(const v8::Arguments&);
+    v8::Handle<v8::Value> on(const v8::Arguments&);
+
+
+
     // Method called from libcouchbase
+    void onConnect(libcouchbase_configuration_t config);
+    bool onTimeout();
+
+
     void errorCallback(libcouchbase_error_t err, const char *errinfo);
     void getCallback(const void *commandCookie, libcouchbase_error_t error,
             const void *key, libcouchbase_size_t nkey, const void *bytes,
@@ -69,9 +81,10 @@ protected:
     libcouchbase_t instance;
     libcouchbase_error_t lastError;
 
-    v8::Persistent<v8::Function> errorHandler;
-    v8::Persistent<v8::Function> getHandler;
-    v8::Persistent<v8::Function> storeHandler;
+
+    typedef std::map<std::string, v8::Persistent<v8::Function> > EventMap;
+
+    EventMap events;
 };
 
 #endif
