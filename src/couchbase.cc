@@ -626,8 +626,11 @@ void Couchbase::getCallback(const void *commandCookie,
 }
 
 void Couchbase::storageCallback(const void *commandCookie,
-        libcouchbase_storage_t operation, libcouchbase_error_t error,
-        const void *key, libcouchbase_size_t nkey, libcouchbase_cas_t cas)
+                                libcouchbase_storage_t /*operation*/,
+                                libcouchbase_error_t error,
+                                const void *key,
+                                libcouchbase_size_t nkey,
+                                libcouchbase_cas_t cas)
 {
     lastError = error;
     CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie*>(const_cast<void*>(commandCookie));
@@ -656,12 +659,14 @@ void Couchbase::storageCallback(const void *commandCookie,
 
 void Couchbase::onConnect(libcouchbase_configuration_t config)
 {
-    EventMap::iterator iter = events.find("connect");
-    if (iter != events.end() && !iter->second.IsEmpty()) {
-        // @todo pass on the config parameter ;)
-        using namespace v8;
-        Local<Value> argv[0];
-        iter->second->Call(v8::Context::GetEntered()->Global(), 0, argv);
+    if (config == LIBCOUCHBASE_CONFIGURATION_NEW) {
+        EventMap::iterator iter = events.find("connect");
+        if (iter != events.end() && !iter->second.IsEmpty()) {
+            // @todo pass on the config parameter ;)
+            using namespace v8;
+            Local<Value> argv[1];
+            iter->second->Call(v8::Context::GetEntered()->Global(), 0, argv);
+        }
     }
 }
 
@@ -670,7 +675,7 @@ bool Couchbase::onTimeout()
     EventMap::iterator iter = events.find("timeout");
     if (iter != events.end() && !iter->second.IsEmpty()) {
         using namespace v8;
-        Local<Value> argv[0];
+        Local<Value> argv[1];
         iter->second->Call(v8::Context::GetEntered()->Global(), 0, argv);
         return true;
     }
