@@ -12,3 +12,19 @@ install:
 
 dist:
 	@node-waf dist
+
+reformat:
+	@astyle --mode=c \
+               --quiet \
+               --style=1tbs \
+               --indent=spaces=4 \
+               --indent-namespaces \
+               --indent-col1-comments \
+               --max-instatement-indent=78 \
+               --pad-oper \
+               --pad-header \
+               --add-brackets \
+               --unpad-paren \
+               --align-pointer=name \
+               src/*.cc \
+               src/*.h

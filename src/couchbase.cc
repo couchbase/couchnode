@@ -29,38 +29,45 @@ extern "C" {
     static void configuration_callback(libcouchbase_t instance,
                                        libcouchbase_configuration_t config)
     {
-        void *cookie = const_cast<void*> (libcouchbase_get_cookie(instance));
-        Couchbase *me = reinterpret_cast<Couchbase*> (cookie);
+        void *cookie = const_cast<void *>(libcouchbase_get_cookie(instance));
+        Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
         me->onConnect(config);
     }
 
     static void error_callback(libcouchbase_t instance,
-            libcouchbase_error_t err, const char *errinfo)
+                               libcouchbase_error_t err, const char *errinfo)
     {
-        void *cookie = const_cast<void*> (libcouchbase_get_cookie(instance));
-        Couchbase *me = reinterpret_cast<Couchbase*> (cookie);
+        void *cookie = const_cast<void *>(libcouchbase_get_cookie(instance));
+        Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
         me->errorCallback(err, errinfo);
     }
 
     static void get_callback(libcouchbase_t instance,
-            const void *commandCookie, libcouchbase_error_t error,
-            const void *key, libcouchbase_size_t nkey, const void *bytes,
-            libcouchbase_size_t nbytes, libcouchbase_uint32_t flags,
-            libcouchbase_cas_t cas)
+                             const void *commandCookie,
+                             libcouchbase_error_t error,
+                             const void *key,
+                             libcouchbase_size_t nkey,
+                             const void *bytes,
+                             libcouchbase_size_t nbytes,
+                             libcouchbase_uint32_t flags,
+                             libcouchbase_cas_t cas)
     {
-        void *cookie = const_cast<void*> (libcouchbase_get_cookie(instance));
-        Couchbase *me = reinterpret_cast<Couchbase*> (cookie);
+        void *cookie = const_cast<void *>(libcouchbase_get_cookie(instance));
+        Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
         me->getCallback(commandCookie, error, key, nkey, bytes, nbytes, flags,
-                cas);
+                        cas);
     }
 
     static void storage_callback(libcouchbase_t instance,
-            const void *commandCookie, libcouchbase_storage_t operation,
-            libcouchbase_error_t error, const void *key,
-            libcouchbase_size_t nkey, libcouchbase_cas_t cas)
+                                 const void *commandCookie,
+                                 libcouchbase_storage_t operation,
+                                 libcouchbase_error_t error,
+                                 const void *key,
+                                 libcouchbase_size_t nkey,
+                                 libcouchbase_cas_t cas)
     {
-        void *cookie = const_cast<void*> (libcouchbase_get_cookie(instance));
-        Couchbase *me = reinterpret_cast<Couchbase*> (cookie);
+        void *cookie = const_cast<void *>(libcouchbase_get_cookie(instance));
+        Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
         me->storageCallback(commandCookie, operation, error, key, nkey, cas);
     }
 
@@ -77,7 +84,7 @@ extern "C" {
 Couchbase::Couchbase(libcouchbase_t inst) :
     ObjectWrap(), instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
 {
-    libcouchbase_set_cookie(instance, reinterpret_cast<void *> (this));
+    libcouchbase_set_cookie(instance, reinterpret_cast<void *>(this));
     libcouchbase_set_error_callback(instance, error_callback);
     libcouchbase_set_get_callback(instance, get_callback);
     libcouchbase_set_storage_callback(instance, storage_callback);
@@ -128,7 +135,7 @@ void Couchbase::Init(v8::Handle<v8::Object> target)
     target->Set(v8::String::NewSymbol("Couchbase"), s_ct->GetFunction());
 }
 
-v8::Handle<v8::Value> Couchbase::On(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::On(const v8::Arguments &args)
 {
     if (args.Length() != 2 || !args[0]->IsString() || !args[1]->IsFunction()) {
         const char *msg = "Usage: cb.on('event', 'callback')";
@@ -137,12 +144,12 @@ v8::Handle<v8::Value> Couchbase::On(const v8::Arguments& args)
 
     // @todo verify that the user specifies a valid monitor ;)
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     v8::Handle<v8::Value> ret = me->on(args);
     return scope.Close(ret);
 }
 
-v8::Handle<v8::Value> Couchbase::on(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::on(const v8::Arguments &args)
 {
     v8::HandleScope scope;
     v8::Local<v8::String> s = args[0]->ToString();
@@ -163,7 +170,7 @@ v8::Handle<v8::Value> Couchbase::on(const v8::Arguments& args)
     return scope.Close(v8::True());
 }
 
-v8::Handle<v8::Value> Couchbase::New(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::New(const v8::Arguments &args)
 {
     v8::HandleScope scope;
 
@@ -189,12 +196,12 @@ v8::Handle<v8::Value> Couchbase::New(const v8::Arguments& args)
             // @todo handle NULL
             const char *msg = "Illegal argument";
             return v8::ThrowException(
-                    v8::Exception::Error(v8::String::New(msg)));
+                       v8::Exception::Error(v8::String::New(msg)));
         }
     }
 
     libcouchbase_t instance = libcouchbase_create(argv[0], argv[1], argv[2],
-            argv[3], NULL);
+                                                  argv[3], NULL);
     for (int ii = 0; ii < 4; ++ii) {
         delete[] argv[ii];
     }
@@ -204,24 +211,24 @@ v8::Handle<v8::Value> Couchbase::New(const v8::Arguments& args)
         return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
     }
 
-    Couchbase* hw = new Couchbase(instance);
+    Couchbase *hw = new Couchbase(instance);
     hw->Wrap(args.This());
     return args.This();
 }
 
-v8::Handle<v8::Value> Couchbase::GetVersion(const v8::Arguments&)
+v8::Handle<v8::Value> Couchbase::GetVersion(const v8::Arguments &)
 {
     v8::HandleScope scope;
 
     stringstream ss;
     ss << "libcouchbase node.js v1.0.0 (v" << libcouchbase_get_version(NULL)
-            << ")";
+       << ")";
 
     v8::Local<v8::String> result = v8::String::New(ss.str().c_str());
     return scope.Close(result);
 }
 
-v8::Handle<v8::Value> Couchbase::SetTimeout(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::SetTimeout(const v8::Arguments &args)
 {
     if (args.Length() != 1 || !args[0]->IsInt32()) {
         const char *msg = "Illegal arguments";
@@ -229,14 +236,14 @@ v8::Handle<v8::Value> Couchbase::SetTimeout(const v8::Arguments& args)
     }
 
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     uint32_t timeout = args[0]->Int32Value();
     libcouchbase_set_timeout(me->instance, timeout);
 
     return v8::True();
 }
 
-v8::Handle<v8::Value> Couchbase::GetTimeout(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::GetTimeout(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
         const char *msg = "Illegal arguments";
@@ -244,11 +251,11 @@ v8::Handle<v8::Value> Couchbase::GetTimeout(const v8::Arguments& args)
     }
 
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     return scope.Close(v8::Integer::New(libcouchbase_get_timeout(me->instance)));
 }
 
-v8::Handle<v8::Value> Couchbase::GetRestUri(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::GetRestUri(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
         const char *msg = "Illegal arguments";
@@ -256,15 +263,15 @@ v8::Handle<v8::Value> Couchbase::GetRestUri(const v8::Arguments& args)
     }
 
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     stringstream ss;
     ss << libcouchbase_get_host(me->instance) << ":" << libcouchbase_get_port(
-            me->instance);
+           me->instance);
 
     return scope.Close(v8::String::New(ss.str().c_str()));
 }
 
-v8::Handle<v8::Value> Couchbase::SetSynchronous(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::SetSynchronous(const v8::Arguments &args)
 {
     if (args.Length() != 1) {
         const char *msg = "Illegal arguments";
@@ -273,7 +280,7 @@ v8::Handle<v8::Value> Couchbase::SetSynchronous(const v8::Arguments& args)
 
     v8::HandleScope scope;
 
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
     libcouchbase_syncmode_t mode;
     if (args[0]->BooleanValue()) {
@@ -286,7 +293,7 @@ v8::Handle<v8::Value> Couchbase::SetSynchronous(const v8::Arguments& args)
     return v8::True();
 }
 
-v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
         const char *msg = "Illegal arguments";
@@ -294,7 +301,7 @@ v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments& args)
     }
 
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     if (libcouchbase_behavior_get_syncmode(me->instance)
             == LIBCOUCHBASE_SYNCHRONOUS) {
         return v8::True();
@@ -303,10 +310,10 @@ v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments& args)
     return v8::False();
 }
 
-v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments &args)
 {
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
     if (args.Length() != 0) {
         const char *msg = "Illegal arguments";
@@ -321,7 +328,7 @@ v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments& args)
     }
 }
 
-v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
         const char *msg = "Illegal arguments";
@@ -329,17 +336,18 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments& args)
     }
 
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     const char *msg = libcouchbase_strerror(me->instance, me->lastError);
     return scope.Close(v8::String::New(msg));
 }
 
-class CommandCallbackCookie {
+class CommandCallbackCookie
+{
 public:
     CommandCallbackCookie(const v8::Local<v8::Value>& func, int r = 1) : refcount(r) {
         assert(func->IsFunction());
         handler = v8::Persistent<v8::Function>::New(
-                        v8::Local<v8::Function>::Cast(func));
+                      v8::Local<v8::Function>::Cast(func));
     }
 
     ~CommandCallbackCookie() {
@@ -356,7 +364,7 @@ public:
     v8::Persistent<v8::Function> handler;
 };
 
-v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments &args)
 {
     if (args.Length() == 0) {
         const char *msg = "Illegal arguments";
@@ -364,9 +372,9 @@ v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
     }
 
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
-    void* commandCookie = NULL;
+    void *commandCookie = NULL;
     int offset = 0;
     if (args[0]->IsFunction()) {
         if (args.Length() == 1) {
@@ -374,7 +382,7 @@ v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
             return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
         }
 
-        commandCookie = static_cast<void*>(new CommandCallbackCookie(args[0], args.Length() - 1));
+        commandCookie = static_cast<void *>(new CommandCallbackCookie(args[0], args.Length() - 1));
         offset = 1;
     }
 
@@ -393,12 +401,12 @@ v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
             // Clean up allocated memory!
             const char *msg = "Illegal argument";
             return v8::ThrowException(
-                    v8::Exception::Error(v8::String::New(msg)));
+                       v8::Exception::Error(v8::String::New(msg)));
         }
     }
 
     me->lastError = libcouchbase_mget(me->instance, commandCookie, tot,
-            reinterpret_cast<const void * const *> (keys), lengths, NULL);
+                                      reinterpret_cast<const void * const *>(keys), lengths, NULL);
 
     if (me->lastError == LIBCOUCHBASE_SUCCESS) {
         return v8::True();
@@ -407,42 +415,42 @@ v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
     }
 }
 
-v8::Handle<v8::Value> Couchbase::Set(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Set(const v8::Arguments &args)
 {
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     return me->store(args, LIBCOUCHBASE_SET);
 }
 
-v8::Handle<v8::Value> Couchbase::Add(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Add(const v8::Arguments &args)
 {
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     return me->store(args, LIBCOUCHBASE_ADD);
 }
 
-v8::Handle<v8::Value> Couchbase::Replace(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Replace(const v8::Arguments &args)
 {
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     return me->store(args, LIBCOUCHBASE_REPLACE);
 }
 
-v8::Handle<v8::Value> Couchbase::Append(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Append(const v8::Arguments &args)
 {
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     return me->store(args, LIBCOUCHBASE_APPEND);
 }
 
-v8::Handle<v8::Value> Couchbase::Prepend(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Prepend(const v8::Arguments &args)
 {
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     return me->store(args, LIBCOUCHBASE_PREPEND);
 }
 
-v8::Handle<v8::Value> Couchbase::Wait(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Wait(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
         const char *msg = "Illegal arguments";
@@ -450,27 +458,24 @@ v8::Handle<v8::Value> Couchbase::Wait(const v8::Arguments& args)
     }
 
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     libcouchbase_wait(me->instance);
     return v8::True();
 }
 
 struct CouchbaseObject {
     CouchbaseObject() :
-        commandCookie(NULL), key(NULL), nkey(0), data(NULL), ndata(0), flags(0), exptime(0), cas(0)
-    {
+        commandCookie(NULL), key(NULL), nkey(0), data(NULL), ndata(0), flags(0), exptime(0), cas(0) {
         // empty
     }
 
-    ~CouchbaseObject()
-    {
+    ~CouchbaseObject() {
         delete[] key;
         delete[] data;
     }
 
     // @todo improve this parser
-    bool parse(const v8::Arguments &args)
-    {
+    bool parse(const v8::Arguments &args) {
         if (args.Length() == 0) {
             return false;
         }
@@ -479,7 +484,7 @@ struct CouchbaseObject {
         // First we might have a callback function...
         if (args[0]->IsFunction()) {
             ++idx;
-            commandCookie = static_cast<void*>(new CommandCallbackCookie(args[0]));
+            commandCookie = static_cast<void *>(new CommandCallbackCookie(args[0]));
         }
 
         // but the next _must_ be the key
@@ -544,19 +549,19 @@ struct CouchbaseObject {
     uint64_t cas;
 };
 
-v8::Handle<v8::Value> Couchbase::store(const v8::Arguments& args,
-        libcouchbase_storage_t operation)
+v8::Handle<v8::Value> Couchbase::store(const v8::Arguments &args,
+                                       libcouchbase_storage_t operation)
 {
 
     CouchbaseObject obj;
     if (!obj.parse(args)) {
-        delete static_cast<CommandCallbackCookie*>(obj.commandCookie);
+        delete static_cast<CommandCallbackCookie *>(obj.commandCookie);
         const char *msg = "Illegal arguments";
         return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
     }
 
     lastError = libcouchbase_store(instance, obj.commandCookie, operation, obj.key,
-            obj.nkey, obj.data, obj.ndata, obj.flags, obj.exptime, obj.cas);
+                                   obj.nkey, obj.data, obj.ndata, obj.flags, obj.exptime, obj.cas);
 
     if (lastError == LIBCOUCHBASE_SUCCESS) {
         return v8::True();;
@@ -581,13 +586,17 @@ void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
 }
 
 void Couchbase::getCallback(const void *commandCookie,
-        libcouchbase_error_t error, const void *key, libcouchbase_size_t nkey,
-        const void *bytes, libcouchbase_size_t nbytes,
-        libcouchbase_uint32_t flags, libcouchbase_cas_t cas)
+                            libcouchbase_error_t error,
+                            const void *key,
+                            libcouchbase_size_t nkey,
+                            const void *bytes,
+                            libcouchbase_size_t nbytes,
+                            libcouchbase_uint32_t flags,
+                            libcouchbase_cas_t cas)
 {
     lastError = error;
 
-    CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie*>(const_cast<void*>(commandCookie));
+    CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie *>(const_cast<void *>(commandCookie));
 
     EventMap::iterator iter = events.find("get");
     if (data || (iter != events.end() && !iter->second.IsEmpty())) {
@@ -596,9 +605,9 @@ void Couchbase::getCallback(const void *commandCookie,
             using namespace v8;
             Local<Value> argv[5];
             argv[0] = Local<Value>::New(True());
-            argv[1] = Local<Value>::New(String::New((const char*) key, nkey));
+            argv[1] = Local<Value>::New(String::New((const char *) key, nkey));
             argv[2] = Local<Value>::New(
-                    String::New((const char*) bytes, nbytes));
+                          String::New((const char *) bytes, nbytes));
             argv[3] = Local<Value>::New(Integer::NewFromUnsigned(flags));
             argv[4] = Local<Value>::New(Number::New(cas));
 
@@ -612,9 +621,9 @@ void Couchbase::getCallback(const void *commandCookie,
             using namespace v8;
             Local<Value> argv[3];
             argv[0] = Local<Value>::New(False());
-            argv[1] = Local<Value>::New(String::New((const char*) key, nkey));
+            argv[1] = Local<Value>::New(String::New((const char *) key, nkey));
             argv[2] = Local<Value>::New(
-                    String::New(libcouchbase_strerror(instance, error)));
+                          String::New(libcouchbase_strerror(instance, error)));
             if (data) {
                 data->handler->Call(Context::GetEntered()->Global(), 3, argv);
                 data->release();
@@ -633,20 +642,20 @@ void Couchbase::storageCallback(const void *commandCookie,
                                 libcouchbase_cas_t cas)
 {
     lastError = error;
-    CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie*>(const_cast<void*>(commandCookie));
+    CommandCallbackCookie *data = reinterpret_cast<CommandCallbackCookie *>(const_cast<void *>(commandCookie));
     EventMap::iterator iter = events.find("store");
     if (data || (iter != events.end() && !iter->second.IsEmpty())) {
         // Ignore everything if the user hasn't set up a get handler
         using namespace v8;
         Local<Value> argv[3];
-        argv[1] = Local<Value>::New(String::New((const char*) key, nkey));
+        argv[1] = Local<Value>::New(String::New((const char *) key, nkey));
         if (error == LIBCOUCHBASE_SUCCESS) {
             argv[0] = Local<Value>::New(True());
             argv[2] = Local<Value>::New(Number::New(cas));
         } else {
             argv[0] = Local<Value>::New(False());
             argv[2] = Local<Value>::New(
-                    String::New(libcouchbase_strerror(instance, error)));
+                          String::New(libcouchbase_strerror(instance, error)));
         }
         if (data) {
             data->handler->Call(Context::GetEntered()->Global(), 3, argv);
