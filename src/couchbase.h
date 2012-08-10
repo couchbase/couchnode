@@ -26,68 +26,73 @@
 
 #include <libcouchbase/couchbase.h>
 
-class Couchbase: public node::ObjectWrap
+namespace Couchnode
 {
-public:
-    Couchbase(libcouchbase_t inst);
 
-    virtual ~Couchbase();
+    class Couchbase: public node::ObjectWrap
+    {
+    public:
+        Couchbase(libcouchbase_t inst);
 
-    // Methods called directly from JavaScript
+        virtual ~Couchbase();
 
-    static void Init(v8::Handle<v8::Object> target);
-    static v8::Handle<v8::Value> New(const v8::Arguments &args);
-    static v8::Handle<v8::Value> GetVersion(const v8::Arguments &);
-    static v8::Handle<v8::Value> SetTimeout(const v8::Arguments &);
-    static v8::Handle<v8::Value> GetTimeout(const v8::Arguments &);
-    static v8::Handle<v8::Value> GetRestUri(const v8::Arguments &);
-    static v8::Handle<v8::Value> SetSynchronous(const v8::Arguments &);
-    static v8::Handle<v8::Value> IsSynchronous(const v8::Arguments &);
-    static v8::Handle<v8::Value> Connect(const v8::Arguments &);
-    static v8::Handle<v8::Value> SetHandler(const v8::Arguments &);
-    static v8::Handle<v8::Value> GetLastError(const v8::Arguments &);
-    static v8::Handle<v8::Value> Get(const v8::Arguments &);
-    static v8::Handle<v8::Value> Set(const v8::Arguments &);
-    static v8::Handle<v8::Value> Add(const v8::Arguments &);
-    static v8::Handle<v8::Value> Replace(const v8::Arguments &);
-    static v8::Handle<v8::Value> Append(const v8::Arguments &);
-    static v8::Handle<v8::Value> Prepend(const v8::Arguments &);
-    static v8::Handle<v8::Value> Wait(const v8::Arguments &);
+        // Methods called directly from JavaScript
 
-
-    // Setting up the event emitter
-    static v8::Handle<v8::Value> On(const v8::Arguments &);
-    v8::Handle<v8::Value> on(const v8::Arguments &);
+        static void Init(v8::Handle<v8::Object> target);
+        static v8::Handle<v8::Value> New(const v8::Arguments &args);
+        static v8::Handle<v8::Value> GetVersion(const v8::Arguments &);
+        static v8::Handle<v8::Value> SetTimeout(const v8::Arguments &);
+        static v8::Handle<v8::Value> GetTimeout(const v8::Arguments &);
+        static v8::Handle<v8::Value> GetRestUri(const v8::Arguments &);
+        static v8::Handle<v8::Value> SetSynchronous(const v8::Arguments &);
+        static v8::Handle<v8::Value> IsSynchronous(const v8::Arguments &);
+        static v8::Handle<v8::Value> Connect(const v8::Arguments &);
+        static v8::Handle<v8::Value> SetHandler(const v8::Arguments &);
+        static v8::Handle<v8::Value> GetLastError(const v8::Arguments &);
+        static v8::Handle<v8::Value> Get(const v8::Arguments &);
+        static v8::Handle<v8::Value> Set(const v8::Arguments &);
+        static v8::Handle<v8::Value> Add(const v8::Arguments &);
+        static v8::Handle<v8::Value> Replace(const v8::Arguments &);
+        static v8::Handle<v8::Value> Append(const v8::Arguments &);
+        static v8::Handle<v8::Value> Prepend(const v8::Arguments &);
+        static v8::Handle<v8::Value> Wait(const v8::Arguments &);
 
 
+        // Setting up the event emitter
+        static v8::Handle<v8::Value> On(const v8::Arguments &);
+        v8::Handle<v8::Value> on(const v8::Arguments &);
 
-    // Method called from libcouchbase
-    void onConnect(libcouchbase_configuration_t config);
-    bool onTimeout();
 
 
-    void errorCallback(libcouchbase_error_t err, const char *errinfo);
-    void getCallback(const void *commandCookie, libcouchbase_error_t error,
-                     const void *key, libcouchbase_size_t nkey,
-                     const void *bytes, libcouchbase_size_t nbytes,
-                     libcouchbase_uint32_t flags, libcouchbase_cas_t cas);
-    void storageCallback(const void *commandCookie,
-                         libcouchbase_storage_t operation,
-                         libcouchbase_error_t error,
+        // Method called from libcouchbase
+        void onConnect(libcouchbase_configuration_t config);
+        bool onTimeout();
+
+
+        void errorCallback(libcouchbase_error_t err, const char *errinfo);
+        void getCallback(const void *commandCookie, libcouchbase_error_t error,
                          const void *key, libcouchbase_size_t nkey,
-                         libcouchbase_cas_t cas);
+                         const void *bytes, libcouchbase_size_t nbytes,
+                         libcouchbase_uint32_t flags, libcouchbase_cas_t cas);
+        void storageCallback(const void *commandCookie,
+                             libcouchbase_storage_t operation,
+                             libcouchbase_error_t error,
+                             const void *key, libcouchbase_size_t nkey,
+                             libcouchbase_cas_t cas);
 
-    v8::Handle<v8::Value> store(const v8::Arguments &,
-                                libcouchbase_storage_t operation);
+        v8::Handle<v8::Value> store(const v8::Arguments &,
+                                    libcouchbase_storage_t operation);
 
-protected:
-    libcouchbase_t instance;
-    libcouchbase_error_t lastError;
+    protected:
+        libcouchbase_t instance;
+        libcouchbase_error_t lastError;
 
 
-    typedef std::map<std::string, v8::Persistent<v8::Function> > EventMap;
+        typedef std::map<std::string, v8::Persistent<v8::Function> > EventMap;
 
-    EventMap events;
-};
+        EventMap events;
+    };
+
+} // namespace Couchnode
 
 #endif

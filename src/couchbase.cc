@@ -21,7 +21,7 @@
 #include "couchbase.h"
 
 using namespace std;
-
+using namespace Couchnode;
 
 // libcouchbase handlers keep a C linkage...
 extern "C" {
