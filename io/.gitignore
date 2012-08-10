@@ -1,0 +1,6 @@
+*.o
+*.so
+test-main
+*.swp
+uv/*
+.depend
