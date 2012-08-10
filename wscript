@@ -3,7 +3,6 @@
 import os
 import os.path
 
-
 def set_options(opt):
   opt.tool_options("compiler_cc")
   opt.tool_options("compiler_cxx")
@@ -26,6 +25,8 @@ lcb_luv_mods = [
     os.path.join("util", "hexdump")
 ]
 
+
+
 def configure(conf):
   conf.check_tool("compiler_cxx")
   conf.check_tool("compiler_cc")
@@ -33,7 +34,7 @@ def configure(conf):
 
 def build(bld):
   obj = bld.new_task_gen("cc", "cxx", "node_addon", "cshlib")
-  obj.cxxflags = ["-g", "-Wall", "-pedantic", "-Wextra" ]
+  obj.cxxflags = ["-g", "-Wall", "-pedantic", "-Wextra", "-I.."]
   obj.cppflags = obj.cxxflags
   obj.ldflags = ["-lcouchbase" ]
   obj.target = "couchbase"
