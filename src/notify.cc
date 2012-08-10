@@ -32,70 +32,107 @@ CouchbaseCookie::~CouchbaseCookie()
     }
 }
 
-// Callbacks:
-// (data, error, key, cas, [ value ])
-void CouchbaseCookie::gotResult(const void *key,
-                                size_t nkey,
-                                libcouchbase_error_t err,
-                                int nextra,
-                                uint64_t cas,
-                                int vtype,
-                                const void *value, size_t nvalue)
+// (data, error, key, cas, flags, value)
+void CouchbaseCookie::result(libcouchbase_error_t error,
+                             const void *key, libcouchbase_size_t nkey,
+                             const void *bytes,
+                             libcouchbase_size_t nbytes,
+                             libcouchbase_uint32_t flags,
+                             libcouchbase_cas_t cas)
 {
     using namespace v8;
     HandleScope scope;
     Persistent<Context> context = Context::New();
+    Local<Value> argv[6];
 
-    int argc = nextra + 3;
-    assert(argc <= 5);
+    argv[0] = Local<Value>::New(ucookie);
+    argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
+
+    if (error != LIBCOUCHBASE_SUCCESS) {
+        argv[1] = Local<Value>::New(Number::New(error));
+        argv[3] = Local<Value>::New(Undefined());
+        argv[4] = Local<Value>::New(Undefined());
+        argv[5] = Local<Value>::New(Undefined());
+    } else {
+        argv[1] = Local<Value>::New(False());
+        argv[3] = Local<Value>::New(Number::New(cas));
+        argv[4] = Local<Value>::New(Number::New(flags));
+        argv[5] = Local<Value>::New(String::New((const char *)bytes, nbytes));
+    }
+
+    invoke(context, 6, argv);
+}
+
+// (data, error, key, cas)
+void CouchbaseCookie::result(libcouchbase_error_t error,
+                             const void *key, libcouchbase_size_t nkey,
+                             libcouchbase_cas_t cas)
+{
+    using namespace v8;
+    HandleScope scope;
+    Persistent<Context> context = Context::New();
+    Local<Value> argv[4];
+
+    argv[0] = Local<Value>::New(ucookie);
+    argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
+
+    if (error != LIBCOUCHBASE_SUCCESS) {
+        argv[1] = Local<Value>::New(Number::New(error));
+        argv[3] = Local<Value>::New(Undefined());
+    } else {
+        argv[1] = Local<Value>::New(False());
+        argv[3] = Local<Value>::New(Number::New(cas));
+    }
+
+    invoke(context, 4, argv);
+}
+
+// (data, error, key, cas, value)
+void CouchbaseCookie::result(libcouchbase_error_t error,
+                             const void *key, libcouchbase_size_t nkey,
+                             libcouchbase_uint64_t value,
+                             libcouchbase_cas_t cas)
+{
+    using namespace v8;
+    HandleScope scope;
+    Persistent<Context> context = Context::New();
     Local<Value> argv[5];
 
     argv[0] = Local<Value>::New(ucookie);
+    argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
 
-    if (err != LIBCOUCHBASE_SUCCESS) {
-        argv[1] = Local<Value>::New(Number::New(err));
+    if (error != LIBCOUCHBASE_SUCCESS) {
+        argv[1] = Local<Value>::New(Number::New(error));
+        argv[3] = Local<Value>::New(Undefined());
+        argv[4] = Local<Value>::New(Undefined());
+    } else {
+        argv[1] = Local<Value>::New(False());
+        argv[3] = Local<Value>::New(Number::New(cas));
+        argv[4] = Local<Value>::New(Number::New(value));
+    }
+
+    invoke(context, 5, argv);
+}
+
+// (data, error, key)
+void CouchbaseCookie::result(libcouchbase_error_t error,
+                             const void *key, libcouchbase_size_t nkey)
+{
+    using namespace v8;
+    HandleScope scope;
+    Persistent<Context> context = Context::New();
+    Local<Value> argv[3];
+
+    argv[0] = Local<Value>::New(ucookie);
+    argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
+
+    if (error != LIBCOUCHBASE_SUCCESS) {
+        argv[1] = Local<Value>::New(Number::New(error));
     } else {
         argv[1] = Local<Value>::New(False());
     }
 
-    argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
-
-    if (!nextra) {
-        goto GT_INVOKE;
-    }
-
-    if (err != LIBCOUCHBASE_SUCCESS) {
-        argv[3] = Local<Value>::New(False());
-    } else {
-        argv[3] = Local<Value>::New(Number::New(cas));
-    }
-
-    if (nextra < 2) {
-        goto GT_INVOKE;
-    }
-
-    if (err == LIBCOUCHBASE_SUCCESS) {
-        if (vtype == VTYPE_STRING) {
-            argv[4] = Local<Value>::New(String::New((const char *)value,
-                                                    nvalue));
-        } else {
-            argv[4] = Local<Value>::New(Number::New(*(uint64_t *)value));
-        }
-    } else {
-        argv[4] = Local<Value>::New(Undefined());
-    }
-
-
-GT_INVOKE:
-    assert(!ucallback.IsEmpty());
-    assert(ucallback->IsFunction());
-    // Now, invoke the callback with the appropriate arguments
-    ucallback->Call(v8::Context::GetEntered()->Global(), argc , argv);
-
-    if (!(--remaining)) {
-        delete this;
-    }
-    context.Dispose();
+    invoke(context, 3, argv);
 }
 
 static inline CouchbaseCookie *getInstance(const void *c)
@@ -122,9 +159,8 @@ extern "C" {
                              libcouchbase_uint32_t flags,
                              libcouchbase_cas_t cas)
     {
-        getInstance(commandCookie)->gotResult(key, nkey, error, 2, cas,
-                                              CouchbaseCookie::VTYPE_STRING,
-                                              bytes, nbytes);
+        getInstance(commandCookie)->result(error, key, nkey, bytes, nbytes,
+                                           flags, cas);
     }
 
     static void storage_callback(libcouchbase_t,
@@ -134,7 +170,7 @@ extern "C" {
                                  libcouchbase_size_t nkey,
                                  libcouchbase_cas_t cas)
     {
-        getInstance(commandCookie)->gotResult(key, nkey, error, 1, cas);
+        getInstance(commandCookie)->result(error, key, nkey, cas);
     }
 
     static void arithmetic_callback(libcouchbase_t,
@@ -144,9 +180,7 @@ extern "C" {
                                     libcouchbase_uint64_t value,
                                     libcouchbase_cas_t cas)
     {
-        getInstance(commandCookie)->gotResult(key, nkey, error, 2, cas,
-                                              CouchbaseCookie::VTYPE_INT64,
-                                              &value, 0);
+        getInstance(commandCookie)->result(error, key, nkey, value, cas);
     }
 
     // We use this callback for both remove and touch, as they take the same
@@ -156,7 +190,7 @@ extern "C" {
                                libcouchbase_error_t error, const void *key,
                                libcouchbase_size_t nkey)
     {
-        getInstance(commandCookie)->gotResult(key, nkey, error);
+        getInstance(commandCookie)->result(error, key, nkey);
     }
 
     static void configuration_callback(libcouchbase_t instance,

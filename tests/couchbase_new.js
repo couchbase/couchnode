@@ -60,10 +60,10 @@ function storageHandler(data, error, key, cas) {
     seriesPosthook(data[0])
 }
 
-function getHandler(data, error, key, cas, value) {
-    str = "[ID={0}] Get '{1}' => '{2}' (err={3}, cas={4})".format(
+function getHandler(data, error, key, cas, flags, value) {
+    str = "[ID={0}] Get '{1}' => '{2}' (err={3}, cas={4} flags={5})".format(
         data[0].id + ":" + data[1],
-        key, value, error, cas
+        key, value, error, cas, flags
     );
     console.log(str);
     seriesPosthook(data[0]);

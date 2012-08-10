@@ -86,25 +86,39 @@ namespace Couchnode
         CouchbaseCookie(v8::Handle<v8::Value> cbo,
                         v8::Handle<v8::Function> callback,
                         v8::Handle<v8::Value> data);
-        enum {
-            VTYPE_NONE = 0,
-            VTYPE_STRING,
-            VTYPE_INT64
-        };
-
         virtual ~CouchbaseCookie();
 
-        void gotResult(const void *key,
-                       size_t nkey,
-                       libcouchbase_error_t err,
-                       int nextra = 0,
+        void result(libcouchbase_error_t error,
+                    const void *key, libcouchbase_size_t nkey,
+                    const void *bytes,
+                    libcouchbase_size_t nbytes,
+                    libcouchbase_uint32_t flags,
+                    libcouchbase_cas_t cas);
 
-                       uint64_t cas = 0,
-                       int vtype = VTYPE_NONE,
-                       const void *value = NULL,
-                       size_t nvalue = 0);
+        void result(libcouchbase_error_t error,
+                    const void *key, libcouchbase_size_t nkey,
+                    libcouchbase_cas_t cas);
 
-        unsigned remaining;
+        void result(libcouchbase_error_t error,
+                    const void *key, libcouchbase_size_t nkey,
+                    libcouchbase_uint64_t value,
+                    libcouchbase_cas_t cas);
+
+        void result(libcouchbase_error_t error,
+                    const void *key, libcouchbase_size_t nkey);
+
+        unsigned int remaining;
+
+    protected:
+        void invoke(v8::Persistent<v8::Context> &context, int argc,
+                    v8::Local<v8::Value> *argv) {
+            // Now, invoke the callback with the appropriate arguments
+            ucallback->Call(v8::Context::GetEntered()->Global(), argc , argv);
+            context.Dispose();
+            if (--remaining == 0) {
+                delete this;
+            }
+        }
 
     private:
         v8::Persistent<v8::Value> parent;
