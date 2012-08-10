@@ -354,6 +354,10 @@ lcb_luv_errno_map(int uverr)
 #define ECHARSET 0
 #endif
 
+#ifndef ENONET
+#define ENONET ENETDOWN
+#endif
+
 #define OK 0
 
     int ret = 0;
