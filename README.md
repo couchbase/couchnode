@@ -6,15 +6,7 @@ buiding JavaScript API on top of libcouchbase so that you may use it
 from node.js.
 
 Before you start looking at the stuff you should probably be aware of
-that this is currently work under heavy development. Although
-libcouchbase is designed to be plugged into an event loop I've heard
-that it wouldn't work out of the box ;-) Instead of starting way down
-in libcouchbase trying to refactor everything so that it would work
-for node.js, I decided to start in the other end by creating an API
-that would allow you use libcouchbase from JavaScript, but you would
-have to _block_ while waiting for the operations to be executed on the
-server. When I got that working I'm going to refactor the internals
-of libcouchbase so that it integrates better with node.js.
+that this is currently work under heavy development.
 
 Given the above; and the fact that I've never written a single line of
 JavaScript before I started on this project, the API may look really
@@ -29,10 +21,15 @@ Install description
 
 I've only tested this on my laptop running macosx, but I would expect
 it to be easy to get it to work on other platforms. You need to
-install two dependencies before you may build this module. If you're
+install three dependencies before you may build this module. If you're
 using homebrew all you need to do is:
 
    trond@ok> *brew install v8 node*
+   trond@ok> *brew install https://raw.github.com/couchbase/homebrew/preview/Library/Formula/libcouchbase.rb*
+
+You would need some of the new features in libcouchbase that will
+be released when Couchbase Server 2.0 is released, so that's why
+we're using the preview version from libcouchbase.
 
 To build and install the module, simply execute:
 
@@ -62,188 +59,156 @@ bucket to connect to. The full prototype for the constructor is:
               String password,
               String bucket)
 
-Given that the current version of the API pretty much maps down to
-libcouchbase, the next thing we need to do is to specify the callbacks
-libcouchbase will call when an operation completes. This is done with
-the following methods:
 
-    cb.on('error', errorHandler);
-    cb.on('get', getHandler);
-    cb.on('store', storageHandler);
+After creating a new instance, you should ask `cb` to connect
+to the cluster:
 
-All of these handlers should be changed. They are not thought true,
-and is a result that I just wanted to get something up'n running so
-that I could test it ;) The error handler looks
-like:
+    cb.connect(function() {
+        console.log("I am connected!");
+    });
 
-    function errorHandler(String errorMessage);
+If connection fails, the `errorHandler` will know about this.
 
-As you see you don't have much context here. It should be extended to
-contain a reference to the object who failed. Why it isn't an
-exception? Well this error handler is called when we're running the
-event loop...
+You may also register for the "connect" event by doing:
 
-The get handler is triggered for a get request and returns the data
-for the item. Its signature looks like:
+    cb.on("connect", function() {
+        console.log("I am connected!");
+    });
 
-    function getHandler(Boolean state,
-                        String key,
-                        String value,
-                        Number flags,
-                        Number cas);
+Due to a limitation within Couchnode, you *must* wait for the
+connection to complete (though this itself is a purely asynchronous
+process) and not schedule any operations before the handle has been
+connected.
 
-If state is true it means that the object was found and key, value,
-flags and cas should contain the information about the object. If
-state is false it means that an error occured, and key contains an
-error message.
+This is because the internal key hashing depends on VBucket
+configurations which can only be known once `connect` has completed
 
-The storage handler is called for all of the storage operations (add,
-set, replace, append, prepend) when the operation completes. Its
-prototype looks like:
+Operations
+----------
 
-    function storageHandler(Boolean state,
-                            String key,
-                            Number cas);
+The API in this version of Couchnode is meant to be easy for use C and C++
+developers to modify and adjust to, therefore some of the arguments are
+fairly weird.
 
-If state is true it means that the key specified by key was stored and
-given the id of cas. If state is false the object was not stored and
-the third argument is a String describing the error.
+Couchnode exposes the basic commandset offered by libcouchbase:
 
-Now that we've gotten the callbacks set up we can start using our
-library (you don't need to set up any callbacks, but then you wouldn't
-know when something goes wrong, or the result of your
-operations). Before we can do anything we need to connect to the
-cluster, and get the current vbucket configuration. This is done by
-the connect call:
 
-    Bool connect();
+Get
+---
 
-Connect does *not* wait until we're connected to the server, all it
-does is to _initiate_ the connect. If the function fails you may call
-getLastError in order to get an error message describing the error:
+    cb.get(
+        "key_string",
+        expiration_time_offset,
+        function (data, error, key, cas, value) {
+                console.log("Got %s=>%s for request '%s'", key, value, data);
+        },
+        "opaque");
 
-    String getLastError();
+Expiration time should be set to 0 or `undefined` if you do not wish
+to set an expiration time.
 
-As I said calling connect() doesn't wait for the operation to
-complete. In order to wait for the completion of the pending
-operation(s), we can call wait():
+The callback is mandatory (but it can be a global function and not
+necessarily an inline one). The 'data' argument is an opaque value of
+your choosing to be passed to the callback as its first argument. This
+is useful if you wish to use a global callback but still be able to
+distinguish between requests.
 
-    Boolean wait();
+On success, error will be false, otherwise, it is an error number as
+described in `<libcouchbase/types.h>`
 
-Alternatively you may pass a function to be called when the server is
-connected as the first parameter to connect().
+
+Store
+---
 
 So how do we store stuff in the couchbase cluster? We do that by using
 one of the storage methods: add, set, replace, append, prepend. Even
 though they return a boolean, the methods does not return the final
 action of the operation (you need to check the callback for that), but
-if the operation was _intitated_ or not. All parameters excepts the
-key are optional. You *may* also specify the callback function as
-the first parameter. If you choose to do so the global callback
-function will _not_ be called.
+if the operation was _intitated_ or not.
 
-    Boolean add(String key,
-                String value,
-                Number flags,
-                Number exptime);
+    cb.set(
+        "key_string",
+        "value_string",
+        expiration_time_offset,
+        cas_number,
 
-Add adds the key to the cache if it doesn't exist.
+        function (data, error, key, cas) {
+                // ....
+        },
+        "anything_you_want");
 
-    Boolean set(String key,
-                String value,
-                Number flags,
-                Number exptime);
 
-Unconditionally store the key in the cache.
+Stores the value for the key. If you specify a cas value the operation
+will only succeed if the cas value for the object stored on the server
+is the same as the one you specified.
 
-    Boolean replace(String key,
-                    String value,
-                    Number flags,
-                    Number exptime,
-                    Number cas);
+The following functions also conform to this calling convention
 
-Replace the object identified by key with this object. If you specify
-a cas value the operation will only succeed if the cas value for the
-object stored on the server is the same as the one you specified.
+    // replace value, if the key exists
+    cb.replace(...)
 
-    Boolean append(String key,
-                   String value,
-                   Number flags,
-                   Number exptime,
-                   Number cas);
+    // set the value only if it does not exist
+    cb.add(...)
 
-    Boolean prepend(String key,
-                    String value,
-                    Number flags,
-                    Number exptime,
-                    Number cas);
+    // prepend to existing value
+    cp.prepend(...)
 
-Append/prepend the value you specified with to the value stored in the
-cluster.
+    // append to existing value
+    cb.append(...)
 
-Now that we know how to store objects in the cluster we probably want
-to know how we can get them back. This is performed by the get method:
 
-    Boolean get(String key [, String keyn ]*);
+Arithmetic (AKA incr and decr)
+----------
 
-You may also specify the callback function as the first parameter to
-the get call.
 
-So to continue on our example we would now have:
+    cb.arithmetic(
+        "string_key",
+        signed_offset,
+        initial_value,
+        cas,
+        expiry_offset,
+        get_callback,
+        "opaque");
 
-    // A callback function that is called from libcouchbase
-    // when it encounters a problem without an operation context
-    function errorHandler(errorMessage) {
-        console.log("ERROR: [" + errorMessage + "]");
-        process.exit(1);
-    }
+Perform arithmetic on an operation, this is equivalent to the
+traditional 'incr' and 'decr' functions in memcached APIs (and may be
+wrapped as such)
 
-    // A callback function that is called for get requests
-    function getHandler(state, key, value, flags, cas) {
-        if (state) {
-            console.log("Found \"" + key + "\" - [" + value + "]");
-        } else {
-            console.log("Get failed for \"" + key + "\" [" + value + "]");
-        }
-    }
+The signed offset is a positive or negative value by which to modify
+the stored integer value; for incr, this value would be `1` and for
+decr this would be `-1`.
 
-    // A callback function that is called for storage requests
-    function storageHandler(state, key, cas) {
-        if (state) {
-            console.log("Stored \"" + key + "\" - [" + cas + "]");
-        } else {
-            console.log("Failed to store \"" + key + "\" [" + cas + "]");
-        }
-    }
+If the value does not exist, it will be set to `initial_value` (set
+this argument to `undefined` if you do not desire an initial value`
 
-    // Load the driver and create an instance that connects
-    // to our cluster running at "myserver:8091"
-    var driver = require('couchbase');
-    var cb = new driver.Couchbase("myserver");
+`cas` is a no-op for this function.
 
-    // Set up the handlers
-    cb.on('error', errorHandler);
-    cb.on('get', getHandler);
-    cb.on('store', storageHandler);
+The callback for this function is identical to that of the `get`
+callback.
 
-    // Try to connect to the server
-    if (!cb.connect()) {
-        console.log("Failed to connect! [" + cb.getLastError() + "]");
-        process.exit(1);
-    }
-    // Wait for the connect attempt to complete
-    cb.wait();
 
-    // Schedule a couple of operations
-    cb.add("key", "add")
-    cb.replace("key", "replaced")
-    cb.set("key", "set")
-    cb.append("key", "append")
-    cb.prepend("key", "prepend")
-    cb.get("key");
+Miscellaneous Operations
+------------------------
 
-    // Wait for all operations to complete
-    cb.wait();
+    cb.remove(
+        "string_key",
+        cas,
+        function (data, error, key) { ... },
+        "opaque"
+    );
+
+Removes the key; if `cas` is specified, only removes the entry if it
+exists on the server with the specified CAS value.
+
+    cb.touch(
+        "string_key",
+        expiration,
+        function (data, error, key) { ... },
+        "opaque"
+    );
+
+Updates the expiration time of the key.
+
 
 If you're having problems or suggestions on how I may improve the
 library please send me an email!
@@ -251,3 +216,5 @@ library please send me an email!
 Happy hacking!
 
 Trond Norbye <trond.norbye@gmail.com>
+
+Mangled by Mark Nunberg <mnunberg@haskalah.org>

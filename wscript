@@ -10,7 +10,9 @@ def set_options(opt):
 
 
 couchnode_mods = [
-    "couchbase"
+    "args",
+    "couchbase",
+    "notify"
 ]
 
 lcb_luv_mods = [
