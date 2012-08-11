@@ -32,7 +32,7 @@ connect_cb(uv_connect_t* req, int status)
     lcb_luv_socket_t sock = (lcb_luv_socket_t)req->handle;
     struct lcb_luv_evstate_st *evstate = sock->evstate + LCB_LUV_EV_CONNECT;
     evstate->flags |= LCB_LUV_EVf_PENDING;
-    log_socket_info("Connection callback: status=%d", status);
+    log_socket_debug("Connection callback: status=%d", status);
 
     if (status) {
         /* Error */
