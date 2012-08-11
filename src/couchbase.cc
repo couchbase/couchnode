@@ -140,7 +140,9 @@ v8::Handle<v8::Value> Couchbase::on(const v8::Arguments &args)
         iter->second.Clear();
     }
 
-    events[function] = v8::Persistent<v8::Function>::New(v8::Local<v8::Function>::Cast(args[0]));
+    events[function] =
+            v8::Persistent<v8::Function>::New(
+                    v8::Local<v8::Function>::Cast(args[1]));
 
     return scope.Close(v8::True());
 }
