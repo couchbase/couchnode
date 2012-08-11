@@ -12,6 +12,9 @@ CouchbaseCookie::CouchbaseCookie(Handle<Value> cbo,
       ucookie(Persistent<Value>::New(data)),
       ucallback(Persistent<Function>::New(callback))
 {
+    if (ucookie.IsEmpty()) {
+        ucookie = Persistent<Value>::New(v8::Undefined());
+    }
 }
 
 CouchbaseCookie::~CouchbaseCookie()
