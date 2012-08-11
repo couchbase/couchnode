@@ -7,7 +7,7 @@ using namespace Couchnode;
 using namespace std;
 
 #define BAD_ARGS(msg, rv)  { \
-        printf("Arg lengths: %d\n", args.Length()); \
+        printf("Arg lengths: %d, pmax=%d, reqmax=%d\n", args.Length(), params_max, required_max); \
         const char *errmsg = msg; \
         excerr = v8::ThrowException(v8::Exception::Error(v8::String::New(errmsg))); \
         return rv; \
@@ -36,49 +36,112 @@ static bool get_string(const v8::Handle<v8::Value> &jv,
     return true;
 }
 
-CommonArgs::CommonArgs(const v8::Arguments &argv,
-                       v8::Handle<v8::Value> &exc,
-                       int ixud,
-                       bool do_extract_key)
-    : args(argv), excerr(exc), key(NULL)
+#define GET_DPARAM(lval, bidx) \
+    if (!dict.IsEmpty()) { \
+        lval = dict->Get(NameMap::names[NameMap::##bidx]); \
+    }
+
+CommonArgs::CommonArgs(const v8::Arguments &argv, int pmax, int reqmax)
+    : args(argv), key(NULL), params_max(pmax), required_max(reqmax)
 {
-
-
-    if (do_extract_key && extractKey(0) == false) {
-        return;
-    }
-
-    if (!extractUdata(ixud)) {
-        printf("Couldn't extract user context!\n");
-        return;
-    }
-
 }
 
-bool CommonArgs::extractKey(int pos = 0)
+bool CommonArgs::parse()
 {
-    if (args.Length() < pos + 1) {
-        BAD_ARGS("Missing key", false);
+    if (use_dictparams) {
+        if (args.Length() < required_max + 2) {
+            BAD_ARGS("Bad arguments", false);
+        }
+        if (args.Length() == required_max + 3) {
+            if (!args[required_max+2]->IsObject()) {
+                BAD_ARGS("Have last argument, but it's not an Object", false);
+            }
+            dict = args[required_max+2]->ToObject();
+        }
+
+    } else if (args.Length() < (params_max + 2)) {
+        BAD_ARGS("Bad arguments", false);
     }
 
-    if (!get_string(args[pos], &key, &nkey)) {
-        printf("Arg at pos %d\n", pos);
+
+    if (!extractKey()) {
+        return false;
+    }
+
+    if (!extractUdata()) {
+        return false;
+    }
+    return true;
+}
+
+bool CommonArgs::extractKey()
+{
+    if (!get_string(args[0], &key, &nkey)) {
+        printf("Arg at pos %d\n", 0);
         BAD_ARGS("Couldn't extract string", false);
     }
     return true;
 }
 
-bool CommonArgs::extractUdata(int pos = 2)
+bool CommonArgs::extractUdata()
 {
-    if (args[pos]->IsFunction() == false) {
-        BAD_ARGS("bad value for callback", false);
+    // { "key", .. params_max ..., function() { .. }, "Data" }
+    // Index should be 1 + params_max
+
+    int ix;
+    if (use_dictparams) {
+        ix = required_max + 1;
+    } else {
+        ix = params_max + 1;
     }
 
-    ucb = v8::Local<v8::Function>::Cast(args[pos]);
-    if (args.Length() >= pos) {
-        udata = args[pos + 1];
+
+    ucb = v8::Local<v8::Function>::Cast(args[ix]);
+    if (!ucb->IsFunction()) {
+        printf("Not a function at index %d\n", ix);
+        BAD_ARGS("Not a function", false);
     }
+
+    getParam(ix + 1, NameMap::DATA, &udata);
     return true;
+}
+
+int CommonArgs::extractCas(const v8::Handle<v8::Value> &arg,
+                           libcouchbase_cas_t *cas)
+{
+    if (arg.IsEmpty()) {
+        return AP_DONTUSE;
+    }
+
+    if (arg->IsNumber()) {
+        *cas = arg->IntegerValue();
+        return AP_OK;
+    } else if (arg->IsUndefined()) {
+        *cas = 0;
+        return AP_DONTUSE;
+    } else {
+        return AP_ERROR;
+    }
+}
+
+
+int CommonArgs::extractExpiry(const v8::Handle<v8::Value> &arg,
+                              time_t *exp)
+{
+    if (arg.IsEmpty()) {
+        return AP_DONTUSE;
+    }
+
+    if (arg->IsNumber()) {
+        if ( (*exp = arg->Uint32Value()) ) {
+            return AP_OK;
+        }
+        return AP_DONTUSE;
+    } else if (arg->IsUndefined()) {
+        return AP_DONTUSE;
+    } else {
+        return AP_ERROR;
+    }
 }
 
 CouchbaseCookie *CommonArgs::makeCookie()
@@ -96,28 +159,32 @@ CommonArgs::~CommonArgs()
 
 
 // store(key, value, exp, cas, cb, data)
-StorageArgs::StorageArgs(const v8::Arguments &argv,
-                         v8::Handle<v8::Value> &exc, int expix,
-                         bool do_extract_value)
-    : CommonArgs(argv, exc, expix + 2, true),
+StorageArgs::StorageArgs(const v8::Arguments &argv, int vparams)
+    : CommonArgs(argv, vparams + 3, 1),
 
       data(NULL), ndata(0), exp(0), cas(0)
 {
-    if (!exc.IsEmpty()) {
-        return;
+}
+
+bool StorageArgs::parse() {
+
+    if (!CommonArgs::parse()) {
+        return false;
     }
 
-    if (do_extract_value && extractValue() == false) {
-        return;
+    if (!extractValue()) {
+        return false;
     }
 
-    if (args[expix]->IsNumber()) {
-        exp = args[expix]->Uint32Value();
-    }
+    v8::Local<v8::Value> arg_exp, arg_cas;
+    getParam(params_max-1, NameMap::CAS, &arg_cas);
+    getParam(params_max, NameMap::EXPIRY, &arg_exp);
 
-    if (args[expix + 1]->IsNumber()) {
-        cas = args[expix + 1]->IntegerValue();
+    if (extractExpiry(arg_exp, &exp) == AP_ERROR ||
+            extractCas(arg_cas, &cas) == AP_ERROR) {
+        BAD_ARGS("Couldn't parse expiry or cas", false);
     }
+    return true;
 }
 
 bool StorageArgs::extractValue()
@@ -125,6 +192,7 @@ bool StorageArgs::extractValue()
     if (!get_string(args[1], &data, &ndata)) {
         BAD_ARGS("Bad value", false)
     }
+
     return true;
 }
 
@@ -138,39 +206,36 @@ StorageArgs::~StorageArgs()
 
 
 
-MGetArgs::MGetArgs(const v8::Arguments &args, v8::Handle<v8::Value> &exc)
-    : CommonArgs(args, exc, 2, false)
+MGetArgs::MGetArgs(const v8::Arguments &args, int nkparams)
+    : CommonArgs(args, nkparams),
+      kcount(0), single_exp(0), keys(NULL), sizes(NULL), exps(NULL)
 {
-    if (!exc.IsEmpty()) {
-        return;
-    }
-
-    if (!extractKey(0)) {
-        BAD_ARGS_NORV("Couldn't extract key..");
-    }
 }
 
-bool MGetArgs::extractKey(int pos = 0xBADBEEF)
+bool MGetArgs::extractKey()
 {
 
     if (args[0]->IsString()) {
-
-        if (!CommonArgs::extractKey(0)) {
+        if (!CommonArgs::extractKey()) {
             return false;
         }
 
         kcount = 1;
-        if (args[1]->IsNumber() && args[0]->Uint32Value() > 0) {
-            exps = new time_t[1];
-            *exps = args[1]->Uint32Value();
-        } else {
-            exps = NULL;
+        v8::Local<v8::Value> arg_exp;
+        getParam(1, NameMap::EXPIRY, &arg_exp);
+
+        if (extractExpiry(arg_exp, &single_exp) == AP_ERROR) {
+            BAD_ARGS("Couldn't extract expiration", false);
         }
 
         assert(key);
 
         keys = &key;
         sizes = &nkey;
+
+        if (single_exp) {
+            exps = &single_exp;
+        }
 
         return true;
     }
@@ -180,6 +245,7 @@ bool MGetArgs::extractKey(int pos = 0xBADBEEF)
     if (!args[0]->IsArray()) {
         return false;
     }
+
     v8::Local<v8::Array> karry = v8::Local<v8::Array>::Cast(args[0]);
     kcount = karry->Length();
 
@@ -199,45 +265,52 @@ bool MGetArgs::extractKey(int pos = 0xBADBEEF)
 
 MGetArgs::~MGetArgs()
 {
-    if (exps) {
+    if (exps && exps != &single_exp) {
         delete[] exps;
-        exps = NULL;
     }
 
     if (sizes && sizes != &nkey) {
         delete[] sizes;
     }
-    sizes = NULL;
 
     if (keys && keys != &key) {
         for (unsigned ii = 0; ii < kcount; ii++) {
             delete[] keys[ii];
         }
         delete[] keys;
-        keys = NULL;
     }
+
+    exps = NULL;
+    sizes = NULL;
+    keys = NULL;
 }
 
 
-KeyopArgs::KeyopArgs(const v8::Arguments &args, v8::Handle<v8::Value> &exc)
-    : CommonArgs(args, exc, 2), cas(0)
+KeyopArgs::KeyopArgs(const v8::Arguments &args)
+    : CommonArgs(args, 1), cas(0)
 {
-    if (args[1]->IsNumber()) {
-        cas = args[1]->IntegerValue();
+}
+
+bool KeyopArgs::parse()
+{
+    if (!CommonArgs::parse()) {
+        return false;
     }
+
+    v8::Local<v8::Value> arg_cas;
+    getParam(1, NameMap::CAS, &arg_cas);
+
+    if (extractCas(arg_cas, &cas) == AP_ERROR) {
+        BAD_ARGS("Couldn't extract cas", false);
+    }
+    return true;
 }
 
 // arithmetic(key, delta, initial, exp, cas, ...)
-ArithmeticArgs::ArithmeticArgs(const v8::Arguments &args,
-                               v8::Handle<v8::Value> &exc)
-    : StorageArgs(args, exc, 3, false)
+ArithmeticArgs::ArithmeticArgs(const v8::Arguments &args)
+    : StorageArgs(args, 1),
+      delta(0), initial(0), create(false)
 {
-    if (!exc.IsEmpty()) {
-        return;
-    }
-    if (!extractValue()) {
-        return;
-    }
 }
 
 bool ArithmeticArgs::extractValue()
@@ -248,14 +321,23 @@ bool ArithmeticArgs::extractValue()
 
     delta = args[1]->IntegerValue();
 
-    if (args[2]->IsNumber()) {
-        initial = args[2]->IntegerValue();
-        create = true;
-    } else {
-        if (!args[2]->IsUndefined()) {
-            BAD_ARGS("Initial value must be numeric", false);
+    v8::Local<v8::Value> arg_initial;
+    getParam(2, NameMap::INITIAL, &arg_initial);
+
+    if (!arg_initial.IsEmpty()) {
+        if (arg_initial->IsNumber()) {
+            initial = arg_initial->IntegerValue();
+            create = true;
+        } else {
+            if (!arg_initial->IsUndefined()) {
+                BAD_ARGS("Initial value must be numeric", false);
+            }
+            create = false;
         }
+
+    } else {
         create = false;
     }
+
     return true;
 }

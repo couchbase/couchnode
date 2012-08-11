@@ -25,6 +25,8 @@
 #include <string>
 
 #include <libcouchbase/couchbase.h>
+#include "namemap.h"
+
 
 namespace Couchnode
 {
@@ -56,6 +58,7 @@ namespace Couchnode
         static v8::Handle<v8::Value> Arithmetic(const v8::Arguments &);
         static v8::Handle<v8::Value> Remove(const v8::Arguments &);
         static v8::Handle<v8::Value> Touch(const v8::Arguments &);
+        static v8::Handle<v8::Value> OpCallStyle(const v8::Arguments &);
         // Setting up the event emitter
         static v8::Handle<v8::Value> On(const v8::Arguments &);
         v8::Handle<v8::Value> on(const v8::Arguments &);
@@ -68,6 +71,8 @@ namespace Couchnode
 
         v8::Handle<v8::Value> store(const v8::Arguments &,
                                     libcouchbase_storage_t operation);
+
+        bool use_ht_params;
 
     protected:
         libcouchbase_t instance;
@@ -130,56 +135,83 @@ namespace Couchnode
     {
     public:
 
-        CommonArgs(const v8::Arguments &,
-                   v8::Handle<v8::Value> &,
-                   int ixud,
-                   bool do_extract_key = true);
+        CommonArgs(const v8::Arguments &, int pmax = 0, int reqmax = 0);
+
+        virtual bool parse();
 
         CouchbaseCookie *makeCookie();
         virtual ~CommonArgs();
 
-        virtual bool extractKey(int ix);
+        virtual bool extractKey();
 
-        bool extractUdata(int ix);
+        bool extractUdata();
+
+        enum {
+            AP_OK,
+            AP_ERROR,
+            AP_DONTUSE
+        };
+        int extractExpiry(const v8::Handle<v8::Value>&, time_t *);
+        int extractCas(const v8::Handle<v8::Value>&, libcouchbase_cas_t *);
+
+        inline void getParam(int aix, int dcix, v8::Handle<v8::Value> *vp)
+        {
+            if (use_dictparams) {
+                if (dict.IsEmpty() == false) {
+                    *vp = dict->Get(NameMap::names[dcix]);
+                }
+            } else if (args.Length() >= aix-1) {
+                *vp = args[aix];
+            }
+        }
 
         const v8::Arguments &args;
-        v8::Handle<v8::Value> &excerr;
+        v8::Handle<v8::Value> excerr;
         v8::Local<v8::Function> ucb;
         v8::Local<v8::Value> udata;
 
         char *key;
         size_t nkey;
+
+        // last index for operation-specific parameters, this is the length
+        // of all arguments minus the key (at the beginning) and callback data
+        // (at the end)
+        int params_max;
+        int required_max;
+        bool use_dictparams;
+        v8::Local<v8::Object> dict;
     };
 
     class StorageArgs : public CommonArgs
     {
     public:
 
-        StorageArgs(const v8::Arguments &, v8::Handle<v8::Value> &,
-                    int expix = 2, bool do_extract_value = true);
+        StorageArgs(const v8::Arguments &, int nvparams = 0);
+        virtual bool parse();
 
         virtual bool extractValue();
         virtual ~StorageArgs();
 
         char *data;
         size_t ndata;
-        uint32_t exp;
+        time_t exp;
         uint64_t cas;
     };
 
     class MGetArgs : public CommonArgs
     {
     public:
-        MGetArgs(const v8::Arguments &, v8::Handle<v8::Value> &);
+        MGetArgs(const v8::Arguments &, int nkparams = 1);
         virtual ~MGetArgs();
 
         size_t kcount;
+        time_t single_exp;
 
         char **keys;
         size_t *sizes;
         time_t *exps;
 
-        virtual bool extractKey(int pos);
+        virtual bool extractKey();
     };
 
     class KeyopArgs : public CommonArgs
@@ -187,14 +219,15 @@ namespace Couchnode
 
     public:
 
-        KeyopArgs(const v8::Arguments &, v8::Handle<v8::Value> &);
+        KeyopArgs(const v8::Arguments &);
+        virtual bool parse();
         uint64_t cas;
     };
 
     class ArithmeticArgs : public StorageArgs
     {
     public:
-        ArithmeticArgs(const v8::Arguments &, v8::Handle<v8::Value> &);
+        ArithmeticArgs(const v8::Arguments &);
 
         virtual bool extractValue();
 

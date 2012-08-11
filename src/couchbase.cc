@@ -60,7 +60,7 @@ static v8::Handle<v8::Value> ThrowIllegalArgumentsException() {
 }
 
 Couchbase::Couchbase(libcouchbase_t inst) :
-    ObjectWrap(), instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
+    ObjectWrap(), use_ht_params(false), instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
 {
     libcouchbase_set_cookie(instance, reinterpret_cast<void *>(this));
     setupLibcouchbaseCallbacks();
@@ -113,8 +113,11 @@ void Couchbase::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmetic", Arithmetic);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "delete", Remove);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "touch", Touch);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "_opCallStyle", OpCallStyle);
 
     target->Set(v8::String::NewSymbol("Couchbase"), s_ct->GetFunction());
+
+    NameMap::initialize();
 }
 
 v8::Handle<v8::Value> Couchbase::On(const v8::Arguments &args)
@@ -152,6 +155,33 @@ v8::Handle<v8::Value> Couchbase::on(const v8::Arguments &args)
                     v8::Local<v8::Function>::Cast(args[1]));
 
     return scope.Close(v8::True());
+}
+
+v8::Handle<v8::Value> Couchbase::OpCallStyle(const v8::Arguments &args)
+{
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
+
+    v8::Handle<v8::String> rv = me->use_ht_params ?
+            NameMap::names[NameMap::OPSTYLE_HASHTABLE] :
+            NameMap::names[NameMap::OPSTYLE_POSITIONAL];
+
+    if (!args.Length()) {
+        return rv;
+    }
+
+    if (args.Length() != 1 || args[0]->IsString() == false) {
+        return ThrowException("First (and only) argument must be a string");
+    }
+
+    if (NameMap::names[NameMap::OPSTYLE_HASHTABLE]->Equals(args[0])) {
+        me->use_ht_params = true;
+    } else if (NameMap::names[NameMap::OPSTYLE_POSITIONAL]->Equals(args[0])) {
+        me->use_ht_params = false;
+    } else {
+        return ThrowException("Unrecognized call style");
+    }
+
+    return rv;
 }
 
 v8::Handle<v8::Value> Couchbase::New(const v8::Arguments &args)
@@ -327,17 +357,17 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
     return scope.Close(v8::String::New(msg));
 }
 
-#define COUCHNODE_API_VARS_INIT(argcls) \
-    v8::Handle<v8::Value> exc; \
-    argcls cargs = argcls(args, exc); \
-    if (!exc.IsEmpty()) { \
-        return exc; \
+#define COUCHNODE_API_VARS_INIT(self, argcls) \
+    argcls cargs = argcls(args); \
+    cargs.use_dictparams = self->use_ht_params; \
+    if (!cargs.parse()) { \
+        return cargs.excerr; \
     } \
     CouchbaseCookie *cookie = cargs.makeCookie(); \
 
-#define COUCHNODE_API_VARS_INIT_SCOPED(argcls) \
+#define COUCHNODE_API_VARS_INIT_SCOPED(self, argcls) \
     v8::HandleScope scope; \
-    COUCHNODE_API_VARS_INIT(argcls);
+    COUCHNODE_API_VARS_INIT(self, argcls);
 
 #define COUCHNODE_API_CLEANUP(self) \
     if (self->lastError == LIBCOUCHBASE_SUCCESS) { \
@@ -348,8 +378,9 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
 
 v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
 {
-    COUCHNODE_API_VARS_INIT_SCOPED(MGetArgs);
     Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    COUCHNODE_API_VARS_INIT_SCOPED(me, MGetArgs);
+
     cookie->remaining = cargs.kcount;
 
     assert (cargs.keys);
@@ -365,8 +396,8 @@ v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
 
 v8::Handle<v8::Value> Couchbase::Touch(const v8::Arguments& args)
 {
-    COUCHNODE_API_VARS_INIT_SCOPED(MGetArgs);
     Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    COUCHNODE_API_VARS_INIT_SCOPED(me, MGetArgs);
 
     cookie->remaining = cargs.kcount;
     me->lastError = libcouchbase_mtouch(me->instance,
@@ -395,7 +426,7 @@ COUCHBASE_STOREFN_DEFINE(Prepend, PREPEND)
 v8::Handle<v8::Value> Couchbase::store(const v8::Arguments& args,
         libcouchbase_storage_t operation)
 {
-    COUCHNODE_API_VARS_INIT(StorageArgs);
+    COUCHNODE_API_VARS_INIT(this, StorageArgs);
 
     lastError = libcouchbase_store(instance,
                                    cookie,
@@ -413,8 +444,8 @@ v8::Handle<v8::Value> Couchbase::store(const v8::Arguments& args,
 
 v8::Handle<v8::Value> Couchbase::Arithmetic(const v8::Arguments& args)
 {
-    COUCHNODE_API_VARS_INIT_SCOPED(ArithmeticArgs);
     Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    COUCHNODE_API_VARS_INIT_SCOPED(me, ArithmeticArgs);
 
     me->lastError = libcouchbase_arithmetic(me->instance,
                                                 cookie,
@@ -429,8 +460,8 @@ v8::Handle<v8::Value> Couchbase::Arithmetic(const v8::Arguments& args)
 
 v8::Handle<v8::Value> Couchbase::Remove(const v8::Arguments& args)
 {
-    COUCHNODE_API_VARS_INIT_SCOPED(KeyopArgs);
     Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    COUCHNODE_API_VARS_INIT_SCOPED(me, KeyopArgs);
     me->lastError = libcouchbase_remove(me->instance,
                                     cookie,
                                     cargs.key,
