@@ -51,6 +51,14 @@ static unsigned int _cbo_count = 0;
 #define cbo_count_decr()
 #endif
 
+static v8::Handle<v8::Value> ThrowException(const char *str) {
+    return v8::ThrowException(v8::Exception::Error(v8::String::New(str)));
+}
+
+static v8::Handle<v8::Value> ThrowIllegalArgumentsException() {
+    return ThrowException("Illegal Arguments");
+}
+
 Couchbase::Couchbase(libcouchbase_t inst) :
     ObjectWrap(), instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
 {
@@ -112,8 +120,7 @@ void Couchbase::Init(v8::Handle<v8::Object> target)
 v8::Handle<v8::Value> Couchbase::On(const v8::Arguments &args)
 {
     if (args.Length() != 2 || !args[0]->IsString() || !args[1]->IsFunction()) {
-        const char *msg = "Usage: cb.on('event', 'callback')";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowException("Usage: cb.on('event', 'callback')");
     }
 
     // @todo verify that the user specifies a valid monitor ;)
@@ -152,13 +159,11 @@ v8::Handle<v8::Value> Couchbase::New(const v8::Arguments &args)
     v8::HandleScope scope;
 
     if (args.Length() < 1) {
-        const char *msg = "You need to specify the URI for the REST server";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowException("You need to specify the URI for the REST server");
     }
 
     if (args.Length() > 4) {
-        const char *msg = "Too many arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowException("Too many arguments");
     }
 
     char *argv[4];
@@ -171,18 +176,14 @@ v8::Handle<v8::Value> Couchbase::New(const v8::Arguments &args)
             s->WriteAscii(argv[ii]);
         } else if (!args[ii]->IsNull()) {
             // @todo handle NULL
-            const char *msg = "Illegal argument";
-            return v8::ThrowException(
-                       v8::Exception::Error(v8::String::New(msg)));
+            return ThrowIllegalArgumentsException();
         }
     }
 
     libcouchbase_io_opt_st *iops = lcb_luv_create_io_opts(uv_default_loop(),
                                                           1024);
     if (iops == NULL) {
-        using namespace v8;
-        const char *msg = "Failed to create a new IO ops structure";
-        return ThrowException(Exception::Error(String::New(msg)));
+        return ThrowException("Failed to create a new IO ops structure");
     }
 
     libcouchbase_t instance = libcouchbase_create(argv[0], argv[1], argv[2],
@@ -192,8 +193,7 @@ v8::Handle<v8::Value> Couchbase::New(const v8::Arguments &args)
     }
 
     if (instance == NULL) {
-        const char *msg = "Failed to create libcouchbase instance";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowException("Failed to create libcouchbase instance");
     }
 
     Couchbase *hw = new Couchbase(instance);
@@ -216,8 +216,7 @@ v8::Handle<v8::Value> Couchbase::GetVersion(const v8::Arguments &)
 v8::Handle<v8::Value> Couchbase::SetTimeout(const v8::Arguments &args)
 {
     if (args.Length() != 1 || !args[0]->IsInt32()) {
-        const char *msg = "Illegal arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowIllegalArgumentsException();
     }
 
     v8::HandleScope scope;
@@ -231,8 +230,7 @@ v8::Handle<v8::Value> Couchbase::SetTimeout(const v8::Arguments &args)
 v8::Handle<v8::Value> Couchbase::GetTimeout(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
-        const char *msg = "Illegal arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowIllegalArgumentsException();
     }
 
     v8::HandleScope scope;
@@ -243,8 +241,7 @@ v8::Handle<v8::Value> Couchbase::GetTimeout(const v8::Arguments &args)
 v8::Handle<v8::Value> Couchbase::GetRestUri(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
-        const char *msg = "Illegal arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowIllegalArgumentsException();
     }
 
     v8::HandleScope scope;
@@ -259,8 +256,7 @@ v8::Handle<v8::Value> Couchbase::GetRestUri(const v8::Arguments &args)
 v8::Handle<v8::Value> Couchbase::SetSynchronous(const v8::Arguments &args)
 {
     if (args.Length() != 1) {
-        const char *msg = "Illegal arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowIllegalArgumentsException();
     }
 
     v8::HandleScope scope;
@@ -281,8 +277,7 @@ v8::Handle<v8::Value> Couchbase::SetSynchronous(const v8::Arguments &args)
 v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
-        const char *msg = "Illegal arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowIllegalArgumentsException();
     }
 
     v8::HandleScope scope;
@@ -309,8 +304,7 @@ v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments &args)
         me->connectHandler = v8::Persistent<v8::Function>::New(
                                v8::Local<v8::Function>::Cast(args[0]));
     } else if (args.Length() != 0) {
-        const char *msg = "Illegal arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowIllegalArgumentsException();
     }
 
     me->lastError = libcouchbase_connect(me->instance);
@@ -324,8 +318,7 @@ v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments &args)
 v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
-        const char *msg = "Illegal arguments";
-        return v8::ThrowException(v8::Exception::Error(v8::String::New(msg)));
+        return ThrowIllegalArgumentsException();
     }
 
     v8::HandleScope scope;
