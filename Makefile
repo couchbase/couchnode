@@ -1,4 +1,4 @@
-all: .lock-wscript src/couchbase.cc src/couchbase.h
+all: .lock-wscript src/couchbase.cc src/couchbase.h src/args.cc src/notify.cc
 	@node-waf build
 
 .lock-wscript: wscript
