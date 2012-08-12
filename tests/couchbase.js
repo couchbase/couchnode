@@ -15,85 +15,119 @@
  *   limitations under the License.
  */
 
+// http://stackoverflow.com/questions/610406/javascript-equivalent-to-printf-string-format
+String.prototype.format = function() {
+  var args = arguments;
+  return this.replace(/{(\d+)}/g, function(match, number) {
+    return typeof args[number] != 'undefined'
+      ? args[number]
+      : match
+    ;
+  });
+};
+
+
+// Declare globals first
+var driver = require('couchbase');
+var handles = [];
+var max_handles = process.argv[2];
+if (!max_handles) {
+    max_handles = 10;
+}
+
+function seriesPosthook(cb) {
+    cb.remaining--;
+    if (cb.remaining == 0) {
+        console.log("Removing %d from global array", cb.id);
+        delete handles[cb.id];
+    }
+}
+
 // A callback function that is called from libcouchbase
 // when it encounters a problem without an operation context
+//
 function errorHandler(errorMessage) {
-	console.log("ERROR: [" + errorMessage + "]");
-	process.exit(1);
+    console.log("ERROR: [" + errorMessage + "]");
+    process.exit(1);
 }
 
-// A callback function that is called for get requests
-function getHandler(state, key, value, flags, cas) {
-	if (state) {
-		console.log("Found \"" + key + "\" - [" + value + "]");
-	} else {
-		console.log("Get failed for \"" + key + "\" [" + value + "]");
-	}
+function storageHandler(data, error, key, cas) {
+    str = "[ID={0}] Store '{1}' : Error: {2}, CAS: {3}".format(
+        data[0].id + ":" + data[1],
+        key, error, cas);
+
+    console.log(str);
+    seriesPosthook(data[0])
 }
 
-// A callback function that is called for storage requests
-function storageHandler(state, key, cas) {
-	if (state) {
-		console.log("Stored \"" + key + "\" - [" + cas + "]");
-	} else {
-		console.log("Failed to store \"" + key + "\" [" + cas + "]");
-	}
+function getHandler(data, error, key, cas, flags, value) {
+    str = "[ID={0}] Get '{1}' => '{2}' (err={3}, cas={4} flags={5})".format(
+        data[0].id + ":" + data[1],
+        key, value, error, cas, flags
+    );
+    console.log(str);
+    seriesPosthook(data[0]);
 }
 
 // Load the driver and create an instance that connects
 // to our cluster running at "myserver:8091"
-var driver = require('couchbase');
-var cb = new driver.Couchbase("freebsd:9000");
 
-function connectHandler() {
-   console.log("connected");
+function on_connect(cb) {
+    console.log("Requesting operations for " + cb.id);
+
+    var ops = [
+        [ cb.add, "key", "add", 0, 0, storageHandler],
+        [ cb.replace, "key", "replaced", 0, 0, storageHandler],
+        [ cb.set, "key", "set", 0, 0, storageHandler],
+        [ cb.append, "key", "append", 0, 0, storageHandler],
+        [ cb.prepend, "key", "prepend", 0, 0, storageHandler],
+        [ cb.get, "key", 0, getHandler],
+        [ cb.arithmetic, "numeric", 42, 0, 0, 0, getHandler],
+
+        [ cb.delete, "key", 0,
+         function(data, error, key) {
+            console.log("id={0}: Custom remove handler for {1} (err={2})".
+                        format(data[0].id, key, error));
+        }]
+    ];
+
+    cb.remaining = 0;
+
+    for (var i = 0; i < ops.length; i++) {
+
+        var fnparams = ops[i];
+        var fn = fnparams.shift();
+        fnparams.push([cb, fn.name]);
+        fn.apply(cb, fnparams);
+    }
+
+    cb.remaining = i-1;
 }
 
-// Set up the handlers
-cb.on('error', errorHandler);
-cb.on('get', getHandler);
-cb.on('store', storageHandler);
-cb.on('connect', connectHandler);
+for (var i = 0; i < max_handles; i++) {
+    var cb = new driver.Couchbase(
+            "localhost:8091");
 
-// Try to connect to the server
-if (!cb.connect()) {
-	console.log("Failed to connect! [" + cb.getLastError() + "]");
-	process.exit(1);
+    cb.id = i + 0;
+    var cberr = (function(iter) {
+        return function() {
+            console.log("Error handler for " + iter);
+            errorHandler.apply(this, arguments);
+        }
+    })(cb.id);
+    cb.on("error", cberr);
+
+    // Try to connect to the server
+    var clofn = function (cbv) {
+        return function() {
+            on_connect(cbv);
+        }
+    };
+
+    if (!cb.connect(clofn(cb))) {
+        console.log("Failed to connect! [" + cb.getLastError() + "]");
+        process.exit(1);
+    }
+    console.log("Created new handle " + cb.id);
+    handles[i] = cb;
 }
-// Wait for the connect attempt to complete
-cb.wait();
-
-// Schedule a couple of operations
-cb.add(function onAdd(state, key, cas) {
-	if (state) {
-		console.log("Added \"" + key + "\" - [" + cas + "]");
-	} else {
-		console.log("Failed to add \"" + key + "\" [" + cas + "]");
-	}
-}, "key", "add")
-cb.replace("key", "replaced")
-cb.set("key", "set")
-cb.append("key", "append")
-cb.prepend("key", "prepend")
-cb.get(function onGet(state, key, value, flags, cas) {
-	if (state) {
-		console.log("onGet found \"" + key + "\" - [" + value + "]");
-	} else {
-		console.log("onGet failed for \"" + key + "\" [" + value + "]");
-	}
-}, "key", "bar");
-
-cb.get("key2", "bar2");
-
-
-// Wait for all operations to complete
-cb.wait();
-
-// console.log(cb.getVersion());
-// console.log(cb.getTimeout());
-// cb.setTimeout(1000);
-// console.log(cb.getTimeout());
-// console.log(cb.getRestUri());
-// console.log(cb.isSynchronous());
-// cb.setSynchronous(true);
-// console.log(cb.isSynchronous());
