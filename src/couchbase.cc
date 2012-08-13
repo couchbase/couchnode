@@ -39,8 +39,7 @@ extern "C" {
 }
 
 // @todo killme!
-#define COUCHNODE_DEVDEBUG
-#ifdef COUCHNODE_DEVDEBUG
+#ifdef COUCHNODE_DEBUG
 static unsigned int _cbo_count = 0;
 #define cbo_count_incr() { _cbo_count++; }
 #define cbo_count_decr() { _cbo_count--; \
@@ -71,7 +70,10 @@ Couchbase::Couchbase(libcouchbase_t inst) :
 
 Couchbase::~Couchbase()
 {
+#ifdef COUCHNODE_DEBUG
     cerr << "Destroying handle..\n";
+#endif
+
     libcouchbase_destroy(instance);
 
     EventMap::iterator iter = events.begin();

@@ -1,6 +1,11 @@
 #ifndef LCB_LUV_INTERNAL_H_
 #define LCB_LUV_INTERNAL_H_
 
+#ifndef COUCHNODE_DEBUG
+#define LCB_LUV_YOLOG_DEBUG_LEVEL 100
+#endif
+
+
 #include "libcouchbase-libuv.h"
 #include <stdlib.h>
 #include <stdio.h>
