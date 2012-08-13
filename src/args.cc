@@ -6,22 +6,14 @@
 using namespace Couchnode;
 using namespace std;
 
-#define BAD_ARGS(msg, rv)  { \
-        printf("Arg lengths: %d, pmax=%d, reqmax=%d\n", args.Length(), params_max, required_max); \
-        const char *errmsg = msg; \
-        excerr = v8::ThrowException(v8::Exception::Error(v8::String::New(errmsg))); \
-        return rv; \
-    }
-
-#define BAD_ARGS_NORV(msg) \
-        BAD_ARGS(msg, ;)
-
 static bool get_string(const v8::Handle<v8::Value> &jv,
                        char **strp,
                        size_t *szp)
 {
     if (!jv->IsString()) {
+#ifdef COUCHNODE_DEBUG
         printf("Not a string..\n");
+#endif
         return false;
     }
 
@@ -50,19 +42,19 @@ bool CommonArgs::parse()
 {
     if (use_dictparams) {
         if (args.Length() < required_max + 2) {
-            BAD_ARGS("Bad arguments", false);
+            throw Couchnode::Exception("Bad arguments");
         }
         if (args.Length() == required_max + 3) {
             if (!args[required_max + 2]->IsObject()) {
-                BAD_ARGS("Have last argument, but it's not an Object", false);
+                throw Couchnode::Exception(
+                        "Have last argument, but it's not an Object",
+                        args[required_max + 2]);
             }
             dict = args[required_max + 2]->ToObject();
         }
-
     } else if (args.Length() < (params_max + 2)) {
-        BAD_ARGS("Bad arguments", false);
+        throw Couchnode::Exception("Bad arguments");
     }
-
 
     if (!extractKey()) {
         return false;
@@ -77,8 +69,10 @@ bool CommonArgs::parse()
 bool CommonArgs::extractKey()
 {
     if (!get_string(args[0], &key, &nkey)) {
+#ifdef COUCHNODE_DEBUG
         printf("Arg at pos %d\n", 0);
-        BAD_ARGS("Couldn't extract string", false);
+#endif
+        throw Couchnode::Exception("Couldn't extract string");
     }
     return true;
 }
@@ -95,11 +89,12 @@ bool CommonArgs::extractUdata()
         ix = params_max + 1;
     }
 
-
     ucb = v8::Local<v8::Function>::Cast(args[ix]);
     if (!ucb->IsFunction()) {
+#ifdef COUCHNODE_DEBUG
         printf("Not a function at index %d\n", ix);
-        BAD_ARGS("Not a function", false);
+#endif
+        throw Couchnode::Exception("Not a function", args[ix]);
     }
 
     getParam(ix + 1, NameMap::DATA, &udata);
@@ -181,17 +176,18 @@ bool StorageArgs::parse()
     getParam(params_max - 1, NameMap::CAS, &arg_cas);
     getParam(params_max, NameMap::EXPIRY, &arg_exp);
 
-    if (extractExpiry(arg_exp, &exp) == AP_ERROR ||
-            extractCas(arg_cas, &cas) == AP_ERROR) {
-        BAD_ARGS("Couldn't parse expiry or cas", false);
+    if (extractExpiry(arg_exp, &exp) == AP_ERROR) {
+        throw Couchnode::Exception("Couldn't parse expiry", arg_exp);
     }
-    return true;
+    if (extractCas(arg_cas, &cas) == AP_ERROR) {
+        throw Couchnode::Exception("Couldn't parse CAS", arg_cas);
+    }
 }
 
 bool StorageArgs::extractValue()
 {
     if (!get_string(args[1], &data, &ndata)) {
-        BAD_ARGS("Bad value", false)
+        throw Couchnode::Exception("Bad value", args[1]);
     }
 
     return true;
@@ -226,7 +222,7 @@ bool MGetArgs::extractKey()
         getParam(1, NameMap::EXPIRY, &arg_exp);
 
         if (extractExpiry(arg_exp, &single_exp) == AP_ERROR) {
-            BAD_ARGS("Couldn't extract expiration", false);
+            throw Couchnode::Exception("Couldn't extract expiration", arg_exp);
         }
 
         assert(key);
@@ -302,7 +298,7 @@ bool KeyopArgs::parse()
     getParam(1, NameMap::CAS, &arg_cas);
 
     if (extractCas(arg_cas, &cas) == AP_ERROR) {
-        BAD_ARGS("Couldn't extract cas", false);
+        throw Couchnode::Exception("Couldn't extract cas", arg_cas);
     }
     return true;
 }
@@ -317,7 +313,7 @@ ArithmeticArgs::ArithmeticArgs(const v8::Arguments &args)
 bool ArithmeticArgs::extractValue()
 {
     if (args[1]->IsNumber() == false) {
-        BAD_ARGS("Delta must be numeric", false);
+        throw Couchnode::Exception("Delta must be numeric", args[1]);
     }
 
     delta = args[1]->IntegerValue();
@@ -331,7 +327,8 @@ bool ArithmeticArgs::extractValue()
             create = true;
         } else {
             if (!arg_initial->IsUndefined()) {
-                BAD_ARGS("Initial value must be numeric", false);
+                throw Couchnode::Exception("Initial value must be numeric",
+                                           arg_initial);
             }
             create = false;
         }

@@ -235,6 +235,38 @@ namespace Couchnode
         bool create;
     };
 
+    /**
+     * Base class of the Exceptions thrown by the internals of
+     * Couchnode
+     */
+    class Exception {
+    public:
+        Exception(const char *msg) : message(msg) {
+            /* Empty */
+        }
+
+        Exception(const char *msg, const v8::Handle<v8::Value> &at)
+        : message (msg) {
+            char *valstr = *(v8::String::AsciiValue(at));
+            if (valstr) {
+                message += "at '";
+                message += valstr;
+                message += "'";
+            }
+        }
+
+        virtual ~Exception() {
+            // Empty
+        }
+
+        virtual const std::string &getMessage() const {
+            return message;
+        }
+
+    protected:
+        std::string message;
+    };
+
     v8::Handle<v8::Value> ThrowException(const char *str);
     v8::Handle<v8::Value> ThrowIllegalArgumentsException(void);
 } // namespace Couchnode

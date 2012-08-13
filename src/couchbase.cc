@@ -361,13 +361,17 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
     return scope.Close(v8::String::New(msg));
 }
 
-#define COUCHNODE_API_VARS_INIT(self, argcls) \
-    argcls cargs = argcls(args); \
-    cargs.use_dictparams = self->use_ht_params; \
-    if (!cargs.parse()) { \
-        return cargs.excerr; \
-    } \
-    CouchbaseCookie *cookie = cargs.makeCookie(); \
+#define COUCHNODE_API_VARS_INIT(self, argcls)     \
+    argcls cargs = argcls(args);                  \
+    cargs.use_dictparams = self->use_ht_params;   \
+    try {                                         \
+        if (!cargs.parse()) {                     \
+           return cargs.excerr;                   \
+        }                                         \
+    } catch (Couchnode::Exception &exp) {         \
+        return ThrowException(exp.getMessage().c_str());    \
+    }                                             \
+    CouchbaseCookie *cookie = cargs.makeCookie();
 
 #define COUCHNODE_API_VARS_INIT_SCOPED(self, argcls) \
     v8::HandleScope scope; \
