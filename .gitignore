@@ -11,6 +11,10 @@
 *.la
 *.a
 
+# The original file after running astyle:
+*.orig
+
+
 *~
 
 /.lock-wscript
