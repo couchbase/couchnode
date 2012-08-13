@@ -235,6 +235,8 @@ namespace Couchnode
         bool create;
     };
 
+    v8::Handle<v8::Value> ThrowException(const char *str);
+    v8::Handle<v8::Value> ThrowIllegalArgumentsException(void);
 } // namespace Couchnode
 
 #endif

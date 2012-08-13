@@ -50,14 +50,14 @@ static unsigned int _cbo_count = 0;
 #define cbo_count_decr()
 #endif
 
-static v8::Handle<v8::Value> ThrowException(const char *str)
+v8::Handle<v8::Value> Couchnode::ThrowException(const char *str)
 {
     return v8::ThrowException(v8::Exception::Error(v8::String::New(str)));
 }
 
-static v8::Handle<v8::Value> ThrowIllegalArgumentsException()
+v8::Handle<v8::Value> Couchnode::ThrowIllegalArgumentsException()
 {
-    return ThrowException("Illegal Arguments");
+    return Couchnode::ThrowException("Illegal Arguments");
 }
 
 Couchbase::Couchbase(libcouchbase_t inst) :
