@@ -168,7 +168,7 @@ extern "C" {
 
     static void storage_callback(libcouchbase_t,
                                  const void *commandCookie,
-                                 libcouchbase_storage_t operation,
+                                 libcouchbase_storage_t,
                                  libcouchbase_error_t error, const void *key,
                                  libcouchbase_size_t nkey,
                                  libcouchbase_cas_t cas)
