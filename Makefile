@@ -1,5 +1,10 @@
-SOURCE = src/couchbase.cc src/couchbase.h src/args.cc src/notify.cc \
-         src/namemap.cc src/namemap.h
+SOURCE = src/couchbase.cc \
+		 src/couchbase.h \
+		 src/args.cc \
+		 src/notify.cc \
+         src/namemap.cc \
+		 src/operations.cc \
+		 src/namemap.h
 
 all: .lock-wscript $(SOURCE)
 	@node-waf build
