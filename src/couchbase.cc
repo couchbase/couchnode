@@ -24,7 +24,7 @@
 using namespace std;
 using namespace Couchnode;
 
-typedef libcouchbase_io_opt_st* (*loop_factory_fn)(uv_loop_t*,uint16_t);
+typedef libcouchbase_io_opt_st *(*loop_factory_fn)(uv_loop_t *, uint16_t);
 
 // libcouchbase handlers keep a C linkage...
 extern "C" {
@@ -51,11 +51,13 @@ static unsigned int _cbo_count = 0;
 #define cbo_count_decr()
 #endif
 
-static v8::Handle<v8::Value> ThrowException(const char *str) {
+static v8::Handle<v8::Value> ThrowException(const char *str)
+{
     return v8::ThrowException(v8::Exception::Error(v8::String::New(str)));
 }
 
-static v8::Handle<v8::Value> ThrowIllegalArgumentsException() {
+static v8::Handle<v8::Value> ThrowIllegalArgumentsException()
+{
     return ThrowException("Illegal Arguments");
 }
 
@@ -151,8 +153,8 @@ v8::Handle<v8::Value> Couchbase::on(const v8::Arguments &args)
     }
 
     events[function] =
-            v8::Persistent<v8::Function>::New(
-                    v8::Local<v8::Function>::Cast(args[1]));
+        v8::Persistent<v8::Function>::New(
+            v8::Local<v8::Function>::Cast(args[1]));
 
     return scope.Close(v8::True());
 }
@@ -162,8 +164,8 @@ v8::Handle<v8::Value> Couchbase::OpCallStyle(const v8::Arguments &args)
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
     v8::Handle<v8::String> rv = me->use_ht_params ?
-            NameMap::names[NameMap::OPSTYLE_HASHTABLE] :
-            NameMap::names[NameMap::OPSTYLE_POSITIONAL];
+                                NameMap::names[NameMap::OPSTYLE_HASHTABLE] :
+                                NameMap::names[NameMap::OPSTYLE_POSITIONAL];
 
     if (!args.Length()) {
         return rv;
@@ -323,7 +325,7 @@ v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments &args)
 v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments &args)
 {
     v8::HandleScope scope;
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
     if (!me->connectHandler.IsEmpty()) {
         me->connectHandler.Dispose();
@@ -332,7 +334,7 @@ v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments &args)
 
     if (args.Length() == 1 && args[0]->IsFunction()) {
         me->connectHandler = v8::Persistent<v8::Function>::New(
-                               v8::Local<v8::Function>::Cast(args[0]));
+                                 v8::Local<v8::Function>::Cast(args[0]));
     } else if (args.Length() != 0) {
         return ThrowIllegalArgumentsException();
     }
@@ -376,34 +378,34 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
     delete cookie; \
     return v8::False();
 
-v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments &args)
 {
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     COUCHNODE_API_VARS_INIT_SCOPED(me, MGetArgs);
 
     cookie->remaining = cargs.kcount;
 
-    assert (cargs.keys);
+    assert(cargs.keys);
     me->lastError = libcouchbase_mget(me->instance,
                                       cookie,
                                       cargs.kcount,
-                                      (const void * const*)cargs.keys,
+                                      (const void * const *)cargs.keys,
                                       cargs.sizes,
                                       cargs.exps);
 
     COUCHNODE_API_CLEANUP(me);
 }
 
-v8::Handle<v8::Value> Couchbase::Touch(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Touch(const v8::Arguments &args)
 {
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     COUCHNODE_API_VARS_INIT_SCOPED(me, MGetArgs);
 
     cookie->remaining = cargs.kcount;
     me->lastError = libcouchbase_mtouch(me->instance,
                                         cookie,
                                         cargs.kcount,
-                                        (const void* const*)cargs.keys,
+                                        (const void * const *)cargs.keys,
                                         cargs.sizes,
                                         cargs.exps);
     COUCHNODE_API_CLEANUP(me);
@@ -423,8 +425,8 @@ COUCHBASE_STOREFN_DEFINE(Append, APPEND)
 COUCHBASE_STOREFN_DEFINE(Prepend, PREPEND)
 
 
-v8::Handle<v8::Value> Couchbase::store(const v8::Arguments& args,
-        libcouchbase_storage_t operation)
+v8::Handle<v8::Value> Couchbase::store(const v8::Arguments &args,
+                                       libcouchbase_storage_t operation)
 {
     COUCHNODE_API_VARS_INIT(this, StorageArgs);
 
@@ -442,31 +444,31 @@ v8::Handle<v8::Value> Couchbase::store(const v8::Arguments& args,
     COUCHNODE_API_CLEANUP(this);
 }
 
-v8::Handle<v8::Value> Couchbase::Arithmetic(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Arithmetic(const v8::Arguments &args)
 {
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     COUCHNODE_API_VARS_INIT_SCOPED(me, ArithmeticArgs);
 
     me->lastError = libcouchbase_arithmetic(me->instance,
-                                                cookie,
-                                                cargs.key,
-                                                cargs.nkey,
-                                                cargs.delta,
-                                                cargs.exp,
-                                                cargs.create,
-                                                cargs.initial);
+                                            cookie,
+                                            cargs.key,
+                                            cargs.nkey,
+                                            cargs.delta,
+                                            cargs.exp,
+                                            cargs.create,
+                                            cargs.initial);
     COUCHNODE_API_CLEANUP(me);
 }
 
-v8::Handle<v8::Value> Couchbase::Remove(const v8::Arguments& args)
+v8::Handle<v8::Value> Couchbase::Remove(const v8::Arguments &args)
 {
-    Couchbase* me = ObjectWrap::Unwrap<Couchbase>(args.This());
+    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     COUCHNODE_API_VARS_INIT_SCOPED(me, KeyopArgs);
     me->lastError = libcouchbase_remove(me->instance,
-                                    cookie,
-                                    cargs.key,
-                                    cargs.nkey,
-                                    cargs.cas);
+                                        cookie,
+                                        cargs.key,
+                                        cargs.nkey,
+                                        cargs.cas);
     COUCHNODE_API_CLEANUP(me);
 }
 
@@ -474,7 +476,7 @@ void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
 {
     if (err == LIBCOUCHBASE_ETIMEDOUT && onTimeout()) {
         return;
-   }
+    }
 
     lastError = err;
     EventMap::iterator iter = events.find("error");

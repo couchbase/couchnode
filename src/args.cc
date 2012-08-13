@@ -53,10 +53,10 @@ bool CommonArgs::parse()
             BAD_ARGS("Bad arguments", false);
         }
         if (args.Length() == required_max + 3) {
-            if (!args[required_max+2]->IsObject()) {
+            if (!args[required_max + 2]->IsObject()) {
                 BAD_ARGS("Have last argument, but it's not an Object", false);
             }
-            dict = args[required_max+2]->ToObject();
+            dict = args[required_max + 2]->ToObject();
         }
 
     } else if (args.Length() < (params_max + 2)) {
@@ -133,7 +133,7 @@ int CommonArgs::extractExpiry(const v8::Handle<v8::Value> &arg,
     }
 
     if (arg->IsNumber()) {
-        if ( (*exp = arg->Uint32Value()) ) {
+        if ((*exp = arg->Uint32Value())) {
             return AP_OK;
         }
         return AP_DONTUSE;
@@ -166,7 +166,8 @@ StorageArgs::StorageArgs(const v8::Arguments &argv, int vparams)
 {
 }
 
-bool StorageArgs::parse() {
+bool StorageArgs::parse()
+{
 
     if (!CommonArgs::parse()) {
         return false;
@@ -177,7 +178,7 @@ bool StorageArgs::parse() {
     }
 
     v8::Local<v8::Value> arg_exp, arg_cas;
-    getParam(params_max-1, NameMap::CAS, &arg_cas);
+    getParam(params_max - 1, NameMap::CAS, &arg_cas);
     getParam(params_max, NameMap::EXPIRY, &arg_exp);
 
     if (extractExpiry(arg_exp, &exp) == AP_ERROR ||

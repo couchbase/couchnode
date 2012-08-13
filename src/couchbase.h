@@ -151,16 +151,15 @@ namespace Couchnode
             AP_ERROR,
             AP_DONTUSE
         };
-        int extractExpiry(const v8::Handle<v8::Value>&, time_t *);
-        int extractCas(const v8::Handle<v8::Value>&, libcouchbase_cas_t *);
+        int extractExpiry(const v8::Handle<v8::Value> &, time_t *);
+        int extractCas(const v8::Handle<v8::Value> &, libcouchbase_cas_t *);
 
-        inline void getParam(int aix, int dcix, v8::Handle<v8::Value> *vp)
-        {
+        inline void getParam(int aix, int dcix, v8::Handle<v8::Value> *vp) {
             if (use_dictparams) {
                 if (dict.IsEmpty() == false) {
                     *vp = dict->Get(NameMap::names[dcix]);
                 }
-            } else if (args.Length() >= aix-1) {
+            } else if (args.Length() >= aix - 1) {
                 *vp = args[aix];
             }
         }

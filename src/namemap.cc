@@ -21,7 +21,8 @@ using namespace Couchnode;
 
 v8::Persistent<v8::String> NameMap::names[NameMap::MAX];
 
-void NameMap::initialize() {
+void NameMap::initialize()
+{
     install("expiry", EXPIRY);
     install("cas", CAS);
     install("data", DATA);
