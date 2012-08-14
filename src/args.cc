@@ -182,6 +182,7 @@ bool StorageArgs::parse()
     if (extractCas(arg_cas, &cas) == AP_ERROR) {
         throw Couchnode::Exception("Couldn't parse CAS", arg_cas);
     }
+    return true;
 }
 
 bool StorageArgs::extractValue()
