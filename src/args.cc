@@ -34,7 +34,7 @@ static bool get_string(const v8::Handle<v8::Value> &jv,
     }
 
 CommonArgs::CommonArgs(const v8::Arguments &argv, int pmax, int reqmax)
-    : args(argv), key(NULL), params_max(pmax), required_max(reqmax)
+    : args(argv), key(NULL), params_max(pmax), required_max(reqmax), stale(false)
 {
 }
 
@@ -141,11 +141,22 @@ int CommonArgs::extractExpiry(const v8::Handle<v8::Value> &arg,
 
 CouchbaseCookie *CommonArgs::makeCookie()
 {
-    return new CouchbaseCookie(args.This(), ucb, udata);
+    CouchbaseCookie *ret = new CouchbaseCookie(args.This(), ucb, udata);
+    ret->remaining = 1;
+    return ret;
+}
+
+void CommonArgs::bailout(CouchbaseCookie *cookie, libcouchbase_error_t err)
+{
+    cookie->result(err, key, nkey);
 }
 
 CommonArgs::~CommonArgs()
 {
+    if (stale) {
+        return;
+    }
+
     if (key) {
         delete[] key;
         key = NULL;
@@ -196,6 +207,10 @@ bool StorageArgs::extractValue()
 
 StorageArgs::~StorageArgs()
 {
+    if (stale) {
+        return;
+    }
+
     if (data) {
         delete[] data;
         data = NULL;
@@ -261,8 +276,19 @@ bool MGetArgs::extractKey()
     return true;
 }
 
+void MGetArgs::bailout(CouchbaseCookie *cookie, libcouchbase_error_t err)
+{
+    for (unsigned ii = 0; ii < kcount; ii++) {
+        cookie->result(err, keys[ii], sizes[ii]);
+    }
+}
+
 MGetArgs::~MGetArgs()
 {
+    if (stale) {
+        return;
+    }
+
     if (exps && exps != &single_exp) {
         delete[] exps;
     }

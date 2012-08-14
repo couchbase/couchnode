@@ -23,13 +23,18 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <vector>
 
 #include <libcouchbase/couchbase.h>
 #include "namemap.h"
+#include "cookie.h"
+#include "args.h"
 
 
 namespace Couchnode
 {
+    class QueuedCommand;
+
 
     class Couchbase: public node::ObjectWrap
     {
@@ -46,7 +51,6 @@ namespace Couchnode
         static v8::Handle<v8::Value> GetRestUri(const v8::Arguments &);
         static v8::Handle<v8::Value> SetSynchronous(const v8::Arguments &);
         static v8::Handle<v8::Value> IsSynchronous(const v8::Arguments &);
-        static v8::Handle<v8::Value> Connect(const v8::Arguments &);
         static v8::Handle<v8::Value> SetHandler(const v8::Arguments &);
         static v8::Handle<v8::Value> GetLastError(const v8::Arguments &);
         static v8::Handle<v8::Value> Get(const v8::Arguments &);
@@ -69,14 +73,28 @@ namespace Couchnode
 
         void errorCallback(libcouchbase_error_t err, const char *errinfo);
 
-        v8::Handle<v8::Value> store(const v8::Arguments &,
-                                    libcouchbase_storage_t operation);
 
         bool use_ht_params;
+        bool connected;
+        void scheduleCommand(QueuedCommand& cmd) {
+            queued_commands.push_back(cmd);
+        }
+
+        void runScheduledCommands();
+
+        inline void setLastError(libcouchbase_error_t err) {
+            lastError = err;
+        }
+        inline libcouchbase_t getLibcouchbaseHandle() {
+            return instance;
+        }
 
     protected:
         libcouchbase_t instance;
         libcouchbase_error_t lastError;
+
+        typedef std::vector<QueuedCommand> QueuedCommandList;
+        QueuedCommandList queued_commands;
 
         typedef std::map<std::string, v8::Persistent<v8::Function> > EventMap;
         EventMap events;
@@ -84,156 +102,27 @@ namespace Couchnode
         void setupLibcouchbaseCallbacks(void);
     };
 
-    class CouchbaseCookie
-    {
 
+
+    class QueuedCommand {
     public:
-        CouchbaseCookie(v8::Handle<v8::Value> cbo,
-                        v8::Handle<v8::Function> callback,
-                        v8::Handle<v8::Value> data);
-        virtual ~CouchbaseCookie();
+        typedef libcouchbase_error_t (*operfunc)(
+                libcouchbase_t, CommonArgs*, CouchbaseCookie*);
 
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey,
-                    const void *bytes,
-                    libcouchbase_size_t nbytes,
-                    libcouchbase_uint32_t flags,
-                    libcouchbase_cas_t cas);
+        QueuedCommand(CouchbaseCookie *c, CommonArgs *a, operfunc f) :
+            cookie(c), args(a), ofn(f) { }
 
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey,
-                    libcouchbase_cas_t cas);
+        virtual ~QueuedCommand() { }
 
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey,
-                    libcouchbase_uint64_t value,
-                    libcouchbase_cas_t cas);
-
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey);
-
-        unsigned int remaining;
-
-    protected:
-        void invoke(v8::Persistent<v8::Context> &context, int argc,
-                    v8::Local<v8::Value> *argv) {
-            // Now, invoke the callback with the appropriate arguments
-            ucallback->Call(v8::Context::GetEntered()->Global(), argc , argv);
-            context.Dispose();
-            if (--remaining == 0) {
-                delete this;
-            }
+        inline void setDone() {
+            delete args;
         }
 
-    private:
-        v8::Persistent<v8::Value> parent;
-        v8::Persistent<v8::Value> ucookie;
-        v8::Persistent<v8::Function> ucallback;
+        CouchbaseCookie *cookie;
+        CommonArgs *args;
+        operfunc ofn;
     };
 
-    class CommonArgs
-    {
-    public:
-
-        CommonArgs(const v8::Arguments &, int pmax = 0, int reqmax = 0);
-
-        virtual bool parse();
-
-        CouchbaseCookie *makeCookie();
-        virtual ~CommonArgs();
-
-        virtual bool extractKey();
-
-        bool extractUdata();
-
-        enum {
-            AP_OK,
-            AP_ERROR,
-            AP_DONTUSE
-        };
-        int extractExpiry(const v8::Handle<v8::Value> &, time_t *);
-        int extractCas(const v8::Handle<v8::Value> &, libcouchbase_cas_t *);
-
-        inline void getParam(int aix, int dcix, v8::Handle<v8::Value> *vp) {
-            if (use_dictparams) {
-                if (dict.IsEmpty() == false) {
-                    *vp = dict->Get(NameMap::names[dcix]);
-                }
-            } else if (args.Length() >= aix - 1) {
-                *vp = args[aix];
-            }
-        }
-
-        const v8::Arguments &args;
-        v8::Handle<v8::Value> excerr;
-        v8::Local<v8::Function> ucb;
-        v8::Local<v8::Value> udata;
-
-        char *key;
-        size_t nkey;
-
-        // last index for operation-specific parameters, this is the length
-        // of all arguments minus the key (at the beginning) and callback data
-        // (at the end)
-        int params_max;
-        int required_max;
-        bool use_dictparams;
-        v8::Local<v8::Object> dict;
-    };
-
-    class StorageArgs : public CommonArgs
-    {
-    public:
-
-        StorageArgs(const v8::Arguments &, int nvparams = 0);
-        virtual bool parse();
-
-        virtual bool extractValue();
-        virtual ~StorageArgs();
-
-        char *data;
-        size_t ndata;
-        time_t exp;
-        uint64_t cas;
-    };
-
-    class MGetArgs : public CommonArgs
-    {
-    public:
-        MGetArgs(const v8::Arguments &, int nkparams = 1);
-        virtual ~MGetArgs();
-
-        size_t kcount;
-        time_t single_exp;
-
-        char **keys;
-        size_t *sizes;
-        time_t *exps;
-
-        virtual bool extractKey();
-    };
-
-    class KeyopArgs : public CommonArgs
-    {
-
-    public:
-
-        KeyopArgs(const v8::Arguments &);
-        virtual bool parse();
-        uint64_t cas;
-    };
-
-    class ArithmeticArgs : public StorageArgs
-    {
-    public:
-        ArithmeticArgs(const v8::Arguments &);
-
-        virtual bool extractValue();
-
-        int64_t delta;
-        uint64_t initial;
-        bool create;
-    };
 
     /**
      * Base class of the Exceptions thrown by the internals of

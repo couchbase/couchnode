@@ -61,7 +61,9 @@ v8::Handle<v8::Value> Couchnode::ThrowIllegalArgumentsException()
 }
 
 Couchbase::Couchbase(libcouchbase_t inst) :
-    ObjectWrap(), use_ht_params(false), instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
+    ObjectWrap(), use_ht_params(false), connected(false),
+    instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
+
 {
     libcouchbase_set_cookie(instance, reinterpret_cast<void *>(this));
     setupLibcouchbaseCallbacks();
@@ -105,7 +107,6 @@ void Couchbase::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getRestUri", GetRestUri);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "setSynchronous", SetSynchronous);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "isSynchronous", IsSynchronous);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "connect", Connect);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getLastError", GetLastError);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "get", Get);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "set", Set);
@@ -230,6 +231,10 @@ v8::Handle<v8::Value> Couchbase::New(const v8::Arguments &args)
         return ThrowException("Failed to create libcouchbase instance");
     }
 
+    if (libcouchbase_connect(instance) != LIBCOUCHBASE_SUCCESS) {
+        return ThrowException("Failed to schedule connection");
+    }
+
     Couchbase *hw = new Couchbase(instance);
     hw->Wrap(args.This());
     return args.This();
@@ -324,31 +329,6 @@ v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments &args)
     return v8::False();
 }
 
-v8::Handle<v8::Value> Couchbase::Connect(const v8::Arguments &args)
-{
-    v8::HandleScope scope;
-    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
-
-    if (!me->connectHandler.IsEmpty()) {
-        me->connectHandler.Dispose();
-        me->connectHandler.Clear();
-    }
-
-    if (args.Length() == 1 && args[0]->IsFunction()) {
-        me->connectHandler = v8::Persistent<v8::Function>::New(
-                                 v8::Local<v8::Function>::Cast(args[0]));
-    } else if (args.Length() != 0) {
-        return ThrowIllegalArgumentsException();
-    }
-
-    me->lastError = libcouchbase_connect(me->instance);
-    if (me->lastError == LIBCOUCHBASE_SUCCESS) {
-        return v8::True();
-    } else {
-        return v8::False();
-    }
-}
-
 v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
 {
     if (args.Length() != 0) {
@@ -363,6 +343,13 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
 
 void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
 {
+
+    if (!connected) {
+        // Time to fail out all the commands..
+        connected = true;
+        runScheduledCommands();
+    }
+
     if (err == LIBCOUCHBASE_ETIMEDOUT && onTimeout()) {
         return;
     }
@@ -379,25 +366,12 @@ void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
 void Couchbase::onConnect(libcouchbase_configuration_t config)
 {
     if (config == LIBCOUCHBASE_CONFIGURATION_NEW) {
-        EventMap::iterator iter = events.find("connect");
-        if (iter != events.end() && !iter->second.IsEmpty()) {
-            // @todo pass on the config parameter ;)
-            using namespace v8;
-            Local<Value> argv[1];
-            iter->second->Call(v8::Context::GetEntered()->Global(), 0, argv);
-        }
-
-        if (!connectHandler.IsEmpty()) {
-            using namespace v8;
-            HandleScope handle_scope;
-            Persistent<Context> context = Context::New();
-            Local<Value> argv[1];
-            connectHandler->Call(Context::GetEntered()->Global(), 0, argv);
-            connectHandler.Dispose();
-            connectHandler.Clear();
-            context.Dispose();
+        if (!connected) {
+            connected = true;
+            runScheduledCommands();
         }
     }
+    libcouchbase_set_configuration_callback(instance, NULL);
 }
 
 bool Couchbase::onTimeout()
