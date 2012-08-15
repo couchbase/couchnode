@@ -38,6 +38,7 @@ namespace Couchnode
             INITIAL,
             OPSTYLE_POSITIONAL,
             OPSTYLE_HASHTABLE,
+            PROP_STR,
             MAX
         } dict_t;
         static v8::Persistent<v8::String> names[MAX];

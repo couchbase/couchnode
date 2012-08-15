@@ -20,6 +20,7 @@
 
 #include "couchbase.h"
 #include "io/libcouchbase-libuv.h"
+#include "cas.h"
 
 using namespace std;
 using namespace Couchnode;
@@ -123,6 +124,7 @@ void Couchbase::Init(v8::Handle<v8::Object> target)
     target->Set(v8::String::NewSymbol("Couchbase"), s_ct->GetFunction());
 
     NameMap::initialize();
+    Cas::initialize();
 }
 
 v8::Handle<v8::Value> Couchbase::On(const v8::Arguments &args)

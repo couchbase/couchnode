@@ -58,7 +58,7 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
         argv[5] = Local<Value>::New(Undefined());
     } else {
         argv[1] = Local<Value>::New(False());
-        argv[3] = Local<Value>::New(Number::New(cas));
+        argv[3] = Local<Value>::New(Cas::CreateCas(cas));
         argv[4] = Local<Value>::New(Number::New(flags));
         argv[5] = Local<Value>::New(String::New((const char *)bytes, nbytes));
     }
@@ -84,7 +84,7 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
         argv[3] = Local<Value>::New(Undefined());
     } else {
         argv[1] = Local<Value>::New(False());
-        argv[3] = Local<Value>::New(Number::New(cas));
+        argv[3] = Local<Value>::New(Cas::CreateCas(cas));
     }
 
     invoke(context, 4, argv);
@@ -110,7 +110,7 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
         argv[4] = Local<Value>::New(Undefined());
     } else {
         argv[1] = Local<Value>::New(False());
-        argv[3] = Local<Value>::New(Number::New(cas));
+        argv[3] = Local<Value>::New(Cas::CreateCas(cas));
         argv[4] = Local<Value>::New(Number::New(value));
     }
 

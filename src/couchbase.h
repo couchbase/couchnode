@@ -29,6 +29,7 @@
 #include "namemap.h"
 #include "cookie.h"
 #include "args.h"
+#include "cas.h"
 
 
 namespace Couchnode

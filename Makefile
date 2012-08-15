@@ -4,7 +4,9 @@ SOURCE = src/couchbase.cc \
 		 src/notify.cc \
          src/namemap.cc \
 		 src/operations.cc \
-		 src/namemap.h
+		 src/namemap.h \
+		 src/cas.cc \
+		 src/cas.h
 
 all: .lock-wscript $(SOURCE)
 	@node-waf build

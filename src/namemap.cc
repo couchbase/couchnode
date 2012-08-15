@@ -29,6 +29,7 @@ void NameMap::initialize()
     install("initial", INITIAL);
     install("positional", OPSTYLE_POSITIONAL);
     install("dict", OPSTYLE_HASHTABLE);
+    install("str", PROP_STR);
 }
 
 void NameMap::install(const char *name, dict_t val)

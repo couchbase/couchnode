@@ -13,7 +13,8 @@ couchnode_mods = [
     "couchbase",
     "namemap",
     "notify",
-    "operations"
+    "operations",
+    "cas"
 ]
 
 lcb_luv_mods = [

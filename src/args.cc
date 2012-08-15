@@ -108,12 +108,13 @@ int CommonArgs::extractCas(const v8::Handle<v8::Value> &arg,
         return AP_DONTUSE;
     }
 
-    if (arg->IsNumber()) {
-        *cas = arg->IntegerValue();
-        return AP_OK;
+    if (arg->IsObject()) {
+        return Cas::GetCas(arg->ToObject());
+
     } else if (arg->IsUndefined()) {
         *cas = 0;
         return AP_DONTUSE;
+
     } else {
         return AP_ERROR;
     }
@@ -184,8 +185,8 @@ bool StorageArgs::parse()
     }
 
     v8::Local<v8::Value> arg_exp, arg_cas;
-    getParam(params_max - 1, NameMap::CAS, &arg_cas);
-    getParam(params_max, NameMap::EXPIRY, &arg_exp);
+    getParam(params_max, NameMap::CAS, &arg_cas);
+    getParam(params_max - 1, NameMap::EXPIRY, &arg_exp);
 
     if (extractExpiry(arg_exp, &exp) == AP_ERROR) {
         throw Couchnode::Exception("Couldn't parse expiry", arg_exp);
