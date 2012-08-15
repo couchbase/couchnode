@@ -139,7 +139,7 @@ namespace Couchnode
         : message (msg) {
             char *valstr = *(v8::String::AsciiValue(at));
             if (valstr) {
-                message += "at '";
+                message += " at '";
                 message += valstr;
                 message += "'";
             }
