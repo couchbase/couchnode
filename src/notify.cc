@@ -7,8 +7,9 @@ using namespace v8;
 
 CouchbaseCookie::CouchbaseCookie(Handle<Value> cbo,
                                  Handle<Function> callback,
-                                 Handle<Value> data)
-    : remaining(1),
+                                 Handle<Value> data,
+                                 unsigned int numRemaining)
+    : remaining(numRemaining),
       parent(Persistent<Value>::New(cbo)),
       ucookie(Persistent<Value>::New(data)),
       ucallback(Persistent<Function>::New(callback))

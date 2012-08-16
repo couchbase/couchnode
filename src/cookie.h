@@ -15,7 +15,8 @@ namespace Couchnode
     public:
         CouchbaseCookie(v8::Handle<v8::Value> cbo,
                         v8::Handle<v8::Function> callback,
-                        v8::Handle<v8::Value> data);
+                        v8::Handle<v8::Value> data,
+                        unsigned int numRemaining);
         virtual ~CouchbaseCookie();
 
         void result(libcouchbase_error_t error,
@@ -37,9 +38,8 @@ namespace Couchnode
         void result(libcouchbase_error_t error,
                     const void *key, libcouchbase_size_t nkey);
 
-        unsigned int remaining;
-
     protected:
+        unsigned int remaining;
         void invoke(v8::Persistent<v8::Context> &context, int argc,
                     v8::Local<v8::Value> *argv) {
             // Now, invoke the callback with the appropriate arguments

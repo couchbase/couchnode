@@ -127,9 +127,7 @@ void CommonArgs::extractExpiry(const v8::Handle<v8::Value> &arg, time_t *exp)
 
 CouchbaseCookie *CommonArgs::makeCookie()
 {
-    CouchbaseCookie *ret = new CouchbaseCookie(args.This(), ucb, udata);
-    ret->remaining = 1;
-    return ret;
+    return new CouchbaseCookie(args.This(), ucb, udata, 1);
 }
 
 void CommonArgs::bailout(CouchbaseCookie *cookie, libcouchbase_error_t err)

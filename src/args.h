@@ -84,10 +84,7 @@ namespace Couchnode
         virtual ~MGetArgs();
 
         virtual CouchbaseCookie *makeCookie() {
-            CouchbaseCookie *cookie =
-                new CouchbaseCookie(args.This(), ucb, udata);
-            cookie->remaining = kcount;
-            return cookie;
+            return new CouchbaseCookie(args.This(), ucb, udata, kcount);
         }
 
         virtual void bailout(CouchbaseCookie *, libcouchbase_error_t);
