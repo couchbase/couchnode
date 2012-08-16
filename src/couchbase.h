@@ -145,10 +145,10 @@ namespace Couchnode
 
         Exception(const char *msg, const v8::Handle<v8::Value> &at)
             : message(msg) {
-            char *valstr = *(v8::String::AsciiValue(at));
-            if (valstr) {
+            v8::String::AsciiValue valstr(at);
+            if (*valstr) {
                 message += " at '";
-                message += valstr;
+                message += *valstr;
                 message += "'";
             }
         }
