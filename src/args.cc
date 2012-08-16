@@ -47,8 +47,8 @@ bool CommonArgs::parse()
         if (args.Length() == required_max + 3) {
             if (!args[required_max + 2]->IsObject()) {
                 throw Couchnode::Exception(
-                        "Have last argument, but it's not an Object",
-                        args[required_max + 2]);
+                    "Have last argument, but it's not an Object",
+                    args[required_max + 2]);
             }
             dict = args[required_max + 2]->ToObject();
         }

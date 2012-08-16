@@ -77,7 +77,7 @@ namespace Couchnode
 
         bool use_ht_params;
         bool connected;
-        void scheduleCommand(QueuedCommand& cmd) {
+        void scheduleCommand(QueuedCommand &cmd) {
             queued_commands.push_back(cmd);
         }
 
@@ -105,10 +105,11 @@ namespace Couchnode
 
 
 
-    class QueuedCommand {
+    class QueuedCommand
+    {
     public:
         typedef libcouchbase_error_t (*operfunc)(
-                libcouchbase_t, CommonArgs*, CouchbaseCookie*);
+            libcouchbase_t, CommonArgs *, CouchbaseCookie *);
 
         QueuedCommand(CouchbaseCookie *c, CommonArgs *a, operfunc f) :
             cookie(c), args(a), ofn(f) { }
@@ -129,14 +130,15 @@ namespace Couchnode
      * Base class of the Exceptions thrown by the internals of
      * Couchnode
      */
-    class Exception {
+    class Exception
+    {
     public:
         Exception(const char *msg) : message(msg) {
             /* Empty */
         }
 
         Exception(const char *msg, const v8::Handle<v8::Value> &at)
-        : message (msg) {
+            : message(msg) {
             char *valstr = *(v8::String::AsciiValue(at));
             if (valstr) {
                 message += " at '";

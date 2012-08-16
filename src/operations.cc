@@ -26,7 +26,7 @@ using namespace Couchnode;
 static libcouchbase_error_t
 do_get(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 {
-    MGetArgs *cargs = static_cast<MGetArgs*>(args);
+    MGetArgs *cargs = static_cast<MGetArgs *>(args);
     return libcouchbase_mget(instance, cookie, cargs->kcount,
                              (const void * const *)cargs->keys,
                              cargs->sizes,
@@ -36,7 +36,7 @@ do_get(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 static libcouchbase_error_t
 do_set(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 {
-    StorageArgs *cargs = static_cast<StorageArgs*>(args);
+    StorageArgs *cargs = static_cast<StorageArgs *>(args);
     return libcouchbase_store(instance, cookie, cargs->storop,
                               cargs->key, cargs->nkey,
                               cargs->data, cargs->ndata,
@@ -48,7 +48,7 @@ do_set(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 static libcouchbase_error_t
 do_touch(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 {
-    MGetArgs *cargs = static_cast<MGetArgs*>(args);
+    MGetArgs *cargs = static_cast<MGetArgs *>(args);
     return libcouchbase_mtouch(instance, cookie, cargs->kcount,
                                (const void * const *)cargs->keys,
                                cargs->sizes,
@@ -58,7 +58,7 @@ do_touch(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 static libcouchbase_error_t
 do_arithmetic(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 {
-    ArithmeticArgs *cargs = static_cast<ArithmeticArgs*>(args);
+    ArithmeticArgs *cargs = static_cast<ArithmeticArgs *>(args);
     return libcouchbase_arithmetic(instance, cookie,
                                    cargs->key, cargs->nkey,
                                    cargs->delta,
@@ -70,7 +70,7 @@ do_arithmetic(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie
 static libcouchbase_error_t
 do_remove(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
 {
-    KeyopArgs *cargs = static_cast<KeyopArgs*>(args);
+    KeyopArgs *cargs = static_cast<KeyopArgs *>(args);
     return libcouchbase_remove(instance, cookie, cargs->key, cargs->nkey,
                                cargs->cas);
 }
