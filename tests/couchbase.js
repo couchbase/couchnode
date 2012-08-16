@@ -72,7 +72,7 @@ function getHandler(data, error, key, cas, flags, value) {
 // Load the driver and create an instance that connects
 // to our cluster running at "myserver:8091"
 
-function on_connect(cb) {
+function schedule_operations(cb) {
     console.log("Requesting operations for " + cb.id);
 
     var ops = [
@@ -117,17 +117,7 @@ for (var i = 0; i < max_handles; i++) {
     })(cb.id);
     cb.on("error", cberr);
 
-    // Try to connect to the server
-    var clofn = function (cbv) {
-        return function() {
-            on_connect(cbv);
-        }
-    };
-
-    if (!cb.connect(clofn(cb))) {
-        console.log("Failed to connect! [" + cb.getLastError() + "]");
-        process.exit(1);
-    }
+    schedule_operations(cb);
     console.log("Created new handle " + cb.id);
     handles[i] = cb;
 }

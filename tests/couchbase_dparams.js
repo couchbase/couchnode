@@ -115,7 +115,7 @@ function schedule_operations(cb) {
 
 for (var i = 0; i < max_handles; i++) {
     var cb = new driver.Couchbase(
-            "localhost:8091"
+            "localhost:8091",
         );
 
     cb._opCallStyle('dict');
