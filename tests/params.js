@@ -54,3 +54,16 @@ exports.parse_cliargs = function () {
         ii++;
     }
 };
+
+exports.create_handle = function() {
+    var driver = require('couchbase');
+    exports.parse_cliargs();
+    
+    var cb = new driver.Couchbase(
+        exports.params['hostname'],
+        exports.params['username'],
+        exports.params['password'],
+        exports.params['bucket']
+    );
+    return cb;
+};

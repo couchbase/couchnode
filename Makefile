@@ -17,6 +17,9 @@ install:
 dist:
 	@node-waf dist
 
+check:
+	./tests/runtests.sh tests/*t.js
+
 reformat:
 	@astyle --mode=c \
                --quiet \
