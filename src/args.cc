@@ -102,42 +102,26 @@ bool CommonArgs::extractUdata()
     return true;
 }
 
-int CommonArgs::extractCas(const v8::Handle<v8::Value> &arg,
-                           libcouchbase_cas_t *cas)
+void CommonArgs::extractCas(const v8::Handle<v8::Value> &arg,
+                            libcouchbase_cas_t *cas)
 {
-    if (arg.IsEmpty()) {
-        return AP_DONTUSE;
-    }
-
-    if (arg->IsObject()) {
-        return Cas::GetCas(arg->ToObject());
-
-    } else if (arg->IsUndefined()) {
+    if (arg.IsEmpty() || arg->IsUndefined()) {
         *cas = 0;
-        return AP_DONTUSE;
-
+    } else if (arg->IsObject()) {
+        *cas = Cas::GetCas(arg->ToObject());
     } else {
-        return AP_ERROR;
+        throw Couchnode::Exception("Couldn't parse CAS", arg);
     }
 }
 
-
-int CommonArgs::extractExpiry(const v8::Handle<v8::Value> &arg,
-                              time_t *exp)
+void CommonArgs::extractExpiry(const v8::Handle<v8::Value> &arg, time_t *exp)
 {
-    if (arg.IsEmpty()) {
-        return AP_DONTUSE;
-    }
-
-    if (arg->IsNumber()) {
-        if ((*exp = arg->Uint32Value())) {
-            return AP_OK;
-        }
-        return AP_DONTUSE;
-    } else if (arg->IsUndefined()) {
-        return AP_DONTUSE;
+    if (arg.IsEmpty() || arg->IsUndefined()) {
+        *exp = 0;
+    } else if (arg->IsNumber()) {
+        *exp = arg->Uint32Value();
     } else {
-        return AP_ERROR;
+        throw Couchnode::Exception("Couldn't extract expiration", arg);
     }
 }
 
@@ -165,7 +149,6 @@ CommonArgs::~CommonArgs()
     }
 }
 
-
 // store(key, value, exp, cas, cb, data)
 StorageArgs::StorageArgs(const v8::Arguments &argv, int vparams)
     : CommonArgs(argv, vparams + 3, 1),
@@ -189,12 +172,8 @@ bool StorageArgs::parse()
     getParam(params_max, NameMap::CAS, &arg_cas);
     getParam(params_max - 1, NameMap::EXPIRY, &arg_exp);
 
-    if (extractExpiry(arg_exp, &exp) == AP_ERROR) {
-        throw Couchnode::Exception("Couldn't parse expiry", arg_exp);
-    }
-    if (extractCas(arg_cas, &cas) == AP_ERROR) {
-        throw Couchnode::Exception("Couldn't parse CAS", arg_cas);
-    }
+    extractExpiry(arg_exp, &exp);
+    extractCas(arg_cas, &cas);
     return true;
 }
 
@@ -219,8 +198,6 @@ StorageArgs::~StorageArgs()
     }
 }
 
-
-
 MGetArgs::MGetArgs(const v8::Arguments &args, int nkparams)
     : CommonArgs(args, nkparams),
       kcount(0), single_exp(0), keys(NULL), sizes(NULL), exps(NULL)
@@ -239,10 +216,7 @@ bool MGetArgs::extractKey()
         v8::Local<v8::Value> arg_exp;
         getParam(1, NameMap::EXPIRY, &arg_exp);
 
-        if (extractExpiry(arg_exp, &single_exp) == AP_ERROR) {
-            throw Couchnode::Exception("Couldn't extract expiration", arg_exp);
-        }
-
+        extractExpiry(arg_exp, &single_exp);
         assert(key);
 
         keys = &key;
@@ -311,7 +285,6 @@ MGetArgs::~MGetArgs()
     keys = NULL;
 }
 
-
 KeyopArgs::KeyopArgs(const v8::Arguments &args)
     : CommonArgs(args, 1), cas(0)
 {
@@ -326,9 +299,7 @@ bool KeyopArgs::parse()
     v8::Local<v8::Value> arg_cas;
     getParam(1, NameMap::CAS, &arg_cas);
 
-    if (extractCas(arg_cas, &cas) == AP_ERROR) {
-        throw Couchnode::Exception("Couldn't extract cas", arg_cas);
-    }
+    extractCas(arg_cas, &cas);
     return true;
 }
 

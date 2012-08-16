@@ -39,16 +39,8 @@ extern "C" {
     NODE_MODULE(couchbase, init)
 }
 
-// @todo killme!
 #ifdef COUCHNODE_DEBUG
-static unsigned int _cbo_count = 0;
-#define cbo_count_incr() { _cbo_count++; }
-#define cbo_count_decr() { _cbo_count--; \
-    printf("Still have %d handles remaining\n", _cbo_count); \
-}
-#else
-#define cbo_count_incr()
-#define cbo_count_decr()
+unsigned int Couchbase::objectCount;
 #endif
 
 v8::Handle<v8::Value> Couchnode::ThrowException(const char *str)
@@ -56,7 +48,7 @@ v8::Handle<v8::Value> Couchnode::ThrowException(const char *str)
     return v8::ThrowException(v8::Exception::Error(v8::String::New(str)));
 }
 
-v8::Handle<v8::Value> Couchnode::ThrowIllegalArgumentsException()
+v8::Handle<v8::Value> Couchnode::ThrowIllegalArgumentsException(void)
 {
     return Couchnode::ThrowException("Illegal Arguments");
 }
@@ -68,13 +60,17 @@ Couchbase::Couchbase(libcouchbase_t inst) :
 {
     libcouchbase_set_cookie(instance, reinterpret_cast<void *>(this));
     setupLibcouchbaseCallbacks();
-    cbo_count_incr()
+#ifdef COUCHNODE_DEBUG
+    ++objectCount;
+#endif
 }
 
 Couchbase::~Couchbase()
 {
 #ifdef COUCHNODE_DEBUG
-    cerr << "Destroying handle..\n";
+    --objectCount;
+    cerr << "Destroying handle.." << endl
+         << "Still have " << objectCount << " handles remaining" << endl;
 #endif
 
     libcouchbase_destroy(instance);
@@ -87,8 +83,6 @@ Couchbase::~Couchbase()
         }
         ++iter;
     }
-
-    cbo_count_decr();
 }
 
 void Couchbase::Init(v8::Handle<v8::Object> target)
@@ -376,7 +370,7 @@ void Couchbase::onConnect(libcouchbase_configuration_t config)
     libcouchbase_set_configuration_callback(instance, NULL);
 }
 
-bool Couchbase::onTimeout()
+bool Couchbase::onTimeout(void)
 {
     EventMap::iterator iter = events.find("timeout");
     if (iter != events.end() && !iter->second.IsEmpty()) {

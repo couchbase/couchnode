@@ -12,24 +12,19 @@ namespace Couchnode
     public:
 
         CommonArgs(const v8::Arguments &, int pmax = 0, int reqmax = 0);
+        virtual ~CommonArgs();
+
         virtual bool parse();
 
         virtual CouchbaseCookie *makeCookie();
-        virtual ~CommonArgs();
 
         virtual bool extractKey();
 
         bool extractUdata();
+        void extractExpiry(const v8::Handle<v8::Value> &, time_t *);
+        void extractCas(const v8::Handle<v8::Value> &, libcouchbase_cas_t *);
 
-        enum {
-            AP_OK,
-            AP_ERROR,
-            AP_DONTUSE
-        };
-        int extractExpiry(const v8::Handle<v8::Value> &, time_t *);
-        int extractCas(const v8::Handle<v8::Value> &, libcouchbase_cas_t *);
-
-        inline void getParam(int aix, int dcix, v8::Handle<v8::Value> *vp) {
+        void getParam(int aix, int dcix, v8::Handle<v8::Value> *vp) {
             if (use_dictparams) {
                 if (dict.IsEmpty() == false) {
                     *vp = dict->Get(NameMap::names[dcix]);
@@ -41,12 +36,12 @@ namespace Couchnode
 
         virtual void bailout(CouchbaseCookie *, libcouchbase_error_t);
 
-        inline void invalidate() {
+        void invalidate() {
             stale = true;
         }
 
         // Hooks for deep-copy post assignment.. (manual step)..
-        virtual inline void sync(const CommonArgs &) { }
+        virtual void sync(const CommonArgs &) { }
 
         const v8::Arguments &args;
         v8::Handle<v8::Value> excerr;
@@ -69,12 +64,11 @@ namespace Couchnode
     class StorageArgs : public CommonArgs
     {
     public:
-
         StorageArgs(const v8::Arguments &, int nvparams = 0);
-        virtual bool parse();
-
-        virtual bool extractValue();
         virtual ~StorageArgs();
+
+        virtual bool parse();
+        virtual bool extractValue();
 
         char *data;
         size_t ndata;
@@ -87,10 +81,9 @@ namespace Couchnode
     {
     public:
         MGetArgs(const v8::Arguments &, int nkparams = 1);
-
         virtual ~MGetArgs();
 
-        virtual inline CouchbaseCookie *makeCookie() {
+        virtual CouchbaseCookie *makeCookie() {
             CouchbaseCookie *cookie =
                 new CouchbaseCookie(args.This(), ucb, udata);
             cookie->remaining = kcount;
@@ -99,7 +92,7 @@ namespace Couchnode
 
         virtual void bailout(CouchbaseCookie *, libcouchbase_error_t);
 
-        virtual inline void sync(const MGetArgs &other) {
+        virtual void sync(const MGetArgs &other) {
             if (other.keys == &other.key) {
                 keys = &key;
             }
@@ -125,7 +118,6 @@ namespace Couchnode
     {
 
     public:
-
         KeyopArgs(const v8::Arguments &);
         virtual bool parse();
         uint64_t cas;

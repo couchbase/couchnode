@@ -31,11 +31,9 @@
 #include "args.h"
 #include "cas.h"
 
-
 namespace Couchnode
 {
     class QueuedCommand;
-
 
     class Couchbase: public node::ObjectWrap
     {
@@ -70,23 +68,21 @@ namespace Couchnode
 
         // Method called from libcouchbase
         void onConnect(libcouchbase_configuration_t config);
-        bool onTimeout();
+        bool onTimeout(void);
 
         void errorCallback(libcouchbase_error_t err, const char *errinfo);
-
-
-
 
         void scheduleCommand(QueuedCommand &cmd) {
             queued_commands.push_back(cmd);
         }
 
-        void runScheduledCommands();
+        void runScheduledCommands(void);
 
-        inline void setLastError(libcouchbase_error_t err) {
+        void setLastError(libcouchbase_error_t err) {
             lastError = err;
         }
-        inline libcouchbase_t getLibcouchbaseHandle() {
+
+        libcouchbase_t getLibcouchbaseHandle(void) {
             return instance;
         }
 
@@ -110,9 +106,11 @@ namespace Couchnode
         EventMap events;
         v8::Persistent<v8::Function> connectHandler;
         void setupLibcouchbaseCallbacks(void);
+
+#ifdef COUCHNODE_DEBUG
+        static unsigned int objectCount;
+#endif
     };
-
-
 
     class QueuedCommand
     {
@@ -125,7 +123,7 @@ namespace Couchnode
 
         virtual ~QueuedCommand() { }
 
-        inline void setDone() {
+        void setDone(void) {
             delete args;
         }
 
@@ -133,7 +131,6 @@ namespace Couchnode
         CommonArgs *args;
         operfunc ofn;
     };
-
 
     /**
      * Base class of the Exceptions thrown by the internals of
