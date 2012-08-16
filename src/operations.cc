@@ -83,7 +83,7 @@ template <class Targs>
 static inline v8::Handle<v8::Value>
 make_operation(Couchbase *me, Targs *cargs, QueuedCommand::operfunc ofn)
 {
-    cargs->use_dictparams = me->use_ht_params;
+    cargs->use_dictparams = me->isUsingHashtableParams();
     try {
         if (!cargs->parse()) {
             return cargs->excerr;
@@ -100,7 +100,7 @@ make_operation(Couchbase *me, Targs *cargs, QueuedCommand::operfunc ofn)
 
     if (err != LIBCOUCHBASE_SUCCESS) {
         me->setLastError(err);
-        if (me->connected) {
+        if (me->isConnected()) {
             cargs->bailout(cookie, err);
             return v8::False();
         }

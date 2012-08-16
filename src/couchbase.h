@@ -75,8 +75,8 @@ namespace Couchnode
         void errorCallback(libcouchbase_error_t err, const char *errinfo);
 
 
-        bool use_ht_params;
-        bool connected;
+
+
         void scheduleCommand(QueuedCommand &cmd) {
             queued_commands.push_back(cmd);
         }
@@ -90,7 +90,16 @@ namespace Couchnode
             return instance;
         }
 
+        bool isConnected(void) const {
+            return connected;
+        }
+
+        bool isUsingHashtableParams(void) const {
+            return useHashtableParams;
+        }
     protected:
+        bool connected;
+        bool useHashtableParams;
         libcouchbase_t instance;
         libcouchbase_error_t lastError;
 

@@ -62,7 +62,7 @@ v8::Handle<v8::Value> Couchnode::ThrowIllegalArgumentsException()
 }
 
 Couchbase::Couchbase(libcouchbase_t inst) :
-    ObjectWrap(), use_ht_params(false), connected(false),
+    ObjectWrap(), connected(false), useHashtableParams(false),
     instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
 
 {
@@ -168,7 +168,7 @@ v8::Handle<v8::Value> Couchbase::OpCallStyle(const v8::Arguments &args)
 {
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
-    v8::Handle<v8::String> rv = me->use_ht_params ?
+    v8::Handle<v8::String> rv = me->useHashtableParams ?
                                 NameMap::names[NameMap::OPSTYLE_HASHTABLE] :
                                 NameMap::names[NameMap::OPSTYLE_POSITIONAL];
 
@@ -181,9 +181,9 @@ v8::Handle<v8::Value> Couchbase::OpCallStyle(const v8::Arguments &args)
     }
 
     if (NameMap::names[NameMap::OPSTYLE_HASHTABLE]->Equals(args[0])) {
-        me->use_ht_params = true;
+        me->useHashtableParams = true;
     } else if (NameMap::names[NameMap::OPSTYLE_POSITIONAL]->Equals(args[0])) {
-        me->use_ht_params = false;
+        me->useHashtableParams = false;
     } else {
         return ThrowException("Unrecognized call style");
     }
