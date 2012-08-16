@@ -34,6 +34,12 @@ static bool get_string(const v8::Handle<v8::Value> &jv,
         lval = dict->Get(NameMap::names[NameMap::##bidx]); \
     }
 
+
+static inline bool isFalseValue(const v8::Handle<v8::Value> &v)
+{
+    return (v.IsEmpty() || v->BooleanValue() == false);
+}
+
 CommonArgs::CommonArgs(const v8::Arguments &argv, int pmax, int reqmax)
     : args(argv), key(NULL), params_max(pmax), required_max(reqmax), stale(false)
 {
@@ -105,7 +111,7 @@ bool CommonArgs::extractUdata()
 void CommonArgs::extractCas(const v8::Handle<v8::Value> &arg,
                             libcouchbase_cas_t *cas)
 {
-    if (arg.IsEmpty() || arg->IsUndefined()) {
+    if (isFalseValue(arg)) {
         *cas = 0;
     } else if (arg->IsObject()) {
         *cas = Cas::GetCas(arg->ToObject());
@@ -116,7 +122,7 @@ void CommonArgs::extractCas(const v8::Handle<v8::Value> &arg,
 
 void CommonArgs::extractExpiry(const v8::Handle<v8::Value> &arg, time_t *exp)
 {
-    if (arg.IsEmpty() || arg->IsUndefined()) {
+    if (isFalseValue(arg)) {
         *exp = 0;
     } else if (arg->IsNumber()) {
         *exp = arg->Uint32Value();
