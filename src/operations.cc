@@ -23,8 +23,9 @@ using namespace Couchnode;
  * and unpack it into the appropriate libcouchbase entry point.
  */
 
-static libcouchbase_error_t
-do_get(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
+static libcouchbase_error_t doGet(libcouchbase_t instance,
+                                  CommonArgs *args,
+                                  CouchbaseCookie *cookie)
 {
     MGetArgs *cargs = static_cast<MGetArgs *>(args);
     return libcouchbase_mget(instance, cookie, cargs->kcount,
@@ -33,8 +34,9 @@ do_get(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
                              cargs->exps);
 }
 
-static libcouchbase_error_t
-do_set(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
+static libcouchbase_error_t doSet(libcouchbase_t instance,
+                                  CommonArgs *args,
+                                  CouchbaseCookie *cookie)
 {
     StorageArgs *cargs = static_cast<StorageArgs *>(args);
     return libcouchbase_store(instance, cookie, cargs->storop,
@@ -45,8 +47,9 @@ do_set(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
                               cargs->cas);
 }
 
-static libcouchbase_error_t
-do_touch(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
+static libcouchbase_error_t doTouch(libcouchbase_t instance,
+                                    CommonArgs *args,
+                                    CouchbaseCookie *cookie)
 {
     MGetArgs *cargs = static_cast<MGetArgs *>(args);
     return libcouchbase_mtouch(instance, cookie, cargs->kcount,
@@ -55,8 +58,9 @@ do_touch(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
                                cargs->exps);
 }
 
-static libcouchbase_error_t
-do_arithmetic(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
+static libcouchbase_error_t doArithmetic(libcouchbase_t instance,
+                                         CommonArgs *args,
+                                         CouchbaseCookie *cookie)
 {
     ArithmeticArgs *cargs = static_cast<ArithmeticArgs *>(args);
     return libcouchbase_arithmetic(instance, cookie,
@@ -67,21 +71,22 @@ do_arithmetic(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie
                                    cargs->initial);
 }
 
-static libcouchbase_error_t
-do_remove(libcouchbase_t instance, CommonArgs *args, CouchbaseCookie *cookie)
+static libcouchbase_error_t doRemove(libcouchbase_t instance,
+                                     CommonArgs *args,
+                                     CouchbaseCookie *cookie)
 {
     KeyopArgs *cargs = static_cast<KeyopArgs *>(args);
     return libcouchbase_remove(instance, cookie, cargs->key, cargs->nkey,
                                cargs->cas);
 }
 
-
 /**
  * Entry point for API calls.
  */
 template <class Targs>
-static inline v8::Handle<v8::Value>
-make_operation(Couchbase *me, Targs *cargs, QueuedCommand::operfunc ofn)
+static inline v8::Handle<v8::Value> makeOperation(Couchbase *me,
+                                                  Targs *cargs,
+                                                  QueuedCommand::operfunc ofn)
 {
     cargs->use_dictparams = me->isUsingHashtableParams();
     try {
@@ -94,9 +99,7 @@ make_operation(Couchbase *me, Targs *cargs, QueuedCommand::operfunc ofn)
 
     CouchbaseCookie *cookie = cargs->makeCookie();
 
-    libcouchbase_error_t err = ofn(me->getLibcouchbaseHandle(),
-                                   cargs,
-                                   cookie);
+    libcouchbase_error_t err = ofn(me->getLibcouchbaseHandle(), cargs, cookie);
 
     if (err != LIBCOUCHBASE_SUCCESS) {
         me->setLastError(err);
@@ -114,8 +117,7 @@ make_operation(Couchbase *me, Targs *cargs, QueuedCommand::operfunc ofn)
     return v8::True();
 }
 
-void
-Couchbase::runScheduledCommands()
+void Couchbase::runScheduledCommands(void)
 {
     for (QueuedCommandList::iterator iter = queued_commands.begin();
             iter != queued_commands.end(); iter++) {
@@ -140,21 +142,20 @@ Couchbase::runScheduledCommands()
 v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(MGetArgs);
-    return make_operation<MGetArgs>(me, &cargs, do_get);
+    return makeOperation<MGetArgs>(me, &cargs, doGet);
 }
-
 
 v8::Handle<v8::Value> Couchbase::Touch(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(MGetArgs);
-    return make_operation<MGetArgs>(me, &cargs, do_touch);
+    return makeOperation<MGetArgs>(me, &cargs, doTouch);
 }
 
 #define COUCHBASE_STOREFN_DEFINE(name, mode) \
     v8::Handle<v8::Value> Couchbase::name(const v8::Arguments& args) { \
         COUCHNODE_API_INIT_COMMON(StorageArgs); \
         cargs.storop = LIBCOUCHBASE_##mode; \
-        return make_operation<StorageArgs>(me, &cargs, do_set); \
+        return makeOperation<StorageArgs>(me, &cargs, doSet); \
     }
 
 COUCHBASE_STOREFN_DEFINE(Set, SET)
@@ -166,11 +167,11 @@ COUCHBASE_STOREFN_DEFINE(Prepend, PREPEND)
 v8::Handle<v8::Value> Couchbase::Arithmetic(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(ArithmeticArgs);
-    return make_operation<ArithmeticArgs>(me, &cargs, do_arithmetic);
+    return makeOperation<ArithmeticArgs>(me, &cargs, doArithmetic);
 }
 
 v8::Handle<v8::Value> Couchbase::Remove(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(KeyopArgs);
-    return make_operation<KeyopArgs>(me, &cargs, do_remove);
+    return makeOperation<KeyopArgs>(me, &cargs, doRemove);
 }
