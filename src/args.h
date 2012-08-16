@@ -1,5 +1,6 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #ifndef COUCHNODE_ARGS_H
-#define COUCHNODE_ARGS_H
+#define COUCHNODE_ARGS_H 1
 #ifndef COUCHBASE_H
 #error "Include couchbase.h before including this file"
 #endif

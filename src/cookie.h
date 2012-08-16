@@ -1,4 +1,7 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #ifndef COUCHNODE_COOKIE_H
+#define COUCHNODE_COOKIE_H 1
+
 #ifndef COUCHBASE_H
 #error "Include couchbase.h before including this file"
 #endif
