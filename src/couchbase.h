@@ -38,7 +38,7 @@ namespace Couchnode
     class Couchbase: public node::ObjectWrap
     {
     public:
-        Couchbase(libcouchbase_t inst);
+        Couchbase(lcb_t inst);
         virtual ~Couchbase();
 
         // Methods called directly from JavaScript
@@ -67,10 +67,10 @@ namespace Couchnode
         v8::Handle<v8::Value> on(const v8::Arguments &);
 
         // Method called from libcouchbase
-        void onConnect(libcouchbase_configuration_t config);
+        void onConnect(lcb_configuration_t config);
         bool onTimeout(void);
 
-        void errorCallback(libcouchbase_error_t err, const char *errinfo);
+        void errorCallback(lcb_error_t err, const char *errinfo);
 
         void scheduleCommand(QueuedCommand &cmd) {
             queued_commands.push_back(cmd);
@@ -78,11 +78,11 @@ namespace Couchnode
 
         void runScheduledCommands(void);
 
-        void setLastError(libcouchbase_error_t err) {
+        void setLastError(lcb_error_t err) {
             lastError = err;
         }
 
-        libcouchbase_t getLibcouchbaseHandle(void) {
+        lcb_t getLibcouchbaseHandle(void) {
             return instance;
         }
 
@@ -96,8 +96,8 @@ namespace Couchnode
     protected:
         bool connected;
         bool useHashtableParams;
-        libcouchbase_t instance;
-        libcouchbase_error_t lastError;
+        lcb_t instance;
+        lcb_error_t lastError;
 
         typedef std::vector<QueuedCommand> QueuedCommandList;
         QueuedCommandList queued_commands;
@@ -115,8 +115,8 @@ namespace Couchnode
     class QueuedCommand
     {
     public:
-        typedef libcouchbase_error_t (*operfunc)(
-            libcouchbase_t, CommonArgs *, CouchbaseCookie *);
+        typedef lcb_error_t (*operfunc)(
+            lcb_t, CommonArgs *, CouchbaseCookie *);
 
         QueuedCommand(CouchbaseCookie *c, CommonArgs *a, operfunc f) :
             cookie(c), args(a), ofn(f) { }

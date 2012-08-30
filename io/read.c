@@ -40,8 +40,8 @@ read_cb(uv_stream_t *stream, ssize_t nread, uv_buf_t buf)
     }
 
     sock->evstate[LCB_LUV_EV_READ].flags |= LCB_LUV_EVf_PENDING;
-    if (sock->event && (sock->event->lcb_events & LIBCOUCHBASE_READ_EVENT)) {
-        sock->event->lcb_cb(sock->idx, LIBCOUCHBASE_READ_EVENT,
+    if (sock->event && (sock->event->lcb_events & LCB_READ_EVENT)) {
+        sock->event->lcb_cb(sock->idx, LCB_READ_EVENT,
                 sock->event->lcb_arg);
     }
 
@@ -90,12 +90,12 @@ lcb_luv_read_stop(lcb_luv_socket_t sock)
 }
 
 
-static libcouchbase_ssize_t
-read_common(lcb_luv_socket_t sock, void *buffer, libcouchbase_size_t len,
+static lcb_ssize_t
+read_common(lcb_luv_socket_t sock, void *buffer, lcb_size_t len,
             int *errno_out)
 {
     struct lcb_luv_evstate_st *evstate = sock->evstate + LCB_LUV_EV_READ;
-    libcouchbase_ssize_t ret;
+    lcb_ssize_t ret;
     size_t read_offset, toRead;
 
     log_read_debug("%d: Requested to read %d bytes. have %d",
@@ -151,11 +151,11 @@ read_common(lcb_luv_socket_t sock, void *buffer, libcouchbase_size_t len,
     return ret;
 }
 
-libcouchbase_ssize_t
-lcb_luv_recv(struct libcouchbase_io_opt_st *iops,
-             libcouchbase_socket_t sock_i,
+lcb_ssize_t
+lcb_luv_recv(struct lcb_io_opt_st *iops,
+             lcb_socket_t sock_i,
              void *buffer,
-             libcouchbase_size_t len,
+             lcb_size_t len,
              int flags)
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
@@ -167,13 +167,13 @@ lcb_luv_recv(struct libcouchbase_io_opt_st *iops,
     return read_common(sock, buffer, len, &iops->error);
 }
 
-libcouchbase_ssize_t
-lcb_luv_recvv(struct libcouchbase_io_opt_st *iops,
-              libcouchbase_socket_t sock_i,
-              struct libcouchbase_iovec_st *iov,
-              libcouchbase_size_t niov)
+lcb_ssize_t
+lcb_luv_recvv(struct lcb_io_opt_st *iops,
+              lcb_socket_t sock_i,
+              struct lcb_iovec_st *iov,
+              lcb_size_t niov)
 {
-    libcouchbase_ssize_t nr = 0, iret = -1;
+    lcb_ssize_t nr = 0, iret = -1;
     int ii, my_errno;
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
 

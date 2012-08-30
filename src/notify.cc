@@ -1,6 +1,7 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #include "couchbase.h"
 #include <cstdio>
+#include <sstream>
 
 using namespace Couchnode;
 using namespace v8;
@@ -38,12 +39,12 @@ CouchbaseCookie::~CouchbaseCookie()
 }
 
 // (data, error, key, cas, flags, value)
-void CouchbaseCookie::result(libcouchbase_error_t error,
-                             const void *key, libcouchbase_size_t nkey,
+void CouchbaseCookie::result(lcb_error_t error,
+                             const void *key, lcb_size_t nkey,
                              const void *bytes,
-                             libcouchbase_size_t nbytes,
-                             libcouchbase_uint32_t flags,
-                             libcouchbase_cas_t cas)
+                             lcb_size_t nbytes,
+                             lcb_uint32_t flags,
+                             lcb_cas_t cas)
 {
     using namespace v8;
     HandleScope scope;
@@ -53,7 +54,7 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
     argv[0] = Local<Value>::New(ucookie);
     argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
 
-    if (error != LIBCOUCHBASE_SUCCESS) {
+    if (error != LCB_SUCCESS) {
         argv[1] = Local<Value>::New(Number::New(error));
         argv[3] = Local<Value>::New(Undefined());
         argv[4] = Local<Value>::New(Undefined());
@@ -69,9 +70,9 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
 }
 
 // (data, error, key, cas)
-void CouchbaseCookie::result(libcouchbase_error_t error,
-                             const void *key, libcouchbase_size_t nkey,
-                             libcouchbase_cas_t cas)
+void CouchbaseCookie::result(lcb_error_t error,
+                             const void *key, lcb_size_t nkey,
+                             lcb_cas_t cas)
 {
     using namespace v8;
     HandleScope scope;
@@ -81,7 +82,7 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
     argv[0] = Local<Value>::New(ucookie);
     argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
 
-    if (error != LIBCOUCHBASE_SUCCESS) {
+    if (error != LCB_SUCCESS) {
         argv[1] = Local<Value>::New(Number::New(error));
         argv[3] = Local<Value>::New(Undefined());
     } else {
@@ -93,10 +94,10 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
 }
 
 // (data, error, key, cas, value)
-void CouchbaseCookie::result(libcouchbase_error_t error,
-                             const void *key, libcouchbase_size_t nkey,
-                             libcouchbase_uint64_t value,
-                             libcouchbase_cas_t cas)
+void CouchbaseCookie::result(lcb_error_t error,
+                             const void *key, lcb_size_t nkey,
+                             lcb_uint64_t value,
+                             lcb_cas_t cas)
 {
     using namespace v8;
     HandleScope scope;
@@ -106,7 +107,7 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
     argv[0] = Local<Value>::New(ucookie);
     argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
 
-    if (error != LIBCOUCHBASE_SUCCESS) {
+    if (error != LCB_SUCCESS) {
         argv[1] = Local<Value>::New(Number::New(error));
         argv[3] = Local<Value>::New(Undefined());
         argv[4] = Local<Value>::New(Undefined());
@@ -120,8 +121,8 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
 }
 
 // (data, error, key)
-void CouchbaseCookie::result(libcouchbase_error_t error,
-                             const void *key, libcouchbase_size_t nkey)
+void CouchbaseCookie::result(lcb_error_t error,
+                             const void *key, lcb_size_t nkey)
 {
     using namespace v8;
     HandleScope scope;
@@ -131,7 +132,7 @@ void CouchbaseCookie::result(libcouchbase_error_t error,
     argv[0] = Local<Value>::New(ucookie);
     argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
 
-    if (error != LIBCOUCHBASE_SUCCESS) {
+    if (error != LCB_SUCCESS) {
         argv[1] = Local<Value>::New(Number::New(error));
     } else {
         argv[1] = Local<Value>::New(False());
@@ -145,63 +146,102 @@ static inline CouchbaseCookie *getInstance(const void *c)
     return reinterpret_cast<CouchbaseCookie *>(const_cast<void *>(c));
 }
 
+// @todo we need to do this a better way in the future!
+static void unknownLibcouchbaseType(const std::string &type, int version)
+{
+    std::stringstream ss;
+    ss << "Received an unsupported object version for "
+       << type.c_str() << ": " << version;
+    Couchnode::Exception ex(ss.str().c_str());
+    throw ex;
+}
+
+
 extern "C" {
     // libcouchbase handlers keep a C linkage...
-    static void error_callback(libcouchbase_t instance,
-                               libcouchbase_error_t err, const char *errinfo)
+    static void error_callback(lcb_t instance,
+                               lcb_error_t err, const char *errinfo)
     {
-        void *cookie = const_cast<void *>(libcouchbase_get_cookie(instance));
+        void *cookie = const_cast<void *>(lcb_get_cookie(instance));
         Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
         me->errorCallback(err, errinfo);
     }
 
-    static void get_callback(libcouchbase_t,
-                             const void *commandCookie,
-                             libcouchbase_error_t error,
-                             const void *key, libcouchbase_size_t nkey,
-                             const void *bytes,
-                             libcouchbase_size_t nbytes,
-                             libcouchbase_uint32_t flags,
-                             libcouchbase_cas_t cas)
+
+
+    static void get_callback(lcb_t,
+                             const void *cookie,
+                             lcb_error_t error,
+                             const lcb_get_resp_t *resp)
     {
-        getInstance(commandCookie)->result(error, key, nkey, bytes, nbytes,
-                                           flags, cas);
+        if (resp->version != 0) {
+            unknownLibcouchbaseType("get", resp->version);
+        }
+
+        getInstance(cookie)->result(error, resp->v.v0.key, resp->v.v0.nkey,
+                                    resp->v.v0.bytes, resp->v.v0.nbytes,
+                                    resp->v.v0.flags, resp->v.v0.cas);
     }
 
-    static void storage_callback(libcouchbase_t,
-                                 const void *commandCookie,
-                                 libcouchbase_storage_t,
-                                 libcouchbase_error_t error, const void *key,
-                                 libcouchbase_size_t nkey,
-                                 libcouchbase_cas_t cas)
+    static void store_callback(lcb_t,
+                               const void *cookie,
+                               lcb_storage_t,
+                               lcb_error_t error,
+                               const lcb_store_resp_t *resp)
     {
-        getInstance(commandCookie)->result(error, key, nkey, cas);
+        if (resp->version != 0) {
+            unknownLibcouchbaseType("store", resp->version);
+        }
+
+        getInstance(cookie)->result(error, resp->v.v0.key,
+                                    resp->v.v0.nkey, resp->v.v0.cas);
     }
 
-    static void arithmetic_callback(libcouchbase_t,
-                                    const void *commandCookie,
-                                    libcouchbase_error_t error,
-                                    const void *key, libcouchbase_size_t nkey,
-                                    libcouchbase_uint64_t value,
-                                    libcouchbase_cas_t cas)
+    static void arithmetic_callback(lcb_t,
+                                    const void *cookie,
+                                    lcb_error_t error,
+                                    const lcb_arithmetic_resp_t *resp)
     {
-        getInstance(commandCookie)->result(error, key, nkey, value, cas);
+        if (resp->version != 0) {
+            unknownLibcouchbaseType("arithmetic", resp->version);
+        }
+
+        getInstance(cookie)->result(error, resp->v.v0.key, resp->v.v0.nkey,
+                                    resp->v.v0.value, resp->v.v0.cas);
     }
 
-    // We use this callback for both remove and touch, as they take the same
-    // arguments
-    static void keyop_callback(libcouchbase_t,
-                               const void *commandCookie,
-                               libcouchbase_error_t error, const void *key,
-                               libcouchbase_size_t nkey)
+
+
+    static void remove_callback(lcb_t,
+                                const void *cookie,
+                                lcb_error_t error,
+                                const lcb_remove_resp_t *resp)
     {
-        getInstance(commandCookie)->result(error, key, nkey);
+        if (resp->version != 0) {
+            unknownLibcouchbaseType("remove", resp->version);
+        }
+
+        getInstance(cookie)->result(error, resp->v.v0.key, resp->v.v0.nkey);
+
     }
 
-    static void configuration_callback(libcouchbase_t instance,
-                                       libcouchbase_configuration_t config)
+    static void touch_callback(lcb_t,
+                               const void *cookie,
+                               lcb_error_t error,
+                               const lcb_touch_resp_t *resp)
     {
-        void *cookie = const_cast<void *>(libcouchbase_get_cookie(instance));
+        if (resp->version != 0) {
+            unknownLibcouchbaseType("touch", resp->version);
+        }
+
+        getInstance(cookie)->result(error, resp->v.v0.key, resp->v.v0.nkey);
+
+    }
+
+    static void configuration_callback(lcb_t instance,
+                                       lcb_configuration_t config)
+    {
+        void *cookie = const_cast<void *>(lcb_get_cookie(instance));
         Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
         me->onConnect(config);
     }
@@ -209,11 +249,11 @@ extern "C" {
 
 void Couchbase::setupLibcouchbaseCallbacks(void)
 {
-    libcouchbase_set_error_callback(instance, error_callback);
-    libcouchbase_set_get_callback(instance, get_callback);
-    libcouchbase_set_storage_callback(instance, storage_callback);
-    libcouchbase_set_arithmetic_callback(instance, arithmetic_callback);
-    libcouchbase_set_remove_callback(instance, keyop_callback);
-    libcouchbase_set_touch_callback(instance, keyop_callback);
-    libcouchbase_set_configuration_callback(instance, configuration_callback);
+    lcb_set_error_callback(instance, error_callback);
+    lcb_set_get_callback(instance, get_callback);
+    lcb_set_store_callback(instance, store_callback);
+    lcb_set_arithmetic_callback(instance, arithmetic_callback);
+    lcb_set_remove_callback(instance, remove_callback);
+    lcb_set_touch_callback(instance, touch_callback);
+    lcb_set_configuration_callback(instance, configuration_callback);
 }

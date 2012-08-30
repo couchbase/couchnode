@@ -22,7 +22,7 @@ namespace Couchnode
 
         bool extractUdata();
         void extractExpiry(const v8::Handle<v8::Value> &, time_t *);
-        void extractCas(const v8::Handle<v8::Value> &, libcouchbase_cas_t *);
+        void extractCas(const v8::Handle<v8::Value> &, lcb_cas_t *);
 
         void getParam(int aix, int dcix, v8::Handle<v8::Value> *vp) {
             if (use_dictparams) {
@@ -34,7 +34,7 @@ namespace Couchnode
             }
         }
 
-        virtual void bailout(CouchbaseCookie *, libcouchbase_error_t);
+        virtual void bailout(CouchbaseCookie *, lcb_error_t);
 
         void invalidate() {
             stale = true;
@@ -74,7 +74,7 @@ namespace Couchnode
         size_t ndata;
         time_t exp;
         uint64_t cas;
-        libcouchbase_storage_t storop;
+        lcb_storage_t storop;
     };
 
     class MGetArgs : public CommonArgs
@@ -87,7 +87,7 @@ namespace Couchnode
             return new CouchbaseCookie(args.This(), ucb, udata, kcount);
         }
 
-        virtual void bailout(CouchbaseCookie *, libcouchbase_error_t);
+        virtual void bailout(CouchbaseCookie *, lcb_error_t);
 
         virtual void sync(const MGetArgs &other) {
             if (other.keys == &other.key) {

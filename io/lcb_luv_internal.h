@@ -21,7 +21,7 @@
     (sock->evstate + LCB_LUV_EV_ ## evtype)
 
 #define SOCK_EV_ENABLED(sock, evtype) \
-    (sock->event && (sock->event->lcb_events & LIBCOUCHBASE_ ## evtype ## _EVENT))
+    (sock->event && (sock->event->lcb_events & LCB_ ## evtype ## _EVENT))
 
 #define IOPS_COOKIE(iops) \
     ((struct lcb_luv_cookie_st*)(iops->cookie))
@@ -129,86 +129,86 @@ struct lcb_luv_socket_st {
 
 
 void *
-lcb_luv_create_event(struct libcouchbase_io_opt_st *iops);
+lcb_luv_create_event(struct lcb_io_opt_st *iops);
 
 int
-lcb_luv_update_event(struct libcouchbase_io_opt_st *iops,
-                     libcouchbase_socket_t sock_i,
+lcb_luv_update_event(struct lcb_io_opt_st *iops,
+                     lcb_socket_t sock_i,
                      void *event_opaque,
                      short flags,
                      void *cb_data,
                      lcb_luv_callback_t cb);
 
 void
-lcb_luv_delete_event(struct libcouchbase_io_opt_st *iops,
-                     libcouchbase_socket_t sock_i,
+lcb_luv_delete_event(struct lcb_io_opt_st *iops,
+                     lcb_socket_t sock_i,
                      void *event_opaque);
 
 void
-lcb_luv_destroy_event(struct libcouchbase_io_opt_st *iops,
+lcb_luv_destroy_event(struct lcb_io_opt_st *iops,
                       void *event_opaque);
 
-libcouchbase_socket_t
-lcb_luv_socket(struct libcouchbase_io_opt_st *iops,
+lcb_socket_t
+lcb_luv_socket(struct lcb_io_opt_st *iops,
                int domain, int type, int protocol);
 
 int
-lcb_luv_connect(struct libcouchbase_io_opt_st *iops,
-                libcouchbase_socket_t sock_i,
+lcb_luv_connect(struct lcb_io_opt_st *iops,
+                lcb_socket_t sock_i,
                 const struct sockaddr *saddr,
                 unsigned int saddr_len);
 
 
 void
-lcb_luv_close(struct libcouchbase_io_opt_st *iops, libcouchbase_socket_t sock_i);
+lcb_luv_close(struct lcb_io_opt_st *iops, lcb_socket_t sock_i);
 
 
 /* READ */
-libcouchbase_ssize_t
-lcb_luv_recv(struct libcouchbase_io_opt_st *iops,
-             libcouchbase_socket_t sock_i,
+lcb_ssize_t
+lcb_luv_recv(struct lcb_io_opt_st *iops,
+             lcb_socket_t sock_i,
              void *buffer,
-             libcouchbase_size_t len,
+             lcb_size_t len,
              int flags);
-libcouchbase_ssize_t
-lcb_luv_recvv(struct libcouchbase_io_opt_st *iops,
-              libcouchbase_socket_t sock_i,
-              struct libcouchbase_iovec_st *iov,
-              libcouchbase_size_t niov);
+lcb_ssize_t
+lcb_luv_recvv(struct lcb_io_opt_st *iops,
+              lcb_socket_t sock_i,
+              struct lcb_iovec_st *iov,
+              lcb_size_t niov);
 
 
 /* WRITE */
-libcouchbase_ssize_t
-lcb_luv_send(struct libcouchbase_io_opt_st *iops,
-             libcouchbase_socket_t sock_i,
+lcb_ssize_t
+lcb_luv_send(struct lcb_io_opt_st *iops,
+             lcb_socket_t sock_i,
              const void *msg,
-             libcouchbase_size_t len,
+             lcb_size_t len,
              int flags);
 
-libcouchbase_ssize_t
-lcb_luv_sendv(struct libcouchbase_io_opt_st *iops,
-              libcouchbase_socket_t sock_i,
-              struct libcouchbase_iovec_st *iov,
-              libcouchbase_size_t niov);
+lcb_ssize_t
+lcb_luv_sendv(struct lcb_io_opt_st *iops,
+              lcb_socket_t sock_i,
+              struct lcb_iovec_st *iov,
+              lcb_size_t niov);
 
 
 /* TIMER */
 void *
-lcb_luv_create_timer(struct libcouchbase_io_opt_st *iops);
+lcb_luv_create_timer(struct lcb_io_opt_st *iops);
 
 int
-lcb_luv_update_timer(struct libcouchbase_io_opt_st *iops,
+lcb_luv_update_timer(struct lcb_io_opt_st *iops,
                      void *timer_opaque,
-                     libcouchbase_uint32_t usecs,
+                     lcb_uint32_t usecs,
                      void *cbdata,
                      lcb_luv_callback_t callback);
 
 void
-lcb_luv_delete_timer(struct libcouchbase_io_opt_st *iops,
+lcb_luv_delete_timer(struct lcb_io_opt_st *iops,
                      void *timer_opaque);
 
 void
-lcb_luv_destroy_timer(struct libcouchbase_io_opt_st *iops,
+lcb_luv_destroy_timer(struct lcb_io_opt_st *iops,
                       void *timer_opaque);
 
 /**
@@ -219,7 +219,7 @@ lcb_luv_destroy_timer(struct libcouchbase_io_opt_st *iops,
  * This will allocate a new 'socket'. Returns the new socket, or NULL on error
  */
 lcb_luv_socket_t
-lcb_luv_socket_new(struct libcouchbase_io_opt_st *iops);
+lcb_luv_socket_new(struct lcb_io_opt_st *iops);
 
 /**
  * This deinitializes a socket.
@@ -249,7 +249,7 @@ lcb_luv_socket_free(lcb_luv_socket_t sock);
  * This will get a socket structure from an index
  */
 lcb_luv_socket_t
-lcb_luv_sock_from_idx(struct libcouchbase_io_opt_st *iops, libcouchbase_socket_t idx);
+lcb_luv_sock_from_idx(struct lcb_io_opt_st *iops, lcb_socket_t idx);
 
 /**
  * Will try and let us get read events on this socket

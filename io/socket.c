@@ -2,8 +2,8 @@
 
 
 
-libcouchbase_socket_t
-lcb_luv_socket(struct libcouchbase_io_opt_st *iops,
+lcb_socket_t
+lcb_luv_socket(struct lcb_io_opt_st *iops,
                int domain,
                int type,
                int protocol)
@@ -45,17 +45,17 @@ connect_cb(uv_connect_t* req, int status)
     /* Since this is a write event on a socket, see if we should send the
      * callback
      */
-    if (sock->event && (sock->event->lcb_events & LIBCOUCHBASE_WRITE_EVENT)) {
+    if (sock->event && (sock->event->lcb_events & LCB_WRITE_EVENT)) {
         log_socket_debug("Invoking libcouchbase write callback...");
-        sock->event->lcb_cb(sock->idx, LIBCOUCHBASE_WRITE_EVENT, sock->event->lcb_arg);
+        sock->event->lcb_cb(sock->idx, LCB_WRITE_EVENT, sock->event->lcb_arg);
     }
 
     lcb_luv_socket_unref(sock);
 }
 
 int
-lcb_luv_connect(struct libcouchbase_io_opt_st *iops,
-                libcouchbase_socket_t sock_i,
+lcb_luv_connect(struct lcb_io_opt_st *iops,
+                lcb_socket_t sock_i,
                 const struct sockaddr *saddr,
                 unsigned int saddr_len)
 {
@@ -125,7 +125,7 @@ lcb_luv_connect(struct libcouchbase_io_opt_st *iops,
 }
 
 void
-lcb_luv_close(struct libcouchbase_io_opt_st *iops, libcouchbase_socket_t sock_i)
+lcb_luv_close(struct lcb_io_opt_st *iops, lcb_socket_t sock_i)
 {
     /* Free a socket */
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);

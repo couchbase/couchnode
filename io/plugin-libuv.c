@@ -3,13 +3,13 @@
 static int _yolog_initialized = 0;
 
 static void __attribute__((unused))
-lcb_luv_noop(struct libcouchbase_io_opt_st *iops)
+lcb_luv_noop(struct lcb_io_opt_st *iops)
 {
     (void)iops;
 }
 
 static void
-lcb_luv_dtor(struct libcouchbase_io_opt_st *iops)
+lcb_luv_dtor(struct lcb_io_opt_st *iops)
 {
     /**
      * First, clean up any dangling sockets
@@ -44,19 +44,19 @@ invoke_startstop_callback(struct lcb_luv_cookie_st *cookie,
 }
 
 static void
-invoke_start_callback(struct libcouchbase_io_opt_st *iops)
+invoke_start_callback(struct lcb_io_opt_st *iops)
 {
     log_iops_debug("Start event loop..");
     invoke_startstop_callback(IOPS_COOKIE(iops), IOPS_COOKIE(iops)->start_callback);
 }
 
 static void
-invoke_stop_callback(struct libcouchbase_io_opt_st *iops)
+invoke_stop_callback(struct lcb_io_opt_st *iops)
 {
     invoke_startstop_callback(IOPS_COOKIE(iops), IOPS_COOKIE(iops)->stop_callback);
 }
 
-static void sync_loop_run(struct libcouchbase_io_opt_st *iops)
+static void sync_loop_run(struct lcb_io_opt_st *iops)
 {
     log_iops_info("=== LOOP: run ===");
     IOPS_COOKIE(iops)->do_stop = 0;
@@ -68,16 +68,16 @@ static void sync_loop_run(struct libcouchbase_io_opt_st *iops)
 #endif /* LCB_LUV_NODEJS */
 }
 
-static void sync_loop_stop(struct libcouchbase_io_opt_st *iops)
+static void sync_loop_stop(struct lcb_io_opt_st *iops)
 {
     log_iops_info("=== LOOP: stop ===");
     IOPS_COOKIE(iops)->do_stop = 1;
 }
 
-struct libcouchbase_io_opt_st *
+struct lcb_io_opt_st *
 lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max)
 {
-    struct libcouchbase_io_opt_st *ret = calloc(1, sizeof(*ret));
+    struct lcb_io_opt_st *ret = calloc(1, sizeof(*ret));
     struct lcb_luv_cookie_st *cookie = calloc(1, sizeof(*cookie));
 
     if (!_yolog_initialized) {
@@ -127,11 +127,11 @@ lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max)
     return ret;
 }
 
-struct libcouchbase_io_opt_st *
-libcouchbase__TestLoop(void)
+struct lcb_io_opt_st *
+lcb__TestLoop(void)
 {
     uv_loop_t *loop = uv_default_loop();
-    struct libcouchbase_io_opt_st *ret = lcb_luv_create_io_opts(loop, 1024);
+    struct lcb_io_opt_st *ret = lcb_luv_create_io_opts(loop, 1024);
     ret->run_event_loop = sync_loop_run;
     ret->stop_event_loop = sync_loop_stop;
     return ret;

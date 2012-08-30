@@ -17,7 +17,7 @@ timer_cb(uv_timer_t *uvt, int status)
 }
 
 void *
-lcb_luv_create_timer(struct libcouchbase_io_opt_st *iops)
+lcb_luv_create_timer(struct lcb_io_opt_st *iops)
 {
     struct my_timer_st *timer = calloc(1, sizeof(*timer));
     uv_timer_init(IOPS_COOKIE(iops)->loop, &timer->uvt);
@@ -26,9 +26,9 @@ lcb_luv_create_timer(struct libcouchbase_io_opt_st *iops)
 }
 
 int
-lcb_luv_update_timer(struct libcouchbase_io_opt_st *iops,
+lcb_luv_update_timer(struct lcb_io_opt_st *iops,
                      void *timer_opaque,
-                     libcouchbase_uint32_t usec,
+                     lcb_uint32_t usec,
                      void *cbdata,
                      lcb_luv_callback_t callback)
 {
@@ -40,7 +40,7 @@ lcb_luv_update_timer(struct libcouchbase_io_opt_st *iops,
 
 
 void
-lcb_luv_delete_timer(struct libcouchbase_io_opt_st *iops,
+lcb_luv_delete_timer(struct lcb_io_opt_st *iops,
                      void *timer_opaque)
 {
     uv_timer_stop((uv_timer_t*)timer_opaque);
@@ -54,7 +54,7 @@ timer_close_cb(uv_handle_t* handle)
 }
 
 void
-lcb_luv_destroy_timer(struct libcouchbase_io_opt_st *iops,
+lcb_luv_destroy_timer(struct lcb_io_opt_st *iops,
                       void *timer_opaque)
 {
     lcb_luv_delete_timer(iops, timer_opaque);

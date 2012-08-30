@@ -25,7 +25,7 @@
 using namespace std;
 using namespace Couchnode;
 
-typedef libcouchbase_io_opt_st *(*loop_factory_fn)(uv_loop_t *, uint16_t);
+typedef lcb_io_opt_st *(*loop_factory_fn)(uv_loop_t *, uint16_t);
 
 // libcouchbase handlers keep a C linkage...
 extern "C" {
@@ -53,12 +53,12 @@ v8::Handle<v8::Value> Couchnode::ThrowIllegalArgumentsException(void)
     return Couchnode::ThrowException("Illegal Arguments");
 }
 
-Couchbase::Couchbase(libcouchbase_t inst) :
+Couchbase::Couchbase(lcb_t inst) :
     ObjectWrap(), connected(false), useHashtableParams(false),
-    instance(inst), lastError(LIBCOUCHBASE_SUCCESS)
+    instance(inst), lastError(LCB_SUCCESS)
 
 {
-    libcouchbase_set_cookie(instance, reinterpret_cast<void *>(this));
+    lcb_set_cookie(instance, reinterpret_cast<void *>(this));
     setupLibcouchbaseCallbacks();
 #ifdef COUCHNODE_DEBUG
     ++objectCount;
@@ -73,7 +73,7 @@ Couchbase::~Couchbase()
          << "Still have " << objectCount << " handles remaining" << endl;
 #endif
 
-    libcouchbase_destroy(instance);
+    lcb_destroy(instance);
 
     EventMap::iterator iter = events.begin();
     while (iter != events.end()) {
@@ -211,23 +211,25 @@ v8::Handle<v8::Value> Couchbase::New(const v8::Arguments &args)
         }
     }
 
-    libcouchbase_io_opt_st *iops = lcb_luv_create_io_opts(uv_default_loop(),
-                                                          1024);
+    lcb_io_opt_st *iops = lcb_luv_create_io_opts(uv_default_loop(),
+                                                 1024);
     if (iops == NULL) {
         return ThrowException("Failed to create a new IO ops structure");
     }
 
-    libcouchbase_t instance = libcouchbase_create(argv[0], argv[1], argv[2],
-                                                  argv[3], iops);
+    lcb_create_st createOptions(argv[0], argv[1], argv[2],
+                                argv[3], iops);
+    lcb_t instance;
+    lcb_error_t err = lcb_create(&instance, &createOptions);
     for (int ii = 0; ii < 4; ++ii) {
         delete[] argv[ii];
     }
 
-    if (instance == NULL) {
+    if (err != LCB_SUCCESS) {
         return ThrowException("Failed to create libcouchbase instance");
     }
 
-    if (libcouchbase_connect(instance) != LIBCOUCHBASE_SUCCESS) {
+    if (lcb_connect(instance) != LCB_SUCCESS) {
         return ThrowException("Failed to schedule connection");
     }
 
@@ -241,7 +243,7 @@ v8::Handle<v8::Value> Couchbase::GetVersion(const v8::Arguments &)
     v8::HandleScope scope;
 
     stringstream ss;
-    ss << "libcouchbase node.js v1.0.0 (v" << libcouchbase_get_version(NULL)
+    ss << "libcouchbase node.js v1.0.0 (v" << lcb_get_version(NULL)
        << ")";
 
     v8::Local<v8::String> result = v8::String::New(ss.str().c_str());
@@ -257,7 +259,7 @@ v8::Handle<v8::Value> Couchbase::SetTimeout(const v8::Arguments &args)
     v8::HandleScope scope;
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     uint32_t timeout = args[0]->Int32Value();
-    libcouchbase_set_timeout(me->instance, timeout);
+    lcb_set_timeout(me->instance, timeout);
 
     return v8::True();
 }
@@ -270,7 +272,7 @@ v8::Handle<v8::Value> Couchbase::GetTimeout(const v8::Arguments &args)
 
     v8::HandleScope scope;
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
-    return scope.Close(v8::Integer::New(libcouchbase_get_timeout(me->instance)));
+    return scope.Close(v8::Integer::New(lcb_get_timeout(me->instance)));
 }
 
 v8::Handle<v8::Value> Couchbase::GetRestUri(const v8::Arguments &args)
@@ -282,7 +284,7 @@ v8::Handle<v8::Value> Couchbase::GetRestUri(const v8::Arguments &args)
     v8::HandleScope scope;
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
     stringstream ss;
-    ss << libcouchbase_get_host(me->instance) << ":" << libcouchbase_get_port(
+    ss << lcb_get_host(me->instance) << ":" << lcb_get_port(
            me->instance);
 
     return scope.Close(v8::String::New(ss.str().c_str()));
@@ -298,14 +300,14 @@ v8::Handle<v8::Value> Couchbase::SetSynchronous(const v8::Arguments &args)
 
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
 
-    libcouchbase_syncmode_t mode;
+    lcb_syncmode_t mode;
     if (args[0]->BooleanValue()) {
-        mode = LIBCOUCHBASE_SYNCHRONOUS;
+        mode = LCB_SYNCHRONOUS;
     } else {
-        mode = LIBCOUCHBASE_ASYNCHRONOUS;
+        mode = LCB_ASYNCHRONOUS;
     }
 
-    libcouchbase_behavior_set_syncmode(me->instance, mode);
+    lcb_behavior_set_syncmode(me->instance, mode);
     return v8::True();
 }
 
@@ -317,8 +319,8 @@ v8::Handle<v8::Value> Couchbase::IsSynchronous(const v8::Arguments &args)
 
     v8::HandleScope scope;
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
-    if (libcouchbase_behavior_get_syncmode(me->instance)
-            == LIBCOUCHBASE_SYNCHRONOUS) {
+    if (lcb_behavior_get_syncmode(me->instance)
+            == LCB_SYNCHRONOUS) {
         return v8::True();
     }
 
@@ -333,11 +335,11 @@ v8::Handle<v8::Value> Couchbase::GetLastError(const v8::Arguments &args)
 
     v8::HandleScope scope;
     Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This());
-    const char *msg = libcouchbase_strerror(me->instance, me->lastError);
+    const char *msg = lcb_strerror(me->instance, me->lastError);
     return scope.Close(v8::String::New(msg));
 }
 
-void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
+void Couchbase::errorCallback(lcb_error_t err, const char *errinfo)
 {
 
     if (!connected) {
@@ -346,7 +348,7 @@ void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
         runScheduledCommands();
     }
 
-    if (err == LIBCOUCHBASE_ETIMEDOUT && onTimeout()) {
+    if (err == LCB_ETIMEDOUT && onTimeout()) {
         return;
     }
 
@@ -359,15 +361,15 @@ void Couchbase::errorCallback(libcouchbase_error_t err, const char *errinfo)
     }
 }
 
-void Couchbase::onConnect(libcouchbase_configuration_t config)
+void Couchbase::onConnect(lcb_configuration_t config)
 {
-    if (config == LIBCOUCHBASE_CONFIGURATION_NEW) {
+    if (config == LCB_CONFIGURATION_NEW) {
         if (!connected) {
             connected = true;
             runScheduledCommands();
         }
     }
-    libcouchbase_set_configuration_callback(instance, NULL);
+    lcb_set_configuration_callback(instance, NULL);
 }
 
 bool Couchbase::onTimeout(void)

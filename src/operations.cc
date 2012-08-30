@@ -23,61 +23,97 @@ using namespace Couchnode;
  * and unpack it into the appropriate libcouchbase entry point.
  */
 
-static libcouchbase_error_t doGet(libcouchbase_t instance,
-                                  CommonArgs *args,
-                                  CouchbaseCookie *cookie)
+static lcb_error_t doGet(lcb_t instance,
+                         CommonArgs *args,
+                         CouchbaseCookie *cookie)
 {
     MGetArgs *cargs = static_cast<MGetArgs *>(args);
-    return libcouchbase_mget(instance, cookie, cargs->kcount,
-                             (const void * const *)cargs->keys,
-                             cargs->sizes,
-                             cargs->exps);
+
+    // @todo move this over to the MGetArgs structs
+    lcb_get_cmd_t **commands = new lcb_get_cmd_t*[cargs->kcount];
+    for (size_t ii = 0; ii < cargs->kcount; ++ii) {
+        if (cargs->exps == NULL) {
+            commands[ii] = new lcb_get_cmd_t(cargs->keys[ii],
+                                             cargs->sizes[ii]);
+        } else {
+            // @todo how do the single thing work?
+            commands[ii] = new lcb_get_cmd_t(cargs->keys[ii],
+                                             cargs->sizes[ii],
+                                             cargs->exps[ii]);
+        }
+    }
+
+    lcb_error_t ret = lcb_get(instance, cookie, cargs->kcount, commands);
+    for (size_t ii = 0; ii < cargs->kcount; ++ii) {
+        delete commands[ii];
+    }
+    delete []commands;
+
+    return ret;
 }
 
-static libcouchbase_error_t doSet(libcouchbase_t instance,
-                                  CommonArgs *args,
-                                  CouchbaseCookie *cookie)
+static lcb_error_t doSet(lcb_t instance,
+                         CommonArgs *args,
+                         CouchbaseCookie *cookie)
 {
     StorageArgs *cargs = static_cast<StorageArgs *>(args);
-    return libcouchbase_store(instance, cookie, cargs->storop,
-                              cargs->key, cargs->nkey,
-                              cargs->data, cargs->ndata,
-                              0,
-                              cargs->exp,
-                              cargs->cas);
+
+    lcb_store_cmd_t cmd(cargs->storop, cargs->key, cargs->nkey,
+                        cargs->data, cargs->ndata, 0, cargs->exp,
+                        cargs->cas);
+    lcb_store_cmd_t *commands[] = { &cmd };
+    return lcb_store(instance, cookie, 1, commands);
 }
 
-static libcouchbase_error_t doTouch(libcouchbase_t instance,
-                                    CommonArgs *args,
-                                    CouchbaseCookie *cookie)
+static lcb_error_t doTouch(lcb_t instance,
+                           CommonArgs *args,
+                           CouchbaseCookie *cookie)
 {
     MGetArgs *cargs = static_cast<MGetArgs *>(args);
-    return libcouchbase_mtouch(instance, cookie, cargs->kcount,
-                               (const void * const *)cargs->keys,
-                               cargs->sizes,
-                               cargs->exps);
+
+
+    // @todo move this over to the MGetArgs structs
+    lcb_touch_cmd_t **commands = new lcb_touch_cmd_t*[cargs->kcount];
+    for (size_t ii = 0; ii < cargs->kcount; ++ii) {
+        if (cargs->exps == NULL) {
+            commands[ii] = new lcb_touch_cmd_t(cargs->keys[ii],
+                                               cargs->sizes[ii]);
+        } else {
+            // @todo how do the single thing work?
+            commands[ii] = new lcb_touch_cmd_t(cargs->keys[ii],
+                                               cargs->sizes[ii],
+                                               cargs->exps[ii]);
+        }
+    }
+
+    lcb_error_t ret = lcb_touch(instance, cookie, cargs->kcount, commands);
+    for (size_t ii = 0; ii < cargs->kcount; ++ii) {
+        delete commands[ii];
+    }
+    delete []commands;
+
+    return ret;
 }
 
-static libcouchbase_error_t doArithmetic(libcouchbase_t instance,
-                                         CommonArgs *args,
-                                         CouchbaseCookie *cookie)
+static lcb_error_t doArithmetic(lcb_t instance,
+                                CommonArgs *args,
+                                CouchbaseCookie *cookie)
 {
     ArithmeticArgs *cargs = static_cast<ArithmeticArgs *>(args);
-    return libcouchbase_arithmetic(instance, cookie,
-                                   cargs->key, cargs->nkey,
-                                   cargs->delta,
-                                   cargs->exp,
-                                   cargs->create,
-                                   cargs->initial);
+    lcb_arithmetic_cmd_t cmd(cargs->key, cargs->nkey, cargs->delta,
+                             cargs->create, cargs->initial, cargs->exp);
+    lcb_arithmetic_cmd_t *commands[] = { &cmd };
+    return lcb_arithmetic(instance, cookie, 1, commands);
 }
 
-static libcouchbase_error_t doRemove(libcouchbase_t instance,
-                                     CommonArgs *args,
-                                     CouchbaseCookie *cookie)
+static lcb_error_t doRemove(lcb_t instance,
+                            CommonArgs *args,
+                            CouchbaseCookie *cookie)
 {
     KeyopArgs *cargs = static_cast<KeyopArgs *>(args);
-    return libcouchbase_remove(instance, cookie, cargs->key, cargs->nkey,
-                               cargs->cas);
+    lcb_remove_cmd_t cmd(cargs->key, cargs->nkey, cargs->cas);
+    lcb_remove_cmd_t *commands[] = { &cmd };
+    return lcb_remove(instance, cookie, 1, commands);
 }
 
 /**
@@ -99,9 +135,9 @@ static inline v8::Handle<v8::Value> makeOperation(Couchbase *me,
 
     CouchbaseCookie *cookie = cargs->makeCookie();
 
-    libcouchbase_error_t err = ofn(me->getLibcouchbaseHandle(), cargs, cookie);
+    lcb_error_t err = ofn(me->getLibcouchbaseHandle(), cargs, cookie);
 
-    if (err != LIBCOUCHBASE_SUCCESS) {
+    if (err != LCB_SUCCESS) {
         me->setLastError(err);
         if (me->isConnected()) {
             cargs->bailout(cookie, err);
@@ -122,10 +158,8 @@ void Couchbase::runScheduledCommands(void)
     for (QueuedCommandList::iterator iter = queued_commands.begin();
             iter != queued_commands.end(); iter++) {
 
-        libcouchbase_error_t err = iter->ofn(instance,
-                                             iter->args,
-                                             iter->cookie);
-        if (err != LIBCOUCHBASE_SUCCESS) {
+        lcb_error_t err = iter->ofn(instance, iter->args, iter->cookie);
+        if (err != LCB_SUCCESS) {
             lastError = err;
             iter->args->bailout(iter->cookie, err);
         }
@@ -154,7 +188,7 @@ v8::Handle<v8::Value> Couchbase::Touch(const v8::Arguments &args)
 #define COUCHBASE_STOREFN_DEFINE(name, mode) \
     v8::Handle<v8::Value> Couchbase::name(const v8::Arguments& args) { \
         COUCHNODE_API_INIT_COMMON(StorageArgs); \
-        cargs.storop = LIBCOUCHBASE_##mode; \
+        cargs.storop = LCB_##mode; \
         return makeOperation<StorageArgs>(me, &cargs, doSet); \
     }
 

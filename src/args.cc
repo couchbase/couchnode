@@ -109,7 +109,7 @@ bool CommonArgs::extractUdata()
 }
 
 void CommonArgs::extractCas(const v8::Handle<v8::Value> &arg,
-                            libcouchbase_cas_t *cas)
+                            lcb_cas_t *cas)
 {
     if (isFalseValue(arg)) {
         *cas = 0;
@@ -136,7 +136,7 @@ CouchbaseCookie *CommonArgs::makeCookie()
     return new CouchbaseCookie(args.This(), ucb, udata, 1);
 }
 
-void CommonArgs::bailout(CouchbaseCookie *cookie, libcouchbase_error_t err)
+void CommonArgs::bailout(CouchbaseCookie *cookie, lcb_error_t err)
 {
     cookie->result(err, key, nkey);
 }
@@ -256,7 +256,7 @@ bool MGetArgs::extractKey()
     return true;
 }
 
-void MGetArgs::bailout(CouchbaseCookie *cookie, libcouchbase_error_t err)
+void MGetArgs::bailout(CouchbaseCookie *cookie, lcb_error_t err)
 {
     for (unsigned ii = 0; ii < kcount; ii++) {
         cookie->result(err, keys[ii], sizes[ii]);

@@ -19,24 +19,24 @@ namespace Couchnode
                         unsigned int numRemaining);
         virtual ~CouchbaseCookie();
 
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey,
+        void result(lcb_error_t error,
+                    const void *key, lcb_size_t nkey,
                     const void *bytes,
-                    libcouchbase_size_t nbytes,
-                    libcouchbase_uint32_t flags,
-                    libcouchbase_cas_t cas);
+                    lcb_size_t nbytes,
+                    lcb_uint32_t flags,
+                    lcb_cas_t cas);
 
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey,
-                    libcouchbase_cas_t cas);
+        void result(lcb_error_t error,
+                    const void *key, lcb_size_t nkey,
+                    lcb_cas_t cas);
 
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey,
-                    libcouchbase_uint64_t value,
-                    libcouchbase_cas_t cas);
+        void result(lcb_error_t error,
+                    const void *key, lcb_size_t nkey,
+                    lcb_uint64_t value,
+                    lcb_cas_t cas);
 
-        void result(libcouchbase_error_t error,
-                    const void *key, libcouchbase_size_t nkey);
+        void result(lcb_error_t error,
+                    const void *key, lcb_size_t nkey);
 
     protected:
         unsigned int remaining;

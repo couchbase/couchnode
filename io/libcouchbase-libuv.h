@@ -21,7 +21,7 @@ extern "C" {
 #define LCB_LUV_READAHEAD 0x4000
 #define LCB_LUV_WRITEBUFSZ 0x4000
 
-typedef void (*lcb_luv_callback_t)(libcouchbase_socket_t,short,void*);
+typedef void (*lcb_luv_callback_t)(lcb_socket_t,short,void*);
 struct lcb_luv_socket_st;
 typedef struct lcb_luv_socket_st* lcb_luv_socket_t;
 
@@ -63,7 +63,7 @@ struct lcb_luv_cookie_st {
  * sock_max * sizeof(char*) bytes are allocated per cookie you create, so you
  * probably don't want to make it too large. 8092 or such is a safe bet.
  */
-struct libcouchbase_io_opt_st *
+struct lcb_io_opt_st *
 lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max);
 
 /**
@@ -77,4 +77,4 @@ lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max);
 #endif /* __cplusplus */
 
 
-#endif /* LIBCOUCHBASE_LIBUV_H_ */
+#endif /* LCB_LIBUV_H_ */

@@ -14,8 +14,8 @@ maybe_callout(lcb_luv_socket_t sock)
 
 #define check_if_ready(fld) \
     if (EVSTATE_IS(&(sock->evstate[LCB_LUV_EV_ ## fld]), PENDING) && \
-            (sock->event->lcb_events & LIBCOUCHBASE_ ## fld ## _EVENT)) { \
-        which |= LIBCOUCHBASE_ ## fld ## _EVENT; \
+            (sock->event->lcb_events & LCB_ ## fld ## _EVENT)) { \
+        which |= LCB_ ## fld ## _EVENT; \
     }
 
     check_if_ready(READ);
@@ -76,16 +76,16 @@ lcb_luv_schedule_disable(lcb_luv_socket_t sock)
     sock->prep_active = 0;
 }
 
-static inline libcouchbase_socket_t
+static inline lcb_socket_t
 find_free_idx(struct lcb_luv_cookie_st *cookie)
 {
-    libcouchbase_socket_t ret = -1;
+    lcb_socket_t ret = -1;
     unsigned int nchecked = 0;
     while (nchecked < cookie->fd_max && ret == -1) {
         if (cookie->socktable[cookie->fd_next] == NULL) {
             ret = cookie->fd_next;
         }
-        cookie->fd_next = ((cookie->fd_next + 1 ) % cookie->fd_max);
+        cookie->fd_next = ((cookie->fd_next + 1) % cookie->fd_max);
         nchecked++;
     }
     return ret;
@@ -93,11 +93,11 @@ find_free_idx(struct lcb_luv_cookie_st *cookie)
 
 
 lcb_luv_socket_t
-lcb_luv_socket_new(struct libcouchbase_io_opt_st *iops)
+lcb_luv_socket_new(struct lcb_io_opt_st *iops)
 {
     /* Find the next 'file descriptor' */
 
-    libcouchbase_socket_t idx;
+    lcb_socket_t idx;
     lcb_luv_socket_t newsock;
     idx = find_free_idx(IOPS_COOKIE(iops));
     if (idx == -1) {
@@ -143,17 +143,17 @@ sock_free_pass(lcb_luv_socket_t sock)
 }
 
 static void
-io_close_cb(uv_handle_t* handle)
+io_close_cb(uv_handle_t *handle)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)handle;
     sock_free_pass(sock);
 }
 
 static void
-prep_close_cb(uv_handle_t* handle)
+prep_close_cb(uv_handle_t *handle)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)
-            (((char*)handle) - offsetof(struct lcb_luv_socket_st, prep));
+                            (((char *)handle) - offsetof(struct lcb_luv_socket_st, prep));
     sock_free_pass(sock);
 }
 
@@ -161,14 +161,14 @@ unsigned long
 lcb_luv_socket_unref(lcb_luv_socket_t sock)
 {
     unsigned long ret;
-    assert (sock->refcount);
+    assert(sock->refcount);
     sock->refcount--;
     ret = sock->refcount;
 
     if (ret == 0) {
         sock->handle_count = 2;
-        uv_close((uv_handle_t*)&sock->tcp, io_close_cb);
-        uv_close((uv_handle_t*)&sock->prep, prep_close_cb);
+        uv_close((uv_handle_t *)&sock->tcp, io_close_cb);
+        uv_close((uv_handle_t *)&sock->prep, prep_close_cb);
     }
     return ret;
 }
@@ -191,13 +191,13 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
 
     lcb_luv_read_stop(sock);
 
-    assert (sock->prep_active == 0);
+    assert(sock->prep_active == 0);
     sock->parent->socktable[sock->idx] = 0;
     sock->idx = -1;
 
     if (sock->refcount > 1) {
         log_socket_warn("Socket %p still has a reference count of %d",
-                   sock, sock->refcount);
+                        sock, sock->refcount);
         int ii;
         for (ii = 0; ii < LCB_LUV_EV_MAX; ii++) {
             struct lcb_luv_evstate_st *evstate = sock->evstate + ii;
@@ -213,7 +213,7 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
 
 
 lcb_luv_socket_t
-lcb_luv_sock_from_idx(struct libcouchbase_io_opt_st *iops, libcouchbase_socket_t idx)
+lcb_luv_sock_from_idx(struct lcb_io_opt_st *iops, lcb_socket_t idx)
 {
     if (idx < 0) {
         return NULL;
@@ -227,19 +227,19 @@ lcb_luv_sock_from_idx(struct libcouchbase_io_opt_st *iops, libcouchbase_socket_t
 }
 
 void *
-lcb_luv_create_event(struct libcouchbase_io_opt_st *iops)
+lcb_luv_create_event(struct lcb_io_opt_st *iops)
 {
     struct lcb_luv_event_st *ev = calloc(1, sizeof(struct lcb_luv_event_st));
     return ev;
 }
 
 void
-lcb_luv_delete_event(struct libcouchbase_io_opt_st *iops,
-                     libcouchbase_socket_t sock_i,
+lcb_luv_delete_event(struct lcb_io_opt_st *iops,
+                     lcb_socket_t sock_i,
                      void *event_opaque)
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
-    struct lcb_luv_event_st *ev = (struct lcb_luv_event_st*)event_opaque;
+    struct lcb_luv_event_st *ev = (struct lcb_luv_event_st *)event_opaque;
     int ii;
 
     if (sock == NULL && ev == NULL) {
@@ -257,17 +257,17 @@ lcb_luv_delete_event(struct libcouchbase_io_opt_st *iops,
         sock->event = NULL;
     }
 
-    if (ev && (ev->handle == sock || sock == NULL) ) {
+    if (ev && (ev->handle == sock || sock == NULL)) {
         ev->handle = NULL;
         ev->lcb_events = 0;
     }
 }
 
 void
-lcb_luv_destroy_event(struct libcouchbase_io_opt_st *iops,
+lcb_luv_destroy_event(struct lcb_io_opt_st *iops,
                       void *event_opaque)
 {
-    struct lcb_luv_event_st *ev = (struct lcb_luv_event_st*)event_opaque;
+    struct lcb_luv_event_st *ev = (struct lcb_luv_event_st *)event_opaque;
     if (ev->handle) {
         ev->handle->event = NULL;
     }
@@ -275,14 +275,14 @@ lcb_luv_destroy_event(struct libcouchbase_io_opt_st *iops,
 }
 
 int
-lcb_luv_update_event(struct libcouchbase_io_opt_st *iops,
-                     libcouchbase_socket_t sock_i,
+lcb_luv_update_event(struct lcb_io_opt_st *iops,
+                     lcb_socket_t sock_i,
                      void *event_opaque,
                      short flags,
                      void *cb_data,
                      lcb_luv_callback_t cb)
 {
-    struct lcb_luv_event_st *event = (struct lcb_luv_event_st*)event_opaque;
+    struct lcb_luv_event_st *event = (struct lcb_luv_event_st *)event_opaque;
     /* Check to see if our 'socket' is valid */
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     if (sock == NULL) {
@@ -305,11 +305,11 @@ lcb_luv_update_event(struct libcouchbase_io_opt_st *iops,
     event->lcb_events = flags;
 
     /* trigger a read-ahead */
-    if (flags & LIBCOUCHBASE_READ_EVENT) {
+    if (flags & LCB_READ_EVENT) {
         lcb_luv_read_nudge(sock);
     }
 
-    if (flags & LIBCOUCHBASE_WRITE_EVENT) {
+    if (flags & LCB_WRITE_EVENT) {
         /* for writes, we either have data to be flushed, or we want to wait
          * until we're able to write data. In any event, we schedule for this
          */

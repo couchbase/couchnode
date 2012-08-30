@@ -31,7 +31,7 @@ write_cb(uv_write_t *req, int status)
     evstate->flags &= ~(LCB_LUV_EVf_FLUSHING);
 
     if (SOCK_EV_ENABLED(sock, WRITE)) {
-        sock->event->lcb_cb(sock->idx, LIBCOUCHBASE_WRITE_EVENT, sock->event->lcb_arg);
+        sock->event->lcb_cb(sock->idx, LCB_WRITE_EVENT, sock->event->lcb_arg);
 
         if (sock->write.nb) {
             evstate->flags &= ~(LCB_LUV_EVf_PENDING);
@@ -77,10 +77,10 @@ lcb_luv_flush(lcb_luv_socket_t sock)
 }
 
 
-static libcouchbase_ssize_t
+static lcb_ssize_t
 write_common(lcb_luv_socket_t sock, const void *buf, size_t len, int *errno_out)
 {
-    libcouchbase_ssize_t ret;
+    lcb_ssize_t ret;
     struct lcb_luv_evstate_st *evstate = EVSTATE_FIND(sock, WRITE);
 
     log_write_debug("%d: Requested to write %d bytes from %p",
@@ -116,15 +116,15 @@ write_common(lcb_luv_socket_t sock, const void *buf, size_t len, int *errno_out)
     return ret;
 }
 
-libcouchbase_ssize_t
-lcb_luv_send(struct libcouchbase_io_opt_st *iops,
-             libcouchbase_socket_t sock_i,
+lcb_ssize_t
+lcb_luv_send(struct lcb_io_opt_st *iops,
+             lcb_socket_t sock_i,
              const void *msg,
-             libcouchbase_size_t len,
+             lcb_size_t len,
              int flags)
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
-    libcouchbase_ssize_t ret;
+    lcb_ssize_t ret;
     if (sock == NULL) {
         iops->error = EBADF;
         return -1;
@@ -136,13 +136,13 @@ lcb_luv_send(struct libcouchbase_io_opt_st *iops,
     return ret;
 }
 
-libcouchbase_ssize_t
-lcb_luv_sendv(struct libcouchbase_io_opt_st *iops,
-              libcouchbase_socket_t sock_i,
-              struct libcouchbase_iovec_st *iov,
-              libcouchbase_size_t niov)
+lcb_ssize_t
+lcb_luv_sendv(struct lcb_io_opt_st *iops,
+              lcb_socket_t sock_i,
+              struct lcb_iovec_st *iov,
+              lcb_size_t niov)
 {
-    libcouchbase_ssize_t nr = 0, iret;
+    lcb_ssize_t nr = 0, iret;
     int ii, my_errno = 0;
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     if (sock == NULL) {
