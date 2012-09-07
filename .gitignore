@@ -19,3 +19,4 @@
 
 /.lock-wscript
 /build/
+/tests/config.json
