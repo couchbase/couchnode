@@ -1,0 +1,11 @@
+{
+    "bugs" : { "url" : "techzone.couchbase.com/issues", "email" : "support@couchbase.com" },
+    "description": "Client driver for accessing a Couchbase cluster",
+    "engines" : { "node" : ">=0.8.8" },
+    "homepage": "http://www.couchbase.com/develop",
+    "keywords": ["couchbase", "libcouchbase", "memcached", "nosql"],
+    "main": "./build/Release/couchbase",
+    "name": "couchbase",
+    "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
+    "version": "0.0.1"
+}
