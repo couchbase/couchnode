@@ -18,7 +18,7 @@ dist:
 	@node-waf dist
 
 check:
-	./tests/runtests.sh tests/*t.js
+	(cd tests && ./runtests.sh *t.js)
 
 reformat:
 	@astyle --mode=c \
