@@ -30,8 +30,8 @@ there, before you jump to:
 
 http://review.couchbase.org/#/q/status:open+project:couchnode,n,z
 
-With that in place you should probably jump on IRC and join the
-#libcouchbase chatroom to hang out with the rest of us :-)
+With that in place you should probably jump on IRC and join the #libcouchbase
+chatroom to hang out with the rest of us :-)
 
 There is a pretty tight relationship between our node.js driver
 development and the development of libcouchbase, so for now you have
@@ -43,12 +43,12 @@ and put it in your path.
 
 All you should need to set up your development environment should be:
 
-trond@ok ~> mkdir sdk
-trond@ok ~> cd sdk
-trond@ok ~/sdk> repo init -u git://github.com/trondn/manifests.git -m sdk.xml
-trond@ok ~/sdk> repo sync
-trond@ok ~/sdk> repo start my-branch-name --all
-trond@ok ~/sdk> gmake nodejs
+    trond@ok ~> mkdir sdk
+    trond@ok ~> cd sdk
+    trond@ok ~/sdk> repo init -u git://github.com/trondn/manifests.git -m sdk.xml
+    trond@ok ~/sdk> repo sync
+    trond@ok ~/sdk> repo start my-branch-name --all
+    trond@ok ~/sdk> gmake nodejs
 
 This will build the latest version of libcouchbase and the couchnode
 driver. You must have a C and C++ compiler installed, automake,
@@ -58,15 +58,15 @@ If you have to make any changes in libcouchbase or couchnode,
 all you can just commit them before you upload them to gerrit with the
 following command:
 
-trond@ok ~/sdk> repo upload
+    trond@ok ~/sdk> repo upload
 
 You might experience a problem trying to upload the patches if you've
 selected a different login name review.couchbase.org than your login
 name. Don't worry, all you need to do is to add the following to your
 ~/.gitconfig file:
 
-[review "review.couchbase.org"]
-        username = trond
+    [review "review.couchbase.org"]
+            username = trond
 
 I normally don't go looking for stuff in gerrit, so you should add at
 least me (trond.norbye@gmail.com) as a reviewer for your patch (and
@@ -81,8 +81,8 @@ it to be easy to get it to work on other platforms. You need to
 install three dependencies before you may build this module. If you're
 using homebrew all you need to do is:
 
-   trond@ok> *brew install v8 node*
-   trond@ok> *brew install https://raw.github.com/couchbase/homebrew/preview/Library/Formula/libcouchbase.rb*
+    trond@ok> brew install v8 node
+    trond@ok> brew install https://raw.github.com/couchbase/homebrew/preview/Library/Formula/libcouchbase.rb
 
 You would need some of the new features in libcouchbase that will
 be released when Couchbase Server 2.0 is released, so that's why
@@ -90,7 +90,7 @@ we're using the preview version from libcouchbase.
 
 To build and install the module, simply execute:
 
-   trond@ok> *node-waf configure build install*
+    trond@ok> node-waf configure build install
 
 API description
 ---------------
