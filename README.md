@@ -270,6 +270,17 @@ Updates the expiration time of the key.
 If you're having problems or suggestions on how I may improve the
 library please send me an email!
 
+Using NPM
+---------
+
+You need to have libcouchbase _before_ you may use npm. I managed to get the stuff built by using something like:
+
+    CPPFLAGS="-Wall -pedantic -Wextra -I/usr/local/include"
+    LDFLAGS="-L/usr/local/lib -Wl,-rpath,/usr/local/lib"
+    export CFLAGS CPPFLAGS LDFLAGS
+    npm install couchbase
+
+
 Happy hacking!
 
 Trond Norbye <trond.norbye@gmail.com>
