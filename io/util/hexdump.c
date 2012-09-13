@@ -21,9 +21,9 @@ void lcb_luv_hexdump(void *data, int size)
         if (n%16 == 1) {
             /* store address for this line */
             snprintf(addrstr, sizeof(addrstr), "%.4x",
-               ((unsigned int)p-(unsigned int)data) );
+                     (unsigned int)(p - (unsigned char*)data));
         }
-            
+
         c = *p;
         if (isalnum(c) == 0) {
             c = '.';

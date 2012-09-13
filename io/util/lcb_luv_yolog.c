@@ -646,7 +646,7 @@ lcb_luv_yolog_fmt_write(struct lcb_luv_yolog_fmt_st *fmts,
             break;
 
         case LCB_LUV_YOLOG_FMT_LVL:
-            fprintf(fp, lcb_luv_yolog_strlevel(minfo->m_level));
+            fprintf(fp, "%s", lcb_luv_yolog_strlevel(minfo->m_level));
             break;
 
         case LCB_LUV_YOLOG_FMT_TITLE:
