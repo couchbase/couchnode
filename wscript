@@ -37,7 +37,7 @@ def configure(conf):
 
 def build(bld):
   obj = bld.new_task_gen("cc", "cxx", "node_addon", "cshlib")
-  obj.cxxflags = ["-g", "-Wall", "-pedantic", "-Wextra", "-I.."]
+  obj.cxxflags = ["-g", "-I.."]
   obj.cppflags = obj.cxxflags
   obj.ldflags = ["-lcouchbase" ]
   obj.target = "couchbase"
