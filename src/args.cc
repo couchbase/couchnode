@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
-#include "couchbase.h"
+#include "couchbase_impl.h"
 #include <cstring>
 #include <cstdio>
 #include <cassert>

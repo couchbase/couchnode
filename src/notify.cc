@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
-#include "couchbase.h"
+#include "couchbase_impl.h"
 #include <cstdio>
 #include <sstream>
 
@@ -163,7 +163,7 @@ extern "C" {
                                lcb_error_t err, const char *errinfo)
     {
         void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-        Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
+        CouchbaseImpl *me = reinterpret_cast<CouchbaseImpl *>(cookie);
         me->errorCallback(err, errinfo);
     }
 
@@ -242,12 +242,12 @@ extern "C" {
                                        lcb_configuration_t config)
     {
         void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-        Couchbase *me = reinterpret_cast<Couchbase *>(cookie);
+        CouchbaseImpl *me = reinterpret_cast<CouchbaseImpl *>(cookie);
         me->onConnect(config);
     }
 } // extern "C"
 
-void Couchbase::setupLibcouchbaseCallbacks(void)
+void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
 {
     lcb_set_error_callback(instance, error_callback);
     lcb_set_get_callback(instance, get_callback);

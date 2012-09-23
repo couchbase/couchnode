@@ -10,7 +10,7 @@ def set_options(opt):
 
 couchnode_mods = [
     "args",
-    "couchbase",
+    "couchbase_impl",
     "namemap",
     "notify",
     "operations",

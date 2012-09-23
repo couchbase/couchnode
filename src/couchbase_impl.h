@@ -35,11 +35,11 @@ namespace Couchnode
 {
     class QueuedCommand;
 
-    class Couchbase: public node::ObjectWrap
+    class CouchbaseImpl: public node::ObjectWrap
     {
     public:
-        Couchbase(lcb_t inst);
-        virtual ~Couchbase();
+        CouchbaseImpl(lcb_t inst);
+        virtual ~CouchbaseImpl();
 
         // Methods called directly from JavaScript
         static void Init(v8::Handle<v8::Object> target);

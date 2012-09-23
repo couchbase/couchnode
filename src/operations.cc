@@ -14,8 +14,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
-#include "couchbase.h"
+#include "couchbase_impl.h"
 using namespace Couchnode;
 
 /**
@@ -120,7 +119,7 @@ static lcb_error_t doRemove(lcb_t instance,
  * Entry point for API calls.
  */
 template <class Targs>
-static inline v8::Handle<v8::Value> makeOperation(Couchbase *me,
+static inline v8::Handle<v8::Value> makeOperation(CouchbaseImpl *me,
                                                   Targs *cargs,
                                                   QueuedCommand::operfunc ofn)
 {
@@ -153,7 +152,7 @@ static inline v8::Handle<v8::Value> makeOperation(Couchbase *me,
     return v8::True();
 }
 
-void Couchbase::runScheduledCommands(void)
+void CouchbaseImpl::runScheduledCommands(void)
 {
     for (QueuedCommandList::iterator iter = queued_commands.begin();
             iter != queued_commands.end(); iter++) {
@@ -170,23 +169,23 @@ void Couchbase::runScheduledCommands(void)
 
 #define COUCHNODE_API_INIT_COMMON(argcls) \
     v8::HandleScope scope; \
-    Couchbase *me = ObjectWrap::Unwrap<Couchbase>(args.This()); \
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This()); \
     argcls cargs = argcls(args); \
 
-v8::Handle<v8::Value> Couchbase::Get(const v8::Arguments &args)
+v8::Handle<v8::Value> CouchbaseImpl::Get(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(MGetArgs);
     return makeOperation<MGetArgs>(me, &cargs, doGet);
 }
 
-v8::Handle<v8::Value> Couchbase::Touch(const v8::Arguments &args)
+v8::Handle<v8::Value> CouchbaseImpl::Touch(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(MGetArgs);
     return makeOperation<MGetArgs>(me, &cargs, doTouch);
 }
 
 #define COUCHBASE_STOREFN_DEFINE(name, mode) \
-    v8::Handle<v8::Value> Couchbase::name(const v8::Arguments& args) { \
+    v8::Handle<v8::Value> CouchbaseImpl::name(const v8::Arguments& args) { \
         COUCHNODE_API_INIT_COMMON(StorageArgs); \
         cargs.storop = LCB_##mode; \
         return makeOperation<StorageArgs>(me, &cargs, doSet); \
@@ -198,13 +197,13 @@ COUCHBASE_STOREFN_DEFINE(Replace, REPLACE)
 COUCHBASE_STOREFN_DEFINE(Append, APPEND)
 COUCHBASE_STOREFN_DEFINE(Prepend, PREPEND)
 
-v8::Handle<v8::Value> Couchbase::Arithmetic(const v8::Arguments &args)
+v8::Handle<v8::Value> CouchbaseImpl::Arithmetic(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(ArithmeticArgs);
     return makeOperation<ArithmeticArgs>(me, &cargs, doArithmetic);
 }
 
-v8::Handle<v8::Value> Couchbase::Remove(const v8::Arguments &args)
+v8::Handle<v8::Value> CouchbaseImpl::Remove(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(KeyopArgs);
     return makeOperation<KeyopArgs>(me, &cargs, doRemove);
