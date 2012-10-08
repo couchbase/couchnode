@@ -40,7 +40,7 @@ def build(bld):
   obj.cxxflags = ["-g", "-I.."]
   obj.cppflags = obj.cxxflags
   obj.ldflags = ["-lcouchbase" ]
-  obj.target = "couchbase"
+  obj.target = "couchbase_impl"
 
   obj.source = [ os.path.join("src", mod) + ".cc" for mod in couchnode_mods ]
   obj.source += [ os.path.join("io", mod) + ".c" for mod in lcb_luv_mods ]

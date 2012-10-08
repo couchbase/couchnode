@@ -36,7 +36,7 @@ extern "C" {
         CouchbaseImpl::Init(target);
     }
 
-    NODE_MODULE(couchbase, init)
+    NODE_MODULE(couchbase_impl, init)
 }
 
 #ifdef COUCHNODE_DEBUG
@@ -370,6 +370,13 @@ void CouchbaseImpl::onConnect(lcb_configuration_t config)
         }
     }
     lcb_set_configuration_callback(instance, NULL);
+
+    EventMap::iterator iter = events.find("connect");
+    if (iter != events.end() && !iter->second.IsEmpty()) {
+        using namespace v8;
+        Local<Value> argv[1];
+        iter->second->Call(Context::GetEntered()->Global(), 0, argv);
+    }
 }
 
 bool CouchbaseImpl::onTimeout(void)
