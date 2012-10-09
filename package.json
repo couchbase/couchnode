@@ -4,7 +4,7 @@
     "engines" : { "node" : ">=0.8.8" },
     "homepage": "http://www.couchbase.com/develop",
     "keywords": ["couchbase", "libcouchbase", "memcached", "nosql"],
-    "main": "./build/Release/couchbase",
+    "main": "./lib/couchbase",
     "name": "couchbase",
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
     "version": "0.0.1"

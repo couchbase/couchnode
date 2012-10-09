@@ -1,54 +1,31 @@
-var config = require('./config')
-var cb = config.create_cluster_handle();
+var setup = require('./setup'),
+    assert = require('assert');
 
-cb.on("error",
-      function (message) {
-	  console.log("ERROR: [" + message + "]");
-	  process.exit(1);
-      }
-     );
+setup(function(err, cb) {
+    assert(!err, "setup failure");
 
-var testkey = "05-replace.js"
+    cb.on("error", function (message) {
+        console.log("ERROR: [" + message + "]");
+        process.exit(1);
+    });
 
-function verify_key(key)
-{
-    if (key != testkey) {
-	console.log("Callback called with wrong key!");
-	process.exit(1);
-    }
-}
+    var testkey = "05-replace.js"
 
-function replace_existing_handler(data, error, key, cas) {
-    verify_key(key);
-
-    if (error) {
-	console.log("I should be able to replace a key!");
-	process.exit(1);
-    } else {
-	process.exit(0);
-    }
-}
-
-function replace_missing_handler(data, error, key, cas) {
-    verify_key(key);
-
-    if (error) {
-	cb.set(testkey, "bar", 0, undefined,
-	       function (data, error, key, cas) {
-		   verify_key(key);
-		   if (error) {
-		       console.log("Failed to store object");
-		       process.exit(1);
-		   }
-		   cb.replace(testkey, "bar", 0, undefined,
-			      replace_existing_handler);
-	       });
-    } else {
-	console.log("I shouldn't be able to replace a nonexisting key!");
-	process.exit(1);
-    }
-}
-
-cb.delete(testkey, undefined, function(){});
-cb.replace(testkey, "bar", 0, undefined, replace_missing_handler);
-
+    cb.delete(testkey, function(){
+        // try to replace a missing key, should fail
+        cb.replace(testkey, "bar", function(err, meta) {
+            assert(err, "Can't replace object that is already deleted");
+            cb.set(testkey, "bar", function (err, meta) {
+                assert(!err, "Failed to store object");
+                cb.replace(testkey, "bazz", function (err, meta) {
+                    assert(!err, "Failed to replace object");
+                    cb.get(testkey, function (err, doc) {
+                        assert(!err, "Failed to get object");
+                        assert.equal("bazz", doc, "Replace didn't work")
+                        process.exit(0);
+                    })
+                });
+            });
+        });
+    });
+})

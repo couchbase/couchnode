@@ -1,45 +1,25 @@
-var config = require('./config')
-var cb = config.create_cluster_handle();
+var setup = require('./setup'),
+    assert = require('assert');
 
-cb.on("error",
-      function (message) {
-	  console.log("ERROR: [" + message + "]");
-	  process.exit(1);
-      }
-     );
+setup(function(err, cb) {
+    assert(!err, "setup failure");
 
-var testkey = "06-add.js"
+    cb.on("error", function (message) {
+        console.log("ERROR: [" + message + "]");
+        process.exit(1);
+    });
 
-function verify_key(key)
-{
-    if (key != testkey) {
-	console.log("Callback called with wrong key!");
-	process.exit(1);
-    }
-}
+    var testkey = "06-add.js"
 
-function add_existing_handler(data, error, key, cas) {
-    verify_key(key);
-
-    if (error) {
-	process.exit(0);
-    } else {
-	console.log("I shouldn't be able to add an existing key!");
-	process.exit(1);
-    }
-}
-
-function add_missing_handler(data, error, key, cas) {
-    verify_key(key);
-
-    if (error) {
-	console.log("I should be able to add a nonexisting key!");
-	process.exit(1);
-    } else {
-	cb.add(testkey, "bar", 0, undefined, add_existing_handler);
-    }
-}
-
-cb.delete(testkey, undefined, function(){});
-cb.add(testkey, "bar", 0, undefined, add_missing_handler);
-
+    cb.delete(testkey, function(){
+        cb.add(testkey, "bar", function(err, meta) {
+            assert(!err, "Can add object at empty key");
+            assert.equal(testkey, meta.id, "Callback called with wrong key!")
+            // try to add existing key, should fail
+            cb.add(testkey, "baz", function (err, meta) {
+                assert(err, "Can't add object at empty key");
+                process.exit(0)
+            });
+        });
+    });
+})
