@@ -3,6 +3,32 @@ couchnode - node.js access to libcouchbase
 
 This library allows you to connect to a Couchbase cluster from node.js
 
+Basic installation and usage
+--------------------
+
+To install this module, we'll assume you are using [NPM](https://npmjs.org).
+However it is not as simple as a regular JavaScript module,
+as it depends on the C-library for Couchbase clients,
+[libcouchbase](https://github.com/couchbase/libcouchbase). Libcouchbase
+also powers other dynamic language clients, such as Ruby and PHP, so
+if you've worked with those clients you should feel right at home.
+
+First step is to install libcouchbase (the 2.0 beta verion). On a Mac
+with homebrew this should be as easy as running:
+
+    brew install https://github.com/couchbase/homebrew/raw/preview/Library/Formula/libcouchbase.rb
+
+Once you have libcouchbase installed, you can proceed to install the
+`couchbase` module by running:
+
+    npm install couchbase
+
+Do note that this module requires the very latest version of libcouchbase,
+so if you see errors like `error: ‘struct lcb_io_opt_st’ has no member named ‘v’`, you may have to install libcouchbase from
+source until we cut another release.
+
+For API illustration, the best bet at the current time is [the test suite.](https://github.com/couchbase/couchnode/tree/master/tests)
+
 Contributing changes
 --------------------
 

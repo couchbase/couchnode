@@ -7,5 +7,5 @@
     "main": "./lib/couchbase",
     "name": "couchbase",
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
-    "version": "0.0.1"
+    "version": "0.0.2"
 }
