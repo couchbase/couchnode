@@ -92,47 +92,37 @@ lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max)
     cookie->socktable = calloc(sock_max, sizeof(struct lcb_luv_socket_st*));
     cookie->fd_max = sock_max;
     cookie->fd_next = 0;
-    ret->cookie = cookie;
+    ret->v.v0.cookie = cookie;
 
     /* socket.c */
-    ret->connect = lcb_luv_connect;
-    ret->socket = lcb_luv_socket;
-    ret->close = lcb_luv_close;
+    ret->v.v0.connect = lcb_luv_connect;
+    ret->v.v0.socket = lcb_luv_socket;
+    ret->v.v0.close = lcb_luv_close;
 
-    ret->create_event = lcb_luv_create_event;
-    ret->update_event = lcb_luv_update_event;
-    ret->delete_event = lcb_luv_delete_event;
-    ret->destroy_event = lcb_luv_destroy_event;
+    ret->v.v0.create_event = lcb_luv_create_event;
+    ret->v.v0.update_event = lcb_luv_update_event;
+    ret->v.v0.delete_event = lcb_luv_delete_event;
+    ret->v.v0.destroy_event = lcb_luv_destroy_event;
 
     /* read.c */
-    ret->recv = lcb_luv_recv;
-    ret->recvv = lcb_luv_recvv;
+    ret->v.v0.recv = lcb_luv_recv;
+    ret->v.v0.recvv = lcb_luv_recvv;
 
     /* write.c */
-    ret->send = lcb_luv_send;
-    ret->sendv = lcb_luv_sendv;
+    ret->v.v0.send = lcb_luv_send;
+    ret->v.v0.sendv = lcb_luv_sendv;
 
     /* timer.c */
-    ret->create_timer = lcb_luv_create_timer;
-    ret->delete_timer = lcb_luv_delete_timer;
-    ret->update_timer = lcb_luv_update_timer;
-    ret->destroy_timer = lcb_luv_destroy_timer;
+    ret->v.v0.create_timer = lcb_luv_create_timer;
+    ret->v.v0.delete_timer = lcb_luv_delete_timer;
+    ret->v.v0.update_timer = lcb_luv_update_timer;
+    ret->v.v0.destroy_timer = lcb_luv_destroy_timer;
 
     /* noops */
-    ret->run_event_loop = invoke_start_callback;
-    ret->stop_event_loop = invoke_stop_callback;
+    ret->v.v0.run_event_loop = invoke_start_callback;
+    ret->v.v0.stop_event_loop = invoke_stop_callback;
 
-    ret->destructor = lcb_luv_dtor;
+    ret->v.v0.destructor = lcb_luv_dtor;
 
-    return ret;
-}
-
-struct lcb_io_opt_st *
-lcb__TestLoop(void)
-{
-    uv_loop_t *loop = uv_default_loop();
-    struct lcb_io_opt_st *ret = lcb_luv_create_io_opts(loop, 1024);
-    ret->run_event_loop = sync_loop_run;
-    ret->stop_event_loop = sync_loop_stop;
     return ret;
 }

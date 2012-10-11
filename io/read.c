@@ -160,11 +160,11 @@ lcb_luv_recv(struct lcb_io_opt_st *iops,
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     if (sock == NULL) {
-        iops->error = EBADF;
+        iops->v.v0.error = EBADF;
         return -1;
     }
 
-    return read_common(sock, buffer, len, &iops->error);
+    return read_common(sock, buffer, len, &iops->v.v0.error);
 }
 
 lcb_ssize_t
@@ -178,7 +178,7 @@ lcb_luv_recvv(struct lcb_io_opt_st *iops,
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
 
     if (sock == NULL) {
-        iops->error = EBADF;
+        iops->v.v0.error = EBADF;
         return -1;
     }
 
@@ -194,7 +194,7 @@ lcb_luv_recvv(struct lcb_io_opt_st *iops,
         }
     }
     if (!nr) {
-        iops->error = my_errno;
+        iops->v.v0.error = my_errno;
         return -1;
     } else {
         return nr;

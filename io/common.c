@@ -101,7 +101,7 @@ lcb_luv_socket_new(struct lcb_io_opt_st *iops)
     lcb_luv_socket_t newsock;
     idx = find_free_idx(IOPS_COOKIE(iops));
     if (idx == -1) {
-        iops->error = ENFILE;
+        iops->v.v0.error = ENFILE;
         return NULL;
     }
 
@@ -118,7 +118,7 @@ lcb_luv_socket_new(struct lcb_io_opt_st *iops)
 
     uv_tcp_init(IOPS_COOKIE(iops)->loop, &newsock->tcp);
     IOPS_COOKIE(iops)->socktable[idx] = newsock;
-    iops->error = 0;
+    iops->v.v0.error = 0;
     log_socket_debug("%p: Created new socket %p(%d)", iops, newsock, idx);
     return newsock;
 }

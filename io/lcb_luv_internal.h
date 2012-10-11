@@ -24,7 +24,7 @@
     (sock->event && (sock->event->lcb_events & LCB_ ## evtype ## _EVENT))
 
 #define IOPS_COOKIE(iops) \
-    ((struct lcb_luv_cookie_st*)(iops->cookie))
+    ((struct lcb_luv_cookie_st*)(iops->v.v0.cookie))
 
 #define MINIMUM(a,b) \
     ((a < b) ? a : b)

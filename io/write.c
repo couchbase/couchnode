@@ -126,10 +126,10 @@ lcb_luv_send(struct lcb_io_opt_st *iops,
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     lcb_ssize_t ret;
     if (sock == NULL) {
-        iops->error = EBADF;
+        iops->v.v0.error = EBADF;
         return -1;
     }
-    ret = write_common(sock, msg, len, &iops->error);
+    ret = write_common(sock, msg, len, &iops->v.v0.error);
     if (ret > 0) {
         lcb_luv_schedule_enable(sock);
     }
@@ -146,7 +146,7 @@ lcb_luv_sendv(struct lcb_io_opt_st *iops,
     int ii, my_errno = 0;
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     if (sock == NULL) {
-        iops->error = EBADF;
+        iops->v.v0.error = EBADF;
         return -1;
     }
     for (ii = 0; ii < niov; ii++) {
@@ -163,7 +163,7 @@ lcb_luv_sendv(struct lcb_io_opt_st *iops,
         }
     }
     if (my_errno) {
-        iops->error = my_errno;
+        iops->v.v0.error = my_errno;
     }
     if (nr > 0) {
         lcb_luv_schedule_enable(sock);

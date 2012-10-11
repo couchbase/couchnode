@@ -9,7 +9,7 @@ lcb_luv_socket(struct lcb_io_opt_st *iops,
                int protocol)
 {
     lcb_luv_socket_t newsock;
-    iops->error = EINVAL;
+    iops->v.v0.error = EINVAL;
 
     if ( (domain != AF_INET && domain != AF_INET6) ||
             type != SOCK_STREAM || protocol != IPPROTO_TCP)  {
@@ -64,7 +64,7 @@ lcb_luv_connect(struct lcb_io_opt_st *iops,
     struct lcb_luv_evstate_st *evstate;
 
     if (sock == NULL) {
-        iops->error = EBADF;
+        iops->v.v0.error = EBADF;
         return -1;
     }
 
@@ -77,19 +77,19 @@ lcb_luv_connect(struct lcb_io_opt_st *iops,
         if (EVSTATE_IS(evstate, PENDING)) {
             retval = evstate->err;
             if (retval) {
-                iops->error = retval;
+                iops->v.v0.error = retval;
                 retval = -1;
             } else {
                 evstate->flags |= LCB_LUV_EVf_CONNECTED;
-                iops->error = 0;
+                iops->v.v0.error = 0;
             }
             evstate->flags &= ~(LCB_LUV_EVf_PENDING);
         } else {
             retval = -1;
             if (EVSTATE_IS(evstate, CONNECTED)) {
-                iops->error = EISCONN;
+                iops->v.v0.error = EISCONN;
             } else {
-                iops->error = EINPROGRESS;
+                iops->v.v0.error = EINPROGRESS;
             }
         }
         log_socket_trace("Returning %d for status", retval);
@@ -106,18 +106,18 @@ lcb_luv_connect(struct lcb_io_opt_st *iops,
                 *(struct sockaddr_in6*)saddr, connect_cb);
     } else {
         /* Neither AF_INET or AF_INET6 */
-        iops->error = EAFNOSUPPORT;
+        iops->v.v0.error = EAFNOSUPPORT;
         return -1;
     }
 
     lcb_luv_socket_ref(sock);
 
     if (status == 0) {
-        iops->error = EINPROGRESS;
+        iops->v.v0.error = EINPROGRESS;
         evstate->flags |= LCB_LUV_EVf_ACTIVE;
 
     } else {
-        iops->error =
+        iops->v.v0.error =
                 lcb_luv_errno_map(
                         (uv_last_error(IOPS_COOKIE(iops)->loop)).code);
     }
@@ -132,7 +132,7 @@ lcb_luv_close(struct lcb_io_opt_st *iops, lcb_socket_t sock_i)
     if (!sock) {
         log_socket_crit("Attempt to close already-closed socket. Abort");
         abort();
-        iops->error = EBADF;
+        iops->v.v0.error = EBADF;
         return;
     }
 
