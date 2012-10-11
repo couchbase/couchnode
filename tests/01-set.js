@@ -13,16 +13,16 @@ setup(function(err, cb) {
 
     // test cas updates
     var testkey = "01-set.js"
-    cb.set(testkey, "bar", function (err, meta) {
+    cb.set(testkey, "bar", function (err, firstmeta) {
         assert(!err, "Failed to store object");
-        assert.equal(testkey, meta.id, "Callback called with wrong key!")
+        assert.equal(testkey, firstmeta.id, "Callback called with wrong key!")
 
-        cb.set(testkey, "baz", meta, function(err, meta) {
+        cb.set(testkey, "baz", firstmeta, function(err, meta) {
             assert(!err, "Failed to set with cas");
             assert.equal(testkey, meta.id, "Callback called with wrong key!")
-            // intentionally break the cas
-            meta.cas.str = "123456789";
-            cb.set(testkey, "bam", meta, function(err, meta) {
+            assert.notEqual(firstmeta.cas.str, meta.cas.str, "cas should change");
+            // use the old cas, should reject the write
+            cb.set(testkey, "bam", firstmeta, function(err, meta) {
                 assert(err, "Should error with cas mismatch");
                 cb.get(testkey, function(err, doc) {
                     assert(!err, "Failed to load object");
