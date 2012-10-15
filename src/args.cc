@@ -25,6 +25,7 @@ static bool get_string(const v8::Handle<v8::Value> &jv,
     }
 
     *strp = new char[*szp];
+    // it looks like this is where the unicode bug lives
     s->WriteAscii(*strp, 0, *szp, v8::String::NO_NULL_TERMINATION);
     return true;
 }
