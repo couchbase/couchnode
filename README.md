@@ -27,7 +27,18 @@ Do note that this module requires the very latest version of libcouchbase,
 so if you see errors like `error: ‘struct lcb_io_opt_st’ has no member named ‘v’`, you may have to install libcouchbase from
 source until we cut another release.
 
+
+API description
+---------------
+
 For API illustration, the best bet at the current time is [a small example http hit counter](https://github.com/couchbase/couchnode/tree/master/example.js). There is also [the test suite which shows more details.](https://github.com/couchbase/couchnode/tree/master/tests)
+
+    get:       cb.get(testkey, function (err, doc, meta) {})
+    set:       cb.set(testkey, "bar", function (err, meta) {})
+    replace:   cb.replace(testkey, "bar", function(err, meta) {})
+    delete:    cb.delete(testkey, function (err, meta) {})
+    multiget:  cb.get(['key1', 'key2', '...'], function(err, doc, meta) {})
+
 
 Contributing changes
 --------------------
@@ -99,8 +110,3 @@ To build and install the module, simply execute:
 
     trond@ok> node-waf configure build install
 
-API description
----------------
-
-Unfortunately this isn't documented yet, but you should be able to
-get a pretty good idea on how it works from looking at the tests :)
