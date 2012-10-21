@@ -27,7 +27,7 @@ Do note that this module requires the very latest version of libcouchbase,
 so if you see errors like `error: ‘struct lcb_io_opt_st’ has no member named ‘v’`, you may have to install libcouchbase from
 source until we cut another release.
 
-For API illustration, the best bet at the current time is [the test suite.](https://github.com/couchbase/couchnode/tree/master/tests)
+For API illustration, the best bet at the current time is [a small example http hit counter](https://github.com/couchbase/couchnode/tree/master/example.js). There is also [the test suite which shows more details.](https://github.com/couchbase/couchnode/tree/master/tests)
 
 Contributing changes
 --------------------
