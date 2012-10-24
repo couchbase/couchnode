@@ -8,16 +8,16 @@ var setup = require('./setup'),
 // comment out different code paths... so please try this with
 // normal set to true or false depending.
 
-// var normal = true;
-var normal = false;
+// var useCouchbase = false;
+var useCouchbase = true;
 
 process.on("uncaughtException", function() {
-    console.log("uncaughtException", arguments)
-    console.log("exiting")
+    // console.log("uncaughtException", arguments)
+    // console.log("exiting")
     process.exit()
 })
 
-if (normal) {
+if (!useCouchbase) {
     // lets do something async just to minimize the difference between
     // the normal case and the Couchbase case
     setTimeout(function() {
