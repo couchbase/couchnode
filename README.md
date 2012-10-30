@@ -102,5 +102,45 @@ To build and install the module, simply execute:
 API description
 ---------------
 
-Unfortunately this isn't documented yet, but you should be able to
-get a pretty good idea on how it works from looking at the tests :)
+    get:       cb.get(testkey, function (err, doc, meta) {})
+    set:       cb.set(testkey, "bar", function (err, meta) {})
+    replace:   cb.replace(testkey, "bar", function(err, meta) {})
+    delete:    cb.delete(testkey, function (err, meta) {})
+    multiget:  cb.get(['key1', 'key2', '...'], function(err, doc, meta) {})
+
+This helper module makes the asynchronous connection to multiple buckets easier. You can store it as ./lib/couchbase.js:
+
+    var cb = require('couchbase'),
+        config = {
+          hosts: ['127.0.0.1:8091', '127.0.0.1:9000'],
+          user: 'Administrator',
+          password: 'super secure password they chose'
+        }
+
+    module.exports = function(bucket, callback) {
+      config.bucket = bucket
+      cb.connect(config, callback)
+    }
+
+Example
+=======
+
+    couch = require('./lib/couchbase')
+    couch('default', function(error, cb) {
+    
+      cb.on('error', function(err) {
+        console.log(err)
+      })
+      
+      cb.set('foo', '{bar}', function (err, meta) {
+        console.log(err, meta)
+        
+        cb.get('foo', function(err, data, meta) {
+          console.log(error, data, meta)
+          
+          cb.delete('foo', function (err, meta) {
+            console.log(err, meta)
+          })
+        })
+      })
+    })
