@@ -1,0 +1,156 @@
+<!DOCTYPE HTML>
+
+<html>
+
+<head>
+	<meta charset="utf-8">
+  <link href="mocha.css" rel="stylesheet">
+	<link rel="stylesheet" href="styles/default.css">
+	<script src="highlight.pack.js"></script>
+	<script>hljs.initHighlightingOnLoad();</script>
+	<title>Couchbase node.js Tests</title>
+</head>
+
+<body>
+
+	<header>
+		<h1>Tests</h1>
+	</header>    <section class="suite">
+      <h1>couchbase</h1>
+      <dl>
+        <section class="suite">
+          <h1>SET</h1>
+          <dl>
+            <dt>should set a key-value pair</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.set('foo', 'bar', function(error, meta) {
+    error.should.equal(false)
+    meta.id.should.equal('foo')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should set a json key</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.set('foo2', testValue, function(error, meta) {
+    error.should.equal(false)
+    meta.id.should.equal('foo2')
+    done()
+  })
+})</code></pre></dd>
+          </dl>
+        </section>
+        <section class="suite">
+          <h1>GET</h1>
+          <dl>
+            <dt>should get key-value pair</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.get('foo', function(error, data, meta) {
+    error.should.equal(false)
+    data.should.equal('bar')
+    meta.id.should.equal('foo')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should get a json key</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.get('foo2', function(error, data, meta) {
+    error.should.equal(false)
+    data.should.eql(testValue)
+    meta.id.should.equal('foo2')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should fail with an error for a non-existing key</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.get('foo3', function(error, data, meta) {
+    error.should.equal(13)
+    should.not.exist(data)
+    meta.id.should.equal('foo3')
+    done()
+  })
+})</code></pre></dd>
+          </dl>
+        </section>
+        <section class="suite">
+          <h1>REPLACE</h1>
+          <dl>
+            <dt>should replace a key</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.replace('foo', 'newbar', function(error, meta) {
+    error.should.equal(false)
+    meta.id.should.equal('foo')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should fail with an error replacing a non-existing key</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.replace('foo4', 'newbar', function(error, meta) {
+    error.should.equal(13)
+    meta.id.should.equal('foo4')
+    done()
+  })
+})</code></pre></dd>
+          </dl>
+        </section>
+        <section class="suite">
+          <h1>ADD</h1>
+          <dl>
+            <dt>should add a new key-value pair</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.add('foo5', 'bar', function(error, meta) {
+    error.should.equal(false)
+    meta.id.should.equal('foo5')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should fail adding an existing key</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.add('foo5', 'newbar', function(error, meta) {
+    error.should.equal(12)
+    meta.id.should.equal('foo5')
+    done()
+  })
+})</code></pre></dd>
+          </dl>
+        </section>
+        <section class="suite">
+          <h1>DELETE</h1>
+          <dl>
+            <dt>should delete foo</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.delete('foo', function(error, meta) {
+    error.should.equal(false)
+    meta.id.should.equal('foo')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should delete foo2</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.delete('foo2', function(error, meta) {
+    error.should.equal(false)
+    meta.id.should.equal('foo2')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should delete foo5</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.delete('foo5', function(error, meta) {
+    error.should.equal(false)
+    meta.id.should.equal('foo5')
+    done()
+  })
+})</code></pre></dd>
+            <dt>should fail deleting a non-existing key</dt>
+            <dd><pre><code>helper(function(error, cb) {
+  cb.delete('foo6', function(error, meta) {
+    error.should.equal(13)
+    meta.id.should.equal('foo6')
+    done()
+  })
+})</code></pre></dd>
+          </dl>
+        </section>
+      </dl>
+    </section>
+</body>
+</html>

@@ -6,6 +6,10 @@
     "keywords": ["couchbase", "libcouchbase", "memcached", "nosql"],
     "main": "./lib/couchbase",
     "name": "couchbase",
+    "dependencies": {
+      "mocha": "*",
+      "should": "*"
+    },
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
     "version": "0.0.2"
 }

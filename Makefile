@@ -1,12 +1,28 @@
 SOURCE = src/couchbase_impl.cc src/couchbase_impl.h src/args.cc src/notify.cc     \
          src/namemap.cc src/operations.cc src/namemap.h src/cas.cc      \
          src/cas.h
+REPORTER = spec
 
 all: .lock-wscript $(SOURCE)
 	@node-waf build
 
 .lock-wscript: wscript
 	@node-waf configure
+
+test:
+	@./node_modules/.bin/mocha \
+		--require should \
+		--reporter $(REPORTER) \
+		tests/*.js
+
+docs: test-docs
+
+test-docs:
+	make test REPORTER=doc \
+		| cat docs/head.html - docs/tail.html \
+		> docs/test.html
+
+.PHONY: test docs
 
 clean:
 	@node-waf clean
