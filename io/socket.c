@@ -12,7 +12,8 @@ lcb_luv_socket(struct lcb_io_opt_st *iops,
     iops->v.v0.error = EINVAL;
 
     if ( (domain != AF_INET && domain != AF_INET6) ||
-            type != SOCK_STREAM || protocol != IPPROTO_TCP)  {
+            type != SOCK_STREAM ||
+            (protocol != IPPROTO_TCP && protocol != 0))  {
         log_socket_error("Bad arguments: domain=%d, type=%d, protocol=%d",
                 domain, type, protocol);
         return -1;

@@ -17,6 +17,13 @@
 #ifndef COUCHBASE_H
 #define COUCHBASE_H 1
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4506)
+#pragma warning(disable : 4530)
+#endif
+
 #define BUILDING_NODE_EXTENSION
 #include <node.h>
 

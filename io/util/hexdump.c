@@ -2,6 +2,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+
+#if _WIN32
+#define snprintf _snprintf
+#endif
+#ifdef _MSC_VER
+#pragma warning(disable : 4013)
+#endif
+
 void lcb_luv_hexdump(void *data, int size)
 {
     /* dumps size bytes of *data to stdout. Looks like:
