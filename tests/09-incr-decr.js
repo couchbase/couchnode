@@ -21,6 +21,12 @@ setup(function(err, cb) {
         testkey5 = "09-incr-decr.js5";
         testkey6 = "09-incr-decr.js6";
 
+    cb.delete(testkey, function (err, meta) {});
+    cb.delete(testkey2, function (err, meta) {});
+    cb.delete(testkey3, function (err, meta) {});
+    cb.delete(testkey4, function (err, meta) {});
+    cb.delete(testkey5, function (err, meta) {});
+    cb.delete(testkey6, function (err, meta) {});
 
     // Set A : minimal number of parameter (no parameter)
     cb.incr( testkey,  function(data, err, key, cas, value){
