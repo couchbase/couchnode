@@ -19,14 +19,13 @@ static bool get_string(const v8::Handle<v8::Value> &jv,
     }
 
     v8::Local<v8::String> s = jv->ToString();
-    *szp = s->Length();
+    *szp = s->Utf8Length();
     if (!*szp) {
         return false;
     }
 
     *strp = new char[*szp];
-    // it looks like this is where the unicode bug lives
-    s->WriteAscii(*strp, 0, *szp, v8::String::NO_NULL_TERMINATION);
+    int nw = s->WriteUtf8(*strp, -1, NULL, v8::String::NO_NULL_TERMINATION);
     return true;
 }
 
