@@ -2,7 +2,7 @@
 
 static int _yolog_initialized = 0;
 
-static void __attribute__((unused))
+static UNUSED(void)
 lcb_luv_noop(struct lcb_io_opt_st *iops)
 {
     (void)iops;
