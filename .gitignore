@@ -20,3 +20,4 @@
 /.lock-wscript
 /build/
 /tests/config.json
+/node_modules/

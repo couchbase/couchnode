@@ -14,7 +14,10 @@ clean:
 install:
 	@npm install
 
-check:
+node_modules:
+	@npm install
+
+check: node_modules
 	(cd tests && ./runtests.sh *-*.js)
 
 reformat:
