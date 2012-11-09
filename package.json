@@ -7,8 +7,10 @@
     "main": "./lib/couchbase",
     "name": "couchbase",
     "dependencies": {
-      "request": "2.11.x"
+      "request": "2.11.x",
+      "bindings": "~1.0.0"
     },
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
-    "version": "0.0.4"
+    "version": "0.0.4",
+    "gypfile": true
 }

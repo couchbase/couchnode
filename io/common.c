@@ -76,7 +76,13 @@ lcb_luv_schedule_disable(lcb_luv_socket_t sock)
     sock->prep_active = 0;
 }
 
-static inline lcb_socket_t
+static
+#if _WIN32
+ __inline
+#else
+ inline
+#endif
+lcb_socket_t
 find_free_idx(struct lcb_luv_cookie_st *cookie)
 {
     lcb_socket_t ret = -1;
@@ -196,9 +202,9 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
     sock->idx = -1;
 
     if (sock->refcount > 1) {
+        int ii;
         log_socket_warn("Socket %p still has a reference count of %d",
                         sock, sock->refcount);
-        int ii;
         for (ii = 0; ii < LCB_LUV_EV_MAX; ii++) {
             struct lcb_luv_evstate_st *evstate = sock->evstate + ii;
             log_socket_warn("Flags for evstate@%d: 0x%X", ii, evstate->flags);
@@ -342,6 +348,9 @@ lcb_luv_errno_map(int uverr)
 #define EAISERVICE EAI_SERVICE
 #endif
 
+#ifndef EAI_SYSTEM
+#define EAI_SYSTEM -11
+#endif
 #ifndef EADDRINFO
 #define EADDRINFO EAI_SYSTEM
 #endif
@@ -356,6 +365,10 @@ lcb_luv_errno_map(int uverr)
 
 #ifndef ENONET
 #define ENONET ENETDOWN
+#endif
+
+#ifndef ESHUTDOWN
+#define ESHUTDOWN WSAESHUTDOWN
 #endif
 
 #define OK 0

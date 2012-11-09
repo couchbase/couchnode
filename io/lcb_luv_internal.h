@@ -5,6 +5,13 @@
 #define LCB_LUV_YOLOG_DEBUG_LEVEL 100
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4506)
+#pragma warning(disable : 4530)
+#endif
+
 
 #include "libcouchbase-libuv.h"
 #include <stdlib.h>
@@ -13,6 +20,15 @@
 #include <assert.h>
 #include <errno.h>
 #include "util/lcb_luv_yolog.h"
+
+#ifdef UNUSED
+#elif defined(__GNUC__) 
+# define UNUSED(x) x __attribute__((unused)) 
+#elif defined(__LCLINT__) 
+# define UNUSED(x) /*@unused@*/ x 
+#else 
+# define UNUSED(x) x 
+#endif
 
 #define EVSTATE_IS(p, b) \
     ( ( (p)->flags ) & LCB_LUV_EVf_ ## b)

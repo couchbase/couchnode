@@ -15,6 +15,7 @@
  *   limitations under the License.
  */
 #include "namemap.h"
+#include "couchbase_impl.h"
 #include <string.h>
 
 using namespace Couchnode;
