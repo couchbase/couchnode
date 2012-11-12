@@ -25,7 +25,22 @@
 #endif
 
 #define BUILDING_NODE_EXTENSION
+
+// Unfortunately the v8 header spits out a lot of warnings..
+// let's disable them..
+#if __GNUC__
+#if __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
+#endif
+
 #include <node.h>
+
+#if __GNUC__
+#if __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 #include <iostream>
 #include <map>
