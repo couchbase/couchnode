@@ -1,7 +1,32 @@
 var cb = require('../lib/couchbase.js'),
-    fs = require('fs');
+    fs = require('fs'),
+    util = require('util');
 
-var config = JSON.parse(fs.readFileSync('./config.json'));
+var assert = require('assert');
+var old_toString = assert.AssertionError.prototype.toString;
+
+assert.AssertionError.prototype.toString = function() {
+    var ret = util.format(
+            "Caught '%s', at:\n%s",
+            old_toString.call(this),
+            this.stack
+    );
+    return ret;
+};
+
+var config;
+var configFilename = 'config.json';
+
+if (fs.existsSync(configFilename)) {
+    config = JSON.parse(fs.readFileSync(configFilename));
+
+} else {
+    console.log(configFilename + " not found. Using default test setup..");
+    config = {
+        hosts : [ "localhost:8091" ],
+        bucket : "default"
+    };
+}
 
 module.exports = function(callback) {
     // this is turned off because it doesn't seem to work...
