@@ -17,8 +17,6 @@
 #ifndef NAMEMAP_H
 #define NAMEMAP_H 1
 
-#define BUILDING_NODE_EXTENSION
-#include <node.h>
 #include <map>
 
 namespace Couchnode

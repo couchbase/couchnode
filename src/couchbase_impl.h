@@ -24,7 +24,9 @@
 #pragma warning(disable : 4530)
 #endif
 
+#ifndef BUILDING_NODE_EXTENSION
 #define BUILDING_NODE_EXTENSION
+#endif
 
 // Unfortunately the v8 header spits out a lot of warnings..
 // let's disable them..

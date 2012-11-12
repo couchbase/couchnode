@@ -14,7 +14,6 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-#include "namemap.h"
 #include "couchbase_impl.h"
 #include <string.h>
 
