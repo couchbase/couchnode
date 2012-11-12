@@ -68,6 +68,7 @@ namespace Couchnode
         // Methods called directly from JavaScript
         static void Init(v8::Handle<v8::Object> target);
         static v8::Handle<v8::Value> New(const v8::Arguments &args);
+        static v8::Handle<v8::Value> StrError(const v8::Arguments &args);
         static v8::Handle<v8::Value> GetVersion(const v8::Arguments &);
         static v8::Handle<v8::Value> SetTimeout(const v8::Arguments &);
         static v8::Handle<v8::Value> GetTimeout(const v8::Arguments &);

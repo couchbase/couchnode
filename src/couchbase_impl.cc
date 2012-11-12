@@ -96,6 +96,7 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     s_ct->InstanceTemplate()->SetInternalFieldCount(1);
     s_ct->SetClassName(v8::String::NewSymbol("CouchbaseImpl"));
 
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "strError", StrError);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getVersion", GetVersion);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "setTimeout", SetTimeout);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getTimeout", GetTimeout);
@@ -236,6 +237,18 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
     CouchbaseImpl *hw = new CouchbaseImpl(instance);
     hw->Wrap(args.This());
     return args.This();
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::StrError(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    lcb_error_t errorCode = (lcb_error_t)args[0]->Int32Value();
+    const char *errorStr = lcb_strerror(me->instance, errorCode);
+
+    v8::Local<v8::String> result = v8::String::New(errorStr);
+    return scope.Close(result);
 }
 
 v8::Handle<v8::Value> CouchbaseImpl::GetVersion(const v8::Arguments &)
