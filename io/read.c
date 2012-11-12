@@ -4,6 +4,7 @@ uv_buf_t
 alloc_cb(uv_handle_t *handle, size_t suggested_size)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)handle;
+    (void)suggested_size;
     return sock->read.buf;
 }
 
@@ -13,6 +14,8 @@ read_cb(uv_stream_t *stream, ssize_t nread, uv_buf_t buf)
     /* This is the same buffer structure we had before */
     lcb_luv_socket_t sock = (lcb_luv_socket_t)stream;
     int is_stopped = 0;
+    (void)buf;
+
     lcb_luv_socket_ref(sock);
     log_read_debug("%d: nr=%d, len=%d", sock->idx, nread, buf.len);
 
@@ -159,6 +162,7 @@ lcb_luv_recv(struct lcb_io_opt_st *iops,
              int flags)
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
+    (void)flags;
     if (sock == NULL) {
         iops->v.v0.error = EBADF;
         return -1;
@@ -174,7 +178,8 @@ lcb_luv_recvv(struct lcb_io_opt_st *iops,
               lcb_size_t niov)
 {
     lcb_ssize_t nr = 0, iret = -1;
-    int ii, my_errno;
+    lcb_size_t ii;
+    int my_errno;
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
 
     if (sock == NULL) {

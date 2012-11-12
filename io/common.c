@@ -39,7 +39,7 @@ prepare_cb(uv_prepare_t *handle, int status)
     log_loop_trace("prepcb start");
     if (!sock) {
         fprintf(stderr, "We were called with prepare_t %p, with a missing socket\n",
-                handle);
+                (void*)handle);
         return;
     }
 
@@ -47,6 +47,7 @@ prepare_cb(uv_prepare_t *handle, int status)
     maybe_callout(sock);
     lcb_luv_socket_unref(sock);
     log_loop_trace("prepcb stop");
+    (void)status;
 }
 
 void
@@ -236,6 +237,7 @@ void *
 lcb_luv_create_event(struct lcb_io_opt_st *iops)
 {
     struct lcb_luv_event_st *ev = calloc(1, sizeof(struct lcb_luv_event_st));
+    (void)iops;
     return ev;
 }
 
@@ -278,6 +280,7 @@ lcb_luv_destroy_event(struct lcb_io_opt_st *iops,
         ev->handle->event = NULL;
     }
     free(ev);
+    (void)iops;
 }
 
 int

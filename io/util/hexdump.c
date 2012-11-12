@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <ctype.h>
 
 #if _WIN32
 #define snprintf _snprintf

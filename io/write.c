@@ -14,7 +14,8 @@ write_cb(uv_write_t *req, int status)
     struct lcb_luv_evstate_st *evstate;
 
     if (!sock) {
-        fprintf(stderr, "Got write callback (req=%p) without socket\n", req);
+        fprintf(stderr, "Got write callback (req=%p) without socket\n",
+                (void*)req);
         return;
     }
 
@@ -125,6 +126,7 @@ lcb_luv_send(struct lcb_io_opt_st *iops,
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     lcb_ssize_t ret;
+    (void)flags;
     if (sock == NULL) {
         iops->v.v0.error = EBADF;
         return -1;
@@ -143,7 +145,8 @@ lcb_luv_sendv(struct lcb_io_opt_st *iops,
               lcb_size_t niov)
 {
     lcb_ssize_t nr = 0, iret;
-    int ii, my_errno = 0;
+    lcb_size_t ii;
+    int my_errno = 0;
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     if (sock == NULL) {
         iops->v.v0.error = EBADF;

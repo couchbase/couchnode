@@ -14,6 +14,7 @@ timer_cb(uv_timer_t *uvt, int status)
     if (timer->callback) {
         timer->callback(-1, 0, timer->cb_arg);
     }
+    (void)status;
 }
 
 void *
@@ -35,6 +36,7 @@ lcb_luv_update_timer(struct lcb_io_opt_st *iops,
     struct my_timer_st *timer = (struct my_timer_st*)timer_opaque;
     timer->callback = callback;
     timer->cb_arg = cbdata;
+    (void)iops;
     return uv_timer_start(&timer->uvt, timer_cb, usec, 0);
 }
 
@@ -45,6 +47,7 @@ lcb_luv_delete_timer(struct lcb_io_opt_st *iops,
 {
     uv_timer_stop((uv_timer_t*)timer_opaque);
     ((struct my_timer_st*)timer_opaque)->callback = NULL;
+    (void)iops;
 }
 
 static void
