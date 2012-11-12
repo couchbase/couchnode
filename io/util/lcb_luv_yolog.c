@@ -24,7 +24,11 @@ the Yolog source code for embedding
 #define GENYL_APESQ_INLINED
 #define APESQ_NO_INCLUDE
 
-#line 0 "yolog.c"
+
+#if __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
 
 /* needed for flockfile/funlockfile */
 #if (defined(__unix__) && (!defined(_POSIX_SOURCE)))
@@ -434,7 +438,6 @@ lcb_luv_yolog_set_screen_format(lcb_luv_yolog_context_group *grp,
 
     lcb_luv_yolog_set_fmtstr(&grp->o_screen, format, 1);
 }
-#line 0 "format.c"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -451,7 +454,12 @@ lcb_luv_yolog_set_screen_format(lcb_luv_yolog_context_group *grp,
  * Linux can get the thread ID,
  * but glibc says it doesn't provide a wrapper for gettid()
  **/
+
 #ifndef _GNU_SOURCE
+/* if _GNU_SOURCE was defined on the commandline, then we should already have
+ * a prototype
+ */
+
 int syscall(int, ...);
 #endif
 #define lcb_luv_yolog_fprintf_thread(f) fprintf(f, "%d", syscall(SYS_gettid))
@@ -503,9 +511,9 @@ lcb_luv_yolog_fmt_compile(const char *fmtstr)
 {
     const char *fmtp = fmtstr;
     struct lcb_luv_yolog_fmt_st *fmtroot, *fmtcur;
-    int n_alloc = sizeof(*fmtroot) * 16;
-    int n_used = 0;
-    int nstr = 0;
+    size_t n_alloc = sizeof(*fmtroot) * 16;
+    size_t n_used = 0;
+    size_t nstr = 0;
 
     fmtroot = malloc(n_alloc);
     fmtcur = fmtroot;
@@ -527,7 +535,7 @@ lcb_luv_yolog_fmt_compile(const char *fmtstr)
 
     while (*fmtp) {
         char optbuf[128] = { 0 };
-        int optpos = 0;
+        size_t optpos = 0;
 
         if ( !(*fmtp == '%' && fmtp[1] == '(')) {
             fmtcur->ustr[nstr] = *fmtp;
@@ -710,7 +718,6 @@ lcb_luv_yolog_set_fmtstr(struct lcb_luv_yolog_output_st *output,
     output->fmtv = newfmt;
     return 0;
 }
-#line 0 "apesq/apesq.h"
 #ifndef APESQ_H_
 #define APESQ_H_
 
@@ -907,7 +914,6 @@ void
 apesq_dump_section(struct apesq_entry_st *root, int indent);
 
 #endif /* APESQ_H_ */
-#line 0 "apesq/apesq.c"
 #ifndef APESQ_NO_INCLUDE
 #include "apesq.h"
 #endif /* APESQ_NO_INCLUDE */
@@ -1622,7 +1628,6 @@ apesq_read_value(struct apesq_section_st *section,
     }
     return APESQ_VALUE_EINVAL;
 }
-#line 0 "yoconf.c"
 #include "lcb_luv_yolog.h"
 #include <errno.h>
 #include <stdlib.h>
@@ -2092,9 +2097,8 @@ lcb_luv_yolog_parse_file(lcb_luv_yolog_context_group *grp,
     return 0;
 }
 
-#line 0 "util/lcb_luv_yolog.c"
 #define GENYL_YL_STATIC
-    
+
 static lcb_luv_yolog_context lcb_luv_yolog_logging_contexts_real[
     LCB_LUV_YOLOG_LOGGING_SUBSYS__COUNT
 ] = { { 0 } };
@@ -2109,51 +2113,51 @@ lcb_luv_yolog_init(const char *filename)
 {
     lcb_luv_yolog_context* ctx;
     memset(lcb_luv_yolog_logging_contexts, 0, sizeof(lcb_luv_yolog_context) * LCB_LUV_YOLOG_LOGGING_SUBSYS__COUNT);
-   
+
    ctx = lcb_luv_yolog_logging_contexts + LCB_LUV_YOLOG_LOGGING_SUBSYS_READ;
    ctx->prefix = "read";
-   
+
    ctx = lcb_luv_yolog_logging_contexts + LCB_LUV_YOLOG_LOGGING_SUBSYS_IOPS;
    ctx->prefix = "iops";
-   
+
    ctx = lcb_luv_yolog_logging_contexts + LCB_LUV_YOLOG_LOGGING_SUBSYS_EVENT;
    ctx->prefix = "event";
-   
+
    ctx = lcb_luv_yolog_logging_contexts + LCB_LUV_YOLOG_LOGGING_SUBSYS_SOCKET;
    ctx->prefix = "socket";
-   
+
    ctx = lcb_luv_yolog_logging_contexts + LCB_LUV_YOLOG_LOGGING_SUBSYS_WRITE;
    ctx->prefix = "write";
-   
+
    ctx = lcb_luv_yolog_logging_contexts + LCB_LUV_YOLOG_LOGGING_SUBSYS_LOOP;
    ctx->prefix = "loop";
-    
+
    /**
     * initialize the group so it contains the
     * contexts and their counts
     */
-    
+
    memset(&lcb_luv_yolog_log_group, 0, sizeof(lcb_luv_yolog_log_group));
    lcb_luv_yolog_log_group.ncontexts = LCB_LUV_YOLOG_LOGGING_SUBSYS__COUNT;
    lcb_luv_yolog_log_group.contexts = lcb_luv_yolog_logging_contexts;
-   
+
    lcb_luv_yolog_init_defaults(
         &lcb_luv_yolog_log_group,
         LCB_LUV_YOLOG_DEFAULT,
         "LCB_LUV_DEBUG_COLOR",
         "LCB_LUV_DEBUG_LEVEL"
     );
-    
+
     if (filename) {
         lcb_luv_yolog_parse_file(&lcb_luv_yolog_log_group, filename);
         /* if we're a static build, also set the default levels */
-        
+
 #ifdef GENYL_YL_STATIC
         lcb_luv_yolog_parse_file(NULL, filename);
 #endif
 
     }
-    
+
     if (getenv("LCB_LUV_DEBUG_PREFS")) {
         lcb_luv_yolog_parse_envstr(&lcb_luv_yolog_log_group, getenv("LCB_LUV_DEBUG_PREFS"));
     }

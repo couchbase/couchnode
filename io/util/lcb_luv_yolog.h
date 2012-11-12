@@ -98,6 +98,9 @@ wrappers and function definitions.
 #include <stdarg.h>
 
 typedef enum {
+    /* make at least one signed number here */
+    _LCB_LUV_YOLOG_LEVEL_MAKE_COMPILER_HAPPY = -1,
+
 #define LCB_LUV_YOLOG_XLVL(X) \
     X(DEFAULT,  0) \
     /* really transient messages */ \
