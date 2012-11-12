@@ -44,11 +44,17 @@
         'cflags': [
           '-g',
           '-fPIC',
+          '-Wall',
+          '-Wextra',
           '-Wno-unused-variable',
           '-Wno-unused-function',
           '$(EXTRA_CFLAGS)',
           '$(EXTRA_CPPFLAGS)',
           '$(EXTRA_CXXFLAGS)',
+        ],
+        'cflags_c':[
+          '-pedantic',
+          '-std=gnu99',
         ],
         'cflags!': [
           '-fno-exceptions',
