@@ -112,7 +112,7 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "prepend", Prepend);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "on", On);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmetic", Arithmetic);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "delete", Remove);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "remove", Remove);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "touch", Touch);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "_opCallStyle", OpCallStyle);
 

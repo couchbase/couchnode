@@ -11,7 +11,7 @@ setup(function(err, cb) {
 
     var testkey = "06-add.js"
 
-    cb.delete(testkey, function(){
+    cb.remove(testkey, function(){
         cb.add(testkey, "bar", function(err, meta) {
             assert(!err, "Can add object at empty key");
             assert.equal(testkey, meta.id, "Callback called with wrong key!")

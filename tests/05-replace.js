@@ -11,10 +11,10 @@ setup(function(err, cb) {
 
     var testkey = "05-replace.js"
 
-    cb.delete(testkey, function(){
+    cb.remove(testkey, function(){
         // try to replace a missing key, should fail
         cb.replace(testkey, "bar", function(err, meta) {
-            assert(err, "Can't replace object that is already deleted");
+            assert(err, "Can't replace object that is already removed");
             cb.set(testkey, "bar", function (err, meta) {
                 assert(!err, "Failed to store object");
                 cb.replace(testkey, "bazz", function (err, meta) {

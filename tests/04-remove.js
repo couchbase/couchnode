@@ -9,20 +9,20 @@ setup(function(err, cb) {
         process.exit(1);
     });
 
-    var testkey = "04-delete.js"
+    var testkey = "04-remove.js"
 
     cb.set(testkey, "bar", function (err, meta) {
         assert(!err, "Failed to store object");
         assert.equal(testkey, meta.id, "Get callback called with wrong key!")
 
-        cb.delete(testkey, function (err, meta) {
-            assert(!err, "Failed to delete object");
-            assert.equal(testkey, meta.id, "Delete existing called with wrong key!")
+        cb.remove(testkey, function (err, meta) {
+            assert(!err, "Failed to remove object");
+            assert.equal(testkey, meta.id, "Remove existing called with wrong key!")
 
-            // now delete it even when it doesn't exist
-            cb.delete(testkey, function (err, meta) {
-                assert(err, "Can't delete object that is already deleted");
-                assert.equal(testkey, meta.id, "Delete missing called with wrong key!")
+            // now remove it even when it doesn't exist
+            cb.remove(testkey, function (err, meta) {
+                assert(err, "Can't remove object that is already removed");
+                assert.equal(testkey, meta.id, "Remove missing called with wrong key!")
                 process.exit(0);
             });
         });
