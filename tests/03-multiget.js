@@ -29,18 +29,25 @@ setup(function(err, cb) {
 
     function getHandler(err, doc, meta) {
         assert(!err, "get error")
+        assert(doc, "no document data");
         calledTimes++;
-        if (calledTimes > 9) {
-            process.exit(0);
-        }
     };
+
+    function spooledGetHandler(errs, docs, metas) {
+        assert(!errs, "spooled get error");
+        assert(docs.length == 10);
+        assert(metas.length == docs.length);
+        assert(calledTimes==10, "wrong number of callback calls");
+
+        process.exit(0);
+    }
 
     function doGets() {
         // normal get
         cb.get("key0", function(err, meta) {
             assert(!err, "get error");
             // multiget
-            cb.get(keys, getHandler);
+            cb.get(keys, getHandler, spooledGetHandler);
         })
     };
 })
