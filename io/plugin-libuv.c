@@ -122,7 +122,7 @@ lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max)
     ret->v.v0.run_event_loop = invoke_start_callback;
     ret->v.v0.stop_event_loop = invoke_stop_callback;
 
-    ret->v.v0.destructor = lcb_luv_dtor;
+    ret->destructor = lcb_luv_dtor;
 
     return ret;
 }
