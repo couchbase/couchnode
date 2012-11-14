@@ -31,10 +31,10 @@ setup(function(err, cb) {
             //     assert(!err, "error creating design document");
 
                 // now lets find our key in the view
-                cb.view("dev_test-design","test-view", {key : testkey}, function(err, resp, view) {
+                cb.view("dev_test-design","test-view", {key : testkey}, function(err, view) {
                     assert(!err, "error fetching view");
-                    assert(view.rows.length > 0)
-                    assert.equal(testkey, view.rows[0].key)
+                    assert(view.length > 0)
+                    assert.equal(testkey, view[0].key)
                     setup.end()
                 });
             // });
