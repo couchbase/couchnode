@@ -31,7 +31,7 @@ the Yolog source code for embedding
 #endif
 
 /* needed for flockfile/funlockfile */
-#if (defined(__unix__) && (!defined(_POSIX_SOURCE)))
+#if (defined(__unix__) && (!defined(_POSIX_SOURCE)) && !defined(__sun))
 #define _POSIX_SOURCE
 #endif /* __unix__ */
 
