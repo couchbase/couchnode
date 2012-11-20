@@ -114,6 +114,7 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmetic", Arithmetic);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "remove", Remove);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "touch", Touch);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "observe", Observe);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "_opCallStyle", OpCallStyle);
 
     target->Set(v8::String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());

@@ -94,6 +94,15 @@ static lcb_error_t doTouch(lcb_t instance,
     return ret;
 }
 
+static lcb_error_t doObserve(lcb_t instance,
+                             CommonArgs *args,
+                             CouchbaseCookie *cookie)
+{
+    lcb_observe_cmd_t cmd(args->key, args->nkey);
+    lcb_observe_cmd_t *commands[] = { &cmd };
+    return lcb_observe(instance, cookie, 1, commands);
+}
+
 static lcb_error_t doArithmetic(lcb_t instance,
                                 CommonArgs *args,
                                 CouchbaseCookie *cookie)
@@ -182,6 +191,12 @@ v8::Handle<v8::Value> CouchbaseImpl::Touch(const v8::Arguments &args)
 {
     COUCHNODE_API_INIT_COMMON(MGetArgs);
     return makeOperation<MGetArgs>(me, &cargs, doTouch);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Observe(const v8::Arguments &args)
+{
+    COUCHNODE_API_INIT_COMMON(MGetArgs);
+    return makeOperation<MGetArgs>(me, &cargs, doObserve);
 }
 
 #define COUCHBASE_STOREFN_DEFINE(name, mode) \

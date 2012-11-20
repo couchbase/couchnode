@@ -21,6 +21,14 @@ namespace Couchnode
 
         void result(lcb_error_t error,
                     const void *key, lcb_size_t nkey,
+                    lcb_cas_t cas,
+                    lcb_observe_t status,
+                    int from_master,
+                    lcb_time_t ttp,
+                    lcb_time_t ttr);
+
+        void result(lcb_error_t error,
+                    const void *key, lcb_size_t nkey,
                     const void *bytes,
                     lcb_size_t nbytes,
                     lcb_uint32_t flags,
@@ -39,12 +47,17 @@ namespace Couchnode
                     const void *key, lcb_size_t nkey);
 
     protected:
-        unsigned int remaining;
-        void invoke(v8::Persistent<v8::Context> &context, int argc,
-                    v8::Local<v8::Value> *argv) {
+        void invokeProgress(v8::Persistent<v8::Context> &context, int argc,
+                            v8::Local<v8::Value> *argv) {
             // Now, invoke the callback with the appropriate arguments
             ucallback->Call(v8::Context::GetEntered()->Global(), argc , argv);
             context.Dispose();
+        }
+
+        unsigned int remaining;
+        void invoke(v8::Persistent<v8::Context> &context, int argc,
+                    v8::Local<v8::Value> *argv) {
+            invokeProgress(context, argc, argv);
             if (--remaining == 0) {
                 delete this;
             }

@@ -38,6 +38,58 @@ CouchbaseCookie::~CouchbaseCookie()
     }
 }
 
+// (data, error, key, cas, status, from_master, ttp, ttr)
+void CouchbaseCookie::result(lcb_error_t error,
+                             const void *key, lcb_size_t nkey,
+                             lcb_cas_t cas,
+                             lcb_observe_t status,
+                             int from_master,
+                             lcb_time_t ttp,
+                             lcb_time_t ttr)
+{
+    using namespace v8;
+    HandleScope scope;
+    Persistent<Context> context = Context::New();
+    Local<Value> argv[8];
+
+    argv[0] = Local<Value>::New(ucookie);
+    if( key ) {
+        argv[2] = Local<Value>::New(String::New((const char*)key, nkey));
+    } else {
+        argv[2] = Local<Value>::New(Null());
+    }
+
+    if(error != LCB_SUCCESS) {
+        argv[1] = Local<Value>::New(Number::New(error));
+        argv[3] = Local<Value>::New(Undefined());
+        argv[4] = Local<Value>::New(Undefined());
+        argv[5] = Local<Value>::New(Undefined());
+        argv[6] = Local<Value>::New(Undefined());
+        argv[7] = Local<Value>::New(Undefined());
+    } else {
+        argv[1] = Local<Value>::New(False());
+        if( key ) {
+            argv[3] = Local<Value>::New(Cas::CreateCas(cas));
+            argv[4] = Local<Value>::New(Number::New(status));
+            argv[5] = Local<Value>::New(Number::New(from_master));
+            argv[6] = Local<Value>::New(Number::New(ttp));
+            argv[7] = Local<Value>::New(Number::New(ttr));
+        } else {
+            argv[3] = Local<Value>::New(Undefined());
+            argv[4] = Local<Value>::New(Undefined());
+            argv[5] = Local<Value>::New(Undefined());
+            argv[6] = Local<Value>::New(Undefined());
+            argv[7] = Local<Value>::New(Undefined());
+        }
+    }
+
+    if( key ) {
+        invokeProgress(context, 8, argv);
+    } else {
+        invoke(context, 8, argv);
+    }
+}
+
 // (data, error, key, cas, flags, value)
 void CouchbaseCookie::result(lcb_error_t error,
                              const void *key, lcb_size_t nkey,
@@ -238,6 +290,24 @@ extern "C" {
 
     }
 
+    static void observe_callback(lcb_t,
+                                 const void *cookie,
+                                 lcb_error_t error,
+                                 const lcb_observe_resp_t *resp)
+    {
+        if(resp->version != 0) {
+            unknownLibcouchbaseType("observe", resp->version);
+        }
+
+        getInstance(cookie)->result(error,
+                                    resp->v.v0.key, resp->v.v0.nkey,
+                                    resp->v.v0.cas,
+                                    resp->v.v0.status,
+                                    resp->v.v0.from_master,
+                                    resp->v.v0.ttp,
+                                    resp->v.v0.ttr);
+    }
+
     static void configuration_callback(lcb_t instance,
                                        lcb_configuration_t config)
     {
@@ -255,5 +325,6 @@ void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
     lcb_set_arithmetic_callback(instance, arithmetic_callback);
     lcb_set_remove_callback(instance, remove_callback);
     lcb_set_touch_callback(instance, touch_callback);
+    lcb_set_observe_callback(instance, observe_callback);
     lcb_set_configuration_callback(instance, configuration_callback);
 }
