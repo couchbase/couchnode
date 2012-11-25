@@ -13,7 +13,7 @@ as it depends on the C-library for Couchbase clients,
 also powers other dynamic language clients, such as Ruby and PHP, so
 if you've worked with those clients you should feel right at home.
 
-First step is to install libcouchbase (the 2.0 beta verion). On a Mac
+First step is to install libcouchbase (the 2.0 beta version). On a Mac
 with homebrew this should be as easy as running:
 
     brew install https://github.com/couchbase/homebrew/raw/preview/Library/Formula/libcouchbase.rb
