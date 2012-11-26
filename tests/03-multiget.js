@@ -21,7 +21,7 @@ setup(function(err, cb) {
             calledTimes = 0;
             doGets();
         }
-    };
+    }
 
     keys.forEach(function(k) {
         cb.set(k, "value", setHandler);
@@ -31,7 +31,7 @@ setup(function(err, cb) {
         assert(!err, "get error")
         assert(doc, "no document data");
         calledTimes++;
-    };
+    }
 
     function spooledGetHandler(errs, docs, metas) {
         assert(!errs, "spooled get error");
@@ -49,5 +49,5 @@ setup(function(err, cb) {
             // multiget
             cb.get(keys, getHandler, spooledGetHandler);
         })
-    };
+    }
 })
