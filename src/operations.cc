@@ -179,7 +179,7 @@ void CouchbaseImpl::runScheduledCommands(void)
 #define COUCHNODE_API_INIT_COMMON(argcls) \
     v8::HandleScope scope; \
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This()); \
-    argcls cargs = argcls(args); \
+    argcls cargs = argcls(args);
 
 v8::Handle<v8::Value> CouchbaseImpl::Get(const v8::Arguments &args)
 {

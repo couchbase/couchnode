@@ -53,13 +53,13 @@ void CouchbaseCookie::result(lcb_error_t error,
     Local<Value> argv[8];
 
     argv[0] = Local<Value>::New(ucookie);
-    if( key ) {
-        argv[2] = Local<Value>::New(String::New((const char*)key, nkey));
+    if (key) {
+        argv[2] = Local<Value>::New(String::New((const char *)key, nkey));
     } else {
         argv[2] = Local<Value>::New(Null());
     }
 
-    if(error != LCB_SUCCESS) {
+    if (error != LCB_SUCCESS) {
         argv[1] = Local<Value>::New(Number::New(error));
         argv[3] = Local<Value>::New(Undefined());
         argv[4] = Local<Value>::New(Undefined());
@@ -68,7 +68,7 @@ void CouchbaseCookie::result(lcb_error_t error,
         argv[7] = Local<Value>::New(Undefined());
     } else {
         argv[1] = Local<Value>::New(False());
-        if( key ) {
+        if (key) {
             argv[3] = Local<Value>::New(Cas::CreateCas(cas));
             argv[4] = Local<Value>::New(Number::New(status));
             argv[5] = Local<Value>::New(Number::New(from_master));
@@ -83,7 +83,7 @@ void CouchbaseCookie::result(lcb_error_t error,
         }
     }
 
-    if( key ) {
+    if (key) {
         invokeProgress(context, 8, argv);
     } else {
         invoke(context, 8, argv);
@@ -295,7 +295,7 @@ extern "C" {
                                  lcb_error_t error,
                                  const lcb_observe_resp_t *resp)
     {
-        if(resp->version != 0) {
+        if (resp->version != 0) {
             unknownLibcouchbaseType("observe", resp->version);
         }
 
