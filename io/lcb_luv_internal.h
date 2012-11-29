@@ -107,8 +107,14 @@ struct lcb_luv_socket_st {
 
     int eof;
 
-    uv_prepare_t prep;
-    int prep_active;
+    uv_async_t async;
+    int async_active;
+
+    /* whether we are currently inside the callback */
+    int async_entered;
+
+    /* whether to 're-do' the callback */
+    int async_redo;
 
     unsigned long refcount;
 
@@ -283,7 +289,7 @@ lcb_luv_read_stop(lcb_luv_socket_t sock);
  * Will enable our per-iteration callback, unless already enabled
  */
 void
-lcb_luv_schedule_enable(lcb_luv_socket_t sock);
+lcb_luv_send_async_write_ready(lcb_luv_socket_t sock);
 
 /**
  * Will flush data to libuv. This is called when the event loop has control

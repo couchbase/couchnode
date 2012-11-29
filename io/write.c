@@ -133,7 +133,7 @@ lcb_luv_send(struct lcb_io_opt_st *iops,
     }
     ret = write_common(sock, msg, len, &iops->v.v0.error);
     if (ret > 0) {
-        lcb_luv_schedule_enable(sock);
+        lcb_luv_send_async_write_ready(sock);
     }
     return ret;
 }
@@ -169,7 +169,7 @@ lcb_luv_sendv(struct lcb_io_opt_st *iops,
         iops->v.v0.error = my_errno;
     }
     if (nr > 0) {
-        lcb_luv_schedule_enable(sock);
+        lcb_luv_send_async_write_ready(sock);
         return nr;
     } else {
         return -1;

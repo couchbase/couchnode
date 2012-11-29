@@ -10,6 +10,11 @@ maybe_callout(lcb_luv_socket_t sock)
         /* !? */
         return;
     }
+
+    /**
+     * Any pending data is flushed here
+     */
+
     lcb_luv_flush(sock);
 
 #define check_if_ready(fld) \
@@ -28,53 +33,117 @@ maybe_callout(lcb_luv_socket_t sock)
         log_loop_debug(" ==== CB Invoking callback for %d =====", sock->idx);
         sock->event->lcb_cb(sock->idx, which, sock->event->lcb_arg);
         log_loop_debug("==== CB Done invoking callback for %d =====", sock->idx);
-        lcb_luv_flush(sock);
     }
+
+    /* Flush again.. */
+    lcb_luv_flush(sock);
 }
 
 static void
-prepare_cb(uv_prepare_t *handle, int status)
+async_cb(uv_async_t *handle, int status)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)handle->data;
     log_loop_trace("prepcb start");
+
     if (!sock) {
         fprintf(stderr, "We were called with prepare_t %p, with a missing socket\n",
                 (void*)handle);
         return;
     }
 
-    lcb_luv_socket_ref(sock);
-    maybe_callout(sock);
+    sock->async_entered = 1;
+
+    do {
+        lcb_luv_socket_ref(sock);
+
+        sock->async_redo = 0;
+        maybe_callout(sock);
+
+        lcb_luv_socket_unref(sock);
+
+    } while (sock->async_redo);
+
+    sock->async_entered = 0;
+    sock->async_active = 0;
+
+    /**
+     * we don't have an actual 'async_stop', so decrement the refcount
+     * once more
+     */
     lcb_luv_socket_unref(sock);
+
     log_loop_trace("prepcb stop");
     (void)status;
 }
 
+/**
+ * Deliver an asynchronous 'write-ready' notification to libcouchbase.
+ * This will invoke the normal callback chains..
+ *
+ * So how this works is rather complicated. It is used primarily for
+ * write-readiness (i.e. to let libcouchbase put data into our socket buffer).
+ *
+ * If requested from within the callback (i.e. async_cb itself), then we need
+ * to heuristically decide what exactly lcb will do.
+ *
+ * If it's a simple write event (i.e. actually copying the data between buffers)
+ * then our buffer will eventually become full and this function will fail
+ * to set the async_redo flag.
+ *
+ * The case is different in connect though: while a connect-readiness
+ * notification is a write event, it doesn't actually fill the socket with
+ * anything, so there is the possibility of recursion.
+ *
+ * Furthermore, connect-'readiness' is an actual event in uv, so there is no
+ * need for this readiness emulation.
+ */
 void
-lcb_luv_schedule_enable(lcb_luv_socket_t sock)
+lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
 {
-    if (sock->prep_active) {
+    if (sock->async_entered) {
+        /**
+         * Doing extra checks here to ensure we don't end up inside a busy
+         * loop.
+         */
+        struct lcb_luv_evstate_st *wev = EVSTATE_FIND(sock, WRITE);
+        struct lcb_luv_evstate_st *cev = EVSTATE_FIND(sock, CONNECT);
+
+        if (!EVSTATE_IS(cev, CONNECTED)) {
+            log_loop_debug("Not iterating again for phony write event");
+            return;
+        }
+
+        if (EVSTATE_IS(wev, FLUSHING)) {
+            log_loop_debug("Not requesting second iteration. "
+                    "Already inside a flush");
+            return;
+        }
+
+        if (sock->write.nb >= sizeof(sock->write.data)) {
+            log_loop_debug("Not enough space to write..");
+            return;
+        }
+
+        sock->async_redo = 1;
+        return;
+    }
+
+    if (sock->async_active) {
         log_loop_trace("prep_active is true");
         return;
     }
 
     log_loop_debug("Will try and schedule prepare callback for %d", sock->idx);
     lcb_luv_socket_ref(sock);
-    uv_prepare_start(&sock->prep, prepare_cb);
-    sock->prep_active = 1;
+
+    uv_async_send(&sock->async);
+    sock->async_active = 1;
 }
 
 void
 lcb_luv_schedule_disable(lcb_luv_socket_t sock)
 {
-    if (sock->prep_active == 0) {
-        log_loop_trace("prep_active is false");
-        return;
-    }
-    log_loop_debug("Disabling prepare");
-    uv_prepare_stop(&sock->prep);
-    lcb_luv_socket_unref(sock);
-    sock->prep_active = 0;
+    /* no-op */
 }
 
 static
@@ -116,10 +185,10 @@ lcb_luv_socket_new(struct lcb_io_opt_st *iops)
     newsock->idx = idx;
     newsock->parent = IOPS_COOKIE(iops);
 
-    uv_prepare_init(newsock->parent->loop, &newsock->prep);
-    newsock->prep_active = 0;
+    uv_async_init(newsock->parent->loop, &newsock->async, async_cb);
+    newsock->async_active = 0;
 
-    newsock->prep.data = newsock;
+    newsock->async.data = newsock;
     newsock->u_req.req.data = newsock;
     newsock->refcount = 1;
 
@@ -135,7 +204,7 @@ void lcb_luv_socket_free(lcb_luv_socket_t sock)
     assert(sock->event == NULL);
     assert(sock->idx == -1);
     assert(sock->refcount == 0);
-    assert(sock->prep_active == 0);
+    assert(sock->async_active == 0);
     assert(sock->read.readhead_active == 0);
     free(sock);
 }
@@ -160,7 +229,7 @@ static void
 prep_close_cb(uv_handle_t *handle)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)
-                            (((char *)handle) - offsetof(struct lcb_luv_socket_st, prep));
+                            (((char *)handle) - offsetof(struct lcb_luv_socket_st, async));
     sock_free_pass(sock);
 }
 
@@ -175,7 +244,7 @@ lcb_luv_socket_unref(lcb_luv_socket_t sock)
     if (ret == 0) {
         sock->handle_count = 2;
         uv_close((uv_handle_t *)&sock->tcp, io_close_cb);
-        uv_close((uv_handle_t *)&sock->prep, prep_close_cb);
+        uv_close((uv_handle_t *)&sock->async, prep_close_cb);
     }
     return ret;
 }
@@ -198,7 +267,7 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
 
     lcb_luv_read_stop(sock);
 
-    assert(sock->prep_active == 0);
+    assert(sock->async_active == 0);
     sock->parent->socktable[sock->idx] = 0;
     sock->idx = -1;
 
@@ -327,7 +396,7 @@ lcb_luv_update_event(struct lcb_io_opt_st *iops,
             sock->evstate[LCB_LUV_EV_WRITE].flags |= LCB_LUV_EVf_PENDING;
         }
 
-        lcb_luv_schedule_enable(sock);
+        lcb_luv_send_async_write_ready(sock);
     } else {
         sock->evstate[LCB_LUV_EV_WRITE].flags &= (~LCB_LUV_EVf_PENDING);
     }
