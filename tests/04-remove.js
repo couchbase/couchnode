@@ -14,6 +14,7 @@ setup(function(err, cb) {
     cb.set(testkey, "bar", function (err, meta) {
         assert(!err, "Failed to store object");
         assert.equal(testkey, meta.id, "Get callback called with wrong key!")
+        var cas = meta.cas;
 
         cb.remove(testkey, function (err, meta) {
             assert(!err, "Failed to remove object");
@@ -23,6 +24,7 @@ setup(function(err, cb) {
             cb.remove(testkey, function (err, meta) {
                 assert(err, "Can't remove object that is already removed");
                 assert.equal(testkey, meta.id, "Remove missing called with wrong key!")
+                assert.notEqual(cas, meta.cas);
                 process.exit(0);
             });
         });

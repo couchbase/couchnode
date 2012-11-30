@@ -273,7 +273,8 @@ extern "C" {
             unknownLibcouchbaseType("remove", resp->version);
         }
 
-        getInstance(cookie)->result(error, resp->v.v0.key, resp->v.v0.nkey);
+        getInstance(cookie)->result(error, resp->v.v0.key, resp->v.v0.nkey,
+                                    resp->v.v0.cas);
 
     }
 
