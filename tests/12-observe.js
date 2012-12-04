@@ -20,7 +20,7 @@ setup(function(err, cb) {
                 // First callback should not be the terminator
                 assert(!err, "Failed to get observe data");
                 assert(meta, "Invalid observe data");
-            } else if( calledTimes == 1 ) {
+            } else if( calledTimes >= 1 ) {
                 if( meta ) {
                     // This is another replica
                     assert(!err, "Failed to get observe data");
