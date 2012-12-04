@@ -207,9 +207,11 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
             v8::Local<v8::String> s = args[ii]->ToString();
             argv[ii] = new char[s->Length() + 1];
             s->WriteAscii(argv[ii]);
-        } else if (!args[ii]->IsNull()) {
-            // @todo handle NULL
-            return ThrowIllegalArgumentsException();
+        } else if (!args[ii]->IsNull() && !args[ii]->IsUndefined()) {
+            stringstream ss;
+            ss << "Incorrect datatype provided as argument nr. "
+               << ii + 1 << " (expected string)";
+            return ThrowException(ss.str().c_str());
         }
     }
 
