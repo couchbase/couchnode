@@ -45,6 +45,9 @@
 #define MINIMUM(a,b) \
     ((a < b) ? a : b)
 
+#define ASYNC_IS(sock, f) \
+    ( ((sock)->async_state) & LCB_LUV_ASYNCf_##f )
+
 /**
  * Fields representing various events
  */
@@ -84,7 +87,20 @@ typedef enum {
 } lcb_luv_evstate_flags_t;
 
 
+typedef enum {
+    /** Set by the callback when entered, unset when it returns */
+    LCB_LUV_ASYNCf_ENTERED = 1 << 0,
 
+    /** Set when we have requested a callback (i.e. async_send was called) */
+    LCB_LUV_ASYNCf_SCHEDULED = 1 << 1,
+
+    /** Set if the callback should loop again */
+    LCB_LUV_ASYNCf_REDO = 1 << 2,
+
+    /** Set if it should call deinit() on the next iteration */
+    LCB_LUV_ASYNCf_DEINIT = 1 << 3
+
+} lcb_luv_async_flags_t ;
 
 struct lcb_luv_evstate_st {
     lcb_luv_evstate_flags_t flags;
@@ -102,19 +118,15 @@ struct lcb_luv_socket_st {
     /* Union for our requests */
     union uv_any_req u_req;
 
+    /* async handle */
+    uv_async_t async;
+
+    lcb_luv_async_flags_t async_state;
+
     /* Index into the 'fd' table */
     long idx;
 
     int eof;
-
-    uv_async_t async;
-    int async_active;
-
-    /* whether we are currently inside the callback */
-    int async_entered;
-
-    /* whether to 're-do' the callback */
-    int async_redo;
 
     unsigned long refcount;
 

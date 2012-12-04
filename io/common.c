@@ -51,20 +51,32 @@ async_cb(uv_async_t *handle, int status)
         return;
     }
 
-    sock->async_entered = 1;
-
+    sock->async_state |= LCB_LUV_ASYNCf_ENTERED;
     do {
+
+        if (ASYNC_IS(sock, DEINIT)) {
+            /**
+             * We were requested to asynchronously be cancelled
+             */
+            sock->async_state = 0;
+            lcb_luv_socket_deinit(sock);
+            break;
+        }
+
         lcb_luv_socket_ref(sock);
 
-        sock->async_redo = 0;
+        sock->async_state &= (~LCB_LUV_ASYNCf_REDO);
         maybe_callout(sock);
 
         lcb_luv_socket_unref(sock);
 
-    } while (sock->async_redo);
+    } while (ASYNC_IS(sock, REDO));
 
-    sock->async_entered = 0;
-    sock->async_active = 0;
+    sock->async_state &= ~(
+            LCB_LUV_ASYNCf_ENTERED |
+            LCB_LUV_ASYNCf_REDO |
+            LCB_LUV_ASYNCf_SCHEDULED
+            );
 
     /**
      * we don't have an actual 'async_stop', so decrement the refcount
@@ -100,7 +112,7 @@ async_cb(uv_async_t *handle, int status)
 void
 lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
 {
-    if (sock->async_entered) {
+    if (ASYNC_IS(sock, ENTERED)) {
         /**
          * Doing extra checks here to ensure we don't end up inside a busy
          * loop.
@@ -123,12 +135,11 @@ lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
             log_loop_debug("Not enough space to write..");
             return;
         }
-
-        sock->async_redo = 1;
+        sock->async_state |= LCB_LUV_ASYNCf_REDO;
         return;
     }
 
-    if (sock->async_active) {
+    if (ASYNC_IS(sock, SCHEDULED)) {
         log_loop_trace("prep_active is true");
         return;
     }
@@ -137,7 +148,7 @@ lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
     lcb_luv_socket_ref(sock);
 
     uv_async_send(&sock->async);
-    sock->async_active = 1;
+    sock->async_state |= LCB_LUV_ASYNCf_SCHEDULED;
 }
 
 void
@@ -186,7 +197,7 @@ lcb_luv_socket_new(struct lcb_io_opt_st *iops)
     newsock->parent = IOPS_COOKIE(iops);
 
     uv_async_init(newsock->parent->loop, &newsock->async, async_cb);
-    newsock->async_active = 0;
+    newsock->async_state = 0;
 
     newsock->async.data = newsock;
     newsock->u_req.req.data = newsock;
@@ -204,7 +215,7 @@ void lcb_luv_socket_free(lcb_luv_socket_t sock)
     assert(sock->event == NULL);
     assert(sock->idx == -1);
     assert(sock->refcount == 0);
-    assert(sock->async_active == 0);
+    assert(sock->async_state == 0);
     assert(sock->read.readhead_active == 0);
     free(sock);
 }
@@ -256,6 +267,14 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
         return;
     }
 
+    /**
+     * If we're in the middle of an async loop
+     */
+    if (ASYNC_IS(sock, SCHEDULED) || ASYNC_IS(sock, ENTERED)) {
+        sock->async_state |= (LCB_LUV_ASYNCf_DEINIT|LCB_LUV_ASYNCf_REDO);
+        return;
+    }
+
     log_socket_info("%p: Deinitializing socket %d", sock->parent, sock->idx);
 
     lcb_luv_schedule_disable(sock);
@@ -267,7 +286,7 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
 
     lcb_luv_read_stop(sock);
 
-    assert(sock->async_active == 0);
+    assert(sock->async_state == 0);
     sock->parent->socktable[sock->idx] = 0;
     sock->idx = -1;
 
