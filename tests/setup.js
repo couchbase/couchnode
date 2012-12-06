@@ -37,7 +37,7 @@ module.exports = function(callback) {
     setTimeout(function() {
         console.log("timeout, assuming failure")
         process.exit(1)
-    }, 1000)
+    }, 10000)
     cb.connect(config, callback);
 };
 
