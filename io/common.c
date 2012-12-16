@@ -154,6 +154,7 @@ lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
 void
 lcb_luv_schedule_disable(lcb_luv_socket_t sock)
 {
+   (void)sock;
     /* no-op */
 }
 
