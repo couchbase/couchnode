@@ -3,12 +3,6 @@
 
 static int _yolog_initialized = 0;
 
-static UNUSED(void)
-lcb_luv_noop(struct lcb_io_opt_st *iops)
-{
-    (void)iops;
-}
-
 static void lcb_luv_dtor(struct lcb_io_opt_st *iops)
 {
     /**
