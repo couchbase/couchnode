@@ -170,8 +170,7 @@ lcb_luv_sendv(struct lcb_io_opt_st *iops,
     }
     if (nr > 0) {
         lcb_luv_send_async_write_ready(sock);
-        return nr;
-    } else {
-        return -1;
     }
+
+    return nr;
 }
