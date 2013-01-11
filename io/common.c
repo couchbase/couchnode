@@ -156,24 +156,18 @@ void lcb_luv_schedule_disable(lcb_luv_socket_t sock)
     /* no-op */
 }
 
-static
-#if _WIN32
-__inline
-#else
-inline
-#endif
-lcb_socket_t find_free_idx(struct lcb_luv_cookie_st *cookie)
+static lcb_socket_t find_free_idx(struct lcb_luv_cookie_st *cookie)
 {
-    lcb_socket_t ret = -1;
     unsigned int nchecked = 0;
-    while (nchecked < cookie->fd_max && ret == -1) {
+    while (nchecked < cookie->fd_max) {
         if (cookie->socktable[cookie->fd_next] == NULL) {
-            ret = cookie->fd_next;
+            return cookie->fd_next;
         }
         cookie->fd_next = ((cookie->fd_next + 1) % cookie->fd_max);
         nchecked++;
     }
-    return ret;
+
+    return -1;
 }
 
 
