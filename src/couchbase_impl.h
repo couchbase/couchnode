@@ -52,7 +52,7 @@
 #include <libcouchbase/couchbase.h>
 #include "namemap.h"
 #include "cookie.h"
-#include "args.h"
+#include "operations.h"
 #include "cas.h"
 
 namespace Couchnode
@@ -78,16 +78,11 @@ namespace Couchnode
         static v8::Handle<v8::Value> SetHandler(const v8::Arguments &);
         static v8::Handle<v8::Value> GetLastError(const v8::Arguments &);
         static v8::Handle<v8::Value> Get(const v8::Arguments &);
-        static v8::Handle<v8::Value> Set(const v8::Arguments &);
-        static v8::Handle<v8::Value> Add(const v8::Arguments &);
-        static v8::Handle<v8::Value> Replace(const v8::Arguments &);
-        static v8::Handle<v8::Value> Append(const v8::Arguments &);
-        static v8::Handle<v8::Value> Prepend(const v8::Arguments &);
+        static v8::Handle<v8::Value> Store(const v8::Arguments &);
         static v8::Handle<v8::Value> Arithmetic(const v8::Arguments &);
         static v8::Handle<v8::Value> Remove(const v8::Arguments &);
         static v8::Handle<v8::Value> Touch(const v8::Arguments &);
         static v8::Handle<v8::Value> Observe(const v8::Arguments &);
-        static v8::Handle<v8::Value> OpCallStyle(const v8::Arguments &);
         // Setting up the event emitter
         static v8::Handle<v8::Value> On(const v8::Arguments &);
         v8::Handle<v8::Value> on(const v8::Arguments &);
@@ -98,11 +93,11 @@ namespace Couchnode
 
         void errorCallback(lcb_error_t err, const char *errinfo);
 
-        void scheduleCommand(QueuedCommand &cmd) {
-            queued_commands.push_back(cmd);
+        void scheduleOperation(Operation *op) {
+            queuedOperations.push_back(op);
         }
 
-        void runScheduledCommands(void);
+        void runScheduledOperations(void);
 
         void setLastError(lcb_error_t err) {
             lastError = err;
@@ -125,8 +120,9 @@ namespace Couchnode
         lcb_t instance;
         lcb_error_t lastError;
 
-        typedef std::vector<QueuedCommand> QueuedCommandList;
-        QueuedCommandList queued_commands;
+        // @todo why not use a std::queue?
+        typedef std::vector<Operation*> QueuedOperationList;
+        QueuedOperationList queuedOperations;
 
         typedef std::map<std::string, v8::Persistent<v8::Function> > EventMap;
         EventMap events;
@@ -136,26 +132,6 @@ namespace Couchnode
 #ifdef COUCHNODE_DEBUG
         static unsigned int objectCount;
 #endif
-    };
-
-    class QueuedCommand
-    {
-    public:
-        typedef lcb_error_t (*operfunc)(
-            lcb_t, CommonArgs *, CouchbaseCookie *);
-
-        QueuedCommand(CouchbaseCookie *c, CommonArgs *a, operfunc f) :
-            cookie(c), args(a), ofn(f) { }
-
-        virtual ~QueuedCommand() { }
-
-        void setDone(void) {
-            delete args;
-        }
-
-        CouchbaseCookie *cookie;
-        CommonArgs *args;
-        operfunc ofn;
     };
 
     /**

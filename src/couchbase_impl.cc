@@ -105,17 +105,12 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "isSynchronous", IsSynchronous);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getLastError", GetLastError);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "get", Get);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "set", Set);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "add", Add);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "replace", Replace);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "append", Append);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "prepend", Prepend);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "store", Store);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "on", On);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmetic", Arithmetic);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "remove", Remove);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "touch", Touch);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "observe", Observe);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "_opCallStyle", OpCallStyle);
 
     target->Set(v8::String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());
 
@@ -158,33 +153,6 @@ v8::Handle<v8::Value> CouchbaseImpl::on(const v8::Arguments &args)
             v8::Local<v8::Function>::Cast(args[1]));
 
     return scope.Close(v8::True());
-}
-
-v8::Handle<v8::Value> CouchbaseImpl::OpCallStyle(const v8::Arguments &args)
-{
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-
-    v8::Handle<v8::String> rv = me->useHashtableParams ?
-                                NameMap::names[NameMap::OPSTYLE_HASHTABLE] :
-                                NameMap::names[NameMap::OPSTYLE_POSITIONAL];
-
-    if (!args.Length()) {
-        return rv;
-    }
-
-    if (args.Length() != 1 || args[0]->IsString() == false) {
-        return ThrowException("First (and only) argument must be a string");
-    }
-
-    if (NameMap::names[NameMap::OPSTYLE_HASHTABLE]->Equals(args[0])) {
-        me->useHashtableParams = true;
-    } else if (NameMap::names[NameMap::OPSTYLE_POSITIONAL]->Equals(args[0])) {
-        me->useHashtableParams = false;
-    } else {
-        return ThrowException("Unrecognized call style");
-    }
-
-    return rv;
 }
 
 v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
@@ -361,7 +329,7 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
     if (!connected) {
         // Time to fail out all the commands..
         connected = true;
-        runScheduledCommands();
+        runScheduledOperations();
     }
 
     if (err == LCB_ETIMEDOUT && onTimeout()) {
@@ -382,7 +350,7 @@ void CouchbaseImpl::onConnect(lcb_configuration_t config)
     if (config == LCB_CONFIGURATION_NEW) {
         if (!connected) {
             connected = true;
-            runScheduledCommands();
+            runScheduledOperations();
         }
     }
     lcb_set_configuration_callback(instance, NULL);
@@ -406,4 +374,97 @@ bool CouchbaseImpl::onTimeout(void)
     }
 
     return false;
+}
+
+static inline v8::Handle<v8::Value> makeOperation(CouchbaseImpl *me,
+                                                  const v8::Arguments &arguments,
+                                                  Operation *op)
+{
+    try {
+        op->parse(arguments);
+    } catch (std::string &error) {
+        delete op;
+        return ThrowException(error.c_str());
+    }
+
+    lcb_error_t error = op->execute(me->getLibcouchbaseHandle());
+    if (error == LCB_SUCCESS) {
+        delete op;
+    } else {
+        me->setLastError(error);
+        if (me->isConnected()) {
+            op->cancel(error);
+            return v8::False();
+        }
+
+        me->scheduleOperation(op);
+    }
+
+    return v8::True();
+}
+
+void CouchbaseImpl::runScheduledOperations(void)
+{
+    QueuedOperationList::iterator iter = queuedOperations.begin();
+    for (; iter != queuedOperations.end(); iter++) {
+
+        lcb_error_t err = (*iter)->execute(instance);
+        if (err != LCB_SUCCESS) {
+            lastError = err;
+            (*iter)->cancel(err);
+        }
+        delete *iter;
+    }
+    queuedOperations.clear();
+}
+
+/*******************************************
+ ** Entry point for all of the operations **
+ ******************************************/
+v8::Handle<v8::Value> CouchbaseImpl::Store(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    StoreOperation *op = new StoreOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Get(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    GetOperation *op = new GetOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Touch(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    TouchOperation *op = new TouchOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Observe(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    ObserveOperation *op = new ObserveOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Arithmetic(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    ArithmeticOperation *op = new ArithmeticOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Remove(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    RemoveOperation *op = new RemoveOperation;
+    return makeOperation(me, args, op);
 }

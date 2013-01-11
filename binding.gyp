@@ -65,7 +65,6 @@
       }],
     ],
     'sources': [
-      'src/args.cc',
       'src/couchbase_impl.cc',
       'src/namemap.cc',
       'src/notify.cc',
