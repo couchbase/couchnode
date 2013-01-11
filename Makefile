@@ -33,5 +33,6 @@ reformat:
                --add-brackets \
                --unpad-paren \
                --align-pointer=name \
+               io/*.c io/*.h io/util/hexdump.c \
                src/*.cc \
                src/*.h

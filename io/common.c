@@ -1,9 +1,9 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #include "lcb_luv_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-static void
-maybe_callout(lcb_luv_socket_t sock)
+static void maybe_callout(lcb_luv_socket_t sock)
 {
     short which = 0;
     if (!sock->event) {
@@ -39,15 +39,14 @@ maybe_callout(lcb_luv_socket_t sock)
     lcb_luv_flush(sock);
 }
 
-static void
-async_cb(uv_async_t *handle, int status)
+static void async_cb(uv_async_t *handle, int status)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)handle->data;
     log_loop_trace("prepcb start");
 
     if (!sock) {
         fprintf(stderr, "We were called with prepare_t %p, with a missing socket\n",
-                (void*)handle);
+                (void *)handle);
         return;
     }
 
@@ -73,10 +72,10 @@ async_cb(uv_async_t *handle, int status)
     } while (ASYNC_IS(sock, REDO));
 
     sock->async_state &= ~(
-            LCB_LUV_ASYNCf_ENTERED |
-            LCB_LUV_ASYNCf_REDO |
-            LCB_LUV_ASYNCf_SCHEDULED
-            );
+                             LCB_LUV_ASYNCf_ENTERED |
+                             LCB_LUV_ASYNCf_REDO |
+                             LCB_LUV_ASYNCf_SCHEDULED
+                         );
 
     /**
      * we don't have an actual 'async_stop', so decrement the refcount
@@ -93,24 +92,24 @@ async_cb(uv_async_t *handle, int status)
  * This will invoke the normal callback chains..
  *
  * So how this works is rather complicated. It is used primarily for
- * write-readiness (i.e. to let libcouchbase put data into our socket buffer).
+ * write-readiness (i.e. to let libcouchbase put data into our socket
+ * buffer).
  *
- * If requested from within the callback (i.e. async_cb itself), then we need
- * to heuristically decide what exactly lcb will do.
+ * If requested from within the callback (i.e. async_cb itself), then
+ * we need to heuristically decide what exactly lcb will do.
  *
- * If it's a simple write event (i.e. actually copying the data between buffers)
- * then our buffer will eventually become full and this function will fail
- * to set the async_redo flag.
+ * If it's a simple write event (i.e. actually copying the data
+ * between buffers) then our buffer will eventually become full and
+ * this function will fail to set the async_redo flag.
  *
  * The case is different in connect though: while a connect-readiness
- * notification is a write event, it doesn't actually fill the socket with
- * anything, so there is the possibility of recursion.
+ * notification is a write event, it doesn't actually fill the socket
+ * with anything, so there is the possibility of recursion.
  *
- * Furthermore, connect-'readiness' is an actual event in uv, so there is no
- * need for this readiness emulation.
+ * Furthermore, connect-'readiness' is an actual event in uv, so there
+ * is no need for this readiness emulation.
  */
-void
-lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
+void lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
 {
     if (ASYNC_IS(sock, ENTERED)) {
         /**
@@ -127,7 +126,7 @@ lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
 
         if (EVSTATE_IS(wev, FLUSHING)) {
             log_loop_debug("Not requesting second iteration. "
-                    "Already inside a flush");
+                           "Already inside a flush");
             return;
         }
 
@@ -151,21 +150,19 @@ lcb_luv_send_async_write_ready(lcb_luv_socket_t sock)
     sock->async_state |= LCB_LUV_ASYNCf_SCHEDULED;
 }
 
-void
-lcb_luv_schedule_disable(lcb_luv_socket_t sock)
+void lcb_luv_schedule_disable(lcb_luv_socket_t sock)
 {
-   (void)sock;
+    (void)sock;
     /* no-op */
 }
 
 static
 #if _WIN32
- __inline
+__inline
 #else
- inline
+inline
 #endif
-lcb_socket_t
-find_free_idx(struct lcb_luv_cookie_st *cookie)
+lcb_socket_t find_free_idx(struct lcb_luv_cookie_st *cookie)
 {
     lcb_socket_t ret = -1;
     unsigned int nchecked = 0;
@@ -180,8 +177,7 @@ find_free_idx(struct lcb_luv_cookie_st *cookie)
 }
 
 
-lcb_luv_socket_t
-lcb_luv_socket_new(struct lcb_io_opt_st *iops)
+lcb_luv_socket_t lcb_luv_socket_new(struct lcb_io_opt_st *iops)
 {
     /* Find the next 'file descriptor' */
 
@@ -221,8 +217,7 @@ void lcb_luv_socket_free(lcb_luv_socket_t sock)
     free(sock);
 }
 
-static void
-sock_free_pass(lcb_luv_socket_t sock)
+static void sock_free_pass(lcb_luv_socket_t sock)
 {
     sock->handle_count--;
     if (!sock->handle_count) {
@@ -230,23 +225,20 @@ sock_free_pass(lcb_luv_socket_t sock)
     }
 }
 
-static void
-io_close_cb(uv_handle_t *handle)
+static void io_close_cb(uv_handle_t *handle)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)handle;
     sock_free_pass(sock);
 }
 
-static void
-prep_close_cb(uv_handle_t *handle)
+static void prep_close_cb(uv_handle_t *handle)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)
                             (((char *)handle) - offsetof(struct lcb_luv_socket_st, async));
     sock_free_pass(sock);
 }
 
-unsigned long
-lcb_luv_socket_unref(lcb_luv_socket_t sock)
+unsigned long lcb_luv_socket_unref(lcb_luv_socket_t sock)
 {
     unsigned long ret;
     assert(sock->refcount);
@@ -261,8 +253,7 @@ lcb_luv_socket_unref(lcb_luv_socket_t sock)
     return ret;
 }
 
-void
-lcb_luv_socket_deinit(lcb_luv_socket_t sock)
+void lcb_luv_socket_deinit(lcb_luv_socket_t sock)
 {
     if (sock->idx == -1) {
         return;
@@ -272,7 +263,7 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
      * If we're in the middle of an async loop
      */
     if (ASYNC_IS(sock, SCHEDULED) || ASYNC_IS(sock, ENTERED)) {
-        sock->async_state |= (LCB_LUV_ASYNCf_DEINIT|LCB_LUV_ASYNCf_REDO);
+        sock->async_state |= (LCB_LUV_ASYNCf_DEINIT | LCB_LUV_ASYNCf_REDO);
         return;
     }
 
@@ -308,8 +299,8 @@ lcb_luv_socket_deinit(lcb_luv_socket_t sock)
 }
 
 
-lcb_luv_socket_t
-lcb_luv_sock_from_idx(struct lcb_io_opt_st *iops, lcb_socket_t idx)
+lcb_luv_socket_t lcb_luv_sock_from_idx(struct lcb_io_opt_st *iops,
+                                       lcb_socket_t idx)
 {
     if (idx < 0) {
         return NULL;
@@ -322,18 +313,16 @@ lcb_luv_sock_from_idx(struct lcb_io_opt_st *iops, lcb_socket_t idx)
     return IOPS_COOKIE(iops)->socktable[idx];
 }
 
-void *
-lcb_luv_create_event(struct lcb_io_opt_st *iops)
+void *lcb_luv_create_event(struct lcb_io_opt_st *iops)
 {
     struct lcb_luv_event_st *ev = calloc(1, sizeof(struct lcb_luv_event_st));
     (void)iops;
     return ev;
 }
 
-void
-lcb_luv_delete_event(struct lcb_io_opt_st *iops,
-                     lcb_socket_t sock_i,
-                     void *event_opaque)
+void lcb_luv_delete_event(struct lcb_io_opt_st *iops,
+                          lcb_socket_t sock_i,
+                          void *event_opaque)
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     struct lcb_luv_event_st *ev = (struct lcb_luv_event_st *)event_opaque;
@@ -360,9 +349,8 @@ lcb_luv_delete_event(struct lcb_io_opt_st *iops,
     }
 }
 
-void
-lcb_luv_destroy_event(struct lcb_io_opt_st *iops,
-                      void *event_opaque)
+void lcb_luv_destroy_event(struct lcb_io_opt_st *iops,
+                           void *event_opaque)
 {
     struct lcb_luv_event_st *ev = (struct lcb_luv_event_st *)event_opaque;
     if (ev->handle) {
@@ -372,13 +360,12 @@ lcb_luv_destroy_event(struct lcb_io_opt_st *iops,
     (void)iops;
 }
 
-int
-lcb_luv_update_event(struct lcb_io_opt_st *iops,
-                     lcb_socket_t sock_i,
-                     void *event_opaque,
-                     short flags,
-                     void *cb_data,
-                     lcb_luv_callback_t cb)
+int lcb_luv_update_event(struct lcb_io_opt_st *iops,
+                         lcb_socket_t sock_i,
+                         void *event_opaque,
+                         short flags,
+                         void *cb_data,
+                         lcb_luv_callback_t cb)
 {
     struct lcb_luv_event_st *event = (struct lcb_luv_event_st *)event_opaque;
     /* Check to see if our 'socket' is valid */
@@ -424,8 +411,7 @@ lcb_luv_update_event(struct lcb_io_opt_st *iops,
     return 1;
 }
 
-int
-lcb_luv_errno_map(int uverr)
+int lcb_luv_errno_map(int uverr)
 {
 
 #ifndef UNKNOWN

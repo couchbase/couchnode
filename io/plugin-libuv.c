@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #include "lcb_luv_internal.h"
 
 static int _yolog_initialized = 0;
@@ -8,8 +9,7 @@ lcb_luv_noop(struct lcb_io_opt_st *iops)
     (void)iops;
 }
 
-static void
-lcb_luv_dtor(struct lcb_io_opt_st *iops)
+static void lcb_luv_dtor(struct lcb_io_opt_st *iops)
 {
     /**
      * First, clean up any dangling sockets
@@ -21,37 +21,34 @@ lcb_luv_dtor(struct lcb_io_opt_st *iops)
     for (ii = 0; ii < cookie->fd_max; ii++) {
         if (cookie->socktable[ii]) {
             log_iops_warn("Dangling socket structure %p with index %d",
-                       cookie->socktable + ii,
-                       ii);
+                          cookie->socktable + ii,
+                          ii);
         }
     }
 
     log_iops_debug("Destroying %p", iops);
     log_iops_warn("Still have %d timers", cookie->timer_count);
-    assert (cookie->timer_count == 0);
-    free (cookie->socktable);
-    free (cookie);
-    free (iops);
+    assert(cookie->timer_count == 0);
+    free(cookie->socktable);
+    free(cookie);
+    free(iops);
 }
 
-static void
-invoke_startstop_callback(struct lcb_luv_cookie_st *cookie,
-                          lcb_luv_start_cb_t cb)
+static void invoke_startstop_callback(struct lcb_luv_cookie_st *cookie,
+                                      lcb_luv_start_cb_t cb)
 {
     if (cb) {
         cb(cookie);
     }
 }
 
-static void
-invoke_start_callback(struct lcb_io_opt_st *iops)
+static void invoke_start_callback(struct lcb_io_opt_st *iops)
 {
     log_iops_debug("Start event loop..");
     invoke_startstop_callback(IOPS_COOKIE(iops), IOPS_COOKIE(iops)->start_callback);
 }
 
-static void
-invoke_stop_callback(struct lcb_io_opt_st *iops)
+static void invoke_stop_callback(struct lcb_io_opt_st *iops)
 {
     invoke_startstop_callback(IOPS_COOKIE(iops), IOPS_COOKIE(iops)->stop_callback);
 }
@@ -74,9 +71,8 @@ static void sync_loop_stop(struct lcb_io_opt_st *iops)
     IOPS_COOKIE(iops)->do_stop = 1;
 }
 
-struct lcb_io_opt_st *
-lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max)
-{
+struct lcb_io_opt_st *lcb_luv_create_io_opts(uv_loop_t *loop,
+                                             uint16_t sock_max) {
     struct lcb_io_opt_st *ret = calloc(1, sizeof(*ret));
     struct lcb_luv_cookie_st *cookie = calloc(1, sizeof(*cookie));
 
@@ -89,7 +85,7 @@ lcb_luv_create_io_opts(uv_loop_t *loop, uint16_t sock_max)
     cookie->loop = loop;
     assert(loop);
 
-    cookie->socktable = calloc(sock_max, sizeof(struct lcb_luv_socket_st*));
+    cookie->socktable = calloc(sock_max, sizeof(struct lcb_luv_socket_st *));
     cookie->fd_max = sock_max;
     cookie->fd_next = 0;
     ret->v.v0.cookie = cookie;

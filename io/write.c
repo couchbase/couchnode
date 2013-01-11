@@ -1,21 +1,21 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #include "lcb_luv_internal.h"
 
-/* Writing is a bit more complex than reading, since an event-based write
- * mechanism needs us to let it known when it can write.
- * In this case we will utilize a uv_prepare_t structure, which will trigger
- * the lcb write callback in cases where we have previously pretended that a write
- * will not block.
+/* Writing is a bit more complex than reading, since an event-based
+ * write mechanism needs us to let it known when it can write.  In
+ * this case we will utilize a uv_prepare_t structure, which will
+ * trigger the lcb write callback in cases where we have previously
+ * pretended that a write will not block.
  */
 
-static void
-write_cb(uv_write_t *req, int status)
+static void write_cb(uv_write_t *req, int status)
 {
     lcb_luv_socket_t sock = (lcb_luv_socket_t)req->data;
     struct lcb_luv_evstate_st *evstate;
 
     if (!sock) {
         fprintf(stderr, "Got write callback (req=%p) without socket\n",
-                (void*)req);
+                (void *)req);
         return;
     }
 
@@ -23,7 +23,7 @@ write_cb(uv_write_t *req, int status)
 
     if (status) {
         evstate->err =
-                lcb_luv_errno_map((uv_last_error(sock->parent->loop)).code);
+            lcb_luv_errno_map((uv_last_error(sock->parent->loop)).code);
     }
     log_write_debug("Flush done. Flushed %d bytes", sock->write.buf.len);
     sock->write.pos = 0;
@@ -47,8 +47,7 @@ write_cb(uv_write_t *req, int status)
 /**
  * Flush the write buffers
  */
-void
-lcb_luv_flush(lcb_luv_socket_t sock)
+void lcb_luv_flush(lcb_luv_socket_t sock)
 {
     int status;
     struct lcb_luv_evstate_st *evstate;
@@ -57,7 +56,7 @@ lcb_luv_flush(lcb_luv_socket_t sock)
     }
 
     evstate = EVSTATE_FIND(sock, WRITE);
-    if(EVSTATE_IS(evstate, FLUSHING)) {
+    if (EVSTATE_IS(evstate, FLUSHING)) {
         log_write_info("Not flushing because we are in the middle of a flush");
         return;
     }
@@ -66,20 +65,22 @@ lcb_luv_flush(lcb_luv_socket_t sock)
     sock->write.buf.len = sock->write.nb;
     log_write_debug("Will flush");
     status = uv_write(&sock->u_req.write,
-                        (uv_stream_t*)&sock->tcp,
-                        &sock->write.buf, 1, write_cb);
+                      (uv_stream_t *)&sock->tcp,
+                      &sock->write.buf, 1, write_cb);
     lcb_luv_socket_ref(sock);
 
     if (status) {
         evstate->err =
-                lcb_luv_errno_map((uv_last_error(sock->parent->loop)).code);
+            lcb_luv_errno_map((uv_last_error(sock->parent->loop)).code);
     }
     evstate->flags |= LCB_LUV_EVf_FLUSHING;
 }
 
 
-static lcb_ssize_t
-write_common(lcb_luv_socket_t sock, const void *buf, size_t len, int *errno_out)
+static lcb_ssize_t write_common(lcb_luv_socket_t sock,
+                                const void *buf,
+                                size_t len,
+                                int *errno_out)
 {
     lcb_ssize_t ret;
     struct lcb_luv_evstate_st *evstate = EVSTATE_FIND(sock, WRITE);
@@ -110,19 +111,18 @@ write_common(lcb_luv_socket_t sock, const void *buf, size_t len, int *errno_out)
 
 
     memcpy(sock->write.data + sock->write.pos, buf, ret);
-//    lcb_luv_hexdump(sock->write.data + sock->write.pos, ret);
+    //    lcb_luv_hexdump(sock->write.data + sock->write.pos, ret);
     sock->write.pos += ret;
     sock->write.nb += ret;
     log_write_trace("Returning %d", ret);
     return ret;
 }
 
-lcb_ssize_t
-lcb_luv_send(struct lcb_io_opt_st *iops,
-             lcb_socket_t sock_i,
-             const void *msg,
-             lcb_size_t len,
-             int flags)
+lcb_ssize_t lcb_luv_send(struct lcb_io_opt_st *iops,
+                         lcb_socket_t sock_i,
+                         const void *msg,
+                         lcb_size_t len,
+                         int flags)
 {
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
     lcb_ssize_t ret;
@@ -138,11 +138,10 @@ lcb_luv_send(struct lcb_io_opt_st *iops,
     return ret;
 }
 
-lcb_ssize_t
-lcb_luv_sendv(struct lcb_io_opt_st *iops,
-              lcb_socket_t sock_i,
-              struct lcb_iovec_st *iov,
-              lcb_size_t niov)
+lcb_ssize_t lcb_luv_sendv(struct lcb_io_opt_st *iops,
+                          lcb_socket_t sock_i,
+                          struct lcb_iovec_st *iov,
+                          lcb_size_t niov)
 {
     lcb_ssize_t nr = 0, iret;
     lcb_size_t ii;
