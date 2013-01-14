@@ -665,3 +665,74 @@ void DeleteDesignDocOperation::parse(const v8::Arguments &arguments)
                                  v8::Local<v8::Function>::Cast(arguments[idxCallback]),
                                  arguments[idxCookie], 1);
 }
+
+/**
+ * The argument layout of the view command is:
+ *   view(ddoc, req, callback, cookie);
+ */
+void ViewOperation::parse(const v8::Arguments &arguments)
+{
+
+    const int idxName = 0;
+    const int idxReq = idxName + 1;
+    const int idxCallback = idxReq + 1;
+    const int idxCookie = idxCallback + 1;
+    const int idxLast = idxCookie + 1;
+
+    if (arguments.Length() < idxLast) {
+        std::stringstream ss;
+        ss << "Incorrect number of arguments passed to view()."
+           << std::endl
+           << "  usage: deleteDesignDoc(name, callback, cookie)" << std::endl
+           << "  Expected " << idxLast << "arguments, got: "
+           << arguments.Length() << std::endl;
+        throw ss.str();
+    }
+
+    std::stringstream ss;
+    ss << "/_design/";
+
+    try {
+        char *data;
+        size_t len;
+        getString(arguments[idxName], data, len);
+        ss.write(data, len);
+        delete []data;
+    } catch (std::string &ex) {
+        std::stringstream ss;
+        ss << "Failed to parse name argument (#" << idxName << "): "
+           << ex;
+        throw ss.str();
+    }
+
+    ss << "/_view/";
+    try {
+        char *data;
+        size_t len;
+        getString(arguments[idxReq], data, len);
+        ss.write(data, len);
+        delete []data;
+    } catch (std::string &ex) {
+        std::stringstream ss;
+        ss << "Failed to parse name argument (#" << idxReq << "): "
+           << ex;
+        throw ss.str();
+    }
+
+    cmd.v.v0.path = strdup(ss.str().c_str());
+    cmd.v.v0.npath = ss.str().length();
+    cmd.v.v0.method = LCB_HTTP_METHOD_GET;
+    cmd.v.v0.content_type = "application/json";
+
+    // callback function to follow
+    if (!arguments[idxCallback]->IsFunction()) {
+        std::stringstream ss;
+        ss << "Incorrect parameter passed as callback parameter (#"
+           << idxCallback << "). Expected a function";
+        throw ss.str();
+    }
+
+    cookie = new CouchbaseCookie(arguments.This(),
+                                 v8::Local<v8::Function>::Cast(arguments[idxCallback]),
+                                 arguments[idxCookie], 1);
+}

@@ -37,12 +37,17 @@ setup(function(err, cb) {
                      // for our key and it may not be in the view yet due
                      // to race conditions..
                      var params =  {key : testkey, stale : "false"};
-                     cb.view("dev_test-design", "test-view", params, function(err, view) {
-                        assert(!err, "error fetching view");
-                        assert(view.length > 0)
-                        assert.equal(testkey, view[0].key)
-                        cb.deleteDesignDoc('dev_test-design', function() {
-                            setup.end()
+                     cb.view("dev_test-design", "test-view", params,
+			     function(err, code, view) {
+				 assert(!err, "error fetching view");
+				 assert(code == 200, "error fetching view");
+				 json = JSON.parse(view);
+				 rows = json.rows;
+				 assert(rows.length == 1);
+				 assert.equal(testkey, rows[0].key);
+
+				 cb.deleteDesignDoc('dev_test-design', function() {
+				     setup.end()
                         });
                     });
                  });

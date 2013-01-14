@@ -248,6 +248,28 @@ namespace Couchnode
         CouchbaseCookie *cookie;
     };
 
+    class ViewOperation : public Operation {
+    public:
+        ViewOperation() : cmd(), cookie(NULL) {}
+        virtual ~ViewOperation() {
+            free((void*)cmd.v.v0.path);
+        }
+
+        virtual void parse(const v8::Arguments &arguments);
+
+        lcb_error_t execute(lcb_t instance) {
+            return lcb_make_http_request(instance, cookie,
+                                         LCB_HTTP_TYPE_VIEW, &cmd, NULL);
+        }
+
+        virtual void cancel(lcb_error_t err) {
+            cookie->result(err, (const lcb_http_resp_t *)NULL);
+        }
+     private:
+        lcb_http_cmd_t cmd;
+        CouchbaseCookie *cookie;
+    };
+
 } // namespace Couchnode
 
 #endif
