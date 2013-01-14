@@ -28,10 +28,9 @@ setup(function(err, cb) {
                  }
              };
              cb.deleteDesignDoc('dev_test-design', function() {
-                 cb.createDesignDoc('dev_test-design', ddoc,
-                                    function(err, resp, data) {
+                 cb.setDesignDoc('dev_test-design', ddoc,
+                                 function(err, code, data) {
                      assert(!err, "error creating design document");
-
                      // now lets find our key in the view.
                      // We need to add stale=false in order to force the
                      // view to be generated (since we're trying to look

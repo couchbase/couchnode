@@ -83,6 +83,12 @@ namespace Couchnode
         static v8::Handle<v8::Value> Remove(const v8::Arguments &);
         static v8::Handle<v8::Value> Touch(const v8::Arguments &);
         static v8::Handle<v8::Value> Observe(const v8::Arguments &);
+
+        // Design Doc Management
+        static v8::Handle<v8::Value> GetDesignDoc(const v8::Arguments &);
+        static v8::Handle<v8::Value> SetDesignDoc(const v8::Arguments &);
+        static v8::Handle<v8::Value> DeleteDesignDoc(const v8::Arguments &);
+
         // Setting up the event emitter
         static v8::Handle<v8::Value> On(const v8::Arguments &);
         v8::Handle<v8::Value> on(const v8::Arguments &);

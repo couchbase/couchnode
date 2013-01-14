@@ -46,6 +46,9 @@ namespace Couchnode
         void result(lcb_error_t error,
                     const void *key, lcb_size_t nkey);
 
+        void result(lcb_error_t error, const lcb_http_resp_t *);
+
+
     protected:
         void invokeProgress(v8::Persistent<v8::Context> &context, int argc,
                             v8::Local<v8::Value> *argv) {

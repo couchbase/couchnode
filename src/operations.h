@@ -180,6 +180,74 @@ namespace Couchnode
         lcb_arithmetic_cmd_t cmd;
         CouchbaseCookie *cookie;
     };
+
+    class GetDesignDocOperation : public Operation {
+    public:
+        GetDesignDocOperation() : cmd(), cookie(NULL) {}
+        virtual ~GetDesignDocOperation() {
+            delete [](char*)cmd.v.v0.path;
+        }
+
+        virtual void parse(const v8::Arguments &arguments);
+
+        lcb_error_t execute(lcb_t instance) {
+            return lcb_make_http_request(instance, cookie,
+                                         LCB_HTTP_TYPE_VIEW, &cmd, NULL);
+        }
+
+        virtual void cancel(lcb_error_t err) {
+            cookie->result(err, (const lcb_http_resp_t *)NULL);
+        }
+     private:
+        lcb_http_cmd_t cmd;
+        CouchbaseCookie *cookie;
+    };
+
+    class SetDesignDocOperation : public Operation {
+    public:
+        SetDesignDocOperation() : cmd(), cookie(NULL) {}
+        virtual ~SetDesignDocOperation() {
+            delete [](char*)cmd.v.v0.path;
+            delete [](char*)cmd.v.v0.body;
+        }
+
+        virtual void parse(const v8::Arguments &arguments);
+
+        lcb_error_t execute(lcb_t instance) {
+            return lcb_make_http_request(instance, cookie,
+                                         LCB_HTTP_TYPE_VIEW, &cmd, NULL);
+        }
+
+        virtual void cancel(lcb_error_t err) {
+            cookie->result(err, (const lcb_http_resp_t *)NULL);
+        }
+     private:
+        lcb_http_cmd_t cmd;
+        CouchbaseCookie *cookie;
+    };
+
+    class DeleteDesignDocOperation : public Operation {
+    public:
+        DeleteDesignDocOperation() : cmd(), cookie(NULL) {}
+        virtual ~DeleteDesignDocOperation() {
+            delete [](char*)cmd.v.v0.path;
+        }
+
+        virtual void parse(const v8::Arguments &arguments);
+
+        lcb_error_t execute(lcb_t instance) {
+            return lcb_make_http_request(instance, cookie,
+                                         LCB_HTTP_TYPE_VIEW, &cmd, NULL);
+        }
+
+        virtual void cancel(lcb_error_t err) {
+            cookie->result(err, (const lcb_http_resp_t *)NULL);
+        }
+     private:
+        lcb_http_cmd_t cmd;
+        CouchbaseCookie *cookie;
+    };
+
 } // namespace Couchnode
 
 #endif

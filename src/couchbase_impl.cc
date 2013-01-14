@@ -112,6 +112,10 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "touch", Touch);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "observe", Observe);
 
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "getDesignDoc", GetDesignDoc);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "setDesignDoc", SetDesignDoc);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDesignDoc", DeleteDesignDoc);
+
     target->Set(v8::String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());
 
     NameMap::initialize();
@@ -466,5 +470,29 @@ v8::Handle<v8::Value> CouchbaseImpl::Remove(const v8::Arguments &args)
     v8::HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     RemoveOperation *op = new RemoveOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::GetDesignDoc(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    GetDesignDocOperation *op = new GetDesignDocOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::SetDesignDoc(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    SetDesignDocOperation *op = new SetDesignDocOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::DeleteDesignDoc(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    DeleteDesignDocOperation *op = new DeleteDesignDocOperation;
     return makeOperation(me, args, op);
 }

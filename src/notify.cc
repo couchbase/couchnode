@@ -193,6 +193,31 @@ void CouchbaseCookie::result(lcb_error_t error,
     invoke(context, 3, argv);
 }
 
+/**
+ * Used to trigger callbacks for HTTP requests
+ */
+void CouchbaseCookie::result(lcb_error_t error, const lcb_http_resp_t *resp)
+{
+    using namespace v8;
+    HandleScope scope;
+    Persistent<Context> context = Context::New();
+    Local<Value> argv[4];
+
+    argv[0] = Local<Value>::New(ucookie);
+    if (error != LCB_SUCCESS) {
+        argv[1] = Local<Value>::New(Number::New(error));
+        argv[2] = Local<Value>::New(False());
+        argv[3] = Local<Value>::New(False());
+    } else {
+        argv[1] = Local<Value>::New(False());
+        argv[2] = Local<Value>::New(Number::New(resp->v.v0.status));
+        argv[3] = Local<Value>::New(String::New((const char *)resp->v.v0.bytes,
+                                                resp->v.v0.nbytes));
+    }
+
+    invoke(context, 4, argv);
+}
+
 static inline CouchbaseCookie *getInstance(const void *c)
 {
     return reinterpret_cast<CouchbaseCookie *>(const_cast<void *>(c));
@@ -309,6 +334,20 @@ extern "C" {
                                     resp->v.v0.ttr);
     }
 
+
+    static void http_complete_callback(lcb_http_request_t request,
+                                       lcb_t instance,
+                                       const void *cookie,
+                                       lcb_error_t error,
+                                       const lcb_http_resp_t *resp)
+    {
+        if (resp->version != 0) {
+            unknownLibcouchbaseType("http_request", resp->version);
+        }
+
+        getInstance(cookie)->result(error, resp);
+    }
+
     static void configuration_callback(lcb_t instance,
                                        lcb_configuration_t config)
     {
@@ -328,4 +367,5 @@ void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
     lcb_set_touch_callback(instance, touch_callback);
     lcb_set_observe_callback(instance, observe_callback);
     lcb_set_configuration_callback(instance, configuration_callback);
+    lcb_set_http_complete_callback(instance, http_complete_callback);
 }
