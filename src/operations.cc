@@ -66,6 +66,21 @@ static lcb_cas_t getCas(const v8::Handle<v8::Value> &val)
     }
 }
 
+void Operation::getKey(const v8::Handle<v8::Value> &val,
+                       char * &key, size_t &nkey,
+                       char * &hashkey, size_t &nhashkey)
+{
+    if (val->IsObject()) {
+        v8::Local<v8::Object> dict = val->ToObject();
+        getString(dict->Get(v8::String::New("key")), key, nkey);
+        getString(dict->Get(v8::String::New("hashkey")), hashkey, nhashkey);
+    } else {
+        getString(val, key, nkey);
+        hashkey = NULL;
+        nhashkey = 0;
+    }
+}
+
 /**
  * The argument layout of the Store command is:
  *   store(operation, key, data, expiry, flags, cas, callback, cookie);
@@ -103,11 +118,15 @@ void StoreOperation::parse(const v8::Arguments &arguments)
     }
 
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxKey], data, len);
-        cmd.v.v0.key = (void*)data;
-        cmd.v.v0.nkey = (lcb_uint16_t)len;
+        char *key;
+        size_t nkey;
+        char *hashkey;
+        size_t nhashkey;
+        getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+        cmd.v.v0.key = (void*)key;
+        cmd.v.v0.nkey = (lcb_uint16_t)nkey;
+        cmd.v.v0.hashkey = (void*)hashkey;
+        cmd.v.v0.nhashkey = (lcb_uint16_t)nhashkey;
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse key argument (#" << idxKey << ") to store: "
@@ -202,11 +221,15 @@ void GetOperation::parse(const v8::Arguments &arguments)
             lcb_get_cmd_t *cmd = new lcb_get_cmd_t();
             cmds[ii] = cmd;
             try {
-                char *data;
-                size_t len;
-                getString(keys->Get(ii), data, len);
-                cmd->v.v0.key = (void*)data;
-                cmd->v.v0.nkey = (lcb_uint16_t)len;
+                char *key;
+                size_t nkey;
+                char *hashkey;
+                size_t nhashkey;
+                getKey(keys->Get(ii), key, nkey, hashkey, nhashkey);
+                cmd->v.v0.key = (void*)key;
+                cmd->v.v0.nkey = (lcb_uint16_t)nkey;
+                cmd->v.v0.hashkey = (void*)hashkey;
+                cmd->v.v0.nhashkey = (lcb_uint16_t)nhashkey;
             } catch (std::string &ex) {
                 std::stringstream ss;
                 ss << "Failed to parse key #" << ii << ": " << ex;
@@ -220,11 +243,15 @@ void GetOperation::parse(const v8::Arguments &arguments)
         cmds[0] = cmd;
 
         try {
-            char *data;
-            size_t len;
-            getString(arguments[idxKey], data, len);
-            cmd->v.v0.key = (void*)data;
-            cmd->v.v0.nkey = (lcb_uint16_t)len;
+            char *key;
+            size_t nkey;
+            char *hashkey;
+            size_t nhashkey;
+            getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+            cmd->v.v0.key = (void*)key;
+            cmd->v.v0.nkey = (lcb_uint16_t)nkey;
+            cmd->v.v0.hashkey = (void*)hashkey;
+            cmd->v.v0.nhashkey = (lcb_uint16_t)nhashkey;
         } catch (std::string &ex) {
             std::stringstream ss;
             ss << "Failed to parse key argument (#" << idxKey << ") to get: "
@@ -269,11 +296,15 @@ void TouchOperation::parse(const v8::Arguments &arguments)
     }
 
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxKey], data, len);
-        cmd.v.v0.key = (void*)data;
-        cmd.v.v0.nkey = (lcb_uint16_t)len;
+        char *key;
+        size_t nkey;
+        char *hashkey;
+        size_t nhashkey;
+        getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+        cmd.v.v0.key = (void*)key;
+        cmd.v.v0.nkey = (lcb_uint16_t)nkey;
+        cmd.v.v0.hashkey = (void*)hashkey;
+        cmd.v.v0.nhashkey = (lcb_uint16_t)nhashkey;
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse key argument (#" << idxKey << ") to get: "
@@ -326,11 +357,15 @@ void RemoveOperation::parse(const v8::Arguments &arguments)
     }
 
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxKey], data, len);
-        cmd.v.v0.key = (void*)data;
-        cmd.v.v0.nkey = (lcb_uint16_t)len;
+        char *key;
+        size_t nkey;
+        char *hashkey;
+        size_t nhashkey;
+        getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+        cmd.v.v0.key = (void*)key;
+        cmd.v.v0.nkey = (lcb_uint16_t)nkey;
+        cmd.v.v0.hashkey = (void*)hashkey;
+        cmd.v.v0.nhashkey = (lcb_uint16_t)nhashkey;
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse key argument (#" << idxKey << ") to get: "
@@ -381,11 +416,15 @@ void ObserveOperation::parse(const v8::Arguments &arguments)
     }
 
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxKey], data, len);
-        cmd.v.v0.key = (void*)data;
-        cmd.v.v0.nkey = (lcb_uint16_t)len;
+        char *key;
+        size_t nkey;
+        char *hashkey;
+        size_t nhashkey;
+        getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+        cmd.v.v0.key = (void*)key;
+        cmd.v.v0.nkey = (lcb_uint16_t)nkey;
+        cmd.v.v0.hashkey = (void*)hashkey;
+        cmd.v.v0.nhashkey = (lcb_uint16_t)nhashkey;
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse key argument (#" << idxKey << "): "
@@ -433,11 +472,15 @@ void ArithmeticOperation::parse(const v8::Arguments &arguments)
     }
 
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxKey], data, len);
-        cmd.v.v0.key = (void*)data;
-        cmd.v.v0.nkey = (lcb_uint16_t)len;
+        char *key;
+        size_t nkey;
+        char *hashkey;
+        size_t nhashkey;
+        getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+        cmd.v.v0.key = (void*)key;
+        cmd.v.v0.nkey = (lcb_uint16_t)nkey;
+        cmd.v.v0.hashkey = (void*)hashkey;
+        cmd.v.v0.nhashkey = (lcb_uint16_t)nhashkey;
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse key argument (#" << idxKey << ") to get: "

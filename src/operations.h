@@ -40,6 +40,18 @@ namespace Couchnode
          * error code
          */
         virtual void cancel(lcb_error_t err) = 0;
+
+        /**
+         * Try to get the key from an object.
+         *
+         * If the object is a string then this should be the key,
+         * but if it is a map it may contain key and hashkey
+         *
+         * The function throws an error upon error
+         */
+        virtual void getKey(const v8::Handle<v8::Value> &val,
+                            char * &key, size_t &nkey,
+                            char * &hashkey, size_t &nhashkey);
     };
 
     class StoreOperation : public Operation {
@@ -47,6 +59,7 @@ namespace Couchnode
         StoreOperation() : cmd(), cookie(NULL) { }
         virtual ~StoreOperation() {
             delete [](char*)cmd.v.v0.key;
+            delete [](char*)cmd.v.v0.hashkey;
             delete [](char*)cmd.v.v0.bytes;
         }
         virtual void parse(const v8::Arguments &arguments);
@@ -70,6 +83,7 @@ namespace Couchnode
         virtual ~GetOperation() {
             for (int ii = 0; ii < numCommands; ++ii) {
                 delete [](char*)cmds[ii]->v.v0.key;
+                delete [](char*)cmds[ii]->v.v0.hashkey;
             }
             delete []cmds;
         }
@@ -97,6 +111,7 @@ namespace Couchnode
         TouchOperation() : cmd(), cookie(NULL) {}
         virtual ~TouchOperation() {
             delete [](char*)cmd.v.v0.key;
+            delete [](char*)cmd.v.v0.hashkey;
         }
         virtual void parse(const v8::Arguments &arguments);
 
@@ -118,6 +133,7 @@ namespace Couchnode
         ObserveOperation() : cmd(), cookie(NULL) {}
         virtual ~ObserveOperation() {
             delete [](char*)cmd.v.v0.key;
+            delete [](char*)cmd.v.v0.hashkey;
         }
 
         virtual void parse(const v8::Arguments &arguments);
@@ -141,6 +157,7 @@ namespace Couchnode
         RemoveOperation() : cmd(), cookie(NULL) {}
         virtual ~RemoveOperation() {
             delete [](char*)cmd.v.v0.key;
+            delete [](char*)cmd.v.v0.hashkey;
         }
 
         virtual void parse(const v8::Arguments &arguments);
@@ -164,6 +181,7 @@ namespace Couchnode
         ArithmeticOperation() : cmd(), cookie(NULL) {}
         virtual ~ArithmeticOperation() {
             delete [](char*)cmd.v.v0.key;
+            delete [](char*)cmd.v.v0.hashkey;
         }
 
         virtual void parse(const v8::Arguments &arguments);
