@@ -1,7 +1,7 @@
 var setup = require('./setup'),
     assert = require('assert');
 
-setup.plan(4)
+setup.plan(7)
 
 setup(function(err, cb) {
     assert(!err, "setup failure");
