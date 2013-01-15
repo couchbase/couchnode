@@ -5,6 +5,8 @@
 #error "Include couchbase.h before including this file"
 #endif
 
+#include <cstdlib>
+
 namespace Couchnode
 {
     /**
@@ -270,6 +272,7 @@ namespace Couchnode
     public:
         ViewOperation() : cmd(), cookie(NULL) {}
         virtual ~ViewOperation() {
+            using namespace std;
             free((void*)cmd.v.v0.path);
         }
 
