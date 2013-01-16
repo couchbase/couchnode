@@ -41,6 +41,24 @@ static void getString(const v8::Handle<v8::Value> &jv, char* &str, size_t &len)
     }
 }
 
+static void getString(const v8::Handle<v8::Value> &val, std::string &str)
+{
+    char *data;
+    size_t len;
+    getString(val, data, len);
+    str.assign(data, len);
+    delete []data;
+}
+
+static void getString(const v8::Handle<v8::Value> &val, std::stringstream &ss)
+{
+    char *data;
+    size_t len;
+    getString(val, data, len);
+    ss.write(data, len);
+    delete []data;
+}
+
 static int getInteger(const v8::Handle<v8::Value> &val)
 {
     if (!val->IsNumber()) {
@@ -544,27 +562,24 @@ void GetDesignDocOperation::parse(const v8::Arguments &arguments)
 
     if (arguments.Length() < idxLast) {
         std::stringstream ss;
-        ss << "Incorrect number of arguments passed to getDesignDoc()."
-           << std::endl
+        ss << "Incorrect number of arguments passed to ";
+        if (cmd.v.v0.method == LCB_HTTP_METHOD_GET) {
+            ss << "getDesignDoc().";
+        } else if (cmd.v.v0.method == LCB_HTTP_METHOD_DELETE) {
+            ss << "deleteDesignDoc().";
+        } else {
+            throw std::string("Internal error. unknown command");
+        }
+        ss << std::endl
            << "  usage: getDesignDoc(name, callback, cookie)" << std::endl
            << "  Expected " << idxLast << "arguments, got: "
            << arguments.Length() << std::endl;
         throw ss.str();
     }
 
+    path << "/_design/";
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxName], data, len);
-        char *path = new char[len + 10];
-        memcpy(path, "/_design/", 9);
-        memcpy(path + 9, data, len);
-        len += 9;
-        cmd.v.v0.path = path;
-        cmd.v.v0.npath = len;
-        cmd.v.v0.method = LCB_HTTP_METHOD_GET;
-        cmd.v.v0.content_type = "application/json";
-        delete []data;
+        getString(arguments[idxName], path);
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse name argument (#" << idxName << "): "
@@ -591,7 +606,6 @@ void GetDesignDocOperation::parse(const v8::Arguments &arguments)
  */
 void SetDesignDocOperation::parse(const v8::Arguments &arguments)
 {
-
     const int idxName = 0;
     const int idxDoc = idxName + 1;
     const int idxCallback = idxDoc + 1;
@@ -608,19 +622,9 @@ void SetDesignDocOperation::parse(const v8::Arguments &arguments)
         throw ss.str();
     }
 
+    path << "/_design/";
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxName], data, len);
-        char *path = new char[len + 10];
-        memcpy(path, "/_design/", 9);
-        memcpy(path + 9, data, len);
-        len += 9;
-        cmd.v.v0.path = path;
-        cmd.v.v0.npath = len;
-        cmd.v.v0.method = LCB_HTTP_METHOD_PUT;
-        cmd.v.v0.content_type = "application/json";
-        delete []data;
+        getString(arguments[idxName], path);
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse name argument (#" << idxName << "): "
@@ -629,69 +633,10 @@ void SetDesignDocOperation::parse(const v8::Arguments &arguments)
     }
 
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxDoc], data, len);
-        cmd.v.v0.body = data;
-        cmd.v.v0.nbody = len;
+        getString(arguments[idxDoc], body);
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse doc argument (#" << idxDoc << "): "
-           << ex;
-        throw ss.str();
-    }
-
-    // callback function to follow
-    if (!arguments[idxCallback]->IsFunction()) {
-        std::stringstream ss;
-        ss << "Incorrect parameter passed as callback parameter (#"
-           << idxCallback << "). Expected a function";
-        throw ss.str();
-    }
-
-    cookie = new CouchbaseCookie(arguments.This(),
-                                 v8::Local<v8::Function>::Cast(arguments[idxCallback]),
-                                 arguments[idxCookie], 1);
-}
-
-/**
- * The argument layout of the deleteDesignDoc command is:
- *   deleteDesignDoc(name, callback, cookie);
- */
-void DeleteDesignDocOperation::parse(const v8::Arguments &arguments)
-{
-
-    const int idxName = 0;
-    const int idxCallback = idxName + 1;
-    const int idxCookie = idxCallback + 1;
-    const int idxLast = idxCookie + 1;
-
-    if (arguments.Length() < idxLast) {
-        std::stringstream ss;
-        ss << "Incorrect number of arguments passed to deleteDesignDoc()."
-           << std::endl
-           << "  usage: deleteDesignDoc(name, callback, cookie)" << std::endl
-           << "  Expected " << idxLast << "arguments, got: "
-           << arguments.Length() << std::endl;
-        throw ss.str();
-    }
-
-    try {
-        char *data;
-        size_t len;
-        getString(arguments[idxName], data, len);
-        char *path = new char[len + 10];
-        memcpy(path, "/_design/", 9);
-        memcpy(path + 9, data, len);
-        len += 9;
-        cmd.v.v0.path = path;
-        cmd.v.v0.npath = len;
-        cmd.v.v0.method = LCB_HTTP_METHOD_DELETE;
-        cmd.v.v0.content_type = "application/json";
-        delete []data;
-    } catch (std::string &ex) {
-        std::stringstream ss;
-        ss << "Failed to parse name argument (#" << idxName << "): "
            << ex;
         throw ss.str();
     }
@@ -732,15 +677,9 @@ void ViewOperation::parse(const v8::Arguments &arguments)
         throw ss.str();
     }
 
-    std::stringstream ss;
-    ss << "/_design/";
-
+    path << "/_design/";
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxName], data, len);
-        ss.write(data, len);
-        delete []data;
+        getString(arguments[idxName], path);
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse name argument (#" << idxName << "): "
@@ -748,24 +687,15 @@ void ViewOperation::parse(const v8::Arguments &arguments)
         throw ss.str();
     }
 
-    ss << "/_view/";
+    path << "/_view/";
     try {
-        char *data;
-        size_t len;
-        getString(arguments[idxReq], data, len);
-        ss.write(data, len);
-        delete []data;
+        getString(arguments[idxReq], path);
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse name argument (#" << idxReq << "): "
            << ex;
         throw ss.str();
     }
-
-    cmd.v.v0.path = strdup(ss.str().c_str());
-    cmd.v.v0.npath = ss.str().length();
-    cmd.v.v0.method = LCB_HTTP_METHOD_GET;
-    cmd.v.v0.content_type = "application/json";
 
     // callback function to follow
     if (!arguments[idxCallback]->IsFunction()) {
