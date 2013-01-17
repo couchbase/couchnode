@@ -24,14 +24,12 @@ setup(function(err, cb) {
     cb.deleteDesignDoc(docname, function() {
         // Ok, the design document should be done
         cb.setDesignDoc(docname, ddoc,
-                        function(err, code, data) {
+                        function(err, data) {
                             var util=require("util");
                             assert(!err, "error creating design document");
-                            assert(code == 201, "Error creating design document");
-                            cb.getDesignDoc(docname, function(err, code, data) {
+                            cb.getDesignDoc(docname, function(err, data) {
                                 assert(!err, "error getting design document");
-                                assert(code == 200, "error getting design document");
-                                cb.deleteDesignDoc(docname, function(err, code, data) {
+                                cb.deleteDesignDoc(docname, function(err, data) {
                                     assert(!err, "Failed deleting design document");
                                     process.exit(0);
                                 });

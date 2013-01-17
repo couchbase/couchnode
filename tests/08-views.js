@@ -29,7 +29,7 @@ setup(function(err, cb) {
              };
              cb.deleteDesignDoc('dev_test-design', function() {
                  cb.setDesignDoc('dev_test-design', ddoc,
-                                 function(err, code, data) {
+                                 function(err, data) {
                      assert(!err, "error creating design document");
                      // now lets find our key in the view.
                      // We need to add stale=false in order to force the
@@ -38,13 +38,10 @@ setup(function(err, cb) {
                      // to race conditions..
                      var params =  {key : testkey, stale : "false"};
                      cb.view("dev_test-design", "test-view", params,
-			     function(err, code, view) {
+			     function(err, view) {
 				 assert(!err, "error fetching view");
-				 assert(code == 200, "error fetching view");
-				 json = JSON.parse(view);
-				 rows = json.rows;
-				 assert(rows.length == 1);
-				 assert.equal(testkey, rows[0].key);
+				 assert(view.length == 1);
+				 assert.equal(testkey, view[0].key);
 
 				 cb.deleteDesignDoc('dev_test-design', function() {
 				     setup.end()
