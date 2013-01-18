@@ -157,7 +157,7 @@ void StoreOperation::parse(const v8::Arguments &arguments)
         size_t len;
         getString(arguments[idxValue], data, len);
         cmd.v.v0.bytes = (void*)data;
-        cmd.v.v0.nbytes = (lcb_uint16_t)len;
+        cmd.v.v0.nbytes = (lcb_uint32_t)len;
     } catch (std::string &ex) {
         std::stringstream ss;
         ss << "Failed to parse value argument (# " << idxValue
