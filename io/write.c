@@ -143,7 +143,7 @@ lcb_ssize_t lcb_luv_sendv(struct lcb_io_opt_st *iops,
                           struct lcb_iovec_st *iov,
                           lcb_size_t niov)
 {
-    lcb_ssize_t nr = 0, iret;
+    lcb_ssize_t nw = 0, iret;
     lcb_size_t ii;
     int my_errno = 0;
     lcb_luv_socket_t sock = lcb_luv_sock_from_idx(iops, sock_i);
@@ -159,17 +159,22 @@ lcb_ssize_t lcb_luv_sendv(struct lcb_io_opt_st *iops,
 
         iret = write_common(sock, iov[ii].iov_base, iov[ii].iov_len, &my_errno);
         if (iret > 0) {
-            nr += iret;
+            nw += iret;
         } else {
             break;
         }
     }
+
     if (my_errno) {
         iops->v.v0.error = my_errno;
     }
-    if (nr > 0) {
+    if (nw > 0) {
         lcb_luv_send_async_write_ready(sock);
     }
 
-    return nr;
+    if (iret == -1) {
+        return -1;
+    } else {
+        return nw;
+    }
 }
