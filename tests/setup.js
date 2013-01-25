@@ -29,16 +29,20 @@ if (fs.existsSync(configFilename)) {
 }
 
 module.exports = function(callback) {
-    // this is turned off because it doesn't seem to work...
-    // process.on("uncaughtException", function() {
-    //     console.log("uncaughtException", arguments)
-    //     process.exit(1)
-    // })
     setTimeout(function() {
         console.log("timeout, assuming failure")
         process.exit(1)
-    }, 10000)
-    cb.connect(config, callback);
+    }, 10000);
+    // Instead of waiting for the test to time out if we
+    // can't connect to the cluster, lets bail out immediately
+    cb.connect(config, function(err, cb) {
+        if (err) {
+            console.log("Filed to connect to the cluster")
+            process.exit(1)
+        } else {
+            callback(err, cb);
+        }
+    });
 };
 
 // very lightweight "test framework"
