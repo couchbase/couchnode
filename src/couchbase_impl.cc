@@ -72,8 +72,9 @@ CouchbaseImpl::~CouchbaseImpl()
     cerr << "Destroying handle.." << endl
          << "Still have " << objectCount << " handles remaining" << endl;
 #endif
-
-    lcb_destroy(instance);
+    if (instance) {
+        lcb_destroy(instance);
+    }
 
     EventMap::iterator iter = events.begin();
     while (iter != events.end()) {
@@ -112,6 +113,7 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "touch", Touch);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "observe", Observe);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "view", View);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "shutdown", Shutdown);
 
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getDesignDoc", GetDesignDoc);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "setDesignDoc", SetDesignDoc);
@@ -480,6 +482,14 @@ v8::Handle<v8::Value> CouchbaseImpl::View(const v8::Arguments &args)
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     ViewOperation *op = new ViewOperation;
     return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Shutdown(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    me->shutdown();
+    return scope.Close(v8::True());
 }
 
 v8::Handle<v8::Value> CouchbaseImpl::GetDesignDoc(const v8::Arguments &args)

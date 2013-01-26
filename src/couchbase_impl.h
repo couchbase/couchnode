@@ -84,6 +84,7 @@ namespace Couchnode
         static v8::Handle<v8::Value> Touch(const v8::Arguments &);
         static v8::Handle<v8::Value> Observe(const v8::Arguments &);
         static v8::Handle<v8::Value> View(const v8::Arguments &);
+        static v8::Handle<v8::Value> Shutdown(const v8::Arguments &);
 
         // Design Doc Management
         static v8::Handle<v8::Value> GetDesignDoc(const v8::Arguments &);
@@ -109,6 +110,11 @@ namespace Couchnode
 
         void setLastError(lcb_error_t err) {
             lastError = err;
+        }
+
+        void shutdown(void) {
+            lcb_destroy(instance);
+            instance = NULL;
         }
 
         lcb_t getLibcouchbaseHandle(void) {
