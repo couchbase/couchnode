@@ -21,3 +21,4 @@
 /build/
 /tests/config.json
 /node_modules/
+/tests/CouchbaseMock.jar
