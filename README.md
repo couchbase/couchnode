@@ -18,6 +18,9 @@ with homebrew this should be as easy as running:
 
     brew install https://github.com/couchbase/homebrew/raw/preview/Library/Formula/libcouchbase.rb
 
+On Windows, you can download the latest [Couchbase C Client Library](http://www.couchbase.com/develop/c/current)
+and copy the contents to `C:\couchbase\`, which should then contain `bin`, `doc`, `include` and `lib` folders.
+
 Once you have libcouchbase installed, you can proceed to install the
 `couchbase` module by running:
 
