@@ -345,7 +345,7 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
     EventMap::iterator iter = events.find("error");
     if (iter != events.end() && !iter->second.IsEmpty()) {
         using namespace v8;
-        Local<Value> argv[1] = { Local<Value>::New(String::New(errinfo)) };
+        Local<Value> argv[1] = { Local<Value>::New(String::New(errinfo ? errinfo : "")) };
         iter->second->Call(Context::GetEntered()->Global(), 1, argv);
     }
 }
