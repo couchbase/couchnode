@@ -29,10 +29,10 @@ if (fs.existsSync(configFilename)) {
 }
 
 module.exports = function(callback) {
-    setTimeout(function() {
-        console.log("timeout, assuming failure")
-        process.exit(1)
-    }, 10000);
+//    setTimeout(function() {
+//        console.log("timeout, assuming failure")
+//        process.exit(1)
+//    }, 10000);
     // Instead of waiting for the test to time out if we
     // can't connect to the cluster, lets bail out immediately
     cb.connect(config, function(err, cb) {

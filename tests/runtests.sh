@@ -8,7 +8,7 @@ skipped=0
 failed=0
 
 # Iterate over all .js files in this directory
-for t in *.js; do
+for t in `ls *.js | sort`; do
     if [ $t != "setup.js" ]
       then
         node $t

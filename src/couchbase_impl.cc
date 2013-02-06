@@ -19,13 +19,12 @@
 #include <sstream>
 
 #include "couchbase_impl.h"
-#include "io/libcouchbase-libuv.h"
+#include "ioplugin.h"
 #include "cas.h"
+#include "logger.h"
 
 using namespace std;
 using namespace Couchnode;
-
-typedef lcb_io_opt_st *(*loop_factory_fn)(uv_loop_t *, uint16_t);
 
 // libcouchbase handlers keep a C linkage...
 extern "C" {
@@ -190,8 +189,7 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
         }
     }
 
-    lcb_io_opt_st *iops = lcb_luv_create_io_opts(uv_default_loop(),
-                                                 1024);
+    lcb_io_opt_st *iops = Couchnode::createIoOps(uv_default_loop());
     if (iops == NULL) {
         return ThrowException("Failed to create a new IO ops structure");
     }
@@ -514,4 +512,22 @@ v8::Handle<v8::Value> CouchbaseImpl::DeleteDesignDoc(const v8::Arguments &args)
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     DeleteDesignDocOperation *op = new DeleteDesignDocOperation;
     return makeOperation(me, args, op);
+}
+
+extern "C" {
+    static void libuv_shutdown_cb(uv_timer_t* t, int) {
+        ScopeLogger sl("libuv_shutdown_cb");
+        lcb_t instance = (lcb_t)t->data;
+        lcb_destroy(instance);
+        delete t;
+    }
+}
+
+void CouchbaseImpl::shutdown(void)
+{
+    uv_timer_t *timer = new uv_timer_t;
+    uv_timer_init(uv_default_loop(), timer);
+    timer->data = instance;
+    instance = NULL;
+    uv_timer_start(timer, libuv_shutdown_cb, 10, 0);
 }

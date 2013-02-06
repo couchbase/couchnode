@@ -1,6 +1,8 @@
 var setup = require('./setup'),
     assert = require('assert');
 
+setup.plan(1);
+
 setup(function(err, cb) {
     assert(!err, "setup failure");
 
@@ -22,7 +24,7 @@ setup(function(err, cb) {
             assert(!err, "Failed to complete endure");
             assert(meta);
 
-            process.exit(0);
+            setup.end();
         });
     });
 });

@@ -70,14 +70,7 @@
       'src/notify.cc',
       'src/operations.cc',
       'src/cas.cc',
-      'io/common.c',
-      'io/socket.c',
-      'io/read.c',
-      'io/write.c',
-      'io/timer.c',
-      'io/plugin-libuv.c',
-      'io/util/lcb_luv_yolog.c',
-      'io/util/hexdump.c',
+      'src/ioplugin.cc'
     ],
     'include_dirs': [
       './',

@@ -112,10 +112,7 @@ namespace Couchnode
             lastError = err;
         }
 
-        void shutdown(void) {
-            lcb_destroy(instance);
-            instance = NULL;
-        }
+        void shutdown(void);
 
         lcb_t getLibcouchbaseHandle(void) {
             return instance;

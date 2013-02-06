@@ -35,5 +35,6 @@ setup(function(err, cb) {
     assert.throws(function() {
         cb.set("needs callback")
     })
+
     setup.end()
 })

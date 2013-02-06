@@ -31,7 +31,7 @@ setup(function(err, cb) {
                                 assert(!err, "error getting design document");
                                 cb.deleteDesignDoc(docname, function(err, data) {
                                     assert(!err, "Failed deleting design document");
-                                    process.exit(0);
+                                    cb.shutdown();
                                 });
                             });
                         });

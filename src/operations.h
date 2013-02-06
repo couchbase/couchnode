@@ -143,7 +143,8 @@ namespace Couchnode
 
         lcb_error_t execute(lcb_t instance) {
             const lcb_observe_cmd_t * const cmds[] = { &cmd };
-            return lcb_observe(instance, cookie, 1, cmds);
+            lcb_error_t ret = lcb_observe(instance, cookie, 1, cmds);
+            return ret;
         }
 
         virtual void cancel(lcb_error_t err) {

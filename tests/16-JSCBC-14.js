@@ -1,7 +1,7 @@
 var setup = require('./setup'),
     assert = require('assert');
 
-var max=6000;
+var max=60000;
 var current=0;
 
 setup(function(err, cb) {

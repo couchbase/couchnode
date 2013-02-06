@@ -334,9 +334,8 @@ extern "C" {
                                     resp->v.v0.ttr);
     }
 
-
-    static void http_complete_callback(lcb_http_request_t request,
-                                       lcb_t instance,
+    static void http_complete_callback(lcb_http_request_t ,
+                                       lcb_t ,
                                        const void *cookie,
                                        lcb_error_t error,
                                        const lcb_http_resp_t *resp)
