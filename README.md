@@ -16,7 +16,7 @@ if you've worked with those clients you should feel right at home.
 First step is to install libcouchbase (the 2.0 version). On a Mac
 with homebrew this should be as easy as running:
 
-    brew install https://github.com/couchbase/homebrew/raw/preview/Library/Formula/libcouchbase.rb
+    brew install libcouchbase
 
 Once you have libcouchbase installed, you can proceed to install the
 `couchbase` module by running:
