@@ -62,6 +62,13 @@ void lcb_luv_read_nudge(lcb_luv_socket_t sock)
         return; /* nothing to do here */
     }
 
+    if (sock->read.nb != 0) {
+        log_read_trace("Read buffer is not empty yet");
+        return; /* nothing to do here */
+    }
+
+    sock->read.pos = 0;
+
     status = uv_read_start((uv_stream_t *)&sock->tcp, alloc_cb, read_cb);
 
     if (status) {
@@ -117,6 +124,8 @@ static lcb_ssize_t read_common(lcb_luv_socket_t sock,
     /* Check how much data we can send back, and where do we read from */
     toRead = MINIMUM(len, sock->read.nb);
     read_offset = sock->read.pos;
+
+    assert(read_offset + toRead <= LCB_LUV_READAHEAD);
 
     /* copy the data */
     if (toRead) {
