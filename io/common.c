@@ -273,7 +273,8 @@ void lcb_luv_socket_deinit(lcb_luv_socket_t sock)
     lcb_luv_read_stop(sock);
 
     assert(sock->async_state == 0);
-    sock->parent->socktable[sock->idx] = 0;
+    if (sock->parent)
+        sock->parent->socktable[sock->idx] = 0;
     sock->idx = -1;
 
     if (sock->refcount > 1) {

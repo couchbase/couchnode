@@ -14,6 +14,7 @@ static void lcb_luv_dtor(struct lcb_io_opt_st *iops)
 
     for (ii = 0; ii < cookie->fd_max; ii++) {
         if (cookie->socktable[ii]) {
+            cookie->socktable[ii]->parent = NULL;
             log_iops_warn("Dangling socket structure %p with index %d",
                           cookie->socktable + ii,
                           ii);
