@@ -78,6 +78,8 @@ namespace Couchnode
         static v8::Handle<v8::Value> SetHandler(const v8::Arguments &);
         static v8::Handle<v8::Value> GetLastError(const v8::Arguments &);
         static v8::Handle<v8::Value> Get(const v8::Arguments &);
+        static v8::Handle<v8::Value> GetAndLock(const v8::Arguments &);
+        static v8::Handle<v8::Value> Unlock(const v8::Arguments &);
         static v8::Handle<v8::Value> Store(const v8::Arguments &);
         static v8::Handle<v8::Value> Arithmetic(const v8::Arguments &);
         static v8::Handle<v8::Value> Remove(const v8::Arguments &);

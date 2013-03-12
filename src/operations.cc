@@ -91,7 +91,13 @@ void Operation::getKey(const v8::Handle<v8::Value> &val,
     if (val->IsObject()) {
         v8::Local<v8::Object> dict = val->ToObject();
         getString(dict->Get(v8::String::New("key")), key, nkey);
-        getString(dict->Get(v8::String::New("hashkey")), hashkey, nhashkey);
+
+        if (dict->Has(v8::String::New("hashkey"))) {
+            getString(dict->Get(v8::String::New("hashkey")), hashkey, nhashkey);
+        } else {
+            hashkey = NULL;
+            nhashkey = 0;
+        }
     } else {
         getString(val, key, nkey);
         hashkey = NULL;
@@ -286,6 +292,202 @@ void GetOperation::parse(const v8::Arguments &arguments)
         throw ss.str();
     }
 
+    cookie = new CouchbaseCookie(arguments.This(),
+                                 v8::Local<v8::Function>::Cast(arguments[idxCallback]),
+                                 arguments[idxCookie], numCommands);
+}
+
+/**
+ * The argument layout of the Get and Lock command is:
+ *   getAndLock(key[], exptime, callback, cookie);
+ * or
+ *   getAndLock(key, exptime, callback, cookie);
+ *
+ * Keys may be objects with optional hashkey, and exptime is an integer number
+ * of seconds to lock expiry.
+ */
+void GetAndLockOperation::parse(const v8::Arguments &arguments)
+{
+    const int idxKey = 0;
+    const int idxExp = idxKey + 1;
+    const int idxCallback = idxExp + 1;
+    const int idxCookie = idxCallback + 1;
+    const int idxLast = idxCookie + 1;
+
+    if (arguments.Length() < idxLast) {
+        std::stringstream ss;
+        ss << "Incorrect number of arguments passed to getAndLock()." << std::endl
+           << "  usage: get(key, callback, cookie)" << std::endl
+           << "  Expected " << idxLast << "arguments, got: "
+           << arguments.Length() << std::endl;
+        throw ss.str();
+    }
+
+    // Get the expiry time (if it exists)
+    lcb_time_t exptime = 0;
+
+    // exptime is optional.
+    try {
+        exptime = (lcb_time_t)getInteger(arguments[idxExp]);
+    } catch (std::string &ex) {}
+
+    bool multiget = arguments[idxKey]->IsArray();
+    if (multiget) {
+        // argv[0] is an arry containing the keys
+        v8::Local<v8::Array> keys = v8::Local<v8::Array>::Cast(arguments[idxKey]);
+        numCommands = keys->Length();;
+        cmds = new lcb_get_cmd_t* [numCommands];
+        memset(cmds, 0, sizeof(lcb_get_cmd_t*) * numCommands);
+
+        for (int ii = 0; ii < numCommands; ++ii) {
+            lcb_get_cmd_t *cmd = new lcb_get_cmd_t();
+            cmds[ii] = cmd;
+            try {
+                char *key;
+                size_t nkey;
+                char *hashkey;
+                size_t nhashkey;
+                getKey(keys->Get(ii), key, nkey, hashkey, nhashkey);
+                cmd->v.v0.key = (void*)key;
+                cmd->v.v0.nkey = (lcb_uint16_t)nkey;
+                cmd->v.v0.hashkey = (void*)hashkey;
+                cmd->v.v0.nhashkey = (lcb_uint16_t)nhashkey;
+                cmd->v.v0.lock = 1;
+                if (exptime) {
+                    cmd->v.v0.exptime = exptime;
+                }
+            } catch (std::string &ex) {
+                std::stringstream ss;
+                ss << "Failed to parse key #" << ii << ": " << ex;
+                throw ss.str();
+            }
+        }
+    } else {
+        numCommands = 1;
+        cmds = new lcb_get_cmd_t* [numCommands];
+        lcb_get_cmd_t *cmd = new lcb_get_cmd_t();
+        cmds[0] = cmd;
+
+        try {
+            char *key;
+            size_t nkey;
+            char *hashkey;
+            size_t nhashkey;
+            getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+            cmd->v.v0.key = (void*)key;
+            cmd->v.v0.nkey = (lcb_uint16_t)nkey;
+            cmd->v.v0.hashkey = (void*)hashkey;
+            cmd->v.v0.nhashkey = (lcb_uint16_t)nhashkey;
+            cmd->v.v0.lock = 1;
+            if (exptime) {
+                cmd->v.v0.exptime = exptime;
+            }
+        } catch (std::string &ex) {
+            std::stringstream ss;
+            ss << "Failed to parse key argument (#" << idxKey << ") to get: "
+               << ex;
+            throw ss.str();
+        }
+    }
+
+    // callback function to follow
+    if (!arguments[idxCallback]->IsFunction()) {
+        std::stringstream ss;
+        ss << "Incorrect parameter passed as callback parameter (#"
+           << idxCallback << "). Expected a function";
+        throw ss.str();
+    }
+
+    cookie = new CouchbaseCookie(arguments.This(),
+                                 v8::Local<v8::Function>::Cast(arguments[idxCallback]),
+                                 arguments[idxCookie], numCommands);
+}
+
+/**
+ * The argument layout of the unlock command is:
+ *   unlock(key, callback, cookie);
+ * or
+ *   unlock(key[], callback, cookie);
+ *
+ * Keys may be objects with optional hashkey, and exptime is an integer number
+ * of seconds to lock expiry.
+ */
+void UnlockOperation::parse(const v8::Arguments &arguments)
+{
+    const int idxKey = 0;
+    const int idxCallback = idxKey + 1;
+    const int idxCookie = idxCallback + 1;
+    const int idxLast = idxCookie + 1;
+
+    if (arguments.Length() < idxLast) {
+        std::stringstream ss;
+        ss << "Incorrect number of arguments passed to unlock()." << std::endl
+           << "  usage: get(key, callback, cookie)" << std::endl
+           << "  Expected " << idxLast << "arguments, got: "
+           << arguments.Length() << std::endl;
+        throw ss.str();
+    }
+
+    // Is this on multiple keys?
+    if (arguments[idxKey]->IsArray()) {
+        // argv[0] is an arry containing the keys
+        v8::Local<v8::Array> keys = v8::Local<v8::Array>::Cast(arguments[idxKey]);
+        numCommands = keys->Length();;
+        cmds = new lcb_unlock_cmd_t* [numCommands];
+        memset(cmds, 0, sizeof(lcb_unlock_cmd_t*) * numCommands);
+
+        for (int ii = 0; ii < numCommands; ++ii) {
+            lcb_unlock_cmd_t *cmd = new lcb_unlock_cmd_t();
+            cmds[ii] = cmd;
+            try {
+                char *key;
+                size_t nkey;
+                char *hashkey;
+                size_t nhashkey;
+                getKey(keys->Get(ii), key, nkey, hashkey, nhashkey);
+                cmd->v.v0.key = (void*)key;
+                cmd->v.v0.nkey = (lcb_uint16_t)nkey;
+                cmd->v.v0.hashkey = (void*)hashkey;
+                cmd->v.v0.nhashkey = (lcb_uint16_t)nhashkey;
+                cmd->v.v0.cas = getCas(keys->Get(ii)->ToObject()->Get(v8::String::New("cas")));
+            } catch (std::string &ex) {
+                std::stringstream ss;
+                ss << "Failed to parse key #" << ii << ": " << ex;
+                throw ss.str();
+            }
+        }
+    } else {
+        numCommands = 1;
+        cmds = new lcb_unlock_cmd_t* [numCommands];
+        lcb_unlock_cmd_t *cmd = new lcb_unlock_cmd_t();
+        cmds[0] = cmd;
+
+        try {
+            char *key;
+            size_t nkey;
+            char *hashkey;
+            size_t nhashkey;
+            getKey(arguments[idxKey], key, nkey, hashkey, nhashkey);
+            cmd->v.v0.key = (void*)key;
+            cmd->v.v0.nkey = (lcb_uint16_t)nkey;
+            cmd->v.v0.hashkey = (void*)hashkey;
+            cmd->v.v0.nhashkey = (lcb_uint16_t)nhashkey;
+            cmd->v.v0.cas = getCas(arguments[idxKey]->ToObject()->Get(v8::String::New("cas")));
+        } catch (std::string &ex) {
+            std::stringstream ss;
+            ss << "Failed to parse key argument (#" << idxKey << ") to unlock: "
+               << ex;
+            throw ss.str();
+        }
+    }
+
+    // callback function to follow
+    if (!arguments[idxCallback]->IsFunction()) {
+        std::stringstream ss;
+        ss << "Incorrect parameter passed as callback parameter (#"
+           << idxCallback << "). Expected a function";
+        throw ss.str();
+    }
     cookie = new CouchbaseCookie(arguments.This(),
                                  v8::Local<v8::Function>::Cast(arguments[idxCallback]),
                                  arguments[idxCookie], numCommands);

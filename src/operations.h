@@ -109,6 +109,64 @@ namespace Couchnode
         CouchbaseCookie *cookie;
     };
 
+    class GetAndLockOperation : public Operation {
+    public:
+        GetAndLockOperation() : numCommands(0), cmds(NULL), cookie(NULL) {}
+        virtual ~GetAndLockOperation() {
+            for (int ii = 0; ii < numCommands; ++ii) {
+                delete [](char*)cmds[ii]->v.v0.key;
+                delete [](char*)cmds[ii]->v.v0.hashkey;
+            }
+            delete []cmds;
+        }
+
+        virtual void parse(const v8::Arguments &arguments);
+
+        virtual lcb_error_t execute(lcb_t instance) {
+            return lcb_get(instance, cookie, numCommands, cmds);
+        }
+
+        virtual void cancel(lcb_error_t err) {
+            for (int ii = 0; ii < numCommands; ++ii) {
+                cookie->result(err, cmds[ii]->v.v0.key, cmds[ii]->v.v0.nkey);
+            }
+        }
+
+    private:
+        int numCommands;
+        lcb_get_cmd_t ** cmds;
+        CouchbaseCookie *cookie;
+    };
+
+    class UnlockOperation : public Operation {
+    public:
+        UnlockOperation() : numCommands(0), cmds(NULL), cookie(NULL) {}
+        virtual ~UnlockOperation() {
+            for (int ii = 0; ii < numCommands; ++ii) {
+                delete [](char*)cmds[ii]->v.v0.key;
+                delete [](char*)cmds[ii]->v.v0.hashkey;
+            }
+            delete []cmds;
+        }
+
+        virtual void parse(const v8::Arguments &arguments);
+
+        virtual lcb_error_t execute(lcb_t instance) {
+            return lcb_unlock(instance, cookie, numCommands, cmds);
+        }
+
+        virtual void cancel(lcb_error_t err) {
+            for (int ii = 0; ii < numCommands; ++ii) {
+                cookie->result(err, cmds[ii]->v.v0.key, cmds[ii]->v.v0.nkey);
+            }
+        }
+
+    private:
+        int numCommands;
+        lcb_unlock_cmd_t ** cmds;
+        CouchbaseCookie *cookie;
+    };
+
     class TouchOperation : public Operation {
     public:
         TouchOperation() : cmd(), cookie(NULL) {}

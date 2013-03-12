@@ -354,6 +354,18 @@ extern "C" {
         CouchbaseImpl *me = reinterpret_cast<CouchbaseImpl *>(cookie);
         me->onConnect(config);
     }
+
+    static void unlock_callback(lcb_t,
+                             const void *cookie,
+                             lcb_error_t error,
+                             const lcb_unlock_resp_t *resp)
+    {
+        if (resp->version != 0) {
+            unknownLibcouchbaseType("unlock", resp->version);
+        }
+
+        getInstance(cookie)->result(error, resp->v.v0.key, resp->v.v0.nkey);
+    }
 } // extern "C"
 
 void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
@@ -367,4 +379,5 @@ void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
     lcb_set_observe_callback(instance, observe_callback);
     lcb_set_configuration_callback(instance, configuration_callback);
     lcb_set_http_complete_callback(instance, http_complete_callback);
+    lcb_set_unlock_callback(instance, unlock_callback);
 }

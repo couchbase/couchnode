@@ -105,6 +105,8 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "isSynchronous", IsSynchronous);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getLastError", GetLastError);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "get", Get);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "getAndLock", GetAndLock);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "unlock", Unlock);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "store", Store);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "on", On);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmetic", Arithmetic);
@@ -439,6 +441,22 @@ v8::Handle<v8::Value> CouchbaseImpl::Get(const v8::Arguments &args)
     v8::HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     GetOperation *op = new GetOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::GetAndLock(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    GetAndLockOperation *op = new GetAndLockOperation;
+    return makeOperation(me, args, op);
+}
+
+v8::Handle<v8::Value> CouchbaseImpl::Unlock(const v8::Arguments &args)
+{
+    v8::HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    UnlockOperation *op = new UnlockOperation;
     return makeOperation(me, args, op);
 }
 
