@@ -18,7 +18,7 @@ setup(function(err, cb) {
             assert(!err, "Failed to store value");
             ++current;
             if (current == max) {
-               process.exit(1);
+               process.exit(0);
             }
 	})
     }
