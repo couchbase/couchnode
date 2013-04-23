@@ -12,6 +12,6 @@
       "bindings": "~1.0.0"
     },
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
-    "version": "0.0.12-beta",
+    "version": "0.0.12",
     "gypfile": true
 }
