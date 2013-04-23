@@ -1,15 +1,17 @@
 {
-    "bugs" : { "url" : "www.couchbase.com/issues", "email" : "support@couchbase.com" },
-    "description": "Client library for accessing a Couchbase Server cluster",
+    "bugs" : { "url" : "http://www.couchbase.com/issues/browse/JSCBC",
+               "email" : "support@couchbase.com" },
+    "description": "The official (currently under development) node.js Client Library. Built atop libcouchbase, it aligns the libuv event model of node.js with it's own asynchronous API to allow for native-node feeling high performance development.",
     "engines" : { "node" : ">=0.8.8" },
     "homepage": "http://www.couchbase.com/develop",
     "keywords": ["couchbase", "libcouchbase", "memcached", "nosql", "json", "document"],
     "main": "./lib/couchbase",
+    "license" : "Apache2",
     "name": "couchbase",
     "dependencies": {
       "bindings": "~1.0.0"
     },
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
-    "version": "0.0.11",
+    "version": "0.0.12-beta",
     "gypfile": true
 }
