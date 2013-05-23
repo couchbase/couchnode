@@ -52,7 +52,12 @@ namespace Couchnode
     protected:
         void invokeProgress(int argc, v8::Local<v8::Value> *argv) {
             // Now, invoke the callback with the appropriate arguments
+            v8::TryCatch try_catch;
             ucallback->Call(v8::Context::GetEntered()->Global(), argc , argv);
+            if (try_catch.HasCaught()) {
+                node::FatalException(try_catch);
+                //return Undefined(node_isolate);
+            }
         }
 
         unsigned int remaining;
