@@ -50,17 +50,14 @@ namespace Couchnode
 
 
     protected:
-        void invokeProgress(v8::Persistent<v8::Context> &context, int argc,
-                            v8::Local<v8::Value> *argv) {
+        void invokeProgress(int argc, v8::Local<v8::Value> *argv) {
             // Now, invoke the callback with the appropriate arguments
             ucallback->Call(v8::Context::GetEntered()->Global(), argc , argv);
-            context.Dispose();
         }
 
         unsigned int remaining;
-        void invoke(v8::Persistent<v8::Context> &context, int argc,
-                    v8::Local<v8::Value> *argv) {
-            invokeProgress(context, argc, argv);
+        void invoke(int argc, v8::Local<v8::Value> *argv) {
+            invokeProgress(argc, argv);
             if (--remaining == 0) {
                 delete this;
             }

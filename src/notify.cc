@@ -49,7 +49,6 @@ void CouchbaseCookie::result(lcb_error_t error,
 {
     using namespace v8;
     HandleScope scope;
-    Persistent<Context> context = Context::New();
     Local<Value> argv[8];
 
     argv[0] = Local<Value>::New(ucookie);
@@ -84,9 +83,9 @@ void CouchbaseCookie::result(lcb_error_t error,
     }
 
     if (key) {
-        invokeProgress(context, 8, argv);
+        invokeProgress(8, argv);
     } else {
-        invoke(context, 8, argv);
+        invoke(8, argv);
     }
 }
 
@@ -100,7 +99,6 @@ void CouchbaseCookie::result(lcb_error_t error,
 {
     using namespace v8;
     HandleScope scope;
-    Persistent<Context> context = Context::New();
     Local<Value> argv[6];
 
     argv[0] = Local<Value>::New(ucookie);
@@ -118,7 +116,7 @@ void CouchbaseCookie::result(lcb_error_t error,
         argv[5] = Local<Value>::New(String::New((const char *)bytes, nbytes));
     }
 
-    invoke(context, 6, argv);
+    invoke(6, argv);
 }
 
 // (data, error, key, cas)
@@ -128,7 +126,6 @@ void CouchbaseCookie::result(lcb_error_t error,
 {
     using namespace v8;
     HandleScope scope;
-    Persistent<Context> context = Context::New();
     Local<Value> argv[4];
 
     argv[0] = Local<Value>::New(ucookie);
@@ -142,7 +139,7 @@ void CouchbaseCookie::result(lcb_error_t error,
         argv[3] = Local<Value>::New(Cas::CreateCas(cas));
     }
 
-    invoke(context, 4, argv);
+    invoke(4, argv);
 }
 
 // (data, error, key, cas, value)
@@ -153,7 +150,6 @@ void CouchbaseCookie::result(lcb_error_t error,
 {
     using namespace v8;
     HandleScope scope;
-    Persistent<Context> context = Context::New();
     Local<Value> argv[5];
 
     argv[0] = Local<Value>::New(ucookie);
@@ -169,7 +165,7 @@ void CouchbaseCookie::result(lcb_error_t error,
         argv[4] = Local<Value>::New(Number::New(value));
     }
 
-    invoke(context, 5, argv);
+    invoke(5, argv);
 }
 
 // (data, error, key)
@@ -178,7 +174,6 @@ void CouchbaseCookie::result(lcb_error_t error,
 {
     using namespace v8;
     HandleScope scope;
-    Persistent<Context> context = Context::New();
     Local<Value> argv[3];
 
     argv[0] = Local<Value>::New(ucookie);
@@ -190,7 +185,7 @@ void CouchbaseCookie::result(lcb_error_t error,
         argv[1] = Local<Value>::New(False());
     }
 
-    invoke(context, 3, argv);
+    invoke(3, argv);
 }
 
 /**
@@ -200,7 +195,6 @@ void CouchbaseCookie::result(lcb_error_t error, const lcb_http_resp_t *resp)
 {
     using namespace v8;
     HandleScope scope;
-    Persistent<Context> context = Context::New();
     Local<Value> argv[4];
 
     argv[0] = Local<Value>::New(ucookie);
@@ -215,7 +209,7 @@ void CouchbaseCookie::result(lcb_error_t error, const lcb_http_resp_t *resp)
                                                 resp->v.v0.nbytes));
     }
 
-    invoke(context, 4, argv);
+    invoke(4, argv);
 }
 
 static inline CouchbaseCookie *getInstance(const void *c)
