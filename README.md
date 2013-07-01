@@ -42,7 +42,7 @@ details.](https://github.com/couchbase/couchnode/tree/master/tests)
     get:       cb.get(testkey, function (err, doc, meta) {})
     set:       cb.set(testkey, "bar", function (err, meta) {})
     replace:   cb.replace(testkey, "bar", function(err, meta) {})
-    delete:    cb.delete(testkey, function (err, meta) {})
+    remove:    cb.remove(testkey, function (err, meta) {})
     multiget:  cb.get(['key1', 'key2', '...'], function(err, doc, meta) {})
 
 Contributing changes
