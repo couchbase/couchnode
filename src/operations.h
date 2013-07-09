@@ -87,6 +87,7 @@ namespace Couchnode
             for (int ii = 0; ii < numCommands; ++ii) {
                 delete [](char*)cmds[ii]->v.v0.key;
                 delete [](char*)cmds[ii]->v.v0.hashkey;
+                delete cmds[ii];
             }
             delete []cmds;
         }
@@ -116,6 +117,7 @@ namespace Couchnode
             for (int ii = 0; ii < numCommands; ++ii) {
                 delete [](char*)cmds[ii]->v.v0.key;
                 delete [](char*)cmds[ii]->v.v0.hashkey;
+                delete cmds[ii];
             }
             delete []cmds;
         }
@@ -145,6 +147,7 @@ namespace Couchnode
             for (int ii = 0; ii < numCommands; ++ii) {
                 delete [](char*)cmds[ii]->v.v0.key;
                 delete [](char*)cmds[ii]->v.v0.hashkey;
+                delete cmds[ii];
             }
             delete []cmds;
         }
