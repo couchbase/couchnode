@@ -19,12 +19,14 @@
 #include <sstream>
 
 #include "couchbase_impl.h"
-#include "ioplugin.h"
 #include "cas.h"
 #include "logger.h"
+#include <libcouchbase/libuv_io_opts.h>
 
 using namespace std;
 using namespace Couchnode;
+
+Logger logger;
 
 // libcouchbase handlers keep a C linkage...
 extern "C" {
@@ -176,6 +178,7 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
     }
 
     char *argv[4];
+    lcb_error_t err;
     memset(argv, 0, sizeof(argv));
 
     for (int ii = 0; ii < args.Length(); ++ii) {
@@ -191,15 +194,26 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
         }
     }
 
-    lcb_io_opt_st *iops = Couchnode::createIoOps(uv_default_loop());
+    lcb_io_opt_st *iops;
+    lcbuv_options_t iopsOptions;
+
+    iopsOptions.version = 0;
+    iopsOptions.v.v0.loop = uv_default_loop();
+    iopsOptions.v.v0.startsop_noop = 1;
+
+    err = lcb_create_libuv_io_opts(0, &iops, &iopsOptions);
+
     if (iops == NULL) {
         return ThrowException("Failed to create a new IO ops structure");
     }
 
-    lcb_create_st createOptions(argv[0], argv[1], argv[2],
-                                argv[3], iops);
+
+    lcb_create_st createOptions(argv[0], argv[1], argv[2], argv[3], iops);
+
+
+
     lcb_t instance;
-    lcb_error_t err = lcb_create(&instance, &createOptions);
+    err = lcb_create(&instance, &createOptions);
     for (int ii = 0; ii < 4; ++ii) {
         delete[] argv[ii];
     }

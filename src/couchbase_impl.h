@@ -50,6 +50,8 @@
 #include <vector>
 
 #include <libcouchbase/couchbase.h>
+#include <node.h>
+
 #include "namemap.h"
 #include "cookie.h"
 #include "operations.h"

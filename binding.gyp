@@ -15,7 +15,7 @@
           ],
         },
         'copies': [{
-          'files': [ '<(couchbase_root)/lib/libcouchbase.dll' ],
+          'files': [ '<(couchbase_root)/bin/libcouchbase.dll' ],
           'destination': '<(module_root_dir)/build/Release/',
         },],
         'configurations': {
@@ -70,7 +70,7 @@
       'src/notify.cc',
       'src/operations.cc',
       'src/cas.cc',
-      'src/ioplugin.cc'
+      'src/uv-plugin-all.c'
     ],
     'include_dirs': [
       './',
