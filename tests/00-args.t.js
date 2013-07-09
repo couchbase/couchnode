@@ -23,7 +23,7 @@ setup(function(err, cb) {
     assert.doesNotThrow(function() {
         // falsy values for CAS and exp
         [null, undefined, 0, false].forEach(function(fv) {
-            cb.set("has falsy meta", "value", {cas : fv, exp : fv}, setup.end)
+            cb.set("has falsy meta", "value", {cas : fv, expiry : fv}, setup.end)
         })
     })
 
