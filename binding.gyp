@@ -36,6 +36,10 @@
         },
       }],
       ['OS!="win"', {
+        'variables' : {
+            'couchbase_root%' : '""'
+        },
+
         'link_settings': {
           'libraries': [
             '$(EXTRA_LDFLAGS)',
@@ -83,6 +87,7 @@
     ],
     'include_dirs': [
       './',
+      './src/io'
     ],
   }]
 }
