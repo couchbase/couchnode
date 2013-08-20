@@ -1,6 +1,7 @@
 {
   'targets': [{
     'target_name': 'couchbase_impl',
+    'defines': ['LCBUV_EMBEDDED_SOURCE'],
     'conditions': [
       [ 'OS=="win"', {
         'variables': {
