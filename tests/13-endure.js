@@ -1,5 +1,7 @@
-var setup = require('./setup'),
-    assert = require('assert');
+var harness = require('./harness.js');
+harness.skipAll("ENDURE not implemented");
+
+console.trace("Endure not implmented");
 
 setup.plan(1);
 

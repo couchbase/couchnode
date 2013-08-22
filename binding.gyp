@@ -57,19 +57,27 @@
           '-pedantic',
           '-std=gnu99',
         ],
-        'cflags!': [
-          '-fno-exceptions',
+        'conditions': [
+            [ 'couchbase_root!=""', {
+                'include_dirs': [ '<(couchbase_root)/include' ],
+                'libraries+': [
+                    '-L<(couchbase_root)/lib',
+                    '-Wl,-rpath=<(couchbase_root)/lib'
+                ]
+            }]
         ],
-        'cflags_cc!': [
-          '-fno-exceptions',
-        ],
-      }],
+      }]
     ],
     'sources': [
       'src/couchbase_impl.cc',
+      'src/control.cc',
+      'src/constants.cc',
       'src/namemap.cc',
-      'src/notify.cc',
-      'src/operations.cc',
+      'src/cookie.cc',
+      'src/commandbase.cc',
+      'src/commands.cc',
+      'src/exception.cc',
+      'src/options.cc',
       'src/cas.cc',
       'src/uv-plugin-all.c'
     ],

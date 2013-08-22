@@ -1,14 +1,20 @@
-var setup = require('./setup'),
-    assert = require('assert');
+var harness = require('./harness.js');
+var assert = require('assert');
+var Couchbase = require('../lib/couchbase.js');
 
-setup(function(err, cb) {
-    assert(!err, "setup failure");
+var H = new harness.Harness();
+var cb = H.client;
 
-    // Make sure an invalid errorCode doesn't crash anything
-    cb.strError(1000);
+harness.plan(1)
 
-    // Make sure we can get error strings properly
-    assert( cb.strError(0) == 'Success', 'Error strings are being returned incorrectly' );
+cb.strError(1000); // don't crash
+assert.equal(cb.strError(0), 'Success');
+cb.shutdown();
 
-    process.exit(0);
-})
+for (var errKey in Couchbase.errors) {
+  var errValue = Couchbase.errors[errKey];
+  assert.equal(typeof errValue, "number", "Bad constant for : " + errKey);
+  assert(errValue >= 0);
+}
+
+harness.end()

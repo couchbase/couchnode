@@ -43,147 +43,145 @@
 #pragma GCC diagnostic pop
 #endif
 #endif
+namespace Couchnode {
+using v8::Value;
+using v8::Handle;
+using v8::Local;
+using v8::Persistent;
+using v8::Function;
+using v8::HandleScope;
+using v8::String;
+using v8::Number;
+using v8::Object;
+using v8::Arguments;
+};
 
 #include <iostream>
 #include <map>
 #include <string>
 #include <vector>
-
+#include <queue>
 #include <libcouchbase/couchbase.h>
 #include <node.h>
 
-#include "namemap.h"
-#include "cookie.h"
-#include "operations.h"
 #include "cas.h"
-
+#include "namemap.h"
+#include "exception.h"
+#include "cookie.h"
+#include "options.h"
+#include "commandlist.h"
+#include "commands.h"
 namespace Couchnode
 {
-    class QueuedCommand;
 
-    class CouchbaseImpl: public node::ObjectWrap
-    {
-    public:
-        CouchbaseImpl(lcb_t inst);
-        virtual ~CouchbaseImpl();
+using v8::Value;
+using v8::Handle;
+using v8::Local;
+using v8::Persistent;
+using v8::Function;
+using v8::HandleScope;
+using v8::String;
+using v8::Number;
+using v8::Object;
+using v8::Arguments;
 
-        // Methods called directly from JavaScript
-        static void Init(v8::Handle<v8::Object> target);
-        static v8::Handle<v8::Value> New(const v8::Arguments &args);
-        static v8::Handle<v8::Value> StrError(const v8::Arguments &args);
-        static v8::Handle<v8::Value> GetVersion(const v8::Arguments &);
-        static v8::Handle<v8::Value> SetTimeout(const v8::Arguments &);
-        static v8::Handle<v8::Value> GetTimeout(const v8::Arguments &);
-        static v8::Handle<v8::Value> GetRestUri(const v8::Arguments &);
-        static v8::Handle<v8::Value> SetSynchronous(const v8::Arguments &);
-        static v8::Handle<v8::Value> IsSynchronous(const v8::Arguments &);
-        static v8::Handle<v8::Value> SetHandler(const v8::Arguments &);
-        static v8::Handle<v8::Value> GetLastError(const v8::Arguments &);
-        static v8::Handle<v8::Value> Get(const v8::Arguments &);
-        static v8::Handle<v8::Value> GetAndLock(const v8::Arguments &);
-        static v8::Handle<v8::Value> Unlock(const v8::Arguments &);
-        static v8::Handle<v8::Value> Store(const v8::Arguments &);
-        static v8::Handle<v8::Value> Arithmetic(const v8::Arguments &);
-        static v8::Handle<v8::Value> Remove(const v8::Arguments &);
-        static v8::Handle<v8::Value> Touch(const v8::Arguments &);
-        static v8::Handle<v8::Value> Observe(const v8::Arguments &);
-        static v8::Handle<v8::Value> View(const v8::Arguments &);
-        static v8::Handle<v8::Value> Shutdown(const v8::Arguments &);
+// These codes *should* be in lcb_cntl, but currently aren't.
+enum ControlCode {
+    _BEGIN = 0x1000,
+    CNTL_COUCHNODE_VERSION = 0x1001,
+    CNTL_LIBCOUCHBASE_VERSION = 0x1002,
+    CNTL_CLNODES = 0x1003,
+    CNTL_RESTURI = 0x1004
+};
 
-        // Design Doc Management
-        static v8::Handle<v8::Value> GetDesignDoc(const v8::Arguments &);
-        static v8::Handle<v8::Value> SetDesignDoc(const v8::Arguments &);
-        static v8::Handle<v8::Value> DeleteDesignDoc(const v8::Arguments &);
+class CouchbaseImpl: public node::ObjectWrap
+{
+public:
+    CouchbaseImpl(lcb_t inst);
+    virtual ~CouchbaseImpl();
+
+    // Methods called directly from JavaScript
+    static void Init(Handle<Object> target);
+    static Handle<Value> New(const Arguments &args);
+    static Handle<Value> StrError(const Arguments &args);
+    static Handle<Value> SetHandler(const Arguments &);
+
+    static Handle<Value> GetLastError(const Arguments &);
+    static Handle<Value> GetMulti(const Arguments &);
+    static Handle<Value> LockMulti(const Arguments &);
+    static Handle<Value> SetMulti(const Arguments &);
+    static Handle<Value> ReplaceMulti(const Arguments &);
+    static Handle<Value> AddMulti(const Arguments &);
+    static Handle<Value> AppendMulti(const Arguments &);
+    static Handle<Value> PrependMulti(const Arguments &);
+    static Handle<Value> RemoveMulti(const Arguments &);
+    static Handle<Value> ArithmeticMulti(const Arguments &);
+    static Handle<Value> TouchMulti(const Arguments &);
+    static Handle<Value> UnlockMulti(const Arguments &);
+    static Handle<Value> ObserveMulti(const Arguments &);
+    static Handle<Value> EndureMulti(const Arguments &);
+    static Handle<Value> Stats(const Arguments &);
+    static Handle<Value> View(const Arguments &);
+    static Handle<Value> Shutdown(const Arguments &);
+    static Handle<Value> HttpRequest(const Arguments &);
+    static Handle<Value> _Control(const Arguments &);
+    static Handle<Value> Connect(const Arguments &);
+
+    // Design Doc Management
+    static Handle<Value> GetDesignDoc(const Arguments &);
+    static Handle<Value> SetDesignDoc(const Arguments &);
+    static Handle<Value> DeleteDesignDoc(const Arguments &);
 
 
-        // Setting up the event emitter
-        static v8::Handle<v8::Value> On(const v8::Arguments &);
-        v8::Handle<v8::Value> on(const v8::Arguments &);
+    // Setting up the event emitter
+    static Handle<Value> On(const Arguments &);
+    Handle<Value> on(const Arguments &);
 
-        // Method called from libcouchbase
-        void onConnect(lcb_configuration_t config);
-        bool onTimeout(void);
+    // Method called from libcouchbase
+    void onConnect(lcb_configuration_t config);
+    bool onTimeout(void);
 
-        void errorCallback(lcb_error_t err, const char *errinfo);
+    void errorCallback(lcb_error_t err, const char *errinfo);
+    void runScheduledOperations(lcb_error_t err = LCB_SUCCESS);
 
-        void scheduleOperation(Operation *op) {
-            queuedOperations.push_back(op);
-        }
+    void shutdown(void);
 
-        void runScheduledOperations(void);
+    lcb_t getLibcouchbaseHandle(void) {
+        return instance;
+    }
 
-        void setLastError(lcb_error_t err) {
-            lastError = err;
-        }
+    static Handle<Object> createConstants();
 
-        void shutdown(void);
 
-        lcb_t getLibcouchbaseHandle(void) {
-            return instance;
-        }
+    bool isConnected(void) const {
+        return connected;
+    }
 
-        bool isConnected(void) const {
-            return connected;
-        }
+    static void dumpMemoryInfo(const std::string&);
 
-        bool isUsingHashtableParams(void) const {
-            return useHashtableParams;
-        }
-    protected:
-        bool connected;
-        bool useHashtableParams;
-        lcb_t instance;
-        lcb_error_t lastError;
+protected:
+    bool connected;
+    bool useHashtableParams;
+    lcb_t instance;
+    lcb_error_t lastError;
 
-        // @todo why not use a std::queue?
-        typedef std::vector<Operation*> QueuedOperationList;
-        QueuedOperationList queuedOperations;
-
-        typedef std::map<std::string, v8::Persistent<v8::Function> > EventMap;
-        EventMap events;
-        v8::Persistent<v8::Function> connectHandler;
-        void setupLibcouchbaseCallbacks(void);
-
+    typedef std::map<std::string, Persistent<Function> > EventMap;
+    EventMap events;
+    Persistent<Function> connectHandler;
+    std::queue<Command *> pendingCommands;
+    void setupLibcouchbaseCallbacks(void);
 #ifdef COUCHNODE_DEBUG
-        static unsigned int objectCount;
+    static unsigned int objectCount;
 #endif
-    };
+private:
+    template <class T>
+    static Handle<Value> makeOperation(const Arguments&, T&);
+    bool isShutdown;
+};
 
-    /**
-     * Base class of the Exceptions thrown by the internals of
-     * Couchnode
-     */
-    class Exception
-    {
-    public:
-        Exception(const char *msg) : message(msg) {
-            /* Empty */
-        }
 
-        Exception(const char *msg, const v8::Handle<v8::Value> &at)
-            : message(msg) {
-            v8::String::AsciiValue valstr(at);
-            if (*valstr) {
-                message += " at '";
-                message += *valstr;
-                message += "'";
-            }
-        }
-
-        virtual ~Exception() {
-            // Empty
-        }
-
-        virtual const std::string &getMessage() const {
-            return message;
-        }
-
-    protected:
-        std::string message;
-    };
-
-    v8::Handle<v8::Value> ThrowException(const char *str);
-    v8::Handle<v8::Value> ThrowIllegalArgumentsException(void);
+Handle<Value> ThrowException(const char *str);
+Handle<Value> ThrowIllegalArgumentsException(void);
 } // namespace Couchnode
 
 #endif

@@ -1,83 +1,92 @@
-var setup = require('./setup'),
-    assert = require('assert');
+var harness = require('./harness.js');
+var assert = require('assert');
+var couchbase = require('../lib/couchbase.js');
+harness.plan(7);
 
-setup.plan(7);
+var t1 = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("append");
+  
+  cb.remove(key, function(){});
+  
+  cb.append(key, 'willnotwork', function(err, meta){
+    assert.equal(err.code, couchbase.errors.notStored);
+    harness.end(0);
+  });
+}();
 
-setup(function(err, cb) {
-    assert(!err, "setup failure");
-
-    cb.on("error", function (message) {
-        console.log("ERROR: [" + message + "]");
-        process.exit(1);
-    });
-
-    // These following two tests will fail because both append and prepend require the key to
-    // already exist (with set or add) before they can modify it.
-    var appendKey = "Append"
-    cb.append(appendKey, 'willnotwork', function (err, failMeta){
-        assert(err, 'Key must exist before append will work');
-        assert.equal(appendKey, failMeta.id, "Callback called with wrong key!")
-        setup.end();
-    });
-
-    var prependKey = "Prepend"
-    cb.prepend(prependKey, 'willnotwork', function (err, failMeta){
-        assert(err, 'Key must exist before prepend will work');
-        assert.equal(prependKey, failMeta.id, "Callback called with wrong key!")
-        setup.end();
-    });
-
-    //Now do the rest of the tests
-    var functions = ["prepend", "append"];
-    var types = ["withoutCas", "withCas", "wrongCas"];
-    testAll (cb, functions,types);
-})
+var t2 = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("prepend");
+  cb.remove(key, function(){});
+  cb.prepend(key, 'willnotwork', function(err, meta){
+    assert.equal(err.code, couchbase.errors.notStored);
+    harness.end(0);
+  })
+}();
 
 
-function testIt(cb, key, func, type, badMeta) {
+
+function confirmKeyValue(H, key, expectedValue) {
+  var cb = H.client;
+    cb.get(key, H.docCallback(function(doc) {
+      assert.equal(doc, expectedValue,
+                   "Wrong value was returned. Expected:"
+                   + expectedValue + " Received:" + doc);
+      cb.remove(key, function (err, meta) {});
+      harness.end(0);
+  }));
+}
+
+function testIt(H, key, func, type, badMeta) {
     //Setup the key
-    cb.set(key, "foo", function (err, setMeta) {
-        assert(!err, "Failed to store object");
-        var meta = type == "withCas" ? setMeta : (type == 'wrongCas' ? badMeta : {});
+  var cb = H.client;
+  cb.set(key, "foo", H.okCallback(function(setMeta) {
+    var meta = type == "withCas" ? setMeta : (type == 'wrongCas' ? badMeta : {});
+    
+    //cb.append or cb.prepend
+    cb[func](key, "bar", meta, function (err, modMeta) {
+      if (type == "wrongCas") {
+        assert(err, "Cannot " + func + " with wrong cas");
+        assert.equal(err.code, couchbase.errors.keyAlreadyExists);
+        confirmKeyValue(H, key, "foo");
 
-        //cb.append or cb.prepend
-        cb[func](key, "bar", meta, function (err, modMeta) {
-            assert.equal(key, modMeta.id, "Callback called with wrong key!")
-            if (type == "wrongCas") {
-                assert(err, "Cannot " + func + " with wrong cas");
-                confirmKeyValue(cb, key, "foo");
-            } else {
-                assert(!err, "Failed to "+func);
-                confirmKeyValue(cb, key, func == "prepend" ? "barfoo" : "foobar");
-            }
-        })
+      } else {
+        assert(!err, "Failed to "+func);
+        confirmKeyValue(H, key, func == "prepend" ? "barfoo" : "foobar");
+      }
     })
+  }));
 }
 
-function confirmKeyValue(cb, key, expectedValue) {
-    cb.get(key, function (err, doc, getMeta) {
-        assert(!err, "Failed to get value");
-        assert.equal(doc, expectedValue, "Wrong value was returned. Expected:" + expectedValue + " Received:" + doc);
-        cb.remove(key, function (err, meta) {});
-        setup.end();
-    });
+
+function testWithWrongCas(H, key,func, type) {
+  var cb = H.client;
+  
+  cb.set(key, 'wrongCas', function (err, setMeta) {
+    assert(!err, "Failed to store object");
+    testIt(H, key, func, type, setMeta);
+  });
+  cb.remove(key, function (err, meta) {});
 }
 
-function testWithWrongCas(cb, key,func, type) {
-    cb.set(key, 'wrongCas', function (err, setMeta) {
-        assert(!err, "Failed to store object");
-        testIt(cb, key, func, type, setMeta);
-    })
-    cb.remove(key, function (err, meta) {});
-}
-
-function testAll(cb, testFunctions, testTypes ) {
-    for (var i = 0, functionsCount = testFunctions.length; i < functionsCount; i++) {
-        var func = testFunctions[i];
-        for (var j = 0, typesCount = testTypes.length; j < typesCount; j++ ) {
-            var type = testTypes[j];
-            if (type == "wrongCas") testWithWrongCas(cb, func+type, func, type);
-            else testIt(cb, func+type, func, type);
-        }
+function testAll(H, testFunctions, testTypes ) {
+  for (var i = 0, functionsCount = testFunctions.length; i < functionsCount; i++) {
+    var func = testFunctions[i];
+    for (var j = 0, typesCount = testTypes.length; j < typesCount; j++ ) {
+      var type = testTypes[j];
+      if (type == "wrongCas") testWithWrongCas(H, func+type, func, type);
+      else testIt(H, func+type, func, type);
     }
+  }
 }
+
+var t3 = function() {
+  var H = new harness.Harness();
+  //Now do the rest of the tests
+  var functions = ["prepend", "append"];
+  var types = ["withoutCas", "withCas", "wrongCas"];
+  testAll(H, functions,types);
+}();

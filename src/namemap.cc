@@ -30,10 +30,33 @@ void NameMap::initialize()
     install("positional", OPSTYLE_POSITIONAL);
     install("dict", OPSTYLE_HASHTABLE);
     install("str", PROP_STR);
+    install("locktime", LOCKTIME);
+    install("flags", FLAGS);
+    install("key", KEY);
+    install("value", VALUE);
+    install("http_code", HTCODE);
+    install("offset", ARITH_OFFSET);
+    install("persist_to", PERSIST_TO);
+    install("replicate_to", REPLICATE_TO);
+    install("timeout", TIMEOUT);
+    install("spooled", SPOOLED);
+    install("error", ERROR);
+    install("is_delete", IS_DELETE);
+    install("ttp", OBS_TTP);
+    install("ttr", OBS_TTR);
+    install("from_master", OBS_ISMASTER);
+    install("code", EXC_CODE);
+
+    install("path", HTTP_PATH);
+    install("data", HTTP_CONTENT);
+    install("content_type", HTTP_CONTENT_TYPE);
+    install("method", HTTP_METHOD);
+    install("lcb_http_type", HTTP_TYPE);
+    install("status", HTTP_STATUS);
 }
 
 void NameMap::install(const char *name, dict_t val)
 {
     using namespace v8;
-    names[val] = Persistent<String>::New(String::New(name, strlen(name)));
+    names[val] = Persistent<String>::New(String::NewSymbol(name, strlen(name)));
 }

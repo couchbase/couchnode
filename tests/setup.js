@@ -1,19 +1,8 @@
-var cb = require('../lib/couchbase.js'),
+var couchbase = require('../lib/couchbase.js'),
     fs = require('fs'),
     util = require('util');
 
 var assert = require('assert');
-var old_toString = assert.AssertionError.prototype.toString;
-
-assert.AssertionError.prototype.toString = function() {
-    var ret = util.format(
-            "Caught '%s', at:\n%s",
-            old_toString.call(this),
-            this.stack
-    );
-    return ret;
-};
-
 var config;
 var configFilename = 'config.json';
 
@@ -21,27 +10,21 @@ if (fs.existsSync(configFilename)) {
     config = JSON.parse(fs.readFileSync(configFilename));
 
 } else {
-    console.log(configFilename + " not found. Using default test setup..");
     config = {
         hosts : [ "localhost:8091" ],
-        bucket : "default"
+        bucket : "default",
+        operationTimeout : 20000,
+        connectionTimeout : 20000
     };
 }
 
 module.exports = function(callback) {
-//    setTimeout(function() {
-//        console.log("timeout, assuming failure")
-//        process.exit(1)
-//    }, 10000);
-    // Instead of waiting for the test to time out if we
-    // can't connect to the cluster, lets bail out immediately
-    cb.connect(config, function(err, cb) {
+    var cb = new couchbase.Connection(config, function(err) {
         if (err) {
-            console.log("Filed to connect to the cluster")
-            process.exit(1)
-        } else {
-            callback(err, cb);
+            console.error("Failed to connect to cluster: " + err);
+            process.exit(1);
         }
+        callback(err, cb);
     });
 };
 

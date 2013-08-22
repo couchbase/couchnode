@@ -1,53 +1,49 @@
-var setup = require('./setup'),
+var harness = require('./harness.js'),
     assert = require('assert');
 
-setup(function(err, cb) {
-    assert(!err, "setup failure");
+var H = new harness.Harness();
+var c = H.client;
 
-    cb.on("error", function (message) {
-        console.log("ERROR: [" + message + "]");
-        process.exit(1);
-    });
+harness.plan(1);
 
-    // create a bunch of items and get them with multiget
-    var calledTimes = 0,
-        keys = ["key0", "key1", "key2", "key3", "key4",
-            "key5", "key6", "key7", "key8", "key9"];
 
-    function setHandler(err) {
-        assert(!err, "set error")
-        calledTimes++;
-        if (calledTimes > 9) {
-            calledTimes = 0;
-            doGets();
-        }
+var t1 = function() {
+  var calledTimes = 0;
+  var keys = [];
+  var values = {};
+
+  for (var i = 0; i < 10; i++) {
+    var k = H.genKey("test-multiget-" + i);
+    var v = {value: "value" + i};
+    keys.push(k);
+    values[k] = v;
+  }
+
+  function doGets() {
+    c.get(keys[0], H.docCallback(function(doc){
+      assert.equal(doc, values[keys[0]].value);
+    }));
+
+    c.getMulti(keys, null, H.okCallback(function(meta){
+      assert.equal(keys.length, Object.keys(meta).length);
+      Object.keys(meta).forEach(function(k){
+        assert(values[k] !== undefined);
+        assert(meta[k] !== undefined);
+        assert(meta[k].value === values[k].value);
+      });
+      harness.end(0);
+    }));
+  }
+
+  var setHandler = H.okCallback(function(meta) {
+    calledTimes++;
+    if (calledTimes > 9) {
+      calledTimes = 0;
+      doGets();
     }
+  });
 
-    keys.forEach(function(k) {
-        cb.set(k, "value", setHandler);
-    })
+  // Finally, put it all together
+  c.setMulti(values, { spooled: false }, setHandler);
 
-    function getHandler(err, doc, meta) {
-        assert(!err, "get error")
-        assert(doc, "no document data");
-        calledTimes++;
-    }
-
-    function spooledGetHandler(errs, docs, metas) {
-        assert(!errs, "spooled get error");
-        assert(docs.length == 10);
-        assert(metas.length == docs.length);
-        assert(calledTimes==10, "wrong number of callback calls");
-
-        process.exit(0);
-    }
-
-    function doGets() {
-        // normal get
-        cb.get("key0", function(err, meta) {
-            assert(!err, "get error");
-            // multiget
-            cb.get(keys, getHandler, spooledGetHandler);
-        })
-    }
-})
+}();

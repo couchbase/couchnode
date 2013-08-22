@@ -1,5 +1,18 @@
-var setup = require('./setup'),
-    assert = require('assert');
+var harness = require('./harness');
+var assert = require('assert');
+harness.skipAll("OBSERVE not yet implemented");
+
+var testSingleObserve = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genRmKey("observe");
+  
+  cb.set(key, "value", H.okCallback(function(meta){
+    cb.observe(key, H.okCallback(function(meta){
+      
+    }));
+  }))
+}();
 
 setup(function(err, cb) {
     assert(!err, "setup failure");

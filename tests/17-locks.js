@@ -1,130 +1,115 @@
-var setup = require('./setup'),
-    assert = require('assert');
+var harness = require('./harness.js');
+var assert = require('assert');
+var couchbase = require('../lib/couchbase.js');
 
-setup.plan(6); // exit at fourth call to setup.end()
+harness.plan(6);
 
-setup(function(err, cb) {
-    assert(!err, "setup failure");
+var t1 = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var testkey1 = H.genKey('lock1');
 
-    cb.on("error", function (message) {
-        console.log("ERROR: [" + message + "]");
-        process.exit(1);
-    });
+  // With lock should deny second lock
+  cb.set(testkey1, "{bar}", H.okCallback(function(meta) {
+    cb.lock(testkey1, {locktime: 1 }, H.docCallback(function(doc) {
+      assert.equal("{bar}", doc, "Callback called with wrong value!");
+      cb.lock(testkey1, {locktime: 1 }, function (err, meta) {
+        assert(err);
+        assert.equal(err.code, couchbase.errors.temporaryError);
+        harness.end(0);
+      });
+    }));
+  }));
+}();
 
-    var testkey1 = "16-getAndLock.js1";
-    var testkey2 = "16-getAndLock.js2";
-    var testkey3 = "16-getAndLock.js3";
-    var testkey4 = "16-getAndLock.js4";
-    var testkey5 = "16-getAndLock.js5";
-    var testkey6 = "16-getAndLock.js6";
+var t2 = function() {
+  var H = new harness.Harness();
+  var testkey2 = H.genKey("lock2");
+  var cb = H.client;
 
-    // With lock should deny second lock
-    cb.set(testkey1, "{bar}", function (err, meta) {
-        assert(!err, "Failed to store object");
-        assert.equal(testkey1, meta.id, "Callback called with wrong key!");
-
-        cb.getAndLock(testkey1, 1, function (err, doc, meta) {
-            assert.equal(testkey1, meta.id, "Callback called with wrong key!");
-            assert.equal("{bar}", doc, "Callback called with wrong value!");
-
-            cb.getAndLock(testkey1, 1, function (err, doc, meta) {
-                assert(err);
-                setup.end();
-            });
+  // Lock should unlock after expiry.
+  cb.set(testkey2, "{baz}", H.okCallback(function(meta) {
+    cb.lock(testkey2, { locktime: 1}, H.docCallback(function(doc) {
+      assert.equal("{baz}", doc, "Callback called with wrong value!");
+      setTimeout(function () {
+        cb.lock(testkey2, {locktime: 1 }, function(err, meta) {
+          assert(!err, "Should be able to reset lock after expiry.");
+          harness.end(0);
         });
-    });
+      }, 2000);
+    }));
+  }));
+}();
 
-    // Lock should unlock after expiry.
-    cb.set(testkey2, "{baz}", function (err, meta) {
-        assert(!err, "Failed to store object");
-        assert.equal(testkey2, meta.id, "Callback called with wrong key!");
 
-        cb.getAndLock(testkey2, 1, function (err, doc, meta) {
-            assert.equal(testkey2, meta.id, "Callback called with wrong key!");
-            assert.equal("{baz}", doc, "Callback called with wrong value!");
+// Lock should not affect ordinary gets.
+var t3 = function() {
+  var H = new harness.Harness();
+  var testkey3 = H.genKey("lock3");
+  var cb = H.client;
 
-            setTimeout(function () {
-                cb.getAndLock(testkey2, 1, function (err, doc, meta) {
-                    assert(!err, "Should be able to reset lock after expiry.");
-                    setup.end();
-                });
-            }, 2000);
-        });
-    });
+  cb.set(testkey3, "{bat}", H.okCallback(function() {
+    cb.lock(testkey3, {locktime: 1}, H.docCallback(function(doc){
+      assert.equal("{bat}", doc, "Callback called with wrong value!");
+      cb.get(testkey3, H.docCallback(function(doc) {
+        harness.end(0);
+      }));
+    }));
+  }));
+}();
 
-    // Lock should not affect ordinary gets.
-    cb.set(testkey3, "{bat}", function (err, meta) {
-        assert(!err, "Failed to store object");
-        assert.equal(testkey3, meta.id, "Callback called with wrong key!");
+var t4 = function() {
+  var H = new harness.Harness();
+  var testkey4 = H.genKey("lock4");
+  var cb = H.client;
 
-        cb.getAndLock(testkey3, 1, function (err, doc, meta) {
-            assert.equal(testkey3, meta.id, "Callback called with wrong key!");
-            assert.equal("{bat}", doc, "Callback called with wrong value!");
+  cb.set(testkey4, "{bam}", H.okCallback(function(meta) {
+    cb.lock(testkey4, {locktime: 1}, H.docCallback(function(doc) {
+      assert.equal("{bam}", doc, "Callback called with wrong value!");
+      cb.set(testkey4, 'nothing', function (err, meta) {
+        assert(err);
+        harness.end(0);
+      });
+    }));
+  }));
+}();
 
-            cb.get(testkey3, function (err, doc, meta) {
-                assert(!err);
-                setup.end();
-            });
-        });
-    });
 
-    // Lock block sets with keys.
-    cb.set(testkey4, "{bam}", function (err, meta) {
-        assert(!err, "Failed to store object");
-        assert.equal(testkey4, meta.id, "Callback called with wrong key!");
+// Lock shouldn't block sets with cas.
+var t5 = function() {
+  var H = new harness.Harness();
+  var testkey5 = H.genKey("lock5");
+  var cb = H.client;
 
-        cb.getAndLock(testkey4, 1, function (err, doc, meta) {
-            assert.equal(testkey4, meta.id, "Callback called with wrong key!");
-            assert.equal("{bam}", doc, "Callback called with wrong value!");
+  cb.set(testkey5, "{bark}", H.okCallback(function(meta) {
+    cb.lock(testkey5, {locktime: 1}, H.okCallback(function(meta) {
+      assert.equal("{bark}", meta.value, "Callback called with wrong value!");
+      cb.set(testkey5, "nothing", meta, function (err, meta) {
+        assert(!err, "Failed to overwrite locked key by using cas.");
+        cb.get(testkey5, H.docCallback(function(doc) {
+          assert.equal("nothing", doc, "Callback called with wrong value!");
+          harness.end(0);
+        }));
+      });
+    }));
+  }));
+}();
 
-            cb.set(testkey4, 'nothing', function (err, doc, meta) {
-                assert(err);
-                setup.end();
-            });
-        });
-    });
+var t6 = function() {
+  var H = new harness.Harness();
+  var testkey6 = H.genKey("lock6");
+  var cb = H.client;
 
-    // Lock shouldn't block sets with cas.
-    cb.set(testkey5, "{bark}", function (err, meta) {
-        assert(!err, "Failed to store object");
-        assert.equal(testkey5, meta.id, "Callback called with wrong key!");
-
-        cb.getAndLock(testkey5, 1, function (err, doc, meta) {
-            assert.equal(testkey5, meta.id, "Callback called with wrong key!");
-            assert.equal("{bark}", doc, "Callback called with wrong value!");
-
-            cb.set(testkey5, "nothing", meta, function (err, doc, meta) {
-                assert(!err, "Failed to overwrite locked key by using cas.");
-
-                cb.get(testkey5, function (err, doc, meta) {
-                    assert (!err, "Failed to get key");
-                    assert.equal(testkey5, meta.id, "Callback called with wrong key!");
-                    assert.equal("nothing", doc, "Callback called with wrong value!");
-
-                    setup.end();
-                });
-            });
-        });
-    });
-
-    // Unlock reverts lock.
-    cb.set(testkey6, "{boo}", function (err, meta) {
-        assert(!err, "Failed to store object");
-        assert.equal(testkey6, meta.id, "Callback called with wrong key!");
-
-        cb.getAndLock(testkey6, 1, function (err, doc, meta) {
-            assert.equal(testkey6, meta.id, "Callback called with wrong key!");
-            assert.equal("{boo}", doc, "Callback called with wrong value!");
-
-            cb.unlock({ key: testkey6, cas: meta.cas }, function (err, doc, meta) {
-                assert(!err, "Failed to unlock.");
-
-                cb.set(testkey6, 'hello', function (err, doc, meta) {
-                    assert(!err, 'Failed to set on unlocked key.');
-                    setup.end();
-                });
-            });
-        });
-    });
-});
-
+  // Unlock reverts lock.
+  cb.set(testkey6, "{boo}", H.okCallback(function(meta) {
+    cb.lock(testkey6, {locktime: 20}, H.okCallback(function(meta) {
+      assert.equal("{boo}", meta.value, "Callback called with wrong value!");
+      assert('cas' in meta);
+      cb.unlock(testkey6, meta, H.okCallback(function() {
+        cb.set(testkey6, 'hello', H.okCallback(function(){
+          harness.end(0);
+        }));
+      }));
+    }));
+  }))
+}();

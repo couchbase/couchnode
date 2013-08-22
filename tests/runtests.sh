@@ -6,6 +6,7 @@ then
 fi
 
 echo $dashe "\033[1;33mRunning tests...\033[m";
+TESTS_ROOT=$(dirname $0)
 
 # Set count defaults
 runs=0
@@ -14,7 +15,7 @@ skipped=0
 failed=0
 
 # Iterate over all .js files in this directory
-for t in `ls *.js | sort`; do
+for t in `ls $TESTS_ROOT/*.js | sort`; do
     if [ $t != "setup.js" ]
       then
         node $t

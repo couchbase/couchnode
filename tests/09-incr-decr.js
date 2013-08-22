@@ -1,102 +1,84 @@
-var setup = require('./setup'),
-    assert = require('assert');
+require('longjohn');
+var harness = require('./harness.js');
+var assert = require('assert');
 
+harness.plan(4); // exit at 6th call to setup.end()
 
-setup.plan(6); // exit at 6th call to setup.end()
+var incrDecrSimple = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("incrdecr1");
 
+  cb.remove(key, function(err) {
+    cb.incr(key, {initial: 0}, H.docCallback(function(doc){
+      assert.equal(doc, 0, "Initial value should be 0");
 
-setup(function(err, cb) {
-    assert(!err, "setup failure");
+      cb.incr(key, H.docCallback(function(doc){
+        assert.equal(doc, 1, "Increment by one");
 
-    cb.on("error", function (message) {
-        console.log("ERROR : [" + message + "]");
-        process.exit(1);
-    });
+        cb.decr(key, H.docCallback(function(doc){
+          assert.equal(doc, 0, "Decrement by 0");
+          harness.end(0);
+        }));
+      }));
+    }));
+  });
+}();
 
+var incrDecrOffset = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("incrdecr2");
 
-    var testkey = "09-incr-decr.js",
-        testkey2 = "09-incr-decr.js2",
-        testkey3 = "09-incr-decr.js3",
-        testkey4 = "09-incr-decr.js4";
-        testkey5 = "09-incr-decr.js5";
-        testkey6 = "09-incr-decr.js6";
+  cb.remove(key, function(){
+    cb.incr(key, {initial: 0, offset: 100}, H.docCallback(function(doc){
+      assert.equal(0, doc, "Offset ignored when doing default");
+      cb.incr(key, {offset: 20}, H.docCallback(function(doc){
+        assert.equal(doc, 20, "Increment by 20");
+        cb.decr(key, {offset: 15}, H.docCallback(function(doc){
+          assert.equal(doc, 5, "Decrement by 5");
+          harness.end(0);
+        }));
+      }));
+    }));
+  });
+}();
 
-    cb.remove(testkey, function (err, meta) {});
-    cb.remove(testkey2, function (err, meta) {});
-    cb.remove(testkey3, function (err, meta) {});
-    cb.remove(testkey4, function (err, meta) {});
-    cb.remove(testkey5, function (err, meta) {});
-    cb.remove(testkey6, function (err, meta) {});
+var incrDecrDefault = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("incrdecr3");
 
-    // Set A : minimal number of parameter (no parameter)
-    cb.incr( testkey,  function(err, value, meta){
-        assert.equal(value, 0, "Default Increment 1st call : value should be 0 but it is "+ value);
+  cb.remove(key, function(){
+    cb.incr(key, function(err, meta){
+      assert(err, "Error when incrementing key that does not exist");
+      cb.incr(key, {initial: 500, offset: 20}, H.docCallback(function(doc){
+        assert.equal(doc, 500, "Offset is ignored when default is used");
+        cb.decr(key, {initial: 999, offset: 10}, H.docCallback(function(doc){
+          assert.equal(doc, 490, "Initial is ignored when value exists");
+          harness.end(0);
+        }))
+      }))
+    })
+  })
+}();
 
-        cb.incr( testkey,  function(err, value, meta){
-            assert.equal(value, 1, "Default Increment 2nd call : value should be 1 but it is "+ value);
+var incrDecrExpiry = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("incrdecr4");
 
-            cb.incr( testkey,  function(err, value, meta){
-                assert.equal(value, 2, "Default Increment 3rd call : value should be 2 but it is "+ value);
-
-                cb.decr( testkey,  function(err, value, meta){
-                    assert.equal(value, 1, "Default Decrement : value should be 1 but it is "+ value);
-                    setup.end();
-                });
-
-            });
-        });
-    });
-
-
-    // Set B : User 1 parameter : offset
-    cb.incr( testkey2,  {offset : 10},  function(err, value, meta){
-        assert.equal(value, 0, "Default Increment 1st call with 10 : value should be 0 but it is "+ value);
-
-        cb.incr( testkey2,  {offset : 10},  function(err, value, meta){
-            assert.equal(value, 10,  "Default Increment 2nd call with 10 : value should be 10 but it is "+ value);
-
-            cb.incr( testkey2, {offset : 5},  function(err, value, meta){
-                assert.equal(value, 15, "Default Increment 3rd call with 5 : value should be 15 but it is "+ value);
-
-                cb.decr( testkey2, {offset : 10},  function(err, value, meta){
-                    assert.equal(value, 5, "Default Decrement with 10 : value should be 5 but it is "+ value);
-                    setup.end();
-                });
-            });
-        });
-    });
-
-
-    // Set C : Test Default value
-    cb.incr( testkey3,  {defaultValue : 100}, function(err, value, meta){
-        assert.equal(value, 100, "Default Increment test default value : value should be 100 but it is "+ value);
-        setup.end();
-    });
-
-
-    cb.decr( testkey4,  {defaultValue : 100}, function(err, value, meta){
-
-        assert.equal(value, 100, "Default Decrement test default value : value should be 100 but it is "+ value);
-
-        cb.decr( testkey4,  {offset : 90}, function(err, value, meta){
-            assert.equal(value, 10, "Default Decrement test default value : value should be 10 but it is "+ value);
-            setup.end();
-        });
-
-
-    });
-
-
-    // Set D : Test with expiry (not testing the expiry just the parameters)
-    cb.incr( testkey5,  {expiry : 5}, function(err, value, meta){
-        assert.equal(value, 0, "Default Increment test default value : value should be 0 but it is "+ value);
-        setup.end();
-    });
-
-
-    cb.decr( testkey6,  {defaultValue : 50, expiry : 5}, function(err, value, meta){
-        assert.equal(value, 50, "Default Decrement test default value : value should be 50 but it is "+ value);
-        setup.end();
-    });
-
-})
+  cb.remove(key, function(){
+    cb.incr(key, {offset:20, initial:0, expiry:1}, H.docCallback(function(blah){
+      cb.incr(key, H.docCallback(function(doc){
+        assert.equal(doc, 1);
+        setTimeout(function(){
+          cb.get(key, function(err, meta){
+            assert(err, "Expiry with arithmetic");
+            harness.end(0);
+          })
+        }, 2000);
+      }));
+    }))
+  })
+}();
