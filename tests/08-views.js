@@ -12,7 +12,8 @@ function do_run_view(cb) {
   // for our key and it may not be in the view yet due
   // to race conditions..
   var params =  {key : testkey, full_set : "true", stale : "false"};
-  cb.view(designdoc, "test-view", params, function(err, view) {
+  var q = cb.view(designdoc, "test-view", params)
+  q.query(function(err, view) {
     if (err && err.reason == "view_undefined") {
       // Lets assume that the view isn't created yet... try again..
       do_run_view(cb);
