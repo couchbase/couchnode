@@ -127,7 +127,7 @@ protected:
     virtual ItemHandler getHandler() const = 0;
     virtual Command* copy() = 0;
     virtual const char *getDefaultString() const { return NULL; }
-
+    void initCookie();
     Command(Command &other);
 
     const Arguments& apiArgs;
@@ -298,6 +298,7 @@ public:
     CTOR_COMMON(ObserveCommand)
     lcb_error_t execute(lcb_t);
     Command *copy() { return new ObserveCommand(*this); }
+    virtual Cookie *createCookie();
 
 protected:
     CommandList<lcb_observe_cmd_t> commands;

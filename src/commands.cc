@@ -318,9 +318,21 @@ bool ObserveCommand::handleSingle(Command *p, const char *k, size_t n,
     cmd->v.v0.nkey = n;
     return true;
 }
+
 lcb_error_t ObserveCommand::execute(lcb_t instance)
 {
     return lcb_observe(instance, cookie, commands.size(), commands.getList());
+}
+
+Cookie *ObserveCommand::createCookie()
+{
+    if (cookie) {
+        return cookie;
+    }
+
+    cookie = new ObserveCookie(commands.size());
+    initCookie();
+    return cookie;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

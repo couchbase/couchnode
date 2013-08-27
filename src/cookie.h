@@ -44,8 +44,13 @@ public:
     }
 
     bool hasKey() { return key != NULL && nkey > 0; }
+
     void setField(NameMap::dict_t name, Handle<Value> val) {
         payload->ForceSet(NameMap::names[name], val);
+    }
+
+    void setError(lcb_error_t err) {
+        setField(NameMap::ERROR, CBExc().eLcb(err).asValue());
     }
 
     ~ResponseInfo() {
@@ -84,7 +89,7 @@ class Cookie
 {
 public:
     Cookie(unsigned int numRemaining)
-        : remaining(numRemaining), cbType(CBMODE_SINGLE), hasError(false),
+        : hasError(false), cbType(CBMODE_SINGLE), remaining(numRemaining),
           isCancelled(false) {}
 
     void setCallback(Handle<Function> cb, CallbackMode mode) {
@@ -93,7 +98,7 @@ public:
         cbType = mode;
 
         if (cbType == CBMODE_SPOOLED) {
-            spooledInfo = Persistent<Object>::New(Object::New());
+            initSpooledInfo();
         }
     }
 
@@ -114,16 +119,24 @@ protected:
     bool hasRemaining();
     Persistent<Function> callback;
 
+    void initSpooledInfo() {
+        if (spooledInfo.IsEmpty()) {
+            spooledInfo = Persistent<Object>::New(Object::New());
+        }
+    }
 
-private:
-    unsigned int remaining;
+    bool hasError;
+    CallbackMode cbType;
+
     void addSpooledInfo(Handle<Value>&, ResponseInfo&);
     void invokeSingleCallback(Handle<Value>&, ResponseInfo&);
     void invokeSpooledCallback();
 
+
+private:
+    unsigned int remaining;
+
     Persistent<Value> parent;
-    CallbackMode cbType;
-    bool hasError;
     bool isCancelled;
 
     // No copying
@@ -152,6 +165,14 @@ public:
 
 private:
     lcb_http_request_t htreq;
+};
+
+class ObserveCookie : public Cookie {
+public:
+    ObserveCookie(unsigned int ncmds) : Cookie(ncmds) {
+        initSpooledInfo();
+    }
+    void update(lcb_error_t, const lcb_observe_resp_t *);
 };
 
 } // namespace Couchnode

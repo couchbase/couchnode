@@ -254,6 +254,31 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
     delete this;
 }
 
+void ObserveCookie::update(lcb_error_t err, const lcb_observe_resp_t *resp)
+{
+    ResponseInfo ri(err, resp);
+
+    if (!ri.hasKey()) {
+        invokeSpooledCallback();
+        delete this;
+        return;
+    }
+
+    if (err != LCB_SUCCESS) {
+        hasError = true;
+    }
+
+    // Insert this into the keys array
+    Handle<Value> kArray = spooledInfo->Get(ri.getKey());
+
+    if (kArray->IsUndefined()) {
+        kArray = Array::New(1);
+        spooledInfo->Set(ri.getKey(), kArray);
+    }
+
+    kArray.As<Array>()->Set(kArray.As<Array>()->Length()-1, ri.payload);
+}
+
 
 template <typename T>
 void initCommonInfo_v0(ResponseInfo *tp, lcb_error_t err, const T* resp)
@@ -340,7 +365,10 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_http_resp_t *resp)
 ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_observe_resp_t *resp)
 {
     status = err;
+
     if (resp->v.v0.key == NULL && resp->v.v0.nkey == 0) {
+        key = NULL;
+        nkey = 0;
         return;
     }
 
@@ -352,6 +380,9 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_observe_resp_t *resp)
     if (resp->v.v0.from_master) {
         setField(NameMap::OBS_ISMASTER, v8::True());
     }
+
+    setField(NameMap::OBS_TTP, Number::New(resp->v.v0.ttp));
+    setField(NameMap::OBS_TTR, Number::New(resp->v.v0.ttr));
 }
 
 ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_durability_resp_t *resp)
@@ -505,8 +536,10 @@ static void observe_callback(lcb_t,
                              lcb_error_t error,
                              const lcb_observe_resp_t *resp)
 {
-    ResponseInfo ri(error, resp);
-    getInstance(cookie)->markProgress(ri);
+    ObserveCookie *oc =
+            reinterpret_cast<ObserveCookie *>(
+                    const_cast<void *>(cookie));
+    oc->update(error, resp);
 }
 
 static void stats_callback(lcb_t,

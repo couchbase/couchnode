@@ -42,8 +42,11 @@ void NameMap::initialize()
     install("spooled", SPOOLED);
     install("error", ERROR);
     install("is_delete", IS_DELETE);
+
     install("ttp", OBS_TTP);
     install("ttr", OBS_TTR);
+    install("status", OBS_CODE);
+
     install("from_master", OBS_ISMASTER);
     install("code", EXC_CODE);
 

@@ -254,8 +254,13 @@ Cookie* Command::createCookie()
     }
 
     cookie = new Cookie(keys.size());
-    CallbackMode cbMode;
+    initCookie();
+    return cookie;
+}
 
+void Command::initCookie()
+{
+    CallbackMode cbMode;
     if (isSpooled.isFound() && isSpooled.v) {
         cbMode = CBMODE_SPOOLED;
     } else {
@@ -263,7 +268,6 @@ Cookie* Command::createCookie()
     }
 
     cookie->setCallback(callback.v, cbMode);
-    return cookie;
 }
 
 Command* Command::makePersistent()
