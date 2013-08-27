@@ -1,7 +1,7 @@
 var setup = require('./setup'),
     assert = require('assert');
 
-var max=60000;
+var max=6000;
 var current=0;
 
 setup(function(err, cb) {
@@ -15,7 +15,10 @@ setup(function(err, cb) {
 
     for (var i=0; i < max; ++i){
 	cb.set("new_"+i, "something", function(err, meta) {
-            assert(!err, "Failed to store value");
+            if (err) {
+                process.abort();
+            }
+            assert(!err, "Failed to store value" + err);
             ++current;
             if (current == max) {
                process.exit(0);
