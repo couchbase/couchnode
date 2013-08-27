@@ -25,22 +25,53 @@ namespace Couchnode
 /// Get                                                                      ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+void GetOptions::merge(const GetOptions &other)
+{
+    if (!lockTime.isFound()) {
+        lockTime = other.lockTime;
+    }
+
+    if (!expTime.isFound()) {
+        expTime = other.expTime;
+    }
+
+    if (!wantRaw.isFound()) {
+        wantRaw = other.wantRaw;
+    }
+}
 bool GetCommand::handleSingle(Command *p,
-                              const char *key, lcb_size_t nkey,
-                              Handle<Value>, unsigned int ix)
+                              CommandKey &ki,
+                              Handle<Value> params, unsigned int ix)
 {
     GetCommand *ctx = static_cast<GetCommand *>(p);
-    GetOptions *keyOptions = &ctx->globalOptions;
+    GetOptions kOptions;
+
+    if (params.IsEmpty() == false && params->IsObject()) {
+        if (!kOptions.parseObject(params.As<Object>(), ctx->err)) {
+            return false;
+        }
+    }
+
+    kOptions.merge(ctx->globalOptions);
+
     lcb_get_cmd_st *cmd = ctx->commands.getAt(ix);
 
-    cmd->v.v0.key = key;
-    cmd->v.v0.nkey = nkey;
-    if (keyOptions->lockTime.isFound()) {
-        cmd->v.v0.exptime = keyOptions->lockTime.v;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
+
+    if (kOptions.lockTime.isFound()) {
+        cmd->v.v0.exptime = kOptions.lockTime.v;
         cmd->v.v0.lock = 1;
 
     } else {
-        cmd->v.v0.exptime = keyOptions->expTime.v;
+        cmd->v.v0.exptime = kOptions.lockTime.v;
+    }
+
+    if (kOptions.wantRaw.isFound()) {
+        if (kOptions.wantRaw.v) {
+            ctx->setCookieKeyOption(ki.object,
+                                    Number::New(GetOptions::F_RAW));
+        }
     }
 
     return true;
@@ -53,8 +84,8 @@ lcb_error_t GetCommand::execute(lcb_t instance)
 
 bool GetOptions::parseObject(const Handle<Object> options, CBExc &ex)
 {
-    ParamSlot *specs[] = { &expTime, &lockTime };
-    return ParamSlot::parseAll(options, specs, 2, ex);
+    ParamSlot *specs[] = { &expTime, &lockTime, &wantRaw };
+    return ParamSlot::parseAll(options, specs, 3, ex);
 }
 
 
@@ -63,7 +94,7 @@ bool GetOptions::parseObject(const Handle<Object> options, CBExc &ex)
 /// Set                                                                      ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool StoreCommand::handleSingle(Command *p, const char *key, size_t nkey,
+bool StoreCommand::handleSingle(Command *p, CommandKey &ki,
                                 Handle<Value> params, unsigned int ix)
 {
     StoreCommand *ctx = static_cast<StoreCommand *>(p);
@@ -86,10 +117,24 @@ bool StoreCommand::handleSingle(Command *p, const char *key, size_t nkey,
     size_t nvbuf;
     Handle<Value> s = kOptions.value.v;
 
-    cmd->v.v0.key = key;
-    cmd->v.v0.nkey = nkey;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
 
-    if (!ctx->getBufBackedString(s, &vbuf, &nvbuf)) {
+    ValueFormat::Spec spec;
+    Handle<Value> specObj;
+    if (kOptions.format.isFound()) {
+        specObj = kOptions.format.v;
+    } else {
+        specObj = ctx->globalOptions.format.v;
+    }
+
+    spec = ValueFormat::toSpec(specObj, ctx->err);
+    if (spec == ValueFormat::INVALID) {
+        return false;
+    }
+
+    if (!ValueFormat::encode(s, spec, ctx->bufs,
+                             &cmd->v.v0.flags, &vbuf, &nvbuf, ctx->err)) {
         return false;
     }
 
@@ -104,13 +149,6 @@ bool StoreCommand::handleSingle(Command *p, const char *key, size_t nkey,
         cmd->v.v0.exptime = ctx->globalOptions.exp.v;
     }
 
-    // flags
-    if (kOptions.flags.isFound()) {
-        cmd->v.v0.flags = kOptions.flags.v;
-    } else {
-        cmd->v.v0.flags = ctx->globalOptions.flags.v;
-    }
-
     cmd->v.v0.operation = ctx->op;
     return true;
 }
@@ -122,7 +160,7 @@ lcb_error_t StoreCommand::execute(lcb_t instance)
 
 bool StoreOptions::parseObject(const Handle<Object> options, CBExc &ex)
 {
-    ParamSlot *spec[] = { &cas, &exp, &flags, &value };
+    ParamSlot *spec[] = { &cas, &exp, &format, &value };
     if (!ParamSlot::parseAll(options, spec, 4, ex)) {
         return false;
     }
@@ -156,7 +194,7 @@ void ArithmeticOptions::merge(const ArithmeticOptions &other)
     }
 }
 
-bool ArithmeticCommand::handleSingle(Command *p, const char *k, size_t n,
+bool ArithmeticCommand::handleSingle(Command *p, CommandKey &ki,
                                      Handle<Value> params, unsigned int ix)
 {
     ArithmeticOptions kOptions;
@@ -174,8 +212,8 @@ bool ArithmeticCommand::handleSingle(Command *p, const char *k, size_t n,
 
     kOptions.merge(ctx->globalOptions);
 
-    cmd->v.v0.key = k;
-    cmd->v.v0.nkey = n;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
     cmd->v.v0.delta = kOptions.delta.v;
     cmd->v.v0.initial = kOptions.initial.v;
     if (kOptions.initial.isFound()) {
@@ -196,7 +234,7 @@ lcb_error_t ArithmeticCommand::execute(lcb_t instance)
 /// Delete                                                                   ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool DeleteCommand::handleSingle(Command *p, const char *k, size_t n,
+bool DeleteCommand::handleSingle(Command *p, CommandKey &ki,
                                  Handle<Value> params, unsigned int ix)
 {
     DeleteOptions *effectiveOptions;
@@ -213,8 +251,8 @@ bool DeleteCommand::handleSingle(Command *p, const char *k, size_t n,
     }
 
     lcb_remove_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = k;
-    cmd->v.v0.nkey = n;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
     cmd->v.v0.cas = effectiveOptions->cas.v;
     return true;
 }
@@ -235,7 +273,7 @@ bool UnlockOptions::parseObject(const Handle<Object> obj, CBExc &ex)
     return ParamSlot::parseAll(obj, &spec, 1, ex);
 }
 
-bool UnlockCommand::handleSingle(Command *p, const char *k, size_t n,
+bool UnlockCommand::handleSingle(Command *p, CommandKey& ki,
                                  Handle<Value> params, unsigned int ix)
 {
     UnlockCommand *ctx = static_cast<UnlockCommand*>(p);
@@ -255,8 +293,8 @@ bool UnlockCommand::handleSingle(Command *p, const char *k, size_t n,
     }
 
     lcb_unlock_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = k;
-    cmd->v.v0.nkey = n;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
     cmd->v.v0.cas = kOptions.cas.v;
     return true;
 }
@@ -277,7 +315,7 @@ bool TouchOptions::parseObject(const Handle<Object> obj, CBExc &ex)
     return ParamSlot::parseAll(obj, &spec, 1, ex);
 }
 
-bool TouchCommand::handleSingle(Command *p, const char *k, size_t n,
+bool TouchCommand::handleSingle(Command *p, CommandKey &ki,
                                 Handle<Value> params, unsigned int ix)
 {
     TouchCommand *ctx = static_cast<TouchCommand *>(p);
@@ -291,8 +329,8 @@ bool TouchCommand::handleSingle(Command *p, const char *k, size_t n,
     }
 
     lcb_touch_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = k;
-    cmd->v.v0.nkey = n;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
     cmd->v.v0.exptime = kOptions.exp.v;
     return true;
 }
@@ -309,13 +347,13 @@ lcb_error_t TouchCommand::execute(lcb_t instance)
 ////////////////////////////////////////////////////////////////////////////////
 
 // This is a very simple implementation as it takes no options
-bool ObserveCommand::handleSingle(Command *p, const char *k, size_t n,
+bool ObserveCommand::handleSingle(Command *p, CommandKey &ki,
                                   Handle<Value>, unsigned int ix)
 {
     ObserveCommand *ctx = static_cast<ObserveCommand*>(p);
     lcb_observe_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = k;
-    cmd->v.v0.nkey = n;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
     return true;
 }
 
@@ -348,13 +386,13 @@ bool DurabilityOptions::parseObject(Handle<Object> params, CBExc &ex)
     return ParamSlot::parseAll(params, specs, 4, ex);
 }
 
-bool EndureCommand::handleSingle(Command *p, const char *k, size_t n,
+bool EndureCommand::handleSingle(Command *p, CommandKey &ki,
                                  Handle<Value> params, unsigned int ix)
 {
     EndureCommand *ctx = static_cast<EndureCommand *>(p);
     lcb_durability_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = k;
-    cmd->v.v0.nkey = n;
+    cmd->v.v0.key = ki.k;
+    cmd->v.v0.nkey = ki.n;
 
     if (!params.IsEmpty()) {
 
@@ -392,7 +430,7 @@ lcb_error_t EndureCommand::execute(lcb_t instance)
 /// Stats                                                                    ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool StatsCommand::handleSingle(Command *p, const char *k, size_t n,
+bool StatsCommand::handleSingle(Command *p, CommandKey &ki,
                                 Handle<Value>, unsigned int ix)
 {
     StatsCommand *ctx = static_cast<StatsCommand *>(p);
@@ -402,8 +440,8 @@ bool StatsCommand::handleSingle(Command *p, const char *k, size_t n,
     }
 
     lcb_server_stats_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.name = k;
-    cmd->v.v0.nname = n;
+    cmd->v.v0.name = ki.k;
+    cmd->v.v0.nname = ki.n;
     return true;
 }
 
@@ -437,7 +475,7 @@ bool HttpOptions::parseObject(const Handle<Object> obj, CBExc &ex)
     return ParamSlot::parseAll(obj, spec, 5, ex);
 }
 
-bool HttpCommand::handleSingle(Command *p, const char *k, size_t n,
+bool HttpCommand::handleSingle(Command *p, CommandKey &ki,
                                Handle<Value>, unsigned int ix)
 {
     HttpCommand *ctx = static_cast<HttpCommand*>(p);

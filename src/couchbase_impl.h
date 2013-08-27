@@ -71,6 +71,7 @@ using v8::Arguments;
 #include "options.h"
 #include "commandlist.h"
 #include "commands.h"
+#include "valueformat.h"
 namespace Couchnode
 {
 

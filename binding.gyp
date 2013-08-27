@@ -83,7 +83,8 @@
       'src/exception.cc',
       'src/options.cc',
       'src/cas.cc',
-      'src/uv-plugin-all.c'
+      'src/uv-plugin-all.c',
+      'src/valueformat.cc'
     ],
     'include_dirs': [
       './',

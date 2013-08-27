@@ -58,6 +58,7 @@ namespace Couchnode
             DUR_NPERSISTED,
             DUR_NREPLICATED,
             EXC_CODE,
+            GET_RAW,
 
             HTTP_PATH,
             HTTP_CONTENT,
@@ -65,10 +66,21 @@ namespace Couchnode
             HTTP_METHOD,
             HTTP_TYPE,
             HTTP_STATUS,
+
+            FMT_RAW,
+            FMT_UTF8,
+            FMT_UTF16,
+            FMT_JSON,
+            FMT_AUTO,
+            FMT_TYPE,
+
             MAX
         } dict_t;
         static v8::Persistent<v8::String> names[MAX];
         static void initialize();
+        static Handle<Value> get(dict_t ix) {
+            return names[ix];
+        }
     protected:
         static void install(const char *name, dict_t val);
     };

@@ -136,6 +136,7 @@ void CouchbaseImpl::Init(Handle<Object> target)
 
     target->Set(String::NewSymbol("Constants"), createConstants());
     NameMap::initialize();
+    ValueFormat::initialize();
 }
 
 Handle<Value> CouchbaseImpl::On(const Arguments &args)

@@ -31,6 +31,8 @@ typedef enum {
     CBMODE_SPOOLED
 } CallbackMode;
 
+class Cookie;
+
 class ResponseInfo {
 public:
     lcb_error_t status;
@@ -56,7 +58,7 @@ public:
     ~ResponseInfo() {
     }
 
-    ResponseInfo(lcb_error_t, const lcb_get_resp_t*);
+    ResponseInfo(lcb_error_t, const lcb_get_resp_t*, const Cookie *);
     ResponseInfo(lcb_error_t, const lcb_store_resp_t *);
     ResponseInfo(lcb_error_t, const lcb_arithmetic_resp_t*);
     ResponseInfo(lcb_error_t, const lcb_touch_resp_t*);
@@ -107,9 +109,25 @@ public:
         parent = v8::Persistent<v8::Value>::New(cbo);
     }
 
+    void setOptions(Handle<Object> options) {
+        assert(keyOptions.IsEmpty());
+        keyOptions = Persistent<Object>::New(options);
+    }
+
     virtual ~Cookie();
     void markProgress(ResponseInfo&);
     virtual void cancel(lcb_error_t err, Handle<Array> keys);
+
+    Handle<Value> getKeyOption(Handle<Value> key) {
+        if (keyOptions.IsEmpty()) {
+            return Handle<Value>(); // null
+        }
+        return keyOptions->GetRealNamedProperty(key.As<String>());
+    }
+
+    bool hasKeyOptions() const {
+        return keyOptions.IsEmpty() == false;
+    }
 
 protected:
     Persistent<Object> spooledInfo;
@@ -131,6 +149,10 @@ protected:
     void addSpooledInfo(Handle<Value>&, ResponseInfo&);
     void invokeSingleCallback(Handle<Value>&, ResponseInfo&);
     void invokeSpooledCallback();
+
+    // Per-key options
+    Persistent<Object> keyOptions;
+
 
 
 private:

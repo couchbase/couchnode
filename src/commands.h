@@ -65,6 +65,13 @@ private:
     unsigned int ncmds;
 };
 
+struct CommandKey
+{
+    Handle<Value> object;
+    char *k;
+    size_t n;
+};
+
 class Command
 {
 public:
@@ -80,7 +87,7 @@ public:
      *  unless the keys was an object itself.
      */
     typedef bool (*ItemHandler)(Command *cmd,
-                                const char *k, size_t n,
+                                CommandKey &ki,
                                 Handle<Value> dv,
                                 unsigned int ix);
 
@@ -128,6 +135,7 @@ protected:
     virtual Command* copy() = 0;
     virtual const char *getDefaultString() const { return NULL; }
     void initCookie();
+    void setCookieKeyOption(Handle<Value> key, Handle<Value> option);
     Command(Command &other);
 
     const Arguments& apiArgs;
@@ -142,6 +150,11 @@ protected:
     CBExc err;
     KeysInfo keys;
     BufferList bufs;
+
+    // Per-key options
+    // these are transferred over to the the cookie when needed
+    Handle<Object> cookieKeyOptions;
+
 
     // Set by subclasses:
     int mode; // MODE_* | MODE_* ...
@@ -159,8 +172,8 @@ class GetCommand : public Command
 public:
     CTOR_COMMON(GetCommand)
     lcb_error_t execute(lcb_t);
-    static bool handleSingle(Command *, const char *, size_t,
-                             Handle<Value>, unsigned int);
+    static bool handleSingle(Command *,
+                             CommandKey&, Handle<Value>, unsigned int);
 
     virtual Command* copy() { return new GetCommand(*this); }
 
@@ -197,7 +210,7 @@ public:
     StoreCommand(const Arguments& origArgs, lcb_storage_t sop, int mode)
         : Command(origArgs, mode), op(sop) { }
 
-    static bool handleSingle(Command*, const char *, size_t,
+    static bool handleSingle(Command*, CommandKey&,
                              Handle<Value>, unsigned int);
 
     lcb_error_t execute(lcb_t);
@@ -222,7 +235,7 @@ public:
     lcb_error_t execute(lcb_t);
 
 protected:
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     CommandList<lcb_unlock_cmd_t> commands;
     UnlockOptions globalOptions;
@@ -238,7 +251,7 @@ class TouchCommand : public Command
 public:
     TouchCommand(const Arguments& origArgs, int mode)
         : Command(origArgs, mode) { }
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     lcb_error_t execute(lcb_t);
     virtual Command *copy() { return new TouchCommand(*this); }
@@ -261,7 +274,7 @@ public:
     lcb_error_t execute(lcb_t);
     Command * copy() { return new ArithmeticCommand(*this); }
 protected:
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     CommandList<lcb_arithmetic_cmd_t> commands;
     ArithmeticOptions globalOptions;
@@ -281,7 +294,7 @@ public:
     Command *copy() { return new DeleteCommand(*this); }
 
 protected:
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     CommandList<lcb_remove_cmd_t> commands;
     DeleteOptions globalOptions;
@@ -302,7 +315,7 @@ public:
 
 protected:
     CommandList<lcb_observe_cmd_t> commands;
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     ItemHandler getHandler() const { return handleSingle; }
     Parameters *getParams() { return NULL; } // nothing special
@@ -323,7 +336,7 @@ protected:
     DurabilityOptions globalOptions;
     Parameters *getParams() { return &globalOptions; }
 
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     ItemHandler getHandler() const { return handleSingle; }
     virtual bool initCommandList() {
@@ -340,7 +353,7 @@ public:
 
 protected:
     CommandList<lcb_server_stats_cmd_t> commands;
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     Parameters *getParams() { return NULL; }
     ItemHandler getHandler() const { return handleSingle; }
@@ -368,7 +381,7 @@ protected:
     lcb_http_type_t htType;
     HttpOptions globalOptions;
 
-    static bool handleSingle(Command *, const char *, size_t,
+    static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
 
     ItemHandler getHandler() const { return handleSingle; }

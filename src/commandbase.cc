@@ -165,7 +165,9 @@ bool Command::processSingle(Handle<Value> single,
         return false;
     }
 
-    return getHandler()(this, k, n, options, ix);
+    CommandKey ck = { single, k, n };
+
+    return getHandler()(this, ck, options, ix);
 }
 
 bool Command::processArray(Handle<Array> arry)
@@ -258,6 +260,14 @@ Cookie* Command::createCookie()
     return cookie;
 }
 
+void Command::setCookieKeyOption(Handle<Value> key, Handle<Value> option)
+{
+    if (cookieKeyOptions.IsEmpty()) {
+        cookieKeyOptions = Object::New();
+    }
+    cookieKeyOptions->ForceSet(key, option);
+}
+
 void Command::initCookie()
 {
     CallbackMode cbMode;
@@ -265,6 +275,10 @@ void Command::initCookie()
         cbMode = CBMODE_SPOOLED;
     } else {
         cbMode = CBMODE_SINGLE;
+    }
+
+    if (!cookieKeyOptions.IsEmpty()) {
+        cookie->setOptions(cookieKeyOptions);
     }
 
     cookie->setCallback(callback.v, cbMode);

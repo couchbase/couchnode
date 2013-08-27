@@ -37,6 +37,11 @@ Cookie::~Cookie()
         spooledInfo.Dispose();
         spooledInfo.Clear();
     }
+
+    if (!keyOptions.IsEmpty()) {
+        keyOptions.Dispose();
+        keyOptions.Clear();
+    }
 }
 
 void Cookie::addSpooledInfo(Handle<Value>& ec, ResponseInfo& info)
@@ -289,19 +294,30 @@ void initCommonInfo_v0(ResponseInfo *tp, lcb_error_t err, const T* resp)
     tp->payload = Object::New();
 }
 
-ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_get_resp_t *resp)
+ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_get_resp_t *resp,
+                           const Cookie *cookie)
 {
     initCommonInfo_v0(this, err, resp);
     if (err != LCB_SUCCESS) {
         return;
     }
 
+    uint32_t effectiveFlags = resp->v.v0.flags;
     setCas(resp->v.v0.cas);
     setField(NameMap::FLAGS, Uint32::New(resp->v.v0.flags));
 
-    // Get the value
-    // @todo - make this JSON
-    Handle<Value> s = String::New((const char*)resp->v.v0.bytes, resp->v.v0.nbytes);
+    if (cookie->hasKeyOptions()) {
+        Handle<Value> kOpt = const_cast<Cookie*>(cookie)->getKeyOption(getKey());
+        if (!kOpt.IsEmpty()) {
+            if (kOpt->Uint32Value() & GetOptions::F_RAW) {
+                effectiveFlags = ValueFormat::RAW;
+            }
+        }
+    }
+
+    Handle<Value> s = ValueFormat::decode((const char *)resp->v.v0.bytes,
+                                          resp->v.v0.nbytes,
+                                          effectiveFlags);
     setValue(s);
 }
 
@@ -445,8 +461,10 @@ static void get_callback(lcb_t,
         unknownLibcouchbaseType("get", resp->version);
     }
 
-    ResponseInfo ri(error, resp);
-    getInstance(cookie)->markProgress(ri);
+    Cookie *cc = getInstance(cookie);
+
+    ResponseInfo ri(error, resp, cc);
+    cc->markProgress(ri);
 }
 
 static void store_callback(lcb_t,

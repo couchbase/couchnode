@@ -56,6 +56,13 @@ void NameMap::initialize()
     install("method", HTTP_METHOD);
     install("lcb_http_type", HTTP_TYPE);
     install("status", HTTP_STATUS);
+
+    install("json", FMT_JSON);
+    install("raw", FMT_RAW);
+    install("utf8", FMT_UTF8);
+    install("auto", FMT_AUTO);
+    install("format", FMT_TYPE);
+    install("raw", GET_RAW);
 }
 
 void NameMap::install(const char *name, dict_t val)

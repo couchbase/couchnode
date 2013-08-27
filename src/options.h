@@ -144,6 +144,15 @@ struct CallableOption : ParamSlot
     }
 };
 
+struct V8ValueOption : ParamSlot
+{
+    Handle<Value> v;
+    ParseStatus parseValue(const Handle<Value> val, CBExc&) {
+        v = val;
+        return returnStatus(PARSE_OPTION_FOUND);
+    }
+};
+
 struct StringOption : ParamSlot
 {
     Handle<Value> v;
@@ -155,15 +164,6 @@ struct KeyOption : StringOption
     virtual Handle<String> getName() const {
         return NameMap::names[NameMap::KEY];
     }
-};
-
-struct ValueOption : StringOption
-{
-    virtual Handle<String> getName() const {
-        return NameMap::names[NameMap::VALUE];
-    }
-
-    // todo: convert to JSON
 };
 
 };

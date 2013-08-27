@@ -24,7 +24,11 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(ErrorCode::ARGUMENTS) \
     X(ErrorCode::SCHEDULING) \
     X(ErrorCode::CHECK_RESULTS) \
-    X(ErrorCode::GENERIC)
+    X(ErrorCode::GENERIC) \
+    X(ValueFormat::AUTO) \
+    X(ValueFormat::RAW) \
+    X(ValueFormat::UTF8) \
+    X(ValueFormat::JSON)
 
 #define X(n) \
     NODE_DEFINE_CONSTANT(o, n);

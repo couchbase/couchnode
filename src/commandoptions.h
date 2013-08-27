@@ -40,19 +40,31 @@ struct Parameters
 
 struct GetOptions : Parameters
 {
+    enum {
+        F_RAW = 0x01
+    };
+
     ExpOption expTime;
 
     NAMED_OPTION(LockOption, ExpOption, LOCKTIME);
+    NAMED_OPTION(RawOption, BooleanOption, GET_RAW);
+
     LockOption lockTime;
+    RawOption wantRaw;
     bool parseObject(const Handle<Object> opts, CBExc &ex);
+    void merge(const GetOptions &other);
 };
 
 struct StoreOptions : Parameters
 {
+    NAMED_OPTION(FormatOption, V8ValueOption, FMT_TYPE);
+    NAMED_OPTION(ValueOption, V8ValueOption, VALUE);
+
     CasSlot cas;
     ExpOption exp;
-    FlagsOption flags;
     ValueOption value;
+    FormatOption format;
+
     bool parseObject(const Handle<Object> opts, CBExc &ex);
 };
 

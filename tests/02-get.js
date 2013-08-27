@@ -1,7 +1,7 @@
 var harness = require('./harness.js'),
     assert = require('assert');
 
-harness.plan(5); // exit at fourth call to setup.end()
+harness.plan(2); // exit at fourth call to setup.end()
 
 var H = harness.create();
 var c = H.client;
@@ -28,43 +28,6 @@ var t1 = function() {
   }))
 }();
 
-var t2 = function() {
-  console.trace("Skipping JSON (not yet implemented)");
-  harness.end(0);
-  return;
-
-  var key = H.genKey("test2-02get");
-  H.setGet(key, {foo: "bar"}, function(doc){
-    assert.equal("bar", doc.foo,"JSON values should be converted back to objects");
-    harness.end(0);
-  });
-}();
-
-var t3 = function() {
-  console.trace("Skipping JSON (not yet implemented)");
-  harness.end(0);
-  return;
-
-  var key = H.genKey("test3-02get");
-  var value = [1, "2", true, null, false, {}, []];
-  H.setGet(key, value, function(doc){
-    assert.deepEqual(value, doc, "JSON objects should match");
-    harness.end(0);
-  });
-}();
-  
-var t4 = function() {
-  console.trace("Skipping JSON (not yet implemented)");
-  harness.end(0);
-  return;
-
-  var key = H.genKey("test4-02get");
-  var value = ['☆'];
-  c.setGet(key, value, function(doc){
-    assert.equal(key, value, "JSON with Unicode characters should round trip");
-    harness.end(0);
-  });
-}();
 
 var t5 = function() {
   var key = H.genKey("test5-02get");
