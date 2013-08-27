@@ -27,7 +27,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(ErrorCode::GENERIC)
 
 #define X(n) \
-    o->Set(String::NewSymbol(#n), Integer::New(n));
+    NODE_DEFINE_CONSTANT(o, n);
     XCONSTANTS(X)
 #undef X
 
@@ -77,7 +77,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(HTTP_METHOD_DELETE)
 
 #define X(n) \
-    o->Set(String::NewSymbol("LCB_"#n), Integer::New(LCB_##n));
+    NODE_DEFINE_CONSTANT(o, LCB_##n);
     XERR(X)
 #undef X
     return o;
