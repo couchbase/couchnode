@@ -524,7 +524,7 @@ static void configuration_callback(lcb_t instance,
 {
     void *cookie = const_cast<void *>(lcb_get_cookie(instance));
     CouchbaseImpl *me = reinterpret_cast<CouchbaseImpl *>(cookie);
-    me->onConnect(config);
+    me->onConfig(config);
 }
 
 static void unlock_callback(lcb_t,

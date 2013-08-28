@@ -265,12 +265,39 @@ Handle<Value> CouchbaseImpl::StrError(const Arguments &args)
 
 }
 
+void CouchbaseImpl::onConnect(lcb_error_t err)
+{
+    if (connected) {
+        return;
+    }
+
+    connected = true;
+    HandleScope scope;
+    Handle<Value> errObj;
+
+    if (err != LCB_SUCCESS) {
+        errObj = CBExc().eLcb(err).asValue();
+    } else {
+        errObj = v8::Undefined();
+    }
+
+    EventMap::iterator iter = events.find("connect");
+    if (iter == events.end() || iter->second.IsEmpty()) {
+        return;
+    }
+
+    v8::TryCatch try_catch;
+    iter->second->Call(Context::GetEntered()->Global(), 1, &errObj);
+    if (try_catch.HasCaught()) {
+        node::FatalException(try_catch);
+    }
+}
+
 void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
 {
 
     if (!connected) {
-        connected = true;
-        runScheduledOperations(err);
+        onConnect(err);
     }
 
     EventMap::iterator iter = events.find("error");
@@ -294,24 +321,19 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
     return;
 }
 
-void CouchbaseImpl::onConnect(lcb_configuration_t config)
+void CouchbaseImpl::onConfig(lcb_configuration_t config)
 {
     if (connected) {
         return;
     }
+
     if (config != LCB_CONFIGURATION_NEW) {
         return;
     }
 
-    connected = true;
+    onConnect(LCB_SUCCESS);
     runScheduledOperations();
     lcb_set_configuration_callback(instance, NULL);
-
-    EventMap::iterator iter = events.find("connect");
-    if (iter != events.end() && !iter->second.IsEmpty()) {
-        Local<Value> argv[1];
-        iter->second->Call(Context::GetEntered()->Global(), 0, argv);
-    }
 }
 
 void CouchbaseImpl::runScheduledOperations(lcb_error_t globalerr)

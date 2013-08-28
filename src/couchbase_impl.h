@@ -139,7 +139,8 @@ public:
     Handle<Value> on(const Arguments &);
 
     // Method called from libcouchbase
-    void onConnect(lcb_configuration_t config);
+    void onConfig(lcb_configuration_t config);
+    void onConnect(lcb_error_t err);
     bool onTimeout(void);
 
     void errorCallback(lcb_error_t err, const char *errinfo);
