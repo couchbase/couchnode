@@ -120,7 +120,7 @@ private:
     // static instance
     ValueFormat();
     static inline Spec getAutoSpec(Handle<Value>);
-    static inline bool encodeNodeBuffer(Handle<Value>, BufferList&,
+    static inline bool encodeNodeBuffer(Handle<Object>, BufferList&,
                                         char **, size_t*, CBExc&);
 };
 

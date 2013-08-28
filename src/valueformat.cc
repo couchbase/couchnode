@@ -45,7 +45,8 @@ Handle<Value> ValueFormat::decode(const char *bytes, size_t n,
         return String::New(bytes, n);
 
     } else if (flags == RAW) {
-        node::Buffer *buf = node::Buffer::New(bytes, n);
+        // 0.8 defines this as char*, hence the cast
+        node::Buffer *buf = node::Buffer::New(const_cast<char*>(bytes), n);
         return buf->handle_;
 
     } else if (flags == JSON) {
@@ -75,7 +76,7 @@ static bool returnEmptyString(char **k, size_t *n)
     return false;
 }
 
-bool ValueFormat::encodeNodeBuffer(Handle<Value> input, BufferList &buf,
+bool ValueFormat::encodeNodeBuffer(Handle<Object> input, BufferList &buf,
                                    char **k, size_t *n, CBExc &ex)
 {
     *n = node::Buffer::Length(input);
@@ -163,7 +164,7 @@ bool ValueFormat::encode(Handle<Value> input,
     } else if (spec == RAW) {
         if (node::Buffer::HasInstance(input)) {
             *flags = RAW;
-            return encodeNodeBuffer(input, buf, k, n, ex);
+            return encodeNodeBuffer(input.As<Object>(), buf, k, n, ex);
 
         } else {
             bool ret = encode(input, UTF8, buf, flags, k, n, ex);
