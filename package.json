@@ -11,6 +11,11 @@
     "dependencies": {
       "bindings": "~1.0.0"
     },
+    "devDependencies": {
+      "async": "0.2.9",
+      "longjohn": "0.2.1",
+      "underscore": "1.5.1"
+    },
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
     "version": "0.0.12",
     "gypfile": true
