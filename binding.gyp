@@ -64,10 +64,8 @@
         'conditions': [
             [ 'couchbase_root!=""', {
                 'include_dirs': [ '<(couchbase_root)/include' ],
-                'libraries+': [
-                    '-L<(couchbase_root)/lib',
-                    '-Wl,-rpath=<(couchbase_root)/lib'
-                ]
+                'libraries+': [ '-L<(couchbase_root)/lib' ],
+                'conditions': [ [ 'OS!="mac"', {'libraries+':['-Wl,-rpath=<(couchbase_root)/lib']} ] ]
             }]
         ],
       }]
