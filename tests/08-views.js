@@ -21,7 +21,7 @@ function do_run_view(cb) {
       assert(!err, "error fetching view");
       assert(view.length == 1);
       assert.equal(testkey, view[0].key);
-      cb.deleteDesignDoc(designdoc, function() { cb.shutdown(); });
+      cb.removeDesignDoc(designdoc, function() { cb.shutdown(); });
       harness.end(0);
     }
   });
@@ -39,7 +39,7 @@ var viewsTest = function() {
         }
       }
     };
-    cb.deleteDesignDoc(designdoc, function() {
+    cb.removeDesignDoc(designdoc, function() {
       cb.setDesignDoc(designdoc, ddoc, function(err, data) {
         assert(!err, "error creating design document");
         // The ns_server API is async here for some reason,
