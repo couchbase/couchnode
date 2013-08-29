@@ -1,5 +1,5 @@
 We've decided to use "gerrit" for our code review system, making it
-easier for all of us to contribute with code and comments. 
+easier for all of us to contribute with code and comments.
 
   1. Visit http://review.couchbase.org and "Register" for an account
   2. Review http://review.couchbase.org/static/individual_agreement.html
@@ -45,5 +45,5 @@ name. Don't worry, all you need to do is to add the following to your
             username = trond
 
 I normally don't go looking for stuff in gerrit, so you should add at
-least me (trond.norbye@gmail.com) as a reviewer for your patch (and
-I'll know who else to add and add them for you).
+least Brett Lawson (brett19@gmail.com) as a reviewer for your patch.
+He'll know who else to add and add them for you.
