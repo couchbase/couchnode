@@ -59,7 +59,7 @@ var t1 = function() {
 
       function nextpages(results, p) {
         pages.push( results );
-        if (p.isNext()) {
+        if (p.hasNext()) {
           p.next( function(err, results) {
             assert(!err, "TestPaginate next() failed")
             nextpages(results, p)
