@@ -1,7 +1,4 @@
 {
-    "debug" : false,
-    "user" : "Administrator",
-    "password" : "password",
     "hosts" : [ "localhost:8091" ],
     "bucket" : "default"
 }
