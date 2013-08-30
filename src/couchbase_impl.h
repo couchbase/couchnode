@@ -62,7 +62,9 @@ using v8::Arguments;
 #include <vector>
 #include <queue>
 #include <libcouchbase/couchbase.h>
-#include <node.h>
+#if LCB_VERSION < 0x020100
+#error "Couchnode requires libcouchbase >= 2.1.0"
+#endif
 
 #include "cas.h"
 #include "namemap.h"
@@ -72,6 +74,7 @@ using v8::Arguments;
 #include "commandlist.h"
 #include "commands.h"
 #include "valueformat.h"
+
 namespace Couchnode
 {
 
