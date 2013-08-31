@@ -202,9 +202,6 @@ bool Command::processObject(Handle<Object> obj)
 
 bool Command::process(ItemHandler handler)
 {
-    char *k;
-    size_t nkey;
-
     switch (keys.getType()) {
     case KeysInfo::SingleKey: {
         Handle<Value> v;

@@ -93,7 +93,7 @@ void Cookie::invokeSpooledCallback()
 }
 
 bool Cookie::hasRemaining() {
-    return remaining;
+    return remaining > 0;
 }
 
 
