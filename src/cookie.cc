@@ -52,7 +52,7 @@ void Cookie::addSpooledInfo(Handle<Value>& ec, ResponseInfo& info)
     }
 
     if (!ec->IsUndefined()) {
-        info.setField(NameMap::ERROR, ec);
+        info.setField(NameMap::ERR, ec);
     }
 
     spooledInfo->ForceSet(info.getKey(), payload);
@@ -230,7 +230,7 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
                       Number::New(resp->v.v0.status));
 
     if (err != LCB_SUCCESS) {
-        payload->ForceSet(NameMap::names[NameMap::ERROR], errObj);
+        payload->ForceSet(NameMap::names[NameMap::ERR], errObj);
     }
 
     if (resp->v.v0.nbytes) {

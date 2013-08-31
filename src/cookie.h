@@ -52,7 +52,7 @@ public:
     }
 
     void setError(lcb_error_t err) {
-        setField(NameMap::ERROR, CBExc().eLcb(err).asValue());
+        setField(NameMap::ERR, CBExc().eLcb(err).asValue());
     }
 
     ~ResponseInfo() {
