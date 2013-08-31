@@ -18,6 +18,9 @@
         'copies': [{
           'files': [ '<(couchbase_root)/bin/libcouchbase.dll' ],
           'destination': '<(module_root_dir)/build/Release/',
+        },{
+          'files': [ '<(couchbase_root)/bin/libcouchbase.dll' ],
+          'destination': '<(module_root_dir)/build/Debug/',
         },],
         'configurations': {
           'Release': {
