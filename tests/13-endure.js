@@ -1,32 +1,18 @@
-var harness = require('./harness.js');
-harness.skipAll("ENDURE not implemented");
+var harness = require('./harness');
+var assert = require('assert');
 
-console.trace("Endure not implmented");
+harness.plan(1);
 
-setup.plan(1);
+var testSingleEndure = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("endure");
 
-setup(function(err, cb) {
-    assert(!err, "setup failure");
-
-    cb.on("error", function (message) {
-        console.log("ERROR: [" + message + "]");
-        process.exit(1);
-    });
-
-    var testkey = "13-endure.js"
-
-    cb.set(testkey, "bar", function(err,meta) {
-        assert(!err, "Failed to store object");
-
-        var endureOpts = {
-            persisted: 1,
-            replicated: 0
-        };
-        cb.endure(testkey, endureOpts, function(err, meta) {
-            assert(!err, "Failed to complete endure");
-            assert(meta);
-
-            setup.end();
-        });
-    });
-});
+  cb.set(key, "value", {persist_to:1, replicate_to:0}, H.okCallback(function(meta){
+    cb.remove(key, {persist_to:1, replicate_to:0}, H.okCallback(function(mera) {
+      cb.add(key, "value", {persist_to:1, replicate_to:0}, H.okCallback(function(meta){
+        harness.end(0);
+      }));
+    }));
+  }));
+}();

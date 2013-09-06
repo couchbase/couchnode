@@ -46,8 +46,13 @@ void NameMap::initialize()
     install("ttp", OBS_TTP);
     install("ttr", OBS_TTR);
     install("status", OBS_CODE);
-
     install("from_master", OBS_ISMASTER);
+
+    install("persisted_master", DUR_PERSISTED_MASTER);
+    install("found_master", DUR_FOUND_MASTER);
+    install("persisted", DUR_NPERSISTED);
+    install("replicated", DUR_NREPLICATED);
+
     install("code", EXC_CODE);
 
     install("path", HTTP_PATH);

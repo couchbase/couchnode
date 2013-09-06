@@ -427,6 +427,7 @@ ResponseInfo::ResponseInfo(lcb_error_t err, Handle<Value> kObj) :
         key(NULL), nkey(0), keyObj(kObj)
 {
     status = err;
+    payload = Object::New();
 }
 
 static inline Cookie *getInstance(const void *c)

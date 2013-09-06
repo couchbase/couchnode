@@ -39,7 +39,8 @@ public:
         INTERNAL,
         SCHEDULING,
         CHECK_RESULTS,
-        GENERIC
+        GENERIC,
+        DURABILITY_FAILED
     };
 };
 

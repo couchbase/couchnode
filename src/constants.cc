@@ -25,6 +25,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(ErrorCode::SCHEDULING) \
     X(ErrorCode::CHECK_RESULTS) \
     X(ErrorCode::GENERIC) \
+    X(ErrorCode::DURABILITY_FAILED) \
     X(ValueFormat::AUTO) \
     X(ValueFormat::RAW) \
     X(ValueFormat::UTF8) \
