@@ -91,11 +91,11 @@ bool Command::getBufBackedString(Handle<Value> v, char **k, size_t *n,
     if (v.IsEmpty()) {
         return handleBadString("IsEmpty returns true", k, n);
     }
-    if (!v->IsString()) {
+    if (!v->IsString() && !v->IsNumber()) {
         return handleBadString("key is not a string", k, n);
     }
 
-    Handle<String> s = v.As<String>();
+    Local<String> s = v->ToString();
 
     if (s.IsEmpty()) {
         return handleBadString("key is not a string", k, n);
