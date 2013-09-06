@@ -309,9 +309,7 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_get_resp_t *resp,
     if (cookie->hasKeyOptions()) {
         Handle<Value> kOpt = const_cast<Cookie*>(cookie)->getKeyOption(getKey());
         if (!kOpt.IsEmpty()) {
-            if (kOpt->Uint32Value() & GetOptions::F_RAW) {
-                effectiveFlags = ValueFormat::RAW;
-            }
+            effectiveFlags = kOpt->Uint32Value();
         }
     }
 

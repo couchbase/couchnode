@@ -35,8 +35,8 @@ void GetOptions::merge(const GetOptions &other)
         expTime = other.expTime;
     }
 
-    if (!wantRaw.isFound()) {
-        wantRaw = other.wantRaw;
+    if (!format.isFound()) {
+        format = other.format;
     }
 }
 bool GetCommand::handleSingle(Command *p,
@@ -67,10 +67,11 @@ bool GetCommand::handleSingle(Command *p,
         cmd->v.v0.exptime = kOptions.lockTime.v;
     }
 
-    if (kOptions.wantRaw.isFound()) {
-        if (kOptions.wantRaw.v) {
-            ctx->setCookieKeyOption(ki.object,
-                                    Number::New(GetOptions::F_RAW));
+    if (kOptions.format.isFound()) {
+        ValueFormat::Spec spec = ValueFormat::toSpec(kOptions.format.v, ctx->err);
+        // ignore auto so the handler uses the incoming flags
+        if (spec != ValueFormat::AUTO) {
+            ctx->setCookieKeyOption(ki.object, Number::New(spec));
         }
     }
 
@@ -84,7 +85,7 @@ lcb_error_t GetCommand::execute(lcb_t instance)
 
 bool GetOptions::parseObject(const Handle<Object> options, CBExc &ex)
 {
-    ParamSlot *specs[] = { &expTime, &lockTime, &wantRaw };
+    ParamSlot *specs[] = { &expTime, &lockTime, &format };
     return ParamSlot::parseAll(options, specs, 3, ex);
 }
 
@@ -147,6 +148,11 @@ bool StoreCommand::handleSingle(Command *p, CommandKey &ki,
         cmd->v.v0.exptime = kOptions.exp.v;
     } else {
         cmd->v.v0.exptime = ctx->globalOptions.exp.v;
+    }
+
+    // flags override
+    if (kOptions.flags.isFound()) {
+        cmd->v.v0.flags = kOptions.flags.v;
     }
 
     cmd->v.v0.operation = ctx->op;

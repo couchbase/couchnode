@@ -13,7 +13,7 @@ var t1 = function() {
   });
 }();
 
-var t2 = function() {    
+var t2 = function() {
   var key = H.genKey("test3-02get");
   var value = [1, "2", true, null, false, {}, []];
   H.setGet(key, value, function(doc){
@@ -21,7 +21,7 @@ var t2 = function() {
     harness.end(0);
   });
 }();
-  
+
 var t3 = function() {
   var key = H.genKey("test4-02get");
   var value = ['☆'];
@@ -37,14 +37,14 @@ var t4 = function() {
   var value = [1,2,3,4,5,6];
   var key = H.genKey("test_raw");
   var cb = H.client;
-  
+
   cb.set(key, value, H.okCallback(function(){
-    cb.get(key, { raw: true }, H.docCallback(function(doc){
+    cb.get(key, { format: 'raw' }, H.docCallback(function(doc){
       assert.equal(doc, JSON.stringify(value));
       harness.end(0);
     }));
-    
-    cb.get(key, { raw: false }, H.docCallback(function(doc){
+
+    cb.get(key, { format: 'auto' }, H.docCallback(function(doc){
       assert.deepEqual(doc, value);
       harness.end(0);
     }));
@@ -62,7 +62,7 @@ var t5 = function() {
       assert.equal(doc, value);
       harness.end(0);
     }));
-    cb.get(key, { raw: true }, H.docCallback(function(doc){
+    cb.get(key, { format: 'raw' }, H.docCallback(function(doc){
       assert.equal(doc, '"hello"');
       harness.end(0);
     }))
@@ -84,7 +84,7 @@ var testRawFormat = function() {
   var buf = new Buffer([0, 1, 2]);
   // \x00, \x01, \x02
   var key = H.genKey("test-raw-format");
-  
+
   cb.set(key, buf, H.okCallback(function(){
     cb.get(key, H.okCallback(function(meta){
       var doc = meta.value;
