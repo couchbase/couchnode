@@ -185,8 +185,6 @@ public:
         update(err, NULL);
     }
 
-private:
-    lcb_http_request_t htreq;
 };
 
 class ObserveCookie : public Cookie {
