@@ -78,7 +78,9 @@ void Cookie::invokeSpooledCallback()
     Handle<Value> globalErr;
     if (hasError) {
         CBExc ex;
-        ex.assign(ErrorCode::CHECK_RESULTS);
+        ex.assign(ErrorCode::CHECK_RESULTS,
+                  "At least one of your operations failed, check the results"
+                  " object for more information.");
         globalErr = ex.asValue();
     } else {
         globalErr = v8::Undefined();
