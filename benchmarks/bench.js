@@ -7,7 +7,7 @@
  * To Run from command line: node bench <clients> <command> <requests>
  */
 var couchbase = require('../lib/couchbase.js'),
-    cb_config = { hosts :  [ "localhost:8091" ],
+    cb_config = { host :  [ "localhost:8091" ],
         bucket : "default"
     },
     bench_config = { verbose : false, /* print response times */
@@ -141,7 +141,7 @@ var start_test = function(){
 
     for(var i=0; i < bench_config.num_clients; i++){
         (function(id) {
-         couchbase.connect(cb_config, function(err, client) {
+             var client = new couchbase.Connection(cb_config, function(err) {
              if(err) {
                 console.log("ERR: Unable to connect to Server");
                 process.exit(1);
