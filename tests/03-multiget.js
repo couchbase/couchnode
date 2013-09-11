@@ -4,7 +4,7 @@ var harness = require('./harness.js'),
 var H = new harness.Harness();
 var c = H.client;
 
-harness.plan(1);
+harness.plan(2);
 
 
 var t1 = function() {
@@ -47,3 +47,29 @@ var t1 = function() {
   c.setMulti(values, { spooled: false }, setHandler);
 
 }();
+
+var testNoSuchKeyErrorSpooled = function() {
+  var H = new harness.Harness();
+  var c = H.client;
+
+  var badKey = H.genKey("test-multiget-error");
+  var goodKey = H.genKey("test-multiget-spooled");
+  var goodValue = 'foo';
+
+  c.set(goodKey, goodValue, function(err, meta) {
+    assert.ifError(err);
+    var keys = [badKey, goodKey];
+
+    c.getMulti(keys, null, function(err, meta) {
+      assert.strictEqual(err.code, couchbase.errors.checkResults);
+      var goodResult = meta[goodKey];
+      assert.equal(goodResult.value, goodValue);
+
+      var badResult = meta[badKey];
+      assert.strictEqual(badResult.error.code, couchbase.errors.keyNotFound);
+
+      harness.end(0);
+    });
+  });
+}();
+
