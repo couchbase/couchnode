@@ -2,7 +2,7 @@ var harness = require('./harness.js');
 var assert = require('assert');
 var couchbase = require('../lib/couchbase.js');
 
-harness.plan(9);
+harness.plan(10);
 var H = new harness.Harness();
 
 var t1 = function() {
@@ -94,4 +94,19 @@ var testRawFormat = function() {
       harness.end(0);
     }))
   }))
+}();
+
+var testFlagOverride = function() {
+  var value = {val:"value"};
+  var cb = H.client;
+  var key = H.genKey("test-flags-override");
+
+  // Note that we must specify the format as the flags no longer is carrying it
+  cb.set(key, value, {flags: 14}, H.okCallback(function(){
+    cb.get(key, {format: couchbase.format.json}, H.okCallback(function(result){
+      assert.deepEqual(result.value, value);
+      assert.equal(result.flags, 14);
+      harness.end(0);
+    }));
+  }));
 }();

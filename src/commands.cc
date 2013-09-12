@@ -166,8 +166,8 @@ lcb_error_t StoreCommand::execute(lcb_t instance)
 
 bool StoreOptions::parseObject(const Handle<Object> options, CBExc &ex)
 {
-    ParamSlot *spec[] = { &cas, &exp, &format, &value };
-    if (!ParamSlot::parseAll(options, spec, 4, ex)) {
+    ParamSlot *spec[] = { &cas, &exp, &format, &value, &flags };
+    if (!ParamSlot::parseAll(options, spec, 5, ex)) {
         return false;
     }
 
