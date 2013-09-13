@@ -1,5 +1,6 @@
 var harness = require('./harness.js'),
-    assert = require('assert');
+    assert = require('assert'),
+    couchbase = require('../lib/couchbase.js');
 
 var H = new harness.Harness();
 var c = H.client;
