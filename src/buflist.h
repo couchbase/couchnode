@@ -41,6 +41,7 @@ public:
 
         if (len >= bytesAllocated) {
             ret = new char[len];
+            bufList.push_back(ret);
             return ret;
         }
 
