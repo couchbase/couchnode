@@ -74,6 +74,8 @@ namespace Couchnode
             FMT_AUTO,
             FMT_TYPE,
 
+            HASHKEY,
+
             MAX
         } dict_t;
         static v8::Persistent<v8::String> names[MAX];

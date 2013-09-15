@@ -1,27 +1,22 @@
 var harness = require('./harness.js');
-harness.skipAll("Hashkeys not implemented");
+var assert = require('assert');
+var couchbase = require('../lib/couchbase.js');
+harness.plan(1);
 
-console.trace("hashkey not implemented");
+var t1 = function() {
+  var H = new harness.Harness();
+  var cb = H.client;
+  var key = H.genKey("hashkey");
+  var hashkey = key + "_hashkey";
 
-setup.plan(1);
-
-setup(function(err, cb) {
-    assert(!err, "setup failure");
-
-    cb.on("error", function (message) {
-        console.log("ERROR: [" + message + "]");
-        process.exit(1);
-    });
-
-    var testkey = { key : "15-key.js", hashkey : "15-hashkey.js" };
-    cb.set(testkey, "{bar}", function (err, meta) {
-        assert(!err, "Failed to store object");
-        assert.equal(testkey.key, meta.id, "Callback called with wrong key!")
-
-        cb.get(testkey, function (err, doc, meta) {
-            assert.equal(testkey.key, meta.id, "Callback called with wrong key!")
-            assert.equal("{bar}", doc, "Callback called with wrong value!")
-            setup.end();
-        })
-    });
-});
+  cb.set(key, "bar", { hashkey: hashkey }, H.okCallback(function(){
+    cb.get(key, { hashkey: hashkey }, H.docCallback(function(doc){
+      assert.equal(doc, "bar");
+      cb.get(key, function(err, meta){
+        assert.ok(err);
+        assert.equal(err.code, couchbase.errors.keyNotFound);
+        harness.end(0);
+      });
+    }));
+  }));
+}();

@@ -65,11 +65,37 @@ private:
     unsigned int ncmds;
 };
 
-struct CommandKey
+class CommandKey
 {
+public:
+    void setKeys(Handle<Value> o, const char *k, size_t nk,
+                 const char *hk = NULL, size_t nhk = 0) {
+        object = o;
+        key = k;
+        nkey = nk;
+        hashkey = hk;
+        nhashkey = nhk;
+    }
+
+    template <typename T>
+    void setKeyV0(T *cmd) {
+        cmd->v.v0.key = key;
+        cmd->v.v0.nkey = nkey;
+        cmd->v.v0.hashkey = hashkey;
+        cmd->v.v0.nhashkey = nhashkey;
+    }
+
+    const char *getKey() const { return key; }
+    size_t getKeySize() const { return nkey; }
+    Handle<Value> getObject() const { return object; }
+
+
+private:
     Handle<Value> object;
-    char *k;
-    size_t n;
+    const char *key;
+    size_t nkey;
+    const char *hashkey;
+    size_t nhashkey;
 };
 
 class Command
@@ -140,10 +166,13 @@ protected:
 
     const Arguments& apiArgs;
     NAMED_OPTION(SpooledOption, BooleanOption, SPOOLED);
+    NAMED_OPTION(HashkeyOption, StringOption, HASHKEY);
+
 
     // Callback parameters..
     SpooledOption isSpooled;
     CallableOption callback;
+    HashkeyOption globalHashkey;
 
     Cookie *cookie;
 
@@ -160,6 +189,7 @@ protected:
     int mode; // MODE_* | MODE_* ...
 
 private:
+
     bool processObject(Handle<Object>);
     bool processArray(Handle<Array>);
     bool processSingle(Handle<Value>, Handle<Value>, unsigned int);

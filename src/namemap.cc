@@ -68,6 +68,8 @@ void NameMap::initialize()
     install("auto", FMT_AUTO);
     install("format", FMT_TYPE);
     install("raw", GET_RAW);
+
+    install("hashkey", HASHKEY);
 }
 
 void NameMap::install(const char *name, dict_t val)

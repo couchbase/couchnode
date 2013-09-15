@@ -55,9 +55,7 @@ bool GetCommand::handleSingle(Command *p,
     kOptions.merge(ctx->globalOptions);
 
     lcb_get_cmd_st *cmd = ctx->commands.getAt(ix);
-
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
 
     if (kOptions.lockTime.isFound()) {
         cmd->v.v0.exptime = kOptions.lockTime.v;
@@ -71,7 +69,7 @@ bool GetCommand::handleSingle(Command *p,
         ValueFormat::Spec spec = ValueFormat::toSpec(kOptions.format.v, ctx->err);
         // ignore auto so the handler uses the incoming flags
         if (spec != ValueFormat::AUTO) {
-            ctx->setCookieKeyOption(ki.object, Number::New(spec));
+            ctx->setCookieKeyOption(ki.getObject(), Number::New(spec));
         }
     }
 
@@ -117,9 +115,7 @@ bool StoreCommand::handleSingle(Command *p, CommandKey &ki,
     char *vbuf;
     size_t nvbuf;
     Handle<Value> s = kOptions.value.v;
-
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
 
     ValueFormat::Spec spec;
     Handle<Value> specObj;
@@ -217,9 +213,7 @@ bool ArithmeticCommand::handleSingle(Command *p, CommandKey &ki,
 
 
     kOptions.merge(ctx->globalOptions);
-
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
     cmd->v.v0.delta = kOptions.delta.v;
     cmd->v.v0.initial = kOptions.initial.v;
     if (kOptions.initial.isFound()) {
@@ -257,8 +251,7 @@ bool DeleteCommand::handleSingle(Command *p, CommandKey &ki,
     }
 
     lcb_remove_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
     cmd->v.v0.cas = effectiveOptions->cas.v;
     return true;
 }
@@ -299,8 +292,7 @@ bool UnlockCommand::handleSingle(Command *p, CommandKey& ki,
     }
 
     lcb_unlock_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
     cmd->v.v0.cas = kOptions.cas.v;
     return true;
 }
@@ -335,8 +327,7 @@ bool TouchCommand::handleSingle(Command *p, CommandKey &ki,
     }
 
     lcb_touch_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
     cmd->v.v0.exptime = kOptions.exp.v;
     return true;
 }
@@ -358,8 +349,7 @@ bool ObserveCommand::handleSingle(Command *p, CommandKey &ki,
 {
     ObserveCommand *ctx = static_cast<ObserveCommand*>(p);
     lcb_observe_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
     return true;
 }
 
@@ -397,8 +387,7 @@ bool EndureCommand::handleSingle(Command *p, CommandKey &ki,
 {
     EndureCommand *ctx = static_cast<EndureCommand *>(p);
     lcb_durability_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.key = ki.k;
-    cmd->v.v0.nkey = ki.n;
+    ki.setKeyV0(cmd);
 
     if (!params.IsEmpty()) {
 
@@ -446,8 +435,8 @@ bool StatsCommand::handleSingle(Command *p, CommandKey &ki,
     }
 
     lcb_server_stats_cmd_t *cmd = ctx->commands.getAt(ix);
-    cmd->v.v0.name = ki.k;
-    cmd->v.v0.nname = ki.n;
+    cmd->v.v0.name = ki.getKey();
+    cmd->v.v0.nname = ki.getKeySize();
     return true;
 }
 

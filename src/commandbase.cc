@@ -154,18 +154,37 @@ bool Command::initialize()
     return true;
 }
 
+
 bool Command::processSingle(Handle<Value> single,
                             Handle<Value> options,
                             unsigned int ix)
 {
-    char *k;
-    size_t n;
+    char *k, *hashkey = NULL;
+    size_t n, nhashkey = 0;
+
+    HashkeyOption hkOpt;
+    ParamSlot *spec = { &hkOpt };
+
+    if (!ParamSlot::parseAll(options.As<Object>(), &spec, 1, err)) {
+        return false;
+    }
+
+    if (hkOpt.isFound()) {
+        if (!getBufBackedString(hkOpt.v, &hashkey, &nhashkey)) {
+            return false;
+        }
+    } else if (globalHashkey.isFound()) {
+        if (!getBufBackedString(globalHashkey.v, &hashkey, &nhashkey)) {
+            return false;
+        }
+    }
 
     if (!getBufBackedString(single, &k, &n)) {
         return false;
     }
 
-    CommandKey ck = { single, k, n };
+    CommandKey ck;
+    ck.setKeys(single, k, n, hashkey, nhashkey);
 
     return getHandler()(this, ck, options, ix);
 }
@@ -233,8 +252,9 @@ bool Command::parseCommonOptions(const Handle<Object> obj)
         return false;
     }
 
-    ParamSlot *spec = &isSpooled;
-    if (!ParamSlot::parseAll(obj, &spec, 1, err)) {
+    ParamSlot *spec[] = { &isSpooled, &globalHashkey };
+
+    if (!ParamSlot::parseAll(obj, spec, 2, err)) {
         return false;
     }
 
