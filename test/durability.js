@@ -21,7 +21,7 @@ describe('#durability', function() {
   });
 
   // skip because durability requirements does not currently work property
-  it.skip('should successfully set with durability requirements',
+  it('should successfully set with durability requirements',
       function(done) {
     var key = H.genKey("endure");
 
