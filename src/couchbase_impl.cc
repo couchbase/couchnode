@@ -58,12 +58,8 @@ static Handle<Value> bailOut(const Arguments &args, CBExc &ex)
     }
 
     Handle<Value> excObj = ex.asValue();
-    TryCatch try_catch;
-    cb->Call(v8::Context::GetEntered()->Global(), 1, &excObj);
-    if (try_catch.HasCaught()) {
-        node::FatalException(try_catch);
-    }
-
+    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                       cb, 1, &excObj);
     return v8::False();
 }
 
@@ -286,11 +282,8 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
         return;
     }
 
-    v8::TryCatch try_catch;
-    iter->second->Call(Context::GetEntered()->Global(), 1, &errObj);
-    if (try_catch.HasCaught()) {
-        node::FatalException(try_catch);
-    }
+    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                       iter->second, 1, &errObj);
 }
 
 void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
@@ -312,12 +305,8 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
         ex.setMessage(errinfo);
     }
     Handle<Value> exObj = ex.asValue();
-
-    TryCatch try_catch;
-    iter->second->Call(Context::GetEntered()->Global(), 1, &exObj);
-    if (try_catch.HasCaught()) {
-        node::FatalException(try_catch);
-    }
+    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                       iter->second, 1, &exObj);
     return;
 }
 

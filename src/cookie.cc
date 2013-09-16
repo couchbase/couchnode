@@ -66,11 +66,8 @@ void Cookie::invokeSingleCallback(Handle<Value>& errObj, ResponseInfo& info)
         argc = 1;
     }
 
-    TryCatch try_catch;
-    callback->Call(v8::Context::GetEntered()->Global(), argc, args);
-    if (try_catch.HasCaught()) {
-        node::FatalException(try_catch);
-    }
+    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                       callback, argc, args);
 }
 
 void Cookie::invokeSpooledCallback()
@@ -87,11 +84,8 @@ void Cookie::invokeSpooledCallback()
     }
 
     Handle<Value> args[2] = { globalErr, spooledInfo };
-    TryCatch try_catch;
-    callback->Call(v8::Context::GetEntered()->Global(), 2, args);
-    if (try_catch.HasCaught()) {
-        node::FatalException(try_catch);
-    }
+    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                       callback, 2, args);
 }
 
 bool Cookie::hasRemaining() {
@@ -158,13 +152,8 @@ void StatsCookie::invoke(lcb_error_t err)
     if (spooledInfo.IsEmpty()) {
         argv[1] = Object::New();
     }
-
-    v8::TryCatch try_catch;
-    callback->Call(v8::Context::GetEntered()->Global(), 2, argv);
-    if (try_catch.HasCaught()) {
-        node::FatalException(try_catch);
-    }
-    printf("Deleting %p\n", this);
+    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                       callback, 2, argv);
     delete this;
 }
 
@@ -207,7 +196,6 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
 {
     HandleScope scope;
     Handle<Value> errObj;
-    v8::TryCatch try_catch;
 
     if (err) {
         errObj = CBExc().eLcb(err).asValue();
@@ -219,12 +207,10 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
     if (!resp) {
         // Cancellation
         Handle<Value> args[] = { errObj };
-        callback->Call(v8::Context::GetEntered()->Global(), 1, args);
-        if (try_catch.HasCaught()) {
-            node::FatalException(try_catch);
-            delete this;
-            return;
-        }
+        node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                           callback, 1, args);
+        delete this;
+        return;
     }
 
     Handle<Object> payload = Object::New();
@@ -252,12 +238,8 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
     }
 
     Handle<Value> args[] = { errObj, payload };
-    callback->Call(v8::Context::GetEntered()->Global(), 2, args);
-
-    if (try_catch.HasCaught()) {
-        node::FatalException(try_catch);
-    }
-
+    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+                       callback, 2, args);
     delete this;
 }
 
