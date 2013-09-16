@@ -17,4 +17,13 @@ describe('#ctl', function() {
     }));
   });
 
+  it('should return proper client version', function(done) {
+    var vresult = cb.clientVersion;
+    assert.equal(typeof vresult, 'object');
+    assert.equal(vresult.length, 2);
+    assert.equal(typeof vresult[0], 'number');
+    assert.equal(typeof vresult[1], 'string');
+    done();
+  });
+
 });

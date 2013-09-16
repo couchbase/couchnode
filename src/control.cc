@@ -114,14 +114,6 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
         return scope.Close(arr);
      }
 
-    case CNTL_COUCHNODE_VERSION: {
-        // always return something useful
-        Handle<Array> ret = Array::New(2);
-        ret->Set(0, Integer::New(0x002000));
-        ret->Set(1, String::New("Couchnode v0.20.0"));
-        return scope.Close(ret);
-    }
-
     case CNTL_LIBCOUCHBASE_VERSION: {
         const char *vstr;
         lcb_uint32_t vnum;
