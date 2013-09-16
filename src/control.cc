@@ -96,6 +96,24 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
         break;
     }
 
+    case LCB_CNTL_VBMAP: {
+        struct lcb_cntl_vbinfo_st vbi;
+        memset(&vbi, 0, sizeof(vbi));
+
+        String::Utf8Value v(optVal->ToString());
+        vbi.v.v0.key = *v;
+        vbi.v.v0.nkey = v.length();
+        err = lcb_cntl(instance, LCB_CNTL_GET, mode, &vbi);
+        if (err != LCB_SUCCESS) {
+            return exc.eLcb(err).throwV8();
+        }
+
+        Handle<Array> arr = Array::New(2);
+        arr->Set(0, Integer::New(vbi.v.v0.vbucket));
+        arr->Set(1, Integer::New(vbi.v.v0.server_index));
+        return scope.Close(arr);
+     }
+
     case CNTL_COUCHNODE_VERSION: {
         // always return something useful
         Handle<Array> ret = Array::New(2);
