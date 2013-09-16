@@ -1,6 +1,16 @@
 #include "couchbase_impl.h"
 namespace Couchnode {
 
+/**
+ * Because some of these values are macros themselves, just use a function
+ * and stringify in place
+ */
+static void define_constant(Handle<Object> target, const char *k, int n)
+{
+    target->Set(String::NewSymbol(k), Number::New(n),
+                static_cast<v8::PropertyAttribute>(v8::ReadOnly|v8::DontDelete));
+}
+
 Handle<Object> CouchbaseImpl::createConstants()
 {
     Handle<Object> o = Object::New();
@@ -32,7 +42,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(ValueFormat::JSON)
 
 #define X(n) \
-    NODE_DEFINE_CONSTANT(o, n);
+    define_constant(o, #n, n);
     XCONSTANTS(X)
 #undef X
 
@@ -82,7 +92,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(LCB_HTTP_METHOD_DELETE)
 
 #define X(n) \
-    NODE_DEFINE_CONSTANT(o, n);
+    define_constant(o, #n, n);
     XERR(X)
 #undef X
     return o;
