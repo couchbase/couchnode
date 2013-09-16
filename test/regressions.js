@@ -75,26 +75,30 @@ describe('#regressions', function() {
     });
   });
 
-  it('JSCBC-25', function(done) {
-    var cb = H.newClient();
+  describe('JSCBC-25', function() {
+    context("when keys arg is a nested array", function() {
+      it("calls back with an error", function(done) {
+        var cb = H.newClient();
 
-    var keys = [[1,2,3],[4,6,3]];
-    try {
-      cb.get(keys, function (err, doc, meta) {
+        var keys = [[1, 2, 3], [4, 6, 3]];
+        cb.get(keys, function(err) {
+          assert.ok(err.message.match(/key is not a string/));
+          done();
+        });
       });
-      assert(false, "Invalid keys should throw exceptions");
-    } catch (err) {
-    }
+    });
 
-    var keys = [1];
-    try {
-      cb.get(keys, function (err, doc, meta) {
+    context("when keys arg is an array", function() {
+      it("calls back with an error", function(done) {
+        var cb = H.newClient();
+
+        var keys = [1];
+        cb.get(keys, function(err) {
+          assert.ok(err.message.match(/key is not a string/));
+          done();
+        });
       });
-      assert(false, "Invalid keys should throw exceptions");
-    } catch (err) {
-    }
-
-    done();
+    });
   });
 
 });
