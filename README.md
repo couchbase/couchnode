@@ -104,6 +104,12 @@ The basic method summary is:
       console.log("Got result for key.. " + result.value);
     });
 
+## Running Tests
+
+To run the unit tests built into the Node.js driver.  Make sure you have
+mocha installed globally on your system, then execute mocha in the root
+directory of your couchnode installation.
+
 ## Contributing changes
 
 See CONTRIBUTING.md
