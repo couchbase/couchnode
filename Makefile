@@ -23,7 +23,7 @@ node_modules:
 	@npm install
 
 check: node_modules
-	mocha
+	./node_modules/mocha/bin/mocha
 
 reformat:
 	@astyle --mode=c \
