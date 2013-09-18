@@ -19,6 +19,7 @@
 
 var Memcached = require("memcached");
 var Couchbase = require("../lib/couchbase.js");
+var NodeCouchbase = require('node-couchbase');
 var Util = require("util");
 
 // Globals
@@ -87,6 +88,16 @@ function scheduleCouchbase(cb) {
     })
 }
 
+function scheduleNode(cb) {
+    cb.Set(key, value, function(err, meta) {
+        markOperation(err);
+        cb.Get(key, function(err, meta) {
+            markOperation(err);
+            scheduleNode(cb);
+        });
+    });
+}
+
 
 function launchMemcachedClient() {
     var mc = new Memcached("localhost:11311");
@@ -111,14 +122,22 @@ function launchCouchbaseClient() {
     scheduleCouchbase(cb);
 }
 
+function launchNodeCouchbase() {
+    var cb = new NodeCouchbase(['localhost:8091'], 'default', '');
+    cb.on('connected', function() {
+        scheduleNode(cb);
+    });
+}
+
 
 
 for (var i = 0; i < maxClients; i++) {
     if (process.argv[2] == "memcached") {
         //console.log("Starting Memcached");
         launchMemcachedClient();
+    } else if (process.argv[2] == "node-couchbase") {
+        launchNodeCouchbase();
     } else {
-        //console.log("Starting Couchbase");
         launchCouchbaseClient();
     }
 }
