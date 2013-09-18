@@ -17,25 +17,82 @@
  *   @copyright 2013 Couchbase, Inc.
  */
 
-var Memcached = require("memcached");
-var Couchbase = require("../lib/couchbase.js");
-var NodeCouchbase = require('node-couchbase');
 var Util = require("util");
 
-// Globals
-var maxClients = 20;
-var maxOperations=10000000;
+var keyMode = {
+    single: 1,
+    rotating: 2,
+    increasing: 3
+};
+
+// Configuration
+
+var globalConfig = {
+    // Maximum amount of clients to operate concurrently
+    maxClients: 20,
+
+    // How many individual 'threads' scheduling the same key/value
+    maxSchedulers: 5,
+
+    // Maximum operations to execute before exiting
+    maxOperations: 10000000,
+
+    // Bucket to connect to
+    bucket: "default",
+
+    // Password for bucket
+    password: "",
+
+    // Hostname to use
+    host: "127.0.0.1",
+
+    // Memcached port (for use with 3rd eden)
+    memcachedPort: 11210,
+
+    // Default value size to use
+    valueSize: 30,
+
+    keyMode: keyMode.rotating
+};
+
 var currentOperations = 0;
-
-var key = "keybase";
+var keyCounter = 0;
+var key = "keybase_PID[" + process.pid + "]#";
 var value = "valbase";
+var remaining = 0;
+/* How many operations are remaining */
 
-for (var i = 0; i < 10; i++) {
-    value += "***";
+var rotatingKeyList = [];
+var rotatingKeyIndex = 0;
+
+function setupDefaults() {
+
+    for (var i = 0; i < globalConfig.valueSize; i++) {
+        value += '*';
+    }
+
+    remaining = globalConfig.maxOperations;
+
 }
 
-/* How many operations are remaining */
-var remaining=maxOperations;
+
+for (var i = 0; i < 20; i++) {
+    rotatingKeyList[i] = key + "_seq_"+i;
+}
+
+function getKey() {
+    if (globalConfig.keyMode === keyMode.single) {
+        return key;
+    } else if (globalConfig.keyMode === keyMode.rotating) {
+        rotatingKeyIndex = (rotatingKeyIndex + 1) % rotatingKeyList.length;
+        return rotatingKeyList[rotatingKeyIndex];
+    } else {
+        keyCounter++;
+        return key + keyCounter;
+    }
+}
+
+
 var BEGIN_TIME = Date.now();
 
 setInterval(function(arg) {
@@ -68,10 +125,11 @@ function markOperation(err) {
 
 
 function scheduleMemcached(cb) {
-    cb.set(key, value, 0, function(err) {
+    var curKey = getKey();
+    cb.set(curKey, value, 0, function(err) {
         markOperation(err);
 
-        cb.get(key, function(err, meta) {
+        cb.get(curKey, function(err, meta) {
             markOperation(err);
             scheduleMemcached(cb);
         });
@@ -79,9 +137,10 @@ function scheduleMemcached(cb) {
 }
 
 function scheduleCouchbase(cb) {
-    cb.set(key, value, {}, function(err, meta) {
+    var curKey = getKey();
+    cb.set(curKey, value, {}, function(err, meta) {
         markOperation(err);
-        cb.get(key, function(err, meta) {
+        cb.get(curKey, function(err, meta) {
             markOperation(err);
             scheduleCouchbase(cb);
         })
@@ -89,26 +148,36 @@ function scheduleCouchbase(cb) {
 }
 
 function scheduleNode(cb) {
-    cb.Set(key, value, function(err, meta) {
+    var curKey = getKey();
+    cb.Set(curKey, value, function(err, meta) {
         markOperation(err);
-        cb.Get(key, function(err, meta) {
+        cb.Get(curKey, function(err, meta) {
             markOperation(err);
             scheduleNode(cb);
         });
     });
 }
 
+function scheduleOps(fn, client) {
+    for (var ii = 0; ii < globalConfig.maxSchedulers; ii++) {
+        fn(client);
+    }
+}
+
 
 function launchMemcachedClient() {
-    var mc = new Memcached("localhost:11311");
-    scheduleMemcached(mc);
+    var Memcached = require('memcached');
+    var mc = new Memcached(globalConfig.host + ":" + globalConfig.memcachedPort);
+    scheduleOps(scheduleMemcached, mc);
 }
 
 function launchCouchbaseClient() {
+    var Couchbase = require('../lib/couchbase.js');
+
     var cbOptions = {
-        bucket: "memd",
-        connectionTimeout: 500000,
-        operationTimeout: 500000,
+        bucket: globalConfig.bucket,
+        host: globalConfig.host,
+        password: globalConfig.password
     };
 
     var cb = new Couchbase.Connection(cbOptions, function(err) {
@@ -119,23 +188,74 @@ function launchCouchbaseClient() {
             console.log("Connected!");
         }
     });
-    scheduleCouchbase(cb);
+    scheduleOps(scheduleCouchbase, cb);
 }
 
 function launchNodeCouchbase() {
-    var cb = new NodeCouchbase(['localhost:8091'], 'default', '');
+    var NodeCouchbase = require('node-couchbase');
+    var cb = new NodeCouchbase([globalConfig.host + ':8091'],
+                               globalConfig.bucket,
+                               globalConfig.password);
     cb.on('connected', function() {
-        scheduleNode(cb);
+        scheduleOps(scheduleNode, cb);
     });
 }
 
+// Parse the configuration
+var optimist = require('optimist');
+var optionMap = {
+    'max-clients': 'maxClients',
+    'bucket': 'bucket',
+    'value-size': 'valueSize',
+    'keymode': 'keyMode',
+    'max-operations': 'maxOperations',
+    'max-schedulers': 'maxSchedulers',
+    'host': 'host',
+    'memcached-port': 'memcachedPort'
+};
 
+for (var k in optionMap) {
+    var globalKey = optionMap[k];
+    optimist.default(k, globalConfig[globalKey]);
+}
 
-for (var i = 0; i < maxClients; i++) {
-    if (process.argv[2] == "memcached") {
+optimist.default('lib', 'couchnode');
+var argv = optimist.argv;
+
+for (var k in argv) {
+    if (!k in optionMap) {
+        continue;
+    }
+    globalConfig[optionMap[k]] = argv[k];
+}
+
+var keyModeFound = false;
+for (var k in keyMode) {
+    if (globalConfig.keyMode == k) {
+        globalConfig.keyMode = keyMode[k];
+        keyModeFound = true;
+        break;
+    } else if (globalConfig.keyMode == keyMode[k]) {
+        keyModeFound = true;
+        break;
+    }
+}
+if (!keyModeFound) {
+    throw new Error("Invalid keymode: " + globalConfig.keyMode);
+}
+
+setupDefaults();
+
+if (argv.help || argv.h) {
+    optimist.showHelp();
+    process.exit(0);
+}
+
+for (var i = 0; i < globalConfig.maxClients; i++) {
+    if (argv.lib == "memcached") {
         //console.log("Starting Memcached");
         launchMemcachedClient();
-    } else if (process.argv[2] == "node-couchbase") {
+    } else if (argv.lib == "node-couchbase") {
         launchNodeCouchbase();
     } else {
         launchCouchbaseClient();
