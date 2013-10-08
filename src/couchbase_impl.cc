@@ -117,6 +117,7 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "appendMulti", AppendMulti);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "prependMulti", PrependMulti);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getMulti", GetMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "touchMulti", TouchMulti);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "lockMulti", LockMulti);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "unlockMulti", UnlockMulti);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmeticMulti", ArithmeticMulti);
