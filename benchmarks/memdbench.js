@@ -129,7 +129,7 @@ function scheduleMemcached(cb) {
     cb.set(curKey, value, 0, function(err) {
         markOperation(err);
 
-        cb.get(curKey, function(err, meta) {
+        cb.get(curKey, function(err, result) {
             markOperation(err);
             scheduleMemcached(cb);
         });
@@ -138,9 +138,9 @@ function scheduleMemcached(cb) {
 
 function scheduleCouchbase(cb) {
     var curKey = getKey();
-    cb.set(curKey, value, {}, function(err, meta) {
+    cb.set(curKey, value, {}, function(err, result) {
         markOperation(err);
-        cb.get(curKey, function(err, meta) {
+        cb.get(curKey, function(err, result) {
             markOperation(err);
             scheduleCouchbase(cb);
         })
@@ -149,9 +149,9 @@ function scheduleCouchbase(cb) {
 
 function scheduleNode(cb) {
     var curKey = getKey();
-    cb.Set(curKey, value, function(err, meta) {
+    cb.Set(curKey, value, function(err, result) {
         markOperation(err);
-        cb.Get(curKey, function(err, meta) {
+        cb.Get(curKey, function(err, result) {
             markOperation(err);
             scheduleNode(cb);
         });

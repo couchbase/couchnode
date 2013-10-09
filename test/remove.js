@@ -9,10 +9,10 @@ describe('#remove', function() {
   it('should work with basic inputs', function(done) {
     var key = H.genKey();
 
-    cb.set(key, "a value", H.okCallback(function(meta){
-      cb.get(key, H.okCallback(function(meta){
-        cb.remove(key, H.okCallback(function(meta) {
-          cb.get(key, function(err, meta) {
+    cb.set(key, "a value", H.okCallback(function(result){
+      cb.get(key, H.okCallback(function(result){
+        cb.remove(key, H.okCallback(function(result) {
+          cb.get(key, function(err, result) {
             assert.equal(err.code, couchbase.errors.keyNotFound);
             done();
           });
@@ -25,11 +25,11 @@ describe('#remove', function() {
     var key = H.genKey();
     var value = "Value";
 
-    cb.set(key, value, H.okCallback(function(meta1){
-      cb.set(key, "new value", H.okCallback(function(meta2){
-        cb.remove(key, { cas: meta1.cas }, function(err, meta){
+    cb.set(key, value, H.okCallback(function(result1){
+      cb.set(key, "new value", H.okCallback(function(result2){
+        cb.remove(key, { cas: result1.cas }, function(err, result){
           assert(err, "Remove fails with bad CAS");
-          cb.remove(key, {cas: meta2.cas}, H.okCallback(function(meta){
+          cb.remove(key, {cas: result2.cas}, H.okCallback(function(result){
             done();
           }));
         });
@@ -41,9 +41,9 @@ describe('#remove', function() {
     var key = H.genKey();
     var value = "some value";
 
-    cb.set(key, value, H.okCallback(function(meta) {
-      cb.remove(key, H.okCallback(function(meta){
-        cb.remove(key, function(err, meta) {
+    cb.set(key, value, H.okCallback(function(result) {
+      cb.remove(key, H.okCallback(function(result){
+        cb.remove(key, function(err, result) {
           assert(err, "Can't remove key twice");
           done();
         });

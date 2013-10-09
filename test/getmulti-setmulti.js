@@ -23,19 +23,19 @@ describe('#getMulti/setMulti', function() {
         assert.equal(doc.value, values[keys[0]].value);
       }));
 
-      cb.getMulti(keys, null, H.okCallback(function(meta){
-        assert.equal(keys.length, Object.keys(meta).length);
-        Object.keys(meta).forEach(function(k){
+      cb.getMulti(keys, null, H.okCallback(function(results){
+        assert.equal(keys.length, Object.keys(results).length);
+        Object.keys(results).forEach(function(k){
           assert(values[k] !== undefined);
-          assert(meta[k] !== undefined);
-          assert(meta[k].value === values[k].value);
+          assert(results[k] !== undefined);
+          assert(results[k].value === values[k].value);
         });
 
         done();
       }));
     }
 
-    var setHandler = H.okCallback(function(meta) {
+    var setHandler = H.okCallback(function(results) {
       calledTimes++;
       if (calledTimes > 9) {
         calledTimes = 0;
@@ -52,16 +52,16 @@ describe('#getMulti/setMulti', function() {
     var goodKey = H.genKey("test-multiget-spooled");
     var goodValue = 'foo';
 
-    cb.set(goodKey, goodValue, function(err, meta) {
+    cb.set(goodKey, goodValue, function(err, result) {
       assert.ifError(err);
       var keys = [badKey, goodKey];
 
-      cb.getMulti(keys, null, function(err, meta) {
+      cb.getMulti(keys, null, function(err, results) {
         assert.strictEqual(err.code, couchbase.errors.checkResults);
-        var goodResult = meta[goodKey];
+        var goodResult = results[goodKey];
         assert.equal(goodResult.value, goodValue);
 
-        var badResult = meta[badKey];
+        var badResult = results[badKey];
         assert.strictEqual(badResult.error.code, couchbase.errors.keyNotFound);
 
         done();

@@ -11,13 +11,13 @@ describe('#replace', function() {
 
     cb.remove(testkey, function(){
       // try to replace a missing key, should fail
-      cb.replace(testkey, "bar", function(err, meta) {
+      cb.replace(testkey, "bar", function(err, result) {
         assert(err, "Can't replace object that is already removed");
 
-        cb.set(testkey, "bar", function (err, meta) {
+        cb.set(testkey, "bar", function (err, result) {
           assert(!err, "Failed to store object");
 
-          cb.replace(testkey, "bazz", function (err, meta) {
+          cb.replace(testkey, "bazz", function (err, result) {
             assert(!err, "Failed to replace object");
 
             cb.get(testkey, function (err, doc) {

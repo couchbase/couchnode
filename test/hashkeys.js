@@ -14,7 +14,7 @@ describe('#hashkeys', function() {
     cb.set(key, "bar", { hashkey: hashkey }, H.okCallback(function(){
       cb.get(key, { hashkey: hashkey }, H.okCallback(function(result){
         assert.equal(result.value, "bar");
-        cb.get(key, function(err, meta){
+        cb.get(key, function(err, result){
           assert.ok(err);
           assert.equal(err.code, couchbase.errors.keyNotFound);
           done();

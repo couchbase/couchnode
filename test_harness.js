@@ -49,14 +49,14 @@ Harness.prototype.okCallback = function(target) {
   // Get the stack
   var stack = new Error().stack;
 
-  return function(err, meta) {
+  return function(err, result) {
     if (err) {
       console.dir(arguments);
       console.log("Got error (created @):" + stack);
       assert(!err, "Got unrecognized error: " + util.inspect(err));
     }
-    assert(typeof meta === "object", "Meta is missing");
-    target(meta);
+    assert(typeof result === "object", "Meta is missing");
+    target(result);
   };
 };
 

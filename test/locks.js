@@ -9,10 +9,10 @@ describe('#lock/unlock', function() {
   it('should deny second lock', function(done) {
     var testkey1 = H.genKey('lock1');
 
-    cb.set(testkey1, "{bar}", H.okCallback(function(meta) {
+    cb.set(testkey1, "{bar}", H.okCallback(function(result) {
       cb.lock(testkey1, {locktime: 1 }, H.okCallback(function(result) {
         assert.equal("{bar}", result.value, "Callback called with wrong value!");
-        cb.lock(testkey1, {locktime: 1 }, function (err, meta) {
+        cb.lock(testkey1, {locktime: 1 }, function (err, result) {
           assert(err);
           assert.equal(err.code, couchbase.errors.temporaryError);
           done();
@@ -26,11 +26,11 @@ describe('#lock/unlock', function() {
 
     var testkey2 = H.genKey("lock2");
 
-    cb.set(testkey2, "{baz}", H.okCallback(function(meta) {
+    cb.set(testkey2, "{baz}", H.okCallback(function(result) {
       cb.lock(testkey2, { locktime: 1}, H.okCallback(function(result) {
         assert.equal("{baz}", result.value, "Callback called with wrong value!");
         setTimeout(function () {
-          cb.lock(testkey2, {locktime: 1 }, function(err, meta) {
+          cb.lock(testkey2, {locktime: 1 }, function(err, result) {
             assert(!err, "Should be able to reset lock after expiry.");
             done();
           });
@@ -58,7 +58,7 @@ describe('#lock/unlock', function() {
     cb.set(testkey4, "{bam}", H.okCallback(function(result) {
       cb.lock(testkey4, {locktime: 1}, H.okCallback(function(result) {
         assert.equal("{bam}", result.value, "Callback called with wrong value!");
-        cb.set(testkey4, 'nothing', function (err, meta) {
+        cb.set(testkey4, 'nothing', function (err, result) {
           assert(err);
           done();
         });
@@ -69,10 +69,10 @@ describe('#lock/unlock', function() {
   it('shouldnt block block sets with cas', function(done) {
     var testkey5 = H.genKey("lock5");
 
-    cb.set(testkey5, "{bark}", H.okCallback(function(meta) {
-      cb.lock(testkey5, {locktime: 1}, H.okCallback(function(meta) {
-        assert.equal("{bark}", meta.value, "Callback called with wrong value!");
-        cb.set(testkey5, "nothing", meta, function (err, meta) {
+    cb.set(testkey5, "{bark}", H.okCallback(function(result) {
+      cb.lock(testkey5, {locktime: 1}, H.okCallback(function(result) {
+        assert.equal("{bark}", result.value, "Callback called with wrong value!");
+        cb.set(testkey5, "nothing", result, function (err, result) {
           assert(!err, "Failed to overwrite locked key by using cas.");
           cb.get(testkey5, H.okCallback(function(result) {
             assert.equal("nothing", result.value, "Callback called with wrong value!");
@@ -86,11 +86,11 @@ describe('#lock/unlock', function() {
   it('should properly unlock locked keys', function(done) {
     var testkey6 = H.genKey("lock6");
 
-    cb.set(testkey6, "{boo}", H.okCallback(function(meta) {
-      cb.lock(testkey6, {locktime: 20}, H.okCallback(function(meta) {
-        assert.equal("{boo}", meta.value, "Callback called with wrong value!");
-        assert('cas' in meta);
-        cb.unlock(testkey6, meta, H.okCallback(function() {
+    cb.set(testkey6, "{boo}", H.okCallback(function(result) {
+      cb.lock(testkey6, {locktime: 20}, H.okCallback(function(result) {
+        assert.equal("{boo}", result.value, "Callback called with wrong value!");
+        assert('cas' in result);
+        cb.unlock(testkey6, result, H.okCallback(function() {
           cb.set(testkey6, 'hello', H.okCallback(function(){
             done();
           }));

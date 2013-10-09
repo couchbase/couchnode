@@ -20,9 +20,9 @@ describe('#shutdown', function() {
   it('should not fail when calling shutdown multiple times', function(done) {
     var cb = H.newClient();
 
-    cb.set("key", "value", H.okCallback(function(meta){
+    cb.set("key", "value", H.okCallback(function(result){
       cb.shutdown();
-      cb.get("key", function(err, meta){});
+      cb.get("key", function(err, result){});
       cb.shutdown();
       done();
     }));
@@ -31,10 +31,10 @@ describe('#shutdown', function() {
   it('should fail operations after shutdown', function(done) {
     var cb = H.newClient();
 
-    cb.set("key", "value", function(err, meta) {
+    cb.set("key", "value", function(err, result) {
       cb.shutdown();
       setTimeout(function() {
-        cb.get("key", function(err, meta){
+        cb.get("key", function(err, result){
           assert(err, "Operation fails after shutdown");
           done();
         });

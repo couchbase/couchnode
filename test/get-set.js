@@ -8,15 +8,15 @@ describe('#get/set', function() {
 
   it('should work in basic cases', function(done) {
     var key = H.genKey("set");
-    cb.set(key, "bar", H.okCallback(function(firstmeta){
+    cb.set(key, "bar", H.okCallback(function(firstresult){
       // nothing broke
-      cb.set(key, "baz", H.okCallback(function(secondmeta){
-        assert.notDeepEqual(firstmeta.cas, secondmeta.cas, "CAS should change");
-        cb.set(key, "bam", firstmeta, function(err, meta){
+      cb.set(key, "baz", H.okCallback(function(secondresult){
+        assert.notDeepEqual(firstresult.cas, secondresult.cas, "CAS should change");
+        cb.set(key, "bam", firstresult, function(err, result){
           assert(err, "Key should fail with stale CAS");
           cb.get(key, H.okCallback(function(result){
             assert.equal(result.value, "baz");
-            cb.set(key, "grr", secondmeta, H.okCallback(function(meta){
+            cb.set(key, "grr", secondresult, H.okCallback(function(result){
               cb.get(key, H.okCallback(function(result){
                 assert.equal("grr", result.value);
                 done();
@@ -106,7 +106,7 @@ describe('#get/set', function() {
     var value = [1,2,3,4];
     var key = H.genKey("set-utf8-unconvertible");
 
-    cb.set(key, value, { format: 'raw' }, function(err, meta){
+    cb.set(key, value, { format: 'raw' }, function(err, result){
       assert(err);
       done();
     });
@@ -118,11 +118,11 @@ describe('#get/set', function() {
     var key = H.genKey("set-raw-format");
 
     cb.set(key, buf, H.okCallback(function(){
-      cb.get(key, H.okCallback(function(meta){
-        var doc = meta.value;
+      cb.get(key, H.okCallback(function(result){
+        var doc = result.value;
         assert(Buffer.isBuffer(doc));
         assert.deepEqual(buf, doc);
-        assert.equal(meta.flags, couchbase.format.raw);
+        assert.equal(result.flags, couchbase.format.raw);
         done();
       }));
     }));

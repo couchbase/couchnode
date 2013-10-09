@@ -12,7 +12,7 @@ describe('#add', function() {
     cb.remove(testkey, function(){
       cb.add(testkey, "bar", H.okCallback(function() {
         // try to add existing key, should fail
-        cb.add(testkey, "baz", function (err, meta) {
+        cb.add(testkey, "baz", function (err, result) {
           assert(err, "Can't add object at empty key");
           done();
         });

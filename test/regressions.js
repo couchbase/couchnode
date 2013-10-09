@@ -41,7 +41,7 @@ describe('#regressions', function() {
     for (var i=0; i < max; ++i){
       var key = H.genKey('jscbc-14');
 
-      cb.set(key, "something", function(err, meta) {
+      cb.set(key, "something", function(err, result) {
         if (err) {
             process.abort();
         }
@@ -69,7 +69,7 @@ describe('#regressions', function() {
 
     d.run(function() {
       var testkey = "18-cb-error.js";
-      cb.get(testkey, function(err, meta) {
+      cb.get(testkey, function(err, result) {
         throw new Error('expected-error');
       });
     });

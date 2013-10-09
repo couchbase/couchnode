@@ -46,7 +46,7 @@ describe('#incr/decr', function() {
     var key = H.genKey("incrdecr3");
 
       cb.remove(key, function(){
-        cb.incr(key, function(err, meta){
+        cb.incr(key, function(err, result){
           assert(err, "Error when incrementing key that does not exist");
           cb.incr(key, {initial: 500, offset: 20}, H.okCallback(function(result){
             assert.equal(result.value, 500, "Offset is ignored when default is used");
@@ -69,7 +69,7 @@ describe('#incr/decr', function() {
         cb.incr(key, H.okCallback(function(result){
           assert.equal(result.value, 1);
           setTimeout(function(){
-            cb.get(key, function(err, meta){
+            cb.get(key, function(err, result){
               assert(err, "Expiry with arithmetic");
               done();
             });
