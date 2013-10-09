@@ -44,8 +44,10 @@ bindings.gyp to replace `-rpath` with the appropriate linker flags.
 
 To use this module, first do:
 
+```javascript
     var Couchbase = require('couchbase');
     var cb = new Couchbase.Connection({bucket: "default"}, function(err) { });
+```
 
 Note that you do not need to wait for the connection callback in order to start
 performing operations.
@@ -60,6 +62,7 @@ is also [the test suite which shows more details.]
 
 The basic method summary is:
 
+```javascript
     cb.get(key, function (err, result) {
       console.log("Value for key is: " + result.value);
     });
@@ -103,6 +106,7 @@ The basic method summary is:
     cb.getMulti(["key1", "key2", "key3"], null, function(err, result) {
       console.log("Got result for key.. " + result.value);
     });
+```
 
 ## Running Tests
 
