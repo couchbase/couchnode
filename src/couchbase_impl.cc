@@ -226,7 +226,7 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
     err = lcb_create(&instance, &createOptions);
 
     if (err != LCB_SUCCESS) {
-        exc.eLcb(err).throwV8();
+        return exc.eLcb(err).throwV8();
     }
 
     CouchbaseImpl *hw = new CouchbaseImpl(instance);
