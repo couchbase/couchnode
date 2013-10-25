@@ -1,0 +1,92 @@
+'\" t
+.\"     Title: lcb_connect
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/06/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_CONNECT" "3couchbase" "08/06/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_connect \- Initiate connect sequence
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_error_t lcb_connect(lcb_t *instance);
+.fi
+.SH "DESCRIPTION"
+.sp
+Before libcouchbase may be used it must establish a connection to the Couchbase cluster to fetch the topology of the cluster\&. lcb_connect() initates the connect sequence, and the configuration callback specified with lcb_set_configuration_callback(3couchbase) is called when the topology is retrieved (or the error callback is called if an error occurs such as an incorrect host name etc)\&.
+.SH "RETURN VALUES"
+.sp
+lcb_connect() returns the LCB_SUCCESS on success, or a specific error code upon failure\&. See lcb_strerror(3couchbase) for more information\&.
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3lib), lcb_create(3couchbase), lcb_set_error_callback(3couchbase), lcb_set_configuration_callback(3couchbase) lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

@@ -1,0 +1,188 @@
+= lcb_make_http_request(3couchbase)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+lcb_make_http_request - Create instance
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+
+    lcb_error_t lcb_make_http_request(lcb_t instance,
+                                      const void *command_cookie,
+                                      lcb_http_type_t type,
+                                      const lcb_http_cmd_t *cmd,
+                                      lcb_http_request_t *request);
+
+DESCRIPTION
+-----------
+lcb_make_http_request() is used to execute HTTP requests. If the
+library instance is using asynchronous mode (the default) this
+operation will return immediately and schedule the operations to be
+executed by the event loop, otherwise it will block until all commands
+are executed. command_cookie is is an opaque field that will be
+provided to the callback function.
+
+Type specifies the kind of HTTP request and may be one of the following:
+
+    LCB_HTTP_TYPE_VIEW          Execute a view request
+
+    LCB_HTTP_TYPE_MANAGEMENT    Perform management operation
+
+    LCB_HTTP_TYPE_RAW           Execute an arbitrary HTTP request
+
+lcb_http_cmd_t is a structure defined in <libcouchbase/arguments.h>:
+
+    typedef struct lcb_http_cmd_st {
+        int version;              /* The enty in "v" to use */
+        union {
+            struct {
+                const char *path;
+                lcb_size_t npath;
+                const void *body;
+                lcb_size_t nbody;
+                lcb_http_method_t method;
+                int chunked;
+                const char *content_type;
+            } v0;
+            struct {
+                const char *path;
+                lcb_size_t npath;
+                const void *body;
+                lcb_size_t nbody;
+                lcb_http_method_t method;
+                int chunked;
+                const char *content_type;
+                const char *host;
+                const char *username;
+                const char *password;
+            } v1;
+        } v;
+    };
+
++LCB_HTTP_TYPE_VIEW+ and +LCB_HTTP_TYPE_MANAGEMENT+ should use version 0
+of the struct above. +LCB_HTTP_TYPE_RAW+ must use version 1 which contains
+the extra fields: +host+, +username+ and +password+. The rest of the fields
+are identical.
+
++path+ and +npath+ specifies the document to operate.
+
++body+ and +nbody+ contains the data for HTTP POST requests.
+
++method+ contains the type of HTTP request: +LCB_HTTP_METHOD_GET+,
++LCB_HTTP_METHOD_POST+, +LCB_HTTP_METHOD_PUT+ or
++LCB_HTTP_METHOD_DELETE+
+
++chunked+ is set to a non-zero value to use chunked http mode
+
++content_type+ is used to specify the content type in the HTTP request.
+
+The last parameter to lcb_make_http_request is an output parameter to
+store an identifier for the HTTP request. The request parameter may be
+used to cancel the request with lcb_cancel_http_request(3couchbase).
+
+RETURN VALUES
+-------------
+
+EXAMPLES
+--------
+Example 1: Fetch first 10 docs from '_design/test/_view/all' view
+
+    lcb_http_request_t req;
+    lcb_http_cmd_t *cmd = calloc(1, sizeof(lcb_http_cmd_t));
+    cmd->version = 0;
+    cmd->v.v0.path = "_design/test/_view/all?limit=10";
+    cmd->v.v0.npath = strlen(item->v.v0.path);
+    cmd->v.v0.body = NULL;
+    cmd->v.v0.nbody = 0;
+    cmd->v.v0.method = LCB_HTTP_METHOD_GET;
+    cmd->v.v0.chunked = 1;
+    cmd->v.v0.content_type = "application/json";
+    lcb_error_t err = lcb_make_http_request(instance, NULL,
+                                            LCB_HTTP_TYPE_VIEW,
+                                            &cmd, &req);
+    if (err != LCB_SUCCESS) {
+        ... failed to schedule request ...
+
+Example 2: The same as above but with POST filter
+
+    lcb_http_request_t req;
+    lcb_http_cmd_t *cmd = calloc(1, sizeof(lcb_http_cmd_t));
+    cmd->version = 0;
+    cmd->v.v0.path = "_design/test/_view/all?limit=10";
+    cmd->v.v0.npath = strlen(item->v.v0.path);
+    cmd->v.v0.body = "{\"keys\": [\"test_1000\", \"test_10002\"]}"
+    cmd->v.v0.nbody = strlen(item->v.v0.body);
+    cmd->v.v0.method = LCB_HTTP_METHOD_POST;
+    cmd->v.v0.chunked = 1;
+    cmd->v.v0.content_type = "application/json";
+    lcb_error_t err = lcb_make_http_request(instance, NULL,
+                                            LCB_HTTP_TYPE_VIEW,
+                                            &cmd, &req);
+    if (err != LCB_SUCCESS) {
+        ... failed to schedule request ...
+
+Example 3: Delete bucket via REST management API
+
+    lcb_http_request_t req;
+    lcb_http_cmd_t *cmd = calloc(1, sizeof(lcb_http_cmd_t));
+    cmd->version = 0;
+    cmd->v.v0.path = "/pools/default/buckets/mybucket");
+    cmd->v.v0.npath = strlen(cmd->v.v0.path);
+    cmd->v.v0.body = NULL;
+    cmd->v.v0.nbody = 0;
+    cmd->v.v0.method = LCB_HTTP_METHOD_DELETE;
+    cmd->v.v0.chunked = false;
+    cmd->v.v0.content_type = "application/x-www-form-urlencoded";
+    lcb_error_t err = lcb_make_http_request(instance, NULL,
+                                            LCB_HTTP_TYPE_MANAGEMENT,
+                                            &cmd, &req);
+    if (err != LCB_SUCCESS) {
+        ... failed to schedule request ...
+
+Example 4: Save design document `_design/test' with trivial `all' view
+
+    const char *docid = "_design/test";
+    const char *doc = "{\"views\":{\"all\":{\"map\":\"function (doc, meta) { emit(meta.id, null); }\"}}}";
+    lcb_http_cmd_t cmd;
+    lcb_http_request_t req;
+    cmd.version = 0;
+    cmd.v.v0.path = docid;
+    cmd.v.v0.npath = strlen(docid);
+    cmd.v.v0.body = doc;
+    cmd.v.v0.nbody = strlen(doc);
+    cmd.v.v0.method = LCB_HTTP_METHOD_PUT;
+    cmd.v.v0.content_type = "application/json";
+    lcb_error_t err = lcb_make_http_request(instance, NULL,
+                                            LCB_HTTP_TYPE_VIEW,
+                                            &cmd, &req);
+    if (err != LCB_SUCCESS) {
+        ... failed to schedule request ...
+
+ATTRIBUTES
+----------
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+libcouchbase(3lib), lcb_create(3couchbase),
+lcb_cancel_http_request(3couchbase),
+lcb_set_http_data_callback(3couchbase),
+lcb_set_http_complete_callback(3couchbase), lcb_attributes(5)

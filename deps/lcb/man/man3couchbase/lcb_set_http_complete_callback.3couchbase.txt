@@ -1,0 +1,123 @@
+= lcb_set_http_complete_callback(3couchbase)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+lcb_set_http_complete_callback - Set callback for http_complete operations
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+
+    lcb_http_complete_callback lcb_set_http_complete_callback(lcb_t instance, lcb_http_complete_callback callback);
+
+DESCRIPTION
+-----------
+lcb_set_http_complete_callback() is used to set a new callback
+function to handle http requests for a given libcouchbase instance.
+
+The callback parameter is a the callback function to call for each
+http response. Passing NULL as the callback function may be used to
+query the current callback function. The lcb_http_complete_callback is
+a function with the following signature:
+
+    void function(lcb_http_request_t request,
+                  lcb_t instance,
+                  const void* cookie,
+                  lcb_error_t error,
+                  const lcb_http_resp_t *resp);
+
+instance is the libcouchbase instance that this response is called
+from.  The cookie is cookie you passed to lcb_make_http_request.
+error is the error status of this operation. If the error is
+LCB_SUCCESS the resp is a pointer to the result for the operation.
+lcb_http_resp_t is a structure defined in <libcouchbase/arguments.h>:
+
+    typedef struct {
+        int version;              /* The enty in "v" to use */
+        union {
+            struct {
+                lcb_http_status_t status; /* The HTTP status */
+                const char *path; /* The requested path */
+                lcb_size_t npath; /* The number of bytes in the path */
+                const char *const *headers; /* The HTTP headers received */
+                const void *bytes; /* The the content of response */
+                lcb_size_t nbytes; /* The number of bytes in the content */
+            } v0;
+        } v;
+    } lcb_http_resp_t;
+
+RETURN VALUES
+-------------
+lcb_set_http_complete_callback() returns the previous callback function.
+
+
+EXAMPLES
+--------
+Example 1: Query the current callback
+
+
+         #include <libcouchbase/couchbase.h>
+
+         ...
+         lcb_t instance;
+         ...
+         lcb_http_complete_callback old;
+         old = lcb_set_http_complete_callback(instance, NULL);
+         ...
+
+
+Example 2: Install custom callback
+
+
+         #include <libcouchbase/couchbase.h>
+
+         ...
+         static void callback(lcb_http_request_t request,
+                              lcb_t instance,
+                              const void *cookie,
+                              lcb_error_t error,
+                              const lcb_http_resp_t *resp)
+         {
+            if (error == LCB_SUCCESS) {
+               switch (resp->version) {
+                   ...
+                   /* handle the known formats */
+                   ...
+               default:
+                   /* handle unknown formats */
+               }
+            } else {
+               /* handle errors */
+            }
+         }
+
+         ...
+         lcb_t instance;
+         ...
+         lcb_set_http_complete_callback(instance, callback);
+         ...
+
+ATTRIBUTES
+----------
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+libcouchbase(3lib),  lcb_make_http_request(3couchbase), lcb_set_http_data_callback(3couchbase),       lcb_attributes(5)

@@ -1,0 +1,341 @@
+'\" t
+.\"     Title: lcb_set_durability_callback
+.\"    Author: Mark Nunberg <mark.nunberg@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/09/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_SET_DURABILITY_C" "3" "08/09/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_set_durability_callback \- Set callback for durability operations
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_durability_callback lcb_set_durability_callback(lcb_t instance, lcb_durability_callback callback);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_set_durability_callback() is used to set a new callback function to handle durability commands for a given libcouchbase instance\&.
+.sp
+The callback parameter is a callback function to call when each key passed to lcb_durability_poll() is completed (either with success or with error)\&.
+.sp
+Passing NULL as the callback function may be used to query the current callback function\&. The lcb_durability_callback is a function with the following signature:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+void function(lcb_t instance,
+              const void *cookie,
+              lcb_error_t error,
+              const lcb_durability_resp_t *resp);
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+instance is the libcouchbase instance that this response is called from\&. The cookie is cookie you passed to lcb_durability_poll\&. error is the error status of this operation\&. Note that the the \fIresp\fR structure error field should still be observed as it may contain an error even if the command\-level \fIerr\fR field is LCB_SUCCESS\&.
+.sp
+The lcb_durability_resp_t is a structure defined in <libcouchbase/durability\&.h>:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+typedef struct lcb_durability_resp_st {
+    int version;
+    union {
+        struct {
+            const void *key; /* key */
+            lcb_size_t nkey; /* key length */
+            /**
+             * if this entry failed, this contains the reason, e\&.g\&.
+             *
+             * LCB_KEY_EEXISTS: The key exists with a different CAS than expected
+             *
+             * LCB_KEY_ENOENT: The key was not found in the master cache
+             *
+             * LCB_ETIMEDOUT: The key may exist, but the required servers needed
+             *  took too long to respond
+             */
+            lcb_error_t err; /* extended error status for key */
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+/** if found with a different CAS, this is the CAS */
+lcb_cas_t cas;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+/**
+ * Whether the key was persisted to the master\&.
+ * For deletes, this means the key was removed from disk
+ */
+unsigned char persisted_master;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+/**
+ * Whether the key exists on the master\&. For deletes, this means
+ * the key does not exist in cache
+ */
+unsigned char exists_master;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+/** how many nodes (including master) this item was persisted to */
+unsigned char npersisted;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+/** how many nodes (excluding master) this item was replicated to */
+unsigned char nreplicated;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+            /**
+             * Total number of observe responses received for the node\&.
+             * This can be used as a performance metric to determine how many
+             * total OBSERVE probes were sent until this key was \*(Aqdone\*(Aq
+             */
+            unsigned short nresponses;
+        } v0;
+    } v;
+} lcb_durability_resp_t;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The response structure\(cqs \fIerr\fR field may be one of the following:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+LCB_KEY_EEXISTS         The key exists with a different CAS than which
+                        was passed to \*(Aqlcb_durability_poll()\*(Aq
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+LCB_KEY_ENOENT          The key was not found in the master cache
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+LCB_ETIMEDOUT           The key could not be confirmed to satisfy the
+                        durability requirements on the number of nodes
+                        specified
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The other fields in the response structure contain additional information about the key\(cqs status on the cluster:
+.sp
+The \fIcas\fR field contains the CAS of the key\&. This can be used if the CAS differs from the expected one (and \fIerr\fR is set to LCB_KEY_EEXISTS)
+.sp
+The \fIpersisted_master\fR is a boolean indicating whether the item was successfuly stored on the master\(cqs disk\&. For delete operations, this means the item is no longer on the disk\&.
+.sp
+The \fIexists_master\fR is a boolean indicating whether the item is present in the master\(cqs cache\&. For deletes, this means the item does not exist in the master\(cqs cache\&.
+.sp
+The \fInpersisted\fR indicates how many nodes (including the master) have this item on their persistent disk storage
+.sp
+The \fInreplicated\fR indicates how many replica nodes have this item in their cache\&.
+.sp
+The \fInresponses\fR provides information indicating how many total requests were sent to each server to verify this key\&. This may be used to gather performance statistics or tune the polling interval in lcb_durability_poll()
+.SH "RETURN VALUES"
+.sp
+lcb_set_durability_callback() returns the previous callback function\&.
+.SH "EXAMPLES"
+.sp
+Example: Install custom callback
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+static void callback(lcb_t instance, const void *cookie,
+                     lcb_error_t error,
+                     const lcb_durability_resp_t *resp)
+{
+   if (error != LCB_SUCCESS) {
+       /* handle errors */
+   }
+   switch (resp\->version) {
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+case 0:
+    if (resp\->v\&.v0\&.err != LCB_SUCCESS) {
+        /* Handle error detail */
+    } else {
+        /* Handle success \&.\&.\&. */
+    }
+    break;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+   default:
+       /* Handle unknown version */
+       \&.\&.\&.
+       break;
+   }
+}
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_set_durability_callback(instance, callback);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+libcouchbase(3), lcb_durability_poll(3), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBMark Nunberg\fR <\&mark\&.nunberg@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

@@ -1,0 +1,14 @@
+DEB (Debian, Ubuntu, etc.)
+==========================
+
+Install toolchain for building packages (`dkpg-buildpackage`, `dch` etc.)
+
+    # apt-get install build-essential fakeroot devscripts dpkg-dev gnupg \
+      debhelper
+
+RPM (CentOS, RHEL, SUSE, etc.)
+==============================
+
+Install `rpmbuild` tool:
+
+    # yum install rpm-build

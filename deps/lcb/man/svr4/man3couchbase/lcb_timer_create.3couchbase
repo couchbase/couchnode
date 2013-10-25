@@ -1,0 +1,117 @@
+'\" t
+.\"     Title: lcb_timer_create
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/02/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_TIMER_CREATE" "3couchbase" "08/02/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_timer_create \- timer management
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_timer_t lcb_timer_create(lcb_t instance,
+                             const void *command_cookie,
+                             lcb_uint32_t usec,
+                             int periodic,
+                             lcb_timer_callback callback,
+                             lcb_error_t *error);
+.fi
+.sp
+.nf
+void lcb_timer_destroy(lcb_t instance, lcb_timer_t timer);
+.fi
+.SH "DESCRIPTION"
+.sp
+These functions are used to create / destroy user defined timers\&.
+.sp
+The function lcb_timer_create() is used to create timer event associated with a certain instance of libcouchbase\&. When the timer expires the specified callback function will be called to notify the user\&. The command_cookie is passed to the timer function\&. All timers are relative to the current time, and specified in microseconds offset from the current time through the usec parameter\&. If periodic is set to a non\-zero value the timer will reschedule itself when it expires\&. The status of the operation is returned through error\&. The lcb_timer_callback function with the following signature:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+void function(lcb_timer_t timer,
+              lcb_t instance,
+              const void* cookie);
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The lcb_timer_destroy() is used to destroy the specified timer\&. All non\-periodic timers will be swept automatically\&. All timers will be swept when the connection instance will be destroyed\&. It is safe to call this function several gimes for given timer\&.
+.SH "RETURN VALUES"
+.sp
+lcb_timer_create() returns the newly created timer\&.
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3lib), lcb_create(3couchbase), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

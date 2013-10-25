@@ -1,0 +1,153 @@
+'\" t
+.\"     Title: lcb_remove
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/02/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_REMOVE" "3couchbase" "08/02/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_remove \- remove a document
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_error_t lcb_remove(lcb_t instance,
+                       const void *command_cookie,
+                       lcb_size_t num,
+                       const lcb_remove_cmd_t *const *commands);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_remove() is used to remove documents\&. If the library instance is using asynchronous mode (the default) this operation will return immediately and schedule the operations to be executed by the event loop, otherwise it will block until all commands are executed\&. command_cookie is is an opaque field that will be provided to the callback function\&. num is the number of entries in the commands array\&.
+.sp
+lcb_remove_cmd_t is a structure defined in <libcouchbase/arguments\&.h>:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+typedef struct lcb_remove_cmd_st {
+    int version;              /* The enty in "v" to use */
+    union {
+        struct {
+            const void *key;    /* The key this response belongs to */
+            lcb_size_t nkey;    /* The number of bytes in the key */
+            lcb_cas_t cas;      /* The object identifier */
+            const void *hashkey; /* hash key if != key */
+            lcb_size_t nhashkey; /* number of bytes in hash key */
+        } v0;
+    } v;
+} lcb_remove_cmd_t;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Set cas to 0 unless you want to only remove the document if the cas value matches\&.
+.sp
+Upon completion the remove callback as set by lcb_set_remove_callback is called\&.
+.SH "RETURN VALUES"
+.sp
+lcb_remove() returns the LCB_SUCCESS on success, or a specific error code upon failure\&. See lcb_strerror(3couchbase) for more information\&.
+.SH "EXAMPLES"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_remove_cmd_t *remove = calloc(1, sizeof(*remove));
+remove\->version = 0;
+remove\->v\&.v0\&.key = "my\-key";
+remove\->v\&.v0\&.nkey = strlen(remove\->v\&.v0\&.key);
+remove\->v\&.v0\&.cas = 0x000;
+lcb_remove_cmd_t* commands[] = { remove };
+lcb_remove(instance, NULL, 1, commands);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3lib), lcb_get_remove_callback(3couchbase), lcb_set_remove_callback(3couchbase), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

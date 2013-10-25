@@ -1,0 +1,146 @@
+'\" t
+.\"     Title: lcb_flush
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/02/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_FLUSH" "3" "08/02/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_flush \- Flush a bucket
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_error_t lcb_flush(lcb_t instance,
+                      const void *command_cookie,
+                      lcb_size_t num,
+                      const lcb_flush_cmd_t *const *commands);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_flush() is used to perform a flush (remove all documents) on a bucket\&. If the library instance is using asynchronous mode (the default) this operation will return immediately and schedule the operations to be executed by the event loop, otherwise it will block until all commands are executed\&. command_cookie is is an opaque field that will be provided to the call\(hy back function\&. num is the number of entries in the commands array\&.
+.sp
+lcb_flush_cmd_t is a structure defined in <libcouchbase/arguments\&.h>:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+typedef struct lcb_flush_cmd_st {
+    int version;              /* The enty in "v" to use */
+    union {
+        struct {
+            int unused;
+        } v0;
+    } v;
+};
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Upon completion the flush callback as set by lcb_set_flush_callback(3) is called\&. The callback is called multiple times\&. See lcb_set_flush_callback(3) for more information about flush callbacks\&.
+.SH "RETURN VALUES"
+.sp
+cb_flush() returns the LCB_SUCCESS on success, or a specific error code upon failure\&. See lcb_strerror(3) for more information\&.
+.SH "EXAMPLES"
+.sp
+Example 1: Flush the bucket
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_flush_cmd_t *flush = calloc(1, sizeof(*flush));
+flush\->version = 0;
+lcb_flush_cmd_t* commands[] = { flush };
+lcb_flush(instance, NULL, 1, commands);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3), lcb_get_flush_callback(3), lcb_set_flush_callback(3), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

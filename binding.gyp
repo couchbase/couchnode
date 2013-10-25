@@ -1,27 +1,53 @@
 {
   'targets': [{
     'target_name': 'couchbase_impl',
-    'defines': ['LCBUV_EMBEDDED_SOURCE'],
+    'variables': {
+      'couchbase_root%': ''
+    },
+    'defines': [
+      'LCBUV_EMBEDDED_SOURCE'
+    ],
     'conditions': [
-      [ 'OS=="win"', {
-        'variables': {
-          'couchbase_root%': 'C:/couchbase'
-        },
-        'include_dirs': [
-          '<(couchbase_root)/include/',
+      [ 'couchbase_root==""', {
+        'defines': [
+          'LIBCOUCHBASE_STATIC'
         ],
-        'link_settings': {
-          'libraries': [
-            '-l<(couchbase_root)/lib/libcouchbase.lib',
-          ],
-        },
-        'copies': [{
-          'files': [ '<(couchbase_root)/bin/libcouchbase.dll' ],
-          'destination': '<(module_root_dir)/build/Release/',
-        },{
-          'files': [ '<(couchbase_root)/bin/libcouchbase.dll' ],
-          'destination': '<(module_root_dir)/build/Debug/',
-        },],
+        'dependencies': [
+          'deps/lcb/libcouchbase.gyp:couchbase'
+        ]
+      }, {
+        'conditions': [
+          [ 'OS=="win"', {
+            'include_dirs': [
+              '<(couchbase_root)/include/'
+            ],
+            'link_settings': {
+              'libraries': [
+                '-l<(couchbase_root)/lib/libcouchbase.lib'
+              ]
+            },
+            'copies': [
+              {
+                'files': [ '<(couchbase_root)/bin/libcouchbase.dll' ],
+                'destination': '<(module_root_dir)/build/Release/'
+              },{
+                'files': [ '<(couchbase_root)/bin/libcouchbase.dll' ],
+                'destination': '<(module_root_dir)/build/Debug/'
+              }
+            ],
+          }, {
+            'link_settings': {
+              'libraries': [
+                '-lcouchbase',
+              ],
+            },
+            'include_dirs': [ '<(couchbase_root)/include' ],
+            'libraries+': [ '-L<(couchbase_root)/lib' ],
+            'conditions': [ [ 'OS!="mac"', {'libraries+':['-Wl,-rpath=<(couchbase_root)/lib']} ] ]
+          }]
+        ]
+      }],
+      [ 'OS=="win"', {
         'configurations': {
           'Release': {
             'msvs_settings': {
@@ -39,14 +65,9 @@
         },
       }],
       ['OS!="win"', {
-        'variables' : {
-            'couchbase_root%' : '""'
-        },
-
         'link_settings': {
           'libraries': [
-            '$(EXTRA_LDFLAGS)',
-            '-lcouchbase',
+            '$(EXTRA_LDFLAGS)'
           ],
         },
         'cflags': [
@@ -63,14 +84,7 @@
         'cflags_c':[
           '-pedantic',
           '-std=gnu99',
-        ],
-        'conditions': [
-            [ 'couchbase_root!=""', {
-                'include_dirs': [ '<(couchbase_root)/include' ],
-                'libraries+': [ '-L<(couchbase_root)/lib' ],
-                'conditions': [ [ 'OS!="mac"', {'libraries+':['-Wl,-rpath=<(couchbase_root)/lib']} ] ]
-            }]
-        ],
+        ]
       }]
     ],
     'sources': [
@@ -90,6 +104,6 @@
     'include_dirs': [
       './',
       './src/io'
-    ],
+    ]
   }]
 }

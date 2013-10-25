@@ -1,0 +1,189 @@
+= lcb_set_durability_callback(3couchbase)
+:doctype: manpage
+Mark Nunberg <mark.nunberg@couchbase.com>
+
+NAME
+----
+lcb_set_durability_callback - Set callback for durability operations
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+
+    lcb_durability_callback lcb_set_durability_callback(lcb_t instance, lcb_durability_callback callback);
+
+DESCRIPTION
+-----------
+lcb_set_durability_callback() is used to set a new callback function to
+handle durability commands for a given libcouchbase instance.
+
+The callback parameter is a callback function to call
+when each key passed to lcb_durability_poll() is completed (either with
+success or with error).
+
+Passing NULL as the callback function may be used
+to query the current callback function. The lcb_durability_callback is a
+function with the following signature:
+
+    void function(lcb_t instance,
+                  const void *cookie,
+                  lcb_error_t error,
+                  const lcb_durability_resp_t *resp);
+
+instance is the libcouchbase instance that this response is called
+from.  The cookie is cookie you passed to lcb_durability_poll.
+error is the error status of this operation. Note that the the 'resp'
+structure error field should still be observed as it may contain an error
+even if the command-level 'err' field is LCB_SUCCESS.
+
+The lcb_durability_resp_t is a structure defined in
+<libcouchbase/durability.h>:
+
+    typedef struct lcb_durability_resp_st {
+        int version;
+        union {
+            struct {
+                const void *key; /* key */
+                lcb_size_t nkey; /* key length */
+                /**
+                 * if this entry failed, this contains the reason, e.g.
+                 *
+                 * LCB_KEY_EEXISTS: The key exists with a different CAS than expected
+                 *
+                 * LCB_KEY_ENOENT: The key was not found in the master cache
+                 *
+                 * LCB_ETIMEDOUT: The key may exist, but the required servers needed
+                 *  took too long to respond
+                 */
+                lcb_error_t err; /* extended error status for key */
+
+                /** if found with a different CAS, this is the CAS */
+                lcb_cas_t cas;
+
+                /**
+                 * Whether the key was persisted to the master.
+                 * For deletes, this means the key was removed from disk
+                 */
+                unsigned char persisted_master;
+
+                /**
+                 * Whether the key exists on the master. For deletes, this means
+                 * the key does not exist in cache
+                 */
+                unsigned char exists_master;
+
+                /** how many nodes (including master) this item was persisted to */
+                unsigned char npersisted;
+
+                /** how many nodes (excluding master) this item was replicated to */
+                unsigned char nreplicated;
+
+                /**
+                 * Total number of observe responses received for the node.
+                 * This can be used as a performance metric to determine how many
+                 * total OBSERVE probes were sent until this key was 'done'
+                 */
+                unsigned short nresponses;
+            } v0;
+        } v;
+    } lcb_durability_resp_t;
+
+
+The response structure's 'err' field may be one of the following:
+
+    LCB_KEY_EEXISTS         The key exists with a different CAS than which
+                            was passed to 'lcb_durability_poll()'
+
+    LCB_KEY_ENOENT          The key was not found in the master cache
+
+    LCB_ETIMEDOUT           The key could not be confirmed to satisfy the
+                            durability requirements on the number of nodes
+                            specified
+
+The other fields in the response structure contain additional information
+about the key's status on the cluster:
+
+The 'cas' field contains the CAS of the key. This can be used if the CAS
+differs from the expected one (and 'err' is set to LCB_KEY_EEXISTS)
+
+The 'persisted_master' is a boolean indicating whether the item was
+successfuly stored on the master's disk. For delete operations, this
+means the item is no longer on the disk.
+
+The 'exists_master' is a boolean indicating whether the item is
+present in the master's cache. For deletes, this means the item does not
+exist in the master's cache.
+
+The 'npersisted' indicates how many nodes (including the master) have
+this item on their persistent disk storage
+
+The 'nreplicated' indicates how many replica nodes have this item
+in their cache.
+
+The 'nresponses' provides information indicating how many total
+requests were sent to each server to verify this key. This may be
+used to gather performance statistics or tune the polling interval
+in lcb_durability_poll()
+
+RETURN VALUES
+-------------
+lcb_set_durability_callback() returns the previous callback function.
+
+EXAMPLES
+--------
+Example: Install custom callback
+
+         #include <libcouchbase/couchbase.h>
+
+         ...
+         static void callback(lcb_t instance, const void *cookie,
+                              lcb_error_t error,
+                              const lcb_durability_resp_t *resp)
+         {
+            if (error != LCB_SUCCESS) {
+                /* handle errors */
+            }
+            switch (resp->version) {
+
+            case 0:
+                if (resp->v.v0.err != LCB_SUCCESS) {
+                    /* Handle error detail */
+                } else {
+                    /* Handle success ... */
+                }
+                break;
+
+            default:
+                /* Handle unknown version */
+                ...
+                break;
+            }
+         }
+
+         ...
+         lcb_t instance;
+         ...
+         lcb_set_durability_callback(instance, callback);
+         ...
+
+ATTRIBUTES
+----------
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+libcouchbase(3lib), lcb_durability_poll(3couchbase),
+lcb_attributes(5)

@@ -1,0 +1,81 @@
+= lcb_behavior_get_ipv6(3couchbase)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+lcb_behavior_get_ipv6 - Get IPv6 settings
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+
+    lcb_ipv6_t lcb_behavior_get_ipv6(lcb_t instance);
+
+    void lcb_behavior_set_ipv6(lcb_t instance, lcb_ipv6_t mode);
+
+DESCRIPTION
+-----------
+
+This interface deprecated and will be removed in libcouchbase 3.x in
+favour lcb_cntl(3couchbase). Consider this replacement:
+
+1) for lcb_behavior_get_ipv6(instance):
+
+    lcb_ipv6_t mode;
+    lcb_cntl(LCB_CNTL_GET, instance, LCB_CNTL_IP6POLICY, &mode);
+
+2) for lcb_behavior_set_ipv6(instance, mode):
+
+    lcb_cntl(LCB_CNTL_SET, instance, LCB_CNTL_IP6POLICY, &mode);
+
+lcb_behavior_get_ipv6() returns the current setting for IPv6 for the
+given instance of libcouchbase.
+
+
+lcb_behavior_set_ipv6() specifies the IPv6 settings the given instance
+of libcouchbase.
+
+Note that as of this writing, Couchbase Server 2.0 does not support
+IPv6.
+
+
+IPv6 settings
+~~~~~~~~~~~~~
+The following settings for IPv6 is defined:
+
+       LCB_IPV6_DISABLED   Disable all use of IPv6.
+
+       LCB_IPV6_ONLY       Disable all use of IPv4, and only connect
+                           to IPv6 hosts
+
+       LCB_IPV6_ALLOW      Allow a mix of IPv4 and IPv6.
+
+
+RETURN VALUES
+-------------
+lcb_behavior_get_ipv6() returns current IPv6 setting.
+
+
+ATTRIBUTES
+----------
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+libcouchbase(3lib), lcb_create(3couchbase), lcb_attributes(5), lcb_cntl(3couchbase)

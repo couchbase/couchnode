@@ -1,0 +1,208 @@
+'\" t
+.\"     Title: lcb_set_flush_callback
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/02/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_SET_FLUSH_CALLBA" "3couchbase" "08/02/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_set_flush_callback \- Set callback for flush operations
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_flush_callback lcb_set_flush_callback(lcb_t instance, lcb_flush_callback callback);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_set_flush_callback() is used to set a new callback function to handle flush commands for a given libcouchbase instance\&.
+.sp
+The callback parameter is a the callback function to call for each flush response\&. Passing NULL as the callback function may be used to query the current callback function\&. The lcb_flush_callback is a function with the following signature:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+void function(lcb_t instance,
+              const void* cookie,
+              lcb_error_t error,
+              lcb_flush_resp_t * resp);
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+instance is the libcouchbase instance that this response is called from\&. The cookie is cookie you passed to lcb_flush\&. error is the error status of this operation\&. If the error is LCB_SUCCESS the resp is a pointer to the result for the operation\&. lcb_flush_resp_t is a structure defined in <libcouchbase/arguments\&.h>:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+typedef struct lcb_flush_resp_st {
+    int version;              /* The enty in "v" to use */
+    union {
+        struct {
+            const char *server_endpoint;
+        } v0;
+    } v;
+} lcb_flush_resp_t;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The callback function will be called multiple times (one time per server in the cluster) with a final call with server_enpoint set to NULL to indicate the last invocation of the callback\&.
+.SH "RETURN VALUES"
+.sp
+lcb_set_flush_callback() returns the previous callback function\&.
+.SH "EXAMPLES"
+.sp
+Example 1: Query the current callback
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_flush_callback old;
+old = lcb_set_flush_callback(instance, NULL);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 2: Install custom callback
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+static void callback(lcb_t instance, const void *cookie,
+                     lcb_error_t error,
+                     const lcb_flush_resp_t *resp)
+{
+   if (error == LCB_SUCCESS) {
+      switch (resp\->version) {
+          \&.\&.\&.
+          /* handle the known formats */
+          \&.\&.\&.
+      default:
+          /* handle unknown formats */
+      }
+   } else {
+      /* handle errors */
+   }
+}
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_set_flush_callback(instance, callback);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3lib), lcb_flush(3couchbase), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

@@ -1,0 +1,294 @@
+'\" t
+.\"     Title: lcb_get_replica
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/02/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_GET_REPLICA" "3" "08/02/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_get_replica \- Retrieve a document from a replica location in the cluster
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_error_t lcb_get_replica(lcb_t instance,
+                            const void *command_cookie,
+                            lcb_size_t num,
+                            const lcb_get_replica_cmd_t *const *commands);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_get_replica() is used to retrieve replica documents from the cluster\&. If the library instance is using asynchronous mode (the default) this operation will return immediately and schedule the operations to be executed by the event loop, otherwise it will block until all commands are executed\&. command_cookie is is an opaque field that will be provided to the callback function\&. num is the number of entries in the commands array\&.
+.sp
+lcb_get_replica_cmd_t is a structure defined in <libcouchbase/arguments\&.h>:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+typedef struct lcb_get_replica_cmd_st {
+    int version;              /* The enty in "v" to use */
+    union {
+        struct {
+            const void *key;    /* The key this response belongs to */
+            lcb_size_t nkey;    /* The number of bytes in the key */
+            const void *hashkey; /* hash key if != key */
+            lcb_size_t nhashkey; /* number of bytes in hash key */
+        } v0;
+        struct {
+            const void *key;
+            lcb_size_t nkey;
+            const void *hashkey;
+            lcb_size_t nhashkey;
+            lcb_replica_t strategy; /* how to select replica node */
+            int index;              /* the replica index in case
+                                       LCB_REPLICA_SELECT strategy */
+        } v1;
+    } v;
+} lcb_get_replica_cmd_t;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Upon completion the get callback as set by lcb_set_get_callback is called\&.
+.sp
+From command version 1, it is possible to select strategy of how to select the replica node\&. Currently three strategies are available:
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 1.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  1." 4.2
+.\}
+LCB_REPLICA_FIRST: Previously accessible and default as of 2\&.0\&.8, the caller will get a reply from the first replica to successfully reply within the timeout for the operation or will receive an error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 2.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  2." 4.2
+.\}
+LCB_REPLICA_ALL: Ask all replicas to send documents/items back\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 3.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  3." 4.2
+.\}
+LCB_REPLICA_SELECT: Select one replica by the index in the configuration starting from zero\&. This approach can more quickly receive all possible replies for a given topology, but it can also generate false negatives\&.
+.RE
+.sp
+Note that applications should not assume the order of the replicas indicates more recent data is at a lower index number\&. It is up to the application to determine which version of a document/item it may wish to use in the case of retrieving data from a replica\&.
+.SH "RETURN VALUES"
+.sp
+lcb_get_replica() returns the LCB_SUCCESS on success, or a specific error code upon failure\&. See lcb_strerror(3) for more information\&.
+.SH "EXAMPLES"
+.sp
+Example 1: Get document from the second replica
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_get_replica_cmd_t *get = calloc(1, sizeof(*get));
+get\->version = 1;
+get\->v\&.v1\&.key = "my\-key";
+get\->v\&.v1\&.nkey = strlen(get\->v\&.v0\&.key);
+get\->v\&.v1\&.strategy = LCB_REPLICA_SELECT;
+get\->v\&.v1\&.index = 2;
+lcb_get_replica_cmd_st* commands[] = { get };
+lcb_get_replica(instance, NULL, 1, commands);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 2: Get document from the first available replica
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_get_replica_cmd_t *get = calloc(1, sizeof(*get));
+get\->version = 1;
+get\->v\&.v1\&.key = "my\-key";
+get\->v\&.v1\&.nkey = strlen(get\->v\&.v0\&.key);
+get\->v\&.v1\&.strategy = LCB_REPLICA_FIRST;
+lcb_get_replica_cmd_st* commands[] = { get };
+lcb_get_replica(instance, NULL, 1, commands);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 3: Get document from all replicas (will generate lcb_get_num_replicas() responses)
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_get_replica_cmd_t *get = calloc(1, sizeof(*get));
+get\->version = 1;
+get\->v\&.v1\&.key = "my\-key";
+get\->v\&.v1\&.nkey = strlen(get\->v\&.v0\&.key);
+get\->v\&.v1\&.strategy = LCB_REPLICA_ALL;
+lcb_get_replica_cmd_st* commands[] = { get };
+lcb_get_replica(instance, NULL, 1, commands);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 4: Simple get replica (API v0)
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_get_replica_cmd_t *get = calloc(1, sizeof(*get));
+get\->version = 0;
+get\->v\&.v0\&.key = "my\-key";
+get\->v\&.v0\&.nkey = strlen(get\->v\&.v0\&.key);
+lcb_get_replica_cmd_st* commands[] = { get };
+lcb_get_replica(instance, NULL, 1, commands);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3), lcb_get_get_callback(3), lcb_set_get_callback(3), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

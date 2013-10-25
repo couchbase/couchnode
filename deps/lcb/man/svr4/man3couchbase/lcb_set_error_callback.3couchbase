@@ -1,0 +1,191 @@
+'\" t
+.\"     Title: lcb_set_error_callback
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/02/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_SET_ERROR_CALLBA" "3couchbase" "08/02/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_set_error_callback \- Set callback for error
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_error_callback lcb_set_error_callback(lcb_t instance, lcb_error_callback callback);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_set_error_callback() is used to set a new callback function to handle error situations a given libcouchbase instance\&.
+.sp
+Please note that the command callbacks will be called for each command specified, and the error callback is called for errors without a command context\&. The error callback function has the following prototype:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+void function(lcb_t instance,
+              lcb_error_t error,
+              const char * errinfo);
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+instance is the libcouchbase instance with the error, error is the error code and errinfo contains a more information (if non\-null)\&.
+.SH "RETURN VALUES"
+.sp
+lcb_set_error_callback() returns the previous callback function\&.
+.SH "EXAMPLES"
+.sp
+Example 1: Query the current callback
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_error_callback old;
+old = lcb_set_error_callback(instance, NULL);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 2: Install custom callback
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+static void callback(lcb_t instance, lcb_error_t error,
+                     const char *errinfo)
+{
+   fprintf(stderr, "Received error: %s\en",
+                    lcb_strerror(instance, error));
+   if (errinfo) {
+      fprintf(stderr, "   (%s)\en", errinfo);
+   }
+   \&.\&.\&. handle error \&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+}
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_set_error_callback(instance, callback);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3lib), lcb_error(3couchbase), lcb_strerror(3couchbase), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

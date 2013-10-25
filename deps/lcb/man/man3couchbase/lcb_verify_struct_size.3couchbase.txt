@@ -1,0 +1,57 @@
+= lcb_verify_struct_size(3couchbase)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+lcb_verify_struct_size - Verify compiler setup
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+
+    lcb_error_t lcb_verify_struct_size(lcb_uint32_t id,
+                                       lcb_uint32_t version,
+                                       lcb_size_t size);
+
+    int lcb_verify_compiler_setup();
+
+DESCRIPTION
+-----------
+lcb_verify_compiler_setup() is a macro that utilizes
+lcb_verify_struct_size() to verify that the compiler options used in
+the client application is compatible with the ones used to build
+libcouchbase.
+
+RETURN VALUES
+-------------
+lcb_verify_struct_size() returns LCB_SUCCESS if the requested struct
+version is of the expected size.
+
+lcb_verify_compiler_setup() returns a non-zero value if all of the the
+structures in libcouchbase have the expected sizes. zero is returned
+if libcouchbase is compiled with an incompatible set of options.
+
+
+ATTRIBUTES
+----------
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+libcouchbase(3lib), lcb_strerror(3couchbase), lcb_attributes(5)

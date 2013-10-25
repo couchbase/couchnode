@@ -1,0 +1,114 @@
+= lcb_attributes(5)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+lcb_attributes - attributes of interfaces
+
+DESCRIPTION
+-----------
+The attribute section of the manual pages for libcouchbase contains
+a table defining the attribute types and their coresponding values.
+
+
+== Interface Stability
+
+Libcouchbase tries to follow the "release early, release often"
+philosophy. As part of that we want people to be able to try out new
+interfaces before we "stick" to them. Unfortunately this means that we
+discover that we need to change them in incompatible ways.
+
+To aid developers to make reasonable decisions on how likely we are to
+change these interfaces all functions in libcouchbase have an
+associated Interface Stability tag. If you find undocumented structs,
+functions or files you should *not* use them. They may be changed in
+incompatible ways without any notice. Unless explicitly noted the
+interface stability applies to both source code and binaries.
+
+Libcouchbase use the version numbering as outlined in http://semver.org/
+
+The following classifications exists:
+
+=== Committed
+
+A committed interface is the highest grade of stability, and is the
+preferred attribute level for consumers of the library. Couchbase
+tries at best effort to preseve committed interfaces between major
+versions of libcouchbase, and changes to committed interfaces within a
+major version is highly exceptional. Such exceptions may include
+situations where the interface may lead to data corruption, security
+holes etc.
+
+=== Uncommitted interface
+
+No commitment is made about the interface (in binary or source
+form). It may be changed in incompatible ways and dropped from one
+release to another. The difference between an uncommitted interface
+and a volatile interface is its maturity and likelyhood of being
+changed.
+
+=== Volatile interfaces
+
+Volatile interfaces can change at any time and for any reason. The
+purpose of a volatile interface is to allow external entities to
+provide feedback on new interfaces.
+
+=== Deprecated
+
+The interface is subject to be removed from future versions of
+libcouchbase.
+
+=== Private
+
+Private interfaces is used internally in libcouchbase and should not
+be used elsewhere. Doing so may cause libcouchbase to misbehave.
+
+
+== MT-Level
+
+In order to allow libcouchbase to scale out it does not use any locks
+internally (unless those provided by system calls). Marking the entire
+library as unsafe would not help developers, and refactoring all
+methods to contain an _r suffix seems more annoying than
+helpful. Instead libcouchbase "tweaks" the definitions of MT-Level
+classifications:
+
+=== MT-Safe
+
+An MT-safe operation in libcouchbase means that it is reentrant. It is
+MT-safe as long as only one thread operates on the same lcb_t at the
+same time (please note that this is no longer true if you use the same
+lcb_io_opt_t from multiple threads, or a custom non-mt-safe
+lcb_io_opt_t is used).
+
+If the same lcb_t is to be used from multiple threads (or the
+lcb_io_opt_t use global resources), locking _must_ be performed by the
+caller:
+
+    mutex_lock( /* ... */ );
+    lcb_get(instance, cookie, 1, commands);
+    mutex_unlock( /* ... */ );
+
+It is however safe (given that the lcb_io_opt_t in use is MT-safe) to use:
+
+    thread 1:
+    lcb_get(thread1_instance, cookie, 1, commands));
+
+    thread 2:
+    lcb_get(thread2_instance, cookie, 1, commands));
+
+=== Unsafe
+
+An operation is considered unsafe if it operates on global data that is
+unprotected. Lib
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+libcouchbase(3lib)

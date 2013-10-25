@@ -1,0 +1,119 @@
+'\" t
+.\"     Title: lcb_attributes
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/02/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_ATTRIBUTES" "5" "08/02/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_attributes \- attributes of interfaces
+.SH "DESCRIPTION"
+.sp
+The attribute section of the manual pages for libcouchbase contains a table defining the attribute types and their coresponding values\&.
+.SH "INTERFACE STABILITY"
+.sp
+Libcouchbase tries to follow the "release early, release often" philosophy\&. As part of that we want people to be able to try out new interfaces before we "stick" to them\&. Unfortunately this means that we discover that we need to change them in incompatible ways\&.
+.sp
+To aid developers to make reasonable decisions on how likely we are to change these interfaces all functions in libcouchbase have an associated Interface Stability tag\&. If you find undocumented structs, functions or files you should \fBnot\fR use them\&. They may be changed in incompatible ways without any notice\&. Unless explicitly noted the interface stability applies to both source code and binaries\&.
+.sp
+Libcouchbase use the version numbering as outlined in http://semver\&.org/
+.sp
+The following classifications exists:
+.SS "Committed"
+.sp
+A committed interface is the highest grade of stability, and is the preferred attribute level for consumers of the library\&. Couchbase tries at best effort to preseve committed interfaces between major versions of libcouchbase, and changes to committed interfaces within a major version is highly exceptional\&. Such exceptions may include situations where the interface may lead to data corruption, security holes etc\&.
+.SS "Uncommitted interface"
+.sp
+No commitment is made about the interface (in binary or source form)\&. It may be changed in incompatible ways and dropped from one release to another\&. The difference between an uncommitted interface and a volatile interface is its maturity and likelyhood of being changed\&.
+.SS "Volatile interfaces"
+.sp
+Volatile interfaces can change at any time and for any reason\&. The purpose of a volatile interface is to allow external entities to provide feedback on new interfaces\&.
+.SS "Deprecated"
+.sp
+The interface is subject to be removed from future versions of libcouchbase\&.
+.SS "Private"
+.sp
+Private interfaces is used internally in libcouchbase and should not be used elsewhere\&. Doing so may cause libcouchbase to misbehave\&.
+.SH "MT-LEVEL"
+.sp
+In order to allow libcouchbase to scale out it does not use any locks internally (unless those provided by system calls)\&. Marking the entire library as unsafe would not help developers, and refactoring all methods to contain an _r suffix seems more annoying than helpful\&. Instead libcouchbase "tweaks" the definitions of MT\-Level classifications:
+.SS "MT\-Safe"
+.sp
+An MT\-safe operation in libcouchbase means that it is reentrant\&. It is MT\-safe as long as only one thread operates on the same lcb_t at the same time (please note that this is no longer true if you use the same lcb_io_opt_t from multiple threads, or a custom non\-mt\-safe lcb_io_opt_t is used)\&.
+.sp
+If the same lcb_t is to be used from multiple threads (or the lcb_io_opt_t use global resources), locking \fImust\fR be performed by the caller:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+mutex_lock( /* \&.\&.\&. */ );
+lcb_get(instance, cookie, 1, commands);
+mutex_unlock( /* \&.\&.\&. */ );
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+It is however safe (given that the lcb_io_opt_t in use is MT\-safe) to use:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+thread 1:
+lcb_get(thread1_instance, cookie, 1, commands));
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+thread 2:
+lcb_get(thread2_instance, cookie, 1, commands));
+.fi
+.if n \{\
+.RE
+.\}
+.SS "Unsafe"
+.sp
+An operation is considered unsafe if it operates on global data that is unprotected\&. Lib
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

@@ -1,0 +1,244 @@
+# libcouchbase
+# Copyright (C) 2010 - 1012 Couchbase, Inc
+# All rights reserved.
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+INSTALL=..\deps
+# put debug info into release build
+CC_NODEBUG = cl.exe /O2 /DNDEBUG /MD /LD /Z7
+CC_DEBUG = cl.exe /Od /D_DEBUG /RTC1 /Z7 /LDd /W3 /MDd
+# Include paths
+INCDIRS = /Iwin32 /Iinclude /Icontrib /Icontrib\cbsasl\include /I$(INSTALL)\include /Isrc /I.
+# Various preprocessor macros to define
+DEFINES = /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /DLIBCOUCHBASE_INTERNAL=1 /DBUILDING_CBSASL=1
+CFLAGS = $(INCDIRS) $(DEFINES) /nologo /W3 /EHsc /FD /c
+DLLLDFLAGS = /dll /version:1.1
+LDFLAGS =  /nologo /incremental:no /DEBUG /opt:ref,icf /LIBPATH:$(INSTALL)\lib
+LD = link.exe
+RM = del
+
+lib_LTLIBRARIES = libcouchbase.dll libcouchbase_debug.dll
+check_PROGRAMS =
+bin_PROGRAMS = tools\cbc.exe tools\cbc_debug.exe
+example_PROGRAMS =
+
+libcouchbase_SOURCES = \
+    contrib\cbsasl\src\client.c \
+    contrib\cbsasl\src\common.c \
+    contrib\cbsasl\src\cram-md5\hmac.c \
+    contrib\cbsasl\src\cram-md5\md5.c \
+    contrib\http_parser\http_parser.c \
+    contrib\libvbucket\cJSON.c \
+    contrib\libvbucket\crc32.c \
+    contrib\libvbucket\ketama.c \
+    contrib\libvbucket\rfc1321\md5c.c \
+    contrib\libvbucket\vbucket.c \
+    plugins\io\iocp\iocp_iops.c \
+    plugins\io\iocp\iocp_loop.c \
+    plugins\io\iocp\iocp_timer.c \
+    plugins\io\iocp\iocp_util.c \
+    plugins\io\select\plugin-select.c \
+    src\arithmetic.c \
+    src\base64.c \
+    src\bconf_io.c \
+    src\bconf_parse.c \
+    src\bconf_provider.c \
+    src\cntl.c \
+    src\compat.c \
+    src\config_cache.c \
+    src\cookie.c \
+    src\durability.c \
+    src\error.c \
+    src\flush.c \
+    src\genhash.c \
+    src\get.c \
+    src\gethrtime.c \
+    src\handler.c \
+    src\hashset.c \
+    src\hashtable.c \
+    src\http.c \
+    src\http_io.c \
+    src\http_parse.c \
+    src\instance.c \
+    src\connect.c \
+    src\readwrite.c \
+    src\iofactory.c \
+    src\list.c \
+    src\observe.c \
+    src\packet.c \
+    src\remove.c \
+    src\ringbuffer.c \
+    src\sanitycheck.c \
+    src\server.c \
+    src\server_connect.c \
+    src\server_io.c \
+    src\server_parse.c \
+    src\stats.c \
+    src\store.c \
+    src\strerror.c \
+    src\synchandler.c \
+    src\timer.c \
+    src\timings.c \
+    src\touch.c \
+    src\url_encoding.c \
+    src\utilities.c \
+    src\verbosity.c \
+    src\wait.c
+
+# Unfortunately nmake is a bit limited in its substitute functions.
+# Work around that by using dobj to represent debug object files ;)
+libcouchbase_la_OBJECTS=$(libcouchbase_SOURCES:.c=.obj)
+libcouchbase_la_debug_OBJECTS=$(libcouchbase_SOURCES:.c=.dobj)
+
+tools_cbc_CXX_SOURCES = tools\cbc.cc \
+     tools\cbc-util.cc tools\commandlineparser.cc tools\configuration.cc
+tools_cbc_C_SOURCES = win32\getopt.c
+tools_cbc_OBJECTS = $(tools_cbc_CXX_SOURCES:.cc=.obj) \
+                    $(tools_cbc_C_SOURCES:.c=.obj)
+tools_cbc_debug_OBJECTS = $(tools_cbc_CXX_SOURCES:.cc=.dobj) \
+                          $(tools_cbc_C_SOURCES:.c=.dobj)
+
+
+all_OBJS=$(libcouchbase_la_OBJECTS) $(libcouchbase_la_debug_OBJECTS) \
+   $(tools_cbc_OBJECTS)
+
+all: $(lib_LTLIBRARIES) \
+     libcouchbase.dll \
+     libcouchbase_debug.dll \
+     $(bin_PROGRAMS) \
+     $(check_PROGRAMS) \
+     $(example_PROGRAMS)
+
+check: $(check_PROGRAMS)
+    set PATH=$(PATH);$(INSTALL)\bin
+    for %%t in ($(check_PROGRAMS)) do %t
+
+libcouchbase.dll: $(libcouchbase_la_OBJECTS)
+	$(LD) $(LDFLAGS) $(DLLLDFLAGS) /out:libcouchbase.dll \
+          $(libcouchbase_la_OBJECTS) \
+          ws2_32.lib
+
+libcouchbase_debug.dll: $(libcouchbase_la_debug_OBJECTS)
+	$(LD) $(LDFLAGS) $(DLLLDFLAGS) /DEBUG /out:libcouchbase_debug.dll \
+          $(libcouchbase_la_debug_OBJECTS) \
+          ws2_32.lib
+
+tools\cbc.exe: $(tools_cbc_OBJECTS) libcouchbase.dll
+	$(LD) $(LDFLAGS) -out:tools\cbc.exe $(tools_cbc_OBJECTS) \
+          libcouchbase.lib ws2_32.lib
+
+tools\cbc_debug.exe: $(tools_cbc_debug_OBJECTS) libcouchbase_debug.dll
+	$(LD) $(LDFLAGS) /DEBUG -out:tools\cbc_debug.exe $(tools_cbc_debug_OBJECTS) \
+          libcouchbase_debug.lib ws2_32.lib
+
+.SUFFIXES: .c .cc .obj .dobj .res
+
+.c.dobj:
+	$(CC_DEBUG) $(CFLAGS) /Fo"$@"  $<
+
+.c.obj:
+	$(CC_NODEBUG) $(CFLAGS) /Fo"$@"  $<
+
+.cc.dobj:
+	$(CC_DEBUG) $(CFLAGS) /Fo"$@"  $<
+
+.cc.obj:
+	$(CC_NODEBUG) $(CFLAGS) /Fo"$@"  $<
+
+
+clean:
+	-del $(all_OBJS) \
+		 libcouchbase.dll libcouchbase.exp libcouchbase.lib \
+		 libcouchbase_debug.dll libcouchbase_debug.exp libcouchbase_debug.lib \
+		 vc100.idb vc100.pdb \
+         $(bin_PROGRAMS) $(check_PROGRAMS)
+
+INSTALLDIRS=$(INSTALL) $(INSTALL)\include $(INSTALL)\include\libcouchbase $(INSTALL)\lib $(INSTALL)\bin $(INSTALL)\doc
+
+install: $(INSTALLDIRS) libcouchbase.dll libcouchbase_debug.dll $(bin_PROGRAMS)
+	copy include\libcouchbase\** $(INSTALL)\include\libcouchbase
+	-del $(INSTALL)\include\libcouchbase\configuration.h.in
+	copy win32\libcouchbase\configuration.h $(INSTALL)\include\libcouchbase
+	copy libcouchbase.dll $(INSTALL)\lib
+	copy libcouchbase.dll $(INSTALL)\bin
+	copy libcouchbase.exp $(INSTALL)\lib
+	copy libcouchbase.lib $(INSTALL)\lib
+	copy libcouchbase.pdb $(INSTALL)\lib
+	copy libcouchbase_debug.dll $(INSTALL)\lib
+	copy libcouchbase_debug.dll $(INSTALL)\bin
+	copy libcouchbase_debug.exp $(INSTALL)\lib
+	copy libcouchbase_debug.lib $(INSTALL)\lib
+	copy tools\cbc.exe $(INSTALL)\bin
+	copy tools\cbc.pdb $(INSTALL)\bin
+	copy tools\cbc_debug.exe $(INSTALL)\bin
+	copy tools\cbc_debug.pdb $(INSTALL)\bin
+
+uninstall:
+	-del $(INSTALL)\lib\libcouchbase_debug.dll \
+         $(INSTALL)\bin\libcouchbase_debug.dll \
+         $(INSTALL)\lib\libcouchbase_debug.exp \
+         $(INSTALL)\lib\libcouchbase_debug.lib \
+         $(INSTALL)\lib\libcouchbase.dll \
+         $(INSTALL)\bin\libcouchbase.dll \
+         $(INSTALL)\lib\libcouchbase.exp \
+         $(INSTALL)\lib\libcouchbase.lib \
+         $(INSTALL)\include\libcouchbase\arguments.h \
+         $(INSTALL)\include\libcouchbase\assert.h \
+         $(INSTALL)\include\libcouchbase\behavior.h \
+         $(INSTALL)\include\libcouchbase\callbacks.h \
+         $(INSTALL)\include\libcouchbase\configuration.h \
+         $(INSTALL)\include\libcouchbase\couchbase.h \
+         $(INSTALL)\include\libcouchbase\error.h \
+         $(INSTALL)\include\libcouchbase\http.h \
+         $(INSTALL)\include\libcouchbase\libevent_io_opts.h \
+         $(INSTALL)\include\libcouchbase\sanitycheck.h \
+         $(INSTALL)\include\libcouchbase\timings.h \
+         $(INSTALL)\include\libcouchbase\types.h \
+         $(INSTALL)\include\libcouchbase\visibility.h \
+         $(INSTALL)\include\libcouchbase\winsock_io_opts.h \
+         $(INSTALL)\bin\cbc.exe \
+         $(INSTALL)\bin\cbc_debug.exe \
+	-rmdir $(INSTALL)\lib $(INSTALL)\bin $(INSTALL)\include\libcouchbase $(INSTALL)\include $(INSTALL)\doc $(INSTALL)
+
+PKG=libcouchbase$(VERSION)$(ARCH)$(MSVCC_VER)
+PKGDIRS=$(PKG)\include $(PKG)\include\libcouchbase $(PKG)\lib $(PKG)\bin $(PKG)\doc \
+        $(PKG)\include\libcouchbase\plugins $(PKG)\include\libcouchbase\plugins\io \
+        $(PKG)\include\libcouchbase\plugins\io\libuv
+
+package: $(PKGDIRS) libcouchbase.dll libcouchbase_debug.dll $(bin_PROGRAMS)
+	copy include\libcouchbase\** $(PKG)\include\libcouchbase
+	copy plugins\io\libuv\plugin-internal.h $(PKG)\include\libcouchbase\plugins\io\libuv
+	copy plugins\io\libuv\plugin-libuv.c $(PKG)\include\libcouchbase\plugins\io\libuv
+	copy plugins\io\libuv\libuv_io_opts.h $(PKG)\include\libcouchbase
+	-del $(PKG)\include\libcouchbase\configuration.h.in
+	copy win32\libcouchbase\configuration.h $(PKG)\include\libcouchbase
+	copy libcouchbase.dll $(PKG)\bin
+	copy libcouchbase.dll $(PKG)\lib
+	copy libcouchbase.exp $(PKG)\lib
+	copy libcouchbase.lib $(PKG)\lib
+	copy libcouchbase.pdb $(PKG)\bin
+	copy libcouchbase.pdb $(PKG)\lib
+	copy libcouchbase_debug.dll $(PKG)\bin
+	copy libcouchbase_debug.dll $(PKG)\lib
+	copy libcouchbase_debug.exp $(PKG)\lib
+	copy libcouchbase_debug.lib $(PKG)\lib
+	copy libcouchbase_debug.pdb $(PKG)\bin
+	copy libcouchbase_debug.pdb $(PKG)\lib
+	copy tools\cbc.exe $(PKG)\bin
+	copy tools\cbc.pdb $(PKG)\bin
+	copy tools\cbc_debug.exe $(PKG)\bin
+	copy tools\cbc_debug.pdb $(PKG)\bin
+	7z a $(PKG).zip $(PKG)
+
+$(INSTALLDIRS) $(PKGDIRS):; -@mkdir $@

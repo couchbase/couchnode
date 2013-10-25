@@ -1,0 +1,74 @@
+= cbcrc(4)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+
+cbcrc - cbc resource file
+
+
+DESCRIPTION
+-----------
+
+cbcrc is an ASCII file that allows you to specify default
+configuration values for cbc.
+
+Each entry in the cbcrc file is a line with a key-value pair in the
+following form:
+
+    key="value"
+
+The keys may be specified in random order, and if you specify the same
+key multiple times the last value "wins". The following keys exists:
+
+*uri*::
+    This is a list separated by semicolon of hostnames (with an
+    optional port) to your cluster.
+
+*user*::
+    This is the username used during authentication to your cluster.
+
+*password*::
+    This is the password used during authentication to your cluster.
+
+*bucket*::
+    This is the name of the bucket you would like to use.
+
+*timeout*::
+    The timeout value to use for the operations.
+
+
+EXAMPLES
+--------
+
+Example 1: A Sample ~/.cbcrc File. Here is a sample ~/.cbcrc file that
+specifies all of the allowed parameters:
+
+    uri = server1;server2;server3
+    user = blogapp
+    password = secret
+    bucket = blogapp
+    timeout = 100000
+
+
+ATTRIBUTES
+----------
+
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Evolving
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+cbc(1), lcb_attributes(5)

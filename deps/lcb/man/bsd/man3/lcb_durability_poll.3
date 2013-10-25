@@ -1,0 +1,242 @@
+'\" t
+.\"     Title: lcb_durability_poll
+.\"    Author: Mark Nunberg <mark.nunberg@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/09/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_DURABILITY_POLL" "3" "08/09/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_durability_poll \- Poll keys for durability requirements
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+lcb_error_t lcb_durability_poll(lcb_t instance,
+                                const void *commnad_cookie,
+                                const lcb_durability_opts_t *options,
+                                lcb_size_t num_commands,
+                                const lcb_durability_cmd_t * const *cmds);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_durability_poll() is used to wait asynchronously until the items have been persisted and/or replicated to at least the number of nodes specified in the durability options\&.
+.sp
+This operation will return immediately and schedule the operation to be executed by the event loop\&.
+.sp
+\fIcommand_cookie\fR is an opaque field that will be passed to the callback function\&. \fIoptions\fR is a structure defining the durability requirements for the speicifed keys\&. \fInum_commands\fR is the number of entries in the cmds array\&.
+.sp
+lcb_durability_options_t is a structure defined in <libcouchbase/durability\&.h>:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+typedef struct lcb_durability_opts_st {
+    int version; /* set this to 0 */
+    union {
+        struct {
+            lcb_uint32_t timeout;
+            lcb_uint32_t interval;
+            unsigned char persist_to;
+            unsigned char replicate_to;
+            char check_delete;
+            char cap_max;
+        } v0;
+    } v;
+} lcb_durability_opts_t;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The \fItimeout\fR field indicates the upper limit (in microseconds) of time the command will wait until all the keys\*(Aq durability requirements are satisfied\&. If the durability requirements ae not satisfied when the timeout is exceeded, the outstanding keys will be set to an error status in the callback\&. If set to 0, it will default to the value of the \fILCB_CNTL_DURABILITY_TIMEOUT\fR obtained via lcb_cntl(3)\&.
+.sp
+The \fIinterval\fR field specifies how long to wait between each attempt at verifying the completion of the durability requirements\&. This value is typically automatically estimated via the \fIttp\fR and \fIttr\fR fields from the observe response (see lcb_observe(3))\&.
+.sp
+The \fIpersist_to\fR field specifies how many nodes must contain the item on their disk in order for the command to succeed\&. The maximum value should be the number of nodes in the cluster\&.
+.sp
+The \fIreplicate_to\fR field specifies how many replicas must contain the item in their memory for this command to succeed\&. The maximum value should be the the number of replicas in the cluster\&.
+.sp
+The \fIcheck_delete\fR flag indicates that this operation should check for the non\-presence of an item\&. This is used to ensure a successful removal of an item via lcb_remove(3)\&. In this case, the semantics of \fIpersist_to\fR and \fIreplicate_to\fR are inverted, where \fIpersist_to\fR means the number of nodes where the item is deleted from the disk, and \fIreplicate_to\fR means the number of nodes where the item not present in the cache\&.
+.sp
+In all cases, the value of \fIreplicate_to\fR will implicitly always be at least the value of \fIpersist_to\fR\-1\&.
+.sp
+The \fIcap_max\fR field indicates that the library should set persist_to and replicate_to to their maximum available number if those fields are set beyond current limits\&. This will be set based on the number of nodes active in the cluster and the number of replicas the cluster is configured with\&.
+.sp
+thus, one would do something like:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+options\&.v\&.v0\&.persist_to = \-1;
+options\&.v\&.v0\&.replicate_to = \-1;
+options\&.v\&.v0\&.cap_max = 1;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+lcb_durability_cmd_t is a structure defined in <libcouchbase/durability\&.h>:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+typedef struct lcb_durability_cmd_st {
+    int version; /* Set this to 0 */
+    union {
+        struct {
+            const void *key;
+            lcb_size_t nkey;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+/**
+ * Hashkey and hashkey size to use for customized vbucket
+ * mapping
+ */
+const void *hashkey;
+lcb_size_t nhashkey;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+            /**
+             * CAS to be checked against\&. If the key exists on the server
+             * with a different CAS, the error (in the response) is set to
+             * LCB_KEY_EEXISTS
+             */
+            lcb_cas_t cas;
+        } v0;
+    } v;
+} lcb_durability_cmd_t;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Each lcb_durability_cmd_t entry will be checked to ensure that it exists on the disk and cache of the number of nodes specified in the passed lcb_durability_options_t structure\&.
+.sp
+The callback defined by lcb_set_durability_callback will be called for each item in the command array when the keys\*(Aq status has been finalized (either with a success, a timeout, or a CAS mismatch)\&.
+.SH "RETURN VALUES"
+.sp
+lcb_durability_poll() returns the LCB_SUCCESS on success, or a specific error code upon failure\&. See lcb_strerror(3) for more information\&.
+.SH "EXAMPLES"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\&.\&.\&.
+lcb_t instance;
+\&.\&.\&.
+lcb_durability_options_t options = { 0 };
+options\&.v\&.v0\&.persist_to = 1;
+options\&.v\&.v0\&.replicate_to = 2;
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+lcb_durability_cmd_t endure = { 0 };
+const lcb_durability_cmd_t *cmdlist = &endure;
+endure\&.v\&.v0\&.key = "my\-key";
+endure\&.v\&.v0\&.nkey = strlen("my\-key");
+lcb_durability_poll(instance, NULL, &options, 1, &cmdlist);
+\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+libcouchbase(3), lcb_get_durability_callback(3), lcb_set_durability_callback(3), lcb_observe(3), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBMark Nunberg\fR <\&mark\&.nunberg@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

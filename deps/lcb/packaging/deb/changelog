@@ -1,0 +1,1180 @@
+libcouchbase (2.1.3) stable; urgency=low
+
+  * [minor] Updated gtest to version 1.7.0. Fixes issue with building
+    test suite with new XCode 5.0 version being released later this
+    month.
+
+  * [major] CCBC-265 Do not try to parse config for 'LCB_TYPE_CLUSTER'
+    handles. It fixes timouts for management operations (like 'cbc
+    bucket-create', 'cbc bucket-flush', 'cbc bucket-delete' and 'cbc
+    admin')
+
+  * [major] CCBC-263 Skip unfinished SASL commands on rebalance. During
+    rebalance, it is possible that the newly added server doesn't have
+    chance to finish SASL auth before the cluster will push config
+    update, in this case packet relocator messing cookies. Also the
+    patch makes sure that SASL command/cookie isn't mixing with other
+    commands
+
+  * [major] Use cluster type connection for cbc-bucket-flush. Although
+    flush command is accessible for bucket type connections,
+    cbc-bucket-flush doesn't use provided bucket name to connect to,
+    therefore it will fail if the bucket name isn't "default".
+
+  * [major] Allow to make connect order deterministic. It allows the user to
+    toggle between deterministic and random connect order for the supplied
+    nodes list. By default it will randomize the list.
+
+  * [major] Do not allow to use Administrator account for
+    'LCB_TYPE_BUCKET'
+
+  * [major] CCBC-258 Fig segmentation faults during tests load of
+    node.js. Sets 'inside_handler' on 'socket_connected'. Previously we
+    were always using SASL auth, and as such, we wouldn't flush packets
+    from the 'cmd_log' using 'server_send_packets' (which calls
+    'apply_want'). 'apply_want' shouldn't be called more than once per
+    event loop entry -- so this sets and unsets the 'inside_handler'
+    flag.
+
+  * [major] Added support of libuv 0.8
+
+  * [major] Close config connection before trying next node. It will fix
+    asserts in case of the config node becomes unresponsive, and the threshold
+    controlled by LCB_CNTL_CONFERRTHRESH and lcb_cntl(3)
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 10 Sep 2013 14:52:47 -0700
+
+libcouchbase (2.1.2) stable; urgency=low
+
+  * [major] CCBC-253, CCBC-254 Use bucket name in SASL if username
+    omitted. Without this fix, you can may encounter a segmentation
+    faults for buckets, which are not protected by a password.
+
+  * [major] Preserve IO cookie in `options_from_info` when using v0
+    plugins with user-provided IO loop instance. This issue was
+    introduced in 2.1.0.
+
+  * [minor] Display the effective IO backend in 'cbc-version'. This is
+    helpful to quickly detect what is the effective IO plugin on a given
+    system.
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Mon, 26 Aug 2013 22:17:48 +0300
+
+libcouchbase (2.1.1) stable; urgency=low
+
+  * [minor] Use provided credentials for authenticating to the data
+    nodes. With this fix, it is no longer possible to use Administrator
+    credentials with a bucket. If your configuration does so, you must
+    change the credentials you use before applying this update. No
+    documentation guides use of Administrator credentials, so this
+    change is not expected to affect few, if any deployments.
+
+  * [major] CCBC-239 Do not use socket after failout. Fixes segmentation
+    faults during rebalance.
+
+  * [minor] CCBC-245 Distribute debug information with release binaries
+    on Windows
+
+  * [minor] CCBC-248 Do not disable config.h on UNIX-like platforms. It
+    fixes build issue, when application is trying to include plugins
+    from the tarball.
+
+  * [major] CCBC-192 Skip misconfigured nodes in the list. New
+    lcb\_cntl(3couchbase) added to control whether the library will skip
+    nodes in initial node list, which listen on configuration port (8091
+    usually) but doesn't meet required parameters (invalid
+    authentication or missing bucket). By default report this issue and
+    stop trying nodes from the list, like all previous release. Read
+    more at man page lcb\_cntl(3couchbase) in section
+    LCB\_CNTL\_SKIP\_CONFIGURATION\_ERRORS\_ON\_CONNECT
+
+  * [major] CCBC-246 Fallback to 'select' IO plugin if default plugin
+     cannot be loaded. On UNIX-like systems, default IO backend is
+     'libevent', which uses third-party library might be not available
+     at the run-time. Read in lcb\_cntl(3couchbase) man page in section
+     LCB\_CNTL\_IOPS\_DEFAULT\_TYPES about how to determine effective IO
+     plugin, when your code chose to use LCB\_IO\_OPS\_DEFAULT during
+     connection instantiation. The fallback mode doesn't affect
+     application which specify IO backend explicitly.
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Thu, 22 Aug 2013 11:56:04 +0300
+
+libcouchbase (2.1.0) stable; urgency=low
+
+  * [major] New backend `select`. This backend is based on the select(2)
+    system call and its Windows version. It could be considered the most
+    portable solution and is available with the libcouchbase core.
+
+  * [major] CCBC-236 New backend `libuv`. This backend previously was
+    part of the `couchnode` project and is now available as a plugin.
+    Because libuv doesn't ship binary packages there is no binary
+    package `libcouchbase2-libuv`. You can build plugin from the source
+    distribution, or through the `libcouchbase-dev` or
+    `libcouchbase-devel` package on UNIX like systems.
+
+  * [major] New backend `iocp`. This is a Windows specific backend,
+    which uses "I/O Completion Ports". As a part of the change, a new
+    version of plugin API was introduced which is more optimized to this
+    model of asynchronous IO.
+
+  * [major] CCBC-229 Fixed bug when REPLICA_FIRST fails if first try
+    does not return key
+
+  * [major] CCBC-228 Fixed bug when REPLICA_SELECT didn't invoke
+    callbacks for negative error codes
+
+  * [major] CCBC-145 API for durability operations. This new API is
+    based on `lcb_observe(3)` and allows you to monitor keys more
+    easily. See the man pages `lcb_durability_poll(3)` and
+    `lcb_set_durability_callback(3)` for more info.
+
+  * [major] New configuration interface lcb_cntl(3) along with new
+    tunable options of the library and connection instances. In this
+    release the following settings are available. See the man page for
+    more information and examples.:
+
+    * LCB_CNTL_OP_TIMEOUT operation timeout (default 2.5 seconds)
+
+    * LCB_CNTL_CONFIGURATION_TIMEOUT time to fetch cluster
+      configuration. This is similar to a connection timeout (default 5
+      seconds)
+
+    * LCB_CNTL_VIEW_TIMEOUT timeout for couchbase views (default 75
+      seconds)
+
+    * LCB_CNTL_HTTP_TIMEOUT timeout for other HTTP operations like
+      RESTful flush, bucket creating etc. (default 75 seconds)
+
+    * LCB_CNTL_RBUFSIZE size of the internal read buffer (default
+      32768 bytes)
+
+    * LCB_CNTL_WBUFSIZE size of the internal write buffer (default
+      32768 bytes)
+
+    * LCB_CNTL_HANDLETYPE type of the `lcb_t` handler (readonly)
+
+    * LCB_CNTL_VBCONFIG returns pointer to VBUCKET_CONFIG_HANDLE
+      (readonly)
+
+    * LCB_CNTL_IOPS get the implementation of IO (lcb_io_opt_t)
+
+    * LCB_CNTL_VBMAP get vBucket ID for a given key
+
+    * LCB_CNTL_MEMDNODE_INFO get memcached node info
+
+    * LCB_CNTL_CONFIGNODE_INFO get config node info
+
+    * LCB_CNTL_SYNCMODE control synchronous behaviour (default
+      LCB_ASYNCHRONOUS)
+
+    * LCB_CNTL_IP6POLICY specify IPv4/IPv6 policy (default
+      LCB_IPV6_DISABLED)
+
+    * LCB_CNTL_CONFERRTHRESH control configuration error threshold
+      (default 100)
+
+    * LCB_CNTL_DURABILITY_TIMEOUT durability timeout (default 5 seconds)
+
+    * LCB_CNTL_DURABILITY_INTERVAL durability polling interval (default
+      100 milliseconds)
+
+    * LCB_CNTL_IOPS_DEFAULT_TYPES get the default IO types
+
+    * LCB_CNTL_IOPS_DLOPEN_DEBUG control verbose printing of dynamic
+      loading of IO plugins.
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Sat, 17 Aug 2013 17:54:40 +0300
+
+libcouchbase (2.0.7) stable; urgency=low
+
+  [Mark Nunberg]
+  * Add ringbuffer_take_buffer
+  * Plug various leaks in tests
+  * Allow using of external plugins with environment variables
+  * Only allocate iops after instance
+  * Allow db.c to exit gracefully on receiving a signal
+  * Don't create custom iops in db
+  * CCBC-221: Don't use iops in minimal.c
+
+  [Sergey Avseyev]
+  * It reports LCB_DLOPEN_FAILED if built without IO plugins
+  * Allow to choose plugin constructor without using dlopen(3)
+  * [cbc] Fix observe output formatting
+  * Allow to set SET/GET ratio
+  * Allow to set minimum and maximum size of payload
+  * GET/SET Ratio is in integer percents (fixes helpstring)
+  * Let pillowfight to be a dumb client
+  * pillowfight: timestamp messages in timings mode
+  * Do not call connect for dumb pillowfight
+  * Always use fixed notation for timestamps in pillowfight
+  * Allow to execute any 'cbc-XXX' binary in PATH like 'cbc XXX'
+  * Make pillowfight part of the package
+  * CCBC-183 Improve lcb_get_replica()
+  * Update metadata for release 2.0.7
+
+  [Trond Norbye]
+  * Simplify build script compile src/gethrtime.c for all platforms
+  * CCBC-209 Add support for building with CMake on win32
+  * Add support for building pillowfight on win32
+
+  [Volker Mische]
+  * Add missing free()
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 09 Jul 2013 23:29:17 +0300
+
+libcouchbase (2.0.6) stable; urgency=low
+
+  [Mark Nunberg]
+  * Don't invoke HTTP callbacks after cancellation
+  * CCBC-202: Don't try to switch to backup nodes when timeout is reached
+
+  [Sergey Avseyev]
+  * Minor fix for phrasing on the pillowfight note.
+  * CCBC-188 Check if SASL struct valid before disposing
+  * example/yajl/couchview.c: pass cookie to the command
+  * CCBC-188 Fix segfault when rebalancing
+  * CCBC-179 Provide an example about least privilege principle
+
+  [Trond Norbye]
+  * Fix compile error with sun studio
+  * Allow a direct write mode
+  * Revert "Allow a direct write mode"
+  * Add Host header in http request
+  * Fix buffer overrun
+  * Tune dump program a bit
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Mon, 07 May 2013 11:41:56 +0300
+
+libcouchbase (2.0.5) stable; urgency=low
+
+  [Sergey Avseyev]
+  * cbc.cc: Put newline after document body for interactive users
+  * pillowfight.cc: Initialize seqno array with rand()
+  * pillowfight.cc: initialize data blob with pattern
+  * pillowfight.cc: fix leaking event loop descriptors
+  * pillowfight.cc: allow gracefully terminate the loop
+  * pillowfight.cc: use C linkage for signal handlers
+  * pillowfight.cc: put new lines before connect errors
+  * pillowfight.cc: extract pool object out of thread context
+  * pillowfight.cc: use SIG_IGN instead
+  * pillowfight.cc: allow to share IO object in single-threaded mode only
+  * pillowfight.cc: use pthreads
+  * EAFNOSUPPORT should be mapped to LCB_CONNECT_EFAIL on windows
+  * configure.ac: NULL isn't standard thing, so require stdlib.h
+  * Fix build for FreeBSD
+  * Fix lcb_set_store_callback() signature in man page
+  * Fix manpages for HTTP callbacks
+
+  [Trond Norbye]
+  * Extend pillowfight a bit
+  * Fix spelling in lcb_behavior_get_syncmode man page
+  * Disable pillowfight for win32
+  * Fix compile problems on macosx
+  * Use _WIN32 instead of WIN32
+  * Fixed purging during disconnect
+  * Adjust flags to support older Sun Studios
+  * Support C++ compilers without C99 __func__
+  * Fix compile failure on Solaris with Sun Studio
+  * URL-encode characters in the path
+  * CCBC-190: Create compat mode that cache configuration
+  * ssize_t ==> lcb_ssize_t
+
+  [Yury Alioshinov]
+  * Reconnect on EINVAL for windows
+
+  [Mark Nunberg]
+  * NUL-terminate config cache buffer after reading
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Fri, 05 Apr 2013 01:04:16 +0300
+
+libcouchbase (2.0.4) stable; urgency=low
+
+  [Sergey Avseyev]
+  * CCBC-175 Work properly on systems where EWOULDBLOCK != EAGAIN
+  * Install pdb files for windows
+  * CCBC-147 Fixed illegal memory access in win32 plugin
+  * Destroy all events in win32 plugin destructor
+  * Be more secure about pointers in event lists (win32 plugin)
+  * Align buffers on HP-UX systems (thanks to Yury Alioshinov)
+  * Define -D_REENTRANT to ensure errno is threadsafe
+  * CCBC-180 Do not destroy event struct in release_socket()
+  * Fix possible illegal memory access
+  * CCBC-182 Fix mistyped condition in the loop
+  * Link with libxnet on HP-UX
+  * Describe how to create design document
+
+  [Trond Norbye]
+  * CCBC-178: short require 2byte alignment
+  * CCBC-185: Try to validate the bootstrap hosts
+  * Remove compile warnings
+  * Fix build break on win32
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 06 Mar 2013 00:43:21 +0300
+
+libcouchbase (2.0.3) stable; urgency=low
+
+  [Mark Nunberg]
+  * CCBC-155 Fix multi-observe during server failures
+  * CCBC-156 Custom handling for OBSERVE during packet errors
+
+  [Sergey Avseyev]
+  * Handle cases when manpages gzipped before install
+  * CCBC-153 Reset internal state on lcb_connect()
+  * Make configure.ac not so strict about autotools version
+  * Package all the files produced during 'make install'
+  * Fix vim syntax highlighter
+  * Fix copyright dates
+  * Add dumb benchmark example
+  * Do not include libcouchbase_debug.so in binary packages
+  * Allow to disable google-test completely
+  * CCBC-171 Fix invalid read in libevent plugin
+  * Handle WSAECONNABORTED as WSAECONNRESET
+  * Reset error status on the socket
+  * Build debug version of the cbc.exe
+  * Fix packaging on windows
+
+  [Trond Norbye]
+  * Reduce CPU consumption of event loop
+  * Add man page describing the library
+  * CCBC-166: Fix manpage generation
+  * Don't use obsolete AM_CONFIG_HEADER
+  * Add libcouchbase_debug.so
+  * Fix buildbreak for missing error code from cstdlib
+  * Extend debug functionality
+  * Remove unused code
+  * Put lcb_t on a diet ;)
+  * Add a program to print sizes
+  * Ignore files generated by automake 1.13
+  * Remove dead code
+  * Don't do SASL LIST MECH
+  * Fix instrumentation of object files for dtrace
+  * Don't use the deprecated libtool m4-macros
+  * Fix namespace
+  * Cast sizeof to long
+  * Don't build and install the debug library by default
+  * Fix make install target for windows
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 06 Feb 2013 10:52:14 +0300
+
+libcouchbase (2.0.2) stable; urgency=low
+
+  [Mark Nunberg]
+  * Fix typo when undefining xmacro
+  * Make test kv functions/structures more versatile
+  * Provide scoped handle for lcb_t in tests
+  * Provide hashset_get_items
+  * Packet dump should be to stderr
+  * Allow adding packets with custom command_data
+  * CCBC-163: Fix high CPU usage
+
+  [Sergey Avseyev]
+  * CCBC-143 Fix version '2.0.1' mark and set release date in log
+  * Put note about environment variables to select IO plugins
+  * Revert "Don't include configuration.h in the tarball"
+  * Review RELEASE_NOTES
+  * Protect HTTP requests from SEGFAULTs and memleaks
+  * Update RELEASE_NOTES
+  * Reduce impact of user callbacks to socket timer
+  * CCBC-153 Nullify the address info to avoid doublefree
+  * CCBC-159 Allow to handle large operation buffers
+  * regression-unit-test.cc requires CouchbaseMock.jar
+  * CCBC-159 Fix MockUnitTest.testPurgedBody
+  * CCBC-160 Fix incorrect reschedule of batched commands
+
+  [Trond Norbye]
+  * Don't include configuration.h in the tarball
+  * Fix compiler warning
+  * CCBC-154 update lcb_strerror for undocumented values
+  * Remove compiler error
+  * Add ringbuffer_peek_at
+  * CCBC-150: Do a deep search to locate commands
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Fri, 04 Jan 2013 22:02:54 +0300
+
+libcouchbase (2.0.1) stable; urgency=low
+
+  [Mark Nunberg]
+  * CCBC-131: Compensate for cluster nodes lacking couchApiBase
+  * Don't check for EINVAL when missing POST/PUT body
+  * Skip mock tests on real cluster
+  * CCBC-130: Fix memory leak on http headers
+  * CCBC-132, CCBC-133: Let HTTP function in stormy weather
+  * Make lcb_logger work again
+
+  [Sergey Avseyev]
+  * SystemTap and DTrace integration
+  * Add probes into the distribution tarball
+  * Fix possible SEGFAULT
+  * src/probes.h is generated file, so it should be in dist
+  * Make it C89 friendly again
+  * Do not use req->server in macros
+  * Cleanup HTTP traces: probe http_end only once
+  * Do not call finish twice on connect error
+  * CCBC-136: do not abort when purging SASL commands
+  * Delay all timers while loop isn't active
+  * Reset IO event on delete
+  * Put readable RELEASE_NOTES into the repo
+
+  [Sokolov Yura aka funny_falcon]
+  * Other way to fix timers in libev
+
+  [Trond Norbye]
+  * Add manpages for all of cbc-* commands
+  * Clarify the ttp/ttr fields for observe
+  * Fixup compiler invocation for minimal.c
+  * Use defined coding style for examples
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 11 Dec 2012 01:56:15 +0300
+
+libcouchbase (2.0.0) stable; urgency=low
+
+  [Sergey Avseyev]
+  * libcouchbase-all package comes without version
+  * Add libcouchbase-{bin,core} to libcouchbase-dbg
+
+  [Trond Norbye]
+  * Add the CAS to the delete callback
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 27 Nov 2012 09:30:21 +0300
+
+libcouchbase (2.0.0beta3) stable; urgency=low
+
+  [Mark Nunberg]
+  * Check for EWOULDBLOCK/EINTR on failed send
+
+  [Sergey Avseyev]
+  * Fix build for MinGW
+  * Try all known plugins for LCB_IO_OPS_DEFAULT in run time
+  * CCBC-113 Remove unauthorized asserion
+  * CCBC-114 Lookup the plugin symbol in current executable image
+  * Apply new packaging scheme
+  * Fix README formatting
+  * README: add hacking section
+  * +1 more space for github Markdown parser
+  * Do not allow admin operations without authentication
+  * Reformat code and reorder .gitignore
+  * Check subcommands more strictly
+  * CCBC-115 Return zero from do_read_data() if operations_per_call reached
+  * Timer in libev uses double for interval
+  * Clarify LCB_DELTA_BADVAL error
+  * CCBC-118 lcb_error_t member in the http callbacks shouldn't reflect the HTTP response code
+  * Update binary packages with man files
+  * CCBC-122 Try to switch another server from backup list on timeout
+  * CCBC-120 Reformat and refactor lcb_server_purge_implicit_responses()
+  * CCBC-120 Purge stale OBSERVE packets
+  * CCBC-124 Output replicas properly
+  * Allow to use 'cbc-hash' with files
+  * Remove libtool version from the plugins
+  * Use dynamic versioning for plugins
+  * Update destructor setup in windows plugin
+  * Finish removing libtool version from plugins
+  * Fix using free'd memory (was introduced in 43971816
+  * Include .la files in plugin RPMs
+  * Fix RPM spec: remove extra % sign
+  * Allow to use gethrtime() from C++
+  * Allow to reset mock connection
+  * Rewrite config-test.c using gtest framework
+  * CCBC-107 Port test from http://review.couchbase.org/13667
+  * Use public configuration callback instead of vbucket_listener
+  * libvbucket: read and store thisNode property of node
+  * CCBC-104 Reconnect config listener
+  * CCBC-104 Fix illegal memory access
+  * Update metadata for release 2.0.0beta3
+
+  [Trond Norbye]
+  * CCBC-87: Add documentation about the error codes
+  * All enums should have explicit values
+  * Don't end an enum with a ,
+  * Add lcb_verify_compiler_setup
+  * Don't use the time_t for win32
+  * Fix the list should be even, not odd
+  * Fix bucket-create
+  * Create man pages for cbc and cbcrc
+  * CCBC-119: Allow the user to specify a different hash key
+  * Include the man pages (and pdfs) in the distribution
+  * Added CONTRIBUTING.md
+  * Check for endianness during configure
+  * Refactor: move http constants to its own file
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 21 Nov 2012 13:45:28 +0300
+
+libcouchbase (2.0.0beta2) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Allow to disable CXX targets
+  * Allow to disable examples
+  * Implement libev plugin
+  * libeventdirect example is bound to libevent2
+  * Use environment variables to pick plugin
+  * Remove tests/loopfactory
+  * Reformat code
+  * Fixup Mark's comments on libev plugin
+  * libev3 comatibility
+  * Cleanup HTTP callbacks
+  * Split packages for debian
+  * Fix password memory leak in http.c
+  * http.c:lcb_make_http_request doesn't require content_type
+  * Allow to install both libraries on the same system.
+  * Fix libev3 support
+  * Remove test artifacts from plugins
+  * Allow to build library without dependencies
+  * Remove internal.h dependency from plugins
+  * Update create functions in plugins
+  * Disable libevent embedding
+  * Fix libevent v1 builds
+  * Update deb packages
+  * CCBC-105 breakout event loop in default error_callback
+  * Upload minimal working example
+  * Fix windows datatypes
+  * lcb_create: replace assert() with error code
+  * example/minimal: put new line after the value
+  * Fix invalid memory access in cbc tool
+  * Fix buffer size in lcb_make_http_request
+  * Use versioned arguments in lcb_make_http_request
+  * Fix memory leak after unsuccessful connection
+  * Fix compilation errors
+  * Fix gcc warnings in tests
+  * Really fix gcc warnings in tests
+  * Make IO struct versioned
+  * Allow to connect to instance without specifying bucket
+  * Fix SEGFAULT if IO struct is allocated not by the lcb_create()
+  * Update error code in the comment for lcb_t.type
+  * Fix compilation warnings
+  * Make win32 plugin versioned
+  * Fix windows build
+  * Use more robust check to pick a set of the HTTP requests
+  * Plugin dev files also depend on libcouchbase-dev
+  * Update lcb_strerror() for LCB_EBADHANDLE code
+  * Fix handle verification condition
+  * Search ev.h also in ${includedir}/libev
+  * Update RPM spec: split packages
+
+  [Trond Norbye]
+  * lcb_connect() should honor the syncmode setting
+  * Add an example on how to use the syncmode
+  * add event example
+  * Move examples to different sub directories
+  * CCBC-103: Fix linked event/timer lists for win32
+  * Add a new interface version for creating ioops
+  * Add support for raw http requests
+  * Move win32 iofactory into the same file
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Fri, 12 Oct 2012 10:48:33 -0700
+
+libcouchbase (2.0.0beta) stable; urgency=low
+
+  [Mark Nunberg]
+  * Make tests more modular
+  * Add HTTP tests
+  * Remove keys before testing miss
+  * Don't use strdup for http path
+  * Divide unit tests into categories and place them in their own files
+  * add mget hit/miss test
+  * Initialize counter for arithmetic tests before each test
+  * Instantiate the mock only once
+  * Determine cluster version
+  * Test lock and unlock commands
+  * Document tests with Doxygen
+  * "Pack" the backup node list (remove holes)
+  * Add lcb_get_server_list
+  * Fix breakage on older automakes
+  * Fix bug where method is not set
+  * PUT/POST requests without a body are an error
+  * Allow tests to be run against a real cluster
+
+  [Sergey Avseyev]
+  * Reformat code
+  * The threshold for expiration is 30 days
+  * CCBC-90 Fix initialization of backup nodes array
+  * CCBC-91 Reset timer for commands with NOT_MY_VBUCKET response
+  * CCBC-91 Fix switching to backup node in case of server outage
+  * Update metadata for release 1.0.5
+  * Merge branch 'release10'
+  * CCBC-92 release ringbuffer in libcouchbase_purge_single_server
+  * Unify HTTP interface
+  * Deliver HTTP headers via callbacks
+  * Fix warning (fixes build on macos)
+  * libcouchbase_cancel_http_request should only cancel request
+  * Fix mingw build
+  * Enable silent rules by default
+  * View requests should always use bucket auth
+  * Update metadata for release 1.0.6
+  * Merge branch 'release10'
+  * Fix windows build
+  * Merge lcb_get_locked into lcb_get function
+  * Return result code instead of request handle
+  * CCBC-96 Correct buffer length for POST/PUT headers
+  * Revert "Fix breakage on older automakes"
+  * Fix locking keys in multi-get mode
+  * CCBC-98 Differentiate between TMPFAILs
+  * Fix build breakage with --disable-couchbasemock
+  * Include config.h in unit_tests.cc
+  * Remove cbc symlinks with 'make uninstall'
+  * Do not include targets written in C++ if the compiler missing
+  * Declare package task for windows build
+  * Put arch and CC version into package name
+  * do not reset PATH in NMakefile
+  * Leave windows packages into workspace
+  * Do not require body for POST and PUT
+  * Implement RESTful flush in cbc toolset
+  * Implement getter for number of nodes in the cluster
+  * Move timeout into generic test src list
+
+  [Trond Norbye]
+  * Fix compile errors caused by sign issues
+  * CCBC-89: Release the memory allocated by the http parser
+  * Remove unused code
+  * Run some of the mock tests through gtest
+  * Fix memory leak in config-test
+  * Remove double_free_test macros
+  * Move plugins to separate sub directories
+  * Fix problem with allocating too few slots in the backup_nodes
+  * Bundle libvbucket
+  * Fix make dist target
+  * Remove unused include
+  * Move 'plugin headers' to a local directory
+  * Fix build with libyajl available
+  * Fix win32 build (Add strings.h)
+  * Add --enable-m32 and --enable-m64
+  * Prevent automake to inject -g -O2 if cflags isn't set
+  * Fix build break introduced by setting the variables too early
+  * Don't try to build the unit tests without gtest
+  * Fixed warnings reported with -Werror=cast-align
+  * Download gtest if you don't have it
+  * Fix alignment for sparc platforms
+  * Sync memcached/protocol_binary.h
+  * Add an extended get callback
+  * Fix compile reported with --enable-werror
+  * CCBC-80: Default to IPv4 only
+  * Add AM_NOWARN_*FLAGS
+  * Fix typo for crc32 CPPFLAGS
+  * Include sys/types.h
+  * Include sys/uio.h
+  * Refactor the API
+  * Don't use static inline in header
+  * Update the readme with the refactoring blogpost
+  * Add --enable-wconversion flag
+  * Add explicit cast to fix buildbreak
+  * Refactor: lcb_create_io_ops should take struct
+  * Refactor: lcb_create should use struct
+  * Refactor: server_version/stat should take struct
+  * Move lcb_strerror to the instance functions
+  * Refactor: verbosity should use struct
+  * Refactor: flush should use struct
+  * Fixup apidocs
+  * Fix plugin init
+  * Strip empty strings
+  * Remove mock-unit-tests.h
+  * Add a helper function to set a key
+  * Add a test case for get (success)
+  * Add testcase for remove
+  * Add testcase for Append/Prepend
+  * Add replace test
+  * Add cas replace test
+  * Added test for touch
+  * Create test for server_stat
+  * Add server version test
+  * Add flush test
+  * fixup review comments
+  * Move getopt test to gtest
+  * Use LCB instead of LIBCOUCHBASE
+  * Dump the servers in use when using real cluster
+  * Don't try to put the current node last in the backup list
+  * Split up mock-unit-test.h
+  * Refactor MockEnvironment to singleton
+  * The mockenv should provide createConnection
+  * Add docs target to run generate doxygen docs
+  * Make doxygen less chatty
+  * Remove obsolete doc file
+  * We should always include config.h
+  * Tests should finish within 5 minutes
+  * Added --enable-fat-binary
+  * Set .so-name to 2.0.0 for the release
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Thu, 13 Sep 2012 19:48:18 +0300
+
+libcouchbase (1.1.0dp9) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Render auth credentials for View requests
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Fri, 27 Jul 2012 23:52:41 +0300
+
+libcouchbase (1.1.0dp8) stable; urgency=low
+
+  [Mark Nunberg]
+  * Clarify exp usage in mget
+
+  [Sergey Avseyev]
+  * Fix 'cbc-unlock' argument parser
+  * Remove spaces from output to simplify parsing
+  * Set completed flag when HTTP parser done its work
+  * Implement cbc-view command
+  * Remove couchview example: see cbc-view command
+  * Claim that server has data in buffers if there are HTTP requests pending
+  * Allow to specify HTTP method for cbc-view
+  * Rename HTTP callback
+  * Define separate pair of callbacks for management HTTP requests
+  * Separate HTTP callbacks for couch and management requests
+  * Fix the case when base doesn't has schema
+  * Preserve credentials for REST API
+  * Use credentials if they accessible
+  * Allow to specify content type for HTTP request
+  * Implement cbc-admin command
+  * Method fixup: return error for unsupported method
+  * Print more detailed message for HTTP endpoints
+  * Report unknown options for cbc-unlock command
+  * Add cbc-bucket-create command
+  * Add cbc-bucket-delete command
+  * Copy path because it could be deallocated by caller
+  * Fix signatures for microsoft compiler
+  * Update ep-engine/command_ids.h to get OBSERVE definition
+  * Store number of replicas
+  * Store distribution type
+  * Sync ep-engine/command_ids.h: CMD_OBSERVE now 0x92
+  * Add observe command
+  * Implement multiple timers for windows
+  * Implement general purpose timers
+  * Add -p and -r options to cbc-cp to control persistence
+  * Allow handlers to use command_data_st struct
+  * Read replica implementation
+  * Let users detect if the event loop running already
+  * Make libcouchbase_wait() re-entrable
+  * Check for breakout condition in timer callback
+  * Allow to breakout from event loop
+  * GET_REPLICA response includes the key
+  * Preserve command_data between attempts
+  * Use replica incremented replica number
+  * Pass pointer to command_data properly
+  * Allow user to get number of replicas
+  * Bind timeouts to server sockets instead of commands
+  * Destroy the timer with the server
+  * cbc.cc: check cookie for NULL in storage callback
+
+  [Trond Norbye]
+  * CCBC-77: Use unique error code for ENOMEM on the client
+  * Remove unused variable
+  * Fixed warning about possible overflow
+  * Allow client to specify the verbosity level on the servers
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Fri, 27 Jul 2012 08:20:53 +0300
+
+libcouchbase (1.1.0dp7) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Extract HTTP client
+  * Implement function to execution management requests
+  * Reformat the cbc.cc
+
+  [Trond Norbye]
+  * Add support for notification callbacks for configuration changes
+  * Fix win32 make
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 19 Jun 2012 19:54:14 +0300
+
+libcouchbase (1.1.0dp6) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Fix guards for socket errno macros
+  * [cbc] Add suffix to command implementations
+  * cbc tool is depending on libvbucket now
+  * Define size_t types to fix MSVC 9 build
+  * MSVC 9 isn't C99, but has stddef.h, so just include it
+  * CCBC-71 Implement 'help' command for cbc tool
+  * CCBC-70 Close dynamic libraries
+  * Fix windows build
+  * Simplify embedding of the plugins
+  * Allow to use colors when debug level isn't set
+
+  [Trond Norbye]
+  * CCBC-63 Include types definitions for POSIX systems
+  * Undefine NDEBUG to avoid asserts to be optimized out
+  * CCBC-72: Fix compilation on macosx with gtest from homebrew
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 13 Jun 2012 20:32:35 +0300
+
+libcouchbase (1.1.0dp5) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Implement 'cbc-hash' to match server/vbucket for given key
+  * The library doesn't depend on pthreads
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 06 Jun 2012 00:27:25 +0300
+
+libcouchbase (1.1.0dp4) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Add Travis-CI integration
+  * Set email for travis-ci notifications
+
+  [Trond Norbye]
+  * Fix compile warnings due to constness
+  * strtoull doesn't exist on win32
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 05 Jun 2012 13:04:19 +0300
+
+libcouchbase (1.1.0dp3) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Fix up mentions about CouchDB
+  * Fix removing items from hashset
+  * Fix ringbuffer_is_continous()
+  * CCBC-61 Assign result of the operation
+  * Don't depend on protocol_binary_command type
+  * Remove extra commas
+  * Update AUTHORS file from git log
+  * ignore gcov files
+  * Update docs for store operation
+  * Do not call couch callbacks for cancelled requests
+  * Reformat sources
+  * Destroy couch_requests items when server get destroyed
+  * hashset.c: iterate over whole set on rehashing
+  * Implement GET_LOCKED (GETL) command
+  * Implement UNLOCK_KEY (UNL) command
+  * Unit tests need gtest headers
+  * Update build scripts with new README
+  * Allow to customize suffix for .deb package
+  * Use localhost instead of 127.0.0.1 start_mock.sh
+  * Reorder changelog entries: RPM requires descending chronological order
+
+  [Trond Norbye]
+  * CBD-161: Beef up the readme
+  * CCBC-66: Add support for [tg]cov
+  * CCBC-67: Add gtest infrastructure
+  * CCBC-67: Move tests from standalone programs to gtest
+  * CCBC-69: Use autoreconf instead of invoking each tool myself
+  * Remove unused variable
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Sun, 03 Jun 2012 20:06:39 +0300
+
+libcouchbase (1.1.0dp2) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Allow to pass additional arguments to RPM builder
+  * Fix segfault while authorizing on protected buckets
+  * Don't define size_t and ssize_t for VS2008
+  * Don't wait for empty buffers (CCBC-59)
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 10 Apr 2012 11:05:07 +0300
+
+libcouchbase (1.1.0dp) stable; urgency=low
+
+  [Mark Nunberg]
+  * Null-terminate unhandled vbucket-stream chunk data
+  * Allow tests to use user-defined event loop for iops
+
+  [Sergey Avseyev]
+  * Check for newer libvbucket
+  * Bundle HTTP parser from https://github.com/joyent/http-parser
+  * Fix pedantic warnings
+  * Build HTTP parser as separate library
+  * Implement hash set data structure
+  * Use libcouchbase IO layer for views
+  * vbucket_found_incorrect_master() returns server index
+  * Pick up cookies from pending buffer unless node connected
+  * Gracefully cancel couch request
+  * Return reference to request struct from constructor
+  * Fix formatting: use typedef as return type
+  * Fix several segfaults
+  * Update library version
+
+  [Trond Norbye]
+  * Fix build breaks with --enable-werror with SPRO
+  * Refactor: rename libcouchbase_ringbuffer_ to ringbuffer_
+  * Add lint rule
+  * MB-4834: Request the tap bytes in a known byte order
+  * Fix errors reported by lint
+  * Clean up warnings reported by lint
+  * Don't try to be smart linking the strerror test
+  * Include errno.h to ensure that the macros should be set first
+  * Add --unpad-paren to remove the ugly if ( asdf )
+  * Updates according to coding style
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 04 Apr 2012 21:39:25 +0300
+
+libcouchbase (1.0.6) stable; urgency=low
+
+  [Sergey Avseyev]
+  * CCBC-92 release ringbuffer in libcouchbase_purge_single_server
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Thu, 30 Aug 2012 10:28:11 +0300
+
+libcouchbase (1.0.5) stable; urgency=low
+
+  [Sergey Avseyev]
+  * CCBC-91 Reset timer for commands with NOT_MY_VBUCKET response
+  * CCBC-91 Fix switching to backup node in case of server outage
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 14 Aug 2012 23:14:36 +0300
+
+libcouchbase (1.0.4) stable; urgency=low
+
+  [Sergey Avseyev]
+  * [backport] vbucket_found_incorrect_master() returns server index
+  * CCBC-64 Send the retry-packet to new server
+  * [CCBC-65] Memory leak in libcouchbase_create / libcouchbase_destroy
+  * Always use cmd_log for server purge
+  * CCBC-62 Check for breakout condition after purging servers
+  * Fix ringbuffer_memcpy()
+  * Check return value of libcouchbase_apply_vbucket_config()
+  * Do not consume the cookie for incomplete packet
+  * Give CouchbaseMock.jar a bit more time to warm up
+  * Include <sys/type.h> header for libevent check
+  * Be more specific about libevent version
+  * Fix config test: copy value in get callback
+  * Implement ringbuffer_update()
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Fri, 01 Jun 2012 21:19:27 +0300
+
+libcouchbase (1.0.3) stable; urgency=low
+
+  [Sergey Avseyev]
+  * RCBC-33 Fix buffer overflow vulnerability
+  * [backport] Pick up cookies from pending buffer unless node connected
+  * [backport] Fix ringbuffer_is_continous()
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 02 May 2012 23:07:40 +0300
+
+libcouchbase (1.0.2) stable; urgency=low
+
+  [Mark Nunberg]
+  * Added internal debugging/logging routines
+  * Fixed some compiler warnings and tidy types
+  * include <cstdlib> in cbc.cc (provides EXIT_*)
+  * Handle EINVAL for connects
+  * Refactor connection error handling
+  * implement PROTOCOL_BINARY_CMD_VERSION
+
+  [Pierre Joye]
+  * Fix windows build (MSVC9): stdint header
+  * Fix windows build (MSVC9): define E* if missing
+
+  [Sergey Avseyev]
+  * Fix mingw cross build
+  * cbc.cc: check for NULL result of libcouchbase_create()
+  * Add cheatsheet for cbc command
+  * Do not expose PACKAGE_STRING
+  * Fix command help
+  * Include <stdint.h> for tools
+  * Raise error if <stdint.h> missing
+  * Rename argument to make it more consistent
+  * Add JSON support for cp function
+  * Rename packaging/{debian,deb}
+  * Always sign deb packages and allow to pass PGP key
+  * Reduce package dependencies (use internal SASL client)
+  * debhelper required to build deb packages
+  * make reformat
+
+  [Trond Norbye]
+  * Use 127.0.0.1 instead of localhost
+  * Added support for '-' to cp
+  * Add option to set timeout for cbc
+  * Added "verify"
+  * Don't use std:: (we're using namespace std anyway)
+  * Add support for multiple hosts for the bootstrap URL
+  * Bundle sasl client implementation
+  * Bundle the protocol definitions for memcached to make it easier to build
+  * Add astyle rules
+  * Fix compile error in smoke-test (-Wformat-security)
+  * Allow use of libcouchbase to pure memcached clusters
+  * Fix buildbreak on win32
+  * Update library version
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Tue, 06 Mar 2012 16:17:54 +0300
+
+libcouchbase (1.0.1) stable; urgency=low
+
+  [Sergey Avseyev]
+  * Port double free error to C test
+  * Backport rpm fix from libvbucket
+  * Do not notify user about the same error twice
+  * Fix sasl_list_mech_response_handler()
+  * Fix smoke test
+  * Add test for SASL
+  * Relocate buffers only for vbucket distribution
+  * Fix relocation of the buffers after config update
+  * Use alternate nodes when current is dead (CCBC-38)
+  * cmd_log buffer stores protocol_binary_request_header structs
+  * Handle PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET
+  * Don't do output in library code
+  * Check server index before using (CCBC-51)
+  * Allow to build without tools which require C++ compiler
+  * Fix multi-{get,touch} requests handling when nkeys > 1
+  * Ignore NOOP command on server purge
+  * Call libcouchbase_server_send_packets() when it needed
+  * Simplify server checks in libcouchbase_mtouch_by_key
+  * Ignore coredumps
+
+  [Trond Norbye]
+  * Disable memory debug on the java vm from make check
+  * Implement operation timeouts (CCBC-20)
+  * Install configuration.h for win32
+  * Remove indentation for '=' to ease merging of patches
+  * Refactor: typedef libcouchbase_cas_t for cas value
+  * Remove duplicate make rule
+  * Refactor: use libcouchbase_xxxx for the datatypes
+  * Don't pass -v to SPRO CC
+  * Fix warnings reported by SPRO CC with full warnings
+  * Don't print out that much from the getopt-test
+  * Fix the sync mode and add a unit test
+  * Fix errors reported on win32
+  * Release allocated resources
+  * Destroy event base if we created it
+  * Fix pillowfight source
+  * Fix NMakefile
+  * Run test cases for make check
+  * Fix default port for backup nodes
+  * Add --with-couchbasemock
+
+  [Mark Nunberg]
+  * Fixed SASL handling
+  * Allow for notification on initial vbucket config
+  * Fixed segfaults and memory access errors on libevent1.4
+  * Finer grained error reporting for basic REST errors
+  * Do not attempt SASL when SASL already in progress
+  * Fix connect timeouts
+  * Segfault when delete_event called on invalid socket
+  * Reset stream state on new instance socket.
+  * Add option for embedding libevent io options
+  * better instance socket cleanup handling
+  * purge_implicit_responses handling of NOOP
+  * changed server tests to wait a bit on EINTR
+
+ -- Matt Ingenthron <matt@couchbase.com>  Mon, 13 Feb 2012 22:20:30 -0800
+
+libcouchbase (1.0.0) stable; urgency=low
+
+  [Jan Lehnardt]
+  * Use curl if wget isn't found to download CouchbaseMock.
+
+  [Matt Ingenthron]
+  * Added docbook based manual page for libcouchbase_create.
+  * Man page documentation additions and enhancements.
+  * Mentioned store_by_key uses hashkey in comment.
+  * Bring debian packaging back to compat 7.
+  * Added tmppath to RPM spec to be able to generate as non-root.
+  * Revert "Remove 'g' prefix from the version". CCBC-50
+  * Fixed minor packing dependency issue.
+
+  [Sergey Avseyev]
+  * Add stats command
+  * Aggregate flush responses
+  * rename man page for stats command
+  * Allow libcouchbase build with libevent 1.x (validated for 1.4.14)
+  * Use 'man -S' when 'man -s' unavailable (FreeBSD)
+  * Fix getopt_long tests
+  * Gracefully update vbucket configuration
+  * Add smoke tests for get and set operations
+  * Use modern tar format to allow long names
+  * Allow download memcached headers from remote host
+  * Separate mock-dependent tests
+  * Rename license file and add it to distribution
+  * Add packaging notes
+  * Build DEB package for Debian, Ubuntu, etc.
+  * Build RPM package for CentOS, RedHat etc.
+  * Do not sign deb packages for now
+  * Generalize views function
+  * debian/control: fix typo in build dependencies
+  * Remove <memcached/vbucket.h> dependency
+  * Use more specific error codes
+  * Expose HTTP status code for users
+  * Allow to select bucket for node failover/respawn
+  * Fix typo in configure.ac
+  * Fix build with libevent1
+  * Fix pedantic warnings
+  * Move doc handlers to views.c until 2.0 release
+  * Update package dependencies: libevent and libsasl2
+  * Update link to CouchbaseMock.jar
+  * Fix memcache comatibility
+  * Do not use -ldl expicitly (it breaks BSD)
+  * Fix 'make dist' task
+  * Update install rules in rpm and deb packages
+  * Disable optimization and increase debug level
+  * Fix buffer relocation during rebalance
+  * Uncomment smoke test
+  * Fix condition
+  * Take vbucket from the packet during relocation
+  * Force curl to follow redirects
+  * Fix curl syntax
+  * cbc: add version command
+  * Rename 'cbc-stat' to 'cbc-stats' for consistency
+  * Remove 'g' prefix from the version
+  * Update library versions
+
+  [Trond Norbye]
+  * Fix the chunked mode to allow multiple chunks
+  * Fix compile problems on win32
+  * Updated the mock server to use for testing
+  * Removed blank lines to make the xml easier to read
+  * Added initial documentation for libcouchbase_flush
+  * Fixup xml documentation
+  * Added a lot of documentation
+  * Don't accept NULL as a valid "callback"
+  * Use the error handler instead of printing to stderr
+  * Fixup xml
+  * Doc fixes
+  * convert flags to network byte order
+  * Remove obsolete man pages
+  * Remove pandora autoconf macros
+  * Fix the order of ldflags
+  * Step one on our way to C89
+  * Fixup build failures in couchview_yajl.c
+  * Disable view code
+  * Update copyright year
+  * We no longer need tar-pax
+  * Remove forward decl of event_base
+  * Build all examples on windows
+  * Refactor: Move tests programs to tests subdir
+  * Put the object files in the directory they belong
+  * Start pillowfight!
+  * New command cbc
+  * Remove obsolete memNNNN programs
+  * Create symbolic links for cbc programs
+  * CCBC-37 allow config to be read from .cbcrc
+  * Add -T to enable timings for cbc
+  * Build cbc for win32
+  * Bail out if we can't locate libvbucket/vbucket.h
+  * Added cbc-create to create a key
+  * Bail out if you can't find memcached/vbucket.h
+  * Added libcouchbase_get_version
+  * Print out libcouchbase version for cbc version
+  * Fix up get_iov for write
+  * The tap callbacks need cas+vbid
+  * Add cbc send and receive
+  * Remove memdump
+  * Set library version to 1.0.0
+  * Changed error text for EEXISTS
+  * Fixup comment
+  * Drop "already" from the error text
+  * Fix unused-but-set-variable
+  * Add libcouchbase.dll to gitignore
+  * Update versions for win32 (@todo find a better way)
+  * Update NMakefile
+  * Change search order for headerfiles for win32
+  * Fix compile errors in cbc for setting binary stdin/stdout
+  * Fix compile failure for ringbuffer test
+  * Fixed typo
+  * Add function to flush buffers
+  * "empty" bucket name should be treated as NULL
+  * Allow the user to specify sync mode on an instance
+  * Fixup compile warnings
+
+ -- Matt Ingenthron <matt@couchbase.com>  Sun, 22 Jan 2012 17:02:10 -0800
+
+libcouchbase (0.3.0) unstable; urgency=low
+
+  [Trond Norbye]
+  * Add flush command
+  * Add a getopt test for win32
+  * Remove packet filter
+  * Add a ringbuffer to use instead of the buffer_t
+  * Improve win32 compatibility
+  * Create an instance of the default io ops if you don't specify one
+  * Refactor: Let the client specify the IO framework
+
+  [Sergey Avseyev]
+  * Fix ringbuffer for wrapped write/read operations
+  * Fix wait flag in libcouchbase_wait()
+  * CCBC-11 The interface to access views
+
+ -- Sergey Avseyev <sergey.avseyev@gmail.com>  Mon, 05 Dec 2011 13:33:39 +0300

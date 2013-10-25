@@ -1,0 +1,175 @@
+= lcb_durability_poll(3couchbase)
+:doctype: manpage
+Mark Nunberg <mark.nunberg@couchbase.com>
+
+NAME
+----
+lcb_durability_poll - Poll keys for durability requirements
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+    lcb_error_t lcb_durability_poll(lcb_t instance,
+                                    const void *commnad_cookie,
+                                    const lcb_durability_opts_t *options,
+                                    lcb_size_t num_commands,
+                                    const lcb_durability_cmd_t * const *cmds);
+
+DESCRIPTION
+-----------
+lcb_durability_poll() is used to wait asynchronously until the items
+have been persisted and/or replicated to at least the number of nodes
+specified in the durability options.
+
+This operation will return immediately and schedule the operation to be
+executed by the event loop.
+
+'command_cookie' is an opaque field that will be passed to the callback
+function. 'options' is a structure defining the durability requirements
+for the speicifed keys. 'num_commands' is the number of entries in the
+cmds array.
+
+lcb_durability_options_t is a structure defined in
+<libcouchbase/durability.h>:
+
+    typedef struct lcb_durability_opts_st {
+        int version; /* set this to 0 */
+        union {
+            struct {
+                lcb_uint32_t timeout;
+                lcb_uint32_t interval;
+                unsigned char persist_to;
+                unsigned char replicate_to;
+                char check_delete;
+                char cap_max;
+            } v0;
+        } v;
+    } lcb_durability_opts_t;
+
+The 'timeout' field indicates the upper limit (in microseconds)
+of time the command will wait until all the keys' durability requirements
+are satisfied. If the durability requirements ae not satisfied when
+the timeout is exceeded, the outstanding keys will be set to an error
+status in the callback. If set to 0, it will default to the value of
+the 'LCB_CNTL_DURABILITY_TIMEOUT' obtained via lcb_cntl(3couchbase).
+
+The 'interval' field specifies how long to wait between each attempt
+at verifying the completion of the durability requirements. This value is
+typically automatically estimated via the 'ttp' and 'ttr' fields from
+the observe response (see lcb_observe(3couchbase)).
+
+The 'persist_to' field specifies how many nodes must contain the item on
+their disk in order for the command to succeed. The maximum value should
+be the number of nodes in the cluster.
+
+The 'replicate_to' field specifies how many replicas must contain the item
+in their memory for this command to succeed. The maximum value should be
+the the number of replicas in the cluster.
+
+The 'check_delete' flag indicates that this operation should check for the
+non-presence of an item. This is used to ensure a successful removal
+of an item via lcb_remove(3couchbase). In this case, the semantics
+of 'persist_to' and 'replicate_to' are inverted, where 'persist_to' means the
+number of nodes where the item is deleted from the disk, and 'replicate_to'
+means the number of nodes where the item not present in the cache.
+
+In all cases, the value of 'replicate_to' will implicitly always be
+at least the value of 'persist_to'-1.
+
+The 'cap_max' field indicates that the library should set persist_to
+and replicate_to to their maximum available number if those fields are
+set beyond current limits. This will be set based on the number of nodes
+active in the cluster and the number of replicas the cluster is
+configured with.
+
+thus, one would do something like:
+
+    options.v.v0.persist_to = -1;
+    options.v.v0.replicate_to = -1;
+    options.v.v0.cap_max = 1;
+
+
+
+lcb_durability_cmd_t is a structure defined in
+<libcouchbase/durability.h>:
+
+    typedef struct lcb_durability_cmd_st {
+        int version; /* Set this to 0 */
+        union {
+            struct {
+                const void *key;
+                lcb_size_t nkey;
+
+                /**
+                 * Hashkey and hashkey size to use for customized vbucket
+                 * mapping
+                 */
+                const void *hashkey;
+                lcb_size_t nhashkey;
+
+                /**
+                 * CAS to be checked against. If the key exists on the server
+                 * with a different CAS, the error (in the response) is set to
+                 * LCB_KEY_EEXISTS
+                 */
+                lcb_cas_t cas;
+            } v0;
+        } v;
+    } lcb_durability_cmd_t;
+
+Each lcb_durability_cmd_t entry will be checked to ensure that it exists
+on the disk and cache of the number of nodes specified in the
+passed lcb_durability_options_t structure.
+
+The callback defined by lcb_set_durability_callback will be called for each
+item in the command array when the keys' status has been finalized (either
+with a success, a timeout, or a CAS mismatch).
+
+RETURN VALUES
+-------------
+lcb_durability_poll() returns the LCB_SUCCESS on success,
+or a specific error code upon failure. See lcb_strerror(3couchbase)
+for more information.
+
+
+EXAMPLES
+--------
+
+    #include <libcouchbase/couchbase.h>
+
+    ...
+    lcb_t instance;
+    ...
+    lcb_durability_options_t options = { 0 };
+    options.v.v0.persist_to = 1;
+    options.v.v0.replicate_to = 2;
+
+    lcb_durability_cmd_t endure = { 0 };
+    const lcb_durability_cmd_t *cmdlist = &endure;
+    endure.v.v0.key = "my-key";
+    endure.v.v0.nkey = strlen("my-key");
+    lcb_durability_poll(instance, NULL, &options, 1, &cmdlist);
+    ...
+
+ATTRIBUTES
+----------
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+libcouchbase(3lib), lcb_get_durability_callback(3couchbase),
+lcb_set_durability_callback(3couchbase), lcb_observe(3couchbase),
+lcb_attributes(5)

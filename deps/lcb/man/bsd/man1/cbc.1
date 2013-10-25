@@ -1,0 +1,759 @@
+'\" t
+.\"     Title: cbc
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/21/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "CBC" "1" "08/21/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+cbc \- Couchbase command line utility
+.SH "SYNOPSIS"
+.sp
+\fBcbc help\fR
+.sp
+\fBcbc cat\fR [common options] [\-r [\fIVALUE\fR]] \fIkey\fR\&...
+.sp
+\fBcbc cp\fR [common options] [\-p] [\-r \fINUMBER\fR] [\-m \fINUMBER\fR] [\-j] \fIfilename\fR\&...
+.sp
+\fBcbc create\fR [common options] [\-f \fIFLAGS\fR] [\-e \fIVALUE\fR] [\-a] \fIkey\fR
+.sp
+\fBcbc observe\fR [common options] \fIkey\fR\&...
+.sp
+\fBcbc flush\fR [common options]
+.sp
+\fBcbc hash\fR [common options] [\-f \fIFILENAME\fR] \fIkey\fR\&...
+.sp
+\fBcbc lock\fR [common options] [\-e \fIVALUE\fR] \fIkey\fR\&...
+.sp
+\fBcbc unlock\fR [common options] \fIkey\fR \fIcas\fR\&...
+.sp
+\fBcbc rm\fR [common options] \fIkey\fR\&...
+.sp
+\fBcbc stats\fR [common options] [\fIstat group\fR]\&...
+.sp
+\fBcbc verify\fR [common options] \fIfilename\fR\&...
+.sp
+\fBcbc version\fR [common options]
+.sp
+\fBcbc verbosity\fR [common options] \fIlevel\fR
+.sp
+\fBcbc view\fR [common options] [\-c] [\-d \fIDATA\fR] [\-X \fIMETHOD\fR] \fIquery\fR
+.sp
+\fBcbc admin\fR [common options] [\-c] [\-d \fIDATA\fR] [\-X \fIMETHOD\fR] \fIquery\fR
+.sp
+\fBcbc bucket\-create\fR [common options] [\-B \fITYPE\fR] [\-q \fIQUOTA\fR] [\-a \fIAUTH\fR] [\-s \fIPASSWORD\fR] [\-r \fINUMBER\fR] [\-p \fIPORT\fR] \fIbucketname\fR\&...
+.sp
+\fBcbc bucket\-delete\fR [common options] \fIbucket\fR\&...
+.sp
+\fBcbc bucket\-flush\fR [common options] \fIbucket\fR\&...
+.sp
+\fBcbc pillowfight\fR [\-?] [\-h \fIHOST\fR] [\-b \fIBUCKET\fR] [\-u \fIUSER\fR] [\-P \fIPASSWORD\fR] [\-T] [\-i \fIITERATIONS\fR] [\-I \fIITEMS\fR] [\-p \fIPREFIX\fR] [\-t \fITHREADS\fR] [\-Q \fIINSTANCES\fR] [\-l] [\-s \fISEED\fR] [\-r \fIRATIO\fR] [\-m \fIMIN\fR] [\-M \fIMAX\fR] [\-d]
+.SH "DESCRIPTION"
+.sp
+cbc is a command line utility that allows you to communicate with your Couchbase Server cluster from the command line prompt\&.
+.SH "COMMON OPTIONS"
+.sp
+The following options are supported:
+.PP
+\fB\-?, \-\-help\fR
+.RS 4
+Display usage information and exit\&.
+.RE
+.PP
+\fB\-h, \-\-host\fR=\fIHOST\fR
+.RS 4
+Specify the list of hosts to connect to (default:
+\fI127\&.0\&.0\&.1:8091\fR)\&.
+.RE
+.PP
+\fB\-b, \-\-bucket\fR=\fIBUCKET\fR
+.RS 4
+Specify the bucket to use (default:
+\fIdefault\fR)\&.
+.RE
+.PP
+\fB\-u, \-\-user\fR=\fIUSER\fR
+.RS 4
+Specify the username used for authentication to the cluster\&.
+.RE
+.PP
+\fB\-P, \-\-password\fR=\fIPASSWORD\fR
+.RS 4
+Specify the password used for authentication to the cluster\&.
+.RE
+.PP
+\fB\-T, \-\-enable\-timings\fR
+.RS 4
+Enable the recording of the timing of commands and building histograms\&.
+.RE
+.PP
+\fB\-t, \-\-timeout\fR=\fITIMEOUT\fR
+.RS 4
+Specify timeout value in microseconds (default: 2500000)
+.RE
+.PP
+\fB\-D, \-\-dumb\fR
+.RS 4
+Enable memcached compatibility mode\&. With this option set subcommands can be executed against regular memcached node\&.
+.RE
+.SH "SUBCOMMANDS"
+.sp
+The following subcommands are supported:
+.PP
+\fBcbc help\fR
+.RS 4
+Display usage information and exit\&.
+.RE
+.PP
+\fBcbc cat\fR [common options] [\-r [\fIVALUE\fR]] \fIkey\fR\&...
+.RS 4
+Print the contents of the value for the key to standard output\&.
+.PP
+\fB\-r, \-\-replicas\fR[=\fIVALUE\fR]
+.RS 4
+Read key(s) from replicas: (default:
+\fIfirst\fR))\&. Following strategies available:
+.TS
+allbox tab(:);
+lt lt
+lt lt
+lt lt.
+T{
+\fIfirst\fR
+T}:T{
+try all replica from first in a sequence until first successful response
+T}
+T{
+\fIall\fR
+T}:T{
+try all replicas in parallel
+T}
+T{
+N, where 0 < N < number of replicas
+T}:T{
+read from selected replica only
+T}
+.TE
+.sp 1
+.RE
+.RE
+.PP
+\fBcbc cp\fR [common options] [\-p] [\-r \fINUMBER\fR] [\-m \fINUMBER\fR] [\-j] \fIfilename\fR\&...
+.RS 4
+Store the content of a file under the specified key in the cluster\&.
+.PP
+\fB\-p, \-\-persisted\fR
+.RS 4
+Ensure that key has been persisted to the primary node\&.
+.RE
+.PP
+\fB\-r, \-\-replicated\fR=\fINUMBER\fR
+.RS 4
+Ensure that the key has been replicated and persisted to given
+\fINUMBER\fR
+of replicas\&.
+.RE
+.PP
+\fB\-m, \-\-max\-tries\fR=\fINUMBER\fR
+.RS 4
+The number of attempts for observing keys (default: 5)\&.
+.RE
+.PP
+\fB\-j, \-\-json\fR
+.RS 4
+Treat the value as a JSON document (take key from
+\fI_id\fR
+attribute)\&. This option is only valid if the libyajl2 is present\&.
+.RE
+.RE
+.PP
+\fBcbc create\fR [common options] [\-f \fIFLAGS\fR] [\-e \fIVALUE\fR] [\-a] \fIkey\fR
+.RS 4
+Create a key in the cluster by reading the the value from standard input\&.
+.PP
+\fB\-f, \-\-flag\fR=\fIFLAGS\fR
+.RS 4
+The flags to associate with the key\&.
+.RE
+.PP
+\fB\-e, \-\-exptime\fR=\fIVALUE\fR
+.RS 4
+The expiration time for the key\&. Values larger than 30*24*60*60 seconds (30 days) are interpreted as absolute times (from the epoch)\&.
+.RE
+.PP
+\fB\-a\fR
+.RS 4
+Fail if an object exist in the database for that key\&.
+.RE
+.RE
+.PP
+\fBcbc observe\fR [common options] \fIkey\fR\&...
+.RS 4
+Observe a key in the cache\&.
+.RE
+.PP
+\fBcbc flush\fR [common options]
+.RS 4
+Remove all keys from the cluster\&. The flush subcommand is only supported on memcached buckets\&. To flush a Couchbase bucket you need use bucket\-flush\&.
+.RE
+.PP
+\fBcbc hash\fR [common options] [\-f \fIFILENAME\fR] \fIkey\fR\&...
+.RS 4
+Hash key(s) and print out useful info\&.
+.PP
+\fB\-f, \-\-config\-file\fR=\fIFILENAME\fR
+.RS 4
+\fIFILENAME\fR
+shall be a plain text file containing an alternative cluster configuration (in JSON) to use\&.
+.RE
+.RE
+.PP
+\fBcbc lock\fR [common options] [\-e \fIVALUE\fR] \fIkey\fR\&...
+.RS 4
+Lock and retrieve the value for a key\&. The lock is held for the object until it expires (timing out) or from a manual unlock command\&. Consult your Couchbase documentation for more information about locking of objects\&.
+.PP
+\fB\-e, \-\-exptime\fR=\fIVALUE\fR
+.RS 4
+The expiry time for the lock\&.
+.RE
+.RE
+.PP
+\fBcbc unlock\fR [common options] \fIkey\fR \fIcas\fR\&...
+.RS 4
+Unlock the key previously locked with lock\&. You have to specify the same cas value as returned by the lock command in order to successfully unlock the keys\&.
+.RE
+.PP
+\fBcbc rm\fR [common options] \fIkey\fR\&...
+.RS 4
+Remove a number of keys from the cluster\&.
+.RE
+.PP
+\fBcbc stats\fR [common options] [\fIstat group\fR]\&...
+.RS 4
+Retrieve various statistics from the cluster\&.
+.RE
+.PP
+\fBcbc verify\fR [common options] \fIfilename\fR\&...
+.RS 4
+Verify the content for the key represented by the filename in the cache is the same as the file content\&.
+.RE
+.PP
+\fBcbc version\fR [common options]
+.RS 4
+Print the version numbers for cbc and libcouchbase\&.
+.RE
+.PP
+\fBcbc verbosity\fR [common options] \fIlevel\fR
+.RS 4
+Set verbosity level\&. The level may be one of the following:
+.TS
+allbox tab(:);
+lt lt
+lt lt
+lt lt
+lt lt.
+T{
+\fIdetail\fR
+T}:T{
+This will cause the nodes to generate an insane amount of data\&. It shoud not be used unless you know what you\(cqre doing\&.
+T}
+T{
+\fIdebug\fR
+T}:T{
+This will cause the nodes to generate a lot of data\&. It should not be used unless you know what you\(cqre doing\&.
+T}
+T{
+\fIinfo\fR
+T}:T{
+This will cause the nodes to generate lot of data (dumping each command being executed)\&. You should avoid using this unless you\(cqre searching for a bug\&. It will affect your performance\&.
+T}
+T{
+\fIwarning\fR
+T}:T{
+Only warnings will be reported\&. This is what you normally want!
+T}
+.TE
+.sp 1
+.RE
+.PP
+\fBcbc view\fR [common options] [\-c] [\-d \fIDATA\fR] [\-X \fIMETHOD\fR] \fIquery\fR
+.RS 4
+Execute Couchbase view (aka map/reduce) request\&.
+.PP
+\fB\-c, \-\-chunked\fR
+.RS 4
+Use chunked callback to stream the data
+.RE
+.PP
+\fB\-d, \-\-data\fR=\fIDATA\fR
+.RS 4
+HTTP body data for POST or PUT requests, e\&.g\&.
+\fI{"keys": ["key1", "key2"]}\fR
+.RE
+.PP
+\fB\-X, \-\-request\fR=\fIMETHOD\fR
+.RS 4
+HTTP request method, possible values
+\fIGET\fR
+(default),
+\fIPOST\fR,
+\fIPUT\fR,
+\fIDELETE\fR\&.
+.RE
+.RE
+.PP
+\fBcbc admin\fR [common options] [\-c] [\-d \fIDATA\fR] [\-X \fIMETHOD\fR] \fIquery\fR
+.RS 4
+Execute request to management REST API\&.
+.PP
+\fB\-c, \-\-chunked\fR
+.RS 4
+Use chunked callback to stream the data
+.RE
+.PP
+\fB\-d, \-\-data\fR=\fIDATA\fR
+.RS 4
+HTTP body data for POST or PUT requests, e\&.g\&.
+\fI{"keys": ["key1", "key2"]}\fR
+.RE
+.PP
+\fB\-X, \-\-request\fR=\fIMETHOD\fR
+.RS 4
+HTTP request method, possible values
+\fIGET\fR
+(default),
+\fIPOST\fR,
+\fIPUT\fR,
+\fIDELETE\fR\&.
+.RE
+.RE
+.PP
+\fBcbc bucket\-create\fR [common options] [\-B \fITYPE\fR] [\-q \fIQUOTA\fR] [\-a \fIAUTH\fR] [\-s \fIPASSWORD\fR] [\-r \fINUMBER\fR] [\-p \fIPORT\fR] \fIbucketname\fR\&...
+.RS 4
+Create a bucket in the cluster\&.
+.PP
+\fB\-B, \-\-bucket\-type\fR=\fITYPE\fR
+.RS 4
+Specify the type of bucket to create\&. Type may be one of
+\fIcouchbase\fR
+(default),
+\fImemcached\fR\&.
+.RE
+.PP
+\fB\-q, \-\-ram\-quota\fR=\fIQUOTA\fR
+.RS 4
+RAM quota in megabytes (default: 100)\&.
+.RE
+.PP
+\fB\-a, \-\-auth\-type\fR=\fIAUTH\fR
+.RS 4
+Type of bucket authentication, type may be one of
+\fInone\fR
+or
+\fIsasl\fR
+(default)\&.
+.RE
+.PP
+\fB\-s, \-\-sasl\-password\fR=\fIPASSWORD\fR
+.RS 4
+Password used for SASL authentication (default "")\&.
+.RE
+.PP
+\fB\-r, \-\-replica\-number\fR=\fINUMBER\fR
+.RS 4
+The number of replicas to create for each key\&. The value should be in the range [0\-3] (default 1)\&.
+.RE
+.PP
+\fB\-p, \-\-proxy\-port\fR=\fIPORT\fR
+.RS 4
+The port number the proxy should provide access to this bucket (default: 11211)\&.
+.RE
+.RE
+.PP
+\fBcbc bucket\-delete\fR [common options] \fIbucket\fR\&...
+.RS 4
+Delete the named buckets from the cluster\&.
+.RE
+.PP
+\fBcbc bucket\-flush\fR [common options] \fIbucket\fR\&...
+.RS 4
+Flush (remove all data) from the named buckets\&. Please note that you need to have flush enabled on the specified bucket to use this command successfully\&.
+.RE
+.PP
+\fBcbc pillowfight\fR [\-?] [\-h \fIHOST\fR] [\-b \fIBUCKET\fR] [\-u \fIUSER\fR] [\-P \fIPASSWORD\fR] [\-T] [\-i \fIITERATIONS\fR] [\-I \fIITEMS\fR] [\-p \fIPREFIX\fR] [\-t \fITHREADS\fR] [\-Q \fIINSTANCES\fR] [\-l] [\-s \fISEED\fR] [\-r \fIRATIO\fR] [\-m \fIMIN\fR] [\-M \fIMAX\fR] [\-d]
+.RS 4
+Generate test load for the cluster\&. Currently only one workload type available: mixed SET and GET operations (see
+\fI\-\-ratio\fR
+option below)\&.
+.PP
+\fB\-?, \-\-help\fR
+.RS 4
+Display usage information and exit\&.
+.RE
+.PP
+\fB\-h, \-\-host\fR=\fIHOST\fR
+.RS 4
+Specify the list of hosts to connect to (default:
+\fI127\&.0\&.0\&.1:8091\fR)\&.
+.RE
+.PP
+\fB\-b, \-\-bucket\fR=\fIBUCKET\fR
+.RS 4
+Specify the bucket to use (default:
+\fIdefault\fR)\&.
+.RE
+.PP
+\fB\-u, \-\-user\fR=\fIUSER\fR
+.RS 4
+Specify the username used for authentication to the cluster\&.
+.RE
+.PP
+\fB\-P, \-\-password\fR=\fIPASSWORD\fR
+.RS 4
+Specify the password used for authentication to the cluster\&.
+.RE
+.PP
+\fB\-T, \-\-enable\-timings\fR
+.RS 4
+Enable the recording of the timing of commands and building histograms\&.
+.RE
+.PP
+\fB\-i, \-\-iterations\fR=\fIITERATIONS\fR
+.RS 4
+Number of iterations to run (???) (default: 1000)
+.RE
+.PP
+\fB\-I, \-\-num\-items\fR=\fIITEMS\fR
+.RS 4
+Number of items to operate on (default: 1000)
+.RE
+.PP
+\fB\-p, \-\-key\-prefix\fR=\fIPREFIX\fR
+.RS 4
+Use the following prefix for keys (default: "")
+.RE
+.PP
+\fB\-t, \-\-num\-threads\fR=\fITHREADS\fR
+.RS 4
+The number of threads to use (default: 1)
+.RE
+.PP
+\fB\-Q, \-\-num\-instances\fR=\fIINSTANCES\fR
+.RS 4
+The number of connection instances to put into the shared connection pool (default 1)
+.RE
+.PP
+\fB\-l, \-\-loop\fR
+.RS 4
+Run load in an infinite loop\&. Could be terminated by SIGINT (Ctrl\-C)\&.
+.RE
+.PP
+\fB\-s, \-\-random\-seed\fR=\fISEED\fR
+.RS 4
+Specify random seed (default 0)
+.RE
+.PP
+\fB\-r, \-\-ratio\fR=\fIRATIO\fR
+.RS 4
+Specify SET/GET command ratio (default: 33, i\&.e\&. 33% SETs and 67% GETs)
+.RE
+.PP
+\fB\-m, \-\-min\-size\fR=\fIMIN\fR
+.RS 4
+Specify minimum size of payload, i\&.e\&. document body (default: 50)
+.RE
+.PP
+\fB\-M, \-\-max\-size\fR=\fIMAX\fR
+.RS 4
+Specify maximum size of payload (default: 5120)
+.RE
+.PP
+\fB\-d, \-\-dumb\fR
+.RS 4
+Behave like legacy memcached client (default: false)\&. Useful to check moxi for example, or other memcached implementations\&.
+.RE
+.RE
+.SH "EXAMPLES"
+.sp
+Example 1\&. Copy a file into the cluster\&. The following command copies the file mynote\&.txt located in the current directory into the cluster:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc cp mynote\&.txt
+Stored "mynote\&.txt" CAS:d8062155b1100000
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 2\&. Observe a key in the cluster\&. The following command retrieves information about the key named mynote\&.txt:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc observe mynote\&.txt
+PERSISTED "mynote\&.txt" CAS:313e468316000000 IsMaster:true TimeToPersist:0 TimeToReplicate:0
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 3\&. The following command shows you how to use cbc hash:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc hash key1 key2 key3
+"key1"    vBucket:92 Server:"127\&.0\&.0\&.1:12000" CouchAPI:"http://127\&.0\&.0\&.1:9500/default" Replicas:"127\&.0\&.0\&.1:12000"
+"key2"    vBucket:341 Server:"127\&.0\&.0\&.1:12000" CouchAPI:"http://127\&.0\&.0\&.1:9500/default" Replicas:"127\&.0\&.0\&.1:12000"
+"key3"    vBucket:594 Server:"127\&.0\&.0\&.1:12000" CouchAPI:"http://127\&.0\&.0\&.1:9500/default" Replicas:"127\&.0\&.0\&.1:12000"
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 4\&. Create a bucket\&. The following command shows you how to create a bucket in the cache\&. This is a privileged operation so you need to authenticate to the cluster:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc bucket\-create \-u Administrator \-P secret \-\-bucket\-type=memcached \-\-ram\-quota=64 \-\-auth\-type=sasl \-\-sasl\-password=secret \-\-replica\-number=0 \-\-proxy\-port=11211 mybucket
+Server: Couchbase Server 2\&.0\&.0r_521_g67b4898
+Pragma: no\-cache
+Location: /pools/default/buckets/mybucket
+Date: Tue, 06 Nov 2012 11:04:40 GMT
+Content\-Length: 0
+Cache\-Control: no\-cache
+"/pools/default/buckets": OK Size:0
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 5\&. Flush a bucket\&. The following command shows you how to flush (remove all items) in the bucket named "mybucket":
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc bucket\-flush mybucket
+Server: Couchbase Server 2\&.0\&.0r_521_g67b4898
+Pragma: no\-cache
+Date: Tue, 06 Nov 2012 11:12:33 GMT
+Content\-Length: 0
+Cache\-Control: no\-cache
+"/pools/default/buckets/mybucket/controller/doFlush": OK Size:0
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 6\&. Delete a bucket\&. The following command shows you delete the bucket named "mybucket"\&. This is a privileged operation so you need to authenticate to the cluster:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc bucket\-delete \-u Administrator \-P secret \-\-timeout=10000000 mybucket
+Server: Couchbase Server 2\&.0\&.0r_521_g67b4898
+Pragma: no\-cache
+Date: Tue, 06 Nov 2012 11:25:57 GMT
+Content\-Length: 0
+Cache\-Control: no\-cache
+"/pools/default/buckets/mybucket": OK Size:0
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 7\&. Fetch stats\&. The following command shows how to determine default and maximum values for GETL operation:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc stats | grep ep_getl
+localhost:11210    ep_getl_default_timeout 15
+localhost:11210    ep_getl_max_timeout     30
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 8\&. Fetch stats\&. The following command shows how to get memory statistics for each node in the cluster using stats group \fImemory\fR:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc stats memory
+localhost:11210    bytes   16949680
+localhost:11210    mem_used        16949680
+localhost:11210    ep_kv_size      8396
+localhost:11210    ep_value_size   7996
+localhost:11210    ep_overhead     13838896
+localhost:11210    ep_max_data_size        104857600
+localhost:11210    ep_mem_low_wat  78643200
+localhost:11210    ep_mem_high_wat 89128959
+localhost:11210    ep_oom_errors   0
+localhost:11210    ep_tmp_oom_errors       0
+localhost:11210    ep_mem_tracker_enabled  true
+localhost:11210    tcmalloc_current_thread_cache_bytes     1063496
+localhost:11210    tcmalloc_max_thread_cache_bytes 4194304
+localhost:11210    tcmalloc_unmapped_bytes 0
+localhost:11210    total_allocated_bytes   67322792
+localhost:11210    total_fragmentation_bytes       2710616
+localhost:11210    total_free_bytes        221184
+localhost:11210    total_heap_bytes        70254592
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 9\&. Create design document\&. The following command shows how to save new design document into the bucket\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc view \-XPUT \-d\*(Aq{"views":{"all":{"map":"function(doc,meta){emit(meta\&.id,null)}"}}}\*(Aq _design/blog
+Server: MochiWeb/1\&.0 (Any of you quaids got a smint?)
+Location: http://localhost:8092/default/_design/blog
+Date: Thu, 01 Aug 2013 13:13:57 GMT
+Content\-Type: application/json
+Content\-Length: 32
+Cache\-Control: must\-revalidate
+"_design/blog": OK Size:32
+{"ok":true,"id":"_design/blog"}
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Example 10\&. Fetch views\&. The following command shows how to fetch a view from the cluster\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+shell> cbc view _design/blog/_view/all
+Transfer\-Encoding: chunked
+Server: MochiWeb/1\&.0 (Any of you quaids got a smint?)
+Date: Thu, 01 Aug 2013 13:19:32 GMT
+Content\-Type: application/json
+Cache\-Control: must\-revalidate
+"_design/blog/_view/all": OK Size:174
+{"total_rows":3,"rows":[
+{"id":"\&.gitignore","key":"\&.gitignore","value":null},
+{"id":"foo","key":"foo","value":null},
+{"id":"pool_foo","key":"pool_foo","value":null}
+]
+}
+.fi
+.if n \{\
+.RE
+.\}
+.SH "FILES"
+.PP
+\fB~/\&.cbcrc\fR
+.RS 4
+Default values used by cbc\&. See cbcrc(4) for more information
+.RE
+.SH "ENVIRONMENT VARIABLES"
+.sp
+The following environment variables may be used to specify configuration values\&. If specified they override the value specified in \fI~/\&.cbcrc\fR (but options specified on the command line will override environment variables)\&.
+.PP
+\fBCOUCHBASE_CLUSTER_URI\fR
+.RS 4
+This is a list separated by semicolon of hostnames (with an optional port) to your cluster\&.
+.RE
+.PP
+\fBCOUCHBASE_CLUSTER_USER\fR
+.RS 4
+This is the username used during authentication to your cluster\&.
+.RE
+.PP
+\fBCOUCHBASE_CLUSTER_PASSWORD\fR
+.RS 4
+This is the password used during authentication to your cluster\&.
+.RE
+.PP
+\fBCOUCHBASE_CLUSTER_BUCKET\fR
+.RS 4
+This is the name of the bucket you would like to use\&.
+.RE
+.PP
+\fBLIBCOUCHBASE_EVENT_PLUGIN_NAME\fR
+.RS 4
+Override type of the IO backend\&. The value should be either the name or path to the IO plugin\&. When it is a path to custom IO plugin, the symbol name is also required, see
+\fILIBCOUCHBASE_EVENT_PLUGIN_SYMBOL\fR
+below\&. See list of known plugins and more details about IO subsystem in lcb_create_io_ops(3) page\&.
+.RE
+.PP
+\fBLIBCOUCHBASE_EVENT_PLUGIN_SYMBOL\fR
+.RS 4
+Symbol which should be accessible in the plugin\&. The library will use the function, associated with the symbol to create new instances of the IO object\&.
+.RE
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Volatile
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+cbcrc(4), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

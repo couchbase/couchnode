@@ -1,0 +1,428 @@
+'\" t
+.\"     Title: lcb_create_io_ops
+.\"    Author: Trond Norbye <trond.norbye@couchbase.com>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 08/21/2013
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LCB_CREATE_IO_OPS" "3couchbase" "08/21/2013" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lcb_create_io_ops \- Create IO ops instance
+.SH "SYNOPSIS"
+.sp
+cc [ flag \&... ] file\&... \-lcouchbase [ library \&... ]
+.sp
+.nf
+#include <libcouchbase/couchbase\&.h>
+.fi
+.sp
+.nf
+lcb_error_t lcb_create_io_ops(lcb_io_opt_t *op,
+                              const struct lcb_create_io_ops_st *options);
+.fi
+.SH "DESCRIPTION"
+.sp
+lcb_create_io_ops() is used to create an instance of the IO operations to use from libcouchbase\&. The newly created IO operation structure is returned in the \fIop\fR parameter\&.
+.sp
+\fIlcb_create_io_ops_st\fR is defined in <libcouchbase/arguments\&.h> and looks like:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+struct lcb_create_io_ops_st {
+    int version;
+    union {
+        struct {
+            lcb_io_ops_type_t type;
+            void *cookie;
+        } v0;
+        struct {
+            const char *sofile;
+            const char *symbol;
+            void *cookie;
+        } v1;
+        struct {
+            lcb_error_t (*create)(int version,
+                                  lcb_io_opt_t *io,
+                                  void *cookie);
+            void *cookie;
+        } v2;
+    } v;
+};
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The \fIversion\fR member specifies which entry in \fIv\fR to use\&. \fIv0\fR is the simplest version that allows you to specify a predefined version to use:
+.TS
+allbox tab(:);
+lt lt
+lt lt
+lt lt
+lt lt
+lt lt.
+T{
+.sp
+LCB_IO_OPS_DEFAULT
+T}:T{
+.sp
+Use the default IO ops for this platform\&. See examples from LCB_CNTL_IOPS_DEFAULT_TYPES section of lcb_cntl(3couchbase)\&.
+T}
+T{
+.sp
+LCB_IO_OPS_SELECT
+T}:T{
+.sp
+Use portable implementation based on select(2) call\&. On windows it is also aliased as LCB_IO_OPS_WINSOCK
+T}
+T{
+.sp
+LCB_IO_OPS_LIBEVENT
+T}:T{
+.sp
+Use libevent\&. \fIcookie\fR may be specified to utilize given event_base
+T}
+T{
+.sp
+LCB_IO_OPS_LIBEV
+T}:T{
+.sp
+Use libev
+T}
+T{
+.sp
+LCB_IO_OPS_WINIOCP
+T}:T{
+.sp
+Windows\-specific implementation based on IO completion ports
+T}
+.TE
+.sp 1
+.sp
+\fIv1\fR allows for more flexibility\&. \fIsofile\fR specifies the shared object containing the function used to create and initialize the IO operation\&. Some runtime linkers allows this parameter to be set to NULL to search for the object in the current application\&. \fIsymbol\fR contains the name of the function to call to create and initialize the IO ops structure\&. The symbol must be a function with the following signature:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+lcb_error_t create(int version, lcb_io_opt_t *io, const void *cookie);
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The function should return the newly created IO ops though the \fIio\fR parameter\&. The \fIcookie\fR parameter is the same value as specified as \fIcookie\fR in the \fIv0\fR structure\&. If successful the function should return LCB_SUCCESS\&.
+.sp
+\fIv2\fR is useful, when you don\(cqt want to load external module\&. So you can just put the pointer directly into the structure\&. The cookie field has the same meaning as in \fIv0\fR\&.
+.sp
+lcb_io_opt_t is a structure defined in <libcouchbase/types\&.h> with the following layout:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+struct lcb_io_opt_st {
+    int version;
+    void *dlhandle;
+    void (*destructor)(struct lcb_io_opt_st *iops);
+    union {
+        struct lcb_iops_table_v0_st v0;
+        struct lcb_iops_table_v1_st v1;
+    } v;
+};
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+As you can see again, this structure is also versioned\&. Structure \fIv0\fR was accessible since 2\&.0\&.0 release\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+struct lcb_iops_table_v0_st {
+    void *cookie;
+    int error;
+    int need_cleanup;
+    lcb_socket_t (*socket)(struct lcb_io_opt_st *iops,
+                           int domain,
+                           int type,
+                           int protocol);
+    int (*connect)(struct lcb_io_opt_st *iops,
+                   lcb_socket_t sock,
+                   const struct sockaddr *name,
+                   unsigned int namelen);
+    lcb_ssize_t (*recv)(struct lcb_io_opt_st *iops,
+                        lcb_socket_t sock,
+                        void *buffer,
+                        lcb_size_t len,
+                        int flags);
+    lcb_ssize_t (*send)(struct lcb_io_opt_st *iops,
+                        lcb_socket_t sock,
+                        const void *msg,
+                        lcb_size_t len,
+                        int flags);
+    lcb_ssize_t (*recvv)(struct lcb_io_opt_st *iops,
+                         lcb_socket_t sock,
+                         struct lcb_iovec_st *iov,
+                         lcb_size_t niov);
+    lcb_ssize_t (*sendv)(struct lcb_io_opt_st *iops,
+                         lcb_socket_t sock,
+                         struct lcb_iovec_st *iov,
+                         lcb_size_t niov);
+    void (*close)(struct lcb_io_opt_st *iops,
+                  lcb_socket_t sock);
+    void *(*create_timer)(struct lcb_io_opt_st *iops);
+    void (*destroy_timer)(struct lcb_io_opt_st *iops,
+                          void *timer);
+    void (*delete_timer)(struct lcb_io_opt_st *iops,
+                         void *timer);
+    int (*update_timer)(struct lcb_io_opt_st *iops,
+                        void *timer,
+                        lcb_uint32_t usec,
+                        void *cb_data,
+                        void (*handler)(lcb_socket_t sock,
+                                        short which,
+                                        void *cb_data));
+    void *(*create_event)(struct lcb_io_opt_st *iops);
+    void (*destroy_event)(struct lcb_io_opt_st *iops,
+                          void *event);
+    int (*update_event)(struct lcb_io_opt_st *iops,
+                        lcb_socket_t sock,
+                        void *event,
+                        short flags,
+                        void *cb_data,
+                        void (*handler)(lcb_socket_t sock,
+                                        short which,
+                                        void *cb_data));
+    void (*delete_event)(struct lcb_io_opt_st *iops,
+                         lcb_socket_t sock,
+                         void *event);
+    void (*stop_event_loop)(struct lcb_io_opt_st *iops);
+    void (*run_event_loop)(struct lcb_io_opt_st *iops);
+};
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Since libcouchbase 2\&.1\&.0 there is \fIv1\fR union member appeared\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+struct lcb_iops_table_v1_st {
+    /**
+     * IOPS optimized for IOCP\-style IO\&.
+     * The non\-IO routines are intended to be binary compatible
+     * with the older v0 structure, so I don\*(Aqt have to change too
+     * much code initially\&. Hence the \*(Aqpad\*(Aq\&.
+     * The intent is that the following functions remain
+     * ABI\-compatible with their v0 counterparts:
+     *
+     * \- create_timer
+     * \- destroy_timer
+     * \- update_timer
+     * \- cookie
+     * \- error
+     * \- need_cleanup
+     * \- run_event_loop
+     * \- stop_event_loop
+     *
+     * \- The send/recv functions have been replaced with completion\-
+     *    oriented counterparts of start_write and start_read;
+     *
+     * \- connect has been replace by start_connect
+     *
+     * \- update_event, delete_event, and destroy_event are not
+     *   available in v1\&.
+     *
+     * \- close is asynchronous, and is implied in destroy_socket\&.
+     *   destroy_socket will only be called once all pending
+     *   operations have been completed\&.
+     *
+     * Note that the \*(Aqdestructor\*(Aq itself *must* be asynchronous,
+     * as \*(Aqdestroy\*(Aq may be called when there are still pending
+     * operations\&. In this case, it means that libcouchbase is
+     * done with the IOPS structure, but the implementation should
+     * check that no operations are pending before freeing the
+     * data\&.
+     */
+    void *cookie;
+    int error;
+    int need_cleanup;
+    /**
+     * The returned socket should be initialized with a reference
+     * count of 1 on success\&.
+     * v0: socket()
+     */
+    lcb_sockdata_t *(*create_socket)(struct lcb_io_opt_st *iops,
+                                     int domain,
+                                     int type,
+                                     int protocol);
+    /**
+     * Request a connection to the socket\&.
+     * v0: connect()
+     */
+    int (*start_connect)(struct lcb_io_opt_st *iops,
+                         lcb_sockdata_t *create_socket,
+                         const struct sockaddr *name,
+                         unsigned int namelen,
+                         lcb_io_connect_cb callback);
+    /**
+     * write buffer allocation and releasing
+     * v0: recv()
+     */
+    lcb_io_writebuf_t *(*create_writebuf)(struct lcb_io_opt_st *iops,
+                                          lcb_sockdata_t *sock);
+    /**
+     * Release (free) a writebuf created with create_writebuf
+     * v0: send()
+     */
+    void (*release_writebuf)(struct lcb_io_opt_st *iops,
+                             lcb_sockdata_t *sock,
+                             lcb_io_writebuf_t *buf);
+    /**
+     * Start writing data
+     * v0: recvv()
+     */
+    int (*start_write)(struct lcb_io_opt_st *iops,
+                       lcb_sockdata_t *create_socket,
+                       lcb_io_writebuf_t *buf,
+                       lcb_io_write_cb callback);
+    /**
+     * v0: sendv()
+     * Request to read a bunch of data from the socket
+     */
+    int (*start_read)(struct lcb_io_opt_st *iops,
+                      lcb_sockdata_t *create_socket,
+                      lcb_io_read_cb callback);
+    /**
+     * Destroy the socket\&.
+     * XXX: If the socket still has a valid bufroot, this will be
+     * owned (and typically freed) by the IO plugin\&.
+     * v0: close()
+     */
+    unsigned int (*close_socket)(struct lcb_io_opt_st *iops,
+                                 lcb_sockdata_t *create_socket);
+    /**
+     * Insert normal start/stop stuff here
+     */
+    void *(*create_timer)(struct lcb_io_opt_st *iops);
+    void (*destroy_timer)(struct lcb_io_opt_st *iops,
+                          void *timer);
+    void (*delete_timer)(struct lcb_io_opt_st *iops,
+                         void *timer);
+    int (*update_timer)(struct lcb_io_opt_st *iops,
+                        void *timer,
+                        lcb_uint32_t usec,
+                        void *cb_data,
+                        void (*handler)(lcb_socket_t sock,
+                                        short which,
+                                        void *cb_data));
+    /** v0: create_event */
+    /**
+     * Return the \*(Aqremote\*(Aq and \*(Aqlocal\*(Aq address of a connected socket\&.
+     * Returns nonzero if the socket is invalid
+     */
+    int (*get_nameinfo)(struct lcb_io_opt_st *iops,
+                        lcb_sockdata_t *sock,
+                        struct lcb_nameinfo_st *ni);
+    /**  v0: destroy_event */
+    void (*pad_2)(void);
+    /** v0: update_event */
+    void (*pad_3)(void);
+    /**
+     * In the rare event that scheduling a read should fail, this should
+     * deliver an async error message to the specified callback indicating
+     * that the socket has failed\&.
+     *
+     * This is to avoid libcouchbase invoking callbacks while the
+     * user has control of the event loop
+     *
+     * v0: delete_event
+     */
+    void (*send_error)(struct lcb_io_opt_st *iops,
+                       lcb_sockdata_t *sock,
+                       lcb_io_error_cb callback);
+    void (*stop_event_loop)(struct lcb_io_opt_st *iops);
+    void (*run_event_loop)(struct lcb_io_opt_st *iops);
+};
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+If you have questions about the internal layout of this structure please ask us on IRC (irc\&.freenode\&.net) in the #libcouchbase channel
+.SH "RETURN VALUES"
+.sp
+lcb_create() returns the LCB_SUCCESS on success, or a specific error code upon failure\&. See lcb_strerror(3couchbase) for more information\&.
+.SH "ATTRIBUTES"
+.sp
+See lcb_attributes(5) for descriptions of the following attributes:
+.TS
+allbox tab(:);
+ltB ltB.
+T{
+ATTRIBUTE TYPE
+T}:T{
+ATTRIBUTE VALUE
+T}
+.T&
+lt lt
+lt lt.
+T{
+.sp
+Interface Stability
+T}:T{
+.sp
+Committed
+T}
+T{
+.sp
+MT\-Level
+T}:T{
+.sp
+MT\-Safe
+T}
+.TE
+.sp 1
+.SH "COPYRIGHT"
+.sp
+Copyright 2010\-2013 Couchbase, Inc\&.
+.SH "SEE ALSO"
+.sp
+Learn more at http://www\&.couchbase\&.com/communities/c\&.
+.sp
+libcouchbase(3lib), lcb_create(3couchbase), lcb_create_compat(3couchbase), lcb_destroy_io_ops(3couchbase), lcb_attributes(5)
+.SH "AUTHOR"
+.PP
+\fBTrond Norbye\fR <\&trond\&.norbye@couchbase\&.com\&>
+.RS 4
+Author.
+.RE

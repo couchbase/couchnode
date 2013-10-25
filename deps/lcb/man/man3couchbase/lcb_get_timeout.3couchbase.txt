@@ -1,0 +1,64 @@
+= lcb_get_timeout(3couchbase)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+lcb_get_timeout - set operation timeouts
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+
+    lcb_uint32_t lcb_get_timeout(lcb_t instance);
+
+    void lcb_set_timeout(lcb_t instance, lcb_uint32_t timeout);
+
+DESCRIPTION
+-----------
+These functions are used to modify the operation timeouts used by
+libcouchbase.
+
+The lcb_set_timeout() function specifies a new timeout value for the
+operations. The timeout value is specified in usec.
+
+The lcb_get_timeout() function returns the current timeout value.
+
+RETURN VALUES
+-------------
+lcb_get_timeout() returns the current timeout value in usec.
+
+EXAMPLES
+--------
+    #include <libcouchbase/couchbase.h>
+
+    ...
+    lcb_t instance;
+    ...
+    fprintf(stdout, "The default timeout is %u\n",
+            lcb_get_timeout(instance));
+    /* Set the timeout to 100 000 usec */
+    lcb_set_timeout(instance, 100000);
+    ...
+
+ATTRIBUTES
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+libcouchbase(3lib), lcb_create(3couchbase), lcb_attributes(5)

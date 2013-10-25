@@ -1,0 +1,230 @@
+= lcb_observe(3couchbase)
+:doctype: manpage
+Trond Norbye <trond.norbye@couchbase.com>
+
+NAME
+----
+lcb_observe - get key information
+
+SYNOPSIS
+--------
+cc [ flag ... ] file... -lcouchbase [ library ... ]
+
+    #include <libcouchbase/couchbase.h>
+
+    lcb_error_t lcb_observe(lcb_t instance,
+                            const void *command_cookie,
+                            lcb_size_t num,
+                            const lcb_observe_cmd_t *const *commands);
+
+DESCRIPTION
+-----------
+
+lcb_observe() is used to get information about a key from nodes in the
+cluster. Typically, this will be used to get information about whether
+or not a given document for a key has been persisted, but it may also
+assist in determining if a specific key and CAS value for a document
+are the same across multiple servers, indicating it has been replicated.
+If the library instance is using asynchronous mode (the
+default) this operation will return immediately and schedule the
+operations to be executed by the event loop, otherwise it will block
+until all commands are executed. command_cookie is is an opaque field
+that will be provided to the callback function.  num is the number of
+entries in the commands array.
+
+lcb_observe_cmd_t is a structure defined in <libcouchbase/arguments.h>:
+
+    typedef struct lcb_observe_cmd_t {
+        int version;              /* The enty in "v" to use */
+        union {
+            struct {
+                 const void *key; /* The key to request information for */
+                 lcb_size_t nkey; /* Lenght of the key */
+                 const void *hashkey; /* Key used to locate server (if !NULL) */
+                 lcb_size_t nhashkey; /* length of hash key */
+            } v0;
+        } v;
+    };
+
+Upon completion the observe callback as set by
+lcb_set_observe_callback(3couchbase) is called.  The callback is
+called multiple times. See lcb_set_observe_callback(3couchbase) for
+more information about observe callbacks.
+
+RETURN VALUES
+-------------
+
+lcb_observe() returns the LCB_SUCCESS on success, or a specific error
+code upon failure. See lcb_strerror(3couchbase) for more information.
+
+EXAMPLES
+--------
+
+Example 1. Prepare and schedule observe command
+
+    #include <libcouchbase/couchbase.h>
+
+    ...
+    lcb_t instance;
+    ...
+    lcb_observe_cmd_t *observe = calloc(1, sizeof(*observe));
+    observe->version = 0;
+    observe->v.v0.key = "my-key";
+    observe->v.v0.nkey = strlen(observe->v.v0.key);
+    lcb_observe_cmd_t* commands[] = { observe };
+    lcb_observe(instance, NULL, 1, commands);
+    ...
+
+Example 2. Determine key status in the cluster (see also lcb_durability_poll(3couchbase))
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <string.h>
+    #include <libcouchbase/couchbase.h>
+
+    #define fail(msg) \
+        fprintf(stderr, "%s\n", msg); \
+        exit(EXIT_FAILURE);
+
+    /* master and up to three replicas */
+    struct {
+        lcb_cas_t cas;
+        lcb_observe_t status;
+    } state[4];
+    int cur = 0;
+
+    static void observe_callback(lcb_t instance,
+                                 const void *cookie,
+                                 lcb_error_t error,
+                                 const lcb_observe_resp_t *resp)
+    {
+        if (resp->version != 0) {
+            fail("unknown response version");
+        }
+        if (error == LCB_SUCCESS) {
+            if (resp->v.v0.from_master) {
+                state[0].cas = resp->v.v0.cas;
+                state[0].status = resp->v.v0.status;
+            } else {
+                cur++;
+                state[cur].cas = resp->v.v0.cas;
+                state[cur].status = resp->v.v0.status;
+            }
+        } else {
+            fail("failed to observe the key");
+        }
+        (void)instance;
+        (void)cookie;
+    }
+
+    int main(int argc, char *argv[])
+    {
+        lcb_t instance;
+        lcb_error_t err;
+        lcb_observe_cmd_t cmd;
+        const lcb_observe_cmd_t *cmds[] = { &cmd };
+        int i, n, s, num_replicas;
+
+        if (argc != 2) {
+            fail("requires key as argument");
+        }
+        err = lcb_create(&instance, NULL);
+        if (err != LCB_SUCCESS) {
+            fail("cannot create connection instance");
+        }
+        err = lcb_connect(instance);
+        if (err != LCB_SUCCESS) {
+            fail("cannot schedule connection of the instance");
+        }
+        err = lcb_wait(instance);
+        if (err != LCB_SUCCESS) {
+            fail("cannot connect the instance");
+        }
+        num_replicas = lcb_get_num_replicas(instance);
+        lcb_set_observe_callback(instance, observe_callback);
+
+        printf("observing the state of \"%s\":\n", argv[1]);
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.version = 0;
+        cmd.v.v0.key = argv[1];
+        cmd.v.v0.nkey = strlen(argv[1]);
+        err = lcb_observe(instance, NULL, 1, cmds);
+        if (err != LCB_SUCCESS) {
+            fail("cannot schedule observe command");
+        }
+        err = lcb_wait(instance);
+        if (err != LCB_SUCCESS) {
+            fail("cannot execute observe command");
+        }
+
+        switch (state[0].status) {
+        case LCB_OBSERVE_FOUND:
+            printf("* found on master, but not persisted yet\n");
+            break;
+        case LCB_OBSERVE_NOT_FOUND:
+            printf("* not found\n");
+            break;
+        case LCB_OBSERVE_LOGICALLY_DELETED:
+            printf("* no longer exists in cache, but may still remain on disk\n");
+            n = s = 0;
+            for (i = 1; i < num_replicas; ++i) {
+                if (state[0].cas == state[i].cas) {
+                    n++;
+                } else if (state[i].status != LCB_OBSERVE_NOT_FOUND) {
+                    s++;
+                }
+            }
+            if (n) {
+                printf("* exists on %d replica node(s)\n", n);
+            }
+            if (s) {
+                printf("* %d replica node(s) have stale version of the key\n", n);
+            }
+            break;
+        case LCB_OBSERVE_PERSISTED:
+            printf("* persisted on master\n");
+            n = s = 0;
+            for (i = 1; i < num_replicas; ++i) {
+                if (state[0].cas == state[i].cas) {
+                    n++;
+                } else if (state[i].status != LCB_OBSERVE_NOT_FOUND) {
+                    s++;
+                }
+            }
+            if (n) {
+                printf("* exists on %d replica node(s)\n", n);
+            }
+            if (s) {
+                printf("* %d replica node(s) have stale version of the key\n", n);
+            }
+            break;
+        default:
+            fail("unexpected status");
+        }
+
+        return EXIT_SUCCESS;
+    }
+
+
+ATTRIBUTES
+----------
+See lcb_attributes(5) for descriptions of the following attributes:
+
+[options="header"]
+|=======================================
+| ATTRIBUTE TYPE      | ATTRIBUTE VALUE
+| Interface Stability | Committed
+| MT-Level            | MT-Safe
+|=======================================
+
+COPYRIGHT
+---------
+Copyright 2010-2013 Couchbase, Inc.
+
+SEE ALSO
+--------
+Learn more at <http://www.couchbase.com/communities/c>.
+
+libcouchbase(3lib), lcb_attributes(5), lcb_get_observe_callback(3couchbase),
+lcb_set_observe_callback(3couchbase), lcb_durability_poll(3couchbase),
+lcb_set_durability_callback(3couchbase)
