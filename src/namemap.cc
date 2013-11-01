@@ -31,6 +31,7 @@ void NameMap::initialize()
     install("dict", OPSTYLE_HASHTABLE);
     install("str", PROP_STR);
     install("locktime", LOCKTIME);
+    install("index", INDEX);
     install("flags", FLAGS);
     install("key", KEY);
     install("value", VALUE);

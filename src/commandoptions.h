@@ -51,6 +51,17 @@ struct GetOptions : Parameters
     void merge(const GetOptions &other);
 };
 
+struct GetReplicaOptions : Parameters
+{
+    NAMED_OPTION(IndexOption, Int32Option, INDEX);
+    NAMED_OPTION(FormatOption, V8ValueOption, FMT_TYPE);
+
+    IndexOption index;
+    FormatOption format;
+    bool parseObject(const Handle<Object> opts, CBExc &ex);
+    void merge(const GetReplicaOptions &other);
+};
+
 struct StoreOptions : Parameters
 {
     NAMED_OPTION(FormatOption, V8ValueOption, FMT_TYPE);

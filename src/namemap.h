@@ -36,6 +36,7 @@ namespace Couchnode
             KEY,
             VALUE,
             LOCKTIME,
+            INDEX,
             INITIAL,
             FLAGS,
             OPSTYLE_POSITIONAL,

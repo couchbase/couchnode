@@ -90,6 +90,70 @@ bool GetOptions::parseObject(const Handle<Object> options, CBExc &ex)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+/// Get Replica                                                              ///
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void GetReplicaOptions::merge(const GetReplicaOptions &other)
+{
+    if (!index.isFound()) {
+        index = other.index;
+    }
+    if (!format.isFound()) {
+        format = other.format;
+    }
+}
+bool GetReplicaCommand::handleSingle(Command *p,
+                              CommandKey &ki,
+                              Handle<Value> params, unsigned int ix)
+{
+    GetReplicaCommand *ctx = static_cast<GetReplicaCommand *>(p);
+    GetReplicaOptions kOptions;
+
+    if (params.IsEmpty() == false && params->IsObject()) {
+        if (!kOptions.parseObject(params.As<Object>(), ctx->err)) {
+            return false;
+        }
+    }
+
+    kOptions.merge(ctx->globalOptions);
+
+    lcb_get_replica_cmd_t *cmd = ctx->commands.getAt(ix);
+    ki.setKeyV0(cmd);
+
+    if (kOptions.index.isFound()) {
+      if (kOptions.index.v >= 0) {
+        cmd->v.v1.strategy = LCB_REPLICA_SELECT;
+        cmd->v.v1.index = kOptions.index.v;
+      } else {
+        cmd->v.v1.strategy = LCB_REPLICA_FIRST;
+      }
+    }
+
+    if (kOptions.format.isFound()) {
+        ValueFormat::Spec spec = ValueFormat::toSpec(kOptions.format.v, ctx->err);
+        // ignore auto so the handler uses the incoming flags
+        if (spec != ValueFormat::AUTO) {
+            ctx->setCookieKeyOption(ki.getObject(), Number::New(spec));
+        }
+    }
+
+    return true;
+}
+
+lcb_error_t GetReplicaCommand::execute(lcb_t instance)
+{
+    return lcb_get_replica(instance, cookie, commands.size(), commands.getList());
+}
+
+bool GetReplicaOptions::parseObject(const Handle<Object> options, CBExc &ex)
+{
+    ParamSlot *specs[] = { &format };
+    return ParamSlot::parseAll(options, specs, 1, ex);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 /// Set                                                                      ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

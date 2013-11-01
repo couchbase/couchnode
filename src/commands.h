@@ -217,6 +217,27 @@ protected:
     }
 };
 
+class GetReplicaCommand : public Command
+{
+
+public:
+    CTOR_COMMON(GetReplicaCommand)
+    lcb_error_t execute(lcb_t);
+    static bool handleSingle(Command *,
+                             CommandKey&, Handle<Value>, unsigned int);
+
+    virtual Command* copy() { return new GetReplicaCommand(*this); }
+
+protected:
+    Parameters* getParams() { return &globalOptions; }
+    GetReplicaOptions globalOptions;
+    CommandList<lcb_get_replica_cmd_t> commands;
+    ItemHandler getHandler() const { return handleSingle; }
+    virtual bool initCommandList() {
+        return commands.initialize(keys.size());
+    }
+};
+
 class LockCommand : public GetCommand
 {
 public:

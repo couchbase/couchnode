@@ -122,6 +122,13 @@ struct FlagsOption : UInt32Option
     }
 };
 
+struct IndexOption : Int32Option
+{
+    virtual Handle<String> getName() const {
+        return NameMap::names[NameMap::INDEX];
+    }
+};
+
 struct BooleanOption : ParamSlot
 {
     bool v;

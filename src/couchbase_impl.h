@@ -112,6 +112,7 @@ public:
 
     static Handle<Value> GetLastError(const Arguments &);
     static Handle<Value> GetMulti(const Arguments &);
+    static Handle<Value> GetReplicaMulti(const Arguments &);
     static Handle<Value> LockMulti(const Arguments &);
     static Handle<Value> SetMulti(const Arguments &);
     static Handle<Value> ReplaceMulti(const Arguments &);
