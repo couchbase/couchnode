@@ -10,8 +10,8 @@ if (fs.existsSync(configFilename)) {
   config = JSON.parse(fs.readFileSync(configFilename));
 } else {
   config = {
-    host : "localhost:8091",
-    bucket : "default",
+    host : process.env.CNHOST ? process.env.CNHOST : "localhost:8091",
+    bucket : process.env.CNBUCKET ? process.env.CNBUCKET : "default",
     operationTimeout : 20000,
     connectionTimeout : 20000
   };
