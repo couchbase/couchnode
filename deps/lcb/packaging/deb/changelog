@@ -1,3 +1,123 @@
+libcouchbase (2.2.0) stable; urgency=low
+
+  * [major] CCBC-169 Handle 302 redirects in HTTP (views, administrative
+    requests). By default the library will follow up to three redirects. Once
+    the limit reached the request will be terminated with code
+    'LCB_TOO_MANY_REDIRECTS'. Limit is configurable through
+    'LCB_CNTL_MAX_REDIRECTS'. If set to -1, it will disable redirect limit.
+
+        int new_value = 5;
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_MAX_REDIRECTS, &new_value);
+
+  * [major] CCBC-243 Replace isasl with cbsasl, the latter has implemented
+    both PLAIN and CRAM-MD5 authentication mechanisms.
+
+    * 'LCB_CNTL_MEMDNODE_INFO' command updated to include effective SASL
+      mechanism:
+
+          cb_cntl_server_t node;
+          node.version = 1;
+          node.v.v1.index = 0; /* first node */
+          lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_MEMDNODE_INFO, &node);
+          if (node.v.v1.sasl_mech) {
+              printf("authenticated via SASL '%s'\n",
+                     node.v.v1.sasl_mech);
+          }
+
+    * It is also possible to force specific authentication mechanism for
+      the connection handle using 'LCB_CNTL_FORCE_SASL_MECH' command:
+
+          lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, "PLAIN");
+
+  * [major] CCBC-286 libuv plugin: use same CRT for free/malloc
+
+  * [major] CCBC-288 Fail 'NOT_MY_VBUCKET' responses on timeout
+
+  * [major] CCBC-275 Do a full purge when negotiation times out. In this case
+    we must purge the server from all commands and not simply pop individual
+    items.
+
+  * [major] CCBC-275 Reset the server's buffers upon reconnection. This
+    fixes a crash experienced when requesting a new read with the
+    previous buffer still in tact. This was exposed by calling
+    'lcb_failout_server' on a timeout error while maintaining the same
+    server struct.
+
+  * [major] CCBC-282 Make server buffers reentrant-safe. When purging
+    implicit commands, we invoke callbacks which may in turn cause other
+    LCB entry points to be invoked which can shift the contents and/or
+    positions of the ringbuffers we're reading from.
+
+  * [major] CCBC-204, CCBC-205 Stricter/More inspectable behavior for
+    config cache. This provides a test and an additional 'lcb_cntl'
+    operation to check the status of the configuration cache. Also it
+    switches off config cache with memcached buckets.
+
+        int is_loaded;
+        lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
+        if (is_loaded) {
+            printf("Configuration cache saved us a trip to the config server\n");
+        } else {
+            printf("We had to contact the configuration server for some reason\n");
+        }
+
+  * [major] CCBC-278 Use common config retry mechanism for bad
+    configcache. This uses the same error handling mechanism as when a
+    bad configuration has been received from the network. New
+    'LCB_CONFIG_CACHE_INVALID' error code to notify the user of such a
+    situation
+
+  * [major] CCBC-274 Handle getl/unl when purging the server (thanks
+    Robert Groenenberg)
+
+  * [major] Don't failout all commands on a timeout. Only fail those
+    commands which are old enough to have timed out already.
+
+  * [major] CCBC-269 Don't record and use TTP/TTR from observe. Just
+    poll at a fixed interval, as the responses from the server side can
+    be unreliable.
+
+  * [minor] Allow hooks for mapping server codes to errors. This also
+    helps handle sane behavior if a new error code is introduced, or
+    allow user-defined logging when a specific error code is received.
+
+        lcb_errmap_callback default_callback;
+
+        lcb_error_t user_map_error(lcb_t instance, lcb_uint16_t in)
+        {
+          if (in == PROTOCOL_BINARY_RESPONSE_ETMPFAIL) {
+            fprintf(stderr, "temporary failure on server\n");
+          }
+          return default_callback(instance, in);
+        }
+
+        ...
+
+        default_callback = lcb_set_errmap_callback(conn, user_map_error);
+
+  * [minor] Add an example of a connection pool. See
+    'example/instancepool' directory
+
+  * [minor] CCBC-279 Force 'lcb_wait' return result of wait operation
+    instead of 'lcb_get_last_error'. It returns 'last_error' if and only
+    if the handle is not yet configured
+
+  * [minor] CCBC-284 'cbc-pillowfight': compute item size correctly
+    during set If 'minSize' and 'maxSize' are set to the same value it
+    can sometimes crash since it may try to read out of memory bounds
+    from the allocated data buffer.
+
+  * [minor] CCBC-283 Apply key prefix CLI option in cbc-pillowfight
+
+  * [minor] Add '--enable-maintainer-mode'. Maintainer mode enables
+    '--enable-werror --enable-warnings --enable-debug', forces all
+    plugins to be installed and forces all tests, tools, and examples to
+    be built
+
+  * [minor] CCBC-255 Expose 'LCB_MAX_ERROR' to allow user-defined codes
+
+ -- Sergey Avseyev <sergey@couchbase.com>  Wed, 06 Nov 2013 18:49:38 +0300
+
 libcouchbase (2.1.3) stable; urgency=low
 
   * [minor] Updated gtest to version 1.7.0. Fixes issue with building

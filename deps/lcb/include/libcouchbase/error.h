@@ -224,17 +224,25 @@ extern "C" {
          * The requested SASL mechanism (forced via lcb_cntl) was not
          * available for use
          */
-        LCB_SASLMECH_UNAVAILABLE = 0x28
+        LCB_SASLMECH_UNAVAILABLE = 0x28,
+
+        /**
+         * Maximum allowed number redirects reached. See lcb_cntl(3)
+         * manpage for LCB_MAX_REDIRECTS options to get/set this limit.
+         */
+        LCB_TOO_MANY_REDIRECTS = 0x29,
 
 #ifdef LIBCOUCHBASE_INTERNAL
         /**
          * This is a private value used by the tests in libcouchbase
          */
-        ,LCB_MAX_ERROR_VAL = 0x29
+        LCB_MAX_ERROR_VAL = 0x2a,
 #endif
 
-
+        /* The errors below this value reserver for libcouchbase usage. */
+        LCB_MAX_ERROR = 0x1000
     } lcb_error_t;
+
 
 #define lcb_is_error_enomem(a) ((a == LCB_CLIENT_ENOMEM) || \
                                 (a == LCB_ENOMEM))

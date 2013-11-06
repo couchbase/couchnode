@@ -386,7 +386,7 @@ do {                                                                 \
     goto error;                                                      \
   }                                                                  \
 } while (0)
-# define NEW_MESSAGE() (http_should_keep_alive(parser) ? start_state : s_dead)
+# define NEW_MESSAGE() (_lcb_http_should_keep_alive(parser) ? start_state : s_dead)
 #else
 # define STRICT_CHECK(cond)
 # define NEW_MESSAGE() start_state
@@ -590,7 +590,7 @@ parse_url_char(enum state s, const char ch)
   return s_dead;
 }
 
-size_t http_parser_execute (http_parser *parser,
+size_t _lcb_http_parser_execute (http_parser *parser,
                             const http_parser_settings *settings,
                             const char *data,
                             size_t len)
@@ -1892,7 +1892,7 @@ http_message_needs_eof (http_parser *parser)
 
 
 int
-http_should_keep_alive (http_parser *parser)
+_lcb_http_should_keep_alive (http_parser *parser)
 {
   if (parser->http_major > 0 && parser->http_minor > 0) {
     /* HTTP/1.1 */
@@ -1910,14 +1910,14 @@ http_should_keep_alive (http_parser *parser)
 }
 
 
-const char * http_method_str (enum http_method m)
+const char * _lcb_http_method_str (enum http_method m)
 {
   return method_strings[m];
 }
 
 
 void
-http_parser_init (http_parser *parser, enum http_parser_type t)
+_lcb_http_parser_init (http_parser *parser, enum http_parser_type t)
 {
   void *data = parser->data; /* preserve application data */
   memset(parser, 0, sizeof(*parser));
@@ -1928,19 +1928,19 @@ http_parser_init (http_parser *parser, enum http_parser_type t)
 }
 
 const char *
-http_errno_name(enum http_errno err) {
+_lcb_http_errno_name(enum http_errno err) {
   assert(err < (sizeof(http_strerror_tab)/sizeof(http_strerror_tab[0])));
   return http_strerror_tab[err].name;
 }
 
 const char *
-http_errno_description(enum http_errno err) {
+_lcb_http_errno_description(enum http_errno err) {
   assert(err < (sizeof(http_strerror_tab)/sizeof(http_strerror_tab[0])));
   return http_strerror_tab[err].description;
 }
 
 int
-http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
+_lcb_http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
                       struct http_parser_url *u)
 {
   enum state s;
@@ -2046,7 +2046,7 @@ http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
 }
 
 void
-http_parser_pause(http_parser *parser, int paused) {
+_lcb_http_parser_pause(http_parser *parser, int paused) {
   /* Users should only be pausing/unpausing a parser that is not in an error
    * state. In non-debug builds, there's not much that we can do about this
    * other than ignore it.

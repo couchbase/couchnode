@@ -168,8 +168,36 @@ void setup_lcb_flush_resp_t(lcb_flush_resp_t *resp,
     resp->v.v0.server_endpoint = server_endpoint;
 }
 
-static lcb_error_t map_error(protocol_binary_response_status in)
+/**
+ * Default mapping for user-modifiable behavior
+ */
+LIBCOUCHBASE_API
+lcb_error_t lcb_errmap_default(lcb_t instance, lcb_uint16_t in)
 {
+    (void)instance;
+
+    switch (in) {
+    case PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET:
+        return LCB_NO_MATCHING_SERVER;
+    case PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE:
+        return LCB_AUTH_CONTINUE;
+    case PROTOCOL_BINARY_RESPONSE_EBUSY:
+        return LCB_EBUSY;
+    case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
+        return LCB_ETMPFAIL;
+    case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
+        return LCB_EINTERNAL;
+    default:
+        return LCB_ERROR;
+    }
+}
+
+static lcb_error_t map_error(lcb_t instance,
+                             protocol_binary_response_status in)
+{
+
+    (void)instance;
+
     switch (in) {
     case PROTOCOL_BINARY_RESPONSE_SUCCESS:
         return LCB_SUCCESS;
@@ -187,27 +215,16 @@ static lcb_error_t map_error(protocol_binary_response_status in)
         return LCB_NOT_STORED;
     case PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL:
         return LCB_DELTA_BADVAL;
-    case PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET:
-        return LCB_NOT_MY_VBUCKET;
     case PROTOCOL_BINARY_RESPONSE_AUTH_ERROR:
         return LCB_AUTH_ERROR;
-    case PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE:
-        return LCB_AUTH_CONTINUE;
     case PROTOCOL_BINARY_RESPONSE_ERANGE:
         return LCB_ERANGE;
     case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
         return LCB_UNKNOWN_COMMAND;
     case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
         return LCB_NOT_SUPPORTED;
-    case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
-        return LCB_EINTERNAL;
-    case PROTOCOL_BINARY_RESPONSE_EBUSY:
-        return LCB_EBUSY;
-    case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
-        return LCB_ETMPFAIL;
     default:
-        return LCB_ERROR;
-
+        return instance->callbacks.errmap(instance, in);
     }
 }
 
@@ -327,7 +344,7 @@ static void getq_response_handler(lcb_server_t *server,
     char *packet;
     lcb_uint16_t nkey;
     const char *key = get_key(server, &nkey, &packet);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
 
     nbytes -= res->response.extlen;
     if (key == NULL) {
@@ -365,7 +382,7 @@ static void get_replica_response_handler(lcb_server_t *server,
     const char *key = (const char *)res;
     char *packet;
 
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
 
     key += sizeof(get->bytes);
     if (key == NULL) {
@@ -463,7 +480,7 @@ static void delete_response_handler(lcb_server_t *server,
 {
     lcb_t root = server->instance;
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
     char *packet;
     lcb_uint16_t nkey;
     const char *key = get_key(server, &nkey, &packet);
@@ -486,7 +503,7 @@ static void observe_response_handler(lcb_server_t *server,
 {
     lcb_t root = server->instance;
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
     lcb_uint32_t ttp;
     lcb_uint32_t ttr;
     lcb_size_t pos;
@@ -596,7 +613,7 @@ static void store_response_handler(lcb_server_t *server,
     const char *key = get_key(server, &nkey, &packet);
 
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
 
     switch (res->response.opcode) {
     case PROTOCOL_BINARY_CMD_ADD:
@@ -645,7 +662,7 @@ static void arithmetic_response_handler(lcb_server_t *server,
 {
     lcb_t root = server->instance;
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
     char *packet;
     lcb_uint16_t nkey;
     const char *key = get_key(server, &nkey, &packet);
@@ -676,7 +693,7 @@ static void stat_response_handler(lcb_server_t *server,
 {
     lcb_t root = server->instance;
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
     lcb_uint16_t nkey;
     lcb_uint32_t nvalue;
     const char *key, *value;
@@ -728,7 +745,7 @@ static void verbosity_response_handler(lcb_server_t *server,
 {
     lcb_t root = server->instance;
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
     lcb_verbosity_resp_t resp;
 
     setup_lcb_verbosity_resp_t(&resp, server->authority);
@@ -753,7 +770,7 @@ static void version_response_handler(lcb_server_t *server,
 {
     lcb_t root = server->instance;
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
     lcb_uint32_t nvstring = ntohl(res->response.bodylen);
     const char *vstring;
     lcb_server_version_resp_t resp;
@@ -928,7 +945,7 @@ static void touch_response_handler(lcb_server_t *server,
     lcb_uint16_t nkey;
     const char *key = get_key(server, &nkey, &packet);
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
 
     if (key == NULL) {
         lcb_error_handler(server->instance, LCB_EINTERNAL,
@@ -949,7 +966,7 @@ static void flush_response_handler(lcb_server_t *server,
 {
     lcb_t root = server->instance;
     lcb_uint16_t status = ntohs(res->response.status);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
     lcb_flush_resp_t resp;
     setup_lcb_flush_resp_t(&resp, server->authority);
 
@@ -975,7 +992,7 @@ static void unlock_response_handler(lcb_server_t *server,
     char *packet;
     lcb_uint16_t nkey;
     const char *key = get_key(server, &nkey, &packet);
-    lcb_error_t rc = map_error(status);
+    lcb_error_t rc = map_error(root, status);
 
     if (key == NULL) {
         lcb_error_handler(server->instance, LCB_EINTERNAL,
@@ -1183,6 +1200,7 @@ void lcb_initialize_packet_handlers(lcb_t instance)
     instance->callbacks.observe = dummy_observe_callback;
     instance->callbacks.verbosity = dummy_verbosity_callback;
     instance->callbacks.durability = dummy_durability_callback;
+    instance->callbacks.errmap = lcb_errmap_default;
 }
 
 int lcb_dispatch_response(lcb_server_t *c,
@@ -1429,6 +1447,17 @@ lcb_durability_callback lcb_set_durability_callback(lcb_t instance,
     lcb_durability_callback ret = instance->callbacks.durability;
     if (cb != NULL) {
         instance->callbacks.durability = cb;
+    }
+    return ret;
+}
+
+LIBCOUCHBASE_API
+lcb_errmap_callback lcb_set_errmap_callback(lcb_t instance,
+                                            lcb_errmap_callback cb)
+{
+    lcb_errmap_callback ret = instance->callbacks.errmap;
+    if (cb != NULL) {
+        instance->callbacks.errmap = cb;
     }
     return ret;
 }

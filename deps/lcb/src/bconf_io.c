@@ -135,6 +135,10 @@ static void connection_error(lcb_t instance, lcb_error_t err,
         instance->confstatus = LCB_CONFSTATE_RETRY;
     }
 
+    if (instance->backup_nodes[instance->backup_idx] == NULL) {
+        instance->backup_idx = 0;
+    }
+
     if (switch_node(instance, err, errinfo) != -1) {
         return;
     }

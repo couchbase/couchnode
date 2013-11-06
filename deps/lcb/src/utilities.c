@@ -247,11 +247,16 @@ int lcb_getenv_boolean(const char *key)
 #endif
 
 #ifdef _WIN32
-int iocp_initialize_winsock(void);
 lcb_error_t lcb_initialize_socket_subsystem(void)
 {
-    if (!iocp_initialize_winsock()) {
-        return LCB_EINTERNAL;
+    static volatile LONG initialized = 0;
+    WSADATA wsaData;
+
+    if (InterlockedCompareExchange(&initialized, 1, 0)) {
+        return LCB_SUCCESS;
+    }
+    if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0) {
+        lcb_assert("Winsock initialization error" && 0);
     }
     return LCB_SUCCESS;
 }

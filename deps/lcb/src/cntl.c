@@ -344,6 +344,24 @@ static lcb_error_t force_sasl_mech_handler(int mode,
     return LCB_SUCCESS;
 }
 
+static lcb_error_t max_redirects(int mode, lcb_t instance, int cmd, void *arg)
+{
+    int *val = arg;
+
+    if (*val < -1) {
+        return LCB_EINVAL;
+    }
+    if (mode == LCB_CNTL_SET) {
+        instance->max_redir = *val;
+    } else {
+        *val = instance->max_redir;
+    }
+
+    (void)cmd;
+    return LCB_SUCCESS;
+}
+
+
 static ctl_handler handlers[] = {
     timeout_common, /* LCB_CNTL_OP_TIMEOUT */
     timeout_common, /* LCB_CNTL_VIEW_TIMEOUT */
@@ -368,6 +386,7 @@ static ctl_handler handlers[] = {
     randomize_bootstrap_hosts_handler /* LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS */,
     config_cache_loaded_handler /* LCB_CNTL_CONFIG_CACHE_LOADED */,
     force_sasl_mech_handler, /* LCB_CNTL_FORCE_SASL_MECH */
+    max_redirects, /* LCB_CNTL_MAX_REDIRECTS */
 };
 
 

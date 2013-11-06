@@ -53,6 +53,7 @@
 #define LCB_DEFAULT_DURABILITY_INTERVAL 100000
 #define LCB_DEFAULT_HTTP_TIMEOUT 75000000
 
+#define LCB_DEFAULT_CONFIG_MAXIMUM_REDIRECTS 3
 #define LCB_DEFAULT_CONFIG_ERRORS_THRESHOLD 100
 #define LCB_LAST_HTTP_HEADER "X-Libcouchbase: \r\n"
 #define LCB_CONFIG_CACHE_MAGIC "{{{fb85b563d0a8f65fa8d3d58f1b3a0708}}}"
@@ -69,6 +70,7 @@ extern "C" {
     struct lcb_command_data_st {
         hrtime_t start;
         const void *cookie;
+        hrtime_t real_start;
         lcb_uint16_t vbucket;
         /* if != -1, it means that we are sequentially iterating
          * through the all replicas until first successful response */
@@ -178,6 +180,7 @@ extern "C" {
         lcb_verbosity_callback verbosity;
         lcb_durability_callback durability;
         lcb_exists_callback exists;
+        lcb_errmap_callback errmap;
     };
 
     struct lcb_st {
@@ -284,6 +287,9 @@ extern "C" {
         lcb_size_t rbufsize;
         lcb_size_t wbufsize;
 
+        /** maximum redirect hops. -1 means infinite redirects */
+        int max_redir;
+
         struct {
             lcb_compat_t type;
             union {
@@ -377,6 +383,12 @@ extern "C" {
         char *data;
     };
 
+    typedef struct {
+        lcb_list_t list;
+        char *key;
+        char *val;
+    } lcb_http_header_t;
+
     typedef enum {
         /**
          * The request is still ongoing. Callbacks are still active
@@ -406,13 +418,18 @@ extern "C" {
         /** The requested path (without couch api endpoint) */
         char *path;
         lcb_size_t npath;
-        /** The password. It is here to simplify memory management */
-        char *password;
+        /** The body buffer */
+        char *body;
+        lcb_size_t nbody;
         /** The type of HTTP request */
         lcb_http_method_t method;
         /** The HTTP response parser */
         http_parser *parser;
         http_parser_settings parser_settings;
+        char *host;
+        lcb_size_t nhost;
+        char *port;
+        lcb_size_t nport;
 
         /** Non-zero if caller would like to receive response in chunks */
         int chunked;
@@ -427,12 +444,18 @@ extern "C" {
         const void *command_cookie;
         /** Reference count */
         unsigned int refcount;
+        /** Redirect count */
+        int redircount;
+        char *redirect_to;
 
         /** Current state */
         lcb_http_request_status_t status;
 
         /** Request type; views or management */
         lcb_http_type_t reqtype;
+
+        /** Request headers */
+        lcb_http_header_t headers_out;
 
         /** Linked list of headers */
         struct lcb_http_header_st *headers_list;
@@ -671,6 +694,8 @@ extern "C" {
                                  lcb_http_request_t req,
                                  lcb_error_t error);
     void lcb_http_request_decref(lcb_http_request_t req);
+    lcb_error_t lcb_http_verify_url(lcb_http_request_t req, const char *base, lcb_size_t nbase);
+    lcb_error_t lcb_http_request_exec(lcb_http_request_t req);
     lcb_error_t lcb_http_parse_setup(lcb_http_request_t req);
     lcb_error_t lcb_http_request_connect(lcb_http_request_t req);
     int lcb_http_request_do_parse(lcb_http_request_t req);

@@ -340,6 +340,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     obj->durability_interval = LCB_DEFAULT_DURABILITY_INTERVAL;
     obj->http_timeout = LCB_DEFAULT_HTTP_TIMEOUT;
     obj->weird_things_threshold = LCB_DEFAULT_CONFIG_ERRORS_THRESHOLD;
+    obj->max_redir = LCB_DEFAULT_CONFIG_MAXIMUM_REDIRECTS;
 
     lcb_initialize_packet_handlers(obj);
 
@@ -497,6 +498,14 @@ void lcb_destroy(lcb_t instance)
     free(instance);
 }
 
+static void dummy_error_callback(lcb_t instance, lcb_error_t err,
+                                 const char *msg)
+{
+    (void)instance;
+    (void)err;
+    (void)msg;
+}
+
 LIBCOUCHBASE_API
 lcb_error_t lcb_connect(lcb_t instance)
 {
@@ -513,11 +522,18 @@ lcb_error_t lcb_connect(lcb_t instance)
         return LCB_SUCCESS;
     case LCB_CONNSTATE_INPROGRESS:
         return LCB_BUSY;
-    default:
-        /**
-         * Schedule the connection to begin, start the timer:
-         */
-        return lcb_instance_start_connection(instance);
+    default: {
+        lcb_error_t ret;
+        lcb_error_callback old_cb;
+
+        old_cb = instance->callbacks.error;
+        instance->callbacks.error = dummy_error_callback;
+        ret = lcb_instance_start_connection(instance);
+        instance->callbacks.error = old_cb;
+        return ret;
+
+    }
+
     }
 }
 
@@ -533,4 +549,17 @@ void lcb_free_backup_nodes(lcb_t instance)
     }
     free(instance->backup_nodes);
     instance->backup_nodes = NULL;
+    instance->backup_idx = 0;
+}
+
+LIBCOUCHBASE_API
+void *lcb_mem_alloc(lcb_size_t size)
+{
+    return malloc(size);
+}
+
+LIBCOUCHBASE_API
+void lcb_mem_free(void *ptr)
+{
+    free(ptr);
 }

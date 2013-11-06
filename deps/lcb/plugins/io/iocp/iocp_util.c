@@ -98,21 +98,6 @@ lcb_uint64_t iocp_millis(void)
     return (tm.time * 1000) + tm.millitm;
 }
 
-int iocp_initialize_winsock(void)
-{
-    static IOCP_SYNCTYPE initialized = 0;
-    WSADATA wsaData;
-
-    if (!IOCP_INITONCE(initialized)) {
-        return 1;
-    }
-
-    if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0) {
-        lcb_assert("Winsock initialization error" && 0);
-    }
-    return 1;
-}
-
 LPFN_CONNECTEX iocp_initialize_connectex(SOCKET sock)
 {
     LPFN_CONNECTEX ret = NULL;

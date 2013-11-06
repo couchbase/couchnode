@@ -883,6 +883,25 @@ extern "C" {
                                     lcb_size_t ncmds,
                                     const lcb_durability_cmd_t *const *cmds);
 
+    /**
+     * This may be used in conjunction with the errmap callback if it wishes
+     * to fallback for default behavior for the given code.
+     */
+    LIBCOUCHBASE_API
+    lcb_error_t lcb_errmap_default(lcb_t instance, lcb_uint16_t code);
+
+    /**
+     * Functions to allocate and free memory related to libcouchbase. This is
+     * mainly for use on Windows where it is possible that the DLL and EXE
+     * are using two different CRTs
+     */
+    LIBCOUCHBASE_API
+    void *lcb_mem_alloc(lcb_size_t size);
+
+    /** Use this to free memory allocated with lcb_mem_alloc */
+    LIBCOUCHBASE_API
+    void lcb_mem_free(void *ptr);
+
 
 #ifdef __cplusplus
 }

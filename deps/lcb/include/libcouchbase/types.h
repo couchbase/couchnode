@@ -228,7 +228,8 @@ extern "C" {
     struct lcb_buf_info {
         /**
          * This is an allocated buffer. The IOPS plugin will free this
-         * when the containing structure is destroyed.
+         * when the containing structure is destroyed. This must be freed
+         * using lcb_mem_free
          */
         char *root;
 
@@ -239,6 +240,8 @@ extern "C" {
          * Ringbuffer structure used by lcb internally. Its contents are not
          * public, but it will be freed by the IOPS plugin when the containing
          * structure is destroyed as well.
+         *
+         * Should be freed using lcb_mem_free
          */
         struct ringbuffer_st *ringbuffer;
 

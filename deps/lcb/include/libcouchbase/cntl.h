@@ -326,12 +326,20 @@ extern "C" {
      * value (in LCB_CNTL_GET) is valid only until the next call to a
      * libcouchbase API, after which it may have been freed.
      *
-     * Arg: char* (for LCB_CNTL_SET), char** (for LCB_CNTL_SET)
+     * Arg: char* (for LCB_CNTL_SET), char** (for LCB_CNTL_GET)
      */
 #define LCB_CNTL_FORCE_SASL_MECH 0x16
 
+    /**
+     * Get/Set. Set how many redirects the library should follow for
+     * the single request. Set to -1 to remove limit at all.
+     *
+     * Arg: int*
+     */
+#define LCB_CNTL_MAX_REDIRECTS 0x17
+
     /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x17
+#define LCB_CNTL__MAX                    0x18
 
 
 #ifdef __cplusplus

@@ -404,6 +404,10 @@ example_db_db_SOURCES = example/db/db.c
 example_db_db_DEPENDENCIES = libcouchbase.la
 example_db_db_LDADD = libcouchbase.la
 
+example_db_vb_SOURCES = example/db/vb.c
+example_db_vb_DEPENDENCIES = libcouchbase.la
+example_db_vb_LDADD = libcouchbase.la
+
 example_libeventdirect_eventloop_SOURCES = example/libeventdirect/main.c
 example_libeventdirect_eventloop_DEPENDENCIES = libcouchbase.la
 example_libeventdirect_eventloop_LDADD = libcouchbase.la -levent
@@ -427,6 +431,7 @@ endif
 if BUILD_EXAMPLES
 noinst_PROGRAMS += \
                    example/db/db \
+                   example/db/vb \
                    example/instancepool/instancepool \
                    example/minimal/minimal \
                    example/observe/observe \

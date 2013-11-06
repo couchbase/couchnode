@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lcb_cntl
 .\"    Author: Trond Norbye <trond.norbye@couchbase.com>
-.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 10/22/2013
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 11/05/2013
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LCB_CNTL" "3couchbase" "10/22/2013" "\ \&" "\ \&"
+.TH "LCB_CNTL" "3couchbase" "11/05/2013" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -433,7 +433,8 @@ printf("node \e"%s:%s\e" is %s\en", node\&.v\&.v1\&.host, node\&.v\&.v1\&.port,
        node\&.v\&.v1\&.connected ? "connected" : "is not connected");
 if (node\&.v\&.v1\&.sasl_mech) {
     printf("Node is authenticated via SASL \*(Aq%s\*(Aq\en",
-           node\&.v\&.v0\&.sasl_mech);
+           node\&.v\&.v1\&.sasl_mech);
+}
 .fi
 .if n \{\
 .RE
@@ -747,16 +748,7 @@ lcb_cntl(instance, LCB_CNTL_SET,
 .RS 4
 Determines whether the configuration cache (if used) was used\&. If the configuration cache is in use, the argument pointer will be set to a true value\&. If the configuration cache was not used, the argument pointer will be set to false\&.
 .sp
-.if n \{\
-.RS 4
-.\}
-.nf
-A false value may indicates that the client will need to load the
-configuration from the network\&. This may be caused by the following:
-.fi
-.if n \{\
-.RE
-.\}
+A false value may indicates that the client will need to load the configuration from the network\&. This may be caused by the following:
 .sp
 .RS 4
 .ie n \{\
@@ -807,40 +799,47 @@ if (is_loaded) {
 .RE
 .RE
 .PP
-\fBLCB_CNTL_FORCE_SASL_MECH\fR \fI(char\fR\fI\fB)\fR\fR\fI, \fR\fI\fI(char \fR\fR)
+\fBLCB_CNTL_FORCE_SASL_MECH\fR \fI(char*)\fR, \fI(char **)\fR
 .RS 4
 Get/Set\&. Force a specific SASL mechanism to use for authentication\&. This can allow a user to ensure a certain level of security and have the connection fail if the desired mechanism is not available\&.
 .sp
-.if n \{\
-.RS 4
-.\}
-.nf
-When setting this value, the arg parameter shall be a
-NUL\-terminated string or a NULL pointer (to unset)\&. When retrieving
-this value, the parameter shall be set to a \*(Aqchar **\*(Aq\&. Note that this
-value (in LCB_CNTL_GET) is valid only until the next call to a
-libcouchbase API, after which it may have been freed\&.
-.fi
-.if n \{\
-.RE
-.\}
+When setting this value, the arg parameter shall be a NUL\-terminated string or a NULL pointer (to unset)\&. When retrieving this value, the parameter shall be set to a
+\fIchar **\fR\&. Note that this value (in LCB_CNTL_GET) is valid only until the next call to a libcouchbase API, after which it may have been freed\&.
 .sp
-.if n \{\
-.RS 4
-.\}
-.nf
-Also note that no validation is done to ensure that the argument is a
-valid SASL mechanism\&.
-.fi
-.if n \{\
-.RE
-.\}
+Also note that no validation is done to ensure that the argument is a valid SASL mechanism\&.
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
 lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, "PLAIN");
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+char *mech;
+lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_FORCE_SASL_MECH, &mech);
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.PP
+\fBLCB_CNTL_MAX_REDIRECTS\fR \fI(int*)\fR
+.RS 4
+Get/Set\&. Set how many redirects the library should follow for the single request\&. Set to \-1 to remove limit at all\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+int new_value = 5;
+lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_MAX_REDIRECTS, &new_value);
 .fi
 .if n \{\
 .RE

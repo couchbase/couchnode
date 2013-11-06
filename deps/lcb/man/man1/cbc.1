@@ -2,12 +2,12 @@
 .\"     Title: cbc
 .\"    Author: Trond Norbye <trond.norbye@couchbase.com>
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 08/21/2013
+.\"      Date: 11/06/2013
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "CBC" "1" "08/21/2013" "\ \&" "\ \&"
+.TH "CBC" "1" "11/06/2013" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -219,7 +219,7 @@ Observe a key in the cache\&.
 Remove all keys from the cluster\&. The flush subcommand is only supported on memcached buckets\&. To flush a Couchbase bucket you need use bucket\-flush\&.
 .RE
 .PP
-\fBcbc hash\fR [common options] [\-f \fIFILENAME\fR] \fIkey\fR\&...
+\fBcbc hash\fR [common options] [\-v] [\-f \fIFILENAME\fR] \fIkey\fR\&...
 .RS 4
 Hash key(s) and print out useful info\&.
 .PP
@@ -227,6 +227,11 @@ Hash key(s) and print out useful info\&.
 .RS 4
 \fIFILENAME\fR
 shall be a plain text file containing an alternative cluster configuration (in JSON) to use\&.
+.RE
+.PP
+*\-v, \-\-vbucket
+.RS 4
+Treat keys as vbucket IDs and skip hash calculation phase
 .RE
 .RE
 .PP

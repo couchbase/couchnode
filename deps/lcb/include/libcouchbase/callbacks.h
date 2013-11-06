@@ -259,6 +259,16 @@ extern "C" {
                                         lcb_error_t err,
                                         const lcb_observe_resp_t *resp);
 
+    /**
+     * Callback for error mappings. This will be invoked when requesting whether
+     * the user has a possible mapping for this error code.
+     *
+     * This will be called for response codes which may be ambiguous in most
+     * use cases, or in cases where detailed response codes may be mapped to
+     * more generic ones.
+     */
+    typedef lcb_error_t (*lcb_errmap_callback)(lcb_t instance, lcb_uint16_t bincode);
+
 
     /*
      * The following sections contains function prototypes for how to
@@ -319,6 +329,9 @@ extern "C" {
     LIBCOUCHBASE_API
     lcb_durability_callback lcb_set_durability_callback(lcb_t,
                                                         lcb_durability_callback);
+
+    LIBCOUCHBASE_API
+    lcb_errmap_callback lcb_set_errmap_callback(lcb_t, lcb_errmap_callback);
 
 #ifdef __cplusplus
 }

@@ -33,14 +33,14 @@ TEST_F(Strerror, testNoCrash)
 
 TEST_F(Strerror, allCodesDocumented)
 {
-    const char *generic = lcb_strerror(NULL, (lcb_error_t) - 1);
+    const char *generic = lcb_strerror(NULL, (lcb_error_t)( LCB_MAX_ERROR -1));
     ASSERT_NE((const char *)NULL, generic);
     for (int ii = 0; ii < LCB_MAX_ERROR_VAL; ++ii) {
         EXPECT_STRNE(generic,
                      lcb_strerror(NULL, (lcb_error_t)ii));
     }
 
-    for (int ii = LCB_MAX_ERROR_VAL; ii < 0xffff; ++ii) {
+    for (int ii = LCB_MAX_ERROR_VAL; ii < LCB_MAX_ERROR; ++ii) {
         EXPECT_STREQ(generic,
                      lcb_strerror(NULL, (lcb_error_t)ii));
     }

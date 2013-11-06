@@ -129,7 +129,16 @@ const char *lcb_strerror(lcb_t instance, lcb_error_t error)
                 "by the server. Either upgrade your server or change the "
                 "authentication requirements";
 
+    case LCB_TOO_MANY_REDIRECTS:
+        return "Maximum allowed number redirects reached. See "
+               "lcb_cntl(3) manpage for LCB_CNTL_MAX_REDIRECTS option to "
+               "get or set this limit.";
+
     default:
-        return "Unknown error.. are you sure libcouchbase gave you that?";
+        if (error > LCB_MAX_ERROR) {
+            return "Unknown error";
+        } else {
+            return "Unknown error. This code exceeds reserved limit for libcouchbase";
+        }
     }
 }

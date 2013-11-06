@@ -182,8 +182,8 @@ static void free_bufinfo_common(struct lcb_buf_info *bi)
     lcb_assert((bi->ringbuffer == NULL && bi->root == NULL) ||
                (bi->root && bi->ringbuffer));
 
-    free(bi->root);
-    free(bi->ringbuffer);
+    lcb_mem_free(bi->root);
+    lcb_mem_free(bi->ringbuffer);
     bi->root = NULL;
     bi->ringbuffer = NULL;
 }

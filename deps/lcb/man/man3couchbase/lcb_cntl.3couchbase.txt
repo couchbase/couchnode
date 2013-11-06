@@ -231,7 +231,8 @@ Example:
                node.v.v1.connected ? "connected" : "is not connected");
         if (node.v.v1.sasl_mech) {
             printf("Node is authenticated via SASL '%s'\n",
-                   node.v.v0.sasl_mech);
+                   node.v.v1.sasl_mech);
+        }
 
 *LCB_CNTL_CONFIGNODE_INFO* '(lcb_io_opt_t*)'::
     Get information about the configuration node. Semantics of
@@ -421,10 +422,10 @@ Pass NULL as the instance, as this accesses a global setting
     If the configuration cache is in use, the argument pointer
     will be set to a true value. If the configuration cache was not used,
     the argument pointer will be set to false.
-
-    A false value may indicates that the client will need to load the
-    configuration from the network. This may be caused by the following:
-
++
+A false value may indicates that the client will need to load the
+configuration from the network. This may be caused by the following:
++
     * The configuration cache did not exist or was empty
     * The configuration cache contained stale information
 
@@ -438,21 +439,31 @@ Pass NULL as the instance, as this accesses a global setting
             printf("We had to contact the configuration server for some reason\n");
         }
 
-*LCB_CNTL_FORCE_SASL_MECH* '(char**)', '(char **')::
+*LCB_CNTL_FORCE_SASL_MECH* '(char*)', '(char **)'::
     Get/Set. Force a specific SASL mechanism to use for authentication. This
     can allow a user to ensure a certain level of security and have the
     connection fail if the desired mechanism is not available.
-
-    When setting this value, the arg parameter shall be a
-    NUL-terminated string or a NULL pointer (to unset). When retrieving
-    this value, the parameter shall be set to a 'char **'. Note that this
-    value (in LCB_CNTL_GET) is valid only until the next call to a
-    libcouchbase API, after which it may have been freed.
-
-    Also note that no validation is done to ensure that the argument is a
-    valid SASL mechanism.
++
+When setting this value, the arg parameter shall be a
+NUL-terminated string or a NULL pointer (to unset). When retrieving
+this value, the parameter shall be set to a 'char **'. Note that this
+value (in LCB_CNTL_GET) is valid only until the next call to a
+libcouchbase API, after which it may have been freed.
++
+Also note that no validation is done to ensure that the argument is a
+valid SASL mechanism.
 
         lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, "PLAIN");
+
+        char *mech;
+        lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_FORCE_SASL_MECH, &mech);
+
+*LCB_CNTL_MAX_REDIRECTS* '(int*)'::
+    Get/Set. Set how many redirects the library should follow for
+    the single request. Set to -1 to remove limit at all.
+
+        int new_value = 5;
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_MAX_REDIRECTS, &new_value);
 
 
 RETURN VALUE

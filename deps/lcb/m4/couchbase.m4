@@ -8,19 +8,19 @@ AC_DEFUN([COUCHBASE_GENERIC_COMPILER], [
     [AS_HELP_STRING([--enable-warnings],
             [Enable more compiler warnings. @<:@default=off@:>@])],
     [ac_cv_enable_warnings="yes"],
-    [ac_cv_enable_warnings="no"])
+    [ac_cv_enable_warnings=${ac_cv_enable_maintainer_mode}])
 
   AC_ARG_ENABLE([werror],
     [AS_HELP_STRING([--enable-werror],
             [Treat warnings as errors. @<:@default=off@:>@])],
     [ac_cv_enable_werror="yes"],
-    [ac_cv_enable_werror="no"])
+    [ac_cv_enable_werror=${ac_cv_enable_maintainer_mode}])
 
   AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
             [Enable debug build (non-optimized). @<:@default=off@:>@])],
     [ac_cv_enable_debug="yes"],
-    [ac_cv_enable_debug="no"])
+    [ac_cv_enable_debug=${ac_cv_enable_maintainer_mode}])
 
   AC_ARG_ENABLE([gcov],
     [AS_HELP_STRING([--enable-gcov],

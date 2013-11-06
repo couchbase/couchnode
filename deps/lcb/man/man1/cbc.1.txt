@@ -151,12 +151,15 @@ The following subcommands are supported:
     supported on memcached buckets. To flush a Couchbase bucket you
     need use bucket-flush.
 
-*cbc hash* [common options] [-f 'FILENAME'] 'key'...::
+*cbc hash* [common options] [-v] [-f 'FILENAME'] 'key'...::
     Hash key(s) and print out useful info.
 
     *-f, --config-file*='FILENAME'::::
         'FILENAME' shall be a plain text file containing an
         alternative cluster configuration (in JSON) to use.
+
+    *-v, --vbucket::::
+        Treat keys as vbucket IDs and skip hash calculation phase
 
 *cbc lock* [common options] [-e 'VALUE'] 'key'...::
     Lock and retrieve the value for a key. The lock is held for the

@@ -514,7 +514,6 @@ lcb_error_t lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg)
     }
 
     /** These functions check if they were called more than once using atomic ops */
-    iocp_initialize_winsock();
     iocp_initialize_loop_globals();
     lcb_list_init(&io->timer_queue.list);
     lcb_list_init(&io->sockets.list);

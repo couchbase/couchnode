@@ -55,7 +55,14 @@ static void request_v0_handler(lcb_socket_t sock, short which, void *arg)
             } else if (rv < 0) {
                 /* Request format error */
                 should_continue = 0;
-                err = LCB_PROTOCOL_ERROR;
+                if (req->redirect_to) {
+                    if (instance->max_redir != -1 && instance->max_redir ==  req->redircount) {
+                        err = LCB_TOO_MANY_REDIRECTS;
+                        req->redirect_to = NULL;
+                    }
+                } else {
+                    err = LCB_PROTOCOL_ERROR;
+                }
             } else {
                 /* Still want more data: */
                 lcb_sockrw_set_want(&req->connection, LCB_READ_EVENT, 1);
@@ -64,6 +71,7 @@ static void request_v0_handler(lcb_socket_t sock, short which, void *arg)
             if (status == LCB_SOCKRW_SHUTDOWN && should_continue != 0) {
                 /** Premature termination of connection */
                 err = LCB_NETWORK_ERROR;
+                should_continue = 0;
             }
         }
     }
@@ -86,16 +94,25 @@ static void request_v0_handler(lcb_socket_t sock, short which, void *arg)
     }
 
     if (!should_continue) {
-        lcb_http_request_finish(instance, req, err);
-
+        if (req->redirect_to) {
+            req->url = req->redirect_to;
+            req->nurl = strlen(req->url);
+            req->redirect_to = NULL;
+            err = lcb_http_verify_url(req, NULL, 0);
+            if (err == LCB_SUCCESS) {
+                err = lcb_http_request_exec(req);
+            }
+            if (err != LCB_SUCCESS) {
+                lcb_http_request_finish(instance, req, err);
+            }
+        } else {
+            lcb_http_request_finish(instance, req, err);
+        }
     } else {
         lcb_sockrw_apply_want(&req->connection);
     }
 
     lcb_http_request_decref(req);
-
-    /* log whatever error ocurred here */
-    lcb_error_handler(instance, err, NULL);
     (void)sock;
 }
 

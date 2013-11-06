@@ -127,15 +127,15 @@ static void scheduleCommands_282(lcb_t instance, CCBC282_Info *info)
 {
     // Schedule lots of items
     int ncmds = info->passCount == 0 ? 5 : 100;
-    lcb_get_cmd_t cmds[ncmds];
-    lcb_get_cmd_t *cmdlist[ncmds];
+    lcb_get_cmd_t *cmds = new lcb_get_cmd_t[ncmds];
+    lcb_get_cmd_t **cmdlist = new lcb_get_cmd_t*[ncmds];
     void *cmdlog_head = info->server->cmd_log.read_head;
 
     info->passCount++;
 
-    memset(cmds, 0, sizeof(cmds));
+    memset(cmds, 0, ncmds);
 
-    for (unsigned int ii = 1; ii < ncmds; ii++) {
+    for (int ii = 1; ii < ncmds; ii++) {
         info->mkCommand(cmds + ii, true);
         cmdlist[ii] = cmds + ii;
     }
@@ -144,12 +144,12 @@ static void scheduleCommands_282(lcb_t instance, CCBC282_Info *info)
     cmdlist[0] = cmds;
 
     lcb_error_t err;
-
-
     do {
         err = lcb_get(instance, info, ncmds, cmdlist);
         ASSERT_EQ(err, LCB_SUCCESS);
     } while (info->server->cmd_log.read_head == cmdlog_head);
+    delete[] cmds;
+    delete[] cmdlist;
 }
 
 extern "C" {

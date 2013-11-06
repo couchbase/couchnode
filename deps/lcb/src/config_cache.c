@@ -88,6 +88,12 @@ int lcb_load_config_cache(lcb_t instance)
     ringbuffer_destruct(&buffer);
 
     if (!fail) {
+        if (vbucket_config_get_distribution_type(config) !=
+                VBUCKET_DISTRIBUTION_VBUCKET) {
+            /** Memcached Bucket */
+            vbucket_config_destroy(config);
+            return -1;
+        }
         lcb_update_vbconfig(instance, config);
         instance->compat.value.cached.mtime = st.st_mtime;
         instance->compat.value.cached.loaded = 1;

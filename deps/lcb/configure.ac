@@ -73,6 +73,11 @@ esac
 ac_cv_func_malloc_0_nonnull=yes
 ac_cv_func_realloc_0_nonnull=yes
 
+AC_ARG_ENABLE([maintainer_mode],
+              [AS_HELP_STRING([--enable-maintainer-mode],
+                              [Forces all plugins, examples, and tools to be build. Forces compiler strictness])],
+              [ac_cv_enable_maintainer_mode="$enableval"])
+
 COUCHBASE_GENERIC_COMPILER(c99)
 
 AM_CPPFLAGS="$AM_CPPFLAGS -I\${top_srcdir}/src -I\${top_srcdir}/contrib -I\${top_srcdir}/contrib/cbsasl/include"
@@ -86,14 +91,14 @@ AC_SUBST(CHANGESET)
 # http://www.gnu.org/software/libtool/manual/libtool.html#Libtool-versioning
 #
 API_CURRENT=2
-API_REVISION=11
+API_REVISION=12
 API_AGE=0
 AC_SUBST(API_CURRENT)
 AC_SUBST(API_REVISION)
 AC_SUBST(API_AGE)
 
 # The actual version numbers for the developers ;)
-LCB_VERSION="2.1.3"
+LCB_VERSION="2.2.0"
 LCB_VERSION_HEX=`echo ${LCB_VERSION} | awk -F. '{printf "0x%0.2d%0.2d%0.2d", $1, $2, $3}'`
 AC_SUBST(LCB_VERSION)
 AC_SUBST(LCB_VERSION_HEX)
@@ -189,7 +194,7 @@ AC_CHECK_HEADERS_ONCE([mach/mach_time.h sys/socket.h sys/time.h
                        netinet/in.h inttypes.h netdb.h unistd.h
                        ws2tcpip.h winsock2.h event.h stdint.h
                        sys/uio.h sys/types.h fcntl.h dlfcn.h
-                       ev.h libev/ev.h sys/sdt.h limits.h])
+                       ev.h libev/ev.h sys/sdt.h limits.h stdarg.h])
 
 AS_IF([test "x$ac_cv_header_stdint_h" != "xyes"],
       [AC_MSG_ERROR(Failed to locate stdint.h)])
@@ -395,8 +400,8 @@ Try add --disable-couchbasemock
 ])])])
 
 dnl It doesn't make sense to use CouchbaseMock.jar without plugins
-AM_CONDITIONAL(HAVE_COUCHBASEMOCK, [test "x$ac_cv_enable_plugins" = "xyes" -a "x${ac_cv_enable_couchbasemock}" = "xyes"])
-AS_IF([test "x$ac_cv_enable_plugins" = "xyes" -a "x${ac_cv_enable_couchbasemock}" = "xyes"],
+AM_CONDITIONAL(HAVE_COUCHBASEMOCK, [test "x${ac_cv_enable_couchbasemock}" = "xyes"])
+AS_IF([test "x${ac_cv_enable_couchbasemock}" = "xyes"],
       [AC_DEFINE([HAVE_COUCHBASEMOCK], [1], [We have CouchbaseMock.jar])])
 
 AC_ARG_ENABLE([tools],
@@ -540,13 +545,7 @@ AM_CONDITIONAL([DTRACE_INSTRUMENT_OBJECT],
                [test "x$ac_cv_have_decl___sun" = "xyes"])
 AM_CONDITIONAL([APPLE_DTRACE], [test "x$ac_cv_have_decl__APPLE__" = "xyes"])
 
-AC_CACHE_CHECK([manpage layout], [ac_cv_manpage_layout], [
-   manpage=`man -s4 null 2> /dev/null`
-   AS_IF([test x"$manpage" = "x"], [ac_cv_manpage_layout="System V"],
-          [ac_cv_manpage_layout=bsd])
-])
-
-AM_CONDITIONAL(MANPAGE_BSD_LAYOUT, [test "x$ac_cv_manpage_layout" = "xbsd"])
+AM_CONDITIONAL(MANPAGE_BSD_LAYOUT, [test "x$ac_cv_have_decl___sun" != "xyes"])
 
 AC_CACHE_CHECK([if EWOULDBLOCK != EAGAIN],[ac_cv_eagain_neq_ewouldblock],
                [AC_COMPILE_IFELSE([AC_LANG_SOURCE([
@@ -568,8 +567,54 @@ AC_CACHE_CHECK([if EWOULDBLOCK != EAGAIN],[ac_cv_eagain_neq_ewouldblock],
                 ])],
                 [ ac_cv_eagain_neq_ewouldblock=yes ],
                 [ ac_cv_eagain_neq_ewouldblock=no])])
+
 AS_IF([test "x$ac_cv_eagain_neq_ewouldblock" = "xyes"],[
        AC_DEFINE([USE_EAGAIN], [1], [Defined for systems where EAGAIN != EWOULDBLOCK])])
+
+
+AS_IF([test "x${ac_cv_enable_maintainer_mode}" = "xyes"],
+      [
+       echo ""
+       echo "MAINT:"
+       echo "MAINT: Libcouchbase Maintainer Mode"
+       echo "MAINT: Will check for prequisites"
+
+       echo "MAINT: Checking that --disable-plugins was not passed"
+       AS_IF([test "x${ac_cv_enable_plugins}" != "xyes"],
+             [AC_MSG_ERROR([Maintainer mode requires all plugins enabled])])
+
+       echo "MAINT: Ensuring libuv has been found"
+       AS_IF([test "x${ac_cv_have_libuv}" != "xyes"],
+             [AC_MSG_ERROR([libuv not found])])
+
+       echo "MAINT: Ensuring libevent1.x or libevent2.x"
+       AS_IF([test "x${ac_cv_have_libevent}" != "xyes" && test "x${ac_cv_have_libevent2}" != "xyes"],
+             [AC_MSG_ERROR([libevent not found])])
+
+       echo "MAINT: Ensuring libev3 or libev4"
+       AS_IF([test "x${ac_cv_have_libev3}" != "xyes" && test "x${ac_cv_have_libev4}" != "xyes"],
+             [AC_MSG_ERROR([libev not found])])
+
+       echo "MAINT: Ensuring couchbasemock"
+       AS_IF([test "x${ac_cv_enable_couchbasemock}" != "xyes"],
+             [AC_MSG_ERROR([Mock must be enabled])])
+
+       echo "MAINT: Ensuring examples are enabled"
+       AS_IF([test "x${ac_cv_enable_examples}" != "xyes"],
+             [AC_MSG_ERROR([Examples must be enabled])])
+
+       echo "MAINT: Ensuring CXX is enabled"
+       AS_IF([test "x${ac_cv_enable_cxx}" != "xyes"],
+             [AC_MSG_ERROR([cxx must be enabled])])
+
+       echo "MAINT: Ensuring tools are enabled"
+       AS_IF([test "x${ac_cv_enable_tools}" != "xyes"],
+             [AC_MSG_ERROR([Tools must be enabled])])
+
+       AS_IF([test "x${ac_cv_enable_tests}" != "xyes"],
+             [AC_MSG_ERROR([Tests must be enabled])])
+      ])
+
 
 AH_TOP([
 #if defined(_WIN32) && !defined(HAVE_CONFIG_H)
@@ -643,3 +688,5 @@ AS_IF([test "$ac_cv_have_gtest" = "no" -a "$ac_cv_have_gtest_src" = "no"],
               echo "*"
               echo "*****"
               ])])
+
+

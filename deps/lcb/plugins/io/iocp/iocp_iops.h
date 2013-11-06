@@ -173,7 +173,6 @@ extern "C" {
     int iocp_w32err_2errno(DWORD error);
     DWORD iocp_set_last_error(lcb_io_opt_t io, SOCKET sock);
     lcb_uint64_t iocp_millis(void);
-    int iocp_initialize_winsock(void);
     void iocp_initialize_loop_globals(void);
     LPFN_CONNECTEX iocp_initialize_connectex(SOCKET s);
     void iocp_free_bufinfo_common(struct lcb_buf_info *bi);

@@ -789,26 +789,23 @@ static bool verbosity_impl(lcb_t instance, list<string> &args)
     return true;
 }
 
-static bool hash_impl(string filename, list<string> &keys)
+static bool hash_exec(VBUCKET_CONFIG_HANDLE vbucket_config, list<string> &keys, bool is_vbucket)
 {
     if (keys.empty()) {
         cerr << "ERROR: you need to specify the key to hash" << endl;
         return false;
     }
 
-    VBUCKET_CONFIG_HANDLE vbucket_config = vbucket_config_create();
-    if (vbucket_config_parse(vbucket_config, LIBVBUCKET_SOURCE_FILE, filename.c_str()) != 0) {
-        cerr << "ERROR: cannot parse vBucket config: "
-             << vbucket_get_error_message(vbucket_config) << endl;
-        vbucket_config_destroy(vbucket_config);
-        return false;
-    }
-
     for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter) {
         int vbucket_id, idx;
-        (void)vbucket_map(vbucket_config, iter->c_str(), iter->length(), &vbucket_id, &idx);
-        cout << "\"" << *iter << "\"\t"
-             << "Server:\"" << vbucket_config_get_server(vbucket_config, idx) << "\"";
+        if (is_vbucket) {
+            std::istringstream(*iter) >> vbucket_id;
+            idx = vbucket_get_master(vbucket_config, vbucket_id);
+        } else {
+            (void)vbucket_map(vbucket_config, iter->c_str(), iter->length(), &vbucket_id, &idx);
+            cout << "\"" << *iter << "\"\t";
+        }
+        cout << "Server:\"" << vbucket_config_get_server(vbucket_config, idx) << "\"";
         if (vbucket_config_get_distribution_type(vbucket_config) == VBUCKET_DISTRIBUTION_VBUCKET) {
             cout << " vBucket:" << vbucket_id;
             const char *couch_api = vbucket_config_get_couch_api_base(vbucket_config, idx);
@@ -837,47 +834,25 @@ static bool hash_impl(string filename, list<string> &keys)
         }
         cout << endl;
     }
-
     return true;
 }
 
-static bool hash_impl(lcb_t instance, list<string> &keys)
+static bool hash_impl(string filename, list<string> &keys, bool is_vbucket)
 {
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to hash" << endl;
+    VBUCKET_CONFIG_HANDLE vbucket_config = vbucket_config_create();
+    if (vbucket_config_parse(vbucket_config, LIBVBUCKET_SOURCE_FILE, filename.c_str()) != 0) {
+        cerr << "ERROR: cannot parse vBucket config: "
+             << vbucket_get_error_message(vbucket_config) << endl;
+        vbucket_config_destroy(vbucket_config);
         return false;
     }
 
-    for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter) {
-        int vbucket_id, idx;
-        (void)vbucket_map(instance->vbucket_config, iter->c_str(), iter->length(), &vbucket_id, &idx);
-        lcb_server_t *server = instance->servers + idx;
-        cout << "\"" << *iter << "\"\tServer:\"" << server->authority << "\"";
-        if (instance->dist_type == VBUCKET_DISTRIBUTION_VBUCKET) {
-            cout << " vBucket:" << vbucket_id;
-            if (server->couch_api_base) {
-                cout << " CouchAPI:\"" << server->couch_api_base << "\"";
-            }
-            lcb_size_t nrepl = (lcb_size_t)vbucket_config_get_num_replicas(instance->vbucket_config);
-            if (nrepl > 0) {
-                cout << " Replicas:";
-                for (lcb_size_t ii = 0; ii < nrepl; ++ii) {
-                    int rr = vbucket_get_replica(instance->vbucket_config, vbucket_id, (int)ii);
-                    if (rr >= 0) {
-                        cout << "\"" << instance->servers[rr].authority << "\"";
-                    } else {
-                        cout << "N/A";
-                    }
-                    if (ii != nrepl - 1) {
-                        cout << ",";
-                    }
-                }
-            }
-        }
-        cout << endl;
-    }
+    return hash_exec(vbucket_config, keys, is_vbucket);
+}
 
-    return true;
+static bool hash_impl(lcb_t instance, list<string> &keys, bool is_vbucket)
+{
+    return hash_exec(instance->vbucket_config, keys, is_vbucket);
 }
 
 static bool view_impl(lcb_t instance, string &query, string &data,
@@ -1323,8 +1298,11 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
                                                "Proxy port (default 11211)"));
     }
 
+    bool is_vbucket = false;
     string filename;
     if (cmd == cbc_hash) {
+        getopt.addOption(new CommandLineOption('v', "vbucket", false,
+                                               "Treat keys as vbucket IDs and skip hashing step"));
         getopt.addOption(new CommandLineOption('f', "config-file", true,
                                                "The dump of the cluster JSON configuration"));
     }
@@ -1495,6 +1473,9 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
                 } else if (cmd == cbc_hash) {
                     unknownOpt = false;
                     switch ((*iter)->shortopt) {
+                    case 'v':
+                        is_vbucket = true;
+                        break;
                     case 'f':
                         filename = (*iter)->argument;
                         break;
@@ -1513,7 +1494,7 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
 
     bool success = false;
     if (cmd == cbc_hash && !filename.empty()) {
-        success = hash_impl(filename, getopt.arguments);
+        success = hash_impl(filename, getopt.arguments, is_vbucket);
         exit(success ? EXIT_SUCCESS : EXIT_FAILURE);
     }
 
@@ -1627,7 +1608,7 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
         }
         break;
     case cbc_hash:
-        success = hash_impl(instance, getopt.arguments);
+        success = hash_impl(instance, getopt.arguments, is_vbucket);
         break;
     case cbc_view:
     case cbc_admin:
