@@ -19,5 +19,9 @@
     },
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
     "version": "1.1.0",
-    "gypfile": true
+    "config": { "native" : false },
+    "scripts": {
+      "install" : "(node-gyp rebuild 2> builderror.log) || (exit 0)",
+      "test" : "mocha"
+    }
 }
