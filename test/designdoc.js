@@ -42,7 +42,7 @@ describe('#design documents', function() {
   });
 
   it('should successfully page results', function(done) {
-    this.timeout(10000);
+    this.timeout(15000);
 
     var docname = "querytest";
     var ddoc1 = {
@@ -144,7 +144,7 @@ describe('#design documents', function() {
   });
 
   it('should work with queries', function(done) {
-    this.timeout(10000);
+    this.timeout(15000);
 
     var docname = "querytest";
     var ddoc1 = {
@@ -405,7 +405,7 @@ describe('#design documents', function() {
   });
 
   it('should successfully see new keys?', function(done) {
-    this.timeout(10000);
+    this.timeout(15000);
 
     var testkey = H.genKey('dd-views');
     var designdoc = "dev_test-design";
