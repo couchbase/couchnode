@@ -31,7 +31,9 @@ Harness.prototype.genKey = function(prefix) {
     prefix = "generic";
   }
 
-  var ret = "JSCBC-test-" + prefix + this.keySerial;
+  var ret = "JSCBC-" +
+    (process.env.CNTESTPREFIX ? (process.env.CNTESTPREFIX+'-') : '') +
+    "test-" + prefix + this.keySerial;
   this.keySerial++;
   return ret;
 };
