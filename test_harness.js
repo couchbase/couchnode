@@ -51,8 +51,6 @@ Harness.prototype.okCallback = function(target) {
 
   return function(err, result) {
     if (err) {
-      console.dir(arguments);
-      console.log("Got error (created @):" + stack);
       assert(!err, "Got unrecognized error: " + util.inspect(err));
     }
     assert(typeof result === "object", "Meta is missing");

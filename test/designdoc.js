@@ -267,8 +267,6 @@ describe('#design documents', function() {
         // Fetch key within a range.
         var q1 = q.clone({startkey:1, endkey:5, key:1});
         q1.query(function(err, results) {
-          // console.log(results);
-
           // Fetch more than one keys.
           cq.query(function(err, results) {
             assert(!err, "TestKeys query failed");
