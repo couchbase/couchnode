@@ -143,4 +143,45 @@ describe('#get/set', function() {
     }));
   });
 
+  it('should expire values correct', function(done) {
+    this.timeout(3000);
+
+    var value = {val:"value"};
+    var key = H.genKey("expiry");
+
+    cb.set(key, value, {expiry: 1}, H.okCallback(function(){
+      cb.get(key, H.okCallback(function(result){
+        assert.deepEqual(result.value, value);
+
+        setTimeout(function () {
+          cb.get(key, function(err, result) {
+            assert(err, "Key should no longer exist");
+            done();
+          });
+        }, 2000);
+      }));
+    }));
+  });
+
+  it('should touch on get with expiry', function(done) {
+    this.timeout(3000);
+
+    var value = {val:"value"};
+    var key = H.genKey("getandtouch");
+
+    cb.set(key, value, {expiry: 1}, H.okCallback(function(){
+      // This should extend the expiry by 5 seconds
+      cb.get(key, {expiry:5}, H.okCallback(function(result){
+        assert.deepEqual(result.value, value);
+
+        setTimeout(function () {
+          cb.get(key, H.okCallback(function(result){
+            assert.deepEqual(result.value, value);
+            done();
+          }));
+        }, 2000);
+      }));
+    }));
+  });
+
 });

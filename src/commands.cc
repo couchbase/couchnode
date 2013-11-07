@@ -62,7 +62,7 @@ bool GetCommand::handleSingle(Command *p,
         cmd->v.v0.lock = 1;
 
     } else {
-        cmd->v.v0.exptime = kOptions.lockTime.v;
+        cmd->v.v0.exptime = kOptions.expTime.v;
     }
 
     if (kOptions.format.isFound()) {
