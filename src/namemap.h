@@ -77,6 +77,8 @@ namespace Couchnode
 
             HASHKEY,
 
+            RESTHANDLER,
+
             MAX
         } dict_t;
         static v8::Persistent<v8::String> names[MAX];

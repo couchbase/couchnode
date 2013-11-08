@@ -71,6 +71,8 @@ void NameMap::initialize()
     install("raw", GET_RAW);
 
     install("hashkey", HASHKEY);
+
+    install("_handleRestResponse", RESTHANDLER);
 }
 
 void NameMap::install(const char *name, dict_t val)

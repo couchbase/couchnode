@@ -237,9 +237,9 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
                                       resp->v.v0.npath));
     }
 
-    Handle<Value> args[] = { errObj, payload };
+    Handle<Value> args[] = { errObj, payload, callback };
     node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                       callback, 2, args);
+                       getGlobalRestHandler(), 3, args);
     delete this;
 }
 

@@ -152,12 +152,12 @@ protected:
     // Per-key options
     Persistent<Object> keyOptions;
 
-
+    // Pointer to parent
+    Persistent<Value> parent;
 
 private:
     unsigned int remaining;
 
-    Persistent<Value> parent;
     bool isCancelled;
 
     // No copying
@@ -182,6 +182,12 @@ public:
     void update(lcb_error_t, const lcb_http_resp_t *);
     virtual void cancel(lcb_error_t err, Handle<Array>) {
         update(err, NULL);
+    }
+
+private:
+    inline Local<Function> getGlobalRestHandler() {
+      return Local<Function>::Cast(
+        parent->ToObject()->Get(NameMap::get(NameMap::RESTHANDLER)));
     }
 
 };
