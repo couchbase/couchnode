@@ -347,19 +347,6 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_remove_resp_t *resp)
     setCas(resp->v.v0.cas);
 }
 
-ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_http_resp_t *resp)
-{
-    status = err;
-    if (resp->v.v0.nbytes) {
-        Handle<Value> s = String::New((const char *)resp->v.v0.bytes,
-                                      resp->v.v0.nbytes);
-        setValue(s);
-    }
-
-    setField(NameMap::HTCODE, Number::New(resp->v.v0.status));
-
-}
-
 ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_observe_resp_t *resp)
 {
     status = err;

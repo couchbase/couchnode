@@ -64,7 +64,6 @@ public:
     ResponseInfo(lcb_error_t, const lcb_touch_resp_t*);
     ResponseInfo(lcb_error_t, const lcb_unlock_resp_t *);
     ResponseInfo(lcb_error_t, const lcb_remove_resp_t *);
-    ResponseInfo(lcb_error_t, const lcb_http_resp_t *);
     ResponseInfo(lcb_error_t, const lcb_observe_resp_t *);
     ResponseInfo(lcb_error_t, const lcb_durability_resp_t *);
     ResponseInfo(lcb_error_t, Handle<Value> kObj);
