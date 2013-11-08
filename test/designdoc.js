@@ -6,18 +6,19 @@ var u = require("underscore");
 
 var cb = H.newClient();
 
-var ddoc = {
-  "views": {
-    "test-view": {
-      "map": "function(doc,meta){emit(meta.id)}"
-    }
-  }
-};
-
 describe('#design documents', function() {
 
   it('should successfully manipulate design documents', function(done) {
-    var docname = "dev_ddoc-test";
+    this.timeout(5000);
+
+    var docname = H.genKey("dev_ddoc-test");
+    var ddoc = {
+      "views": {
+        "test-view": {
+          "map": "function(doc,meta){}"
+        }
+      }
+    };
 
     // We don't know the state of the server so just
     // do an unconditional delete
@@ -25,18 +26,22 @@ describe('#design documents', function() {
       // Ok, the design document should be done
       cb.setDesignDoc(docname, ddoc, function(err, data) {
         assert(!err, "error creating design document");
-        cb.getDesignDoc(docname, function(err, data) {
-          assert(!err, "error getting design document");
-          assert.deepEqual(data, ddoc);
-          cb.removeDesignDoc(docname, function(err, data) {
-            assert(!err, "Failed deleting design document");
-            cb.getDesignDoc(docname, function(err, data) {
-              assert.ok(err.message.match(/not_found/));
-              assert.strictEqual(data, null);
-              done();
+        setTimeout(function(){
+          cb.getDesignDoc(docname, function(err, data) {
+            assert(!err, "error getting design document");
+            assert.deepEqual(data, ddoc);
+            cb.removeDesignDoc(docname, function(err, data) {
+              assert(!err, "Failed deleting design document");
+              setTimeout(function(){
+                cb.getDesignDoc(docname, function(err, data) {
+                  assert.ok(err.message.match(/not_found/));
+                  assert.strictEqual(data, null);
+                  done();
+                });
+              }, 1000);
             });
           });
-        });
+        }, 1000);
       });
     });
   });
@@ -44,131 +49,144 @@ describe('#design documents', function() {
   it('should successfully page results', function(done) {
     this.timeout(15000);
 
-    var docname = "querytest";
-    var ddoc1 = {
+    var docname = H.genKey("querytest");
+    var ddoc = {
       "views": {
         "simple": {
-          "map": "function(doc,meta){doc.type==10 ? emit( Number( meta.id.slice(6, meta.id.length))) : null }"
-        },
-        "compound": {
-          "map": "function(doc,meta){doc.type==10 ? emit([doc.name, Number(meta.id.slice(6, meta.id.length))]) : null}",
-          "reduce" : "_count"
+          "map": "function(doc,meta){if(doc.x=='"+docname+"'){emit(meta.id);}}"
         }
       }
     };
 
+    var keys = [];
+
     // Popolate sample set of documents. documents are of the format
     //  id : { "name" : <"alpha" | "beta" | "kappa" | "pi" | "epsilon"> }
     function TestPopulate(callback) {
-      var values = ["alpha", "beta", "kappa", "pi", "epsilon"];
-      var valueof = function(i) {
-        return "{ \"type\": 10, \"name\": \""+values[i%values.length]+ "\" }";
-      };
       var multikv = {};
-      for (var i=0; i< 10000; i++) {
-        multikv["query-"+i.toString()] = { value: valueof(i) };
+      for (var i = 0; i < 12; ++i) {
+        var kn = docname+"-"+i;
+        keys.push(kn);
+        multikv[kn] = {value:{x:docname}};
       }
-      cb.setMulti(multikv, {spooled:true}, function(){
+
+      cb.setMulti(multikv, {}, function(){
         callback(null, 1);
       });
     }
 
     // Populate design-document with two views by name "simple" and "compound"
     function TestDD(callback) {
-        cb.setDesignDoc(docname, ddoc1, function() {
-          callback(null, 2);
-        });
+      cb.setDesignDoc(docname, ddoc, function() {
+        function checkView(){
+          // Wait until the view is available
+          var q = cb.view(docname, "simple", {limit:1});
+          q.query(function(err, results) {
+            if (err) {
+              checkView();
+            } else {
+              // Give it an extra second to finish everything
+              setTimeout(function(){
+                callback(null, 2);
+              }, 1000);
+            }
+          });
+        }
+        checkView();
+      });
     }
 
     function TestPaginate(callback) {
-        var pages = [];
-        var q = cb.view(docname, "simple", {
-          limit: 140,
-          stale: false
+      var pages = [];
+      var q = cb.view(docname, "simple", {
+        limit: 5,
+        stale: false
+      });
+
+      q.firstPage(function(err, results, p) {
+        assert(!err, "firstPage() failed");
+        assert(results.length === 5, "wrong result count");
+        assert(p.hasNext(), "should be next results");
+
+        p.next(function(err, results) {
+          assert(!err, "next() failed");
+          assert(results.length === 5, "wrong result count");
+          assert(p.hasNext(), "should be next results");
+
+          p.next(function(err, results) {
+            assert(!err, "next() failed");
+            assert(results.length === 2, "wrong result count");
+            assert(!p.hasNext(), "should be no next results");
+
+            p.prev(function(err, results) {
+              assert(!err, "prev() failed");
+              assert(results.length === 5, "wrong result count");
+              assert(p.hasNext(), "should be next results");
+
+              p.prev(function(err, results) {
+                assert(!err, "prev() failed");
+                assert(results.length === 5, "wrong result count");
+                assert(p.hasNext(), "should be next results");
+
+                callback(null, 4);
+              });
+            });
+          });
         });
-        q.firstPage(function(err, results, p) {
-          assert(!err, "TestPaginate firstpage() failed");
-          nextpages(results, p);
-        });
-
-        function nextpages(results, p) {
-          pages.push( results );
-          if (p.hasNext()) {
-            p.next( function(err, results) {
-              assert(!err, "TestPaginate next() failed");
-              nextpages(results, p);
-            });
-          } else {
-            assert( pages.length === 72, "TestPaginate failed" );
-            var last = pages.pop();
-            assert( last.length === 60, "TestPaginate failed" );
-
-            p.prev( function(err, results) {
-              assert(!err, "TestPaginate prev() failed");
-              prevpages(results, p);
-            });
-          }
-        };
-
-        function prevpages(results, p) {
-          var page = pages.pop();
-          if (results.length > 0 ) {
-            assert( u.isEqual(results, page) );
-            p.prev( function(err, results) {
-                assert(!err, "TestPaginate prev() failed");
-                prevpages(results, p);
-            });
-          } else {
-            p.next( function(err, results) {
-              assert(!err, "TestPaginate next() failed");
-              assert(results.length===140, "TestPaginate 1 next() failed");
-              var l = results.pop();
-              assert(l.id==="query-279", "TestPaginate 1 next() failed");
-              callback(null, 4);
-            });
-          }
-        };
+      });
     };
 
     function Shutdown(callback) {
-      done();
-      callback(null, 5);
+      cb.removeDesignDoc(docname, function(err, result) {
+        cb.removeMulti(keys, {}, function(err, results) {
+          done();
+          callback(null, 5);
+        });
+      });
     }
 
     async.series([
-       TestPopulate,
-       TestDD,
-       TestPaginate,
-       Shutdown
+      TestPopulate,
+      TestDD,
+      TestPaginate,
+      Shutdown
     ]);
   });
 
   it('should work with queries', function(done) {
-    this.timeout(15000);
+    this.timeout(25000);
 
-    var docname = "querytest";
+    var docname = H.genKey("querytest");
+    var keyprefix = H.genKey("query");
     var ddoc1 = {
       "views": {
         "simple": {
-          "map": "function(doc,meta){doc.type==10 ? emit( Number( meta.id.slice(6, meta.id.length))) : null }"
+          "map": "function(doc,meta){doc.typek=='"+docname+"' ? emit(doc.val) : null }"
         },
         "compound": {
-          "map": "function(doc,meta){doc.type==10 ? emit([doc.name, Number(meta.id.slice(6, meta.id.length))]) : null}",
+          "map": "function(doc,meta){doc.typek=='"+docname+"' ? emit([doc.name, doc.val]) : null}",
           "reduce" : "_count"
         }
       }
     };
 
+    var keys = [];
     // Popolate sample set of documents. documents are of the format
     //  id : { "name" : <"alpha" | "beta" | "kappa" | "pi" | "epsilon"> }
     function TestPopulate(callback) {
       var values = ["alpha", "beta", "kappa", "pi", "epsilon"];
       var valueof = function(i) {
-        return "{ \"type\": 10, \"name\": \""+values[i%values.length]+ "\" }";
+        return {
+          typek: docname,
+          val: i,
+          name: values[i%values.length]
+        };
       };
       var multikv = {};
-      for (var i=0; i< 10000; i++) {
-        multikv["query-"+i.toString()] = { value: valueof(i) };
+      for (var i=0; i< 100; i++) {
+        var kn = keyprefix + '-' + i;
+        keys.push(kn);
+        multikv[kn] = { value: valueof(i) };
       }
       cb.setMulti(multikv, {spooled:true}, function(){
         callback(null, 1);
@@ -178,7 +196,10 @@ describe('#design documents', function() {
     // Populate design-document with two views by name "simple" and "compound"
     function TestDD(callback) {
       cb.setDesignDoc(docname, ddoc1, function() {
-        callback(null, 2);
+        // Give it time...
+        setTimeout(function(){
+          callback(null, 2);
+        }, 2000);
       });
     }
 
@@ -272,8 +293,8 @@ describe('#design documents', function() {
             assert(!err, "TestKeys query failed");
             assert(results.length === 2,
                    "TestKeys expected only two result");
-            assert(results[0].id === "query-1", "TestKeys query-1");
-            assert(results[1].id === "query-10", "TestKeys query-1");
+            assert(results[0].id === keys[1], "TestKeys query-1");
+            assert(results[1].id === keys[10], "TestKeys query-1");
 
             callback(null, 4);
           });
@@ -293,7 +314,7 @@ describe('#design documents', function() {
       q.query(function(err, results) {
         assert(!err, "TestIncludeDocs query failed");
         assert(
-            results[0].doc.meta.id === 'query-1',
+            results[0].doc.meta.id === keys[1],
             "TestIncludeDocs meta.id mismatch" );
         assert(
             results[0].doc.json.name === 'beta',
@@ -309,7 +330,7 @@ describe('#design documents', function() {
         endkey : ["epsilon"],
         stale: false,
         reduce : false,
-        limit : 10000
+        limit : 100
       });
       var q2 = q1.clone({
         startkey : ["epsilon"],
@@ -317,18 +338,18 @@ describe('#design documents', function() {
         stale: false,
         reduce : false,
         descending : true,
-        limit : 10000
+        limit : 100
       });
       q1.query( function(err, results) {
         assert(!err, "TestCompound query failed");
-        assert( results.length === 2000,
+        assert( results.length === 20,
                 "Failed TestCompound without reduce" );
 
         // With decending
         q2.query( function(err, results) {
           assert(!err, "TestCompound query with descending failed");
           assert(
-              results.length === 2000,
+              results.length === 20,
               "Failed TestCompound descending without reduce" );
           assert(
               results[0].key > results[1].key,
@@ -353,7 +374,7 @@ describe('#design documents', function() {
       // Plain reduce
       q.query(function(err, results) {
         assert(!err, "TestGroup failed ");
-        assert(results[0].value === 6000, "TestGroup reduce query failed ");
+        assert(results[0].value === 60, "TestGroup reduce query failed ");
 
         // with group = true, `skip` and `limit` parameters.
         q1.query(function(err, results) {
@@ -387,8 +408,12 @@ describe('#design documents', function() {
     }
 
     function Shutdown(callback) {
-      done();
-      callback(null, 5);
+      cb.removeDesignDoc(docname, function(err, result) {
+        cb.removeMulti(keys, {}, function(err, results) {
+          done();
+          callback(null, 5);
+        });
+      });
     }
 
     async.series([
@@ -408,7 +433,7 @@ describe('#design documents', function() {
     this.timeout(15000);
 
     var testkey = H.genKey('dd-views');
-    var designdoc = "dev_test-design";
+    var designdoc = H.genKey("dev_test-design");
 
     function do_run_view(cb) {
       // now lets find our key in the view.
@@ -418,28 +443,27 @@ describe('#design documents', function() {
       // to race conditions..
       var params =  {key : testkey, full_set : "true", stale : "false"};
       var q = cb.view(designdoc, "test-view", params);
-      q.query(function(err, view) {
-        if (err && err.reason == "view_undefined") {
+      q.query(function(err, results) {
+        if (err) {
           // Lets assume that the view isn't created yet... try again..
           do_run_view(cb);
         } else {
           assert(!err, "error fetching view");
-          assert(view.length == 1);
-          assert.equal(testkey, view[0].key);
-          cb.removeDesignDoc(designdoc, function() { cb.shutdown(); });
-          done();
+          assert(results.length === 1);
+          assert.equal(testkey, results[0].key);
+          cb.removeDesignDoc(designdoc, function() {
+            cb.remove(testkey, function(err, result) {
+              done();
+            });
+          });
         }
       });
     }
 
     H.setGet(testkey, "bar", function(doc) {
-      var ddoc = {
-        "views": {
-          "test-view": {
-            "map": "function(doc,meta){emit(meta.id)}"
-          }
-        }
-      };
+      var ddoc = {"views": {"test-view": {
+        "map": "function(doc,meta){if(meta.id=='"+testkey+"'){emit(meta.id);}}"
+      }}};
       cb.removeDesignDoc(designdoc, function() {
         cb.setDesignDoc(designdoc, ddoc, function(err, data) {
           assert(!err, "error creating design document");
