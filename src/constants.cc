@@ -37,6 +37,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(ErrorCode::CHECK_RESULTS) \
     X(ErrorCode::GENERIC) \
     X(ErrorCode::DURABILITY_FAILED) \
+    X(ErrorCode::REST) \
     X(ValueFormat::AUTO) \
     X(ValueFormat::RAW) \
     X(ValueFormat::UTF8) \

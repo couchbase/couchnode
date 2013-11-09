@@ -40,7 +40,8 @@ public:
         SCHEDULING,
         CHECK_RESULTS,
         GENERIC,
-        DURABILITY_FAILED
+        DURABILITY_FAILED,
+        REST
     };
 };
 
