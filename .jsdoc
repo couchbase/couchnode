@@ -1,0 +1,24 @@
+{
+  "tags": {
+    "allowUnknownTags": false
+  },
+  "source": {
+    "include": ["./lib/", "./README.md"],
+    "includePattern": ".+\\.js(doc)?$",
+    "excludePattern": "(^|\\/|\\\\)_"
+  },
+  "opts": {
+    "template": "../../node_modules/cb-jsdoc-tpl",
+    "destination": "./docs/",
+    "private": true
+  },
+  "plugins": [
+    "plugins/markdown"
+  ],
+  "markdown": {
+    "parser": "gfm"
+  },
+  "templates": {
+    "cleverLinks": true
+  }
+}

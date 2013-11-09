@@ -14,11 +14,11 @@
 # The original file after running astyle:
 *.orig
 
-
 *~
 
 /.lock-wscript
 /build/
-/tests/config.json
 /node_modules/
-/tests/CouchbaseMock.jar
+/docs/
+/test/CouchbaseMock.jar
+builderror.log

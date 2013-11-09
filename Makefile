@@ -22,8 +22,16 @@ install:
 node_modules:
 	@npm install
 
-check: node_modules
+test: node_modules
 	./node_modules/mocha/bin/mocha
+
+lint: node_modules
+	./node_modules/jshint/bin/jshint lib/*.js
+
+check: test lint
+
+docs: node_modules
+	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
 
 reformat:
 	@astyle --mode=c \
@@ -41,3 +49,5 @@ reformat:
                io/*.c io/*.h io/util/hexdump.c \
                src/*.cc \
                src/*.h
+
+.PHONY: all test clean docs

@@ -1,119 +1,86 @@
-# Couchnode - Fast and Native Node.JS Client for Couchbase
+# Couchbase Node.js Client
+
+This library allows you to connect to a Couchbase cluster from Node.js.
+It is a native Node.js module and uses the very fast libcouchbase library to
+handle communicating to the cluster over the Couchbase binary protocol.
+
+[![Build Status](http://cb.br19.com:86/buildStatus/icon?job=couchnode)](http://cb.br19.com:86/job/couchnode/)
 
 
-This library allows you to connect to a Couchbase cluster from node.js.
-It is very fast and utilizes the binary protocol via a native node.js
-addon.
+## Useful Links
 
-## Basic installation and usage
+Source - http://github.com/couchbase/couchnode
 
-To install this module, we'll assume you are using
-[NPM](https://npmjs.org).  However it is not as simple as a regular
-JavaScript module, as it depends on the C-library for Couchbase
-clients, [libcouchbase](https://github.com/couchbase/libcouchbase).
-Libcouchbase also powers other dynamic language clients, such as Ruby
-and PHP, so if you've worked with those clients you should feel right
-at home.
+Bug Tracker - http://www.couchbase.com/issues/browse/JSCBC
 
-First, you must install libcouchbase (version 2.1 or greater)
-
-On a mac, you can use homebrew this should be as easy as running:
-
-    brew install libcouchbase
+Couchbase Node.js Community - http://couchbase.com/communities/nodejs
 
 
-### Building from Git
-Since you're reading this README, we're assuming you're going to be building
-from source. In this case, `cd` into the source root directory and run
+## Installing
 
-    npm install --debug
-
-If your libcouchbase prefix is not inside the linker path, you can pass the
-`--couchbase-root` option over to `npm` like so:
-
-    npm install --debug --couchbase-root=/sources/libcouchbase/inst
-
-Note that `--couchbase-root` also sets the `RPATH` flags and assumes you are
-using an `ELF`-based platform (i.e. not OS X). To build on OS X, edit the
-bindings.gyp to replace `-rpath` with the appropriate linker flags.
-
-
-## API description
-
-### Connecting.
-
-To use this module, first do:
-
-```javascript
-    var Couchbase = require('couchbase');
-    var cb = new Couchbase.Connection({bucket: "default"}, function(err) { });
+To install the lastest release using npm, run:
+```
+npm install couchbase
 ```
 
-Note that you do not need to wait for the connection callback in order to start
-performing operations.
+To install the in development version directly from github, run:
+```
+npm install git+https://github.com/couchbase/couchnode.git
+```
 
-### Dealing with keys and values
 
-For API illustration, the best bet at the current time is [a small
-example http hit
-counter](https://github.com/couchbase/couchnode/tree/master/example.js). There
-is also [the test suite which shows more details.]
-(https://github.com/couchbase/couchnode/tree/master/tests)
+## Introduction
 
-The basic method summary is:
+Connecting to a Couchbase bucket is as simple as creating a new Connection
+instance.  Once you are connect, you may execute any of Couchbases' numerous
+operations against this connection.
+
+Here is a simple example of instantiating a connection, setting a new document
+into the bucket and then retrieving its contents:
 
 ```javascript
-    cb.get(key, function (err, result) {
-      console.log("Value for key is: " + result.value);
-    });
+    var couchbase = require('couchbase');
+    var db = new couchbase.Connection({bucket: "default"}, function(err) {
+      if (err) throw err;
 
-    cb.set(key, value, function (err, result) {
-      console.log("Set item for key with CAS: " + result.cas);
-    });
+      db.set('testdoc', {name:'Frank'}, function(err, result) {
+        if (err) throw err;
 
-    // Then the similar methods of add, replace, append, prepend:
-    cb.add(key, value, function (err, result) {});
-    cb.replace(key, value, function (err, result) {});
-    cb.append(key, value, function (err, result) {});
-    cb.prepend(key, value, function (err, result) {});
+        db.get('testdoc', function(err, result) {
+          if (err) throw err;
 
-    // Increment or decrement a numeric value:
-    cb.incr(key, { delta: 42, initial: 20 }, function(err, result) {
-      console.log("New value for counter is: " + result.value);
-    });
-    cb.decr(key, { delta: 99, default: 1024 }, function (err, result) {});
-
-    // Remove items
-    cb.remove(key, function (err, result));
-
-    // Set multiple items:
-    cb.setMulti({
-      key1: { value: value1 },
-      // You can set per-key options, like expiry as well.
-      key2: { value: value2, expiry: 1000 } },
-
-      // Use the "spooled" option to ensure the callback is invoked only once
-      // with the result for all the items.
-      { expiry: 300, spooled: true  },
-      function (err, results) {
-        console.dir(results);
-      }
-    );
-
-    // Get multiple items:
-    // Note we don't pass options and don't use spooled, so the callback is
-    // invoked for each key.
-    cb.getMulti(["key1", "key2", "key3"], null, function(err, result) {
-      console.log("Got result for key.. " + result.value);
+          console.log(result.value);
+          // {name: Frank}
+        });
+      });
     });
 ```
 
-## Running Tests
 
-To run the unit tests built into the Node.js driver.  Make sure you have
-mocha installed globally on your system, then execute mocha in the root
-directory of your couchnode installation.
+## Documentation
 
-## Contributing changes
+An extensive documentation is available on the Couchbase website.  Visit our
+[Node.js Community](http://couchbase.com/communities/nodejs) on
+the [Couchbase](http://couchbase.com) website for the documentation as well as
+numerous examples and samples.
 
-See CONTRIBUTING.md
+
+## Source Control
+
+The source code is available at
+[https://github.com/couchbase/couchnode](https://github.com/couchbase/couchnode).
+Once you have cloned the repository, you may contribute changes through our
+gerrit server.  For more details see
+[CONTRIBUTING.md](https://github.com/couchbase/couchnode/blob/master/CONTRIBUTING.md).
+
+To execute our test suite, run `make test` from your checked out root directory.
+
+
+## License
+Copyright 2013 Couchbase Inc.
+
+Licensed under the Apache License, Version 2.0.
+
+See
+[LICENSE](https://github.com/couchbase/couchnode/blob/master/LICENSE)
+for further details.

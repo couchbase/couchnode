@@ -1,7 +1,7 @@
 {
     "bugs" : { "url" : "http://www.couchbase.com/issues/browse/JSCBC",
                "email" : "support@couchbase.com" },
-    "description": "The official (currently under development) node.js Client Library. Built atop libcouchbase, it aligns the libuv event model of node.js with it's own asynchronous API to allow for native-node feeling high performance development.",
+    "description": "The official Couchbase Node.js Client Library.",
     "engines" : { "node" : ">=0.8.8" },
     "homepage": "http://www.couchbase.com/develop",
     "keywords": ["couchbase", "libcouchbase", "memcached", "nosql", "json", "document"],
@@ -15,7 +15,10 @@
       "async": "0.2.9",
       "longjohn": "0.2.1",
       "underscore": "1.5.1",
-      "mocha": "1.13.0"
+      "mocha": "1.13.0",
+      "jshint": "~2.3.0",
+      "jsdoc": "~3.3.0-alpha1",
+      "js-cb-tpl": "git+https://github.com/brett19/cb-jsdoc-tpl.git#master"
     },
     "repository" : { "type" : "git", "url" : "http://github.com/couchbase/couchnode.git" },
     "version": "1.1.0",
