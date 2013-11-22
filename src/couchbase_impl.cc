@@ -21,7 +21,7 @@
 #include "couchbase_impl.h"
 #include "cas.h"
 #include "logger.h"
-#include <libcouchbase/libuv_io_opts.h>
+#include "plugin-libuv.h"
 
 using namespace std;
 using namespace Couchnode;
@@ -205,13 +205,8 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
     }
 
     lcb_io_opt_st *iops;
-    lcbuv_options_t iopsOptions;
 
-    iopsOptions.version = 0;
-    iopsOptions.v.v0.loop = uv_default_loop();
-    iopsOptions.v.v0.startsop_noop = 1;
-
-    err = lcb_create_libuv_io_opts(0, &iops, &iopsOptions);
+    err = create_libuv_io_opts(&iops);
 
     if (iops == NULL) {
         return exc.eLcb(err).throwV8();

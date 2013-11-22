@@ -4,7 +4,7 @@ SOURCE = src/buflist.h src/cas.cc src/cas.h src/commandbase.cc  \
          src/cookie.cc src/cookie.h src/couchbase_impl.cc       \
          src/couchbase_impl.h src/exception.cc src/exception.h  \
          src/logger.h src/namemap.cc src/namemap.h              \
-         src/options.cc src/options.h src/uv-plugin-all.c       \
+         src/options.cc src/options.h src/plugin-libuv.c       \
          src/valueformat.cc src/valueformat.h
 
 all: binding $(SOURCE)
