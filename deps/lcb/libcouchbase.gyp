@@ -214,7 +214,8 @@
       }, {
         'files': [
           'plugins/io/libuv/plugin-libuv.c',
-          'plugins/io/libuv/plugin-internal.h'
+          'plugins/io/libuv/plugin-internal.h',
+          'plugins/io/libuv/libuv_compat.h'
         ],
         'destination': 'include/libcouchbase/plugins/io/libuv/'
       }],

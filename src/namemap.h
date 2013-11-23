@@ -83,8 +83,8 @@ namespace Couchnode
         } dict_t;
         static v8::Persistent<v8::String> names[MAX];
         static void initialize();
-        static Handle<Value> get(dict_t ix) {
-            return names[ix];
+        static Handle<String> get(dict_t ix) {
+            return NanPersistentToLocal(names[ix]);
         }
     protected:
         static void install(const char *name, dict_t val);

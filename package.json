@@ -9,7 +9,8 @@
     "license" : "Apache2",
     "name": "couchbase",
     "dependencies": {
-      "bindings": "~1.0.0"
+      "bindings": "~1.0.0",
+      "nan": "git+https://github.com/brett19/nan.git#b0e8b0fe1bfd4518f2417ce81e06be26dc22c3d1"
     },
     "devDependencies": {
       "async": "0.2.9",

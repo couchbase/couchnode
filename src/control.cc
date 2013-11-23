@@ -25,9 +25,9 @@
 namespace Couchnode
 {
 
-Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::_Control)
 {
-    HandleScope scope;
+    NanScope();
     CBExc exc;
     CouchbaseImpl *me;
     lcb_t instance;
@@ -37,7 +37,7 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
     instance = me->getLibcouchbaseHandle();
 
     if (args.Length() < 2) {
-        return exc.eArguments("Too few arguments").throwV8();
+        NanReturnValue(exc.eArguments("Too few arguments").throwV8());
     }
 
     int mode = args[0]->IntegerValue();
@@ -46,11 +46,11 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
     Handle<Value> optVal = args[2];
 
     if (option != LCB_CNTL_SET && option != LCB_CNTL_GET) {
-        return exc.eArguments("Invalid option mode").throwV8();
+        NanReturnValue(exc.eArguments("Invalid option mode").throwV8());
     }
 
     if (option == LCB_CNTL_SET && optVal.IsEmpty()) {
-        return exc.eArguments("Valid argument missing for 'CNTL_SET'").throwV8();
+        NanReturnValue(exc.eArguments("Valid argument missing for 'CNTL_SET'").throwV8());
     }
 
     switch (mode) {
@@ -66,9 +66,9 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
         if (option == LCB_CNTL_GET) {
             err =  lcb_cntl(instance, option, mode, &tmoval);
             if (err != LCB_SUCCESS) {
-                return exc.eLcb(err).throwV8();
+                NanReturnValue(exc.eLcb(err).throwV8());
             } else {
-                return Number::New(tmoval / 1000);
+                NanReturnValue(Number::New(tmoval / 1000));
             }
         } else {
             tmoval = optVal->NumberValue() * 1000;
@@ -85,9 +85,9 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
         if (option == LCB_CNTL_GET) {
             err = lcb_cntl(instance, option, mode, &bufszval);
             if (err != LCB_SUCCESS) {
-                return exc.eLcb(err).throwV8();
+                NanReturnValue(exc.eLcb(err).throwV8());
             } else {
-                return scope.Close(Number::New(bufszval));
+                NanReturnValue(scope.Close(Number::New(bufszval)));
             }
         } else {
             bufszval = optVal->Uint32Value();
@@ -105,13 +105,13 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
         vbi.v.v0.nkey = v.length();
         err = lcb_cntl(instance, LCB_CNTL_GET, mode, &vbi);
         if (err != LCB_SUCCESS) {
-            return exc.eLcb(err).throwV8();
+            NanReturnValue(exc.eLcb(err).throwV8());
         }
 
         Handle<Array> arr = Array::New(2);
         arr->Set(0, Integer::New(vbi.v.v0.vbucket));
         arr->Set(1, Integer::New(vbi.v.v0.server_index));
-        return scope.Close(arr);
+        NanReturnValue(arr);
      }
 
     case CNTL_LIBCOUCHBASE_VERSION: {
@@ -126,7 +126,7 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
         // Version and changeset of the headers
         ret->Set(2, String::New("HDR(VERSION): "LCB_VERSION_STRING));
         ret->Set(3, String::New("HDR(CHANGESET): "STRINGIFY(LCB_VERSION_CHANGESET)));
-        return scope.Close(ret);
+        NanReturnValue(ret);
     }
 
     case CNTL_CLNODES: {
@@ -144,23 +144,23 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
             arr->Set(nItems, s);
         }
 
-        return scope.Close(arr);
+        NanReturnValue(arr);
     }
 
     case CNTL_RESTURI: {
         const char *s = lcb_get_host(instance);
-        return scope.Close(String::New(s));
+        NanReturnValue(String::New(s));
     }
 
 
     default:
-        return exc.eArguments("Not supported yet").throwV8();
+        NanReturnValue(exc.eArguments("Not supported yet").throwV8());
     }
 
     if (err == LCB_SUCCESS) {
-        return scope.Close(v8::True());
+        NanReturnValue(v8::True());
     } else {
-        return exc.eLcb(err).throwV8();
+        NanReturnValue(exc.eLcb(err).throwV8());
     }
 }
 

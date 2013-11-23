@@ -40,7 +40,7 @@ void CBExc::setMessage(const std::string &msg, const Handle<Value> value)
     }
     if (!value.IsEmpty()) {
         obj_set_ = true;
-        atObject = Persistent<Value>::New(value);
+        NanAssignPersistent(Value, atObject, value);
     }
 }
 
@@ -73,9 +73,10 @@ Handle<Value> CBExc::asValue()
     }
     Handle<Value> e = Exception::Error(omsg);
     Handle<Object> obj = e->ToObject();
-    obj->Set(NameMap::names[NameMap::EXC_CODE], Number::New(code));
+    obj->Set(NameMap::get(NameMap::EXC_CODE), Number::New(code));
     if (!atObject.IsEmpty()) {
-        obj->Set(String::NewSymbol("at"), atObject);
+        Local<Value> localAtObject = NanPersistentToLocal(atObject);
+        obj->Set(String::NewSymbol("at"), localAtObject);
     }
     return e;
 }

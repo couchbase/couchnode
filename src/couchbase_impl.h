@@ -37,6 +37,7 @@
 #endif
 
 #include <node.h>
+#include "nan.h"
 
 #if __GNUC__
 #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
@@ -53,7 +54,6 @@ using v8::HandleScope;
 using v8::String;
 using v8::Number;
 using v8::Object;
-using v8::Arguments;
 };
 
 #include <iostream>
@@ -87,7 +87,6 @@ using v8::HandleScope;
 using v8::String;
 using v8::Number;
 using v8::Object;
-using v8::Arguments;
 
 // These codes *should* be in lcb_cntl, but currently aren't.
 enum ControlCode {
@@ -106,41 +105,42 @@ public:
 
     // Methods called directly from JavaScript
     static void Init(Handle<Object> target);
-    static Handle<Value> New(const Arguments &args);
-    static Handle<Value> StrError(const Arguments &args);
-    static Handle<Value> SetHandler(const Arguments &);
 
-    static Handle<Value> GetLastError(const Arguments &);
-    static Handle<Value> GetMulti(const Arguments &);
-    static Handle<Value> GetReplicaMulti(const Arguments &);
-    static Handle<Value> LockMulti(const Arguments &);
-    static Handle<Value> SetMulti(const Arguments &);
-    static Handle<Value> ReplaceMulti(const Arguments &);
-    static Handle<Value> AddMulti(const Arguments &);
-    static Handle<Value> AppendMulti(const Arguments &);
-    static Handle<Value> PrependMulti(const Arguments &);
-    static Handle<Value> RemoveMulti(const Arguments &);
-    static Handle<Value> ArithmeticMulti(const Arguments &);
-    static Handle<Value> TouchMulti(const Arguments &);
-    static Handle<Value> UnlockMulti(const Arguments &);
-    static Handle<Value> ObserveMulti(const Arguments &);
-    static Handle<Value> EndureMulti(const Arguments &);
-    static Handle<Value> Stats(const Arguments &);
-    static Handle<Value> View(const Arguments &);
-    static Handle<Value> Shutdown(const Arguments &);
-    static Handle<Value> HttpRequest(const Arguments &);
-    static Handle<Value> _Control(const Arguments &);
-    static Handle<Value> Connect(const Arguments &);
+    static NAN_METHOD(New);
+    static NAN_METHOD(StrError);
+    static NAN_METHOD(SetHandler);
+
+    static NAN_METHOD(GetLastError);
+    static NAN_METHOD(GetMulti);
+    static NAN_METHOD(GetReplicaMulti);
+    static NAN_METHOD(LockMulti);
+    static NAN_METHOD(SetMulti);
+    static NAN_METHOD(ReplaceMulti);
+    static NAN_METHOD(AddMulti);
+    static NAN_METHOD(AppendMulti);
+    static NAN_METHOD(PrependMulti);
+    static NAN_METHOD(RemoveMulti);
+    static NAN_METHOD(ArithmeticMulti);
+    static NAN_METHOD(TouchMulti);
+    static NAN_METHOD(UnlockMulti);
+    static NAN_METHOD(ObserveMulti);
+    static NAN_METHOD(EndureMulti);
+    static NAN_METHOD(Stats);
+    static NAN_METHOD(View);
+    static NAN_METHOD(Shutdown);
+    static NAN_METHOD(HttpRequest);
+    static NAN_METHOD(_Control);
+    static NAN_METHOD(Connect);
 
     // Design Doc Management
-    static Handle<Value> GetDesignDoc(const Arguments &);
-    static Handle<Value> SetDesignDoc(const Arguments &);
-    static Handle<Value> DeleteDesignDoc(const Arguments &);
+    static NAN_METHOD(GetDesignDoc);
+    static NAN_METHOD(SetDesignDoc);
+    static NAN_METHOD(DeleteDesignDoc);
 
 
     // Setting up the event emitter
-    static Handle<Value> On(const Arguments &);
-    Handle<Value> on(const Arguments &);
+    static NAN_METHOD(On);
+    NAN_METHOD(on);
 
     // Method called from libcouchbase
     void onConfig(lcb_configuration_t config);
@@ -171,7 +171,7 @@ protected:
     lcb_t instance;
     lcb_error_t lastError;
 
-    typedef std::map<std::string, Persistent<Function> > EventMap;
+    typedef std::map<std::string, NanCallback* > EventMap;
     EventMap events;
     Persistent<Function> connectHandler;
     std::queue<Command *> pendingCommands;
@@ -181,7 +181,7 @@ protected:
 #endif
 private:
     template <class T>
-    static Handle<Value> makeOperation(const Arguments&, T&);
+    static Handle<Value> makeOperation(_NAN_METHOD_ARGS, T&);
     bool isShutdown;
 };
 

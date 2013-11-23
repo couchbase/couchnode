@@ -28,9 +28,9 @@ Cookie::~Cookie()
         parent.Clear();
     }
 
-    if (!callback.IsEmpty()) {
-        callback.Dispose();
-        callback.Clear();
+    if (callback) {
+        delete callback;
+        callback = NULL;
     }
 
     if (!spooledInfo.IsEmpty()) {
@@ -55,7 +55,7 @@ void Cookie::addSpooledInfo(Handle<Value>& ec, ResponseInfo& info)
         info.setField(NameMap::ERR, ec);
     }
 
-    spooledInfo->ForceSet(info.getKey(), payload);
+    NanPersistentToLocal(spooledInfo)->ForceSet(info.getKey(), payload);
 }
 
 void Cookie::invokeSingleCallback(Handle<Value>& errObj, ResponseInfo& info)
@@ -66,8 +66,7 @@ void Cookie::invokeSingleCallback(Handle<Value>& errObj, ResponseInfo& info)
         argc = 1;
     }
 
-    node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                       callback, argc, args);
+    callback->Call(argc, args);
 }
 
 void Cookie::invokeSpooledCallback()
@@ -83,9 +82,8 @@ void Cookie::invokeSpooledCallback()
         globalErr = v8::Undefined();
     }
 
-    Handle<Value> args[2] = { globalErr, spooledInfo };
-    node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                       callback, 2, args);
+    Handle<Value> args[2] = { globalErr, NanPersistentToLocal(spooledInfo) };
+    callback->Call(2, args);
 }
 
 bool Cookie::hasRemaining() {
@@ -139,7 +137,7 @@ void Cookie::cancel(lcb_error_t err, Handle<Array> keys)
 
 void StatsCookie::invoke(lcb_error_t err)
 {
-    HandleScope scope;
+    NanScope();
     Handle<Value> errObj;
 
     if (err != LCB_SUCCESS) {
@@ -148,19 +146,19 @@ void StatsCookie::invoke(lcb_error_t err)
         errObj = v8::Undefined();
     }
 
-    Handle<Value> argv[2] = { errObj, spooledInfo };
-    if (spooledInfo.IsEmpty()) {
+    Local<Value> localSpooledInfo = NanPersistentToLocal(spooledInfo);
+    Handle<Value> argv[2] = { errObj, localSpooledInfo };
+    if (localSpooledInfo.IsEmpty()) {
         argv[1] = Object::New();
     }
-    node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                       callback, 2, argv);
+    callback->Call(2, argv);
     delete this;
 }
 
 void StatsCookie::update(lcb_error_t err,
                          const lcb_server_stat_resp_t *resp)
 {
-    HandleScope scope;
+    NanScope();
     if (err != LCB_SUCCESS && lastError == LCB_SUCCESS) {
         lastError = err;
     }
@@ -171,13 +169,14 @@ void StatsCookie::update(lcb_error_t err,
     }
 
     // Otherwise, add to the information
+    Local<Object> localSpooledInfo = NanPersistentToLocal(spooledInfo);
     Handle<String> serverString = String::New(resp->v.v0.server_endpoint);
     Handle<Object> serverStats;
-    if (!spooledInfo->Has(serverString)) {
+    if (!localSpooledInfo->Has(serverString)) {
         serverStats = Object::New();
-        spooledInfo->ForceSet(serverString, serverStats);
+        localSpooledInfo->ForceSet(serverString, serverStats);
     } else {
-        serverStats = spooledInfo->Get(serverString).As<Object>();
+        serverStats = localSpooledInfo->Get(serverString).As<Object>();
     }
 
     Handle<String> statsKey = String::New((const char *)resp->v.v0.key,
@@ -194,7 +193,7 @@ void StatsCookie::cancel(lcb_error_t err, Handle<Array>)
 
 void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
 {
-    HandleScope scope;
+    NanScope();
     Handle<Value> errObj;
 
     if (err) {
@@ -207,18 +206,17 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
     if (!resp) {
         // Cancellation
         Handle<Value> args[] = { errObj };
-        node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                           callback, 1, args);
+        callback->Call(1, args);
         delete this;
         return;
     }
 
     Handle<Object> payload = Object::New();
-    payload->ForceSet(NameMap::names[NameMap::HTTP_STATUS],
+    payload->ForceSet(NameMap::get(NameMap::HTTP_STATUS),
                       Number::New(resp->v.v0.status));
 
     if (err != LCB_SUCCESS) {
-        payload->ForceSet(NameMap::names[NameMap::ERR], errObj);
+        payload->ForceSet(NameMap::get(NameMap::ERR), errObj);
     }
 
     if (resp->v.v0.nbytes) {
@@ -228,16 +226,16 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
             // binary?
             body = node::Encode(resp->v.v0.bytes, resp->v.v0.nbytes);
         }
-        payload->ForceSet(NameMap::names[NameMap::HTTP_CONTENT], body);
+        payload->ForceSet(NameMap::get(NameMap::HTTP_CONTENT), body);
     }
 
     if (resp->v.v0.path) {
-        payload->ForceSet(NameMap::names[NameMap::HTTP_PATH],
+        payload->ForceSet(NameMap::get(NameMap::HTTP_PATH),
                           String::New((const char *)resp->v.v0.path,
                                       resp->v.v0.npath));
     }
 
-    Handle<Value> args[] = { errObj, payload, callback };
+    Handle<Value> args[] = { errObj, payload, callback->GetFunction() };
     node::MakeCallback(v8::Context::GetCurrent()->Global(),
                        getGlobalRestHandler(), 3, args);
     delete this;
@@ -258,11 +256,12 @@ void ObserveCookie::update(lcb_error_t err, const lcb_observe_resp_t *resp)
     }
 
     // Insert this into the keys array
-    Handle<Value> kArray = spooledInfo->Get(ri.getKey());
+    Local<Object> localSpooledInfo = NanPersistentToLocal(spooledInfo);
+    Handle<Value> kArray = localSpooledInfo->Get(ri.getKey());
 
     if (kArray->IsUndefined()) {
         kArray = Array::New(1);
-        spooledInfo->Set(ri.getKey(), kArray);
+        localSpooledInfo->Set(ri.getKey(), kArray);
     }
 
     kArray.As<Array>()->Set(kArray.As<Array>()->Length()-1, ri.payload);
@@ -433,6 +432,7 @@ static void get_callback(lcb_t,
 
     Cookie *cc = getInstance(cookie);
 
+    NanScope();
     ResponseInfo ri(error, resp, cc);
     cc->markProgress(ri);
 }
@@ -447,6 +447,7 @@ static void store_callback(lcb_t,
         unknownLibcouchbaseType("store", resp->version);
     }
 
+    NanScope();
     ResponseInfo ri(error, resp);
     getInstance(cookie)->markProgress(ri);
 }
@@ -456,6 +457,7 @@ static void arithmetic_callback(lcb_t,
                                 lcb_error_t error,
                                 const lcb_arithmetic_resp_t *resp)
 {
+    NanScope();
     ResponseInfo ri(error, resp);
     getInstance(cookie)->markProgress(ri);
 }
@@ -471,6 +473,7 @@ static void remove_callback(lcb_t,
         unknownLibcouchbaseType("remove", resp->version);
     }
 
+    NanScope();
     ResponseInfo ri(error, resp);
     getInstance(cookie)->markProgress(ri);
 
@@ -485,6 +488,7 @@ static void touch_callback(lcb_t,
         unknownLibcouchbaseType("touch", resp->version);
     }
 
+    NanScope();
     ResponseInfo ri(error, resp);
     getInstance(cookie)->markProgress(ri);
 }
@@ -506,6 +510,7 @@ static void unlock_callback(lcb_t,
         unknownLibcouchbaseType("unlock", resp->version);
     }
 
+    NanScope();
     ResponseInfo ri(error, resp);
     getInstance(cookie)->markProgress(ri);
 }
@@ -515,6 +520,7 @@ static void durability_callback(lcb_t,
                                 lcb_error_t error,
                                 const lcb_durability_resp_t *resp)
 {
+    NanScope();
     ResponseInfo ri(error, resp);
     getInstance(cookie)->markProgress(ri);
 }
@@ -524,6 +530,7 @@ static void observe_callback(lcb_t,
                              lcb_error_t error,
                              const lcb_observe_resp_t *resp)
 {
+    NanScope();
     ObserveCookie *oc =
             reinterpret_cast<ObserveCookie *>(
                     const_cast<void *>(cookie));
@@ -535,6 +542,7 @@ static void stats_callback(lcb_t,
                            lcb_error_t error,
                            const lcb_server_stat_resp_t *resp)
 {
+    NanScope();
     StatsCookie *sc =
             reinterpret_cast<StatsCookie *>(
                     const_cast<void *>(cookie));
@@ -547,6 +555,7 @@ static void http_complete_callback(lcb_http_request_t,
                                    lcb_error_t error,
                                    const lcb_http_resp_t *resp)
 {
+    NanScope();
     HttpCookie *hc =
             reinterpret_cast<HttpCookie *>(
                     const_cast<void *>(cookie));

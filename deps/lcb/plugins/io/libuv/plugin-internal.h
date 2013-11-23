@@ -28,6 +28,8 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "libuv_compat.h"
+
 #ifdef LCBUV_EMBEDDED_SOURCE
 #include <libcouchbase/libuv_io_opts.h>
 #else
@@ -157,14 +159,6 @@ typedef struct {
 #define PTR_FROM_FIELD(t, p, fld) ((t*)((char*)p-(offsetof(t, fld))))
 
 #define incref_iops(io) (io)->iops_refcount++
-
-#if (UV_VERSION_MAJOR == 0 && UV_VERSION_MINOR < 10)
-#define LCBUV_LOOP_ONCE(l) uv_run_once(l)
-#define LCBUV_LOOP_DEFL(l) uv_run(l)
-#else
-#define LCBUV_LOOP_ONCE(l) uv_run(l, UV_RUN_ONCE)
-#define LCBUV_LOOP_DEFL(l) uv_run(l, UV_RUN_DEFAULT)
-#endif
 
 #ifdef _WIN32
   typedef ULONG lcb_uvbuf_len_t;

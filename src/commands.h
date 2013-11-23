@@ -35,7 +35,7 @@ enum ArgMode {
 
 
 #define CTOR_COMMON(cls) \
-        cls(const Arguments &args, int mode) : Command(args, mode) {}
+        cls(_NAN_METHOD_ARGS, int mode) : Command(args, mode) {}
 
 
 class KeysInfo
@@ -48,7 +48,13 @@ public:
     unsigned int size() const { return ncmds; }
     void setKeys(Handle<Value> k);
     KeysType getType() const { return kcollType; }
-    Handle<Value> getKeys() { return keys; }
+    Handle<Value> getKeys() {
+      if (isPersistent) {
+        return NanPersistentToLocal(persKeys);
+      } else {
+        return keys;
+      }
+    }
 
     // Provides a "safe" keys array that is guaranteed not to be modified. This
     // is potentially a fairly expensive function and should only be called on
@@ -60,6 +66,7 @@ public:
 
 private:
     Handle<Value> keys;
+    Persistent<Value> persKeys;
     KeysType kcollType;
     bool isPersistent;
     unsigned int ncmds;
@@ -118,7 +125,7 @@ public:
                                 unsigned int ix);
 
 
-    Command(const Arguments& args, int cmdMode) : apiArgs(args) {
+    Command(_NAN_METHOD_ARGS, int cmdMode) : apiArgs(args) {
         mode = cmdMode;
         cookie = NULL;
     }
@@ -164,7 +171,8 @@ protected:
     void setCookieKeyOption(Handle<Value> key, Handle<Value> option);
     Command(Command &other);
 
-    const Arguments& apiArgs;
+    _NAN_METHOD_ARGS_TYPE apiArgs;
+
     NAMED_OPTION(SpooledOption, BooleanOption, SPOOLED);
     NAMED_OPTION(HashkeyOption, StringOption, HASHKEY);
 
@@ -241,8 +249,8 @@ protected:
 class LockCommand : public GetCommand
 {
 public:
-    LockCommand(const Arguments& origArgs, int mode)
-        : GetCommand(origArgs, mode) {
+    LockCommand(_NAN_METHOD_ARGS, int mode)
+        : GetCommand(args, mode) {
     }
 
     bool initialize() {
@@ -258,8 +266,8 @@ public:
 class StoreCommand : public Command
 {
 public:
-    StoreCommand(const Arguments& origArgs, lcb_storage_t sop, int mode)
-        : Command(origArgs, mode), op(sop) { }
+    StoreCommand(_NAN_METHOD_ARGS, lcb_storage_t sop, int mode)
+        : Command(args, mode), op(sop) { }
 
     static bool handleSingle(Command*, CommandKey&,
                              Handle<Value>, unsigned int);
@@ -300,8 +308,8 @@ protected:
 class TouchCommand : public Command
 {
 public:
-    TouchCommand(const Arguments& origArgs, int mode)
-        : Command(origArgs, mode) { }
+    TouchCommand(_NAN_METHOD_ARGS, int mode)
+        : Command(args, mode) { }
     static bool handleSingle(Command *, CommandKey&,
                              Handle<Value>, unsigned int);
     lcb_error_t execute(lcb_t);

@@ -102,6 +102,7 @@
       'src/valueformat.cc'
     ],
     'include_dirs': [
+      '<!(node -e "require(\'nan\')")',
       './',
       './src/io'
     ]

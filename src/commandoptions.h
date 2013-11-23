@@ -27,7 +27,7 @@ namespace Couchnode {
     struct name : base \
     { \
         virtual Handle<String> getName() const { \
-            return NameMap::names[NameMap::fld]; \
+            return NameMap::get(NameMap::fld); \
         } \
     }
 

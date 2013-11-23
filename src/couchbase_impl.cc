@@ -45,7 +45,7 @@ unsigned int CouchbaseImpl::objectCount;
 #endif
 
 
-static Handle<Value> bailOut(const Arguments &args, CBExc &ex)
+static Handle<Value> bailOut(_NAN_METHOD_ARGS, CBExc &ex)
 {
     Handle<Function> cb;
     if (args.Length()) {
@@ -89,9 +89,9 @@ CouchbaseImpl::~CouchbaseImpl()
 
     EventMap::iterator iter = events.begin();
     while (iter != events.end()) {
-        if (!iter->second.IsEmpty()) {
-            iter->second.Dispose();
-            iter->second.Clear();
+        if (iter->second) {
+            delete iter->second;
+            iter->second = NULL;
         }
         ++iter;
     }
@@ -99,56 +99,55 @@ CouchbaseImpl::~CouchbaseImpl()
 
 void CouchbaseImpl::Init(Handle<Object> target)
 {
-    HandleScope scope;
+    NanScope();
 
     Local<FunctionTemplate> t = FunctionTemplate::New(New);
 
-    Persistent<FunctionTemplate> s_ct;
-    s_ct = Persistent<FunctionTemplate>::New(t);
-    s_ct->InstanceTemplate()->SetInternalFieldCount(1);
-    s_ct->SetClassName(String::NewSymbol("CouchbaseImpl"));
+    //NanInitPersistent(FunctionTemplate, s_ct, t);
+    t->InstanceTemplate()->SetInternalFieldCount(1);
+    t->SetClassName(String::NewSymbol("CouchbaseImpl"));
 
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "strError", StrError);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "on", On);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "shutdown", Shutdown);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setMulti", SetMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "addMulti", AddMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "replaceMulti", ReplaceMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "appendMulti", AppendMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "prependMulti", PrependMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getMulti", GetMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getReplicaMulti", GetReplicaMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "touchMulti", TouchMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "lockMulti", LockMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "unlockMulti", UnlockMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmeticMulti", ArithmeticMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "removeMulti", RemoveMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteMulti", RemoveMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "observeMulti", ObserveMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "endureMulti", EndureMulti);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "stats", Stats);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "httpRequest", HttpRequest);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "_control", _Control);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "_connect", Connect);
-    target->Set(String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());
+    NODE_SET_PROTOTYPE_METHOD(t, "strError", StrError);
+    NODE_SET_PROTOTYPE_METHOD(t, "on", On);
+    NODE_SET_PROTOTYPE_METHOD(t, "shutdown", Shutdown);
+    NODE_SET_PROTOTYPE_METHOD(t, "setMulti", SetMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "addMulti", AddMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "replaceMulti", ReplaceMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "appendMulti", AppendMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "prependMulti", PrependMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "getMulti", GetMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "getReplicaMulti", GetReplicaMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "touchMulti", TouchMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "lockMulti", LockMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "unlockMulti", UnlockMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "arithmeticMulti", ArithmeticMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "removeMulti", RemoveMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "deleteMulti", RemoveMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "observeMulti", ObserveMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "endureMulti", EndureMulti);
+    NODE_SET_PROTOTYPE_METHOD(t, "stats", Stats);
+    NODE_SET_PROTOTYPE_METHOD(t, "httpRequest", HttpRequest);
+    NODE_SET_PROTOTYPE_METHOD(t, "_control", _Control);
+    NODE_SET_PROTOTYPE_METHOD(t, "_connect", Connect);
+    target->Set(String::NewSymbol("CouchbaseImpl"), t->GetFunction());
 
     target->Set(String::NewSymbol("Constants"), createConstants());
     NameMap::initialize();
     ValueFormat::initialize();
 }
 
-Handle<Value> CouchbaseImpl::On(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::On)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     return me->on(args);
 }
 
-Handle<Value> CouchbaseImpl::on(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::on)
 {
-    HandleScope scope;
+    NanScope();
     CBExc ex;
     if (args.Length() != 2) {
-        return ex.eArguments("Need event and callback").throwV8();
+        NanReturnValue(ex.eArguments("Need event and callback").throwV8());
     }
 
     Handle<Value> cbName = args[0];
@@ -156,37 +155,37 @@ Handle<Value> CouchbaseImpl::on(const Arguments &args)
     String::AsciiValue func(cbName);
 
     if (func.length() == 0) {
-        return ex.eArguments("Bad callback parameter", cbName).throwV8();
+        NanReturnValue(ex.eArguments("Bad callback parameter", cbName).throwV8());
     }
 
     if (!cbTarget->IsFunction()) {
-        return ex.eArguments("Parameter is not a function", cbTarget).throwV8();
+        NanReturnValue(ex.eArguments("Parameter is not a function", cbTarget).throwV8());
     }
 
     EventMap::iterator iter = events.find(*func);
     if (iter != events.end()) {
-        if (!iter->second.IsEmpty()) {
-            iter->second.Dispose();
-            iter->second.Clear();
+        if (iter->second) {
+            delete iter->second;
+            iter->second = NULL;
         }
         events.erase(iter);
     }
 
-    events[*func] = Persistent<Function>::New(cbTarget.As<Function>());
-    return scope.Close(True());
+    events[*func] = new NanCallback(cbTarget.As<Function>());
+    NanReturnValue(True());
 }
 
-Handle<Value> CouchbaseImpl::New(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::New)
 {
-    HandleScope scope;
+    NanScope();
     CBExc exc;
 
     if (args.Length() < 1) {
-        return exc.eArguments("Need a URI").throwV8();
+        NanReturnValue(exc.eArguments("Need a URI").throwV8());
     }
 
     if (args.Length() > 4) {
-        return exc.eArguments("Too many arguments").throwV8();
+        NanReturnValue(exc.eArguments("Too many arguments").throwV8());
     }
 
     std::string argv[4];
@@ -200,7 +199,7 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
         } else if (arg->IsNull() || arg->IsUndefined()) {
             continue;
         } else {
-            return exc.eArguments("Incorrect argument", args[ii]).throwV8();
+            NanReturnValue(exc.eArguments("Incorrect argument", args[ii]).throwV8());
         }
     }
 
@@ -214,7 +213,7 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
     err = lcb_create_libuv_io_opts(0, &iops, &iopsOptions);
 
     if (iops == NULL) {
-        return exc.eLcb(err).throwV8();
+        NanReturnValue(exc.eLcb(err).throwV8());
     }
 
     lcb_create_st createOptions(argv[0].c_str(),
@@ -227,38 +226,38 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
     err = lcb_create(&instance, &createOptions);
 
     if (err != LCB_SUCCESS) {
-        return exc.eLcb(err).throwV8();
+        NanReturnValue(exc.eLcb(err).throwV8());
     }
 
     CouchbaseImpl *hw = new CouchbaseImpl(instance);
     hw->Wrap(args.This());
-    return args.This();
+    NanReturnValue(args.This());
 }
 
-Handle<Value> CouchbaseImpl::Connect(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::Connect)
 {
-    HandleScope scope;
+    NanScope();
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     lcb_error_t ec = lcb_connect(me->getLibcouchbaseHandle());
     if (ec != LCB_SUCCESS) {
-        return CBExc().eLcb(ec).throwV8();
+        NanReturnValue(CBExc().eLcb(ec).throwV8());
     }
 
-    return scope.Close(True());
+    NanReturnValue(True());
 }
 
-Handle<Value> CouchbaseImpl::StrError(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::StrError)
 {
-    HandleScope scope;
+    NanScope();
     if (args.Length() != 1) {
-        return CBExc().eArguments("Method takes a single parameter").throwV8();
+        NanReturnValue(CBExc().eArguments("Method takes a single parameter").throwV8());
     }
     Handle<Value> errObj = args[0]->ToInt32();
     if (errObj.IsEmpty()) {
-        return CBExc().eArguments("Couldn't convert to number", args[0]).throwV8();
+        NanReturnValue(CBExc().eArguments("Couldn't convert to number", args[0]).throwV8());
     }
 
-    return scope.Close(String::NewSymbol(lcb_strerror(NULL,
+    NanReturnValue(String::NewSymbol(lcb_strerror(NULL,
             (lcb_error_t)errObj->IntegerValue())));
 
 }
@@ -270,7 +269,7 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
     }
 
     connected = true;
-    HandleScope scope;
+    NanScope();
     Handle<Value> errObj;
 
     if (err != LCB_SUCCESS) {
@@ -280,12 +279,11 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
     }
 
     EventMap::iterator iter = events.find("connect");
-    if (iter == events.end() || iter->second.IsEmpty()) {
+    if (iter == events.end() || !iter->second) {
         return;
     }
 
-    node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                       iter->second, 1, &errObj);
+    iter->second->Call(1, &errObj);
 }
 
 void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
@@ -296,19 +294,18 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
     }
 
     EventMap::iterator iter = events.find("error");
-    if (iter == events.end() || iter->second.IsEmpty()) {
+    if (iter == events.end() || !iter->second) {
         return;
     }
 
-    HandleScope scope;
+    NanScope();
     CBExc ex;
     ex.eLcb(err);
     if (errinfo) {
         ex.setMessage(errinfo);
     }
     Handle<Value> exObj = ex.asValue();
-    node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                       iter->second, 1, &exObj);
+    iter->second->Call(1, &exObj);
     return;
 }
 
@@ -350,9 +347,9 @@ void CouchbaseImpl::runScheduledOperations(lcb_error_t globalerr)
 
 // static
 template <typename T>
-Handle<Value> CouchbaseImpl::makeOperation(const Arguments &args, T &op)
+Handle<Value> CouchbaseImpl::makeOperation(_NAN_METHOD_ARGS, T &op)
 {
-    HandleScope scope;
+    NanScope();
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
 
     if (!op.initialize()) {
@@ -391,10 +388,11 @@ Handle<Value> CouchbaseImpl::makeOperation(const Arguments &args, T &op)
  ******************************************/
 
 #define DEFINE_STOREOP(name, mode) \
-Handle<Value> CouchbaseImpl::name##Multi(const Arguments &args) \
+NAN_METHOD(CouchbaseImpl::name##Multi) \
 { \
+    NanScope(); \
     StoreCommand op(args, mode, ARGMODE_MULTI); \
-    return makeOperation(args, op); \
+    NanReturnValue(makeOperation(args, op)); \
 }
 
 DEFINE_STOREOP(Set, LCB_SET)
@@ -403,78 +401,89 @@ DEFINE_STOREOP(Replace, LCB_REPLACE)
 DEFINE_STOREOP(Append, LCB_APPEND)
 DEFINE_STOREOP(Prepend, LCB_PREPEND)
 
-Handle<Value> CouchbaseImpl::GetMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::GetMulti)
 {
+    NanScope();
     GetCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::GetReplicaMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::GetReplicaMulti)
 {
+    NanScope();
     GetReplicaCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::LockMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::LockMulti)
 {
+    NanScope();
     LockCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::UnlockMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::UnlockMulti)
 {
+    NanScope();
     UnlockCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::TouchMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::TouchMulti)
 {
+    NanScope();
     TouchCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::ArithmeticMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::ArithmeticMulti)
 {
+    NanScope();
     ArithmeticCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::RemoveMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::RemoveMulti)
 {
+    NanScope();
     DeleteCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::ObserveMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::ObserveMulti)
 {
+    NanScope();
     ObserveCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::EndureMulti(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::EndureMulti)
 {
+    NanScope();
     EndureCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::Stats(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::Stats)
 {
+    NanScope();
     StatsCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::HttpRequest(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::HttpRequest)
 {
+    NanScope();
     HttpCommand op(args, ARGMODE_MULTI);
-    return makeOperation(args, op);
+    NanReturnValue(makeOperation(args, op));
 }
 
-Handle<Value> CouchbaseImpl::Shutdown(const Arguments &args)
+NAN_METHOD(CouchbaseImpl::Shutdown)
 {
-    HandleScope scope;
+    NanScope();
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     me->shutdown();
-    return scope.Close(True());
+    NanReturnValue(True());
 }
 
 extern "C" {
@@ -508,10 +517,4 @@ void CouchbaseImpl::shutdown(void)
 
 void CouchbaseImpl::dumpMemoryInfo(const std::string& mark="")
 {
-    HeapStatistics stats;
-    return;
-
-    V8::GetHeapStatistics(&stats);
-    printf("%-20s: HEAP: Used %lu/%lu\n", mark.c_str(), stats.used_heap_size(),
-           stats.total_heap_size());
 }

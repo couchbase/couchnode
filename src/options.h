@@ -95,7 +95,7 @@ struct CasSlot : ParamSlot
     lcb_cas_t v;
     CasSlot() : v(0) {}
     virtual Handle<String> getName() const {
-        return NameMap::names[NameMap::CAS];
+        return NameMap::get(NameMap::CAS);
     }
 
     ParseStatus parseValue(const Handle<Value>, CBExc &);
@@ -104,28 +104,28 @@ struct CasSlot : ParamSlot
 struct ExpOption : UInt32Option
 {
     virtual Handle<String> getName() const {
-        return NameMap::names[NameMap::EXPIRY];
+        return NameMap::get(NameMap::EXPIRY);
     }
 };
 
 struct LockOption : ExpOption
 {
     virtual Handle<String> getName() const {
-        return NameMap::names[NameMap::LOCKTIME];
+        return NameMap::get(NameMap::LOCKTIME);
     }
 };
 
 struct FlagsOption : UInt32Option
 {
     virtual Handle<String> getName() const {
-        return NameMap::names[NameMap::FLAGS];
+        return NameMap::get(NameMap::FLAGS);
     }
 };
 
 struct IndexOption : Int32Option
 {
     virtual Handle<String> getName() const {
-        return NameMap::names[NameMap::INDEX];
+        return NameMap::get(NameMap::INDEX);
     }
 };
 
@@ -169,7 +169,7 @@ struct StringOption : ParamSlot
 struct KeyOption : StringOption
 {
     virtual Handle<String> getName() const {
-        return NameMap::names[NameMap::KEY];
+        return NameMap::get(NameMap::KEY);
     }
 };
 

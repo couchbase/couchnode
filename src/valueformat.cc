@@ -23,16 +23,15 @@ Persistent<Function> ValueFormat::jsonStringify;
 
 void ValueFormat::initialize()
 {
-    HandleScope scope;
+    NanScope();
     Handle<Object> jMod = v8::Context::GetEntered()->Global()->Get(
             String::NewSymbol("JSON")).As<Object>();
     assert(!jMod.IsEmpty());
 
-
-    jsonParse = Persistent<Function>::New(
+    NanAssignPersistent(Function, jsonParse,
             jMod->Get(String::NewSymbol("parse")).As<Function>());
-    jsonStringify = Persistent<Function>::New(jMod->Get(
-            String::NewSymbol("stringify")).As<Function>());
+    NanAssignPersistent(Function, jsonStringify,
+            jMod->Get(String::NewSymbol("stringify")).As<Function>());
 
     assert(!jsonParse.IsEmpty());
     assert(!jsonStringify.IsEmpty());
@@ -46,13 +45,13 @@ Handle<Value> ValueFormat::decode(const char *bytes, size_t n,
 
     } else if (flags == RAW) {
         // 0.8 defines this as char*, hence the cast
-        node::Buffer *buf = node::Buffer::New(const_cast<char*>(bytes), n);
-        return buf->handle_;
+        return NanNewBufferHandle(const_cast<char*>(bytes), n);
 
     } else if (flags == JSON) {
         Handle<Value> s = decode(bytes, n, UTF8);
         v8::TryCatch try_catch;
-        Handle<Value> ret = jsonParse->Call(
+        Local<Function> jsonParseLcl = NanPersistentToLocal(jsonParse);
+        Handle<Value> ret = jsonParseLcl->Call(
                 v8::Context::GetEntered()->Global(), 1, &s);
         if (try_catch.HasCaught()) {
             return decode(bytes, n, RAW);
@@ -174,7 +173,8 @@ bool ValueFormat::encode(Handle<Value> input,
 
     } else if (spec == JSON) {
         v8::TryCatch try_catch;
-        Handle<Value> ret = jsonStringify->Call(
+        Local<Function> jsonStringifyLcl = NanPersistentToLocal(jsonStringify);
+        Handle<Value> ret = jsonStringifyLcl->Call(
                 v8::Context::GetEntered()->Global(), 1, &input);
 
         if (try_catch.HasCaught()) {

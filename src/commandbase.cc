@@ -42,16 +42,21 @@ void KeysInfo::setKeys(Handle<Value> k)
 
 Handle<Array> KeysInfo::getSafeKeysArray()
 {
+    Handle<Value> myKeys = keys;
+    if (isPersistent) {
+      myKeys = NanPersistentToLocal(persKeys);
+    }
+
     if (kcollType == ArrayKeys) {
-        return keys.As<Array>()->Clone().As<Array>();
+        return myKeys.As<Array>()->Clone().As<Array>();
     } else if (kcollType == ObjectKeys) {
-        return keys.As<Object>()->GetPropertyNames();
+        return myKeys.As<Object>()->GetPropertyNames();
     } else {
         Handle<Array> ret = Array::New(1);
-        if (keys.IsEmpty()) {
+        if (myKeys.IsEmpty()) {
             ret->Set(0, v8::Undefined());
         } else {
-            ret->Set(0, keys);
+            ret->Set(0, myKeys);
         }
         return ret;
     }
@@ -61,18 +66,15 @@ void KeysInfo::makePersistent()
 {
     assert(!isPersistent);
     isPersistent = true;
-    keys = Persistent<Value>::New(keys);
+    NanAssignPersistent(Value, persKeys, keys);
 }
 
 KeysInfo::~KeysInfo()
 {
-    if (keys.IsEmpty() || isPersistent == false) {
-        return;
+    if (!persKeys.IsEmpty()) {
+        persKeys.Dispose();
+        persKeys.Clear();
     }
-
-    Persistent<Value> persist(keys);
-    persist.Dispose();
-    persist.Clear();
 }
 
 bool Command::handleBadString(const char *msg, char **k, size_t *n)

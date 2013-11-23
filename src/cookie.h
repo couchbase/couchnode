@@ -48,7 +48,7 @@ public:
     bool hasKey() { return key != NULL && nkey > 0; }
 
     void setField(NameMap::dict_t name, Handle<Value> val) {
-        payload->ForceSet(NameMap::names[name], val);
+        payload->ForceSet(NameMap::get(name), val);
     }
 
     void setError(lcb_error_t err) {
@@ -70,7 +70,7 @@ public:
 
     const void *key;
     size_t nkey;
-    HandleScope scope;
+    //HandleScope scope;
     Handle<Value> keyObj;
 
 private:
@@ -90,12 +90,13 @@ class Cookie
 {
 public:
     Cookie(unsigned int numRemaining)
-        : hasError(false), cbType(CBMODE_SINGLE), remaining(numRemaining),
-          isCancelled(false) {}
+        : callback(NULL), hasError(false), cbType(CBMODE_SINGLE),
+          remaining(numRemaining), isCancelled(false) {}
 
     void setCallback(Handle<Function> cb, CallbackMode mode) {
-        assert(callback.IsEmpty());
-        callback = Persistent<Function>::New(cb);
+        assert(callback == NULL);
+
+        callback = new NanCallback(cb);
         cbType = mode;
 
         if (cbType == CBMODE_SPOOLED) {
@@ -105,12 +106,12 @@ public:
 
     void setParent(v8::Handle<v8::Value> cbo) {
         assert(parent.IsEmpty());
-        parent = v8::Persistent<v8::Value>::New(cbo);
+        NanAssignPersistent(v8::Value, parent, cbo);
     }
 
     void setOptions(Handle<Object> options) {
         assert(keyOptions.IsEmpty());
-        keyOptions = Persistent<Object>::New(options);
+        NanAssignPersistent(Object, keyOptions, options);
     }
 
     virtual ~Cookie();
@@ -121,7 +122,8 @@ public:
         if (keyOptions.IsEmpty()) {
             return Handle<Value>(); // null
         }
-        return keyOptions->GetRealNamedProperty(key.As<String>());
+        Local<Object> localKeyOptions = NanPersistentToLocal(keyOptions);
+        return localKeyOptions->GetRealNamedProperty(key.As<String>());
     }
 
     bool hasKeyOptions() const {
@@ -134,11 +136,11 @@ protected:
 
     // Processed a single command
     bool hasRemaining();
-    Persistent<Function> callback;
+    NanCallback *callback;
 
     void initSpooledInfo() {
         if (spooledInfo.IsEmpty()) {
-            spooledInfo = Persistent<Object>::New(Object::New());
+            NanAssignPersistent(Object, spooledInfo, Object::New());
         }
     }
 
@@ -186,8 +188,9 @@ public:
 
 private:
     inline Local<Function> getGlobalRestHandler() {
+      Local<Value> localParent = NanPersistentToLocal(parent);
       return Local<Function>::Cast(
-        parent->ToObject()->Get(NameMap::get(NameMap::RESTHANDLER)));
+        localParent->ToObject()->Get(NameMap::get(NameMap::RESTHANDLER)));
     }
 
 };

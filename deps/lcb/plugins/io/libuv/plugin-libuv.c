@@ -47,7 +47,7 @@ static void iops_lcb_dtor(lcb_io_opt_t iobase)
     }
 
     while (io->iops_refcount > 1) {
-        LCBUV_LOOP_ONCE(io->loop);
+        UVC_RUN_ONCE(io->loop);
     }
 
     if (io->external_loop == 0) {
@@ -63,7 +63,7 @@ static void iops_lcb_dtor(lcb_io_opt_t iobase)
  ******************************************************************************
  ******************************************************************************/
 
-#if UV_VERSION_MAJOR == 0 && UV_VERSION_MINOR < 10
+#if UV_VERSION < 0x000900
 static void do_run_loop(my_iops_t *io)
 {
     while (uv_run_once(io->loop) && io->do_stop == 0) {
@@ -358,15 +358,15 @@ static int start_connect(lcb_io_opt_t iobase,
     }
 
     if (namelen == sizeof(struct sockaddr_in)) {
-        ret = uv_tcp_connect(&uvr->uvreq.conn,
+        ret = UVC_TCP_CONNECT(&uvr->uvreq.conn,
                              &sock->tcp.t,
-                             *(struct sockaddr_in *)name,
+                             name,
                              connect_callback);
 
     } else if (namelen == sizeof(struct sockaddr_in6)) {
-        ret = uv_tcp_connect6(&uvr->uvreq.conn,
+        ret = UVC_TCP_CONNECT6(&uvr->uvreq.conn,
                               &sock->tcp.t,
-                              *(struct sockaddr_in6 *)name,
+                              name,
                               connect_callback);
 
     } else {
@@ -478,26 +478,29 @@ static int start_write(lcb_io_opt_t iobase,
  ** Read Functions                                                           **
  ******************************************************************************
  ******************************************************************************/
-static uv_buf_t alloc_cb(uv_handle_t *handle, size_t suggested_size)
+static UVC_ALLOC_CB(alloc_cb)
 {
-    uv_buf_t ret;
+    UVC_ALLOC_CB_VARS()
+
     my_sockdata_t *sock = PTR_FROM_FIELD(my_sockdata_t, handle, tcp);
     struct lcb_buf_info *bi = &sock->base.read_buffer;
 
     lcb_assert(sock->cur_iov == 0);
 
-    ret.base = bi->iov[0].iov_base;
-    ret.len = (lcb_uvbuf_len_t)bi->iov[0].iov_len;
+    buf->base = bi->iov[0].iov_base;
+    buf->len = (lcb_uvbuf_len_t)bi->iov[0].iov_len;
 
     sock->cur_iov++;
     sock->read_done = 1;
     (void)suggested_size;
 
-    return ret;
+    UVC_ALLOC_CB_RETURN();
 }
 
-static void read_cb(uv_stream_t *stream, ssize_t nread, uv_buf_t buf)
+static UVC_READ_CB(read_cb)
 {
+    UVC_READ_CB_VARS()
+
     my_tcp_t *mt = (my_tcp_t *)stream;
     my_sockdata_t *sock = PTR_FROM_FIELD(my_sockdata_t, mt, tcp);
 
@@ -709,75 +712,6 @@ static void wire_timer_ops(lcb_io_opt_t iop)
     iop->v.v1.destroy_timer = destroy_timer;
 }
 
-#if defined(_WIN32) && defined(LIBCOUCHBASE_INTERNAL)
-#include "win32/win_errno_sock.h"
-#endif
-
-static int errno_map(int uverr)
-{
-
-#ifndef UNKNOWN
-#define UNKNOWN -1
-#endif
-
-#ifndef EAIFAMNOSUPPORT
-#define EAIFAMNOSUPPORT EAI_FAMILY
-#endif
-
-#ifndef EAISERVICE
-#define EAISERVICE EAI_SERVICE
-#endif
-
-#ifndef EAI_SYSTEM
-#define EAI_SYSTEM -11
-#endif
-#ifndef EADDRINFO
-#define EADDRINFO EAI_SYSTEM
-#endif
-
-#ifndef EAISOCKTYPE
-#define EAISOCKTYPE EAI_SOCKTYPE
-#endif
-
-#ifndef ECHARSET
-#define ECHARSET 0
-#endif
-
-#ifndef EOF
-#define EOF -1
-#endif
-
-#ifndef ENONET
-#define ENONET ENETDOWN
-#endif
-
-#ifndef ESHUTDOWN
-#define ESHUTDOWN WSAESHUTDOWN
-#endif
-
-#ifndef EAI_CANCELED
-#define EAI_CANCELED -101
-#endif
-
-#ifndef EAI_ADDRFAMILY
-#define EAI_ADDRFAMILY -9
-#endif
-
-#define OK 0
-
-    int ret = 0;
-#define X(errnum,errname,errdesc) \
-    if (uverr == UV_##errname) { \
-        return errname; \
-    }
-    UV_ERRNO_MAP(X);
-
-    return ret;
-
-#undef X
-}
-
-
 static my_uvreq_t *alloc_uvreq(my_sockdata_t *sock, generic_callback_t callback)
 {
     my_uvreq_t *ret = calloc(1, sizeof(*ret));
@@ -793,11 +727,7 @@ static my_uvreq_t *alloc_uvreq(my_sockdata_t *sock, generic_callback_t callback)
 
 static void set_last_error(my_iops_t *io, int error)
 {
-    if (!error) {
-        io->base.v.v1.error = 0;
-        return;
-    }
-    io->base.v.v1.error = errno_map(uv_last_error(io->loop).code);
+    io->base.v.v1.error = uvc_last_errno(io->loop, error);
 }
 
 static void generic_close_cb(uv_handle_t *handle)
