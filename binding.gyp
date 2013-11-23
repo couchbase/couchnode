@@ -98,7 +98,7 @@
       'src/exception.cc',
       'src/options.cc',
       'src/cas.cc',
-      'src/plugin-libuv.c',
+      'src/uv-plugin-all.c',
       'src/valueformat.cc'
     ],
     'include_dirs': [
