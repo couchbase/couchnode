@@ -3,7 +3,7 @@
                "email" : "support@couchbase.com" },
     "description": "The official Couchbase Node.js Client Library.",
     "engines" : { "node" : ">=0.8.8" },
-    "homepage": "http://www.couchbase.com/develop",
+    "homepage": "http://www.couchbase.com/communities/nodejs",
     "keywords": ["couchbase", "libcouchbase", "memcached", "nosql", "json", "document"],
     "main": "./lib/couchbase",
     "license" : "Apache2",
