@@ -53,7 +53,7 @@ bool ParamSlot::parseAll(const Handle<Object> dict, ParamSlot **specs,
         Handle<String> name = cur->getName();
         Handle<Value> val = dict->GetRealNamedProperty(name);
 
-        if (val.IsEmpty()) {
+        if (val.IsEmpty() || val->IsUndefined()) {
             continue;
         }
 
