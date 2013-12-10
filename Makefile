@@ -16,6 +16,7 @@ binding: binding.gyp
 clean:
 	@node-gyp clean
 	rm -rf jsdoc
+	rm -f cbmock.js
 
 install:
 	@npm install
@@ -34,6 +35,9 @@ check: test lint
 docs: node_modules
 	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
 
+browser: lib/mock.js lib/viewQuery.js
+	browserify -r "./lib/mock.js:cbmock" > cbmock.js
+
 reformat:
 	@astyle --mode=c \
                --quiet \
@@ -51,4 +55,4 @@ reformat:
                src/*.cc \
                src/*.h
 
-.PHONY: all test clean docs
+.PHONY: all test clean docs browser

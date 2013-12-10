@@ -57,6 +57,21 @@ into the bucket and then retrieving its contents:
 ```
 
 
+## Mock Testing
+
+As part of this library, we include a mock version of the client that supports
+nearly the exact same feature set as the library itself, but which does not
+require that a server be configured.  Note that these Mock connections currently
+are per-instance, if another connection is instantiated, none of the data will
+be shared.
+
+Using the Mock is as simple as this:
+```javascript
+    var couchbase = require('couchbase').Mock;
+    var db = new couchbase.Connection();
+```
+
+
 ## Documentation
 
 An extensive documentation is available on the Couchbase website.  Visit our

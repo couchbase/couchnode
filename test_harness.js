@@ -12,12 +12,19 @@ if (fs.existsSync(configFilename)) {
   config = JSON.parse(fs.readFileSync(configFilename));
 } else {
   config = {
+    mock : process.env.CNMOCK ? process.env.CNMOCK : false,
     host : process.env.CNHOST ? process.env.CNHOST : "localhost:8091",
     bucket : process.env.CNBUCKET ? process.env.CNBUCKET : "default",
     operationTimeout : 20000,
     connectionTimeout : 20000
   };
 }
+
+if (config.mock) {
+  couchbase = couchbase.Mock;
+}
+delete config.mock;
+
 
 function Harness(callback) {
   this.client = this.newClient();
