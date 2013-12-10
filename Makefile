@@ -15,6 +15,7 @@ binding: binding.gyp
 
 clean:
 	@node-gyp clean
+	rm -rf jsdoc
 
 install:
 	@npm install
