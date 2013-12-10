@@ -1,6 +1,5 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
-var couchbase = require('../lib/couchbase.js');
 
 var cb = H.newClient();
 
@@ -13,8 +12,8 @@ describe('#strerror', function() {
     // Should still work with shutdown connection
     cb.shutdown();
 
-    for (var errKey in couchbase.errors) {
-      var errValue = couchbase.errors[errKey];
+    for (var errKey in H.errors) {
+      var errValue = H.errors[errKey];
       assert.equal(typeof errValue, "number", "Bad constant for : " + errKey);
       assert(errValue >= 0);
     }

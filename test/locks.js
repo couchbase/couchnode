@@ -1,6 +1,5 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
-var couchbase = require('../lib/couchbase.js');
 
 var cb = H.newClient();
 
@@ -14,7 +13,7 @@ describe('#lock/unlock', function() {
         assert.equal("{bar}", result.value, "Callback called with wrong value!");
         cb.lock(testkey1, {locktime: 1 }, function (err, result) {
           assert(err);
-          assert.equal(err.code, couchbase.errors.temporaryError);
+          assert.equal(err.code, H.errors.temporaryError);
           done();
         });
       }));
@@ -52,7 +51,7 @@ describe('#lock/unlock', function() {
     }));
   });
 
-  it('should not affect normal sets', function(done) {
+  it('should affect normal sets', function(done) {
     var testkey4 = H.genKey("lock4");
 
     cb.set(testkey4, "{bam}", H.okCallback(function(result) {

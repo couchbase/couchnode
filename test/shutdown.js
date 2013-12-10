@@ -1,6 +1,5 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
-var couchbase = require('../lib/couchbase.js');
 
 // Generates a new client for each test as the tests
 //  meddle with the state of the connection.

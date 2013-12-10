@@ -1,6 +1,5 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
-var couchbase = require('../lib/couchbase.js');
 
 var cb = H.newClient();
 
@@ -57,12 +56,12 @@ describe('#getMulti/setMulti', function() {
       var keys = [badKey, goodKey];
 
       cb.getMulti(keys, null, function(err, results) {
-        assert.strictEqual(err.code, couchbase.errors.checkResults);
+        assert.strictEqual(err.code, H.errors.checkResults);
         var goodResult = results[goodKey];
         assert.equal(goodResult.value, goodValue);
 
         var badResult = results[badKey];
-        assert.strictEqual(badResult.error.code, couchbase.errors.keyNotFound);
+        assert.strictEqual(badResult.error.code, H.errors.keyNotFound);
 
         done();
       });

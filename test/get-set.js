@@ -1,6 +1,5 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
-var couchbase = require('../lib/couchbase.js');
 
 var cb = H.newClient();
 
@@ -122,7 +121,7 @@ describe('#get/set', function() {
         var doc = result.value;
         assert(Buffer.isBuffer(doc));
         assert.deepEqual(buf, doc);
-        assert.equal(result.flags, couchbase.format.raw);
+        assert.equal(result.flags, H.format.raw);
         done();
       }));
     }));
@@ -134,7 +133,7 @@ describe('#get/set', function() {
 
     // Note that we must specify the format as the flags no longer carries it
     cb.set(key, value, {flags: 14}, H.okCallback(function(){
-      cb.get(key, {format: couchbase.format.json},
+      cb.get(key, {format: H.format.json},
           H.okCallback(function(result){
         assert.deepEqual(result.value, value);
         assert.equal(result.flags, 14);

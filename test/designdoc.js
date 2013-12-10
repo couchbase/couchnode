@@ -1,6 +1,6 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
-var couchbase = require('../lib/couchbase.js');
+
 var async = require('async');
 var u = require("underscore");
 
@@ -446,7 +446,9 @@ describe('#design documents', function() {
       q.query(function(err, results) {
         if (err) {
           // Lets assume that the view isn't created yet... try again..
-          do_run_view(cb);
+          process.nextTick(function(){
+            do_run_view(cb);
+          });
         } else {
           assert(!err, "error fetching view");
           assert(results.length === 1);
@@ -460,7 +462,7 @@ describe('#design documents', function() {
       });
     }
 
-    H.setGet(testkey, "bar", function(doc) {
+    cb.set(testkey, "bar", H.okCallback(function(doc) {
       var ddoc = {"views": {"test-view": {
         "map": "function(doc,meta){if(meta.id=='"+testkey+"'){emit(meta.id);}}"
       }}};
@@ -473,7 +475,7 @@ describe('#design documents', function() {
           do_run_view(cb);
         });
       });
-    });
+    }));
   });
 
 });

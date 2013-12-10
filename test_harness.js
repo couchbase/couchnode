@@ -1,3 +1,5 @@
+"use strict";
+
 var couchbase = require('./lib/couchbase.js'),
   fs = require('fs'),
   util = require('util');
@@ -18,7 +20,9 @@ if (fs.existsSync(configFilename)) {
 }
 
 function Harness(callback) {
-  this.client = new couchbase.Connection(config, callback);
+  this.client = this.newClient();
+  this.errors = couchbase.errors;
+  this.format = couchbase.format;
   this.keySerial = 0;
 }
 

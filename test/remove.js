@@ -1,6 +1,5 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
-var couchbase = require('../lib/couchbase.js');
 
 var cb = H.newClient();
 
@@ -13,7 +12,7 @@ describe('#remove', function() {
       cb.get(key, H.okCallback(function(result){
         cb.remove(key, H.okCallback(function(result) {
           cb.get(key, function(err, result) {
-            assert.equal(err.code, couchbase.errors.keyNotFound);
+            assert.equal(err.code, H.errors.keyNotFound);
             done();
           });
         }));
