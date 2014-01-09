@@ -12,17 +12,32 @@ if (fs.existsSync(configFilename)) {
   config = JSON.parse(fs.readFileSync(configFilename));
 } else {
   config = {
-    mock : process.env.CNMOCK ? process.env.CNMOCK : false,
-    host : process.env.CNHOST ? process.env.CNHOST : "localhost:8091",
-    bucket : process.env.CNBUCKET ? process.env.CNBUCKET : "default",
+    mock : false,
+    host : 'localhost:8091',
+    queryhosts : 'localhost:8093',
+    bucket : 'default',
     operationTimeout : 20000,
     connectionTimeout : 20000
   };
 }
 
+if (process.env.CNMOCK !== undefined) {
+  config.mock = process.env.CNMOCK ? true : false;
+}
+if (process.env.CNHOST !== undefined) {
+  config.host = process.env.CNHOST;
+}
+if (process.env.CNQHOSTS !== undefined) {
+  config.queryhosts = process.env.CNQHOSTS;
+}
+if (process.env.CNBUCKET !== undefined) {
+  config.bucket = process.env.CNBUCKET;
+}
+
 if (config.mock) {
   couchbase = couchbase.Mock;
 }
+var isMock = config.mock;
 delete config.mock;
 
 
@@ -78,6 +93,15 @@ Harness.prototype.setGet = function(key, value, callback) {
       callback(result.value);
     }));
   }));
+};
+
+// Skips the test if in no-mock mode.
+Harness.prototype.nmIt = function(name, func) {
+  if (!isMock) {
+    it(name, func);
+  } else {
+    it.skip(name, func);
+  }
 };
 
 module.exports = new Harness();
