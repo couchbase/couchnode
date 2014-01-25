@@ -184,11 +184,11 @@ NAN_METHOD(CouchbaseImpl::New)
         NanReturnValue(exc.eArguments("Need a URI").throwV8());
     }
 
-    if (args.Length() > 4) {
+    if (args.Length() > 5) {
         NanReturnValue(exc.eArguments("Too many arguments").throwV8());
     }
 
-    std::string argv[4];
+    std::string argv[5];
     lcb_error_t err;
 
     for (int ii = 0; ii < args.Length(); ++ii) {
@@ -223,7 +223,21 @@ NAN_METHOD(CouchbaseImpl::New)
                                 iops);
 
     lcb_t instance;
-    err = lcb_create(&instance, &createOptions);
+
+    if (argv[4].size() <= 0) {
+        err = lcb_create(&instance, &createOptions);
+    } else {
+        lcb_cached_config_st cacheConfig = {
+            createOptions,
+            argv[4].c_str()
+        };
+        err = lcb_create_compat(
+            LCB_CACHED_CONFIG,
+            &cacheConfig,
+            &instance,
+            iops);
+    }
+
 
     if (err != LCB_SUCCESS) {
         NanReturnValue(exc.eLcb(err).throwV8());
@@ -241,6 +255,17 @@ NAN_METHOD(CouchbaseImpl::Connect)
     lcb_error_t ec = lcb_connect(me->getLibcouchbaseHandle());
     if (ec != LCB_SUCCESS) {
         NanReturnValue(CBExc().eLcb(ec).throwV8());
+    }
+
+    // If we are using configuration cache, we will not receive a
+    //   configuration received callback.
+    {
+        int is_loaded = 0;
+        lcb_cntl(me->getLibcouchbaseHandle(), LCB_CNTL_GET,
+            LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
+        if (is_loaded) {
+          me->onConfig(LCB_CONFIGURATION_NEW);
+        }
     }
 
     NanReturnValue(True());
