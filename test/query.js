@@ -3,7 +3,7 @@ var H = require('../test_harness.js');
 
 var cb = H.newClient();
 
-describe('#query', function() {
+describe.skip('#query', function() {
 
   it('should execute a raw query successfully', function(done) {
     cb.query('SELECT * FROM default', function(err, res) {
