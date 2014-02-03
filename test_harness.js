@@ -43,6 +43,7 @@ delete config.mock;
 
 function Harness(callback) {
   this.client = this.newClient();
+  this.lib = couchbase;
   this.errors = couchbase.errors;
   this.format = couchbase.format;
   this.keySerial = 0;

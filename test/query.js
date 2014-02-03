@@ -20,7 +20,12 @@ describe.skip('#query', function() {
     });
   });
 
+  it('should execute formated query strings correctly', function(done) {
+    cb.query('SELECT * FROM ??', ['default'], function(err, res) {
+      assert(!err, 'Failed to execute query.');
+      assert(res, 'No results returned.');
+      done();
+    });
+  });
+
 });
-/**
- * Created by brettlawson on 1/7/2014.
- */
