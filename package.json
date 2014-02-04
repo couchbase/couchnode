@@ -21,7 +21,7 @@
   "name": "couchbase",
   "dependencies": {
     "bindings": "~1.0.0",
-    "nan": "git+https://github.com/brett19/nan.git#master",
+    "nan": "~0.8.0",
     "request": "~2.30.0"
   },
   "devDependencies": {
