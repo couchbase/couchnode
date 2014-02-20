@@ -41,7 +41,7 @@ void NameMap::initialize()
     install("replicate_to", REPLICATE_TO);
     install("timeout", TIMEOUT);
     install("spooled", SPOOLED);
-    install("error", ERR);
+    install("error", ERRORED);
     install("is_delete", IS_DELETE);
 
     install("ttp", OBS_TTP);

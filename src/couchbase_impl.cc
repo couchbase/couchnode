@@ -388,7 +388,10 @@ Handle<Value> CouchbaseImpl::makeOperation(_NAN_METHOD_ARGS, T &op)
     Cookie *cc = op.createCookie();
     cc->setParent(args.This());
 
-    if (!me->connected) {
+    if (me->isShutdown) {
+      cc->cancel(LCB_EBADHANDLE, op.getKeyList());
+      return scope.Close(v8::False());
+    } else if (!me->connected) {
         // Schedule..
         Command *cp = op.makePersistent();
         me->pendingCommands.push(cp);

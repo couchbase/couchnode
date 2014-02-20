@@ -49,7 +49,7 @@ namespace Couchnode
             TIMEOUT,
             SPOOLED,
             IS_DELETE,
-            ERR,
+            ERRORED,
             OBS_TTP,
             OBS_TTR,
             OBS_CODE,
