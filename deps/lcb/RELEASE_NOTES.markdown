@@ -3,6 +3,118 @@
 This document is a list of user visible feature changes and important
 bugfixes. Do not forget to update this doc in every important patch.
 
+## 2.3.0 GA (2014-04-07)
+
+* [major] CCBC-152: Provide a master-only observe option. This adds a new
+  struct version to the `lcb_observe_cmd_t` which allows to select only the
+  master node. One can use this to efficiently check if the key exists (without
+  retrieving it). It also allows one to get the CAS of the item without fetching
+  it.
+
+* [major] CCBC-281: Fix partial scheduling during multi operations. Previously
+  the library would deliver spurious callbacks  if multiple operations were
+  scheduled with a single command and one of the operations could not be mapped
+  to a server. This fixes this behavior and ensures that callbacks are only
+  invoked for items if the entire API call succeeded.
+
+* [major] CCBC-150: Multi-packet commands will no longer deliver spurious
+  callbacks on failure. Previously these commands would be relocated to the
+  same server during a configuration change, resulting in multiple callbacks
+  for the same command. In this case the client would think all the commands
+  had been completed, and when the next response arrived it would incorrectly
+  map it to a different request.
+
+* [minor] CCBC-327: Fix assumption of `vbucket_compare()` only returning if
+  a diff exists. This function actually returns a non-NULL pointer always
+  unless it cannot allocate more memory. This bug was introduced with the
+  _DP1_ release.
+
+* [minor] CCBC-326: Memcached buckets should use streaming config. This was
+  left unchecked in the _DP1_ release and has now been fixed.
+
+* [major] CCBC-351: Enhance performance for configuration parsing. In previous
+  versions receiving multiple configurations at once would cause CPU spikes on
+  slower systems. The configuration parser code has been optimized to alleviate
+  this issue.
+
+* [minor] CCBC-350: Provide `lcb_cntl()` API to retrieve the SCM changeset used
+  by the currently loaded binary. This is a more effective way to get the
+  revision as it does not depend on the specific headers the library was
+  compiled with.
+
+* [major] CCBC-340: Correctly parse `""`, `"0"` and `"1"` for environment
+  variables. In previous versions having the entry set to an empty string
+  or `0` would still be treated by the library as a true value for various
+  environment variables. This has been fixed so that clear "False" values
+  such as the empty string or 0 are treated as such.
+
+
+## 2.3.0-dp1 (2014-02-04)
+
+* [major] CCBC-234: Implementation of
+  [Cluster Configuration Carrier Publication][cccp-wiki]. This is the new and
+  more efficient way to bootstrap from a cluster using the native memcached
+  protocol and is quicker than the previous HTTP bootstrap mechanism, dramatically
+  improving startup times and reducing load on the server. This feature is
+  available in server verions 2.5 and greater. The existing HTTP configuration is
+  still supported and will be employed as a fallback in the event that `CCCP`
+  is not supported.
+
+  In conjunction with this, a new struct version has been added to the
+  `lcb_create_st` parameters structure for use with `lcb_create`. This allows
+  you to get more control over how the client is initialized:
+
+    lcb_t instance;
+    struct lcb_create_st options;
+    lcb_config_transport_t enabled_transports = {
+        LCB_CONFIG_TRANSPORT_CCCP,
+        LCB_CONFIG_TRANSPORT_LIST_END
+    };
+
+    memset(&options, 0, sizeof(options));
+    options.version = 2;
+    options.v.v2.mchosts = "example.com:11210";
+    options.v.v2.transports = enabled_transports;
+
+    lcb_error_t rc = lcb_create(&instance, &options);
+    if (rc != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to create instance: %s\n", lcb_strerror(instance, rc));
+    }
+
+  The above snippet will configure a client to _always_ use the `CCCP` protocol
+  and never attempt to fall back on HTTP
+
+  The CCCP implementation required a significant rewrite in how sockets were
+  created and re-used. Particularly, a connection pooling feature was implemented.
+
+  Additionally, the `cbc` command now has an additional `-C` option which accepts
+  the preferred configuration mechanism to use.
+
+* [major] CCBC-305: Implement logging hooks.
+
+  This improvements adds various levels of diagnostic logging with the library
+  itself. It may be utilized via the environment (by setting the `LCB_LOGLEVEL`
+  environment variable to a positive integer -- the higher the number the more
+  verbose the logging).
+
+  Integrators may also use the logging API specified in `<libcouchbase/types.h>`
+  to proxy the library's logging messages into your own application.
+
+  Current events logged include connection initialization, destruction, connection
+  pool management, configuration changes, and timeouts.
+
+  By default the library is silent.
+
+* [major] CCBC-316: Allow per-node bootstrap/config timeouts.
+  This change allows more finer grained control over how long to wait per-node
+  to receive updated configuration info. This setting helps adjust the initial
+  and subsequent bootstrap processes to help ensure each node gets a slice of
+  time.
+
+* [major] CCBC-297: Handle spurious EWOULDBLOCK on UV/Win32
+  This issue caused odd errors on Windows when large amounts of data
+  would be received on the socket.
+
 ## 2.2.0 (2013-10-05)
 
 * [major] CCBC-169 Handle 302 redirects in HTTP (views, administrative

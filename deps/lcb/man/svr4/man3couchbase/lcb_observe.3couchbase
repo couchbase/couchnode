@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lcb_observe
 .\"    Author: Trond Norbye <trond.norbye@couchbase.com>
-.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 08/09/2013
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 02/09/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LCB_OBSERVE" "3couchbase" "08/09/2013" "\ \&" "\ \&"
+.TH "LCB_OBSERVE" "3couchbase" "02/09/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -62,6 +62,26 @@ typedef struct lcb_observe_cmd_t {
              const void *hashkey; /* Key used to locate server (if !NULL) */
              lcb_size_t nhashkey; /* length of hash key */
         } v0;
+        struct {
+             /** v0 fields */
+             \&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+             /**
+              * A flag set of options\&. Currently the only option supported
+              * is LCB_OBSERVE_MASTER_ONLY which indicates that the command
+              * should be sent only to the master node for the given key\*(Aqs
+              * vBucket\&. Callback semantics remain the same, however
+              */
+             lcb_observe_options_t;
+        } v1;
     } v;
 };
 .fi

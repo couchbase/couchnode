@@ -24,10 +24,6 @@
 
 class ArithmeticUnitTest : public MockUnitTest
 {
-protected:
-    static void SetUpTestCase() {
-        MockUnitTest::SetUpTestCase();
-    }
 };
 
 static lcb_uint64_t arithm_val;

@@ -5,6 +5,7 @@
 #include "mock-unit-test.h"
 #include "mock-environment.h"
 #include "testutil.h"
+#include "internal.h"
 #include <map>
 
 using namespace std;
@@ -14,16 +15,12 @@ using namespace std;
 class DurabilityUnitTest : public MockUnitTest
 {
 protected:
-    static void SetUpTestCase() {
-        MockUnitTest::SetUpTestCase();
-    }
-
     static void defaultOptions(lcb_t instance, lcb_durability_opts_st &opts) {
         lcb_size_t nservers = lcb_get_num_nodes(instance);
         lcb_size_t nreplicas = lcb_get_num_replicas(instance);
 
-        opts.v.v0.persist_to = min(nreplicas + 1, nservers);
-        opts.v.v0.replicate_to = min(nreplicas, nservers - 1);
+        opts.v.v0.persist_to = (lcb_uint16_t) min(nreplicas + 1, nservers);
+        opts.v.v0.replicate_to = (lcb_uint16_t) min(nreplicas, nservers - 1);
     }
 };
 
@@ -81,7 +78,7 @@ public:
 
     void assertCriteriaMatch(const lcb_durability_opts_st &opts) {
         ASSERT_EQ(LCB_SUCCESS, resp.v.v0.err);
-        ASSERT_TRUE(resp.v.v0.persisted_master);
+        ASSERT_TRUE(resp.v.v0.persisted_master != 0);
         ASSERT_TRUE(opts.v.v0.persist_to <= resp.v.v0.npersisted);
         ASSERT_TRUE(opts.v.v0.replicate_to <= resp.v.v0.nreplicated);
     }
@@ -155,7 +152,7 @@ public:
     }
 
     void assign(const lcb_durability_resp_t *resp) {
-        ASSERT_GT(resp->v.v0.nkey, 0);
+        ASSERT_GT(resp->v.v0.nkey, 0U);
         counter++;
 
         string key;
@@ -279,7 +276,6 @@ TEST_F(DurabilityUnitTest, testDurabilityCriteria)
     lcb_durability_opts_st opts = { 0 };
     lcb_durability_cmd_st cmd = { 0 };
     lcb_durability_cmd_st *cmd_p = &cmd;
-    lcb_error_t err;
 
     /** test with no persist/replicate */
     defaultOptions(instance, opts);
@@ -572,7 +568,7 @@ TEST_F(DurabilityUnitTest, testMulti)
     dmop.assertAllMatch(opts, items_stored, vector<Item>());
 
     // Store all the missing ones
-    opts.v.v0.timeout = SECS_USECS(1.5);
+    opts.v.v0.timeout = (lcb_uint32_t)SECS_USECS(1.5);
     dmop = DurabilityMultiOperation();
     dmop.run(instance, &opts, items_missing);
     dmop.assertAllMatch(opts, vector<Item>(), items_missing, LCB_KEY_ENOENT);
@@ -665,4 +661,104 @@ TEST_F(DurabilityUnitTest, testObserveSanity)
 
     ASSERT_GT(o_cookie.count, 0);
     ASSERT_GT(d_cookie.count, 0);
+}
+
+TEST_F(DurabilityUnitTest, testMasterObserve)
+{
+    LCB_TEST_REQUIRE_FEATURE("observe");
+    SKIP_UNLESS_MOCK();
+
+    HandleWrap handle;
+    createConnection(handle);
+    lcb_t instance = handle.getLcb();
+
+    lcb_set_observe_callback(instance, dummyObserveCallback);
+    lcb_observe_cmd_t ocmd, *ocmds[] = { &ocmd };
+    memset(&ocmd, 0, sizeof(ocmd));
+    ocmd.version = 1;
+    ocmd.v.v1.key = "key";
+    ocmd.v.v1.options = LCB_OBSERVE_MASTER_ONLY;
+    ocmd.v.v1.nkey = 3;
+    storeKey(instance, "key", "value");
+    struct cb_cookie o_cookie = { 1, 0 };
+    lcb_error_t err = lcb_observe(instance, &o_cookie, 1, ocmds);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_wait(instance);
+
+    // 2 == one for the callback, one for the NULL
+    ASSERT_EQ(2, o_cookie.count);
+}
+
+extern "C" {
+static void fo_callback(lcb_timer_t, lcb_t, const void *)
+{
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    for (int ii = 1; ii < mock->getNumNodes(); ii++) {
+        mock->failoverNode(ii);
+    }
+}
+}
+
+/**
+ * Test the functionality of durability operations during things like
+ * node failovers.
+ *
+ * The idea behind here is to ensure that we can trigger a case where a series
+ * of OBSERVE packets are caught in the middle of a cluster update and end up
+ * being relocated to the same server. Previously (and currently) this would
+ * confuse the lookup_server_with_command functionality which would then invoke
+ * the 'NULL' callback multiple times (because it assumes it's not located
+ * anywhere else)
+ */
+TEST_F(DurabilityUnitTest, testDurabilityRelocation)
+{
+    SKIP_UNLESS_MOCK();
+
+    // Disable CCCP so that we get streaming updates
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    mock->setCCCP(false);
+
+    HandleWrap handle;
+    lcb_t instance;
+    createConnection(handle);
+    instance = handle.getLcb();
+
+    lcb_set_durability_callback(instance, dummyDurabilityCallback);
+    std::string key = "key";
+
+    lcb_durability_cmd_t dcmd, *dcmds[] = { &dcmd };
+    lcb_durability_opts_t opts = { 0 };
+
+    opts.v.v0.persist_to = 100;
+    opts.v.v0.replicate_to = 100;
+    opts.v.v0.cap_max = 1;
+    storeKey(instance, key, "value");
+
+    // Ensure we have to resend commands multiple times
+    MockMutationCommand mcmd(MockCommand::UNPERSIST, key);
+    mcmd.onMaster = true;
+    mcmd.replicaCount = lcb_get_num_replicas(instance);
+    doMockTxn(mcmd);
+
+    memset(&dcmd, 0, sizeof(dcmd));
+
+    dcmd.v.v0.key = key.c_str();
+    dcmd.v.v0.nkey = 3;
+
+    /**
+     * Failover all but one node
+     */
+    for (int ii = 1; ii < mock->getNumNodes(); ii++) {
+        mock->hiccupNodes(1000, 0);
+    }
+    lcb_timer_t tm = lcb_timer_create_simple(handle.getIo(),
+                                             NULL, 500000, fo_callback);
+
+    struct cb_cookie cookie = { 0, 0 };
+    lcb_error_t err = lcb_durability_poll(instance, &cookie, &opts, 1, dcmds);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    lcb_wait(instance);
+    ASSERT_EQ(1, cookie.count);
+    lcb_timer_destroy(instance, tm);
 }

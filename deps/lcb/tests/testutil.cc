@@ -18,6 +18,7 @@
 
 #include "mock-unit-test.h"
 #include "testutil.h"
+#include <map>
 
 /*
  * Helper functions
@@ -90,6 +91,10 @@ void KVOperation::leave(lcb_t instance)
 
 void KVOperation::assertOk(lcb_error_t err)
 {
+    if (ignoreErrors) {
+        return;
+    }
+
     if (allowableErrors.empty()) {
         ASSERT_EQ(LCB_SUCCESS, err);
         return;
@@ -172,6 +177,60 @@ void getKey(lcb_t instance, const std::string &key, Item &item)
     kvo.get(instance);
     ASSERT_NE(0xdeadbeef, kvo.result.cas);
     item = kvo.result;
+}
+
+void genDistKeys(VBUCKET_CONFIG_HANDLE vbc, std::vector<std::string> &out)
+{
+    char buf[1024] = { '\0' };
+    int servers_max = vbucket_config_get_num_servers(vbc);
+    std::map<int, bool> found_servers;
+    EXPECT_TRUE(servers_max > 0);
+
+    for (int cur_num = 0; found_servers.size() != servers_max; cur_num++) {
+        int ksize = sprintf(buf, "VBKEY_%d", cur_num);
+        int vbid;
+        int srvix;
+        vbucket_map(vbc, buf, ksize, &vbid, &srvix);
+
+        if (!found_servers[srvix]) {
+            out.push_back(std::string(buf));
+            found_servers[srvix] = true;
+        }
+    }
+
+    EXPECT_EQ(servers_max, out.size());
+}
+
+void genStoreCommands(const std::vector<std::string> &keys,
+                      std::vector<lcb_store_cmd_t> &cmds,
+                      std::vector<lcb_store_cmd_t*> &cmdpp)
+{
+    for (unsigned int ii = 0; ii < keys.size(); ii++) {
+        lcb_store_cmd_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.v.v0.key = keys[ii].c_str();
+        cmd.v.v0.nkey = keys[ii].size();
+        cmd.v.v0.bytes = cmd.v.v0.key;
+        cmd.v.v0.nbytes = cmd.v.v0.nkey;
+        cmd.v.v0.operation = LCB_SET;
+        cmds.push_back(cmd);
+    }
+
+    for (unsigned int ii = 0; ii < keys.size(); ii++) {
+        cmdpp.push_back(&cmds[ii]);
+    }
+}
+
+/**
+ * This doesn't _actually_ attempt to make sense of an operation. It simply
+ * will try to keep the event loop alive.
+ */
+void doDummyOp(lcb_t& instance)
+{
+    Item itm("foo", "bar");
+    KVOperation kvo(&itm);
+    kvo.ignoreErrors = true;
+    kvo.store(instance);
 }
 
 /**

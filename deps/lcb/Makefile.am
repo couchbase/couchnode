@@ -76,6 +76,7 @@ pkginclude_HEADERS = \
                      include/libcouchbase/durability.h \
                      include/libcouchbase/error.h \
                      include/libcouchbase/http.h \
+                     include/libcouchbase/sysdefs.h \
                      include/libcouchbase/sanitycheck.h \
                      include/libcouchbase/timings.h \
                      include/libcouchbase/types.h \
@@ -94,6 +95,7 @@ pkginclude_HEADERS += \
 
 nobase_pkginclude_HEADERS = \
                              plugins/io/libuv/plugin-internal.h \
+                             plugins/io/libuv/libuv_compat.h \
                              plugins/io/libuv/plugin-libuv.c
 
 libhttpparser_la_SOURCES = \
@@ -127,7 +129,7 @@ libvbucket_la_SOURCES = \
 libvbucket_la_LIBADD = libketama.la libcrc32.la
 libvbucket_la_DEPENDENCIES = libketama.la libcrc32.la
 libvbucket_la_CFLAGS =  $(AM_NOWARN_CFLAGS)
-libvbucket_la_CPPFLAGS =  $(AM_NOWARN_CPPFLAGS)
+libvbucket_la_CPPFLAGS =  $(AM_NOWARN_CPPFLAGS) -DLIBCOUCHBASE_INTERNAL=1
 
 libketama_la_SOURCES = contrib/libvbucket/ketama.c
 libketama_la_CFLAGS =  $(AM_NOWARN_CFLAGS)
@@ -156,17 +158,24 @@ libcouchbase_la_SOURCES = \
                         include/memcached/vbucket.h \
                         plugins/io/select/plugin-select.c \
                         plugins/io/select/select_io_opts.h \
+                        src/bucketconfig/clconfig.h \
+                        src/bucketconfig/confmon.c \
+                        src/bucketconfig/bc_cccp.c \
+                        src/bucketconfig/bc_http.c \
+                        src/bucketconfig/bc_http.h \
+                        src/bucketconfig/bc_file.c \
                         src/arithmetic.c \
                         src/base64.c \
-                        src/bconf_io.c \
-                        src/bconf_parse.c \
                         src/bconf_provider.c \
+                        src/bootstrap.c \
                         src/cntl.c \
                         src/compat.c \
-                        src/config_cache.c \
+                        src/cookie.h \
                         src/config_static.h \
                         src/connect.c \
-                        src/cookie.c \
+                        src/connection_utils.c \
+                        src/connmgr.c \
+                        src/connmgr.h \
                         src/durability.c \
                         src/durability_internal.h \
                         src/error.c \
@@ -180,6 +189,8 @@ libcouchbase_la_SOURCES = \
                         src/hashset.c \
                         src/hashset.h \
                         src/hashtable.c \
+                        src/hostlist.c \
+                        src/hostlist.h \
                         src/http.c \
                         src/http_io.c \
                         src/http_parse.c \
@@ -188,28 +199,37 @@ libcouchbase_la_SOURCES = \
                         src/lcbio.h \
                         src/list.c \
                         src/list.h \
+                        src/logging.c \
+                        src/logging.h \
+                        src/mcserver.h \
                         src/observe.c \
                         src/packet.c \
+                        src/packetutils.c \
+                        src/packetutils.h \
                         src/readwrite.c \
                         src/remove.c \
                         src/ringbuffer.c \
                         src/ringbuffer.h \
                         src/sanitycheck.c \
                         src/server.c \
-                        src/server_connect.c \
                         src/server_io.c \
+                        src/server_negotiate.c \
                         src/server_parse.c \
+                        src/settings.h \
+                        src/simplestring.c \
+                        src/simplestring.h \
                         src/stats.c \
                         src/store.c \
-                        src/strerror.c \
                         src/synchandler.c \
                         src/timer.c \
+                        src/timer.h \
                         src/timings.c \
                         src/touch.c \
                         src/trace.h \
                         src/url_encoding.c \
                         src/url_encoding.h \
                         src/utilities.c \
+                        src/vbcheck.h \
                         src/verbosity.c \
                         src/wait.c
 
@@ -217,14 +237,6 @@ libcouchbase_la_LDFLAGS= $(AM_LDFLAGS) -version-info $(API_CURRENT):$(API_REVISI
 libcouchbase_la_CPPFLAGS=$(AM_CPPFLAGS) $(CPPFLAGS) -DLIBCOUCHBASE_INTERNAL=1 -DLCB_LIBDIR="\"${libdir}\""
 libcouchbase_la_DEPENDENCIES=libcbsasl.la libhttpparser.la libvbucket.la
 libcouchbase_la_LIBADD=libcbsasl.la libhttpparser.la libvbucket.la
-
-if LIBCOUCHBASE_ENABLE_TRACE
-libcouchbase_la_SOURCES += \
-                        src/debug.c \
-                        src/debug.h
-
-libcouchbase_la_CPPFLAGS += -DLCB_DEBUG_NOCTX
-endif
 
 if ENABLE_DTRACE
 BUILT_SOURCES += src/probes.h
@@ -250,7 +262,7 @@ if DTRACE_INSTRUMENT_OBJECT
 # We need to change the name from src/libcouchbase_la-fname.lo to
 # src/.libs/libcouchbase_la-fname.o ;)
 LIBCOUCHBASE_OBJS=$(libcouchbase_la_OBJECTS:%lo=%o)
-LIBCOUCHBASE_OBJECTS=$(LIBCOUCHBASE_OBJS:src%=src/.libs%)
+LIBCOUCHBASE_OBJECTS=$(join $(addsuffix .libs/, $(dir $(LIBCOUCHBASE_OBJS))), $(notdir $(LIBCOUCHBASE_OBJS)))
 src/libcouchbase_la-probes.lo: $(libcouchbase_la_OBJECTS) src/probes.h
 	$(DTRACE) $(DTRACEFLAGS) -C -G \
                   -o src/.libs/libcouchbase_la-probes.o \
@@ -283,7 +295,7 @@ libcouchbase_la_SOURCES += \
                            plugins/io/iocp/iocp_timer.c \
                            plugins/io/iocp/iocp_util.c
 
-libcouchbase_la_CPPFLAGS += -Iwin32 -Iplugins/io/iocp
+libcouchbase_la_CPPFLAGS += -Iwin32 -Iplugins/io/iocp -DWINVER=0x0600 -D_WIN32_WINNT=0x0600
 endif
 if HAVE_LIBEVENT
 lib_LTLIBRARIES += libcouchbase_libevent.la
@@ -316,19 +328,27 @@ endif
 
 tests_unit_tests_SOURCES = \
                            src/base64.c \
+                           src/gethrtime.c \
                            src/hashset.c \
                            src/list.c \
                            src/ringbuffer.c \
                            src/url_encoding.c \
+                           src/simplestring.c \
+                           src/hostlist.c \
+                           src/packetutils.c \
                            tests/base64-unit-test.cc \
                            tests/behavior-unit-tests.cc \
                            tests/ccbc_103.cc \
                            tests/cluster-unit-tests.cc \
                            tests/hashset-unit-test.cc \
                            tests/hostname-unit-test.cc \
+                           tests/host-unit-test.cc \
                            tests/list-unit-test.cc \
+                           tests/logger-unit-test.cc \
                            tests/memcached-compat-unit-test.cc \
+                           tests/packet-unit-test.cc \
                            tests/ringbuffer-unit-test.cc \
+                           tests/string-unit-test.cc \
                            tests/strerror-unit-test.cc \
                            tests/timeout.c \
                            tests/unit_tests.cc \
@@ -379,7 +399,7 @@ tests/CouchbaseMock.jar:
 	@echo "+---------------------------------------------+"
 	@echo "| Download CouchbaseMock for functional tests |"
 	@echo "+---------------------------------------------+"
-	${DOWNLOAD} tests/CouchbaseMock.jar http://files.couchbase.com/maven2/org/couchbase/mock/CouchbaseMock/0.6-SNAPSHOT/CouchbaseMock-0.6-20130903.160518-3.jar
+	${DOWNLOAD} tests/CouchbaseMock.jar http://files.couchbase.com/maven2/org/couchbase/mock/CouchbaseMock/0.7-SNAPSHOT/CouchbaseMock-0.7-20140129.023144-1.jar
 
 libmockserver_la_LDFLAGS = $(AM_LDFLAGS) $(AM_PROFILE_SOLDFLAGS)
 libmockserver_la_DEPENDENCIES = tests/CouchbaseMock.jar
@@ -460,10 +480,11 @@ noinst_LTLIBRARIES += libmockserver.la
 tests_unit_tests_SOURCES += \
                             tests/arithmetic-unit-test.cc \
                             tests/configcache-unit-test.cc \
+                            tests/confmon-unit-test.cc \
+                            tests/connmgr-unit-test.cc \
                             tests/durability-unit-test.cc \
                             tests/get-unit-test.cc \
                             tests/getopt-unit-tests.cc \
-                            src/gethrtime.c \
                             tests/http-tests.cc \
                             tests/iops-unit-test.cc \
                             tests/lock-unit-test.cc \
@@ -481,7 +502,8 @@ tests_unit_tests_SOURCES += \
                             tests/serverparams.h \
                             tests/syncmode-unit-tests.cc \
                             tests/testutil.cc \
-                            tests/testutil.h
+                            tests/testutil.h \
+                            tests/timer-unit-test.cc
 
 tests_unit_tests_LDADD += libmockserver.la
 check_PROGRAMS += tests/smoke-test
@@ -490,7 +512,9 @@ endif
 tests_smoke_test_SOURCES = tests/test.h tests/smoke-test.c tests/timeout.c
 tests_smoke_test_LDADD = libcouchbase.la libmockserver.la
 
+if BUILD_TESTS
 check_PROGRAMS += tests/check-all
+endif
 tests_check_all_SOURCES = tests/check-all.cc tools/commandlineparser.cc tests/procutil.c
 tests_check_all_CPPFLAGS = $(AM_CPPFLAGS) -I"${srcdir}/tools"
 tests_check_all_LDADD = libcouchbase.la
@@ -518,7 +542,10 @@ tools_cbc_pillowfight_LDADD = libcouchbase.la  -lpthread
 
 TESTS_ENVIRONMENT = export outdir="$(top_builddir)/tests";
 
-TESTS = tests/check-all
+TESTS =
+if BUILD_TESTS
+TESTS += tests/check-all
+endif
 
 if BUILD_TOOLS
 if HAVE_CXX
@@ -561,10 +588,19 @@ endif
 
 EXTRA_DIST = \
              CMakeLists.txt \
+             cmake \
+             tests/CMakeLists.txt \
+			 tools/CMakeLists.txt \
+             plugins/io/iocp/CMakeLists.txt \
+             plugins/io/libev/CMakeLists.txt \
+             plugins/io/libuv/CMakeLists.txt \
+             plugins/io/select/CMakeLists.txt \
+             plugins/io/libevent/CMakeLists.txt \
+             contrib/libvbucket/CMakeLists.txt \
+             contrib/cbsasl/CMakeLists.txt \
              CONTRIBUTING.md \
              LICENSE \
              Makefile.manpage.inc \
-             NMakefile \
              README.markdown \
              RELEASE_NOTES.markdown \
              contrib/libvbucket/rfc1321 \

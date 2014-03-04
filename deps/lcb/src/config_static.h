@@ -28,7 +28,7 @@
 #include <sys/types.h>
 #endif
 
-#if !defined HAVE_STDINT_H && defined _WIN32
+#if !defined HAVE_STDINT_H && defined _WIN32 && defined(_MSC_VER)
 # include "win_stdint.h"
 #else
 # include <stdint.h>

@@ -36,11 +36,13 @@ class HandleWrap;
         return; \
     }
 
+#define ASSERT_ERRISA(err, et) \
+        ASSERT_EQ(et, (int)lcb_get_errtype(err) & (int)et)
+
 class MockUnitTest : public ::testing::Test
 {
 protected:
-    static void SetUpTestCase();
-    static void TearDownTestCase();
+    virtual void SetUp();
     virtual void createConnection(lcb_t &instance);
     virtual void createConnection(HandleWrap &handle);
     virtual void createConnection(HandleWrap &handle, lcb_t &instance);
@@ -48,7 +50,9 @@ protected:
     // A mock "Transaction"
     void doMockTxn(MockCommand &cmd) {
         MockEnvironment::getInstance()->sendCommand(cmd);
-        ASSERT_TRUE(MockEnvironment::getInstance()->getResponse().isOk());
+        MockResponse tmp;
+        MockEnvironment::getInstance()->getResponse(tmp);
+        ASSERT_TRUE(tmp.isOk());
     }
 };
 

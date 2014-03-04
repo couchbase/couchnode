@@ -19,6 +19,7 @@
 
 #include <libcouchbase/couchbase.h>
 #include <string.h>
+#include <libvbucket/vbucket.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -112,6 +113,7 @@ struct KVOperation {
 
     KVOperation(const Item *request) {
         this->request = request;
+        this->ignoreErrors = false;
         callCount = 0;
     }
 
@@ -132,6 +134,7 @@ struct KVOperation {
     }
 
     static void handleInstanceError(lcb_t, lcb_error_t, const char *);
+    bool ignoreErrors;
 
 private:
     void enter(lcb_t);
@@ -149,6 +152,20 @@ private:
 void storeKey(lcb_t instance, const std::string &key, const std::string &value);
 void removeKey(lcb_t instance, const std::string &key);
 void getKey(lcb_t instance, const std::string &key, Item &item);
+
+/**
+ * Generate keys which will trigger all the servers in the map.
+ */
+void genDistKeys(VBUCKET_CONFIG_HANDLE vbc, std::vector<std::string> &out);
+void genStoreCommands(const std::vector<std::string> &keys,
+                      std::vector<lcb_store_cmd_t> &cmds,
+                      std::vector<lcb_store_cmd_t*> &cmdpp);
+
+/**
+ * This doesn't _actually_ attempt to make sense of an operation. It simply
+ * will try to keep the event loop alive.
+ */
+void doDummyOp(lcb_t& instance);
 
 #endif
 

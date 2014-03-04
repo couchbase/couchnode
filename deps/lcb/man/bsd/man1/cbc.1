@@ -2,12 +2,12 @@
 .\"     Title: cbc
 .\"    Author: Trond Norbye <trond.norbye@couchbase.com>
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 08/21/2013
+.\"      Date: 12/05/2013
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "CBC" "1" "08/21/2013" "\ \&" "\ \&"
+.TH "CBC" "1" "12/05/2013" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -118,6 +118,16 @@ Specify timeout value in microseconds (default: 2500000)
 .RS 4
 Enable memcached compatibility mode\&. With this option set subcommands can be executed against regular memcached node\&.
 .RE
+.PP
+\fB\-S, \-\-sasl\fR=\fIMECH\fR
+.RS 4
+Force SASL authentication mechanism (currently "PLAIN" or "CRAM\-MD5")\&.
+.RE
+.PP
+\fB\-C, \-\-config\-transport\fR=\fITRANSPORT\fR
+.RS 4
+Specify transport for bootstrapping the connection: "HTTP" (default) or "CCCP"
+.RE
 .SH "SUBCOMMANDS"
 .sp
 The following subcommands are supported:
@@ -219,7 +229,7 @@ Observe a key in the cache\&.
 Remove all keys from the cluster\&. The flush subcommand is only supported on memcached buckets\&. To flush a Couchbase bucket you need use bucket\-flush\&.
 .RE
 .PP
-\fBcbc hash\fR [common options] [\-f \fIFILENAME\fR] \fIkey\fR\&...
+\fBcbc hash\fR [common options] [\-v] [\-f \fIFILENAME\fR] \fIkey\fR\&...
 .RS 4
 Hash key(s) and print out useful info\&.
 .PP
@@ -227,6 +237,11 @@ Hash key(s) and print out useful info\&.
 .RS 4
 \fIFILENAME\fR
 shall be a plain text file containing an alternative cluster configuration (in JSON) to use\&.
+.RE
+.PP
+*\-v, \-\-vbucket
+.RS 4
+Treat keys as vbucket IDs and skip hash calculation phase
 .RE
 .RE
 .PP
@@ -494,6 +509,16 @@ Specify maximum size of payload (default: 5120)
 .RS 4
 Behave like legacy memcached client (default: false)\&. Useful to check moxi for example, or other memcached implementations\&.
 .RE
+.RE
+.PP
+\fB\-S, \-\-sasl\fR=\fIMECH\fR
+.RS 4
+Force SASL authentication mechanism (currently "PLAIN" or "CRAM\-MD5")\&.
+.RE
+.PP
+\fB\-C, \-\-config\-transport\fR=\fITRANSPORT\fR
+.RS 4
+Specify transport for bootstrapping the connection: "HTTP" (default) or "CCCP"
 .RE
 .SH "EXAMPLES"
 .sp

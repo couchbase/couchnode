@@ -71,7 +71,9 @@ class MockCommand
     X(UNCACHE) \
     X(ENDURE) \
     X(PURGE) \
-    X(KEYINFO)
+    X(KEYINFO) \
+    X(GET_MCPORTS) \
+    X(SET_CCCP)
 
 public:
     enum Code {
@@ -97,6 +99,7 @@ public:
     void set(const std::string &, const std::string &);
     void set(const std::string &, int);
     void set(const std::string, bool);
+    void set(const std::string&, cJSON *);
     virtual ~MockCommand();
 
     // Encodes the command in a form suitable for sending over the network
@@ -167,8 +170,9 @@ protected:
 class MockResponse
 {
 public:
-    MockResponse(const std::string &resp);
-    virtual ~MockResponse();
+    MockResponse() : jresp(NULL) {}
+    ~MockResponse();
+    void assign(const std::string& s);
 
     bool isOk();
 
@@ -176,9 +180,11 @@ public:
         return jresp;
     }
 
-
 protected:
     cJSON *jresp;
+    friend std::ostream& operator<<(std::ostream&, const MockResponse&);
+private:
+    MockResponse(const MockResponse&);
 };
 
 class MockEnvironment : public ::testing::Environment
@@ -194,10 +200,6 @@ public:
     virtual void TearDown();
 
     static MockEnvironment *getInstance(void);
-    static MockEnvironment *createSpecial(const char **argv);
-    static void destroySpecial(MockEnvironment *mock) {
-        delete mock;
-    }
     static void Reset();
 
     /**
@@ -250,6 +252,25 @@ public:
      */
     void respawnNode(int index, std::string bucket = "default");
 
+
+    /**
+     * Retrieve the memcached listening ports for a given bucket
+     * @param bucket the bucket for which to retrieve memcached port into
+     * @return a vector of ports to use.
+     */
+    std::vector<int> getMcPorts(std::string bucket = "default");
+
+    /**
+     * Enable CCCP on the mock cluster
+     * @param bucket the bucket on which to enable CCCP
+     * @param nodes a list of by-index nodes on which to enable CCCP. If NULL
+     * then all nodes are enabled
+     * @param bucket the bucket on which to
+     */
+    void setCCCP(bool enabled,
+                 std::string bucket = "",
+                 const std::vector<int>* nodes = NULL);
+
     /**
      * Create a connection to the mock/real server.
      *
@@ -286,7 +307,8 @@ public:
     }
 
     void sendCommand(MockCommand &cmd);
-    MockResponse getResponse();
+    void getResponse(MockResponse &resp);
+    void getResponse() { MockResponse tmp; getResponse(tmp); }
 
     bool hasFeature(const char *feature) {
         return featureRegistry.find(feature) != featureRegistry.end();
@@ -298,12 +320,14 @@ public:
         std::cerr << std::endl;
     }
 
+    MockEnvironment(const char **argv, std::string name = "default");
+    virtual ~MockEnvironment();
+
 protected:
     /**
      * Protected destructor to make it to a singleton
      */
     MockEnvironment();
-    virtual ~MockEnvironment();
     /**
      * Handle to the one and only instance of the mock environment
      */
@@ -318,7 +342,14 @@ protected:
     const char *http;
     lcb_io_opt_st *iops;
     std::set<std::string> featureRegistry;
+    std::string bucketName;
     const char **argv;
+    void clearAndReset();
+
+private:
+    lcb_t innerClient;
+    void setupInnerClient();
+    void init();
 };
 
 #define LCB_TEST_REQUIRE_CLUSTER_VERSION(v) \

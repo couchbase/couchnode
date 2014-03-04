@@ -167,7 +167,7 @@ TEST_F(HttpUnitTest, testGet)
 
     ASSERT_EQ(true, ctx.received);
     ASSERT_EQ(LCB_HTTP_STATUS_OK, ctx.status);
-    ASSERT_GT(ctx.body.size(), 0);
+    ASSERT_GT(ctx.body.size(), 0U);
     ASSERT_EQ(ctx.cbCount, 1);
 
     unsigned ii;
@@ -189,7 +189,7 @@ TEST_F(HttpUnitTest, testGet)
             ii >= 0 && isspace(*pcur); ii--, pcur--) {
         /* no body */
     }
-    ASSERT_GE(ii, 0);
+    ASSERT_GE(ii, 0U);
     ASSERT_EQ('}', *pcur);
 
 }

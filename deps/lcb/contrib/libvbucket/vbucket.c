@@ -57,7 +57,6 @@ struct vbucket_config_st {
     char *errmsg;
     VBUCKET_DISTRIBUTION_TYPE distribution;
     int num_vbuckets;
-    int mask;
     int num_servers;
     int num_replicas;
     char *user;
@@ -67,6 +66,8 @@ struct vbucket_config_st {
     struct server_st *servers;
     struct vbucket_st *fvbuckets;
     struct vbucket_st *vbuckets;
+    const char *localhost;              /* replacement for $HOST placeholder */
+    size_t nlocalhost;
 };
 
 static char *errstr = NULL;
@@ -144,6 +145,28 @@ void vbucket_config_destroy(VBUCKET_CONFIG_HANDLE vb) {
     free(vb);
 }
 
+static char *substitute_localhost_marker(struct vbucket_config_st *vb, char *input)
+{
+    char *placeholder;
+    char *result = input;
+    size_t ninput = strlen(input);
+    if (vb->localhost && (placeholder = strstr(input, "$HOST"))) {
+        size_t nprefix = placeholder - input;
+        size_t off = 0;
+        result = calloc(ninput + (vb->nlocalhost+1) - 5, sizeof(char));
+        if (!result) {
+            return NULL;
+        }
+        memcpy(result, input, nprefix);
+        off += nprefix;
+        memcpy(result + off, vb->localhost, vb->nlocalhost);
+        off += vb->nlocalhost;
+        memcpy(result + off, input + nprefix + 5, ninput - (nprefix + 5));
+        free(input);
+    }
+    return result;
+}
+
 static int populate_servers(struct vbucket_config_st *vb, cJSON *c) {
     int i;
 
@@ -165,15 +188,22 @@ static int populate_servers(struct vbucket_config_st *vb, cJSON *c) {
             vb->errmsg = strdup("Failed to allocate storage for server string");
             return -1;
         }
+        server = substitute_localhost_marker(vb, server);
+        if (server == NULL) {
+            vb->errmsg = strdup("Failed to allocate storage for server string during $HOST substitution");
+            return -1;
+        }
         vb->servers[i].authority = server;
     }
     return 0;
 }
 
-static int get_node_authority(struct vbucket_config_st *vb, cJSON *node, char *buf, size_t nbuf) {
+static int get_node_authority(struct vbucket_config_st *vb, cJSON *node, char **out, size_t nbuf)
+{
     cJSON *json;
     char *hostname = NULL, *colon = NULL;
     int port = -1;
+    char *buf = *out;
 
     json = cJSON_GetObjectItem(node, "hostname");
     if (json == NULL || json->type != cJSON_String) {
@@ -200,6 +230,12 @@ static int get_node_authority(struct vbucket_config_st *vb, cJSON *node, char *b
     }
     snprintf(colon, 7, ":%d", port);
 
+    buf = substitute_localhost_marker(vb, buf);
+    if (buf == NULL) {
+        vb->errmsg = strdup("Failed to allocate storage for authority string during $HOST substitution");
+        return -1;
+    }
+    *out = buf;
     return 0;
 }
 
@@ -212,7 +248,7 @@ static int lookup_server_struct(struct vbucket_config_st *vb, cJSON *c) {
         vb->errmsg = strdup("Failed to allocate storage for authority string");
         return -1;
     }
-    if (get_node_authority(vb, c, authority, MAX_AUTORITY_SIZE) < 0) {
+    if (get_node_authority(vb, c, &authority, MAX_AUTORITY_SIZE) < 0) {
         free(authority);
         return -1;
     }
@@ -248,6 +284,11 @@ static int update_server_info(struct vbucket_config_st *vb, cJSON *config) {
                         vb->errmsg = strdup("Failed to allocate storage for couchApiBase string");
                         return -1;
                     }
+                    value = substitute_localhost_marker(vb, value);
+                    if (value == NULL) {
+                        vb->errmsg = strdup("Failed to allocate storage for hostname string during $HOST substitution");
+                        return -1;
+                    }
                     vb->servers[idx].couchdb_api_base = value;
                 }
                 json = cJSON_GetObjectItem(node, "hostname");
@@ -255,6 +296,11 @@ static int update_server_info(struct vbucket_config_st *vb, cJSON *config) {
                     char *value = strdup(json->valuestring);
                     if (value == NULL) {
                         vb->errmsg = strdup("Failed to allocate storage for hostname string");
+                        return -1;
+                    }
+                    value = substitute_localhost_marker(vb, value);
+                    if (value == NULL) {
+                        vb->errmsg = strdup("Failed to allocate storage for hostname string during $HOST substitution");
                         return -1;
                     }
                     vb->servers[idx].rest_api_authority = value;
@@ -273,6 +319,7 @@ static int populate_buckets(struct vbucket_config_st *vb, cJSON *c, int is_forwa
 {
     int i, j;
     struct vbucket_st *vb_map = NULL;
+    cJSON *jBucket, *jServerId;
 
     if (is_forward) {
         if (!(vb->fvbuckets = vb_map = calloc(vb->num_vbuckets, sizeof(struct vbucket_st)))) {
@@ -286,15 +333,15 @@ static int populate_buckets(struct vbucket_config_st *vb, cJSON *c, int is_forwa
         }
     }
 
-    for (i = 0; i < vb->num_vbuckets; ++i) {
-        cJSON *jBucket = cJSON_GetArrayItem(c, i);
+    for (i = 0, jBucket = c->child; i < vb->num_vbuckets; ++i,
+            jBucket = jBucket->next) {
         if (jBucket == NULL || jBucket->type != cJSON_Array ||
             cJSON_GetArraySize(jBucket) != vb->num_replicas + 1) {
             vb->errmsg = strdup("Expected array of arrays each with numReplicas + 1 ints for vBucketMap");
             return -1;
         }
-        for (j = 0; j < vb->num_replicas + 1; ++j) {
-            cJSON *jServerId = cJSON_GetArrayItem(jBucket, j);
+        for (j = 0, jServerId = jBucket->child; j < vb->num_replicas + 1;
+                ++j, jServerId = jServerId->next) {
             if (jServerId == NULL || jServerId->type != cJSON_Number ||
                 jServerId->valueint < -1 || jServerId->valueint >= vb->num_servers) {
                 vb->errmsg = strdup("Server ID must be >= -1 and < num_servers");
@@ -355,11 +402,10 @@ static int parse_vbucket_config(VBUCKET_CONFIG_HANDLE vb, cJSON *c)
         return -1;
     }
     vb->num_vbuckets = cJSON_GetArraySize(json);
-    if (vb->num_vbuckets == 0 || (vb->num_vbuckets & (vb->num_vbuckets - 1)) != 0) {
-        vb->errmsg = strdup("Number of vBuckets must be a power of two > 0 and <= " STRINGIFY(MAX_VBUCKETS));
+    if (vb->num_vbuckets == 0) {
+        vb->errmsg = strdup("Number of vBuckets must be > 0 and <= " STRINGIFY(MAX_VBUCKETS));
         return -1;
     }
-    vb->mask = vb->num_vbuckets - 1;
     if (populate_buckets(vb, json, 0) != 0) {
         return -1;
     }
@@ -414,7 +460,7 @@ static int parse_ketama_config(VBUCKET_CONFIG_HANDLE vb, cJSON *config)
             vb->errmsg = strdup("Failed to allocate storage for node authority");
             return -1;
         }
-        if (get_node_authority(vb, node, buf, MAX_AUTORITY_SIZE) < 0) {
+        if (get_node_authority(vb, node, &buf, MAX_AUTORITY_SIZE) < 0) {
             return -1;
         }
         vb->servers[ii].authority = buf;
@@ -426,6 +472,11 @@ static int parse_ketama_config(VBUCKET_CONFIG_HANDLE vb, cJSON *config)
         buf = strdup(hostname->valuestring);
         if (buf == NULL) {
             vb->errmsg = strdup("Failed to allocate storage for hostname string");
+            return -1;
+        }
+        buf = substitute_localhost_marker(vb, buf);
+        if (buf == NULL) {
+            vb->errmsg = strdup("Failed to allocate storage for hostname string during $HOST substitution");
             return -1;
         }
         vb->servers[ii].rest_api_authority = buf;
@@ -479,7 +530,8 @@ static int parse_cjson(VBUCKET_CONFIG_HANDLE handle, cJSON *config)
     return 0;
 }
 
-static int parse_from_memory(VBUCKET_CONFIG_HANDLE handle, const char *data) {
+static int parse_from_memory(VBUCKET_CONFIG_HANDLE handle, const char *data)
+{
     int ret;
     cJSON *c = cJSON_Parse(data);
     if (c == NULL) {
@@ -563,15 +615,25 @@ VBUCKET_CONFIG_HANDLE vbucket_config_create(void)
     return calloc(1, sizeof(struct vbucket_config_st));
 }
 
-int vbucket_config_parse(VBUCKET_CONFIG_HANDLE handle,
-                         vbucket_source_t data_source,
-                         const char *data)
+int vbucket_config_parse2(VBUCKET_CONFIG_HANDLE handle,
+                          vbucket_source_t data_source,
+                          const char *data,
+                          const char *peername)
 {
+    handle->localhost = peername;
+    handle->nlocalhost = peername ? strlen(peername) : 0;
     if (data_source == LIBVBUCKET_SOURCE_FILE) {
         return parse_from_file(handle, data);
     } else {
         return parse_from_memory(handle, data);
     }
+}
+
+int vbucket_config_parse(VBUCKET_CONFIG_HANDLE handle,
+                         vbucket_source_t data_source,
+                         const char *data)
+{
+    return vbucket_config_parse2(handle, data_source, data, "localhost");
 }
 
 const char *vbucket_get_error_message(VBUCKET_CONFIG_HANDLE handle)
@@ -707,7 +769,7 @@ int vbucket_get_vbucket_by_key(VBUCKET_CONFIG_HANDLE vb, const void *key, size_t
      * function when vbucket distribution will support multiple hashing
      * algorithms */
     uint32_t digest = hash_crc32(key, nkey);
-    return digest & vb->mask;
+    return digest % vb->num_vbuckets;
 }
 
 int vbucket_get_master(VBUCKET_CONFIG_HANDLE vb, int vbucket) {
@@ -738,9 +800,16 @@ int vbucket_found_incorrect_master(VBUCKET_CONFIG_HANDLE vb, int vbucket,
         for (i = 0; i < vb->num_replicas; i++) {
             vb->vbuckets[vbucket].servers[i+1] = vb->fvbuckets[vbucket].servers[i+1];
         }
-    } else if (mappedServer == wrongserver) {
+        mappedServer = rv;
+    }
+
+    if (mappedServer == wrongserver) {
         rv = (rv + 1) % vb->num_servers;
         vb->vbuckets[vbucket].servers[0] = rv;
+    }
+
+    if (rv == wrongserver) {
+        return -1;
     }
 
     return rv;
@@ -817,6 +886,17 @@ VBUCKET_CONFIG_DIFF* vbucket_compare(VBUCKET_CONFIG_HANDLE from,
     }
 
     return rv;
+}
+
+VBUCKET_CHANGE_STATUS vbucket_what_changed(VBUCKET_CONFIG_DIFF *diff) {
+    VBUCKET_CHANGE_STATUS ret = 0;
+    if (diff->n_vb_changes) {
+        ret |= VBUCKET_MAP_MODIFIED;
+    }
+    if (*diff->servers_added || *diff->servers_removed || diff->sequence_changed) {
+        ret |= VBUCKET_SERVERS_MODIFIED;
+    }
+    return ret;
 }
 
 static void free_array_helper(char **l) {

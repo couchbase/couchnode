@@ -80,9 +80,6 @@ typedef struct {
     /** Current iov index in the read buffer */
     unsigned char cur_iov;
 
-    /** Flag indicating whether uv_read_stop should be called on the next call */
-    unsigned char read_done;
-
     /** Flag indicating whether uv_close has already been called  on the handle */
     unsigned char uv_close_called;
 

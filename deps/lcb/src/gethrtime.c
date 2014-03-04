@@ -77,11 +77,11 @@ static int clock_gettime(int which, struct timespec *tp)
 
 hrtime_t gethrtime(void)
 {
-#ifdef HAVE_CLOCK_GETTIME
+#if defined(HAVE_CLOCK_GETTIME)
     struct timespec tm;
     lcb_assert(clock_gettime(CLOCK_MONOTONIC, &tm) != -1);
     return (((hrtime_t)tm.tv_sec) * 1000000000) + (hrtime_t)tm.tv_nsec;
-#elif HAVE_GETTIMEOFDAY
+#elif defined(HAVE_GETTIMEOFDAY)
 
     hrtime_t ret;
     struct timeval tv;

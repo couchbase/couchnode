@@ -31,212 +31,179 @@
 extern "C" {
 #endif
 
+    typedef enum {
+        /** Error type indicating a likely issue in user input */
+        LCB_ERRTYPE_INPUT = 1 << 0,
+
+        /** Error type indicating a likely network failure */
+        LCB_ERRTYPE_NETWORK = 1 << 1,
+
+        /** Error type indicating a fatal condition within the server or library */
+        LCB_ERRTYPE_FATAL = 1 << 2,
+
+        /** Error type indicating a transient condition within the server */
+        LCB_ERRTYPE_TRANSIENT = 1 << 3,
+
+        /** Error type indicating a negative server reply for the data */
+        LCB_ERRTYPE_DATAOP = 1 << 4,
+
+        /** Error codes which should never be visible to the user */
+        LCB_ERRTYPE_INTERNAL = 1 << 5,
+
+        /** Error code indicating a plugin failure */
+        LCB_ERRTYPE_PLUGIN = 1 << 6
+    } lcb_errflags_t;
+
+#define LCB_XERR(X) \
+    /** Success */ \
+    X(LCB_SUCCESS, 0x00, 0, "Success (Not an error)") \
+    \
+    X(LCB_AUTH_CONTINUE, 0x01, LCB_ERRTYPE_INTERNAL|LCB_ERRTYPE_FATAL, \
+      "Error code used internally within libcouchbase for SASL auth. Should " \
+      "not be visible from the API") \
+    \
+    X(LCB_AUTH_ERROR, 0x02, LCB_ERRTYPE_FATAL|LCB_ERRTYPE_INPUT, \
+      "Authentication failed. You may have provided an invalid " \
+      "username/password combination") \
+    \
+    X(LCB_DELTA_BADVAL, 0x03, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_DATAOP, \
+      "The value requested to be incremented is not stored as a number") \
+    \
+    X(LCB_E2BIG, 0x04, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_DATAOP, \
+      "The object requested is too big to store in the server") \
+    \
+    X(LCB_EBUSY, 0x05, LCB_ERRTYPE_TRANSIENT, \
+      "The server is busy. Try again later") \
+    \
+    X(LCB_EINTERNAL, 0x06, LCB_ERRTYPE_INTERNAL, \
+      "Internal libcouchbase error") \
+    \
+    X(LCB_EINVAL, 0x07, LCB_ERRTYPE_INPUT, \
+      "Invalid input/arguments") \
+    \
+    X(LCB_ENOMEM, 0x08, LCB_ERRTYPE_TRANSIENT, \
+      "The server is out of memory. Try again later") \
+    \
+    X(LCB_ERANGE, 0x09, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_DATAOP, \
+      "Invalid range") \
+    \
+    X(LCB_ERROR, 0x0A, 0, \
+      "Generic error") \
+    \
+    X(LCB_ETMPFAIL, 0x0B, LCB_ERRTYPE_TRANSIENT, \
+      "Temporary failure received from server. Try again later") \
+    \
+    X(LCB_KEY_EEXISTS, 0x0C, LCB_ERRTYPE_DATAOP, \
+      "The key already exists in the server. If you have supplied a CAS then " \
+      "the key exists with a CAS value different than specified") \
+    \
+    X(LCB_KEY_ENOENT, 0x0D, LCB_ERRTYPE_DATAOP, \
+      "The key does not exist on the server") \
+    \
+    X(LCB_DLOPEN_FAILED, 0x0E, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_FATAL|LCB_ERRTYPE_PLUGIN, \
+      "Could not locate plugin library") \
+    \
+    X(LCB_DLSYM_FAILED, 0x0F, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_FATAL|LCB_ERRTYPE_PLUGIN, \
+      "Required plugin initializer not found") \
+    \
+    X(LCB_NETWORK_ERROR, 0x10, LCB_ERRTYPE_NETWORK, \
+      "Network failure") \
+    \
+    X(LCB_NOT_MY_VBUCKET, 0x11, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_TRANSIENT, \
+      "The server which received this command claims it is not hosting this key") \
+    \
+    X(LCB_NOT_STORED, 0x12, LCB_ERRTYPE_DATAOP, \
+      "Item not stored (did you try to append/prepend to a missing key?)") \
+    \
+    X(LCB_NOT_SUPPORTED, 0x13, 0, \
+      "Operation not supported") \
+    \
+    X(LCB_UNKNOWN_COMMAND, 0x14, 0, \
+      "Unknown command") \
+    \
+    X(LCB_UNKNOWN_HOST, 0x15, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_INPUT, \
+      "DNS/Hostname lookup failed") \
+    \
+    X(LCB_PROTOCOL_ERROR, 0x16, LCB_ERRTYPE_NETWORK, \
+      "Data received on socket was not in the expected format") \
+    \
+    X(LCB_ETIMEDOUT, 0x17, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_TRANSIENT, \
+      "Client-Side timeout exceeded for operation. Inspect network conditions " \
+      "or increase the timeout") \
+    \
+    X(LCB_CONNECT_ERROR, 0x18, LCB_ERRTYPE_NETWORK, \
+      "Error while establishing TCP connection") \
+    \
+    X(LCB_BUCKET_ENOENT, 0x19, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_FATAL, \
+      "The bucket requested does not exist") \
+    \
+    X(LCB_CLIENT_ENOMEM, 0x1A, LCB_ERRTYPE_FATAL, \
+      "Memory allocation for libcouchbase failed. Severe problems ahead") \
+    \
+    X(LCB_CLIENT_ETMPFAIL, 0x1B, LCB_ERRTYPE_TRANSIENT, \
+      "Temporary failure on the client side. Did you call lcb_connect?") \
+    \
+    X(LCB_EBADHANDLE, 0x1C, LCB_ERRTYPE_INPUT, \
+      "Bad handle type for operation. " \
+      "You cannot perform administrative operations on a data handle, or data "\
+      "operations on a cluster handle") \
+    \
+    X(LCB_SERVER_BUG, 0x1D, 0, "Encountered a server bug") \
+    \
+    X(LCB_PLUGIN_VERSION_MISMATCH, 0x1E, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_FATAL|LCB_ERRTYPE_PLUGIN, \
+      "This version of libcouchbase cannot load the specified plugin") \
+    \
+    X(LCB_INVALID_HOST_FORMAT, 0x1F, LCB_ERRTYPE_INPUT, \
+      "Hostname specified for URI is in an invalid format") \
+    \
+    X(LCB_INVALID_CHAR, 0x20, LCB_ERRTYPE_INPUT, "Illegal characted") \
+    \
+    X(LCB_DURABILITY_ETOOMANY, 0x21, LCB_ERRTYPE_INPUT, \
+      "Durability constraints requires more nodes/replicas than the cluster "\
+      "configuration allows. Durability constraints will never be satisfied") \
+    \
+    X(LCB_DUPLICATE_COMMANDS, 0x22, LCB_ERRTYPE_INPUT, \
+      "The same key was specified more than once in the command list") \
+    \
+    X(LCB_NO_MATCHING_SERVER, 0x23, LCB_ERRTYPE_TRANSIENT, \
+      "No node was found for servicing this key. This may be a result of a " \
+      "nonexistent/stale cluster configuration") \
+    \
+    X(LCB_BAD_ENVIRONMENT, 0x24, LCB_ERRTYPE_FATAL|LCB_ERRTYPE_INPUT, \
+      "The value for an environment variable recognized by libcouchbase was " \
+      "specified in an incorrect format. Check your environment for entries " \
+      "starting with 'LCB_' or 'LIBCOUCHBASE_'") \
+    \
+    X(LCB_BUSY, 0x25, LCB_ERRTYPE_INTERNAL, "Busy. This is an internal error") \
+    \
+    X(LCB_INVALID_USERNAME, 0x26, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_FATAL, \
+      "The administrative account can no longer be used for data access") \
+    \
+    X(LCB_CONFIG_CACHE_INVALID, 0x27, LCB_ERRTYPE_INPUT, \
+      "The contents of the configuration cache file were invalid. Configuration " \
+      "will be fetched from the network") \
+    \
+    X(LCB_SASLMECH_UNAVAILABLE, 0x28, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_FATAL, \
+      "The requested SASL mechanism was not supported by the server. Either " \
+      "upgrade the server or change the mechanism requirements") \
+    \
+    X(LCB_TOO_MANY_REDIRECTS, 0x29, LCB_ERRTYPE_NETWORK, \
+      "Maximum allowed number of redirects reached. See lcb_cntl and the "\
+      "LCB_CNTL_MAX_REDIRECTS option to modify this limit")
+
     /**
      * Define the error codes in use by the library
      */
     typedef enum {
-        /**
-         * Indication of success
-         */
-        LCB_SUCCESS = 0x00,
-        /**
-         * This error code is only used internally within libcouchbase
-         * to represent a state in the network protocol
-         */
-        LCB_AUTH_CONTINUE = 0x01,
-        /**
-         * Authentication failed.
-         * You provided an invalid username/password combination.
-         */
-        LCB_AUTH_ERROR = 0x02,
-        /**
-         * The server detected that operation cannot be executed with
-         * requested arguments. For example, when incrementing not a number.
-         */
-        LCB_DELTA_BADVAL = 0x03,
-        /**
-         * The server reported that this object is too big
-         */
-        LCB_E2BIG = 0x04,
-        /**
-         * The server is too busy to handle your request right now.
-         * please back off and try again at a later time.
-         */
-        LCB_EBUSY = 0x05,
-        /**
-         * Internal error inside the library. You would have
-         * to destroy the instance and create a new one to recover.
-         */
-        LCB_EINTERNAL = 0x06,
-        /**
-         * Invalid arguments specified.
-         */
-        LCB_EINVAL = 0x07,
-        /**
-         * The server is out of memory
-         */
-        LCB_ENOMEM = 0x08,
-        /**
-         * An invalid range specified
-         */
-        LCB_ERANGE = 0x09,
-        /**
-         * A generic error code.
-         */
-        LCB_ERROR = 0x0a,
-        /**
-         * The server tried to perform the requested operation, but failed
-         * due to a temporary constraint. Retrying the operation may work.
-         */
-        LCB_ETMPFAIL = 0x0b,
-        /**
-         * The key already exists (with another CAS value)
-         */
-        LCB_KEY_EEXISTS = 0x0c,
-        /**
-         * The key does not exists
-         */
-        LCB_KEY_ENOENT = 0x0d,
-        /**
-         * Failed to open shared object
-         */
-        LCB_DLOPEN_FAILED = 0x0e,
-        /**
-         * Failed to locate the requested symbol in the shared object
-         */
-        LCB_DLSYM_FAILED = 0x0f,
-        /**
-         * A network related problem occured (name lookup, read/write/connect
-         * etc)
-         */
-        LCB_NETWORK_ERROR = 0x10,
-        /**
-         * The server who received the request is not responsible for the
-         * object anymore. (This happens during changes in the cluster
-         * topology)
-         */
-        LCB_NOT_MY_VBUCKET = 0x11,
-        /**
-         * The object was not stored on the server
-         */
-        LCB_NOT_STORED = 0x12,
-        /**
-         * The server doesn't support the requested command. This
-         * error code differs from LCB_UNKNOWN_COMMAND by that the server
-         * knows about the command, but for some reason decided to not
-         * support it.
-         */
-        LCB_NOT_SUPPORTED = 0x13,
-        /**
-         * The server doesn't know what that command is.
-         */
-        LCB_UNKNOWN_COMMAND = 0x14,
-        /**
-         * The server failed to resolve the requested hostname
-         */
-        LCB_UNKNOWN_HOST = 0x15,
-        /**
-         * There is something wrong with the datastream received from
-         * the server
-         */
-        LCB_PROTOCOL_ERROR = 0x16,
-        /**
-         * The operation timed out
-         */
-        LCB_ETIMEDOUT = 0x17,
-        /**
-         * Failed to connect to the requested server
-         */
-        LCB_CONNECT_ERROR = 0x18,
-        /**
-         * The requested bucket does not exist
-         */
-        LCB_BUCKET_ENOENT = 0x19,
-        /**
-         * The client ran out of memory
-         */
-        LCB_CLIENT_ENOMEM = 0x1a,
-        /**
-         * The client encountered a temporary error (retry might resolve
-         * the problem)
-         */
-        LCB_CLIENT_ETMPFAIL = 0x1b,
-        /**
-         * The instance of libcouchbase can't be used in this context
-         */
-        LCB_EBADHANDLE = 0x1c,
-        /**
-         * Unexpected usage of the server protocol, like unexpected
-         * response. If you've received this error code, please record your
-         * steps and file the issue at:
-         *
-         *   http://www.couchbase.com/issues/browse/MB
-         */
-        LCB_SERVER_BUG = 0x1d,
-        /**
-         * Libcouchbase cannot load the plugin because of version mismatch
-         */
-        LCB_PLUGIN_VERSION_MISMATCH = 0x1e,
-        /**
-         * The bootstrap hosts list use an invalid/unsupported format
-         */
-        LCB_INVALID_HOST_FORMAT = 0x1f,
-        /**
-         * Invalid character used in the path component of an URL
-         */
-        LCB_INVALID_CHAR = 0x20,
-
-        /**
-         * Too many nodes were requested for the observe criteria
-         */
-        LCB_DURABILITY_ETOOMANY = 0x21,
-
-        /**
-         * The same key was passed multiple times in a command list
-         */
-        LCB_DUPLICATE_COMMANDS = 0x22,
-
-        /**
-         * The config says that there is no server yet at that
-         * position (-1 in the vbucket map)
-         */
-        LCB_NO_MATCHING_SERVER = 0x23,
-
-        /**
-         * An environment variable recognized by libcouchbase was detected,
-         * but it contains an invalid value format
-         */
-        LCB_BAD_ENVIRONMENT = 0x24,
-
-        /** An operation has not yet completed */
-        LCB_BUSY = 0x25,
-
-        /** Administrator account must not be used to access the data
-         * in the bucket */
-        LCB_INVALID_USERNAME = 0x26,
-
-        /**
-         * The contents of the configuration cache file are invalid.
-         */
-        LCB_CONFIG_CACHE_INVALID = 0x27,
-
-        /**
-         * The requested SASL mechanism (forced via lcb_cntl) was not
-         * available for use
-         */
-        LCB_SASLMECH_UNAVAILABLE = 0x28,
-
-        /**
-         * Maximum allowed number redirects reached. See lcb_cntl(3)
-         * manpage for LCB_MAX_REDIRECTS options to get/set this limit.
-         */
-        LCB_TOO_MANY_REDIRECTS = 0x29,
+#define X(n, v, cls, s) n = v,
+        LCB_XERR(X)
+#undef X
 
 #ifdef LIBCOUCHBASE_INTERNAL
         /**
          * This is a private value used by the tests in libcouchbase
          */
-        LCB_MAX_ERROR_VAL = 0x2a,
+        LCB_MAX_ERROR_VAL,
 #endif
 
         /* The errors below this value reserver for libcouchbase usage. */
@@ -250,8 +217,17 @@ extern "C" {
 #define lcb_is_error_etmpfail(a) ((a == LCB_CLIENT_ETMPFAIL) || \
                                   (a == LCB_ETMPFAIL))
 
+#define LCB_EIFINPUT(e) (lcb_get_errtype(e) & LCB_ERRTYPE_INPUT)
+#define LCB_EIFNET(e) (lcb_get_errtype(e) & LCB_ERRTYPE_NETWORK)
+#define LCB_EIFFATAL(e) (lcb_get_errtype(e) & LCB_ERRTYPE_FATAL)
+#define LCB_EIFTMP(e) (lcb_get_errtype(e) & LCB_ERRTYPE_TRANSIENT)
+#define LCB_EIFDATA(e) (lcb_get_errtype(e) & LCB_ERRTYPE_DATAOP)
+#define LCB_EIFPLUGIN(e) (lcb_get_errtype(e) & LCB_ERRTYPE_PLUGIN)
+
+LIBCOUCHBASE_API
+int lcb_get_errtype(lcb_error_t err);
+
 #ifdef __cplusplus
 }
 #endif
-
 #endif

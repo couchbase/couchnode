@@ -20,6 +20,21 @@ require 'fileutils'
 
 FileUtils.chdir(File.dirname(__FILE__))
 
+cleanup = []
+links = Dir.glob("man[1-9]*/*").grep(/[1-9][^.]*$/)
+links.each do |name|
+  target = File.read(name)[/\A.so (.*)$/, 1]
+  if target && File.exists?(target + ".txt")
+    File.open(name + ".txt", "w+") do |f|
+      page = File.read(target + ".txt")
+      title = File.basename(name)[0...-File.extname(name).size]
+      page.sub!(/\A= (\w+)/, "= #{title}")
+      f.write(page)
+      cleanup.push(f.path)
+    end
+  end
+end
+
 sources = Dir.glob("man[1-9]*/*[1-9]*.txt")
 destdir = "libcouchbase"
 version = `git describe --always`.chomp rescue nil
@@ -48,6 +63,7 @@ sources.each do |file|
   end
   File.unlink(tmpname)
 end
+cleanup.each { |f| File.unlink(f) }
 
 FileUtils.cp("#{destdir}/libcouchbase.3lib.html", "#{destdir}/index.html")
 File.open("#{destdir}/docbook-xsl.css", "a+") do |f|

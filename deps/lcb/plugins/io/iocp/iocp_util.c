@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/timeb.h>
 #include <time.h>
+#include "config.h"
 
 #if defined(__MINGW32__) && !defined(_ftime_s)
 #define _ftime_s _ftime /** Mingw doens't have the _s variant */
@@ -91,11 +92,9 @@ DWORD iocp_set_last_error(lcb_io_opt_t io, SOCKET sock)
     return werr;
 }
 
-lcb_uint64_t iocp_millis(void)
+lcb_uint32_t iocp_micros(void)
 {
-    struct _timeb tm;
-    _ftime_s(&tm);
-    return (tm.time * 1000) + tm.millitm;
+    return (lcb_uint32_t)(gethrtime() / 1000);
 }
 
 LPFN_CONNECTEX iocp_initialize_connectex(SOCKET sock)

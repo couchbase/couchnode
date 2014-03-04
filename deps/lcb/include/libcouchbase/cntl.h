@@ -38,6 +38,16 @@ extern "C" {
      * Get/Set. Operation timeout.
      * Arg: lcb_uint32_t* (microseconds)
      *
+     * Note that timeouts in libcouchbase are implemented via an event loop
+     * scheduler. As such their accuracy and promptness is limited by how
+     * often the event loop is invoked and how much wall time is spent in
+     * each of their handlers. Specifically if you issue long running blocking
+     * calls within any of the handlers (and this means any of the library's
+     * callbacks) then the timeout accuracy will be impacted.
+     *
+     * Further behavior is dependent on the event loop plugin itself and how
+     * it schedules timeouts.
+     *
      *      lcb_uint32_t tmo = 3500000;
      *      lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmo);
      */
@@ -338,8 +348,108 @@ extern "C" {
      */
 #define LCB_CNTL_MAX_REDIRECTS 0x17
 
+    /**
+     * Get/Set. Modify the lcb_logprocs structure used for logging. See
+     * the types.h header for more information about logging.
+     * Arg: lcb_logprocs* for set, lcb_logprocs** for get
+     */
+#define LCB_CNTL_LOGGER 0x18
+
+
+    /**
+     * Get/Set. Modify the amount of time (in microseconds) before the
+     * CONFERRTHRESH setting (see above) will forcefully be set to its maximum
+     * number forcing a configuration refresh.
+     *
+     * Note that if you expect a high number of timeouts in your operations, you
+     * should set this to a high number (along with CONFERRTHRESH). If you
+     * are using the default timeout setting, then this value is likely optimal.
+     *
+     * Arg: lcb_uint32_t*
+     */
+#define LCB_CNTL_CONFDELAY_THRESH 0x19
+
+    /**
+     * Get the transport used to fetch cluster configuration.
+     *
+     * Arg: lcb_config_transport_t*
+     */
+#define LCB_CNTL_CONFIG_TRANSPORT 0x1A
+
+    /**
+     * Get/Set the per-node configuration timeout.
+     *
+     * The per-node configuration timeout sets the amount of time to wait
+     * for each node within the bootstrap/configuration process. This interval
+     * is a subset of the CONFIG_TIMEOUT option mentioned above and is intended
+     * to ensure that the bootstrap process does not wait too long for a given
+     * node. Nodes that are physically offline may never respond and it may take
+     * a long time until they are detected as being offline. See CCBC-261 and
+     * CCBC-313 for more reasons.
+     *
+     * Arg: lcb_uint32_t*, Timeout in microseconds.
+     *
+     * Note that the CONFIG_TIMEOUT should be higher than this number. No check
+     * is made to ensure that this is the case, however.
+     */
+#define LCB_CNTL_CONFIG_NODE_TIMEOUT 0x1B
+
+    /**
+     * Get/Set the idle timeout for HTTP bootstrap.
+     *
+     * By default the behavior of the library for HTTP bootstrap is to keep the
+     * stream open at all times (opening a new stream on a different host if the
+     * existing one is broken) in order to proactively receive configuration
+     * updates.
+     *
+     * The default value for this setting is -1. Changing this to another number
+     * invokes the following semantics:
+     *
+     * - The configuration stream is not kept alive indefinitely. It is kept open
+     *   for the number of seconds specified in this setting. The socket is closed
+     *   after a period of inactivity (indicated by this setting).
+     *
+     * - If the stream is broken (and no current refresh was requested by the
+     *   client) then a new stream is not opened.
+     *
+     * Arg: lcb_uint32_t*, Timeout in microseconds
+     */
+#define LCB_CNTL_HTCONFIG_IDLE_TIMEOUT 0x1C
+
+    /**
+     * Set the nodes for the HTTP provider. This sets the initial list
+     * for the nodes to be used for bootstrapping the cluster. This may also
+     * be used subsequently in runtime to provide an updated list of nodes
+     * if the current list malfunctions.
+     *
+     * Arg: char*, a NUL-terminated string containing one or more nodes. The
+     *      format for the string is the same as the 'host' parameter in.
+     *      lcb_create_st.
+     *
+     *      Ports should specify the REST API port.
+     *
+     */
+#define LCB_CNTL_CONFIG_HTTP_NODES 0x1D
+
+    /**
+     * Similar to LCB_CNTL_CONFIG_HTTP_NODES, but affects the CCCP provider
+     * instead.
+     *
+     * Arg: char*, a NUL-terminated string containing one or more nodes with
+     *      their hosts. If the host is not specified the default of 11210 will
+     *      be used.
+     */
+#define LCB_CNTL_CONFIG_CCCP_NODES 0x1E
+
+    /**
+     * Get the current SCM changeset for the library binary
+     * Arg: char** to contain the resultant string. This string must not be
+     * freed
+     */
+#define LCB_CNTL_CHANGESET 0x1F
+
     /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x18
+#define LCB_CNTL__MAX                    0x20
 
 
 #ifdef __cplusplus

@@ -91,14 +91,14 @@ AC_SUBST(CHANGESET)
 # http://www.gnu.org/software/libtool/manual/libtool.html#Libtool-versioning
 #
 API_CURRENT=2
-API_REVISION=12
+API_REVISION=13
 API_AGE=0
 AC_SUBST(API_CURRENT)
 AC_SUBST(API_REVISION)
 AC_SUBST(API_AGE)
 
 # The actual version numbers for the developers ;)
-LCB_VERSION="2.2.0"
+LCB_VERSION="2.3.0"
 LCB_VERSION_HEX=`echo ${LCB_VERSION} | awk -F. '{printf "0x%0.2d%0.2d%0.2d", $1, $2, $3}'`
 AC_SUBST(LCB_VERSION)
 AC_SUBST(LCB_VERSION_HEX)
@@ -433,16 +433,6 @@ AC_CHECK_FUNCS_ONCE([gethrtime clock_gettime gettimeofday
                      QueryPerformanceCounter alarm setitimer])
 AM_CONDITIONAL(HAVE_GETHRTIME, [test "x${ac_cv_func_gethrtime}" = "xyes"])
 
-AC_ARG_ENABLE([trace],
-    [AS_HELP_STRING([--enable-trace],
-                    [enable trace routines, mainly useful for libcouchbase development
-                    @<:@default=off@:>@])],
-    [ac_cv_enable_trace="$enableval"])
-
-AM_CONDITIONAL(LIBCOUCHBASE_ENABLE_TRACE,
-               [test "x${ac_cv_enable_trace}" = "xyes"])
-
-
 AC_ARG_ENABLE([tests],
     [AS_HELP_STRING([--disable-tests],
             [Build without tests. BE CAREFUL. @<:@default=on@:>@])],
@@ -619,7 +609,16 @@ AS_IF([test "x${ac_cv_enable_maintainer_mode}" = "xyes"],
 AH_TOP([
 #if defined(_WIN32) && !defined(HAVE_CONFIG_H)
   /* skip config.h contents on a non-autotools win32 build */
-  #include "win32/config.h"
+  #ifndef _CRT_SECURE_NO_WARNINGS
+  #define _CRT_SECURE_NO_WARNINGS
+  #endif
+
+  #include <string.h>
+
+  #define HAVE_WINSOCK2_H 1
+  #define HAVE_WS2TCPIP_H 1
+  #define HAVE_QUERYPERFORMANCECOUNTER 1
+  #include "config_static.h"
   #define CONFIG_H
 #endif
 

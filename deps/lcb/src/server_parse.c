@@ -23,9 +23,16 @@
  * @todo add more documentation
  */
 #include "internal.h"
+#include "packetutils.h"
+#include "bucketconfig/clconfig.h"
+
+#define LOGARGS(c, lvl) \
+    &(c)->instance->settings, "pktparse", LCB_LOG_##lvl, __FILE__, __LINE__
+
+#define LOG(c, lvl, msg) lcb_log(LOGARGS(c, lvl), msg)
 
 static void swallow_command(lcb_server_t *c,
-                            protocol_binary_response_header *header,
+                            const protocol_binary_response_header *header,
                             int was_connected)
 {
     lcb_size_t nr;
@@ -46,6 +53,7 @@ static void swallow_command(lcb_server_t *c,
  * error
  */
 static int handle_not_my_vbucket(lcb_server_t *c,
+                                 packet_info *resinfo,
                                  protocol_binary_request_header *oldreq,
                                  struct lcb_command_data_st *oldct)
 {
@@ -56,24 +64,52 @@ static int handle_not_my_vbucket(lcb_server_t *c,
     struct lcb_command_data_st ct;
     protocol_binary_request_header req;
     hrtime_t now;
+    lcb_string config_string;
+    lcb_error_t err = LCB_ERROR;
+    clconfig_provider *cccp;
 
-    if (c->instance->compat.type == LCB_CACHED_CONFIG) {
-        lcb_schedule_config_cache_refresh(c->instance);
+    lcb_log(LOGARGS(c, WARN),
+            "NOT_MY_VBUCKET; Server=%p,ix=%d,real_start=%lu,vb=%d",
+            (void *)c, c->index,
+            (unsigned long)oldct->real_start,
+            (int)ntohs(oldreq->request.vbucket));
+
+    cccp = lcb_confmon_get_provider(c->instance->confmon, LCB_CLCONFIG_CCCP);
+    lcb_string_init(&config_string);
+    if (PACKET_NBODY(resinfo) && cccp->enabled) {
+        lcb_string_append(&config_string,
+                          PACKET_VALUE(resinfo),
+                          PACKET_NVALUE(resinfo));
+
+        err = lcb_cccp_update(cccp, c->curhost.host, &config_string);
+    }
+
+    lcb_string_release(&config_string);
+
+    if (err != LCB_SUCCESS) {
+        lcb_bootstrap_refresh(c->instance);
     }
 
     /* re-schedule command to new server */
-    idx = vbucket_found_incorrect_master(c->instance->vbucket_config,
-                                         ntohs(oldreq->request.vbucket),
-                                         (int)c->index);
+    if (!c->instance->settings.vb_noguess) {
+        idx = vbucket_found_incorrect_master(c->instance->vbucket_config,
+                                             ntohs(oldreq->request.vbucket),
+                                             (int)c->index);
+    } else {
+        idx = c->index;
+    }
 
     if (idx == -1) {
+        lcb_log(LOGARGS(c, ERR), "no alternate server");
         return 0;
     }
+    lcb_log(LOGARGS(c, INFO), "Mapped key to new server %d -> %d",
+            c->index, idx);
 
     now = gethrtime();
 
     if (oldct->real_start) {
-        hrtime_t min_ok = now - (c->connection.timeout.usec * 1000);
+        hrtime_t min_ok = now - MCSERVER_TIMEOUT(c) * 1000;
         if (oldct->real_start < min_ok) {
             /** Timed out in a 'natural' manner */
             return 0;
@@ -120,73 +156,39 @@ static int handle_not_my_vbucket(lcb_server_t *c,
 
 int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
 {
+    int rv;
+    packet_info info;
     protocol_binary_request_header req;
-    protocol_binary_response_header header;
     lcb_size_t nr;
-    char *packet;
-    lcb_size_t packetsize;
-    struct lcb_command_data_st ct;
     lcb_connection_t conn = &c->connection;
 
-    if (ringbuffer_ensure_alignment(conn->input) != 0) {
-        lcb_error_handler(c->instance, LCB_EINTERNAL,
-                          NULL);
+    rv = lcb_packet_read_ringbuffer(&info, conn->input);
+    if (rv == -1) {
         return -1;
-    }
-
-    nr = ringbuffer_peek(conn->input, header.bytes, sizeof(header));
-    if (nr < sizeof(header)) {
-        return 0;
-    }
-
-    packetsize = ntohl(header.response.bodylen) + (lcb_uint32_t)sizeof(header);
-    if (conn->input->nbytes < packetsize) {
+    } else if (rv == 0) {
         return 0;
     }
 
     /* Is it already timed out? */
     nr = ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req));
     if (nr < sizeof(req) || /* the command log doesn't know about it */
-            (header.response.opaque < req.request.opaque &&
-             header.response.opaque > 0)) { /* sasl comes with zero opaque */
+            (PACKET_OPAQUE(&info) < req.request.opaque &&
+             PACKET_OPAQUE(&info) > 0)) { /* sasl comes with zero opaque */
         /* already processed. */
-        ringbuffer_consumed(conn->input, packetsize);
+        lcb_packet_release_ringbuffer(&info, conn->input);
         return 1;
     }
 
-    packet = conn->input->read_head;
-    /* we have everything! */
 
-    if (!ringbuffer_is_continous(conn->input, RINGBUFFER_READ,
-                                 packetsize)) {
-        /* The buffer isn't continous.. for now just copy it out and
-        ** operate on the copy ;)
-        */
-        if ((packet = malloc(packetsize)) == NULL) {
-            lcb_error_handler(c->instance, LCB_CLIENT_ENOMEM, NULL);
-            return -1;
-        }
-        nr = ringbuffer_read(conn->input, packet, packetsize);
-        if (nr != packetsize) {
-            lcb_error_handler(c->instance, LCB_EINTERNAL,
-                              NULL);
-            free(packet);
-            return -1;
-        }
-    }
-
-    nr = ringbuffer_peek(&c->output_cookies, &ct, sizeof(ct));
-    if (nr != sizeof(ct)) {
-        lcb_error_handler(c->instance, LCB_EINTERNAL,
-                          NULL);
-        if (packet != conn->input->read_head) {
-            free(packet);
-        }
+    nr = ringbuffer_peek(&c->output_cookies, &info.ct, sizeof(info.ct));
+    if (nr != sizeof(info.ct)) {
+        lcb_error_handler(c->instance, LCB_EINTERNAL, NULL);
+        lcb_packet_release_ringbuffer(&info, conn->input);
         return -1;
     }
-    ct.vbucket = ntohs(req.request.vbucket);
+    info.ct.vbucket = ntohs(req.request.vbucket);
 
-    switch (header.response.magic) {
+    switch (info.res.response.magic) {
     case PROTOCOL_BINARY_REQ:
         /*
          * The only way to get request packets is if someone started
@@ -197,29 +199,24 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
         return -1;
     case PROTOCOL_BINARY_RES: {
         int was_connected = c->connection_ready;
-        if (lcb_server_purge_implicit_responses(c, header.response.opaque, stop, 0) != 0) {
-            if (packet != conn->input->read_head) {
-                free(packet);
-            }
+        rv = lcb_server_purge_implicit_responses(c,
+                                                 PACKET_OPAQUE(&info),
+                                                 stop, 0);
+        if (rv != 0) {
+            lcb_packet_release_ringbuffer(&info, conn->input);
             return -1;
         }
 
         if (c->instance->histogram) {
-            lcb_record_metrics(c->instance, stop - ct.start,
-                               header.response.opcode);
+            lcb_record_metrics(c->instance, stop - info.ct.start,
+                               PACKET_OPCODE(&info));
         }
 
-        if (ntohs(header.response.status) != PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET
-                || header.response.opcode == CMD_GET_REPLICA
-                || header.response.opcode == CMD_OBSERVE) {
-            if (lcb_dispatch_response(c, &ct, (void *)packet) == -1) {
-                /*
-                 * Internal error.. we received an unsupported response
-                 * id. This should _ONLY_ happen at development time because
-                 * we won't receive response packets with other opcodes
-                 * than we send. Let's abort here to make it easy for
-                 * the developer to know what happened..
-                 */
+        if (PACKET_STATUS(&info) != PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET
+                || PACKET_OPCODE(&info) == CMD_GET_REPLICA
+                || PACKET_OPCODE(&info) == CMD_OBSERVE) {
+            rv = lcb_dispatch_response(c, &info);
+            if (rv == -1) {
                 lcb_error_handler(c->instance, LCB_EINTERNAL,
                                   "Received unknown command response");
                 abort();
@@ -227,17 +224,17 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
             }
 
             /* keep command and cookie until we get complete STAT response */
-            swallow_command(c, &header, was_connected);
+            swallow_command(c, &info.res, was_connected);
 
         } else {
-            int rv = handle_not_my_vbucket(c, &req, &ct);
+            rv = handle_not_my_vbucket(c, &info, &req, &info.ct);
 
             if (rv == -1) {
                 return -1;
 
             } else if (rv == 0) {
-                lcb_dispatch_response(c, &ct, (void *)packet);
-                swallow_command(c, &header, was_connected);
+                lcb_dispatch_response(c, &info);
+                swallow_command(c, &info.res, was_connected);
             }
 
         }
@@ -245,19 +242,11 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
     }
 
     default:
-        lcb_error_handler(c->instance,
-                          LCB_PROTOCOL_ERROR,
-                          NULL);
-        if (packet != conn->input->read_head) {
-            free(packet);
-        }
+        lcb_error_handler(c->instance, LCB_PROTOCOL_ERROR, NULL);
+        lcb_packet_release_ringbuffer(&info, conn->input);
         return -1;
     }
 
-    if (packet != conn->input->read_head) {
-        free(packet);
-    } else {
-        ringbuffer_consumed(conn->input, packetsize);
-    }
+    lcb_packet_release_ringbuffer(&info, conn->input);
     return 1;
 }

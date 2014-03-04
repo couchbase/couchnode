@@ -1,0 +1,33 @@
+#include <windows.h>
+#define VER_FILEVERSION @LCB_VERSION_MAJOR@,@LCB_VERSION_MINOR@,0,0
+#define VER_FILEVERSION_STR "@LCB_VERSION@\0"
+#define VER_PRODUCT @LCB_VERSION_MAJOR@,@LCB_VERSION_MINOR@,0,0
+
+VS_VERSION_INFO     VERSIONINFO
+FILEVERSION         VER_FILEVERSION
+PRODUCTVERSION      VER_PRODUCT
+FILEOS              VOS_NT_WINDOWS32
+FILETYPE            VFT_DLL
+FILESUBTYPE         VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",     "Couchbase, Inc.\0"
+            VALUE "FileDescription", "Platform/Client driver for Couchbase\0"
+
+            VALUE "LegalCopyright", "Copyright (C) 2014 Couchbase, Inc. "
+                                    "You may use this file in accordance with the "
+                                    "Apache License 2.0\0"
+            VALUE "ProductName",     "libcouchbase\0"
+            VALUE "ProductVersion",  "@LCB_VERSION@\0"
+            VALUE "InternalName",    "LCB\0"
+            VALUE "Revision",        "@LCB_VERSION_CHANGESET@\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+        BEGIN
+        VALUE "Translation", 0x409, 1252
+    END
+END

@@ -16,11 +16,7 @@
  */
 
 #include "internal.h"
-
-struct server_info_st {
-    int vb;
-    int idx;
-};
+#include "vbcheck.h"
 
 static lcb_error_t single_get(lcb_t instance,
                               const void *command_cookie,
@@ -58,45 +54,40 @@ lcb_error_t lcb_unlock(lcb_t instance,
                        const lcb_unlock_cmd_t *const *items)
 {
     lcb_size_t ii;
+    vbcheck_ctx vbc;
+    lcb_error_t err;
 
-    /* we need a vbucket config before we can start getting data.. */
-    if (instance->vbucket_config == NULL) {
-        switch (instance->type) {
-        case LCB_TYPE_CLUSTER:
-            return lcb_synchandler_return(instance, LCB_EBADHANDLE);
-        case LCB_TYPE_BUCKET:
-        default:
-            return lcb_synchandler_return(instance, LCB_CLIENT_ETMPFAIL);
+    VBC_SANITY(instance);
+    err = vbcheck_ctx_init(&vbc, instance, num);
+    if (err != LCB_SUCCESS) {
+        return lcb_synchandler_return(instance, err);
+    }
+
+    for (ii = 0; ii < num; ii++) {
+        const void *k;
+        lcb_size_t nk;
+        const lcb_unlock_cmd_t *cmd = items[ii];
+        VBC_GETK0(cmd, k, nk);
+        err = vbcheck_populate(&vbc, instance, ii, k, nk);
+        if (err != LCB_SUCCESS) {
+            vbcheck_ctx_clean(&vbc);
+            return lcb_synchandler_return(instance, err);
         }
     }
 
     for (ii = 0; ii < num; ++ii) {
-        lcb_server_t *server;
+        vbcheck_keyinfo *ki = vbc.ptr_ki + ii;
         protocol_binary_request_no_extras req;
-        int vb, idx;
-        const void *hashkey = items[ii]->v.v0.hashkey;
-        lcb_size_t nhashkey = items[ii]->v.v0.nhashkey;
         const void *key = items[ii]->v.v0.key;
         lcb_size_t nkey = items[ii]->v.v0.nkey;
         lcb_cas_t cas = items[ii]->v.v0.cas;
-
-        if (nhashkey == 0) {
-            hashkey = key;
-            nhashkey = nkey;
-        }
-        (void)vbucket_map(instance->vbucket_config, hashkey, nhashkey,
-                          &vb, &idx);
-
-        if (idx < 0 || idx > (int)instance->nservers) {
-            return lcb_synchandler_return(instance, LCB_NO_MATCHING_SERVER);
-        }
-        server = instance->servers + idx;
+        lcb_server_t *server = instance->servers + ki->ix;
 
         memset(&req, 0, sizeof(req));
         req.message.header.request.magic = PROTOCOL_BINARY_REQ;
         req.message.header.request.keylen = ntohs((lcb_uint16_t)nkey);
         req.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        req.message.header.request.vbucket = ntohs((lcb_uint16_t)vb);
+        req.message.header.request.vbucket = ntohs(ki->vb);
         req.message.header.request.bodylen = ntohl((lcb_uint32_t)(nkey));
         req.message.header.request.cas = cas;
         req.message.header.request.opaque = ++instance->seqno;
@@ -107,9 +98,15 @@ lcb_error_t lcb_unlock(lcb_t instance,
                                 sizeof(req.bytes));
         lcb_server_write_packet(server, key, nkey);
         lcb_server_end_packet(server);
-        lcb_server_send_packets(server);
     }
 
+    for (ii = 0; ii < instance->nservers; ii++) {
+        if (vbc.ptr_srv[ii]) {
+            lcb_server_send_packets(instance->servers + ii);
+        }
+    }
+
+    vbcheck_ctx_clean(&vbc);
     return lcb_synchandler_return(instance, LCB_SUCCESS);
 }
 
@@ -143,6 +140,7 @@ lcb_error_t lcb_get_replica(lcb_t instance,
     req.message.header.request.magic = PROTOCOL_BINARY_REQ;
     req.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     req.message.header.request.opcode = CMD_GET_REPLICA;
+
     for (ii = 0; ii < num; ++ii) {
         const void *key;
         lcb_size_t nkey;
@@ -197,9 +195,6 @@ lcb_error_t lcb_get_replica(lcb_t instance,
             idx = vbucket_get_replica(instance->vbucket_config, vb, r0);
             if (idx < 0 || idx > (int)instance->nservers) {
                 free(affected_servers);
-                /* FIXME: when 'packet' patch will be applied, here
-                 * should be rollback of all the previous commands
-                 * queued */
                 return lcb_synchandler_return(instance, LCB_NO_MATCHING_SERVER);
             }
             affected_servers[idx]++;
@@ -304,52 +299,28 @@ static lcb_error_t multi_get(lcb_t instance,
                              lcb_size_t num,
                              const lcb_get_cmd_t *const *items)
 {
-    lcb_server_t *server = NULL;
     protocol_binary_request_noop noop;
-    lcb_size_t ii, *affected_servers = NULL;
-    struct server_info_st *servers = NULL;
+    lcb_size_t ii;
+    vbcheck_ctx vbc;
+    lcb_error_t err;
 
-    /* we need a vbucket config before we can start getting data.. */
-    if (instance->vbucket_config == NULL) {
-        switch (instance->type) {
-        case LCB_TYPE_CLUSTER:
-            return lcb_synchandler_return(instance, LCB_EBADHANDLE);
-        case LCB_TYPE_BUCKET:
-        default:
-            return lcb_synchandler_return(instance, LCB_CLIENT_ETMPFAIL);
-        }
+    VBC_SANITY(instance);
+
+    err = vbcheck_ctx_init(&vbc, instance, num);
+    if (err != LCB_SUCCESS) {
+        return lcb_synchandler_return(instance, err);
     }
 
-    affected_servers = calloc(instance->nservers, sizeof(lcb_size_t));
-    if (affected_servers == NULL) {
-        return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
-    }
-
-    servers = malloc(num * sizeof(struct server_info_st));
-    if (servers == NULL) {
-        free(affected_servers);
-        return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
-    }
 
     for (ii = 0; ii < num; ++ii) {
-        const void *key = items[ii]->v.v0.key;
-        lcb_size_t nkey = items[ii]->v.v0.nkey;
-        const void *hashkey = items[ii]->v.v0.hashkey;
-        lcb_size_t nhashkey = items[ii]->v.v0.nhashkey;
-
-        if (nhashkey == 0) {
-            hashkey = key;
-            nhashkey = nkey;
+        const void *k;
+        lcb_size_t n;
+        VBC_GETK0(items[ii], k, n);
+        err = vbcheck_populate(&vbc, instance, ii, k, n);
+        if (err != LCB_SUCCESS) {
+            vbcheck_ctx_clean(&vbc);
+            return lcb_synchandler_return(instance, err);
         }
-
-        (void)vbucket_map(instance->vbucket_config, hashkey, nhashkey,
-                          &servers[ii].vb, &servers[ii].idx);
-        if (servers[ii].idx < 0 || servers[ii].idx > (int)instance->nservers) {
-            free(servers);
-            free(affected_servers);
-            return lcb_synchandler_return(instance, LCB_NO_MATCHING_SERVER);
-        }
-        affected_servers[servers[ii].idx]++;
     }
 
     for (ii = 0; ii < num; ++ii) {
@@ -358,16 +329,14 @@ static lcb_error_t multi_get(lcb_t instance,
         lcb_size_t nkey = items[ii]->v.v0.nkey;
         lcb_time_t exp = items[ii]->v.v0.exptime;
         lcb_size_t nreq = sizeof(req.bytes);
-        int vb;
-
-        server = instance->servers + servers[ii].idx;
-        vb = servers[ii].vb;
+        vbcheck_keyinfo *ki = vbc.ptr_ki + ii;
+        lcb_server_t *server = instance->servers + ki->ix;
 
         memset(&req, 0, sizeof(req));
         req.message.header.request.magic = PROTOCOL_BINARY_REQ;
         req.message.header.request.keylen = ntohs((lcb_uint16_t)nkey);
         req.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        req.message.header.request.vbucket = ntohs((lcb_uint16_t)vb);
+        req.message.header.request.vbucket = ntohs(ki->vb);
         req.message.header.request.bodylen = ntohl((lcb_uint32_t)(nkey));
         req.message.header.request.opaque = ++instance->seqno;
 
@@ -389,7 +358,6 @@ static lcb_error_t multi_get(lcb_t instance,
         lcb_server_write_packet(server, key, nkey);
         lcb_server_end_packet(server);
     }
-    free(servers);
 
     memset(&noop, 0, sizeof(noop));
     noop.message.header.request.magic = PROTOCOL_BINARY_REQ;
@@ -401,15 +369,14 @@ static lcb_error_t multi_get(lcb_t instance,
      ** where to send the noop
      */
     for (ii = 0; ii < instance->nservers; ++ii) {
-        if (affected_servers[ii]) {
-            server = instance->servers + ii;
+        if (vbc.ptr_srv[ii]) {
+            lcb_server_t *server = instance->servers + ii;
             noop.message.header.request.opaque = ++instance->seqno;
             lcb_server_complete_packet(server, command_cookie,
                                        noop.bytes, sizeof(noop.bytes));
             lcb_server_send_packets(server);
         }
     }
-    free(affected_servers);
-
+    vbcheck_ctx_clean(&vbc);
     return lcb_synchandler_return(instance, LCB_SUCCESS);
 }

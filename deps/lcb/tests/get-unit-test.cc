@@ -25,10 +25,6 @@
 
 class GetUnitTest : public MockUnitTest
 {
-protected:
-    static void SetUpTestCase() {
-        MockUnitTest::SetUpTestCase();
-    }
 };
 
 extern "C" {
@@ -266,7 +262,7 @@ TEST_F(GetUnitTest, testMixedMultiGet)
         cmds.push_back(cmdmiss);
     }
 
-    for (int ii = 0; ii < cmds.size(); ii++) {
+    for (unsigned int ii = 0; ii < cmds.size(); ii++) {
         cmdptrs.push_back(&cmds[ii]);
     }
 

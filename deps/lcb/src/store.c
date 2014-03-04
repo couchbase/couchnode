@@ -15,7 +15,7 @@
  *   limitations under the License.
  */
 #include "internal.h"
-
+#include "vbcheck.h"
 /**
  * Spool a store request
  *
@@ -32,15 +32,23 @@ lcb_error_t lcb_store(lcb_t instance,
                       const lcb_store_cmd_t *const *items)
 {
     lcb_size_t ii;
+    lcb_error_t err;
+    vbcheck_ctx vbc;
 
-    /* we need a vbucket config before we can start getting data.. */
-    if (instance->vbucket_config == NULL) {
-        switch (instance->type) {
-        case LCB_TYPE_CLUSTER:
-            return lcb_synchandler_return(instance, LCB_EBADHANDLE);
-        case LCB_TYPE_BUCKET:
-        default:
-            return lcb_synchandler_return(instance, LCB_CLIENT_ETMPFAIL);
+    VBC_SANITY(instance);
+    err = vbcheck_ctx_init(&vbc, instance, num);
+    if (err != LCB_SUCCESS) {
+        return lcb_synchandler_return(instance, err);
+    }
+
+    for (ii = 0; ii < num; ii++) {
+        const void *k;
+        lcb_size_t n;
+        VBC_GETK0(items[ii], k, n);
+        err = vbcheck_populate(&vbc, instance, ii, k, n);
+        if (err != LCB_SUCCESS) {
+            vbcheck_ctx_clean(&vbc);
+            return lcb_synchandler_return(instance, err);
         }
     }
 
@@ -49,7 +57,6 @@ lcb_error_t lcb_store(lcb_t instance,
         protocol_binary_request_set req;
         lcb_size_t headersize;
         lcb_size_t bodylen;
-        int vb, idx;
 
         lcb_storage_t operation = items[ii]->v.v0.operation;
         const void *key = items[ii]->v.v0.key;
@@ -59,27 +66,15 @@ lcb_error_t lcb_store(lcb_t instance,
         lcb_time_t exp = items[ii]->v.v0.exptime;
         const void *bytes = items[ii]->v.v0.bytes;
         lcb_size_t nbytes = items[ii]->v.v0.nbytes;
-        const void *hashkey = items[ii]->v.v0.hashkey;
-        lcb_size_t nhashkey = items[ii]->v.v0.nhashkey;
-
-        if (nhashkey == 0) {
-            hashkey = key;
-            nhashkey = nkey;
-        }
-
-        (void)vbucket_map(instance->vbucket_config, hashkey, nhashkey,
-                          &vb, &idx);
-        if (idx < 0 || idx > (int)instance->nservers) {
-            return lcb_synchandler_return(instance, LCB_NO_MATCHING_SERVER);
-        }
-        server = instance->servers + idx;
+        vbcheck_keyinfo *ki = vbc.ptr_ki + ii;
+        server = instance->servers + ki->ix;
 
         memset(&req, 0, sizeof(req));
         req.message.header.request.magic = PROTOCOL_BINARY_REQ;
         req.message.header.request.keylen = ntohs((lcb_uint16_t)nkey);
         req.message.header.request.extlen = 8;
         req.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        req.message.header.request.vbucket = ntohs((lcb_uint16_t)vb);
+        req.message.header.request.vbucket = ntohs(ki->vb);
         req.message.header.request.opaque = ++instance->seqno;
         req.message.header.request.cas = cas;
         req.message.body.flags = htonl(flags);
@@ -124,8 +119,13 @@ lcb_error_t lcb_store(lcb_t instance,
         lcb_server_write_packet(server, key, nkey);
         lcb_server_write_packet(server, bytes, nbytes);
         lcb_server_end_packet(server);
-        lcb_server_send_packets(server);
     }
 
+    for (ii = 0; ii < instance->nservers; ii++) {
+        if (vbc.ptr_srv[ii]) {
+            lcb_server_send_packets(instance->servers + ii);
+        }
+    }
+    vbcheck_ctx_clean(&vbc);
     return lcb_synchandler_return(instance, LCB_SUCCESS);
 }

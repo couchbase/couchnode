@@ -1,120 +1,159 @@
-What is libcouchbase
-====================
+# Couchbase C Client
 
-libcouchbase is a callback oriented client which makes it very easy to
-write high performance, thread safe programs. If you're interested in
-the early history of libcouchbase you might want to check out the blog
-post
+[![Build Status](https://travis-ci.org/couchbase/libcouchbase.png?branch=master)](https://travis-ci.org/couchbase/libcouchbase)
 
-http://trondn.blogspot.com/2011/10/libcouchbase-explore-full-features-of.html
+This is the C client library for [Couchbase](http://www.couchbase.com)
+It communicates with the cluster and speaks the relevant protocols
+necessary to connect to the cluster and execute data operations.
 
-The key component of libcouchbase is that its asynchronous, giving you
-full freedom in adding it to your application logic. From using the
-asynchronous interface you may schedule a lot of operations to be
-performed, and then you'll get the callbacks whenever they are
-performed. I do know that there are a lot of people who _don't_ care
-about an async interface, so you _may_ also enable synchronous
-mode. When synchronous mode is enabled you can't use this batching.
+## Features
 
-Examples
---------
+* Can function as either a synchronous or asynchronous library
+* Callback Oriented
+* Can integrate with most other asynchronous environments. You can write your
+  code to integrate it into your environment. Currently support exists for
+    * [libuv](http://github.com/joyent/libuv) (Windows and POSIX)
+    * [libev](http://software.schmorp.de/pkg/libev.html) (POSIX)
+    * [libevent](http://libevent.org/) (POSIX)
+    * `select` (Windows and POSIX)
+    * IOCP (Windows Only)
+* Support for operation batching
+* ANSI C ("_C89_")
+* Cross Platform - Tested on Linux, OS X, and Windows.
 
-You might want to read the blog post I wrote where I create a small
-example program and explains why we need to do certain stuff at:
+## Building
 
-http://trondn.blogspot.com/2012/01/so-how-do-i-use-this-libcouchbase.html
+Before you build from this repository, please check the [Couchbase C
+Portal](http://couchbase.com/communities/c) to see if there is a binary
+or release tarball available for your needs. Since the code here is
+not part of an official release it has therefore not gone through our
+release testing process.
 
-Unfortunately for you we've later completely refactored the API, so
-when you've read and understood the idea behind the library in the
-above blog post you should read the following post explaining the
-rationale behind changing the API, and what you as a user have to do..
+For building you have two options; the first is via GNU autotools and
+the second is via CMake. Autotools provides more packaging flexibility
+while CMake integrates better into your normal (C/C++) development
+environment. CMake is also the only way to build the library on Windows.
 
-http://trondn.blogspot.no/2012/08/libcouchbase-overhauling.html
+### Dependencies
+The library comes with no mandatory third party dependencies; however
+by default it will demand that at least `libevent`, `libev`, or `libuv`
+are installed as those are the most tested I/O platforms.
 
-How to use libuv as the IO backend
-----------------------------------
+If you are building libcouchbase as a depdency for an application which
+contains its own event loop implementation then you may specify the
+`--disable-plugins` option to the configure script.
 
-libuv is a cross platform library abstracting event
-notifications. Unfortunately the current stable version of libuv
-(0.10.x) don't provide a "make install" target making it harder for
-end users use. The easiest way for you to use libuv as a backend is to
-use the unstable version (currently 0.11.x) and run make install to
-install all required headers and libraries. If you for some reason
-don't want to do that you can then manually do the "install" target
-and copy the include files and libraries to the appropriate
-directories ( /usr/include and /usr/lib ), or you may run instruct the
-compiler and linker where to find the libraries at config time like:
+Additionally, in order to run the tests you will need to have java
+installed.  The tests make use of a mock server written in Java.
 
-    ./configure CPPFLAGS="-I/tmp/libuv/include" LDFLAGS="-L/tmp/libuv"
+The binary command line tools (i.e. `cbc`) and tests require a C++
+compiler. The core library requires only C.
 
-And make sure runtime linker can find the library (either with
-`DYLD_LIBRARY_PATH/LD_LIBRARY_PATH` or `-rpath`) in case of
-non-standard location.
+### Building with autotools
 
-Please note that if you try to link to a static library of libuv you
-_have_ to find out all of the other libraries libuv require.
+In order to build with autotools you need to generate the `configure` script
+first. This requires `autoconf`, `automake`, `libtool` and friends.
 
-Bugs
-----
+```shell
+$ ./config/autorun.sh
+$ ./configure
+$ make
+$ make check
+$ make install
+```
 
-Please see: http://www.couchbase.com/issues/browse/CCBC
+You may run `./configure --help` to see a list of build options
 
-Run the testsuite towards a running cluster
--------------------------------------------
+### Building with CMake (*nix)
 
-    LCB_TEST_CLUSTER_CONF=<hostname>,<bucket>,<user>,<password> ./tests/unit-tests
+Provided is a convenience script called `cmake/configure`. It is a Perl
+script and functions like a normal `autotools` script.
 
-Example:
-
-    LCB_TEST_CLUSTER_CONF=localhost,default,Administrator,mypass ./tests/unit-tests
-
-Hacking
--------
-
-Please note that the version from git requires autotools to be
-installed. You should consult with your package manager to ensure that
-the following packages are installed and updated: autoconf (2.60+),
-automake, and libtool. Follow the steps below to checkout the most
-recent version from git and build from source on your hardware.
-
-1. Grab the sources using git:
-
-        git clone git://github.com/couchbase/libcouchbase.git
-
-2. Generate `./configure` script using autoconf. Note: this step
-   requires that you have cloned this repository from git and that the
-   `.git` directory exists. If you have used the tarball from github, it
-   will complain on this step, see [config/autorun.sh][2] file for
-   details.
-
-        ./config/autorun.sh
-
-3. Generate Makefile. Take a look at possible options to the script:
-   `./configure --help`.
-
-        ./configure
-
-4. Make and check the build (you can also use `make check` to only run
-   test suite):
-
-        make && make distcheck
-
-    Note that by default 'make check' will test all the plugins supported by
-    libcouchbase. This is needed because plugins have different implementations
-    regarding I/O.
-
-Contact us
-----------
-
-The developers of libcouchbase usually hang out in the `#libcouchbase`
-IRC channel on freenode.net.
+```shell
+$ mkdir lcb-build # sibling of the git tree
+$ cd lcb-build
+$ ../libcouchbase/cmake/configure
+$ make
+$ ctest
+```
 
 
-Happy hacking!
+### Building with CMake (Windows)
 
-Cheers,
+Spin up your visual studio shell and run cmake from there. It is best
+practice that you make an out-of-tree build; thus like so:
 
-Trond Norbye
+Assuming Visual Studio 2010
 
-[1]: https://github.com/couchbase/libcouchbase/archive/master.tar.gz
-[2]: https://github.com/couchbase/libcouchbase/blob/master/config/autorun.sh
+```
+C:\> git clone git://github.com/couchbase/libcouchbase.git
+C:\> mkdir lcb-build
+C:\> cd lcb-build
+C:\> cmake -G "Visual Studio 10" ..\libcouchbase
+C:\> msbuild /M libcouchbase.sln
+```
+
+This will generate and build a Visual Studio `.sln` file.
+
+Windows builds are known to work on Visual Studio versions 2008, 2010 and
+2012.
+
+## Bugs, Support, Issues
+You may report issues in the library in our issue tracked at
+<http://couchbase.com/issues>. Sign up for an account and file an issue
+against the _Couchbase C Client Library_ project.
+
+The developers of the library hang out in IRC on `#libcouchbase` on
+irc.freenode.net.
+
+
+## Examples
+
+* The `examples` directory
+* Client libraries wrapping this library
+    * [node.js](http://github.com/couchbase/couchnode)
+    * [Python](http://github.com/couchbase/couchbase-python-client)
+    * [Ruby](http://github.com/couchbase/couchbase-ruby-client)
+* [<http://http://trondn.blogspot.com/2012/01/so-how-do-i-use-this-libcouchbase.html>]()
+  Old example based on version 1.x of the library
+
+## Documentation
+API Documentation exists inline with the headers in the
+`include/libcouchbase` directory. `man`-pages are also available in the
+`man` directory and are installed via `make install`.
+
+## Contributing
+
+In addition to filing bugs, you may contribute by submitting patches
+to fix bugs in the library. Contributions may be submitting to
+<http://review.couchbase.com>.  We use Gerrit as our code review system -
+and thus submitting a change would require an account there. Note that
+pull requests will not be ignored but will be responded to much quicker
+once they are converted into Gerrit.
+
+For something to be accepted into the codebase, it must be formatted
+properly and have undergone proper testing. While there are no formatting
+guidelines per se, the code should look similar to the existing code
+within the library.
+
+## Branches and Tags
+
+Released versions of the library are marked as annotated tags inside
+the repository.
+
+* The `release10` contains the older 1.x versions of the library.
+* The `master` branch represents the mainline branch. The master
+  branch typically consists of content going into the next release.
+* The `packet-ng` branch contains the next generation version of the
+  library with improved packet handling.
+
+
+## Contributors
+
+See the `AUTHORS` file
+
+
+## License
+
+libcouchbase is licensed under the Apache 2.0 License. See `LICENSE` file for
+details.

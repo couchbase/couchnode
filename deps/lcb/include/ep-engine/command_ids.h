@@ -17,6 +17,8 @@
 #ifndef EP_ENGINE_COMMAND_IDS_H
 #define EP_ENGINE_COMMAND_IDS_H 1
 
+#include <memcached/protocol_binary.h>
+
 #define CMD_STOP_PERSISTENCE  0x80
 #define CMD_START_PERSISTENCE 0x81
 #define CMD_SET_PARAM         0x82
@@ -35,7 +37,13 @@
 #define EXPAND_BUCKET 0x88
 #define SELECT_BUCKET 0x89
 
- */
+*/
+
+#define OBS_STATE_NOT_PERSISTED 0x00
+#define OBS_STATE_PERSISTED     0x01
+#define OBS_STATE_NOT_FOUND     0x80
+#define OBS_STATE_LOGICAL_DEL   0x81
+
 
 #define CMD_OBSERVE           0x92
 #define CMD_EVICT_KEY         0x93
@@ -46,37 +54,6 @@
  * Return the last closed checkpoint Id for a given VBucket.
  */
 #define CMD_LAST_CLOSED_CHECKPOINT 0x97
-
-/**
- * Start restoring a <b>single</b> incremental backup file specified in the
- * key field of the packet.
- * The server will return the following error codes:
- * <ul>
- *  <li>PROTOCOL_BINARY_RESPONSE_SUCCESS if the restore process is started</li>
- *  <li>PROTOCOL_BINARY_RESPONSE_KEY_ENOENT if the backup file couldn't be found</li>
- *  <li>PROTOCOL_BINARY_RESPONSE_AUTH_ERROR if the user isn't admin (not implemented)</li>
- *  <li>PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED if the server isn't in restore mode</li>
- *  <li>PROTOCOL_BINARY_RESPONSE_EINTERNAL with a description what went wrong</li>
- * </ul>
- *
- */
-#define CMD_RESTORE_FILE 0x98
-
-/**
- * Try to abort the current restore as soon as possible. The server
- * <em>may</em> want to continue to process an unknown number of elements
- * before aborting (or even complete the full restore). The server will
- * <b>always</b> return with PROTOCOL_BINARY_RESPONSE_SUCCESS even if the
- * server isn't running in restore mode without any restore jobs running.
- */
-#define CMD_RESTORE_ABORT 0x99
-
-/**
- * Notify the server that we're done restoring data, so it may transition
- * from restore mode to fully operating mode.
- * The server always returns PROTOCOL_BINARY_RESPONSE_SUCCESS
- */
-#define CMD_RESTORE_COMPLETE 0x9a
 
 /**
  * Close the TAP connection for the registered TAP client and remove the
@@ -91,15 +68,7 @@
  */
 #define CMD_RESET_REPLICATION_CHAIN 0x9f
 
-/*
- * IDs for the events of the observe command.
- */
-#define OBS_PERSISTED_EVENT    1
-#define OBS_MODIFIED_EVENT     2
-#define OBS_DELETED_EVENT      3
-#define OBS_REPLICATED_EVENT   4
-
-/* Command identifiers used by Cross Data Center Replication (cdcr) */
+// Command identifiers used by Cross Data Center Replication (cdcr)
 
 /**
  * CMD_GET_META is used to retrieve the meta section for an item.
@@ -114,6 +83,13 @@
  * has been soft deleted.
  */
 #define GET_META_ITEM_DELETED_FLAG 0x01
+
+/**
+ * This flag is used by the setWithMeta/addWithMeta/deleteWithMeta packets
+ * to specify that the conflict resolution mechanism should be skipped for
+ * this operation.
+ */
+#define SKIP_CONFLICT_RESOLUTION_FLAG 0x01
 
 /**
  * CMD_SET_WITH_META is used to set a kv-pair with additional meta
@@ -160,10 +136,28 @@
 #define CMD_ENABLE_TRAFFIC 0xad
 
 /**
+ * Command to disable data traffic temporarily
+ */
+#define CMD_DISABLE_TRAFFIC 0xae
+
+/**
  * Command to change the vbucket filter for a given TAP producer.
  */
 #define CMD_CHANGE_VB_FILTER 0xb0
 
+/**
+ * Command to wait for the checkpoint persistence
+ */
+#define CMD_CHECKPOINT_PERSISTENCE 0xb1
+
+/**
+ * Command that returns meta data for typical memcached ops
+ */
+#define CMD_RETURN_META 0xb2
+
+#define SET_RET_META 1
+#define ADD_RET_META 2
+#define DEL_RET_META 3
 
 /**
  * TAP OPAQUE command list
@@ -181,9 +175,9 @@
  * Parameter types of CMD_SET_PARAM command.
  */
 typedef enum {
-    engine_param_flush = 1,  /* flusher-related param type */
-    engine_param_tap,        /* tap-related param type */
-    engine_param_checkpoint  /* checkpoint-related param type */
+    engine_param_flush = 1,  // flusher-related param type
+    engine_param_tap,        // tap-related param type
+    engine_param_checkpoint  // checkpoint-related param type
 } engine_param_t;
 
 /**
@@ -199,30 +193,6 @@ typedef union {
     } message;
     uint8_t bytes[sizeof(protocol_binary_request_header) + sizeof(engine_param_t)];
 } protocol_binary_request_set_param;
-
-/**
- * The return message for a CMD_GET_META returns just the meta data
- * section for an item. The body contains the meta information encoded
- * in network byte order as:
- *
- * uint8_t element type
- * uint8_t element length
- * n*uint8_t element value.
- *
- * The following types are currently defined:
- *   META_REVID - 0x01 With the following layout
- *       uint32_t seqno
- *       uint8_t  id[nnn] (where nnn == the length - size of seqno)
- */
-typedef union {
-    struct {
-        protocol_binary_request_header header;
-        struct {
-            uint32_t flags;
-        } body;
-    }message;
-    uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
-} protocol_binary_response_get_meta;
 
 typedef union {
     struct {
@@ -243,28 +213,19 @@ typedef union {
     struct {
         protocol_binary_request_header header;
         struct {
-            uint32_t nmeta_bytes; /* # of bytes in the body that is meta info */
             uint32_t flags;
             uint32_t expiration;
+            uint64_t seqno;
+            uint64_t cas;
         } body;
     } message;
-    uint8_t bytes[sizeof(protocol_binary_request_header) + 12];
+    uint8_t bytes[sizeof(protocol_binary_request_header) + 24];
 } protocol_binary_request_set_with_meta;
 
 /**
- * The physical layout for the CMD_DEL_WITH_META looks like the the normal
- * delete request with the addition of a bulk of extra meta data stored
- * at the <b>end</b> of the package.
+ * The message format for delete with meta
  */
-typedef union {
-    struct {
-        protocol_binary_request_header header;
-        struct {
-            uint32_t nmeta_bytes; /* # of bytes in the body that is meta info */
-        } body;
-    } message;
-    uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
-} protocol_binary_request_delete_with_meta;
+typedef protocol_binary_request_set_with_meta protocol_binary_request_delete_with_meta;
 
 /**
  * The message format for getLocked engine API
@@ -283,9 +244,6 @@ typedef protocol_binary_request_no_extras protocol_binary_request_get_meta;
  */
 typedef protocol_binary_response_no_extras protocol_binary_response_set_with_meta;
 
-typedef protocol_binary_request_touch protocol_binary_request_observe;
-typedef protocol_binary_request_header protocol_binary_request_unobserve;
-
 typedef union {
     struct {
         protocol_binary_request_header header;
@@ -300,5 +258,40 @@ typedef union {
     uint8_t bytes[sizeof(protocol_binary_request_header) + 32];
 } protocol_binary_request_notify_vbucket_update;
 typedef protocol_binary_response_no_extras protocol_binary_response_notify_vbucket_update;
+
+/**
+ * The physical layout for the CMD_RETURN_META
+ */
+typedef union {
+    struct {
+        protocol_binary_request_header header;
+        struct {
+            uint32_t mutation_type;
+            uint32_t flags;
+            uint32_t expiration;
+        } body;
+    } message;
+    uint8_t bytes[sizeof(protocol_binary_request_header) + 12];
+} protocol_binary_request_return_meta;
+
+/**
+ * Command to set cluster configuration
+ */
+#define CMD_SET_CLUSTER_CONFIG 0xb4
+
+/**
+ * Command that returns cluster configuration
+ */
+#define CMD_GET_CLUSTER_CONFIG 0xb5
+
+/**
+ * Message format for CMD_SET_CONFIG
+ */
+typedef protocol_binary_request_no_extras protocol_binary_request_set_cluster_config;
+
+/**
+ * Message format for CMD_GET_CONFIG
+ */
+typedef protocol_binary_request_no_extras protocol_binary_request_get_cluster_config;
 
 #endif /* EP_ENGINE_COMMAND_IDS_H */

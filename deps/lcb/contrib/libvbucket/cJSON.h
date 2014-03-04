@@ -39,6 +39,26 @@ extern "C"
 
 #define cJSON_IsReference 256
 
+typedef struct cJSON_PoolBlock {
+    struct cJSON_PoolBlock * next;
+
+    /* Not visible here, however the allocation system
+        will allocate this structure along with all the
+        elements at once, where the elements will follow
+        this structure */
+} cJSON_PoolBlock;
+
+typedef struct cJSON_Pool {
+    /* linked list of allocation blocks */
+    cJSON_PoolBlock * blocks;
+
+    /* the number of references to this pool */
+    unsigned int refcount;
+
+    /* linked list of available cJSON allocations */
+    struct cJSON * free_items;
+} cJSON_Pool;
+
 /* The cJSON structure: */
 typedef struct cJSON {
         struct cJSON *next,*prev; /* next/prev allow you to walk
@@ -58,6 +78,8 @@ typedef struct cJSON {
         char *string; /* The item's name string, if this item is the
                          child of, or is in the list of subitems of an
                          object. */
+
+        struct cJSON_Pool *alloc_pool;
 } cJSON;
 
 typedef struct cJSON_Hooks {

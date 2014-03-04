@@ -17,6 +17,10 @@
 
 #include "config.h"
 
+#ifdef _WIN32
+#include <io.h> /* access() */
+#endif
+
 #include <iostream>
 #include <sstream>
 #include <ctype.h>
@@ -1219,6 +1223,13 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
                                            "Specify timeout value"));
     getopt.addOption(new CommandLineOption('D', "dumb", false,
                                            "Behave like legacy memcached client (default false)"));
+    getopt.addOption(new CommandLineOption('S', "sasl", true,
+                                           "Force SASL authentication mechanism (\"PLAIN\" or \"CRAM-MD5\")"));
+    getopt.addOption(new CommandLineOption('C', "config-transport", true,
+                                           "Specify transport for bootstrapping the connection: \"HTTP\" or \"CCCP\" (default)"));
+    string config_cache;
+    getopt.addOption(new CommandLineOption('Z', "config-cache", true,
+                                           "Path to cached configuration"));
 
     int replica_strategy = -1;
     int replica_idx = 0;
@@ -1313,9 +1324,18 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
     }
 
     vector<CommandLineOption *>::iterator iter;
+    const char *sasl_mech = NULL;
+
+    lcb_config_transport_t default_transports[] = {
+            LCB_CONFIG_TRANSPORT_HTTP,
+            LCB_CONFIG_TRANSPORT_CCCP,
+            LCB_CONFIG_TRANSPORT_LIST_END
+    };
+
     for (iter = getopt.options.begin(); iter != getopt.options.end(); ++iter) {
         if ((*iter)->found) {
             bool unknownOpt = true;
+            string arg;
             switch ((*iter)->shortopt) {
             case 'h' :
                 config.setHost((*iter)->argument);
@@ -1345,6 +1365,27 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
                 dumb = true;
                 break;
 
+            case 'S':
+                sasl_mech = (*iter)->argument;
+                break;
+
+            case 'C':
+                arg = (*iter)->argument;
+                if (arg == "HTTP") {
+                    default_transports[0] = LCB_CONFIG_TRANSPORT_HTTP;
+                } else if (arg == "CCCP") {
+                    default_transports[0] = LCB_CONFIG_TRANSPORT_CCCP;
+                } else {
+                    cerr << "Usupported configuration transport: " << arg << endl;
+                    getopt.usage(argv[0]);
+                    exit(EXIT_FAILURE);
+                }
+                default_transports[1] = LCB_CONFIG_TRANSPORT_LIST_END;
+                break;
+            case 'Z':
+                config_cache = (*iter)->argument;
+                break;
+
             case '?':
                 getopt.usage(argv[0]);
                 exit(EXIT_SUCCESS);
@@ -1352,7 +1393,6 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
 
             default:
                 if (cmd == cbc_cat) {
-                    string arg;
                     unknownOpt = false;
                     switch ((*iter)->shortopt) {
                     case 'r':
@@ -1414,7 +1454,6 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
                         unknownOpt = true;
                     }
                 } else if (cmd == cbc_view || cmd == cbc_admin) {
-                    string arg;
                     unknownOpt = false;
                     switch ((*iter)->shortopt) {
                     case 'c':
@@ -1442,7 +1481,7 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
                         unknownOpt = true;
                     }
                 } else if (cmd == cbc_bucket_create) {
-                    string arg = (*iter)->argument;
+                    arg = (*iter)->argument;
                     unknownOpt = false;
                     switch ((*iter)->shortopt) {
                     case 'B':
@@ -1518,7 +1557,21 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
                 exit(EXIT_FAILURE);
             }
         }
-        err = lcb_create(&instance, &options);
+        if (options.version == 2) {
+            options.v.v2.transports = default_transports;
+        } else {
+            cerr << "Cannot change configuration transport. Fallback to default" << endl;
+        }
+
+        if (!config_cache.empty()) {
+            struct lcb_cached_config_st cache_params;
+            cache_params.createopt = options;
+            cache_params.cachefile = config_cache.c_str();
+            err = lcb_create_compat(LCB_CACHED_CONFIG,
+                                    &cache_params, &instance, NULL);
+        } else {
+            err = lcb_create(&instance, &options);
+        }
     }
     if (err != LCB_SUCCESS) {
         cerr << "Failed to create couchbase instance: " << endl
@@ -1526,6 +1579,9 @@ static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **ar
         exit(EXIT_FAILURE);
     }
 
+    if (sasl_mech) {
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)sasl_mech);
+    }
     (void)lcb_set_error_callback(instance, error_callback);
     (void)lcb_set_flush_callback(instance, flush_callback);
     (void)lcb_set_get_callback(instance, get_callback);
@@ -1776,13 +1832,6 @@ std::string locate_file(const char *name)
     }
 
     return "";
-}
-
-bool access(const char *name, int mode)
-{
-    assert(mode == F_OK);
-    std::string nm = locate_file(name);
-    return nm != "";
 }
 
 int execvp(const char *file, char *const argv[])

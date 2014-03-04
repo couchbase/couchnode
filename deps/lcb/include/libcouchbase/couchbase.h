@@ -52,7 +52,7 @@
 
 #include <stddef.h>
 #include <time.h>
-
+#include <libcouchbase/sysdefs.h>
 #include <libcouchbase/configuration.h>
 #include <libcouchbase/assert.h>
 #include <libcouchbase/visibility.h>

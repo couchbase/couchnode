@@ -26,10 +26,6 @@
 
 class RegressionUnitTest : public MockUnitTest
 {
-protected:
-    static void SetUpTestCase() {
-        MockUnitTest::SetUpTestCase();
-    }
 };
 
 static bool callbackInvoked = false;
@@ -68,6 +64,8 @@ TEST_F(RegressionUnitTest, CCBC_150)
     callbackInvoked = false;
     lcb_set_get_callback(instance, get_callback);
     lcb_set_stat_callback(instance, stats_callback);
+    lcb_uint32_t tmoval = 15000000;
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmoval);
 
     lcb_get_cmd_t getCmd1("testGetMiss1");
     lcb_get_cmd_t *getCmds[] = { &getCmd1 };
@@ -253,7 +251,7 @@ TEST_F(RegressionUnitTest, CCBC_275)
     lcb_error_t err;
     struct lcb_create_st crOpts;
     const char *argv[] = { "--buckets", "protected:secret:couchbase", NULL };
-    MockEnvironment *mock = MockEnvironment::createSpecial(argv);
+    MockEnvironment mock_o(argv, "protected"), *mock = &mock_o;
     struct ccbc_275_info_st info = { 0, LCB_SUCCESS };
 
     mock->makeConnectParams(crOpts, NULL);
@@ -293,7 +291,8 @@ TEST_F(RegressionUnitTest, CCBC_275)
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_wait(instance);
     ASSERT_EQ(1, info.call_count);
-    ASSERT_EQ(LCB_ETIMEDOUT, info.last_err);
+
+    ASSERT_ERRISA(info.last_err, LCB_ERRTYPE_NETWORK);
 
     // Make sure we've fully purged and disconnected the server
     struct lcb_cntl_vbinfo_st vbi;
@@ -302,14 +301,15 @@ TEST_F(RegressionUnitTest, CCBC_275)
     vbi.v.v0.nkey = key.size();
     err = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBMAP, &vbi);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(LCB_CONNSTATE_UNINIT,
-              instance->servers[vbi.v.v0.server_index].connection.state);
+//    ASSERT_EQ(LCB_CONNSTATE_UNINIT,
+//              instance->servers[vbi.v.v0.server_index].connection.state);
 
     // Restore the timeout to something sane
-    tmo_usec = 2500000;
+    tmo_usec = 5000000;
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmo_usec);
     ASSERT_EQ(LCB_SUCCESS, err);
 
+    mock->hiccupNodes(0, 0);
     info.call_count = 0;
     err = lcb_get(instance, &info, 1, &cmdp);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -319,5 +319,4 @@ TEST_F(RegressionUnitTest, CCBC_275)
     ASSERT_EQ(LCB_KEY_ENOENT, info.last_err);
 
     lcb_destroy(instance);
-    MockEnvironment::destroySpecial(mock);
 }

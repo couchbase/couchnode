@@ -16,6 +16,7 @@
  */
 
 #include "internal.h"
+#include "vbcheck.h"
 
 /**
  * Send a delete command to the correct server
@@ -30,39 +31,34 @@ lcb_error_t lcb_remove(lcb_t instance,
                        const lcb_remove_cmd_t *const *items)
 {
     lcb_size_t ii;
-    /* we need a vbucket config before we can start removing the item.. */
-    if (instance->vbucket_config == NULL) {
-        switch (instance->type) {
-        case LCB_TYPE_CLUSTER:
-            return lcb_synchandler_return(instance, LCB_EBADHANDLE);
-        case LCB_TYPE_BUCKET:
-        default:
-            return lcb_synchandler_return(instance, LCB_CLIENT_ETMPFAIL);
+    vbcheck_ctx vbc;
+    lcb_error_t err;
+
+    VBC_SANITY(instance);
+
+    err = vbcheck_ctx_init(&vbc, instance, num);
+    if (err != LCB_SUCCESS) {
+        return lcb_synchandler_return(instance, err);
+    }
+
+    for (ii = 0; ii < num; ii++) {
+        const void *k;
+        lcb_size_t nk;
+        VBC_GETK0(items[ii], k, nk);
+        err = vbcheck_populate(&vbc, instance, ii, k, nk);
+        if (err != LCB_SUCCESS) {
+            vbcheck_ctx_clean(&vbc);
+            return lcb_synchandler_return(instance, err);
         }
     }
 
     for (ii = 0; ii < num; ++ii) {
-        lcb_server_t *server;
+        vbcheck_keyinfo *ki = vbc.ptr_ki + ii;
+        lcb_server_t *server = instance->servers + ki->ix;
         protocol_binary_request_delete req;
-        int vb, idx;
         const void *key = items[ii]->v.v0.key;
         lcb_size_t nkey = items[ii]->v.v0.nkey;
         lcb_cas_t cas = items[ii]->v.v0.cas;
-        const void *hashkey = items[ii]->v.v0.hashkey;
-        lcb_size_t nhashkey = items[ii]->v.v0.nhashkey;
-
-        if (nhashkey == 0) {
-            hashkey = key;
-            nhashkey = nkey;
-        }
-
-        (void)vbucket_map(instance->vbucket_config, hashkey, nhashkey,
-                          &vb, &idx);
-
-        if (idx < 0 || idx > (int)instance->nservers) {
-            return lcb_synchandler_return(instance, LCB_NO_MATCHING_SERVER);
-        }
-        server = instance->servers + idx;
 
         memset(&req, 0, sizeof(req));
         req.message.header.request.magic = PROTOCOL_BINARY_REQ;
@@ -70,7 +66,7 @@ lcb_error_t lcb_remove(lcb_t instance,
         req.message.header.request.keylen = ntohs((lcb_uint16_t)nkey);
         req.message.header.request.extlen = 0;
         req.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        req.message.header.request.vbucket = ntohs((lcb_uint16_t)vb);
+        req.message.header.request.vbucket = ntohs(ki->vb);
         req.message.header.request.bodylen = ntohl((lcb_uint32_t)nkey);
         req.message.header.request.opaque = ++instance->seqno;
         req.message.header.request.cas = cas;
@@ -80,8 +76,14 @@ lcb_error_t lcb_remove(lcb_t instance,
                                 req.bytes, sizeof(req.bytes));
         lcb_server_write_packet(server, key, nkey);
         lcb_server_end_packet(server);
-        lcb_server_send_packets(server);
     }
 
+    for (ii = 0; ii < instance->nservers; ii++) {
+        if (vbc.ptr_srv[ii]) {
+            lcb_server_send_packets(instance->servers + ii);
+        }
+    }
+
+    vbcheck_ctx_clean(&vbc);
     return lcb_synchandler_return(instance, LCB_SUCCESS);
 }

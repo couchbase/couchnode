@@ -104,3 +104,41 @@ void lcb_list_add_sorted(lcb_list_t *list, lcb_list_t *item, lcb_list_cmp_fn cmp
         list_insert(p->prev, p, item);
     }
 }
+
+
+void lcb_clist_init(lcb_clist_t *cl)
+{
+    lcb_list_init((lcb_list_t*)cl);
+    cl->size = 0;
+}
+void lcb_clist_append(lcb_clist_t *cl, lcb_list_t *item)
+{
+    lcb_list_append((lcb_list_t*)cl, item);
+    cl->size++;
+}
+void lcb_clist_prepend(lcb_clist_t *cl, lcb_list_t *item)
+{
+    lcb_list_prepend((lcb_list_t *)cl, item);
+    cl->size++;
+}
+void lcb_clist_delete(lcb_clist_t *cl, lcb_list_t *item)
+{
+    lcb_list_delete(item);
+    cl->size--;
+}
+lcb_list_t *lcb_clist_pop(lcb_clist_t *cl)
+{
+    lcb_list_t *ret = lcb_list_pop((lcb_list_t*)cl);
+    if (ret) {
+        cl->size--;
+    }
+    return ret;
+}
+lcb_list_t *lcb_clist_shift(lcb_clist_t *cl)
+{
+    lcb_list_t *ret = lcb_list_shift((lcb_list_t *)cl);
+    if (ret) {
+        cl->size--;
+    }
+    return ret;
+}

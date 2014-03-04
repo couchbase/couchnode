@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lcb_strerror
 .\"    Author: Trond Norbye <trond.norbye@couchbase.com>
-.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 08/02/2013
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 04/01/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LCB_STRERROR" "3" "08/02/2013" "\ \&" "\ \&"
+.TH "LCB_STRERROR" "3" "04/01/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,6 +43,80 @@ const char * lcb_strerror(lcb_t instance, lcb_error_t error);
 .SH "DESCRIPTION"
 .sp
 lcb_strerror() converts an error code to a textual representation\&. The instance parameter may be NULL if you don\(cqt have an instance to use (it is currently unused, but in the future you may get extra information)\&.
+.sp
+Refer to the <libcouchbase/error\&.h> file for more detailed error defintions
+.sp
+Since version 2\&.3\&.0 error classifiers are now available to ease the programming model\&. Error classifiers define to the application a more actionable error category in order to advise on the best course of action for handling it\&.
+.sp
+Error classifiers for each error code can be obtained using the various LCB_EIF* macros which accept the error code as their argument\&. Note that a single error may have more than one category\&.
+.sp
+These macros are defined in <libcouchbase/error\&.h>:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+LCB_EIFINPUT(err) This error is likely the result of bad input (i\&.e\&. invalid parameters)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+LCB_EIFNET(err) This error is likely a result of a bad network (slow network, broken links)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+LCB_EIFTMP(err) This error is likely a transient error and may disappear within a period of time
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+LCB_EIFDATA(err) This error is a negative reply from the server due to some data constraints not being satisfied (for example a missing key, or a CAS mismatch)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+LCB_EIFPLUGIN(err) This error is thrown by an I/O plugin
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+LCB_EIFFATAL(err) This error is a fatal error and the lcb_t from which it was originated will likely not be usable anymore\&.
+.RE
 .SH "RETURN VALUES"
 .sp
 lcb_strerror() returns a 0\-terminated string of with an textual message representing the error\&. The memory return is owned by libcouchbase and only valid until the next call to libcouchbase (or returning control to libcouchbase from a callback)\&.

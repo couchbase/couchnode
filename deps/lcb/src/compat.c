@@ -23,6 +23,7 @@
  * @todo add more documentation
  */
 #include "internal.h"
+#include "bucketconfig/clconfig.h"
 
 static lcb_error_t create_memcached_config(const struct lcb_memcached_st *user,
                                            VBUCKET_CONFIG_HANDLE vbconfig);
@@ -75,7 +76,12 @@ static lcb_error_t create_memcached_compat(const struct lcb_memcached_st *user,
 
     rc = create_memcached_config(user, config);
     if (rc == LCB_SUCCESS) {
-        lcb_apply_vbucket_config(*instance, config);
+        clconfig_info *info = lcb_clconfig_create(config,
+                                                  NULL,
+                                                  LCB_CLCONFIG_PHONY);
+        lcb_update_vbconfig(*instance, info);
+        lcb_clconfig_decref(info);
+
     } else {
         vbucket_config_destroy(config);
         lcb_destroy(*instance);
@@ -219,6 +225,9 @@ static lcb_error_t create_cached_compat(const struct lcb_cached_config_st *cfg,
     lcb_t inst;
     const char *bucket;
     struct lcb_create_st cst;
+    clconfig_provider *file_provider;
+    char *filename;
+
 
     switch (cfg->createopt.version) {
     case 0:
@@ -226,6 +235,9 @@ static lcb_error_t create_cached_compat(const struct lcb_cached_config_st *cfg,
         break;
     case 1:
         bucket = cfg->createopt.v.v1.bucket;
+        break;
+    case 2:
+        bucket = cfg->createopt.v.v2.bucket;
         break;
     default:
         return LCB_NOT_SUPPORTED;
@@ -245,18 +257,29 @@ static lcb_error_t create_cached_compat(const struct lcb_cached_config_st *cfg,
         return rc;
     }
 
+    (*instance)->settings.bc_http_stream_time = LCB_MS2US(10000);
+    file_provider = lcb_confmon_get_provider((*instance)->confmon,
+                                             LCB_CLCONFIG_FILE);
+
+    filename = mkcachefile(cfg->cachefile, bucket);
+    if (filename == NULL) {
+        lcb_destroy(*instance);
+        *instance = NULL;
+        return LCB_CLIENT_ENOMEM;
+    }
+
+    lcb_clconfig_file_set_filename(file_provider, filename);
+    free(filename);
+
     inst = *instance;
     inst->compat.type = LCB_CACHED_CONFIG;
-    inst->compat.value.cached.cachefile = mkcachefile(cfg->cachefile,
-                                                      bucket);
+    inst->compat.value.cached.cachefile = mkcachefile(cfg->cachefile, bucket);
 
     if (inst->compat.value.cached.cachefile == NULL) {
         lcb_destroy(*instance);
         *instance = NULL;
         return LCB_CLIENT_ENOMEM;
     }
-
-    lcb_load_config_cache(inst);
 
     return LCB_SUCCESS;
 }

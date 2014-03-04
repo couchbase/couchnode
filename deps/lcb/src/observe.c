@@ -73,6 +73,8 @@ lcb_error_t lcb_observe_ex(lcb_t instance,
     lcb_uint32_t opaque;
     struct lcb_command_data_st ct;
     struct observe_requests_st reqs;
+    struct lcb_observe_exdata_st *pc;
+    lcb_size_t ncmds = 0;
 
     memset(&reqs, 0, sizeof(reqs));
 
@@ -110,7 +112,7 @@ lcb_error_t lcb_observe_ex(lcb_t instance,
     for (ii = 0; ii < num; ii++) {
         const void *key, *hashkey;
         lcb_size_t nkey, nhashkey;
-        int vbid, jj;
+        int vbid, jj, master_only = 0;
 
         if (type == LCB_OBSERVE_TYPE_DURABILITY) {
             const lcb_durability_entry_t *ent = items[ii];
@@ -120,11 +122,16 @@ lcb_error_t lcb_observe_ex(lcb_t instance,
             nhashkey = ent->request.v.v0.nhashkey;
         } else {
             const lcb_observe_cmd_t *ocmd = items[ii];
-            key = ocmd->v.v0.key;
-            nkey = ocmd->v.v0.nkey;
-            hashkey = ocmd->v.v0.hashkey;
-            nhashkey = ocmd->v.v0.nhashkey;
+            key = ocmd->v.v1.key;
+            nkey = ocmd->v.v1.nkey;
+            hashkey = ocmd->v.v1.hashkey;
+            nhashkey = ocmd->v.v1.nhashkey;
+            if (ocmd->version == 1 &&
+                    (ocmd->v.v1.options & LCB_OBSERVE_MASTER_ONLY)) {
+                master_only = 1;
+            }
         }
+
         if (!nhashkey) {
             hashkey = key;
             nhashkey = nkey;
@@ -173,6 +180,11 @@ lcb_error_t lcb_observe_ex(lcb_t instance,
                 rr->nbody += ringbuffer_write(&rr->body, &len, sizeof(len));
                 rr->nbody += ringbuffer_write(&rr->body, key, nkey);
             }
+            ncmds++;
+
+            if (master_only) {
+                break;
+            }
         }
     }
 
@@ -211,6 +223,10 @@ lcb_error_t lcb_observe_ex(lcb_t instance,
         lcb_server_send_packets(server);
     }
 
+    pc = calloc(1, sizeof(*pc));
+    pc->refcount = ncmds;
+    lcb_assoc_opaque(instance, instance->seqno, pc);
+
     destroy_requests(&reqs);
     return lcb_synchandler_return(instance, LCB_SUCCESS);
 }
@@ -232,8 +248,14 @@ lcb_error_t lcb_observe(lcb_t instance,
 void lcb_observe_invoke_callback(lcb_t instance,
                                  const struct lcb_command_data_st *ct,
                                  lcb_error_t error,
-                                 const lcb_observe_resp_t *resp)
+                                 const lcb_observe_resp_t *resp,
+                                 lcb_uint32_t opaque,
+                                 lcb_uint8_t opcode,
+                                 lcb_uint16_t vbucket)
 {
+    struct lcb_observe_exdata_st *exd;
+    exd = lcb_get_opaque(instance, opaque);
+
     if (ct->flags & LCB_CMD_F_OBS_DURABILITY) {
         lcb_durability_dset_update(instance,
                                    (lcb_durability_set_t *)ct->cookie,
@@ -243,6 +265,19 @@ void lcb_observe_invoke_callback(lcb_t instance,
         instance->callbacks.exists(instance, ct->cookie, error, resp);
 
     } else {
+        TRACE_OBSERVE_PROGRESS(opaque, vbucket, opcode, error, resp);
         instance->callbacks.observe(instance, ct->cookie, error, resp);
+    }
+
+    if (exd && --exd->refcount == 0) {
+        lcb_observe_resp_t resp2;
+
+        lcb_clear_opaque(instance, opaque);
+        free(exd);
+        memset(&resp2, 0, sizeof(resp2));
+        setup_lcb_observe_resp_t(&resp2, NULL, 0, 0, 0, 0, 0, 0);
+        TRACE_OBSERVE_END(opaque, vbucket, opcode, error);
+        lcb_observe_invoke_callback(instance, ct, error, &resp2, opaque,
+        		opcode, vbucket);
     }
 }

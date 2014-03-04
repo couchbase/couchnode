@@ -2,12 +2,12 @@
 .\"     Title: lcb_store
 .\"    Author: Trond Norbye <trond.norbye@couchbase.com>
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 08/06/2013
+.\"      Date: 12/06/2013
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LCB_STORE" "3couchbase" "08/06/2013" "\ \&" "\ \&"
+.TH "LCB_STORE" "3couchbase" "12/06/2013" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -166,7 +166,7 @@ store\->v\&.v0\&.nbytes = strlen(store\->v\&.v0\&.bytes);
 store\->v\&.v0\&.flags = 0xdeadcafe;
 store\->v\&.v0\&.cas = 0x0000;
 store\->v\&.v0\&.exptime = 0x666;
-store\->v\&.v0\&.datatype = LCB_JSON;
+store\->v\&.v0\&.datatype = PROTOCOL_BINARY_DATATYPE_JSON;
 store\->v\&.v0\&.operation = LCB_REPLACE;
 lcb_store_cmd_st* commands[] = { store };
 lcb_store(instance, NULL, 1, commands);

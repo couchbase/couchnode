@@ -16,62 +16,14 @@
  */
 
 /**
- * Settings detected at "configure" time that the source needs to be
- * aware of (on the client installation).
+ * This just contains the proper version/release information for the current
+ * build.
  *
  * @author Trond Norbye
  */
 #ifndef LIBCOUCHBASE_CONFIGURATION_H
 #define LIBCOUCHBASE_CONFIGURATION_H 1
-
-#ifndef LIBCOUCHBASE_COUCHBASE_H
-#error "Include libcouchbase/couchbase.h instead"
-#endif
-
-#include <sys/types.h>
-#include <stdint.h>
-#include <time.h>
-
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-#include <stddef.h>
-#endif
-
 #define LCB_VERSION_STRING "@LCB_VERSION@"
 #define LCB_VERSION @LCB_VERSION_HEX@
 #define LCB_VERSION_CHANGESET "@CHANGESET@"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef _WIN32
-    typedef __int64 lcb_int64_t;
-    typedef __int32 lcb_int32_t;
-    typedef unsigned long lcb_size_t;
-    typedef long lcb_ssize_t;
-    typedef unsigned __int8 lcb_uint8_t;
-    typedef unsigned __int16 lcb_vbucket_t;
-    typedef unsigned __int16 lcb_uint16_t;
-    typedef unsigned __int32 lcb_uint32_t;
-    typedef unsigned __int64 lcb_cas_t;
-    typedef unsigned __int64 lcb_uint64_t;
-    typedef time_t lcb_time_t;
-#else
-    typedef int64_t lcb_int64_t;
-    typedef int32_t lcb_int32_t;
-    typedef size_t lcb_size_t;
-    typedef ssize_t lcb_ssize_t;
-    typedef uint16_t lcb_vbucket_t;
-    typedef uint8_t lcb_uint8_t;
-    typedef uint16_t lcb_uint16_t;
-    typedef uint32_t lcb_uint32_t;
-    typedef uint64_t lcb_cas_t;
-    typedef uint64_t lcb_uint64_t;
-    typedef time_t lcb_time_t;
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif

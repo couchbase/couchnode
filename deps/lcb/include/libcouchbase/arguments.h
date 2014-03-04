@@ -55,62 +55,96 @@ extern "C" {
 #endif
 
 #define LCB_C_ST_ID 0
-#define LCB_C_ST_V 1
+#define LCB_C_ST_V 2
+
+#define LCB_CREATE_V0_FIELDS \
+    /**
+     * hosts A list of hosts:port separated by ';' to the
+     * administration port of the couchbase cluster. (ex:
+     * "host1;host2:9000;host3" would try to connect to
+     * host1 on port 8091, if that fails it'll connect to
+     * host2 on port 9000 etc).
+     *
+     * The hostname may also be specified as a URI looking
+     * like: http://localhost:8091/pools
+     */ \
+    const char *host; \
+    /** user the username to use */ \
+    const char *user; \
+    /** @param passwd The password */ \
+    const char *passwd; \
+    /** @param bucket The bucket to connect to */ \
+    const char *bucket; \
+    /** @param io the io handle to use */ \
+    struct lcb_io_opt_st *io;
+
+
+#define LCB_CREATE_V1_FIELDS \
+    LCB_CREATE_V0_FIELDS \
+    /**
+     * the type of the connection:
+     * * LCB_TYPE_BUCKET
+     *      NULL for bucket means "default" bucket
+     * * LCB_TYPE_CLUSTER
+     *      the bucket argument ignored and all data commands
+     *      will return LCB_NOT_SUPPORTED
+     */ \
+    lcb_type_t type;
+
+#define LCB_CREATE_V2_FIELDS \
+    LCB_CREATE_V1_FIELDS \
+    /**
+     * The default configuration process will attempt to bootstrap first from
+     * the new memcached configuration protocol (CCCP) and if that fails, use
+     * the "HTTP" protocol via the REST API.
+     *
+     * The CCCP configuration will by default attempt to connect to one of
+     * the nodes specified on the port 11200. While normally the memcached port
+     * is determined by the configuration itself, this is not possible when
+     * the configuration has not been attained. You may specify a list of
+     * alternate memcached servers by using the 'mchosts' field.
+     *
+     * If you wish to modify the default bootstrap protocol selection, you
+     * can use the 'transports' field to pass an array of desired protocols
+     * to use for configuration (note that the ordering of this array is
+     * ignored). Using this mechanism, you can disable CCCP or HTTP.
+     *
+     * If the array is NULL or does not contain any protocols, the library
+     * will bootstrap as if the following values had been specified for the
+     * array:
+     *
+     *   { LCB_CONFIG_TRANSPORT_CCCP,
+     *     LCB_CONFIG_TRANSPORT_HTTP,
+     *     LCB_CONFIG_TRANSPORT_LIST_END }
+     */ \
+    const char *mchosts; \
+    \
+    /**
+     * An array of config transports to use. The last element should be the
+     * constant LCB_CONFIG_TRANSPORT_LIST_END. If
+     */ \
+    const lcb_config_transport_t* transports;
+
+
+    struct lcb_create_st0 {
+        LCB_CREATE_V0_FIELDS
+    };
+
+    struct lcb_create_st1 {
+        LCB_CREATE_V1_FIELDS
+    };
+
+    struct lcb_create_st2 {
+        LCB_CREATE_V2_FIELDS
+    };
+
 
     struct lcb_create_st {
         int version;
         union {
-            struct {
-                /**
-                 * hosts A list of hosts:port separated by ';' to the
-                 * administration port of the couchbase cluster. (ex:
-                 * "host1;host2:9000;host3" would try to connect to
-                 * host1 on port 8091, if that fails it'll connect to
-                 * host2 on port 9000 etc).
-                 *
-                 * The hostname may also be specified as a URI looking
-                 * like: http://localhost:8091/pools
-                 */
-                const char *host;
-                /** user the username to use */
-                const char *user;
-                /** @param passwd The password */
-                const char *passwd;
-                /** @param bucket The bucket to connect to */
-                const char *bucket;
-                /** @param io the io handle to use */
-                struct lcb_io_opt_st *io;
-            } v0;
-            struct {
-                /**
-                 * hosts A list of hosts:port separated by ';' to the
-                 * administration port of the couchbase cluster. (ex:
-                 * "host1;host2:9000;host3" would try to connect to
-                 * host1 on port 8091, if that fails it'll connect to
-                 * host2 on port 9000 etc).
-                 *
-                 * The hostname may also be specified as a URI looking
-                 * like: http://localhost:8091/pools
-                 */
-                const char *host;
-                /** user the username to use */
-                const char *user;
-                /** @param passwd The password */
-                const char *passwd;
-                /** @param bucket The bucket to connect to */
-                const char *bucket;
-                /** @param io the io handle to use */
-                struct lcb_io_opt_st *io;
-                /**
-                 * the type of the connection:
-                 * * LCB_TYPE_BUCKET
-                 *      NULL for bucket means "default" bucket
-                 * * LCB_TYPE_CLUSTER
-                 *      the bucket argument ignored and all data commands
-                 *      will return LCB_NOT_SUPPORTED
-                 */
-                lcb_type_t type;
-            } v1;
+            struct lcb_create_st0 v0;
+            struct lcb_create_st1 v1;
+            struct lcb_create_st2 v2;
         } v;
 
 #ifdef __cplusplus
@@ -120,13 +154,16 @@ extern "C" {
                       const char *bucket = NULL,
                       struct lcb_io_opt_st *io = NULL,
                       lcb_type_t type = LCB_TYPE_BUCKET) {
-            version = 1;
-            v.v1.host = host;
-            v.v1.user = user;
-            v.v1.passwd = passwd;
-            v.v1.bucket = bucket;
-            v.v1.io = io;
-            v.v1.type = type;
+            version = 2;
+            v.v2.host = host;
+            v.v2.user = user;
+            v.v2.passwd = passwd;
+            v.v2.bucket = bucket;
+            v.v2.io = io;
+            v.v2.type = type;
+            v.v2.mchosts = NULL;
+            v.v2.transports = NULL;
+
         }
 #endif
     };
@@ -381,17 +418,35 @@ extern "C" {
 #endif
     } lcb_arithmetic_cmd_t;
 
+
+    typedef enum {
+        /**
+         * Only sends a command to the master. In this case the callback will
+         * be invoked only once for the master, and then another time with the
+         * NULL callback
+         */
+        LCB_OBSERVE_MASTER_ONLY = 0x01
+    } lcb_observe_options_t;
+
+#define LCB_OBSERVE_FIELDS_COMMON \
+        const void *key; \
+        lcb_size_t nkey; \
+        const void *hashkey; \
+        lcb_size_t nhashkey;
+
 #define LCB_O_C_ST_ID 8
-#define LCB_O_C_ST_V 0
+#define LCB_O_C_ST_V 1
     typedef struct lcb_observe_cmd_st {
         int version;
         union {
             struct {
-                const void *key;
-                lcb_size_t nkey;
-                const void *hashkey;
-                lcb_size_t nhashkey;
+                LCB_OBSERVE_FIELDS_COMMON
             } v0;
+            struct {
+                LCB_OBSERVE_FIELDS_COMMON
+                /** Extended options for observe */
+                lcb_observe_options_t options;
+            } v1;
         } v;
 #ifdef __cplusplus
         lcb_observe_cmd_st() {

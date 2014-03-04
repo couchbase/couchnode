@@ -25,7 +25,10 @@
 #ifndef _WIN32
 #include <dlfcn.h>
 #endif
+#include "logging.h"
 
+#include "hostlist.h"
+#include "bucketconfig/clconfig.h"
 
 /**
  * Get the version of the library.
@@ -37,6 +40,8 @@
  *          terminated). Do <b>not</b> try to release this string.
  *
  */
+static volatile unsigned int lcb_instance_index = 0;
+
 LIBCOUCHBASE_API
 const char *lcb_get_version(lcb_uint32_t *version)
 {
@@ -47,16 +52,65 @@ const char *lcb_get_version(lcb_uint32_t *version)
     return LCB_VERSION_STRING;
 }
 
+#define PARAM_CONFIG_HOST 1
+#define PARAM_CONFIG_PORT 2
+static const char *param_from_host(const lcb_host_t *host, int type)
+{
+    if (!host) {
+        return NULL;
+    }
+    if (type == PARAM_CONFIG_HOST) {
+        return *host->host ? host->host : NULL;
+    } else {
+        return *host->port ? host->port : NULL;
+    }
+}
+
+static const char *get_rest_param(lcb_t obj, int paramtype)
+{
+    const char *ret = NULL;
+    const lcb_host_t *host = lcb_confmon_get_rest_host(obj->confmon);
+    ret = param_from_host(host, paramtype);
+
+    if (ret) {
+        return ret;
+    }
+
+    /** Don't have a REST API connection? */
+    if (obj->vbucket_config) {
+        lcb_server_t *server = obj->servers + (gethrtime() % obj->nservers);
+        if (paramtype == PARAM_CONFIG_HOST) {
+            ret = param_from_host(&server->curhost, paramtype);
+            if (ret) {
+                return ret;
+            }
+        } else {
+            char *colon = strstr(server->rest_api_server, ":");
+            if (colon) {
+                if (obj->scratch) {
+                    free(obj->scratch);
+                }
+                obj->scratch = malloc(NI_MAXSERV + 1);
+                strcpy(obj->scratch, colon+1);
+                if (*obj->scratch) {
+                    return obj->scratch;
+                }
+            }
+        }
+    }
+    return param_from_host(obj->usernodes->entries, paramtype);
+}
+
 LIBCOUCHBASE_API
 const char *lcb_get_host(lcb_t instance)
 {
-    return instance->connection.host;
+    return get_rest_param(instance, PARAM_CONFIG_HOST);
 }
 
 LIBCOUCHBASE_API
 const char *lcb_get_port(lcb_t instance)
 {
-    return instance->connection.port;
+    return get_rest_param(instance, PARAM_CONFIG_PORT);
 }
 
 
@@ -86,161 +140,11 @@ lcb_int32_t lcb_get_num_nodes(lcb_t instance)
 LIBCOUCHBASE_API
 const char *const *lcb_get_server_list(lcb_t instance)
 {
-    /* cast it so we get the full const'ness */
-    return (const char * const *)instance->backup_nodes;
+    hostlist_ensure_strlist(instance->usernodes);
+    return (const char * const * )instance->usernodes->slentries;
 }
 
 
-static lcb_error_t validate_hostname(const char *host, char **realhost)
-{
-    /* The http parser aborts if it finds a space.. we don't want our
-     * program to core, so run a prescan first
-     */
-    lcb_size_t len = strlen(host);
-    lcb_size_t ii;
-    char *schema = strstr(host, "://");
-    char *path;
-    int port = 8091;
-    int numcolons = 0;
-
-    for (ii = 0; ii < len; ++ii) {
-        if (isspace(host[ii])) {
-            return LCB_INVALID_HOST_FORMAT;
-        }
-    }
-
-    if (schema != NULL) {
-        lcb_size_t size;
-        size = schema - host;
-        if (size != 4 && strncasecmp(host, "http", 4) != 0) {
-            return LCB_INVALID_HOST_FORMAT;
-        }
-        host += 7;
-        len -= 7;
-        port = 80;
-    }
-
-    path = strchr(host, '/');
-    if (path != NULL) {
-        lcb_size_t size;
-        if (strcmp(path, "/pools") != 0 && strcmp(path, "/pools/") != 0) {
-            return LCB_INVALID_HOST_FORMAT;
-        }
-        size = path - host;
-        len = (int)size;
-    }
-
-    if (strchr(host, ':') != NULL) {
-        port = 0;
-    }
-
-    for (ii = 0; ii < len; ++ii) {
-        if (isalnum(host[ii]) == 0) {
-            switch (host[ii]) {
-            case ':' :
-                ++numcolons;
-                break;
-            case '.' :
-            case '-' :
-            case '_' :
-                break;
-            default:
-                /* Invalid character in the hostname */
-                return LCB_INVALID_HOST_FORMAT;
-            }
-        }
-    }
-
-    if (numcolons > 1) {
-        return LCB_INVALID_HOST_FORMAT;
-    }
-
-    if (port == 0) {
-        if ((*realhost = strdup(host)) == NULL) {
-            return LCB_CLIENT_ENOMEM;
-        }
-
-        (*realhost)[len] = '\0';
-    } else {
-        if ((*realhost = malloc(len + 10)) == NULL) {
-            return LCB_CLIENT_ENOMEM;
-        }
-        memcpy(*realhost, host, len);
-        sprintf(*realhost + len, ":%d", port);
-    }
-
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t setup_bootstrap_hosts(lcb_t ret, const char *host)
-{
-    const char *ptr = host;
-    lcb_size_t num = 0;
-    int ii;
-
-    while ((ptr = strchr(ptr, ';')) != NULL) {
-        ++ptr;
-        ++num;
-    }
-
-    /* Let's allocate the buffer space and copy the pointers
-     * (the +2 and not +1 is because of the way we count the number of
-     * bootstrap hosts (num == 0 means that we've got a single host etc)
-     */
-    if ((ret->backup_nodes = calloc(num + 2, sizeof(char *))) == NULL) {
-        return LCB_CLIENT_ENOMEM;
-    }
-
-    ret->should_free_backup_nodes = 1;
-
-    ptr = host;
-    ii = 0;
-    do {
-        char nm[NI_MAXHOST + NI_MAXSERV + 2];
-        const char *start = ptr;
-        lcb_error_t error;
-
-        ptr = strchr(ptr, ';');
-        ret->backup_nodes[ii] = NULL;
-        if (ptr == NULL) {
-            /* this is the last part */
-            error = validate_hostname(start, &ret->backup_nodes[ii]);
-            ptr = NULL;
-        } else {
-            /* copy everything up to ';' */
-            unsigned long size = (unsigned long)ptr - (unsigned long)start;
-            /* skip the entry if it's too long */
-            if (size < sizeof(nm)) {
-                memcpy(nm, start, (lcb_size_t)(ptr - start));
-                *(nm + size) = '\0';
-            }
-            ++ptr;
-            error = validate_hostname(nm, &ret->backup_nodes[ii]);
-        }
-        if (error != LCB_SUCCESS) {
-            while (ii > 0) {
-                free(ret->backup_nodes[ii--]);
-            }
-            return error;
-        }
-
-        ++ii;
-    } while (ptr != NULL);
-
-    if (ret->randomize_bootstrap_nodes) {
-        ii = 1;
-        while (ret->backup_nodes[ii] != NULL) {
-            lcb_size_t nidx = (lcb_size_t)(gethrtime() >> 10) % ii;
-            char *other = ret->backup_nodes[nidx];
-            ret->backup_nodes[nidx] = ret->backup_nodes[ii];
-            ret->backup_nodes[ii] = other;
-            ++ii;
-        }
-    }
-
-    ret->backup_idx = 0;
-    return LCB_SUCCESS;
-}
 
 static const char *get_nonempty_string(const char *s)
 {
@@ -248,6 +152,153 @@ static const char *get_nonempty_string(const char *s)
         return NULL;
     }
     return s;
+}
+
+
+/**
+ * Associate a "cookie" with an instance of libcouchbase. You may only store
+ * <b>one</b> cookie with each instance of libcouchbase.
+ *
+ * @param instance the instance to associate the cookie with
+ * @param cookie the cookie to associate with this instance.
+ *
+ * @author Trond Norbye
+ */
+LIBCOUCHBASE_API
+void lcb_set_cookie(lcb_t instance, const void *cookie)
+{
+    instance->cookie = cookie;
+}
+
+/**
+ * Get the cookie associated with a given instance of libcouchbase.
+ *
+ * @param instance the instance to query
+ * @return The cookie associated with this instance.
+ *
+ * @author Trond Norbye
+ */
+LIBCOUCHBASE_API
+const void *lcb_get_cookie(lcb_t instance)
+{
+    return instance->cookie;
+}
+
+
+static lcb_error_t init_providers(lcb_t obj,
+                             const struct lcb_create_st2 *e_options)
+{
+    hostlist_t mc_nodes;
+    lcb_error_t err;
+    const char *hosts;
+    int http_enabled = 1;
+    int cccp_enabled = 1;
+
+    clconfig_provider *http =
+            lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_HTTP);
+
+    clconfig_provider *cccp =
+            lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_CCCP);
+
+
+    if (e_options->transports) {
+        int cccp_found = 0;
+        int http_found = 0;
+        const lcb_config_transport_t *cur;
+
+        for (cur = e_options->transports;
+                *cur != LCB_CONFIG_TRANSPORT_LIST_END; cur++) {
+            if (*cur == LCB_CONFIG_TRANSPORT_CCCP) {
+                cccp_found = 1;
+            } else if (*cur == LCB_CONFIG_TRANSPORT_HTTP) {
+                http_found = 1;
+            } else {
+                return LCB_EINVAL;
+            }
+        }
+
+        if (http_found || cccp_found) {
+            cccp_enabled = cccp_found;
+            http_enabled = http_found;
+        }
+    }
+
+    if (lcb_getenv_boolean("LCB_NO_CCCP")) {
+        cccp_enabled = 0;
+    }
+
+    if (lcb_getenv_boolean("LCB_NO_HTTP")) {
+        http_enabled = 0;
+    }
+
+    /** The only way we can get to here is if one of the vars are set */
+    if (cccp_enabled == 0 && http_enabled == 0) {
+        return LCB_BAD_ENVIRONMENT;
+    }
+
+    if (http_enabled) {
+        lcb_clconfig_http_enable(http);
+        lcb_clconfig_http_set_nodes(http, obj->usernodes);
+    }
+
+    if (!cccp_enabled) {
+        return LCB_SUCCESS;
+    }
+
+    hosts = get_nonempty_string(e_options->mchosts);
+    mc_nodes = hostlist_create();
+
+    if (!mc_nodes) {
+        return LCB_CLIENT_ENOMEM;
+    }
+
+    if (hosts) {
+        err = hostlist_add_stringz(mc_nodes, hosts, LCB_CONFIG_MCD_PORT);
+        if (err != LCB_SUCCESS) {
+            hostlist_destroy(mc_nodes);
+            return err;
+        }
+
+    } else {
+        lcb_size_t ii;
+        for (ii = 0; ii < obj->usernodes->nentries; ii++) {
+            lcb_host_t *cur = obj->usernodes->entries + ii;
+            hostlist_add_stringz(mc_nodes, cur->host, LCB_CONFIG_MCD_PORT);
+        }
+    }
+
+    lcb_clconfig_cccp_enable(cccp, obj);
+    lcb_clconfig_cccp_set_nodes(cccp, mc_nodes);
+    hostlist_destroy(mc_nodes);
+    return LCB_SUCCESS;
+}
+
+static lcb_error_t normalize_options(struct lcb_create_st *myopts,
+                                     const struct lcb_create_st *useropts)
+{
+    lcb_size_t to_copy;
+    memset(myopts, 0, sizeof(*myopts));
+
+    if (useropts == NULL) {
+        return LCB_SUCCESS;
+    }
+
+    if (useropts->version < 0 || useropts->version > 2) {
+        return LCB_EINVAL;
+    }
+
+    if (useropts->version == 0) {
+        to_copy = sizeof(struct lcb_create_st0);
+    } else if (useropts->version == 1) {
+        to_copy = sizeof(struct lcb_create_st1);
+    } else if (useropts->version == 2) {
+        to_copy = sizeof(struct lcb_create_st2);
+    } else {
+        return LCB_EINVAL;
+    }
+
+    memcpy(&myopts->v, &useropts->v, to_copy);
+    return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API
@@ -258,42 +309,31 @@ lcb_error_t lcb_create(lcb_t *instance,
     const char *user = NULL;
     const char *passwd = NULL;
     const char *bucket = NULL;
+
     struct lcb_io_opt_st *io = NULL;
-    char buffer[1024];
-    lcb_ssize_t offset = 0;
+    struct lcb_create_st options_container;
+    struct lcb_create_st2 *e_options = &options_container.v.v2;
+
     lcb_type_t type = LCB_TYPE_BUCKET;
     lcb_t obj;
     lcb_error_t err;
+    lcb_settings *settings;
 
-    if (options != NULL) {
-        switch (options->version) {
-        case 0:
-            host = get_nonempty_string(options->v.v0.host);
-            user = get_nonempty_string(options->v.v0.user);
-            passwd = get_nonempty_string(options->v.v0.passwd);
-            bucket = get_nonempty_string(options->v.v0.bucket);
-            io = options->v.v0.io;
-            break;
-        case 1:
-            type = options->v.v1.type;
-            host = get_nonempty_string(options->v.v1.host);
-            user = get_nonempty_string(options->v.v1.user);
-            passwd = get_nonempty_string(options->v.v1.passwd);
-            io = options->v.v1.io;
-            switch (type) {
-            case LCB_TYPE_BUCKET:
-                bucket = get_nonempty_string(options->v.v1.bucket);
-                break;
-            case LCB_TYPE_CLUSTER:
-                if (user == NULL || passwd == NULL) {
-                    return LCB_EINVAL;
-                }
-                break;
-            }
-            break;
-        default:
-            return LCB_EINVAL;
-        }
+    err = normalize_options(&options_container, options);
+
+    if (err != LCB_SUCCESS) {
+        return err;
+    }
+
+    host = get_nonempty_string(e_options->host);
+    user = get_nonempty_string(e_options->user);
+    passwd = get_nonempty_string(e_options->passwd);
+    bucket = get_nonempty_string(e_options->bucket);
+    io = e_options->io;
+    type = e_options->type;
+
+    if (type == LCB_TYPE_CLUSTER && user == NULL && passwd == NULL) {
+        return LCB_EINVAL;
     }
 
     if (host == NULL) {
@@ -312,6 +352,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     if ((obj = calloc(1, sizeof(*obj))) == NULL) {
         return LCB_CLIENT_ENOMEM;
     }
+
     obj->type = type;
     obj->compat.type = (lcb_compat_t)0xdead;
 
@@ -326,82 +367,83 @@ lcb_error_t lcb_create(lcb_t *instance,
         io->v.v0.need_cleanup = 1;
     }
 
-    obj->randomize_bootstrap_nodes = 1;
-    obj->bummer = 0;
-    obj->io = io;
+    settings = &obj->settings;
+    settings->randomize_bootstrap_nodes = 1;
+    settings->bummer = 0;
+    settings->io = io;
     obj->syncmode = LCB_ASYNCHRONOUS;
-    obj->ipv6 = LCB_IPV6_DISABLED;
-    obj->operation_timeout = LCB_DEFAULT_TIMEOUT;
-    obj->config_timeout = LCB_DEFAULT_CONFIGURATION_TIMEOUT;
-    obj->views_timeout = LCB_DEFAULT_VIEW_TIMEOUT;
-    obj->rbufsize = LCB_DEFAULT_RBUFSIZE;
-    obj->wbufsize = LCB_DEFAULT_WBUFSIZE;
-    obj->durability_timeout = LCB_DEFAULT_DURABILITY_TIMEOUT;
-    obj->durability_interval = LCB_DEFAULT_DURABILITY_INTERVAL;
-    obj->http_timeout = LCB_DEFAULT_HTTP_TIMEOUT;
-    obj->weird_things_threshold = LCB_DEFAULT_CONFIG_ERRORS_THRESHOLD;
-    obj->max_redir = LCB_DEFAULT_CONFIG_MAXIMUM_REDIRECTS;
+    settings->ipv6 = LCB_IPV6_DISABLED;
+
+    settings->operation_timeout = LCB_DEFAULT_TIMEOUT;
+    settings->config_timeout = LCB_DEFAULT_CONFIGURATION_TIMEOUT;
+    settings->config_node_timeout = LCB_DEFAULT_NODECONFIG_TIMEOUT;
+    settings->views_timeout = LCB_DEFAULT_VIEW_TIMEOUT;
+    settings->rbufsize = LCB_DEFAULT_RBUFSIZE;
+    settings->wbufsize = LCB_DEFAULT_WBUFSIZE;
+    settings->durability_timeout = LCB_DEFAULT_DURABILITY_TIMEOUT;
+    settings->durability_interval = LCB_DEFAULT_DURABILITY_INTERVAL;
+    settings->http_timeout = LCB_DEFAULT_HTTP_TIMEOUT;
+    settings->weird_things_threshold = LCB_DEFAULT_CONFIG_ERRORS_THRESHOLD;
+    settings->weird_things_delay = LCB_DEFAULT_CONFIG_ERRORS_DELAY;
+    settings->max_redir = LCB_DEFAULT_CONFIG_MAXIMUM_REDIRECTS;
+    settings->grace_next_cycle = LCB_DEFAULT_CLCONFIG_GRACE_CYCLE;
+    settings->grace_next_provider = LCB_DEFAULT_CLCONFIG_GRACE_NEXT;
+    settings->bc_http_stream_time = LCB_DEFAULT_BC_HTTP_DISCONNTMO;
+    settings->bucket = strdup(bucket);
+    settings->logger = lcb_init_console_logger();
+    settings->iid = lcb_instance_index++;
+
+
+    if (user) {
+        settings->username = strdup(user);
+    } else {
+        settings->username = strdup(settings->bucket);
+    }
+
+    if (passwd) {
+        settings->password = strdup(passwd);
+    }
 
     lcb_initialize_packet_handlers(obj);
 
-    err = lcb_connection_init(&obj->connection, obj);
-    if (err != LCB_SUCCESS) {
-        lcb_destroy(obj);
-        return err;
-    }
-    obj->connection.data = obj;
+    obj->memd_sockpool = connmgr_create(settings, io);
+    obj->memd_sockpool->max_idle = 1;
+    obj->memd_sockpool->idle_timeout = 10000000;
 
-    err = setup_bootstrap_hosts(obj, host);
+    obj->confmon = lcb_confmon_create(settings);
+    obj->usernodes = hostlist_create();
+
+    /** We might want to sanitize this a bit more later on.. */
+    if (strstr(host, "://") != NULL && strstr(host, "http://") == NULL) {
+        lcb_destroy(obj);
+        return LCB_INVALID_HOST_FORMAT;
+    }
+
+
+    err = hostlist_add_string(obj->usernodes, host, -1, LCB_CONFIG_HTTP_PORT);
     if (err != LCB_SUCCESS) {
         lcb_destroy(obj);
         return err;
     }
+
+    err = init_providers(obj, e_options);
+    if (err != LCB_SUCCESS) {
+        lcb_destroy(obj);
+        return err;
+    }
+
+    lcb_initialize_packet_handlers(obj);
+
     obj->timers = hashset_create();
     obj->http_requests = hashset_create();
     obj->durability_polls = hashset_create();
     /* No error has occurred yet. */
     obj->last_error = LCB_SUCCESS;
-
-    switch (type) {
-    case LCB_TYPE_BUCKET:
-        offset = snprintf(buffer, sizeof(buffer),
-                          "GET /pools/default/bucketsStreaming/%s HTTP/1.1\r\n",
-                          bucket);
-        break;
-    case LCB_TYPE_CLUSTER:
-        offset = snprintf(buffer, sizeof(buffer), "GET /pools/ HTTP/1.1\r\n");
-        break;
-    default:
-        return LCB_EINVAL;
-    }
-
-    if (user && *user) {
-        obj->username = strdup(user);
-    } else if (type == LCB_TYPE_BUCKET) {
-        obj->username = strdup(bucket);
-    }
-    if (passwd) {
-        char cred[256];
-        char base64[256];
-        snprintf(cred, sizeof(cred), "%s:%s", obj->username, passwd);
-        if (lcb_base64_encode(cred, base64, sizeof(base64)) == -1) {
-            lcb_destroy(obj);
-            return LCB_EINTERNAL;
-        }
-        obj->password = strdup(passwd);
-        offset += snprintf(buffer + offset, sizeof(buffer) - (lcb_size_t)offset,
-                           "Authorization: Basic %s\r\n", base64);
-    }
-
-    offset += snprintf(buffer + offset, sizeof(buffer) - (lcb_size_t)offset,
-                       "%s", LCB_LAST_HTTP_HEADER);
-
-    /* Add space for: Host: \r\n\r\n" */
-    obj->http_uri = malloc(strlen(buffer) + strlen(host) + 80);
-    if (obj->http_uri == NULL) {
+    if ((obj->cmdht = lcb_hashtable_szt_new(32)) == NULL) {
         lcb_destroy(obj);
         return LCB_CLIENT_ENOMEM;
     }
+
 
     if (!ringbuffer_initialize(&obj->purged_buf, 4096)) {
         lcb_destroy(obj);
@@ -412,8 +454,6 @@ lcb_error_t lcb_create(lcb_t *instance,
         return LCB_CLIENT_ENOMEM;
     }
 
-    strcpy(obj->http_uri, buffer);
-
     *instance = obj;
     return LCB_SUCCESS;
 }
@@ -423,7 +463,17 @@ LIBCOUCHBASE_API
 void lcb_destroy(lcb_t instance)
 {
     lcb_size_t ii;
-    free(instance->http_uri);
+    lcb_settings *settings = &instance->settings;
+
+    if (instance->cur_configinfo) {
+        lcb_clconfig_decref(instance->cur_configinfo);
+        instance->cur_configinfo = NULL;
+    }
+    instance->vbucket_config = NULL;
+
+    lcb_bootstrap_destroy(instance);
+    lcb_confmon_destroy(instance->confmon);
+    hostlist_destroy(instance->usernodes);
 
     if (instance->timers != NULL) {
         for (ii = 0; ii < instance->timers->capacity; ++ii) {
@@ -435,7 +485,6 @@ void lcb_destroy(lcb_t instance)
         hashset_destroy(instance->timers);
     }
 
-    lcb_connection_cleanup(&instance->connection);
     if (instance->durability_polls) {
         struct lcb_durability_set_st **dset_list;
         lcb_size_t nitems = hashset_num_items(instance->durability_polls);
@@ -448,10 +497,6 @@ void lcb_destroy(lcb_t instance)
             free(dset_list);
         }
         hashset_destroy(instance->durability_polls);
-    }
-
-    if (instance->vbucket_config != NULL) {
-        vbucket_config_destroy(instance->vbucket_config);
     }
 
     for (ii = 0; ii < instance->nservers; ++ii) {
@@ -477,79 +522,40 @@ void lcb_destroy(lcb_t instance)
     }
 
     hashset_destroy(instance->http_requests);
-    lcb_free_backup_nodes(instance);
+
     free(instance->servers);
-    if (instance->io && instance->io->v.v0.need_cleanup) {
-        lcb_destroy_io_ops(instance->io);
+
+    connmgr_destroy(instance->memd_sockpool);
+
+    if (settings->io && settings->io->v.v0.need_cleanup) {
+        lcb_destroy_io_ops(settings->io);
     }
 
     ringbuffer_destruct(&instance->purged_buf);
     ringbuffer_destruct(&instance->purged_cookies);
 
-    free(instance->vbucket_stream.input.data);
-    free(instance->vbucket_stream.chunk.data);
-    free(instance->vbucket_stream.header);
-    free(instance->vb_server_map);
     free(instance->histogram);
-    free(instance->username);
-    free(instance->password);
-    free(instance->sasl_mech_force);
+    free(instance->scratch);
+    free(settings->username);
+    free(settings->password);
+    free(settings->bucket);
+    free(settings->sasl_mech_force);
+    if (instance->cmdht) {
+        genhash_free(instance->cmdht);
+        instance->cmdht = NULL;
+    }
+
     memset(instance, 0xff, sizeof(*instance));
     free(instance);
 }
 
-static void dummy_error_callback(lcb_t instance, lcb_error_t err,
-                                 const char *msg)
-{
-    (void)instance;
-    (void)err;
-    (void)msg;
-}
+
 
 LIBCOUCHBASE_API
 lcb_error_t lcb_connect(lcb_t instance)
 {
-    instance->backup_idx = 0;
-    if (instance->compat.type == LCB_MEMCACHED_CLUSTER ||
-            (instance->compat.type == LCB_CACHED_CONFIG &&
-             instance->vbucket_config != NULL &&
-             instance->compat.value.cached.updating == 0)) {
-        return LCB_SUCCESS;
-    }
-
-    switch (instance->connection.state) {
-    case LCB_CONNSTATE_CONNECTED:
-        return LCB_SUCCESS;
-    case LCB_CONNSTATE_INPROGRESS:
-        return LCB_BUSY;
-    default: {
-        lcb_error_t ret;
-        lcb_error_callback old_cb;
-
-        old_cb = instance->callbacks.error;
-        instance->callbacks.error = dummy_error_callback;
-        ret = lcb_instance_start_connection(instance);
-        instance->callbacks.error = old_cb;
-        return ret;
-
-    }
-
-    }
-}
-
-void lcb_free_backup_nodes(lcb_t instance)
-{
-    if (instance->should_free_backup_nodes) {
-        char **ptr = instance->backup_nodes;
-        while (*ptr != NULL) {
-            free(*ptr);
-            ptr++;
-        }
-        instance->should_free_backup_nodes = 0;
-    }
-    free(instance->backup_nodes);
-    instance->backup_nodes = NULL;
-    instance->backup_idx = 0;
+    return lcb_synchandler_return(instance,
+                                  lcb_bootstrap_initial(instance));
 }
 
 LIBCOUCHBASE_API

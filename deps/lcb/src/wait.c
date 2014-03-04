@@ -43,14 +43,6 @@ lcb_error_t lcb_wait(lcb_t instance)
         return instance->last_error;
     }
 
-    if (instance->connection.state != LCB_CONNSTATE_CONNECTED
-            && !lcb_flushing_buffers(instance)
-            && (instance->compat.type == LCB_CACHED_CONFIG
-                || instance->compat.type == LCB_MEMCACHED_CLUSTER)
-            && instance->vbucket_config != NULL) {
-        return LCB_SUCCESS;
-    }
-
     /*
      * The API is designed for you to run your own event loop,
      * but should also work if you don't do that.. In order to be
@@ -59,10 +51,10 @@ lcb_error_t lcb_wait(lcb_t instance)
      */
     instance->last_error = LCB_SUCCESS;
     instance->wait = 1;
-    if (instance->connection.state != LCB_CONNSTATE_CONNECTED
-            || lcb_flushing_buffers(instance)
-            || hashset_num_items(instance->timers) > 0
-            || hashset_num_items(instance->durability_polls) > 0) {
+    if (instance->vbucket_config == NULL ||
+            lcb_flushing_buffers(instance) ||
+            hashset_num_items(instance->timers) > 0 ||
+            hashset_num_items(instance->durability_polls) > 0) {
 
         lcb_size_t ii;
 
@@ -70,14 +62,15 @@ lcb_error_t lcb_wait(lcb_t instance)
             lcb_server_t *c = instance->servers + ii;
 
             if (lcb_server_has_pending(c)) {
-                lcb_connection_delay_timer(&c->connection);
+                lcb_timer_rearm(c->io_timer,
+                                instance->settings.operation_timeout);
             }
         }
 
-        instance->io->v.v0.run_event_loop(instance->io);
-    } else {
-        instance->wait = 0;
+        instance->settings.io->v.v0.run_event_loop(instance->settings.io);
     }
+
+    instance->wait = 0;
 
     if (instance->vbucket_config) {
         return LCB_SUCCESS;
@@ -95,7 +88,7 @@ LIBCOUCHBASE_API
 void lcb_breakout(lcb_t instance)
 {
     if (instance->wait) {
-        instance->io->v.v0.stop_event_loop(instance->io);
+        instance->settings.io->v.v0.stop_event_loop(instance->settings.io);
         instance->wait = 0;
     }
 }

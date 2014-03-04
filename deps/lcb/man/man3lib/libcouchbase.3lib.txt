@@ -75,6 +75,17 @@ ENVIRONMENT VARIABLES
     symbol name required, see 'LIBCOUCHBASE_EVENT_PLUGIN_SYMBOL'
     below.
 
+    Available IO plugins consist of:
+
+    * libevent
+    * libev
+    * select
+    * libuv
+    * iocp (Windows Only)
+
+    Availability of a given plugin depends on the platform and installed
+    libraries as well as the compilation options of libcouchbase itself.
+
 *LIBCOUCHBASE_EVENT_PLUGIN_SYMBOL*::
     Symbol which should be accessibe in the plugin. The library will
     use the function, associated with the symbol to create new

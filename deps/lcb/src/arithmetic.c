@@ -15,7 +15,7 @@
  *   limitations under the License.
  */
 #include "internal.h"
-
+#include "vbcheck.h"
 /**
  * Spool an arithmetic request
  *
@@ -29,43 +29,37 @@ lcb_error_t lcb_arithmetic(lcb_t instance,
                            const lcb_arithmetic_cmd_t *const *items)
 {
     lcb_size_t ii;
+    vbcheck_ctx vbc;
+    lcb_error_t err;
 
-    /* we need a vbucket config before we can start getting data.. */
-    if (instance->vbucket_config == NULL) {
-        switch (instance->type) {
-        case LCB_TYPE_CLUSTER:
-            return lcb_synchandler_return(instance, LCB_EBADHANDLE);
-        case LCB_TYPE_BUCKET:
-        default:
-            return lcb_synchandler_return(instance, LCB_CLIENT_ETMPFAIL);
+    VBC_SANITY(instance);
+
+    err = vbcheck_ctx_init(&vbc, instance, num);
+    if (err != LCB_SUCCESS) {
+        return lcb_synchandler_return(instance, err);
+    }
+
+    for (ii = 0; ii < num; ii++) {
+        const void *k;
+        lcb_size_t nk;
+        VBC_GETK0(items[ii], k, nk);
+        err = vbcheck_populate(&vbc, instance, ii, k, nk);
+        if (err != LCB_SUCCESS) {
+            vbcheck_ctx_clean(&vbc);
+            return lcb_synchandler_return(instance, err);
         }
     }
 
     for (ii = 0; ii < num; ++ii) {
         lcb_server_t *server;
         protocol_binary_request_incr req;
-        int vb, idx;
         const void *key = items[ii]->v.v0.key;
         lcb_size_t nkey = items[ii]->v.v0.nkey;
         lcb_time_t exp = items[ii]->v.v0.exptime;
         int create = items[ii]->v.v0.create;
         lcb_int64_t delta = items[ii]->v.v0.delta;
         lcb_uint64_t initial = items[ii]->v.v0.initial;
-        const void *hashkey = items[ii]->v.v0.hashkey;
-        lcb_size_t nhashkey = items[ii]->v.v0.nhashkey;
-
-        if (nhashkey == 0) {
-            hashkey = key;
-            nhashkey = nkey;
-        }
-
-        (void)vbucket_map(instance->vbucket_config, hashkey, nhashkey,
-                          &vb, &idx);
-
-        if (idx < 0 || idx > (int)instance->nservers) {
-            return lcb_synchandler_return(instance, LCB_NO_MATCHING_SERVER);
-        }
-        server = instance->servers + idx;
+        vbcheck_keyinfo *ki = vbc.ptr_ki + ii;
 
         memset(&req, 0, sizeof(req));
         req.message.header.request.magic = PROTOCOL_BINARY_REQ;
@@ -73,7 +67,7 @@ lcb_error_t lcb_arithmetic(lcb_t instance,
         req.message.header.request.keylen = ntohs((lcb_uint16_t)nkey);
         req.message.header.request.extlen = 20;
         req.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        req.message.header.request.vbucket = ntohs((lcb_uint16_t)vb);
+        req.message.header.request.vbucket = ntohs(ki->vb);
         req.message.header.request.bodylen = ntohl((lcb_uint32_t)(nkey + 20));
         req.message.header.request.opaque = ++instance->seqno;
         req.message.body.delta = ntohll((lcb_uint64_t)(delta));
@@ -92,13 +86,19 @@ lcb_error_t lcb_arithmetic(lcb_t instance,
 
         TRACE_ARITHMETIC_BEGIN(&req, key, nkey, delta, initial,
                                create ? exp : (lcb_time_t)0xffffffff);
+
+        server = instance->servers + ki->ix;
         lcb_server_start_packet(server, command_cookie, req.bytes,
                                 sizeof(req.bytes));
         lcb_server_write_packet(server, key, nkey);
         lcb_server_end_packet(server);
-        lcb_server_send_packets(server);
     }
 
-
+    for (ii = 0; ii < instance->nservers; ii++) {
+        if (vbc.ptr_srv[ii]) {
+            lcb_server_send_packets(instance->servers + ii);
+        }
+    }
+    vbcheck_ctx_clean(&vbc);
     return lcb_synchandler_return(instance, LCB_SUCCESS);
 }

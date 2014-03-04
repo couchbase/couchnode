@@ -36,7 +36,7 @@
 #ifndef PROTOCOL_BINARY_H
 #define PROTOCOL_BINARY_H
 
-#if !defined HAVE_STDINT_H && defined _WIN32
+#if !defined HAVE_STDINT_H && defined _WIN32 && defined(_MSC_VER)
 # include "win_stdint.h"
 #else
 # include <stdint.h>

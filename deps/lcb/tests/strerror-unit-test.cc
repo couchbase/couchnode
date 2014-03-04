@@ -46,3 +46,19 @@ TEST_F(Strerror, allCodesDocumented)
     }
 
 }
+
+TEST_F(Strerror, testErrTypes)
+{
+    for (int ii = 0; ii < LCB_MAX_ERROR_VAL; ii++) {
+        lcb_error_t err = (lcb_error_t)ii;
+        ASSERT_NE(-1, LCB_EIFDATA(err));
+        ASSERT_NE(-1, LCB_EIFFATAL(err));
+        ASSERT_NE(-1, LCB_EIFINPUT(err));
+        ASSERT_NE(-1, LCB_EIFNET(err));
+        ASSERT_NE(-1, LCB_EIFPLUGIN(err));
+        ASSERT_NE(-1, LCB_EIFTMP(err));
+    }
+
+    ASSERT_EQ(-1, lcb_get_errtype(LCB_MAX_ERROR_VAL));
+    ASSERT_EQ(-1, lcb_get_errtype((lcb_error_t)-1));
+}

@@ -49,7 +49,7 @@ SYNOPSIS
 
 *cbc bucket-flush* [common options] 'bucket'...
 
-*cbc pillowfight* [-?] [-h 'HOST'] [-b 'BUCKET'] [-u 'USER'] [-P 'PASSWORD'] [-T] [-i 'ITERATIONS'] [-I 'ITEMS'] [-p 'PREFIX'] [-t 'THREADS'] [-Q 'INSTANCES'] [-l] [-s 'SEED'] [-r 'RATIO'] [-m 'MIN'] [-M 'MAX'] [-d]
+*cbc pillowfight* [-?] [-h 'HOST'] [-b 'BUCKET'] [-u 'USER'] [-P 'PASSWORD'] [-T] [-i 'ITERATIONS'] [-I 'ITEMS'] [-p 'PREFIX'] [-t 'THREADS'] [-Q 'INSTANCES'] [-l] [-s 'SEED'] [-r 'RATIO'] [-m 'MIN'] [-M 'MAX'] [-d] [-D] [-n] [-w 'WAITSECS']
 
 
 DESCRIPTION
@@ -89,6 +89,13 @@ The following options are supported:
     Enable memcached compatibility mode. With this option set
     subcommands can be executed against regular memcached node.
 
+*-S, --sasl*='MECH'::
+    Force SASL authentication mechanism (currently "PLAIN" or
+    "CRAM-MD5").
+
+*-C, --config-transport*='TRANSPORT'::
+    Specify transport for bootstrapping the connection: "HTTP"
+    (default) or "CCCP"
 
 SUBCOMMANDS
 -----------
@@ -260,7 +267,7 @@ Only warnings will be reported. This is what you normally want!
     you need to have flush enabled on the specified bucket to use this
     command successfully.
 
-*cbc pillowfight* [-?] [-h 'HOST'] [-b 'BUCKET'] [-u 'USER'] [-P 'PASSWORD'] [-T] [-i 'ITERATIONS'] [-I 'ITEMS'] [-p 'PREFIX'] [-t 'THREADS'] [-Q 'INSTANCES'] [-l] [-s 'SEED'] [-r 'RATIO'] [-m 'MIN'] [-M 'MAX'] [-d]::
+*cbc pillowfight* [-?] [-h 'HOST'] [-b 'BUCKET'] [-u 'USER'] [-P 'PASSWORD'] [-T] [-i 'ITERATIONS'] [-I 'ITEMS'] [-p 'PREFIX'] [-t 'THREADS'] [-Q 'INSTANCES'] [-l] [-s 'SEED'] [-r 'RATIO'] [-m 'MIN'] [-M 'MAX'] [-d] [-D] [-n] [-w 'WAITSECS']::
     Generate test load for the cluster. Currently only one workload
     type available: mixed SET and GET operations (see '--ratio' option
     below).
@@ -311,6 +318,9 @@ Only warnings will be reported. This is what you normally want!
     *-m, --min-size*='MIN'::::
         Specify minimum size of payload, i.e. document body (default: 50)
 
+    *-n, --no-population*::::
+        Skip populating
+
     *-M, --max-size*='MAX'::::
         Specify maximum size of payload (default: 5120)
 
@@ -318,6 +328,20 @@ Only warnings will be reported. This is what you normally want!
         Behave like legacy memcached client (default: false). Useful
         to check moxi for example, or other memcached implementations.
 
+    *-S, --sasl*='MECH'::
+        Force SASL authentication mechanism (currently "PLAIN" or
+        "CRAM-MD5").
+
+    *-C, --config-transport*='TRANSPORT'::
+        Specify transport for bootstrapping the connection: "HTTP"
+        (default) or "CCCP"
+
+    *-D, --data-greater-than-memory*::::
+        Specify if testing with data greater than memory size
+
+    *-w, --wait-time-for-op*='WAITSECS'::
+        Specify time to wait for store operations if data greater than memory
+        (default 10)
 
 EXAMPLES
 --------

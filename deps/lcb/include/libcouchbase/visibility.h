@@ -46,4 +46,10 @@
 
 #endif
 
+/**
+ * This symbol declares internal APIs as accessible from other modules.
+ * It should still not be used.
+ */
+#define LCB_INTERNAL_API LIBCOUCHBASE_API
+
 #endif

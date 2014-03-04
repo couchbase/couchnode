@@ -90,6 +90,12 @@ extern "C" {
         int sequence_changed;
     } VBUCKET_CONFIG_DIFF;
 
+    typedef enum {
+        VBUCKET_NO_CHANGES = 0,
+        VBUCKET_SERVERS_MODIFIED = 1 << 0,
+        VBUCKET_MAP_MODIFIED = 1 << 1
+    } VBUCKET_CHANGE_STATUS;
+
     /**
      * @}
      */
@@ -124,6 +130,23 @@ extern "C" {
     int vbucket_config_parse(VBUCKET_CONFIG_HANDLE handle,
                              vbucket_source_t data_source,
                              const char *data);
+
+    /**
+     * Parse a vbucket configuration and substitute local address if needed
+     * @param handle the vbucket config handle to store the result
+     * @param data_source what kind of datasource to parse
+     * @param data A zero terminated string representing the data to parse.
+     *             For LIBVBUCKET_SOURCE_FILE this is the file to parse,
+     *             for LIBVBUCKET_SOURCE_MEMORY it is the actual JSON body.
+     * @param peername a string, representing address of local peer
+     *                 (usually 127.0.0.1)
+     * @return 0 for success, the appropriate error code otherwise
+     */
+    LIBVBUCKET_PUBLIC_API
+    int vbucket_config_parse2(VBUCKET_CONFIG_HANDLE handle,
+                              vbucket_source_t data_source,
+                              const char *data,
+                              const char *peername);
 
     LIBVBUCKET_PUBLIC_API
     const char *vbucket_get_error_message(VBUCKET_CONFIG_HANDLE handle);
@@ -362,6 +385,9 @@ extern "C" {
      */
     LIBVBUCKET_PUBLIC_API
     void vbucket_free_diff(VBUCKET_CONFIG_DIFF *diff);
+
+    LIBVBUCKET_PUBLIC_API
+    VBUCKET_CHANGE_STATUS vbucket_what_changed(VBUCKET_CONFIG_DIFF *diff);
 
     /**
      * @}

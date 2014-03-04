@@ -332,6 +332,8 @@ static void connect_callback(uv_connect_t *req, int status)
 {
     my_uvreq_t *uvr = (my_uvreq_t *)req;
 
+    set_last_error((my_iops_t *)uvr->socket->base.parent, status);
+
     if (uvr->cb.conn) {
         uvr->cb.conn(&uvr->socket->base, status);
     }
@@ -478,22 +480,35 @@ static int start_write(lcb_io_opt_t iobase,
  ** Read Functions                                                           **
  ******************************************************************************
  ******************************************************************************/
+
+/**
+ * Currently we support a single IOV. In theory while we could support
+ * multiple IOVs, two problems arise:
+ *
+ * (1) Because UV does not guarantee that it'll utilize the first IOV completely
+ *     we may end up having a gap of unused space between IOVs. This may be
+ *     resolved by keeping an offset into the last-returned IOV and then
+ *     determining how much of this data was actually populated by UV itself.
+ *
+ * (2) In the event of an error, UV gives us "Undefined" behavior if we try
+ *     to utilize the socket again. The IOPS policy dictates that we deliver
+ *     any outstanding data to libcouchbase and _then_ deliver the pending
+ *     error. If we are forced to do this all in a single go, we'd be forced
+ *     to set up an 'async handle' to deliver the pending error, complicating
+ *     our code paths.
+ */
+
 static UVC_ALLOC_CB(alloc_cb)
 {
     UVC_ALLOC_CB_VARS()
 
     my_sockdata_t *sock = PTR_FROM_FIELD(my_sockdata_t, handle, tcp);
     struct lcb_buf_info *bi = &sock->base.read_buffer;
-
-    lcb_assert(sock->cur_iov == 0);
-
-    buf->base = bi->iov[0].iov_base;
-    buf->len = (lcb_uvbuf_len_t)bi->iov[0].iov_len;
-
+    buf->base = bi->iov[sock->cur_iov].iov_base;
+    buf->len = (lcb_uvbuf_len_t)bi->iov[sock->cur_iov].iov_len;
     sock->cur_iov++;
-    sock->read_done = 1;
-    (void)suggested_size;
 
+    (void)suggested_size;
     UVC_ALLOC_CB_RETURN();
 }
 
@@ -503,26 +518,22 @@ static UVC_READ_CB(read_cb)
 
     my_tcp_t *mt = (my_tcp_t *)stream;
     my_sockdata_t *sock = PTR_FROM_FIELD(my_sockdata_t, mt, tcp);
-
     lcb_io_read_cb callback = CbREQ(mt);
-    lcb_assert(sock->read_done < 2);
 
     /**
-     * UV uses nread == 0 to signal EAGAIN. If the alloc callback hasn't
-     * set read_done (because there's no more buffer space), and UV doesn't
-     * say it's done with reading, we don't do anything here.
+     * XXX:
+     * For multi-IOV support, we would require a counter to determine if this
+     * EAGAIN is spurious (i.e. no previous data in buffer), or actual. In
+     * the case of the former, we'd retry -- but in the latter it is a signal
+     * that there is no more pending data within the socket buffer AND we have
+     * outstanding data to deliver back to the caller.
      */
-    if (nread < 1) {
-        sock->read_done = 1;
-    }
-
-    if (!sock->read_done) {
+    if (nread == 0) {
+        sock->cur_iov--;
         return;
     }
 
-    sock->read_done++;
     SOCK_DECR_PENDING(sock, read);
-
     uv_read_stop(stream);
     CbREQ(mt) = NULL;
 
@@ -546,7 +557,6 @@ static int start_read(lcb_io_opt_t iobase,
     my_iops_t *io = (my_iops_t *)iobase;
     int ret;
 
-    sock->read_done = 0;
     sock->cur_iov = 0;
     sock->tcp.callback = callback;
 

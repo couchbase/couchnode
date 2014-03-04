@@ -26,7 +26,6 @@ class ServerParams
 {
 public:
     ServerParams() { }
-
     ServerParams(const char *h, const char *b, const char *u, const char *p) {
         loadParam(host, h);
         loadParam(bucket, b);
@@ -36,11 +35,27 @@ public:
 
     void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io) {
         memset(&crst, 0, sizeof(crst));
-        crst.v.v0.host = host.c_str();
-        crst.v.v0.bucket = bucket.c_str();
-        crst.v.v0.user = user.c_str();
-        crst.v.v0.passwd = pass.c_str();
-        crst.v.v0.io = io;
+        crst.version = 2;
+        crst.v.v2.host = host.c_str();
+        crst.v.v2.bucket = bucket.c_str();
+        crst.v.v2.user = user.c_str();
+        crst.v.v2.passwd = pass.c_str();
+        crst.v.v2.io = io;
+        if (!mcNodes.empty()) {
+            crst.v.v2.mchosts = mcNodes.c_str();
+        }
+    }
+
+    void setMcPorts(const std::vector<int>& portlist) {
+        std::stringstream ss;
+        std::vector<int>::const_iterator ii = portlist.begin();
+        for (; ii != portlist.end(); ii++) {
+            ss << "localhost";
+            ss << ":";
+            ss << std::dec << *ii;
+            ss << ";";
+        }
+        mcNodes = ss.str();
     }
 
 protected:
@@ -48,6 +63,7 @@ protected:
     std::string user;
     std::string pass;
     std::string bucket;
+    std::string mcNodes;
 
 private:
     void loadParam(std::string &d, const char *s) {

@@ -30,6 +30,8 @@
 #error "Include libcouchbase/couchbase.h instead"
 #endif
 
+#include <stdarg.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -510,6 +512,82 @@ extern "C" {
         LCB_IPV6_ONLY = 0x1,
         LCB_IPV6_ALLOW = 0x02
     } lcb_ipv6_t;
+
+
+    /**
+     * LOGGING:
+     * Verbose logging may be enabled by default using the environment variable
+     * LCB_LOGLEVEL and setting it to a number > 1; higher values produce more
+     * verbose output.
+     * You may also install your own logger using lcb_cntl and the
+     * LCB_CNTL_LOGGER constant. Note that
+     * the logger functions will not be called rapidly from within hot paths.
+     */
+
+    typedef enum {
+        LCB_LOG_TRACE = 0,
+        LCB_LOG_DEBUG,
+        LCB_LOG_INFO,
+        LCB_LOG_WARN,
+        LCB_LOG_ERROR,
+        LCB_LOG_FATAL,
+        LCB_LOG_MAX
+    } lcb_log_severity_t;
+
+    struct lcb_logprocs_st;
+
+    /**
+     * VOLATILE!
+     *
+     * This callback is invoked for each logging message emitted
+     * @param procs the logging structure provided
+     * @param iid instance id
+     * @param subsys a string describing the module which emitted the message
+     * @param severity one of the LCB_LOG_* severity constants.
+     * @param srcfile the source file which emitted this message
+     * @param srcline the line of the file for the message
+     * @param fmt a printf format string
+     * @param ap a va_list for vprintf
+     */
+    typedef void (*lcb_logging_callback)(struct lcb_logprocs_st *procs,
+                                          unsigned int iid,
+                                          const char *subsys,
+                                          int severity,
+                                          const char *srcfile,
+                                          int srcline,
+                                          const char *fmt,
+                                          va_list ap);
+
+    /**
+     * VOLATILE!
+     * This structure defines the logging handlers. Currently there is only
+     * a single field defined which is the default callback for the loggers.
+     * This API may change.
+     */
+    typedef struct lcb_logprocs_st {
+        int version;
+        union {
+            struct {
+                lcb_logging_callback callback;
+            } v0;
+        } v;
+    } lcb_logprocs;
+
+    typedef enum {
+        /** End of list for the config_transports array */
+        LCB_CONFIG_TRANSPORT_LIST_END = 0,
+
+        /** Use the HTTP (aka "REST API") connection for configuration */
+        LCB_CONFIG_TRANSPORT_HTTP = 1,
+
+        /** Use the memcached bootstrap protocol (Servers 2.5+ only) */
+        LCB_CONFIG_TRANSPORT_CCCP
+
+    } lcb_config_transport_t;
+
+#define LCB_CONFIG_MCD_PORT 11210
+#define LCB_CONFIG_HTTP_PORT 8091
+
 
 #ifdef __cplusplus
 }

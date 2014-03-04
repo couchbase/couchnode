@@ -147,7 +147,6 @@ TEST_F(Behavior, PluginEnvironment)
 
         setPluginEnv(iter->first, "");
 
-        lcb_io_ops_type_t iotype;
         lcb_error_t err;
         struct lcb_cntl_iops_info_st info;
         memset(&info, 0, sizeof(info));

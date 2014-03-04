@@ -19,6 +19,9 @@
 #define LIBUV_COMPAT_H
 
 #ifdef UV_VERSION_MAJOR
+#ifndef UV_VERSION_PATCH
+#define UV_VERSION_PATCH 0
+#endif
 #define UV_VERSION  ((UV_VERSION_MAJOR << 16) | \
                      (UV_VERSION_MINOR <<  8) | \
                      (UV_VERSION_PATCH))

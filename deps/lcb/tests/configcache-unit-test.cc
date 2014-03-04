@@ -23,10 +23,6 @@
 
 class ConfigCacheUnitTest : public MockUnitTest
 {
-protected:
-    static void SetUpTestCase() {
-        MockUnitTest::SetUpTestCase();
-    }
 };
 
 TEST_F(ConfigCacheUnitTest, testConfigCache)
@@ -65,6 +61,12 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
     lcb_destroy(instance);
     err = lcb_create_compat(LCB_CACHED_CONFIG, &cacheinfo, &instance, NULL);
     ASSERT_EQ(err, LCB_SUCCESS);
+
+    err = lcb_connect(instance);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    err = lcb_wait(instance);
+    ASSERT_EQ(LCB_SUCCESS, err);
 
     err = lcb_cntl(instance, LCB_CNTL_GET,
                    LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);

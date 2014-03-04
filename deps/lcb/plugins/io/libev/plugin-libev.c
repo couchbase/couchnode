@@ -211,6 +211,16 @@ static void handler_thunk(struct ev_loop *loop, ev_io *io, int events)
     (void)loop;
 }
 
+
+static void timer_thunk(struct ev_loop *loop, ev_timer *timer, int events)
+{
+    struct libev_event *evt = (struct libev_event *)timer;
+    evt->handler(0, 0, evt->data);
+    (void)events;
+    (void)loop;
+
+}
+
 static void *lcb_io_create_event(struct lcb_io_opt_st *iops)
 {
     struct libev_event *event = calloc(1, sizeof(*event));
@@ -282,28 +292,12 @@ static int lcb_io_update_timer(struct lcb_io_opt_st *iops,
     struct libev_cookie *io_cookie = iops->v.v0.cookie;
     struct libev_event *evt = timer;
     ev_tstamp start;
-
-#ifdef HAVE_LIBEV4
-    if (evt->handler == handler && evt->ev.io.events == EV_TIMER) {
-#else
-    if (evt->handler == handler && evt->ev.io.events == EV_TIMEOUT) {
-#endif
-        /* no change! */
-        return 0;
-    }
-
     evt->data = cb_data;
     evt->handler = handler;
-    ev_init(&evt->ev.io, handler_thunk);
     start = usec / (ev_tstamp)1000000;
-
-    if (io_cookie->suspended) {
-        start += ev_time() - ev_now(io_cookie->loop);
-    }
-
-    ev_timer_set(&evt->ev.timer, start, 0);
+    ev_timer_stop(io_cookie->loop, &evt->ev.timer);
+    ev_timer_init(&evt->ev.timer, timer_thunk, start, 0);
     ev_timer_start(io_cookie->loop, &evt->ev.timer);
-
     return 0;
 }
 

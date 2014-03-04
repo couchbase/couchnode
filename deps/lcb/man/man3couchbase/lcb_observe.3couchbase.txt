@@ -43,6 +43,18 @@ lcb_observe_cmd_t is a structure defined in <libcouchbase/arguments.h>:
                  const void *hashkey; /* Key used to locate server (if !NULL) */
                  lcb_size_t nhashkey; /* length of hash key */
             } v0;
+            struct {
+                 /** v0 fields */
+                 ...
+
+                 /**
+                  * A flag set of options. Currently the only option supported
+                  * is LCB_OBSERVE_MASTER_ONLY which indicates that the command
+                  * should be sent only to the master node for the given key's
+                  * vBucket. Callback semantics remain the same, however
+                  */
+                 lcb_observe_options_t;
+            } v1;
         } v;
     };
 

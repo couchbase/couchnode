@@ -16,6 +16,7 @@
  */
 
 #include "internal.h"
+#include "bucketconfig/clconfig.h"
 
 static const char *method_strings[] = {
     "GET ",    /* LCB_HTTP_METHOD_GET */
@@ -110,12 +111,20 @@ void lcb_http_request_decref(lcb_http_request_t req)
     if (req->parser) {
         free(req->parser->data);
     }
+    if (req->io_timer) {
+        lcb_timer_destroy(NULL, req->io_timer);
+        req->io_timer = NULL;
+    }
+
     free(req->parser);
     ringbuffer_destruct(&req->result);
     request_free_headers(req);
     LCB_LIST_SAFE_FOR(ii, nn, &req->headers_out.list) {
+        lcb_http_header_t *hdr = LCB_LIST_ITEM(ii, lcb_http_header_t, list);
         lcb_list_delete(ii);
-        free(LCB_LIST_ITEM(ii, lcb_http_header_t, list));
+        free(hdr->key);
+        free(hdr->val);
+        free(hdr);
     }
     memset(req, 0xff, sizeof(struct lcb_http_request_st));
     free(req);
@@ -139,10 +148,33 @@ void lcb_setup_lcb_http_resp_t(lcb_http_resp_t *resp,
     resp->v.v0.nbytes = nbytes;
 }
 
+static void maybe_refresh_config(lcb_t instance,
+                                 lcb_http_request_t req, lcb_error_t err)
+{
+
+    if (!req->parser) {
+        return;
+    }
+
+    if (err != LCB_SUCCESS) {
+        lcb_bootstrap_refresh(instance);
+        return;
+    }
+
+    if (req->parser->status_code >= 200 && req->parser->status_code < 299) {
+        return;
+    }
+
+    lcb_bootstrap_refresh(instance);
+}
+
 void lcb_http_request_finish(lcb_t instance,
                              lcb_http_request_t req,
                              lcb_error_t error)
 {
+
+    maybe_refresh_config(instance, req, error);
+
     if ((req->status & LCB_HTREQ_S_CBINVOKED) == 0 && req->on_complete) {
         lcb_http_resp_t resp;
         lcb_setup_lcb_http_resp_t(&resp,
@@ -186,27 +218,30 @@ lcb_error_t lcb_http_request_exec(lcb_http_request_t req)
     lcb_error_t rc;
     ringbuffer_t *out;
     lcb_list_t *ii;
+    lcb_host_t reqhost;
 
     request_free_headers(req);
     lcb_connection_cleanup(&req->connection);
-    rc = lcb_connection_init(&req->connection, instance);
+    rc = lcb_connection_init(&req->connection,
+                             instance->settings.io,
+                             &instance->settings);
     if (rc != LCB_SUCCESS) {
         lcb_http_request_decref(req);
         return lcb_synchandler_return(instance, rc);
     }
     out = req->connection.output;
-    if (req->nhost > sizeof(req->connection.host)) {
+    if (req->nhost > sizeof(reqhost.host)) {
         lcb_http_request_decref(req);
         return LCB_E2BIG;
     }
-    strncpy(req->connection.host, req->host, req->nhost);
-    req->connection.host[req->nhost] = '\0';
-    if (req->nport > sizeof(req->connection.port)) {
+    strncpy(reqhost.host, req->host, req->nhost);
+    reqhost.host[req->nhost] = '\0';
+    if (req->nport > sizeof(reqhost.port)) {
         lcb_http_request_decref(req);
         return LCB_E2BIG;
     }
-    strncpy(req->connection.port, req->port, req->nport);
-    req->connection.port[req->nport] = '\0';
+    strncpy(reqhost.port, req->port, req->nport);
+    reqhost.port[req->nport] = '\0';
     rc = render_http_preamble(req, out);
     if (rc != LCB_SUCCESS) {
         lcb_http_request_decref(req);
@@ -365,6 +400,7 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
     lcb_http_method_t method;
     int chunked;
     lcb_error_t rc;
+    lcb_host_t *resthost;
 
     switch (instance->type) {
     case LCB_TYPE_CLUSTER:
@@ -425,30 +461,30 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
         }
         base = server->couch_api_base;
         nbase = strlen(base);
-        username = instance->sasl.name;
-        if (instance->sasl.password.secret.len) {
-            password = calloc(instance->sasl.password.secret.len + 1, sizeof(char));
+        username = instance->settings.username;
+
+        if (instance->settings.password && *instance->settings.password) {
+            password = strdup(instance->settings.password);
             if (!password) {
                 return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
             }
-            memcpy(password, instance->sasl.password.secret.data, instance->sasl.password.secret.len);
         }
     }
     break;
     case LCB_HTTP_TYPE_MANAGEMENT:
-        nbase = strlen(instance->connection.host) + strlen(instance->connection.port) + 2;
+        resthost = lcb_confmon_get_rest_host(instance->confmon);
+        nbase = strlen(resthost->host) + strlen(resthost->port) + 2;
         base = calloc(nbase, sizeof(char));
         if (!base) {
             return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
         }
-        if (snprintf(base, nbase, "%s:%s", instance->connection.host,
-                     instance->connection.port) < 0) {
+        if (snprintf(base, nbase, "%s:%s", resthost->host, resthost->port) < 0) {
             return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
         }
         nbase -= 1; /* skip '\0' */
-        username = instance->username;
-        if (instance->password) {
-            password = strdup(instance->password);
+        username = instance->settings.username;
+        if (instance->settings.password) {
+            password = strdup(instance->settings.password);
         }
         break;
     case LCB_HTTP_TYPE_RAW:
@@ -475,7 +511,7 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
     }
     req->refcount = 1;
     req->instance = instance;
-    req->io = instance->io;
+    req->io = instance->settings.io;
     req->command_cookie = command_cookie;
     req->chunked = chunked;
     req->method = method;
@@ -493,6 +529,12 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
         }
         memcpy(req->body, body, nbody);
     }
+
+    if (!npath) {
+        path = "/";
+        npath = 1;
+    }
+
     rc = lcb_urlencode_path(path, npath, &req->path, &req->npath);
     if (rc != LCB_SUCCESS) {
         lcb_http_request_decref(req);
@@ -529,6 +571,11 @@ void lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request)
         hashset_remove(instance->http_requests, request);
     }
     request->instance = NULL;
+
+    if (request->io_timer) {
+        lcb_timer_destroy(NULL, request->io_timer);
+        request->io_timer = NULL;
+    }
 
     lcb_maybe_breakout(instance);
 }

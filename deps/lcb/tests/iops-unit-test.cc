@@ -139,7 +139,7 @@ TEST_F(IOPS, Timers)
     }
 
     startLoop();
-    for (int ii = 0; ii < multi.size(); ii++) {
+    for (unsigned int ii = 0; ii < multi.size(); ii++) {
         TimerCountdown *cur = multi[ii];
         ASSERT_EQ(0, cur->counter);
         delete cur;
@@ -156,14 +156,14 @@ TEST_F(IOPS, Timers)
 
     scheduleTimer(cont.timer, timer_callback, 0, &cont);
 
-    for (int ii = 0; ii < multi.size(); ii++) {
+    for (unsigned int ii = 0; ii < multi.size(); ii++) {
         TimerCountdown *cur = multi[ii];
         cancelTimer(cur->timer);
         cur->counter = 0;
     }
 
     startLoop();
-    for (int ii = 0; ii < multi.size(); ii++) {
+    for (unsigned int ii = 0; ii < multi.size(); ii++) {
         delete multi[ii];
     }
 

@@ -108,6 +108,9 @@ public:
         addOption(&opt_cycles, 'n', "repeat",
                   "Repeat cycle this many times",
                   "1");
+        addOption(&opt_libdir, 'L', "libdir",
+                "Path to location where plugins are located. Useful on OS X",
+                "");
     }
 
     ~TestConfiguration() {
@@ -143,7 +146,7 @@ public:
         }
 
         if (myargc < argc) {
-            for (int ii = myargc; ii < argc; ii++) {
+            for (int ii = myargc+1; ii < argc; ii++) {
                 ss << argv[ii] << " ";
             }
         }
@@ -159,6 +162,7 @@ public:
         assignFromArg(srcroot, opt_srcdir, getEffectiveSrcroot());
         assignFromArg(testdir, opt_bindir, getEffectiveTestdir());
         assignFromArg(debugger, opt_debugger, "");
+        assignFromArg(libDir, opt_libdir, "");
 
         // Verbosity
         isVerbose = opt_verbose->found;
@@ -204,6 +208,7 @@ public:
     std::string srcroot;
     std::string testdir;
     std::string debugger;
+    std::string libDir;
 
     strlist plugins;
     strlist testnames;
@@ -223,6 +228,7 @@ private:
     CommandLineOption *opt_verbose;
     CommandLineOption *opt_bins;
     CommandLineOption *opt_cycles;
+    CommandLineOption *opt_libdir;
     Getopt parser;
 
     void freeOptions() {
@@ -233,6 +239,7 @@ private:
         delete opt_bindir;
         delete opt_interactive;
         delete opt_verbose;
+        delete opt_libdir;
     }
 
     void addOption(CommandLineOption **target,
@@ -382,6 +389,34 @@ static void setPluginEnvironment(std::string &name)
     }
 }
 
+static void setLinkerEnvironment(std::string &path)
+{
+#ifdef _WIN32
+    if (false) {
+        return;
+    }
+#endif
+
+    if (path.empty()) {
+        return;
+    }
+#if __APPLE__
+    const char *varname = "DYLD_LIBRARY_PATH";
+#else
+    const char *varname = "LD_LIBRARY_PATH";
+#endif
+
+    const char *existing = getenv(varname);
+    std::string newenv;
+    if (existing) {
+        newenv += existing;
+        newenv += ":";
+    }
+    newenv += path;
+    fprintf(stderr, "%s=%s\n", varname, newenv.c_str());
+    setenv(varname, newenv.c_str(), 1);
+}
+
 struct Process {
     child_process_t proc_;
     std::string commandline;
@@ -524,7 +559,7 @@ private:
 static bool runSingleCycle(TestConfiguration &config)
 {
     TestScheduler scheduler(config.maxJobs);
-
+    setLinkerEnvironment(config.libDir);
     for (strlist::iterator iter = config.plugins.begin();
             iter != config.plugins.end();
             iter++) {

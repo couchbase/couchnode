@@ -56,7 +56,11 @@ typedef struct {
 #define PLUGIN_SO(NAME) "libcouchbase_"NAME".dylib"
 #elif defined(_WIN32)
 /** Trailing period intentional. See docs for LoadLibrary */
-#define PLUGIN_SO(NAME) "libcouchbase_"NAME".dll."
+#if (_DEBUG && _MSC_VER)
+    #define PLUGIN_SO(NAME) "libcouchbase_"NAME"_d.dll."
+#else
+    #define PLUGIN_SO(NAME) "libcouchbase_"NAME".dll."
+#endif /* _DEBUG */
 #else
 #define PLUGIN_SO(NAME) "libcouchbase_"NAME".so"
 #endif

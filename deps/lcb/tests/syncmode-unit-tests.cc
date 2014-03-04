@@ -45,10 +45,6 @@ extern "C" {
 class SyncmodeUnitTest : public MockUnitTest
 {
 protected:
-    static void SetUpTestCas() {
-        MockUnitTest::SetUpTestCase();
-    }
-
     void createConnection(lcb_t &instance) {
         MockEnvironment::getInstance()->createConnection(instance);
         (void)lcb_set_error_callback(instance, error_callback);

@@ -69,3 +69,31 @@ lcb_error_t lcb_error_handler(lcb_t instance, lcb_error_t error,
 
     return error;
 }
+
+LIBCOUCHBASE_API
+const char *lcb_strerror(lcb_t instance, lcb_error_t error)
+{
+    #define X(c, v, t, s) if (error == c) { return s; }
+    LCB_XERR(X)
+    #undef X
+
+    (void)instance;
+    return "Unknown error";
+}
+
+
+static int errtype_map[] = {
+    #define X(c, v, t, s) t,
+    LCB_XERR(X)
+    #undef X
+    -1
+};
+
+LIBCOUCHBASE_API
+int lcb_get_errtype(lcb_error_t err)
+{
+    if (err >= LCB_MAX_ERROR_VAL || (int)err < 0) {
+        return -1;
+    }
+    return errtype_map[err];
+}

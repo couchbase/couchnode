@@ -46,7 +46,7 @@ TEST_F(Hostname, testSchemas)
     lcb_destroy(instance);
 }
 
-TEST_F(Hostname, testPaths)
+TEST_F(Hostname, DISABLED_testPaths)
 {
     lcb_t instance;
     struct lcb_create_st options;

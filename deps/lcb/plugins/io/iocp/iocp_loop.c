@@ -237,15 +237,22 @@ static void deque_expired_timers(iocp_t *io, lcb_uint64_t now)
 }
 
 
+/** Maximum amount of time the I/O can hog the loop */
+#define IOCP_IOLOOP_MAXTIME 1000
+
+static int should_yield(lcb_uint32_t start)
+{
+    lcb_uint32_t now = iocp_micros();
+    return now - start > IOCP_IOLOOP_MAXTIME;
+}
+
 /**
  * I'd like to make several behavioral guidelines here:
  *
  * 1) LCB shall call breakout if it wishes to terminate the loop.
  * 2) We shall not handle the case where the user accidentally calls lcb_wait()
  *    while not having anything pending. That's just too bad.
- * 3) Timers shall be dispatched only once, at the end of the loop.
  */
-
 void iocp_run(lcb_io_opt_t iobase)
 {
 
@@ -264,13 +271,37 @@ void iocp_run(lcb_io_opt_t iobase)
     IOCP_LOG(IOCP_INFO, "do-loop BEGIN");
 
     do {
+        /** To ensure we don't starve pending timers, use an iteration */
+        lcb_uint32_t usStartTime;
+
         if (!now) {
             now = iocp_millis();
-            tmo = (DWORD)iocp_tmq_next_timeout(&io->timer_queue.list, now);
         }
 
-        IOCP_LOG(IOCP_TRACE, "Timeout=%lu msec", tmo);
-        lcb_assert(tmo != INFINITE);
+        do {
+            tmo = (DWORD)iocp_tmq_next_timeout(&io->timer_queue.list, now);
+            IOCP_LOG(IOCP_TRACE, "Timeout=%lu msec", tmo);
+
+            if (tmo) {
+                break;
+            }
+
+            deque_expired_timers(io, now);
+        } while (tmo == 0 && LOOP_CAN_CONTINUE(io));
+
+        if (!LOOP_CAN_CONTINUE(io)) {
+            break;
+        }
+
+        /** TODO: Use reference counting */
+        if (tmo == INFINITE) {
+            if (HAS_QUEUED_IO(io)) {
+                assert(0 && "Found I/O without any timers");
+            }
+            break;
+        }
+
+        usStartTime = iocp_micros();
         do {
             if (Have_GQCS_Ex) {
                 remaining = dequeue_io_impl_ex(io, tmo);
@@ -278,9 +309,11 @@ void iocp_run(lcb_io_opt_t iobase)
             } else {
                 remaining = dequeue_io_impl_compat(io, tmo);
             }
-
             tmo = 0;
-        } while (LOOP_CAN_CONTINUE(io) && remaining);
+
+        } while (LOOP_CAN_CONTINUE(io) &&
+                 remaining &&
+                 should_yield(usStartTime) == 0);
 
         IOCP_LOG(IOCP_TRACE, "Stopped IO loop");
 

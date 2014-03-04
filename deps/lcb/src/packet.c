@@ -217,3 +217,18 @@ void lcb_server_start_packet_ex(lcb_server_t *c,
     }
 }
 
+
+void lcb_assoc_opaque(lcb_t instance, lcb_uint32_t opaque, const void *data)
+{
+    genhash_store(instance->cmdht, NULL, opaque, data, 0);
+}
+
+void * lcb_get_opaque(lcb_t instance, lcb_uint32_t opaque)
+{
+    return genhash_find(instance->cmdht, NULL, opaque);
+}
+
+void lcb_clear_opaque(lcb_t instance, lcb_uint32_t opaque)
+{
+    genhash_delete(instance->cmdht, NULL, opaque);
+}

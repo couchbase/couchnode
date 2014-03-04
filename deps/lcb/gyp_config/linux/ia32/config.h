@@ -184,24 +184,6 @@
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
 /* #undef NO_MINUS_C_MINUS_O */
 
-/* Name of package */
-#define PACKAGE "libcouchbase"
-
-/* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "support@couchbase.com"
-
-/* Define to the full name of this package. */
-#define PACKAGE_NAME "libcouchbase"
-
-/* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libcouchbase 2.1.3_54_gb4bc0fb"
-
-/* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "libcouchbase"
-
-/* Define to the version of this package. */
-#define PACKAGE_VERSION "2.1.3_54_gb4bc0fb"
-
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
@@ -228,10 +210,6 @@
 #ifndef __EXTENSIONS__
 # define __EXTENSIONS__ 1
 #endif
-
-
-/* Version number of package */
-#define VERSION "2.1.3_54_gb4bc0fb"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */

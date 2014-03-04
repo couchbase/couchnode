@@ -27,19 +27,19 @@ lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn, ringbuffer_t *buf)
 {
     struct lcb_iovec_st iov[2];
     lcb_ssize_t nr;
+    lcb_io_opt_t io = conn->io;
 
     if (!ringbuffer_ensure_capacity(buf,
-                                    conn->instance ? conn->instance->rbufsize :
+                                    conn->settings ? conn->settings->rbufsize :
                                     LCB_DEFAULT_RBUFSIZE)) {
-        lcb_error_handler(conn->instance, LCB_CLIENT_ENOMEM, NULL);
         return LCB_SOCKRW_GENERIC_ERROR;
     }
 
     ringbuffer_get_iov(buf, RINGBUFFER_WRITE, iov);
 
-    nr = conn->instance->io->v.v0.recvv(conn->instance->io, conn->sockfd, iov, 2);
+    nr = io->v.v0.recvv(io, conn->sockfd, iov, 2);
     if (nr == -1) {
-        switch (conn->instance->io->v.v0.error) {
+        switch (io->v.v0.error) {
         case EINTR:
             break;
         case EWOULDBLOCK:
@@ -79,13 +79,15 @@ lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn, ringbuffer_t *buf
 lcb_sockrw_status_t lcb_sockrw_v0_write(lcb_connection_t conn,
                                         ringbuffer_t *buf)
 {
+    lcb_io_opt_t io = conn->io;
+
     while (buf->nbytes > 0) {
         struct lcb_iovec_st iov[2];
         lcb_ssize_t nw;
         ringbuffer_get_iov(buf, RINGBUFFER_READ, iov);
-        nw = conn->instance->io->v.v0.sendv(conn->instance->io, conn->sockfd, iov, 2);
+        nw = io->v.v0.sendv(io, conn->sockfd, iov, 2);
         if (nw == -1) {
-            switch (conn->instance->io->v.v0.error) {
+            switch (io->v.v0.error) {
             case EINTR:
                 /* retry */
                 break;
@@ -118,7 +120,7 @@ void lcb_sockrw_set_want(lcb_connection_t conn, short events, int clear_existing
 
 static void apply_want_v0(lcb_connection_t conn)
 {
-    lcb_io_opt_t io = conn->instance->io;
+    lcb_io_opt_t io = conn->io;
 
     if (!conn->want) {
         if (conn->evinfo.active) {
@@ -133,7 +135,7 @@ static void apply_want_v0(lcb_connection_t conn)
                           conn->sockfd,
                           conn->evinfo.ptr,
                           conn->want,
-                          conn->data,
+                          conn,
                           conn->evinfo.handler);
 }
 
@@ -172,23 +174,19 @@ static void apply_want_v1(lcb_connection_t conn)
 
 void lcb_sockrw_apply_want(lcb_connection_t conn)
 {
-    if (conn->instance == NULL || conn->instance->io == NULL) {
+    if (conn->io == NULL) {
         return;
     }
-    if (conn->instance->io->version == 0) {
+    if (conn->io->version == 0) {
         apply_want_v0(conn);
     } else {
         apply_want_v1(conn);
-    }
-
-    if (conn->want) {
-        lcb_connection_activate_timer(conn);
     }
 }
 
 int lcb_sockrw_flushed(lcb_connection_t conn)
 {
-    if (conn->instance->io->version == 1) {
+    if (conn->io->version == 1) {
         if (conn->output && conn->output->nbytes == 0) {
             return 1;
         } else {
@@ -224,7 +222,7 @@ lcb_sockrw_status_t lcb_sockrw_v1_start_read(lcb_connection_t conn,
     }
 
     ringbuffer_ensure_capacity(*buf,
-                               conn->instance ? conn->instance->rbufsize :
+                               conn->settings ? conn->settings->rbufsize :
                                LCB_DEFAULT_RBUFSIZE);
     ringbuffer_get_iov(*buf, RINGBUFFER_WRITE, bi->iov);
 
@@ -237,7 +235,7 @@ lcb_sockrw_status_t lcb_sockrw_v1_start_read(lcb_connection_t conn,
     *buf = NULL;
 
 
-    io = conn->instance->io;
+    io = conn->io;
     ret = io->v.v1.start_read(io, conn->sockptr, callback);
 
     if (ret == 0) {
@@ -272,7 +270,7 @@ lcb_sockrw_status_t lcb_sockrw_v1_start_write(lcb_connection_t conn,
     lcb_io_writebuf_t *wbuf;
     struct lcb_buf_info *bi;
 
-    io = conn->instance->io;
+    io = conn->io;
 
     wbuf = io->v.v1.create_writebuf(io, conn->sockptr);
     if (wbuf == NULL) {
@@ -372,4 +370,100 @@ unsigned int lcb_sockrw_v1_cb_common(lcb_sockdata_t *sock,
     }
 
     return 1;
+}
+
+static void v0_generic_handler(lcb_socket_t sock, short which, void *arg)
+{
+    lcb_connection_t conn = arg;
+    lcb_sockrw_status_t status;
+    lcb_size_t oldnr, newnr;
+
+    lcb_assert(sock != INVALID_SOCKET);
+
+    if (which & LCB_WRITE_EVENT) {
+        status = lcb_sockrw_v0_write(conn, conn->output);
+        if (status == LCB_SOCKRW_WROTE) {
+            if ((which & LCB_READ_EVENT) == 0) {
+                lcb_sockrw_set_want(conn, LCB_READ_EVENT, 1);
+                lcb_sockrw_apply_want(conn);
+            }
+
+        } else if (status == LCB_SOCKRW_WOULDBLOCK) {
+            lcb_sockrw_set_want(conn, LCB_WRITE_EVENT, 0);
+            lcb_sockrw_apply_want(conn);
+
+        } else {
+            conn->easy.error(conn);
+            return;
+        }
+    }
+
+    if ( (which & LCB_READ_EVENT) == 0) {
+        return;
+    }
+
+    oldnr = conn->input->nbytes;
+    status = lcb_sockrw_v0_slurp(conn, conn->input);
+    newnr = conn->input->nbytes;
+
+    if (status != LCB_SOCKRW_READ &&
+            status != LCB_SOCKRW_WOULDBLOCK && oldnr == newnr) {
+
+        conn->easy.error(conn);
+    } else {
+        conn->easy.read(conn);
+    }
+}
+
+static void v1_generic_write_handler(lcb_sockdata_t *sd,
+                                     lcb_io_writebuf_t *wbuf,
+                                     int status)
+{
+    lcb_t instance;
+    lcb_connection_t conn = sd->lcbconn;
+
+    if (!lcb_sockrw_v1_cb_common(sd, wbuf, (void **)&instance)) {
+        return;
+    }
+
+    lcb_sockrw_v1_onwrite_common(sd, wbuf, &sd->lcbconn->output);
+
+    if (status) {
+        conn->easy.error(conn);
+    } else {
+        lcb_sockrw_set_want(conn, LCB_READ_EVENT, 1);
+        lcb_sockrw_apply_want(conn);
+    }
+}
+
+static void v1_generic_read_handler(lcb_sockdata_t *sd, lcb_ssize_t nr)
+{
+    lcb_connection_t conn = sd->lcbconn;
+    if (!lcb_sockrw_v1_cb_common(sd, NULL, NULL)) {
+        return;
+    }
+
+    lcb_sockrw_v1_onread_common(sd, &sd->lcbconn->input, nr);
+    if (nr < 1) {
+        conn->easy.error(conn);
+        return;
+
+    } else {
+        conn->easy.read(conn);
+    }
+}
+
+static void v1_generic_error_handler(lcb_sockdata_t *sd)
+{
+    sd->lcbconn->easy.error(sd->lcbconn);
+}
+
+
+void lcb__io_wire_easy(struct lcb_io_use_st *use)
+{
+    use->easy = 0;
+    use->u.ex.v0_handler = v0_generic_handler;
+    use->u.ex.v1_read = v1_generic_read_handler;
+    use->u.ex.v1_write = v1_generic_write_handler;
+    use->u.ex.v1_error = v1_generic_error_handler;
 }

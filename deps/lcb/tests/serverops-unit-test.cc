@@ -25,10 +25,6 @@
 
 class ServeropsUnitTest : public MockUnitTest
 {
-protected:
-    static void SetUpTestCase() {
-        MockUnitTest::SetUpTestCase();
-    }
 };
 
 extern "C" {
