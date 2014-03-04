@@ -114,6 +114,13 @@ NAN_METHOD(CouchbaseImpl::_Control)
         NanReturnValue(arr);
      }
 
+    case LCB_CNTL_CONFIG_HTTP_NODES:
+    case LCB_CNTL_CONFIG_CCCP_NODES: {
+        String::Utf8Value s(optVal->ToString());
+        err = lcb_cntl(instance, option, mode, (char *)*s);
+        break;
+     }
+
     case CNTL_LIBCOUCHBASE_VERSION: {
         const char *vstr;
         lcb_uint32_t vnum;
