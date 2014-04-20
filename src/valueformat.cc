@@ -40,14 +40,15 @@ void ValueFormat::initialize()
 Handle<Value> ValueFormat::decode(const char *bytes, size_t n,
                                   uint32_t flags)
 {
-    if (flags == UTF8) {
+    uint32_t dtype = flags & MASK;
+    if (dtype == UTF8) {
         return String::New(bytes, n);
 
-    } else if (flags == RAW) {
+    } else if (dtype == RAW) {
         // 0.8 defines this as char*, hence the cast
         return NanNewBufferHandle(const_cast<char*>(bytes), n);
 
-    } else if (flags == JSON) {
+    } else if (dtype == JSON) {
         Handle<Value> s = decode(bytes, n, UTF8);
         v8::TryCatch try_catch;
         Local<Function> jsonParseLcl = NanPersistentToLocal(jsonParse);
