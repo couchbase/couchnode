@@ -3,10 +3,13 @@ var H = require('../test_harness.js');
 
 var cb = H.newClient();
 
+// Disabled as it is non-deterministic due to the chances of two vbuckets
+//   being on the same server during the test.
+
+/*
 describe('#hashkeys', function() {
 
-  // No way to accurately test hashkeys with single node cluster
-  it.skip('should work with basic inputs', function(done) {
+  it('should work with basic inputs', function(done) {
     var key = H.genKey("hashkey");
     var hashkey = key + "_hashkey";
 
@@ -23,3 +26,4 @@ describe('#hashkeys', function() {
   });
 
 });
+*/
