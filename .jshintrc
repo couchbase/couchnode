@@ -22,4 +22,13 @@
   "unused": false,
   "strict": true,
   "trailing": true
+  "globals"   : {
+    /* MOCHA */
+    "describe"   : false,
+    "it"         : false,
+    "before"     : false,
+    "beforeEach" : false,
+    "after"      : false,
+    "afterEach"  : false
+  }
 }

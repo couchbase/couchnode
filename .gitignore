@@ -1,3 +1,6 @@
+# Local test configuration
+config.json
+
 # Compiled Object files
 *.slo
 *.lo
