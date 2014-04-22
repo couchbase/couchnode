@@ -92,6 +92,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(LCB_HTTP_TYPE_VIEW) \
     X(LCB_HTTP_TYPE_MANAGEMENT) \
     X(LCB_HTTP_METHOD_GET) \
+    X(LCB_HTTP_METHOD_POST) \
     X(LCB_HTTP_METHOD_PUT) \
     X(LCB_HTTP_METHOD_DELETE)
 
