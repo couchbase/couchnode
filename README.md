@@ -4,7 +4,7 @@ This library allows you to connect to a Couchbase cluster from Node.js.
 It is a native Node.js module and uses the very fast libcouchbase library to
 handle communicating to the cluster over the Couchbase binary protocol.
 
-[![Build Status](http://cb.br19.com:86/buildStatus/icon?job=couchnode)](http://cb.br19.com:86/job/couchnode/)
+[![Build Status](http://cbsdkbuilds.br19.com/buildStatus/icon?job=cb-node)](http://cbsdkbuilds.br19.com/job/cb-node/)
 
 
 ## Useful Links
