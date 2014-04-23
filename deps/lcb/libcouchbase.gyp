@@ -79,6 +79,16 @@
       ]
     },
 
+    # libcjson
+    {
+      'target_name': 'cjson',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'sources': [
+        'contrib/libvbucket/cJSON.c'
+      ]
+    },
+
     # libvbucket
     {
       'target_name': 'vbucket',
@@ -90,9 +100,10 @@
         'include/libvbucket/vbucket.h',
         'include/libvbucket/visibility.h',
         'contrib/libvbucket/hash.h',
-        'contrib/libvbucket/cJSON.c',
-        'contrib/libvbucket/cJSON.h',
         'contrib/libvbucket/vbucket.c'
+      ],
+      'dependencies': [
+        'cjson'
       ]
     },
 
@@ -103,7 +114,6 @@
       'type': 'static_library',
       'sources': [
         'contrib/http_parser/http_parser.c',
-        'contrib/libvbucket/cJSON.c',
         'src/base64.c',
         'src/gethrtime.c',
         'src/genhash.c',
@@ -116,6 +126,9 @@
         'src/ringbuffer.c',
         'src/simplestring.c',
         'src/url_encoding.c'
+      ],
+      'dependencies': [
+        'cjson'
       ]
     },
 
