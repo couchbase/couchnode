@@ -1,4 +1,5 @@
 var assert = require('assert');
+var fs = require('fs');
 var H = require('../test_harness.js');
 
 describe('#regressions', function() {
@@ -96,6 +97,21 @@ describe('#regressions', function() {
           assert.ok(err.message.match(/key is not a string/));
           done();
         });
+      });
+    });
+  });
+
+  describe('CBSE-1036', function() {
+    it('durability callbacks work with configuration cache', function(done) {
+      fs.unlink('configcache.txt', function() {
+        var cb = H.newClient({cachefile: 'configcache.txt'});
+        var testkey = H.genKey('CBSE-1036');
+        cb.set(testkey, 'test1', {persist_to:1}, H.okCallback(function(res) {
+          var cb2 = H.newClient({cachefile: 'configcache.txt'});
+          cb2.set(testkey, 'test2', {persist_to:1}, H.okCallback(function(res) {
+            done();
+          }));
+        }));
       });
     });
   });

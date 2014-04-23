@@ -69,11 +69,32 @@ function Harness(callback) {
   this.keySerial = 0;
 }
 
-Harness.prototype.newClient = function(callback) {
+Harness.prototype.newClient = function(oconfig, callback) {
+  if (oconfig instanceof Function) {
+    callback = oconfig;
+    oconfig = undefined;
+  }
+  if (!oconfig) {
+    oconfig = {};
+  }
+
   if (!configReady) {
     throw new Error('newClient before config was ready');
   }
-  return new couchbase.Connection(config, callback);
+
+  var this_config = {};
+  for (var i in config) {
+    if (config.hasOwnProperty(i)) {
+      this_config[i] = config[i];
+    }
+  }
+  for (var j in oconfig) {
+    if (oconfig.hasOwnProperty(j)) {
+      this_config[j] = oconfig[j];
+    }
+  }
+
+  return new couchbase.Connection(this_config, callback);
 };
 
 Harness.prototype.genKey = function(prefix) {

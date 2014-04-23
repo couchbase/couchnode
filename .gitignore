@@ -25,3 +25,4 @@ config.json
 /docs/
 /test/CouchbaseMock.jar
 builderror.log
+configcache.txt
