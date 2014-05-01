@@ -54,24 +54,44 @@ describe('#regressions', function() {
     }
   });
 
-  // Skipped for now as mocha does not allow gracefully handling
-  //  uncaught exceptions
-  it.skip('JSCBC-24', function(done) {
+  it('JSCBC-24', function(done) {
     var cb = H.newClient();
 
-    var d = require('domain').create();
-    d.on('error', function(err) {
-      if (err.message!='expected-error') {
-        throw err;
+    // Wrapping of Unhandle Exceptions to disable mocha's default ones
+    var ueListeners = process.listeners('uncaughtException');
+    process.removeAllListeners('uncaughtException');
+    function restoreListeners() {
+      process.removeAllListeners('uncaughtException');
+      for (var i = 0; i < ueListeners.length; ++i) {
+        process.on('uncaughtException', ueListeners[i]);
       }
-      done();
+    }
+
+    // Add our own timer to kill the test before mocha's timeout
+    //  so we have a chance to restore the exception handling appropriately.
+    this.timeout(5000);
+    setTimeout(function() {
+      restoreListeners();
+      throw new Error('did not receive expected thrown exception');
+    }, 2000);
+
+    // Set up our own exception listener so we can see when our
+    //  expected exception occurs.
+    process.on('uncaughtException', function(e) {
+      restoreListeners();
+      if (e.message !== 'expected-error') {
+        // Emit to the restored listeners
+        process.emit('uncaughtException', e);
+      } else {
+        done();
+      }
     });
 
-    d.run(function() {
-      var testkey = "18-cb-error.js";
-      cb.get(testkey, function(err, result) {
-        throw new Error('expected-error');
-      });
+    // Perform an operation and throw inside the callback, this should
+    //  propagate to the main scope as uncaught.
+    var testkey = H.genKey('jscbc-24');
+    cb.get(testkey, function(err, result) {
+      throw new Error('expected-error');
     });
   });
 
