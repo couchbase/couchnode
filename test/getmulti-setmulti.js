@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#getMulti/setMulti', function() {
 
   it('should work in basic cases', function(done) {
+    var cb = H.client;
     var calledTimes = 0;
     var keys = [];
     var values = {};
@@ -47,6 +46,7 @@ describe('#getMulti/setMulti', function() {
   });
 
   it('should fail with an invalid key', function(done) {
+    var cb = H.client;
     var badKey = H.genKey("test-multiget-error");
     var goodKey = H.genKey("test-multiget-spooled");
     var goodValue = 'foo';

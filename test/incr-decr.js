@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#incr/decr', function() {
 
   it('should work with basic inputs', function(done) {
+    var cb = H.client;
     var key = H.genKey("incrdecr1");
 
     cb.remove(key, function(err) {
@@ -25,6 +24,7 @@ describe('#incr/decr', function() {
   });
 
   it('should work with offsets', function(done) {
+    var cb = H.client;
     var key = H.genKey("incrdecr2");
 
     cb.remove(key, function(){
@@ -42,6 +42,7 @@ describe('#incr/decr', function() {
   });
 
   it('should work with default values', function(done) {
+    var cb = H.client;
     var key = H.genKey("incrdecr3");
 
       cb.remove(key, function(){
@@ -59,6 +60,7 @@ describe('#incr/decr', function() {
   });
 
   it('should work with expiries', function(done) {
+    var cb = H.client;
     this.timeout(3000);
 
     var key = H.genKey("incrdecr4");

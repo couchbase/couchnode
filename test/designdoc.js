@@ -4,11 +4,10 @@ var H = require('../test_harness.js');
 var async = require('async');
 var u = require("underscore");
 
-var cb = H.newClient();
-
 describe('#design documents', function() {
 
   it('should successfully manipulate design documents', function(done) {
+    var cb = H.client;
     this.timeout(5000);
 
     var docname = H.genKey("dev_ddoc-test");
@@ -47,6 +46,7 @@ describe('#design documents', function() {
   });
 
   it('should successfully page results', function(done) {
+    var cb = H.client;
     this.timeout(15000);
 
     var docname = H.genKey("querytest");
@@ -154,6 +154,7 @@ describe('#design documents', function() {
   });
 
   it('should work with queries', function(done) {
+    var cb = H.client;
     this.timeout(25000);
 
     var docname = H.genKey("querytest");
@@ -430,6 +431,7 @@ describe('#design documents', function() {
   });
 
   it('should successfully see new keys?', function(done) {
+    var cb = H.client;
     this.timeout(15000);
 
     var testkey = H.genKey('dd-views');
@@ -441,10 +443,10 @@ describe('#design documents', function() {
       // view to be generated (since we're trying to look
       // for our key and it may not be in the view yet due
       // to race conditions..
-      var params =  {key : testkey, full_set : "true", stale : "false"};
+      var params =  {key : testkey, full_set : true, stale : false};
       var q = cb.view(designdoc, "test-view", params);
       q.query(function(err, results) {
-        if (err) {
+        if (err || results.length === 0) {
           // Lets assume that the view isn't created yet... try again..
           process.nextTick(function(){
             do_run_view(cb);
@@ -462,7 +464,7 @@ describe('#design documents', function() {
       });
     }
 
-    cb.set(testkey, "bar", H.okCallback(function(doc) {
+    cb.set(testkey, {x:"bar"}, H.okCallback(function(doc) {
       var ddoc = {"views": {"test-view": {
         "map": "function(doc,meta){if(meta.id=='"+testkey+"'){emit(meta.id);}}"
       }}};

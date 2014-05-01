@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
-describe.skip('#query', function() {
+(H.supportsN1ql ? describe : describe.skip)('#query', function() {
 
   it('should execute a raw query successfully', function(done) {
+    var cb = H.client;
     cb.query('SELECT * FROM default', function(err, res) {
       assert(!err, 'Failed to execute query.');
       assert(res, 'No results returned.');
@@ -14,6 +13,7 @@ describe.skip('#query', function() {
   });
 
   it('should handle raw query errors correctly', function(done) {
+    var cb = H.client;
     cb.query('SELECT * FROM invalid_bucket', function(err, res) {
       assert(err, 'Query should have failed');
       done();
@@ -21,6 +21,7 @@ describe.skip('#query', function() {
   });
 
   it('should execute formated query strings correctly', function(done) {
+    var cb = H.client;
     cb.query('SELECT * FROM ??', ['default'], function(err, res) {
       assert(!err, 'Failed to execute query.');
       assert(res, 'No results returned.');

@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#lock/unlock', function() {
 
   it('should deny second lock', function(done) {
+    var cb = H.client;
     var testkey1 = H.genKey('lock1');
 
     cb.set(testkey1, "{bar}", H.okCallback(function(result) {
@@ -21,6 +20,7 @@ describe('#lock/unlock', function() {
   });
 
   it('should unlock after expiry', function(done) {
+    var cb = H.client;
     this.timeout(3000);
 
     var testkey2 = H.genKey("lock2");
@@ -39,6 +39,7 @@ describe('#lock/unlock', function() {
   });
 
   it('should not affect normal gets', function(done) {
+    var cb = H.client;
     var testkey3 = H.genKey("lock3");
 
     cb.set(testkey3, "{bat}", H.okCallback(function() {
@@ -52,6 +53,7 @@ describe('#lock/unlock', function() {
   });
 
   it('should affect normal sets', function(done) {
+    var cb = H.client;
     var testkey4 = H.genKey("lock4");
 
     cb.set(testkey4, "{bam}", H.okCallback(function(result) {
@@ -66,6 +68,7 @@ describe('#lock/unlock', function() {
   });
 
   it('shouldnt block block sets with cas', function(done) {
+    var cb = H.client;
     var testkey5 = H.genKey("lock5");
 
     cb.set(testkey5, "{bark}", H.okCallback(function(result) {
@@ -83,6 +86,7 @@ describe('#lock/unlock', function() {
   });
 
   it('should properly unlock locked keys', function(done) {
+    var cb = H.client;
     var testkey6 = H.genKey("lock6");
 
     cb.set(testkey6, "{boo}", H.okCallback(function(result) {

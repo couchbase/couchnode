@@ -5,6 +5,9 @@ var couchbase = require('./lib/couchbase.js'),
   util = require('util');
 var assert = require('assert');
 
+var configReady = false;
+var supportsN1ql = false;
+
 var config;
 var configFilename = 'config.json';
 
@@ -14,7 +17,7 @@ if (fs.existsSync(configFilename)) {
   config = {
     mock : false,
     host : 'localhost:8091',
-    queryhosts : 'localhost:8093',
+    queryhosts : '',
     bucket : 'default',
     operationTimeout : 20000,
     connectionTimeout : 20000
@@ -40,9 +43,26 @@ if (config.mock) {
 var isMock = config.mock;
 delete config.mock;
 
+// Use direct setup for the moment.
+supportsN1ql = config.queryhosts !== '';
+configReady = true;
 
 function Harness(callback) {
-  this.client = this.newClient();
+  // This is so we do late-creation of clients...
+  var self = this;
+  Object.defineProperty(this, 'client', {
+    get : function() {
+      if (!self._client) {
+        self._client = self.newClient();
+      }
+      return self._client;
+    },
+    enumerable: true,
+    configurable: false,
+    writeable: false
+  });
+
+  this.supportsN1ql = supportsN1ql;
   this.lib = couchbase;
   this.errors = couchbase.errors;
   this.format = couchbase.format;
@@ -50,6 +70,9 @@ function Harness(callback) {
 }
 
 Harness.prototype.newClient = function(callback) {
+  if (!configReady) {
+    throw new Error('newClient before config was ready');
+  }
   return new couchbase.Connection(config, callback);
 };
 

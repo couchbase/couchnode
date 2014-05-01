@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#prepend/append', function() {
 
   it('should fail to prepend to missing key', function(done) {
+    var cb = H.client;
     var key = H.genKey("append");
 
     cb.remove(key, function(){});
@@ -17,6 +16,7 @@ describe('#prepend/append', function() {
   });
 
   it('should fail to append to missing key', function(done) {
+    var cb = H.client;
     var key = H.genKey("prepend");
     cb.remove(key, function(){});
     cb.prepend(key, 'willnotwork', function(err, result){

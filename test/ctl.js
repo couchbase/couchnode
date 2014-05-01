@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#ctl', function() {
 
   it('should return vBucket mapping for keys', function(done) {
+    var cb = H.client;
     var key = H.genKey("ctlMsssssap");
     cb.set(key, "blah", H.okCallback(function(){
       var res = cb.vbMappingInfo(key);
@@ -17,6 +16,7 @@ describe('#ctl', function() {
   });
 
   it('should return proper client version', function(done) {
+    var cb = H.client;
     var vresult = cb.clientVersion;
     assert.equal(typeof vresult, 'object');
     assert.equal(vresult.length, 2);

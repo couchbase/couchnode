@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#remove', function() {
 
   it('should work with basic inputs', function(done) {
+    var cb = H.client;
     var key = H.genKey();
 
     cb.set(key, "a value", H.okCallback(function(result){
@@ -21,6 +20,7 @@ describe('#remove', function() {
   });
 
   it('should work with cas values', function(done) {
+    var cb = H.client;
     var key = H.genKey();
     var value = "Value";
 
@@ -37,6 +37,7 @@ describe('#remove', function() {
   });
 
   it('should fail for non-existent keys', function(done) {
+    var cb = H.client;
     var key = H.genKey();
     var value = "some value";
 
@@ -51,6 +52,7 @@ describe('#remove', function() {
   });
 
   it('should work with multiple values', function(done) {
+    var cb = H.client;
     var kv = H.genMultiKeys(10, "removeMulti");
 
     cb.setMulti(kv, {spooled: true}, H.okCallback(function(results){

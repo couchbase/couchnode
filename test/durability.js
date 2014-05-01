@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#durability', function() {
 
   it('should successfully observe', function(done) {
+    var cb = H.client;
     var key = H.genKey("observe");
 
     cb.set(key, "value", H.okCallback(function(result){
@@ -22,6 +21,7 @@ describe('#durability', function() {
   // skip because durability requirements does not currently work property
   it('should successfully set with durability requirements',
       function(done) {
+    var cb = H.client;
     var key = H.genKey("endure");
 
     cb.set(key, "value", {persist_to:1, replicate_to:0},

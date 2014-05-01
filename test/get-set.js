@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#get/set', function() {
 
   it('should work in basic cases', function(done) {
+    var cb = H.client;
     var key = H.genKey("set");
     cb.set(key, "bar", H.okCallback(function(firstresult){
       // nothing broke
@@ -28,6 +27,7 @@ describe('#get/set', function() {
   });
 
   it('should work when passing json strings', function(done) {
+    var cb = H.client;
     var key = H.genKey("set-json");
     cb.set(key, JSON.stringify({foo: "bar"}), H.okCallback(function(){
       cb.set(key, JSON.stringify({foo: "baz"}), H.okCallback(function(){
@@ -40,6 +40,7 @@ describe('#get/set', function() {
   });
 
   it('should work when passing large values', function(done) {
+    var cb = H.client;
     var key = H.genKey("set-big");
 
     var value = "";
@@ -56,6 +57,7 @@ describe('#get/set', function() {
   });
 
   it('should convert objects to json and back', function(done) {
+    var cb = H.client;
     var key = H.genKey("set-format");
 
     H.setGet(key, {foo: "bar"}, function(doc) {
@@ -65,6 +67,7 @@ describe('#get/set', function() {
   });
 
   it('should round-trip Unicode values', function(done) {
+    var cb = H.client;
     var key = H.genKey("set-unicode");
     var value = ['☆'];
 
@@ -75,6 +78,7 @@ describe('#get/set', function() {
   });
 
   it('should return raw string when using format option', function(done) {
+    var cb = H.client;
     var value = [1,2,3,4,5,6];
     var key = H.genKey("set-raw");
 
@@ -87,6 +91,7 @@ describe('#get/set', function() {
   });
 
   it('should properly handle setting raw strings', function(done) {
+    var cb = H.client;
     var value = "hello";
     var key = H.genKey("set-json-strings");
 
@@ -102,6 +107,7 @@ describe('#get/set', function() {
   });
 
   it('should handle setting unencodable values', function(done) {
+    var cb = H.client;
     var value = [1,2,3,4];
     var key = H.genKey("set-utf8-unconvertible");
 
@@ -112,6 +118,7 @@ describe('#get/set', function() {
   });
 
   it('should round-trip raw Buffers', function(done) {
+    var cb = H.client;
     var buf = new Buffer([0, 1, 2]);
     // \x00, \x01, \x02
     var key = H.genKey("set-raw-format");
@@ -128,6 +135,7 @@ describe('#get/set', function() {
   });
 
   it('should allow overriding of flags', function(done) {
+    var cb = H.client;
     var value = {val:"value"};
     var key = H.genKey("set-flags-override");
 
@@ -143,6 +151,7 @@ describe('#get/set', function() {
   });
 
   it('should expire values correct', function(done) {
+    var cb = H.client;
     this.timeout(3000);
 
     var value = {val:"value"};
@@ -163,6 +172,7 @@ describe('#get/set', function() {
   });
 
   it('should touch on get with expiry', function(done) {
+    var cb = H.client;
     this.timeout(3000);
 
     var value = {val:"value"};

@@ -1,11 +1,10 @@
 var assert = require('assert');
 var H = require('../test_harness.js');
 
-var cb = H.newClient();
-
 describe('#replace', function() {
 
   it('should work with basic inputs', function(done) {
+    var cb = H.client;
     var testkey = H.genKey("replace");
 
     cb.remove(testkey, function(){
