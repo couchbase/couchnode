@@ -95,6 +95,7 @@ static void failout_single_request(lcb_server_t *server,
     case PROTOCOL_BINARY_CMD_GATQ:
     case PROTOCOL_BINARY_CMD_GET:
     case PROTOCOL_BINARY_CMD_GETQ:
+    case CMD_GET_REPLICA:
         setup_lcb_get_resp_t(&resp.get, keyptr, nkey, NULL, 0, 0, 0, 0);
         TRACE_GET_END(req->request.opaque, ntohs(req->request.vbucket),
                       req->request.opcode, error, &resp.get);
@@ -251,7 +252,7 @@ static void failout_single_request(lcb_server_t *server,
 
 }
 
-static void purge_single_server(lcb_server_t *server, lcb_error_t error,
+static unsigned purge_single_server(lcb_server_t *server, lcb_error_t error,
                                 hrtime_t min_nonstale,
                                 hrtime_t *tmo_next)
 {
@@ -261,6 +262,7 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
     char *packet;
     lcb_size_t packetsize;
     char *keyptr;
+    int npurged = 0;
     ringbuffer_t rest;
     ringbuffer_t *stream = &server->cmd_log;
     ringbuffer_t *cookies;
@@ -303,10 +305,9 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
             break;
         }
         if (min_nonstale && ct.start >= min_nonstale) {
-            lcb_log(LOGARGS(server, INFO),
-                    "Still have %d ms remaining for command",
-                    (ct.start - min_nonstale) / 1000000);
-
+            if (npurged) {
+                lcb_log(LOGARGS(server, INFO), "Still have %d ms remaining for command", (ct.start - min_nonstale) / 1000000);
+            }
             if (tmo_next) {
                 *tmo_next = (ct.start - min_nonstale) + 1;
             }
@@ -319,6 +320,7 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
                 error,
                 server->curhost.host,
                 server->curhost.port);
+        npurged++;
 
         ringbuffer_consumed(cookies, sizeof(ct));
 
@@ -390,6 +392,7 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
 
     ringbuffer_destruct(&rest);
     lcb_maybe_breakout(server->instance);
+    return npurged;
 }
 
 void lcb_purge_single_server(lcb_server_t *server, lcb_error_t error)
@@ -416,11 +419,11 @@ void lcb_timeout_server(lcb_server_t *server)
 {
     hrtime_t now, min_valid, next_ns = 0;
     lcb_uint32_t next_us;
+    unsigned npurged;
 
-    LOG(server, ERR, "Server timed out");
-    lcb_bootstrap_errcount_incr(server->instance);
-
+    lcb_log(LOGARGS(server, TRACE), "Timeout handler invoked for server. This may be OK");
     if (!server->connection_ready) {
+        lcb_bootstrap_errcount_incr(server->instance);
         lcb_failout_server(server, LCB_ETIMEDOUT);
         return;
     }
@@ -430,7 +433,7 @@ void lcb_timeout_server(lcb_server_t *server)
     /** The oldest valid command timestamp */
     min_valid = now - ((hrtime_t)MCSERVER_TIMEOUT(server)) * 1000;
 
-    purge_single_server(server, LCB_ETIMEDOUT, min_valid, &next_ns);
+    npurged = purge_single_server(server, LCB_ETIMEDOUT, min_valid, &next_ns);
     if (next_ns) {
         next_us = (lcb_uint32_t) (next_ns / 1000);
 
@@ -438,12 +441,15 @@ void lcb_timeout_server(lcb_server_t *server)
         next_us = MCSERVER_TIMEOUT(server);
     }
 
-    lcb_log(LOGARGS(server, INFO),
-            "%p, Scheduling next timeout for %d ms",
-            server,
-            next_us / 1000);
-
-    lcb_timer_rearm(server->io_timer, next_us);
+    lcb_log(LOGARGS(server, TRACE), "%p, Scheduling next timeout for %d ms", server, next_us / 1000);
+    if (npurged) {
+        lcb_log(LOGARGS(server, ERR), "Server timed out. Operations have failed. Incrementing error count");
+        lcb_bootstrap_errcount_incr(server->instance);
+    }
+    if (server->cmd_log.nbytes) {
+        lcb_log(LOGARGS(server, DEBUG), "Rearming timeouts since commands are in the queue");
+        lcb_timer_rearm(server->io_timer, next_us);
+    }
     lcb_maybe_breakout(server->instance);
 }
 

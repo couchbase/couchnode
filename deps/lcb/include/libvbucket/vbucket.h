@@ -390,6 +390,16 @@ extern "C" {
     VBUCKET_CHANGE_STATUS vbucket_what_changed(VBUCKET_CONFIG_DIFF *diff);
 
     /**
+     * @brief Get the revision number of the config
+     * @param vb the config
+     * @return the revision or -1 if not present
+     *
+     * This function will return -1 if using a server < 2.5
+     */
+    LIBVBUCKET_PUBLIC_API
+    int vbucket_config_get_revision(VBUCKET_CONFIG_HANDLE vb);
+
+    /**
      * @}
      */
 

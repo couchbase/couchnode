@@ -316,6 +316,14 @@ void lcb_clconfig_decref(clconfig_info *info)
 
 int lcb_clconfig_compare(const clconfig_info *a, const clconfig_info *b)
 {
+    /** First check if both have revisions */
+    int rev_a, rev_b;
+    rev_a = vbucket_config_get_revision(a->vbc);
+    rev_b = vbucket_config_get_revision(b->vbc);
+    if (rev_a >= 0  && rev_b >= 0) {
+        return rev_a - rev_b;
+    }
+
     if (a->cmpclock == b->cmpclock) {
         return 0;
 

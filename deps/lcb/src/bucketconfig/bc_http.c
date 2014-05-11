@@ -67,13 +67,24 @@ static lcb_error_t io_error(http_provider *http, lcb_error_t origerr)
     lcb_error_t err;
     lcb_conn_params params;
     char *errinfo;
+    int can_retry = 0;
 
     close_current(http);
 
     params.timeout = PROVIDER_SETTING(&http->base, config_node_timeout);
     params.handler = connect_done_handler;
-    err = lcb_connection_next_node(&http->connection,
-                                   http->nodes, &params, &errinfo);
+
+    if (http->base.parent->config) {
+        can_retry = 1;
+    } else if (origerr != LCB_AUTH_ERROR && origerr != LCB_BUCKET_ENOENT) {
+        can_retry = 1;
+    }
+    if (can_retry) {
+        err = lcb_connection_next_node(
+                &http->connection, http->nodes, &params, &errinfo);
+    } else {
+        err = origerr;
+    }
 
     if (err != LCB_SUCCESS) {
         lcb_confmon_provider_failed(&http->base, origerr);

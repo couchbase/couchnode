@@ -40,11 +40,14 @@ extern "C" {
     /* For backwards compatibility mode */
     typedef enum lcb_compat_t lcb_cluster_t;
 
+    #define lcb_create_compat(type, specific, instance, io) \
+        lcb__create_compat_230(type, specific, instance, io)
+
     LIBCOUCHBASE_API
-    lcb_error_t lcb_create_compat(lcb_compat_t type,
-                                  const void *specific,
-                                  lcb_t *instance,
-                                  struct lcb_io_opt_st *io);
+    lcb_error_t lcb__create_compat_230(lcb_compat_t type,
+                                       const void *specific,
+                                       lcb_t *instance,
+                                       struct lcb_io_opt_st *io);
 
     struct lcb_memcached_st {
         const char *serverlist;
@@ -53,8 +56,8 @@ extern "C" {
     };
 
     struct lcb_cached_config_st {
-        struct lcb_create_st createopt;
         const char *cachefile;
+        struct lcb_create_st createopt;
     };
 
 #ifdef __cplusplus

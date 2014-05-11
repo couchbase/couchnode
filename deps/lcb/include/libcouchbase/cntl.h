@@ -441,6 +441,7 @@ extern "C" {
      */
 #define LCB_CNTL_CONFIG_CCCP_NODES 0x1E
 
+
     /**
      * Get the current SCM changeset for the library binary
      * Arg: char** to contain the resultant string. This string must not be
@@ -448,8 +449,35 @@ extern "C" {
      */
 #define LCB_CNTL_CHANGESET 0x1F
 
+    /**
+     * Set the config nodes for the relevant providers. This is passed an
+     * lcb_create_st_v2 structure which is used to initialize
+     * the providers. Useful if you wish to reinitialize or modify the
+     * provider settings _after_ the instance itself has already been
+     * constructed.
+     *
+     * Note that the username, password, bucket, and io fields are
+     * ignored.
+     *
+     * Arg: lcb_create_st2 (<libcouchbase/arguments.h>)
+     */
+#define LCB_CNTL_CONFIG_ALL_NODES 0x20
+
+    /**
+     * Set/Get the file used for the configuration cache. The configuration
+     * cache allows to bootstrap from a cluster without using the initial
+     * bootstrap connection, considerably reducing latency. If the file passed
+     * does not exist, the normal bootstrap process is performed and the file
+     * is written to with the current information.
+     *
+     * Configuration cache is not supported for memcached buckets
+     *
+     * Arg: char* (for set), char** (for get)
+     */
+#define LCB_CNTL_CONFIGCACHE 0x21
+
     /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x20
+#define LCB_CNTL__MAX                    0x22
 
 
 #ifdef __cplusplus

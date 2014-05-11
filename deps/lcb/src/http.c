@@ -400,7 +400,6 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
     lcb_http_method_t method;
     int chunked;
     lcb_error_t rc;
-    lcb_host_t *resthost;
 
     switch (instance->type) {
     case LCB_TYPE_CLUSTER:
@@ -472,13 +471,20 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
     }
     break;
     case LCB_HTTP_TYPE_MANAGEMENT:
-        resthost = lcb_confmon_get_rest_host(instance->confmon);
-        nbase = strlen(resthost->host) + strlen(resthost->port) + 2;
+    {
+        const char *tmphost = lcb_get_host(instance);
+        const char *tmpport = lcb_get_port(instance);
+        if (tmphost == NULL || *tmphost == '\0' ||
+                tmpport == NULL || *tmpport == '\0') {
+            return lcb_synchandler_return(instance, LCB_CLIENT_ETMPFAIL);
+        }
+
+        nbase = strlen(tmphost) + strlen(tmpport) + 2;
         base = calloc(nbase, sizeof(char));
         if (!base) {
             return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
         }
-        if (snprintf(base, nbase, "%s:%s", resthost->host, resthost->port) < 0) {
+        if (snprintf(base, nbase, "%s:%s", tmphost, tmpport) < 0) {
             return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
         }
         nbase -= 1; /* skip '\0' */
@@ -487,6 +493,7 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
             password = strdup(instance->settings.password);
         }
         break;
+    }
     case LCB_HTTP_TYPE_RAW:
         base = (char *)cmd->v.v1.host;
         nbase = strlen(base);

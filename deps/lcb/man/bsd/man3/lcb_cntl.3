@@ -2,12 +2,12 @@
 .\"     Title: lcb_cntl
 .\"    Author: Trond Norbye <trond.norbye@couchbase.com>
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 04/01/2014
+.\"      Date: 05/01/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LCB_CNTL" "3" "04/01/2014" "\ \&" "\ \&"
+.TH "LCB_CNTL" "3" "05/01/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -975,6 +975,11 @@ The configuration stream is not kept alive indefinitely\&. It is kept open for t
 .\}
 If the stream is broken (and no current refresh was requested by the client) then a new stream is not opened\&.
 .RE
+.RE
+.PP
+\fBLCB_CNTL_CONFIGCACHE\fR \fI(char*)\fR
+.RS 4
+Set the configuration cache file to be used\&. Only call this before lcb_connect()\&. See lcb_create_compat(3) and <libcouchbase/cntl\&.h> for more information\&.
 .RE
 .SH "RETURN VALUE"
 .sp

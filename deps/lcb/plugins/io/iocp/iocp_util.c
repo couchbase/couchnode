@@ -78,7 +78,6 @@ int iocp_w32err_2errno(DWORD error)
 
     default:
         IOCP_LOG(IOCP_WARN, "Unknown error code %d.", (int)error);
-        abort();
         return EINVAL;
     }
 

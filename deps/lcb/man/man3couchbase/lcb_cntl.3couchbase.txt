@@ -539,6 +539,11 @@ valid SASL mechanism.
      - If the stream is broken (and no current refresh was requested by the
        client) then a new stream is not opened.
 
+*LCB_CNTL_CONFIGCACHE* '(char*)'::
+
+    Set the configuration cache file to be used. Only call this before lcb_connect().
+    See lcb_create_compat(3) and <libcouchbase/cntl.h> for more information.
+
 RETURN VALUE
 ------------
 

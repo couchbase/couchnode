@@ -59,6 +59,7 @@ struct vbucket_config_st {
     int num_vbuckets;
     int num_servers;
     int num_replicas;
+    int rev;
     char *user;
     char *password;
     int num_continuum;                      /* count of continuum points */
@@ -526,6 +527,12 @@ static int parse_cjson(VBUCKET_CONFIG_HANDLE handle, cJSON *config)
         handle->errmsg = strdup("Expected string for nodeLocator");
         return -1;
     }
+    json = cJSON_GetObjectItem(config, "rev");
+    if (json && json->type == cJSON_Number) {
+        handle->rev = json->valueint;
+    } else {
+        handle->rev = -1;
+    }
 
     return 0;
 }
@@ -912,4 +919,10 @@ void vbucket_free_diff(VBUCKET_CONFIG_DIFF *diff) {
     free_array_helper(diff->servers_added);
     free_array_helper(diff->servers_removed);
     free(diff);
+}
+
+LIBVBUCKET_PUBLIC_API
+int vbucket_config_get_revision(VBUCKET_CONFIG_HANDLE vb)
+{
+    return vb->rev;
 }

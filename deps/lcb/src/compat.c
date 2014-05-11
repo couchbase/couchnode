@@ -35,10 +35,10 @@ static lcb_error_t create_cached_compat(const struct lcb_cached_config_st *cfg,
                                         struct lcb_io_opt_st *io);
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_create_compat(lcb_cluster_t type,
-                              const void *specific,
-                              lcb_t *instance,
-                              struct lcb_io_opt_st *io)
+lcb_error_t lcb__create_compat_230(lcb_cluster_t type,
+                                   const void *specific,
+                                   lcb_t *instance,
+                                   struct lcb_io_opt_st *io)
 {
     switch (type) {
     case LCB_MEMCACHED_CLUSTER:
@@ -187,99 +187,99 @@ static lcb_error_t create_memcached_config(const struct lcb_memcached_st *user,
     return LCB_SUCCESS;
 }
 
-static const char *get_tmp_dir(void)
-{
-    const char *ret;
-    if ((ret = getenv("TMPDIR")) != NULL) {
-        return ret;
-    } else if ((ret = getenv("TEMPDIR")) != NULL) {
-        return ret;
-    } else if ((ret = getenv("TEMP")) != NULL) {
-        return ret;
-    } else if ((ret = getenv("TMP")) != NULL) {
-        return ret;
-    }
-
-    return NULL;
-}
-
-static char *mkcachefile(const char *name, const char *bucket)
-{
-    if (name != NULL) {
-        return strdup(name);
-    } else {
-        char buffer[1024];
-        const char *tmpdir = get_tmp_dir();
-
-        snprintf(buffer, sizeof(buffer),
-                 "%s/%s", tmpdir ? tmpdir : ".", bucket);
-        return strdup(buffer);
-    }
-}
-
 static lcb_error_t create_cached_compat(const struct lcb_cached_config_st *cfg,
                                         lcb_t *instance,
                                         struct lcb_io_opt_st *io)
 {
-    lcb_error_t rc;
-    lcb_t inst;
-    const char *bucket;
-    struct lcb_create_st cst;
-    clconfig_provider *file_provider;
-    char *filename;
+    struct lcb_create_st cst = { 0 };
+    const struct lcb_create_st *crp = &cfg->createopt;
+    lcb_error_t err;
+    lcb_size_t to_copy = 0;
+
+    if (crp->version == 0) {
+        to_copy = sizeof(cst.v.v0);
+    } else if (crp->version == 1) {
+        to_copy = sizeof(cst.v.v1);
+    } else if (crp->version >= 2) {
+        to_copy = sizeof(cst.v.v2);
+    }
+    memcpy(&cst, crp, to_copy);
+
+    if (io) {
+        cst.v.v0.io = io;
+    }
+    err = lcb_create(instance, &cst);
+    if (err != LCB_SUCCESS) {
+        return err;
+    }
+    err = lcb_cntl(*instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE,
+                   (void *)cfg->cachefile);
+    if (err != LCB_SUCCESS) {
+        lcb_destroy(*instance);
+    }
+    return err;
+}
 
 
-    switch (cfg->createopt.version) {
-    case 0:
-        bucket = cfg->createopt.v.v0.bucket;
-        break;
-    case 1:
-        bucket = cfg->createopt.v.v1.bucket;
-        break;
-    case 2:
-        bucket = cfg->createopt.v.v2.bucket;
-        break;
-    default:
+struct compat_220 {
+    struct {
+        int version;
+        struct lcb_create_st1 v1;
+    } createopt;
+    const char *cachefile;
+};
+
+struct compat_230 {
+    struct {
+        int version;
+        struct lcb_create_st2 v2;
+    } createopt;
+    const char *cachefile;
+};
+
+#undef lcb_create_compat
+
+/**
+ * This is _only_ called for versions <= 2.3.0.
+ * >= 2.3.0 uses the _230() symbol.
+ *
+ * The big difference between this and the _230 function is the struct layout,
+ * where the newer one contains the filename _before_ the creation options.
+ *
+ * Woe to he who relies on the compat_st as a 'subclass' of create_st..
+ */
+
+LIBCOUCHBASE_API
+lcb_error_t lcb_create_compat(lcb_cluster_t type,
+                               const void *specific,
+                               lcb_t *instance,
+                               struct lcb_io_opt_st *io);
+LIBCOUCHBASE_API
+lcb_error_t lcb_create_compat(lcb_cluster_t type,
+                              const void *specific,
+                              lcb_t *instance,
+                              struct lcb_io_opt_st *io)
+{
+    struct lcb_cached_config_st dst;
+    const struct compat_220* src220 = specific;
+
+    if (type == LCB_MEMCACHED_CLUSTER) {
+        return lcb__create_compat_230(type, specific, instance, io);
+    } else if (type != LCB_CACHED_CONFIG) {
         return LCB_NOT_SUPPORTED;
     }
 
-    if (bucket == NULL) {
-        bucket = "default";
+#define copy_compat(v) \
+    memcpy(&dst.createopt, &v->createopt, sizeof(v->createopt)); \
+    dst.cachefile = v->cachefile;
+
+    if (src220->createopt.version >= 2 || src220->cachefile == NULL) {
+        const struct compat_230* src230 = specific;
+        copy_compat(src230);
+    } else {
+        copy_compat(src220);
     }
 
-    memcpy(&cst, &cfg->createopt, sizeof(cst));
-    if (cst.v.v0.io == NULL) {
-        cst.v.v0.io = io;
-    }
+    return lcb__create_compat_230(type, &dst, instance, io);
 
-    rc = lcb_create(instance, &cst);
-    if (rc != LCB_SUCCESS) {
-        return rc;
-    }
-
-    (*instance)->settings.bc_http_stream_time = LCB_MS2US(10000);
-    file_provider = lcb_confmon_get_provider((*instance)->confmon,
-                                             LCB_CLCONFIG_FILE);
-
-    filename = mkcachefile(cfg->cachefile, bucket);
-    if (filename == NULL) {
-        lcb_destroy(*instance);
-        *instance = NULL;
-        return LCB_CLIENT_ENOMEM;
-    }
-
-    lcb_clconfig_file_set_filename(file_provider, filename);
-    free(filename);
-
-    inst = *instance;
-    inst->compat.type = LCB_CACHED_CONFIG;
-    inst->compat.value.cached.cachefile = mkcachefile(cfg->cachefile, bucket);
-
-    if (inst->compat.value.cached.cachefile == NULL) {
-        lcb_destroy(*instance);
-        *instance = NULL;
-        return LCB_CLIENT_ENOMEM;
-    }
-
-    return LCB_SUCCESS;
 }

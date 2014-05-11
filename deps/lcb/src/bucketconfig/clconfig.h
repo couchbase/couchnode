@@ -413,6 +413,13 @@ void lcb_clconfig_decref(clconfig_info *info);
 int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f);
 
 /**
+ * Retrieve the filename for the provider
+ * @param p The provider of type LCB_CLCONFIG_FILE
+ * @return the current filename being used.
+ */
+const char * lcb_clconfig_file_get_filename(clconfig_provider *p);
+
+/**
  * Writes the configuration data within 'data' to the file in the provider.
  * If the file provider is not enabled, this does nothing.
  */

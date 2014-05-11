@@ -273,6 +273,36 @@ clconfig_provider * lcb_clconfig_create_file(lcb_confmon *parent)
     return &provider->base;
 }
 
+static const char *get_tmp_dir(void)
+{
+    const char *ret;
+    if ((ret = getenv("TMPDIR")) != NULL) {
+        return ret;
+    } else if ((ret = getenv("TEMPDIR")) != NULL) {
+        return ret;
+    } else if ((ret = getenv("TEMP")) != NULL) {
+        return ret;
+    } else if ((ret = getenv("TMP")) != NULL) {
+        return ret;
+    }
+
+    return NULL;
+}
+
+static char *mkcachefile(const char *name, const char *bucket)
+{
+    if (name != NULL) {
+        return strdup(name);
+    } else {
+        char buffer[1024];
+        const char *tmpdir = get_tmp_dir();
+
+        snprintf(buffer, sizeof(buffer),
+                 "%s/%s", tmpdir ? tmpdir : ".", bucket);
+        return strdup(buffer);
+    }
+}
+
 int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f)
 {
     file_provider *provider = (file_provider *)p;
@@ -283,6 +313,13 @@ int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f)
         free(provider->filename);
     }
 
-    provider->filename = strdup(f);
+    provider->filename = mkcachefile(f, p->parent->settings->bucket);
     return 0;
+}
+
+const char *
+lcb_clconfig_file_get_filename(clconfig_provider *p)
+{
+    file_provider *fp = (file_provider *)p;
+    return fp->filename;
 }

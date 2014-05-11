@@ -30,6 +30,7 @@
 #include <float.h>
 #include <limits.h>
 #include <ctype.h>
+#include <assert.h>
 #include "cJSON.h"
 
 static int cJSON_strcasecmp(const char *s1,const char *s2)
@@ -137,6 +138,7 @@ static void cJSON_Destroy_Pool(cJSON_Pool *pool)
         cJSON_free(cur);
         cur = next;
     }
+    cJSON_free(pool);
 }
 
 /* allocate new item from a pool */
@@ -160,6 +162,7 @@ static void cJSON_Pool_Free_Item(cJSON_Pool *pool, cJSON *node)
 {
     /* Note that this code intentially does not return the item
         to the pool if we are destroying the pool anyways. */
+    assert(pool->refcount);
     if (--pool->refcount == 0) {
         cJSON_Destroy_Pool(pool);
     } else {

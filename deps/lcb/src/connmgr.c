@@ -38,7 +38,7 @@ static void destroy_cinfo(connmgr_cinfo *info)
     info->parent->n_total--;
 
     if (info->state == CS_IDLE) {
-        lcb_list_delete(&info->llnode);
+        lcb_clist_delete(&info->parent->ll_idle, &info->llnode);
     }
 
     lcb_timer_destroy(NULL, info->idle_timer);
@@ -92,7 +92,7 @@ static void iterfunc(const void *k,
         destroy_cinfo(info);
     }
 
-    memset(&he->ll_idle, 0, sizeof(he->ll_idle));
+    lcb_clist_init(&he->ll_idle);
     lcb_clist_append(he_list, (lcb_list_t *)&he->ll_idle);
 
     (void)k;

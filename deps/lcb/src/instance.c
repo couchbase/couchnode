@@ -78,7 +78,7 @@ static const char *get_rest_param(lcb_t obj, int paramtype)
 
     /** Don't have a REST API connection? */
     if (obj->vbucket_config) {
-        lcb_server_t *server = obj->servers + (gethrtime() % obj->nservers);
+        lcb_server_t *server = obj->servers;
         if (paramtype == PARAM_CONFIG_HOST) {
             ret = param_from_host(&server->curhost, paramtype);
             if (ret) {
@@ -185,8 +185,8 @@ const void *lcb_get_cookie(lcb_t instance)
 }
 
 
-static lcb_error_t init_providers(lcb_t obj,
-                             const struct lcb_create_st2 *e_options)
+lcb_error_t lcb_init_providers(lcb_t obj,
+                               const struct lcb_create_st2 *e_options)
 {
     hostlist_t mc_nodes;
     lcb_error_t err;
@@ -239,9 +239,12 @@ static lcb_error_t init_providers(lcb_t obj,
     if (http_enabled) {
         lcb_clconfig_http_enable(http);
         lcb_clconfig_http_set_nodes(http, obj->usernodes);
+    } else {
+        lcb_confmon_set_provider_active(obj->confmon, LCB_CLCONFIG_HTTP, 0);
     }
 
     if (!cccp_enabled) {
+        lcb_confmon_set_provider_active(obj->confmon, LCB_CLCONFIG_CCCP, 0);
         return LCB_SUCCESS;
     }
 
@@ -426,7 +429,7 @@ lcb_error_t lcb_create(lcb_t *instance,
         return err;
     }
 
-    err = init_providers(obj, e_options);
+    err = lcb_init_providers(obj, e_options);
     if (err != LCB_SUCCESS) {
         lcb_destroy(obj);
         return err;

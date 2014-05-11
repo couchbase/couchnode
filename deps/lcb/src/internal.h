@@ -596,6 +596,9 @@ extern "C" {
 
     void lcb_bootstrap_destroy(lcb_t instance);
 
+    lcb_error_t lcb_init_providers(lcb_t obj,
+                                   const struct lcb_create_st2 *e_options);
+
 
 #ifdef __cplusplus
 }

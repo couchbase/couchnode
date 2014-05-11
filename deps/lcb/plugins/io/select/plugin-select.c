@@ -91,7 +91,6 @@ static int getError(lcb_socket_t sock)
         return ECONNREFUSED;
 
     default:
-        abort();
         return EINVAL;
     }
 
@@ -490,10 +489,7 @@ static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
     s_event_t *ev;
     lcb_list_t *ii;
 
-    fd_set readfds[FD_SETSIZE];
-    fd_set writefds[FD_SETSIZE];
-    fd_set exceptfds[FD_SETSIZE];
-
+    fd_set readfds, writefds, exceptfds;
 
     io->event_loop = 1;
     do {
@@ -501,27 +497,31 @@ static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
         int ret;
         int nevents = 0;
         int has_timers;
+        lcb_socket_t fdmax = 0;
         hrtime_t now;
 
         t = NULL;
         now = gethrtime();
 
-        FD_ZERO(readfds);
-        FD_ZERO(writefds);
-        FD_ZERO(exceptfds);
+        FD_ZERO(&readfds);
+        FD_ZERO(&writefds);
+        FD_ZERO(&exceptfds);
 
         LCB_LIST_FOR(ii, &io->events.list) {
             ev = LCB_LIST_ITEM(ii, s_event_t, list);
             if (ev->flags != 0) {
                 if (ev->flags & LCB_READ_EVENT) {
-                    FD_SET(ev->sock, readfds);
+                    FD_SET(ev->sock, &readfds);
                 }
 
                 if (ev->flags & LCB_WRITE_EVENT) {
-                    FD_SET(ev->sock, writefds);
+                    FD_SET(ev->sock, &writefds);
                 }
 
-                FD_SET(ev->sock, exceptfds);
+                FD_SET(ev->sock, &exceptfds);
+                if (ev->sock > fdmax) {
+                    fdmax = ev->sock;
+                }
                 ++nevents;
             }
         }
@@ -538,7 +538,7 @@ static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
         }
 
         if (nevents) {
-            ret = select(FD_SETSIZE, readfds, writefds, exceptfds, t);
+            ret = select(fdmax + 1, &readfds, &writefds, &exceptfds, t);
             if (ret == SOCKET_ERROR) {
                 return;
             }
@@ -576,13 +576,13 @@ static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
                 ev = LCB_LIST_ITEM(ii, s_event_t, list);
                 if (ev->flags != 0) {
                     ev->eflags = 0;
-                    if (FD_ISSET(ev->sock, readfds)) {
+                    if (FD_ISSET(ev->sock, &readfds)) {
                         ev->eflags |= LCB_READ_EVENT;
                     }
-                    if (FD_ISSET(ev->sock, writefds)) {
+                    if (FD_ISSET(ev->sock, &writefds)) {
                         ev->eflags |= LCB_WRITE_EVENT;
                     }
-                    if (FD_ISSET(ev->sock, exceptfds)) {
+                    if (FD_ISSET(ev->sock, &exceptfds)) {
                         ev->eflags = LCB_ERROR_EVENT | LCB_RW_EVENT; /** It should error */
                     }
                     if (ev->eflags != 0) {

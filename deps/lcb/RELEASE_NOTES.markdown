@@ -3,6 +3,74 @@
 This document is a list of user visible feature changes and important
 bugfixes. Do not forget to update this doc in every important patch.
 
+## 2.3.1 (2014-05-08)
+
+* [major] CCBC-404: Segfault in `connmgr_invoke_request`
+  Occasionally a segmentation fault would happen when a connection was being
+  released as a result of a connection failure. This was because of invalid
+  list tracking.
+
+* [major] CCBC-395: Add `lcb_cntl()` interface for configuration cache
+  Configuration cache options may be set after instantiation using `lcb_cntl()`
+  with the new `LCB_CNTL_CONFIGCACHE` operation. The old-style `lcb_create_compat`
+  creation path is deprecated.
+
+* [major] CCBC-394: Get-with-replica occasionally crashes on Windows and UV
+  during topology changes. This was due to not allocating a buffer if one did
+  not exist.
+
+* [major] CCBC-392: ABI compatibility broken between 2.x and 2.3 for
+  `lcb_create_compat`. This has been fixed by symbol aliasing between versions.
+  Developers are recommended to use the `lcb_cntl()` API to set the
+  configuration cache, as specified in CCBC-395
+
+* [major] CCBC-385: Failed assertion on get-with-replica when connection fails.
+  If a connection fails with a `CMD_GET_REPLICA` command still in the queue an
+  assertion failure will crash the library. This has been fixed by handling the
+  opcode in the `failout_single_request` function.
+
+* [major] CCBC-384: Unknown Winsock error codes crash application. This was fixed
+  by providing proper handlers for Winsock codes which were not explicitly
+  converted into their POSIX equivalents.
+
+* [major] CCBC-376: Fix memory leak in configuration parsing. A leak was
+  introduced in version 2.3.0 by not freeing the JSON pool structure. This has
+  been fixed in 2.3.1
+
+* [minor] CCBC-370: `lcb_get_host` and `lcb_get_port` may return host-port
+  combinations from different servers. If multiple servers are listening on
+  different ports this may result in yielding an invalid endpoint by combining
+  the output from those two functions. This has been fixed in 2.3.1 by returning
+  the host and port from the first host, in lieu of a currently-connected REST
+  endpoint.
+
+* [minor] CCBC-368: Initial bootstrapping failure may mask `LCB_BUCKET_ENOENT`
+  calls with `LCB_ETIMEDOUT`. This has been fixed by not retrying configuration
+  retrieval if an explicit HTTP 404 code is received. Note that when using
+  bootstrap over memcached, a missing bucket may still be manifest as
+  `LCB_AUTH_ERROR`.
+
+* [minor] CCBC-367: Ensure `lcb_get_host` does not return `NULL` when the
+  associated `lcb_t` is of `LCB_TYPE_CLUSTER`. This would cause crashes in some
+  applications which relied on this function to not return `NULL`.
+
+* [major] CCBC-389: Fixed Spurious timeouts being delivered in asynchronous
+  use cases.
+  In applications which do not use `lcb_wait()` the library will potentially
+  time out commands internally triggering an erroneous configuration refresh.
+  While this issue would not end up failing operations it will cause unnecessary
+  network traffic for retrieving configurations. Applications using `lcb_wait()`
+  are not affected as that function resets the timeout handler.
+
+* [major] CCBC-332, CCBC-364: Compare configuration revision information
+  for memcached cluster bootstrap. Previously we would refresh the
+  configuration upon receipt
+  of any new configuration update from memcached. This is fixed in 2.3.1 where
+  the configuration will only be applied if it is deemed to be newer than the
+  current configuration. With memcached bootstrap this is only true if the
+  configuration's `rev` field is higher than the current one.
+
+
 ## 2.3.0 GA (2014-04-07)
 
 * [major] CCBC-152: Provide a master-only observe option. This adds a new
