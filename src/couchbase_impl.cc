@@ -227,10 +227,11 @@ NAN_METHOD(CouchbaseImpl::New)
     if (argv[4].size() <= 0) {
         err = lcb_create(&instance, &createOptions);
     } else {
-        lcb_cached_config_st cacheConfig = {
-            createOptions,
-            argv[4].c_str()
-        };
+        lcb_cached_config_st cacheConfig;
+        memset(&cacheConfig, 0, sizeof(cacheConfig));
+        cacheConfig.createopt = createOptions;
+        cacheConfig.cachefile = argv[4].c_str();
+
         err = lcb_create_compat(
             LCB_CACHED_CONFIG,
             &cacheConfig,
