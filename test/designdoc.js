@@ -454,7 +454,7 @@ describe('#design documents', function() {
         } else {
           assert(!err, "error fetching view");
           assert(results.length === 1);
-          assert.equal(testkey, results[0].key);
+          assert.equal(testkey, results[0].id);
           cb.removeDesignDoc(designdoc, function() {
             cb.remove(testkey, function(err, result) {
               done();
@@ -477,6 +477,60 @@ describe('#design documents', function() {
           do_run_view(cb);
         });
       });
+    }));
+  });
+
+  it('should successfully perform spatial queries?', function(done) {
+    var cb = H.client;
+    this.timeout(25000);
+
+    var testkey1 = H.genKey('dd-spatial');
+    var testkey2 = H.genKey('dd-spatial');
+    var designdoc = H.genKey("dev_test-spatial");
+
+    function do_run_view(cb) {
+      // now lets find our key in the view.
+      // We need to add stale=false in order to force the
+      // view to be generated (since we're trying to look
+      // for our key and it may not be in the view yet due
+      // to race conditions..
+      var params =  {bbox : [0,0,180,90], stale : false, spatial : true};
+      var q = cb.view(designdoc, "test-view", params);
+      q.query(function(err, results) {
+        if (err || results.length === 0) {
+          // Lets assume that the view isn't created yet... try again..
+          process.nextTick(function(){
+            do_run_view(cb);
+          });
+        } else {
+          assert(!err, "error fetching view");
+          assert(results.length === 1);
+          assert.equal(testkey1, results[0].id);
+          cb.removeDesignDoc(designdoc, function() {
+            cb.remove(testkey1, function(err, result) {
+              cb.remove(testkey2, function(err, result) {
+                done();
+              });
+            });
+          });
+        }
+      });
+    }
+
+    cb.set(testkey1, {loc:[122.270833, 37.804444]}, H.okCallback(function(doc) {
+      cb.set(testkey2, {loc: [-122.270833, 37.804444]}, H.okCallback(function (doc) {
+        var ddoc = {"spatial": {"test-view": "function(doc,meta){if(meta.id==='"+testkey1+"'||meta.id==='"+testkey2+"'){emit({type: 'Point',coordinates: doc.loc},[meta.id, doc.loc]);}}"
+        }};
+        cb.removeDesignDoc(designdoc, function () {
+          cb.setDesignDoc(designdoc, ddoc, function (err, data) {
+            assert(!err, "error creating design document");
+            // The ns_server API is async here for some reason,
+            // so the view may not be ready to use yet...
+            // Try to poll the vire
+            do_run_view(cb);
+          });
+        });
+      }));
     }));
   });
 
