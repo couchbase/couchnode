@@ -263,18 +263,35 @@ for (var i = 0; i < globalConfig.maxClients; i++) {
 }
 
 /** OUTPUT:
- mnunberg@csure:~/src/couchnode$ time node memdbench.js memcached
-Elapsed: 12.706; Ops=99283 [7814]/S
+ * Note that for accurate results, you should run the test with both libraries
+ * against a memcached bucket. Ensure that the bucket has a "Dedicated Port" so
+ * that the eden memcached client can connect to it.
+ *
+mnunberg@csure:~/src/couchnode$ node ./benchmarks/memdbench.js --lib couchbase --bucket memd --max-operations 1000000
+Connected!.256; Ops=0 [0]/S                    
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Connected!
+Elapsed: 38.878; Ops=997880 [25667]/S                    
 Done!
 
-real	0m12.850s
-user	0m10.549s
-sys	0m2.368s
-mnunberg@csure:~/src/couchnode$ time node memdbench.js
-Elapsed: 4.842; Ops=99850 [20622]/S
+mnunberg@csure:~/src/couchnode$ node ./benchmarks/memdbench.js --lib memcached --memcached-port 11212 --max-operations 1000000
+Elapsed: 80.76; Ops=999004 [12370]/S                     
 Done!
-
-real	0m4.915s
-user	0m3.356s
-sys	0m1.576s
 **/
