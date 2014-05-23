@@ -123,6 +123,11 @@ bool ValueFormat::encode(Handle<Value> input,
                          size_t *n,
                          CBExc &ex)
 {
+    if (input.IsEmpty()) {
+        ex.eArguments("Did not pass a value");
+        return false;
+    }
+
     if (spec == INVALID) {
         ex.eArguments("Passed an invalid specifier");
         return false;

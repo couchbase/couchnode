@@ -45,6 +45,20 @@ describe('#getMulti/setMulti', function() {
     cb.setMulti(values, { spooled: false }, setHandler);
   });
 
+  it('should fail with a missing value', function(done) {
+    var cb = H.client;
+    var badOpts = {
+      'a': {
+        'b': 'c'
+      }
+    };
+
+    cb.setMulti(badOpts, {}, function(err, res) {
+      assert(err, "Should fail argument checks");
+      done();
+    });
+  });
+
   it('should fail with an invalid key', function(done) {
     var cb = H.client;
     var badKey = H.genKey("test-multiget-error");
