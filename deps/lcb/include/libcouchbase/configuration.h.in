@@ -15,12 +15,6 @@
  *   limitations under the License.
  */
 
-/**
- * This just contains the proper version/release information for the current
- * build.
- *
- * @author Trond Norbye
- */
 #ifndef LIBCOUCHBASE_CONFIGURATION_H
 #define LIBCOUCHBASE_CONFIGURATION_H 1
 #define LCB_VERSION_STRING "@LCB_VERSION@"

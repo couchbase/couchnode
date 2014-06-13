@@ -65,6 +65,32 @@ extern "C" {
     typedef time_t lcb_time_t;
 #endif
 
+typedef lcb_int64_t lcb_S64; /**< @brief Signed 64 bit type */
+typedef lcb_uint64_t lcb_U64; /**< @brief Unsigned 64 bit type */
+typedef lcb_uint32_t lcb_U32; /**< @brief Unsigned 32 bit type */
+typedef lcb_int32_t lcb_S32; /**< @brief Signed 32 bit type */
+typedef lcb_uint16_t lcb_U16; /**< @brief Unsigned 16 bit type */
+typedef lcb_uint8_t lcb_U8; /**< @brief unsigned 8 bit type */
+typedef lcb_size_t lcb_SIZE; /**< @brief Unsigned size type */
+typedef lcb_ssize_t lcb_SSIZE; /**<@brief Signed size type */
+typedef lcb_time_t lcb_SECS; /**< @brief Unsigned 'seconds time' type */
+typedef lcb_cas_t lcb_CAS;
+
+#ifdef __GNUC__
+#define LCB_DEPRECATED(X) X __attribute__((deprecated))
+    #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)
+    #define LCB_DEPRECATED2(X, reason) X __attribute__((deprecated(reason)))
+    #else
+    #define LCB_DEPRECATED2(X, reason) LCB_DEPRECATED(X)
+    #endif
+#elif defined(_MSC_VER)
+#define LCB_DEPRECATED(X) __declspec(deprecated) X
+#define LCB_DEPRECATED2(X, reason) __declspec(deprecated(reason)) X
+#else
+#define LCB_DEPRECATED(X) X
+#define LCB_DEPRECATED2(X, reason)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -17,12 +17,11 @@
 
 #include "internal.h"
 #include "clconfig.h"
-#define LOGARGS(mon, lvlbase) \
-    mon->settings, "confmon", LCB_LOG_##lvlbase, __FILE__, __LINE__
+#define LOGARGS(mon, lvlbase) mon->settings, "confmon", LCB_LOG_##lvlbase, __FILE__, __LINE__
+#define LOG(mon, lvlbase, msg) lcb_log(mon->settings, "confmon", LCB_LOG_##lvlbase, __FILE__, __LINE__, msg)
 
-#define LOG(mon, lvlbase, msg) lcb_log(LOGARGS(mon, lvlbase), msg)
-static void async_stop(lcb_timer_t tm, lcb_t i, const void *cookie);
-static void async_start(lcb_timer_t tm, lcb_t i, const void *cookie);
+static void async_stop(void *);
+static void async_start(void *);
 static int do_next_provider(lcb_confmon *mon);
 static void invoke_listeners(lcb_confmon *mon,
                              clconfig_event_t event,
@@ -45,15 +44,25 @@ static clconfig_provider *first_active(lcb_confmon *mon)
     return LCB_LIST_ITEM(mon->active_providers.next, clconfig_provider, ll);
 }
 
-lcb_confmon* lcb_confmon_create(lcb_settings *settings)
+static const char *
+provider_string(clconfig_method_t type) {
+    if (type == LCB_CLCONFIG_HTTP) { return "HTTP"; }
+    if (type == LCB_CLCONFIG_CCCP) { return "CCCP"; }
+    if (type == LCB_CLCONFIG_FILE) { return "FILE"; }
+    return "";
+}
+
+lcb_confmon* lcb_confmon_create(lcb_settings *settings, lcbio_pTABLE iot)
 {
     int ii;
     lcb_confmon * mon = calloc(1, sizeof(*mon));
     mon->settings = settings;
+    mon->iot = iot;
     lcb_list_init(&mon->listeners);
     lcb_clist_init(&mon->active_providers);
+    lcbio_table_ref(mon->iot);
+    lcb_settings_ref(mon->settings);
 
-    LOG(mon, TRACE, "Creating monitor...");
     mon->all_providers[LCB_CLCONFIG_FILE] = lcb_clconfig_create_file(mon);
     mon->all_providers[LCB_CLCONFIG_CCCP] = lcb_clconfig_create_cccp(mon);
     mon->all_providers[LCB_CLCONFIG_HTTP] = lcb_clconfig_create_http(mon);
@@ -62,12 +71,8 @@ lcb_confmon* lcb_confmon_create(lcb_settings *settings)
     for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
         mon->all_providers[ii]->parent = mon;
     }
-
-    mon->as_stop = lcb_timer_create_simple(settings->io, mon, 0, async_stop);
-    mon->as_start = lcb_timer_create_simple(settings->io, mon, 0, async_start);
-    lcb_timer_disarm(mon->as_stop);
-    lcb_timer_disarm(mon->as_start);
-
+    mon->as_stop = lcbio_timer_new(iot, mon, async_stop);
+    mon->as_start = lcbio_timer_new(iot, mon, async_start);
     return mon;
 }
 
@@ -80,17 +85,18 @@ void lcb_confmon_prepare(lcb_confmon *mon)
 
     for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
         clconfig_provider *cur = mon->all_providers[ii];
-        if (cur == NULL || cur->enabled == 0) {
-            continue;
+        if (cur) {
+            if (cur->enabled) {
+                lcb_clist_append(&mon->active_providers, &cur->ll);
+                lcb_log(LOGARGS(mon, DEBUG), "Provider %s is ENABLED", provider_string(cur->type));
+            } else if (cur->pause){
+                cur->pause(cur);
+                lcb_log(LOGARGS(mon, DEBUG), "Provider %s is DISABLED", provider_string(cur->type));
+            }
         }
-
-        lcb_clist_append(&mon->active_providers, &cur->ll);
     }
 
     lcb_assert(LCB_CLIST_SIZE(&mon->active_providers));
-    lcb_log(LOGARGS(mon, DEBUG), "Have %d providers enabled",
-            LCB_CLIST_SIZE(&mon->active_providers));
-
     mon->cur_provider = first_active(mon);
 }
 
@@ -99,11 +105,11 @@ void lcb_confmon_destroy(lcb_confmon *mon)
     unsigned int ii;
 
     if (mon->as_start) {
-        lcb_async_destroy(NULL, mon->as_start);
+        lcbio_timer_destroy(mon->as_start);
     }
 
     if (mon->as_stop) {
-        lcb_async_destroy(NULL, mon->as_stop);
+        lcbio_timer_destroy(mon->as_stop);
     }
 
     mon->as_start = NULL;
@@ -124,11 +130,16 @@ void lcb_confmon_destroy(lcb_confmon *mon)
         mon->all_providers[ii] = NULL;
     }
 
+    lcbio_table_unref(mon->iot);
+    lcb_settings_unref(mon->settings);
+
     free(mon);
 }
 
 static int do_set_next(lcb_confmon *mon, clconfig_info *info, int notify_miss)
 {
+    unsigned ii;
+
     if (mon->config) {
         VBUCKET_CHANGE_STATUS chstatus = VBUCKET_NO_CHANGES;
         VBUCKET_CONFIG_DIFF *diff = vbucket_compare(mon->config->vbc, info->vbc);
@@ -148,15 +159,19 @@ static int do_set_next(lcb_confmon *mon, clconfig_info *info, int notify_miss)
         }
     }
 
-    lcb_log(LOGARGS(mon, INFO),
-            "Setting new configuration of type %d", info->origin);
+    lcb_log(LOGARGS(mon, INFO), "Setting new configuration. Received via %s", provider_string(info->origin));
 
     if (mon->config) {
         /** DECREF the old one */
         lcb_clconfig_decref(mon->config);
     }
 
-    lcb_confmon_set_nodes(mon, NULL, info->vbc);
+    for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
+        clconfig_provider *cur = mon->all_providers[ii];
+        if (cur && cur->enabled && cur->config_updated) {
+            cur->config_updated(cur, info->vbc);
+        }
+    }
 
     lcb_clconfig_incref(info);
     mon->config = info;
@@ -172,11 +187,10 @@ void lcb_confmon_provider_failed(clconfig_provider *provider,
 {
     lcb_confmon *mon = provider->parent;
 
-    lcb_log(LOGARGS(mon, INFO), "Provider [%d] failed", provider->type);
+    lcb_log(LOGARGS(mon, INFO), "Provider '%s' failed", provider_string(provider->type));
 
     if (provider != mon->cur_provider) {
-        lcb_log(LOGARGS(mon, TRACE),
-                "Ignoring failure. Current=%p", mon->cur_provider);
+        lcb_log(LOGARGS(mon, TRACE), "Ignoring failure. Current=%p (%s)", (void*)mon->cur_provider, provider_string(mon->cur_provider->type));
         return;
     }
 
@@ -193,7 +207,7 @@ void lcb_confmon_provider_failed(clconfig_provider *provider,
         lcb_confmon_stop(mon);
     } else {
         mon->state |= CONFMON_S_ITERGRACE;
-        lcb_timer_rearm(mon->as_start, mon->settings->grace_next_provider);
+        lcbio_timer_rearm(mon->as_start, mon->settings->grace_next_provider);
     }
 }
 
@@ -226,25 +240,21 @@ static int do_next_provider(lcb_confmon *mon)
         }
     }
 
-    lcb_log(LOGARGS(mon, TRACE), "Current provider is %d",
-            mon->cur_provider->type);
+    lcb_log(LOGARGS(mon, TRACE), "Current provider is %s", provider_string(mon->cur_provider->type));
 
     mon->cur_provider->refresh(mon->cur_provider);
     return 0;
 }
 
-static void async_start(lcb_timer_t tm, lcb_t i, const void *cookie)
+static void async_start(void *arg)
 {
-    lcb_confmon *mon = (lcb_confmon *)cookie;
-    do_next_provider(mon);
-
-    (void)i; (void)tm;
+    do_next_provider(arg);
 }
 
 lcb_error_t lcb_confmon_start(lcb_confmon *mon)
 {
     lcb_uint32_t now_us, diff, tmonext;
-    lcb_async_cancel(mon->as_stop);
+    lcbio_async_cancel(mon->as_stop);
     if (IS_REFRESHING(mon)) {
         LOG(mon, DEBUG, "Refresh already in progress...");
         return LCB_SUCCESS;
@@ -263,13 +273,13 @@ lcb_error_t lcb_confmon_start(lcb_confmon *mon)
         tmonext = mon->settings->grace_next_cycle - diff;
     }
 
-    lcb_timer_rearm(mon->as_start, tmonext);
+    lcbio_timer_rearm(mon->as_start, tmonext);
     return LCB_SUCCESS;
 }
 
-static void async_stop(lcb_timer_t tm, lcb_t i, const void *cookie)
+static void async_stop(void *arg)
 {
-    lcb_confmon *mon = (lcb_confmon *)cookie;
+    lcb_confmon *mon = arg;
     lcb_list_t *ii;
 
     LCB_LIST_FOR(ii, (lcb_list_t *)&mon->active_providers) {
@@ -282,8 +292,6 @@ static void async_stop(lcb_timer_t tm, lcb_t i, const void *cookie)
 
     mon->last_stop_us = LCB_NS2US(gethrtime());
     invoke_listeners(mon, CLCONFIG_EVENT_MONITOR_STOPPED, NULL);
-    (void) i;
-    (void) tm;
 }
 
 lcb_error_t lcb_confmon_stop(lcb_confmon *mon)
@@ -291,8 +299,8 @@ lcb_error_t lcb_confmon_stop(lcb_confmon *mon)
     if (!IS_REFRESHING(mon)) {
         return LCB_SUCCESS;
     }
-    lcb_timer_disarm(mon->as_start);
-    lcb_async_signal(mon->as_stop);
+    lcbio_timer_disarm(mon->as_start);
+    lcbio_async_signal(mon->as_stop);
     mon->state = CONFMON_S_INACTIVE;
     return LCB_SUCCESS;
 }
@@ -308,8 +316,6 @@ void lcb_clconfig_decref(clconfig_info *info)
     if (info->vbc) {
         vbucket_config_destroy(info->vbc);
     }
-
-    lcb_string_release(&info->raw);
 
     free(info);
 }
@@ -334,9 +340,8 @@ int lcb_clconfig_compare(const clconfig_info *a, const clconfig_info *b)
     return 1;
 }
 
-clconfig_info * lcb_clconfig_create(VBUCKET_CONFIG_HANDLE config,
-                                    lcb_string *raw,
-                                    clconfig_method_t origin)
+clconfig_info *
+lcb_clconfig_create(VBUCKET_CONFIG_HANDLE config, clconfig_method_t origin)
 {
     clconfig_info *info = calloc(1, sizeof(*info));
     if (!info) {
@@ -344,69 +349,8 @@ clconfig_info * lcb_clconfig_create(VBUCKET_CONFIG_HANDLE config,
     }
     info->refcount = 1;
     info->vbc = config;
-    if (raw) {
-        lcb_string_transfer(raw, &info->raw);
-    }
     info->origin = origin;
     return info;
-}
-
-static hostlist_t hosts_from_config(VBUCKET_CONFIG_HANDLE config)
-{
-    hostlist_t ret;
-    int n_nodes = 0;
-    int ii;
-    int srvmax = vbucket_config_get_num_servers(config);
-
-    if (srvmax < 1) {
-        return NULL;
-    }
-
-    ret = hostlist_create();
-    for (ii = 0; ii < srvmax; ii++) {
-        const char *rest;
-        rest = vbucket_config_get_rest_api_server(config, ii);
-        if (hostlist_add_stringz(ret, rest, LCB_CONFIG_HTTP_PORT) == LCB_SUCCESS) {
-            n_nodes++;
-        }
-    }
-
-    if (!n_nodes) {
-        hostlist_destroy(ret);
-    }
-
-    return ret;
-
-}
-
-void lcb_confmon_set_nodes(lcb_confmon *mon,
-                           hostlist_t nodes,
-                           VBUCKET_CONFIG_HANDLE config)
-{
-    lcb_size_t ii;
-    int is_allocated = 0;
-
-    if (nodes == NULL) {
-        nodes = hosts_from_config(config);
-        if (nodes) {
-            is_allocated = 1;
-        }
-    }
-
-    for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
-        clconfig_provider *provider = mon->all_providers[ii];
-        if (provider == NULL || provider->enabled == 0) {
-            continue;
-        }
-        if (provider->nodes_updated == NULL) {
-            continue;
-        }
-        provider->nodes_updated(provider, nodes, config);
-    }
-
-    if (is_allocated) {
-        hostlist_destroy(nodes);
-    }
 }
 
 void lcb_confmon_add_listener(lcb_confmon *mon, clconfig_listener *listener)
@@ -458,31 +402,15 @@ int lcb_confmon_is_refreshing(lcb_confmon *mon)
 }
 
 LCB_INTERNAL_API
-void lcb_confmon_set_provider_active(lcb_confmon *mon,
-                                     clconfig_method_t type, int enabled)
+void
+lcb_confmon_set_provider_active(lcb_confmon *mon,
+    clconfig_method_t type, int enabled)
 {
-    int ii;
     clconfig_provider *provider = mon->all_providers[type];
     if (provider->enabled == enabled) {
         return;
     } else {
         provider->enabled = enabled;
-    }
-
-    /** Reset the current state */
-    mon->cur_provider = NULL;
-    lcb_clist_init(&mon->active_providers);
-
-    for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
-        clconfig_provider *pb = mon->all_providers[ii];
-        if (!pb) {
-            continue;
-        }
-
-        memset(&pb->ll, 0, sizeof(pb->ll));
-        if (pb->pause) {
-            pb->pause(pb);
-        }
     }
     lcb_confmon_prepare(mon);
 }

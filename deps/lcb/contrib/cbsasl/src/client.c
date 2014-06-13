@@ -190,7 +190,7 @@ cbsasl_error_t cbsasl_client_step(cbsasl_conn_t *conn,
         return SASL_NOMEM;
     }
 
-    hmac_md5((unsigned char*)serverin, serverinlen, pass->data,
+    cbsasl_hmac_md5((unsigned char*)serverin, serverinlen, pass->data,
              pass->len, digest);
     cbsasl_hex_encode(md5string, (char *) digest, DIGEST_LENGTH);
     memcpy(conn->c.client.userdata, usernm, usernmlen);

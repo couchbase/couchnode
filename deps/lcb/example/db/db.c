@@ -54,10 +54,12 @@ static void handle_sigint(int sig)
 #define INSTALL_SIGINT_HANDLER()
 #endif
 
-static void error_callback(lcb_t instance, lcb_error_t error, const char *errinfo)
+static void bootstrap_callback(lcb_t instance, lcb_error_t error)
 {
-    fprintf(stderr, "ERROR: %s (0x%x), %s\n",
-            lcb_strerror(instance, error), error, errinfo);
+    if (error == LCB_SUCCESS) {
+        return;
+    }
+    fprintf(stderr, "ERROR: %s (0x%x)\n", lcb_strerror(instance, error), error);
     exit(EXIT_FAILURE);
 }
 
@@ -141,7 +143,7 @@ int main(int argc, char *argv[])
                 lcb_strerror(NULL, err));
         exit(EXIT_FAILURE);
     }
-    (void)lcb_set_error_callback(instance, error_callback);
+    lcb_set_bootstrap_callback(instance, bootstrap_callback);
     /* Initiate the connect sequence in libcouchbase */
     if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
         fprintf(stderr, "Failed to initiate connect: %s\n",

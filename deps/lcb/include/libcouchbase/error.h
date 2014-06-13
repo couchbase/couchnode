@@ -16,9 +16,10 @@
  */
 
 /**
- * Definition of all of the error codes used by libcouchbase
+ * @file
+ * @brief
  *
- * @author Trond Norbye
+ * Definition of all of the error codes used by libcouchbase
  */
 #ifndef LIBCOUCHBASE_ERROR_H
 #define LIBCOUCHBASE_ERROR_H 1
@@ -27,33 +28,60 @@
 #error "Include libcouchbase/couchbase.h instead"
 #endif
 
+
+/**
+ * @ingroup LCB_PUBAPI
+ * @defgroup LCB_ERRORS Error Codes
+ * @brief Status codes returned by the library
+ *
+ * @addtogroup LCB_ERRORS
+ * @{
+ */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-    typedef enum {
-        /** Error type indicating a likely issue in user input */
-        LCB_ERRTYPE_INPUT = 1 << 0,
+/**
+ * @brief Error Categories
+ *
+ * These error categories are assigned as a series of OR'd bits to each
+ * of the error codes in lcb_error_t.
+ *
+ * @see lcb_get_errtype
+ */
+typedef enum {
+    /** Error type indicating a likely issue in user input */
+    LCB_ERRTYPE_INPUT = 1 << 0,
 
-        /** Error type indicating a likely network failure */
-        LCB_ERRTYPE_NETWORK = 1 << 1,
+    /** Error type indicating a likely network failure */
+    LCB_ERRTYPE_NETWORK = 1 << 1,
 
-        /** Error type indicating a fatal condition within the server or library */
-        LCB_ERRTYPE_FATAL = 1 << 2,
+    /** Error type indicating a fatal condition within the server or library */
+    LCB_ERRTYPE_FATAL = 1 << 2,
 
-        /** Error type indicating a transient condition within the server */
-        LCB_ERRTYPE_TRANSIENT = 1 << 3,
+    /** Error type indicating a transient condition within the server */
+    LCB_ERRTYPE_TRANSIENT = 1 << 3,
 
-        /** Error type indicating a negative server reply for the data */
-        LCB_ERRTYPE_DATAOP = 1 << 4,
+    /** Error type indicating a negative server reply for the data */
+    LCB_ERRTYPE_DATAOP = 1 << 4,
 
-        /** Error codes which should never be visible to the user */
-        LCB_ERRTYPE_INTERNAL = 1 << 5,
+    /** Error codes which should never be visible to the user */
+    LCB_ERRTYPE_INTERNAL = 1 << 5,
 
-        /** Error code indicating a plugin failure */
-        LCB_ERRTYPE_PLUGIN = 1 << 6
-    } lcb_errflags_t;
+    /** Error code indicating a plugin failure */
+    LCB_ERRTYPE_PLUGIN = 1 << 6
+} lcb_errflags_t;
 
+
+/**
+ * @brief XMacro for all error types
+ * @param X macro to be invoked for each function. This will accept the following
+ * arguments:
+ *  - Raw unquoted literal error identifier (e.g. `LCB_EINVAL`)
+ *  - Code for the error (e.g. `0x23`)
+ *  - Set of categories for the specific error (e.g. `LCB_ERRTYPE_FOO|LCB_ERRTYPE_BAR`)
+ *  - Quoted string literal describing the error (e.g. `"This is sad"`)
+ */
 #define LCB_XERR(X) \
     /** Success */ \
     X(LCB_SUCCESS, 0x00, 0, "Success (Not an error)") \
@@ -189,26 +217,67 @@ extern "C" {
     \
     X(LCB_TOO_MANY_REDIRECTS, 0x29, LCB_ERRTYPE_NETWORK, \
       "Maximum allowed number of redirects reached. See lcb_cntl and the "\
-      "LCB_CNTL_MAX_REDIRECTS option to modify this limit")
+      "LCB_CNTL_MAX_REDIRECTS option to modify this limit") \
+    \
+    X(LCB_MAP_CHANGED, 0x2A, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_TRANSIENT, \
+      "The cluster map has changed and this operation could not be completed " \
+      "or retried internally. Try this operation again") \
+    \
+    X(LCB_INCOMPLETE_PACKET, 0x2B, LCB_ERRTYPE_TRANSIENT|LCB_ERRTYPE_INPUT, \
+      "Incomplete packet was passed to forward function") \
+    \
+    X(LCB_UNFORWADABLE, 0x2C, LCB_ERRTYPE_INPUT, \
+      "Opcode provided in packet cannot be sent to the upstream server. The " \
+      "packet contains no inherent server mapping information (i.e. has no key) " \
+      "and/or depends on client-visible cluster topologies") \
+    \
+    X(LCB_ECONNREFUSED, 0x2D, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_TRANSIENT, \
+      "The remote host refused the connection. Is the service up?") \
+    \
+    X(LCB_ESOCKSHUTDOWN, 0x2E, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_TRANSIENT, \
+      "The remote host closed the connection") \
+    \
+    X(LCB_ECONNRESET, 0x2F, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_TRANSIENT, \
+      "The connection was forcibly reset by the remote host") \
+    \
+    X(LCB_ECANTGETPORT, 0x30, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_FATAL, \
+      "Could not assign a local port for this socket. For client sockets this means " \
+      "there are too many TCP sockets open") \
+    \
+    X(LCB_EFDLIMITREACHED, 0x31, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_FATAL, \
+      "The system or process has reached its maximum number of file descriptors") \
+    \
+    X(LCB_ENETUNREACH, 0x32, LCB_ERRTYPE_NETWORK|LCB_ERRTYPE_TRANSIENT, \
+      "The remote host was unreachable - is your network OK?") \
+    \
+    X(LCB_ECTL_UNKNOWN, 0x33, LCB_ERRTYPE_INPUT, \
+      "Control code passed was unrecognized") \
+    \
+    X(LCB_ECTL_UNSUPPMODE, 0x34, LCB_ERRTYPE_INPUT, \
+      "Invalid modifier for cntl operation (e.g. tried to read a write-only value") \
+    \
+    X(LCB_ECTL_BADARG, 0x35, LCB_ERRTYPE_INPUT, \
+      "Argument passed to cntl was badly formatted")
+
 
     /**
      * Define the error codes in use by the library
      */
     typedef enum {
-#define X(n, v, cls, s) n = v,
+    #define X(n, v, cls, s) n = v,
         LCB_XERR(X)
-#undef X
+    #undef X
 
-#ifdef LIBCOUCHBASE_INTERNAL
-        /**
-         * This is a private value used by the tests in libcouchbase
-         */
-        LCB_MAX_ERROR_VAL,
-#endif
+    #ifdef LIBCOUCHBASE_INTERNAL
+    /**
+     * This is a private value used by the tests in libcouchbase
+     */
+    LCB_MAX_ERROR_VAL,
+    #endif
 
-        /* The errors below this value reserver for libcouchbase usage. */
-        LCB_MAX_ERROR = 0x1000
-    } lcb_error_t;
+    /* The errors below this value reserver for libcouchbase usage. */
+    LCB_MAX_ERROR = 0x1000
+} lcb_error_t;
 
 
 #define lcb_is_error_enomem(a) ((a == LCB_CLIENT_ENOMEM) || \
@@ -217,17 +286,47 @@ extern "C" {
 #define lcb_is_error_etmpfail(a) ((a == LCB_CLIENT_ETMPFAIL) || \
                                   (a == LCB_ETMPFAIL))
 
+/** @brief If the error is a result of bad input */
 #define LCB_EIFINPUT(e) (lcb_get_errtype(e) & LCB_ERRTYPE_INPUT)
+
+/** @brief if the error is a result of a network condition */
 #define LCB_EIFNET(e) (lcb_get_errtype(e) & LCB_ERRTYPE_NETWORK)
+
+/** @brief if the error is fatal */
 #define LCB_EIFFATAL(e) (lcb_get_errtype(e) & LCB_ERRTYPE_FATAL)
+
+/** @brief if the error is transient */
 #define LCB_EIFTMP(e) (lcb_get_errtype(e) & LCB_ERRTYPE_TRANSIENT)
+
+/** @brief if the error is a routine negative server reply */
 #define LCB_EIFDATA(e) (lcb_get_errtype(e) & LCB_ERRTYPE_DATAOP)
+
+/** @brief if the error is a result of a plugin implementation */
 #define LCB_EIFPLUGIN(e) (lcb_get_errtype(e) & LCB_ERRTYPE_PLUGIN)
 
+/**
+ * @brief Get error categories for a specific code
+ * @param err the error received
+ * @return a set of flags containing the categories for the given error
+ * @committed
+ */
 LIBCOUCHBASE_API
 int lcb_get_errtype(lcb_error_t err);
+
+/**
+ * Get a textual descrtiption for the given error code
+ * @param instance the instance the error code belongs to (you might
+ *                 want different localizations for the different instances)
+ * @param error the error code
+ * @return A textual description of the error message. The caller should
+ *         <b>not</b> release the memory returned from this function.
+ * @committed
+ */
+LIBCOUCHBASE_API
+const char *lcb_strerror(lcb_t instance, lcb_error_t error);
 
 #ifdef __cplusplus
 }
 #endif
+/**@}*/
 #endif

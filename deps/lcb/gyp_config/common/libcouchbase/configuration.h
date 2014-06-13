@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2013 Couchbase, Inc.
+ *     Copyright 2010-2012 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,21 +15,66 @@
  *   limitations under the License.
  */
 
-/**
- * Settings detected at "configure" time that the source needs to be
- * aware of (on the client installation).
- *
- * @author Trond Norbye
- */
 #ifndef LIBCOUCHBASE_CONFIGURATION_H
 #define LIBCOUCHBASE_CONFIGURATION_H 1
 
-#ifndef LIBCOUCHBASE_COUCHBASE_H
-#error "Include libcouchbase/couchbase.h instead"
+/**
+ * @file
+ * Build and version information for the library
+ *
+ * @ingroup LCB_PUBAPI
+ * @defgroup LCB_BUILDINFO Build and version information for the library
+ * These functions and macros may be used to conditionally compile features
+ * depending on the version of the library being used. They may also be used
+ * to employ various features at runtime and to retrieve the version for
+ * informational purposes.
+ * @addtogroup LCB_BUILDINFO
+ * @{
+ */
+
+/** @brief libcouchbase version string */
+#define LCB_VERSION_STRING "2.4.0"
+
+/**@brief libcouchbase hex version
+ *
+ * This number contains the hexadecimal representation of the library version.
+ * It is in a format of `0xXXYYZZ` where `XX` is the two digit major version
+ * (e.g. `02`), `YY` is the minor version (e.g. `05`) and `ZZ` is the patch
+ * version (e.g. `24`).
+ *
+ * For example:
+ *
+ * String	|Hex
+ * ---------|---------
+ * 2.0.0	| 0x020000
+ * 2.1.3	| 0x020103
+ * 3.0.15	| 0x030015
+ */
+#define LCB_VERSION 0x020400
+
+/**@brief The SCM revision ID
+ * @see LCB_CNTL_CHANGESET
+ */
+#define LCB_VERSION_CHANGESET "unknown"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#define LCB_VERSION_STRING "2.2.0"
-#define LCB_VERSION 0x020200
-#define LCB_VERSION_CHANGESET "unknown"
-#define PACKAGE_STRING "libcouchbase 2.2.0"
+/**
+ * Get the version of the library.
+ *
+ * @param version where to store the numeric representation of the
+ *         version (or NULL if you don't care)
+ *
+ * @return the textual description of the version ('\0'
+ *          terminated). Do <b>not</b> try to release this string.
+ *
+ */
+LIBCOUCHBASE_API
+const char *lcb_get_version(lcb_uint32_t *version);
+#ifdef __cplusplus
+}
+#endif
+/**@}*/
 #endif

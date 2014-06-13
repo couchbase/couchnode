@@ -12,7 +12,7 @@ struct lcb_bootstrap_st {
 };
 
 #define LOGARGS(instance, lvl) \
-    &instance->settings, "bootstrap", LCB_LOG_##lvl, __FILE__, __LINE__
+    instance->settings, "bootstrap", LCB_LOG_##lvl, __FILE__, __LINE__
 
 static void async_step_callback(clconfig_listener *listener,
                                 clconfig_event_t event,
@@ -37,7 +37,7 @@ static void config_callback(clconfig_listener *listener,
 
     if (event != CLCONFIG_EVENT_GOT_NEW_CONFIG) {
         if (event == CLCONFIG_EVENT_PROVIDERS_CYCLED) {
-            if (!instance->vbucket_config) {
+            if (!LCBT_VBCONFIG(instance)) {
                 initial_bootstrap_error(instance,
                                         LCB_ERROR,
                                         "No more bootstrap providers remain");
@@ -69,13 +69,14 @@ static void config_callback(clconfig_listener *listener,
                     "Reverting to HTTP Config for memcached buckets");
 
             /** Memcached bucket */
-            instance->settings.bc_http_stream_time = -1;
+            instance->settings->bc_http_stream_time = -1;
             lcb_confmon_set_provider_active(instance->confmon,
                                             LCB_CLCONFIG_HTTP, 1);
 
             lcb_confmon_set_provider_active(instance->confmon,
                                             LCB_CLCONFIG_CCCP, 0);
         }
+        instance->callbacks.bootstrap(instance, LCB_SUCCESS);
     }
 
     lcb_maybe_breakout(instance);
@@ -100,6 +101,7 @@ static void initial_bootstrap_error(lcb_t instance,
         instance->bootstrap->timer = NULL;
     }
 
+    instance->callbacks.bootstrap(instance, instance->last_error);
     lcb_maybe_breakout(instance);
 }
 
@@ -156,7 +158,7 @@ static void async_step_callback(clconfig_listener *listener,
 
     lcb_log(LOGARGS(bs->parent, INFO), "Got async step callback..");
 
-    bs->timer = lcb_async_create(bs->parent->settings.io,
+    bs->timer = lcb_async_create(bs->parent->iotable,
                                  bs, async_refresh, &err);
 
     (void)info;
@@ -187,7 +189,7 @@ static lcb_error_t bootstrap_common(lcb_t instance, int initial)
         lcb_error_t err;
         bs->listener.callback = config_callback;
         bs->timer = lcb_timer_create(instance, NULL,
-                                     instance->settings.config_timeout, 0,
+                                     LCBT_SETTING(instance, config_timeout), 0,
                                      initial_timeout, &err);
         if (err != LCB_SUCCESS) {
             return err;
@@ -214,23 +216,19 @@ lcb_error_t lcb_bootstrap_refresh(lcb_t instance)
 
 void lcb_bootstrap_errcount_incr(lcb_t instance)
 {
-    int should_refresh = 0;
-    hrtime_t now = gethrtime();
+    lcb_SIZE errthresh;
+    hrtime_t now = gethrtime(), next_refresh_time;
+
+    errthresh = LCBT_SETTING(instance, weird_things_threshold);
     instance->weird_things++;
+    next_refresh_time = instance->bootstrap->last_refresh;
+    next_refresh_time += LCB_US2NS(LCBT_SETTING(instance, weird_things_delay));
 
-    if (now - instance->bootstrap->last_refresh >
-            LCB_US2NS(instance->settings.weird_things_delay)) {
-
+    if (now < next_refresh_time && instance->weird_things < errthresh) {
         lcb_log(LOGARGS(instance, INFO),
-                "Max grace period for refresh exceeded");
-        should_refresh = 1;
-    }
-
-    if (instance->weird_things == instance->settings.weird_things_threshold) {
-        should_refresh = 1;
-    }
-
-    if (!should_refresh) {
+            "Not requesting a config refresh because of throttling parameters. Next refresh possible in %ums or %u errors. "
+            "See LCB_CNTL_CONFDELAY_THRESH and LCB_CNTL_CONFERRTHRESH to modify the throttling settings",
+            LCB_NS2US(next_refresh_time-now)/1000, (unsigned)errthresh-instance->weird_things);
         return;
     }
 
@@ -252,4 +250,30 @@ void lcb_bootstrap_destroy(lcb_t instance)
     lcb_confmon_remove_listener(instance->confmon, &bs->listener);
     free(bs);
     instance->bootstrap = NULL;
+}
+
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_get_bootstrap_status(lcb_t instance)
+{
+    if (instance->cur_configinfo) {
+        return LCB_SUCCESS;
+    }
+    if (instance->last_error != LCB_SUCCESS) {
+        return instance->last_error;
+    }
+    if (instance->type == LCB_TYPE_CLUSTER) {
+        lcbio_SOCKET *restconn = lcb_confmon_get_rest_connection(instance->confmon);
+        if (restconn) {
+            return LCB_SUCCESS;
+        }
+    }
+    return LCB_ERROR;
+}
+
+LIBCOUCHBASE_API
+void
+lcb_refresh_config(lcb_t instance)
+{
+    lcb_bootstrap_refresh(instance);
 }

@@ -449,7 +449,7 @@ static lcb_error_t create_v1(lcb_io_opt_t *io,
         lcb_io_opt_t iop = *io;
         iop->dlhandle = plugin.dlhandle;
         /* check if plugin selected compatible version */
-        if (iop->version < 0 || iop->version > 1) {
+        if (iop->version < 0 || iop->version > 2) {
             lcb_destroy_io_ops(iop);
             return LCB_PLUGIN_VERSION_MISMATCH;
         }
@@ -469,7 +469,7 @@ static lcb_error_t create_v2(lcb_io_opt_t *io,
     } else {
         lcb_io_opt_t iop = *io;
         /* check if plugin selected compatible version */
-        if (iop->version < 0 || iop->version > 1) {
+        if (iop->version < 0 || iop->version > 2) {
             lcb_destroy_io_ops(iop);
             return LCB_PLUGIN_VERSION_MISMATCH;
         }

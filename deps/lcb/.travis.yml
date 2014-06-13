@@ -5,7 +5,7 @@ compiler:
   - gcc
 
 before_install:
-  - sudo apt-get -y install libgtest-dev
+  - sudo apt-get -y install libgtest-dev libssl-dev
   - export GTEST_ROOT=/usr/src/gtest
   - git config --global user.email "travis@localhost"
   - git config --global user.name "Travis CI"
@@ -13,10 +13,9 @@ before_install:
 
 script: |
   ./config/autorun.sh && \
-  ./configure --disable-plugins --enable-warnings && \
-  make check || cat ./check-all*.log || false
+  ./configure --disable-plugins --enable-warnings --enable-snappy=off && \
+  make check || cat ./check-all*.log
 
 notifications:
   email:
-    - sergey@couchbase.com
     - mark.nunberg@couchbase.com

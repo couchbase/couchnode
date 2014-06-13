@@ -81,7 +81,7 @@ cbsasl_error_t cram_md5_server_step(cbsasl_conn_t *conn,
         return SASL_FAIL;
     }
 
-    hmac_md5((unsigned char *)conn->c.server.sasl_data,
+    cbsasl_hmac_md5((unsigned char *)conn->c.server.sasl_data,
              conn->c.server.sasl_data_len,
              (unsigned char *)pass,
              strlen(pass), digest);

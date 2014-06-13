@@ -26,7 +26,7 @@
  * The code in this function is based on the code provided in rfc 2104.
  * http://www.ietf.org/rfc/rfc2104.txt
  */
-void hmac_md5(unsigned char *text,
+void cbsasl_hmac_md5(unsigned char *text,
               int text_len,
               unsigned char *key,
               int keylen,

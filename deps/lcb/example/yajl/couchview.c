@@ -314,7 +314,7 @@ static void data_callback(lcb_http_request_t request,
             unsigned char *str = yajl_get_error(c->parser, 1, bytes, nbytes);
             fprintf(stderr, "%s", (const char *) str);
             yajl_free_error(c->parser, str);
-            c->io->v.v0.stop_event_loop(c->io);
+            lcb_breakout(instance);
         }
     } else { /* end of response */
         st = yajl_complete_parse(c->parser);
@@ -329,10 +329,9 @@ static void data_callback(lcb_http_request_t request,
             fwrite(buf, 1, len, output);
             yajl_gen_clear(c->gen);
         }
-        c->io->v.v0.stop_event_loop(c->io);
+        lcb_breakout(instance);
     }
     (void)request;
-    (void)instance;
 }
 
 static void complete_callback(lcb_http_request_t request,
@@ -375,22 +374,9 @@ static void complete_callback(lcb_http_request_t request,
                 error, lcb_strerror(instance, error), resp->v.v0.status);
         fwrite(bytes, nbytes, 1, output);
     }
-    c->io->v.v0.stop_event_loop(c->io);
+    lcb_breakout(instance);
     (void)request;
     (void)instance;
-}
-
-static void error_callback(lcb_t instance,
-                           lcb_error_t error,
-                           const char *errinfo)
-{
-    (void)instance;
-    fprintf(stderr, "Error %d", error);
-    if (errinfo) {
-        fprintf(stderr, ": %s", errinfo);
-    }
-    fprintf(stderr, "\n");
-    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv)
@@ -446,7 +432,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    (void)lcb_set_error_callback(instance, error_callback);
     (void)lcb_set_http_data_callback(instance, data_callback);
     (void)lcb_set_http_complete_callback(instance, complete_callback);
 
@@ -457,6 +442,10 @@ int main(int argc, char **argv)
 
     // Wait for the connect to compelete
     lcb_wait(instance);
+    if (lcb_get_bootstrap_status(instance) != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to bootstrap cluster\n");
+        return 1;
+    }
 
     bytes = post_data;
     if (bytes) {
@@ -473,13 +462,13 @@ int main(int argc, char **argv)
     cmd.v.v0.content_type = "application/json";
     rc = lcb_make_http_request(instance, &cookie, LCB_HTTP_TYPE_VIEW, &cmd, NULL);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to execute view\n");
+        fprintf(stderr, "Failed to execute view (%s)\n", lcb_strerror(instance, rc));
         return 1;
     }
 
     /* Start the event loop and let it run until request will be completed
      * with success or failure (see view callbacks)  */
-    cookie.io->v.v0.run_event_loop(cookie.io);
+    lcb_wait(instance);
 
     yajl_free(cookie.parser);
     yajl_gen_free(cookie.gen);

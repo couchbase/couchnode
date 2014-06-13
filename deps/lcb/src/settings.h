@@ -6,16 +6,16 @@
  */
 
 /** Convert seconds to millis */
-#define LCB_S2MS(s) ((lcb_uint32_t)s) / 1000
+#define LCB_S2MS(s) ((lcb_uint32_t)s) * 1000
 
 /** Convert seconds to microseconds */
-#define LCB_S2US(s) ((lcb_uint32_t)s) / 1000000
+#define LCB_S2US(s) ((lcb_uint32_t)s) * 1000000
 
 /** Convert seconds to nanoseconds */
-#define LCB_S2NS(s) ((hrtime_t)s) / 1000000000
+#define LCB_S2NS(s) ((hrtime_t)s) * 1000000000
 
 /** Convert nanoseconds to microseconds */
-#define LCB_NS2US(s) (s) / 1000
+#define LCB_NS2US(s) (lcb_uint32_t) ((s) / 1000)
 
 #define LCB_MS2US(s) (s) * 1000
 
@@ -32,8 +32,6 @@
 #define LCB_DEFAULT_NODECONFIG_TIMEOUT LCB_MS2US(2000)
 
 #define LCB_DEFAULT_VIEW_TIMEOUT LCB_MS2US(75000)
-#define LCB_DEFAULT_RBUFSIZE 32768
-#define LCB_DEFAULT_WBUFSIZE 32768
 #define LCB_DEFAULT_DURABILITY_TIMEOUT LCB_MS2US(5000)
 #define LCB_DEFAULT_DURABILITY_INTERVAL LCB_MS2US(100)
 #define LCB_DEFAULT_HTTP_TIMEOUT LCB_MS2US(75000)
@@ -52,66 +50,104 @@
 /* Infinite (i.e. compat mode) */
 #define LCB_DEFAULT_BC_HTTP_DISCONNTMO -1
 
+/* 100ms */
+#define LCB_DEFAULT_RETRY_INTERVAL LCB_MS2US(100)
+
+/* 1.5x */
+#define LCB_DEFAULT_RETRY_BACKOFF 1.5
+
+#define LCB_DEFAULT_TOPORETRY LCB_RETRY_CMDS_ALL
+#define LCB_DEFAULT_NETRETRY LCB_RETRY_CMDS_ALL
+#define LCB_DEFAULT_NMVRETRY LCB_RETRY_CMDS_ALL
+#define LCB_DEFAULT_HTCONFIG_URLTYPE LCB_HTCONFIG_URLTYPE_TRYALL
+#define LCB_DEFAULT_COMPRESSOPTS LCB_COMPRESS_NONE
 
 #include "config.h"
 #include <libcouchbase/couchbase.h>
 
-struct lcb_io_opt_st;
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct lcb_logprocs_st;
+struct lcbio_SSLCTX;
+struct rdb_ALLOCATOR;
+
 /**
  * Stateless setting structure.
  * Specifically this contains the 'environment' of the instance for things
  * which are intended to be passed around to other objects.
  */
 typedef struct lcb_settings_st {
-    struct lcb_io_opt_st *io;
-    unsigned int iid;
-    lcb_uint32_t views_timeout;
-    lcb_uint32_t http_timeout;
-    lcb_uint32_t durability_timeout;
-    lcb_uint32_t durability_interval;
-    lcb_uint32_t operation_timeout;
-    lcb_uint32_t config_timeout;
-    lcb_uint32_t config_node_timeout;
-    lcb_size_t rbufsize;
-    lcb_size_t wbufsize;
-    lcb_size_t weird_things_threshold;
-    lcb_uint32_t weird_things_delay;
-    lcb_type_t conntype;
+    lcb_U16 iid;
+    lcb_U8 compressopts;
+    lcb_U8 syncmode;
+    lcb_U32 operation_timeout;
+    lcb_U32 views_timeout;
+    lcb_U32 http_timeout;
+    lcb_U32 durability_timeout;
+    lcb_U32 durability_interval;
+    lcb_U32 config_timeout;
+    lcb_U32 config_node_timeout;
+    lcb_U32 retry_interval;
+    lcb_U32 weird_things_threshold;
+    lcb_U32 weird_things_delay;
 
     /** Grace period to wait between querying providers */
-    lcb_uint32_t grace_next_provider;
+    lcb_U32 grace_next_provider;
 
     /** Grace period to wait between retrying from the beginning */
-    lcb_uint32_t grace_next_cycle;
+    lcb_U32 grace_next_cycle;
 
-    /**
-     * For bc_http, the amount of type to keep the stream open, for future
-     * updates.
-     */
-    lcb_uint32_t bc_http_stream_time;
+    /**For bc_http, the amount of type to keep the stream open, for future
+     * updates. */
+    lcb_U32 bc_http_stream_time;
 
-    /** maximum redirect hops. -1 means infinite redirects */
-    int max_redir;
-
-    /** If we should randomize bootstrap nodes or not */
-    int randomize_bootstrap_nodes;
-
-    /* if non-zero, skip nodes in list that seems like not
-     * configured or doesn't have the bucket needed */
-    int bummer;
+    unsigned bc_http_urltype : 4;
 
     /** Don't guess next vbucket server. Mainly for testing */
-    int vb_noguess;
+    unsigned vb_noguess : 1;
+    /** Whether lcb_destroy is synchronous. This mode will run the I/O event
+     * loop as much as possible until no outstanding events remain.*/
+    unsigned syncdtor : 1;
+    unsigned detailed_neterr : 1;
+    unsigned randomize_bootstrap_nodes : 1;
+    unsigned conntype : 1;
+    unsigned sslopts : 2;
+    unsigned ipv6 : 2;
 
-    /** Is IPv6 enabled */
-    lcb_ipv6_t ipv6;
+    short max_redir;
+    unsigned refcount;
+
+    uint8_t retry[LCB_RETRY_ON_MAX];
+    float retry_backoff;
 
     char *username;
     char *password;
     char *bucket;
     char *sasl_mech_force;
+    char *capath;
+    struct rdb_ALLOCATOR* (*allocator_factory)(void);
+    struct lcbio_SSLCTX *ssl_ctx;
     struct lcb_logprocs_st *logger;
+    void (*dtorcb)(const void *);
+    void *dtorarg;
 } lcb_settings;
 
+LCB_INTERNAL_API
+void lcb_default_settings(lcb_settings *settings);
+
+LCB_INTERNAL_API
+lcb_settings *
+lcb_settings_new(void);
+
+LCB_INTERNAL_API
+void
+lcb_settings_unref(lcb_settings *);
+
+#define lcb_settings_ref(settings) (settings)->refcount++
+
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -22,34 +22,28 @@
 #include <libcouchbase/couchbase.h>
 #include <event2/event.h>
 
-static void error_callback(lcb_t instance,
-                           lcb_error_t error,
-                           const char *errinfo)
+static void bootstrap_callback(lcb_t instance, lcb_error_t err)
 {
-    fprintf(stderr, "ERROR: %s %s\n", lcb_strerror(instance, error), errinfo);
-    exit(EXIT_FAILURE);
-}
+    lcb_store_cmd_t cmd;
+    const lcb_store_cmd_t *cmds[1];
 
-static void configuration_callback(lcb_t instance, lcb_configuration_t config)
-{
-    if (config == LCB_CONFIGURATION_NEW) {
-        lcb_error_t err;
-        /* Since we've got our configuration, let's go ahead and store a value */
-        lcb_store_cmd_t cmd;
-        const lcb_store_cmd_t *cmds[1];
-        cmds[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.key = "foo";
-        cmd.v.v0.nkey = 3;
-        cmd.v.v0.bytes = "bar";
-        cmd.v.v0.nbytes = 3;
-        cmd.v.v0.operation = LCB_SET;
-        err = lcb_store(instance, NULL, 1, cmds);
-        if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to set up store request: %s\n",
-                    lcb_strerror(instance, err));
-            exit(EXIT_FAILURE);
-        }
+    if (err != LCB_SUCCESS) {
+        fprintf(stderr, "ERROR: %s\n", lcb_strerror(instance, err));
+        exit(EXIT_FAILURE);
+    }
+    /* Since we've got our configuration, let's go ahead and store a value */
+    cmds[0] = &cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.v.v0.key = "foo";
+    cmd.v.v0.nkey = 3;
+    cmd.v.v0.bytes = "bar";
+    cmd.v.v0.nbytes = 3;
+    cmd.v.v0.operation = LCB_SET;
+    err = lcb_store(instance, NULL, 1, cmds);
+    if (err != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to set up store request: %s\n",
+                lcb_strerror(instance, err));
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -146,8 +140,7 @@ static lcb_t create_libcouchbase_handle(lcb_io_opt_t ioops)
     }
 
     /* Set up the callbacks */
-    lcb_set_error_callback(instance, error_callback);
-    lcb_set_configuration_callback(instance, configuration_callback);
+    lcb_set_bootstrap_callback(instance, bootstrap_callback);
     lcb_set_get_callback(instance, get_callback);
     lcb_set_store_callback(instance, store_callback);
 

@@ -33,19 +33,21 @@
 #include <vector>
 #include <cstring>
 #include <list>
+#include <sstream>
 
 #include "config.h"
-#include "procutil.h"
-#include "commandlineparser.h"
+#include "mocksupport/procutil.h"
+#define CLIOPTS_ENABLE_CXX
+#include "contrib/cliopts/cliopts.h"
 #include <libcouchbase/couchbase.h>
 
-
+#define TESTS_BASE "sock-tests;nonio-tests;rdb-tests;mc-tests;"
 #define PLUGIN_ENV_VAR "LIBCOUCHBASE_EVENT_PLUGIN_NAME"
 #define LCB_SRCROOT_ENV_VAR "srcdir"
 #ifdef HAVE_COUCHBASEMOCK
-#define DEFAULT_TEST_NAMES "unit-tests;smoke-test"
+#define DEFAULT_TEST_NAMES TESTS_BASE "unit-tests"
 #else
-#define DEFAULT_TEST_NAMES "unit-tests"
+#define DEFAULT_TEST_NAMES TESTS_BASE
 #endif
 
 #ifdef _WIN32
@@ -76,46 +78,51 @@ class TestConfiguration
 {
 
 public:
-    TestConfiguration() {
-        addOption(&opt_debugger, 'd', "debugger",
-                  "Verbatim string to prepend before execution of test binary");
+    TestConfiguration() :
+        opt_debugger("debugger"), opt_plugins("plugins"), opt_jobs("jobs"),
+        opt_srcdir("srcdir"), opt_bindir("testdir"), opt_interactive("interactive"),
+        opt_verbose("verbose"), opt_cycles("repeat"), opt_libdir("libdir"),
+        opt_bins("tests"), opt_realcluster("cluster")
+    {
+        opt_debugger.abbrev('d')
+                .description("Verbatim string to prepend to the binary command line");
 
-        addOption(&opt_plugins, 'p', "opt_plugins",
-                  "semicolon-delimited list of plugins to test",
-                  default_plugins_string);
+        opt_plugins.abbrev('p')
+                .description("semicolon-delimited list of plugins to test")
+                .setDefault(default_plugins_string);
+        opt_jobs.abbrev('j')
+                .description("Execute this many processes concurrently")
+                .setDefault(1);
 
-        addOption(&opt_jobs, 'j', "opt_jobs",
-                  "Execute this many processes concurrently");
+        opt_srcdir.abbrev('S')
+                .description("root directory of source tree (for locating mock)")
+                .setDefault(getEffectiveSrcroot());
 
-        addOption(&opt_srcdir, 'S', "srcdir",
-                  "root directory of source tree for locating mock");
+        opt_bindir.abbrev('T')
+                .description("Directory where test binaries are located")
+                .setDefault(getEffectiveTestdir());
 
-        addOption(&opt_bindir, 'T', "testdir",
-                  "Location where test binaries are located");
+        opt_interactive.abbrev('I')
+                .description("Set this to true when using an interactive debugger. This unblocks stdin");
 
-        addFlag(&opt_interactive, 'I', "interactive",
-                "Set this to true if using an interactive debugger which "
-                "requires input on stdin");
+        opt_bins.abbrev('B')
+                .description("semicolon delimited list of tests to run")
+                .setDefault(DEFAULT_TEST_NAMES);
 
-        addFlag(&opt_verbose, 'v', "verbose",
-                "Print output to screen. If this option is not set "
-                "output will be redirected to a file");
+        opt_cycles.abbrev('n')
+                .description("Number of times to run the tests")
+                .setDefault(1);
 
-        addOption(&opt_bins, 'B', "tests",
-                  "Semicolon-delimited list of tests to run",
-                  DEFAULT_TEST_NAMES);
+        opt_libdir.abbrev('L')
+                .description("Directory where plugins are located. Useful on OS X");
 
-        addOption(&opt_cycles, 'n', "repeat",
-                  "Repeat cycle this many times",
-                  "1");
-        addOption(&opt_libdir, 'L', "libdir",
-                "Path to location where plugins are located. Useful on OS X",
-                "");
+        opt_realcluster.abbrev('C')
+                .description("Path to real cluster");
+
+        opt_verbose.abbrev('v');
     }
 
-    ~TestConfiguration() {
-        freeOptions();
-    }
+    ~TestConfiguration() {}
 
     static void splitSemicolonString(const std::string &s, strlist &l) {
         std::string cur;
@@ -136,50 +143,54 @@ public:
 
     bool parseOptions(int argc, char **argv) {
         std::stringstream ss;
+        cliopts::Parser parser("check-all");
 
-        int myargc = 0;
-        for (int ii = 0; ii < argc; ii++) {
-            if (strcmp(argv[ii], "--") == 0) {
-                break;
-            }
-            myargc++;
-        }
+        parser.addOption(opt_debugger);
+        parser.addOption(opt_plugins);
+        parser.addOption(opt_jobs);
+        parser.addOption(opt_srcdir);
+        parser.addOption(opt_bindir);
+        parser.addOption(opt_interactive);
+        parser.addOption(opt_verbose);
+        parser.addOption(opt_cycles);
+        parser.addOption(opt_libdir);
+        parser.addOption(opt_bins);
+        parser.addOption(opt_realcluster);
 
-        if (myargc < argc) {
-            for (int ii = myargc+1; ii < argc; ii++) {
-                ss << argv[ii] << " ";
-            }
-        }
-        binOptions = ss.str();
-        ss.clear();
-
-        if (!parser.parse(myargc, argv)) {
-            parser.usage(argv[0]);
+        if (!parser.parse(argc, argv, false)) {
             return false;
         }
 
+        using std::vector;
+        using std::string;
 
-        assignFromArg(srcroot, opt_srcdir, getEffectiveSrcroot());
-        assignFromArg(testdir, opt_bindir, getEffectiveTestdir());
-        assignFromArg(debugger, opt_debugger, "");
-        assignFromArg(libDir, opt_libdir, "");
+        const vector<string>& args = parser.getRestArgs();
+        for (size_t ii = 0; ii < args.size(); ii++) {
+            ss << args[ii] << " ";
+        }
+        binOptions = ss.str();
+
+        srcroot = opt_srcdir.result();
+        testdir = opt_bindir.result();
+        debugger = opt_debugger.result();
+        libDir = opt_libdir.result();
+        realClusterEnv = opt_realcluster.result();
 
         // Verbosity
-        isVerbose = opt_verbose->found;
+        isVerbose = opt_verbose.result();
 
         // isInteractive
-        isInteractive = opt_interactive->found;
+        isInteractive = opt_interactive.result();
 
         // Jobs
-        setJobsFromEnvironment(opt_jobs->argument);
-
-        sscanf(opt_cycles->argument, "%d", &maxCycles);
+        setJobsFromEnvironment(opt_jobs.result());
+        maxCycles = opt_cycles.result();
 
         // Plugin list:
-        splitSemicolonString(opt_plugins->argument, plugins);
+        splitSemicolonString(opt_plugins.result(), plugins);
 
         // Test names:
-        splitSemicolonString(opt_bins->argument, testnames);
+        splitSemicolonString(opt_bins.result(), testnames);
 
         return true;
     }
@@ -209,6 +220,7 @@ public:
     std::string testdir;
     std::string debugger;
     std::string libDir;
+    std::string realClusterEnv;
 
     strlist plugins;
     strlist testnames;
@@ -219,63 +231,20 @@ public:
     int maxCycles;
 
 private:
-    CommandLineOption *opt_debugger;
-    CommandLineOption *opt_plugins;
-    CommandLineOption *opt_jobs;
-    CommandLineOption *opt_srcdir;
-    CommandLineOption *opt_bindir;
-    CommandLineOption *opt_interactive;
-    CommandLineOption *opt_verbose;
-    CommandLineOption *opt_bins;
-    CommandLineOption *opt_cycles;
-    CommandLineOption *opt_libdir;
-    Getopt parser;
+    cliopts::StringOption opt_debugger;
+    cliopts::StringOption opt_plugins;
+    cliopts::UIntOption opt_jobs;
+    cliopts::StringOption opt_srcdir;
+    cliopts::StringOption opt_bindir;
+    cliopts::BoolOption opt_interactive;
+    cliopts::BoolOption opt_verbose;
+    cliopts::IntOption opt_cycles;
+    cliopts::StringOption opt_libdir;
+    cliopts::StringOption opt_bins;
+    cliopts::StringOption opt_realcluster;
 
-    void freeOptions() {
-        delete opt_debugger;
-        delete opt_plugins;
-        delete opt_jobs;
-        delete opt_srcdir;
-        delete opt_bindir;
-        delete opt_interactive;
-        delete opt_verbose;
-        delete opt_libdir;
-    }
-
-    void addOption(CommandLineOption **target,
-                   char c,
-                   const char *longopt,
-                   const char *desc,
-                   const char *defl = NULL) {
-        *target = new CommandLineOption(c, longopt, true, desc);
-        (*target)->argument = (char *)defl;
-        parser.addOption(*target);
-    }
-
-    void addFlag(CommandLineOption **target,
-                 char c,
-                 const char *longopt,
-                 const char *desc = NULL) {
-        *target = new CommandLineOption(c, longopt, false, desc);
-        parser.addOption(*target);
-    }
-
-    void assignFromArg(std::string &target,
-                       const CommandLineOption *src,
-                       const std::string &defl) {
-        if (src->argument) {
-            target = src->argument;
-        } else {
-            target = defl;
-        }
-    }
-
-    void setJobsFromEnvironment(const char *arg) {
-        if (arg) {
-            sscanf(arg, "%d", &maxJobs);
-            return;
-        }
-
+    void setJobsFromEnvironment(int arg) {
+        maxJobs = arg;
         char *tmp = getenv("MAKEFLAGS");
 
         if (tmp == NULL || *tmp == '\0') {
@@ -596,6 +565,10 @@ int main(int argc, char **argv)
     fprintf(stderr, "%s=%s\n", LCB_SRCROOT_ENV_VAR, config.srcroot.c_str());
     setenv(LCB_SRCROOT_ENV_VAR, config.srcroot.c_str(), 1);
     setenv("LCB_VERBOSE_TESTS", "1", 1);
+    if (!config.realClusterEnv.empty()) {
+        // format the string
+        setenv("LCB_TEST_CLUSTER_CONF", config.realClusterEnv.c_str(), 0);
+    }
 
     for (int ii = 0; ii < config.maxCycles; ii++) {
         if (!runSingleCycle(config)) {

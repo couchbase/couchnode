@@ -16,6 +16,7 @@
  */
 
 #include "internal.h"
+#include <lcbio/iotable.h>
 
 #define TMR_IS_PERIODIC(timer) ((timer)->options & LCB_TIMER_PERIODIC)
 #define TMR_IS_DESTROYED(timer) ((timer)->state & LCB_TIMER_S_DESTROYED)
@@ -25,8 +26,9 @@
 static void destroy_timer(lcb_timer_t timer)
 {
     if (timer->event) {
-        timer->io->v.v0.destroy_timer(timer->io, timer->event);
+        timer->io->timer.destroy(timer->io->p, timer->event);
     }
+    lcbio_table_unref(timer->io);
     memset(timer, 0xff, sizeof(*timer));
     free(timer);
 }
@@ -50,9 +52,7 @@ static void timer_callback(lcb_socket_t sock, short which, void *arg)
     }
 
     if (! TMR_IS_STANDALONE(timer)) {
-        if (hashset_is_member(instance->timers, timer)) {
-            hashset_remove(instance->timers, timer);
-        }
+        lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_TIMER, timer);
         lcb_maybe_breakout(instance);
     }
 
@@ -75,7 +75,7 @@ lcb_timer_t lcb_timer_create(lcb_t instance,
                              lcb_error_t *error)
 
 {
-    return lcb_timer_create2(instance->settings.io,
+    return lcb_timer_create2(instance->iotable,
                              command_cookie,
                              usec,
                              periodic ? LCB_TIMER_PERIODIC : 0,
@@ -85,12 +85,12 @@ lcb_timer_t lcb_timer_create(lcb_t instance,
 }
 
 LCB_INTERNAL_API
-lcb_async_t lcb_async_create(lcb_io_opt_t io,
+lcb_async_t lcb_async_create(lcbio_TABLE *iotable,
                              const void *command_cookie,
                              lcb_timer_callback callback,
                              lcb_error_t *error)
 {
-    return lcb_timer_create2(io,
+    return lcb_timer_create2(iotable,
                              command_cookie, 0,
                              LCB_TIMER_STANDALONE,
                              callback,
@@ -99,14 +99,14 @@ lcb_async_t lcb_async_create(lcb_io_opt_t io,
 }
 
 LCB_INTERNAL_API
-lcb_timer_t lcb_timer_create_simple(lcb_io_opt_t io,
+lcb_timer_t lcb_timer_create_simple(lcbio_TABLE *iotable,
                                     const void *cookie,
                                     lcb_uint32_t usec,
                                     lcb_timer_callback callback)
 {
     lcb_error_t err;
     lcb_timer_t ret;
-    ret = lcb_timer_create2(io,
+    ret = lcb_timer_create2(iotable,
                             cookie,
                             usec,
                             LCB_TIMER_STANDALONE, callback, NULL, &err);
@@ -117,7 +117,7 @@ lcb_timer_t lcb_timer_create_simple(lcb_io_opt_t io,
 }
 
 LCB_INTERNAL_API
-lcb_timer_t lcb_timer_create2(lcb_io_opt_t io,
+lcb_timer_t lcb_timer_create2(lcbio_TABLE *io,
                               const void *cookie,
                               lcb_uint32_t usec,
                               lcb_timer_options options,
@@ -141,11 +141,12 @@ lcb_timer_t lcb_timer_create2(lcb_io_opt_t io,
         lcb_assert(instance);
     }
 
+    lcbio_table_ref(tmr->io);
     tmr->instance = instance;
     tmr->callback = callback;
     tmr->cookie = cookie;
     tmr->options = options;
-    tmr->event = io->v.v0.create_timer(io);
+    tmr->event = io->timer.create(io->p);
 
     if (tmr->event == NULL) {
         free(tmr);
@@ -154,7 +155,7 @@ lcb_timer_t lcb_timer_create2(lcb_io_opt_t io,
     }
 
     if ( (options & LCB_TIMER_STANDALONE) == 0) {
-        hashset_add(instance->timers, tmr);
+        lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_TIMER, tmr);
     }
 
     lcb_timer_rearm(tmr, usec);
@@ -168,8 +169,8 @@ lcb_error_t lcb_timer_destroy(lcb_t instance, lcb_timer_t timer)
 {
     int standalone = timer->options & LCB_TIMER_STANDALONE;
 
-    if (standalone == 0 && hashset_is_member(instance->timers, timer)) {
-        hashset_remove(instance->timers, timer);
+    if (!standalone) {
+        lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_TIMER, timer);
     }
 
     lcb_timer_disarm(timer);
@@ -180,11 +181,7 @@ lcb_error_t lcb_timer_destroy(lcb_t instance, lcb_timer_t timer)
     } else {
         destroy_timer(timer);
     }
-    if (!standalone) {
-        return lcb_synchandler_return(instance, LCB_SUCCESS);
-    } else {
-        return LCB_SUCCESS;
-    }
+    return LCB_SUCCESS;
 }
 
 LCB_INTERNAL_API
@@ -195,7 +192,7 @@ void lcb_timer_disarm(lcb_timer_t timer)
     }
 
     timer->state &= ~LCB_TIMER_S_ARMED;
-    timer->io->v.v0.delete_timer(timer->io, timer->event);
+    timer->io->timer.cancel(timer->io->p, timer->event);
 }
 
 LCB_INTERNAL_API
@@ -206,10 +203,7 @@ void lcb_timer_rearm(lcb_timer_t timer, lcb_uint32_t usec)
     }
 
     timer->usec_ = usec;
-    timer->io->v.v0.update_timer(timer->io,
-                                 timer->event,
-                                 usec,
-                                 timer,
-                                 timer_callback);
+    timer->io->timer.schedule(timer->io->p, timer->event,
+                              usec, timer, timer_callback);
     timer->state |= LCB_TIMER_S_ARMED;
 }

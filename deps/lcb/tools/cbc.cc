@@ -1,2016 +1,1017 @@
-/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
-/*
- *     Copyright 2011-2012 Couchbase, Inc.
- *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
- */
-
-#include "config.h"
-
-#ifdef _WIN32
-#include <io.h> /* access() */
-#endif
-
-#include <iostream>
-#include <sstream>
-#include <ctype.h>
-#include <getopt.h>
-#include <vector>
+#include "common/my_inttypes.h"
 #include <map>
+#include <sstream>
 #include <iostream>
 #include <fstream>
-#include <string.h>
-#include <sys/stat.h>
-#include <cerrno>
-#include <cstdlib>
-#include <libcouchbase/couchbase.h>
-#include "internal.h"
-#include "configuration.h"
-#include "commandlineparser.h"
+#include <libcouchbase/vbucket.h>
+#include <stddef.h>
+#include "common/options.h"
+#include "common/histogram.h"
+#include "cbc-handlers.h"
+#include "dsn.h"
+using namespace cbc;
 
-#ifdef HAVE_LIBYAJL2
-#include <yajl/yajl_version.h>
-#include <yajl/yajl_parse.h>
-#include <yajl/yajl_tree.h>
-#endif
+using std::string;
+using std::map;
+using std::vector;
+using std::stringstream;
 
-using namespace std;
+template <typename T>
+string getRespKey(const T* resp)
+{
+    return string((const char*)resp->v.v0.key, resp->v.v0.nkey);
+}
 
-enum cbc_command_t {
-    cbc_illegal,
-    cbc_cat,
-    cbc_cp,
-    cbc_create,
-    cbc_flush,
-    cbc_lock,
-    cbc_rm,
-    cbc_stats,
-    cbc_unlock,
-    cbc_verify,
-    cbc_version,
-    cbc_hash,
-    cbc_help,
-    cbc_view,
-    cbc_admin,
-    cbc_bucket_create,
-    cbc_bucket_delete,
-    cbc_bucket_flush,
-    cbc_observe,
-    cbc_verbosity
-};
+static void
+printKeyError(string& key, lcb_error_t err)
+{
+    fprintf(stderr, "%-20s %s (0x%x)\n", key.c_str(), lcb_strerror(NULL, err), err);
+}
 
-struct cp_params {
-    list<string> *keys;
-    map<string, vector<lcb_cas_t> > results;
-    lcb_size_t sent;
-    bool need_persisted;
-    int need_replicated;
-    size_t total_persisted;
-    size_t total_replicated;
-    int max_tries;
-    int tries;
-    lcb_uint32_t timeout;
-};
+template <typename T> void
+printKeyCasStatus(string& key, const T* resp, const char *message = NULL)
+{
+    fprintf(stderr, "%-20s", key.c_str());
+    if (message != NULL) {
+        fprintf(stderr, "%s ", message);
+    }
+    fprintf(stderr, "CAS=0x%"PRIx64"\n", resp->v.v0.cas);
+}
 
 extern "C" {
-    // libcouchbase use a C linkage!
-
-    static void error_callback(lcb_t instance,
-                               lcb_error_t error,
-                               const char *errinfo)
-    {
-        cerr << "ERROR: " << lcb_strerror(instance, error) << endl;
-        if (errinfo) {
-            cerr << "\t\"" << errinfo << "\"" << endl;
-        }
-        exit(EXIT_FAILURE);
-    }
-
-    void observe_timer_callback(lcb_timer_t timer,
-                                lcb_t instance,
-                                const void *cookie)
-    {
-        // perform observe query
-        struct cp_params *params = (struct cp_params *)cookie;
-        int idx = 0;
-        lcb_error_t err;
-
-        lcb_observe_cmd_t *items = new lcb_observe_cmd_t[params->keys->size()];
-        lcb_observe_cmd_t* *args = new lcb_observe_cmd_t* [params->keys->size()];
-
-        for (list<string>::iterator iter = params->keys->begin();
-                iter != params->keys->end(); ++iter, ++idx) {
-            args[idx] = &items[idx];
-            memset(&items[idx], 0, sizeof(items[idx]));
-            items[idx].v.v0.key = iter->c_str();
-            items[idx].v.v0.nkey = iter->length();
-        }
-        err = lcb_observe(instance, static_cast<const void *>(params), idx,
-                          args);
-        if (err != LCB_SUCCESS) {
-            // report the issue and exit
-            error_callback(instance, err, "Failed to schedule observe query");
-        }
-
-        delete []items;
-        delete []args;
-        (void)timer;
-    }
-
-    void schedule_observe(lcb_t instance, struct cp_params *params)
-    {
-        lcb_error_t err;
-        if (params->tries > params->max_tries) {
-            error_callback(instance, LCB_ETIMEDOUT, "Exceeded number of tries");
-        }
-        lcb_timer_create(instance, params, params->timeout, 0,
-                         observe_timer_callback, &err);
-        if (err != LCB_SUCCESS) {
-            // report the issue and exit
-            error_callback(instance, err, "Failed to setup timer for observe");
-        }
-        params->timeout *= 2;
-        params->tries++;
-        params->total_persisted = params->total_replicated = 0;
-    }
-
-    static void store_callback(lcb_t instance,
-                               const void *cookie,
-                               lcb_storage_t,
-                               lcb_error_t error,
-                               const lcb_store_resp_t *item)
-    {
-        struct cp_params *params = static_cast<struct cp_params *>(const_cast<void *>(cookie));
-        if (params && (params->need_persisted || params->need_replicated > 0)) {
-            params->sent++;
-            // if it is the latest key in the series
-            if (params->sent == params->keys->size()) {
-                schedule_observe(instance, params);
-            }
-        } else {
-            string key((const char *)item->v.v0.key, (size_t)item->v.v0.nkey);
-            if (error == LCB_SUCCESS) {
-                cerr << "Stored \"" << key.c_str() << hex
-                     << "\" CAS:" << item->v.v0.cas << endl;
-            } else {
-                cerr << "Failed to store \"" << key.c_str() << "\":" << endl
-                     << lcb_strerror(instance, error) << endl;
-
-                void *instance_cookie = const_cast<void *>(lcb_get_cookie(instance));
-                bool *e = static_cast<bool *>(instance_cookie);
-                *e = true;
-            }
-        }
-    }
-
-    static void remove_callback(lcb_t instance,
-                                const void *,
-                                lcb_error_t error,
-                                const lcb_remove_resp_t *resp)
-    {
-        string key((const char *)resp->v.v0.key, (size_t)resp->v.v0.nkey);
-
-        if (error == LCB_SUCCESS) {
-            cerr << "Removed \"" << key.c_str() << "\" CAS:"
-                 << resp->v.v0.cas << endl;
-        } else {
-            cerr << "Failed to remove \"" << key.c_str() << "\":" << endl
-                 << lcb_strerror(instance, error) << endl;
-            void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-            bool *err = static_cast<bool *>(cookie);
-            *err = true;
-        }
-    }
-
-    static void unlock_callback(lcb_t instance,
-                                const void *,
-                                lcb_error_t error,
-                                const lcb_unlock_resp_t *resp)
-    {
-        string key((const char *)resp->v.v0.key, (size_t)resp->v.v0.nkey);
-        if (error == LCB_SUCCESS) {
-            cerr << "Unlocked \"" << key.c_str() << "\"" << endl;
-        } else {
-            cerr << "Failed to unlock \"" << key.c_str() << "\":" << endl
-                 << lcb_strerror(instance, error) << endl;
-            void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-            bool *err = static_cast<bool *>(cookie);
-            *err = true;
-        }
-    }
-
-    static void get_callback(lcb_t instance,
-                             const void *,
-                             lcb_error_t error,
-                             const lcb_get_resp_t *resp)
-    {
-        string key((const char *)resp->v.v0.key, (size_t)resp->v.v0.nkey);
-        if (error == LCB_SUCCESS) {
-            cerr << "\"" << key.c_str()
-                 << "\" Size:" << resp->v.v0.nbytes
-                 << hex
-                 << " Flags:" << resp->v.v0.flags
-                 << " CAS:" << resp->v.v0.cas << endl;
-            cerr.flush();
-            cout.write(static_cast<const char *>(resp->v.v0.bytes),
-                       resp->v.v0.nbytes);
-            cout.flush();
-            cerr << endl; /* use cerr to avoid breaking blobs */
-        } else {
-            cerr << "Failed to get \"" << key.c_str() << "\": "
-                 << lcb_strerror(instance, error) << endl;
-            void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-            bool *err = static_cast<bool *>(cookie);
-            *err = true;
-        }
-    }
-
-    static void verify_callback(lcb_t instance,
-                                const void *,
-                                lcb_error_t error,
-                                const lcb_get_resp_t *resp)
-    {
-        const void *key = resp->v.v0.key;
-        lcb_size_t nkey = resp->v.v0.nkey;
-        const void *bytes = resp->v.v0.bytes;
-        lcb_size_t nbytes = resp->v.v0.nbytes;
-
-        if (error == LCB_SUCCESS) {
-            char fnm[FILENAME_MAX];
-            memcpy(fnm, key, nkey);
-            fnm[nkey] = '\0';
-            struct stat st;
-            if (stat(fnm, &st) == -1) {
-                cerr << "Failed to look up: \"" << fnm << "\"" << endl;
-            } else if ((lcb_size_t)st.st_size != nbytes) {
-                cerr << "Incorrect size for: \"" << fnm << "\"" << endl;
-            } else {
-                char *dta = new char[(lcb_size_t)st.st_size];
-                if (dta == NULL) {
-                    cerr << "Failed to allocate memory to compare: \""
-                         << fnm << "\"" << endl;
-                } else {
-                    ifstream file(fnm, ios::binary);
-                    if (file.good() && file.read(dta, st.st_size) && file.good()) {
-                        if (memcmp(dta, bytes, nbytes) != 0) {
-                            cerr << "Content differ: \"" << fnm << "\"" << endl;
-                        }
-                    } else {
-                        cerr << "Failed to read \""  << fnm << "\"" << endl;
-                    }
-                    delete []dta;
-                }
-            }
-        } else {
-            cerr << "Failed to get \"";
-            cerr.write(static_cast<const char *>(key), nkey);
-            cerr << "\": " << lcb_strerror(instance, error) << endl;
-            void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-            bool *err = static_cast<bool *>(cookie);
-            *err = true;
-        }
-    }
-
-    static void stat_callback(lcb_t instance,
-                              const void *,
-                              lcb_error_t error,
-                              const lcb_server_stat_resp_t *resp)
-    {
-        const char *server_endpoint = resp->v.v0.server_endpoint;
-        const void *key = resp->v.v0.key;
-        lcb_size_t nkey = resp->v.v0.nkey;
-        const void *value = resp->v.v0.bytes;
-        lcb_size_t nvalue = resp->v.v0.nbytes;
-
-        if (error == LCB_SUCCESS) {
-            if (nkey > 0) {
-                cout << server_endpoint << "\t";
-                cout.write(static_cast<const char *>(key), nkey);
-                cout << "\t";
-                cout.write(static_cast<const char *>(value), nvalue);
-                cout << endl;
-            }
-        } else {
-            cerr << "Failure requesting stats:" << endl
-                 << lcb_strerror(instance, error) << endl;
-
-            void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-            bool *err = static_cast<bool *>(cookie);
-            *err = true;
-        }
-    }
-
-    static void flush_callback(lcb_t instance,
-                               const void *,
-                               lcb_error_t error,
-                               const lcb_flush_resp_t *resp)
-    {
-        if (error != LCB_SUCCESS) {
-            cerr << "Failed to flush node \"" << resp->v.v0.server_endpoint
-                 << "\": " << lcb_strerror(instance, error)
-                 << endl;
-            void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-            bool *err = static_cast<bool *>(cookie);
-            *err = true;
-        }
-    }
-
-    static void timings_callback(lcb_t, const void *,
-                                 lcb_timeunit_t timeunit,
-                                 lcb_uint32_t min, lcb_uint32_t max,
-                                 lcb_uint32_t total, lcb_uint32_t maxtotal)
-    {
-        char buffer[1024];
-        int offset = sprintf(buffer, "[%3u - %3u]", min, max);
-        switch (timeunit) {
-        case LCB_TIMEUNIT_NSEC:
-            offset += sprintf(buffer + offset, "ns");
-            break;
-        case LCB_TIMEUNIT_USEC:
-            offset += sprintf(buffer + offset, "us");
-            break;
-        case LCB_TIMEUNIT_MSEC:
-            offset += sprintf(buffer + offset, "ms");
-            break;
-        case LCB_TIMEUNIT_SEC:
-            offset += sprintf(buffer + offset, "s");
-            break;
-        default:
-            ;
-        }
-
-        int num = static_cast<int>(static_cast<float>(40.0) *
-                                   static_cast<float>(total) /
-                                   static_cast<float>(maxtotal));
-
-        offset += sprintf(buffer + offset, " |");
-        for (int ii = 0; ii < num; ++ii) {
-            offset += sprintf(buffer + offset, "#");
-        }
-
-        offset += sprintf(buffer + offset, " - %u\n", total);
-        cerr << buffer;
-    }
-
-    static void data_callback(lcb_http_request_t, lcb_t,
-                              const void *, lcb_error_t,
-                              const lcb_http_resp_t *resp)
-    {
-        cout.write(static_cast<const char *>(resp->v.v0.bytes), resp->v.v0.nbytes);
-        cout.flush();
-    }
-
-    static void complete_callback(lcb_http_request_t, lcb_t instance,
-                                  const void *, lcb_error_t error,
-                                  const lcb_http_resp_t *resp)
-    {
-        if (resp->v.v0.headers) {
-            const char *const *headers = resp->v.v0.headers;
-            for (size_t ii = 1; *headers != NULL; ++ii, ++headers) {
-                cerr << *headers;
-                cerr << ((ii % 2 == 0) ? "\n" : ": ");
-            }
-        }
-        cerr << "\"";
-        cerr.write(static_cast<const char *>(resp->v.v0.path), resp->v.v0.npath);
-        cerr << "\": ";
-        if (error == LCB_SUCCESS) {
-            cerr << "OK Size:" << resp->v.v0.nbytes << endl;
-            cout.write(static_cast<const char *>(resp->v.v0.bytes), resp->v.v0.nbytes);
-        } else {
-            cerr << "FAIL(" << error << ") "
-                 << lcb_strerror(instance, error)
-                 << " Status:" << resp->v.v0.status
-                 << " Size:" << resp->v.v0.nbytes << endl;
-            cout.write(static_cast<const char *>(resp->v.v0.bytes), resp->v.v0.nbytes);
-        }
-        cerr << endl;
-        cout.flush();
-    }
-
-    static void observe_callback(lcb_t instance,
-                                 const void *cookie,
-                                 lcb_error_t error,
-                                 const lcb_observe_resp_t *resp)
-    {
-        void *instance_cookie = const_cast<void *>(lcb_get_cookie(instance));
-        bool *err = static_cast<bool *>(instance_cookie);
-
-        lcb_observe_t status = resp->v.v0.status;
-        const void *key = resp->v.v0.key;
-        lcb_size_t nkey = resp->v.v0.nkey;
-        lcb_cas_t cas = resp->v.v0.cas;
-        int is_master = resp->v.v0.from_master;
-        lcb_time_t ttp = resp->v.v0.ttp;
-        lcb_time_t ttr = resp->v.v0.ttr;
-
-        if (cookie) {
-            struct cp_params *params = (struct cp_params *)cookie;
-            if (key) {
-                string key_str = string(static_cast<const char *>(key), nkey);
-                vector<lcb_cas_t> &res = params->results[key_str];
-                if (res.size() == 0) {
-                    res.resize(1);
-                }
-                if (status == LCB_OBSERVE_PERSISTED) {
-                    if (is_master) {
-                        params->total_persisted++;
-                        res[0] = cas;
-                    } else {
-                        params->total_replicated++;
-                        res.push_back(cas);
-                    }
-                } else {
-                    cas = 0;
-                }
-            } else {
-                // check persistence conditions
-                size_t nkeys = params->keys->size();
-                bool ok = true;
-
-                if (params->need_persisted) {
-                    ok &= params->total_persisted == nkeys;
-                }
-                if (params->need_replicated > 0) {
-                    ok &= params->total_replicated == (nkeys * params->need_replicated);
-                }
-                if (ok) {
-                    map<string, lcb_cas_t> done;
-                    for (list<string>::iterator ii = params->keys->begin();
-                            ii != params->keys->end(); ++ii) {
-                        string kk = *ii;
-                        vector<lcb_cas_t> &res = params->results[kk];
-                        lcb_cas_t cc = res[0];
-                        if (cc == 0) {
-                            // the key wasn't persisted on master, but
-                            // replicas might have old version persisted
-                            schedule_observe(instance, params);
-                            return;
-                        } else {
-                            if (params->need_replicated > 0) {
-                                int matching_cas = 0;
-                                for (vector<lcb_cas_t>::iterator jj = res.begin() + 1;
-                                        jj != res.end(); ++jj) {
-                                    if (*jj == cc) {
-                                        matching_cas++;
-                                    }
-                                }
-                                if (matching_cas != params->need_replicated) {
-                                    // some replicas has old value => retry
-                                    schedule_observe(instance, params);
-                                    return;
-                                }
-                            }
-                            done[kk] = cc;
-                        }
-                    }
-                    // all or nothing
-                    if (done.size() == params->keys->size()) {
-                        for (map<string, lcb_cas_t>::iterator ii = done.begin();
-                                ii != done.end(); ++ii) {
-                            cerr << "Stored \"" << ii->first << "\" CAS:" << hex << ii->second << endl;
-                        }
-                    } else {
-                        schedule_observe(instance, params);
-                    }
-                } else {
-                    schedule_observe(instance, params);
-                }
-            }
-        } else {
-            if (key == NULL) {
-                return; /* end of packet */
-            }
-            if (error == LCB_SUCCESS) {
-                switch (status) {
-                case LCB_OBSERVE_FOUND:
-                    cerr << "FOUND";
-                    break;
-                case LCB_OBSERVE_PERSISTED:
-                    cerr << "PERSISTED";
-                    break;
-                case LCB_OBSERVE_NOT_FOUND:
-                    cerr << "NOT_FOUND";
-                    break;
-                default:
-                    cerr << "UNKNOWN";
-                    break;
-                }
-                cerr << " \"";
-                cerr.write(static_cast<const char *>(key), nkey);
-                cerr << "\"";
-                if (status == LCB_OBSERVE_FOUND ||
-                        status == LCB_OBSERVE_PERSISTED) {
-                    cerr << " CAS:" << hex << cas;
-                }
-                cerr << " IsMaster:" << boolalpha << (is_master != 0)
-                     << dec << " TimeToPersist:" << ttp
-                     << " TimeToReplicate:" << ttr << endl;
-            } else {
-                cerr << "Failed to observe: " << lcb_strerror(instance, error) << endl;
-                *err = true;
-            }
-        }
-    }
-
-    static void verbosity_callback(lcb_t instance,
-                                   const void *,
-                                   lcb_error_t error,
-                                   const lcb_verbosity_resp_t *resp)
-    {
-        if (error != LCB_SUCCESS) {
-            cerr << "Failed to set verbosity level on \""
-                 << resp->v.v0.server_endpoint << "\": "
-                 << lcb_strerror(instance, error) << endl;
-            void *cookie = const_cast<void *>(lcb_get_cookie(instance));
-            bool *err = static_cast<bool *>(cookie);
-            *err = true;
-        }
-    }
-}
-
-static bool cp_impl(lcb_t instance, list<string> &keys, bool json, bool persisted, int replicated, int max_tries)
+static void
+get_callback(lcb_t, const void *, lcb_error_t err, const lcb_get_resp_t *resp)
 {
-    lcb_size_t currsz = 0;
-    struct cp_params *cookie = new struct cp_params();
-
-    cookie->results = map<string, vector<lcb_cas_t> >();
-    cookie->keys = &keys;
-    cookie->need_persisted = persisted;
-    cookie->need_replicated = replicated;
-    cookie->max_tries = max_tries;
-    cookie->timeout = 100000; // initial timeout: 100ms
-    cookie->total_persisted = cookie->total_replicated = cookie->tries = 0;
-
-    for (list<string>::iterator ii = keys.begin(); ii != keys.end(); ++ii) {
-        string key = *ii;
-        struct stat st;
-        if (stat(key.c_str(), &st) == 0) {
-            char *bytes = new char[(lcb_size_t)st.st_size + 1];
-            if (bytes != NULL) {
-                ifstream file(key.c_str(), ios::binary);
-                if (file.good() && file.read(bytes, st.st_size) && file.good()) {
-                    bytes[st.st_size] = '\0';
-#ifdef HAVE_LIBYAJL2
-                    if (json) {
-                        yajl_val obj, id;
-                        const char *path[] = {"_id", NULL};
-                        if ((obj = yajl_tree_parse(bytes, NULL, 0)) == NULL) {
-                            cerr << "Failed to parse file \"" << key << "\" as JSON." << endl;
-                            delete []bytes;
-                            return false;
-                        }
-                        id = yajl_tree_get(obj, path, yajl_t_string);
-                        if (id == NULL) {
-                            cerr << "Failed to validate file \"" << key
-                                 << "\" as document (no '_id' attribute)." << endl;
-                            delete []bytes;
-                            return false;
-                        }
-                        key.assign(id->u.string);
-                        yajl_tree_free(obj);
-                    }
-#else
-                    (void)json;
-#endif
-                    lcb_store_cmd_t item(LCB_SET, key.c_str(),
-                                         key.length(), bytes,
-                                         (lcb_size_t)st.st_size);
-                    lcb_store_cmd_t *items[1] = { &item };
-                    lcb_store(instance, static_cast<void *>(cookie),
-                              1, items);
-                    delete []bytes;
-                    currsz += (lcb_size_t)st.st_size;
-
-                    // To avoid too much buffering flush at a regular
-                    // interval
-                    if (currsz > (2 * 1024 * 1024)) {
-                        lcb_wait(instance);
-                        currsz = 0;
-                    }
-                } else {
-                    cerr << "Failed to read file \"" << key << "\": "
-                         << strerror(errno) << endl;
-                    return false;
-                }
-            } else {
-                cerr << "Failed to allocate memory for \"" << key << "\": "
-                     << strerror(errno) << endl;
-                return false;
-            }
-        } else {
-            cerr << "Failed to open \"" << key << "\": " <<  strerror(errno) << endl;
-            return false;
-        }
-    }
-
-    return true;
-}
-
-static bool rm_impl(lcb_t instance, list<string> &keys)
-{
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to delete" << endl;
-        return false;
-    }
-
-    for (list<string>::iterator ii = keys.begin(); ii != keys.end(); ++ii) {
-        string key = *ii;
-        lcb_error_t err;
-
-        lcb_remove_cmd_t item;
-        memset(&item, 0, sizeof(item));
-        item.v.v0.key = key.c_str();
-        item.v.v0.nkey = key.length();
-        lcb_remove_cmd_t *items[] = { &item };
-        err = lcb_remove(instance, NULL, 1, items);
-        if (err != LCB_SUCCESS) {
-            cerr << "Failed to remove \"" << key << "\":" << endl
-                 << lcb_strerror(instance, err) << endl;
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool cat_impl(lcb_t instance, list<string> &keys)
-{
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to get" << endl;
-        return false;
-    }
-    lcb_get_cmd_t *items = new lcb_get_cmd_t[keys.size()];
-    lcb_get_cmd_t* *args = new lcb_get_cmd_t* [keys.size()];
-
-    int idx = 0;
-    lcb_error_t err;
-
-    for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter, ++idx) {
-        args[idx] = &items[idx];
-        memset(&items[idx], 0, sizeof(items[idx]));
-        items[idx].v.v0.key = iter->c_str();
-        items[idx].v.v0.nkey = iter->length();
-    }
-    err = lcb_get(instance, NULL, idx, args);
-    delete []items;
-    delete []args;
-    if (err != LCB_SUCCESS) {
-        cerr << "Failed to send requests:" << endl
-             << lcb_strerror(instance, err) << endl;
-        return false;
-    }
-
-    return true;
-}
-
-static bool cat_replica_impl(lcb_t instance, list<string> &keys, int strategy, int index)
-{
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to get" << endl;
-        return false;
-    }
-    lcb_get_replica_cmd_t *items = new lcb_get_replica_cmd_t[keys.size()];
-    lcb_get_replica_cmd_t* *args = new lcb_get_replica_cmd_t* [keys.size()];
-
-    int idx = 0;
-    lcb_error_t err;
-
-    for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter, ++idx) {
-        args[idx] = &items[idx];
-        memset(&items[idx], 0, sizeof(items[idx]));
-        items[idx].version = 1;
-        items[idx].v.v1.key = iter->c_str();
-        items[idx].v.v1.nkey = iter->length();
-        items[idx].v.v1.strategy = (lcb_replica_t)strategy;
-        items[idx].v.v1.index = index;
-    }
-    err = lcb_get_replica(instance, NULL, idx, args);
-
-    delete []items;
-    delete []args;
-    if (err != LCB_SUCCESS) {
-        cerr << "Failed to send requests:" << endl
-             << lcb_strerror(instance, err) << endl;
-        return false;
-    }
-
-    return true;
-}
-
-static bool observe_impl(lcb_t instance, list<string> &keys)
-{
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to observe" << endl;
-        return false;
-    }
-
-    lcb_observe_cmd_t *items = new lcb_observe_cmd_t[keys.size()];
-    lcb_observe_cmd_t* *args = new lcb_observe_cmd_t* [keys.size()];
-
-    int idx = 0;
-    for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter, ++idx) {
-        args[idx] = &items[idx];
-        memset(&items[idx], 0, sizeof(items[idx]));
-        items[idx].v.v0.key = iter->c_str();
-        items[idx].v.v0.nkey = iter->length();
-    }
-
-    lcb_error_t err = lcb_observe(instance, NULL, idx, args);
-
-    delete []items;
-    delete []args;
-
-    if (err != LCB_SUCCESS) {
-        cerr << "Failed to send requests:" << endl
-             << lcb_strerror(instance, err) << endl;
-        return false;
-    }
-
-    return true;
-}
-
-static bool verbosity_impl(lcb_t instance, list<string> &args)
-{
-    if (args.empty()) {
-        cerr << "ERROR: You need to specify the verbosity level" << endl;
-        return false;
-    }
-
-    lcb_verbosity_level_t level;
-    string &s = args.front();
-
-    if (s == "detail") {
-        level = LCB_VERBOSITY_DETAIL;
-    } else if (s == "debug") {
-        level = LCB_VERBOSITY_DEBUG;
-    } else if (s == "info") {
-        level = LCB_VERBOSITY_INFO;
-    } else if (s == "warning") {
-        level = LCB_VERBOSITY_WARNING;
+    string key = getRespKey(resp);
+    if (err == LCB_SUCCESS) {
+        fprintf(stderr, "%-20s CAS=0x%"PRIx64", Flags=0x%x, Datatype=0x%x\n",
+            key.c_str(), resp->v.v0.cas, resp->v.v0.flags, resp->v.v0.datatype);
+        fwrite(resp->v.v0.bytes, 1, resp->v.v0.nbytes, stdout);
+        fprintf(stderr, "\n");
     } else {
-        cerr << "ERROR: Unknown verbosity level [detail,debug,info,warning]: "
-             << s << endl;
-        return false;
+        printKeyError(key, err);
     }
-    args.pop_front();
-
-    lcb_error_t err;
-    if (args.empty()) {
-        lcb_verbosity_cmd_t cmd(level);
-        lcb_verbosity_cmd_t *commands[] = { &cmd };
-
-        err = lcb_set_verbosity(instance, NULL, 1, commands);
-        if (err != LCB_SUCCESS) {
-            cerr << "Failed to set verbosity : " << endl
-                 << lcb_strerror(instance, err) << endl;
-            return false;
+}
+static void
+store_callback(lcb_t, const void *cookie,
+    lcb_storage_t, lcb_error_t err, const lcb_store_resp_t *resp)
+{
+    string key = getRespKey(resp);
+    if (err == LCB_SUCCESS) {
+        printKeyCasStatus(key, resp, "Stored.");
+        if (cookie != NULL) {
+            map<string,lcb_cas_t>& items = *(map<string,lcb_cas_t>*)cookie;
+            items[key] = resp->v.v0.cas;
         }
     } else {
-        list<string>::iterator iter;
-        for (iter = args.begin(); iter != args.end(); ++iter) {
-            lcb_verbosity_cmd_t cmd(level, iter->c_str());
-            lcb_verbosity_cmd_t *commands[] = { &cmd };
-
-            err = lcb_set_verbosity(instance, NULL, 1, commands);
-            if (err != LCB_SUCCESS) {
-                cerr << "Failed to set verbosity : " << endl
-                     << lcb_strerror(instance, err) << endl;
-                return false;
-            }
-        }
+        printKeyError(key, err);
     }
-
-    return true;
 }
-
-static bool hash_exec(VBUCKET_CONFIG_HANDLE vbucket_config, list<string> &keys, bool is_vbucket)
+static void
+durability_callback(lcb_t, const void*, lcb_error_t err, const lcb_durability_resp_t *resp)
 {
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to hash" << endl;
-        return false;
+    string key = getRespKey(resp);
+    if (err == LCB_SUCCESS) {
+        err = resp->v.v0.err;
     }
-
-    for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter) {
-        int vbucket_id, idx;
-        if (is_vbucket) {
-            std::istringstream(*iter) >> vbucket_id;
-            idx = vbucket_get_master(vbucket_config, vbucket_id);
-        } else {
-            (void)vbucket_map(vbucket_config, iter->c_str(), iter->length(), &vbucket_id, &idx);
-            cout << "\"" << *iter << "\"\t";
-        }
-        cout << "Server:\"" << vbucket_config_get_server(vbucket_config, idx) << "\"";
-        if (vbucket_config_get_distribution_type(vbucket_config) == VBUCKET_DISTRIBUTION_VBUCKET) {
-            cout << " vBucket:" << vbucket_id;
-            const char *couch_api = vbucket_config_get_couch_api_base(vbucket_config, idx);
-            if (couch_api) {
-                cout << " CouchAPI:\"" << couch_api << "\"";
-            }
-            lcb_size_t nrepl = (lcb_size_t)vbucket_config_get_num_replicas(vbucket_config);
-            if (nrepl > 0) {
-                cout << " Replicas:";
-                for (lcb_size_t ii = 0; ii < nrepl; ++ii) {
-                    int rr = vbucket_get_replica(vbucket_config, vbucket_id, (int)ii);
-                    const char *replica;
-                    if (rr >= 0) {
-                        replica = vbucket_config_get_server(vbucket_config, rr);
-                        if (replica != NULL) {
-                            cout << "\"" << replica << "\"";
-                        }
-                    } else {
-                        cout << "N/A";
-                    }
-                    if (ii != nrepl - 1) {
-                        cout << ",";
-                    }
-                }
-            }
-        }
-        cout << endl;
-    }
-    return true;
-}
-
-static bool hash_impl(string filename, list<string> &keys, bool is_vbucket)
-{
-    VBUCKET_CONFIG_HANDLE vbucket_config = vbucket_config_create();
-    if (vbucket_config_parse(vbucket_config, LIBVBUCKET_SOURCE_FILE, filename.c_str()) != 0) {
-        cerr << "ERROR: cannot parse vBucket config: "
-             << vbucket_get_error_message(vbucket_config) << endl;
-        vbucket_config_destroy(vbucket_config);
-        return false;
-    }
-
-    return hash_exec(vbucket_config, keys, is_vbucket);
-}
-
-static bool hash_impl(lcb_t instance, list<string> &keys, bool is_vbucket)
-{
-    return hash_exec(instance->vbucket_config, keys, is_vbucket);
-}
-
-static bool view_impl(lcb_t instance, string &query, string &data,
-                      bool chunked, lcb_http_method_t method)
-{
-    lcb_error_t rc;
-    lcb_http_cmd_t cmd;
-    cmd.version = 0;
-    cmd.v.v0.path = query.c_str();
-    cmd.v.v0.npath = query.length();
-    cmd.v.v0.body = data.c_str();
-    cmd.v.v0.nbody = data.length();
-    cmd.v.v0.method = method;
-    cmd.v.v0.chunked = chunked;
-    cmd.v.v0.content_type = "application/json";
-    rc = lcb_make_http_request(instance, NULL, LCB_HTTP_TYPE_VIEW, &cmd, NULL);
-    if (rc != LCB_SUCCESS) {
-        cerr << "Failed to send requests:" << endl
-             << lcb_strerror(instance, rc) << endl;
-        return false;
-    }
-    return true;
-}
-
-static bool admin_impl(lcb_t instance, string &query, string &data,
-                       bool chunked, lcb_http_method_t method)
-{
-    lcb_error_t rc;
-    lcb_http_cmd_t cmd;
-    cmd.version = 0;
-    cmd.v.v0.path = query.c_str();
-    cmd.v.v0.npath = query.length();
-    cmd.v.v0.body = data.c_str();
-    cmd.v.v0.nbody = data.length();
-    cmd.v.v0.method = method;
-    cmd.v.v0.chunked = chunked;
-    cmd.v.v0.content_type = "application/x-www-form-urlencoded";
-    rc = lcb_make_http_request(instance, NULL, LCB_HTTP_TYPE_MANAGEMENT, &cmd, NULL);
-    if (rc != LCB_SUCCESS) {
-        cerr << "Failed to send requests: " << endl
-             << lcb_strerror(instance, rc) << endl;
-        return false;
-    }
-    return true;
-}
-
-static bool bucket_delete_impl(lcb_t instance, list<string> &names)
-{
-    lcb_error_t rc;
-
-    for (list<string>::iterator iter = names.begin(); iter != names.end(); ++iter) {
-        string query = "/pools/default/buckets/" + *iter;
-        lcb_http_cmd_t cmd;
-        cmd.version = 0;
-        cmd.v.v0.path = query.c_str();
-        cmd.v.v0.npath = query.length();
-        cmd.v.v0.body = NULL;
-        cmd.v.v0.nbody = 0;
-        cmd.v.v0.method = LCB_HTTP_METHOD_DELETE;
-        cmd.v.v0.chunked = false;
-        cmd.v.v0.content_type = "application/x-www-form-urlencoded";
-        rc = lcb_make_http_request(instance, NULL, LCB_HTTP_TYPE_MANAGEMENT, &cmd, NULL);
-        if (rc != LCB_SUCCESS) {
-            cerr << "Failed to send requests: " << endl
-                 << lcb_strerror(instance, rc) << endl;
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool bucket_flush_impl(lcb_t instance, list<string> &names)
-{
-    lcb_error_t rc;
-
-    for (list<string>::iterator iter = names.begin(); iter != names.end(); ++iter) {
-        string query = "/pools/default/buckets/" + *iter + "/controller/doFlush";
-        lcb_http_cmd_t cmd;
-        cmd.version = 0;
-        cmd.v.v0.path = query.c_str();
-        cmd.v.v0.npath = query.length();
-        cmd.v.v0.body = NULL;
-        cmd.v.v0.nbody = 0;
-        cmd.v.v0.method = LCB_HTTP_METHOD_POST;
-        cmd.v.v0.chunked = false;
-        cmd.v.v0.content_type = "application/x-www-form-urlencoded";
-        rc = lcb_make_http_request(instance, NULL, LCB_HTTP_TYPE_MANAGEMENT, &cmd, NULL);
-        if (rc != LCB_SUCCESS) {
-            cerr << "Failed to send requests: " << endl
-                 << lcb_strerror(instance, rc) << endl;
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool bucket_create_impl(lcb_t instance, list<string> &names,
-                               string &bucket_type, string &auth_type, int ram_quota,
-                               string &sasl_password, int replica_num, int proxy_port)
-{
-    lcb_error_t rc;
-    string query = "/pools/default/buckets";
-
-    if (names.empty()) {
-        cerr << "ERROR: you need to specify at least one bucket name" << endl;
-        return false;
-    }
-    for (list<string>::iterator iter = names.begin(); iter != names.end(); ++iter) {
-        stringstream dss;
-        dss << "name=" << *iter
-            << "&bucketType=" << bucket_type
-            << "&ramQuotaMB=" << ram_quota
-            << "&replicaNumber=" << replica_num
-            << "&authType=" << auth_type
-            << "&saslPassword=" << sasl_password;
-        if (proxy_port > 0) {
-            dss << "&proxyPort=" << proxy_port;
-        }
-        string data = dss.str();
-        lcb_http_cmd_t cmd;
-        cmd.version = 0;
-        cmd.v.v0.path = query.c_str();
-        cmd.v.v0.npath = query.length();
-        cmd.v.v0.body = data.c_str();
-        cmd.v.v0.nbody = data.length();
-        cmd.v.v0.method = LCB_HTTP_METHOD_POST;
-        cmd.v.v0.chunked = false;
-        cmd.v.v0.content_type = "application/x-www-form-urlencoded";
-        rc = lcb_make_http_request(instance, NULL, LCB_HTTP_TYPE_MANAGEMENT, &cmd, NULL);
-        if (rc != LCB_SUCCESS) {
-            cerr << "Failed to send requests: " << endl
-                 << lcb_strerror(instance, rc) << endl;
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool lock_impl(lcb_t instance, list<string> &keys, lcb_time_t exptime)
-{
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to lock" << endl;
-        return false;
-    }
-
-    for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter) {
-        lcb_get_cmd_t item;
-        item.v.v0.key = (const void *)iter->c_str();
-        item.v.v0.nkey = (lcb_size_t)iter->length();
-        item.v.v0.lock = 1;
-        item.v.v0.exptime = exptime;
-
-        lcb_get_cmd_t *items[] = { &item };
-        lcb_error_t err = lcb_get(instance, NULL, 1, items);
-        if (err != LCB_SUCCESS) {
-            cerr << "Failed to send requests:" << endl
-                 << lcb_strerror(instance, err) << endl;
-            return false;
-        }
-
-    }
-    return true;
-}
-
-static bool unlock_impl(lcb_t instance, list<string> &keys)
-{
-    if (keys.empty()) {
-        cerr << "ERROR: you need to specify the key to unlock" << endl;
-        return false;
-    }
-
-    if (keys.size() % 2 != 0) {
-        cerr << "ERROR: you need to specify key-cas pairs, "
-             << "therefore argument list should be even" << endl;
-        return false;
-    }
-
-    for (list<string>::iterator iter = keys.begin(); iter != keys.end(); ++iter) {
-        lcb_cas_t cas;
-        string key = *iter;
-        stringstream ss(*(++iter));
-        ss >> hex >> cas;
-
-        lcb_unlock_cmd_t item;
-        memset(&item, 0, sizeof(item));
-        item.v.v0.key = key.c_str();
-        item.v.v0.nkey = key.length();
-        item.v.v0.cas = cas;
-        lcb_unlock_cmd_t *items[] = { &item };
-
-        lcb_error_t err = lcb_unlock(instance, NULL, 1, items);
-        if (err != LCB_SUCCESS) {
-            cerr << "Failed to send requests:" << endl
-                 << lcb_strerror(instance, err) << endl;
-            return false;
-        }
-
-    }
-    return true;
-}
-
-static bool stats_impl(lcb_t instance, list<string> &keys)
-{
-    if (keys.empty()) {
-        lcb_error_t err;
-        lcb_server_stats_cmd_t stats;
-        lcb_server_stats_cmd_t *commands[] = { &stats };
-        err = lcb_server_stats(instance, NULL, 1, commands);
-        if (err != LCB_SUCCESS) {
-            cerr << "Failed to request stats: " << endl
-                 << lcb_strerror(instance, err) << endl;
-            return false;
-        }
+    if (err == LCB_SUCCESS) {
+        printKeyCasStatus(key, resp, "Persisted/Replicated.");
     } else {
-        for (list<string>::iterator ii = keys.begin(); ii != keys.end(); ++ii) {
-            string key = *ii;
-            lcb_error_t err;
-
-            lcb_server_stats_cmd_t stats(key.c_str());
-            lcb_server_stats_cmd_t *commands[] = { &stats };
-
-            err = lcb_server_stats(instance, NULL, 1, commands);
-            if (err != LCB_SUCCESS) {
-                cerr << "Failed to request stats: " << endl
-                     << lcb_strerror(instance, err) << endl;
-                return false;
-            }
-        }
+        printKeyError(key, err);
+    }
+}
+static void
+observe_callback(lcb_t, const void*,  lcb_error_t err, const lcb_observe_resp_t *resp)
+{
+    if (resp->v.v0.nkey == 0) {
+        return;
     }
 
-    return true;
+    string key = getRespKey(resp);
+    if (err == LCB_SUCCESS) {
+        fprintf(stderr,
+            "%-20s [%s] Status=0x%x, CAS=0x%"PRIx64"\n", key.c_str(),
+            resp->v.v0.from_master ? "Master" : "Replica",
+                    resp->v.v0.status, resp->v.v0.cas);
+    } else {
+        printKeyError(key, err);
+    }
+}
+static void
+unlock_callback(lcb_t, const void*, lcb_error_t err, const lcb_unlock_resp_t *resp)
+{
+    string key = getRespKey(resp);
+    if (err != LCB_SUCCESS) {
+        printKeyError(key, err);
+    } else {
+        fprintf(stderr, "%-20s Unlocked\n", key.c_str());
+    }
+}
+static void
+remove_callback(lcb_t, const void*, lcb_error_t err, const lcb_remove_resp_t *resp)
+{
+    string key = getRespKey(resp);
+    if (err != LCB_SUCCESS) {
+        printKeyError(key, err);
+    } else {
+        printKeyCasStatus(key, resp, "Removed.");
+    }
+}
+static void
+stats_callback(lcb_t, const void *, lcb_error_t err, const lcb_server_stat_resp_t *resp)
+{
+    if (err != LCB_SUCCESS) {
+        fprintf(stderr, "Got error %s (%d) in stats\n", lcb_strerror(NULL, err), err);
+        return;
+    }
+    if (resp->v.v0.server_endpoint == NULL || resp->v.v0.key == NULL) {
+        return;
+    }
+
+    string server = resp->v.v0.server_endpoint;
+    string key = getRespKey(resp);
+    string value;
+    if (resp->v.v0.nbytes > 0) {
+        value.assign((const char *)resp->v.v0.bytes, resp->v.v0.nbytes);
+    }
+    fprintf(stderr, "%s\t%s", server.c_str(), key.c_str());
+    if (!value.empty()) {
+        fprintf(stderr, "\t%s", value.c_str());
+    }
+    fprintf(stderr, "\n");
+}
+static void
+verbosity_callback(lcb_t,const void*, lcb_error_t err, const lcb_verbosity_resp_st *resp)
+{
+    if (err != LCB_SUCCESS && resp->v.v0.server_endpoint) {
+        fprintf(stderr, "Failed to set verbosity for %s\n", resp->v.v0.server_endpoint);
+    }
+}
+static void
+arithmetic_callback(lcb_t, const void*, lcb_error_t err, const lcb_arithmetic_resp_t *resp)
+{
+    string key = getRespKey(resp);
+    if (err != LCB_SUCCESS) {
+        printKeyError(key, err);
+    } else {
+        char buf[4096] = { 0 };
+        sprintf(buf, "Current value is %"PRIu64".", resp->v.v0.value);
+        printKeyCasStatus(key, resp, buf);
+    }
+}
+static void
+http_chunk_callback(lcb_http_request_t, lcb_t, const void *cookie,
+    lcb_error_t err, const lcb_http_resp_t *resp)
+{
+    HttpReceiver *ctx = (HttpReceiver *)cookie;
+    ctx->maybeInvokeStatus(err, resp);
+    if (resp->v.v0.nbytes) {
+        ctx->onChunk((const char*)resp->v.v0.bytes, resp->v.v0.nbytes);
+    }
+}
+static void
+http_done_callback(lcb_http_request_t, lcb_t, const void *cookie,
+    lcb_error_t err, const lcb_http_resp_t *resp) {
+    HttpReceiver *ctx = (HttpReceiver *)cookie;
+    ctx->maybeInvokeStatus(err, resp);
+    ctx->onDone();
+}
 }
 
-static bool flush_impl(lcb_t instance, list<string> &keys)
-{
-    if (!keys.empty()) {
-        cerr << "Ignoring arguments." << endl;
-    }
 
+Handler::Handler(const char *name) : parser(name), instance(NULL)
+{
+    if (name != NULL) {
+        cmdname = name;
+    }
+}
+
+Handler::~Handler()
+{
+    if (instance) {
+        lcb_destroy(instance);
+    }
+}
+
+void
+Handler::execute(int argc, char **argv)
+{
+    addOptions();
+    parser.parse(argc, argv, true);
+    run();
+    if (instance != NULL && params.useTimings()) {
+        fprintf(stderr, "Output command timings as requested (--timings)\n");
+        hg.write();
+    }
+}
+
+void
+Handler::addOptions()
+{
+    params.addToParser(parser);
+}
+
+void
+Handler::run()
+{
+    lcb_create_st cropts;
+    memset(&cropts, 0, sizeof cropts);
+    params.fillCropts(cropts);
     lcb_error_t err;
-    lcb_flush_cmd_t flush;
-    lcb_flush_cmd_t *commands[] = {&flush};
-
-    err = lcb_flush(instance, NULL, 1, commands);
+    err = lcb_create(&instance, &cropts);
     if (err != LCB_SUCCESS) {
-        cerr << "Failed to flush: " << endl
-             << lcb_strerror(instance, err) << endl;
-        return false;
+        throw err;
     }
-
-    return true;
-}
-
-static bool spool(string &data)
-{
-    stringstream ss;
-    char buffer[1024];
-    lcb_size_t nr;
-    while ((nr = fread(buffer, 1, sizeof(buffer), stdin)) != (lcb_size_t) - 1) {
-        if (nr == 0) {
-            break;
-        }
-        ss.write(buffer, nr);
-    }
-    data.assign(ss.str());
-    return nr == 0 || feof(stdin) != 0;
-}
-
-static bool create_impl(lcb_t instance, list<string> &keys,
-                        lcb_uint32_t exptime, lcb_uint32_t flags, bool add)
-{
-    if (keys.size() != 1) {
-        cerr << "Usage: You need to specify a single key" << endl;
-        return false;
-    }
-
-    string &key = keys.front();
-
-    string data;
-    if (!spool(data)) {
-        cerr << "Failed to read input data: " << strerror(errno)
-             << endl;
-        return false;
-    }
-
-    lcb_storage_t operation;
-    if (add) {
-        operation = LCB_ADD;
-    } else {
-        operation = LCB_SET;
-    }
-
-    lcb_store_cmd_t item(operation, key.c_str(), key.length(),
-                         data.data(), data.length(), flags, exptime);
-    lcb_store_cmd_t *items[] = { &item };
-    lcb_error_t err = lcb_store(instance, NULL, 1, items);
-
+    params.doCtls(instance);
+    err = lcb_connect(instance);
     if (err != LCB_SUCCESS) {
-        cerr << "Failed to store object: " << endl
-             << lcb_strerror(instance, err) << endl;
-        return false;
-    }
-
-    return true;
-}
-
-static bool verify_impl(lcb_t instance, list<string> &keys)
-{
-    (void)lcb_set_get_callback(instance, verify_callback);
-    return cat_impl(instance, keys);
-}
-
-static void loadKeys(list<string> &keys)
-{
-    char buffer[1024];
-    while (fgets(buffer, (int)sizeof(buffer), stdin) != NULL) {
-        lcb_size_t idx = strlen(buffer);
-        while (idx > 0 && isspace(buffer[idx - 1])) {
-            --idx;
-        }
-        buffer[idx] = '\0';
-        keys.push_back(buffer);
-    }
-}
-
-static bool isValidBucketName(const char *n)
-{
-    bool rv = strlen(n) > 0;
-    for (; *n; n++) {
-        rv &= isalpha(*n) || isdigit(*n) || *n == '.' || *n == '%' || *n == '_' || *n == '-';
-    }
-    return rv;
-}
-
-static bool verifyBucketNames(list<string> &names)
-{
-    for (list<string>::iterator ii = names.begin(); ii != names.end(); ++ii) {
-        if (!isValidBucketName(ii->c_str())) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static void handleCommandLineOptions(enum cbc_command_t cmd, int argc, char **argv)
-{
-    Configuration config;
-    Getopt getopt;
-    bool dumb = false;
-
-    getopt.addOption(new CommandLineOption('?', "help", false,
-                                           "Print this help text"));
-    getopt.addOption(new CommandLineOption('h', "host", true,
-                                           "Hostname to connect to"));
-    getopt.addOption(new CommandLineOption('b', "bucket", true,
-                                           "Bucket to use"));
-    getopt.addOption(new CommandLineOption('u', "user", true,
-                                           "Username for the rest port"));
-    getopt.addOption(new CommandLineOption('P', "password", true,
-                                           "password for the rest port"));
-    getopt.addOption(new CommandLineOption('T', "enable-timings", false,
-                                           "Enable command timings"));
-    getopt.addOption(new CommandLineOption('t', "timeout", true,
-                                           "Specify timeout value"));
-    getopt.addOption(new CommandLineOption('D', "dumb", false,
-                                           "Behave like legacy memcached client (default false)"));
-    getopt.addOption(new CommandLineOption('S', "sasl", true,
-                                           "Force SASL authentication mechanism (\"PLAIN\" or \"CRAM-MD5\")"));
-    getopt.addOption(new CommandLineOption('C', "config-transport", true,
-                                           "Specify transport for bootstrapping the connection: \"HTTP\" or \"CCCP\" (default)"));
-    string config_cache;
-    getopt.addOption(new CommandLineOption('Z', "config-cache", true,
-                                           "Path to cached configuration"));
-
-    int replica_strategy = -1;
-    int replica_idx = 0;
-    if (cmd == cbc_cat) {
-        getopt.addOption(new CommandLineOption('r', "replica", true,
-                                               "Read key(s) from replicas: (default: first)).\n"
-                                               "\t\tFollowing strategies available:\n"
-                                               "\t\t  first: try all replica from first in a sequence until first successful response\n"
-                                               "\t\t  all: try all replicas in parallel\n"
-                                               "\t\t  N, where 0 < N < number of replicas: read from selected replica only"));
-    }
-
-    lcb_uint32_t flags = 0;
-    lcb_uint32_t exptime = 0;
-    bool add = false;
-    if (cmd == cbc_create) {
-        getopt.addOption(new CommandLineOption('f', "flag", true,
-                                               "Flag for the new object"));
-        getopt.addOption(new CommandLineOption('e', "exptime", true,
-                                               "Expiry time for the new object"));
-        getopt.addOption(new CommandLineOption('a', "add", false,
-                                               "Fail if the object exists"));
-    }
-
-    if (cmd == cbc_lock) {
-        getopt.addOption(new CommandLineOption('e', "exptime", true,
-                                               "Expiry time for the lock"));
-    }
-
-    bool json = false;
-    bool persisted = false;
-    int replicated = 0;
-    int max_tries = 5;
-    if (cmd == cbc_cp) {
-        getopt.addOption(new CommandLineOption('p', "persisted", false,
-                                               "Ensure that key has been persisted to master node"));
-        getopt.addOption(new CommandLineOption('r', "replicated", true,
-                                               "Ensure that key has been replicated and persisted to given number of replicas"));
-        getopt.addOption(new CommandLineOption('m', "max-tries", true,
-                                               "The number of attempts for observing keys (default: 5)"));
-#ifdef HAVE_LIBYAJL2
-        getopt.addOption(new CommandLineOption('j', "json", false,
-                                               "Treat value as JSON document (take key from '_id' attribute)"));
-#endif
-    }
-
-    bool chunked = false;
-    string data;
-    lcb_http_method_t method = LCB_HTTP_METHOD_GET;
-    if (cmd == cbc_view || cmd == cbc_admin) {
-        getopt.addOption(new CommandLineOption('c', "chunked", false,
-                                               "Use chunked callback to stream the data"));
-        getopt.addOption(new CommandLineOption('d', "data", true,
-                                               "HTTP body data for POST or PUT requests, e.g. {\"keys\": [\"key1\", \"key2\", ...]}"));
-        getopt.addOption(new CommandLineOption('X', "request", true,
-                                               "HTTP request method, possible values GET, POST, PUT, DELETE (default GET)"));
-    }
-    string bucket_type = "membase";
-    string auth_type = "sasl";
-    int ram_quota = 100;
-    string sasl_password;
-    int replica_num = 1;
-    int proxy_port = 0;
-    if (cmd == cbc_bucket_create) {
-        getopt.addOption(new CommandLineOption('B', "bucket-type", true,
-                                               "Bucket type, possible values are: membase (with alias couchbase), memcached) (default: couchbase)"));
-        getopt.addOption(new CommandLineOption('q', "ram-quota", true,
-                                               "RAM quota in megabytes (default: 100)"));
-        getopt.addOption(new CommandLineOption('a', "auth-type", true,
-                                               "Type of bucket authentication, possible values are: none, sasl (default: sasl)."
-                                               " Note you should specify free port for 'none'"));
-        getopt.addOption(new CommandLineOption('s', "sasl-password", true,
-                                               "Password for SASL (default: '')"));
-        getopt.addOption(new CommandLineOption('r', "replica-number", true,
-                                               "Number of the nodes each key should be replicated, allowed values 0-3 (default 1)"));
-        getopt.addOption(new CommandLineOption('p', "proxy-port", true,
-                                               "Proxy port (default 11211)"));
-    }
-
-    bool is_vbucket = false;
-    string filename;
-    if (cmd == cbc_hash) {
-        getopt.addOption(new CommandLineOption('v', "vbucket", false,
-                                               "Treat keys as vbucket IDs and skip hashing step"));
-        getopt.addOption(new CommandLineOption('f', "config-file", true,
-                                               "The dump of the cluster JSON configuration"));
-    }
-
-    if (!getopt.parse(argc, argv)) {
-        getopt.usage(argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    vector<CommandLineOption *>::iterator iter;
-    const char *sasl_mech = NULL;
-
-    lcb_config_transport_t default_transports[] = {
-            LCB_CONFIG_TRANSPORT_HTTP,
-            LCB_CONFIG_TRANSPORT_CCCP,
-            LCB_CONFIG_TRANSPORT_LIST_END
-    };
-
-    for (iter = getopt.options.begin(); iter != getopt.options.end(); ++iter) {
-        if ((*iter)->found) {
-            bool unknownOpt = true;
-            string arg;
-            switch ((*iter)->shortopt) {
-            case 'h' :
-                config.setHost((*iter)->argument);
-                break;
-
-            case 'b' :
-                config.setBucket((*iter)->argument);
-                break;
-
-            case 'u' :
-                config.setUser((*iter)->argument);
-                break;
-
-            case 'P' :
-                config.setPassword((*iter)->argument);
-                break;
-
-            case 't' :
-                config.setTimeout((*iter)->argument);
-                break;
-
-            case 'T' :
-                config.setTimingsEnabled(true);
-                break;
-
-            case 'D':
-                dumb = true;
-                break;
-
-            case 'S':
-                sasl_mech = (*iter)->argument;
-                break;
-
-            case 'C':
-                arg = (*iter)->argument;
-                if (arg == "HTTP") {
-                    default_transports[0] = LCB_CONFIG_TRANSPORT_HTTP;
-                } else if (arg == "CCCP") {
-                    default_transports[0] = LCB_CONFIG_TRANSPORT_CCCP;
-                } else {
-                    cerr << "Usupported configuration transport: " << arg << endl;
-                    getopt.usage(argv[0]);
-                    exit(EXIT_FAILURE);
-                }
-                default_transports[1] = LCB_CONFIG_TRANSPORT_LIST_END;
-                break;
-            case 'Z':
-                config_cache = (*iter)->argument;
-                break;
-
-            case '?':
-                getopt.usage(argv[0]);
-                exit(EXIT_SUCCESS);
-                // NOTREACHED
-
-            default:
-                if (cmd == cbc_cat) {
-                    unknownOpt = false;
-                    switch ((*iter)->shortopt) {
-                    case 'r':
-                        arg.assign((*iter)->argument);
-                        if (arg == "first") {
-                            replica_strategy = LCB_REPLICA_FIRST;
-                        } else if (arg == "all") {
-                            replica_strategy = LCB_REPLICA_ALL;
-                        } else {
-                            replica_strategy = LCB_REPLICA_SELECT;
-                            replica_idx = atoi(arg.c_str());
-                        }
-                        break;
-                    default:
-                        unknownOpt = true;
-                    }
-                } else if (cmd == cbc_create) {
-                    unknownOpt = false;
-                    switch ((*iter)->shortopt) {
-                    case 'f':
-                        flags = (lcb_uint32_t)atoi((*iter)->argument);
-                        break;
-                    case 'e':
-                        exptime = (lcb_uint32_t)atoi((*iter)->argument);
-                        break;
-                    case 'a':
-                        add = true;
-                        break;
-                    default:
-                        unknownOpt = true;
-                    }
-                } else if (cmd == cbc_cp) {
-                    unknownOpt = false;
-                    switch ((*iter)->shortopt) {
-                    case 'p':
-                        persisted = true;
-                        break;
-                    case 'r':
-                        replicated = atoi((*iter)->argument);
-                        break;
-                    case 'm':
-                        max_tries = atoi((*iter)->argument);
-                        break;
-#ifdef HAVE_LIBYAJL2
-                    case 'j':
-                        json = true;
-                        break;
-#endif
-                    default:
-                        unknownOpt = true;
-                    }
-                } else if (cmd == cbc_lock) {
-                    unknownOpt = false;
-                    switch ((*iter)->shortopt) {
-                    case 'e':
-                        flags = (lcb_uint32_t)atoi((*iter)->argument);
-                        break;
-                    default:
-                        unknownOpt = true;
-                    }
-                } else if (cmd == cbc_view || cmd == cbc_admin) {
-                    unknownOpt = false;
-                    switch ((*iter)->shortopt) {
-                    case 'c':
-                        chunked = true;
-                        break;
-                    case 'd':
-                        data = (*iter)->argument;
-                        break;
-                    case 'X':
-                        arg = (*iter)->argument;
-                        if (arg == "GET") {
-                            method = LCB_HTTP_METHOD_GET;
-                        } else if (arg == "POST") {
-                            method = LCB_HTTP_METHOD_POST;
-                        } else if (arg == "PUT") {
-                            method = LCB_HTTP_METHOD_PUT;
-                        } else if (arg == "DELETE") {
-                            method = LCB_HTTP_METHOD_DELETE;
-                        } else {
-                            unknownOpt = true;
-                            cerr << "Usupported HTTP method: " << arg << endl;
-                        }
-                        break;
-                    default:
-                        unknownOpt = true;
-                    }
-                } else if (cmd == cbc_bucket_create) {
-                    arg = (*iter)->argument;
-                    unknownOpt = false;
-                    switch ((*iter)->shortopt) {
-                    case 'B':
-                        if (arg == "couchbase") {
-                            bucket_type = "membase";
-                        } else {
-                            bucket_type = arg;
-                        }
-                        break;
-                    case 'q':
-                        ram_quota = atoi((*iter)->argument);
-                        break;
-                    case 'a':
-                        auth_type = arg;
-                        break;
-                    case 's':
-                        sasl_password = arg;
-                        break;
-                    case 'r':
-                        replica_num = atoi((*iter)->argument);
-                        break;
-                    case 'p':
-                        proxy_port = atoi((*iter)->argument);
-                        break;
-                    default:
-                        unknownOpt = true;
-                    }
-                } else if (cmd == cbc_hash) {
-                    unknownOpt = false;
-                    switch ((*iter)->shortopt) {
-                    case 'v':
-                        is_vbucket = true;
-                        break;
-                    case 'f':
-                        filename = (*iter)->argument;
-                        break;
-                    default:
-                        unknownOpt = true;
-                    }
-                }
-
-                if (unknownOpt) {
-                    getopt.usage(argv[0]);
-                    exit(EXIT_FAILURE);
-                }
-            }
-        }
-    }
-
-    bool success = false;
-    if (cmd == cbc_hash && !filename.empty()) {
-        success = hash_impl(filename, getopt.arguments, is_vbucket);
-        exit(success ? EXIT_SUCCESS : EXIT_FAILURE);
-    }
-
-    lcb_t instance;
-    lcb_error_t err;
-    if (dumb) {
-        struct lcb_memcached_st memcached;
-
-        memset(&memcached, 0, sizeof(memcached));
-        memcached.serverlist = config.getHost();
-        err = lcb_create_compat(LCB_MEMCACHED_CLUSTER,
-                                &memcached, &instance, NULL);
-    } else {
-        struct lcb_create_st options(config.getHost(), config.getUser(),
-                                     config.getPassword(), config.getBucket());
-        if (cmd == cbc_admin || cmd == cbc_bucket_create ||
-                cmd == cbc_bucket_delete || cmd == cbc_bucket_flush) {
-            options.v.v1.type = LCB_TYPE_CLUSTER;
-            if (config.getPassword() == NULL || config.getUser() == NULL) {
-                cerr << "Username and password mandatory for admin operations." << endl;
-                exit(EXIT_FAILURE);
-            }
-        }
-        if (options.version == 2) {
-            options.v.v2.transports = default_transports;
-        } else {
-            cerr << "Cannot change configuration transport. Fallback to default" << endl;
-        }
-
-        if (!config_cache.empty()) {
-            struct lcb_cached_config_st cache_params;
-            cache_params.createopt = options;
-            cache_params.cachefile = config_cache.c_str();
-            err = lcb_create_compat(LCB_CACHED_CONFIG,
-                                    &cache_params, &instance, NULL);
-        } else {
-            err = lcb_create(&instance, &options);
-        }
-    }
-    if (err != LCB_SUCCESS) {
-        cerr << "Failed to create couchbase instance: " << endl
-             << lcb_strerror(NULL, err) << endl;
-        exit(EXIT_FAILURE);
-    }
-
-    if (sasl_mech) {
-        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)sasl_mech);
-    }
-    (void)lcb_set_error_callback(instance, error_callback);
-    (void)lcb_set_flush_callback(instance, flush_callback);
-    (void)lcb_set_get_callback(instance, get_callback);
-    (void)lcb_set_remove_callback(instance, remove_callback);
-    (void)lcb_set_stat_callback(instance, stat_callback);
-    (void)lcb_set_store_callback(instance, store_callback);
-    (void)lcb_set_unlock_callback(instance, unlock_callback);
-    (void)lcb_set_observe_callback(instance, observe_callback);
-    (void)lcb_set_http_data_callback(instance, data_callback);
-    (void)lcb_set_http_complete_callback(instance, complete_callback);
-    (void)lcb_set_verbosity_callback(instance, verbosity_callback);
-
-    if (config.getTimeout() != 0) {
-        lcb_set_timeout(instance, config.getTimeout());
-    }
-
-    lcb_error_t ret = lcb_connect(instance);
-    if (ret != LCB_SUCCESS) {
-        cerr << "Failed to connect libcouchbase instance to server:" << endl
-             << "\t\"" << lcb_strerror(instance, ret) << "\"" << endl;
-        exit(EXIT_FAILURE);
+        throw err;
     }
     lcb_wait(instance);
-
-    bool error = false;
-    lcb_set_cookie(instance, static_cast<void *>(&error));
-
-    if (config.isTimingsEnabled()) {
-        lcb_enable_timings(instance);
+    err = lcb_get_bootstrap_status(instance);
+    if (err != LCB_SUCCESS) {
+        throw err;
     }
 
-    list<string> keys;
+    if (params.useTimings()) {
+        hg.install(instance, stdout);
+    }
+}
 
-    switch (cmd) {
-    case cbc_cat:
-        if (replica_strategy != -1) {
-            success = cat_replica_impl(instance, getopt.arguments,
-                                       replica_strategy, replica_idx);
-        } else {
-            success = cat_impl(instance, getopt.arguments);
+const string&
+Handler::getRequiredArg()
+{
+    const vector<string>& args = parser.getRestArgs();
+    if (args.empty() || args.size() != 1) {
+        throw "Command requires single argument";
+    }
+    return args[0];
+}
+
+void
+GetHandler::addOptions()
+{
+    Handler::addOptions();
+    o_exptime.abbrev('e');
+    if (isLock()) {
+        o_exptime.description("Time the lock should be held for");
+    } else {
+        o_exptime.description("Update the expiration time for the item");
+        o_replica.abbrev('r');
+        o_replica.description("Read from replica. Possible values are 'first': read from first available replica. 'all': read from all replicas, and <N>, where 0 < N < nreplicas");
+        parser.addOption(o_replica);
+    }
+    parser.addOption(o_exptime);
+}
+
+void
+GetHandler::run()
+{
+    Handler::run();
+    lcb_set_get_callback(instance, get_callback);
+    const vector<string>& keys = parser.getRestArgs();
+    lcb_error_t err;
+
+    lcb_sched_enter(instance);
+    for (size_t ii = 0; ii < keys.size(); ++ii) {
+        lcb_CMDGET cmd = { 0 };
+        const string& key = keys[ii];
+        LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+        if (o_exptime.passed()) {
+            cmd.options.exptime = o_exptime.result();
         }
-        break;
-    case cbc_lock:
-        success = lock_impl(instance, getopt.arguments, exptime);
-        break;
-    case cbc_unlock:
-        success = unlock_impl(instance, getopt.arguments);
-        break;
-    case cbc_cp:
-        if (replicated < 0) {
-            cerr << "Number of replicas must be positive integer" << endl;
-            success = false;
-            break;
+        if (isLock()) {
+            cmd.lock = 1;
         }
-        if (getopt.arguments.size() == 1 && getopt.arguments.front() == "-") {
-            loadKeys(keys);
-            success = cp_impl(instance, keys, json, persisted, replicated, max_tries);
-        } else {
-            success = cp_impl(instance, getopt.arguments, json, persisted, replicated, max_tries);
+
+        err = lcb_get3(instance, this, &cmd);
+        if (err != LCB_SUCCESS) {
+            throw err;
         }
-        break;
-    case cbc_rm:
-        success = rm_impl(instance, getopt.arguments);
-        break;
-    case cbc_stats:
-        success = stats_impl(instance, getopt.arguments);
-        break;
-    case cbc_flush:
-        success = flush_impl(instance, getopt.arguments);
-        break;
-    case cbc_create:
-        success = create_impl(instance, getopt.arguments, exptime, flags, add);
-        break;
-    case cbc_verify:
-        if (getopt.arguments.size() == 1 && getopt.arguments.front() == "-") {
-            loadKeys(keys);
-            success = verify_impl(instance, keys);
-        } else {
-            success = verify_impl(instance, getopt.arguments);
-        }
-        break;
-    case cbc_hash:
-        success = hash_impl(instance, getopt.arguments, is_vbucket);
-        break;
-    case cbc_view:
-    case cbc_admin:
-        switch (getopt.arguments.size()) {
-        case 1:
-            if (cmd == cbc_view) {
-                success = view_impl(instance, getopt.arguments.front(), data, chunked, method);
-            } else {
-                success = admin_impl(instance, getopt.arguments.front(), data, chunked, method);
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+static void
+endureItems(lcb_t instance, const map<string,lcb_cas_t> items,
+    size_t persist_to, size_t replicate_to)
+{
+    lcb_set_durability_callback(instance, durability_callback);
+    lcb_durability_opts_t options = { 0 };
+    vector<lcb_durability_cmd_t> cmds;
+    vector<const lcb_durability_cmd_t *> cmdlist;
+    options.v.v0.persist_to = persist_to;
+    options.v.v0.replicate_to = replicate_to;
+    lcb_error_t err;
+
+    map<string,lcb_cas_t>::const_iterator iter;
+    for (iter = items.begin(); iter != items.end(); ++iter) {
+        lcb_durability_cmd_t cmd = { 0 };
+        cmd.v.v0.key = iter->first.c_str();
+        cmd.v.v0.nkey = iter->first.size();
+        cmd.v.v0.cas = iter->second;
+        cmds.push_back(cmd);
+    }
+
+    for (size_t ii = 0; ii < cmds.size(); ++ii) {
+        cmdlist.push_back(&cmds[ii]);
+    }
+    err = lcb_durability_poll(instance, NULL, &options, cmds.size(), &cmdlist[0]);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    }
+    lcb_wait(instance);
+}
+
+void
+SetHandler::addOptions()
+{
+    Handler::addOptions();
+    parser.addOption(o_flags);
+    parser.addOption(o_exp);
+    parser.addOption(o_add);
+    parser.addOption(o_persist);
+    parser.addOption(o_replicate);
+    if (!hasFileList()) {
+        parser.addOption(o_value);
+    }
+    parser.addOption(o_json);
+}
+
+void
+SetHandler::storeItem(const string& key, const char *value, size_t nvalue)
+{
+    lcb_error_t err;
+    lcb_CMDSTORE cmd = { 0 };
+    LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+    cmd.value.vtype = LCB_KV_COPY;
+    cmd.value.u_buf.contig.bytes = value;
+    cmd.value.u_buf.contig.nbytes = nvalue;
+
+    if (o_json.result()) {
+        cmd.datatype = LCB_VALUE_F_JSON;
+    }
+    if (o_exp.passed()) {
+        cmd.options.exptime = o_exp.result();
+    }
+    if (o_flags.passed()) {
+        cmd.flags = o_flags.result();
+    }
+    if (o_add.passed() && o_add.result()) {
+        cmd.operation = LCB_ADD;
+    } else {
+        cmd.operation = LCB_SET;
+    }
+    err = lcb_store3(instance, &items, &cmd);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    }
+}
+
+void
+SetHandler::storeItem(const string& key, FILE *input)
+{
+    char tmpbuf[4096];
+    vector<char> vbuf;
+    size_t nr;
+    while ((nr = fread(tmpbuf, 1, sizeof tmpbuf, input))) {
+        vbuf.insert(vbuf.end(), tmpbuf, &tmpbuf[nr]);
+    }
+    storeItem(key, &vbuf[0], vbuf.size());
+}
+
+void
+SetHandler::run()
+{
+    Handler::run();
+    lcb_set_store_callback(instance, store_callback);
+    const vector<string>& keys = parser.getRestArgs();
+
+    lcb_sched_enter(instance);
+
+    if (hasFileList()) {
+        for (size_t ii = 0; ii < keys.size(); ii++) {
+            const string& key = keys[ii];
+            FILE *fp = fopen(key.c_str(), "rb");
+            if (fp == NULL) {
+                perror(key.c_str());
+                continue;
             }
+            storeItem(key, fp);
+            fclose(fp);
+        }
+    } else if (keys.size() > 1 || keys.empty()) {
+        throw "create must be passed a single key";
+    } else {
+        const string& key = keys[0];
+        if (o_value.passed()) {
+            const string& value = o_value.const_result();
+            storeItem(key, value.c_str(), value.size());
+        } else {
+            storeItem(key, stdin);
+        }
+    }
+
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+    if (items.empty() == false && (o_persist.passed() || o_replicate.passed())) {
+        endureItems(instance, items, o_persist.result(), o_replicate.result());
+    }
+}
+
+void
+HashHandler::run()
+{
+    Handler::run();
+
+    lcbvb_CONFIG *vbc;
+    lcb_error_t err;
+    err = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    }
+
+    const vector<string>& args = parser.getRestArgs();
+    for (size_t ii = 0; ii < args.size(); ii++) {
+        const string& key = args[ii];
+        const void *vkey = (const void *)key.c_str();
+        int vbid, srvix;
+        lcbvb_map_key(vbc, vkey, key.size(), &vbid, &srvix);
+        fprintf(stderr, "%s: [vBucket=%d, Index=%d]", key.c_str(), vbid, srvix);
+        if (srvix != -1) {
+            fprintf(stderr, " Server: %s", vbucket_config_get_server(vbc, srvix));
+            const char *vapi = vbucket_config_get_couch_api_base(vbc, srvix);
+            if (vapi) {
+                fprintf(stderr, ", CouchAPI: %s", vapi);
+            }
+        }
+        fprintf(stderr, "\n");
+    }
+}
+
+void
+ObserveHandler::run()
+{
+    Handler::run();
+    lcb_set_observe_callback(instance, observe_callback);
+    const vector<string>& keys = parser.getRestArgs();
+    vector<lcb_observe_cmd_t> cmds;
+    vector<const lcb_observe_cmd_t*> cmdlist;
+    for (size_t ii = 0; ii < keys.size(); ii++) {
+        lcb_observe_cmd_t cmd;
+        memset(&cmd, 0, sizeof cmd);
+        cmd.v.v0.key = (const void *)keys[ii].c_str();
+        cmd.v.v0.nkey = keys[ii].size();
+        cmds.push_back(cmd);
+    }
+    for (size_t ii = 0; ii < cmds.size(); ii++) {
+        cmdlist.push_back(&cmds[ii]);
+    }
+    lcb_error_t err;
+    err = lcb_observe(instance, NULL, cmds.size(), &cmdlist[0]);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    }
+    lcb_wait(instance);
+}
+
+void
+UnlockHandler::run()
+{
+    Handler::run();
+    lcb_set_unlock_callback(instance, unlock_callback);
+    const vector<string>& args = parser.getRestArgs();
+
+    if (args.size() % 2) {
+        throw "Expect key-cas pairs. Argument list must be even";
+    }
+
+    lcb_sched_enter(instance);
+    for (size_t ii = 0; ii < args.size(); ii += 2) {
+        const string& key = args[ii];
+        lcb_CAS cas;
+        int rv;
+        rv = sscanf(args[ii+1].c_str(), "0x%"PRIx64, &cas);
+        if (rv != 1) {
+            throw "CAS must be formatted as a hex string beginning with '0x'";
+        }
+
+        lcb_CMDUNLOCK cmd;
+        memset(&cmd, 0, sizeof cmd);
+        LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+        cmd.options.cas = cas;
+        lcb_error_t err = lcb_unlock3(instance, NULL, &cmd);
+        if (err != LCB_SUCCESS) {
+            throw err;
+        }
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+static const char *
+iops_to_string(lcb_io_ops_type_t type)
+{
+    switch (type) {
+    case LCB_IO_OPS_LIBEV: return "libev";
+    case LCB_IO_OPS_LIBEVENT: return "libevent";
+    case LCB_IO_OPS_LIBUV: return "libuv";
+    case LCB_IO_OPS_SELECT: return "select";
+    case LCB_IO_OPS_WINIOCP: return "iocp";
+    case LCB_IO_OPS_INVALID: return "user-defined";
+    default: return "invalid";
+    }
+}
+
+void
+VersionHandler::run()
+{
+    const char *changeset;
+    lcb_error_t err;
+    err = lcb_cntl(NULL, LCB_CNTL_GET, LCB_CNTL_CHANGESET, (void*)&changeset);
+    if (err != LCB_SUCCESS) {
+        changeset = "UNKNOWN";
+    }
+    fprintf(stderr, "cbc:\n");
+    fprintf(stderr, "  Runtime: Version=%s, Changeset=%s\n",
+        lcb_get_version(NULL), changeset);
+    fprintf(stderr, "  Headers: Version=%s, Changeset=%s\n",
+        LCB_VERSION_STRING, LCB_VERSION_CHANGESET);
+
+    struct lcb_cntl_iops_info_st info;
+    memset(&info, 0, sizeof info);
+    err = lcb_cntl(NULL, LCB_CNTL_GET, LCB_CNTL_IOPS_DEFAULT_TYPES, &info);
+    if (err == LCB_SUCCESS) {
+        fprintf(stderr, "  IO: Default=%s, Current=%s\n",
+            iops_to_string(info.v.v0.os_default), iops_to_string(info.v.v0.effective));
+    }
+    printf("  Compression (snappy): .. %s\n",
+            lcb_supports_feature(LCB_SUPPORTS_SNAPPY) ? "SUPPORTED" : "NOT SUPPORTED");
+    printf("  SSL: .. %s\n",
+            lcb_supports_feature(LCB_SUPPORTS_SSL) ? "SUPPORTED" : "NOT SUPPORTED");
+}
+
+void
+RemoveHandler::run()
+{
+    Handler::run();
+    const vector<string> &keys = parser.getRestArgs();
+    lcb_sched_enter(instance);
+    lcb_set_remove_callback(instance, remove_callback);
+    for (size_t ii = 0; ii < keys.size(); ++ii) {
+        lcb_CMDREMOVE cmd;
+        const string& key = keys[ii];
+        memset(&cmd, 0, sizeof cmd);
+        LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+        lcb_error_t err = lcb_remove3(instance, NULL, &cmd);
+        if (err != LCB_SUCCESS) {
+            throw err;
+        }
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
+StatsHandler::run()
+{
+    Handler::run();
+    lcb_set_stat_callback(instance, stats_callback);
+    vector<string> keys = parser.getRestArgs();
+    if (keys.empty()) {
+        keys.push_back("");
+    }
+    lcb_sched_enter(instance);
+    for (size_t ii = 0; ii < keys.size(); ii++) {
+        lcb_CMDSTATS cmd = { 0 };
+        const string& key = keys[ii];
+        if (!key.empty()) {
+            LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+        }
+        lcb_error_t err = lcb_stats3(instance, NULL, &cmd);
+        if (err != LCB_SUCCESS) {
+            throw err;
+        }
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
+VerbosityHandler::run()
+{
+    const string& slevel = getRequiredArg();
+    lcb_verbosity_level_t level;
+    if (slevel == "detail") {
+        level = LCB_VERBOSITY_DETAIL;
+    } else if (slevel == "debug") {
+        level = LCB_VERBOSITY_DEBUG;
+    } else if (slevel == "info") {
+        level = LCB_VERBOSITY_INFO;
+    } else if (slevel == "warning") {
+        level = LCB_VERBOSITY_WARNING;
+    } else {
+        throw "Verbosity level must be {detail,debug,info,warning}";
+    }
+
+    lcb_set_verbosity_callback(instance, verbosity_callback);
+    lcb_CMDVERBOSITY cmd = { 0 };
+    cmd.level = level;
+    lcb_error_t err;
+    lcb_sched_enter(instance);
+    err = lcb_server_verbosity3(instance, NULL, &cmd);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
+ArithmeticHandler::run()
+{
+    Handler::run();
+
+    const vector<string>& keys = parser.getRestArgs();
+    lcb_set_arithmetic_callback(instance, arithmetic_callback);
+    lcb_sched_enter(instance);
+    for (size_t ii = 0; ii < keys.size(); ++ii) {
+        const string& key = keys[ii];
+        lcb_CMDINCRDECR cmd = { 0 };
+        LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+        if (o_initial.passed()) {
+            cmd.create = 1;
+            cmd.initial = o_initial.result();
+        }
+        cmd.delta = getDelta();
+        cmd.options.exptime = o_expiry.result();
+        lcb_error_t err = lcb_arithmetic3(instance, NULL, &cmd);
+        if (err != LCB_SUCCESS) {
+            throw err;
+        }
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
+HttpReceiver::install(lcb_t instance)
+{
+    lcb_set_http_data_callback(instance, http_chunk_callback);
+    lcb_set_http_complete_callback(instance, http_done_callback);
+}
+
+void
+HttpReceiver::maybeInvokeStatus(lcb_error_t err, const lcb_http_resp_t *resp)
+{
+    if (statusInvoked) {
+        return;
+    }
+
+    statusInvoked = true;
+    if (resp->v.v0.headers) {
+        for (const char * const *cur = resp->v.v0.headers; *cur; cur += 2) {
+            string key = cur[0];
+            string value = cur[1];
+            headers[key] = value;
+        }
+    }
+    handleStatus(err, resp->v.v0.status);
+}
+
+void
+HttpBaseHandler::run()
+{
+    Handler::run();
+    install(instance);
+    lcb_http_cmd_st cmd;
+    memset(&cmd, 0, sizeof cmd);
+    string uri = getURI();
+    string body = getBody();
+
+    cmd.v.v0.method = getMethod();
+    cmd.v.v0.chunked = 1;
+    cmd.v.v0.path = uri.c_str();
+    cmd.v.v0.npath = uri.size();
+    if (!body.empty()) {
+        cmd.v.v0.body = body.c_str();
+        cmd.v.v0.nbody = body.size();
+    }
+    string ctype = getContentType();
+    if (!ctype.empty()) {
+        cmd.v.v0.content_type = ctype.c_str();
+    }
+
+    lcb_http_request_t dummy;
+    lcb_error_t err;
+    err = lcb_make_http_request(instance, (HttpReceiver*)this,
+        isAdmin() ? LCB_HTTP_TYPE_MANAGEMENT : LCB_HTTP_TYPE_VIEW,
+                &cmd, &dummy);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    }
+
+    lcb_wait(instance);
+}
+
+lcb_http_method_t
+HttpBaseHandler::getMethod()
+{
+    string smeth = o_method.result();
+    if (smeth == "GET") {
+        return LCB_HTTP_METHOD_GET;
+    } else if (smeth == "POST") {
+        return LCB_HTTP_METHOD_POST;
+    } else if (smeth == "DELETE") {
+        return LCB_HTTP_METHOD_DELETE;
+    } else if (smeth == "PUT") {
+        return LCB_HTTP_METHOD_PUT;
+    } else {
+        throw "Unrecognized method string";
+    }
+}
+
+void
+HttpBaseHandler::handleStatus(lcb_error_t err, int code)
+{
+    if (err != LCB_SUCCESS) {
+        fprintf(stderr, "ERROR=0x%x (%s) ", err, lcb_strerror(NULL, err));
+    }
+    fprintf(stderr, "%d\n", code);
+    map<string,string>::const_iterator ii = headers.begin();
+    for (; ii != headers.end(); ii++) {
+        fprintf(stderr, "  %s: %s\n", ii->first.c_str(), ii->second.c_str());
+    }
+}
+
+string
+AdminHandler::getURI()
+{
+    return getRequiredArg();
+}
+
+void
+AdminHandler::run()
+{
+    fprintf(stderr, "Requesting %s\n", getURI().c_str());
+    HttpBaseHandler::run();
+    printf("%s", resbuf.c_str());
+}
+
+void
+BucketCreateHandler::run()
+{
+    const string& name = getRequiredArg();
+    const string& btype = o_btype.const_result();
+    stringstream ss;
+
+    if (btype == "couchbase" || btype == "membase") {
+        isMemcached = false;
+    } else if (btype == "memcached") {
+        isMemcached = true;
+    } else {
+        throw "Unrecognized bucket type";
+    }
+    if (o_proxyport.passed() && o_bpass.passed()) {
+        throw "Custom ASCII port is only available for auth-less buckets";
+    }
+
+    ss << "name=" << name;
+    ss << "&bucketType=" << btype;
+    ss << "&ramQuotaMB=" << o_ramquota.result();
+    if (o_proxyport.passed()) {
+        ss << "&authType=none&proxyPort=" << o_proxyport.result();
+    } else {
+        ss << "&authType=sasl&saslPassword=" << o_bpass.result();
+    }
+
+    ss << "&replicaNumber=" << o_replicas.result();
+    body_s = ss.str();
+
+    AdminHandler::run();
+}
+
+struct HostEnt {
+    string protostr;
+    string hostname;
+    HostEnt(const char* host, const char* proto) {
+        protostr = proto;
+        hostname = host;
+    }
+    HostEnt(const char* host, const char* proto, int port) {
+        protostr = proto;
+        hostname = host;
+        stringstream ss;
+        ss << std::dec << port;
+        hostname += ":";
+        hostname += ss.str();
+    }
+};
+
+void
+DsnHandler::run()
+{
+    const string& dsn_s = getRequiredArg();
+    lcb_error_t err;
+    const char *errmsg;
+    lcb_DSNPARAMS dsn;
+    memset(&dsn, 0, sizeof dsn);
+    err = lcb_dsn_parse(dsn_s.c_str(), &dsn, &errmsg);
+    if (err != LCB_SUCCESS) {
+        throw errmsg;
+    }
+
+    printf("Bucket: %s\n", dsn.bucket);
+    printf("Implicit port: %d\n", dsn.implicit_port);
+    string sslOpts;
+    if (dsn.sslopts & LCB_SSL_ENABLED) {
+        sslOpts = "ENABLED";
+        if (dsn.sslopts & LCB_SSL_NOVERIFY) {
+            sslOpts += "|NOVERIFY";
+        }
+    }
+    printf("SSL: %s\n", sslOpts.c_str());
+
+    printf("Boostrap Protocols: ");
+    string bsStr;
+    for (size_t ii = 0; ii < LCB_CONFIG_TRANSPORT_MAX; ii++) {
+        if (dsn.transports[ii] == LCB_CONFIG_TRANSPORT_LIST_END) {
             break;
-        case 0:
-            cerr << "Missing endpoint" << endl;
+        }
+        switch (dsn.transports[ii]) {
+        case LCB_CONFIG_TRANSPORT_CCCP:
+            bsStr += "CCCP,";
+            break;
+        case LCB_CONFIG_TRANSPORT_HTTP:
+            bsStr += "HTTP,";
             break;
         default:
-            cerr << "There must be only one endpoint specified" << endl;
+            break;
         }
-        break;
-    case cbc_bucket_create:
-        if (verifyBucketNames(getopt.arguments)) {
-            success = bucket_create_impl(instance, getopt.arguments,
-                                         bucket_type, auth_type, ram_quota,
-                                         sasl_password, replica_num, proxy_port);
-        } else {
-            cerr << "Bucket name can only contain characters in range A-Z, "
-                 "a-z, 0-9 as well as underscore, period, dash & percent" << endl;
-        }
-        break;
-    case cbc_bucket_delete:
-        if (verifyBucketNames(getopt.arguments)) {
-            success = bucket_delete_impl(instance, getopt.arguments);
-        } else {
-            cerr << "Bucket name can only contain characters in range A-Z, "
-                 "a-z, 0-9 as well as underscore, period, dash & percent" << endl;
-        }
-        break;
-    case cbc_bucket_flush:
-        if (verifyBucketNames(getopt.arguments)) {
-            success = bucket_flush_impl(instance, getopt.arguments);
-        } else {
-            cerr << "Bucket name can only contain characters in range A-Z, "
-                 "a-z, 0-9 as well as underscore, period, dash & percent" << endl;
-        }
-        break;
-    case cbc_observe:
-        success = observe_impl(instance, getopt.arguments);
-        break;
-    case cbc_verbosity:
-        success = verbosity_impl(instance, getopt.arguments);
-        break;
-    default:
-        cerr << "Not implemented" << endl;
-        success = false;
     }
-
-    if (!success) {
-        error = true;
+    if (bsStr.empty()) {
+        bsStr = "CCCP,HTTP";
     } else {
-        lcb_wait(instance);
-        if (config.isTimingsEnabled()) {
-            lcb_get_timings(instance, NULL,
-                            timings_callback);
-            lcb_disable_timings(instance);
+        bsStr.erase(bsStr.size()-1, 1);
+    }
+    printf("%s\n", bsStr.c_str());
+    printf("Hosts:\n");
+    lcb_list_t *llcur;
+    vector<HostEnt> hosts;
+
+    LCB_LIST_FOR(llcur, &dsn.hosts) {
+        lcb_DSNHOST *dh = LCB_LIST_ITEM(llcur, lcb_DSNHOST, llnode);
+        lcb_U16 port = dh->port;
+        if (!port) {
+            port = dsn.implicit_port;
+        }
+
+        if (dh->type == LCB_CONFIG_MCD_PORT) {
+            hosts.push_back(HostEnt(dh->hostname, "memcached", port));
+        } else if (dh->type == LCB_CONFIG_MCD_SSL_PORT) {
+            hosts.push_back(HostEnt(dh->hostname, "memcached+ssl", port));
+        } else if (dh->type == LCB_CONFIG_HTTP_PORT) {
+            hosts.push_back(HostEnt(dh->hostname, "restapi", port));
+        } else if (dh->type == LCB_CONFIG_HTTP_SSL_PORT) {
+            hosts.push_back(HostEnt(dh->hostname, "restapi+ssl", port));
+        } else {
+            if (dsn.sslopts) {
+                hosts.push_back(HostEnt(dh->hostname, "memcached+ssl", LCB_CONFIG_MCD_SSL_PORT));
+                hosts.push_back(HostEnt(dh->hostname, "restapi+ssl", LCB_CONFIG_HTTP_SSL_PORT));
+            } else {
+                hosts.push_back(HostEnt(dh->hostname, "memcached", LCB_CONFIG_MCD_PORT));
+                hosts.push_back(HostEnt(dh->hostname, "restapi", LCB_CONFIG_HTTP_PORT));
+            }
         }
     }
+    for (size_t ii = 0; ii < hosts.size(); ii++) {
+        HostEnt& ent = hosts[ii];
+        string protostr = "[" + ent.protostr + "]";
+        printf("  %-20s%s\n", protostr.c_str(), ent.hostname.c_str());
+    }
 
-    lcb_destroy(instance);
-    exit(error ? EXIT_FAILURE : EXIT_SUCCESS);
+    printf("Options: \n");
+    const char *key, *value;
+    int ictx = 0;
+    while (lcb_dsn_next_option(&dsn, &key, &value, &ictx)) {
+        printf("  %s=%s\n", key, value);
+    }
 }
 
-static void lowercase(string &str)
-{
-    lcb_size_t len = str.length();
-    stringstream ss;
-    for (lcb_size_t ii = 0; ii < len; ++ii) {
-        ss << static_cast<char>(tolower(str[ii]));
-    }
-    str.assign(ss.str());
-}
+static map<string,Handler*> handlers;
+static map<string,Handler*> handlers_s;
+static const char* optionsOrder[] = {
+        "help",
+        "cat",
+        "create",
+        "observe",
+        "incr",
+        "decr",
+        // "flush",
+        "hash",
+        "lock",
+        "unlock",
+        "rm",
+        "stats",
+        // "verify,
+        "version",
+        "verbosity",
+        "view",
+        "admin",
+        "bucket-create",
+        "bucket-delete",
+        "bucket-flush",
+        "dsn",
+        NULL
+};
 
-static cbc_command_t getBuiltin(string name)
-{
-    lowercase(name);
-    size_t dot = name.rfind(".");
-    if (dot != string::npos) {
-        name = name.substr(0, dot);
-    }
-    if (name == "cbc-cat") {
-        return cbc_cat;
-    } else if (name == "cbc-cp") {
-        return cbc_cp;
-    } else if (name == "cbc-create") {
-        return cbc_create;
-    } else if (name == "cbc-rm") {
-        return cbc_rm;
-    } else if (name == "cbc-stats") {
-        return cbc_stats;
-    } else if (name == "cbc-flush") {
-        return cbc_flush;
-    } else if (name == "cbc-lock") {
-        return cbc_lock;
-    } else if (name == "cbc-unlock") {
-        return cbc_unlock;
-    } else if (name == "cbc-version") {
-        return cbc_version;
-    } else if (name == "cbc-verify") {
-        return cbc_verify;
-    } else if (name == "cbc-hash") {
-        return cbc_hash;
-    } else if (name == "cbc-help") {
-        return cbc_help;
-    } else if (name == "cbc-view") {
-        return cbc_view;
-    } else if (name == "cbc-admin") {
-        return cbc_admin;
-    } else if (name == "cbc-bucket-create") {
-        return cbc_bucket_create;
-    } else if (name == "cbc-bucket-delete") {
-        return cbc_bucket_delete;
-    } else if (name == "cbc-bucket-flush") {
-        return cbc_bucket_flush;
-    } else if (name == "cbc-observe") {
-        return cbc_observe;
-    } else if (name == "cbc-verbosity") {
-        return cbc_verbosity;
-    }
-
-    return cbc_illegal;
-}
-
-#ifdef WIN32
-#define F_OK 0
-
-bool file_exists(const char *name)
-{
-    HANDLE handle;
-    WIN32_FIND_DATA findData;
-
-    handle = FindFirstFileEx(name,
-                             FindExInfoStandard,
-                             &findData,
-                             FindExSearchNameMatch,
-                             NULL,
-                             0);
-    if (handle == INVALID_HANDLE_VALUE) {
-        return false;
-    }
-
-    FindClose(handle);
-    return true;
-}
-
-std::string locate_file(const char *name)
-{
-    const char *const exts[] = { "", ".exe", ".com", ".bat", NULL };
-    int ii = 0;
-
-    while (exts[ii] != NULL) {
-        std::string fnm(name);
-        fnm.append(exts[ii]);
-        if (file_exists(fnm.c_str())) {
-            return fnm;
-        }
-        ++ii;
-    }
-
-    return "";
-}
-
-int execvp(const char *file, char *const argv[])
-{
-    std::stringstream ss;
-    ss << locate_file(file);
-    int ii = 1;
-    while (argv[ii] != NULL) {
-        ss << " " << argv[ii];
-        ++ii;
-    }
-
-    exit(system(ss.str().c_str()));
-    return -1;
-}
-
-#endif
-
-static bool exists_in_path(string file)
-{
-    const char *p = getenv("PATH");
-#ifdef WIN32
-    const char path_separator = ';';
-#else
-    const char path_separator = ':';
-#endif
-    if (!p || !*p) {
-        return false;
-    }
-
-    stringstream path(p);
-    string item;
-    while (std::getline(path, item, path_separator)) {
-        if (item.size() > 0) {
-            item += '/';
-        }
-        item += file;
-        if (!access(item.c_str(), F_OK)) {
-            return true;
+class HelpHandler : public Handler {
+public:
+    HelpHandler() : Handler("help") {}
+    HANDLER_DESCRIPTION("Show help")
+protected:
+    void run() {
+        fprintf(stderr, "Usage: cbc <command> [options]\n");
+        fprintf(stderr, "command may be:\n");
+        for (const char ** cur = optionsOrder; *cur; cur++) {
+            const Handler *handler = handlers[*cur];
+            fprintf(stderr, "   %-20s", *cur);
+            fprintf(stderr, "%s\n", handler->description().c_str());
         }
     }
+};
 
-    return false;
-}
-
-static void printHelp()
+static void
+setupHandlers()
 {
-    cerr << "Usage: cbc command [options]" << endl
-         << "command may be:" << endl
-         << "   help            show this help or for given command" << endl
-         << "   cat             output keys to stdout" << endl
-         << "   cp              store files to the cluster" << endl
-         << "   create          store files with options" << endl
-         << "   observe         observe key state" << endl
-         << "   flush           remove all keys from the cluster" << endl
-         << "   hash            hash key(s) and print out useful info" << endl
-         << "   lock            lock keys" << endl
-         << "   unlock          unlock keys" << endl
-         << "   rm              remove keys" << endl
-         << "   stats           show stats" << endl
-         << "   verify          verify content in cache with files" << endl
-         << "   version         show version" << endl
-         << "   verbosity       specify server verbosity level" << endl
-         << "   view            execute couchbase view (aka map/reduce) request" << endl
-         << "   admin           execute request to management REST API" << endl
-         << "   bucket-create   create data bucket on the cluster" << endl
-         << "   bucket-delete   delete data bucket" << endl
-         << "   bucket-flush    flush data bucket" << endl
-         << "Use 'cbc command --help' to show the options" << endl;
+    handlers_s["get"] = new GetHandler();
+    handlers_s["create"] = new SetHandler();
+    handlers_s["hash"] = new HashHandler();
+    handlers_s["help"] = new HelpHandler();
+    handlers_s["lock"] = new GetHandler("lock");
+    handlers_s["observe"] = new ObserveHandler();
+    handlers_s["unlock"] = new UnlockHandler();
+    handlers_s["version"] = new VersionHandler();
+    handlers_s["rm"] = new RemoveHandler();
+    handlers_s["cp"] = new SetHandler("cp");
+    handlers_s["stats"] = new StatsHandler();
+    handlers_s["verbosity"] = new VerbosityHandler();
+    handlers_s["incr"] = new IncrHandler();
+    handlers_s["decr"] = new DecrHandler();
+    handlers_s["admin"] = new AdminHandler();
+    handlers_s["bucket-create"] = new BucketCreateHandler();
+    handlers_s["bucket-delete"] = new BucketDeleteHandler();
+    handlers_s["bucket-flush"] = new BucketFlushHandler();
+    handlers_s["view"] = new ViewsHandler();
+    handlers_s["dsn"] = new DsnHandler();
+
+
+
+    map<string,Handler*>::iterator ii;
+    for (ii = handlers_s.begin(); ii != handlers_s.end(); ++ii) {
+        handlers[ii->first] = ii->second;
+    }
+
+    handlers["cat"] = handlers["get"];
 }
 
-/**
- * Program entry point
- * @param argc argument count
- * @param argv argument vector
- * @return 0 success, 1 failure
- */
 int main(int argc, char **argv)
 {
-    string cmdstr(argv[0]);
+    setupHandlers();
 
-    if (!lcb_verify_compiler_setup()) {
-        cerr << "The compiler use an incompatible set of compiler options"
-             << endl;
+    if (argc < 2) {
+        fprintf(stderr, "Must provide an option name\n");
+        HelpHandler().execute(argc, argv);
         exit(EXIT_FAILURE);
     }
 
-    cbc_command_t cmd = getBuiltin(cmdstr);
-
-    /* it probably called from main executable like 'cbc COMMAND' */
-    if (cmd == cbc_illegal) {
-        /* at least one argument required */
-        if (argc > 1) {
-            cmdstr.assign("cbc-");
-            cmdstr.append(argv[1]);
-            cmd = getBuiltin(cmdstr);
-            --argc;
-            ++argv;
-            /* in case of failure lookup external executable */
-            if (cmd == cbc_illegal) {
-                if (exists_in_path(cmdstr) && !execvp(cmdstr.c_str(), argv)) {
-                    cerr << "Error: Cannot execute \"" << cmdstr << "\"" << endl;
-                }
-            }
-        }
-    }
-    /* if it still illegal command */
-    if (cmd == cbc_illegal) {
-        cerr << "Error: Unknown command \"" << cmdstr << "\"" << endl;
-        printHelp();
+    Handler *handler = handlers[argv[1]];
+    if (handler == NULL) {
+        fprintf(stderr, "Unknown command %s\n", argv[1]);
+        HelpHandler().execute(argc, argv);
         exit(EXIT_FAILURE);
     }
 
-    if (cmd == cbc_help) {
-        if (argc > 1) {
-            const char *help_argv[] = {argv[1], "-?", NULL};
-            cmdstr.assign("cbc-");
-            cmdstr.append(argv[1]);
-            cmd = getBuiltin(cmdstr);
-            if (cmd == cbc_illegal) {
-                if (exists_in_path(cmdstr) && !execvp(cmdstr.c_str(), (char **)help_argv)) {
-                    cerr << "Error: Cannot execute \"" << cmdstr << "\"" << endl;
-                }
-            }
-            if (cmd == cbc_illegal) {
-                cerr << "Error: Unknown command \"" << cmdstr << "\"" << endl;
-                printHelp();
-                exit(EXIT_FAILURE);
-            } else {
-                handleCommandLineOptions(cmd, 2, (char **)help_argv);
-            }
-        } else {
-            printHelp();
-        }
-        exit(EXIT_SUCCESS);
-    } else if (cmd == cbc_version) {
-        cout << "cbc built from: " << PACKAGE_STRING
-             << " (rev. " << LCB_VERSION_CHANGESET << ")" << endl
-             << "    using libcouchbase: " << lcb_get_version(NULL)
-             << " (";
+    try {
+        handler->execute(argc-1, argv+1);
+    } catch (lcb_error_t &err) {
+        fprintf(stderr, "Operation failed with code 0x%x (%s)\n",
+            err, lcb_strerror(NULL, err));
+        exit(EXIT_FAILURE);
 
-        struct lcb_cntl_iops_info_st info;
-        info.version = 0;
-        memset(&info, 0, sizeof(info));
-        lcb_cntl(NULL, LCB_CNTL_GET, LCB_CNTL_IOPS_DEFAULT_TYPES, &info);
-        switch (info.v.v0.effective) {
-        case LCB_IO_OPS_LIBEVENT:
-            cout << "libevent";
-            break;
-        case LCB_IO_OPS_LIBEV:
-            cout << "libev";
-            break;
-        case LCB_IO_OPS_SELECT:
-        case LCB_IO_OPS_WINSOCK:
-            cout << "select";
-            break;
-        case LCB_IO_OPS_WINIOCP:
-            cout << "windows IOCP";
-            break;
-        case LCB_IO_OPS_LIBUV:
-            cout << "libuv";
-            break;
-        default:
-            cout << "custom";
-            break;
-        }
-        cout << ")" << endl;
+    } catch (const char *& err) {
+        fprintf(stderr, "%s\n", err);
+        exit(EXIT_FAILURE);
 
-#ifdef HAVE_LIBYAJL2
-        int version = yajl_version();
-        cout << "    using libyajl: "
-             << version / 10000 << "."
-             << (version / 100) % 100 << "."
-             << version % 100 << endl;
-#endif
-        exit(EXIT_SUCCESS);
+    } catch (string& err) {
+        fprintf(stderr, "%s\n", err.c_str());
+        exit(EXIT_FAILURE);
     }
 
-    handleCommandLineOptions(cmd, argc, argv);
-
-    return EXIT_SUCCESS;
+    map<string,Handler*>::iterator iter = handlers_s.begin();
+    for (; iter != handlers_s.end(); iter++) {
+        delete iter->second;
+    }
+    exit(EXIT_SUCCESS);
 }

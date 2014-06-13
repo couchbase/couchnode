@@ -29,16 +29,10 @@ static void restore_wrapping_env(lcb_t instance,
                                  struct user_cookie *user,
                                  lcb_error_t error);
 
-static void error_callback(lcb_t instance,
-                           lcb_error_t error,
-                           const char *errinfo)
+static void bootstrap_callback(lcb_t instance, lcb_error_t err)
 {
     struct user_cookie *c = (void *)instance->cookie;
-
-    restore_user_env(instance);
-    c->callbacks.error(instance, error, errinfo);
-    restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
+    c->retcode = err;
 }
 
 static void stat_callback(lcb_t instance,
@@ -51,7 +45,6 @@ static void stat_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.stat(instance, command_cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void version_callback(lcb_t instance,
@@ -64,7 +57,6 @@ static void version_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.version(instance, command_cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void verbosity_callback(lcb_t instance,
@@ -77,7 +69,6 @@ static void verbosity_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.verbosity(instance, command_cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void get_callback(lcb_t instance,
@@ -90,7 +81,6 @@ static void get_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.get(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 
@@ -105,8 +95,6 @@ static void store_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.store(instance, cookie, operation, error, resp);
     restore_wrapping_env(instance, c, error);
-
-    lcb_maybe_breakout(instance);
 }
 
 static void arithmetic_callback(lcb_t instance,
@@ -119,7 +107,6 @@ static void arithmetic_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.arithmetic(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void remove_callback(lcb_t instance,
@@ -132,7 +119,6 @@ static void remove_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.remove(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void touch_callback(lcb_t instance,
@@ -145,7 +131,6 @@ static void touch_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.touch(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void http_complete_callback(lcb_http_request_t request,
@@ -159,7 +144,6 @@ static void http_complete_callback(lcb_http_request_t request,
     restore_user_env(instance);
     c->callbacks.http_complete(request, instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void http_data_callback(lcb_http_request_t request,
@@ -173,7 +157,6 @@ static void http_data_callback(lcb_http_request_t request,
     restore_user_env(instance);
     c->callbacks.http_data(request, instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void flush_callback(lcb_t instance,
@@ -186,7 +169,6 @@ static void flush_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.flush(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void observe_callback(lcb_t instance,
@@ -199,7 +181,6 @@ static void observe_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.observe(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void durability_callback(lcb_t instance,
@@ -211,7 +192,6 @@ static void durability_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.durability(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void unlock_callback(lcb_t instance,
@@ -224,7 +204,6 @@ static void unlock_callback(lcb_t instance,
     restore_user_env(instance);
     c->callbacks.unlock(instance, cookie, error, resp);
     restore_wrapping_env(instance, c, error);
-    lcb_maybe_breakout(instance);
 }
 
 static void restore_user_env(lcb_t instance)
@@ -235,9 +214,8 @@ static void restore_user_env(lcb_t instance)
     instance->callbacks = cookie->callbacks;
 }
 
-static void restore_wrapping_env(lcb_t instance,
-                                 struct user_cookie *user,
-                                 lcb_error_t error)
+static void
+restore_wrapping_env(lcb_t instance, struct user_cookie *user, lcb_error_t error)
 {
     user->callbacks = instance->callbacks;
     /* Install new callbacks */
@@ -250,7 +228,7 @@ static void restore_wrapping_env(lcb_t instance,
     instance->callbacks.verbosity = verbosity_callback;
     instance->callbacks.touch = touch_callback;
     instance->callbacks.flush = flush_callback;
-    instance->callbacks.error = error_callback;
+    instance->callbacks.bootstrap = bootstrap_callback;
     instance->callbacks.http_complete = http_complete_callback;
     instance->callbacks.http_data = http_data_callback;
     instance->callbacks.observe = observe_callback;
@@ -262,18 +240,25 @@ static void restore_wrapping_env(lcb_t instance,
     instance->cookie = user;
 }
 
-
-lcb_error_t lcb_synchandler_return(lcb_t instance, lcb_error_t retcode)
+lcb_error_t
+lcb__synchandler_return(lcb_t instance)
 {
     struct user_cookie cookie;
-
-    if (instance->syncmode == LCB_ASYNCHRONOUS ||
-            retcode != LCB_SUCCESS) {
-        return retcode;
-    }
-
     restore_wrapping_env(instance, &cookie, LCB_SUCCESS);
     lcb_wait(instance);
     restore_user_env(instance);
     return cookie.retcode;
+}
+
+LIBCOUCHBASE_API
+void
+lcb_behavior_set_syncmode(lcb_t instance, lcb_syncmode_t mode)
+{
+    LCBT_SETTING(instance, syncmode) = mode;
+}
+LIBCOUCHBASE_API
+lcb_syncmode_t
+lcb_behavior_get_syncmode(lcb_t instance)
+{
+    return LCBT_SETTING(instance, syncmode);
 }

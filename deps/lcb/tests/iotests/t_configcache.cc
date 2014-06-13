@@ -1,0 +1,78 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2012 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
+#include "config.h"
+#include "iotests.h"
+
+#include <cstdio>
+
+class ConfigCacheUnitTest : public MockUnitTest
+{
+};
+
+TEST_F(ConfigCacheUnitTest, testConfigCache)
+{
+    lcb_t instance;
+    lcb_error_t err;
+    lcb_create_st cropts;
+
+    // Get the filename:
+    char filename[L_tmpnam + 0];
+    ASSERT_TRUE(NULL != tmpnam(filename));
+    memset(&cropts, 0, sizeof(cropts));
+
+    MockEnvironment::getInstance()->makeConnectParams(cropts, NULL);
+    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, (void *)filename);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    int is_loaded;
+    err = lcb_cntl(instance, LCB_CNTL_GET,
+                   LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
+
+    ASSERT_EQ(err, LCB_SUCCESS);
+    ASSERT_EQ(is_loaded, 0);
+
+    err = lcb_connect(instance);
+    ASSERT_EQ(err, LCB_SUCCESS);
+
+    err = lcb_wait(instance);
+    ASSERT_EQ(err, LCB_SUCCESS);
+
+    // now try another one
+    lcb_destroy(instance);
+    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    ASSERT_EQ(LCB_SUCCESS, err);
+    err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, (void *)filename);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    err = lcb_connect(instance);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    err = lcb_wait(instance);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    err = lcb_cntl(instance, LCB_CNTL_GET,
+                   LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
+    ASSERT_NE(is_loaded, 0);
+
+    /* Just make sure we can schedule a command */
+    storeKey(instance, "a_key", "a_value");
+
+    lcb_destroy(instance);
+    remove(filename);
+}

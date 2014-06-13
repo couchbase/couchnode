@@ -32,7 +32,7 @@ struct genhash_entry_t {
 struct _genhash {
     lcb_size_t size;
     struct lcb_hash_ops ops;
-    struct genhash_entry_t *buckets[];
+    struct genhash_entry_t *buckets[1];
 };
 
 static lcb_size_t estimate_table_size(lcb_size_t est);

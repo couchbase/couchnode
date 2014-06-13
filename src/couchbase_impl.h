@@ -143,9 +143,8 @@ public:
     NAN_METHOD(on);
 
     // Method called from libcouchbase
-    void onConfig(lcb_configuration_t config);
-    void onConnect(lcb_error_t err);
-    bool onTimeout(void);
+    void onCbConfig(lcb_configuration_t config);
+    void onCbConnect(lcb_error_t err);
 
     void errorCallback(lcb_error_t err, const char *errinfo);
     void runScheduledOperations(lcb_error_t err = LCB_SUCCESS);

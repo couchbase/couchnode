@@ -24,22 +24,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-    typedef enum {
-        LCB_HTTP_TYPE_VIEW = 0,
-        LCB_HTTP_TYPE_MANAGEMENT = 1,
-        LCB_HTTP_TYPE_RAW = 2,
-        LCB_HTTP_TYPE_MAX = 3
-    } lcb_http_type_t;
-
-    typedef enum {
-        LCB_HTTP_METHOD_GET = 0,
-        LCB_HTTP_METHOD_POST = 1,
-        LCB_HTTP_METHOD_PUT = 2,
-        LCB_HTTP_METHOD_DELETE = 3,
-        LCB_HTTP_METHOD_MAX = 4
-    } lcb_http_method_t;
-
     typedef enum {
         LCB_HTTP_STATUS_CONTINUE = 100,
         LCB_HTTP_STATUS_SWITCHING_PROTOCOLS = 101,

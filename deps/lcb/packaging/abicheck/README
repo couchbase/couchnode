@@ -1,0 +1,4 @@
+This contains the XML files for checking ABI compliance between
+releases.
+
+To run this, you need to install the `abi-compliance-checker` package.

@@ -1,16 +1,11 @@
 .PHONY: dist-rpm
 
-RPM_WORKSPACE=$(shell pwd)/build
+RPM_WORKSPACE=$(shell pwd)/build_RPM
 RPM_DIR=$(RPM_WORKSPACE)/rpmbuild
-RPM_VER=$(shell echo $(VERSION) | awk -F_ '{ print $$1 }')
-RPM_REL=$(shell echo $(VERSION) | awk -F_ '{ print $$2"_"$$3 }')
-
-ifeq ($(RPM_REL),_)
-  RPM_REL=1
-  TARPREFIX=%{name}-%{version}
-else
-  TARPREFIX=%{name}-%{version}_%{release}
-endif
+VERSCRIPT=./packaging/parse-git-describe.pl --input=$(REVDESCRIBE)
+RPM_VER=$(shell $(VERSCRIPT) --rpm-ver)
+RPM_REL=$(shell $(VERSCRIPT) --rpm-rel)
+TARNAME=$(shell $(VERSCRIPT) --tar)
 
 dist-rpm: dist
 	rm -rf $(RPM_WORKSPACE)
@@ -19,9 +14,17 @@ dist-rpm: dist
 	mkdir $(RPM_DIR)/BUILD
 	mkdir $(RPM_DIR)/RPMS
 	mkdir $(RPM_DIR)/SRPMS
-	cp $(PACKAGE)-$(VERSION).tar.gz $(RPM_DIR)/SOURCES
-	sed 's/@VERSION@/$(RPM_VER)/g;s/@RELEASE@/$(RPM_REL)/g;s/@TARREDAS@/$(TARPREFIX)/g' < packaging/rpm/$(PACKAGE).spec.in > $(RPM_WORKSPACE)/$(PACKAGE).spec
-	(cd $(RPM_WORKSPACE); rpmbuild ${RPM_FLAGS} -ba $(PACKAGE).spec)
+	cp $(PACKAGE)-$(TARNAME).tar.gz $(RPM_DIR)/SOURCES
+	sed \
+		's/@VERSION@/$(RPM_VER)/g;s/@RELEASE@/$(RPM_REL)/g;s/@TARREDAS@/libcouchbase-$(TARNAME)/g' \
+		< packaging/rpm/$(PACKAGE).spec.in > $(RPM_WORKSPACE)/$(PACKAGE).spec
+
+	(cd $(RPM_WORKSPACE) && \
+		rpmbuild ${RPM_FLAGS} -ba \
+		--define "_topdir $(RPM_DIR)" \
+		$(PACKAGE).spec \
+	)
+
 	mv $(RPM_DIR)/RPMS/*/*.rpm `pwd`
 	mv $(RPM_DIR)/SRPMS/*.rpm `pwd`
 	rm -rf $(RPM_WORKSPACE)

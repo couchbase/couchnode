@@ -69,7 +69,7 @@ cbc \- Couchbase command line utility
 .sp
 \fBcbc bucket\-flush\fR [common options] \fIbucket\fR\&...
 .sp
-\fBcbc pillowfight\fR [\-?] [\-h \fIHOST\fR] [\-b \fIBUCKET\fR] [\-u \fIUSER\fR] [\-P \fIPASSWORD\fR] [\-T] [\-i \fIITERATIONS\fR] [\-I \fIITEMS\fR] [\-p \fIPREFIX\fR] [\-t \fITHREADS\fR] [\-Q \fIINSTANCES\fR] [\-l] [\-s \fISEED\fR] [\-r \fIRATIO\fR] [\-m \fIMIN\fR] [\-M \fIMAX\fR] [\-d]
+\fBcbc pillowfight\fR [\-?] [\-h \fIHOST\fR] [\-b \fIBUCKET\fR] [\-u \fIUSER\fR] [\-P \fIPASSWORD\fR] [\-T] [\-i \fIITERATIONS\fR] [\-I \fIITEMS\fR] [\-p \fIPREFIX\fR] [\-t \fITHREADS\fR] [\-Q \fIINSTANCES\fR] [\-l] [\-s \fISEED\fR] [\-r \fIRATIO\fR] [\-m \fIMIN\fR] [\-M \fIMAX\fR] [\-d] [\-D] [\-n] [\-w \fIWAITSECS\fR]
 .SH "DESCRIPTION"
 .sp
 cbc is a command line utility that allows you to communicate with your Couchbase Server cluster from the command line prompt\&.
@@ -417,7 +417,7 @@ Delete the named buckets from the cluster\&.
 Flush (remove all data) from the named buckets\&. Please note that you need to have flush enabled on the specified bucket to use this command successfully\&.
 .RE
 .PP
-\fBcbc pillowfight\fR [\-?] [\-h \fIHOST\fR] [\-b \fIBUCKET\fR] [\-u \fIUSER\fR] [\-P \fIPASSWORD\fR] [\-T] [\-i \fIITERATIONS\fR] [\-I \fIITEMS\fR] [\-p \fIPREFIX\fR] [\-t \fITHREADS\fR] [\-Q \fIINSTANCES\fR] [\-l] [\-s \fISEED\fR] [\-r \fIRATIO\fR] [\-m \fIMIN\fR] [\-M \fIMAX\fR] [\-d]
+\fBcbc pillowfight\fR [\-?] [\-h \fIHOST\fR] [\-b \fIBUCKET\fR] [\-u \fIUSER\fR] [\-P \fIPASSWORD\fR] [\-T] [\-i \fIITERATIONS\fR] [\-I \fIITEMS\fR] [\-p \fIPREFIX\fR] [\-t \fITHREADS\fR] [\-Q \fIINSTANCES\fR] [\-l] [\-s \fISEED\fR] [\-r \fIRATIO\fR] [\-m \fIMIN\fR] [\-M \fIMAX\fR] [\-d] [\-D] [\-n] [\-w \fIWAITSECS\fR]
 .RS 4
 Generate test load for the cluster\&. Currently only one workload type available: mixed SET and GET operations (see
 \fI\-\-ratio\fR

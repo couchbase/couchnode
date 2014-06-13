@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@
+	dh $@ --parallel
 
 override_dh_strip:
 	dh_strip -plibcouchbase2-bin -plibcouchbase2-core -plibcouchbase2-libevent -plibcouchbase2-libev --dbg-package=libcouchbase-dbg

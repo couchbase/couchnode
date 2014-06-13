@@ -21,7 +21,7 @@ typedef enum {
     LCB_TIMER_S_ARMED = 0x04
 } lcb_timer_state;
 
-
+struct lcbio_TABLE;
 
 struct lcb_timer_st {
     /** Interval */
@@ -46,7 +46,7 @@ struct lcb_timer_st {
     lcb_t instance;
 
     /** IO instance pointer */
-    lcb_io_opt_t io;
+    struct lcbio_TABLE *io;
 };
 
 typedef lcb_timer_t lcb_async_t;
@@ -72,7 +72,7 @@ typedef lcb_timer_t lcb_async_t;
  * @param error a pointer to an error which is set if this function failes.
  */
 LCB_INTERNAL_API
-lcb_timer_t lcb_timer_create2(lcb_io_opt_t io,
+lcb_timer_t lcb_timer_create2(struct lcbio_TABLE *iotable,
                               const void *cookie,
                               lcb_uint32_t usec,
                               lcb_timer_options options,
@@ -88,7 +88,7 @@ lcb_timer_t lcb_timer_create2(lcb_io_opt_t io,
  * a typedef of lcb_timer_t
  */
 LCB_INTERNAL_API
-lcb_async_t lcb_async_create(lcb_io_opt_t io,
+lcb_async_t lcb_async_create(struct lcbio_TABLE *iotable,
                              const void *command_cookie,
                              lcb_timer_callback callback,
                              lcb_error_t *error);
@@ -99,7 +99,7 @@ lcb_async_t lcb_async_create(lcb_io_opt_t io,
  * Create a simple one-shot standalone timer.
  */
 LCB_INTERNAL_API
-lcb_timer_t lcb_timer_create_simple(lcb_io_opt_t io,
+lcb_timer_t lcb_timer_create_simple(struct lcbio_TABLE *iotable,
                                     const void *cookie,
                                     lcb_uint32_t usec,
                                     lcb_timer_callback callback);

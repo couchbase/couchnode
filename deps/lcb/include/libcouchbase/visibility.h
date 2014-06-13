@@ -36,7 +36,7 @@
 
 #else
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define LIBCOUCHBASE_API extern __declspec(dllimport)
 #else
 #define LIBCOUCHBASE_API

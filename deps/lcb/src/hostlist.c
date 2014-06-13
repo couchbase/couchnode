@@ -161,13 +161,13 @@ lcb_error_t lcb_host_parse(lcb_host_t *host,
     return LCB_SUCCESS;
 }
 
-int lcb_host_equals(lcb_host_t *a, lcb_host_t *b)
+int lcb_host_equals(const lcb_host_t *a, const lcb_host_t *b)
 {
     return strcmp(a->host, b->host) == 0 && strcmp(a->port, b->port) == 0;
 }
 
 
-lcb_error_t hostlist_add_host(hostlist_t hostlist, lcb_host_t *host)
+lcb_error_t hostlist_add_host(hostlist_t hostlist, const lcb_host_t *host)
 {
     lcb_size_t ii;
     lcb_size_t nalloc;
@@ -301,9 +301,10 @@ void hostlist_randomize(hostlist_t hostlist)
         return;
     }
 
-
-    for (ii = 1; ii < hostlist->nentries; ii++) {
-        lcb_size_t nn = (lcb_size_t)(gethrtime() >> 10) % ii;
+    srand((unsigned)(gethrtime()<<31));
+    for (ii = 0; ii < hostlist->nentries - 1; ii++) {
+        lcb_size_t nn = ii + (rand() /
+                             ((RAND_MAX / (hostlist->nentries - ii)) + 1));
         lcb_host_t tmp = hostlist->entries[ii];
         hostlist->entries[ii] = hostlist->entries[nn];
         hostlist->entries[nn] = tmp;

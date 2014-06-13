@@ -22,7 +22,7 @@
  * The code in this function is based on the code provided in rfc 2104.
  * http://www.ietf.org/rfc/rfc2104.txt
  */
-void hmac_md5(unsigned char *text,
+void cbsasl_hmac_md5(unsigned char *text,
               int textlen,
               unsigned char *key,
               int keylen,
@@ -36,9 +36,9 @@ void hmac_md5(unsigned char *text,
 
     if (keylen > 64) {
         MD5_CTX ctx;
-        MD5_Init(&ctx);
-        MD5_Update(&ctx, key, keylen);
-        MD5_Final(tk, &ctx);
+        cbsasl_MD5_Init(&ctx);
+        cbsasl_MD5_Update(&ctx, key, keylen);
+        cbsasl_MD5_Final(tk, &ctx);
         key = tk;
         keylen = 16;
     }
@@ -54,14 +54,14 @@ void hmac_md5(unsigned char *text,
     }
 
     /* Perform inner md5 */
-    MD5_Init(&context);
-    MD5_Update(&context, k_ipad, 64);
-    MD5_Update(&context, text, textlen);
-    MD5_Final(digest, &context);
+    cbsasl_MD5_Init(&context);
+    cbsasl_MD5_Update(&context, k_ipad, 64);
+    cbsasl_MD5_Update(&context, text, textlen);
+    cbsasl_MD5_Final(digest, &context);
 
     /* Perform outer md5 */
-    MD5_Init(&context);
-    MD5_Update(&context, k_opad, 64);
-    MD5_Update(&context, digest, 16);
-    MD5_Final(digest, &context);
+    cbsasl_MD5_Init(&context);
+    cbsasl_MD5_Update(&context, k_opad, 64);
+    cbsasl_MD5_Update(&context, digest, 16);
+    cbsasl_MD5_Final(digest, &context);
 }

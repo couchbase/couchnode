@@ -27,8 +27,6 @@ extern "C" {
                                  lcb_error_t, const lcb_store_resp_t *);
     static void get_callback(lcb_t, const void *, lcb_error_t,
                              const lcb_get_resp_t *);
-    static void error_callback(lcb_t instance, lcb_error_t error,
-                               const char *errinfo);
 }
 
 class MultiClusterClient {
@@ -112,13 +110,18 @@ public:
                 exit(1);
             }
 
-            lcb_set_error_callback(instance, error_callback);
             lcb_set_get_callback(instance, get_callback);
             lcb_set_store_callback(instance, storage_callback);
 
 
             lcb_connect(instance);
             lcb_wait(instance);
+            if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
+                std::cerr << "Failed to bootstrap: "
+                          << lcb_strerror(instance, err)
+                          << std::endl;
+                exit(1);
+            }
             std::cout << " done" << std::endl;
 
             instances.push_back(instance);
@@ -182,31 +185,11 @@ public:
 
 private:
     void wait(void) {
-        switch (iops->version) {
-        case 0:
-            iops->v.v0.run_event_loop(iops);
-            break;
-        case 1:
-            iops->v.v1.run_event_loop(iops);
-            break;
-        default:
-            std::cerr << "Unknown io version " << iops->version << std::endl;
-            exit(EXIT_FAILURE);
-        }
+        lcb_run_loop(instances.front());
     }
 
     void resume(void) {
-        switch (iops->version) {
-        case 0:
-            iops->v.v0.stop_event_loop(iops);
-            break;
-        case 1:
-            iops->v.v1.stop_event_loop(iops);
-            break;
-        default:
-            std::cerr << "Unknown io version " << iops->version << std::endl;
-            exit(EXIT_FAILURE);
-        }
+        lcb_stop_loop(instances.front());
     }
 
     lcb_io_opt_t iops;
@@ -233,18 +216,6 @@ static void get_callback(lcb_t, const void *cookie, lcb_error_t error,
     } else {
         o->response(error, "");
     }
-}
-
-static void error_callback(lcb_t instance,
-                           lcb_error_t error,
-                           const char *errinfo)
-{
-    std::cerr << "An error occurred: " << lcb_strerror(instance, error);
-    if (errinfo) {
-        std::cerr << " (" << errinfo << ")";
-    }
-    std::cerr << std::endl;
-    exit(1);
 }
 
 int main(int argc, char **argv)

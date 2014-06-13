@@ -16,19 +16,13 @@
  */
 #include "config.h"
 #include <gtest/gtest.h>
-#ifdef HAVE_COUCHBASEMOCK
-#include "mock-environment.h"
-#endif
-
-#include "testutil.h"
+#include "iotests/iotests.h"
 
 int main(int argc, char **argv)
 {
     setvbuf(stdout, NULL, _IOLBF, 2048);
     setvbuf(stderr, NULL, _IOLBF, 2048);
-#ifdef HAVE_COUCHBASEMOCK
     ::testing::AddGlobalTestEnvironment(MockEnvironment::getInstance());
-#endif
     ::testing::InitGoogleTest(&argc, argv);
     setup_test_timeout_handler();
     return RUN_ALL_TESTS();

@@ -101,7 +101,7 @@ extern "C" {
     ((list) == (list)->next && (list) == (list)->prev)
 
 #define LCB_LIST_ITEM(ptr, type, member) \
-    ((type *) ((char *)(ptr) - offsetof(type, member)))
+    ((type *) (void *) ((char *)(ptr) - offsetof(type, member)))
 
 #define LCB_LIST_FOR(pos, list) \
     for (pos = (list)->next; pos != (list); pos = pos->next)
@@ -114,6 +114,12 @@ extern "C" {
     ((item)->next != ll)
 
 #define LCB_CLIST_SIZE(cl) (cl)->size
+
+#define LCB_LIST_TAIL(list) \
+    ((LCB_LIST_IS_EMPTY(list)) ? NULL : (list)->prev)
+
+#define LCB_LIST_HEAD(list) \
+    ((LCB_LIST_IS_EMPTY(list)) ? NULL : (list)->next)
 
 #ifdef __cplusplus
 }

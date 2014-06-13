@@ -88,7 +88,7 @@ lcb_error_t lcb_host_parse(lcb_host_t *host,
 
 #define lcb_host_parsez(host, spec, deflport) lcb_host_parse(host, spec, -1, deflport)
 
-int lcb_host_equals(lcb_host_t *a, lcb_host_t *b);
+int lcb_host_equals(const lcb_host_t *a, const lcb_host_t *b);
 
 /**
  * Adds a string to the hostlist. See lcb_host_parse for details.
@@ -105,7 +105,7 @@ lcb_error_t hostlist_add_string(hostlist_t hostlist,
 #define hostlist_add_stringz(hostlist, spec, deflport) \
     hostlist_add_string(hostlist, spec, -1, deflport)
 
-lcb_error_t hostlist_add_host(hostlist_t hostlist, lcb_host_t *host);
+lcb_error_t hostlist_add_host(hostlist_t hostlist, const lcb_host_t *host);
 
 /**
  * Return the next host in the list.

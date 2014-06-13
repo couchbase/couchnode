@@ -62,8 +62,7 @@ extern "C" {
         LCBIOCP_ACTION_NONE = 100,
         LCBIOCP_ACTION_READ,
         LCBIOCP_ACTION_WRITE,
-        LCBIOCP_ACTION_CONNECT,
-        LCBIOCP_ACTION_ERROR
+        LCBIOCP_ACTION_CONNECT
     };
 
     struct iocp_sockdata_st;
@@ -87,10 +86,10 @@ extern "C" {
     } iocp_wbuf_state_t;
 
     typedef struct {
-        lcb_io_writebuf_t wbase;
         iocp_overlapped_t ol_write;
-        lcb_io_write_cb cb;
+        lcb_ioC_write2_callback cb;
         iocp_wbuf_state_t state;
+        void *uarg;
     } iocp_write_t;
 
     #define IOCP_WRITEOBJ_FROM_OVERLAPPED(ol) \
@@ -111,7 +110,8 @@ extern "C" {
         unsigned int refcount;
 
         SOCKET sSocket;
-        lcb_io_read_cb rdcb;
+        lcb_ioC_read2_callback rdcb;
+        void *rdarg;
         lcb_list_t list;
     } iocp_sockdata_t;
 
@@ -131,11 +131,6 @@ extern "C" {
         v0_callback cb;
         void *arg;
     } iocp_timer_t;
-
-    typedef struct {
-        iocp_overlapped_t ol_dummy;
-        lcb_io_error_cb cb;
-    } iocp_async_error_t;
 
     typedef struct iocp_st {
         /** Base table */
@@ -177,7 +172,9 @@ extern "C" {
 
     void iocp_initialize_loop_globals(void);
     LPFN_CONNECTEX iocp_initialize_connectex(SOCKET s);
-    void iocp_free_bufinfo_common(struct lcb_buf_info *bi);
+
+    /** This safely invokes and restores the callback */
+    void iocp_write_done(iocp_t *io, iocp_write_t *w, int status);
 
     int iocp_overlapped_status(OVERLAPPED *lpOverlapped);
 

@@ -21,6 +21,7 @@
 *.vcxproj.filters
 *.vcxproj.user
 *~
+.DS_Store
 ._*
 .deps/
 .libs/
@@ -46,6 +47,7 @@
 /configure
 /debug/sizes
 /example/db/db
+/example/db/vb
 /example/debug/debug
 /example/instancepool/instancepool
 /example/libeventdirect/eventloop
@@ -54,6 +56,7 @@
 /example/observe/observe
 /example/syncmode/syncmode
 /example/yajl/couchview
+filelist.mk
 /gtest-1.*
 /include/libcouchbase/configuration.h
 /libcouchbase*.changes
@@ -133,7 +136,12 @@
 /tests/*.trs
 /tests/CouchbaseMock.jar
 /tests/check-all
+/tests/htparse-tests
+/tests/nonio-tests
 /tests/unit-tests
+/tests/mc-tests
+/tests/sock-tests
+/tests/rdb-tests
 /tools/cbc
 /tools/cbc-pillowfight
 /tools/cbc_debug.ilk
@@ -145,6 +153,7 @@ Project.opensdf
 Project.sdf
 Project.suo
 VERSION
+build/
 cbc-pillowfight.dir/
 cbc.dir/
 cmake_install.cmake
@@ -161,6 +170,4 @@ libcouchbase.sdf
 libcouchbase.suo
 unit-tests.dir/
 win32/Debug/
-
-include/libcouchbase/plugins
-include/libcouchbase/libuv_io_opts.h
+doc/

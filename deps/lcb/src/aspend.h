@@ -1,0 +1,89 @@
+#ifndef LCB_ASPEND_H
+#define LCB_ASPEND_H
+
+#include "config.h"
+#include "hashset.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @page Asynchronous Pending Queue
+ *
+ * This defines the API for asynchronous requests which should block calls to
+ * lcb_wait() or similar. This is a replacement for the explicit hashsets used
+ * in lcb_t.
+ *
+ * Items are added to the pending queue via lcb_aspend_add(). They may be
+ * removed either explicitly via lcb_aspend_del() or implicitly when the
+ * instance is destroyed.
+ *
+ * An exception to this rule is the special LCB_PENDTYPE_COUNTER which does
+ * not associate a specific pointer with it.
+ */
+
+/** Pending item type */
+typedef enum {
+    LCB_PENDTYPE_TIMER = 0, /**< item is of type lcb_timer_t */
+    LCB_PENDTYPE_HTTP, /**< item is of type lcb_http_request_t */
+    LCB_PENDTYPE_DURABILITY, /**< item is of type lcb_durability_set_t */
+    LCB_PENDTYPE_COUNTER, /**< just increment/decrement the counter */
+    LCB_PENDTYPE_MAX
+} lcb_ASPENDTYPE;
+
+/** Items for pending operations */
+typedef struct {
+    hashset_t items[LCB_PENDTYPE_MAX];
+    unsigned count;
+} lcb_ASPEND;
+
+/**
+ * Initialize the pending queues
+ * @param ops
+ */
+void lcb_aspend_init(lcb_ASPEND *ops);
+
+/**
+ * Clean up any resources used by the pending queues
+ * @param ops
+ */
+void lcb_aspend_cleanup(lcb_ASPEND *ops);
+
+/**
+ * Add an opaque pointer of a given type to a pending queue
+ * @param ops
+ * @param type The type of pointer to add
+ * @param item The item to add
+ */
+void lcb_aspend_add(lcb_ASPEND *ops, lcb_ASPENDTYPE type, const void *item);
+
+/**
+ * Remove an item from the queue and decrement the pending count
+ * @param ops
+ * @param type The type of item to remove
+ * @param item The item to remove
+ *
+ * @attention If the item is not found inside the queue then the count is
+ * _not_ decremented. An exception to this rule is the LCB_PENDTYPE_COUNTER
+ * type which does not have a pointer associated with it. In this case the
+ * counter is always decremented.
+ */
+void lcb_aspend_del(lcb_ASPEND *ops, lcb_ASPENDTYPE type, const void *item);
+
+/**
+ * Get a queue for a given type
+ * @param ops
+ * @param type
+ */
+#define lcb_aspend_get(ops, type) (ops)->items[type]
+
+/**
+ * Determine whether there are pending items in any of the queues
+ * @param ops
+ */
+#define lcb_aspend_pending(ops) ((ops)->count > 0)
+
+#ifdef __cplusplus
+}
+#endif
+#endif

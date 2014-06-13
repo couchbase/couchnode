@@ -67,13 +67,14 @@ AC_DEFUN([COUCHBASE_GENERIC_COMPILER], [
   GCC_C_DEBUG="-O0 -g3"
   GCC_CXX_DEBUG="-O0 -g3"
   GCC_VISIBILITY="-DHAVE_VISIBILITY=1 -fvisibility=hidden"
-  GCC_CPPFLAGS="-pipe"
+  GCC_CPPFLAGS="-pipe -fno-strict-aliasing"
   GCC_CFLAGS="-std=gnu99"
   GCC_CXXFLAGS=""
   GCC_C89=-std=c89
   GCC_C99=-std=gnu99
   GCC_LDFLAGS=""
   GCC_CPP_WARNINGS="-Wall -pedantic -Wshadow -fdiagnostics-show-option -Wformat -fno-strict-aliasing -Wno-strict-aliasing -Wextra -Winit-self"
+  GCC_CPP_WARNINGS+=" -Wno-missing-field-initializers"
   AS_IF([test "$ac_cv_enable_wconversion" = "yes" ],
         [GCC_CPP_WARNINGS="$GCC_CPP_WARNINGS -Wconversion"])
   GCC_C_COMPILER_WARNINGS="-Wundef -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissing-declarations -Wcast-align"

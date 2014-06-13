@@ -36,6 +36,10 @@ struct lcb_histogram_st {
      * We're collecting measurements on a per 10 usec
      */
     lcb_uint32_t usec[100];
+
+    /**We're collecting measurements for <10ms per 100usec */
+    lcb_uint32_t lt10msec[100];
+
     /**
      * We're collecting measurements on a per 10 msec
      */
@@ -78,27 +82,35 @@ lcb_error_t lcb_get_timings(lcb_t instance,
     lcb_uint32_t start;
     lcb_uint32_t ii;
     lcb_uint32_t end;
+    struct lcb_histogram_st *hg = instance->histogram;
 
-    if (instance->histogram == NULL) {
+    if (hg == NULL) {
         return LCB_KEY_ENOENT;
     }
 
-    max = instance->histogram->max;
+    max = hg->max;
     /*
     ** @todo I should merge "empty" sets.. currently I'm only going to
     ** report the nonzero ones...
     */
-    if (instance->histogram->nsec) {
-        callback(instance, cookie, LCB_TIMEUNIT_NSEC, 0, 999,
-                 instance->histogram->nsec, max);
+    if (hg->nsec) {
+        callback(instance, cookie, LCB_TIMEUNIT_NSEC, 0, 999, hg->nsec, max);
     }
 
     start = 1;
     for (ii = 0; ii < 100; ++ii) {
         end = (ii + 1) * 10 - 1;
-        if (instance->histogram->usec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_USEC, start, end,
-                     instance->histogram->usec[ii], max);
+        if (hg->usec[ii]) {
+            callback(instance, cookie, LCB_TIMEUNIT_USEC, start, end, hg->usec[ii], max);
+        }
+        start = end + 1;
+    }
+
+    start = 1000;
+    for (ii = 0; ii < 100; ++ii) {
+        end = start+100-1;
+        if (hg->lt10msec[ii]) {
+            callback(instance, cookie, LCB_TIMEUNIT_USEC, start, end, hg->lt10msec[ii], max);
         }
         start = end + 1;
     }
@@ -106,9 +118,8 @@ lcb_error_t lcb_get_timings(lcb_t instance,
     start = 1;
     for (ii = 0; ii < 100; ++ii) {
         end = (ii + 1) * 10 - 1;
-        if (instance->histogram->msec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_MSEC, start, end,
-                     instance->histogram->msec[ii], max);
+        if (hg->msec[ii]) {
+            callback(instance, cookie, LCB_TIMEUNIT_MSEC, start, end, hg->msec[ii], max);
         }
         start = end + 1;
     }
@@ -116,16 +127,14 @@ lcb_error_t lcb_get_timings(lcb_t instance,
     start = 1;
     for (ii = 0; ii < 9; ++ii) {
         end = ii + 1;
-        if (instance->histogram->sec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_SEC, start, end,
-                     instance->histogram->sec[ii], max);
+        if (hg->sec[ii]) {
+            callback(instance, cookie, LCB_TIMEUNIT_SEC, start, end, hg->sec[ii], max);
         }
         start = end + 1;
     }
 
-    if (instance->histogram->sec[9]) {
-        callback(instance, cookie, LCB_TIMEUNIT_SEC, 9, 99999,
-                 instance->histogram->sec[9], max);
+    if (hg->sec[9]) {
+        callback(instance, cookie, LCB_TIMEUNIT_SEC, 9, 99999, hg->sec[9], max);
     }
     return LCB_SUCCESS;
 }
@@ -134,43 +143,43 @@ void lcb_record_metrics(lcb_t instance,
                         hrtime_t delta,
                         uint8_t opcode)
 {
-    int ii;
-    (void)opcode;
-    if (instance->histogram == NULL) {
+    lcb_U32 num;
+    struct lcb_histogram_st *hg = instance->histogram;
+    if (hg == NULL) {
         return;
     }
 
-    ii = 0;
-    while (delta > 1000 && ii < 4) {
-        ++ii;
-        delta /= 1000;
+    if (delta < 1000) {
+        /* nsec */
+        if (++hg->nsec > hg->max) {
+            hg->max = hg->nsec;
+        }
+    } else if (delta < LCB_US2NS(1000)) {
+        /* micros */
+        delta /= LCB_US2NS(1);
+        if ((num = ++hg->usec[delta/10]) > hg->max) {
+            hg->max = num;
+        }
+    } else if (delta < LCB_US2NS(10000)) {
+        /* 1-10ms */
+        delta /= LCB_US2NS(1);
+        assert(delta <= 10000);
+        if ((num = ++hg->lt10msec[delta/100]) > hg->max) {
+            hg->max = num;
+        }
+    } else if (delta < LCB_S2NS(1)) {
+        delta /= LCB_US2NS(1000);
+        if ((num = ++hg->msec[delta/10]) > hg->max) {
+            hg->max = num;
+        }
+    } else {
+        delta /= LCB_S2NS(1);
+        if (delta > 9) {
+            delta = 0;
+        }
+        if ((num = ++hg->sec[delta]) > hg->max) {
+            hg->max = num;
+        }
     }
-
-    switch (ii) {
-    case 0:
-        if (++instance->histogram->nsec > instance->histogram->max) {
-            instance->histogram->max = instance->histogram->nsec;
-        }
-        break;
-    case 1:
-        if (++instance->histogram->usec[delta / 10] > instance->histogram->max) {
-            instance->histogram->max = instance->histogram->usec[delta / 10];
-        }
-        break;
-    case 2:
-        if (++instance->histogram->msec[delta / 10] > instance->histogram->max) {
-            instance->histogram->max = instance->histogram->msec[delta / 10];
-        }
-        break;
-    default:
-        if (delta < 9) {
-            if (++instance->histogram->sec[delta] > instance->histogram->max) {
-                instance->histogram->max = instance->histogram->sec[delta];
-            }
-        } else {
-            if (++instance->histogram->sec[9] > instance->histogram->max) {
-                instance->histogram->max = instance->histogram->sec[9];
-            }
-        }
-    }
+    (void)opcode;
 }

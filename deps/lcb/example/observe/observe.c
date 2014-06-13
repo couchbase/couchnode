@@ -15,7 +15,9 @@
  *   limitations under the License.
  */
 
-/*
+/**
+ * @file
+ *
  * BUILD:
  *
  *      cc -o observe observe.c -lcouchbase

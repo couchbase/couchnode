@@ -55,6 +55,22 @@ my @HELP_DESCRIPTIONS = (
         "Executable to use as cmake",
         "%s", \(my $CMAKE_EXE = "cmake")],
 
+    [ "with-openssl", "s",
+        "Path to OpenSSL installation",
+        "%s", \(my $OPENSSL_ROOT = "")],
+
+    [ "with-snappy", "s",
+        "Path to snappy installation",
+        "%s", \(my $SNAPPY_ROOT = "")],
+
+    [ "--disable-snappy", "",
+        "Do not build static snappy",
+        "%d", \(my $NO_SNAPPY = 0)],
+
+    [ "--enable-static-snappy", "",
+        "Build the bundled snappy and do not link against the system version",
+        "%d", \(my $STATIC_SNAPPY = 0) ],
+
     [ "disable-plugins", "",
         "Disable building of external plugins",
         "%d", \(my $NO_PLUGINS = 0)],
@@ -82,7 +98,16 @@ my @HELP_DESCRIPTIONS = (
     [ "enable-static", "",
         "Build static libraries",
         "%d", \(my $STATIC_LIBS = 0)],
+    [ "cc", "s",
+        "C Compiler",
+        "%s", \(my $CC = "") ],
 
+    [ "cxx", "s",
+        "C++ Compiler",
+        "%s", \(my $CXX = "") ],
+    [ "disable-ssl", "",
+        "Do not build SSL support",
+        "%d", \(my $NO_SSL = 0)],
     [ "help", "",
         "This message", "%s", \(my $WANT_HELP = 0) ]
 );
@@ -132,6 +157,55 @@ if ($NO_CXX) {
 }
 
 my @CM_OPTIONS = ();
+
+my @VARNAMES = (qw(CC CXX CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LIBS));
+my %ENVOPTIONS = ();
+foreach my $var (@VARNAMES) {
+    $ENVOPTIONS{$var} = $ENV{$var};
+}
+
+foreach my $arg (@ARGV) {
+    my ($k,$v) = $arg =~ m/([^=]+)=(.*)/;
+    unless ($k && $v && exists $ENVOPTIONS{$k}) {
+        die("Invalid variable $arg");
+    }
+    $ENVOPTIONS{$k} = $v;
+}
+
+my $flags_common = "";
+my $flags_cxx = "";
+my $flags_cc = "";
+
+if ($ENVOPTIONS{CC}) { $CC = $ENVOPTIONS{CC}; }
+if ($ENVOPTIONS{CXX}) { $CXX = $ENVOPTIONS{CXX}; }
+if ($ENVOPTIONS{CPPFLAGS}) {
+    $flags_common = $ENVOPTIONS{CPPFLAGS};
+}
+$flags_cxx = $flags_common;
+$flags_cc = $flags_common;
+if ($ENVOPTIONS{CFLAGS}) {
+    $flags_cc .= " " . $ENVOPTIONS{CFLAGS};
+}
+if ($ENVOPTIONS{CXXFLAGS}) {
+    $flags_cxx .= " ".$ENVOPTIONS{CXXFLAGS};
+}
+if ($flags_cc) {
+    push @CM_OPTIONS, "-DCMAKE_C_FLAGS=$flags_cc";
+}
+if ($flags_cxx) {
+    push @CM_OPTIONS, "-DCMAKE_CXX_FLAGS=$flags_cxx";
+}
+if ($ENVOPTIONS{LDFLAGS}) {
+    # Flags for the linker
+    my $flags = $ENVOPTIONS{LDFLAGS};
+    foreach my $var (qw(EXE_LINKER_FLAGS SHARED_LINKER_FLAGS)) {
+        push @CM_OPTIONS, "-DCMAKE_${var}=$flags";
+    }
+}
+if ($ENVOPTIONS{LIBS}) {
+    warn("Don't know how to convert autotools 'LIBS' into CMake");
+}
+
 if ($DEBUG) {
     push @CM_OPTIONS, "-DCMAKE_BUILD_TYPE=DEBUG";
 } else {
@@ -169,13 +243,34 @@ if ($CMAKE_VERBOSE) {
 if ($STATIC_LIBS) {
     push @CM_OPTIONS, "-DBUILD_SHARED_LIBS=OFF", "-DLCB_BUILD_STATIC=1";
 }
-
+if ($CC) {
+    push @CM_OPTIONS, "-DCMAKE_C_COMPILER=$CC";
+}
+if ($CXX) {
+    push @CM_OPTIONS, "-DCMAKE_CXX_COMPILER=$CXX";
+}
 if ($USE_NINJA) {
     push @CM_OPTIONS, "-DCMAKE_MAKE_PROGRAM=$USE_NINJA";
     push @CM_OPTIONS, "-GNinja";
 } else {
     push @CM_OPTIONS, "-GUnix Makefiles";
 }
+if ($NO_SSL) {
+    push @CM_OPTIONS, "-DLCB_NO_SSL=$NO_SSL";
+}
+if ($OPENSSL_ROOT) {
+    push @CM_OPTIONS, "-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT";
+}
+if ($SNAPPY_ROOT) {
+    push @CM_OPTIONS, "-DSNAPPY_ROOT=$SNAPPY_ROOT";
+}
+if ($NO_SNAPPY) {
+    push @CM_OPTIONS, "-DLCB_NO_SNAPPY=1";
+}
+if ($STATIC_SNAPPY) {
+    push @CM_OPTIONS, "-DLCB_STATIC_SNAPPY";
+}
+
 if ($CMAKE_HOST) {
     # Write the toolchain file
     my $fname = "TOOLCHAIN-$CMAKE_HOST.cmake";

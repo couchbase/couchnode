@@ -1,23 +1,15 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
-ADD_EXECUTABLE(cbc
-    cbc-util.cc
-    cbc.cc
-    commandlineparser.cc
-    configuration.cc)
+INCLUDE_DIRECTORIES(${SOURCE_ROOT}/contrib/cliopts)
+FILE(GLOB T_COMMONSRC common/*.cc)
+ADD_LIBRARY(lcbtools STATIC ${T_COMMONSRC} ${SOURCE_ROOT}/contrib/cliopts/cliopts.c)
 
-SET_PROPERTY(TARGET cbc
-    PROPERTY DEBUG_OUTPUT_NAME "cbc_d")
+ADD_EXECUTABLE(cbc cbc.cc)
+SET_PROPERTY(TARGET cbc PROPERTY DEBUG_OUTPUT_NAME "cbc_d")
+TARGET_LINK_LIBRARIES(cbc couchbase lcbtools)
 
-TARGET_LINK_LIBRARIES(cbc couchbase)
-
-ADD_EXECUTABLE(cbc-pillowfight
-    cbc-pillowfight.cc
-    commandlineparser.cc)
-
-SET_PROPERTY(TARGET cbc-pillowfight
-    PROPERTY DEBUG_OUTPUT_NAME "cbc-pillowfight_d")
-
-TARGET_LINK_LIBRARIES(cbc-pillowfight couchbase)
+ADD_EXECUTABLE(cbc-pillowfight cbc-pillowfight.cc)
+SET_PROPERTY(TARGET cbc-pillowfight PROPERTY DEBUG_OUTPUT_NAME "cbc-pillowfight_d")
+TARGET_LINK_LIBRARIES(cbc-pillowfight couchbase lcbtools)
 
 INSTALL(TARGETS cbc cbc-pillowfight RUNTIME
     DESTINATION bin)

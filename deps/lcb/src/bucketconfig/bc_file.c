@@ -20,8 +20,9 @@
 #include "simplestring.h"
 #define CONFIG_CACHE_MAGIC "{{{fb85b563d0a8f65fa8d3d58f1b3a0708}}}"
 
-#define LOG(fprovider, sevbase, msg) \
-    LCB_LOG_EX(fprovider->base.parent->settings, "file", LCB_LOG_##sevbase, msg)
+#define LOGARGS(pb, lvl) pb->base.parent->settings, "bc_file", LCB_LOG_##lvl, __FILE__, __LINE__
+#define LOGFMT "(cache=%s) "
+#define LOGID(fb) fb->filename
 
 typedef struct {
     clconfig_provider base;
@@ -53,7 +54,8 @@ static int load_cache(file_provider *provider)
 
     fp = fopen(provider->filename, "r");
     if (fp == NULL) {
-        LOG(provider, ERROR, "Couldn't open filename");
+        int save_errno = errno;
+        lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't open for reading: %s", LOGID(provider), strerror(save_errno));
         return -1;
     }
 
@@ -63,7 +65,7 @@ static int load_cache(file_provider *provider)
     }
 
     if (provider->last_mtime == st.st_mtime) {
-        LOG(provider, INFO, "Rejecting file. Modification time too old");
+        lcb_log(LOGARGS(provider, WARN), LOGFMT "Modification time too old", LOGID(provider));
         goto GT_DONE;
     }
 
@@ -94,7 +96,7 @@ static int load_cache(file_provider *provider)
 
     end = strstr(str.base, CONFIG_CACHE_MAGIC);
     if (end == NULL) {
-        LOG(provider, ERROR, "Couldn't find magic in file");
+        lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't find magic", LOGID(provider));
         remove(provider->filename);
         status = -1;
         goto GT_DONE;
@@ -103,14 +105,14 @@ static int load_cache(file_provider *provider)
     fail = vbucket_config_parse(config, LIBVBUCKET_SOURCE_MEMORY, str.base);
     if (fail) {
         status = -1;
-        LOG(provider, ERROR, "Couldn't parse configuration");
+        lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't parse configuration", LOGID(provider));
         remove(provider->filename);
         goto GT_DONE;
     }
 
     if (vbucket_config_get_distribution_type(config) != VBUCKET_DISTRIBUTION_VBUCKET) {
         status = -1;
-        LOG(provider, ERROR, "Not applying cached memcached config");
+        lcb_log(LOGARGS(provider, ERROR), LOGFMT "Not applying cached memcached config", LOGID(provider));
         goto GT_DONE;
     }
 
@@ -118,9 +120,7 @@ static int load_cache(file_provider *provider)
         lcb_clconfig_decref(provider->config);
     }
 
-    provider->config = lcb_clconfig_create(config,
-                                           &str,
-                                           LCB_CLCONFIG_FILE);
+    provider->config = lcb_clconfig_create(config, LCB_CLCONFIG_FILE);
     provider->config->cmpclock = gethrtime();
     provider->config->origin = provider->base.type;
     provider->last_mtime = st.st_mtime;
@@ -140,11 +140,10 @@ static int load_cache(file_provider *provider)
     return status;
 }
 
-void lcb_clconfig_write_file(clconfig_provider *provider_base, lcb_string *data)
+static void
+write_to_file(file_provider *provider, lcbvb_CONFIG *cfg)
 {
     FILE *fp;
-    file_provider *provider = (file_provider *)provider_base;
-    /** Get the provider */
 
     if (provider->filename == NULL) {
         return;
@@ -152,8 +151,14 @@ void lcb_clconfig_write_file(clconfig_provider *provider_base, lcb_string *data)
 
     fp = fopen(provider->filename, "w");
     if (fp) {
-        fprintf(fp, "%s%s", data->base, CONFIG_CACHE_MAGIC);
+        char *json = lcbvb_save_json(cfg);
+        lcb_log(LOGARGS(provider, INFO), LOGFMT "Writing configuration to file", LOGID(provider));
+        fprintf(fp, "%s%s", json, CONFIG_CACHE_MAGIC);
         fclose(fp);
+        free(json);
+    } else {
+        int save_errno = errno;
+        lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't open file for writing: %s", LOGID(provider), strerror(save_errno));
     }
 }
 
@@ -177,9 +182,7 @@ static void async_callback(lcb_timer_t timer,
     provider->async = NULL;
 
 
-    LOG(provider, TRACE, "Got async callback. Will load");
     last_mtime = provider->last_mtime;
-
     if (load_cache(provider) == 0) {
         if (last_mtime != provider->last_mtime) {
             lcb_confmon_provider_success(&provider->base, provider->config);
@@ -200,8 +203,7 @@ static lcb_error_t refresh_file(clconfig_provider *pb)
         return LCB_SUCCESS;
     }
 
-    LOG(provider, TRACE, "Starting async file load");
-    provider->async = lcb_async_create(pb->parent->settings->io,
+    provider->async = lcb_async_create(pb->parent->iot,
                                        pb,
                                        async_callback,
                                        &err);
@@ -237,20 +239,17 @@ static void config_listener(clconfig_listener *lsn, clconfig_event_t event,
         return;
     }
 
-    provider = (file_provider *) (((char *)lsn) - offsetof(file_provider, listener));
-
-    LOG(provider, DEBUG, "Got updated configuration. Flushing to file");
+    provider = (file_provider *) (void*)(((char *)lsn) - offsetof(file_provider, listener));
+    if (!provider->base.enabled) {
+        return;
+    }
 
     if (info->origin == LCB_CLCONFIG_PHONY || info->origin == LCB_CLCONFIG_FILE) {
-        LOG(provider, DEBUG, "Rejecting configuration. Not valid");
+        lcb_log(LOGARGS(provider, TRACE), "Not writing configuration originating from PHONY or FILE to cache");
         return;
     }
 
-    if (!info->raw.nused) {
-        return;
-    }
-
-    lcb_clconfig_write_file(&provider->base, &info->raw);
+    write_to_file(provider, info->vbc);
 }
 
 clconfig_provider * lcb_clconfig_create_file(lcb_confmon *parent)

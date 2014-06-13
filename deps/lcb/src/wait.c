@@ -15,6 +15,43 @@
  *   limitations under the License.
  */
 #include "internal.h"
+#include <lcbio/iotable.h>
+#include <lcbio/timer-ng.h>
+
+static int
+has_pending(lcb_t instance)
+{
+    unsigned ii;
+
+    if (!lcb_retryq_empty(instance->retryq)) {
+        return 1;
+    }
+
+    if (lcb_aspend_pending(&instance->pendops)) {
+        return 1;
+    }
+
+    for (ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
+        lcb_server_t *ss = LCBT_GET_SERVER(instance, ii);
+        if (mcserver_has_pending(ss)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+void
+lcb_maybe_breakout(lcb_t instance)
+{
+    if (!instance->wait) {
+        return;
+    }
+    if (has_pending(instance)) {
+        return;
+    }
+
+    instance->wait = 0;
+    instance->iotable->loop.stop(IOT_ARG(instance->iotable));
+}
 
 /**
  * Returns non zero if the event loop is running now
@@ -38,45 +75,41 @@ int lcb_is_waiting(lcb_t instance)
 LIBCOUCHBASE_API
 lcb_error_t lcb_wait(lcb_t instance)
 {
-
     if (instance->wait != 0) {
         return instance->last_error;
     }
 
-    /*
-     * The API is designed for you to run your own event loop,
-     * but should also work if you don't do that.. In order to be
-     * able to know when to break out of the event loop, we're setting
-     * the wait flag to 1
-     */
-    instance->last_error = LCB_SUCCESS;
-    instance->wait = 1;
-    if (instance->vbucket_config == NULL ||
-            lcb_flushing_buffers(instance) ||
-            hashset_num_items(instance->timers) > 0 ||
-            hashset_num_items(instance->durability_polls) > 0) {
-
-        lcb_size_t ii;
-
-        for (ii = 0; ii < instance->nservers; ii++) {
-            lcb_server_t *c = instance->servers + ii;
-
-            if (lcb_server_has_pending(c)) {
-                lcb_timer_rearm(c->io_timer,
-                                instance->settings.operation_timeout);
-            }
-        }
-
-        instance->settings.io->v.v0.run_event_loop(instance->settings.io);
+    if (!has_pending(instance)) {
+        return LCB_SUCCESS;
     }
 
+    instance->last_error = LCB_SUCCESS;
+    instance->wait = 1;
+    IOT_START(instance->iotable);
     instance->wait = 0;
 
-    if (instance->vbucket_config) {
+    if (LCBT_VBCONFIG(instance)) {
         return LCB_SUCCESS;
     }
 
     return instance->last_error;
+}
+
+LIBCOUCHBASE_API
+void lcb_wait3(lcb_t instance, lcb_WAITFLAGS flags)
+{
+    if (flags == LCB_WAIT_DEFAULT) {
+        if (instance->wait) {
+            return;
+        }
+        if (has_pending(instance)) {
+            return;
+        }
+    }
+
+    instance->wait = 1;
+    IOT_START(instance->iotable);
+    instance->wait = 0;
 }
 
 /**
@@ -88,7 +121,7 @@ LIBCOUCHBASE_API
 void lcb_breakout(lcb_t instance)
 {
     if (instance->wait) {
-        instance->settings.io->v.v0.stop_event_loop(instance->settings.io);
+        IOT_STOP(instance->iotable);
         instance->wait = 0;
     }
 }

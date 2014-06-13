@@ -84,6 +84,7 @@ extern "C"
         PROTOCOL_BINARY_RESPONSE_AUTH_ERROR = 0x20,
         PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE = 0x21,
         PROTOCOL_BINARY_RESPONSE_ERANGE = 0x22,
+        PROTOCOL_BINARY_RESPONSE_ROLLBACK = 0x23,
         PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND = 0x81,
         PROTOCOL_BINARY_RESPONSE_ENOMEM = 0x82,
         PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED = 0x83,
@@ -128,6 +129,7 @@ extern "C"
         PROTOCOL_BINARY_CMD_TOUCH = 0x1c,
         PROTOCOL_BINARY_CMD_GAT = 0x1d,
         PROTOCOL_BINARY_CMD_GATQ = 0x1e,
+        PROTOCOL_BINARY_CMD_HELLO = 0x1f,
 
         PROTOCOL_BINARY_CMD_SASL_LIST_MECHS = 0x20,
         PROTOCOL_BINARY_CMD_SASL_AUTH = 0x21,
@@ -169,31 +171,158 @@ extern "C"
         PROTOCOL_BINARY_CMD_TAP_CHECKPOINT_END = 0x47,
         /* End TAP */
 
-        PROTOCOL_BINARY_CMD_LAST_RESERVED = 0x8f,
+        /* UPR */
+        PROTOCOL_BINARY_CMD_UPR_OPEN = 0x50,
+        PROTOCOL_BINARY_CMD_UPR_ADD_STREAM = 0x51,
+        PROTOCOL_BINARY_CMD_UPR_CLOSE_STREAM = 0x52,
+        PROTOCOL_BINARY_CMD_UPR_STREAM_REQ = 0x53,
+        PROTOCOL_BINARY_CMD_UPR_GET_FAILOVER_LOG = 0x54,
+        PROTOCOL_BINARY_CMD_UPR_STREAM_END = 0x55,
+        PROTOCOL_BINARY_CMD_UPR_SNAPSHOT_MARKER = 0x56,
+        PROTOCOL_BINARY_CMD_UPR_MUTATION = 0x57,
+        PROTOCOL_BINARY_CMD_UPR_DELETION = 0x58,
+        PROTOCOL_BINARY_CMD_UPR_EXPIRATION = 0x59,
+        PROTOCOL_BINARY_CMD_UPR_FLUSH = 0x5a,
+        PROTOCOL_BINARY_CMD_UPR_SET_VBUCKET_STATE = 0x5b,
+        PROTOCOL_BINARY_CMD_UPR_NOOP = 0x5c,
+        PROTOCOL_BINARY_CMD_UPR_BUFFER_ACKNOWLEDGEMENT = 0x5d,
+        PROTOCOL_BINARY_CMD_UPR_CONTROL = 0x5e,
+        PROTOCOL_BINARY_CMD_UPR_RESERVED4 = 0x5f,
+        /* End UPR */
+
+        PROTOCOL_BINARY_CMD_STOP_PERSISTENCE = 0x80,
+        PROTOCOL_BINARY_CMD_START_PERSISTENCE = 0x81,
+        PROTOCOL_BINARY_CMD_SET_PARAM = 0x82,
+        PROTOCOL_BINARY_CMD_GET_REPLICA = 0x83,
+
+        /* Bucket engine */
+        PROTOCOL_BINARY_CMD_CREATE_BUCKET = 0x85,
+        PROTOCOL_BINARY_CMD_DELETE_BUCKET = 0x86,
+        PROTOCOL_BINARY_CMD_LIST_BUCKETS = 0x87,
+        PROTOCOL_BINARY_CMD_SELECT_BUCKET= 0x89,
+
+        PROTOCOL_BINARY_CMD_OBSERVE = 0x92,
+
+        PROTOCOL_BINARY_CMD_EVICT_KEY = 0x93,
+        PROTOCOL_BINARY_CMD_GET_LOCKED = 0x94,
+        PROTOCOL_BINARY_CMD_UNLOCK_KEY = 0x95,
+
+        /**
+         * Return the last closed checkpoint Id for a given VBucket.
+         */
+        PROTOCOL_BINARY_CMD_LAST_CLOSED_CHECKPOINT = 0x97,
+        /**
+         * Close the TAP connection for the registered TAP client and
+         * remove the checkpoint cursors from its registered vbuckets.
+         */
+        PROTOCOL_BINARY_CMD_DEREGISTER_TAP_CLIENT = 0x9e,
+
+        /**
+         * Reset the replication chain from the node that receives
+         * this command. For example, given the replication chain,
+         * A->B->C, if A receives this command, it will reset all the
+         * replica vbuckets on B and C, which are replicated from A.
+         */
+        PROTOCOL_BINARY_CMD_RESET_REPLICATION_CHAIN =  0x9f,
+
+        /**
+         * CMD_GET_META is used to retrieve the meta section for an item.
+         */
+        PROTOCOL_BINARY_CMD_GET_META = 0xa0,
+        PROTOCOL_BINARY_CMD_GETQ_META = 0xa1,
+        PROTOCOL_BINARY_CMD_SET_WITH_META = 0xa2,
+        PROTOCOL_BINARY_CMD_SETQ_WITH_META = 0xa3,
+        PROTOCOL_BINARY_CMD_ADD_WITH_META = 0xa4,
+        PROTOCOL_BINARY_CMD_ADDQ_WITH_META = 0xa5,
+        PROTOCOL_BINARY_CMD_SNAPSHOT_VB_STATES = 0xa6,
+        PROTOCOL_BINARY_CMD_VBUCKET_BATCH_COUNT = 0xa7,
+        PROTOCOL_BINARY_CMD_DEL_WITH_META = 0xa8,
+        PROTOCOL_BINARY_CMD_DELQ_WITH_META = 0xa9,
+
+        /**
+         * Command to create a new checkpoint on a given vbucket by force
+         */
+        PROTOCOL_BINARY_CMD_CREATE_CHECKPOINT = 0xaa,
+        PROTOCOL_BINARY_CMD_NOTIFY_VBUCKET_UPDATE = 0xac,
+        /**
+         * Command to enable data traffic after completion of warm
+         */
+        PROTOCOL_BINARY_CMD_ENABLE_TRAFFIC = 0xad,
+        /**
+         * Command to disable data traffic temporarily
+         */
+        PROTOCOL_BINARY_CMD_DISABLE_TRAFFIC = 0xae,
+        /**
+         * Command to change the vbucket filter for a given TAP producer.
+         */
+        PROTOCOL_BINARY_CMD_CHANGE_VB_FILTER = 0xb0,
+        /**
+         * Command to wait for the checkpoint persistence
+         */
+        PROTOCOL_BINARY_CMD_CHECKPOINT_PERSISTENCE = 0xb1,
+        /**
+         * Command that returns meta data for typical memcached ops
+         */
+        PROTOCOL_BINARY_CMD_RETURN_META = 0xb2,
+        /**
+         * Command to trigger compaction of a vbucket
+         */
+        PROTOCOL_BINARY_CMD_COMPACT_DB = 0xb3,
+        /**
+         * Command to set cluster configuration
+         */
+        PROTOCOL_BINARY_CMD_SET_CLUSTER_CONFIG = 0xb4,
+        /**
+         * Command that returns cluster configuration
+         */
+        PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG = 0xb5,
+        PROTOCOL_BINARY_CMD_GET_RANDOM_KEY = 0xb6,
+        /**
+         * Command to wait for the upr sequence number persistence
+         */
+        PROTOCOL_BINARY_CMD_SEQNO_PERSISTENCE = 0xb7,
 
         /* Scrub the data */
         PROTOCOL_BINARY_CMD_SCRUB = 0xf0,
         /* Refresh the ISASL data */
-        PROTOCOL_BINARY_CMD_ISASL_REFRESH = 0xf1
+        PROTOCOL_BINARY_CMD_ISASL_REFRESH = 0xf1,
+        /* Refresh the SSL certificates */
+        PROTOCOL_BINARY_CMD_SSL_CERTS_REFRESH = 0xf2,
+        /* Internal timer ioctl */
+        PROTOCOL_BINARY_CMD_GET_CMD_TIMER = 0xf3,
+        /* ns_server - memcached session validation */
+        PROTOCOL_BINARY_CMD_SET_CTRL_TOKEN = 0xf4,
+        PROTOCOL_BINARY_CMD_GET_CTRL_TOKEN = 0xf5,
+
+        /* Reserved for being able to signal invalid opcode */
+        PROTOCOL_BINARY_CMD_INVALID = 0xff
     } protocol_binary_command;
 
     /**
      * Definition of the data types in the packet
      * See section 3.4 Data Types
-     * If you specify a value != 0 you should interpret the byte
-     * as a "bitmask".
-     *   .... ...0 = Format: raw bytes
-     *   .... .00. = Compression: none
-     *   0000 0... = Reserved
      */
     typedef enum {
-        PROTOCOL_BINARY_RAW_BYTES = 0x00
-#define PROTOCOL_BINARY_DATATYPE_JSON 0x01
-#define PROTOCOL_BINARY_DATATYPE_GZIP 0x02
-#define PROTOCOL_BINARY_DATATYPE_BZIP 0x04
-#define PROTOCOL_BINARY_DATATYPE_LZO  0x06
+        PROTOCOL_BINARY_RAW_BYTES = 0x00,
+        PROTOCOL_BINARY_DATATYPE_JSON = 0x01,
+        /* Compressed == snappy compression */
+        PROTOCOL_BINARY_DATATYPE_COMPRESSED = 0x02,
+        /* Compressed == snappy compression */
+        PROTOCOL_BINARY_DATATYPE_COMPRESSED_JSON = 0x03
     } protocol_binary_datatypes;
 
+    /**
+     * Definitions for extended (flexible) metadata
+     *
+     * @1: Flex Code to identify the number of extended metadata fields
+     * @2: Size of the Flex Code, set to 1 byte
+     * @3: Current size of extended metadata
+     */
+    typedef enum {
+        FLEX_META_CODE = 0x01,
+        FLEX_DATA_OFFSET = 1,
+        EXT_META_LEN = 1
+    } protocol_binary_flexmeta;
 
     /**
      * Definition of the header structure for a request packet.
@@ -687,6 +816,18 @@ extern "C"
 
     typedef protocol_binary_request_tap_no_extras protocol_binary_request_tap_delete;
     typedef protocol_binary_request_tap_no_extras protocol_binary_request_tap_flush;
+
+/**
+ * TAP OPAQUE command list
+ */
+#define TAP_OPAQUE_ENABLE_AUTO_NACK 0
+#define TAP_OPAQUE_INITIAL_VBUCKET_STREAM 1
+#define TAP_OPAQUE_ENABLE_CHECKPOINT_SYNC 2
+#define TAP_OPAQUE_OPEN_CHECKPOINT 3
+#define TAP_OPAQUE_COMPLETE_VB_FILTER_CHANGE 4
+#define TAP_OPAQUE_CLOSE_TAP_STREAM 7
+#define TAP_OPAQUE_CLOSE_BACKFILL 8
+
     typedef protocol_binary_request_tap_no_extras protocol_binary_request_tap_opaque;
     typedef protocol_binary_request_tap_no_extras protocol_binary_request_tap_vbucket_set;
 
@@ -745,11 +886,462 @@ extern "C"
         uint8_t bytes[sizeof(protocol_binary_response_header) + sizeof(vbucket_state_t)];
     } protocol_binary_response_get_vbucket;
 
+    /**
+     * Definition of hello's features.
+     */
+    typedef enum {
+        PROTOCOL_BINARY_FEATURE_DATATYPE = 0x01,
+        PROTOCOL_BINARY_FEATURE_TLS = 0x2
+    } protocol_binary_hello_features;
+
+    #define MEMCACHED_FIRST_HELLO_FEATURE 0x01
+    #define MEMCACHED_TOTAL_HELLO_FEATURES 0x02
+
+#define protocol_feature_2_text(a) \
+    (a == PROTOCOL_BINARY_FEATURE_DATATYPE) ? "Datatype" : \
+    (a == PROTOCOL_BINARY_FEATURE_TLS) ? "TLS" : "Unknown"
+
+    /**
+     * The HELLO command is used by the client and the server to agree
+     * upon the set of features the other end supports. It is initiated
+     * by the client by sending its agent string and the list of features
+     * it would like to use. The server will then reply with the list
+     * of the requested features it supports.
+     *
+     * ex:
+     * Client ->  HELLO [myclient 2.0] datatype, tls
+     * Server ->  HELLO SUCCESS datatype
+     *
+     * In this example the server responds that it allows the client to
+     * use the datatype extension, but not the tls extension.
+     */
+
+
+    /**
+     * Definition of the packet requested by hello cmd.
+     * Key: This is a client-specific identifier (not really used by
+     *      the server, except for logging the HELLO and may therefore
+     *      be used to identify the client at a later time)
+     * Body: Contains all features supported by client. Each feature is
+     *       specified as an uint16_t in network byte order.
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_hello;
+
+
+    /**
+     * Definition of the packet returned by hello cmd.
+     * Body: Contains all features requested by the client that the
+     *       server agrees to ssupport. Each feature is
+     *       specified as an uint16_t in network byte order.
+     */
+    typedef protocol_binary_response_no_extras protocol_binary_response_hello;
+
+    /**
+     * The SET_CTRL_TOKEN command will be used by ns_server and ns_server alone
+     * to set the session cas token in memcached which will be used to
+     * recognize the particular instance on ns_server. The previous token will
+     * be passed in the cas section of the request header for the CAS operation,
+     * and the new token will be part of ext (8B).
+     *
+     * The response to this request will include the cas as it were set,
+     * and a SUCCESS as status, or a KEY_EEXISTS with the existing token in
+     * memcached if the CAS operation were to fail.
+     */
+
+    /**
+     * Definition of the request packet for SET_CTRL_TOKEN.
+     * Body: new session_cas_token of uint64_t type.
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t new_cas;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 8];
+    } protocol_binary_request_set_ctrl_token;
+
+    /**
+     * Definition of the response packet for SET_CTRL_TOKEN
+     */
+    typedef protocol_binary_response_no_extras protocol_binary_response_set_ctrl_token;
+
+    /**
+     * The GET_CTRL_TOKEN command will be used by ns_server to fetch the current
+     * session cas token held in memcached.
+     *
+     * The response to this request will include the token currently held in
+     * memcached in the cas field of the header.
+     */
+
+    /**
+     * Definition of the request packet for GET_CTRL_TOKEN.
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_get_ctrl_token;
+
+
+    /**
+     * Definition of the response packet for GET_CTRL_TOKEN
+     */
+    typedef protocol_binary_response_no_extras protocol_binary_response_get_ctrl_token;
+
+    /* UPR related stuff */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t seqno;
+                /*
+                 * The following flags are defined
+                 */
+#define UPR_OPEN_PRODUCER 1
+#define UPR_OPEN_NOTIFIER 2
+                uint32_t flags;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 8];
+    } protocol_binary_request_upr_open;
+
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_open;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                /*
+                 * The following flags are defined
+                 */
+#define UPR_ADD_STREAM_FLAG_TAKEOVER 1
+#define UPR_ADD_STREAM_FLAG_DISKONLY 2
+                uint32_t flags;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
+    } protocol_binary_request_upr_add_stream;
+
+    typedef union {
+        struct {
+            protocol_binary_response_header header;
+            struct {
+                uint32_t opaque;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_response_header) + 4];
+    } protocol_binary_response_upr_add_stream;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_close_stream;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_close_stream;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t flags;
+                uint32_t reserved;
+                uint64_t start_seqno;
+                uint64_t end_seqno;
+                uint64_t vbucket_uuid;
+                uint64_t snap_start_seqno;
+                uint64_t snap_end_seqno;
+            } body;
+            /* Group ID is specified in the key */
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 48];
+    } protocol_binary_request_upr_stream_req;
+
+    typedef union {
+        struct {
+            protocol_binary_response_header header;
+        } message;
+        /*
+        ** In case of PROTOCOL_BINARY_RESPONSE_ROLLBACK the body contains
+        ** the rollback sequence number (uint64_t)
+        */
+        uint8_t bytes[sizeof(protocol_binary_request_header)];
+    } protocol_binary_response_upr_stream_req;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_get_failover_log;
+
+    /* The body of the message contains UUID/SEQNO pairs */
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_get_failover_log;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                /**
+                 * All flags set to 0 == OK,
+                 * 1: state changed
+                 */
+                uint32_t flags;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
+    } protocol_binary_request_upr_stream_end;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_stream_end;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t start_seqno;
+                uint64_t end_seqno;
+                uint32_t flags;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 20];
+    } protocol_binary_request_upr_snapshot_marker;
+
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_snapshot_marker;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t by_seqno;
+                uint64_t rev_seqno;
+                uint32_t flags;
+                uint32_t expiration;
+                uint32_t lock_time;
+                uint16_t nmeta;
+                uint8_t nru;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 31];
+    } protocol_binary_request_upr_mutation;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t by_seqno;
+                uint64_t rev_seqno;
+                uint16_t nmeta;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 18];
+    } protocol_binary_request_upr_deletion;
+
+    typedef protocol_binary_request_upr_deletion protocol_binary_request_upr_expiration;
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_flush;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                /**
+                 * 0x01 - Active
+                 * 0x02 - Pending
+                 * 0x03 - Replica
+                 * 0x04 - Dead
+                 */
+                uint8_t state;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 1];
+    } protocol_binary_request_upr_set_vbucket_state;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_set_vbucket_state;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_noop;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_noop;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t buffer_bytes;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
+    } protocol_binary_request_upr_buffer_acknowledgement;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_buffer_acknowledgement;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_control;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_control;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_ssl_refresh;
+    typedef protocol_binary_response_no_extras protocol_binary_response_ssl_refresh;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint8_t opcode;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 1];
+    } protocol_binary_request_get_cmd_timer;
+
+    typedef protocol_binary_response_no_extras protocol_binary_response_get_cmd_timer;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_create_bucket;
+    typedef protocol_binary_request_no_extras protocol_binary_request_delete_bucket;
+    typedef protocol_binary_request_no_extras protocol_binary_request_list_buckets;
+    typedef protocol_binary_request_no_extras protocol_binary_request_select_bucket;
+
+    /*
+     * Parameter types of CMD_SET_PARAM command.
+     */
+    typedef enum {
+        protocol_binary_engine_param_flush = 1,  /* flusher-related param type */
+        protocol_binary_engine_param_tap,        /* tap-related param type */
+        protocol_binary_engine_param_checkpoint  /* checkpoint-related param type */
+    } protocol_binary_engine_param_t;
+
+    /**
+     * CMD_SET_PARAM command message to set engine parameters.
+     * flush, tap, and checkpoint parameter types are currently supported.
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                protocol_binary_engine_param_t param_type;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + sizeof(protocol_binary_engine_param_t)];
+    } protocol_binary_request_set_param;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t size;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
+    } protocol_binary_request_set_batch_count;
+
+
+    /**
+     * This flag is used by the setWithMeta/addWithMeta/deleteWithMeta packets
+     * to specify that the conflict resolution mechanism should be skipped for
+     * this operation.
+     */
+#define SKIP_CONFLICT_RESOLUTION_FLAG 0x01
+
+#define SET_RET_META 1
+#define ADD_RET_META 2
+#define DEL_RET_META 3
+
+/**
+ * This flag is used with the get meta response packet. If set it
+ * specifies that the item recieved has been deleted, but that the
+ * items meta data is still contained in ep-engine. Eg. the item
+ * has been soft deleted.
+ */
+#define GET_META_ITEM_DELETED_FLAG 0x01
+
+
+    /**
+     * The physical layout for the CMD_SET_WITH_META looks like the the normal
+     * set request with the addition of a bulk of extra meta data stored
+     * at the <b>end</b> of the package.
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t flags;
+                uint32_t expiration;
+                uint64_t seqno;
+                uint64_t cas;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 24];
+    } protocol_binary_request_set_with_meta;
+
+    /**
+     * The message format for delete with meta
+     */
+    typedef protocol_binary_request_set_with_meta protocol_binary_request_delete_with_meta;
+
+    /**
+     * The message format for getLocked engine API
+     */
+    typedef protocol_binary_request_gat protocol_binary_request_getl;
+
+    /**
+     * The physical layout for a CMD_GET_META command returns the meta-data
+     * section for an item:
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_get_meta;
+
+    /**
+     * The response for CMD_SET_WITH_META does not carry any user-data and the
+     * status of the operation is signalled in the status bits.
+     */
+    typedef protocol_binary_response_no_extras protocol_binary_response_set_with_meta;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t file_version;
+                uint64_t header_offset;
+                uint32_t vbucket_state_updated;
+                uint32_t state;
+                uint64_t checkpoint;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 32];
+    } protocol_binary_request_notify_vbucket_update;
+    typedef protocol_binary_response_no_extras protocol_binary_response_notify_vbucket_update;
+
+    /**
+     * The physical layout for the CMD_RETURN_META
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t mutation_type;
+                uint32_t flags;
+                uint32_t expiration;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 12];
+    } protocol_binary_request_return_meta;
+
+    /**
+     * Message format for CMD_SET_CONFIG
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_set_cluster_config;
+
+    /**
+     * Message format for CMD_GET_CONFIG
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_get_cluster_config;
+
+    /**
+     * The physical layout for the CMD_COMPACT_DB
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t purge_before_ts;
+                uint64_t purge_before_seq;
+                uint8_t  drop_deletes;
+                uint8_t  align_pad1;
+                uint16_t align_pad2;
+                uint32_t align_pad3;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 24];
+    } protocol_binary_request_compact_db;
+
+    typedef protocol_binary_request_get protocol_binary_request_get_random;
+
+#define OBS_STATE_NOT_PERSISTED 0x00
+#define OBS_STATE_PERSISTED     0x01
+#define OBS_STATE_NOT_FOUND     0x80
+#define OBS_STATE_LOGICAL_DEL   0x81
 
     /**
      * @}
      */
-
 #ifdef __cplusplus
 }
 #endif

@@ -18,12 +18,9 @@ set -e
 echo "Generate SVr4 layout"
 rm -rf svr4
 mkdir -p svr4/man1
-mkdir -p svr4/man3couchbase
-mkdir -p svr4/man3lib
 mkdir -p svr4/man4
-mkdir -p svr4/man5
 
-for f in 1 3couchbase 3lib 4 5
+for f in 1 4
 do
    cp -pr man$f/*.$f svr4/man$f
 done
@@ -31,32 +28,14 @@ done
 echo "Generate BSD layout"
 rm -rf bsd
 mkdir -p bsd/man1
-mkdir -p bsd/man3
-mkdir -p bsd/man5
 
-for dir in man1 man5
+for dir in man1
 do
     for f in svr4/$dir/*
     do
        destname=bsd/$dir/`basename $f`
        sed -e s,3lib,3,g -e s,3couchbase,3,g $f > $destname
     done
-done
-
-for dir in couchbase lib
-do
-    for f in svr4/man3$dir/*
-    do
-       destname=bsd/man3/`basename $f | sed -e s,3lib,3,g -e s,3couchbase,3,g`
-       sed -e s,3lib,3,g -e s,3couchbase,3,g $f > $destname
-    done
-done
-
-# section 4 should be moved to section 5
-for f in svr4/man4/*
-do
-    destname=bsd/man5/`basename $f | sed -e s,4,5,g`
-    sed -e s,3lib,3,g -e s,3couchbase,3,g $f > $destname
 done
 
 echo "Generate Makeinclude"
@@ -73,7 +52,7 @@ if MANPAGE_BSD_LAYOUT
 
 EOF
 
-for section in man1 man3 man5
+for section in man1
 do
    echo -n "${section}_MANS +=" >> $MAKEFILE
 
@@ -93,7 +72,7 @@ EOF
 
 echo "  SVr4 layout"
 
-for section in man1 man3lib man3couchbase man4 man5
+for section in man1 man4
 do
    echo -n "${section}_MANS +=" >> $MAKEFILE
 

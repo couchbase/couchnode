@@ -17,6 +17,7 @@
 
 #include "internal.h"
 #include "select_io_opts.h"
+#include <libcouchbase/plugins/io/bsdio-inl.c>
 
 #if defined(_WIN32) && !defined(usleep)
 #define usleep(n) Sleep((n) / 1000)
@@ -59,279 +60,6 @@ static int timer_cmp_asc(lcb_list_t *a, lcb_list_t *b)
     } else {
         return 0;
     }
-}
-
-
-#ifdef _WIN32
-static int getError(lcb_socket_t sock)
-{
-    DWORD error = WSAGetLastError();
-    int ext = 0;
-    int len = sizeof(ext);
-
-    /* Retrieves extended error status and clear */
-    getsockopt(sock, SOL_SOCKET, SO_ERROR, (char *)&ext, &len);
-    switch (error) {
-    case WSAECONNRESET:
-    case WSAECONNABORTED:
-        return ECONNRESET;
-    case WSAEWOULDBLOCK:
-        return EWOULDBLOCK;
-    case WSAEINVAL:
-        return EINVAL;
-    case WSAEINPROGRESS:
-        return EINPROGRESS;
-    case WSAEALREADY:
-        return EALREADY;
-    case WSAEISCONN:
-        return EISCONN;
-    case WSAENOTCONN:
-        return ENOTCONN;
-    case WSAECONNREFUSED:
-        return ECONNREFUSED;
-
-    default:
-        return EINVAL;
-    }
-
-    return EINVAL;
-}
-#endif
-
-static lcb_ssize_t lcb_io_recv(lcb_io_opt_t iops,
-                               lcb_socket_t sock,
-                               void *buffer,
-                               lcb_size_t len,
-                               int flags)
-{
-#ifdef _WIN32
-    DWORD fl = 0;
-    DWORD nr;
-    WSABUF wsabuf = { (ULONG)len, buffer };
-
-    if (WSARecv(sock, &wsabuf, 1, &nr, &fl, NULL, NULL) == SOCKET_ERROR) {
-        iops->v.v0.error = getError(sock);
-        // recv on a closed socket should return 0
-        if (iops->v.v0.error == ECONNRESET) {
-            return 0;
-        }
-        return -1;
-    }
-    (void)flags;
-    return (lcb_ssize_t)nr;
-#else
-    lcb_ssize_t ret = recv(sock, buffer, len, flags);
-    if (ret < 0) {
-        iops->v.v0.error = errno;
-    }
-    return ret;
-#endif
-}
-
-static lcb_ssize_t lcb_io_recvv(lcb_io_opt_t iops,
-                                lcb_socket_t sock,
-                                struct lcb_iovec_st *iov,
-                                lcb_size_t niov)
-{
-#ifdef _WIN32
-    DWORD fl = 0;
-    DWORD nr;
-    WSABUF wsabuf[2];
-
-    assert(niov == 2);
-    wsabuf[0].buf = iov[0].iov_base;
-    wsabuf[0].len = (ULONG)iov[0].iov_len;
-    wsabuf[1].buf = iov[1].iov_base;
-    wsabuf[1].len = (ULONG)iov[1].iov_len;
-
-    if (WSARecv(sock, wsabuf, iov[1].iov_len ? 2 : 1,
-                &nr, &fl, NULL, NULL) == SOCKET_ERROR) {
-        iops->v.v0.error = getError(sock);
-
-        // recv on a closed socket should return 0
-        if (iops->v.v0.error == ECONNRESET) {
-            return 0;
-        }
-        return -1;
-    }
-
-    return (lcb_ssize_t)nr;
-#else
-    struct msghdr msg;
-    struct iovec vec[2];
-    lcb_ssize_t ret;
-
-    if (niov != 2) {
-        return -1;
-    }
-    memset(&msg, 0, sizeof(msg));
-    msg.msg_iov = vec;
-    msg.msg_iovlen = iov[1].iov_len ? (lcb_size_t)2 : (lcb_size_t)1;
-    msg.msg_iov[0].iov_base = iov[0].iov_base;
-    msg.msg_iov[0].iov_len = iov[0].iov_len;
-    msg.msg_iov[1].iov_base = iov[1].iov_base;
-    msg.msg_iov[1].iov_len = iov[1].iov_len;
-    ret = recvmsg(sock, &msg, 0);
-
-    if (ret < 0) {
-        iops->v.v0.error = errno;
-    }
-
-    return ret;
-#endif
-}
-
-static lcb_ssize_t lcb_io_send(lcb_io_opt_t iops,
-                               lcb_socket_t sock,
-                               const void *msg,
-                               lcb_size_t len,
-                               int flags)
-{
-#ifdef _WIN32
-    DWORD fl = 0;
-    DWORD nw;
-    WSABUF wsabuf = { (ULONG)len, (char *)msg };
-    (void)flags;
-
-    if (WSASend(sock, &wsabuf, 1, &nw, fl, NULL, NULL) == SOCKET_ERROR) {
-        iops->v.v0.error = getError(sock);
-        return -1;
-    }
-
-    return (lcb_ssize_t)nw;
-#else
-    lcb_ssize_t ret = send(sock, msg, len, flags);
-    if (ret < 0) {
-        iops->v.v0.error = errno;
-    }
-    return ret;
-#endif
-}
-
-static lcb_ssize_t lcb_io_sendv(lcb_io_opt_t iops,
-                                lcb_socket_t sock,
-                                struct lcb_iovec_st *iov,
-                                lcb_size_t niov)
-{
-#ifdef _WIN32
-    DWORD fl = 0;
-    DWORD nw;
-    WSABUF wsabuf[2];
-
-    assert(niov == 2);
-    wsabuf[0].buf = iov[0].iov_base;
-    wsabuf[0].len = (ULONG)iov[0].iov_len;
-    wsabuf[1].buf = iov[1].iov_base;
-    wsabuf[1].len = (ULONG)iov[1].iov_len;
-
-    if (WSASend(sock, wsabuf, iov[1].iov_len ? 2 : 1,
-                &nw, fl, NULL, NULL) == SOCKET_ERROR) {
-        iops->v.v0.error = getError(sock);
-        return -1;
-    }
-
-    return (lcb_ssize_t)nw;
-#else
-    struct msghdr msg;
-    struct iovec vec[2];
-    lcb_ssize_t ret;
-
-    if (niov != 2) {
-        return -1;
-    }
-    memset(&msg, 0, sizeof(msg));
-    msg.msg_iov = vec;
-    msg.msg_iovlen = iov[1].iov_len ? (lcb_size_t)2 : (lcb_size_t)1;
-    msg.msg_iov[0].iov_base = iov[0].iov_base;
-    msg.msg_iov[0].iov_len = iov[0].iov_len;
-    msg.msg_iov[1].iov_base = iov[1].iov_base;
-    msg.msg_iov[1].iov_len = iov[1].iov_len;
-    ret = sendmsg(sock, &msg, 0);
-
-    if (ret < 0) {
-        iops->v.v0.error = errno;
-    }
-    return ret;
-#endif
-}
-
-static int make_socket_nonblocking(lcb_socket_t sock)
-{
-#ifdef _WIN32
-    u_long nonblocking = 1;
-    if (ioctlsocket(sock, FIONBIO, &nonblocking) == SOCKET_ERROR) {
-        return -1;
-    }
-#else
-    int flags;
-    if ((flags = fcntl(sock, F_GETFL, NULL)) < 0) {
-        return -1;
-    }
-    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) == -1) {
-        return -1;
-    }
-#endif
-    return 0;
-}
-
-static lcb_socket_t lcb_io_socket(lcb_io_opt_t iops,
-                                  int domain,
-                                  int type,
-                                  int protocol)
-{
-    lcb_socket_t sock;
-#ifdef _WIN32
-    sock = (lcb_socket_t)WSASocket(domain, type, protocol, NULL, 0, 0);
-#else
-    sock = socket(domain, type, protocol);
-#endif
-    if (sock == INVALID_SOCKET) {
-        iops->v.v0.error = errno;
-    } else {
-        if (make_socket_nonblocking(sock) != 0) {
-#ifdef _WIN32
-            iops->v.v0.error = getError(sock);
-#else
-            iops->v.v0.error = errno;
-#endif
-            iops->v.v0.close(iops, sock);
-            sock = INVALID_SOCKET;
-        }
-    }
-    return sock;
-}
-
-
-static void lcb_io_close(lcb_io_opt_t iops,
-                         lcb_socket_t sock)
-{
-    (void)iops;
-#ifdef _WIN32
-    closesocket(sock);
-#else
-    close(sock);
-#endif
-}
-
-static int lcb_io_connect(lcb_io_opt_t iops,
-                          lcb_socket_t sock,
-                          const struct sockaddr *name,
-                          unsigned int namelen)
-{
-    int ret;
-
-#ifdef _WIN32
-    ret = WSAConnect(sock, name, (int)namelen, NULL, NULL, NULL, NULL);
-    if (ret == SOCKET_ERROR) {
-        iops->v.v0.error = getError(sock);
-    }
-#else
-    ret = connect(sock, name, (socklen_t)namelen);
-    if (ret < 0) {
-        iops->v.v0.error = errno;
-    }
-#endif
-    return ret;
 }
 
 static void *lcb_io_create_event(lcb_io_opt_t iops)
@@ -464,8 +192,8 @@ static int get_next_timeout(io_cookie_t *cookie, struct timeval *tmo, hrtime_t n
     }
 
     first = LCB_LIST_ITEM(cookie->timers.next, s_timer_t, list);
-    if (now > first->exptime) {
-        delta = now - first->exptime;
+    if (now < first->exptime) {
+        delta = first->exptime - now;
     } else {
         delta = 0;
     }
@@ -556,12 +284,6 @@ static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
             while ((tm = pop_next_timer(io, now))) {
                 tm->handler(-1, 0, tm->cb_data);
             }
-            if ((has_timers = get_next_timeout(io, &tmo, now))) {
-                t = &tmo;
-            } else {
-                t = NULL;
-            }
-
         }
 
         /* To be completely safe, we need to copy active events
@@ -649,13 +371,6 @@ lcb_error_t lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *arg)
     /* consider that struct isn't allocated by the library,
      * `need_cleanup' flag might be set in lcb_create() */
     ret->v.v0.need_cleanup = 0;
-    ret->v.v0.recv = lcb_io_recv;
-    ret->v.v0.send = lcb_io_send;
-    ret->v.v0.recvv = lcb_io_recvv;
-    ret->v.v0.sendv = lcb_io_sendv;
-    ret->v.v0.socket = lcb_io_socket;
-    ret->v.v0.close = lcb_io_close;
-    ret->v.v0.connect = lcb_io_connect;
     ret->v.v0.delete_event = lcb_io_delete_event;
     ret->v.v0.destroy_event = lcb_io_destroy_event;
     ret->v.v0.create_event = lcb_io_create_event;
@@ -669,6 +384,8 @@ lcb_error_t lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *arg)
     ret->v.v0.run_event_loop = lcb_io_run_event_loop;
     ret->v.v0.stop_event_loop = lcb_io_stop_event_loop;
     ret->v.v0.cookie = cookie;
+
+    wire_lcb_bsd_impl(ret);
 
     *io = ret;
     (void)arg;

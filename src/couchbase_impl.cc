@@ -252,7 +252,7 @@ NAN_METHOD(CouchbaseImpl::Connect)
         lcb_cntl(me->getLibcouchbaseHandle(), LCB_CNTL_GET,
             LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
         if (is_loaded) {
-          me->onConfig(LCB_CONFIGURATION_NEW);
+          me->onCbConfig(LCB_CONFIGURATION_NEW);
         }
     }
 
@@ -275,7 +275,7 @@ NAN_METHOD(CouchbaseImpl::StrError)
 
 }
 
-void CouchbaseImpl::onConnect(lcb_error_t err)
+void CouchbaseImpl::onCbConnect(lcb_error_t err)
 {
     if (connected) {
         return;
@@ -303,7 +303,7 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
 {
 
     if (!connected) {
-        onConnect(err);
+        onCbConnect(err);
     }
 
     EventMap::iterator iter = events.find("error");
@@ -322,7 +322,7 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
     return;
 }
 
-void CouchbaseImpl::onConfig(lcb_configuration_t config)
+void CouchbaseImpl::onCbConfig(lcb_configuration_t config)
 {
     if (connected) {
         return;
@@ -332,7 +332,7 @@ void CouchbaseImpl::onConfig(lcb_configuration_t config)
         return;
     }
 
-    onConnect(LCB_SUCCESS);
+    onCbConnect(LCB_SUCCESS);
     runScheduledOperations();
     lcb_set_configuration_callback(instance, NULL);
 }

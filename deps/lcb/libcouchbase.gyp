@@ -85,7 +85,7 @@
       'product_prefix': 'lib',
       'type': 'static_library',
       'sources': [
-        'contrib/libvbucket/cJSON.c'
+        'contrib/cJSON/cJSON.c'
       ]
     },
 
@@ -94,16 +94,53 @@
       'target_name': 'vbucket',
       'product_prefix': 'lib',
       'type': 'static_library',
+      'include_dirs': [
+        './'
+      ],
       'sources': [
-        'contrib/libvbucket/crc32.c',
-        'contrib/libvbucket/ketama.c',
-        'include/libvbucket/vbucket.h',
-        'include/libvbucket/visibility.h',
-        'contrib/libvbucket/hash.h',
-        'contrib/libvbucket/vbucket.c'
+        'src/vbucket/ketama.c',
+        'src/vbucket/vbucket.c'
       ],
       'dependencies': [
         'cjson'
+      ]
+    },
+
+    #libsnappy
+    {
+      'target_name': 'snappy',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'sources': [
+        'contrib/snappy/snappy-c.cc',
+        'contrib/snappy/snappy-sinksource.cc',
+        'contrib/snappy/snappy-stubs-internal.cc',
+        'contrib/snappy/snappy.cc',
+      ],
+      'cflags': [
+        '-Wno-sign-compare'
+      ],
+      'xcode_settings': {
+        'WARNING_CFLAGS': [
+          '-Wno-sign-compare'
+        ]
+      }
+    },
+
+    #liblcbio
+    {
+      'target_name': 'lcbio',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'sources': [
+        'src/lcbio/connect.c',
+        'src/lcbio/ctx.c',
+        'src/lcbio/ioutils.c',
+        'src/lcbio/iotable.c',
+        'src/lcbio/protoctx.c',
+        'src/lcbio/manager.c',
+        'src/lcbio/ioutils.c',
+        'src/lcbio/timer.c'
       ]
     },
 
@@ -113,8 +150,8 @@
       'product_prefix': 'lib',
       'type': 'static_library',
       'sources': [
-        'contrib/http_parser/http_parser.c',
-        'src/base64.c',
+        'src/strcodecs/base64.c',
+        'src/strcodecs/url_encoding.c',
         'src/gethrtime.c',
         'src/genhash.c',
         'src/hashtable.c',
@@ -124,8 +161,7 @@
         'src/logging.c',
         'src/packetutils.c',
         'src/ringbuffer.c',
-        'src/simplestring.c',
-        'src/url_encoding.c'
+        'src/simplestring.c'
       ],
       'dependencies': [
         'cjson'
@@ -138,58 +174,93 @@
       'product_prefix': 'lib',
       'type': 'static_library',
       'defines': [
-        'CBSASL_STATIC'
+        'CBSASL_STATIC',
+        'LCB_NO_SSL'
       ],
+      'cflags': [
+        '-fno-strict-aliasing',
+        '-Wno-missing-field-initializers'
+      ],
+      'xcode_settings': {
+        'WARNING_CFLAGS': [
+          '-fno-strict-aliasing',
+          '-Wno-missing-field-initializers'
+        ]
+      },
       'include_dirs': [
         './'
       ],
       'sources': [
-        'plugins/io/select/plugin-select.c',
-        'src/arithmetic.c',
-        'src/bconf_provider.c',
+        # netbuf
+        'src/netbuf/netbuf.c',
+
+        # mcreq
+        'src/mc/mcreq.c',
+        'src/mc/compress.c',
+        'src/mc/forward.c',
+
+        # rdb
+        'src/rdb/rope.c',
+        'src/rdb/bigalloc.c',
+        'src/rdb/chunkalloc.c',
+        'src/rdb/libcalloc.c',
+
+        # lcbht
+        'src/lcbht/lcbht.c',
+        'contrib/http_parser/http_parser.c',
+
+        ## ssl
+        ##'src/ssl/ssl_c.c',
+        ##'src/ssl/ssl_common.c',
+        ##'src/ssl/ssl_e.c',
+
+        ## opfiles
+        'src/operations/arithmetic.c',
+        'src/operations/get.c',
+        'src/operations/touch.c',
+        'src/operations/observe.c',
+        'src/operations/durability.c',
+        'src/operations/store.c',
+        'src/operations/stats.c',
+        'src/operations/remove.c',
+        'src/operations/pktfwd.c',
+
         'src/bootstrap.c',
         'src/bucketconfig/bc_cccp.c',
         'src/bucketconfig/bc_http.c',
         'src/bucketconfig/bc_file.c',
         'src/bucketconfig/confmon.c',
+        'src/callbacks.c',
         'src/cntl.c',
-        'src/compat.c',
-        'src/connmgr.c',
-        'src/durability.c',
+        'src/dsn.c',
         'src/error.c',
-        'src/flush.c',
-        'src/get.c',
         'src/handler.c',
-        'src/http.c',
-        'src/http_io.c',
-        'src/http_parse.c',
+        'src/getconfig.c',
+        'src/http/http.c',
+        'src/http/http_io.c',
         'src/instance.c',
-        'src/connect.c',
-        'src/connection_utils.c',
-        'src/readwrite.c',
+        'src/mcserver/negotiate.c',
+        'src/mcserver/mcserver.c',
+        'src/newconfig.c',
         'src/iofactory.c',
-        'src/observe.c',
-        'src/packet.c',
-        'src/remove.c',
+        'src/retryq.c',
+        'src/retrychk.c',
         'src/sanitycheck.c',
-        'src/server.c',
-        'src/server_negotiate.c',
-        'src/server_io.c',
-        'src/server_parse.c',
-        'src/stats.c',
-        'src/store.c',
+        'src/settings.c',
         'src/synchandler.c',
         'src/timer.c',
         'src/timings.c',
-        'src/touch.c',
         'src/utilities.c',
-        'src/verbosity.c',
         'src/wait.c',
+
+        'plugins/io/select/plugin-select.c'
       ],
       'dependencies': [
         'couchbase_utils',
         'vbucket',
-        'cbsasl'
+        'cbsasl',
+        'snappy',
+        'lcbio'
       ],
       'copies': [{
         'files': [ 'plugins/io/libuv/libuv_io_opts.h' ],
@@ -224,7 +295,7 @@
               'plugins/io/libuv'
             ],
           },
-        }],
+        }]
       ]
     }
   ]

@@ -22,7 +22,13 @@ ENDMACRO(list2args)
 
 LIST(APPEND LCB_GNUC_CPP_WARNINGS
     -Wall -pedantic -Wshadow -fdiagnostics-show-option -Wformat
-    -fno-strict-aliasing -Wno-strict-aliasing -Wextra -Winit-self)
+    -fno-strict-aliasing -Wno-strict-aliasing -Wextra -Winit-self
+    -Wno-missing-field-initializers)
+
+IF("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
+    LIST(APPEND LCB_GNUC_CPP_WARNINGS
+        -Wno-cast-align)
+ENDIF()
 list2args(LCB_GNUC_CPP_WARNINGS)
 
 LIST(APPEND LCB_GNUC_C_WARNINGS
@@ -69,8 +75,10 @@ IF(${MSVC})
     # put debug info into release build and revert /OPT defaults after
     # /DEBUG so that it won't degrade performance and size
     # http://msdn.microsoft.com/en-us/library/xe4t6fc1(v=vs.80).aspx
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /OPT:REF /OPT:ICF")
-    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /OPT:REF /OPT:ICF")
+    # Since CMake for some odd reason strips 'incremental' and 'INCREMENTAL', we'll
+    # use weird casing here
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /OPT:REF /OPT:ICF /IncReMenTal:no")
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /OPT:REF /OPT:ICF /InCreMenTal:no")
     SET(LCB_CORE_CXXFLAGS "")
     SET(LCB_CORE_CFLAGS "")
     SET(LCB_BASIC_CFLAGS "")
@@ -82,9 +90,11 @@ ELSE()
         SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -gstabs")
         SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gstabs")
         SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+        SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
     ENDIF()
     SET(LCB_CORE_CFLAGS "${LCB_GNUC_C_WARNINGS}")
     SET(LCB_CORE_CXXFLAGS "${LCB_GNUC_CXX_WARNINGS}")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
 ENDIF()
 
 IF(LCB_UNIVERSAL_BINARY AND (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))

@@ -101,8 +101,12 @@ void Cookie::markProgress(ResponseInfo &info) {
     }
 
     if (info.status != LCB_SUCCESS) {
+        lcb_error_t errCode = info.status;
+        if (errCode == LCB_NOT_STORED) {
+            errCode = LCB_KEY_ENOENT;
+        }
         hasError = true;
-        errObj = CBExc().eLcb(info.status).asValue();
+        errObj = CBExc().eLcb(errCode).asValue();
     } else {
         errObj = NanUndefined();
     }
@@ -495,7 +499,7 @@ static void configuration_callback(lcb_t instance,
 {
     void *cookie = const_cast<void *>(lcb_get_cookie(instance));
     CouchbaseImpl *me = reinterpret_cast<CouchbaseImpl *>(cookie);
-    me->onConfig(config);
+    me->onCbConfig(config);
 }
 
 static void unlock_callback(lcb_t,
