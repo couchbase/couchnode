@@ -78,5 +78,5 @@ void NameMap::initialize()
 void NameMap::install(const char *name, dict_t val)
 {
     using namespace v8;
-    NanAssignPersistent(String, names[val], String::NewSymbol(name, strlen(name)));
+    NanAssignPersistent(names[val], NanNew<String>(name, strlen(name)));
 }

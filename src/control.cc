@@ -68,7 +68,7 @@ NAN_METHOD(CouchbaseImpl::_Control)
             if (err != LCB_SUCCESS) {
                 NanReturnValue(exc.eLcb(err).throwV8());
             } else {
-                NanReturnValue(Number::New(tmoval / 1000));
+                NanReturnValue(NanNew<Number>(tmoval / 1000));
             }
         } else {
             tmoval = optVal->NumberValue() * 1000;
@@ -87,7 +87,7 @@ NAN_METHOD(CouchbaseImpl::_Control)
             if (err != LCB_SUCCESS) {
                 NanReturnValue(exc.eLcb(err).throwV8());
             } else {
-                NanReturnValue(scope.Close(Number::New(bufszval)));
+                NanReturnValue(NanNew<Number>(bufszval));
             }
         } else {
             bufszval = optVal->Uint32Value();
@@ -108,9 +108,9 @@ NAN_METHOD(CouchbaseImpl::_Control)
             NanReturnValue(exc.eLcb(err).throwV8());
         }
 
-        Handle<Array> arr = Array::New(2);
-        arr->Set(0, Integer::New(vbi.v.v0.vbucket));
-        arr->Set(1, Integer::New(vbi.v.v0.server_index));
+        Handle<Array> arr = NanNew<Array>(2);
+        arr->Set(0, NanNew<Integer>(vbi.v.v0.vbucket));
+        arr->Set(1, NanNew<Integer>(vbi.v.v0.server_index));
         NanReturnValue(arr);
      }
 
@@ -126,13 +126,13 @@ NAN_METHOD(CouchbaseImpl::_Control)
         lcb_uint32_t vnum;
         vstr = lcb_get_version(&vnum);
 
-        Handle<Array> ret = Array::New(4);
-        ret->Set(0, Integer::New(vnum));
-        ret->Set(1, String::New(vstr));
+        Handle<Array> ret = NanNew<Array>(4);
+        ret->Set(0, NanNew<Integer>(vnum));
+        ret->Set(1, NanNew<String>(vstr));
 
         // Version and changeset of the headers
-        ret->Set(2, String::New("HDR(VERSION): "LCB_VERSION_STRING));
-        ret->Set(3, String::New("HDR(CHANGESET): "STRINGIFY(LCB_VERSION_CHANGESET)));
+        ret->Set(2, NanNew<String>("HDR(VERSION): "LCB_VERSION_STRING));
+        ret->Set(3, NanNew<String>("HDR(CHANGESET): "STRINGIFY(LCB_VERSION_CHANGESET)));
         NanReturnValue(ret);
     }
 
@@ -145,9 +145,9 @@ NAN_METHOD(CouchbaseImpl::_Control)
             nItems++;
         }
 
-        Handle<Array> arr = Array::New(nItems);
+        Handle<Array> arr = NanNew<Array>(nItems);
         for (nItems = 0, cur = l; *cur; cur++, nItems++) {
-            Handle<Value> s = String::New(*cur);
+            Handle<Value> s = NanNew<String>(*cur);
             arr->Set(nItems, s);
         }
 
@@ -156,7 +156,7 @@ NAN_METHOD(CouchbaseImpl::_Control)
 
     case CNTL_RESTURI: {
         const char *s = lcb_get_host(instance);
-        NanReturnValue(String::New(s));
+        NanReturnValue(NanNew<String>(s));
     }
 
 
@@ -165,7 +165,7 @@ NAN_METHOD(CouchbaseImpl::_Control)
     }
 
     if (err == LCB_SUCCESS) {
-        NanReturnValue(v8::True());
+        NanReturnValue(NanTrue());
     } else {
         NanReturnValue(exc.eLcb(err).throwV8());
     }

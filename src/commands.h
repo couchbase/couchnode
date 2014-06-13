@@ -50,7 +50,7 @@ public:
     KeysType getType() const { return kcollType; }
     Handle<Value> getKeys() {
       if (isPersistent) {
-        return NanPersistentToLocal(persKeys);
+        return NanNew(persKeys);
       } else {
         return keys;
       }

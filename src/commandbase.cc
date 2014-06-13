@@ -44,7 +44,7 @@ Handle<Array> KeysInfo::getSafeKeysArray()
 {
     Handle<Value> myKeys = keys;
     if (isPersistent) {
-      myKeys = NanPersistentToLocal(persKeys);
+      myKeys = NanNew(persKeys);
     }
 
     if (kcollType == ArrayKeys) {
@@ -52,9 +52,9 @@ Handle<Array> KeysInfo::getSafeKeysArray()
     } else if (kcollType == ObjectKeys) {
         return myKeys.As<Object>()->GetPropertyNames();
     } else {
-        Handle<Array> ret = Array::New(1);
+        Handle<Array> ret = NanNew<Array>(1);
         if (myKeys.IsEmpty()) {
-            ret->Set(0, v8::Undefined());
+            ret->Set(0, NanUndefined());
         } else {
             ret->Set(0, myKeys);
         }
@@ -66,14 +66,13 @@ void KeysInfo::makePersistent()
 {
     assert(!isPersistent);
     isPersistent = true;
-    NanAssignPersistent(Value, persKeys, keys);
+    NanAssignPersistent(persKeys, keys);
 }
 
 KeysInfo::~KeysInfo()
 {
     if (!persKeys.IsEmpty()) {
-        persKeys.Dispose();
-        persKeys.Clear();
+        NanDisposePersistent(persKeys);
     }
 }
 
@@ -206,8 +205,6 @@ bool Command::processArray(Handle<Array> arry)
 
 bool Command::processObject(Handle<Object> obj)
 {
-
-
     Handle<Array> dKeys = obj->GetPropertyNames();
     for (unsigned int ii = 0; ii < dKeys->Length(); ii++) {
         Handle<Value> curKey = dKeys->Get(ii);
@@ -282,7 +279,7 @@ Cookie* Command::createCookie()
 void Command::setCookieKeyOption(Handle<Value> key, Handle<Value> option)
 {
     if (cookieKeyOptions.IsEmpty()) {
-        cookieKeyOptions = Object::New();
+        cookieKeyOptions = NanNew<Object>();
     }
     cookieKeyOptions->ForceSet(key, option);
 }

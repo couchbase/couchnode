@@ -41,10 +41,9 @@ bool Cas::GetCas(Handle<Value> obj, uint64_t *p)
 
 #else
 
-static NAN_WEAK_CALLBACK(uint64_t*, casDtor) {
-    delete NAN_WEAK_CALLBACK_DATA(uint64_t*);
-    NAN_WEAK_CALLBACK_OBJECT.Dispose();
-    NAN_WEAK_CALLBACK_OBJECT.Clear();
+NAN_WEAK_CALLBACK(casDtor) {
+    uint64_t *value = data.GetParameter();
+    delete value;
 }
 
 
@@ -52,14 +51,12 @@ static NAN_WEAK_CALLBACK(uint64_t*, casDtor) {
 #define CAS_ARRAY_ELEMENTS 2
 
 Handle<Value> Cas::CreateCas(uint64_t cas) {
-    Local<Object> ret = Object::New();
+    Local<Object> ret = NanNew<Object>();
     uint64_t *p = new uint64_t(cas);
     ret->SetIndexedPropertiesToExternalArrayData(p,
-                                                 CAS_ARRAY_MTYPE,
-                                                 CAS_ARRAY_ELEMENTS);
-
-    NanInitPersistent(Object, retp, ret);
-    NanMakeWeak(retp, p, casDtor);
+                                                     CAS_ARRAY_MTYPE,
+                                                     CAS_ARRAY_ELEMENTS);
+    NanMakeWeakPersistent(ret, p, casDtor);
     return ret;
 }
 

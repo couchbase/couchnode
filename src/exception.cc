@@ -35,19 +35,17 @@ void CBExc::setMessage(const std::string &msg, const Handle<Value> value)
     std::stringstream ss;
     message = msg;
     if (!atObject.IsEmpty()) {
-        atObject.Dispose();
-        atObject.Clear();
+        NanDisposePersistent(atObject);
     }
     if (!value.IsEmpty()) {
         obj_set_ = true;
-        NanAssignPersistent(Value, atObject, value);
+        NanAssignPersistent(atObject, value);
     }
 }
 
 CBExc::~CBExc() {
     if (!atObject.IsEmpty()) {
-        atObject.Dispose();
-        atObject.Clear();
+        NanDisposePersistent(atObject);
     }
 }
 
@@ -67,16 +65,16 @@ Handle<Value> CBExc::asValue()
     // attached.
     Handle<String> omsg;
     if (!hasObject()) {
-        omsg = String::NewSymbol(message.c_str());
+        omsg = NanNew<String>(message.c_str());
     } else {
-        omsg = String::New(message.c_str());
+        omsg = NanNew<String>(message.c_str());
     }
     Handle<Value> e = Exception::Error(omsg);
     Handle<Object> obj = e->ToObject();
-    obj->Set(NameMap::get(NameMap::EXC_CODE), Number::New(code));
+    obj->Set(NameMap::get(NameMap::EXC_CODE), NanNew<Number>(code));
     if (!atObject.IsEmpty()) {
-        Local<Value> localAtObject = NanPersistentToLocal(atObject);
-        obj->Set(String::NewSymbol("at"), localAtObject);
+        Local<Value> localAtObject = NanNew(atObject);
+        obj->Set(NanNew<String>("at"), localAtObject);
     }
     return e;
 }

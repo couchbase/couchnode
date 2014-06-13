@@ -24,8 +24,7 @@ using namespace Couchnode;
 Cookie::~Cookie()
 {
     if (!parent.IsEmpty()) {
-        parent.Dispose();
-        parent.Clear();
+        NanDisposePersistent(parent);
     }
 
     if (callback) {
@@ -34,13 +33,11 @@ Cookie::~Cookie()
     }
 
     if (!spooledInfo.IsEmpty()) {
-        spooledInfo.Dispose();
-        spooledInfo.Clear();
+        NanDisposePersistent(spooledInfo);
     }
 
     if (!keyOptions.IsEmpty()) {
-        keyOptions.Dispose();
-        keyOptions.Clear();
+        NanDisposePersistent(keyOptions);
     }
 }
 
@@ -48,14 +45,14 @@ void Cookie::addSpooledInfo(Handle<Value>& ec, ResponseInfo& info)
 {
     Handle<Object> payload = info.payload;
     if (payload.IsEmpty()) {
-        payload = Object::New();
+        payload = NanNew<Object>();
     }
 
     if (!ec->IsUndefined()) {
         info.setField(NameMap::ERRORED, ec);
     }
 
-    NanPersistentToLocal(spooledInfo)->ForceSet(info.getKey(), payload);
+    NanNew(spooledInfo)->ForceSet(info.getKey(), payload);
 }
 
 void Cookie::invokeSingleCallback(Handle<Value>& errObj, ResponseInfo& info)
@@ -79,10 +76,10 @@ void Cookie::invokeSpooledCallback()
                   " object for more information.");
         globalErr = ex.asValue();
     } else {
-        globalErr = v8::Undefined();
+        globalErr = NanUndefined();
     }
 
-    Handle<Value> args[2] = { globalErr, NanPersistentToLocal(spooledInfo) };
+    Handle<Value> args[2] = { globalErr, NanNew(spooledInfo) };
     callback->Call(2, args);
 }
 
@@ -107,7 +104,7 @@ void Cookie::markProgress(ResponseInfo &info) {
         hasError = true;
         errObj = CBExc().eLcb(info.status).asValue();
     } else {
-        errObj = v8::Undefined();
+        errObj = NanUndefined();
     }
 
     if (cbType == CBMODE_SINGLE) {
@@ -143,13 +140,13 @@ void StatsCookie::invoke(lcb_error_t err)
     if (err != LCB_SUCCESS) {
         errObj = CBExc().eLcb(err).asValue();
     } else {
-        errObj = v8::Undefined();
+        errObj = NanUndefined();
     }
 
-    Local<Value> localSpooledInfo = NanPersistentToLocal(spooledInfo);
+    Local<Value> localSpooledInfo = NanNew(spooledInfo);
     Handle<Value> argv[2] = { errObj, localSpooledInfo };
     if (localSpooledInfo.IsEmpty()) {
-        argv[1] = Object::New();
+        argv[1] = NanNew<Object>();
     }
     callback->Call(2, argv);
     delete this;
@@ -169,19 +166,19 @@ void StatsCookie::update(lcb_error_t err,
     }
 
     // Otherwise, add to the information
-    Local<Object> localSpooledInfo = NanPersistentToLocal(spooledInfo);
-    Handle<String> serverString = String::New(resp->v.v0.server_endpoint);
+    Local<Object> localSpooledInfo = NanNew(spooledInfo);
+    Handle<String> serverString = NanNew<String>(resp->v.v0.server_endpoint);
     Handle<Object> serverStats;
     if (!localSpooledInfo->Has(serverString)) {
-        serverStats = Object::New();
+        serverStats = NanNew<Object>();
         localSpooledInfo->ForceSet(serverString, serverStats);
     } else {
         serverStats = localSpooledInfo->Get(serverString).As<Object>();
     }
 
-    Handle<String> statsKey = String::New((const char *)resp->v.v0.key,
+    Handle<String> statsKey = NanNew<String>((const char *)resp->v.v0.key,
                                           resp->v.v0.nkey);
-    Handle<String> statsValue = String::New((const char *)resp->v.v0.bytes,
+    Handle<String> statsValue = NanNew<String>((const char *)resp->v.v0.bytes,
                                             resp->v.v0.nbytes);
     serverStats->ForceSet(statsKey, statsValue);
 }
@@ -199,7 +196,7 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
     if (err) {
         errObj = CBExc().eLcb(err).asValue();
     } else {
-        errObj = v8::Undefined();
+        errObj = NanUndefined();
     }
 
 
@@ -211,16 +208,16 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
         return;
     }
 
-    Handle<Object> payload = Object::New();
+    Handle<Object> payload = NanNew<Object>();
     payload->ForceSet(NameMap::get(NameMap::HTTP_STATUS),
-                      Number::New(resp->v.v0.status));
+                      NanNew<Number>(resp->v.v0.status));
 
     if (err != LCB_SUCCESS) {
         payload->ForceSet(NameMap::get(NameMap::ERRORED), errObj);
     }
 
     if (resp->v.v0.nbytes) {
-        Handle<Value> body = String::New((const char *)resp->v.v0.bytes,
+        Handle<Value> body = NanNew<String>((const char *)resp->v.v0.bytes,
                                           resp->v.v0.nbytes);
         if (body.IsEmpty()) {
             // binary?
@@ -231,12 +228,12 @@ void HttpCookie::update(lcb_error_t err, const lcb_http_resp_t *resp)
 
     if (resp->v.v0.path) {
         payload->ForceSet(NameMap::get(NameMap::HTTP_PATH),
-                          String::New((const char *)resp->v.v0.path,
+                          NanNew<String>((const char *)resp->v.v0.path,
                                       resp->v.v0.npath));
     }
 
     Handle<Value> args[] = { errObj, payload, callback->GetFunction() };
-    node::MakeCallback(v8::Context::GetCurrent()->Global(),
+    NanMakeCallback(NanGetCurrentContext()->Global(),
                        getGlobalRestHandler(), 3, args);
     delete this;
 }
@@ -256,11 +253,11 @@ void ObserveCookie::update(lcb_error_t err, const lcb_observe_resp_t *resp)
     }
 
     // Insert this into the keys array
-    Local<Object> localSpooledInfo = NanPersistentToLocal(spooledInfo);
+    Local<Object> localSpooledInfo = NanNew(spooledInfo);
     Handle<Value> kArray = localSpooledInfo->Get(ri.getKey());
 
     if (kArray->IsUndefined()) {
-        kArray = Array::New(1);
+        kArray = NanNew<Array>(1);
         localSpooledInfo->Set(ri.getKey(), kArray);
     }
 
@@ -274,7 +271,7 @@ void initCommonInfo_v0(ResponseInfo *tp, lcb_error_t err, const T* resp)
     tp->key = resp->v.v0.key;
     tp->nkey = resp->v.v0.nkey;
     tp->status = err;
-    tp->payload = Object::New();
+    tp->payload = NanNew<Object>();
 }
 
 ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_get_resp_t *resp,
@@ -287,7 +284,7 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_get_resp_t *resp,
 
     uint32_t effectiveFlags = resp->v.v0.flags;
     setCas(resp->v.v0.cas);
-    setField(NameMap::FLAGS, Uint32::New(resp->v.v0.flags));
+    setField(NameMap::FLAGS, NanNew<Uint32>(resp->v.v0.flags));
 
     if (cookie->hasKeyOptions()) {
         Handle<Value> kOpt = const_cast<Cookie*>(cookie)->getKeyOption(getKey());
@@ -319,7 +316,7 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_arithmetic_resp_t *resp)
     }
 
     setCas(resp->v.v0.cas);
-    Handle<Value> num = Number::New(resp->v.v0.value);
+    Handle<Value> num = NanNew<Number>(resp->v.v0.value);
     setValue(num);
 }
 
@@ -357,16 +354,16 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_observe_resp_t *resp)
     }
 
     initCommonInfo_v0(this, err, resp);
-    setField(NameMap::OBS_CODE, Number::New(resp->v.v0.status));
+    setField(NameMap::OBS_CODE, NanNew<Number>(resp->v.v0.status));
 
     setCas(resp->v.v0.cas);
 
     if (resp->v.v0.from_master) {
-        setField(NameMap::OBS_ISMASTER, v8::True());
+        setField(NameMap::OBS_ISMASTER, NanTrue());
     }
 
-    setField(NameMap::OBS_TTP, Number::New(resp->v.v0.ttp));
-    setField(NameMap::OBS_TTR, Number::New(resp->v.v0.ttr));
+    setField(NameMap::OBS_TTP, NanNew<Number>(resp->v.v0.ttp));
+    setField(NameMap::OBS_TTR, NanNew<Number>(resp->v.v0.ttr));
 }
 
 ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_durability_resp_t *resp)
@@ -378,15 +375,15 @@ ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_durability_resp_t *resp)
     }
 
     if (resp->v.v0.exists_master) {
-        setField(NameMap::DUR_FOUND_MASTER, v8::True());
+        setField(NameMap::DUR_FOUND_MASTER, NanTrue());
     }
 
     if (resp->v.v0.persisted_master) {
-        setField(NameMap::DUR_PERSISTED_MASTER, v8::True());
+        setField(NameMap::DUR_PERSISTED_MASTER, NanTrue());
     }
 
-    setField(NameMap::DUR_NPERSISTED, Number::New(resp->v.v0.npersisted));
-    setField(NameMap::DUR_NREPLICATED, Number::New(resp->v.v0.nreplicated));
+    setField(NameMap::DUR_NPERSISTED, NanNew<Number>(resp->v.v0.npersisted));
+    setField(NameMap::DUR_NREPLICATED, NanNew<Number>(resp->v.v0.nreplicated));
 
     setCas(resp->v.v0.cas);
 }
@@ -395,7 +392,7 @@ ResponseInfo::ResponseInfo(lcb_error_t err, Handle<Value> kObj) :
         key(NULL), nkey(0), keyObj(kObj)
 {
     status = err;
-    payload = Object::New();
+    payload = NanNew<Object>();
 }
 
 static inline Cookie *getInstance(const void *c)

@@ -100,25 +100,19 @@ public:
 
     virtual std::string formatMessage() const;
 
-    Handle<Value> throwV8() {
+    v8::Local<v8::Value> throwV8() {
         assert(isSet());
         assert(!(message.empty() && code != 0));
-        // v8::Message::PrintCurrentStackTrace(stderr);
-        return throwV8Object();
+        throwV8Object();
+        return NanUndefined();
     }
 
     Handle<Value> asValue();
 
 
-    Handle<Value> throwV8Object() {
-        return v8::ThrowException(asValue());
+    void throwV8Object() {
+        NanThrowError(asValue());
     }
-
-#if 0
-    Handle<Value> throwV8String() {
-        return v8::ThrowException(String::New(formatMessage().c_str()));
-    }
-#endif
 
     bool isSet() const { return set_; }
     bool hasObject() const { return obj_set_; }

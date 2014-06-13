@@ -24,14 +24,14 @@ Persistent<Function> ValueFormat::jsonStringify;
 void ValueFormat::initialize()
 {
     NanScope();
-    Handle<Object> jMod = v8::Context::GetEntered()->Global()->Get(
-            String::NewSymbol("JSON")).As<Object>();
+    Handle<Object> jMod = NanGetCurrentContext()->Global()->Get(
+            NanNew<String>("JSON")).As<Object>();
     assert(!jMod.IsEmpty());
 
-    NanAssignPersistent(Function, jsonParse,
-            jMod->Get(String::NewSymbol("parse")).As<Function>());
-    NanAssignPersistent(Function, jsonStringify,
-            jMod->Get(String::NewSymbol("stringify")).As<Function>());
+    NanAssignPersistent(jsonParse,
+            jMod->Get(NanNew<String>("parse")).As<Function>());
+    NanAssignPersistent(jsonStringify,
+            jMod->Get(NanNew<String>("stringify")).As<Function>());
 
     assert(!jsonParse.IsEmpty());
     assert(!jsonStringify.IsEmpty());
@@ -42,7 +42,7 @@ Handle<Value> ValueFormat::decode(const char *bytes, size_t n,
 {
     uint32_t dtype = flags & MASK;
     if (dtype == UTF8) {
-        return String::New(bytes, n);
+        return NanNew<String>(bytes, n);
 
     } else if (dtype == RAW) {
         // 0.8 defines this as char*, hence the cast
@@ -51,9 +51,9 @@ Handle<Value> ValueFormat::decode(const char *bytes, size_t n,
     } else if (dtype == JSON) {
         Handle<Value> s = decode(bytes, n, UTF8);
         v8::TryCatch try_catch;
-        Local<Function> jsonParseLcl = NanPersistentToLocal(jsonParse);
+        Local<Function> jsonParseLcl = NanNew(jsonParse);
         Handle<Value> ret = jsonParseLcl->Call(
-                v8::Context::GetEntered()->Global(), 1, &s);
+                NanGetCurrentContext()->Global(), 1, &s);
         if (try_catch.HasCaught()) {
             return decode(bytes, n, RAW);
         }
@@ -179,9 +179,9 @@ bool ValueFormat::encode(Handle<Value> input,
 
     } else if (spec == JSON) {
         v8::TryCatch try_catch;
-        Local<Function> jsonStringifyLcl = NanPersistentToLocal(jsonStringify);
+        Local<Function> jsonStringifyLcl = NanNew(jsonStringify);
         Handle<Value> ret = jsonStringifyLcl->Call(
-                v8::Context::GetEntered()->Global(), 1, &input);
+                NanGetCurrentContext()->Global(), 1, &input);
 
         if (try_catch.HasCaught()) {
             ex.eArguments("Couldn't convert to JSON", try_catch.Exception());

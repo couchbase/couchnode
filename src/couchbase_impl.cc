@@ -28,6 +28,12 @@ using namespace Couchnode;
 
 Logger logger;
 
+#if UV_VERSION_MINOR >= 11
+#define UVC_IDLE_CALLBACK(func) void func(uv_idle_t *idle)
+#else
+#define UVC_IDLE_CALLBACK(func) void func(uv_idle_t *idle, int)
+#endif
+
 // libcouchbase handlers keep a C linkage...
 extern "C" {
     // node.js will call the init method when the shared object
@@ -43,25 +49,6 @@ extern "C" {
 #ifdef COUCHNODE_DEBUG
 unsigned int CouchbaseImpl::objectCount;
 #endif
-
-
-static Handle<Value> bailOut(_NAN_METHOD_ARGS, CBExc &ex)
-{
-    Handle<Function> cb;
-    if (args.Length()) {
-        cb = args[args.Length()-1].As<Function>();
-    }
-
-    if (cb.IsEmpty() || !cb->IsFunction()) {
-        // no callback. must bail.
-        return ex.eArguments("No callback provided. Bailing out").throwV8();
-    }
-
-    Handle<Value> excObj = ex.asValue();
-    node::MakeCallback(v8::Context::GetCurrent()->Global(),
-                       cb, 1, &excObj);
-    return v8::False();
-}
 
 
 CouchbaseImpl::CouchbaseImpl(lcb_t inst) :
@@ -101,11 +88,11 @@ void CouchbaseImpl::Init(Handle<Object> target)
 {
     NanScope();
 
-    Local<FunctionTemplate> t = FunctionTemplate::New(New);
+    Local<FunctionTemplate> t = NanNew<FunctionTemplate>(New);
 
     //NanInitPersistent(FunctionTemplate, s_ct, t);
     t->InstanceTemplate()->SetInternalFieldCount(1);
-    t->SetClassName(String::NewSymbol("CouchbaseImpl"));
+    t->SetClassName(NanNew<String>("CouchbaseImpl"));
 
     NODE_SET_PROTOTYPE_METHOD(t, "strError", StrError);
     NODE_SET_PROTOTYPE_METHOD(t, "on", On);
@@ -129,9 +116,9 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(t, "httpRequest", HttpRequest);
     NODE_SET_PROTOTYPE_METHOD(t, "_control", _Control);
     NODE_SET_PROTOTYPE_METHOD(t, "_connect", Connect);
-    target->Set(String::NewSymbol("CouchbaseImpl"), t->GetFunction());
+    target->Set(NanNew<String>("CouchbaseImpl"), t->GetFunction());
 
-    target->Set(String::NewSymbol("Constants"), createConstants());
+    target->Set(NanNew<String>("Constants"), createConstants());
     NameMap::initialize();
     ValueFormat::initialize();
 }
@@ -152,7 +139,7 @@ NAN_METHOD(CouchbaseImpl::on)
 
     Handle<Value> cbName = args[0];
     Handle<Value> cbTarget = args[1];
-    String::AsciiValue func(cbName);
+    String::Utf8Value func(cbName);
 
     if (func.length() == 0) {
         NanReturnValue(ex.eArguments("Bad callback parameter", cbName).throwV8());
@@ -172,7 +159,7 @@ NAN_METHOD(CouchbaseImpl::on)
     }
 
     events[*func] = new NanCallback(cbTarget.As<Function>());
-    NanReturnValue(True());
+    NanReturnValue(NanTrue());
 }
 
 NAN_METHOD(CouchbaseImpl::New)
@@ -269,7 +256,7 @@ NAN_METHOD(CouchbaseImpl::Connect)
         }
     }
 
-    NanReturnValue(True());
+    NanReturnValue(NanTrue());
 }
 
 NAN_METHOD(CouchbaseImpl::StrError)
@@ -283,7 +270,7 @@ NAN_METHOD(CouchbaseImpl::StrError)
         NanReturnValue(CBExc().eArguments("Couldn't convert to number", args[0]).throwV8());
     }
 
-    NanReturnValue(String::NewSymbol(lcb_strerror(NULL,
+    NanReturnValue(NanNew<String>(lcb_strerror(NULL,
             (lcb_error_t)errObj->IntegerValue())));
 
 }
@@ -301,7 +288,7 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
     if (err != LCB_SUCCESS) {
         errObj = CBExc().eLcb(err).asValue();
     } else {
-        errObj = v8::Undefined();
+        errObj = NanUndefined();
     }
 
     EventMap::iterator iter = events.find("connect");
@@ -371,11 +358,27 @@ void CouchbaseImpl::runScheduledOperations(lcb_error_t globalerr)
     }
 }
 
-// static
+static Handle<Value> bailOut(_NAN_METHOD_ARGS, CBExc &ex)
+{
+    Handle<Function> cb;
+    if (args.Length()) {
+        cb = args[args.Length()-1].As<Function>();
+    }
+
+    if (cb.IsEmpty() || !cb->IsFunction()) {
+        // no callback. must bail.
+        return ex.eArguments("No callback provided. Bailing out").throwV8();
+    }
+
+    Handle<Value> excObj = ex.asValue();
+    NanMakeCallback(NanGetCurrentContext()->Global(),
+                       cb, 1, &excObj);
+    return NanUndefined();
+}
+
 template <typename T>
 Handle<Value> CouchbaseImpl::makeOperation(_NAN_METHOD_ARGS, T &op)
 {
-    NanScope();
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
 
     if (!op.initialize()) {
@@ -391,23 +394,23 @@ Handle<Value> CouchbaseImpl::makeOperation(_NAN_METHOD_ARGS, T &op)
 
     if (me->isShutdown) {
       cc->cancel(LCB_EBADHANDLE, op.getKeyList());
-      return scope.Close(v8::False());
+      return NanFalse();
     } else if (!me->connected) {
         // Schedule..
         Command *cp = op.makePersistent();
         me->pendingCommands.push(cp);
         // Place into queue..
-        return scope.Close(v8::True());
+        return NanTrue();
 
     } else {
         lcb_error_t err = op.execute(me->getLibcouchbaseHandle());
 
         if (err == LCB_SUCCESS) {
-            return scope.Close(v8::True());
+            return NanTrue();
 
         } else {
             cc->cancel(err, op.getKeyList());
-            return scope.Close(v8::False());
+            return NanFalse();
         }
     }
 }
@@ -512,7 +515,7 @@ NAN_METHOD(CouchbaseImpl::Shutdown)
     NanScope();
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     me->shutdown();
-    NanReturnValue(True());
+    NanReturnValue(NanTrue());
 }
 
 extern "C" {
@@ -520,7 +523,7 @@ extern "C" {
         delete handle;
     }
 
-    static void libuv_shutdown_cb(uv_idle_t* idle, int) {
+    static UVC_IDLE_CALLBACK(libuv_shutdown_cb) {
         ScopeLogger sl("libuv_shutdown_cb");
         lcb_t instance = (lcb_t)idle->data;
         lcb_destroy(instance);

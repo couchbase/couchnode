@@ -7,13 +7,13 @@ namespace Couchnode {
  */
 static void define_constant(Handle<Object> target, const char *k, int n)
 {
-    target->Set(String::NewSymbol(k), Number::New(n),
+    target->Set(NanNew<String>(k), NanNew<Number>(n),
                 static_cast<v8::PropertyAttribute>(v8::ReadOnly|v8::DontDelete));
 }
 
 Handle<Object> CouchbaseImpl::createConstants()
 {
-    Handle<Object> o = Object::New();
+    Handle<Object> o = NanNew<Object>();
 
 #define XCONSTANTS(X) \
     X(LCB_CNTL_SET) \

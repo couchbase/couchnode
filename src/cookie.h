@@ -40,7 +40,7 @@ public:
 
     Handle<Value> getKey() {
         if (keyObj.IsEmpty()) {
-            keyObj = String::New((const char *)key, nkey);
+            keyObj = NanNew<String>((const char *)key, nkey);
         }
         return keyObj;
     }
@@ -106,12 +106,12 @@ public:
 
     void setParent(v8::Handle<v8::Value> cbo) {
         assert(parent.IsEmpty());
-        NanAssignPersistent(v8::Value, parent, cbo);
+        NanAssignPersistent(parent, cbo);
     }
 
     void setOptions(Handle<Object> options) {
         assert(keyOptions.IsEmpty());
-        NanAssignPersistent(Object, keyOptions, options);
+        NanAssignPersistent(keyOptions, options);
     }
 
     virtual ~Cookie();
@@ -122,7 +122,7 @@ public:
         if (keyOptions.IsEmpty()) {
             return Handle<Value>(); // null
         }
-        Local<Object> localKeyOptions = NanPersistentToLocal(keyOptions);
+        Local<Object> localKeyOptions = NanNew(keyOptions);
         return localKeyOptions->GetRealNamedProperty(key.As<String>());
     }
 
@@ -140,7 +140,7 @@ protected:
 
     void initSpooledInfo() {
         if (spooledInfo.IsEmpty()) {
-            NanAssignPersistent(Object, spooledInfo, Object::New());
+            NanAssignPersistent(spooledInfo, NanNew<Object>());
         }
     }
 
@@ -188,7 +188,7 @@ public:
 
 private:
     inline Local<Function> getGlobalRestHandler() {
-      Local<Value> localParent = NanPersistentToLocal(parent);
+      Local<Value> localParent = NanNew(parent);
       return Local<Function>::Cast(
         localParent->ToObject()->Get(NameMap::get(NameMap::RESTHANDLER)));
     }

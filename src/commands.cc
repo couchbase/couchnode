@@ -69,7 +69,7 @@ bool GetCommand::handleSingle(Command *p,
         ValueFormat::Spec spec = ValueFormat::toSpec(kOptions.format.v, ctx->err);
         // ignore auto so the handler uses the incoming flags
         if (spec != ValueFormat::AUTO) {
-            ctx->setCookieKeyOption(ki.getObject(), Number::New(spec));
+            ctx->setCookieKeyOption(ki.getObject(), NanNew<Number>(spec));
         }
     }
 
@@ -133,7 +133,7 @@ bool GetReplicaCommand::handleSingle(Command *p,
         ValueFormat::Spec spec = ValueFormat::toSpec(kOptions.format.v, ctx->err);
         // ignore auto so the handler uses the incoming flags
         if (spec != ValueFormat::AUTO) {
-            ctx->setCookieKeyOption(ki.getObject(), Number::New(spec));
+            ctx->setCookieKeyOption(ki.getObject(), NanNew<Number>(spec));
         }
     }
 
