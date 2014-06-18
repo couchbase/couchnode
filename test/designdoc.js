@@ -14,7 +14,7 @@ describe('#design documents', function() {
     var ddoc = {
       "views": {
         "test-view": {
-          "map": "function(doc,meta){}"
+          "map": function(doc,meta){}
         }
       }
     };
