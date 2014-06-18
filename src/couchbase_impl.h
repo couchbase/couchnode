@@ -62,6 +62,7 @@ using v8::Object;
 #include <vector>
 #include <queue>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/configuration.h>
 #if LCB_VERSION < 0x020100
 #error "Couchnode requires libcouchbase >= 2.1.0"
 #endif

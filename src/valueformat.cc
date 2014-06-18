@@ -119,6 +119,7 @@ bool ValueFormat::encode(Handle<Value> input,
                          Spec spec,
                          BufferList &buf,
                          uint32_t *flags,
+                         uint8_t *datatype,
                          char **k,
                          size_t *n,
                          CBExc &ex)
@@ -136,6 +137,8 @@ bool ValueFormat::encode(Handle<Value> input,
     if (spec == AUTO) {
         spec = getAutoSpec(input);
     }
+
+    *datatype = LCB_VALUE_RAW;
 
     if (spec == UTF8) {
         Handle<String> s;
@@ -172,7 +175,7 @@ bool ValueFormat::encode(Handle<Value> input,
             return encodeNodeBuffer(input.As<Object>(), buf, k, n, ex);
 
         } else {
-            bool ret = encode(input, UTF8, buf, flags, k, n, ex);
+            bool ret = encode(input, UTF8, buf, flags, datatype, k, n, ex);
             *flags = RAW;
             return ret;
         }
@@ -188,11 +191,12 @@ bool ValueFormat::encode(Handle<Value> input,
             return false;
         }
 
-        if (!encode(ret, UTF8, buf, flags, k, n, ex)) {
+        if (!encode(ret, UTF8, buf, flags, datatype, k, n, ex)) {
             return false;
         }
 
         *flags = JSON;
+        *datatype = LCB_VALUE_F_JSON;
         return true;
 
     } else {

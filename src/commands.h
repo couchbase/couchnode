@@ -92,6 +92,14 @@ public:
         cmd->v.v0.nhashkey = nhashkey;
     }
 
+    template <typename T>
+    void setKeyV1(T *cmd) {
+        cmd->v.v1.key = key;
+        cmd->v.v1.nkey = nkey;
+        cmd->v.v1.hashkey = hashkey;
+        cmd->v.v1.nhashkey = nhashkey;
+    }
+
     const char *getKey() const { return key; }
     size_t getKeySize() const { return nkey; }
     Handle<Value> getObject() const { return object; }

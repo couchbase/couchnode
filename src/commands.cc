@@ -118,7 +118,7 @@ bool GetReplicaCommand::handleSingle(Command *p,
     kOptions.merge(ctx->globalOptions);
 
     lcb_get_replica_cmd_t *cmd = ctx->commands.getAt(ix);
-    ki.setKeyV0(cmd);
+    ki.setKeyV1(cmd);
 
     if (kOptions.index.isFound()) {
       if (kOptions.index.v >= 0) {
@@ -194,8 +194,8 @@ bool StoreCommand::handleSingle(Command *p, CommandKey &ki,
         return false;
     }
 
-    if (!ValueFormat::encode(s, spec, ctx->bufs,
-                             &cmd->v.v0.flags, &vbuf, &nvbuf, ctx->err)) {
+    if (!ValueFormat::encode(s, spec, ctx->bufs, &cmd->v.v0.flags,
+                             &cmd->v.v0.datatype, &vbuf, &nvbuf, ctx->err)) {
         return false;
     }
 
@@ -216,6 +216,7 @@ bool StoreCommand::handleSingle(Command *p, CommandKey &ki,
     }
 
     cmd->v.v0.operation = ctx->op;
+
     return true;
 }
 

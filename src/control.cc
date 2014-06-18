@@ -115,7 +115,9 @@ NAN_METHOD(CouchbaseImpl::_Control)
      }
 
     case LCB_CNTL_CONFIG_HTTP_NODES:
-    case LCB_CNTL_CONFIG_CCCP_NODES: {
+    case LCB_CNTL_CONFIG_CCCP_NODES:
+    case LCB_CNTL_CONFIG_ALL_NODES:
+    case LCB_CNTL_REINIT_DSN: {
         String::Utf8Value s(optVal->ToString());
         err = lcb_cntl(instance, option, mode, (char *)*s);
         break;

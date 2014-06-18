@@ -105,6 +105,7 @@ public:
                        Spec spec,
                        BufferList &buf,
                        uint32_t *flags,
+                       uint8_t *datatype,
                        char **k,
                        size_t *n,
                        CBExc& ex);

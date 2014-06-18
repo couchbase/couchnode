@@ -40,18 +40,17 @@ into the bucket and then retrieving its contents:
 
 ```javascript
     var couchbase = require('couchbase');
-    var db = new couchbase.Connection({bucket: "default"}, function(err) {
+    var cluster = new couchbase.Cluster();
+    var db = cluster.openBucket('default');
+
+    db.set('testdoc', {name:'Frank'}, function(err, result) {
       if (err) throw err;
 
-      db.set('testdoc', {name:'Frank'}, function(err, result) {
+      db.get('testdoc', function(err, result) {
         if (err) throw err;
 
-        db.get('testdoc', function(err, result) {
-          if (err) throw err;
-
-          console.log(result.value);
-          // {name: Frank}
-        });
+        console.log(result.value);
+        // {name: Frank}
       });
     });
 ```

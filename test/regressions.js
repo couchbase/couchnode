@@ -3,6 +3,7 @@ var fs = require('fs');
 var H = require('../test_harness.js');
 
 describe('#regressions', function() {
+  this.timeout(4000);
 
   it('JSCBC-4', function(done) {
     var cb = H.newClient();

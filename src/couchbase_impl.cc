@@ -20,13 +20,10 @@
 
 #include "couchbase_impl.h"
 #include "cas.h"
-#include "logger.h"
 #include <libcouchbase/libuv_io_opts.h>
 
 using namespace std;
 using namespace Couchnode;
-
-Logger logger;
 
 #if UV_VERSION_MINOR >= 11
 #define UVC_IDLE_CALLBACK(func) void func(uv_idle_t *idle)
@@ -89,8 +86,6 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NanScope();
 
     Local<FunctionTemplate> t = NanNew<FunctionTemplate>(New);
-
-    //NanInitPersistent(FunctionTemplate, s_ct, t);
     t->InstanceTemplate()->SetInternalFieldCount(1);
     t->SetClassName(NanNew<String>("CouchbaseImpl"));
 
@@ -168,14 +163,14 @@ NAN_METHOD(CouchbaseImpl::New)
     CBExc exc;
 
     if (args.Length() < 1) {
-        NanReturnValue(exc.eArguments("Need a URI").throwV8());
+        NanReturnValue(exc.eArguments("Need a DSN").throwV8());
     }
 
-    if (args.Length() > 5) {
+    if (args.Length() > 3) {
         NanReturnValue(exc.eArguments("Too many arguments").throwV8());
     }
 
-    std::string argv[5];
+    std::string argv[3];
     lcb_error_t err;
 
     for (int ii = 0; ii < args.Length(); ++ii) {
@@ -203,33 +198,23 @@ NAN_METHOD(CouchbaseImpl::New)
         NanReturnValue(exc.eLcb(err).throwV8());
     }
 
-    lcb_create_st createOptions(argv[0].c_str(),
-                                argv[1].c_str(),
-                                argv[2].c_str(),
-                                argv[3].c_str(),
-                                iops);
+    lcb_create_st createOptions;
+    memset(&createOptions, 0, sizeof(createOptions));
+    createOptions.version = 3;
+    createOptions.v.v3.dsn = argv[0].c_str();
+    createOptions.v.v3.username = argv[1].c_str();
+    createOptions.v.v3.passwd = argv[2].c_str();
+    createOptions.v.v3.io = iops;
 
     lcb_t instance;
-
-    if (argv[4].size() <= 0) {
-        err = lcb_create(&instance, &createOptions);
-    } else {
-        lcb_cached_config_st cacheConfig;
-        memset(&cacheConfig, 0, sizeof(cacheConfig));
-        cacheConfig.createopt = createOptions;
-        cacheConfig.cachefile = argv[4].c_str();
-
-        err = lcb_create_compat(
-            LCB_CACHED_CONFIG,
-            &cacheConfig,
-            &instance,
-            iops);
-    }
-
+    err = lcb_create(&instance, &createOptions);
 
     if (err != LCB_SUCCESS) {
         NanReturnValue(exc.eLcb(err).throwV8());
     }
+
+    lcb_int32_t compOpts = LCB_COMPRESS_NONE;
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_COMPRESSION_OPTS, &compOpts);
 
     CouchbaseImpl *hw = new CouchbaseImpl(instance);
     hw->Wrap(args.This());
@@ -524,7 +509,6 @@ extern "C" {
     }
 
     static UVC_IDLE_CALLBACK(libuv_shutdown_cb) {
-        ScopeLogger sl("libuv_shutdown_cb");
         lcb_t instance = (lcb_t)idle->data;
         lcb_destroy(instance);
         uv_idle_stop(idle);
