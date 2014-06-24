@@ -8,7 +8,7 @@ describe('#design documents', function() {
 
   it('should successfully manipulate design documents', function(done) {
     var cb = H.client;
-    this.timeout(5000);
+    this.timeout(10000);
 
     var docname = H.genKey("dev_ddoc-test");
     var ddoc = {
@@ -47,7 +47,7 @@ describe('#design documents', function() {
 
   it('should successfully page results', function(done) {
     var cb = H.client;
-    this.timeout(15000);
+    this.timeout(30000);
 
     var docname = H.genKey("querytest");
     var ddoc = {
@@ -155,7 +155,7 @@ describe('#design documents', function() {
 
   it('should work with queries', function(done) {
     var cb = H.client;
-    this.timeout(25000);
+    this.timeout(30000);
 
     var docname = H.genKey("querytest");
     var keyprefix = H.genKey("query");
@@ -432,7 +432,7 @@ describe('#design documents', function() {
 
   it('should successfully see new keys?', function(done) {
     var cb = H.client;
-    this.timeout(15000);
+    this.timeout(30000);
 
     var testkey = H.genKey('dd-views');
     var designdoc = H.genKey("dev_test-design");
@@ -482,7 +482,7 @@ describe('#design documents', function() {
 
   it('should successfully perform spatial queries?', function(done) {
     var cb = H.client;
-    this.timeout(25000);
+    this.timeout(30000);
 
     var testkey1 = H.genKey('dd-spatial');
     var testkey2 = H.genKey('dd-spatial');
