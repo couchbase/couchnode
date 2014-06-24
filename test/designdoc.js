@@ -47,7 +47,7 @@ describe('#design documents', function() {
 
   it('should successfully page results', function(done) {
     var cb = H.client;
-    this.timeout(30000);
+    this.timeout(60000);
 
     var docname = H.genKey("querytest");
     var ddoc = {
