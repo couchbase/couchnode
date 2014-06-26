@@ -43,7 +43,7 @@ into the bucket and then retrieving its contents:
     var cluster = new couchbase.Cluster();
     var db = cluster.openBucket('default');
 
-    db.set('testdoc', {name:'Frank'}, function(err, result) {
+    db.upsert('testdoc', {name:'Frank'}, function(err, result) {
       if (err) throw err;
 
       db.get('testdoc', function(err, result) {
