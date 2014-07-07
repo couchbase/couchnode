@@ -26,3 +26,4 @@ config.json
 /test/CouchbaseMock.jar
 builderror.log
 configcache.txt
+/coverage/

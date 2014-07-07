@@ -8,17 +8,17 @@
     "excludePattern": "(^|\\/|\\\\)_"
   },
   "opts": {
-    "template": "../../node_modules/cb-jsdoc-tpl",
+    "template": "../../node_modules/ink-docstrap/template",
     "destination": "./docs/",
     "private": true
   },
   "plugins": [
-    "plugins/markdown"
+    "plugins/markdown",
+    "../../node_modules/jsdoc-stability-tag"
   ],
-  "markdown": {
-    "parser": "gfm"
-  },
   "templates": {
-    "cleverLinks": true
+    "systemName": "Couchbase Node.js SDK",
+    "copyright": "Copyright 2010-2013 Couchbase, Inc.",
+    "theme": "couchbase"
   }
 }

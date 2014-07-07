@@ -17,6 +17,7 @@
 
 
 #include "couchbase_impl.h"
+#include "exception.h"
 
 // Thanks mauke
 #define STRINGIFY_(X) #X
@@ -25,19 +26,18 @@
 namespace Couchnode
 {
 
-NAN_METHOD(CouchbaseImpl::_Control)
+NAN_METHOD(CouchbaseImpl::fnControl)
 {
     NanScope();
-    CBExc exc;
     CouchbaseImpl *me;
     lcb_t instance;
     lcb_error_t err;
 
     me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    instance = me->getLibcouchbaseHandle();
+    instance = me->getLcbHandle();
 
     if (args.Length() < 2) {
-        NanReturnValue(exc.eArguments("Too few arguments").throwV8());
+        return NanThrowError(Error::create("Too few arguments"));
     }
 
     int mode = args[0]->IntegerValue();
@@ -46,11 +46,11 @@ NAN_METHOD(CouchbaseImpl::_Control)
     Handle<Value> optVal = args[2];
 
     if (option != LCB_CNTL_SET && option != LCB_CNTL_GET) {
-        NanReturnValue(exc.eArguments("Invalid option mode").throwV8());
+        return NanThrowError(Error::create("Invalid option mode"));
     }
 
     if (option == LCB_CNTL_SET && optVal.IsEmpty()) {
-        NanReturnValue(exc.eArguments("Valid argument missing for 'CNTL_SET'").throwV8());
+        return NanThrowError(Error::create("Valid argument missing for 'CNTL_SET'"));
     }
 
     switch (mode) {
@@ -66,7 +66,7 @@ NAN_METHOD(CouchbaseImpl::_Control)
         if (option == LCB_CNTL_GET) {
             err =  lcb_cntl(instance, option, mode, &tmoval);
             if (err != LCB_SUCCESS) {
-                NanReturnValue(exc.eLcb(err).throwV8());
+                return NanThrowError(Error::create(err));
             } else {
                 NanReturnValue(NanNew<Number>(tmoval / 1000));
             }
@@ -78,98 +78,37 @@ NAN_METHOD(CouchbaseImpl::_Control)
         break;
     }
 
-    case LCB_CNTL_WBUFSIZE:
-    case LCB_CNTL_RBUFSIZE: {
-        lcb_size_t bufszval;
+    case LCB_CNTL_CONFDELAY_THRESH: {
+        lcb_uint32_t tval;
 
         if (option == LCB_CNTL_GET) {
-            err = lcb_cntl(instance, option, mode, &bufszval);
+            err = lcb_cntl(instance, option, mode, &tval);
             if (err != LCB_SUCCESS) {
-                NanReturnValue(exc.eLcb(err).throwV8());
+                return NanThrowError(Error::create("CNTL failed"));
             } else {
-                NanReturnValue(NanNew<Number>(bufszval));
+                NanReturnValue(NanNew<Number>(tval));
             }
         } else {
-            bufszval = optVal->Uint32Value();
-            err = lcb_cntl(instance, option, mode, &bufszval);
+            tval = optVal->Uint32Value();
+            err = lcb_cntl(instance, option, mode, &tval);
         }
         break;
     }
 
-    case LCB_CNTL_VBMAP: {
-        struct lcb_cntl_vbinfo_st vbi;
-        memset(&vbi, 0, sizeof(vbi));
-
-        String::Utf8Value v(optVal->ToString());
-        vbi.v.v0.key = *v;
-        vbi.v.v0.nkey = v.length();
-        err = lcb_cntl(instance, LCB_CNTL_GET, mode, &vbi);
-        if (err != LCB_SUCCESS) {
-            NanReturnValue(exc.eLcb(err).throwV8());
-        }
-
-        Handle<Array> arr = NanNew<Array>(2);
-        arr->Set(0, NanNew<Integer>(vbi.v.v0.vbucket));
-        arr->Set(1, NanNew<Integer>(vbi.v.v0.server_index));
-        NanReturnValue(arr);
-     }
-
-    case LCB_CNTL_CONFIG_HTTP_NODES:
-    case LCB_CNTL_CONFIG_CCCP_NODES:
-    case LCB_CNTL_CONFIG_ALL_NODES:
-    case LCB_CNTL_REINIT_DSN: {
+    case LCB_CNTL_REINIT_CONNSTR: {
         String::Utf8Value s(optVal->ToString());
         err = lcb_cntl(instance, option, mode, (char *)*s);
         break;
      }
 
-    case CNTL_LIBCOUCHBASE_VERSION: {
-        const char *vstr;
-        lcb_uint32_t vnum;
-        vstr = lcb_get_version(&vnum);
-
-        Handle<Array> ret = NanNew<Array>(4);
-        ret->Set(0, NanNew<Integer>(vnum));
-        ret->Set(1, NanNew<String>(vstr));
-
-        // Version and changeset of the headers
-        ret->Set(2, NanNew<String>("HDR(VERSION): "LCB_VERSION_STRING));
-        ret->Set(3, NanNew<String>("HDR(CHANGESET): "STRINGIFY(LCB_VERSION_CHANGESET)));
-        NanReturnValue(ret);
-    }
-
-    case CNTL_CLNODES: {
-        const char * const * l;
-        const char * const *cur;
-        l = lcb_get_server_list(instance);
-        unsigned int nItems = 0;
-        for (cur = l; *cur; cur++) {
-            nItems++;
-        }
-
-        Handle<Array> arr = NanNew<Array>(nItems);
-        for (nItems = 0, cur = l; *cur; cur++, nItems++) {
-            Handle<Value> s = NanNew<String>(*cur);
-            arr->Set(nItems, s);
-        }
-
-        NanReturnValue(arr);
-    }
-
-    case CNTL_RESTURI: {
-        const char *s = lcb_get_host(instance);
-        NanReturnValue(NanNew<String>(s));
-    }
-
-
     default:
-        NanReturnValue(exc.eArguments("Not supported yet").throwV8());
+        return NanThrowError(Error::create("Not supported yet"));
     }
 
     if (err == LCB_SUCCESS) {
         NanReturnValue(NanTrue());
     } else {
-        NanReturnValue(exc.eLcb(err).throwV8());
+        return NanThrowError(Error::create("CNTL failed"));
     }
 }
 

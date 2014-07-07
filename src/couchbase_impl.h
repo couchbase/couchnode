@@ -44,17 +44,6 @@
 #pragma GCC diagnostic pop
 #endif
 #endif
-namespace Couchnode {
-using v8::Value;
-using v8::Handle;
-using v8::Local;
-using v8::Persistent;
-using v8::Function;
-using v8::HandleScope;
-using v8::String;
-using v8::Number;
-using v8::Object;
-};
 
 #include <iostream>
 #include <map>
@@ -63,22 +52,16 @@ using v8::Object;
 #include <queue>
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/configuration.h>
-#if LCB_VERSION < 0x020100
-#error "Couchnode requires libcouchbase >= 2.1.0"
-#endif
 
 #include "cas.h"
-#include "namemap.h"
-#include "exception.h"
-#include "cookie.h"
-#include "options.h"
-#include "commandlist.h"
-#include "commands.h"
-#include "valueformat.h"
+#include "transcoder.h"
+
+#if LCB_VERSION < 0x020400
+#error "Couchnode requires libcouchbase >= 2.4.0"
+#endif
 
 namespace Couchnode
 {
-
 using v8::Value;
 using v8::Handle;
 using v8::Local;
@@ -88,6 +71,11 @@ using v8::HandleScope;
 using v8::String;
 using v8::Number;
 using v8::Object;
+using v8::Integer;
+using v8::FunctionTemplate;
+using v8::Uint32;
+using v8::Array;
+using v8::Exception;
 
 // These codes *should* be in lcb_cntl, but currently aren't.
 enum ControlCode {
@@ -101,93 +89,65 @@ enum ControlCode {
 class CouchbaseImpl: public node::ObjectWrap
 {
 public:
-    CouchbaseImpl(lcb_t inst);
-    virtual ~CouchbaseImpl();
-
     // Methods called directly from JavaScript
     static void Init(Handle<Object> target);
 
-    static NAN_METHOD(New);
-    static NAN_METHOD(StrError);
-    static NAN_METHOD(SetHandler);
+    static Handle<Object> createConstants();
 
-    static NAN_METHOD(GetLastError);
-    static NAN_METHOD(GetMulti);
-    static NAN_METHOD(GetReplicaMulti);
-    static NAN_METHOD(LockMulti);
-    static NAN_METHOD(SetMulti);
-    static NAN_METHOD(ReplaceMulti);
-    static NAN_METHOD(AddMulti);
-    static NAN_METHOD(AppendMulti);
-    static NAN_METHOD(PrependMulti);
-    static NAN_METHOD(RemoveMulti);
-    static NAN_METHOD(ArithmeticMulti);
-    static NAN_METHOD(TouchMulti);
-    static NAN_METHOD(UnlockMulti);
-    static NAN_METHOD(ObserveMulti);
-    static NAN_METHOD(EndureMulti);
-    static NAN_METHOD(Stats);
-    static NAN_METHOD(View);
-    static NAN_METHOD(Shutdown);
-    static NAN_METHOD(HttpRequest);
-    static NAN_METHOD(_Control);
-    static NAN_METHOD(Connect);
+    static NAN_METHOD(fnNew);
 
-    // Design Doc Management
-    static NAN_METHOD(GetDesignDoc);
-    static NAN_METHOD(SetDesignDoc);
-    static NAN_METHOD(DeleteDesignDoc);
+    static NAN_METHOD(fnConnect);
+    static NAN_METHOD(fnShutdown);
 
+    static NAN_METHOD(fnSetConnectCallback);
+    static NAN_METHOD(fnSetTranscoder);
+    static NAN_METHOD(fnLcbVersion);
+    static NAN_METHOD(fnControl);
+    static NAN_METHOD(fnGetViewNode);
+    static NAN_METHOD(fnGetMgmtNode);
+    static NAN_METHOD(fnErrorTest);
 
-    // Setting up the event emitter
-    static NAN_METHOD(On);
-    NAN_METHOD(on);
+    static NAN_METHOD(fnGet);
+    static NAN_METHOD(fnGetReplica);
+    static NAN_METHOD(fnTouch);
+    static NAN_METHOD(fnUnlock);
+    static NAN_METHOD(fnRemove);
+    static NAN_METHOD(fnStore);
+    static NAN_METHOD(fnArithmetic);
+    static NAN_METHOD(fnDurability);
 
-    // Method called from libcouchbase
-    void onCbConfig(lcb_configuration_t config);
-    void onCbConnect(lcb_error_t err);
+public:
+    CouchbaseImpl(lcb_t inst);
+    virtual ~CouchbaseImpl();
 
-    void errorCallback(lcb_error_t err, const char *errinfo);
-    void runScheduledOperations(lcb_error_t err = LCB_SUCCESS);
+    void onConnect(lcb_error_t err);
 
-    void shutdown(void);
-
-    lcb_t getLibcouchbaseHandle(void) {
+    lcb_t getLcbHandle(void) const {
         return instance;
     }
 
-    static Handle<Object> createConstants();
 
-
-    bool isConnected(void) const {
-        return connected;
-    }
-
-    static void dumpMemoryInfo(const std::string&);
+    Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags);
+    void encodeDoc(DefaultTranscoder& transcoder, const void **,
+            lcb_SIZE *nbytes, lcb_U32 *flags, Handle<Value> value);
 
 protected:
-    bool connected;
-    bool useHashtableParams;
     lcb_t instance;
-    lcb_error_t lastError;
 
-    typedef std::map<std::string, NanCallback* > EventMap;
-    EventMap events;
-    Persistent<Function> connectHandler;
-    std::queue<Command *> pendingCommands;
     void setupLibcouchbaseCallbacks(void);
-#ifdef COUCHNODE_DEBUG
-    static unsigned int objectCount;
-#endif
-private:
-    template <class T>
-    static Handle<Value> makeOperation(_NAN_METHOD_ARGS, T&);
-    bool isShutdown;
+
+    NanCallback *connectCallback;
+    NanCallback *transEncodeFunc;
+    NanCallback *transDecodeFunc;
+
+public:
+    static Persistent<String> valueKey;
+    static Persistent<String> casKey;
+    static Persistent<String> flagsKey;
+    static Persistent<String> datatypeKey;
+
 };
 
-
-Handle<Value> ThrowException(const char *str);
-Handle<Value> ThrowIllegalArgumentsException(void);
 } // namespace Couchnode
 
 #endif

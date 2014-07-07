@@ -1,62 +1,69 @@
 # Couchbase Node.js Client
 
-This library allows you to connect to a Couchbase cluster from Node.js.
-It is a native Node.js module and uses the very fast libcouchbase library to
-handle communicating to the cluster over the Couchbase binary protocol.
+The Node.js SDK library allows you to connect to a Couchbase cluster from 
+Node.js. It is a native Node.js module and uses the very fast libcouchbase 
+library to handle communicating to the cluster over the Couchbase binary
+protocol.
 
 [![Build Status](http://cbsdkbuilds.br19.com/buildStatus/icon?job=cb-node)](http://cbsdkbuilds.br19.com/job/cb-node/)
 
 
 ## Useful Links
 
-Source - http://github.com/couchbase/couchnode
+Source - [http://github.com/couchbase/couchnode](http://github.com/couchbase/couchnode)
 
-Bug Tracker - http://www.couchbase.com/issues/browse/JSCBC
+Bug Tracker - [http://www.couchbase.com/issues/browse/JSCBC](http://www.couchbase.com/issues/browse/JSCBC)
 
-Couchbase Node.js Community - http://couchbase.com/communities/nodejs
+Couchbase Node.js Community - [http://couchbase.com/communities/nodejs](http://couchbase.com/communities/nodejs)
 
 
 ## Installing
 
 To install the lastest release using npm, run:
-```
+```bash
 npm install couchbase
 ```
 
-To install the in development version directly from github, run:
-```
-npm install git+https://github.com/couchbase/couchnode.git
+To install the development version directly from github, run:
+```bash
+npm install "git+https://github.com/couchbase/couchnode.git#master"
 ```
 
 
 ## Introduction
 
-Connecting to a Couchbase bucket is as simple as creating a new Connection
-instance.  Once you are connect, you may execute any of Couchbases' numerous
-operations against this connection.
+Connecting to a Couchbase bucket is as simple as creating a new `Cluster` 
+instance to represent the `Cluster` you are using, and then executing
+`openBucket` against this to open a connection to you specific bucket.  You
+are able to execute most operations immediately, and they will be queued
+until the connection is successfully established.
 
-Here is a simple example of instantiating a connection, setting a new document
+Here is a simple example of instantiating a connection, adding a new document
 into the bucket and then retrieving its contents:
 
 ```javascript
-    var couchbase = require('couchbase');
-    var cluster = new couchbase.Cluster();
-    var db = cluster.openBucket('default');
+var couchbase = require('couchbase');
+var cluster = new couchbase.Cluster();
+var bucket = cluster.openBucket('default');
 
-    db.upsert('testdoc', {name:'Frank'}, function(err, result) {
-      if (err) throw err;
+bucket.upsert('testdoc', {name:'Frank'}, function(err, result) {
+  if (err) throw err;
 
-      db.get('testdoc', function(err, result) {
-        if (err) throw err;
+  bucket.get('testdoc', function(err, result) {
+    if (err) throw err;
 
-        console.log(result.value);
-        // {name: Frank}
-      });
-    });
+    console.log(result.value);
+    // {name: Frank}
+  });
+});
 ```
 
 
 ## Mock Testing
+
+As part of the core library, we additionally include a powerful Mock version
+of the library which supports a significant set of the features that are
+available when connected to a real Couchbase Server.
 
 As part of this library, we include a mock version of the client that supports
 nearly the exact same feature set as the library itself, but which does not
@@ -66,8 +73,8 @@ be shared.
 
 Using the Mock is as simple as this:
 ```javascript
-    var couchbase = require('couchbase').Mock;
-    var db = new couchbase.Connection();
+var couchbase = require('couchbase').Mock;
+var db = new couchbase.Connection();
 ```
 
 
@@ -87,8 +94,14 @@ Once you have cloned the repository, you may contribute changes through our
 gerrit server.  For more details see
 [CONTRIBUTING.md](https://github.com/couchbase/couchnode/blob/master/CONTRIBUTING.md).
 
-To execute our test suite, run `make test` from your checked out root directory.
+To execute our test suite, run `make test` from the root directory.
 
+To execute our code coverage, run `make cover` from the root directory.
+
+In addition to the full test suite and full code coverage, you may additionally
+execute a subset of the tests which excludes slow-running tests for quick
+verifications.  These can be run through `make fasttest` and `make fastcover`
+respectively.
 
 ## License
 Copyright 2013 Couchbase Inc.

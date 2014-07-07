@@ -132,6 +132,9 @@
       'target_name': 'lcbio',
       'product_prefix': 'lib',
       'type': 'static_library',
+      'defines': [
+        'LCB_NO_SSL'
+      ],
       'include_dirs': [
         './'
       ],
@@ -152,6 +155,9 @@
       'target_name': 'couchbase_utils',
       'product_prefix': 'lib',
       'type': 'static_library',
+      'defines': [
+        'LCB_NO_SSL'
+      ],
       'include_dirs': [
         './'
       ],
@@ -257,7 +263,9 @@
         'src/timer.c',
         'src/timings.c',
         'src/utilities.c',
-        'src/wait.c'
+        'src/wait.c',
+
+        'plugins/io/select/plugin-select.c'
       ],
       'dependencies': [
         'couchbase_utils',

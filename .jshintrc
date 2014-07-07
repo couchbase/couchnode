@@ -21,7 +21,7 @@
   "undef": true,
   "unused": false,
   "strict": true,
-  "trailing": true
+  "trailing": true,
   "globals"   : {
     /* MOCHA */
     "describe"   : false,

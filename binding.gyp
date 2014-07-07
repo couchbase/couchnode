@@ -91,15 +91,11 @@
       'src/couchbase_impl.cc',
       'src/control.cc',
       'src/constants.cc',
-      'src/namemap.cc',
-      'src/cookie.cc',
-      'src/commandbase.cc',
-      'src/commands.cc',
-      'src/exception.cc',
-      'src/options.cc',
+      'src/transcoder.cc',
+      'src/binding.cc',
+      'src/operations.cc',
       'src/cas.cc',
-      'src/uv-plugin-all.c',
-      'src/valueformat.cc'
+      'src/uv-plugin-all.c'
     ],
     'include_dirs': [
       '<!(node -e "require(\'nan\')")',

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2012 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -14,130 +14,59 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
+#ifndef EXCEPTION_H
+#define EXCEPTION_H 1
 
-
-#ifndef COUCHBASE_EXCEPTION_H
-#define COUCHBASE_EXCEPTION_H
 #ifndef COUCHBASE_H
 #error "include couchbase_impl.h first"
 #endif
 
 namespace Couchnode
 {
-/**
- * Base class of the Exceptions thrown by the internals of
- * Couchnode
- */
 
+using namespace v8;
 
-class ErrorCode {
-public:
-    enum {
-        BEGIN = 0x1000,
-        MEMORY,
-        ARGUMENTS,
-        INTERNAL,
-        SCHEDULING,
-        CHECK_RESULTS,
-        GENERIC,
-        DURABILITY_FAILED,
-        REST
-    };
-};
-
-class CBExc
+class Error
 {
-
 public:
-    CBExc(const char *, const Handle<Value>);
-    CBExc();
-    virtual ~CBExc();
+    static void Init() {
+        Local<FunctionTemplate> tErr = NanNew<FunctionTemplate>();
+        tErr->SetClassName(NanNew<String>("CouchbaseError"));
+        NanAssignPersistent(errorClass, tErr->GetFunction());
 
-    void assign(int cc, const std::string & msg = "") {
-        if (set_) { return; }
+        NanAssignPersistent(codeKey, NanNew<String>("code"));
+    }
 
-        if (msg.empty() && isLcbError(cc)) {
-            message = lcb_strerror(NULL, (lcb_error_t)cc);
-        } else {
-            message = msg;
+    static Handle<Value> create(const std::string &msg, int err = 0) {
+        Handle<Value> args[] = { NanNew<String>(msg.c_str()) };
+        Handle<Object> errObj = getErrorClass()->NewInstance(1, args);
+        if (err > 0) {
+            errObj->Set(NanNew(codeKey), NanNew<Integer>(err));
         }
-        code = cc;
-        set_ = true;
+        return errObj;
     }
 
-
-    // Handy method to assign an argument error
-    // These all return the object so one can do:
-    // CBExc().eArguments().throwV8();
-
-    CBExc& eArguments(const std::string& msg = "", Handle<Value> at = Handle<Value>()) {
-        if (set_) {
-            return *this;
+    static Handle<Value> create(lcb_error_t err) {
+        if (err == LCB_SUCCESS) {
+            return NanNull();
         }
-        assign(ErrorCode::ARGUMENTS);
-        setMessage(msg, at);
-        return *this;
+
+        Handle<Value> args[] = { NanNew<String>(lcb_strerror(NULL, err)) };
+        Handle<Object> errObj = getErrorClass()->NewInstance(1, args);
+        errObj->Set(NanNew(codeKey), NanNew<Integer>(err));
+        return errObj;
     }
 
-    CBExc& eMemory(const std::string& msg = "") {
-        assign(ErrorCode::MEMORY, msg);
-        return *this;
+    static Handle<Function> getErrorClass() {
+        return NanNew(errorClass);
     }
-
-    CBExc& eInternal(const std::string &msg = "") {
-        assign(ErrorCode::INTERNAL, msg);
-        return *this;
-    }
-
-    CBExc& eLcb(lcb_error_t err) {
-        assign(err);
-        return *this;
-    }
-
-    virtual const std::string &getMessage() const {
-        return message;
-    }
-
-    virtual std::string formatMessage() const;
-
-    v8::Local<v8::Value> throwV8() {
-        assert(isSet());
-        assert(!(message.empty() && code != 0));
-        throwV8Object();
-        return NanUndefined();
-    }
-
-    Handle<Value> asValue();
-
-
-    void throwV8Object() {
-        NanThrowError(asValue());
-    }
-
-    bool isSet() const { return set_; }
-    bool hasObject() const { return obj_set_; }
-    void setMessage(const std::string &msg = "",
-                    Handle<Value> val = Handle<Value>());
-
-    void setMessage(const char *s) {
-        setMessage(std::string(s));
-    }
-
-    // Returns true if the error is a libcouchbase code, false otherwise.
-    // note the code *must* be either an
-    static bool isLcbError(int cc) { return cc < ErrorCode::BEGIN; }
-
-
-protected:
-    Persistent<Value> atObject;
-    std::string message;
-    int code;
-    bool set_ : 1;
-    bool obj_set_ : 1;
 
 private:
-    CBExc(CBExc&);
+    static Persistent<Function> errorClass;
+    static Persistent<String> codeKey;
+    Error() {}
 };
+
 
 }
 

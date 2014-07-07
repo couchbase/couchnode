@@ -18,44 +18,16 @@
 #include <sstream>
 using namespace Couchnode;
 
-/**
- * If we have 64 bit pointers we can stuff the pointer into the field and
- * save on having to make a new uint64_t*
- */
-#if 0 && defined(_LP64) && !defined(COUCHNODE_NO_CASINTPTR)
-// Seems to be broken, so disabling this for now..
-Handle<Value> Cas::CreateCas(uint64_t cas)
-{
-    Handle<Value> ret = External::New((void*)(uintptr_t)cas);
-    return ret;
-}
-
-bool Cas::GetCas(Handle<Value> obj, uint64_t *p)
-{
-    if (!obj->IsExternal()) {
-        return false;
-    }
-    *p = (uint64_t)(uintptr_t)(obj.As<External>()->Value());
-    return true;
-}
-
-#else
-
 NAN_WEAK_CALLBACK(casDtor) {
     uint64_t *value = data.GetParameter();
     delete value;
 }
 
-
-#define CAS_ARRAY_MTYPE kExternalUnsignedIntArray
-#define CAS_ARRAY_ELEMENTS 2
-
 Handle<Value> Cas::CreateCas(uint64_t cas) {
     Local<Object> ret = NanNew<Object>();
     uint64_t *p = new uint64_t(cas);
-    ret->SetIndexedPropertiesToExternalArrayData(p,
-                                                     CAS_ARRAY_MTYPE,
-                                                     CAS_ARRAY_ELEMENTS);
+    ret->SetIndexedPropertiesToExternalArrayData(
+        p, v8::kExternalUnsignedIntArray, 2);
     NanMakeWeakPersistent(ret, p, casDtor);
     return ret;
 }
@@ -65,12 +37,10 @@ bool Cas::GetCas(Handle<Value> obj, uint64_t *p) {
     if (!realObj->IsObject()) {
         return false;
     }
-    if (realObj->GetIndexedPropertiesExternalArrayDataLength()
-            != CAS_ARRAY_ELEMENTS) {
+    if (realObj->GetIndexedPropertiesExternalArrayDataLength() != 2) {
         return false;
     }
 
     *p = *(uint64_t*)realObj->GetIndexedPropertiesExternalArrayData();
     return true;
 }
-#endif

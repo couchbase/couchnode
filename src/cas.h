@@ -21,6 +21,7 @@
 
 namespace Couchnode
 {
+
 class Cas
 {
 public:
