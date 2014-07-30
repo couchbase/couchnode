@@ -16,6 +16,7 @@
  */
 
 #include "internal.h"
+#include "trace.h"
 
 LIBCOUCHBASE_API
 lcb_error_t
@@ -31,15 +32,20 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd)
     protocol_binary_request_gat gcmd;
     protocol_binary_request_header *hdr = &gcmd.message.header;
 
+    if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
+        return LCB_EMPTY_KEY;
+    }
+
     if (cmd->lock) {
         extlen = 4;
         opcode = PROTOCOL_BINARY_CMD_GET_LOCKED;
-    } else if (cmd->options.exptime) {
+    } else if (cmd->exptime) {
         extlen = 4;
         opcode = PROTOCOL_BINARY_CMD_GAT;
     }
 
-    err = mcreq_basic_packet(q, (const lcb_CMDBASE *)cmd, hdr, extlen, &pkt, &pl);
+    err = mcreq_basic_packet(q, (const lcb_CMDBASE *)cmd, hdr, extlen, &pkt, &pl,
+        MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
     }
@@ -56,11 +62,13 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd)
     hdr->request.cas = 0;
 
     if (extlen) {
-        gcmd.message.body.expiration = htonl(cmd->options.exptime);
+        gcmd.message.body.expiration = htonl(cmd->exptime);
     }
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), gcmd.bytes, MCREQ_PKT_BASESIZE + extlen);
     mcreq_sched_add(pl, pkt);
+    TRACE_GET_BEGIN(hdr, cmd);
+
     return LCB_SUCCESS;
 }
 
@@ -84,7 +92,7 @@ lcb_error_t lcb_get(lcb_t instance,
         dst.hashkey.contig.bytes = src->v.v0.hashkey;
         dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
         dst.lock = src->v.v0.lock;
-        dst.options.exptime = src->v.v0.exptime;
+        dst.exptime = src->v.v0.exptime;
 
         err = lcb_get3(instance, command_cookie, &dst);
         if (err != LCB_SUCCESS) {
@@ -105,9 +113,14 @@ lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd)
     mc_PACKET *pkt;
     mc_REQDATA *rd;
     lcb_error_t err;
-
     protocol_binary_request_header hdr;
-    err = mcreq_basic_packet(cq, cmd, &hdr, 0, &pkt, &pl);
+
+    if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
+        return LCB_EMPTY_KEY;
+    }
+
+    err = mcreq_basic_packet(cq, cmd, &hdr, 0, &pkt, &pl,
+        MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
     }
@@ -121,9 +134,10 @@ lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd)
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.bodylen = htonl((lcb_uint32_t)ntohs(hdr.request.keylen));
     hdr.request.opaque = pkt->opaque;
-    hdr.request.cas = cmd->options.cas;
+    hdr.request.cas = cmd->cas;
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
+    TRACE_UNLOCK_BEGIN(&hdr, cmd);
     mcreq_sched_add(pl, pkt);
     return LCB_SUCCESS;
 }
@@ -145,7 +159,7 @@ lcb_unlock(lcb_t instance, const void *cookie, lcb_size_t num,
         dst.key.contig.nbytes = src->v.v0.nkey;
         dst.hashkey.contig.bytes = src->v.v0.hashkey;
         dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
-        dst.options.cas = src->v.v0.cas;
+        dst.cas = src->v.v0.cas;
         err = lcb_unlock3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
             break;
@@ -174,13 +188,19 @@ static void
 rget_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
 {
     rget_cookie *rck = (rget_cookie *)pkt->u_rdata.exdata;
-    const lcb_get_resp_t *resp = arg;
+    lcb_RESPGET *resp = (void *)arg;
+    lcb_RESPCALLBACK callback;
     lcb_t instance = rck->instance;
+
+    callback = lcb_find_callback(instance, LCB_CALLBACK_GETREPLICA);
 
     /** Figure out what the strategy is.. */
     if (rck->strategy == LCB_REPLICA_SELECT || rck->strategy == LCB_REPLICA_ALL) {
         /** Simplest */
-        instance->callbacks.get(instance, rck->base.cookie, err, resp);
+        if (rck->strategy == LCB_REPLICA_SELECT || rck->remaining == 1) {
+            resp->rflags |= LCB_RESP_F_FINAL;
+        }
+        callback(instance, LCB_CALLBACK_GETREPLICA, (const lcb_RESPBASE *)resp);
     } else {
         mc_CMDQUEUE *cq = &instance->cmdq;
         mc_PIPELINE *nextpl = NULL;
@@ -198,17 +218,19 @@ rget_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
         } while (rck->r_cur < rck->r_max);
 
         if (err == LCB_SUCCESS || rck->r_cur == rck->r_max || nextpl == NULL) {
-            instance->callbacks.get(instance, rck->base.cookie, err, resp);
+            resp->rflags |= LCB_RESP_F_FINAL;
+            callback(instance, LCB_CALLBACK_GETREPLICA, (lcb_RESPBASE *)resp);
             /* refcount=1 . Free this now */
             rck->remaining = 1;
         } else if (err != LCB_SUCCESS) {
-            mc_PACKET *newpkt = mcreq_dup_packet(pkt);
+            mc_PACKET *newpkt = mcreq_renew_packet(pkt);
             mcreq_sched_add(nextpl, newpkt);
             mcreq_sched_leave(cq, 1);
             /* wait */
             rck->remaining = 2;
         }
     }
+
     if (!--rck->remaining) {
         free(rck);
     }
@@ -230,6 +252,10 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     protocol_binary_request_header req;
     unsigned r0, r1;
     rget_cookie *rck = NULL;
+
+    if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
+        return LCB_EMPTY_KEY;
+    }
 
     mcreq_extract_hashkey(&cmd->key, &cmd->hashkey, MCREQ_PKT_BASESIZE, &hk, &nhk);
     vbid = lcbvb_k2vb(cq->config, hk, nhk);

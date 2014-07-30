@@ -21,7 +21,7 @@
 #include "vbucket/aliases.h"
 #include "sllist-inl.h"
 
-#define LOGARGS(instance, lvl) instance->settings, "newconfig", LCB_LOG_##lvl, __FILE__, __LINE__
+#define LOGARGS(instance, lvl) (instance)->settings, "newconfig", LCB_LOG_##lvl, __FILE__, __LINE__
 #define LOG(instance, lvlbase, msg) lcb_log(instance->settings, "newconfig", LCB_LOG_##lvlbase, __FILE__, __LINE__, msg)
 
 #define SERVER_FMT "%s:%s (%p)"
@@ -35,7 +35,7 @@
  * config
  */
 static int
-find_new_index(VBUCKET_CONFIG_HANDLE config, mc_SERVER *server)
+find_new_index(lcbvb_CONFIG* config, mc_SERVER *server)
 {
     int ii, nnew;
     nnew = VB_NSERVERS(config);
@@ -53,7 +53,7 @@ find_new_index(VBUCKET_CONFIG_HANDLE config, mc_SERVER *server)
 }
 
 static void
-log_vbdiff(lcb_t instance, VBUCKET_CONFIG_DIFF *diff)
+log_vbdiff(lcb_t instance, lcbvb_CONFIGDIFF *diff)
 {
     char **curserver;
     lcb_log(LOGARGS(instance, INFO), "Config Diff: [ vBuckets Modified=%d ], [Sequence Changed=%d]", diff->n_vb_changes, diff->sequence_changed);
@@ -96,7 +96,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
         return MCREQ_KEEP_PACKET;
     }
 
-    newix = vbucket_get_master(cq->config, ntohs(hdr.request.vbucket));
+    newix = lcbvb_vbmaster(cq->config, ntohs(hdr.request.vbucket));
     if (newix < 0 || newix > (int)cq->npipelines) {
         return MCREQ_KEEP_PACKET;
     }
@@ -110,11 +110,11 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
         return MCREQ_KEEP_PACKET;
     }
 
-    lcb_log(LOGARGS(cq->instance, DEBUG), "Remapped packet %p (SEQ=%u) from "SERVER_FMT " to " SERVER_FMT,
+    lcb_log(LOGARGS((lcb_t)cq->cqdata, DEBUG), "Remapped packet %p (SEQ=%u) from "SERVER_FMT " to " SERVER_FMT,
         (void*)oldpkt, oldpkt->opaque, SERVER_ARGS((mc_SERVER*)oldpl), SERVER_ARGS((mc_SERVER*)newpl));
 
     /** Otherwise, copy over the packet and find the new vBucket to map to */
-    newpkt = mcreq_dup_packet(oldpkt);
+    newpkt = mcreq_renew_packet(oldpkt);
     newpkt->flags &= ~MCREQ_STATE_FLAGS;
     mcreq_reenqueue_packet(newpl, newpkt);
     mcreq_packet_handled(oldpl, oldpkt);
@@ -122,35 +122,15 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
 }
 
 static int
-is_new_config(lcb_t instance, VBUCKET_CONFIG_HANDLE oldc, VBUCKET_CONFIG_HANDLE newc)
-{
-    VBUCKET_CONFIG_DIFF *diff;
-    VBUCKET_CHANGE_STATUS chstatus = VBUCKET_NO_CHANGES;
-    diff = vbucket_compare(oldc, newc);
-
-    if (diff) {
-        chstatus = vbucket_what_changed(diff);
-        log_vbdiff(instance, diff);
-        vbucket_free_diff(diff);
-    }
-
-    if (diff == NULL || chstatus == VBUCKET_NO_CHANGES) {
-        lcb_log(LOGARGS(instance, DEBUG), "Ignoring config update. No server changes; DIFF=%p", (void*)diff);
-        return 0;
-    }
-    return 1;
-}
-
-static int
 replace_config(lcb_t instance, clconfig_info *next_config)
 {
-    VBUCKET_DISTRIBUTION_TYPE dist_t;
+    lcbvb_DISTMODE dist_t;
     mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PIPELINE **ppold, **ppnew;
     unsigned ii, nold, nnew;
 
-    dist_t = VB_DISTTYPE(next_config->vbc);
-    nnew = VB_NSERVERS(next_config->vbc);
+    dist_t = lcbvb_get_distmode(next_config->vbc);
+    nnew = LCBVB_NSERVERS(next_config->vbc);
     ppnew = calloc(nnew, sizeof(*ppnew));
     ppold = mcreq_queue_take_pipelines(cq, &nold);
 
@@ -187,7 +167,7 @@ replace_config(lcb_t instance, clconfig_info *next_config)
      * transfer the new config along with the new list over to the CQ structure.
      */
     mcreq_queue_add_pipelines(cq, ppnew, nnew, next_config->vbc);
-    if (dist_t == VBUCKET_DISTRIBUTION_VBUCKET) {
+    if (dist_t == LCBVB_DIST_VBUCKET) {
         for (ii = 0; ii < nnew; ii++) {
             mcreq_iterwipe(cq, ppnew[ii], iterwipe_cb, NULL);
         }
@@ -201,7 +181,7 @@ replace_config(lcb_t instance, clconfig_info *next_config)
         if (!ppold[ii]) {
             continue;
         }
-        if (dist_t == VBUCKET_DISTRIBUTION_VBUCKET) {
+        if (dist_t == LCBVB_DIST_VBUCKET) {
             mcreq_iterwipe(cq, ppold[ii], iterwipe_cb, NULL);
         }
         mcserver_fail_chain((mc_SERVER *)ppold[ii], LCB_MAP_CHANGED);
@@ -209,9 +189,12 @@ replace_config(lcb_t instance, clconfig_info *next_config)
     }
 
     for (ii = 0; ii < nnew; ii++) {
-        ppnew[ii]->flush_start(ppnew[ii]);
+        if (mcserver_has_pending((mc_SERVER*)ppnew[ii])) {
+            ppnew[ii]->flush_start(ppnew[ii]);
+        }
     }
 
+    free(ppnew);
     free(ppold);
     return LCB_CONFIGURATION_CHANGED;
 }
@@ -229,46 +212,54 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
     lcb_clconfig_incref(config);
     instance->nreplicas = (lcb_uint16_t)VB_NREPLICAS(config->vbc);
     q->config = instance->cur_configinfo->vbc;
-    q->instance = instance;
+    q->cqdata = instance;
 
     if (old_config) {
-        if (is_new_config(instance, old_config->vbc, config->vbc)) {
-            change_status = replace_config(instance, config);
-            if (change_status == -1) {
-                LOG(instance, ERR, "Couldn't replace config");
-                return;
-            }
-            lcb_clconfig_decref(old_config);
-        } else {
-            change_status = LCB_CONFIGURATION_UNCHANGED;
+        lcbvb_CONFIGDIFF *diff = lcbvb_compare(old_config->vbc, config->vbc);
+
+        if (diff) {
+            log_vbdiff(instance, diff);
+            lcbvb_free_diff(diff);
         }
+
+        change_status = replace_config(instance, config);
+        if (change_status == -1) {
+            LOG(instance, ERR, "Couldn't replace config");
+            return;
+        }
+        lcb_clconfig_decref(old_config);
     } else {
         unsigned nservers;
         mc_PIPELINE **servers;
         nservers = VB_NSERVERS(config->vbc);
         if ((servers = malloc(sizeof(*servers) * nservers)) == NULL) {
-            abort();
+            assert(servers);
+            lcb_log(LOGARGS(instance, FATAL), "Couldn't allocate memory for new server list! (n=%u)", nservers);
+            return;
         }
 
         for (ii = 0; ii < nservers; ii++) {
             mc_SERVER *srv;
             if ((srv = mcserver_alloc(instance, ii)) == NULL) {
-                abort();
+                assert(srv);
+                lcb_log(LOGARGS(instance, FATAL), "Couldn't allocate memory for server instance!");
+                return;
             }
             servers[ii] = &srv->pipeline;
         }
 
         mcreq_queue_add_pipelines(q, servers, nservers, config->vbc);
         change_status = LCB_CONFIGURATION_NEW;
+        free(servers);
     }
 
-    /* Notify anyone interested in this event... */
-    if (change_status != LCB_CONFIGURATION_UNCHANGED) {
-        if (instance->vbucket_state_listener != NULL) {
-            for (ii = 0; ii < q->npipelines; ii++) {
-                lcb_server_t *server = (lcb_server_t *)q->pipelines[ii];
-                instance->vbucket_state_listener(server);
-            }
+    /* Update the list of nodes here for server list */
+    hostlist_clear(instance->ht_nodes);
+    for (ii = 0; ii < LCBVB_NSERVERS(config->vbc); ++ii) {
+        const char *hp = lcbvb_get_hostport(config->vbc, ii,
+            LCBVB_SVCTYPE_MGMT, LCBVB_SVCMODE_PLAIN);
+        if (hp) {
+            hostlist_add_stringz(instance->ht_nodes, hp, LCB_CONFIG_HTTP_PORT);
         }
     }
 

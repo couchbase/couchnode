@@ -260,13 +260,14 @@ parse_option(struct cliopts_priv *ctx,
         } else if (key[ii] == '=' && prefix_len == 2) {
             /* only split on '=' if we're called as '--' */
             valp = key + (ii + 1);
+            klen = ii;
             break;
         }
     }
 
     GT_PARSEOPT:
     memset(ctx->current_value, 0, sizeof(ctx->current_value));
-    memcpy(ctx->current_key, key, ii);
+    memcpy(ctx->current_key, key, klen);
     ctx->current_key[ii] = '\0';
 
     if (valp) {
@@ -322,11 +323,10 @@ parse_option(struct cliopts_priv *ctx,
             }
             continue;
         }
-
         /** else, prefix_len is 2 */
         if (cur->klong == NULL ||
                 (optlen = strlen(cur->klong) != klen) ||
-                strcmp(cur->klong, ctx->current_key) != 0) {
+                strncmp(cur->klong, ctx->current_key, klen) != 0) {
 
             continue;
         }
@@ -501,9 +501,14 @@ print_help(struct cliopts_priv *ctx, struct cliopts_extra_settings *settings)
 
 
     for (cur = ctx->entries; cur->dest; cur++) {
+        if (cur->hidden) {
+            continue;
+        }
+
         memset(helpbuf, 0, sizeof(helpbuf));
         format_option_help(cur, helpbuf, settings);
         fprintf(stderr, INDENT "%s", helpbuf);
+
 
         if (settings->show_defaults) {
             fprintf(stderr, " [Default=");

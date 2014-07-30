@@ -119,11 +119,7 @@ find_free_block(nb_MBPOOL *pool, nb_SIZE capacity)
         nb_MBLOCK *cur = SLLIST_ITEM(iter.cur, nb_MBLOCK, slnode);
         if (cur->nalloc >= capacity) {
             sllist_iter_remove(&pool->avail, &iter);
-
-            if (mblock_is_standalone(cur)) {
-                pool->curblocks--;
-            }
-
+            pool->curblocks--;
             return cur;
         }
     }
@@ -360,7 +356,6 @@ mblock_release_data(nb_MBPOOL *pool,
     if (pool->curblocks < pool->maxblocks) {
         sllist_append(&pool->avail, &block->slnode);
         pool->curblocks++;
-
     } else {
         mblock_wipe_block(block);
     }
@@ -393,7 +388,8 @@ mblock_release_ptr(nb_MBPOOL *pool, char * ptr, nb_SIZE size)
         return;
     }
 
-    abort();
+    fprintf(stderr, "NETBUF: Requested to release pointer %p which was not allocated\n", ptr);
+    assert(0);
 }
 
 static int
@@ -481,6 +477,9 @@ mblock_init(nb_MBPOOL *pool)
     pool->cacheblocks = calloc(pool->ncacheblocks, sizeof(*pool->cacheblocks));
     for (ii = 0; ii < pool->ncacheblocks; ii++) {
         pool->cacheblocks[ii].parent = pool;
+    }
+    if (pool->ncacheblocks) {
+        pool->maxblocks = pool->ncacheblocks * 2;
     }
 }
 

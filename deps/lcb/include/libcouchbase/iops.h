@@ -163,7 +163,7 @@ typedef void (*lcb_io_timer_cancel_fn)
  */
 typedef int (*lcb_io_timer_schedule_fn)
         (lcb_io_opt_t iops, void *timer,
-                lcb_uint32_t usecs,
+                lcb_U32 usecs,
                 void *uarg,
                 lcb_ioE_callback callback);
 
@@ -260,26 +260,26 @@ typedef int (*lcb_ioE_event_watch_fn)
  * @brief Receive data into a single buffer
  * @see `recv(2)` socket API call.
  */
-typedef lcb_ssize_t (*lcb_ioE_recv_fn)
+typedef lcb_SSIZE (*lcb_ioE_recv_fn)
         (lcb_io_opt_t iops, lcb_socket_t sock, void *target_buf,
-                lcb_size_t buflen, int _unused_flags);
+                lcb_SIZE buflen, int _unused_flags);
 
 /** @brief Send data from a single buffer.
  * @see `send(2)` on POSIX
  */
-typedef lcb_ssize_t (*lcb_ioE_send_fn)
+typedef lcb_SSIZE (*lcb_ioE_send_fn)
         (lcb_io_opt_t iops, lcb_socket_t sock, const void *srcbuf,
-                lcb_size_t buflen, int _ignored);
+                lcb_SIZE buflen, int _ignored);
 
 /**@brief Read data into a series of buffers.
  * @see the `recvmsg(2)` function on POSIX */
-typedef lcb_ssize_t (*lcb_ioE_recvv_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_size_t niov);
+typedef lcb_SSIZE (*lcb_ioE_recvv_fn)
+        (lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_SIZE niov);
 
 /**@brief Write data from multiple buffers.
  * @see the `sendmsg(2)` function on POSIX */
-typedef lcb_ssize_t (*lcb_ioE_sendv_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_size_t niov);
+typedef lcb_SSIZE (*lcb_ioE_sendv_fn)
+        (lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_SIZE niov);
 
 /**@brief Create a new socket.
  * @see `socket(2)` on POSIX */
@@ -327,7 +327,7 @@ struct lcbio_SOCKET;
 /** @deprecated Ringbuffers are no longer used this way by the library for I/O */
 struct lcb_buf_info {
     char *root;
-    lcb_size_t size;
+    lcb_SIZE size;
     struct ringbuffer_st *ringbuffer;
     struct lcb_iovec_st iov[2];
 };
@@ -429,7 +429,7 @@ typedef int (*lcb_ioC_nameinfo_fn)
                 struct lcb_nameinfo_st *ni);
 
 /**@deprecated*/
-typedef void (*lcb_ioC_read_callback)(lcb_sockdata_t *sd, lcb_ssize_t nread);
+typedef void (*lcb_ioC_read_callback)(lcb_sockdata_t *sd, lcb_SSIZE nread);
 #define lcb_io_read_cb lcb_ioC_read_callback
 /**@deprecated See lcb_ioC_read2_fn(). Wrapped if not implemented*/
 typedef int (*lcb_ioC_read_fn)(lcb_io_opt_t,lcb_sockdata_t*,lcb_ioC_read_callback);
@@ -478,7 +478,7 @@ typedef int (*lcb_ioC_write2_fn)
         (lcb_io_opt_t iops,
                 lcb_sockdata_t *sd,
                 lcb_IOV *iov,
-                lcb_size_t niov,
+                lcb_SIZE niov,
                 void *uarg,
                 lcb_ioC_write2_callback callback);
 
@@ -490,7 +490,7 @@ typedef int (*lcb_ioC_write2_fn)
  * @param arg user provided argument for callback.
  */
 typedef void (*lcb_ioC_read2_callback)
-        (lcb_sockdata_t *sd, lcb_ssize_t nread, void *arg);
+        (lcb_sockdata_t *sd, lcb_SSIZE nread, void *arg);
 /**
  * @brief Schedule a read from the network
  * @param iops the I/O context
@@ -510,7 +510,7 @@ typedef int (*lcb_ioC_read2_fn)
         (lcb_io_opt_t iops,
                 lcb_sockdata_t *sd,
                 lcb_IOV *iov,
-                lcb_size_t niov,
+                lcb_SIZE niov,
                 void *uarg,
                 lcb_ioC_read2_callback callback);
 

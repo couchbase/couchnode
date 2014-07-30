@@ -27,183 +27,69 @@
 #define TRACE(probe)
 #endif
 
-#define TRACE_GET_BEGIN(req, key, nkey, expiration)                             \
-    TRACE(LIBCOUCHBASE_GET_BEGIN((req)->message.header.request.opaque,          \
-                                 ntohs((req)->message.header.request.vbucket),  \
-                                 (req)->message.header.request.opcode,          \
-                                 (char*)key, (lcb_uint32_t)nkey,                \
-                                 (lcb_uint32_t)expiration))
+#define TRACE_BEGIN_COMMON(TGT, req, cmd,  ...) \
+    TGT((req)->request.opaque, ntohs((req)->request.vbucket), (req)->request.opcode, \
+    (cmd)->key.contig.bytes, (cmd)->key.contig.nbytes, ## __VA_ARGS__)
 
-#define TRACE_GET_END(opaque, vbucket, opcode, rc, resp)    \
-    TRACE(LIBCOUCHBASE_GET_END(opaque, vbucket,             \
-                               opcode, rc,                  \
-                               (char*)(resp)->v.v0.key,     \
-                               (resp)->v.v0.nkey,           \
-                               (char*)(resp)->v.v0.bytes,   \
-                               (resp)->v.v0.nbytes,         \
-                               (resp)->v.v0.flags,          \
-                               (resp)->v.v0.cas,            \
-                               (resp)->v.v0.datatype))
+#define TRACE_BEGIN_SIMPLE(TGT, req, cmd) \
+    TGT((req)->request.opaque, ntohs((req)->request.vbucket), (req)->request.opcode, \
+        (cmd)->key.contig.bytes, (cmd)->key.contig.nbytes)
 
-#define TRACE_UNLOCK_BEGIN(req, key, nkey)                                          \
-    TRACE(LIBCOUCHBASE_UNLOCK_BEGIN((req)->message.header.request.opaque,           \
-                                    ntohs((req)->message.header.request.vbucket),   \
-                                    (req)->message.header.request.opcode,           \
-                                    (char*)key, (lcb_uint32_t)nkey))
+#define TRACE_END_COMMON(TGT, mcresp, resp, ...) \
+    TGT(PACKET_OPAQUE(mcresp), 0, PACKET_OPCODE(mcresp), (resp)->rc, (resp)->key, (resp)->nkey, \
+        ## __VA_ARGS__)
 
-#define TRACE_UNLOCK_END(opaque, vbucket, rc, resp)     \
-    TRACE(LIBCOUCHBASE_UNLOCK_END(opaque, vbucket,      \
-                                  CMD_UNLOCK_KEY, rc,   \
-                                  (char*)(resp)->v.v0.key,  \
-                                  (resp)->v.v0.nkey))
+#define TRACE_END_SIMPLE(TGT, mcresp, resp) \
+    TGT(PACKET_OPAQUE(mcresp), 0, PACKET_OPCODE(mcresp), (resp)->rc, (resp)->key, (resp)->nkey)
 
-#define TRACE_STORE_BEGIN(req, key, nkey, bytes, nbytes, flags, expiration)         \
-    TRACE(LIBCOUCHBASE_STORE_BEGIN((req)->message.header.request.opaque,            \
-                                   ntohs((req)->message.header.request.vbucket),    \
-                                   (req)->message.header.request.opcode,            \
-                                   (char*)key, (lcb_uint32_t)nkey,                  \
-                                   (char*)bytes, (lcb_uint32_t)nbytes,              \
-                                   (lcb_uint32_t)flags,                             \
-                                   (lcb_uint64_t)(req)->message.header.request.cas, \
-                                   (req)->message.header.request.datatype,          \
-                                   (lcb_uint32_t)expiration))
+#define TRACE_GET_BEGIN(req, cmd) \
+    TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_GET_BEGIN, req, cmd, (cmd)->exptime))
 
-#define TRACE_STORE_END(opaque, vbucket, opcode, rc, resp)      \
-    TRACE(LIBCOUCHBASE_STORE_END(opaque, vbucket,               \
-                                 opcode, rc,                    \
-                                 (char*)(resp)->v.v0.key,       \
-                                 (resp)->v.v0.nkey,             \
-                                 (resp)->v.v0.cas))
+#define TRACE_GET_END(mcresp, resp) \
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_GET_END, mcresp, resp, \
+        (char*)(resp)->value, (resp)->nvalue, (resp)->itmflags, (resp)->cas, \
+        PACKET_DATATYPE(mcresp)))
 
-#define TRACE_ARITHMETIC_BEGIN(req, key, nkey, delta, initial, expiration)              \
-    TRACE(LIBCOUCHBASE_ARITHMETIC_BEGIN((req)->message.header.request.opaque,           \
-                                        ntohs((req)->message.header.request.vbucket),   \
-                                        (req)->message.header.request.opcode,           \
-                                        (char*)key, (lcb_uint32_t)nkey,                 \
-                                        (lcb_uint64_t)delta,                            \
-                                        (lcb_uint64_t)initial,                          \
-                                        (lcb_uint32_t)expiration))
+#define TRACE_UNLOCK_BEGIN(req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_UNLOCK_BEGIN, req, cmd))
+#define TRACE_UNLOCK_END(mcresp, resp) TRACE(TRACE_END_SIMPLE(LIBCOUCHBASE_UNLOCK_END, mcresp, resp))
 
-#define TRACE_ARITHMETIC_END(opaque, vbucket, opcode, rc, resp)     \
-    TRACE(LIBCOUCHBASE_ARITHMETIC_END(opaque, vbucket,              \
-                                      opcode, rc,                   \
-                                      (char*)(resp)->v.v0.key,      \
-                                      (resp)->v.v0.nkey,            \
-                                      (resp)->v.v0.value,           \
-                                      (resp)->v.v0.cas))
+#define TRACE_STORE_BEGIN(req, cmd) \
+    TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_STORE_BEGIN, req, cmd, \
+        ( (cmd)->value.vtype == LCB_KV_IOV ? NULL : (cmd)->value.u_buf.contig.bytes ),\
+        ( (cmd)->value.vtype == LCB_KV_IOV ? 0 : (cmd)->value.u_buf.contig.nbytes ),\
+        (cmd)->flags, (cmd)->cas, (req)->request.datatype, (cmd)->exptime))
 
-#define TRACE_TOUCH_BEGIN(req, key, nkey, expiration)                             \
-    TRACE(LIBCOUCHBASE_TOUCH_BEGIN((req)->message.header.request.opaque,          \
-                                   ntohs((req)->message.header.request.vbucket),  \
-                                   (req)->message.header.request.opcode,          \
-                                   (char*)key, (lcb_uint32_t)nkey,                \
-                                   (lcb_uint32_t)expiration))
+#define TRACE_STORE_END(mcresp, resp) TRACE(TRACE_END_COMMON(LIBCOUCHBASE_STORE_END, mcresp, resp, (resp)->cas))
 
-#define TRACE_TOUCH_END(opaque, vbucket, opcode, rc, resp)      \
-    TRACE(LIBCOUCHBASE_TOUCH_END(opaque, vbucket,               \
-                                 opcode, rc,                    \
-                                 (char*)(resp)->v.v0.key,       \
-                                 (resp)->v.v0.nkey,             \
-                                 (resp)->v.v0.cas))
+#define TRACE_ARITHMETIC_BEGIN(req, cmd) \
+    TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_ARITHMETIC_BEGIN, req, cmd, \
+        (cmd)->delta, (cmd)->initial, (cmd)->exptime))
 
-#define TRACE_REMOVE_BEGIN(req, key, nkey)                                          \
-    TRACE(LIBCOUCHBASE_REMOVE_BEGIN((req)->message.header.request.opaque,           \
-                                    ntohs((req)->message.header.request.vbucket),   \
-                                    (req)->message.header.request.opcode,           \
-                                    (char*)key, (lcb_uint32_t)nkey))
+#define TRACE_ARITHMETIC_END(mcresp, resp) \
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_ARITHMETIC_END, mcresp, resp, (resp)->value, (resp)->cas))
 
-#define TRACE_REMOVE_END(opaque, vbucket, opcode, rc, resp)     \
-    TRACE(LIBCOUCHBASE_REMOVE_END(opaque, vbucket,              \
-                                  opcode, rc,                   \
-                                  (char*)(resp)->v.v0.key,      \
-                                  (resp)->v.v0.nkey,            \
-                                  (resp)->v.v0.cas))
+#define TRACE_TOUCH_BEGIN(req, cmd) \
+    TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_TOUCH_BEGIN, req, cmd, (cmd)->exptime))
+#define TRACE_TOUCH_END(mcresp, resp) \
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_TOUCH_END, mcresp, resp, (resp)->cas))
 
-#define TRACE_FLUSH_BEGIN(req, server_endpoint)                                     \
-    TRACE(LIBCOUCHBASE_FLUSH_BEGIN((req)->message.header.request.opaque,            \
-                                   ntohs((req)->message.header.request.vbucket),    \
-                                   (req)->message.header.request.opcode,            \
-                                   (char*)server_endpoint))
+#define TRACE_REMOVE_BEGIN(req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_REMOVE_BEGIN, req, cmd))
+#define TRACE_REMOVE_END(mcresp, resp) \
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_REMOVE_END, mcresp, resp, (resp)->cas))
 
-#define TRACE_FLUSH_PROGRESS(opaque, vbucket, opcode, rc, resp)      \
-    TRACE(LIBCOUCHBASE_FLUSH_PROGRESS(opaque, vbucket,               \
-                                      opcode, rc,                    \
-                                      (char*)(resp)->v.v0.server_endpoint))
+#define TRACE_OBSERVE_BEGIN(req, body) \
+    TRACE(LIBCOUCHBASE_OBSERVE_BEGIN(\
+        (req)->request.opaque, "", (req)->request.opcode, body, \
+        ntohl( (req)->request.bodylen) ))
 
-#define TRACE_FLUSH_END(opaque, vbucket, opcode, rc)            \
-    TRACE(LIBCOUCHBASE_FLUSH_END(opaque, vbucket, opcode, rc))
+#define TRACE_OBSERVE_PROGRESS(mcresp, resp) \
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_OBSERVE_PROGRESS,mcresp,resp, \
+        (resp)->cas, (resp)->status, (resp)->ismaster, (resp)->ttp, (resp)->ttr))
 
-#define TRACE_VERSIONS_BEGIN(req, server_endpoint)                                     \
-    TRACE(LIBCOUCHBASE_VERSIONS_BEGIN((req)->message.header.request.opaque,            \
-                                      ntohs((req)->message.header.request.vbucket),    \
-                                      (req)->message.header.request.opcode,            \
-                                      (char*)server_endpoint))
+#define TRACE_OBSERVE_END(mcresp) \
+    TRACE(LIBCOUCHBASE_OBSERVE_END(PACKET_OPAQUE(mcresp), 0, PACKET_OPCODE(mcresp), LCB_SUCCESS))
 
-#define TRACE_VERSIONS_PROGRESS(opaque, vbucket, opcode, rc, resp)       \
-    TRACE(LIBCOUCHBASE_VERSIONS_PROGRESS(opaque, vbucket,                \
-                                         opcode, rc,                     \
-                                         (char*)(resp)->v.v0.server_endpoint))
+#define TRACE_HTTP_BEGIN(req) TRACE(LIBCOUCHBASE_HTTP_BEGIN((req)->url, (req)->nurl, (req)->method))
+#define TRACE_HTTP_END(req, rc, resp) TRACE(LIBCOUCHBASE_HTTP_END((req)->url, (req)->nurl, (req)->method, (resp)->rc, (resp)->htstatus
 
-#define TRACE_VERSIONS_END(opaque, vbucket, opcode, rc)             \
-    TRACE(LIBCOUCHBASE_VERSIONS_END(opaque, vbucket, opcode, rc))
-
-#define TRACE_STATS_BEGIN(req, server_endpoint, arg, narg)                          \
-    TRACE(LIBCOUCHBASE_STATS_BEGIN((req)->message.header.request.opaque,            \
-                                   ntohs((req)->message.header.request.vbucket),    \
-                                   (req)->message.header.request.opcode,            \
-                                   (char*)server_endpoint, (char*)arg, narg))
-
-#define TRACE_STATS_PROGRESS(opaque, vbucket, opcode, rc, resp)     \
-    TRACE(LIBCOUCHBASE_STATS_PROGRESS(opaque, vbucket,              \
-                                     opcode, rc,                    \
-                                     (char*)(resp)->v.v0.server_endpoint, \
-                                     (char*)(resp)->v.v0.key,       \
-                                     (resp)->v.v0.nkey,             \
-                                     (char*)(resp)->v.v0.bytes,     \
-                                     (resp)->v.v0.nbytes))
-
-#define TRACE_STATS_END(opaque, vbucket, opcode, rc)            \
-    TRACE(LIBCOUCHBASE_STATS_END(opaque, vbucket, opcode, rc))
-
-#define TRACE_VERBOSITY_BEGIN(req, server_endpoint, level)                              \
-    TRACE(LIBCOUCHBASE_VERBOSITY_BEGIN((req)->message.header.request.opaque,            \
-                                       ntohs((req)->message.header.request.vbucket),    \
-                                       (req)->message.header.request.opcode,            \
-                                       (char*)server_endpoint, level))
-
-#define TRACE_VERBOSITY_END(opaque, vbucket, opcode, rc, resp)      \
-    TRACE(LIBCOUCHBASE_VERBOSITY_END(opaque, vbucket,               \
-                                     opcode, rc,                    \
-                                     (char*)(resp)->v.v0.server_endpoint))
-
-#define TRACE_OBSERVE_BEGIN(req, server_endpoint, bytes, nbytes)                    \
-    TRACE(LIBCOUCHBASE_OBSERVE_BEGIN((req)->message.header.request.opaque,          \
-                                     ntohs((req)->message.header.request.vbucket),  \
-                                     (req)->message.header.request.opcode,          \
-                                     (char*)bytes, nbytes))
-
-#define TRACE_OBSERVE_PROGRESS(opaque, vbucket, opcode, rc, resp)   \
-    TRACE(LIBCOUCHBASE_OBSERVE_PROGRESS(opaque, vbucket,            \
-                                        opcode, rc,                 \
-                                        (char*)(resp)->v.v0.key,    \
-                                        (resp)->v.v0.nkey,          \
-                                        (resp)->v.v0.cas,           \
-                                        (resp)->v.v0.status,        \
-                                        (resp)->v.v0.from_master,   \
-                                        (resp)->v.v0.ttp,           \
-                                        (resp)->v.v0.ttr))
-
-#define TRACE_OBSERVE_END(opaque, vbucket, opcode, rc)              \
-    TRACE(LIBCOUCHBASE_OBSERVE_END(opaque, vbucket, opcode, rc))
-
-#define TRACE_HTTP_BEGIN(req)                               \
-    TRACE(LIBCOUCHBASE_HTTP_BEGIN((req)->url,               \
-                                  (req)->nurl,              \
-                                  (req)->method))
-
-#define TRACE_HTTP_END(req, rc, resp)                               \
-    TRACE(LIBCOUCHBASE_HTTP_END((req)->url,                         \
-                                (req)->nurl,                        \
-                                (req)->method, rc,                  \
-                                (resp)->v.v0.status))
 #endif

@@ -15,23 +15,10 @@
  *   limitations under the License.
  */
 
-/**
- * @file
- *
- * BUILD:
- *
- *      cc -o observe observe.c -lcouchbase
- *      cl /DWIN32 /Iinclude observe.c lib\libcouchbase.lib
- *
- * RUN:
- *  The example will try to connect to "default" bucket
- *  localhost:8091. See lcb_create(3) about how to specify another
- *  bucket name and server address.
- *
- *      ./observe
- *      observe.exe
+/*
+ * BUILD: `cc -o observe observe.c -lcouchbase`
+ * RUN: `./observe key`
  */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,121 +28,131 @@
     fprintf(stderr, "%s\n", msg); \
     exit(EXIT_FAILURE);
 
-/* master and up to three replicas */
-struct {
-    lcb_cas_t cas;
-    lcb_observe_t status;
-} state[4];
-int cur = 0;
+#define fail2(msg, err) \
+    fprintf(stderr, "%s\n", msg); \
+    fprintf(stderr, "Error was 0x%x (%s)\n", err, lcb_strerror(NULL, err))
 
-static void observe_callback(lcb_t instance,
-                             const void *cookie,
-                             lcb_error_t error,
-                             const lcb_observe_resp_t *resp)
+typedef struct {
+    int master;
+    lcb_U8 status;
+    lcb_U64 cas;
+} node_info;
+
+typedef struct {
+    unsigned nresp;
+    node_info *nodeinfo;
+} observe_info;
+
+static void
+observe_callback(lcb_t instance, const void *cookie, lcb_error_t error,
+    const lcb_observe_resp_t *resp)
 {
-    if (resp->version != 0) {
-        fail("unknown response version");
+    observe_info *obs_info = (observe_info *)cookie;
+    node_info *ni = &obs_info->nodeinfo[obs_info->nresp];
+
+    if (resp->v.v0.nkey == 0) {
+        fprintf(stderr, "All nodes have replied\n");
+        return;
     }
-    if (error == LCB_SUCCESS) {
-        if (resp->v.v0.from_master) {
-            state[0].cas = resp->v.v0.cas;
-            state[0].status = resp->v.v0.status;
-        } else {
-            cur++;
-            state[cur].cas = resp->v.v0.cas;
-            state[cur].status = resp->v.v0.status;
-        }
-    } else {
-        fail("failed to observe the key");
+
+    if (error != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to observe key from node. 0x%x (%s)\n",
+            error, lcb_strerror(instance, error));
+        obs_info->nresp++;
+        return;
     }
-    (void)instance;
-    (void)cookie;
+
+    /* Copy over the fields we care about */
+    ni->cas = resp->v.v0.cas;
+    ni->status = resp->v.v0.status;
+    ni->master = resp->v.v0.from_master;
+
+    /* Increase the response counter */
+    obs_info->nresp++;
+}
+
+static void
+observe_masteronly_callback(lcb_t instance, const void *cookie, lcb_error_t err,
+    const lcb_observe_resp_t *resp)
+{
+    if (!resp->v.v0.nkey) {
+        return;
+    }
+
+    if (err != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to get CAS from master: 0x%x (%s)\n", err, lcb_strerror(instance, err));
+        return;
+    }
+    *(lcb_cas_t*)cookie = resp->v.v0.cas;
 }
 
 int main(int argc, char *argv[])
 {
     lcb_t instance;
     lcb_error_t err;
-    lcb_observe_cmd_t cmd;
-    const lcb_observe_cmd_t *cmds[] = { &cmd };
-    int i, n, s, num_replicas;
+    lcb_observe_cmd_t cmd = { 0 };
+    const lcb_observe_cmd_t *cmdp = &cmd;
+    observe_info obs_info;
+    unsigned nservers, ii;
+    lcb_cas_t curcas = 0;
 
     if (argc != 2) {
         fail("requires key as argument");
     }
-    err = lcb_create(&instance, NULL);
-    if (err != LCB_SUCCESS) {
-        fail("cannot create connection instance");
-    }
-    err = lcb_connect(instance);
-    if (err != LCB_SUCCESS) {
-        fail("cannot schedule connection of the instance");
-    }
-    err = lcb_wait(instance);
-    if (err != LCB_SUCCESS) {
-        fail("cannot connect the instance");
-    }
-    num_replicas = lcb_get_num_replicas(instance);
-    lcb_set_observe_callback(instance, observe_callback);
 
-    printf("observing the state of \"%s\":\n", argv[1]);
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.version = 0;
+    if ((err = lcb_create(&instance, NULL)) != LCB_SUCCESS) {
+        fail2("cannot create connection instance", err);
+    }
+    if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
+        fail2("Couldn't schedule connection", err);
+    }
+    lcb_wait(instance);
+    if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
+        fail2("Couldn't get initial cluster configuration", err);
+    }
+
+
+    nservers = lcb_get_num_nodes(instance);
+    obs_info.nodeinfo = calloc(nservers, sizeof (*obs_info.nodeinfo));
+    obs_info.nresp = 0;
     cmd.v.v0.key = argv[1];
     cmd.v.v0.nkey = strlen(argv[1]);
-    err = lcb_observe(instance, NULL, 1, cmds);
-    if (err != LCB_SUCCESS) {
-        fail("cannot schedule observe command");
-    }
-    err = lcb_wait(instance);
-    if (err != LCB_SUCCESS) {
-        fail("cannot execute observe command");
+
+    lcb_set_observe_callback(instance, observe_callback);
+    printf("observing the state of '%s':\n", argv[1]);
+
+    if ((err = lcb_observe(instance, &obs_info, 1, &cmdp)) != LCB_SUCCESS) {
+        fail2("Couldn't schedule observe request", err);
     }
 
-    switch (state[0].status) {
-    case LCB_OBSERVE_FOUND:
-        printf("* found on master, but not persisted yet\n");
-        break;
-    case LCB_OBSERVE_NOT_FOUND:
-        printf("* not found\n");
-        break;
-    case LCB_OBSERVE_LOGICALLY_DELETED:
-        printf("* no longer exists in cache, but may still remain on disk\n");
-        n = s = 0;
-        for (i = 1; i < num_replicas; ++i) {
-            if (state[0].cas == state[i].cas) {
-                n++;
-            } else if (state[i].status != LCB_OBSERVE_NOT_FOUND) {
-                s++;
-            }
-        }
-        if (n) {
-            printf("* exists on %d replica node(s)\n", n);
-        }
-        if (s) {
-            printf("* %d replica node(s) have stale version of the key\n", n);
-        }
-        break;
-    case LCB_OBSERVE_PERSISTED:
-        printf("* persisted on master\n");
-        n = s = 0;
-        for (i = 1; i < num_replicas; ++i) {
-            if (state[0].cas == state[i].cas) {
-                n++;
-            } else if (state[i].status != LCB_OBSERVE_NOT_FOUND) {
-                s++;
-            }
-        }
-        if (n) {
-            printf("* exists on %d replica node(s)\n", n);
-        }
-        if (s) {
-            printf("* %d replica node(s) have stale version of the key\n", n);
-        }
-        break;
-    default:
-        fail("unexpected status");
+    lcb_wait(instance);
+    for (ii = 0; ii < obs_info.nresp; ii++) {
+        node_info *ni = &obs_info.nodeinfo[ii];
+        fprintf(stderr, "Got status from %s node:\n", ni->master ? "master" : "replica");
+        fprintf(stderr, "\tCAS: 0x0%lx\n", ni->cas);
+        fprintf(stderr, "\tStatus (RAW): 0x%02x\n", ni->status);
+        fprintf(stderr, "\tExists [CACHE]: %s\n", ni->status & LCB_OBSERVE_NOT_FOUND ? "No" : "Yes");
+        fprintf(stderr, "\tExists [DISK]: %s\n", ni->status & LCB_OBSERVE_PERSISTED ? "Yes" : "No");
+        fprintf(stderr, "\n");
     }
+    free(obs_info.nodeinfo);
 
+    /* The next example shows how to use lcb_observe() to only request the
+     * CAS from the master node */
+
+    fprintf(stderr, "Will request CAS from master...\n");
+    lcb_set_observe_callback(instance, observe_masteronly_callback);
+    cmd.version = 1;
+    cmd.v.v1.options = LCB_OBSERVE_MASTER_ONLY;
+    cmd.v.v1.key = argv[1];
+    cmd.v.v1.nkey = strlen(argv[1]);
+    cmdp = &cmd;
+    if ((err = lcb_observe(instance, &curcas, 1, &cmdp)) != LCB_SUCCESS) {
+        fail2("Couldn't schedule observe request!\n", err);
+    }
+    lcb_wait(instance);
+    fprintf(stderr, "CAS on master is 0x%lx\n", curcas);
+
+    lcb_destroy(instance);
     return EXIT_SUCCESS;
 }

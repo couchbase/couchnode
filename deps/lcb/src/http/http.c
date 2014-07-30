@@ -83,6 +83,37 @@ static lcb_error_t add_header(lcb_http_request_t req, const char *key, const cha
     return LCB_SUCCESS;
 }
 
+
+static void
+pool_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
+{
+    int close_ok = *(int *)arg;
+
+    lcbio_ref(sock);
+    if (reusable && close_ok) {
+        lcbio_mgr_put(sock);
+    } else {
+        lcbio_mgr_discard(sock);
+    }
+}
+
+static void
+do_close_ioctx(lcb_http_request_t req)
+{
+    int can_ka = 0;
+
+    if (!req->ioctx) {
+        return;
+    }
+
+    if (req->parser && req->reqtype == LCB_HTTP_TYPE_VIEW) {
+        can_ka = lcbht_can_keepalive(req->parser);
+    }
+
+    lcbio_ctx_close(req->ioctx, pool_close_cb, &can_ka);
+    req->ioctx = NULL;
+}
+
 void lcb_http_request_decref(lcb_http_request_t req)
 {
     lcb_list_t *ii, *nn;
@@ -91,10 +122,7 @@ void lcb_http_request_decref(lcb_http_request_t req)
         return;
     }
 
-    if (req->ioctx) {
-        lcbio_ctx_close(req->ioctx, NULL, NULL);
-        req->ioctx = NULL;
-    }
+    do_close_ioctx(req);
     lcbio_connreq_cancel(&req->creq);
 
     free(req->path);
@@ -104,9 +132,9 @@ void lcb_http_request_decref(lcb_http_request_t req)
     if (req->parser) {
         lcbht_free(req->parser);
     }
-    if (req->io_timer) {
-        lcb_timer_destroy(NULL, req->io_timer);
-        req->io_timer = NULL;
+    if (req->timer) {
+        lcbio_timer_destroy(req->timer);
+        req->timer = NULL;
     }
 
     request_free_headers(req);
@@ -122,24 +150,6 @@ void lcb_http_request_decref(lcb_http_request_t req)
     free(req);
 }
 
-void lcb_setup_lcb_http_resp_t(lcb_http_resp_t *resp,
-                               lcb_http_status_t status,
-                               const char *path,
-                               lcb_size_t npath,
-                               const char *const *headers,
-                               const void *bytes,
-                               lcb_size_t nbytes)
-{
-    memset(resp, 0, sizeof(*resp));
-    resp->version = 0;
-    resp->v.v0.status = status;
-    resp->v.v0.path = path;
-    resp->v.v0.npath = npath;
-    resp->v.v0.headers = headers;
-    resp->v.v0.bytes = bytes;
-    resp->v.v0.nbytes = nbytes;
-}
-
 static void maybe_refresh_config(lcb_t instance,
                                  lcb_http_request_t req, lcb_error_t err)
 {
@@ -148,6 +158,11 @@ static void maybe_refresh_config(lcb_t instance,
     if (!req->parser) {
         return;
     }
+
+    if (!LCBT_SETTING(instance, refresh_on_hterr)) {
+        return;
+    }
+
     resp = lcbht_get_response(req->parser);
     htstatus_ok = resp->status >= 200 && resp->status < 299;
 
@@ -164,36 +179,53 @@ static void maybe_refresh_config(lcb_t instance,
     lcb_bootstrap_refresh(instance);
 }
 
-void lcb_http_request_finish(lcb_t instance,
-                             lcb_http_request_t req,
-                             lcb_error_t error)
+
+void
+lcb_http_init_resp(const lcb_http_request_t req, lcb_RESPHTTP *res)
 {
+    const lcbht_RESPONSE *htres = lcbht_get_response(req->parser);
+
+    res->cookie = (void*)req->command_cookie;
+    res->key = req->path;
+    res->nkey = req->npath;
+    res->_htreq = req;
+    if (req->headers) {
+        res->headers = (const char * const *)req->headers;
+    }
+    if (htres) {
+        res->htstatus = htres->status;
+    }
+}
+
+void lcb_http_request_finish(lcb_t instance, lcb_http_request_t req,
+    lcb_error_t error)
+{
+
+    lcb_RESPCALLBACK target;
 
     maybe_refresh_config(instance, req, error);
 
-    if ((req->status & LCB_HTREQ_S_CBINVOKED) == 0 && req->on_complete) {
-        lcb_http_resp_t resp;
-        lcbht_RESPONSE *htres = lcbht_get_response(req->parser);
-        lcb_setup_lcb_http_resp_t(&resp,
-                                  htres->status,
-                                  req->path,
-                                  req->npath,
-                                  NULL, /* headers */
-                                  NULL, /* data */
-                                  0);
-        req->on_complete(req, instance, req->command_cookie, error, &resp);
-    }
-    req->status |= LCB_HTREQ_S_CBINVOKED;
+    if ((req->status & LCB_HTREQ_S_CBINVOKED) == 0) {
+        lcb_RESPHTTP resp = { 0 };
+        target = lcb_find_callback(instance, LCB_CALLBACK_HTTP);
 
+        lcb_http_init_resp(req, &resp);
+        resp.rflags = LCB_RESP_F_FINAL;
+        resp.rc = error;
+
+        target(instance, LCB_CALLBACK_HTTP, (lcb_RESPBASE*)&resp);
+    }
+
+    req->status |= LCB_HTREQ_S_CBINVOKED;
     lcb_cancel_http_request(instance, req);
     lcb_http_request_decref(req);
 }
 
-static lcb_server_t *get_view_node(lcb_t instance)
+static mc_SERVER *get_view_node(lcb_t instance)
 {
     /* pick random server */
     lcb_size_t nn, nn_limit;
-    lcb_server_t *server;
+    mc_SERVER *server;
 
     nn = (lcb_size_t)(gethrtime() >> 10) % LCBT_NSERVERS(instance);
     nn_limit = nn;
@@ -217,11 +249,7 @@ lcb_error_t lcb_http_request_exec(lcb_http_request_t req)
     lcb_string *out = &req->outbuf;
 
     request_free_headers(req);
-    if (req->ioctx) {
-        lcbio_ctx_close(req->ioctx, NULL, NULL);
-        req->ioctx = NULL;
-    }
-
+    do_close_ioctx(req);
     lcbio_connreq_cancel(&req->creq);
     if (req->nhost > sizeof(reqhost.host)) {
         lcb_http_request_decref(req);
@@ -256,8 +284,6 @@ lcb_error_t lcb_http_request_exec(lcb_http_request_t req)
     } else {
         req->parser = lcbht_new(req->instance->settings);
     }
-
-    lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_HTTP, req);
 
     rc = lcb_http_request_connect(req);
     if (rc != LCB_SUCCESS) {
@@ -324,10 +350,15 @@ static lcb_error_t setup_headers(lcb_http_request_t req,
     if (rc != LCB_SUCCESS) {
         return rc;
     }
-    rc = add_header(req, "Connection", "close");
-    if (rc != LCB_SUCCESS) {
-        return rc;
+
+    if (req->instance->http_sockpool->maxidle == 0 ||
+            req->reqtype != LCB_HTTP_TYPE_VIEW) {
+        rc = add_header(req, "Connection", "close");
+        if (rc != LCB_SUCCESS) {
+            return rc;
+        }
     }
+
     rc = add_header(req, "Accept", "application/json");
     if (rc != LCB_SUCCESS) {
         return rc;
@@ -370,127 +401,63 @@ static lcb_error_t setup_headers(lcb_http_request_t req,
 }
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_make_http_request(lcb_t instance,
-                                  const void *command_cookie,
-                                  lcb_http_type_t type,
-                                  const lcb_http_cmd_t *cmd,
-                                  lcb_http_request_t *request)
+lcb_error_t
+lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
 {
     lcb_http_request_t req;
-    const char *username = NULL, *body, *path, *content_type;
-    char *password = NULL, *base = NULL;
-    lcb_size_t nbase, nbody, npath;
+    const char *base = NULL, *username, *password, *path;
+    lcb_size_t nbase, npath;
     lcb_http_method_t method;
-    int chunked;
     lcb_error_t rc;
-    lcb_settings *settings = instance->settings;
+    lcb_http_request_t *request = cmd->reqhandle;
 
-    switch (instance->type) {
-    case LCB_TYPE_CLUSTER:
-        if (type != LCB_HTTP_TYPE_MANAGEMENT) {
-            return LCB_EBADHANDLE;
-        }
-        break;
-    case LCB_TYPE_BUCKET:
-        /* we need a vbucket config before we can start getting data.. */
-        if (LCBT_VBCONFIG(instance) == NULL) {
-            return LCB_CLIENT_ETMPFAIL;
-        }
-        break;
+    if ((npath = cmd->key.contig.nbytes) == 0) {
+        path = "/";
+        npath = 1;
+    } else {
+        path = cmd->key.contig.bytes;
     }
-    switch (cmd->version) {
-    case 0:
-        method = cmd->v.v0.method;
-        chunked = cmd->v.v0.chunked;
-        npath = cmd->v.v0.npath;
-        path = cmd->v.v0.path;
-        nbody = cmd->v.v0.nbody;
-        body = cmd->v.v0.body;
-        content_type = cmd->v.v0.content_type;
-        if (type != LCB_HTTP_TYPE_VIEW && type != LCB_HTTP_TYPE_MANAGEMENT) {
-            return LCB_EINVAL;
-        }
-        if (type == LCB_HTTP_TYPE_VIEW && instance->type != LCB_TYPE_BUCKET) {
-            return LCB_EINVAL;
-        }
-        break;
-    case 1:
-        method = cmd->v.v1.method;
-        chunked = cmd->v.v1.chunked;
-        npath = cmd->v.v1.npath;
-        path = cmd->v.v1.path;
-        nbody = cmd->v.v1.nbody;
-        body = cmd->v.v1.body;
-        content_type = cmd->v.v1.content_type;
-        if (type != LCB_HTTP_TYPE_RAW) {
-            return LCB_EINVAL;
-        }
-        break;
-    default:
+
+    if ((method = cmd->method) > LCB_HTTP_METHOD_MAX) {
         return LCB_EINVAL;
     }
-    if (method >= LCB_HTTP_METHOD_MAX) {
-        return LCB_EINVAL;
-    }
-    switch (type) {
-    case LCB_HTTP_TYPE_VIEW: {
-        lcb_server_t *server;
-        if (instance->type != LCB_TYPE_BUCKET) {
+
+    username = cmd->username;
+    password = cmd->password;
+
+    if (cmd->type == LCB_HTTP_TYPE_RAW) {
+        if ((base = cmd->host) == NULL) {
             return LCB_EINVAL;
         }
-        server = get_view_node(instance);
-        if (!server) {
-            return LCB_NOT_SUPPORTED;
+    } else {
+        if (cmd->host) {
+            return LCB_EINVAL;
         }
-        base = server->viewshost;
-        nbase = strlen(base);
-        username = settings->username;
 
-        if (settings->password && *settings->password) {
-            password = strdup(settings->password);
-            if (!password) {
-                return LCB_CLIENT_ENOMEM;
+        if (username == NULL && password == NULL) {
+            username = LCBT_SETTING(instance, username);
+            password = LCBT_SETTING(instance, password);
+        }
+
+        if (cmd->type == LCB_HTTP_TYPE_VIEW) {
+            const mc_SERVER *server;
+            if (!LCBT_VBCONFIG(instance)) {
+                return LCB_CLIENT_ETMPFAIL;
+            }
+            if ((server = get_view_node(instance)) == NULL) {
+                return LCB_NOT_SUPPORTED;
+            }
+            base = server->viewshost;
+        } else {
+            base = lcb_get_node(instance, LCB_NODE_HTCONFIG, 0);
+            if (base == NULL || *base == '\0') {
+                return LCB_CLIENT_ETMPFAIL;
             }
         }
     }
-    break;
-    case LCB_HTTP_TYPE_MANAGEMENT:
-    {
-        const char *tmphost = lcb_get_host(instance);
-        const char *tmpport = lcb_get_port(instance);
-        if (tmphost == NULL || *tmphost == '\0' ||
-                tmpport == NULL || *tmpport == '\0') {
-            return LCB_CLIENT_ETMPFAIL;
-        }
 
-        nbase = strlen(tmphost) + strlen(tmpport) + 2;
-        base = calloc(nbase, sizeof(char));
-        if (!base) {
-            return LCB_CLIENT_ENOMEM;
-        }
-        if (snprintf(base, nbase, "%s:%s", tmphost, tmpport) < 0) {
-            return LCB_CLIENT_ENOMEM;
-        }
-        nbase -= 1; /* skip '\0' */
-        username = settings->username;
-        if (settings->password) {
-            password = strdup(settings->password);
-        }
-        break;
-    }
-    case LCB_HTTP_TYPE_RAW:
-        base = (char *)cmd->v.v1.host;
+    if (base) {
         nbase = strlen(base);
-        username = cmd->v.v1.username;
-        if (cmd->v.v1.password) {
-            password = strdup(cmd->v.v1.password);
-            if (!password) {
-                return LCB_CLIENT_ENOMEM;
-            }
-        }
-        break;
-    default:
-        return LCB_EINVAL;
     }
 
     req = calloc(1, sizeof(struct lcb_http_request_st));
@@ -503,26 +470,17 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
     req->refcount = 1;
     req->instance = instance;
     req->io = instance->iotable;
-    req->command_cookie = command_cookie;
-    req->chunked = chunked;
+    req->command_cookie = cookie;
+    req->chunked = cmd->cmdflags & LCB_CMDHTTP_F_STREAM;
     req->method = method;
-    req->on_complete = instance->callbacks.http_complete;
-    req->on_data = instance->callbacks.http_data;
-    req->reqtype = type;
+    req->reqtype = cmd->type;
     lcb_list_init(&req->headers_out.list);
-    req->nbody = nbody;
-    if (req->nbody) {
-        req->body = malloc(req->nbody);
-        if (req->body == NULL) {
+    if ((req->nbody = cmd->nbody)) {
+        if ((req->body = malloc(req->nbody)) == NULL) {
             lcb_http_request_decref(req);
             return LCB_CLIENT_ENOMEM;
         }
-        memcpy(req->body, body, nbody);
-    }
-
-    if (!npath) {
-        path = "/";
-        npath = 1;
+        memcpy(req->body, cmd->body, req->nbody);
     }
 
     rc = lcb_urlencode_path(path, npath, &req->path, &req->npath);
@@ -531,22 +489,55 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
         return rc;
     }
     rc = lcb_http_verify_url(req, base, nbase);
-    if (type == LCB_HTTP_TYPE_MANAGEMENT) {
-        free(base);
-    }
     if (rc != LCB_SUCCESS) {
         lcb_http_request_decref(req);
         return rc;
     }
-    rc = setup_headers(req, content_type, username, password);
-    free(password);
+    rc = setup_headers(req, cmd->content_type, username, password);
     if (rc != LCB_SUCCESS) {
         lcb_http_request_decref(req);
         return rc;
     }
 
     rc = lcb_http_request_exec(req);
+    if (rc == LCB_SUCCESS) {
+        lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_HTTP, req);
+    }
     return rc;
+
+}
+
+LIBCOUCHBASE_API
+lcb_error_t lcb_make_http_request(lcb_t instance,
+    const void *cookie, lcb_http_type_t type, const lcb_http_cmd_t *cmd,
+    lcb_http_request_t *request)
+{
+    lcb_CMDHTTP htcmd = { 0 };
+    lcb_error_t err;
+    const lcb_HTTPCMDv0 *cmdbase = &cmd->v.v0;
+
+    LCB_CMD_SET_KEY(&htcmd, cmdbase->path, cmdbase->npath);
+    htcmd.type = type;
+    htcmd.body = cmdbase->body;
+    htcmd.nbody = cmdbase->nbody;
+    htcmd.content_type = cmdbase->content_type;
+    htcmd.method = cmdbase->method;
+    htcmd.reqhandle = request;
+
+    if (cmd->version == 1) {
+        htcmd.username = cmd->v.v1.username;
+        htcmd.password = cmd->v.v1.password;
+        htcmd.host = cmd->v.v1.host;
+    }
+    if (cmdbase->chunked) {
+        htcmd.cmdflags |= LCB_CMDHTTP_F_STREAM;
+    }
+
+    err = lcb_http3(instance, cookie, &htcmd);
+    if (err == LCB_SUCCESS) {
+        SYNCMODE_INTERCEPT(instance);
+    }
+    return err;
 }
 
 LIBCOUCHBASE_API
@@ -560,12 +551,11 @@ void lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request)
     if (request->instance) {
         lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_HTTP, request);
     }
+
     request->instance = NULL;
-
-    if (request->io_timer) {
-        lcb_timer_destroy(NULL, request->io_timer);
-        request->io_timer = NULL;
+    if (request->timer) {
+        lcbio_timer_disarm(request->timer);
     }
-
     lcb_maybe_breakout(instance);
 }
+

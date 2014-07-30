@@ -9,6 +9,7 @@
  * * @subpage LCB_LCBT
  * * @subpage LCB_KVAPI
  * * @subpage LCB_CNTL
+ * * @subpage lcb_pubapi3
  *
  * You may read about related Couchbase software at http://docs.couchbase.com/
  *
@@ -65,7 +66,6 @@
  * @addtogroup LCB_GENERICS
  * @{
  * @file src/simplestring.h
- * @file src/genhash.h
  * @file src/list.h
  * @file src/sllist.h
  * @file src/sllist-inl.h

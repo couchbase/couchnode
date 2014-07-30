@@ -129,7 +129,7 @@ INLINE_INHERITED_MEMB  = NO
 # path before files name in the file list and in the header files. If set
 # to NO the shortest path that makes the file name unique will be used.
 
-FULL_PATH_NAMES        = YES
+FULL_PATH_NAMES        = NO
 
 # If the FULL_PATH_NAMES tag is set to YES then the STRIP_FROM_PATH tag
 # can be used to strip a user-defined part of the path. Stripping is
@@ -210,6 +210,13 @@ ALIASES += "volatile=\par Stability\n\xrefitem lcb_apiattr_volatile \"Volatile\"
 ALIASES += "commited=committed"
 ALIASES += "uncommited=uncommitted"
 ALIASES += "uncomitted=uncommitted"
+ALIASES += "lcb_see_detailed_neterr=\n\note This error code is returned only if \ref LCB_CNTL_DETAILED_ERRCODES is set\n"
+
+# Make the lcb_cntl documentation less wordy in the header
+ALIASES += "cntl_arg_both{1}=@par Argument\nModes|Arg\n---|---\nGet, Set|\1\n"
+ALIASES += "cntl_arg_getonly{1}=@par Argument\nModes|Arg\n---|---\nGet|\1\n"
+ALIASES += "cntl_arg_setonly{1}=@par Argument\nModes|Arg\n---|---\nSet|\1\n"
+ALIASES += "cntl_arg_get_and_set{2}=@par Argument\nModes|Arg\n---|---\nGet|\1\nSet|\2\n"
 
 # This tag can be used to specify a number of word-keyword mappings (TCL only).
 # A mapping has the form "name=value". For example adding
@@ -675,8 +682,9 @@ INPUT = include/libcouchbase
 INPUT += plugins/io/libevent/libevent_io_opts.h
 INPUT += plugins/io/libev/libev_io_opts.h
 INPUT += plugins/io/libuv/libuv_io_opts.h
-INPUT += doc/apiattr.h doc/mainpage.h doc/intro.h
+INPUT += doc/apiattr.h doc/mainpage.h doc/intro.h doc/environment.h
 INPUT += RELEASE_NOTES.markdown
+INPUT += doc/cbc.markdown doc/cbc-pillowfight.markdown
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is
@@ -965,7 +973,7 @@ HTML_TIMESTAMP         = YES
 # documentation will contain sections that can be hidden and shown after the
 # page has loaded.
 
-HTML_DYNAMIC_SECTIONS  = YES
+HTML_DYNAMIC_SECTIONS  = NO
 
 # With HTML_INDEX_NUM_ENTRIES one can control the preferred number of
 # entries shown in the various tree structured indices initially; the user
@@ -1135,7 +1143,7 @@ ECLIPSE_DOC_ID         = org.doxygen.Project
 # navigation tree you can set this option to NO if you already set
 # GENERATE_TREEVIEW to YES.
 
-DISABLE_INDEX          = NO
+DISABLE_INDEX          = YES
 
 # The GENERATE_TREEVIEW tag is used to specify whether a tree-like index
 # structure should be generated to display hierarchical information.
@@ -1154,13 +1162,13 @@ GENERATE_TREEVIEW      = YES
 # documentation. Note that a value of 0 will completely suppress the enum
 # values from appearing in the overview section.
 
-ENUM_VALUES_PER_LINE   = 4
+ENUM_VALUES_PER_LINE   = 0
 
 # If the treeview is enabled (see GENERATE_TREEVIEW) then this tag can be
 # used to set the initial width (in pixels) of the frame in which the tree
 # is shown.
 
-TREEVIEW_WIDTH         = 250
+TREEVIEW_WIDTH         = 150
 
 # When the EXT_LINKS_IN_WINDOW option is set to YES doxygen will open
 # links to external symbols imported via tag files in a separate window.
@@ -1216,7 +1224,7 @@ MATHJAX_EXTENSIONS     =
 # typically be disabled. For large projects the javascript based search engine
 # can be slow, then enabling SERVER_BASED_SEARCH may provide a better solution.
 
-SEARCHENGINE           = YES
+SEARCHENGINE           = NO
 
 # When the SERVER_BASED_SEARCH tag is enabled the search engine will be
 # implemented using a PHP enabled web server instead of at the web client
@@ -1376,7 +1384,7 @@ RTF_EXTENSIONS_FILE    =
 # If the GENERATE_MAN tag is set to YES (the default) Doxygen will
 # generate man pages
 
-GENERATE_MAN           = YES
+GENERATE_MAN           = NO
 
 # The MAN_OUTPUT tag is used to specify where the man pages will be put.
 # If a relative path is entered the value of OUTPUT_DIRECTORY will be
@@ -1539,9 +1547,9 @@ PREDEFINED             = LCB_CREATE_V2_FIELDS= \
 # Use the PREDEFINED tag if you want to use a different macro definition that
 # overrules the definition found in the source code.
 
-EXPAND_AS_DEFINED      = LCB_XERR \
+EXPAND_AS_DEFINED      = LCB_XERR X \
                          LCB_CMD_BASE \
-                         LCB_OBSERVE_FIELDS_COMMON
+                         LCB_OBSERVE_FIELDS_COMMON LCB_RESP_BASE LCB_CMD_BASE LCB_RESP_SERVER_FIELDS
 
 # If the SKIP_FUNCTION_MACROS tag is set to YES (the default) then
 # doxygen's preprocessor will remove all references to function-like macros

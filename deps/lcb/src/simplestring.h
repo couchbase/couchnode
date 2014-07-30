@@ -35,7 +35,7 @@
  * Note that all API functions which update the position of the buffer ALSO
  * add a trailing NUL byte at the end.
  */
-typedef struct {
+typedef struct lcb_string_st {
     /** Buffer that's allocated */
     char *base;
 
@@ -83,6 +83,7 @@ int lcb_string_reserve(lcb_string *str, lcb_size_t size);
 
 /**
  * Adds data to the string.
+ * @param str the string to append to
  * @param data the data to copy
  * @param size the size of data to copy
  */

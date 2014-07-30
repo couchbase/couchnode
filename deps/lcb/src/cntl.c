@@ -22,64 +22,53 @@
 
 #define CNTL__MODE_SETSTRING 0x1000
 
-/**
- * ioctl/fcntl-like interface for libcouchbase configuration properties
- */
+/* Basic definition/declaration for handlers */
+#define HANDLER(name) static lcb_error_t name(int mode, lcb_t instance, int cmd, void *arg)
+
+/* For handlers which only retrieve values */
+#define RETURN_GET_ONLY(T, acc) \
+        if (mode != LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; } \
+        *(T*)arg = acc; (void)cmd; return LCB_SUCCESS;
+
+#define RETURN_GET_SET(T, acc) \
+        if (mode == LCB_CNTL_GET) { *(T*)arg = acc; } \
+        else if (mode == LCB_CNTL_SET) { acc = *(T*)arg; } \
+        else { return LCB_ECTL_UNSUPPMODE; } \
+        (void)cmd; return LCB_SUCCESS;
 
 typedef lcb_error_t (*ctl_handler)(int, lcb_t, int, void *);
-
-static int
-boolean_from_string(const char *s)
-{
-    if (!strcmp(s, "true")) {
-        return 1;
-    } else if (!strcmp(s, "false")) {
-        return 0;
-    } else {
-        return atoi(s);
+typedef struct { const char *s; lcb_U32 u32; } STR_u32MAP;
+static const STR_u32MAP* u32_from_map(const char *s, const STR_u32MAP *lookup) {
+    const STR_u32MAP *ret;
+    for (ret = lookup; ret->s; ret++) {
+        lcb_SIZE maxlen = strlen(ret->s);
+        if (!strncmp(ret->s, s, maxlen)) { return ret; }
     }
+    return NULL;
 }
+#define DO_CONVERT_STR2NUM(s, lookup, v) { \
+    const STR_u32MAP *str__rv = u32_from_map(s, lookup); \
+    if (str__rv) { v = str__rv->u32; } else { return LCB_ECTL_BADARG; } }
 
 static lcb_uint32_t *get_timeout_field(lcb_t instance, int cmd)
 {
     lcb_settings *settings = instance->settings;
     switch (cmd) {
-
-    case LCB_CNTL_OP_TIMEOUT:
-        return &settings->operation_timeout;
-
-    case LCB_CNTL_VIEW_TIMEOUT:
-        return &settings->views_timeout;
-
-    case LCB_CNTL_DURABILITY_INTERVAL:
-        return &settings->durability_interval;
-
-    case LCB_CNTL_DURABILITY_TIMEOUT:
-        return &settings->durability_timeout;
-
-    case LCB_CNTL_HTTP_TIMEOUT:
-        return &settings->http_timeout;
-
-    case LCB_CNTL_CONFIGURATION_TIMEOUT:
-        return &settings->config_timeout;
-
-    case LCB_CNTL_CONFDELAY_THRESH:
-        return &settings->weird_things_delay;
-
-    case LCB_CNTL_CONFIG_NODE_TIMEOUT:
-        return &settings->config_node_timeout;
-
-    case LCB_CNTL_HTCONFIG_IDLE_TIMEOUT:
-        return &settings->bc_http_stream_time;
-
-    default:
-        return NULL;
+    case LCB_CNTL_OP_TIMEOUT: return &settings->operation_timeout;
+    case LCB_CNTL_VIEW_TIMEOUT: return &settings->views_timeout;
+    case LCB_CNTL_DURABILITY_INTERVAL: return &settings->durability_interval;
+    case LCB_CNTL_DURABILITY_TIMEOUT: return &settings->durability_timeout;
+    case LCB_CNTL_HTTP_TIMEOUT: return &settings->http_timeout;
+    case LCB_CNTL_CONFIGURATION_TIMEOUT: return &settings->config_timeout;
+    case LCB_CNTL_CONFDELAY_THRESH: return &settings->weird_things_delay;
+    case LCB_CNTL_CONFIG_NODE_TIMEOUT: return &settings->config_node_timeout;
+    case LCB_CNTL_HTCONFIG_IDLE_TIMEOUT: return &settings->bc_http_stream_time;
+    case LCB_CNTL_RETRY_INTERVAL: return &settings->retry_interval;
+    default: return NULL;
     }
 }
 
-static lcb_error_t timeout_common(int mode,
-                                  lcb_t instance, int cmd, void *arg)
-{
+HANDLER(timeout_common) {
     lcb_uint32_t *ptr;
     lcb_uint32_t *user = arg;
 
@@ -89,127 +78,108 @@ static lcb_error_t timeout_common(int mode,
     }
     if (mode == LCB_CNTL_GET) {
         *user = *ptr;
-    } else if (mode == CNTL__MODE_SETSTRING) {
-        int rv;
-        unsigned long tmp;
-        rv = sscanf(arg, "%lu", &tmp);
-        if (rv != 1) {
-            return LCB_ECTL_BADARG;
-        }
-        *ptr = tmp;
     } else {
         *ptr = *user;
     }
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
-noop_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    (void)mode;(void)instance;(void)cmd;(void)arg;
-    return LCB_SUCCESS;
+HANDLER(noop_handler) {
+    (void)mode;(void)instance;(void)cmd;(void)arg; return LCB_SUCCESS;
+}
+HANDLER(get_vbconfig) {
+    RETURN_GET_ONLY(lcbvb_CONFIG*, LCBT_VBCONFIG(instance))
+}
+HANDLER(get_htype) {
+    RETURN_GET_ONLY(lcb_type_t, instance->type)
+}
+HANDLER(get_iops) {
+    RETURN_GET_ONLY(lcb_io_opt_t, instance->iotable->p)
+}
+HANDLER(syncmode) {
+    (void)mode; (void)instance; (void)cmd; (void)arg; return LCB_ECTL_UNKNOWN;
+}
+HANDLER(ippolicy) {
+    RETURN_GET_SET(lcb_ipv6_t, instance->settings->ipv6)
+}
+HANDLER(confthresh) {
+    RETURN_GET_SET(lcb_SIZE, instance->settings->weird_things_threshold)
+}
+HANDLER(randomize_bootstrap_hosts_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, randomize_bootstrap_nodes))
+}
+HANDLER(get_changeset) {
+    (void)instance; RETURN_GET_ONLY(char*, LCB_VERSION_CHANGESET)
+}
+HANDLER(ssl_mode_handler) {
+    RETURN_GET_ONLY(int, LCBT_SETTING(instance, sslopts))
+}
+HANDLER(ssl_capath_handler) {
+    RETURN_GET_ONLY(char*, LCBT_SETTING(instance, capath))
+}
+HANDLER(htconfig_urltype_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, bc_http_urltype));
+}
+HANDLER(syncdtor_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, syncdtor));
+}
+HANDLER(detailed_errcode_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, detailed_neterr))
+}
+HANDLER(retry_backoff_handler) {
+    RETURN_GET_SET(float, LCBT_SETTING(instance, retry_backoff))
+}
+HANDLER(http_poolsz_handler) {
+    RETURN_GET_SET(lcb_SIZE, instance->http_sockpool->maxidle)
+}
+HANDLER(http_refresh_config_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, refresh_on_hterr))
+}
+HANDLER(compmode_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, compressopts))
 }
 
-static lcb_error_t get_vbconfig(int mode, lcb_t instance, int cmd, void *arg)
-{
-    if (mode != LCB_CNTL_GET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-    *(VBUCKET_CONFIG_HANDLE *)arg = LCBT_VBCONFIG(instance);
-
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t get_htype(int mode, lcb_t instance, int cmd, void *arg)
-{
-    if (mode != LCB_CNTL_GET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-
-    *(lcb_type_t *)arg = instance->type;
-
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t get_kvb(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(get_kvb) {
     struct lcb_cntl_vbinfo_st *vbi = arg;
 
-    if (mode != LCB_CNTL_GET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
+    if (mode != LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; }
+    if (!LCBT_VBCONFIG(instance)) { return LCB_CLIENT_ETMPFAIL; }
+    if (vbi->version != 0) { return LCB_ECTL_BADARG; }
 
-    if (!LCBT_VBCONFIG(instance)) {
-        return LCB_CLIENT_ETMPFAIL;
-    }
-
-    if (vbi->version != 0) {
-        return LCB_ECTL_BADARG;
-    }
-
-    vbucket_map(LCBT_VBCONFIG(instance),
-                vbi->v.v0.key,
-                vbi->v.v0.nkey,
-                &vbi->v.v0.vbucket,
-                &vbi->v.v0.server_index);
-
-    (void)cmd;
-    return LCB_SUCCESS;
+    lcbvb_map_key(LCBT_VBCONFIG(instance), vbi->v.v0.key, vbi->v.v0.nkey,
+        &vbi->v.v0.vbucket, &vbi->v.v0.server_index);
+    (void)cmd; return LCB_SUCCESS;
 }
 
-static lcb_error_t get_iops(int mode, lcb_t instance, int cmd, void *arg)
-{
-    if (mode != LCB_CNTL_GET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
 
-    *(lcb_io_opt_t *)arg = instance->iotable->p;
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t conninfo(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(conninfo) {
     lcbio_SOCKET *sock;
     struct lcb_cntl_server_st *si = arg;
     const lcb_host_t *host;
 
-    if (mode != LCB_CNTL_GET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-
-    if (si->version < 0 || si->version > 1) {
-        return LCB_ECTL_BADARG;
-
-    }
+    if (mode != LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; }
+    if (si->version < 0 || si->version > 1) { return LCB_ECTL_BADARG; }
 
     if (cmd == LCB_CNTL_MEMDNODE_INFO) {
-        lcb_server_t *server;
+        mc_SERVER *server;
         int ix = si->v.v0.index;
+
         if (ix < 0 || ix > (int)LCBT_NSERVERS(instance)) {
             return LCB_ECTL_BADARG;
         }
-
         server = LCBT_GET_SERVER(instance, ix);
         if (!server) {
             return LCB_NETWORK_ERROR;
         }
-
         sock = server->connctx->sock;
-
         if (si->version == 1 && sock) {
             mc_pSESSINFO sasl = mc_sess_get(server->connctx->sock);
             if (sasl) {
                 si->v.v1.sasl_mech = mc_sess_get_saslmech(sasl);
             }
         }
-
-
     } else if (cmd == LCB_CNTL_CONFIGNODE_INFO) {
         sock = lcb_confmon_get_rest_connection(instance->confmon);
-
     } else {
         return LCB_ECTL_BADARG;
     }
@@ -217,195 +187,65 @@ static lcb_error_t conninfo(int mode, lcb_t instance, int cmd, void *arg)
     if (!sock) {
         return LCB_SUCCESS;
     }
-
     host = lcbio_get_host(sock);
     si->v.v0.connected = 1;
     si->v.v0.host = host->host;
     si->v.v0.port = host->port;
-
-    switch (instance->iotable->model) {
-    case LCB_IOMODEL_EVENT:
+    if (instance->iotable->model == LCB_IOMODEL_EVENT) {
         si->v.v0.sock.sockfd = sock->u.fd;
-        break;
-
-    case LCB_IOMODEL_COMPLETION:
+    } else {
         si->v.v0.sock.sockptr = sock->u.sd;
-        break;
-
-    default:
-        return LCB_ECTL_BADARG;
     }
-
     return LCB_SUCCESS;
 }
 
-static lcb_error_t syncmode(int mode, lcb_t instance, int cmd, void *arg)
-{
-    (void)mode; (void)instance; (void)cmd; (void)arg;
-    return LCB_ECTL_UNKNOWN;
+HANDLER(config_cache_loaded_handler) {
+    if (mode != LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; }
+    *(int *)arg = instance->cur_configinfo && instance->cur_configinfo->origin == LCB_CLCONFIG_FILE;
+    (void)cmd; return LCB_SUCCESS;
 }
 
-static lcb_error_t ippolicy(int mode, lcb_t instance, int cmd, void *arg)
-{
-    lcb_ipv6_t *user = arg;
-
-    if (mode == LCB_CNTL_SET) {
-        instance->settings->ipv6 = *user;
-    } else {
-        *user = instance->settings->ipv6;
-    }
-
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t confthresh(int mode, lcb_t instance, int cmd, void *arg)
-{
-    lcb_size_t *user = arg;
-
-    if (mode == LCB_CNTL_SET) {
-        instance->settings->weird_things_threshold = *user;
-    } else {
-        *user = instance->settings->weird_things_threshold;
-    }
-
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t randomize_bootstrap_hosts_handler(int mode,
-                                                     lcb_t instance,
-                                                     int cmd,
-                                                     void *arg)
-{
-    int *randomize = arg;
-    int argval;
-
-    if (mode == CNTL__MODE_SETSTRING) {
-        argval = boolean_from_string(arg);
-        mode = LCB_CNTL_SET;
-    } else {
-        argval = *randomize;
-    }
-
-    if (cmd != LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS) {
-        return LCB_EINTERNAL;
-    }
-
-    if (mode == LCB_CNTL_SET) {
-        instance->settings->randomize_bootstrap_nodes = argval;
-    } else {
-        *randomize = instance->settings->randomize_bootstrap_nodes;
-    }
-
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t config_cache_loaded_handler(int mode,
-                                               lcb_t instance,
-                                               int cmd,
-                                               void *arg)
-{
-    if (mode != LCB_CNTL_GET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-
-    if (cmd != LCB_CNTL_CONFIG_CACHE_LOADED) {
-        return LCB_EINTERNAL;
-    }
-
-    *(int *)arg = instance->cur_configinfo &&
-            instance->cur_configinfo->origin == LCB_CLCONFIG_FILE;
-
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t force_sasl_mech_handler(int mode,
-                                           lcb_t instance,
-                                           int cmd,
-                                           void *arg)
-{
-    union {
-        char *set;
-        char **get;
-    } u_arg;
-
-    u_arg.set = arg;
-
+HANDLER(force_sasl_mech_handler) {
     if (mode == LCB_CNTL_SET) {
         free(instance->settings->sasl_mech_force);
-        if (u_arg.set) {
-            instance->settings->sasl_mech_force = strdup(u_arg.set);
+        if (arg) {
+            instance->settings->sasl_mech_force = strdup(arg);
         }
     } else {
-        *u_arg.get = instance->settings->sasl_mech_force;
+        *(char**)arg = instance->settings->sasl_mech_force;
     }
-
-    (void)cmd;
-
-    return LCB_SUCCESS;
+    (void)cmd; return LCB_SUCCESS;
 }
 
-static lcb_error_t max_redirects(int mode, lcb_t instance, int cmd, void *arg)
-{
-    int *val = arg;
-
-    if (*val < -1) {
-        return LCB_ECTL_BADARG;
-    }
-    if (mode == LCB_CNTL_SET) {
-        instance->settings->max_redir = *val;
-    } else {
-        *val = instance->settings->max_redir;
-    }
-
-    (void)cmd;
-    return LCB_SUCCESS;
+HANDLER(max_redirects) {
+    if (mode == LCB_CNTL_SET && *(int*)arg < -1) { return LCB_ECTL_BADARG; }
+    RETURN_GET_SET(int, LCBT_SETTING(instance, max_redir))
 }
 
-static lcb_error_t logprocs_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    if (mode == LCB_CNTL_SET) {
-        instance->settings->logger = (lcb_logprocs *)arg;
-    } else {
-        *(lcb_logprocs**)arg = instance->settings->logger;
+HANDLER(logprocs_handler) {
+    if (mode == LCB_CNTL_GET) {
+        *(lcb_logprocs**)arg = LCBT_SETTING(instance, logger);
+    } else if (mode == LCB_CNTL_SET) {
+        LCBT_SETTING(instance, logger) = (lcb_logprocs *)arg;
     }
-
-    (void)cmd;
-    return LCB_SUCCESS;
+    (void)cmd; return LCB_SUCCESS;
 }
 
-static lcb_error_t config_transport(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(config_transport) {
     lcb_config_transport_t *val = arg;
 
-    if (mode == LCB_CNTL_SET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-
-    if (!instance->cur_configinfo) {
-        return LCB_CLIENT_ETMPFAIL;
-    }
+    if (mode == LCB_CNTL_SET) { return LCB_ECTL_UNSUPPMODE; }
+    if (!instance->cur_configinfo) { return LCB_CLIENT_ETMPFAIL; }
 
     switch (instance->cur_configinfo->origin) {
-        case LCB_CLCONFIG_HTTP:
-            *val = LCB_CONFIG_TRANSPORT_HTTP;
-            break;
-
-        case LCB_CLCONFIG_CCCP:
-            *val = LCB_CONFIG_TRANSPORT_CCCP;
-            break;
-
-        default:
-            return LCB_CLIENT_ETMPFAIL;
+        case LCB_CLCONFIG_HTTP: *val = LCB_CONFIG_TRANSPORT_HTTP; break;
+        case LCB_CLCONFIG_CCCP: *val = LCB_CONFIG_TRANSPORT_CCCP; break;
+        default: return LCB_CLIENT_ETMPFAIL;
     }
-
-    (void)cmd;
-    return LCB_SUCCESS;
+    (void)cmd; return LCB_SUCCESS;
 }
 
-static lcb_error_t config_nodes(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(config_nodes) {
     const char *node_strs = arg;
     clconfig_provider *target;
     hostlist_t nodes_obj;
@@ -440,32 +280,16 @@ static lcb_error_t config_nodes(int mode, lcb_t instance, int cmd, void *arg)
     return LCB_SUCCESS;
 }
 
-static lcb_error_t get_changeset(int mode, lcb_t instance, int cmd, void *arg)
-{
-    *(char **)arg = LCB_VERSION_CHANGESET;
-    (void)instance;
-    (void)mode;
-    (void)cmd;
-    return LCB_SUCCESS;
-}
 
-static lcb_error_t init_providers(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(init_providers) {
     struct lcb_create_st2 *opts = arg;
-    if (mode != LCB_CNTL_SET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-    (void)cmd;
-    return lcb_init_providers2(instance, opts);
+    if (mode != LCB_CNTL_SET) { return LCB_ECTL_UNSUPPMODE; }
+    (void)cmd; return lcb_init_providers2(instance, opts);
 }
 
-static lcb_error_t config_cache_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(config_cache_handler) {
     clconfig_provider *provider;
     (void)cmd;
-    if (mode == CNTL__MODE_SETSTRING) {
-        mode = LCB_CNTL_SET;
-    }
 
     provider = lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_FILE);
     if (mode == LCB_CNTL_SET) {
@@ -480,139 +304,38 @@ static lcb_error_t config_cache_handler(int mode, lcb_t instance, int cmd, void 
     }
 }
 
-static lcb_error_t
-ssl_mode_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    lcb_SSLOPTS *sopt = arg;
-    if (mode == LCB_CNTL_GET) {
-        *sopt = LCBT_SETTING(instance, sslopts);
-    } else {
-        return LCB_ECTL_UNSUPPMODE;
-    }
+HANDLER(retrymode_handler) {
+    lcb_U32 *val = arg;
+    lcb_U32 rmode = LCB_RETRYOPT_GETMODE(*val);
+    uint8_t *p = NULL;
 
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t
-ssl_capath_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    if (mode == LCB_CNTL_GET) {
-        *(char ** const)arg = LCBT_SETTING(instance, capath);
-    } else {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t
-retrymode_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    uint8_t *p;
-    lcb_RETRYOPT *opt = arg;
-
-    p = &(LCBT_SETTING(instance, retry)[opt->mode]);
+    if (rmode >= LCB_RETRY_ON_MAX) { return LCB_ECTL_BADARG; }
+    p = &(LCBT_SETTING(instance, retry)[rmode]);
     if (mode == LCB_CNTL_SET) {
-        *p = opt->cmd;
+        *p = LCB_RETRYOPT_GETPOLICY(*val);
     } else {
-        opt->cmd = *p;
+        *val = LCB_RETRYOPT_CREATE(rmode, *p);
     }
     (void)cmd;
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
-htconfig_urltype_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    lcb_HTCONFIG_URLTYPE *p = arg;
-    if (mode == LCB_CNTL_SET) {
-        LCBT_SETTING(instance, bc_http_urltype) = *p;
-    } else {
-        *p = LCBT_SETTING(instance, bc_http_urltype);
-    }
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static
-lcb_error_t
-compmode_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    lcb_COMPRESSOPTS opts_s = 0, *opt_p;
-
-    if (mode == CNTL__MODE_SETSTRING) {
-        if (!strcmp(arg, "on")) {
-            opts_s = LCB_COMPRESS_INOUT;
-        } else if (!strcmp(arg, "off")) {
-            opts_s = LCB_COMPRESS_NONE;
-        } else if (!strcmp(arg, "inflate_only")) {
-            opts_s = LCB_COMPRESS_IN;
-        } else if (!strcmp(arg, "force")) {
-            opts_s = LCB_COMPRESS_INOUT|LCB_COMPRESS_FORCE;
-        } else {
-            return LCB_ECTL_BADARG;
-        }
-
-        opt_p = &opts_s;
-        mode = LCB_CNTL_SET;
-    } else {
-        opt_p = arg;
-    }
-    if (mode == LCB_CNTL_SET) {
-        LCBT_SETTING(instance, compressopts) = *opt_p;
-    } else {
-        *opt_p = LCBT_SETTING(instance, compressopts);
-    }
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t
-allocfactory_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(allocfactory_handler) {
     struct lcb_cntl_rdballocfactory *cbw = arg;
     if (mode == LCB_CNTL_SET) {
         LCBT_SETTING(instance, allocator_factory) = cbw->factory;
     } else {
         cbw->factory = LCBT_SETTING(instance, allocator_factory);
     }
-    (void)cmd;
-    return LCB_SUCCESS;
+    (void)cmd; return LCB_SUCCESS;
 }
 
-static lcb_error_t
-syncdtor_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    int *param = arg;
-    if (mode == LCB_CNTL_SET) {
-        LCBT_SETTING(instance, syncdtor) = *param;
-    } else {
-        *param = LCBT_SETTING(instance, syncdtor);
-    }
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t
-console_log_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
+HANDLER(console_log_handler) {
     lcb_U32 level;
     struct lcb_CONSOLELOGGER *logger;
     lcb_logprocs *procs;
 
-    if (mode == CNTL__MODE_SETSTRING) {
-        int iarg;
-        if (sscanf(arg, "%d", &iarg) != 1) {
-            return LCB_ECTL_BADARG;
-        }
-        level = iarg;
-        mode = LCB_CNTL_SET;
-    } else {
-        level = *(lcb_U32*)arg;
-    }
-
+    level = *(lcb_U32*)arg;
     if (mode != LCB_CNTL_SET) {
         return LCB_ECTL_UNSUPPMODE;
     }
@@ -632,39 +355,12 @@ console_log_handler(int mode, lcb_t instance, int cmd, void *arg)
     level = LCB_LOG_ERROR - level;
     logger->minlevel = level;
     LCBT_SETTING(instance, logger) = &logger->base;
-
-    (void)cmd;
-    return LCB_SUCCESS;
+    (void)cmd; return LCB_SUCCESS;
 }
 
-static lcb_error_t
-detailed_errcode_handler(int mode, lcb_t instance, int cmd, void *arg)
-{
-    int newval = 0;
-    if (mode == CNTL__MODE_SETSTRING) {
-        newval = boolean_from_string(arg);
-        mode = LCB_CNTL_SET;
-    } else if (mode == LCB_CNTL_SET) {
-        newval = *(int *)arg;
-    } else {
-        *(int *)arg = LCBT_SETTING(instance, detailed_neterr);
-        return LCB_SUCCESS;
-    }
-
-    if (mode == LCB_CNTL_SET) {
-        LCBT_SETTING(instance, detailed_neterr) = newval;
-    }
-    (void)cmd;
-    return LCB_SUCCESS;
-}
-
-static lcb_error_t
-reinit_dsn_handler(int mode, lcb_t instance, int cmd, void *arg) {
-    if (mode == LCB_CNTL_GET) {
-        return LCB_ECTL_UNSUPPMODE;
-    }
-    (void)cmd;
-    return lcb_reinit3(instance, arg);
+HANDLER(reinit_spec_handler) {
+    if (mode == LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; }
+    (void)cmd; return lcb_reinit3(instance, arg);
 }
 
 static ctl_handler handlers[] = {
@@ -711,31 +407,128 @@ static ctl_handler handlers[] = {
     syncdtor_handler, /* LCB_CNTL_SYNCDESTROY */
     console_log_handler, /* LCB_CNTL_CONLOGGER_LEVEL */
     detailed_errcode_handler, /* LCB_CNTL_DETAILED_ERRCODES */
-    reinit_dsn_handler /* LCB_CNTL_REINIT_DSN */
+    reinit_spec_handler, /* LCB_CNTL_REINIT_CONNSTR */
+    timeout_common, /* LCB_CNTL_RETRY_INTERVAL */
+    retry_backoff_handler, /* LCB_CNTL_RETRY_BACKOFF */
+    http_poolsz_handler, /* LCB_CNTL_HTTP_POOLSIZE */
+    http_refresh_config_handler /* LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR */
 };
+
+/* Union used for conversion to/from string functions */
+typedef union {
+    lcb_U32 u32;
+    lcb_SIZE sz;
+    int i;
+    float f;
+    void *p;
+} u_STRCONVERT;
+
+/* This handler should convert the string argument to the appropriate
+ * type needed for the actual control handler. It should return an error if the
+ * argument is invalid.
+ */
+typedef lcb_error_t (*ctl_str_cb)(const char *value, u_STRCONVERT *u);
 
 typedef struct {
     const char *key;
     int opcode;
+    ctl_str_cb converter;
 } cntl_OPCODESTRS;
 
+
+static lcb_error_t convert_timeout(const char *arg, u_STRCONVERT *u) {
+    int rv;
+    unsigned long tmp;
+    rv = sscanf(arg, "%lu", &tmp);
+    if (rv != 1) { return LCB_ECTL_BADARG; }
+    u->u32 = tmp;
+    return LCB_SUCCESS;
+}
+
+static lcb_error_t convert_intbool(const char *arg, u_STRCONVERT *u) {
+    if (!strcmp(arg, "true")) {
+        u->i = 1;
+    } else if (!strcmp(arg, "false")) {
+        u->i = 0;
+    } else {
+        u->i = atoi(arg);
+    }
+    return LCB_SUCCESS;
+}
+
+static lcb_error_t convert_passthru(const char *arg, u_STRCONVERT *u) {
+    u->p = (void*)arg;
+    return LCB_SUCCESS;
+}
+
+static lcb_error_t convert_u32(const char *arg, u_STRCONVERT *u) {
+    return convert_timeout(arg, u);
+}
+
+static lcb_error_t convert_SIZE(const char *arg, u_STRCONVERT *u) {
+    unsigned long lu;
+    int rv;
+    rv = sscanf(arg, "%lu", &lu);
+    if (rv != 1) { return LCB_ECTL_BADARG; }
+    u->sz = lu;
+    return LCB_SUCCESS;
+}
+
+static lcb_error_t convert_compression(const char *arg, u_STRCONVERT *u) {
+    static const STR_u32MAP optmap[] = {
+        { "on", LCB_COMPRESS_INOUT },
+        { "off", LCB_COMPRESS_NONE },
+        { "inflate_only", LCB_COMPRESS_IN },
+        { "force", LCB_COMPRESS_INOUT|LCB_COMPRESS_FORCE },
+        { NULL }
+    };
+    DO_CONVERT_STR2NUM(arg, optmap, u->i);
+    return LCB_SUCCESS;
+}
+
+static lcb_error_t convert_retrymode(const char *arg, u_STRCONVERT *u) {
+    static const STR_u32MAP modemap[] = {
+        { "topochange", LCB_RETRY_ON_TOPOCHANGE },
+        { "sockerr", LCB_RETRY_ON_SOCKERR },
+        { "maperr", LCB_RETRY_ON_VBMAPERR },
+        { "missingnode", LCB_RETRY_ON_MISSINGNODE }, { NULL }
+    };
+    static const STR_u32MAP polmap[] = {
+        { "all", LCB_RETRY_CMDS_ALL },
+        { "get", LCB_RETRY_CMDS_GET },
+        { "safe", LCB_RETRY_CMDS_SAFE },
+        { "none", LCB_RETRY_CMDS_NONE }, { NULL }
+    };
+
+    lcb_U32 polval, modeval;
+    const char *polstr = strchr(arg, ':');
+    if (!polstr) { return LCB_ECTL_BADARG; }
+    polstr++;
+    DO_CONVERT_STR2NUM(arg, modemap, modeval);
+    DO_CONVERT_STR2NUM(polstr, polmap, polval);
+    u->u32 = LCB_RETRYOPT_CREATE(modeval, polval);
+    return LCB_SUCCESS;
+}
+
 static cntl_OPCODESTRS stropcode_map[] = {
-        {"operation_timeout", LCB_CNTL_OP_TIMEOUT},
-        {"views_timeout", LCB_CNTL_VIEW_TIMEOUT},
-        {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT},
-        {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL},
-        {"http_timeout", LCB_CNTL_HTTP_TIMEOUT},
-        {"randomize_nodes", LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS},
-        {"sasl_mech_force", LCB_CNTL_FORCE_SASL_MECH},
-        {"error_thresh_count", LCB_CNTL_CONFERRTHRESH},
-        {"error_thresh_delay", LCB_CNTL_CONFDELAY_THRESH},
-        {"config_total_timeout", LCB_CNTL_CONFIGURATION_TIMEOUT},
-        {"config_node_timeout", LCB_CNTL_CONFIG_NODE_TIMEOUT},
-        {"compression", LCB_CNTL_COMPRESSION_OPTS},
-        {"console_log_level", LCB_CNTL_CONLOGGER_LEVEL},
-        {"config_cache", LCB_CNTL_CONFIGCACHE },
-        {"detailed_errcodes", LCB_CNTL_DETAILED_ERRCODES},
-        {"_reinit_dsn", LCB_CNTL_REINIT_DSN }
+        {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timeout},
+        {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timeout},
+        {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timeout},
+        {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timeout},
+        {"http_timeout", LCB_CNTL_HTTP_TIMEOUT, convert_timeout},
+        {"randomize_nodes", LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS, convert_intbool},
+        {"sasl_mech_force", LCB_CNTL_FORCE_SASL_MECH, convert_passthru},
+        {"error_thresh_count", LCB_CNTL_CONFERRTHRESH, convert_SIZE},
+        {"error_thresh_delay", LCB_CNTL_CONFDELAY_THRESH, convert_timeout},
+        {"config_total_timeout", LCB_CNTL_CONFIGURATION_TIMEOUT, convert_timeout},
+        {"config_node_timeout", LCB_CNTL_CONFIG_NODE_TIMEOUT, convert_timeout},
+        {"compression", LCB_CNTL_COMPRESSION_OPTS, convert_compression},
+        {"console_log_level", LCB_CNTL_CONLOGGER_LEVEL, convert_u32},
+        {"config_cache", LCB_CNTL_CONFIGCACHE, convert_passthru },
+        {"detailed_errcodes", LCB_CNTL_DETAILED_ERRCODES, convert_intbool},
+        {"retry_policy", LCB_CNTL_RETRYMODE, convert_retrymode},
+        {"_reinit_connstr", LCB_CNTL_REINIT_CONNSTR },
+        {NULL, -1}
 };
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))
@@ -784,9 +577,23 @@ lcb_error_t
 lcb_cntl_string(lcb_t instance, const char *key, const char *value)
 {
     cntl_OPCODESTRS *cur;
+    u_STRCONVERT u;
+    lcb_error_t err;
 
     for (cur = stropcode_map; cur->key; cur++) {
         if (!strcmp(cur->key, key)) {
+            if (cur->converter) {
+                err = cur->converter(value, &u);
+                if (err != LCB_SUCCESS) {
+                    return err;
+                }
+                if (cur->converter == convert_passthru) {
+                    return lcb_cntl(instance, LCB_CNTL_SET, cur->opcode, u.p);
+                } else {
+                    return lcb_cntl(instance, LCB_CNTL_SET, cur->opcode, &u);
+                }
+            }
+
             return lcb_cntl(instance, CNTL__MODE_SETSTRING, cur->opcode,
                 (void *)value);
         }
@@ -818,61 +625,13 @@ lcb_uint32_t lcb_cntl_getu32(lcb_t instance, int cmd)
     return ret;
 }
 
-LIBCOUCHBASE_API
-void lcb_behavior_set_ipv6(lcb_t instance, lcb_ipv6_t mode)
-{
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_IP6POLICY, &mode);
-}
+#define DECL_DEPR_FUNC(T, name_set, name_get, ctl) \
+LIBCOUCHBASE_API void name_set(lcb_t instance, T input) { \
+    lcb_cntl(instance, LCB_CNTL_SET, ctl, &input); } \
+LIBCOUCHBASE_API T name_get(lcb_t instance) { T output = 0; \
+    lcb_cntl(instance, LCB_CNTL_GET, ctl, &output); return output; }
 
-LIBCOUCHBASE_API
-lcb_ipv6_t lcb_behavior_get_ipv6(lcb_t instance)
-{
-    lcb_ipv6_t ret;
-    lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_IP6POLICY, &ret);
-    return ret;
-}
-
-LIBCOUCHBASE_API
-void lcb_behavior_set_config_errors_threshold(lcb_t instance, lcb_size_t num_events)
-{
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFERRTHRESH, &num_events);
-}
-
-LIBCOUCHBASE_API
-lcb_size_t lcb_behavior_get_config_errors_threshold(lcb_t instance)
-{
-    lcb_size_t ret;
-    lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_CONFERRTHRESH, &ret);
-    return ret;
-}
-
-/**
- * The following is from timeout.c
- */
-LIBCOUCHBASE_API
-void lcb_set_timeout(lcb_t instance, lcb_uint32_t usec)
-{
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &usec);
-}
-
-LIBCOUCHBASE_API
-lcb_uint32_t lcb_get_timeout(lcb_t instance)
-{
-    lcb_uint32_t ret;
-    lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_OP_TIMEOUT, &ret);
-    return ret;
-}
-
-LIBCOUCHBASE_API
-void lcb_set_view_timeout(lcb_t instance, lcb_uint32_t usec)
-{
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_VIEW_TIMEOUT, &usec);
-}
-
-LIBCOUCHBASE_API
-lcb_uint32_t lcb_get_view_timeout(lcb_t instance)
-{
-    lcb_uint32_t ret;
-    lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VIEW_TIMEOUT, &ret);
-    return ret;
-}
+DECL_DEPR_FUNC(lcb_ipv6_t, lcb_behavior_set_ipv6, lcb_behavior_get_ipv6, LCB_CNTL_IP6POLICY)
+DECL_DEPR_FUNC(lcb_size_t, lcb_behavior_set_config_errors_threshold, lcb_behavior_get_config_errors_threshold, LCB_CNTL_CONFERRTHRESH)
+DECL_DEPR_FUNC(lcb_U32, lcb_set_timeout, lcb_get_timeout, LCB_CNTL_OP_TIMEOUT)
+DECL_DEPR_FUNC(lcb_U32, lcb_set_view_timeout, lcb_get_view_timeout, LCB_CNTL_VIEW_TIMEOUT)

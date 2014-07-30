@@ -47,11 +47,6 @@ struct lcb_http_request_st {
 
     /** Non-zero if caller would like to receive response in chunks */
     int chunked;
-    /** This callback will be executed when the whole response will be
-     * transferred */
-    lcb_http_complete_callback on_complete;
-    /** This callback will be executed for each chunk of the response */
-    lcb_http_data_callback on_data;
     /** The cookie belonging to this request */
     const void *command_cookie;
     /** Reference count */
@@ -72,13 +67,16 @@ struct lcb_http_request_st {
     /** Headers array for passing to callbacks */
     char **headers;
     lcbio_pTABLE io;
-    lcb_timer_t io_timer;
+    lcbio_pTIMER timer;
     lcbio_CONNREQ creq;
     lcbio_CTX *ioctx;
     lcbht_pPARSER parser;
     /** IO Timeout */
     lcb_uint32_t timeout;
 };
+
+void
+lcb_http_init_resp(const lcb_http_request_t req, lcb_RESPHTTP *res);
 
 void
 lcb_http_request_finish(lcb_t instance,
@@ -95,10 +93,5 @@ lcb_http_request_exec(lcb_http_request_t req);
 
 lcb_error_t
 lcb_http_request_connect(lcb_http_request_t req);
-
-void
-lcb_setup_lcb_http_resp_t(lcb_http_resp_t *resp,
-    lcb_http_status_t status, const char *path, lcb_size_t npath,
-    const char *const *headers, const void *bytes, lcb_size_t nbytes);
 
 #endif

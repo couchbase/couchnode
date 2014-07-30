@@ -53,7 +53,11 @@ lcb_retryq_destroy(lcb_RETRYQ *rq);
 /**
  * @brief Enqueue a failed command
  * @param rq The retried queue
- * @param detchpkt A detached packet allocated with mcreq_dup_packet()
+ * @param detchpkt A detached packet allocated with mcreq_renew_packet()
+ * @param err the error code which caused the packet to be placed inside the
+ * retry queue. Depending on the error code and subsequent errors, this code
+ * will ultimately be sent back to the operation callback when the result is
+ * final.
  *
  * @attention Only simple commands containing vBuckets may be placed here.
  * Complex commands such as OBSERVE or STAT may _not_ be retried through this
@@ -62,7 +66,7 @@ lcb_retryq_destroy(lcb_RETRYQ *rq);
  * map things here as a response for a not-my-vbucket).
  */
 void
-lcb_retryq_add(lcb_RETRYQ *rq, mc_PACKET *detchpkt);
+lcb_retryq_add(lcb_RETRYQ *rq, mc_EXPACKET *detchpkt, lcb_error_t err);
 
 /**
  * @brief Retry all queued operations
@@ -74,6 +78,18 @@ lcb_retryq_add(lcb_RETRYQ *rq, mc_PACKET *detchpkt);
  */
 void
 lcb_retryq_signal(lcb_RETRYQ *rq);
+
+/**
+ * If this packet has been previously retried, this obtains the original error
+ * which caused it to be enqueued in the first place. This eliminates spurious
+ * timeout errors which mask the real cause of the error.
+ *
+ * @param pkt The packet to check for
+ * @return An error code, or LCB_SUCCESS if the packet does not have an
+ * original error.
+ */
+lcb_error_t
+lcb_retryq_origerr(const mc_PACKET *pkt);
 
 /**
  * @brief Check if there are operations to retry

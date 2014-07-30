@@ -132,6 +132,14 @@ lcbht_RESPONSE *
 lcbht_get_response(lcbht_pPARSER parser);
 
 /**
+ * Determine whether HTTP/1.1 keepalive is enabled on the connection
+ * @param parser The parser
+ * @return true if keepalive is enabled, false otherwise.
+ */
+int
+lcbht_can_keepalive(lcbht_pPARSER parser);
+
+/**
  * Clear the response object
  * @param resp the response to clear
  */

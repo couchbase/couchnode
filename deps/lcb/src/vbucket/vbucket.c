@@ -814,6 +814,54 @@ lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix)
     }
 }
 
+unsigned
+lcbvb_vbalternate(lcbvb_CONFIG *cfg, int vbix)
+{
+    unsigned ii, count;
+    lcbvb_VBUCKET *vb;
+
+    if (cfg->ffvbuckets) {
+        /* if the fast-forward map exists, check here first for any masters
+         * or replicas which may contain a valid node */
+        vb = &cfg->ffvbuckets[vbix];
+        for (ii = 0; ii < cfg->nrepl+1; ii++) {
+            if (vb->servers[ii] != -1) {
+                return vb->servers[ii];
+            }
+        }
+    }
+
+    /* If we couldn't get a valid node from the ff map (either because it does
+     * not exist, or because all the indices are -1). In this case we iterate
+     * starting from the first replica (and not the master, because we want
+     * to ignore the master). */
+    vb = &cfg->vbuckets[vbix];
+    for (ii = 1; ii < cfg->nrepl+1; ii++) {
+        if (vb->servers[ii] != -1) {
+            return vb->servers[ii];
+        }
+    }
+
+    /* If none of the vbucket's master or replica nodes are acceptable, make
+     * use of a random server in the list. Ensure this server is not the same
+     * one as the current master, and also that it has vbuckets assigned to it */
+    count = 0;
+    ii = ((unsigned)rand()) % cfg->nsrv;
+
+    while (count < cfg->nsrv) {
+        if (cfg->servers[ii].nvbs && ii != (unsigned)cfg->vbuckets[vbix].servers[0]) {
+            return ii;
+        }
+        ii += 1;
+        ii %= cfg->nsrv;
+        count++;
+    }
+
+    /* If selecting a random server fails, be really random. At least we'll
+     * return something that can be used to dispatch an item */
+    return ((unsigned) rand()) % cfg->nsrv;
+}
+
 int
 lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE nkey,
     int *vbid, int *srvix)
@@ -1073,7 +1121,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     const lcbvb_SERVER *servers,
     unsigned nservers, unsigned nreplica, unsigned nvbuckets)
 {
-    unsigned ii;
+    unsigned ii, jj;
     int srvix = 0;
 
     assert(nservers);
@@ -1113,15 +1161,10 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     for (ii = 0; ii < vb->nvb; ii++) {
         lcbvb_VBUCKET *cur = vb->vbuckets + ii;
         cur->servers[0] = srvix;
-        INCR_SRVIX();
-    }
-
-    for (ii = 0; ii < vb->nvb; ii++) {
-        unsigned jj;
-        for (jj = 0; jj < nreplica; jj++) {
-            vb->vbuckets[ii].servers[jj+1] = srvix;
-            INCR_SRVIX();
+        for (jj = 1; jj < vb->nrepl+1; jj++) {
+            cur->servers[jj] = (srvix + jj) % vb->nsrv;
         }
+        INCR_SRVIX();
     }
 
     vb->servers = calloc(nservers, sizeof(*vb->servers));
@@ -1162,6 +1205,18 @@ lcbvb_genconfig(lcbvb_CONFIG *vb,
         "default", NULL, srvarry, nservers, nreplica, nvbuckets);
     free(srvarry);
     return rv;
+}
+
+void
+lcbvb_make_ketama(lcbvb_CONFIG *vb)
+{
+    if (vb->dtype == LCBVB_DIST_KETAMA) {
+        return;
+    }
+    vb->dtype = LCBVB_DIST_KETAMA;
+    vb->nrepl = 0;
+    vb->nvb = 0;
+    parse_ketama(vb);
 }
 
 

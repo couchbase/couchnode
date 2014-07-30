@@ -20,8 +20,8 @@
 #include <libcouchbase/couchbase.h>
 #include <map>
 
-#define ENV_VAR_NAME "LIBCOUCHBASE_EVENT_PLUGIN_NAME"
-#define ENV_VAR_SYM "LIBCOUCHBASE_EVENT_PLUGIN_SYMBOL"
+#define ENV_VAR_NAME "LCB_IOPS_NAME"
+#define ENV_VAR_SYM "LCB_IOPS_SYMBOL"
 
 
 #ifdef _WIN32

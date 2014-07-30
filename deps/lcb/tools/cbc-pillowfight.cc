@@ -42,61 +42,90 @@ using namespace cliopts;
 using std::vector;
 using std::string;
 
+struct DeprecatedOptions {
+    UIntOption iterations;
+    UIntOption instances;
+    BoolOption loop;
+
+    DeprecatedOptions() :
+        iterations("iterations"), instances("num-instances"), loop("loop")
+    {
+        iterations.abbrev('i').hide().setDefault(1000);
+        instances.abbrev('Q').hide().setDefault(1);
+        loop.abbrev('l').hide().setDefault(false);
+    }
+
+    void addOptions(Parser &p) {
+        p.addOption(instances);
+        p.addOption(loop);
+        p.addOption(iterations);
+    }
+};
+
 class Configuration
 {
 public:
     Configuration() :
-        o_iterations("iterations"),
+        o_multiSize("batch-size"),
         o_numItems("num-items"),
         o_keyPrefix("key-prefix"),
         o_numThreads("num-threads"),
-        o_numInstances("num-instances"),
-        o_loop("loop"),
         o_randSeed("random-seed"),
         o_setPercent("ratio"),
         o_minSize("min-size"),
         o_maxSize("max-size"),
         o_noPopulate("no-population"),
-        o_pauseAtEnd("pause-at-end")
+        o_pauseAtEnd("pause-at-end"),
+        o_numCycles("num-cycles")
     {
-        o_iterations.setDefault(100).abbrev('i').description("Number of iterations to run");
+        o_multiSize.setDefault(100).abbrev('B').description("Number of operations to batch");
         o_numItems.setDefault(1000).abbrev('I').description("Number of items to operate on");
         o_keyPrefix.abbrev('p').description("key prefix to use");
         o_numThreads.setDefault(1).abbrev('t').description("The number of threads to use");
-        o_numInstances.setDefault(1).abbrev('Q').description("The number of instances to use");
-        o_loop.setDefault(false).abbrev('l').description("Loop running load");
         o_randSeed.setDefault(0).abbrev('s').description("Specify random seed");
         o_setPercent.setDefault(33).abbrev('r').description("Specify SET command ratio");
         o_minSize.setDefault(50).abbrev('m').description("Set minimum payload size");
         o_maxSize.setDefault(5120).abbrev('M').description("Set maximum payload size");
         o_noPopulate.setDefault(false).abbrev('n').description("Skip population");
         o_pauseAtEnd.setDefault(false).abbrev('E').description("Pause at end of run (holding connections open) until user input");
+        o_numCycles.setDefault(1).abbrev('c').description("Number of cycles to be run until exiting. Set to -1 to loop infinitely");
     }
 
     void processOptions() {
-        iterations = o_iterations.result();
+        opsPerCycle = o_multiSize.result();
         maxKey = o_numItems.result();
         prefix = o_keyPrefix.result();
-        loop = o_loop.result();
         setprc = o_setPercent.result();
         setMinSize(o_minSize.result());
         setMaxSize(o_maxSize.result());
+
+        if (depr.loop.passed()) {
+            fprintf(stderr, "The --loop/-l option is deprecated. Use --num-cycles\n");
+            maxCycles = -1;
+        } else {
+            maxCycles = o_numCycles.result();
+        }
+
+        if (depr.iterations.passed()) {
+            fprintf(stderr, "The --num-iterations/-I option is deprecated. Use --batch-size\n");
+            opsPerCycle = depr.iterations.result();
+        }
     }
 
     void addOptions(Parser& parser) {
-        parser.addOption(o_iterations);
+        parser.addOption(o_multiSize);
         parser.addOption(o_numItems);
-        parser.addOption(o_numInstances);
         parser.addOption(o_keyPrefix);
         parser.addOption(o_numThreads);
-        parser.addOption(o_loop);
         parser.addOption(o_randSeed);
         parser.addOption(o_setPercent);
         parser.addOption(o_noPopulate);
         parser.addOption(o_minSize);
         parser.addOption(o_maxSize);
         parser.addOption(o_pauseAtEnd);
+        parser.addOption(o_numCycles);
         params.addToParser(parser);
+        depr.addOptions(parser);
     }
 
     ~Configuration() {
@@ -133,11 +162,20 @@ public:
         }
     }
 
-    uint32_t getNumInstances(void) { return o_numInstances; }
+    uint32_t getNumInstances(void) {
+        if (depr.instances.passed()) {
+            return depr.instances.result();
+        }
+        return o_numThreads.result();
+    }
+
     bool isTimings(void) { return params.useTimings(); }
 
-    bool isLoop(void) {
-        return loop;
+    bool isLoopDone(size_t niter) {
+        if (maxCycles == -1) {
+            return false;
+        }
+        return niter >= maxCycles;
     }
 
     void setDGM(bool val) {
@@ -157,23 +195,21 @@ public:
     void *data;
 
     uint32_t maxKey;
-    uint32_t iterations;
+    uint32_t opsPerCycle;
     uint32_t setprc;
     string prefix;
     uint32_t maxSize;
     uint32_t minSize;
-    bool loop;
+    volatile int maxCycles;
     bool dgm;
     uint32_t waitTime;
     ConnParams params;
 
 private:
-    UIntOption o_iterations;
+    UIntOption o_multiSize;
     UIntOption o_numItems;
     StringOption o_keyPrefix;
     UIntOption o_numThreads;
-    UIntOption o_numInstances;
-    BoolOption o_loop;
     UIntOption o_randSeed;
     UIntOption o_setPercent;
     UIntOption o_minSize;
@@ -181,6 +217,8 @@ private:
     BoolOption o_noPopulate;
     BoolOption o_pauseAtEnd; // Should pillowfight pause execution (with
                              // connections open) before exiting?
+    IntOption o_numCycles;
+    DeprecatedOptions depr;
 } config;
 
 void log(const char *format, ...)
@@ -353,7 +391,7 @@ class ThreadContext
 {
 public:
     ThreadContext(InstancePool *p) :
-        currSeqno(0), rnum(0), pool(p) {
+        currSeqno(0), rnum(0), niter(0), pool(p) {
         srand(config.getRandomSeed());
         for (int ii = 0; ii < 8192; ++ii) {
             seqno[ii] = rand();
@@ -390,7 +428,7 @@ public:
     void singleLoop(lcb_t instance) {
         bool hasItems = false;
         string key;
-        for (size_t ii = 0; ii < config.iterations; ++ii) {
+        for (size_t ii = 0; ii < config.opsPerCycle; ++ii) {
             const uint32_t nextseq = nextSeqno();
             generateKey(key, nextseq);
             if (config.setprc > 0 && (nextseq % 100) > config.setprc) {
@@ -441,7 +479,7 @@ public:
                 InstanceCookie::dumpTimings(instance, "Run");
             }
             pool->push(instance);
-        } while (config.isLoop());
+        } while (!config.isLoopDone(++niter));
 
         return true;
     }
@@ -511,6 +549,7 @@ private:
     uint32_t seqno[8192];
     uint32_t currSeqno;
     uint32_t rnum;
+    size_t niter;
     lcb_error_t error;
     InstancePool *pool;
 };
@@ -561,7 +600,7 @@ static void cruel_handler(int)
 
 static void gentle_handler(int)
 {
-    config.loop = false;
+    config.maxCycles = 0;
     log("Termination requested. Waiting threads to finish. "
         "Ctrl-C to force termination.");
     setup_sigint_handler(cruel_handler);
@@ -622,9 +661,7 @@ int main(int argc, char **argv)
 #ifndef WIN32
     setup_sigint_handler(gentle_handler);
 #endif
-    if (config.isLoop()) {
-        log("Running in a loop. Press Ctrl-C to terminate...");
-    }
+    log("Running. Press Ctrl-C to terminate...");
 #ifdef WIN32
     ThreadContext *ctx = new ThreadContext(pool);
     contexts.push_back(ctx);

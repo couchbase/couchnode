@@ -4,8 +4,11 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <vector>
+
 
 using std::string;
+using std::vector;
 
 static string getConfigFile(const char *fname)
 {
@@ -123,4 +126,37 @@ TEST_F(ConfigTest, testGeneration)
     ASSERT_EQ(1024, cfg->nvb);
     lcbvb_destroy(cfg);
     free(js);
+}
+
+TEST_F(ConfigTest, testAltMap)
+{
+    lcbvb_CONFIG *cfg = lcbvb_create();
+    lcbvb_genconfig(cfg, 4, 1, 64);
+    string key("Dummy Key");
+    int vbix = lcbvb_k2vb(cfg, key.c_str(), key.size());
+    unsigned altix = lcbvb_vbalternate(cfg, vbix);
+
+    ASSERT_NE(cfg->vbuckets[vbix].servers[0], cfg->vbuckets[vbix].servers[1]);
+    ASSERT_NE(cfg->vbuckets[vbix].servers[0], altix);
+    ASSERT_EQ(cfg->vbuckets[vbix].servers[1], altix);
+
+    vector<lcbvb_VBUCKET> ff;
+    for (size_t ii = 0; ii < cfg->nvb; ii++) {
+        lcbvb_VBUCKET vb;
+        memset(&vb, 0, sizeof vb);
+        vb.servers[0] = 99;
+        ff.push_back(vb);
+    }
+
+    cfg->ffvbuckets = &ff[0];
+    altix = lcbvb_vbalternate(cfg, vbix);
+    ASSERT_EQ(99, altix);
+
+    // Remove ff so it's not prematurely freed
+    cfg->ffvbuckets = NULL;
+    cfg->vbuckets[vbix].servers[1] = -1;
+    altix = lcbvb_vbalternate(cfg, vbix);
+    ASSERT_NE(cfg->vbuckets[vbix].servers[1], altix);
+    ASSERT_NE(cfg->vbuckets[vbix].servers[0], altix);
+    lcbvb_destroy(cfg);
 }

@@ -40,10 +40,14 @@ lcbio_ssl_supported(void);
  * Create a new SSL context to be used to establish SSL policy.
  * @param cafile Optional path to CA file
  * @param noverify To not attempt to verify server's certificate
- * @return A new SSL context
+ * @param errp a pointer to contain the error code if initialization failed
+ * @param settings settings structure, used for logging.
+ *
+ * @return A new SSL context, or NULL on error.
  */
 lcbio_pSSLCTX
-lcbio_ssl_new(const char *cafile, int noverify);
+lcbio_ssl_new(const char *cafile, int noverify, lcb_error_t *errp,
+    lcb_settings *settings);
 
 /**
  * Free the SSL context. This should be done when libcouchbase has nothing else
@@ -71,8 +75,21 @@ lcbio_ssl_apply(lcbio_SOCKET *sock, lcbio_pSSLCTX sctx);
  * @param sock The socket to check
  * @return true if using SSL, false if plain (or not yet applied)
  */
+LCB_INTERNAL_API
 int
 lcbio_ssl_check(lcbio_SOCKET *sock);
+
+/**
+ * Retrieves the internal error code from the SSL object within the socket.
+ * Should only be called if lcbio_ssl_check() is true.
+ *
+ * @param sock
+ * @return An error code (if present), or LCB_SUCCESS if there is no internal
+ * error code.
+ */
+LCB_INTERNAL_API
+lcb_error_t
+lcbio_ssl_get_error(lcbio_SOCKET *sock);
 
 /**
  * @brief
@@ -103,10 +120,11 @@ lcbio_sslify_if_needed(lcbio_SOCKET *sock, struct lcb_settings_st *settings);
 
 #else
 /* SSL Disabled */
-#define lcbio_ssl_new(a,b) NULL
+#define lcbio_ssl_new(a,b,c,d) NULL
 #define lcbio_ssl_free(ctx)
 #define lcbio_ssl_apply(sock, sctx) LCB_NOT_SUPPORTED
 #define lcbio_ssl_check(sock) 0
+#define lcbio_ssl_get_error(sock) LCB_SUCCESS
 #define lcbio_ssl_global_init() 0
 #define lcbio_sslify_if_needed(sock, settings) LCB_SUCCESS
 #endif /*LCB_NO_SSL*/

@@ -1,27 +1,11 @@
-SET(GTEST_ZIP_PATH ${SOURCE_ROOT}/${GTEST_ARCHIVE})
-IF(NOT EXISTS ${GTEST_ZIP_PATH})
-    MESSAGE(STATUS "${GTEST_ARCHIVE} not found. Downloading")
-    IF(UNIX)
-        EXECUTE_PROCESS(
-            COMMAND
-                wget -O "${GTEST_ZIP_PATH}" "${GTEST_DLSERVER}/${GTEST_ARCHIVE}")
-        EXECUTE_PROCESS(
-            COMMAND
-                unzip "${GTEST_ZIP_PATH}"
-            WORKING_DIRECTORY
-                ${SOURCE_ROOT})
-    ELSE()
-        FILE(DOWNLOAD ${GTEST_DLSERVER}/${GTEST_ARCHIVE}
-            ${SOURCE_ROOT}/${GTEST_ARCHIVE})
-        EXECUTE_PROCESS(
-            COMMAND cmake -E tar xf ${GTEST_ARCHIVE}
-            WORKING_DIRECTORY ${SOURCE_ROOT})
-    ENDIF()
-ENDIF(NOT EXISTS ${GTEST_ZIP_PATH})
-
+IF(NOT GTEST_ZIP_PATH)
+    SET(GTEST_ZIP_PATH "${SOURCE_ROOT}/gtest-1.7.0.zip")
+ENDIF()
+INCLUDE(../cmake/Modules/FindCouchbaseGtest.cmake)
+MESSAGE(STATUS "Will use gtest from ${GTEST_ROOT}")
 SET(gtest_force_shared_crt ON CACHE BOOL "" )
 SET(BUILD_SHARED_LIBS ON)
-ADD_SUBDIRECTORY(${SOURCE_ROOT}/gtest-1.7.0 gtest-1.7.0)
+ADD_SUBDIRECTORY(${GTEST_ROOT} gtest)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 
 ADD_EXECUTABLE(check-all EXCLUDE_FROM_ALL
@@ -45,8 +29,8 @@ FILE(GLOB T_VBTEST_SRC vbucket/*.cc)
 ADD_LIBRARY(ioserver STATIC EXCLUDE_FROM_ALL ${T_IOSERVER_SRC})
 ADD_LIBRARY(mocksupport STATIC EXCLUDE_FROM_ALL ${T_MOCKSUPPORT_SRC})
 ADD_EXECUTABLE(nonio-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_BASIC_SRC})
-ADD_EXECUTABLE(mc-tests EXCLUDE_FROM_ALL mc_tests.cc ${T_MC_SRC})
-ADD_EXECUTABLE(mc-malloc-tests EXCLUDE_FROM_ALL mc_tests.cc ${T_MC_SRC})
+ADD_EXECUTABLE(mc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC})
+ADD_EXECUTABLE(mc-malloc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC})
 ADD_EXECUTABLE(netbuf-tests EXCLUDE_FROM_ALL nonio_tests.cc basic/t_netbuf.cc)
 ADD_EXECUTABLE(rdb-tests EXCLUDE_FROM_ALL nonio_tests.cc
     ${T_RDB_SRC} ${SOURCE_ROOT}/src/list.c)
@@ -79,8 +63,8 @@ ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 
 
 IF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar)
-    file(DOWNLOAD ${COUCHBASE_MOCK_DLSERVER}/${COUCHBASE_MOCK_VERSION}
-        ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar)
+    DOWNLOAD_LCB_DEP("${COUCHBASE_MOCK_DLSERVER}/${COUCHBASE_MOCK_VERSION}"
+        "${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar")
 ENDIF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar)
 
 # We're a library using the shared CRT. Don't use the static one

@@ -60,6 +60,7 @@ INCLUDE(cmake/Modules/GetPlatformCCInfo.cmake)
 INCLUDE(cmake/Modules/GetVersionInfo.cmake)
 INCLUDE(cmake/Modules/GenerateConfigDotH.cmake)
 INCLUDE(cmake/Modules/CopyPDB.cmake)
+INCLUDE(cmake/Modules/DownloadLcbDep.cmake)
 INCLUDE(CheckIncludeFiles)
 
 
@@ -133,10 +134,10 @@ INCLUDE_DIRECTORIES(BEFORE ${SOURCE_ROOT}/include
 # be considered as 'static'
 ADD_LIBRARY(couchbase_utils STATIC
             contrib/cJSON/cJSON.c
+            contrib/genhash/genhash.c
             src/strcodecs/base64.c
             src/strcodecs/url_encoding.c
             src/gethrtime.c
-            src/genhash.c
             src/hashtable.c
             src/hashset.c
             src/hostlist.c
@@ -189,7 +190,7 @@ ELSE()
 ENDIF()
 
 SET(LCB_OPFILES
-    src/operations/arithmetic.c src/operations/get.c src/operations/touch.c
+    src/operations/counter.c src/operations/get.c src/operations/touch.c
     src/operations/observe.c src/operations/durability.c src/operations/store.c
     src/operations/stats.c src/operations/remove.c src/operations/pktfwd.c)
 
@@ -199,11 +200,11 @@ ADD_LIBRARY(couchbase ${_lcb_linkspec}
             src/bucketconfig/bc_cccp.c
             src/bucketconfig/bc_http.c
             src/bucketconfig/bc_file.c
+            src/bucketconfig/bc_mcraw.c
             src/bucketconfig/confmon.c
             src/callbacks.c
             src/cntl.c
-            src/dsn.c
-            src/error.c
+            src/connspec.c
             src/handler.c
             src/getconfig.c
             src/http/http.c
@@ -212,10 +213,10 @@ ADD_LIBRARY(couchbase ${_lcb_linkspec}
             src/mcserver/negotiate.c
             src/mcserver/mcserver.c
             src/newconfig.c
+            src/nodeinfo.c
             src/iofactory.c
             src/retryq.c
             src/retrychk.c
-            src/sanitycheck.c
             src/settings.c
             src/synchandler.c
             src/timer.c

@@ -55,7 +55,7 @@
 /**@brief The SCM revision ID
  * @see LCB_CNTL_CHANGESET
  */
-#define LCB_VERSION_CHANGESET "unknown"
+#define LCB_VERSION_CHANGESET "0ac7fc4"
 
 #ifdef __cplusplus
 extern "C" {

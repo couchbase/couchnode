@@ -21,6 +21,8 @@ typedef struct packet_info_st {
     protocol_binary_response_header res;
     /** The payload of the response. This should only be used if there is a body */
     void *payload;
+    /** Segment for payload */
+    void *bufh;
 } packet_info;
 
 /**

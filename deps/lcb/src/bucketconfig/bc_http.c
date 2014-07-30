@@ -26,7 +26,6 @@
 
 static void io_error_handler(lcbio_CTX *, lcb_error_t);
 static void on_connected(lcbio_SOCKET *, void *, lcb_error_t, lcbio_OSERR);
-
 static lcb_error_t connect_next(http_provider *);
 static void read_common(lcbio_CTX *, unsigned);
 static lcb_error_t setup_request_header(http_provider *, const lcb_host_t *);
@@ -91,9 +90,12 @@ io_error(http_provider *http, lcb_error_t origerr)
 
     lcb_confmon_provider_failed(&http->base, origerr);
     lcbio_timer_disarm(http->io_timer);
-    if (is_v220_compat(http)) {
+    if (is_v220_compat(http) && http->base.parent->config != NULL) {
         lcb_log(LOGARGS(http, INFO), "HTTP node list finished. Trying to obtain connection from first node in list");
-        connect_next(http);
+        if (!lcbio_timer_armed(http->as_reconnect)) {
+            lcbio_timer_rearm(http->as_reconnect,
+                PROVIDER_SETTING(&http->base, grace_next_cycle));
+        }
     }
     return origerr;
 }
@@ -113,7 +115,6 @@ static void set_new_config(http_provider *http)
     lcb_clconfig_incref(http->current_config);
     lcbvb_replace_host(http->current_config->vbc, curhost->host);
     lcb_confmon_provider_success(&http->base, http->current_config);
-    lcbio_timer_disarm(http->io_timer);
 }
 
 static lcb_error_t
@@ -257,6 +258,7 @@ read_common(lcbio_CTX *ctx, unsigned nr)
 
     if (http->generation != old_generation) {
         lcb_log(LOGARGS(http, DEBUG), LOGFMT "Generation %d -> %d", LOGID(http), old_generation, http->generation);
+        lcbio_timer_disarm(http->io_timer);
         set_new_config(http);
     }
 
@@ -392,6 +394,7 @@ connect_next(http_provider *http)
     lcb_settings *settings = http->base.parent->settings;
     lcb_log(LOGARGS(http, TRACE), "Starting HTTP Configuration Provider %p", (void*)http);
     close_current(http);
+    lcbio_timer_disarm(http->as_reconnect);
 
     if (!http->nodes->nentries) {
         lcb_log(LOGARGS(http, ERROR), "Not scheduling HTTP provider since no nodes have been configured for HTTP bootstrap");
@@ -417,6 +420,20 @@ static void delayed_disconn(void *arg)
     lcbio_timer_disarm(http->io_timer);
 }
 
+static void delayed_reconnect(void *arg)
+{
+    http_provider *http = arg;
+    lcb_error_t err;
+    if (http->ioctx) {
+        /* have a context already */
+        return;
+    }
+    err = connect_next(http);
+    if (err != LCB_SUCCESS) {
+        io_error(http, err);
+    }
+}
+
 static lcb_error_t pause_http(clconfig_provider *pb)
 {
     http_provider *http = (http_provider *)pb;
@@ -429,12 +446,6 @@ static lcb_error_t pause_http(clconfig_provider *pb)
                           PROVIDER_SETTING(pb, bc_http_stream_time));
     }
     return LCB_SUCCESS;
-}
-
-static void delayed_schederr(void *arg)
-{
-    http_provider *http = arg;
-    lcb_confmon_provider_failed(&http->base, http->as_errcode);
 }
 
 static lcb_error_t get_refresh(clconfig_provider *provider)
@@ -450,12 +461,7 @@ static lcb_error_t get_refresh(clconfig_provider *provider)
 
     /** If we need a new socket, we do connect_next. */
     if (http->ioctx == NULL && http->creq == NULL) {
-        lcb_error_t rc = connect_next(http);
-        if (rc != LCB_SUCCESS) {
-            http->as_errcode = rc;
-            lcbio_async_signal(http->as_schederr);
-        }
-        return rc;
+        lcbio_async_signal(http->as_reconnect);
     }
 
     lcbio_timer_disarm(http->disconn_timer);
@@ -473,7 +479,7 @@ static clconfig_info* http_get_cached(clconfig_provider *provider)
 }
 
 static void
-config_updated(clconfig_provider *pb, VBUCKET_CONFIG_HANDLE newconfig)
+config_updated(clconfig_provider *pb, lcbvb_CONFIG *newconfig)
 {
     unsigned int ii;
     http_provider *http = (http_provider *)pb;
@@ -542,8 +548,8 @@ static void shutdown_http(clconfig_provider *provider)
     if (http->io_timer) {
         lcbio_timer_destroy(http->io_timer);
     }
-    if (http->as_schederr) {
-        lcbio_timer_destroy(http->as_schederr);
+    if (http->as_reconnect) {
+        lcbio_timer_destroy(http->as_reconnect);
     }
     if (http->nodes) {
         hostlist_destroy(http->nodes);
@@ -575,7 +581,7 @@ clconfig_provider * lcb_clconfig_create_http(lcb_confmon *parent)
     http->base.enabled = 0;
     http->io_timer = lcbio_timer_new(parent->iot, http, timeout_handler);
     http->disconn_timer = lcbio_timer_new(parent->iot, http, delayed_disconn);
-    http->as_schederr = lcbio_timer_new(parent->iot, http, delayed_schederr);
+    http->as_reconnect = lcbio_timer_new(parent->iot, http, delayed_reconnect);
     http->htp = lcbht_new(parent->settings);
     return &http->base;
 }

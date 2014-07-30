@@ -49,6 +49,7 @@ provider_string(clconfig_method_t type) {
     if (type == LCB_CLCONFIG_HTTP) { return "HTTP"; }
     if (type == LCB_CLCONFIG_CCCP) { return "CCCP"; }
     if (type == LCB_CLCONFIG_FILE) { return "FILE"; }
+    if (type == LCB_CLCONFIG_MCRAW) { return "MCRAW"; }
     return "";
 }
 
@@ -67,6 +68,7 @@ lcb_confmon* lcb_confmon_create(lcb_settings *settings, lcbio_pTABLE iot)
     mon->all_providers[LCB_CLCONFIG_CCCP] = lcb_clconfig_create_cccp(mon);
     mon->all_providers[LCB_CLCONFIG_HTTP] = lcb_clconfig_create_http(mon);
     mon->all_providers[LCB_CLCONFIG_USER] = lcb_clconfig_create_user(mon);
+    mon->all_providers[LCB_CLCONFIG_MCRAW] = lcb_clconfig_create_mcraw(mon);
 
     for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
         mon->all_providers[ii]->parent = mon;
@@ -82,6 +84,8 @@ void lcb_confmon_prepare(lcb_confmon *mon)
 
     memset(&mon->active_providers, 0, sizeof(mon->active_providers));
     lcb_clist_init(&mon->active_providers);
+
+    lcb_log(LOGARGS(mon, DEBUG), "Preparing providers (this may be called multiple times)");
 
     for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
         clconfig_provider *cur = mon->all_providers[ii];
@@ -141,17 +145,19 @@ static int do_set_next(lcb_confmon *mon, clconfig_info *info, int notify_miss)
     unsigned ii;
 
     if (mon->config) {
-        VBUCKET_CHANGE_STATUS chstatus = VBUCKET_NO_CHANGES;
-        VBUCKET_CONFIG_DIFF *diff = vbucket_compare(mon->config->vbc, info->vbc);
+        lcbvb_CHANGETYPE chstatus = LCBVB_NO_CHANGES;
+        lcbvb_CONFIGDIFF *diff = lcbvb_compare(mon->config->vbc, info->vbc);
 
         if (!diff) {
+            lcb_log(LOGARGS(mon, DEBUG), "Couldn't create vbucket diff");
             return 0;
         }
 
-        chstatus = vbucket_what_changed(diff);
-        vbucket_free_diff(diff);
+        chstatus = lcbvb_get_changetype(diff);
+        lcbvb_free_diff(diff);
 
         if (chstatus == 0 || lcb_clconfig_compare(mon->config, info) >= 0) {
+            lcb_log(LOGARGS(mon, INFO), "Not applying configuration received via %s. No changes detected", provider_string(info->origin));
             if (notify_miss) {
                 invoke_listeners(mon, CLCONFIG_EVENT_GOT_ANY_CONFIG, info);
             }
@@ -192,6 +198,9 @@ void lcb_confmon_provider_failed(clconfig_provider *provider,
     if (provider != mon->cur_provider) {
         lcb_log(LOGARGS(mon, TRACE), "Ignoring failure. Current=%p (%s)", (void*)mon->cur_provider, provider_string(mon->cur_provider->type));
         return;
+    }
+    if (!lcb_confmon_is_refreshing(mon)) {
+        lcb_log(LOGARGS(mon, DEBUG), "Ignoring failure. Refresh not active");
     }
 
     if (reason != LCB_SUCCESS) {
@@ -314,7 +323,7 @@ void lcb_clconfig_decref(clconfig_info *info)
     }
 
     if (info->vbc) {
-        vbucket_config_destroy(info->vbc);
+        lcbvb_destroy(info->vbc);
     }
 
     free(info);
@@ -324,8 +333,8 @@ int lcb_clconfig_compare(const clconfig_info *a, const clconfig_info *b)
 {
     /** First check if both have revisions */
     int rev_a, rev_b;
-    rev_a = vbucket_config_get_revision(a->vbc);
-    rev_b = vbucket_config_get_revision(b->vbc);
+    rev_a = lcbvb_get_revision(a->vbc);
+    rev_b = lcbvb_get_revision(b->vbc);
     if (rev_a >= 0  && rev_b >= 0) {
         return rev_a - rev_b;
     }
@@ -341,7 +350,7 @@ int lcb_clconfig_compare(const clconfig_info *a, const clconfig_info *b)
 }
 
 clconfig_info *
-lcb_clconfig_create(VBUCKET_CONFIG_HANDLE config, clconfig_method_t origin)
+lcb_clconfig_create(lcbvb_CONFIG* config, clconfig_method_t origin)
 {
     clconfig_info *info = calloc(1, sizeof(*info));
     if (!info) {
@@ -394,11 +403,7 @@ clconfig_provider * lcb_clconfig_create_user(lcb_confmon *mon)
 LCB_INTERNAL_API
 int lcb_confmon_is_refreshing(lcb_confmon *mon)
 {
-    if(IS_REFRESHING(mon)) {
-        LOG(mon, DEBUG, "Refresh already in progress...");
-        return 1;
-    }
-    return 0;
+    return IS_REFRESHING(mon);
 }
 
 LCB_INTERNAL_API

@@ -206,3 +206,116 @@ TEST_F(MockUnitTest, testIssue59)
     lcb_wait(instance);
     lcb_wait(instance);
 }
+
+
+extern "C" {
+    struct rvbuf {
+        lcb_error_t error;
+        lcb_cas_t cas1;
+        lcb_cas_t cas2;
+        char *bytes;
+        lcb_size_t nbytes;
+        lcb_int32_t counter;
+    };
+
+    static void df_store_callback1(lcb_t instance,
+                                   const void *cookie,
+                                   lcb_storage_t,
+                                   lcb_error_t error,
+                                   const lcb_store_resp_t *)
+    {
+        struct rvbuf *rv = (struct rvbuf *)cookie;
+        rv->error = error;
+        lcb_stop_loop(instance);
+    }
+
+    static void df_store_callback2(lcb_t instance,
+                                   const void *cookie,
+                                   lcb_storage_t,
+                                   lcb_error_t error,
+                                   const lcb_store_resp_t *resp)
+    {
+        struct rvbuf *rv = (struct rvbuf *)cookie;
+        rv->error = error;
+        rv->cas2 = resp->v.v0.cas;
+        lcb_stop_loop(instance);
+    }
+
+    static void df_get_callback(lcb_t instance,
+                                const void *cookie,
+                                lcb_error_t error,
+                                const lcb_get_resp_t *resp)
+    {
+        struct rvbuf *rv = (struct rvbuf *)cookie;
+        const char *value = "{\"bar\"=>1, \"baz\"=>2}";
+        lcb_size_t nvalue = strlen(value);
+        lcb_error_t err;
+
+        rv->error = error;
+        rv->cas1 = resp->v.v0.cas;
+        lcb_store_cmd_t storecmd(LCB_SET, resp->v.v0.key, resp->v.v0.nkey,
+                                 value, nvalue, 0, 0, resp->v.v0.cas);
+        lcb_store_cmd_t *storecmds[] = { &storecmd };
+
+        err = lcb_store(instance, rv, 1, storecmds);
+        ASSERT_EQ(LCB_SUCCESS, err);
+    }
+}
+
+TEST_F(MockUnitTest, testDoubleFreeError)
+{
+    lcb_error_t err;
+    struct rvbuf rv;
+    const char *key = "test_compare_and_swap_async_", *value = "{\"bar\" => 1}";
+    lcb_size_t nkey = strlen(key), nvalue = strlen(value);
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+
+    /* prefill the bucket */
+    (void)lcb_set_store_callback(instance, df_store_callback1);
+
+    lcb_store_cmd_t storecmd(LCB_SET, key, nkey, value, nvalue);
+    lcb_store_cmd_t *storecmds[] = { &storecmd };
+
+    err = lcb_store(instance, &rv, 1, storecmds);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_run_loop(instance);
+    ASSERT_EQ(LCB_SUCCESS, rv.error);
+
+    /* run exercise
+     *
+     * 1. get the valueue and its cas
+     * 2. atomic set new valueue using old cas
+     */
+    (void)lcb_set_store_callback(instance, df_store_callback2);
+    (void)lcb_set_get_callback(instance, df_get_callback);
+
+    lcb_get_cmd_t getcmd(key, nkey);
+    lcb_get_cmd_t *getcmds[] = { &getcmd };
+
+    err = lcb_get(instance, &rv, 1, getcmds);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    rv.cas1 = rv.cas2 = 0;
+    lcb_run_loop(instance);
+    ASSERT_EQ(LCB_SUCCESS, rv.error);
+    ASSERT_GT(rv.cas1, 0);
+    ASSERT_GT(rv.cas2, 0);
+    ASSERT_NE(rv.cas1, rv.cas2);
+}
+
+TEST_F(MockUnitTest, testBrokenFirstNodeInList)
+{
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    lcb_create_st options;
+    mock->makeConnectParams(options, NULL);
+    std::string nodes = options.v.v0.host;
+    nodes = "1.2.3.4:4321;" + nodes;
+    options.v.v0.host = nodes.c_str();
+
+    lcb_t instance;
+    doLcbCreate(&instance, &options, mock);
+    lcb_cntl_setu32(instance, LCB_CNTL_OP_TIMEOUT, LCB_MS2US(200));
+    ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
+    lcb_destroy(instance);
+}

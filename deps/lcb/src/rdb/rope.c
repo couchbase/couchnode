@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 #include "rope.h"
 
 #define MINIMUM(a, b) (a) < (b) ? a : b
@@ -85,7 +86,8 @@ rdb_rdend(rdb_IOROPE *ior, unsigned nr)
     }
 
     /** Reads didn't fit into any segment */
-    abort();
+    fprintf(stderr, "RDB: Tried to consume more than available in the buffer (n=%u)\n", nr);
+    assert(0);
 }
 
 static void
@@ -256,8 +258,9 @@ rdb_refread_ex(rdb_IOROPE *ior, nb_IOV *iov, rdb_ROPESEG **segs,
             return -1;
         }
     }
+
     /** Requested more data than we have */
-    abort();
+    fprintf(stderr, "RDB: refread_ex was passed a size greater than our buffer (n=%u)\n", ndata);
     return -1;
 }
 

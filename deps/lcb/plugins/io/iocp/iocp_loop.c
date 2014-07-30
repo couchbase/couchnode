@@ -150,8 +150,9 @@ static void handle_single_overlapped(iocp_t *io,
         break;
 
     default:
-        IOCP_LOG(IOCP_FATAL, "Unrecognized action %d. Abort", action);
-        abort();
+        fprintf(stderr, "COUCHBASE-IOCP: Unrecognized OVERLAPPED action %d\n", (int)action);
+        assert(0);
+        return;
     }
 
     iocp_on_dequeued(io, sd, action);

@@ -89,7 +89,7 @@ mc_forward_packet(mc_CMDQUEUE *cq,
         kptr = kbuf_s;
     }
 
-    vbucket_map(cq->config, kptr, n_body_key, &vbid, &srvix);
+    lcbvb_map_key(cq->config, kptr, n_body_key, &vbid, &srvix);
     if (srvix < 0 || (unsigned)srvix >= cq->npipelines) {
         return LCB_NO_MATCHING_SERVER;
     }

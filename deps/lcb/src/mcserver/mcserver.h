@@ -16,7 +16,7 @@ struct lcb_server_st;
 /**
  * The structure representing each couchbase server
  */
-typedef struct lcb_server_st {
+typedef struct {
     /** Pipeline object for command queues */
     mc_PIPELINE pipeline;
 
@@ -48,7 +48,7 @@ typedef struct lcb_server_st {
 
     /** Request for current connection */
     lcb_host_t *curhost;
-} lcb_server_t, mc_SERVER;
+} mc_SERVER;
 
 #define MCSERVER_TIMEOUT(c) (c)->settings->operation_timeout
 
@@ -63,7 +63,7 @@ mc_SERVER *
 mcserver_alloc(lcb_t instance, int ix);
 
 mc_SERVER *
-mcserver_alloc2(lcb_t instance, VBUCKET_CONFIG_HANDLE vbc, int ix);
+mcserver_alloc2(lcb_t instance, lcbvb_CONFIG* vbc, int ix);
 
 /**
  * Close the server. The resources of the server may still continue to persist

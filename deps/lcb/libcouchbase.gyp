@@ -132,6 +132,9 @@
       'target_name': 'lcbio',
       'product_prefix': 'lib',
       'type': 'static_library',
+      'include_dirs': [
+        './'
+      ],
       'sources': [
         'src/lcbio/connect.c',
         'src/lcbio/ctx.c',
@@ -149,11 +152,14 @@
       'target_name': 'couchbase_utils',
       'product_prefix': 'lib',
       'type': 'static_library',
+      'include_dirs': [
+        './'
+      ],
       'sources': [
+        'contrib/genhash/genhash.c',
         'src/strcodecs/base64.c',
         'src/strcodecs/url_encoding.c',
         'src/gethrtime.c',
-        'src/genhash.c',
         'src/hashtable.c',
         'src/hashset.c',
         'src/hostlist.c',
@@ -215,7 +221,7 @@
         ##'src/ssl/ssl_e.c',
 
         ## opfiles
-        'src/operations/arithmetic.c',
+        'src/operations/counter.c',
         'src/operations/get.c',
         'src/operations/touch.c',
         'src/operations/observe.c',
@@ -229,11 +235,11 @@
         'src/bucketconfig/bc_cccp.c',
         'src/bucketconfig/bc_http.c',
         'src/bucketconfig/bc_file.c',
+        'src/bucketconfig/bc_mcraw.c',
         'src/bucketconfig/confmon.c',
         'src/callbacks.c',
         'src/cntl.c',
-        'src/dsn.c',
-        'src/error.c',
+        'src/connspec.c',
         'src/handler.c',
         'src/getconfig.c',
         'src/http/http.c',
@@ -242,18 +248,16 @@
         'src/mcserver/negotiate.c',
         'src/mcserver/mcserver.c',
         'src/newconfig.c',
+        'src/nodeinfo.c',
         'src/iofactory.c',
         'src/retryq.c',
         'src/retrychk.c',
-        'src/sanitycheck.c',
         'src/settings.c',
         'src/synchandler.c',
         'src/timer.c',
         'src/timings.c',
         'src/utilities.c',
-        'src/wait.c',
-
-        'plugins/io/select/plugin-select.c'
+        'src/wait.c'
       ],
       'dependencies': [
         'couchbase_utils',

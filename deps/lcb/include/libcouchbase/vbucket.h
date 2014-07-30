@@ -226,6 +226,22 @@ LIBCOUCHBASE_API
 int
 lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
 
+
+/**
+ * @uncommitted
+ *
+ * Using various guesswork and heuristics, attempt to locate an alternate node
+ * for the master of a given vbucket. This should be used if the master index
+ * is -1 or if the master index is deemed incorrect by some other means.
+ *
+ * @param cfg the configuration object
+ * @param vbix the vbucket index to loop up
+ * @return the new index.
+ */
+LIBCOUCHBASE_API
+unsigned
+lcbvb_vbalternate(lcbvb_CONFIG *cfg, int vbix);
+
 /**
  * @committed
  *
@@ -409,7 +425,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
  * @brief Generate a sample configuration used for testing.
  * @param vb a new configuration object returned via lcbvb_create()
  * @param nservers how many nodes to place into the configuration
- * @param nrepl how many replicas should be assigned to the bucket
+ * @param nreplica how many replicas should be assigned to the bucket
  * @param nvbuckets how many vbuckets to create
  * @return 0 on success, nonzero on error
  *
@@ -422,6 +438,16 @@ LIBCOUCHBASE_API
 int
 lcbvb_genconfig(lcbvb_CONFIG *vb,
     unsigned nservers, unsigned nreplica, unsigned nvbuckets);
+
+
+/**
+ * @volatile
+ * Convert the configuration to a ketama one.
+ * @param vb The configuration object.
+ */
+LIBCOUCHBASE_API
+void
+lcbvb_make_ketama(lcbvb_CONFIG *vb);
 
 /**
  * @committed

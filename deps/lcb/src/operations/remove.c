@@ -16,6 +16,7 @@
  */
 
 #include "internal.h"
+#include "trace.h"
 
 LIBCOUCHBASE_API
 lcb_error_t
@@ -27,7 +28,12 @@ lcb_remove3(lcb_t instance, const void *cookie, const lcb_CMDREMOVE * cmd)
     lcb_error_t err;
     protocol_binary_request_header hdr;
 
-    err = mcreq_basic_packet(cq, cmd, &hdr, 0, &pkt, &pl);
+    if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
+        return LCB_EMPTY_KEY;
+    }
+
+    err = mcreq_basic_packet(cq, cmd, &hdr, 0, &pkt, &pl,
+        MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
     }
@@ -36,13 +42,14 @@ lcb_remove3(lcb_t instance, const void *cookie, const lcb_CMDREMOVE * cmd)
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_DELETE;
-    hdr.request.cas = cmd->options.cas;
+    hdr.request.cas = cmd->cas;
     hdr.request.opaque = pkt->opaque;
     hdr.request.bodylen = htonl((lcb_uint32_t)ntohs(hdr.request.keylen));
 
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
+    TRACE_REMOVE_BEGIN(&hdr, cmd);
     mcreq_sched_add(pl, pkt);
     return LCB_SUCCESS;
 }
@@ -64,7 +71,7 @@ lcb_remove(lcb_t instance, const void *cookie, lcb_size_t num,
         dst.key.contig.nbytes = src->v.v0.nkey;
         dst.hashkey.contig.bytes = src->v.v0.hashkey;
         dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
-        dst.options.cas = src->v.v0.cas;
+        dst.cas = src->v.v0.cas;
         err = lcb_remove3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
             mcreq_sched_fail(&instance->cmdq);

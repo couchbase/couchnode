@@ -1,0 +1,59 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "CBCRC" "4" "June 2014" "" ""
+.
+.SH "NAME"
+\fBcbcrc\fR \- Configuration file for Couchbase command line toolscbcrc is an ASCII file that allows you to specify default configuration values for cbc\.
+.
+.P
+Each entry in the cbcrc file is a line with a key\-value pair in the following form:
+.
+.IP "" 4
+.
+.nf
+
+# optional comments
+key=value
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The keys may be specified in random order, and if you specify the same key multiple times the last value "wins"\. The following keys exists:
+.
+.TP
+\fBconnstr\fR
+This is the URI\-like string used to connect to the cluster\. Its format consists of a \fIscheme\fR followed by a list of hosts, an optional bucket for the path and an optional \fB?\fR followed by key\-value options\.
+.
+.IP
+Using SSL without verification:
+.
+.IP
+couchbases://foo\.com,bar\.com,baz\.com/mybucket?ssl=no_verify
+.
+.IP
+Using custom REST API ports (without SSL)
+.
+.IP
+http://localhost:9000,localhost:9001,localhost:9002
+.
+.IP
+Using custom memcached ports:
+.
+.IP
+couchbase://localhost:9100,localhost:9200,localhost:9300
+.
+.TP
+\fBuser\fR
+This is the username used during authentication to your cluster\.
+.
+.TP
+\fBpassword\fR
+This is the password used during authentication to your bucket
+.
+.TP
+\fBtimeout\fR
+The timeout value to use for the operations\.
+

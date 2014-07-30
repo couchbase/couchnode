@@ -112,22 +112,22 @@ mcserver_flush(mc_SERVER *server)
  * user.
  */
 static int
-handle_nmv(lcb_server_t *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
+handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
 {
     mc_PACKET *newpkt;
     protocol_binary_request_header hdr;
     lcb_error_t err = LCB_ERROR;
     lcb_t instance = oldsrv->instance;
+    clconfig_provider *cccp =
+            lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_CCCP);
 
     mcreq_read_hdr(oldpkt, &hdr);
     lcb_log(LOGARGS(oldsrv, WARN), LOGFMT "NOT_MY_VBUCKET. Packet=%p (S=%u). VBID=%u", LOGID(oldsrv), (void*)oldpkt, oldpkt->opaque, ntohs(hdr.request.vbucket));
 
-    if (PACKET_NBODY(resinfo)) {
+    if (PACKET_NBODY(resinfo) && cccp->enabled) {
         lcb_string s;
-        clconfig_provider *cccp;
 
         lcb_string_init(&s);
-        cccp = lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_CCCP);
         lcb_string_append(&s, PACKET_VALUE(resinfo), PACKET_NVALUE(resinfo));
         err = lcb_cccp_update(cccp, mcserver_get_host(oldsrv), &s);
         lcb_string_release(&s);
@@ -142,9 +142,9 @@ handle_nmv(lcb_server_t *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     }
 
     /** Reschedule the packet again .. */
-    newpkt = mcreq_dup_packet(oldpkt);
+    newpkt = mcreq_renew_packet(oldpkt);
     newpkt->flags &= ~MCREQ_STATE_FLAGS;
-    lcb_retryq_add(instance->retryq, newpkt);
+    lcb_retryq_add(instance->retryq, (mc_EXPACKET*)newpkt, LCB_NOT_MY_VBUCKET);
     return 1;
 }
 
@@ -208,6 +208,7 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
     /* Figure out if the request is 'ufwd' or not */
     if (!(request->flags & MCREQ_F_UFWD)) {
         DO_ASSIGN_PAYLOAD();
+        info->bufh = rdb_get_first_segment(ior);
         mcreq_dispatch_response(pl, request, info, LCB_SUCCESS);
         DO_SWALLOW_PAYLOAD()
 
@@ -283,9 +284,10 @@ maybe_retry(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_error_t err)
 {
     mc_SERVER *srv = (mc_SERVER *)pipeline;
     mc_PACKET *newpkt;
-    VBUCKET_DISTRIBUTION_TYPE dist_t = VB_DISTTYPE(pipeline->parent->config);
+    lcb_t instance = pipeline->parent->cqdata;
+    lcbvb_DISTMODE dist_t = lcbvb_get_distmode(pipeline->parent->config);
 
-    if (dist_t != VBUCKET_DISTRIBUTION_VBUCKET) {
+    if (dist_t != LCBVB_DIST_VBUCKET) {
         /** memcached bucket */
         return 0;
     }
@@ -293,9 +295,9 @@ maybe_retry(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_error_t err)
         return 0;
     }
 
-    newpkt = mcreq_dup_packet(pkt);
+    newpkt = mcreq_renew_packet(pkt);
     newpkt->flags &= ~MCREQ_STATE_FLAGS;
-    lcb_retryq_add(pipeline->parent->instance->retryq, newpkt);
+    lcb_retryq_add(instance->retryq, (mc_EXPACKET *)newpkt, err);
     return 1;
 }
 
@@ -317,6 +319,14 @@ fail_callback(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_error_t err, void *arg)
          * as the actual error code. */
         err = LCB_MAP_CHANGED;
     }
+
+    if (err == LCB_ETIMEDOUT) {
+        lcb_error_t tmperr = lcb_retryq_origerr(pkt);
+        if (tmperr != LCB_SUCCESS) {
+            err = tmperr;
+        }
+    }
+
     memset(&info, 0, sizeof(info));
     memcpy(hdr.bytes, SPAN_BUFFER(&pkt->kh_span), sizeof(hdr.bytes));
 
@@ -331,7 +341,7 @@ fail_callback(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_error_t err, void *arg)
 }
 
 static int
-purge_single_server(lcb_server_t *server, lcb_error_t error,
+purge_single_server(mc_SERVER *server, lcb_error_t error,
                     hrtime_t thresh, hrtime_t *next, int policy)
 {
     unsigned affected;
@@ -410,7 +420,7 @@ timeout_server(void *arg)
     }
 
     next_us = get_next_timeout(server);
-    lcb_log(LOGARGS(server, INFO), LOGFMT "Scheduling next timeout for %u ms", LOGID(server), next_us / 1000);
+    lcb_log(LOGARGS(server, DEBUG), LOGFMT "Scheduling next timeout for %u ms", LOGID(server), next_us / 1000);
     lcbio_timer_rearm(server->io_timer, next_us);
     lcb_maybe_breakout(server->instance);
 }
@@ -455,7 +465,7 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr
     server->pipeline.flush_start = (mcreq_flushstart_fn)mcserver_flush;
 
     tmo = get_next_timeout(server);
-    lcb_log(LOGARGS(server, INFO), LOGFMT "Setting initial timeout=%ums", LOGID(server), tmo/1000);
+    lcb_log(LOGARGS(server, DEBUG), LOGFMT "Setting initial timeout=%ums", LOGID(server), tmo/1000);
     lcbio_timer_rearm(server->io_timer, get_next_timeout(server));
     mcserver_flush(server);
 }
@@ -488,7 +498,7 @@ dupstr_or_null(const char *s) {
 }
 
 mc_SERVER *
-mcserver_alloc2(lcb_t instance, VBUCKET_CONFIG_HANDLE vbc, int ix)
+mcserver_alloc2(lcb_t instance, lcbvb_CONFIG* vbc, int ix)
 {
     mc_SERVER *ret;
     lcbvb_SVCMODE mode;

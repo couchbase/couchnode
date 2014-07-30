@@ -1,6 +1,7 @@
 #ifndef LCB_DURABILITY_INTERNAL_H
 #define LCB_DURABILITY_INTERNAL_H
 
+#include "simplestring.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,13 +27,11 @@ extern "C" {
      * Information a single entry in a durability set
      */
     typedef struct lcb_durability_entry_st {
-        lcb_list_t ll;
-
-        /** Request for this structure */
-        struct lcb_durability_cmd_st request;
+        lcb_KEYBUF hashkey;
+        lcb_U64 reqcas;
 
         /** result for this entry */
-        struct lcb_durability_resp_st result;
+        lcb_RESPENDURE result;
 
         /** pointer to the containing durability_set */
         struct lcb_durability_set_st *parent;
@@ -42,31 +41,30 @@ extern "C" {
          * further operations
          */
         unsigned char done;
-    } lcb_durability_entry_t;
+    } lcb_DURITEM;
 
     /**
      * A collection encompassing one or more keys which are to be checked for
      * persistence
      */
     typedef struct lcb_durability_set_st {
+        lcb_MULTICMD_CTX mctx;
+
         /** options */
         struct lcb_durability_opts_st opts;
 
         /** array of entries which are to be polled */
         struct lcb_durability_entry_st *entries;
 
-        /** Allocated as well for passing to observe_ex */
-        struct lcb_durability_entry_st **valid_entries;
-
         /** number of entries in the array */
         lcb_size_t nentries;
+        lcb_size_t ents_alloced; /* How many of those were allocated */
 
         struct {
             /**
              * Tweak for single entry, so we don't have to allocate tiny chunks
              */
-            lcb_durability_entry_t ent;
-            lcb_durability_entry_t *entp;
+            lcb_DURITEM ent;
         } single;
 
         /**
@@ -96,6 +94,11 @@ extern "C" {
         genhash_t *ht;
 
         /**
+         * Buffer for key data
+         */
+        lcb_string kvbufs;
+
+        /**
          * User cookie
          */
         const void *cookie;
@@ -108,32 +111,14 @@ extern "C" {
         void *timer;
 
         lcb_t instance;
-    } lcb_durability_set_t;
-
-    void lcb_durability_update(lcb_t instance,
-                               const void *cookie,
-                               lcb_error_t err,
-                               lcb_observe_resp_t *resp);
+    } lcb_DURSET;
 
     void lcb_durability_dset_update(lcb_t instance,
-                                    lcb_durability_set_t *dset,
+                                    lcb_DURSET *dset,
                                     lcb_error_t err,
-                                    const lcb_observe_resp_t *resp);
-
-    typedef enum {
-        /** Durability requirement. Poll all servers */
-        LCB_OBSERVE_TYPE_DURABILITY,
-        /** Poll the master for simple existence */
-        LCB_OBSERVE_TYPE_CHECK,
-        /** Poll all servers only once */
-        LCB_OBSERVE_TYPE_BCAST
-    } lcb_observe_type_t;
-
-    lcb_error_t lcb_observe_ex(lcb_t instance,
-                               const void *command_cookie,
-                               lcb_size_t num,
-                               const void *const *items,
-                               lcb_observe_type_t type);
+                                    const lcb_RESPOBSERVE *resp);
+    lcb_MULTICMD_CTX *
+    lcb_observe_ctx_dur_new(lcb_t instance);
 
 #ifdef __cplusplus
 }

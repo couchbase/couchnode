@@ -1,0 +1,131 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "CBC\-PILLOWFIGHT" "1" "June 2014" "" ""
+.
+.SH "NAME"
+\fBcbc\-pillowfight\fR \- Stress Test for Couchbase Client and Cluster
+.
+.SH "SYNOPSIS"
+\fBcbc\-pillowfight\fR [\fIOPTIONS\fR]
+.
+.SH "DESCRIPTION"
+\fBcbc\-pillowfight\fR creates a specified number of threads each looping and performing get and set operations within the cluster\.
+.
+.P
+The command will loop a certain number of \fIcycles\fR, in each cycle it will schedule a certain number of \fIbatched\fR operations (which can be a single operation)\. The operations will be either storage or retrieval operations, controlled by a given \fIratio\fR\.
+.
+.P
+The number of total items operated upon as well as the sizes of these options may also be configured\.
+.
+.SH "OPTIONS"
+Options may be read either from the command line, or from a configuration file (see cbcrc(4)):
+.
+.P
+The following options control workload generation:
+.
+.TP
+\fB\-B\fR, \fB\-\-iterations\fR=\fIBATCHSIZE\fR
+This controls how many commands are scheduled per cycles\. To simulate one operation at a time, set this value to 1\.
+.
+.TP
+\fB\-I\fR, \fB\-\-num\-items\fR=\fINUMITEMS\fR
+Set the \fItotal\fR number of items the workload will access within the cluster\. This will also determine the working set size at the server and may affect disk latencies if set to a high number\.
+.
+.TP
+\fB\-p\fR, \fB\-\-key\-prefix\fR=\fIPREFIX\fR
+Set the prefix to prepend to all keys in the cluster\. Useful if you do not wish the items to conflict with existing data\.
+.
+.TP
+\fB\-t\fR, \fB\-\-num\-threads\fR=\fINTHREADS\fR
+Set the number of threads (and thus the number of client instances) to run concurrently\. Each thread is assigned its own client object\.
+.
+.TP
+\fB\-r\fR, \fB\-\-ratio\fR=\fISETRATIO\fR
+Set the ratio of gets to sets\. This controls how many get operations should be performed before a set operation is performed\.
+.
+.TP
+\fB\-n\fR, \fB\-\-no\-population\fR
+By default \fBcbc\-pillowfight\fR will load all the items (see \fB\-\-num\-items\fR) into the cluster and then begin performing the normal workload\. Specifying this option bypasses this stage\. Useful if the items have already been loaded in a previous run\.
+.
+.TP
+\fB\-m\fR, \fB\-\-min\-size\fR=\fIMINSIZE\fR:
+
+.
+.TP
+\fB\-M\fR, \fB\-\-max\-size\fR=\fIMAXSIZE\fR
+Specify the minimum and maximum value sizes to be stored into the cluster\. This is typically a range, in which case each value generated will be between \fB\-\-min\-size\fR and \fB\-\-max\-size\fR bytes\.
+.
+.TP
+\fB\-E\fR, \fB\-\-pause\-at\-end\fR
+When the workload completes, do not exit immediately, but wait for user input\. This is helpful for analyzing open socket connections and state\.
+.
+.TP
+\fB\-c\fR, \fB\-\-num\-cycles\fR
+Specify the number of times the workload should cycle\. During each cycle an amount of \fB\-\-batch\-size\fR operations are executed\. Setting this to \fB\-1\fR will cause the workload to run infinitely\.
+.
+.TP
+\fB\-T\fR, \fB\-\-timings\fR
+Dump a histogram of command timings and latencies to the screen every second\.
+.
+.P
+The following options control how \fBcbc\-pillowfight\fR connects to the cluster
+.
+.TP
+\fB\-U\fR, \fB\-\-spec\fR=\fISPEC\fR
+A string describing the cluster to connect to\. The string is in a URI\-like syntax, and may also contain other options\. See the \fIEXAMPLES\fR section for information\. Typically such a URI will look like \fBcouchbase://host1,host2,host3/bucket\fR\.
+.
+.IP
+The default for this option is \fBcouchbase://localhost/default\fR
+.
+.TP
+\fB\-u\fR, \fB\-\-username\fR=\fIUSERNAME\fR
+Specify the \fIusername\fR for the bucket\. As of Couchbase Server 2\.5 this field should be either left empty or set to the name of the bucket itself\.
+.
+.TP
+\fB\-P\fR, \fB\-\-password\fR=\fISASLPASS\fR
+Specify the SASL password for the bucket\. This is only needed if the bucket is protected with a password\. Note that this is \fInot\fR the administrative password used to log into the web interface\.
+.
+.TP
+\fB\-C\fR, \fB\-\-bootstrap\-protocol\fR=\fICCCP|HTTP|BOTH\fR
+Specify the bootstrap protocol the client should used when attempting to connect to the cluster\. Options are: \fBCCCP\fR: Bootstrap using the Memcached protocol (supported on clusters 2\.5 and greater); \fBHTTP\fR: Bootstrap using the HTTP REST protocol (supported on any cluster version); and \fBBOTH\fR: First attempt bootstrap over the Memcached protocol, and use the HTTP protocol if Memcached bootstrap fails\. The default is \fBBOTH\fR
+.
+.TP
+\fB\-t\fR, \fB\-\-timeout\fR=\fIUSECS\fR
+Specify the operation timeout in microseconds\. This is the time the client will wait for an operation to complete before timing it out\. The default is \fB2500000\fR
+.
+.TP
+\fB\-T\fR, \fB\-\-timings\fR
+Dump command timings at the end of execution\. This will display a histogram showing the latencies for the commands executed\.
+.
+.TP
+\fB\-S\fR \fB\-\-force\-sasl\-mech\fR=\fIMECH\fR
+Force a specific \fISASL\fR mechanism to be used when performing the initial connection\. This should only need to be modified for debugging purposes\. The currently supported mechanisms are \fBPLAIN\fR and \fBCRAM\-MD5\fR
+.
+.TP
+\fB\-Z\fR, \fB\-\-config\-cache\fR
+Enables the client to make use of a file based configuration cache rather than connecting for the bootstrap operation\. If the file does not exist, the client will first connect to the cluster and then cache the bootstrap information in the file\.
+.
+.TP
+\fB\-\-ssl\fR=\fION|OFF|NO_VERIFY\fR
+Use SSL for connecting to the cluster\. The options are \fBON\fR to enable full SSL support, \fBOFF\fR to disable SSL support, and \fBNO_VERIFY\fR to use SSL encryption but not attempt to verify the authenticity of the server\'s certificate\.
+.
+.TP
+\fB\-\-capath\fR=\fICERTIFICATE\fR
+The path to the CA certificate with which the server\'s certificate was signed\. May be necessary if the certificate is not recognized by the default OpenSSL installation\.
+.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Specify more information to standard error about what the client is doing\. You may specify this option multiple times for increased output detail\.
+.
+.SH "TODO"
+Rather than spawning threads for multiple instances, offer a way to have multiple instances function cooperatively inside an event loop\.
+.
+.SH "BUGS"
+This command\'s options are subject to change\.
+.
+.SH "SEE ALSO"
+cbc(1), cbcrc(4)
+.
+.SH "HISTORY"
+The \fBcbc\-pillowfight\fR tool was first introduced in libcouchbase 2\.0\.7

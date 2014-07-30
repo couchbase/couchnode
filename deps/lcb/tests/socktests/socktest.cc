@@ -245,7 +245,7 @@ Loop::connectPooled(ESocket *sock)
 }
 
 extern "C" {
-static void timerCallback(lcb_timer_t, lcb_t, const void *arg)
+static void timerCallback(void *arg)
 {
     Timer *tm = (Timer *)arg;
     tm->expired();
@@ -254,8 +254,7 @@ static void timerCallback(lcb_timer_t, lcb_t, const void *arg)
 
 Timer::Timer(lcbio_TABLE *iot)
 {
-    timer = lcb_timer_create_simple(iot, this, 0, timerCallback);
-    lcb_timer_disarm(timer);
+    timer = lcbio_timer_new(iot, this, timerCallback);
 }
 
 Timer::~Timer()
@@ -266,20 +265,20 @@ Timer::~Timer()
 void
 Timer::destroy()
 {
-    lcb_timer_destroy(NULL, timer);
+    lcbio_timer_destroy(timer);
     timer = NULL;
 }
 
 void
 Timer::cancel()
 {
-    lcb_timer_disarm(timer);
+    lcbio_timer_disarm(timer);
 }
 
 void
 Timer::schedule(unsigned ms)
 {
-    lcb_timer_rearm(timer, LCB_MS2US(ms));
+    lcbio_timer_rearm(timer, LCB_MS2US(ms));
 }
 
 void

@@ -34,7 +34,7 @@ extern "C" {
  * initialize the mc_CMDQEUE structure is to call mcreq_queue_init().
  *
  * Once the queue has been initialized, it must be assigned a
- * `VBUCKET_CONFIG_HANDLE` (which it will _not_ own). This is done via the
+ * `lcbvb_CONFIG*` (which it will _not_ own). This is done via the
  * mcreq_queue_add_pipelines(). This function takes an array of pipeline pointers,
  * and this will typically be a "subclass" (mc_SERVER) allocated via
  * mcserver_alloc()
@@ -106,8 +106,9 @@ extern "C" {
  *
  * The mcreq_iterwipe() will clean a pipeline of its packets, invoking a
  * callback which allows the user to relocate the packet to another pipeline.
- * In this callback the user may invoke the mcreq_dup_packet() function to
- * duplicate a packet's _data_ without duplicating its _state_.
+ * In this callback the user may invoke the mcreq_renew_packet() function to
+ * create a copy of the packet, keeping the previous packet in tact, but
+ * returning a copy of the packet as the 'primary' version.
  *
  * @addtogroup MCREQ
  * @{
@@ -208,12 +209,12 @@ typedef enum {
     MCREQ_F_INVOKED = 1 << 7,
 
     /**
-     * Forwarded packet which should be passed through and not processed
-     * with extended callback logic. Just emit the frame data promptly.
+     * Indicates that this packet and its constituent data members are not
+     * part of a nb_MBLOCK but rather point to standalone malloc'd memory. This
+     * also indicates that the packet is actually an mc_EXPACKET extended
+     * type. This is set by mcreq_renew_packet()
      */
-    MCREQ_F_PASSTHROUGH = 1 << 8,
-
-    MCREQ_F_DETACHED = 1 << 9
+    MCREQ_F_DETACHED = 1 << 8
 } mcreq_flags;
 
 /** @brief mask of flags indicating user-allocated buffers */
@@ -281,6 +282,7 @@ typedef struct mc_packet_st {
     /** Allocation data for the PACKET structure itself */
     nb_MBLOCK *alloc_parent;
 } mc_PACKET;
+
 
 /**
  * @brief Gets the request data from the packet structure itself
@@ -359,16 +361,21 @@ typedef struct mc_cmdqueue_st {
     /** Number of pipelines in the queue */
     unsigned npipelines;
 
+    /** Number of pipelines, with fallback included */
+    unsigned _npipelines_ex;
+
     /** Sequence number for pipeline. Incremented for each new packet */
     uint32_t seq;
 
     /** Configuration handle for vBucket mapping */
-    VBUCKET_CONFIG_HANDLE config;
+    lcbvb_CONFIG* config;
 
-    /** Number of pending items which have not yet been marked as 'done' */
-    unsigned nremaining;
+    /** Opaque pointer to be used by the application (in this case, lcb core) */
+    void* cqdata;
 
-    lcb_t instance;
+    /**Special pipeline used to contain orphaned packets within a scheduling
+     * context. This field is used by mcreq_set_fallback_handler() */
+    mc_PIPELINE *fallback;
 } mc_CMDQUEUE;
 
 /**
@@ -389,6 +396,34 @@ mcreq_allocate_packet(mc_PIPELINE *pipeline);
 void
 mcreq_release_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
 
+struct mc_epkt_datum;
+
+/**
+ * Extended packet structure. This is returned by mcreq_renew_packet().
+ *
+ * The purpose of this structure is to be able to "tag" extra data to the packet
+ * (typically for retries, or "special" commands) without weighing down on the
+ * normal packet structure; thus it should be considered a 'subclass' of the
+ * normal packet structure.
+ */
+typedef struct mc_expacket_st {
+    /** The base packet structure */
+    mc_PACKET base;
+    /* Additional data for the packet itself */
+    sllist_root data;
+} mc_EXPACKET;
+
+typedef struct mc_epkt_datum {
+    sllist_node slnode;
+
+    /**Unique string key by which this datum will be identified, as more
+     * than a single datum can exist for a packet */
+    const char *key;
+
+    /**Free the data structure
+     * @param datum the datum object */
+    void (*dtorfn)(struct mc_epkt_datum *datum);
+} mc_EPKTDATUM;
 
 /**
  * Detatches the packet src belonging to the given pipeline. A detached
@@ -400,9 +435,35 @@ mcreq_release_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
  * @return a new packet structure. You should still clear the packet's data
  * with wipe_packet/release_packet but you may pass NULL as the pipeline
  * parameter.
+ *
+ * @attention
+ * Any 'Extended' packet data is **MOVED** from the source to the destination
+ * packet. This goes well with the typical use case of this function, which is
+ * not to actually duplicate the packet, but rather to provide a fresh copy
+ * which may be re-used.
  */
 mc_PACKET *
-mcreq_dup_packet(const mc_PACKET *src);
+mcreq_renew_packet(const mc_PACKET *src);
+
+/**
+ * Associates a datum with the packet. The packet must be a standalone packet,
+ * indicated by the MCREQ_F_DETACHED flag in the mc_PACKET::flags field.
+ * @param ep The packet to which the data should be added
+ * @param datum The datum object to add. The object is not copied and should
+ *  not be freed until the `dtorfn` or `copyfn` functions have been called
+ * @return 0 on success, nonzero on failure (i.e. if packet is not detached).
+ */
+int
+mcreq_epkt_insert(mc_EXPACKET *ep, mc_EPKTDATUM *datum);
+
+/**
+ * Locate the datum associated with the given key for the packet.
+ * @param ep The packet in which to search
+ * @param key A NUL-terminated string matching the mc_EPKTDATUM::key field
+ * @return The datum, or NULL if it does not exist.
+ */
+mc_EPKTDATUM *
+mcreq_epkt_find(mc_EXPACKET *ep, const char *key);
 
 /**
  * Reserve the packet's basic header structure, this is for use for frames
@@ -503,6 +564,11 @@ mcreq_extract_hashkey(
         lcb_size_t nheader, const void **target, lcb_size_t *ntarget);
 
 
+/**If the packet's vbucket does not have a master node, use the fallback pipeline
+ * and let it be handled by the handler installed via mcreq_set_fallback_handler()
+ */
+#define MCREQ_BASICPACKET_F_FALLBACKOK 0x01
+
 /**
  * Handle the basic requirements of a packet common to all commands
  * @param queue the queue
@@ -515,13 +581,16 @@ mcreq_extract_hashkey(
  * @param extlen the size of extras for this command
  * @param[out] packet a pointer set to the address of the allocated packet
  * @param[out] pipeline a pointer set to the target pipeline
+ * @param options a set of options to control creation behavior. Currently the
+ * only recognized options are `0` (i.e. default options), or @ref
+ * MCREQ_BASICPACKET_F_FALLBACKOK
  */
 
 lcb_error_t
 mcreq_basic_packet(
         mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd,
         protocol_binary_request_header *req, uint8_t extlen,
-        mc_PACKET **packet, mc_PIPELINE **pipeline);
+        mc_PACKET **packet, mc_PIPELINE **pipeline, int options);
 
 /**
  * @brief Get the key from a packet
@@ -555,8 +624,7 @@ mcreq_pipeline_cleanup(mc_PIPELINE *pipeline);
 /**
  * Set the pipelines that this queue will manage
  * @param queue the queue to take the pipelines
- * @param pipelines an array of pipeline pointers. The array itself will
- *        be owned by the queue but _not_ the underlying pipeline pointers
+ * @param pipelines an array of pipeline pointers. The array is copied
  * @param npipelines number of pipelines in the queue
  * @param config the configuration handle. The configuration is _not_ owned
  *        and _not_ copied and the caller must ensure it remains valid
@@ -564,12 +632,12 @@ mcreq_pipeline_cleanup(mc_PIPELINE *pipeline);
  */
 void
 mcreq_queue_add_pipelines(
-        mc_CMDQUEUE *queue, mc_PIPELINE **pipelines,
-        unsigned npipelines, VBUCKET_CONFIG_HANDLE config);
+        mc_CMDQUEUE *queue, mc_PIPELINE * const *pipelines,
+        unsigned npipelines, lcbvb_CONFIG* config);
 
 
 /**
- * Take ownership of the pipeline array set via add_pipelines.
+ * Set the arra
  * @param queue the queue
  * @param count a pointer to the number of pipelines within the queue
  * @return the pipeline array.
@@ -762,6 +830,28 @@ mcreq_pipeline_timeout(
         mcreq_pktfail_fn failcb, void *cbarg,
         hrtime_t oldest_valid,
         hrtime_t *oldest_start);
+
+/**
+ * This function is called when a packet could not be properly mapped to a real
+ * pipeline
+ * @param cq the command queue
+ * @param pkt the packet which needs to be relocated. The packet needs to be
+ * properly copied via mcreq_renew_packet()
+ */
+typedef void (*mcreq_fallback_cb)(mc_CMDQUEUE *cq, mc_PACKET *pkt);
+
+/**
+ * Set the callback function to be invoked when a packet could not be properly
+ * mapped to a node. The callback function is invoked from within the
+ * mcreq_sched_leave() function.
+ *
+ * The handler should be assigned only once, during initialization
+ *
+ * @param cq The command queue
+ * @param handler The handler to invoke
+ */
+void
+mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler);
 
 void
 mcreq_dump_packet(const mc_PACKET *pkt);

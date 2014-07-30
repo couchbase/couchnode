@@ -158,14 +158,17 @@ $ xdg-open doc/html/index.html # Linux
 $ open doc/html/index.html # OS X
 ```
 
-To generate the documentation for the library's internals:
+You may also generate documentation using the `doc/Makefile` which dynamically
+inserts version information
 
 ```
-$ ./doc/gen_internal_apidoc.sh
+$ make -f doc/Makefile public # for public documentation
+$ make -f doc/Makefile internal # for internal documentation
 ```
 
-The documentation will contain the public as well as internal APIs
-within the `doc/html` directory.
+The generated documentation will be in the `doc/public/html` directory for
+public documentation, and in the `doc/internal/html` directory for internal
+documentation.
 
 ## Contributing
 

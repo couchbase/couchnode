@@ -238,7 +238,15 @@ mcreq_release_packet(mc_PIPELINE *pipeline, mc_PACKET *packet)
 {
     nb_SPAN span;
     if (packet->flags & MCREQ_F_DETACHED) {
-        free(packet);
+        sllist_iterator iter;
+        mc_EXPACKET *epkt = (mc_EXPACKET *)packet;
+
+        SLLIST_ITERFOR(&epkt->data, &iter) {
+            mc_EPKTDATUM *d = SLLIST_ITEM(iter.cur, mc_EPKTDATUM, slnode);
+            sllist_iter_remove(&epkt->data, &iter);
+            d->dtorfn(d);
+        }
+        free(epkt);
         return;
     }
 
@@ -252,12 +260,14 @@ mcreq_release_packet(mc_PIPELINE *pipeline, mc_PACKET *packet)
 #define MCREQ_DETACH_WIPESRC 1
 
 mc_PACKET *
-mcreq_dup_packet(const mc_PACKET *src)
+mcreq_renew_packet(const mc_PACKET *src)
 {
     char *kdata, *vdata;
     unsigned nvdata;
+    mc_PACKET *dst;
+    mc_EXPACKET *edst = calloc(1, sizeof(*edst));
 
-    mc_PACKET *dst = calloc(1, sizeof (*dst));
+    dst = &edst->base;
     *dst = *src;
 
     kdata = malloc(src->kh_span.size);
@@ -327,7 +337,41 @@ mcreq_dup_packet(const mc_PACKET *src)
         /* Declare the value as a standalone malloc'd span */
         CREATE_STANDALONE_SPAN(&dst->u_value.single, vdata, nvdata);
     }
+
+    if (src->flags & MCREQ_F_DETACHED) {
+        mc_EXPACKET *esrc = (mc_EXPACKET *)src;
+        sllist_iterator iter;
+        SLLIST_ITERFOR(&esrc->data, &iter) {
+            sllist_node *cur = iter.cur;
+            sllist_iter_remove(&esrc->data, &iter);
+            sllist_append(&edst->data, cur);
+        }
+    }
     return dst;
+}
+
+int
+mcreq_epkt_insert(mc_EXPACKET *ep, mc_EPKTDATUM *datum)
+{
+    if (!(ep->base.flags & MCREQ_F_DETACHED)) {
+        return -1;
+    }
+    assert(!sllist_contains(&ep->data, &datum->slnode));
+    sllist_append(&ep->data, &datum->slnode);
+    return 0;
+}
+
+mc_EPKTDATUM *
+mcreq_epkt_find(mc_EXPACKET *ep, const char *key)
+{
+    sllist_iterator iter;
+    SLLIST_ITERFOR(&ep->data, &iter) {
+        mc_EPKTDATUM *d = SLLIST_ITEM(iter.cur, mc_EPKTDATUM, slnode);
+        if (!strcmp(key, d->key)) {
+            return d;
+        }
+    }
+    return NULL;
 }
 
 void
@@ -356,7 +400,7 @@ lcb_error_t
 mcreq_basic_packet(
         mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd,
         protocol_binary_request_header *req, lcb_uint8_t extlen,
-        mc_PACKET **packet, mc_PIPELINE **pipeline)
+        mc_PACKET **packet, mc_PIPELINE **pipeline, int options)
 {
     const void *hashkey;
     lcb_size_t nhashkey;
@@ -369,12 +413,18 @@ mcreq_basic_packet(
     mcreq_extract_hashkey(&cmd->key, &cmd->hashkey,
                           sizeof(*req) + extlen, &hashkey, &nhashkey);
 
-    vbucket_map(queue->config, hashkey, nhashkey, &vb, &srvix);
-    if (srvix < 0 || (unsigned)srvix >= queue->npipelines) {
-        return LCB_NO_MATCHING_SERVER;
+    lcbvb_map_key(queue->config, hashkey, nhashkey, &vb, &srvix);
+    if (srvix > -1) {
+        *pipeline = queue->pipelines[srvix];
+
+    } else {
+        if ((options & MCREQ_BASICPACKET_F_FALLBACKOK) && queue->fallback) {
+            *pipeline = queue->fallback;
+        } else {
+            return LCB_NO_MATCHING_SERVER;
+        }
     }
 
-    *pipeline = queue->pipelines[srvix];
     *packet = mcreq_allocate_packet(*pipeline);
 
     mcreq_reserve_key(*pipeline, *packet, sizeof(*req) + extlen, &cmd->key);
@@ -429,22 +479,31 @@ mcreq_pipeline_init(mc_PIPELINE *pipeline)
 
 void
 mcreq_queue_add_pipelines(
-        mc_CMDQUEUE *queue, mc_PIPELINE **pipelines, unsigned npipelines,
-        VBUCKET_CONFIG_HANDLE config)
+        mc_CMDQUEUE *queue, mc_PIPELINE * const *pipelines, unsigned npipelines,
+        lcbvb_CONFIG* config)
 {
     unsigned ii;
 
     lcb_assert(queue->pipelines == NULL);
     queue->npipelines = npipelines;
-    queue->pipelines = pipelines;
+    queue->_npipelines_ex = queue->npipelines;
+    queue->pipelines = malloc(sizeof(*pipelines) * (npipelines + 1));
     queue->config = config;
 
+    memcpy(queue->pipelines, pipelines, sizeof(*pipelines) * npipelines);
+
     free(queue->scheds);
-    queue->scheds = calloc(npipelines, 1);
+    queue->scheds = calloc(npipelines+1, 1);
 
     for (ii = 0; ii < npipelines; ii++) {
         pipelines[ii]->parent = queue;
         pipelines[ii]->index = ii;
+    }
+
+    if (queue->fallback) {
+        queue->fallback->index = npipelines;
+        queue->pipelines[queue->npipelines] = queue->fallback;
+        queue->_npipelines_ex++;
     }
 }
 
@@ -464,14 +523,19 @@ mcreq_queue_init(mc_CMDQUEUE *queue)
     queue->seq = 0;
     queue->pipelines = NULL;
     queue->scheds = NULL;
+    queue->fallback = NULL;
     queue->npipelines = 0;
-    queue->nremaining = 0;
     return 0;
 }
 
 void
 mcreq_queue_cleanup(mc_CMDQUEUE *queue)
 {
+    if (queue->fallback) {
+        mcreq_pipeline_cleanup(queue->fallback);
+        free(queue->fallback);
+        queue->fallback = NULL;
+    }
     free(queue->scheds);
     free(queue->pipelines);
     queue->scheds = NULL;
@@ -483,11 +547,13 @@ mcreq_sched_enter(mc_CMDQUEUE *queue)
     (void)queue;
 }
 
+
+
 static void
 queuectx_leave(mc_CMDQUEUE *queue, int success, int flush)
 {
     unsigned ii;
-    for (ii = 0; ii < queue->npipelines; ii++) {
+    for (ii = 0; ii < queue->_npipelines_ex; ii++) {
         mc_PIPELINE *pipeline;
         sllist_node *ll_next, *ll;
 
@@ -653,6 +719,45 @@ mcreq_iterwipe(mc_CMDQUEUE *queue, mc_PIPELINE *src,
             sllist_iter_remove(&src->requests, &iter);
         }
     }
+}
+
+#include "mcreq-flush-inl.h"
+typedef struct {
+    mc_PIPELINE base;
+    mcreq_fallback_cb handler;
+} mc_FALLBACKPL;
+
+static void
+do_fallback_flush(mc_PIPELINE *pipeline)
+{
+    nb_IOV iov;
+    unsigned nb;
+    int nused;
+    sllist_iterator iter;
+    mc_FALLBACKPL *fpl = (mc_FALLBACKPL*)pipeline;
+
+    while ((nb = mcreq_flush_iov_fill(pipeline, &iov, 1, &nused))) {
+        mcreq_flush_done(pipeline, nb, nb);
+    }
+    /* Now handle all the packets, for real */
+    SLLIST_ITERFOR(&pipeline->requests, &iter) {
+        mc_PACKET *pkt = SLLIST_ITEM(iter.cur, mc_PACKET, slnode);
+        fpl->handler(pipeline->parent, pkt);
+        sllist_iter_remove(&pipeline->requests, &iter);
+        mcreq_packet_handled(pipeline, pkt);
+    }
+}
+
+void
+mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler)
+{
+    assert(!cq->fallback);
+    cq->fallback = calloc(1, sizeof (mc_FALLBACKPL));
+    mcreq_pipeline_init(cq->fallback);
+    cq->fallback->parent = cq;
+    cq->fallback->index = cq->npipelines;
+    ((mc_FALLBACKPL*)cq->fallback)->handler = handler;
+    cq->fallback->flush_start = do_fallback_flush;
 }
 
 void

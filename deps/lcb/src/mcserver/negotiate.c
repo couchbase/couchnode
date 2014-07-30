@@ -175,6 +175,8 @@ timeout_handler(void *arg)
 
 /**
  * Called to retrive the mechlist from the packet.
+ * @return 0 to continue authentication, 1 if no authentication needed, or
+ * -1 on error.
  */
 static int
 set_chosen_mech(mc_pSESSREQ sreq, lcb_string *mechlist, const char **data,
@@ -202,18 +204,23 @@ set_chosen_mech(mc_pSESSREQ sreq, lcb_string *mechlist, const char **data,
 
     saslerr = cbsasl_client_start(ctx->sasl, mechlist->base,
                                   NULL, data, ndata, &chosenmech);
-    if (saslerr != SASL_OK) {
+    switch (saslerr) {
+    case SASL_OK:
+        ctx->nmech = strlen(chosenmech);
+        if (! (ctx->mech = strdup(chosenmech)) ) {
+            set_error_ex(sreq, LCB_CLIENT_ENOMEM, NULL);
+            return -1;
+        }
+        return 0;
+    case SASL_NOMECH:
+        lcb_log(LOGARGS(sreq, INFO), SESSREQ_LOGFMT "Server does not support SASL (no mechanisms supported)", SESSREQ_LOGID(sreq));
+        return 1;
+        break;
+    default:
+        lcb_log(LOGARGS(sreq, INFO), SESSREQ_LOGFMT "cbsasl_client_start returned %d", SESSREQ_LOGID(sreq), saslerr);
         set_error_ex(sreq, LCB_EINTERNAL, "Couldn't start SASL client");
         return -1;
     }
-
-    ctx->nmech = strlen(chosenmech);
-    if (! (ctx->mech = strdup(chosenmech)) ) {
-        set_error_ex(sreq, LCB_CLIENT_ENOMEM, NULL);
-        return -1;
-    }
-
-    return 0;
 }
 
 /**
@@ -285,9 +292,11 @@ send_hello(mc_pSESSREQ sreq)
     lcb_SIZE nclistr;
 
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TLS;
+#ifndef LCB_NO_SNAPPY
     if (sreq->inner->settings->compressopts != LCB_COMPRESS_NONE) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_DATATYPE;
     }
+#endif
 
     nclistr = strlen(client_id);
     memset(&req, 0, sizeof req);
@@ -362,6 +371,7 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
     switch (PACKET_OPCODE(&info)) {
     case PROTOCOL_BINARY_CMD_SASL_LIST_MECHS: {
         lcb_string str;
+        int saslrc;
         const char *mechlist_data;
         unsigned int nmechlist_data;
         if (lcb_string_init(&str)) {
@@ -376,11 +386,20 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
             state = SREQ_S_ERROR;
             break;
         }
-        if (0 == set_chosen_mech(sreq, &str, &mechlist_data, &nmechlist_data) &&
-                0 == send_sasl_auth(sreq, mechlist_data, nmechlist_data)) {
-            state = SREQ_S_WAIT;
-        } else {
+
+        saslrc = set_chosen_mech(sreq, &str, &mechlist_data, &nmechlist_data);
+        if (saslrc == 0) {
+            if (0 == send_sasl_auth(sreq, mechlist_data, nmechlist_data)) {
+                state = SREQ_S_WAIT;
+            } else {
+                state = SREQ_S_ERROR;
+            }
+
+        } else if (saslrc < 0) {
             state = SREQ_S_ERROR;
+
+        } else {
+            state = SREQ_S_HELLODONE;
         }
         lcb_string_release(&str);
         break;

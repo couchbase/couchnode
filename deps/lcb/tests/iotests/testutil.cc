@@ -171,10 +171,10 @@ void getKey(lcb_t instance, const std::string &key, Item &item)
     item = kvo.result;
 }
 
-void genDistKeys(VBUCKET_CONFIG_HANDLE vbc, std::vector<std::string> &out)
+void genDistKeys(lcbvb_CONFIG *vbc, std::vector<std::string> &out)
 {
     char buf[1024] = { '\0' };
-    int servers_max = vbucket_config_get_num_servers(vbc);
+    int servers_max = lcbvb_get_nservers(vbc);
     std::map<int, bool> found_servers;
     EXPECT_TRUE(servers_max > 0);
 
@@ -182,7 +182,7 @@ void genDistKeys(VBUCKET_CONFIG_HANDLE vbc, std::vector<std::string> &out)
         int ksize = sprintf(buf, "VBKEY_%d", cur_num);
         int vbid;
         int srvix;
-        vbucket_map(vbc, buf, ksize, &vbid, &srvix);
+        lcbvb_map_key(vbc, buf, ksize, &vbid, &srvix);
 
         if (!found_servers[srvix]) {
             out.push_back(std::string(buf));

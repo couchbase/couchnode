@@ -104,6 +104,9 @@ typedef enum {
     LCB_CLCONFIG_CCCP,
     /** Old-style streaming HTTP provider. Implemented in bc_http.c */
     LCB_CLCONFIG_HTTP,
+    /** Raw memcached provided */
+    LCB_CLCONFIG_MCRAW,
+
     LCB_CLCONFIG_MAX,
 
     /** Ephemeral source, used for tests */
@@ -222,7 +225,7 @@ typedef struct clconfig_provider_st {
      * else.
      */
     void (*config_updated)(struct clconfig_provider_st *provider,
-            VBUCKET_CONFIG_HANDLE config);
+            lcbvb_CONFIG* config);
 
     /**
      * Retrieve the list of nodes from this provider, if applicable
@@ -246,7 +249,7 @@ typedef struct clconfig_provider_st {
 /** @brief refcounted object encapsulating a vbucket config */
 typedef struct clconfig_info_st {
     /** Actual configuration */
-    VBUCKET_CONFIG_HANDLE vbc;
+    lcbvb_CONFIG* vbc;
 
     /** Comparative clock with which to compare */
     lcb_uint64_t cmpclock;
@@ -305,6 +308,7 @@ clconfig_provider * lcb_clconfig_create_http(lcb_confmon *mon);
 clconfig_provider * lcb_clconfig_create_cccp(lcb_confmon *mon);
 clconfig_provider * lcb_clconfig_create_file(lcb_confmon *mon);
 clconfig_provider * lcb_clconfig_create_user(lcb_confmon *mon);
+clconfig_provider * lcb_clconfig_create_mcraw(lcb_confmon *mon);
 
 /**@brief Get a provider by its type
  * @param mon the monitor
@@ -525,7 +529,7 @@ typedef enum {
  * @param origin the type of provider from which the config originated.
  */
 clconfig_info *
-lcb_clconfig_create(VBUCKET_CONFIG_HANDLE config, clconfig_method_t origin);
+lcb_clconfig_create(lcbvb_CONFIG* config, clconfig_method_t origin);
 
 /**
  * @brief Compares two info structures and determine which one is newer
@@ -641,6 +645,13 @@ lcb_cccp_update2(const void *cookie, lcb_error_t err,
     const void *bytes, lcb_size_t nbytes, const lcb_host_t *origin);
 
 #define lcb_clconfig_cccp_set_nodes(pb, nodes) (pb)->configure_nodes(pb, nodes)
+/**@}*/
+
+/**@name Raw Memcached (MCRAW) Provider-specific APIs
+ * @{*/
+LCB_INTERNAL_API
+lcb_error_t
+lcb_clconfig_mcraw_update(clconfig_provider *pb, const char *nodes);
 /**@}*/
 
 /**@}*/

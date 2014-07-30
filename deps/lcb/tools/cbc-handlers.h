@@ -14,7 +14,8 @@ public:
     void execute(int argc, char **argv);
 
 protected:
-    virtual const std::string& getRequiredArg();
+    virtual const std::string& getLoneArg(bool required = false);
+    virtual const std::string& getRequiredArg() { return getLoneArg(true); }
     virtual void addOptions();
     virtual void run();
     cliopts::Parser parser;
@@ -51,7 +52,7 @@ private:
 class SetHandler : public Handler {
 public:
     SetHandler(const char *name = "create") : Handler(name),
-        o_flags("flags"), o_exp("ttl"), o_add("add"), o_persist("persist-to"),
+        o_flags("flags"), o_exp("expiry"), o_add("add"), o_persist("persist-to"),
         o_replicate("replicate-to"), o_value("value"), o_json("json") {
 
         o_flags.abbrev('f').description("Flags for item");
@@ -216,7 +217,7 @@ public:
 protected:
     void run();
     virtual std::string getURI() = 0;
-    virtual std::string getBody() { return ""; }
+    virtual const std::string& getBody();
     virtual std::string getContentType() { return ""; }
     virtual bool isAdmin() const { return false; }
     virtual lcb_http_method_t getMethod();
@@ -229,6 +230,9 @@ protected:
         parser.addOption(o_method);
     }
     cliopts::StringOption o_method;
+
+private:
+    std::string body_cached;
 };
 
 class AdminHandler : public HttpBaseHandler {
@@ -239,6 +243,7 @@ protected:
     virtual void run();
     virtual std::string getURI();
     virtual bool isAdmin() const { return true; }
+
 };
 
 class BucketCreateHandler : public AdminHandler {
@@ -272,7 +277,7 @@ protected:
     }
 
     std::string getURI() { return "/pools/default/buckets"; }
-    std::string getBody() { return body_s; }
+    const std::string& getBody() { return body_s; }
     std::string getContentType() { return "application/x-www-form-urlencoded"; }
     lcb_http_method_t getMethod() { return LCB_HTTP_METHOD_POST; }
 
@@ -298,7 +303,7 @@ protected:
     }
     std::string getURI() { return std::string("/pools/default/buckets/") + bname; }
     lcb_http_method_t getMethod() { return LCB_HTTP_METHOD_DELETE; }
-
+    const std::string& getBody() { static std::string e; return e; }
 private:
     std::string bname;
 };
@@ -334,14 +339,23 @@ protected:
     void onChunk(const char *s, size_t n) {
         fwrite(s, 1, n, stdout);
     }
+    std::string getContentType() { return "application/json"; }
 };
 
-class DsnHandler : public Handler {
+class ConnstrHandler : public Handler {
 public:
     HANDLER_DESCRIPTION("Parse a connection string and provide info on its components")
-    DsnHandler() : Handler("dsn") {}
+    ConnstrHandler() : Handler("connstr") {}
 protected:
     void handleOptions() { }
+    void run();
+};
+
+class WriteConfigHandler : public Handler {
+public:
+    HANDLER_DESCRIPTION("Write the configuration file based on arguments passed")
+    WriteConfigHandler() : Handler("write-config") {}
+protected:
     void run();
 };
 

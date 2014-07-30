@@ -112,7 +112,7 @@ public:
     void signal();
 
 private:
-    lcb_timer_t timer;
+    lcbio_pTIMER timer;
 };
 
 

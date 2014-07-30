@@ -32,7 +32,7 @@ has_pending(lcb_t instance)
     }
 
     for (ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
-        lcb_server_t *ss = LCBT_GET_SERVER(instance, ii);
+        mc_SERVER *ss = LCBT_GET_SERVER(instance, ii);
         if (mcserver_has_pending(ss)) {
             return 1;
         }

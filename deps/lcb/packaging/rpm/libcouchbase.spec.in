@@ -1,7 +1,7 @@
 Summary: Couchbase Client & Protocol Library
 Name: libcouchbase
 Version: @VERSION@
-Release: @RELEASE@
+Release: @RELEASE@%{?dist}
 Vendor: Couchbase, Inc.
 Packager: Couchbase SDK Team <support@couchbase.com>
 License: Apache-2
@@ -90,6 +90,7 @@ Development files for the Couchbase Client & Protocol Library
 %defattr(-, root, root)
 %{_bindir}/cbc*
 %{_mandir}/man1/cbc*.1*
+%{_mandir}/man4/cbcrc*.4*
 
 %files devel
 %defattr(-, root, root)
@@ -98,6 +99,88 @@ Development files for the Couchbase Client & Protocol Library
 %{_libdir}/libcouchbase.so
 
 %changelog
+
+* Tue Jul 29 2014 Mark Nunberg <mark.nunberg@couchbase.com> - 2.4.0-1
+
+- [major] Attempt to retry items that are mapped to a non-existent node in
+  a degraded cluster. Rather than returning `LCB_NO_MATCHING_SERVER` the
+  behavior should be to wait for the item to succeed and attempt to fetch
+  a new cluster configuration.
+
+  In order to control how such 'orphaned' commands are handled, a new value
+  has been added to the `lcb_RETRYMODEOPTS` called `LCB_RETRY_ON_MISSINGNODE`
+  which dictates how commands should be rescheduled if the associated vbucket
+  has no master. The default is to retry the command until it times out, but
+  by setting this value to `0` (See `LCB_CNTL_RETRYMODE`) it may only be
+  attempted once, causing 'fail fast' behavior in such a case.
+
+- [major] Don't throttle config requests based on initial file-based config.
+  This allows the client to quickly recover from a stale config cache without
+  waiting for the `LCB_CNTL_CONFDELAY_THRESH` interval to elapse. Prior to this
+  fix, a client would appear to "not recover" if bootstrapping from a stale cache.
+  In reality the client would eventually recover but was waiting for the delay
+  threshold to elapse.
+
+- [major] Ignore `NOT_MY_VBUCKET` config payloads if CCCP provider is disabled.
+  This allows the client to circumvent any possible bugs in the CCCP response
+  payload and rely entirely on the HTTP config. It also allows 'rewriting'
+  proxies like confsed to function.
+
+* Fri Jul 11 2014 Mark Nunberg <mark.nunberg@couchbase.com> - 2.4.0-0.beta
+
+- [minor] Communication via legacy memcached servers is possible
+  by using the `memcached://` scheme in the connection string.
+
+- [minor] Environment variables understood by the library are now
+  documented in their own section.
+
+- [major] Add `lcb_get_node()` function to retrieve addresses for
+  various nodes in the cluster. This deprecates the `lcb_get_host()`,
+  `lcb_get_port()` and `lcb_get_server_list()` functions as they are
+  constrained to only return information about the administrative API.
+  The new function is configurable to return information about various
+  ports.
+
+- [major] The `dsn` field in the `lcb_create_st` structure has been
+  renamed to `connstr`.
+
+- [major] An HTTP request which has followed redirects will cause the
+  `lcb_wait()` function to never return. This bug was introduced in
+  2.4.0-DP1 and has now been fixed.
+
+- [minor] `lcb_get_server_list()` function now returns updated information
+  from the current cluster configuration. Previously this would only return
+  a node from the list specified during initial creation.
+
+- [minor] Provide additional error classifiers. Two error classifiers have
+  been added, they are:
+
+  * `LCB_ERRTYPE_SRVLOAD` which indicates that the server is likely under high load.
+  * `LCB_ERRTYPE_SRVGEN` which indicates that the error is a direct reply from the
+    server. This code can help distinguish between client and server generated
+    return codes.
+
+- [major] Provide HTTP keepalive and connection pooling for HTTP requests.
+  This allows the client to reuse an HTTP connection for multiple requests
+  rather than creating a new connection and closing it for each operation.
+
+  The functionality may be controlled via the `LCB_CNTL_HTTP_POOLSIZE` setting
+  which limits how many open connections (per server) to maintain inside the
+  client. Setting this value to `0` will disable pooling and restore old
+  behavior.
+
+- [major] Properly schedule next invocations for retry queue. A bug was introduced
+  in 2.4.0-dp1 which would cause the next tick callback to be invoked in what is
+  effectively a busy loop. This would be reflected in higher CPU load and less
+  throughput during topology changes.
+
+- [major] Return error if empty key is passed to an operation. Empty keys will
+  cause the server to drop the connection.
+  The error code returned is the newly added `LCB_EMPTY_KEY`
+
+- [minor] Provide setting to disable refreshing the configuration when an HTTP
+  API error is encountered (from one of the HTTP callback functions). This
+  adds the `LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR` setting.
 
 * Fri Jun 20 2014 Mark Nunberg <mark.nunberg@couchbase.com> - 2.4.0-0.dp1
 

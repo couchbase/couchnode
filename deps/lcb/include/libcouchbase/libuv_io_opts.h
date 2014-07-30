@@ -98,10 +98,10 @@ extern "C" {
 
     /**
      * Use this if using an existing uv_loop_t
-     * @param io a pointer to an io pointer. Will be populated on success
-     * @param loop a uv_loop_t. You may use 'NULL', in which case the default
+     * @param version Set this to `0`
+     * @param [out] io a pointer to an io pointer. Will be populated on success
      * @param options the options to be passed. From libcouchbase this is a
-     * 'void' parameter.
+     * `void*` parameter.
      */
     LCBUV_API
     lcb_error_t lcb_create_libuv_io_opts(int version,

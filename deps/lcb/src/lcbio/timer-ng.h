@@ -58,7 +58,7 @@ typedef enum {
 } lcbio_TIMERSTATE;
 
 /**
- * @bried Timer callback
+ * @brief Timer callback
  * @see lcb_timer_new()
  */
 typedef void (*lcbio_TIMER_cb)(void *);
@@ -135,6 +135,21 @@ lcbio_async_cancel(lcbio_TIMER *timer);
  * @return nonzero if armed, zero if unarmed.
  */
 #define lcbio_timer_armed(timer) ((timer)->state & LCBIO_TIMER_S_ARMED)
+
+/**
+ * Get the callback that is to be invoked for the timer
+ * @param timer the timer to query
+ * @return the current callback
+ * @see lcbio_timer_set_target()
+ */
+#define lcbio_timer_get_target(timer) (timer)->callback
+
+/**
+ * Change the target callback for the timer
+ * @param timer the timer to modify
+ * @param tgt the target callback to set.
+ */
+#define lcbio_timer_set_target(timer, tgt) (timer)->callback = tgt
 
 /**@}*/
 

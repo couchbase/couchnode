@@ -19,7 +19,7 @@
 
 LIBCOUCHBASE_API
 lcb_error_t
-lcb_touch3(lcb_t instance, const void *cookie, lcb_CMDTOUCH *cmd)
+lcb_touch3(lcb_t instance, const void *cookie, const lcb_CMDTOUCH *cmd)
 {
     protocol_binary_request_touch tcmd;
     protocol_binary_request_header *hdr = &tcmd.message.header;
@@ -27,7 +27,12 @@ lcb_touch3(lcb_t instance, const void *cookie, lcb_CMDTOUCH *cmd)
     mc_PACKET *pkt;
     lcb_error_t err;
 
-    err = mcreq_basic_packet(&instance->cmdq, cmd, hdr, 4, &pkt, &pl);
+    if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
+        return LCB_EMPTY_KEY;
+    }
+
+    err = mcreq_basic_packet(&instance->cmdq, cmd, hdr, 4, &pkt, &pl,
+        MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
     }
@@ -38,7 +43,7 @@ lcb_touch3(lcb_t instance, const void *cookie, lcb_CMDTOUCH *cmd)
     hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr->request.opaque = pkt->opaque;
     hdr->request.bodylen = htonl(4 + ntohs(hdr->request.keylen));
-    tcmd.message.body.expiration = htonl(cmd->options.exptime);
+    tcmd.message.body.expiration = htonl(cmd->exptime);
     memcpy(SPAN_BUFFER(&pkt->kh_span), tcmd.bytes, sizeof(tcmd.bytes));
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();
@@ -65,7 +70,7 @@ lcb_touch(lcb_t instance, const void *cookie, lcb_size_t num,
         dst.key.contig.nbytes = src->v.v0.nkey;
         dst.hashkey.contig.bytes = src->v.v0.hashkey;
         dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
-        dst.options.exptime = src->v.v0.exptime;
+        dst.exptime = src->v.v0.exptime;
         err = lcb_touch3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
             mcreq_sched_fail(cq);

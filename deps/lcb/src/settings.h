@@ -50,8 +50,8 @@
 /* Infinite (i.e. compat mode) */
 #define LCB_DEFAULT_BC_HTTP_DISCONNTMO -1
 
-/* 100ms */
-#define LCB_DEFAULT_RETRY_INTERVAL LCB_MS2US(100)
+/* 10ms */
+#define LCB_DEFAULT_RETRY_INTERVAL LCB_MS2US(10)
 
 /* 1.5x */
 #define LCB_DEFAULT_RETRY_BACKOFF 1.5
@@ -113,6 +113,7 @@ typedef struct lcb_settings_st {
     unsigned detailed_neterr : 1;
     unsigned randomize_bootstrap_nodes : 1;
     unsigned conntype : 1;
+    unsigned refresh_on_hterr : 1;
     unsigned sslopts : 2;
     unsigned ipv6 : 2;
 

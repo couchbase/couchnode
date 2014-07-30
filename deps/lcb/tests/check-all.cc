@@ -42,7 +42,7 @@
 #include <libcouchbase/couchbase.h>
 
 #define TESTS_BASE "sock-tests;nonio-tests;rdb-tests;mc-tests;"
-#define PLUGIN_ENV_VAR "LIBCOUCHBASE_EVENT_PLUGIN_NAME"
+#define PLUGIN_ENV_VAR "LCB_IOPS_NAME"
 #define LCB_SRCROOT_ENV_VAR "srcdir"
 #ifdef HAVE_COUCHBASEMOCK
 #define DEFAULT_TEST_NAMES TESTS_BASE "unit-tests"
@@ -183,8 +183,10 @@ public:
         isInteractive = opt_interactive.result();
 
         // Jobs
-        setJobsFromEnvironment(opt_jobs.result());
+        maxJobs = opt_jobs.result();
         maxCycles = opt_cycles.result();
+        setJobsFromEnvironment();
+
 
         // Plugin list:
         splitSemicolonString(opt_plugins.result(), plugins);
@@ -229,6 +231,9 @@ public:
     bool isInteractive;
     int maxJobs;
     int maxCycles;
+    int getVerbosityLevel() {
+        return opt_verbose.numSpecified();
+    }
 
 private:
     cliopts::StringOption opt_debugger;
@@ -243,12 +248,10 @@ private:
     cliopts::StringOption opt_bins;
     cliopts::StringOption opt_realcluster;
 
-    void setJobsFromEnvironment(int arg) {
-        maxJobs = arg;
+    void setJobsFromEnvironment() {
         char *tmp = getenv("MAKEFLAGS");
 
         if (tmp == NULL || *tmp == '\0') {
-            maxJobs = 1;
             return;
         }
 
@@ -565,6 +568,13 @@ int main(int argc, char **argv)
     fprintf(stderr, "%s=%s\n", LCB_SRCROOT_ENV_VAR, config.srcroot.c_str());
     setenv(LCB_SRCROOT_ENV_VAR, config.srcroot.c_str(), 1);
     setenv("LCB_VERBOSE_TESTS", "1", 1);
+
+    char loglevel_s[4096] = { 0 };
+    if (config.getVerbosityLevel() > 0) {
+        sprintf(loglevel_s, "%d", config.getVerbosityLevel());
+        setenv("LCB_LOGLEVEL", loglevel_s, 0);
+    }
+
     if (!config.realClusterEnv.empty()) {
         // format the string
         setenv("LCB_TEST_CLUSTER_CONF", config.realClusterEnv.c_str(), 0);

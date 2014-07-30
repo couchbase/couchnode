@@ -71,16 +71,17 @@ typedef void (*lcb_error_callback)(lcb_t instance, lcb_error_t error, const char
 LCB_DEPR_API2(lcb_error_callback lcb_set_error_callback(lcb_t, lcb_error_callback),
     "This function only reports bootstrap errors. Use lcb_set_bootstrap_callback instead");
 
+
+
 /**
  * Timer stuff is deprecated. It should not be used externally, and internal
  * code should use the new lcbio_timer_ functions
  */
-
+struct lcb_timer_st;
+typedef struct lcb_timer_st *lcb_timer_t;
 typedef void (*lcb_timer_callback)(lcb_timer_t timer, lcb_t instance, const void *cookie);
-LIBCOUCHBASE_API
-lcb_timer_t lcb_timer_create(lcb_t instance, const void *command_cookie, lcb_uint32_t usec, int periodic, lcb_timer_callback callback, lcb_error_t *error);
-LIBCOUCHBASE_API
-lcb_error_t lcb_timer_destroy(lcb_t instance, lcb_timer_t timer);
+LCB_DEPR_API(lcb_timer_t lcb_timer_create(lcb_t instance, const void *command_cookie, lcb_uint32_t usec, int periodic, lcb_timer_callback callback, lcb_error_t *error));
+LCB_DEPR_API(lcb_error_t lcb_timer_destroy(lcb_t instance, lcb_timer_t timer));
 
 typedef enum lcb_compat_t { LCB_MEMCACHED_CLUSTER = 0x00, LCB_CACHED_CONFIG = 0x01 } lcb_compat_t;
 typedef lcb_compat_t lcb_cluster_t;
@@ -96,7 +97,7 @@ struct lcb_cached_config_st {
  */
 #define lcb_create_compat lcb__create_compat_230
 LCB_DEPR_API2(lcb_error_t lcb_create_compat(lcb_compat_t type, const void *specific, lcb_t *instance, struct lcb_io_opt_st *io),
-    "Legacy memcached functionality not supported. For config cache, use LCB_CNTL_CONFIGCACHE");
+    "Use memcached:// for legacy memcached. For config cache, use LCB_CNTL_CONFIGCACHE");
 
 typedef enum {
     LCB_ASYNCHRONOUS = 0x00,
@@ -107,147 +108,80 @@ LCB_DEPR_API2(void lcb_behavior_set_syncmode(lcb_t, lcb_syncmode_t),
 LCB_DEPR_API2(lcb_syncmode_t lcb_behavior_get_syncmode(lcb_t),
     "Syncmode will be removed in future versions. Use lcb_wait() instead");
 
-/** WTF constants for sanity check */
-#define LCB_C_ST_ID 0
-#define LCB_C_ST_V 2
-#define LCB_C_I_O_ST_ID 1
-#define LCB_C_I_O_ST_V 1
-#define LCB_G_C_ST_ID 2
-#define LCB_G_C_ST_V 0
-#define LCB_G_R_C_ST_ID 3
-#define LCB_G_R_C_ST_V 1
-#define LCB_U_C_ST_ID 4
-#define LCB_U_C_ST_V 0
-#define LCB_T_C_ST_ID 5
-#define LCB_T_C_ST_V 0
-#define LCB_S_C_ST_ID 6
-#define LCB_S_C_ST_V 0
-#define LCB_A_C_ST_ID 7
-#define LCB_A_C_ST_V 0
-#define LCB_O_C_ST_ID 8
-#define LCB_O_C_ST_V 1
-#define LCB_R_C_ST_ID 9
-#define LCB_R_C_ST_V 0
-#define LCB_H_C_ST_ID 10
-#define LCB_H_C_ST_V 1
-#define LCB_S_S_C_ST_ID 11
-#define LCB_S_S_C_ST_V 0
-#define LCB_S_V_C_ST_ID 12
-#define LCB_S_V_C_ST_V 0
-#define LCB_V_C_ST_ID 13
-#define LCB_V_C_ST_V 0
-#define LCB_F_C_ST_ID 14
-#define LCB_F_C_ST_V 0
-#define LCB_G_R_ST_ID 15
-#define LCB_G_R_ST_V 0
-#define LCB_S_R_ST_ID 16
-#define LCB_S_R_ST_V 0
-#define LCB_R_R_ST_ID 17
-#define LCB_R_R_ST_V 0
-#define LCB_T_R_ST_ID 18
-#define LCB_T_R_ST_V 0
-#define LCB_U_R_ST_ID 19
-#define LCB_U_R_ST_V 0
-#define LCB_A_R_ST_ID 20
-#define LCB_A_R_ST_V 0
-#define LCB_O_R_ST_ID 21
-#define LCB_O_R_ST_V 0
-#define LCB_H_R_ST_ID 22
-#define LCB_H_R_ST_V 0
-#define LCB_S_S_R_ST_ID 23
-#define LCB_S_S_R_ST_V 0
-#define LCB_S_V_R_ST_ID 24
-#define LCB_S_V_R_ST_V 0
-#define LCB_V_R_ST_ID 25
-#define LCB_V_R_ST_V 0
-#define LCB_F_R_ST_ID 26
-#define LCB_F_R_ST_V 0
-#define LCB_ST_M 26
+LCB_DEPR_API2(const char *lcb_get_host(lcb_t),
+    "Use lcb_get_node(instance, LCB_NODE_HTCONFIG, 0)");
+LCB_DEPR_API2(const char *lcb_get_port(lcb_t),
+    "Use lcb_get_node(instance, LCB_NODE_HTCONFIG, 0)");
 
-#define lcb_verify_compiler_setup() \
-    ( \
-      lcb_verify_struct_size(LCB_C_ST_ID, \
-                             LCB_C_ST_V, \
-                             sizeof(struct lcb_create_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_C_I_O_ST_ID, \
-                             LCB_C_I_O_ST_V, \
-                             sizeof(struct lcb_create_io_ops_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_G_C_ST_ID, \
-                             LCB_G_C_ST_V, \
-                             sizeof(struct lcb_get_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_G_R_C_ST_ID, \
-                             LCB_G_R_C_ST_V, \
-                             sizeof(struct lcb_get_replica_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_U_C_ST_ID, \
-                             LCB_U_C_ST_V, \
-                             sizeof(struct lcb_unlock_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_T_C_ST_ID, \
-                             LCB_T_C_ST_V, \
-                             sizeof(lcb_touch_cmd_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_S_C_ST_ID, \
-                             LCB_S_C_ST_V, \
-                             sizeof(struct lcb_store_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_A_C_ST_ID, \
-                             LCB_A_C_ST_V, \
-                             sizeof(struct lcb_arithmetic_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_O_C_ST_ID, \
-                             LCB_O_C_ST_V, \
-                             sizeof(struct lcb_observe_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_R_C_ST_ID, \
-                             LCB_R_C_ST_V, \
-                             sizeof(struct lcb_remove_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_H_C_ST_ID, \
-                             LCB_H_C_ST_V, \
-                             sizeof(struct lcb_http_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_S_S_C_ST_ID, \
-                             LCB_S_S_C_ST_V, \
-                             sizeof(struct lcb_server_stats_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_S_V_C_ST_ID, \
-                             LCB_S_V_C_ST_V, \
-                             sizeof(struct lcb_server_version_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_V_C_ST_ID, \
-                             LCB_V_C_ST_V, \
-                             sizeof(struct lcb_verbosity_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_F_C_ST_ID, \
-                             LCB_F_C_ST_V, \
-                             sizeof(struct lcb_flush_cmd_st)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_G_R_ST_ID, \
-                             LCB_G_R_ST_V, \
-                             sizeof(lcb_get_resp_t)) == LCB_SUCCESS &&\
-      lcb_verify_struct_size(LCB_S_R_ST_ID, \
-                             LCB_S_R_ST_V, \
-                             sizeof(lcb_store_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_R_R_ST_ID, \
-                             LCB_R_R_ST_V, \
-                             sizeof(lcb_remove_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_T_R_ST_ID, \
-                             LCB_T_R_ST_V, \
-                             sizeof(lcb_touch_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_U_R_ST_ID, \
-                             LCB_U_R_ST_V, \
-                             sizeof(lcb_unlock_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_A_R_ST_ID, \
-                             LCB_A_R_ST_V, \
-                             sizeof(lcb_arithmetic_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_O_R_ST_ID, \
-                             LCB_O_R_ST_V, \
-                             sizeof(lcb_observe_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_H_R_ST_ID, \
-                             LCB_H_R_ST_V, \
-                             sizeof(lcb_http_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_S_S_R_ST_ID, \
-                             LCB_S_S_R_ST_V, \
-                             sizeof(lcb_server_stat_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_S_V_R_ST_ID, \
-                             LCB_S_V_R_ST_V, \
-                             sizeof(lcb_server_version_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_V_R_ST_ID, \
-                             LCB_V_R_ST_V, \
-                             sizeof(lcb_verbosity_resp_t)) == LCB_SUCCESS && \
-      lcb_verify_struct_size(LCB_F_R_ST_ID, \
-                             LCB_F_R_ST_V, \
-                             sizeof(lcb_flush_resp_t)) == LCB_SUCCESS \
-    )
+/*  STRUCTURE                           ABBREV      ID MAXVER */
+#define LCB_XSSIZES(X) \
+    X(struct lcb_create_st,             C_ST,       0, 3) \
+    X(struct lcb_create_io_ops_st,      C_I_O_ST,   1, 1) \
+    \
+    X(struct lcb_get_cmd_st,            G_C_ST,     2, 0) \
+    X(struct lcb_get_replica_cmd_st,    G_R_C_ST,   3, 1) \
+    X(struct lcb_unlock_cmd_st,         U_C_ST,     4, 0) \
+    X(lcb_touch_cmd_t,                  T_C_ST,     5, 0) \
+    X(struct lcb_store_cmd_st,          S_C_ST,     6, 0) \
+    X(struct lcb_arithmetic_cmd_st,     A_C_ST,     7, 0) \
+    X(struct lcb_observe_cmd_st,        O_C_ST,     8, 0) \
+    X(struct lcb_remove_cmd_st,         R_C_ST,     9, 0) \
+    X(struct lcb_http_cmd_st,           H_C_ST,     10, 1) \
+    X(struct lcb_server_stats_cmd_st,   S_S_C_ST,   11, 0) \
+    X(struct lcb_server_version_cmd_st, S_V_C_ST,   12, 0) \
+    X(struct lcb_verbosity_cmd_st,      V_C_ST,     13, 0) \
+    X(struct lcb_flush_cmd_st,          F_C_ST,     14, 0) \
+    \
+    X(lcb_get_resp_t,                   G_R_ST,     15, 0) \
+    X(lcb_store_resp_t,                 S_R_ST,     16, 0) \
+    X(lcb_remove_resp_t,                R_R_ST,     17, 0) \
+    X(lcb_touch_resp_t,                 T_R_ST,     18, 0) \
+    X(lcb_unlock_resp_t,                U_R_ST,     19, 0) \
+    X(lcb_arithmetic_resp_t,            A_R_ST,     20, 0) \
+    X(lcb_observe_resp_t,               O_R_ST,     21, 0) \
+    X(lcb_http_resp_t,                  H_R_ST,     22, 0) \
+    X(lcb_server_stat_resp_t,           S_S_R_ST,   23, 0) \
+    X(lcb_server_version_resp_t,        S_V_R_ST,   24, 0) \
+    X(lcb_verbosity_resp_t,             V_R_ST,     25, 0) \
+    X(lcb_flush_resp_t,                 F_R_ST,     26, 0)
+
+typedef enum {
+#define X(sname, sabbrev, idval, vernum) \
+    LCB_##sabbrev##_ID = idval, LCB_##sabbrev##_V = vernum,
+    LCB_XSSIZES(X)
+    LCB_ST_M = 26
+#undef X
+} lcb__STRUCTSIZES;
+
+#define lcb_verify_compiler_setup() ( \
+    lcb_verify_struct_size(LCB_C_ST_ID, LCB_C_ST_V, sizeof(struct lcb_create_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_C_I_O_ST_ID, LCB_C_I_O_ST_V, sizeof(struct lcb_create_io_ops_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_G_C_ST_ID, LCB_G_C_ST_V, sizeof(struct lcb_get_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_G_R_C_ST_ID, LCB_G_R_C_ST_V, sizeof(struct lcb_get_replica_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_U_C_ST_ID, LCB_U_C_ST_V, sizeof(struct lcb_unlock_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_T_C_ST_ID, LCB_T_C_ST_V, sizeof(lcb_touch_cmd_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_S_C_ST_ID, LCB_S_C_ST_V, sizeof(struct lcb_store_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_A_C_ST_ID, LCB_A_C_ST_V, sizeof(struct lcb_arithmetic_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_O_C_ST_ID, LCB_O_C_ST_V, sizeof(struct lcb_observe_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_R_C_ST_ID, LCB_R_C_ST_V, sizeof(struct lcb_remove_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_H_C_ST_ID, LCB_H_C_ST_V, sizeof(struct lcb_http_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_S_S_C_ST_ID, LCB_S_S_C_ST_V, sizeof(struct lcb_server_stats_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_S_V_C_ST_ID, LCB_S_V_C_ST_V, sizeof(struct lcb_server_version_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_V_C_ST_ID, LCB_V_C_ST_V, sizeof(struct lcb_verbosity_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_F_C_ST_ID, LCB_F_C_ST_V, sizeof(struct lcb_flush_cmd_st)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_G_R_ST_ID, LCB_G_R_ST_V, sizeof(lcb_get_resp_t)) == LCB_SUCCESS &&\
+    lcb_verify_struct_size(LCB_S_R_ST_ID, LCB_S_R_ST_V, sizeof(lcb_store_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_R_R_ST_ID, LCB_R_R_ST_V, sizeof(lcb_remove_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_T_R_ST_ID, LCB_T_R_ST_V, sizeof(lcb_touch_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_U_R_ST_ID, LCB_U_R_ST_V, sizeof(lcb_unlock_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_A_R_ST_ID, LCB_A_R_ST_V, sizeof(lcb_arithmetic_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_O_R_ST_ID, LCB_O_R_ST_V, sizeof(lcb_observe_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_H_R_ST_ID, LCB_H_R_ST_V, sizeof(lcb_http_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_S_S_R_ST_ID, LCB_S_S_R_ST_V, sizeof(lcb_server_stat_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_S_V_R_ST_ID, LCB_S_V_R_ST_V, sizeof(lcb_server_version_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_V_R_ST_ID, LCB_V_R_ST_V, sizeof(lcb_verbosity_resp_t)) == LCB_SUCCESS && \
+    lcb_verify_struct_size(LCB_F_R_ST_ID, LCB_F_R_ST_V, sizeof(lcb_flush_resp_t)) == LCB_SUCCESS \
+)
 
 /**
  * Verify that libcouchbase and yourself have the same size for a
@@ -262,6 +196,22 @@ LCB_DEPR_API2(lcb_syncmode_t lcb_behavior_get_syncmode(lcb_t),
 LIBCOUCHBASE_API
 lcb_error_t lcb_verify_struct_size(lcb_uint32_t id, lcb_uint32_t version,
                                    lcb_size_t size);
+
+/** Deprecated cntls */
+
+/**@deprecated It is currently not possible to adjust buffer sizes */
+#define LCB_CNTL_RBUFSIZE               0x02
+/**@deprecated It is currently not possible to adjust buffer sizes */
+#define LCB_CNTL_WBUFSIZE               0x03
+/** @deprecated */
+#define LCB_CNTL_SYNCMODE               0x0a
+/**@deprecated Initial connections are always attempted */
+#define LCB_CNTL_SKIP_CONFIGURATION_ERRORS_ON_CONNECT 0x13
+
+/**@deprecated - Use error classifiers */
+#define lcb_is_error_enomem(a) ((a == LCB_CLIENT_ENOMEM) || (a == LCB_ENOMEM))
+/**@deprecated - Use error classifiers */
+#define lcb_is_error_etmpfail(a) ((a == LCB_CLIENT_ETMPFAIL) || (a == LCB_ETMPFAIL))
 
 #ifdef __cplusplus
 }

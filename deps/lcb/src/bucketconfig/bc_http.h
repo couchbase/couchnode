@@ -62,8 +62,7 @@ typedef struct clprovider_http_st {
      */
     lcbio_pTIMER disconn_timer;
     lcbio_pTIMER io_timer;
-    lcbio_pTIMER as_schederr;
-    lcb_error_t as_errcode;
+    lcbio_pTIMER as_reconnect;
 
     /** List of hosts to try */
     hostlist_t nodes;

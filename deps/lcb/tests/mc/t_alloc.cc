@@ -33,7 +33,7 @@ TEST_F(McAlloc, testPacketFreeAlloc)
 
     // Check to see that we can also detach a packet and use it after the
     // other resources have been released
-    copied = mcreq_dup_packet(packet);
+    copied = mcreq_renew_packet(packet);
 
 
     mcreq_wipe_packet(&pipeline, packet);
@@ -44,6 +44,54 @@ TEST_F(McAlloc, testPacketFreeAlloc)
     memset(SPAN_BUFFER(&copied->kh_span), 0xff, copied->kh_span.size);
     mcreq_wipe_packet(NULL, copied);
     mcreq_release_packet(NULL, copied);
+}
+
+struct dummy_datum {
+    mc_EPKTDATUM base;
+    int refcount;
+};
+extern "C" {
+static void datum_free(mc_EPKTDATUM *epd) {
+    dummy_datum *dd = (dummy_datum *)epd;
+    dd->refcount--;
+}
+}
+
+TEST_F(McAlloc, testExdataAlloc)
+{
+    mc_PIPELINE pipeline;
+    mc_PACKET *copy1, *copy2;
+    setupPipeline(&pipeline);
+    mc_PACKET *packet = mcreq_allocate_packet(&pipeline);
+    mcreq_reserve_header(&pipeline, packet, 24);
+
+    copy1 = mcreq_renew_packet(packet);
+    ASSERT_FALSE((copy1->flags & MCREQ_F_DETACHED) == 0);
+
+    dummy_datum dd;
+    dd.base.key = "Dummy";
+    dd.base.dtorfn = datum_free;
+    dd.refcount = 1;
+    mcreq_epkt_insert((mc_EXPACKET*)copy1, &dd.base);
+    // Find it back
+    mc_EPKTDATUM *epd = mcreq_epkt_find((mc_EXPACKET*)copy1, "Dummy");
+    ASSERT_FALSE(epd == NULL);
+    ASSERT_TRUE(epd == &dd.base);
+
+    copy2 = mcreq_renew_packet(copy1);
+    epd = mcreq_epkt_find((mc_EXPACKET*)copy1, "Dummy");
+    ASSERT_TRUE(epd == NULL);
+    epd = mcreq_epkt_find((mc_EXPACKET*)copy2, "Dummy");
+    ASSERT_FALSE(epd == NULL);
+
+    mcreq_wipe_packet(&pipeline, packet);
+    mcreq_release_packet(&pipeline, packet);
+    mcreq_wipe_packet(NULL, copy1);
+    mcreq_release_packet(NULL, copy1);
+    mcreq_wipe_packet(NULL, copy2);
+    mcreq_release_packet(NULL, copy2);
+    ASSERT_EQ(0, dd.refcount);
+    mcreq_pipeline_cleanup(&pipeline);
 }
 
 
@@ -62,13 +110,13 @@ TEST_F(McAlloc, testKeyAlloc)
     cmd.key.contig.nbytes = 5;
 
     lcb_error_t ret;
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline);
+    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline, 0);
     ASSERT_EQ(LCB_SUCCESS, ret);
     ASSERT_TRUE(packet != NULL);
     ASSERT_TRUE(pipeline != NULL);
     ASSERT_EQ(5, ntohs(hdr.request.keylen));
 
-    int vb = vbucket_get_vbucket_by_key(q.config, "Hello", 5);
+    int vb = lcbvb_k2vb(q.config, "Hello", 5);
     ASSERT_EQ(vb, ntohs(hdr.request.vbucket));
 
     // Copy the header
@@ -112,7 +160,7 @@ TEST_F(McAlloc, testValueAlloc)
     vreq.u_buf.contig.bytes = const_cast<char *>(value);
     vreq.u_buf.contig.nbytes = 5;
 
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline);
+    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline, 0);
     ASSERT_EQ(LCB_SUCCESS, ret);
     ret = mcreq_reserve_value(pipeline, packet, &vreq);
     ASSERT_EQ(ret, LCB_SUCCESS);
@@ -124,7 +172,7 @@ TEST_F(McAlloc, testValueAlloc)
     mcreq_release_packet(pipeline, packet);
 
     // Allocate another packet, but this time, use our own reserved value
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline);
+    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline, 0);
     ASSERT_EQ(ret, LCB_SUCCESS);
     vreq.vtype = LCB_KV_CONTIG;
     ret = mcreq_reserve_value(pipeline, packet, &vreq);
@@ -143,7 +191,7 @@ TEST_F(McAlloc, testValueAlloc)
     vreq.u_buf.multi.iov = (lcb_IOV *)iov;
     vreq.u_buf.multi.niov = 2;
     vreq.vtype = LCB_KV_IOV;
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline);
+    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline, 0);
     ASSERT_EQ(LCB_SUCCESS, ret);
     ret = mcreq_reserve_value(pipeline, packet, &vreq);
     ASSERT_EQ(LCB_SUCCESS, ret);

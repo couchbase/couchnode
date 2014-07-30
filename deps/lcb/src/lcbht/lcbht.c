@@ -193,6 +193,20 @@ lcbht_get_response(lcbht_pPARSER parser)
     return &parser->resp;
 }
 
+int
+lcbht_can_keepalive(lcbht_pPARSER parser)
+{
+    if (!(parser->resp.state & LCBHT_S_DONE)) {
+        return 0;
+    }
+
+    if (parser->resp.state & LCBHT_S_ERROR) {
+        return 0;
+    }
+
+    return _lcb_http_should_keep_alive(&parser->parser);
+}
+
 void
 lcbht_clear_response(lcbht_RESPONSE *resp)
 {

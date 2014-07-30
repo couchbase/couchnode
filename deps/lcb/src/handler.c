@@ -3,6 +3,7 @@
 #include "packetutils.h"
 #include "mc/mcreq.h"
 #include "mc/compress.h"
+#include "trace.h"
 
 LIBCOUCHBASE_API
 lcb_error_t
@@ -60,6 +61,16 @@ map_error(lcb_t instance, int in)
     }
 }
 
+static lcb_RESPCALLBACK
+find_callback(lcb_t instance, lcb_CALLBACKTYPE type)
+{
+    lcb_RESPCALLBACK cb = instance->callbacks.v3callbacks[type];
+    if (!cb) {
+        cb = lcb_find_callback(instance, type);
+    }
+    return cb;
+}
+
 
 /**
  * This file contains the mapping of various protocol response codes for
@@ -89,28 +100,43 @@ map_error(lcb_t instance, int in)
  *  satisfied.
  */
 
-
-#define SET_RESP_CAS(resp, vers, c) do { \
-    (resp)->v.v##vers.cas = c; \
-} while (0)
-
-#define MK_RESPKEY(resp, ver, req) do { \
-    mcreq_get_key(req, &((resp)->v.v##ver.key), &((resp)->v.v##ver.nkey)); \
-} while (0);
-
-#define MK_ERROR(root, rc, response, imm) do { \
+#define MK_ERROR(root, resp, response, imm) do { \
     if (imm) { \
-        rc = imm; \
+        (resp)->rc = imm; \
+        (resp)->rflags |= LCB_RESP_F_CLIENTGEN; \
     } else if (PACKET_STATUS(response) == PROTOCOL_BINARY_RESPONSE_SUCCESS) { \
-        rc = LCB_SUCCESS; \
+        (resp)->rc = LCB_SUCCESS; \
     } else { \
-        rc = map_error(root, PACKET_STATUS(response)); \
+        (resp)->rc = map_error(root, PACKET_STATUS(response)); \
     } \
 }  while (0);
 
-#define INVOKE_CALLBACK(req, cb, args) \
-if (! (req->flags & MCREQ_F_INVOKED)) { \
-    cb args; \
+static void
+init_resp3(lcb_t instance, const packet_info *mc_resp, const mc_PACKET *req,
+    lcb_error_t immerr, lcb_RESPBASE *resp)
+{
+    MK_ERROR(instance, resp, mc_resp, immerr);
+    resp->cas = PACKET_CAS(mc_resp);
+    resp->cookie = (void *)MCREQ_PKT_COOKIE(req);
+    mcreq_get_key(req, &resp->key, &resp->nkey);
+}
+
+#define MK_RESPKEY3(resp, req) do { \
+    mcreq_get_key(req, &(resp)->key, &(resp)->nkey); \
+} while (0);
+
+
+static void
+invoke_callback3(const mc_PACKET *pkt,
+    lcb_t instance,lcb_CALLBACKTYPE cbtype, lcb_RESPBASE * resp)
+{
+    if (!(pkt->flags & MCREQ_F_INVOKED)) {
+        resp->cookie = (void *)MCREQ_PKT_COOKIE(pkt);
+        find_callback(instance, cbtype)(instance, cbtype, resp);
+    }
+}
+#define INVOKE_CALLBACK3(req, res_, instance, type) { \
+    invoke_callback3(req, instance, type, (lcb_RESPBASE *)res_); \
 }
 
 /**
@@ -125,7 +151,7 @@ if (! (req->flags & MCREQ_F_INVOKED)) { \
  */
 static void
 maybe_decompress(lcb_t o,
-    const packet_info *respkt, lcb_get_resp_t *rescmd, void **freeptr)
+    const packet_info *respkt, lcb_RESPGET *rescmd, void **freeptr)
 {
     lcb_U8 dtype = 0;
     if (!PACKET_NVALUE(respkt)) {
@@ -141,50 +167,40 @@ maybe_decompress(lcb_t o,
             /* if we inflate, we don't set the flag */
             mcreq_inflate_value(
                 PACKET_VALUE(respkt), PACKET_NVALUE(respkt),
-                &rescmd->v.v0.bytes, &rescmd->v.v0.nbytes, freeptr);
+                &rescmd->value, &rescmd->nvalue, freeptr);
 
         } else {
             /* user doesn't want inflation. signal it's compressed */
             dtype |= LCB_VALUE_F_SNAPPYCOMP;
         }
     }
-    rescmd->v.v0.datatype = dtype;
+    rescmd->datatype = dtype;
 }
 
 static void
 H_get(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
       lcb_error_t immerr)
 {
-    lcb_error_t rc;
     lcb_t o;
-    lcb_get_resp_t resp;
+    lcb_RESPGET resp = { 0 };
     void *freeptr = NULL;
 
-    o = pipeline->parent->instance;
-    MK_RESPKEY(&resp, 0, request);
-    MK_ERROR(o, rc, response, immerr);
-    resp.version = 0;
+    o = pipeline->parent->cqdata;
+    init_resp3(o, response, request, immerr, (lcb_RESPBASE *)&resp);
 
-    if (rc == LCB_SUCCESS) {
+    if (resp.rc == LCB_SUCCESS) {
         const protocol_binary_response_getq *getq =
                 PACKET_EPHEMERAL_START(response);
-
-        resp.v.v0.cas = PACKET_CAS(response);
-        resp.v.v0.datatype = PACKET_DATATYPE(response);
-        resp.v.v0.flags = ntohl(getq->message.body.flags);
-        resp.v.v0.bytes = PACKET_VALUE(response);
-        resp.v.v0.nbytes = PACKET_NVALUE(response);
-        rc = LCB_SUCCESS;
-    } else {
-        resp.v.v0.cas = 0;
-        resp.v.v0.nbytes = 0;
-        resp.v.v0.bytes = NULL;
-        resp.v.v0.flags = 0;
+        resp.datatype = PACKET_DATATYPE(response);
+        resp.itmflags = ntohl(getq->message.body.flags);
+        resp.value = PACKET_VALUE(response);
+        resp.nvalue = PACKET_NVALUE(response);
+        resp.bufh = response->bufh;
     }
 
     maybe_decompress(o, response, &resp, &freeptr);
-    INVOKE_CALLBACK(request, o->callbacks.get,
-                    (o, MCREQ_PKT_COOKIE(request), rc, &resp));
+    TRACE_GET_END(response, &resp);
+    INVOKE_CALLBACK3(request, &resp, o, LCB_CALLBACK_GET);
     free(freeptr);
 }
 
@@ -192,25 +208,23 @@ static void
 H_getreplica(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
              lcb_error_t immerr)
 {
-    lcb_error_t rc;
-    lcb_get_resp_t resp;
-    lcb_t instance = pipeline->parent->instance;
+    lcb_RESPGET resp = { 0 };
+    lcb_t instance = pipeline->parent->cqdata;
     void *freeptr = NULL;
 
-    MK_RESPKEY(&resp, 0, request);
-    MK_ERROR(instance, rc, response, immerr);
-    resp.version = 0;
+    init_resp3(instance, response, request, immerr, (lcb_RESPBASE *)&resp);
 
-    if (rc == LCB_SUCCESS) {
+    if (resp.rc == LCB_SUCCESS) {
         const protocol_binary_response_get *get = PACKET_EPHEMERAL_START(response);
-        resp.v.v0.cas = PACKET_CAS(response);
-        resp.v.v0.datatype = PACKET_DATATYPE(response);
-        resp.v.v0.flags = ntohl(get->message.body.flags);
-        resp.v.v0.bytes = PACKET_VALUE(response);
-        resp.v.v0.nbytes = PACKET_NVALUE(response);
+        resp.itmflags = ntohl(get->message.body.flags);
+        resp.datatype = PACKET_DATATYPE(response);
+        resp.value = PACKET_VALUE(response);
+        resp.nvalue = PACKET_NVALUE(response);
+        resp.bufh = response->bufh;
     }
+
     maybe_decompress(instance, response, &resp, &freeptr);
-    request->u_rdata.exdata->callback(pipeline, request, rc, &resp);
+    INVOKE_CALLBACK3(request, &resp, instance, LCB_CALLBACK_GETREPLICA);
     free(freeptr);
 }
 
@@ -218,37 +232,30 @@ static void
 H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, packet_info *response,
          lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_error_t rc;
-    lcb_remove_resp_t resp;
-
-    resp.version = 0;
-    SET_RESP_CAS(&resp, 0, PACKET_CAS(response));
-    MK_RESPKEY(&resp, 0, packet);
-    MK_ERROR(root, rc, response, immerr);
-
-    INVOKE_CALLBACK(packet, root->callbacks.remove,
-                    (root, MCREQ_PKT_COOKIE(packet), rc, &resp));
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPREMOVE resp = { 0 };
+    init_resp3(root, response, packet, immerr, (lcb_RESPBASE *)&resp);
+    TRACE_REMOVE_END(response, &resp);
+    INVOKE_CALLBACK3(packet, &resp, root, LCB_CALLBACK_REMOVE);
 }
 
 static void
 H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
           lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_error_t rc;
+    lcb_t root = pipeline->parent->cqdata;
     uint32_t ttp;
     uint32_t ttr;
     lcb_size_t pos;
-    VBUCKET_CONFIG_HANDLE config;
+    lcbvb_CONFIG* config;
     const char *end, *ptr;
     mc_REQDATAEX *rd = request->u_rdata.exdata;
+    lcb_RESPOBSERVE resp = { 0 };
+    MK_ERROR(root, &resp, response, immerr);
 
-    MK_ERROR(root, rc, response, immerr);
-
-    if (rc != LCB_SUCCESS) {
+    if (resp.rc != LCB_SUCCESS) {
         if (! (request->flags & MCREQ_F_INVOKED)) {
-            rd->callback(pipeline, request, rc, NULL);
+            rd->callback(pipeline, request, resp.rc, NULL);
         }
         return;
     }
@@ -271,9 +278,6 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         lcb_uint8_t obs;
         lcb_uint16_t nkey, vb;
         const char *key;
-        lcb_observe_resp_t resp;
-
-        memset(&resp, 0, sizeof(resp));
 
         memcpy(&vb, ptr, sizeof(vb));
         vb = ntohs(vb);
@@ -288,179 +292,160 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         memcpy(&cas, ptr, sizeof(cas));
         ptr += sizeof(cas);
 
-        resp.v.v0.key = key;
-        resp.v.v0.nkey = nkey;
-        resp.v.v0.cas = cas;
-        resp.v.v0.status = obs;
-        resp.v.v0.ttp = 0;
-        resp.v.v0.ttr = 0;
-        resp.v.v0.from_master = pipeline->index == vbucket_get_master(config, vb);
+        resp.key = key;
+        resp.nkey = nkey;
+        resp.cas = cas;
+        resp.status = obs;
+        resp.ismaster = pipeline->index == lcbvb_vbmaster(config, vb);
+        resp.ttp = 0;
+        resp.ttr = 0;
+        TRACE_OBSERVE_PROGRESS(response, &resp);
         if (! (request->flags & MCREQ_F_INVOKED)) {
-            rd->callback(pipeline, request, rc, &resp);
+            rd->callback(pipeline, request, resp.rc, &resp);
         }
     }
+    TRACE_OBSERVE_END(response);
 }
 
 static void
 H_store(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_storage_t op;
-    lcb_error_t rc;
-    lcb_store_resp_t resp;
-
-    MK_ERROR(root, rc, response, immerr);
-
-    switch (PACKET_OPCODE(response)) {
-    case PROTOCOL_BINARY_CMD_ADD:
-        op = LCB_ADD;
-        break;
-    case PROTOCOL_BINARY_CMD_REPLACE:
-        op = LCB_REPLACE;
-        break;
-    case PROTOCOL_BINARY_CMD_SET:
-        op = LCB_SET;
-        break;
-    case PROTOCOL_BINARY_CMD_APPEND:
-        op = LCB_APPEND;
-        break;
-    case PROTOCOL_BINARY_CMD_PREPEND:
-        op = LCB_PREPEND;
-        break;
-    default:
-        abort();
-        break;
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPSTORE resp = { 0 };
+    lcb_U8 opcode;
+    init_resp3(root, response, request, immerr, (lcb_RESPBASE*)&resp);
+    if (!immerr) {
+        opcode = PACKET_OPCODE(response);
+    } else {
+        protocol_binary_request_header hdr;
+        mcreq_read_hdr(request, &hdr);
+        opcode = hdr.request.opcode;
     }
-
-    resp.version = 0;
-    MK_RESPKEY(&resp, 0, request);
-    SET_RESP_CAS(&resp, 0, PACKET_CAS(response));
-
-    INVOKE_CALLBACK(request, root->callbacks.store,
-                    (root, MCREQ_PKT_COOKIE(request), op, rc, &resp));
+    if (opcode == PROTOCOL_BINARY_CMD_ADD) {
+        resp.op = LCB_ADD;
+    } else if (opcode == PROTOCOL_BINARY_CMD_REPLACE) {
+        resp.op = LCB_REPLACE;
+    } else if (opcode == PROTOCOL_BINARY_CMD_APPEND) {
+        resp.op = LCB_APPEND;
+    } else if (opcode == PROTOCOL_BINARY_CMD_PREPEND) {
+        resp.op = LCB_PREPEND;
+    } else if (opcode == PROTOCOL_BINARY_CMD_SET) {
+        resp.op = LCB_SET;
+    }
+    TRACE_STORE_END(response, &resp);
+    INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_STORE);
 }
 
 static void
 H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
              lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_error_t rc;
-    lcb_arithmetic_resp_t resp;
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPCOUNTER resp = { 0 };
+    init_resp3(root, response, request, immerr, (lcb_RESPBASE*)&resp);
 
-    MK_ERROR(root, rc, response, immerr);
-    if (rc == LCB_SUCCESS) {
-        memcpy(&resp.v.v0.value, response->payload, sizeof(resp.v.v0.value));
-        resp.v.v0.value = ntohll(resp.v.v0.value);
+    if (resp.rc == LCB_SUCCESS) {
+        memcpy(&resp.value, response->payload, sizeof(resp.value));
+        resp.value = ntohll(resp.value);
     }
-
-    MK_RESPKEY(&resp, 0, request);
-    SET_RESP_CAS(&resp, 0, PACKET_CAS(response));
-    INVOKE_CALLBACK(request, root->callbacks.arithmetic,
-                   (root, MCREQ_PKT_COOKIE(request), rc, &resp));
+    resp.cas = PACKET_CAS(response);
+    TRACE_ARITHMETIC_END(response, &resp);
+    INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_COUNTER);
 }
 
 static void
 H_stats(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_error_t rc;
-    lcb_server_stat_resp_t resp;
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPSTATS resp = { 0 };
     mc_REQDATAEX *exdata;
 
-    MK_ERROR(root, rc, response, immerr);
+    MK_ERROR(root, &resp, response, immerr);
     resp.version = 0;
 
     exdata = request->u_rdata.exdata;
-    if (rc != LCB_SUCCESS || PACKET_NKEY(response) == 0) {
+    if (resp.rc != LCB_SUCCESS || PACKET_NKEY(response) == 0) {
         /* Call the handler without a response, this indicates that this server
          * has finished responding */
-        exdata->callback(pipeline, request, rc, NULL);
+        exdata->callback(pipeline, request, resp.rc, NULL);
         return;
     }
 
-    if ((resp.v.v0.nkey = PACKET_NKEY(response))) {
-        resp.v.v0.key = PACKET_KEY(response);
-        if ((resp.v.v0.nbytes = PACKET_NVALUE(response))) {
-            resp.v.v0.bytes = PACKET_VALUE(response);
+    if ((resp.nkey = PACKET_NKEY(response))) {
+        resp.key = PACKET_KEY(response);
+        if ((resp.value = PACKET_VALUE(response))) {
+            resp.nvalue = PACKET_NVALUE(response);
         }
     }
 
-    exdata->callback(pipeline, request, rc, &resp);
+    exdata->callback(pipeline, request, resp.rc, &resp);
 }
 
 static void
 H_verbosity(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
             lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_error_t rc;
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPBASE dummy = { 0 };
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
-    MK_ERROR(root, rc, response, immerr);
+    MK_ERROR(root, &dummy, response, immerr);
 
-    exdata->callback(pipeline, request, rc, NULL);
+    exdata->callback(pipeline, request, dummy.rc, NULL);
 }
 
 static void
 H_version(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
           lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_error_t rc;
-    lcb_server_version_resp_t resp;
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPMCVERSION resp = { 0 };
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
 
-    MK_ERROR(root, rc, response, immerr);
+    MK_ERROR(root, &resp, response, immerr);
 
     if (PACKET_NBODY(response)) {
-        resp.v.v0.vstring = response->payload;
-        resp.v.v0.nvstring = PACKET_NBODY(response);
+        resp.mcversion = response->payload;
+        resp.nversion = PACKET_NBODY(response);
     }
 
 
-    exdata->callback(pipeline, request, rc, &resp);
+    exdata->callback(pipeline, request, resp.rc, &resp);
 }
 
 static void
 H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_touch_resp_t resp;
-    lcb_error_t rc;
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPTOUCH resp = { 0 };
 
-    MK_ERROR(root, rc, response, immerr);
-    MK_RESPKEY(&resp, 0, request);
-    SET_RESP_CAS(&resp, 0, PACKET_CAS(response));
-    resp.version = 0;
-    root->callbacks.touch(root, MCREQ_PKT_RDATA(request)->cookie, rc, &resp);
+    init_resp3(root, response, request, immerr, &resp);
+    TRACE_TOUCH_END(response, &resp);
+    INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_TOUCH);
 }
 
 static void
 H_flush(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_error_t rc;
-    lcb_flush_resp_t resp;
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPFLUSH resp = { 0 };
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
-    MK_ERROR(root, rc, response, immerr);
-    exdata->callback(pipeline, request, rc, &resp);
+    MK_ERROR(root, &resp, response, immerr);
+    exdata->callback(pipeline, request, resp.rc, &resp);
 }
 
 static void
 H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
          lcb_error_t immerr)
 {
-    lcb_t root = pipeline->parent->instance;
-    lcb_unlock_resp_t resp;
-    lcb_error_t rc;
-
-    MK_ERROR(root, rc, response, immerr);
-    MK_RESPKEY(&resp, 0, request);
-    root->callbacks.unlock(root, MCREQ_PKT_RDATA(request)->cookie, rc, &resp);
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPUNLOCK resp = { 0 };
+    init_resp3(root, response, request, immerr, &resp);
+    TRACE_UNLOCK_END(response, &resp);
+    INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_UNLOCK);
 }
 
 static void
@@ -468,17 +453,17 @@ H_config(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
          lcb_error_t immerr)
 {
     /** We just jump to the normal config handler */
-    lcb_error_t rc;
+    lcb_RESPBASE dummy;
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
-    MK_ERROR(pipeline->parent->instance, rc, response, immerr);
+    MK_ERROR(pipeline->parent->cqdata, &dummy, response, immerr);
 
-    exdata->callback(pipeline, request, rc, response);
+    exdata->callback(pipeline, request, dummy.rc, response);
 }
 
 static void
 record_metrics(mc_PIPELINE *pipeline, mc_PACKET *req, packet_info *res)
 {
-    lcb_t instance = pipeline->parent->instance;
+    lcb_t instance = pipeline->parent->cqdata;
     if (instance->histogram) {
         lcb_record_metrics(
                 instance, gethrtime() - MCREQ_PKT_RDATA(req)->start,

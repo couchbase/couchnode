@@ -36,7 +36,6 @@
         fprintf(stderr, "can tell you that the\n"); \
         fprintf(stderr, "    assertion failed in %s at line %d\n", __FILE__, \
                 __LINE__); \
-        abort(); \
     }
 #else
 #define lcb_assert(a) assert(a)

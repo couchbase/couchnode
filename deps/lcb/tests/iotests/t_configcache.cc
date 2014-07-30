@@ -24,6 +24,15 @@ class ConfigCacheUnitTest : public MockUnitTest
 {
 };
 
+extern "C" {
+static void bootstrap_callback(lcb_t instance, lcb_error_t err)
+{
+    EXPECT_EQ(LCB_SUCCESS, err);
+    int *pp = (int *)lcb_get_cookie(instance);
+    *pp += 1;
+}
+}
+
 TEST_F(ConfigCacheUnitTest, testConfigCache)
 {
     lcb_t instance;
@@ -59,6 +68,9 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
     ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, (void *)filename);
     ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_set_bootstrap_callback(instance, bootstrap_callback);
+    int bsCalled = 0;
+    lcb_set_cookie(instance, &bsCalled);
 
     err = lcb_connect(instance);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -68,11 +80,24 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
 
     err = lcb_cntl(instance, LCB_CNTL_GET,
                    LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
-    ASSERT_NE(is_loaded, 0);
+    ASSERT_NE(0, is_loaded);
+    ASSERT_EQ(1, bsCalled);
 
     /* Just make sure we can schedule a command */
     storeKey(instance, "a_key", "a_value");
 
+    lcb_destroy(instance);
+
+    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    ASSERT_EQ(LCB_SUCCESS, err);
+    err = lcb_cntl_string(instance, "config_cache", filename);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    err = lcb_connect(instance);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_wait(instance);
+    err = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_NE(0, is_loaded);
     lcb_destroy(instance);
     remove(filename);
 }

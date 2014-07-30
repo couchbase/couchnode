@@ -49,6 +49,157 @@ DEFINE_DUMMY_CALLBACK(dummy_unlock_callback, lcb_unlock_resp_t)
 DEFINE_DUMMY_CALLBACK(dummy_observe_callback, lcb_observe_resp_t)
 DEFINE_DUMMY_CALLBACK(dummy_durability_callback, lcb_durability_resp_t)
 
+typedef union {
+    lcb_RESPBASE base;
+    lcb_RESPGET get;
+    lcb_RESPSTORE store;
+    lcb_RESPUNLOCK unlock;
+    lcb_RESPCOUNTER arith;
+    lcb_RESPREMOVE del;
+    lcb_RESPENDURE endure;
+    lcb_RESPUNLOCK unl;
+    lcb_RESPFLUSH flush;
+    lcb_RESPSTATS stats;
+    lcb_RESPMCVERSION mcversion;
+    lcb_RESPVERBOSITY verbosity;
+    lcb_RESPOBSERVE observe;
+    lcb_RESPHTTP http;
+} uRESP;
+
+static void
+compat_default_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r3base)
+{
+    const uRESP *r3 = (uRESP *)r3base;
+    const void *cookie = r3base->cookie;
+    lcb_error_t err = r3base->rc;
+
+    #define FILL_KVC(dst) \
+        (dst)->v.v0.key = r3base->key; \
+        (dst)->v.v0.nkey = r3base->nkey; \
+        (dst)->v.v0.cas = r3base->cas;
+
+    switch (cbtype) {
+    case LCB_CALLBACK_GET:
+    case LCB_CALLBACK_GETREPLICA: {
+        lcb_get_resp_t r2 = { 0 };
+        FILL_KVC(&r2)
+        r2.v.v0.bytes = r3->get.value;
+        r2.v.v0.nbytes = r3->get.nvalue;
+        r2.v.v0.flags = r3->get.itmflags;
+        r2.v.v0.datatype = r3->get.datatype;
+        instance->callbacks.get(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_STORE: {
+        lcb_store_resp_t r2 = { 0 };
+        FILL_KVC(&r2)
+        instance->callbacks.store(instance, cookie, r3->store.op, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_COUNTER: {
+        lcb_arithmetic_resp_t r2 = { 0 };
+        FILL_KVC(&r2);
+        r2.v.v0.value = r3->arith.value;
+        instance->callbacks.arithmetic(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_REMOVE: {
+        lcb_remove_resp_t r2 = { 0 };
+        FILL_KVC(&r2)
+        instance->callbacks.remove(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_TOUCH: {
+        lcb_touch_resp_t r2 = { 0 };
+        FILL_KVC(&r2)
+        instance->callbacks.touch(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_UNLOCK: {
+        lcb_unlock_resp_t r2 = { 0 };
+        r2.v.v0.key = r3->unl.key;
+        r2.v.v0.nkey = r3->unl.nkey;
+        instance->callbacks.unlock(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_FLUSH: {
+        lcb_flush_resp_t r2 = { 0 };
+        r2.v.v0.server_endpoint = r3->flush.server;
+        instance->callbacks.flush(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_VERSIONS: {
+        lcb_server_version_resp_t r2 = { 0 };
+        r2.v.v0.server_endpoint = r3->mcversion.server;
+        r2.v.v0.vstring = r3->mcversion.mcversion;
+        r2.v.v0.nvstring = r3->mcversion.nversion;
+        instance->callbacks.version(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_VERBOSITY: {
+        lcb_verbosity_resp_t r2 = { 0 };
+        r2.v.v0.server_endpoint = r3->verbosity.server;
+        instance->callbacks.verbosity(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_STATS: {
+        lcb_server_stat_resp_t r2 = { 0 };
+        r2.v.v0.key = r3->stats.key;
+        r2.v.v0.nkey = r3->stats.nkey;
+        r2.v.v0.bytes = r3->stats.value;
+        r2.v.v0.nbytes = r3->stats.nvalue;
+        r2.v.v0.server_endpoint = r3->stats.server;
+        instance->callbacks.stat(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_OBSERVE: {
+        lcb_observe_resp_t r2 = { 0 };
+        FILL_KVC(&r2);
+        r2.v.v0.status = r3->observe.status;
+        r2.v.v0.from_master = r3->observe.ismaster;
+        r2.v.v0.ttp = r3->observe.ttp;
+        r2.v.v0.ttr = r3->observe.ttr;
+        instance->callbacks.observe(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_ENDURE: {
+        lcb_durability_resp_t r2 = { 0 };
+        FILL_KVC(&r2);
+        r2.v.v0.err = r3->endure.rc;
+        r2.v.v0.exists_master = r3->endure.exists_master;
+        r2.v.v0.persisted_master = r3->endure.persisted_master;
+        r2.v.v0.npersisted = r3->endure.npersisted;
+        r2.v.v0.nreplicated = r3->endure.nreplicated;
+        r2.v.v0.nresponses = r3->endure.nresponses;
+        if (err == LCB_SUCCESS) {
+            err = r3->endure.rc;
+        }
+        instance->callbacks.durability(instance, cookie, err, &r2);
+        break;
+    }
+    case LCB_CALLBACK_HTTP: {
+        lcb_http_res_callback target;
+        lcb_http_resp_t r2 = { 0 };
+        r2.v.v0.path = r3->http.key;
+        r2.v.v0.npath = r3->http.nkey;
+        r2.v.v0.bytes = r3->http.body;
+        r2.v.v0.nbytes = r3->http.nbody;
+        r2.v.v0.status = r3->http.htstatus;
+        r2.v.v0.headers = r3->http.headers;
+        if (!(r3base->rflags & LCB_RESP_F_FINAL)) {
+            target = instance->callbacks.http_data;
+        } else {
+            target = instance->callbacks.http_complete;
+        }
+        target(r3->http._htreq, instance, cookie, err, &r2);
+        break;
+    }
+    default:
+        abort();
+        break;
+    }
+}
+
 void lcb_initialize_packet_handlers(lcb_t instance)
 {
     instance->callbacks.get = dummy_get_callback;
@@ -71,6 +222,7 @@ void lcb_initialize_packet_handlers(lcb_t instance)
     instance->callbacks.bootstrap = dummy_bootstrap_callback;
     instance->callbacks.pktflushed = dummy_pktflushed_callback;
     instance->callbacks.pktfwd = dummy_pktfwd_callback;
+    instance->callbacks.v3callbacks[LCB_CALLBACK_DEFAULT] = compat_default_callback;
 }
 
 #define CALLBACK_ACCESSOR(name, cbtype, field) \
@@ -114,3 +266,36 @@ CALLBACK_ACCESSOR(lcb_set_errmap_callback, lcb_errmap_callback, errmap)
 CALLBACK_ACCESSOR(lcb_set_bootstrap_callback, lcb_bootstrap_callback, bootstrap)
 CALLBACK_ACCESSOR(lcb_set_pktfwd_callback, lcb_pktfwd_callback, pktfwd)
 CALLBACK_ACCESSOR(lcb_set_pktflushed_callback, lcb_pktflushed_callback, pktflushed)
+
+LIBCOUCHBASE_API
+lcb_RESPCALLBACK
+lcb_install_callback3(lcb_t instance, int cbtype, lcb_RESPCALLBACK cb)
+{
+    lcb_RESPCALLBACK ret;
+    if (cbtype >= LCB_CALLBACK__MAX) {
+        return NULL;
+    }
+    ret = instance->callbacks.v3callbacks[cbtype];
+    if (cb) {
+        instance->callbacks.v3callbacks[cbtype] = cb;
+    }
+    return ret;
+}
+
+static void
+nocb_fallback(lcb_t instance, int type, const lcb_RESPBASE *response)
+{
+    (void)instance; (void)type; (void)response;
+}
+lcb_RESPCALLBACK
+lcb_find_callback(lcb_t instance, lcb_CALLBACKTYPE cbtype)
+{
+    lcb_RESPCALLBACK ret = instance->callbacks.v3callbacks[cbtype];
+    if (!ret) {
+        ret = instance->callbacks.v3callbacks[LCB_CALLBACK_DEFAULT];
+        if (!ret) {
+            ret = nocb_fallback;
+        }
+    }
+    return ret;
+}

@@ -462,7 +462,6 @@ lcb_error_t lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg)
 
     io = (iocp_t *)calloc(1, sizeof(*io));
     if (!io) {
-        abort();
         return LCB_CLIENT_ENOMEM;
     }
 
@@ -481,7 +480,7 @@ lcb_error_t lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg)
                               INVALID_HANDLE_VALUE, NULL, 0, 0);
 
     if (!io->hCompletionPort) {
-        abort();
+        return LCB_EINTERNAL;
     }
 
 

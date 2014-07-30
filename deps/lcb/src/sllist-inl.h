@@ -1,7 +1,7 @@
 #include "sllist.h"
 #include <stdlib.h>
 #include <assert.h>
-
+#include <stdio.h>
 #ifndef INLINE
 #ifdef _MSC_VER
 #define INLINE __inline
@@ -123,7 +123,8 @@ sllist_remove(sllist_root *list, sllist_node *item)
             return;
         }
     }
-    abort();
+    fprintf(stderr, "SLLIST: Requested to remove item %p which is not in %p\n", (void*)list, (void*)item);
+    assert(0);
 }
 
 static INLINE void

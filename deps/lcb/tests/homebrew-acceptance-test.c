@@ -16,6 +16,7 @@
  */
 
 #include <internal.h> /* getenv, system, snprintf */
+#include <sys/wait.h>
 
 int main(void)
 {

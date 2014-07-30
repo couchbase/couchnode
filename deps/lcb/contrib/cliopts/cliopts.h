@@ -64,6 +64,8 @@ typedef struct {
     /** set this to true if the user must provide this option */
     int required;
 
+    /** set this to true to disable showing the option in the help text */
+    int hidden;
 
     /**
      * Output parameters
@@ -202,6 +204,7 @@ public:
     inline Ttype& description(const char *msg) { help = msg; return *this; }
     inline Ttype& mandatory(bool val = true) { required = val; return *this; }
     inline Ttype& argdesc(const char *desc) { vdesc = desc; return *this; }
+    inline Ttype& hide(bool val = true) { hidden = val; return *this; }
 
     inline T result() {
         switch (Targ) {
@@ -245,7 +248,7 @@ template<> inline std::string StringOption::result() {
 }
 
 template<> inline StringOption& StringOption::setDefault(const std::string& s) {
-    stmp = s; u_value.s = s.c_str(); return *this;
+    stmp = s; u_value.s = stmp.c_str(); return *this;
 }
 template<> inline IntOption& IntOption::setDefault(const int& i) {
     u_value.i = i; return *this;
@@ -263,7 +266,7 @@ template<> inline UIntOption& UIntOption::setDefault(const unsigned& ui) {
 class Parser {
 public:
     Parser(const char *name = NULL) {
-        if (!name) {
+        if (name) {
             progname = name;
         }
     }

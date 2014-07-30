@@ -70,12 +70,16 @@ handle_parse_chunked(lcb_http_request_t req, const char *buf, unsigned nbuf)
 
         if (nbody) {
             if (req->chunked) {
-                lcb_http_resp_t htresp;
-                lcb_setup_lcb_http_resp_t(&htresp,
-                    res->status, req->path, req->npath,
-                    (const char * const *)req->headers, body, nbody);
-                req->on_data(req,
-                    req->instance, req->command_cookie, LCB_SUCCESS, &htresp);
+                lcb_RESPCALLBACK target;
+                lcb_RESPHTTP htresp = { 0 };
+
+                lcb_http_init_resp(req, &htresp);
+                htresp.body = body;
+                htresp.nbody = nbody;
+                htresp.rc = LCB_SUCCESS;
+                target = lcb_find_callback(req->instance, LCB_CALLBACK_HTTP);
+                target(req->instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE *)&htresp);
+
             } else {
                 lcb_string_append(&res->body, body, nbody);
             }
@@ -86,7 +90,9 @@ handle_parse_chunked(lcb_http_request_t req, const char *buf, unsigned nbuf)
     } while ((state & LCBHT_S_DONE) == 0 && IS_IN_PROGRESS(req) && nbuf);
 
     if ( (state & LCBHT_S_DONE) && IS_IN_PROGRESS(req)) {
-        lcb_http_resp_t htresp;
+        lcb_RESPHTTP resp = { 0 };
+        lcb_RESPCALLBACK target;
+
         if (req->chunked) {
             buf = NULL;
             nbuf = 0;
@@ -95,14 +101,13 @@ handle_parse_chunked(lcb_http_request_t req, const char *buf, unsigned nbuf)
             nbuf = res->body.nused;
         }
 
-        lcb_setup_lcb_http_resp_t(&htresp,
-            res->status, req->path, req->npath,
-            (const char * const *)req->headers, buf, nbuf);
-
-        if (req->on_complete) {
-            req->on_complete(req,
-                req->instance, req->command_cookie, LCB_SUCCESS, &htresp);
-        }
+        lcb_http_init_resp(req, &resp);
+        resp.rflags = LCB_RESP_F_FINAL;
+        resp.rc = LCB_SUCCESS;
+        resp.body = buf;
+        resp.nbody = nbuf;
+        target = lcb_find_callback(req->instance, LCB_CALLBACK_HTTP);
+        target(req->instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE*)&resp);
         req->status |= LCB_HTREQ_S_CBINVOKED;
     }
     return state;
@@ -119,7 +124,7 @@ io_read(lcbio_CTX *ctx, unsigned nr)
     req->refcount++;
 
     /** Delay the timer */
-    lcb_timer_rearm(req->io_timer, req->timeout);
+    lcbio_timer_rearm(req->timer, req->timeout);
 
     LCBIO_CTX_ITERFOR(ctx, &iter, nr) {
         char *buf;
@@ -173,12 +178,10 @@ io_error(lcbio_CTX *ctx, lcb_error_t err)
 }
 
 static void
-request_timed_out(lcb_timer_t tm, lcb_t u, const void *cookie)
+request_timed_out(void *arg)
 {
-    lcb_http_request_t req = (lcb_http_request_t)cookie;
+    lcb_http_request_t req = (lcb_http_request_t)arg;
     lcb_http_request_finish(req->instance, req, LCB_ETIMEDOUT);
-    (void)u;
-    (void)tm;
 }
 
 
@@ -214,8 +217,9 @@ lcb_error_t
 lcb_http_request_connect(lcb_http_request_t req)
 {
     lcb_host_t dest;
-    lcbio_pCONNSTART cs;
     lcb_settings *settings = req->instance->settings;
+    lcbio_MGR *pool = req->instance->http_sockpool;
+    lcbio_pMGRREQ poolreq;
 
     memcpy(dest.host, req->host, req->nhost);
     dest.host[req->nhost] = '\0';
@@ -225,20 +229,18 @@ lcb_http_request_connect(lcb_http_request_t req)
     req->timeout = req->reqtype == LCB_HTTP_TYPE_VIEW ?
             settings->views_timeout : settings->http_timeout;
 
-    cs = lcbio_connect(req->io, settings, &dest, req->timeout, on_connected, req);
-    if (!cs) {
+    poolreq = lcbio_mgr_get(pool, &dest, req->timeout, on_connected, req);
+    if (!poolreq) {
         return LCB_CONNECT_ERROR;
     }
-    req->creq.type = LCBIO_CONNREQ_RAW;
-    req->creq.u.cs = cs;
+    LCBIO_CONNREQ_MKPOOLED(&req->creq, poolreq);
 
-    if (!req->io_timer) {
-        req->io_timer = lcb_timer_create_simple(req->io,
-                                                req,
-                                                req->timeout,
-                                                request_timed_out);
-    } else {
-        lcb_timer_rearm(req->io_timer, req->timeout);
+    if (!req->timer) {
+        req->timer = lcbio_timer_new(req->io, req, request_timed_out);
+    }
+
+    if (!lcbio_timer_armed(req->timer)) {
+        lcbio_timer_rearm(req->timer, req->timeout);
     }
 
     return LCB_SUCCESS;

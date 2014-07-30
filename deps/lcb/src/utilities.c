@@ -107,3 +107,42 @@ lcb_error_t lcb_initialize_socket_subsystem(void)
     return LCB_SUCCESS;
 }
 #endif
+
+int
+lcb_getenv_nonempty_multi(char *buf, lcb_size_t nbuf, ...)
+{
+    va_list ap;
+    const char *cur;
+    int found = 0;
+
+    va_start(ap, nbuf);
+    while ((cur = va_arg(ap, const char*))) {
+        if ((found = lcb_getenv_nonempty(cur, buf, nbuf))) {
+            break;
+        }
+    }
+    va_end(ap);
+    return found;
+}
+
+int
+lcb_getenv_boolean_multi(const char *key, ...)
+{
+    va_list ap;
+    const char *cur;
+    int ret = 0;
+
+    va_start(ap, key);
+    if (lcb_getenv_boolean(key)) {
+        va_end(ap);
+        return 1;
+    }
+
+    while ((cur = va_arg(ap, const char *))) {
+        if ((ret = lcb_getenv_boolean(cur))) {
+            break;
+        }
+    }
+    va_end(ap);
+    return ret;
+}

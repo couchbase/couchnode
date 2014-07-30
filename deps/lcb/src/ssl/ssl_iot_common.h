@@ -17,6 +17,7 @@
     BIO *rbio; /**<< BIO used for reading data from network */\
     lcb_io_opt_t iops_dummy_; /**< Dummy IOPS structure which is exposed to LCB */ \
     int error; /**< Internal error flag set once a fatal error is detect */\
+    lcb_error_t errcode; /**< The error, converted into libcouchbase */
 
 /**
  * @brief

@@ -2,10 +2,17 @@
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <ctype.h>
+#include <stdio.h>
+#include <time.h>
 
 using namespace cbc;
 using namespace cliopts;
 using std::string;
+using std::ifstream;
+using std::ofstream;
+using std::endl;
 
 static void
 makeLowerCase(string &s)
@@ -18,7 +25,6 @@ makeLowerCase(string &s)
 #define X(tpname, varname, longname, shortname) o_##varname(longname),
 ConnParams::ConnParams() :
         X_OPTIONS(X)
-        bucket(""),
         isAdmin(false)
 {
     // Configure the options
@@ -29,7 +35,11 @@ ConnParams::ConnParams() :
     #undef X
 
     o_host.description("Hostname to connect to").setDefault("localhost");
+    o_host.hide();
+
     o_bucket.description("Bucket to use").setDefault("default");
+    o_bucket.hide();
+
     o_user.description("Username (currently unused)");
     o_passwd.description("Bucket password");
     o_saslmech.description("Force SASL mechanism").argdesc("PLAIN|CRAM_MD5");
@@ -45,7 +55,6 @@ ConnParams::ConnParams() :
 void
 ConnParams::setAdminMode()
 {
-    o_passwd.mandatory(true);
     o_user.description("Administrative username").setDefault("Administrator");
     o_passwd.description("Administrative password");
     isAdmin = true;
@@ -54,70 +63,231 @@ ConnParams::setAdminMode()
 void
 ConnParams::addToParser(Parser& parser)
 {
+    string errmsg;
+    try {
+        loadFileDefaults();
+    } catch (string& exc) {
+        errmsg = exc;
+    } catch (const char *& exc) {
+        errmsg = exc;
+    }
+    if (!errmsg.empty()) {
+        fprintf(stderr, "Warning: File %s present but has problems (%s)\n",
+            getConfigfileName().c_str(), errmsg.c_str());
+    }
+
     #define X(tp, varname, longname, shortname) parser.addOption(o_##varname);
     X_OPTIONS(X)
     #undef X
 }
 
+string
+ConnParams::getConfigfileName()
+{
+    string ret;
+#if _WIN32
+    const char *v = getenv("APPDATA");
+    if (v) {
+        ret = v;
+        ret += "\\";
+        ret += CBC_WIN32_APPDIR;
+        ret += "\\";
+        ret += CBC_CONFIG_FILENAME;
+    }
+#else
+    const char *home = getenv("HOME");
+    if (home) {
+        ret = home;
+        ret += "/";
+    }
+    ret += CBC_CONFIG_FILENAME;
+#endif
+    return ret;
+}
+
+static void
+stripWhitespacePadding(string& s)
+{
+    while (s.empty() == false && isspace( (int) s[0])) {
+        s.erase(0, 1);
+    }
+    while (s.empty() == false && isspace( (int) s[s.size()-1])) {
+        s.erase(s.size()-1, 1);
+    }
+}
+
+bool
+ConnParams::loadFileDefaults()
+{
+    // Figure out the home directory
+    ifstream f(getConfigfileName().c_str());
+    if (!f.good()) {
+        return false;
+    }
+
+    string curline;
+    while ((std::getline(f, curline) == f) && !f.eof()) {
+        string key, value;
+        size_t pos;
+
+        stripWhitespacePadding(curline);
+        if (curline.empty() || curline[0] == '#') {
+            continue;
+        }
+
+        pos = curline.find('=');
+        if (pos == string::npos || pos == curline.size()-1) {
+            throw "Configuration file must be formatted as key-value pairs";
+        }
+
+        key = curline.substr(0, pos);
+        value = curline.substr(pos+1);
+        stripWhitespacePadding(key);
+        stripWhitespacePadding(value);
+        if (key.empty() || value.empty()) {
+            throw "Key and value cannot be empty";
+        }
+
+        if (key == "uri") {
+            // URI isn't really supported anymore, but try to be compatible
+            o_host.setDefault(value);
+        } else if (key == "user") {
+            o_user.setDefault(value);
+        } else if (key == "password") {
+            o_passwd.setDefault(value);
+        } else if (key == "bucket") {
+            o_bucket.setDefault(value);
+        } else if (key == "timeout") {
+            unsigned ival = 0;
+            if (!sscanf(value.c_str(), "%u", &ival)) {
+                throw "Invalid formatting for timeout";
+            }
+            o_timeout.setDefault(ival);
+        } else if (key == "connstr") {
+            o_connstr.setDefault(value);
+        } else if (key == "capath") {
+            o_capath.setDefault(value);
+        } else if (key == "ssl") {
+            o_ssl.setDefault(value);
+        } else {
+            throw string("Unrecognized key: ") + key;
+        }
+    }
+    return true;
+}
+
+static void
+writeOption(ofstream& f, StringOption& opt, const string& key)
+{
+    if (!opt.passed()) {
+        return;
+    }
+    f << key << '=' << opt.const_result() << endl;
+}
+
+void
+ConnParams::writeConfig(const string& s)
+{
+    // Figure out the intermediate directories
+    ofstream f;
+    try {
+        f.exceptions(std::ios::failbit|std::ios::badbit);
+        f.open(s.c_str());
+    } catch (std::exception& ex) {
+        throw string("Couldn't open " + s + " " + ex.what());
+    }
+
+    time_t now = time(NULL);
+    const char *timestr = ctime(&now);
+    f << "# Generated by cbc at " << string(timestr) << endl;
+
+    if (!connstr.empty()) {
+        // Contains bucket, user
+        f << "connstr=" << connstr << endl;
+    }
+    writeOption(f, o_user, "user");
+    writeOption(f, o_passwd, "password");
+    writeOption(f, o_ssl, "ssl");
+    writeOption(f, o_capath, "capath");
+
+    if (o_timeout.passed()) {
+        f << "timeout=" << std::dec << o_timeout.result() << endl;
+    }
+
+    f.flush();
+    f.close();
+}
+
 void
 ConnParams::fillCropts(lcb_create_st& cropts)
 {
-    host = o_host.result();
-    bucket = o_bucket.result();
     passwd = o_passwd.result();
-    for (size_t ii = 0; ii < host.size(); ++ii) {
-        if (host[ii] == ';') {
-            host[ii] = ',';
-        }
-    }
 
-    if (o_dsn.passed()) {
-        dsn = o_dsn.const_result();
-        if (dsn.find('?') == string::npos) {
-            dsn += '?';
-        } else if (dsn[dsn.size()-1] != '&') {
-            dsn += '&';
+    if (o_connstr.passed()) {
+        connstr = o_connstr.const_result();
+        if (connstr.find('?') == string::npos) {
+            connstr += '?';
+        } else if (connstr[connstr.size()-1] != '&') {
+            connstr += '&';
         }
     } else {
-        dsn = "couchbase://";
-        dsn += host;
-        dsn += "/";
-        dsn += o_bucket.const_result();
-        dsn += "?";
+        string host = o_host.result();
+        string bucket = o_bucket.result();
+
+        for (size_t ii = 0; ii < host.size(); ++ii) {
+            if (host[ii] == ';') {
+                host[ii] = ',';
+            }
+        }
+
+        if (o_host.passed()) {
+            fprintf(stderr, "The -h/--host option is deprecated. Use connection string instead\n");
+            fprintf(stderr, "  e.g. couchbase://%s\n", host.c_str());
+        }
+        if (o_bucket.passed()) {
+            fprintf(stderr, "The -b/--bucket option is deprecated. Use connection string instead\n");
+            fprintf(stderr, "  e.g. couchbase://HOSTS/%s\n", bucket.c_str());
+        }
+
+        connstr = "http://";
+        connstr += host;
+        connstr += "/";
+        connstr += bucket;
+        connstr += "?";
     }
     if (o_capath.passed()) {
-        dsn += "capath=";
-        dsn += o_capath.result();
-        dsn += '&';
+        connstr += "capath=";
+        connstr += o_capath.result();
+        connstr += '&';
     }
     if (o_ssl.passed()) {
-        dsn += "ssl=";
-        dsn += o_ssl.result();
-        dsn += '&';
+        connstr += "ssl=";
+        connstr += o_ssl.result();
+        connstr += '&';
     }
     if (o_transport.passed()) {
-        dsn += "boostrap_on=";
+        connstr += "bootstrap_on=";
         string tmp = o_transport.result();
         makeLowerCase(tmp);
-        dsn += tmp;
-        dsn += '&';
+        connstr += tmp;
+        connstr += '&';
     }
     if (o_timeout.passed()) {
-        dsn += "operation_timeout=";
+        connstr += "operation_timeout=";
         std::stringstream ss;
         ss << std::dec << o_timeout.result();
-        dsn += ss.str();
-        dsn += '&';
+        connstr += ss.str();
+        connstr += '&';
     }
     if (o_configcache.passed()) {
-        dsn += "config_cache=";
-        dsn += o_configcache.result();
-        dsn += '&';
+        connstr += "config_cache=";
+        connstr += o_configcache.result();
+        connstr += '&';
     }
     if (isAdmin) {
-        dsn += "username=";
-        dsn += o_user.const_result();
-        dsn += '&';
+        connstr += "username=";
+        connstr += o_user.const_result();
+        connstr += '&';
     }
 
     int vLevel = 1;
@@ -125,14 +295,14 @@ ConnParams::fillCropts(lcb_create_st& cropts)
         vLevel += o_verbose.numSpecified();
         std::stringstream ss;
         ss << std::dec << vLevel;
-        dsn += "console_log_level=";
-        dsn += ss.str();
-        dsn += '&';
+        connstr += "console_log_level=";
+        connstr += ss.str();
+        connstr += '&';
     }
 
     cropts.version = 3;
     cropts.v.v3.passwd = passwd.c_str();
-    cropts.v.v3.dsn = dsn.c_str();
+    cropts.v.v3.connstr = connstr.c_str();
     if (isAdmin) {
         cropts.v.v3.type = LCB_TYPE_CLUSTER;
     } else {

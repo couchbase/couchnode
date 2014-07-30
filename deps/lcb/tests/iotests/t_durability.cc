@@ -685,12 +685,14 @@ TEST_F(DurabilityUnitTest, testMasterObserve)
 }
 
 extern "C" {
-static void fo_callback(lcb_timer_t, lcb_t, const void *)
+static void fo_callback(void *cookie)
 {
+    lcb_t instance = (lcb_t )cookie;
     MockEnvironment *mock = MockEnvironment::getInstance();
     for (int ii = 1; ii < mock->getNumNodes(); ii++) {
         mock->failoverNode(ii);
     }
+    lcb_loop_unref(instance);
 }
 }
 
@@ -746,14 +748,16 @@ TEST_F(DurabilityUnitTest, testDurabilityRelocation)
     for (int ii = 1; ii < mock->getNumNodes(); ii++) {
         mock->hiccupNodes(1000, 0);
     }
-    lcb_timer_t tm = lcb_timer_create_simple(handle.getLcb()->iotable,
-                                             NULL, 500000, fo_callback);
+    lcbio_pTIMER tm = lcbio_timer_new(handle.getLcb()->iotable,
+        instance, fo_callback);
+    lcbio_timer_rearm(tm, 500000);
+    lcb_loop_ref(instance);
 
     struct cb_cookie cookie = { 0, 0 };
     lcb_error_t err = lcb_durability_poll(instance, &cookie, &opts, 1, dcmds);
     ASSERT_EQ(LCB_SUCCESS, err);
 
     lcb_wait(instance);
+    lcbio_timer_destroy(tm);
     ASSERT_EQ(1, cookie.count);
-    lcb_timer_destroy(instance, tm);
 }

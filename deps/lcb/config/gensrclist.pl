@@ -74,7 +74,7 @@ ${ltname}_LDFLAGS =
 ${ltname}_CFLAGS = \$(AM_NOWARN_CFLAGS)
 ${ltname}_CXXFLAGS = \$(AM_NOWARN_CXXFLAGS)
 ${ltname}_CPPFLAGS = \$(AM_NOWARN_CPPFLAGS) -I\$(GTEST_ROOT)
-${ltname}_CPPFLAGS += -I\$(GTEST_ROOT)/include -Itests \$(NO_WERROR)
+${ltname}_CPPFLAGS += -I\$(GTEST_ROOT)/include -I\$(top_srcdir)/tests \$(NO_WERROR)
 EOF
     print $ofp $TEST_POSTAMBLE;
 }
@@ -86,17 +86,27 @@ my @PKGINCLUDE_HEADERS;
 # Find the main source files
 push @PKGINCLUDE_HEADERS,
     find_srcfiles("include/libcouchbase"),
+    "include/libcouchbase/configuration.h",
     "plugins/io/libuv/libuv_io_opts.h",
     "plugins/io/libev/libev_io_opts.h",
     "plugins/io/libevent/libevent_io_opts.h",
     "plugins/io/select/select_io_opts.h",
     "plugins/io/iocp/iocp_iops.h";
 
+my %tmp = map { $_ => 1 } @PKGINCLUDE_HEADERS;
+@PKGINCLUDE_HEADERS = keys %tmp;
+
 # @PKGINCLUDE_HEADERS = grep { $_ !~ /configuration\.h/ } @PKGINCLUDE_HEADERS;
 
 print $ofp "pkginclude_HEADERS = ".fmt_filelist(@PKGINCLUDE_HEADERS)."\n";
-my @LCB_SOURCES = (find_srcfiles("src"), find_srcfiles("plugins/io/select"));
+my @LCB_SOURCES = (find_srcfiles("src"), find_srcfiles("plugins/io/select"), find_srcfiles("contrib/genhash"));
+
+# Filter out libraries we're gonna build later on
 @LCB_SOURCES = grep { $_ !~ m,src/ssl, && $_ !~ m,src/lcbht, } @LCB_SOURCES;
+
+# Filter out generated files
+@LCB_SOURCES = grep { $_ !~ m,src/config.h, && $_ !~ m,src/probes.h, } @LCB_SOURCES;
+
 print $ofp "libcouchbase_la_SOURCES += ".fmt_filelist(@LCB_SOURCES)."\n";
 print $ofp "libcouchbase_la_SOURCES += ".fmt_filelist(find_srcfiles("contrib/cJSON"))."\n";
 print $ofp "libcouchbase_la_SOURCES += ".fmt_filelist(find_srcfiles("include/memcached"))."\n";
@@ -133,7 +143,8 @@ add_target_with_sources("liblcbtools", "tools/common", [find_srcfiles("contrib/c
 print $ofp "endif\nendif\n";
 
 my @CBUTIL_SOURCES = qw(contrib/cJSON/cJSON.c src/strcodecs/base64.c
-    src/strcodecs/url_encoding.c src/gethrtime.c src/genhash.c src/hashtable.c
+    src/strcodecs/url_encoding.c src/gethrtime.c contrib/genhash/genhash.c
+    contrib/genhash/genhash.h src/hashtable.c
     src/hashset.c src/hostlist.c src/list.c src/logging.c src/packetutils.c
     src/ringbuffer.c src/simplestring.c);
 

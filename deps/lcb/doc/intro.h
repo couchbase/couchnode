@@ -32,7 +32,7 @@
  *
  * Modifying the library's settings (for example, timeout settings) may be done
  * via the lcb_cntl() interface (see @ref LCB_CNTL) or via some environment
- * variables (see <libcouchbase/envvars.h>)
+ * variables (see @ref LCB_ENVVARS)
  *
  *
  *
@@ -59,7 +59,7 @@
  * ## Configuring and Tuning the library
  *
  * The library may be configured either programmatically via lcb_cntl(),
- * or via the environment (see <include/libcouchbase/envvars.h>)
+ * or via the environment (see @ref LCB_ENVVARS)
  *
  *
  * ## Simple Usage Steps

@@ -41,7 +41,6 @@
 #include "mcserver/mcserver.h"
 #include "mc/mcreq.h"
 #include "settings.h"
-#include "genhash.h"
 
 /* lcb_t-specific includes */
 #include "retryq.h"
@@ -51,10 +50,10 @@
 extern "C" {
 #endif
     struct lcb_histogram_st;
-
-    typedef void (*vbucket_state_listener_t)(lcb_server_t *server);
+    struct lcb_string_st;
 
     struct lcb_callback_st {
+        lcb_RESPCALLBACK v3callbacks[LCB_CALLBACK__MAX];
         lcb_get_callback get;
         lcb_store_callback store;
         lcb_arithmetic_callback arithmetic;
@@ -91,7 +90,7 @@ extern "C" {
          *      return LCB_EBADHANDLE
          */
         lcb_type_t type;
-        VBUCKET_DISTRIBUTION_TYPE dist_type;
+        lcbvb_DISTMODE dist_type;
         mc_CMDQUEUE cmdq;
 
         /** The number of replicas */
@@ -102,10 +101,6 @@ extern "C" {
         struct hostlist_st *ht_nodes;
         struct clconfig_info_st *cur_configinfo;
         struct lcb_bootstrap_st *bootstrap;
-
-        unsigned int weird_things;
-
-        vbucket_state_listener_t vbucket_state_listener;
         struct lcb_callback_st callbacks;
         struct lcb_histogram_st *histogram;
         lcb_ASPEND pendops;
@@ -115,12 +110,15 @@ extern "C" {
         /** Socket pool for memcached connections */
         lcbio_MGR *memd_sockpool;
 
+        /** Socket pool for HTTP connections */
+        lcbio_MGR *http_sockpool;
+
         lcb_error_t last_error;
 
         lcb_settings *settings;
         lcbio_pTABLE iotable;
         lcb_RETRYQ *retryq;
-        char *scratch; /* storage for random strings, lcb_get_host, etc */
+        struct lcb_string_st *scratch;
         lcbio_pTIMER dtor_timer;
 
 #ifdef __cplusplus
@@ -132,16 +130,9 @@ extern "C" {
     #define LCBT_VBCONFIG(instance) (instance)->cmdq.config
     #define LCBT_NSERVERS(instance) (instance)->cmdq.npipelines
     #define LCBT_NREPLICAS(instance) (instance)->nreplicas
-    #define LCBT_GET_SERVER(instance, ix) (lcb_server_t *)(instance)->cmdq.pipelines[ix]
+    #define LCBT_GET_SERVER(instance, ix) (mc_SERVER *)(instance)->cmdq.pipelines[ix]
     #define LCBT_SETTING(instance, name) (instance)->settings->name
 
-
-    lcb_error_t lcb_error_handler(lcb_t instance,
-                                  lcb_error_t error,
-                                  const char *errinfo);
-    /**
-     * Returns true if this server has pending I/O on it
-     */
     void lcb_initialize_packet_handlers(lcb_t instance);
     void lcb_record_metrics(lcb_t instance, hrtime_t delta,lcb_uint8_t opcode);
 
@@ -172,6 +163,9 @@ extern "C" {
     int lcb_getenv_nonempty(const char *key, char *buf, lcb_size_t len);
     LCB_INTERNAL_API
     int lcb_getenv_boolean(const char *key);
+    LCB_INTERNAL_API
+    int lcb_getenv_nonempty_multi(char *buf, lcb_size_t nbuf, ...);
+    int lcb_getenv_boolean_multi(const char *key, ...);
 
     /**
      * Initialize the socket subsystem. For windows, this initializes Winsock.
@@ -180,45 +174,56 @@ extern "C" {
     LCB_INTERNAL_API
     lcb_error_t lcb_initialize_socket_subsystem(void);
 
-    /**
-     * These three functions are all reentrant safe. They control asynchronous
-     * scheduling of cluster configuration retrievals.
-     */
 
-    /** Call this for initial bootstrap */
-    lcb_error_t lcb_bootstrap_initial(lcb_t instance);
+    typedef enum {
+        LCB_BS_REFRESH_ALWAYS = 0x00,
+        LCB_BS_REFRESH_INITIAL = 0x02,
+        LCB_BS_REFRESH_INCRERR = 0x04,
+        LCB_BS_REFRESH_THROTTLE = 0x08,
+        LCB_BS_REFRESH_DEFAULT = (LCB_BS_REFRESH_THROTTLE|LCB_BS_REFRESH_INCRERR)
+    } lcb_BSFLAGS;
 
-    /** Call this on not-my-vbucket, or when a toplogy change is evident */
-    lcb_error_t lcb_bootstrap_refresh(lcb_t instance);
+    lcb_error_t lcb_bootstrap_common(lcb_t instance, int options);
 
-    /** Call this when a non-specicic error has taken place, such as a timeout */
-    void lcb_bootstrap_errcount_incr(lcb_t instance);
+#define lcb_bootstrap_initial(instance) lcb_bootstrap_common(instance, LCB_BS_REFRESH_INITIAL)
+#define lcb_bootstrap_refresh(instance) lcb_bootstrap_common(instance, LCB_BS_REFRESH_ALWAYS)
+#define lcb_bootstrap_errcount_incr(instance) lcb_bootstrap_common(instance, LCB_BS_REFRESH_DEFAULT)
+#define lcb_bootstrap_maybe_refresh(instance) lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE)
 
     void lcb_bootstrap_destroy(lcb_t instance);
 
     lcb_error_t lcb_init_providers2(lcb_t obj,
                                    const struct lcb_create_st2 *e_options);
-    lcb_error_t lcb_reinit3(lcb_t obj, const char *dsn);
+    lcb_error_t lcb_reinit3(lcb_t obj, const char *connstr);
 
 
     LCB_INTERNAL_API
-    lcb_server_t *
+    mc_SERVER *
     lcb_find_server_by_host(lcb_t instance, const lcb_host_t *host);
 
 
     LCB_INTERNAL_API
-    lcb_server_t *
+    mc_SERVER *
     lcb_find_server_by_index(lcb_t instance, int ix);
 
     LCB_INTERNAL_API
     lcb_error_t
-    lcb_getconfig(lcb_t instance, const void *cookie, lcb_server_t *server);
+    lcb_getconfig(lcb_t instance, const void *cookie, mc_SERVER *server);
 
     int
     lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err);
 
     lcb_error_t
     lcb__synchandler_return(lcb_t instance);
+
+    lcb_RESPCALLBACK
+    lcb_find_callback(lcb_t instance, lcb_CALLBACKTYPE cbtype);
+
+    /* These two functions exist to allow the tests to keep the loop alive while
+     * scheduling other operations asynchronously */
+
+    LCB_INTERNAL_API void lcb_loop_ref(lcb_t instance);
+    LCB_INTERNAL_API void lcb_loop_unref(lcb_t instance);
 
 #define SYNCMODE_INTERCEPT(o) \
     if (LCBT_SETTING(o, syncmode) == LCB_ASYNCHRONOUS) { \

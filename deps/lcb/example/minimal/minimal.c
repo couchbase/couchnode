@@ -18,59 +18,54 @@
 /**
  * @file
  *
- * BUILD:
- *
- *      cc -o minimal minimal.c -lcouchbase
- *      cl /DWIN32 /Iinclude minimal.c lib\libcouchbase.lib
- *
- * RUN:
- *
- *      valgrind -v --tool=memcheck  --leak-check=full --show-reachable=yes ./minimal
- *      ./minimal <host:port> <bucket> <passwd>
- *      mininal.exe <host:port> <bucket> <passwd>
+ * This is a minimal example file showing how to connect to a cluster and
+ * set and retrieve a single item.
  */
+
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
 #include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
 #ifdef _WIN32
-#define PRIu64 "I64u"
+#define PRIx64 "I64x"
 #else
 #include <inttypes.h>
 #endif
 
-static void store_callback(lcb_t instance, const void *cookie,
-                           lcb_storage_t operation,
-                           lcb_error_t error,
-                           const lcb_store_resp_t *item)
+static void
+die(lcb_t instance, const char *msg, lcb_error_t err)
+{
+    fprintf(stderr, "%s. Received code 0x%X (%s)\n",
+        msg, err, lcb_strerror(instance, err));
+    exit(EXIT_FAILURE);
+}
+
+static void
+store_callback(lcb_t instance, const void *cookie,
+    lcb_storage_t operation, lcb_error_t error, const lcb_store_resp_t *item)
 {
     if (error == LCB_SUCCESS) {
-        fprintf(stderr, "STORED \"");
-        fwrite(item->v.v0.key, sizeof(char), item->v.v0.nkey, stderr);
-        fprintf(stderr, "\" CAS: %"PRIu64"\n", item->v.v0.cas);
+        fprintf(stderr, "=== STORED ===\n");
+        fprintf(stderr, "KEY: %.*s\n", (int)item->v.v0.nkey, item->v.v0.key);
+        fprintf(stderr, "CAS: 0x%"PRIx64"\n", item->v.v0.cas);
     } else {
-        fprintf(stderr, "STORE ERROR: %s (0x%x)\n",
-                lcb_strerror(instance, error), error);
-        exit(EXIT_FAILURE);
+        die(instance, "Couldn't store item", error);
     }
-    (void)cookie;
+
     (void)operation;
 }
 
-static void get_callback(lcb_t instance, const void *cookie, lcb_error_t error,
-                         const lcb_get_resp_t *item)
+static void
+get_callback(lcb_t instance, const void *cookie, lcb_error_t error,
+    const lcb_get_resp_t *item)
 {
     if (error == LCB_SUCCESS) {
-        fprintf(stderr, "GOT \"");
-        fwrite(item->v.v0.key, sizeof(char), item->v.v0.nkey, stderr);
-        fprintf(stderr, "\" CAS: %"PRIu64" FLAGS:0x%x SIZE:%lu\n",
-                item->v.v0.cas, item->v.v0.flags, (unsigned long)item->v.v0.nbytes);
-        fwrite(item->v.v0.bytes, sizeof(char), item->v.v0.nbytes, stderr);
-        fprintf(stderr, "\n");
+        fprintf(stderr, "=== RETRIEVED ===\n");
+        fprintf(stderr, "KEY: %.*s\n", (int)item->v.v0.nkey, item->v.v0.key);
+        fprintf(stderr, "VALUE: %.*s\n", (int)item->v.v0.nbytes, item->v.v0.bytes);
+        fprintf(stderr, "CAS: 0x%"PRIx64"\n", item->v.v0.cas);
+        fprintf(stderr, "FLAGS: 0x%x\n", item->v.v0.flags);
     } else {
-        fprintf(stderr, "GET ERROR: %s (0x%x)\n",
-                lcb_strerror(instance, error), error);
+        die(instance, "Couldn't retrieve", error);
     }
     (void)cookie;
 }
@@ -79,75 +74,73 @@ int main(int argc, char *argv[])
 {
     lcb_error_t err;
     lcb_t instance;
-    struct lcb_create_st create_options;
+    struct lcb_create_st create_options = { 0 };
+    lcb_store_cmd_t scmd = { 0 };
+    const lcb_store_cmd_t *scmdlist[1];
+    lcb_get_cmd_t gcmd = { 0 };
+    const lcb_get_cmd_t *gcmdlist[1];
 
-    memset(&create_options, 0, sizeof(create_options));
+    create_options.version = 3;
 
-    if (argc > 1) {
-        create_options.v.v0.host = argv[1];
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s couchbase://host/bucket [ password ]\n", argv[0]);
+        exit(EXIT_FAILURE);
     }
-    if (argc > 2) {
-        create_options.v.v0.user = argv[2];
-        create_options.v.v0.bucket = argv[2];
+
+    create_options.v.v3.connstr = argv[1];
+    if (argc >= 3) {
+        create_options.v.v3.passwd = argv[2];
     }
-    if (argc > 3) {
-        create_options.v.v0.passwd = argv[3];
-    }
+
     err = lcb_create(&instance, &create_options);
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to create libcouchbase instance: %s\n",
-                lcb_strerror(NULL, err));
-        return 1;
+        die(NULL, "Couldn't create couchbase handle", err);
     }
-    /* Initiate the connect sequence in libcouchbase */
-    if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to initiate connect: %s\n",
-                lcb_strerror(NULL, err));
-        lcb_destroy(instance);
-        return 1;
-    }
-    (void)lcb_set_get_callback(instance, get_callback);
-    (void)lcb_set_store_callback(instance, store_callback);
-    /* Run the event loop and wait until we've connected */
-    lcb_wait(instance);
-    if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to bootstrap: %s\n", lcb_strerror(instance, err));
-        lcb_destroy(instance);
-        return 1;
-    }
-    {
-        lcb_store_cmd_t cmd;
-        const lcb_store_cmd_t *commands[1];
 
-        commands[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.operation = LCB_SET;
-        cmd.v.v0.key = "foo";
-        cmd.v.v0.nkey = 3;
-        cmd.v.v0.bytes = "bar";
-        cmd.v.v0.nbytes = 3;
-        err = lcb_store(instance, NULL, 1, commands);
-        if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to store: %s\n", lcb_strerror(NULL, err));
-            return 1;
-        }
+    err = lcb_connect(instance);
+    if (err != LCB_SUCCESS) {
+        die(instance, "Couldn't schedule connection", err);
     }
+
     lcb_wait(instance);
-    {
-        lcb_get_cmd_t cmd;
-        const lcb_get_cmd_t *commands[1];
-        commands[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.key = "foo";
-        cmd.v.v0.nkey = 3;
-        err = lcb_get(instance, NULL, 1, commands);
-        if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to get: %s\n", lcb_strerror(NULL, err));
-            return 1;
-        }
+
+    err = lcb_get_bootstrap_status(instance);
+    if (err != LCB_SUCCESS) {
+        die(instance, "Couldn't bootstrap from cluster", err);
     }
+
+    /* Assign the handlers to be called for the operation types */
+    lcb_set_get_callback(instance, get_callback);
+    lcb_set_store_callback(instance, store_callback);
+
+    scmd.v.v0.operation = LCB_SET;
+    scmd.v.v0.key = "foo"; scmd.v.v0.nkey = 3;
+    scmd.v.v0.bytes = "bar"; scmd.v.v0.nbytes = 3;
+    scmdlist[0] = &scmd;
+
+    err = lcb_store(instance, NULL, 1, scmdlist);
+    if (err != LCB_SUCCESS) {
+        die(instance, "Couldn't schedule storage operation", err);
+    }
+
+    /* The store_callback is invoked from lcb_wait() */
+    fprintf(stderr, "Will wait for storage operation to complete..\n");
     lcb_wait(instance);
+
+    /* Now fetch the item back */
+    gcmd.v.v0.key = "foo";
+    gcmd.v.v0.nkey = 3;
+    gcmdlist[0] = &gcmd;
+    err = lcb_get(instance, NULL, 1, gcmdlist);
+    if (err != LCB_SUCCESS) {
+        die(instance, "Couldn't schedule retrieval operation", err);
+    }
+
+    /* Likewise, the get_callback is invoked from here */
+    fprintf(stderr, "Will wait to retrieve item..\n");
+    lcb_wait(instance);
+
+    /* Now that we're all done, close down the connection handle */
     lcb_destroy(instance);
-
     return 0;
 }

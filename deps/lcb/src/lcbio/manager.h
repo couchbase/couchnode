@@ -2,8 +2,7 @@
 #define LCBIO_MANAGER_H
 #include "connect.h"
 #include "settings.h"
-#include "timer.h"
-#include "genhash.h"
+#include "contrib/genhash/genhash.h"
 #include "list.h"
 #include <stdio.h>
 

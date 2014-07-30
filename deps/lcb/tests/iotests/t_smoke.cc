@@ -387,6 +387,8 @@ SmokeTest::testMissingBucket()
     lcb_error_t err;
     err = lcb_create(&session, &cropts);
     EXPECT_EQ(LCB_SUCCESS, err);
+    mock->postCreate(session);
+
     err = lcb_connect(session);
     EXPECT_EQ(LCB_SUCCESS, err);
     lcb_wait(session);

@@ -3,6 +3,7 @@
 #include "timer-ng.h"
 #include "ioutils.h"
 #include <stdio.h>
+#include <lcbio/ssl.h>
 
 #define CTX_FD(ctx) (ctx)->fd
 #define CTX_SD(ctx) (ctx)->sd
@@ -37,6 +38,14 @@ convert_lcberr(const lcbio_CTX *ctx, lcbio_IOSTATUS status)
 {
     const lcb_settings *settings = ctx->sock->settings;
     lcbio_OSERR oserr = IOT_ERRNO(ctx->sock->io);
+
+    if (lcbio_ssl_check(ctx->sock)) {
+        lcb_error_t err = lcbio_ssl_get_error(ctx->sock);
+        if (err) {
+            return err;
+        }
+    }
+
     if (status == LCBIO_SHUTDOWN) {
         return lcbio_mklcberr(0, settings);
     } else if (oserr != 0) {
@@ -386,6 +395,11 @@ C_schedule(lcbio_CTX *ctx)
         }
     }
 
+    if (ctx->wwant) {
+        ctx->wwant = 0;
+        ctx->procs.cb_flush_ready(ctx);
+    }
+
     if (ctx->rdwant && sd->is_reading == 0) {
         lcb_IOV iov[RWINL_IOVSIZE];
         unsigned ii;
@@ -535,7 +549,7 @@ lcbio_ctx_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
 void
 lcbio_ctx_wwant(lcbio_CTX *ctx)
 {
-    if (!IOT_IS_EVENT(ctx->io)) {
+    if ((IOT_IS_EVENT(ctx->io)) == 0 && ctx->entered == 0) {
         ctx->procs.cb_flush_ready(ctx);
     } else {
         ctx->wwant = 1;

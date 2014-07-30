@@ -1,7 +1,95 @@
 # Release Notes
 
-This document is a list of user visible feature changes and important
-bugfixes. Do not forget to update this doc in every important patch.
+## 2.4.0 GA
+
+* [major] Attempt to retry items that are mapped to a non-existent node in
+  a degraded cluster. Rather than returning `LCB_NO_MATCHING_SERVER` the
+  behavior should be to wait for the item to succeed and attempt to fetch
+  a new cluster configuration.
+
+  In order to control how such 'orphaned' commands are handled, a new value
+  has been added to the `lcb_RETRYMODEOPTS` called `LCB_RETRY_ON_MISSINGNODE`
+  which dictates how commands should be rescheduled if the associated vbucket
+  has no master. The default is to retry the command until it times out, but
+  by setting this value to `0` (See `LCB_CNTL_RETRYMODE`) it may only be
+  attempted once, causing 'fail fast' behavior in such a case.
+
+* [major] Don't throttle config requests based on initial file-based config.
+  This allows the client to quickly recover from a stale config cache without
+  waiting for the `LCB_CNTL_CONFDELAY_THRESH` interval to elapse. Prior to this
+  fix, a client would appear to "not recover" if bootstrapping from a stale cache.
+  In reality the client would eventually recover but was waiting for the delay
+  threshold to elapse.
+
+* [major] Ignore `NOT_MY_VBUCKET` config payloads if CCCP provider is disabled.
+  This allows the client to circumvent any possible bugs in the CCCP response
+  payload and rely entirely on the HTTP config. It also allows 'rewriting'
+  proxies like confsed to function.
+
+## 2.4.0-beta
+
+* [major] Better error reporting for SSL failures.
+  This adds new error codes (`LCB_SSL_ERROR`, `LCB_SSL_CANTVERIFY`)
+  which are returned on initialization and verification failures
+  respectively.
+
+* [minor] Communication via legacy memcached servers is possible
+  by using the `memcached://` scheme in the connection string.
+
+* [minor] Environment variables understood by the library are now
+  documented in their own section.
+
+* [major] Add `lcb_get_node()` function to retrieve addresses for
+  various nodes in the cluster. This deprecates the `lcb_get_host()`,
+  `lcb_get_port()` and `lcb_get_server_list()` functions as they are
+  constrained to only return information about the administrative API.
+  The new function is configurable to return information about various
+  ports.
+
+* [major] The `dsn` field in the `lcb_create_st` structure has been
+  renamed to `connstr`.
+
+* [major] An HTTP request which has followed redirects will cause the
+  `lcb_wait()` function to never return. This bug was introduced in
+  2.4.0-DP1 and has now been fixed.
+
+* [minor] `lcb_get_server_list()` function now returns updated information
+  from the current cluster configuration. Previously this would only return
+  a node from the list specified during initial creation.
+
+* [minor] Provide additional error classifiers. Two error classifiers have
+  been added, they are:
+
+  * `LCB_ERRTYPE_SRVLOAD` which indicates that the server is likely under high load.
+  * `LCB_ERRTYPE_SRVGEN` which indicates that the error is a direct reply from the
+    server. This code can help distinguish between client and server generated
+    return codes.
+
+* [major] Provide HTTP keepalive and connection pooling for HTTP requests.
+  This allows the client to reuse an HTTP connection for multiple requests
+  rather than creating a new connection and closing it for each operation.
+
+  The functionality may be controlled via the `LCB_CNTL_HTTP_POOLSIZE` setting
+  which limits how many open connections (per server) to maintain inside the
+  client. Setting this value to `0` will disable pooling and restore old
+  behavior.
+
+* [major] Properly schedule next invocations for retry queue. A bug was introduced
+  in 2.4.0-dp1 which would cause the next tick callback to be invoked in what is
+  effectively a busy loop. This would be reflected in higher CPU load and less
+  throughput during topology changes.
+
+* [major] Return error if empty key is passed to an operation. Empty keys will
+  cause the server to drop the connection.
+  The error code returned is the newly added `LCB_EMPTY_KEY`
+
+* [minor] Provide setting to disable refreshing the configuration when an HTTP
+  API error is encountered (from one of the HTTP callback functions). This
+  adds the `LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR` setting.
+
+* [major] Fix bug where the CCCP provider may prematurely fail, activating the
+  HTTP provider
+
 
 ## 2.4.0-dp1 (2014-06-18)
 
@@ -726,7 +814,7 @@ These changes extend existing features with enhanced APIs
 * [major] CCBC-188 Fix segfault when rebalancing
   When a (!connected) server is reconnected, the tasks in its
   "pending" buffer will be moved into "output" buffer. If its
-  connection is broken again immediately, relocate_packets() will go
+  connection is broken again immediately, `relocate_packets()` will go
   to wrong path.
 
 * [major] CCBC-202 Don't try to switch to backup nodes when timeout is
@@ -735,7 +823,7 @@ These changes extend existing features with enhanced APIs
 * [major] CCBC-188 Check if SASL struct is valid before disposing
 
 * [major] Fix compile error with sun studio
-  "src/event.c", line 172: error: statement not reached (E_STATEMENT_NOT_REACHED)
+  "src/event.c", line 172: error: statement not reached (`E_STATEMENT_NOT_REACHED`)
 
 * [major] Don't invoke HTTP callbacks after cancellation, because
   user code might assume a previously-freed resource is still valid
@@ -756,7 +844,7 @@ These changes extend existing features with enhanced APIs
   fails to find the module in the default library path
 
 * [minor] CCBC-190 New compat mode (experimental) for configuration
-  caching. See man lcb_create_compat
+  caching. See man `lcb_create_compat()`
 
 * [minor] Manpage fixes
 
@@ -790,18 +878,18 @@ These changes extend existing features with enhanced APIs
 * [minor] bypass SASL LIST MECH
 
 * [minor] Shrink internal lookup tables (and reduce the size of
-  lcb_t)
+  `lcb_t`)
 
-* [minor] Add a new library: libcouchbase_debug.so (see
+* [minor] Add a new library: `libcouchbase_debug.so` (see
   include/libcouchbase/debug.h) which is a new library that contains
   new debug functionality.
 
 * [minor] Added manual pages for the library
 
-* [major] CCBC-153 Reset internal state on lcb_connect(). Allow caller
-  to use lcb_connect() multiple times to implement reconnecting using
-  the same lcb_t instance. Also it sets up the initial-connection
-  timer for users who don't use lcb_wait() and drive IO loop manually.
+* [major] CCBC-153 Reset internal state on `lcb_connect()`. Allow caller
+  to use `lcb_connect()` multiple times to implement reconnecting using
+  the same `lcb_t` instance. Also it sets up the initial-connection
+  timer for users who don't use `lcb_wait()` and drive IO loop manually.
 
 * [major] CCBC-171 Invalid read in libevent plugin, when the plugin
   compiled in 1.x mode
@@ -810,10 +898,10 @@ These changes extend existing features with enhanced APIs
   keys and server failure
 
 * [major] CCBC-156 The ep-engine renders meaningful body for observe
-  responses only if status code is 0 (PROTOCOL_BINARY_RESPONSE_SUCCESS).
+  responses only if status code is 0 (`PROTOCOL_BINARY_RESPONSE_SUCCESS`).
   We shouldn't interpret response body in other cases, just decode &
   failout request instead. Also we shouldn't retry observe commands on
-  PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET, because it can cause the
+  `PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET`, because it can cause the
   client to loop infinitely
 
 * [major] CCBC-145 KV Durability operation API. Async APIs added to
@@ -832,19 +920,19 @@ These changes extend existing features with enhanced APIs
 * [major] CCBC-151 Cancellation of the HTTP request might lead to
   memory leaks or to segfaults (2e3875c2).
 
-* [minor] Document LCB_SERVER_BUG and LCB_PLUGIN_VERSION_MISMATCH.
-  Enhance the the lcb_strerror test to detect undocumented error
+* [minor] Document `LCB_SERVER_BUG` and `LCB_PLUGIN_VERSION_MISMATCH`.
+  Enhance the the `lcb_strerror()` test to detect undocumented error
   codes.
 
 * [critical] CCBC-153 Under high load the library could generate
-  LCB_ETIMEDOUT errors without reason owing to internal limitations.
+  `LCB_ETIMEDOUT` errors without reason owing to internal limitations.
 
 ## 2.0.1 (2012-12-11)
 
 50 files changed, 1009 insertions(+), 274 deletions(-)
 
 * libev-plugin: delay all timers while the loop isn't active. It will
-  fix LCB_ETIMEOUT in the following scenario:
+  fix `LCB_ETIMEOUT` in the following scenario:
 
   * connect the instance
   * sleep for time greater than default timeout (e.g. 3 seconds)
@@ -910,7 +998,7 @@ These changes extend existing features with enhanced APIs
 
 * CCBC-120 Purge stale OBSERVE packets
 
-* CCBC-120 Reformat and refactor lcb_server_purge_implicit_responses:
+* CCBC-120 Reformat and refactor `lcb_server_purge_implicit_responses`:
 
   * move packet allocation out of GET handler
   * dropping NOOP command shouldn't return error code
@@ -933,14 +1021,14 @@ These changes extend existing features with enhanced APIs
 
 * Create man pages for cbc and cbcrc
 
-* CCBC-118 lcb_error_t member in the http callbacks shouldn't reflect
-  the HTTP response code. So the error code will be always LCB_SUCCESS
+* CCBC-118 `lcb_error_t` member in the http callbacks shouldn't reflect
+  the HTTP response code. So the error code will be always `LCB_SUCCESS`
   if the library managed to receive the data successfully.
 
 * Timer in libev uses double for interval. Ref:
-  http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_timer_code_relative_and_opti
+  [](http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_timer_code_relative_and_opti)
 
-* CCBC-115 Return zero from do_read_data() if operations_per_call
+* CCBC-115 Return zero from `do_read_data()` if `operations_per_call`
   reached. The `operations_per_call' limit was introduced to prevent
   from freezing event loop. But in the function variable rv could
   store two different results and in case of reaching this limit it is
@@ -956,17 +1044,17 @@ These changes extend existing features with enhanced APIs
   image.
 
 * CCBC-113 Remove unauthorized asserion (d344037). The
-  lcb_server_send_packets() function later check if the server object
+  `lcb_server_send_packets()` function later check if the server object
   connected and establish connection if not (with raising possible
   errors)
 
-* Try all known plugins for LCB_IO_OPS_DEFAULT in run time
+* Try all known plugins for `LCB_IO_OPS_DEFAULT` in run time
 
-* Don't use the time_t for win32. When compiling from php it turns out
-  that it gets another size of the time_t type, causing the struct
+* Don't use the `time_t` for win32. When compiling from php it turns out
+  that it gets another size of the `time_t` type, causing the struct
   offsets to differ.
 
-* Add lcb_verify_compiler_setup(). This function allows the "user" of
+* Add `lcb_verify_compiler_setup()`. This function allows the "user" of
   the library to verify that the compiler use a compatible struct
   packing scheme.
 
@@ -978,7 +1066,7 @@ These changes extend existing features with enhanced APIs
 
 * Search ev.h also in ${includedir}/libev
 
-* Fix SEGFAULT if IO struct is allocated not by the lcb_create()
+* Fix SEGFAULT if IO struct is allocated not by the `lcb_create()`
 
 * Allow libcouchbase to connect to an instance without specifying bucket. It is useful
   when the bucket not needed, e.g. when performing administration
@@ -989,9 +1077,9 @@ These changes extend existing features with enhanced APIs
 * Fix invalid memory access in cbc tool. Affected command is
   cbc-bucket-create
 
-* lcb_create: replace assert() with error code
+* `lcb_create`: replace `assert()` with error code
 
-* CCBC-105 breakout event loop in default error_callback. This provides
+* CCBC-105 breakout event loop in default `error_callback`. This provides
   better default behaviour for users who haven't defined global error
   callback.
 
@@ -1001,7 +1089,7 @@ These changes extend existing features with enhanced APIs
 
 * Allow users to install both libraries (2.x and 1.x) on the same system.
 
-* Make the content type optional for lcb_make_http_request()
+* Make the content type optional for `lcb_make_http_request()`
 
 * Fix password memory leak in http.c (7e71493)
 
@@ -1010,8 +1098,8 @@ These changes extend existing features with enhanced APIs
   to specify a host:port, username and password.
 
 * Cleanup HTTP callbacks. Use the same callbacks both for Management
-  and View commands, and rename them to lcb_http_complete_callback and
-  lcb_http_data_callback.
+  and View commands, and rename them to `lcb_http_complete_callback` and
+  `lcb_http_data_callback`.
 
 * Allow users to use environment variables to pick the event plugin
 
@@ -1024,8 +1112,8 @@ These changes extend existing features with enhanced APIs
 
 * Allow to disable CXX targets
 
-* lcb_connect() should honor the syncmode setting. Automatically call
-  lcb_wait() when in synchronous mode
+* `lcb_connect()` should honor the syncmode setting. Automatically call
+  `lcb_wait()` when in synchronous mode
 
 ## 2.0.0beta (2012-09-13)
 
@@ -1034,13 +1122,13 @@ These changes extend existing features with enhanced APIs
 * Refactor the API. This is a full redesign of the current
   libcouchbase API that'll allow us to extend parts of the API without
   breaking binary compatibility. Also it renames all functions to have
-  lcb_ prefix instead of libcouchbase_ and LCB/LIBCOUCHBASE in macros.
+  `lcb_` prefix instead of `libcouchbase_` and `LCB`/`LIBCOUCHBASE` in macros.
 
 * Added --enable-fat-binary. Helps to solve issues when linking with
   fat binaries on MacOS.
 
 * Implement getter for number of nodes in the cluster:
-  lcb_get_num_nodes()
+  `lcb_get_num_nodes()`
 
 * Implement RESTful flush in the cbc toolset
 
@@ -1061,9 +1149,9 @@ These changes extend existing features with enhanced APIs
 
 * CCBC-96 Correct buffer length for POST/PUT headers
 
-* Add lcb_get_server_list
+* Add `lcb_get_server_list`
 
-* Merge lcb_get_locked into lcb_get function
+* Merge `lcb_get_locked` into `lcb_get` function
 
 * Fix Windows build
 
@@ -1073,18 +1161,18 @@ These changes extend existing features with enhanced APIs
 
 * CCBC-80: Default to IPv4 only
 
-* Sync memcached/protocol_binary.h. Pull extra
-  protocol_binary_datatypes declarations.
+* Sync `memcached/protocol_binary.h`. Pull extra
+  `protocol_binary_datatypes` declarations.
 
 * Deliver HTTP headers via callbacks
 
 * Unify HTTP interface. This means massive rename of the symbols
 
-* CCBC-92 release ringbuffer in lcb_purge_single_server
+* CCBC-92 release ringbuffer in `lcb_purge_single_server`
 
 * CCBC-91 Fix switching to backup node in case of server outage
 
-* CCBC-91 Reset timer for commands with NOT_MY_VBUCKET response
+* CCBC-91 Reset timer for commands with `NOT_MY_VBUCKET` response
 
 * Fix alignment for sparc platforms
 
@@ -1094,11 +1182,11 @@ These changes extend existing features with enhanced APIs
 
 * Bundle libvbucket
 
-* Fix a problem with allocating too few slots in the backup_nodes. Fixes
+* Fix a problem with allocating too few slots in the `backup_nodes`. Fixes
   illegal memory access.
 
 * CCBC-90 Fix initialization of backup nodes array. The code switching
-  nodes relies on NULL terminator rather than nbackup_nodes variable.
+  nodes relies on NULL terminator rather than `nbackup_nodes` variable.
   Fixes illegal memory access.
 
 * CCBC-89: Release the memory allocated by the http parser
@@ -1107,7 +1195,7 @@ These changes extend existing features with enhanced APIs
 
 5 files changed, 18 insertions(+), 5 deletions(-)
 
-* CCBC-92 release ringbuffer in libcouchbase_purge_single_server
+* CCBC-92 release ringbuffer in `libcouchbase_purge_single_server`
 
 ## 1.0.5 (2012-08-15)
 
@@ -1115,14 +1203,14 @@ These changes extend existing features with enhanced APIs
 
 * CCBC-91 Fix switching to backup node in case of server outage
 
-* CCBC-91 Reset timer for commands with NOT_MY_VBUCKET response
+* CCBC-91 Reset timer for commands with `NOT_MY_VBUCKET` response
 
 ## 1.1.0dp9 (2012-07-27)
 
 5 files changed, 18 insertions(+), 11 deletions(-)
 
 * Render auth credentials for View requests.
-  libcouchbase_make_http_request() won't accept credentials anymore.
+  `libcouchbase_make_http_request()` won't accept credentials anymore.
   It will pick them bucket configuration.
 
 ## 1.1.0dp8 (2012-07-27)
@@ -1130,29 +1218,29 @@ These changes extend existing features with enhanced APIs
 36 files changed, 2093 insertions(+), 704 deletions(-)
 
 * Allow the client to specify the verbosity level on the servers using
-  lcb_set_verbosity() function.
+  `lcb_set_verbosity()` function.
 
 * Bind timeouts to server sockets instead of commands. This means that
   from this point timeout interval will be started from the latest IO
   activity on the socket. This is a behavior change from the 1.0 series.
 
 * Allow the user to get the number of replicas using
-  libcouchbase_get_num_replicas()
+  `libcouchbase_get_num_replicas()`
 
 * Allow a user to breakout from the event loop in callbacks using
-  libcouchbase_breakout()
+  `libcouchbase_breakout()`
 
-* Make libcouchbase_wait() re-entrable
+* Make `libcouchbase_wait()` re-entrable
 
 * Let users detect if the event loop running already using
-  libcouchbase_is_waiting() function.
+  `libcouchbase_is_waiting()` function.
 
 * CCBC-77 Use separate error code for ENOMEM on the client
 
 * CCBC-82 Implement read replica
 
 * CCBC-85 Implement general purpose timers. It is possible for users
-  to define their own timers using libcouchbase_timer_create()
+  to define their own timers using `libcouchbase_timer_create()`
   function. (See headers for more info)
 
 * Implement multiple timers for windows
@@ -1185,13 +1273,13 @@ These changes extend existing features with enhanced APIs
 
 * Add support for notification callbacks for configuration changes.
   Now it is possible to install a hook using function
-  libcouchbase_set_configuration_callback(), and be notified about all
+  `libcouchbase_set_configuration_callback()`, and be notified about all
   configuration changes.
 
 * Implement function to execution management requests. Using
-  libcouchbase_make_management_request() function you can configure
+  `libcouchbase_make_management_request()` function you can configure
   the cluster, add/remove buckets, rebalance etc. It behaves like
-  libcouchbase_make_couch_request() but works with another endpoint.
+  `libcouchbase_make_couch_request()` but works with another endpoint.
 
 * Extract HTTP client. Backward incompatible change in Couchbase View
   subsystem
@@ -1212,7 +1300,7 @@ These changes extend existing features with enhanced APIs
 
   * Add suffix to cbc command implementations
   * Fix guards for socket errno macros
-  * Define size_t types to fix MSVC 9 build
+  * Define `size_t` types to fix MSVC 9 build
   * MSVC 9 isn't C99, but has stddef.h, so just include it
 
 * CCBC-63 Include types definitions for POSIX systems. Fixes C++
@@ -1239,9 +1327,9 @@ These changes extend existing features with enhanced APIs
 
 54 files changed, 1874 insertions(+), 824 deletions(-)
 
-* CCBC-68 Implement UNLOCK_KEY (UNL) command
+* CCBC-68 Implement `UNLOCK_KEY` (`UNL`) command
 
-* CCBC-68 Implement GET_LOCKED (GETL) command
+* CCBC-68 Implement `GET_LOCKED` (`GETL`) command
 
 * hashset.c: iterate over whole set on rehashing. Fixes memory leaks
   related to hash collisions (905ef95)
@@ -1250,20 +1338,20 @@ These changes extend existing features with enhanced APIs
 
 * Do not call View callbacks for cancelled requests
 
-* Fix ringbuffer_memcpy() (36afdb2)
+* Fix `ringbuffer_memcpy()` (36afdb2)
 
-* CCBC-62 A hang could occur in libcouchbase_wait() after the timeout
+* CCBC-62 A hang could occur in `libcouchbase_wait()` after the timeout
   period. Check for breakout condition after purging servers
 
 * CCBC-65 A small memory leak can occur with frequent calls to
-  libcouchbase_create() and libcouchbase_destroy()
+  `libcouchbase_create()` and `libcouchbase_destroy()`
 
 * CCBC-64. Timeouts can occur during topology changes, rather than be
   correctly retried. Send the retry-packet to new server
 
-* vbucket_found_incorrect_master() returns server index
+* `vbucket_found_incorrect_master()` returns server index
 
-* Fix ringbuffer_is_continous()
+* Fix `ringbuffer_is_continous()`
 
 * Pick up cookies from pending buffer unless node connected
 
@@ -1277,22 +1365,22 @@ These changes extend existing features with enhanced APIs
 15 files changed, 330 insertions(+), 76 deletions(-)
 
 * CCBC-65 A small memory leak can occur with frequent calls to
-  libcouchbase_create() and libcouchbase_destroy()
+  `libcouchbase_create()` and `libcouchbase_destroy()`
 
-* CCBC-62 A hang could occur in libcouchbase_wait() after the timeout
+* CCBC-62 A hang could occur in `libcouchbase_wait()` after the timeout
   period. Check for breakout condition after purging servers
 
 * CCBC-64. Timeouts can occur during topology changes, rather than be
   correctly retried. Send the retry-packet to new server
 
-* [backport] vbucket_found_incorrect_master() returns server index.
+* [backport] `vbucket_found_incorrect_master()` returns server index.
   (orig: c32fdae)
 
 ## 1.0.3 (2012-05-02)
 
 6 files changed, 44 insertions(+), 7 deletions(-)
 
-* [backport] Fix ringbuffer_is_continous() (orig: 9cfda9d)
+* [backport] Fix `ringbuffer_is_continous()` (orig: 9cfda9d)
 
 * [backport] Pick up cookies from pending buffer unless node connected
   (orig: 463958d)
@@ -1307,12 +1395,12 @@ These changes extend existing features with enhanced APIs
 10 files changed, 54 insertions(+), 20 deletions(-)
 
 * CCBC-59 Don't wait for empty buffers. If called with no operations
-  queued, libcouchbase_wait() will block forever. This means that a
-  single threaded application that calls libcouchbase_wait() at
+  queued, `libcouchbase_wait()` will block forever. This means that a
+  single threaded application that calls `libcouchbase_wait()` at
   different times to make sure operations are sent to the server runs
   the risk of stalling indefinitely. This is a very likely scenario.
 
-* Don't define size_t and ssize_t for VS2008
+* Don't define `size_t` and `ssize_t` for VS2008
 
 * Fix segfault while authorizing on protected buckets (211bb04)
 
@@ -1321,7 +1409,7 @@ These changes extend existing features with enhanced APIs
 59 files changed, 4374 insertions(+), 1205 deletions(-)
 
 * This release adds new functionality to directly access Couchbase
-  Server views using the libcouchbase_make_couch_request() function.
+  Server views using the `libcouchbase_make_couch_request()` function.
   See the associated documentation and header files for more details
 
 * Check for newer libvbucket
@@ -1335,19 +1423,19 @@ These changes extend existing features with enhanced APIs
 * Implement VERSION command from binary protocol
 
 * Allow use of libcouchbase to pure memcached clusters by using
-  libcouchbase_create_compat() function
+  `libcouchbase_create_compat()` function
 
 * Always sign deb packages and allow to pass PGP key
 
 * Bundle the protocol definitions for memcached
-  (memcached/protocol_binary.h and memcached/vbucket.h) to make it
+  (`memcached/protocol_binary.h` and `memcached/vbucket.h`) to make it
   easier to build
 
 * Bundle sasl client implementation
 
 * Fix windows build for MS Visual Studio 9
 
-  * define E* if missing
+  * define `E*` if missing
   * stdint header
 
 * Add support for multiple hosts for the bootstrap URL. A list of
@@ -1394,35 +1482,35 @@ These changes extend existing features with enhanced APIs
 
 * CCBC-51 Check server index before using
 
-* Handle PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET and retry it until
+* Handle `PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET` and retry it until
   success or another error, which can be handled by caller
 
 * Do not attempt SASL when SASL already in progress
 
 * Finer grained error reporting for basic REST errors:
 
-  * return LIBCOUCHBASE_AUTH_ERROR on HTTP 401
-  * return LIBCOUCHBASE_BUCKET_ENOENT on HTTP 404
-  * event loop is stopped (via maybe_breakout) on REST error
+  * return `LIBCOUCHBASE_AUTH_ERROR` on HTTP 401
+  * return `LIBCOUCHBASE_BUCKET_ENOENT` on HTTP 404
+  * event loop is stopped (via `maybe_breakout`) on REST error
 
 * Fixed segfaults and memory access errors on libevent1.4
 
 * Allow for notification on initial vbucket config. This makes
-  libcouchbase stop_event_loop and libcouchbase maybe breakout work
+  libcouchbase `stop_event_loop` and libcouchbase maybe breakout work
   properly in cooperative asynchronous event loops. the wait flag is
-  set by libcouchbase_wait() and unset by maybe_breakout.
-  Additionally, breakout_vbucket_state_listener will call
-  maybe_breakout as well, instead of having synchronous behavior
-  assumed by libcouchbase_wait()
+  set by `libcouchbase_wait()` and unset by `maybe_breakout`.
+  Additionally, `breakout_vbucket_state_listener` will call
+  `maybe_breakout` as well, instead of having synchronous behavior
+  assumed by `libcouchbase_wait()`
 
-* Fix sasl_list_mech_response_handler(). sasl_client_start() expects
+* Fix `sasl_list_mech_response_handler()`. `sasl_client_start()` expects
   null-terminated string
 
-* Refactor: use libcouchbase_xxxx for the datatypes
+* Refactor: use `libcouchbase_xxxx` for the datatypes
 
 * Do not notify user about the same error twice. Use command callback
-  when it's possible. (e.g. where the libcouchbase_server_t is
-  accessible and we can libcouchbase_failout_server())
+  when it's possible. (e.g. where the `libcouchbase_server_t` is
+  accessible and we can `libcouchbase_failout_server()`)
 
 * Install configuration.h for win32
 
@@ -1446,7 +1534,7 @@ These changes extend existing features with enhanced APIs
 * Bail out if you can't find memcached/vbucket.h and
   libvbucket/vbucket.h
 
-* New command cbc. This command intended as the analog of mem*
+* New command cbc. This command intended as the analog of `mem*`
   tools from libmemcached distribution. Supported commands:
 
   * cbc-cat
@@ -1493,7 +1581,7 @@ These changes extend existing features with enhanced APIs
 
 * Remove packet filter
 
-* Use ringbuffers instead buffer_t
+* Use ringbuffers instead `buffer_t`
 
 * Win32 build fixes
 
@@ -1521,14 +1609,16 @@ These changes extend existing features with enhanced APIs
   * remove
   * touch
 
-* MB-3294 Added `_by_key' functions
+* MB-3294 Added `_by_key` functions
 
-* CCBC-5 Fixed abort in do_read_data (c=0x7b09bf0) at src/event.c:105
+* CCBC-5 Fixed abort in `do_read_data` (c=0x7b09bf0) at src/event.c:105
 
 * Added timings API. It might be possible to turn on timing collection
-  using libcouchbase_enable_timings()/libcouchbase_disable_timings(),
+  using `libcouchbase_enable_timings()`/`libcouchbase_disable_timings()`,
   and receive the data in timings callback.
 
 * Basic TAP protocol implementation
 
 * Initial win32 support
+
+
