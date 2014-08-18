@@ -807,6 +807,21 @@ describe('#crud', function () {
           done();
         });
     });
+
+    it('should return from replace with 0 expiry (slow)', function(done) {
+      this.timeout(3000);
+      var key = H.key();
+      H.b.insert(key, 'bar', {expiry:1}, H.okCallback(function(insertRes) {
+        H.b.replace(key, 'foo', {expiry:0}, H.okCallback(function (replaceRes) {
+          setTimeout(function () {
+            H.b.get(key, H.okCallback(function (getRes) {
+              assert(getRes);
+              done();
+            }));
+          }, 2000);
+        }));
+      }));
+    });
   }
 
   describe('#RealBucket', allTests.bind(this, harness));
