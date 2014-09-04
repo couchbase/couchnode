@@ -71,13 +71,26 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(t, "durability", fnDurability);
 
     target->Set(NanNew<String>("CouchbaseImpl"), t->GetFunction());
-    target->Set(NanNew<String>("Error"), Error::getErrorClass());
     target->Set(NanNew<String>("Constants"), createConstants());
+    NODE_SET_METHOD(target, "_setErrorClass", sfnSetErrorClass);
 
     NanAssignPersistent(valueKey, NanNew<String>("value"));
     NanAssignPersistent(casKey, NanNew<String>("cas"));
     NanAssignPersistent(flagsKey, NanNew<String>("flags"));
     NanAssignPersistent(datatypeKey, NanNew<String>("datatype"));
+}
+
+NAN_METHOD(CouchbaseImpl::sfnSetErrorClass)
+{
+    NanScope();
+
+    if (args.Length() != 1) {
+        NanReturnValue(Error::create("invalid number of parameters passed"));
+    }
+
+    Error::setErrorClass(args[0].As<Function>());
+
+    NanReturnValue(NanTrue());
 }
 
 NAN_METHOD(CouchbaseImpl::fnNew)

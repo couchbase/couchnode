@@ -30,10 +30,6 @@ class Error
 {
 public:
     static void Init() {
-        Local<FunctionTemplate> tErr = NanNew<FunctionTemplate>();
-        tErr->SetClassName(NanNew<String>("CouchbaseError"));
-        NanAssignPersistent(errorClass, tErr->GetFunction());
-
         NanAssignPersistent(codeKey, NanNew<String>("code"));
     }
 
@@ -55,6 +51,10 @@ public:
         Handle<Object> errObj = getErrorClass()->NewInstance(1, args);
         errObj->Set(NanNew(codeKey), NanNew<Integer>(err));
         return errObj;
+    }
+
+    static void setErrorClass(Handle<Function> func) {
+        NanAssignPersistent(errorClass, func);
     }
 
     static Handle<Function> getErrorClass() {

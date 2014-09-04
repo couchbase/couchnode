@@ -94,6 +94,8 @@ public:
 
     static Handle<Object> createConstants();
 
+    static NAN_METHOD(sfnSetErrorClass);
+
     static NAN_METHOD(fnNew);
 
     static NAN_METHOD(fnConnect);
