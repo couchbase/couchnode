@@ -30,10 +30,15 @@ enum Flags {
     NF_MASK = 0xFF,
 
     // Common Flags - Formats
-    CF_JSON = 0x00,
+    CF_NONE,
+    CF_PRIVATE = 0x01 << 24,
+    CF_JSON = 0x02 << 24,
+    CF_RAW = 0x03 << 24,
+    CF_UTF8 = 0x04 << 24,
+    CF_MASK = 0xFF << 24,
 
     // Common Flags - Compressions
-    CC_SNAPPY = 0x00
+
 };
 
 void DefaultTranscoder::Init()
@@ -56,6 +61,21 @@ Handle<Value> DefaultTranscoder::decode(const void *bytes,
         size_t nbytes, lcb_U32 flags)
 {
     lcb_U32 format = flags & NF_MASK;
+    lcb_U32 cfformat = flags & CF_MASK;
+
+    if (cfformat != 0) {
+      if (cfformat == CF_JSON) {
+        format = NF_JSON;
+      } else if (cfformat == CF_RAW) {
+        format = NF_RAW;
+      } else if (cfformat == CF_UTF8) {
+        format = NF_UTF8;
+      } else if (cfformat != CF_PRIVATE) {
+        // Unknown CF Format!  The following will force
+        //   fallback to reporting RAW data.
+        format = 0x100;
+      }
+    }
 
     if (format == NF_UTF8) {
         // UTF8 decodes into a String
@@ -89,7 +109,7 @@ void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
         encodeData = (char*)_NanRawString(value, Nan::UTF8, (size_t*)nbytes,
                 NULL, 0, v8::String::NO_OPTIONS);
         *bytes = encodeData;
-        *flags = NF_UTF8;
+        *flags = CF_UTF8 | NF_UTF8;
         return;
     } else if (node::Buffer::HasInstance(value)) {
         // This relies on the fact that value would have came from the
@@ -97,7 +117,7 @@ void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
         //   implicitly going to outlive the command operation we create.
         *nbytes = node::Buffer::Length(value);
         *bytes = node::Buffer::Data(value);
-        *flags = NF_RAW;
+        *flags = CF_RAW | NF_RAW;
         return;
     } else {
         v8::TryCatch try_catch;
@@ -110,7 +130,7 @@ void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
         }
 
         encode(bytes, nbytes, flags, ret);
-        *flags = NF_JSON;
+        *flags = CF_JSON | NF_JSON;
         return;
     }
 }
