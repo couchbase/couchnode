@@ -30,20 +30,17 @@ class Error
 {
 public:
     static void Init() {
-        Local<FunctionTemplate> tErr = NanNew<FunctionTemplate>();
-        tErr->SetClassName(NanNew<String>("CouchbaseError"));
-        NanAssignPersistent(errorClass, tErr->GetFunction());
-
-        NanAssignPersistent(codeKey, NanNew<String>("code"));
     }
 
-    static Handle<Value> create(const std::string &msg, int err = 0) {
-        Handle<Value> args[] = { NanNew<String>(msg.c_str()) };
-        Handle<Object> errObj = getErrorClass()->NewInstance(1, args);
+    static Handle<Value> create(const std::string &msg, const int err = 0) {
+        v8::Local<v8::Value> error;
+
         if (err > 0) {
-            errObj->Set(NanNew(codeKey), NanNew<Integer>(err));
+            error = NanError(msg.c_str(), err);
+        } else {
+            error = NanError(msg.c_str());
         }
-        return errObj;
+        return error;
     }
 
     static Handle<Value> create(lcb_error_t err) {
@@ -51,22 +48,19 @@ public:
             return NanNull();
         }
 
-        Handle<Value> args[] = { NanNew<String>(lcb_strerror(NULL, err)) };
-        Handle<Object> errObj = getErrorClass()->NewInstance(1, args);
-        errObj->Set(NanNew(codeKey), NanNew<Integer>(err));
-        return errObj;
+        v8::Local<v8::Value> error;
+        error = NanError(lcb_strerror(NULL, err), err);
+        return error;
     }
 
     static Handle<Function> getErrorClass() {
-        return NanNew(errorClass);
+      Local<FunctionTemplate> tErr = NanNew<FunctionTemplate>();
+      tErr->SetClassName(NanNew<String>("CouchbaseError"));
+      return tErr->GetFunction();
     }
 
 private:
-    static Persistent<Function> errorClass;
-    static Persistent<String> codeKey;
-    Error() {}
 };
-
 
 }
 

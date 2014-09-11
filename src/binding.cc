@@ -39,9 +39,6 @@ extern "C" {
     NODE_MODULE(couchbase_impl, init)
 }
 
-Persistent<Function> Error::errorClass;
-Persistent<String> Error::codeKey;
-
 void CouchbaseImpl::Init(Handle<Object> target)
 {
     NanScope();
