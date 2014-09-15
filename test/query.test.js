@@ -98,7 +98,7 @@ describe('#Bucket', function() {
       var q = Vq.from('d', 'v').range('test1', 'test2', true);
       assert.equal(q.options.startkey, '"test1"');
       assert.equal(q.options.endkey, '"test2"');
-      assert.equal(q.options.inclusive_end, true);
+      assert.equal(q.options.inclusive_end, 'true');
     });
     it('should work with id range begin', function() {
       var q = Vq.from('d', 'v').id_range('test1');
