@@ -153,7 +153,7 @@ describe('#Bucket', function() {
       });
     });
     after(function(done) {
-      bm.deleteDesignDocument(ddKey, function(err, res) {
+      bm.removeDesignDocument(ddKey, function(err, res) {
         assert(!err);
         assert(res);
         done();
