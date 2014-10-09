@@ -243,7 +243,12 @@ NAN_METHOD(CouchbaseImpl::fnGetViewNode)
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     NanScope();
 
-    int nodeIdx = rand() % lcb_get_num_nodes(me->getLcbHandle());
+    lcb_int32_t numNodes = lcb_get_num_nodes(me->getLcbHandle());
+    if (numNodes <= 0) {
+        NanReturnNull();
+    }
+
+    int nodeIdx = rand() % numNodes;
     const char *viewNode =
             lcb_get_node(me->getLcbHandle(), LCB_NODE_VIEWS, nodeIdx);
 
@@ -255,11 +260,15 @@ NAN_METHOD(CouchbaseImpl::fnGetMgmtNode)
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     NanScope();
 
-    int nodeIdx = rand() % lcb_get_num_nodes(me->getLcbHandle());
+    lcb_int32_t numNodes = lcb_get_num_nodes(me->getLcbHandle());
+    if (numNodes <= 0) {
+        NanReturnNull();
+    }
+
+    int nodeIdx = rand() % numNodes;
     const char *viewNode =
             lcb_get_node(me->getLcbHandle(), LCB_NODE_HTCONFIG, nodeIdx);
 
-    printf("VIEW NODE %s\n", viewNode);
     NanReturnValue(NanNew<String>(viewNode));
 }
 
