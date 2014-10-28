@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #ifndef LCB_VBUCKET_H
 #define LCB_VBUCKET_H
 #include <libcouchbase/visibility.h>
@@ -236,11 +253,12 @@ lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
  *
  * @param cfg the configuration object
  * @param vbix the vbucket index to loop up
- * @return the new index.
+ * @param bad the index known to be bad. Passing this parameter allows the
+ *  handler to safely call this function and be sure that a previous call's
+ *  applied heuristics will not affect the modified map.
  */
-LIBCOUCHBASE_API
-unsigned
-lcbvb_vbalternate(lcbvb_CONFIG *cfg, int vbix);
+int
+lcbvb_nmv_remap(lcbvb_CONFIG *cfg, int vbid, int bad);
 
 /**
  * @committed
@@ -270,6 +288,20 @@ lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n,
 LIBCOUCHBASE_API
 int
 lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n);
+
+/**
+ * @uncomitted
+ * Determines if a given server index is either a master or a replica for a
+ * vbucket
+ * @param vbc the configuration
+ * @param vbid the vbucket number
+ * @param ix the server index to check against
+ * @returns nonzero if the server `ix` is either a master or a replica for the
+ * vbucket `vbid`. Returns 0 otherwise.
+ */
+LIBCOUCHBASE_API
+int
+lcbvb_has_vbucket(lcbvb_CONFIG *vbc, int vbid, int ix);
 
 /**@committed
  * @brief Get the number of servers in the bucket. Note that not all servers

@@ -107,13 +107,16 @@ schedule_next_request(cccp_provider *cccp, lcb_error_t err, int can_rollover)
         cccp_cookie *cookie = calloc(1, sizeof(*cookie));
         cccp->cmdcookie = cookie;
         cookie->parent = cccp;
-        lcb_log(LOGARGS(cccp, INFO), "Re-Issuing CCCP Command on server struct %p", (void*)server);
+        lcb_log(LOGARGS(cccp, INFO), "Re-Issuing CCCP Command on server struct %p (%s:%s)", (void*)server, next_host->host, next_host->port);
         lcbio_timer_rearm(
                 cccp->timer, PROVIDER_SETTING(&cccp->base, config_node_timeout));
         return lcb_getconfig(cccp->instance, cookie, server);
 
     } else {
-        lcbio_pMGRREQ preq = lcbio_mgr_get(
+        lcbio_pMGRREQ preq;
+
+        lcb_log(LOGARGS(cccp, INFO), "Requesting connection to node %s:%s for CCCP configuration", next_host->host, next_host->port);
+        preq = lcbio_mgr_get(
                 cccp->instance->memd_sockpool, next_host,
                 PROVIDER_SETTING(&cccp->base, config_node_timeout),
                 on_connected, cccp);
@@ -442,6 +445,34 @@ static void request_config(cccp_provider *cccp)
     lcbio_timer_rearm(cccp->timer, PROVIDER_SETTING(&cccp->base, config_node_timeout));
 }
 
+static void do_dump(clconfig_provider *pb, FILE *fp)
+{
+    cccp_provider *cccp = (cccp_provider *)pb;
+    unsigned ii;
+
+    if (!cccp->base.enabled) {
+        return;
+    }
+
+    fprintf(fp, "## BEGIN CCCP PROVIDER DUMP ##\n");
+    fprintf(fp, "TIMER ACTIVE: %s\n", lcbio_timer_armed(cccp->timer) ? "YES" : "NO");
+    fprintf(fp, "PIPELINE RESPONSE COOKIE: %p\n", cccp->cmdcookie);
+    if (cccp->ioctx) {
+        fprintf(fp, "CCCP Owns connection:\n");
+        lcbio_ctx_dump(cccp->ioctx, fp);
+    } else if (cccp->creq.u.p_generic) {
+        fprintf(fp, "CCCP Is connecting\n");
+    } else {
+        fprintf(fp, "CCCP does not have a dedicated connection\n");
+    }
+
+    for (ii = 0; ii < cccp->nodes->nentries; ii++) {
+        const lcb_host_t *curhost = &cccp->nodes->entries[ii];
+        fprintf(fp, "CCCP NODE: %s:%s\n", curhost->host, curhost->port);
+    }
+    fprintf(fp, "## END CCCP PROVIDER DUMP ##\n");
+}
+
 clconfig_provider * lcb_clconfig_create_cccp(lcb_confmon *mon)
 {
     cccp_provider *cccp = calloc(1, sizeof(*cccp));
@@ -454,6 +485,7 @@ clconfig_provider * lcb_clconfig_create_cccp(lcb_confmon *mon)
     cccp->base.config_updated = config_updated;
     cccp->base.configure_nodes = configure_nodes;
     cccp->base.get_nodes = get_nodes;
+    cccp->base.dump = do_dump;
     cccp->base.parent = mon;
     cccp->base.enabled = 0;
     cccp->timer = lcbio_timer_new(mon->iot, cccp, socket_timeout);

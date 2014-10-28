@@ -1,5 +1,6 @@
 #include "ioserver.h"
 #include <cassert>
+#include <algorithm>
 
 using namespace LCBTest;
 

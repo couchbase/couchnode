@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #ifndef LCB_API3_H
 #define LCB_API3_H
 #include <libcouchbase/kvbuf.h>
@@ -63,11 +80,19 @@ extern "C" {
      of servers with the value specified here. */ \
     lcb_U64 cas; \
     \
-    /**The key for the command. Every command has a key. Generally you will
-     be initializing this field using LCB_CMD_SET_KEY()*/ \
+    /**Note that hashkey/groupid is not a supported feature of Couchbase Server
+     and this client.  It should be considered volatile and experimental.
+     Using this could lead to an unbalanced cluster, inability to interoperate
+     with the data from other languages, not being able to use the
+     Couchbase Server UI to look up documents and other possible future
+     upgrade/migration concerns. */ \
     lcb_KEYBUF key; \
     \
-    lcb_KEYBUF hashkey
+    /**@private
+     * @volatile
+     * This exists purely to support the hashkey fields of the v2 API. This field
+     * will be _removed_ in future versions. */ \
+    lcb_KEYBUF _hashkey
 
 /**@brief Common ABI header for all commands. _Any_ command may be safely
  * casted to this type.*/
@@ -309,6 +334,23 @@ void lcb_sched_leave(lcb_t instance);
  */
 LIBCOUCHBASE_API
 void lcb_sched_fail(lcb_t instance);
+
+/**
+ * @volatile
+ * @brief Request commands to be flushed to the network
+ *
+ * By default, the library will implicitly request a flush to the network upon
+ * a call to lcb_sched_leave() [ Note, this does not mean the items are flushed
+ * and I/O is performed, but it means the relevant event loop watchers are
+ * activated to perform the operations on the next iteration ]. If
+ * @ref LCB_CNTL_SCHED_NOFLUSH is set then this behavior is disabled and the
+ * application must explicitly call lcb_sched_flush(). This may be considered
+ * more performant in the cases where multiple discreet operations are scheduled
+ * in an lcb_sched_enter()/lcb_sched_leave() pair. With implicit flush enabled,
+ * each call to lcb_sched_leave() will possibly invoke system repeatedly.
+ */
+LIBCOUCHBASE_API
+void lcb_sched_flush(lcb_t instance);
 
 /**@}*/
 
@@ -653,6 +695,10 @@ lcb_touch3(lcb_t instance, const void *cookie, const lcb_CMDTOUCH *cmd);
  * if the default statistics are desired. */
 typedef lcb_CMDBASE lcb_CMDSTATS;
 
+/** The key is a stored item for which statistics should be retrieved. This
+ * invokes the 'keystats' semantics. Note that when using such semantics, a key
+ * must be present, and must not have any spaces in it. */
+#define LCB_CMDSTATS_F_KV (1 << 16)
 
 /**@brief Response structure for cluster statistics.
  * The lcb_RESPSTATS::key field contains the statistic name (_not_ the same

@@ -103,6 +103,21 @@ mcserver_flush(mc_SERVER *server)
     }
 }
 
+LIBCOUCHBASE_API
+void
+lcb_sched_flush(lcb_t instance)
+{
+    unsigned ii;
+    for (ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
+        mc_SERVER *server = LCBT_GET_SERVER(instance, ii);
+
+        if (!mcserver_has_pending(server)) {
+            continue;
+        }
+        server->pipeline.flush_start(&server->pipeline);
+    }
+}
+
 /**
  * Invoked when get a NOT_MY_VBUCKET response. If the response contains a JSON
  * payload then we refresh the configuration with it.
@@ -118,11 +133,16 @@ handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     protocol_binary_request_header hdr;
     lcb_error_t err = LCB_ERROR;
     lcb_t instance = oldsrv->instance;
-    clconfig_provider *cccp =
-            lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_CCCP);
+    lcb_U16 vbid;
+    clconfig_provider *cccp = lcb_confmon_get_provider(instance->confmon,
+        LCB_CLCONFIG_CCCP);
 
     mcreq_read_hdr(oldpkt, &hdr);
-    lcb_log(LOGARGS(oldsrv, WARN), LOGFMT "NOT_MY_VBUCKET. Packet=%p (S=%u). VBID=%u", LOGID(oldsrv), (void*)oldpkt, oldpkt->opaque, ntohs(hdr.request.vbucket));
+    vbid = ntohs(hdr.request.vbucket);
+    lcb_log(LOGARGS(oldsrv, WARN), LOGFMT "NOT_MY_VBUCKET. Packet=%p (S=%u). VBID=%u", LOGID(oldsrv), (void*)oldpkt, oldpkt->opaque, vbid);
+
+    /* Notify of new map */
+    lcbvb_nmv_remap(LCBT_VBCONFIG(instance), vbid, oldsrv->pipeline.index);
 
     if (PACKET_NBODY(resinfo) && cccp->enabled) {
         lcb_string s;
@@ -134,7 +154,7 @@ handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     }
 
     if (err != LCB_SUCCESS) {
-        lcb_bootstrap_refresh(instance);
+        lcb_bootstrap_common(instance, LCB_BS_REFRESH_ALWAYS);
     }
 
     if (!lcb_should_retry(oldsrv->settings, oldpkt, LCB_NOT_MY_VBUCKET)) {
@@ -262,6 +282,7 @@ on_read(lcbio_CTX *ctx, unsigned nb)
     (void)nb;
 }
 
+LCB_INTERNAL_API
 int
 mcserver_has_pending(mc_SERVER *server)
 {
@@ -361,7 +382,8 @@ purge_single_server(mc_SERVER *server, lcb_error_t error,
     }
 
     if (affected || policy == REFRESH_ALWAYS) {
-        lcb_bootstrap_errcount_incr(server->instance);
+        lcb_bootstrap_common(server->instance,
+            LCB_BS_REFRESH_THROTTLE|LCB_BS_REFRESH_INCRERR);
     }
     return affected;
 }

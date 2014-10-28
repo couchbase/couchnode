@@ -1,4 +1,5 @@
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <gtest/gtest.h>
 #include <mocksupport/server.h>
 #include "testutil.h"

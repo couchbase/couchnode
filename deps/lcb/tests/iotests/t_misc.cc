@@ -396,4 +396,60 @@ TEST_F(MockUnitTest, testCtls)
     ctlGetSet<float>(instance, LCB_CNTL_RETRY_BACKOFF, 3.4);
     ctlGetSet<lcb_SIZE>(instance, LCB_CNTL_HTTP_POOLSIZE, UINT_MAX);
     ctlGetSet<int>(instance, LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR, 0);
+
+    // Allow timeouts to be expressed as fractional seconds.
+    err = lcb_cntl_string(instance, "operation_timeout", "1.0");
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_EQ(1000000, ctlGet<lcb_U32>(instance, LCB_CNTL_OP_TIMEOUT));
+    err = lcb_cntl_string(instance, "operation_timeout", "0.255");
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_EQ(255000, ctlGet<lcb_U32>(instance, LCB_CNTL_OP_TIMEOUT));
+}
+
+
+TEST_F(MockUnitTest, testFailedDurCtx)
+{
+    // This test will see the behavior of a failed observe and/or durability
+    // context.
+
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+
+    lcb_CMDENDURE cmd = { 0 };
+    lcb_durability_opts_t dopts = { 0 };
+    dopts.v.v0.cap_max = 1;
+    dopts.v.v0.persist_to = -1;
+    dopts.v.v0.replicate_to = -1;
+
+
+    lcb_sched_enter(instance);
+    lcb_error_t err;
+    lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &dopts, &err);
+    ASSERT_FALSE(mctx == NULL);
+
+    for (int ii = 0; ii < 10; ii++) {
+        std::stringstream ss;
+        ss << "Key_" << ii;
+        std::string key = ss.str();
+
+        LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+        err = mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
+        ASSERT_EQ(LCB_SUCCESS, err);
+    }
+
+    err = mctx->done(mctx, NULL);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    // Fail out the context
+    lcb_sched_fail(instance);
+
+    // Ensure there are no left-over commands
+    for (unsigned ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
+        mc_SERVER *srv = LCBT_GET_SERVER(instance, ii);
+        ASSERT_EQ(0, mcserver_has_pending(srv));
+    }
+
+    hashset_t hs = lcb_aspend_get(&instance->pendops, LCB_PENDTYPE_DURABILITY);
+    ASSERT_EQ(0, hashset_num_items(hs));
 }

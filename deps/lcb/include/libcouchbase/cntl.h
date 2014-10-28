@@ -139,6 +139,16 @@ extern "C" {
 #define LCB_CNTL_VIEW_TIMEOUT           0x01
 
 /**
+ * @brief Get the name of the bucket
+ * This returns the name of the bucket this instance is connected to, or `NULL`
+ * if not yet connected to a bucket
+ *
+ * @cntl_arg_getonly{`const char*`}
+ * @committed
+ */
+#define LCB_CNTL_BUCKETNAME             0x30
+
+/**
  * @brief Get the handle type.
  * This returns the handle type - which is either LCB_TYPE_CLUSTER or
  * LCB_TYPE_BUCKET
@@ -489,7 +499,9 @@ typedef enum {
  * @cntl_arg_getonly{`char**`}
  * @see LCB_CNTL_SSL_MODE
  */
-#define LCB_CNTL_SSL_CACERT 0x23
+#define LCB_CNTL_SSL_CERT 0x23
+/* For back compat */
+#define LCB_CNTL_SSL_CACERT LCB_CNTL_SSL_CERT
 
 /**
  * @brief
@@ -725,8 +737,19 @@ typedef enum {
  */
 #define LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR 0x2F
 
+/**
+ * @volatile
+ * Set the behavior of the lcb_sched_leave() API call. By default the
+ * lcb_sched_leave() will also set up the necessary requirements for flushing
+ * to the network. If this option is off then an explicit call to
+ * lcb_sched_flush() must be performed instead.
+ *
+ * @cntl_arg_both{int (as boolean)}
+ */
+#define LCB_CNTL_SCHED_IMPLICIT_FLUSH 0x31
+
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x30
+#define LCB_CNTL__MAX                    0x32
 /**@}*/
 
 #ifdef __cplusplus

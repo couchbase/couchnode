@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #ifndef LCB_MCREQ_H
 #define LCB_MCREQ_H
 
@@ -123,7 +140,7 @@ extern "C" {
 /** @brief Constant defining the size of a memcached header */
 #define MCREQ_PKT_BASESIZE 24
 
-/** @brief Embedded user data for a simple request */
+/** @brief Embedded user data for a simple request. */
 typedef struct {
     const void *cookie; /**< User pointer to place in callbacks */
     hrtime_t start; /**< Time of the initial request. Used for timeouts */
@@ -132,23 +149,40 @@ typedef struct {
 struct mc_packet_st;
 struct mc_pipeline_st;
 
-/**
- * Callback to be invoked for "Extended" packet handling. This is only
- * available in the mc_REQDATAEX structure
- * @param pipeline the pipeline on which the response was received
- * @param pkt the request packet
- * @param rc the error code for the response
- * @param arg opaque pointer for callback
- */
-typedef void (*mcreq_pktex_callback)
-        (struct mc_pipeline_st *pipeline, struct mc_packet_st *pkt,
-                lcb_error_t rc, const void *res);
+/** This structure serves as a kind of 'vtable' for the mc_REQDATAEX structure. */
+typedef struct {
+    /**
+     * Callback to be invoked for "Extended" packet handling. This is only
+     * available in the mc_REQDATAEX structure
+     * @param pipeline the pipeline on which the response was received
+     * @param pkt the request packet
+     * @param rc the error code for the response
+     * @param arg opaque pointer for callback
+     */
+    void (*handler)(struct mc_pipeline_st *pipeline,
+            struct mc_packet_st *pkt, lcb_error_t rc, const void *res);
 
-/** @brief Allocated user data for an extended request. */
+    /**
+     * Destructor function called from within mcreq_sched_fail() for packets with
+     * extended data. This function should suitably free the data for the packet,
+     * if any.
+     * @param pkt The packet being unscheduled.
+     */
+    void (*fail_dtor)(struct mc_packet_st *pkt);
+} mc_REQDATAPROCS;
+
+/**@brief Allocated user data for an extended request.
+ *
+ * @details
+ * An extended request is typically used by commands which have more complex
+ * handling requirements, such as mapping a single user API call to multiple
+ * packets, or when the packet itself is generated internally rather than
+ * on behalf of an API request.
+ */
 typedef struct {
     const void *cookie; /**< User data */
     hrtime_t start; /**< Start time */
-    mcreq_pktex_callback callback; /**< Callback to invoke upon being handled */
+    mc_REQDATAPROCS *procs; /**< Common routines for the packet */
 } mc_REQDATAEX;
 
 /**
@@ -853,11 +887,28 @@ typedef void (*mcreq_fallback_cb)(mc_CMDQUEUE *cq, mc_PACKET *pkt);
 void
 mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler);
 
+/**
+ * Callback used by mcreq_dump_packet() and mcreq_dump_chain() to format the
+ * packet's payload
+ * @param data the data to dump
+ * @param size the size of the data
+ * @param fp the file to write the output to
+ */
+typedef void (*mcreq_payload_dump_fn)
+        (const void *data, unsigned size, FILE *fp);
+
+/**
+ * Dumps a single packet to the file indicated by `fp`
+ * @param pkt the packet to dump
+ * @param fp The file to write to
+ * @param dumpfn If specified, this function is called to handle the packet's
+ *  header and payload body
+ */
 void
-mcreq_dump_packet(const mc_PACKET *pkt);
+mcreq_dump_packet(const mc_PACKET *pkt, FILE *fp, mcreq_payload_dump_fn dumpfn);
 
 void
-mcreq_dump_chain(const mc_PIPELINE *pipeline);
+mcreq_dump_chain(const mc_PIPELINE *pipeline, FILE *fp, mcreq_payload_dump_fn dumpfn);
 
 #define mcreq_write_hdr(pkt, hdr) \
         memcpy( SPAN_BUFFER(&(pkt)->kh_span), (hdr)->bytes, sizeof((hdr)->bytes) )

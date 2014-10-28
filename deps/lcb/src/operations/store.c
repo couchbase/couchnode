@@ -169,8 +169,8 @@ lcb_store(lcb_t instance, const void *cookie, lcb_size_t num,
 
         dst.key.contig.bytes = src->v.v0.key;
         dst.key.contig.nbytes = src->v.v0.nkey;
-        dst.hashkey.contig.bytes = src->v.v0.hashkey;
-        dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
+        dst._hashkey.contig.bytes = src->v.v0.hashkey;
+        dst._hashkey.contig.nbytes = src->v.v0.nhashkey;
         dst.value.u_buf.contig.bytes = src->v.v0.bytes;
         dst.value.u_buf.contig.nbytes = src->v.v0.nbytes;
         dst.operation = src->v.v0.operation;

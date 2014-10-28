@@ -557,6 +557,24 @@ static void shutdown_http(clconfig_provider *provider)
     free(http);
 }
 
+static void
+do_http_dump(clconfig_provider *pb, FILE *fp)
+{
+    http_provider *ht = (http_provider *)pb;
+    fprintf(fp, "## BEGIN HTTP PROVIDER DUMP\n");
+    fprintf(fp, "NUMBER OF CONFIGS RECEIVED: %u\n", ht->generation);
+    fprintf(fp, "DUMPING I/O TIMER\n");
+    lcbio_timer_dump(ht->io_timer, fp);
+    if (ht->ioctx) {
+        fprintf(fp, "DUMPING CURRENT CONNECTION:\n");
+        lcbio_ctx_dump(ht->ioctx, fp);
+    } else if (ht->creq) {
+        fprintf(fp, "CURRENTLY CONNECTING..\n");
+    } else {
+        fprintf(fp, "NO CONNECTION ACTIVE\n");
+    }
+}
+
 clconfig_provider * lcb_clconfig_create_http(lcb_confmon *parent)
 {
     http_provider *http = calloc(1, sizeof(*http));
@@ -578,6 +596,7 @@ clconfig_provider * lcb_clconfig_create_http(lcb_confmon *parent)
     http->base.config_updated = config_updated;
     http->base.configure_nodes = configure_nodes;
     http->base.get_nodes = get_nodes;
+    http->base.dump = do_http_dump;
     http->base.enabled = 0;
     http->io_timer = lcbio_timer_new(parent->iot, http, timeout_handler);
     http->disconn_timer = lcbio_timer_new(parent->iot, http, delayed_disconn);

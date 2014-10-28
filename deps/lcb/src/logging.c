@@ -1,8 +1,30 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "settings.h"
 #include "logging.h"
 #include "internal.h" /* for lcb_getenv* */
 #include <stdio.h>
 #include <stdarg.h>
+
+#ifdef _WIN32
+#define flockfile(x) (void) 0
+#define funlockfile(x) (void) 0
+#endif
 
 
 #if defined(unix) || defined(__unix__) || defined(__unix) || defined(_POSIX_VERSION)
@@ -44,6 +66,7 @@ static void console_log(struct lcb_logprocs_st *procs,
 
 static struct lcb_CONSOLELOGGER console_logprocs = {
         {0 /* version */, {{console_log} /* v1 */} /*v*/},
+        NULL,
         /** Minimum severity */
         LCB_LOG_INFO
 };
@@ -86,7 +109,7 @@ static void console_log(struct lcb_logprocs_st *procs,
                         const char *fmt,
                         va_list ap)
 {
-
+    FILE *fp;
     hrtime_t now;
     struct lcb_CONSOLELOGGER *vprocs = (struct lcb_CONSOLELOGGER *)procs;
 
@@ -103,16 +126,20 @@ static void console_log(struct lcb_logprocs_st *procs,
         now++;
     }
 
-    fprintf(stderr, "%lums ", (unsigned long)(now - start_time) / 1000000);
+    fp = vprocs->fp ? vprocs->fp : stderr;
 
-    fprintf(stderr, "[I%d] {%"THREAD_ID_FMT"} [%s] (%s - L:%d) ",
+    flockfile(fp);
+    fprintf(fp, "%lums ", (unsigned long)(now - start_time) / 1000000);
+
+    fprintf(fp, "[I%d] {%"THREAD_ID_FMT"} [%s] (%s - L:%d) ",
             iid,
             GET_THREAD_ID(),
             level_to_string(severity),
             subsys,
             srcline);
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
+    vfprintf(fp, fmt, ap);
+    fprintf(fp, "\n");
+    funlockfile(fp);
 
     (void)procs;
     (void)srcfile;
@@ -149,7 +176,19 @@ void lcb_log(const struct lcb_settings_st *settings,
 lcb_logprocs * lcb_init_console_logger(void)
 {
     char vbuf[1024];
+    char namebuf[PATH_MAX] = { 0 };
     int lvl = 0;
+    int has_file = 0;
+
+    has_file = lcb_getenv_nonempty("LCB_LOGFILE", namebuf, sizeof(namebuf));
+    if (has_file && console_logprocs.fp == NULL) {
+        FILE *fp = fopen(namebuf, "a");
+        if (!fp) {
+            fprintf(stderr, "libcouchbase: could not open file '%s' for logging output. (%s)\n",
+                namebuf, strerror(errno));
+        }
+        console_logprocs.fp = fp;
+    }
 
     if (!lcb_getenv_nonempty("LCB_LOGLEVEL", vbuf, sizeof(vbuf))) {
         return NULL;

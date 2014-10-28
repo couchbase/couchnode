@@ -1,8 +1,26 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #ifndef LCB_ROPE_H
 #define LCB_ROPE_H
 #include <libcouchbase/sysdefs.h>
 #include <libcouchbase/visibility.h>
 #include <netbuf/netbuf-defs.h>
+#include <stdio.h>
 #include "list.h"
 
 #ifdef __cplusplus
@@ -230,6 +248,7 @@ typedef struct rdb_ALLOCATOR {
      * of any existing segments before freeing all its resources.
      */
     void (*a_release)(rdb_pALLOCATOR);
+    void (*dump)(rdb_pALLOCATOR,FILE*);
 } rdb_ALLOCATOR;
 
 /**
@@ -450,6 +469,14 @@ rdb_chunkalloc_new(unsigned chunksize);
 LCB_INTERNAL_API
 rdb_ALLOCATOR *
 rdb_libcalloc_new(void);
+
+/**
+ * Dump information about the iorope structure to a file
+ * @param ior The rope structure to dump
+ * @param fp The destination file.
+ */
+void
+rdb_dump(const rdb_IOROPE *ior, FILE *fp);
 
 #ifdef __cplusplus
 }

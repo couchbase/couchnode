@@ -169,7 +169,7 @@ TEST_F(NetbufTest, testFlush)
         netbuf_mblock_release(&mgr, spans + ii);
     }
 
-    netbuf_dump_status(&mgr);
+    netbuf_dump_status(&mgr, stdout);
     clean_check(&mgr);
 }
 
@@ -219,7 +219,7 @@ TEST_F(NetbufTest, testWrappingBuffers)
     ASSERT_EQ(0, span3.parent->start);
     netbuf_mblock_release(&mgr, &span3);
 
-    netbuf_dump_status(&mgr);
+    netbuf_dump_status(&mgr, stdout);
 
     span1.size = 20;
     rv = netbuf_mblock_reserve(&mgr, &span1);
@@ -227,7 +227,7 @@ TEST_F(NetbufTest, testWrappingBuffers)
     ASSERT_EQ(20, span1.parent->cursor);
     ASSERT_EQ(0, span1.parent->start);
     ASSERT_EQ(20, span1.parent->wrap);
-    netbuf_dump_status(&mgr);
+    netbuf_dump_status(&mgr, stdout);
 
     netbuf_mblock_release(&mgr, &span1);
 
@@ -284,10 +284,10 @@ TEST_F(NetbufTest, testMultipleFlush)
     assert_iov_eq(&iov[1], 0, 'C');
     ASSERT_EQ(50, iov[1].iov_len);
 
-    netbuf_dump_status(&mgr);
+    netbuf_dump_status(&mgr, stdout);
 
     netbuf_end_flush(&mgr, 100);
-    netbuf_dump_status(&mgr);
+    netbuf_dump_status(&mgr, stdout);
 
     netbuf_end_flush(&mgr, 50);
     sz = netbuf_start_flush(&mgr, iov, 10, NULL);

@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 /* for ULONG */
@@ -764,17 +781,17 @@ netbuf_cleanup(nb_MGR *mgr)
  ******************************************************************************/
 
 static void
-dump_managed_block(nb_MBLOCK *block)
+dump_managed_block(nb_MBLOCK *block, FILE *fp)
 {
     const char *indent = "  ";
-    printf("%sBLOCK(MANAGED)=%p; BUF=%p, %uB\n", indent,
-           (void *)block, block->root, block->nalloc);
+    fprintf(fp, "%sBLOCK(MANAGED)=%p; BUF=%p, %uB\n", indent,
+        (void *)block, block->root, block->nalloc);
     indent = "     ";
 
-    printf("%sUSAGE:\n", indent);
-    printf("%s", indent);
+    fprintf(fp, "%sUSAGE:\n", indent);
+    fprintf(fp, "%s", indent);
     if (BLOCK_IS_EMPTY(block)) {
-        printf("EMPTY\n");
+        fprintf(fp, "EMPTY\n");
         return;
     }
 
@@ -782,54 +799,61 @@ dump_managed_block(nb_MBLOCK *block)
 
     if (block->cursor == block->wrap) {
         if (block->start) {
-            printf("ooo{S:%u}xxx", block->start);
+            fprintf(fp, "ooo{S:%u}xxx", block->start);
         } else {
-            printf("{S:0}xxxxxx");
+            fprintf(fp, "{S:0}xxxxxx");
         }
 
         if (block->nalloc > block->cursor) {
-            printf("{CW:%u}ooo{A:%u}", block->cursor, block->nalloc);
+            fprintf(fp, "{CW:%u}ooo{A:%u}", block->cursor, block->nalloc);
         } else {
-            printf("xxx{CWA:%u)}", block->cursor);
+            fprintf(fp, "xxx{CWA:%u)}", block->cursor);
         }
     } else {
-        printf("xxx{C:%u}ooo{S:%u}xxx", block->cursor, block->start);
+        fprintf(fp, "xxx{C:%u}ooo{S:%u}xxx", block->cursor, block->start);
         if (block->wrap != block->nalloc) {
-            printf("{W:%u}ooo{A:%u}", block->wrap, block->nalloc);
+            fprintf(fp, "{W:%u}ooo{A:%u}", block->wrap, block->nalloc);
         } else {
-            printf("xxx{WA:%u}", block->wrap);
+            fprintf(fp, "xxx{WA:%u}", block->wrap);
         }
     }
-    printf("]\n");
+    fprintf(fp, "]\n");
 }
 
 static void
-dump_sendq(nb_SENDQ *q)
+dump_sendq(nb_SENDQ *q, FILE *fp)
 {
     const char *indent = "  ";
     sllist_node *ll;
-    printf("Send Queue\n");
+    fprintf(fp, "Send Queue\n");
     SLLIST_FOREACH(&q->pending, ll) {
         nb_SNDQELEM *e = SLLIST_ITEM(ll, nb_SNDQELEM, slnode);
-        printf("%s[Base=%p, Len=%u]\n", indent, e->base, e->len);
+        fprintf(fp, "%s[Base=%p, Len=%u]\n", indent, e->base, e->len);
         if (q->last_requested == e) {
-            printf("%s<Current Flush Limit @%u^^^>\n", indent, q->last_offset);
+            fprintf(fp, "%s<Current Flush Limit @%u^^^>\n", indent, q->last_offset);
         }
     }
 }
 
 void
-netbuf_dump_status(nb_MGR *mgr)
+netbuf_dump_status(nb_MGR *mgr, FILE *fp)
 {
     sllist_node *ll;
-    printf("Status for MGR=%p\n", (void *)mgr);
-    printf("ACTIVE:\n");
+    fprintf(fp, "Status for MGR=%p\n", (void *)mgr);
+    fprintf(fp, "ACTIVE:\n");
 
     SLLIST_FOREACH(&mgr->datapool.active, ll) {
         nb_MBLOCK *block = SLLIST_ITEM(ll, nb_MBLOCK, slnode);
-        dump_managed_block(block);
+        dump_managed_block(block, fp);
     }
-    dump_sendq(&mgr->sendq);
+    fprintf(fp, "AVAILABLE:\n");
+    SLLIST_FOREACH(&mgr->datapool.avail, ll) {
+        nb_MBLOCK *block = SLLIST_ITEM(ll, nb_MBLOCK, slnode);
+        const char *indent = "    ";
+        fprintf(fp, "%sBLOCK(AVAIL)=%p; BUF=%p, %uB\n", indent,
+            (void*)block, block->root, block->nalloc);
+    }
+    dump_sendq(&mgr->sendq, fp);
 }
 
 static int

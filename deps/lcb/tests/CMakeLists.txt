@@ -15,7 +15,7 @@ SET_PROPERTY(TARGET check-all
     APPEND PROPERTY INCLUDE_DIRECTORIES
     ${lcb_plat_includes}
     ${SOURCE_ROOT})
-TARGET_LINK_LIBRARIES(check-all couchbase_utils couchbase)
+TARGET_LINK_LIBRARIES(check-all couchbaseS)
 
 
 FILE(GLOB T_BASIC_SRC basic/*.cc)
@@ -26,15 +26,26 @@ FILE(GLOB T_IOSERVER_SRC ioserver/*.cc)
 FILE(GLOB T_MOCKSUPPORT_SRC mocksupport/*.c mocksupport/*.cc)
 FILE(GLOB T_VBTEST_SRC vbucket/*.cc)
 
-ADD_LIBRARY(ioserver STATIC EXCLUDE_FROM_ALL ${T_IOSERVER_SRC})
-ADD_LIBRARY(mocksupport STATIC EXCLUDE_FROM_ALL ${T_MOCKSUPPORT_SRC})
+ADD_LIBRARY(ioserver OBJECT EXCLUDE_FROM_ALL ${T_IOSERVER_SRC})
+ADD_LIBRARY(mocksupport OBJECT EXCLUDE_FROM_ALL ${T_MOCKSUPPORT_SRC}) 
+
 ADD_EXECUTABLE(nonio-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_BASIC_SRC})
-ADD_EXECUTABLE(mc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC})
-ADD_EXECUTABLE(mc-malloc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC})
-ADD_EXECUTABLE(netbuf-tests EXCLUDE_FROM_ALL nonio_tests.cc basic/t_netbuf.cc)
+
+ADD_EXECUTABLE(mc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC}
+    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:netbuf> $<TARGET_OBJECTS:vbucket>)
+
+ADD_EXECUTABLE(mc-malloc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC}
+    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:netbuf-malloc> $<TARGET_OBJECTS:vbucket>)
+
+ADD_EXECUTABLE(netbuf-tests
+    EXCLUDE_FROM_ALL nonio_tests.cc basic/t_netbuf.cc $<TARGET_OBJECTS:netbuf>)
+
 ADD_EXECUTABLE(rdb-tests EXCLUDE_FROM_ALL nonio_tests.cc
-    ${T_RDB_SRC} ${SOURCE_ROOT}/src/list.c)
-ADD_EXECUTABLE(sock-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_SOCK_SRC})
+    ${T_RDB_SRC} $<TARGET_OBJECTS:rdb> ${SOURCE_ROOT}/src/list.c)
+
+ADD_EXECUTABLE(sock-tests EXCLUDE_FROM_ALL nonio_tests.cc
+    ${T_SOCK_SRC} $<TARGET_OBJECTS:ioserver>)
+
 ADD_EXECUTABLE(vbucket-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_VBTEST_SRC})
 ADD_EXECUTABLE(htparse-tests EXCLUDE_FROM_ALL nonio_tests.cc htparse/t_basic.cc ${SOURCE_ROOT}/src/lcbht/lcbht.c)
 IF(WIN32)
@@ -45,7 +56,8 @@ ENDIF()
 
 
 FILE(GLOB T_IO_SRC iotests/*.cc)
-ADD_EXECUTABLE(unit-tests EXCLUDE_FROM_ALL ${T_IO_SRC} unit_tests.cc)
+ADD_EXECUTABLE(unit-tests EXCLUDE_FROM_ALL
+    ${T_IO_SRC} unit_tests.cc $<TARGET_OBJECTS:mocksupport>)
 
 # Normally defined by config.h
 SET_PROPERTY(
@@ -69,15 +81,16 @@ ENDIF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar)
 
 # We're a library using the shared CRT. Don't use the static one
 INCLUDE_DIRECTORIES(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
-TARGET_LINK_LIBRARIES(unit-tests couchbase couchbase_utils gtest mocksupport)
-TARGET_LINK_LIBRARIES(nonio-tests couchbase couchbase_utils netbuf gtest)
-TARGET_LINK_LIBRARIES(mc-tests mcreq netbuf vbucket gtest couchbase_utils ${LCB_SNAPPY_LINK})
-TARGET_LINK_LIBRARIES(mc-malloc-tests mcreq netbuf-malloc vbucket gtest ${LCB_SNAPPY_LINK})
-TARGET_LINK_LIBRARIES(netbuf-tests netbuf gtest)
-TARGET_LINK_LIBRARIES(rdb-tests rdb gtest)
-TARGET_LINK_LIBRARIES(sock-tests rdb ioserver couchbase gtest)
-TARGET_LINK_LIBRARIES(vbucket-tests gtest couchbase)
-TARGET_LINK_LIBRARIES(htparse-tests gtest couchbase lcbht)
+TARGET_LINK_LIBRARIES(unit-tests couchbaseS gtest)
+TARGET_LINK_LIBRARIES(nonio-tests couchbaseS gtest)
+TARGET_LINK_LIBRARIES(mc-tests gtest ${LCB_SNAPPY_LINK})
+TARGET_LINK_LIBRARIES(mc-malloc-tests
+    gtest ${LCB_SNAPPY_LINK})
+TARGET_LINK_LIBRARIES(netbuf-tests gtest)
+TARGET_LINK_LIBRARIES(rdb-tests gtest)
+TARGET_LINK_LIBRARIES(sock-tests couchbaseS gtest)
+TARGET_LINK_LIBRARIES(vbucket-tests gtest couchbaseS)
+TARGET_LINK_LIBRARIES(htparse-tests gtest couchbaseS)
 
 MACRO(BUILD_TEST target)
     ADD_TEST(NAME BUILD-${target}

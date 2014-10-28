@@ -1,3 +1,5 @@
+#define LCB_BOOTSTRAP_DEFINE_STRUCT
+
 #include "iotests.h"
 #include "config.h"
 #include "internal.h"
@@ -191,4 +193,49 @@ TEST_F(Confmon, testCycle)
     ASSERT_EQ(LCB_CLCONFIG_HTTP, lsn.last_source);
     ASSERT_EQ(1, lsn.call_count);
     lcb_confmon_destroy(mon);
+}
+
+TEST_F(Confmon, testBootstrapMethods)
+{
+    lcb_t instance;
+    HandleWrap hw;
+    MockEnvironment::getInstance()->createConnection(hw, instance);
+    lcb_error_t err = lcb_connect(instance);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    // Try the various bootstrap times
+    struct lcb_BOOTSTRAP *bs = instance->bootstrap;
+    hrtime_t last = bs->last_refresh, cur = 0;
+
+    // Reset it for the time being
+    bs->last_refresh = 0;
+    lcb_confmon_stop(instance->confmon);
+
+    // Refreshing now should work
+    lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE);
+    ASSERT_NE(0, lcb_confmon_is_refreshing(instance->confmon));
+
+    cur = bs->last_refresh;
+    ASSERT_GT(cur, 0);
+    ASSERT_EQ(0, bs->errcounter);
+    last = cur;
+
+    // Stop it, so the state is reset
+    lcb_confmon_stop(instance->confmon);
+    ASSERT_EQ(0, lcb_confmon_is_refreshing(instance->confmon));
+
+    lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE|LCB_BS_REFRESH_INCRERR);
+    ASSERT_EQ(last, bs->last_refresh);
+    ASSERT_EQ(1, bs->errcounter);
+
+    // Ensure that a throttled-without-incr doesn't actually incr
+    lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE);
+    ASSERT_EQ(1, bs->errcounter);
+
+    // No refresh yet
+    ASSERT_EQ(0, lcb_confmon_is_refreshing(instance->confmon));
+
+    lcb_bootstrap_common(instance, LCB_BS_REFRESH_ALWAYS);
+    ASSERT_NE(0, lcb_confmon_is_refreshing(instance->confmon));
+    lcb_confmon_stop(instance->confmon);
 }

@@ -39,18 +39,16 @@ void iocp_initialize_loop_globals(void)
         return;
     }
 
-    initialized = 1;
-
     hKernel32 = GetModuleHandleA("kernel32.dll");
     if (!hKernel32) {
-        fprintf(stderr, "Couldn't load Kernel32.dll: [%d]\n", GetLastError());
+        fprintf(stderr, "Couldn't load Kernel32.dll: [%u]\n", GetLastError());
         return;
     }
 
     pGetQueuedCompletionStatusEx = (sGetQueuedCompletionStatusEx)GetProcAddress(hKernel32, "GetQueuedCompletionStatusEx");
     if (pGetQueuedCompletionStatusEx == NULL) {
         Have_GQCS_Ex = 0;
-        fprintf(stderr, "Couldn't load GetQueuedCompletionStatusEx. Using fallback [%d]\n",
+        fprintf(stderr, "Couldn't load GetQueuedCompletionStatusEx. Using fallback [%u]\n",
                 GetLastError());
     }
 }
@@ -64,7 +62,6 @@ void iocp_initialize_loop_globals(void)
 #define DO_IF_BREAKOUT(io, e) if (!LOOP_CAN_CONTINUE(io)) { e; }
 #define HAS_QUEUED_IO(io) (io)->n_iopending
 
-
 void iocp_write_done(iocp_t *io, iocp_write_t *w, int status)
 {
     lcb_ioC_write2_callback callback = w->cb;
@@ -76,7 +73,6 @@ void iocp_write_done(iocp_t *io, iocp_write_t *w, int status)
     } else {
         w->state = IOCP_WRITEBUF_AVAILABLE;
     }
-
     callback(&sd->sd_base, status, uarg);
 }
 
@@ -84,23 +80,17 @@ void iocp_write_done(iocp_t *io, iocp_write_t *w, int status)
  * Handles a single OVERLAPPED entry, and invokes
  * the appropriate event
  */
-static void handle_single_overlapped(iocp_t *io,
-                                     OVERLAPPED *lpOverlapped,
-                                     ULONG_PTR lpCompletionKey,
-                                     DWORD dwNumberOfBytesTransferred)
+static void
+handle_single_overlapped(iocp_t *io, OVERLAPPED *lpOverlapped,
+    ULONG_PTR lpCompletionKey, DWORD dwNumberOfBytesTransferred)
 {
-    union {
-        iocp_write_t *w;
-        iocp_connect_t *conn;
-    } u_ol;
-
-    iocp_overlapped_t *ol = (iocp_overlapped_t *)lpOverlapped;
-    iocp_sockdata_t *sd = (iocp_sockdata_t *)lpCompletionKey;
-
+    union { iocp_write_t *w; iocp_connect_t *conn; } u_ol;
     void *pointer_to_free = NULL;
     int opstatus = 0;
     int ws_status;
     int action;
+    iocp_overlapped_t *ol = (iocp_overlapped_t *)lpOverlapped;
+    iocp_sockdata_t *sd = (iocp_sockdata_t *)lpCompletionKey;
 
     IOCP_LOG(IOCP_TRACE, "OL=%p, NB=%lu", ol, dwNumberOfBytesTransferred);
 
@@ -115,11 +105,8 @@ static void handle_single_overlapped(iocp_t *io,
     action = ol->action;
 
     switch (action) {
-
     case LCBIOCP_ACTION_READ:
-        /**
-         * Nothing special in the OVERLAPPED.
-         */
+        /** Nothing special in the OVERLAPPED. */
         if (sd->rdcb) {
             sd->rdcb(&sd->sd_base, dwNumberOfBytesTransferred, sd->rdarg);
         }
@@ -134,11 +121,9 @@ static void handle_single_overlapped(iocp_t *io,
         u_ol.conn = (iocp_connect_t *)ol;
 
         if (opstatus == 0) {
+            /* This "Syncs" the connected state on the socket.. */
             int rv = setsockopt(ol->sd->sSocket,
-                                SOL_SOCKET,
-                                SO_UPDATE_CONNECT_CONTEXT,
-                                NULL,
-                                0);
+                SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0);
 
             if (rv == SOCKET_ERROR) {
                 iocp_set_last_error(&io->base, ol->sd->sSocket);
@@ -164,15 +149,11 @@ static int dequeue_io_impl_ex(iocp_t *io, DWORD msTimeout)
     OVERLAPPED_ENTRY entries[64];
     BOOL status;
     ULONG ulRemoved;
+    const unsigned max_entries = sizeof(entries) / sizeof(entries[0]);
     unsigned int ii;
 
-    status = pGetQueuedCompletionStatusEx(
-                 io->hCompletionPort,
-                 entries,
-                 sizeof(entries) / sizeof(OVERLAPPED_ENTRY),
-                 &ulRemoved,
-                 msTimeout,
-                 FALSE);
+    status = pGetQueuedCompletionStatusEx(io->hCompletionPort,
+        entries, max_entries, &ulRemoved, msTimeout, FALSE);
 
     if (status == FALSE || ulRemoved == 0) {
         return 0;
@@ -182,10 +163,7 @@ static int dequeue_io_impl_ex(iocp_t *io, DWORD msTimeout)
         OVERLAPPED_ENTRY *ent = entries + ii;
 
         io->n_iopending--;
-        handle_single_overlapped(
-            io,
-            ent->lpOverlapped,
-            ent->lpCompletionKey,
+        handle_single_overlapped(io, ent->lpOverlapped, ent->lpCompletionKey,
             ent->dwNumberOfBytesTransferred);
     }
 
@@ -200,10 +178,7 @@ static int dequeue_io_impl_compat(iocp_t *io, DWORD msTimeout)
     OVERLAPPED *lpOverlapped;
 
     result = GetQueuedCompletionStatus(io->hCompletionPort,
-                                       &dwNbytes,
-                                       &ulPtr,
-                                       &lpOverlapped,
-                                       msTimeout);
+        &dwNbytes, &ulPtr, &lpOverlapped, msTimeout);
 
     if (lpOverlapped == NULL) {
         IOCP_LOG(IOCP_TRACE, "No events left");
@@ -212,15 +187,13 @@ static int dequeue_io_impl_compat(iocp_t *io, DWORD msTimeout)
     }
 
     io->n_iopending--;
-
     handle_single_overlapped(io, lpOverlapped, ulPtr, dwNbytes);
     return LOOP_CAN_CONTINUE(io);
 }
 
-static void deque_expired_timers(iocp_t *io, lcb_uint64_t now)
+static void deque_expired_timers(iocp_t *io, lcb_U64 now)
 {
     while (LOOP_CAN_CONTINUE(io)) {
-
         iocp_timer_t *timer = iocp_tmq_pop(&io->timer_queue.list, now);
 
         if (!timer) {
@@ -232,13 +205,12 @@ static void deque_expired_timers(iocp_t *io, lcb_uint64_t now)
     }
 }
 
-
 /** Maximum amount of time the I/O can hog the loop */
 #define IOCP_IOLOOP_MAXTIME 1000
 
-static int should_yield(lcb_uint32_t start)
+static int should_yield(lcb_U32 start)
 {
-    lcb_uint32_t now = iocp_micros();
+    lcb_U32 now = iocp_micros();
     return now - start > IOCP_IOLOOP_MAXTIME;
 }
 
@@ -251,10 +223,8 @@ static int should_yield(lcb_uint32_t start)
  */
 void iocp_run(lcb_io_opt_t iobase)
 {
-
     iocp_t *io = (iocp_t *)iobase;
-
-    lcb_uint64_t now = 0;
+    lcb_U64 now = 0;
     DWORD tmo;
     int remaining;
 
@@ -263,12 +233,11 @@ void iocp_run(lcb_io_opt_t iobase)
     }
 
     io->breakout = FALSE;
-
     IOCP_LOG(IOCP_INFO, "do-loop BEGIN");
 
     do {
         /** To ensure we don't starve pending timers, use an iteration */
-        lcb_uint32_t usStartTime;
+        lcb_U32 usStartTime;
 
         if (!now) {
             now = iocp_millis();
@@ -299,17 +268,11 @@ void iocp_run(lcb_io_opt_t iobase)
 
         usStartTime = iocp_micros();
         do {
-            if (Have_GQCS_Ex) {
-                remaining = dequeue_io_impl_ex(io, tmo);
-
-            } else {
-                remaining = dequeue_io_impl_compat(io, tmo);
-            }
+            remaining = Have_GQCS_Ex ?
+                dequeue_io_impl_ex(io, tmo) : dequeue_io_impl_compat(io, tmo);
             tmo = 0;
-
         } while (LOOP_CAN_CONTINUE(io) &&
-                 remaining &&
-                 should_yield(usStartTime) == 0);
+            remaining && should_yield(usStartTime) == 0);
 
         IOCP_LOG(IOCP_TRACE, "Stopped IO loop");
 
@@ -318,11 +281,9 @@ void iocp_run(lcb_io_opt_t iobase)
             deque_expired_timers(io, now);
             tmo = (DWORD)iocp_tmq_next_timeout(&io->timer_queue.list, now);
         }
-
     } while (LOOP_CAN_CONTINUE(io) && (HAS_QUEUED_IO(io) || tmo != INFINITE));
 
     IOCP_LOG(IOCP_INFO, "do-loop END");
-
     io->breakout = TRUE;
 }
 

@@ -17,6 +17,7 @@
 #include "config.h"
 #include <sys/types.h>
 #include <libcouchbase/couchbase.h>
+#include <errno.h>
 #include <iostream>
 #include <map>
 #include <sstream>
@@ -71,31 +72,35 @@ public:
         o_keyPrefix("key-prefix"),
         o_numThreads("num-threads"),
         o_randSeed("random-seed"),
-        o_setPercent("ratio"),
+        o_setPercent("set-pct"),
         o_minSize("min-size"),
         o_maxSize("max-size"),
         o_noPopulate("no-population"),
         o_pauseAtEnd("pause-at-end"),
-        o_numCycles("num-cycles")
+        o_numCycles("num-cycles"),
+        o_sequential("sequential"),
+        o_startAt("start-at")
     {
         o_multiSize.setDefault(100).abbrev('B').description("Number of operations to batch");
         o_numItems.setDefault(1000).abbrev('I').description("Number of items to operate on");
         o_keyPrefix.abbrev('p').description("key prefix to use");
         o_numThreads.setDefault(1).abbrev('t').description("The number of threads to use");
-        o_randSeed.setDefault(0).abbrev('s').description("Specify random seed");
-        o_setPercent.setDefault(33).abbrev('r').description("Specify SET command ratio");
+        o_randSeed.setDefault(0).abbrev('s').description("Specify random seed").hide();
+        o_setPercent.setDefault(33).abbrev('r').description("The percentage of operations which should be mutations");
         o_minSize.setDefault(50).abbrev('m').description("Set minimum payload size");
         o_maxSize.setDefault(5120).abbrev('M').description("Set maximum payload size");
         o_noPopulate.setDefault(false).abbrev('n').description("Skip population");
         o_pauseAtEnd.setDefault(false).abbrev('E').description("Pause at end of run (holding connections open) until user input");
-        o_numCycles.setDefault(1).abbrev('c').description("Number of cycles to be run until exiting. Set to -1 to loop infinitely");
+        o_numCycles.setDefault(-1).abbrev('c').description("Number of cycles to be run until exiting. Set to -1 to loop infinitely");
+        o_sequential.setDefault(false).description("Use sequential access (instead of random)");
+        o_startAt.setDefault(0).description("For sequential access, set the first item");
     }
 
     void processOptions() {
         opsPerCycle = o_multiSize.result();
-        maxKey = o_numItems.result();
         prefix = o_keyPrefix.result();
         setprc = o_setPercent.result();
+        shouldPopulate = !o_noPopulate.result();
         setMinSize(o_minSize.result());
         setMaxSize(o_maxSize.result());
 
@@ -124,6 +129,8 @@ public:
         parser.addOption(o_maxSize);
         parser.addOption(o_pauseAtEnd);
         parser.addOption(o_numCycles);
+        parser.addOption(o_sequential);
+        parser.addOption(o_startAt);
         params.addToParser(parser);
         depr.addOptions(parser);
     }
@@ -189,19 +196,21 @@ public:
     uint32_t getRandomSeed() { return o_randSeed; }
     uint32_t getNumThreads() { return o_numThreads; }
     string& getKeyPrefix() { return prefix; }
-    bool shouldntPopulate() { return o_noPopulate; }
     bool shouldPauseAtEnd() { return o_pauseAtEnd; }
+    bool sequentialAccess() { return o_sequential; }
+    unsigned firstKeyOffset() { return o_startAt; }
+    uint32_t getNumItems() { return o_numItems; }
 
     void *data;
 
-    uint32_t maxKey;
     uint32_t opsPerCycle;
-    uint32_t setprc;
+    int setprc;
     string prefix;
     uint32_t maxSize;
     uint32_t minSize;
     volatile int maxCycles;
     bool dgm;
+    bool shouldPopulate;
     uint32_t waitTime;
     ConnParams params;
 
@@ -211,13 +220,15 @@ private:
     StringOption o_keyPrefix;
     UIntOption o_numThreads;
     UIntOption o_randSeed;
-    UIntOption o_setPercent;
+    IntOption o_setPercent;
     UIntOption o_minSize;
     UIntOption o_maxSize;
     BoolOption o_noPopulate;
     BoolOption o_pauseAtEnd; // Should pillowfight pause execution (with
                              // connections open) before exiting?
     IntOption o_numCycles;
+    BoolOption o_sequential;
+    UIntOption o_startAt;
     DeprecatedOptions depr;
 } config;
 
@@ -235,13 +246,10 @@ void log(const char *format, ...)
     va_end(args);
 }
 
-extern "C" {
-    static void storageCallback(lcb_t, const void *,
-                                lcb_storage_t, lcb_error_t,
-                                const lcb_store_resp_t *);
 
-    static void getCallback(lcb_t, const void *, lcb_error_t,
-                            const lcb_get_resp_t *);
+
+extern "C" {
+static void operationCallback(lcb_t, int, const lcb_RESPBASE*);
 }
 
 class InstanceCookie {
@@ -259,22 +267,21 @@ public:
     }
 
 
-    static void dumpTimings(lcb_t instance, const char *header) {
+    static void dumpTimings(lcb_t instance, const char *header, bool force=false) {
         time_t now = time(NULL);
-        std::stringstream ss;
         InstanceCookie *ic = get(instance);
 
         if (now - ic->lastPrint > 0) {
             ic->lastPrint = now;
-        } else {
+        } else if (!force) {
             return;
         }
 
         Histogram &h = ic->hg;
-        std::cout << "[" << std::fixed << gethrtime() / 1000000000.0 << "] " << header << std::endl;
-        std::cout << "              +---------+---------+---------+---------+" << std::endl;
+        printf("[%lf %s]\n", gethrtime() / 1000000000.0, header);
+        printf("              +---------+---------+---------+---------+\n");
         h.write();
-        std::cout << "              +----------------------------------------" << std::endl;
+        printf("              +----------------------------------------\n");
     }
 
 private:
@@ -282,179 +289,158 @@ private:
     Histogram hg;
 };
 
-class InstancePool
-{
+struct NextOp {
+    NextOp() : seqno(0), valsize(0), isStore(false) {}
+
+    string key;
+    uint32_t seqno;
+    size_t valsize;
+    bool isStore;
+};
+
+class KeyGenerator {
 public:
-    InstancePool(size_t size): io(NULL) {
-#ifndef WIN32
-        pthread_mutex_init(&mutex, NULL);
-        pthread_cond_init(&cond, NULL);
-#endif
-
-        if (config.getNumThreads() == 1) {
-            /* allow to share IO object in single-thread only */
-            lcb_error_t err = lcb_create_io_ops(&io, NULL);
-            if (err != LCB_SUCCESS) {
-                log("Failed to create IO option: %s", lcb_strerror(NULL, err));
-                exit(EXIT_FAILURE);
-            }
+    KeyGenerator(int ix) :
+        currSeqno(0), rnum(0), ngenerated(0), isSequential(false),
+        isPopulate(config.shouldPopulate)
+{
+        srand(config.getRandomSeed());
+        for (int ii = 0; ii < 8192; ++ii) {
+            seqPool[ii] = rand();
+        }
+        if (isPopulate) {
+            isSequential = true;
+        } else {
+            isSequential = config.sequentialAccess();
         }
 
-        for (size_t ii = 0; ii < size; ++ii) {
-            lcb_t instance;
-            std::cout << "\rCreating instance " << ii;
-            std::cout.flush();
 
-            struct lcb_create_st options;
-            ConnParams& cp = config.params;
-            lcb_error_t error;
+        // Maximum number of keys for this thread
+        maxKey = config.getNumItems() /  config.getNumThreads();
 
-            cp.fillCropts(options);
-            options.v.v1.io = io;
-            error = lcb_create(&instance, &options);
-            if (error == LCB_SUCCESS) {
-                (void)lcb_set_store_callback(instance, storageCallback);
-                (void)lcb_set_get_callback(instance, getCallback);
-                cp.doCtls(instance);
-                queue.push(instance);
-                handles.push_back(instance);
+        offset = config.firstKeyOffset();
+        offset += maxKey * ix;
+        id = ix;
+    }
+
+    void setNextOp(NextOp& op) {
+        bool store_override = false;
+
+        if (isPopulate) {
+            if (++ngenerated < maxKey) {
+                store_override = true;
             } else {
-                std::cout << std::endl;
-                log("Failed to create instance: %s", lcb_strerror(NULL, error));
-                exit(EXIT_FAILURE);
-            }
-
-            new InstanceCookie(instance);
-            lcb_connect(instance);
-            lcb_wait(instance);
-            error = lcb_get_bootstrap_status(instance);
-            if (error != LCB_SUCCESS) {
-                std::cout << std::endl;
-                log("Failed to connect: %s", lcb_strerror(instance, error));
-                exit(EXIT_FAILURE);
+                printf("Thread %d has finished populating.\n", id);
+                isPopulate = false;
+                isSequential = config.sequentialAccess();
             }
         }
-        std::cout << std::endl;
+
+        if (isSequential) {
+            rnum++;
+            rnum %= maxKey;
+        } else {
+            rnum += seqPool[currSeqno];
+            currSeqno++;
+            if (currSeqno > 8191) {
+                currSeqno = 0;
+            }
+        }
+
+        op.seqno = rnum;
+
+        if (store_override) {
+            op.isStore = true;
+        } else {
+            op.isStore = shouldStore(op.seqno);
+        }
+
+        if (op.isStore) {
+            size_t size;
+            if (config.minSize == config.maxSize) {
+                size = config.minSize;
+            } else {
+                size = config.minSize + op.seqno % (config.maxSize - config.minSize);
+            }
+            op.valsize = size;
+        }
+        generateKey(op);
     }
 
-    ~InstancePool() {
-        if (config.shouldPauseAtEnd()) {
-            std::cout << "pause-at-end specified. " << std::endl
-                      << "Press any key to close connections and exit." << std::endl;
-            std::cin.get();
+    bool shouldStore(uint32_t seqno) {
+        seqno %= 100;
+        // This is a percentage..
+        if (config.setprc > 0) {
+            if (seqno % (100 / config.setprc) == 0) {
+                return true;
+            }
+            return false;
+        } else if (config.setprc == 0) {
+            return false; // Always get
+        } else {
+            // Negative
+            if (seqno % (100 / config.setprc) == 0) {
+                return false;
+            }
+            return true;
         }
-        while (!handles.empty()) {
-            lcb_destroy(handles.back());
-            handles.pop_back();
-        }
-        lcb_destroy_io_ops(io);
     }
 
-    lcb_t pop() {
-#ifndef WIN32
-        pthread_mutex_lock(&mutex);
-        while (queue.empty()) {
-            pthread_cond_wait(&cond, &mutex);
-        }
-        assert(!queue.empty());
-#endif
-        lcb_t ret = queue.front();
-        queue.pop();
-#ifndef WIN32
-        pthread_mutex_unlock(&mutex);
-#endif
-        return ret;
-    }
+    void generateKey(NextOp& op) {
+        uint32_t seqno = op.seqno;
+        seqno %= maxKey;
+        seqno += offset-1;
 
-    void push(lcb_t inst) {
-#ifndef WIN32
-        pthread_mutex_lock(&mutex);
-#endif
-        queue.push(inst);
-#ifndef WIN32
-        pthread_cond_signal(&cond);
-        pthread_mutex_unlock(&mutex);
-#endif
+        char buffer[21];
+        snprintf(buffer, sizeof(buffer), "%020d", seqno);
+        op.key.assign(config.getKeyPrefix() + buffer);
+    }
+    const char *getStageString() const {
+        if (isPopulate) {
+            return "Populate";
+        } else {
+            return "Run";
+        }
     }
 
 private:
-    std::queue<lcb_t> queue;
-    std::list<lcb_t> handles;
-    lcb_io_opt_t io;
-#ifndef WIN32
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-#endif
+    uint32_t seqPool[8192];
+    uint32_t currSeqno;
+    uint32_t rnum;
+    uint32_t offset;
+    uint32_t maxKey;
+    size_t ngenerated;
+    int id;
+
+    bool isSequential;
+    bool isPopulate;
 };
 
 class ThreadContext
 {
 public:
-    ThreadContext(InstancePool *p) :
-        currSeqno(0), rnum(0), niter(0), pool(p) {
-        srand(config.getRandomSeed());
-        for (int ii = 0; ii < 8192; ++ii) {
-            seqno[ii] = rand();
-        }
-    }
+    ThreadContext(lcb_t handle, int ix) : niter(0), instance(handle), kgen(ix) {
 
-    template <typename T> void
-    performWithRetry(lcb_t handle, size_t n, const T* const * cmds,
-        lcb_error_t (*lfunc)(lcb_t,const void*,lcb_size_t,const T*const*),
-        const char *opname, int retry = -1)
-    {
-        if (retry == -1) {
-            retry = config.dgm ? 10000 : 1;
-        }
-
-        do {
-            error = lfunc(handle, this, n, cmds);
-            if (error != LCB_SUCCESS) {
-                log("Couldn't schedule %s. [0x%x, %s]", opname, error, lcb_strerror(NULL, error));
-            }
-            lcb_wait(handle);
-            if (error == LCB_SUCCESS) {
-                return;
-            }
-            if (!LCB_EIFTMP(error)) {
-                log("Got hard error for %s operation. [0x%x, %s]", opname, error, lcb_strerror(NULL, error));
-            }
-            if (config.waitTime) {
-                usleep(1000*config.waitTime);
-            }
-        } while (--retry > 0);
     }
 
     void singleLoop(lcb_t instance) {
         bool hasItems = false;
-        string key;
+        lcb_sched_enter(instance);
+        NextOp opinfo;
+
         for (size_t ii = 0; ii < config.opsPerCycle; ++ii) {
-            const uint32_t nextseq = nextSeqno();
-            generateKey(key, nextseq);
-            if (config.setprc > 0 && (nextseq % 100) > config.setprc) {
-                lcb_store_cmd_t scmd;
-                size_t size;
-                if (config.minSize == config.maxSize) {
-                    size = config.minSize;
-                } else {
-                    size = config.minSize + nextseq % (config.maxSize - config.minSize);
-                }
-                memset(&scmd, 0, sizeof scmd);
-                scmd.v.v0.key = key.c_str();
-                scmd.v.v0.nkey = key.size();
-                scmd.v.v0.bytes = config.data;
-                scmd.v.v0.nbytes = size;
-                scmd.v.v0.operation = LCB_SET;
-                const lcb_store_cmd_t * const cmdlist[] = {  &scmd };
-                error = lcb_store(instance, this, 1, cmdlist);
+            kgen.setNextOp(opinfo);
+            if (opinfo.isStore) {
+                lcb_CMDSTORE scmd = { 0 };
+                scmd.operation = LCB_SET;
+                LCB_CMD_SET_KEY(&scmd, opinfo.key.c_str(), opinfo.key.size());
+                LCB_CMD_SET_VALUE(&scmd, config.data, opinfo.valsize);
+                error = lcb_store3(instance, this, &scmd);
 
             } else {
-                lcb_get_cmd_t gcmd;
-                memset(&gcmd, 0, sizeof gcmd);
-                gcmd.v.v0.key = key.c_str();
-                gcmd.v.v0.nkey = key.size();
-                const lcb_get_cmd_t * const cmdlist[] = { &gcmd };
-                error = lcb_get(instance, this, 1, cmdlist);
+                lcb_CMDGET gcmd = { 0 };
+                LCB_CMD_SET_KEY(&gcmd, opinfo.key.c_str(), opinfo.key.size());
+                error = lcb_get3(instance, this, &gcmd);
             }
             if (error != LCB_SUCCESS) {
                 hasItems = false;
@@ -464,117 +450,77 @@ public:
             }
         }
         if (hasItems) {
+            lcb_sched_leave(instance);
             lcb_wait(instance);
             if (error != LCB_SUCCESS) {
                 log("Operation(s) failed: [0x%x] %s", error, lcb_strerror(instance, error));
             }
+        } else {
+            lcb_sched_fail(instance);
         }
     }
 
     bool run() {
         do {
-            lcb_t instance = pool->pop();
             singleLoop(instance);
             if (config.isTimings()) {
-                InstanceCookie::dumpTimings(instance, "Run");
+                InstanceCookie::dumpTimings(instance, kgen.getStageString());
             }
-            pool->push(instance);
+            if (config.params.shouldDump()) {
+                lcb_dump(instance, stderr, LCB_DUMP_ALL);
+            }
         } while (!config.isLoopDone(++niter));
 
+        if (config.isTimings()) {
+            InstanceCookie::dumpTimings(instance, kgen.getStageString(), true);
+        }
         return true;
     }
 
-    bool populate(uint32_t start, uint32_t stop) {
-
-        bool timings = config.isTimings();
-        lcb_t instance = pool->pop();
-
-        for (uint32_t ii = start; ii < stop; ++ii) {
-            std::string key;
-            generateKey(key, ii);
-            lcb_store_cmd_t item;
-            memset(&item, 0, sizeof item);
-            item.v.v0.key = key.c_str();
-            item.v.v0.nkey = key.size();
-            item.v.v0.bytes = config.data;
-            item.v.v0.nbytes = config.maxSize;
-            item.v.v0.operation = LCB_SET;
-            lcb_store_cmd_t *items[1] = { &item };
-
-            performWithRetry<lcb_store_cmd_t>(
-                instance, 1, items, lcb_store, "store/populate", 1000);
-        }
-
-        if (timings) {
-            InstanceCookie::dumpTimings(instance, "Populate");
-        }
-        pool->push(instance);
-
-        return true;
-    }
+#ifndef WIN32
+    pthread_t thr;
+#endif
 
 protected:
     // the callback methods needs to be able to set the error handler..
-    friend void storageCallback(lcb_t, const void *,
-                                lcb_storage_t, lcb_error_t,
-                                const lcb_store_resp_t *);
-    friend void getCallback(lcb_t, const void *, lcb_error_t,
-                            const lcb_get_resp_t *);
+    friend void operationCallback(lcb_t, int, const lcb_RESPBASE*);
     Histogram histogram;
 
     void setError(lcb_error_t e) { error = e; }
 
 private:
-    uint32_t nextSeqno() {
-        rnum += seqno[currSeqno];
-        currSeqno++;
-        if (currSeqno > 8191) {
-            currSeqno = 0;
-        }
-        return rnum;
-    }
-
-    void generateKey(string &key, uint32_t ii = static_cast<uint32_t>(-1)) {
-        if (ii == static_cast<uint32_t>(-1)) {
-            // get random key
-            ii = nextSeqno();
-        }
-        ii %= config.maxKey;
-
-        char buffer[21];
-        snprintf(buffer, sizeof(buffer), "%020d", ii);
-        key.assign(config.getKeyPrefix() + buffer);
-    }
-
-    uint32_t seqno[8192];
-    uint32_t currSeqno;
-    uint32_t rnum;
+    KeyGenerator kgen;
     size_t niter;
     lcb_error_t error;
-    InstancePool *pool;
+    lcb_t instance;
 };
 
-static void storageCallback(lcb_t, const void *cookie,
-                            lcb_storage_t, lcb_error_t error,
-                            const lcb_store_resp_t *)
+static void operationCallback(lcb_t, int, const lcb_RESPBASE *resp)
 {
     ThreadContext *tc;
-    tc = const_cast<ThreadContext *>(reinterpret_cast<const ThreadContext *>(cookie));
-    tc->setError(error);
+
+    tc = const_cast<ThreadContext *>(reinterpret_cast<const ThreadContext *>(resp->cookie));
+    tc->setError(resp->rc);
+
+#ifndef WIN32
+    static volatile unsigned long nops = 1;
+    static time_t start_time = time(NULL);
+    static int is_tty = isatty(STDOUT_FILENO);
+    if (is_tty) {
+        if (++nops % 1000 == 0) {
+            time_t now = time(NULL);
+            time_t nsecs = now - start_time;
+            if (!nsecs) { nsecs = 1; }
+            unsigned long ops_sec = nops / nsecs;
+            printf("OPS/SEC: %10lu\r", ops_sec);
+            fflush(stdout);
+        }
+    }
+#endif
 }
 
-static void getCallback(lcb_t, const void *cookie,
-                        lcb_error_t error,
-                        const lcb_get_resp_t *)
-{
-    ThreadContext *tc;
-    tc = const_cast<ThreadContext *>(reinterpret_cast<const ThreadContext *>(cookie));
-    tc->setError(error);
-
-}
 
 std::list<ThreadContext *> contexts;
-InstancePool *pool = NULL;
 
 extern "C" {
     typedef void (*handler_t)(int);
@@ -584,130 +530,130 @@ extern "C" {
 }
 
 #ifndef WIN32
-static void setup_sigint_handler(handler_t handler);
-#endif
-
-#ifndef WIN32
-static void cruel_handler(int)
+static void sigint_handler(int)
 {
+    static int ncalled = 0;
+    ncalled++;
+
+    if (ncalled < 2) {
+        log("Termination requested. Waiting threads to finish. Ctrl-C to force termination.");
+        signal(SIGINT, sigint_handler); // Reinstall
+        config.maxCycles = 0;
+        return;
+    }
+
     std::list<ThreadContext *>::iterator it;
     for (it = contexts.begin(); it != contexts.end(); ++it) {
         delete *it;
     }
-    delete pool;
+    contexts.clear();
     exit(EXIT_FAILURE);
 }
 
-static void gentle_handler(int)
-{
-    config.maxCycles = 0;
-    log("Termination requested. Waiting threads to finish. "
-        "Ctrl-C to force termination.");
-    setup_sigint_handler(cruel_handler);
-}
-
-static void setup_sigint_handler(handler_t handler)
+static void setup_sigint_handler()
 {
     struct sigaction action;
-
     sigemptyset(&action.sa_mask);
-    action.sa_handler = handler;
+    action.sa_handler = sigint_handler;
     action.sa_flags = 0;
     sigaction(SIGINT, &action, NULL);
 }
-#endif
 
 extern "C" {
-    static void *thread_worker(void *);
+static void* thread_worker(void*);
 }
 
-static void *thread_worker(void *arg)
+static void start_worker(ThreadContext *ctx)
 {
-    ThreadContext *ctx = static_cast<ThreadContext *>(arg);
-    if (!config.shouldntPopulate()) {
-        ctx->populate(0, config.maxKey);
-    }
-    ctx->run();
-#ifndef WIN32
-    pthread_exit(NULL);
-#endif
-    return NULL;
-}
-
-/**
- * Program entry point
- * @param argc argument count
- * @param argv argument vector
- * @return 0 success, 1 failure
- */
-int main(int argc, char **argv)
-{
-    int exit_code = EXIT_SUCCESS;
-
-#ifndef WIN32
-    setup_sigint_handler(SIG_IGN);
-    signal(SIGPIPE, SIG_IGN);
-
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    int rc = pthread_create(&ctx->thr, &attr, thread_worker, ctx);
+    if (rc != 0) {
+        log("Couldn't create thread: (%d)", errno);
+        exit(EXIT_FAILURE);
+    }
+}
+static void join_worker(ThreadContext *ctx)
+{
+    void *arg = NULL;
+    int rc = pthread_join(ctx->thr, &arg);
+    if (rc != 0) {
+        log("Couldn't join thread (%d)", errno);
+        exit(EXIT_FAILURE);
+    }
+}
+
+#else
+static void setup_sigint_handler() {}
+static void start_worker(ThreadContext *ctx) { ctx->run(); }
+static void join_worker(ThreadContext *ctx) { (void)ctx; }
 #endif
+
+extern "C" {
+static void *thread_worker(void *arg)
+{
+    ThreadContext *ctx = static_cast<ThreadContext *>(arg);
+    ctx->run();
+    return NULL;
+}
+}
+
+int main(int argc, char **argv)
+{
+    int exit_code = EXIT_SUCCESS;
+    setup_sigint_handler();
+
     Parser parser("cbc-pillowfight");
     config.addOptions(parser);
     parser.parse(argc, argv, false);
     config.processOptions();
-
-    pool = new InstancePool(config.getNumInstances());
-#ifndef WIN32
-    setup_sigint_handler(gentle_handler);
-#endif
+    size_t nthreads = config.getNumThreads();
     log("Running. Press Ctrl-C to terminate...");
+
 #ifdef WIN32
-    ThreadContext *ctx = new ThreadContext(pool);
-    contexts.push_back(ctx);
-    thread_worker(ctx);
-
-
-
-#else
-    std::list<pthread_t> threads;
-    for (uint32_t ii = 0; ii < config.getNumThreads(); ++ii) {
-        ThreadContext *ctx = new ThreadContext(pool);
-        contexts.push_back(ctx);
-
-        pthread_t tid;
-        int rc = pthread_create(&tid, &attr, thread_worker, ctx);
-        if (rc) {
-            log("Failed to create thread: %d", rc);
-            exit_code = EXIT_FAILURE;
-            break;
-        }
-        threads.push_back(tid);
-    }
-
-    if (contexts.size() == config.getNumThreads()) {
-        for (std::list<pthread_t>::iterator it = threads.begin();
-                it != threads.end(); ++it) {
-            int rc = pthread_join(*it, NULL);
-            if (rc) {
-                log("Failed to join thread: %d", rc);
-                exit_code = EXIT_FAILURE;
-                break;
-            }
-        }
+    if (nthreads > 1) {
+        log("WARNING: More than a single thread on Windows not supported. Forcing 1");
+        nthreads = 1;
     }
 #endif
+
+    struct lcb_create_st options;
+    ConnParams& cp = config.params;
+    lcb_error_t error;
+
+    for (uint32_t ii = 0; ii < nthreads; ++ii) {
+        cp.fillCropts(options);
+        lcb_t instance = NULL;
+        error = lcb_create(&instance, &options);
+        if (error != LCB_SUCCESS) {
+            log("Failed to create instance: %s", lcb_strerror(NULL, error));
+            exit(EXIT_FAILURE);
+        }
+        lcb_install_callback3(instance, LCB_CALLBACK_STORE, operationCallback);
+        lcb_install_callback3(instance, LCB_CALLBACK_GET, operationCallback);
+        cp.doCtls(instance);
+
+        new InstanceCookie(instance);
+
+        lcb_connect(instance);
+        lcb_wait(instance);
+        error = lcb_get_bootstrap_status(instance);
+
+        if (error != LCB_SUCCESS) {
+            std::cout << std::endl;
+            log("Failed to connect: %s", lcb_strerror(instance, error));
+            exit(EXIT_FAILURE);
+        }
+
+        ThreadContext *ctx = new ThreadContext(instance, ii);
+        contexts.push_back(ctx);
+        start_worker(ctx);
+    }
 
     for (std::list<ThreadContext *>::iterator it = contexts.begin();
             it != contexts.end(); ++it) {
-        delete *it;
+        join_worker(*it);
     }
-    delete pool;
-
-#ifndef WIN32
-    pthread_attr_destroy(&attr);
-    pthread_exit(NULL);
-#endif
-
     return exit_code;
 }

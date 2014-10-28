@@ -186,11 +186,11 @@ setup_ssl(lcb_t obj, lcb_CONNSPEC *params)
     char optbuf[4096];
     int env_policy = -1;
     lcb_settings *settings = obj->settings;
-    lcb_error_t err;
+    lcb_error_t err = LCB_SUCCESS;
 
     if (lcb_getenv_nonempty("LCB_SSL_CACERT", optbuf, sizeof optbuf)) {
         lcb_log(LOGARGS(obj, INFO), "SSL CA certificate %s specified on environment", optbuf);
-        settings->capath = strdup(optbuf);
+        settings->certpath = strdup(optbuf);
     }
 
     if (lcb_getenv_nonempty("LCB_SSL_MODE", optbuf, sizeof optbuf)) {
@@ -203,8 +203,8 @@ setup_ssl(lcb_t obj, lcb_CONNSPEC *params)
         }
     }
 
-    if (settings->capath == NULL && params->capath && *params->capath) {
-        settings->capath = params->capath; params->capath = NULL;
+    if (settings->certpath == NULL && params->certpath && *params->certpath) {
+        settings->certpath = params->certpath; params->certpath = NULL;
     }
 
     if (env_policy == -1) {
@@ -213,7 +213,7 @@ setup_ssl(lcb_t obj, lcb_CONNSPEC *params)
 
     if (settings->sslopts & LCB_SSL_ENABLED) {
         lcbio_ssl_global_init();
-        settings->ssl_ctx = lcbio_ssl_new(settings->capath,
+        settings->ssl_ctx = lcbio_ssl_new(settings->certpath,
             settings->sslopts & LCB_SSL_NOVERIFY, &err, settings);
         if (!settings->ssl_ctx) {
             return err;
@@ -236,6 +236,40 @@ apply_spec_options(lcb_t obj, lcb_CONNSPEC *params)
         }
     }
     return LCB_SUCCESS;
+}
+
+static lcb_error_t
+apply_env_options(lcb_t obj)
+{
+    lcb_string tmpstr;
+    lcb_CONNSPEC tmpspec;
+    lcb_error_t err;
+    const char *errmsg = NULL;
+    const char *options = getenv("LCB_OPTIONS");
+
+    if (!options) {
+        return LCB_SUCCESS;
+    }
+
+    memset(&tmpspec, 0, sizeof tmpspec);
+    lcb_string_init(&tmpstr);
+    lcb_string_appendz(&tmpstr, "couchbase://?");
+    lcb_string_appendz(&tmpstr, options);
+    err = lcb_connspec_parse(tmpstr.base, &tmpspec, &errmsg);
+    if (err != LCB_SUCCESS) {
+        err = LCB_BAD_ENVIRONMENT;
+        goto GT_DONE;
+    }
+    err = apply_spec_options(obj, &tmpspec);
+    if (err != LCB_SUCCESS) {
+        err = LCB_BAD_ENVIRONMENT;
+    }
+
+    GT_DONE:
+    lcb_string_release(&tmpstr);
+    lcb_connspec_clean(&tmpspec);
+    return err;
+
 }
 
 lcb_error_t
@@ -267,7 +301,7 @@ lcb_reinit3(lcb_t obj, const char *connstr)
         lcb_log(LOGARGS(obj, ERROR), "Couldn't reinit: %s", errmsg);
     }
 
-    if (params.sslopts != LCBT_SETTING(obj, sslopts) || params.capath) {
+    if (params.sslopts != LCBT_SETTING(obj, sslopts) || params.certpath) {
         lcb_log(LOGARGS(obj, WARN), "Ignoring SSL reinit options");
     }
 
@@ -377,18 +411,8 @@ lcb_error_t lcb_create(lcb_t *instance,
     if ((err = apply_spec_options(obj, &spec)) != LCB_SUCCESS) {
         goto GT_DONE;
     }
-
-    if (lcb_getenv_boolean("LCB_SYNC_DTOR")) {
-        settings->syncdtor = 1;
-    }
-    if (lcb_getenv_boolean("LCB_COMPRESSION")) {
-        char tmpbuf[4096];
-        lcb_getenv_nonempty("LCB_COMPRESSION", tmpbuf, sizeof tmpbuf);
-        err = lcb_cntl_string(obj, "compression", tmpbuf);
-        if (err != LCB_SUCCESS) {
-            err = LCB_BAD_ENVIRONMENT;
-            goto GT_DONE;
-        }
+    if ((err = apply_env_options(obj)) != LCB_SUCCESS) {
+        goto GT_DONE;
     }
 
     populate_nodes(obj, &spec);
@@ -445,15 +469,15 @@ void lcb_destroy(lcb_t instance)
     if ((hs = lcb_aspend_get(po, LCB_PENDTYPE_TIMER))) {
         for (ii = 0; ii < hs->capacity; ++ii) {
             if (hs->items[ii] > 1) {
-                lcb_timer_destroy(instance, (lcb_timer_t)hs->items[ii]);
+                lcb__timer_destroy_nowarn(instance, (lcb_timer_t)hs->items[ii]);
             }
         }
     }
 
     if ((hs = lcb_aspend_get(po, LCB_PENDTYPE_DURABILITY))) {
-        struct lcb_durability_set_st **dset_list;
+        struct lcb_DURSET_st **dset_list;
         lcb_size_t nitems = hashset_num_items(hs);
-        dset_list = (struct lcb_durability_set_st **)hashset_get_items(hs, NULL);
+        dset_list = (struct lcb_DURSET_st **)hashset_get_items(hs, NULL);
         if (dset_list) {
             for (ii = 0; ii < nitems; ii++) {
                 lcb_durability_dset_destroy(dset_list[ii]);
@@ -538,7 +562,7 @@ lcb_destroy_async(lcb_t instance, const void *arg)
 LIBCOUCHBASE_API
 lcb_error_t lcb_connect(lcb_t instance)
 {
-    lcb_error_t err = lcb_bootstrap_initial(instance);
+    lcb_error_t err = lcb_bootstrap_common(instance, LCB_BS_REFRESH_INITIAL);
     if (err == LCB_SUCCESS) {
         SYNCMODE_INTERCEPT(instance);
     } else {
@@ -621,7 +645,7 @@ LIBCOUCHBASE_API
 void
 lcb_sched_leave(lcb_t instance)
 {
-    mcreq_sched_leave(&instance->cmdq, 1);
+    mcreq_sched_leave(&instance->cmdq, LCBT_SETTING(instance, sched_implicit_flush));
 }
 LIBCOUCHBASE_API
 void

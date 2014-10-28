@@ -47,9 +47,11 @@ get_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPGET *resp)
 {
     string key = getRespKey((const lcb_RESPBASE *)resp);
     if (resp->rc == LCB_SUCCESS) {
-        fprintf(stderr, "%-20s CAS=0x%"PRIx64", Flags=0x%x, Datatype=0x%x\n",
-            key.c_str(), resp->cas, resp->itmflags, resp->datatype);
+        fprintf(stderr, "%-20s CAS=0x%"PRIx64", Flags=0x%x. Size=%lu\n",
+            key.c_str(), resp->cas, resp->itmflags, (unsigned long)resp->nvalue);
+        fflush(stderr);
         fwrite(resp->value, 1, resp->nvalue, stdout);
+        fflush(stdout);
         fprintf(stderr, "\n");
     } else {
         printKeyError(key, resp->rc);
@@ -135,13 +137,29 @@ stats_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
     }
     fprintf(stdout, "\n");
 }
+
 static void
-verbosity_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPVERBOSITY *resp)
+common_server_callback(lcb_t, int cbtype, const lcb_RESPSERVERBASE *sbase)
 {
-    if (resp->rc != LCB_SUCCESS && resp->server) {
-        fprintf(stderr, "Failed to set verbosity for %s\n", resp->server);
+    const char *msg;
+    if (cbtype == LCB_CALLBACK_VERBOSITY) {
+        msg = "Set verbosity";
+    } else if (cbtype == LCB_CALLBACK_FLUSH) {
+        msg = "Flush";
+    } else {
+        msg = "";
+    }
+    if (!sbase->server) {
+        return;
+    }
+    if (sbase->rc != LCB_SUCCESS) {
+        fprintf(stderr, "%s failed for server %s: %s\n", msg, sbase->server,
+            lcb_strerror(NULL, sbase->rc));
+    } else {
+        fprintf(stderr, "%s: %s\n", msg, sbase->server);
     }
 }
+
 static void
 arithmetic_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPCOUNTER *resp)
 {
@@ -183,6 +201,9 @@ Handler::Handler(const char *name) : parser(name), instance(NULL)
 
 Handler::~Handler()
 {
+    if (params.shouldDump()) {
+        lcb_dump(instance, stderr, LCB_DUMP_ALL);
+    }
     if (instance) {
         lcb_destroy(instance);
     }
@@ -192,6 +213,8 @@ void
 Handler::execute(int argc, char **argv)
 {
     addOptions();
+    parser.default_settings.argstring = usagestr();
+    parser.default_settings.shortdesc = description();
     parser.parse(argc, argv, true);
     run();
     if (instance != NULL && params.useTimings()) {
@@ -455,6 +478,18 @@ HashHandler::run()
             }
         }
         fprintf(stderr, "\n");
+
+        for (size_t jj = 0; jj < lcbvb_get_nreplicas(vbc); jj++) {
+            int rix = lcbvb_vbreplica(vbc, vbid, jj);
+            const char *rname = NULL;
+            if (rix >= 0) {
+                rname = lcbvb_get_hostport(vbc, rix, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
+            }
+            if (rname == NULL) {
+                rname = "N/A";
+            }
+            fprintf(stderr, "Replica #%d: Index=%d, Host=%s\n", (int)jj, rix, rname);
+        }
     }
 }
 
@@ -560,8 +595,6 @@ VersionHandler::run()
         fprintf(stderr, "  IO: Default=%s, Current=%s\n",
             iops_to_string(info.v.v0.os_default), iops_to_string(info.v.v0.effective));
     }
-    printf("  Compression (snappy): .. %s\n",
-            lcb_supports_feature(LCB_SUPPORTS_SNAPPY) ? "SUPPORTED" : "NOT SUPPORTED");
     printf("  SSL: .. %s\n",
             lcb_supports_feature(LCB_SUPPORTS_SSL) ? "SUPPORTED" : "NOT SUPPORTED");
 }
@@ -602,6 +635,9 @@ StatsHandler::run()
         const string& key = keys[ii];
         if (!key.empty()) {
             LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+            if (o_keystats.result()) {
+                cmd.cmdflags = LCB_CMDSTATS_F_KV;
+            }
         }
         lcb_error_t err = lcb_stats3(instance, NULL, &cmd);
         if (err != LCB_SUCCESS) {
@@ -615,6 +651,8 @@ StatsHandler::run()
 void
 VerbosityHandler::run()
 {
+    Handler::run();
+
     const string& slevel = getRequiredArg();
     lcb_verbosity_level_t level;
     if (slevel == "detail") {
@@ -629,12 +667,29 @@ VerbosityHandler::run()
         throw "Verbosity level must be {detail,debug,info,warning}";
     }
 
-    lcb_install_callback3(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)verbosity_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)common_server_callback);
     lcb_CMDVERBOSITY cmd = { 0 };
     cmd.level = level;
     lcb_error_t err;
     lcb_sched_enter(instance);
     err = lcb_server_verbosity3(instance, NULL, &cmd);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
+McFlushHandler::run()
+{
+    Handler::run();
+
+    lcb_CMDFLUSH cmd = { 0 };
+    lcb_error_t err;
+    lcb_install_callback3(instance, LCB_CALLBACK_FLUSH, (lcb_RESPCALLBACK)common_server_callback);
+    lcb_sched_enter(instance);
+    err = lcb_flush3(instance, NULL, &cmd);
     if (err != LCB_SUCCESS) {
         throw err;
     }
@@ -954,7 +1009,7 @@ static const char* optionsOrder[] = {
         "observe",
         "incr",
         "decr",
-        // "flush",
+        "mcflush",
         "hash",
         "lock",
         "unlock",
@@ -984,7 +1039,7 @@ protected:
         for (const char ** cur = optionsOrder; *cur; cur++) {
             const Handler *handler = handlers[*cur];
             fprintf(stderr, "   %-20s", *cur);
-            fprintf(stderr, "%s\n", handler->description().c_str());
+            fprintf(stderr, "%s\n", handler->description());
         }
     }
 };
@@ -1004,6 +1059,7 @@ setupHandlers()
     handlers_s["cp"] = new SetHandler("cp");
     handlers_s["stats"] = new StatsHandler();
     handlers_s["verbosity"] = new VerbosityHandler();
+    handlers_s["mcflush"] = new McFlushHandler();
     handlers_s["incr"] = new IncrHandler();
     handlers_s["decr"] = new DecrHandler();
     handlers_s["admin"] = new AdminHandler();
@@ -1057,8 +1113,43 @@ parseCommandname(string& cmdname, int& argc, char**& argv)
     cmdname.clear();
 }
 
+static void
+wrapPillowfight(int argc, char **argv)
+{
+#ifdef _POSIX_VERSION
+    vector<char *> args;
+    string exePath(argv[0]);
+    size_t cbc_pos = exePath.find("cbc");
+
+    if (cbc_pos == string::npos) {
+        throw("Couldn't invoke pillowfight");
+    }
+
+    exePath.replace(cbc_pos, 3, "cbc-pillowfight");
+    args.push_back((char*)exePath.c_str());
+
+    // { "cbc", "pillowfight" }
+    argv += 2; argc -= 2;
+    for (int ii = 0; ii < argc; ii++) {
+        args.push_back(argv[ii]);
+    }
+    args.push_back((char*)NULL);
+    execvp(exePath.c_str(), &args[0]);
+    perror(exePath.c_str());
+    throw("Couldn't execute!");
+#else
+    throw ("Can't wrap around cbc-pillowfight on non-POSIX environments");
+#endif
+}
+
 int main(int argc, char **argv)
 {
+
+    // Wrap pillowfight immediately
+    if (argc >= 2 && strcmp(argv[1], "pillowfight") == 0) {
+        wrapPillowfight(argc, argv);
+    }
+
     setupHandlers();
     string cmdname;
     parseCommandname(cmdname, argc, argv);

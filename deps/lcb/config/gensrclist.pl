@@ -98,8 +98,14 @@ my %tmp = map { $_ => 1 } @PKGINCLUDE_HEADERS;
 
 # @PKGINCLUDE_HEADERS = grep { $_ !~ /configuration\.h/ } @PKGINCLUDE_HEADERS;
 
+@PKGINCLUDE_HEADERS = grep { $_ !~ /plugins/ } @PKGINCLUDE_HEADERS;
+
 print $ofp "pkginclude_HEADERS = ".fmt_filelist(@PKGINCLUDE_HEADERS)."\n";
 my @LCB_SOURCES = (find_srcfiles("src"), find_srcfiles("plugins/io/select"), find_srcfiles("contrib/genhash"));
+
+print $ofp "ioplugindir = \$(includedir)/libcouchbase/plugins/io\n";
+my @PLUGIN_HDRS = find_srcfiles("include/libcouchbase/plugins/io");
+print $ofp "ioplugin_HEADERS = " . fmt_filelist(@PLUGIN_HDRS) . "\n";
 
 # Filter out libraries we're gonna build later on
 @LCB_SOURCES = grep { $_ !~ m,src/ssl, && $_ !~ m,src/lcbht, } @LCB_SOURCES;

@@ -50,6 +50,7 @@ provider_string(clconfig_method_t type) {
     if (type == LCB_CLCONFIG_CCCP) { return "CCCP"; }
     if (type == LCB_CLCONFIG_FILE) { return "FILE"; }
     if (type == LCB_CLCONFIG_MCRAW) { return "MCRAW"; }
+    if (type == LCB_CLCONFIG_USER) { return "USER"; }
     return "";
 }
 
@@ -157,7 +158,12 @@ static int do_set_next(lcb_confmon *mon, clconfig_info *info, int notify_miss)
         lcbvb_free_diff(diff);
 
         if (chstatus == 0 || lcb_clconfig_compare(mon->config, info) >= 0) {
-            lcb_log(LOGARGS(mon, INFO), "Not applying configuration received via %s. No changes detected", provider_string(info->origin));
+            const lcbvb_CONFIG *ca, *cb;
+
+            ca = mon->config->vbc;
+            cb = info->vbc;
+
+            lcb_log(LOGARGS(mon, INFO), "Not applying configuration received via %s. No changes detected. A.rev=%d, B.rev=%d", provider_string(info->origin), ca->revid, cb->revid);
             if (notify_miss) {
                 invoke_listeners(mon, CLCONFIG_EVENT_GOT_ANY_CONFIG, info);
             }
@@ -215,8 +221,14 @@ void lcb_confmon_provider_failed(clconfig_provider *provider,
         mon->cur_provider = first_active(mon);
         lcb_confmon_stop(mon);
     } else {
+        uint32_t interval = 0;
+        if (mon->config) {
+            /* Not first */
+            interval = PROVIDER_SETTING(provider, grace_next_provider);
+        }
+        lcb_log(LOGARGS(mon, DEBUG), "Will try next provider in %uus", interval);
         mon->state |= CONFMON_S_ITERGRACE;
-        lcbio_timer_rearm(mon->as_start, mon->settings->grace_next_provider);
+        lcbio_timer_rearm(mon->as_start, interval);
     }
 }
 
@@ -418,4 +430,39 @@ lcb_confmon_set_provider_active(lcb_confmon *mon,
         provider->enabled = enabled;
     }
     lcb_confmon_prepare(mon);
+}
+
+void
+lcb_confmon_dump(lcb_confmon *mon, FILE *fp)
+{
+    unsigned ii;
+    fprintf(fp, "CONFMON=%p\n", (void*)mon);
+    fprintf(fp, "STATE= (0x%x)", mon->state);
+    if (mon->state & CONFMON_S_ACTIVE) {
+        fprintf(fp, "ACTIVE|");
+    }
+    if (mon->state == CONFMON_S_INACTIVE) {
+        fprintf(fp, "INACTIVE/IDLE");
+    }
+    if (mon->state & CONFMON_S_ITERGRACE) {
+        fprintf(fp, "ITERGRACE");
+    }
+    fprintf(fp, "\n");
+    fprintf(fp, "LAST ERROR: 0x%x\n", mon->last_error);
+
+
+    for (ii = 0; ii < LCB_CLCONFIG_MAX; ii++) {
+        clconfig_provider *cur = mon->all_providers[ii];
+        if (!cur) {
+            continue;
+        }
+
+        fprintf(fp, "** PROVIDER: 0x%x (%s) %p\n", cur->type, provider_string(cur->type), cur);
+        fprintf(fp, "** ENABLED: %s\n", cur->enabled ? "YES" : "NO");
+        fprintf(fp, "** CURRENT: %s\n", cur == mon->cur_provider ? "YES" : "NO");
+        if (cur->dump) {
+            cur->dump(cur, fp);
+        }
+        fprintf(fp, "\n");
+    }
 }

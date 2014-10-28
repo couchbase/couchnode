@@ -102,6 +102,10 @@
 #endif
 #endif
 
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
+
 
 #ifdef _WIN32
 #include <libcouchbase/plugins/io/wsaerr.h>

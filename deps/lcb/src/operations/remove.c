@@ -69,8 +69,8 @@ lcb_remove(lcb_t instance, const void *cookie, lcb_size_t num,
         memset(&dst, 0, sizeof(dst));
         dst.key.contig.bytes = src->v.v0.key;
         dst.key.contig.nbytes = src->v.v0.nkey;
-        dst.hashkey.contig.bytes = src->v.v0.hashkey;
-        dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
+        dst._hashkey.contig.bytes = src->v.v0.hashkey;
+        dst._hashkey.contig.nbytes = src->v.v0.nhashkey;
         dst.cas = src->v.v0.cas;
         err = lcb_remove3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {

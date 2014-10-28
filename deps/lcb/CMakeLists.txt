@@ -62,6 +62,7 @@ INCLUDE(cmake/Modules/GenerateConfigDotH.cmake)
 INCLUDE(cmake/Modules/CopyPDB.cmake)
 INCLUDE(cmake/Modules/DownloadLcbDep.cmake)
 INCLUDE(CheckIncludeFiles)
+INCLUDE(cmake/source_files.cmake)
 
 
 SET(CPACK_PACKAGE_VERSION_MAJOR "${LCB_VERSION_MAJOR}")
@@ -132,20 +133,8 @@ INCLUDE_DIRECTORIES(BEFORE ${SOURCE_ROOT}/include
 # These files are bundled in a static library.
 # They export no symbols of their own and may
 # be considered as 'static'
-ADD_LIBRARY(couchbase_utils STATIC
-            contrib/cJSON/cJSON.c
-            contrib/genhash/genhash.c
-            src/strcodecs/base64.c
-            src/strcodecs/url_encoding.c
-            src/gethrtime.c
-            src/hashtable.c
-            src/hashset.c
-            src/hostlist.c
-            src/list.c
-            src/logging.c
-            src/packetutils.c
-            src/ringbuffer.c
-            src/simplestring.c)
+
+ADD_LIBRARY(couchbase_utils OBJECT ${LCB_UTILS_SRC})
 
 MACRO(LCB_UTIL tgt)
     SET_TARGET_PROPERTIES(${tgt}
@@ -154,16 +143,12 @@ MACRO(LCB_UTIL tgt)
         POSITION_INDEPENDENT_CODE TRUE)
 ENDMACRO()
 
-ADD_LIBRARY(netbuf STATIC src/netbuf/netbuf.c)
-ADD_LIBRARY(mcreq STATIC src/mc/mcreq.c src/mc/compress.c src/mc/forward.c)
-ADD_LIBRARY(netbuf-malloc STATIC src/netbuf/netbuf.c)
-ADD_LIBRARY(rdb STATIC
-    src/rdb/rope.c src/rdb/bigalloc.c src/rdb/chunkalloc.c
-    src/rdb/libcalloc.c)
-ADD_LIBRARY(lcbio STATIC
-    src/lcbio/connect.c src/lcbio/ctx.c src/lcbio/ioutils.c src/lcbio/iotable.c
-    src/lcbio/protoctx.c src/lcbio/manager.c src/lcbio/ioutils.c src/lcbio/timer.c)
-ADD_LIBRARY(lcbht STATIC src/lcbht/lcbht.c contrib/http_parser/http_parser.c)
+ADD_LIBRARY(netbuf OBJECT ${LCB_NETBUF_SRC})
+ADD_LIBRARY(netbuf-malloc OBJECT ${LCB_NETBUF_SRC})
+ADD_LIBRARY(mcreq OBJECT ${LCB_MC_SRC})
+ADD_LIBRARY(rdb OBJECT ${LCB_RDB_SRC})
+ADD_LIBRARY(lcbio OBJECT ${LCB_IO_SRC})
+ADD_LIBRARY(lcbht OBJECT ${LCB_HT_SRC})
 
 SET_TARGET_PROPERTIES(netbuf-malloc PROPERTIES COMPILE_DEFINITIONS NETBUF_LIBC_PROXY=1)
 LCB_UTIL(netbuf-malloc)
@@ -189,49 +174,34 @@ ELSE()
     SET(_lcb_linkspec SHARED)
 ENDIF()
 
-SET(LCB_OPFILES
-    src/operations/counter.c src/operations/get.c src/operations/touch.c
-    src/operations/observe.c src/operations/durability.c src/operations/store.c
-    src/operations/stats.c src/operations/remove.c src/operations/pktfwd.c)
 
-ADD_LIBRARY(couchbase ${_lcb_linkspec}
-            ${LCB_OPFILES}
-            src/bootstrap.c
-            src/bucketconfig/bc_cccp.c
-            src/bucketconfig/bc_http.c
-            src/bucketconfig/bc_file.c
-            src/bucketconfig/bc_mcraw.c
-            src/bucketconfig/confmon.c
-            src/callbacks.c
-            src/cntl.c
-            src/connspec.c
-            src/handler.c
-            src/getconfig.c
-            src/http/http.c
-            src/http/http_io.c
-            src/instance.c
-            src/mcserver/negotiate.c
-            src/mcserver/mcserver.c
-            src/newconfig.c
-            src/nodeinfo.c
-            src/iofactory.c
-            src/retryq.c
-            src/retrychk.c
-            src/settings.c
-            src/synchandler.c
-            src/timer.c
-            src/timings.c
-            ${CMAKE_BINARY_DIR}/dllversion.rc
-            src/utilities.c
-            src/wait.c)
+SET(LCB_CORE_OBJS
+    $<TARGET_OBJECTS:couchbase_select>
+    $<TARGET_OBJECTS:couchbase_utils>
+    $<TARGET_OBJECTS:vbucket>
+    $<TARGET_OBJECTS:mcreq>
+    $<TARGET_OBJECTS:netbuf>
+    $<TARGET_OBJECTS:cbsasl>
+    $<TARGET_OBJECTS:lcbio>
+    $<TARGET_OBJECTS:rdb>
+    $<TARGET_OBJECTS:lcbht>
+    ${lcb_ssl_objs})
+
+ADD_LIBRARY(couchbaseS STATIC ${LCB_CORE_SRC} ${LCB_CORE_OBJS})
+ADD_LIBRARY(couchbase ${_lcb_linkspec} ${LCB_CORE_OBJS} ${LCB_CORE_SRC}
+    ${CMAKE_BINARY_DIR}/dllversion.rc)
 
 SET_TARGET_PROPERTIES(couchbase
     PROPERTIES
         COMPILE_FLAGS "${LCB_CORE_CFLAGS}"
         PREFIX "lib"
         IMPORT_PREFIX "lib"
-        VERSION "2"
-        SOVERSION "2.0.16")
+        VERSION "2.0.19"
+        SOVERSION "2")
+
+SET_TARGET_PROPERTIES(couchbaseS
+    PROPERTIES
+       COMPILE_FLAGS "${LCB_CORE_CFLAGS}")
 
 IF(NOT LCB_NO_SNAPPY)
     IF(LCB_STATIC_SNAPPY)
@@ -255,10 +225,11 @@ ENDIF()
 
 SET_TARGET_PROPERTIES(couchbase PROPERTIES PREFIX "lib")
 SET_TARGET_PROPERTIES(couchbase PROPERTIES IMPORT_PREFIX "lib")
-TARGET_LINK_LIBRARIES(couchbase
-    couchbase_select couchbase_utils vbucket mcreq netbuf cbsasl lcbio rdb lcbht
+SET(LCB_LINK_DEPS
     ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_SNAPPY_LINK})
 
+TARGET_LINK_LIBRARIES(couchbase ${LCB_LINK_DEPS})
+TARGET_LINK_LIBRARIES(couchbaseS ${LCB_LINK_DEPS})
 
 IF(NOT LCB_NO_TESTS)
     ENABLE_TESTING()
@@ -269,8 +240,11 @@ IF(NOT LCB_NO_TOOLS)
     ADD_SUBDIRECTORY(tools tools)
 ENDIF(NOT LCB_NO_TOOLS)
 
-IF(NOT LCB_NO_PLUGINS AND NOT WIN32)
+IF(NOT LCB_NO_PLUGINS)
     ADD_SUBDIRECTORY(plugins/io/libuv)
+ENDIF()
+
+IF(NOT LCB_NO_PLUGINS AND NOT WIN32)
     ADD_SUBDIRECTORY(plugins/io/libevent)
     ADD_SUBDIRECTORY(plugins/io/libev)
     IF(NOT (HAVE_LIBEV OR HAVE_LIBEVENT))
@@ -293,8 +267,11 @@ INSTALL(TARGETS couchbase
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
 
-FILE(GLOB LCB_PKGHDRS include/libcouchbase/*.h)
-INSTALL(FILES ${LCB_PKGHDRS} ${LCB_GENSRCDIR}/libcouchbase/configuration.h
-    DESTINATION include/libcouchbase)
+INSTALL(DIRECTORY include/libcouchbase ${LCB_GENSRCDIR}/libcouchbase
+    DESTINATION include
+    FILES_MATCHING PATTERN *.h PATTERN *.c)
 
 INSTALL_PDBS(couchbase)
+
+ADD_CUSTOM_TARGET(uninstall
+    COMMAND xargs rm -vf < ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)

@@ -32,6 +32,7 @@ typedef struct lcb_http_request_st *lcb_http_request_t;
 #include <stddef.h>
 #include <time.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <libcouchbase/sysdefs.h>
 #include <libcouchbase/assert.h>
 #include <libcouchbase/visibility.h>
@@ -39,10 +40,9 @@ typedef struct lcb_http_request_st *lcb_http_request_t;
 #include <libcouchbase/iops.h>
 #include <libcouchbase/http.h>
 #include <libcouchbase/configuration.h>
+#include <libcouchbase/_cxxwrap.h>
 
 #ifdef __cplusplus
-#include <cstdlib>
-#include <cstring>
 extern "C"{
 #endif
 
@@ -64,64 +64,18 @@ typedef lcb_U32 lcb_USECS;
 
 /**
  * @ingroup LCB_PUBAPI
- * @defgroup LCB_LCBT Creation and destruction
- * @addtogroup LCB_LCBT
- * @{
- */
-
-/**@private*/
-typedef enum {
-    LCB_CONFIG_TRANSPORT_LIST_END = 0,
-    LCB_CONFIG_TRANSPORT_HTTP = 1,
-    LCB_CONFIG_TRANSPORT_CCCP,
-    LCB_CONFIG_TRANSPORT_MAX
-} lcb_config_transport_t;
-
-/**
- * @brief Handle types
- * @see lcb_create_st3::type
- */
-typedef enum {
-    LCB_TYPE_BUCKET = 0x00, /**< Handle for data access (default) */
-    LCB_TYPE_CLUSTER = 0x01 /**< Handle for administrative access */
-} lcb_type_t;
-
-#ifndef __LCB_DOXYGEN__
-
-/**@private*/
-#define LCB_CREATE_V0_FIELDS \
-    const char *host; \
-    const char *user; \
-    const char *passwd; \
-    const char *bucket; \
-    struct lcb_io_opt_st *io;
-
-/**@private*/
-#define LCB_CREATE_V1_FIELDS \
-    LCB_CREATE_V0_FIELDS \
-    lcb_type_t type;
-
-/**@private*/
-#define LCB_CREATE_V2_FIELDS \
-    LCB_CREATE_V1_FIELDS \
-    const char *mchosts; \
-    const lcb_config_transport_t* transports;
-
-/**@private*/
-struct lcb_create_st0 { LCB_CREATE_V0_FIELDS };
-/**@private*/
-struct lcb_create_st1 { LCB_CREATE_V1_FIELDS };
-/**@private*/
-struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
-
-#endif
-
-/**
- * @brief Structure for lcb_create().
+ * @defgroup lcb_initialization Basic Library Routines
  *
- * This structure is used to initialize the library instance (i.e. the lcb_t)
- * with appropriate settings so that it may connect to the cluster and perform
- * operations.
+ * @details
+ *
+ * To communicate with a Couchbase cluster, a new library handle instance is
+ * created in the form of an lcb_t. To create such an object, the lcb_create()
+ * function is called, passing it a structure of type lcb_create_st. The structure
+ * acts as a container for a union of other structures which are extended
+ * as more features are added. This container is forwards and backwards
+ * compatible, meaning that if the structure is extended, you code and application
+ * will still function if using an older version of the structure. The current
+ * sub-field of the lcb_create_st structure is the `v3` field.
  *
  * Connecting to the cluster involes the client knowing the necessary
  * information needed to actually locate its services and connect to it.
@@ -195,7 +149,8 @@ struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
  * Options can be specified as the _query_ part of the connection string,
  * for example:
  *
- * `couchbase://cbnode.net/beer?operation_timeout=10000000,ssl=no_verify`.
+ * `couchbase://cbnode.net/beer?operation_timeout=10000000`.
+ *
  * Options may either be appropriate _key_ parameters for lcb_cntl_string()
  * or one of the following:
  *
@@ -204,14 +159,9 @@ struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
  *   over the memcached port (For clusters 2.5 and above), or `all` to try with
  *   _cccp_ and revert to _http_
  *
- * * `ssl` - Specify SSL behavior. Possible values are `on` to enable SSL,
- *   `no_verify` which enables SSL but does not validate the certificate, or
- *   `off` which does not use SSL (and is the default). Note that SSL is also
- *   implicitly enabled if the `couchbases://` scheme is used. It is an error
- *   to specify `ssl=off` if such a scheme is used.
- *
- * * `capath` - Specify the path to the CA certificate which has been used
- *   to sign the cluster's certificate. Only applicable if `ssl=on`.
+ * * `certpath` - Specify the path (on the local filesystem) to the server's
+ *   SSL certificate. Only applicable if SSL is being used (i.e. the scheme is
+ *   `couchbases`)
  *
  * ### Bucket Identification and Credentials
  *
@@ -263,6 +213,61 @@ struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
  * To force only "old-style" bootstrap, use `bootstrap_on=http`. To force the
  * default behavior, use `bootstrap_on=all`
  *
+ *
+ * @addtogroup lcb_initialization
+ * @{
+ */
+
+/**@private*/
+typedef enum {
+    LCB_CONFIG_TRANSPORT_LIST_END = 0,
+    LCB_CONFIG_TRANSPORT_HTTP = 1,
+    LCB_CONFIG_TRANSPORT_CCCP,
+    LCB_CONFIG_TRANSPORT_MAX
+} lcb_config_transport_t;
+
+/**
+ * @brief Handle types
+ * @see lcb_create_st3::type
+ */
+typedef enum {
+    LCB_TYPE_BUCKET = 0x00, /**< Handle for data access (default) */
+    LCB_TYPE_CLUSTER = 0x01 /**< Handle for administrative access */
+} lcb_type_t;
+
+#ifndef __LCB_DOXYGEN__
+
+/**@private*/
+#define LCB_CREATE_V0_FIELDS \
+    const char *host; \
+    const char *user; \
+    const char *passwd; \
+    const char *bucket; \
+    struct lcb_io_opt_st *io;
+
+/**@private*/
+#define LCB_CREATE_V1_FIELDS \
+    LCB_CREATE_V0_FIELDS \
+    lcb_type_t type;
+
+/**@private*/
+#define LCB_CREATE_V2_FIELDS \
+    LCB_CREATE_V1_FIELDS \
+    const char *mchosts; \
+    const lcb_config_transport_t* transports;
+
+/**@private*/
+struct lcb_create_st0 { LCB_CREATE_V0_FIELDS };
+/**@private*/
+struct lcb_create_st1 { LCB_CREATE_V1_FIELDS };
+/**@private*/
+struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
+
+#endif
+
+/**
+ * @brief Structure for lcb_create().
+ * @see lcb_initialization
  */
 struct lcb_create_st3 {
     const char *connstr; /**< Connection string */
@@ -292,12 +297,7 @@ struct lcb_create_st {
     (cropt)->v.v3.iops = iops; \
 } while (0);
 
-
-#ifdef __cplusplus
-    inline lcb_create_st(
-            const char *host=NULL, const char *user=NULL, const char *pass=NULL,
-            const char *bucket=NULL, struct lcb_io_opt_st *io=NULL, lcb_type_t type=LCB_TYPE_BUCKET);
-#endif
+    LCB_DEPR_CTORS_CRST
 };
 
 /**
@@ -348,6 +348,20 @@ lcb_error_t lcb_create(lcb_t *instance,
                        const struct lcb_create_st *options);
 
 /**
+ * @brief Schedule the initial connection
+ * This function will schedule the initial connection for the handle. This
+ * function _must_ be called before any operations can be performed.
+ *
+ * lcb_set_bootstrap_callback() or lcb_get_bootstrap_status() can be used to
+ * determine if the scheduled connection completed successfully.
+ *
+ * lcb_wait() should be called after this function.
+ * @committed
+ */
+LIBCOUCHBASE_API
+lcb_error_t lcb_connect(lcb_t instance);
+
+/**
  * Associate a cookie with an instance of lcb. The _cookie_ is a user defined
  * pointer which will remain attached to the specified `lcb_t` for its duration.
  * This is the way to associate user data with the `lcb_t`.
@@ -360,10 +374,36 @@ lcb_error_t lcb_create(lcb_t *instance,
  * thus you must ensure to manually free resources to the pointer (if it was
  * dynamically allocated) when it is no longer required.
  * @committed
+ *
+ * @code{.c}
+ * typedef struct {
+ *   const char *status;
+ *   // ....
+ * } instance_info;
+ *
+ * static void bootstrap_callback(lcb_t instance, lcb_error_t err) {
+ *   instance_info *info = (instance_info *)lcb_get_cookie(instance);
+ *   if (err == LCB_SUCCESS) {
+ *     info->status = "Connected";
+ *   } else {
+ *     info->status = "Error";
+ *   }
+ * }
+ *
+ * static void do_create(void) {
+ *   instance_info *info = calloc(1, sizeof(*info));
+ *   // info->status is currently NULL
+ *   // .. create the instance here
+ *   lcb_set_cookie(instance, info);
+ *   lcb_set_bootstrap_callback(instance, bootstrap_callback);
+ *   lcb_connect(instance);
+ *   lcb_wait(instance);
+ *   printf("Status of instance is %s\n", info->status);
+ * }
+ * @endcode
  */
 LIBCOUCHBASE_API
 void lcb_set_cookie(lcb_t instance, const void *cookie);
-
 
 /**
  * Retrieve the cookie associated with this instance
@@ -434,19 +474,6 @@ void lcb_wait3(lcb_t instance, lcb_WAITFLAGS flags);
 LIBCOUCHBASE_API
 void lcb_breakout(lcb_t instance);
 
-/**
- * @brief Schedule the initial connection
- * This function will schedule the initial connection for the handle. This
- * function _must_ be called before any operations can be performed.
- * 
- * lcb_set_bootstrap_callback() or lcb_get_bootstrap_status() can be used to
- * determine if the scheduled connection completed successfully.
- *
- * lcb_wait() should be called after this function.
- * @committed
- */
-LIBCOUCHBASE_API
-lcb_error_t lcb_connect(lcb_t instance);
 
 /**
  * Bootstrap callback. Invoked once the instance is ready to perform operations
@@ -715,6 +742,25 @@ lcb_error_t lcb_destroy_io_ops(lcb_io_opt_t op);
 /**@}*/
 
 
+
+/**@private
+ * Note that hashkey/groupid is not a supported feature of Couchbase Server
+ * and this client.  It should be considered volatile and experimental.
+ * Using this could lead to an unbalanced cluster, inability to interoperate
+ * with the data from other languages, not being able to use the
+ * Couchbase Server UI to look up documents and other possible future
+ * upgrade/migration concerns.
+ */
+#define LCB__HKFIELDS \
+    /**
+     @private
+     @volatile
+     Do not use. This field exists to support older code. Using a dedicated
+     hashkey will cause problems with your data in various systems. */ \
+     const void *hashkey; \
+     \
+     lcb_SIZE nhashkey; /**<@private*/
+
 /**
  * @ingroup LCB_PUBAPI
  * @defgroup LCB_KVAPI Key-Value API
@@ -792,17 +838,20 @@ typedef struct {
 
     /**
      * If this parameter is set then the server will in addition to retrieving
-     * the item also lock the item, making it so that other operations to
-     * access the same item will fail with an error (either @ref LCB_KEY_EEXISTS
-     * or @ref LCB_ETMPFAIL). The key will only be accessible again once:
+     * the item also lock the item, making it so that subsequent attempts to
+     * lock and/or modify the same item will fail with an error
+     * (either @ref LCB_KEY_EEXISTS or @ref LCB_ETMPFAIL).
      *
-     * 1. The lock timeout expires
-     * 2. The item is unlocked with the `cas` returned in the response
-     * 3. The item is modified with the `cas` returned in the response
+     * The lock will be released when one of the following happens:
+     *
+     * 1. The item is explicitly unlocked (see lcb_unlock())
+     * 2. The lock expires (See the #exptime parameter)
+     * 3. The item is modified using lcb_store(), and being provided with the
+     *    correct _CAS_.
+     *
      */
     int lock;
-    const void *hashkey;
-    lcb_SIZE nhashkey;
+    LCB__HKFIELDS
 } lcb_GETCMDv0;
 
 /**
@@ -811,13 +860,8 @@ typedef struct {
  */
 typedef struct lcb_get_cmd_st {
     int version;
-    union {
-        lcb_GETCMDv0 v0;
-    } v;
-    #ifdef __cplusplus
-    inline lcb_get_cmd_st(const void *, lcb_SIZE nkey = 0, lcb_time_t exptime = 0, int lock = 0);
-    inline lcb_get_cmd_st();
-    #endif
+    union { lcb_GETCMDv0 v0; } v;
+    LCB_DEPR_CTORS_GET
 } lcb_get_cmd_t;
 
 /** Value is JSON */
@@ -1009,9 +1053,7 @@ lcb_error_t lcb_get(lcb_t instance,
  */
 
 
-typedef struct {
-    const void *key; lcb_SIZE nkey; const void *hashkey; lcb_SIZE nhashkey;
-} lcb_GETREPLICACMDv0;
+typedef struct { const void *key; lcb_SIZE nkey; LCB__HKFIELDS } lcb_GETREPLICACMDv0;
 
 /**@brief Select get-replica mode
  * @see lcb_rget3_cmd_t */
@@ -1034,8 +1076,7 @@ typedef enum {
 typedef struct {
     const void *key;
     lcb_SIZE nkey;
-    const void *hashkey;
-    lcb_SIZE nhashkey;
+    LCB__HKFIELDS
     lcb_replica_t strategy; /**< Strategy to use */
     /**If #strategy is LCB_REPLICA_SELECT, specific the replica index to use */
     int index;
@@ -1051,11 +1092,7 @@ typedef struct lcb_get_replica_cmd_st {
         lcb_GETREPLICACMDv0 v0;
         lcb_GETREPLICACMDv1 v1;
     } v;
-
-    #ifdef __cplusplus
-    inline lcb_get_replica_cmd_st();
-    inline lcb_get_replica_cmd_st(const void *key, lcb_SIZE nkey, lcb_replica_t strategy = LCB_REPLICA_FIRST, int index = 0);
-    #endif
+    LCB_DEPR_CTORS_RGET
 } lcb_get_replica_cmd_t;
 
 /**
@@ -1110,8 +1147,7 @@ typedef struct {
     const void *key;
     lcb_SIZE nkey;
     lcb_cas_t cas; /**< You _must_ populate this with the CAS */
-    const void *hashkey;
-    lcb_SIZE nhashkey;
+    LCB__HKFIELDS
 } lcb_UNLOCKCMDv0;
 
 /**@brief lcb_unlock() Wrapper structure
@@ -1121,11 +1157,7 @@ typedef struct lcb_unlock_cmd_st {
     union {
         lcb_UNLOCKCMDv0 v0;
     } v;
-
-    #ifdef __cplusplus
-    inline lcb_unlock_cmd_st();
-    inline lcb_unlock_cmd_st(const void *key, lcb_SIZE nkey, lcb_cas_t cas);
-    #endif
+    LCB_DEPR_CTORS_UNL
 } lcb_unlock_cmd_t;
 
 /** @brief lcb_unlock() response structure */
@@ -1247,8 +1279,7 @@ typedef struct {
     lcb_U8 datatype; /**< See lcb_VALUEFLAGS */
     lcb_time_t exptime; /**< Expiration for the item. `0` means never expire */
     lcb_storage_t operation; /**< **Mandatory**. Mutation type */
-    const void *hashkey;
-    lcb_SIZE nhashkey;
+    LCB__HKFIELDS
 } lcb_STORECMDv0;
 
 /** @brief Wrapper structure for lcb_STORECMDv0 */
@@ -1257,10 +1288,7 @@ typedef struct lcb_store_cmd_st {
     union {
         lcb_STORECMDv0 v0;
     } v;
-    #ifdef __cplusplus
-    inline lcb_store_cmd_st();
-    inline lcb_store_cmd_st(lcb_storage_t operation, const void *, lcb_SIZE, const void *bytes = NULL, lcb_SIZE nbytes = 0, lcb_U32 flags = 0, lcb_time_t exptime = 0, lcb_cas_t cas = 0, lcb_datatype_t datatype = 0);
-    #endif
+    LCB_DEPR_CTORS_STORE
 } lcb_store_cmd_t;
 
 typedef struct {
@@ -1385,8 +1413,7 @@ typedef struct {
      * iff the item does not yet exist.
      */
     lcb_U64 initial;
-    const void *hashkey;
-    lcb_SIZE nhashkey;
+    LCB__HKFIELDS
 } lcb_ARITHCMDv0;
 
 typedef struct lcb_arithmetic_cmd_st {
@@ -1395,12 +1422,7 @@ typedef struct lcb_arithmetic_cmd_st {
         lcb_ARITHCMDv0 v0;
     } v;
 
-    #ifdef __cplusplus
-    inline lcb_arithmetic_cmd_st();
-    inline lcb_arithmetic_cmd_st(const void *key, lcb_SIZE nkey, lcb_S64 delta,
-                                 int create = 0, lcb_U64 initial = 0,
-                                 lcb_time_t exptime = 0);
-    #endif
+    LCB_DEPR_CTORS_ARITH
 } lcb_arithmetic_cmd_t;
 
 typedef struct {
@@ -1501,8 +1523,7 @@ typedef enum {
 #define LCB_OBSERVE_FIELDS_COMMON \
     const void *key; \
     lcb_SIZE nkey; \
-    const void *hashkey; \
-    lcb_SIZE nhashkey;
+    LCB__HKFIELDS /**<@private*/
 
 typedef struct {
     LCB_OBSERVE_FIELDS_COMMON
@@ -1523,10 +1544,7 @@ typedef struct lcb_observe_cmd_st {
         lcb_OBSERVECMDv1 v1;
     } v;
 
-    #ifdef __cplusplus
-    inline lcb_observe_cmd_st();
-    inline lcb_observe_cmd_st(const void*,lcb_SIZE);
-    #endif
+    LCB_DEPR_CTORS_OBS
 } lcb_observe_cmd_t;
 
 /**
@@ -1628,8 +1646,7 @@ typedef struct {
     const void *key;
     lcb_SIZE nkey;
     lcb_cas_t cas;
-    const void *hashkey;
-    lcb_SIZE nhashkey;
+    LCB__HKFIELDS /**<@private*/
 } lcb_REMOVECMDv0;
 
 typedef struct lcb_remove_cmd_st {
@@ -1637,11 +1654,7 @@ typedef struct lcb_remove_cmd_st {
     union {
         lcb_REMOVECMDv0 v0;
     } v;
-
-    #ifdef __cplusplus
-    inline lcb_remove_cmd_st();
-    inline lcb_remove_cmd_st(const void*,lcb_SIZE nkey=0,lcb_cas_t cas=0);
-    #endif
+    LCB_DEPR_CTORS_RM
 } lcb_remove_cmd_t;
 
 
@@ -1849,13 +1862,7 @@ lcb_error_t lcb_touch(lcb_t instance,
 typedef struct {
     const void *key;
     size_t nkey;
-
-    /**
-     * Hashkey and hashkey size to use for customized vbucket
-     * mapping
-     */
-    const void *hashkey;
-    size_t nhashkey;
+    LCB__HKFIELDS /**<@private*/
 
     /**
      * CAS to be checked against. If the key exists on the server
@@ -2098,12 +2105,8 @@ typedef struct {
 
 typedef struct lcb_server_stats_cmd_st {
     int version;
-    union {
-        lcb_STATSCMDv0 v0;
-    } v;
-    #ifdef __cplusplus
-    inline lcb_server_stats_cmd_st(const char *name = NULL, lcb_SIZE nname = 0);
-    #endif
+    union { lcb_STATSCMDv0 v0; } v;
+    LCB_DEPR_CTORS_STATS
 } lcb_server_stats_cmd_t;
 
 /**
@@ -2212,9 +2215,7 @@ lcb_error_t lcb_server_stats(lcb_t instance,
 typedef struct lcb_server_version_cmd_st {
     int version;
     union { struct { const void *notused; } v0; } v;
-    #ifdef __cplusplus
-    lcb_server_version_cmd_st() { std::memset(this, 0, sizeof(*this)); }
-    #endif
+    LCB_DEPR_CTORS_VERSIONS
 } lcb_server_version_cmd_t;
 
 /**
@@ -2316,10 +2317,7 @@ typedef struct lcb_verbosity_cmd_st {
     union {
         lcb_VERBOSITYCMDv0 v0;
     } v;
-
-    #ifdef __cplusplus
-    inline lcb_verbosity_cmd_st(lcb_verbosity_level_t level = LCB_VERBOSITY_WARNING, const char *server = NULL);
-    #endif
+    LCB_DEPR_CTORS_VERBOSITY
 } lcb_verbosity_cmd_t;
 
 typedef struct lcb_verbosity_resp_st {
@@ -2382,9 +2380,7 @@ lcb_verbosity_callback lcb_set_verbosity_callback(lcb_t,
 typedef struct lcb_flush_cmd_st {
     int version;
     union { struct { int unused; } v0; } v;
-    #ifdef __cplusplus
-    lcb_flush_cmd_st() { version = 0; }
-    #endif
+    LCB_DEPR_CTORS_FLUSH
 } lcb_flush_cmd_t;
 
 typedef struct lcb_flush_resp_st {
@@ -2539,12 +2535,7 @@ typedef struct lcb_http_cmd_st {
         lcb_HTTPCMDv0 v0;
         lcb_HTTPCMDv1 v1;
     } v;
-    #ifdef __cplusplus
-    inline lcb_http_cmd_st();
-    inline lcb_http_cmd_st(
-            const char *path, lcb_SIZE npath, const void *body, lcb_SIZE nbody,
-            lcb_http_method_t method, int chunked, const char *content_type);
-    #endif
+    LCB_DEPR_CTORS_HTTP
 } lcb_http_cmd_t;
 
 /**
@@ -2749,13 +2740,25 @@ typedef enum {
     LCB_NODE_VIEWS = 0x04,
     /** Only return a node which is connected, or a node which is known to be up */
     LCB_NODE_CONNECTED = 0x08,
-    /** Never return NULL. Return the string "invalid_host:1" instead */
+
+    /** Specifying this flag adds additional semantics which instruct the library
+     * to search additional resources to return a host, and finally,
+     * if no host can be found, return the string
+     * constant @ref LCB_GETNODE_UNAVAILABLE. */
     LCB_NODE_NEVERNULL = 0x10,
+
     /** Equivalent to `LCB_NODE_HTCONFIG|LCB_NODE_CONNECTED` */
     LCB_NODE_HTCONFIG_CONNECTED = 0x09,
-    /** Equivalent to `LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL` */
+
+    /**Equivalent to `LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL`.
+     * When this is passed, some additional attempts may be made by the library
+     * to return any kind of host, including searching the initial list of hosts
+     * passed to the lcb_create() function. */
     LCB_NODE_HTCONFIG_ANY = 0x11
 } lcb_GETNODETYPE;
+
+/** String constant returned by lcb_get_node() when the @ref LCB_NODE_NEVERNULL
+ * flag is specified, and no node can be returned */
 #define LCB_GETNODE_UNAVAILABLE "invalid_host:0"
 
 /**
@@ -2929,14 +2932,10 @@ lcb_error_t lcb_cntl(lcb_t instance, int mode, int cmd, void *arg);
  * * `error_thresh_delay`. See @ref LCB_CNTL_CONFDELAY_THRESH
  * * `config_total_timeout`. See @ref LCB_CNTL_CONFIGURATION_TIMEOUT
  * * `config_node_timeout`. See @ref LCB_CNTL_CONFIG_NODE_TIMEOUT
- * * `ssl`. Can be set to `off`, `on`, or `no_verify`. The latter will enbable
- *   SSL encryption but ignore any failure to verify the certificate.
- *   See @ref LCB_CNTL_SSL_MODE
  * * `compression`. Can be set to `off`, `on`, `force, or `inflate_only`.
  *   The latter
  *   will only enable inbound compression but will not compress outgoing
  *   data. See @ref LCB_CNTL_COMPRESSION_OPTS
- * * `ca_path`. See @ref LCB_CNTL_SSL_CACERT
  *
  * @committed
  *
@@ -3246,13 +3245,40 @@ void lcb_run_loop(lcb_t instance);
 LCB_INTERNAL_API
 void lcb_stop_loop(lcb_t instance);
 
-#ifdef __cplusplus
-}
-#include <libcouchbase/cxxwrap.h>
-#endif
+typedef enum {
+    /** Dump the raw vbucket configuration */
+    LCB_DUMP_VBCONFIG =  0x01,
+    /** Dump information about each packet */
+    LCB_DUMP_PKTINFO = 0x02,
+    /** Dump memory usage/reservation information about buffers */
+    LCB_DUMP_BUFINFO = 0x04,
+    /** Dump everything */
+    LCB_DUMP_ALL = 0xff
+} lcb_DUMPFLAGS;
+
+/**
+ * @volatile
+ * @brief Write a textual dump to a file.
+ *
+ * This function will inspect the various internal structures of the current
+ * client handle (indicated by `instance`) and write the state information
+ * to the file indicated by `fp`.
+ * @param instance the handle to dump
+ * @param fp the file to which the dump should be written
+ * @param flags a set of modifiers (of @ref lcb_DUMPFLAGS) indicating what
+ * information to dump. Note that a standard set of information is always
+ * dumped, but by default more verbose information is hidden, and may be
+ * enabled with these flags.
+ */
+LIBCOUCHBASE_API
+void
+lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags);
 
 /* Post-include some other headers */
-#include <libcouchbase/cntl.h>
-#include <libcouchbase/api3.h>
-#include <libcouchbase/deprecated.h>
+#ifdef __cplusplus
+}
 #endif /* __cplusplus */
+
+#include <libcouchbase/cntl.h>
+#include <libcouchbase/deprecated.h>
+#endif /* LIBCOUCHBASE_COUCHBASE_H */

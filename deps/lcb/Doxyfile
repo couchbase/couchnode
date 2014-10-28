@@ -32,7 +32,7 @@ PROJECT_NAME           = "Couchbase C Client"
 # This could be handy for archiving the generated documentation or
 # if some version control system is used.
 
-PROJECT_NUMBER         = 2.4.0
+PROJECT_NUMBER         = 2.4.3
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer
@@ -684,7 +684,7 @@ INPUT += plugins/io/libev/libev_io_opts.h
 INPUT += plugins/io/libuv/libuv_io_opts.h
 INPUT += doc/apiattr.h doc/mainpage.h doc/intro.h doc/environment.h
 INPUT += RELEASE_NOTES.markdown
-INPUT += doc/cbc.markdown doc/cbc-pillowfight.markdown
+INPUT += doc/cbc.markdown doc/cbc-pillowfight.markdown doc/cbcrc.markdown
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is
@@ -1539,7 +1539,21 @@ PREDEFINED             = LCB_CREATE_V2_FIELDS= \
                          LCB_CMDRESP_LABEL \
                          LCB_DEPRECATED \
                          LIBCOUCHBASE_API \
-                         LCB_DEPR_API=/**@deprecated*/
+                         LCB_DEPR_API=/**@deprecated*/ \
+                         LCB__HKFIELDS \
+                         LCB_DEPR_CTORS_GET \
+                         LCB_DEPR_CTORS_RGET \
+                         LCB_DEPR_CTORS_UNL \
+                         LCB_DEPR_CTORS_STORE \
+                         LCB_DEPR_CTORS_ARITH \
+                         LCB_DEPR_CTORS_OBS \
+                         LCB_DEPR_CTORS_RM \
+                         LCB_DEPR_CTORS_STATS \
+                         LCB_DEPR_CTORS_VERBOSITY \
+                         LCB_DEPR_CTORS_VERSIONS \
+                         LCB_DEPR_CTORS_FLUSH \
+                         LCB_DEPR_CTORS_HTTP \
+                         LCB_DEPR_CTORS_CRST
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then
 # this tag can be used to specify a list of macro names that should be expanded.

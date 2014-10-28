@@ -22,6 +22,8 @@ dist-rpm: dist
 	(cd $(RPM_WORKSPACE) && \
 		rpmbuild ${RPM_FLAGS} -ba \
 		--define "_topdir $(RPM_DIR)" \
+		--define "_source_filedigest_algorithm md5" \
+		--define "_binary_filedigest_algorithm md5" \
 		$(PACKAGE).spec \
 	)
 

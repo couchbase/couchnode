@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "June 2014" "" ""
+.TH "CBC" "1" "August 2014" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -72,7 +72,10 @@
 .br
 .
 .SH "DESCRIPTION"
-\fBcbc\fR is a command line utility with your Couchbase Server cluster from the command line\. \fBcbc\fR should be invoked with the command name first and then a series of command options appropriate for the specific command\. \fBcbc help\fR will always show the full list of available commands\.
+\fBcbc\fR is a command line utility which can communicate with a Couchbase cluster\.
+.
+.P
+\fBcbc\fR should be invoked with the command name first and then a series of command options appropriate for the specific command\. \fBcbc help\fR will always show the full list of available commands\.
 .
 .P
  \fI\fR
@@ -123,8 +126,8 @@ Enables the client to make use of a file based configuration cache rather than c
 Use SSL for connecting to the cluster\. The options are \fBON\fR to enable full SSL support, \fBOFF\fR to disable SSL support, and \fBNO_VERIFY\fR to use SSL encryption but not attempt to verify the authenticity of the server\'s certificate\.
 .
 .TP
-\fB\-\-capath\fR=\fICERTIFICATE\fR
-The path to the CA certificate with which the server\'s certificate was signed\. May be necessary if the certificate is not recognized by the default OpenSSL installation\.
+\fB\-\-certpath\fR=\fICERTIFICATE\fR
+The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system\.
 .
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
@@ -284,6 +287,9 @@ Display information about the underlying version of \fIlibcouchbase\fR to which 
 .SS "verbosity"
 Set the memcached logging versbosity on the cluster\. This affects how the memcached processes write their logs\. This command accepts a single positional argument which is a string describing the verbosity level to be set\. The options are \fBdetail\fR, \fBdebug\fR \fBinfo\fR, and \fBwarning\fR\.
 .
+.SS "mcflush"
+Flush a \fImemcached\fR bucket\. This command takes no arguments, and will fail if the bucket specified is not a memcached bucket\. You may also use \fIbucket\-flush\fR to flush any bucket (including a couchbase bucket)\. The \fBmcflush\fR command may be quicker for memcached buckets, though\.
+.
 .SS "view"
 Execute an HTTP request against the server\'s view (CAPI) interface\.
 .
@@ -294,17 +300,7 @@ The request may be one to create a design document, view a design document, or q
 To create a design document, the definition of the document (in JSON) should be piped to the command on standard input\.
 .
 .P
-This command accepts one positional argument which is the \fIpath\fR (relative to the bucket) to execute\. Thus to query the \fBbrewery_beers\fR view in the \fBbeer\fR design document within the \fBbeer\-sample\fR bucket one would do:
-.
-.IP "" 4
-.
-.nf
-
-cbc view \-U couchbase://localhost/beer\-sample _design/beer/_view/brewery_beers
-.
-.fi
-.
-.IP "" 0
+This command accepts one positional argument which is the \fIpath\fR (relative to the bucket) to execute\. Thus to query the \fBbrewery_beers\fR view in the \fBbeer\fR design document within the \fBbeer\-sample\fR bucket one would do: cbc view \-U couchbase://localhost/beer\-sample \fIdesign/beer/\fRview/brewery_beers
 .
 .P
 In addition to the \fIOPTIONS\fR specified above, the following options are recognized:

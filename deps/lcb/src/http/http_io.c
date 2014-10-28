@@ -18,10 +18,12 @@
 #include "logging.h"
 #include "settings.h"
 #include "http.h"
+#include "ctx-log-inl.h"
 #include <lcbio/ssl.h>
 
-#define LOGARGS(req, lvl) \
-    req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
+#define LOGFMT "<%s:%s>"
+#define LOGID(req) get_ctx_host((req)->ioctx), get_ctx_port((req)->ioctx)
+#define LOGARGS(req, lvl) req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
 
 #define IS_IN_PROGRESS(req) (req)->status == LCB_HTREQ_S_ONGOING
 
@@ -157,6 +159,7 @@ io_read(lcbio_CTX *ctx, unsigned nr)
             }
         } else {
             err = LCB_PROTOCOL_ERROR;
+            lcb_log(LOGARGS(req, ERR), LOGFMT "Got parser error while parsing HTTP stream", LOGID(req));
         }
         lcb_http_request_finish(instance, req, err);
     } else if (rv == 1) {
@@ -174,6 +177,8 @@ static void
 io_error(lcbio_CTX *ctx, lcb_error_t err)
 {
     lcb_http_request_t req = lcbio_ctx_data(ctx);
+
+    lcb_log(LOGARGS(req, ERR), LOGFMT "Got error while performing I/O on HTTP stream. Err=0x%x", LOGID(req), err);
     lcb_http_request_finish(req->instance, req, err);
 }
 

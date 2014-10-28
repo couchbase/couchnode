@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "connspec.h"
 #include "hostlist.h"
 #include "strcodecs/strcodecs.h"
@@ -250,8 +267,8 @@ parse_options(PARSECTX *ctx, const char *options, const char *specend)
             } else {
                 SET_ERROR("Invalid value for 'ssl'. Choices are on, off, and no_verify");
             }
-        } else if (!strcmp(key, "capath")) {
-            out->capath = strdup(value);
+        } else if (!strcmp(key, "certpath")) {
+            out->certpath = strdup(value);
         } else if (!strcmp(key, "console_log_level")) {
             if (sscanf(value, "%d", &out->loglevel) != 1) {
                 SET_ERROR("console_log_level must be a numeric value");
@@ -345,7 +362,13 @@ lcb_connspec_parse(const char *connstr, lcb_CONNSPEC *out, const char **errmsg)
     } else if (SCHEME_MATCHES(LCB_SPECSCHEME_MCCOMPAT)) {
         out->implicit_port = LCB_CONFIG_MCCOMPAT_PORT;
     } else {
-        SET_ERROR("String must begin with ''couchbase://, 'couchbases://'");
+        /* If we don't have a scheme at all: */
+        if (strstr(ctx.connstr, "://")) {
+            SET_ERROR("String must begin with ''couchbase://, 'couchbases://', or 'http://'");
+        } else {
+            found_scheme = "";
+            out->implicit_port = LCB_CONFIG_HTTP_PORT;
+        }
     }
 
     ctx.connstr += strlen(found_scheme);

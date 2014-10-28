@@ -1,5 +1,151 @@
 # Release Notes
 
+## 2.4.3 (Oct. 21 2014)
+
+* Disable support for SSLv3
+  This works around the _POODLE_ SSLv3 vulnerability by disabling support for
+  anything below TLSv1.
+
+  * Priority: Critical
+  * Issues: [CCBC-523](http://couchbase.com/issues/browse/CCBC-523)
+
+* Pillowfight enhancements
+  Several behavior changes were made to pillowfight in this version. These are:
+  * The `-l` or `-c -1` option is in effect by default. This means that by
+    default `pillowfight` will run an infinite number of cycles. The previous
+    behavior was to default to a single cycle, requiring an explicit `--loop`
+    to ensure the workload ran for a considerable amount of time.
+
+  * When multiple threads are used, the workload is divided among the threads,
+    thus making it that each thread only operates on a subset of the data.
+
+  * A `--sequential` option has been added to allow the workload to operate
+    in _sequence_ on the total number of items. This is useful when wishing to
+    load a bucket with many items.
+
+  * A `--start-at` option has been added to allow the workload to specify an
+    alternate range of keys; effectively allowing resumption of a previous
+    run. The `--start-at` flag allows to specify the lower bound number which
+    will be used to generate keys. Thus a `--num-items=20000` and a
+    `--start-at=10000` will generate keys from 10000 through 30000.
+
+  * The _population_ phase has now been merged with the general workload
+    implementation. This means that all worker threads will participate in
+    the population phase. The previous behavior limited the populate phase to
+    a single thread.
+
+  * If `stdout` is detected to be a terminal, a simple "OPS/SEC" meter will
+    periodically write the estimated throughput to the screen.
+
+* Fix memory leak when using large read buffers
+  In the case where large read buffers are used (and the `iovec` elements
+  becomes sizable, the library may end up incorrectly caching some memory
+  blocks for future use. This fix makes the blocks be cached at the allocator
+  level, so that they are properly (re) utilized.
+
+  * Priority: Major
+  * Issues: [CCBC-519](http://couchbase.com/issue/browse/CCBC-519)
+
+* Use forward map (and other heuristics) to get a next node for an item after
+  a not-my-vbucket reply. Since the server (see bug attached) does not always
+  guarantee that a given config is the most _correct_, the client must do some
+  guesswork in order to properly map a node when it gets a not-my-vbucket;
+  especially if the config says that the node is the correct one.
+
+  * Priority: Major
+  * Issues: [MB-12268](http://couchbase.com/issues/browse/MB-12268)
+
+## 2.4.2 (Sep. 23 2014)
+
+* Mark the `hashkey` fields as being _volatile_.
+  Usage of this field is not supported in many cluster systems and is thus not
+  supported functionality. It exists primarily as a legacy from an older API
+  * Priority: Major
+  * Issues: [CCBC-508](http://couchbase.com/issues/browse/CCBC-508)
+
+* Add "key stats" mode to `lcb_CMDDSTATS`.
+  This adds an additional key stats mode to the `lcb_stats3()` API
+  which interprets the `key` field as being a document ID for which
+  information (such as expiry, status) should be retrieved, rather
+  than a system statistics key. Similar functionality already exists
+  in the Java client library as `getKeyStats()`. In addition to this
+  feature, a `cbc stats --keystats` option is also provided to employ
+  this functionality from the command line.
+  * Priority: Major
+  * Issues: [CCBC-318](http://couchbase.com/issues/CCBC-318)
+
+* Add more details about replica nodes in the `cbc hash` command.
+  * Priority: Minor
+  * Issues: [CCBC-504](http://couchbase.com/issues/browse/CCBC-504)
+
+* Add `lcb_cntl()` setting to retrieve bucket name.
+  Previously the library did not have a means by which the bucket name
+  could be retrieved. Using the `LCB_CNTL_BUCKETNAME` setting, the bucket
+  name will now be returned.
+  * Priority: Major
+  * Issues: [CCBC-502](http://couchbase.com/issues/CCBC-502)
+
+## 2.4.1
+
+
+* Implement `mcflush` subcommand for `cbc`. This was removed in the cbc
+  rewrite as the previous `flush` command.
+  * Priority: Minor
+  * Issues: [CCBC-486](http://couchbase.com/issues/browse/CCBC-486)
+
+
+* Requests issued to an invalid replica via `lcb_get_replica()` should fail
+  with the `LCB_NO_MATCHING_SERVER_CODE`. Previously this sometimes went
+  through due to an incorrect bounds checking in the `lcbvb_vbreplica()`
+  function.
+  * Priority: Major
+  * Issues: [CCBC-488](http://couchbase.com/issues/browse/CCBC-488)
+
+
+* Fixed a memory leak in `lcb_get_replica()` when the operation would fail.
+  * Priority: Major
+  * Issues: [CCBC-489](http://couchbase.com/issues/browse/CCBC-489)
+    [CCBC-490](http://couchbase.com/issues/browse/CCBC-490)
+
+
+
+* Fix memory leak in `lcb_sched_fail()` when extended commands are in the
+  pipeline
+  * Priority: Major
+  * Issues: [CCBC-474](http://couchbase.com/issues/browse/CCBC-474)
+
+
+
+* Provide `lcb_dump()` function call to dump state information about
+  a client handle. The function call itself is currently marked as
+  volatile and the output format is very much likely to change.
+  * Priority: Minor
+  * Issues: [CCBC-491](http://couchbase.com/issues/browse/CCBC-490)
+
+
+* Fix `ratio` argument in `cbc-pillowfight`. This ensures that the
+  `ratio` argument will truly determine the ratio of gets to sets.
+  * Priority: Minor
+
+* Fix crash when HTTP request is retried. This may take place during topology
+  changes
+  * Priority: Major
+  * Issues: [CCBC-497](http://couchbase.com/issues/browse/CCBC-497)
+
+* Allow simple host-port string in connection string, giving it an implicit
+  `http://` scheme. This allows easier backwards compatibility with some
+  application
+  * Priority: Minor
+  * Issues: [CCBC-500](http://couchbase.com/issues/browse/CCBC-500)
+
+* Update some SSL options to better reflect server 3.0 functionality
+  The old `capath` option has been renamed to `certpath` to indicate that the
+  path is not to the signing authority, but to the self-signed server certificate
+  generated by the server itself. Additionally the `no_verify` option has been
+  hidden.
+  * Priority: Major
+  * Issues: [CCBC-501](http://couchbase.com/issues/browse/CCBC-501)
+
 ## 2.4.0 GA
 
 * [major] Attempt to retry items that are mapped to a non-existent node in

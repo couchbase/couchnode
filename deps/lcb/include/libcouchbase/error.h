@@ -401,7 +401,20 @@ typedef enum {
      case of a man-in-the-middle attack, but also of forgetting to supply
      the path to the CA authority to the library. */ \
     X(LCB_SSL_CANTVERIFY, 0x37, LCB_ERRTYPE_FATAL, \
-      "Client could not verify server's certificate")
+      "Client could not verify server's certificate") \
+    \
+    X(LCB_SCHEDFAIL_INTERNAL, 0x38, 0, \
+      "Internal error used for destroying unscheduled command data") \
+    \
+    /** An optional client feature was requested, but the current configuration
+     * does not allow it to be used. This might be because it is not available
+     * on a particular platform/architecture/operating system/configuration, or
+     * it has been disabled at the time the library was built.
+     */ \
+    X(LCB_CLIENT_FEATURE_UNAVAILABLE, 0x39, LCB_ERRTYPE_INPUT, \
+      "The requested feature is not supported by the client, either because of " \
+      "settings in the configured instance, or because of options disabled at " \
+      "the time the library was compiled")
 
 /** Error codes returned by the library. */
 typedef enum {

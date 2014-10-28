@@ -3,6 +3,7 @@
 
 #define CLIOPTS_ENABLE_CXX 1
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include "contrib/cliopts/cliopts.h"
 
 #define CBC_CONFIG_FILENAME ".cbcrc"
@@ -20,10 +21,11 @@ namespace cbc {
     X(String, saslmech, "force-sasl-mech", 'S') \
     X(String, connstr, "spec", 'U') \
     X(String, ssl, "ssl", '\0') \
-    X(String, capath, "capath", '\0') \
+    X(String, certpath, "certpath", '\0') \
     X(UInt, timeout, "timeout", 't') \
     X(Bool, timings, "timings", 'T') \
-    X(Bool, verbose, "verbose", 'v')
+    X(Bool, verbose, "verbose", 'v') \
+    X(Bool, dump, "dump", '\0')
 
 
 class ConnParams {
@@ -34,6 +36,7 @@ public:
     lcb_error_t doCtls(lcb_t instance);
     bool useTimings() { return o_timings.result(); }
     void setAdminMode();
+    bool shouldDump() { return o_dump.result(); }
     void writeConfig(const std::string& dest = getConfigfileName());
     static std::string getConfigfileName();
 

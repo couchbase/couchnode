@@ -182,6 +182,7 @@ lcb_error_t lcb_timer_destroy(lcb_t instance, lcb_timer_t timer)
     return LCB_SUCCESS;
 }
 
+
 static void timer_disarm(lcb_timer_t timer)
 {
     if (!TMR_IS_ARMED(timer)) {
@@ -202,4 +203,12 @@ static void timer_rearm(lcb_timer_t timer, lcb_uint32_t usec)
     timer->io->timer.schedule(timer->io->p, timer->event,
                               usec, timer, timer_callback);
     timer->state |= LCB_TIMER_S_ARMED;
+}
+
+#if defined(__clang__) || __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+LCB_INTERNAL_API void lcb__timer_destroy_nowarn(lcb_t instance, lcb_timer_t timer) {
+    lcb_timer_destroy(instance, timer);
 }

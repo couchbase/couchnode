@@ -87,6 +87,10 @@ struct cliopts_extra_settings {
     int help_noflag;
     /** Program name (defaults to argv[0]) */
     const char *progname;
+    /** Usage string (defaults to "[OPTIONS..]") */
+    const char *argstring;
+    /** Short description (empty by default) */
+    const char *shortdesc;
     /** Print default values as well */
     int show_defaults;
     /**
@@ -143,6 +147,7 @@ class Parser;
 class Option : protected cliopts_entry {
 public:
     bool passed() const { return found != 0; }
+    void setPassed(bool val = true) { found = val ? 1 : 0; }
     int numSpecified() const { return found; }
     Option() { memset(this, 0, sizeof (cliopts_entry)); }
 protected:
@@ -266,16 +271,15 @@ template<> inline UIntOption& UIntOption::setDefault(const unsigned& ui) {
 class Parser {
 public:
     Parser(const char *name = NULL) {
-        if (name) {
-            progname = name;
-        }
+        memset(&default_settings, 0, sizeof default_settings);
+        default_settings.progname = name;
     }
 
     void addOption(Option *opt) { options.push_back(opt); }
     void addOption(Option& opt) { options.push_back(&opt); }
     bool parse(int argc, char **argv, bool standalone_args = false) {
         std::vector<cliopts_entry> ents;
-        cliopts_extra_settings settings;
+        cliopts_extra_settings settings = default_settings;
         int lastix;
 
         for (unsigned ii = 0; ii < options.size(); ++ii) {
@@ -284,7 +288,6 @@ public:
 
         if (ents.empty()) { return false; }
         ents.push_back(Option());
-        memset(&settings, 0, sizeof settings);
         const char **tmpargs = NULL;
         if (standalone_args) {
             tmpargs = new const char*[argc];
@@ -317,8 +320,8 @@ public:
     }
 
     const std::vector<std::string>& getRestArgs() { return restargs; }
+    cliopts_extra_settings default_settings;
 private:
-    std::string progname;
     std::vector<Option*> options;
     std::vector<std::string> restargs;
     Parser(Parser&);

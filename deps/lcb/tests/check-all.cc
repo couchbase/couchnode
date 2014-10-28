@@ -82,7 +82,8 @@ public:
         opt_debugger("debugger"), opt_plugins("plugins"), opt_jobs("jobs"),
         opt_srcdir("srcdir"), opt_bindir("testdir"), opt_interactive("interactive"),
         opt_verbose("verbose"), opt_cycles("repeat"), opt_libdir("libdir"),
-        opt_bins("tests"), opt_realcluster("cluster")
+        opt_bins("tests"), opt_realcluster("cluster"),
+        opt_gtest_filter("gtest_filter")
     {
         opt_debugger.abbrev('d')
                 .description("Verbatim string to prepend to the binary command line");
@@ -156,6 +157,7 @@ public:
         parser.addOption(opt_libdir);
         parser.addOption(opt_bins);
         parser.addOption(opt_realcluster);
+        parser.addOption(opt_gtest_filter);
 
         if (!parser.parse(argc, argv, false)) {
             return false;
@@ -168,6 +170,11 @@ public:
         for (size_t ii = 0; ii < args.size(); ii++) {
             ss << args[ii] << " ";
         }
+
+        if (!opt_gtest_filter.result().empty()) {
+            ss << " " << "--gtest_filter=" << opt_gtest_filter.result();
+        }
+
         binOptions = ss.str();
 
         srcroot = opt_srcdir.result();
@@ -247,6 +254,7 @@ private:
     cliopts::StringOption opt_libdir;
     cliopts::StringOption opt_bins;
     cliopts::StringOption opt_realcluster;
+    cliopts::StringOption opt_gtest_filter;
 
     void setJobsFromEnvironment() {
         char *tmp = getenv("MAKEFLAGS");

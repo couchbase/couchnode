@@ -334,3 +334,132 @@ TEST_F(GetUnitTest, testFlags)
     /* Wait for it to be received */
     lcb_wait(instance);
 }
+
+struct RGetCookie {
+    unsigned remaining;
+    lcb_error_t expectrc;
+    std::string value;
+    lcb_U64 cas;
+};
+
+extern "C" {
+static void
+rget_callback(lcb_t instance, int, const lcb_RESPBASE *resp)
+{
+    const lcb_RESPGET *gresp = (const lcb_RESPGET *)resp;
+    RGetCookie *rck = (RGetCookie *)resp->cookie;
+
+    ASSERT_EQ(rck->expectrc, resp->rc);
+    ASSERT_NE(0, rck->remaining);
+    rck->remaining--;
+
+    if (resp->rc == LCB_SUCCESS) {
+        std::string value((const char*)gresp->value, gresp->nvalue);
+        ASSERT_STREQ(rck->value.c_str(), value.c_str());
+        ASSERT_EQ(rck->cas, resp->cas);
+    }
+
+}
+}
+
+TEST_F(GetUnitTest, testGetReplica)
+{
+    SKIP_UNLESS_MOCK();
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+    std::string key("a_key_GETREPLICA");
+    std::string val("a_value");
+
+    lcb_CMDGETREPLICA rcmd = { 0 };
+
+    lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, rget_callback);
+    RGetCookie rck;
+    rck.remaining = 1;
+    rck.expectrc = LCB_SUCCESS;
+    LCB_CMD_SET_KEY(&rcmd, key.c_str(), key.size());
+    unsigned nreplicas = lcb_get_num_replicas(instance);
+
+    for (unsigned ii = 0; ii < nreplicas; ii++) {
+        MockMutationCommand mcCmd(MockCommand::CACHE, key);
+        mcCmd.cas = ii + 100;
+        rck.cas = ((lcb_U64)htonl((lcb_U32)mcCmd.cas)) << 32;
+        mcCmd.replicaList.clear();
+        mcCmd.replicaList.push_back(ii);
+
+        mock->sendCommand(mcCmd);
+        mock->getResponse();
+
+        lcb_error_t err;
+        rcmd.index = ii;
+        rcmd.strategy = LCB_REPLICA_SELECT;
+
+        rck.remaining = 1;
+        lcb_sched_enter(instance);
+        err = lcb_rget3(instance, &rck, &rcmd);
+        ASSERT_EQ(LCB_SUCCESS, err);
+
+        lcb_sched_leave(instance);
+        lcb_wait(instance);
+        ASSERT_EQ(0, rck.remaining);
+    }
+
+    // Test with the "All" mode
+    MockMutationCommand mcCmd(MockCommand::CACHE, key);
+    mcCmd.cas = 999;
+    mcCmd.onMaster = false;
+    mcCmd.replicaCount = nreplicas;
+    mock->sendCommand(mcCmd);
+    mock->getResponse();
+
+    rck.remaining = nreplicas;
+    rck.cas = ((lcb_U64)ntohl((lcb_U32)mcCmd.cas)) << 32;
+    rck.expectrc = LCB_SUCCESS;
+    rcmd.strategy = LCB_REPLICA_ALL;
+
+    lcb_sched_enter(instance);
+    lcb_error_t err = lcb_rget3(instance, &rck, &rcmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+    ASSERT_EQ(0, rck.remaining);
+
+    MockMutationCommand purgeCmd(MockCommand::PURGE, key);
+    purgeCmd.onMaster = true;
+    purgeCmd.replicaCount = nreplicas;
+    mock->sendCommand(purgeCmd);
+    mock->getResponse();
+
+    // Test with the "First" mode. Ensure that only the _last_ replica
+    // contains the item
+    mcCmd.onMaster = false;
+    mcCmd.replicaCount = 0 ;
+    mcCmd.replicaList.clear();
+    mcCmd.replicaList.push_back(nreplicas-1);
+    mcCmd.cas = 42;
+    rck.cas = ((lcb_U64)ntohl((lcb_U32)mcCmd.cas)) << 32;
+
+    // Set the timeout to something higher, since we have more than one packet
+    // to send.
+    lcb_cntl_setu32(instance, LCB_CNTL_OP_TIMEOUT, 10000000);
+
+    // The first replica should respond with ENOENT, the second should succeed
+    // though
+    mock->sendCommand(mcCmd);
+    mock->getResponse();
+    rcmd.strategy = LCB_REPLICA_FIRST;
+    rck.remaining = 1;
+    lcb_sched_enter(instance);
+    err = lcb_rget3(instance, &rck, &rcmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+    ASSERT_EQ(0, rck.remaining);
+
+    // Finally, test with an invalid index
+    rcmd.index = nreplicas;
+    rcmd.strategy = LCB_REPLICA_SELECT;
+    err = lcb_rget3(instance, NULL, &rcmd);
+    ASSERT_EQ(LCB_NO_MATCHING_SERVER, err);
+}

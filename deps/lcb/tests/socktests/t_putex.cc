@@ -1,5 +1,6 @@
 #include "socktest.h"
 #include <netbuf/netbuf.h>
+#include <algorithm>
 using namespace LCBTest;
 using std::string;
 using std::vector;

@@ -497,7 +497,11 @@ print_help(struct cliopts_priv *ctx, struct cliopts_extra_settings *settings)
     helpent.help = "this message";
 
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  %s [OPTIONS...]\n\n", settings->progname);
+    fprintf(stderr, "  %s %s\n\n", settings->progname, settings->argstring);
+    if (settings->shortdesc) {
+        fprintf(stderr, "%s", settings->shortdesc);
+        fprintf(stderr, "\n");
+    }
 
 
     for (cur = ctx->entries; cur->dest; cur++) {
@@ -592,6 +596,9 @@ cliopts_parse_options(cliopts_entry *entries,
     }
     if (!settings->progname) {
         settings->progname = argv[0];
+    }
+    if (!settings->argstring) {
+        settings->argstring = "[OPTIONS...]";
     }
     settings->nrestargs = 0;
 

@@ -21,7 +21,6 @@
  * @author Mark Nunberg
  */
 
-
 #include "iocp_iops.h"
 #include <sys/types.h>
 #include <sys/timeb.h>
@@ -74,7 +73,6 @@ int iocp_just_scheduled(iocp_t *io, iocp_overlapped_t *ol, int status)
     DWORD err = GetLastError();
     IOCP_LOG(IOCP_TRACE, "Pending count: %d", io->n_iopending);
     if ((status != 0 && err == WSA_IO_PENDING) || status == 0) {
-
         io->n_iopending++;
         ol->sd->refcount++;
         return 0;
@@ -110,11 +108,8 @@ void iocp_on_dequeued(iocp_t *io, iocp_sockdata_t *sd, int action)
     iocp_socket_decref(io, sd);
 }
 
-/**
- * This following function was copied from libuv. Its license reads
- * as follows
- * [ LICENSE ]
- */
+/**This following function was copied from libuv.
+ * See http://github.com/joyent/libuv for more details */
 int iocp_overlapped_status(OVERLAPPED *lpOverlapped)
 {
     NTSTATUS status = (NTSTATUS)lpOverlapped->Internal;

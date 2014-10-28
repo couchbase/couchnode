@@ -242,6 +242,21 @@ static void config_listener(clconfig_listener *lsn, clconfig_event_t event,
     write_to_file(provider, info->vbc);
 }
 
+static void
+do_file_dump(clconfig_provider *pb, FILE *fp)
+{
+    file_provider *pr = (file_provider *)pb;
+
+    fprintf(fp, "## BEGIN FILE PROVIEDER DUMP ##\n");
+    if (pr->filename) {
+        fprintf(fp, "FILENAME: %s\n", pr->filename);
+    }
+    fprintf(fp, "LAST SYSTEM ERRNO: %d\n", pr->last_errno);
+    fprintf(fp, "LAST MTIME: %lu\n", (unsigned long)pr->last_mtime);
+    fprintf(fp, "## END FILE PROVIDER DUMP ##\n");
+
+}
+
 clconfig_provider * lcb_clconfig_create_file(lcb_confmon *parent)
 {
     file_provider *provider = calloc(1, sizeof(*provider));
@@ -254,6 +269,7 @@ clconfig_provider * lcb_clconfig_create_file(lcb_confmon *parent)
     provider->base.refresh = refresh_file;
     provider->base.pause = pause_file;
     provider->base.shutdown = shutdown_file;
+    provider->base.dump = do_file_dump;
     provider->base.type = LCB_CLCONFIG_FILE;
     provider->listener.callback = config_listener;
     provider->timer = lcbio_timer_new(parent->iot, provider, async_callback);

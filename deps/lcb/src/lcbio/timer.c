@@ -118,3 +118,15 @@ lcbio_async_cancel(lcbio_TIMER *timer)
 {
     lcbio_timer_disarm(timer);
 }
+
+void
+lcbio_timer_dump(lcbio_TIMER *timer, FILE *fp)
+{
+    fprintf(fp, "~~ DUMP TIMER BEGIN ~~\n");
+    fprintf(fp, "TIMER=%p\n", (void*)timer);
+    fprintf(fp, "INNER PTR=%p\n", timer->event);
+    fprintf(fp, "USERDATA=%p\n", timer->data);
+    fprintf(fp, "ACTIVE: %s\n", (timer->state & LCBIO_TIMER_S_ARMED) ? "YES":"NO");
+    fprintf(fp, "INTERVAL: %lu\n", (unsigned long)timer->usec_);
+    fprintf(fp, "~~ DUMP TIMER END ~~\n");
+}

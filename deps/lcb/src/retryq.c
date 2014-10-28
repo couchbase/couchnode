@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "packetutils.h"
 #include "retryq.h"
 #include "config.h"
@@ -223,7 +240,7 @@ rq_flush(lcb_RETRYQ *rq, int throttle)
              * configuration (i.e. the attempt has not been throttled) then
              * keep the command in there until it has a chance to be scheduled.
              */
-            lcb_bootstrap_maybe_refresh(instance);
+            lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE);
             if (lcb_confmon_is_refreshing(instance->confmon) ||
                     rq->settings->retry[LCB_RETRY_ON_MISSINGNODE]) {
 
@@ -369,4 +386,15 @@ lcb_retryq_origerr(const mc_PACKET *packet)
 
     op = (lcb_RETRYOP *)d;
     return op->origerr;
+}
+
+void
+lcb_retryq_dump(lcb_RETRYQ *rq, FILE *fp, mcreq_payload_dump_fn dumpfn)
+{
+    lcb_list_t *cur;
+    LCB_LIST_FOR(cur, &rq->schedops) {
+        lcb_RETRYOP *op = LCB_LIST_ITEM(cur, lcb_RETRYOP, ll_sched);
+        mcreq_dump_packet(op->pkt, fp, dumpfn);
+    }
+    (void)fp;
 }

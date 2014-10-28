@@ -134,29 +134,48 @@ TEST_F(ConfigTest, testAltMap)
     lcbvb_genconfig(cfg, 4, 1, 64);
     string key("Dummy Key");
     int vbix = lcbvb_k2vb(cfg, key.c_str(), key.size());
-    unsigned altix = lcbvb_vbalternate(cfg, vbix);
+    int master = lcbvb_vbmaster(cfg, vbix);
+    int oldmaster = master;
 
-    ASSERT_NE(cfg->vbuckets[vbix].servers[0], cfg->vbuckets[vbix].servers[1]);
-    ASSERT_NE(cfg->vbuckets[vbix].servers[0], altix);
-    ASSERT_EQ(cfg->vbuckets[vbix].servers[1], altix);
+    int altix = lcbvb_nmv_remap(cfg, vbix, master);
+    ASSERT_GT(altix, -1) << "Alternative index > -1";
+    ASSERT_NE(altix, master) << "NMV Remap works with correct master";
 
-    vector<lcbvb_VBUCKET> ff;
-    for (size_t ii = 0; ii < cfg->nvb; ii++) {
-        lcbvb_VBUCKET vb;
-        memset(&vb, 0, sizeof vb);
-        vb.servers[0] = 99;
-        ff.push_back(vb);
-    }
-
-    cfg->ffvbuckets = &ff[0];
-    altix = lcbvb_vbalternate(cfg, vbix);
-    ASSERT_EQ(99, altix);
-
-    // Remove ff so it's not prematurely freed
-    cfg->ffvbuckets = NULL;
-    cfg->vbuckets[vbix].servers[1] = -1;
-    altix = lcbvb_vbalternate(cfg, vbix);
-    ASSERT_NE(cfg->vbuckets[vbix].servers[1], altix);
-    ASSERT_NE(cfg->vbuckets[vbix].servers[0], altix);
+    master = altix;
+    altix = lcbvb_nmv_remap(cfg, vbix, oldmaster);
+    ASSERT_EQ(master, altix) << "NMV Remap doesn't do anything with old master";
     lcbvb_destroy(cfg);
+}
+
+TEST_F(ConfigTest, testGetReplicaNode)
+{
+    lcbvb_CONFIG *cfg = lcbvb_create();
+    lcbvb_genconfig(cfg, 4, 1, 2);
+
+    // Select a random vbucket
+    int srvix = cfg->vbuckets[0].servers[0];
+    ASSERT_NE(-1, srvix);
+    int rv = lcbvb_vbmaster(cfg, 0);
+    ASSERT_EQ(srvix, rv);
+
+    srvix = cfg->vbuckets[0].servers[1];
+    ASSERT_NE(-1, srvix);
+    rv = lcbvb_vbreplica(cfg, 0, 0);
+    ASSERT_EQ(srvix, rv);
+
+    rv = lcbvb_vbreplica(cfg, 0, 1);
+    ASSERT_EQ(-1, rv);
+
+    rv = lcbvb_vbreplica(cfg, 0, 9999);
+    ASSERT_EQ(-1, rv);
+    lcbvb_destroy(cfg);
+
+    cfg = lcbvb_create();
+    lcbvb_genconfig(cfg, 1, 0, 2);
+    rv = lcbvb_vbmaster(cfg, 0);
+    ASSERT_NE(-1, rv);
+    rv = lcbvb_vbreplica(cfg, 0, 0);
+    ASSERT_EQ(-1, rv);
+    lcbvb_destroy(cfg);
+
 }

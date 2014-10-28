@@ -16,6 +16,7 @@
  */
 #include "config.h"
 #include "iotests.h"
+#include <map>
 
 class ServeropsUnitTest : public MockUnitTest
 {
@@ -30,6 +31,15 @@ extern "C" {
         EXPECT_EQ(LCB_SUCCESS, error);
         EXPECT_EQ(0, resp->version);
         ++(*counter);
+    }
+    static void statKey_callback(lcb_t, int, const lcb_RESPBASE *resp_base) {
+        const lcb_RESPSTATS *resp = (const lcb_RESPSTATS *)resp_base;
+        if (!resp->server) {
+            return;
+        }
+        EXPECT_EQ(LCB_SUCCESS, resp->rc);
+        std::map<std::string,bool> &mm = *(std::map<std::string,bool>*)resp->cookie;
+        mm[resp->server] = true;
     }
 }
 
@@ -54,6 +64,35 @@ TEST_F(ServeropsUnitTest, testServerStats)
     EXPECT_EQ(LCB_SUCCESS, lcb_server_stats(instance, &numcallbacks, 1, cmds));
     lcb_wait(instance);
     EXPECT_LT(1, numcallbacks);
+}
+
+TEST_F(ServeropsUnitTest, testKeyStats)
+{
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+    lcb_install_callback3(instance, LCB_CALLBACK_STATS, statKey_callback);
+    lcb_CMDSTATS cmd = { 0 };
+
+    std::string key = "keystats_test";
+    storeKey(instance, key, "blah blah");
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+    cmd.cmdflags = LCB_CMDSTATS_F_KV;
+    std::map<std::string,bool> mm;
+
+    lcb_sched_enter(instance);
+    lcb_error_t err = lcb_stats3(instance, &mm, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_sched_leave(instance);
+
+    lcb_wait(instance);
+    ASSERT_EQ(lcb_get_num_replicas(instance)+1, mm.size());
+
+    // Ensure that a key with an embedded space fails
+    key = "key with space";
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+    err = lcb_stats3(instance, NULL, &cmd);
+    ASSERT_NE(LCB_SUCCESS, err);
 }
 
 extern "C" {

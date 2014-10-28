@@ -2,6 +2,7 @@ INSTALL(
     FILES
     plugin-libuv.c
     plugin-internal.h
+    libuv_compat.h
     DESTINATION
     include/libcouchbase/plugins/io/libuv)
 

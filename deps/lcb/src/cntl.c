@@ -114,8 +114,8 @@ HANDLER(get_changeset) {
 HANDLER(ssl_mode_handler) {
     RETURN_GET_ONLY(int, LCBT_SETTING(instance, sslopts))
 }
-HANDLER(ssl_capath_handler) {
-    RETURN_GET_ONLY(char*, LCBT_SETTING(instance, capath))
+HANDLER(ssl_certpath_handler) {
+    RETURN_GET_ONLY(char*, LCBT_SETTING(instance, certpath))
 }
 HANDLER(htconfig_urltype_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, bc_http_urltype));
@@ -137,6 +137,12 @@ HANDLER(http_refresh_config_handler) {
 }
 HANDLER(compmode_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, compressopts))
+}
+HANDLER(bucketname_handler) {
+    RETURN_GET_ONLY(const char*, LCBT_SETTING(instance, bucket))
+}
+HANDLER(schedflush_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, sched_implicit_flush))
 }
 
 HANDLER(get_kvb) {
@@ -233,7 +239,6 @@ HANDLER(logprocs_handler) {
 
 HANDLER(config_transport) {
     lcb_config_transport_t *val = arg;
-
     if (mode == LCB_CNTL_SET) { return LCB_ECTL_UNSUPPMODE; }
     if (!instance->cur_configinfo) { return LCB_CLIENT_ETMPFAIL; }
 
@@ -341,14 +346,12 @@ HANDLER(console_log_handler) {
     }
 
     procs = LCBT_SETTING(instance, logger);
+    if (!procs) {
+        procs = lcb_init_console_logger();
+    }
     if (procs) {
         /* don't override previous config */
         return LCB_SUCCESS;
-    }
-
-    if (procs == NULL && mode == LCB_CNTL_SET) {
-        procs = lcb_init_console_logger();
-        LCBT_SETTING(instance, logger) = procs;
     }
 
     logger = (struct lcb_CONSOLELOGGER* ) lcb_console_logprocs;
@@ -399,7 +402,7 @@ static ctl_handler handlers[] = {
     init_providers, /* LCB_CNTL_CONFIG_ALL_NODES */
     config_cache_handler, /* LCB_CNTL_CONFIGCACHE */
     ssl_mode_handler, /* LCB_CNTL_SSL_MODE */
-    ssl_capath_handler, /* LCB_CNTL_SSL_CAPATH */
+    ssl_certpath_handler, /* LCB_CNTL_SSL_CAPATH */
     retrymode_handler, /* LCB_CNTL_RETRYMODE */
     htconfig_urltype_handler, /* LCB_CNTL_HTCONFIG_URLTYPE */
     compmode_handler, /* LCB_CNTL_COMPRESSION_OPTS */
@@ -411,7 +414,9 @@ static ctl_handler handlers[] = {
     timeout_common, /* LCB_CNTL_RETRY_INTERVAL */
     retry_backoff_handler, /* LCB_CNTL_RETRY_BACKOFF */
     http_poolsz_handler, /* LCB_CNTL_HTTP_POOLSIZE */
-    http_refresh_config_handler /* LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR */
+    http_refresh_config_handler, /* LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR */
+    bucketname_handler, /* LCB_CNTL_BUCKETNAME */
+    schedflush_handler /* LCB_CNTL_SCHED_IMPLICIT_FLUSH */
 };
 
 /* Union used for conversion to/from string functions */
@@ -439,8 +444,17 @@ typedef struct {
 static lcb_error_t convert_timeout(const char *arg, u_STRCONVERT *u) {
     int rv;
     unsigned long tmp;
-    rv = sscanf(arg, "%lu", &tmp);
-    if (rv != 1) { return LCB_ECTL_BADARG; }
+    if (strchr(arg, '.')) {
+        /* Parse as a float */
+        double dtmp;
+        rv = sscanf(arg, "%lf", &dtmp);
+        if (rv != 1) { return LCB_ECTL_BADARG; }
+        tmp = dtmp * (double) 1000000;
+    } else {
+        rv = sscanf(arg, "%lu", &tmp);
+        if (rv != 1) { return LCB_ECTL_BADARG; }
+    }
+
     u->u32 = tmp;
     return LCB_SUCCESS;
 }
@@ -461,8 +475,20 @@ static lcb_error_t convert_passthru(const char *arg, u_STRCONVERT *u) {
     return LCB_SUCCESS;
 }
 
+static lcb_error_t convert_int(const char *arg, u_STRCONVERT *u) {
+    int rv = sscanf(arg, "%d", &u->i);
+    return rv == 1 ? LCB_SUCCESS : LCB_ECTL_BADARG;
+}
+
 static lcb_error_t convert_u32(const char *arg, u_STRCONVERT *u) {
     return convert_timeout(arg, u);
+}
+static lcb_error_t convert_float(const char *arg, u_STRCONVERT *u) {
+    double d;
+    int rv = sscanf(arg, "%lf", &d);
+    if (rv != 1) { return LCB_ECTL_BADARG; }
+    u->f = d;
+    return LCB_SUCCESS;
 }
 
 static lcb_error_t convert_SIZE(const char *arg, u_STRCONVERT *u) {
@@ -527,7 +553,11 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"config_cache", LCB_CNTL_CONFIGCACHE, convert_passthru },
         {"detailed_errcodes", LCB_CNTL_DETAILED_ERRCODES, convert_intbool},
         {"retry_policy", LCB_CNTL_RETRYMODE, convert_retrymode},
+        {"http_urlmode", LCB_CNTL_HTCONFIG_URLTYPE, convert_int },
+        {"sync_dtor", LCB_CNTL_SYNCDESTROY, convert_intbool },
         {"_reinit_connstr", LCB_CNTL_REINIT_CONNSTR },
+        {"retry_backoff", LCB_CNTL_RETRY_BACKOFF, convert_float },
+        {"http_poolsize", LCB_CNTL_HTTP_POOLSIZE, convert_SIZE },
         {NULL, -1}
 };
 

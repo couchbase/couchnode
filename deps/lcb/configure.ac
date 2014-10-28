@@ -93,14 +93,14 @@ AC_SUBST(REVDESCRIBE)
 # http://www.gnu.org/software/libtool/manual/libtool.html#Libtool-versioning
 #
 API_CURRENT=2
-API_REVISION=16
+API_REVISION=19
 API_AGE=0
 AC_SUBST(API_CURRENT)
 AC_SUBST(API_REVISION)
 AC_SUBST(API_AGE)
 
 # The actual version numbers for the developers ;)
-LCB_VERSION="2.4.0"
+LCB_VERSION="2.4.3"
 LCB_VERSION_HEX=`echo ${LCB_VERSION} | awk -F. '{printf "0x%0.2d%0.2d%0.2d", $1, $2, $3}'`
 AC_SUBST(LCB_VERSION)
 AC_SUBST(LCB_VERSION_HEX)
@@ -167,7 +167,7 @@ AS_IF([test "x${WGET}" != "xno"],
       [DOWNLOAD="${WGET} -q -O"],
       [AS_IF([test "x${CURL}" != "xno"],
              [DOWNLOAD="${CURL} -s -L -o"],
-             [AC_MSG_ERROR([You need wget or curl in path to download the headers.])])])
+             [AC_MSG_WARN([You might need wget or curl in path to download extra files.])])])
 
 AC_SUBST(DOWNLOAD)
 
@@ -324,6 +324,10 @@ AM_CONDITIONAL(HAVE_LIBEVENT2, [test "x${ac_cv_have_libevent2}" = "xyes"])
 AS_IF([test "x${ac_cv_enable_plugins}" = "xyes" -a "x${ac_cv_have_libevent2}" = "xyes"],
       [AC_DEFINE([HAVE_LIBEVENT2], [1], [We have libevent2])])
 
+AC_ARG_ENABLE([libuv],
+              [AS_HELP_STRING([--disable-libuv], [Build without libuv. You might need this when building package in development environment.])],
+              [ac_cv_enable_libuv="no"],
+              [ac_cv_enable_libuv="yes"])
 AC_CACHE_CHECK([for libuv], [ac_cv_have_libuv],
   [ saved_libs="$LIBS"
     LIBS=-luv
@@ -338,7 +342,7 @@ AC_CACHE_CHECK([for libuv], [ac_cv_have_libuv],
       ])
     LIBS="$saved_libs"
   ])
-AM_CONDITIONAL(HAVE_LIBUV, [test "x${ac_cv_have_libuv}" = "xyes"])
+AM_CONDITIONAL(HAVE_LIBUV, [test "x${ac_cv_have_libuv}" = "xyes" -a "x${ac_cv_enable_libuv}" = "xyes"])
 AS_IF([test "x${ac_cv_enable_plugins}" = "xyes" -a "x${ac_cv_have_libuv}" = "xyes"],
       [AC_DEFINE([HAVE_LIBUV], [1], [We have libuv])])
 
@@ -717,5 +721,3 @@ AS_IF([test "$ac_cv_have_gtest" = "no" -a "$ac_cv_have_gtest_src" = "no"],
               echo "*"
               echo "*****"
               ])])
-
-

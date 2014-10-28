@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #ifndef LCB_SSL_H
 #define LCB_SSL_H
 #include <lcbio/connect.h>
@@ -34,6 +51,9 @@ typedef struct lcbio_SSLCTX *lcbio_pSSLCTX;
 int
 lcbio_ssl_supported(void);
 
+void*
+lcbio_ssl_new__fallback(const char *, int, lcb_error_t *, lcb_settings *);
+
 #ifndef LCB_NO_SSL
 
 /**
@@ -48,6 +68,7 @@ lcbio_ssl_supported(void);
 lcbio_pSSLCTX
 lcbio_ssl_new(const char *cafile, int noverify, lcb_error_t *errp,
     lcb_settings *settings);
+
 
 /**
  * Free the SSL context. This should be done when libcouchbase has nothing else
@@ -120,9 +141,9 @@ lcbio_sslify_if_needed(lcbio_SOCKET *sock, struct lcb_settings_st *settings);
 
 #else
 /* SSL Disabled */
-#define lcbio_ssl_new(a,b,c,d) NULL
+#define lcbio_ssl_new lcbio_ssl_new__fallback
 #define lcbio_ssl_free(ctx)
-#define lcbio_ssl_apply(sock, sctx) LCB_NOT_SUPPORTED
+#define lcbio_ssl_apply(sock, sctx) LCB_CLIENT_FEATURE_UNAVAILABLE
 #define lcbio_ssl_check(sock) 0
 #define lcbio_ssl_get_error(sock) LCB_SUCCESS
 #define lcbio_ssl_global_init() 0

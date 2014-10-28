@@ -89,8 +89,8 @@ lcb_error_t lcb_get(lcb_t instance,
         memset(&dst, 0, sizeof(dst));
         dst.key.contig.bytes = src->v.v0.key;
         dst.key.contig.nbytes = src->v.v0.nkey;
-        dst.hashkey.contig.bytes = src->v.v0.hashkey;
-        dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
+        dst._hashkey.contig.bytes = src->v.v0.hashkey;
+        dst._hashkey.contig.nbytes = src->v.v0.nhashkey;
         dst.lock = src->v.v0.lock;
         dst.exptime = src->v.v0.exptime;
 
@@ -157,8 +157,8 @@ lcb_unlock(lcb_t instance, const void *cookie, lcb_size_t num,
         memset(&dst, 0, sizeof(dst));
         dst.key.contig.bytes = src->v.v0.key;
         dst.key.contig.nbytes = src->v.v0.nkey;
-        dst.hashkey.contig.bytes = src->v.v0.hashkey;
-        dst.hashkey.contig.nbytes = src->v.v0.nhashkey;
+        dst._hashkey.contig.bytes = src->v.v0.hashkey;
+        dst._hashkey.contig.nbytes = src->v.v0.nhashkey;
         dst.cas = src->v.v0.cas;
         err = lcb_unlock3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
@@ -183,6 +183,13 @@ typedef struct {
     lcb_replica_t strategy;
     lcb_t instance;
 } rget_cookie;
+
+static void rget_dtor(mc_PACKET *pkt) {
+    rget_cookie *rck = (rget_cookie *)pkt->u_rdata.exdata;
+    if (! --rck->remaining) {
+        free(rck);
+    }
+}
 
 static void
 rget_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
@@ -237,6 +244,11 @@ rget_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
     (void)pl;
 }
 
+static mc_REQDATAPROCS rget_procs = {
+        rget_callback,
+        rget_dtor
+};
+
 LIBCOUCHBASE_API
 lcb_error_t
 lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
@@ -248,7 +260,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     mc_CMDQUEUE *cq = &instance->cmdq;
     const void *hk;
     lcb_size_t nhk;
-    int vbid;
+    int vbid, ixtmp;
     protocol_binary_request_header req;
     unsigned r0, r1;
     rget_cookie *rck = NULL;
@@ -256,19 +268,43 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
     }
+    if (!cq->config) {
+        return LCB_CLIENT_ETMPFAIL;
+    }
 
-    mcreq_extract_hashkey(&cmd->key, &cmd->hashkey, MCREQ_PKT_BASESIZE, &hk, &nhk);
+    mcreq_extract_hashkey(&cmd->key, &cmd->_hashkey, MCREQ_PKT_BASESIZE, &hk, &nhk);
     vbid = lcbvb_k2vb(cq->config, hk, nhk);
 
-    /** Get the vbucket by index */
+    /* The following blocks will also validate that the entire index range is
+     * valid. This is in order to ensure that we don't allocate the cookie
+     * if there aren't enough replicas online to satisfy the requirements */
+
     if (cmd->strategy == LCB_REPLICA_SELECT) {
         r0 = r1 = cmd->index;
+        if ((ixtmp = lcbvb_vbreplica(cq->config, vbid, r0)) < 0) {
+            return LCB_NO_MATCHING_SERVER;
+        }
+
     } else if (cmd->strategy == LCB_REPLICA_ALL) {
+        unsigned ii;
         r0 = 0;
         r1 = instance->nreplicas;
+        /* Make sure they're all online */
+        for (ii = 0; ii < instance->nreplicas; ii++) {
+            if ((ixtmp = lcbvb_vbreplica(cq->config, vbid, ii)) < 0) {
+                return LCB_NO_MATCHING_SERVER;
+            }
+        }
     } else {
-        /* first */
-        r0 = r1 = 0;
+        for (r0 = 0; r0 < instance->nreplicas; r0++) {
+            if ((ixtmp = lcbvb_vbreplica(cq->config, vbid, r0)) > -1) {
+                r1 = r0;
+                break;
+            }
+        }
+        if (r0 == instance->nreplicas) {
+            return LCB_NO_MATCHING_SERVER;
+        }
     }
 
     if (r1 < r0 || r1 >= cq->npipelines) {
@@ -279,7 +315,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     rck = calloc(1, sizeof(*rck));
     rck->base.cookie = cookie;
     rck->base.start = gethrtime();
-    rck->base.callback = rget_callback;
+    rck->base.procs = &rget_procs;
     rck->strategy = cmd->strategy;
     rck->r_cur = r0;
     rck->r_max = instance->nreplicas;
@@ -302,10 +338,6 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
         mc_PACKET *pkt;
 
         curix = lcbvb_vbreplica(cq->config, vbid, r0);
-        if (curix == -1) {
-            return LCB_NO_MATCHING_SERVER;
-        }
-
         pl = cq->pipelines[curix];
         pkt = mcreq_allocate_packet(pl);
         if (!pkt) {
@@ -340,8 +372,8 @@ lcb_get_replica(lcb_t instance, const void *cookie, lcb_size_t num,
         memset(&dst, 0, sizeof(dst));
         dst.key.contig.bytes = src->v.v1.key;
         dst.key.contig.nbytes = src->v.v1.nkey;
-        dst.hashkey.contig.bytes = src->v.v1.hashkey;
-        dst.hashkey.contig.nbytes = src->v.v1.nhashkey;
+        dst._hashkey.contig.bytes = src->v.v1.hashkey;
+        dst._hashkey.contig.nbytes = src->v.v1.nhashkey;
         dst.strategy = src->v.v1.strategy;
         dst.index = src->v.v1.index;
         err = lcb_rget3(instance, cookie, &dst);

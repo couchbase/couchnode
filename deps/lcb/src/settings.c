@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "settings.h"
 #include <lcbio/ssl.h>
 #include <rdb/rope.h>
@@ -32,6 +49,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->syncmode = LCB_ASYNCHRONOUS;
     settings->detailed_neterr = 0;
     settings->refresh_on_hterr = 1;
+    settings->sched_implicit_flush = 1;
 }
 
 LCB_INTERNAL_API
@@ -55,7 +73,7 @@ lcb_settings_unref(lcb_settings *settings)
     free(settings->password);
     free(settings->bucket);
     free(settings->sasl_mech_force);
-    free(settings->capath);
+    free(settings->certpath);
     if (settings->ssl_ctx) {
         lcbio_ssl_free(settings->ssl_ctx);
     }

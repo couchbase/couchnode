@@ -203,3 +203,48 @@ TEST_F(McAlloc, testValueAlloc)
     mcreq_wipe_packet(pipeline, packet);
     mcreq_release_packet(pipeline, packet);
 }
+
+struct ExtraCookie {
+    mc_REQDATAEX base;
+    int remaining;
+};
+
+extern "C" {
+static void pkt_dtor(mc_PACKET *pkt) {
+    mc_REQDATAEX *rd = pkt->u_rdata.exdata;
+    ExtraCookie *ec = (ExtraCookie *)rd;
+    ec->remaining--;
+}
+}
+
+TEST_F(McAlloc, testRdataExDtor)
+{
+    CQWrap q;
+    lcb_CMDBASE basecmd;
+    ExtraCookie ec;
+    protocol_binary_request_header hdr;
+
+    memset(&hdr, 0, sizeof hdr);
+    memset(&basecmd, 0, sizeof basecmd);
+    memset(&ec, 0, sizeof ec);
+
+    mc_REQDATAPROCS procs = { NULL, pkt_dtor };
+    ec.base.procs = &procs;
+    basecmd.key.contig.bytes = "foo";
+    basecmd.key.contig.nbytes = 3;
+
+    mcreq_sched_enter(&q);
+    for (unsigned ii = 0; ii < 5; ii++) {
+        lcb_error_t err;
+        mc_PIPELINE *pl;
+        mc_PACKET *pkt;
+        err = mcreq_basic_packet(&q, &basecmd, &hdr, 0, &pkt, &pl, 0);
+        ASSERT_EQ(LCB_SUCCESS, err);
+        pkt->flags |= MCREQ_F_REQEXT;
+        pkt->u_rdata.exdata = &ec.base;
+        mcreq_sched_add(pl, pkt);
+        ec.remaining++;
+    }
+    mcreq_sched_fail(&q);
+    ASSERT_EQ(0, ec.remaining);
+}

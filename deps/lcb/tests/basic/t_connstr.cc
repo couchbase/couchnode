@@ -84,16 +84,25 @@ TEST_F(ConnstrTest, testParseBasic)
     ASSERT_EQ(LCB_SUCCESS, err) << "Ok with scheme only";
 
     reinit();
-    err = lcb_connspec_parse("", &params, &errmsg);
-    ASSERT_NE(LCB_SUCCESS, err) << "Error with empty string";
-
-    reinit();
     err = lcb_connspec_parse("couchbase://?", &params, &errmsg);
     ASSERT_EQ(LCB_SUCCESS, err) << "Ok with only '?'";
 
     reinit();
     err = lcb_connspec_parse("couchbase://?&", &params, &errmsg);
     ASSERT_EQ(LCB_SUCCESS, err) << "Ok with only '?&'";
+
+    reinit();
+    err = lcb_connspec_parse("1.2.3.4", &params, &errmsg);
+    ASSERT_EQ(LCB_SUCCESS, err) << "Ok without scheme";
+    ASSERT_EQ(LCB_CONFIG_HTTP_PORT, params.implicit_port);
+
+    reinit();
+    err = lcb_connspec_parse("1.2.3.4:999", &params, &errmsg);
+    ASSERT_EQ(1, countHosts(&params));
+    tmphost = findHost(&params, "1.2.3.4");
+    ASSERT_FALSE(tmphost == NULL);
+    ASSERT_EQ(999, tmphost->port);
+    ASSERT_TRUE(tmphost->isHTTP());
 
 }
 
@@ -241,7 +250,7 @@ TEST_F(ConnstrTest, testOptionsPassthrough)
     reinit();
     err = lcb_connspec_parse("couchbase:///protected?ssl=on&compression=off",
         &params, &errmsg);
-    ASSERT_EQ(LCB_SUCCESS, err) << "Ok with bucketÊand no hosts";
+    ASSERT_EQ(LCB_SUCCESS, err) << "Ok with bucket and no hosts";
     ASSERT_EQ(1, countHosts(&params));
     ASSERT_FALSE(NULL == findHost(&params, "localhost"));
     ASSERT_TRUE(findOption(&params, "compression", op));

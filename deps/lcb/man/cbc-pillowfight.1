@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-PILLOWFIGHT" "1" "June 2014" "" ""
+.TH "CBC\-PILLOWFIGHT" "1" "October 2014" "" ""
 .
 .SH "NAME"
 \fBcbc\-pillowfight\fR \- Stress Test for Couchbase Client and Cluster
@@ -13,10 +13,35 @@
 \fBcbc\-pillowfight\fR creates a specified number of threads each looping and performing get and set operations within the cluster\.
 .
 .P
-The command will loop a certain number of \fIcycles\fR, in each cycle it will schedule a certain number of \fIbatched\fR operations (which can be a single operation)\. The operations will be either storage or retrieval operations, controlled by a given \fIratio\fR\.
+The stress test operates in the following order
 .
-.P
-The number of total items operated upon as well as the sizes of these options may also be configured\.
+.IP "1." 4
+It will pre\-load the items in the cluster (set by the \fB\-\-num\-items\fR option)
+.
+.IP "2." 4
+Once the items are all loaded into the cluster, it will access all the items (within the \fB\-\-num\-items\fR) specification, using a combination of storage and retrieval operations (the proportion of retrieval and storage operations are controlled via the \fB\-\-set\-pct\fR option)\.
+.
+.IP "3." 4
+Operations are scheduled in \fIbatches\fR\. The batches represent a single pipeline (or network buffer) which is filled with a certain amount of operations (see the \fB\-\-batch\-size\fR option)\. These batch sizes are then sent over to the cluster and the requests are serviced by it\.
+.
+.IP "" 0
+.
+.SS "Tuning"
+Getting the right benchmark numbers highly depends on the type of environment the client is being run in\. The following provides some information about specific settings which may make \fBpillowfight\fR generate more operations\.
+.
+.IP "\(bu" 4
+Increasing the batch size will typically speed up operations, but increasing the batch size too much will actually slow it down\. Additionally, very high batch sizes will cause high memory usage\.
+.
+.IP "\(bu" 4
+Adding additional threads will create additional client objects and connections, potentially increasing performance\. Adding too many threads will cause local and network resource congestion\.
+.
+.IP "\(bu" 4
+Decreasing the item sizes (the \fB\-\-min\-size\fR and \fB\-\-max\-size\fR options) will always yield higher performance in terms of operationd\-per\-second\.
+.
+.IP "\(bu" 4
+Limiting the working set (i\.e\. \fB\-\-num\-items\fR) will decrease the working set within the cluster, thereby increasing the chance that a given item will be inside the server\'s CPU cache (which is extremely fast), rather than in main memory (slower), or disk (much slower)
+.
+.IP "" 0
 .
 .SH "OPTIONS"
 Options may be read either from the command line, or from a configuration file (see cbcrc(4)):
@@ -25,7 +50,7 @@ Options may be read either from the command line, or from a configuration file (
 The following options control workload generation:
 .
 .TP
-\fB\-B\fR, \fB\-\-iterations\fR=\fIBATCHSIZE\fR
+\fB\-B\fR, \fB\-\-batch\-size\fR=\fIBATCHSIZE\fR
 This controls how many commands are scheduled per cycles\. To simulate one operation at a time, set this value to 1\.
 .
 .TP
@@ -41,8 +66,8 @@ Set the prefix to prepend to all keys in the cluster\. Useful if you do not wish
 Set the number of threads (and thus the number of client instances) to run concurrently\. Each thread is assigned its own client object\.
 .
 .TP
-\fB\-r\fR, \fB\-\-ratio\fR=\fISETRATIO\fR
-Set the ratio of gets to sets\. This controls how many get operations should be performed before a set operation is performed\.
+\fB\-r\fR, \fB\-\-set\-pct\fR=\fIPERCENTAGE\fR
+The percentage of operations which should be mutations\. A value of 100 means only mutations while a value of 0 means only retrievals\.
 .
 .TP
 \fB\-n\fR, \fB\-\-no\-population\fR
@@ -63,6 +88,14 @@ When the workload completes, do not exit immediately, but wait for user input\. 
 .TP
 \fB\-c\fR, \fB\-\-num\-cycles\fR
 Specify the number of times the workload should cycle\. During each cycle an amount of \fB\-\-batch\-size\fR operations are executed\. Setting this to \fB\-1\fR will cause the workload to run infinitely\.
+.
+.TP
+\fB\-\-sequential\fR
+Specify that the access pattern should be done in a sequential manner\. This is useful for bulk\-loading many documents in a single server\.
+.
+.TP
+\fB\-\-start\-at\fR
+This specifies the starting offset for the items\. The items by default are generated with the key prefix (\fB\-\-key\-prefix\fR) up to the number of items (\fB\-\-num\-items\fR)\. The \fB\-\-start\-at\fR value will increase the lower limit of the items\. This is useful to resume a previously cancelled load operation\.
 .
 .TP
 \fB\-T\fR, \fB\-\-timings\fR
@@ -111,8 +144,8 @@ Enables the client to make use of a file based configuration cache rather than c
 Use SSL for connecting to the cluster\. The options are \fBON\fR to enable full SSL support, \fBOFF\fR to disable SSL support, and \fBNO_VERIFY\fR to use SSL encryption but not attempt to verify the authenticity of the server\'s certificate\.
 .
 .TP
-\fB\-\-capath\fR=\fICERTIFICATE\fR
-The path to the CA certificate with which the server\'s certificate was signed\. May be necessary if the certificate is not recognized by the default OpenSSL installation\.
+\fB\-\-certpath\fR=\fICERTIFICATE\fR
+The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system\.
 .
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR

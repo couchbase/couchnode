@@ -58,152 +58,148 @@ extern "C" {
 #undef LCB_IOCP_VISTA_API
 #endif
 
-    enum {
-        LCBIOCP_ACTION_NONE = 100,
-        LCBIOCP_ACTION_READ,
-        LCBIOCP_ACTION_WRITE,
-        LCBIOCP_ACTION_CONNECT
-    };
+/** @see iocp_overlapped_t */
+enum {
+    LCBIOCP_ACTION_NONE = 100,
+    LCBIOCP_ACTION_READ,
+    LCBIOCP_ACTION_WRITE,
+    LCBIOCP_ACTION_CONNECT
+};
 
-    struct iocp_sockdata_st;
+struct iocp_sockdata_st;
 
-    /**
-     * This structure is our 'overlapped' subclass. It in itself does not
-     * contain any data, but rather determines how to read the associated
-     * CompletionKey passed along with GetQueuedCompletionStatus.
-     * This information is determined from the 'action' field
-     */
-    typedef struct {
-        OVERLAPPED base;
-        struct iocp_sockdata_st *sd;
-        char action;
-    } iocp_overlapped_t;
+/**
+ * This structure is our 'overlapped' subclass. It in itself does not
+ * contain any data, but rather determines how to read the 
+ * CompletionKey passed along with GetQueuedCompletionStatus
+ * This information is determined from the ::action field */
+typedef struct {
+    OVERLAPPED base;
+    struct iocp_sockdata_st *sd;
+    unsigned char action;
+} iocp_overlapped_t;
 
-    typedef enum {
-        IOCP_WRITEBUF_AVAILABLE = 0,
-        IOCP_WRITEBUF_INUSE,
-        IOCP_WRITEBUF_ALLOCATED
-    } iocp_wbuf_state_t;
+typedef enum {
+    IOCP_WRITEBUF_AVAILABLE = 0,
+    IOCP_WRITEBUF_INUSE,
+    IOCP_WRITEBUF_ALLOCATED
+} iocp_wbuf_state_t;
 
-    typedef struct {
-        iocp_overlapped_t ol_write;
-        lcb_ioC_write2_callback cb;
-        iocp_wbuf_state_t state;
-        void *uarg;
-    } iocp_write_t;
+typedef struct {
+    iocp_overlapped_t ol_write;
+    lcb_ioC_write2_callback cb;
+    iocp_wbuf_state_t state;
+    void *uarg;
+} iocp_write_t;
 
-    #define IOCP_WRITEOBJ_FROM_OVERLAPPED(ol) \
-        (iocp_write_t *)(((char *)ol) - offsetof(iocp_write_t, ol_write))
+#define IOCP_WRITEOBJ_FROM_OVERLAPPED(ol) \
+    (iocp_write_t *)(((char *)ol) - offsetof(iocp_write_t, ol_write))
 
-    typedef struct iocp_sockdata_st {
-        lcb_sockdata_t sd_base;
-        iocp_overlapped_t ol_read;
+typedef struct iocp_sockdata_st {
+    lcb_sockdata_t sd_base;
+    /**OVERLAPPED subclass used for read operations. Since no more than one read
+     * per socket may be active at any given time, this is attached to the socket
+     * structure */
+    iocp_overlapped_t ol_read;
+    /** Write structure allocated as a single chunk */
+    iocp_write_t w_info;
+    /** Reference count. Mainly managed by iocp_just_scheduled() and
+     * iocp_on_dequeued(). This value is set to 1 for a new socket. */
+    unsigned int refcount;
+    /** Actual socket descriptor */
+    SOCKET sSocket;
+    /** Callback for read operations */
+    lcb_ioC_read2_callback rdcb;
+    /** Argument for read callback */
+    void *rdarg;
+    /** Node in linked list of sockets */
+    lcb_list_t list;
+} iocp_sockdata_t;
 
-        /** Write structure allocated as a single chunk */
-        iocp_write_t w_info;
-        /**
-         * We use a refcount here to handle 'close' operations.
-         * A new socket is initialized with a refcount of 0, and is incremented
-         * for each posted operation. When GetQueuedCompletionStatus obtains this
-         * socket, its reference count is decremented
-         */
-        unsigned int refcount;
+typedef struct {
+    iocp_overlapped_t ol_conn;
+    lcb_io_connect_cb cb;
+} iocp_connect_t;
 
-        SOCKET sSocket;
-        lcb_ioC_read2_callback rdcb;
-        void *rdarg;
-        lcb_list_t list;
-    } iocp_sockdata_t;
+typedef struct iocp_timer_st {
+    lcb_list_t list;
+    char is_active;
+    lcb_U64 ms;
+    lcb_ioE_callback cb;
+    void *arg;
+} iocp_timer_t;
 
-    typedef struct {
-        iocp_overlapped_t ol_conn;
-        lcb_io_connect_cb cb;
-    } iocp_connect_t;
+typedef struct iocp_st {
+    struct lcb_io_opt_st base; /**< Base table */
+    HANDLE hCompletionPort; /**< Completion port */
+    iocp_timer_t timer_queue; /**< Pending timers */
+    lcb_list_t sockets; /**< List of all sockets */
+    unsigned int n_iopending; /**< Count of outstanding I/O operations */
+    BOOL breakout; /**< Flag unset during lcb_wait() and set during lcb_breakout() */
+} iocp_t;
 
-    typedef void (*v0_callback)(lcb_socket_t, short, void *);
+/**
+ * @brief Call this function when an I/O operation has been scheduled.
+ * @param io the io operations structure
+ * @param ol the overlapped upon which the operation was associated with
+ * @param status the return code of the scheduling API.
+ * @return an error code suitable for propagating up to the library.
+ * 
+ * Note that this function does more than convert an error code. If an operation
+ * has been successfuly scheduled, the relevant socket's reference count will
+ * also be incremented.
+ */
+int iocp_just_scheduled(iocp_t *io, iocp_overlapped_t *ol, int status);
 
-    struct iocp_timer_st;
+/**
+ * @brief Call this function when an I/O operation has been completed. This
+ * is the logical end block of the iocp_just_scheduled() API
+ * @param io the I/O operations structure
+ * @param sd the socket associated with the operation
+ * @param action the type of operation performed
+ */
+void iocp_on_dequeued(iocp_t *io, iocp_sockdata_t *sd, int action);
+void iocp_socket_decref(iocp_t *io, iocp_sockdata_t *sd);
 
-    typedef struct iocp_timer_st {
-        lcb_list_t list;
-        char is_active;
-        lcb_uint64_t ms;
-        v0_callback cb;
-        void *arg;
-    } iocp_timer_t;
+int iocp_w32err_2errno(DWORD error);
+DWORD iocp_set_last_error(lcb_io_opt_t io, SOCKET sock);
 
-    typedef struct iocp_st {
-        /** Base table */
-        struct lcb_io_opt_st base;
+/** Get current timestamp in microseconds */
+lcb_U32 iocp_micros(void);
 
-        /** The completion port */
-        HANDLE hCompletionPort;
+/** Get current timestamp in milliseconds */
+#define iocp_millis() (iocp_micros() / 1000)
 
-        /** Sorted list */
-        iocp_timer_t timer_queue;
+/** Initialize any globals needed by the plugin. This may be called more than
+ * once, and will only initialize once. */
+void iocp_initialize_loop_globals(void);
 
-        /** List of registered sockets in the list */
-        iocp_sockdata_t sockets;
+/** Call this on a new socket to retrieve its `ConnectEx` function pointer */
+LPFN_CONNECTEX iocp_initialize_connectex(SOCKET s);
 
-        /** How many operations are pending for I/O */
-        unsigned int n_iopending;
+/** This safely invokes and restores the callback */
+void iocp_write_done(iocp_t *io, iocp_write_t *w, int status);
 
-        /** Flag unset during lcb_wait() and set during lcb_breakout() */
-        BOOL breakout;
-    } iocp_t;
+/**Extract the actual error code from an OVERLAPPED after an operation
+ * has been received on it
+ * @param lpOverlapped the overlapped structure
+ * @return The actual Winsock error code
+ */
+int iocp_overlapped_status(OVERLAPPED *lpOverlapped);
 
-    /**
-     * Does the "Right Thing" after an operation has been scheduled
-     */
-    int iocp_just_scheduled(iocp_t *io, iocp_overlapped_t *ol, int status);
-    void iocp_on_dequeued(iocp_t *io, iocp_sockdata_t *sd, int action);
-    void iocp_socket_decref(iocp_t *io, iocp_sockdata_t *sd);
+void iocp_run(lcb_io_opt_t iobase);
+void iocp_stop(lcb_io_opt_t iobase);
 
-    /**
-     * Schedule generic events to the queue
-     */
-    void iocp_asq_schedule(iocp_t *io, iocp_sockdata_t *sd, iocp_overlapped_t *ol);
+/** Timer Functions*/
+void iocp_tmq_add(lcb_list_t *list, iocp_timer_t *timer);
+void iocp_tmq_del(lcb_list_t *list, iocp_timer_t *timer);
+lcb_U64 iocp_tmq_next_timeout(lcb_list_t *list, lcb_U64 now);
+iocp_timer_t *iocp_tmq_pop(lcb_list_t *list, lcb_U64 now);
 
+LIBCOUCHBASE_API
+lcb_error_t lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg);
 
-    int iocp_w32err_2errno(DWORD error);
-    DWORD iocp_set_last_error(lcb_io_opt_t io, SOCKET sock);
-    lcb_uint32_t iocp_micros(void);
-    #define iocp_millis() (iocp_micros() / 1000)
-
-    void iocp_initialize_loop_globals(void);
-    LPFN_CONNECTEX iocp_initialize_connectex(SOCKET s);
-
-    /** This safely invokes and restores the callback */
-    void iocp_write_done(iocp_t *io, iocp_write_t *w, int status);
-
-    int iocp_overlapped_status(OVERLAPPED *lpOverlapped);
-
-    /**
-     * Start/Stop
-     */
-    void iocp_run(lcb_io_opt_t iobase);
-    void iocp_stop(lcb_io_opt_t iobase);
-
-    /**
-     * Timer Functions
-     */
-    void iocp_tmq_add(lcb_list_t *list, iocp_timer_t *timer);
-    void iocp_tmq_del(lcb_list_t *list, iocp_timer_t *timer);
-    lcb_uint64_t iocp_tmq_next_timeout(lcb_list_t *list, lcb_uint64_t now);
-    iocp_timer_t *iocp_tmq_pop(lcb_list_t *list, lcb_uint64_t now);
-
-    LIBCOUCHBASE_API
-    lcb_error_t lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg);
-
-    enum {
-        IOCP_TRACE,
-        IOCP_DEBUG,
-        IOCP_INFO,
-        IOCP_WARN,
-        IOCP_ERR,
-        IOCP_FATAL
-    };
-
+enum { IOCP_TRACE, IOCP_DEBUG, IOCP_INFO, IOCP_WARN, IOCP_ERR, IOCP_FATAL };
 #ifdef IOCP_LOG_VERBOSE
 #include <stdio.h>
 #define IOCP_LOG(facil, ...) \

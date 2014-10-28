@@ -24,6 +24,15 @@ typedef struct {
 } bcast_cookie;
 
 static void
+refcnt_dtor_common(mc_PACKET *pkt)
+{
+    bcast_cookie *ck = (bcast_cookie *)pkt->u_rdata.exdata;
+    if (!--ck->remaining) {
+        free(ck);
+    }
+}
+
+static void
 stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_error_t err, const void *arg)
 {
     bcast_cookie *ck = (bcast_cookie *)req->u_rdata.exdata;
@@ -57,23 +66,65 @@ stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_error_t err, const void *arg)
     }
 }
 
+static mc_REQDATAPROCS stats_procs = {
+        stats_handler,
+        refcnt_dtor_common
+};
+
 LIBCOUCHBASE_API
 lcb_error_t
 lcb_stats3(lcb_t instance, const void *cookie, const lcb_CMDSTATS * cmd)
 {
     unsigned ii;
+    int vbid = -1;
+    char ksbuf[512] = { 0 };
     mc_CMDQUEUE *cq = &instance->cmdq;
-    bcast_cookie *ckwrap = calloc(1, sizeof(*ckwrap));
+    bcast_cookie *ckwrap = NULL;
+    lcbvb_CONFIG *vbc = cq->config;
+    const lcb_CONTIGBUF *kbuf_in = &cmd->key.contig;
+    lcb_KEYBUF kbuf_out;
 
+    kbuf_out.type = LCB_KV_COPY;
+
+    if (cmd->cmdflags & LCB_CMDSTATS_F_KV) {
+        if (kbuf_in->nbytes == 0 || kbuf_in->nbytes > sizeof(ksbuf) - 30) {
+            return LCB_EINVAL;
+        }
+        if (vbc == NULL) {
+            return LCB_CLIENT_ETMPFAIL;
+        }
+        if (lcbvb_get_distmode(vbc) != LCBVB_DIST_VBUCKET) {
+            return LCB_NOT_SUPPORTED;
+        }
+        vbid = lcbvb_k2vb(vbc, kbuf_in->bytes, kbuf_in->nbytes);
+        if (vbid < 0) {
+            return LCB_CLIENT_ETMPFAIL;
+        }
+        for (ii = 0; ii < kbuf_in->nbytes; ii++) {
+            if (isspace( ((char *)kbuf_in->bytes)[ii])) {
+                return LCB_EINVAL;
+            }
+        }
+        sprintf(ksbuf, "key %.*s %d", (int)kbuf_in->nbytes, kbuf_in->bytes, vbid);
+        kbuf_out.contig.nbytes = strlen(ksbuf);
+        kbuf_out.contig.bytes = ksbuf;
+    } else {
+        kbuf_out.contig = *kbuf_in;
+    }
+
+    ckwrap = calloc(1, sizeof(*ckwrap));
     ckwrap->base.cookie = cookie;
     ckwrap->base.start = gethrtime();
-    ckwrap->base.callback = stats_handler;
+    ckwrap->base.procs = &stats_procs;
 
     for (ii = 0; ii < cq->npipelines; ii++) {
         mc_PACKET *pkt;
         mc_PIPELINE *pl = cq->pipelines[ii];
-        protocol_binary_request_header hdr;
-        memset(&hdr, 0, sizeof(hdr));
+        protocol_binary_request_header hdr = { { 0 } };
+
+        if (vbid > -1 && lcbvb_has_vbucket(vbc, vbid, ii) == 0) {
+            continue;
+        }
 
         pkt = mcreq_allocate_packet(pl);
         if (!pkt) {
@@ -84,9 +135,9 @@ lcb_stats3(lcb_t instance, const void *cookie, const lcb_CMDSTATS * cmd)
         hdr.request.magic = PROTOCOL_BINARY_REQ;
 
         if (cmd->key.contig.nbytes) {
-            mcreq_reserve_key(pl, pkt, MCREQ_PKT_BASESIZE, &cmd->key);
-            hdr.request.keylen = ntohs((lcb_uint16_t)cmd->key.contig.nbytes);
-            hdr.request.bodylen = ntohl((lcb_uint32_t)cmd->key.contig.nbytes);
+            mcreq_reserve_key(pl, pkt, MCREQ_PKT_BASESIZE, &kbuf_out);
+            hdr.request.keylen = ntohs((lcb_U16)kbuf_out.contig.nbytes);
+            hdr.request.bodylen = ntohl((lcb_U32)kbuf_out.contig.nbytes);
         } else {
             mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
         }
@@ -159,15 +210,26 @@ handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err,
     free(ck);
 }
 
+static mc_REQDATAPROCS bcast_procs = {
+        handle_bcast,
+        refcnt_dtor_common
+};
+
 static lcb_error_t
 pkt_bcast_simple(lcb_t instance, const void *cookie, lcb_CALLBACKTYPE type)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
-    bcast_cookie *ckwrap = calloc(1, sizeof(*ckwrap));
+    bcast_cookie *ckwrap;
+
+    if (!cq->config) {
+        return LCB_CLIENT_ETMPFAIL;
+    }
+
+    ckwrap = calloc(1, sizeof(*ckwrap));
     ckwrap->base.cookie = cookie;
     ckwrap->base.start = gethrtime();
-    ckwrap->base.callback = handle_bcast;
+    ckwrap->base.procs = &bcast_procs;
     ckwrap->type = type;
 
     for (ii = 0; ii < cq->npipelines; ii++) {
@@ -231,10 +293,16 @@ lcb_server_verbosity3(lcb_t instance, const void *cookie,
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
-    bcast_cookie *ckwrap = calloc(1, sizeof(*ckwrap));
+    bcast_cookie *ckwrap;
+
+    if (!cq->config) {
+        return LCB_CLIENT_ETMPFAIL;
+    }
+
+    ckwrap = calloc(1, sizeof(*ckwrap));
     ckwrap->base.cookie = cookie;
     ckwrap->base.start = gethrtime();
-    ckwrap->base.callback = handle_bcast;
+    ckwrap->base.procs = &bcast_procs;
     ckwrap->type = LCB_CALLBACK_VERBOSITY;
 
     for (ii = 0; ii < cq->npipelines; ii++) {

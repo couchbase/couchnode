@@ -243,6 +243,13 @@ typedef struct clconfig_provider_st {
 
     /** Destroy the resources created by this provider. */
     void (*shutdown)(struct clconfig_provider_st *);
+
+    /**
+     * Dump state information. This callback is optional
+     * @param p the provider
+     * @param f the file to write to
+     */
+    void (*dump)(struct clconfig_provider_st *p, FILE *f);
 } clconfig_provider;
 
 
@@ -558,6 +565,12 @@ void lcb_clconfig_decref(clconfig_info *info);
  * @param info the config object
  */
 #define lcb_clconfig_incref(info) (info)->refcount++
+
+/** Dump information about the monitor
+ * @param mon the monitor object
+ * @param fp the file to which information should be written
+ */
+void lcb_confmon_dump(lcb_confmon *mon, FILE *fp);
 
 /**
  * @name File Provider-specific APIs
