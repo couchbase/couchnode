@@ -26,6 +26,29 @@
 using namespace std;
 using namespace Couchnode;
 
+#ifdef UV_VERSION_MAJOR
+#ifndef UV_VERSION_PATCH
+#define UV_VERSION_PATCH 0
+#endif
+#define NAUV_UVVERSION  ((UV_VERSION_MAJOR << 16) | \
+                     (UV_VERSION_MINOR <<  8) | \
+                     (UV_VERSION_PATCH))
+#else
+#define NAUV_UVVERSION 0x000b00
+#endif
+
+#if NAUV_UVVERSION < 0x000b00
+#define NAUV_PREPARE_CB(func) \
+    void func(uv_prepare_t *handle, int)
+#else
+#define NAUV_PREPARE_CB(func) \
+    void func(uv_prepare_t *handle)
+#endif
+
+NAUV_PREPARE_CB(lcbuv_flush) {
+    CouchbaseImpl *me = reinterpret_cast<CouchbaseImpl*>(handle->data);
+    lcb_sched_flush(me->getLcbHandle());
+}
 
 CouchbaseImpl::CouchbaseImpl(lcb_t inst) :
     ObjectWrap(), instance(inst), connectCallback(NULL),
@@ -47,11 +70,23 @@ CouchbaseImpl::~CouchbaseImpl()
 
 void CouchbaseImpl::onConnect(lcb_error_t err)
 {
+    uv_prepare_init(uv_default_loop(), &flushWatch);
+    flushWatch.data = this;
+    uv_prepare_start(&flushWatch, &lcbuv_flush);
+
+    int flushMode = 0;
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_SCHED_IMPLICIT_FLUSH, &flushMode);
+
     NanScope();
     if (connectCallback) {
         Handle<Value> args[] = { NanNew<Integer>(err) };
         connectCallback->Call(1, args);
     }
+}
+
+void CouchbaseImpl::onShutdown()
+{
+    uv_prepare_stop(&flushWatch);
 }
 
 Handle<Value> CouchbaseImpl::decodeDoc(

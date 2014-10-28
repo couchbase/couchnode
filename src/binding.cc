@@ -277,6 +277,7 @@ NAN_METHOD(CouchbaseImpl::fnShutdown)
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     NanScope();
     lcb_destroy_async(me->getLcbHandle(), NULL);
+    me->onShutdown();
     NanReturnValue(NanTrue());
 }
 

@@ -51,6 +51,7 @@
 #include <vector>
 #include <queue>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <libcouchbase/configuration.h>
 
 #include "cas.h"
@@ -123,6 +124,7 @@ public:
     virtual ~CouchbaseImpl();
 
     void onConnect(lcb_error_t err);
+    void onShutdown();
 
     lcb_t getLcbHandle(void) const {
         return instance;
@@ -135,6 +137,7 @@ public:
 
 protected:
     lcb_t instance;
+    uv_prepare_t flushWatch;
 
     void setupLibcouchbaseCallbacks(void);
 
