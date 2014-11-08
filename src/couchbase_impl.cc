@@ -68,14 +68,20 @@ CouchbaseImpl::~CouchbaseImpl()
     }
 }
 
+extern "C" { static void bootstrap_callback_empty(lcb_t, lcb_error_t) {} }
 void CouchbaseImpl::onConnect(lcb_error_t err)
 {
-    uv_prepare_init(uv_default_loop(), &flushWatch);
-    flushWatch.data = this;
-    uv_prepare_start(&flushWatch, &lcbuv_flush);
+    if (err != 0) {
+        lcb_set_bootstrap_callback(instance, bootstrap_callback_empty);
+        lcb_destroy_async(instance, NULL);
+    } else {
+        uv_prepare_init(uv_default_loop(), &flushWatch);
+        flushWatch.data = this;
+        uv_prepare_start(&flushWatch, &lcbuv_flush);
 
-    int flushMode = 0;
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_SCHED_IMPLICIT_FLUSH, &flushMode);
+        int flushMode = 0;
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_SCHED_IMPLICIT_FLUSH, &flushMode);
+    }
 
     NanScope();
     if (connectCallback) {
