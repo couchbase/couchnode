@@ -67,7 +67,7 @@
 #include "internal.h"
 #include "durability_internal.h"
 #include <lcbio/iotable.h>
-
+#define LOGARGS(c, lvl) (c)->instance->settings, "endure", LCB_LOG_##lvl, __FILE__, __LINE__
 #define RESFLD(e, f) (e)->result.f
 #define ENT_CAS(e) (e)->request.options.cas
 
@@ -83,12 +83,11 @@ enum {
 };
 
 static void timer_callback(lcb_socket_t sock, short which, void *arg);
-static void timer_schedule(lcb_DURSET *, unsigned long, unsigned int);
+static void timer_schedule(lcb_DURSET *, unsigned int);
 static lcb_error_t poll_once(lcb_DURSET *dset, int initial);
 static void purge_entries(lcb_DURSET *dset, lcb_error_t err);
 #define dset_ref(dset) (dset)->refcnt++;
 static void dset_unref(lcb_DURSET *dset);
-
 
 
 /**
@@ -159,7 +158,7 @@ static void dset_done_waiting(lcb_DURSET *dset)
     dset->waiting = 0;
 
     if (dset->nremaining > 0) {
-        timer_schedule(dset, DSET_OPTFLD(dset, interval), STATE_OBSPOLL);
+        timer_schedule(dset, STATE_OBSPOLL);
     }
     dset_unref(dset);
 }
@@ -171,7 +170,7 @@ static void dset_done_waiting(lcb_DURSET *dset)
 static void purge_entries(lcb_DURSET *dset, lcb_error_t err)
 {
     lcb_size_t ii;
-    dset->us_timeout = 0;
+    dset->ns_timeout = 0;
     dset->next_state = STATE_IGNORE;
 
     /**
@@ -285,14 +284,7 @@ static lcb_error_t poll_once(lcb_DURSET *dset, int initial)
     }
 
     if (dset->waiting && n_added) {
-        lcb_U32 us_now = (lcb_U32)(gethrtime() / 1000);
-        lcb_U32 us_tmo;
-        if (dset->us_timeout > us_now) {
-            us_tmo = dset->us_timeout - us_now;
-        } else {
-            us_tmo = 1;
-        }
-        timer_schedule(dset, us_tmo, STATE_TIMEOUT);
+        timer_schedule(dset, STATE_TIMEOUT);
     } else {
         purge_entries(dset, LCB_ERROR);
     }
@@ -597,6 +589,8 @@ dset_ctx_schedule(lcb_MULTICMD_CTX *mctx, const void *cookie)
     dset_ref(dset);
     dset->cookie = cookie;
     dset->nremaining = dset->nentries;
+    dset->ns_timeout = gethrtime() + LCB_US2NS(DSET_OPTFLD(dset, timeout));
+
 
     lcb_aspend_add(&dset->instance->pendops, LCB_PENDTYPE_DURABILITY, dset);
     return poll_once(dset, 1);
@@ -616,7 +610,6 @@ lcb_endure3_ctxnew(lcb_t instance, const lcb_durability_opts_t *options,
 {
     lcb_DURSET *dset;
     lcb_error_t err_s;
-    hrtime_t now;
     lcbio_pTABLE io = instance->iotable;
 
     if (!errp) {
@@ -628,7 +621,6 @@ lcb_endure3_ctxnew(lcb_t instance, const lcb_durability_opts_t *options,
         return NULL;
     }
 
-    now = gethrtime();
     dset = calloc(1, sizeof(*dset));
 
     if (!dset) {
@@ -646,7 +638,7 @@ lcb_endure3_ctxnew(lcb_t instance, const lcb_durability_opts_t *options,
         DSET_OPTFLD(dset, timeout) = LCBT_SETTING(instance, durability_timeout);
     }
     if (!DSET_OPTFLD(dset, interval)) {
-        DSET_OPTFLD(dset, interval) = LCB_DEFAULT_DURABILITY_INTERVAL;
+        DSET_OPTFLD(dset, interval) = LCBT_SETTING(instance, durability_interval);
     }
 
     if (-1 == verify_critera(instance, dset)) {
@@ -654,8 +646,6 @@ lcb_endure3_ctxnew(lcb_t instance, const lcb_durability_opts_t *options,
         *errp = LCB_DURABILITY_ETOOMANY;
         return NULL;
     }
-
-    dset->us_timeout = (lcb_U32)(now / 1000) + DSET_OPTFLD(dset, timeout);
     dset->timer = io->timer.create(io->p);
     lcb_string_init(&dset->kvbufs);
     return &dset->mctx;
@@ -697,9 +687,14 @@ lcb_durability_poll(lcb_t instance, const void *cookie,
     }
 
     lcb_sched_enter(instance);
-    mctx->done(mctx, cookie);
-    lcb_sched_leave(instance);
-    SYNCMODE_INTERCEPT(instance)
+    err = mctx->done(mctx, cookie);
+    if (err != LCB_SUCCESS) {
+        lcb_sched_fail(instance);
+        return err;
+    } else {
+        lcb_sched_leave(instance);
+        SYNCMODE_INTERCEPT(instance)
+    }
 }
 
 /**
@@ -748,10 +743,9 @@ void lcb_durability_dset_destroy(lcb_DURSET *dset)
 static void timer_callback(lcb_socket_t sock, short which, void *arg)
 {
     lcb_DURSET *dset = arg;
-    hrtime_t ns_now = gethrtime();
-    lcb_U32 us_now = (lcb_U32)(ns_now / 1000);
+    hrtime_t now = gethrtime();
 
-    if (us_now >= (dset->us_timeout - 50)) {
+    if (dset->ns_timeout && now > dset->ns_timeout) {
         dset->next_state = STATE_TIMEOUT;
     }
 
@@ -761,11 +755,8 @@ static void timer_callback(lcb_socket_t sock, short which, void *arg)
         break;
 
     case STATE_TIMEOUT: {
-        if (us_now >= (dset->us_timeout - 50)) {
-            purge_entries(dset, LCB_ETIMEDOUT);
-        } else {
-            timer_schedule(dset, dset->us_timeout - us_now, STATE_TIMEOUT);
-        }
+        lcb_log(LOGARGS(dset, WARN), "Polling durability timed out!");
+        purge_entries(dset, LCB_ETIMEDOUT);
         break;
     }
 
@@ -786,14 +777,31 @@ static void timer_callback(lcb_socket_t sock, short which, void *arg)
  * of time. This is used both for the timeout and for the interval
  */
 static void
-timer_schedule(lcb_DURSET *dset, unsigned long delay, unsigned int state)
+timer_schedule(lcb_DURSET *dset, unsigned int state)
 {
+    lcb_U32 delay = 0;
     lcbio_TABLE* io = dset->instance->iotable;
-    dset->next_state = state;
-    if (!delay) {
-        delay = 1;
+    hrtime_t now = gethrtime();
+
+    if (state == STATE_TIMEOUT) {
+        if (dset->ns_timeout && now < dset->ns_timeout) {
+            delay = LCB_NS2US(dset->ns_timeout - now);
+        } else {
+            delay = 0;
+        }
+
+    } else if (state == STATE_OBSPOLL) {
+        if (now + LCB_US2NS(DSET_OPTFLD(dset, interval)) < dset->ns_timeout) {
+            delay = DSET_OPTFLD(dset, interval);
+        } else {
+            delay = 0;
+            state = STATE_TIMEOUT;
+        }
     }
 
+    lcb_log(LOGARGS(dset, TRACE), "Scheduling timeout for %u us (%u ms)", delay, delay/1000);
+
+    dset->next_state = state;
     io->timer.cancel(io->p, dset->timer);
     io->timer.schedule(io->p, dset->timer, delay, dset, timer_callback);
 }

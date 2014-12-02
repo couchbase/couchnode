@@ -18,10 +18,16 @@
 #ifndef LIBCOUCHBASE_TRACE_H
 #define LIBCOUCHBASE_TRACE_H 1
 
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
 #ifdef HAVE_DTRACE
 /* include the generated probes header and put markers in code */
 #include "probes.h"
 #define TRACE(probe) probe
+
 #else
 /* Wrap the probe to allow it to be removed when no systemtap available */
 #define TRACE(probe)
@@ -79,7 +85,7 @@
 
 #define TRACE_OBSERVE_BEGIN(req, body) \
     TRACE(LIBCOUCHBASE_OBSERVE_BEGIN(\
-        (req)->request.opaque, "", (req)->request.opcode, body, \
+        (req)->request.opaque, 0, (req)->request.opcode, body, \
         ntohl( (req)->request.bodylen) ))
 
 #define TRACE_OBSERVE_PROGRESS(mcresp, resp) \
@@ -92,4 +98,8 @@
 #define TRACE_HTTP_BEGIN(req) TRACE(LIBCOUCHBASE_HTTP_BEGIN((req)->url, (req)->nurl, (req)->method))
 #define TRACE_HTTP_END(req, rc, resp) TRACE(LIBCOUCHBASE_HTTP_END((req)->url, (req)->nurl, (req)->method, (resp)->rc, (resp)->htstatus
 
-#endif
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif /* __clang__ */
+
+#endif /* TRACE_H */

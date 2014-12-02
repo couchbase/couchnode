@@ -27,74 +27,57 @@
 
 
 extern "C" {
-    int timeout_seqno = 0;
-    int timeout_stats_done = 0;
-
-    static void timeout_store_callback(lcb_t instance,
-                                       const void *,
-                                       lcb_storage_t,
-                                       lcb_error_t error,
-                                       const lcb_store_resp_t *)
-    {
-        ASSERT_EQ(LCB_SUCCESS, error);
-        timeout_seqno--;
-        if (timeout_stats_done && timeout_seqno == 0) {
-            lcb_stop_loop(instance);
-        }
-    }
-
-    static void timeout_stat_callback(lcb_t instance,
-                                      const void *cookie,
-                                      lcb_error_t error,
-                                      const lcb_server_stat_resp_t *resp)
-    {
-        lcb_error_t err;
-        lcb_io_opt_t io = (lcb_io_opt_t)cookie;
-        char *statkey;
-        lcb_size_t nstatkey;
-
-        ASSERT_EQ(0, resp->version);
-        const char *server_endpoint = resp->v.v0.server_endpoint;
-        const void *key = resp->v.v0.key;
-        lcb_size_t nkey = resp->v.v0.nkey;
-        const void *bytes = resp->v.v0.bytes;
-        lcb_size_t nbytes = resp->v.v0.nbytes;
-
-        ASSERT_EQ(LCB_SUCCESS, error);
-        if (server_endpoint != NULL) {
-            nstatkey = strlen(server_endpoint) + nkey + 2;
-            statkey = new char[nstatkey];
-            snprintf(statkey, nstatkey, "%s-%.*s", server_endpoint,
-                     (int)nkey, (const char *)key);
-
-            lcb_store_cmd_t storecmd(LCB_SET, statkey, nstatkey, bytes, nbytes);
-            lcb_store_cmd_t *storecmds[] = { &storecmd };
-            err = lcb_store(instance, io, 1, storecmds);
-            ASSERT_EQ(LCB_SUCCESS, err);
-            timeout_seqno++;
-            delete []statkey;
-        } else {
-            timeout_stats_done = 1;
-        }
-    }
+static void opFromCallback_storeCB(lcb_t, const void *, lcb_storage_t,
+    lcb_error_t error, const lcb_store_resp_t *) {
+    ASSERT_EQ(LCB_SUCCESS, error);
 }
 
-TEST_F(MockUnitTest, testTimeout)
+static void opFromCallback_statsCB(lcb_t instance, const void *,
+    lcb_error_t error, const lcb_server_stat_resp_t *resp)
+{
+    lcb_error_t err;
+    char *statkey;
+    lcb_size_t nstatkey;
+
+    ASSERT_EQ(0, resp->version);
+    const char *server_endpoint = resp->v.v0.server_endpoint;
+    const void *key = resp->v.v0.key;
+    lcb_size_t nkey = resp->v.v0.nkey;
+    const void *bytes = resp->v.v0.bytes;
+    lcb_size_t nbytes = resp->v.v0.nbytes;
+
+    ASSERT_EQ(LCB_SUCCESS, error);
+    if (server_endpoint != NULL) {
+        nstatkey = strlen(server_endpoint) + nkey + 2;
+        statkey = new char[nstatkey];
+        snprintf(statkey, nstatkey, "%s-%.*s", server_endpoint,
+                 (int)nkey, (const char *)key);
+
+        lcb_store_cmd_t storecmd(LCB_SET, statkey, nstatkey, bytes, nbytes);
+        lcb_store_cmd_t *storecmds[] = { &storecmd };
+        err = lcb_store(instance, NULL, 1, storecmds);
+        ASSERT_EQ(LCB_SUCCESS, err);
+        delete []statkey;
+    }
+}
+}
+
+TEST_F(MockUnitTest, testOpFromCallback)
 {
     // @todo we need to have a test that actually tests the timeout callback..
     lcb_t instance;
     HandleWrap hw;
     createConnection(hw, instance);
 
-    (void)lcb_set_stat_callback(instance, timeout_stat_callback);
-    (void)lcb_set_store_callback(instance, timeout_store_callback);
-
+    lcb_set_stat_callback(instance, opFromCallback_statsCB);
+    lcb_set_store_callback(instance, opFromCallback_storeCB);
 
     lcb_server_stats_cmd_t stat;
     lcb_server_stats_cmd_t *commands[] = {&stat };
 
+    ASSERT_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "operation_timeout", "5.0"));
     ASSERT_EQ(LCB_SUCCESS, lcb_server_stats(instance, NULL, 1, commands));
-    lcb_run_loop(instance);
+    lcb_wait(instance);
 }
 
 struct timeout_test_cookie {
@@ -488,6 +471,21 @@ static void listener_callback(clconfig_listener *lsnbase,
 }
 }
 
+static void
+doManyItems(lcb_t instance, std::vector<std::string> keys)
+{
+    lcb_CMDSTORE cmd = { 0 };
+    cmd.operation = LCB_SET;
+    lcb_sched_enter(instance);
+    for (size_t ii = 0; ii < keys.size(); ii++) {
+        LCB_CMD_SET_KEY(&cmd, keys[ii].c_str(), keys[ii].size());
+        LCB_CMD_SET_VALUE(&cmd, keys[ii].c_str(), keys[ii].size());
+        EXPECT_EQ(LCB_SUCCESS, lcb_store3(instance, NULL, &cmd));
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
 TEST_F(MockUnitTest, testMemcachedFailover)
 {
     SKIP_UNLESS_MOCK();
@@ -513,10 +511,12 @@ TEST_F(MockUnitTest, testMemcachedFailover)
     lcb_wait(instance);
     ASSERT_TRUE(lsn.called);
 
-    doDummyOp(instance);
-    http_provider *htprov =
-            (http_provider *)lcb_confmon_get_provider(instance->confmon,
-                                                      LCB_CLCONFIG_HTTP);
+    // Get the command list:
+    std::vector<std::string> distKeys;
+    genDistKeys(LCBT_VBCONFIG(instance), distKeys);
+
+    doManyItems(instance, distKeys);
+    http_provider *htprov = (http_provider *)lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_HTTP);
     ASSERT_EQ((lcb_uint32_t)-1, instance->getSettings()->bc_http_stream_time);
     ASSERT_EQ(0, lcbio_timer_armed(htprov->disconn_timer));
 
@@ -524,25 +524,19 @@ TEST_F(MockUnitTest, testMemcachedFailover)
     mock->failoverNode(1, "cache");
     lsn.called = false;
 
-    for (int ii = 0; ii < 100; ii++) {
-        if (lsn.called) {
-            break;
-        }
-        doDummyOp(instance);
+    for (int ii = 0; ii < 100 && lsn.called == false; ii++) {
+        doManyItems(instance, distKeys);
     }
     ASSERT_TRUE(lsn.called);
     // Call again so the async callback may be invoked.
-    doDummyOp(instance);
+    doManyItems(instance, distKeys);
     ASSERT_EQ(9, lcb_get_num_nodes(instance));
 
-    doDummyOp(instance);
+    doManyItems(instance, distKeys);
     mock->respawnNode(1, "cache");
     lsn.called = false;
-    for (int ii = 0; ii < 100; ii++) {
-        if (lsn.called) {
-            break;
-        }
-        doDummyOp(instance);
+    for (int ii = 0; ii < 100 && lsn.called == false; ii++) {
+        doManyItems(instance, distKeys);
     }
     ASSERT_TRUE(lsn.called);
     lcb_confmon_remove_listener(instance->confmon, &lsn.base);

@@ -88,6 +88,10 @@ struct lcbio_NAMEINFO {
 int
 lcbio_get_nameinfo(lcbio_SOCKET *sock, struct lcbio_NAMEINFO *nistrs);
 
+/** Basic wrapper around the @ref lcb_ioE_chkclosed_fn family */
+int
+lcbio_is_netclosed(lcbio_SOCKET *sock, int flags);
+
 void
 lcbio__load_socknames(lcbio_SOCKET *sock);
 
@@ -99,7 +103,7 @@ lcbio__load_socknames(lcbio_SOCKET *sock);
 
 
 /**
- * @addtogroup LCBIO
+ * @addtogroup lcbio
  * @{
  *
  * @name Pending Requests

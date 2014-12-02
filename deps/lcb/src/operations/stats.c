@@ -105,7 +105,8 @@ lcb_stats3(lcb_t instance, const void *cookie, const lcb_CMDSTATS * cmd)
                 return LCB_EINVAL;
             }
         }
-        sprintf(ksbuf, "key %.*s %d", (int)kbuf_in->nbytes, kbuf_in->bytes, vbid);
+        sprintf(ksbuf, "key %.*s %d", (int)kbuf_in->nbytes,
+                (const char *)kbuf_in->bytes, vbid);
         kbuf_out.contig.nbytes = strlen(ksbuf);
         kbuf_out.contig.bytes = ksbuf;
     } else {
@@ -367,10 +368,9 @@ lcb_error_t
 lcb_server_stats(lcb_t instance, const void *cookie, lcb_size_t num,
                  const lcb_server_stats_cmd_t * const * items)
 {
-    mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
 
-    mcreq_sched_enter(cq);
+    lcb_sched_enter(instance);
     for (ii = 0; ii < num; ii++) {
         const lcb_server_stats_cmd_t *src = items[ii];
         lcb_CMDSTATS dst;
@@ -381,11 +381,11 @@ lcb_server_stats(lcb_t instance, const void *cookie, lcb_size_t num,
         dst.key.contig.nbytes = src->v.v0.nname;
         err = lcb_stats3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
-            mcreq_sched_fail(cq);
+            lcb_sched_fail(instance);
             return err;
         }
     }
-    mcreq_sched_leave(cq, 1);
+    lcb_sched_leave(instance);
     SYNCMODE_INTERCEPT(instance)
 }
 
@@ -394,10 +394,9 @@ lcb_error_t
 lcb_set_verbosity(lcb_t instance, const void *cookie, lcb_size_t num,
                   const lcb_verbosity_cmd_t * const * items)
 {
-    mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
 
-    mcreq_sched_enter(cq);
+    lcb_sched_enter(instance);
     for (ii = 0; ii < num; ii++) {
         lcb_CMDVERBOSITY dst;
         lcb_error_t err;
@@ -408,11 +407,11 @@ lcb_set_verbosity(lcb_t instance, const void *cookie, lcb_size_t num,
         dst.server = src->v.v0.server;
         err = lcb_server_verbosity3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
-            mcreq_sched_fail(cq);
+            lcb_sched_fail(instance);
             return err;
         }
     }
-    mcreq_sched_leave(cq, 1);
+    lcb_sched_leave(instance);
     SYNCMODE_INTERCEPT(instance)
 }
 
@@ -421,18 +420,17 @@ lcb_error_t
 lcb_flush(lcb_t instance, const void *cookie, lcb_size_t num,
           const lcb_flush_cmd_t * const * items)
 {
-    mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
 
-    mcreq_sched_enter(cq);
+    lcb_sched_enter(instance);
     for (ii = 0; ii < num; ii++) {
         lcb_error_t rc = lcb_flush3(instance, cookie, NULL);
         if (rc != LCB_SUCCESS) {
-            mcreq_sched_fail(cq);
+            lcb_sched_fail(instance);
             return rc;
         }
     }
-    mcreq_sched_leave(cq, 1);
+    lcb_sched_leave(instance);
     (void)items;
     SYNCMODE_INTERCEPT(instance)
 }
@@ -442,20 +440,19 @@ lcb_error_t
 lcb_server_versions(lcb_t instance, const void *cookie, lcb_size_t num,
                     const lcb_server_version_cmd_t * const * items)
 {
-    mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
     (void)items;
-    mcreq_sched_enter(cq);
+    lcb_sched_enter(instance);
 
     for (ii = 0; ii < num; ii++) {
         lcb_error_t rc = lcb_server_versions3(instance, cookie, NULL);
         if (rc != LCB_SUCCESS) {
-            mcreq_sched_fail(cq);
+            lcb_sched_fail(instance);
             return rc;
         }
     }
 
 
-    mcreq_sched_leave(cq, 1);
+    lcb_sched_leave(instance);
     SYNCMODE_INTERCEPT(instance)
 }

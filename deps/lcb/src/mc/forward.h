@@ -30,6 +30,11 @@ extern "C" {
  */
 #define MC_FWD_OPT_COPY 0x01
 
+/**
+ * The server to send to is already set as `pl`. Don't perform vbucket mapping.
+ */
+#define MC_FWD_OPT_NOMAP 0x02
+
 void
 mc_iovinfo_init(mc_IOVINFO *info, const nb_IOV *iov, unsigned niov);
 

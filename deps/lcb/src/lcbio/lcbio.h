@@ -24,7 +24,7 @@
 #endif
 
 /**
- * @defgroup LCBIO I/O
+ * @defgroup lcbio I/O
  * @brief IO Core
  *
  * @details

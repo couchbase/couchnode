@@ -24,7 +24,7 @@ typedef unsigned int nb_SIZE;
 /**
  * @file
  * Netbuf Core Structures
- * @addtogroup NETBUFS
+ * @addtogroup netbufs
  * @{
  */
 

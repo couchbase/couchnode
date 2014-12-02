@@ -42,7 +42,7 @@ struct lcb_iovec_st *iov, lcb_size_t niov, void *uarg,
     } else {
         w = calloc(1, sizeof(*w));
         assert(w);
-        if (!w) { iobase->v.v0.error = WSA_NOT_ENOUGH_MEMORY; return -1; }
+        if (!w) { iobase->v.v2.error = WSA_NOT_ENOUGH_MEMORY; return -1; }
 
         w->state = IOCP_WRITEBUF_ALLOCATED;
         w->ol_write.action = LCBIOCP_ACTION_WRITE;
@@ -102,7 +102,7 @@ start_connect(lcb_io_opt_t iobase, lcb_sockdata_t *sdbase,
     conn = calloc(1, sizeof(*conn));
 
     assert(conn);
-    if (conn == NULL) { iobase->v.v0.error = WSA_NOT_ENOUGH_MEMORY; return -1; }
+    if (conn == NULL) { iobase->v.v2.error = WSA_NOT_ENOUGH_MEMORY; return -1; }
 
     conn->cb = callback;
     conn->ol_conn.sd = sd;
@@ -116,7 +116,7 @@ start_connect(lcb_io_opt_t iobase, lcb_sockdata_t *sdbase,
         u_addr.in6.sin6_family = AF_INET6;
     } else {
         free(conn);
-        iobase->v.v0.error = WSAEINVAL;
+        iobase->v.v2.error = WSAEINVAL;
         return -1;
     }
 
@@ -192,6 +192,7 @@ create_socket(lcb_io_opt_t iobase, int domain, int type, int protocol)
     sd->ol_read.sd = sd;
     sd->refcount = 1;
     sd->sSocket = s;
+    sd->sd_base.socket = s; /* Informational, used in tests */
 
     /** Initialize the write structure */
     sd->w_info.ol_write.sd = sd;
@@ -271,6 +272,67 @@ destroy_timer(lcb_io_opt_t iobase, void *opaque)
     (void)iobase;
 }
 
+static int
+set_nbio(SOCKET s, u_long mode)
+{
+    int rv;
+    rv = ioctlsocket(s, FIONBIO, &mode);
+    if (rv == 0) {
+        return 0;
+    } else {
+        fprintf(stderr, "libcouchbase: ioctlsocket => %lu\n", WSAGetLastError());
+        return -1;
+    }
+}
+
+static int
+check_closed(lcb_io_opt_t io, lcb_sockdata_t *sockbase, int flags)
+{
+    int rv, err;
+    char buf;
+    iocp_sockdata_t *sd = (iocp_sockdata_t *)sockbase;
+    WSABUF iov;
+    DWORD dwReceived, dwFlags = MSG_PEEK;
+
+    /* Currently don't know if IOCP lets use use MSG_PEEK.
+     * On the one hand: "This flag is valid only for nonoverlapped sockets".
+     * On the other hand:
+        > If both lpOverlapped and lpCompletionRoutine are NULL, the socket
+        > in this function will be treated as a nonoverlapped socket.
+     *
+     * Source: http://msdn.microsoft.com/en-us/library/windows/desktop/ms741688(v=vs.85).aspx
+
+     * As a workaround for now, let's just disable this check if we are
+     * expecting unsolicited data. It is apparently legal to mix overlapped
+     * and non-overlapped calls.
+     */
+
+    if ((flags & LCB_IO_SOCKCHECK_PEND_IS_ERROR) == 0) {
+        return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+    }
+
+    if (set_nbio(sd->sSocket, 1) != 0) {
+        return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+    }
+
+    iov.buf = &buf;
+    iov.len = 1;
+    rv = WSARecv(sd->sSocket, &iov, 1, &dwReceived, &dwFlags, NULL, NULL);
+    err = WSAGetLastError();
+
+    if (set_nbio(sd->sSocket, 0) != 0) {
+        return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+    }
+
+    if (rv == 0) {
+        return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+    } else if (err == WSAEWOULDBLOCK) {
+        return LCB_IO_SOCKCHECK_STATUS_OK;
+    } else {
+        return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+    }
+}
+
 static void
 iops_dtor(lcb_io_opt_t iobase)
 {
@@ -308,7 +370,7 @@ iops_dtor(lcb_io_opt_t iobase)
         } else if (ol->action == LCBIOCP_ACTION_WRITE) {
             iocp_write_done(io, IOCP_WRITEOBJ_FROM_OVERLAPPED(ol), -1);
         } else if (ol->action == LCBIOCP_ACTION_READ) {
-            io->base.v.v0.error = WSAECONNRESET;
+            io->base.v.v2.error = WSAECONNRESET;
             sd->rdcb(&sd->sd_base, -1, sd->rdarg);
         }
         iocp_socket_decref(io, sd);
@@ -347,6 +409,7 @@ get_procs(int version, lcb_loop_procs *loop, lcb_timer_procs *timer,
     iocp->socket = create_socket;
     iocp->close = close_socket;
     iocp->nameinfo = sock_nameinfo;
+    iocp->is_closed = check_closed;
 
     timer->create = create_timer;
     timer->cancel = delete_timer;

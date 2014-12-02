@@ -279,21 +279,6 @@ clconfig_provider * lcb_clconfig_create_file(lcb_confmon *parent)
     return &provider->base;
 }
 
-static const char *get_tmp_dir(void)
-{
-    const char *ret;
-    if ((ret = getenv("TMPDIR")) != NULL) {
-        return ret;
-    } else if ((ret = getenv("TEMPDIR")) != NULL) {
-        return ret;
-    } else if ((ret = getenv("TEMP")) != NULL) {
-        return ret;
-    } else if ((ret = getenv("TMP")) != NULL) {
-        return ret;
-    }
-
-    return NULL;
-}
 
 static char *mkcachefile(const char *name, const char *bucket)
 {
@@ -301,7 +286,7 @@ static char *mkcachefile(const char *name, const char *bucket)
         return strdup(name);
     } else {
         char buffer[1024];
-        const char *tmpdir = get_tmp_dir();
+        const char *tmpdir = lcb_get_tmpdir();
 
         snprintf(buffer, sizeof(buffer),
                  "%s/%s", tmpdir ? tmpdir : ".", bucket);

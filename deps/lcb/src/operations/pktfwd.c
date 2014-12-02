@@ -35,6 +35,14 @@ lcb_pktfwd3(lcb_t instance, const void *cookie, const lcb_CMDPKTFWD *cmd)
     mc_IOVINFO ioi = { { 0 } };
     lcb_error_t err;
 
+    if (cmd->nomap) {
+        fwdopts |= MC_FWD_OPT_NOMAP;
+        if (cmd->server_index >= LCBT_NSERVERS(instance)) {
+            return LCB_NO_MATCHING_SERVER;
+        } else {
+            pl = (mc_PIPELINE*)LCBT_GET_SERVER(instance, cmd->server_index);
+        }
+    }
 
     if (cmd->vb.vtype != LCB_KV_IOV) {
         iov_s.iov_base = (void *)cmd->vb.u_buf.contig.bytes;
@@ -43,7 +51,7 @@ lcb_pktfwd3(lcb_t instance, const void *cookie, const lcb_CMDPKTFWD *cmd)
         niov = 1;
 
         if (cmd->vb.vtype == LCB_KV_COPY) {
-            fwdopts = MC_FWD_OPT_COPY;
+            fwdopts |= MC_FWD_OPT_COPY;
         }
     } else {
         iov = (nb_IOV*)cmd->vb.u_buf.multi.iov;

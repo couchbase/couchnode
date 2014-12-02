@@ -27,54 +27,38 @@
 
 
 extern "C" {
-    static void timings_callback(lcb_t,
-                                 const void *cookie,
-                                 lcb_timeunit_t timeunit,
-                                 lcb_uint32_t min,
-                                 lcb_uint32_t max,
-                                 lcb_uint32_t total,
-                                 lcb_uint32_t maxtotal)
-    {
-        FILE *fp = (FILE *)cookie;
-        if (fp != NULL) {
-            fprintf(fp, "[%3u - %3u]", min, max);
-
-            switch (timeunit) {
-            case LCB_TIMEUNIT_NSEC:
-                fprintf(fp, "ns");
-                break;
-            case LCB_TIMEUNIT_USEC:
-                fprintf(fp, "us");
-                break;
-            case LCB_TIMEUNIT_MSEC:
-                fprintf(fp, "ms");
-                break;
-            case LCB_TIMEUNIT_SEC:
-                fprintf(fp, "s");
-                break;
-            default:
-                ;
-            }
-
-            int num = (int)((float)20.0 * (float)total / (float)maxtotal);
-
-            fprintf(fp, " |");
-            for (int ii = 0; ii < num; ++ii) {
-                fprintf(fp, "#");
-            }
-
-            fprintf(fp, " - %u\n", total);
-        }
+static void timings_callback(lcb_t, const void *cookie, lcb_timeunit_t timeunit,
+    lcb_U32 min, lcb_U32 max, lcb_U32 total, lcb_U32 maxtotal)
+{
+    FILE *fp = (FILE *)cookie;
+    if (fp == NULL) {
+        return;
     }
+
+    fprintf(fp, "[%3u - %3u]", min, max);
+    const char *ts_str = "";
+
+    if (timeunit == LCB_TIMEUNIT_NSEC) { ts_str = "ns"; }
+    else if (timeunit == LCB_TIMEUNIT_USEC) { ts_str = "us"; }
+    else if (timeunit == LCB_TIMEUNIT_MSEC) { ts_str = "ms"; }
+    else if (timeunit == LCB_TIMEUNIT_SEC) { ts_str = ""; }
+
+    fprintf(fp, "%s", ts_str);
+
+    int num = (int)((float)20.0 * (float)total / (float)maxtotal);
+
+    fprintf(fp, " |");
+    for (int ii = 0; ii < num; ++ii) {
+        fprintf(fp, "#");
+    }
+
+    fprintf(fp, " - %u\n", total);
+}
 }
 
 TEST_F(MockUnitTest, testTimings)
 {
     FILE *fp = stdout;
-    if (getenv("LCB_VERBOSE_TESTS") == NULL) {
-        fp = NULL;
-    }
-
     lcb_t instance;
     HandleWrap hw;
     createConnection(hw, instance);
@@ -452,4 +436,110 @@ TEST_F(MockUnitTest, testFailedDurCtx)
 
     hashset_t hs = lcb_aspend_get(&instance->pendops, LCB_PENDTYPE_DURABILITY);
     ASSERT_EQ(0, hashset_num_items(hs));
+}
+
+TEST_F(MockUnitTest, testConflictingOptions)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+
+    lcb_sched_enter(instance);
+    const char *key = "key";
+    size_t nkey = 3;
+    const char *value = "value";
+    size_t nvalue = 5;
+
+    lcb_CMDSTORE scmd = { 0 };
+    scmd.operation = LCB_APPEND;
+    scmd.exptime = 1;
+    LCB_CMD_SET_KEY(&scmd, key, nkey);
+    LCB_CMD_SET_VALUE(&scmd, value, nvalue);
+
+    lcb_error_t err;
+    err = lcb_store3(instance, NULL, &scmd);
+    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+    scmd.exptime = 0;
+    scmd.flags = 99;
+    err = lcb_store3(instance, NULL, &scmd);
+    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+
+    scmd.flags = 0;
+    scmd.exptime = 0;
+    err = lcb_store3(instance, NULL, &scmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    scmd.operation = LCB_ADD;
+    scmd.cas = 0xdeadbeef;
+    err = lcb_store3(instance, NULL, &scmd);
+    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+
+    scmd.cas = 0;
+    err = lcb_store3(instance, NULL, &scmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    lcb_CMDCOUNTER ccmd = { 0 };
+    LCB_CMD_SET_KEY(&ccmd, key, nkey);
+    ccmd.cas = 0xdeadbeef;
+    err = lcb_counter3(instance, NULL, &ccmd);
+    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+    ccmd.cas = 0;
+    err = lcb_counter3(instance, NULL, &ccmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    ccmd.exptime = 10;
+    ccmd.initial = 0;
+    ccmd.create = 0;
+    err = lcb_counter3(instance, NULL, &ccmd);
+    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+    ccmd.create = 1;
+    err = lcb_counter3(instance, NULL, &ccmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+
+    lcb_CMDGET gcmd = { 0 };
+    LCB_CMD_SET_KEY(&gcmd, key, nkey);
+    gcmd.cas = 0xdeadbeef;
+    err = lcb_get3(instance, NULL, &gcmd);
+    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+
+    gcmd.cas = 0;
+    err = lcb_get3(instance, NULL, &gcmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_sched_fail(instance);
+}
+
+TEST_F(MockUnitTest, testDump)
+{
+    const char *fpname;
+#ifdef _WIN32
+    fpname = "NUL:";
+#else
+    fpname = "/dev/null";
+#endif
+    FILE *fp = fopen(fpname, "w");
+    if (!fp) {
+        perror(fpname);
+        return;
+    }
+
+    // Simply try to dump the instance;
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+    std::vector<std::string> keys;
+    genDistKeys(LCBT_VBCONFIG(instance), keys);
+    for (size_t ii = 0; ii < keys.size(); ii++) {
+        storeKey(instance, keys[ii], keys[ii]);
+    }
+    lcb_dump(instance, fp, LCB_DUMP_ALL);
+    fclose(fp);
+}
+
+TEST_F(MockUnitTest, testRefreshConfig)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+    lcb_refresh_config(instance);
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
 }

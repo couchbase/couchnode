@@ -22,8 +22,8 @@
  * plugin instance.
  */
 
-static void
-wire_lcb_bsd_impl(lcb_io_opt_t io);
+static void wire_lcb_bsd_impl(lcb_io_opt_t io);
+static void wire_lcb_bsd_impl2(lcb_bsd_procs*,int);
 
 #ifdef _WIN32
 #include "wsaerr-inl.c"
@@ -227,6 +227,47 @@ connect_impl(lcb_io_opt_t iops, lcb_socket_t sock, const struct sockaddr *name,
     return ret;
 }
 
+#if LCB_IOPROCS_VERSION >= 3
+
+static int
+chkclosed_impl(lcb_io_opt_t iops, lcb_socket_t sock, int flags)
+{
+    char buf = 0;
+    int rv = 0;
+
+    (void)iops;
+
+    GT_RETRY:
+    /* We can ignore flags for now, since both Windows and POSIX support MSG_PEEK */
+    rv = recv(sock, &buf, 1, MSG_PEEK);
+    if (rv == 1) {
+        if (flags & LCB_IO_SOCKCHECK_PEND_IS_ERROR) {
+            return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+        } else {
+            return LCB_IO_SOCKCHECK_STATUS_OK;
+        }
+    } else if (rv == 0) {
+        /* Really closed! */
+        return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+    } else {
+        int last_err;
+        #ifdef _WIN32
+        last_err = get_wserr(sock);
+        #else
+        last_err = errno;
+        #endif
+
+        if (last_err == EINTR) {
+            goto GT_RETRY;
+        } else if (last_err == EWOULDBLOCK || last_err == EAGAIN) {
+            return LCB_IO_SOCKCHECK_STATUS_OK; /* Nothing to report. So we're good */
+        } else {
+            return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+        }
+    }
+}
+#endif /* LCB_IOPROCS_VERSION >= 3 */
+
 static void
 wire_lcb_bsd_impl(lcb_io_opt_t io)
 {
@@ -237,4 +278,28 @@ wire_lcb_bsd_impl(lcb_io_opt_t io)
     io->v.v0.socket = socket_impl;
     io->v.v0.connect = connect_impl;
     io->v.v0.close = close_impl;
+
+    /* Avoid annoying 'unused' warnings */
+    if (0) { wire_lcb_bsd_impl2(NULL,0); }
+}
+
+/** For plugins which use v2 or higher */
+static void
+wire_lcb_bsd_impl2(lcb_bsd_procs *procs, int version)
+{
+    procs->recv = recv_impl;
+    procs->recvv = recvv_impl;
+    procs->send = send_impl;
+    procs->sendv = sendv_impl;
+    procs->socket0 = socket_impl;
+    procs->connect0 = connect_impl;
+    procs->close = close_impl;
+
+    /* Check that this field exists at compile-time */
+    #if LCB_IOPROCS_VERSION >= 3
+    if (version >= 3) {
+        procs->is_closed = chkclosed_impl;
+    }
+    #endif
+    if (0) { wire_lcb_bsd_impl(NULL); }
 }

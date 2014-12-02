@@ -31,8 +31,8 @@ extern "C" {
  */
 
 /**
- * @ingroup LCBIO
- * @defgroup LCBIO_Timers Timer Routines
+ * @ingroup lcbio
+ * @defgroup lcbio-timers Timer Routines
  *
  * @details
  *
@@ -63,7 +63,7 @@ extern "C" {
  * Timers are not persistent, meaning that once they are fired they will enter
  * an inactive state.
  *
- * @addtogroup LCBIO_Timers
+ * @addtogroup lcbio-timers
  * @{
  */
 

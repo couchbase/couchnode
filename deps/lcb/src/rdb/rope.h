@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /**
- * @defgroup RDB Network Read Buffers
+ * @defgroup rdb Network Read Buffers
  * @brief Read buffer system.
  *
  * # Overview
@@ -142,7 +142,7 @@ extern "C" {
  */
 
 /**
- * @addtogroup RDB
+ * @addtogroup rdb
  * @{
  */
 

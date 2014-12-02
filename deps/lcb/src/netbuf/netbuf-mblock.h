@@ -27,8 +27,8 @@ extern "C" {
 /**
  * @file
  *
- * @ingroup NETBUFS
- * @defgroup NETBUF_MBLOCK Netbuf Block Allocator
+ * @ingroup netbufs
+ * @defgroup netbufs-mblock Netbuf Block Allocator
  * @details
  *
  * Managed block in-order allocator.
@@ -97,7 +97,7 @@ extern "C" {
  * (1) The number of bytes between [S]tart and [Wrap]
  * (2) If [C] != [W], then also add the value of [C]
  * @endverbatim
- * @addtogroup NETBUF_MBLOCK
+ * @addtogroup netbufs-mblock
  * @{
  */
 

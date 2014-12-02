@@ -99,6 +99,7 @@ mc_forward_packet(mc_CMDQUEUE *cq,
 
     /* seek ahead to read the item's key into the header */
     offset = sizeof hdr.bytes + hdr.request.extlen;
+
     iovcursor_peek_ex(mincur, kbuf_s, &kptr, n_body_key, offset);
 
     if (kptr == NULL) {
@@ -106,19 +107,28 @@ mc_forward_packet(mc_CMDQUEUE *cq,
         kptr = kbuf_s;
     }
 
-    lcbvb_map_key(cq->config, kptr, n_body_key, &vbid, &srvix);
-    if (srvix < 0 || (unsigned)srvix >= cq->npipelines) {
-        return LCB_NO_MATCHING_SERVER;
+    if ((options & MC_FWD_OPT_NOMAP) == 0) {
+        lcbvb_map_key(cq->config, kptr, n_body_key, &vbid, &srvix);
+        if (srvix < 0 || (unsigned)srvix >= cq->npipelines) {
+            return LCB_NO_MATCHING_SERVER;
+        }
+        pl = cq->pipelines[srvix];
+        hdr.request.vbucket = htons(vbid);
+
+    } else {
+        pl = *pl_p;
+        if (!pl) {
+            return LCB_EINVAL;
+        }
+        srvix = pl->index;
     }
 
-    pl = cq->pipelines[srvix];
     pkt = mcreq_allocate_packet(pl);
 
     if (pkt == NULL) {
         return LCB_CLIENT_ENOMEM;
     }
 
-    hdr.request.vbucket = htons(vbid);
     hdr.request.opaque = pkt->opaque;
     pkt->extlen = hdr.request.extlen;
     info->consumed = n_packet;

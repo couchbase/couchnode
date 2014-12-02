@@ -151,6 +151,13 @@ R_1to3_read(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
     return rv;
 }
 
+static int dummy_bsd_chkclosed(lcb_io_opt_t io, lcb_socket_t s, int f) {
+    (void)io; (void)s; (void)f; return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+}
+static int dummy_comp_chkclosed(lcb_io_opt_t io, lcb_sockdata_t* s, int f) {
+    (void)io; (void)s; (void)f; return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+}
+
 static int
 init_v2_table(lcbio_TABLE *table, lcb_io_opt_t io)
 {
@@ -173,6 +180,14 @@ init_v2_table(lcbio_TABLE *table, lcb_io_opt_t io)
         }
         lcb_assert(table->u_io.completion.read2);
         lcb_assert(table->u_io.completion.write2);
+    }
+
+    if (table->model == LCB_IOMODEL_COMPLETION && IOT_V1(table).is_closed == NULL) {
+        IOT_V1(table).is_closed = dummy_comp_chkclosed;
+    }
+
+    if (table->model == LCB_IOMODEL_EVENT && IOT_V0IO(table).is_closed == NULL) {
+        IOT_V0IO(table).is_closed = dummy_bsd_chkclosed;
     }
 
     return 0;
@@ -219,6 +234,7 @@ lcbio_table_new(lcb_io_opt_t io)
         bsd->recvv = io->v.v0.recvv;
         bsd->send = io->v.v0.send;
         bsd->sendv = io->v.v0.sendv;
+        bsd->is_closed = dummy_bsd_chkclosed;
 
     } else {
         lcb_completion_procs *cp = &table->u_io.completion;
@@ -233,6 +249,7 @@ lcbio_table_new(lcb_io_opt_t io)
         cp->nameinfo = io->v.v1.get_nameinfo;
         cp->write2 = W_1to3_write;
         cp->read2 = R_1to3_read;
+        cp->is_closed = dummy_comp_chkclosed;
     }
 
     return table;

@@ -1,3 +1,7 @@
+/**
+ * @file
+ * Simple cross-platform thread abstraction
+ */
 #ifndef _WIN32
 #include <pthread.h>
 #endif

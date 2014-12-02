@@ -27,12 +27,12 @@ extern "C" {
  * @file
  * @brief SASL Negotiation routines
  *
- * @defgroup LCB_SASL Server/SASL Negotiation
+ * @defgroup lcb-sasl Server/SASL Negotiation
  * @details
  * This module contains routines to initialize a server and authenticate it
  * against a cluster. In the future this will also be used to handle things
  * such as TLS negotiation and the HELLO command
- * @addtogroup LCB_SASL
+ * @addtogroup lcb-sasl
  * @{
  */
 

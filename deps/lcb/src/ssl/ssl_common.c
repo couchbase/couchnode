@@ -65,6 +65,14 @@ static void cancel_timer(lcb_io_opt_t io, void *timer) {
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     xs->orig->timer.cancel(IOT_ARG(xs->orig), timer);
 }
+static int Eis_closed(lcb_io_opt_t io, lcb_socket_t sock, int flags) {
+    lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
+    return xs->orig->u_io.v0.io.is_closed(IOT_ARG(xs->orig), sock, flags);
+}
+static int Cis_closed(lcb_io_opt_t io, lcb_sockdata_t *sd, int flags) {
+    lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
+    return xs->orig->u_io.completion.is_closed(IOT_ARG(xs->orig), sd, flags);
+}
 
 /******************************************************************************
  ******************************************************************************
@@ -91,6 +99,9 @@ iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *sctx)
     if (orig->model == LCB_IOMODEL_EVENT) {
         base->u_io.v0.ev.create = create_event;
         base->u_io.v0.ev.destroy = destroy_event;
+        base->u_io.v0.io.is_closed = Eis_closed;
+    } else {
+        base->u_io.completion.is_closed = Cis_closed;
     }
 
     lcbio_table_ref(xs->orig);

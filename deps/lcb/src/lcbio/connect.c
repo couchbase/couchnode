@@ -332,7 +332,7 @@ C_conncb(lcb_sockdata_t *sock, int status)
     lcbio_SOCKET *s = (void *)sock->lcbconn;
     lcbio_CONNSTART *cs = (void *)s->ctx;
 
-    lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Received completion handler. Status=%d", CSLOGID(s), status);
+    lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Received completion handler. Status=%d. errno=%d", CSLOGID(s), status, IOT_ERRNO(s->io));
 
     if (!--s->refcount) {
         lcbio__destroy(s);
@@ -346,6 +346,7 @@ C_conncb(lcb_sockdata_t *sock, int status)
         cs_handler(cs);
     } else {
         lcbio_mksyserr(IOT_ERRNO(s->io), &cs->syserr);
+        destroy_cursock(cs);
         C_connect(cs);
     }
 }

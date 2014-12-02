@@ -300,9 +300,9 @@ tests_check_all_CPPFLAGS = $(AM_CPPFLAGS) -I"${srcdir}/tools"
 tests_check_all_LDADD = libcouchbase.la libcliopts.la
 
 tools_cbc_SOURCES =	tools/cbc.cc tools/cbc-handlers.h
-tools_cbc_LDADD = libcouchbase.la liblcbtools.la libcliopts.la
+tools_cbc_LDADD = libcouchbase.la liblcbtools.la
 tools_cbc_pillowfight_SOURCES = tools/cbc-pillowfight.cc
-tools_cbc_pillowfight_LDADD = libcouchbase.la liblcbtools.la libcliopts.la liblcbutils.la -lpthread
+tools_cbc_pillowfight_LDADD = libcouchbase.la liblcbtools.la liblcbutils.la -lpthread
 
 
 TESTS_ENVIRONMENT = export outdir="$(top_builddir)/tests";

@@ -179,3 +179,22 @@ TEST_F(ConfigTest, testGetReplicaNode)
     lcbvb_destroy(cfg);
 
 }
+
+TEST_F(ConfigTest, testBadInput)
+{
+    lcbvb_CONFIG *cfg = lcbvb_create();
+    int rc = lcbvb_load_json(cfg, "{}");
+    ASSERT_EQ(-1, rc);
+    lcbvb_destroy(cfg);
+
+    cfg = lcbvb_create();
+    rc = lcbvb_load_json(cfg, "INVALIDJSON");
+    ASSERT_EQ(-1, rc);
+    lcbvb_destroy(cfg);
+
+    cfg = lcbvb_create();
+    rc = lcbvb_load_json(cfg, "");
+    ASSERT_EQ(-1, rc);
+    lcbvb_destroy(cfg);
+
+}

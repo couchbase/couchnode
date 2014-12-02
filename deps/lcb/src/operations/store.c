@@ -105,6 +105,22 @@ lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd)
         return err;
     }
 
+    switch (cmd->operation) {
+    case LCB_APPEND:
+    case LCB_PREPEND:
+        if (cmd->exptime || cmd->flags) {
+            return LCB_OPTIONS_CONFLICT;
+        }
+        break;
+    case LCB_ADD:
+        if (cmd->cas) {
+            return LCB_OPTIONS_CONFLICT;
+        }
+        break;
+    default:
+        break;
+    }
+
     hsize = hdr->request.extlen + sizeof(*hdr);
 
     err = mcreq_basic_packet(cq, (const lcb_CMDBASE *)cmd, hdr,
@@ -161,7 +177,7 @@ lcb_store(lcb_t instance, const void *cookie, lcb_size_t num,
     unsigned ii;
     lcb_error_t err = LCB_SUCCESS;
 
-    mcreq_sched_enter(&instance->cmdq);
+    lcb_sched_enter(instance);
     for (ii = 0; ii < num; ii++) {
         const lcb_store_cmd_t *src = items[ii];
         lcb_CMDSTORE dst;
@@ -180,10 +196,10 @@ lcb_store(lcb_t instance, const void *cookie, lcb_size_t num,
         dst.exptime = src->v.v0.exptime;
         err = lcb_store3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
-            mcreq_sched_fail(&instance->cmdq);
+            lcb_sched_fail(instance);
             return err;
         }
     }
-    mcreq_sched_leave(&instance->cmdq, 1);
+    lcb_sched_leave(instance);
     SYNCMODE_INTERCEPT(instance)
 }

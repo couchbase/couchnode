@@ -30,13 +30,13 @@ extern "C" {
  * @file
  * @brief Retry Queue
  *
- * @defgroup LCB_RETRYQ Retry Queue
+ * @defgroup lcb-retryq Retry Queue
  *
  * @details
  * Retry queue for operations. The retry queue accepts commands which have
  * previously failed and aims to retry them within a specified interval.
  *
- * @addtogroup LCB_RETRYQ
+ * @addtogroup lcb-retryq
  * @{
  */
 

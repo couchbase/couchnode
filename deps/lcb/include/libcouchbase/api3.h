@@ -26,7 +26,7 @@ extern "C" {
 /**@file*/
 
 /**
- * @defgroup lcb_pubapi3 Experimental V3 API
+ * @defgroup lcb-public-api3 Experimental V3 API
  *
  * @brief Preview APIs for performing commands
  *
@@ -36,7 +36,7 @@ extern "C" {
  * to be volatile, however you are encouraged to try them out and provide
  * feedback on them.
  *
- * @addtogroup lcb_pubapi3
+ * @addtogroup lcb-public-api3
  * @{
  */
 
@@ -251,10 +251,30 @@ typedef void (*lcb_RESPCALLBACK)
  * @note LCB_CALLBACK_DEFAULT is initialized to the default handler which proxies
  * back to the older 2.x callbacks. If you set `cbtype` to LCB_CALLBACK_DEFAULT
  * then your `2.x` callbacks _will not work_.
+ *
+ * @note The old callback may be `NULL`. It is usually not an error to have a
+ * `NULL` callback installed. If the callback is `NULL`, then the default callback
+ * invocation pattern will take place (as desribed above). However it is an error
+ * to set the default callback to `NULL`.
  */
 LIBCOUCHBASE_API
 lcb_RESPCALLBACK
 lcb_install_callback3(lcb_t instance, int cbtype, lcb_RESPCALLBACK cb);
+
+/**
+ * @volatile
+ * Get the current callback installed as `cbtype`. Note that this does not
+ * perform any kind of resolution (as described in lcb_install_callback3) and
+ * will only return a non-`NULL` value if a callback had specifically been
+ * installed via lcb_install_callback3() with the given `cbtype`.
+ *
+ * @param instance the handle
+ * @param cbtype the type of callback to retrieve
+ * @return the installed callback for the type.
+ */
+LIBCOUCHBASE_API
+lcb_RESPCALLBACK
+lcb_get_callback3(lcb_t instance, int cbtype);
 
 /**@}*/
 
@@ -362,7 +382,9 @@ void lcb_sched_flush(lcb_t instance);
 /**@brief Command for retrieving a single item
  *
  * @see lcb_get3()
- * @see lcb_RESPGET */
+ * @see lcb_RESPGET
+ * @note The #cas member should be set to 0 for this operation.
+ */
 typedef struct {
     LCB_CMD_BASE;
     /**If set to true, the `exptime` field inside `options` will take to mean
@@ -449,7 +471,15 @@ lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd);
  */
 
 /**@brief Command for counter operations.
- * @see lcb_counter3(), lcb_RESPCOUNTER*/
+ * @see lcb_counter3(), lcb_RESPCOUNTER.
+ *
+ * @warning You may only set the #exptime member if the #create member is set
+ * to a true value. Setting `exptime` otherwise will cause the operation to
+ * fail with @ref LCB_OPTIONS_CONFLICT
+ *
+ * @warning The #cas member should be set to 0 for this operation. As this
+ * operation itself is atomic, specifying a CAS is not necessary.
+ */
 typedef struct {
     LCB_CMD_BASE;
     /**Delta value. If this number is negative the item on the server is
@@ -540,6 +570,9 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd);
  * key to mutate, the value which should be set (or appended/prepended) in the
  * lcb_CMDSTORE::value field (see LCB_CMD_SET_VALUE()) and the operation indicating
  * the mutation type (lcb_CMDSTORE::operation).
+ *
+ * @warning #exptime *cannot* be used with #operation set to @ref LCB_APPEND
+ * or @ref LCB_PREPEND.
  */
 typedef struct {
     LCB_CMD_BASE;
@@ -633,7 +666,7 @@ typedef lcb_RESPBASE lcb_RESPREMOVE;
  *
  * @code{.c}
  * lcb_CMDREMOVE cmd = { 0 };
- * LCB_CMD_SET_KEY(cmd, "deleteme", strlen("deleteme"));
+ * LCB_CMD_SET_KEY(&cmd, "deleteme", strlen("deleteme"));
  * lcb_sched_enter(instance);
  * lcb_remove3(instance, cookie, &cmd);
  * lcb_sched_leave(instance);

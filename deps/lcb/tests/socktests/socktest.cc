@@ -71,7 +71,7 @@ ESocket::assign(lcbio_SOCKET *s, lcb_error_t err)
         return;
     }
 
-    lcbio_EASYPROCS procs;
+    lcbio_CTXPROCS procs;
     procs.cb_err = ctx_error;
     procs.cb_read = ctx_read;
     procs.cb_flush_done = ctx_flush_done;
@@ -195,7 +195,12 @@ Loop::initSockCommon(ESocket *sock)
 void
 Loop::connectPooled(ESocket *sock, lcb_host_t *host, unsigned mstmo)
 {
+    lcb_host_t tmphost;
     sock->parent = this;
+    if (!host) {
+        populateHost(&tmphost);
+        host = &tmphost;
+    }
     sock->creq.type = LCBIO_CONNREQ_POOLED;
     sock->creq.u.preq = lcbio_mgr_get(
             sockpool, host, LCB_MS2US(mstmo), conn_cb, sock);
@@ -208,6 +213,13 @@ Loop::connectPooled(ESocket *sock, lcb_host_t *host, unsigned mstmo)
 void
 Loop::connect(ESocket *sock, lcb_host_t *host, unsigned mstmo)
 {
+    lcb_host_t tmphost;
+
+    if (host == NULL) {
+        populateHost(&tmphost);
+        host = &tmphost;
+    }
+
     sock->parent = this;
     sock->creq.type = LCBIO_CONNREQ_RAW;
     sock->creq.u.cs = lcbio_connect(
@@ -225,23 +237,6 @@ Loop::populateHost(lcb_host_t *host)
 {
     strcpy(host->host, server->getHostString().c_str());
     strcpy(host->port, server->getPortString().c_str());
-}
-
-void
-Loop::connect(ESocket *sock)
-{
-    lcb_host_t host;
-    populateHost(&host);
-    connect(sock, &host, 1000);
-}
-
-
-void
-Loop::connectPooled(ESocket *sock)
-{
-    lcb_host_t host;
-    populateHost(&host);
-    connectPooled(sock, &host, 1000);
 }
 
 extern "C" {

@@ -29,11 +29,11 @@
 
 
 /**
- * @ingroup LCB_PUBAPI
- * @defgroup LCB_ERRORS Error Codes
+ * @ingroup lcb-public-api
+ * @defgroup lcb-error-codes Error Codes
  * @brief Status codes returned by the library
  *
- * @addtogroup LCB_ERRORS
+ * @addtogroup lcb-error-codes
  * @{
  */
 #ifdef __cplusplus
@@ -270,7 +270,7 @@ typedef enum {
     /** Received during initial creation (lcb_create()) if an environment variable
      was specified with an incorrect or invalid value.
 
-     @see @ref LCB_ENVVARS_PAGE */ \
+     @see @ref lcb-env-vars-page */ \
     X(LCB_BAD_ENVIRONMENT, 0x24, LCB_ERRTYPE_FATAL|LCB_ERRTYPE_INPUT, \
       "The value for an environment variable recognized by libcouchbase was " \
       "specified in an incorrect format. Check your environment for entries " \
@@ -414,7 +414,12 @@ typedef enum {
     X(LCB_CLIENT_FEATURE_UNAVAILABLE, 0x39, LCB_ERRTYPE_INPUT, \
       "The requested feature is not supported by the client, either because of " \
       "settings in the configured instance, or because of options disabled at " \
-      "the time the library was compiled")
+      "the time the library was compiled") \
+    \
+    /**An option was passed to a command which is incompatible with other
+     * options. This may happen if two fields are mutually exclusive */ \
+    X(LCB_OPTIONS_CONFLICT, 0x3A, LCB_ERRTYPE_INPUT, \
+      "The operation structure contains conflicting options")
 
 /** Error codes returned by the library. */
 typedef enum {

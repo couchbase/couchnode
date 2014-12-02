@@ -29,7 +29,7 @@ extern "C" {
 /** @file */
 
 /**
- * @defgroup LCB_CONFMON Cluster Configuration Management
+ * @defgroup lcb-confmon Cluster Configuration Management
  *
  * @brief Monitors the retrieval and application of new cluster topology maps
  * (vBucket Configurations)
@@ -86,7 +86,7 @@ extern "C" {
  */
 
 /**
- *@addtogroup LCB_CONFMON
+ *@addtogroup lcb-confmon
  *@{
  */
 

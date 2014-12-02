@@ -19,7 +19,7 @@
 
 /**
  * @internal
- * @addtogroup LCB_CNTL
+ * @addtogroup lcb-cntl-settings
  * @{
  */
 
@@ -316,5 +316,13 @@ typedef enum {
  * @uncommitted
  */
 #define LCB_CNTL_IP6POLICY              0x0b
+
+
+/**
+ * @volatile
+ * @brief Persist heuristic vbucket information across updates
+ * @cntl_arg_both{int*}
+ */
+#define LCB_CNTL_VBGUESS_PERSIST 0x32
 
 /**@}*/

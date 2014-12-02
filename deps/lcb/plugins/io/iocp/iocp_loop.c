@@ -16,7 +16,7 @@
  */
 
 /**
- * New-Style v1 plugin for Windows, Using IOCP
+ * New-Style v2 plugin for Windows, Using IOCP
  *
  * This file contains the core routines which actually make up the
  * various "loops" of the event loop.
@@ -98,7 +98,7 @@ handle_single_overlapped(iocp_t *io, OVERLAPPED *lpOverlapped,
 
     if (ws_status) {
         IOCP_LOG(IOCP_WARN, "Got negative status for %p: %d", ol, ws_status);
-        io->base.v.v1.error = iocp_w32err_2errno(ws_status);
+        io->base.v.v2.error = iocp_w32err_2errno(ws_status);
         opstatus = -1;
     }
 

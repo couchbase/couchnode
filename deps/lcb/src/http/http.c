@@ -119,6 +119,7 @@ void lcb_http_request_decref(lcb_http_request_t req)
 {
     lcb_list_t *ii, *nn;
 
+    assert(req->refcount > 0);
     if (--req->refcount) {
         return;
     }
@@ -129,6 +130,7 @@ void lcb_http_request_decref(lcb_http_request_t req)
     free(req->path);
     free(req->url);
     free(req->redirect_to);
+    free(req->body);
 
     if (req->parser) {
         lcbht_free(req->parser);
@@ -147,7 +149,6 @@ void lcb_http_request_decref(lcb_http_request_t req)
         free(hdr);
     }
     lcb_string_release(&req->outbuf);
-    memset(req, 0xff, sizeof(struct lcb_http_request_st));
     free(req);
 }
 
@@ -197,27 +198,48 @@ lcb_http_init_resp(const lcb_http_request_t req, lcb_RESPHTTP *res)
     }
 }
 
-void lcb_http_request_finish(lcb_t instance, lcb_http_request_t req,
-    lcb_error_t error)
+void
+lcb_http_request_finish(lcb_t instance, lcb_http_request_t req, lcb_error_t error)
 {
+    /* This is always safe to execute */
+    if (req->status & LCB_HTREQ_S_NOLCB) {
+        req->status |= LCB_HTREQ_S_CBINVOKED;
+    } else {
+        maybe_refresh_config(instance, req, error);
+    }
 
-    lcb_RESPCALLBACK target;
-
-    maybe_refresh_config(instance, req, error);
-
+    /* And this one too */
     if ((req->status & LCB_HTREQ_S_CBINVOKED) == 0) {
         lcb_RESPHTTP resp = { 0 };
-        target = lcb_find_callback(instance, LCB_CALLBACK_HTTP);
+        lcb_RESPCALLBACK target;
 
         lcb_http_init_resp(req, &resp);
+        target = lcb_find_callback(instance, LCB_CALLBACK_HTTP);
+
         resp.rflags = LCB_RESP_F_FINAL;
         resp.rc = error;
 
+        req->status |= LCB_HTREQ_S_CBINVOKED;
         target(instance, LCB_CALLBACK_HTTP, (lcb_RESPBASE*)&resp);
     }
 
-    req->status |= LCB_HTREQ_S_CBINVOKED;
-    lcb_cancel_http_request(instance, req);
+    if (req->status & LCB_HTREQ_S_FINISHED) {
+        return;
+    }
+
+    req->status |= LCB_HTREQ_S_FINISHED;
+
+    if (!(req->status & LCB_HTREQ_S_NOLCB)) {
+        /* Remove from wait queue */
+        lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_HTTP, req);
+        /* Break out from the loop (must be called after aspend_del) */
+        lcb_maybe_breakout(instance);
+    }
+
+    /* Cancel the timeout */
+    lcbio_timer_disarm(req->timer);
+    /* Remove the initial refcount=1 (set from lcb_http3). Typically this will
+     * also free the request (though this is dependent on pending I/O operations) */
     lcb_http_request_decref(req);
 }
 
@@ -546,19 +568,11 @@ lcb_error_t lcb_make_http_request(lcb_t instance,
 LIBCOUCHBASE_API
 void lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request)
 {
-    if (request->status & LCB_HTREQ_S_HTREMOVED) {
+    if (request->status & (LCB_HTREQ_S_FINISHED|LCB_HTREQ_S_CBINVOKED)) {
+        /* Nothing to cancel */
         return;
     }
-
-    request->status = LCB_HTREQ_S_HTREMOVED | LCB_HTREQ_S_CBINVOKED;
-    if (request->instance) {
-        lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_HTTP, request);
-    }
-
-    request->instance = NULL;
-    if (request->timer) {
-        lcbio_timer_disarm(request->timer);
-    }
-    lcb_maybe_breakout(instance);
+    request->status |= LCB_HTREQ_S_CBINVOKED;
+    lcb_http_request_finish(instance, request, LCB_SUCCESS);
 }
 

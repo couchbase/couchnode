@@ -496,13 +496,8 @@ void lcb_destroy(lcb_t instance)
             if (hs->items[ii] > 1) {
                 lcb_http_request_t htreq = (lcb_http_request_t)hs->items[ii];
 
-                /**
-                 * We don't want to invoke callbacks *or* remove it from our
-                 * hash table
-                 */
-                htreq->status |= LCB_HTREQ_S_CBINVOKED | LCB_HTREQ_S_HTREMOVED;
-
-                /* we should figure out a better error code for this.. */
+                /* Prevents lcb's globals from being modified during destruction */
+                htreq->status |= LCB_HTREQ_S_NOLCB;
                 lcb_http_request_finish(instance, htreq, LCB_ERROR);
             }
         }
@@ -511,6 +506,8 @@ void lcb_destroy(lcb_t instance)
     DESTROY(lcb_confmon_destroy, confmon);
     DESTROY(lcbio_mgr_destroy, memd_sockpool);
     DESTROY(lcbio_mgr_destroy, http_sockpool);
+    DESTROY(lcb_vbguess_destroy, vbguess);
+
     mcreq_queue_cleanup(&instance->cmdq);
     lcb_aspend_cleanup(po);
 

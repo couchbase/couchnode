@@ -408,10 +408,10 @@ dump_ropebuf(const rdb_ROPEBUF *buf, FILE *fp)
 void
 rdb_dump(const rdb_IOROPE *ior, FILE *fp)
 {
-    fprintf(fp, "@@ DUMP IOROPE=%p\n", ior);
-    fprintf(fp, "@@ ROPEBUF[AVAIL]=%p\n", &ior->avail);
+    fprintf(fp, "@@ DUMP IOROPE=%p\n", (void*)ior);
+    fprintf(fp, "@@ ROPEBUF[AVAIL]=%p\n", (void*)&ior->avail);
     dump_ropebuf(&ior->avail, fp);
-    fprintf(fp, "@@ ROPEBUF[ACTIVE]=%p\n", &ior->recvd);
+    fprintf(fp, "@@ ROPEBUF[ACTIVE]=%p\n", (void*)&ior->recvd);
     dump_ropebuf(&ior->recvd, fp);
     if (ior->avail.allocator && ior->avail.allocator->dump) {
         ior->avail.allocator->dump(ior->avail.allocator, fp);

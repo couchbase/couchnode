@@ -146,3 +146,28 @@ lcb_getenv_boolean_multi(const char *key, ...)
     va_end(ap);
     return ret;
 }
+
+const char *
+lcb_get_tmpdir(void)
+{
+#if defined(_WIN32)
+    static char buf[MAX_PATH+1] = { 0 };
+    if (buf[0]) {
+        return buf;
+    }
+    GetTempPath(sizeof buf, buf);
+    return buf;
+#else
+    const char *ret;
+    if ((ret = getenv("TMPDIR")) != NULL) {
+        return ret;
+    } else {
+
+    #if defined(_POSIX_VERSION)
+        return "/tmp";
+    #else
+        return ".";
+    #endif
+    }
+#endif
+}

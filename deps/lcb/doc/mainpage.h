@@ -6,10 +6,10 @@
  * to get started. If you're coming back here for reference, here are some
  * handy links to look at.
  *
- * * @subpage lcb_initialization
- * * @subpage LCB_KVAPI
- * * @subpage LCB_CNTL
- * * @subpage lcb_pubapi3
+ * * @subpage lcb-init
+ * * @subpage lcb-kv-api
+ * * @subpage lcb-cntl-settings
+ * * @subpage lcb-public-api3
  *
  * You may read about related Couchbase software at http://docs.couchbase.com/
  *
@@ -50,7 +50,7 @@
 
 /**
  * @internal
- * @defgroup LCB_PUBAPI Public API
+ * @defgroup lcb-public-api Public API
  * @brief Public API Routines
  * @details
  *
@@ -61,9 +61,9 @@
 
 /**
  * @internal
- * @defgroup LCB_GENERICS Generic Types
+ * @defgroup lcb-generics Generic Types
  * @brief Generic utilities and containers
- * @addtogroup LCB_GENERICS
+ * @addtogroup lcb-generics
  * @{
  * @file src/simplestring.h
  * @file src/list.h
@@ -73,10 +73,10 @@
  * @}
  *
  *
- * @defgroup LCB_CLCONFIG Bucket/Cluster Configuration
+ * @defgroup lcb-clconfig Bucket/Cluster Configuration
  * @brief This module retrieves and processes cluster configurations from a
  * variety of sources
- * @addtogroup LCB_CLCONFIG
+ * @addtogroup lcb-clconfig
  * @{
  * @file src/bucketconfig/clconfig.h
  * @}

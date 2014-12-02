@@ -233,7 +233,7 @@ void lcb_cccp_update2(const void *cookie, lcb_error_t err,
 static void
 on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr)
 {
-    lcbio_EASYPROCS ioprocs;
+    lcbio_CTXPROCS ioprocs;
     cccp_provider *cccp = data;
     lcb_settings *settings = cccp->base.parent->settings;
 
@@ -456,7 +456,7 @@ static void do_dump(clconfig_provider *pb, FILE *fp)
 
     fprintf(fp, "## BEGIN CCCP PROVIDER DUMP ##\n");
     fprintf(fp, "TIMER ACTIVE: %s\n", lcbio_timer_armed(cccp->timer) ? "YES" : "NO");
-    fprintf(fp, "PIPELINE RESPONSE COOKIE: %p\n", cccp->cmdcookie);
+    fprintf(fp, "PIPELINE RESPONSE COOKIE: %p\n", (void*)cccp->cmdcookie);
     if (cccp->ioctx) {
         fprintf(fp, "CCCP Owns connection:\n");
         lcbio_ctx_dump(cccp->ioctx, fp);

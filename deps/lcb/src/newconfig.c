@@ -27,6 +27,42 @@
 #define SERVER_FMT "%s:%s (%p)"
 #define SERVER_ARGS(s) (s)->curhost->host, (s)->curhost->port, (void *)s
 
+typedef struct lcb_GUESSVB_st {
+    int newix; /**< New index, heuristically determined */
+    int oldix; /**< Original index, according to map */
+} lcb_GUESSVB;
+
+void
+lcb_vbguess_newconfig(lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
+{
+    unsigned ii;
+    for (ii = 0; ii < cfg->nvb; ii++) {
+        lcb_GUESSVB *guess = guesses + ii;
+        lcbvb_VBUCKET *vb = cfg->vbuckets + ii;
+
+        if (guess->newix != guess->oldix && vb->servers[0] == guess->oldix) {
+            vb->servers[0] = guess->newix;
+        } else {
+            guess->newix = vb->servers[0];
+        }
+        guess->oldix = vb->servers[0];
+    }
+}
+
+int
+lcb_vbguess_remap(lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses, int vbid, int bad)
+{
+    lcb_GUESSVB *guess = guesses + vbid;
+    int newix = lcbvb_nmv_remap(cfg, vbid, bad);
+
+    if (guesses && newix > -1 && newix != bad) {
+        guess->newix = newix;
+        guess->oldix = bad;
+    }
+
+    return newix;
+}
+
 /**
  * Finds the index of an older server using the current config
  * @param config The new configuration
@@ -74,7 +110,12 @@ log_vbdiff(lcb_t instance, lcbvb_CONFIGDIFF *diff)
  * commands to their destination server. Some commands may not be relocated
  * either because they have no explicit "Relocation Information" (i.e. no
  * specific vbucket) or because the command is tied to a specific server (i.e.
- * CMD_STAT)
+ * CMD_STAT).
+ *
+ * Note that `KEEP_PACKET` here doesn't mean to "Save" the packet, but rather
+ * to keep the packet in the current queue (so that if the server ends up
+ * being removed, the command will fail); rather than being relocated to
+ * another server.
  */
 static int
 iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
@@ -84,26 +125,33 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
     mc_PIPELINE *newpl;
     mc_PACKET *newpkt;
     int newix;
-    uint8_t op;
 
     (void)arg;
 
-    memcpy(&hdr, SPAN_BUFFER(&oldpkt->kh_span), sizeof(hdr.bytes));
-    op = hdr.request.opcode;
-    if (op == PROTOCOL_BINARY_CMD_OBSERVE ||
-            op == PROTOCOL_BINARY_CMD_STAT ||
-            op == PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG) {
-        return MCREQ_KEEP_PACKET;
-    }
-
-    newix = lcbvb_vbmaster(cq->config, ntohs(hdr.request.vbucket));
-    if (newix < 0 || newix > (int)cq->npipelines) {
-        return MCREQ_KEEP_PACKET;
-    }
+    mcreq_read_hdr(oldpkt, &hdr);
 
     if (!lcb_should_retry(srv->settings, oldpkt, LCB_MAX_ERROR)) {
         return MCREQ_KEEP_PACKET;
     }
+
+    if (LCBVB_DISTTYPE(cq->config) == LCBVB_DIST_VBUCKET) {
+        newix = lcbvb_vbmaster(cq->config, ntohs(hdr.request.vbucket));
+
+    } else {
+        const void *key = NULL;
+        lcb_SIZE nkey = 0;
+        int tmpid;
+
+        /* XXX: We ignore hashkey. This is going away soon, and is probably
+         * better than simply failing the items. */
+        mcreq_get_key(oldpkt, &key, &nkey);
+        lcbvb_map_key(cq->config, key, nkey, &tmpid, &newix);
+    }
+
+    if (newix < 0 || newix > (int)cq->npipelines) {
+        return MCREQ_KEEP_PACKET;
+    }
+
 
     newpl = cq->pipelines[newix];
     if (newpl == oldpl || newpl == NULL) {
@@ -124,12 +172,10 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
 static int
 replace_config(lcb_t instance, clconfig_info *next_config)
 {
-    lcbvb_DISTMODE dist_t;
     mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PIPELINE **ppold, **ppnew;
     unsigned ii, nold, nnew;
 
-    dist_t = lcbvb_get_distmode(next_config->vbc);
     nnew = LCBVB_NSERVERS(next_config->vbc);
     ppnew = calloc(nnew, sizeof(*ppnew));
     ppold = mcreq_queue_take_pipelines(cq, &nold);
@@ -167,10 +213,8 @@ replace_config(lcb_t instance, clconfig_info *next_config)
      * transfer the new config along with the new list over to the CQ structure.
      */
     mcreq_queue_add_pipelines(cq, ppnew, nnew, next_config->vbc);
-    if (dist_t == LCBVB_DIST_VBUCKET) {
-        for (ii = 0; ii < nnew; ii++) {
-            mcreq_iterwipe(cq, ppnew[ii], iterwipe_cb, NULL);
-        }
+    for (ii = 0; ii < nnew; ii++) {
+        mcreq_iterwipe(cq, ppnew[ii], iterwipe_cb, NULL);
     }
 
     /**
@@ -181,9 +225,8 @@ replace_config(lcb_t instance, clconfig_info *next_config)
         if (!ppold[ii]) {
             continue;
         }
-        if (dist_t == LCBVB_DIST_VBUCKET) {
-            mcreq_iterwipe(cq, ppold[ii], iterwipe_cb, NULL);
-        }
+
+        mcreq_iterwipe(cq, ppold[ii], iterwipe_cb, NULL);
         mcserver_fail_chain((mc_SERVER *)ppold[ii], LCB_MAP_CHANGED);
         mcserver_close((mc_SERVER *)ppold[ii]);
     }
@@ -208,11 +251,15 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
 
     old_config = instance->cur_configinfo;
     instance->cur_configinfo = config;
-    instance->dist_type = VB_DISTTYPE(config->vbc);
     lcb_clconfig_incref(config);
-    instance->nreplicas = (lcb_uint16_t)VB_NREPLICAS(config->vbc);
     q->config = instance->cur_configinfo->vbc;
     q->cqdata = instance;
+
+    if (LCBT_SETTING(instance, keep_guess_vbs)) {
+        if (!instance->vbguess) {
+            instance->vbguess = calloc(config->vbc->nvb, sizeof(*instance->vbguess));
+        }
+    }
 
     if (old_config) {
         lcbvb_CONFIGDIFF *diff = lcbvb_compare(old_config->vbc, config->vbc);
@@ -220,6 +267,11 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
         if (diff) {
             log_vbdiff(instance, diff);
             lcbvb_free_diff(diff);
+        }
+
+        /* Apply the vb guesses */
+        if (LCBT_SETTING(instance, keep_guess_vbs)) {
+            lcb_vbguess_newconfig(config->vbc, instance->vbguess);
         }
 
         change_status = replace_config(instance, config);
@@ -266,3 +318,5 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
     instance->callbacks.configuration(instance, change_status);
     lcb_maybe_breakout(instance);
 }
+
+

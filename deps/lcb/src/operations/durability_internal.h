@@ -64,7 +64,7 @@ typedef struct lcb_DURSET_st {
     genhash_t *ht; /**< Used to associate a key to its entry within dset_update */
     lcb_string kvbufs; /**< Backing storage for key buffers */
     const void *cookie; /**< User cookie */
-    lcb_U32 us_timeout; /**< Timestamp of next timeout */
+    hrtime_t ns_timeout; /**< Timestamp of next timeout */
     void *timer;
     lcb_t instance;
 } lcb_DURSET;

@@ -28,11 +28,11 @@
  *
  * For non-synchronous use cases you can integrate with a variety of event loops
  * via the various plugins, or integrate one yourself via the `IOPS` API
- * (see @ref LCBIO_IOPS)
+ * (see @ref lcb-io-plugin-api)
  *
  * Modifying the library's settings (for example, timeout settings) may be done
- * via the lcb_cntl() interface (see @ref LCB_CNTL) or via some environment
- * variables (see @ref LCB_ENVVARS)
+ * via the lcb_cntl() interface (see @ref lcb-cntl-settings) or via some environment
+ * variables (see @ref lcb-env-vars)
  *
  *
  *
@@ -59,7 +59,7 @@
  * ## Configuring and Tuning the library
  *
  * The library may be configured either programmatically via lcb_cntl(),
- * or via the environment (see @ref LCB_ENVVARS)
+ * or via the environment (see @ref lcb-env-vars)
  *
  *
  * ## Simple Usage Steps
@@ -82,7 +82,7 @@
  * @internal
  * ## Public vs Internal APIs
  *
- * The @ref LCB_PUBAPI section is where you should begin browsing to develop
+ * The @ref lcb-public-api section is where you should begin browsing to develop
  * with the library. Any sections not contained within the public API are
  * internal and are provided to aid in developing new features and fixing bugs
  * within the library itself.

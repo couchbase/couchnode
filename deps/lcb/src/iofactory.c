@@ -161,6 +161,7 @@ static void options_from_info(struct lcb_create_io_ops_st *opts,
         break;
     default:
         lcb_assert("unknown options version" && 0);
+        cookie = NULL;
     }
 
     if (info->create) {

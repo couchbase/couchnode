@@ -37,7 +37,7 @@ extern "C" {
  */
 
 /**
- * @defgroup MCREQ Memcached Packets
+ * @defgroup mcreq Memcached Packets
  *
  * @brief
  * This module defines the core routines which are used to construct, handle,
@@ -127,7 +127,7 @@ extern "C" {
  * create a copy of the packet, keeping the previous packet in tact, but
  * returning a copy of the packet as the 'primary' version.
  *
- * @addtogroup MCREQ
+ * @addtogroup mcreq
  * @{
  */
 

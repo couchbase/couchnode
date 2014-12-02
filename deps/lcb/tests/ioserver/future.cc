@@ -36,3 +36,15 @@ Future::endUpdate()
     }
     mutex.unlock();
 }
+
+bool
+Future::checkDone()
+{
+    bool ret;
+    if (!mutex.tryLock()) {
+        return false;
+    }
+    ret = isDone();
+    mutex.unlock();
+    return ret;
+}

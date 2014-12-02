@@ -16,13 +16,27 @@
  */
 #include "config.h"
 #include <gtest/gtest.h>
+
+#ifdef NO_COUCHBASEMOCK
+class MockTestsAreDisabled : public ::testing::Test {};
+TEST_F(MockTestsAreDisabled, MockTestsAreDisabled) {
+    fprintf(stderr, "*** WARNING\n");
+    fprintf(stderr, "*** libcouchbase Java Mock tests are disabled\n");
+    fprintf(stderr, "*** Basic memcached functionality (get, set, etc.) \n");
+    fprintf(stderr, "*** will NOT be tested\n");
+}
+#define SETUP_MOCK_ENV()
+#define setup_test_timeout_handler()
+#else
 #include "iotests/iotests.h"
+#define SETUP_MOCK_ENV() ::testing::AddGlobalTestEnvironment(MockEnvironment::getInstance())
+#endif
 
 int main(int argc, char **argv)
 {
     setvbuf(stdout, NULL, _IOLBF, 2048);
     setvbuf(stderr, NULL, _IOLBF, 2048);
-    ::testing::AddGlobalTestEnvironment(MockEnvironment::getInstance());
+    SETUP_MOCK_ENV();
     ::testing::InitGoogleTest(&argc, argv);
     setup_test_timeout_handler();
     return RUN_ALL_TESTS();

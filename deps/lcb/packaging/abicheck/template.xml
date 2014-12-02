@@ -1,0 +1,3 @@
+<version>@VERSION@</version>
+<headers>@INST@/include/libcouchbase/couchbase.h</headers>
+<libs>@INST@/lib/libcouchbase.so</libs>

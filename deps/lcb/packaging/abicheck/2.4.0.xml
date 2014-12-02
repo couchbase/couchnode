@@ -1,3 +1,0 @@
-<version>2.4.0</version>
-<headers>/sources/lcb-packet-ng/build/inst/include/libcouchbase/couchbase.h</headers>
-<libs>/sources/lcb-packet-ng/build/inst/lib/libcouchbase.so</libs>

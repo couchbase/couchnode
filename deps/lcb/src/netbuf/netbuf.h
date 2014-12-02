@@ -28,7 +28,7 @@ extern "C" {
  */
 
 /**
- * @defgroup NETBUFS Netbufs
+ * @defgroup netbufs Netbufs
  *
  * # Introduction
  *
@@ -48,7 +48,7 @@ extern "C" {
  * 3.  Allow a pluggable method by which user-provided data can be plugged
  *     into the span/cursor/flush architecture.
  *
- * @addtogroup NETBUFS
+ * @addtogroup netbufs
  * @{
  */
 

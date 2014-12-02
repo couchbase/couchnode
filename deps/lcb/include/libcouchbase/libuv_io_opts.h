@@ -22,8 +22,8 @@
  */
 
 /**
- * @ingroup LCBIO_IOPS
- * @defgroup LCBIO_LIBUV libuv integration
+ * @ingroup lcb-io-integration
+ * @defgroup lcb-libuv libuv integration
  *
  * libuv is a cross platform event framework using a completion-based programming
  * model. Since most distributions do not offer up-to-date libuv binary packages
@@ -61,7 +61,7 @@
  * $ gcc -o myapp uv-stub.c main.c -DLCBUV_EMBEDDED_SOURCE
  * @endcode
  *
- * @addtogroup LCBIO_LIBUV
+ * @addtogroup lcb-libuv
  * @{
  */
 

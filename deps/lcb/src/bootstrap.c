@@ -70,7 +70,7 @@ config_callback(clconfig_listener *listener, clconfig_event_t event,
         lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
 
         if (instance->type == LCB_TYPE_BUCKET &&
-                instance->dist_type == LCBVB_DIST_KETAMA &&
+                LCBVB_DISTTYPE(LCBT_VBCONFIG(instance)) == LCBVB_DIST_KETAMA &&
                 instance->cur_configinfo->origin != LCB_CLCONFIG_MCRAW) {
 
             lcb_log(LOGARGS(instance, INFO), "Reverting to HTTP Config for memcached buckets");

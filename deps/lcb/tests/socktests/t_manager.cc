@@ -39,3 +39,73 @@ TEST_F(SockMgrTest, testCancellation)
     loop->sockpool->tmoidle = LCB_MS2US(2);
     loop->start();
 }
+
+// See if a connection closed when it was idle is returned or not!
+TEST_F(SockMgrTest, testIdleClosed)
+{
+    struct lcb_cntl_iops_info_st info = { 0 };
+    lcb_error_t err = lcb_cntl(NULL,
+        LCB_CNTL_GET, LCB_CNTL_IOPS_DEFAULT_TYPES, &info);
+
+    ASSERT_EQ(LCB_SUCCESS, err);
+    switch (info.v.v0.effective) {
+        case LCB_IO_OPS_SELECT:
+        case LCB_IO_OPS_LIBEV:
+        case LCB_IO_OPS_LIBEVENT:
+        case LCB_IO_OPS_WINIOCP:
+            break;
+
+        case LCB_IO_OPS_LIBUV:
+        default:
+            fprintf(stderr, "SockMgrTest::testIdleClosed: IOPS Type=0x%x does not have a known check_closed. Skipping\n", info.v.v0.effective);
+            return;
+    }
+
+
+    lcb_socket_t llfd;
+    ESocket *sock1 = new ESocket();
+    loop->connectPooled(sock1);
+    TestConnection *tc = sock1->conn;
+
+    if (loop->iot->model == LCB_IOMODEL_EVENT) {
+        llfd = sock1->ctx->sock->u.fd;
+    } else {
+        llfd = sock1->ctx->sock->u.sd->socket;
+    }
+
+    // Wait unitl it's closed by the server
+    CloseFuture cf(CloseFuture::BEFORE_IO);
+    tc->setClose(&cf);
+    cf.wait();
+
+    delete sock1;
+    // Since shutdown() is TCP level, while send/recv are socket level, we
+    // might need to loop a bit until we get something!
+    int rv = -1, attempts = 0;
+    do {
+        char buf = 0;
+        rv = recv(llfd, &buf, 1, 0);
+    } while (rv != 0 && ++attempts);
+
+    if (attempts) {
+        fprintf(stderr, "Needed to loop more than once! (%d times)\n", attempts);
+    }
+
+    ESocket *sock2 = new ESocket();
+    loop->connectPooled(sock2);
+
+    // We should be able to perform IO on this socket. Write a few bytes
+    string msg("Hello World!");
+    RecvFuture rf(msg.size());
+    FutureBreakCondition fbc(&rf);
+
+    sock2->conn->setRecv(&rf);
+    sock2->put(msg);
+    sock2->schedule();
+
+    loop->setBreakCondition(&fbc);
+    loop->start();
+    rf.wait();
+    ASSERT_TRUE(rf.isOk());
+    delete sock2;
+}

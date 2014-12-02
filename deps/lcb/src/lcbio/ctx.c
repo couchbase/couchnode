@@ -73,7 +73,7 @@ convert_lcberr(const lcbio_CTX *ctx, lcbio_IOSTATUS status)
 }
 
 lcbio_CTX *
-lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_EASYPROCS *procs)
+lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs)
 {
     lcbio_CTX *ctx = calloc(1, sizeof(*ctx));
     ctx->sock = sock;

@@ -376,10 +376,24 @@ lcbio_mgr_get(lcbio_MGR *pool, lcb_host_t *dest, uint32_t timeout,
     }
 
     req->host = he;
-    cur = lcb_clist_pop(&he->ll_idle);
 
+    GT_POPAGAIN:
+
+    cur = lcb_clist_pop(&he->ll_idle);
     if (cur) {
+        int clstatus;
         mgr_CINFO *info = LCB_LIST_ITEM(cur, mgr_CINFO, llnode);
+
+        clstatus = lcbio_is_netclosed(info->sock, LCB_IO_SOCKCHECK_PEND_IS_ERROR);
+
+        if (clstatus == LCB_IO_SOCKCHECK_STATUS_CLOSED) {
+            lcb_log(LOGARGS(pool, WARN), HE_LOGFMT "Pooled socket is dead. Continuing to next one", HE_LOGID(he));
+
+            /* Set to CS_LEASED, since it's not inside any of our lists */
+            info->state = CS_LEASED;
+            destroy_cinfo(info);
+            goto GT_POPAGAIN;
+        }
 
         lcbio_timer_disarm(info->idle_timer);
         req->sock = info->sock;

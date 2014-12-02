@@ -134,6 +134,7 @@ handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     lcb_error_t err = LCB_ERROR;
     lcb_t instance = oldsrv->instance;
     lcb_U16 vbid;
+    int tmpix;
     clconfig_provider *cccp = lcb_confmon_get_provider(instance->confmon,
         LCB_CLCONFIG_CCCP);
 
@@ -142,7 +143,11 @@ handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     lcb_log(LOGARGS(oldsrv, WARN), LOGFMT "NOT_MY_VBUCKET. Packet=%p (S=%u). VBID=%u", LOGID(oldsrv), (void*)oldpkt, oldpkt->opaque, vbid);
 
     /* Notify of new map */
-    lcbvb_nmv_remap(LCBT_VBCONFIG(instance), vbid, oldsrv->pipeline.index);
+    tmpix = lcb_vbguess_remap(LCBT_VBCONFIG(instance),
+        instance->vbguess, vbid, oldsrv->pipeline.index);
+    if (tmpix > -1 && tmpix != oldsrv->pipeline.index) {
+        lcb_log(LOGARGS(oldsrv, TRACE), LOGFMT "Heuristically set IX=%d as master for VBID=%u", LOGID(oldsrv), tmpix, vbid);
+    }
 
     if (PACKET_NBODY(resinfo) && cccp->enabled) {
         lcb_string s;
@@ -168,7 +173,18 @@ handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     return 1;
 }
 
-/* Call within a loop */
+#define PKT_READ_COMPLETE 1
+#define PKT_READ_PARTIAL 0
+
+/* This function is called within a loop to process a single packet.
+ *
+ * If a full packet is available, it will process the packet and return
+ * PKT_READ_COMPLETE, resulting in the `on_read()` function calling this
+ * function in a loop.
+ *
+ * When a complete packet is not available, PKT_READ_PARTIAL will be returned
+ * and the `on_read()` loop will exit, scheduling any required pending I/O.
+ */
 static int
 try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
 {
@@ -177,19 +193,25 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
     mc_PIPELINE *pl = &server->pipeline;
     unsigned pktsize = 24, is_last = 1;
 
-#define DO_ASSIGN_PAYLOAD() \
-    rdb_consumed(ior, sizeof(info->res.bytes)); \
-    if (PACKET_NBODY(info)) { \
-        info->payload = rdb_get_consolidated(ior, PACKET_NBODY(info)); \
-    } {
+    #define RETURN_NEED_MORE(n) \
+        if (mcserver_has_pending(server)) { \
+            lcbio_ctx_rwant(ctx, n); \
+        } \
+        return PKT_READ_PARTIAL; \
 
-#define DO_SWALLOW_PAYLOAD() \
-    } if (PACKET_NBODY(info)) { \
-        rdb_consumed(ior, PACKET_NBODY(info)); \
-    }
+    #define DO_ASSIGN_PAYLOAD() \
+        rdb_consumed(ior, sizeof(info->res.bytes)); \
+        if (PACKET_NBODY(info)) { \
+            info->payload = rdb_get_consolidated(ior, PACKET_NBODY(info)); \
+        } {
+
+    #define DO_SWALLOW_PAYLOAD() \
+        } if (PACKET_NBODY(info)) { \
+            rdb_consumed(ior, PACKET_NBODY(info)); \
+        }
 
     if (rdb_get_nused(ior) < pktsize) {
-        goto GT_NEEDMORE;
+        RETURN_NEED_MORE(pktsize)
     }
 
     /* copy bytes into the info structure */
@@ -197,7 +219,7 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
 
     pktsize += PACKET_NBODY(info);
     if (rdb_get_nused(ior) < pktsize) {
-        goto GT_NEEDMORE;
+        RETURN_NEED_MORE(pktsize);
     }
 
     /* Find the packet */
@@ -212,7 +234,7 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
     if (!request) {
         lcb_log(LOGARGS(server, WARN), LOGFMT "Found stale packet (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID(server), PACKET_OPCODE(info), PACKET_STATUS(info), PACKET_OPAQUE(info));
         rdb_consumed(ior, pktsize);
-        return 1;
+        return PKT_READ_COMPLETE;
     }
 
     if (PACKET_STATUS(info) == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET) {
@@ -222,7 +244,7 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
             mcreq_dispatch_response(pl, request, info, LCB_NOT_MY_VBUCKET);
         }
         DO_SWALLOW_PAYLOAD()
-        return 1;
+        return PKT_READ_COMPLETE;
     }
 
     /* Figure out if the request is 'ufwd' or not */
@@ -255,13 +277,7 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
     if (is_last) {
         mcreq_packet_handled(pl, request);
     }
-    return 1;
-
-    GT_NEEDMORE:
-    if (mcserver_has_pending(server)) {
-        lcbio_ctx_rwant(ctx, pktsize);
-    }
-    return 0;
+    return PKT_READ_COMPLETE;
 }
 
 static void
@@ -275,7 +291,7 @@ on_read(lcbio_CTX *ctx, unsigned nb)
         return;
     }
 
-    while ((rv = try_read(ctx, server, ior)));
+    while ((rv = try_read(ctx, server, ior)) == PKT_READ_COMPLETE);
     lcbio_ctx_schedule(ctx);
     lcb_maybe_breakout(server->instance);
 
@@ -451,7 +467,7 @@ static void
 on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr)
 {
     mc_SERVER *server = data;
-    lcbio_EASYPROCS procs;
+    lcbio_CTXPROCS procs;
     uint32_t tmo;
     mc_pSESSINFO sessinfo = NULL;
     LCBIO_CONNREQ_CLEAR(&server->connreq);

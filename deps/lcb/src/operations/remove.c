@@ -60,7 +60,7 @@ lcb_remove(lcb_t instance, const void *cookie, lcb_size_t num,
            const lcb_remove_cmd_t * const * items)
 {
     unsigned ii;
-    mcreq_sched_enter(&instance->cmdq);
+    lcb_sched_enter(instance);
 
     for (ii = 0; ii < num; ii++) {
         lcb_error_t err;
@@ -74,10 +74,10 @@ lcb_remove(lcb_t instance, const void *cookie, lcb_size_t num,
         dst.cas = src->v.v0.cas;
         err = lcb_remove3(instance, cookie, &dst);
         if (err != LCB_SUCCESS) {
-            mcreq_sched_fail(&instance->cmdq);
+            lcb_sched_fail(instance);
             return err;
         }
     }
-    mcreq_sched_leave(&instance->cmdq, 1);
+    lcb_sched_leave(instance);
     SYNCMODE_INTERCEPT(instance)
 }

@@ -22,15 +22,15 @@
  */
 
 /**
- * @ingroup LCBIO_IOPS
- * @defgroup LCBIO_LIBEV libev integration
+ * @ingroup lcb-io-integration
+ * @defgroup lcb-libev libev integration
  *
  * libcouchbase_create_libev_io_opts() allows you to create an instance
  * of the ioopts that will utilize libev. You may either supply an event
  * loop (if you'd like to add your own events into the loop), or it will
  * create it's own.
  *
- * @addtogroup LCBIO_LIBEV
+ * @addtogroup lcb-libev
  * @{
  */
 #ifndef LIBCOUCHBASE_LIBEV_IO_OPTS_H

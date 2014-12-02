@@ -35,9 +35,9 @@
  */
 
 /**
- * @ingroup LCBIO
- * @defgroup LCBIO_Mgr Socket Pooling
- * @addtogroup LCBIO_Mgr
+ * @ingroup lcbio
+ * @defgroup lcbio-mgr Socket Pooling
+ * @addtogroup lcbio-mgr
  * @{
  */
 

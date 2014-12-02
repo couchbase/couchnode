@@ -28,15 +28,15 @@ extern "C" {
  */
 
 /**
- * @ingroup LCBIO
- * @defgroup LCBIO_SSL SSL Routines
+ * @ingroup lcbio
+ * @defgroup lcbio-ssl SSL Routines
  *
  * @details
  * This file contains the higher level API interfacing with _LCBIO_. It provides
  * APIs to "patch" a socket with SSL as well as establish settings for SSL
  * encryption.
  *
- * @addtogroup LCBIO_SSL
+ * @addtogroup lcbio-ssl
  * @{
  */
 

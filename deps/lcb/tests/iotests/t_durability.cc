@@ -761,3 +761,31 @@ TEST_F(DurabilityUnitTest, testDurabilityRelocation)
     lcbio_timer_destroy(tm);
     ASSERT_EQ(1, cookie.count);
 }
+
+
+TEST_F(DurabilityUnitTest, testDuplicateCommands)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+    std::string key("key");
+    std::vector<lcb_durability_cmd_t> cmds;
+    std::vector<lcb_durability_cmd_t *> cmdlist;
+    lcb_durability_opts_t options = { 0 };
+    options.v.v0.replicate_to = 100;
+    options.v.v0.persist_to = 100;
+    options.v.v0.cap_max = 1;
+
+    for (int ii = 0; ii < 2; ii++) {
+        lcb_durability_cmd_t cmd = { 0 };
+        cmd.v.v0.key = key.c_str();
+        cmd.v.v0.nkey = key.size();
+        cmds.push_back(cmd);
+    }
+    for (size_t ii = 0; ii < cmds.size(); ii++) {
+        cmdlist.push_back(&cmds[ii]);
+    }
+    lcb_error_t err;
+    err = lcb_durability_poll(instance, NULL, &options, 2, &cmdlist[0]);
+    ASSERT_EQ(LCB_DUPLICATE_COMMANDS, err);
+}

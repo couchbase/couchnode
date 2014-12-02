@@ -198,3 +198,42 @@ TEST_F(McFwd, testMultiValue)
     ASSERT_EQ(0, vars.ioi.wanted);
     ASSERT_EQ(0, vars.ioi.c.niov);
 }
+
+TEST_F(McFwd, testNoMap)
+{
+    CQWrap cq;
+    lcb_error_t err;
+    protocol_binary_request_header hdr;
+    memset(&hdr, 0, sizeof hdr);
+    hdr.request.magic = PROTOCOL_BINARY_REQ;
+    hdr.request.opcode = 0x50;
+    hdr.request.extlen = 8;
+    hdr.request.bodylen = htonl(8);
+    hdr.request.vbucket = 0;
+    char reqbuf[32] = { 0 };
+    memcpy(reqbuf, hdr.bytes, sizeof hdr.bytes);
+    mc_IOVINFO ioi;
+    nb_IOV iov;
+    iov.iov_base = reqbuf;
+    iov.iov_len = sizeof reqbuf;
+    mc_iovinfo_init(&ioi, &iov, 1);
+
+    mc_PACKET *pkt_tmp;
+    mc_PIPELINE *pl_tmp = cq.pipelines[0];
+    err = mc_forward_packet(&cq, &ioi, &pkt_tmp, &pl_tmp, MC_FWD_OPT_NOMAP);
+
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_NE(0, pkt_tmp->flags & MCREQ_F_UFWD);
+
+    // Get the key
+    const void *key;
+    lcb_SIZE nkey;
+    mcreq_get_key(pkt_tmp, &key, &nkey);
+    ASSERT_EQ(0, nkey);
+
+    // Ensure we have no vBucket stamping
+    protocol_binary_request_header hdr2;
+    mcreq_read_hdr(pkt_tmp, &hdr2);
+    ASSERT_EQ(0, hdr2.request.vbucket);
+    mcreq_sched_fail(&cq);
+}

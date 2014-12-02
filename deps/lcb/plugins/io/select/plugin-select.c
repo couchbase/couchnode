@@ -66,7 +66,7 @@ timer_cmp_asc(lcb_list_t *a, lcb_list_t *b)
 static void *
 sel_event_new(lcb_io_opt_t iops)
 {
-    sel_LOOP *io = iops->v.v0.cookie;
+    sel_LOOP *io = iops->v.v2.cookie;
     sel_EVENT *ret = calloc(1, sizeof(sel_EVENT));
     if (ret != NULL) {
         lcb_list_append(&io->events.list, &ret->list);
@@ -139,7 +139,7 @@ sel_timer_schedule(lcb_io_opt_t iops, void *timer, lcb_U32 usec, void *cb_data,
     lcb_ioE_callback handler)
 {
     sel_TIMER *tm = timer;
-    sel_LOOP *cookie = iops->v.v0.cookie;
+    sel_LOOP *cookie = iops->v.v2.cookie;
     lcb_assert(!tm->active);
     tm->exptime = gethrtime() + (usec * (hrtime_t)1000);
     tm->cb_data = cb_data;
@@ -154,7 +154,7 @@ sel_timer_schedule(lcb_io_opt_t iops, void *timer, lcb_U32 usec, void *cb_data,
 static void
 sel_stop_loop(struct lcb_io_opt_st *iops)
 {
-    sel_LOOP *io = iops->v.v0.cookie;
+    sel_LOOP *io = iops->v.v2.cookie;
     io->event_loop = 0;
 }
 
@@ -210,7 +210,7 @@ get_next_timeout(sel_LOOP *cookie, struct timeval *tmo, hrtime_t now)
 static void
 sel_run_loop(struct lcb_io_opt_st *iops)
 {
-    sel_LOOP *io = iops->v.v0.cookie;
+    sel_LOOP *io = iops->v.v2.cookie;
 
     sel_EVENT *ev;
     lcb_list_t *ii;
@@ -324,7 +324,7 @@ sel_run_loop(struct lcb_io_opt_st *iops)
 static void
 sel_destroy_iops(struct lcb_io_opt_st *iops)
 {
-    sel_LOOP *io = iops->v.v0.cookie;
+    sel_LOOP *io = iops->v.v2.cookie;
     lcb_list_t *nn, *ii;
     sel_EVENT *ev;
     sel_TIMER *tm;
@@ -332,16 +332,40 @@ sel_destroy_iops(struct lcb_io_opt_st *iops)
     assert(io->event_loop == 0);
     LCB_LIST_SAFE_FOR(ii, nn, &io->events.list) {
         ev = LCB_LIST_ITEM(ii, sel_EVENT, list);
-        iops->v.v0.destroy_event(iops, ev);
+        sel_event_free(iops, ev);
     }
     assert(LCB_LIST_IS_EMPTY(&io->events.list));
     LCB_LIST_SAFE_FOR(ii, nn, &io->timers) {
         tm = LCB_LIST_ITEM(ii, sel_TIMER, list);
-        iops->v.v0.destroy_timer(iops, tm);
+        sel_timer_free(iops, tm);
     }
     assert(LCB_LIST_IS_EMPTY(&io->timers));
     free(io);
     free(iops);
+}
+
+static void
+procs2_sel_callback(int version, lcb_loop_procs *loop_procs,
+    lcb_timer_procs *timer_procs, lcb_bsd_procs *bsd_procs,
+    lcb_ev_procs *ev_procs, lcb_completion_procs *completion_procs,
+    lcb_iomodel_t *iomodel)
+{
+    ev_procs->create = sel_event_new;
+    ev_procs->destroy = sel_event_free;
+    ev_procs->watch = sel_event_update;
+    ev_procs->cancel = sel_event_cancel;
+
+    timer_procs->create = sel_timer_new;
+    timer_procs->destroy = sel_timer_free;
+    timer_procs->schedule = sel_timer_schedule;
+    timer_procs->cancel = sel_timer_cancel;
+
+    loop_procs->start = sel_run_loop;
+    loop_procs->stop = sel_stop_loop;
+
+    *iomodel = LCB_IOMODEL_EVENT;
+    wire_lcb_bsd_impl2(bsd_procs, version);
+    (void)completion_procs;
 }
 
 LIBCOUCHBASE_API
@@ -365,27 +389,15 @@ lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *arg)
     lcb_list_init(&cookie->timers);
 
     /* setup io iops! */
-    ret->version = 0;
+    ret->version = 2;
     ret->dlhandle = NULL;
     ret->destructor = sel_destroy_iops;
+
     /* consider that struct isn't allocated by the library,
      * `need_cleanup' flag might be set in lcb_create() */
-    ret->v.v0.need_cleanup = 0;
-    ret->v.v0.delete_event = sel_event_cancel;
-    ret->v.v0.destroy_event = sel_event_free;
-    ret->v.v0.create_event = sel_event_new;
-    ret->v.v0.update_event = sel_event_update;
-
-    ret->v.v0.delete_timer = sel_timer_cancel;
-    ret->v.v0.destroy_timer = sel_timer_free;
-    ret->v.v0.create_timer = sel_timer_new;
-    ret->v.v0.update_timer = sel_timer_schedule;
-
-    ret->v.v0.run_event_loop = sel_run_loop;
-    ret->v.v0.stop_event_loop = sel_stop_loop;
-    ret->v.v0.cookie = cookie;
-
-    wire_lcb_bsd_impl(ret);
+    ret->v.v2.need_cleanup = 0;
+    ret->v.v2.get_procs = procs2_sel_callback;
+    ret->v.v2.cookie = cookie;
 
     *io = ret;
     (void)arg;

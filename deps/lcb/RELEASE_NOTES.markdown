@@ -1,5 +1,88 @@
 # Release Notes
 
+## 2.4.4 (Nov. 19 2014)
+
+* Detect disconnected pooled sockets
+  This allows the connection pool to detect dead sockets which were closed
+  by a server when they were idle. Sometimes servers will close connections
+  to open idle sockets to save resources, or because of bugs in their
+  implementations.
+  This will fix some issues experienced with views where queries would
+  randomly fail with `LCB_NETWORK_ERROR` or `LCB_ESOCKSHUTDOWN`, by first
+  checking if the socket is alive before returning it back to the library's
+  core.
+  Note that the `libuv` plugin does not implement this functionality yet.
+  * Priority: Critical
+  * Issues: [CCBC-546](http://couchbase.com/issues/browse/CCBC-546)
+
+* Fix _pillowfight_ `--min-size` bug
+  This fixes a bug where pillowfight would sometimes compare the `min-size`
+  option to an uninitialized `max-size` option and round it down to that
+  value; then would set the `max-size` option.
+  * Priority: Major
+  * Issues: [CCBC-542](http://couchbase.com/issues/browse/CCBC-542)
+
+* Don't ignore `LCB_CNTL_DURABILITY_INTERVAL`
+  Fix a bug where this interval would be ignored, if modified by the user; always
+  reverting to 100ms.
+  * Priority: Major
+  * Issues: [CCBC-543](http://couchbase.com/issues/browse/CCBC-543)
+
+* Fix memory leak with HTTP requests using a request body
+  Requests (such as `PUT`, `POST`, etc) which contained a request body
+  would cause a memory leak as the library forgot to free them when the
+  request object was destroyed.
+  * Priority: Major
+  * Issues: [CCBC-538](http://couchbase.com/issues/browse/CCBC-538)
+
+* Fix errneous `LCB_SUCCESS` return when passed duplicate keys to
+  `lcb_durability_poll()`. This would cause applications to mistakenly wait
+  for a callback to arrive, when in fact the command had failed.
+  * Priority: Major
+  * Issues: [CCBC-536](http://couchbase.com/issues/browse/CCBC-535)
+
+* Add option to preserve vbucket ownership heuristics across config updates
+  This allows the learned configuration settings to persist between configuration
+  updates. The default behavior (up to, and including this change) is to
+  discard any "learned" configuration in favor of the explicitly new config
+  passed to the server. This new option allows this information to be persisted
+  when a new configuration update is received. This behavior is considered
+  experimental, and is primarily intended to reduce the time it takes for the
+  client to relearn the current node (which is typically under 1-2 seconds).
+  * Priority: Minor
+  * Issues: [CCBC-530](http://couchbase.com/issues/browse/CCBC-530)
+
+* Relocate memcached packets on topology changes for memcached buckets
+  This enhances the behavior of the client when operating with a memcached
+  bucket during a topology change. Previously the library would not relocate
+  packets to new servers, resulting in errors for items which were now
+  mapped to wrong nodes. The new behavior remaps the key to the new server
+  using the updated ketama hashing. Note that as a current restriction, the
+  remapping will be performed based on the key of the item, not any `hashkey`
+  parameter being employed.
+  * Priority: Major
+  * Issues: [CCBC-331](http://couchbase.com/issues/browse/CCBC-331)
+
+* Return error if ignored/conflicting options are found
+  This changes the behavior of the library to throw an error if a specific
+  option field was filled in which did not make sense for a given command, for
+  example, specifying a `cas` value using a `LCB_ADD` operation with `lcb_store`.
+  * Priority: Major
+  * Issues: [CCBC-529](http://couchbase.com/issues/browse/CCBC-529)
+
+* Fix issue when sending out large _OBSERVE_ command.
+  This would cause a partial command to be sent out if the size of the output
+  packet was greater than 512 bytes. This has been fixed by dynamically growing
+  the output buffer for _OBSERVE_
+  * Priority: Minor
+  * Issues: [CCBC-528](http://couchbase.com/issues/browse/CCBC-528)
+
+* Fix spurious timeouts when using `lcb_durability_poll`
+  This fixes an issue where sometimes the durability poll operation would
+  prematurely time out.
+  * Priority: Major
+  * Issues: [CCBC-527](http://couchbase.com/issues/browse/CCBC-527)
+
 ## 2.4.3 (Oct. 21 2014)
 
 * Disable support for SSLv3

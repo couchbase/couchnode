@@ -473,7 +473,7 @@ mc_sessreq_start(lcbio_SOCKET *sock, lcb_settings *settings,
     struct lcbio_NAMEINFO nistrs;
     mc_pSESSREQ sreq;
     mc_pSESSINFO sasl;
-    lcbio_EASYPROCS procs;
+    lcbio_CTXPROCS procs;
 
     if ((sreq = calloc(1, sizeof(*sreq))) == NULL) {
         return NULL;

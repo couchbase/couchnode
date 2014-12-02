@@ -35,6 +35,9 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd)
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
     }
+    if (cmd->cas) {
+        return LCB_OPTIONS_CONFLICT;
+    }
 
     if (cmd->lock) {
         extlen = 4;
@@ -79,7 +82,7 @@ lcb_error_t lcb_get(lcb_t instance,
                     const lcb_get_cmd_t *const *items)
 {
     unsigned ii;
-    mcreq_sched_enter(&instance->cmdq);
+    lcb_sched_enter(instance);
 
     for (ii = 0; ii < num; ii++) {
         const lcb_get_cmd_t *src = items[ii];
@@ -96,11 +99,11 @@ lcb_error_t lcb_get(lcb_t instance,
 
         err = lcb_get3(instance, command_cookie, &dst);
         if (err != LCB_SUCCESS) {
-            mcreq_sched_fail(&instance->cmdq);
+            lcb_sched_fail(instance);
             return err;
         }
     }
-    mcreq_sched_leave(&instance->cmdq, 1);
+    lcb_sched_leave(instance);
     SYNCMODE_INTERCEPT(instance)
 }
 
@@ -150,7 +153,7 @@ lcb_unlock(lcb_t instance, const void *cookie, lcb_size_t num,
     unsigned ii;
     lcb_error_t err = LCB_SUCCESS;
 
-    mcreq_sched_enter(&instance->cmdq);
+    lcb_sched_enter(instance);
     for (ii = 0; ii < num; ii++) {
         const lcb_unlock_cmd_t *src = items[ii];
         lcb_CMDUNLOCK dst;
@@ -166,10 +169,10 @@ lcb_unlock(lcb_t instance, const void *cookie, lcb_size_t num,
         }
     }
     if (err != LCB_SUCCESS) {
-        mcreq_sched_fail(&instance->cmdq);
+        lcb_sched_fail(instance);
         return err;
     } else {
-        mcreq_sched_leave(&instance->cmdq, 1);
+        lcb_sched_leave(instance);
         SYNCMODE_INTERCEPT(instance)
     }
 }
@@ -232,6 +235,8 @@ rget_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
         } else if (err != LCB_SUCCESS) {
             mc_PACKET *newpkt = mcreq_renew_packet(pkt);
             mcreq_sched_add(nextpl, newpkt);
+            /* Use this, rather than lcb_sched_leave(), because this is being
+             * invoked internally by the library. */
             mcreq_sched_leave(cq, 1);
             /* wait */
             rck->remaining = 2;
@@ -262,7 +267,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     lcb_size_t nhk;
     int vbid, ixtmp;
     protocol_binary_request_header req;
-    unsigned r0, r1;
+    unsigned r0, r1 = 0;
     rget_cookie *rck = NULL;
 
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
@@ -288,21 +293,21 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     } else if (cmd->strategy == LCB_REPLICA_ALL) {
         unsigned ii;
         r0 = 0;
-        r1 = instance->nreplicas;
+        r1 = LCBT_NREPLICAS(instance);
         /* Make sure they're all online */
-        for (ii = 0; ii < instance->nreplicas; ii++) {
+        for (ii = 0; ii < LCBT_NREPLICAS(instance); ii++) {
             if ((ixtmp = lcbvb_vbreplica(cq->config, vbid, ii)) < 0) {
                 return LCB_NO_MATCHING_SERVER;
             }
         }
     } else {
-        for (r0 = 0; r0 < instance->nreplicas; r0++) {
+        for (r0 = 0; r0 < LCBT_NREPLICAS(instance); r0++) {
             if ((ixtmp = lcbvb_vbreplica(cq->config, vbid, r0)) > -1) {
                 r1 = r0;
                 break;
             }
         }
-        if (r0 == instance->nreplicas) {
+        if (r0 == LCBT_NREPLICAS(instance)) {
             return LCB_NO_MATCHING_SERVER;
         }
     }
@@ -318,7 +323,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     rck->base.procs = &rget_procs;
     rck->strategy = cmd->strategy;
     rck->r_cur = r0;
-    rck->r_max = instance->nreplicas;
+    rck->r_max = LCBT_NREPLICAS(instance);
     rck->instance = instance;
     rck->vbucket = vbid;
 
@@ -365,7 +370,7 @@ lcb_get_replica(lcb_t instance, const void *cookie, lcb_size_t num,
     unsigned ii;
     lcb_error_t err = LCB_SUCCESS;
 
-    mcreq_sched_enter(&instance->cmdq);
+    lcb_sched_enter(instance);
     for (ii = 0; ii < num; ii++) {
         const lcb_get_replica_cmd_t *src = items[ii];
         lcb_CMDGETREPLICA dst;
@@ -383,10 +388,10 @@ lcb_get_replica(lcb_t instance, const void *cookie, lcb_size_t num,
     }
 
     if (err == LCB_SUCCESS) {
-        mcreq_sched_leave(&instance->cmdq, 1);
+        lcb_sched_leave(instance);
         SYNCMODE_INTERCEPT(instance)
     } else {
-        mcreq_sched_fail(&instance->cmdq);
+        lcb_sched_fail(instance);
         return err;
     }
 }

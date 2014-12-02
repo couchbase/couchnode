@@ -1,3 +1,0 @@
-<version>2.3.0</version>
-<headers>/sources/lcb-master/inst/include/libcouchbase/couchbase.h</headers>
-<libs>/sources/lcb-master/inst/lib/libcouchbase.so</libs>

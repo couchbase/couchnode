@@ -144,6 +144,9 @@ HANDLER(bucketname_handler) {
 HANDLER(schedflush_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, sched_implicit_flush))
 }
+HANDLER(vbguess_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, keep_guess_vbs))
+}
 
 HANDLER(get_kvb) {
     struct lcb_cntl_vbinfo_st *vbi = arg;
@@ -416,7 +419,8 @@ static ctl_handler handlers[] = {
     http_poolsz_handler, /* LCB_CNTL_HTTP_POOLSIZE */
     http_refresh_config_handler, /* LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR */
     bucketname_handler, /* LCB_CNTL_BUCKETNAME */
-    schedflush_handler /* LCB_CNTL_SCHED_IMPLICIT_FLUSH */
+    schedflush_handler, /* LCB_CNTL_SCHED_IMPLICIT_FLUSH */
+    vbguess_handler /* LCB_CNTL_VBGUESS_PERSIST */
 };
 
 /* Union used for conversion to/from string functions */
@@ -558,6 +562,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"_reinit_connstr", LCB_CNTL_REINIT_CONNSTR },
         {"retry_backoff", LCB_CNTL_RETRY_BACKOFF, convert_float },
         {"http_poolsize", LCB_CNTL_HTTP_POOLSIZE, convert_SIZE },
+        {"vbguess_persist", LCB_CNTL_VBGUESS_PERSIST, convert_intbool },
         {NULL, -1}
 };
 

@@ -163,7 +163,7 @@ LIBCOUCHBASE_API
 lcb_int32_t lcb_get_num_replicas(lcb_t instance)
 {
     if (LCBT_VBCONFIG(instance)) {
-        return instance->nreplicas;
+        return LCBT_NREPLICAS(instance);
     } else {
         return -1;
     }

@@ -230,6 +230,19 @@ lcb_error_t lcb_verify_struct_size(lcb_uint32_t id, lcb_uint32_t version,
 /**@deprecated - Use error classifiers */
 #define lcb_is_error_etmpfail(a) ((a == LCB_CLIENT_ETMPFAIL) || (a == LCB_ETMPFAIL))
 
+typedef enum {
+    LCB_CONFIGURATION_NEW = 0x00,
+    LCB_CONFIGURATION_CHANGED = 0x01,
+    LCB_CONFIGURATION_UNCHANGED = 0x02
+} lcb_configuration_t;
+
+typedef void (*lcb_configuration_callback)(lcb_t instance, lcb_configuration_t config);
+
+/**@deprecated - Use lcb_set_bootstrap_callback() */
+LCB_DEPR_API2(
+    lcb_configuration_callback lcb_set_configuration_callback(lcb_t, lcb_configuration_callback),
+    "use lcb_set_bootstrap_callback() to determine when client is ready");
+
 #ifdef __cplusplus
 }
 #endif

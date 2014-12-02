@@ -32,10 +32,10 @@ extern "C" {
  */
 
 /**
- * @ingroup LCBIO
- * @defgroup LCBIO_Core Socket Module
+ * @ingroup lcbio
+ * @defgroup lcbio-core Socket Module
  * @brief Socket routines
- * @addtogroup LCBIO_Core
+ * @addtogroup lcbio-core
  * @{
  */
 

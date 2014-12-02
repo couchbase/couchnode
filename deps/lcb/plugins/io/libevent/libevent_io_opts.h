@@ -22,8 +22,8 @@
  */
 
 /**
- * @ingroup LCBIO_IOPS
- * @defgroup LCBIO_LIBEVENT libevent integration
+ * @ingroup lcb-io-integration
+ * @defgroup lcb-libevent libevent integration
  *
  * lcb_create_libevent_io_opts() allows you to create an instance
  * of the ioopts that will utilize libevent. You may either supply an event
@@ -32,7 +32,7 @@
  */
 
 /**
- * @addtogroup LCBIO_LIBEVENT
+ * @addtogroup lcb-libevent
  * @{
  */
 #ifndef LIBCOUCHBASE_LIBEVENT_IO_OPTS_H

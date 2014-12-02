@@ -4,7 +4,7 @@ IF(GTEST_ROOT)
     #define already
 ENDIF()
 
-IF(EXISTS /usr/src/gtest)
+IF(EXISTS /usr/src/gtest AND NOT WIN32)
     SET(GTEST_ROOT /usr/src/gtest)
     RETURN()
     # If 'libgtest-dev' is installed

@@ -1,3 +1,6 @@
+IF(POLICY CMP0026)
+    CMAKE_POLICY(SET CMP0026 OLD)
+ENDIF()
 MACRO(TRANSFORM_TARGET tname output_pdb output_exp)
     # Base extension name
     GET_FILENAME_COMPONENT(_base "${tname}" NAME_WE)

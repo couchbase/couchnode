@@ -24,6 +24,19 @@ lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err)
     lcb_RETRYMODEOPTS mode;
     protocol_binary_request_header hdr;
 
+    mcreq_read_hdr(pkt, &hdr);
+
+    switch (hdr.request.opcode) {
+    /* None of these commands can be 'redistributed' to other servers */
+    case PROTOCOL_BINARY_CMD_GET_REPLICA:
+    case PROTOCOL_BINARY_CMD_FLUSH:
+    case PROTOCOL_BINARY_CMD_OBSERVE:
+    case PROTOCOL_BINARY_CMD_STAT:
+    case PROTOCOL_BINARY_CMD_VERBOSITY:
+    case PROTOCOL_BINARY_CMD_VERSION:
+        return 0;
+    }
+
     if (err == LCB_ETIMEDOUT /* can't exceed */ ||
             err == LCB_MAP_CHANGED /* processed */ ) {
         return 0;
@@ -55,7 +68,6 @@ lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err)
     }
 
     /** read the header */
-    mcreq_read_hdr(pkt, &hdr);
     switch (hdr.request.opcode) {
 
     /* get is a safe operation which may be retried */

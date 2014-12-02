@@ -786,6 +786,17 @@ mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler)
 static void
 noop_dumpfn(const void *d, unsigned n, FILE *fp) { (void)d;(void)n;(void)fp; }
 
+#define MCREQ_XFLAGS(X) \
+    X(KEY_NOCOPY) \
+    X(VALUE_NOCOPY) \
+    X(VALUE_IOV) \
+    X(HASVALUE) \
+    X(REQEXT) \
+    X(UFWD) \
+    X(FLUSHED) \
+    X(INVOKED) \
+    X(DETACHED)
+
 void
 mcreq_dump_packet(const mc_PACKET *packet, FILE *fp, mcreq_payload_dump_fn dumpfn)
 {
@@ -801,7 +812,14 @@ mcreq_dump_packet(const mc_PACKET *packet, FILE *fp, mcreq_payload_dump_fn dumpf
 
     fprintf(fp, "Packet @%p\n", (void *)packet);
     fprintf(fp, "%sOPAQUE: %u\n", indent, (unsigned int)packet->opaque);
-    fprintf(fp, "%sPKTFLAGS: 0x%x\n", indent, packet->flags);
+
+    fprintf(fp, "%sPKTFLAGS: 0x%x ", indent, packet->flags);
+    #define X(base) \
+    if (packet->flags & MCREQ_F_##base) { fprintf(fp, "%s, ", #base); }
+    MCREQ_XFLAGS(X)
+    #undef X
+    fprintf(fp, "\n");
+
     fprintf(fp, "%sKey+Header Size: %u\n", indent, (unsigned int)packet->kh_span.size);
     fprintf(fp, "%sKey Offset: %u\n", indent, MCREQ_PKT_BASESIZE + packet->extlen);
 

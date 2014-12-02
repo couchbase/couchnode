@@ -22,12 +22,12 @@ extern "C" {
 #endif
 
 /**
- * @ingroup LCB_PUBAPI
- * @defgroup LCB_PKTFWD Raw packet forwarding and dispatch routines
+ * @ingroup lcb-public-api
+ * @defgroup lcb-pktfwd Raw packet forwarding and dispatch routines
  * @brief These functions perform packet forwarding functions to send and
  * receive raw packets
  *
- * @addtogroup LCB_PKTFWD
+ * @addtogroup lcb-pktfwd
  * @{
  */
 
@@ -58,6 +58,21 @@ typedef struct {
      * within the header.
      */
     lcb_VALBUF vb;
+
+    /**
+     * Whether to direct this command to a specific server. This should be
+     * set if the packet itself doesn't contain any mapping information; and
+     * should _not_ be used on normal key access commands, since key access
+     * commands should be mapped to the appropriate server via the vbucket
+     * mappet.
+     *
+     * The server should be specified in the #server_index field */
+    char nomap;
+
+    /**
+     * @brief Specify server index for the command.
+     * Only valid if #nomap is specified. */
+    lcb_U16 server_index;
 } lcb_CMDPKTFWD;
 
 /**@brief Response structure containing the response for a packet */

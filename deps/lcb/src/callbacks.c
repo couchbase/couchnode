@@ -292,11 +292,20 @@ lcb_install_callback3(lcb_t instance, int cbtype, lcb_RESPCALLBACK cb)
     if (cbtype >= LCB_CALLBACK__MAX) {
         return NULL;
     }
+
     ret = instance->callbacks.v3callbacks[cbtype];
-    if (cb) {
-        instance->callbacks.v3callbacks[cbtype] = cb;
-    }
+    instance->callbacks.v3callbacks[cbtype] = cb;
     return ret;
+}
+
+LIBCOUCHBASE_API
+lcb_RESPCALLBACK
+lcb_get_callback3(lcb_t instance, int cbtype)
+{
+    if (cbtype >= LCB_CALLBACK__MAX) {
+        return NULL;
+    }
+    return instance->callbacks.v3callbacks[cbtype];
 }
 
 static void

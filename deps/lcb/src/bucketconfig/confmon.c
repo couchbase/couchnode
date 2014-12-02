@@ -457,7 +457,7 @@ lcb_confmon_dump(lcb_confmon *mon, FILE *fp)
             continue;
         }
 
-        fprintf(fp, "** PROVIDER: 0x%x (%s) %p\n", cur->type, provider_string(cur->type), cur);
+        fprintf(fp, "** PROVIDER: 0x%x (%s) %p\n", cur->type, provider_string(cur->type), (void*)cur);
         fprintf(fp, "** ENABLED: %s\n", cur->enabled ? "YES" : "NO");
         fprintf(fp, "** CURRENT: %s\n", cur == mon->cur_provider ? "YES" : "NO");
         if (cur->dump) {

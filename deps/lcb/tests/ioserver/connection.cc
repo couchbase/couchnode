@@ -9,9 +9,11 @@ static void
 client_runfunc(void *arg)
 {
     TestConnection *conn = (TestConnection *)arg;
-    conn->run();
+    conn->_doRun();
 }
 }
+
+void TestConnection::_doRun() { run(); }
 
 void
 TestConnection::setCommon(void *src, void **target)

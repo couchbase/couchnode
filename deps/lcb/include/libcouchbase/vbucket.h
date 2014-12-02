@@ -30,15 +30,15 @@ extern "C" {
  */
 
 /**
- * @ingroup LCB_PUBAPI
- * @defgroup LCBVB vBucket Mapping/Parsing API
+ * @ingroup lcb-public-api
+ * @defgroup lcb-vbucket-api vBucket Mapping/Parsing API
  * @details
  * These routines contain functionality for parsing a cluster topology configuration
  * and mapping keys to cluster nodes appropriately.
  */
 
 /**
- * @addtogroup LCBVB
+ * @addtogroup lcb-vbucket-api
  * @{
  */
 

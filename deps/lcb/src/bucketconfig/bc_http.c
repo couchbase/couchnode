@@ -334,7 +334,7 @@ on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
 {
     http_provider *http = arg;
     lcb_host_t *host;
-    lcbio_EASYPROCS procs;
+    lcbio_CTXPROCS procs;
     http->creq = NULL;
 
     if (err != LCB_SUCCESS) {

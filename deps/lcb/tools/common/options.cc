@@ -40,7 +40,7 @@ ConnParams::ConnParams() :
     o_bucket.description("Bucket to use").setDefault("default");
     o_bucket.hide();
 
-    o_user.description("Username (currently unused)");
+    o_user.description("Username");
     o_passwd.description("Bucket password");
     o_saslmech.description("Force SASL mechanism").argdesc("PLAIN|CRAM_MD5");
     o_timings.description("Enable command timings");
@@ -73,8 +73,11 @@ ConnParams::addToParser(Parser& parser)
         errmsg = exc;
     }
     if (!errmsg.empty()) {
-        fprintf(stderr, "Warning: File %s present but has problems (%s)\n",
-            getConfigfileName().c_str(), errmsg.c_str());
+        string newmsg = "Error processing `";
+        newmsg += getConfigfileName();
+        newmsg += "`. ";
+        newmsg += errmsg;
+        throw (newmsg);
     }
 
     #define X(tp, varname, longname, shortname) parser.addOption(o_##varname);
@@ -285,7 +288,7 @@ ConnParams::fillCropts(lcb_create_st& cropts)
         connstr += o_configcache.result();
         connstr += '&';
     }
-    if (isAdmin) {
+    if (o_user.passed()) {
         connstr += "username=";
         connstr += o_user.const_result();
         connstr += '&';
@@ -345,6 +348,9 @@ ConnParams::doCtls(lcb_t instance)
         if (o_saslmech.passed()) {
             doPctl<const char *>(instance,LCB_CNTL_FORCE_SASL_MECH, o_saslmech.result().c_str());
         }
+
+        // Set the detailed error codes option
+        doSctl<int>(instance, LCB_CNTL_DETAILED_ERRCODES, 1);
     } catch (lcb_error_t &err) {
         return err;
     }

@@ -1242,6 +1242,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
 
         copy_service(src->hostname, &src->svc, &dst->svc);
         copy_service(src->hostname, &src->svc_ssl, &dst->svc_ssl);
+        dst->authority = dst->svc.hoststrs[LCBVB_SVCTYPE_DATA];
     }
     for (ii = 0; ii < vb->nvb; ii++) {
         for (jj = 0; jj < vb->nrepl+1; jj++) {

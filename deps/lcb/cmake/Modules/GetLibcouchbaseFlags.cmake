@@ -26,9 +26,27 @@ LIST(APPEND LCB_GNUC_CPP_WARNINGS
     -Wno-missing-field-initializers)
 
 IF("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
-    LIST(APPEND LCB_GNUC_CPP_WARNINGS
-        -Wno-cast-align)
+    LIST(APPEND LCB_GNUC_CPP_WARNINGS -Wno-cast-align -Wno-dollar-in-identifier-extension)
 ENDIF()
+
+IF(LCB_USE_ASAN)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup -fsanitize=address")
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+ENDIF()
+
+IF(LCB_USE_COVERAGE)
+    SET(_covflags "-fprofile-arcs -ftest-coverage")
+    IF(CMAKE_COMPILER_IS_GNUCC)
+        SET(_covflags "--coverage ${_covflags}")
+    ENDIF()
+
+    LIST(APPEND LCB_GNUC_CPP_WARNINGS ${_covflags})
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_covflags}")
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${_covflags}")
+ENDIF()
+
 list2args(LCB_GNUC_CPP_WARNINGS)
 
 LIST(APPEND LCB_GNUC_C_WARNINGS
@@ -56,7 +74,7 @@ list2args( LCB_CL_CPPFLAGS_DEBUG)
 LIST(APPEND LCB_CL_CPPFLAGS_REL /O2)
 list2args(LCB_CL_CPPFLAGS_REL)
 
-IF(${MSVC})
+IF(MSVC)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
     # Don't warn about "deprecated POSIX names"
     ADD_DEFINITIONS(-D_CRT_NONSTDC_NO_DEPRECATE)
@@ -93,7 +111,7 @@ ELSE()
         SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
     ENDIF()
     SET(LCB_CORE_CFLAGS "${LCB_GNUC_C_WARNINGS} -DHAVE_VISIBILITY -fvisibility=hidden")
-    SET(LCB_CORE_CXXFLAGS "${LCB_GNUC_CXX_WARNINGS}")
+    SET(LCB_CORE_CXXFLAGS "${LCB_GNUC_CXX_WARNINGS} -DHAVE_VISIBILITY -fvisibility=hidden")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
 ENDIF()
 

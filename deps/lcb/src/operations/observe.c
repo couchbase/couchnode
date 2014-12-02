@@ -21,7 +21,7 @@
 
 struct observe_st {
     int allocated;
-    ringbuffer_t body;
+    lcb_string body;
 };
 
 typedef struct {
@@ -115,7 +115,7 @@ handle_schedfail(mc_PACKET *pkt)
 
 static int init_request(struct observe_st *reqinfo)
 {
-    if (!ringbuffer_initialize(&reqinfo->body, 512)) {
+    if (lcb_string_init(&reqinfo->body) != 0) {
         return 0;
     }
     reqinfo->allocated = 1;
@@ -131,8 +131,7 @@ static void destroy_requests(OBSERVECTX *reqs)
         if (!rr->allocated) {
             continue;
         }
-
-        ringbuffer_destruct(&rr->body);
+        lcb_string_release(&rr->body);
         rr->allocated = 0;
     }
 }
@@ -159,7 +158,7 @@ obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDOBSERVE *cmd)
         return LCB_CLIENT_ETMPFAIL;
     }
 
-    if (instance->dist_type != LCBVB_DIST_VBUCKET) {
+    if (LCBVB_DISTTYPE(LCBT_VBCONFIG(instance)) != LCBVB_DIST_VBUCKET) {
         return LCB_NOT_SUPPORTED;
     }
 
@@ -194,10 +193,10 @@ obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDOBSERVE *cmd)
 
         vb16 = htons((lcb_U16)vbid);
         klen16 = htons((lcb_U16)cmd->key.contig.nbytes);
-        ringbuffer_ensure_capacity(&rr->body, sizeof(vb16) + sizeof(klen16));
-        ringbuffer_write(&rr->body, &vb16, sizeof vb16);
-        ringbuffer_write(&rr->body, &klen16, sizeof klen16);
-        ringbuffer_write(&rr->body, cmd->key.contig.bytes, cmd->key.contig.nbytes);
+        lcb_string_append(&rr->body, &vb16, sizeof vb16);
+        lcb_string_append(&rr->body, &klen16, sizeof klen16);
+        lcb_string_append(&rr->body, cmd->key.contig.bytes, cmd->key.contig.nbytes);
+
         ctx->remaining++;
         if (cmd->cmdflags & LCB_CMDOBSERVE_F_MASTER_ONLY) {
             break;
@@ -233,7 +232,7 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         lcb_assert(pkt);
 
         mcreq_reserve_header(pipeline, pkt, MCREQ_PKT_BASESIZE);
-        mcreq_reserve_value2(pipeline, pkt, rr->body.nbytes);
+        mcreq_reserve_value2(pipeline, pkt, rr->body.nused);
 
         hdr.request.magic = PROTOCOL_BINARY_REQ;
         hdr.request.opcode = PROTOCOL_BINARY_CMD_OBSERVE;
@@ -243,10 +242,10 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         hdr.request.vbucket = 0;
         hdr.request.extlen = 0;
         hdr.request.opaque = pkt->opaque;
-        hdr.request.bodylen = htonl((lcb_uint32_t)rr->body.nbytes);
+        hdr.request.bodylen = htonl((lcb_uint32_t)rr->body.nused);
 
         memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
-        ringbuffer_read(&rr->body, SPAN_BUFFER(&pkt->u_value.single), rr->body.nbytes);
+        memcpy(SPAN_BUFFER(&pkt->u_value.single), rr->body.base, rr->body.nused);
 
         pkt->flags |= MCREQ_F_REQEXT;
         pkt->u_rdata.exdata = (mc_REQDATAEX *)ctx;

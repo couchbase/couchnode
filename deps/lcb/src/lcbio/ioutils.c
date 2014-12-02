@@ -241,6 +241,18 @@ lcbio_get_nameinfo(lcbio_SOCKET *sock, struct lcbio_NAMEINFO *nistrs)
     return 1;
 }
 
+int
+lcbio_is_netclosed(lcbio_SOCKET *sock, int flags)
+{
+    lcbio_pTABLE iot = sock->io;
+
+    if (IOT_IS_EVENT(iot)) {
+        return IOT_V0IO(iot).is_closed(IOT_ARG(iot), sock->u.fd, flags);
+    } else {
+        return IOT_V1(iot).is_closed(IOT_ARG(iot), sock->u.sd, flags);
+    }
+}
+
 void
 lcbio_connreq_cancel(lcbio_CONNREQ *req)
 {

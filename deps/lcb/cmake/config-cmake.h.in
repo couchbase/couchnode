@@ -74,6 +74,7 @@
 #cmakedefine HAVE_LIBUV
 #endif
 
+#define LCB_LIBDIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
 
 #include "config_static.h"
 #endif

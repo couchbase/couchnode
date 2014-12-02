@@ -31,8 +31,8 @@ extern "C" {
  */
 
 /**
- * @ingroup LCBIO
- * @defgroup LCBIO_Ctx Reading/Writing Routines
+ * @ingroup lcbio
+ * @defgroup lcbio-ctx Reading/Writing Routines
  *
  * @details
  *
@@ -49,7 +49,7 @@ extern "C" {
  * # Reading
  *
  * Reading data is done through first requesting an amount of data to read
- * and then reading the data from the buffers when the lcbio_EASYPROCS#cb_read
+ * and then reading the data from the buffers when the lcbio_CTXPROCS#cb_read
  * handler is invoked.
  *
  * Requesting an amount of data to be read may be dependent on some current
@@ -92,7 +92,7 @@ extern "C" {
  * current iteration, the lcbio_ctx_schedule() function should be called.
  *
  *
- * @addtogroup LCBIO_Ctx
+ * @addtogroup lcbio-ctx
  * @{ */
 
 typedef struct lcbio_CTX *lcbio_pCTX;
@@ -112,7 +112,7 @@ typedef struct {
 
     /** Triggered when data has been flushed from lcbio_ctx_put_ex() */
     void (*cb_flush_done)(lcbio_pCTX, unsigned requested, unsigned nflushed);
-} lcbio_EASYPROCS;
+} lcbio_CTXPROCS;
 
 /**
  * Container buffer handle containing a backref to the original context.
@@ -147,7 +147,7 @@ typedef struct lcbio_CTX {
     lcb_error_t err; /**< pending error */
     rdb_IOROPE ior; /**< for reads */
     lcbio_pASYNC as_err; /**< async error handler */
-    lcbio_EASYPROCS procs; /**< callbacks */
+    lcbio_CTXPROCS procs; /**< callbacks */
     const char *subsys; /**< Informational description of connection */
 } lcbio_CTX;
 
@@ -168,7 +168,7 @@ typedef struct lcbio_CTX {
  * @return a new context object.
  */
 lcbio_CTX *
-lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_EASYPROCS *procs);
+lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs);
 
 
 /**
@@ -255,7 +255,7 @@ void
 lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf);
 
 /**
- * Invoke the lcbio_EASYPROCS#cb_flush_ready()
+ * Invoke the lcbio_CTXPROCS#cb_flush_ready()
  * callback when a flush may be invoked. Note that the
  * callback may be invoked from within this function itself, or
  * it may be invoked at some point later.
@@ -272,7 +272,7 @@ lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf);
  * depending on the I/O implementation and network conditions.
  *
  * Once the data is actually flushed to the socket's buffers, the
- * lcbio_EASYPROCS#cb_flush_done() callback is invoked.
+ * lcbio_CTXPROCS#cb_flush_done() callback is invoked.
  * This callback indicates the underlying buffers are no longer required and may
  * be released or reused by the application. Note that the IOV array passed
  * into lcbio_ctx_put_ex() is always _Conceptually_ copied (i.e.
@@ -280,7 +280,7 @@ lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf);
  * outside the function call to lcbio_ctx_put_ex() itself).
  *
  * Additionally, note that the number of bytes flushed within the
- * lcbio_EASYPROCS#cb_flush_done()
+ * lcbio_CTXPROCS#cb_flush_done()
  * callback may not equal the number of bytes initially placed inside the IOVs
  * (i.e. it may be less). In this case the application is expected to update
  * the IOV structures and the origin buffers appropriately.
@@ -290,7 +290,7 @@ lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf);
  *
  * ### Implementation Notes
  *
- * For completion-based models, the lcbio_EASYPROCS#cb_flush_ready()
+ * For completion-based models, the lcbio_CTXPROCS#cb_flush_ready()
  * callback is invoked immediately from the wwant() function, while the
  * flush_done() is dependent on the actual completion of the write.
  *
@@ -303,7 +303,7 @@ void
 lcbio_ctx_wwant(lcbio_CTX *ctx);
 
 /**
- * @brief Flush data from the lcbio_EASYPROCS#cb_flush_ready() callback
+ * @brief Flush data from the lcbio_CTXPROCS#cb_flush_ready() callback
  *
  * This function is intended to be called from within the `cb_flush_ready`
  * handler (see lcbio_ctx_wwant()).

@@ -3,6 +3,19 @@ use strict;
 use warnings;
 
 open my $ofp, ">", "filelist.mk";
+my $VARMAP = {};
+
+sub assign {
+    my ($k,$v) = @_;
+    my $op = "";
+    if (exists $VARMAP->{$k}) {
+        $op = '+=';
+    } else {
+        $VARMAP->{$k} = 1;
+        $op = '=';
+    }
+    return sprintf("%s %s %s\n", $k, $op, $v);
+}
 
 sub find_srcfiles {
     my $dir = shift;
@@ -19,15 +32,28 @@ sub fmt_filelist {
 }
 
 sub add_target {
-    my $name = shift;
+    my ($name,$options) = @_;
     print $ofp "noinst_LTLIBRARIES += $name.la\n";
-    foreach my $cat (qw(CFLAGS CPPFLAGS)) {
-        print $ofp "${name}_la_${cat} = \$(libcouchbase_la_${cat})\n";
+    my %flag_h = (CFLAGS => '', CPPFLAGS => '');
+    if ($options && $options->{nocore}) {
+        %flag_h = map { $_ => "\$(AM_NOWARN_${_})" } keys %flag_h;
+    } else {
+        %flag_h = map { $_ => "\$(libcouchbase_la_${_})" } keys %flag_h;
+    }
+
+    while (my ($k,$v) = each %flag_h) {
+        print $ofp "${name}_la_${k} = $v\n";
     }
 }
 
+sub add_dependency {
+    my ($name,$depname) = @_;
+    print $ofp assign("${name}_la_DEPENDENCIES", "${depname}.la");
+    print $ofp assign("${name}_la_LIBADD",  "${depname}.la");
+}
+
 sub add_target_with_sources {
-    my ($name,$path,$extras) = @_;
+    my ($name,$path,$extras,$topts) = @_;
     my @srclist = find_srcfiles($path);
     if ($extras) {
         foreach my $extra (@$extras) {
@@ -35,7 +61,7 @@ sub add_target_with_sources {
         }
     }
     print $ofp "${name}_la_SOURCES = ".fmt_filelist(@srclist) . "\n";
-    add_target($name);
+    add_target($name,$topts);
 }
 
 my $TEST_PREAMBLE = "if HAVE_CXX\nif HAVE_GOOGLETEST_SRC\n";
@@ -127,6 +153,7 @@ print $ofp "if ENABLE_SSL\n";
 add_target_with_sources("liblcbssl", "src/ssl");
 print $ofp "endif\n";
 
+print $ofp "if ENABLE_SNAPPY\n";
 print $ofp "if BUILD_STATIC_SNAPPY\n";
 add_target_with_sources("liblcbsnappy", "contrib/snappy");
 print $ofp "else\n";
@@ -134,6 +161,7 @@ add_target_with_sources("liblcbsnappy", "config/dummy-c.c");
 print $ofp "endif\n";
 print $ofp "libcouchbase_la_DEPENDENCIES += liblcbsnappy.la\n";
 print $ofp "libcouchbase_la_LIBADD += liblcbsnappy.la\n";
+print $ofp "endif\n";
 
 # Find the basic test stuff
 
@@ -141,11 +169,12 @@ add_target_with_sources("liblcbio", "src/lcbio");
 add_target_with_sources("librdb", "src/rdb");
 add_target_with_sources("libmcreq", "src/mc");
 add_target_with_sources("libnetbuf", "src/netbuf");
-add_target_with_sources("libcliopts", "contrib/cliopts");
+add_target_with_sources("libcliopts", "contrib/cliopts", undef, { nocore => 1 });
 add_target_with_sources("liblcbht", "src/lcbht", [find_srcfiles("contrib/http_parser")]);
 
 print $ofp "if HAVE_CXX\nif BUILD_TOOLS\n";
-add_target_with_sources("liblcbtools", "tools/common", [find_srcfiles("contrib/cliopts")]);
+add_target_with_sources("liblcbtools", "tools/common");
+add_dependency("liblcbtools", "libcliopts");
 print $ofp "endif\nendif\n";
 
 my @CBUTIL_SOURCES = qw(contrib/cJSON/cJSON.c src/strcodecs/base64.c

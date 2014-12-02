@@ -195,7 +195,7 @@ static void
 on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
 {
     lcb_http_request_t req = arg;
-    lcbio_EASYPROCS procs;
+    lcbio_CTXPROCS procs;
     lcb_settings *settings = req->instance->settings;
 
     LCBIO_CONNREQ_CLEAR(&req->creq);

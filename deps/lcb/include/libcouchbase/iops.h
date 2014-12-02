@@ -32,8 +32,8 @@
  */
 
 /**
- * @ingroup LCBIO LCB_PUBAPI
- * @defgroup LCBIO_IOPS I/O Operations API
+ * @ingroup lcbio lcb-public-api
+ * @defgroup lcb-io-plugin-api I/O Operations API
  * @details
  *
  * I/O Integration comes in two flavors:
@@ -61,7 +61,7 @@
  * has been completed.
  *
  *
- * @addtogroup LCBIO_IOPS
+ * @addtogroup lcb-io-plugin-api
  * @{
  */
 
@@ -334,6 +334,41 @@ typedef lcb_socket_t (*lcb_ioE_accept_fn)
 typedef void (*lcb_ioE_close_fn)
         (lcb_io_opt_t iops, lcb_socket_t sock);
 
+
+/**
+ * While checking the socket, treat pending data as an _erorr_.
+ * This flag will be _missing_ if the socket participates in a protocol
+ * where unsolicited data is possible.
+ *
+ * Currently Couchbase does not provide such a protocol (at least not one where
+ * sockets are placed in a pool), but it may in the future.
+ *
+ * This may be passed as a `flags` option to lcb_ioE_chkclosed_fn
+ */
+#define LCB_IO_SOCKCHECK_PEND_IS_ERROR 1
+
+#define LCB_IO_SOCKCHECK_STATUS_CLOSED 1
+#define LCB_IO_SOCKCHECK_STATUS_OK 0
+#define LCB_IO_SOCKCHECK_STATUS_UNKNOWN -1
+
+/**@brief Check if a socket has been closed or not. This is used to check
+ * a socket's state after a period of inactivity.
+ *
+ *
+ * @param iops The iops
+ * @param sock The socket to check
+ * @param flags A bit set of options.
+ * @return A value greater than 0 if the socket _is_ closed, 0 if the socket
+ * has not been closed, or a negative number, if the status could not be
+ * determined within the given constraints (for example, if `flags` did not
+ * specify `LCB_IO_SOCKCHECK_PEND_IS_ERROR`, and the implementation does not
+ * have a way to check status otherwise.
+ *
+ * @since 2.4.4
+ */
+typedef int (*lcb_ioE_chkclosed_fn)
+        (lcb_io_opt_t iops, lcb_socket_t sock, int flags);
+
 /**@}*/
 
 
@@ -549,6 +584,18 @@ typedef unsigned int (*lcb_ioC_close_fn)
         (lcb_io_opt_t iops,
                 lcb_sockdata_t *sd);
 
+/**
+ * This is the completion variant of @ref lcb_ioE_chkclosed_fn. See that
+ * function for details
+ *
+ * @param iops
+ * @param sd
+ * @param flags
+ * @return
+ */
+typedef int (*lcb_ioC_chkclosed_fn)
+        (lcb_io_opt_t iops, lcb_sockdata_t *sd, int flags);
+
 /**@}*/
 
 /**
@@ -692,6 +739,7 @@ typedef struct lcb_bsdprocs_st {
     lcb_ioE_bind_fn bind;
     lcb_ioE_listen_fn listen;
     lcb_ioE_accept_fn accept;
+    lcb_ioE_chkclosed_fn is_closed;
 } lcb_bsd_procs;
 
 /** @brief Functions handling socket watcher events */
@@ -715,6 +763,7 @@ typedef struct {
     lcb_ioC_read2_fn read2;
     lcb_ioC_serve_fn serve;
     lcb_ioC_nameinfo_fn nameinfo;
+    lcb_ioC_chkclosed_fn is_closed;
 } lcb_completion_procs;
 
 /**
@@ -826,9 +875,10 @@ struct lcb_iops2_st {
 
 /**
  * This number is bumped up each time a new field is added to any of the
- * function tables
+ * function tables. This number is backwards compatible (i.e. version 3 contains
+ * all the fields of version 2, and some additional ones)
  */
-#define LCB_IOPROCS_VERSION 2
+#define LCB_IOPROCS_VERSION 3
 
 struct lcb_io_opt_st {
     int version;

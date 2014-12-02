@@ -16,7 +16,7 @@
  */
 
 /**
- * New-Style v1 plugin for Windows, Using IOCP.
+ * New-Style v2 plugin for Windows, Using IOCP.
  * This file contains various utility functions used by the plugin
  * @author Mark Nunberg
  */
@@ -40,7 +40,7 @@ int iocp_w32err_2errno(DWORD error)
 DWORD iocp_set_last_error(lcb_io_opt_t io, SOCKET sock)
 {
     int werr = GetLastError();
-    io->v.v1.error = iocp_w32err_2errno(werr);
+    io->v.v2.error = iocp_w32err_2errno(werr);
     return werr;
 }
 
@@ -82,7 +82,7 @@ int iocp_just_scheduled(iocp_t *io, iocp_overlapped_t *ol, int status)
      * Otherwise, there's something wrong
      */
     IOCP_LOG(IOCP_ERR, "Got non-harmless error for %p: %d", ol, (int)err);
-    io->base.v.v1.error = iocp_w32err_2errno(err);
+    io->base.v.v2.error = iocp_w32err_2errno(err);
     return -1;
 }
 

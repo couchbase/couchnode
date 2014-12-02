@@ -2,14 +2,18 @@ IF(NOT GTEST_ZIP_PATH)
     SET(GTEST_ZIP_PATH "${SOURCE_ROOT}/gtest-1.7.0.zip")
 ENDIF()
 INCLUDE(../cmake/Modules/FindCouchbaseGtest.cmake)
+
+# For Windows+GCC we need to link statically
 MESSAGE(STATUS "Will use gtest from ${GTEST_ROOT}")
-SET(gtest_force_shared_crt ON CACHE BOOL "" )
-SET(BUILD_SHARED_LIBS ON)
+IF (NOT (WIN32 AND CMAKE_COMPILER_IS_GNUCC))
+    SET(gtest_force_shared_crt ON CACHE BOOL "" )
+    SET(BUILD_SHARED_LIBS ON)
+ENDIF()
 ADD_SUBDIRECTORY(${GTEST_ROOT} gtest)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 
 ADD_EXECUTABLE(check-all EXCLUDE_FROM_ALL
-    check-all.cc ${SOURCE_ROOT}/contrib/cliopts/cliopts.c mocksupport/procutil.c)
+    check-all.cc $<TARGET_OBJECTS:cliopts> mocksupport/procutil.c)
 
 SET_PROPERTY(TARGET check-all
     APPEND PROPERTY INCLUDE_DIRECTORIES
@@ -27,7 +31,7 @@ FILE(GLOB T_MOCKSUPPORT_SRC mocksupport/*.c mocksupport/*.cc)
 FILE(GLOB T_VBTEST_SRC vbucket/*.cc)
 
 ADD_LIBRARY(ioserver OBJECT EXCLUDE_FROM_ALL ${T_IOSERVER_SRC})
-ADD_LIBRARY(mocksupport OBJECT EXCLUDE_FROM_ALL ${T_MOCKSUPPORT_SRC}) 
+
 
 ADD_EXECUTABLE(nonio-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_BASIC_SRC})
 
@@ -48,16 +52,15 @@ ADD_EXECUTABLE(sock-tests EXCLUDE_FROM_ALL nonio_tests.cc
 
 ADD_EXECUTABLE(vbucket-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_VBTEST_SRC})
 ADD_EXECUTABLE(htparse-tests EXCLUDE_FROM_ALL nonio_tests.cc htparse/t_basic.cc ${SOURCE_ROOT}/src/lcbht/lcbht.c)
-IF(WIN32)
-    TARGET_LINK_LIBRARIES(mc-tests ws2_32.lib)
-    TARGET_LINK_LIBRARIES(mc-malloc-tests ws2_32.lib)
-    TARGET_LINK_LIBRARIES(sock-tests ws2_32.lib)
-ENDIF()
-
 
 FILE(GLOB T_IO_SRC iotests/*.cc)
-ADD_EXECUTABLE(unit-tests EXCLUDE_FROM_ALL
-    ${T_IO_SRC} unit_tests.cc $<TARGET_OBJECTS:mocksupport>)
+IF(LCB_NO_MOCK)
+    ADD_EXECUTABLE(unit-tests EXCLUDE_FROM_ALL unit_tests.cc)
+    SET_TARGET_PROPERTIES(unit-tests PROPERTIES COMPILE_DEFINITIONS NO_COUCHBASEMOCK)
+ELSE()
+    ADD_LIBRARY(mocksupport OBJECT EXCLUDE_FROM_ALL ${T_MOCKSUPPORT_SRC})
+    ADD_EXECUTABLE(unit-tests EXCLUDE_FROM_ALL ${T_IO_SRC} unit_tests.cc $<TARGET_OBJECTS:mocksupport>)
+ENDIF()
 
 # Normally defined by config.h
 SET_PROPERTY(
@@ -74,10 +77,10 @@ ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 
 
 
-IF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar)
+IF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
     DOWNLOAD_LCB_DEP("${COUCHBASE_MOCK_DLSERVER}/${COUCHBASE_MOCK_VERSION}"
         "${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar")
-ENDIF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar)
+ENDIF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
 
 # We're a library using the shared CRT. Don't use the static one
 INCLUDE_DIRECTORIES(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
@@ -91,6 +94,12 @@ TARGET_LINK_LIBRARIES(rdb-tests gtest)
 TARGET_LINK_LIBRARIES(sock-tests couchbaseS gtest)
 TARGET_LINK_LIBRARIES(vbucket-tests gtest couchbaseS)
 TARGET_LINK_LIBRARIES(htparse-tests gtest couchbaseS)
+
+IF(WIN32)
+    TARGET_LINK_LIBRARIES(mc-tests ws2_32.lib)
+    TARGET_LINK_LIBRARIES(mc-malloc-tests ws2_32.lib)
+ENDIF()
+
 
 MACRO(BUILD_TEST target)
     ADD_TEST(NAME BUILD-${target}
