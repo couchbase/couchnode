@@ -286,6 +286,11 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
         return NanThrowError(Error::create("bad callback passed"));
     }
 
+    if (cmd->v.v0.operation == LCB_APPEND
+          || cmd->v.v0.operation == LCB_PREPEND) {
+        cmd->v.v0.flags = 0;
+    }
+
     lcb_error_t err = lcb_store(me->getLcbHandle(), cookie, 1, cmd);
     if (err) {
         return NanThrowError(Error::create(err));
