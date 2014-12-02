@@ -74,7 +74,7 @@ be shared.
 Using the Mock is as simple as this:
 ```javascript
 var couchbase = require('couchbase').Mock;
-var db = new couchbase.Connection();
+var db = new couchbase.Cluster();
 ```
 
 
