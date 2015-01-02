@@ -115,6 +115,22 @@ describe('#Bucket', function() {
       assert.equal(q.options.startkey_docid, 'test1');
       assert.equal(q.options.endkey_docid, 'test2');
     });
+    it('should work with full_set (default)', function() {
+      var q = Vq.from('d', 'v').full_set();
+      assert.equal(q.options.full_set, 'true');
+    });
+    it('should work with full_set', function() {
+      var q = Vq.from('d', 'v').full_set(true);
+      assert.equal(q.options.full_set, 'true');
+    });
+    it('should work with on_error stop', function() {
+      var q = Vq.from('d', 'v').on_error(Vq.ErrorMode.STOP);
+      assert.equal(q.options.on_error, 'stop');
+    });
+    it('should work with on_error continue', function() {
+      var q = Vq.from('d', 'v').on_error(Vq.ErrorMode.CONTINUE);
+      assert.equal(q.options.on_error, 'continue');
+    });
     it('should set custom options properly', function() {
       var q = Vq.from('d', 'v').custom({x:4, y:'hi'});
       assert.equal(q.options.x, 4);
