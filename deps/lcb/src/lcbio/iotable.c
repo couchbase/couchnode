@@ -22,6 +22,8 @@
 #include "iotable.h"
 #include "connect.h" /* prototypes for iotable functions */
 
+#define GET_23_FIELD(iops, fld) ((iops)->version == 2 ? (iops)->v.v2.fld : (iops)->v.v3.fld)
+
 struct W_1to3_st {
     lcb_ioC_write2_callback callback;
     void *udata;
@@ -39,7 +41,7 @@ W_1to3_callback(lcb_sockdata_t *sd, lcb_io_writebuf_t *wb, int status)
     wb->buffer.ringbuffer = NULL;
 
     if (sd->parent->version >= 2) {
-        wbfree = sd->parent->v.v2.iot->u_io.completion.wbfree;
+        wbfree = GET_23_FIELD(sd->parent, iot->u_io.completion.wbfree);
     } else {
         wbfree = sd->parent->v.v1.release_writebuf;
     }
@@ -77,8 +79,8 @@ W_1to3_write(lcb_io_opt_t iops,
     ott->last_error = 0;
 
     if (iops->version >= 2) {
-        start_write = iops->v.v2.iot->u_io.completion.write;
-        wballoc = iops->v.v2.iot->u_io.completion.wballoc;
+        start_write = GET_23_FIELD(iops, iot->u_io.completion.write);
+        wballoc = GET_23_FIELD(iops, iot->u_io.completion.wballoc);
     } else {
         start_write = iops->v.v1.start_write;
         wballoc = iops->v.v1.create_writebuf;
@@ -142,7 +144,7 @@ R_1to3_read(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
 
     bi->root = (void *)st;
     if (io->version >= 2) {
-        rdstart = io->v.v2.iot->u_io.completion.read;
+        rdstart = GET_23_FIELD(io, iot->u_io.completion.read);
     } else {
         rdstart = io->v.v1.start_read;
     }
@@ -158,16 +160,12 @@ static int dummy_comp_chkclosed(lcb_io_opt_t io, lcb_sockdata_t* s, int f) {
     (void)io; (void)s; (void)f; return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
 }
 
-static int
-init_v2_table(lcbio_TABLE *table, lcb_io_opt_t io)
+static void
+init_v23_table(lcbio_TABLE *table, lcb_io_opt_t io)
 {
-    io->v.v2.get_procs(LCB_IOPROCS_VERSION,
-                       &table->loop,
-                       &table->timer,
-                       &table->u_io.v0.io,
-                       &table->u_io.v0.ev,
-                       &table->u_io.completion,
-                       &table->model);
+    lcb_io_procs_fn fn = GET_23_FIELD(io, get_procs);
+    fn(LCB_IOPROCS_VERSION, &table->loop, &table->timer, &table->u_io.v0.io,
+        &table->u_io.v0.ev, &table->u_io.completion, &table->model);
 
     table->p = io;
     if (table->model == LCB_IOMODEL_COMPLETION) {
@@ -189,8 +187,6 @@ init_v2_table(lcbio_TABLE *table, lcb_io_opt_t io)
     if (table->model == LCB_IOMODEL_EVENT && IOT_V0IO(table).is_closed == NULL) {
         IOT_V0IO(table).is_closed = dummy_bsd_chkclosed;
     }
-
-    return 0;
 }
 
 lcbio_TABLE *
@@ -200,15 +196,28 @@ lcbio_table_new(lcb_io_opt_t io)
     table->p = io;
     table->refcount = 1;
 
-    if (io->version >= 2) {
-        int rv;
+    if (io->version == 2) {
         io->v.v2.iot = table;
-        rv = init_v2_table(table, io);
-        if (rv) {
-            free(table);
-            return NULL;
-        }
+        init_v23_table(table, io);
         return table;
+
+    } else if (io->version == 3) {
+        /* V3 exists exclusively for back-compat. We need to use a few tricks to
+         * determine if we are really v3, or if we've been 'overidden' somehow.
+         *
+         * To do this, we treat the padding fields (specifically, the event
+         * scheduling parts of the padding fields) as sentinel values. The
+         * built-in plugins should initialize this to NULL. If a client
+         * (e.g. Python SDK) overrides this, the field will no longer be
+         * NULL and will be a sign that the event fields have been
+         * used by a non-getprocs-aware client.
+         */
+
+        io->v.v3.iot = table;
+        if (io->v.v0.create_event == NULL) {
+            init_v23_table(table, io);
+            return table;
+        }
     }
 
     table->timer.create = io->v.v0.create_timer;
@@ -218,7 +227,7 @@ lcbio_table_new(lcb_io_opt_t io)
     table->loop.start = io->v.v0.run_event_loop;
     table->loop.stop = io->v.v0.stop_event_loop;
 
-    if (io->version % 2 == 0) {
+    if (io->version == 0 || io->version == 3) {
         lcb_ev_procs *ev = &table->u_io.v0.ev;
         lcb_bsd_procs *bsd = &table->u_io.v0.io;
 

@@ -94,6 +94,14 @@ typedef struct lcb_iovec_st {
 } lcb_IOV;
 #endif
 
+#if defined(LIBCOUCHBASE_INTERNAL) && !defined(LCB_IOPS_V12_NO_DEPRECATE)
+#define LCB__IOPS_CONCAT2(X, Y) X ## Y
+#define LCB__IOPS_CONCAT(X, Y) LCB__IOPS_CONCAT2(X, Y)
+#define LCB_IOPS_DEPRECATED(X) void (*LCB__IOPS_CONCAT(lcb__iops__dummy, __LINE__))(void)
+#else
+#define LCB_IOPS_DEPRECATED(X) X
+#endif
+
 /** @brief structure describing a connected socket's endpoints */
 struct lcb_nameinfo_st {
     struct {
@@ -624,93 +632,46 @@ LCB_DEPRECATED(typedef void (*lcb_io_error_cb)(lcb_sockdata_t *socket));
     int error; \
     int need_cleanup;
 
-/** IOPS For poll-style notification */
 struct lcb_iops_evented_st {
     LCB_IOPS_BASE_FIELDS
-    lcb_ioE_socket_fn socket; /**< Create a socket */
-    lcb_ioE_connect_fn connect; /**< Connect a socket */
-    lcb_ioE_recv_fn recv; /**< Receive data into a single buffer */
-    lcb_ioE_send_fn send; /**< Send data from a single buffer */
-    lcb_ioE_recvv_fn recvv; /**< Receive data into multiple buffers */
-    lcb_ioE_sendv_fn sendv; /**< Send data from multiple buffers */
-    lcb_ioE_close_fn close; /**< Close a socket */
-
-    lcb_io_timer_create_fn create_timer; /**< Create a new timer handle */
-    lcb_io_timer_destroy_fn destroy_timer; /**< Destroy a timer handle */
-    lcb_io_timer_cancel_fn delete_timer; /**< Cancel a pending timer */
-    lcb_io_timer_schedule_fn update_timer; /**< Schedule a timer*/
-
-    lcb_ioE_event_create_fn create_event; /**< Create a socket event handle */
-    lcb_ioE_event_destroy_fn destroy_event; /**< Destroy a socket event handle */
-    lcb_ioE_event_watch_fn update_event; /**< Watch a socket for events */
-    lcb_ioE_event_cancel_fn delete_event;
-
-    lcb_io_stop_fn stop_event_loop; /**< Start the event loop */
-    lcb_io_start_fn run_event_loop; /**< Stop the event loop */
+    LCB_IOPS_DEPRECATED(lcb_ioE_socket_fn socket);
+    LCB_IOPS_DEPRECATED(lcb_ioE_connect_fn connect);
+    LCB_IOPS_DEPRECATED(lcb_ioE_recv_fn recv);
+    LCB_IOPS_DEPRECATED(lcb_ioE_send_fn send);
+    LCB_IOPS_DEPRECATED(lcb_ioE_recvv_fn recvv);
+    LCB_IOPS_DEPRECATED(lcb_ioE_sendv_fn sendv);
+    LCB_IOPS_DEPRECATED(lcb_ioE_close_fn close);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_create_fn create_timer);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_destroy_fn destroy_timer);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_cancel_fn delete_timer);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_schedule_fn update_timer);
+    LCB_IOPS_DEPRECATED(lcb_ioE_event_create_fn create_event);
+    LCB_IOPS_DEPRECATED(lcb_ioE_event_destroy_fn destroy_event);
+    LCB_IOPS_DEPRECATED(lcb_ioE_event_watch_fn update_event);
+    LCB_IOPS_DEPRECATED(lcb_ioE_event_cancel_fn delete_event);
+    LCB_IOPS_DEPRECATED(lcb_io_stop_fn stop_event_loop);
+    LCB_IOPS_DEPRECATED(lcb_io_start_fn run_event_loop);
 };
 
-/**
- * IOPS optimized for IOCP-style IO.
- * The non-IO routines are intended to be binary compatible
- * with the older v0 structure, so I don't have to change too
- * much code initially. Hence the 'pad'.
- * The intent is that the following functions remain
- * ABI-compatible with their v0 counterparts:
- *
- * - create_timer
- * - destroy_timer
- * - update_timer
- * - cookie
- * - error
- * - need_cleanup
- * - run_event_loop
- * - stop_event_loop
- *
- * - The send/recv functions have been replaced with completion-
- *    oriented counterparts of start_write and start_read;
- *
- * - connect has been replace by start_connect
- *
- * - update_event, delete_event, and destroy_event are not
- *   available in v1.
- *
- * - close is asynchronous, and is implied in destroy_socket.
- *   destroy_socket will only be called once all pending
- *   operations have been completed.
- *
- * Note that the 'destructor' itself *must* be asynchronous,
- * as 'destroy' may be called when there are still pending
- * operations. In this case, it means that libcouchbase is
- * done with the IOPS structure, but the implementation should
- * check that no operations are pending before freeing the
- * data.
- */
 struct lcb_iops_completion_st {
     LCB_IOPS_BASE_FIELDS
-
-    lcb_ioC_socket_fn create_socket;
-    lcb_ioC_connect_fn start_connect;
-    lcb_ioC_wballoc_fn create_writebuf;
-    lcb_ioC_wbfree_fn release_writebuf;
-    lcb_ioC_write_fn start_write;
-    lcb_ioC_read_fn start_read;
-    lcb_ioC_close_fn close_socket;
-
-    lcb_io_timer_create_fn create_timer;
-    lcb_io_timer_destroy_fn destroy_timer;
-    lcb_io_timer_cancel_fn delete_timer;
-    lcb_io_timer_schedule_fn update_timer;
-
-    lcb_ioC_nameinfo_fn get_nameinfo;
-
+    LCB_IOPS_DEPRECATED(lcb_ioC_socket_fn create_socket);
+    LCB_IOPS_DEPRECATED(lcb_ioC_connect_fn start_connect);
+    LCB_IOPS_DEPRECATED(lcb_ioC_wballoc_fn create_writebuf);
+    LCB_IOPS_DEPRECATED(lcb_ioC_wbfree_fn release_writebuf);
+    LCB_IOPS_DEPRECATED(lcb_ioC_write_fn start_write);
+    LCB_IOPS_DEPRECATED(lcb_ioC_read_fn start_read);
+    LCB_IOPS_DEPRECATED(lcb_ioC_close_fn close_socket);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_create_fn create_timer);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_destroy_fn destroy_timer);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_cancel_fn delete_timer);
+    LCB_IOPS_DEPRECATED(lcb_io_timer_schedule_fn update_timer);
+    LCB_IOPS_DEPRECATED(lcb_ioC_nameinfo_fn get_nameinfo);
     void (*pad1)(void);
     void (*pad2)(void);
-
-    /** @deprecated No longer used */
-    void (*send_error)(struct lcb_io_opt_st*, lcb_sockdata_t*,void(*)(lcb_sockdata_t*));
-
-    lcb_io_stop_fn stop_event_loop;
-    lcb_io_start_fn run_event_loop;
+    LCB_IOPS_DEPRECATED(void (*send_error)(struct lcb_io_opt_st*, lcb_sockdata_t*,void(*)(lcb_sockdata_t*)));
+    LCB_IOPS_DEPRECATED(lcb_io_stop_fn stop_event_loop);
+    LCB_IOPS_DEPRECATED(lcb_io_start_fn run_event_loop);
 };
 
 /** @brief Common functions for starting and stopping timers */
@@ -873,12 +834,32 @@ struct lcb_iops2_st {
     struct lcbio_TABLE *iot;
 };
 
+/* This is here to provide backwards compatibility with older (broken) clients
+ * which attempt to 'subclass' the select plugin, or similar. In this case we
+ * provide 17 callback fields (unused here) which the plugin implementation
+ * may set, so that the older code can continue to function without upgrading
+ * the client to a newer version. This should not be used except by internal
+ * plugins; specifically the ABI layout of this field is subject to change
+ * (for example, additional fields may be added or existing fields may be
+ * renamed/removed) without notice.
+ */
+typedef void (*lcb__iops3fndummy)(void);
+struct lcb_iops3_st {
+    LCB_IOPS_BASE_FIELDS
+    lcb__iops3fndummy pads[17];
+    lcb_io_procs_fn get_procs;
+    struct lcbio_TABLE *iot;
+};
+
 /**
  * This number is bumped up each time a new field is added to any of the
  * function tables. This number is backwards compatible (i.e. version 3 contains
  * all the fields of version 2, and some additional ones)
  */
 #define LCB_IOPROCS_VERSION 3
+
+#define LCB_IOPS_BASEFLD(iops, fld) ((iops)->v.base).fld
+#define LCB_IOPS_ERRNO(iops) LCB_IOPS_BASEFLD(iops, error)
 
 struct lcb_io_opt_st {
     int version;
@@ -893,6 +874,7 @@ struct lcb_io_opt_st {
         struct lcb_iops_evented_st v0;
         struct lcb_iops_completion_st v1;
         struct lcb_iops2_st v2;
+        struct lcb_iops3_st v3;
     } v;
 };
 
@@ -907,6 +889,41 @@ struct lcb_io_opt_st {
 typedef lcb_error_t (*lcb_io_create_fn)
         (int version, lcb_io_opt_t *io, void *cookie);
 
+
+/**
+ * @volatile
+ *
+ * This is an alternative to copying the 'bsdio-inl.c' file around. It is
+ * designed specifically for the @ref lcb_io_procs_fn function and will do the
+ * job of applying the current _runtime_ version of the default event-based I/O
+ * implementation.
+ *
+ * e.g.
+ * @code{.c}
+ * static void getprocs_impl(int version, lcb_loop_procs *loop_procs,
+ *      lcb_timer_procs *timer_procs, lcb_bsd_procs *bsd_procs,
+ *      lcb_ev_procs *ev_procs, lcb_completion_procs *completion_procs,
+ *      lcb_iomodel_t *iomodel) {
+ *
+ *      // do stuff normally
+ *      // ..
+ *      // install the default I/O handlers:
+ *      lcb_iops_wire_bsd_impl2(bsd_procs, version);
+ * @endcode
+ *
+ * Use this function with care, and understand the implications between using
+ * this API call and embedding the `bsdio-inl.c` source file. Specifically:
+ *
+ * - If your application is using an _older_ version of the library, this
+ *   implementation may contain bugs not present in the version you compiled
+ *   against (and an embedded version may be newer)
+ * - If your application is using a _newer_ version, there may be some additional
+ *   I/O functions which you may wish to wrap or rather not implement at all,
+ *   but will be implemented if you call this function.
+ */
+LIBCOUCHBASE_API
+void
+lcb_iops_wire_bsd_impl2(lcb_bsd_procs *procs, int version);
 
 #ifdef __cplusplus
 }

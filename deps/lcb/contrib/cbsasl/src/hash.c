@@ -9,7 +9,6 @@
  *       or commercial.  It's free."
  *
  */
-#include "config.h"
 #include "hash.h"
 
 /*
@@ -118,25 +117,25 @@ and these came close:
 }
 
 #if HASH_LITTLE_ENDIAN == 1
-cbsasl_uint32_t hash(
+uint32_t cbsasl_hash(
     const void *key,       /* the key to hash */
     size_t      length,    /* length of the key */
-    const cbsasl_uint32_t    initval)   /* initval */
+    const uint32_t    initval)   /* initval */
 {
-    cbsasl_uint32_t a, b, c;                                        /* internal state */
+    uint32_t a, b, c;                                        /* internal state */
     union {
         const void *ptr;
         size_t i;
     } u;     /* needed for Mac Powerbook G4 */
 
     /* Set up the internal state */
-    a = b = c = 0xdeadbeef + ((cbsasl_uint32_t)length) + initval;
+    a = b = c = 0xdeadbeef + ((uint32_t)length) + initval;
 
     u.ptr = key;
     if (HASH_LITTLE_ENDIAN && ((u.i & 0x3) == 0)) {
-        const cbsasl_uint32_t *k = key;                           /* read 32-bit chunks */
+        const uint32_t *k = key;                           /* read 32-bit chunks */
 #ifdef VALGRIND
-        const cbsasl_uint8_t  *k8;
+        const uint8_t  *k8;
 #endif /* ifdef VALGRIND */
 
         /*------ all but last block: aligned reads and affect 32 bits of (a,b,c) */
@@ -216,7 +215,7 @@ cbsasl_uint32_t hash(
 
 #else /* make valgrind happy */
 
-        k8 = (const cbsasl_uint8_t *)k;
+        k8 = (const uint8_t *)k;
         switch (length) {
         case 12:
             c += k[2];
@@ -224,9 +223,9 @@ cbsasl_uint32_t hash(
             a += k[0];
             break;
         case 11:
-            c += ((cbsasl_uint32_t)k8[10]) << 16; /* fall through */
+            c += ((uint32_t)k8[10]) << 16; /* fall through */
         case 10:
-            c += ((cbsasl_uint32_t)k8[9]) << 8; /* fall through */
+            c += ((uint32_t)k8[9]) << 8; /* fall through */
         case 9 :
             c += k8[8];                 /* fall through */
         case 8 :
@@ -234,18 +233,18 @@ cbsasl_uint32_t hash(
             a += k[0];
             break;
         case 7 :
-            b += ((cbsasl_uint32_t)k8[6]) << 16; /* fall through */
+            b += ((uint32_t)k8[6]) << 16; /* fall through */
         case 6 :
-            b += ((cbsasl_uint32_t)k8[5]) << 8; /* fall through */
+            b += ((uint32_t)k8[5]) << 8; /* fall through */
         case 5 :
             b += k8[4];                 /* fall through */
         case 4 :
             a += k[0];
             break;
         case 3 :
-            a += ((cbsasl_uint32_t)k8[2]) << 16; /* fall through */
+            a += ((uint32_t)k8[2]) << 16; /* fall through */
         case 2 :
-            a += ((cbsasl_uint32_t)k8[1]) << 8; /* fall through */
+            a += ((uint32_t)k8[1]) << 8; /* fall through */
         case 1 :
             a += k8[0];
             break;
@@ -256,53 +255,53 @@ cbsasl_uint32_t hash(
 #endif /* !valgrind */
 
     } else if (HASH_LITTLE_ENDIAN && ((u.i & 0x1) == 0)) {
-        const cbsasl_uint16_t *k = key;                    /* read 16-bit chunks */
-        const cbsasl_uint8_t  *k8;
+        const uint16_t *k = key;                    /* read 16-bit chunks */
+        const uint8_t  *k8;
 
         /*--------------- all but last block: aligned reads and different mixing */
         while (length > 12) {
-            a += k[0] + (((cbsasl_uint32_t)k[1]) << 16);
-            b += k[2] + (((cbsasl_uint32_t)k[3]) << 16);
-            c += k[4] + (((cbsasl_uint32_t)k[5]) << 16);
+            a += k[0] + (((uint32_t)k[1]) << 16);
+            b += k[2] + (((uint32_t)k[3]) << 16);
+            c += k[4] + (((uint32_t)k[5]) << 16);
             mix(a, b, c);
             length -= 12;
             k += 6;
         }
 
         /*----------------------------- handle the last (probably partial) block */
-        k8 = (const cbsasl_uint8_t *)k;
+        k8 = (const uint8_t *)k;
         switch (length) {
         case 12:
-            c += k[4] + (((cbsasl_uint32_t)k[5]) << 16);
-            b += k[2] + (((cbsasl_uint32_t)k[3]) << 16);
-            a += k[0] + (((cbsasl_uint32_t)k[1]) << 16);
+            c += k[4] + (((uint32_t)k[5]) << 16);
+            b += k[2] + (((uint32_t)k[3]) << 16);
+            a += k[0] + (((uint32_t)k[1]) << 16);
             break;
         case 11:
-            c += ((cbsasl_uint32_t)k8[10]) << 16; /* @fallthrough */
+            c += ((uint32_t)k8[10]) << 16; /* @fallthrough */
         case 10:
             c += k[4];                     /* @fallthrough@ */
-            b += k[2] + (((cbsasl_uint32_t)k[3]) << 16);
-            a += k[0] + (((cbsasl_uint32_t)k[1]) << 16);
+            b += k[2] + (((uint32_t)k[3]) << 16);
+            a += k[0] + (((uint32_t)k[1]) << 16);
             break;
         case 9 :
             c += k8[8];                    /* @fallthrough */
         case 8 :
-            b += k[2] + (((cbsasl_uint32_t)k[3]) << 16);
-            a += k[0] + (((cbsasl_uint32_t)k[1]) << 16);
+            b += k[2] + (((uint32_t)k[3]) << 16);
+            a += k[0] + (((uint32_t)k[1]) << 16);
             break;
         case 7 :
-            b += ((cbsasl_uint32_t)k8[6]) << 16;  /* @fallthrough */
+            b += ((uint32_t)k8[6]) << 16;  /* @fallthrough */
         case 6 :
             b += k[2];
-            a += k[0] + (((cbsasl_uint32_t)k[1]) << 16);
+            a += k[0] + (((uint32_t)k[1]) << 16);
             break;
         case 5 :
             b += k8[4];                    /* @fallthrough */
         case 4 :
-            a += k[0] + (((cbsasl_uint32_t)k[1]) << 16);
+            a += k[0] + (((uint32_t)k[1]) << 16);
             break;
         case 3 :
-            a += ((cbsasl_uint32_t)k8[2]) << 16;  /* @fallthrough */
+            a += ((uint32_t)k8[2]) << 16;  /* @fallthrough */
         case 2 :
             a += k[0];
             break;
@@ -314,22 +313,22 @@ cbsasl_uint32_t hash(
         }
 
     } else {                        /* need to read the key one byte at a time */
-        const cbsasl_uint8_t *k = key;
+        const uint8_t *k = key;
 
         /*--------------- all but the last block: affect some 32 bits of (a,b,c) */
         while (length > 12) {
             a += k[0];
-            a += ((cbsasl_uint32_t)k[1]) << 8;
-            a += ((cbsasl_uint32_t)k[2]) << 16;
-            a += ((cbsasl_uint32_t)k[3]) << 24;
+            a += ((uint32_t)k[1]) << 8;
+            a += ((uint32_t)k[2]) << 16;
+            a += ((uint32_t)k[3]) << 24;
             b += k[4];
-            b += ((cbsasl_uint32_t)k[5]) << 8;
-            b += ((cbsasl_uint32_t)k[6]) << 16;
-            b += ((cbsasl_uint32_t)k[7]) << 24;
+            b += ((uint32_t)k[5]) << 8;
+            b += ((uint32_t)k[6]) << 16;
+            b += ((uint32_t)k[7]) << 24;
             c += k[8];
-            c += ((cbsasl_uint32_t)k[9]) << 8;
-            c += ((cbsasl_uint32_t)k[10]) << 16;
-            c += ((cbsasl_uint32_t)k[11]) << 24;
+            c += ((uint32_t)k[9]) << 8;
+            c += ((uint32_t)k[10]) << 16;
+            c += ((uint32_t)k[11]) << 24;
             mix(a, b, c);
             length -= 12;
             k += 12;
@@ -338,27 +337,27 @@ cbsasl_uint32_t hash(
         /*-------------------------------- last block: affect all 32 bits of (c) */
         switch (length) {                /* all the case statements fall through */
         case 12:
-            c += ((cbsasl_uint32_t)k[11]) << 24;
+            c += ((uint32_t)k[11]) << 24;
         case 11:
-            c += ((cbsasl_uint32_t)k[10]) << 16;
+            c += ((uint32_t)k[10]) << 16;
         case 10:
-            c += ((cbsasl_uint32_t)k[9]) << 8;
+            c += ((uint32_t)k[9]) << 8;
         case 9 :
             c += k[8];
         case 8 :
-            b += ((cbsasl_uint32_t)k[7]) << 24;
+            b += ((uint32_t)k[7]) << 24;
         case 7 :
-            b += ((cbsasl_uint32_t)k[6]) << 16;
+            b += ((uint32_t)k[6]) << 16;
         case 6 :
-            b += ((cbsasl_uint32_t)k[5]) << 8;
+            b += ((uint32_t)k[5]) << 8;
         case 5 :
             b += k[4];
         case 4 :
-            a += ((cbsasl_uint32_t)k[3]) << 24;
+            a += ((uint32_t)k[3]) << 24;
         case 3 :
-            a += ((cbsasl_uint32_t)k[2]) << 16;
+            a += ((uint32_t)k[2]) << 16;
         case 2 :
-            a += ((cbsasl_uint32_t)k[1]) << 8;
+            a += ((uint32_t)k[1]) << 8;
         case 1 :
             a += k[0];
             break;
@@ -378,22 +377,22 @@ cbsasl_uint32_t hash(
  * from hashlittle() on all machines.  hashbig() takes advantage of
  * big-endian byte ordering.
  */
-cbsasl_uint32_t hash(const void *key, size_t length, const cbsasl_uint32_t initval)
+uint32_t cbsasl_hash(const void *key, size_t length, const uint32_t initval)
 {
-    cbsasl_uint32_t a, b, c;
+    uint32_t a, b, c;
     union {
         const void *ptr;
         size_t i;
     } u; /* to cast key to (size_t) happily */
 
     /* Set up the internal state */
-    a = b = c = 0xdeadbeef + ((cbsasl_uint32_t)length) + initval;
+    a = b = c = 0xdeadbeef + ((uint32_t)length) + initval;
 
     u.ptr = key;
     if (HASH_BIG_ENDIAN && ((u.i & 0x3) == 0)) {
-        const cbsasl_uint32_t *k = key;                           /* read 32-bit chunks */
+        const uint32_t *k = key;                           /* read 32-bit chunks */
 #ifdef VALGRIND
-        const cbsasl_uint8_t  *k8;
+        const uint8_t  *k8;
 #endif /* ifdef VALGRIND */
 
         /*------ all but last block: aligned reads and affect 32 bits of (a,b,c) */
@@ -473,7 +472,7 @@ cbsasl_uint32_t hash(const void *key, size_t length, const cbsasl_uint32_t initv
 
 #else  /* make valgrind happy */
 
-        k8 = (const cbsasl_uint8_t *)k;
+        k8 = (const uint8_t *)k;
         switch (length) {                /* all the case statements fall through */
         case 12:
             c += k[2];
@@ -481,30 +480,30 @@ cbsasl_uint32_t hash(const void *key, size_t length, const cbsasl_uint32_t initv
             a += k[0];
             break;
         case 11:
-            c += ((cbsasl_uint32_t)k8[10]) << 8; /* fall through */
+            c += ((uint32_t)k8[10]) << 8; /* fall through */
         case 10:
-            c += ((cbsasl_uint32_t)k8[9]) << 16; /* fall through */
+            c += ((uint32_t)k8[9]) << 16; /* fall through */
         case 9 :
-            c += ((cbsasl_uint32_t)k8[8]) << 24; /* fall through */
+            c += ((uint32_t)k8[8]) << 24; /* fall through */
         case 8 :
             b += k[1];
             a += k[0];
             break;
         case 7 :
-            b += ((cbsasl_uint32_t)k8[6]) << 8; /* fall through */
+            b += ((uint32_t)k8[6]) << 8; /* fall through */
         case 6 :
-            b += ((cbsasl_uint32_t)k8[5]) << 16; /* fall through */
+            b += ((uint32_t)k8[5]) << 16; /* fall through */
         case 5 :
-            b += ((cbsasl_uint32_t)k8[4]) << 24; /* fall through */
+            b += ((uint32_t)k8[4]) << 24; /* fall through */
         case 4 :
             a += k[0];
             break;
         case 3 :
-            a += ((cbsasl_uint32_t)k8[2]) << 8; /* fall through */
+            a += ((uint32_t)k8[2]) << 8; /* fall through */
         case 2 :
-            a += ((cbsasl_uint32_t)k8[1]) << 16; /* fall through */
+            a += ((uint32_t)k8[1]) << 16; /* fall through */
         case 1 :
-            a += ((cbsasl_uint32_t)k8[0]) << 24;
+            a += ((uint32_t)k8[0]) << 24;
             break;
         case 0 :
             return c;
@@ -513,22 +512,22 @@ cbsasl_uint32_t hash(const void *key, size_t length, const cbsasl_uint32_t initv
 #endif /* !VALGRIND */
 
     } else {                        /* need to read the key one byte at a time */
-        const cbsasl_uint8_t *k = key;
+        const uint8_t *k = key;
 
         /*--------------- all but the last block: affect some 32 bits of (a,b,c) */
         while (length > 12) {
-            a += ((cbsasl_uint32_t)k[0]) << 24;
-            a += ((cbsasl_uint32_t)k[1]) << 16;
-            a += ((cbsasl_uint32_t)k[2]) << 8;
-            a += ((cbsasl_uint32_t)k[3]);
-            b += ((cbsasl_uint32_t)k[4]) << 24;
-            b += ((cbsasl_uint32_t)k[5]) << 16;
-            b += ((cbsasl_uint32_t)k[6]) << 8;
-            b += ((cbsasl_uint32_t)k[7]);
-            c += ((cbsasl_uint32_t)k[8]) << 24;
-            c += ((cbsasl_uint32_t)k[9]) << 16;
-            c += ((cbsasl_uint32_t)k[10]) << 8;
-            c += ((cbsasl_uint32_t)k[11]);
+            a += ((uint32_t)k[0]) << 24;
+            a += ((uint32_t)k[1]) << 16;
+            a += ((uint32_t)k[2]) << 8;
+            a += ((uint32_t)k[3]);
+            b += ((uint32_t)k[4]) << 24;
+            b += ((uint32_t)k[5]) << 16;
+            b += ((uint32_t)k[6]) << 8;
+            b += ((uint32_t)k[7]);
+            c += ((uint32_t)k[8]) << 24;
+            c += ((uint32_t)k[9]) << 16;
+            c += ((uint32_t)k[10]) << 8;
+            c += ((uint32_t)k[11]);
             mix(a, b, c);
             length -= 12;
             k += 12;
@@ -539,27 +538,27 @@ cbsasl_uint32_t hash(const void *key, size_t length, const cbsasl_uint32_t initv
         case 12:
             c += k[11];
         case 11:
-            c += ((cbsasl_uint32_t)k[10]) << 8;
+            c += ((uint32_t)k[10]) << 8;
         case 10:
-            c += ((cbsasl_uint32_t)k[9]) << 16;
+            c += ((uint32_t)k[9]) << 16;
         case 9 :
-            c += ((cbsasl_uint32_t)k[8]) << 24;
+            c += ((uint32_t)k[8]) << 24;
         case 8 :
             b += k[7];
         case 7 :
-            b += ((cbsasl_uint32_t)k[6]) << 8;
+            b += ((uint32_t)k[6]) << 8;
         case 6 :
-            b += ((cbsasl_uint32_t)k[5]) << 16;
+            b += ((uint32_t)k[5]) << 16;
         case 5 :
-            b += ((cbsasl_uint32_t)k[4]) << 24;
+            b += ((uint32_t)k[4]) << 24;
         case 4 :
             a += k[3];
         case 3 :
-            a += ((cbsasl_uint32_t)k[2]) << 8;
+            a += ((uint32_t)k[2]) << 8;
         case 2 :
-            a += ((cbsasl_uint32_t)k[1]) << 16;
+            a += ((uint32_t)k[1]) << 16;
         case 1 :
-            a += ((cbsasl_uint32_t)k[0]) << 24;
+            a += ((uint32_t)k[0]) << 24;
             break;
         case 0 :
             return c;

@@ -527,32 +527,24 @@ typedef enum {
 } lcb_RETRYMODEOPTS;
 
 typedef enum {
-    /**
-     * Don't retry any commands. A command which has been forwarded to
+    /**Don't retry any commands. A command which has been forwarded to
      * a server and a not-my-vbucket has been received in response for it
-     * will result in a failure.
-     */
+     * will result in a failure.*/
     LCB_RETRY_CMDS_NONE = 0,
 
-    /**
-     * Only retry simple retrieval operations (excludes touch,
+    /**Only retry simple retrieval operations (excludes touch,
      * get-and-touch, and get-locked) which may be retried many numbers of times
-     * without risking unintended data manipulation.
-     */
-    LCB_RETRY_CMDS_GET = 1 << 0, /**< Only retry simple retrievals */
+     * without risking unintended data manipulation. */
+    LCB_RETRY_CMDS_GET = 0x01,
 
-    /**
-     * Retry operations which may potentially fail because they have been
+    /**Retry operations which may potentially fail because they have been
      * accepted by a previous server, but will not silently corrupt data.
-     * Such commands include mutation operations containing a CAS.
-     */
-    LCB_RETRY_CMDS_SAFE = (1 << 1)|LCB_RETRY_CMDS_GET,
+     * Such commands include mutation operations containing a CAS.*/
+    LCB_RETRY_CMDS_SAFE = 0x03, /* Includes 'GET', plus a new flag (e.g. 0x02|0x01) */
 
-    /**
-     * Retry all commands, disregarding any potential unintended receipt of
-     * errors or data mutation.
-     */
-    LCB_RETRY_CMDS_ALL = (LCB_RETRY_CMDS_SAFE|LCB_RETRY_CMDS_GET)
+    /**Retry all commands, disregarding any potential unintended receipt of
+     * errors or data mutation.*/
+    LCB_RETRY_CMDS_ALL = 0x07 /* e.g. 0x01|0x03| NEW FLAG: 0x04 */
 } lcb_RETRYCMDOPTS;
 
 /**@brief Create a retry setting value

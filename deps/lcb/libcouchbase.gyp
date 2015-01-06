@@ -45,7 +45,7 @@
       ['OS=="win"', {
         'include_dirs': [
           './',
-          'win32'
+          'contrib/win32-defs'
         ],
         "link_settings": {
           "libraries": [
@@ -237,20 +237,23 @@
         'src/operations/remove.c',
         'src/operations/pktfwd.c',
 
-        'src/bootstrap.c',
         'src/bucketconfig/bc_cccp.c',
         'src/bucketconfig/bc_http.c',
         'src/bucketconfig/bc_file.c',
         'src/bucketconfig/bc_mcraw.c',
         'src/bucketconfig/confmon.c',
+
+        'src/bootstrap.c',
         'src/callbacks.c',
         'src/cntl.c',
+        'src/dump.c',
         'src/connspec.c',
         'src/handler.c',
         'src/getconfig.c',
         'src/http/http.c',
         'src/http/http_io.c',
         'src/instance.c',
+        'src/legacy.c',
         'src/mcserver/negotiate.c',
         'src/mcserver/mcserver.c',
         'src/newconfig.c',
@@ -259,8 +262,6 @@
         'src/retryq.c',
         'src/retrychk.c',
         'src/settings.c',
-        'src/synchandler.c',
-        'src/timer.c',
         'src/timings.c',
         'src/utilities.c',
         'src/wait.c',

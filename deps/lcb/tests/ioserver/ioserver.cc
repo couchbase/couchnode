@@ -25,7 +25,7 @@ TestServer::run()
             break;
         }
 
-        TestConnection *newconn = new TestConnection(this, newsock);
+        TestConnection *newconn = new TestConnection(this, factory(newsock));
         startConnection(newconn);
     }
 }
@@ -47,6 +47,7 @@ TestServer::TestServer()
 {
     lsn = SockFD::newListener();
     closed = false;
+    factory = plainSocketFactory;
 
     // Now spin up a thread to start the accept loop
     thr = new Thread(server_runfunc, this);

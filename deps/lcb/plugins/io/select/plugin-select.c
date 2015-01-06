@@ -15,6 +15,8 @@
  *   limitations under the License.
  */
 
+#define LCB_IOPS_V12_NO_DEPRECATE
+
 #include "internal.h"
 #include "select_io_opts.h"
 #include <libcouchbase/plugins/io/bsdio-inl.c>
@@ -389,15 +391,18 @@ lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *arg)
     lcb_list_init(&cookie->timers);
 
     /* setup io iops! */
-    ret->version = 2;
+    ret->version = 3;
     ret->dlhandle = NULL;
     ret->destructor = sel_destroy_iops;
 
     /* consider that struct isn't allocated by the library,
      * `need_cleanup' flag might be set in lcb_create() */
-    ret->v.v2.need_cleanup = 0;
-    ret->v.v2.get_procs = procs2_sel_callback;
-    ret->v.v2.cookie = cookie;
+    ret->v.v3.need_cleanup = 0;
+    ret->v.v3.get_procs = procs2_sel_callback;
+    ret->v.v3.cookie = cookie;
+
+    /* For backwards compatibility */
+    wire_lcb_bsd_impl(ret);
 
     *io = ret;
     (void)arg;

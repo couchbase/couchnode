@@ -272,14 +272,6 @@ struct lcb_create_st {
         struct lcb_create_st2 v2;
         struct lcb_create_st3 v3; /**< Use this field */
     } v;
-
-#define LCB_CREATEOPT_INIT(cropt, s, iops) do { \
-    memset(cropt, 0, sizeof(*cropt)); \
-    (cropt)->version = 3; \
-    (cropt)->v.v3.connstr = s; \
-    (cropt)->v.v3.iops = iops; \
-} while (0);
-
     LCB_DEPR_CTORS_CRST
 };
 
@@ -3231,6 +3223,10 @@ void lcb_run_loop(lcb_t instance);
 
 LCB_INTERNAL_API
 void lcb_stop_loop(lcb_t instance);
+
+/* This returns the library's idea of time */
+LCB_INTERNAL_API
+lcb_U64 lcb_nstime(void);
 
 typedef enum {
     /** Dump the raw vbucket configuration */

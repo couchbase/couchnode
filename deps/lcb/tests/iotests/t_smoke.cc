@@ -460,6 +460,7 @@ SmokeTest::connectCommon(const char *password, lcb_error_t expected)
 
 TEST_F(SmokeTest, testMemcachedBucket)
 {
+    SKIP_UNLESS_MOCK();
     const char *args[] = { "--buckets", "default::memcache", NULL };
     mock = new MockEnvironment(args);
     mock->setCCCP(false);
@@ -474,6 +475,7 @@ TEST_F(SmokeTest, testMemcachedBucket)
 
 TEST_F(SmokeTest, testCouchbaseBucket)
 {
+    SKIP_UNLESS_MOCK();
     const char *args[] = { "--buckets", "default::couchbase", NULL };
     mock = new MockEnvironment(args);
     mock->setCCCP(false);
@@ -488,6 +490,7 @@ TEST_F(SmokeTest, testCouchbaseBucket)
 
 TEST_F(SmokeTest, testSaslBucket)
 {
+    SKIP_UNLESS_MOCK();
     const char *args[] = { "--buckets", "protected:secret:couchbase", NULL };
     mock = new MockEnvironment(args, "protected");
     mock->setCCCP(false);

@@ -21,7 +21,7 @@
  * @author Trond Norbye
  * @todo add more documentation
  */
-
+#define LCB_IOPS_V12_NO_DEPRECATE
 #include "config.h"
 #include <event.h>
 #include "libevent_io_opts.h"
@@ -255,12 +255,12 @@ lcb_error_t lcb_create_libevent_io_opts(int version, lcb_io_opt_t *io, void *arg
     }
 
     /* setup io iops! */
-    ret->version = 2;
+    ret->version = 3;
     ret->dlhandle = NULL;
     ret->destructor = lcb_destroy_io_opts;
     /* consider that struct isn't allocated by the library,
      * `need_cleanup' flag might be set in lcb_create() */
-    ret->v.v2.need_cleanup = 0;
+    ret->v.v3.need_cleanup = 0;
 
     if (base == NULL) {
         if ((cookie->base = event_base_new()) == NULL) {
@@ -274,8 +274,11 @@ lcb_error_t lcb_create_libevent_io_opts(int version, lcb_io_opt_t *io, void *arg
         cookie->allocated = 0;
     }
 
-    ret->v.v2.cookie = cookie;
-    ret->v.v2.get_procs = procs2_lnt_callback;
+    ret->v.v3.cookie = cookie;
+    ret->v.v3.get_procs = procs2_lnt_callback;
+
+    /* For back-compat */
+    wire_lcb_bsd_impl(ret);
 
     *io = ret;
     return LCB_SUCCESS;

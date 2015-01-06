@@ -30,7 +30,6 @@
 
 /* Global Project Dependencies/Includes */
 #include <memcached/protocol_binary.h>
-#include <ep-engine/command_ids.h>
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/vbucket.h>
 #include <libcouchbase/api3.h>
@@ -204,7 +203,7 @@ LCB_INTERNAL_API void lcb__timer_destroy_nowarn(lcb_t instance, lcb_timer_t time
         return lcb__synchandler_return(o); \
     }
 
-void lcb_vbguess_newconfig(lcbvb_CONFIG *cfg, struct lcb_GUESSVB_st *guesses);
+void lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, struct lcb_GUESSVB_st *guesses);
 int lcb_vbguess_remap(lcbvb_CONFIG *cfg, struct lcb_GUESSVB_st *guesses, int vbid, int bad);
 #define lcb_vbguess_destroy(p) free(p)
 

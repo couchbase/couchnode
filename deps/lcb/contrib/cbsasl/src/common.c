@@ -14,10 +14,9 @@
  *   limitations under the License.
  */
 
-#include "config.h"
-
 #include "cbsasl/cbsasl.h"
 #include "util.h"
+#include <stdlib.h>
 
 CBSASL_PUBLIC_API
 void cbsasl_dispose(cbsasl_conn_t **conn)
@@ -34,16 +33,6 @@ void cbsasl_dispose(cbsasl_conn_t **conn)
         free(*conn);
         *conn = NULL;
     }
-}
-
-int cbsasl_secure_compare(const char *a, const char *b, size_t len)
-{
-    size_t i;
-    int acc = 0;
-    for (i = 0; i < len; i++) {
-        acc |= a[i] ^ b[i];
-    }
-    return acc;
 }
 
 static const char *hexchar = "0123456789abcdef";

@@ -437,7 +437,7 @@ build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
         char *path_begin;
         colon = strrchr(tmp, ':');
 
-        if (!tmp) {
+        if (!colon) {
             /* no port */
             goto GT_ERR;
         }

@@ -1,11 +1,12 @@
 #ifndef SRC_HASH_H_
 #define SRC_HASH_H_ 1
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-    cbsasl_uint32_t hash(const void *key, size_t length, const cbsasl_uint32_t initval);
+    uint32_t cbsasl_hash(const void *key, size_t length, const uint32_t initval);
 
 #ifdef __cplusplus
 }

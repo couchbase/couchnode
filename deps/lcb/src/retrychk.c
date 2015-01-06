@@ -37,24 +37,21 @@ lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err)
         return 0;
     }
 
-    if (err == LCB_ETIMEDOUT /* can't exceed */ ||
-            err == LCB_MAP_CHANGED /* processed */ ) {
+    if (err == LCB_ETIMEDOUT || err == LCB_MAP_CHANGED) {
+        /* We can't exceed a timeout for ETIMEDOUT */
+        /* MAP_CHANGED is sent after we've already called this function on the
+         * packet once before */
         return 0;
-    }
-
-    if (err == LCB_AUTH_ERROR) {
+    } else if (err == LCB_AUTH_ERROR) {
         /* spurious auth error */
         return 1;
-    }
-
-    if (LCB_EIFNET(err)) {
-        mode = LCB_RETRY_ON_SOCKERR;
-
     } else if (err == LCB_NOT_MY_VBUCKET) {
         mode = LCB_RETRY_ON_VBMAPERR;
     } else if (err == LCB_MAX_ERROR) {
         /* special, topology change */
         mode = LCB_RETRY_ON_TOPOCHANGE;
+    } else if (LCB_EIFNET(err)) {
+        mode = LCB_RETRY_ON_SOCKERR;
     } else {
         /* invalid mode */
         return 0;

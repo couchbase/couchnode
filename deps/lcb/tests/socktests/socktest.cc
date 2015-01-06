@@ -1,4 +1,5 @@
 #include "socktest.h"
+#include <lcbio/ssl.h>
 using std::list;
 
 extern "C" {
@@ -67,6 +68,12 @@ ESocket::assign(lcbio_SOCKET *s, lcb_error_t err)
 {
     creq.u.cs = NULL;
     if (s == NULL) {
+        lasterr = err;
+        return;
+    }
+
+    err = lcbio_sslify_if_needed(s, s->settings);
+    if (err != LCB_SUCCESS) {
         lasterr = err;
         return;
     }

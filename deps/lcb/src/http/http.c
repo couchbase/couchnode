@@ -430,7 +430,7 @@ lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
 {
     lcb_http_request_t req;
     const char *base = NULL, *username, *password, *path;
-    lcb_size_t nbase, npath;
+    lcb_size_t nbase = 0, npath;
     lcb_http_method_t method;
     lcb_error_t rc;
     lcb_http_request_t *request = cmd->reqhandle;

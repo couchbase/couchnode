@@ -1,13 +1,6 @@
-ADD_DEFINITIONS(-DBUILDING_CBSASL=1)
 INCLUDE_DIRECTORIES(src)
+FILE(GLOB CBSASL_SRC src/*.c)
+FILE(GLOB CRAM_SRC src/cram-md5/*.c)
 
-ADD_LIBRARY(cbsasl OBJECT
-    src/client.c
-    src/common.c
-    src/cram-md5/hmac.c
-    src/cram-md5/hmac.h
-    src/cram-md5/md5.c)
-
-SET_TARGET_PROPERTIES(cbsasl
-    PROPERTIES
-        POSITION_INDEPENDENT_CODE TRUE)
+ADD_LIBRARY(cbsasl OBJECT ${CBSASL_SRC} ${CRAM_SRC})
+SET_TARGET_PROPERTIES(cbsasl PROPERTIES POSITION_INDEPENDENT_CODE TRUE)

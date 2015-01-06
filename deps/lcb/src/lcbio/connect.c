@@ -454,17 +454,17 @@ lcbio_connect(lcbio_TABLE *iot, lcb_settings *settings, lcb_host_t *dest,
 
     if ((rv = getaddrinfo(dest->host, dest->port, &hints, &ret->ai_root))) {
         const char *errstr = rv != EAI_SYSTEM ? gai_strerror(rv) : "";
-        lcb_log(LOGARGS(s, ERR), CSLOGFMT "Couldn't look up %s (%s)", CSLOGID(s), dest->host, errstr);
+        lcb_log(LOGARGS(s, ERR), CSLOGFMT "Couldn't look up %s (%s) [EAI=%d]", CSLOGID(s), dest->host, errstr, rv);
         cs_state_signal(ret, CS_ERROR, LCB_UNKNOWN_HOST);
-    }
-
-    ret->ai = ret->ai_root;
-
-    /** Figure out how to connect */
-    if (IOT_IS_EVENT(iot)) {
-        E_connect(-1, LCB_WRITE_EVENT, ret);
     } else {
-        C_connect(ret);
+        ret->ai = ret->ai_root;
+
+        /** Figure out how to connect */
+        if (IOT_IS_EVENT(iot)) {
+            E_connect(-1, LCB_WRITE_EVENT, ret);
+        } else {
+            C_connect(ret);
+        }
     }
     return ret;
 }
@@ -487,6 +487,32 @@ lcbio_connect_hl(lcbio_TABLE *iot, lcb_settings *settings,
     }
 
     return NULL;
+}
+
+lcbio_SOCKET *
+lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd)
+{
+    lcbio_SOCKET *ret = calloc(1, sizeof(*ret));
+    lcbio_CONNDONE_cb *ci = calloc(1, sizeof(*ci));
+
+    if (ret == NULL || ci == NULL) {
+        free(ret);
+        free(ci);
+        return NULL;
+    }
+
+    assert(iot->model = LCB_IOMODEL_EVENT);
+
+    lcb_list_init(&ret->protos);
+    ret->settings = settings;
+    ret->io = iot;
+    ret->refcount = 1;
+    ret->u.fd = fd;
+
+    lcbio_table_ref(ret->io);
+    lcb_settings_ref(ret->settings);
+    lcbio__load_socknames(ret);
+    return ret;
 }
 
 void

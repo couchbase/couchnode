@@ -45,7 +45,15 @@ typedef struct {
     my_WCTX *wctx_cached;
     lcb_ioC_read2_callback urd_cb; /**< User defined read callback */
     sllist_root writes; /**< List of pending user writes */
-    int rdactive; /**< Whether a current read request is active */
+
+    /**
+     * Whether a current read request is active. This read request refers to
+     * this module reading raw data from the actual underlying socket. The
+     * presence of a user-level (i.e. lcbio-invoked) read request is determined
+     * by the presence of a non-NULL urd_cb value
+     */
+    int rdactive;
+
     int closed; /**< Pending delivery of close */
     int entered;
 } lcbio_CSSL;
@@ -106,7 +114,15 @@ appdata_encode(lcbio_CSSL *cs)
             if (rv > 0) {
                 continue;
             } else if (maybe_set_error(cs, rv) == 0) {
-                /* SSL_ERROR_WANT_READ. Should schedule a read here */
+                /* SSL_ERROR_WANT_READ. Should schedule a read here.
+                 * XXX: Note that this buffer will not be returned to the user
+                 * until the _next_ time the appdata_free_flushed function is
+                 * invoked; the call chain for appdata_free_flushed is like this:
+                 *
+                 * start_write2 => async_schedule(async_write) => appdata_free_flushed.
+                 * OR
+                 * start_write2 => write_callback => appdata_free_flushed
+                 */
                 SCHEDULE_WANT_SAFE(cs)
                 return;
             } else {
@@ -137,6 +153,8 @@ write_callback(lcb_sockdata_t *sd, int status, void *arg)
     }
 
     free(wb);
+
+    appdata_free_flushed(cs);
     lcbio_table_unref(&cs->base_);
     (void) sd;
 }
@@ -236,24 +254,35 @@ schedule_wants(lcbio_CSSL *cs)
             IOT_ARG(cs->orig), cs->sd, &iov, 1, wb, write_callback);
     }
 
-    if (cs->error && cs->urd_cb && cs->rdactive == 0) {
-        /* nothing's gonna happen here, so signal the events */
-        lcbio_async_signal(cs->as_read);
+    /* Only schedule additional reads if we're not already in the process of a
+     * read */
 
-    } else if (cs->rdactive == 0 &&
-            (SSL_want_read(cs->ssl) || (cs->urd_cb && has_appdata == 0))) {
-        /* request more data from the socket */
-        BUF_MEM *mb;
-        lcb_IOV iov;
+    if (cs->rdactive == 0) {
+        if (cs->error) {
+            /* This can happen if we got an SSL error in performing something
+             * within this callback.
+             *
+             * In this case, just signal "as-if" a read happened. appdata_read
+             * will do the right thing if there is no read callback, and will
+             * return an error if SSL_read() fails (which it should).
+             */
+            lcbio_async_signal(cs->as_read);
 
-        cs->rdactive = 1;
-        BIO_get_mem_ptr(cs->rbio, &mb);
-        iotssl_bm_reserve(mb);
-        iov.iov_base = mb->data + mb->length;
-        iov.iov_len = mb->max - mb->length;
-        lcbio_table_ref(&cs->base_);
-        IOT_V1(cs->orig).read2(
-            IOT_ARG(cs->orig), cs->sd, &iov, 1, cs, read_callback);
+        } else if (SSL_want_read(cs->ssl) || (cs->urd_cb && has_appdata == 0)) {
+            /* request more data from the socket */
+            BUF_MEM *mb;
+            lcb_IOV iov;
+
+            cs->rdactive = 1;
+            BIO_get_mem_ptr(cs->rbio, &mb);
+            iotssl_bm_reserve(mb);
+            iov.iov_base = mb->data + mb->length;
+            iov.iov_len = mb->max - mb->length;
+            lcbio_table_ref(&cs->base_);
+            IOT_V1(cs->orig).read2(
+                IOT_ARG(cs->orig), cs->sd, &iov, 1, cs, read_callback);
+        }
+
     }
 }
 
@@ -344,6 +373,15 @@ Cssl_close(lcb_io_opt_t io, lcb_sockdata_t *sd)
     lcbio_CSSL *cs = CS_FROM_IOPS(io);
     IOT_V1(cs->orig).close(IOT_ARG(cs->orig), sd);
     cs->error = 1;
+    if (!SLLIST_IS_EMPTY(&cs->writes)) {
+        /* It is possible that a prior call to SSL_write returned an SSL_want_read
+         * and the next subsequent call to the underlying read API returned an
+         * error. For this reason we signal to the as_write function (which
+         * then calls the appdata_free_flushed function) in case we have such
+         * leftover data.
+         */
+        lcbio_async_signal(cs->as_write);
+    }
     return 0;
 }
 

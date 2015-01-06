@@ -31,6 +31,10 @@ FILE(GLOB T_MOCKSUPPORT_SRC mocksupport/*.c mocksupport/*.cc)
 FILE(GLOB T_VBTEST_SRC vbucket/*.cc)
 
 ADD_LIBRARY(ioserver OBJECT EXCLUDE_FROM_ALL ${T_IOSERVER_SRC})
+IF(NOT LCB_NO_SSL)
+    GET_TARGET_PROPERTY(_ioserver_includes ioserver INCLUDE_DIRECTORIES)
+    SET_TARGET_PROPERTIES(ioserver PROPERTIES INCLUDE_DIRECTORIES "${_ioserver_includes};${OPENSSL_INCLUDE_DIR}")
+ENDIF()
 
 
 ADD_EXECUTABLE(nonio-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_BASIC_SRC})
@@ -51,7 +55,7 @@ ADD_EXECUTABLE(sock-tests EXCLUDE_FROM_ALL nonio_tests.cc
     ${T_SOCK_SRC} $<TARGET_OBJECTS:ioserver>)
 
 ADD_EXECUTABLE(vbucket-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_VBTEST_SRC})
-ADD_EXECUTABLE(htparse-tests EXCLUDE_FROM_ALL nonio_tests.cc htparse/t_basic.cc ${SOURCE_ROOT}/src/lcbht/lcbht.c)
+ADD_EXECUTABLE(htparse-tests EXCLUDE_FROM_ALL nonio_tests.cc htparse/t_basic.cc)
 
 FILE(GLOB T_IO_SRC iotests/*.cc)
 IF(LCB_NO_MOCK)
@@ -62,13 +66,6 @@ ELSE()
     ADD_EXECUTABLE(unit-tests EXCLUDE_FROM_ALL ${T_IO_SRC} unit_tests.cc $<TARGET_OBJECTS:mocksupport>)
 ENDIF()
 
-# Normally defined by config.h
-SET_PROPERTY(
-    TARGET unit-tests
-    APPEND PROPERTY COMPILE_DEFINITIONS
-    BUILD_PLUGINS
-    )
-
 IF(CMAKE_COMPILER_IS_GNUCXX)
     SET_TARGET_PROPERTIES(unit-tests
         PROPERTIES
@@ -77,10 +74,10 @@ ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 
 
 
-IF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
+IF(NOT EXISTS ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
     DOWNLOAD_LCB_DEP("${COUCHBASE_MOCK_DLSERVER}/${COUCHBASE_MOCK_VERSION}"
-        "${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar")
-ENDIF(NOT EXISTS ${CMAKE_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
+        "${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar")
+ENDIF(NOT EXISTS ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
 
 # We're a library using the shared CRT. Don't use the static one
 INCLUDE_DIRECTORIES(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
@@ -100,23 +97,10 @@ IF(WIN32)
     TARGET_LINK_LIBRARIES(mc-malloc-tests ws2_32.lib)
 ENDIF()
 
-
-MACRO(BUILD_TEST target)
-    ADD_TEST(NAME BUILD-${target}
-        COMMAND ${CMAKE_COMMAND} --build "${CMAKE_BINARY_DIR}" --target ${target})
-ENDMACRO()
-
-BUILD_TEST(check-all)
-BUILD_TEST(unit-tests)
-BUILD_TEST(nonio-tests)
-BUILD_TEST(rdb-tests)
-BUILD_TEST(sock-tests)
-BUILD_TEST(vbucket-tests)
-BUILD_TEST(mc-tests)
-BUILD_TEST(htparse-tests)
-
 ADD_CUSTOM_TARGET(alltests DEPENDS check-all unit-tests nonio-tests
     rdb-tests sock-tests vbucket-tests mc-tests htparse-tests)
+
+ADD_TEST(NAME BUILD-TESTS COMMAND ${CMAKE_COMMAND} --build "${PROJECT_BINARY_DIR}" --target alltests)
 
 MACRO(DEFINE_MOCKTEST plugin test)
     ADD_TEST(
@@ -124,7 +108,7 @@ MACRO(DEFINE_MOCKTEST plugin test)
             check-${plugin}-${test}
         COMMAND
             $<TARGET_FILE:check-all>
-            --srcdir "${CMAKE_SOURCE_DIR}"
+            --srcdir "${PROJECT_SOURCE_DIR}"
             --testdir "$<TARGET_FILE_DIR:check-all>"
             --libdir "$<TARGET_FILE_DIR:couchbase>"
             --plugins ${plugin}
@@ -132,7 +116,7 @@ MACRO(DEFINE_MOCKTEST plugin test)
             --verbose
             --
             --gtest_print_time=1
-            --gtest_output=xml:"${CMAKE_BINARY_DIR}/REPORT_${plugin}_${test}.xml")
+            --gtest_output=xml:"${PROJECT_BINARY_DIR}/REPORT_${plugin}_${test}.xml")
 ENDMACRO()
 
 # Since we need a plugin name, we'll use 'select'. However none of these
@@ -150,15 +134,15 @@ IF(WIN32)
     DEFINE_MOCKTEST("iocp" "unit-tests")
     DEFINE_MOCKTEST("iocp" "sock-tests")
 ENDIF()
-IF(HAVE_LIBEVENT)
+IF(HAVE_LIBEVENT AND LCB_BUILD_LIBEVENT)
     DEFINE_MOCKTEST("libevent" "unit-tests")
     DEFINE_MOCKTEST("libevent" "sock-tests")
 ENDIF()
-IF(HAVE_LIBEV)
+IF(HAVE_LIBEV AND LCB_BUILD_LIBEV)
     DEFINE_MOCKTEST("libev" "unit-tests")
     DEFINE_MOCKTEST("libev" "sock-tests")
 ENDIF()
-IF(HAVE_LIBUV)
+IF(HAVE_LIBUV AND LCB_BUILD_LIBUV)
     DEFINE_MOCKTEST("libuv" "unit-tests")
     DEFINE_MOCKTEST("libuv" "sock-tests")
 ENDIF()

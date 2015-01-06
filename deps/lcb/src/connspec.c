@@ -383,24 +383,20 @@ lcb_connspec_parse(const char *connstr, lcb_CONNSPEC *out, const char **errmsg)
     }
     ctx.decoded = ctx.scratch + speclen * 2;
 
-    /* if we have a path, the hosts end there */
-    if ((hlend = strchr(ctx.connstr, '/'))) {
-        bucket = hlend + 1;
-        if ((options = strchr(bucket, '?'))) {
-            options++;
-        }
-    }
+    /* Hosts end where either options or the bucket itself begin */
+    if ((hlend = strpbrk(ctx.connstr, "?/"))) {
+        if (*hlend == '?') {
+            /* Options first */
+            options = hlend + 1;
 
-    if (hlend == NULL) {
-        bucket = NULL;
-        if ((options = hlend = strchr(ctx.connstr, '?'))) {
-            options++;
+        } else if (*hlend == '/') {
+            /* Bucket first. Options follow bucket */
+            bucket = hlend + 1;
+            if ((options = strchr(bucket, '?'))) {
+                options++;
+            }
         }
-    }
-
-    if (hlend == NULL) {
-        bucket = NULL;
-        options = NULL;
+    } else {
         hlend = specend;
     }
 

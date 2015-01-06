@@ -16,8 +16,7 @@
 
 #ifndef INCLUDE_CBSASL_CBSASL_H_
 #define INCLUDE_CBSASL_CBSASL_H_ 1
-
-#include <cbsasl/visibility.h>
+#define CBSASL_PUBLIC_API
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,8 +46,7 @@ extern "C" {
 
     typedef struct cbsasl_conn_st cbsasl_conn_t;
 
-#ifdef BUILDING_CBSASL
-    typedef cbsasl_error_t (*cbsasl_init_fn)();
+    typedef cbsasl_error_t (*cbsasl_init_fn)(void);
     typedef cbsasl_error_t (*cbsasl_start_fn)(cbsasl_conn_t *);
     typedef cbsasl_error_t (*cbsasl_step_fn)(cbsasl_conn_t *, const char *,
                                              unsigned, const char **, unsigned *);
@@ -86,7 +84,6 @@ extern "C" {
             struct cbsasl_server_conn_t server;
         } c;
     };
-#endif
 
     /**
      * Lists all of the mechanisms this sasl server supports

@@ -33,7 +33,7 @@ TEST_F(HtparseTest, testBasic)
     ASSERT_EQ(0, state);
     buf += "Content-Length: 5\r\n\r\n";
     state = lcbht_parse(parser, buf.c_str(), buf.size());
-    ASSERT_EQ(LCBHT_S_HEADER|LCBHT_S_HEADER|LCBHT_S_HTSTATUS, state);
+    ASSERT_EQ(LCBHT_S_HEADER|LCBHT_S_HTSTATUS, state);
 
     lcbht_RESPONSE *resp = lcbht_get_response(parser);
     ASSERT_EQ(200, resp->status);
@@ -149,6 +149,44 @@ TEST_F(HtparseTest, testParseExtended)
     ASSERT_NE(0, state & LCBHT_S_DONE);
     ASSERT_EQ(0, state & LCBHT_S_ERROR);
     ASSERT_EQ(0, resp->body.nused);
+
+    lcbht_free(parser);
+    lcb_settings_unref(settings);
+}
+
+TEST_F(HtparseTest, testCanKeepalive)
+{
+    lcb_settings *settings = lcb_settings_new();
+    lcbht_pPARSER parser = lcbht_new(settings);
+    string buf = "HTTP/1.0 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n";
+    lcbht_RESPSTATE state;
+    state = lcbht_parse(parser, buf.c_str(), buf.size());
+    ASSERT_NE(0, state & LCBHT_S_DONE);
+    ASSERT_EQ(0, state & LCBHT_S_ERROR);
+    ASSERT_EQ(0, lcbht_can_keepalive(parser));
+
+    // Use HTTP/1.1 with Connection: close
+    lcbht_reset(parser);
+    buf = "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: close\r\n"
+            "\r\n";
+    state = lcbht_parse(parser, buf.c_str(), buf.size());
+    ASSERT_NE(0, state & LCBHT_S_DONE);
+    ASSERT_EQ(0, state & LCBHT_S_ERROR);
+    ASSERT_EQ(0, lcbht_can_keepalive(parser));
+
+    lcbht_reset(parser);
+    // Default HTTP/1.1
+    buf = "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n";
+    state = lcbht_parse(parser, buf.c_str(), buf.size());
+    ASSERT_NE(0, state & LCBHT_S_DONE);
+    ASSERT_EQ(0, state & LCBHT_S_ERROR);
+    ASSERT_NE(0, lcbht_can_keepalive(parser));
 
     lcbht_free(parser);
     lcb_settings_unref(settings);

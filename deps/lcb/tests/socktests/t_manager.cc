@@ -109,3 +109,71 @@ TEST_F(SockMgrTest, testIdleClosed)
     ASSERT_TRUE(rf.isOk());
     delete sock2;
 }
+
+struct PCtxDummy : lcbio_PROTOCTX {
+    int *cVar;
+    bool invoked;
+    bool shouldDelete;
+};
+extern "C" {
+static void protoctx_dtor(lcbio_PROTOCTX *ctx) {
+    PCtxDummy *d = (PCtxDummy *)ctx;
+    if (d->shouldDelete) {
+        delete d;
+    } else {
+        *d->cVar += 1;
+        d->invoked = true;
+    }
+}
+}
+
+TEST_F(SockMgrTest, testMaxIdle)
+{
+    // Assuming maxidle=2 as defined in the beginning
+    int destroyCount = 0;
+    ESocket *socks[4];
+    PCtxDummy *ctxs[4];
+
+    for (int ii = 0; ii < 4; ii++) {
+        ESocket *s = new ESocket();
+        PCtxDummy *pctx = new PCtxDummy();
+
+        pctx->id = LCBIO_PROTOCTX_MAX;
+        pctx->dtor = protoctx_dtor;
+        pctx->cVar = &destroyCount;
+        pctx->invoked = false;
+
+        loop->connectPooled(s);
+        lcbio_protoctx_add(s->sock, pctx);
+
+        socks[ii] = s;
+        ctxs[ii] = pctx;
+    }
+
+    // Assume they're all alive. Now delete them
+    for (int ii = 0; ii < 4; ii++) {
+        delete socks[ii];
+    }
+
+    // We need
+    ASSERT_EQ(2, destroyCount);
+    for (int ii = 0; ii < 4; ii++) {
+        if (ctxs[ii]->invoked) {
+            delete ctxs[ii];
+        } else {
+            ctxs[ii]->shouldDelete = true;
+        }
+    }
+
+    // Ensure subsequent connections can also work!
+    ESocket *otherSocks[8];
+    for (int ii = 0; ii < 8; ii++) {
+        ESocket *s = new ESocket();
+        loop->connectPooled(s);
+        otherSocks[ii] = s;
+        ASSERT_TRUE(s->sock != NULL);
+    }
+    for (int ii = 0; ii < 8; ii++) {
+        delete otherSocks[ii];
+    }
+}

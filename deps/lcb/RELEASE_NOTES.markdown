@@ -1,5 +1,43 @@
 # Release Notes
 
+## 2.4.5 (December 17 2014)
+
+* Fix `pillowfight` ignoring `set-ratio` values above 50
+  The program would ignore these values and act as if 100 was specified,
+  thus never issuing any GET operations
+  * Priority: Minor
+  * Issues: [CCBC-550](http://couchbase.com/issues/browse/CCBC-550)
+
+* Building with autotools is no longer supported.
+  If building the library from source, you _must_ use
+  [CMake](http://cmake.org/download) version 2.8.9 or greater. If unfamiliar
+  with CMake, the README describes the process. Included also is a top-level
+  script called `configure.pl` which functions with an autoconf-like interface.
+  * Priority: Major
+
+* Fix customized IOPS crashes in some usage cases
+  This fixes scenarios where applications assume that the built-in IOPS version
+  is 0, and attempt to "Subclass" the IOPS structure. The internal version of
+  the library structure is now 3, with some extra heuristics in place to ensure
+  that the older code will still function.
+  This issue was most visible in the Python SDK when using the gevent or Twisted
+  plugins.
+  This issue was first introduced with version 2.4.4
+  * Priority: Critical
+  * Issues: [CCBC-557](http://couchbase.com/issues/browse/CCBC-557)
+
+* Allow raw `certpath` to be passed without need for percent-encoding (in most cases)
+  This allows for a common pattern fo passing `certpath` in the connection string as
+  a raw, unencoded path. This allows a user to do
+  `couchbases://host/bucket?certpath=/foo/bar/baz`.
+
+* Fix missing installation UV plugin headers and source
+  In 2.4.4 this was accidentally left out, and would only be installed if the plugin
+  itself was built and installed. This affected building the Node.JS SDK using an
+  existing libcouchbase install.
+  * Priority: Major
+  * Issues: [CCBC-558](http://couchbase.com/issues/browse/CCBC-558)
+
 ## 2.4.4 (Nov. 19 2014)
 
 * Detect disconnected pooled sockets

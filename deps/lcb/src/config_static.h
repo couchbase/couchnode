@@ -54,19 +54,8 @@
 #include <unistd.h>
 #endif
 
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>
-#endif
-
-#ifdef HAVE_STDARG_H
-#include <stdarg.h>
-#endif
-
-#ifdef HAVE_WINSOCK2_H
+#ifdef _WIN32
 #include <winsock2.h>
-#endif
-
-#ifdef HAVE_WS2TCPIP_H
 #include <ws2tcpip.h>
 #endif
 
@@ -76,10 +65,6 @@
 
 #ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
-#endif
-
-#ifdef HAVE_STRING_H
-#include <string.h>
 #endif
 
 #ifdef HAVE_STRINGS_H
@@ -94,18 +79,20 @@
 #include <dlfcn.h>
 #endif
 
-#ifdef HAVE_LIMITS_H
-#include <limits.h>
-#else
-#ifndef PATH_MAX
-#define PATH_MAX 1024
-#endif
-#endif
 
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
 
+/* Standard C includes */
+#include <limits.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 
 #ifdef _WIN32
 #include <libcouchbase/plugins/io/wsaerr.h>
@@ -158,6 +145,10 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+#endif
+
+#if defined(EWOULDBLOCK) && defined(EAGAIN) && EWOULDBLOCK != EAGAIN
+#define USE_EAGAIN 1
 #endif
 
 #endif /* LIBCOUCHBASE_CONFIG_STATIC_H */

@@ -52,6 +52,7 @@ SET(LCB_CORE_SRC
     src/http/http.c
     src/http/http_io.c
     src/instance.c
+    src/legacy.c
     src/mcserver/negotiate.c
     src/mcserver/mcserver.c
     src/newconfig.c
@@ -60,8 +61,6 @@ SET(LCB_CORE_SRC
     src/retryq.c
     src/retrychk.c
     src/settings.c
-    src/synchandler.c
-    src/timer.c
     src/timings.c
     src/utilities.c
     src/wait.c)

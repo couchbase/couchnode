@@ -27,6 +27,7 @@
 #include <sys/wait.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <netinet/in.h>
 #include <signal.h>
 #ifdef linux
 #undef ntohs

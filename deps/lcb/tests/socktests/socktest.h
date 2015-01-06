@@ -13,6 +13,9 @@
 #include "logging.h"
 #include <list>
 #include "internal.h"
+#ifndef _WIN32
+#include <signal.h>
+#endif
 
 using namespace LCBTest;
 

@@ -151,6 +151,17 @@ lcbio_connect(lcbio_pTABLE iot,
               lcbio_CONNDONE_cb handler, void *arg);
 
 /**
+ * Wraps an existing socket descriptor into an lcbio_SOCKET structure
+ * @param iot
+ * @param settings
+ * @param fd The socket descriptor to wrap. This must refer to a _connected_
+ * socket (e.g. via `connect(2)` or `socketpair(2)`.
+ * @return A new socket object.
+ */
+lcbio_SOCKET *
+lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd);
+
+/**
  * Wraps `lcb_connect()` by traversing a list of hosts. This will cycle through
  * each host in the list until a connection has been successful. Currently
  * this will not intercept the handler but will catch any hostname lookup
@@ -170,6 +181,7 @@ lcbio_pCONNSTART
 lcbio_connect_hl(lcbio_pTABLE iot, lcb_settings *settings,
                  hostlist_t hl, int rollover,
                  uint32_t timeout, lcbio_CONNDONE_cb handler, void *arg);
+
 
 /**
  * Cancel a pending connection attempt. Once the attempt is cancelled the
@@ -214,7 +226,8 @@ typedef enum {
     LCBIO_PROTOCTX_SESSINFO = 1,
     LCBIO_PROTOCTX_POOL,
     LCBIO_PROTOCTX_HOSTINFO,
-    LCBIO_PROTOCTX_SSL
+    LCBIO_PROTOCTX_SSL,
+    LCBIO_PROTOCTX_MAX
 } lcbio_PROTOID;
 
 

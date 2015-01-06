@@ -2,17 +2,10 @@
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
-ifdef LCB_BUILDING_WITH_CMAKE
-	DH_AC_FLAGS=--buildsystem=cmake -- -DLCB_NO_MOCK=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo
-	DH_AT_CMD = dh_auto_build --verbose --parallel -- alltests
-	ifdef DEB_HOST_MULTIARCH
-		DH_AC_FLAGS += -DCMAKE_INSTALL_LIBDIR=lib/$(DEB_HOST_MULTIARCH)
-	endif
-else
-	DH_AC_FLAGS=--buildsystem=autoconf -- --disable-couchbasemock --disable-tests
-	ifdef DEB_HOST_MULTIARCH
-		DH_AC_FLAGS += --libdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH)
-	endif
+DH_AC_FLAGS=--buildsystem=cmake -- -DLCB_NO_MOCK=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo
+DH_AT_CMD = dh_auto_build --verbose --parallel -- alltests
+ifdef DEB_HOST_MULTIARCH
+	DH_AC_FLAGS += -DCMAKE_INSTALL_LIBDIR=lib/$(DEB_HOST_MULTIARCH)
 endif
 
 %:
@@ -32,6 +25,8 @@ override_dh_auto_configure:
 		> debian/libcouchbase2-libev.install
 	echo "usr/lib/$(DEB_HOST_MULTIARCH)/libcouchbase.so" \
 		> debian/libcouchbase-dev.install
+	echo "usr/include/*" \
+		>> debian/libcouchbase-dev.install
 	# Generate 'cbc' files
 	echo "usr/bin/cbc*" \
 		> debian/libcouchbase2-bin.install

@@ -6,6 +6,11 @@ Vendor: Couchbase, Inc.
 Packager: Couchbase SDK Team <support@couchbase.com>
 License: Apache-2
 Group: System Environment/Libraries
+%if %{?fedora}0 >= 180 || %{?rhel}0 >= 60
+BuildRequires: cmake >= 2.8.9
+%else
+BuildRequires: cmake28
+%endif
 BuildRequires: libevent-devel >= 1.4, libev-devel >= 3, openssl-devel
 URL: https://github.com/couchbase/libcouchbase
 Source: @TARREDAS@.tar.gz
@@ -61,22 +66,14 @@ Development files for the Couchbase Client & Protocol Library
 %define __lcb_cmake %cmake28
 %endif
 
-%if 0%{?__lcb_is_cmake:1}
-%define __lcb_build %{__lcb_cmake} -DLCB_NO_TESTS=1
-%else
-%define __lcb_build %configure --disable-couchbasemock --disable-tests --disable-libuv
-%endif
-
 %setup -q -n @TARREDAS@
-echo "CMAKE: $LCB_BUILDING_WITH_CMAKE"
-%{__lcb_build}
+%{__lcb_cmake} -DLCB_NO_TESTS=1 -DLCB_BUILD_LIBUV=OFF
 
 %build
 %{__make} %{_smp_mflags}
 
 %install
 %{__make} install DESTDIR="%{buildroot}" AM_INSTALL_PROGRAM_FLAGS=""
-find %{buildroot} -iname "*.la" -delete
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -88,7 +85,7 @@ find %{buildroot} -iname "*.la" -delete
 %files -n %{name}2-core
 %defattr(-, root, root)
 %{_libdir}/libcouchbase.so.*
-%doc README.markdown AUTHORS LICENSE RELEASE_NOTES.markdown
+%doc README.markdown LICENSE RELEASE_NOTES.markdown
 
 %files -n %{name}2-libevent
 %defattr(-, root, root)

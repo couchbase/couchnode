@@ -27,6 +27,5 @@ dist-deb: dist
 		"Release package for $(DEB_VERSION)" && \
 		dpkg-buildpackage -rfakeroot ${DEB_FLAGS}\
 	)
-	dpkg-buildpackage -rfakeroot ${DEB_FLAGS})
 	mv $(DEB_WORKSPACE)/*.{changes,deb,dsc,tar.gz} `pwd`
 	rm -rf $(DEB_WORKSPACE)

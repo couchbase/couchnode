@@ -799,8 +799,6 @@ timer_schedule(lcb_DURSET *dset, unsigned int state)
         }
     }
 
-    lcb_log(LOGARGS(dset, TRACE), "Scheduling timeout for %u us (%u ms)", delay, delay/1000);
-
     dset->next_state = state;
     io->timer.cancel(io->p, dset->timer);
     io->timer.schedule(io->p, dset->timer, delay, dset, timer_callback);

@@ -18,11 +18,10 @@
 /**
  * Inline routines for common 'BSD'-style I/O for plugins.
  *
- * Include this file in your plugin and then call wire_lcb_bsd_impl on the
+ * Include this file in your plugin and then call wire_lcb_bsd_impl2 on the
  * plugin instance.
  */
 
-static void wire_lcb_bsd_impl(lcb_io_opt_t io);
 static void wire_lcb_bsd_impl2(lcb_bsd_procs*,int);
 
 #ifdef _WIN32
@@ -47,8 +46,8 @@ recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock,
     WSABUF *bufptr = (WSABUF *)iov;
 
     if (WSARecv(sock, bufptr, niov, &nr, &flags, NULL, NULL) == SOCKET_ERROR) {
-        iops->v.v0.error = get_wserr(sock);
-        if (iops->v.v0.error == ECONNRESET) {
+        LCB_IOPS_ERRNO(iops) = get_wserr(sock);
+        if (LCB_IOPS_ERRNO(iops) == ECONNRESET) {
             return 0;
         }
         return -1;
@@ -76,7 +75,7 @@ sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
     DWORD nw, fl = 0;
     WSABUF *bufptr = (WSABUF *)iov;
     if (WSASend(sock, bufptr, niov, &nw, fl, NULL, NULL) == SOCKET_ERROR) {
-        iops->v.v0.error = get_wserr(sock);
+        LCB_IOPS_ERRNO(iops) = get_wserr(sock);
         return -1;
     }
     return (lcb_ssize_t)nw;
@@ -106,7 +105,7 @@ recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
     mh.msg_iovlen = niov;
     ret = recvmsg(sock, &mh, 0);
     if (ret < 0) {
-        iops->v.v0.error = errno;
+        LCB_IOPS_ERRNO(iops) = errno;
     }
     return ret;
 }
@@ -117,7 +116,7 @@ recv_impl(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf,
 {
     lcb_ssize_t ret = recv(sock, buf, nbuf, flags);
     if (ret < 0) {
-        iops->v.v0.error = errno;
+        LCB_IOPS_ERRNO(iops) = errno;
     }
     return ret;
 }
@@ -134,7 +133,7 @@ sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
     mh.msg_iovlen = niov;
     ret = sendmsg(sock, &mh, 0);
     if (ret < 0) {
-        iops->v.v0.error = errno;
+        LCB_IOPS_ERRNO(iops) = errno;
     }
     return ret;
 }
@@ -145,7 +144,7 @@ send_impl(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf
 {
     lcb_ssize_t ret = send(sock, buf, nbuf, flags);
     if (ret < 0) {
-        iops->v.v0.error = errno;
+        LCB_IOPS_ERRNO(iops) = errno;
     }
     return ret;
 }
@@ -171,6 +170,9 @@ static int make_socket_nonblocking(lcb_socket_t sock)
     return 0;
 }
 
+/* Declare */
+static void close_impl(lcb_io_opt_t,lcb_socket_t);
+
 static lcb_socket_t
 socket_impl(lcb_io_opt_t iops, int domain, int type, int protocol)
 {
@@ -181,15 +183,15 @@ socket_impl(lcb_io_opt_t iops, int domain, int type, int protocol)
     sock = socket(domain, type, protocol);
 #endif
     if (sock == INVALID_SOCKET) {
-        iops->v.v0.error = errno;
+        LCB_IOPS_ERRNO(iops) = errno;
     } else {
         if (make_socket_nonblocking(sock) != 0) {
 #ifdef _WIN32
-            iops->v.v0.error = get_wserr(sock);
+            LCB_IOPS_ERRNO(iops) = get_wserr(sock);
 #else
-            iops->v.v0.error = errno;
+            LCB_IOPS_ERRNO(iops) = errno;
 #endif
-            iops->v.v0.close(iops, sock);
+            close_impl(iops, sock);
             sock = INVALID_SOCKET;
         }
     }
@@ -216,12 +218,12 @@ connect_impl(lcb_io_opt_t iops, lcb_socket_t sock, const struct sockaddr *name,
 #ifdef _WIN32
     ret = WSAConnect(sock, name, (int)namelen, NULL, NULL, NULL, NULL);
     if (ret == SOCKET_ERROR) {
-        iops->v.v0.error = get_wserr(sock);
+        LCB_IOPS_ERRNO(iops) = get_wserr(sock);
     }
 #else
     ret = connect(sock, name, (socklen_t)namelen);
     if (ret < 0) {
-        iops->v.v0.error = errno;
+        LCB_IOPS_ERRNO(iops) = errno;
     }
 #endif
     return ret;
@@ -268,6 +270,7 @@ chkclosed_impl(lcb_io_opt_t iops, lcb_socket_t sock, int flags)
 }
 #endif /* LCB_IOPROCS_VERSION >= 3 */
 
+#if !defined(LIBCOUCHBASE_INTERNAL) || defined(LCB_IOPS_V12_NO_DEPRECATE)
 static void
 wire_lcb_bsd_impl(lcb_io_opt_t io)
 {
@@ -282,6 +285,10 @@ wire_lcb_bsd_impl(lcb_io_opt_t io)
     /* Avoid annoying 'unused' warnings */
     if (0) { wire_lcb_bsd_impl2(NULL,0); }
 }
+#define lcb__wire0_nowarn() if (0) { wire_lcb_bsd_impl(NULL); }
+#else
+#define lcb__wire0_nowarn()
+#endif
 
 /** For plugins which use v2 or higher */
 static void
@@ -301,5 +308,5 @@ wire_lcb_bsd_impl2(lcb_bsd_procs *procs, int version)
         procs->is_closed = chkclosed_impl;
     }
     #endif
-    if (0) { wire_lcb_bsd_impl(NULL); }
+    lcb__wire0_nowarn();
 }

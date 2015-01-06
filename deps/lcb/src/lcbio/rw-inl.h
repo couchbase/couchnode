@@ -19,6 +19,7 @@
  * Inline routines for reading and writing socket buffers
  */
 #include <errno.h>
+#include <limits.h> /* For IOV_MAX */
 #ifndef INLINE
 #ifdef _MSC_VER
 #define INLINE __inline
@@ -30,6 +31,10 @@
 #endif /* !INLINE */
 
 #define RWINL_IOVSIZE 32
+#if defined(IOV_MAX) && IOV_MAX < RWINL_IOVSIZE
+#undef RWINL_IOVSIZE
+#define RWINL_IOVSIZE IOV_MAX
+#endif
 
 #ifndef USE_EAGAIN
 #define C_EAGAIN 0
@@ -79,7 +84,11 @@ lcbio_E_rb_write(lcbio_CTX *ctx, ringbuffer_t *buf)
     while (buf->nbytes) {
         unsigned niov;
         ringbuffer_get_iov(buf, RINGBUFFER_READ, iov);
+#if RWINL_IOVSIZE < 2
+        niov = 1;
+#else
         niov = iov[1].iov_len ? 2 : 1;
+#endif
         nw = IOT_V0IO(iot).sendv(IOT_ARG(iot), CTX_FD(ctx), iov, niov);
         if (nw == -1) {
             switch (IOT_ERRNO(iot)) {

@@ -22,7 +22,7 @@ TestConnection::setCommon(void *src, void **target)
     assert(*target == NULL);
     *target = src;
     char dummy = 0;
-    send(*ctlfd_user, &dummy, 1, 0);
+    ctlfd_user->send(&dummy, 1);
     mutex.unlock();
 }
 
@@ -37,7 +37,7 @@ TestConnection::sendData()
         void *outbuf;
 #endif
         size_t n = f_send->getBuf((void**)&outbuf);
-        ssize_t nw = send(*datasock, outbuf, n, 0);
+        size_t nw = datasock->send(outbuf, n);
         if (nw < 0) {
             f_send->bail();
         } else {
@@ -57,7 +57,7 @@ TestConnection::recvData()
     do {
         size_t required = f_recv->getRequired();
         size_t rdsize = std::min(required, sizeof(buf));
-        ssize_t nr = recv(*datasock, buf, rdsize, 0);
+        ssize_t nr = datasock->recv(buf, rdsize);
         if (nr < 0) {
             f_recv->bail();
         } else {
@@ -123,9 +123,9 @@ TestConnection::run()
     mutex.unlock();
 }
 
-TestConnection::TestConnection(TestServer *server, int newsock)
+TestConnection::TestConnection(TestServer *server, SockFD *newsock)
 {
-    datasock = new SockFD(newsock);
+    datasock = newsock;
     datasock->loadRemoteAddr();
     ctlfd_lsn = SockFD::newListener();
     ctlfd_loop = NULL;
@@ -137,6 +137,7 @@ TestConnection::TestConnection(TestServer *server, int newsock)
 
     thr = new Thread(client_runfunc, this);
     ctlfd_user = SockFD::newClient(ctlfd_lsn);
+    ctlfd_user->setNodelay(true);
 
     mutex.lock();
     while (!ctlfd_loop) {

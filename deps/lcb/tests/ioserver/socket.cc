@@ -6,7 +6,7 @@ SockFD::SockFD(int sock)
     assert(sock >= 0);
     fd = sock;
     naddr = sizeof(sa_local);
-    int rv = getsockname(*this, (struct sockaddr *)&sa_local, &naddr);
+    int rv = getsockname(fd, (struct sockaddr *)&sa_local, &naddr);
     assert(rv == 0);
 }
 

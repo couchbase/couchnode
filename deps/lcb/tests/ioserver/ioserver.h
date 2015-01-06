@@ -12,6 +12,7 @@
 #ifndef _WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #define closesocket close
@@ -40,9 +41,12 @@ class TestConnection;
 class SockFD {
 public:
     SockFD(int sock);
-    ~SockFD();
-    operator int() const { return fd; }
-    void close();
+    virtual ~SockFD();
+    virtual void close();
+
+    virtual int getFD() const { return fd; }
+    operator int() const { return getFD(); }
+
     void loadRemoteAddr();
 
     const struct sockaddr_in& localAddr4() {
@@ -69,7 +73,24 @@ public:
         return getHostCommon(&sa_remote);
     }
 
+    template <typename T> bool setOption(int level, int option, T val) {
+        int rv = setsockopt(fd, level, option, (char *)&val, sizeof val);
+        return rv == 0;
+    }
+
+    bool setNodelay(bool enabled = true) {
+        int isEnabled = enabled ? 1 : 0;
+        return setOption<int>(IPPROTO_TCP, TCP_NODELAY, isEnabled);
+    }
+
     SockFD *acceptClient();
+
+    virtual size_t send(const void *buf, size_t n, int flags = 0) {
+        return ::send(fd, (const char *)buf, n, flags);
+    }
+    virtual ssize_t recv(void *buf, size_t n, int flags = 0) {
+        return ::recv(fd, (char *)buf, n, flags);
+    }
 
     static SockFD *newListener();
     static SockFD *newClient(SockFD *server);
@@ -363,9 +384,9 @@ public:
     inline void _doRun();
 
 protected:
-    TestConnection(TestServer *server, int sock);
+    TestConnection(TestServer *server, SockFD *newsock);
     ~TestConnection();
-    void run();
+    virtual void run();
     friend class TestServer;
 
 private:
@@ -385,6 +406,35 @@ private:
     void recvData();
     void handleClose();
 };
+
+#ifndef LCB_NO_SSL
+#include <openssl/ssl.h>
+
+class SslSocket : public SockFD {
+public:
+    SslSocket(SockFD *innner);
+
+    ~SslSocket();
+
+    // Receive data via SSL
+    size_t send(const void*,size_t,int);
+
+    // Send data via SSL
+    ssize_t recv(void*,size_t,int);
+
+    // Close the SSL context first
+    void close();
+
+    // Return the real FD
+    int getFD() const { return sfd->getFD(); }
+
+private:
+    SSL *ssl;
+    SSL_CTX *ctx;
+    SockFD *sfd;
+    bool ok;
+};
+#endif
 
 
 /**
@@ -438,6 +488,18 @@ public:
      * @return The listening port
      */
     std::string getPortString();
+
+    typedef SockFD * (SocketFactory)(int);
+
+    SocketFactory *factory;
+    static SockFD *plainSocketFactory(int fd) { return new SockFD(fd); }
+
+#ifndef LCB_NO_SSL
+    static SockFD *sslSocketFactory(int fd) {
+        SockFD *inner = new SockFD(fd);
+        return new SslSocket(inner);
+    }
+#endif
 
 private:
     friend class TestConnection;

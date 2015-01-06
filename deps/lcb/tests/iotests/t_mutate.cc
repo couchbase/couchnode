@@ -67,6 +67,66 @@ TEST_F(MutateUnitTest, testSimpleSet)
     EXPECT_EQ(2, numcallbacks);
 }
 
+/**
+ * @test Zero length key
+ * @pre set a zero length for a key foo
+ * @post should not be able to schedule operation
+ */
+TEST_F(MutateUnitTest, testStoreZeroLengthKey)
+{
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+
+    lcb_sched_enter(instance);
+    lcb_CMDSTORE cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, NULL, 0);
+    LCB_CMD_SET_VALUE(&cmd, "bar", 3);
+    cmd.operation = LCB_SET;
+    EXPECT_EQ(LCB_EMPTY_KEY, lcb_store3(instance, NULL, &cmd));
+    lcb_sched_leave(instance);
+}
+
+
+extern "C" {
+    static void
+    testStoreZeroLengthValueCallback(lcb_t, int, const lcb_RESPBASE *resp)
+    {
+        lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
+        int *counter = (int *)sresp->cookie;
+        ASSERT_EQ(LCB_SET, sresp->op);
+        EXPECT_EQ(LCB_SUCCESS, sresp->rc);
+        ++(*counter);
+    }
+}
+/**
+ * @test Zero length value
+ * @pre set a zero length value for a key foo
+ * @post should be able to retreive back empty value
+ */
+TEST_F(MutateUnitTest, testStoreZeroLengthValue)
+{
+    std::string key("foo");
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+
+    lcb_sched_enter(instance);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, testStoreZeroLengthValueCallback);
+    lcb_CMDSTORE cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, key.data(), key.length());
+    LCB_CMD_SET_VALUE(&cmd, NULL, 0);
+    cmd.operation = LCB_SET;
+    int numcallbacks = 0;
+    EXPECT_EQ(LCB_SUCCESS, lcb_store3(instance, &numcallbacks, &cmd));
+    lcb_sched_leave(instance);
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    EXPECT_EQ(1, numcallbacks);
+
+    Item itm;
+    getKey(instance, key, itm);
+    EXPECT_EQ(0, itm.val.length());
+}
 
 extern "C" {
     static void testRemoveCallback(lcb_t, const void *cookie,
@@ -233,6 +293,43 @@ TEST_F(MutateUnitTest, testSimpleAppend)
 }
 
 extern "C" {
+    static void
+    testAppendNonExistingKeyCallback(lcb_t, int, const lcb_RESPBASE *resp)
+    {
+        lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
+        int *counter = (int *)sresp->cookie;
+        ASSERT_EQ(LCB_APPEND, sresp->op);
+        EXPECT_EQ(LCB_NOT_STORED, sresp->rc);
+        ++(*counter);
+    }
+}
+
+/**
+ * @test Append
+ * @pre Append a non existing key
+ * @post Returns key not stored
+ */
+TEST_F(MutateUnitTest, testAppendNonExistingKey)
+{
+    std::string key("testAppendNonExistingKey");
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+
+    lcb_sched_enter(instance);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, testAppendNonExistingKeyCallback);
+    lcb_CMDSTORE cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, key.data(), key.length());
+    LCB_CMD_SET_VALUE(&cmd, "bar", 3);
+    cmd.operation = LCB_APPEND;
+    int numcallbacks = 0;
+    EXPECT_EQ(LCB_SUCCESS, lcb_store3(instance, &numcallbacks, &cmd));
+    lcb_sched_leave(instance);
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    EXPECT_EQ(1, numcallbacks);
+}
+
+extern "C" {
     static void testSimplePrependStoreCallback(lcb_t, const void *cookie,
                                                lcb_storage_t operation,
                                                lcb_error_t error,
@@ -275,6 +372,43 @@ TEST_F(MutateUnitTest, testSimplePrepend)
     Item itm;
     getKey(instance, key, itm);
     EXPECT_STREQ("barfoo", itm.val.c_str());
+}
+
+extern "C" {
+    static void
+    testPrependNonExistingKeyCallback(lcb_t, int, const lcb_RESPBASE *resp)
+    {
+        lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
+        int *counter = (int *)sresp->cookie;
+        ASSERT_EQ(LCB_PREPEND, sresp->op);
+        EXPECT_EQ(LCB_NOT_STORED, sresp->rc);
+        ++(*counter);
+    }
+}
+
+/**
+ * @test Prepend
+ * @pre prepend a non existing key
+ * @post Returns key not stored
+ */
+TEST_F(MutateUnitTest, testPrependNonExistingKey)
+{
+    std::string key("testPrependNonExistingKey");
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+
+    lcb_sched_enter(instance);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, testPrependNonExistingKeyCallback);
+    lcb_CMDSTORE cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, key.data(), key.length());
+    LCB_CMD_SET_VALUE(&cmd, "foo", 3);
+    cmd.operation = LCB_PREPEND;
+    int numcallbacks = 0;
+    EXPECT_EQ(LCB_SUCCESS, lcb_store3(instance, &numcallbacks, &cmd));
+    lcb_sched_leave(instance);
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    EXPECT_EQ(1, numcallbacks);
 }
 
 extern "C" {

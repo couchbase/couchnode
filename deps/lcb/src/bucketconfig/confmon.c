@@ -27,7 +27,7 @@ static void invoke_listeners(lcb_confmon *mon,
                              clconfig_event_t event,
                              clconfig_info *info);
 
-#define IS_REFRESHING(mon) (mon)->state & CONFMON_S_ACTIVE
+#define IS_REFRESHING(mon) ((mon)->state & CONFMON_S_ACTIVE)
 
 static clconfig_provider *next_active(lcb_confmon *mon, clconfig_provider *cur)
 {
@@ -210,7 +210,14 @@ void lcb_confmon_provider_failed(clconfig_provider *provider,
     }
 
     if (reason != LCB_SUCCESS) {
-        mon->last_error = reason;
+        if (mon->settings->detailed_neterr && mon->last_error != LCB_SUCCESS) {
+            /* Filter out any artificial 'connect error' or 'network error' codes */
+            if (reason != LCB_CONNECT_ERROR && reason != LCB_NETWORK_ERROR) {
+                mon->last_error = reason;
+            }
+        } else {
+            mon->last_error = reason;
+        }
     }
 
     mon->cur_provider = next_active(mon, mon->cur_provider);
@@ -274,7 +281,8 @@ static void async_start(void *arg)
 
 lcb_error_t lcb_confmon_start(lcb_confmon *mon)
 {
-    lcb_uint32_t now_us, diff, tmonext;
+    lcb_U32 tmonext = 0;
+
     lcbio_async_cancel(mon->as_stop);
     if (IS_REFRESHING(mon)) {
         LOG(mon, DEBUG, "Refresh already in progress...");
@@ -285,13 +293,11 @@ lcb_error_t lcb_confmon_start(lcb_confmon *mon)
     lcb_assert(mon->cur_provider);
     mon->state = CONFMON_S_ACTIVE|CONFMON_S_ITERGRACE;
 
-    now_us = LCB_NS2US(gethrtime());
-    diff = now_us - mon->last_stop_us;
-
-    if (diff > mon->settings->grace_next_cycle) {
-        tmonext = 0;
-    } else {
-        tmonext = mon->settings->grace_next_cycle - diff;
+    if (mon->last_stop_us > 0) {
+        lcb_U32 diff = LCB_NS2US(gethrtime()) - mon->last_stop_us;
+        if (diff <= mon->settings->grace_next_cycle) {
+            tmonext = mon->settings->grace_next_cycle - diff;
+        }
     }
 
     lcbio_timer_rearm(mon->as_start, tmonext);

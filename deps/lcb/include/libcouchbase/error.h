@@ -77,6 +77,12 @@ typedef enum {
     LCB_ERRTYPE_SRVGEN = 1 << 8
 } lcb_errflags_t;
 
+/* PRIVATE. This is just here to instruct/inform users to use the more detailed codes */
+#define LCB__ERR_USEDETAILS \
+    "Enable detailed error codes (via LCB_CNTL_DETAILED_ERRCODES, or via " \
+    "`detailed_errcodes` in the connection string) and/or enable logging to " \
+    "get more information"
+
 /**
  * @brief XMacro for all error types
  * @param X macro to be invoked for each function. This will accept the following
@@ -172,7 +178,8 @@ typedef enum {
      detailed information about a socket error.
 
      @see lcb_cntl(), @ref LCB_CNTL_DETAILED_ERRCODES */ \
-    X(LCB_NETWORK_ERROR, 0x10, LCB_ERRTYPE_NETWORK, "Network failure") \
+    X(LCB_NETWORK_ERROR, 0x10, LCB_ERRTYPE_NETWORK, \
+      "Generic network failure. " LCB__ERR_USEDETAILS) \
     \
     /**Error code received in callbacks if the command was forwarded to the wrong
     server (for example, during a rebalance) and the library settings are configured
@@ -219,7 +226,7 @@ typedef enum {
     \
     /** @see LCB_NETWORK_ERROR, LCB_UNKNOWN_HOST, @ref LCB_CNTL_DETAILED_ERRCODES */ \
     X(LCB_CONNECT_ERROR, 0x18, LCB_ERRTYPE_NETWORK, \
-      "Error while establishing TCP connection") \
+      "Error while establishing TCP connection. " LCB__ERR_USEDETAILS) \
     \
     /** Received on initial bootstrap if the bucket does not exist. Note that
      for CCCP bootstrap, @ref LCB_AUTH_ERROR will be received instead */ \
@@ -280,7 +287,7 @@ typedef enum {
     \
     /** Received from lcb_create() if the username does not match the bucket */ \
     X(LCB_INVALID_USERNAME, 0x26, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_FATAL, \
-      "The administrative account can no longer be used for data access") \
+      "The username must match the bucket name (or be NULL) for data access") \
     \
     X(LCB_CONFIG_CACHE_INVALID, 0x27, LCB_ERRTYPE_INPUT, \
       "The contents of the configuration cache file were invalid. Configuration " \

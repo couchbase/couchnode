@@ -32,7 +32,6 @@ SET(COUCHBASE_MOCK_VERSION
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
 SET(COUCHBASE_MOCK_DLSERVER
     http://files.couchbase.com/maven2/org/couchbase/mock/CouchbaseMock)
-SET(HAVE_COUCHBASEMOCK 1)
 project(libcouchbase)
 
 OPTION(LCB_NO_TESTS "Disable building of tests" OFF)
@@ -50,6 +49,7 @@ OPTION(LCB_STATIC_SNAPPY "Use the bundled libsnappy. Do not link with system sna
 OPTION(LCB_USE_ARCHLIBDIR "Use architecture-prefixed library installation directory, if possible" OFF)
 OPTION(LCB_BUILD_EXAMPLES "Build example applications" OFF)
 OPTION(LCB_NO_MOCK "Don't run tests which depend on the mock" OFF)
+OPTION(LCB_BUILD_DTRACE "Build DTrace instrumentation, if available on platform" ON)
 
 ### END CONFIGURABLES ###
 IF(MSVC)
@@ -67,12 +67,13 @@ ELSE()
 ENDIF()
 
 # If building from a configured autotools tree, bail.
-IF(EXISTS ${CMAKE_SOURCE_DIR}/src/config.h)
+IF(EXISTS ${PROJECT_SOURCE_DIR}/src/config.h)
     MESSAGE(FATAL_ERROR "config.h found in src/. This will break the CMake build. Remove it manually then rerun")
 ENDIF()
 
-SET(LCB_GENSRCDIR ${CMAKE_BINARY_DIR}/generated)
+SET(LCB_GENSRCDIR ${PROJECT_BINARY_DIR}/generated)
 INCLUDE_DIRECTORIES(${LCB_GENSRCDIR})
+SET(LCB_GENINFODIR ${PROJECT_SOURCE_DIR}/packaging/distinfo)
 
 INCLUDE(cmake/Modules/GetLibcouchbaseFlags.cmake)
 INCLUDE(cmake/Modules/FindCouchbaseLibevent.cmake)
@@ -99,7 +100,7 @@ SET(CPACK_PACKAGE_VERSION_MINOR "${LCB_VERSION_MINOR}")
 SET(CPACK_PACKAGE_VERSION_PATCH "${LCB_VERSION_PATCH}")
 IF(NOT CMAKE_BUILD_TYPE)
     SET(CPACK_INSTALL_SCRIPT
-        "${CMAKE_SOURCE_DIR}/cmake/Modules/DistScript.cmake")
+        "${PROJECT_SOURCE_DIR}/cmake/Modules/DistScript.cmake")
 ENDIF()
 SET(lcb_package_name "libcouchbase-${LCB_VERSION}_${LCB_ARCH_STRING}_${LCB_CC_STRING}")
 SET(CPACK_PACKAGE_FILE_NAME ${lcb_package_name})
@@ -112,25 +113,22 @@ ENDIF()
 
 INCLUDE(CPack)
 
-SET(CHANGESET ${LCB_VERSION_CHANGESET})
 CONFIGURE_FILE(
-    ${CMAKE_SOURCE_DIR}/include/libcouchbase/configuration.h.in
+    ${PROJECT_SOURCE_DIR}/include/libcouchbase/configuration.h.in
     ${LCB_GENSRCDIR}/libcouchbase/configuration.h
     @ONLY)
 
 CONFIGURE_FILE(
-    ${CMAKE_SOURCE_DIR}/cmake/defs.mk.in
-    ${CMAKE_BINARY_DIR}/defs.mk)
+    ${PROJECT_SOURCE_DIR}/cmake/defs.mk.in
+    ${PROJECT_BINARY_DIR}/defs.mk)
 
-UNSET(CHANGESET)
 CONFIGURE_FILE(
-    ${CMAKE_SOURCE_DIR}/win32/dllversion.rc.in
-    ${CMAKE_BINARY_DIR}/dllversion.rc)
+    ${PROJECT_SOURCE_DIR}/packaging/dllversion.rc.in
+    ${PROJECT_BINARY_DIR}/dllversion.rc)
 
 SET(NT_REQUIRED_VERSION 0x0600)
 
 ADD_DEFINITIONS(-DLIBCOUCHBASE_INTERNAL=1)
-ADD_DEFINITIONS(-DCBSASL_STATIC=1)
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
@@ -140,15 +138,27 @@ ELSE()
     SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 ENDIF()
 
-SET(SOURCE_ROOT ${CMAKE_SOURCE_DIR})
+SET(SOURCE_ROOT ${PROJECT_SOURCE_DIR})
 
 IF(WIN32)
     ADD_DEFINITIONS(-DWINVER=${NT_REQUIRED_VERSION})
     ADD_DEFINITIONS(-D_WIN32_WINNT=${NT_REQUIRED_VERSION})
-    SET(lcb_plat_includes "${SOURCE_ROOT}/win32")
-    SET(lcb_plat_libs couchbase_iocp ws2_32.lib)
+    SET(lcb_plat_includes "${SOURCE_ROOT}/contrib/win32-defs")
+    SET(lcb_plat_libs ws2_32.lib)
+    SET(lcb_plat_objs $<TARGET_OBJECTS:couchbase_iocp>)
 ELSE()
-    SET(lcb_plat_libs dl m pthread)
+    SET(lcb_plat_libs m)
+    IF(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+        SET(lcb_plat_libs ${lcb_plat_libs} dl)
+    ELSE()
+        # BSD _and_ DTrace
+        IF(LCB_BUILD_DTRACE)
+            SET(lcb_plat_libs ${lcb_plat_libs} elf)
+        ENDIF()
+    ENDIF()
+    IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+        SET(lcb_plat_libs ${lcb_plat_libs} nsl socket)
+    ENDIF()
 ENDIF()
 
 INCLUDE_DIRECTORIES(BEFORE ${SOURCE_ROOT}/include
@@ -208,9 +218,11 @@ ELSE()
     SET(_lcb_linkspec SHARED)
 ENDIF()
 
-IF(NOT WIN32)
+# CMake configuration
+IF(NOT WIN32 AND LCB_BUILD_DTRACE)
     INCLUDE(cmake/Modules/ConfigureDtrace.cmake)
 ENDIF()
+
 SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:couchbase_select>
     $<TARGET_OBJECTS:couchbase_utils>
@@ -222,11 +234,24 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:rdb>
     $<TARGET_OBJECTS:lcbht>
     $<TARGET_OBJECTS:lcbcore>
-    ${lcb_ssl_objs}
-    ${LCB_DTRACE_OBJECT})
+    ${LCB_DTRACE_OBJECT}
+    ${lcb_plat_objs}
+    ${lcb_ssl_objs})
 
 ADD_LIBRARY(couchbaseS STATIC ${LCB_CORE_OBJS})
-ADD_LIBRARY(couchbase ${_lcb_linkspec} ${LCB_CORE_OBJS} ${CMAKE_BINARY_DIR}/dllversion.rc)
+ADD_LIBRARY(couchbase ${_lcb_linkspec} ${LCB_CORE_OBJS} ${PROJECT_BINARY_DIR}/dllversion.rc)
+
+# For DTrace implementations which need to gain access to all the *.o files first
+# we need to hook the linker command to a custom perl script which will intercept
+# the object files passed to the linker, run dtrace on them, and inject the generated
+# object into the linker commandline. This is a bit fragile but we don't officially
+# support any of these platforms anyway
+IF(LCB_DTRACE_INSTRO)
+    SET(_lcb_linkhook "${PROJECT_SOURCE_DIR}/cmake/dtrace-instr-link.pl ${LCB_DTRACE_SRC}")
+    SET_TARGET_PROPERTIES(couchbase PROPERTIES RULE_LAUNCH_LINK ${_lcb_linkhook})
+    SET_TARGET_PROPERTIES(couchbaseS PROPERTIES RULE_LAUNCH_LINK ${_lcb_linkhook})
+ENDIF()
+
 # This is done to be ABI-compatible with Autotools. On OSX, autotools generates
 # a library with a Compatibility and Current versions of 3.x despite our library
 # actually being versioned at 2.x. To make things worse, autotools also actually
@@ -271,8 +296,10 @@ ENDIF()
 
 SET_TARGET_PROPERTIES(couchbase PROPERTIES PREFIX "lib")
 SET_TARGET_PROPERTIES(couchbase PROPERTIES IMPORT_PREFIX "lib")
-SET(LCB_LINK_DEPS
-    ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_SNAPPY_LINK})
+SET(LCB_LINK_DEPS ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_SNAPPY_LINK})
+IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} rt)
+ENDIF()
 
 TARGET_LINK_LIBRARIES(couchbase ${LCB_LINK_DEPS})
 TARGET_LINK_LIBRARIES(couchbaseS ${LCB_LINK_DEPS})
@@ -288,8 +315,9 @@ IF(NOT LCB_NO_TOOLS)
     ADD_SUBDIRECTORY(tools tools)
 ENDIF(NOT LCB_NO_TOOLS)
 
+# Always add this file, as we need the headers for this!
+ADD_SUBDIRECTORY(plugins/io/libuv)
 IF(NOT LCB_NO_PLUGINS AND LCB_BUILD_LIBUV)
-    ADD_SUBDIRECTORY(plugins/io/libuv)
 ENDIF()
 
 IF(NOT LCB_NO_PLUGINS AND NOT WIN32)
@@ -322,28 +350,27 @@ INSTALL(DIRECTORY include/libcouchbase ${LCB_GENSRCDIR}/libcouchbase
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN *.h PATTERN *.c)
 
-INSTALL(DIRECTORY man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 FILES_MATCHING PATTERN *.1)
-INSTALL(DIRECTORY man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man4  FILES_MATCHING PATTERN *.4)
+INSTALL(DIRECTORY doc/man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 FILES_MATCHING PATTERN *.1)
+INSTALL(DIRECTORY doc/man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man4  FILES_MATCHING PATTERN *.4)
 
 INSTALL_PDBS(couchbase)
 
 SET(_lcb_tarname "libcouchbase-${LCB_VERSION}")
-SET(_lcb_manifest "${CMAKE_SOURCE_DIR}/MANIFEST")
+SET(_lcb_manifest "${LCB_GENINFODIR}/MANIFEST")
 
 ADD_CUSTOM_TARGET(uninstall
     COMMAND xargs rm -vf < ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
 
 ADD_CUSTOM_TARGET(file_manifest
     COMMAND sh -c 'test -e ${_lcb_manifest} || git ls-files > ${_lcb_manifest}'
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 
 ADD_CUSTOM_TARGET(dist
     COMMAND rm -rf "${_lcb_tarname}"
     COMMAND mkdir "${_lcb_tarname}"
-    COMMAND tar -cf - -C ${CMAKE_SOURCE_DIR} -T ${_lcb_manifest} | tar xf - -C "${_lcb_tarname}"
-    COMMAND cp ${CMAKE_SOURCE_DIR}/VERSION "${_lcb_tarname}"
-    COMMAND cp ${CMAKE_SOURCE_DIR}/MANIFEST "${_lcb_tarname}"
+    COMMAND tar -cf - -C ${PROJECT_SOURCE_DIR} -T ${_lcb_manifest} | tar xf - -C "${_lcb_tarname}"
+    COMMAND cp -a "${LCB_GENINFODIR}" "${_lcb_tarname}/packaging"
     COMMAND tar -czf "${_lcb_tarname}.tar.gz" "${_lcb_tarname}"
     COMMAND rm -rf "${_lcb_tarname}"
     DEPENDS file_manifest)

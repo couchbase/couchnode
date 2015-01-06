@@ -533,6 +533,9 @@ TEST_F(DurabilityUnitTest, testMulti)
 
     createConnection(hwrap);
     instance = hwrap.getLcb();
+    // Set the timeout to something high. For some reason this gives problem
+    // on a real cluster
+    lcb_cntl_setu32(instance, LCB_CNTL_DURABILITY_TIMEOUT, LCB_MS2US(10000));
 
     for (ii = 0; ii < limit; ii++) {
         char buf[64];

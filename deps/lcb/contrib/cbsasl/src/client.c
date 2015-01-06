@@ -14,12 +14,12 @@
  *   limitations under the License.
  */
 
-#include "config.h"
-
 #include "cbsasl/cbsasl.h"
 #include "cram-md5/hmac.h"
 #include "util.h"
 #include <time.h>
+#include <stdlib.h>
+#include <string.h>
 
 CBSASL_PUBLIC_API
 cbsasl_error_t cbsasl_client_new(const char *service,
@@ -199,7 +199,7 @@ cbsasl_error_t cbsasl_client_step(cbsasl_conn_t *conn,
            sizeof(md5string));
 
     *clientout = conn->c.client.userdata;
-    *clientoutlen = (unsigned int)strlen(conn->c.client.userdata);
+    *clientoutlen = strlen(conn->c.client.userdata);
 
     return SASL_CONTINUE;
 }

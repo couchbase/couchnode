@@ -14,10 +14,6 @@ TAR_VERSION		:= $(shell $(GITPARSE) --tar --input $(REVDESCRIBE))
 
 EXTRA_RPMDEFS	:=
 
-ifdef LCB_BUILDING_WITH_CMAKE
-	EXTRA_RPMDEFS += --define "__lcb_is_cmake 1"
-endif
-
 dist-rpm: dist
 	rm -rf $(RPM_WORKSPACE)
 	mkdir -p $(RPM_DIR)

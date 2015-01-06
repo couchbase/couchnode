@@ -386,7 +386,7 @@ lcb_error_t lcb_create(lcb_t *instance,
             goto GT_DONE;
         }
         io_priv = ops;
-        io_priv->v.v0.need_cleanup = 1;
+        LCB_IOPS_BASEFLD(io_priv, need_cleanup) = 1;
     }
 
     obj->cmdq.cqdata = obj;
@@ -669,116 +669,6 @@ lcb_supports_feature(int n)
     }
 }
 
-LIBCOUCHBASE_API
-lcb_error_t lcb__create_compat_230(
-        lcb_cluster_t type, const void *specific, lcb_t *instance,
-        struct lcb_io_opt_st *io)
-{
-    struct lcb_create_st cst = { 0 };
-    const struct lcb_cached_config_st *cfg = specific;
-    const struct lcb_create_st *crp = &cfg->createopt;
-    lcb_error_t err;
-    lcb_size_t to_copy = 0;
-
-    if (type != LCB_CACHED_CONFIG) {
-        return LCB_NOT_SUPPORTED;
-    }
-
-    if (crp->version == 0) {
-        to_copy = sizeof(cst.v.v0);
-    } else if (crp->version == 1) {
-        to_copy = sizeof(cst.v.v1);
-    } else if (crp->version >= 2) {
-        to_copy = sizeof(cst.v.v2);
-    } else {
-        /* using version 3? */
-        return LCB_NOT_SUPPORTED;
-    }
-    memcpy(&cst, crp, to_copy);
-
-    if (io) {
-        cst.v.v0.io = io;
-    }
-    err = lcb_create(instance, &cst);
-    if (err != LCB_SUCCESS) {
-        return err;
-    }
-    err = lcb_cntl(*instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE,
-                   (void *)cfg->cachefile);
-    if (err != LCB_SUCCESS) {
-        lcb_destroy(*instance);
-    }
-    return err;
-}
-struct compat_220 {
-    struct {
-        int version;
-        struct lcb_create_st1 v1;
-    } createopt;
-    const char *cachefile;
-};
-
-struct compat_230 {
-    struct {
-        int version;
-        struct lcb_create_st2 v2;
-    } createopt;
-    const char *cachefile;
-};
-
-#undef lcb_create_compat
-/**
- * This is _only_ called for versions <= 2.3.0.
- * >= 2.3.0 uses the _230() symbol.
- *
- * The big difference between this and the _230 function is the struct layout,
- * where the newer one contains the filename _before_ the creation options.
- *
- * Woe to he who relies on the compat_st as a 'subclass' of create_st..
- */
-
-LIBCOUCHBASE_API
-lcb_error_t lcb_create_compat(lcb_cluster_t type,
-                               const void *specific,
-                               lcb_t *instance,
-                               struct lcb_io_opt_st *io);
-
-/* Mute usage of deprecated functions further on .. */
-#if defined(__clang__) || __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-LIBCOUCHBASE_API
-lcb_error_t lcb_create_compat(lcb_cluster_t type,
-                              const void *specific,
-                              lcb_t *instance,
-                              struct lcb_io_opt_st *io)
-{
-    struct lcb_cached_config_st dst;
-    const struct compat_220* src220 = specific;
-
-    if (type == LCB_MEMCACHED_CLUSTER) {
-        return lcb__create_compat_230(type, specific, instance, io);
-    } else if (type != LCB_CACHED_CONFIG) {
-        return LCB_NOT_SUPPORTED;
-    }
-
-#define copy_compat(v) \
-    memcpy(&dst.createopt, &v->createopt, sizeof(v->createopt)); \
-    dst.cachefile = v->cachefile;
-
-    if (src220->createopt.version >= 2 || src220->cachefile == NULL) {
-        const struct compat_230* src230 = specific;
-        copy_compat(src230);
-    } else {
-        copy_compat(src220);
-    }
-    return lcb__create_compat_230(type, &dst, instance, io);
-}
-
-LIBCOUCHBASE_API void lcb_flush_buffers(lcb_t instance, const void *cookie) {
-    (void)instance;(void)cookie;
-}
 
 LCB_INTERNAL_API void lcb_loop_ref(lcb_t instance) {
     lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
@@ -788,8 +678,6 @@ LCB_INTERNAL_API void lcb_loop_unref(lcb_t instance) {
     lcb_maybe_breakout(instance);
 }
 
-LIBCOUCHBASE_API
-lcb_error_t lcb_get_last_error(lcb_t instance){return instance->last_error;}
 
 LIBCOUCHBASE_API
 const char *lcb_strerror(lcb_t instance, lcb_error_t error)
@@ -809,14 +697,4 @@ int lcb_get_errtype(lcb_error_t err)
     LCB_XERR(X)
     #undef X
     return -1;
-}
-
-LIBCOUCHBASE_API
-lcb_error_t lcb_verify_struct_size(lcb_U32 id, lcb_U32 version, lcb_SIZE size)
-{
-    #define X(sname, sabbrev, idval, vernum) \
-    if (idval == id && size == sizeof(sname) && version <= vernum) { return LCB_SUCCESS; }
-    LCB_XSSIZES(X);
-    #undef X
-    return LCB_EINVAL;
 }

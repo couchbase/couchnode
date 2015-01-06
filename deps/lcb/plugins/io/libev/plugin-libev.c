@@ -20,6 +20,7 @@
  *
  * @author Sergey Avseyev
  */
+#define LCB_IOPS_V12_NO_DEPRECATE
 #include "config.h"
 #ifdef HAVE_LIBEV_EV_H
 #include <libev/ev.h>
@@ -242,14 +243,14 @@ lcb_error_t lcb_create_libev_io_opts(int version, lcb_io_opt_t *io, void *arg)
     }
 
     /* setup io iops! */
-    ret->version = 2;
+    ret->version = 3;
     ret->dlhandle = NULL;
     ret->destructor = lcb_destroy_io_opts;
-    ret->v.v2.get_procs = procs2_ev_callback;
+    ret->v.v3.get_procs = procs2_ev_callback;
 
     /* consider that struct isn't allocated by the library,
      * `need_cleanup' flag might be set in lcb_create() */
-    ret->v.v2.need_cleanup = 0;
+    ret->v.v3.need_cleanup = 0;
 
     if (loop == NULL) {
         if ((cookie->loop = ev_loop_new(EVFLAG_AUTO | EVFLAG_NOENV)) == NULL) {
@@ -263,7 +264,9 @@ lcb_error_t lcb_create_libev_io_opts(int version, lcb_io_opt_t *io, void *arg)
         cookie->allocated = 0;
     }
     cookie->suspended = 1;
-    ret->v.v2.cookie = cookie;
+    ret->v.v3.cookie = cookie;
+
+    wire_lcb_bsd_impl(ret);
 
     *io = ret;
     return LCB_SUCCESS;

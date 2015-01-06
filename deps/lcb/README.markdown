@@ -23,16 +23,11 @@ necessary to connect to the cluster and execute data operations.
 
 ## Building
 
-Before you build from this repository, please check the [Couchbase C
-Portal](http://couchbase.com/communities/c) to see if there is a binary
-or release tarball available for your needs. Since the code here is
+Before you build from this repository, please check the
+[installation page](http://docs.couchbase.com/developer/c-2.4/download-install.html)
+to see if there is a binary or release tarball available for your needs. Since the code here is
 not part of an official release it has therefore not gone through our
 release testing process.
-
-For building you have two options; the first is via GNU autotools and
-the second is via CMake. Autotools provides more packaging flexibility
-while CMake integrates better into your normal (C/C++) development
-environment. CMake is also the only way to build the library on Windows.
 
 ### Dependencies
 
@@ -40,79 +35,37 @@ By default the library depends on:
 
 * _libevent_ (or _libev_) for the primary I/O backend.
 * _openssl_ for SSL transport.
+* _CMake_ version 2.8.9 or greater (for building)
 
 On Unix-like systems these dependencies are checked for by default
 while on Windows they are not checked by default.
 
-You may compile the library without any external dependencies by passing
-`--disable-plugins` to disable dependencies on _libevent_ and/or _libev_
-and `--enable-ssl=no` to disable SSL support.
+On Unix, the build system will expect to have _libevent_ or _libev_ installed,
+unless building plugins is explicitly disabled (see further).
 
-If you are building libcouchbase as a depdency for an application which
-contains its own event loop implementation then you may specify the
-`--disable-plugins` option to the configure script.
-
-Additionally, in order to run the tests you will need to have java
-installed.  The tests make use of a mock server written in Java.
-
-The binary command line tools (i.e. `cbc`) and tests require a C++
-compiler. The core library requires only C.
-
-#### OpenSSL on OS X
-Note that on recent versions of OS X, the bundled version of OpenSSL
-is considered deprecated and should not be used. Rather, install a
-different version of OpenSSL via homebrew, and direct the configure
-script to look in that location via e.g.
-
-```
-mnunberg@mbp15 ~ $ brew list openssl
-/usr/local/Cellar/openssl/1.0.1g/bin/openssl
-# Install root is /usr/local/Cellar/openssl/1.0.1g
-# ...
-./configure --with-openssl=/usr/local/Cellar/openssl/1.0.1g
-```
-
-### Building with autotools
-
-In order to build with autotools you need to generate the `configure` script
-first. This requires `autoconf`, `automake`, `libtool` and friends.
-
-```shell
-$ ./config/autorun.sh
-$ ./configure
-$ make
-$ make check
-$ make install
-```
-
-You may run `./configure --help` to see a list of build options
-
-### Building with CMake (*nix)
+### Building on Unix-like systems
 
 Provided is a convenience script called `cmake/configure`. It is a Perl
 script and functions like a normal `autotools` script.
 
 ```shell
-$ mkdir lcb-build # sibling of the git tree
-$ cd lcb-build
-$ ../libcouchbase/cmake/configure
+$ git clone git://github.com/couchbase/libcouchbase.git
+$ cd libcouchbase && mkdir build && cd build
+$ ../cmake/configure
 $ make
 $ ctest
 ```
 
-### Building with CMake (Windows)
+### Building on Windows
 
-Spin up your visual studio shell and run cmake from there. It is best
-practice that you make an out-of-tree build; thus like so:
-
-Assuming Visual Studio 2010
+Assuming `git` and Visual Studio 2010 are installed, from a `CMD` shell, do:
 
 ```
 C:\> git clone git://github.com/couchbase/libcouchbase.git
 C:\> mkdir lcb-build
 C:\> cd lcb-build
 C:\> cmake -G "Visual Studio 10" ..\libcouchbase
-C:\> msbuild /M libcouchbase.sln
+C:\> cmake --build .
 ```
 
 This will generate and build a Visual Studio `.sln` file.
@@ -172,8 +125,26 @@ documentation.
 
 ## Contributors
 
-See the `AUTHORS` file
+The following people contributed to libcouchbase (in alphabetic order)
+(last updated Nov. 27 2014)
 
+* Brett Lawson <brett19@gmail.com>
+* Dave Rigby <daver@couchbase.com>
+* Jan Lehnardt <jan@apache.org>
+* Mark Nunberg <mnunberg@haskalah.org>
+* Matt Ingenthron <ingenthr@cep.net>
+* Patrick Varley <patrick@couchbase.com>
+* Paul Farag <pfarag@neuraliq.com>
+* Pierre Joye <pierre.php@gmail.com>
+* Sebastian <sebastian@chango.com>
+* Sergey Avseyev <sergey.avseyev@gmail.com>
+* Subhashni Balakrishnan <b.subhashni@gmail.com>
+* Sundar Sridharan <sundar.sridharan@gmail.com>
+* Trond Norbye <trond.norbye@gmail.com>
+* Volker Mische <vmx@couchbase.com>
+* William Bowers <wbowers@neuraliq.com>
+* Yura Sokolov <funny.falcon@gmail.com>
+* Yury Alioshinov <haster2010@gmail.com>
 
 ## License
 

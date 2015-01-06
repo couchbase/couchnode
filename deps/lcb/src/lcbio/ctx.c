@@ -483,7 +483,8 @@ E_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
     lcb_socket_t fd = CTX_FD(ctx);
 
     GT_WRITE_AGAIN:
-    nw = IOT_V0IO(iot).sendv(IOT_ARG(iot), fd, iov, niov);
+    nw = IOT_V0IO(iot).sendv(IOT_ARG(iot), fd, iov,
+        niov <= RWINL_IOVSIZE ? niov : RWINL_IOVSIZE);
     if (nw > 0) {
         ctx->procs.cb_flush_done(ctx, nb, nw);
         return 1;

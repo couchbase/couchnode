@@ -82,6 +82,7 @@
 #define HAVE_GETTIMEOFDAY 1
 
 /* Have ntohll */
+#include <arpa/inet.h>
 #define HAVE_HTONLL
 
 /* Define to 1 if you have the <inttypes.h> header file. */

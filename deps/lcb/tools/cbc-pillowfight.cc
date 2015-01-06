@@ -199,7 +199,7 @@ public:
     void *data;
 
     uint32_t opsPerCycle;
-    int setprc;
+    unsigned setprc;
     string prefix;
     uint32_t maxSize;
     uint32_t minSize;
@@ -215,7 +215,7 @@ private:
     StringOption o_keyPrefix;
     UIntOption o_numThreads;
     UIntOption o_randSeed;
-    IntOption o_setPercent;
+    UIntOption o_setPercent;
     UIntOption o_minSize;
     UIntOption o_maxSize;
     BoolOption o_noPopulate;
@@ -235,7 +235,7 @@ void log(const char *format, ...)
     va_start(args, format);
     vsprintf(buffer, format, args);
     if (config.isTimings()) {
-        std::cerr << "[" << std::fixed << gethrtime() / 1000000000.0 << "] ";
+        std::cerr << "[" << std::fixed << lcb_nstime() / 1000000000.0 << "] ";
     }
     std::cerr << buffer << std::endl;
     va_end(args);
@@ -273,7 +273,7 @@ public:
         }
 
         Histogram &h = ic->hg;
-        printf("[%f %s]\n", gethrtime() / 1000000000.0, header);
+        printf("[%f %s]\n", lcb_nstime() / 1000000000.0, header);
         printf("              +---------+---------+---------+---------+\n");
         h.write();
         printf("              +----------------------------------------\n");
@@ -363,22 +363,13 @@ public:
     }
 
     bool shouldStore(uint32_t seqno) {
-        seqno %= 100;
-        // This is a percentage..
-        if (config.setprc > 0) {
-            if (seqno % (100 / config.setprc) == 0) {
-                return true;
-            }
+        if (config.setprc == 0) {
             return false;
-        } else if (config.setprc == 0) {
-            return false; // Always get
-        } else {
-            // Negative
-            if (seqno % (100 / config.setprc) == 0) {
-                return false;
-            }
-            return true;
         }
+
+        float seqno_f = seqno % 100;
+        float pct_f = seqno_f / config.setprc;
+        return pct_f < 1;
     }
 
     void generateKey(NextOp& op) {

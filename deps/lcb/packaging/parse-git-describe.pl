@@ -129,14 +129,14 @@ sub get_rpm_versions {
     # Pre-release, no commits
     if ($extras) {
         if ($ncommits) {
-            $reltag .= ".r${ncommits}GIT${sha}";
+            $reltag .= ".r${ncommits}${sha}";
         } else {
             $reltag .= ".0";
         }
         $reltag .= ".$extras";
     } elsif ($ncommits) {
         # No extras. Do we still have something here?
-        $reltag .= ".r${ncommits}GIT${sha}.SP";
+        $reltag .= ".r${ncommits}${sha}.SP";
     }
     return ($vbase, $reltag);
 }

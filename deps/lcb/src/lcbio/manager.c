@@ -43,7 +43,6 @@ typedef struct lcbio_MGRHOST {
     mgr_KEY key; /* host:port */
     struct lcbio_MGR *parent;
     lcbio_pASYNC async;
-    unsigned n_leased; /* number of connections currently used */
     unsigned n_total; /* number of total connections */
     unsigned refcount;
 } mgr_HOST;
@@ -72,6 +71,7 @@ typedef struct lcbio_MGRREQ {
 #define HE_NPEND(he) LCB_CLIST_SIZE(&(he)->ll_pending)
 #define HE_NIDLE(he) LCB_CLIST_SIZE(&(he)->ll_idle)
 #define HE_NREQS(he) LCB_CLIST_SIZE(&(he)->requests)
+#define HE_NLEASED(he) ((he)->n_total - (HE_NIDLE(he) + HE_NPEND(he)))
 
 static void on_idle_timeout(void *cookie);
 static void he_available_notify(void *cookie);
@@ -253,7 +253,6 @@ connection_available(mgr_HOST *he)
         info = LCB_LIST_ITEM(connitem, mgr_CINFO, llnode);
         req->sock = info->sock;
         req->err = LCB_SUCCESS;
-        he->n_leased++;
         invoke_request(req);
     }
 }
@@ -314,7 +313,11 @@ start_new_connection(mgr_HOST *he, uint32_t tmo)
     info->idle_timer = lcbio_timer_new(he->parent->io, info, on_idle_timeout);
 
     err = lcb_host_parsez(&tmphost, he->key, 80);
-    lcb_assert(err == LCB_SUCCESS);
+    if (err != LCB_SUCCESS) {
+        lcb_log(LOGARGS(he->parent, ERROR), HE_LOGFMT "Could not parse host! Will supply dummy host", HE_LOGID(he));
+        strcpy(tmphost.host, "BADHOST");
+        strcpy(tmphost.port, "BADPORT");
+    }
     lcb_log(LOGARGS(he->parent, DEBUG), HE_LOGFMT "Starting connection on I=%p", HE_LOGID(he), (void*)info);
 
     info->cs = lcbio_connect(he->parent->io, he->parent->settings, &tmphost,
@@ -400,7 +403,6 @@ lcbio_mgr_get(lcbio_MGR *pool, lcb_host_t *dest, uint32_t timeout,
         req->state = RS_ASSIGNED;
         req->timer = lcbio_timer_new(pool->io, req, async_invoke_request);
         info->state = CS_LEASED;
-        he->n_leased++;
         lcbio_async_signal(req->timer);
         lcb_log(LOGARGS(pool, INFO), HE_LOGFMT "Found ready connection in pool. Reusing socket and not creating new connection", HE_LOGID(he));
 
@@ -480,17 +482,13 @@ lcbio_mgr_put(lcbio_SOCKET *sock)
     he = info->parent;
     mgr = he->parent;
 
-    if (HE_NIDLE(he) >= mgr->maxidle &&
-            HE_NREQS(he) <= (he->n_leased - he->n_leased)) {
-
+    if (HE_NIDLE(he) >= mgr->maxidle) {
         lcb_log(LOGARGS(mgr, INFO), HE_LOGFMT "Closing idle connection. Too many in quota", HE_LOGID(he));
         lcbio_unref(info->sock);
         return;
     }
 
     lcb_log(LOGARGS(mgr, INFO), HE_LOGFMT "Placing socket back into the pool. I=%p,C=%p", HE_LOGID(he), (void*)info, (void*)sock);
-
-    he->n_leased--;
     lcbio_timer_rearm(info->idle_timer, mgr->tmoidle);
     lcb_clist_append(&he->ll_idle, &info->llnode);
     info->state = CS_IDLE;
@@ -537,7 +535,7 @@ he_dump(mgr_HOST *he, FILE *out)
     lcb_list_t *llcur;
     fprintf(out, "HOST=%s", he->key);
     fprintf(out, "Requests=%d, Idle=%d, Pending=%d, Leased=%d\n",
-            (int)HE_NREQS(he), (int)HE_NIDLE(he), (int)HE_NPEND(he), he->n_leased);
+            (int)HE_NREQS(he), (int)HE_NIDLE(he), (int)HE_NPEND(he), (int)HE_NLEASED(he));
 
     fprintf(out, CONN_INDENT "Idle Connections:\n");
     write_he_list(&he->ll_idle, out);

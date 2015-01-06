@@ -174,6 +174,9 @@ public:
         ktype = Targ;
         klong = longname;
 
+        memset(&u_value, 0, sizeof u_value);
+        dest = &u_value;
+
         abbrev(shortname);
         description(helpstr);
         setDefault(deflval);

@@ -32,14 +32,30 @@
     #include <pthread.h>
     #include <sys/types.h>
 
+    /** XXX: If any of these blocks give problems for your platform, just
+     * erase it and have it use the fallback implementation. This isn't core
+     * functionality of the library, but is a rather helpful feature in order
+     * to get the thread/process identifier
+     */
+
     #if defined(__linux__)
         #include <sys/syscall.h>
         #define GET_THREAD_ID() (long)syscall(SYS_gettid)
         #define THREAD_ID_FMT "ld"
-
     #elif defined(__APPLE__)
         #define GET_THREAD_ID() pthread_mach_thread_np(pthread_self())
         #define THREAD_ID_FMT "u"
+    #elif defined(__sun) && defined(__SVR4)
+        #include <thread.h>
+        /* Thread IDs are not global in solaris, so it's nice to print the PID alongside it */
+        #define GET_THREAD_ID() getpid(), thr_self()
+        #define THREAD_ID_FMT "ld/%u"
+    #elif defined(__FreeBSD__)
+        /* Like solaris, but thr_self is a bit different here */
+        #include <sys/thr.h>
+        static long ret_thr_self(void) { long tmp; thr_self(&tmp); return tmp; }
+        #define GET_THREAD_ID() getpid(), ret_thr_self()
+        #define THREAD_ID_FMT "d/%ld"
     #else
         /* other unix? */
         #define GET_THREAD_ID() 0

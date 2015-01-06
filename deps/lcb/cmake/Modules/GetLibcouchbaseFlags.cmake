@@ -22,8 +22,7 @@ ENDMACRO(list2args)
 
 LIST(APPEND LCB_GNUC_CPP_WARNINGS
     -Wall -pedantic -Wshadow -fdiagnostics-show-option -Wformat
-    -fno-strict-aliasing -Wno-strict-aliasing -Wextra -Winit-self
-    -Wno-missing-field-initializers)
+    -Wno-strict-aliasing -Wextra -Winit-self -Wno-missing-field-initializers)
 
 IF("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
     LIST(APPEND LCB_GNUC_CPP_WARNINGS -Wno-cast-align -Wno-dollar-in-identifier-extension)
@@ -74,6 +73,17 @@ list2args( LCB_CL_CPPFLAGS_DEBUG)
 LIST(APPEND LCB_CL_CPPFLAGS_REL /O2)
 list2args(LCB_CL_CPPFLAGS_REL)
 
+MACRO(SET_ALL_FLAGS extra_flags)
+    FOREACH(variant C CXX)
+        FOREACH(config RELEASE DEBUG RELWITHDEBINFO)
+            SET(varname "CMAKE_${variant}_FLAGS_${config}")
+            SET(existing ${${varname}})
+            SET(${varname} "${existing} ${extra_flags}")
+        ENDFOREACH()
+        SET(CMAKE_${variant}_FLAGS "${CMAKE_${variant}_FLAGS} ${extra_flags}")
+    ENDFOREACH()
+ENDMACRO()
+
 IF(MSVC)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
     # Don't warn about "deprecated POSIX names"
@@ -104,15 +114,17 @@ IF(MSVC)
 
 ELSE()
     # GCC
+    SET_ALL_FLAGS("-fno-strict-aliasing")
     IF(WIN32)
         SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -gstabs")
         SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gstabs")
         SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
         SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+    ELSE()
+        SET_ALL_FLAGS("-pthread")
     ENDIF()
     SET(LCB_CORE_CFLAGS "${LCB_GNUC_C_WARNINGS} -DHAVE_VISIBILITY -fvisibility=hidden")
     SET(LCB_CORE_CXXFLAGS "${LCB_GNUC_CXX_WARNINGS} -DHAVE_VISIBILITY -fvisibility=hidden")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
 ENDIF()
 
 IF(LCB_UNIVERSAL_BINARY AND (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))

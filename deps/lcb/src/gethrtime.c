@@ -16,68 +16,49 @@
  */
 
 #include "config.h"
-#include <libcouchbase/assert.h>
+#include "settings.h"
+#include <libcouchbase/couchbase.h>
 
 #ifndef HAVE_GETHRTIME
 
 #include <stdlib.h>
 #include <time.h>
-
-#ifdef HAVE_MACH_MACH_TIME_H
+#if defined(__MACH__) && defined(__APPLE__)
 #include <mach/mach_time.h>
 #endif
 
-/*
- * OS X doesn't have clock_gettime, but for monotonic, we can build
- * one with mach_absolute_time as shown below.
- *
- * Most of the idea came from
- * http://www.wand.net.nz/~smr26/wordpress/2009/01/19/monotonic-time-in-mac-os-x/
- */
-
-#if defined(HAVE_MACH_ABSOLUTE_TIME) && !defined(HAVE_CLOCK_GETTIME)
-
-#define CLOCK_MONOTONIC 192996728
-
-static void mach_absolute_difference(libcouchbase_uint64_t start, libcouchbase_uint64_t end,
-                                     struct timespec *tp)
-{
-    libcouchbase_uint64_t difference = end - start;
-    static mach_timebase_info_data_t info = {0, 0};
-
-    if (info.denom == 0) {
-        mach_timebase_info(&info);
-    }
-
-    libcouchbase_uint64_t elapsednano = difference * (info.numer / info.denom);
-
-    tp->tv_sec = elapsednano * 1e-9;
-    tp->tv_nsec = elapsednano - (tp->tv_sec * 1e9);
-}
-
-static int clock_gettime(int which, struct timespec *tp)
-{
-    lcb_assert(which == CLOCK_MONOTONIC);
-
-    static libcouchbase_uint64_t epoch = 0;
-
-    if (epoch == 0) {
-        epoch = mach_absolute_time();
-    }
-
-    libcouchbase_uint64_t now = mach_absolute_time();
-
-    mach_absolute_difference(epoch, now, tp);
-
-    return 0;
-}
-
+#ifdef __linux__
+#undef HAVE_CLOCK_GETTIME
 #define HAVE_CLOCK_GETTIME 1
 #endif
 
+#define CLOCK_START_OFFSET (LCB_S2NS(3600 * 24))
+
 hrtime_t gethrtime(void)
 {
-#if defined(HAVE_CLOCK_GETTIME)
+#ifdef __APPLE__
+
+    /* Most things expect a pretty large timestamp - even though a smaller one
+     * may be perfectly valid. Initialize the default with an offset of one day,
+     * in nanoseconds
+     */
+
+    /* Use the various mach stuff:
+     * https://developer.apple.com/library/mac/qa/qa1398/_index.html */
+
+    static uint64_t start = CLOCK_START_OFFSET;
+    uint64_t now ;
+    static mach_timebase_info_data_t tmbi;
+
+    if (start == 0) {
+        start = mach_absolute_time();
+        mach_timebase_info(&tmbi);
+    }
+
+    now = mach_absolute_time();
+    return ((now - start) * tmbi.numer / tmbi.denom) + CLOCK_START_OFFSET;
+
+#elif defined(HAVE_CLOCK_GETTIME)
     struct timespec tm;
     lcb_assert(clock_gettime(CLOCK_MONOTONIC, &tm) != -1);
     return (((hrtime_t)tm.tv_sec) * 1000000000) + (hrtime_t)tm.tv_nsec;
@@ -111,10 +92,18 @@ hrtime_t gethrtime(void)
     QueryPerformanceCounter(&currtime);
 
     ret = (double)currtime.QuadPart * freq ;
-    return (hrtime_t)ret;
+    return (hrtime_t)ret + CLOCK_START_OFFSET;
 #else
 #error "I don't know how to build a highres clock..."
 #endif
 }
+#endif /* HAVE_GETHRTIME */
 
-#endif
+/* Symbol usable so other subsystems can get the same idea of time the library
+ * has. This will also allow us to stop shipping the 'gethrtime' file around.
+ */
+
+LCB_INTERNAL_API
+lcb_U64 lcb_nstime(void) {
+    return gethrtime();
+}

@@ -15,6 +15,8 @@
  *   limitations under the License.
  */
 
+#define LCB_IOPS_V12_NO_DEPRECATE 1 /* For Ruby */
+
 #include "internal.h"
 #include "plugins/io/select/select_io_opts.h"
 #include <libcouchbase/plugins/io/bsdio-inl.c>
@@ -474,7 +476,7 @@ static lcb_error_t create_v1(lcb_io_opt_t *io,
         lcb_io_opt_t iop = *io;
         iop->dlhandle = plugin.dlhandle;
         /* check if plugin selected compatible version */
-        if (iop->version < 0 || iop->version > 2) {
+        if (iop->version < 0 || iop->version > 3) {
             lcb_destroy_io_ops(iop);
             return LCB_PLUGIN_VERSION_MISMATCH;
         }
@@ -494,7 +496,7 @@ static lcb_error_t create_v2(lcb_io_opt_t *io,
     } else {
         lcb_io_opt_t iop = *io;
         /* check if plugin selected compatible version */
-        if (iop->version < 0 || iop->version > 2) {
+        if (iop->version < 0 || iop->version > 3) {
             lcb_destroy_io_ops(iop);
             return LCB_PLUGIN_VERSION_MISMATCH;
         }
@@ -553,4 +555,12 @@ lcb_error_t lcb_iops_cntl_handler(int mode,
 
     }
 
+}
+
+/* In-library wrapper version */
+LIBCOUCHBASE_API
+void
+lcb_iops_wire_bsd_impl2(lcb_bsd_procs *procs, int version)
+{
+    wire_lcb_bsd_impl2(procs, version);
 }

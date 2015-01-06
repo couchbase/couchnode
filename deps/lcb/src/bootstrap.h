@@ -100,7 +100,7 @@ typedef enum {
      * increment the error counter in case the current refresh is throttled,
      * such that when the error counter reaches the threshold, the throttle
      * limitations will expire and a new refresh will take place */
-    LCB_BS_REFRESH_INCRERR = 0x08,
+    LCB_BS_REFRESH_INCRERR = 0x08
 } lcb_BSFLAGS;
 
 /**

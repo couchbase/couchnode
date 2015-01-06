@@ -18,8 +18,6 @@
 #define SRC_CRAM_MD5_HMAC_H_ 1
 #define DIGEST_LENGTH 16
 
-#include "config.h"
-
 /**
  * Perform hmac on md5
  *

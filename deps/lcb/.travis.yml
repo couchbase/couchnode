@@ -5,16 +5,14 @@ compiler:
   - gcc
 
 before_install:
-  - sudo apt-get -y install libgtest-dev libssl-dev
-  - export GTEST_ROOT=/usr/src/gtest
-  - git config --global user.email "travis@localhost"
-  - git config --global user.name "Travis CI"
-  - git tag -a 0.0.$TRAVIS_BUILD_NUMBER -m $TRAVIS_BUILD_NUMBER
+  - sudo apt-get -y install python-software-properties
+  - sudo add-apt-repository -y ppa:mnunberg/cmake
+  - sudo apt-get update
+  - sudo apt-get -y install libgtest-dev libssl-dev libev-dev libevent-dev cmake
 
 script: |
-  ./config/autorun.sh && \
-  ./configure --disable-plugins --enable-warnings --enable-snappy=off && \
-  make check || cat ./check-all*.log
+  ./cmake/configure --enable-debug --disable-couchbasemock && make && make alltests && cd build && \
+  (ctest -V || (cat check*.log; false))
 
 notifications:
   email:

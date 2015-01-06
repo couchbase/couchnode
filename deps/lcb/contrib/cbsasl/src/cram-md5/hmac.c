@@ -14,9 +14,9 @@
  *   limitations under the License.
  */
 
-#include "config.h"
 #include "hmac.h"
 #include "md5.h"
+#include <string.h>
 
 /**
  * The code in this function is based on the code provided in rfc 2104.

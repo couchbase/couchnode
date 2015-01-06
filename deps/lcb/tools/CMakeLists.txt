@@ -8,8 +8,7 @@ ADD_EXECUTABLE(cbc cbc.cc
 TARGET_LINK_LIBRARIES(cbc couchbase)
 
 ADD_EXECUTABLE(cbc-pillowfight cbc-pillowfight.cc
-    $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts>
-    ${SOURCE_ROOT}/src/gethrtime.c)
+    $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts>)
 
 TARGET_LINK_LIBRARIES(cbc-pillowfight couchbase)
 
@@ -22,7 +21,7 @@ SET_SOURCE_FILES_PROPERTIES(cbc.cc cbc-pillowfight.cc PROPERTIES COMPILE_FLAGS "
 
 IF(NOT WIN32)
     LIST(APPEND CBC_SUBCOMMANDS
-        admin bucket-create bucket-delete cat cp create hash lock mcflush
+        admin bucket-create bucket-delete cat cp create decr hash incr lock mcflush
         rm stats unlock verbosity verify version verbosity view)
     FOREACH(subcmd IN ITEMS ${CBC_SUBCOMMANDS})
         ADD_CUSTOM_COMMAND(TARGET cbc POST_BUILD
