@@ -46,7 +46,7 @@ hrtime_t gethrtime(void)
     /* Use the various mach stuff:
      * https://developer.apple.com/library/mac/qa/qa1398/_index.html */
 
-    static uint64_t start = CLOCK_START_OFFSET;
+    static uint64_t start = 0;
     uint64_t now ;
     static mach_timebase_info_data_t tmbi;
 
