@@ -7,7 +7,7 @@ namespace Couchnode {
  */
 static void define_constant(Handle<Object> target, const char *k, int n)
 {
-    target->Set(NanNew<String>(k), NanNew<Number>(n),
+    target->ForceSet(NanNew<String>(k), NanNew<Number>(n),
                 static_cast<v8::PropertyAttribute>(v8::ReadOnly|v8::DontDelete));
 }
 
