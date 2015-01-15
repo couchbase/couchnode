@@ -168,7 +168,7 @@ void _DispatchArithCallback(lcb_t instance, const void *cookie, lcb_error_t erro
     if (!error) {
         Handle<Object> resObj = NanNew<Object>();
         resObj->Set(NanNew(me->casKey), Cas::CreateCas(resp->v.v0.cas));
-        resObj->Set(NanNew(me->valueKey), NanNew<Integer>(resp->v.v0.value));
+        resObj->Set(NanNew(me->valueKey), NanNew<Number>(resp->v.v0.value));
         resVal = resObj;
     } else {
         resVal = NanNull();
