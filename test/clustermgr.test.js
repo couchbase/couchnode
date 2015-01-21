@@ -5,7 +5,7 @@ var harness = require('./harness.js');
 
 describe('#cluster management', function() {
   function allTests(H) {
-    it('should be able to access a cluster manager', function () {
+    it.skip('should be able to access a cluster manager', function () {
       var cluster = new H.lib.Cluster(H.connstr);
       var clusterMgr = cluster.manager('Administrator', 'C0uchbase');
       assert(clusterMgr);
