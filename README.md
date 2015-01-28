@@ -43,7 +43,7 @@ into the bucket and then retrieving its contents:
 
 ```javascript
 var couchbase = require('couchbase');
-var cluster = new couchbase.Cluster();
+var cluster = new couchbase.Cluster('couchbase://127.0.0.1');
 var bucket = cluster.openBucket('default');
 
 bucket.upsert('testdoc', {name:'Frank'}, function(err, result) {
