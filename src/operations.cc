@@ -48,7 +48,9 @@ bool _ParseHashkey(T* cmdV, Handle<Value> hashkey) {
 
 template <typename T>
 bool _ParseCas(T* cmdV, Handle<Value> cas) {
-    Cas::GetCas(cas, &cmdV->cas);
+    if (!cas->IsUndefined() && !cas->IsNull()) {
+        return Cas::GetCas(cas, &cmdV->cas);
+    }
     return true;
 }
 
