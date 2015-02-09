@@ -71,7 +71,13 @@ describe('#crud', function () {
       it('should fail with an invalid cas option', function () {
         assert.throws(function () {
           fn(H.key(), 'frank', H.noCallback());
-        }, TypeError);
+        }, Error);
+      });
+
+      it('should fail with an invalid cas option object', function () {
+        assert.throws(function () {
+          fn(H.key(), {}, H.noCallback());
+        }, Error);
       });
     }
 
@@ -820,6 +826,23 @@ describe('#crud', function () {
             }));
           }, 2000);
         }));
+      }));
+    });
+
+    it('should work with string cas values', function(done) {
+      var key = H.key();
+      H.b.upsert(key, 'test1', H.okCallback(function(res) {
+        var strCas = res.cas.toString();
+        var jsonCas = JSON.stringify(res.cas);
+        assert(jsonCas);
+        assert(strCas);
+        assert(jsonCas === '"'+strCas+'"');
+        H.b.upsert(key, 'test2', {cas:'14'}, function(err) {
+          assert(err);
+          H.b.upsert(key, 'test3', {cas:strCas}, H.okCallback(function(res) {
+            done();
+          }));
+        });
       }));
     });
   }

@@ -16,7 +16,44 @@
  */
 #include "couchbase_impl.h"
 #include <sstream>
+#include <stdlib.h>
 using namespace Couchnode;
+
+void Cas::Init() {
+    NanScope();
+
+    Local<FunctionTemplate> t = NanNew<FunctionTemplate>();
+    t->InstanceTemplate()->SetInternalFieldCount(1);
+    t->SetClassName(NanNew<String>("CouchbaseCas"));
+
+    NODE_SET_PROTOTYPE_METHOD(t, "toString", fnToString);
+    NODE_SET_PROTOTYPE_METHOD(t, "toJSON", fnToString);
+    NODE_SET_PROTOTYPE_METHOD(t, "inspect", fnInspect);
+
+    NanAssignPersistent(casClass, t->GetFunction());
+}
+
+NAN_METHOD(Cas::fnToString)
+{
+    uint64_t casVal = 0;
+    char casStr[24] = "";
+    NanScope();
+
+    Cas::GetCas(args.This(), &casVal);
+    sprintf(casStr, "%llu", casVal);
+    NanReturnValue(NanNew<String>(casStr));
+}
+
+NAN_METHOD(Cas::fnInspect)
+{
+    uint64_t casVal = 0;
+    char casStr[14+24] = "";
+    NanScope();
+
+    Cas::GetCas(args.This(), &casVal);
+    sprintf(casStr, "CouchbaseCas<%llu>", casVal);
+    NanReturnValue(NanNew<String>(casStr));
+}
 
 NAN_WEAK_CALLBACK(casDtor) {
     uint64_t *value = data.GetParameter();
@@ -24,7 +61,7 @@ NAN_WEAK_CALLBACK(casDtor) {
 }
 
 Handle<Value> Cas::CreateCas(uint64_t cas) {
-    Local<Object> ret = NanNew<Object>();
+    Local<Object> ret = casClass->NewInstance();
     uint64_t *p = new uint64_t(cas);
     ret->SetIndexedPropertiesToExternalArrayData(
         p, v8::kExternalUnsignedIntArray, 2);
@@ -32,15 +69,29 @@ Handle<Value> Cas::CreateCas(uint64_t cas) {
     return ret;
 }
 
-bool Cas::GetCas(Handle<Value> obj, uint64_t *p) {
-    Handle<Object> realObj = obj.As<Object>();
-    if (!realObj->IsObject()) {
+bool _StrToCas(Handle<Value> obj, uint64_t *p) {
+    if (sscanf(*NanUtf8String(obj->ToString()), "%llu", p) != 1) {
         return false;
     }
+    return true;
+}
+
+bool _ObjToCas(Handle<Value> obj, uint64_t *p) {
+    Handle<Object> realObj = obj.As<Object>();
     if (realObj->GetIndexedPropertiesExternalArrayDataLength() != 2) {
         return false;
     }
-
     *p = *(uint64_t*)realObj->GetIndexedPropertiesExternalArrayData();
     return true;
+}
+
+bool Cas::GetCas(Handle<Value> obj, uint64_t *p) {
+    NanScope();
+    if (obj->IsObject()) {
+        return _ObjToCas(obj, p);
+    } else if (obj->IsString()) {
+        return _StrToCas(obj, p);
+    } else {
+        return false;
+    }
 }

@@ -25,8 +25,16 @@ namespace Couchnode
 class Cas
 {
 public:
+    static void Init();
+    static NAN_METHOD(fnToString);
+    static NAN_METHOD(fnInspect);
+
     static bool GetCas(v8::Handle<v8::Value>, uint64_t*);
     static v8::Handle<v8::Value> CreateCas(uint64_t);
+
+private:
+    static v8::Persistent<v8::Function> casClass;
+
 };
 
 } // namespace Couchnode

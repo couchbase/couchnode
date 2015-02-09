@@ -32,6 +32,7 @@ extern "C" {
         NanAssignPersistent(lcbErrorKey, NanNew<String>("lcbError"));
 
         Error::Init();
+        Cas::Init();
         DefaultTranscoder::Init();
         CouchbaseImpl::Init(target);
     }
@@ -39,6 +40,7 @@ extern "C" {
     NODE_MODULE(couchbase_impl, init)
 }
 
+Persistent<Function> Cas::casClass;
 Persistent<Function> Error::errorClass;
 Persistent<String> Error::codeKey;
 
