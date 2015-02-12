@@ -7,13 +7,13 @@ describe('#cluster management', function() {
   function allTests(H) {
     it('should be able to access a cluster manager', function () {
       var cluster = new H.lib.Cluster(H.connstr);
-      var clusterMgr = cluster.manager('Administrator', 'C0uchbase');
+      var clusterMgr = cluster.manager(H.muser, H.mpass);
       assert(clusterMgr);
     });
 
     it('should be able to list buckets', function () {
       var cluster = new H.lib.Cluster(H.connstr);
-      var clusterMgr = cluster.manager('Administrator', 'C0uchbase');
+      var clusterMgr = cluster.manager(H.muser, H.mpass);
       clusterMgr.listBuckets(function (err, list) {
         assert(!err);
         assert(list);
