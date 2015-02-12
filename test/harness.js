@@ -24,7 +24,7 @@ if (process.env.CNBUCKET !== undefined) {
   config.bucket = process.env.CNBUCKET;
 }
 if (process.env.CNBPASS !== undefined) {
-  config.mpass = process.env.CNBPASS;
+  config.bpass = process.env.CNBPASS;
 }
 if (process.env.CNMUSER !== undefined) {
   config.muser = process.env.CNMUSER;
@@ -87,6 +87,9 @@ function RealHarness() {
   this.connstr = config.connstr;
   this.bucket = config.bucket;
   this.qhosts = config.qhosts;
+  this.bpass = config.bpass;
+  this.muser = config.muser;
+  this.mpass = config.mpass;
 
   this.lib = couchbase;
 
