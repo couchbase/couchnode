@@ -5,8 +5,6 @@ Node.js. It is a native Node.js module and uses the very fast libcouchbase
 library to handle communicating to the cluster over the Couchbase binary
 protocol.
 
-[![Build Status](http://cbsdkbuilds.br19.com/buildStatus/icon?job=cb-node)](http://cbsdkbuilds.br19.com/job/cb-node/)
-
 
 ## Useful Links
 
