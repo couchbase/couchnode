@@ -61,7 +61,7 @@ NAN_WEAK_CALLBACK(casDtor) {
 }
 
 Handle<Value> Cas::CreateCas(uint64_t cas) {
-    Local<Object> ret = casClass->NewInstance();
+    Local<Object> ret = NanNew<Function>(casClass)->NewInstance();
     uint64_t *p = new uint64_t(cas);
     ret->SetIndexedPropertiesToExternalArrayData(
         p, v8::kExternalUnsignedIntArray, 2);
