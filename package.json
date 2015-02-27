@@ -22,7 +22,7 @@
   "dependencies": {
     "bindings": "~1.2.1",
     "jsonparse": "~0.0.6",
-    "nan": "~1.5.1",
+    "nan": "~1.6.2",
     "request": "~2.45.0"
   },
   "devDependencies": {
