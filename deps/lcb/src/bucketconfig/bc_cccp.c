@@ -347,6 +347,10 @@ config_updated(clconfig_provider *provider, lcbvb_CONFIG* vbc)
     for (ii = 0; ii < LCBVB_NSERVERS(vbc); ii++) {
         const char *mcaddr = lcbvb_get_hostport(vbc,
             ii, LCBVB_SVCTYPE_DATA, mode);
+        if (!mcaddr) {
+            lcb_log(LOGARGS(cccp, DEBUG), "Node %d has no data service", ii);
+            continue;
+        }
         hostlist_add_stringz(cccp->nodes, mcaddr, LCB_CONFIG_MCD_PORT);
     }
 

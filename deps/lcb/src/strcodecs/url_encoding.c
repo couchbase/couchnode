@@ -94,17 +94,17 @@ lcb_error_t lcb_urlencode_path(const char *path,
 {
     lcb_size_t ii;
     lcb_size_t n = 0;
-    int skip_encoding = 0;
+    int skip_encoding = 0, is_ualloc = 0;
     char *op;
+    lcb_error_t err;
 
-    /* Allocate for a worst case scenario (it will probably not be
-     * that bad anyway
-     */
-    if ((op = malloc(npath * 3)) == NULL) {
+    /* If the input buffer is not initialized, assume it's the correct size */
+    if (*out) {
+        is_ualloc = 1;
+        op = *out;
+    } else if ((*out = op = malloc(npath *3)) == NULL) {
         return LCB_CLIENT_ENOMEM;
     }
-
-    *out = op;
 
     for (ii = 0; ii < npath; ++ii) {
         if (skip_encoding == 0) {
@@ -121,8 +121,8 @@ lcb_error_t lcb_urlencode_path(const char *path,
 
         if (skip_encoding || is_legal_uri_character(path[ii])) {
             if (skip_encoding && path[ii] != '%' && !is_legal_uri_character(path[ii])) {
-                free(op);
-                return LCB_INVALID_CHAR;
+                err = LCB_INVALID_CHAR;
+                goto GT_ERR;
             }
 
             op[n++] = path[ii];
@@ -140,8 +140,8 @@ lcb_error_t lcb_urlencode_path(const char *path,
             } else if ((c & 0xF8) == 0xF0) {    /* 1111 0xxx */
                 numbytes = 4;
             } else {
-                free(op);
-                return LCB_INVALID_CHAR;
+                err = LCB_INVALID_CHAR;
+                goto GT_ERR;
             }
 
             for (xx = 0; xx < numbytes; ++xx, ++ii) {
@@ -158,6 +158,13 @@ lcb_error_t lcb_urlencode_path(const char *path,
     *nout = n;
 
     return LCB_SUCCESS;
+
+    GT_ERR:
+    if (!is_ualloc) {
+        free(op);
+        *out = NULL;
+    }
+    return err;
 }
 
 int
@@ -184,4 +191,46 @@ lcb_urldecode(const char *in, char *out, lcb_SSIZE n)
     }
     out[oix] = '\0';
     return 0;
+}
+
+/* See: https://url.spec.whatwg.org/#urlencoded-serializing: */
+/*
+ * 0x2A
+ * 0x2D
+ * 0x2E
+ * 0x30 to 0x39
+ * 0x41 to 0x5A
+ * 0x5F
+ * 0x61 to 0x7A
+ *  Append a code point whose value is byte to output.
+ * Otherwise
+ *  Append byte, percent encoded, to output.
+ */
+size_t
+lcb_formencode(const char *s, size_t n, char *out)
+{
+    size_t ii;
+    size_t oix = 0;
+
+    for (ii = 0; ii < n; ii++) {
+        unsigned char c = s[ii];
+        if (isalnum(c)) {
+            out[oix++] = c;
+            continue;
+        } else if (c == ' ') {
+            out[oix++] = '+';
+        } else if (
+                (c == 0x2A || c == 0x2D || c == 0x2E) ||
+                (c >= 0x30 && c <= 0x39) ||
+                (c >= 0x41 && c <= 0x5A) ||
+                (c == 0x5F) ||
+                (c >= 0x60 && c <= 0x7A)) {
+            out[oix++] = c;
+        } else {
+            out[oix++] = '%';
+            sprintf(out + oix, "%02X", c);
+            oix += 2;
+        }
+    }
+    return oix;
 }

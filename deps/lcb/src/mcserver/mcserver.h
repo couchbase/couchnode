@@ -33,7 +33,7 @@ struct lcb_server_st;
 /**
  * The structure representing each couchbase server
  */
-typedef struct {
+typedef struct mc_SERVER_st {
     /** Pipeline object for command queues */
     mc_PIPELINE pipeline;
 

@@ -25,7 +25,7 @@ class UrlEncoding : public ::testing::Test
 
 TEST_F(UrlEncoding, plainTextTests)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
 
     std::string input("abcdef");
@@ -41,7 +41,7 @@ TEST_F(UrlEncoding, plainTextTests)
 
 TEST_F(UrlEncoding, plainTextWithSlashTests)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
 
     std::string input("a/b/c/d/e/f/g/h/i/j");
@@ -56,7 +56,7 @@ TEST_F(UrlEncoding, plainTextWithSlashTests)
 
 TEST_F(UrlEncoding, plainTextWithSpaceTests)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
 
     std::string input("a b c d e f g");
@@ -72,7 +72,7 @@ TEST_F(UrlEncoding, plainTextWithSpaceTests)
 
 TEST_F(UrlEncoding, encodedTextWithPlusAsApaceTests)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
 
     std::string input("a+b+c+d+e+g+h");
@@ -87,7 +87,7 @@ TEST_F(UrlEncoding, encodedTextWithPlusAsApaceTests)
 
 TEST_F(UrlEncoding, encodedTextWithPlusAndHexAsApaceTests)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
 
     std::string input("a+b%20c%20d+e+g+h");
@@ -102,7 +102,7 @@ TEST_F(UrlEncoding, encodedTextWithPlusAndHexAsApaceTests)
 
 TEST_F(UrlEncoding, mixedLegalTextTests)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
 
     std::string input("a/b/c/d/e f g+32%20");
@@ -119,7 +119,7 @@ TEST_F(UrlEncoding, mixedLegalTextTests)
 
 TEST_F(UrlEncoding, mixedIllegalEncodingTextTests)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
 
     std::string input("a+ ");
@@ -131,7 +131,7 @@ TEST_F(UrlEncoding, mixedIllegalEncodingTextTests)
 
 TEST_F(UrlEncoding, internationalTest)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
     std::string input("_design/beer/_view/all?startkey=\"\xc3\xb8l\"");
     std::string exp("_design/beer/_view/all?startkey=%22%C3%B8l%22");
@@ -145,7 +145,7 @@ TEST_F(UrlEncoding, internationalTest)
 
 TEST_F(UrlEncoding, internationalEncodedTest)
 {
-    char *out;
+    char *out = NULL;
     lcb_size_t nout;
     std::string input("_design/beer/_view/all?startkey=%22%C3%B8l%22");
     std::string exp("_design/beer/_view/all?startkey=%22%C3%B8l%22");
@@ -184,4 +184,15 @@ TEST_F(UrlEncoding, testDecode)
     ASSERT_EQ(-1, lcb_urldecode("%22", obuf, 1));
     ASSERT_EQ(-1, lcb_urldecode("%22", obuf, 2));
     ASSERT_EQ(-1, lcb_urldecode("%RR", obuf, -1)) << "Invalid hex digits";
+}
+
+TEST_F(UrlEncoding, testUserBuffer)
+{
+    char buf[1024];
+    char *pp = buf;
+    const char *pth = "/foo/bar/baz";
+    lcb_size_t n;
+    lcb_error_t rc = lcb_urlencode_path(pth, strlen(pth), &pp, &n);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_EQ(buf, pp);
 }

@@ -74,7 +74,7 @@ schedule_pending(lcbio_ESSL *es)
     short wanted = 0;
 
     IOTSSL_PENDING_PRECHECK(es->ssl);
-    if (SSL_pending(es->ssl)) {
+    if (IOTSSL_IS_PENDING(es->ssl)) {
         /* have user data in buffer */
         avail |= LCB_READ_EVENT;
     }

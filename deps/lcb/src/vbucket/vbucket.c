@@ -322,6 +322,9 @@ extract_services(lcbvb_CONFIG *cfg, cJSON *jsvc, lcbvb_SERVICES *svc, int is_ssl
     EXTRACT_SERVICE("kv", data);
     EXTRACT_SERVICE("mgmt", mgmt);
     EXTRACT_SERVICE("capi", views);
+    EXTRACT_SERVICE("n1ql", n1ql);
+    EXTRACT_SERVICE("indexAdmin", ixadmin);
+    EXTRACT_SERVICE("indexScan", ixquery);
 
     #undef EXTRACT_SERVICE
 
@@ -346,6 +349,9 @@ build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
     if (server->viewpath == NULL && server->svc.views) {
         server->viewpath = malloc(strlen(cfg->bname) + 2);
         sprintf(server->viewpath, "/%s", cfg->bname);
+    }
+    if (server->querypath == NULL && server->svc.n1ql) {
+        server->querypath = strdup("/query/service");
     }
     return 1;
 }
@@ -648,6 +654,7 @@ free_service_strs(lcbvb_SERVICES *svc)
         free(svc->hoststrs[ii]);
     }
     free(svc->views_base_);
+    free(svc->query_base_);
 }
 
 void
@@ -658,6 +665,7 @@ lcbvb_destroy(lcbvb_CONFIG *conf)
         lcbvb_SERVER *srv = conf->servers + ii;
         free(srv->hostname);
         free(srv->viewpath);
+        free(srv->querypath);
         free_service_strs(&srv->svc);
         free_service_strs(&srv->svc_ssl);
     }
@@ -1068,6 +1076,12 @@ lcbvb_get_port(lcbvb_CONFIG *cfg,
         return svc->mgmt;
     } else if (type == LCBVB_SVCTYPE_VIEWS) {
         return svc->views;
+    } else if (type == LCBVB_SVCTYPE_IXADMIN) {
+        return svc->ixadmin;
+    } else if (type == LCBVB_SVCTYPE_IXQUERY) {
+        return svc->ixquery;
+    } else if (type == LCBVB_SVCTYPE_N1QL) {
+        return svc->n1ql;
     } else {
         return 0;
     }
@@ -1103,40 +1117,85 @@ lcbvb_get_hostport(lcbvb_CONFIG *cfg,
 }
 
 LIBCOUCHBASE_API
+int
+lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
+    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
+{
+    size_t nn, nn_limit;
+
+    nn = rand();
+    nn %= cfg->nsrv;
+    nn_limit = nn;
+
+    do {
+        const lcbvb_SERVER *server = cfg->servers + nn;
+        const lcbvb_SERVICES *svcs = mode == LCBVB_SVCMODE_PLAIN ?
+                &server->svc : &server->svc_ssl;
+        int has_svc = 0;
+
+        has_svc =
+                (type == LCBVB_SVCTYPE_DATA && svcs->data) ||
+                (type == LCBVB_SVCTYPE_IXADMIN && svcs->ixadmin) ||
+                (type == LCBVB_SVCTYPE_IXQUERY && svcs->ixquery) ||
+                (type == LCBVB_SVCTYPE_MGMT && svcs->mgmt) ||
+                (type == LCBVB_SVCTYPE_N1QL && svcs->n1ql) ||
+                (type == LCBVB_SVCTYPE_VIEWS && svcs->views);
+
+        if (has_svc) {
+            return (int)nn;
+        }
+        nn = (nn + 1) % cfg->nsrv;
+    } while (nn != nn_limit);
+    return -1;
+}
+
+LIBCOUCHBASE_API
 const char *
-lcbvb_get_capibase(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCMODE mode)
+lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
+    lcbvb_SVCTYPE svc, lcbvb_SVCMODE mode)
 {
     char **strp;
     char buf[4096];
     const char *prefix;
+    const char *path;
+    int is_views = svc == LCBVB_SVCTYPE_VIEWS;
 
     lcbvb_SERVER *srv;
     unsigned port;
-    port = lcbvb_get_port(cfg, ix, LCBVB_SVCTYPE_VIEWS, mode);
+    port = lcbvb_get_port(cfg, ix, svc, mode);
     if (!port) {
         return NULL;
     }
 
     srv = cfg->servers + ix;
-    if (!srv->viewpath) {
+    if (is_views && (path = srv->viewpath) == NULL) {
+        return NULL;
+    } else if (!is_views && (path = srv->querypath) == NULL) {
         return NULL;
     }
 
     if (mode == LCBVB_SVCMODE_PLAIN) {
         prefix = "http";
-        strp = &srv->svc.views_base_;
+        strp = is_views ? &srv->svc.views_base_ : &srv->svc.query_base_;
     } else {
         prefix = "https";
-        strp = &srv->svc_ssl.views_base_;
+        strp = is_views ? &srv->svc_ssl.views_base_ : &srv->svc_ssl.query_base_;
     }
 
     if (*strp) {
         return *strp;
     }
 
-    sprintf(buf, "%s://%s:%d%s", prefix, srv->hostname, port, srv->viewpath);
+    sprintf(buf, "%s://%s:%d%s", prefix, srv->hostname, port, path);
     *strp = strdup(buf);
     return *strp;
+}
+
+LIBCOUCHBASE_API
+const char *
+lcbvb_get_capibase(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCMODE mode)
+{
+    return lcbvb_get_resturl(cfg, ix, LCBVB_SVCTYPE_VIEWS, mode);
 }
 
 LIBCOUCHBASE_API int lcbvb_get_revision(const lcbvb_CONFIG *cfg) {
@@ -1169,6 +1228,9 @@ copy_service(const char *hostname,
     memset(&dst->hoststrs, 0, sizeof dst->hoststrs);
     if (src->views_base_) {
         dst->views_base_ = strdup(src->views_base_);
+    }
+    if (src->query_base_) {
+        dst->query_base_ = strdup(src->query_base_);
     }
     if (dst->data) {
         sprintf(buf, "%s:%d", hostname, dst->data);
@@ -1238,6 +1300,9 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
         dst->hostname = strdup(src->hostname);
         if (src->viewpath) {
             dst->viewpath = strdup(src->viewpath);
+        }
+        if (src->querypath) {
+            dst->querypath = strdup(src->querypath);
         }
 
         copy_service(src->hostname, &src->svc, &dst->svc);

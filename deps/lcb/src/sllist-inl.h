@@ -76,9 +76,9 @@ slist_iter_init_at(sllist_node *node, sllist_iterator *iter)
 }
 
 static INLINE void
-slist_iter_init(const sllist_root *list, sllist_iterator *iter)
+slist_iter_init(sllist_root *list, sllist_iterator *iter)
 {
-    slist_iter_init_at((sllist_node *)&list->first, iter);
+    slist_iter_init_at(&list->first_prev, iter);
 }
 
 static INLINE void
@@ -107,7 +107,7 @@ sllist_iter_remove(sllist_root *list, sllist_iterator *iter)
     iter->prev->next = iter->next;
 
     /** GCC strict aliasing. Yay. */
-    if (iter->prev->next == NULL && (void *)iter->prev == (void *)&list->first) {
+    if (iter->prev->next == NULL && iter->prev == &list->first_prev) {
         list->last = NULL;
     } else if (iter->cur == list->last && iter->next == NULL) {
         /* removing the last item */
@@ -119,13 +119,13 @@ sllist_iter_remove(sllist_root *list, sllist_iterator *iter)
 static INLINE void
 sllist_remove_head(sllist_root *list)
 {
-    if (!list->first) {
+    if (!SLLIST_FIRST(list)) {
         return;
     }
 
-    list->first = list->first->next;
+    SLLIST_FIRST(list) = SLLIST_FIRST(list)->next;
 
-    if (!list->first) {
+    if (!SLLIST_FIRST(list)) {
         list->last = NULL;
     }
 }
@@ -148,7 +148,7 @@ static INLINE void
 sllist_append(sllist_root *list, sllist_node *item)
 {
     if (SLLIST_IS_EMPTY(list)) {
-        list->first = list->last = item;
+        SLLIST_FIRST(list) = list->last = item;
         item->next = NULL;
     } else {
         slist_sanity_insert(list, item);
@@ -162,11 +162,11 @@ static INLINE void
 sllist_prepend(sllist_root *list, sllist_node *item)
 {
     if (SLLIST_IS_EMPTY(list)) {
-        list->first = list->last = item;
+        SLLIST_FIRST(list) = list->last = item;
     } else {
         slist_sanity_insert(list, item);
-        item->next = list->first;
-        list->first = item;
+        item->next = SLLIST_FIRST(list);
+        SLLIST_FIRST(list) = item;
     }
 }
 

@@ -105,3 +105,4 @@ Development files for the Couchbase Client & Protocol Library
 %defattr(-, root, root)
 %{_includedir}/libcouchbase
 %{_libdir}/libcouchbase.so
+%{_libdir}/pkgconfig/libcouchbase.pc

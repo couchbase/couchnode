@@ -88,9 +88,14 @@ common_callback(lcb_t, int type, const lcb_RESPBASE *resp)
     case LCB_CALLBACK_REMOVE:
         printKeyCasStatus(key, resp, "Deleted.");
         break;
-    case LCB_CALLBACK_ENDURE:
-        printKeyCasStatus(key, resp, "Persisted/Replicated.");
+    case LCB_CALLBACK_ENDURE: {
+        const lcb_RESPENDURE *er = (const lcb_RESPENDURE*)resp;
+        char s_tmp[4006];
+        sprintf(s_tmp, "Persisted(%u). Replicated(%u).",
+            er->npersisted, er->nreplicated);
+        printKeyCasStatus(key, resp, s_tmp);
         break;
+    }
     default:
         abort(); // didn't request it
     }
@@ -319,10 +324,13 @@ GetHandler::run()
 
 static void
 endureItems(lcb_t instance, const map<string,lcb_cas_t> items,
-    size_t persist_to, size_t replicate_to)
+    int persist_to, int replicate_to)
 {
     lcb_install_callback3(instance, LCB_CALLBACK_ENDURE, common_callback);
     lcb_durability_opts_t options = { 0 };
+    if (persist_to < 0 || replicate_to < 0) {
+        options.v.v0.cap_max = 1;
+    }
     options.v.v0.persist_to = persist_to;
     options.v.v0.replicate_to = replicate_to;
     lcb_error_t err;

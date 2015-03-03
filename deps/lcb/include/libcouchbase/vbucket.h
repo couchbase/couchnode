@@ -48,6 +48,9 @@ typedef enum {
     LCBVB_SVCTYPE_DATA = 0, /**< memcached/Data port */
     LCBVB_SVCTYPE_VIEWS, /**< Views/CAPI port */
     LCBVB_SVCTYPE_MGMT, /**< Administrative/'REST' UI */
+    LCBVB_SVCTYPE_IXQUERY, /**< Index query */
+    LCBVB_SVCTYPE_IXADMIN, /**< Index administration */
+    LCBVB_SVCTYPE_N1QL, /**< N1QL Query */
     LCBVB_SVCTYPE__MAX
 } lcbvb_SVCTYPE;
 
@@ -67,7 +70,11 @@ typedef struct {
     lcb_U16 data; /**< Data port for key-value operations (memcached protocol) */
     lcb_U16 mgmt; /**< Port for adminsitrative operations (HTTP) */
     lcb_U16 views; /**< Port for view queries (HTTP) */
+    lcb_U16 ixquery; /**< Indexing query port */
+    lcb_U16 ixadmin; /**< Indexing admin port (HTTP) */
+    lcb_U16 n1ql; /**< Query port */
     char *views_base_; /**< Views base URL */
+    char *query_base_; /**< N1QL base URL */
     char *hoststrs[LCBVB_SVCTYPE__MAX];
 } lcbvb_SERVICES;
 
@@ -84,6 +91,7 @@ typedef struct {
     char *authority; /**< host:dataport for comparison */
     char *hostname; /**< Hostname for the node */
     char *viewpath; /**< Path prefix for view queries */
+    char *querypath; /**< Path prefix for n1ql queries */
     unsigned nvbs; /**< Total number of vbuckets the server has assigned */
 } lcbvb_SERVER;
 
@@ -252,7 +260,7 @@ lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
  * is -1 or if the master index is deemed incorrect by some other means.
  *
  * @param cfg the configuration object
- * @param vbix the vbucket index to loop up
+ * @param vbid the vbucket index to loop up
  * @param bad the index known to be bad. Passing this parameter allows the
  *  handler to safely call this function and be sure that a previous call's
  *  applied heuristics will not affect the modified map.
@@ -383,6 +391,32 @@ lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix,
 LIBCOUCHBASE_API
 const char *
 lcbvb_get_hostport(lcbvb_CONFIG *cfg, unsigned ix,
+    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
+
+/**
+ * Function to return the URL prefix for a REST service.
+ *
+ * Returns a string suitable for being passed as a URL. This is only valid
+ * for ::LCBVB_SVCTYPE_VIEWS and ::LCBVB_SVCTYPE_N1QL.
+ *
+ * This function is different from lcbvb_get_hostport() -- it is mainly a
+ * convenience, but does cache the string. Also, theoretically the cluster
+ * is free to choose a _different_ URL prefix for a given service. Using this
+ * function will guarantee the URL prefix is correct.
+ */
+LIBCOUCHBASE_API
+const char *
+lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
+    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
+
+/**
+ * Convenience function to select a random node for a service.
+ * @return 0 or greater if a node was found; a negative number if no node
+ * contains a service with the given criteria.
+ */
+LIBCOUCHBASE_API
+int
+lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
     lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
 
 /** @brief Structure representing changes between two configurations */

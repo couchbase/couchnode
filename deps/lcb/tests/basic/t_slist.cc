@@ -33,9 +33,9 @@ TEST_F(SListTests, testBasic)
     ASSERT_NZ(sllist_contains(&sl, &elem1.slnode));
     ASSERT_FALSE(SLLIST_IS_EMPTY(&sl));
 
-    sllist_node *tmpnode = sl.first;
+    sllist_node *tmpnode = SLLIST_FIRST(&sl);
     sllist_remove_head(&sl);
-    ASSERT_NE(tmpnode, sl.first);
+    ASSERT_NE(tmpnode, SLLIST_FIRST(&sl));
     ASSERT_EQ(tmpnode, &elem1.slnode);
     ASSERT_EQ(&elem1, SLLIST_ITEM(tmpnode, struct my_elem, slnode));
     ASSERT_TRUE(SLLIST_IS_EMPTY(&sl));
@@ -44,12 +44,12 @@ TEST_F(SListTests, testBasic)
     sllist_append(&sl, &elem2.slnode);
     sllist_append(&sl, &elem3.slnode);
     ASSERT_EQ(sl.last, &elem3.slnode);
-    ASSERT_EQ(sl.first, &elem1.slnode);
+    ASSERT_EQ(SLLIST_FIRST(&sl), &elem1.slnode);
 
     // Test prepend
     my_elem elem4;
     sllist_prepend(&sl, &elem4.slnode);
-    tmpnode = sl.first;
+    tmpnode = SLLIST_FIRST(&sl);
     ASSERT_EQ(tmpnode, &elem4.slnode);
     sllist_node *cur;
     int itercount = 0;
@@ -211,7 +211,7 @@ TEST_F(SListTests, testSort)
     NumberedItem small1;
     small1.value = -100;
     sllist_insert_sorted(&l, &small1.slnode, ni_compare);
-    ASSERT_EQ(l.first, &small1.slnode);
+    ASSERT_EQ(SLLIST_FIRST(&l), &small1.slnode);
 
     NumberedItem middle1;
     middle1.value = 5;
@@ -260,7 +260,7 @@ public:
     }
 
     void clear() {
-        first = NULL;
+        SLLIST_FIRST(this) = NULL;
         last = NULL;
     }
 
@@ -268,7 +268,7 @@ public:
         if (empty()) {
             throw std::out_of_range("List is empty");
         }
-        return *llToItem(first);
+        return *llToItem(SLLIST_FIRST(this));
     }
 
     T& back() {

@@ -749,7 +749,7 @@ typedef enum {
 #define LCB_CNTL_SCHED_IMPLICIT_FLUSH 0x31
 
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x33
+#define LCB_CNTL__MAX                    0x34
 /**@}*/
 
 #ifdef __cplusplus

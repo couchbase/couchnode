@@ -145,6 +145,17 @@ iotssl_bm_reserve(BUF_MEM *bm);
 } while (0);
 
 /**
+ * Wrapper for SSL_pending. In order to work around another bug of the well
+ * designed OpenSSL library, which will strangely place "undefined" errors
+ * into the queue unless this check is done beforehand.
+ *
+ * See: https://groups.google.com/forum/#!msg/mailing.openssl.users/so242GuI6Yo/2Jp3Qoo_gsgJ
+ * See: http://stackoverflow.com/questions/22753221/openssl-read-write-handshake-data-with-memory-bio
+ * See: http://www.opensubscriber.com/message/openssl-users@openssl.org/8638179.html
+ */
+#define IOTSSL_IS_PENDING(ssl) \
+        (SSL_get_ssl_method(ssl) != SSLv23_client_method()) && SSL_pending(ssl)
+/**
  * Create and return a pointer to an lcbio_TABLE with an underlying
  * completion-based I/O model
  * @param orig The original table

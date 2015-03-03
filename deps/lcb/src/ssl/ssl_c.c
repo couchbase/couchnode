@@ -296,7 +296,7 @@ Cssl_read2(lcb_io_opt_t iops, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
     cs->urd_cb = callback;
 
     IOTSSL_PENDING_PRECHECK(cs->ssl);
-    if (SSL_pending(cs->ssl)) {
+    if (IOTSSL_IS_PENDING(cs->ssl)) {
         /* have data to be read. Fast path here */
         lcbio_async_signal(cs->as_read);
     } else {

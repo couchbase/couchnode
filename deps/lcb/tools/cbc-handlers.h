@@ -94,8 +94,8 @@ private:
     cliopts::UIntOption o_flags;
     cliopts::UIntOption o_exp;
     cliopts::BoolOption o_add;
-    cliopts::UIntOption o_persist;
-    cliopts::UIntOption o_replicate;
+    cliopts::IntOption o_persist;
+    cliopts::IntOption o_replicate;
     cliopts::StringOption o_value;
     cliopts::BoolOption o_json;
     std::map<std::string, lcb_cas_t> items;

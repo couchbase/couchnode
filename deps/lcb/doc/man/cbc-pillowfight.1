@@ -1,0 +1,331 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "CBC\-PILLOWFIGHT" "1" "January 2015" "" ""
+.
+.SH "NAME"
+\fBcbc\-pillowfight\fR \- Stress Test for Couchbase Client and Cluster
+.
+.SH "SYNOPSIS"
+\fBcbc\-pillowfight\fR [\fIOPTIONS\fR]
+.
+.SH "DESCRIPTION"
+\fBcbc\-pillowfight\fR creates a specified number of threads each looping and performing get and set operations within the cluster\.
+.
+.P
+The stress test operates in the following order
+.
+.IP "1." 4
+It will pre\-load the items in the cluster (set by the \fB\-\-num\-items\fR option)
+.
+.IP "2." 4
+Once the items are all loaded into the cluster, it will access all the items (within the \fB\-\-num\-items\fR) specification, using a combination of storage and retrieval operations (the proportion of retrieval and storage operations are controlled via the \fB\-\-set\-pct\fR option)\.
+.
+.IP "3." 4
+Operations are scheduled in \fIbatches\fR\. The batches represent a single pipeline (or network buffer) which is filled with a certain amount of operations (see the \fB\-\-batch\-size\fR option)\. These batch sizes are then sent over to the cluster and the requests are serviced by it\.
+.
+.IP "" 0
+.
+.SS "Tuning"
+Getting the right benchmark numbers highly depends on the type of environment the client is being run in\. The following provides some information about specific settings which may make \fBpillowfight\fR generate more operations\.
+.
+.IP "\(bu" 4
+Increasing the batch size will typically speed up operations, but increasing the batch size too much will actually slow it down\. Additionally, very high batch sizes will cause high memory usage\.
+.
+.IP "\(bu" 4
+Adding additional threads will create additional client objects and connections, potentially increasing performance\. Adding too many threads will cause local and network resource congestion\.
+.
+.IP "\(bu" 4
+Decreasing the item sizes (the \fB\-\-min\-size\fR and \fB\-\-max\-size\fR options) will always yield higher performance in terms of operationd\-per\-second\.
+.
+.IP "\(bu" 4
+Limiting the working set (i\.e\. \fB\-\-num\-items\fR) will decrease the working set within the cluster, thereby increasing the chance that a given item will be inside the server\'s CPU cache (which is extremely fast), rather than in main memory (slower), or disk (much slower)
+.
+.IP "" 0
+.
+.SH "OPTIONS"
+Options may be read either from the command line, or from a configuration file (see cbcrc(4)):
+.
+.P
+The following options control workload generation:
+.
+.TP
+\fB\-B\fR, \fB\-\-batch\-size\fR=\fIBATCHSIZE\fR
+This controls how many commands are scheduled per cycles\. To simulate one operation at a time, set this value to 1\.
+.
+.TP
+\fB\-I\fR, \fB\-\-num\-items\fR=\fINUMITEMS\fR
+Set the \fItotal\fR number of items the workload will access within the cluster\. This will also determine the working set size at the server and may affect disk latencies if set to a high number\.
+.
+.TP
+\fB\-p\fR, \fB\-\-key\-prefix\fR=\fIPREFIX\fR
+Set the prefix to prepend to all keys in the cluster\. Useful if you do not wish the items to conflict with existing data\.
+.
+.TP
+\fB\-t\fR, \fB\-\-num\-threads\fR=\fINTHREADS\fR
+Set the number of threads (and thus the number of client instances) to run concurrently\. Each thread is assigned its own client object\.
+.
+.TP
+\fB\-r\fR, \fB\-\-set\-pct\fR=\fIPERCENTAGE\fR
+The percentage of operations which should be mutations\. A value of 100 means only mutations while a value of 0 means only retrievals\.
+.
+.TP
+\fB\-n\fR, \fB\-\-no\-population\fR
+By default \fBcbc\-pillowfight\fR will load all the items (see \fB\-\-num\-items\fR) into the cluster and then begin performing the normal workload\. Specifying this option bypasses this stage\. Useful if the items have already been loaded in a previous run\.
+.
+.TP
+\fB\-m\fR, \fB\-\-min\-size\fR=\fIMINSIZE\fR:
+
+.
+.TP
+\fB\-M\fR, \fB\-\-max\-size\fR=\fIMAXSIZE\fR
+Specify the minimum and maximum value sizes to be stored into the cluster\. This is typically a range, in which case each value generated will be between \fB\-\-min\-size\fR and \fB\-\-max\-size\fR bytes\.
+.
+.TP
+\fB\-E\fR, \fB\-\-pause\-at\-end\fR
+When the workload completes, do not exit immediately, but wait for user input\. This is helpful for analyzing open socket connections and state\.
+.
+.TP
+\fB\-c\fR, \fB\-\-num\-cycles\fR
+Specify the number of times the workload should cycle\. During each cycle an amount of \fB\-\-batch\-size\fR operations are executed\. Setting this to \fB\-1\fR will cause the workload to run infinitely\.
+.
+.TP
+\fB\-\-sequential\fR
+Specify that the access pattern should be done in a sequential manner\. This is useful for bulk\-loading many documents in a single server\.
+.
+.TP
+\fB\-\-start\-at\fR
+This specifies the starting offset for the items\. The items by default are generated with the key prefix (\fB\-\-key\-prefix\fR) up to the number of items (\fB\-\-num\-items\fR)\. The \fB\-\-start\-at\fR value will increase the lower limit of the items\. This is useful to resume a previously cancelled load operation\.
+.
+.TP
+\fB\-T\fR, \fB\-\-timings\fR
+Dump a histogram of command timings and latencies to the screen every second\.
+.
+.P
+The following options control how \fBcbc\-pillowfight\fR connects to the cluster
+.
+.TP
+\fB\-U\fR, \fB\-\-spec\fR=\fISPEC\fR
+A string describing the cluster to connect to\. The string is in a URI\-like syntax, and may also contain other options\. See the \fIEXAMPLES\fR section for information\. Typically such a URI will look like \fBcouchbase://host1,host2,host3/bucket\fR\.
+.
+.IP
+The default for this option is \fBcouchbase://localhost/default\fR
+.
+.TP
+\fB\-u\fR, \fB\-\-username\fR=\fIUSERNAME\fR
+Specify the \fIusername\fR for the bucket\. As of Couchbase Server 2\.5 this field should be either left empty or set to the name of the bucket itself\.
+.
+.TP
+\fB\-P\fR, \fB\-\-password\fR=\fISASLPASS\fR:
+
+.
+.TP
+\fB\-P \-\fR, \fB\-\-password=\-\fR
+Specify the SASL password for the bucket\. This is only needed if the bucket is protected with a password\. Note that this is \fInot\fR the administrative password used to log into the web interface\.
+.
+.IP
+Specifying the \fB\-\fR as the password indicates that the program should prompt for the password\. You may also specify the password on the commandline, directly, but is insecure as command line arguments are visible via commands such as \fBps\fR\.
+.
+.TP
+\fB\-C\fR, \fB\-\-bootstrap\-protocol\fR=\fICCCP|HTTP|BOTH\fR
+Specify the bootstrap protocol the client should used when attempting to connect to the cluster\. Options are: \fBCCCP\fR: Bootstrap using the Memcached protocol (supported on clusters 2\.5 and greater); \fBHTTP\fR: Bootstrap using the HTTP REST protocol (supported on any cluster version); and \fBBOTH\fR: First attempt bootstrap over the Memcached protocol, and use the HTTP protocol if Memcached bootstrap fails\. The default is \fBBOTH\fR
+.
+.TP
+\fB\-t\fR, \fB\-\-timeout\fR=\fIUSECS\fR
+Specify the operation timeout in microseconds\. This is the time the client will wait for an operation to complete before timing it out\. The default is \fB2500000\fR
+.
+.TP
+\fB\-T\fR, \fB\-\-timings\fR
+Dump command timings at the end of execution\. This will display a histogram showing the latencies for the commands executed\.
+.
+.TP
+\fB\-S\fR \fB\-\-force\-sasl\-mech\fR=\fIMECH\fR
+Force a specific \fISASL\fR mechanism to be used when performing the initial connection\. This should only need to be modified for debugging purposes\. The currently supported mechanisms are \fBPLAIN\fR and \fBCRAM\-MD5\fR
+.
+.TP
+\fB\-Z\fR, \fB\-\-config\-cache\fR
+Enables the client to make use of a file based configuration cache rather than connecting for the bootstrap operation\. If the file does not exist, the client will first connect to the cluster and then cache the bootstrap information in the file\.
+.
+.TP
+\fB\-\-ssl\fR=\fION|OFF|NO_VERIFY\fR
+Use SSL for connecting to the cluster\. The options are \fBON\fR to enable full SSL support, \fBOFF\fR to disable SSL support, and \fBNO_VERIFY\fR to use SSL encryption but not attempt to verify the authenticity of the server\'s certificate\.
+.
+.TP
+\fB\-\-certpath\fR=\fICERTIFICATE\fR
+The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system\.
+.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Specify more information to standard error about what the client is doing\. You may specify this option multiple times for increased output detail\.
+.
+.SH "EXAMPLES"
+.
+.SS "CONNECTION EXAMPLES"
+Run against a bucket (\fBa_bucket\fR) on a cluster on a remote host:
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbase://192\.168\.33\.101/a_bucket
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to an SSL cluster at \fBsecure\.net\fR\. The certificate for the cluster is stored locally at \fB/home/couchbase/couchbase_cert\.pem\fR:
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbases://secure\.net/topsecret_bucket?certpath=/home/couchbase/couchbase_cert\.pem
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to an SSL cluster at \fBsecure\.net\fR, ignoring certificate verification\. This is insecure but handy for testing:
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbases://secure\.net/topsecret_bucket?ssl=no_verify
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to a password protected bucket (\fBprotected\fR) on a remote host:
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbase://remote\.host\.net/protected \-P \-
+Bucket password:
+\.\.\.
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to a password protected bucket, specifying the password on the command line (INSECURE, but useful for testing dummy environments)
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbase://remote\.host\.net/protected \-P t0ps3cr3t
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to a bucket running on a cluster with a custom REST API port
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U http://localhost:9000/default
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connec to bucket running on a cluster with a custom memcached port
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbase://localhost:12000/default
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to a \fImemcached\fR (http://memcached\.org) cluster using the binary protocol\. A vanilla memcached cluster is not the same as a memcached bucket residing within a couchbase cluster (use the normal \fBcouchbase://\fR scheme for that):
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U memcached://host1,host2,host3,host4
+.
+.fi
+.
+.IP "" 0
+.
+.SS "BENCHMARK EXAMPLES"
+Run against a bucket (\fBa_bucket\fR) on a cluster on a remote host:
+.
+.IP "" 4
+.
+.nf
+
+cbc\-pillowfight \-U couchbase://192\.168\.33\.101/a_bucket
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Run with 20 threads/instances, each doing one operation at a time:
+.
+.IP "" 4
+.
+.nf
+
+cbc\-pillowfight \-t 20 \-B 1
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Run 100 iterations of 2MB item sizes, using a dataset of 50 items
+.
+.IP "" 4
+.
+.nf
+
+cbc\-pillowfight \-M $(1024*1024) \-m $(1024*1024) \-c 100 \-I 50
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to an SSL cluster at \fBsecure\.net\fR:
+.
+.IP "" 4
+.
+.nf
+
+cbc\-pillowfight \-U couchbases://secure\.net/topsecret_bucket
+.
+.fi
+.
+.IP "" 0
+.
+.SH "TODO"
+Rather than spawning threads for multiple instances, offer a way to have multiple instances function cooperatively inside an event loop\.
+.
+.SH "BUGS"
+This command\'s options are subject to change\.
+.
+.SH "SEE ALSO"
+cbc(1), cbcrc(4)
+.
+.SH "HISTORY"
+The \fBcbc\-pillowfight\fR tool was first introduced in libcouchbase 2\.0\.7

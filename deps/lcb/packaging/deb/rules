@@ -27,6 +27,8 @@ override_dh_auto_configure:
 		> debian/libcouchbase-dev.install
 	echo "usr/include/*" \
 		>> debian/libcouchbase-dev.install
+	echo "usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/libcouchbase.pc" \
+		>> debian/libcouchbase-dev.install
 	# Generate 'cbc' files
 	echo "usr/bin/cbc*" \
 		> debian/libcouchbase2-bin.install

@@ -83,5 +83,10 @@ TEST_F(CtlTest, testStringCtls)
     ASSERT_EQ(LCB_COMPRESS_IN,
         getSetting<lcb_COMPRESSOPTS>(instance, LCB_CNTL_COMPRESSION_OPTS));
 
+    err = lcb_cntl_string(instance, "unsafe_optimize", "1");
+    ASSERT_EQ(LCB_SUCCESS, err);
+    err = lcb_cntl_string(instance, "unsafe_optimize", "0");
+    ASSERT_NE(LCB_SUCCESS, err);
+
     lcb_destroy(instance);
 }

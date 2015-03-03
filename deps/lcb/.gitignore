@@ -115,8 +115,9 @@ libcouchbase.sdf
 libcouchbase.suo
 unit-tests.dir/
 win32/Debug/
-doc/
 MANIFEST
+doc/public
+doc/internal
 
 # Symlinks
 m4

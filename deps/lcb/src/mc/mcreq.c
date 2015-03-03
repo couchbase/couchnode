@@ -579,7 +579,7 @@ queuectx_leave(mc_CMDQUEUE *queue, int success, int flush)
         }
 
         pipeline = queue->pipelines[ii];
-        ll = pipeline->ctxqueued.first;
+        ll = SLLIST_FIRST(&pipeline->ctxqueued);
 
         while (ll) {
             mc_PACKET *pkt = SLLIST_ITEM(ll, mc_PACKET, slnode);
@@ -600,7 +600,7 @@ queuectx_leave(mc_CMDQUEUE *queue, int success, int flush)
 
             ll = ll_next;
         }
-        pipeline->ctxqueued.first = pipeline->ctxqueued.last = NULL;
+        SLLIST_FIRST(&pipeline->ctxqueued) = pipeline->ctxqueued.last = NULL;
         if (flush) {
             pipeline->flush_start(pipeline);
         }

@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "socktest.h"
 #include <lcbio/ssl.h>
 using std::list;
@@ -139,7 +140,10 @@ private:
 
 Loop::Loop()
 {
-    lcb_create_io_ops(&io, NULL);
+    io = NULL;
+
+    lcb_error_t rc = lcb_create_io_ops(&io, NULL);
+    assert(rc == LCB_SUCCESS);
     assert(io != NULL);
     iot = lcbio_table_new(io);
     settings = lcb_settings_new();

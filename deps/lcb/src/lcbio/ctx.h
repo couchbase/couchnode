@@ -233,9 +233,12 @@ lcbio_ctx_senderr(lcbio_CTX *ctx, lcb_error_t err);
  * requested to be flushed either via lcbio_ctx_put() or lcbio_ctx_wwant()
  * then those will be scheduled as well.
  *
- * This must only be called right before returning control to the event loop.
- * Calling this function twice within a single event loop entry may lead to
- * unpredictable results.
+ * This call is a no-op if invoked from within the current handler, as this
+ * function is invoked implicitly after the I/O handler itself has returned.
+ *
+ * It is safe (though typically not efficient) to invoke this function
+ * multiple times. Each invocation may potentially involve system calls
+ * and buffer allocations, depending on the I/O plugin being used.
  */
 void
 lcbio_ctx_schedule(lcbio_CTX *ctx);

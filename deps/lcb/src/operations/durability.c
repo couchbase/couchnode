@@ -456,6 +456,8 @@ lcb_durability_dset_update(lcb_t instance,
 
 }
 
+#define DUR_MIN(a,b) (a) < (b) ? (a) : (b)
+
 /**
  * Ensure that the user-specified criteria is possible; i.e. we have enough
  * servers and replicas. If the user requested capping, we do that here too.
@@ -464,7 +466,11 @@ static int verify_critera(lcb_t instance, lcb_DURSET *dset)
 {
     lcb_durability_opts_t *options = &dset->opts;
 
-    int replica_max = LCBT_NREPLICAS(instance);
+    int replica_max = DUR_MIN(
+            LCBT_NREPLICAS(instance),
+            LCBT_NSERVERS(instance)-1
+    );
+
     int persist_max = replica_max + 1;
 
     /* persist_max is always one more than replica_max */

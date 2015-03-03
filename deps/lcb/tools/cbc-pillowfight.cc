@@ -79,7 +79,8 @@ public:
         o_pauseAtEnd("pause-at-end"),
         o_numCycles("num-cycles"),
         o_sequential("sequential"),
-        o_startAt("start-at")
+        o_startAt("start-at"),
+        o_rateLimit("rate-limit")
     {
         o_multiSize.setDefault(100).abbrev('B').description("Number of operations to batch");
         o_numItems.setDefault(1000).abbrev('I').description("Number of items to operate on");
@@ -94,6 +95,7 @@ public:
         o_numCycles.setDefault(-1).abbrev('c').description("Number of cycles to be run until exiting. Set to -1 to loop infinitely");
         o_sequential.setDefault(false).description("Use sequential access (instead of random)");
         o_startAt.setDefault(0).description("For sequential access, set the first item");
+        o_rateLimit.setDefault(0).description("Set operations per second limit (per thread)");
     }
 
     void processOptions() {
@@ -130,6 +132,7 @@ public:
         parser.addOption(o_numCycles);
         parser.addOption(o_sequential);
         parser.addOption(o_startAt);
+        parser.addOption(o_rateLimit);
         params.addToParser(parser);
         depr.addOptions(parser);
     }
@@ -195,6 +198,7 @@ public:
     bool sequentialAccess() { return o_sequential; }
     unsigned firstKeyOffset() { return o_startAt; }
     uint32_t getNumItems() { return o_numItems; }
+    uint32_t getRateLimit() { return o_rateLimit; }
 
     void *data;
 
@@ -224,6 +228,7 @@ private:
     IntOption o_numCycles;
     BoolOption o_sequential;
     UIntOption o_startAt;
+    UIntOption o_rateLimit;
     DeprecatedOptions depr;
 } config;
 
@@ -449,12 +454,17 @@ public:
     bool run() {
         do {
             singleLoop();
+
             if (config.isTimings()) {
                 InstanceCookie::dumpTimings(instance, kgen.getStageString());
             }
             if (config.params.shouldDump()) {
                 lcb_dump(instance, stderr, LCB_DUMP_ALL);
             }
+            if (config.getRateLimit() > 0) {
+                rateLimitThrottle();
+            }
+
         } while (!config.isLoopDone(++niter));
 
         if (config.isTimings()) {
@@ -475,6 +485,28 @@ protected:
     void setError(lcb_error_t e) { error = e; }
 
 private:
+
+    void rateLimitThrottle() {
+        lcb_U64 now = lcb_nstime();
+        static lcb_U64 previous_time = now;
+
+        const lcb_U64 elapsed_ns = now - previous_time;
+        const lcb_U64 wanted_duration_ns =
+                config.opsPerCycle * 1e9 / config.getRateLimit();
+        // On first invocation no previous_time, so skip attempting to sleep.
+        if (elapsed_ns > 0 && elapsed_ns < wanted_duration_ns) {
+            // Dampen the sleep time by averaging with the previous
+            // sleep time.
+            static lcb_U64 last_sleep_ns = 0;
+            const lcb_U64 sleep_ns =
+                    (last_sleep_ns + wanted_duration_ns - elapsed_ns) / 2;
+            usleep(sleep_ns / 1000);
+            now += sleep_ns;
+            last_sleep_ns = sleep_ns;
+        }
+        previous_time = now;
+    }
+
     KeyGenerator kgen;
     size_t niter;
     lcb_error_t error;

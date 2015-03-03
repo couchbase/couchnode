@@ -1,5 +1,93 @@
 # Release Notes
 
+## 2.4.7 (Feb. 17 2015)
+
+* Fix SSL connection failures with `SSL_UNDEFINED_CONST_FUNCTION`.
+  This would sometimes cause failures during early connection/negotiation
+  stages.
+  * Priority: Major
+  * Issues: [CCBC-571](http://issues.couchbase.com/browse/CCBC-571)
+
+* Add _experimental_ support for N1QL queries.
+  This adds support for contacting N1QL endpoints and retrieving their
+  result sets. The support at both the client and server components is
+  still a work in progress.
+  The API is similar to the view api (see `lcb_view_query()`) added in
+  version 2.4.6. See details in `<libcouchbase/n1ql.h>`
+  * Priority: Major
+  * Issues: [CCBC-572](http://issues.couchbase.com/browse/CCBC-572)
+
+* Add _experimental_ support for geospatial view queries.
+  GeoSpatial views are available as an experimental feature in the
+  current releases of the server. This will soon be offered as a
+  stable feature in future releases.
+  Applications may now use the `lcb_RESPVIEWQUERY::geometry` field
+  and the `LCB_CMDVIEWQUERY_F_SPATIAL` to utilize geospatial views.
+  * Priority: Major
+  * Issues: [CCBC-573](http://issues.couchbase.com/browse/CCBC-573)
+
+* Fix memory leak for retried commands.
+  In cases where a given command needs to be retried more than once, a
+  memory leak was fixed in which the previous instance of the pacekt was
+  not properly freed.
+  * Priority: Major
+  * Issues: [CCBC-574](http://issues.couchbase.com/browse/CCBC-574)
+
+## 2.4.6 (January 20 2015)
+
+* Fix floating point exception on OS X.
+  A floating point exception would sometimes be thrown on OS X sytems due
+  to bad time structure initialization. The installation provided with
+  homebrew for 2.4.5 fixed this issue. This is completely fixed in 2.4.6
+  Priority: Major
+
+* Improve warning messages when using deprecated options in `cbc`.
+  This provides less ambiguous help messages when using deprecated options,
+  showing a full and complete example for proper usage (when possible).
+  * Priority: Minor
+  * Issues: [CCBC-562](http://issues.couchbase.com/browse/CCBC-562)
+
+* Add patch/micro version to DLL information on Windows.
+  This lets the user see the exact version of the library on windows (via
+  right clicking on the DLL and inspecting the details). Previously this
+  information contained only the major and minor versions.
+  * Priority: Minor
+  * Issues: [CCBC-563](http://issues.couchbase.com/browse/CCBC-563)
+
+* Provide _pkgconfig_ (`.pc`) file with installation.
+  This may help third party applications and libraries link against libcouchbase
+  in some environments.
+
+* Provide one-off `unsafe_optimize` option for connection string/`lcb_cntl`.
+  This provides a shorter way to enable some potentially unsafe optimizations
+  which may make the client perform better in some scenarios.
+  * Priority: Minor
+
+* Allow prompting for password in `cbc`.
+  The `cbc` and `cbc-pillowfight` utilities will now securely prompt for the
+  password if the password specified on the commandline is a hyphen (`-`).
+  * Priority: Minor
+  * Issues: [CCBC-565](http://issues.couchbase.com/browse/CCBC-565)
+
+* Fix timeouts in some durability when not all replicas are online.
+  The library will now fail the operation with `LCB_DURABILITY_ETOOMANY`
+  rather than allowing the operation to timeout.
+  * Priority: Major
+  * Issues: [CCBC-560](http://issues.couchbase.com/browse/CCBC-560)
+
+* Add high level row-based view functionality.
+  This adds a new API (currently considered _volatile_) which allows
+  intelligently querying views. This builds atop the basic HTTP
+  interface, and exposes a row-based callback API based upon
+  streaming JSON parsing. The new API is defined in `<libcouchbase/views.h>`.
+  This API will become more stable over time.
+  * Priority: Major
+  * Issues: [CCBC-100](http://issues.couchbase.com/browse/CCBC-100)
+
+* Parse configuration service locations for experimental services
+  This exposes the N1QL and indexing services via the _lcbvb_ API. See
+  `libcouchbase/vbucket.h` for more information.
+
 ## 2.4.5 (December 17 2014)
 
 * Fix `pillowfight` ignoring `set-ratio` values above 50

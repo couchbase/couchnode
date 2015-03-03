@@ -14,6 +14,33 @@ using std::ifstream;
 using std::ofstream;
 using std::endl;
 
+#ifndef _WIN32
+#include <unistd.h>
+#include <termios.h>
+#endif
+
+static string promptPassword(const char *prompt)
+{
+#ifndef _WIN32
+    termios oldattr, newattr;
+    tcgetattr(STDIN_FILENO, &oldattr);
+    newattr = oldattr;
+    newattr.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
+#endif
+
+    fprintf(stderr, "%s", prompt);
+    fflush(stderr);
+    // Use cin here. A bit more convenient
+    string ret;
+    std::cin >> ret;
+#ifndef _WIN32
+    fprintf(stderr, "\n");
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+#endif
+    return ret;
+}
+
 static void
 makeLowerCase(string &s)
 {
@@ -40,12 +67,13 @@ ConnParams::ConnParams() :
     o_bucket.description("Bucket to use").setDefault("default");
     o_bucket.hide();
 
+    o_connstr.description("Connection string").setDefault("couchbase://localhost/default");
     o_user.description("Username");
     o_passwd.description("Bucket password");
     o_saslmech.description("Force SASL mechanism").argdesc("PLAIN|CRAM_MD5");
     o_timings.description("Enable command timings");
     o_timeout.description("Operation timeout");
-    o_transport.description("Bootstrap protocol").argdesc("HTTP|CCCP_BOTH").setDefault("BOTH");
+    o_transport.description("Bootstrap protocol").argdesc("HTTP|CCCP|ALL").setDefault("ALL");
     o_configcache.description("Path to cached configuration");
     o_ssl.description("Enable SSL settings").argdesc("ON|OFF|NOVERIFY").setDefault("off");
     o_certpath.description("Path to server certificate");
@@ -226,6 +254,9 @@ void
 ConnParams::fillCropts(lcb_create_st& cropts)
 {
     passwd = o_passwd.result();
+    if (passwd == "-") {
+        passwd = promptPassword("Bucket password: ");
+    }
 
     if (o_connstr.passed()) {
         connstr = o_connstr.const_result();
@@ -244,13 +275,10 @@ ConnParams::fillCropts(lcb_create_st& cropts)
             }
         }
 
-        if (o_host.passed()) {
-            fprintf(stderr, "The -h/--host option is deprecated. Use connection string instead\n");
-            fprintf(stderr, "  e.g. couchbase://%s\n", host.c_str());
-        }
-        if (o_bucket.passed()) {
-            fprintf(stderr, "The -b/--bucket option is deprecated. Use connection string instead\n");
-            fprintf(stderr, "  e.g. couchbase://HOSTS/%s\n", bucket.c_str());
+        if (o_host.passed() || o_bucket.passed()) {
+            fprintf(stderr, "CBC: WARNING\n");
+            fprintf(stderr, "  The -h/--host and -b/--bucket options are deprecated. Use connection string instead\n");
+            fprintf(stderr, "  e.g. -U couchbase://%s/%s\n", host.c_str(), o_bucket.const_result().c_str());
         }
 
         connstr = "http://";
@@ -259,6 +287,12 @@ ConnParams::fillCropts(lcb_create_st& cropts)
         connstr += bucket;
         connstr += "?";
     }
+
+    if (connstr.find("8091") != string::npos) {
+        fprintf(stderr, "CBC: WARNING\n");
+        fprintf(stderr, "  Specifying the default port (8091) has no effect\n");
+    }
+
     if (o_certpath.passed()) {
         connstr += "certpath=";
         connstr += o_certpath.result();

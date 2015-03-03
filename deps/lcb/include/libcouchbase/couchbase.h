@@ -919,7 +919,13 @@ lcb_get_callback lcb_set_get_callback(lcb_t, lcb_get_callback callback);
  *                       from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the items to get
- * @return The status of the operation
+ * @return_rc
+ *
+ * Operation-specific errors received in callbacks include:
+ * @cb_err ::LCB_KEY_ENOENT if the key does not exist
+ * @cb_err ::LCB_ETMPFAIL if the `lock` option was set in the command and the item
+ * was already locked.
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -1059,7 +1065,10 @@ typedef struct lcb_get_replica_cmd_st {
  *                       from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the items to get
- * @return The status of the operation
+ * @return_rc
+ *
+ * For operation-specific error codes received in the callback, see lcb_get()
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -1161,6 +1170,12 @@ lcb_unlock_callback lcb_set_unlock_callback(lcb_t, lcb_unlock_callback);
  * @param num the total number of elements in the commands array
  * @param commands the array containing the items to unlock
  * @return The status of the operation
+ * @return_rc
+ *
+ * Operation specific error codes:
+ * @cb_err ::LCB_ETMPFAIL if the item is not locked, or if the wrong CAS was
+ * specified
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -1314,7 +1329,21 @@ lcb_store_callback lcb_set_store_callback(lcb_t, lcb_store_callback callback);
  *                       from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the items to store
- * @return The status of the operation
+ * @return_rc
+ *
+ * Operation-specific error codes include:
+ * @cb_err ::LCB_KEY_ENOENT if ::LCB_REPLACE was used and the key does not exist
+ * @cb_err ::LCB_KEY_EEXISTS if ::LCB_ADD was used and the key already exists
+ * @cb_err ::LCB_KEY_EEXISTS if the CAS was specified (for an operation other
+ *          than ::LCB_ADD) and the item exists on the server with a different
+ *          CAS
+ * @cb_err ::LCB_KEY_EEXISTS if the item was locked and the CAS supplied did
+ * not match the locked item's CAS (or if no CAS was supplied)
+ * @cb_err ::LCB_NOT_STORED if an ::LCB_APPEND or ::LCB_PREPEND operation was
+ * performed and the item did not exist on the server.
+ * @cb_err ::LCB_E2BIG if the size of the value exceeds the cluster per-item
+ *         value limit (currently 20MB).
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -1410,6 +1439,7 @@ typedef struct {
  * @param error The status of the operation
  * @param resp More information about the operation (only key
  *             and nkey is valid if error != LCB_SUCCESS)
+ *
  * @committed
  */
 typedef void (*lcb_arithmetic_callback)(lcb_t instance,
@@ -1448,7 +1478,13 @@ lcb_arithmetic_callback lcb_set_arithmetic_callback(lcb_t,
  *                       from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the items to operate on
- * @return Status of the operation.
+ * @return_rc
+ *
+ * The following operation-specific error codes may be delivered in the callback:
+ * @cb_err ::LCB_KEY_ENOENT if the key does not exist (and `create` was not
+ *         specified in the command
+ * @cb_err ::LCB_DELTA_BADVAL if the existing value could not be parsed into
+ *         a number.
  * @committed
  */
 LIBCOUCHBASE_API
@@ -1580,7 +1616,15 @@ lcb_observe_callback lcb_set_observe_callback(lcb_t, lcb_observe_callback);
  *                       from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the items to observe
- * @return The status of the operation
+ * @return_rc
+ *
+ * The following operation-specific error codes may be returned in the
+ * callback:
+ *
+ * @cb_err ::LCB_UNKNOWN_COMMAND, ::LCB_NOT_SUPPORTED if the cluster does not
+ *         support this operation (such as a Couchbase cluster older than
+ *         version 2.0, or a memcached bucket).
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -1669,6 +1713,15 @@ lcb_remove_callback lcb_set_remove_callback(lcb_t, lcb_remove_callback);
  *                       from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the items to remove
+ * @return_rc
+ *
+ * The following operation-specific error codes are returned in the callback
+ * @cb_err ::LCB_KEY_ENOENT if the key does not exist
+ * @cb_err ::LCB_KEY_EEXISTS if the CAS was specified and it does not match the
+ *         CAS on the server
+ * @cb_err ::LCB_KEY_EEXISTS if the item was locked and no CAS (or an incorrect
+ *         CAS) was specified.
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -1745,7 +1798,11 @@ lcb_touch_callback lcb_set_touch_callback(lcb_t, lcb_touch_callback);
  * @param cookie A cookie passed to all of the notifications from this command
  * @param num the total number of elements in the commnands array
  * @param commands the array containing the items to touch
- * @return The status of the operation
+ * @return_rc
+ *
+ * Errors received in callbacks:
+ * @cb_err ::LCB_KEY_ENOENT if the item does not exist
+ * @cb_err ::LCB_KEY_EEXISTS if the item is locked
  */
 LIBCOUCHBASE_API
 lcb_error_t lcb_touch(lcb_t instance,
@@ -1960,12 +2017,19 @@ typedef struct lcb_durability_resp_st {
  * @param options a set of options and criteria for this durability check
  * @param cmds a list of key specifications to check for
  * @param ncmds how many key specifications reside in the list
+ * @return ::LCB_SUCCESS if scheduled successfuly
+ * @return ::LCB_DURABILITY_ETOOMANY if the criteria specified exceeds the
+ *         current satisfiable limit (e.g. `persist_to` was set to 4, but
+ *         there are only 2 servers online in the cluster) and `cap_max`
+ *         was not specified.
+ * @return ::LCB_DUPLICATE_COMMANDS if the same key was found more than once
+ *         in the command list
  *
- * @return a status code showing whether the request was scheduled.
- * If the request could not be scheduled, an error will be returned. Custom
- * errors returned include @c LCB_DURABILITY_ETOOMANY which indicates that
- * the number of servers specified by the user exceeds the possible number
- * of servers that the key may be replicated and/or persisted to:
+ * The following error codes may be returned in the callback
+ * @cb_err ::LCB_ETIMEDOUT if the specified interval expired before the client
+ *         could verify the durability requirements were satisfied. See
+ *         @ref LCB_CNTL_DURABILITY_TIMEOUT and lcb_DURABILITYOPTSv0::timeout
+ *         for more information on how to increase this interval.
  *
  * Example (after receiving a store callback)
  * @code{.c}
@@ -2151,7 +2215,10 @@ lcb_stat_callback lcb_set_stat_callback(lcb_t, lcb_stat_callback);
  *                       from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the statistic to get
- * @return The status of the operation
+ * @return_rc
+ *
+ * The following callbacks may be returned in the callback
+ * @cb_err ::LCB_KEY_ENOENT if key passed is unrecognized
  *
  * @todo Enumerate some useful stats here
  */
@@ -2360,6 +2427,11 @@ typedef struct lcb_flush_resp_st {
 /**
  * Flush the entire couchbase cluster!
  *
+ * @warning
+ * From Couchbase Server 2.0 and higher, this command will only work on
+ * _memcached_ buckets. To flush a Couchbase bucket, use the HTTP REST
+ * API (See: http://docs.couchbase.com/admin/admin/REST/rest-bucket-flush.html)
+ *
  * @code{.c}
  *   lcb_flush_cmd_t *cmd = calloc(1, sizeof(*cmd));
  *   cmd->version = 0;
@@ -2371,7 +2443,11 @@ typedef struct lcb_flush_resp_st {
  * @param cookie A cookie passed to all of the notifications from this command
  * @param num the total number of elements in the commands array
  * @param commands the array containing the flush commands
- * @return The status of the operation.
+ * @return_rc
+ *
+ * The following error codes may be returned in the callback
+ * @cb_err ::LCB_NOT_SUPPORTED if trying to flush a Couchbase bucket.
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -2435,7 +2511,11 @@ typedef enum {
      * Execute an arbitrary request against a host and port
      */
     LCB_HTTP_TYPE_RAW = 2,
-    LCB_HTTP_TYPE_MAX = 3
+
+    /** Execute an N1QL Query */
+    LCB_HTTP_TYPE_N1QL = 3,
+
+    LCB_HTTP_TYPE_MAX
 } lcb_http_type_t;
 
 /**
@@ -2653,6 +2733,18 @@ lcb_set_http_data_callback(lcb_t, lcb_http_data_callback);
  * @param type The type of the request needed.
  * @param cmd The struct describing the command options
  * @param request Where to store request handle
+ *
+ * @return_rc
+ *
+ * The following errors may be received in the callback. Note that ::LCB_SUCCESS
+ * will be delivered the callback so long as the operation received a full
+ * HTTP response. You should inspect the individual HTTP status code to determine
+ * if the actual HTTP request succeeded or not.
+ *
+ * @cb_err ::LCB_TOO_MANY_REDIRECTS if the request was redirected too many times.
+ * @cb_err ::LCB_PROTOCOL_ERROR if the endpoint did not send back a well formed
+ *         HTTP response
+ *
  * @committed
  */
 LIBCOUCHBASE_API
@@ -2859,10 +2951,16 @@ int lcb_is_waiting(lcb_t instance);
  *      and for SET operations, the current configuration is
  *      updated with the contents of *arg.
  *
- * @return LCB_NOT_SUPPORTED if the code is unrecognized
- *      LCB_EINVAL if there was a problem with the argument
- *      (typically for SET) other error codes depending on the
- *      command.
+ * @return ::LCB_NOT_SUPPORTED if the code is unrecognized
+ * @return ::LCB_EINVAL if there was a problem with the argument
+ *         (typically for LCB_CNTL_SET) other error codes depending on the command.
+ *
+ * The following error codes are returned if the ::LCB_CNTL_DETAILED_ERRCODES
+ * are enabled.
+ *
+ * @return ::LCB_ECTL_UNKNOWN if the code is unrecognized
+ * @return ::LCB_ECTL_UNSUPPMODE An invalid _mode_ was passed
+ * @return ::LCB_ECTL_BADARG if the value was invalid
  *
  * @committed
  *

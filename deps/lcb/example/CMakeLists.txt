@@ -21,6 +21,7 @@ TARGET_LINK_LIBRARIES(vb couchbase)
 ADD_EXAMPLE(mcc mcc "" "")
 ADD_EXAMPLE(minimal minimal "" "")
 ADD_EXAMPLE(observe observe "" "")
+ADD_EXAMPLE(views-example views "" "")
 
 IF(NOT WIN32)
     ADD_EXAMPLE(instancepool instancepool pthread "")

@@ -283,6 +283,8 @@ public:
     void createConnection(lcb_t &instance);
 
     void createConnection(HandleWrap &handle, lcb_t &instance);
+    void createConnection(HandleWrap &handle, lcb_t& instance,
+        const lcb_create_st &options);
 
     /**
      * Setup mock to split response in two parts: send first "offset" bytes

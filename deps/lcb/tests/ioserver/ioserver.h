@@ -407,36 +407,6 @@ private:
     void handleClose();
 };
 
-#ifndef LCB_NO_SSL
-#include <openssl/ssl.h>
-
-class SslSocket : public SockFD {
-public:
-    SslSocket(SockFD *innner);
-
-    ~SslSocket();
-
-    // Receive data via SSL
-    size_t send(const void*,size_t,int);
-
-    // Send data via SSL
-    ssize_t recv(void*,size_t,int);
-
-    // Close the SSL context first
-    void close();
-
-    // Return the real FD
-    int getFD() const { return sfd->getFD(); }
-
-private:
-    SSL *ssl;
-    SSL_CTX *ctx;
-    SockFD *sfd;
-    bool ok;
-};
-#endif
-
-
 /**
  * Represents a listening socket for a test "Server". This server accepts
  * connections from clients, and for each new connection, creates a new
@@ -493,13 +463,7 @@ public:
 
     SocketFactory *factory;
     static SockFD *plainSocketFactory(int fd) { return new SockFD(fd); }
-
-#ifndef LCB_NO_SSL
-    static SockFD *sslSocketFactory(int fd) {
-        SockFD *inner = new SockFD(fd);
-        return new SslSocket(inner);
-    }
-#endif
+    static SockFD *sslSocketFactory(int fd);
 
 private:
     friend class TestConnection;

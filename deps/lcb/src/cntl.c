@@ -369,6 +369,30 @@ HANDLER(reinit_spec_handler) {
     (void)cmd; return lcb_reinit3(instance, arg);
 }
 
+HANDLER(unsafe_optimize) {
+    lcb_error_t rc;
+    int val = *(int *)arg;
+    if (mode != LCB_CNTL_SET) {
+        return LCB_ECTL_UNSUPPMODE;
+    }
+    if (!val) {
+        return LCB_ECTL_BADARG;
+    }
+
+    /* Simpler to just input strings here. */
+    #define APPLY_UNSAFE(k, v) \
+        if ((rc = lcb_cntl_string(instance, k, v)) != LCB_SUCCESS) { return rc; }
+
+    APPLY_UNSAFE("vbguess_persist", "1");
+    APPLY_UNSAFE("retry_policy", "topochange:none")
+    APPLY_UNSAFE("retry_policy", "sockerr:none");
+    APPLY_UNSAFE("retry_policy", "maperr:none");
+    APPLY_UNSAFE("retry_policy", "missingnode:none");
+    APPLY_UNSAFE("retry_backoff", "0.0");
+    (void)cmd;
+    return LCB_SUCCESS;
+}
+
 static ctl_handler handlers[] = {
     timeout_common, /* LCB_CNTL_OP_TIMEOUT */
     timeout_common, /* LCB_CNTL_VIEW_TIMEOUT */
@@ -420,7 +444,8 @@ static ctl_handler handlers[] = {
     http_refresh_config_handler, /* LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR */
     bucketname_handler, /* LCB_CNTL_BUCKETNAME */
     schedflush_handler, /* LCB_CNTL_SCHED_IMPLICIT_FLUSH */
-    vbguess_handler /* LCB_CNTL_VBGUESS_PERSIST */
+    vbguess_handler, /* LCB_CNTL_VBGUESS_PERSIST */
+    unsafe_optimize /* LCB_CNTL_UNSAFE_OPTIMIZE */
 };
 
 /* Union used for conversion to/from string functions */
@@ -563,6 +588,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"retry_backoff", LCB_CNTL_RETRY_BACKOFF, convert_float },
         {"http_poolsize", LCB_CNTL_HTTP_POOLSIZE, convert_SIZE },
         {"vbguess_persist", LCB_CNTL_VBGUESS_PERSIST, convert_intbool },
+        {"unsafe_optimize", LCB_CNTL_UNSAFE_OPTIMIZE, convert_intbool },
         {NULL, -1}
 };
 

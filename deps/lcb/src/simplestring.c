@@ -112,6 +112,33 @@ int lcb_string_appendz(lcb_string *str, const char *s)
     return lcb_string_append(str, s, strlen(s));
 }
 
+int lcb_string_appendv(lcb_string *str, ...)
+{
+    va_list ap;
+    va_start(ap, str);
+
+    while (1) {
+        size_t len;
+        int rc;
+        const char *ptr;
+
+        if ((ptr = va_arg(ap, const char *)) == NULL) {
+            return 0;
+        }
+
+        len = va_arg(ap, size_t);
+        if (len == (size_t)-1) {
+            len = strlen(ptr);
+        }
+
+        rc = lcb_string_append(str, ptr, len);
+        if (rc != 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 int lcb_string_rbappend(lcb_string *str, ringbuffer_t *rb, int rbadvance)
 {
     lcb_size_t expected, nw;

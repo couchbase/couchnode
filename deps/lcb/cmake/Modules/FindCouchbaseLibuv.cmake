@@ -5,46 +5,38 @@
 #  LIBUV_INCLUDE_DIR, where to find the ICU headers
 
 FIND_PATH(LIBUV_INCLUDE_DIR uv.h
-          HINTS
-               ENV LIBUV_DIR
+          HINTS ${LIBUV_ROOT}
           PATH_SUFFIXES include
           PATHS
-               ${LIBUV_ROOT}
-               ${DEPS_INCLUDE_DIR}
                ~/Library/Frameworks
                /Library/Frameworks
                /opt/local
                /opt/csw
                /opt/libuv
                /opt)
+MESSAGE(STATUS "Found UV include dir: ${LIBUV_INCLUDE_DIR}")
 
 IF(WIN32)
     FIND_LIBRARY(LIBUV_LIBRARIES_DEBUG
         NAMES uv libuv
-        HINTS ENV LIBUV_DIR
-        PATH_SUFFIXES Debug Debug/lib
-        PATHS ${LIBUV_ROOT})
+        HINTS ${LIBUV_ROOT}
+        PATH_SUFFIXES Debug Debug/lib)
 
     FIND_LIBRARY(LIBUV_LIBRARIES_OPTIMIZED
         NAMES uv libuv
-        HINTS ENV LIBUV_DIR
-        PATH_SUFFIXES Release Release/lib
-        PATHS ${LIBUV_ROOT})
+        HINTS ${LIBUV_ROOT}
+        PATH_SUFFIXES Release Release/lib)
 
     SET(LIBUV_LIBRARIES
-        optimized
-            ${LIBUV_LIBRARIES_OPTIMIZED}
-        debug
-            ${LIBUV_LIBRARIES_DEBUG})
+        OPTIMIZED ${LIBUV_LIBRARIES_OPTIMIZED}
+        DEBUG ${LIBUV_LIBRARIES_DEBUG})
 
 ELSE()
     FIND_LIBRARY(LIBUV_LIBRARIES
         NAMES uv
-        HINTS
-            ENV LIBUV_DIR
+        HINTS ${LIBUV_ROOT}
+        PATH_SUFFIXES lib
         PATHS
-            ${LIBUV_ROOT}
-            ${DEPS_LIB_DIR}
             ~/Library/Frameworks
             /Library/Frameworks
             /opt/local

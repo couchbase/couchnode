@@ -20,18 +20,10 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 ### BEGIN CONFIGURABLES ###
 # These variables can be modified as needed
 
-# Gtest source archive to use
-SET(GTEST_ARCHIVE gtest-1.7.0.zip)
-# Where to download archive (if it doesn't exist)
-SET(GTEST_DLSERVER http://googletest.googlecode.com/files)
-
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION
-    0.8-SNAPSHOT/CouchbaseMock-0.8-20140621.030439-1.jar)
-
+SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.0.0-g50cf222.jar)
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
-SET(COUCHBASE_MOCK_DLSERVER
-    http://files.couchbase.com/maven2/org/couchbase/mock/CouchbaseMock)
+SET(COUCHBASE_MOCK_DLSERVER http://packages.couchbase.com/clients/c/mock)
 project(libcouchbase)
 
 OPTION(LCB_NO_TESTS "Disable building of tests" OFF)
@@ -223,6 +215,14 @@ IF(NOT WIN32 AND LCB_BUILD_DTRACE)
     INCLUDE(cmake/Modules/ConfigureDtrace.cmake)
 ENDIF()
 
+FILE(GLOB LCB_VIEWS_C_SRC src/views/*.c)
+ADD_LIBRARY(lcb_views_c OBJECT ${LCB_VIEWS_C_SRC})
+LCB_UTIL(lcb_views_c)
+
+FILE(GLOB LCB_JSPARSE_SRC src/jsparse/*.c)
+ADD_LIBRARY(lcb_jsparse OBJECT ${LCB_JSPARSE_SRC})
+LCB_UTIL(lcb_jsparse)
+
 SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:couchbase_select>
     $<TARGET_OBJECTS:couchbase_utils>
@@ -234,6 +234,8 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:rdb>
     $<TARGET_OBJECTS:lcbht>
     $<TARGET_OBJECTS:lcbcore>
+    $<TARGET_OBJECTS:lcb_views_c>
+    $<TARGET_OBJECTS:lcb_jsparse>
     ${LCB_DTRACE_OBJECT}
     ${lcb_plat_objs}
     ${lcb_ssl_objs})
@@ -357,6 +359,13 @@ INSTALL_PDBS(couchbase)
 
 SET(_lcb_tarname "libcouchbase-${LCB_VERSION}")
 SET(_lcb_manifest "${LCB_GENINFODIR}/MANIFEST")
+
+# pkg-config stuff goes with installation
+IF(NOT WIN32)
+    CONFIGURE_FILE(packaging/libcouchbase.pc.in packaging/libcouchbase.pc @ONLY)
+    INSTALL(FILES ${PROJECT_BINARY_DIR}/packaging/libcouchbase.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+ENDIF()
+
 
 ADD_CUSTOM_TARGET(uninstall
     COMMAND xargs rm -vf < ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)

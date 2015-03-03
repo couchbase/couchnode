@@ -177,16 +177,20 @@ void MockEnvironment::postCreate(lcb_t instance)
     }
 }
 
-void MockEnvironment::createConnection(HandleWrap &handle, lcb_t &instance)
+void
+MockEnvironment::createConnection(HandleWrap &handle,
+    lcb_t& instance, const lcb_create_st &user_options)
 {
     lcb_io_opt_t io;
+    lcb_create_st options;
+    memcpy(&options, &user_options, sizeof user_options);
+
     if (lcb_create_io_ops(&io, NULL) != LCB_SUCCESS) {
         fprintf(stderr, "Failed to create IO instance\n");
         exit(1);
     }
 
-    lcb_create_st options;
-    makeConnectParams(options, io);
+    options.v.v2.io = io;
     lcb_error_t err = lcb_create(&instance, &options);
     ASSERT_EQ(LCB_SUCCESS, err);
     postCreate(instance);
@@ -195,6 +199,13 @@ void MockEnvironment::createConnection(HandleWrap &handle, lcb_t &instance)
 
     handle.instance = instance;
     handle.iops = io;
+}
+
+void MockEnvironment::createConnection(HandleWrap &handle, lcb_t &instance)
+{
+    lcb_create_st options;
+    makeConnectParams(options, NULL);
+    createConnection(handle, instance, options);
 }
 
 void MockEnvironment::createConnection(lcb_t &instance)

@@ -24,16 +24,18 @@ typedef struct slist_node_st {
 } sllist_node;
 
 typedef struct {
-    sllist_node *first;
+    sllist_node first_prev;
     sllist_node *last;
 } sllist_root;
 
 /**
  * Indicates whether the list is empty or not
  */
-#define SLLIST_IS_EMPTY(list) ((list)->last == NULL)
+#define SLLIST_FIRST(list) (list)->first_prev.next
+#define SLLIST_LAST(list) (list)->last
 
-#define SLLIST_IS_ONE(list) ((list)->first && (list)->first == (list)->last)
+#define SLLIST_IS_EMPTY(list) (SLLIST_LAST(list) == NULL)
+#define SLLIST_IS_ONE(list) (SLLIST_FIRST(list) && SLLIST_FIRST(list) == SLLIST_LAST(list))
 
 /**
  * Iterator for list. This can be used as the 'for' statement; as such this
@@ -48,7 +50,7 @@ typedef struct {
  *  @param pos a local variable to use as the iterator
  */
 #define SLLIST_FOREACH(list, pos) \
-    for (pos = (list)->first; pos; pos = pos->next)
+    for (pos = SLLIST_FIRST(list); pos; pos = pos->next)
 
 
 typedef struct sllist_iterator_st {
@@ -69,6 +71,6 @@ typedef struct sllist_iterator_st {
             slist_iter_incr(list, iter))
 
 #define SLLIST_ITERBASIC(list, elem) \
-        for (elem = (list)->first; elem; elem = elem->next)
+        for (elem = SLLIST_FIRST(list); elem; elem = elem->next)
 
 #endif

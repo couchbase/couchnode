@@ -289,3 +289,28 @@ lcbio_ssl_new__fallback(const char *ca, int noverify, lcb_error_t *errp,
     if (errp) { *errp = LCB_CLIENT_FEATURE_UNAVAILABLE; }
     return NULL;
 }
+
+
+#ifdef LCB_NO_SSL
+void lcbio_ssl_free(lcbio_pSSLCTX a) {
+    (void)a;
+}
+lcb_error_t lcbio_ssl_apply(lcbio_SOCKET *a, lcbio_pSSLCTX b) {
+    (void)a;(void)b;
+    return LCB_CLIENT_FEATURE_UNAVAILABLE;
+}
+int lcbio_ssl_check(lcbio_SOCKET *s) {
+    (void)s;
+    return 0;
+}
+lcb_error_t lcbio_ssl_get_error(lcbio_SOCKET *s) {
+    (void)s;
+    return LCB_SUCCESS;
+}
+void lcbio_ssl_global_init(void) {
+}
+lcb_error_t lcbio_sslify_if_needed(lcbio_SOCKET *s, lcb_settings *st) {
+    (void)s;(void)st;
+    return LCB_SUCCESS;
+}
+#endif

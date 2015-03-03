@@ -61,9 +61,6 @@ struct lcb_http_request_st {
     lcb_size_t nurl;
     /** The URL info */
     struct http_parser_url url_info;
-    /** The requested path (without couch api endpoint) */
-    char *path;
-    lcb_size_t npath;
     /** The body buffer */
     char *body;
     lcb_size_t nbody;
@@ -82,6 +79,8 @@ struct lcb_http_request_st {
     unsigned int refcount;
     /** Redirect count */
     int redircount;
+    /** IO reading temporarily disabled */
+    int paused;
     char *redirect_to;
     lcb_string outbuf;
 
@@ -95,6 +94,7 @@ struct lcb_http_request_st {
     lcb_http_header_t headers_out;
     /** Headers array for passing to callbacks */
     char **headers;
+    lcb_RESPCALLBACK callback;
     lcbio_pTABLE io;
     lcbio_pTIMER timer;
     lcbio_CONNREQ creq;
@@ -113,13 +113,41 @@ lcb_http_request_finish(lcb_t instance, lcb_http_request_t req, lcb_error_t erro
 void
 lcb_http_request_decref(lcb_http_request_t req);
 
+/* Hack for handling redirect URLs */
 lcb_error_t
-lcb_http_verify_url(lcb_http_request_t req, const char *base, lcb_size_t nbase);
+lcb_htreq_redirect(lcb_http_request_t req);
 
 lcb_error_t
 lcb_http_request_exec(lcb_http_request_t req);
 
 lcb_error_t
 lcb_http_request_connect(lcb_http_request_t req);
+
+#define lcb_htreq_setcb(htr, cb) (htr)->callback = cb
+
+#define LCB_HTREQ_GETCB(htreq) \
+    (htreq)->callback ? \
+            (htreq)->callback : \
+            lcb_find_callback((htreq->instance), LCB_CALLBACK_HTTP)
+
+/*
+ * Functions to control throttling of potentially long-running HTTP responses.
+ * This ensures that memory will not overflow the client.
+ *
+ * This function, together with lcb_htreq_resume() hint to the underlying
+ * IO implementation to stop monitoring the socket for reading until
+ * htreq_resume() is called.
+ */
+
+void
+lcb_htreq_pause(lcb_http_request_t req);
+
+void
+lcb_htreq_resume(lcb_http_request_t req);
+
+/* Deterimes if this request is a data API request (which means we can pool
+ * the socket) and intepret failures as reasons to get a new config */
+#define lcb_htreq_isdata(req) \
+    ((req)->reqtype == LCB_HTTP_TYPE_VIEW || (req)->reqtype == LCB_HTTP_TYPE_N1QL)
 
 #endif

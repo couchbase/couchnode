@@ -36,6 +36,7 @@ handle_headers(lcb_http_request_t req)
     if (res->status >= 300 && res->status <= 400) {
         const char *redirto = lcbht_get_resphdr(res, "Location");
         if (redirto) {
+            /* XXX: Freed either as part of url, or redirect_to */
             req->redirect_to = strdup(redirto);
         }
     }
@@ -79,7 +80,7 @@ handle_parse_chunked(lcb_http_request_t req, const char *buf, unsigned nbuf)
                 htresp.body = body;
                 htresp.nbody = nbody;
                 htresp.rc = LCB_SUCCESS;
-                target = lcb_find_callback(req->instance, LCB_CALLBACK_HTTP);
+                target = LCB_HTREQ_GETCB(req);
                 target(req->instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE *)&htresp);
 
             } else {
@@ -108,7 +109,7 @@ handle_parse_chunked(lcb_http_request_t req, const char *buf, unsigned nbuf)
         resp.rc = LCB_SUCCESS;
         resp.body = buf;
         resp.nbody = nbuf;
-        target = lcb_find_callback(req->instance, LCB_CALLBACK_HTTP);
+        target = LCB_HTREQ_GETCB(req);
         target(req->instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE*)&resp);
         req->status |= LCB_HTREQ_S_CBINVOKED;
     }
@@ -149,13 +150,8 @@ io_read(lcbio_CTX *ctx, unsigned nr)
     if (rv == -1) {
         lcb_error_t err;
         if (req->redirect_to) {
-            req->url = req->redirect_to;
-            req->nurl = strlen(req->url);
-            req->redirect_to = NULL;
-            if ((err = lcb_http_verify_url(req, NULL, 0)) == LCB_SUCCESS) {
-                if ((err = lcb_http_request_exec(req)) == LCB_SUCCESS) {
-                    goto GT_DONE;
-                }
+            if ((err = lcb_htreq_redirect(req)) == LCB_SUCCESS) {
+                goto GT_DONE;
             }
         } else {
             err = LCB_PROTOCOL_ERROR;
@@ -165,12 +161,38 @@ io_read(lcbio_CTX *ctx, unsigned nr)
     } else if (rv == 1) {
         lcb_http_request_finish(instance, req, LCB_SUCCESS);
     } else {
-        lcbio_ctx_rwant(ctx, 1);
+        lcbio_ctx_rwant(ctx, req->paused ? 0 : 1);
         lcbio_ctx_schedule(ctx);
     }
 
     GT_DONE:
     lcb_http_request_decref(req);
+}
+
+void
+lcb_htreq_pause(lcb_http_request_t req)
+{
+    if (!req->paused) {
+        req->paused = 1;
+        if (req->ioctx) {
+            lcbio_ctx_rwant(req->ioctx, 0);
+            lcbio_ctx_schedule(req->ioctx);
+        }
+    }
+}
+
+void
+lcb_htreq_resume(lcb_http_request_t req)
+{
+    if (!req->paused) {
+        return;
+    }
+    if (req->ioctx == NULL) {
+        return;
+    }
+    req->paused = 0;
+    lcbio_ctx_rwant(req->ioctx, 1);
+    lcbio_ctx_schedule(req->ioctx);
 }
 
 static void
@@ -232,7 +254,7 @@ lcb_http_request_connect(lcb_http_request_t req)
     memcpy(dest.port, req->port, req->nport);
     dest.port[req->nport] = '\0';
 
-    req->timeout = req->reqtype == LCB_HTTP_TYPE_VIEW ?
+    req->timeout = lcb_htreq_isdata(req) ?
             settings->views_timeout : settings->http_timeout;
 
     poolreq = lcbio_mgr_get(pool, &dest, req->timeout, on_connected, req);

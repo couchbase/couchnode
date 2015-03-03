@@ -55,7 +55,6 @@ void*
 lcbio_ssl_new__fallback(const char *, int, lcb_error_t *, lcb_settings *);
 
 #ifndef LCB_NO_SSL
-
 /**
  * Create a new SSL context to be used to establish SSL policy.
  * @param cafile Optional path to CA file
@@ -68,6 +67,9 @@ lcbio_ssl_new__fallback(const char *, int, lcb_error_t *, lcb_settings *);
 lcbio_pSSLCTX
 lcbio_ssl_new(const char *cafile, int noverify, lcb_error_t *errp,
     lcb_settings *settings);
+#else
+#define lcbio_ssl_new lcbio_ssl_new__fallback
+#endif
 
 
 /**
@@ -138,17 +140,6 @@ struct lcb_settings_st;
  */
 lcb_error_t
 lcbio_sslify_if_needed(lcbio_SOCKET *sock, struct lcb_settings_st *settings);
-
-#else
-/* SSL Disabled */
-#define lcbio_ssl_new lcbio_ssl_new__fallback
-#define lcbio_ssl_free(ctx)
-#define lcbio_ssl_apply(sock, sctx) LCB_CLIENT_FEATURE_UNAVAILABLE
-#define lcbio_ssl_check(sock) 0
-#define lcbio_ssl_get_error(sock) LCB_SUCCESS
-#define lcbio_ssl_global_init() 0
-#define lcbio_sslify_if_needed(sock, settings) LCB_SUCCESS
-#endif /*LCB_NO_SSL*/
 
 /**@}*/
 

@@ -107,7 +107,7 @@ do_close_ioctx(lcb_http_request_t req)
         return;
     }
 
-    if (req->parser && req->reqtype == LCB_HTTP_TYPE_VIEW) {
+    if (req->parser && lcb_htreq_isdata(req)) {
         can_ka = lcbht_can_keepalive(req->parser);
     }
 
@@ -127,7 +127,6 @@ void lcb_http_request_decref(lcb_http_request_t req)
     do_close_ioctx(req);
     lcbio_connreq_cancel(&req->creq);
 
-    free(req->path);
     free(req->url);
     free(req->redirect_to);
     free(req->body);
@@ -187,8 +186,8 @@ lcb_http_init_resp(const lcb_http_request_t req, lcb_RESPHTTP *res)
     const lcbht_RESPONSE *htres = lcbht_get_response(req->parser);
 
     res->cookie = (void*)req->command_cookie;
-    res->key = req->path;
-    res->nkey = req->npath;
+    res->key = req->url + req->url_info.field_data[UF_PATH].off;
+    res->nkey = req->url_info.field_data[UF_PATH].len;
     res->_htreq = req;
     if (req->headers) {
         res->headers = (const char * const *)req->headers;
@@ -214,7 +213,7 @@ lcb_http_request_finish(lcb_t instance, lcb_http_request_t req, lcb_error_t erro
         lcb_RESPCALLBACK target;
 
         lcb_http_init_resp(req, &resp);
-        target = lcb_find_callback(instance, LCB_CALLBACK_HTTP);
+        target = LCB_HTREQ_GETCB(req);
 
         resp.rflags = LCB_RESP_F_FINAL;
         resp.rc = error;
@@ -243,23 +242,20 @@ lcb_http_request_finish(lcb_t instance, lcb_http_request_t req, lcb_error_t erro
     lcb_http_request_decref(req);
 }
 
-static mc_SERVER *get_view_node(lcb_t instance)
+static const char *
+get_api_node(lcb_t instance, int reqtype)
 {
-    /* pick random server */
-    lcb_size_t nn, nn_limit;
-    mc_SERVER *server;
+    int ix;
+    int svc = reqtype == LCB_HTTP_TYPE_VIEW ?
+            LCBVB_SVCTYPE_VIEWS : LCBVB_SVCTYPE_N1QL;
+    int mode = LCBT_SETTING(instance, sslopts) ?
+            LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN;
 
-    nn = (lcb_size_t)(gethrtime() >> 10) % LCBT_NSERVERS(instance);
-    nn_limit = nn;
-
-    do {
-        server = LCBT_GET_SERVER(instance, nn);
-        if (server->viewshost) {
-            return server;
-        }
-        nn = (nn + 1) % LCBT_NSERVERS(instance);
-    } while (nn != nn_limit);
-    return NULL;
+    ix = lcbvb_get_randhost(LCBT_VBCONFIG(instance), svc, mode);
+    if (ix < 0) {
+        return NULL;
+    }
+    return lcbvb_get_resturl(LCBT_VBCONFIG(instance), ix, svc, mode);
 }
 
 lcb_error_t lcb_http_request_exec(lcb_http_request_t req)
@@ -316,7 +312,9 @@ lcb_error_t lcb_http_request_exec(lcb_http_request_t req)
     return rc;
 }
 
-lcb_error_t lcb_http_verify_url(lcb_http_request_t req, const char *base, lcb_size_t nbase)
+static
+lcb_error_t prepare_url(lcb_http_request_t req,
+    const char *base, size_t nbase, const char *path, size_t npath)
 {
     unsigned int required_fields;
     const char *htscheme;
@@ -341,12 +339,24 @@ lcb_error_t lcb_http_verify_url(lcb_http_request_t req, const char *base, lcb_si
             nbase -= schemsize;
         }
 
-
         lcb_string_append(&urlbuf, base, nbase);
-        if (*req->path != '/') {
-            lcb_string_appendz(&urlbuf, "/");
+        if (path) {
+            lcb_error_t rc;
+            char *pp;
+            lcb_size_t n_added;
+
+            lcb_string_reserve(&urlbuf, (npath * 3) + 1);
+            if (*path != '/' && urlbuf.base[urlbuf.nused-1] != '/') {
+                lcb_string_append(&urlbuf, "/", 1);
+            }
+
+            pp = urlbuf.base + urlbuf.nused;
+            rc = lcb_urlencode_path(path, npath, &pp, &n_added);
+            if (rc != LCB_SUCCESS) {
+                return rc;
+            }
+            lcb_string_added(&urlbuf, n_added);
         }
-        lcb_string_append(&urlbuf, req->path, req->npath);
 
         req->nurl = urlbuf.nused;
         req->url = calloc(req->nurl + 1, 1);
@@ -359,7 +369,40 @@ lcb_error_t lcb_http_verify_url(lcb_http_request_t req, const char *base, lcb_si
             || (req->url_info.field_set & required_fields) != required_fields) {
         return LCB_EINVAL;
     }
+
+    req->nhost = req->url_info.field_data[UF_HOST].len;
+    req->host = req->url + req->url_info.field_data[UF_HOST].off;
+    req->nport = req->url_info.field_data[UF_PORT].len;
+    req->port = req->url + req->url_info.field_data[UF_PORT].off;
+
     return LCB_SUCCESS;
+}
+
+lcb_error_t
+lcb_htreq_redirect(lcb_http_request_t req)
+{
+    lcb_error_t rc;
+    assert(req->redirect_to);
+
+    if (LCBT_SETTING(req->instance, max_redir) > -1) {
+        if (LCBT_SETTING(req->instance, max_redir) < ++req->redircount) {
+            return LCB_TOO_MANY_REDIRECTS;
+        }
+    }
+
+    memset(&req->url_info, 0, sizeof req->url_info);
+    if (req->url) {
+        free(req->url);
+    }
+    req->url = req->redirect_to;
+    req->nurl = strlen(req->url);
+    req->redirect_to = NULL;
+
+    rc = prepare_url(req, NULL, 0, NULL, 0);
+    if (rc == LCB_SUCCESS) {
+        rc = lcb_http_request_exec(req);
+    }
+    return rc;
 }
 
 static lcb_error_t setup_headers(lcb_http_request_t req,
@@ -373,8 +416,7 @@ static lcb_error_t setup_headers(lcb_http_request_t req,
         return rc;
     }
 
-    if (req->instance->http_sockpool->maxidle == 0 ||
-            req->reqtype != LCB_HTTP_TYPE_VIEW) {
+    if (req->instance->http_sockpool->maxidle == 0 || !lcb_htreq_isdata(req)) {
         rc = add_header(req, "Connection", "close");
         if (rc != LCB_SUCCESS) {
             return rc;
@@ -398,10 +440,6 @@ static lcb_error_t setup_headers(lcb_http_request_t req,
             }
         }
     }
-    req->nhost = req->url_info.field_data[UF_HOST].len;
-    req->host = req->url + req->url_info.field_data[UF_HOST].off;
-    req->nport = req->url_info.field_data[UF_PORT].len;
-    req->port = req->url + req->url_info.field_data[UF_PORT].off;
     rc = add_header(req, "Host", "%.*s%.*s",
                     (int)req->nhost, req->host,
                     (int)req->nport + 1, req->port - 1);
@@ -429,18 +467,11 @@ lcb_error_t
 lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
 {
     lcb_http_request_t req;
-    const char *base = NULL, *username, *password, *path;
-    lcb_size_t nbase = 0, npath;
+    const char *base = NULL, *username, *password;
+    lcb_size_t nbase = 0;
     lcb_http_method_t method;
     lcb_error_t rc;
     lcb_http_request_t *request = cmd->reqhandle;
-
-    if ((npath = cmd->key.contig.nbytes) == 0) {
-        path = "/";
-        npath = 1;
-    } else {
-        path = cmd->key.contig.bytes;
-    }
 
     if ((method = cmd->method) > LCB_HTTP_METHOD_MAX) {
         return LCB_EINVAL;
@@ -463,15 +494,14 @@ lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
             password = LCBT_SETTING(instance, password);
         }
 
-        if (cmd->type == LCB_HTTP_TYPE_VIEW) {
-            const mc_SERVER *server;
+        if (cmd->type == LCB_HTTP_TYPE_VIEW || cmd->type == LCB_HTTP_TYPE_N1QL) {
             if (!LCBT_VBCONFIG(instance)) {
                 return LCB_CLIENT_ETMPFAIL;
             }
-            if ((server = get_view_node(instance)) == NULL) {
+            base = get_api_node(instance, cmd->type);
+            if (base == NULL) {
                 return LCB_NOT_SUPPORTED;
             }
-            base = server->viewshost;
         } else {
             base = lcb_get_node(instance, LCB_NODE_HTCONFIG, 0);
             if (base == NULL || *base == '\0') {
@@ -508,12 +538,9 @@ lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
         memcpy(req->body, cmd->body, req->nbody);
     }
 
-    rc = lcb_urlencode_path(path, npath, &req->path, &req->npath);
-    if (rc != LCB_SUCCESS) {
-        lcb_http_request_decref(req);
-        return rc;
-    }
-    rc = lcb_http_verify_url(req, base, nbase);
+    rc = prepare_url(req, base, nbase,
+        cmd->key.contig.bytes, cmd->key.contig.nbytes);
+
     if (rc != LCB_SUCCESS) {
         lcb_http_request_decref(req);
         return rc;

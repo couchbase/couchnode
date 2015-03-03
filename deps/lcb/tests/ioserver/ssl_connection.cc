@@ -1,9 +1,41 @@
 #include "ioserver.h"
 
 #ifndef LCB_NO_SSL
+#include <openssl/ssl.h>
 
 using namespace LCBTest;
 using std::vector;
+
+class SslSocket : public SockFD {
+public:
+    SslSocket(SockFD *innner);
+
+    ~SslSocket();
+
+    // Receive data via SSL
+    size_t send(const void*,size_t,int);
+
+    // Send data via SSL
+    ssize_t recv(void*,size_t,int);
+
+    // Close the SSL context first
+    void close();
+
+    // Return the real FD
+    int getFD() const { return sfd->getFD(); }
+
+private:
+    SSL *ssl;
+    SSL_CTX *ctx;
+    SockFD *sfd;
+    bool ok;
+};
+
+SockFD *
+TestServer::sslSocketFactory(int fd)
+{
+    return new SslSocket(new SockFD(fd));
+}
 
 extern "C" {
 static void

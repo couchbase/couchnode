@@ -68,6 +68,10 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd)
         gcmd.message.body.expiration = htonl(cmd->exptime);
     }
 
+    if (cmd->cmdflags & LCB_CMD_F_INTERNAL_CALLBACK) {
+        pkt->flags |= MCREQ_F_PRIVCALLBACK;
+    }
+
     memcpy(SPAN_BUFFER(&pkt->kh_span), gcmd.bytes, MCREQ_PKT_BASESIZE + extlen);
     mcreq_sched_add(pl, pkt);
     TRACE_GET_BEGIN(hdr, cmd);

@@ -19,6 +19,8 @@
 #define LCB_STRING_H
 
 #include <libcouchbase/couchbase.h>
+#include <stdarg.h>
+
 #include "config.h"
 #include "assert.h"
 #include "ringbuffer.h"
@@ -95,6 +97,20 @@ int lcb_string_append(lcb_string *str, const void *data, lcb_size_t size);
  * @param zstr a NUL-terminated string to add
  */
 int lcb_string_appendz(lcb_string *str, const char *zstr);
+
+
+/**
+ * Appends a list of pointer-length pairs. Useful if you need to concatenate
+ * many small buffers
+ * @param str The string to append to. This should be followed by a list of
+ * `pointer, size` arguments (where `size` is `size_t`). If the length is
+ * `-1` then `strlen(pointer)` will be called to determine the length.
+ *
+ * A terminal `NULL` should be placed at the end of the argument list
+ *
+ * @return 0 if appended, nonzero on memory error
+ */
+int lcb_string_appendv(lcb_string *str, ...);
 
 /**
  * Adds a string from a ringbuffer structure. This copies the contents

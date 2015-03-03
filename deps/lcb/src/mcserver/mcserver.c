@@ -244,7 +244,7 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
             mcreq_dispatch_response(pl, request, info, LCB_NOT_MY_VBUCKET);
         }
         DO_SWALLOW_PAYLOAD()
-        return PKT_READ_COMPLETE;
+        goto GT_DONE;
     }
 
     /* Figure out if the request is 'ufwd' or not */
@@ -274,6 +274,7 @@ try_read(lcbio_CTX *ctx, mc_SERVER *server, rdb_IOROPE *ior)
         rdb_consumed(ior, pktsize);
     }
 
+    GT_DONE:
     if (is_last) {
         mcreq_packet_handled(pl, request);
     }
@@ -559,7 +560,11 @@ mcserver_alloc2(lcb_t instance, lcbvb_CONFIG* vbc, int ix)
     mcreq_pipeline_init(&ret->pipeline);
     ret->pipeline.flush_start = (mcreq_flushstart_fn)server_connect;
     ret->pipeline.buf_done_callback = buf_done_cb;
-    lcb_host_parsez(ret->curhost, ret->datahost, LCB_CONFIG_MCD_PORT);
+    if (ret->datahost) {
+        lcb_host_parsez(ret->curhost, ret->datahost, LCB_CONFIG_MCD_PORT);
+    } else {
+        lcb_log(LOGARGS(ret, DEBUG), LOGFMT "Server does not have data service", LOGID(ret));
+    }
     ret->io_timer = lcbio_timer_new(instance->iotable, ret, timeout_server);
     return ret;
 }

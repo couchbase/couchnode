@@ -1,15 +1,9 @@
-IF(NOT GTEST_ZIP_PATH)
-    SET(GTEST_ZIP_PATH "${SOURCE_ROOT}/gtest-1.7.0.zip")
-ENDIF()
-INCLUDE(../cmake/Modules/FindCouchbaseGtest.cmake)
-
 # For Windows+GCC we need to link statically
-MESSAGE(STATUS "Will use gtest from ${GTEST_ROOT}")
 IF (NOT (WIN32 AND CMAKE_COMPILER_IS_GNUCC))
     SET(gtest_force_shared_crt ON CACHE BOOL "" )
     SET(BUILD_SHARED_LIBS ON)
 ENDIF()
-ADD_SUBDIRECTORY(${GTEST_ROOT} gtest)
+ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/contrib/gtest-1.7.0 gtest)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 
 ADD_EXECUTABLE(check-all EXCLUDE_FROM_ALL
@@ -71,8 +65,6 @@ IF(CMAKE_COMPILER_IS_GNUCXX)
         PROPERTIES
         COMPILE_FLAGS "-Wno-sign-compare -Wno-missing-field-initializers")
 ENDIF(CMAKE_COMPILER_IS_GNUCXX)
-
-
 
 IF(NOT EXISTS ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
     DOWNLOAD_LCB_DEP("${COUCHBASE_MOCK_DLSERVER}/${COUCHBASE_MOCK_VERSION}"

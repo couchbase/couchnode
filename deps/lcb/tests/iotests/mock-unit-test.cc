@@ -32,33 +32,36 @@ void MockUnitTest::SetUp() {
     MockEnvironment::Reset();
 }
 
-extern "C" {
-    static void bootstrap_callback(lcb_t instance, lcb_error_t err) {
-        if (err != LCB_SUCCESS) {
-            std::cerr << "Error " << lcb_strerror(instance, err) << std::endl;
-        }
-        EXPECT_EQ(LCB_SUCCESS, err);
-    }
+void checkConnectCommon(lcb_t instance) {
+    ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
+    lcb_wait(instance);
+    ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(instance));
 }
 
 void MockUnitTest::createConnection(HandleWrap &handle, lcb_t &instance)
 {
     MockEnvironment::getInstance()->createConnection(handle, instance);
-    (void)lcb_set_bootstrap_callback(handle.getLcb(), bootstrap_callback);
-    ASSERT_EQ(LCB_SUCCESS, lcb_connect(handle.getLcb()));
-    lcb_wait(handle.getLcb());
+    checkConnectCommon(handle.getLcb());
 }
 
 void MockUnitTest::createConnection(lcb_t &instance)
 {
     MockEnvironment::getInstance()->createConnection(instance);
-    (void)lcb_set_bootstrap_callback(instance, bootstrap_callback);
-    ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
-    lcb_wait(instance);
+    checkConnectCommon(instance);
 }
 
 void MockUnitTest::createConnection(HandleWrap &handle)
 {
     lcb_t instance = NULL;
     createConnection(handle, instance);
+}
+
+lcb_error_t
+MockUnitTest::tryCreateConnection(HandleWrap& hw,
+    lcb_t& instance, lcb_create_st& crparams)
+{
+    MockEnvironment::getInstance()->createConnection(hw, instance, crparams);
+    EXPECT_EQ(LCB_SUCCESS, lcb_connect(instance));
+    lcb_wait(instance);
+    return lcb_get_bootstrap_status(instance);
 }

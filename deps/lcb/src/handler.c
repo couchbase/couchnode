@@ -148,7 +148,11 @@ invoke_callback3(const mc_PACKET *pkt,
 {
     if (!(pkt->flags & MCREQ_F_INVOKED)) {
         resp->cookie = (void *)MCREQ_PKT_COOKIE(pkt);
-        find_callback(instance, cbtype)(instance, cbtype, resp);
+        if ((pkt->flags & MCREQ_F_PRIVCALLBACK) == 0) {
+            find_callback(instance, cbtype)(instance, cbtype, resp);
+        } else {
+            (*(lcb_RESPCALLBACK*)resp->cookie)(instance, cbtype, resp);
+        }
     }
 }
 #define INVOKE_CALLBACK3(req, res_, instance, type) { \

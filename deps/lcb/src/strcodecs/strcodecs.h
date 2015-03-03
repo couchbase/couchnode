@@ -29,7 +29,12 @@ lcb_error_t lcb_urlencode_path(const char *path,
 /**
  * Decode a string from 'percent-encoding'
  * @param in The input string
- * @param out The output buffer. Must be at least the same size as the input
+ * @param[in,out] out The output buffer.
+ *                If upon entry, out is not-NULL, it is assumed to be a buffer
+ *                containing sufficient size for the percent encoding (up to
+ *                3x the size of input). Otherwise on exit this will contain
+ *                a malloc'd buffer which should be free()d when no longer
+ *                required.
  * @param n The size of the input buffer. May be -1 if NUL-terminated
  * @return 0 if converted successfuly, -1 on error
  */
@@ -44,6 +49,17 @@ lcb_urldecode(const char *in, char *out, lcb_SSIZE n);
  * @return 0 if success, -1 if the destination buffer isn't big enough
  */
 int lcb_base64_encode(const char *src, char *dst, lcb_size_t sz);
+
+/**
+ * Encodes a string suitable for being passed as either a key or value in an
+ * "HTTP Form" per application/x-www-form-urlencoded
+ * @param s The input string
+ * @param n The size of the input
+ * @param out The output buffer - should be at least 3x the input length
+ * @return The number of bytes actually used in the output buffer.
+ */
+size_t
+lcb_formencode(const char *s, size_t n, char *out);
 
 #ifdef __cplusplus
 }

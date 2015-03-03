@@ -248,7 +248,20 @@ typedef enum {
      * also indicates that the packet is actually an mc_EXPACKET extended
      * type. This is set by mcreq_renew_packet()
      */
-    MCREQ_F_DETACHED = 1 << 8
+    MCREQ_F_DETACHED = 1 << 8,
+
+    /**
+     * Another way of signalling that the callback has an 'internal' variant.
+     * Dispatching this command requires a specially formatted cookie object,
+     * which itself is expected to _contain_ a pointer to the callback, and
+     * thus be formatted like so:
+     * @code{.c}
+     * struct {
+     *   lcb_RESPCALLBACK callback;
+     * };
+     * @endcode
+     */
+    MCREQ_F_PRIVCALLBACK = 1 << 9
 } mcreq_flags;
 
 /** @brief mask of flags indicating user-allocated buffers */
@@ -921,7 +934,7 @@ mcreq_dump_chain(const mc_PIPELINE *pipeline, FILE *fp, mcreq_payload_dump_fn du
 
 #define mcreq_first_packet(pipeline) \
         SLLIST_IS_EMPTY(&(pipeline)->requests) ? NULL : \
-                SLLIST_ITEM((pipeline)->requests.first, mc_PACKET, slnode)
+                SLLIST_ITEM(SLLIST_FIRST(&(pipeline)->requests), mc_PACKET, slnode)
 
 /**@}*/
 

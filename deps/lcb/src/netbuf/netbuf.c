@@ -45,7 +45,7 @@
 #define BLOCK_IS_EMPTY(block) ((block)->start == (block)->cursor)
 
 #define FIRST_BLOCK(pool) \
-    (SLLIST_ITEM((pool)->active.first, nb_MBLOCK, slnode))
+    (SLLIST_ITEM(SLLIST_FIRST(&(pool)->active), nb_MBLOCK, slnode))
 
 #define LAST_BLOCK(mgr) \
     (SLLIST_ITEM((mgr)->active_blocks.last, nb_BLOCKHDR, slnode))
@@ -603,7 +603,7 @@ netbuf_start_flush(nb_MGR *mgr, nb_IOV *iovs, int niov, int *nused)
         ll = sq->last_requested->slnode.next;
 
     } else {
-        ll = sq->pending.first;
+        ll = SLLIST_FIRST(&sq->pending);
     }
 
     while (ll && iov != iov_end) {

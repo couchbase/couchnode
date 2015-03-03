@@ -426,7 +426,10 @@ typedef enum {
     /**An option was passed to a command which is incompatible with other
      * options. This may happen if two fields are mutually exclusive */ \
     X(LCB_OPTIONS_CONFLICT, 0x3A, LCB_ERRTYPE_INPUT, \
-      "The operation structure contains conflicting options")
+      "The operation structure contains conflicting options") \
+    \
+    X(LCB_HTTP_ERROR, 0x3B, 0, \
+      "HTTP Operation failed. Inspect status code for details")
 
 /** Error codes returned by the library. */
 typedef enum {

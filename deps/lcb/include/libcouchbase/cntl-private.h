@@ -325,4 +325,11 @@ typedef enum {
  */
 #define LCB_CNTL_VBGUESS_PERSIST 0x32
 
+/**
+ * @volatile
+ * This is a collection of various options which sacrifice data safety for
+ * speed.
+ */
+#define LCB_CNTL_UNSAFE_OPTIMIZE 0x33
+
 /**@}*/
