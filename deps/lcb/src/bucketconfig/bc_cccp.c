@@ -132,10 +132,6 @@ static lcb_error_t mcio_error(cccp_provider *cccp, lcb_error_t err)
     if (err != LCB_NOT_SUPPORTED && err != LCB_UNKNOWN_COMMAND) {
         lcb_log(LOGARGS(cccp, ERR), LOGFMT "Got I/O Error=0x%x", LOGID(cccp), err);
     }
-    if (err == LCB_AUTH_ERROR && cccp->base.parent->config == NULL) {
-        lcb_confmon_provider_failed(&cccp->base, err);
-        return err;
-    }
 
     release_socket(cccp, err == LCB_NOT_SUPPORTED);
     return schedule_next_request(cccp, err, 0);

@@ -31,6 +31,7 @@ lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err)
     case PROTOCOL_BINARY_CMD_GET_REPLICA:
     case PROTOCOL_BINARY_CMD_FLUSH:
     case PROTOCOL_BINARY_CMD_OBSERVE:
+    case PROTOCOL_BINARY_CMD_OBSERVE_SEQNO:
     case PROTOCOL_BINARY_CMD_STAT:
     case PROTOCOL_BINARY_CMD_VERBOSITY:
     case PROTOCOL_BINARY_CMD_VERSION:

@@ -69,7 +69,8 @@ class MockCommand
     X(PURGE) \
     X(KEYINFO) \
     X(GET_MCPORTS) \
-    X(SET_CCCP)
+    X(SET_CCCP) \
+    X(REGEN_VBCOORDS)
 
 public:
     enum Code {
@@ -247,6 +248,15 @@ public:
      * @param bucket the name of the bucket
      */
     void respawnNode(int index, std::string bucket = "default");
+
+    /**
+     * Regenerate existing UUIDs and sequence numbers on the cluster to
+     * simulate a dcp-style failover. This is a separate command as triggering
+     * this during a "Normal" failover severly slows down the mock.
+     *
+     * @param bucket
+     */
+    void regenVbCoords(std::string bucket = "default");
 
 
     /**

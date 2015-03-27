@@ -251,6 +251,15 @@ LIBCOUCHBASE_API
 int
 lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
 
+/**
+ * @volatile
+ * This allows to get the given index for a vbucket server. If the index is
+ * 0 then this returns the master index, if the index is greater then it
+ * returns the replica index
+ */
+#define lcbvb_vbserver(cfg, vbid, ix) ( (ix == 0) ? \
+        lcbvb_vbmaster(cfg, vbid) : lcbvb_vbreplica(cfg, vbid, ix-1) )
+
 
 /**
  * @uncommitted

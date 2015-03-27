@@ -79,6 +79,8 @@
 #define LCB_DEFAULT_HTCONFIG_URLTYPE LCB_HTCONFIG_URLTYPE_TRYALL
 #define LCB_DEFAULT_COMPRESSOPTS LCB_COMPRESS_NONE
 
+#define LCB_DEFAULT_NVM_RETRY_IMM 1
+
 #include "config.h"
 #include <libcouchbase/couchbase.h>
 
@@ -132,7 +134,10 @@ typedef struct lcb_settings_st {
     unsigned conntype : 1;
     unsigned refresh_on_hterr : 1;
     unsigned sched_implicit_flush : 1;
+    unsigned nmv_retry_imm : 1;
     unsigned keep_guess_vbs : 1;
+    unsigned fetch_synctokens : 1;
+    unsigned dur_synctokens : 1;
     unsigned sslopts : 2;
     unsigned ipv6 : 2;
 

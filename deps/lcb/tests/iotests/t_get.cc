@@ -360,6 +360,7 @@ rget_callback(lcb_t instance, int, const lcb_RESPBASE *resp)
     }
 
 }
+static void rget_noop_callback(lcb_t,int,const lcb_RESPBASE*){}
 }
 
 TEST_F(GetUnitTest, testGetReplica)
@@ -457,9 +458,54 @@ TEST_F(GetUnitTest, testGetReplica)
     lcb_wait(instance);
     ASSERT_EQ(0, rck.remaining);
 
-    // Finally, test with an invalid index
+    // Test with an invalid index
     rcmd.index = nreplicas;
     rcmd.strategy = LCB_REPLICA_SELECT;
     err = lcb_rget3(instance, NULL, &rcmd);
     ASSERT_EQ(LCB_NO_MATCHING_SERVER, err);
+
+    // If no crash, it's good.
+    if (lcb_get_num_replicas(instance) > 1) {
+        // Use the 'first' mode, but make the second replica index be -1, so
+        // that in the retry we need to skip over an index.
+
+        lcbvb_CONFIG *vbc;
+        err = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, (void *)&vbc);
+        int vbid = lcbvb_k2vb(vbc, key.c_str(), key.size());
+        int oldix;
+
+        lcbvb_VBUCKET* vb = &vbc->vbuckets[vbid];
+        oldix = vb->servers[2];
+        vb->servers[2] = -1;
+
+        rck.expectrc = LCB_KEY_ENOENT;
+        rck.remaining = 1;
+        lcb_sched_enter(instance);
+        rcmd.strategy = LCB_REPLICA_FIRST;
+        err = lcb_rget3(instance, &rck, &rcmd);
+        ASSERT_EQ(LCB_SUCCESS, err);
+        lcb_sched_leave(instance);
+        lcb_wait(instance);
+        ASSERT_EQ(0, rck.remaining);
+
+        // Try with ALL again (should give an error)
+        rcmd.strategy = LCB_REPLICA_ALL;
+        lcb_sched_enter(instance);
+        err = lcb_rget3(instance, NULL, &rcmd);
+        ASSERT_EQ(LCB_NO_MATCHING_SERVER, err);
+        lcb_sched_leave(instance);
+
+        vb->servers[2] = oldix;
+    } else {
+        printf("Not enough replicas for get-with-replica test\n");
+    }
+
+    // Test rget with a missing key. Fixes a potential bug
+    lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, rget_noop_callback);
+    removeKey(instance, key);
+    rcmd.strategy = LCB_REPLICA_FIRST;
+    lcb_sched_enter(instance);
+    err = lcb_rget3(instance, NULL, &rcmd);
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
 }

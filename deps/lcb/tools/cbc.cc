@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <libcouchbase/vbucket.h>
+#include <libcouchbase/views.h>
 #include <stddef.h>
 #include "common/options.h"
 #include "common/histogram.h"
@@ -32,13 +33,19 @@ printKeyError(string& key, lcb_error_t err)
 }
 
 static void
-printKeyCasStatus(string& key, const lcb_RESPBASE *resp, const char *message = NULL)
+printKeyCasStatus(string& key, int cbtype, const lcb_RESPBASE *resp,
+    const char *message = NULL)
 {
     fprintf(stderr, "%-20s", key.c_str());
     if (message != NULL) {
         fprintf(stderr, "%s ", message);
     }
     fprintf(stderr, "CAS=0x%"PRIx64"\n", resp->cas);
+    const lcb_SYNCTOKEN *st = lcb_resp_get_synctoken(cbtype, resp);
+    if (st != NULL) {
+        fprintf(stderr, "%-20sSYNCTOKEN=%u,%"PRIu64",%"PRIu64"\n",
+            "", st->vbid_, st->uuid_, st->seqno_);
+    }
 }
 
 extern "C" {
@@ -59,11 +66,11 @@ get_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPGET *resp)
 }
 
 static void
-store_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTORE *resp)
+store_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPSTORE *resp)
 {
     string key = getRespKey((const lcb_RESPBASE*)resp);
     if (resp->rc == LCB_SUCCESS) {
-        printKeyCasStatus(key, (const lcb_RESPBASE *)resp, "Stored.");
+        printKeyCasStatus(key, cbtype, (const lcb_RESPBASE *)resp, "Stored.");
         if (resp->cookie != NULL) {
             map<string,lcb_cas_t>& items = *(map<string,lcb_cas_t>*)resp->cookie;
             items[key] = resp->cas;
@@ -86,14 +93,14 @@ common_callback(lcb_t, int type, const lcb_RESPBASE *resp)
         fprintf(stderr, "%-20s Unlocked\n", key.c_str());
         break;
     case LCB_CALLBACK_REMOVE:
-        printKeyCasStatus(key, resp, "Deleted.");
+        printKeyCasStatus(key, type, resp, "Deleted.");
         break;
     case LCB_CALLBACK_ENDURE: {
         const lcb_RESPENDURE *er = (const lcb_RESPENDURE*)resp;
         char s_tmp[4006];
         sprintf(s_tmp, "Persisted(%u). Replicated(%u).",
             er->npersisted, er->nreplicated);
-        printKeyCasStatus(key, resp, s_tmp);
+        printKeyCasStatus(key, type, resp, s_tmp);
         break;
     }
     default:
@@ -117,6 +124,34 @@ observe_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPOBSERVE *resp)
     } else {
         printKeyError(key, resp->rc);
     }
+}
+
+static void
+obseqno_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPOBSEQNO *resp)
+{
+    int ix = resp->server_index;
+    if (resp->rc != LCB_SUCCESS) {
+        fprintf(stderr,
+            "[%d] ERROR 0x%X (%s)\n", ix, resp->rc, lcb_strerror(NULL, resp->rc));
+        return;
+    }
+    lcb_U64 uuid, seq_disk, seq_mem;
+    if (resp->old_uuid) {
+        seq_disk = seq_mem = resp->old_seqno;
+        uuid = resp->old_uuid;
+    } else {
+        uuid = resp->cur_uuid;
+        seq_disk = resp->persisted_seqno;
+        seq_mem = resp->mem_seqno;
+    }
+    fprintf(stderr, "[%d] UUID=0x%"PRIx64", Cache=%"PRIu64", Disk=%"PRIu64,
+        ix, uuid, seq_mem, seq_disk);
+    if (resp->old_uuid) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "    FAILOVER. New: UUID=%"PRIx64", Cache=%"PRIu64", Disk=%"PRIu64,
+            resp->cur_uuid, resp->mem_seqno, resp->persisted_seqno);
+    }
+    fprintf(stderr, "\n");
 }
 
 static void
@@ -166,7 +201,7 @@ common_server_callback(lcb_t, int cbtype, const lcb_RESPSERVERBASE *sbase)
 }
 
 static void
-arithmetic_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPCOUNTER *resp)
+arithmetic_callback(lcb_t, lcb_CALLBACKTYPE type, const lcb_RESPCOUNTER *resp)
 {
     string key = getRespKey((const lcb_RESPBASE *)resp);
     if (resp->rc != LCB_SUCCESS) {
@@ -174,25 +209,62 @@ arithmetic_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPCOUNTER *resp)
     } else {
         char buf[4096] = { 0 };
         sprintf(buf, "Current value is %"PRIu64".", resp->value);
-        printKeyCasStatus(key, (const lcb_RESPBASE *)resp, buf);
+        printKeyCasStatus(key, type, (const lcb_RESPBASE *)resp, buf);
     }
 }
+
 static void
-http_chunk_callback(lcb_http_request_t, lcb_t, const void *cookie,
-    lcb_error_t err, const lcb_http_resp_t *resp)
+http_callback(lcb_t, int, const lcb_RESPHTTP *resp)
 {
-    HttpReceiver *ctx = (HttpReceiver *)cookie;
-    ctx->maybeInvokeStatus(err, resp);
-    if (resp->v.v0.nbytes) {
-        ctx->onChunk((const char*)resp->v.v0.bytes, resp->v.v0.nbytes);
+    HttpReceiver *ctx = (HttpReceiver *)resp->cookie;
+    ctx->maybeInvokeStatus(resp);
+    if (resp->nbody) {
+        ctx->onChunk((const char*)resp->body, resp->nbody);
+    }
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        ctx->onDone();
     }
 }
+
 static void
-http_done_callback(lcb_http_request_t, lcb_t, const void *cookie,
-    lcb_error_t err, const lcb_http_resp_t *resp) {
-    HttpReceiver *ctx = (HttpReceiver *)cookie;
-    ctx->maybeInvokeStatus(err, resp);
-    ctx->onDone();
+view_callback(lcb_t, int, const lcb_RESPVIEWQUERY *resp)
+{
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        fprintf(stderr, "View query complete!\n");
+    }
+
+    if (resp->rc != LCB_SUCCESS) {
+        fprintf(stderr, "View query failed: 0x%x (%s)\n",
+            resp->rc, lcb_strerror(NULL, resp->rc));
+
+        if (resp->rc == LCB_HTTP_ERROR) {
+            if (resp->htresp != NULL) {
+                HttpReceiver ctx;
+                ctx.maybeInvokeStatus(resp->htresp);
+                if (resp->htresp->nbody) {
+                    fprintf(stderr, "%.*s", (int)resp->htresp->nbody, resp->htresp->body);
+                }
+            }
+        }
+    }
+
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        if (resp->value) {
+            fprintf(stderr, "Non-row data: %.*s\n",
+                (int)resp->nvalue, resp->value);
+        }
+        return;
+    }
+
+    printf("KEY: %.*s\n", (int)resp->nkey, resp->key);
+    printf("     VALUE: %.*s\n", (int)resp->nvalue, resp->value);
+    printf("     DOCID: %.*s\n", (int)resp->ndocid, resp->docid);
+    if (resp->docresp) {
+        get_callback(NULL, LCB_CALLBACK_GET, resp->docresp);
+    }
+    if (resp->geometry) {
+        printf("     GEO: %.*s\n", (int)resp->ngeometry, resp->geometry);
+    }
 }
 }
 
@@ -534,6 +606,49 @@ ObserveHandler::run()
 }
 
 void
+ObserveSeqnoHandler::run()
+{
+    Handler::run();
+    lcb_install_callback3(instance, LCB_CALLBACK_OBSEQNO, (lcb_RESPCALLBACK)obseqno_callback);
+    const vector<string>& infos = parser.getRestArgs();
+    lcb_CMDOBSEQNO cmd = { 0 };
+    lcbvb_CONFIG *vbc;
+    lcb_error_t rc;
+
+    rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+    if (rc != LCB_SUCCESS) {
+        throw rc;
+    }
+
+    lcb_sched_enter(instance);
+
+    for (size_t ii = 0; ii < infos.size(); ++ii) {
+        const string& cur = infos[ii];
+        unsigned vbid;
+        unsigned long long uuid;
+        int rv = sscanf(cur.c_str(), "%u,%llu", &vbid, &uuid);
+        if (rv != 2) {
+            throw "Must pass sequences of base10 vbid and base16 uuids";
+        }
+        cmd.uuid = uuid;
+        cmd.vbid = vbid;
+        for (size_t jj = 0; jj < lcbvb_get_nreplicas(vbc) + 1; ++jj) {
+            int ix = lcbvb_vbserver(vbc, vbid, jj);
+            if (ix < 0) {
+                fprintf(stderr, "Server %d unavailable (skipping)\n", ix);
+            }
+            cmd.server_index = ix;
+            rc = lcb_observe_seqno3(instance, NULL, &cmd);
+            if (rc != LCB_SUCCESS) {
+                throw rc;
+            }
+        }
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
 UnlockHandler::run()
 {
     Handler::run();
@@ -733,28 +848,61 @@ ArithmeticHandler::run()
 }
 
 void
-HttpReceiver::install(lcb_t instance)
+ViewsHandler::run()
 {
-    lcb_set_http_data_callback(instance, http_chunk_callback);
-    lcb_set_http_complete_callback(instance, http_done_callback);
+    Handler::run();
+
+    const string& s = getRequiredArg();
+    size_t pos = s.find('/');
+    if (pos == string::npos) {
+        throw "View must be in the format of design/view";
+    }
+
+    string ddoc = s.substr(0, pos);
+    string view = s.substr(pos+1);
+    string opts = o_params.result();
+
+    lcb_CMDVIEWQUERY cmd = { 0 };
+    lcb_view_query_initcmd(&cmd,
+        ddoc.c_str(), view.c_str(), opts.c_str(), view_callback);
+    if (o_spatial) {
+        cmd.cmdflags |= LCB_CMDVIEWQUERY_F_SPATIAL;
+    }
+    if (o_incdocs) {
+        cmd.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
+    }
+
+    lcb_error_t rc;
+    rc = lcb_view_query(instance, NULL, &cmd);
+    if (rc != LCB_SUCCESS) {
+        throw rc;
+    }
+    lcb_wait(instance);
 }
 
 void
-HttpReceiver::maybeInvokeStatus(lcb_error_t err, const lcb_http_resp_t *resp)
+HttpReceiver::install(lcb_t instance)
+{
+    lcb_install_callback3(instance, LCB_CALLBACK_HTTP,
+        (lcb_RESPCALLBACK)http_callback);
+}
+
+void
+HttpReceiver::maybeInvokeStatus(const lcb_RESPHTTP *resp)
 {
     if (statusInvoked) {
         return;
     }
 
     statusInvoked = true;
-    if (resp->v.v0.headers) {
-        for (const char * const *cur = resp->v.v0.headers; *cur; cur += 2) {
+    if (resp->headers) {
+        for (const char * const *cur = resp->headers; *cur; cur += 2) {
             string key = cur[0];
             string value = cur[1];
             headers[key] = value;
         }
     }
-    handleStatus(err, resp->v.v0.status);
+    handleStatus(resp->rc, resp->htstatus);
 }
 
 void
@@ -1015,6 +1163,7 @@ static const char* optionsOrder[] = {
         "cat",
         "create",
         "observe",
+        "observe-seqno",
         "incr",
         "decr",
         "mcflush",
@@ -1101,6 +1250,7 @@ setupHandlers()
     handlers_s["connstr"] = new ConnstrHandler();
     handlers_s["write-config"] = new WriteConfigHandler();
     handlers_s["strerror"] = new StrErrorHandler();
+    handlers_s["observe-seqno"] = new ObserveSeqnoHandler();
 
 
 

@@ -69,23 +69,14 @@ io_error(http_provider *http, lcb_error_t origerr)
 {
     lcb_confmon *mon = http->base.parent;
     lcb_settings *settings = mon->settings;
-    int can_retry = 0;
 
     close_current(http);
 
-    if (http->base.parent->config) {
-        can_retry = 1;
-    } else if (origerr != LCB_AUTH_ERROR && origerr != LCB_BUCKET_ENOENT) {
-        can_retry = 1;
-    }
-
-    if (can_retry) {
-        http->creq = lcbio_connect_hl(
-                mon->iot, settings, http->nodes, 0, settings->config_node_timeout,
-                on_connected, http);
-        if (http->creq) {
-            return LCB_SUCCESS;
-        }
+    http->creq = lcbio_connect_hl(
+            mon->iot, settings, http->nodes, 0, settings->config_node_timeout,
+            on_connected, http);
+    if (http->creq) {
+        return LCB_SUCCESS;
     }
 
     lcb_confmon_provider_failed(&http->base, origerr);

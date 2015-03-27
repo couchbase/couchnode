@@ -55,7 +55,10 @@ typedef struct mc_SERVER_st {
     int state;
 
     /** Whether compression is supported */
-    int compsupport;
+    short compsupport;
+
+    /** Whether extended 'UUID' and 'seqno' are available for each mutation */
+    short synctokens;
 
     /** IO/Operation timer */
     lcbio_pTIMER io_timer;

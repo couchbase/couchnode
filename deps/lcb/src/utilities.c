@@ -22,7 +22,6 @@
  * to call home
  */
 
-#if !defined(HAVE_HTONLL) && !defined(WORDS_BIGENDIAN)
 extern lcb_uint64_t lcb_byteswap64(lcb_uint64_t val)
 {
     lcb_size_t ii;
@@ -34,7 +33,6 @@ extern lcb_uint64_t lcb_byteswap64(lcb_uint64_t val)
     }
     return ret;
 }
-#endif
 
 /**
  * While the C standard library uses 'putenv' for environment variable

@@ -13,6 +13,13 @@ ADD_EXECUTABLE(cbc-pillowfight cbc-pillowfight.cc
 TARGET_LINK_LIBRARIES(cbc-pillowfight couchbase)
 
 INSTALL(TARGETS cbc cbc-pillowfight RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Set this before INSTALL_PDBS in order to set the correct output name
+IF(MSVC)
+    SET_TARGET_PROPERTIES(cbc PROPERTIES DEBUG_OUTPUT_NAME cbc_d)
+    SET_TARGET_PROPERTIES(cbc-pillowfight PROPERTIES DEBUG_OUTPUT_NAME cbc-pillowfight_d)
+ENDIF()
+
 INSTALL_PDBS(cbc)
 INSTALL_PDBS(cbc-pillowfight)
 

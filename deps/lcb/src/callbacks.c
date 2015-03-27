@@ -211,6 +211,10 @@ compat_default_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r3base)
         target(r3->http._htreq, instance, cookie, err, &r2);
         break;
     }
+    case LCB_CALLBACK_OBSEQNO:
+        /* Don't crash! */
+        break;
+
     default:
         abort();
         break;

@@ -392,25 +392,34 @@ mcreq_epkt_find(mc_EXPACKET *ep, const char *key)
 }
 
 void
-mcreq_extract_hashkey(
-        const lcb_KEYBUF *key, const lcb_KEYBUF *hashkey,
-        lcb_size_t nheader, const void **target, lcb_size_t *ntarget)
+mcreq_map_key(mc_CMDQUEUE *queue,
+    const lcb_KEYBUF *key, const lcb_KEYBUF *hashkey,
+    unsigned nhdr, int *vbid, int *srvix)
 {
-    if (hashkey->contig.bytes != NULL) {
-        *target = hashkey->contig.bytes;
-        *ntarget = hashkey->contig.nbytes;
-        return;
+    const void *hk;
+    size_t nhk = 0;
+    if (hashkey) {
+        if (hashkey->type == LCB_KV_COPY && hashkey->contig.bytes != NULL) {
+            hk = hashkey->contig.bytes;
+            nhk = hashkey->contig.nbytes;
+        } else if (hashkey->type == LCB_KV_VBID) {
+            *vbid = hashkey->contig.nbytes;
+            *srvix = lcbvb_vbmaster(queue->config, *vbid);
+            return;
+        }
     }
-
-    if (key->type == LCB_KV_COPY) {
-        *target = key->contig.bytes;
-        *ntarget = key->contig.nbytes;
-    } else {
-        const char *buf = key->contig.bytes;
-        buf += nheader;
-        *target = buf;
-        *ntarget = key->contig.nbytes - nheader;
+    if (!nhk) {
+        if (key->type == LCB_KV_COPY) {
+            hk = key->contig.bytes;
+            nhk = key->contig.nbytes;
+        } else {
+            const char *buf = key->contig.bytes;
+            buf += nhdr;
+            hk = buf;
+            nhk = key->contig.nbytes - nhdr;
+        }
     }
+    lcbvb_map_key(queue->config, hk, nhk, vbid, srvix);
 }
 
 lcb_error_t
@@ -419,18 +428,14 @@ mcreq_basic_packet(
         protocol_binary_request_header *req, lcb_uint8_t extlen,
         mc_PACKET **packet, mc_PIPELINE **pipeline, int options)
 {
-    const void *hashkey;
-    lcb_size_t nhashkey;
     int vb, srvix;
 
     if (!queue->config) {
         return LCB_CLIENT_ETMPFAIL;
     }
 
-    mcreq_extract_hashkey(&cmd->key, &cmd->_hashkey,
-                          sizeof(*req) + extlen, &hashkey, &nhashkey);
-
-    lcbvb_map_key(queue->config, hashkey, nhashkey, &vb, &srvix);
+    mcreq_map_key(queue, &cmd->key, &cmd->_hashkey,
+        sizeof(*req) + extlen, &vb, &srvix);
     if (srvix > -1) {
         *pipeline = queue->pipelines[srvix];
 
@@ -470,6 +475,33 @@ mcreq_get_bodysize(const mc_PACKET *packet)
         memcpy(&ret, retptr, sizeof(ret));
         return ntohl(ret);
     }
+}
+
+uint16_t
+mcreq_get_vbucket(const mc_PACKET *packet)
+{
+    uint16_t ret;
+    char *retptr = SPAN_BUFFER(&packet->kh_span) + 6;
+    if ((uintptr_t)retptr % sizeof(ret) == 0) {
+        return ntohs(*(uint16_t*)(void*)retptr);
+    } else {
+        memcpy(&ret, retptr, sizeof ret);
+        return ntohs(ret);
+    }
+}
+
+uint32_t
+mcreq_get_size(const mc_PACKET *packet)
+{
+    uint32_t sz = packet->kh_span.size;
+    if (packet->flags & MCREQ_F_HASVALUE) {
+        if (packet->flags & MCREQ_F_VALUE_IOV) {
+            sz += packet->u_value.multi.total_length;
+        } else {
+            sz += packet->u_value.single.size;
+        }
+    }
+    return sz;
 }
 
 void

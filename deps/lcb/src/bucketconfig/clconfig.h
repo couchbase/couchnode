@@ -580,8 +580,12 @@ void lcb_confmon_dump(lcb_confmon *mon, FILE *fp);
 /**
  * Sets the input/output filename for the file provider. This also enables
  * the file provider.
+ * @param p the provider
+ * @param f the filename (if NULL, a temporary filename will be created)
+ * @param ro whether the client will never modify the file
+ * @return zero on success, nonzero on failure.
  */
-int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f);
+int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f, int ro);
 
 /**
  * Retrieve the filename for the provider
@@ -589,6 +593,8 @@ int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f);
  * @return the current filename being used.
  */
 const char * lcb_clconfig_file_get_filename(clconfig_provider *p);
+
+void lcb_clconfig_file_set_readonly(clconfig_provider *p, int val);
 /**@}*/
 
 /**

@@ -44,7 +44,7 @@
         #define THREAD_ID_FMT "ld"
     #elif defined(__APPLE__)
         #define GET_THREAD_ID() pthread_mach_thread_np(pthread_self())
-        #define THREAD_ID_FMT "u"
+        #define THREAD_ID_FMT "x"
     #elif defined(__sun) && defined(__SVR4)
         #include <thread.h>
         /* Thread IDs are not global in solaris, so it's nice to print the PID alongside it */

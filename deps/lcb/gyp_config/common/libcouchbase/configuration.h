@@ -33,7 +33,7 @@
  */
 
 /** @brief libcouchbase version string */
-#define LCB_VERSION_STRING "2.4.0"
+#define LCB_VERSION_STRING "2.4.8"
 
 /**@brief libcouchbase hex version
  *
@@ -50,12 +50,12 @@
  * 2.1.3	| 0x020103
  * 3.0.15	| 0x030015
  */
-#define LCB_VERSION 0x020400
+#define LCB_VERSION 0x020408
 
 /**@brief The SCM revision ID
  * @see LCB_CNTL_CHANGESET
  */
-#define LCB_VERSION_CHANGESET "0ac7fc4"
+#define LCB_VERSION_CHANGESET "nodejs-eai-fixes"
 
 #ifdef __cplusplus
 extern "C" {

@@ -89,23 +89,6 @@
       ]
     },
 
-    # libvbucket
-    {
-      'target_name': 'vbucket',
-      'product_prefix': 'lib',
-      'type': 'static_library',
-      'include_dirs': [
-        './'
-      ],
-      'sources': [
-        'src/vbucket/ketama.c',
-        'src/vbucket/vbucket.c'
-      ],
-      'dependencies': [
-        'cjson'
-      ]
-    },
-
     #libsnappy
     {
       'target_name': 'snappy',
@@ -127,57 +110,30 @@
       }
     },
 
-    #liblcbio
+    #libhttpparser
     {
-      'target_name': 'lcbio',
+      'target_name': 'httpparser',
       'product_prefix': 'lib',
       'type': 'static_library',
-      'defines': [
-        'LCB_NO_SSL'
-      ],
       'include_dirs': [
         './'
       ],
       'sources': [
-        'src/lcbio/connect.c',
-        'src/lcbio/ctx.c',
-        'src/lcbio/ioutils.c',
-        'src/lcbio/iotable.c',
-        'src/lcbio/protoctx.c',
-        'src/lcbio/manager.c',
-        'src/lcbio/ioutils.c',
-        'src/lcbio/timer.c'
-      ]
+        'contrib/http_parser/http_parser.c'
+       ]
     },
 
-    #libcouchbase_utils
+    #libgenhash
     {
-      'target_name': 'couchbase_utils',
+      'target_name': 'genhash',
       'product_prefix': 'lib',
       'type': 'static_library',
-      'defines': [
-        'LCB_NO_SSL'
-      ],
       'include_dirs': [
         './'
       ],
       'sources': [
-        'contrib/genhash/genhash.c',
-        'src/strcodecs/base64.c',
-        'src/strcodecs/url_encoding.c',
-        'src/gethrtime.c',
-        'src/hashtable.c',
-        'src/hashset.c',
-        'src/hostlist.c',
-        'src/list.c',
-        'src/logging.c',
-        'src/packetutils.c',
-        'src/ringbuffer.c',
-        'src/simplestring.c'
-      ],
-      'dependencies': [
-        'cjson'
-      ]
+        'contrib/genhash/genhash.c'
+       ]
     },
 
     #libcouchbase
@@ -203,65 +159,79 @@
         './'
       ],
       'sources': [
-        # netbuf
-        'src/netbuf/netbuf.c',
-
-        # mcreq
-        'src/mc/mcreq.c',
+        'src/bucketconfig/bc_cccp.c',
+        'src/bucketconfig/bc_file.c',
+        'src/bucketconfig/bc_http.c',
+        'src/bucketconfig/bc_mcraw.c',
+        'src/bucketconfig/confmon.c',
+        'src/http/http.c',
+        'src/http/http_io.c',
+        'src/jsparse/parser.c',
+        'src/lcbht/lcbht.c',
+        'src/lcbio/connect.c',
+        'src/lcbio/ctx.c',
+        'src/lcbio/iotable.c',
+        'src/lcbio/ioutils.c',
+        'src/lcbio/manager.c',
+        'src/lcbio/protoctx.c',
+        'src/lcbio/timer.c',
         'src/mc/compress.c',
         'src/mc/forward.c',
-
-        # rdb
-        'src/rdb/rope.c',
+        'src/mc/mcreq.c',
+        'src/mcserver/mcserver.c',
+        'src/mcserver/negotiate.c',
+        'src/n1ql/n1ql.c',
+        'src/n1ql/params.c',
+        'src/netbuf/netbuf.c',
+        'src/operations/cbflush.c',
+        'src/operations/counter.c',
+        'src/operations/durability.c',
+        'src/operations/get.c',
+        'src/operations/observe-seqno.c',
+        'src/operations/observe.c',
+        'src/operations/touch.c',
+        'src/operations/pktfwd.c',
+        'src/operations/remove.c',
+        'src/operations/stats.c',
+        'src/operations/store.c',
+        'src/operations/touch.c',
         'src/rdb/bigalloc.c',
         'src/rdb/chunkalloc.c',
         'src/rdb/libcalloc.c',
-
-        # lcbht
-        'src/lcbht/lcbht.c',
-        'contrib/http_parser/http_parser.c',
-
-        ## ssl
-        ##'src/ssl/ssl_c.c',
-        ##'src/ssl/ssl_common.c',
-        ##'src/ssl/ssl_e.c',
-
-        ## opfiles
-        'src/operations/counter.c',
-        'src/operations/get.c',
-        'src/operations/touch.c',
-        'src/operations/observe.c',
-        'src/operations/durability.c',
-        'src/operations/store.c',
-        'src/operations/stats.c',
-        'src/operations/remove.c',
-        'src/operations/pktfwd.c',
-
-        'src/bucketconfig/bc_cccp.c',
-        'src/bucketconfig/bc_http.c',
-        'src/bucketconfig/bc_file.c',
-        'src/bucketconfig/bc_mcraw.c',
-        'src/bucketconfig/confmon.c',
-
+        'src/rdb/rope.c',
+        ## 'src/ssl/ssl_c.c',
+        ## 'src/ssl/ssl_common.c',
+        ## 'src/ssl/ssl_e.c',
+        'src/strcodecs/base64.c',
+        'src/strcodecs/url_encoding.c',
+        'src/vbucket/ketama.c',
+        'src/vbucket/vbucket.c',
+        'src/views/docreq.c',
+        'src/views/viewreq.c',
         'src/bootstrap.c',
         'src/callbacks.c',
         'src/cntl.c',
-        'src/dump.c',
         'src/connspec.c',
-        'src/handler.c',
+        'src/dump.c',
         'src/getconfig.c',
-        'src/http/http.c',
-        'src/http/http_io.c',
+        'src/gethrtime.c',
+        'src/handler.c',
+        'src/hashset.c',
+        'src/hashtable.c',
+        'src/hostlist.c',
         'src/instance.c',
+        'src/iofactory.c',
         'src/legacy.c',
-        'src/mcserver/negotiate.c',
-        'src/mcserver/mcserver.c',
+        'src/list.c',
+        'src/logging.c',
         'src/newconfig.c',
         'src/nodeinfo.c',
-        'src/iofactory.c',
-        'src/retryq.c',
+        'src/packetutils.c',
         'src/retrychk.c',
+        'src/retryq.c',
+        'src/ringbuffer.c',
         'src/settings.c',
+        'src/simplestring.c',
         'src/timings.c',
         'src/utilities.c',
         'src/wait.c',
@@ -269,11 +239,11 @@
         'plugins/io/select/plugin-select.c'
       ],
       'dependencies': [
-        'couchbase_utils',
-        'vbucket',
+        'httpparser',
+        'genhash',
+        'cjson',
         'cbsasl',
-        'snappy',
-        'lcbio'
+        'snappy'
       ],
       'copies': [{
         'files': [ 'plugins/io/libuv/libuv_io_opts.h' ],
