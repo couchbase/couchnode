@@ -143,8 +143,7 @@ handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     lcb_log(LOGARGS(oldsrv, WARN), LOGFMT "NOT_MY_VBUCKET. Packet=%p (S=%u). VBID=%u", LOGID(oldsrv), (void*)oldpkt, oldpkt->opaque, vbid);
 
     /* Notify of new map */
-    tmpix = lcb_vbguess_remap(LCBT_VBCONFIG(instance),
-        instance->vbguess, vbid, oldsrv->pipeline.index);
+    tmpix = lcb_vbguess_remap(instance, vbid, oldsrv->pipeline.index);
     if (tmpix > -1 && tmpix != oldsrv->pipeline.index) {
         lcb_log(LOGARGS(oldsrv, TRACE), LOGFMT "Heuristically set IX=%d as master for VBID=%u", LOGID(oldsrv), tmpix, vbid);
     }
@@ -169,7 +168,7 @@ handle_nmv(mc_SERVER *oldsrv, packet_info *resinfo, mc_PACKET *oldpkt)
     /** Reschedule the packet again .. */
     newpkt = mcreq_renew_packet(oldpkt);
     newpkt->flags &= ~MCREQ_STATE_FLAGS;
-    lcb_retryq_add(instance->retryq, (mc_EXPACKET*)newpkt, LCB_NOT_MY_VBUCKET);
+    lcb_retryq_nmvadd(instance->retryq, (mc_EXPACKET*)newpkt);
     return 1;
 }
 
@@ -493,6 +492,8 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr
     } else {
         server->compsupport = mc_sess_chkfeature(sessinfo,
             PROTOCOL_BINARY_FEATURE_DATATYPE);
+        server->synctokens = mc_sess_chkfeature(sessinfo,
+            PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO);
     }
 
     procs.cb_err = on_error;

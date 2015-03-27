@@ -33,6 +33,7 @@ typedef struct {
     clconfig_info *config;
     time_t last_mtime;
     int last_errno;
+    int ro_mode; /* Whether the config cache should _not_ overwrite the file */
     lcbio_pTIMER timer;
     clconfig_listener listener;
 } file_provider;
@@ -100,7 +101,9 @@ static int load_cache(file_provider *provider)
     end = strstr(str.base, CONFIG_CACHE_MAGIC);
     if (end == NULL) {
         lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't find magic", LOGID(provider));
-        remove(provider->filename);
+        if (!provider->ro_mode) {
+            remove(provider->filename);
+        }
         status = -1;
         goto GT_DONE;
     }
@@ -109,7 +112,9 @@ static int load_cache(file_provider *provider)
     if (fail) {
         status = -1;
         lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't parse configuration", LOGID(provider));
-        remove(provider->filename);
+        if (!provider->ro_mode) {
+            remove(provider->filename);
+        }
         goto GT_DONE;
     }
 
@@ -117,6 +122,11 @@ static int load_cache(file_provider *provider)
         status = -1;
         lcb_log(LOGARGS(provider, ERROR), LOGFMT "Not applying cached memcached config", LOGID(provider));
         goto GT_DONE;
+    }
+
+    if (strcmp(config->bname, PROVIDER_SETTING(&provider->base, bucket)) != 0) {
+        status = -1;
+        lcb_log(LOGARGS(provider, ERROR), LOGFMT "Bucket name in file is different from the one requested", LOGID(provider));
     }
 
     if (provider->config) {
@@ -148,7 +158,7 @@ write_to_file(file_provider *provider, lcbvb_CONFIG *cfg)
 {
     FILE *fp;
 
-    if (provider->filename == NULL) {
+    if (provider->filename == NULL || provider->ro_mode) {
         return;
     }
 
@@ -294,7 +304,7 @@ static char *mkcachefile(const char *name, const char *bucket)
     }
 }
 
-int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f)
+int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f, int ro)
 {
     file_provider *provider = (file_provider *)p;
     lcb_assert(provider->base.type == LCB_CLCONFIG_FILE);
@@ -305,6 +315,20 @@ int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f)
     }
 
     provider->filename = mkcachefile(f, p->parent->settings->bucket);
+
+    if (ro) {
+        FILE *fp_tmp;
+        provider->ro_mode = 1;
+
+        fp_tmp = fopen(provider->filename, "r");
+        if (!fp_tmp) {
+            lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't open for reading: %s", LOGID(provider), strerror(errno));
+            return -1;
+        } else {
+            fclose(fp_tmp);
+        }
+    }
+
     return 0;
 }
 
@@ -313,4 +337,10 @@ lcb_clconfig_file_get_filename(clconfig_provider *p)
 {
     file_provider *fp = (file_provider *)p;
     return fp->filename;
+}
+
+void
+lcb_clconfig_file_set_readonly(clconfig_provider *p, int val)
+{
+    ((file_provider *)p)->ro_mode = val;
 }

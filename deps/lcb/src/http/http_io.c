@@ -238,7 +238,6 @@ on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
     lcbio_ctx_rwant(req->ioctx, 1);
     lcbio_ctx_schedule(req->ioctx);
     (void)syserr;
-    (void)settings;
 }
 
 lcb_error_t

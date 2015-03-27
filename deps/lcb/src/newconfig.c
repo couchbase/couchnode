@@ -28,10 +28,35 @@
 #define SERVER_ARGS(s) (s)->curhost->host, (s)->curhost->port, (void *)s
 
 typedef struct lcb_GUESSVB_st {
+    time_t last_update; /**< Last time this vBucket was heuristically set */
     char newix; /**< New index, heuristically determined */
     char oldix; /**< Original index, according to map */
     char used; /**< Flag indicating whether or not this entry has been used */
 } lcb_GUESSVB;
+
+/* Ignore configuration updates for heuristically guessed vBuckets for a
+ * maximum amount of [n] seconds */
+#define MAX_KEEP_GUESS 20
+
+static int
+should_keep_guess(lcb_GUESSVB *guess, lcbvb_VBUCKET *vb)
+{
+    if (guess->newix == guess->oldix) {
+        /* Heuristic position is the same as starting position */
+        return 0;
+    }
+    if (vb->servers[0] != guess->oldix) {
+        /* Previous master changed */
+        return 0;
+    }
+
+    if (time(NULL) - guess->last_update > MAX_KEEP_GUESS) {
+        /* Last usage too old */
+        return 0;
+    }
+
+    return 1;
+}
 
 void
 lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
@@ -47,7 +72,7 @@ lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
 
         /* IF: Heuristically learned a new index, _and_ the old index (which is
          * known to be bad) is the same index stated by the new config */
-        if (guess->newix != guess->oldix && vb->servers[0] == guess->oldix) {
+        if (should_keep_guess(guess, vb)) {
             lcb_log(LOGARGS(instance, TRACE), "Keeping heuristically guessed index. VBID=%d. Current=%d. Old=%d.", ii, guess->newix, guess->oldix);
             vb->servers[0] = guess->newix;
         } else {
@@ -61,15 +86,24 @@ lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
 }
 
 int
-lcb_vbguess_remap(lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses, int vbid, int bad)
+lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
 {
+
+    lcb_GUESSVB *guesses = instance->vbguess;
     lcb_GUESSVB *guess = guesses + vbid;
-    int newix = lcbvb_nmv_remap(cfg, vbid, bad);
+    int newix;
+
+    if (LCBT_SETTING(instance, vb_noguess)) {
+        return -1;
+    } else {
+        newix = lcbvb_nmv_remap(LCBT_VBCONFIG(instance), vbid, bad);
+    }
 
     if (guesses && newix > -1 && newix != bad) {
         guess->newix = newix;
         guess->oldix = bad;
         guess->used = 1;
+        guess->last_update = time(NULL);
     }
 
     return newix;
@@ -267,10 +301,8 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
     q->config = instance->cur_configinfo->vbc;
     q->cqdata = instance;
 
-    if (LCBT_SETTING(instance, keep_guess_vbs)) {
-        if (!instance->vbguess) {
-            instance->vbguess = calloc(config->vbc->nvb, sizeof(*instance->vbguess));
-        }
+    if (!instance->vbguess) {
+        instance->vbguess = calloc(config->vbc->nvb, sizeof(*instance->vbguess));
     }
 
     if (old_config) {
@@ -282,9 +314,7 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
         }
 
         /* Apply the vb guesses */
-        if (LCBT_SETTING(instance, keep_guess_vbs)) {
-            lcb_vbguess_newconfig(instance, config->vbc, instance->vbguess);
-        }
+        lcb_vbguess_newconfig(instance, config->vbc, instance->vbguess);
 
         change_status = replace_config(instance, config);
         if (change_status == -1) {

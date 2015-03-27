@@ -597,18 +597,18 @@ void
 mcreq_wipe_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
 
 /**
- * Convenience function to extract the proper hashkey from a key_request_t
- * structure
- * @param key the key structure for the item key
- * @param hashkey the key structure for the hashkey
- * @param nheader the size of the header
- * @param[out] target the pointer to receive the target hashkey
- * @param[out] ntarget the pointer to receive the target length
+ * Function to extract mapping information given a key and a hashkey
+ * @param queue The command queue
+ * @param key The structure for the key
+ * @param hashkey The optional hashkey structure
+ * @param nhdr The size of the header (for KV_CONTIG)
+ * @param[out] vbid The vBucket ID
+ * @param[out] srvix The master server's index
  */
 void
-mcreq_extract_hashkey(
-        const lcb_KEYBUF *key, const lcb_KEYBUF *hashkey,
-        lcb_size_t nheader, const void **target, lcb_size_t *ntarget);
+mcreq_map_key(mc_CMDQUEUE *queue,
+    const lcb_KEYBUF *key, const lcb_KEYBUF *hashkey,
+    unsigned nhdr, int *vbid, int *srvix);
 
 
 /**If the packet's vbucket does not have a master node, use the fallback pipeline
@@ -657,7 +657,16 @@ mcreq_get_bodysize(const mc_PACKET *packet);
  * @param pkt the packet
  * @return the total size
  */
-#define mcreq_get_size(pkt) (mcreq_get_bodysize(pkt) + MCREQ_PKT_BASESIZE)
+uint32_t
+mcreq_get_size(const mc_PACKET *packet);
+
+/**
+ * @brief Get the vBucket for the request
+ * @param packet The packet
+ * @return The vBucket ID from the packet.
+ */
+uint16_t
+mcreq_get_vbucket(const mc_PACKET *packet);
 
 /** Initializes a single pipeline object */
 int

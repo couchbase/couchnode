@@ -79,7 +79,9 @@ public:
         opt_srcdir("srcdir"), opt_bindir("testdir"), opt_interactive("interactive"),
         opt_verbose("verbose"), opt_cycles("repeat"), opt_libdir("libdir"),
         opt_bins("tests"), opt_realcluster("cluster"),
-        opt_gtest_filter("gtest_filter")
+        opt_gtest_filter("gtest_filter"),
+        opt_gtest_break_on_failure("gtest_break_on_failure"),
+        opt_gtest_catch_exceptions("gtest_catch_exceptions")
     {
         opt_debugger.abbrev('d')
                 .description("Verbatim string to prepend to the binary command line");
@@ -154,6 +156,8 @@ public:
         parser.addOption(opt_bins);
         parser.addOption(opt_realcluster);
         parser.addOption(opt_gtest_filter);
+        parser.addOption(opt_gtest_break_on_failure);
+        parser.addOption(opt_gtest_catch_exceptions);
 
         if (!parser.parse(argc, argv, false)) {
             return false;
@@ -169,6 +173,12 @@ public:
 
         if (!opt_gtest_filter.result().empty()) {
             ss << " " << "--gtest_filter=" << opt_gtest_filter.result();
+        }
+        if (opt_gtest_break_on_failure.passed()) {
+            ss << " " << "--gtest_break_on_failure=1";
+        }
+        if (opt_gtest_catch_exceptions.passed()) {
+            ss << " " << "--gtest_catch_exceptions=1";
         }
 
         binOptions = ss.str();
@@ -254,6 +264,8 @@ private:
     cliopts::StringOption opt_bins;
     cliopts::StringOption opt_realcluster;
     cliopts::StringOption opt_gtest_filter;
+    cliopts::BoolOption opt_gtest_break_on_failure;
+    cliopts::BoolOption opt_gtest_catch_exceptions;
 
     void setJobsFromEnvironment() {
         char *tmp = getenv("MAKEFLAGS");

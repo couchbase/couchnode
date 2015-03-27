@@ -22,9 +22,13 @@
  * definitions for backwards compatibility with older code. Users of the library
  * should assume that structures do _not_ behave differently under C++ and must
  * be explicitly initialized with their appropriate members.
+ *
+ * For newer code which wants to use pure "C-Style" initializers, define the
+ * LCB_NO_DEPR_CXX_CTORS macro so that the structures remain to function
+ * as they do in plain C.
  */
 
-#ifdef __cplusplus
+#if defined(__cplusplus) && !defined(LCB_NO_DEPR_CXX_CTORS)
 
 #include <cstdlib>
 #include <cstring>

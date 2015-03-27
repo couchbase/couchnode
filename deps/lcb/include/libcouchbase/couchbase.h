@@ -746,6 +746,24 @@ lcb_error_t lcb_destroy_io_ops(lcb_io_opt_t op);
  * @endcode
  */
 
+/**
+ * Structure representing a synchronization token. This token may be used
+ * for durability operations.
+ *
+ * This structure is considered opaque and thus has no alignment requirements.
+ * Its size is fixed at 16 bytes; though.
+ */
+typedef struct {
+    lcb_U64 uuid_;
+    lcb_U64 seqno_;
+    lcb_U16 vbid_;
+} lcb_SYNCTOKEN;
+#define LCB_SYNCTOKEN_ID(p) (p)->uuid_
+#define LCB_SYNCTOKEN_SEQ(p) (p)->seqno_
+#define LCB_SYNCTOKEN_VB(p) (p)->vbid_
+#define LCB_SYNCTOKEN_ISVALID(p) \
+    (p && !((p)->uuid_ == 0 && (p)->seqno_ == 0 && (p)->vbid_ == 0))
+
 /******************************************************************************
  ******************************************************************************
  ******************************************************************************
