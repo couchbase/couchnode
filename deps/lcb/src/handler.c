@@ -137,6 +137,44 @@ init_resp3(lcb_t instance, const packet_info *mc_resp, const mc_PACKET *req,
     mcreq_get_key(req, &resp->key, &resp->nkey);
 }
 
+/**
+ * Handles the propagation and population of the 'synctoken' information.
+ * @param mc_resp The response packet
+ * @param req The request packet (used to get the vBucket)
+ * @param tgt Pointer to synctoken which should be populated.
+ */
+static void
+handle_synctoken(lcb_t instance, const packet_info *mc_resp,
+    const mc_PACKET *req, lcb_SYNCTOKEN *stok)
+{
+    const char *sbuf;
+    uint16_t vbid;
+
+    if (PACKET_EXTLEN(mc_resp) == 0) {
+        return; /* No extras */
+    }
+
+    if (!instance->dcpinfo && LCBT_SETTING(instance, dur_synctokens)) {
+        size_t nvb = LCBT_VBCONFIG(instance)->nvb;
+        if (nvb) {
+            instance->dcpinfo = calloc(nvb, sizeof(*instance->dcpinfo));
+        }
+    }
+
+    sbuf = PACKET_BODY(mc_resp);
+    vbid = mcreq_get_vbucket(req);
+    stok->vbid_ = vbid;
+    memcpy(&stok->uuid_, sbuf, 8);
+    memcpy(&stok->seqno_, sbuf + 8, 8);
+
+    stok->uuid_ = lcb_ntohll(stok->uuid_);
+    stok->seqno_ = lcb_ntohll(stok->seqno_);
+
+    if (instance->dcpinfo) {
+        instance->dcpinfo[vbid] = *stok;
+    }
+}
+
 #define MK_RESPKEY3(resp, req) do { \
     mcreq_get_key(req, &(resp)->key, &(resp)->nkey); \
 } while (0);
@@ -256,6 +294,7 @@ H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, packet_info *response,
     lcb_t root = pipeline->parent->cqdata;
     lcb_RESPREMOVE resp = { 0 };
     init_resp3(root, response, packet, immerr, (lcb_RESPBASE *)&resp);
+    handle_synctoken(root, response, packet, &resp.synctoken);
     TRACE_REMOVE_END(response, &resp);
     INVOKE_CALLBACK3(packet, &resp, root, LCB_CALLBACK_REMOVE);
 }
@@ -329,6 +368,42 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
 }
 
 static void
+H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
+    packet_info *response, lcb_error_t immerr)
+{
+    lcb_t root = pipeline->parent->cqdata;
+    lcb_RESPOBSEQNO resp = { 0 };
+    init_resp3(root, response, request, immerr, (lcb_RESPBASE*)&resp);
+
+    resp.server_index = pipeline->index;
+
+    if (resp.rc == LCB_SUCCESS) {
+        const lcb_U8 *data = PACKET_BODY(response);
+        int is_failover = *data != 0;
+
+        data++;
+        #define COPY_ADV(dstfld, n, conv_fn) \
+                memcpy(&resp.dstfld, data, n); \
+                data += n; \
+                resp.dstfld = conv_fn(resp.dstfld);
+
+        COPY_ADV(vbid, 2, ntohs);
+        COPY_ADV(cur_uuid, 8, lcb_ntohll);
+        COPY_ADV(persisted_seqno, 8, lcb_ntohll);
+        COPY_ADV(mem_seqno, 8, lcb_ntohll);
+        if (is_failover) {
+            COPY_ADV(old_uuid, 8, lcb_ntohll);
+            COPY_ADV(old_seqno, 8, lcb_ntohll);
+        }
+        #undef COPY_ADV
+
+        /* Get the server for this command. Note that since this is a successful
+         * operation, the server is never a dummy */
+    }
+    INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_OBSEQNO);
+}
+
+static void
 H_store(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         lcb_error_t immerr)
 {
@@ -354,6 +429,7 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
     } else if (opcode == PROTOCOL_BINARY_CMD_SET) {
         resp.op = LCB_SET;
     }
+    handle_synctoken(root, response, request, &resp.synctoken);
     TRACE_STORE_END(response, &resp);
     INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_STORE);
 }
@@ -367,8 +443,9 @@ H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
     init_resp3(root, response, request, immerr, (lcb_RESPBASE*)&resp);
 
     if (resp.rc == LCB_SUCCESS) {
-        memcpy(&resp.value, response->payload, sizeof(resp.value));
-        resp.value = ntohll(resp.value);
+        memcpy(&resp.value, PACKET_VALUE(response), sizeof(resp.value));
+        resp.value = lcb_ntohll(resp.value);
+        handle_synctoken(root, response, request, &resp.synctoken);
     }
     resp.cas = PACKET_CAS(response);
     TRACE_ARITHMETIC_END(response, &resp);
@@ -553,6 +630,9 @@ mcreq_dispatch_response(
 
     case PROTOCOL_BINARY_CMD_TOUCH:
         INVOKE_OP(H_touch);
+
+    case PROTOCOL_BINARY_CMD_OBSERVE_SEQNO:
+        INVOKE_OP(H_observe_seqno);
 
     case PROTOCOL_BINARY_CMD_STAT:
         INVOKE_OP(H_stats);

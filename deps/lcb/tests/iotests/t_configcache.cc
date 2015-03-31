@@ -99,5 +99,19 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_NE(0, is_loaded);
     lcb_destroy(instance);
+
+    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    ASSERT_EQ(LCB_SUCCESS, err);
+    err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE_RO, (void *)filename);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_destroy(instance);
+
     remove(filename);
+
+    // Try one more time, with a file that does not exist..
+    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    ASSERT_EQ(LCB_SUCCESS, err);
+    err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE_RO, (void *)filename);
+    ASSERT_NE(LCB_SUCCESS, err);
+    lcb_destroy(instance);
 }

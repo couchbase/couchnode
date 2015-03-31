@@ -80,6 +80,10 @@
 #define EAI_ADDRFAMILY -9
 #endif
 
+#ifndef EAI_BADHINTS
+#define EAI_BADHINTS EAI_FAIL
+#endif
+
 #define OK 0
 
 #if UV_VERSION < 0x000900

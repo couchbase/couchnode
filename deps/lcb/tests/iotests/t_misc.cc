@@ -18,6 +18,7 @@
 #include "iotests.h"
 #include <map>
 #include <climits>
+#include <algorithm>
 #include "internal.h" /* vbucket_* things from lcb_t */
 #include <lcbio/iotable.h>
 #include "bucketconfig/bc_http.h"
@@ -27,40 +28,19 @@
 
 
 extern "C" {
-static void timings_callback(lcb_t, const void *cookie, lcb_timeunit_t timeunit,
-    lcb_U32 min, lcb_U32 max, lcb_U32 total, lcb_U32 maxtotal)
+static void timings_callback(lcb_t, const void *cookie, lcb_timeunit_t,
+    lcb_U32, lcb_U32, lcb_U32, lcb_U32)
 {
-    FILE *fp = (FILE *)cookie;
-    if (fp == NULL) {
-        return;
-    }
-
-    fprintf(fp, "[%3u - %3u]", min, max);
-    const char *ts_str = "";
-
-    if (timeunit == LCB_TIMEUNIT_NSEC) { ts_str = "ns"; }
-    else if (timeunit == LCB_TIMEUNIT_USEC) { ts_str = "us"; }
-    else if (timeunit == LCB_TIMEUNIT_MSEC) { ts_str = "ms"; }
-    else if (timeunit == LCB_TIMEUNIT_SEC) { ts_str = ""; }
-
-    fprintf(fp, "%s", ts_str);
-
-    int num = (int)((float)20.0 * (float)total / (float)maxtotal);
-
-    fprintf(fp, " |");
-    for (int ii = 0; ii < num; ++ii) {
-        fprintf(fp, "#");
-    }
-
-    fprintf(fp, " - %u\n", total);
+    bool *bPtr = (bool *)cookie;
+    *bPtr = true;
 }
 }
 
 TEST_F(MockUnitTest, testTimings)
 {
-    FILE *fp = stdout;
     lcb_t instance;
     HandleWrap hw;
+    bool called = false;
     createConnection(hw, instance);
 
     lcb_enable_timings(instance);
@@ -70,22 +50,181 @@ TEST_F(MockUnitTest, testTimings)
 
     lcb_store(instance, NULL, 1, storecmds);
     lcb_wait(instance);
-    for (int ii = 0; ii < 100; ++ii) {
-        lcb_arithmetic_cmd_t acmd("counter", 7, 1);
-        lcb_arithmetic_cmd_t *acmds[] = { &acmd };
-        lcb_arithmetic(instance, NULL, 1, acmds);
-        lcb_wait(instance);
-    }
-    if (fp) {
-        fprintf(fp, "              +---------+---------+\n");
-    }
-    lcb_get_timings(instance, fp, timings_callback);
-    if (fp) {
-        fprintf(fp, "              +--------------------\n");
-    }
+    lcb_get_timings(instance, &called, timings_callback);
     lcb_disable_timings(instance);
+    ASSERT_TRUE(called);
 }
 
+
+namespace {
+struct TimingInfo {
+    lcb_U64 ns_start;
+    lcb_U64 ns_end;
+    size_t count;
+
+    TimingInfo() : ns_start(-1), ns_end(-1), count(-1) {}
+
+    bool operator<(const TimingInfo& other) const {
+        return other.ns_start > ns_start;
+    }
+    bool operator>(const TimingInfo& other) const {
+        return ns_start > other.ns_start;
+    }
+
+    bool valid() const {
+        return count != -1;
+    }
+};
+
+static lcb_U64 intervalToNsec(lcb_U64 interval, lcb_timeunit_t unit)
+{
+    if (unit == LCB_TIMEUNIT_NSEC) {
+        return interval;
+    } else if (unit == LCB_TIMEUNIT_USEC) {
+        return interval * 1000;
+    } else if (unit == LCB_TIMEUNIT_MSEC) {
+        return interval * 1000000;
+    } else if (unit == LCB_TIMEUNIT_SEC) {
+        return interval * 1000000000;
+    } else {
+        return -1;
+    }
+}
+
+struct LcbTimings {
+    LcbTimings() {}
+    std::vector<TimingInfo> m_info;
+    void load(lcb_t);
+    void clear();
+
+    TimingInfo infoAt(hrtime_t duration, lcb_timeunit_t unit = LCB_TIMEUNIT_NSEC);
+    size_t countAt(hrtime_t duration, lcb_timeunit_t unit = LCB_TIMEUNIT_NSEC) {
+        return infoAt(duration, unit).count;
+    }
+
+    void dump() const;
+};
+
+extern "C" {
+static void load_timings_callback(lcb_t, const void *cookie, lcb_timeunit_t unit,
+    lcb_U32 min, lcb_U32 max, lcb_U32 total, lcb_U32 maxtotal)
+{
+    lcb_U64 start = intervalToNsec(min, unit);
+    lcb_U64 end = intervalToNsec(max, unit);
+    LcbTimings *timings = (LcbTimings *)cookie;
+    TimingInfo info;
+
+    info.ns_start = start;
+    info.ns_end = end;
+    info.count = total;
+    timings->m_info.push_back(info);
+}
+} // extern "C"
+
+void
+LcbTimings::load(lcb_t instance)
+{
+    lcb_get_timings(instance, this, load_timings_callback);
+    std::sort(m_info.begin(), m_info.end());
+}
+
+TimingInfo
+LcbTimings::infoAt(hrtime_t duration, lcb_timeunit_t unit)
+{
+    duration = intervalToNsec(duration, unit);
+    std::vector<TimingInfo>::iterator ii;
+    for (ii = m_info.begin(); ii != m_info.end(); ++ii) {
+        if (ii->ns_start <= duration && ii->ns_end > duration) {
+            return *ii;
+        }
+    }
+    return TimingInfo();
+}
+
+void
+LcbTimings::dump() const
+{
+    std::vector<TimingInfo>::const_iterator ii = m_info.begin();
+    for (; ii != m_info.end(); ii++) {
+        if (ii->ns_end < 1000) {
+            printf("[%llu-%llu ns] %lu\n",
+                ii->ns_start, ii->ns_end, ii->count);
+        } else if (ii->ns_end < 10000000) {
+            printf("[%llu-%llu us] %lu\n",
+                ii->ns_start / 1000, ii->ns_end / 1000, ii->count);
+        } else {
+            printf("[%llu-%llu ms] %lu\n",
+                ii->ns_start / 1000000, ii->ns_end / 1000000, ii->count);
+        }
+    }
+}
+
+} // namespace{
+
+struct UnitInterval {
+    lcb_U64 n;
+    lcb_timeunit_t unit;
+    UnitInterval(lcb_U64 n, lcb_timeunit_t unit) : n(n), unit(unit) {}
+};
+
+static void addTiming(lcb_t instance, const UnitInterval& interval)
+{
+    hrtime_t n = intervalToNsec(interval.n, interval.unit);
+    lcb_record_metrics(instance, n, 0);
+}
+
+
+TEST_F(MockUnitTest, testTimingsEx)
+{
+    lcb_t instance;
+    HandleWrap hw;
+
+    createConnection(hw, instance);
+    lcb_disable_timings(instance);
+    lcb_enable_timings(instance);
+
+    std::vector<UnitInterval> intervals;
+    intervals.push_back(UnitInterval(1, LCB_TIMEUNIT_NSEC));
+    intervals.push_back(UnitInterval(250, LCB_TIMEUNIT_NSEC));
+    intervals.push_back(UnitInterval(4, LCB_TIMEUNIT_USEC));
+    intervals.push_back(UnitInterval(32, LCB_TIMEUNIT_USEC));
+    intervals.push_back(UnitInterval(942, LCB_TIMEUNIT_USEC));
+    intervals.push_back(UnitInterval(1243, LCB_TIMEUNIT_USEC));
+    intervals.push_back(UnitInterval(1732, LCB_TIMEUNIT_USEC));
+    intervals.push_back(UnitInterval(5630, LCB_TIMEUNIT_USEC));
+    intervals.push_back(UnitInterval(42, LCB_TIMEUNIT_MSEC));
+    intervals.push_back(UnitInterval(434, LCB_TIMEUNIT_MSEC));
+
+    intervals.push_back(UnitInterval(8234, LCB_TIMEUNIT_MSEC));
+    intervals.push_back(UnitInterval(1294, LCB_TIMEUNIT_MSEC));
+    intervals.push_back(UnitInterval(48, LCB_TIMEUNIT_SEC));
+
+    for (size_t ii = 0; ii < intervals.size(); ++ii) {
+        addTiming(instance, intervals[ii]);
+    }
+
+    // Ensure they all exist, at least. Currently we bundle everything
+    LcbTimings timings;
+    timings.load(instance);
+
+    //timings.dump();
+
+    // Measuring in < us
+    ASSERT_EQ(2, timings.countAt(50, LCB_TIMEUNIT_NSEC));
+
+    ASSERT_EQ(1, timings.countAt(4, LCB_TIMEUNIT_USEC));
+    ASSERT_EQ(1, timings.countAt(30, LCB_TIMEUNIT_USEC));
+    ASSERT_EQ(-1, timings.countAt(900, LCB_TIMEUNIT_USEC));
+    ASSERT_EQ(1, timings.countAt(940, LCB_TIMEUNIT_USEC));
+    ASSERT_EQ(1, timings.countAt(1200, LCB_TIMEUNIT_USEC));
+    ASSERT_EQ(1, timings.countAt(1250, LCB_TIMEUNIT_USEC));
+    ASSERT_EQ(1, timings.countAt(5600, LCB_TIMEUNIT_USEC));
+    ASSERT_EQ(1, timings.countAt(40, LCB_TIMEUNIT_MSEC));
+    ASSERT_EQ(1, timings.countAt(430, LCB_TIMEUNIT_MSEC));
+    ASSERT_EQ(1, timings.countAt(1, LCB_TIMEUNIT_SEC));
+    ASSERT_EQ(1, timings.countAt(8, LCB_TIMEUNIT_SEC));
+    ASSERT_EQ(1, timings.countAt(93, LCB_TIMEUNIT_SEC));
+}
 
 
 struct async_ctx {
@@ -216,7 +355,7 @@ TEST_F(MockUnitTest, testEmptyKeys)
 
     // Observe and such
     lcb_MULTICMD_CTX *ctx = lcb_observe3_ctxnew(instance);
-    ASSERT_EQ(LCB_EMPTY_KEY, ctx->addcmd(ctx, &u.observe));
+    ASSERT_EQ(LCB_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE*)&u.observe));
     ctx->fail(ctx);
 
     lcb_durability_opts_t dopts;
@@ -388,6 +527,15 @@ TEST_F(MockUnitTest, testCtls)
     err = lcb_cntl_string(instance, "operation_timeout", "0.255");
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ(255000, ctlGet<lcb_U32>(instance, LCB_CNTL_OP_TIMEOUT));
+
+    // Test default for nmv retry
+    int itmp = ctlGetInt(instance, LCB_CNTL_RETRY_NMV_IMM);
+    ASSERT_NE(0, itmp);
+
+    err = lcb_cntl_string(instance, "retry_nmv_imm", "0");
+    ASSERT_EQ(LCB_SUCCESS, err);
+    itmp = ctlGetInt(instance, LCB_CNTL_RETRY_NMV_IMM);
+    ASSERT_EQ(0, itmp);
 }
 
 

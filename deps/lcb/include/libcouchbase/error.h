@@ -271,8 +271,8 @@ typedef enum {
      the key has been hashed to is not present. This will happen in the result
      of a node failover where no replica exists to replace it. */ \
     X(LCB_NO_MATCHING_SERVER, 0x23, LCB_ERRTYPE_TRANSIENT, \
-      "No node was found for servicing this key. This may be a result of a " \
-      "nonexistent/stale cluster configuration") \
+      "The node the request was mapped to does not exist in the current cluster " \
+      "map. This may be the result of a failover.") \
     \
     /** Received during initial creation (lcb_create()) if an environment variable
      was specified with an incorrect or invalid value.
@@ -429,7 +429,12 @@ typedef enum {
       "The operation structure contains conflicting options") \
     \
     X(LCB_HTTP_ERROR, 0x3B, 0, \
-      "HTTP Operation failed. Inspect status code for details")
+      "HTTP Operation failed. Inspect status code for details") \
+    \
+    X(LCB_DURABILITY_NO_SYNCTOKEN, 0x3C, LCB_ERRTYPE_INPUT, \
+      "The given item does not have a synctoken object associated with it. " \
+      "this is either because fetching synctokens was not enabled, or " \
+      "you are trying to check on something not stored by this instance")
 
 /** Error codes returned by the library. */
 typedef enum {

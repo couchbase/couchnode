@@ -320,7 +320,10 @@ typedef enum {
 
 /**
  * @volatile
- * @brief Persist heuristic vbucket information across updates
+ * @brief Persist heuristic vbucket information across updates.
+ *
+ * As of version 2.4.8 this option no longer has any effect, and vBucket
+ * heuristics are always retained for a maximum of 20 seconds.
  * @cntl_arg_both{int*}
  */
 #define LCB_CNTL_VBGUESS_PERSIST 0x32

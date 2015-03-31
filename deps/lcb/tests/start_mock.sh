@@ -36,7 +36,7 @@ done
 exec java \
        -client \
        -jar "$COUCHBASEMOCK" \
-        --nodes=10 \
+        --nodes=4 \
         --host=localhost \
         --port=0 \
         "$@"

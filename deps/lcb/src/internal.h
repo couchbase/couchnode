@@ -103,6 +103,7 @@ struct lcb_st {
     lcb_RETRYQ *retryq; /**< Retry queue for failed operations */
     struct lcb_string_st *scratch; /**< Generic buffer space */
     struct lcb_GUESSVB_st *vbguess; /**< Heuristic masters for vbuckets */
+    lcb_SYNCTOKEN *dcpinfo; /**< Mapping of known vbucket to {uuid,seqno} info */
     lcbio_pTIMER dtor_timer; /**< Asynchronous destruction timer */
     int type; /**< Type of connection */
 
@@ -204,7 +205,7 @@ LCB_INTERNAL_API void lcb__timer_destroy_nowarn(lcb_t instance, lcb_timer_t time
     }
 
 void lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, struct lcb_GUESSVB_st *guesses);
-int lcb_vbguess_remap(lcbvb_CONFIG *cfg, struct lcb_GUESSVB_st *guesses, int vbid, int bad);
+int lcb_vbguess_remap(lcb_t instance, int vbid, int bad);
 #define lcb_vbguess_destroy(p) free(p)
 
 #ifdef __cplusplus

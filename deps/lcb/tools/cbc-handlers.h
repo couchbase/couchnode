@@ -119,6 +119,17 @@ protected:
     void run();
 };
 
+class ObserveSeqnoHandler : public Handler {
+public:
+    ObserveSeqnoHandler() : Handler("observe-seqno") {}
+
+    HANDLER_DESCRIPTION("Request information about a particular vBucket UUID")
+    HANDLER_USAGE("UUID")
+
+protected:
+    void run();
+};
+
 class UnlockHandler : public Handler {
 public:
     HANDLER_DESCRIPTION("Unlock keys")
@@ -224,11 +235,33 @@ protected:
     int64_t getDelta() { return o_delta.result() * -1; }
 };
 
+class ViewsHandler : public Handler {
+public:
+    ViewsHandler() : Handler("view"),
+        o_spatial("spatial"), o_incdocs("with-docs"), o_params("params") {}
+
+    HANDLER_DESCRIPTION("Query a view")
+    HANDLER_USAGE("DESIGN/VIEW")
+
+protected:
+    void run();
+    void addOptions() {
+        Handler::addOptions();
+        parser.addOption(o_spatial);
+        parser.addOption(o_incdocs);
+        parser.addOption(o_params);
+    }
+private:
+    cliopts::BoolOption o_spatial;
+    cliopts::BoolOption o_incdocs;
+    cliopts::StringOption o_params;
+};
+
 class HttpReceiver {
 public:
     HttpReceiver() : statusInvoked(false) {}
     virtual ~HttpReceiver() {}
-    void maybeInvokeStatus(lcb_error_t err, const lcb_http_resp_t *);
+    void maybeInvokeStatus(const lcb_RESPHTTP*);
     void install(lcb_t);
     virtual void handleStatus(lcb_error_t, int) {}
     virtual void onDone() {}
@@ -366,20 +399,6 @@ protected:
 
 private:
     std::string bname;
-};
-
-class ViewsHandler : public HttpBaseHandler {
-public:
-    HANDLER_DESCRIPTION("Query a view")
-    HANDLER_USAGE("VIEWPATH [ OPTIONS ...]")
-    ViewsHandler() : HttpBaseHandler("view") {}
-protected:
-    bool isAdmin() const { return false; }
-    std::string getURI() { return getRequiredArg(); }
-    void onChunk(const char *s, size_t n) {
-        fwrite(s, 1, n, stdout);
-    }
-    std::string getContentType() { return "application/json"; }
 };
 
 class ConnstrHandler : public Handler {

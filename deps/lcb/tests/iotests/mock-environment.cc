@@ -17,6 +17,7 @@
 #include "config.h"
 #include <gtest/gtest.h>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <mocksupport/server.h>
 #include "mock-environment.h"
 #include <sstream>
@@ -47,7 +48,7 @@ void MockEnvironment::init()
     argv = NULL;
     iops = NULL;
 
-    numNodes = 10;
+    numNodes = 4;
     realCluster = false;
     serverVersion = VERSION_UNKNOWN;
 }
@@ -77,7 +78,6 @@ void MockEnvironment::respawnNode(int index, std::string bucket)
     MockBucketCommand bCmd(MockCommand::RESPAWN, index, bucket);
     sendCommand(bCmd);
     getResponse();
-    std::stringstream cmdbuf;
 }
 
 void MockEnvironment::hiccupNodes(int msecs, int offset)
@@ -89,6 +89,13 @@ void MockEnvironment::hiccupNodes(int msecs, int offset)
     getResponse();
 }
 
+void MockEnvironment::regenVbCoords(std::string bucket) {
+    MockBucketCommand bCmd(MockCommand::REGEN_VBCOORDS, 0, bucket);
+    MockResponse r;
+    sendCommand(bCmd);
+    getResponse(r);
+    EXPECT_TRUE(r.isOk());
+}
 
 std::vector<int> MockEnvironment::getMcPorts(std::string bucket)
 {
@@ -175,6 +182,8 @@ void MockEnvironment::postCreate(lcb_t instance)
         err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_HTCONFIG_URLTYPE, &urltype);
         ASSERT_EQ(LCB_SUCCESS, err);
     }
+    err = lcb_cntl_string(instance, "fetch_synctokens", "true");
+    ASSERT_EQ(LCB_SUCCESS, err);
 }
 
 void
@@ -301,13 +310,9 @@ void MockEnvironment::bootstrapRealCluster()
 }
 
 extern "C" {
-    static void mock_flush_callback(lcb_t instance,
-                                    const void *cookie,
-                                    lcb_error_t err,
-                                    const lcb_flush_resp_t *resp)
-    {
-        assert(err == LCB_SUCCESS);
-    }
+static void mock_flush_callback(lcb_t, int, const lcb_RESPBASE *resp) {
+    assert(resp->rc == LCB_SUCCESS);
+}
 }
 
 void MockEnvironment::clearAndReset()
@@ -347,24 +352,20 @@ void MockEnvironment::clearAndReset()
         err = lcb_connect(innerClient);
         EXPECT_EQ(LCB_SUCCESS, err);
         lcb_wait(innerClient);
-        lcb_set_flush_callback(innerClient, mock_flush_callback);
+        lcb_install_callback3(innerClient, LCB_CALLBACK_CBFLUSH, mock_flush_callback);
     }
 
-    lcb_flush_cmd_t fcmd;
+    lcb_CMDCBFLUSH fcmd = { 0 };
     lcb_error_t err;
-    const lcb_flush_cmd_t *fcmd_p = &fcmd;
-    memset(&fcmd, 0, sizeof(fcmd));
 
-    err = lcb_flush(innerClient, NULL, 1, &fcmd_p);
+    err = lcb_cbflush3(innerClient, NULL, &fcmd);
     ASSERT_EQ(LCB_SUCCESS, err);
-
-    err = lcb_wait(innerClient);
-    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_wait(innerClient);
 }
 
 void MockEnvironment::SetUp()
 {
-    numNodes = 10;
+    numNodes = 4;
     if (!mock) {
         mock = (struct test_server_info *)start_test_server((char **)argv);
     }

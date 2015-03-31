@@ -81,6 +81,7 @@ handle_observe_callback(mc_PIPELINE *pl,
     resp->cookie = (void *)oc->base.cookie;
     resp->rc = err;
     if (oc->oflags & F_DURABILITY) {
+        resp->ttp = pl ? pl->index : -1;
         lcb_durability_dset_update( instance,
             (lcb_DURSET *)MCREQ_PKT_COOKIE(pkt), err, resp);
 
@@ -139,16 +140,17 @@ static void destroy_requests(OBSERVECTX *reqs)
 #define CTX_FROM_MULTI(mcmd) (void *) ((((char *) (mcmd))) - offsetof(OBSERVECTX, mctx))
 
 static lcb_error_t
-obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDOBSERVE *cmd)
+obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDBASE *cmdbase)
 {
-    const void *hk;
-    lcb_SIZE nhk;
-    int vbid;
-    unsigned maxix;
-    int ii;
+    int vbid, srvix_dummy;
+    unsigned ii;
+    const lcb_CMDOBSERVE *cmd = (const lcb_CMDOBSERVE *)cmdbase;
     OBSERVECTX *ctx = CTX_FROM_MULTI(mctx);
     lcb_t instance = ctx->instance;
     mc_CMDQUEUE *cq = &instance->cmdq;
+    lcb_U16 servers_s[4];
+    const lcb_U16 *servers;
+    size_t nservers;
 
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
@@ -162,28 +164,41 @@ obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDOBSERVE *cmd)
         return LCB_NOT_SUPPORTED;
     }
 
-    mcreq_extract_hashkey(&cmd->key, &cmd->_hashkey, 24, &hk, &nhk);
-    vbid = lcbvb_k2vb(cq->config, hk, nhk);
-    maxix = LCBVB_NREPLICAS(cq->config);
+    mcreq_map_key(cq, &cmd->key, &cmd->_hashkey, 24, &vbid, &srvix_dummy);
 
-    for (ii = -1; ii < (int)maxix; ++ii) {
-        struct observe_st *rr;
-        lcb_U16 vb16, klen16;
-        int ix;
-
-        if (ii == -1) {
-            ix = lcbvb_vbmaster(cq->config, vbid);
+    if (cmd->servers_) {
+        servers = cmd->servers_;
+        nservers = cmd->nservers_;
+    } else {
+        nservers = 0;
+        servers = servers_s;
+        /* Replicas are always < 4 */
+        for (ii = 0; ii < LCBVB_NREPLICAS(cq->config) + 1; ii++) {
+            int ix = lcbvb_vbserver(cq->config, vbid, ii);
             if (ix < 0) {
-                return LCB_NO_MATCHING_SERVER;
+                if (ii == 0) {
+                    return LCB_NO_MATCHING_SERVER;
+                } else {
+                    continue;
+                }
             }
-        } else {
-            ix = lcbvb_vbreplica(cq->config, vbid, ii);
-            if (ix < 0) {
-                continue;
+            servers_s[nservers++] = ix;
+            if (cmd->cmdflags & LCB_CMDOBSERVE_F_MASTER_ONLY) {
+                break; /* Only a single server! */
             }
         }
+    }
 
-        lcb_assert(ix < (int)ctx->nrequests);
+    if (nservers == 0) {
+        return LCB_NO_MATCHING_SERVER;
+    }
+
+    for (ii = 0; ii < nservers; ii++) {
+        struct observe_st *rr;
+        lcb_U16 vb16, klen16;
+        lcb_U16 ix = servers[ii];
+
+        lcb_assert(ix < ctx->nrequests);
         rr = ctx->requests + ix;
         if (!rr->allocated) {
             if (!init_request(rr)) {
@@ -198,9 +213,6 @@ obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDOBSERVE *cmd)
         lcb_string_append(&rr->body, cmd->key.contig.bytes, cmd->key.contig.nbytes);
 
         ctx->remaining++;
-        if (cmd->cmdflags & LCB_CMDOBSERVE_F_MASTER_ONLY) {
-            break;
-        }
     }
     return LCB_SUCCESS;
 }
@@ -252,11 +264,18 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         mcreq_sched_add(pipeline, pkt);
         TRACE_OBSERVE_BEGIN(&hdr, SPAN_BUFFER(&pkt->u_value.single));
     }
+
     destroy_requests(ctx);
     ctx->base.start = gethrtime();
     ctx->base.cookie = cookie;
     ctx->base.procs = &obs_procs;
-    return LCB_SUCCESS;
+
+    if (ctx->nrequests == 0) {
+        free(ctx);
+        return LCB_EINVAL;
+    } else {
+        return LCB_SUCCESS;
+    }
 }
 
 static void

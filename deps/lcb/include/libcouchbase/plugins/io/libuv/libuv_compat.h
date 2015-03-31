@@ -80,6 +80,10 @@
 #define EAI_ADDRFAMILY -9
 #endif
 
+#ifndef EAI_BADHINTS
+#define EAI_BADHINTS EAI_FAIL
+#endif
+
 #define OK 0
 
 #if UV_VERSION < 0x000900
@@ -116,6 +120,14 @@
   #define UVC_TIMER_CB(func) \
       void func(uv_timer_t *timer, int status)
 
+  static int uvc_uv2syserr(int status) {
+      #define X(errnum,errname,errdesc) \
+        if (status == UV_##errname) { return errname; }
+      UV_ERRNO_MAP(X);
+      #undef X
+      return 0;
+  }
+
   static int uvc_is_eof(uv_loop_t *loop, int error) {
       error = uv_last_error(loop).code;
       return error == UV_EOF;
@@ -129,14 +141,7 @@
       }
 
       uverr = uv_last_error(loop).code;
-#define X(errnum,errname,errdesc) \
-      if (uverr == UV_##errname) { \
-          return errname; \
-      }
-      UV_ERRNO_MAP(X);
-#undef X
-
-      return 0;
+      return uvc_uv2syserr(uverr);
   }
 
 #else
@@ -162,8 +167,15 @@
   #define UVC_TIMER_CB(func) \
       void func(uv_timer_t *timer)
 
+  static int uv_uv2syserr(int status) {
+      #define X(name, desc) if (status == UV_##name) { return name; }
+      UV_ERRNO_MAP(X)
+      #undef X
+      return 0;
+  }
+
   static int uvc_last_errno(uv_loop_t *loop, int error) {
-      return error;
+      return uv_uv2syserr(error);
   }
 
   static int uvc_is_eof(uv_loop_t *loop, int error) {

@@ -693,6 +693,9 @@ svcs_to_json(lcbvb_SERVICES *svc, cJSON *jsvc, int is_ssl)
     EXTRACT_SERVICE("mgmt", mgmt);
     EXTRACT_SERVICE("capi", views);
     EXTRACT_SERVICE("kv", data);
+    EXTRACT_SERVICE("n1ql", n1ql);
+    EXTRACT_SERVICE("indexScan", ixquery);
+    EXTRACT_SERVICE("indexAdmin", ixadmin);
     #undef EXTRACT_SERVICE
 }
 

@@ -110,13 +110,17 @@
 #define SOCKET_ERROR -1
 #endif /* _WIN32 */
 
-#ifndef HAVE_HTONLL
-#ifdef WORDS_BIGENDIAN
-#define ntohll(a) a
-#define htonll(a) a
+
+#if defined(HAVE_HTONLL)
+    #define lcb_htonll htonll
+    #define lcb_ntohll ntohll
+#elif defined(WORDS_BIGENDIAN)
+    #define lcb_ntohll(a) a
+    #define lcb_htonll(a) a
 #else
-#define ntohll(a) lcb_byteswap64(a)
-#define htonll(a) lcb_byteswap64(a)
+    #define lcb_ntohll(a) lcb_byteswap64(a)
+    #define lcb_htonll(a) lcb_byteswap64(a)
+#endif /* HAVE_HTONLL */
 
 #ifdef __cplusplus
 extern "C" {
@@ -125,9 +129,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-#endif /* WORDS_BIGENDIAN */
-#endif /* HAVE_HTONLL */
-
 
 #ifdef linux
 #undef ntohs

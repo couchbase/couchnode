@@ -198,3 +198,12 @@ TEST_F(ConfigTest, testBadInput)
     lcbvb_destroy(cfg);
 
 }
+
+TEST_F(ConfigTest, testEmptyMap)
+{
+    string emptyTxt = getConfigFile("bad.json");
+    lcbvb_CONFIG *cfg = lcbvb_create();
+    int rc = lcbvb_load_json(cfg, emptyTxt.c_str());
+    ASSERT_EQ(-1, rc);
+    lcbvb_destroy(cfg);
+}

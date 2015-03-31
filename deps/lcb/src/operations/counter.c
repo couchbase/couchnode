@@ -55,8 +55,8 @@ lcb_counter3(
     hdr->request.bodylen =
             htonl(hdr->request.extlen + ntohs(hdr->request.keylen));
 
-    acmd.message.body.delta = ntohll((lcb_uint64_t)cmd->delta);
-    acmd.message.body.initial = ntohll(cmd->initial);
+    acmd.message.body.delta = lcb_htonll((lcb_uint64_t)cmd->delta);
+    acmd.message.body.initial = lcb_htonll(cmd->initial);
     if (!cmd->create) {
         memset(&acmd.message.body.expiration, 0xff,
                sizeof(acmd.message.body.expiration));
@@ -66,7 +66,7 @@ lcb_counter3(
 
     if (cmd->delta < 0) {
         hdr->request.opcode = PROTOCOL_BINARY_CMD_DECREMENT;
-        acmd.message.body.delta = ntohll((lcb_uint64_t)(cmd->delta * -1));
+        acmd.message.body.delta = lcb_htonll((lcb_uint64_t)(cmd->delta * -1));
     } else {
         hdr->request.opcode = PROTOCOL_BINARY_CMD_INCREMENT;
     }

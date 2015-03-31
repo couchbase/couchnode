@@ -470,6 +470,27 @@ TEST_F(SmokeTest, testMemcachedBucket)
     testGet1();
     testGet2();
     testVersion1();
+
+    // A bit out of place, but check that replica commands fail at schedule-time
+    lcb_sched_enter(session);
+    lcb_CMDGETREPLICA cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, "key", 3);
+    lcb_error_t rc;
+
+    cmd.strategy = LCB_REPLICA_FIRST;
+    rc = lcb_rget3(session, NULL, &cmd);
+    ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+
+    cmd.strategy = LCB_REPLICA_ALL;
+    rc = lcb_rget3(session, NULL, &cmd);
+    ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+
+    cmd.strategy = LCB_REPLICA_SELECT;
+    cmd.index = 0;
+    rc = lcb_rget3(session, NULL, &cmd);
+    ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+
+
     testMissingBucket();
 }
 
