@@ -86,6 +86,17 @@ void
 lcb_retryq_add(lcb_RETRYQ *rq, mc_EXPACKET *detchpkt, lcb_error_t err);
 
 /**
+ * Retries the given packet as a result of a NOT_MY_VBUCKET failure. Currently
+ * this is provided to allow for different behavior when handling these types
+ * of responses.
+ *
+ * @param rq The retry queue
+ * @param detchpkt The new packet
+ */
+void
+lcb_retryq_nmvadd(lcb_RETRYQ *rq, mc_EXPACKET *detchpkt);
+
+/**
  * @brief Retry all queued operations
  *
  * This should normally be called when a new server connection is made or when

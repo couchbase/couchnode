@@ -1,5 +1,74 @@
 # Release Notes
 
+## 2.4.8 (Mar. 8 2015)
+
+* Retry next nodes on initial bootstrap, even if first node says bucket does
+  not exist (or auth error), as this might be a recently removed node
+  * Priority: Major
+  * Issues: [CCBC-577](http://issues.couchbase.com/browse/CCBC-577)
+
+* The `cbc` and `cbc-pillowfight` binaries on Windows are now distributed
+  in both _release_ and _debug_ variants. Previously they would be clobbered
+  by one or the other depending on the build host. This fixes some issues in
+  performance and dependency resolution when using these libraries.
+  * Priority: Minor
+  * Issues: [CCBC-581](http://issues.couchbase.com/browse/CCBC-581)
+
+* Provide Read-Only config cache mode. In this mode the configuration cache
+  file is read but never updated. Additionally, a missing file in this mode
+  results in a hard error.
+  * Priority: Major
+  * Issues: [CCBC-584](http://issues.couchbase.com/browse/CCBC-584)
+
+* Keep vBucket heuristic guesses for limited periods of time.
+  This will allow previously-learned vBucket master locations to persist
+  over a configuration change, providing these changes were discovered
+  recently. This allows the reduction of not-my-vbucket responses while
+  allowing new configs to overwrite our heuristic info, if the heuristic is
+  too old.
+  * Priority: Major
+
+* Fix potential crashes in get-with-replica (`lcb_rget3`, `lcb_get_replica`)
+  when there are no replicas available, or if there is an error in retrieving
+  from one of the replicas.
+  * Priority: Major
+  * Issues: [CCBC-586](http://issues.couchbase.com/browse/CCBC-586)
+
+* Do not wait between not-my-vbucket retries
+  This behavior restores the pre 2.4.0 behavior of retrying not-my-vbucket
+  responses, with a more intelligent retry/rotation algorithm (see the
+  release note about "vbucket map heuristics"). Previously a wait-time
+  was introduced because of potential busy loops in retrying to the same
+  node. The `LCB_CNTL_RETRY_NMV_IMM` setting can be used to disable this
+  functionality (by disabling it, i.e. setting it to 0). This may also be
+  disabled in the connection string via `retry_nmv_imm=0`.
+  * Priority: Major
+  * Issues: [CCBC-588](http://issues.couchbase.com/browse/CCBC-588)
+
+* Fix compilation error with UV when `EAI_BADHINTS` is not defined in the
+  system. This is primarily an issue with newer UV versions and some versions
+  of Linux
+  * Priority: Major
+  * Issues: [CCBC-590](http://issues.couchbase.com/browse/CCBC-590)
+
+* Allow means to disable C++ behavior on public library structures, allowing
+  them to be initialized via C-style static initializers.
+  This allows the zeroing of structures such as `lcb_get_cmd_t cmd = { 0 }`,
+  which would ordinarily fail under C++ compilation because of that structure
+  having a defined C++ constructor. Applications can take advantage of this
+  feature by defining the `LCB_NO_DEPR_CXX_CTORS` preprocessor macro when
+  compiling.
+  * Priority: Major
+  * Issues: [CCBC-591](http://issues.couchbase.com/browse/CCBC-591)
+
+* Fix some bugs in timing behavior (`lcb_enable_timings`). Timings between
+  1000-2000ms are now reported accurately. Additionally for more common
+  handling, second timing ranges (between 1-9s) are reported in ms range
+  (i.e. timings of 4 seconds are reported as 3000-4000ms ).
+  * Priority: Minor
+  * Issues: [CCBC-582](http://issues.couchbase.com/browse/CCBC-582)
+
+
 ## 2.4.7 (Feb. 17 2015)
 
 * Fix SSL connection failures with `SSL_UNDEFINED_CONST_FUNCTION`.

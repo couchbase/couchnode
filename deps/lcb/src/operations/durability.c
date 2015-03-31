@@ -201,7 +201,7 @@ static void purge_entries(lcb_DURSET *dset, lcb_error_t err)
 static lcb_error_t poll_once(lcb_DURSET *dset, int initial)
 {
     unsigned ii, n_added = 0;
-    lcb_error_t err;
+    lcb_error_t err = LCB_SUCCESS;
     lcb_MULTICMD_CTX *mctx = NULL;
 
     /**

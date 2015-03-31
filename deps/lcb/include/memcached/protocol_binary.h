@@ -70,26 +70,71 @@ extern "C"
 
     /**
      * Definition of the valid response status numbers.
-     * See section 3.2 Response Status
+     *
+     * A well written client should be "future proof" by handling new
+     * error codes to be defined. Note that new error codes means that
+     * the requested operation wasn't performed.
      */
     typedef enum {
+        /** The operation completed successfully */
         PROTOCOL_BINARY_RESPONSE_SUCCESS = 0x00,
+        /** The key does not exists */
         PROTOCOL_BINARY_RESPONSE_KEY_ENOENT = 0x01,
+        /** The key exists in the cluster (with another CAS value) */
         PROTOCOL_BINARY_RESPONSE_KEY_EEXISTS = 0x02,
+        /** The document exceeds the maximum size */
         PROTOCOL_BINARY_RESPONSE_E2BIG = 0x03,
+        /** Invalid request */
         PROTOCOL_BINARY_RESPONSE_EINVAL = 0x04,
+        /** The document was not stored for some reason. This is
+         * currently a "catch all" for number or error situations, and
+         * should be split into multiple error codes. */
         PROTOCOL_BINARY_RESPONSE_NOT_STORED = 0x05,
+        /** Non-numeric server-side value for incr or decr */
         PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL = 0x06,
+        /** The server is not responsible for the requested vbucket */
         PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET = 0x07,
+        /** Not connected to a bucket */
+        PROTOCOL_BINARY_RESPONSE_NO_BUCKET = 0x08,
+        /** The authentication context is stale. You should reauthenticate*/
+        PROTOCOL_BINARY_RESPONSE_AUTH_STALE = 0x1f,
+        /** Authentication failure (invalid user/password combination,
+         * OR an internal error in the authentication library. Could
+         * be a misconfigured SASL configuration. See server logs for
+         * more information.) */
         PROTOCOL_BINARY_RESPONSE_AUTH_ERROR = 0x20,
+        /** Authentication OK so far, please continue */
         PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE = 0x21,
+        /** The requested value is outside the legal range
+         * (similar to EINVAL, but more specific) */
         PROTOCOL_BINARY_RESPONSE_ERANGE = 0x22,
+        /** Roll back to an earlier version of the vbucket UUID
+         * (_currently_ only used by DCP for agreeing on selecting a
+         * starting point) */
         PROTOCOL_BINARY_RESPONSE_ROLLBACK = 0x23,
+        /** No access (could be opcode, value, bucket etc) */
+        PROTOCOL_BINARY_RESPONSE_EACCESS = 0x24,
+        /** The server have no idea what this command is for */
         PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND = 0x81,
+        /** Not enough memory */
         PROTOCOL_BINARY_RESPONSE_ENOMEM = 0x82,
+        /** The server does not support this command */
         PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED = 0x83,
+        /** An internal error in the server */
         PROTOCOL_BINARY_RESPONSE_EINTERNAL = 0x84,
+        /** The system is currently too busy to handle the request.
+         * it is _currently_ only being used by the scrubber in
+         * default_engine to run a task there may only be one of
+         * (subsequent requests to start it would return ebusy until
+         * it's done). */
         PROTOCOL_BINARY_RESPONSE_EBUSY = 0x85,
+        /** A temporary error condition occurred. Retrying the
+         * operation may resolve the problem. This could be that the
+         * server is in a degraded situation (like running warmup on
+         * the node), the vbucket could be in an "incorrect" state, a
+         * temporary failure from the underlying persistence layer,
+         * etc).
+         */
         PROTOCOL_BINARY_RESPONSE_ETMPFAIL = 0x86
     } protocol_binary_response_status;
 
@@ -135,6 +180,18 @@ extern "C"
         PROTOCOL_BINARY_CMD_SASL_AUTH = 0x21,
         PROTOCOL_BINARY_CMD_SASL_STEP = 0x22,
 
+        /* Control */
+        PROTOCOL_BINARY_CMD_IOCTL_GET = 0x23,
+        PROTOCOL_BINARY_CMD_IOCTL_SET = 0x24,
+
+        /* Config */
+        PROTOCOL_BINARY_CMD_CONFIG_VALIDATE = 0x25,
+        PROTOCOL_BINARY_CMD_CONFIG_RELOAD = 0x26,
+
+        /* Audit */
+        PROTOCOL_BINARY_CMD_AUDIT_PUT = 0x27,
+        PROTOCOL_BINARY_CMD_AUDIT_CONFIG_RELOAD = 0x28,
+
         /* These commands are used for range operations and exist within
          * this header for use in other projects.  Range operations are
          * not expected to be implemented in the memcached server itself.
@@ -171,24 +228,24 @@ extern "C"
         PROTOCOL_BINARY_CMD_TAP_CHECKPOINT_END = 0x47,
         /* End TAP */
 
-        /* UPR */
-        PROTOCOL_BINARY_CMD_UPR_OPEN = 0x50,
-        PROTOCOL_BINARY_CMD_UPR_ADD_STREAM = 0x51,
-        PROTOCOL_BINARY_CMD_UPR_CLOSE_STREAM = 0x52,
-        PROTOCOL_BINARY_CMD_UPR_STREAM_REQ = 0x53,
-        PROTOCOL_BINARY_CMD_UPR_GET_FAILOVER_LOG = 0x54,
-        PROTOCOL_BINARY_CMD_UPR_STREAM_END = 0x55,
-        PROTOCOL_BINARY_CMD_UPR_SNAPSHOT_MARKER = 0x56,
-        PROTOCOL_BINARY_CMD_UPR_MUTATION = 0x57,
-        PROTOCOL_BINARY_CMD_UPR_DELETION = 0x58,
-        PROTOCOL_BINARY_CMD_UPR_EXPIRATION = 0x59,
-        PROTOCOL_BINARY_CMD_UPR_FLUSH = 0x5a,
-        PROTOCOL_BINARY_CMD_UPR_SET_VBUCKET_STATE = 0x5b,
-        PROTOCOL_BINARY_CMD_UPR_NOOP = 0x5c,
-        PROTOCOL_BINARY_CMD_UPR_BUFFER_ACKNOWLEDGEMENT = 0x5d,
-        PROTOCOL_BINARY_CMD_UPR_CONTROL = 0x5e,
-        PROTOCOL_BINARY_CMD_UPR_RESERVED4 = 0x5f,
-        /* End UPR */
+        /* DCP */
+        PROTOCOL_BINARY_CMD_DCP_OPEN = 0x50,
+        PROTOCOL_BINARY_CMD_DCP_ADD_STREAM = 0x51,
+        PROTOCOL_BINARY_CMD_DCP_CLOSE_STREAM = 0x52,
+        PROTOCOL_BINARY_CMD_DCP_STREAM_REQ = 0x53,
+        PROTOCOL_BINARY_CMD_DCP_GET_FAILOVER_LOG = 0x54,
+        PROTOCOL_BINARY_CMD_DCP_STREAM_END = 0x55,
+        PROTOCOL_BINARY_CMD_DCP_SNAPSHOT_MARKER = 0x56,
+        PROTOCOL_BINARY_CMD_DCP_MUTATION = 0x57,
+        PROTOCOL_BINARY_CMD_DCP_DELETION = 0x58,
+        PROTOCOL_BINARY_CMD_DCP_EXPIRATION = 0x59,
+        PROTOCOL_BINARY_CMD_DCP_FLUSH = 0x5a,
+        PROTOCOL_BINARY_CMD_DCP_SET_VBUCKET_STATE = 0x5b,
+        PROTOCOL_BINARY_CMD_DCP_NOOP = 0x5c,
+        PROTOCOL_BINARY_CMD_DCP_BUFFER_ACKNOWLEDGEMENT = 0x5d,
+        PROTOCOL_BINARY_CMD_DCP_CONTROL = 0x5e,
+        PROTOCOL_BINARY_CMD_DCP_RESERVED4 = 0x5f,
+        /* End DCP */
 
         PROTOCOL_BINARY_CMD_STOP_PERSISTENCE = 0x80,
         PROTOCOL_BINARY_CMD_START_PERSISTENCE = 0x81,
@@ -201,6 +258,9 @@ extern "C"
         PROTOCOL_BINARY_CMD_LIST_BUCKETS = 0x87,
         PROTOCOL_BINARY_CMD_SELECT_BUCKET= 0x89,
 
+        PROTOCOL_BINARY_CMD_ASSUME_ROLE = 0x8a,
+
+        PROTOCOL_BINARY_CMD_OBSERVE_SEQNO = 0x91,
         PROTOCOL_BINARY_CMD_OBSERVE = 0x92,
 
         PROTOCOL_BINARY_CMD_EVICT_KEY = 0x93,
@@ -278,9 +338,15 @@ extern "C"
         PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG = 0xb5,
         PROTOCOL_BINARY_CMD_GET_RANDOM_KEY = 0xb6,
         /**
-         * Command to wait for the upr sequence number persistence
+         * Command to wait for the dcp sequence number persistence
          */
         PROTOCOL_BINARY_CMD_SEQNO_PERSISTENCE = 0xb7,
+
+        /**
+         * Commands for GO-XDCR
+         */
+        PROTOCOL_BINARY_CMD_SET_DRIFT_COUNTER_STATE = 0xc1,
+        PROTOCOL_BINARY_CMD_GET_ADJUSTED_TIME = 0xc2,
 
         /* Scrub the data */
         PROTOCOL_BINARY_CMD_SCRUB = 0xf0,
@@ -419,6 +485,14 @@ extern "C"
     /**
      * Definition of the packet returned by the delete command
      * See section 4
+     *
+     * extlen should be either zero, or 16 if the client has enabled the
+     * MUTATION_SEQNO feature, with the following format:
+     *
+     *   Header:           (0-23): <protocol_binary_response_header>
+     *   Extras:
+     *     Vbucket UUID   (24-31): 0x0000000000003039
+     *     Seqno          (32-39): 0x000000000000002D
      */
     typedef protocol_binary_response_no_extras protocol_binary_response_delete;
 
@@ -502,18 +576,21 @@ extern "C"
     /**
      * Definition of the response from an incr or decr command
      * command.
-     * See section 4
+     *
+     * The result of the incr/decr is a uint64_t placed at header + extlen.
+     *
+     * extlen should be either zero, or 16 if the client has enabled the
+     * MUTATION_SEQNO feature, with the following format:
+     *
+     *   Header:           (0-23): <protocol_binary_response_header>
+     *   Extras:
+     *     Vbucket UUID   (24-31): 0x0000000000003039
+     *     Seqno          (32-39): 0x000000000000002D
+     *   Value:           (40-47): ....
+     *
      */
-    typedef union {
-        struct {
-            protocol_binary_response_header header;
-            struct {
-                uint64_t value;
-            } body;
-        } message;
-        uint8_t bytes[sizeof(protocol_binary_response_header) + 8];
-    } protocol_binary_response_incr;
-    typedef protocol_binary_response_incr protocol_binary_response_decr;
+    typedef protocol_binary_response_no_extras protocol_binary_response_incr;
+    typedef protocol_binary_response_no_extras protocol_binary_response_decr;
 
     /**
      * Definition of the quit
@@ -891,15 +968,19 @@ extern "C"
      */
     typedef enum {
         PROTOCOL_BINARY_FEATURE_DATATYPE = 0x01,
-        PROTOCOL_BINARY_FEATURE_TLS = 0x2
+        PROTOCOL_BINARY_FEATURE_TLS = 0x2,
+        PROTOCOL_BINARY_FEATURE_TCPNODELAY = 0x03,
+        PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO = 0x04
     } protocol_binary_hello_features;
 
     #define MEMCACHED_FIRST_HELLO_FEATURE 0x01
-    #define MEMCACHED_TOTAL_HELLO_FEATURES 0x02
+    #define MEMCACHED_TOTAL_HELLO_FEATURES 0x04
 
 #define protocol_feature_2_text(a) \
     (a == PROTOCOL_BINARY_FEATURE_DATATYPE) ? "Datatype" : \
-    (a == PROTOCOL_BINARY_FEATURE_TLS) ? "TLS" : "Unknown"
+    (a == PROTOCOL_BINARY_FEATURE_TLS) ? "TLS" : \
+    (a == PROTOCOL_BINARY_FEATURE_TCPNODELAY) ? "TCP NODELAY" : \
+    (a == PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO) ? "Mutation seqno" : "Unknown"
 
     /**
      * The HELLO command is used by the client and the server to agree
@@ -986,7 +1067,7 @@ extern "C"
      */
     typedef protocol_binary_response_no_extras protocol_binary_response_get_ctrl_token;
 
-    /* UPR related stuff */
+    /* DCP related stuff */
     typedef union {
         struct {
             protocol_binary_request_header header;
@@ -995,15 +1076,15 @@ extern "C"
                 /*
                  * The following flags are defined
                  */
-#define UPR_OPEN_PRODUCER 1
-#define UPR_OPEN_NOTIFIER 2
+#define DCP_OPEN_PRODUCER 1
+#define DCP_OPEN_NOTIFIER 2
                 uint32_t flags;
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 8];
-    } protocol_binary_request_upr_open;
+    } protocol_binary_request_dcp_open;
 
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_open;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_open;
 
     typedef union {
         struct {
@@ -1012,13 +1093,14 @@ extern "C"
                 /*
                  * The following flags are defined
                  */
-#define UPR_ADD_STREAM_FLAG_TAKEOVER 1
-#define UPR_ADD_STREAM_FLAG_DISKONLY 2
+#define DCP_ADD_STREAM_FLAG_TAKEOVER 1
+#define DCP_ADD_STREAM_FLAG_DISKONLY 2
+#define DCP_ADD_STREAM_FLAG_LATEST   4
                 uint32_t flags;
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
-    } protocol_binary_request_upr_add_stream;
+    } protocol_binary_request_dcp_add_stream;
 
     typedef union {
         struct {
@@ -1028,10 +1110,10 @@ extern "C"
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_response_header) + 4];
-    } protocol_binary_response_upr_add_stream;
+    } protocol_binary_response_dcp_add_stream;
 
-    typedef protocol_binary_request_no_extras protocol_binary_request_upr_close_stream;
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_close_stream;
+    typedef protocol_binary_request_no_extras protocol_binary_request_dcp_close_stream;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_close_stream;
 
     typedef union {
         struct {
@@ -1048,7 +1130,7 @@ extern "C"
             /* Group ID is specified in the key */
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 48];
-    } protocol_binary_request_upr_stream_req;
+    } protocol_binary_request_dcp_stream_req;
 
     typedef union {
         struct {
@@ -1059,12 +1141,12 @@ extern "C"
         ** the rollback sequence number (uint64_t)
         */
         uint8_t bytes[sizeof(protocol_binary_request_header)];
-    } protocol_binary_response_upr_stream_req;
+    } protocol_binary_response_dcp_stream_req;
 
-    typedef protocol_binary_request_no_extras protocol_binary_request_upr_get_failover_log;
+    typedef protocol_binary_request_no_extras protocol_binary_request_dcp_get_failover_log;
 
     /* The body of the message contains UUID/SEQNO pairs */
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_get_failover_log;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_get_failover_log;
 
     typedef union {
         struct {
@@ -1078,8 +1160,8 @@ extern "C"
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
-    } protocol_binary_request_upr_stream_end;
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_stream_end;
+    } protocol_binary_request_dcp_stream_end;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_stream_end;
 
     typedef union {
         struct {
@@ -1091,9 +1173,9 @@ extern "C"
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 20];
-    } protocol_binary_request_upr_snapshot_marker;
+    } protocol_binary_request_dcp_snapshot_marker;
 
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_snapshot_marker;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_snapshot_marker;
 
     typedef union {
         struct {
@@ -1109,7 +1191,7 @@ extern "C"
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 31];
-    } protocol_binary_request_upr_mutation;
+    } protocol_binary_request_dcp_mutation;
 
     typedef union {
         struct {
@@ -1121,10 +1203,10 @@ extern "C"
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 18];
-    } protocol_binary_request_upr_deletion;
+    } protocol_binary_request_dcp_deletion;
 
-    typedef protocol_binary_request_upr_deletion protocol_binary_request_upr_expiration;
-    typedef protocol_binary_request_no_extras protocol_binary_request_upr_flush;
+    typedef protocol_binary_request_dcp_deletion protocol_binary_request_dcp_expiration;
+    typedef protocol_binary_request_no_extras protocol_binary_request_dcp_flush;
 
     typedef union {
         struct {
@@ -1140,11 +1222,11 @@ extern "C"
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 1];
-    } protocol_binary_request_upr_set_vbucket_state;
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_set_vbucket_state;
+    } protocol_binary_request_dcp_set_vbucket_state;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_set_vbucket_state;
 
-    typedef protocol_binary_request_no_extras protocol_binary_request_upr_noop;
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_noop;
+    typedef protocol_binary_request_no_extras protocol_binary_request_dcp_noop;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_noop;
 
     typedef union {
         struct {
@@ -1154,11 +1236,21 @@ extern "C"
             } body;
         } message;
         uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
-    } protocol_binary_request_upr_buffer_acknowledgement;
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_buffer_acknowledgement;
+    } protocol_binary_request_dcp_buffer_acknowledgement;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_buffer_acknowledgement;
 
-    typedef protocol_binary_request_no_extras protocol_binary_request_upr_control;
-    typedef protocol_binary_response_no_extras protocol_binary_response_upr_control;
+    typedef protocol_binary_request_no_extras protocol_binary_request_dcp_control;
+    typedef protocol_binary_response_no_extras protocol_binary_response_dcp_control;
+
+
+    /**
+     * IOCTL_GET command message to get/set control parameters.
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_ioctl_get;
+    typedef protocol_binary_request_no_extras protocol_binary_request_ioctl_set;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_config_validate;
+    typedef protocol_binary_request_no_extras protocol_binary_request_config_reload;
 
     typedef protocol_binary_request_no_extras protocol_binary_request_ssl_refresh;
     typedef protocol_binary_response_no_extras protocol_binary_response_ssl_refresh;
@@ -1179,6 +1271,7 @@ extern "C"
     typedef protocol_binary_request_no_extras protocol_binary_request_delete_bucket;
     typedef protocol_binary_request_no_extras protocol_binary_request_list_buckets;
     typedef protocol_binary_request_no_extras protocol_binary_request_select_bucket;
+    typedef protocol_binary_request_no_extras protocol_binary_request_assume_role;
 
     /*
      * Parameter types of CMD_SET_PARAM command.
@@ -1315,6 +1408,58 @@ extern "C"
     typedef protocol_binary_request_no_extras protocol_binary_request_get_cluster_config;
 
     /**
+     * Message format for CMD_GET_ADJUSTED_TIME
+     *
+     * The PROTOCOL_BINARY_CMD_GET_ADJUSTED_TIME command will be
+     * used by XDCR to retrieve the vbucket's latest adjusted_time
+     * which is calculated based on the driftCounter if timeSync
+     * has been enabled.
+     *
+     * Request:-
+     *
+     * Header: Contains a vbucket id.
+     *
+     * Response:-
+     *
+     * The response will contain the adjusted_time (type: int64_t)
+     * as part of the body if in case of a SUCCESS, or else a NOTSUP
+     * in case of timeSync not being enabled.
+     *
+     * The request packet's header will contain the vbucket_id.
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_get_adjusted_time;
+
+    /**
+     * Message format for CMD_SET_DRIFT_COUNTER_STATE
+     *
+     * The PROTOCOL_BINARY_CMD_SET_DRIFT_COUNTER_STATE command will be
+     * used by GO-XDCR to set the initial drift counter and enable/disable
+     * the time synchronization for the vbucket.
+     *
+     * Request:-
+     *
+     * Header: Contains a vbucket id.
+     * Extras: Contains the initial drift value which is of type int64_t and
+     * the time sync state (0x00 for disable, 0x01 for enable),
+     *
+     * Response:-
+     *
+     * The response will return a SUCCESS after saving the settings and
+     * a NOT_MY_VBUCKET (along with cluster config) if the vbucket isn't
+     * found.
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                int64_t initial_drift;
+                uint8_t time_sync;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 9];
+    } protocol_binary_request_set_drift_counter_state;
+
+    /**
      * The physical layout for the CMD_COMPACT_DB
      */
     typedef union {
@@ -1338,6 +1483,88 @@ extern "C"
 #define OBS_STATE_PERSISTED     0x01
 #define OBS_STATE_NOT_FOUND     0x80
 #define OBS_STATE_LOGICAL_DEL   0x81
+
+    /**
+     * The physical layout for the PROTOCOL_BINARY_CMD_AUDIT_PUT
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t id;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
+    } protocol_binary_request_audit_put;
+
+    typedef protocol_binary_response_no_extras protocol_binary_response_audit_put;
+
+    /**
+     * The PROTOCOL_BINARY_CMD_OBSERVE_SEQNO command is used by the
+     * client to retrieve information about the vbucket in order to
+     * find out if a particular mutation has been persisted or
+     * replicated at the server side. In order to do so, the client
+     * would pass the vbucket uuid of the vbucket that it wishes to
+     * observe to the serve.  The response would contain the last
+     * persisted sequence number and the latest sequence number in the
+     * vbucket. For example, if a client sends a request to observe
+     * the vbucket 0 with uuid 12345 and if the response contains the
+     * values <58, 65> and then the client can infer that sequence
+     * number 56 has been persisted, 60 has only been replicated and
+     * not been persisted yet and 68 has not been replicated yet.
+     */
+
+    /**
+     * Definition of the request packet for the observe_seqno command.
+     *
+     * Header: Contains the vbucket id of the vbucket that the client
+     *         wants to observe.
+     *
+     * Body: Contains the vbucket uuid of the vbucket that the client
+     *       wants to observe. The vbucket uuid is of type uint64_t.
+     *
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t uuid;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 8];
+    } protocol_binary_request_observe_seqno;
+
+    /**
+     * Definition of the response packet for the observe_seqno command.
+     * Body: Contains a tuple of the form
+     *       <format_type, vbucket id, vbucket uuid, last_persisted_seqno, current_seqno>
+     *
+     *       - format_type is of type uint8_t and it describes whether
+     *         the vbucket has failed over or not. 1 indicates a hard
+     *         failover, 0 indicates otherwise.
+     *       - vbucket id is of type uint16_t and it is the identifier for
+     *         the vbucket.
+     *       - vbucket uuid is of type uint64_t and it represents a UUID for
+     *          the vbucket.
+     *       - last_persisted_seqno is of type uint64_t and it is the
+     *         last sequence number that was persisted for this
+     *         vbucket.
+     *       - current_seqno is of the type uint64_t and it is the
+     *         sequence number of the latest mutation in the vbucket.
+     *
+     *       In the case of a hard failover, the tuple is of the form
+     *       <format_type, vbucket id, vbucket uuid, last_persisted_seqno, current_seqno,
+     *       old vbucket uuid, last_received_seqno>
+     *
+     *       - old vbucket uuid is of type uint64_t and it is the
+     *         vbucket UUID of the vbucket prior to the hard failover.
+     *
+     *       - last_received_seqno is of type uint64_t and it is the
+     *         last received sequence number in the old vbucket uuid.
+     *
+     *       The other fields are the same as that mentioned in the normal case.
+     */
+    typedef protocol_binary_response_no_extras protocol_binary_response_observe_seqno;
 
     /**
      * @}

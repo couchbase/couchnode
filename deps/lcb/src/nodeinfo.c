@@ -68,7 +68,7 @@ return_badhost(lcb_GETNODETYPE type)
 
 LIBCOUCHBASE_API
 const char *
-lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned index)
+lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
 {
     if (type & LCB_NODE_HTCONFIG) {
         if (type & LCB_NODE_CONNECTED) {
@@ -92,17 +92,17 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned index)
 
             if (instance->type == LCB_TYPE_BUCKET) {
                 if (vbc) {
-                    index %= LCBVB_NSERVERS(vbc);
-                    hp = lcbvb_get_hostport(vbc, index, LCBVB_SVCTYPE_MGMT, mode);
+                    ix %= LCBVB_NSERVERS(vbc);
+                    hp = lcbvb_get_hostport(vbc, ix, LCBVB_SVCTYPE_MGMT, mode);
 
                 } else if ((type & LCB_NODE_NEVERNULL) == 0) {
                     return NULL;
                 }
             }
             if (hp == NULL && instance->ht_nodes && instance->ht_nodes->nentries) {
-                index %= instance->ht_nodes->nentries;
+                ix %= instance->ht_nodes->nentries;
                 hostlist_ensure_strlist(instance->ht_nodes);
-                hp = instance->ht_nodes->slentries[index];
+                hp = instance->ht_nodes->slentries[ix];
             }
             if (!hp) {
                 if ((hp = return_badhost(type)) == NULL) {
@@ -117,8 +117,8 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned index)
         }
     } else if (type & (LCB_NODE_DATA|LCB_NODE_VIEWS)) {
         const mc_SERVER *server;
-        index %= LCBT_NSERVERS(instance);
-        server = LCBT_GET_SERVER(instance, index);
+        ix %= LCBT_NSERVERS(instance);
+        server = LCBT_GET_SERVER(instance, ix);
 
         if ((type & LCB_NODE_CONNECTED) && server->connctx == NULL) {
             return return_badhost(type);

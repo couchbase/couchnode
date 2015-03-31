@@ -33,7 +33,11 @@ extern "C" {
 typedef enum {
     LCB_KV_COPY = 0, /**< The buffer should be copied */
     LCB_KV_CONTIG, /**< The buffer is contiguous and should not be copied */
-    LCB_KV_IOV /**< The buffer is not contiguous and should not be copied */
+    LCB_KV_IOV, /**< The buffer is not contiguous and should not be copied */
+
+    /**For use within the hashkey field, indicates that the _length_
+     * of the hashkey is the vBucket ID, rather than an actual hashkey */
+    LCB_KV_VBID
 } lcb_KVBUFTYPE;
 
 #define LCB_KV_HEADER_AND_KEY LCB_KV_CONTIG

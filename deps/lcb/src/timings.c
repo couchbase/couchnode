@@ -108,7 +108,7 @@ lcb_error_t lcb_get_timings(lcb_t instance,
 
     start = 1000;
     for (ii = 0; ii < 100; ++ii) {
-        end = start+100-1;
+        end = (ii + 1) * 100 - 1;
         if (hg->lt10msec[ii]) {
             callback(instance, cookie, LCB_TIMEUNIT_USEC, start, end, hg->lt10msec[ii], max);
         }
@@ -124,17 +124,18 @@ lcb_error_t lcb_get_timings(lcb_t instance,
         start = end + 1;
     }
 
-    start = 1;
-    for (ii = 0; ii < 9; ++ii) {
-        end = ii + 1;
+    start = 1000;
+    for (ii = 1; ii < 9; ++ii) {
+        start = ii * 1000;
+        end = ((ii + 1) * 1000) - 1;
         if (hg->sec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_SEC, start, end, hg->sec[ii], max);
+            callback(instance, cookie, LCB_TIMEUNIT_MSEC, start, end, hg->sec[ii], max);
         }
-        start = end + 1;
     }
 
     if (hg->sec[9]) {
-        callback(instance, cookie, LCB_TIMEUNIT_SEC, 9, 99999, hg->sec[9], max);
+        callback(instance, cookie,
+            LCB_TIMEUNIT_SEC, 9, 9999, hg->sec[9], max);
     }
     return LCB_SUCCESS;
 }
@@ -175,8 +176,9 @@ void lcb_record_metrics(lcb_t instance,
     } else {
         delta /= LCB_S2NS(1);
         if (delta > 9) {
-            delta = 0;
+            delta = 9;
         }
+
         if ((num = ++hg->sec[delta]) > hg->max) {
             hg->max = num;
         }

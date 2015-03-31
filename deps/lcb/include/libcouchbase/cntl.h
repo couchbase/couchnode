@@ -483,6 +483,17 @@ typedef struct lcb_logprocs_st {
  */
 #define LCB_CNTL_CONFIGCACHE 0x21
 
+/**
+ * @brief File used for read-only configuration cache
+ *
+ * This is identical to the @ref LCB_CNTL_CONFIGCACHE directive, except that
+ * it guarantees that the library will never overwrite or otherwise modify
+ * the path specified.
+ *
+ * @see LCB_CNTL_CONFIGCACHE
+ */
+#define LCB_CNTL_CONFIGCACHE_RO 0x36
+
 typedef enum {
     LCB_SSL_ENABLED = 1 << 0, /**< Use SSL */
     LCB_SSL_NOVERIFY = 1 << 1 /**< Don't verify certificates */
@@ -716,6 +727,20 @@ typedef enum {
 
 /**
  * @volatile
+ * Whether commands are retried immediately upon receipt of not-my-vbucket
+ * replies.
+ *
+ * Since version 2.4.8, packets by default are retried immediately on a
+ * different node if it had previously failed with a not-my-vbucket
+ * response, and is thus not subject to the @ref LCB_CNTL_RETRY_INTERVAL
+ * and @ref LCB_CNTL_RETRY_BACKOFF settings. Disabling this setting will
+ * restore the older behavior. This may be used in case there are problems
+ * with the default heuristic/retry algorithm.
+ */
+#define LCB_CNTL_RETRY_NMV_IMM 0x37
+
+/**
+ * @volatile
  *
  * Set the maximum pool size for pooled http (view request) sockets. This should
  * be set to 1 (the default) unless you plan to execute concurrent view requests.
@@ -748,8 +773,44 @@ typedef enum {
  */
 #define LCB_CNTL_SCHED_IMPLICIT_FLUSH 0x31
 
+/**
+ * @volatile
+ *
+ * Allow the server to return an additional 16 bytes of data for each
+ * mutation operation. This extra information may help with more reliable
+ * durability polling, but will also increase the size of the response packet.
+ *
+ * This should be set on the instance before issuing lcb_connect(). While this
+ * may also be set after lcb_connect() is called, it will currently only take
+ * effect when a server reconnects (which itself may be undefined).
+ *
+ * @cntl_arg_both{int (as boolean)}
+ */
+#define LCB_CNTL_FETCH_SYNCTOKENS 0x34
+
+/**
+ * @volatile
+ *
+ * This setting determines whether the lcb_durability_poll() function will
+ * transparently attempt to use synctoken functionality (rather than checking
+ * the CAS). This option is most useful for older code which does
+ * explicitly use synctokens but would like to use its benefits when
+ * ensuring durability constraints are satisfied.
+ *
+ * This option is enabled by default. Users may wish to disable this if they
+ * are performing durability operations against items stored from different
+ * client instances, as this will make use of a client-global state which is
+ * derived on a per-vBucket basis. This means that the last mutation performed
+ * on a given vBucket for the client will be used, which in some cases may be
+ * older or newer than the mutations passed to the lcb_durability_poll()
+ * function.
+ *
+ * @cntl_arg_both{int (as boolean)}
+ */
+#define LCB_CNTL_DURABILITY_SYNCTOKENS 0x35
+
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x34
+#define LCB_CNTL__MAX                    0x38
 /**@}*/
 
 #ifdef __cplusplus

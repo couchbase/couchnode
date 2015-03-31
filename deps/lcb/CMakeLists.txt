@@ -21,7 +21,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 # These variables can be modified as needed
 
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.0.0-g50cf222.jar)
+SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.1.0-gda80301.jar)
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
 SET(COUCHBASE_MOCK_DLSERVER http://packages.couchbase.com/clients/c/mock)
 project(libcouchbase)

@@ -49,6 +49,7 @@ struct mc_SESSINFO {
         char buffer[256];
     } u_auth;
     cbsasl_callback_t sasl_callbacks[4];
+    lcb_U16 features[MEMCACHED_TOTAL_HELLO_FEATURES+1];
 };
 
 /**
@@ -296,9 +297,69 @@ send_sasl_step(mc_pSESSREQ sreq, packet_info *packet)
     return 0;
 }
 
+static int
+send_hello(mc_pSESSREQ sreq)
+{
+    protocol_binary_request_no_extras req;
+    protocol_binary_request_header *hdr = &req.message.header;
+    unsigned ii;
+    static const char client_id[] = LCB_VERSION_STRING;
+    lcb_U16 features[MEMCACHED_TOTAL_HELLO_FEATURES];
+    unsigned nfeatures = 0;
+    lcb_SIZE nclistr;
+
+    features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TLS;
+
+#ifndef LCB_NO_SNAPPY
+    if (sreq->inner->settings->compressopts != LCB_COMPRESS_NONE) {
+        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_DATATYPE;
+    }
+#endif
+
+    if (sreq->inner->settings->fetch_synctokens) {
+        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO;
+    }
+
+    nclistr = strlen(client_id);
+    memset(&req, 0, sizeof req);
+    hdr->request.opcode = PROTOCOL_BINARY_CMD_HELLO;
+    hdr->request.magic = PROTOCOL_BINARY_REQ;
+    hdr->request.keylen = htons((lcb_U16)nclistr);
+    hdr->request.bodylen = htonl((lcb_U32)(nclistr+ (sizeof features[0]) * nfeatures));
+    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+
+    lcbio_ctx_put(sreq->ctx, req.bytes, sizeof req.bytes);
+    lcbio_ctx_put(sreq->ctx, client_id, strlen(client_id));
+    for (ii = 0; ii < nfeatures; ii++) {
+        lcb_U16 tmp = htons(features[ii]);
+        lcbio_ctx_put(sreq->ctx, &tmp, sizeof tmp);
+    }
+    lcbio_ctx_rwant(sreq->ctx, 24);
+    return 0;
+}
+
+static int
+parse_hello(mc_pSESSREQ sreq, packet_info *packet)
+{
+    /* some caps */
+    const char *cur;
+    const char *payload = PACKET_BODY(packet);
+    const char *limit = payload + PACKET_NBODY(packet);
+    for (cur = payload; cur < limit; cur += 2) {
+        lcb_U16 tmp;
+        memcpy(&tmp, cur, sizeof(tmp));
+        tmp = ntohs(tmp);
+        lcb_log(LOGARGS(sreq, DEBUG), SESSREQ_LOGFMT "Found feature 0x%x (%s)", SESSREQ_LOGID(sreq), tmp, protocol_feature_2_text(tmp));
+        sreq->inner->features[tmp] = 1;
+    }
+    return 0;
+}
+
+
 typedef enum {
     SREQ_S_WAIT,
     SREQ_S_AUTHDONE,
+    SREQ_S_HELLODONE,
     SREQ_S_ERROR
 } sreq_STATE;
 
@@ -360,7 +421,7 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
             state = SREQ_S_ERROR;
 
         } else {
-            state = SREQ_S_AUTHDONE;
+            state = SREQ_S_HELLODONE;
         }
         lcb_string_release(&str);
         break;
@@ -368,6 +429,7 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
 
     case PROTOCOL_BINARY_CMD_SASL_AUTH: {
         if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
+            send_hello(sreq);
             state = SREQ_S_AUTHDONE;
             break;
         }
@@ -377,7 +439,7 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
             state = SREQ_S_ERROR;
             break;
         }
-        if (send_sasl_step(sreq, &info) == 0) {
+        if (send_sasl_step(sreq, &info) == 0 && send_hello(sreq) == 0) {
             state = SREQ_S_WAIT;
         } else {
             state = SREQ_S_ERROR;
@@ -396,6 +458,21 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
         break;
     }
 
+    case PROTOCOL_BINARY_CMD_HELLO: {
+        state = SREQ_S_HELLODONE;
+        if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
+            parse_hello(sreq, &info);
+        } else if (status == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND ||
+                status == PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED) {
+            lcb_log(LOGARGS(sreq, DEBUG), SESSREQ_LOGFMT "Server does not support HELLO", SESSREQ_LOGID(sreq));
+            /* nothing */
+        } else {
+            set_error_ex(sreq, LCB_PROTOCOL_ERROR, "Hello response unexpected");
+            state = SREQ_S_ERROR;
+        }
+        break;
+    }
+
     default: {
         state = SREQ_S_ERROR;
         lcb_log(LOGARGS(sreq, ERROR), SESSREQ_LOGFMT "Received unknown response. OP=0x%x. RC=0x%x", SESSREQ_LOGID(sreq), PACKET_OPCODE(&info), PACKET_STATUS(&info));
@@ -409,7 +486,7 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
         bail_pending(sreq);
     } else if (state == SREQ_S_ERROR) {
         set_error_ex(sreq, LCB_ERROR, "FIXME: Error code set without description");
-    } else if (state == SREQ_S_AUTHDONE) {
+    } else if (state == SREQ_S_HELLODONE) {
         negotiation_success(sreq);
     } else {
         goto GT_NEXT_PACKET;
@@ -555,5 +632,8 @@ mc_sess_get_saslmech(mc_pSESSINFO info)
 int
 mc_sess_chkfeature(mc_pSESSINFO info, lcb_U16 feature)
 {
-    (void)info; (void)feature; return 0;
+    if (feature > MEMCACHED_TOTAL_HELLO_FEATURES) {
+        return 0;
+    }
+    return info->features[feature];
 }

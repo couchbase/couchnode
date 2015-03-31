@@ -50,6 +50,9 @@ void lcb_default_settings(lcb_settings *settings)
     settings->detailed_neterr = 0;
     settings->refresh_on_hterr = 1;
     settings->sched_implicit_flush = 1;
+    settings->fetch_synctokens = 0;
+    settings->dur_synctokens = 1;
+    settings->nmv_retry_imm = LCB_DEFAULT_NVM_RETRY_IMM;
 }
 
 LCB_INTERNAL_API

@@ -354,9 +354,9 @@ lcbio_ssl_check(lcbio_SOCKET *sock)
 }
 
 lcb_error_t
-lcbio_ssl_get_error(lcbio_SOCKET *socket)
+lcbio_ssl_get_error(lcbio_SOCKET *sock)
 {
-    lcbio_XSSL *xs = (lcbio_XSSL *)socket->io;
+    lcbio_XSSL *xs = (lcbio_XSSL *)sock->io;
     return xs->errcode;
 }
 

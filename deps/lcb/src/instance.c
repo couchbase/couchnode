@@ -534,6 +534,7 @@ void lcb_destroy(lcb_t instance)
     }
 
     free(instance->histogram);
+    free(instance->dcpinfo);
     memset(instance, 0xff, sizeof(*instance));
     free(instance);
 #undef DESTROY
