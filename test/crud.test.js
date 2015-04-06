@@ -70,13 +70,7 @@ describe('#crud', function () {
     function testBadCas(fn) {
       it('should fail with an invalid cas option', function () {
         assert.throws(function () {
-          fn(H.key(), 'frank', H.noCallback());
-        }, Error);
-      });
-
-      it('should fail with an invalid cas option object', function () {
-        assert.throws(function () {
-          fn(H.key(), {}, H.noCallback());
+          fn(H.key(), 1111, H.noCallback());
         }, Error);
       });
     }
