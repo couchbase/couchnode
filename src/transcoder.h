@@ -51,8 +51,6 @@ public:
 private:
     char *encodeData;
 
-    static Persistent<Function> jsonParse;
-    static Persistent<Function> jsonStringify;
 };
 
 

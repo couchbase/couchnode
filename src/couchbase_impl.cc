@@ -266,6 +266,90 @@ static void durability_callback(lcb_t instance, const void *cookie,
     _DispatchErrorCallback(instance, cookie, error);
 }
 
+void viewrow_callback(lcb_t instance, int ignoreme,
+        const lcb_RESPVIEWQUERY *resp)
+{
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    NanCallback *callback = (NanCallback*)resp->cookie;
+    NanScope();
+
+    Local<Function> jsonParseLcl = NanNew(CouchbaseImpl::jsonParse);
+
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        Handle<Value> dataRes;
+        if (resp->rc != LCB_SUCCESS) {
+            if (resp->htresp && resp->htresp->body) {
+                dataRes = NanNew<String>((const char*)resp->htresp->body, (int)resp->htresp->nbody);
+            } else {
+                dataRes = NanNull();
+            }
+        } else {
+            Handle<Value> metaStr =
+                    NanNew<String>((const char*)resp->value, (int)resp->nvalue);
+            dataRes = jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &metaStr);
+            Local<Object> metaObj = dataRes->ToObject();
+            if (!metaObj.IsEmpty()) {
+                metaObj->Delete(NanNew(CouchbaseImpl::rowsKey));
+            }
+        }
+
+        Handle<Value> args[] = {
+                NanNew<Number>(resp->rc),
+                dataRes
+        };
+        callback->Call(2, args);
+
+        delete callback;
+        return;
+    }
+
+    Handle<Object> rowObj = NanNew<Object>();
+
+    Handle<Value> keyStr =
+            NanNew<String>((const char*)resp->key, (int)resp->nkey);
+    rowObj->Set(NanNew(CouchbaseImpl::keyKey),
+            jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &keyStr));
+
+    if (resp->value) {
+        Handle<Value> valueStr =
+                NanNew<String>((const char*)resp->value, (int)resp->nvalue);
+        rowObj->Set(NanNew(CouchbaseImpl::valueKey),
+                jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &valueStr));
+    } else {
+        rowObj->Set(NanNew(CouchbaseImpl::valueKey), NanNull());
+    }
+
+    if (resp->geometry) {
+        Handle<Value> geometryStr =
+                NanNew<String>((const char*)resp->geometry, (int)resp->ngeometry);
+        rowObj->Set(NanNew(CouchbaseImpl::geometryKey),
+                jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &geometryStr));
+    }
+
+    if (resp->docid) {
+        rowObj->Set(NanNew(CouchbaseImpl::idKey),
+                NanNew<String>((const char*)resp->docid, (int)resp->ndocid));
+
+        if (resp->docresp) {
+            const lcb_RESPGET *rg = resp->docresp;
+            if (rg->rc == LCB_SUCCESS) {
+                rowObj->Set(NanNew(CouchbaseImpl::docKey),
+                        me->decodeDoc(rg->value, rg->nvalue, rg->itmflags));
+            } else {
+                rowObj->Set(NanNew(CouchbaseImpl::docKey), NanNull());
+            }
+        }
+    } else {
+        rowObj->Set(NanNew(CouchbaseImpl::idKey), NanNull());
+    }
+
+    Handle<Value> args[] = {
+            NanNew<Number>(-1),
+            rowObj
+    };
+    callback->Call(2, args);
+}
+
 }
 
 void CouchbaseImpl::setupLibcouchbaseCallbacks(void)

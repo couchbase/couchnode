@@ -52,6 +52,7 @@
 #include <queue>
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/api3.h>
+#include <libcouchbase/views.h>
 #include <libcouchbase/configuration.h>
 
 #include "cas.h"
@@ -118,6 +119,7 @@ public:
     static NAN_METHOD(fnStore);
     static NAN_METHOD(fnArithmetic);
     static NAN_METHOD(fnDurability);
+    static NAN_METHOD(fnViewQuery);
 
 public:
     CouchbaseImpl(lcb_t inst);
@@ -146,13 +148,25 @@ protected:
     NanCallback *transDecodeFunc;
 
 public:
+    static Persistent<Function> jsonParse;
+    static Persistent<Function> jsonStringify;
     static Persistent<String> valueKey;
     static Persistent<String> casKey;
     static Persistent<String> flagsKey;
     static Persistent<String> datatypeKey;
+    static Persistent<String> idKey;
+    static Persistent<String> keyKey;
+    static Persistent<String> docKey;
+    static Persistent<String> geometryKey;
+    static Persistent<String> rowsKey;
 
 };
 
 } // namespace Couchnode
+
+extern "C" {
+void viewrow_callback(lcb_t instance, int ignoreme,
+        const lcb_RESPVIEWQUERY *resp);
+}
 
 #endif

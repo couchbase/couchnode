@@ -19,9 +19,6 @@
 
 using namespace Couchnode;
 
-Persistent<Function> DefaultTranscoder::jsonParse;
-Persistent<Function> DefaultTranscoder::jsonStringify;
-
 enum Flags {
     // Node Flags - Formats
     NF_JSON = 0x00,
@@ -43,18 +40,6 @@ enum Flags {
 
 void DefaultTranscoder::Init()
 {
-    NanScope();
-
-    Handle<Object> jMod = NanGetCurrentContext()->Global()->Get(
-            NanNew<String>("JSON")).As<Object>();
-    assert(!jMod.IsEmpty());
-
-    NanAssignPersistent(jsonParse,
-            jMod->Get(NanNew<String>("parse")).As<Function>());
-    NanAssignPersistent(jsonStringify,
-            jMod->Get(NanNew<String>("stringify")).As<Function>());
-    assert(!jsonParse.IsEmpty());
-    assert(!jsonStringify.IsEmpty());
 }
 
 Handle<Value> DefaultTranscoder::decode(const void *bytes,
@@ -87,7 +72,7 @@ Handle<Value> DefaultTranscoder::decode(const void *bytes,
         // JSON decodes using UTF8, then JSON.parse
         Handle<Value> utf8String = decode(bytes, nbytes, NF_UTF8);
         v8::TryCatch tryCatch;
-        Local<Function> jsonParseLcl = NanNew(jsonParse);
+        Local<Function> jsonParseLcl = NanNew(CouchbaseImpl::jsonParse);
         Handle<Value> ret = jsonParseLcl->Call(
                 NanGetCurrentContext()->Global(), 1, &utf8String);
         if (!tryCatch.HasCaught()) {
@@ -121,7 +106,7 @@ void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
         return;
     } else {
         v8::TryCatch try_catch;
-        Local<Function> jsonStringifyLcl = NanNew(jsonStringify);
+        Local<Function> jsonStringifyLcl = NanNew(CouchbaseImpl::jsonStringify);
         Handle<Value> ret = jsonStringifyLcl->Call(
                 NanGetCurrentContext()->Global(), 1, &value);
         if (try_catch.HasCaught()) {

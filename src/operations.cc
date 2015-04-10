@@ -28,20 +28,33 @@ bool _ParseCookie(void ** cookie, Handle<Value> callback) {
   return false;
 }
 
+static const int PS_KEY = 0;
+static const int PS_HASHKEY = 1;
+static const int PS_DDOC = 2;
+static const int PS_VIEW = 3;
+static const int PS_OPTSTR = 4;
+template <int X>
+bool _ParseString(const char** val, lcb_SIZE* nval, Handle<Value> key) {
+    static char keyBuffer[256];
+    *val = (char*)_NanRawString(key, Nan::UTF8, (size_t*)nval,
+            keyBuffer, 256, v8::String::NO_OPTIONS);
+    return true;
+}
+template <int X>
+bool _ParseString(const void** val, lcb_SIZE* nval, Handle<Value> key) {
+    return _ParseString<X>((const char**)val, nval, key);
+}
+
+
 template <typename T>
 bool _ParseKey(T* cmdV, Handle<Value> key) {
-  static char keyBuffer[256];
-  cmdV->key = _NanRawString(key, Nan::UTF8, (size_t*)&cmdV->nkey,
-          keyBuffer, 256, v8::String::NO_OPTIONS);
-  return true;
+  return _ParseString<PS_KEY>(&cmdV->key, &cmdV->nkey, key);
 }
 
 template <typename T>
 bool _ParseHashkey(T* cmdV, Handle<Value> hashkey) {
-  static char hkeyBuffer[256];
   if (!hashkey->IsUndefined() && !hashkey->IsNull()) {
-      cmdV->hashkey = _NanRawString(hashkey, Nan::UTF8, (size_t*)&cmdV->nhashkey,
-              hkeyBuffer, 256, v8::String::NO_OPTIONS);
+      _ParseString<PS_HASHKEY>(&cmdV->hashkey, &cmdV->nhashkey, hashkey);
   }
   return true;
 }
@@ -375,6 +388,44 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
     }
 
     lcb_error_t err = lcb_durability_poll(me->getLcbHandle(), cookie, &opts, 1, cmd);
+    if (err) {
+        return NanThrowError(Error::create(err));
+    }
+
+    NanReturnValue(NanTrue());
+}
+
+NAN_METHOD(CouchbaseImpl::fnViewQuery) {
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    lcb_CMDVIEWQUERY cmd;
+    void *cookie;
+    NanScope();
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.callback = viewrow_callback;
+
+    if (args[0]->BooleanValue()) {
+        cmd.cmdflags |= LCB_CMDVIEWQUERY_F_SPATIAL;
+    }
+
+    if (!_ParseString<PS_DDOC>(&cmd.ddoc, &cmd.nddoc, args[1])) {
+        return NanThrowError(Error::create("bad ddoc passed"));
+    }
+    if (!_ParseString<PS_VIEW>(&cmd.view, &cmd.nview, args[2])) {
+        return NanThrowError(Error::create("bad view passed"));
+    }
+    if (!_ParseString<PS_OPTSTR>(&cmd.optstr, &cmd.noptstr, args[3])) {
+        return NanThrowError(Error::create("bad optstr passed"));
+    }
+    if (args[4]->BooleanValue()) {
+        cmd.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
+    }
+
+    if (!_ParseCookie(&cookie, args[5])) {
+        return NanThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_error_t err = lcb_view_query(me->getLcbHandle(), cookie, &cmd);
     if (err) {
         return NanThrowError(Error::create(err));
     }

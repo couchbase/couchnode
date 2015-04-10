@@ -20,10 +20,17 @@
 
 using namespace Couchnode;
 
+Persistent<Function> CouchbaseImpl::jsonParse;
+Persistent<Function> CouchbaseImpl::jsonStringify;
 Persistent<String> CouchbaseImpl::valueKey;
 Persistent<String> CouchbaseImpl::casKey;
 Persistent<String> CouchbaseImpl::flagsKey;
 Persistent<String> CouchbaseImpl::datatypeKey;
+Persistent<String> CouchbaseImpl::idKey;
+Persistent<String> CouchbaseImpl::keyKey;
+Persistent<String> CouchbaseImpl::docKey;
+Persistent<String> CouchbaseImpl::geometryKey;
+Persistent<String> CouchbaseImpl::rowsKey;
 Persistent<String> lcbErrorKey;
 
 extern "C" {
@@ -71,6 +78,7 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(t, "store", fnStore);
     NODE_SET_PROTOTYPE_METHOD(t, "arithmetic", fnArithmetic);
     NODE_SET_PROTOTYPE_METHOD(t, "durability", fnDurability);
+    NODE_SET_PROTOTYPE_METHOD(t, "viewQuery", fnViewQuery);
 
     target->Set(NanNew<String>("CouchbaseImpl"), t->GetFunction());
     target->Set(NanNew<String>("Constants"), createConstants());
@@ -80,6 +88,21 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NanAssignPersistent(casKey, NanNew<String>("cas"));
     NanAssignPersistent(flagsKey, NanNew<String>("flags"));
     NanAssignPersistent(datatypeKey, NanNew<String>("datatype"));
+    NanAssignPersistent(idKey, NanNew<String>("id"));
+    NanAssignPersistent(keyKey, NanNew<String>("key"));
+    NanAssignPersistent(docKey, NanNew<String>("doc"));
+    NanAssignPersistent(geometryKey, NanNew<String>("geometry"));
+    NanAssignPersistent(rowsKey, NanNew<String>("rows"));
+
+    Handle<Object> jMod = NanGetCurrentContext()->Global()->Get(
+            NanNew<String>("JSON")).As<Object>();
+    assert(!jMod.IsEmpty());
+    NanAssignPersistent(jsonParse,
+            jMod->Get(NanNew<String>("parse")).As<Function>());
+    NanAssignPersistent(jsonStringify,
+            jMod->Get(NanNew<String>("stringify")).As<Function>());
+    assert(!jsonParse.IsEmpty());
+    assert(!jsonStringify.IsEmpty());
 }
 
 NAN_METHOD(CouchbaseImpl::sfnSetErrorClass)
