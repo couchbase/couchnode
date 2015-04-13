@@ -350,6 +350,54 @@ void viewrow_callback(lcb_t instance, int ignoreme,
     callback->Call(2, args);
 }
 
+void n1qlrow_callback(lcb_t instance, int ignoreme,
+        const lcb_RESPN1QL *resp)
+{
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    NanCallback *callback = (NanCallback*)resp->cookie;
+    NanScope();
+
+    Local<Function> jsonParseLcl = NanNew(CouchbaseImpl::jsonParse);
+
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        Handle<Value> dataRes;
+        if (resp->rc != LCB_SUCCESS) {
+            if (resp->row) {
+                dataRes = NanNew<String>((const char*)resp->row, (int)resp->nrow);
+            } else {
+                dataRes = NanNull();
+            }
+        } else {
+            Handle<Value> metaStr =
+                    NanNew<String>((const char*)resp->row, (int)resp->nrow);
+            dataRes = jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &metaStr);
+            Local<Object> metaObj = dataRes->ToObject();
+            if (!metaObj.IsEmpty()) {
+                metaObj->Delete(NanNew(CouchbaseImpl::resultsKey));
+            }
+        }
+
+        Handle<Value> args[] = {
+                NanNew<Number>(resp->rc),
+                dataRes
+        };
+        callback->Call(2, args);
+
+        delete callback;
+        return;
+    }
+
+    Handle<Value> rowStr =
+            NanNew<String>((const char*)resp->row, (int)resp->nrow);
+    Handle<Value> rowObj =
+            jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &rowStr);
+    Handle<Value> args[] = {
+            NanNew<Number>(-1),
+            rowObj
+    };
+    callback->Call(2, args);
+}
+
 }
 
 void CouchbaseImpl::setupLibcouchbaseCallbacks(void)

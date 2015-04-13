@@ -33,6 +33,8 @@ static const int PS_HASHKEY = 1;
 static const int PS_DDOC = 2;
 static const int PS_VIEW = 3;
 static const int PS_OPTSTR = 4;
+static const int PS_HOST = 5;
+static const int PS_QUERY = 6;
 template <int X>
 bool _ParseString(const char** val, lcb_SIZE* nval, Handle<Value> key) {
     static char keyBuffer[256];
@@ -426,6 +428,44 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery) {
     }
 
     lcb_error_t err = lcb_view_query(me->getLcbHandle(), cookie, &cmd);
+    if (err) {
+        return NanThrowError(Error::create(err));
+    }
+
+    NanReturnValue(NanTrue());
+}
+
+NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    lcb_CMDN1QL cmd;
+    void *cookie;
+    NanScope();
+
+    Local<Function> jsonStringifyLcl = NanNew(CouchbaseImpl::jsonStringify);
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.callback = n1qlrow_callback;
+    cmd.content_type = "application/json";
+
+    if (!args[0]->IsUndefined()) {
+        if(!_ParseString<PS_HOST>(&cmd.host, NULL, args[0])) {
+            return NanThrowError(Error::create("bad host passed"));
+        }
+    }
+
+    Handle<Value> optsArgs[] = { args[1] };
+    Local<Value> optsVal =
+            jsonStringifyLcl->Call(NanGetCurrentContext()->Global(), 1, optsArgs);
+    Local<String> optsStr = optsVal.As<String>();
+    if (!_ParseString<PS_QUERY>(&cmd.query, &cmd.nquery, optsStr)) {
+        return NanThrowError(Error::create("bad opts passed"));
+    }
+
+    if (!_ParseCookie(&cookie, args[2])) {
+        return NanThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_error_t err = lcb_n1ql_query(me->getLcbHandle(), cookie, &cmd);
     if (err) {
         return NanThrowError(Error::create(err));
     }
