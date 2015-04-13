@@ -156,6 +156,13 @@ HANDLER(dur_synctokens_handler) {
 HANDLER(nmv_imm_retry_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, nmv_retry_imm));
 }
+HANDLER(tcp_nodelay_handler) {
+    printf("NoDelay!\n");
+    RETURN_GET_SET(int, LCBT_SETTING(instance, tcp_nodelay));
+}
+HANDLER(readj_ts_wait_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, readj_ts_wait));
+}
 
 HANDLER(get_kvb) {
     struct lcb_cntl_vbinfo_st *vbi = arg;
@@ -405,6 +412,25 @@ HANDLER(unsafe_optimize) {
     return LCB_SUCCESS;
 }
 
+HANDLER(synctok_supported_handler) {
+    size_t ii;
+    if (mode != LCB_CNTL_GET) {
+        return LCB_ECTL_UNSUPPMODE;
+    }
+
+    *(int *)arg = 0;
+
+    for (ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
+        mc_SERVER *s = LCBT_GET_SERVER(instance, ii);
+        if (s->synctokens) {
+            *(int *)arg = 1;
+            break;
+        }
+    }
+    (void)cmd;
+    return LCB_SUCCESS;
+}
+
 static ctl_handler handlers[] = {
     timeout_common, /* LCB_CNTL_OP_TIMEOUT */
     timeout_common, /* LCB_CNTL_VIEW_TIMEOUT */
@@ -461,7 +487,10 @@ static ctl_handler handlers[] = {
     fetch_synctokens_handler, /* LCB_CNTL_FETCH_SYNCTOKENS */
     dur_synctokens_handler, /* LCB_CNTL_DURABILITY_SYNCTOKENS */
     config_cache_handler, /* LCB_CNTL_CONFIGCACHE_READONLY */
-    nmv_imm_retry_handler /* LCB_CNTL_RETRY_NMV_IMM */
+    nmv_imm_retry_handler, /* LCB_CNTL_RETRY_NMV_IMM */
+    synctok_supported_handler, /* LCB_CNTL_SYNCTOKENS_SUPPORTED */
+    tcp_nodelay_handler, /* LCB_CNTL_TCP_NODELAY */
+    readj_ts_wait_handler /* LCB_CNTL_RESET_TIMEOUT_ON_WAIT */
 };
 
 /* Union used for conversion to/from string functions */
@@ -489,17 +518,12 @@ typedef struct {
 static lcb_error_t convert_timeout(const char *arg, u_STRCONVERT *u) {
     int rv;
     unsigned long tmp;
-    if (strchr(arg, '.')) {
-        /* Parse as a float */
-        double dtmp;
-        rv = sscanf(arg, "%lf", &dtmp);
-        if (rv != 1) { return LCB_ECTL_BADARG; }
-        tmp = dtmp * (double) 1000000;
-    } else {
-        rv = sscanf(arg, "%lu", &tmp);
-        if (rv != 1) { return LCB_ECTL_BADARG; }
-    }
 
+    /* Parse as a float */
+    double dtmp;
+    rv = sscanf(arg, "%lf", &dtmp);
+    if (rv != 1) { return LCB_ECTL_BADARG; }
+    tmp = dtmp * (double) 1000000;
     u->u32 = tmp;
     return LCB_SUCCESS;
 }
@@ -583,6 +607,7 @@ static lcb_error_t convert_retrymode(const char *arg, u_STRCONVERT *u) {
 
 static cntl_OPCODESTRS stropcode_map[] = {
         {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timeout},
+        {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timeout},
         {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timeout},
         {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timeout},
         {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timeout},
@@ -609,6 +634,8 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"fetch_synctokens", LCB_CNTL_FETCH_SYNCTOKENS, convert_intbool },
         {"dur_synctokens", LCB_CNTL_DURABILITY_SYNCTOKENS, convert_intbool },
         {"retry_nmv_imm", LCB_CNTL_RETRY_NMV_IMM, convert_intbool },
+        {"tcp_nodelay", LCB_CNTL_TCP_NODELAY, convert_intbool },
+        {"readj_ts_wait", LCB_CNTL_RESET_TIMEOUT_ON_WAIT, convert_intbool },
         {NULL, -1}
 };
 

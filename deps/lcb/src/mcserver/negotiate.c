@@ -449,6 +449,7 @@ handle_read(lcbio_CTX *ioctx, unsigned nb)
 
     case PROTOCOL_BINARY_CMD_SASL_STEP: {
         if (status != PROTOCOL_BINARY_RESPONSE_SUCCESS) {
+            lcb_log(LOGARGS(sreq, WARN), SESSREQ_LOGFMT "SASL auth failed with STATUS=0x%x", SESSREQ_LOGID(sreq), status);
             set_error_ex(sreq, LCB_AUTH_ERROR, "SASL Step Failed");
             state = SREQ_S_ERROR;
         } else {

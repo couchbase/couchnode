@@ -177,8 +177,9 @@ struct ViewInfo {
 };
 
 extern "C" {
-static void viewCallback(lcb_t, int, const lcb_RESPVIEWQUERY *resp)
+static void viewCallback(lcb_t, int cbtype, const lcb_RESPVIEWQUERY *resp)
 {
+    EXPECT_EQ(LCB_CALLBACK_VIEWQUERY, cbtype);
 //    printf("View Callback invoked!\n");
     ViewInfo *info = reinterpret_cast<ViewInfo*>(resp->cookie);
     info->addRow(resp);

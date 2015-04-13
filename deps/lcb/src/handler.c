@@ -39,7 +39,7 @@ lcb_errmap_default(lcb_t instance, lcb_uint16_t in)
     case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
         return LCB_EINTERNAL;
     default:
-        return LCB_ERROR;
+        return LCB_UNKNOWN_MEMCACHED_ERROR;
     }
 }
 

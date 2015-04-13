@@ -17,6 +17,7 @@ static void unref_request(lcbview_REQUEST *req);
 
 /* Whether the request (from the user side) is still ongoing */
 #define CAN_CONTINUE(req) ((req)->callback != NULL)
+#define LOGARGS(instance, lvl) instance->settings, "views", LCB_LOG_##lvl, __FILE__, __LINE__
 
 static void
 invoke_last(lcbview_REQUEST *req, lcb_error_t err)
@@ -39,7 +40,7 @@ invoke_last(lcbview_REQUEST *req, lcb_error_t err)
     } else {
         resp.rflags |= LCB_RESP_F_CLIENTGEN;
     }
-    req->callback(req->instance, -1, &resp);
+    req->callback(req->instance, LCB_CALLBACK_VIEWQUERY, &resp);
     lcb_view_cancel(req->instance, req);
 }
 
@@ -51,7 +52,7 @@ invoke_row(lcbview_REQUEST *req, lcb_RESPVIEWQUERY *resp)
     }
     resp->htresp = req->cur_htresp;
     resp->cookie = (void *)req->cookie;
-    req->callback(req->instance, -1, resp);
+    req->callback(req->instance, LCB_CALLBACK_VIEWQUERY, resp);
 }
 
 static void
@@ -65,7 +66,12 @@ chunk_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 
     if (rh->rc != LCB_SUCCESS || rh->htstatus != 200 || (rh->rflags & LCB_RESP_F_FINAL)) {
         if (req->lasterr == LCB_SUCCESS && rh->htstatus != 200) {
-            req->lasterr = LCB_HTTP_ERROR;
+            if (rh->rc != LCB_SUCCESS) {
+                req->lasterr = rh->rc;
+            } else {
+                lcb_log(LOGARGS(instance, DEBUG), "Got not ok http status %d", rh->htstatus);
+                req->lasterr = LCB_HTTP_ERROR;
+            }
         }
         req->refcount++;
         invoke_last(req, req->lasterr);

@@ -257,6 +257,36 @@ private:
     cliopts::StringOption o_params;
 };
 
+class N1qlHandler : public Handler {
+public:
+    N1qlHandler() : Handler("view"),
+        o_args("qarg"),
+        o_opts("qopt"),
+        o_althost("n1ql-host") {}
+    HANDLER_DESCRIPTION("Execute a N1QL Query")
+    HANDLER_USAGE("QUERY [--qarg PARAM1=VALUE1 --qopt PARAM2=VALUE2]")
+
+protected:
+    void run();
+
+    void addOptions() {
+        Handler::addOptions();
+        o_args.description(
+            "Specify values for placeholders (can be specified multiple times");
+        o_args.argdesc("PLACEHOLDER_PARAM=PLACEHOLDER_VALUE");
+
+        o_opts.description("Additional query options");
+        o_althost.description("Specify alternate query host");
+        parser.addOption(o_args);
+        parser.addOption(o_opts);
+        parser.addOption(o_althost);
+    }
+private:
+    cliopts::ListOption o_args;
+    cliopts::ListOption o_opts;
+    cliopts::StringOption o_althost;
+};
+
 class HttpReceiver {
 public:
     HttpReceiver() : statusInvoked(false) {}
@@ -378,27 +408,13 @@ private:
     std::string bname;
 };
 
-class BucketFlushHandler : public AdminHandler {
+class BucketFlushHandler : public Handler {
 public:
     HANDLER_DESCRIPTION("Flush a bucket")
-    HANDLER_USAGE("NAME [OPTIONS ...]")
-    BucketFlushHandler() : AdminHandler("bucket-flush") {}
+    HANDLER_USAGE("[COMMON OPTIONS ...]")
+    BucketFlushHandler() : Handler("bucket-flush") {}
 protected:
-    void run() {
-        bname = getRequiredArg();
-        AdminHandler::run();
-    }
-    std::string getURI() {
-        std::string uri = "/pools/default/buckets/";
-        uri += bname;
-        uri += "/controller/doFlush";
-        return uri;
-    }
-    lcb_http_method_t getMethod() { return LCB_HTTP_METHOD_POST; }
-    const std::string& getBody() { static std::string e; return e; }
-
-private:
-    std::string bname;
+    void run();
 };
 
 class ConnstrHandler : public Handler {

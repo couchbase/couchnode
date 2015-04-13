@@ -39,6 +39,24 @@ has_pending(lcb_t instance)
     }
     return 0;
 }
+
+static void
+maybe_reset_timeouts(lcb_t instance)
+{
+    size_t ii;
+    lcb_U64 now;
+
+    if (!LCBT_SETTING(instance, readj_ts_wait)) {
+        return;
+    }
+
+    now = lcb_nstime();
+    for (ii = 0; ii < LCBT_NSERVERS(instance); ++ii) {
+        mc_SERVER *ss = LCBT_GET_SERVER(instance, ii);
+        mcreq_reset_timeouts(&ss->pipeline, now);
+    }
+}
+
 void
 lcb_maybe_breakout(lcb_t instance)
 {
@@ -83,6 +101,7 @@ lcb_error_t lcb_wait(lcb_t instance)
         return LCB_SUCCESS;
     }
 
+    maybe_reset_timeouts(instance);
     instance->last_error = LCB_SUCCESS;
     instance->wait = 1;
     IOT_START(instance->iotable);
@@ -107,6 +126,7 @@ void lcb_wait3(lcb_t instance, lcb_WAITFLAGS flags)
         }
     }
 
+    maybe_reset_timeouts(instance);
     instance->wait = 1;
     IOT_START(instance->iotable);
     instance->wait = 0;

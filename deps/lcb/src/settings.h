@@ -80,6 +80,7 @@
 #define LCB_DEFAULT_COMPRESSOPTS LCB_COMPRESS_NONE
 
 #define LCB_DEFAULT_NVM_RETRY_IMM 1
+#define LCB_DEFAULT_TCP_NODELAY 1
 
 #include "config.h"
 #include <libcouchbase/couchbase.h>
@@ -140,6 +141,8 @@ typedef struct lcb_settings_st {
     unsigned dur_synctokens : 1;
     unsigned sslopts : 2;
     unsigned ipv6 : 2;
+    unsigned tcp_nodelay : 1;
+    unsigned readj_ts_wait : 1;
 
     short max_redir;
     unsigned refcount;

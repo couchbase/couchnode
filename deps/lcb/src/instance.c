@@ -36,6 +36,8 @@ const char *lcb_get_version(lcb_uint32_t *version)
     return LCB_VERSION_STRING;
 }
 
+const lcb_U32 lcb_version_g = LCB_VERSION;
+
 LIBCOUCHBASE_API
 void lcb_set_cookie(lcb_t instance, const void *cookie)
 {
@@ -480,7 +482,7 @@ void lcb_destroy(lcb_t instance)
         dset_list = (struct lcb_DURSET_st **)hashset_get_items(hs, NULL);
         if (dset_list) {
             for (ii = 0; ii < nitems; ii++) {
-                lcb_durability_dset_destroy(dset_list[ii]);
+                lcbdur_destroy(dset_list[ii]);
             }
             free(dset_list);
         }

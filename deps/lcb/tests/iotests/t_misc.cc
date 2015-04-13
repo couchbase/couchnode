@@ -364,7 +364,7 @@ TEST_F(MockUnitTest, testEmptyKeys)
 
     ctx = lcb_endure3_ctxnew(instance, &dopts, NULL);
     ASSERT_TRUE(ctx != NULL);
-    ASSERT_EQ(LCB_EMPTY_KEY, ctx->addcmd(ctx, &u.endure));
+    ASSERT_EQ(LCB_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE*)&u.endure));
     ctx->fail(ctx);
 
     ASSERT_EQ(LCB_SUCCESS, lcb_stats3(instance, NULL, &u.stats));
@@ -536,54 +536,6 @@ TEST_F(MockUnitTest, testCtls)
     ASSERT_EQ(LCB_SUCCESS, err);
     itmp = ctlGetInt(instance, LCB_CNTL_RETRY_NMV_IMM);
     ASSERT_EQ(0, itmp);
-}
-
-
-TEST_F(MockUnitTest, testFailedDurCtx)
-{
-    // This test will see the behavior of a failed observe and/or durability
-    // context.
-
-    HandleWrap hw;
-    lcb_t instance;
-    createConnection(hw, instance);
-
-    lcb_CMDENDURE cmd = { 0 };
-    lcb_durability_opts_t dopts = { 0 };
-    dopts.v.v0.cap_max = 1;
-    dopts.v.v0.persist_to = -1;
-    dopts.v.v0.replicate_to = -1;
-
-
-    lcb_sched_enter(instance);
-    lcb_error_t err;
-    lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &dopts, &err);
-    ASSERT_FALSE(mctx == NULL);
-
-    for (int ii = 0; ii < 10; ii++) {
-        std::stringstream ss;
-        ss << "Key_" << ii;
-        std::string key = ss.str();
-
-        LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-        err = mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
-        ASSERT_EQ(LCB_SUCCESS, err);
-    }
-
-    err = mctx->done(mctx, NULL);
-    ASSERT_EQ(LCB_SUCCESS, err);
-
-    // Fail out the context
-    lcb_sched_fail(instance);
-
-    // Ensure there are no left-over commands
-    for (unsigned ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
-        mc_SERVER *srv = LCBT_GET_SERVER(instance, ii);
-        ASSERT_EQ(0, mcserver_has_pending(srv));
-    }
-
-    hashset_t hs = lcb_aspend_get(&instance->pendops, LCB_PENDTYPE_DURABILITY);
-    ASSERT_EQ(0, hashset_num_items(hs));
 }
 
 TEST_F(MockUnitTest, testConflictingOptions)

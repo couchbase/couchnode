@@ -1278,6 +1278,8 @@ typedef struct {
     const void *key; /**< Key that was stored */
     lcb_SIZE nkey; /**< Size of key that was stored */
     lcb_cas_t cas; /**< Cas representing current mutation */
+    /** Synctoken for mutation. This is used with N1QL and durability */
+    const lcb_SYNCTOKEN *synctoken;
 } lcb_STORERESPv0;
 
 /** @brief Wrapper structure for lcb_STORERESPv0 */
@@ -1440,6 +1442,8 @@ typedef struct {
     lcb_SIZE nkey;
     lcb_U64 value; /**< Current numerical value of the counter */
     lcb_cas_t cas;
+    /** Synctoken for mutation. This is used with N1QL and durability */
+    const lcb_SYNCTOKEN *synctoken;
 } lcb_ARITHRESPv0;
 
 typedef struct {
@@ -1687,6 +1691,8 @@ typedef struct {
     const void *key;
     lcb_SIZE nkey;
     lcb_cas_t cas;
+    /** Synctoken for mutation. This is used with N1QL and durability */
+    const lcb_SYNCTOKEN *synctoken;
 } lcb_REMOVERESPv0;
 
 typedef struct {
@@ -1908,6 +1914,7 @@ typedef struct {
      * LCB_KEY_EEXISTS
      */
     lcb_cas_t cas;
+    const lcb_SYNCTOKEN *synctok;
 } lcb_DURABILITYCMDv0;
 
 /**
@@ -1920,6 +1927,26 @@ typedef struct lcb_durability_cmd_st {
         lcb_DURABILITYCMDv0 v0;
     } v;
 } lcb_durability_cmd_t;
+
+
+/**
+ * Use the default durability method. This will use METH_OBSSEQNO if both
+ * @ref LCB_CNTL_FETCH_SYNCTOKENS and @ref LCB_CNTL_DURABILITY_SYNCTOKENS
+ * are enabled, and will revert to METH_OBSCOMPAT otherwise.
+ */
+#define LCB_DURABILITY_MODE_DEFAULT 0
+
+/**
+ * Always use the old-style CAS-based observe. This is discouraged as it is
+ * less reliable, but may be reverted to if the old mode gives problems.
+ */
+#define LCB_DURABILITY_MODE_CAS 1
+
+/**
+ * Always use implicit sync tokens, or the ones passed in from the commands,
+ * if they exist.
+ */
+#define LCB_DURABILITY_MODE_SEQNO 2
 
 /** @brief Options for lcb_durability_poll() */
 typedef struct {
@@ -1957,6 +1984,10 @@ typedef struct {
      * the maximum available
      */
     lcb_U8 cap_max;
+
+    /**Set the polling method to use. If set, the ::version field must be set
+     * to > 1 */
+    lcb_U8 pollopts;
 } lcb_DURABILITYOPTSv0;
 
 /**@brief Options for lcb_durability_poll() (wrapper)
@@ -3275,6 +3306,10 @@ lcb_error_t lcb_get_timings(lcb_t instance,
  */
 LIBCOUCHBASE_API
 const char *lcb_get_version(lcb_U32 *version);
+
+/** Global/extern variable containing the version of the library */
+LIBCOUCHBASE_API LCB_EXTERN_VAR
+const lcb_U32 lcb_version_g;
 
 /**@brief Whether the library has SSL support*/
 #define LCB_SUPPORTS_SSL 1

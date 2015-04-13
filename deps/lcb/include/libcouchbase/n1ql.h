@@ -40,7 +40,7 @@ typedef struct lcb_N1QLREQ* lcb_N1QLHANDLE;
 /**
  * Callback to be invoked for each row
  * @param The instance
- * @param Callback type. Currently unused.
+ * @param Callback type. This is set to @ref LCB_CALLBACK_N1QL
  * @param The response.
  */
 typedef void (*lcb_N1QLCALLBACK)(lcb_t, int, const lcb_RESPN1QL*);

@@ -92,6 +92,10 @@ lcbio_get_nameinfo(lcbio_SOCKET *sock, struct lcbio_NAMEINFO *nistrs);
 int
 lcbio_is_netclosed(lcbio_SOCKET *sock, int flags);
 
+/** Disable Nagle's algorithm on the socket */
+lcb_error_t
+lcbio_disable_nagle(lcbio_SOCKET *s);
+
 void
 lcbio__load_socknames(lcbio_SOCKET *sock);
 

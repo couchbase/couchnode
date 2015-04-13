@@ -122,8 +122,9 @@ TEST_F(ConnstrTest, testParseHosts)
     const lcb_HOSTSPEC *dh = findHost(&params, "foo.com");
     ASSERT_FALSE(NULL == dh);
     ASSERT_STREQ("foo.com", dh->hostname);
-    ASSERT_EQ(8091, dh->port);
-    ASSERT_EQ(LCB_CONFIG_MCD_PORT, dh->type);
+    // CCBC-599
+    ASSERT_EQ(0, dh->port);
+    ASSERT_EQ(0, dh->type);
 
     // parse with invalid port, without specifying protocol
     reinit();

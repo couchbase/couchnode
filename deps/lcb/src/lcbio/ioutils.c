@@ -146,7 +146,6 @@ lcbio_C_ai2sock(lcbio_TABLE *io, struct addrinfo **ai, int *connerr)
     return ret;
 }
 
-
 struct nameinfo_common {
     char remote[NI_MAXHOST + NI_MAXSERV + 2];
     char local[NI_MAXHOST + NI_MAXSERV + 2];
@@ -250,6 +249,32 @@ lcbio_is_netclosed(lcbio_SOCKET *sock, int flags)
         return IOT_V0IO(iot).is_closed(IOT_ARG(iot), sock->u.fd, flags);
     } else {
         return IOT_V1(iot).is_closed(IOT_ARG(iot), sock->u.sd, flags);
+    }
+}
+
+lcb_error_t
+lcbio_disable_nagle(lcbio_SOCKET *s)
+{
+    lcbio_pTABLE iot = s->io;
+    int val = 1, rv;
+    int is_supp = ((IOT_IS_EVENT(iot) && IOT_V0IO(iot).cntl)) ||
+            (!IOT_IS_EVENT(iot) && IOT_V1(iot).cntl);
+
+    if (!is_supp) {
+        return LCB_NOT_SUPPORTED;
+    }
+
+    if (IOT_IS_EVENT(iot)) {
+        rv = IOT_V0IO(iot).cntl(IOT_ARG(iot), s->u.fd, LCB_IO_CNTL_GET,
+            LCB_IO_CNTL_TCP_NODELAY, &val);
+    } else {
+        rv = IOT_V1(iot).cntl(IOT_ARG(iot), s->u.sd, LCB_IO_CNTL_GET,
+            LCB_IO_CNTL_TCP_NODELAY, &val);
+    }
+    if (rv != 0) {
+        return lcbio_mklcberr(IOT_ERRNO(iot), s->settings);
+    } else {
+        return LCB_SUCCESS;
     }
 }
 

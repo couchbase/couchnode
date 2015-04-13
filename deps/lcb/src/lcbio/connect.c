@@ -114,6 +114,15 @@ cs_handler(void *cookie)
         lcbio__load_socknames(s);
         if (err == LCB_SUCCESS) {
             lcb_log(LOGARGS(s, INFO), CSLOGFMT "Connected ", CSLOGID(s));
+
+            if (s->settings->tcp_nodelay) {
+                lcb_error_t ndrc = lcbio_disable_nagle(s);
+                if (ndrc != LCB_SUCCESS) {
+                    lcb_log(LOGARGS(s, INFO), CSLOGFMT "Couldn't set TCP_NODELAY", CSLOGID(s));
+                } else {
+                    lcb_log(LOGARGS(s, DEBUG), CSLOGFMT "Successfuly set TCP_NODELAY", CSLOGID(s));
+                }
+            }
         } else {
             lcb_log(LOGARGS(s, ERR), CSLOGFMT "Failed: lcb_err=0x%x, os_errno=%u", CSLOGID(s), err, cs->syserr);
         }

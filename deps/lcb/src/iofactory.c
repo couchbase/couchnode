@@ -21,6 +21,10 @@
 #include "plugins/io/select/select_io_opts.h"
 #include <libcouchbase/plugins/io/bsdio-inl.c>
 
+#ifdef LCB_EMBED_PLUGIN_LIBEVENT
+LIBCOUCHBASE_API lcb_error_t lcb_create_libevent_io_opts(int, lcb_io_opt_t*,void*);
+#endif
+
 typedef lcb_error_t (*create_func_t)(int version, lcb_io_opt_t *io, void *cookie);
 
 
@@ -84,7 +88,12 @@ static plugin_info builtin_plugins[] = {
     BUILTIN_CORE("iocp", LCB_IO_OPS_WINIOCP, lcb_iocp_new_iops),
 #endif
 
+#ifdef LCB_EMBED_PLUGIN_LIBEVENT
+    BUILTIN_CORE("libevent", LCB_IO_OPS_LIBEVENT, lcb_create_libevent_io_opts),
+#else
     BUILTIN_DL("libevent", LCB_IO_OPS_LIBEVENT),
+#endif
+
     BUILTIN_DL("libev", LCB_IO_OPS_LIBEV),
     BUILTIN_DL("libuv", LCB_IO_OPS_LIBUV),
 

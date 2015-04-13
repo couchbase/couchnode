@@ -79,6 +79,14 @@ ConnParams::ConnParams() :
     o_certpath.description("Path to server certificate");
     o_verbose.description("Set debugging output (specify multiple times for greater verbosity");
     o_dump.description("Dump verbose internal state after operations are done");
+
+    o_cparams.description("Additional options for connection");
+    o_cparams.argdesc("OPTION=VALUE");
+
+    // Hide some more exotic options
+    o_saslmech.hide();
+    o_transport.hide();
+    o_ssl.hide();
 }
 
 void
@@ -325,6 +333,12 @@ ConnParams::fillCropts(lcb_create_st& cropts)
     if (o_user.passed()) {
         connstr += "username=";
         connstr += o_user.const_result();
+        connstr += '&';
+    }
+
+    const std::vector<std::string>& extras = o_cparams.const_result();
+    for (size_t ii = 0; ii < extras.size(); ii++) {
+        connstr += extras[ii];
         connstr += '&';
     }
 

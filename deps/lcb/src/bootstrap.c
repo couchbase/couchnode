@@ -61,6 +61,17 @@ config_callback(clconfig_listener *listener, clconfig_event_t event,
         bs->errcounter = 0;
     }
 
+    if (info->origin == LCB_CLCONFIG_CCCP) {
+        /* Disable HTTP provider if we've received something via CCCP */
+
+        if (instance->cur_configinfo == NULL ||
+                instance->cur_configinfo->origin != LCB_CLCONFIG_HTTP) {
+            /* Never disable HTTP if it's still being used */
+            lcb_confmon_set_provider_active(
+                instance->confmon, LCB_CLCONFIG_HTTP, 0);
+        }
+    }
+
     if (instance->type != LCB_TYPE_CLUSTER) {
         lcb_update_vbconfig(instance, info);
     }

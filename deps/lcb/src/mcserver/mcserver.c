@@ -463,6 +463,32 @@ timeout_server(void *arg)
     lcb_maybe_breakout(server->instance);
 }
 
+static int
+maybe_retry_timeout_connection(mc_SERVER *server, lcb_error_t err)
+{
+    lcb_U32 next_tmo;
+    if (err != LCB_ETIMEDOUT) {
+        return 0; /* not a timeout */
+    }
+    if (!LCBT_SETTING(server->instance, readj_ts_wait)) {
+        return 0; /* normal timeout behavior */
+    }
+    if (!mcserver_has_pending(server)) {
+        return 0; /* nothing pending */
+    }
+
+    next_tmo = get_next_timeout(server);
+    if (next_tmo < MCSERVER_TIMEOUT(server) / 2) {
+        /* Ideally we'd have a fuzz interval to shave off the actual timeout,
+         * since there will inevitably be some time taken off the next timeout */
+        return 0;
+    }
+
+    lcb_log(LOGARGS(server, INFO), LOGFMT "Retrying connection. Assuming timeout because of stalled event loop", LOGID(server));
+    server_connect(server);
+    return 1;
+}
+
 static void
 on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr)
 {
@@ -474,6 +500,9 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS(server, ERR), LOGFMT "Got error for connection! (OS=%d)", LOGID(server), syserr);
+        if (maybe_retry_timeout_connection(server, err)) {
+            return;
+        }
         server_socket_failed(server, err);
         return;
     }

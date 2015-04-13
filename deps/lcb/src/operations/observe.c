@@ -82,7 +82,7 @@ handle_observe_callback(mc_PIPELINE *pl,
     resp->rc = err;
     if (oc->oflags & F_DURABILITY) {
         resp->ttp = pl ? pl->index : -1;
-        lcb_durability_dset_update( instance,
+        lcbdur_cas_update( instance,
             (lcb_DURSET *)MCREQ_PKT_COOKIE(pkt), err, resp);
 
     } else if ((oc->oflags & F_SCHEDFAILED) == 0) {

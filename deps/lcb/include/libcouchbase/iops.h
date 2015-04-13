@@ -377,6 +377,24 @@ typedef void (*lcb_ioE_close_fn)
 typedef int (*lcb_ioE_chkclosed_fn)
         (lcb_io_opt_t iops, lcb_socket_t sock, int flags);
 
+
+#define LCB_IO_CNTL_GET 0
+#define LCB_IO_CNTL_SET 1
+
+/** Disable Nagle's algorithm (use an int) */
+#define LCB_IO_CNTL_TCP_NODELAY 1
+
+/**
+ * @brief Execute a specificied operation on a socket.
+ * @param iops The iops
+ * @param sock The socket
+ * @param mode The mode, can be @ref LCB_IO_CNTL_GET or @ref LCB_IO_CNTL_SET
+ * @param option The option to access
+ * @param[in,out] arg the argument for the option
+ * @return zero on success, nonzero on failure.
+ */
+typedef int (*lcb_ioE_cntl_fn)
+        (lcb_io_opt_t iops, lcb_socket_t sock, int mode, int option, void *arg);
 /**@}*/
 
 
@@ -604,6 +622,19 @@ typedef unsigned int (*lcb_ioC_close_fn)
 typedef int (*lcb_ioC_chkclosed_fn)
         (lcb_io_opt_t iops, lcb_sockdata_t *sd, int flags);
 
+/**
+ * @see lcb_ioE_cntl_fn.
+ *
+ * @param iops
+ * @param sd
+ * @param mode
+ * @param option
+ * @param arg
+ * @return
+ */
+typedef int (*lcb_ioC_cntl_fn)
+        (lcb_io_opt_t iops, lcb_sockdata_t *sd, int mode, int option, void *arg);
+
 /**@}*/
 
 /**
@@ -701,6 +732,7 @@ typedef struct lcb_bsdprocs_st {
     lcb_ioE_listen_fn listen;
     lcb_ioE_accept_fn accept;
     lcb_ioE_chkclosed_fn is_closed;
+    lcb_ioE_cntl_fn cntl;
 } lcb_bsd_procs;
 
 /** @brief Functions handling socket watcher events */
@@ -725,6 +757,7 @@ typedef struct {
     lcb_ioC_serve_fn serve;
     lcb_ioC_nameinfo_fn nameinfo;
     lcb_ioC_chkclosed_fn is_closed;
+    lcb_ioC_cntl_fn cntl;
 } lcb_completion_procs;
 
 /**
@@ -856,7 +889,7 @@ struct lcb_iops3_st {
  * function tables. This number is backwards compatible (i.e. version 3 contains
  * all the fields of version 2, and some additional ones)
  */
-#define LCB_IOPROCS_VERSION 3
+#define LCB_IOPROCS_VERSION 4
 
 #define LCB_IOPS_BASEFLD(iops, fld) ((iops)->v.base).fld
 #define LCB_IOPS_ERRNO(iops) LCB_IOPS_BASEFLD(iops, error)

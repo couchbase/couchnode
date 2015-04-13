@@ -335,4 +335,14 @@ typedef enum {
  */
 #define LCB_CNTL_UNSAFE_OPTIMIZE 0x33
 
+/**
+ * @volatile
+ * Disable or enable Nagle's algorithm. The default is to disable it, as it
+ * will typically reduce latency. In general it is recommended not to touch
+ * this setting. It is here mainly for debugging.
+ *
+ * Conventionally, the option to disable Nagle's algorithm is called "TCP_NODELAY",
+ * thus if this value is one, Nagle is off, and vice versa.
+ */
+#define LCB_CNTL_TCP_NODELAY 0x39
 /**@}*/
