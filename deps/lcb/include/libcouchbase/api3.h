@@ -240,6 +240,17 @@ typedef enum {
     LCB_CALLBACK__MAX /* Number of callbacks */
 } lcb_CALLBACKTYPE;
 
+/* The following callback types cannot be set using lcb_install_callback3(),
+ * however, their value is passed along as the second argument of their
+ * respective callbacks. This allows you to still use the same callback,
+ * differentiating their meaning by the type. */
+
+/** Callback type for views (cannot be used for lcb_install_callback3()) */
+#define LCB_CALLBACK_VIEWQUERY -1
+
+/** Callback type for N1QL (cannot be used for lcb_install_callback3()) */
+#define LCB_CALLBACK_N1QL -2
+
 /**
  * Callback invoked for responses.
  * @param instance The handle
@@ -366,6 +377,23 @@ void lcb_sched_leave(lcb_t instance);
  * The commands placed within the current
  * scheduling context are released and are never flushed to the network.
  * @param instance
+ *
+ * @warning
+ * This function only affects commands which have a direct correspondence
+ * to memcached packets. Currently these are commands scheduled by:
+ *
+ * * lcb_get3()
+ * * lcb_rget3()
+ * * lcb_unlock3()
+ * * lcb_touch3()
+ * * lcb_store3()
+ * * lcb_counter3()
+ * * lcb_remove3()
+ * * lcb_observe3()
+ * * lcb_stats3()
+ *
+ * Other commands are _compound_ commands and thus should be in their own
+ * scheduling context.
  */
 LIBCOUCHBASE_API
 void lcb_sched_fail(lcb_t instance);
@@ -939,6 +967,9 @@ typedef struct {
  * lcb_sched_leave(instance);
  * lcb_install_callback3(instance, LCB_CALLBACK_OBSERVE, (lcb_RESP_cb)callback);
  * @endcode
+ *
+ * @warning
+ * Operations created by observe cannot be undone using lcb_sched_fail().
  */
 LIBCOUCHBASE_API
 lcb_MULTICMD_CTX *
@@ -1006,6 +1037,10 @@ lcb_get_synctoken(lcb_t instance, const lcb_KEYBUF *kb, lcb_error_t *errp);
  * @{
  */
 
+/**Must specify this flag if using the 'synctoken' field, as it was added in
+ * a later version */
+#define LCB_CMDENDURE_F_SYNCTOKEN 1<<16
+
 /**@brief Command structure for endure.
  * If the lcb_CMDENDURE::cas field is specified, the operation will check and
  * verify that the CAS found on each of the nodes matches the CAS specified
@@ -1013,7 +1048,10 @@ lcb_get_synctoken(lcb_t instance, const lcb_KEYBUF *kb, lcb_error_t *errp);
  * nodes. If the item exists on the master's cache with a different CAS then
  * the operation will fail
  */
-typedef lcb_CMDBASE lcb_CMDENDURE;
+typedef struct {
+    LCB_CMD_BASE;
+    const lcb_SYNCTOKEN *synctoken;
+} lcb_CMDENDURE;
 
 /**@brief Response structure for endure */
 typedef struct {
@@ -1127,16 +1165,19 @@ lcb_flush3(lcb_t instance, const void *cookie, const lcb_CMDFLUSH *cmd);
 /**@}*/
 
 
-/** Command flag for HTTP to indicate that the callback is to be invoked
- * multiple times for each new chunk of incoming data. Once all the chunks
- * have been received, the callback will be invoked once more with the
- * LCB_RESP_F_FINAL flag and an empty content. */
-
 /**
  * @name Perform an HTTP operation
  * @{
  */
 
+/** Command flag for HTTP to indicate that the callback is to be invoked
+ * multiple times for each new chunk of incoming data. Once the entire body
+ * have been received, the callback will be invoked once more with the
+ * LCB_RESP_F_FINAL flag (in lcb_RESPHTTP::rflags) and an empty content.
+ *
+ * To use streaming requests, this flag should be set in the
+ * lcb_CMDHTTP::cmdflags field
+ */
 #define LCB_CMDHTTP_F_STREAM 1<<16
 
 /**
@@ -1179,12 +1220,32 @@ typedef struct {
     const char *host;
 } lcb_CMDHTTP;
 
+/**
+ * Structure for HTTP responses
+ */
 typedef struct {
     LCB_RESP_BASE
-    short htstatus; /** HTTP status code */
+    /**
+     * HTTP status code. It is recommended you first check if this has a
+     * nonzero value. If it's 0 then there was a problem in getting the
+     * response in the first place.
+     */
+    short htstatus;
+
+    /**
+     * List of key-value headers. This field itself may be `NULL`. The list
+     * is terminated by a `NULL` pointer to indicate no more headers.
+     */
     const char * const * headers;
+
+    /**
+     * If @ref LCB_CMDHTTP_F_STREAM is true, contains the current chunk
+     * of response content. Otherwise, contains the entire response body.
+     */
     const void *body;
-    lcb_SIZE nbody;
+
+    lcb_SIZE nbody; /**< Length of the buffer in #body */
+
     lcb_http_request_t _htreq; /* Private */
 } lcb_RESPHTTP;
 

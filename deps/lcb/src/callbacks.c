@@ -110,6 +110,7 @@ compat_default_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r3base)
     case LCB_CALLBACK_STORE: {
         lcb_store_resp_t r2 = { 0 };
         FILL_KVC(&r2)
+        r2.v.v0.synctoken = &r3->store.synctoken;
         instance->callbacks.store(instance, cookie, r3->store.op, err, &r2);
         break;
     }
@@ -117,12 +118,14 @@ compat_default_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r3base)
         lcb_arithmetic_resp_t r2 = { 0 };
         FILL_KVC(&r2);
         r2.v.v0.value = r3->arith.value;
+        r2.v.v0.synctoken = &r3->arith.synctoken;
         instance->callbacks.arithmetic(instance, cookie, err, &r2);
         break;
     }
     case LCB_CALLBACK_REMOVE: {
         lcb_remove_resp_t r2 = { 0 };
         FILL_KVC(&r2)
+        r2.v.v0.synctoken = &r3->del.synctoken;
         instance->callbacks.remove(instance, cookie, err, &r2);
         break;
     }
@@ -212,6 +215,7 @@ compat_default_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r3base)
         break;
     }
     case LCB_CALLBACK_OBSEQNO:
+    case LCB_CALLBACK_CBFLUSH:
         /* Don't crash! */
         break;
 

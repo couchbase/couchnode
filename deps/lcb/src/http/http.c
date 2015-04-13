@@ -518,9 +518,6 @@ lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
     if (!req) {
         return LCB_CLIENT_ENOMEM;
     }
-    if (request) {
-        *request = req;
-    }
     req->refcount = 1;
     req->instance = instance;
     req->io = instance->iotable;
@@ -554,6 +551,9 @@ lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
     rc = lcb_http_request_exec(req);
     if (rc == LCB_SUCCESS) {
         lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_HTTP, req);
+        if (request) {
+            *request = req;
+        }
     }
     return rc;
 

@@ -1,6 +1,8 @@
 #ifndef CLIOPTS_H_
 #define CLIOPTS_H_
 
+#include <stddef.h> /* size_t */
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -34,7 +36,14 @@ typedef enum {
     CLIOPTS_ARGT_STRING,
 
     /** dest should be a float* */
-    CLIOPTS_ARGT_FLOAT
+    CLIOPTS_ARGT_FLOAT,
+
+    /**
+     * Destination should be cliopts_list. Argument type is assumed to be a
+     * string. You can use this option type to build -Doption=value style
+     * options which can be processed later on.
+     */
+    CLIOPTS_ARGT_LIST
 } cliopts_argtype_t;
 
 typedef struct {
@@ -110,6 +119,23 @@ struct cliopts_extra_settings {
     unsigned nrestargs;
 };
 
+typedef struct {
+    /** Array of string pointers. Allocated via standard malloc functions */
+    char **values;
+    /** Number of valid entries */
+    size_t nvalues;
+    /** Number of entries allocated */
+    size_t nalloc;
+} cliopts_list;
+
+/**
+ * Clear a list of its contents
+ * @param l The list
+ */
+CLIOPTS_API
+void
+cliopts_list_clear(cliopts_list *l);
+
 /**
  * Parse options.
  *
@@ -144,142 +170,267 @@ cliopts_parse_options(cliopts_entry *entries,
 
 namespace cliopts {
 class Parser;
+
+/**
+ * This class should typically not be used directly. It is a simple wrapper
+ * around the C-based ::cliopts_entry class for further wrapping by the
+ * cliopts::TOption template class.
+ */
 class Option : protected cliopts_entry {
 public:
     bool passed() const { return found != 0; }
     void setPassed(bool val = true) { found = val ? 1 : 0; }
     int numSpecified() const { return found; }
     Option() { memset(this, 0, sizeof (cliopts_entry)); }
-protected:
-    union {
-        int i;
-        unsigned ui;
-        const char *s;
-        float f;
-        void *p;
-    } u_value;
-    std::string stmp;
 private:
     friend class Parser;
 };
 
-template <typename T, cliopts_argtype_t Targ>
-class TOption : public Option {
-public:
-    typedef TOption<T,Targ> Ttype;
+class EmptyPriv {};
 
-    TOption(char shortname, const char *longname = NULL, T deflval = T(),
-        const char *helpstr = NULL) {
+/**
+ * Option template class. This class is not meant to be used by applications
+ * directly. Applications should use one of the template instantiations
+ * below (e.g. cliopts::StringOption)
+ *
+ * @param T type returned to the application
+ * @param Targ integer constant indicating the type of the C argument
+ * @param Taccum raw destination type which will store the parsed value
+ * @param Tpriv type of private data to be stored for type-specific processing
+ */
+template <
+    typename T,
+    cliopts_argtype_t Targ,
+    typename Taccum,
+    typename Tpriv = EmptyPriv
+    >
+class TOption : public Option {
+
+private:
+    typedef TOption<T,Targ, Taccum, Tpriv> Ttype;
+    Taccum innerVal; /**< Pointer for cliopts_entry destination */
+    Tpriv priv; /**< Type-specific data */
+public:
+
+    /**
+     * Construct a new option
+     * @param shortname abbreviated short name
+     * @param longname long ("GNU-style" name)
+     * @param deflval default value to be used
+     * @param helpstr Text explaining the option
+     */
+    TOption(char shortname, const char *longname = NULL,
+        T deflval = createDefault(), const char *helpstr = NULL) {
+
         memset((cliopts_entry *)this, 0, sizeof(cliopts_entry));
         ktype = Targ;
         klong = longname;
-
-        memset(&u_value, 0, sizeof u_value);
-        dest = &u_value;
+        dest = &innerVal;
 
         abbrev(shortname);
         description(helpstr);
         setDefault(deflval);
     }
 
+    /**
+     * Construct a new option
+     * @param longname the long ("GNU-Style") name.
+     */
     TOption(const char *longname) {
         memset((cliopts_entry *)this, 0, sizeof(cliopts_entry));
         ktype = Targ;
         klong = longname;
-        memset(&u_value, 0, sizeof u_value);
-        dest = &u_value;
+        innerVal = createDefault();
+        dest = &innerVal;
     }
 
+    /**
+     * Copy constructor. This mainly exists to allow chaining (See example)
+     * @param other the source option to copy
+     */
     TOption(TOption& other) {
         *(cliopts_entry*)this = *(cliopts_entry*) &other;
-        stmp = other.stmp;
-        u_value = other.u_value;
-
-        dest = &u_value;
-        if (other.u_value.s == other.stmp.c_str()) {
-            u_value.s = stmp.c_str();
-        }
-
+        innerVal = other.innerVal;
+        dest = &innerVal;
         other.dest = NULL;
+        doCopy(other);
     }
 
+    /**
+     * Set the default value for the option
+     * @param val the default value
+     * @return the option object, for method chaining.
+     */
     inline Ttype& setDefault(const T& val) {
-        u_value.f = val;
+        innerVal = val;
         return *this;
     }
 
+    /**
+     * Set the single-character switch
+     * @param val the switch character, e.g. '-v'
+     * @return the option object, for method chaining
+     */
     inline Ttype& abbrev(char val) { kshort = val; return *this; }
+
+    /**
+     * Set the description (or help string) for the option.
+     * @param msg The help string e.g. "Increases verbosity"
+     * @return the obtion object, for method chaining.
+     */
     inline Ttype& description(const char *msg) { help = msg; return *this; }
+
+    /**
+     * Set whether this option must appear
+     * @param val boolean, set to true if required, false if optional
+     * @return the option object, for method chaining
+     */
     inline Ttype& mandatory(bool val = true) { required = val; return *this; }
+
+    /**
+     * Set the value description string for the option value.
+     * @param desc The short description string, e.g. "RETRIES"
+     * @return the option object, for method chaining
+     */
     inline Ttype& argdesc(const char *desc) { vdesc = desc; return *this; }
+
+    /**
+     * Whether to hide this option in the help output
+     * @param val true if the option should be hidden
+     * @return the object object, for method chaining.
+     */
     inline Ttype& hide(bool val = true) { hidden = val; return *this; }
 
-    inline T result() {
-        switch (Targ) {
-        case CLIOPTS_ARGT_FLOAT:
-            return (T) u_value.f;
-        case CLIOPTS_ARGT_UINT:
-        case CLIOPTS_ARGT_HEX:
-            return (T) u_value.ui;
-        case CLIOPTS_ARGT_INT:
-            return (T) u_value.i;
-        default:
-            abort();
-            return 0;
-        }
-    }
+    /**
+     * Returns the result object
+     * @return a copy of the result object
+     */
+    inline T result() { return (T)innerVal; }
 
-    // Only used for strings
-    inline T& const_result();
+    /**
+     * Returns a reference to the result object
+     * @return a reference to the result object.
+     */
+    inline T& const_result() { return (T)innerVal; }
+
     operator T() { return result(); }
+
+protected:
+    /** Called from within copy constructor */
+    inline void doCopy(TOption&) {}
+
+    /** Create the default value for the option */
+    static inline Taccum createDefault() { return Taccum(); }
 };
 
-typedef TOption<std::string, CLIOPTS_ARGT_STRING> StringOption;
-typedef TOption<bool, CLIOPTS_ARGT_NONE> BoolOption;
-typedef TOption<unsigned, CLIOPTS_ARGT_UINT> UIntOption;
-typedef TOption<int, CLIOPTS_ARGT_INT> IntOption;
-typedef TOption<int, CLIOPTS_ARGT_HEX> HexOption;
-typedef TOption<float, CLIOPTS_ARGT_FLOAT> FloatOption;
+typedef TOption<std::string,
+        CLIOPTS_ARGT_STRING,
+        const char*,
+        std::string> StringOption;
 
-template<> inline bool BoolOption::result() {
-    return u_value.i != 0;
-}
+typedef TOption<std::vector<std::string>,
+        CLIOPTS_ARGT_LIST,
+        cliopts_list,
+        std::vector<std::string> > ListOption;
 
+typedef TOption<bool,
+        CLIOPTS_ARGT_NONE,
+        int> BoolOption;
+
+typedef TOption<unsigned,
+        CLIOPTS_ARGT_UINT,
+        unsigned> UIntOption;
+
+typedef TOption<int,
+        CLIOPTS_ARGT_INT,
+        int> IntOption;
+
+typedef TOption<int,
+        CLIOPTS_ARGT_HEX,
+        unsigned> HexOption;
+
+typedef TOption<float,
+        CLIOPTS_ARGT_FLOAT,
+        float> FloatOption;
+
+// STRING ROUTINES
 template<> inline std::string& StringOption::const_result() {
-    if (u_value.s && passed()) {
-        stmp = u_value.s;
+    if (innerVal && passed()) {
+        priv = innerVal;
     }
-    return stmp;
+    return priv;
 }
 template<> inline std::string StringOption::result() {
     return const_result();
 }
-
 template<> inline StringOption& StringOption::setDefault(const std::string& s) {
-    stmp = s; u_value.s = stmp.c_str(); return *this;
+    priv = s;
+    innerVal = priv.c_str();
+    return *this;
 }
-template<> inline IntOption& IntOption::setDefault(const int& i) {
-    u_value.i = i; return *this;
+template<> inline void StringOption::doCopy(StringOption& other) {
+    priv = other.priv;
+    if (other.innerVal == other.priv.c_str()) {
+        innerVal = priv.c_str();
+    }
 }
-template<> inline HexOption& HexOption::setDefault(const int& i) {
-    u_value.i = i; return *this;
+template<> inline const char* StringOption::createDefault() { return NULL; }
+
+// LIST ROUTINES
+template<> inline std::vector<std::string>& ListOption::const_result() {
+    if (priv.empty()) {
+        for (size_t ii = 0; ii < innerVal.nvalues; ii++) {
+            priv.push_back(innerVal.values[ii]);
+        }
+    }
+    return priv;
 }
-template<> inline BoolOption& BoolOption::setDefault(const bool& b) {
-    u_value.i = b ? 1 : 0; return *this;
-}
-template<> inline UIntOption& UIntOption::setDefault(const unsigned& ui) {
-    u_value.ui = ui; return *this;
+template<> inline std::vector<std::string> ListOption::result() {
+    return const_result();
 }
 
+// BOOL ROUTINES
+template<> inline BoolOption& BoolOption::setDefault(const bool& b) {
+    innerVal = b ? 1 : 0; return *this;
+}
+template<> inline bool BoolOption::result() {
+    return innerVal != 0 ? true : false;
+}
+
+/**
+ * Parser class which contains one or more cliopts::Option objects. Options
+ * should be added via the #addOption() member function.
+ */
 class Parser {
 public:
+    /**
+     * Construct a new parser
+     * @param name the "program name" which is printed at the top of the
+     * help message.
+     */
     Parser(const char *name = NULL) {
         memset(&default_settings, 0, sizeof default_settings);
         default_settings.progname = name;
     }
 
+    /**
+     * Adds an option to the parser. The option is then checked for presence
+     * on the commandline (in #parse()).
+     * @param opt the option to add. Note that the application is responsible
+     * for keeping the option in valid memory.
+     */
     void addOption(Option *opt) { options.push_back(opt); }
+
     void addOption(Option& opt) { options.push_back(&opt); }
+
+    /**
+     * Parses the options from the commandline
+     * @param argc number of arguments
+     * @param argv list of arguments
+     * @param standalone_args whether to accept (and store) positional arguments
+     * (after all named options are processed).
+     * @return true on parse success, false on parse failure
+     */
     bool parse(int argc, char **argv, bool standalone_args = false) {
         std::vector<cliopts_entry> ents;
         cliopts_extra_settings settings = default_settings;
@@ -322,7 +473,12 @@ public:
         return rv == 0;
     }
 
+    /**
+     * Get the list of any positional arguments found on the commandline
+     * @return A list of positional arguments found.
+     */
     const std::vector<std::string>& getRestArgs() { return restargs; }
+
     cliopts_extra_settings default_settings;
 private:
     std::vector<Option*> options;

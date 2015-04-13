@@ -5,6 +5,7 @@
 #include <fstream>
 #include <libcouchbase/vbucket.h>
 #include <libcouchbase/views.h>
+#include <libcouchbase/n1ql.h>
 #include <stddef.h>
 #include "common/options.h"
 #include "common/histogram.h"
@@ -446,7 +447,8 @@ SetHandler::addOptions()
     if (!hasFileList()) {
         parser.addOption(o_value);
     }
-    parser.addOption(o_json);
+    // This may be enabled again if datatype support is re-added
+    // parser.addOption(o_json);
 }
 
 void
@@ -820,6 +822,33 @@ McFlushHandler::run()
     lcb_wait(instance);
 }
 
+
+extern "C" {
+static void cbFlushCb(lcb_t, int, const lcb_RESPBASE *resp)
+{
+    if (resp->rc == LCB_SUCCESS) {
+        fprintf(stderr, "Flush OK\n");
+    } else {
+        fprintf(stderr, "Flush failed: %s (0x%x)\n",
+            lcb_strerror(NULL, resp->rc), resp->rc);
+    }
+}
+}
+void
+BucketFlushHandler::run()
+{
+    Handler::run();
+    lcb_CMDCBFLUSH cmd = { 0 };
+    lcb_error_t err;
+    lcb_install_callback3(instance, LCB_CALLBACK_CBFLUSH, cbFlushCb);
+    err = lcb_cbflush3(instance, NULL, &cmd);
+    if (err != LCB_SUCCESS) {
+        throw err;
+    } else {
+        lcb_wait(instance);
+    }
+}
+
 void
 ArithmeticHandler::run()
 {
@@ -877,6 +906,92 @@ ViewsHandler::run()
     if (rc != LCB_SUCCESS) {
         throw rc;
     }
+    lcb_wait(instance);
+}
+
+static void
+splitKvParam(const string& src, string& key, string& value)
+{
+    size_t pp = src.find('=');
+    if (pp == string::npos) {
+        throw string("Param must be in the form of key=value");
+    }
+
+    key = src.substr(0, pp);
+    value = src.substr(pp+1);
+}
+
+extern "C" {
+static void n1qlCallback(lcb_t, int, const lcb_RESPN1QL *resp)
+{
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        fprintf(stderr, "** N1QL Response finished\n");
+        if (resp->rc != LCB_SUCCESS) {
+            fprintf(stderr, "N1QL query failed with library code 0x%x\n", resp->rc);
+            if (resp->htresp) {
+                fprintf(stderr, "Inner HTTP request failed with library code 0x%x and HTTP status %d\n",
+                    resp->htresp->rc, resp->htresp->htstatus);
+            }
+        }
+        if (resp->row) {
+            printf("%.*s\n", (int)resp->nrow, resp->row);
+        }
+    } else {
+        printf("%.*s,\n", (int)resp->nrow, resp->row);
+    }
+}
+}
+
+void
+N1qlHandler::run()
+{
+    Handler::run();
+    const string& qstr = getRequiredArg();
+
+    lcb_N1QLPARAMS *params = lcb_n1p_new();
+    lcb_error_t rc;
+
+    rc = lcb_n1p_setquery(params, qstr.c_str(), -1, LCB_N1P_QUERY_STATEMENT);
+    if (rc != LCB_SUCCESS) {
+        throw rc;
+    }
+
+    const vector<string>& vv_args = o_args.const_result();
+    for (size_t ii = 0; ii < vv_args.size(); ii++) {
+        string key, value;
+        splitKvParam(vv_args[ii], key, value);
+        string ktmp = "$" + key;
+        rc = lcb_n1p_namedparamz(params, ktmp.c_str(), value.c_str());
+        if (rc != LCB_SUCCESS) {
+            throw rc;
+        }
+    }
+
+    const vector<string>& vv_opts = o_opts.const_result();
+    for (size_t ii = 0; ii < vv_opts.size(); ii++) {
+        string key, value;
+        splitKvParam(vv_opts[ii], key, value);
+        rc = lcb_n1p_setoptz(params, key.c_str(), value.c_str());
+        if (rc != LCB_SUCCESS) {
+            throw rc;
+        }
+    }
+
+    lcb_CMDN1QL cmd = { 0 };
+    rc = lcb_n1p_mkcmd(params, &cmd);
+    if (rc != LCB_SUCCESS) {
+        throw rc;
+    }
+    fprintf(stderr, "Encoded query: %.*s\n", (int)cmd.nquery, cmd.query);
+    if (o_althost.passed()) {
+        cmd.host = o_althost.const_result().c_str();
+    }
+    cmd.callback = n1qlCallback;
+    rc = lcb_n1ql_query(instance, NULL, &cmd);
+    if (rc != LCB_SUCCESS) {
+        throw rc;
+    }
+    lcb_n1p_free(params);
     lcb_wait(instance);
 }
 
@@ -1176,6 +1291,7 @@ static const char* optionsOrder[] = {
         "version",
         "verbosity",
         "view",
+        "n1ql",
         "admin",
         "bucket-create",
         "bucket-delete",
@@ -1220,6 +1336,19 @@ protected:
                 throw ("Need decimal or hex code!");
             }
         }
+
+        #define X(cname, code, cat, desc) \
+        if (code == errcode) { \
+            fprintf(stderr, "%s\n", #cname); \
+            fprintf(stderr, "  Type: 0x%x\n", cat); \
+            fprintf(stderr, "  Description: %s\n", desc); \
+            return; \
+        } \
+
+        LCB_XERR(X)
+        #undef X
+
+        fprintf(stderr, "-- Error code not found in header. Trying runtime..\n");
         fprintf(stderr, "0x%x: %s\n", errcode, lcb_strerror(NULL, (lcb_error_t)errcode));
     }
 };
@@ -1247,6 +1376,7 @@ setupHandlers()
     handlers_s["bucket-delete"] = new BucketDeleteHandler();
     handlers_s["bucket-flush"] = new BucketFlushHandler();
     handlers_s["view"] = new ViewsHandler();
+    handlers_s["n1ql"] = new N1qlHandler();
     handlers_s["connstr"] = new ConnstrHandler();
     handlers_s["write-config"] = new WriteConfigHandler();
     handlers_s["strerror"] = new StrErrorHandler();

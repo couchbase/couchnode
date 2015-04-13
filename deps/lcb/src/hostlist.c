@@ -294,17 +294,25 @@ lcb_host_t * hostlist_shift_next(hostlist_t hostlist, int rollover)
     return ret;
 }
 
+static int rand_int(int n) {
+    int limit = RAND_MAX - RAND_MAX % n;
+    int rnd;
+    do {
+        rnd = rand();
+    } while (rnd >= limit);
+    return rnd % n;
+}
+
 void hostlist_randomize(hostlist_t hostlist)
 {
-    lcb_size_t ii;
-    if (!hostlist->nentries) {
+    size_t ii;
+
+    if (hostlist->nentries < 2) {
         return;
     }
 
-    srand((unsigned)(gethrtime()<<31));
-    for (ii = 0; ii < hostlist->nentries - 1; ii++) {
-        lcb_size_t nn = ii + (rand() /
-                             ((RAND_MAX / (hostlist->nentries - ii)) + 1));
+    for (ii = hostlist->nentries - 1; ii > 0; ii--) {
+        size_t nn = rand_int(ii + 1);
         lcb_host_t tmp = hostlist->entries[ii];
         hostlist->entries[ii] = hostlist->entries[nn];
         hostlist->entries[nn] = tmp;

@@ -809,8 +809,36 @@ typedef enum {
  */
 #define LCB_CNTL_DURABILITY_SYNCTOKENS 0x35
 
+/**
+ * @volatile
+ *
+ * This read-only property determines if the synctoken mechanism is supported
+ * on the cluster itself. This will only be accurate once a single operation
+ * has been performed on the cluster - or in other words, once a connection
+ * to a data node has been established for the purposes of normal operations.
+ *
+ * @cntl_arg_getonly{int (as boolean)}
+ */
+#define LCB_CNTL_SYNCTOKENS_SUPPORTED 0x38
+
+
+/**
+ * @uncommitted
+ * This setting determines if calls to lcb_wait() and lcb_wait3() will reset
+ * the timeout of pending operations to the time that lcb_wait() was called,
+ * rather than having the operation maintain the time of the call which
+ * scheduled it. If the time between lcb_store3() and family and the lcb_wait()
+ * functions is long, it is recommended to disable this setting in order to
+ * avoid prematurely having operations time out.
+ *
+ * @cntl_arg_getset{int (as boolean)}
+ *
+ * Use `"readj_wait_tmo"` for the string version
+ */
+#define LCB_CNTL_RESET_TIMEOUT_ON_WAIT 0x3A
+
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x38
+#define LCB_CNTL__MAX                    0x3B
 /**@}*/
 
 #ifdef __cplusplus

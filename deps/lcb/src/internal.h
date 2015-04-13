@@ -134,7 +134,8 @@ genhash_t *lcb_hashtable_nc_new(lcb_size_t est);
 genhash_t *lcb_hashtable_szt_new(lcb_size_t est);
 
 struct lcb_DURSET_st;
-void lcb_durability_dset_destroy(struct lcb_DURSET_st *dset);
+void lcbdur_destroy(struct lcb_DURSET_st *dset);
+void lcbdur_maybe_schedfail(struct lcb_DURSET_st *dset);
 
 lcb_error_t lcb_iops_cntl_handler(int mode, lcb_t instance, int cmd, void *arg);
 

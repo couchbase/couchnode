@@ -22,6 +22,10 @@
  * plugin instance.
  */
 
+#ifndef _WIN32
+#include <netinet/tcp.h>
+#endif
+
 static void wire_lcb_bsd_impl2(lcb_bsd_procs*,int);
 
 #ifdef _WIN32
@@ -270,6 +274,63 @@ chkclosed_impl(lcb_io_opt_t iops, lcb_socket_t sock, int flags)
 }
 #endif /* LCB_IOPROCS_VERSION >= 3 */
 
+#if LCB_IOPROCS_VERSION >= 4
+static int
+cntl_getset_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int oslevel,
+    int osopt, int optsize, void *optval)
+{
+    int rv;
+    #ifndef _WIN32
+    socklen_t dummy = optsize;
+    #else
+    int dummy = optsize;
+    #endif
+
+    if (mode == LCB_IO_CNTL_GET) {
+        rv = getsockopt(sock, oslevel, osopt, &dummy, optval);
+    } else {
+        rv = setsockopt(sock, oslevel, osopt, optval, optsize);
+    }
+    if (rv == 0) {
+        return 0;
+    } else {
+        int lasterr;
+        #ifdef _WIN32
+        lasterr = get_wserr(sock);
+        #else
+        lasterr = errno;
+        #endif
+        LCB_IOPS_ERRNO(io) = lasterr;
+        return -1;
+    }
+}
+
+static int
+cntl_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int option, void *arg)
+{
+    #ifndef _WIN32
+    socklen_t so_len;
+    #else
+    int so_len;
+    #endif
+
+    so_len = sizeof(int);
+
+    #define BSDIO_INL_GETSET_CTL(lvl, name) { \
+        int rv; \
+        if (mode == LCB_)
+
+    switch (option) {
+    case LCB_IO_CNTL_TCP_NODELAY:
+        return cntl_getset_impl(io,
+            sock, mode, IPPROTO_TCP, TCP_NODELAY, sizeof(int), arg);
+    default:
+        LCB_IOPS_ERRNO(io) = ENOTSUP;
+        return -1;
+    }
+}
+#endif
+
 #if !defined(LIBCOUCHBASE_INTERNAL) || defined(LCB_IOPS_V12_NO_DEPRECATE)
 static void
 wire_lcb_bsd_impl(lcb_io_opt_t io)
@@ -306,6 +367,11 @@ wire_lcb_bsd_impl2(lcb_bsd_procs *procs, int version)
     #if LCB_IOPROCS_VERSION >= 3
     if (version >= 3) {
         procs->is_closed = chkclosed_impl;
+    }
+    #endif
+    #if LCB_IOPROCS_VERSION >= 4
+    if (version >= 4) {
+        procs->cntl = cntl_impl;
     }
     #endif
     lcb__wire0_nowarn();

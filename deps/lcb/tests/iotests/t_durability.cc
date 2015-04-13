@@ -7,6 +7,25 @@ using namespace std;
 
 #define SECS_USECS(f) ((f) * 1000000)
 
+static bool supportsSynctokens(lcb_t instance)
+{
+    // Ensure we have at least one connection
+    storeKey(instance, "dummy_stok_test", "dummy");
+
+    int val = 0;
+    lcb_error_t rc;
+    rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_SYNCTOKENS_SUPPORTED, &val);
+
+
+    EXPECT_EQ(LCB_SUCCESS, rc);
+    if (val == 0) {
+        printf("Current cluster does not support synctokens!\n");
+        return false;
+    } else {
+        return true;
+    }
+}
+
 class DurabilityUnitTest : public MockUnitTest
 {
 protected:
@@ -20,11 +39,8 @@ protected:
 };
 
 extern "C" {
-    static void defaultDurabilityCallback(lcb_t, const void *, lcb_error_t,
-                                          const lcb_durability_resp_t *);
-
-    static void multiDurabilityCallback(lcb_t, const void *, lcb_error_t,
-                                        const lcb_durability_resp_t *);
+static void defaultDurabilityCallback(lcb_t, int, const lcb_RESPENDURE*);
+static void multiDurabilityCallback(lcb_t, int, const lcb_RESPENDURE*);
 }
 
 class DurabilityOperation
@@ -34,48 +50,53 @@ public:
     }
 
     string key;
-    lcb_durability_resp_st resp;
-    lcb_durability_cmd_st req;
+    lcb_RESPENDURE resp;
+    lcb_CMDENDURE req;
 
-    void assign(const lcb_durability_resp_st *resp) {
+    void assign(const lcb_RESPENDURE *resp) {
         this->resp = *resp;
-        key.assign((const char *)resp->v.v0.key, resp->v.v0.nkey);
-        this->resp.v.v0.key = NULL;
+        key.assign((const char *)resp->key, resp->nkey);
+        this->resp.key = NULL;
     }
 
     void wait(lcb_t instance) {
-        lcb_set_durability_callback(instance, defaultDurabilityCallback);
+        lcb_install_callback3(instance, LCB_CALLBACK_ENDURE,
+            (lcb_RESPCALLBACK)defaultDurabilityCallback);
         EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
     }
 
     void wait(lcb_t instance,
-              const lcb_durability_opts_t *opts,
-              const lcb_durability_cmd_t *cmdp) {
-        EXPECT_EQ(LCB_SUCCESS,
-                  lcb_durability_poll(instance, this, opts, 1, &cmdp));
+        const lcb_durability_opts_t *opts, const lcb_CMDENDURE *cmd) {
+
+        lcb_error_t rc;
+        lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, opts, &rc);
+        EXPECT_FALSE(mctx == NULL);
+        rc = mctx->addcmd(mctx, (lcb_CMDBASE*)cmd);
+        EXPECT_EQ(LCB_SUCCESS, rc);
+        rc = mctx->done(mctx, this);
+        EXPECT_EQ(LCB_SUCCESS, rc);
         wait(instance);
     }
 
-    void run(lcb_t instance,
-             const lcb_durability_opts_t *opts,
-             const Item &itm) {
-
-        lcb_durability_cmd_t cmd = { 0 };
-
+    void run(lcb_t instance, const lcb_durability_opts_t *opts, const Item &itm) {
+        lcb_CMDENDURE cmd = { 0 };
         ASSERT_FALSE(itm.key.empty());
+        LCB_CMD_SET_KEY(&cmd, itm.key.data(), itm.key.length());
+        cmd.cas = itm.cas;
+        wait(instance, opts, &cmd);
+    }
 
-        cmd.v.v0.key = itm.key.data();
-        cmd.v.v0.nkey = itm.key.length();
-        cmd.v.v0.cas = itm.cas;
-
+    // Really wait(), but named as 'run()' here to make usage more consistent.
+    void run(lcb_t instance, const lcb_durability_opts_t *opts,
+        const lcb_CMDENDURE& cmd) {
         wait(instance, opts, &cmd);
     }
 
     void assertCriteriaMatch(const lcb_durability_opts_st &opts) {
-        ASSERT_EQ(LCB_SUCCESS, resp.v.v0.err);
-        ASSERT_TRUE(resp.v.v0.persisted_master != 0);
-        ASSERT_TRUE(opts.v.v0.persist_to <= resp.v.v0.npersisted);
-        ASSERT_TRUE(opts.v.v0.replicate_to <= resp.v.v0.nreplicated);
+        ASSERT_EQ(LCB_SUCCESS, resp.rc);
+        ASSERT_TRUE(resp.persisted_master != 0);
+        ASSERT_TRUE(opts.v.v0.persist_to <= resp.npersisted);
+        ASSERT_TRUE(opts.v.v0.replicate_to <= resp.nreplicated);
     }
 
     void dump(std::string &str) {
@@ -85,11 +106,11 @@ public:
         }
         std::stringstream ss;
         ss << "Key: " << key << std::endl
-           << "Error: " << resp.v.v0.err << std::endl
-           << "Persisted (master?): " << resp.v.v0.npersisted
-           << " (" << resp.v.v0.persisted_master << ")" << std::endl
-           << "Replicated: " << resp.v.v0.nreplicated << std::endl
-           << "CAS: 0x" << std::hex << resp.v.v0.cas << std::endl;
+           << "Error: " << resp.rc << std::endl
+           << "Persisted (master?): " << resp.npersisted
+           << " (" << resp.persisted_master << ")" << std::endl
+           << "Replicated: " << resp.nreplicated << std::endl
+           << "CAS: 0x" << std::hex << resp.cas << std::endl;
         str += ss.str();
     }
 
@@ -109,49 +130,39 @@ public:
 
     template <typename T>
     void run(lcb_t instance, const lcb_durability_opts_t *opts, const T &items) {
-        std::vector<lcb_durability_cmd_t> cmds;
-        std::vector<const lcb_durability_cmd_t *> cmds_p;
-
         counter = 0;
         unsigned ii = 0;
         typename T::const_iterator iter = items.begin();
+        lcb_error_t rc;
+        lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, opts, &rc);
+        ASSERT_FALSE(mctx == NULL);
 
         for (; iter != items.end(); iter++, ii++) {
-
-            lcb_durability_cmd_t cmd;
-            memset(&cmd, 0, sizeof(cmd));
+            lcb_CMDENDURE cmd = { 0 };
             const Item &itm = *iter;
 
-            cmd.v.v0.cas = itm.cas;
-            cmd.v.v0.key = itm.key.c_str();
-            cmd.v.v0.nkey = itm.key.length();
-            cmds.push_back(cmd);
+            cmd.cas = itm.cas;
+            LCB_CMD_SET_KEY(&cmd, itm.key.c_str(), itm.key.length());
+            rc = mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
+            ASSERT_EQ(LCB_SUCCESS, rc);
             kmap[itm.key] = DurabilityOperation();
         }
 
-        for (ii = 0; ii < cmds.size(); ii++) {
-            cmds_p.push_back(&cmds[ii]);
-        }
+        lcb_install_callback3(instance, LCB_CALLBACK_ENDURE,
+            (lcb_RESPCALLBACK)multiDurabilityCallback);
 
-
-
-        lcb_set_durability_callback(instance, multiDurabilityCallback);
-
-        lcb_error_t err = lcb_durability_poll(instance,
-                                              this, opts,
-                                              items.size(),
-                                              (const lcb_durability_cmd_t * const *)&cmds_p[0]);
-        ASSERT_EQ(LCB_SUCCESS, err);
-        ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance));
+        rc = mctx->done(mctx, this);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance);
         ASSERT_EQ(items.size(), counter);
     }
 
-    void assign(const lcb_durability_resp_t *resp) {
-        ASSERT_GT(resp->v.v0.nkey, 0U);
+    void assign(const lcb_RESPENDURE *resp) {
+        ASSERT_GT(resp->nkey, 0U);
         counter++;
 
         string key;
-        key.assign((const char *)resp->v.v0.key, resp->v.v0.nkey);
+        key.assign((const char *)resp->key, resp->nkey);
         ASSERT_TRUE(kmap.find(key) != kmap.end());
         kmap[key].assign(resp);
     }
@@ -184,7 +195,7 @@ public:
                 iter->second.assertCriteriaMatch(opts);
 
             } else if (_findItem(iter->second.key, items_missing, itm_tmp)) {
-                ASSERT_EQ(missing_err, iter->second.resp.v.v0.err);
+                ASSERT_EQ(missing_err, iter->second.resp.rc);
 
             } else {
                 ASSERT_STREQ("",
@@ -211,22 +222,14 @@ public:
 };
 
 extern "C" {
-
-    static void defaultDurabilityCallback(lcb_t,
-                                          const void *cookie,
-                                          lcb_error_t,
-                                          const lcb_durability_resp_t *resp)
-    {
-        ((DurabilityOperation *)cookie)->assign(resp);
-    }
-
-    static void multiDurabilityCallback(lcb_t,
-                                        const void *cookie,
-                                        lcb_error_t,
-                                        const lcb_durability_resp_t *resp)
-    {
-        ((DurabilityMultiOperation *)cookie)->assign(resp);
-    }
+static void defaultDurabilityCallback(lcb_t, int, const lcb_RESPENDURE *res)
+{
+    ((DurabilityOperation*)res->cookie)->assign(res);
+}
+static void multiDurabilityCallback(lcb_t, int, const lcb_RESPENDURE *res)
+{
+    ((DurabilityMultiOperation*)res->cookie)->assign(res);
+}
 
 }
 
@@ -375,8 +378,13 @@ TEST_F(DurabilityUnitTest, testNonExist)
     opts.v.v0.timeout = SECS_USECS(2);
 
     defaultOptions(instance, opts);
+
+    // Ensure this only uses the CAS method
+    opts.version = 1;
+    opts.v.v0.pollopts = LCB_DURABILITY_MODE_CAS;
+
     dop.run(instance, &opts, itm);
-    ASSERT_EQ(LCB_KEY_ENOENT, dop.resp.v.v0.err);
+    ASSERT_EQ(LCB_KEY_ENOENT, dop.resp.rc);
 }
 
 /**
@@ -429,9 +437,21 @@ TEST_F(DurabilityUnitTest, testDelete)
     kvo.store(instance);
 
     opts.v.v0.timeout = SECS_USECS(1);
+
+    // With CAS
+    opts.version = 1;
+    opts.v.v0.pollopts = LCB_DURABILITY_MODE_CAS;
     dop = DurabilityOperation();
     dop.run(instance, &opts, itm);
-    ASSERT_EQ(LCB_ETIMEDOUT, dop.resp.v.v0.err);
+    ASSERT_EQ(LCB_ETIMEDOUT, dop.resp.rc);
+
+    // With seqno
+    if (supportsSynctokens(instance)) {
+        opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
+        dop = DurabilityOperation();
+        dop.run(instance, &opts, itm);
+        ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+    }
 }
 
 /**
@@ -467,8 +487,18 @@ TEST_F(DurabilityUnitTest, testModified)
 
     defaultOptions(instance, opts);
     DurabilityOperation dop;
+
+    opts.version = 1;
+    opts.v.v0.pollopts = LCB_DURABILITY_MODE_CAS;
     dop.run(instance, &opts, kvo_stale.result);
-    ASSERT_EQ(LCB_KEY_EEXISTS, dop.resp.v.v0.err);
+    ASSERT_EQ(LCB_KEY_EEXISTS, dop.resp.rc);
+
+    if (supportsSynctokens(instance)) {
+        opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
+        dop = DurabilityOperation();
+        dop.run(instance, &opts, kvo_stale.result);
+        ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+    }
 }
 
 /**
@@ -501,7 +531,7 @@ TEST_F(DurabilityUnitTest, testQuickTimeout)
     for (unsigned ii = 0; ii < 10; ii++) {
         DurabilityOperation dop;
         dop.run(instance, &opts, itm);
-        ASSERT_EQ(LCB_ETIMEDOUT, dop.resp.v.v0.err);
+        ASSERT_EQ(LCB_ETIMEDOUT, dop.resp.rc);
     }
 }
 
@@ -557,6 +587,8 @@ TEST_F(DurabilityUnitTest, testMulti)
     }
 
     defaultOptions(instance, opts);
+    opts.version = 1;
+    opts.v.v0.pollopts = LCB_DURABILITY_MODE_CAS;
 
     /**
      * Create the command..
@@ -791,4 +823,74 @@ TEST_F(DurabilityUnitTest, testDuplicateCommands)
     lcb_error_t err;
     err = lcb_durability_poll(instance, NULL, &options, 2, &cmdlist[0]);
     ASSERT_EQ(LCB_DUPLICATE_COMMANDS, err);
+}
+
+TEST_F(DurabilityUnitTest, testMissingSynctoken)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+
+    if (!supportsSynctokens(instance)) {
+        return;
+    }
+
+    std::string("nonexist-key");
+    lcb_error_t rc;
+    lcb_MULTICMD_CTX *mctx;
+    lcb_durability_opts_t options = { 0 };
+    defaultOptions(instance, options);
+    options.version = 1;
+    options.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
+
+    mctx = lcb_endure3_ctxnew(instance, &options, &rc);
+    ASSERT_FALSE(mctx == NULL);
+    lcb_CMDENDURE cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, "foo", 3);
+
+    rc = mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
+    ASSERT_EQ(LCB_DURABILITY_NO_SYNCTOKEN, rc);
+
+    mctx->fail(mctx);
+}
+
+TEST_F(DurabilityUnitTest, testExternalSynctoken)
+{
+    HandleWrap hw1, hw2;
+    lcb_t instance1, instance2;
+    createConnection(hw1, instance1);
+    createConnection(hw2, instance2);
+
+    if (!supportsSynctokens(instance1)) {
+        return;
+    }
+
+    std::string key("hello");
+    std::string value("world");
+    storeKey(instance1, key, value);
+
+    const lcb_SYNCTOKEN *ss;
+    lcb_KEYBUF kb;
+    lcb_error_t rc;
+    LCB_KREQ_SIMPLE(&kb, key.c_str(), key.size());
+    ss = lcb_get_synctoken(instance1, &kb, &rc);
+    ASSERT_FALSE(ss == NULL);
+    ASSERT_TRUE(LCB_SYNCTOKEN_ISVALID(ss));
+    ASSERT_EQ(LCB_SUCCESS, rc);
+
+    lcb_durability_opts_t options = { 0 };
+    lcb_CMDENDURE cmd = { 0 };
+    defaultOptions(instance2, options);
+    options.version = 1;
+    options.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
+
+    // Initialize the command
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+    cmd.synctoken = ss;
+    cmd.cmdflags |= LCB_CMDENDURE_F_SYNCTOKEN;
+
+    DurabilityOperation dop;
+    dop.run(instance2, &options, cmd);
+    // TODO: How to actually run this?
+    ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
 }

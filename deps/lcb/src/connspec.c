@@ -169,9 +169,11 @@ parse_hosts(PARSECTX *ctx, const char *hosts_end)
             if (out->implicit_port == itmp) {
                 continue;
             }
-
-        } else if (rv == 1 && (itmp == LCB_CONFIG_HTTP_PORT || itmp == LCB_CONFIG_MCD_PORT)) {
-            continue;
+            if (itmp == LCB_CONFIG_HTTP_PORT &&
+                    out->implicit_port == LCB_CONFIG_MCD_PORT) {
+                /* Honest 'couchbase://host:8091' mistake */
+                continue;
+            }
         } else {
             SET_ERROR("Port must be specified with protocol (host:port=proto)");
         }

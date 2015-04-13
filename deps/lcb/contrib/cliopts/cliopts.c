@@ -71,6 +71,38 @@ parse_option(struct cliopts_priv *ctx, const char *key);
 static int
 parse_value(struct cliopts_priv *ctx, const char *value);
 
+static void
+add_list_value(const char *src, size_t nsrc, cliopts_list *l)
+{
+    char *cp = malloc(nsrc + 1);
+
+    if (!l->nalloc) {
+        l->nalloc = 2;
+        l->values = malloc(l->nalloc * sizeof(*l->values));
+    } else {
+        l->nalloc *= 1.5;
+        l->values = realloc(l->values, sizeof(*l->values) * l->nalloc);
+    }
+
+    l->values[l->nvalues++] = cp;
+    cp[nsrc] = '\0';
+    memcpy(cp, src, nsrc);
+}
+
+CLIOPTS_API
+void
+cliopts_list_clear(cliopts_list *l)
+{
+    size_t ii;
+    for (ii = 0; ii < l->nvalues; ii++) {
+        free(l->values[ii]);
+    }
+    free(l->values);
+    l->values = NULL;
+    l->nvalues = 0;
+    l->nalloc = 0;
+}
+
 /**
  * Various extraction/conversion functions for numerics
  */
@@ -176,6 +208,11 @@ parse_value(struct cliopts_priv *ctx,
         vp[vlen] = 0;
         strcpy(vp, value);
         *(char**)entry->dest = vp;
+        return WANT_OPTION;
+    }
+
+    if (entry->ktype == CLIOPTS_ARGT_LIST) {
+        add_list_value(value, vlen, (cliopts_list *)entry->dest);
         return WANT_OPTION;
     }
 
@@ -522,6 +559,17 @@ print_help(struct cliopts_priv *ctx, struct cliopts_extra_settings *settings)
                 fprintf(stderr, "'%s'", (cur->dest && *(char **)cur->dest) ?
                         *(char**)cur->dest : "");
                 break;
+            case CLIOPTS_ARGT_LIST: {
+                size_t ii;
+                cliopts_list *l = (cliopts_list *)cur->dest;
+                for (ii = 0; ii < l->nvalues; ii++) {
+                    fprintf(stderr, "'%s'", l->values[ii]);
+                    if (ii != l->nvalues-1) {
+                        fprintf(stderr, ", ");
+                    }
+                }
+                break;
+            }
             case CLIOPTS_ARGT_FLOAT:
                 fprintf(stderr, "%0.2f", *(float*)cur->dest);
                 break;
@@ -584,9 +632,13 @@ cliopts_parse_options(cliopts_entry *entries,
      * Now let's build ourselves a
      */
     int curmode;
-    int ii, ret = 0;
+    int ii, ret = 0, lastidx_s = 0;
     struct cliopts_priv ctx = { 0 };
     struct cliopts_extra_settings default_settings = { 0 };
+
+    if (!lastidx) {
+        lastidx = &lastidx_s;
+    }
 
     ctx.entries = entries;
 

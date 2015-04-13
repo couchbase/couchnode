@@ -185,6 +185,8 @@
         'src/netbuf/netbuf.c',
         'src/operations/cbflush.c',
         'src/operations/counter.c',
+        'src/operations/durability-cas.c',
+        'src/operations/durability-seqno.c',
         'src/operations/durability.c',
         'src/operations/get.c',
         'src/operations/observe-seqno.c',

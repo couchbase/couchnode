@@ -515,6 +515,9 @@ configure_nodes(clconfig_provider *pb, const hostlist_t newnodes)
     for (ii = 0; ii < newnodes->nentries; ii++) {
         hostlist_add_host(http->nodes, newnodes->entries + ii);
     }
+    if (PROVIDER_SETTING(pb, randomize_bootstrap_nodes)) {
+        hostlist_randomize(http->nodes);
+    }
 }
 
 static hostlist_t

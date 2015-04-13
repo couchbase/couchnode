@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "January 2015" "" ""
+.TH "CBC" "1" "April 2015" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -109,36 +109,46 @@ Specify the SASL password for the bucket\. This is only needed if the bucket is 
 Specifying the \fB\-\fR as the password indicates that the program should prompt for the password\. You may also specify the password on the commandline, directly, but is insecure as command line arguments are visible via commands such as \fBps\fR\.
 .
 .TP
-\fB\-C\fR, \fB\-\-bootstrap\-protocol\fR=\fICCCP|HTTP|BOTH\fR
-Specify the bootstrap protocol the client should used when attempting to connect to the cluster\. Options are: \fBCCCP\fR: Bootstrap using the Memcached protocol (supported on clusters 2\.5 and greater); \fBHTTP\fR: Bootstrap using the HTTP REST protocol (supported on any cluster version); and \fBBOTH\fR: First attempt bootstrap over the Memcached protocol, and use the HTTP protocol if Memcached bootstrap fails\. The default is \fBBOTH\fR
-.
-.TP
-\fB\-t\fR, \fB\-\-timeout\fR=\fIUSECS\fR
-Specify the operation timeout in microseconds\. This is the time the client will wait for an operation to complete before timing it out\. The default is \fB2500000\fR
-.
-.TP
 \fB\-T\fR, \fB\-\-timings\fR
 Dump command timings at the end of execution\. This will display a histogram showing the latencies for the commands executed\.
 .
 .TP
-\fB\-S\fR \fB\-\-force\-sasl\-mech\fR=\fIMECH\fR
-Force a specific \fISASL\fR mechanism to be used when performing the initial connection\. This should only need to be modified for debugging purposes\. The currently supported mechanisms are \fBPLAIN\fR and \fBCRAM\-MD5\fR
+\fB\-v\fR, \fB\-\-verbose\fR
+Specify more information to standard error about what the client is doing\. You may specify this option multiple times for increased output detail\.
 .
 .TP
-\fB\-Z\fR, \fB\-\-config\-cache\fR
+\fB\-D\fR, \fB\-\-cparam\fR=OPTION=VALUE
+Provide additional client options\. Acceptable options can also be placed in the connection string, however this option is provided as a convenience\. This option may be specified multiple times, each time specifying a key=value pair (for example, \fB\-Doperation_timeout=10 \-Dconfig_cache=/foo/bar/baz\fR)\. See \fIADDITIONAL OPTIONS\fR for more information
+.
+.P
+ \fI\fR
+.
+.SH "ADDITIONAL OPTIONS"
+The following options may be included in the connection string (via the \fB\-U\fR option) as URI\-style query params (e\.g\. \fBcouchbase://host/bucket?option1=value1&option2=value2\fR) or as individual key=value pairs passed to the \fB\-D\fR switch (e\.g\. \fB\-Doption1=value1 \-Doption2=value\fR)\. The \fB\-D\fR will internally build the connection string, and is provided as a convenience for options to be easily passed on the command\-line
+.
+.TP
+\fBoperation_timeout=SECONDS\fR
+Specify the operation timeout in seconds\. This is the time the client will wait for an operation to complete before timing it out\. The default is \fB2\.5\fR
+.
+.TP
+\fBconfig_cache=PATH\fR
 Enables the client to make use of a file based configuration cache rather than connecting for the bootstrap operation\. If the file does not exist, the client will first connect to the cluster and then cache the bootstrap information in the file\.
 .
 .TP
-\fB\-\-ssl\fR=\fION|OFF|NO_VERIFY\fR
-Use SSL for connecting to the cluster\. The options are \fBON\fR to enable full SSL support, \fBOFF\fR to disable SSL support, and \fBNO_VERIFY\fR to use SSL encryption but not attempt to verify the authenticity of the server\'s certificate\.
+\fBcertpath=PATH\fR
+The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system (only applicable with \fBcouchbases://\fR scheme)
 .
 .TP
-\fB\-\-certpath\fR=\fICERTIFICATE\fR
-The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system\.
+\fBssl=no_verify\fR
+Temporarily disable certificate verification for SSL (only applicable with \fBcouchbases://\fR scheme)\. This should only be used for quickly debugging SSL functionality\.
 .
 .TP
-\fB\-v\fR, \fB\-\-verbose\fR
-Specify more information to standard error about what the client is doing\. You may specify this option multiple times for increased output detail\.
+\fBsasl_mech_force=MECHANISM\fR
+Force a specific \fISASL\fR mechanism to be used when performing the initial connection\. This should only need to be modified for debugging purposes\. The currently supported mechanisms are \fBPLAIN\fR and \fBCRAM\-MD5\fR
+.
+.TP
+\fBbootstrap_on=<both,http,cccp>\fR
+Specify the bootstrap protocol the client should use when attempting to connect to the cluster\. Options are: \fBcccp\fR: Bootstrap using the Memcached protocol (supported on clusters 2\.5 and greater); \fBhttp\fR: Bootstrap using the HTTP REST protocol (supported on any cluster version); and \fBboth\fR: First attempt bootstrap over the Memcached protocol, and use the HTTP protocol if Memcached bootstrap fails\. The default is \fBboth\fR
 .
 .SH "COMMANDS"
 The following commands are supported by \fBcbc\fR\. Unless otherwise specified, each command supports all of the options above\.
@@ -307,17 +317,7 @@ The request may be one to create a design document, view a design document, or q
 To create a design document, the definition of the document (in JSON) should be piped to the command on standard input\.
 .
 .P
-This command accepts one positional argument which is the \fIpath\fR (relative to the bucket) to execute\. Thus to query the \fBbrewery_beers\fR view in the \fBbeer\fR design document within the \fBbeer\-sample\fR bucket one would do:
-.
-.IP "" 4
-.
-.nf
-
-cbc view \-U couchbase://localhost/beer\-sample _design/beer/_view/brewery_beers
-.
-.fi
-.
-.IP "" 0
+This command accepts one positional argument which is the \fIpath\fR (relative to the bucket) to execute\. Thus to query the \fBbrewery_beers\fR view in the \fBbeer\fR design document within the \fBbeer\-sample\fR bucket one would do: cbc view \-U couchbase://localhost/beer\-sample \fIdesign/beer/\fRview/brewery_beers
 .
 .P
 In addition to the \fIOPTIONS\fR specified above, the following options are recognized:
@@ -488,6 +488,19 @@ Connect to a \fImemcached\fR (http://memcached\.org) cluster using the binary pr
 .nf
 
 cbc cat key \-U memcached://host1,host2,host3,host4
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Connect to a cluster using the HTTP protocol for bootstrap, and set the operation timeout to 5 seconds
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbase://host/bucket \-Dbootstrap_on=http \-Doperation_timeout=5
 .
 .fi
 .

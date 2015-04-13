@@ -721,6 +721,16 @@ mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt)
     mcreq_release_packet(pipeline, pkt);
 }
 
+void
+mcreq_reset_timeouts(mc_PIPELINE *pl, lcb_U64 nstime)
+{
+    sllist_node *nn;
+    SLLIST_ITERBASIC(&pl->requests, nn) {
+        mc_PACKET *pkt = SLLIST_ITEM(nn, mc_PACKET, slnode);
+        MCREQ_PKT_RDATA(pkt)->start = nstime;
+    }
+}
+
 unsigned
 mcreq_pipeline_timeout(
         mc_PIPELINE *pl, lcb_error_t err, mcreq_pktfail_fn failcb, void *cbarg,

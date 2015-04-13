@@ -30,7 +30,7 @@ invoke_row(N1QLREQ *req, lcb_RESPN1QL *resp, int is_last)
     }
 
     if (req->callback) {
-        req->callback(req->instance, -1, resp);
+        req->callback(req->instance, LCB_CALLBACK_N1QL, resp);
     }
     if (is_last) {
         req->callback = NULL;

@@ -53,6 +53,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->fetch_synctokens = 0;
     settings->dur_synctokens = 1;
     settings->nmv_retry_imm = LCB_DEFAULT_NVM_RETRY_IMM;
+    settings->tcp_nodelay = LCB_DEFAULT_TCP_NODELAY;
 }
 
 LCB_INTERNAL_API

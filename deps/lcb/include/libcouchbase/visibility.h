@@ -19,31 +19,36 @@
 
 #ifdef LIBCOUCHBASE_STATIC
 #define LIBCOUCHBASE_API
+#define LCB_EXTERN_VAR extern
 #else
 
 #ifdef LIBCOUCHBASE_INTERNAL
+    #ifdef __SUNPRO_C
+        #define LIBCOUCHBASE_API __global
+    #elif defined(HAVE_VISIBILITY) && HAVE_VISIBILITY
+        #define LIBCOUCHBASE_API __attribute__ ((visibility("default")))
+    #elif defined(_MSC_VER)
+        #define LIBCOUCHBASE_API extern __declspec(dllexport)
+    #else
+        #define LIBCOUCHBASE_API
+    #endif /* compiler version */
 
-#ifdef __SUNPRO_C
-#define LIBCOUCHBASE_API __global
-#elif defined(HAVE_VISIBILITY) && HAVE_VISIBILITY
-#define LIBCOUCHBASE_API __attribute__ ((visibility("default")))
-#elif defined(_MSC_VER)
-#define LIBCOUCHBASE_API extern __declspec(dllexport)
-#else
-#define LIBCOUCHBASE_API
-#endif
+#else /* !LIBCOUCHBASE_INTERNAL */
+    #ifdef _MSC_VER
+        #define LIBCOUCHBASE_API extern __declspec(dllimport)
+    #else
+        #define LIBCOUCHBASE_API
+    #endif
+#endif /* LIBCOUCHBASE_INTERNAL */
 
-#else
-
+/* Define LCB_EXTERN_VAR only if !LIBCOUCHBASE_STATIC */
 #ifdef _MSC_VER
-#define LIBCOUCHBASE_API extern __declspec(dllimport)
+/* Already includes 'extern' in LIBCOUCHBASE_API def, don't use it twice! */
+    #define LCB_EXTERN_VAR
 #else
-#define LIBCOUCHBASE_API
-#endif
-
-#endif
-
-#endif
+    #define LCB_EXTERN_VAR extern
+#endif /* _MSC_VER */
+#endif /* !LIBCOUCHBASE_STATIC */
 
 /**
  * This symbol declares internal APIs as accessible from other modules.

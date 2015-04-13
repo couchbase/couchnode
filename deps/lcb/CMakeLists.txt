@@ -42,6 +42,8 @@ OPTION(LCB_USE_ARCHLIBDIR "Use architecture-prefixed library installation direct
 OPTION(LCB_BUILD_EXAMPLES "Build example applications" OFF)
 OPTION(LCB_NO_MOCK "Don't run tests which depend on the mock" OFF)
 OPTION(LCB_BUILD_DTRACE "Build DTrace instrumentation, if available on platform" ON)
+OPTION(LCB_EMBED_PLUGIN_LIBEVENT "Embed the libevent plugin" OFF)
+OPTION(LCB_STATIC_LIBEVENT "Link static libevent (only applicable if EMBED_PLUGIN_LIBEVENT is ON" OFF)
 
 ### END CONFIGURABLES ###
 IF(MSVC)
@@ -150,6 +152,11 @@ ELSE()
     ENDIF()
     IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
         SET(lcb_plat_libs ${lcb_plat_libs} nsl socket)
+    ENDIF()
+    IF(LCB_EMBED_PLUGIN_LIBEVENT)
+        SET(lcb_plat_objs ${lcb_plat_objs} $<TARGET_OBJECTS:couchbase_libevent>)
+        SET(lcb_plat_libs ${lcb_plat_libs} ${LIBEVENT_LIBRARIES})
+        ADD_DEFINITIONS(-DLCB_EMBED_PLUGIN_LIBEVENT)
     ENDIF()
 ENDIF()
 
