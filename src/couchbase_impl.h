@@ -53,6 +53,7 @@
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/api3.h>
 #include <libcouchbase/views.h>
+#include <libcouchbase/n1ql.h>
 #include <libcouchbase/configuration.h>
 
 #include "cas.h"
@@ -120,6 +121,7 @@ public:
     static NAN_METHOD(fnArithmetic);
     static NAN_METHOD(fnDurability);
     static NAN_METHOD(fnViewQuery);
+    static NAN_METHOD(fnN1qlQuery);
 
 public:
     CouchbaseImpl(lcb_t inst);
@@ -159,6 +161,7 @@ public:
     static Persistent<String> docKey;
     static Persistent<String> geometryKey;
     static Persistent<String> rowsKey;
+    static Persistent<String> resultsKey;
 
 };
 
@@ -167,6 +170,8 @@ public:
 extern "C" {
 void viewrow_callback(lcb_t instance, int ignoreme,
         const lcb_RESPVIEWQUERY *resp);
+void n1qlrow_callback(lcb_t instance, int ignoreme,
+        const lcb_RESPN1QL *resp);
 }
 
 #endif

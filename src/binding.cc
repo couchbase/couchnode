@@ -31,6 +31,7 @@ Persistent<String> CouchbaseImpl::keyKey;
 Persistent<String> CouchbaseImpl::docKey;
 Persistent<String> CouchbaseImpl::geometryKey;
 Persistent<String> CouchbaseImpl::rowsKey;
+Persistent<String> CouchbaseImpl::resultsKey;
 Persistent<String> lcbErrorKey;
 
 extern "C" {
@@ -79,6 +80,7 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(t, "arithmetic", fnArithmetic);
     NODE_SET_PROTOTYPE_METHOD(t, "durability", fnDurability);
     NODE_SET_PROTOTYPE_METHOD(t, "viewQuery", fnViewQuery);
+    NODE_SET_PROTOTYPE_METHOD(t, "n1qlQuery", fnN1qlQuery);
 
     target->Set(NanNew<String>("CouchbaseImpl"), t->GetFunction());
     target->Set(NanNew<String>("Constants"), createConstants());
@@ -93,6 +95,7 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NanAssignPersistent(docKey, NanNew<String>("doc"));
     NanAssignPersistent(geometryKey, NanNew<String>("geometry"));
     NanAssignPersistent(rowsKey, NanNew<String>("rows"));
+    NanAssignPersistent(resultsKey, NanNew<String>("results"));
 
     Handle<Object> jMod = NanGetCurrentContext()->Global()->Get(
             NanNew<String>("JSON")).As<Object>();
