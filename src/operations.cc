@@ -35,12 +35,20 @@ static const int PS_VIEW = 3;
 static const int PS_OPTSTR = 4;
 static const int PS_HOST = 5;
 static const int PS_QUERY = 6;
+template <int X, size_t Y>
+bool _ParseString(const char** val, lcb_SIZE* nval, Handle<Value> key) {
+    static char keyBuffer[Y];
+    *val = (char*)_NanRawString(key, Nan::UTF8, (size_t*)nval,
+            keyBuffer, Y, v8::String::NO_OPTIONS);
+    return true;
+}
+template <int X, size_t Y>
+bool _ParseString(const void** val, lcb_SIZE* nval, Handle<Value> key) {
+    return _ParseString<X,Y>((const char**)val, nval, key);
+}
 template <int X>
 bool _ParseString(const char** val, lcb_SIZE* nval, Handle<Value> key) {
-    static char keyBuffer[256];
-    *val = (char*)_NanRawString(key, Nan::UTF8, (size_t*)nval,
-            keyBuffer, 256, v8::String::NO_OPTIONS);
-    return true;
+    return _ParseString<X, 256>(val, nval, key);
 }
 template <int X>
 bool _ParseString(const void** val, lcb_SIZE* nval, Handle<Value> key) {
@@ -416,7 +424,7 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery) {
     if (!_ParseString<PS_VIEW>(&cmd.view, &cmd.nview, args[2])) {
         return NanThrowError(Error::create("bad view passed"));
     }
-    if (!_ParseString<PS_OPTSTR>(&cmd.optstr, &cmd.noptstr, args[3])) {
+    if (!_ParseString<PS_OPTSTR,8192>(&cmd.optstr, &cmd.noptstr, args[3])) {
         return NanThrowError(Error::create("bad optstr passed"));
     }
     if (args[4]->BooleanValue()) {
@@ -457,7 +465,7 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     Local<Value> optsVal =
             jsonStringifyLcl->Call(NanGetCurrentContext()->Global(), 1, optsArgs);
     Local<String> optsStr = optsVal.As<String>();
-    if (!_ParseString<PS_QUERY>(&cmd.query, &cmd.nquery, optsStr)) {
+    if (!_ParseString<PS_QUERY,8192>(&cmd.query, &cmd.nquery, optsStr)) {
         return NanThrowError(Error::create("bad opts passed"));
     }
 
