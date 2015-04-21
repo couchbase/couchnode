@@ -35,24 +35,16 @@ static const int PS_VIEW = 3;
 static const int PS_OPTSTR = 4;
 static const int PS_HOST = 5;
 static const int PS_QUERY = 6;
-template <int X, size_t Y>
-bool _ParseString(const char** val, lcb_SIZE* nval, Handle<Value> key) {
+template <int X, size_t Y, typename T, typename V>
+bool _ParseString(const T** val, V* nval, Handle<Value> key) {
     static char keyBuffer[Y];
     *val = (char*)_NanRawString(key, Nan::UTF8, (size_t*)nval,
             keyBuffer, Y, v8::String::NO_OPTIONS);
     return true;
 }
-template <int X, size_t Y>
-bool _ParseString(const void** val, lcb_SIZE* nval, Handle<Value> key) {
-    return _ParseString<X,Y>((const char**)val, nval, key);
-}
-template <int X>
-bool _ParseString(const char** val, lcb_SIZE* nval, Handle<Value> key) {
+template <int X, typename T, typename V>
+bool _ParseString(const T** val, V* nval, Handle<Value> key) {
     return _ParseString<X, 256>(val, nval, key);
-}
-template <int X>
-bool _ParseString(const void** val, lcb_SIZE* nval, Handle<Value> key) {
-    return _ParseString<X>((const char**)val, nval, key);
 }
 
 
@@ -456,7 +448,7 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     cmd.content_type = "application/json";
 
     if (!args[0]->IsUndefined()) {
-        if(!_ParseString<PS_HOST>(&cmd.host, NULL, args[0])) {
+        if(!_ParseString<PS_HOST>(&cmd.host, (size_t*)NULL, args[0])) {
             return NanThrowError(Error::create("bad host passed"));
         }
     }
