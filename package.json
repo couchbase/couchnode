@@ -17,7 +17,7 @@
     "document"
   ],
   "main": "./lib/couchbase",
-  "license": "Apache2",
+  "license": "Apache-2.0",
   "name": "couchbase",
   "dependencies": {
     "bindings": "~1.2.1",
