@@ -1,13 +1,9 @@
+
 {
-  "bugs": {
-    "url": "http://www.couchbase.com/issues/browse/JSCBC",
-    "email": "support@couchbase.com"
-  },
   "description": "The official Couchbase Node.js Client Library.",
   "engines": {
-    "node": ">=0.8.8"
+    "node": ">=0.10.0"
   },
-  "homepage": "http://www.couchbase.com/communities/nodejs",
   "keywords": [
     "couchbase",
     "libcouchbase",
@@ -18,7 +14,7 @@
   ],
   "main": "./lib/couchbase",
   "license": "Apache2",
-  "name": "couchbase",
+  "name": "@corbinu/couchbase",
   "dependencies": {
     "bindings": "~1.2.1",
     "jsonparse": "~1.0.0",
@@ -35,7 +31,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://github.com/couchbase/couchnode.git"
+    "url": "http://github.com/corbinu/couchnode.git"
   },
   "version": "2.0.8",
   "config": {
