@@ -4,6 +4,7 @@
   "engines": {
     "node": ">=0.10.0"
   },
+  "version": "2.0.10",
   "keywords": [
     "couchbase",
     "libcouchbase",
@@ -33,13 +34,10 @@
     "type": "git",
     "url": "http://github.com/corbinu/couchnode.git"
   },
-  "version": "2.0.9",
   "config": {
-    "native": false,
     "unsafe-perm": true
   },
   "scripts": {
-    "install": "(node-gyp rebuild 2> builderror.log) || (exit 0)",
     "test": "./node_modules/mocha/bin/mocha"
   }
 }
