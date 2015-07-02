@@ -4,7 +4,7 @@
   "engines": {
     "node": ">=0.10.0"
   },
-  "version": "2.0.10",
+  "version": "2.0.11",
   "keywords": [
     "couchbase",
     "libcouchbase",
@@ -38,6 +38,7 @@
     "unsafe-perm": true
   },
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha"
+    "test": "./node_modules/mocha/bin/mocha",
+    "install": "node-gyp rebuild"
   }
 }
