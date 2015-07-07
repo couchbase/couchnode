@@ -55,6 +55,7 @@ maybe_reset_timeouts(lcb_t instance)
         mc_SERVER *ss = LCBT_GET_SERVER(instance, ii);
         mcreq_reset_timeouts(&ss->pipeline, now);
     }
+    lcb_retryq_reset_timeouts(instance->retryq, now);
 }
 
 void
@@ -112,6 +113,19 @@ lcb_error_t lcb_wait(lcb_t instance)
     }
 
     return instance->last_error;
+}
+
+LIBCOUCHBASE_API
+lcb_error_t lcb_tick_nowait(lcb_t instance)
+{
+    lcb_io_tick_fn tick = instance->iotable->loop.tick;
+    if (!tick) {
+        return LCB_CLIENT_FEATURE_UNAVAILABLE;
+    } else {
+        maybe_reset_timeouts(instance);
+        tick(IOT_ARG(instance->iotable));
+        return LCB_SUCCESS;
+    }
 }
 
 LIBCOUCHBASE_API

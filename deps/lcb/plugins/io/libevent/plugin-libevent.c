@@ -202,6 +202,12 @@ static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
     event_base_loop(((struct libevent_cookie *)iops->v.v2.cookie)->base, 0);
 }
 
+static void lcb_io_tick_event_loop(struct lcb_io_opt_st *iops)
+{
+    event_base_loop(((struct libevent_cookie *)iops->v.v2.cookie)->base,
+        EVLOOP_NONBLOCK);
+}
+
 static void lcb_destroy_io_opts(struct lcb_io_opt_st *iops)
 {
     if (((struct libevent_cookie *)iops->v.v2.cookie)->allocated) {
@@ -229,6 +235,7 @@ procs2_lnt_callback(int version, lcb_loop_procs *loop_procs,
 
     loop_procs->start = lcb_io_run_event_loop;
     loop_procs->stop = lcb_io_stop_event_loop;
+    loop_procs->tick = lcb_io_tick_event_loop;
 
     *iomodel = LCB_IOMODEL_EVENT;
 

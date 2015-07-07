@@ -308,14 +308,6 @@ cntl_getset_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int oslevel,
 static int
 cntl_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int option, void *arg)
 {
-    #ifndef _WIN32
-    socklen_t so_len;
-    #else
-    int so_len;
-    #endif
-
-    so_len = sizeof(int);
-
     #define BSDIO_INL_GETSET_CTL(lvl, name) { \
         int rv; \
         if (mode == LCB_)

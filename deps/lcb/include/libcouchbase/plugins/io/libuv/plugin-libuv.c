@@ -99,6 +99,19 @@ static void run_event_loop(lcb_io_opt_t iobase)
     }
 }
 
+static void tick_event_loop(lcb_io_opt_t iobase)
+{
+    my_iops_t *io = (my_iops_t *)iobase;
+    if (!io->startstop_noop) {
+#if UV_VERSION < 0x000900
+        uv_run_once(io->loop);
+        io->do_stop = 0;
+#else
+        uv_run(io->loop, UV_RUN_NOWAIT);
+#endif
+    }
+}
+
 static void stop_event_loop(lcb_io_opt_t iobase)
 {
     my_iops_t *io = (my_iops_t *)iobase;
@@ -608,6 +621,7 @@ static void wire_iops2(int version,
     *model = LCB_IOMODEL_COMPLETION;
     loop->start = run_event_loop;
     loop->stop = stop_event_loop;
+    loop->tick = tick_event_loop;
 
     timer->create = create_timer;
     timer->cancel = delete_timer;

@@ -243,7 +243,8 @@ view_callback(lcb_t, int, const lcb_RESPVIEWQUERY *resp)
                 HttpReceiver ctx;
                 ctx.maybeInvokeStatus(resp->htresp);
                 if (resp->htresp->nbody) {
-                    fprintf(stderr, "%.*s", (int)resp->htresp->nbody, resp->htresp->body);
+                    fprintf(stderr, "%.*s", (int)resp->htresp->nbody,
+                        static_cast<const char *>(resp->htresp->body));
                 }
             }
         }
@@ -257,7 +258,7 @@ view_callback(lcb_t, int, const lcb_RESPVIEWQUERY *resp)
         return;
     }
 
-    printf("KEY: %.*s\n", (int)resp->nkey, resp->key);
+    printf("KEY: %.*s\n", (int)resp->nkey, static_cast<const char*>(resp->key));
     printf("     VALUE: %.*s\n", (int)resp->nvalue, resp->value);
     printf("     DOCID: %.*s\n", (int)resp->ndocid, resp->docid);
     if (resp->docresp) {
@@ -948,10 +949,10 @@ N1qlHandler::run()
     Handler::run();
     const string& qstr = getRequiredArg();
 
-    lcb_N1QLPARAMS *params = lcb_n1p_new();
+    lcb_N1QLPARAMS *nparams = lcb_n1p_new();
     lcb_error_t rc;
 
-    rc = lcb_n1p_setquery(params, qstr.c_str(), -1, LCB_N1P_QUERY_STATEMENT);
+    rc = lcb_n1p_setquery(nparams, qstr.c_str(), -1, LCB_N1P_QUERY_STATEMENT);
     if (rc != LCB_SUCCESS) {
         throw rc;
     }
@@ -961,7 +962,7 @@ N1qlHandler::run()
         string key, value;
         splitKvParam(vv_args[ii], key, value);
         string ktmp = "$" + key;
-        rc = lcb_n1p_namedparamz(params, ktmp.c_str(), value.c_str());
+        rc = lcb_n1p_namedparamz(nparams, ktmp.c_str(), value.c_str());
         if (rc != LCB_SUCCESS) {
             throw rc;
         }
@@ -971,14 +972,14 @@ N1qlHandler::run()
     for (size_t ii = 0; ii < vv_opts.size(); ii++) {
         string key, value;
         splitKvParam(vv_opts[ii], key, value);
-        rc = lcb_n1p_setoptz(params, key.c_str(), value.c_str());
+        rc = lcb_n1p_setoptz(nparams, key.c_str(), value.c_str());
         if (rc != LCB_SUCCESS) {
             throw rc;
         }
     }
 
     lcb_CMDN1QL cmd = { 0 };
-    rc = lcb_n1p_mkcmd(params, &cmd);
+    rc = lcb_n1p_mkcmd(nparams, &cmd);
     if (rc != LCB_SUCCESS) {
         throw rc;
     }
@@ -991,7 +992,7 @@ N1qlHandler::run()
     if (rc != LCB_SUCCESS) {
         throw rc;
     }
-    lcb_n1p_free(params);
+    lcb_n1p_free(nparams);
     lcb_wait(instance);
 }
 
@@ -1425,7 +1426,7 @@ parseCommandname(string& cmdname, int&, char**& argv)
 }
 
 static void
-wrapPillowfight(int argc, char **argv)
+wrapExternalBinary(int argc, char **argv, const std::string& name)
 {
 #ifdef _POSIX_VERSION
     vector<char *> args;
@@ -1433,13 +1434,13 @@ wrapPillowfight(int argc, char **argv)
     size_t cbc_pos = exePath.find("cbc");
 
     if (cbc_pos == string::npos) {
-        throw("Couldn't invoke pillowfight");
+        throw("Couldn't invoke " + name);
     }
 
-    exePath.replace(cbc_pos, 3, "cbc-pillowfight");
+    exePath.replace(cbc_pos, 3, name);
     args.push_back((char*)exePath.c_str());
 
-    // { "cbc", "pillowfight" }
+    // { "cbc", "name" }
     argv += 2; argc -= 2;
     for (int ii = 0; ii < argc; ii++) {
         args.push_back(argv[ii]);
@@ -1447,18 +1448,22 @@ wrapPillowfight(int argc, char **argv)
     args.push_back((char*)NULL);
     execvp(exePath.c_str(), &args[0]);
     perror(exePath.c_str());
-    throw("Couldn't execute!");
+    throw("Couldn't execute " + name + " !");
 #else
-    throw ("Can't wrap around cbc-pillowfight on non-POSIX environments");
+    throw ("Can't wrap around " + name + " on non-POSIX environments");
 #endif
 }
 
 int main(int argc, char **argv)
 {
 
-    // Wrap pillowfight immediately
-    if (argc >= 2 && strcmp(argv[1], "pillowfight") == 0) {
-        wrapPillowfight(argc, argv);
+    // Wrap external binaries immediately
+    if (argc >= 2) {
+        if (strcmp(argv[1], "pillowfight") == 0) {
+            wrapExternalBinary(argc, argv, "cbc-pillowfight");
+        } else if (strcmp(argv[1], "n1qlback") == 0) {
+            wrapExternalBinary(argc, argv, "cbc-n1qlback");
+        }
     }
 
     setupHandlers();

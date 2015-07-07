@@ -210,16 +210,14 @@ get_next_timeout(sel_LOOP *cookie, struct timeval *tmo, hrtime_t now)
 }
 
 static void
-sel_run_loop(struct lcb_io_opt_st *iops)
+run_loop(sel_LOOP *io, int is_tick)
 {
-    sel_LOOP *io = iops->v.v2.cookie;
-
     sel_EVENT *ev;
     lcb_list_t *ii;
 
     fd_set readfds, writefds, exceptfds;
 
-    io->event_loop = 1;
+    io->event_loop = !is_tick;
     do {
         struct timeval tmo, *t;
         int ret;
@@ -255,7 +253,7 @@ sel_run_loop(struct lcb_io_opt_st *iops)
         }
 
         has_timers = get_next_timeout(io, &tmo, now);
-        if (has_timers) {
+        if (has_timers && !is_tick) {
             t = &tmo;
         }
 
@@ -272,7 +270,9 @@ sel_run_loop(struct lcb_io_opt_st *iops)
             }
         } else {
             ret = 0;
-            usleep((t->tv_sec * 1000000) + t->tv_usec);
+            if (!is_tick) {
+                usleep((t->tv_sec * 1000000) + t->tv_usec);
+            }
         }
 
 
@@ -324,6 +324,17 @@ sel_run_loop(struct lcb_io_opt_st *iops)
 }
 
 static void
+sel_run_loop(struct lcb_io_opt_st *iops)
+{
+    run_loop(iops->v.v2.cookie, 0);
+}
+static void
+sel_tick_loop(struct lcb_io_opt_st *iops)
+{
+    run_loop(iops->v.v2.cookie, 1);
+}
+
+static void
 sel_destroy_iops(struct lcb_io_opt_st *iops)
 {
     sel_LOOP *io = iops->v.v2.cookie;
@@ -364,6 +375,7 @@ procs2_sel_callback(int version, lcb_loop_procs *loop_procs,
 
     loop_procs->start = sel_run_loop;
     loop_procs->stop = sel_stop_loop;
+    loop_procs->tick = sel_tick_loop;
 
     *iomodel = LCB_IOMODEL_EVENT;
     wire_lcb_bsd_impl2(bsd_procs, version);

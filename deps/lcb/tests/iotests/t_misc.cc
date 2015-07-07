@@ -643,3 +643,48 @@ TEST_F(MockUnitTest, testRefreshConfig)
     lcb_refresh_config(instance);
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
 }
+
+extern "C" {
+static void tickOpCb(lcb_t, int, const lcb_RESPBASE *rb)
+{
+    int *p = (int *)rb->cookie;
+    *p -= 1;
+    EXPECT_EQ(LCB_SUCCESS, rb->rc);
+}
+}
+
+TEST_F(MockUnitTest, testTickLoop)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    lcb_error_t err;
+    createConnection(hw, instance);
+
+    const char *key = "tickKey";
+    const char *value = "tickValue";
+
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, tickOpCb);
+    lcb_CMDSTORE cmd = { 0 };
+    cmd.operation = LCB_SET;
+    LCB_CMD_SET_KEY(&cmd, key, strlen(key));
+    LCB_CMD_SET_VALUE(&cmd, value, strlen(value));
+
+    err = lcb_tick_nowait(instance);
+    if (err == LCB_CLIENT_FEATURE_UNAVAILABLE) {
+        fprintf(stderr, "Current event loop does not support tick!");
+        return;
+    }
+
+    lcb_sched_enter(instance);
+    int counter = 0;
+    for (int ii = 0; ii < 10; ii++) {
+        err = lcb_store3(instance, &counter, &cmd);
+        ASSERT_EQ(LCB_SUCCESS, err);
+        counter++;
+    }
+
+    lcb_sched_leave(instance);
+    while (counter) {
+        lcb_tick_nowait(instance);
+    }
+}

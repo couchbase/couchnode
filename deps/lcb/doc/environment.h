@@ -1,5 +1,5 @@
 /**
- * @page @lcb-env-vars-page Environment Variables
+ * @page lcb-env-vars-page Environment Variables
  *
  * @brief Environment variables controlling the behavior of the library
  *

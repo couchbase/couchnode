@@ -680,6 +680,26 @@ typedef enum {
 #define LCB_CNTL_CONLOGGER_LEVEL 0x29
 
 /**
+ * @uncommitted
+ *
+ * Sets the output file (as a `FILE*`) for the console logger. Note that
+ * any existing file pointer will be cleared (but not `fclose()`d.
+ *
+ * If used with lcb_cntl_string(), (using the `console_log_file` parameter),
+ * the third argument is taken as the _name_ of a file. Note that the user
+ * is responsible for closing the file.
+ *
+ * This setting does not require a library handle and therefore the first
+ * argument to lcb_cntl() should be `NULL`.
+ *
+ *
+ * @cntl_arg_get_and_set{`FILE**`, `FILE*`}
+ * @see LCB_CNTL_LOGGER
+ * @see LCB_CNTL_CONLOGGER_LEVEL
+ */
+#define LCB_CNTL_CONLOGGER_FP 0x3B
+
+/**
  * @committed
  *
  * Sets the behavior for reporting network errors. By default network errors
@@ -831,14 +851,14 @@ typedef enum {
  * functions is long, it is recommended to disable this setting in order to
  * avoid prematurely having operations time out.
  *
- * @cntl_arg_getset{int (as boolean)}
+ * @cntl_arg_both{int (as boolean)}
  *
  * Use `"readj_wait_tmo"` for the string version
  */
 #define LCB_CNTL_RESET_TIMEOUT_ON_WAIT 0x3A
 
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x3B
+#define LCB_CNTL__MAX                    0x3C
 /**@}*/
 
 #ifdef __cplusplus

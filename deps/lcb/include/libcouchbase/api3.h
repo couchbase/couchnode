@@ -1017,7 +1017,7 @@ lcb_resp_get_synctoken(int cbtype, const lcb_RESPBASE *rb);
  * @volatile
  *
  * Retrieves the last synctoken for a given key.
- * This relies on the @ref LCB_CNTL_DUR_SYNCTOKENS option, and will check
+ * This relies on the @ref LCB_CNTL_DURABILITY_SYNCTOKENS option, and will check
  * the instance-level log to determine the latest SYNCTOKEN for the given
  * vBucket ID which the key maps to.
  *

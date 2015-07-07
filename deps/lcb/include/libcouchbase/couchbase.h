@@ -411,6 +411,35 @@ const void *lcb_get_cookie(lcb_t instance);
 LIBCOUCHBASE_API
 lcb_error_t lcb_wait(lcb_t instance);
 
+/**
+ * @volatile
+ * This function will cause a single "tick" in the underlying event loop,
+ * causing operations whose I/O can be executed immediately to be sent to
+ * the server.
+ *
+ * Like lcb_wait(), callbacks for operations may be delivered here, however
+ * some operations may be left incomplete if their I/O could not be processed
+ * immediately. This function is intended as an optimization for large batches
+ * of operations - so that some I/O can be completed during the batching process
+ * itself, and only the remainder of those operations (which would have blocked)
+ * will be completed with lcb_wait() (which should be invoked after the batch).
+ *
+ * This function is mainly useful if there is a significant delay in time
+ * between each scheduling function, in which I/O may be completed during these
+ * gaps (thereby emptying the socket's kernel write buffer, and allowing for
+ * new operations to be added after the interval). Calling this function for
+ * batches where all data is available up-front may actually make things slower.
+ *
+ * @warning
+ * You must call lcb_wait() at least one after any batch of operations to ensure
+ * they have been completed. This function is provided as an optimization only.
+ *
+ * @return LCB_CLIENT_FEATURE_UNAVAILABLE if the event loop does not support
+ * the "tick" mode.
+ */
+LIBCOUCHBASE_API
+lcb_error_t lcb_tick_nowait(lcb_t instance);
+
 /**@brief Flags for lcb_wait3()*/
 typedef enum {
     /**Behave like the old lcb_wait()*/
@@ -1985,8 +2014,8 @@ typedef struct {
      */
     lcb_U8 cap_max;
 
-    /**Set the polling method to use. If set, the ::version field must be set
-     * to > 1 */
+    /**Set the polling method to use. If set, the lcb_durability_cmd_t::version
+     * field must be set to > 1 */
     lcb_U8 pollopts;
 } lcb_DURABILITYOPTSv0;
 

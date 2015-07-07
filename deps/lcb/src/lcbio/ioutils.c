@@ -265,10 +265,10 @@ lcbio_disable_nagle(lcbio_SOCKET *s)
     }
 
     if (IOT_IS_EVENT(iot)) {
-        rv = IOT_V0IO(iot).cntl(IOT_ARG(iot), s->u.fd, LCB_IO_CNTL_GET,
+        rv = IOT_V0IO(iot).cntl(IOT_ARG(iot), s->u.fd, LCB_IO_CNTL_SET,
             LCB_IO_CNTL_TCP_NODELAY, &val);
     } else {
-        rv = IOT_V1(iot).cntl(IOT_ARG(iot), s->u.sd, LCB_IO_CNTL_GET,
+        rv = IOT_V1(iot).cntl(IOT_ARG(iot), s->u.sd, LCB_IO_CNTL_SET,
             LCB_IO_CNTL_TCP_NODELAY, &val);
     }
     if (rv != 0) {

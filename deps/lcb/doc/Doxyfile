@@ -32,7 +32,7 @@ PROJECT_NAME           = "Couchbase C Client"
 # This could be handy for archiving the generated documentation or
 # if some version control system is used.
 
-PROJECT_NUMBER         = 2.4.9
+PROJECT_NUMBER         = 2.5.0
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer
@@ -686,6 +686,7 @@ INPUT += plugins/io/libev/libev_io_opts.h
 INPUT += plugins/io/libuv/libuv_io_opts.h
 INPUT += doc/apiattr.h doc/mainpage.h doc/intro.h doc/environment.h
 INPUT += doc/cbc.markdown doc/cbc-pillowfight.markdown doc/cbcrc.markdown
+INPUT += doc/cbc-n1qlback.markdown
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is

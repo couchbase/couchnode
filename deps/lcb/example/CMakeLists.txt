@@ -22,6 +22,7 @@ ADD_EXAMPLE(mcc mcc "" "")
 ADD_EXAMPLE(minimal minimal "" "")
 ADD_EXAMPLE(observe observe "" "")
 ADD_EXAMPLE(views-example views "" "")
+ADD_EXAMPLE(tick tick "" "")
 
 IF(NOT WIN32)
     ADD_EXAMPLE(instancepool instancepool pthread "")

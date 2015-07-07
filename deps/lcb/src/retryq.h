@@ -134,6 +134,21 @@ lcb_retryq_dump(lcb_RETRYQ *rq, FILE *fp, mcreq_payload_dump_fn dumpfn);
  */
 #define lcb_retryq_empty(rq) LCB_LIST_IS_EMPTY(&(rq)->schedops)
 
+/**
+ * @brief Reset all timeouts on the retry queue.
+ *
+ * This will defer the timeout to start from the current time rather than
+ * the time it was initially placed in the queue. Items are usually placed
+ * in the queue after a network failure or similar; however one exception
+ * is items which are placed in the queue via the scheduling APIs directly
+ * (if there is no host for the command's vBucket)
+ *
+ * @param rq The retry queue
+ * @param now The time to use
+ */
+void
+lcb_retryq_reset_timeouts(lcb_RETRYQ *rq, lcb_U64 now);
+
 /**@}*/
 
 #ifdef __cplusplus
