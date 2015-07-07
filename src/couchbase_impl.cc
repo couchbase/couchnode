@@ -353,7 +353,6 @@ void viewrow_callback(lcb_t instance, int ignoreme,
 void n1qlrow_callback(lcb_t instance, int ignoreme,
         const lcb_RESPN1QL *resp)
 {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     NanCallback *callback = (NanCallback*)resp->cookie;
     NanScope();
 
