@@ -1,10 +1,9 @@
-
 {
   "description": "The official Couchbase Node.js Client Library.",
   "engines": {
     "node": ">=0.10.0"
   },
-  "version": "2.0.11",
+  "version": "2.0.12",
   "keywords": [
     "couchbase",
     "libcouchbase",
@@ -20,15 +19,15 @@
     "bindings": "~1.2.1",
     "jsonparse": "~1.0.0",
     "nan": "~1.8.4",
-    "request": "~2.55.0"
+    "request": "~2.58.0"
   },
   "devDependencies": {
     "ink-docstrap": "git+https://github.com/brett19/docstrap.git#master",
-    "istanbul": "~0.3.13",
-    "jsdoc": "~3.3.0-beta3",
+    "istanbul": "~0.3.17",
+    "jsdoc": "~3.3.2",
     "jsdoc-stability-tag": "~1.0.0",
-    "jshint": "~2.6.3",
-    "mocha": "~2.2.1"
+    "jshint": "~2.8.0",
+    "mocha": "~2.2.5"
   },
   "repository": {
     "type": "git",

@@ -10,7 +10,8 @@
 struct lcb_N1QLPARAMS_st {
     lcb_string posargs; /* Positional arguments */
     lcb_string form; /* Named arguments (and others)*/
-    lcb_string scanvec;
+    lcb_string scanvec; /* "JSON" of synctokens to be used */
+    lcb_string reqbuf; /* Buffer for actual request string */
     int scanvec_type;
     int consist_type;
 };
@@ -37,29 +38,44 @@ add_encstr(lcb_string *str, const char *s, size_t n)
     return 0;
 }
 
-lcb_error_t
-lcb_n1p_setopt(lcb_N1QLPARAMS *params,
-    const char *k, size_t nk, const char *v, size_t nv)
+static lcb_error_t
+setopt(lcb_N1QLPARAMS *params,
+    const char *k, size_t nk, const char *v, size_t nv, lcb_string *target)
 {
     nv = get_strlen(v, nv);
     nk = get_strlen(k, nk);
     /* Do we need the '&'? */
     if (params->form.nused) {
-        if (-1 == lcb_string_append(&params->form, "&", 1)) {
+        if (-1 == lcb_string_append(target, "&", 1)) {
             return LCB_CLIENT_ENOMEM;
         }
     }
-    if (-1 == add_encstr(&params->form, k, nk)) {
+    if (-1 == add_encstr(target, k, nk)) {
         return LCB_CLIENT_ENOMEM;
     }
-    if (-1 == lcb_string_append(&params->form, "=", 1)) {
+    if (-1 == lcb_string_append(target, "=", 1)) {
         return LCB_CLIENT_ENOMEM;
     }
-    if (-1 == add_encstr(&params->form, v, nv)) {
+    if (-1 == add_encstr(target, v, nv)) {
         return LCB_CLIENT_ENOMEM;
     }
     return LCB_SUCCESS;
+}
 
+static lcb_error_t
+set_reqbuf_opt(lcb_N1QLPARAMS *params,
+    const char *k, size_t nk, const char *v, size_t nv)
+{
+    return setopt(params, k, nk, v, nv, &params->reqbuf);
+}
+
+#define set_reqbuf_optz(params, k, v) set_reqbuf_opt(params, k, -1, v, -1)
+
+lcb_error_t
+lcb_n1p_setopt(lcb_N1QLPARAMS *params,
+    const char *k, size_t nk, const char *v, size_t nv)
+{
+    return setopt(params, k, nk, v, nv, &params->form);
 }
 
 lcb_error_t
@@ -109,7 +125,7 @@ lcb_n1p_posparam(lcb_N1QLPARAMS *params, const char *value, size_t nvalue)
     (sizeof(SCANVEC_BASEFMT) + (DIGITS_64 * 2) + DIGITS_16 + 5)
 
 lcb_error_t
-lcb_n1p_scanvec(lcb_N1QLPARAMS *params, const lcb_N1QLSCANVEC *sv)
+lcb_n1p_synctoken(lcb_N1QLPARAMS *params, const lcb_SYNCTOKEN *sv)
 {
     size_t np;
 
@@ -156,67 +172,106 @@ lcb_n1p_setconsistency(lcb_N1QLPARAMS *params, int mode)
 }
 
 static lcb_error_t
-finalize_field(lcb_N1QLPARAMS *params, lcb_string *ss,
+finalize_field(lcb_N1QLPARAMS *params, const lcb_string *ss,
     const char *field, const char *term)
 {
+    int rv;
     if (ss->nused == 0) {
         return LCB_SUCCESS;
     }
-    if (-1 == lcb_string_append(ss, term, 1)) {
+
+    rv = lcb_string_appendv(&params->reqbuf,
+        field, (size_t)strlen(field),
+        "=", -1,
+        ss->base, ss->nused,
+        term, (size_t)strlen(term),
+        "&", -1,
+        NULL);
+    if (rv == -1) {
         return LCB_CLIENT_ENOMEM;
     }
-    return lcb_n1p_setopt(params, field, -1, ss->base, ss->nused);
+    return LCB_SUCCESS;
 }
 
-lcb_error_t
-lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd)
+LIBCOUCHBASE_API
+const char *
+lcb_n1p_encode(lcb_N1QLPARAMS *params, lcb_error_t *err)
 {
-    lcb_error_t err;
+    lcb_error_t err_s = LCB_SUCCESS;
+    if (!err) {
+        err = &err_s;
+    }
     /* Build the query */
 
+    lcb_string_clear(&params->reqbuf);
+
     if (!params->form.nused) {
-        return LCB_EINVAL; /* Empty! */
+        *err = LCB_EINVAL;
+        return NULL;
     }
 
-    if ((err = finalize_field(params, &params->posargs, "args", "]"))
-            != LCB_SUCCESS) {
-        return err;
+    if (-1 == lcb_string_append(
+        &params->reqbuf, params->form.base, params->form.nused)) {
+        *err = LCB_CLIENT_ENOMEM;
+        return NULL;
     }
+
+    if ((*err = finalize_field(params, &params->posargs, "args", "]"))
+            != LCB_SUCCESS) {
+        return NULL;
+    }
+
     if (params->scanvec.nused) {
         if (params->consist_type != LCB_N1P_CONSISTENCY_RYOW) {
-            return LCB_OPTIONS_CONFLICT;
+            *err = LCB_OPTIONS_CONFLICT;
+            return NULL;
         }
-        if ((err = finalize_field(params, &params->scanvec, "scan_vector", "}"))
+        if ((*err = finalize_field(params, &params->scanvec, "scan_vector", "}"))
                 != LCB_SUCCESS) {
-            return err;
+            return NULL;
         }
     }
 
     if (params->consist_type) {
-        if (-1 == lcb_string_reserve(&params->form, 15)) {
-            return LCB_CLIENT_ENOMEM;
+        if (-1 == lcb_string_reserve(&params->reqbuf, 15)) {
+            *err = LCB_CLIENT_ENOMEM;
+            return NULL;
         }
     }
 
     if (params->consist_type == LCB_N1P_CONSISTENCY_RYOW) {
         if (!params->scanvec.nused) {
-            return LCB_OPTIONS_CONFLICT;
+            *err = LCB_OPTIONS_CONFLICT;
+            return NULL;
         } else {
-            lcb_n1p_setoptz(params, PARAM_CONSISTENT, "at_plus");
+            set_reqbuf_optz(params, PARAM_CONSISTENT, "at_plus");
         }
     } else if (params->consist_type == LCB_N1P_CONSISTENCY_REQUEST) {
-        lcb_n1p_setoptz(params, PARAM_CONSISTENT, "request_plus");
+        set_reqbuf_optz(params, PARAM_CONSISTENT, "request_plus");
     } else if (params->consist_type == LCB_N1P_CONSISTENCY_STATMENT) {
-        lcb_n1p_setoptz(params, PARAM_CONSISTENT, "statement_plus");
+        set_reqbuf_optz(params, PARAM_CONSISTENT, "statement_plus");
     } else if (params->consist_type == LCB_N1P_CONSISTENCY_NONE) {
+        /* Nothing */
     } else {
-        return LCB_EINVAL;
+        *err = LCB_EINVAL;
+        return NULL;
     }
 
+    return params->reqbuf.base;
+}
 
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd)
+{
+    lcb_error_t rc = LCB_SUCCESS;
+    lcb_n1p_encode(params, &rc);
+    if (rc != LCB_SUCCESS) {
+        return rc;
+    }
     cmd->content_type = "application/x-www-form-urlencoded";
-    cmd->query = params->form.base;
-    cmd->nquery = params->form.nused;
+    cmd->query = params->reqbuf.base;
+    cmd->nquery = params->reqbuf.nused;
     return LCB_SUCCESS;
 }
 
@@ -232,6 +287,7 @@ lcb_n1p_reset(lcb_N1QLPARAMS *params)
     lcb_string_clear(&params->form);
     lcb_string_clear(&params->posargs);
     lcb_string_clear(&params->scanvec);
+    lcb_string_clear(&params->reqbuf);
     params->scanvec_type = SCANVEC_NONE;
 }
 
@@ -241,5 +297,6 @@ lcb_n1p_free(lcb_N1QLPARAMS *params)
     lcb_string_release(&params->form);
     lcb_string_release(&params->posargs);
     lcb_string_release(&params->scanvec);
+    lcb_string_release(&params->reqbuf);
     free(params);
 }

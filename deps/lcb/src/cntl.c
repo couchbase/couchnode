@@ -157,7 +157,6 @@ HANDLER(nmv_imm_retry_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, nmv_retry_imm));
 }
 HANDLER(tcp_nodelay_handler) {
-    printf("NoDelay!\n");
     RETURN_GET_SET(int, LCBT_SETTING(instance, tcp_nodelay));
 }
 HANDLER(readj_ts_wait_handler) {
@@ -383,6 +382,25 @@ HANDLER(console_log_handler) {
     (void)cmd; return LCB_SUCCESS;
 }
 
+HANDLER(console_fp_handler) {
+    struct lcb_CONSOLELOGGER *logger =
+            (struct lcb_CONSOLELOGGER*)lcb_console_logprocs;
+    if (mode == LCB_CNTL_GET) {
+        *(FILE **)arg = logger->fp;
+    } else if (mode == LCB_CNTL_SET) {
+        logger->fp = *(FILE**)arg;
+    } else if (mode == CNTL__MODE_SETSTRING) {
+        FILE *fp = fopen(arg, "w");
+        if (!fp) {
+            return LCB_ERROR;
+        } else {
+            logger->fp = fp;
+        }
+    }
+    (void)cmd; (void)instance;
+    return LCB_SUCCESS;
+}
+
 HANDLER(reinit_spec_handler) {
     if (mode == LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; }
     (void)cmd; return lcb_reinit3(instance, arg);
@@ -490,7 +508,8 @@ static ctl_handler handlers[] = {
     nmv_imm_retry_handler, /* LCB_CNTL_RETRY_NMV_IMM */
     synctok_supported_handler, /* LCB_CNTL_SYNCTOKENS_SUPPORTED */
     tcp_nodelay_handler, /* LCB_CNTL_TCP_NODELAY */
-    readj_ts_wait_handler /* LCB_CNTL_RESET_TIMEOUT_ON_WAIT */
+    readj_ts_wait_handler, /* LCB_CNTL_RESET_TIMEOUT_ON_WAIT */
+    console_fp_handler /* LCB_CNTL_CONLOGGER_FP */
 };
 
 /* Union used for conversion to/from string functions */
@@ -636,6 +655,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"retry_nmv_imm", LCB_CNTL_RETRY_NMV_IMM, convert_intbool },
         {"tcp_nodelay", LCB_CNTL_TCP_NODELAY, convert_intbool },
         {"readj_ts_wait", LCB_CNTL_RESET_TIMEOUT_ON_WAIT, convert_intbool },
+        {"console_log_file", LCB_CNTL_CONLOGGER_FP, NULL },
         {NULL, -1}
 };
 

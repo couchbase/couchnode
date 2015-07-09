@@ -1,5 +1,47 @@
 # Release Notes
 
+## 2.5.0 (May 12 2015)
+
+This change in the major version number signals the addition of new features
+for Couchbase Server 4.0; most of the actual new functionality for Couchbase
+4.0 has already been included (incrementally) in prior 2.4.x versions. The
+new 2.5 version is built on the 2.4.x codebase.
+
+* Add `cbc-n1qlback` - a simple benchmark for N1QL queries. This functions
+  by executing a line-delimited file containing query bodies using multiple
+  threads if possible.
+  * Priority: Major
+  * Issues: [CCBC-604](http://issues.couchbase.com/browse/CCBC-604)
+
+* `TCP_NODELAY` functionality has now been placed into effect. This
+  functionality was nominally present in prior versions, but would not work
+  because of a typo.
+  * Priority: Minor
+
+* Add 'tick' or 'pump' mode for I/O
+  As an alternative to `lcb_wait()`, applications may call `lcb_tick_nowait()`
+  to incrementally perform (non-blocking) I/O. This may provide a performance
+  boost when batching/scheduling many operations. `lcb_wait()` itself must be
+  called to guarantee completion of all operations, and the `lcb_tick_nowait()`
+  functionality is only available on some I/O plugins. See the API docs for
+  more information.
+  * Priority: Major
+  * Issues: [CCBC-598](http://issues.couchbase.com/browse/CCBC-598)
+
+* Allow "console logger" to log to a file
+  As a convenience, it is now possible to direct the library to write to
+  a log file rather than standard error. This is possible using the
+  `LCB_CNTL_CONLOGGER_FP` (to programmatically set a `FILE*` value via
+  `lcb_cntl()`) or `console_log_file` to set the path of the file (which
+  will be overwritten) via `lcb_cntl_string()` or the connection string.
+
+* Make `lcb_N1QLPARAMS` repeatable/debuggable
+  This allows the `lcb_n1p_mkcmd()` call to be invoked multiple times without
+  actually modifying internal state. Previously calling this function twice
+  would result in corruption of the internal parameter state. In this version,
+  a new function, `lcb_n1p_encode()` has been added (which `lcb_n1p_mkcmd()`
+  wraps) which may be used to inspect the encoded form of the query.
+
 ## 2.4.9 (April 14 2015)
 
 * Disable HTTP provider when any CCCP config is received.

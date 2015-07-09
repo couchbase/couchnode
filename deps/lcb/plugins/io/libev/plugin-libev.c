@@ -180,16 +180,31 @@ static void lcb_io_stop_event_loop(struct lcb_io_opt_st *iops)
 #endif
 }
 
-static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
+static void run_common(struct lcb_io_opt_st *iops, int is_tick)
 {
     struct libev_cookie *io_cookie = iops->v.v2.cookie;
+    int flags;
+
     io_cookie->suspended = 0;
 #ifdef HAVE_LIBEV4
-    ev_run(io_cookie->loop, 0);
+    flags = is_tick ? EVRUN_NOWAIT : 0;
+    ev_run(io_cookie->loop, flags);
 #else
-    ev_loop(io_cookie->loop, 0);
+    flags = is_tick ? EVLOOP_NOBLOCK : 0;
+    ev_loop(io_cookie->loop, flags);
 #endif
     io_cookie->suspended = 1;
+
+}
+
+static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
+{
+    run_common(iops, 0);
+}
+
+static void lcb_io_tick_event_loop(struct lcb_io_opt_st *iops)
+{
+    run_common(iops, 1);
 }
 
 static void lcb_destroy_io_opts(struct lcb_io_opt_st *iops)
@@ -220,6 +235,7 @@ procs2_ev_callback(int version, lcb_loop_procs *loop_procs,
 
     loop_procs->start = lcb_io_run_event_loop;
     loop_procs->stop = lcb_io_stop_event_loop;
+    loop_procs->tick = lcb_io_tick_event_loop;
 
     *iomodel = LCB_IOMODEL_EVENT;
     wire_lcb_bsd_impl2(bsd_procs, version);

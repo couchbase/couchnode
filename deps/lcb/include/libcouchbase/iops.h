@@ -378,7 +378,9 @@ typedef int (*lcb_ioE_chkclosed_fn)
         (lcb_io_opt_t iops, lcb_socket_t sock, int flags);
 
 
+/** For use with `io{E,C}_cntl_fn`, indicates the setting should be retrieved */
 #define LCB_IO_CNTL_GET 0
+/** For use with lcb_io{E,C}_cntl_fn`, indicates the setting should be modified */
 #define LCB_IO_CNTL_SET 1
 
 /** Disable Nagle's algorithm (use an int) */
@@ -648,6 +650,13 @@ typedef int (*lcb_ioC_cntl_fn)
 typedef void (*lcb_io_start_fn)(lcb_io_opt_t iops);
 
 /**
+ * @brief Run a single iteration of the event loop without blocking. This
+ * is intended to be an optimization to allow scheduled I/O operations to
+ * complete without blocking the main thread
+ */
+typedef void (*lcb_io_tick_fn)(lcb_io_opt_t iops);
+
+/**
  * @brief Pause the event loop
  * @param iops The I/O Context
  *
@@ -717,6 +726,7 @@ typedef struct lcb_timerprocs_st {
 typedef struct lcb_loopprocs_st {
     lcb_io_start_fn start;
     lcb_io_stop_fn stop;
+    lcb_io_tick_fn tick;
 } lcb_loop_procs;
 
 /** @brief Functions wrapping the Berkeley Socket API */

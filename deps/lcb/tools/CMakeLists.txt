@@ -12,24 +12,33 @@ ADD_EXECUTABLE(cbc-pillowfight cbc-pillowfight.cc
 
 TARGET_LINK_LIBRARIES(cbc-pillowfight couchbase)
 
-INSTALL(TARGETS cbc cbc-pillowfight RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+ADD_EXECUTABLE(cbc-n1qlback cbc-n1qlback.cc
+    $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts>)
+TARGET_LINK_LIBRARIES(cbc-n1qlback couchbase)
+
+INSTALL(TARGETS cbc cbc-pillowfight cbc-n1qlback
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # Set this before INSTALL_PDBS in order to set the correct output name
 IF(MSVC)
     SET_TARGET_PROPERTIES(cbc PROPERTIES DEBUG_OUTPUT_NAME cbc_d)
     SET_TARGET_PROPERTIES(cbc-pillowfight PROPERTIES DEBUG_OUTPUT_NAME cbc-pillowfight_d)
+    SET_TARGET_PROPERTIES(cbc-n1qlback PROPERTIES DEBUG_OUTPUT_NAME cbc-n1qlback_d)
 ENDIF()
 
 INSTALL_PDBS(cbc)
 INSTALL_PDBS(cbc-pillowfight)
+INSTALL_PDBS(cbc-n1qlback)
 
 SET_TARGET_PROPERTIES(lcbtools PROPERTIES COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}")
-SET_SOURCE_FILES_PROPERTIES(cbc.cc cbc-pillowfight.cc PROPERTIES COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}")
+SET_SOURCE_FILES_PROPERTIES(cbc.cc cbc-pillowfight.cc cbc-n1qlback.cc PROPERTIES COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}")
 
 IF(NOT WIN32)
     LIST(APPEND CBC_SUBCOMMANDS
-        admin bucket-create bucket-delete cat cp create decr hash incr lock mcflush
-        rm stats unlock verbosity verify version verbosity view)
+        cat create observe observe-seqno incr decr mcflush hash lock
+        unlock rm stats version verbosity view n1ql admin
+        bucket-create bucket-delete bucket-flush connstr write-config strerror)
+
     FOREACH(subcmd IN ITEMS ${CBC_SUBCOMMANDS})
         ADD_CUSTOM_COMMAND(TARGET cbc POST_BUILD
                            COMMAND ln -sf cbc "cbc-${subcmd}"

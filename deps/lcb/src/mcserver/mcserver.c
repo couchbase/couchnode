@@ -79,7 +79,13 @@ static void
 on_flush_done(lcbio_CTX *ctx, unsigned expected, unsigned actual)
 {
     mc_SERVER *server = lcbio_ctx_data(ctx);
-    mcreq_flush_done(&server->pipeline, actual, expected);
+    lcb_U64 now = 0;
+
+    if (LCBT_SETTING(server->instance, readj_ts_wait)) {
+        now = gethrtime();
+    }
+
+    mcreq_flush_done_ex(&server->pipeline, actual, expected, now);
     check_closed(server);
 }
 

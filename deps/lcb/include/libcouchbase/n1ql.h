@@ -192,13 +192,6 @@ LIBCOUCHBASE_API
 lcb_error_t
 lcb_n1p_setconsistency(lcb_N1QLPARAMS *params, int mode);
 
-
-typedef struct {
-    lcb_U64 uuid_;
-    lcb_U64 seqno_;
-    lcb_U16 vbid_;
-} lcb_N1QLSCANVEC;
-
 /**
  * Indicate that the query should synchronize its internal snapshot to reflect
  * the changes indicated by the given synctoken (`ss`). The synctoken may be
@@ -207,28 +200,27 @@ typedef struct {
  */
 LIBCOUCHBASE_API
 lcb_error_t
-lcb_n1p_scanvec(lcb_N1QLPARAMS *params, const lcb_N1QLSCANVEC *sv);
-
+lcb_n1p_synctoken(lcb_N1QLPARAMS *params, const lcb_SYNCTOKEN *st);
 
 /**
- * Wrapper around lcb_get_synctoken() and lcb_n1p_synctok(). This will
- * retrieve the latest mutation/vector for the given key on the cluster.
- * @param params the parameters object
- * @param instance the instance on which this mutation was performed
- * @param key the key
- * @param nkey the length of the key
+ * Encodes the request and returns it as a string. The string is valid
+ * until the next call to the params function.
+ * @param params the parameter object
+ * @param[out] rc an error code if there was an issue in encoding
+ * @return the NUL-terminated query string.
+ *
+ * @note Calling this function regenerates the query string internally,
+ *       and is implicitly called by lcb_n1p_mkcmd().
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_n1p_synctok_for(lcb_N1QLPARAMS *params, lcb_t instance,
-    const void *key, size_t nkey);
+const char *
+lcb_n1p_encode(lcb_N1QLPARAMS *params, lcb_error_t *rc);
 
 /**
  * Populates the given low-level lcb_CMDN1QL structure with the relevant fields
  * from the params structure. If this function returns successfuly, you must
  * ensure that the params object is not modified until the command is
- * submitted. Afterwards, you can use lcb_n1p_free() or lcb_n1p_reset() to
- * free/reuse the structure for subsequent requests
+ * submitted.
  */
 LIBCOUCHBASE_API
 lcb_error_t

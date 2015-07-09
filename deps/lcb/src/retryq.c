@@ -29,6 +29,11 @@ typedef struct {
     mc_EPKTDATUM epd;
     lcb_list_t ll_sched;
     lcb_list_t ll_tmo;
+
+    /**Cache the actual start time of the command. Since the start time may
+     * change if read_ts_wait is enabled, and we don't want to end up looping
+     * on a command forever. */
+    hrtime_t start;
     hrtime_t trytime; /**< Next retry time */
     mc_PACKET *pkt;
     lcb_error_t origerr;
@@ -65,12 +70,10 @@ cmpfn_tmo(lcb_list_t *ll_a, lcb_list_t *ll_b)
 {
     lcb_RETRYOP *a = LCB_LIST_ITEM(ll_a, lcb_RETRYOP, ll_tmo);
     lcb_RETRYOP *b = LCB_LIST_ITEM(ll_b, lcb_RETRYOP, ll_tmo);
-    hrtime_t start_a = MCREQ_PKT_RDATA(a->pkt)->start;
-    hrtime_t start_b = MCREQ_PKT_RDATA(b->pkt)->start;
 
-    if (start_a == start_b) {
+    if (a->start == b->start) {
         return 0;
-    } else if (start_a > start_b) {
+    } else if (a->start> b->start) {
         return 1;
     } else {
         return -1;
@@ -170,7 +173,7 @@ do_schedule(lcb_RETRYQ *q, hrtime_t now)
     first_sched = LCB_LIST_ITEM(LCB_LIST_HEAD(&q->schedops), lcb_RETRYOP, ll_sched);
 
     schednext = first_sched->trytime;
-    tmonext = MCREQ_PKT_RDATA(first_tmo->pkt)->start;
+    tmonext = first_tmo->start;
     tmonext += LCB_US2NS(q->settings->operation_timeout);
     selected = schednext > tmonext ? tmonext : schednext;
 
@@ -202,9 +205,7 @@ rq_flush(lcb_RETRYQ *rq, int throttle)
     /** Check timeouts first */
     LCB_LIST_SAFE_FOR(ll, ll_next, &rq->tmoops) {
         lcb_RETRYOP *op = LCB_LIST_ITEM(ll, lcb_RETRYOP, ll_tmo);
-        hrtime_t curtmo =
-                MCREQ_PKT_RDATA(op->pkt)->start +
-                LCB_US2NS(rq->settings->operation_timeout);
+        hrtime_t curtmo = op->start + LCB_US2NS(rq->settings->operation_timeout);
 
         if (curtmo <= now) {
             bail_op(rq, op, LCB_ETIMEDOUT);
@@ -304,6 +305,7 @@ add_op(lcb_RETRYQ *rq, mc_EXPACKET *pkt, lcb_error_t err, int options)
         op = calloc(1, sizeof *op);
         op->epd.dtorfn = op_dtorfn;
         op->epd.key = RETRY_PKT_KEY;
+        op->start = MCREQ_PKT_RDATA(&pkt->base)->start;
         mcreq_epkt_insert(pkt, &op->epd);
     }
 
@@ -346,6 +348,16 @@ fallback_handler(mc_CMDQUEUE *cq, mc_PACKET *pkt)
     mc_PACKET *copy = mcreq_renew_packet(pkt);
     add_op(instance->retryq, (mc_EXPACKET*)copy,
         LCB_NO_MATCHING_SERVER, RETRY_SCHED_IMM);
+}
+
+void
+lcb_retryq_reset_timeouts(lcb_RETRYQ *rq, lcb_U64 now)
+{
+    lcb_list_t *ll;
+    LCB_LIST_FOR(ll, &rq->schedops) {
+        lcb_RETRYOP *op = LCB_LIST_ITEM(ll, lcb_RETRYOP, ll_sched);
+        op->start = now;
+    }
 }
 
 lcb_RETRYQ *

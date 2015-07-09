@@ -264,6 +264,9 @@ typedef enum {
       "Durability constraints requires more nodes/replicas than the cluster "\
       "configuration allows. Durability constraints will never be satisfied") \
     \
+    /** Received in scheduling if a command with the same key was specified more
+     than once. Some commands will accept this, but others (notably `observe`)
+     will not */ \
     X(LCB_DUPLICATE_COMMANDS, 0x22, LCB_ERRTYPE_INPUT, \
       "The same key was specified more than once in the command list") \
     \
@@ -414,9 +417,9 @@ typedef enum {
       "Internal error used for destroying unscheduled command data") \
     \
     /** An optional client feature was requested, but the current configuration
-     * does not allow it to be used. This might be because it is not available
-     * on a particular platform/architecture/operating system/configuration, or
-     * it has been disabled at the time the library was built.
+     does not allow it to be used. This might be because it is not available
+     on a particular platform/architecture/operating system/configuration, or
+     it has been disabled at the time the library was built.
      */ \
     X(LCB_CLIENT_FEATURE_UNAVAILABLE, 0x39, LCB_ERRTYPE_INPUT, \
       "The requested feature is not supported by the client, either because of " \
@@ -424,17 +427,22 @@ typedef enum {
       "the time the library was compiled") \
     \
     /**An option was passed to a command which is incompatible with other
-     * options. This may happen if two fields are mutually exclusive */ \
+     options. This may happen if two fields are mutually exclusive */ \
     X(LCB_OPTIONS_CONFLICT, 0x3A, LCB_ERRTYPE_INPUT, \
       "The operation structure contains conflicting options") \
     \
+    /**Received in callbacks if an operation failed because of a negative HTTP
+     status code */ \
     X(LCB_HTTP_ERROR, 0x3B, 0, \
       "HTTP Operation failed. Inspect status code for details") \
     \
+    /**Scheduling error received if @ref LCB_CNTL_DURABILITY_SYNCTOKENS was
+     enabled, but there is no available synctoken object for the key. */ \
     X(LCB_DURABILITY_NO_SYNCTOKEN, 0x3C, LCB_ERRTYPE_INPUT, \
       "The given item does not have a synctoken object associated with it. " \
       "this is either because fetching synctokens was not enabled, or " \
       "you are trying to check on something not stored by this instance") \
+    \
     /** The server replied with an unrecognized status code */ \
     X(LCB_UNKNOWN_MEMCACHED_ERROR, 0x3D, LCB_ERRTYPE_SRVGEN, \
       "The server replied with an unrecognized status code. A newer version " \
