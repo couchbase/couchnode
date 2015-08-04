@@ -7,16 +7,16 @@ namespace cbc {
 
 class Histogram {
 public:
-    Histogram() { instance = NULL; output = NULL; }
+    Histogram() { hg = NULL; output = NULL; }
     void install(lcb_t, FILE *out = stderr);
+    void installStandalone(FILE *out = stderr);
+    void record(lcb_U64 duration);
     void write();
-    void disable();
     FILE *getOutput() const { return output; }
 private:
-    lcb_t instance;
+    lcb_HISTOGRAM *hg;
     FILE *output;
 };
-
 
 }
 

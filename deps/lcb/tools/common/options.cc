@@ -124,6 +124,11 @@ ConnParams::addToParser(Parser& parser)
 string
 ConnParams::getConfigfileName()
 {
+    const char *override = getenv("CBC_CONFIG");
+    if (override && *override) {
+        return override;
+    }
+
     string ret;
 #if _WIN32
     const char *v = getenv("APPDATA");

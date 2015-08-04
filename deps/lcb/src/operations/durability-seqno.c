@@ -122,30 +122,30 @@ seqno_poll(lcb_DURSET *dset)
 static lcb_error_t
 seqno_ent_add(lcb_DURSET *dset, lcb_DURITEM *item, const lcb_CMDENDURE *cmd)
 {
-    const lcb_SYNCTOKEN *stok = NULL;
+    const lcb_MUTATION_TOKEN *stok = NULL;
 
-    if (cmd->cmdflags & LCB_CMDENDURE_F_SYNCTOKEN) {
-        stok = cmd->synctoken;
+    if (cmd->cmdflags & LCB_CMDENDURE_F_MUTATION_TOKEN) {
+        stok = cmd->mutation_token;
     }
 
     if (stok == NULL) {
         lcb_t instance = dset->instance;
         if (!instance->dcpinfo) {
-            return LCB_DURABILITY_NO_SYNCTOKEN;
+            return LCB_DURABILITY_NO_MUTATION_TOKENS;
         }
         if (item->vbid >= LCBT_VBCONFIG(instance)->nvb) {
             return LCB_EINVAL;
         }
         stok = instance->dcpinfo + item->vbid;
-        if (LCB_SYNCTOKEN_ID(stok) == 0) {
-            return LCB_DURABILITY_NO_SYNCTOKEN;
+        if (LCB_MUTATION_TOKEN_ID(stok) == 0) {
+            return LCB_DURABILITY_NO_MUTATION_TOKENS;
         }
     }
 
     /* Set the fields */
     memset(item->sinfo, 0, sizeof(item->sinfo[0]) * 4);
-    item->uuid = LCB_SYNCTOKEN_ID(stok);
-    ENT_SEQNO(item) = LCB_SYNCTOKEN_SEQ(stok);
+    item->uuid = LCB_MUTATION_TOKEN_ID(stok);
+    ENT_SEQNO(item) = LCB_MUTATION_TOKEN_SEQ(stok);
     return LCB_SUCCESS;
 }
 

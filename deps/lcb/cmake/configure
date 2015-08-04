@@ -101,6 +101,9 @@ my @HELP_DESCRIPTIONS = (
     [ "enable-static", "",
         "Build static libraries",
         "%d", \(my $STATIC_LIBS = 0)],
+    [ "enable-embedded-libevent-plugin", "",
+        "Embed the libevent plugin into the library's core",
+        "%d", \(my $EMBED_LIBEVENT_PLUGIN = 0) ],
     [ "cc", "s",
         "C Compiler",
         "%s", \(my $CC = "") ],
@@ -291,6 +294,9 @@ if ($LCB_USE_COVERAGE) {
 }
 if ($NO_MOCK) {
     push @CM_OPTIONS, "-DLCB_NO_MOCK=1";
+}
+if ($EMBED_LIBEVENT_PLUGIN) {
+    push @CM_OPTIONS, "-DLCB_EMBED_PLUGIN_LIBEVENT=1";
 }
 
 if ($CMAKE_HOST) {

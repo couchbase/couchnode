@@ -527,7 +527,7 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr
     } else {
         server->compsupport = mc_sess_chkfeature(sessinfo,
             PROTOCOL_BINARY_FEATURE_DATATYPE);
-        server->synctokens = mc_sess_chkfeature(sessinfo,
+        server->mutation_tokens = mc_sess_chkfeature(sessinfo,
             PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO);
     }
 
@@ -564,19 +564,13 @@ buf_done_cb(mc_PIPELINE *pl, const void *cookie, void *kbuf, void *vbuf)
     (void)kbuf; (void)vbuf;
 }
 
-static char *
-dupstr_or_null(const char *s) {
-    if (s) {
-        return strdup(s);
-    }
-    return NULL;
-}
-
 mc_SERVER *
-mcserver_alloc2(lcb_t instance, lcbvb_CONFIG* vbc, int ix)
+mcserver_alloc(lcb_t instance, int ix)
 {
     mc_SERVER *ret;
     lcbvb_SVCMODE mode;
+    const char *datahost;
+
     ret = calloc(1, sizeof(*ret));
     if (!ret) {
         return ret;
@@ -588,30 +582,19 @@ mcserver_alloc2(lcb_t instance, lcbvb_CONFIG* vbc, int ix)
     mode = ret->settings->sslopts & LCB_SSL_ENABLED
             ? LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN;
 
-    ret->datahost = dupstr_or_null(VB_MEMDSTR(vbc, ix, mode));
-    ret->resthost = dupstr_or_null(VB_MGMTSTR(vbc, ix, mode));
-    ret->viewshost = dupstr_or_null(VB_CAPIURL(vbc, ix, mode));
-
     lcb_settings_ref(ret->settings);
     mcreq_pipeline_init(&ret->pipeline);
     ret->pipeline.flush_start = (mcreq_flushstart_fn)server_connect;
     ret->pipeline.buf_done_callback = buf_done_cb;
-    if (ret->datahost) {
-        lcb_host_parsez(ret->curhost, ret->datahost, LCB_CONFIG_MCD_PORT);
-    } else {
-        lcb_log(LOGARGS(ret, DEBUG), LOGFMT "Server does not have data service", LOGID(ret));
+
+    datahost = lcbvb_get_hostport(
+        LCBT_VBCONFIG(instance), ix, LCBVB_SVCTYPE_DATA, mode);
+    if (datahost) {
+        lcb_host_parsez(ret->curhost, datahost, LCB_CONFIG_MCD_PORT);
     }
     ret->io_timer = lcbio_timer_new(instance->iotable, ret, timeout_server);
     return ret;
 }
-
-mc_SERVER *
-mcserver_alloc(lcb_t instance, int ix)
-{
-    mc_CMDQUEUE *cq = &instance->cmdq;
-    return mcserver_alloc2(instance, cq->config, ix);
-}
-
 
 static void
 server_free(mc_SERVER *server)
@@ -622,9 +605,6 @@ server_free(mc_SERVER *server)
         lcbio_timer_destroy(server->io_timer);
     }
 
-    free(server->resthost);
-    free(server->viewshost);
-    free(server->datahost);
     free(server->curhost);
     lcb_settings_unref(server->settings);
     free(server);

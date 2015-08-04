@@ -1,5 +1,116 @@
 # Release Notes
 
+## 2.5.2 (July 23 2015)
+
+* Fix off-by-one error when populating documents with pillowfight.
+  Previously pillowfight would only populate N-1 documents where N
+  is the (`-I`, `--num-items`) option. This has been fixed.
+  * Priority: Minor
+
+* Don't generate negative keys for pillowfight.
+  For certain option configurations, pillowfight would generate negative keys
+  (some keys were in the format of -nnnnnn).
+  * Priority: Minor
+
+* Allow in-progress N1QL requests to be cancelled.
+  This allows in-progress N1QL requests to be cancelled by adding a new API,
+  `lcb_n1ql_cancel()`. Invoking this function on an `lcb_N1QLHANDLE` handle
+  (obtained via an _out_ parameter in the command structure) will effectively
+  stop the request and stop delivering callbacks to the user.
+  * Priority: Major
+  * Issues: [CCBC-619](https://issues.couchbase.com/browse/CCBC-619)
+
+* Rename `lcb_SYNCTOKEN` to `lcb_MUTATION_TOKEN`.
+  This experimental (volatile) API has been renamed to "Mutation Token" to
+  better reflect naming conventions found in other client libraries.
+  * Priority: Minor
+
+* Implement histogram/timings information for N1QL queries via `cbc-n1qlback`.
+  This adds support for the (`-T`, `--timings`) option in the
+  `cbc-n1qlback` benchmark/stress-test utility. These timings reflect the
+  latency between issuing the query and the receipt of the first row of the
+  resultset.
+  * Priority: Major
+  * Issues: [CCBC-624](https://issues.couchbase.com/browse/CCBC-624)
+
+* Add (`-M`, `--mode`) option to `cbc-create` to allow for upsert, insert, etc.
+  This allows `cbc-create` to use the full gamut of storage options available
+  via the SDK by allowing an insert/upsert/replace mode as an argument to the
+  new `--mode` option. `append` and `prepend` are now also provided as options,
+  though not documented.
+  * Priority: Major
+  * Issues: [CCBC-625](https://issues.couchbase.com/browse/CCBC-625)
+
+* Support `CBC_CONFIG` environment variable for command line tools.
+  This variable specifies a path to an alternate `cbcrc` file which may be
+  used to provide cluster/bucket settings. This new option allows multiple
+  configurations to coexist, without forcing any one of them to be inside the
+  user's home directory.
+  * Priority: Minor
+  * Issues: [CCBC-626](https://issues.couchbase.com/browse/CCBC-626)
+
+
+## 2.5.1 (June 17 2015)
+
+Bug fixes and improvements in 2.5.1
+
+* Fix hanging in durability operations if node is not present and constraints
+  include failed node. This condition may be triggered when only a single node
+  remains in the broadcast probe and a command sent to it could not be scheduled.
+  A symptom of this bug was durability operations 'hanging'
+  * Priority: Major
+  * Issues: [CCBC-607](http://issues.couchbase.com/browse/CCBC-607)
+
+* Improved handling of topology changes when non-data (N1QL, Index) nodes are
+  part of the cluster. This fixes some issues (mainly crashes) when non-data
+  nodes are found inside the cluster during a topology change. While the library
+  since version 2.4.8 was able to handle initial bootstrapping with non-data
+  nodes, it would still crash when such nodes were encountered during
+  configuration changes.
+  * Priority: Major
+  * Issues: [CCBC-609](http://issues.couchbase.com/browse/CCBC-609),
+    [CCBC-612](http://issues.couchbase.com/browse/CCBC-612)
+
+* Improved random host selection algorithm for REST services
+  This new algorithm ensures that the distribution is even among all _eligible_
+  nodes for a given service. The old algorithm would only distribute evenly when
+  the assumption that all nodes contained the same services were true. However
+  this assumption is no longer necessarily true with Couchbase 4.0. In this case
+  the algorithm ensures that the random selection inspects only the pool of
+  nodes which are known to have a given service enabled.
+  * Priority: Major
+  * Issues: [CCBC-611](http://issues.couchbase.com/browse/CCBC-611)
+
+* Ensure ketama/Memcached-bucket hashing works correctly when non-data nodes
+  are part of the cluster. In previous versions, ketama hashing would incorrectly
+  consider all nodes as candidates for keys, which would result in some items
+  being routed to non-data nodes, resulting in odd errors and inaccessible
+  data. This is only an issue for the still-unreleased Couchbase 4.0.
+  * Priority: Major
+  * Issues: [CCBC-613](http://issues.couchbase.com/browse/CCBC-613)
+
+* Set `TCP_NODELAY` as a server side option, if it's enabled on the client.
+  This uses the `HELLO` protocol functionality to enable this feature, if
+  this feature is also enabled on the client (enabled by default).
+
+
+New features in 2.5.1
+
+* Add `cmake/configure` option for enabling the embedding of the libevent
+  plugin. This option, named `--enable-embedded-libevent-plugin`, will cause
+  the plugin to be linked in with the core library (_libcouchbase_) rather
+  than built as its own object
+  * Priority: Minor
+
+* Add new combined "Store-with-durability" operation. This new API, called
+  `lcb_storedur3()` allows specifying the storage input options as well as
+  the associated durability options in a single command. Likewise, the status
+  of the operation (including durability) is returned in the operation's
+  callback.
+  * Priority: Major
+  * Issues: [CCBC-616](http://issues.couchbase.com/browse/CCBC-616)
+
+
 ## 2.5.0 (May 12 2015)
 
 This change in the major version number signals the addition of new features

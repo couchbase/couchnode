@@ -37,15 +37,6 @@ typedef struct mc_SERVER_st {
     /** Pipeline object for command queues */
     mc_PIPELINE pipeline;
 
-    /** The server endpoint as hostname:port */
-    char *datahost;
-
-    /** The Couchbase Views API endpoint base */
-    char *viewshost;
-
-    /** The REST API server as hostname:port */
-    char *resthost;
-
     /** Pointer back to the instance */
     lcb_t instance;
 
@@ -58,7 +49,7 @@ typedef struct mc_SERVER_st {
     short compsupport;
 
     /** Whether extended 'UUID' and 'seqno' are available for each mutation */
-    short synctokens;
+    short mutation_tokens;
 
     /** IO/Operation timer */
     lcbio_pTIMER io_timer;
@@ -81,9 +72,6 @@ typedef struct mc_SERVER_st {
  */
 mc_SERVER *
 mcserver_alloc(lcb_t instance, int ix);
-
-mc_SERVER *
-mcserver_alloc2(lcb_t instance, lcbvb_CONFIG* vbc, int ix);
 
 /**
  * Close the server. The resources of the server may still continue to persist

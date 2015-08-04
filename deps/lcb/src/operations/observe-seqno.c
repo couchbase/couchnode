@@ -56,16 +56,16 @@ lcb_observe_seqno3(lcb_t instance, const void *cookie, const lcb_CMDOBSEQNO *cmd
     return LCB_SUCCESS;
 }
 
-const lcb_SYNCTOKEN *
-lcb_resp_get_synctoken(int cbtype, const lcb_RESPBASE *rb)
+const lcb_MUTATION_TOKEN *
+lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb)
 {
-    const lcb_SYNCTOKEN *ss = NULL;
+    const lcb_MUTATION_TOKEN *ss = NULL;
     if (cbtype == LCB_CALLBACK_STORE) {
-        ss = &((const lcb_RESPSTORE*)rb)->synctoken;
+        ss = &((const lcb_RESPSTORE*)rb)->mutation_token;
     } else if (cbtype == LCB_CALLBACK_COUNTER) {
-        ss = &((const lcb_RESPCOUNTER*)rb)->synctoken;
+        ss = &((const lcb_RESPCOUNTER*)rb)->mutation_token;
     } else if (cbtype == LCB_CALLBACK_REMOVE) {
-        ss = &((const lcb_RESPREMOVE*)rb)->synctoken;
+        ss = &((const lcb_RESPREMOVE*)rb)->mutation_token;
     } else {
         return NULL;
     }
@@ -75,12 +75,12 @@ lcb_resp_get_synctoken(int cbtype, const lcb_RESPBASE *rb)
     return ss;
 }
 
-const lcb_SYNCTOKEN *
-lcb_get_synctoken(lcb_t instance, const lcb_KEYBUF *kb, lcb_error_t *errp)
+const lcb_MUTATION_TOKEN *
+lcb_get_mutation_token(lcb_t instance, const lcb_KEYBUF *kb, lcb_error_t *errp)
 {
     int vbix, srvix;
     lcb_error_t err_s;
-    const lcb_SYNCTOKEN *existing;
+    const lcb_MUTATION_TOKEN *existing;
 
     if (!errp) {
         errp = &err_s;
@@ -94,20 +94,20 @@ lcb_get_synctoken(lcb_t instance, const lcb_KEYBUF *kb, lcb_error_t *errp)
         *errp = LCB_NOT_SUPPORTED;
         return NULL;
     }
-    if (!LCBT_SETTING(instance, fetch_synctokens)) {
+    if (!LCBT_SETTING(instance, fetch_mutation_tokens)) {
         *errp = LCB_NOT_SUPPORTED;
         return NULL;
     }
 
     if (!instance->dcpinfo) {
-        *errp = LCB_DURABILITY_NO_SYNCTOKEN;
+        *errp = LCB_DURABILITY_NO_MUTATION_TOKENS;
         return NULL;
     }
 
     mcreq_map_key(&instance->cmdq, kb, kb, 0, &vbix, &srvix);
     existing = instance->dcpinfo + vbix;
     if (existing->uuid_ == 0 && existing->seqno_ == 0) {
-        *errp = LCB_DURABILITY_NO_SYNCTOKEN;
+        *errp = LCB_DURABILITY_NO_MUTATION_TOKENS;
         return NULL;
     }
     *errp = LCB_SUCCESS;

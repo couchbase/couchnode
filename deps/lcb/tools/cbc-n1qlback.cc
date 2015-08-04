@@ -37,6 +37,7 @@
 #include <unistd.h> // isatty()
 #endif
 #include "common/options.h"
+#include "common/histogram.h"
 
 using namespace cbc;
 using namespace cliopts;
@@ -44,6 +45,12 @@ using std::vector;
 using std::string;
 using std::cerr;
 using std::endl;
+
+#ifndef _WIN32
+static bool use_ansi_codes = true;
+#else
+static bool use_ansi_codes = false;
+#endif
 
 static void do_or_die(lcb_error_t rc)
 {
@@ -57,16 +64,28 @@ static void do_or_die(lcb_error_t rc)
 class Metrics {
 public:
     Metrics()
-    : n_rows(0), n_queries(0), n_errors(0) {
-        last_update = time(NULL);
+    : n_rows(0), n_queries(0), n_errors(0), last_update(time(NULL)), hg(NULL)
+    {
+        #ifndef _WIN32
+        if (pthread_mutex_init(&m_lock, NULL) != 0) {
+            abort();
+        }
+        #endif
+        start_time = last_update;
     }
 
     void update_row(size_t n = 1) { n_rows += n; update_display(); }
     void update_done(size_t n = 1) { n_queries += n; update_display(); }
     void update_error(size_t n = 1) { n_errors += n; update_display(); }
 
+    void update_timings(lcb_U64 duration) {
+        if (hg != NULL) {
+            hg->record(duration);
+        }
+    }
+
 #ifndef _WIN32
-    bool is_tty() const { return isatty(STDERR_FILENO); }
+    bool is_tty() const { return isatty(STDOUT_FILENO); }
     void lock() { pthread_mutex_lock(&m_lock); }
     void unlock() { pthread_mutex_unlock(&m_lock); }
 #else
@@ -76,18 +95,22 @@ public:
 #endif
     void prepare_screen()
     {
-        if (is_tty()) {
+        if (is_tty() && use_ansi_codes) {
             printf("\n\n\n");
+        }
+    }
+
+    void prepare_timings()
+    {
+        if (hg == NULL) {
+            hg = new Histogram();
+            hg->installStandalone(stdout);
         }
     }
 
 private:
     void update_display()
     {
-        if (!is_tty()) {
-            return;
-        }
-
         time_t now = time(NULL);
         time_t duration = now - last_update;
 
@@ -97,11 +120,32 @@ private:
 
         last_update = now;
 
-        // Move up 3 cursors
-        printf("\x1B[2A");
-        printf("\x1B[KQUERIES/SEC: %lu\n", n_queries / duration);
-        printf("\x1B[KROWS/SEC:    %lu\n", n_rows / duration);
-        printf("\x1B[KERRORS:      %lu\r", n_errors);
+        const char *prefix = use_ansi_codes ? "\x1B[K" : "";
+        const char *final_suffix;
+
+        // Only use "ticker" style updates if we're a TTY and we have no
+        // following timings.
+        if (use_ansi_codes && is_tty() && hg == NULL) {
+            // Move up 3 cursors
+            printf("\x1B[2A");
+            prefix = "\x1B[K";
+            final_suffix = "\r";
+        } else {
+            // Determine the total number of time
+            unsigned total_duration = now - start_time;
+            printf("\n"); // Clear line..
+            printf("+%us\n", total_duration);
+            prefix = "";
+            final_suffix = "\n";
+        }
+
+        printf("%sQUERIES/SEC: %lu\n", prefix, n_queries / duration);
+        printf("%sROWS/SEC:    %lu\n", prefix, n_rows / duration);
+        printf("%sERRORS:      %lu%s", prefix, n_errors, final_suffix);
+
+        if (hg != NULL) {
+            hg->write();
+        }
         fflush(stdout);
 
         n_queries = 0;
@@ -112,6 +156,8 @@ private:
     size_t n_queries;
     size_t n_errors;
     time_t last_update;
+    time_t start_time;
+    cbc::Histogram *hg;
 #ifndef _WIN32
     pthread_mutex_t m_lock;
 #endif
@@ -156,6 +202,9 @@ public:
         while (std::getline(ifs, curline).good() && !ifs.eof()) {
             m_queries.push_back(curline);
         }
+        if (m_params.useTimings()) {
+            GlobalMetrics.prepare_timings();
+        }
     }
 
     void set_cropts(lcb_create_st &opts) { m_params.fillCropts(opts); }
@@ -171,6 +220,16 @@ private:
 
 extern "C" { static void n1qlcb(lcb_t, int, const lcb_RESPN1QL *resp); }
 extern "C" { static void* pthrfunc(void*); }
+
+class ThreadContext;
+struct QueryContext {
+    lcb_U64 begin;
+    bool received; // whether any row was received
+    ThreadContext *ctx; // Parent
+
+    QueryContext(ThreadContext *tctx)
+    : begin(lcb_nstime()), received(false), ctx(tctx) {}
+};
 
 class ThreadContext {
 public:
@@ -215,8 +274,17 @@ public:
     void join() {}
 #endif
 
-    void handle_response(const lcb_RESPN1QL *resp)
+    void handle_response(const lcb_RESPN1QL *resp, QueryContext *ctx)
     {
+        if (!ctx->received) {
+            lcb_U64 duration = lcb_nstime() - ctx->begin;
+            m_metrics->lock();
+            m_metrics->update_timings(duration);
+            m_metrics->unlock();
+
+            ctx->received = true;
+        }
+
         if (resp->rflags & LCB_RESP_F_FINAL) {
             if (resp->rc != LCB_SUCCESS) {
                 log_error(resp->rc);
@@ -257,7 +325,10 @@ private:
         m_cmd.query = txt.c_str();
         m_cmd.nquery = txt.size();
 
-        lcb_error_t rc = lcb_n1ql_query(m_instance, this, &m_cmd);
+        // Set up our context
+        QueryContext qctx(this);
+
+        lcb_error_t rc = lcb_n1ql_query(m_instance, &qctx, &m_cmd);
         if (rc != LCB_SUCCESS) {
             log_error(rc);
         } else {
@@ -285,7 +356,8 @@ private:
 
 static void n1qlcb(lcb_t, int, const lcb_RESPN1QL *resp)
 {
-    reinterpret_cast<ThreadContext*>(resp->cookie)->handle_response(resp);
+    QueryContext *qctx = reinterpret_cast<QueryContext*>(resp->cookie);
+    qctx->ctx->handle_response(resp, qctx);
 }
 
 static void* pthrfunc(void *arg)
@@ -342,6 +414,8 @@ static void real_main(int argc, char **argv) {
         instances.push_back(instance);
     }
 
+    GlobalMetrics.prepare_screen();
+
     for (size_t ii = 0; ii < threads.size(); ++ii) {
         threads[ii]->start();
     }
@@ -355,7 +429,6 @@ static void real_main(int argc, char **argv) {
 
 int main(int argc, char **argv)
 {
-    GlobalMetrics.prepare_screen();
     try {
         real_main(argc, argv);
         return 0;

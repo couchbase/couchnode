@@ -85,6 +85,7 @@ typedef struct lcb_DURSET_st {
     unsigned refcnt; /**< Reference count */
     unsigned next_state; /**< Internal state */
     lcb_error_t lasterr;
+    int is_durstore; /** Whether the callback should be DURSTORE */
     lcb_string kvbufs; /**< Backing storage for key buffers */
     const void *cookie; /**< User cookie */
     hrtime_t ns_timeout; /**< Timestamp of next timeout */
@@ -106,6 +107,10 @@ lcbdur_cas_update(lcb_t instance, lcb_DURSET *dset, lcb_error_t err,
 void
 lcbdur_update_seqno(lcb_t instance, lcb_DURSET *dset,
     const lcb_RESPOBSEQNO *resp);
+
+/** Indicate that this durability command context is for an original storage op */
+void
+lcbdurctx_set_durstore(lcb_MULTICMD_CTX *ctx, int enabled);
 
 lcb_MULTICMD_CTX *
 lcb_observe_ctx_dur_new(lcb_t instance);

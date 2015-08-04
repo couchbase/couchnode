@@ -125,7 +125,7 @@ lcb_n1p_posparam(lcb_N1QLPARAMS *params, const char *value, size_t nvalue)
     (sizeof(SCANVEC_BASEFMT) + (DIGITS_64 * 2) + DIGITS_16 + 5)
 
 lcb_error_t
-lcb_n1p_synctoken(lcb_N1QLPARAMS *params, const lcb_SYNCTOKEN *sv)
+lcb_n1p_mutation_token(lcb_N1QLPARAMS *params, const lcb_MUTATION_TOKEN *sv)
 {
     size_t np;
 
@@ -163,7 +163,7 @@ lcb_n1p_setconsistency(lcb_N1QLPARAMS *params, int mode)
     case LCB_N1P_CONSISTENCY_NONE:
     case LCB_N1P_CONSISTENCY_REQUEST:
     case LCB_N1P_CONSISTENCY_RYOW:
-    case LCB_N1P_CONSISTENCY_STATMENT:
+    case LCB_N1P_CONSISTENCY_STATEMENT:
         params->consist_type = mode;
         return LCB_SUCCESS;
     default:
@@ -248,7 +248,7 @@ lcb_n1p_encode(lcb_N1QLPARAMS *params, lcb_error_t *err)
         }
     } else if (params->consist_type == LCB_N1P_CONSISTENCY_REQUEST) {
         set_reqbuf_optz(params, PARAM_CONSISTENT, "request_plus");
-    } else if (params->consist_type == LCB_N1P_CONSISTENCY_STATMENT) {
+    } else if (params->consist_type == LCB_N1P_CONSISTENCY_STATEMENT) {
         set_reqbuf_optz(params, PARAM_CONSISTENT, "statement_plus");
     } else if (params->consist_type == LCB_N1P_CONSISTENCY_NONE) {
         /* Nothing */

@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include <libcouchbase/vbucket.h>
 #include <libcouchbase/views.h>
 #include <libcouchbase/n1ql.h>
@@ -28,9 +29,12 @@ string getRespKey(const lcb_RESPBASE* resp)
 }
 
 static void
-printKeyError(string& key, lcb_error_t err)
+printKeyError(string& key, lcb_error_t err, const char *additional = NULL)
 {
     fprintf(stderr, "%-20s %s (0x%x)\n", key.c_str(), lcb_strerror(NULL, err), err);
+    if (additional) {
+        fprintf(stderr, "%-20s%s\n", "", additional);
+    }
 }
 
 static void
@@ -42,7 +46,7 @@ printKeyCasStatus(string& key, int cbtype, const lcb_RESPBASE *resp,
         fprintf(stderr, "%s ", message);
     }
     fprintf(stderr, "CAS=0x%"PRIx64"\n", resp->cas);
-    const lcb_SYNCTOKEN *st = lcb_resp_get_synctoken(cbtype, resp);
+    const lcb_MUTATION_TOKEN *st = lcb_resp_get_mutation_token(cbtype, resp);
     if (st != NULL) {
         fprintf(stderr, "%-20sSYNCTOKEN=%u,%"PRIu64",%"PRIu64"\n",
             "", st->vbid_, st->uuid_, st->seqno_);
@@ -67,17 +71,34 @@ get_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPGET *resp)
 }
 
 static void
-store_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPSTORE *resp)
+store_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPBASE *resp)
 {
     string key = getRespKey((const lcb_RESPBASE*)resp);
-    if (resp->rc == LCB_SUCCESS) {
-        printKeyCasStatus(key, cbtype, (const lcb_RESPBASE *)resp, "Stored.");
-        if (resp->cookie != NULL) {
-            map<string,lcb_cas_t>& items = *(map<string,lcb_cas_t>*)resp->cookie;
-            items[key] = resp->cas;
+
+    if (cbtype == LCB_CALLBACK_STOREDUR) {
+        // Storage with durability
+        const lcb_RESPSTOREDUR *dresp =
+                reinterpret_cast<const lcb_RESPSTOREDUR *>(resp);
+        char buf[4096];
+        if (resp->rc == LCB_SUCCESS) {
+            sprintf(buf, "Stored. Persisted(%u). Replicated(%u)",
+                dresp->dur_resp->npersisted, dresp->dur_resp->nreplicated);
+            printKeyCasStatus(key, cbtype, resp, buf);
+        } else {
+            if (dresp->store_ok) {
+                sprintf(buf, "Store OK, but durability failed. Persisted(%u). Replicated(%u)",
+                    dresp->dur_resp->npersisted, dresp->dur_resp->nreplicated);
+            } else {
+                sprintf(buf, "%s", "Store failed");
+            }
+            printKeyError(key, resp->rc, buf);
         }
     } else {
-        printKeyError(key, resp->rc);
+        if (resp->rc == LCB_SUCCESS) {
+            printKeyCasStatus(key, cbtype, resp, "Stored.");
+        } else {
+            printKeyError(key, resp->rc);
+        }
     }
 }
 
@@ -96,14 +117,6 @@ common_callback(lcb_t, int type, const lcb_RESPBASE *resp)
     case LCB_CALLBACK_REMOVE:
         printKeyCasStatus(key, type, resp, "Deleted.");
         break;
-    case LCB_CALLBACK_ENDURE: {
-        const lcb_RESPENDURE *er = (const lcb_RESPENDURE*)resp;
-        char s_tmp[4006];
-        sprintf(s_tmp, "Persisted(%u). Replicated(%u).",
-            er->npersisted, er->nreplicated);
-        printKeyCasStatus(key, type, resp, s_tmp);
-        break;
-    }
     default:
         abort(); // didn't request it
     }
@@ -174,7 +187,16 @@ stats_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
     }
     fprintf(stdout, "%s\t%s", server.c_str(), key.c_str());
     if (!value.empty()) {
-        fprintf(stdout, "\t%s", value.c_str());
+        if (*static_cast<bool*>(resp->cookie) && key == "key_flags") {
+            // Is keystats
+            // Flip the bits so the display formats correctly
+            unsigned flags_u = 0;
+            sscanf(value.c_str(), "%u", &flags_u);
+            flags_u = htonl(flags_u);
+            fprintf(stdout, "\t%u (cbc: converted via htonl)", flags_u);
+        } else {
+            fprintf(stdout, "\t%s", value.c_str());
+        }
     }
     fprintf(stdout, "\n");
 }
@@ -396,50 +418,11 @@ GetHandler::run()
     lcb_wait(instance);
 }
 
-static void
-endureItems(lcb_t instance, const map<string,lcb_cas_t> items,
-    int persist_to, int replicate_to)
-{
-    lcb_install_callback3(instance, LCB_CALLBACK_ENDURE, common_callback);
-    lcb_durability_opts_t options = { 0 };
-    if (persist_to < 0 || replicate_to < 0) {
-        options.v.v0.cap_max = 1;
-    }
-    options.v.v0.persist_to = persist_to;
-    options.v.v0.replicate_to = replicate_to;
-    lcb_error_t err;
-
-    lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &options, &err);
-    if (mctx == NULL) {
-        throw err;
-    }
-
-    map<string,lcb_cas_t>::const_iterator iter;
-    for (iter = items.begin(); iter != items.end(); ++iter) {
-        lcb_CMDENDURE cmd = { 0 };
-        LCB_KREQ_SIMPLE(&cmd.key, iter->first.c_str(), iter->first.size());
-        cmd.cas = iter->second;
-        err = mctx->addcmd(mctx, (lcb_CMDBASE *)&cmd);
-        if (err != LCB_SUCCESS) {
-            throw err;
-        }
-    }
-
-    lcb_sched_enter(instance);
-    err = mctx->done(mctx, NULL);
-    if (err == LCB_SUCCESS) {
-        lcb_sched_leave(instance);
-    } else {
-        lcb_sched_fail(instance);
-        throw err;
-    }
-    lcb_wait(instance);
-}
-
 void
 SetHandler::addOptions()
 {
     Handler::addOptions();
+    parser.addOption(o_mode);
     parser.addOption(o_flags);
     parser.addOption(o_exp);
     parser.addOption(o_add);
@@ -452,15 +435,41 @@ SetHandler::addOptions()
     // parser.addOption(o_json);
 }
 
+lcb_storage_t
+SetHandler::mode()
+{
+    if (o_add.passed()) {
+        return LCB_ADD;
+    }
+
+    string s = o_mode.const_result();
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    if (s == "upsert") {
+        return LCB_SET;
+    } else if (s == "replace") {
+        return LCB_REPLACE;
+    } else if (s == "insert") {
+        return LCB_ADD;
+    } else if (s == "append") {
+        return LCB_APPEND;
+    } else if (s == "prepend") {
+        return LCB_PREPEND;
+    } else {
+        throw string("Mode must be one of upsert, insert, replace. Got ") + s;
+        return LCB_SET;
+    }
+}
+
 void
 SetHandler::storeItem(const string& key, const char *value, size_t nvalue)
 {
     lcb_error_t err;
-    lcb_CMDSTORE cmd = { 0 };
-    LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+    lcb_CMDSTOREDUR cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
     cmd.value.vtype = LCB_KV_COPY;
     cmd.value.u_buf.contig.bytes = value;
     cmd.value.u_buf.contig.nbytes = nvalue;
+    cmd.operation = mode();
 
     if (o_json.result()) {
         cmd.datatype = LCB_VALUE_F_JSON;
@@ -471,12 +480,13 @@ SetHandler::storeItem(const string& key, const char *value, size_t nvalue)
     if (o_flags.passed()) {
         cmd.flags = o_flags.result();
     }
-    if (o_add.passed() && o_add.result()) {
-        cmd.operation = LCB_ADD;
+    if (o_persist.passed() || o_replicate.passed()) {
+        cmd.persist_to = o_persist.result();
+        cmd.replicate_to = o_replicate.result();
+        err = lcb_storedur3(instance, NULL, &cmd);
     } else {
-        cmd.operation = LCB_SET;
+        err = lcb_store3(instance, NULL, reinterpret_cast<lcb_CMDSTORE*>(&cmd));
     }
-    err = lcb_store3(instance, &items, &cmd);
     if (err != LCB_SUCCESS) {
         throw err;
     }
@@ -499,6 +509,7 @@ SetHandler::run()
 {
     Handler::run();
     lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STOREDUR, (lcb_RESPCALLBACK)store_callback);
     const vector<string>& keys = parser.getRestArgs();
 
     lcb_sched_enter(instance);
@@ -528,9 +539,6 @@ SetHandler::run()
 
     lcb_sched_leave(instance);
     lcb_wait(instance);
-    if (items.empty() == false && (o_persist.passed() || o_replicate.passed())) {
-        endureItems(instance, items, o_persist.result(), o_replicate.result());
-    }
 }
 
 void
@@ -765,7 +773,8 @@ StatsHandler::run()
                 cmd.cmdflags = LCB_CMDSTATS_F_KV;
             }
         }
-        lcb_error_t err = lcb_stats3(instance, NULL, &cmd);
+        bool is_keystats = o_keystats.result();
+        lcb_error_t err = lcb_stats3(instance, &is_keystats, &cmd);
         if (err != LCB_SUCCESS) {
             throw err;
         }
@@ -984,9 +993,6 @@ N1qlHandler::run()
         throw rc;
     }
     fprintf(stderr, "Encoded query: %.*s\n", (int)cmd.nquery, cmd.query);
-    if (o_althost.passed()) {
-        cmd.host = o_althost.const_result().c_str();
-    }
     cmd.callback = n1qlCallback;
     rc = lcb_n1ql_query(instance, NULL, &cmd);
     if (rc != LCB_SUCCESS) {

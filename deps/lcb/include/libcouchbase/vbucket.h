@@ -118,6 +118,7 @@ typedef enum {
 typedef struct {
     lcbvb_DISTMODE dtype; /**< Type of bucket/distribution */
     unsigned nvb; /**< Number of vbuckets */
+    unsigned ndatasrv; /**< Number of data (memcached) servers */
     unsigned nsrv; /** Number of servers */
     unsigned nrepl; /**< Number of replicas */
     unsigned ncontinuum; /* number of continuum points */
@@ -130,10 +131,12 @@ typedef struct {
     lcbvb_VBUCKET *vbuckets; /* vbucket map */
     lcbvb_VBUCKET *ffvbuckets; /* fast-forward map */
     lcbvb_CONTINUUM *continuum; /* ketama continuums */
+    int *randbuf; /* Used for random server selection */
 } lcbvb_CONFIG;
 
 
 #define LCBVB_NSERVERS(cfg) (cfg)->nsrv
+#define LCBVB_NDATASERVERS(cfg) (cfg)->ndatasrv
 #define LCBVB_NREPLICAS(cfg) (cfg)->nrepl
 #define LCBVB_DISTTYPE(cfg) (cfg)->dtype
 #define LCBVB_GET_SERVER(conf, ix) ((conf)->servers + ix)
