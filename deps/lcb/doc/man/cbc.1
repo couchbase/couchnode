@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "April 2015" "" ""
+.TH "CBC" "1" "July 2015" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -68,6 +68,9 @@
 .
 .br
 \fBcbc connstr\fR \fISPEC\fR
+.
+.br
+\fBcbc n1ql\fR \fIQUERY\fR \.\.\. [\fIOPTIONS\fR]
 .
 .br
 .
@@ -194,8 +197,8 @@ A 32 bit unsigned integer to be stored alongside the value\. This number is retu
 The number of time in seconds from now at which the item should expire\.
 .
 .TP
-\fBa\fR, \fB\-\-add\fR
-Fail the operation if the item already exists in the cluster\. Without specifying this option, if an existing item is already stored under the specified key
+\fBM\fR, \fB\-\-mode\fR=\fIupsert|insert|replace\fR
+Specify the storage mode\. Mode can be one of \fBinsert\fR (store item if it does not yet exist), \fBreplace\fR (only store item if key already exists), or \fBupsert\fR (unconditionally store item)
 .
 .TP
 \fBp\fR, \fB\-\-persist\-to\fR=\fINUMNODES\fR
@@ -325,6 +328,26 @@ In addition to the \fIOPTIONS\fR specified above, the following options are reco
 .TP
 \fB\-X\fR, \fB\-\-method\fR=\fIGET|PUT|POST|DELETE\fR
 Specify the HTTP method to use for the specific request\. The default method is \fBGET\fR to query a view\. To delete an existing design document, specify \fBDELETE\fR, and to create a new design document, specify \fBPUT\fR\.
+.
+.SS "n1ql"
+Execute a N1QL Query\. The cluster must have at least one query node enabled\.
+.
+.P
+The query itself is passed as a positional argument on the commandline\. The query may contain named placeholders (in the format of \fB$param\fR), whose values may be supplied later on using the \fB\-\-qarg=\'$param=value\'\fR syntax\.
+.
+.P
+It is recommended to place the statement in single quotes to avoid shell expansion\.
+.
+.P
+In addition to the \fIOPTIONS\fR specified above, the following options are recognized:
+.
+.TP
+\fB\-Q\fR, \fB\-\-qopt\fR=\fISETTING=VALUE\fR
+Specify additional options controlling the execution of the query\. This can be used for example, to set the \fBscan_consistency\fR of the query\.
+.
+.TP
+\fB\-A\fR, \fB\-\-qarg\fR=\fIPLACEHOLDER=VALUE\fR
+Supply values for placeholders found in the query string\. The placeholders must evaluate to valid JSON values\.
 .
 .SS "admin"
 Execute an administrative request against the management REST API\. Note that in order to perform an administrative API you will need to provide \fIadministrative\fR credentials to \fBcbc admin\fR\. This means the username and password used to log into the administration console\.
@@ -676,8 +699,21 @@ $ cbc view _design/blog/_view/all?limit=5
 .
 .IP "" 0
 .
+.P
+Issue a N1QL query:
+.
+.IP "" 4
+.
+.nf
+
+$ cbc n1ql \'SELECT * FROM `travel\-sample` WHERE type="airport" AND city=$city\' \-Qscan_consistency=request_plus \-A\'$city=\e"Reno\e"\'
+.
+.fi
+.
+.IP "" 0
+.
 .SH "FILES"
-cbc(1) and cbc\-pillowfight(1) may also read options from cbcrc(4)
+cbc(1) and cbc\-pillowfight(1) may also read options from cbcrc(4)\. The default path for \fBcbcrc\fR is \fB$HOME/\.cbcrc\fR, but may be overridden by setting the \fBCBC_CONFIG\fR evironment variable to an alternate path\.
 .
 .SH "BUGS"
 The options in this utility and their behavior are subject to change\. This script should be used for experiemntation only and not inside production scripts\.

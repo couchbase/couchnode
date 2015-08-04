@@ -55,15 +55,19 @@ class SetHandler : public Handler {
 public:
     SetHandler(const char *name = "create") : Handler(name),
         o_flags("flags"), o_exp("expiry"), o_add("add"), o_persist("persist-to"),
-        o_replicate("replicate-to"), o_value("value"), o_json("json") {
+        o_replicate("replicate-to"), o_value("value"), o_json("json"),
+        o_mode("mode") {
 
         o_flags.abbrev('f').description("Flags for item");
         o_exp.abbrev('e').description("Expiry for item");
-        o_add.abbrev('a').description("Fail if item exists");
+        o_add.abbrev('a').description("Fail if item exists").hide();
         o_persist.abbrev('p').description("Wait until item is persisted to this number of nodes");
         o_replicate.abbrev('r').description("Wait until item is replicated to this number of nodes");
         o_value.abbrev('V').description("Value to use. If unspecified, read from standard input");
         o_json.abbrev('J').description("Indicate to the server that this item is JSON");
+        o_mode.abbrev('M').description("Mode to use when storing");
+        o_mode.argdesc("upsert|insert|replace");
+        o_mode.setDefault("upsert");
     }
 
     const char* description() const {
@@ -84,6 +88,8 @@ public:
 
     bool hasFileList() const { return cmdname == "cp"; }
 
+    virtual lcb_storage_t mode();
+
 protected:
     void run();
     void addOptions();
@@ -98,6 +104,7 @@ private:
     cliopts::IntOption o_replicate;
     cliopts::StringOption o_value;
     cliopts::BoolOption o_json;
+    cliopts::StringOption o_mode;
     std::map<std::string, lcb_cas_t> items;
 };
 
@@ -259,10 +266,7 @@ private:
 
 class N1qlHandler : public Handler {
 public:
-    N1qlHandler() : Handler("view"),
-        o_args("qarg"),
-        o_opts("qopt"),
-        o_althost("n1ql-host") {}
+    N1qlHandler() : Handler("view"), o_args("qarg"), o_opts("qopt") {}
     HANDLER_DESCRIPTION("Execute a N1QL Query")
     HANDLER_USAGE("QUERY [--qarg PARAM1=VALUE1 --qopt PARAM2=VALUE2]")
 
@@ -273,18 +277,18 @@ protected:
         Handler::addOptions();
         o_args.description(
             "Specify values for placeholders (can be specified multiple times");
+        o_args.abbrev('A');
         o_args.argdesc("PLACEHOLDER_PARAM=PLACEHOLDER_VALUE");
 
         o_opts.description("Additional query options");
-        o_althost.description("Specify alternate query host");
+        o_opts.abbrev('Q');
+
         parser.addOption(o_args);
         parser.addOption(o_opts);
-        parser.addOption(o_althost);
     }
 private:
     cliopts::ListOption o_args;
     cliopts::ListOption o_opts;
-    cliopts::StringOption o_althost;
 };
 
 class HttpReceiver {

@@ -23,6 +23,7 @@
 `cbc bucket-delete` _-P PASSWORD_ _NAME_ [_OPTIONS_]<br>
 `cbc bucket-flush` _NAME_ [_OPTIONS_]<br>
 `cbc connstr` _SPEC_<br>
+`cbc n1ql` _QUERY_ ... [_OPTIONS_]<br>
 
 ## DESCRIPTION
 
@@ -166,9 +167,10 @@ In addition to the options in the [OPTIONS](#OPTIONS) section, the following opt
 * `e`, `--expiry`=_EXPIRATION_:
   The number of time in seconds from now at which the item should expire.
 
-* `a`, `--add`:
-  Fail the operation if the item already exists in the cluster. Without specifying
-  this option, if an existing item is already stored under the specified key
+* `M`, `--mode`=_upsert|insert|replace_:
+  Specify the storage mode. Mode can be one of `insert` (store item if it does
+  not yet exist), `replace` (only store item if key already exists), or
+  `upsert` (unconditionally store item)
 
 * `p`, `--persist-to`=_NUMNODES_:
   Wait until the item has been persisted to at least `NUMNODES` nodes' disk. If
@@ -330,6 +332,27 @@ In addition to the [OPTIONS](#OPTIONS) specified above, the following options ar
   to query a view. To delete an existing design document, specify `DELETE`, and to
   create a new design document, specify `PUT`.
 
+### n1ql
+
+Execute a N1QL Query. The cluster must have at least one query node enabled.
+
+The query itself is passed as a positional argument on the commandline. The
+query may contain named placeholders (in the format of `$param`), whose values
+may be supplied later on using the `--qarg='$param=value'` syntax.
+
+It is recommended to place the statement in single quotes to avoid shell
+expansion.
+
+In addition to the [OPTIONS](#OPTIONS) specified above, the following options
+are recognized:
+
+* `-Q`, `--qopt`=_SETTING=VALUE_:
+  Specify additional options controlling the execution of the query. This can
+  be used for example, to set the `scan_consistency` of the query.
+
+* `-A`, `--qarg`=_PLACEHOLDER=VALUE_:
+  Supply values for placeholders found in the query string. The placeholders
+  must evaluate to valid JSON values.
 
 ### admin
 
@@ -550,9 +573,15 @@ Query a view:
     }
 
 
+Issue a N1QL query:
+
+    $ cbc n1ql 'SELECT * FROM `travel-sample` WHERE type="airport" AND city=$city' -Qscan_consistency=request_plus -A'$city=\"Reno\"'
+
 ## FILES
 
-cbc(1) and cbc-pillowfight(1) may also read options from cbcrc(4)
+cbc(1) and cbc-pillowfight(1) may also read options from cbcrc(4). The default
+path for `cbcrc` is `$HOME/.cbcrc`, but may be overridden by setting the
+`CBC_CONFIG` evironment variable to an alternate path.
 
 ## BUGS
 

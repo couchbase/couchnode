@@ -8,15 +8,15 @@ extern "C" {
 static void storeCb_getstok(lcb_t, int cbtype, const lcb_RESPBASE *rb)
 {
     EXPECT_EQ(LCB_SUCCESS, rb->rc);
-    const lcb_SYNCTOKEN *tmp = lcb_resp_get_synctoken(cbtype, rb);
+    const lcb_MUTATION_TOKEN *tmp = lcb_resp_get_mutation_token(cbtype, rb);
     if (tmp) {
-        *(lcb_SYNCTOKEN *)rb->cookie = *tmp;
+        *(lcb_MUTATION_TOKEN *)rb->cookie = *tmp;
     }
 }
 }
 
 static void
-storeGetStok(lcb_t instance, const string& k, const string& v, lcb_SYNCTOKEN *st)
+storeGetStok(lcb_t instance, const string& k, const string& v, lcb_MUTATION_TOKEN *st)
 {
     lcb_RESPCALLBACK oldcb = lcb_get_callback3(instance, LCB_CALLBACK_STORE);
     lcb_install_callback3(instance, LCB_CALLBACK_STORE, storeCb_getstok);
@@ -42,17 +42,17 @@ TEST_F(ObseqnoTest, testFetchImplicit) {
     const char *key = "obseqBasic";
     const char *value = "value";
 
-    rc = lcb_cntl_string(instance, "dur_synctokens", "true");
+    rc = lcb_cntl_string(instance, "dur_mutation_tokens", "true");
     ASSERT_EQ(LCB_SUCCESS, rc);
 
-    lcb_SYNCTOKEN st_fetched = { 0 };
+    lcb_MUTATION_TOKEN st_fetched = { 0 };
     storeGetStok(instance, key, value, &st_fetched);
     ASSERT_TRUE(st_fetched.uuid_ != 0);
 
     lcb_KEYBUF kb;
     LCB_KREQ_SIMPLE(&kb, key, strlen(key));
 
-    const lcb_SYNCTOKEN *ss = lcb_get_synctoken(instance, &kb, &rc);
+    const lcb_MUTATION_TOKEN *ss = lcb_get_mutation_token(instance, &kb, &rc);
     ASSERT_EQ(LCB_SUCCESS, rc);
     ASSERT_TRUE(ss != NULL);
     ASSERT_EQ(ss->uuid_, st_fetched.uuid_);
@@ -69,7 +69,7 @@ obseqCallback(lcb_t, int, const lcb_RESPBASE *rb) {
 }
 
 static void
-doObserveSeqno(lcb_t instance, const lcb_SYNCTOKEN *ss, int server, lcb_RESPOBSEQNO& resp) {
+doObserveSeqno(lcb_t instance, const lcb_MUTATION_TOKEN *ss, int server, lcb_RESPOBSEQNO& resp) {
     lcb_CMDOBSEQNO cmd = { 0 };
     cmd.vbid = ss->vbid_;
     cmd.uuid = ss->uuid_;
@@ -102,13 +102,13 @@ TEST_F(ObseqnoTest, testObserve) {
 
     lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
 
-    lcb_SYNCTOKEN st_fetched = { 0 };
+    lcb_MUTATION_TOKEN st_fetched = { 0 };
     const char *key = "testObserve";
     const char *value = "value";
 
     // Get the synctoken
     storeGetStok(instance, key, value, &st_fetched);
-    ASSERT_TRUE(LCB_SYNCTOKEN_ISVALID(&st_fetched));
+    ASSERT_TRUE(LCB_MUTATION_TOKEN_ISVALID(&st_fetched));
 
     for (size_t ii = 0; ii < lcbvb_get_nreplicas(vbc)+1; ii++) {
         int ix = lcbvb_vbserver(vbc, st_fetched.vbid_, ii);
@@ -134,7 +134,7 @@ TEST_F(ObseqnoTest, testFailoverFormat) {
     const char *key = "testObserve";
     const char *value = "value";
 
-    lcb_SYNCTOKEN st_fetched = { 0 };
+    lcb_MUTATION_TOKEN st_fetched = { 0 };
     storeGetStok(instance, key, value, &st_fetched);
 
     MockEnvironment *env = MockEnvironment::getInstance();

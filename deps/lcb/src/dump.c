@@ -65,7 +65,7 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
         mc_PIPELINE *pl = instance->cmdq.pipelines[ii];
 
         server = (mc_SERVER *)pl;
-        fprintf(fp, "** [%u] SERVER %s\n", ii, server->datahost);
+        fprintf(fp, "** [%u] SERVER %s:%s\n", ii, server->curhost->host, server->curhost->port);
         if (server->connctx) {
             fprintf(fp, "** == BEGIN SOCKET INFO\n");
             lcbio_ctx_dump(server->connctx, fp);

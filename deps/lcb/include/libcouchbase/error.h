@@ -436,11 +436,11 @@ typedef enum {
     X(LCB_HTTP_ERROR, 0x3B, 0, \
       "HTTP Operation failed. Inspect status code for details") \
     \
-    /**Scheduling error received if @ref LCB_CNTL_DURABILITY_SYNCTOKENS was
-     enabled, but there is no available synctoken object for the key. */ \
-    X(LCB_DURABILITY_NO_SYNCTOKEN, 0x3C, LCB_ERRTYPE_INPUT, \
-      "The given item does not have a synctoken object associated with it. " \
-      "this is either because fetching synctokens was not enabled, or " \
+    /**Scheduling error received if @ref LCB_CNTL_DURABILITY_MUTATION_TOKENS was
+     enabled, but there is no available mutation token for the key. */ \
+    X(LCB_DURABILITY_NO_MUTATION_TOKENS, 0x3C, LCB_ERRTYPE_INPUT, \
+      "The given item does not have a mutation token associated with it. " \
+      "this is either because fetching mutation tokens was not enabled, or " \
       "you are trying to check on something not stored by this instance") \
     \
     /** The server replied with an unrecognized status code */ \

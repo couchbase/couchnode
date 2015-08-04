@@ -529,13 +529,13 @@ void lcb_destroy(lcb_t instance)
 
     DESTROY(lcbio_table_unref, iotable);
     DESTROY(lcb_settings_unref, settings);
+    DESTROY(lcb_histogram_destroy, kv_timings);
     if (instance->scratch) {
         lcb_string_release(instance->scratch);
         free(instance->scratch);
         instance->scratch = NULL;
     }
 
-    free(instance->histogram);
     free(instance->dcpinfo);
     memset(instance, 0xff, sizeof(*instance));
     free(instance);
@@ -681,6 +681,56 @@ LCB_INTERNAL_API void lcb_loop_unref(lcb_t instance) {
     lcb_maybe_breakout(instance);
 }
 
+LIBCOUCHBASE_API
+lcb_error_t lcb_enable_timings(lcb_t instance)
+{
+    if (instance->kv_timings != NULL) {
+        return LCB_KEY_EEXISTS;
+    }
+    instance->kv_timings = lcb_histogram_create();
+    return instance->kv_timings == NULL ? LCB_CLIENT_ENOMEM : LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API
+lcb_error_t lcb_disable_timings(lcb_t instance)
+{
+    if (instance->kv_timings == NULL) {
+        return LCB_KEY_ENOENT;
+    }
+    lcb_histogram_destroy(instance->kv_timings);
+    instance->kv_timings = NULL;
+    return LCB_SUCCESS;
+}
+
+typedef struct {
+    lcb_t instance;
+    const void *real_cookie;
+    lcb_timings_callback real_cb;
+} timings_wrapper;
+
+static void
+timings_wrapper_callback(const void *cookie, lcb_timeunit_t unit, lcb_U32 start,
+    lcb_U32 end, lcb_U32 val, lcb_U32 max)
+{
+    const timings_wrapper *wrap = cookie;
+    wrap->real_cb(wrap->instance, wrap->real_cookie, unit, start, end, val, max);
+}
+
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_get_timings(lcb_t instance, const void *cookie, lcb_timings_callback cb)
+{
+    timings_wrapper wrap;
+    wrap.instance = instance;
+    wrap.real_cookie = cookie;
+    wrap.real_cb = cb;
+
+    if (!instance->kv_timings) {
+        return LCB_KEY_ENOENT;
+    }
+    lcb_histogram_read(instance->kv_timings, &wrap, timings_wrapper_callback);
+    return LCB_SUCCESS;
+}
 
 LIBCOUCHBASE_API
 const char *lcb_strerror(lcb_t instance, lcb_error_t error)

@@ -806,15 +806,15 @@ typedef enum {
  *
  * @cntl_arg_both{int (as boolean)}
  */
-#define LCB_CNTL_FETCH_SYNCTOKENS 0x34
+#define LCB_CNTL_FETCH_MUTATION_TOKENS 0x34
 
 /**
  * @volatile
  *
  * This setting determines whether the lcb_durability_poll() function will
- * transparently attempt to use synctoken functionality (rather than checking
+ * transparently attempt to use mutation token functionality (rather than checking
  * the CAS). This option is most useful for older code which does
- * explicitly use synctokens but would like to use its benefits when
+ * explicitly use mutation tokens but would like to use its benefits when
  * ensuring durability constraints are satisfied.
  *
  * This option is enabled by default. Users may wish to disable this if they
@@ -827,19 +827,19 @@ typedef enum {
  *
  * @cntl_arg_both{int (as boolean)}
  */
-#define LCB_CNTL_DURABILITY_SYNCTOKENS 0x35
+#define LCB_CNTL_DURABILITY_MUTATION_TOKENS 0x35
 
 /**
  * @volatile
  *
- * This read-only property determines if the synctoken mechanism is supported
+ * This read-only property determines if the mutation token mechanism is supported
  * on the cluster itself. This will only be accurate once a single operation
  * has been performed on the cluster - or in other words, once a connection
  * to a data node has been established for the purposes of normal operations.
  *
  * @cntl_arg_getonly{int (as boolean)}
  */
-#define LCB_CNTL_SYNCTOKENS_SUPPORTED 0x38
+#define LCB_CNTL_MUTATION_TOKENS_SUPPORTED 0x38
 
 
 /**
@@ -858,7 +858,7 @@ typedef enum {
 #define LCB_CNTL_RESET_TIMEOUT_ON_WAIT 0x3A
 
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x3C
+#define LCB_CNTL__MAX                    0x3D
 /**@}*/
 
 #ifdef __cplusplus

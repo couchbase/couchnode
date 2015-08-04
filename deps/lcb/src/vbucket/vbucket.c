@@ -279,11 +279,11 @@ parse_ketama(lcbvb_CONFIG *cfg)
     unsigned char digest[16];
     lcbvb_CONTINUUM *new_continuum, *old_continuum;
 
-    qsort(cfg->servers, cfg->nsrv, sizeof(*cfg->servers), server_cmp);
+    qsort(cfg->servers, cfg->ndatasrv, sizeof(*cfg->servers), server_cmp);
 
-    new_continuum = calloc(160 * cfg->nsrv, sizeof(*new_continuum));
+    new_continuum = calloc(160 * cfg->ndatasrv, sizeof(*new_continuum));
     /* 40 hashes, 4 numbers per hash = 160 points per server */
-    for (ss = 0, pp = 0; ss < cfg->nsrv; ++ss) {
+    for (ss = 0, pp = 0; ss < cfg->ndatasrv; ++ss) {
         /* we can add more points to server which have more memory */
         for (hh = 0; hh < 40; ++hh) {
             lcbvb_SERVER *srv = cfg->servers + ss;
@@ -552,6 +552,15 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
         }
     }
 
+    /* Count the number of _data_ servers in the cluster. Per the spec,
+     * these will always appear in order (so that we won't ever have "holes") */
+    for (ii = 0; ii < cfg->nsrv; ii++) {
+        if (!cfg->servers[ii].svc.data) {
+            break;
+        }
+    }
+    cfg->ndatasrv = ii;
+
     if (cfg->dtype == LCBVB_DIST_VBUCKET) {
         if (!parse_vbucket(cfg, cj)) {
             SET_ERRSTR(cfg, "Failed to parse vBucket map");
@@ -563,6 +572,7 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
         }
     }
     cfg->servers = realloc(cfg->servers, sizeof(*cfg->servers) * cfg->nsrv);
+    cfg->randbuf = malloc(cfg->nsrv * sizeof(*cfg->randbuf));
     cJSON_Delete(cj);
     return 0;
 
@@ -675,6 +685,7 @@ lcbvb_destroy(lcbvb_CONFIG *conf)
     free(conf->bname);
     free(conf->vbuckets);
     free(conf->ffvbuckets);
+    free(conf->randbuf);
     free(conf);
 }
 
@@ -896,8 +907,8 @@ lcbvb_nmv_remap(lcbvb_CONFIG *cfg, int vbid, int bad)
     /* this path is usually only followed if fvbuckets is not present */
     if (cur == bad) {
         int validrv = -1;
-        for (ii = 0; ii < cfg->nsrv; ii++) {
-            rv = (rv + 1) % cfg->nsrv;
+        for (ii = 0; ii < cfg->ndatasrv; ii++) {
+            rv = (rv + 1) % cfg->ndatasrv;
             /* check that the new index has assigned vbuckets (master or replica) */
             if (cfg->servers[rv].nvbs) {
                 validrv = rv;
@@ -969,8 +980,12 @@ compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **out)
             found |= (strcmp(newsrv->authority, oldsrv->authority) == 0);
         }
         if (!found) {
-            out[offset] = strdup(newsrv->authority);
-            assert(out[offset]);
+            char *infostr = malloc(strlen(newsrv->authority) + 128);
+            assert(infostr);
+            sprintf(infostr, "%s(Data=%d, Index=%d, Query=%d)",
+                newsrv->authority,
+                newsrv->svc.data, newsrv->svc.n1ql, newsrv->svc.ixquery);
+            out[offset] = infostr;
             ++offset;
         }
     }
@@ -1124,13 +1139,14 @@ int
 lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
     lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
 {
-    size_t nn, nn_limit;
+    size_t nn, oix = 0;
 
-    nn = rand();
-    nn %= cfg->nsrv;
-    nn_limit = nn;
-
-    do {
+    /*
+     * Since not all nodes support all service types, we need to make it a
+     * fair selection by pre-filtering the nodes which actually support the
+     * service, and then proceed to actually select a suitable node.
+     */
+    for (nn = 0; nn < cfg->nsrv; nn++) {
         const lcbvb_SERVER *server = cfg->servers + nn;
         const lcbvb_SERVICES *svcs = mode == LCBVB_SVCMODE_PLAIN ?
                 &server->svc : &server->svc_ssl;
@@ -1145,11 +1161,18 @@ lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
                 (type == LCBVB_SVCTYPE_VIEWS && svcs->views);
 
         if (has_svc) {
-            return (int)nn;
+            cfg->randbuf[oix++] = (int)nn;
         }
-        nn = (nn + 1) % cfg->nsrv;
-    } while (nn != nn_limit);
-    return -1;
+    }
+
+    if (!oix) {
+        /* nothing supports it! */
+        return -1;
+    }
+
+    nn = rand();
+    nn %= oix;
+    return cfg->randbuf[nn];
 }
 
 LIBCOUCHBASE_API
@@ -1249,15 +1272,13 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     unsigned nservers, unsigned nreplica, unsigned nvbuckets)
 {
     unsigned ii, jj;
-    int srvix = 0;
+    int srvix = 0, in_nondata = 0;
 
     assert(nservers);
 
     if (!name) {
         name = "default";
     }
-
-#define INCR_SRVIX() srvix = (srvix + 1) % nservers
 
     memset(vb, 0, sizeof(*vb));
     vb->dtype = LCBVB_DIST_VBUCKET;
@@ -1279,6 +1300,25 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
         return -1;
     }
 
+    /* Count the number of data servers.. */
+    for (ii = 0; ii < nservers; ii++) {
+        const lcbvb_SERVER *server = servers + ii;
+        if (server->svc.data) {
+            if (in_nondata) {
+                vb->errstr = "All data servers must be specified before non-data servers";
+                return -1;
+            }
+            vb->ndatasrv++;
+        } else {
+            in_nondata = 1;
+        }
+    }
+
+    if (!vb->ndatasrv) {
+        vb->errstr = "No data servers in list";
+        return -1;
+    }
+
     vb->vbuckets = malloc(vb->nvb * sizeof(*vb->vbuckets));
     if (!vb->vbuckets) {
         vb->errstr = "Couldn't allocate vbucket array";
@@ -1289,13 +1329,15 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
         lcbvb_VBUCKET *cur = vb->vbuckets + ii;
         cur->servers[0] = srvix;
         for (jj = 1; jj < vb->nrepl+1; jj++) {
-            cur->servers[jj] = (srvix + jj) % vb->nsrv;
+            cur->servers[jj] = (srvix + jj) % vb->ndatasrv;
         }
-        INCR_SRVIX();
+        srvix = (srvix + 1) % vb->ndatasrv;
     }
 
-    vb->servers = calloc(nservers, sizeof(*vb->servers));
-    for (ii = 0; ii < nservers; ii++) {
+    vb->servers = calloc(vb->nsrv, sizeof(*vb->servers));
+    vb->randbuf = calloc(vb->nsrv, sizeof(*vb->randbuf));
+
+    for (ii = 0; ii < vb->nsrv; ii++) {
         lcbvb_SERVER *dst = vb->servers + ii;
         const lcbvb_SERVER *src = servers + ii;
 
@@ -1312,6 +1354,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
         copy_service(src->hostname, &src->svc_ssl, &dst->svc_ssl);
         dst->authority = dst->svc.hoststrs[LCBVB_SVCTYPE_DATA];
     }
+
     for (ii = 0; ii < vb->nvb; ii++) {
         for (jj = 0; jj < vb->nrepl+1; jj++) {
             int ix = vb->vbuckets[ii].servers[jj];
@@ -1321,7 +1364,6 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
         }
     }
     return 0;
-#undef INCR_SRVIX
 }
 
 int

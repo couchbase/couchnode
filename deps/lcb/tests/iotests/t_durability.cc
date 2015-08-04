@@ -5,16 +5,18 @@
 
 using namespace std;
 
+#define LOGARGS(instance, lvl) \
+    instance->settings, "tests-dur", LCB_LOG_##lvl, __FILE__, __LINE__
 #define SECS_USECS(f) ((f) * 1000000)
 
-static bool supportsSynctokens(lcb_t instance)
+static bool supportsMutationTokens(lcb_t instance)
 {
     // Ensure we have at least one connection
     storeKey(instance, "dummy_stok_test", "dummy");
 
     int val = 0;
     lcb_error_t rc;
-    rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_SYNCTOKENS_SUPPORTED, &val);
+    rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_MUTATION_TOKENS_SUPPORTED, &val);
 
 
     EXPECT_EQ(LCB_SUCCESS, rc);
@@ -446,7 +448,7 @@ TEST_F(DurabilityUnitTest, testDelete)
     ASSERT_EQ(LCB_ETIMEDOUT, dop.resp.rc);
 
     // With seqno
-    if (supportsSynctokens(instance)) {
+    if (supportsMutationTokens(instance)) {
         opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
         dop = DurabilityOperation();
         dop.run(instance, &opts, itm);
@@ -493,7 +495,7 @@ TEST_F(DurabilityUnitTest, testModified)
     dop.run(instance, &opts, kvo_stale.result);
     ASSERT_EQ(LCB_KEY_EEXISTS, dop.resp.rc);
 
-    if (supportsSynctokens(instance)) {
+    if (supportsMutationTokens(instance)) {
         opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
         dop = DurabilityOperation();
         dop.run(instance, &opts, kvo_stale.result);
@@ -831,7 +833,7 @@ TEST_F(DurabilityUnitTest, testMissingSynctoken)
     lcb_t instance;
     createConnection(hw, instance);
 
-    if (!supportsSynctokens(instance)) {
+    if (!supportsMutationTokens(instance)) {
         return;
     }
 
@@ -849,7 +851,7 @@ TEST_F(DurabilityUnitTest, testMissingSynctoken)
     LCB_CMD_SET_KEY(&cmd, "foo", 3);
 
     rc = mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
-    ASSERT_EQ(LCB_DURABILITY_NO_SYNCTOKEN, rc);
+    ASSERT_EQ(LCB_DURABILITY_NO_MUTATION_TOKENS, rc);
 
     mctx->fail(mctx);
 }
@@ -861,7 +863,7 @@ TEST_F(DurabilityUnitTest, testExternalSynctoken)
     createConnection(hw1, instance1);
     createConnection(hw2, instance2);
 
-    if (!supportsSynctokens(instance1)) {
+    if (!supportsMutationTokens(instance1)) {
         return;
     }
 
@@ -869,13 +871,13 @@ TEST_F(DurabilityUnitTest, testExternalSynctoken)
     std::string value("world");
     storeKey(instance1, key, value);
 
-    const lcb_SYNCTOKEN *ss;
+    const lcb_MUTATION_TOKEN *ss;
     lcb_KEYBUF kb;
     lcb_error_t rc;
     LCB_KREQ_SIMPLE(&kb, key.c_str(), key.size());
-    ss = lcb_get_synctoken(instance1, &kb, &rc);
+    ss = lcb_get_mutation_token(instance1, &kb, &rc);
     ASSERT_FALSE(ss == NULL);
-    ASSERT_TRUE(LCB_SYNCTOKEN_ISVALID(ss));
+    ASSERT_TRUE(LCB_MUTATION_TOKEN_ISVALID(ss));
     ASSERT_EQ(LCB_SUCCESS, rc);
 
     lcb_durability_opts_t options = { 0 };
@@ -886,11 +888,172 @@ TEST_F(DurabilityUnitTest, testExternalSynctoken)
 
     // Initialize the command
     LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-    cmd.synctoken = ss;
-    cmd.cmdflags |= LCB_CMDENDURE_F_SYNCTOKEN;
+    cmd.mutation_token = ss;
+    cmd.cmdflags |= LCB_CMDENDURE_F_MUTATION_TOKEN;
 
     DurabilityOperation dop;
     dop.run(instance2, &options, cmd);
     // TODO: How to actually run this?
     ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+}
+
+TEST_F(DurabilityUnitTest, testOptionValidation)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    lcb_U16 persist = 0, replicate = 0;
+    int options;
+    lcb_error_t rc;
+
+    createConnection(hw, instance);
+
+    // Validate simple mode
+    persist = -1;
+    replicate = -1;
+    rc = lcb_durability_validate(instance, &persist, &replicate,
+        LCB_DURABILITY_VALIDATE_CAPMAX);
+
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_TRUE(persist > replicate);
+
+    lcbvb_CONFIG *vbc;
+    rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+
+    int replica_max = min(LCBVB_NREPLICAS(vbc), LCBVB_NDATASERVERS(vbc)-1);
+    int persist_max = replica_max + 1;
+
+    ASSERT_EQ(replica_max, replicate);
+    ASSERT_EQ(persist_max, persist);
+
+    persist = 0;
+    replicate = 0;
+    rc = lcb_durability_validate(instance, &persist, &replicate, 0);
+    ASSERT_EQ(LCB_EINVAL, rc);
+
+    persist = -1;
+    replicate = -1;
+    rc = lcb_durability_validate(instance, &persist, &replicate, 0);
+    ASSERT_EQ(LCB_DURABILITY_ETOOMANY, rc);
+
+    persist = persist_max;
+    replicate = replica_max;
+    rc = lcb_durability_validate(instance, &persist, &replicate, 0);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_EQ(persist_max, persist);
+    ASSERT_EQ(replica_max, replicate);
+
+    rc = lcb_durability_validate(instance, &persist, &replicate,
+        LCB_DURABILITY_VALIDATE_CAPMAX);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_EQ(persist_max, persist);
+    ASSERT_EQ(replica_max, replicate);
+}
+
+extern "C" {
+static void durstoreCallback(lcb_t, int, const lcb_RESPBASE *rb)
+{
+    const lcb_RESPSTOREDUR *resp = reinterpret_cast<const lcb_RESPSTOREDUR*>(rb);
+    lcb_RESPSTOREDUR *rout = reinterpret_cast<lcb_RESPSTOREDUR*>(rb->cookie);
+    lcb_RESPENDURE *dur_resp = const_cast<lcb_RESPENDURE*>(rout->dur_resp);
+
+    ASSERT_FALSE(resp->dur_resp == NULL);
+
+    *rout = *resp;
+    *dur_resp = *resp->dur_resp;
+    rout->dur_resp = dur_resp;
+}
+}
+
+TEST_F(DurabilityUnitTest, testDurStore)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    lcb_durability_opts_t options = { 0 };
+    createConnection(hw, instance);
+    lcb_install_callback3(instance, LCB_CALLBACK_STOREDUR, durstoreCallback);
+
+    std::string key("durStore");
+    std::string value("value");
+
+    lcb_error_t rc;
+    lcb_RESPSTOREDUR resp = { 0 };
+    lcb_RESPENDURE dur_resp = { 0 };
+
+    resp.dur_resp = &dur_resp;
+
+    lcb_CMDSTOREDUR cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+    LCB_CMD_SET_VALUE(&cmd, value.c_str(), value.size());
+    defaultOptions(instance, options);
+    cmd.operation = LCB_SET;
+    cmd.persist_to = options.v.v0.persist_to;
+    cmd.replicate_to = options.v.v0.replicate_to;
+
+    lcb_sched_enter(instance);
+    resp.rc = LCB_ERROR;
+    rc = lcb_storedur3(instance, &resp, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+
+    ASSERT_EQ(LCB_SUCCESS, resp.rc);
+    ASSERT_NE(0, resp.store_ok);
+    ASSERT_TRUE(options.v.v0.persist_to <= resp.dur_resp->npersisted);
+    ASSERT_TRUE(options.v.v0.replicate_to <= resp.dur_resp->nreplicated);
+
+    lcb_sched_enter(instance);
+    // Try with bad criteria..
+    cmd.persist_to = 100;
+    cmd.replicate_to = 100;
+    rc = lcb_storedur3(instance, &resp, &cmd);
+    ASSERT_EQ(LCB_DURABILITY_ETOOMANY, rc);
+
+    // Try with no persist/replicate options
+    cmd.persist_to = 0;
+    cmd.replicate_to = 0;
+    rc = lcb_storedur3(instance, &resp, &cmd);
+    ASSERT_EQ(LCB_EINVAL, rc);
+    lcb_sched_fail(instance);
+
+    // CAP_MAX should be applied here
+    cmd.persist_to = -1;
+    cmd.replicate_to = -1;
+    lcb_sched_enter(instance);
+    rc = lcb_storedur3(instance, &resp, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+    ASSERT_EQ(LCB_SUCCESS, resp.rc);
+    ASSERT_TRUE(options.v.v0.persist_to <= resp.dur_resp->npersisted);
+    ASSERT_TRUE(options.v.v0.replicate_to <= resp.dur_resp->nreplicated);
+
+    // Use bad CAS. we should have a clear indicator that storage failed
+    cmd.cas = -1;
+    lcb_sched_enter(instance);
+    rc = lcb_storedur3(instance, &resp, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+    ASSERT_EQ(LCB_KEY_EEXISTS, resp.rc);
+    ASSERT_EQ(0, resp.store_ok);
+
+    // Make storage succeed, but let durability fail.
+    // TODO: Add Mock-specific command to disable persistence/replication
+    lcb_U32 ustmo = 1; // 1 microsecond
+    rc = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_DURABILITY_TIMEOUT, &ustmo);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+
+    // Reset CAS from previous command
+    cmd.cas = 0;
+    lcb_sched_enter(instance);
+    rc = lcb_storedur3(instance, &resp, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+    if (resp.rc == LCB_ETIMEDOUT) {
+        ASSERT_NE(0, resp.store_ok);
+    } else {
+        lcb_log(LOGARGS(instance, WARN), "Test skipped because mock is too fast(!)");
+    }
 }

@@ -170,7 +170,7 @@ struct UnitInterval {
 static void addTiming(lcb_t instance, const UnitInterval& interval)
 {
     hrtime_t n = intervalToNsec(interval.n, interval.unit);
-    lcb_record_metrics(instance, n, 0);
+    lcb_histogram_record(instance->kv_timings, n);
 }
 
 
@@ -687,4 +687,27 @@ TEST_F(MockUnitTest, testTickLoop)
     while (counter) {
         lcb_tick_nowait(instance);
     }
+}
+
+TEST_F(MockUnitTest, testEmptyCtx)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    lcb_error_t err = LCB_SUCCESS;
+    createConnection(hw, instance);
+
+    lcb_MULTICMD_CTX *mctx;
+    lcb_durability_opts_t duropts = { 0 };
+    duropts.v.v0.persist_to = 1;
+    mctx = lcb_endure3_ctxnew(instance, &duropts, &err);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_FALSE(mctx == NULL);
+
+    err = mctx->done(mctx, NULL);
+    ASSERT_NE(LCB_SUCCESS, err);
+
+    mctx = lcb_observe3_ctxnew(instance);
+    ASSERT_FALSE(mctx == NULL);
+    err = mctx->done(mctx, NULL);
+    ASSERT_NE(LCB_SUCCESS, err);
 }

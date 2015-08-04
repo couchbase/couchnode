@@ -4,7 +4,7 @@
 #include "internal.h"
 #include "http/http.h"
 
-typedef struct {
+typedef struct lcb_N1QLREQ {
     const lcb_RESPHTTP *cur_htresp;
     struct lcb_http_request_st *htreq;
     lcbjsp_PARSER *parser;
@@ -12,7 +12,7 @@ typedef struct {
     lcb_N1QLCALLBACK callback;
     lcb_t instance;
     lcb_error_t lasterr;
-} N1QLREQ, lcb_N1QLREQ;
+} N1QLREQ;
 
 static void
 invoke_row(N1QLREQ *req, lcb_RESPN1QL *resp, int is_last)
@@ -92,6 +92,11 @@ chunk_callback(lcb_t instance, int ign, const lcb_RESPBASE *rb)
         req->htreq = NULL;
         destroy_req(req);
         return;
+    } else if (req->callback == NULL) {
+        /* Cancelled. Similar to the block above, except the http request
+         * should remain alive (so we can cancel it later on) */
+        destroy_req(req);
+        return;
     }
 
     lcbjsp_feed(req->parser, rh->body, rh->nbody);
@@ -149,6 +154,9 @@ lcb_n1ql_query(lcb_t instance, const void *cookie, const lcb_CMDN1QL *cmd)
     }
 
     lcb_htreq_setcb(req->htreq, chunk_callback);
+    if (cmd->handle) {
+        *cmd->handle = req;
+    }
     return LCB_SUCCESS;
 
     GT_DESTROY:
@@ -157,4 +165,12 @@ lcb_n1ql_query(lcb_t instance, const void *cookie, const lcb_CMDN1QL *cmd)
         destroy_req(req);
     }
     return err;
+}
+
+LIBCOUCHBASE_API
+void
+lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle)
+{
+    handle->callback = NULL;
+    (void)instance;
 }

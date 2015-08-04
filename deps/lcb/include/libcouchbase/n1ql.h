@@ -169,7 +169,7 @@ lcb_n1p_setopt(lcb_N1QLPARAMS *params, const char *name, size_t n_name,
 
 /**
  * This is implicitly set by the lcb_n1p_synctok() family of functions. This
- * will ensure that mutations up to the vector indicated by the synctoken
+ * will ensure that mutations up to the vector indicated by the mutation token
  * passed to lcb_n1p_synctok() are used.
  */
 #define LCB_N1P_CONSISTENCY_RYOW 1
@@ -178,7 +178,7 @@ lcb_n1p_setopt(lcb_N1QLPARAMS *params, const char *name, size_t n_name,
 #define LCB_N1P_CONSISTENCY_REQUEST 2
 
 /** Refresh the snapshot for each statement */
-#define LCB_N1P_CONSISTENCY_STATMENT 3
+#define LCB_N1P_CONSISTENCY_STATEMENT 3
 
 /**
  * Sets the consistency mode for the request.
@@ -194,13 +194,11 @@ lcb_n1p_setconsistency(lcb_N1QLPARAMS *params, int mode);
 
 /**
  * Indicate that the query should synchronize its internal snapshot to reflect
- * the changes indicated by the given synctoken (`ss`). The synctoken may be
- * obtained via lcb_get_synctoken().See lcb_n1p_synctok_for() for a
- * convenience version of this function.
+ * the changes indicated by the given mutation token (`ss`).
  */
 LIBCOUCHBASE_API
 lcb_error_t
-lcb_n1p_synctoken(lcb_N1QLPARAMS *params, const lcb_SYNCTOKEN *st);
+lcb_n1p_mutation_token(lcb_N1QLPARAMS *params, const lcb_MUTATION_TOKEN *st);
 
 /**
  * Encodes the request and returns it as a string. The string is valid
@@ -317,6 +315,19 @@ struct lcb_RESPN1QL {
 LIBCOUCHBASE_API
 lcb_error_t
 lcb_n1ql_query(lcb_t instance, const void *cookie, const lcb_CMDN1QL *cmd);
+
+
+/**
+ * Cancels an in-progress request. This will ensure that further callbacks
+ * for the given request are not delivered.
+ *
+ * @param instance the instance
+ * @param handle the handle for the request. This is obtained during the
+ *  request as an 'out' parameter (see lcb_CMDN1QL::handle)
+ */
+LIBCOUCHBASE_API
+void
+lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle);
 /**@}*/
 /**@}*/
 

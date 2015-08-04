@@ -51,7 +51,6 @@
 extern "C" {
 #endif
 
-struct lcb_histogram_st;
 struct lcb_string_st;
 
 struct lcb_callback_st {
@@ -92,7 +91,7 @@ struct lcb_st {
     struct clconfig_info_st *cur_configinfo; /**< Pointer to current config */
     struct lcb_BOOTSTRAP *bootstrap; /**< Bootstrapping state */
     struct lcb_callback_st callbacks; /**< Callback table */
-    struct lcb_histogram_st *histogram; /**< Histogram object (for timing) */
+    lcb_HISTOGRAM *kv_timings; /**< Histogram object (for timing) */
     lcb_ASPEND pendops; /**< Pending asynchronous requests */
     int wait; /**< Are we in lcb_wait() ?*/
     lcbio_MGR *memd_sockpool; /**< Connection pool for memcached connections */
@@ -103,7 +102,7 @@ struct lcb_st {
     lcb_RETRYQ *retryq; /**< Retry queue for failed operations */
     struct lcb_string_st *scratch; /**< Generic buffer space */
     struct lcb_GUESSVB_st *vbguess; /**< Heuristic masters for vbuckets */
-    lcb_SYNCTOKEN *dcpinfo; /**< Mapping of known vbucket to {uuid,seqno} info */
+    lcb_MUTATION_TOKEN *dcpinfo; /**< Mapping of known vbucket to {uuid,seqno} info */
     lcbio_pTIMER dtor_timer; /**< Asynchronous destruction timer */
     int type; /**< Type of connection */
 
@@ -115,12 +114,12 @@ struct lcb_st {
 
 #define LCBT_VBCONFIG(instance) (instance)->cmdq.config
 #define LCBT_NSERVERS(instance) (instance)->cmdq.npipelines
+#define LCBT_NDATASERVERS(instance) LCBVB_NDATASERVERS(LCBT_VBCONFIG(instance))
 #define LCBT_NREPLICAS(instance) LCBVB_NREPLICAS(LCBT_VBCONFIG(instance))
 #define LCBT_GET_SERVER(instance, ix) (mc_SERVER *)(instance)->cmdq.pipelines[ix]
 #define LCBT_SETTING(instance, name) (instance)->settings->name
 
 void lcb_initialize_packet_handlers(lcb_t instance);
-void lcb_record_metrics(lcb_t instance, hrtime_t delta,lcb_uint8_t opcode);
 
 LCB_INTERNAL_API
 void lcb_maybe_breakout(lcb_t instance);

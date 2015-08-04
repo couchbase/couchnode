@@ -345,4 +345,12 @@ typedef enum {
  * thus if this value is one, Nagle is off, and vice versa.
  */
 #define LCB_CNTL_TCP_NODELAY 0x39
+
+/**
+ * @volatile
+ * Get the lcb_HISTOGRAM object for key-value timings
+ * @cntl_arg_getonly{lcb_HISTOGRAM**}
+ */
+#define LCB_CNTL_KVTIMINGS 0x3C
+
 /**@}*/

@@ -17,6 +17,96 @@
 #include "internal.h"
 #include "mc/compress.h"
 #include "trace.h"
+#include "durability_internal.h"
+
+typedef struct {
+    mc_REQDATAEX base;
+    lcb_t instance;
+    lcb_U16 persist_to;
+    lcb_U16 replicate_to;
+} DURSTORECTX;
+
+/** Observe stuff */
+static void
+handle_dur_storecb(mc_PIPELINE *pl, mc_PACKET *pkt,
+    lcb_error_t err, const void *arg)
+{
+    lcb_RESPCALLBACK cb;
+    lcb_RESPSTOREDUR resp = { 0 };
+    lcb_CMDENDURE dcmd = { 0 };
+    DURSTORECTX *dctx = (DURSTORECTX *)pkt->u_rdata.exdata;
+    lcb_MULTICMD_CTX *mctx;
+    lcb_durability_opts_t opts = { 0 };
+    const lcb_RESPSTORE *sresp = (const lcb_RESPSTORE *)arg;
+
+    if (err != LCB_SUCCESS) {
+        goto GT_BAIL;
+    }
+    if (sresp->rc != LCB_SUCCESS) {
+        err = sresp->rc;
+        goto GT_BAIL;
+    }
+
+    resp.store_ok = 1;
+    LCB_CMD_SET_KEY(&dcmd, sresp->key, sresp->nkey);
+    dcmd.cas = sresp->cas;
+
+    if (LCB_MUTATION_TOKEN_ISVALID(&sresp->mutation_token)) {
+        dcmd.mutation_token = &sresp->mutation_token;
+    }
+
+    /* Set the options.. */
+    opts.v.v0.persist_to = dctx->persist_to;
+    opts.v.v0.replicate_to = dctx->replicate_to;
+
+    mctx = lcb_endure3_ctxnew(dctx->instance, &opts, &err);
+    if (mctx == NULL) {
+        goto GT_BAIL;
+    }
+
+    lcbdurctx_set_durstore(mctx, 1);
+    err = mctx->addcmd(mctx, (lcb_CMDBASE*)&dcmd);
+    if (err != LCB_SUCCESS) {
+        mctx->fail(mctx);
+        goto GT_BAIL;
+    }
+    lcb_sched_enter(dctx->instance);
+    err = mctx->done(mctx, sresp->cookie);
+    lcb_sched_leave(dctx->instance);
+
+    if (err == LCB_SUCCESS) {
+        /* Everything OK? */
+        free(dctx);
+        return;
+    }
+
+    GT_BAIL:
+    {
+        lcb_RESPENDURE dresp = { 0 };
+        resp.key = sresp->key;
+        resp.nkey = sresp->nkey;
+        resp.cookie = sresp->cookie;
+        resp.rc = err;
+        resp.dur_resp = &dresp;
+        cb = lcb_find_callback(dctx->instance, LCB_CALLBACK_STOREDUR);
+        cb(dctx->instance, LCB_CALLBACK_STOREDUR, (const lcb_RESPBASE*)&resp);
+        free(dctx);
+    }
+
+    (void)pl;
+}
+
+static void
+handle_dur_schedfail(mc_PACKET *pkt)
+{
+    DURSTORECTX *dctx = (void *)pkt->u_rdata.exdata;
+    free(dctx);
+}
+
+mc_REQDATAPROCS storedur_procs = {
+        handle_dur_storecb,
+        handle_dur_schedfail
+};
 
 static lcb_size_t
 get_value_size(mc_PACKET *packet)
@@ -56,7 +146,7 @@ get_esize_and_opcode(
 
 static int
 can_compress(lcb_t instance, const mc_PIPELINE *pipeline,
-    const lcb_CMDSTORE *cmd)
+    const lcb_VALBUF *vbuf, lcb_datatype_t datatype)
 {
     mc_SERVER *server = (mc_SERVER *)pipeline;
     int compressopts = LCBT_SETTING(instance, compressopts);
@@ -65,7 +155,7 @@ can_compress(lcb_t instance, const mc_PIPELINE *pipeline,
         return 0;
     }
 
-    if (cmd->value.vtype != LCB_KV_COPY) {
+    if (vbuf->vtype != LCB_KV_COPY) {
         return 0;
     }
     if ((compressopts & LCB_COMPRESS_OUT) == 0) {
@@ -74,15 +164,15 @@ can_compress(lcb_t instance, const mc_PIPELINE *pipeline,
     if (server->compsupport == 0 && (compressopts & LCB_COMPRESS_FORCE) == 0) {
         return 0;
     }
-    if (cmd->datatype & LCB_VALUE_F_SNAPPYCOMP) {
+    if (datatype & LCB_VALUE_F_SNAPPYCOMP) {
         return 0;
     }
     return 1;
 }
 
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd)
+static lcb_error_t
+do_store3(lcb_t instance, const void *cookie,
+    const lcb_CMDBASE *cmd, int is_durstore)
 {
     mc_PIPELINE *pipeline;
     mc_PACKET *packet;
@@ -92,23 +182,42 @@ lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd)
     int should_compress = 0;
     lcb_error_t err;
 
+    lcb_storage_t operation;
+    lcb_U32 flags;
+    const lcb_VALBUF *vbuf;
+    lcb_datatype_t datatype;
+
     protocol_binary_request_set scmd;
     protocol_binary_request_header *hdr = &scmd.message.header;
+
+    if (!is_durstore) {
+        const lcb_CMDSTORE *simple_cmd = (const lcb_CMDSTORE *)cmd;
+        operation = simple_cmd->operation;
+        flags = simple_cmd->flags;
+        vbuf = &simple_cmd->value;
+        datatype = simple_cmd->datatype;
+    } else {
+        const lcb_CMDSTOREDUR *durcmd = (const lcb_CMDSTOREDUR *)cmd;
+        operation = durcmd->operation;
+        flags = durcmd->flags;
+        vbuf = &durcmd->value;
+        datatype = durcmd->datatype;
+    }
 
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
     }
 
     err = get_esize_and_opcode(
-            cmd->operation, &hdr->request.opcode, &hdr->request.extlen);
+        operation, &hdr->request.opcode, &hdr->request.extlen);
     if (err != LCB_SUCCESS) {
         return err;
     }
 
-    switch (cmd->operation) {
+    switch (operation) {
     case LCB_APPEND:
     case LCB_PREPEND:
-        if (cmd->exptime || cmd->flags) {
+        if (cmd->exptime || flags) {
             return LCB_OPTIONS_CONFLICT;
         }
         break;
@@ -130,31 +239,60 @@ lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd)
         return err;
     }
 
-    should_compress = can_compress(instance, pipeline, cmd);
+    should_compress = can_compress(instance, pipeline, vbuf, datatype);
     if (should_compress) {
-        int rv = mcreq_compress_value(pipeline, packet, &cmd->value.u_buf.contig);
+        int rv = mcreq_compress_value(pipeline, packet, &vbuf->u_buf.contig);
         if (rv != 0) {
             mcreq_release_packet(pipeline, packet);
             return LCB_CLIENT_ENOMEM;
         }
     } else {
-        mcreq_reserve_value(pipeline, packet, &cmd->value);
+        mcreq_reserve_value(pipeline, packet, vbuf);
     }
 
-    rdata = &packet->u_rdata.reqdata;
+    if (is_durstore) {
+        int duropts = 0;
+        lcb_U16 persist_u , replicate_u;
+        const lcb_CMDSTOREDUR *dcmd = (const lcb_CMDSTOREDUR *)cmd;
+        DURSTORECTX *dctx = calloc(1, sizeof(*dctx));
+
+        persist_u = dcmd->persist_to;
+        replicate_u = dcmd->replicate_to;
+        if (dcmd->replicate_to == -1 || dcmd->persist_to == -1) {
+            duropts = LCB_DURABILITY_VALIDATE_CAPMAX;
+        }
+
+        err = lcb_durability_validate(instance, &persist_u, &replicate_u, duropts);
+        if (err != LCB_SUCCESS) {
+            mcreq_wipe_packet(pipeline, packet);
+            mcreq_release_packet(pipeline, packet);
+            return err;
+        }
+
+        dctx->instance = instance;
+        dctx->persist_to = persist_u;
+        dctx->replicate_to = replicate_u;
+        packet->u_rdata.exdata = &dctx->base;
+        packet->flags |= MCREQ_F_REQEXT;
+
+        dctx->base.cookie = cookie;
+        dctx->base.procs = &storedur_procs;
+    }
+
+    rdata = MCREQ_PKT_RDATA(packet);
     rdata->cookie = cookie;
     rdata->start = gethrtime();
 
     scmd.message.body.expiration = htonl(cmd->exptime);
-    scmd.message.body.flags = htonl(cmd->flags);
+    scmd.message.body.flags = htonl(flags);
     hdr->request.magic = PROTOCOL_BINARY_REQ;
     hdr->request.cas = cmd->cas;
     hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
 
-    if (should_compress || (cmd->datatype & LCB_VALUE_F_SNAPPYCOMP)) {
+    if (should_compress || (datatype & LCB_VALUE_F_SNAPPYCOMP)) {
         hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_COMPRESSED;
     }
-    if (cmd->datatype & LCB_VALUE_F_JSON) {
+    if (datatype & LCB_VALUE_F_JSON) {
         hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_JSON;
     }
 
@@ -165,8 +303,22 @@ lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd)
 
     memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
     mcreq_sched_add(pipeline, packet);
-    TRACE_STORE_BEGIN(hdr, cmd);
+    TRACE_STORE_BEGIN(hdr, (lcb_CMDSTORE* )cmd);
     return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd)
+{
+    return do_store3(instance, cookie, (const lcb_CMDBASE*)cmd, 0);
+}
+
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_storedur3(lcb_t instance, const void *cookie, const lcb_CMDSTOREDUR *cmd)
+{
+    return do_store3(instance, cookie, (const lcb_CMDBASE*)cmd, 1);
 }
 
 LIBCOUCHBASE_API

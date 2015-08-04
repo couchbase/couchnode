@@ -110,24 +110,36 @@ lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
 }
 
 /**
- * Finds the index of an older server using the current config
- * @param config The new configuration
+ * Finds the index of an older server using the current config.
+ *
+ * This function is used to help reuse the server structures for memcached
+ * packets.
+ *
+ * @param oldconfig The old configuration. This is the configuration the
+ * old server is bound to
+ * @param newconfig The new configuration. This will be inspected for new
+ * nodes which may have been added, and ones which may have been removed.
  * @param server The server to match
  * @return The new index, or -1 if the current server is not present in the new
- * config
+ * config.
  */
 static int
-find_new_index(lcbvb_CONFIG* config, mc_SERVER *server)
+find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
+    mc_SERVER *server)
 {
-    int ii, nnew;
-    nnew = VB_NSERVERS(config);
-    for (ii = 0; ii < nnew; ii++) {
-        /** get the 'authority' */
-        const char *newhost = VB_NODESTR(config, ii);
-        if (!newhost) {
-            continue;
-        }
-        if (strcmp(newhost, server->datahost) == 0) {
+    size_t ii;
+    const char *old_datahost = lcbvb_get_hostport(oldconfig,
+        server->pipeline.index, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
+
+    if (!old_datahost) {
+        /* Old server had no data service */
+        return -1;
+    }
+
+    for (ii = 0; ii < LCBVB_NSERVERS(newconfig); ii++) {
+        const char *new_datahost = lcbvb_get_hostport(newconfig, ii,
+            LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
+        if (new_datahost && strcmp(new_datahost, old_datahost) == 0) {
             return ii;
         }
     }
@@ -216,13 +228,15 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
 }
 
 static int
-replace_config(lcb_t instance, clconfig_info *next_config)
+replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PIPELINE **ppold, **ppnew;
     unsigned ii, nold, nnew;
 
-    nnew = LCBVB_NSERVERS(next_config->vbc);
+    assert(LCBT_VBCONFIG(instance) == newconfig);
+
+    nnew = LCBVB_NSERVERS(newconfig);
     ppnew = calloc(nnew, sizeof(*ppnew));
     ppold = mcreq_queue_take_pipelines(cq, &nold);
 
@@ -232,7 +246,7 @@ replace_config(lcb_t instance, clconfig_info *next_config)
      */
     for (ii = 0; ii < nold; ii++) {
         mc_SERVER *cur = (mc_SERVER *)ppold[ii];
-        int newix = find_new_index(next_config->vbc, cur);
+        int newix = find_new_data_index(oldconfig, newconfig, cur);
         if (newix > -1) {
             cur->pipeline.index = newix;
             ppnew[newix] = &cur->pipeline;
@@ -249,7 +263,7 @@ replace_config(lcb_t instance, clconfig_info *next_config)
      */
     for (ii = 0; ii < nnew; ii++) {
         if (!ppnew[ii]) {
-            ppnew[ii] = (mc_PIPELINE *)mcserver_alloc2(instance, next_config->vbc, ii);
+            ppnew[ii] = (mc_PIPELINE *)mcserver_alloc(instance, ii);
             ppnew[ii]->index = ii;
         }
     }
@@ -258,7 +272,7 @@ replace_config(lcb_t instance, clconfig_info *next_config)
      * Once we have all the server structures in place for the new config,
      * transfer the new config along with the new list over to the CQ structure.
      */
-    mcreq_queue_add_pipelines(cq, ppnew, nnew, next_config->vbc);
+    mcreq_queue_add_pipelines(cq, ppnew, nnew, newconfig);
     for (ii = 0; ii < nnew; ii++) {
         mcreq_iterwipe(cq, ppnew[ii], iterwipe_cb, NULL);
     }
@@ -316,7 +330,7 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
         /* Apply the vb guesses */
         lcb_vbguess_newconfig(instance, config->vbc, instance->vbguess);
 
-        change_status = replace_config(instance, config);
+        change_status = replace_config(instance, old_config->vbc, config->vbc);
         if (change_status == -1) {
             LOG(instance, ERR, "Couldn't replace config");
             return;

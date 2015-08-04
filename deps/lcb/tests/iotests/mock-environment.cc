@@ -182,7 +182,7 @@ void MockEnvironment::postCreate(lcb_t instance)
         err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_HTCONFIG_URLTYPE, &urltype);
         ASSERT_EQ(LCB_SUCCESS, err);
     }
-    err = lcb_cntl_string(instance, "fetch_synctokens", "true");
+    err = lcb_cntl_string(instance, "fetch_mutation_tokens", "true");
     ASSERT_EQ(LCB_SUCCESS, err);
 }
 

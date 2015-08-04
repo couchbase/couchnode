@@ -786,11 +786,11 @@ typedef struct {
     lcb_U64 uuid_;
     lcb_U64 seqno_;
     lcb_U16 vbid_;
-} lcb_SYNCTOKEN;
-#define LCB_SYNCTOKEN_ID(p) (p)->uuid_
-#define LCB_SYNCTOKEN_SEQ(p) (p)->seqno_
-#define LCB_SYNCTOKEN_VB(p) (p)->vbid_
-#define LCB_SYNCTOKEN_ISVALID(p) \
+} lcb_MUTATION_TOKEN;
+#define LCB_MUTATION_TOKEN_ID(p) (p)->uuid_
+#define LCB_MUTATION_TOKEN_SEQ(p) (p)->seqno_
+#define LCB_MUTATION_TOKEN_VB(p) (p)->vbid_
+#define LCB_MUTATION_TOKEN_ISVALID(p) \
     (p && !((p)->uuid_ == 0 && (p)->seqno_ == 0 && (p)->vbid_ == 0))
 
 /******************************************************************************
@@ -1307,8 +1307,8 @@ typedef struct {
     const void *key; /**< Key that was stored */
     lcb_SIZE nkey; /**< Size of key that was stored */
     lcb_cas_t cas; /**< Cas representing current mutation */
-    /** Synctoken for mutation. This is used with N1QL and durability */
-    const lcb_SYNCTOKEN *synctoken;
+    /** mutation tokenen for mutation. This is used with N1QL and durability */
+    const lcb_MUTATION_TOKEN *mutation_token;
 } lcb_STORERESPv0;
 
 /** @brief Wrapper structure for lcb_STORERESPv0 */
@@ -1471,8 +1471,8 @@ typedef struct {
     lcb_SIZE nkey;
     lcb_U64 value; /**< Current numerical value of the counter */
     lcb_cas_t cas;
-    /** Synctoken for mutation. This is used with N1QL and durability */
-    const lcb_SYNCTOKEN *synctoken;
+    /** mutation token for mutation. This is used with N1QL and durability */
+    const lcb_MUTATION_TOKEN *mutation_token;
 } lcb_ARITHRESPv0;
 
 typedef struct {
@@ -1720,8 +1720,8 @@ typedef struct {
     const void *key;
     lcb_SIZE nkey;
     lcb_cas_t cas;
-    /** Synctoken for mutation. This is used with N1QL and durability */
-    const lcb_SYNCTOKEN *synctoken;
+    /** mutation token for mutation. This is used with N1QL and durability */
+    const lcb_MUTATION_TOKEN *mutation_token;
 } lcb_REMOVERESPv0;
 
 typedef struct {
@@ -1943,7 +1943,7 @@ typedef struct {
      * LCB_KEY_EEXISTS
      */
     lcb_cas_t cas;
-    const lcb_SYNCTOKEN *synctok;
+    const lcb_MUTATION_TOKEN *mutation_token;
 } lcb_DURABILITYCMDv0;
 
 /**
@@ -1960,7 +1960,8 @@ typedef struct lcb_durability_cmd_st {
 
 /**
  * Use the default durability method. This will use METH_OBSSEQNO if both
- * @ref LCB_CNTL_FETCH_SYNCTOKENS and @ref LCB_CNTL_DURABILITY_SYNCTOKENS
+ * @ref LCB_CNTL_FETCH_MUTATION_TOKENS and
+ * @ref LCB_CNTL_DURABILITY_MUTATION_TOKENS
  * are enabled, and will revert to METH_OBSCOMPAT otherwise.
  */
 #define LCB_DURABILITY_MODE_DEFAULT 0
@@ -2190,6 +2191,37 @@ typedef void (*lcb_durability_callback)(lcb_t instance,
 LIBCOUCHBASE_API
 lcb_durability_callback lcb_set_durability_callback(lcb_t,
                                                     lcb_durability_callback);
+
+#define LCB_DURABILITY_VALIDATE_CAPMAX 1<<1
+
+/**
+ * @committed
+ *
+ * Validate durability settings.
+ *
+ * This function will validate (and optionally modify) the settings. This is
+ * helpful to ensure the durability options are valid _before_ issuing a command
+ *
+ * @param instance the instance
+ * @param[in,out] persist_to The desired number of servers to persist to.
+ *  If the `CAPMAX` flag is set, on output this will contain the effective
+ *  number of servers the item can be persisted to
+ * @param[in,out] replicate_to The desired number of servers to replicate to.
+ *  If the `CAPMAX` flag is set, on output this will contain the effective
+ *  number of servers the item can be replicated to
+ * @param options Options to use for validating. The only recognized option
+ *  is currently `LCB_DURABILITY_VALIDATE_CAPMAX` which has the same semantics
+ *  as lcb_DURABILITYOPTSv0::cap_max.
+ * @return LCB_SUCCESS on success
+ * @return LCB_DURABILITY_ETOOMANY if the requirements exceed the number of
+ *  servers currently available, and `CAPMAX` was not specifie
+ * @return LCB_EINVAL if both `persist_to` and `replicate_to` are 0.
+ */
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_durability_validate(lcb_t instance,
+    lcb_U16 *persist_to, lcb_U16 *replicate_to, int options);
+
 /**@}*/
 
 /******************************************************************************
@@ -3436,6 +3468,53 @@ typedef enum {
 LIBCOUCHBASE_API
 void
 lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags);
+
+/** Internal histogram APIs, used by pillowfight and others */
+struct lcb_histogram_st;
+typedef struct lcb_histogram_st lcb_HISTOGRAM;
+
+/**
+ * @private
+ * Create a histogram structure
+ * @return a new histogram structure
+ */
+LCB_INTERNAL_API
+lcb_HISTOGRAM *
+lcb_histogram_create(void);
+
+/**
+ * @private free a histogram structure
+ * @param hg the histogram
+ */
+LCB_INTERNAL_API
+void
+lcb_histogram_destroy(lcb_HISTOGRAM *hg);
+
+/**
+ * @private
+ * Add an entry to a histogram structure
+ * @param hg the histogram
+ * @param duration the duration in nanoseconds
+ */
+LCB_INTERNAL_API
+void
+lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 duration);
+
+typedef void (*lcb_HISTOGRAM_CALLBACK)
+        (const void *cookie, lcb_timeunit_t timeunit, lcb_U32 min, lcb_U32 max,
+                lcb_U32 total, lcb_U32 maxtotal);
+
+/**
+ * @private
+ * Repeatedly invoke a callback for all entries in the histogram
+ * @param hg the histogram
+ * @param cookie pointer passed to callback
+ * @param cb callback to invoke
+ */
+LCB_INTERNAL_API
+void
+lcb_histogram_read(const lcb_HISTOGRAM *hg, const void *cookie,
+    lcb_HISTOGRAM_CALLBACK cb);
 
 /* Post-include some other headers */
 #ifdef __cplusplus

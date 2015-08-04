@@ -137,8 +137,8 @@ typedef struct lcb_settings_st {
     unsigned sched_implicit_flush : 1;
     unsigned nmv_retry_imm : 1;
     unsigned keep_guess_vbs : 1;
-    unsigned fetch_synctokens : 1;
-    unsigned dur_synctokens : 1;
+    unsigned fetch_mutation_tokens : 1;
+    unsigned dur_mutation_tokens : 1;
     unsigned sslopts : 2;
     unsigned ipv6 : 2;
     unsigned tcp_nodelay : 1;

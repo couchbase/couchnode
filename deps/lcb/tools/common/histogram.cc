@@ -5,7 +5,7 @@ using std::string;
 
 extern "C" {
 static void
-timings_callback(lcb_t, const void *cookie,
+timings_callback(const void *cookie,
     lcb_timeunit_t timeunit, lcb_uint32_t min, lcb_uint32_t max,
     lcb_uint32_t total, lcb_uint32_t maxtotal)
 {
@@ -41,24 +41,38 @@ timings_callback(lcb_t, const void *cookie,
 void
 Histogram::install(lcb_t inst, FILE *out)
 {
-    this->output = out;
-    this->instance = inst;
-    lcb_enable_timings(instance);
+    lcb_error_t rc;
+    output = out;
+    lcb_enable_timings(inst);
+    rc = lcb_cntl(inst, LCB_CNTL_GET, LCB_CNTL_KVTIMINGS, &hg);
+    assert(rc == LCB_SUCCESS);
+    assert(hg != NULL);
+}
+
+void
+Histogram::installStandalone(FILE *out)
+{
+    if (hg != NULL) {
+        return;
+    }
+    hg = lcb_histogram_create();
+    output = out;
 }
 
 void
 Histogram::write()
 {
-    if (instance == NULL) {
+    if (hg == NULL) {
         return;
     }
-    lcb_get_timings(instance, this, timings_callback);
+    lcb_histogram_read(hg, this, timings_callback);
 }
 
 void
-Histogram::disable()
+Histogram::record(lcb_U64 duration)
 {
-    lcb_disable_timings(instance);
-    output = NULL;
-    instance = NULL;
+    if (hg == NULL) {
+        return;
+    }
+    lcb_histogram_record(hg, duration);
 }

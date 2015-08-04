@@ -5,10 +5,11 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-
+#include <map>
 
 using std::string;
 using std::vector;
+using std::map;
 
 static string getConfigFile(const char *fname)
 {
@@ -206,4 +207,110 @@ TEST_F(ConfigTest, testEmptyMap)
     int rc = lcbvb_load_json(cfg, emptyTxt.c_str());
     ASSERT_EQ(-1, rc);
     lcbvb_destroy(cfg);
+}
+
+TEST_F(ConfigTest, testNondataNodes)
+{
+    // Tests the handling of nodes which don't have any data in them
+    const size_t nservers = 6;
+    const size_t ndatasrv = 3;
+    const size_t nreplica = ndatasrv - 1;
+
+    vector<lcbvb_SERVER> servers;
+    servers.resize(nservers);
+
+
+    size_t ii;
+    for (ii = 0; ii < nservers-ndatasrv; ++ii) {
+        lcbvb_SERVER& server = servers[ii];
+        memset(&server, 0, sizeof server);
+        server.svc.data = 1000 + ii;
+        server.svc.views = 2000 + ii;
+        server.hostname = const_cast<char*>("dummy.host.ru");
+    }
+
+    for (; ii < nservers; ii++) {
+        lcbvb_SERVER& server = servers[ii];
+        memset(&server, 0, sizeof server);
+        server.svc.n1ql = 3000 + ii;
+        server.hostname = const_cast<char*>("query.host.biz");
+    }
+
+    lcbvb_CONFIG *cfg_ex = lcbvb_create();
+    int rv = lcbvb_genconfig_ex(cfg_ex, "default", NULL,
+        &servers[0],
+        servers.size(), // include non-data servers
+        nreplica,
+        1024);
+
+    ASSERT_EQ(0, rv);
+
+    lcbvb_CONFIG *cfg_old = lcbvb_create();
+    rv = lcbvb_genconfig_ex(cfg_old, "default", NULL,
+        &servers[0], ndatasrv, nreplica, 1024);
+    ASSERT_EQ(0, rv);
+
+    ASSERT_EQ(ndatasrv, cfg_ex->ndatasrv);
+    ASSERT_EQ(nservers, cfg_ex->nsrv);
+
+    ASSERT_EQ(ndatasrv, cfg_old->ndatasrv);
+    ASSERT_EQ(ndatasrv, cfg_old->nsrv);
+
+    // So far, so good.
+    vector<string> keys;
+    for (ii = 0; ii < 1024; ii++) {
+        std::stringstream ss;
+        ss << "Key_" << ii;
+        keys.push_back(ss.str());
+    }
+
+    int vbid, ix_exp, ix_cur;
+    // Ensure vBucket mapping, etc. is the same
+    for (ii = 0; ii < keys.size(); ii++) {
+        const string& s = keys[ii];
+
+        lcbvb_map_key(cfg_old, s.c_str(), s.size(), &vbid, &ix_exp);
+        lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix_cur);
+        ASSERT_TRUE(ix_exp > -1 && ix_exp <  cfg_ex->ndatasrv);
+        ASSERT_EQ(ix_exp, ix_cur);
+    }
+
+    // On the new config, ensure that:
+    // 1) Remap maps to all replicas
+    // 2) Remap never maps to a non-data node.
+    for (ii = 0; ii < keys.size(); ii++) {
+        map<int, bool> usedMap;
+        const string& s = keys[ii];
+
+        for (size_t jj = 0; jj < cfg_ex->nsrv * 2; jj++) {
+            int ix;
+            lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix);
+            int newix = lcbvb_nmv_remap(cfg_ex, vbid, ix);
+            if (newix == -1) {
+                continue;
+            } else {
+                ASSERT_TRUE(newix < cfg_ex->ndatasrv);
+                usedMap[newix] = true;
+            }
+        }
+        for (size_t jj = 0; jj < cfg_ex->ndatasrv; ++jj) {
+            ASSERT_TRUE(usedMap[jj]);
+        }
+    }
+
+    // Test with ketama
+    lcbvb_make_ketama(cfg_ex);
+    lcbvb_make_ketama(cfg_old);
+    for (ii = 0; ii < keys.size(); ii++) {
+        const string& s = keys[ii];
+        lcbvb_map_key(cfg_old, s.c_str(), s.size(), &vbid, &ix_exp);
+        lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix_cur);
+        ASSERT_TRUE(ix_exp > -1 && ix_exp < cfg_old->ndatasrv);
+        ASSERT_EQ(ix_exp, ix_cur);
+    }
+
+    // destroy 'em
+    lcbvb_destroy(cfg_ex);
+    lcbvb_destroy(cfg_old);
+
 }

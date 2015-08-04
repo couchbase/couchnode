@@ -19,19 +19,18 @@
 #include "durability_internal.h"
 #include "trace.h"
 
-struct observe_st {
-    int allocated;
-    lcb_string body;
-};
-
 typedef struct {
     mc_REQDATAEX base;
     lcb_MULTICMD_CTX mctx;
     lcb_t instance;
-    lcb_SIZE nrequests;
-    lcb_SIZE remaining;
+
+    size_t remaining;
     unsigned oflags;
-    struct observe_st requests[1];
+
+    /* requests array contains one buffer per server. nrequest essentially
+     * says how many elements (and thus how many servers) */
+    size_t nrequests;
+    lcb_string requests[1];
 } OBSERVECTX;
 
 typedef enum {
@@ -114,26 +113,11 @@ handle_schedfail(mc_PACKET *pkt)
     handle_observe_callback(NULL, pkt, LCB_SCHEDFAIL_INTERNAL, NULL);
 }
 
-static int init_request(struct observe_st *reqinfo)
-{
-    if (lcb_string_init(&reqinfo->body) != 0) {
-        return 0;
-    }
-    reqinfo->allocated = 1;
-    return 1;
-}
-
 static void destroy_requests(OBSERVECTX *reqs)
 {
-    lcb_size_t ii;
+    size_t ii;
     for (ii = 0; ii < reqs->nrequests; ii++) {
-        struct observe_st *rr = reqs->requests + ii;
-
-        if (!rr->allocated) {
-            continue;
-        }
-        lcb_string_release(&rr->body);
-        rr->allocated = 0;
+        lcb_string_release(reqs->requests + ii);
     }
 }
 
@@ -194,23 +178,21 @@ obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDBASE *cmdbase)
     }
 
     for (ii = 0; ii < nservers; ii++) {
-        struct observe_st *rr;
+        lcb_string *rr;
         lcb_U16 vb16, klen16;
         lcb_U16 ix = servers[ii];
 
         lcb_assert(ix < ctx->nrequests);
         rr = ctx->requests + ix;
-        if (!rr->allocated) {
-            if (!init_request(rr)) {
-                return LCB_CLIENT_ENOMEM;
-            }
+        if (0 != lcb_string_reserve(rr, 4 + cmd->key.contig.nbytes)) {
+            return LCB_CLIENT_ENOMEM;
         }
 
         vb16 = htons((lcb_U16)vbid);
         klen16 = htons((lcb_U16)cmd->key.contig.nbytes);
-        lcb_string_append(&rr->body, &vb16, sizeof vb16);
-        lcb_string_append(&rr->body, &klen16, sizeof klen16);
-        lcb_string_append(&rr->body, cmd->key.contig.bytes, cmd->key.contig.nbytes);
+        lcb_string_append(rr, &vb16, sizeof vb16);
+        lcb_string_append(rr, &klen16, sizeof klen16);
+        lcb_string_append(rr, cmd->key.contig.bytes, cmd->key.contig.nbytes);
 
         ctx->remaining++;
     }
@@ -233,10 +215,10 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         protocol_binary_request_header hdr;
         mc_PACKET *pkt;
         mc_PIPELINE *pipeline;
-        struct observe_st *rr = ctx->requests + ii;
+        lcb_string *rr = ctx->requests + ii;
         pipeline = cq->pipelines[ii];
 
-        if (!rr->allocated) {
+        if (!rr->nused) {
             continue;
         }
 
@@ -244,7 +226,7 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         lcb_assert(pkt);
 
         mcreq_reserve_header(pipeline, pkt, MCREQ_PKT_BASESIZE);
-        mcreq_reserve_value2(pipeline, pkt, rr->body.nused);
+        mcreq_reserve_value2(pipeline, pkt, rr->nused);
 
         hdr.request.magic = PROTOCOL_BINARY_REQ;
         hdr.request.opcode = PROTOCOL_BINARY_CMD_OBSERVE;
@@ -254,10 +236,10 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         hdr.request.vbucket = 0;
         hdr.request.extlen = 0;
         hdr.request.opaque = pkt->opaque;
-        hdr.request.bodylen = htonl((lcb_uint32_t)rr->body.nused);
+        hdr.request.bodylen = htonl((lcb_uint32_t)rr->nused);
 
         memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
-        memcpy(SPAN_BUFFER(&pkt->u_value.single), rr->body.base, rr->body.nused);
+        memcpy(SPAN_BUFFER(&pkt->u_value.single), rr->base, rr->nused);
 
         pkt->flags |= MCREQ_F_REQEXT;
         pkt->u_rdata.exdata = (mc_REQDATAEX *)ctx;
@@ -270,7 +252,7 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
     ctx->base.cookie = cookie;
     ctx->base.procs = &obs_procs;
 
-    if (ctx->nrequests == 0) {
+    if (ctx->nrequests == 0 || ctx->remaining == 0) {
         free(ctx);
         return LCB_EINVAL;
     } else {
@@ -291,13 +273,20 @@ lcb_MULTICMD_CTX *
 lcb_observe3_ctxnew(lcb_t instance)
 {
     OBSERVECTX *ctx;
-    lcb_SIZE n_extra = LCBT_NSERVERS(instance)-1;
+    size_t ii, n_extra = LCBT_NSERVERS(instance)-1;
     ctx = calloc(1, sizeof(*ctx) + sizeof(ctx->requests) * n_extra);
     ctx->instance = instance;
     ctx->nrequests = n_extra + 1;
     ctx->mctx.addcmd = obs_ctxadd;
     ctx->mctx.done = obs_ctxdone;
     ctx->mctx.fail = obs_ctxfail;
+
+    /* note this block doesn't do anything not done with calloc, but makes for
+     * easier reading/tracking */
+    for (ii = 0; ii < ctx->nrequests; ii++) {
+        lcb_string_init(ctx->requests + ii);
+    }
+
     return &ctx->mctx;
 }
 

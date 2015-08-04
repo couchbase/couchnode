@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2012 Couchbase, Inc.
+ *     Copyright 2011-2015 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -23,70 +23,57 @@
  * I decided I'd rather just make it easy to work with...
  */
 struct lcb_histogram_st {
-    /**
-     * The highest value in all of the buckets
-     */
-    lcb_uint32_t max;
-    /**
-     * The first bucket is the nano-second batches.. it contains
-     * all operations that was completed in < 1usec..
-     */
-    lcb_uint32_t nsec;
-    /**
-     * We're collecting measurements on a per 10 usec
-     */
-    lcb_uint32_t usec[100];
+    /** The highest value (number of ocurrences ) in all of the buckets */
+    lcb_U32 max;
 
-    /**We're collecting measurements for <10ms per 100usec */
-    lcb_uint32_t lt10msec[100];
+    /** Number of entries below a microsecond */
+    lcb_U32 nsec;
 
     /**
-     * We're collecting measurements on a per 10 msec
+     * Entries between 1-1000 microseconds. Each array element refers to a
+     * 10 microsecond interval
      */
-    lcb_uint32_t msec[100];
+    lcb_U32 usec[100];
+
+    /**
+     * Entries between 1-10 milliseconds. Each array entry refers to a 100
+     * microsecond interval.
+     */
+    lcb_U32 lt10msec[100];
+
+    /**
+     * Entries between 10-1000 milliseconds. Each entry refers to a 10 millisecond
+     * interval
+     */
+    lcb_U32 msec[100];
+
     /**
      * Seconds are collected per sec
      */
-    lcb_uint32_t sec[10];
+    lcb_U32 sec[10];
 };
 
-LIBCOUCHBASE_API
-lcb_error_t lcb_enable_timings(lcb_t instance)
+LCB_INTERNAL_API
+lcb_HISTOGRAM *
+lcb_histogram_create(void)
 {
-    if (instance->histogram != NULL) {
-        return LCB_KEY_EEXISTS;
-    }
-
-    instance->histogram = calloc(1, sizeof(*instance->histogram));
-    return instance->histogram == NULL ? LCB_CLIENT_ENOMEM : LCB_SUCCESS;
+    return calloc(1, sizeof(lcb_HISTOGRAM));
 }
 
-LIBCOUCHBASE_API
-lcb_error_t lcb_disable_timings(lcb_t instance)
+LCB_INTERNAL_API
+void
+lcb_histogram_destroy(lcb_HISTOGRAM *hg)
 {
-    if (instance->histogram == NULL) {
-        return LCB_KEY_ENOENT;
-    }
-
-    free(instance->histogram);
-    instance->histogram = NULL;
-    return LCB_SUCCESS;
+    free(hg);
 }
 
-LIBCOUCHBASE_API
-lcb_error_t lcb_get_timings(lcb_t instance,
-                            const void *cookie,
-                            lcb_timings_callback callback)
-{
-    lcb_uint32_t max;
-    lcb_uint32_t start;
-    lcb_uint32_t ii;
-    lcb_uint32_t end;
-    struct lcb_histogram_st *hg = instance->histogram;
 
-    if (hg == NULL) {
-        return LCB_KEY_ENOENT;
-    }
+LCB_INTERNAL_API
+void
+lcb_histogram_read(const lcb_HISTOGRAM *hg,
+    const void *cookie, lcb_HISTOGRAM_CALLBACK callback)
+{
+    lcb_U32 max, start, ii, end;
 
     max = hg->max;
     /*
@@ -94,14 +81,14 @@ lcb_error_t lcb_get_timings(lcb_t instance,
     ** report the nonzero ones...
     */
     if (hg->nsec) {
-        callback(instance, cookie, LCB_TIMEUNIT_NSEC, 0, 999, hg->nsec, max);
+        callback(cookie, LCB_TIMEUNIT_NSEC, 0, 999, hg->nsec, max);
     }
 
     start = 1;
     for (ii = 0; ii < 100; ++ii) {
         end = (ii + 1) * 10 - 1;
         if (hg->usec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_USEC, start, end, hg->usec[ii], max);
+            callback(cookie, LCB_TIMEUNIT_USEC, start, end, hg->usec[ii], max);
         }
         start = end + 1;
     }
@@ -110,7 +97,7 @@ lcb_error_t lcb_get_timings(lcb_t instance,
     for (ii = 0; ii < 100; ++ii) {
         end = (ii + 1) * 100 - 1;
         if (hg->lt10msec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_USEC, start, end, hg->lt10msec[ii], max);
+            callback(cookie, LCB_TIMEUNIT_USEC, start, end, hg->lt10msec[ii], max);
         }
         start = end + 1;
     }
@@ -119,7 +106,7 @@ lcb_error_t lcb_get_timings(lcb_t instance,
     for (ii = 0; ii < 100; ++ii) {
         end = (ii + 1) * 10 - 1;
         if (hg->msec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_MSEC, start, end, hg->msec[ii], max);
+            callback(cookie, LCB_TIMEUNIT_MSEC, start, end, hg->msec[ii], max);
         }
         start = end + 1;
     }
@@ -129,26 +116,20 @@ lcb_error_t lcb_get_timings(lcb_t instance,
         start = ii * 1000;
         end = ((ii + 1) * 1000) - 1;
         if (hg->sec[ii]) {
-            callback(instance, cookie, LCB_TIMEUNIT_MSEC, start, end, hg->sec[ii], max);
+            callback(cookie, LCB_TIMEUNIT_MSEC, start, end, hg->sec[ii], max);
         }
     }
 
     if (hg->sec[9]) {
-        callback(instance, cookie,
-            LCB_TIMEUNIT_SEC, 9, 9999, hg->sec[9], max);
+        callback(cookie, LCB_TIMEUNIT_SEC, 9, 9999, hg->sec[9], max);
     }
-    return LCB_SUCCESS;
 }
 
-void lcb_record_metrics(lcb_t instance,
-                        hrtime_t delta,
-                        uint8_t opcode)
+LCB_INTERNAL_API
+void
+lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)
 {
     lcb_U32 num;
-    struct lcb_histogram_st *hg = instance->histogram;
-    if (hg == NULL) {
-        return;
-    }
 
     if (delta < 1000) {
         /* nsec */
@@ -183,5 +164,4 @@ void lcb_record_metrics(lcb_t instance,
             hg->max = num;
         }
     }
-    (void)opcode;
 }

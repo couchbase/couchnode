@@ -21,7 +21,7 @@ For simple queries, only the `statement` field needs to be set:
 For more complex queries (for example, placeholders, custom options), you may
 refer to the N1QL REST API reference.
 
-`cachemachine` requires that any resources (data items, indexes) are already
+`n1qlback` requires that any resources (data items, indexes) are already
 defined.
 
 ## OPTIONS
@@ -128,7 +128,7 @@ between them. It also creates indexes on the `travel-sample` bucket
     {"statement":"SELECT country, COUNT(country) FROM `travel-sample` GROUP BY country"}
     EOF
 
-    cbc-n1qlback -U couchbase://192.168.72.101/a_bucket -t 5
+    cbc-n1qlback -U couchbase://192.168.72.101/a_bucket -t 5 -f queries.txt
 
 ## BUGS
 
