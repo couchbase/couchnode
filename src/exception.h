@@ -29,42 +29,20 @@ using namespace v8;
 class Error
 {
 public:
-    static void Init() {
-        NanAssignPersistent(codeKey, NanNew<String>("code"));
-    }
+    static void Init();
 
-    static Handle<Value> create(const std::string &msg, int err = 0) {
-        Handle<Value> args[] = { NanNew<String>(msg.c_str()) };
-        Handle<Object> errObj = getErrorClass()->NewInstance(1, args);
-        if (err > 0) {
-            errObj->Set(NanNew(codeKey), NanNew<Integer>(err));
-        }
-        return errObj;
-    }
+    static Local<Value> create(const std::string &msg, int err = 0);
+    static Local<Value> create(lcb_error_t err);
 
-    static Handle<Value> create(lcb_error_t err) {
-        if (err == LCB_SUCCESS) {
-            return NanNull();
-        }
-
-        Handle<Value> args[] = { NanNew<String>(lcb_strerror(NULL, err)) };
-        Handle<Object> errObj = getErrorClass()->NewInstance(1, args);
-        errObj->Set(NanNew(codeKey), NanNew<Integer>(err));
-        return errObj;
-    }
-
-    static void setErrorClass(Handle<Function> func) {
-        NanAssignPersistent(errorClass, func);
-    }
-
-    static Handle<Function> getErrorClass() {
-        return NanNew(errorClass);
-    }
+    static void setErrorClass(Local<Function> func);
+    static Handle<Function> getErrorClass();
 
 private:
-    static Persistent<Function> errorClass;
-    static Persistent<String> codeKey;
+    static Nan::Persistent<Function> errorClass;
+    static Nan::Persistent<String> codeKey;
+
     Error() {}
+
 };
 
 

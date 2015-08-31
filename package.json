@@ -22,16 +22,16 @@
   "dependencies": {
     "bindings": "~1.2.1",
     "jsonparse": "~1.0.0",
-    "nan": "~1.8.4",
-    "request": "~2.58.0"
+    "nan": "~2.0.8",
+    "request": "~2.61.0"
   },
   "devDependencies": {
     "ink-docstrap": "git+https://github.com/brett19/docstrap.git#master",
-    "istanbul": "~0.3.17",
+    "istanbul": "~0.3.19",
     "jsdoc": "~3.3.2",
     "jsdoc-stability-tag": "~1.0.0",
     "jshint": "~2.8.0",
-    "mocha": "~2.2.5"
+    "mocha": "~2.3.0"
   },
   "repository": {
     "type": "git",

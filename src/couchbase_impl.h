@@ -58,6 +58,7 @@
 
 #include "cas.h"
 #include "transcoder.h"
+#include "exception.h"
 
 #if LCB_VERSION < 0x020503
 #error "Couchnode requires libcouchbase >= 2.5.3"
@@ -89,11 +90,11 @@ enum ControlCode {
     CNTL_RESTURI = 0x1004
 };
 
-class CouchbaseImpl: public node::ObjectWrap
+class CouchbaseImpl: public Nan::ObjectWrap
 {
 public:
     // Methods called directly from JavaScript
-    static void Init(Handle<Object> target);
+    static NAN_MODULE_INIT(Init);
 
     static Handle<Object> createConstants();
 
@@ -137,7 +138,7 @@ public:
 
     Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags);
     void encodeDoc(DefaultTranscoder& transcoder, const void **,
-            lcb_SIZE *nbytes, lcb_U32 *flags, Handle<Value> value);
+            lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value);
 
 protected:
     lcb_t instance;
@@ -145,23 +146,23 @@ protected:
 
     void setupLibcouchbaseCallbacks(void);
 
-    NanCallback *connectCallback;
-    NanCallback *transEncodeFunc;
-    NanCallback *transDecodeFunc;
+    Nan::Callback *connectCallback;
+    Nan::Callback *transEncodeFunc;
+    Nan::Callback *transDecodeFunc;
 
 public:
-    static Persistent<Function> jsonParse;
-    static Persistent<Function> jsonStringify;
-    static Persistent<String> valueKey;
-    static Persistent<String> casKey;
-    static Persistent<String> flagsKey;
-    static Persistent<String> datatypeKey;
-    static Persistent<String> idKey;
-    static Persistent<String> keyKey;
-    static Persistent<String> docKey;
-    static Persistent<String> geometryKey;
-    static Persistent<String> rowsKey;
-    static Persistent<String> resultsKey;
+    static Nan::Persistent<Function> jsonParse;
+    static Nan::Persistent<Function> jsonStringify;
+    static Nan::Persistent<String> valueKey;
+    static Nan::Persistent<String> casKey;
+    static Nan::Persistent<String> flagsKey;
+    static Nan::Persistent<String> datatypeKey;
+    static Nan::Persistent<String> idKey;
+    static Nan::Persistent<String> keyKey;
+    static Nan::Persistent<String> docKey;
+    static Nan::Persistent<String> geometryKey;
+    static Nan::Persistent<String> rowsKey;
+    static Nan::Persistent<String> resultsKey;
 
 };
 

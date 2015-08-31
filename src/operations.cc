@@ -20,9 +20,9 @@
 using namespace std;
 using namespace Couchnode;
 
-bool _ParseCookie(void ** cookie, Handle<Value> callback) {
+bool _ParseCookie(void ** cookie, Local<Value> callback) {
   if (callback->IsFunction()) {
-    *cookie = new NanCallback(callback.As<v8::Function>());
+    *cookie = new Nan::Callback(callback.As<v8::Function>());
     return true;
   }
   return false;
@@ -36,25 +36,29 @@ static const int PS_OPTSTR = 4;
 static const int PS_HOST = 5;
 static const int PS_QUERY = 6;
 template <int X, size_t Y, typename T, typename V>
-bool _ParseString(const T** val, V* nval, Handle<Value> key) {
-    static char keyBuffer[Y];
-    *val = (char*)_NanRawString(key, Nan::UTF8, (size_t*)nval,
-            keyBuffer, Y, v8::String::NO_OPTIONS);
+bool _ParseString(const T** val, V* nval, Local<Value> key) {
+    static Nan::Utf8String *utfKey = NULL;
+    if (utfKey) {
+        delete utfKey;
+    }
+    utfKey = new Nan::Utf8String(key);
+    *nval = utfKey->length();
+    *val = **utfKey;
     return true;
 }
 template <int X, typename T, typename V>
-bool _ParseString(const T** val, V* nval, Handle<Value> key) {
+bool _ParseString(const T** val, V* nval, Local<Value> key) {
     return _ParseString<X, 256>(val, nval, key);
 }
 
 
 template <typename T>
-bool _ParseKey(T* cmdV, Handle<Value> key) {
+bool _ParseKey(T* cmdV, Local<Value> key) {
   return _ParseString<PS_KEY>(&cmdV->key, &cmdV->nkey, key);
 }
 
 template <typename T>
-bool _ParseHashkey(T* cmdV, Handle<Value> hashkey) {
+bool _ParseHashkey(T* cmdV, Local<Value> hashkey) {
   if (!hashkey->IsUndefined() && !hashkey->IsNull()) {
       _ParseString<PS_HASHKEY>(&cmdV->hashkey, &cmdV->nhashkey, hashkey);
   }
@@ -62,7 +66,7 @@ bool _ParseHashkey(T* cmdV, Handle<Value> hashkey) {
 }
 
 template <typename T>
-bool _ParseCas(T* cmdV, Handle<Value> cas) {
+bool _ParseCas(T* cmdV, Local<Value> cas) {
     if (!cas->IsUndefined() && !cas->IsNull()) {
         return Cas::GetCas(cas, &cmdV->cas);
     }
@@ -70,7 +74,7 @@ bool _ParseCas(T* cmdV, Handle<Value> cas) {
 }
 
 template<typename T>
-bool _ParseUintOption(T *out, Handle<Value> value) {
+bool _ParseUintOption(T *out, Local<Value> value) {
   if (value.IsEmpty()) {
     return true;
   }
@@ -85,7 +89,7 @@ bool _ParseUintOption(T *out, Handle<Value> value) {
 }
 
 template<typename T>
-bool _ParseIntOption(T *out, Handle<Value> value) {
+bool _ParseIntOption(T *out, Local<Value> value) {
   if (value.IsEmpty()) {
     return true;
   }
@@ -122,185 +126,185 @@ public:
 
 
 NAN_METHOD(CouchbaseImpl::fnGet) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_get_cmd_st> cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     cmd->version = 0;
-    if (!_ParseKey(&cmd->v.v0, args[0])) {
-        return NanThrowError(Error::create("bad key passed"));
+    if (!_ParseKey(&cmd->v.v0, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-        return NanThrowError(Error::create("bad hashkey passed"));
+    if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (!_ParseUintOption(&cmd->v.v0.exptime, args[2])) {
-        return NanThrowError(Error::create("bad expiry passed"));
+    if (!_ParseUintOption(&cmd->v.v0.exptime, info[2])) {
+        return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!_ParseUintOption(&cmd->v.v0.lock, args[3])) {
-        return NanThrowError(Error::create("bad locked passed"));
+    if (!_ParseUintOption(&cmd->v.v0.lock, info[3])) {
+        return Nan::ThrowError(Error::create("bad locked passed"));
     }
-    if (!_ParseCookie(&cookie, args[4])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[4])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_get(me->getLcbHandle(), cookie, 1, cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnGetReplica) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_get_replica_cmd_t> cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     cmd->version = 1;
-    if (!_ParseKey(&cmd->v.v0, args[0])) {
-        return NanThrowError(Error::create("bad key passed"));
+    if (!_ParseKey(&cmd->v.v0, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-        return NanThrowError(Error::create("bad hashkey passed"));
+    if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (args[2]->IsUndefined() || args[2]->IsNull()) {
+    if (info[2]->IsUndefined() || info[2]->IsNull()) {
         cmd->v.v1.strategy = LCB_REPLICA_FIRST;
     } else {
         cmd->v.v1.strategy = LCB_REPLICA_SELECT;
-        if (!_ParseUintOption(&cmd->v.v1.index, args[2])) {
-            return NanThrowError(Error::create("bad index passed"));
+        if (!_ParseUintOption(&cmd->v.v1.index, info[2])) {
+            return Nan::ThrowError(Error::create("bad index passed"));
         }
     }
 
-    if (!_ParseCookie(&cookie, args[3])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[3])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_get_replica(me->getLcbHandle(), cookie, 1, cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnTouch) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_get_cmd_st> cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     cmd->version = 0;
-    if (!_ParseKey(&cmd->v.v0, args[0])) {
-        return NanThrowError(Error::create("bad key passed"));
+    if (!_ParseKey(&cmd->v.v0, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-        return NanThrowError(Error::create("bad hashkey passed"));
+    if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (!_ParseUintOption(&cmd->v.v0.exptime, args[2])) {
-        return NanThrowError(Error::create("bad expiry passed"));
+    if (!_ParseUintOption(&cmd->v.v0.exptime, info[2])) {
+        return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!_ParseCookie(&cookie, args[3])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[3])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_get(me->getLcbHandle(), cookie, 1, cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnUnlock) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_unlock_cmd_t> cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     cmd->version = 0;
-    if (!_ParseKey(&cmd->v.v0, args[0])) {
-        return NanThrowError(Error::create("bad key passed"));
+    if (!_ParseKey(&cmd->v.v0, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-        return NanThrowError(Error::create("bad hashkey passed"));
+    if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (!_ParseCas(&cmd->v.v0, args[2])) {
-        return NanThrowError(Error::create("bad cas passed"));
+    if (!_ParseCas(&cmd->v.v0, info[2])) {
+        return Nan::ThrowError(Error::create("bad cas passed"));
     }
-    if (!_ParseCookie(&cookie, args[3])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[3])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_unlock(me->getLcbHandle(), cookie, 1, cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnRemove) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
       LcbCmd<lcb_remove_cmd_t> cmd;
       void *cookie;
-      NanScope();
+      Nan::HandleScope();
 
       cmd->version = 0;
-      if (!_ParseKey(&cmd->v.v0, args[0])) {
-          return NanThrowError(Error::create("bad key passed"));
+      if (!_ParseKey(&cmd->v.v0, info[0])) {
+          return Nan::ThrowError(Error::create("bad key passed"));
       }
-      if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-          return NanThrowError(Error::create("bad hashkey passed"));
+      if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+          return Nan::ThrowError(Error::create("bad hashkey passed"));
       }
-      if (!_ParseCas(&cmd->v.v0, args[2])) {
-          return NanThrowError(Error::create("bad cas passed"));
+      if (!_ParseCas(&cmd->v.v0, info[2])) {
+          return Nan::ThrowError(Error::create("bad cas passed"));
       }
-      if (!_ParseCookie(&cookie, args[3])) {
-          return NanThrowError(Error::create("bad callback passed"));
+      if (!_ParseCookie(&cookie, info[3])) {
+          return Nan::ThrowError(Error::create("bad callback passed"));
       }
 
       lcb_error_t err = lcb_remove(me->getLcbHandle(), cookie, 1, cmd);
       if (err) {
-          return NanThrowError(Error::create(err));
+          return Nan::ThrowError(Error::create(err));
       }
 
-      NanReturnValue(NanTrue());
+      return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnStore) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_store_cmd_t> cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     cmd->version = 0;
     cmd->v.v0.datatype = 0;
-    if (!_ParseKey(&cmd->v.v0, args[0])) {
-        return NanThrowError(Error::create("bad key passed"));
+    if (!_ParseKey(&cmd->v.v0, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-        return NanThrowError(Error::create("bad hashkey passed"));
+    if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
 
     DefaultTranscoder encoder;
     me->encodeDoc(encoder, &cmd->v.v0.bytes, &cmd->v.v0.nbytes,
-            &cmd->v.v0.flags, args[2]);
+            &cmd->v.v0.flags, info[2]);
 
-    if (!_ParseUintOption(&cmd->v.v0.exptime, args[3])) {
-        return NanThrowError(Error::create("bad expiry passed"));
+    if (!_ParseUintOption(&cmd->v.v0.exptime, info[3])) {
+        return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!_ParseCas(&cmd->v.v0, args[4])) {
-        return NanThrowError(Error::create("bad cas passed"));
+    if (!_ParseCas(&cmd->v.v0, info[4])) {
+        return Nan::ThrowError(Error::create("bad cas passed"));
     }
-    if (!_ParseUintOption(&cmd->v.v0.operation, args[5])) {
-        return NanThrowError(Error::create("bad operation passed"));
+    if (!_ParseUintOption(&cmd->v.v0.operation, info[5])) {
+        return Nan::ThrowError(Error::create("bad operation passed"));
     }
 
-    if (!_ParseCookie(&cookie, args[6])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[6])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     if (cmd->v.v0.operation == LCB_APPEND
@@ -310,169 +314,169 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
 
     lcb_error_t err = lcb_store(me->getLcbHandle(), cookie, 1, cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnArithmetic) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_arithmetic_cmd_st> cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     cmd->version = 0;
-    if (!_ParseKey(&cmd->v.v0, args[0])) {
-        return NanThrowError(Error::create("bad key passed"));
+    if (!_ParseKey(&cmd->v.v0, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-        return NanThrowError(Error::create("bad hashkey passed"));
+    if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (!_ParseUintOption(&cmd->v.v0.exptime, args[2])) {
-        return NanThrowError(Error::create("bad expiry passed"));
+    if (!_ParseUintOption(&cmd->v.v0.exptime, info[2])) {
+        return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!_ParseIntOption(&cmd->v.v0.delta, args[3])) {
-        return NanThrowError(Error::create("bad delta passed"));
+    if (!_ParseIntOption(&cmd->v.v0.delta, info[3])) {
+        return Nan::ThrowError(Error::create("bad delta passed"));
     }
-    if (!_ParseUintOption(&cmd->v.v0.initial, args[4])) {
-        return NanThrowError(Error::create("bad initial passed"));
+    if (!_ParseUintOption(&cmd->v.v0.initial, info[4])) {
+        return Nan::ThrowError(Error::create("bad initial passed"));
     }
-    if (!args[4]->IsUndefined() && !args[4]->IsNull()) {
+    if (!info[4]->IsUndefined() && !info[4]->IsNull()) {
         cmd->v.v0.create = 1;
     }
-    if (!_ParseCookie(&cookie, args[5])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[5])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_arithmetic(me->getLcbHandle(), cookie, 1, cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnDurability) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_durability_cmd_t> cmd;
     lcb_durability_opts_t opts;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     cmd->version = 0;
     memset(&opts, 0, sizeof(opts));
     opts.v.v0.timeout = 0;
     opts.v.v0.interval = 0;
     opts.v.v0.cap_max = 1;
-    if (!_ParseKey(&cmd->v.v0, args[0])) {
-        return NanThrowError(Error::create("bad key passed"));
+    if (!_ParseKey(&cmd->v.v0, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!_ParseHashkey(&cmd->v.v0, args[1])) {
-        return NanThrowError(Error::create("bad hashkey passed"));
+    if (!_ParseHashkey(&cmd->v.v0, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (!_ParseCas(&cmd->v.v0, args[2])) {
-        return NanThrowError(Error::create("bad cas passed"));
-    }
-
-    if (!_ParseUintOption(&opts.v.v0.persist_to, args[3])) {
-        return NanThrowError(Error::create("bad persist_to passed"));
-    }
-    if (!_ParseUintOption(&opts.v.v0.replicate_to, args[4])) {
-        return NanThrowError(Error::create("bad replicate_to passed"));
-    }
-    if (!_ParseUintOption(&opts.v.v0.check_delete, args[5])) {
-        return NanThrowError(Error::create("bad check_delete passed"));
+    if (!_ParseCas(&cmd->v.v0, info[2])) {
+        return Nan::ThrowError(Error::create("bad cas passed"));
     }
 
-    if (!_ParseCookie(&cookie, args[6])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseUintOption(&opts.v.v0.persist_to, info[3])) {
+        return Nan::ThrowError(Error::create("bad persist_to passed"));
+    }
+    if (!_ParseUintOption(&opts.v.v0.replicate_to, info[4])) {
+        return Nan::ThrowError(Error::create("bad replicate_to passed"));
+    }
+    if (!_ParseUintOption(&opts.v.v0.check_delete, info[5])) {
+        return Nan::ThrowError(Error::create("bad check_delete passed"));
+    }
+
+    if (!_ParseCookie(&cookie, info[6])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_durability_poll(me->getLcbHandle(), cookie, &opts, 1, cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnViewQuery) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDVIEWQUERY cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
     memset(&cmd, 0, sizeof(cmd));
     cmd.callback = viewrow_callback;
 
-    if (args[0]->BooleanValue()) {
+    if (info[0]->BooleanValue()) {
         cmd.cmdflags |= LCB_CMDVIEWQUERY_F_SPATIAL;
     }
 
-    if (!_ParseString<PS_DDOC>(&cmd.ddoc, &cmd.nddoc, args[1])) {
-        return NanThrowError(Error::create("bad ddoc passed"));
+    if (!_ParseString<PS_DDOC>(&cmd.ddoc, &cmd.nddoc, info[1])) {
+        return Nan::ThrowError(Error::create("bad ddoc passed"));
     }
-    if (!_ParseString<PS_VIEW>(&cmd.view, &cmd.nview, args[2])) {
-        return NanThrowError(Error::create("bad view passed"));
+    if (!_ParseString<PS_VIEW>(&cmd.view, &cmd.nview, info[2])) {
+        return Nan::ThrowError(Error::create("bad view passed"));
     }
-    if (!_ParseString<PS_OPTSTR,8192>(&cmd.optstr, &cmd.noptstr, args[3])) {
-        return NanThrowError(Error::create("bad optstr passed"));
+    if (!_ParseString<PS_OPTSTR,8192>(&cmd.optstr, &cmd.noptstr, info[3])) {
+        return Nan::ThrowError(Error::create("bad optstr passed"));
     }
-    if (args[4]->BooleanValue()) {
+    if (info[4]->BooleanValue()) {
         cmd.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
     }
 
-    if (!_ParseCookie(&cookie, args[5])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[5])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_view_query(me->getLcbHandle(), cookie, &cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDN1QL cmd;
     void *cookie;
-    NanScope();
+    Nan::HandleScope();
 
-    Local<Function> jsonStringifyLcl = NanNew(CouchbaseImpl::jsonStringify);
+    Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
 
     memset(&cmd, 0, sizeof(cmd));
     cmd.callback = n1qlrow_callback;
     cmd.content_type = "application/json";
 
-    if (!args[0]->IsUndefined()) {
-        if(!_ParseString<PS_HOST>(&cmd.host, (size_t*)NULL, args[0])) {
-            return NanThrowError(Error::create("bad host passed"));
+    if (!info[0]->IsUndefined()) {
+        if(!_ParseString<PS_HOST>(&cmd.host, (size_t*)NULL, info[0])) {
+            return Nan::ThrowError(Error::create("bad host passed"));
         }
     }
 
-    Handle<Value> optsArgs[] = { args[1] };
+    Handle<Value> optsinfo[] = { info[1] };
     Local<Value> optsVal =
-            jsonStringifyLcl->Call(NanGetCurrentContext()->Global(), 1, optsArgs);
+            jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, optsinfo);
     Local<String> optsStr = optsVal.As<String>();
     if (!_ParseString<PS_QUERY,8192>(&cmd.query, &cmd.nquery, optsStr)) {
-        return NanThrowError(Error::create("bad opts passed"));
+        return Nan::ThrowError(Error::create("bad opts passed"));
     }
 
-    if (args[2]->BooleanValue()) {
+    if (info[2]->BooleanValue()) {
         cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
     }
 
-    if (!_ParseCookie(&cookie, args[3])) {
-        return NanThrowError(Error::create("bad callback passed"));
+    if (!_ParseCookie(&cookie, info[3])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
     lcb_error_t err = lcb_n1ql_query(me->getLcbHandle(), cookie, &cmd);
     if (err) {
-        return NanThrowError(Error::create(err));
+        return Nan::ThrowError(Error::create(err));
     }
 
-    NanReturnValue(NanTrue());
+    return info.GetReturnValue().Set(true);
 }

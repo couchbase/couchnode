@@ -28,29 +28,29 @@ namespace Couchnode
 
 NAN_METHOD(CouchbaseImpl::fnControl)
 {
-    NanScope();
+    Nan::HandleScope();
     CouchbaseImpl *me;
     lcb_t instance;
     lcb_error_t err;
 
-    me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    me = Nan::ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     instance = me->getLcbHandle();
 
-    if (args.Length() < 2) {
-        return NanThrowError(Error::create("Too few arguments"));
+    if (info.Length() < 2) {
+        return Nan::ThrowError(Error::create("Too few arguments"));
     }
 
-    int mode = args[0]->IntegerValue();
-    int option = args[1]->IntegerValue();
+    int mode = info[0]->IntegerValue();
+    int option = info[1]->IntegerValue();
 
-    Handle<Value> optVal = args[2];
+    Handle<Value> optVal = info[2];
 
     if (option != LCB_CNTL_SET && option != LCB_CNTL_GET) {
-        return NanThrowError(Error::create("Invalid option mode"));
+        return Nan::ThrowError(Error::create("Invalid option mode"));
     }
 
     if (option == LCB_CNTL_SET && optVal.IsEmpty()) {
-        return NanThrowError(Error::create("Valid argument missing for 'CNTL_SET'"));
+        return Nan::ThrowError(Error::create("Valid argument missing for 'CNTL_SET'"));
     }
 
     switch (mode) {
@@ -66,9 +66,9 @@ NAN_METHOD(CouchbaseImpl::fnControl)
         if (option == LCB_CNTL_GET) {
             err =  lcb_cntl(instance, option, mode, &tmoval);
             if (err != LCB_SUCCESS) {
-                return NanThrowError(Error::create(err));
+                return Nan::ThrowError(Error::create(err));
             } else {
-                NanReturnValue(NanNew<Number>(tmoval / 1000));
+                return info.GetReturnValue().Set(tmoval / 1000);
             }
         } else {
             tmoval = optVal->NumberValue() * 1000;
@@ -84,9 +84,9 @@ NAN_METHOD(CouchbaseImpl::fnControl)
         if (option == LCB_CNTL_GET) {
             err = lcb_cntl(instance, option, mode, &tval);
             if (err != LCB_SUCCESS) {
-                return NanThrowError(Error::create("CNTL failed"));
+                return Nan::ThrowError(Error::create("CNTL failed"));
             } else {
-                NanReturnValue(NanNew<Number>(tval));
+                return info.GetReturnValue().Set(tval);
             }
         } else {
             tval = optVal->Uint32Value();
@@ -102,13 +102,13 @@ NAN_METHOD(CouchbaseImpl::fnControl)
      }
 
     default:
-        return NanThrowError(Error::create("Not supported yet"));
+        return Nan::ThrowError(Error::create("Not supported yet"));
     }
 
     if (err == LCB_SUCCESS) {
-        NanReturnValue(NanTrue());
+        info.GetReturnValue().Set(true);
     } else {
-        return NanThrowError(Error::create("CNTL failed"));
+        return Nan::ThrowError(Error::create("CNTL failed"));
     }
 }
 

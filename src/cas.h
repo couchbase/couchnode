@@ -33,7 +33,7 @@ public:
     static v8::Handle<v8::Value> CreateCas(uint64_t);
 
 private:
-    static v8::Persistent<v8::Function> casClass;
+    static Nan::Persistent<v8::Function> casClass;
 
 };
 
