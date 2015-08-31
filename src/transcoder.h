@@ -46,7 +46,7 @@ public:
     static Handle<Value> decode(const void *bytes,
             size_t nbytes, lcb_U32 flags);
     void encode(const void **bytes, lcb_SIZE *nbytes,
-            lcb_U32 *flags, Handle<Value> value);
+            lcb_U32 *flags, Local<Value> value);
 
 private:
     char *encodeData;

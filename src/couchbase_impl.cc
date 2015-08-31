@@ -83,9 +83,9 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
         lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_SCHED_IMPLICIT_FLUSH, &flushMode);
     }
 
-    NanScope();
+    Nan::HandleScope();
     if (connectCallback) {
-        Handle<Value> args[] = { NanNew<Integer>(err) };
+        Local<Value> args[] = { Nan::New<Integer>(err) };
         connectCallback->Call(1, args);
     }
 }
@@ -99,10 +99,11 @@ Handle<Value> CouchbaseImpl::decodeDoc(
         const void *bytes, size_t nbytes, lcb_U32 flags)
 {
     if (transDecodeFunc) {
-        Handle<Object> decObj = NanNew<Object>();
-        decObj->Set(NanNew(valueKey), NanNewBufferHandle((char*)bytes, nbytes));
-        decObj->Set(NanNew(flagsKey), NanNew<Integer>(flags));
-        Handle<Value> args[] = { decObj };
+        Local<Object> decObj = Nan::New<Object>();
+        decObj->Set(Nan::New(valueKey),
+                Nan::NewBuffer((char*)bytes, nbytes).ToLocalChecked());
+        decObj->Set(Nan::New(flagsKey), Nan::New<Integer>(flags));
+        Local<Value> args[] = { decObj };
         return transDecodeFunc->Call(1, args);
     }
 
@@ -110,17 +111,17 @@ Handle<Value> CouchbaseImpl::decodeDoc(
 }
 
 void CouchbaseImpl::encodeDoc(DefaultTranscoder& transcoder, const void **bytes,
-        lcb_SIZE *nbytes, lcb_U32 *flags, Handle<Value> value) {
+        lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value) {
     // There must never be a NanScope here, the system relies on the fact
     //   that the scope will exist until the lcb_cmd_XXX_t object has been
     //   passed to LCB already.
     if (transEncodeFunc) {
-        Handle<Value> args[] = { value };
+        Local<Value> args[] = { value };
         Handle<Value> res = transEncodeFunc->Call(1, args);
         if (!res.IsEmpty() && res->IsObject()) {
             Handle<Object> encObj = res.As<Object>();
-            Handle<Value> flagsObj = encObj->Get(NanNew(flagsKey));
-            Handle<Value> valueObj = encObj->Get(NanNew(valueKey));
+            Handle<Value> flagsObj = encObj->Get(Nan::New(flagsKey));
+            Handle<Value> valueObj = encObj->Get(Nan::New(valueKey));
             if (!flagsObj.IsEmpty() && !valueObj.IsEmpty()) {
                 if (node::Buffer::HasInstance(valueObj)) {
                     *nbytes = node::Buffer::Length(valueObj);
@@ -137,21 +138,21 @@ void CouchbaseImpl::encodeDoc(DefaultTranscoder& transcoder, const void **bytes,
 template<typename T>
 void _DispatchValueCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    NanCallback *callback = (NanCallback*)cookie;
-    NanScope();
+    Nan::Callback *callback = (Nan::Callback*)cookie;
+    Nan::HandleScope();
 
-    Handle<Value> errObj = Error::create(error);
-    Handle<Value> resVal;
+    Local<Value> errObj = Error::create(error);
+    Local<Value> resVal;
     if (!error) {
-        Handle<Object> resObj = NanNew<Object>();
-        resObj->Set(NanNew(me->casKey), Cas::CreateCas(resp->v.v0.cas));
-        resObj->Set(NanNew(me->valueKey), me->decodeDoc(resp->v.v0.bytes, resp->v.v0.nbytes, resp->v.v0.flags));
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
+        resObj->Set(Nan::New(me->valueKey), me->decodeDoc(resp->v.v0.bytes, resp->v.v0.nbytes, resp->v.v0.flags));
         resVal = resObj;
     } else {
-        resVal = NanNull();
+        resVal = Nan::Null();
     }
 
-    Handle<Value> args[] = { errObj, resVal };
+    Local<Value> args[] = { errObj, resVal };
     callback->Call(2, args);
 
     delete callback;
@@ -160,21 +161,21 @@ void _DispatchValueCallback(lcb_t instance, const void *cookie, lcb_error_t erro
 template<typename T>
 void _DispatchArithCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    NanCallback *callback = (NanCallback*)cookie;
-    NanScope();
+    Nan::Callback *callback = (Nan::Callback*)cookie;
+    Nan::HandleScope();
 
-    Handle<Value> errObj = Error::create(error);
-    Handle<Value> resVal;
+    Local<Value> errObj = Error::create(error);
+    Local<Value> resVal;
     if (!error) {
-        Handle<Object> resObj = NanNew<Object>();
-        resObj->Set(NanNew(me->casKey), Cas::CreateCas(resp->v.v0.cas));
-        resObj->Set(NanNew(me->valueKey), NanNew<Number>(resp->v.v0.value));
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
+        resObj->Set(Nan::New(me->valueKey), Nan::New<Number>(resp->v.v0.value));
         resVal = resObj;
     } else {
-        resVal = NanNull();
+        resVal = Nan::Null();
     }
 
-    Handle<Value> args[] = { errObj, resVal };
+    Local<Value> args[] = { errObj, resVal };
     callback->Call(2, args);
 
     delete callback;
@@ -183,33 +184,33 @@ void _DispatchArithCallback(lcb_t instance, const void *cookie, lcb_error_t erro
 template<typename T>
 void _DispatchBasicCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    NanCallback *callback = (NanCallback*)cookie;
-    NanScope();
+    Nan::Callback *callback = (Nan::Callback*)cookie;
+    Nan::HandleScope();
 
-    Handle<Value> errObj = Error::create(error);
-    Handle<Value> resVal;
+    Local<Value> errObj = Error::create(error);
+    Local<Value> resVal;
     if (!error) {
-        Handle<Object> resObj = NanNew<Object>();
-        resObj->Set(NanNew(me->casKey), Cas::CreateCas(resp->v.v0.cas));
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
         resVal = resObj;
     } else {
-        resVal = NanNull();
+        resVal = Nan::Null();
     }
 
-    Handle<Value> args[] = { errObj, resVal };
+    Local<Value> args[] = { errObj, resVal };
     callback->Call(2, args);
 
     delete callback;
 }
 
 void _DispatchErrorCallback(lcb_t instance, const void *cookie, lcb_error_t error) {
-    NanCallback *callback = (NanCallback*)cookie;
-    NanScope();
+    Nan::Callback *callback = (Nan::Callback*)cookie;
+    Nan::HandleScope();
 
-    Handle<Value> errObj = Error::create(error);
-    Handle<Value> resVal = NanNull();
+    Local<Value> errObj = Error::create(error);
+    Local<Value> resVal = Nan::Null();
 
-    Handle<Value> args[] = { errObj, resVal };
+    Local<Value> args[] = { errObj, resVal };
     callback->Call(2, args);
 
     delete callback;
@@ -270,31 +271,31 @@ void viewrow_callback(lcb_t instance, int ignoreme,
         const lcb_RESPVIEWQUERY *resp)
 {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    NanCallback *callback = (NanCallback*)resp->cookie;
-    NanScope();
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope();
 
-    Local<Function> jsonParseLcl = NanNew(CouchbaseImpl::jsonParse);
+    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        Handle<Value> dataRes;
+        Local<Value> dataRes;
         if (resp->rc != LCB_SUCCESS) {
             if (resp->htresp && resp->htresp->body) {
-                dataRes = NanNew<String>((const char*)resp->htresp->body, (int)resp->htresp->nbody);
+                dataRes = Nan::New<String>((const char*)resp->htresp->body, (int)resp->htresp->nbody).ToLocalChecked();
             } else {
-                dataRes = NanNull();
+                dataRes = Nan::Null();
             }
         } else {
-            Handle<Value> metaStr =
-                    NanNew<String>((const char*)resp->value, (int)resp->nvalue);
-            dataRes = jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &metaStr);
+            Local<Value> metaStr =
+                    Nan::New<String>((const char*)resp->value, (int)resp->nvalue).ToLocalChecked();
+            dataRes = jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &metaStr);
             Local<Object> metaObj = dataRes->ToObject();
             if (!metaObj.IsEmpty()) {
-                metaObj->Delete(NanNew(CouchbaseImpl::rowsKey));
+                metaObj->Delete(Nan::New(CouchbaseImpl::rowsKey));
             }
         }
 
-        Handle<Value> args[] = {
-                NanNew<Number>(resp->rc),
+        Local<Value> args[] = {
+                Nan::New<Number>(resp->rc),
                 dataRes
         };
         callback->Call(2, args);
@@ -303,48 +304,48 @@ void viewrow_callback(lcb_t instance, int ignoreme,
         return;
     }
 
-    Handle<Object> rowObj = NanNew<Object>();
+    Local<Object> rowObj = Nan::New<Object>();
 
     Handle<Value> keyStr =
-            NanNew<String>((const char*)resp->key, (int)resp->nkey);
-    rowObj->Set(NanNew(CouchbaseImpl::keyKey),
-            jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &keyStr));
+            Nan::New<String>((const char*)resp->key, (int)resp->nkey).ToLocalChecked();
+    rowObj->Set(Nan::New(CouchbaseImpl::keyKey),
+            jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &keyStr));
 
     if (resp->value) {
         Handle<Value> valueStr =
-                NanNew<String>((const char*)resp->value, (int)resp->nvalue);
-        rowObj->Set(NanNew(CouchbaseImpl::valueKey),
-                jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &valueStr));
+                Nan::New<String>((const char*)resp->value, (int)resp->nvalue).ToLocalChecked();
+        rowObj->Set(Nan::New(CouchbaseImpl::valueKey),
+                jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &valueStr));
     } else {
-        rowObj->Set(NanNew(CouchbaseImpl::valueKey), NanNull());
+        rowObj->Set(Nan::New(CouchbaseImpl::valueKey), Nan::Null());
     }
 
     if (resp->geometry) {
         Handle<Value> geometryStr =
-                NanNew<String>((const char*)resp->geometry, (int)resp->ngeometry);
-        rowObj->Set(NanNew(CouchbaseImpl::geometryKey),
-                jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &geometryStr));
+                Nan::New<String>((const char*)resp->geometry, (int)resp->ngeometry).ToLocalChecked();
+        rowObj->Set(Nan::New(CouchbaseImpl::geometryKey),
+                jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &geometryStr));
     }
 
     if (resp->docid) {
-        rowObj->Set(NanNew(CouchbaseImpl::idKey),
-                NanNew<String>((const char*)resp->docid, (int)resp->ndocid));
+        rowObj->Set(Nan::New(CouchbaseImpl::idKey),
+                Nan::New<String>((const char*)resp->docid, (int)resp->ndocid).ToLocalChecked());
 
         if (resp->docresp) {
             const lcb_RESPGET *rg = resp->docresp;
             if (rg->rc == LCB_SUCCESS) {
-                rowObj->Set(NanNew(CouchbaseImpl::docKey),
+                rowObj->Set(Nan::New(CouchbaseImpl::docKey),
                         me->decodeDoc(rg->value, rg->nvalue, rg->itmflags));
             } else {
-                rowObj->Set(NanNew(CouchbaseImpl::docKey), NanNull());
+                rowObj->Set(Nan::New(CouchbaseImpl::docKey), Nan::Null());
             }
         }
     } else {
-        rowObj->Set(NanNew(CouchbaseImpl::idKey), NanNull());
+        rowObj->Set(Nan::New(CouchbaseImpl::idKey), Nan::Null());
     }
 
-    Handle<Value> args[] = {
-            NanNew<Number>(-1),
+    Local<Value> args[] = {
+            Nan::New<Number>(-1),
             rowObj
     };
     callback->Call(2, args);
@@ -353,31 +354,31 @@ void viewrow_callback(lcb_t instance, int ignoreme,
 void n1qlrow_callback(lcb_t instance, int ignoreme,
         const lcb_RESPN1QL *resp)
 {
-    NanCallback *callback = (NanCallback*)resp->cookie;
-    NanScope();
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope();
 
-    Local<Function> jsonParseLcl = NanNew(CouchbaseImpl::jsonParse);
+    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        Handle<Value> dataRes;
+        Local<Value> dataRes;
         if (resp->rc != LCB_SUCCESS) {
             if (resp->row) {
-                dataRes = NanNew<String>((const char*)resp->row, (int)resp->nrow);
+                dataRes = Nan::New<String>((const char*)resp->row, (int)resp->nrow).ToLocalChecked();
             } else {
-                dataRes = NanNull();
+                dataRes = Nan::Null();
             }
         } else {
             Handle<Value> metaStr =
-                    NanNew<String>((const char*)resp->row, (int)resp->nrow);
-            dataRes = jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &metaStr);
+                    Nan::New<String>((const char*)resp->row, (int)resp->nrow).ToLocalChecked();
+            dataRes = jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &metaStr);
             Local<Object> metaObj = dataRes->ToObject();
             if (!metaObj.IsEmpty()) {
-                metaObj->Delete(NanNew(CouchbaseImpl::resultsKey));
+                metaObj->Delete(Nan::New(CouchbaseImpl::resultsKey));
             }
         }
 
-        Handle<Value> args[] = {
-                NanNew<Number>(resp->rc),
+        Local<Value> args[] = {
+                Nan::New<Number>(resp->rc),
                 dataRes
         };
         callback->Call(2, args);
@@ -387,11 +388,11 @@ void n1qlrow_callback(lcb_t instance, int ignoreme,
     }
 
     Handle<Value> rowStr =
-            NanNew<String>((const char*)resp->row, (int)resp->nrow);
-    Handle<Value> rowObj =
-            jsonParseLcl->Call(NanGetCurrentContext()->Global(), 1, &rowStr);
-    Handle<Value> args[] = {
-            NanNew<Number>(-1),
+            Nan::New<String>((const char*)resp->row, (int)resp->nrow).ToLocalChecked();
+    Local<Value> rowObj =
+            jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &rowStr);
+    Local<Value> args[] = {
+            Nan::New<Number>(-1),
             rowObj
     };
     callback->Call(2, args);

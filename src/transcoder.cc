@@ -64,17 +64,17 @@ Handle<Value> DefaultTranscoder::decode(const void *bytes,
 
     if (format == NF_UTF8) {
         // UTF8 decodes into a String
-        return NanNew<String>((char*)bytes, nbytes);
+        return Nan::New<String>((char*)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_RAW) {
         // RAW decodes into a Buffer
-        return NanNewBufferHandle((char*)bytes, nbytes);
+        return Nan::NewBuffer((char*)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_JSON) {
         // JSON decodes using UTF8, then JSON.parse
         Handle<Value> utf8String = decode(bytes, nbytes, NF_UTF8);
         v8::TryCatch tryCatch;
-        Local<Function> jsonParseLcl = NanNew(CouchbaseImpl::jsonParse);
-        Handle<Value> ret = jsonParseLcl->Call(
-                NanGetCurrentContext()->Global(), 1, &utf8String);
+        Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
+        Local<Value> ret = jsonParseLcl->Call(
+                Nan::GetCurrentContext()->Global(), 1, &utf8String);
         if (!tryCatch.HasCaught()) {
             return ret;
         }
@@ -88,12 +88,16 @@ Handle<Value> DefaultTranscoder::decode(const void *bytes,
 }
 
 void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
-        lcb_U32 *flags, Handle<Value> value)
+        lcb_U32 *flags, Local<Value> value)
 {
     if (value->IsString()) {
-        encodeData = (char*)_NanRawString(value, Nan::UTF8, (size_t*)nbytes,
-                NULL, 0, v8::String::NO_OPTIONS);
-        *bytes = encodeData;
+        static Nan::Utf8String *utf8String = NULL;
+        if (utf8String) {
+            delete utf8String;
+        }
+        utf8String = new Nan::Utf8String(value);
+        *nbytes = utf8String->length();
+        *bytes = **utf8String;
         *flags = CF_UTF8 | NF_UTF8;
         return;
     } else if (node::Buffer::HasInstance(value)) {
@@ -106,9 +110,9 @@ void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
         return;
     } else {
         v8::TryCatch try_catch;
-        Local<Function> jsonStringifyLcl = NanNew(CouchbaseImpl::jsonStringify);
-        Handle<Value> ret = jsonStringifyLcl->Call(
-                NanGetCurrentContext()->Global(), 1, &value);
+        Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
+        Local<Value> ret = jsonStringifyLcl->Call(
+                Nan::GetCurrentContext()->Global(), 1, &value);
         if (try_catch.HasCaught()) {
             // TODO: Better handling here...
             return;

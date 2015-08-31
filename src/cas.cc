@@ -20,57 +20,64 @@
 using namespace Couchnode;
 
 void Cas::Init() {
-    NanScope();
+    Nan::HandleScope();
 
-    Local<FunctionTemplate> t = NanNew<FunctionTemplate>();
+    Local<FunctionTemplate> t = Nan::New<FunctionTemplate>();
     t->InstanceTemplate()->SetInternalFieldCount(1);
-    t->SetClassName(NanNew<String>("CouchbaseCas"));
+    t->SetClassName(Nan::New<String>("CouchbaseCas").ToLocalChecked());
 
-    NODE_SET_PROTOTYPE_METHOD(t, "toString", fnToString);
-    NODE_SET_PROTOTYPE_METHOD(t, "toJSON", fnToString);
-    NODE_SET_PROTOTYPE_METHOD(t, "inspect", fnInspect);
+    Nan::SetPrototypeMethod(t, "toString", fnToString);
+    Nan::SetPrototypeMethod(t, "toJSON", fnToString);
+    Nan::SetPrototypeMethod(t, "inspect", fnInspect);
 
-    NanAssignPersistent(casClass, t->GetFunction());
+    casClass.Reset(t->GetFunction());
 }
 
 NAN_METHOD(Cas::fnToString)
 {
     uint64_t casVal = 0;
     char casStr[24] = "";
-    NanScope();
+    Nan::HandleScope();
 
-    Cas::GetCas(args.This(), &casVal);
+    Cas::GetCas(info.This(), &casVal);
     sprintf(casStr, "%llu", casVal);
-    NanReturnValue(NanNew<String>(casStr));
+    return info.GetReturnValue().Set(
+            Nan::New<String>(casStr).ToLocalChecked());
 }
 
 NAN_METHOD(Cas::fnInspect)
 {
     uint64_t casVal = 0;
     char casStr[14+24] = "";
-    NanScope();
+    Nan::HandleScope();
 
-    Cas::GetCas(args.This(), &casVal);
+    Cas::GetCas(info.This(), &casVal);
     sprintf(casStr, "CouchbaseCas<%llu>", casVal);
-    NanReturnValue(NanNew<String>(casStr));
+    return info.GetReturnValue().Set(
+            Nan::New<String>(casStr).ToLocalChecked());
 }
 
-NAN_WEAK_CALLBACK(casDtor) {
-    uint64_t *value = data.GetParameter();
+void casDtor(const Nan::WeakCallbackInfo<int> &data) {
+    uint64_t *value = reinterpret_cast<uint64_t*>(data.GetParameter());
     delete value;
 }
 
 Handle<Value> Cas::CreateCas(uint64_t cas) {
-    Local<Object> ret = NanNew<Function>(casClass)->NewInstance();
+    Local<Object> ret = Nan::New<Function>(casClass)->NewInstance();
     uint64_t *p = new uint64_t(cas);
+
     ret->SetIndexedPropertiesToExternalArrayData(
         p, v8::kExternalUnsignedIntArray, 2);
-    NanMakeWeakPersistent(ret, p, casDtor);
+
+    Nan::Persistent<v8::Object> persistent(ret);
+    persistent.SetWeak(reinterpret_cast<int*>(p), casDtor,
+        Nan::WeakCallbackType::kInternalFields);
+
     return ret;
 }
 
 bool _StrToCas(Handle<Value> obj, uint64_t *p) {
-    if (sscanf(*NanUtf8String(obj->ToString()), "%llu", p) != 1) {
+    if (sscanf(*Nan::Utf8String(obj->ToString()), "%llu", p) != 1) {
         return false;
     }
     return true;
@@ -86,7 +93,7 @@ bool _ObjToCas(Handle<Value> obj, uint64_t *p) {
 }
 
 bool Cas::GetCas(Handle<Value> obj, uint64_t *p) {
-    NanScope();
+    Nan::HandleScope();
     if (obj->IsObject()) {
         return _ObjToCas(obj, p);
     } else if (obj->IsString()) {
