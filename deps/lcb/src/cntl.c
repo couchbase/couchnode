@@ -56,6 +56,7 @@ static lcb_uint32_t *get_timeout_field(lcb_t instance, int cmd)
     switch (cmd) {
     case LCB_CNTL_OP_TIMEOUT: return &settings->operation_timeout;
     case LCB_CNTL_VIEW_TIMEOUT: return &settings->views_timeout;
+    case LCB_CNTL_N1QL_TIMEOUT: return &settings->n1ql_timeout;
     case LCB_CNTL_DURABILITY_INTERVAL: return &settings->durability_interval;
     case LCB_CNTL_DURABILITY_TIMEOUT: return &settings->durability_timeout;
     case LCB_CNTL_HTTP_TIMEOUT: return &settings->http_timeout;
@@ -452,6 +453,18 @@ HANDLER(mutation_tokens_supported_handler) {
     return LCB_SUCCESS;
 }
 
+HANDLER(n1ql_cache_clear_handler) {
+    if (mode != LCB_CNTL_SET) {
+        return LCB_ECTL_UNSUPPMODE;
+    }
+
+    lcb_n1qlcache_clear(instance->n1ql_cache);
+
+    (void)cmd;
+    (void)arg;
+    return LCB_SUCCESS;
+}
+
 static ctl_handler handlers[] = {
     timeout_common, /* LCB_CNTL_OP_TIMEOUT */
     timeout_common, /* LCB_CNTL_VIEW_TIMEOUT */
@@ -513,7 +526,9 @@ static ctl_handler handlers[] = {
     tcp_nodelay_handler, /* LCB_CNTL_TCP_NODELAY */
     readj_ts_wait_handler, /* LCB_CNTL_RESET_TIMEOUT_ON_WAIT */
     console_fp_handler, /* LCB_CNTL_CONLOGGER_FP */
-    kv_hg_handler /* LCB_CNTL_KVTIMINGS */
+    kv_hg_handler, /* LCB_CNTL_KVTIMINGS */
+    timeout_common, /* LCB_CNTL_N1QL_TIMEOUT */
+    n1ql_cache_clear_handler /* LCB_CNTL_N1QL_CLEARCACHE */
 };
 
 /* Union used for conversion to/from string functions */
@@ -632,6 +647,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timeout},
         {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timeout},
         {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timeout},
+        {"n1ql_timeout", LCB_CNTL_N1QL_TIMEOUT, convert_timeout},
         {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timeout},
         {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timeout},
         {"http_timeout", LCB_CNTL_HTTP_TIMEOUT, convert_timeout},

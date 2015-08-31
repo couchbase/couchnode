@@ -97,7 +97,7 @@ lcb_n1p_free(lcb_N1QLPARAMS *params);
 /** Query is a statement string */
 #define LCB_N1P_QUERY_STATEMENT 1
 
-/** Query is a prepared statement returned via the `PREPARE` statement */
+/** @private */
 #define LCB_N1P_QUERY_PREPARED 2
 
 /**
@@ -105,8 +105,8 @@ lcb_n1p_free(lcb_N1QLPARAMS *params);
  * @param params the params object
  * @param qstr the query string (either N1QL statement or prepared JSON)
  * @param nqstr the length of the string. Set to -1 if NUL-terminated
- * @param type the type of statement. Can be either ::LCB_N1P_QUERY_STATEMENT
- * or ::LCB_N1P_QUERY_PREPARED
+ * @param type the type of statement. Should be ::LCB_N1P_QUERY_STATEMENT,
+ *  currently.
  */
 LIBCOUCHBASE_API
 lcb_error_t
@@ -219,6 +219,11 @@ lcb_n1p_encode(lcb_N1QLPARAMS *params, lcb_error_t *rc);
  * from the params structure. If this function returns successfuly, you must
  * ensure that the params object is not modified until the command is
  * submitted.
+ *
+ * @note
+ * This may also set some lcb_CMDN1QL::cmdflags fields. If setting your own
+ * flags, ensure that those flags do not replace the existing ones set by
+ * this function.
  */
 LIBCOUCHBASE_API
 lcb_error_t
@@ -230,6 +235,15 @@ lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd);
  * @name Low-level N1QL interface
  * @{
  */
+
+/**
+ * Prepare and cache the query if required. This may be used on frequently
+ * issued queries, so they perform better.
+ */
+#define LCB_CMDN1QL_F_PREPCACHE 1<<16
+
+/** @private The lcb_CMDN1QL::query member is an internal JSON structure */
+#define LCB_CMDN1QL_F_JSONQUERY 1<<17
 
 /**
  * Command structure for N1QL queries. Typically an application will use the
@@ -257,20 +271,17 @@ struct lcb_CMDN1QL {
     /** Length of the query data */
     size_t nquery;
 
-    /**cbq-engine host:port. If left NULL, the address will be discovered via
-     * the configuration. This field exists primarily because at the time of
-     * writing, N1QL is an experimental feature not advertised in the cluster
-     * configuration.
-     */
+    /** Ignored since version 2.5.3 */
     const char *host;
 
-    /**Content type for query. Must be specified. */
-
+    /** Ignored since version 2.5.3 */
     const char *content_type;
+
     /** Callback to be invoked for each row */
     lcb_N1QLCALLBACK callback;
 
-    /** Request handle. Currently unused */
+    /**Request handle. Will be set to the handle which may be passed to
+     * lcb_n1ql_cancel() */
     lcb_N1QLHANDLE *handle;
 };
 
@@ -303,9 +314,8 @@ struct lcb_RESPN1QL {
  *
  * Execute a N1QL query.
  *
- * This function will send the query to a query server in the cluster (or if
- * lcb_CMDN1QL::host is set, to the given host), and will invoke the callback
- * (lcb_CMDN1QL::callback) for each result returned.
+ * This function will send the query to a query server in the cluster
+ * and will invoke the callback (lcb_CMDN1QL::callback) for each result returned.
  *
  * @param instance The instance
  * @param cookie Pointer to application data
@@ -329,6 +339,7 @@ LIBCOUCHBASE_API
 void
 lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle);
 /**@}*/
+
 /**@}*/
 
 #ifdef __cplusplus

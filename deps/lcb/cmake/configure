@@ -120,6 +120,9 @@ my @HELP_DESCRIPTIONS = (
     [ "enable-coverage", "",
         "Compile with code coverage instrumentation",
         "%d", \(my $LCB_USE_COVERAGE = 0)],
+    [ "enable-examples", "",
+        "Build examples",
+        "%s", \(my $BUILD_EXAMPLES = 0)],
     [ "build-dir", "s",
         "Directory to build in",
         "%s", \(my $BUILD_DIR = "build") ],
@@ -297,6 +300,9 @@ if ($NO_MOCK) {
 }
 if ($EMBED_LIBEVENT_PLUGIN) {
     push @CM_OPTIONS, "-DLCB_EMBED_PLUGIN_LIBEVENT=1";
+}
+if ($BUILD_EXAMPLES) {
+    push @CM_OPTIONS, "-DLCB_BUILD_EXAMPLES=1";
 }
 
 if ($CMAKE_HOST) {

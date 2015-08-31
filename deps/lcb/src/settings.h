@@ -49,6 +49,7 @@
 #define LCB_DEFAULT_NODECONFIG_TIMEOUT LCB_MS2US(2000)
 
 #define LCB_DEFAULT_VIEW_TIMEOUT LCB_MS2US(75000)
+#define LCB_DEFAULT_N1QL_TIMEOUT LCB_MS2US(75000)
 #define LCB_DEFAULT_DURABILITY_TIMEOUT LCB_MS2US(5000)
 #define LCB_DEFAULT_DURABILITY_INTERVAL LCB_MS2US(100)
 #define LCB_DEFAULT_HTTP_TIMEOUT LCB_MS2US(75000)
@@ -105,6 +106,7 @@ typedef struct lcb_settings_st {
     lcb_U32 operation_timeout;
     lcb_U32 views_timeout;
     lcb_U32 http_timeout;
+    lcb_U32 n1ql_timeout;
     lcb_U32 durability_timeout;
     lcb_U32 durability_interval;
     lcb_U32 config_timeout;

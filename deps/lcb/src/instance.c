@@ -403,6 +403,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     obj->ht_nodes = hostlist_create();
     obj->mc_nodes = hostlist_create();
     obj->retryq = lcb_retryq_new(&obj->cmdq, obj->iotable, obj->settings);
+    obj->n1ql_cache = lcb_n1qlcache_create();
     lcb_initialize_packet_handlers(obj);
     lcb_aspend_init(&obj->pendops);
 
@@ -509,6 +510,7 @@ void lcb_destroy(lcb_t instance)
     DESTROY(lcbio_mgr_destroy, memd_sockpool);
     DESTROY(lcbio_mgr_destroy, http_sockpool);
     DESTROY(lcb_vbguess_destroy, vbguess);
+    DESTROY(lcb_n1qlcache_destroy, n1ql_cache);
 
     mcreq_queue_cleanup(&instance->cmdq);
     lcb_aspend_cleanup(po);

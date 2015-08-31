@@ -135,7 +135,26 @@
         'contrib/genhash/genhash.c'
        ]
     },
-
+    
+    #libjsoncpp
+    {
+      'target_name': 'jsoncpp',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'cflags!': [ '-fno-exceptions' ],
+      'cflags_cc!': [ '-fno-exceptions' ],
+      'conditions': [
+        ['OS=="mac"', {
+          'xcode_settings': {
+            'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
+          }
+        }]
+      ],
+      'sources': [
+        'contrib/lcb-jsoncpp/lcb-jsoncpp.cpp'
+       ],
+    },
+    
     #libcouchbase
     {
       'target_name': 'couchbase',
@@ -180,8 +199,6 @@
         'src/mc/mcreq.c',
         'src/mcserver/mcserver.c',
         'src/mcserver/negotiate.c',
-        'src/n1ql/n1ql.c',
-        'src/n1ql/params.c',
         'src/netbuf/netbuf.c',
         'src/operations/cbflush.c',
         'src/operations/counter.c',
@@ -238,6 +255,9 @@
         'src/utilities.c',
         'src/wait.c',
 
+        'src/n1ql/n1ql.cc',
+        'src/n1ql/params.cc',
+
         'plugins/io/select/plugin-select.c'
       ],
       'dependencies': [
@@ -245,7 +265,8 @@
         'genhash',
         'cjson',
         'cbsasl',
-        'snappy'
+        'snappy',
+        'jsoncpp'
       ],
       'copies': [{
         'files': [ 'plugins/io/libuv/libuv_io_opts.h' ],

@@ -266,7 +266,8 @@ private:
 
 class N1qlHandler : public Handler {
 public:
-    N1qlHandler() : Handler("view"), o_args("qarg"), o_opts("qopt") {}
+    N1qlHandler() : Handler("view"), o_args("qarg"), o_opts("qopt"),
+                    o_prepare("prepare") {}
     HANDLER_DESCRIPTION("Execute a N1QL Query")
     HANDLER_USAGE("QUERY [--qarg PARAM1=VALUE1 --qopt PARAM2=VALUE2]")
 
@@ -283,12 +284,16 @@ protected:
         o_opts.description("Additional query options");
         o_opts.abbrev('Q');
 
+        o_prepare.description("Prepare query before issuing");
+
         parser.addOption(o_args);
         parser.addOption(o_opts);
+        parser.addOption(o_prepare);
     }
 private:
     cliopts::ListOption o_args;
     cliopts::ListOption o_opts;
+    cliopts::BoolOption o_prepare;
 };
 
 class HttpReceiver {

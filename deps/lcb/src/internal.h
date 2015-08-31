@@ -47,6 +47,9 @@
 #include "aspend.h"
 #include "bootstrap.h"
 
+/* n1ql cache */
+#include "n1ql/n1ql-internal.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -102,6 +105,7 @@ struct lcb_st {
     lcb_RETRYQ *retryq; /**< Retry queue for failed operations */
     struct lcb_string_st *scratch; /**< Generic buffer space */
     struct lcb_GUESSVB_st *vbguess; /**< Heuristic masters for vbuckets */
+    lcb_N1QLCACHE *n1ql_cache;
     lcb_MUTATION_TOKEN *dcpinfo; /**< Mapping of known vbucket to {uuid,seqno} info */
     lcbio_pTIMER dtor_timer; /**< Asynchronous destruction timer */
     int type; /**< Type of connection */

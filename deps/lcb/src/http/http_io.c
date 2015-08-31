@@ -253,8 +253,13 @@ lcb_http_request_connect(lcb_http_request_t req)
     memcpy(dest.port, req->port, req->nport);
     dest.port[req->nport] = '\0';
 
-    req->timeout = lcb_htreq_isdata(req) ?
-            settings->views_timeout : settings->http_timeout;
+    if (req->reqtype == LCB_HTTP_TYPE_VIEW) {
+        req->timeout = settings->views_timeout;
+    } else if (req->reqtype == LCB_HTTP_TYPE_N1QL) {
+        req->timeout = settings->n1ql_timeout;
+    } else {
+        req->timeout = settings->http_timeout;
+    }
 
     poolreq = lcbio_mgr_get(pool, &dest, req->timeout, on_connected, req);
     if (!poolreq) {
