@@ -36,9 +36,6 @@ FILE(GLOB LCB_NETBUF_SRC src/netbuf/*.c)
 FILE(GLOB LCB_HT_SRC src/lcbht/*.c)
 LIST(APPEND LCB_HT_SRC "contrib/http_parser/http_parser.c")
 
-# N1QL
-FILE(GLOB LCB_N1QL_SRC src/n1ql/*.c)
-
 # bucket config ("confmon")
 FILE(GLOB LCB_BCONF_SRC src/bucketconfig/*.c)
 
@@ -68,3 +65,7 @@ SET(LCB_CORE_SRC
     src/timings.c
     src/utilities.c
     src/wait.c)
+
+SET(LCB_CORE_CXXSRC
+    src/n1ql/params.cc
+    src/n1ql/n1ql.cc)

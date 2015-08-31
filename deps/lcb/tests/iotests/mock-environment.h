@@ -70,7 +70,8 @@ class MockCommand
     X(KEYINFO) \
     X(GET_MCPORTS) \
     X(SET_CCCP) \
-    X(REGEN_VBCOORDS)
+    X(REGEN_VBCOORDS) \
+    X(RESET_QUERYSTATE)
 
 public:
     enum Code {

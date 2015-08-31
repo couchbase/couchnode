@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2.5.3 (August 27 2015)
+
+* Add N1QL timeout feature.
+  This allows an independent timeout setting for N1QL. Previously this would
+  use the views timeout.
+  * Priority: Major
+  * Issues: [CCBC-631](https://issues.couchbase.com/browse/CCBC-631)
+
+* Add N1QL prepared statements.
+  This allows prepared statements to be used with N1QL. The library will
+  maintain an internal "prepared statement cache" which contains cached
+  responses for internal PREPARE requests. To use a prepared statement, an
+  application can simply set the `LCB_CMDN1QL_F_PREPCACHE` bit in the
+  `cmdflags` field within the `lcb_CMDN1QL` structure. All the rest is
+  handled internally within the library.
+  * Priority: Major
+  * Issues: [CCBC-633](https://issues.couchbase.com/browse/CCBC-633)
+
 ## 2.5.2 (July 23 2015)
 
 * Fix off-by-one error when populating documents with pillowfight.

@@ -992,6 +992,9 @@ N1qlHandler::run()
     if (rc != LCB_SUCCESS) {
         throw rc;
     }
+    if (o_prepare.passed()) {
+        cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
+    }
     fprintf(stderr, "Encoded query: %.*s\n", (int)cmd.nquery, cmd.query);
     cmd.callback = n1qlCallback;
     rc = lcb_n1ql_query(instance, NULL, &cmd);

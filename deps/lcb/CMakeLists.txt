@@ -21,7 +21,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 # These variables can be modified as needed
 
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.1.0-gda80301.jar)
+SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.2.0-g85062e3.jar)
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
 SET(COUCHBASE_MOCK_DLSERVER http://packages.couchbase.com/clients/c/mock)
 project(libcouchbase)
@@ -180,6 +180,13 @@ MACRO(LCB_UTIL tgt)
         POSITION_INDEPENDENT_CODE TRUE)
 ENDMACRO()
 
+MACRO(LCB_CXXUTIL tgt)
+    SET_TARGET_PROPERTIES(${tgt}
+        PROPERTIES
+        COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}"
+        POSITION_INDEPENDENT_CODE TRUE)
+ENDMACRO()
+
 ADD_LIBRARY(netbuf OBJECT ${LCB_NETBUF_SRC})
 ADD_LIBRARY(netbuf-malloc OBJECT ${LCB_NETBUF_SRC})
 ADD_LIBRARY(mcreq OBJECT ${LCB_MC_SRC})
@@ -187,6 +194,7 @@ ADD_LIBRARY(rdb OBJECT ${LCB_RDB_SRC})
 ADD_LIBRARY(lcbio OBJECT ${LCB_IO_SRC})
 ADD_LIBRARY(lcbht OBJECT ${LCB_HT_SRC})
 ADD_LIBRARY(lcbcore OBJECT ${LCB_CORE_SRC})
+ADD_LIBRARY(lcbcore-cxx OBJECT ${LCB_CORE_CXXSRC})
 
 SET_TARGET_PROPERTIES(netbuf-malloc PROPERTIES COMPILE_DEFINITIONS NETBUF_LIBC_PROXY=1)
 LCB_UTIL(netbuf-malloc)
@@ -197,11 +205,13 @@ LCB_UTIL(couchbase_utils)
 LCB_UTIL(mcreq)
 LCB_UTIL(lcbht)
 LCB_UTIL(lcbcore)
+LCB_CXXUTIL(lcbcore-cxx)
 
 ADD_SUBDIRECTORY(src/vbucket)
 ADD_SUBDIRECTORY(contrib/cbsasl)
 ADD_SUBDIRECTORY(contrib/cliopts)
 ADD_SUBDIRECTORY(src/ssl)
+ADD_SUBDIRECTORY(contrib/lcb-jsoncpp)
 IF(LCB_BUILD_EXAMPLES)
     ADD_SUBDIRECTORY(example)
 ENDIF()
@@ -241,8 +251,10 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:rdb>
     $<TARGET_OBJECTS:lcbht>
     $<TARGET_OBJECTS:lcbcore>
+    $<TARGET_OBJECTS:lcbcore-cxx>
     $<TARGET_OBJECTS:lcb_views_c>
     $<TARGET_OBJECTS:lcb_jsparse>
+    $<TARGET_OBJECTS:lcb_jsoncpp>
     ${LCB_DTRACE_OBJECT}
     ${lcb_plat_objs}
     ${lcb_ssl_objs})
