@@ -59,8 +59,8 @@
 #include "cas.h"
 #include "transcoder.h"
 
-#if LCB_VERSION < 0x020400
-#error "Couchnode requires libcouchbase >= 2.4.0"
+#if LCB_VERSION < 0x020503
+#error "Couchnode requires libcouchbase >= 2.5.3"
 #endif
 
 namespace Couchnode

@@ -461,7 +461,11 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
         return NanThrowError(Error::create("bad opts passed"));
     }
 
-    if (!_ParseCookie(&cookie, args[2])) {
+    if (args[2]->BooleanValue()) {
+        cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
+    }
+
+    if (!_ParseCookie(&cookie, args[3])) {
         return NanThrowError(Error::create("bad callback passed"));
     }
 
