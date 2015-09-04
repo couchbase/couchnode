@@ -54,7 +54,7 @@ Nan::Persistent<String> Error::codeKey;
 
 NAN_MODULE_INIT(CouchbaseImpl::Init)
 {
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(fnNew);
     t->InstanceTemplate()->SetInternalFieldCount(1);
@@ -114,7 +114,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
 
 NAN_METHOD(CouchbaseImpl::sfnSetErrorClass)
 {
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     if (info.Length() != 1) {
         info.GetReturnValue().Set(Error::create("invalid number of parameters passed"));
@@ -129,7 +129,7 @@ NAN_METHOD(CouchbaseImpl::sfnSetErrorClass)
 NAN_METHOD(CouchbaseImpl::fnNew)
 {
     //CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     if (info.Length() != 3) {
         return Nan::ThrowError(Error::create("expected 3 parameters"));
@@ -197,7 +197,7 @@ NAN_METHOD(CouchbaseImpl::fnNew)
 NAN_METHOD(CouchbaseImpl::fnConnect)
 {
     CouchbaseImpl *me = Nan::ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     lcb_error_t ec = lcb_connect(me->getLcbHandle());
     if (ec != LCB_SUCCESS) {
@@ -211,7 +211,7 @@ NAN_METHOD(CouchbaseImpl::fnConnect)
 NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     if (info.Length() != 1) {
         return info.GetReturnValue().Set(
@@ -237,7 +237,7 @@ NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
 NAN_METHOD(CouchbaseImpl::fnSetTranscoder)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     if (info.Length() != 2) {
         return Nan::ThrowError(Error::create("invalid number of parameters passed"));
@@ -274,7 +274,7 @@ NAN_METHOD(CouchbaseImpl::fnSetTranscoder)
 
 NAN_METHOD(CouchbaseImpl::fnLcbVersion)
 {
-    Nan::HandleScope();
+    Nan::HandleScope scope;
     return info.GetReturnValue().Set(
         Nan::New<String>(lcb_get_version(NULL)).ToLocalChecked());
 }
@@ -282,7 +282,7 @@ NAN_METHOD(CouchbaseImpl::fnLcbVersion)
 NAN_METHOD(CouchbaseImpl::fnGetViewNode)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     lcb_int32_t numNodes = lcb_get_num_nodes(me->getLcbHandle());
     if (numNodes <= 0) {
@@ -303,7 +303,7 @@ NAN_METHOD(CouchbaseImpl::fnGetViewNode)
 NAN_METHOD(CouchbaseImpl::fnGetMgmtNode)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     lcb_int32_t numNodes = lcb_get_num_nodes(me->getLcbHandle());
     if (numNodes <= 0) {
@@ -324,7 +324,7 @@ NAN_METHOD(CouchbaseImpl::fnGetMgmtNode)
 NAN_METHOD(CouchbaseImpl::fnShutdown)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
-    Nan::HandleScope();
+    Nan::HandleScope scope;
     lcb_destroy_async(me->getLcbHandle(), NULL);
     me->onShutdown();
     return info.GetReturnValue().Set(true);
@@ -332,6 +332,6 @@ NAN_METHOD(CouchbaseImpl::fnShutdown)
 
 NAN_METHOD(CouchbaseImpl::fnErrorTest)
 {
-    Nan::HandleScope();
+    Nan::HandleScope scope;
     info.GetReturnValue().Set(Error::create("test error"));
 }
