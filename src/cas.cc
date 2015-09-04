@@ -20,10 +20,9 @@
 using namespace Couchnode;
 
 void Cas::Init() {
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<FunctionTemplate> t = Nan::New<FunctionTemplate>();
-    t->InstanceTemplate()->SetInternalFieldCount(1);
     t->SetClassName(Nan::New<String>("CouchbaseCas").ToLocalChecked());
 
     Nan::SetPrototypeMethod(t, "toString", fnToString);
@@ -37,7 +36,7 @@ NAN_METHOD(Cas::fnToString)
 {
     uint64_t casVal = 0;
     char casStr[24] = "";
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Cas::GetCas(info.This(), &casVal);
     sprintf(casStr, "%llu", casVal);
@@ -49,7 +48,7 @@ NAN_METHOD(Cas::fnInspect)
 {
     uint64_t casVal = 0;
     char casStr[14+24] = "";
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Cas::GetCas(info.This(), &casVal);
     sprintf(casStr, "CouchbaseCas<%llu>", casVal);
@@ -57,21 +56,12 @@ NAN_METHOD(Cas::fnInspect)
             Nan::New<String>(casStr).ToLocalChecked());
 }
 
-void casDtor(const Nan::WeakCallbackInfo<int> &data) {
-    uint64_t *value = reinterpret_cast<uint64_t*>(data.GetParameter());
-    delete value;
-}
-
 Handle<Value> Cas::CreateCas(uint64_t cas) {
     Local<Object> ret = Nan::New<Function>(casClass)->NewInstance();
-    uint64_t *p = new uint64_t(cas);
 
-    ret->SetIndexedPropertiesToExternalArrayData(
-        p, v8::kExternalUnsignedIntArray, 2);
-
-    Nan::Persistent<v8::Object> persistent(ret);
-    persistent.SetWeak(reinterpret_cast<int*>(p), casDtor,
-        Nan::WeakCallbackType::kInternalFields);
+    Local<Value> casData =
+            Nan::CopyBuffer((char*)&cas, sizeof(uint64_t)).ToLocalChecked();
+    ret->Set(0, casData);
 
     return ret;
 }
@@ -83,17 +73,25 @@ bool _StrToCas(Handle<Value> obj, uint64_t *p) {
     return true;
 }
 
-bool _ObjToCas(Handle<Value> obj, uint64_t *p) {
-    Handle<Object> realObj = obj.As<Object>();
-    if (realObj->GetIndexedPropertiesExternalArrayDataLength() != 2) {
+bool _ObjToCas(Local<Value> obj, uint64_t *p) {
+    Local<Object> realObj = obj.As<Object>();
+    Local<Value> casData = realObj->Get(0);
+
+    if (!node::Buffer::HasInstance(casData)) {
         return false;
     }
-    *p = *(uint64_t*)realObj->GetIndexedPropertiesExternalArrayData();
+
+    if (node::Buffer::Length(casData) != sizeof(uint64_t)) {
+        return false;
+    }
+
+    *p = *(uint64_t*)node::Buffer::Data(casData);
+
     return true;
 }
 
-bool Cas::GetCas(Handle<Value> obj, uint64_t *p) {
-    Nan::HandleScope();
+bool Cas::GetCas(Local<Value> obj, uint64_t *p) {
+    Nan::HandleScope scope;
     if (obj->IsObject()) {
         return _ObjToCas(obj, p);
     } else if (obj->IsString()) {

@@ -129,7 +129,7 @@ NAN_METHOD(CouchbaseImpl::fnGet) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_get_cmd_st> cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     cmd->version = 0;
     if (!_ParseKey(&cmd->v.v0, info[0])) {
@@ -160,7 +160,7 @@ NAN_METHOD(CouchbaseImpl::fnGetReplica) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_get_replica_cmd_t> cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     cmd->version = 1;
     if (!_ParseKey(&cmd->v.v0, info[0])) {
@@ -194,7 +194,7 @@ NAN_METHOD(CouchbaseImpl::fnTouch) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_get_cmd_st> cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     cmd->version = 0;
     if (!_ParseKey(&cmd->v.v0, info[0])) {
@@ -222,7 +222,7 @@ NAN_METHOD(CouchbaseImpl::fnUnlock) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_unlock_cmd_t> cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     cmd->version = 0;
     if (!_ParseKey(&cmd->v.v0, info[0])) {
@@ -250,7 +250,7 @@ NAN_METHOD(CouchbaseImpl::fnRemove) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
       LcbCmd<lcb_remove_cmd_t> cmd;
       void *cookie;
-      Nan::HandleScope();
+      Nan::HandleScope scope;
 
       cmd->version = 0;
       if (!_ParseKey(&cmd->v.v0, info[0])) {
@@ -278,7 +278,7 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_store_cmd_t> cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     cmd->version = 0;
     cmd->v.v0.datatype = 0;
@@ -324,7 +324,7 @@ NAN_METHOD(CouchbaseImpl::fnArithmetic) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_arithmetic_cmd_st> cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     cmd->version = 0;
     if (!_ParseKey(&cmd->v.v0, info[0])) {
@@ -362,7 +362,7 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
     LcbCmd<lcb_durability_cmd_t> cmd;
     lcb_durability_opts_t opts;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     cmd->version = 0;
     memset(&opts, 0, sizeof(opts));
@@ -405,7 +405,7 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDVIEWQUERY cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     memset(&cmd, 0, sizeof(cmd));
     cmd.callback = viewrow_callback;
@@ -443,7 +443,7 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDN1QL cmd;
     void *cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
 

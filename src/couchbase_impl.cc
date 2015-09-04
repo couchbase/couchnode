@@ -83,7 +83,7 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
         lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_SCHED_IMPLICIT_FLUSH, &flushMode);
     }
 
-    Nan::HandleScope();
+    Nan::HandleScope scope;
     if (connectCallback) {
         Local<Value> args[] = { Nan::New<Integer>(err) };
         connectCallback->Call(1, args);
@@ -139,7 +139,7 @@ template<typename T>
 void _DispatchValueCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(error);
     Local<Value> resVal;
@@ -162,7 +162,7 @@ template<typename T>
 void _DispatchArithCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(error);
     Local<Value> resVal;
@@ -185,7 +185,7 @@ template<typename T>
 void _DispatchBasicCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(error);
     Local<Value> resVal;
@@ -205,7 +205,7 @@ void _DispatchBasicCallback(lcb_t instance, const void *cookie, lcb_error_t erro
 
 void _DispatchErrorCallback(lcb_t instance, const void *cookie, lcb_error_t error) {
     Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(error);
     Local<Value> resVal = Nan::Null();
@@ -272,7 +272,7 @@ void viewrow_callback(lcb_t instance, int ignoreme,
 {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     Nan::Callback *callback = (Nan::Callback*)resp->cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
 
@@ -355,7 +355,7 @@ void n1qlrow_callback(lcb_t instance, int ignoreme,
         const lcb_RESPN1QL *resp)
 {
     Nan::Callback *callback = (Nan::Callback*)resp->cookie;
-    Nan::HandleScope();
+    Nan::HandleScope scope;
 
     Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
 

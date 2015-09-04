@@ -28,7 +28,7 @@ namespace Couchnode
 
 NAN_METHOD(CouchbaseImpl::fnControl)
 {
-    Nan::HandleScope();
+    Nan::HandleScope scope;
     CouchbaseImpl *me;
     lcb_t instance;
     lcb_error_t err;
