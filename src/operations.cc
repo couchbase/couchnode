@@ -465,7 +465,7 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
         return Nan::ThrowError(Error::create("bad opts passed"));
     }
 
-    if (info[2]->BooleanValue()) {
+    if (!info[2]->BooleanValue()) {
         cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
     }
 
