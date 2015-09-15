@@ -32,15 +32,10 @@ class DefaultTranscoder
 public:
     static void Init();
 
-    DefaultTranscoder()
-        : encodeData(NULL) {
+    DefaultTranscoder() {
     }
 
     ~DefaultTranscoder() {
-        if (encodeData) {
-            delete[] encodeData;
-            encodeData = NULL;
-        }
     }
 
     static Handle<Value> decode(const void *bytes,
@@ -48,8 +43,6 @@ public:
     void encode(const void **bytes, lcb_SIZE *nbytes,
             lcb_U32 *flags, Local<Value> value);
 
-private:
-    char *encodeData;
 
 };
 

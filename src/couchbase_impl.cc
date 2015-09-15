@@ -60,9 +60,18 @@ CouchbaseImpl::CouchbaseImpl(lcb_t inst) :
 
 CouchbaseImpl::~CouchbaseImpl()
 {
-    delete connectCallback;
-    delete transEncodeFunc;
-    delete transDecodeFunc;
+    if (connectCallback) {
+        delete connectCallback;
+        connectCallback = NULL;
+    }
+    if (transEncodeFunc) {
+        delete transEncodeFunc;
+        transEncodeFunc = NULL;
+    }
+    if (transDecodeFunc) {
+        delete transDecodeFunc;
+        transDecodeFunc = NULL;
+    }
     if (instance) {
         lcb_destroy(instance);
     }
@@ -101,7 +110,7 @@ Handle<Value> CouchbaseImpl::decodeDoc(
     if (transDecodeFunc) {
         Local<Object> decObj = Nan::New<Object>();
         decObj->Set(Nan::New(valueKey),
-                Nan::NewBuffer((char*)bytes, nbytes).ToLocalChecked());
+                Nan::CopyBuffer((char*)bytes, nbytes).ToLocalChecked());
         decObj->Set(Nan::New(flagsKey), Nan::New<Integer>(flags));
         Local<Value> args[] = { decObj };
         return transDecodeFunc->Call(1, args);
