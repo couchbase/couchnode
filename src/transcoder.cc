@@ -67,7 +67,7 @@ Handle<Value> DefaultTranscoder::decode(const void *bytes,
         return Nan::New<String>((char*)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_RAW) {
         // RAW decodes into a Buffer
-        return Nan::NewBuffer((char*)bytes, nbytes).ToLocalChecked();
+        return Nan::CopyBuffer((char*)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_JSON) {
         // JSON decodes using UTF8, then JSON.parse
         Handle<Value> utf8String = decode(bytes, nbytes, NF_UTF8);
