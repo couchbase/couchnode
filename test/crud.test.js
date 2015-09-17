@@ -269,6 +269,27 @@ describe('#crud', function () {
             }));
           }));
         });
+        it('should work with partial failures', function(done) {
+          var key1 = H.key();
+          var key2 = H.key();
+          H.b.insert(key1, 'foo', H.okCallback(function() {
+            H.b.insert(key2, 'bar', H.okCallback(function() {
+              H.b.getAndLockMulti([key2], H.okCallback(function() {
+                H.b.removeMulti([key1, key2], function(err, res) {
+                  assert(err === 1);
+                  assert(res);
+                  assert(res[key1]);
+                  assert(res[key1].cas);
+                  assert(!res[key1].error);
+                  assert(res[key2]);
+                  assert(!res[key2].cas);
+                  assert(res[key2].error);
+                  done();
+                });
+              }));
+            }));
+          }));
+        });
       });
 
       describe('unlock', function () {
@@ -328,6 +349,27 @@ describe('#crud', function () {
             H.b.getAndLock(key, H.okCallback(function(lockRes) {
               H.b.unlock(key, lockRes.cas, function() {
                 H.b.replace(key, 'bar', H.okCallback(function() {
+                  done();
+                }));
+              });
+            }));
+          }));
+        });
+        it('should work with partial failures', function(done) {
+          var kv = {}, key1 = H.key(), key2 = H.key(), key3 = H.key();
+          kv[key1] = {value: 'foo'};
+          kv[key2] = {value: 'bar'};
+          kv[key3] = {value: 'baz'};
+          H.b.insertMulti(kv, H.okCallback(function(res) {
+            H.b.getAndLockMulti([key1, key2, key3], H.okCallback(function(lockRes) {
+              kv = {};
+              kv[key1] = {cas: lockRes[key1].cas};
+              kv[key2] = {cas: lockRes[key2].cas};
+              H.b.unlockMulti(kv, function() {
+                kv = {};
+                kv[key1] = {value: 'bar'};
+                kv[key2] = {value: 'foo'};
+                H.b.replaceMulti(kv, H.okCallback(function() {
                   done();
                 }));
               });
@@ -459,6 +501,26 @@ describe('#crud', function () {
             }));
           }));
         });
+        it('should work with multi', function(done) {
+          var kv = {}, key1 = H.key(), key2 = H.key();
+          kv[key1] = {delta: 1};
+          kv[key2] = {delta: -1, initial: 5};
+          H.b.counterMulti(kv, {initial: 10}, H.okCallback(function() {
+            H.b.counterMulti(kv, function(err, res) {
+              assert.equal(err, 0);
+              assert(res);
+              assert(res[key1]);
+              assert(res[key1].cas);
+              assert.equal(res[key1].value, 11);
+              assert(!res[key1].error);
+              assert(res[key2]);
+              assert(res[key2].cas);
+              assert.equal(res[key2].value, 4);
+              assert(!res[key2].error);
+              done();
+            });
+          }));
+        });
       });
 
       describe('append', function() {
@@ -497,6 +559,32 @@ describe('#crud', function () {
                 assert(err);
                 assert(!res);
                 done();
+              });
+            }));
+          }));
+        });
+        it('should work with multi', function(done) {
+          var kv = {}, key1 = H.key(), key2 = H.key();
+          kv[key1] = {value: 'foo'};
+          kv[key2] = {value: 'foo'};
+          H.b.insertMulti(kv, H.okCallback(function(){
+            H.b.getAndLock(key2, H.okCallback(function() {
+              var kv = {};
+              kv[key1] = {fragment: 'bar'};
+              kv[key2] = {fragment: 'baz'};
+              H.b.appendMulti(kv, function() {
+                H.b.getMulti([key1, key2], H.okCallback(function(res) {
+                  assert(res);
+                  assert(res[key1]);
+                  assert(res[key1].cas);
+                  assert.equal(res[key1].value, 'foobar');
+                  assert(!res[key1].error);
+                  assert(res[key2]);
+                  assert(res[key2].cas);
+                  assert.equal(res[key2].value, 'foo');
+                  assert(!res[key2].error);
+                  done();
+                }));
               });
             }));
           }));
@@ -543,6 +631,32 @@ describe('#crud', function () {
             }));
           }));
         });
+        it('should work with multi', function(done) {
+          var kv = {}, key1 = H.key(), key2 = H.key();
+          kv[key1] = {value: 'foo'};
+          kv[key2] = {value: 'foo'};
+          H.b.insertMulti(kv, H.okCallback(function(){
+            H.b.getAndLock(key2, H.okCallback(function() {
+              var kv = {};
+              kv[key1] = {fragment: 'bar'};
+              kv[key2] = {fragment: 'baz'};
+              H.b.prependMulti(kv, function() {
+                H.b.getMulti([key1, key2], H.okCallback(function(res) {
+                  assert(res);
+                  assert(res[key1]);
+                  assert(res[key1].cas);
+                  assert.equal(res[key1].value, 'barfoo');
+                  assert(!res[key1].error);
+                  assert(res[key2]);
+                  assert(res[key2].cas);
+                  assert.equal(res[key2].value, 'foo');
+                  assert(!res[key2].error);
+                  done();
+                }));
+              });
+            }));
+          }));
+        });
       });
     });
 
@@ -574,6 +688,26 @@ describe('#crud', function () {
           assert.deepEqual(getRes.cas, upsertRes.cas);
           done();
         }))
+      }));
+    });
+
+    it('should successfully upsert some documents', function(done) {
+      var kv = {}, key1 = H.key(), key2 = H.key();
+      kv[key1] = {value: 'foo'};
+      kv[key2] = {value: 'bar'};
+      H.b.upsertMulti(kv, H.okCallback(function(){
+        H.b.getMulti([key1,key2], H.okCallback(function(res) {
+          assert(res);
+          assert(res[key1]);
+          assert(res[key1].cas);
+          assert.equal(res[key1].value, 'foo');
+          assert(!res[key1].error);
+          assert(res[key2]);
+          assert(res[key2].cas);
+          assert.equal(res[key2].value, 'bar');
+          assert(!res[key2].error);
+          done();
+        }));
       }));
     });
 
@@ -671,7 +805,7 @@ describe('#crud', function () {
           }));
         }));
       });
-    }
+    };
     describe('getAndTouch', function() {
       touchTests(function(key, expiry, callback) {
         H.b.getAndTouch(key, expiry, callback);
@@ -680,6 +814,41 @@ describe('#crud', function () {
     describe('touch', function() {
       touchTests(function(key, expiry, callback) {
         H.b.touch(key, expiry, callback);
+      });
+    });
+
+    function touchMultiTests(touchFn) {
+      it('should succesfully update expiry (slow)', function(done) {
+        this.timeout(5000);
+        var kv = {}, key1 = H.key(), key2 = H.key();
+        kv[key1] = {value: 'foo'};
+        kv[key2] = {value: 'bar'};
+        H.b.insertMulti(kv, {expiry: 1}, H.okCallback(function () {
+          touchFn(kv, {expiry: 2}, H.okCallback(function (res) {
+            setTimeout(function () {
+              H.b.getMulti([key1,key2], H.okCallback(function() {
+                setTimeout(function() {
+                  H.b.getMulti([key1,key2], function (err, res) {
+                    assert(err);
+                    assert(res[key1].error);
+                    assert(res[key2].error);
+                    done();
+                  });
+                }, 3000);
+              }));
+            }, 100);
+          }));
+        }));
+      });
+    };
+    describe('getAndTouchMulti', function() {
+      touchMultiTests(function(kv, expiry, callback) {
+        H.b.getAndTouchMulti(kv, expiry, callback);
+      });
+    });
+    describe('touchMulti', function() {
+      touchMultiTests(function(kv, expiry, callback) {
+        H.b.touchMulti(kv, expiry, callback);
       });
     });
 
