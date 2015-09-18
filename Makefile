@@ -45,6 +45,9 @@ docs: node_modules
 browser: lib/mock.js lib/viewQuery.js
 	browserify -r "./lib/mock.js:cbmock" > cbmock.js
 
+prebuilds:
+	node ./node_modules/prebuild/bin.js
+
 reformat:
 	@astyle --mode=c \
                --quiet \
@@ -62,4 +65,4 @@ reformat:
                src/*.cc \
                src/*.h
 
-.PHONY: all test clean docs browser
+.PHONY: all test clean docs browser prebuilds
