@@ -23,6 +23,7 @@
     "bindings": "~1.2.1",
     "jsonparse": "~1.0.0",
     "nan": "~2.0.8",
+    "prebuild": "~2.6.0",
     "request": "~2.61.0"
   },
   "devDependencies": {
@@ -42,7 +43,9 @@
     "native": false
   },
   "scripts": {
-    "install": "(node-gyp rebuild 2> builderror.log) || (exit 0)",
-    "test": "./node_modules/mocha/bin/mocha"
+    "install": "prebuild --download",
+    "test": "./node_modules/mocha/bin/mocha",
+    "rebuild": "prebuild --compile",
+    "prebuild": "prebuild --verbose --strip"
   }
 }
