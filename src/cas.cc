@@ -39,7 +39,7 @@ NAN_METHOD(Cas::fnToString)
     Nan::HandleScope scope;
 
     Cas::GetCas(info.This(), &casVal);
-    sprintf(casStr, "%llu", casVal);
+    sprintf(casStr, "%llu", (unsigned long long int)casVal);
     return info.GetReturnValue().Set(
             Nan::New<String>(casStr).ToLocalChecked());
 }
@@ -51,7 +51,7 @@ NAN_METHOD(Cas::fnInspect)
     Nan::HandleScope scope;
 
     Cas::GetCas(info.This(), &casVal);
-    sprintf(casStr, "CouchbaseCas<%llu>", casVal);
+    sprintf(casStr, "CouchbaseCas<%llu>", (unsigned long long int)casVal);
     return info.GetReturnValue().Set(
             Nan::New<String>(casStr).ToLocalChecked());
 }
@@ -67,7 +67,8 @@ Handle<Value> Cas::CreateCas(uint64_t cas) {
 }
 
 bool _StrToCas(Handle<Value> obj, uint64_t *p) {
-    if (sscanf(*Nan::Utf8String(obj->ToString()), "%llu", p) != 1) {
+    if (sscanf(*Nan::Utf8String(obj->ToString()), "%llu",
+            (unsigned long long int*)p) != 1) {
         return false;
     }
     return true;
