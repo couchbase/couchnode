@@ -70,7 +70,6 @@
          'contrib/cbsasl/include/cbsasl/visibility.h',
          'contrib/cbsasl/src/client.c',
          'contrib/cbsasl/src/common.c',
-         'contrib/cbsasl/src/config.h',
          'contrib/cbsasl/src/cram-md5/hmac.c',
          'contrib/cbsasl/src/cram-md5/hmac.h',
          'contrib/cbsasl/src/cram-md5/md5.c',
