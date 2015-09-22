@@ -44,7 +44,7 @@
   },
   "scripts": {
     "install": "prebuild --download",
-    "test": "./node_modules/mocha/bin/mocha",
+    "test": "mocha",
     "rebuild": "prebuild --compile",
     "prebuild": "prebuild --verbose --strip"
   }
