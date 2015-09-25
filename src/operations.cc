@@ -42,7 +42,9 @@ bool _ParseString(const T** val, V* nval, Local<Value> key) {
         delete utfKey;
     }
     utfKey = new Nan::Utf8String(key);
-    *nval = utfKey->length();
+    if (nval) {
+        *nval = utfKey->length();
+    }
     *val = **utfKey;
     return true;
 }
