@@ -145,39 +145,49 @@ describe('#Querying', function() {
     describe('#View Queries (slow)', function () {
       var key = H.key();
       var ddKey = H.key();
+      var ddKeyGeo = H.key();
       var bm = H.b.manager();
       before(function (done) {
-        this.timeout(6000);
+        this.timeout(8000);
         bm.insertDesignDocument(ddKey, {
           views: {
             simple: {
               map: 'function(doc, meta){emit(meta.id);}'
             }
-          },
-          spatial: {
-            'simpleGeo': 'function(doc, meta){emit({type:"Point",coordinates:doc.loc},[meta.id, doc.loc]);}'
           }
         }, function (err, res) {
           assert(!err);
           assert(res);
-          H.b.insert(key, 'foo', H.okCallback(function() {
-            setTimeout(function () {
-              H.b.query(
-                  Vq.from(ddKey, 'simple').stale(Vq.Update.BEFORE).limit(1),
-                  function (err) {
-                    assert(!err);
-                    done();
-                  });
-            }, 3000);
-          }));
+          bm.insertDesignDocument(ddKeyGeo, {
+            spatial: {
+              'simpleGeo': 'function(doc, meta){emit({type:"Point",coordinates:doc.loc},[meta.id, doc.loc]);}'
+            }
+          }, function(err, res) {
+            assert(!err);
+            assert(res);
+            H.b.insert(key, 'foo', H.okCallback(function() {
+              setTimeout(function () {
+                H.b.query(
+                    Vq.from(ddKey, 'simple').stale(Vq.Update.BEFORE).limit(1),
+                    function (err) {
+                      assert(!err);
+                      done();
+                    });
+              }, 3000);
+            }));
+          });
         });
       });
       after(function (done) {
         H.b.remove(key, H.okCallback(function() {
-          bm.removeDesignDocument(ddKey, function (err, res) {
-            assert(!err);
+          bm.removeDesignDocument(ddKeyGeo, function(err, res) {
+            assert.ifError(err);
             assert(res);
-            done();
+            bm.removeDesignDocument(ddKey, function(err, res) {
+              assert.ifError(err);
+              assert(res);
+              done();
+            });
           });
         }));
       });
@@ -286,7 +296,7 @@ describe('#Querying', function() {
        */
       it.skip('spatial queries should work', function (done) {
         this.timeout(4000);
-        H.b.query(Vq.fromSpatial(ddKey, 'simpleGeo'),
+        H.b.query(Vq.fromSpatial(ddKeyGeo, 'simpleGeo'),
             function (err, rows, meta) {
               assert(!err);
               assert(rows);
