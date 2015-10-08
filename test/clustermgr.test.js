@@ -20,6 +20,19 @@ describe('#cluster management', function() {
       });
     });
   }
-  describe('#RealBucket', allTests.bind(this, harness));
+  describe('#RealBucket', function() {
+    allTests.bind(this, harness);
+
+    it('should not be able to list buckets with wrong password', function (done) {
+      var cluster = new harness.lib.Cluster(harness.connstr);
+      var clusterMgr = cluster.manager(harness.muser, 'junk');
+      clusterMgr.listBuckets(function (err, list) {
+        assert(err);
+        assert.equal(err.message, 'operation failed (401)');
+        assert(!list);
+        done();
+      });
+    });
+  });
   describe('#MockBucket', allTests.bind(this, harness.mock));
 });
