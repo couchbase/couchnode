@@ -21,7 +21,6 @@
   "name": "couchbase",
   "dependencies": {
     "bindings": "~1.2.1",
-    "jsonparse": "~1.0.0",
     "nan": "~2.0.8",
     "prebuild": "~2.6.0",
     "request": "~2.61.0"
