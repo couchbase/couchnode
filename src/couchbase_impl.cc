@@ -94,7 +94,7 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
 
     Nan::HandleScope scope;
     if (connectCallback) {
-        Local<Value> args[] = { Nan::New<Integer>(err) };
+        Local<Value> args[] = { Error::create(err) };
         connectCallback->Call(1, args);
     }
 }
