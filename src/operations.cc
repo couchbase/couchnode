@@ -368,9 +368,7 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
 
     cmd->version = 0;
     memset(&opts, 0, sizeof(opts));
-    opts.v.v0.timeout = 0;
-    opts.v.v0.interval = 0;
-    opts.v.v0.cap_max = 1;
+
     if (!_ParseKey(&cmd->v.v0, info[0])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
