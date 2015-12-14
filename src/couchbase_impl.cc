@@ -156,6 +156,7 @@ void _DispatchValueCallback(lcb_t instance, const void *cookie, lcb_error_t erro
         Local<Object> resObj = Nan::New<Object>();
         resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
         resObj->Set(Nan::New(me->valueKey), me->decodeDoc(resp->v.v0.bytes, resp->v.v0.nbytes, resp->v.v0.flags));
+        resObj->Set(Nan::New(me->flagsKey), Nan::New<Integer>(resp->v.v0.flags));
         resVal = resObj;
     } else {
         resVal = Nan::Null();
