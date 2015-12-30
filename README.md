@@ -1,7 +1,7 @@
-# Couchbase Node.js Client
+# Couchbase Node.js Client [![Build Status](https://travis-ci.org/couchbase/couchnode.svg?branch=master)](https://travis-ci.org/couchbase/couchnode)
 
-The Node.js SDK library allows you to connect to a Couchbase cluster from 
-Node.js. It is a native Node.js module and uses the very fast libcouchbase 
+The Node.js SDK library allows you to connect to a Couchbase cluster from
+Node.js. It is a native Node.js module and uses the very fast libcouchbase
 library to handle communicating to the cluster over the Couchbase binary
 protocol.
 
@@ -30,7 +30,7 @@ npm install "git+https://github.com/couchbase/couchnode.git#master"
 
 ## Introduction
 
-Connecting to a Couchbase bucket is as simple as creating a new `Cluster` 
+Connecting to a Couchbase bucket is as simple as creating a new `Cluster`
 instance to represent the `Cluster` you are using, and then executing
 `openBucket` against this to open a connection to you specific bucket.  You
 are able to execute most operations immediately, and they will be queued

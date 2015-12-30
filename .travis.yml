@@ -1,0 +1,15 @@
+language: node_js
+node_js:
+  - '0.10'
+  - '0.12'
+  - '4'
+  - 'stable'
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-4.8
+      - libstdc++-4.8-dev
+before_install:
+  - export CXX="g++-4.8" CC="gcc-4.8"
