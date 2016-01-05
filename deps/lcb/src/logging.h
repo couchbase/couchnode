@@ -26,6 +26,7 @@ extern "C" {
 
 struct lcb_settings_st;
 struct lcb_st;
+struct lcbvb_CONFIG_st;
 
 /**
  * Default printf logger which is enabled via LCB_LOGLEVEL in the
@@ -53,10 +54,16 @@ void lcb_log(const struct lcb_settings_st *settings,
              const char *srcfile,
              int srcline,
              const char *fmt, ...)
+
 #ifdef __GNUC__
              __attribute__ ((format(printf, 6, 7)))
 #endif
              ;
+
+LCB_INTERNAL_API
+void lcb_log_badconfig(const struct lcb_settings_st *settings,
+    const char *subsys, int severity, const char *srcfile, int srcline,
+    const struct lcbvb_CONFIG_st *vbc, const char *origin_txt);
 
 lcb_logprocs * lcb_init_console_logger(void);
 

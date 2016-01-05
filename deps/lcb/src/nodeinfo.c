@@ -187,3 +187,22 @@ const char *const *lcb_get_server_list(lcb_t instance)
     hostlist_ensure_strlist(instance->ht_nodes);
     return (const char * const * )instance->ht_nodes->slentries;
 }
+
+LIBCOUCHBASE_API
+const char *
+lcb_get_keynode(lcb_t instance, const void *key, size_t nkey)
+{
+    lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
+    int srvix, vbid;
+
+    if (!vbc) {
+        return NULL;
+    }
+
+    lcbvb_map_key(vbc, key, nkey, &vbid, &srvix);
+    if (srvix < 0) {
+        return NULL;
+    }
+
+    return lcbvb_get_hostname(vbc, srvix);
+}

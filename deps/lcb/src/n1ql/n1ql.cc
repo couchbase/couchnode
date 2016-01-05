@@ -143,6 +143,7 @@ typedef struct lcb_N1QLREQ {
     lcb_t instance;
     lcb_error_t lasterr;
     lcb_U32 flags;
+    lcb_U32 timeout;
     // How many rows were received. Used to avoid parsing the meta
     size_t nrows;
 
@@ -533,12 +534,43 @@ N1QLREQ::apply_plan(const Plan& plan)
     return issue_htreq(bodystr);
 }
 
+lcb_U32
+lcb_n1qlreq_parsetmo(const std::string& s)
+{
+    double num;
+    int nchars, rv;
+
+    rv = sscanf(s.c_str(), "%lf%n", &num, &nchars);
+    if (rv != 1) {
+        return 0;
+    }
+    std::string mults = s.substr(nchars);
+
+    // Get the actual timeout value in microseconds. Note we can't use the macros
+    // since they will truncate the double value.
+    if (mults == "s") {
+        return num * static_cast<double>(LCB_S2US(1));
+    } else if (mults == "ms") {
+        return num * static_cast<double>(LCB_MS2US(1));
+    } else if (mults == "h") {
+        return num * static_cast<double>(LCB_S2US(3600));
+    } else if (mults == "us") {
+        return num;
+    } else if (mults == "m") {
+        return num * static_cast<double>(LCB_S2US(60));
+    } else if (mults == "ns") {
+        return LCB_NS2US(num);
+    } else {
+        return 0;
+    }
+}
+
 lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
     const void *user_cookie, const lcb_CMDN1QL *cmd)
     : cur_htresp(NULL), htreq(NULL), parser(lcbjsp_create(LCBJSP_MODE_N1QL)),
       cookie(user_cookie), callback(cmd->callback), instance(obj),
-      lasterr(LCB_SUCCESS), flags(cmd->cmdflags), nrows(0), prepare_req(NULL),
-      was_retried(false)
+      lasterr(LCB_SUCCESS), flags(cmd->cmdflags), timeout(0),
+      nrows(0), prepare_req(NULL), was_retried(false)
 {
     parser->data = this;
     parser->callback = row_callback;
@@ -565,6 +597,9 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
         char buf[64] = { 0 };
         sprintf(buf, "%uus", LCBT_SETTING(obj, n1ql_timeout));
         tmoval = buf;
+        timeout = LCBT_SETTING(obj, n1ql_timeout);
+    } else {
+        timeout = lcb_n1qlreq_parsetmo(tmoval.asString());
     }
 }
 

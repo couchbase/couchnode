@@ -175,6 +175,8 @@ lcb_error_t lcb_cccp_update(clconfig_provider *provider,
     rv = lcbvb_load_json(vbc, data->base);
 
     if (rv) {
+        lcb_log(LOGARGS(cccp, ERROR), LOGFMT "Failed to parse config", LOGID(cccp));
+        lcb_log_badconfig(LOGARGS(cccp, ERROR), vbc, data->base);
         lcbvb_destroy(vbc);
         return LCB_PROTOCOL_ERROR;
     }

@@ -349,7 +349,11 @@ IF(NOT LCB_NO_PLUGINS AND NOT WIN32)
         ADD_SUBDIRECTORY(plugins/io/libev)
     ENDIF()
     IF(NOT (HAVE_LIBEV OR HAVE_LIBEVENT))
-        MESSAGE(FATAL_ERROR "Must have libevent or libev")
+        MESSAGE(FATAL_ERROR
+            "libev or libevent development files missing.
+            You can disable these dependencies by passing
+            -DLCB_NO_PLUGINS=1 to Cmake, or
+            --disable-plugins to the configure script")
     ENDIF()
 ENDIF()
 

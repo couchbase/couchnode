@@ -14,6 +14,9 @@ void lcb_n1qlcache_clear(lcb_N1QLCACHE *);
 #ifdef __cplusplus
 void lcb_n1qlcache_getplan(lcb_N1QLCACHE *cache,
     const std::string& key, std::string& out);
+
+// Parse timeout value. Exposed for tests
+lcb_U32 lcb_n1qlreq_parsetmo(const std::string& s);
 }
 #endif
 #endif

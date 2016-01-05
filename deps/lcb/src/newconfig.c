@@ -206,7 +206,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
         lcbvb_map_key(cq->config, key, nkey, &tmpid, &newix);
     }
 
-    if (newix < 0 || newix > (int)cq->npipelines) {
+    if (newix < 0 || newix > (int)cq->npipelines-1) {
         return MCREQ_KEEP_PACKET;
     }
 

@@ -375,3 +375,18 @@ TEST_F(ConnstrTest, testCompatConversion)
     ASSERT_STREQ("fluffle", params.bucket);
     ASSERT_STREQ(cropts.v.v3.passwd, params.password);
 }
+
+TEST_F(ConnstrTest, testCertificateWithoutSSL)
+{
+    // Ensure we get an invalid input error for certificate paths without
+    // couchbases://
+    lcb_error_t err;
+    err = lcb_connspec_parse(
+        "couchbase://1.2.3.4/default?certpath=/foo/bar/baz", &params, &errmsg);
+    ASSERT_NE(LCB_SUCCESS, err);
+
+    reinit();
+    err = lcb_connspec_parse(
+        "couchbases://1.2.3.4/default?certpath=/foo/bar/baz", &params, &errmsg);
+    ASSERT_EQ(LCB_SUCCESS, err);
+}

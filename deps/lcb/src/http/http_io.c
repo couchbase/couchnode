@@ -150,6 +150,7 @@ io_read(lcbio_CTX *ctx, unsigned nr)
     if (rv == -1) {
         lcb_error_t err;
         if (req->redirect_to) {
+            lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE);
             if ((err = lcb_htreq_redirect(req)) == LCB_SUCCESS) {
                 goto GT_DONE;
             }
@@ -253,12 +254,14 @@ lcb_http_request_connect(lcb_http_request_t req)
     memcpy(dest.port, req->port, req->nport);
     dest.port[req->nport] = '\0';
 
-    if (req->reqtype == LCB_HTTP_TYPE_VIEW) {
-        req->timeout = settings->views_timeout;
-    } else if (req->reqtype == LCB_HTTP_TYPE_N1QL) {
-        req->timeout = settings->n1ql_timeout;
-    } else {
-        req->timeout = settings->http_timeout;
+    if (!req->timeout) {
+        if (req->reqtype == LCB_HTTP_TYPE_VIEW) {
+            req->timeout = settings->views_timeout;
+        } else if (req->reqtype == LCB_HTTP_TYPE_N1QL) {
+            req->timeout = settings->n1ql_timeout;
+        } else {
+            req->timeout = settings->http_timeout;
+        }
     }
 
     poolreq = lcbio_mgr_get(pool, &dest, req->timeout, on_connected, req);

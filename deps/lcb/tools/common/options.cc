@@ -272,6 +272,11 @@ ConnParams::fillCropts(lcb_create_st& cropts)
     }
 
     if (o_connstr.passed()) {
+        if (o_host.passed() || o_bucket.passed()) {
+            throw string("Use of the deprecated "
+                "-h/--host or -b/--bucket options with -U is "
+                "not allowed!");
+        }
         connstr = o_connstr.const_result();
         if (connstr.find('?') == string::npos) {
             connstr += '?';

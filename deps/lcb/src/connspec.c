@@ -270,6 +270,9 @@ parse_options(PARSECTX *ctx, const char *options, const char *specend)
                 SET_ERROR("Invalid value for 'ssl'. Choices are on, off, and no_verify");
             }
         } else if (!strcmp(key, "certpath")) {
+            if (! (out->flags & F_SSLSCHEME)) {
+                SET_ERROR("Certificate path must be specified with SSL host or scheme");
+            }
             out->certpath = strdup(value);
         } else if (!strcmp(key, "console_log_level")) {
             if (sscanf(value, "%d", &out->loglevel) != 1) {

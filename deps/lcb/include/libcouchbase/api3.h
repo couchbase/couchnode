@@ -303,6 +303,17 @@ LIBCOUCHBASE_API
 lcb_RESPCALLBACK
 lcb_get_callback3(lcb_t instance, int cbtype);
 
+/**
+ * @committed
+ * Returns the type of the callback as a string.
+ * This function is helpful for debugging and demonstrative processes.
+ * @param cbtype the type of the callback (the second argument to the callback)
+ * @return a string describing the callback type
+ */
+LIBCOUCHBASE_API
+const char *
+lcb_strcbtype(int cbtype);
+
 /**@}*/
 
 /**@name General Spooling API
@@ -1228,6 +1239,13 @@ lcb_flush3(lcb_t instance, const void *cookie, const lcb_CMDFLUSH *cmd);
  * lcb_CMDHTTP::cmdflags field
  */
 #define LCB_CMDHTTP_F_STREAM 1<<16
+
+/**
+ * @private
+ * If specified, the lcb_CMDHTTP::cas field becomes the timeout for this
+ * specific request.
+ */
+#define LCB_CMDHTTP_F_CASTMO 1<<17
 
 /**
  * Structure for performing an HTTP request.

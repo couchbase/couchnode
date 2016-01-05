@@ -2975,6 +2975,27 @@ const char *
 lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned index);
 
 /**
+ * @committed
+ *
+ * @brief Get the target server for a given key.
+ *
+ * This is a convenience function wrapping around the vBucket API which allows
+ * you to retrieve the target node (the node which will be contacted) when
+ * performing KV operations involving the key.
+ *
+ * @param instance the instance
+ * @param key the key to use
+ * @param nkey the length of the key
+ * @return a string containing the hostname, or NULL on error.
+ *
+ * Since this is a convenience function, error details are not contained here
+ * in favor of brevity. Use the full vBucket API for more powerful functions.
+ */
+LIBCOUCHBASE_API
+const char *
+lcb_get_keynode(lcb_t instance, const void *key, size_t nkey);
+
+/**
  * @brief Get the number of the replicas in the cluster
  *
  * @param instance The handle to lcb
