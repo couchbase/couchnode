@@ -140,15 +140,6 @@
       'target_name': 'jsoncpp',
       'product_prefix': 'lib',
       'type': 'static_library',
-      'cflags!': [ '-fno-exceptions' ],
-      'cflags_cc!': [ '-fno-exceptions' ],
-      'conditions': [
-        ['OS=="mac"', {
-          'xcode_settings': {
-            'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
-          }
-        }]
-      ],
       'sources': [
         'contrib/lcb-jsoncpp/lcb-jsoncpp.cpp'
        ],
