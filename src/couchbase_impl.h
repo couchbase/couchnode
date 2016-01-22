@@ -57,6 +57,7 @@
 #include <libcouchbase/configuration.h>
 
 #include "cas.h"
+#include "token.h"
 #include "transcoder.h"
 #include "exception.h"
 
@@ -163,6 +164,7 @@ public:
     static Nan::Persistent<String> geometryKey;
     static Nan::Persistent<String> rowsKey;
     static Nan::Persistent<String> resultsKey;
+    static Nan::Persistent<String> tokenKey;
 
 };
 

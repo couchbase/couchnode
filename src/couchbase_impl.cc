@@ -178,6 +178,7 @@ void _DispatchArithCallback(lcb_t instance, const void *cookie, lcb_error_t erro
     if (!error) {
         Local<Object> resObj = Nan::New<Object>();
         resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
+        resObj->Set(Nan::New(me->tokenKey), MutationToken::CreateToken(resp->v.v0.mutation_token));
         resObj->Set(Nan::New(me->valueKey), Nan::New<Number>(resp->v.v0.value));
         resVal = resObj;
     } else {
@@ -201,6 +202,29 @@ void _DispatchBasicCallback(lcb_t instance, const void *cookie, lcb_error_t erro
     if (!error) {
         Local<Object> resObj = Nan::New<Object>();
         resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
+
+    Local<Value> args[] = { errObj, resVal };
+    callback->Call(2, args);
+
+    delete callback;
+}
+
+template<typename T>
+void _DispatchStoreCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    Nan::Callback *callback = (Nan::Callback*)cookie;
+    Nan::HandleScope scope;
+
+    Local<Value> errObj = Error::create(error);
+    Local<Value> resVal;
+    if (!error) {
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
+        resObj->Set(Nan::New(me->tokenKey), MutationToken::CreateToken(resp->v.v0.mutation_token));
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -242,7 +266,7 @@ static void get_callback(lcb_t instance, const void *cookie,
 static void store_callback(lcb_t instance, const void *cookie, lcb_storage_t,
         lcb_error_t error, const lcb_store_resp_t *resp)
 {
-    _DispatchBasicCallback(instance, cookie, error, resp);
+    _DispatchStoreCallback(instance, cookie, error, resp);
 }
 
 static void arithmetic_callback(lcb_t instance, const void *cookie,
@@ -254,8 +278,7 @@ static void arithmetic_callback(lcb_t instance, const void *cookie,
 static void remove_callback(lcb_t instance, const void *cookie,
         lcb_error_t error, const lcb_remove_resp_t *resp)
 {
-    _DispatchBasicCallback(instance, cookie, error, resp);
-
+    _DispatchStoreCallback(instance, cookie, error, resp);
 }
 
 static void touch_callback(lcb_t instance, const void *cookie,

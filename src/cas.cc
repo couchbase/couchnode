@@ -93,6 +93,7 @@ bool _ObjToCas(Local<Value> obj, uint64_t *p) {
 
 bool Cas::GetCas(Local<Value> obj, uint64_t *p) {
     Nan::HandleScope scope;
+    *p = 0;
     if (obj->IsObject()) {
         return _ObjToCas(obj, p);
     } else if (obj->IsString()) {

@@ -95,6 +95,7 @@
       'src/binding.cc',
       'src/operations.cc',
       'src/cas.cc',
+      'src/token.cc',
       'src/exception.cc',
       'src/uv-plugin-all.c'
     ],

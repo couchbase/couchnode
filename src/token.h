@@ -1,0 +1,41 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2013 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
+#ifndef TOKEN_H_
+#define TOKEN_H_
+
+namespace Couchnode
+{
+
+class MutationToken
+{
+public:
+    static void Init();
+    static NAN_METHOD(fnToString);
+    static NAN_METHOD(fnInspect);
+
+    static bool GetToken(v8::Local<v8::Value>, lcb_MUTATION_TOKEN*);
+    static v8::Handle<v8::Value> CreateToken(const lcb_MUTATION_TOKEN*);
+
+private:
+    static Nan::Persistent<v8::Function> tokenClass;
+
+};
+
+} // namespace Couchnode
+
+#endif /* TOKEN_H_ */
