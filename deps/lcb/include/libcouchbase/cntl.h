@@ -36,8 +36,8 @@ extern "C" {
 
 
 /**
- * @ingroup lcb-public-api
- * @defgroup lcb-cntl-settings Client Configuration
+ * @ingroup lcb-cntl
+ * @defgroup lcb-cntl-settings Setting List
  * @brief Adjust tunables for the client
  * @details
  *

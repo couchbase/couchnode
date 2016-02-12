@@ -1,5 +1,6 @@
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/n1ql.h>
+#include <libcouchbase/vbucket.h>
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 #include <string>
 
@@ -83,18 +84,57 @@ lcb_n1p_posparam(lcb_N1QLPARAMS *params, const char *value, size_t nvalue)
     return LCB_SUCCESS;
 }
 
-lcb_error_t
-lcb_n1p_mutation_token(lcb_N1QLPARAMS *params, const lcb_MUTATION_TOKEN *sv)
+static void
+encode_mutation_token(Json::Value& sparse, const lcb_MUTATION_TOKEN *sv)
 {
-    Json::Value sv_json = params->root["scan_vector"];
-    params->root["scan_consistency"] = "at_plus";
-
     char buf[64] = { 0 };
     sprintf(buf, "%u", sv->vbid_);
-    Json::Value& cur_sv = params->root[buf];
+    Json::Value& cur_sv = sparse[buf];
     sprintf(buf, "%llu", sv->uuid_);
     cur_sv["guard"] = buf;
     cur_sv["value"] = static_cast<Json::UInt64>(sv->seqno_);
+}
+
+lcb_error_t
+lcb_n1p_setconsistent_token(lcb_N1QLPARAMS *params,
+    const char *keyspace, const lcb_MUTATION_TOKEN *sv)
+{
+    Json::Value sv_json = params->root["scan_vector"][keyspace];
+    params->root["scan_consistency"] = "at_plus";
+    encode_mutation_token(sv_json, sv);
+    return LCB_SUCCESS;
+}
+
+lcb_error_t
+lcb_n1p_setconsistent_handle(lcb_N1QLPARAMS *params, lcb_t instance)
+{
+    lcbvb_CONFIG *vbc;
+    lcb_error_t rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+    if (rc != LCB_SUCCESS) {
+        return rc;
+    }
+
+    const char *bucketname;
+    rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETNAME, &bucketname);
+    if (rc != LCB_SUCCESS) {
+        return rc;
+    }
+
+    params->root["scan_consistency"] = "at_plus";
+
+    Json::Value sv_json = params->root["scan_vector"][bucketname];
+
+    size_t vbmax = vbc->nvb;
+    for (size_t ii = 0; ii < vbmax; ++ii) {
+        lcb_KEYBUF kb;
+        kb.type = LCB_KV_VBID;
+        kb.contig.nbytes = ii;
+        kb.contig.bytes = NULL;
+        const lcb_MUTATION_TOKEN *mt = lcb_get_mutation_token(instance, &kb, &rc);
+        if (rc == LCB_SUCCESS && mt != NULL) {
+            encode_mutation_token(sv_json, mt);
+        }
+    }
     return LCB_SUCCESS;
 }
 

@@ -114,6 +114,10 @@ extern "C"
         PROTOCOL_BINARY_RESPONSE_ROLLBACK = 0x23,
         /** No access (could be opcode, value, bucket etc) */
         PROTOCOL_BINARY_RESPONSE_EACCESS = 0x24,
+        /** The Couchbase cluster is currently initializing this
+         * node, and the Cluster manager has not yet granted all
+         * users access to the cluster. */
+        PROTOCOL_BINARY_RESPONSE_NOT_INITIALIZED = 0x25,
         /** The server have no idea what this command is for */
         PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND = 0x81,
         /** Not enough memory */
@@ -135,7 +139,64 @@ extern "C"
          * temporary failure from the underlying persistence layer,
          * etc).
          */
-        PROTOCOL_BINARY_RESPONSE_ETMPFAIL = 0x86
+        PROTOCOL_BINARY_RESPONSE_ETMPFAIL = 0x86,
+
+        /*
+         * Sub-document specific responses.
+         */
+
+        /** The provided path does not exist in the document. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT = 0xc0,
+
+        /** One of path components treats a non-dictionary as a dictionary, or
+         * a non-array as an array.
+         * [Arithmetic operations only] The value the path points to is not
+         * a number. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH = 0xc1,
+
+        /** The path’s syntax was incorrect. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL = 0xc2,
+
+        /** The path provided is too large; either the string is too long,
+         * or it contains too many components. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_E2BIG = 0xc3,
+
+        /** The document has too many levels to parse. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_E2DEEP = 0xc4,
+
+        /** [For mutations only] The value provided will invalidate the JSON if
+         * inserted. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_CANTINSERT = 0xc5,
+
+        /** The existing document is not valid JSON. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_NOTJSON = 0xc6,
+
+        /** [For arithmetic ops] The existing number is out of the valid range
+         * for arithmetic ops (cannot be represented as an int64_t). */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_NUM_ERANGE = 0xc7,
+
+        /** [For arithmetic ops] The operation would result in a number
+         * outside the valid range (cannot be represented as an int64_t). */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_DELTA_ERANGE = 0xc8,
+
+        /** [For mutations only] The requested operation requires the path to
+         * not already exist, but it exists. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EEXISTS = 0xc9,
+
+        /** [For mutations only] Inserting the value would cause the document
+         * to be too deep. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_ETOODEEP = 0xca,
+
+        /** [For multi-path commands only] An invalid combination of commands
+         * was specified. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO = 0xcb,
+
+        /** [For multi-path commands only] Specified key was successfully
+         * found, but one or more path operations failed. Examine the individual
+         * lookup_result (MULTI_LOOKUP) / mutation_result (MULTI_MUTATION)
+         * structures for details. */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE = 0xcc
+
     } protocol_binary_response_status;
 
     /**
@@ -192,6 +253,9 @@ extern "C"
         PROTOCOL_BINARY_CMD_AUDIT_PUT = 0x27,
         PROTOCOL_BINARY_CMD_AUDIT_CONFIG_RELOAD = 0x28,
 
+        /* Shutdown the server */
+        PROTOCOL_BINARY_CMD_SHUTDOWN = 0x29,
+
         /* These commands are used for range operations and exist within
          * this header for use in other projects.  Range operations are
          * not expected to be implemented in the memcached server itself.
@@ -227,6 +291,10 @@ extern "C"
         PROTOCOL_BINARY_CMD_TAP_CHECKPOINT_START = 0x46,
         PROTOCOL_BINARY_CMD_TAP_CHECKPOINT_END = 0x47,
         /* End TAP */
+
+        /* Vbucket command to get the VBUCKET sequence numbers for all
+         * vbuckets on the node */
+        PROTOCOL_BINARY_CMD_GET_ALL_VB_SEQNOS = 0x48,
 
         /* DCP */
         PROTOCOL_BINARY_CMD_DCP_OPEN = 0x50,
@@ -348,6 +416,36 @@ extern "C"
         PROTOCOL_BINARY_CMD_SET_DRIFT_COUNTER_STATE = 0xc1,
         PROTOCOL_BINARY_CMD_GET_ADJUSTED_TIME = 0xc2,
 
+        /**
+         * Commands for the Sub-document API.
+         */
+
+        /* Retrieval commands */
+        PROTOCOL_BINARY_CMD_SUBDOC_GET = 0xc5,
+        PROTOCOL_BINARY_CMD_SUBDOC_EXISTS = 0xc6,
+
+        /* Dictionary commands */
+        PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD = 0xc7,
+        PROTOCOL_BINARY_CMD_SUBDOC_DICT_UPSERT = 0xc8,
+
+        /* Generic modification commands */
+        PROTOCOL_BINARY_CMD_SUBDOC_DELETE = 0xc9,
+        PROTOCOL_BINARY_CMD_SUBDOC_REPLACE = 0xca,
+
+        /* Array commands */
+        PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_LAST = 0xcb,
+        PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_FIRST = 0xcc,
+        PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_INSERT = 0xcd,
+        PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_ADD_UNIQUE = 0xce,
+
+        /* Arithmetic commands */
+        PROTOCOL_BINARY_CMD_SUBDOC_COUNTER = 0xcf,
+
+        /* Multi-Path commands */
+        PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP = 0xd0,
+        PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION = 0xd1,
+
+
         /* Scrub the data */
         PROTOCOL_BINARY_CMD_SCRUB = 0xf0,
         /* Refresh the ISASL data */
@@ -359,6 +457,9 @@ extern "C"
         /* ns_server - memcached session validation */
         PROTOCOL_BINARY_CMD_SET_CTRL_TOKEN = 0xf4,
         PROTOCOL_BINARY_CMD_GET_CTRL_TOKEN = 0xf5,
+
+        /* ns_server - memcached internal communication */
+        PROTOCOL_BINARY_CMD_INIT_COMPLETE = 0xf6,
 
         /* Reserved for being able to signal invalid opcode */
         PROTOCOL_BINARY_CMD_INVALID = 0xff
@@ -389,6 +490,17 @@ extern "C"
         FLEX_DATA_OFFSET = 1,
         EXT_META_LEN = 1
     } protocol_binary_flexmeta;
+
+    /**
+     * Definitions of sub-document flags.
+     */
+    typedef enum {
+        /* No flags set */
+        SUBDOC_FLAG_NONE = 0x0,
+
+        /* (Mutation) Should non-existent intermediate paths be created? */
+        SUBDOC_FLAG_MKDIR_P = 0x01
+    } protocol_binary_subdoc_flag;
 
     /**
      * Definition of the header structure for a request packet.
@@ -506,6 +618,10 @@ extern "C"
         struct {
             protocol_binary_request_header header;
             struct {
+                /*
+                 * Specifying a non-null expiration time is no longer
+                 * supported
+                 */
                 uint32_t expiration;
             } body;
         } message;
@@ -699,6 +815,146 @@ extern "C"
      */
     typedef protocol_binary_response_get protocol_binary_response_gat;
     typedef protocol_binary_response_get protocol_binary_response_gatq;
+
+    /**
+     * Definition of the packet used by SUBDOCUMENT single-path commands.
+     *
+     * The path, which is always required, is in the Body, after the Key.
+     *
+     *   Header:                        24 @0: <protocol_binary_request_header>
+     *   Extras:
+     *     Sub-document flags            1 @24: <protocol_binary_subdoc_flag>
+     *     Sub-document pathlen          2 @25: <variable>
+     *   Body:
+     *     Key                      keylen @27: <variable>
+     *     Path                    pathlen @27+keylen: <variable>
+     *     Value to insert/replace
+     *               vallen-keylen-pathlen @27+keylen+pathlen: [variable]
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint16_t pathlen;      // Length in bytes of the sub-doc path.
+                uint8_t  subdoc_flags; // See protocol_binary_subdoc_flag
+            } extras;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 3];
+    } protocol_binary_request_subdocument;
+
+
+    /** Definition of the packet used by SUBDOCUMENT responses.
+     */
+    typedef union {
+        struct {
+            protocol_binary_response_header header;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_response_header)];
+    } protocol_binary_response_subdocument;
+
+    /**
+     * Definition of the request packets used by SUBDOCUMENT multi-path commands.
+     *
+     * Multi-path sub-document commands differ from single-path in that they
+     * encode a series of multiple paths to operate on (from a single key).
+     * There are two multi-path commands - MULTI_LOOKUP and MULTI_MUTATION.
+     * - MULTI_LOOKUP consists of variable number of subdoc lookup commands
+     *                (SUBDOC_GET or SUBDOC_EXISTS).
+     * - MULTI_MUTATION consists of a variable number of subdoc mutation
+     *                  commands (i.e. all subdoc commands apart from
+     *                  SUBDOC_{GET,EXISTS}).
+     *
+     * Each path to be operated on is specified by an Operation Spec, which are
+     * contained in the body. This defines the opcode, path, and value
+     * (for mutations).
+     *
+     * A maximum of MULTI_MAX_PATHS paths (operations) can be encoded in a
+     * single multi-path command.
+     *
+     *  SUBDOC_MULTI_LOOKUP:
+     *    Header:                24 @0:  <protocol_binary_request_header>
+     *    Extras:                 0 @24: no extras
+     *    Body:         <variable>  @24:
+     *        Key            keylen @24: <variable>
+     *        1..MULTI_MAX_PATHS [Lookup Operation Spec]
+     *
+     *        Lookup Operation Spec:
+     *                            1 @0 : Opcode
+     *                            1 @1 : Flags
+     *                            2 @2 : Path Length
+     *                      pathlen @4 : Path
+     */
+    static const int PROTOCOL_BINARY_SUBDOC_MULTI_MAX_PATHS = 16;
+
+    typedef struct {
+        uint8_t opcode;
+        uint8_t flags;
+        uint16_t pathlen;
+     /* uint8_t path[pathlen] */
+    } protocol_binary_subdoc_multi_lookup_spec;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_subdocument_multi_lookup;
+
+    /*
+     *
+     * SUBDOC_MULTI_MUTATION
+     *    Header:                24 @0:  <protocol_binary_request_header>
+     *    Extras:                 0 @24:
+     *    Body:           variable  @24:
+     *        Key            keylen @24: <variable>
+     *        1..MULTI_MAX_PATHS [Mutation Operation Spec]
+     *
+     *        Mutation Operation Spec:
+     *                            1 @0         : Opcode
+     *                            1 @1         : Flags
+     *                            2 @2         : Path Length
+     *                            4 @4         : Value Length
+     *                      pathlen @8         : Path
+     *                       vallen @8+pathlen : Value
+     */
+    typedef struct {
+        uint8_t opcode;
+        uint8_t flags;
+        uint16_t pathlen;
+        uint32_t valuelen;
+     /* uint8_t path[pathlen] */
+     /* uint8_t value[valuelen]  */
+    } protocol_binary_subdoc_multi_mutation_spec;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_subdocument_multi_mutation;
+
+    /**
+     * Definition of the response packets used by SUBDOCUMENT multi-path
+     * commands.
+     *
+     * SUBDOC_MULTI_LOOKUP - Body consists of a series of lookup_result structs,
+     *                       one per lookup_spec in the request.
+     *
+     * Lookup Result:
+     *                            2 @0 : status
+     *                            4 @2 : resultlen
+     *                    resultlen @6 : result
+     */
+    typedef struct {
+        protocol_binary_request_header header;
+        /* Variable-length 1..PROTOCOL_BINARY_SUBDOC_MULTI_MAX_PATHS */
+        protocol_binary_subdoc_multi_lookup_spec body[1];
+    } protocol_binary_response_subdoc_multi_lookup;
+
+    /**
+     * SUBDOC_MULTI_MUTATION - Body is either empty (if all mutations
+     *                         successful), or contains the sub-code and
+     *                         index of the first failed mutation spec..
+     * Mutation Result (failure):
+     *                   2 @0 : Status code of first spec which failed.
+     *                   1 @2 : 0-based index of the first spec which failed.
+     */
+    typedef union {
+        struct {
+            protocol_binary_response_header header;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_response_header)];
+    } protocol_binary_response_subdoc_multi_mutation;
 
 
     /**
@@ -970,17 +1226,19 @@ extern "C"
         PROTOCOL_BINARY_FEATURE_DATATYPE = 0x01,
         PROTOCOL_BINARY_FEATURE_TLS = 0x2,
         PROTOCOL_BINARY_FEATURE_TCPNODELAY = 0x03,
-        PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO = 0x04
+        PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO = 0x04,
+        PROTOCOL_BINARY_FEATURE_TCPDELAY = 0x05
     } protocol_binary_hello_features;
 
     #define MEMCACHED_FIRST_HELLO_FEATURE 0x01
-    #define MEMCACHED_TOTAL_HELLO_FEATURES 0x04
+    #define MEMCACHED_TOTAL_HELLO_FEATURES 0x05
 
 #define protocol_feature_2_text(a) \
     (a == PROTOCOL_BINARY_FEATURE_DATATYPE) ? "Datatype" : \
     (a == PROTOCOL_BINARY_FEATURE_TLS) ? "TLS" : \
     (a == PROTOCOL_BINARY_FEATURE_TCPNODELAY) ? "TCP NODELAY" : \
-    (a == PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO) ? "Mutation seqno" : "Unknown"
+    (a == PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO) ? "Mutation seqno" : \
+    (a == PROTOCOL_BINARY_FEATURE_TCPDELAY) ? "TCP DELAY" : "Unknown"
 
     /**
      * The HELLO command is used by the client and the server to agree
@@ -1214,8 +1472,8 @@ extern "C"
             struct {
                 /**
                  * 0x01 - Active
-                 * 0x02 - Pending
-                 * 0x03 - Replica
+                 * 0x02 - Replica
+                 * 0x03 - Pending
                  * 0x04 - Dead
                  */
                 uint8_t state;
@@ -1255,6 +1513,19 @@ extern "C"
     typedef protocol_binary_request_no_extras protocol_binary_request_ssl_refresh;
     typedef protocol_binary_response_no_extras protocol_binary_response_ssl_refresh;
 
+    /**
+     * Request command timings for a bucket from memcached. Privileged
+     * connections may specify the name of the bucket in the "key" field,
+     * or the aggregated timings for the entire server by using the
+     * special name <code>/all/</code>.
+     *
+     * The returned payload is a json document of the following format:
+     *    { "us" : [ x, x, x, x, ... ],
+     *      "ms" : [ y, y, y, ...],
+     *      "500ms" : [ z, z, z, ...],
+     *      "wayout" : nnn
+     *    }
+     */
     typedef union {
         struct {
             protocol_binary_request_header header;
@@ -1397,6 +1668,13 @@ extern "C"
         uint8_t bytes[sizeof(protocol_binary_request_header) + 12];
     } protocol_binary_request_return_meta;
 
+
+    /**
+     * Message format for CMD_INIT_COMPLETE
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_init_complete;
+    typedef protocol_binary_response_no_extras protocol_binary_response_init_complete;
+
     /**
      * Message format for CMD_SET_CONFIG
      */
@@ -1500,6 +1778,16 @@ extern "C"
     typedef protocol_binary_response_no_extras protocol_binary_response_audit_put;
 
     /**
+     * The shutdown message is sent from ns_server to memcached to tell
+     * memcached to initiate a clean shutdown. This is a privileged
+     * command and carries no payload, but the CAS field needs to be
+     * set to the current session token (see GET/SET_CTRL_TOKEN)
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_shutdown;
+    typedef protocol_binary_response_no_extras protocol_binary_response_shutdown;
+
+
+    /**
      * The PROTOCOL_BINARY_CMD_OBSERVE_SEQNO command is used by the
      * client to retrieve information about the vbucket in order to
      * find out if a particular mutation has been persisted or
@@ -1565,6 +1853,52 @@ extern "C"
      *       The other fields are the same as that mentioned in the normal case.
      */
     typedef protocol_binary_response_no_extras protocol_binary_response_observe_seqno;
+
+    /**
+     * Definition of the request packet for the command
+     * PROTOCOL_BINARY_CMD_GET_ALL_VB_SEQNOS
+     *
+     * Header: Only opcode field is used.
+     *
+     * Body: Contains the vbucket state for which the vb sequence numbers are
+     *       requested.
+     *       Please note that this field is optional, header.request.extlen is
+     *       checked to see if it is present. If not present, it implies request
+     *       is for all vbucket states.
+     */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                vbucket_state_t state;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) +
+                      sizeof(vbucket_state_t)];
+    } protocol_binary_request_get_all_vb_seqnos;
+
+    /**
+     * Definition of the payload in the PROTOCOL_BINARY_CMD_GET_ALL_VB_SEQNOS
+     * response.
+     *
+     * The body contains a "list" of "vbucket id - seqno pairs" for all
+     * active and replica buckets on the node in network byte order.
+     *
+     *
+     *    Byte/     0       |       1       |       2       |       3       |
+     *       /              |               |               |               |
+     *      |0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
+     *      +---------------+---------------+---------------+---------------+
+     *     0| VBID          | VBID          | SEQNO         | SEQNO         |
+     *      +---------------+---------------+---------------+---------------+
+     *     4| SEQNO         | SEQNO         | SEQNO         | SEQNO         |
+     *      +---------------+---------------+---------------+---------------+
+     *     4| SEQNO         | SEQNO         |
+     *      +---------------+---------------+
+     */
+    typedef protocol_binary_response_no_extras protocol_binary_response_get_all_vb_seqnos;
+
+
 
     /**
      * @}

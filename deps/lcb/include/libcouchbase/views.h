@@ -25,7 +25,7 @@ extern "C" {
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-view-api Row-based View API
+ * @defgroup lcb-view-api Views (Map-Reduce)
  * @brief Higher level API which splits view results into rows
  */
 

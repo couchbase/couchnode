@@ -24,6 +24,11 @@ ADD_EXAMPLE(observe observe "" "")
 ADD_EXAMPLE(views-example views "" "")
 ADD_EXAMPLE(tick tick "" "")
 
+ADD_EXECUTABLE(subdoc-simple subdoc/subdoc-simple.cc)
+ADD_EXECUTABLE(subdoc-multi subdoc/subdoc-multi.cc)
+TARGET_LINK_LIBRARIES(subdoc-simple couchbase)
+TARGET_LINK_LIBRARIES(subdoc-multi couchbase)
+
 IF(NOT WIN32)
     ADD_EXAMPLE(instancepool instancepool pthread "")
 ENDIF()

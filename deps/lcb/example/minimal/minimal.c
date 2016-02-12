@@ -24,7 +24,9 @@
 
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <stdlib.h>
+#include <string.h> /* strlen */
 #ifdef _WIN32
 #define PRIx64 "I64x"
 #else
@@ -40,34 +42,21 @@ die(lcb_t instance, const char *msg, lcb_error_t err)
 }
 
 static void
-store_callback(lcb_t instance, const void *cookie,
-    lcb_storage_t operation, lcb_error_t error, const lcb_store_resp_t *item)
+op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 {
-    if (error == LCB_SUCCESS) {
-        fprintf(stderr, "=== STORED ===\n");
-        fprintf(stderr, "KEY: %.*s\n", (int)item->v.v0.nkey, item->v.v0.key);
-        fprintf(stderr, "CAS: 0x%"PRIx64"\n", item->v.v0.cas);
+    fprintf(stderr, "=== %s ===\n", lcb_strcbtype(cbtype));
+    if (rb->rc == LCB_SUCCESS) {
+        fprintf(stderr, "KEY: %.*s\n", (int)rb->nkey, rb->key);
+        fprintf(stderr, "CAS: 0x%"PRIx64"\n", rb->cas);
+        if (cbtype == LCB_CALLBACK_GET) {
+            const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
+            fprintf(stderr, "VALUE: %.*s\n", (int)rg->nvalue, rg->value);
+            fprintf(stderr, "FLAGS: 0x%x\n", rg->itmflags);
+        }
     } else {
-        die(instance, "Couldn't store item", error);
+        die(instance, lcb_strcbtype(rb->rc), rb->rc);
     }
-
-    (void)operation;
-}
-
-static void
-get_callback(lcb_t instance, const void *cookie, lcb_error_t error,
-    const lcb_get_resp_t *item)
-{
-    if (error == LCB_SUCCESS) {
-        fprintf(stderr, "=== RETRIEVED ===\n");
-        fprintf(stderr, "KEY: %.*s\n", (int)item->v.v0.nkey, item->v.v0.key);
-        fprintf(stderr, "VALUE: %.*s\n", (int)item->v.v0.nbytes, item->v.v0.bytes);
-        fprintf(stderr, "CAS: 0x%"PRIx64"\n", item->v.v0.cas);
-        fprintf(stderr, "FLAGS: 0x%x\n", item->v.v0.flags);
-    } else {
-        die(instance, "Couldn't retrieve", error);
-    }
-    (void)cookie;
+    (void)instance;
 }
 
 int main(int argc, char *argv[])
@@ -75,10 +64,8 @@ int main(int argc, char *argv[])
     lcb_error_t err;
     lcb_t instance;
     struct lcb_create_st create_options = { 0 };
-    lcb_store_cmd_t scmd = { 0 };
-    const lcb_store_cmd_t *scmdlist[1];
-    lcb_get_cmd_t gcmd = { 0 };
-    const lcb_get_cmd_t *gcmdlist[1];
+    lcb_CMDSTORE scmd = { 0 };
+    lcb_CMDGET gcmd = { 0 };
 
     create_options.version = 3;
 
@@ -110,15 +97,14 @@ int main(int argc, char *argv[])
     }
 
     /* Assign the handlers to be called for the operation types */
-    lcb_set_get_callback(instance, get_callback);
-    lcb_set_store_callback(instance, store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, op_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, op_callback);
 
-    scmd.v.v0.operation = LCB_SET;
-    scmd.v.v0.key = "foo"; scmd.v.v0.nkey = 3;
-    scmd.v.v0.bytes = "bar"; scmd.v.v0.nbytes = 3;
-    scmdlist[0] = &scmd;
+    LCB_CMD_SET_KEY(&scmd, "key", strlen("key"));
+    LCB_CMD_SET_VALUE(&scmd, "value", strlen("value"));
+    scmd.operation = LCB_SET;
 
-    err = lcb_store(instance, NULL, 1, scmdlist);
+    err = lcb_store3(instance, NULL, &scmd);
     if (err != LCB_SUCCESS) {
         die(instance, "Couldn't schedule storage operation", err);
     }
@@ -128,10 +114,8 @@ int main(int argc, char *argv[])
     lcb_wait(instance);
 
     /* Now fetch the item back */
-    gcmd.v.v0.key = "foo";
-    gcmd.v.v0.nkey = 3;
-    gcmdlist[0] = &gcmd;
-    err = lcb_get(instance, NULL, 1, gcmdlist);
+    LCB_CMD_SET_KEY(&gcmd, "foo", strlen("foo"));
+    err = lcb_get3(instance, NULL, &gcmd);
     if (err != LCB_SUCCESS) {
         die(instance, "Couldn't schedule retrieval operation", err);
     }

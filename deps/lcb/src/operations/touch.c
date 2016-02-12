@@ -47,7 +47,7 @@ lcb_touch3(lcb_t instance, const void *cookie, const lcb_CMDTOUCH *cmd)
     memcpy(SPAN_BUFFER(&pkt->kh_span), tcmd.bytes, sizeof(tcmd.bytes));
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();
-    mcreq_sched_add(pl, pkt);
+    LCB_SCHED_ADD(instance, pl, pkt);
     return LCB_SUCCESS;
 }
 

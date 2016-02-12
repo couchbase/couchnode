@@ -125,6 +125,47 @@ lcb_histogram_read(const lcb_HISTOGRAM *hg,
     }
 }
 
+static void
+default_timings_callback(const void *cookie,
+                         lcb_timeunit_t timeunit,
+                         lcb_uint32_t min_val, lcb_uint32_t max_val,
+                         lcb_uint32_t total, lcb_uint32_t maxtotal) {
+    FILE* stream = (FILE*)cookie;
+    const char *unit = NULL;
+    int ii;
+    int num_hash;
+
+    fprintf(stream, "[%-4u - %-4u]", min_val, max_val);
+    if (timeunit == LCB_TIMEUNIT_NSEC) {
+        unit = "ns";
+    } else if (timeunit == LCB_TIMEUNIT_USEC) {
+        unit = "us";
+    } else if (timeunit == LCB_TIMEUNIT_MSEC) {
+        unit = "ms";
+    } else if (timeunit == LCB_TIMEUNIT_SEC) {
+        unit = "s";
+    } else {
+        unit = "?";
+    }
+    fprintf(stream, "%s |", unit);
+
+    num_hash = (int)((float)40.0 * (float)total / (float)maxtotal);
+
+    for (ii = 0; ii < num_hash; ++ii) {
+        putw('#', stream);
+    }
+
+    fprintf(stream, " - %u\n", total);
+}
+
+
+LCB_INTERNAL_API
+void lcb_histogram_print(lcb_HISTOGRAM* hg, FILE* stream)
+{
+    lcb_histogram_read(hg, stream, default_timings_callback);
+}
+
+
 LCB_INTERNAL_API
 void
 lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)

@@ -157,6 +157,7 @@ lcb_stats3(lcb_t instance, const void *cookie, const lcb_CMDSTATS * cmd)
         return LCB_NO_MATCHING_SERVER;
     }
 
+    MAYBE_SCHEDLEAVE(instance);
     return LCB_SUCCESS;
 }
 
@@ -267,6 +268,7 @@ pkt_bcast_simple(lcb_t instance, const void *cookie, lcb_CALLBACKTYPE type)
         free(ckwrap);
         return LCB_NO_MATCHING_SERVER;
     }
+    MAYBE_SCHEDLEAVE(instance);
     return LCB_SUCCESS;
 }
 
@@ -360,6 +362,7 @@ lcb_server_verbosity3(lcb_t instance, const void *cookie,
         free(ckwrap);
         return LCB_NO_MATCHING_SERVER;
     }
+    MAYBE_SCHEDLEAVE(instance);
     return LCB_SUCCESS;
 }
 

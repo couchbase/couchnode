@@ -24,7 +24,7 @@ static void viewCallback(lcb_t, int, const lcb_RESPVIEWQUERY *rv)
         (int)rv->nkey, rv->key);
 
     if (rv->docresp) {
-        printf("   Document for response. RC=0x%X. CAS=0x%lx\n",
+        printf("   Document for response. RC=0x%X. CAS=0x%llx\n",
             rv->docresp->rc, rv->docresp->cas);
     }
 

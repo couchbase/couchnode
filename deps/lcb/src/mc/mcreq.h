@@ -405,6 +405,11 @@ typedef struct mc_cmdqueue_st {
      */
     char *scheds;
 
+    /**
+     * Whether a context is currently entered (i.e. sched_enter())
+     */
+    unsigned ctxenter;
+
     /** Number of pipelines in the queue */
     unsigned npipelines;
 

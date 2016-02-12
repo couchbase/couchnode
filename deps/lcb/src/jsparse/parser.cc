@@ -21,9 +21,9 @@
 #define JSONSL_API static
 #endif
 #include "contrib/jsonsl/jsonsl.c"
+#include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 #include "parser.h"
 #include <assert.h>
-
 
 #define DECLARE_JSONSL_CALLBACK(name) \
 static void name(jsonsl_t,jsonsl_action_t,struct jsonsl_state_st*,const char*)
@@ -93,12 +93,18 @@ combine_meta(lcbjsp_PARSER *ctx)
     ctx->meta_complete = 1;
 }
 
+static lcbjsp_PARSER *
+get_ctx(jsonsl_t jsn)
+{
+    return reinterpret_cast<lcbjsp_PARSER*>(jsn->data);
+}
+
 static void
 meta_header_complete_callback(jsonsl_t jsn, jsonsl_action_t action,
     struct jsonsl_state_st *state, const jsonsl_char_t *at)
 {
 
-    lcbjsp_PARSER *ctx = jsn->data;
+    lcbjsp_PARSER *ctx = get_ctx(jsn);
     buffer_append(&ctx->meta_buf, ctx->current_buf.base, state->pos_begin);
 
     ctx->header_len = state->pos_begin;
@@ -112,8 +118,8 @@ static void
 row_pop_callback(jsonsl_t jsn, jsonsl_action_t action,
     struct jsonsl_state_st *state, const jsonsl_char_t *at)
 {
-    lcbjsp_ROW dt = { 0 };
-    lcbjsp_PARSER *ctx = jsn->data;
+    lcbjsp_ROW dt = { LCBJSP_TYPE_ROW };
+    lcbjsp_PARSER *ctx = get_ctx(jsn);
     const char *rowbuf;
     size_t szdummy;
 
@@ -158,8 +164,8 @@ static int
 parse_error_callback(jsonsl_t jsn, jsonsl_error_t error,
     struct jsonsl_state_st *state, jsonsl_char_t *at)
 {
-    lcbjsp_PARSER *ctx = jsn->data;
-    lcbjsp_ROW dt = { 0 };
+    lcbjsp_PARSER *ctx = get_ctx(jsn);
+    lcbjsp_ROW dt;
 
     ctx->have_error = 1;
 
@@ -178,8 +184,8 @@ static void
 trailer_pop_callback(jsonsl_t jsn, jsonsl_action_t action,
     struct jsonsl_state_st *state, const jsonsl_char_t *at)
 {
-    lcbjsp_PARSER *ctx = jsn->data;
-    lcbjsp_ROW dt = { 0 };
+    lcbjsp_PARSER *ctx = get_ctx(jsn);
+    lcbjsp_ROW dt;
     if (state->data != JOBJ_RESPONSE_ROOT) {
         return;
     }
@@ -196,7 +202,7 @@ static void
 initial_pop_callback(jsonsl_t jsn, jsonsl_action_t action,
     struct jsonsl_state_st *state, const jsonsl_char_t *at)
 {
-    lcbjsp_PARSER *ctx = jsn->data;
+    lcbjsp_PARSER *ctx = get_ctx(jsn);
     char *key;
     unsigned long len;
 
@@ -301,9 +307,11 @@ lcbjsp_create(int mode)
     lcbjsp_PARSER *ctx;
     jsonsl_error_t err;
 
-    ctx = calloc(1, sizeof(*ctx));
+    ctx = reinterpret_cast<lcbjsp_PARSER*>(calloc(1, sizeof(*ctx)));
     ctx->jsn = jsonsl_new(512);
     ctx->mode = mode;
+    ctx->cxx_data = new Json::Value();
+
     if (ctx->mode == LCBJSP_MODE_VIEWS) {
         ctx->jpr = jsonsl_jpr_new("/rows/^", &err);
     } else {
@@ -369,6 +377,7 @@ lcbjsp_reset(lcbjsp_PARSER* ctx)
     ctx->keep_pos = 0;
     ctx->header_len = 0;
     ctx->last_row_endpos = 0;
+    reinterpret_cast<Json::Value*>(ctx->cxx_data)->clear();
 }
 
 void
@@ -382,6 +391,7 @@ lcbjsp_free(lcbjsp_PARSER *ctx)
     lcb_string_release(&ctx->current_buf);
     lcb_string_release(&ctx->meta_buf);
     lcb_string_release(&ctx->last_hk);
+    delete reinterpret_cast<Json::Value*>(ctx->cxx_data);
 
     free(ctx);
 }
@@ -390,13 +400,42 @@ typedef struct {
     const char *root;
     lcb_IOV *next_iov;
     lcbjsp_ROW *datum;
+    lcbjsp_PARSER *parent;
 } miniparse_ctx;
+
+static void
+parse_json_docid(lcb_IOV* iov, lcbjsp_PARSER *parent)
+{
+    Json::Reader r;
+    const char *s = static_cast<char*>(iov->iov_base);
+    const char *s_end = s + iov->iov_len;
+    Json::Value *jvp = reinterpret_cast<Json::Value*>(parent->cxx_data);
+    bool rv = r.parse(s, s_end, *jvp);
+    if (!rv) {
+        // fprintf(stderr, "libcouchbase: Failed to parse document ID as JSON!\n");
+        return;
+    }
+
+    s = NULL;
+    s_end = NULL;
+
+    assert(jvp->isString());
+
+    // Re-use s and s_end values for the string value itself
+    if (!jvp->getString(&s, &s_end)) {
+        // fprintf(stderr, "libcouchbase: couldn't get string value!\n");
+        iov->iov_base = NULL;
+        iov->iov_len = 0;
+    }
+    iov->iov_base = const_cast<char*>(s);
+    iov->iov_len = s_end - s;
+}
 
 static void
 miniparse_callback(jsonsl_t jsn, jsonsl_action_t action,
     struct jsonsl_state_st *state, const jsonsl_char_t *at)
 {
-    miniparse_ctx *ctx = jsn->data;
+    miniparse_ctx *ctx = reinterpret_cast<miniparse_ctx*>(jsn->data);
     lcb_IOV *iov;
 
     if (state->level == 1) {
@@ -440,8 +479,14 @@ miniparse_callback(jsonsl_t jsn, jsonsl_action_t action,
         iov->iov_base = (void *) (ctx->root + state->pos_begin);
         iov->iov_len = (jsn->pos - state->pos_begin) + 1;
     } else if (iov == &ctx->datum->docid) {
-        iov->iov_base = (void *) (ctx->root + state->pos_begin + 1);
-        iov->iov_len = (state->pos_cur - state->pos_begin) - 1;
+        if (state->nescapes) {
+            iov->iov_base = (void *) (ctx->root + state->pos_begin);
+            iov->iov_len = (state->pos_cur - state->pos_begin) + 1;
+            parse_json_docid(iov, ctx->parent);
+        } else {
+            iov->iov_base = (void *) (ctx->root + state->pos_begin + 1);
+            iov->iov_len = (state->pos_cur - state->pos_begin) - 1;
+        }
     } else {
         iov->iov_base = (void *) (ctx->root + state->pos_begin);
         iov->iov_len = state->pos_cur - state->pos_begin;
@@ -457,7 +502,8 @@ lcbjsp_parse_viewrow(lcbjsp_PARSER *vp, lcbjsp_ROW *vr)
 {
     miniparse_ctx ctx = { NULL };
     ctx.datum = vr;
-    ctx.root = vr->row.iov_base;
+    ctx.root = static_cast<const char*>(vr->row.iov_base);
+    ctx.parent = vp;
 
     jsonsl_reset(vp->jsn_rdetails);
 
@@ -466,5 +512,6 @@ lcbjsp_parse_viewrow(lcbjsp_PARSER *vp, lcbjsp_ROW *vr)
     vp->jsn_rdetails->action_callback_POP = miniparse_callback;
     vp->jsn_rdetails->data = &ctx;
 
-    jsonsl_feed(vp->jsn_rdetails, vr->row.iov_base, vr->row.iov_len);
+    jsonsl_feed(vp->jsn_rdetails,
+        static_cast<const char*>(vr->row.iov_base), vr->row.iov_len);
 }

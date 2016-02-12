@@ -32,6 +32,7 @@
 #define F_HASPASSWD (1<<1)
 #define F_HASUSER (1<<2)
 #define F_SSLSCHEME (1<<3)
+#define F_FILEONLY (1<<4)
 
 typedef struct {
     char *scratch; /* temporary buffer. Sufficient for strlen(specstr) * 3 bytes */
@@ -245,6 +246,9 @@ parse_options(PARSECTX *ctx, const char *options, const char *specend)
                 arr[0] = LCB_CONFIG_TRANSPORT_CCCP;
                 arr[1] = LCB_CONFIG_TRANSPORT_HTTP;
                 arr[2] = LCB_CONFIG_TRANSPORT_LIST_END;
+            } else if (!strcmp(value, "file_only")) {
+                out->flags |= LCB_CONNSPEC_F_FILEONLY;
+                arr[0] = LCB_CONFIG_TRANSPORT_LIST_END;
             } else {
                 SET_ERROR("Value for bootstrap_on must be 'cccp', 'http', or 'all'");
             }

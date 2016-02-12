@@ -51,6 +51,20 @@ private:
     bool isLock() const { return cmdname == "lock"; }
 };
 
+class TouchHandler : public Handler {
+public:
+    TouchHandler(const char *name = "touch") :
+            Handler(name), o_exptime("expiry") {
+        o_exptime.abbrev('e').mandatory(true);
+    }
+    HANDLER_DESCRIPTION("Updated expiry times for documents")
+protected:
+    void addOptions();
+    void run();
+private:
+    cliopts::UIntOption  o_exptime;
+};
+
 class SetHandler : public Handler {
 public:
     SetHandler(const char *name = "create") : Handler(name),

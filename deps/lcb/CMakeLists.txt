@@ -21,7 +21,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 # These variables can be modified as needed
 
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.2.0-g85062e3.jar)
+SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.4.1.jar)
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
 SET(COUCHBASE_MOCK_DLSERVER http://packages.couchbase.com/clients/c/mock)
 project(libcouchbase)
@@ -44,6 +44,7 @@ OPTION(LCB_NO_MOCK "Don't run tests which depend on the mock" OFF)
 OPTION(LCB_BUILD_DTRACE "Build DTrace instrumentation, if available on platform" ON)
 OPTION(LCB_EMBED_PLUGIN_LIBEVENT "Embed the libevent plugin" OFF)
 OPTION(LCB_STATIC_LIBEVENT "Link static libevent (only applicable if EMBED_PLUGIN_LIBEVENT is ON" OFF)
+OPTION(LCB_USE_HDR_HISTOGRAM "Use HdrHistogram for statistics recording" OFF)
 
 ### END CONFIGURABLES ###
 IF(MSVC)
@@ -79,6 +80,18 @@ INCLUDE(cmake/Modules/CopyPDB.cmake)
 INCLUDE(cmake/Modules/DownloadLcbDep.cmake)
 INCLUDE(CheckIncludeFiles)
 INCLUDE(cmake/source_files.cmake)
+
+IF(LCB_USE_HDR_HISTOGRAM)
+    INCLUDE(cmake/Modules/FindCouchbaseHdrHistogram.cmake)
+ENDIF()
+IF(HDR_HISTOGRAM_FOUND)
+    INCLUDE_DIRECTORIES(${HDR_HISTOGRAM_INCLUDES})
+    SET(LCB_HDR_HISTOGRAM_LINK "${HDR_HISTOGRAM_LIBRARIES}")
+    LIST(APPEND LCB_CORE_SRC "src/hdr_timings.c")
+ELSE()
+    SET(LCB_HDR_HISTOGRAM_LINK "")
+    LIST(APPEND LCB_CORE_SRC "src/timings.c")
+ENDIF()
 
 IF(LIB_INSTALL_DIR)
     SET(CMAKE_INSTALL_LIBDIR "${LIB_INSTALL_DIR}")
@@ -236,9 +249,9 @@ FILE(GLOB LCB_VIEWS_C_SRC src/views/*.c)
 ADD_LIBRARY(lcb_views_c OBJECT ${LCB_VIEWS_C_SRC})
 LCB_UTIL(lcb_views_c)
 
-FILE(GLOB LCB_JSPARSE_SRC src/jsparse/*.c)
+FILE(GLOB LCB_JSPARSE_SRC src/jsparse/*.cc)
 ADD_LIBRARY(lcb_jsparse OBJECT ${LCB_JSPARSE_SRC})
-LCB_UTIL(lcb_jsparse)
+LCB_CXXUTIL(lcb_jsparse)
 
 SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:couchbase_select>
@@ -317,7 +330,7 @@ ENDIF()
 
 SET_TARGET_PROPERTIES(couchbase PROPERTIES PREFIX "lib")
 SET_TARGET_PROPERTIES(couchbase PROPERTIES IMPORT_PREFIX "lib")
-SET(LCB_LINK_DEPS ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_SNAPPY_LINK})
+SET(LCB_LINK_DEPS ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_SNAPPY_LINK} ${LCB_HDR_HISTOGRAM_LINK})
 IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} rt)
 ENDIF()

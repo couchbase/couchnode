@@ -6,6 +6,7 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 
 using std::string;
 using std::vector;
@@ -93,10 +94,19 @@ ConfigTest::testConfig(const char *fname, bool checkNew)
     size_t nk = strlen(k);
     // map the key
     int srvix, vbid;
-    lcbvb_map_key(vbc, k, nk, &vbid, &srvix);
     if (vbc->dtype == LCBVB_DIST_KETAMA) {
+        if (testData.find("$HOST") != string::npos) {
+            ASSERT_TRUE(vbc->continuum == NULL);
+            ASSERT_EQ(0, vbc->ncontinuum);
+            lcbvb_replace_host(vbc, "localhost");
+        }
+
+        ASSERT_TRUE(vbc->continuum != NULL);
+        ASSERT_EQ(160 * vbc->nsrv, vbc->ncontinuum);
+        lcbvb_map_key(vbc, k, nk, &vbid, &srvix);
         ASSERT_EQ(0, vbid);
     } else {
+        lcbvb_map_key(vbc, k, nk, &vbid, &srvix);
         ASSERT_NE(0, vbid);
     }
     lcbvb_destroy(vbc);
@@ -313,4 +323,24 @@ TEST_F(ConfigTest, testNondataNodes)
     lcbvb_destroy(cfg_ex);
     lcbvb_destroy(cfg_old);
 
+}
+
+TEST_F(ConfigTest, testKetamaUniformity)
+{
+    string txt = getConfigFile("memd_45.json");
+    lcbvb_CONFIG *vbc = lcbvb_parse_json(txt.c_str());
+    ASSERT_TRUE(vbc != NULL);
+    ASSERT_EQ(4, vbc->nsrv);
+    ASSERT_EQ(LCBVB_DIST_KETAMA, vbc->dtype);
+
+    // Ensure the continuum stuff is NULL!
+    ASSERT_TRUE(vbc->continuum == NULL);
+    ASSERT_EQ(0, vbc->ncontinuum);
+    lcbvb_replace_host(vbc, "localhost");
+
+    ASSERT_STREQ("10.0.0.195:12000", vbc->servers[0].authority);
+    ASSERT_STREQ("localhost:12002", vbc->servers[1].authority);
+    ASSERT_STREQ("localhost:12004", vbc->servers[2].authority);
+    ASSERT_STREQ("localhost:12006", vbc->servers[3].authority);
+    lcbvb_destroy(vbc);
 }

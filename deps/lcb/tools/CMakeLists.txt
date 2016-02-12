@@ -37,7 +37,8 @@ IF(NOT WIN32)
     LIST(APPEND CBC_SUBCOMMANDS
         cat create observe observe-seqno incr decr mcflush hash lock
         unlock rm stats version verbosity view n1ql admin
-        bucket-create bucket-delete bucket-flush connstr write-config strerror)
+        bucket-create bucket-delete bucket-flush connstr write-config strerror
+        touch)
 
     FOREACH(subcmd IN ITEMS ${CBC_SUBCOMMANDS})
         ADD_CUSTOM_COMMAND(TARGET cbc POST_BUILD

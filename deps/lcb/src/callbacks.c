@@ -110,7 +110,7 @@ compat_default_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r3base)
     case LCB_CALLBACK_STORE: {
         lcb_store_resp_t r2 = { 0 };
         FILL_KVC(&r2)
-        r2.v.v0.mutation_token = &r3->store.mutation_token;
+        r2.v.v0.mutation_token = lcb_resp_get_mutation_token(cbtype, r3base);
         instance->callbacks.store(instance, cookie, r3->store.op, err, &r2);
         break;
     }
@@ -118,14 +118,14 @@ compat_default_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r3base)
         lcb_arithmetic_resp_t r2 = { 0 };
         FILL_KVC(&r2);
         r2.v.v0.value = r3->arith.value;
-        r2.v.v0.mutation_token = &r3->arith.mutation_token;
+        r2.v.v0.mutation_token = lcb_resp_get_mutation_token(cbtype, r3base);
         instance->callbacks.arithmetic(instance, cookie, err, &r2);
         break;
     }
     case LCB_CALLBACK_REMOVE: {
         lcb_remove_resp_t r2 = { 0 };
         FILL_KVC(&r2)
-        r2.v.v0.mutation_token = &r3->del.mutation_token;
+        r2.v.v0.mutation_token = lcb_resp_get_mutation_token(cbtype, r3base);
         instance->callbacks.remove(instance, cookie, err, &r2);
         break;
     }
@@ -355,6 +355,10 @@ lcb_strcbtype(int cbtype)
         return "OBSEQNO";
     case LCB_CALLBACK_STOREDUR:
         return "STOREDUR";
+    case LCB_CALLBACK_SDMUTATE:
+        return "SDMUTATE";
+    case LCB_CALLBACK_SDLOOKUP:
+        return "SDLOOKUP";
     default:
         return "UNKNOWN";
     }

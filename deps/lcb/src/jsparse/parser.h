@@ -17,14 +17,14 @@
 #ifndef LCB_VIEWROW_H_
 #define LCB_VIEWROW_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/views.h>
 #include "contrib/jsonsl/jsonsl.h"
 #include "simplestring.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct lcbvrow_PARSER_st lcbjsp_PARSER;
 
@@ -101,6 +101,11 @@ struct lcbvrow_PARSER_st {
     size_t last_row_endpos;
 
     void *data;
+
+    /**
+     * std::string to contain parsed document ID.
+     */
+    void *cxx_data;
 
     /* callback to invoke */
     lcbjsp_CALLBACK callback;

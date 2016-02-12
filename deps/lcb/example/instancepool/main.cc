@@ -22,16 +22,14 @@
 using namespace lcb;
 
 extern "C" {
-static void
-get_callback(lcb_t instance, const void*, lcb_error_t err,
-    const lcb_get_resp_t *resp)
+static void get_callback(lcb_t instance, int, const lcb_RESPBASE *rb)
 {
-    if (err != LCB_SUCCESS) {
+    const lcb_RESPGET *rg = reinterpret_cast<const lcb_RESPGET*>(rb);
+    if (rb->rc != LCB_SUCCESS) {
         fprintf(stderr, "%p: Couldn't get key", instance);
     } else {
         fprintf(stderr, "%p: Got key %.*s with value %.*s\n", instance,
-            (int)resp->v.v0.nkey, resp->v.v0.key,
-            (int)resp->v.v0.nbytes, resp->v.v0.bytes);
+            (int)rg->nkey, rg->key, (int)rg->nvalue, rg->value);
     }
 }
 }
@@ -44,7 +42,7 @@ protected:
         // We override the initialize function to set the proper callback we
         // care about
         fprintf(stderr, "Initializing %p\n", instance);
-        lcb_set_get_callback(instance, get_callback);
+        lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
     }
 };
 
@@ -52,18 +50,14 @@ extern "C" {
 static void *
 pthr_func(void *arg) {
     Pool *pool = reinterpret_cast<Pool*>(arg);
-    lcb_get_cmd_t gcmd;
-    const lcb_get_cmd_t *cmdlist[1];
-    memset(&gcmd, 0, sizeof gcmd);
-    gcmd.v.v0.key = "foo";
-    gcmd.v.v0.nkey = 3;
-    cmdlist[0] = &gcmd;
+    lcb_CMDGET gcmd = { 0 };
+    LCB_CMD_SET_KEY(&gcmd, "foo", 3);
 
     // Get an instance to use
     lcb_t instance = pool->pop();
 
     // Issue the command
-    lcb_get(instance, NULL, 1, cmdlist);
+    lcb_get3(instance, NULL, &gcmd);
 
     // Wait for the command to complete
     lcb_wait(instance);

@@ -208,6 +208,16 @@ LCB_INTERNAL_API void lcb__timer_destroy_nowarn(lcb_t instance, lcb_timer_t time
         return lcb__synchandler_return(o); \
     }
 
+
+#define MAYBE_SCHEDLEAVE(o) \
+    if (!o->cmdq.ctxenter) { \
+        lcb_sched_leave(o); \
+    }
+
+#define LCB_SCHED_ADD(instance, pl, pkt) \
+    mcreq_sched_add(pl, pkt); \
+    MAYBE_SCHEDLEAVE(instance)
+
 void lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, struct lcb_GUESSVB_st *guesses);
 int lcb_vbguess_remap(lcb_t instance, int vbid, int bad);
 #define lcb_vbguess_destroy(p) free(p)

@@ -97,12 +97,12 @@
 #ifdef _WIN32
 #include <libcouchbase/plugins/io/wsaerr.h>
 
+#ifndef __MINGW32__
 
 #if defined(_MSC_VER) && _MSC_VER < 1900
 #define snprintf _snprintf
 #endif
 
-#ifndef __MINGW32__
 #define strcasecmp(a,b) _stricmp(a,b)
 #define strncasecmp(a,b,c) _strnicmp(a,b,c)
 #undef strdup

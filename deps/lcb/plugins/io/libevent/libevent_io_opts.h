@@ -22,8 +22,9 @@
  */
 
 /**
- * @ingroup lcb-io-integration
- * @defgroup lcb-libevent libevent integration
+ * @ingroup lcb-io-plugin-api
+ * @defgroup lcb-libevent libevent
+ * @brief libev integration
  *
  * lcb_create_libevent_io_opts() allows you to create an instance
  * of the ioopts that will utilize libevent. You may either supply an event

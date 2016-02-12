@@ -50,8 +50,6 @@ SET(LCB_CORE_SRC
     src/connspec.c
     src/handler.c
     src/getconfig.c
-    src/http/http.c
-    src/http/http_io.c
     src/instance.c
     src/legacy.c
     src/mcserver/negotiate.c
@@ -62,10 +60,12 @@ SET(LCB_CORE_SRC
     src/retryq.c
     src/retrychk.c
     src/settings.c
-    src/timings.c
     src/utilities.c
     src/wait.c)
 
 SET(LCB_CORE_CXXSRC
+    src/http/http.cc
+    src/http/http_io.cc
     src/n1ql/params.cc
-    src/n1ql/n1ql.cc)
+    src/n1ql/n1ql.cc
+    src/operations/subdoc.cc)

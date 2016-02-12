@@ -19,72 +19,58 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <event2/event.h>
 
 static void
 bootstrap_callback(lcb_t instance, lcb_error_t err)
 {
-    lcb_store_cmd_t cmd;
-    const lcb_store_cmd_t *cmds[1];
-
+    lcb_CMDSTORE cmd = { 0 };
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "ERROR: %s\n", lcb_strerror(instance, err));
         exit(EXIT_FAILURE);
     }
     /* Since we've got our configuration, let's go ahead and store a value */
-    cmds[0] = &cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.v.v0.key = "foo";
-    cmd.v.v0.nkey = 3;
-    cmd.v.v0.bytes = "bar";
-    cmd.v.v0.nbytes = 3;
-    cmd.v.v0.operation = LCB_SET;
-    err = lcb_store(instance, NULL, 1, cmds);
+    LCB_CMD_SET_KEY(&cmd, "foo", 3);
+    LCB_CMD_SET_VALUE(&cmd, "bar", 3);
+    cmd.operation = LCB_SET;
+    err = lcb_store3(instance, NULL, &cmd);
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "Failed to set up store request: %s\n", lcb_strerror(instance, err));
         exit(EXIT_FAILURE);
     }
 }
 
-static void
-get_callback(lcb_t instance, const void *cookie, lcb_error_t error,
-    const lcb_get_resp_t *resp)
+static void get_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 {
-    if (error != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to get key: %s\n", lcb_strerror(instance, error));
+    const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
+    if (rg->rc != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to get key: %s\n", lcb_strerror(instance, rg->rc));
         exit(EXIT_FAILURE);
     }
 
-    fprintf(stdout, "I stored and retrieved the key 'foo'. Terminate program\n");
+    fprintf(stdout, "I stored and retrieved the key 'foo'. Value: %.*s. Terminate program\n", (int)rg->nvalue, rg->value);
     event_base_loopbreak((void *)lcb_get_cookie(instance));
-    (void)cookie; (void)resp;
+    (void)cbtype;
 }
 
-static void
-store_callback(lcb_t instance, const void *cookie, lcb_storage_t op,
-    lcb_error_t error, const lcb_store_resp_t *resp)
+static void store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 {
-    lcb_get_cmd_t cmd;
-    const lcb_get_cmd_t *cmds[1];
-    cmds[0] = &cmd;
+    lcb_error_t rc;
+    lcb_CMDGET gcmd =  { 0 };
 
-    if (error != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to store key: %s\n", lcb_strerror(instance, error));
+    if (rb->rc != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to store key: %s\n", lcb_strerror(instance, rb->rc));
         exit(EXIT_FAILURE);
     }
 
-    /* Time to read it back */
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.v.v0.key = "foo";
-    cmd.v.v0.nkey = 3;
-    error = lcb_get(instance, NULL, 1, cmds);
-
-    if (error != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to setup get request: %s\n", lcb_strerror(instance, error));
+    LCB_CMD_SET_KEY(&gcmd, rb->key, rb->nkey);
+    rc = lcb_get3(instance, NULL, &gcmd);
+    if (rc != LCB_SUCCESS) {
+        fprintf(stderr, "Failed to schedule get request: %s\n", lcb_strerror(NULL, rc));
         exit(EXIT_FAILURE);
     }
-
-    (void)cookie; (void)op; (void)resp;
+    (void)cbtype;
 }
 
 static lcb_io_opt_t
@@ -128,8 +114,8 @@ create_libcouchbase_handle(lcb_io_opt_t ioops)
 
     /* Set up the callbacks */
     lcb_set_bootstrap_callback(instance, bootstrap_callback);
-    lcb_set_get_callback(instance, get_callback);
-    lcb_set_store_callback(instance, store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
 
     if ((error = lcb_connect(instance)) != LCB_SUCCESS) {
         fprintf(stderr, "Failed to connect libcouchbase instance: %s\n", lcb_strerror(NULL, error));

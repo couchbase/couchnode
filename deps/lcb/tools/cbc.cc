@@ -117,6 +117,9 @@ common_callback(lcb_t, int type, const lcb_RESPBASE *resp)
     case LCB_CALLBACK_REMOVE:
         printKeyCasStatus(key, type, resp, "Deleted.");
         break;
+    case LCB_CALLBACK_TOUCH:
+        printKeyCasStatus(key, type, resp, "Touched.");
+        break;
     default:
         abort(); // didn't request it
     }
@@ -410,6 +413,35 @@ GetHandler::run()
         }
 
         err = lcb_get3(instance, this, &cmd);
+        if (err != LCB_SUCCESS) {
+            throw err;
+        }
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
+TouchHandler::addOptions()
+{
+    Handler::addOptions();
+    parser.addOption(o_exptime);
+}
+
+void
+TouchHandler::run()
+{
+    Handler::run();
+    lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, (lcb_RESPCALLBACK)common_callback);
+    const vector<string>& keys = parser.getRestArgs();
+    lcb_error_t err;
+    lcb_sched_enter(instance);
+    for (size_t ii = 0; ii < keys.size(); ++ii) {
+        lcb_CMDTOUCH cmd = { 0 };
+        const string& key = keys[ii];
+        LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+        cmd.exptime = o_exptime.result();
+        err = lcb_touch3(instance, this, &cmd);
         if (err != LCB_SUCCESS) {
             throw err;
         }
@@ -1287,6 +1319,7 @@ static const char* optionsOrder[] = {
         "help",
         "cat",
         "create",
+        "touch",
         "observe",
         "observe-seqno",
         "incr",
@@ -1391,6 +1424,7 @@ setupHandlers()
     handlers_s["write-config"] = new WriteConfigHandler();
     handlers_s["strerror"] = new StrErrorHandler();
     handlers_s["observe-seqno"] = new ObserveSeqnoHandler();
+    handlers_s["touch"] = new TouchHandler();
 
 
 

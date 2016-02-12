@@ -22,9 +22,11 @@
  */
 
 /**
- * @ingroup lcb-io-integration
- * @defgroup lcb-libuv libuv integration
+ * @ingroup lcb-io-plugin-api
+ * @defgroup lcb-libuv libuv
+ * @brief libuv integration
  *
+ * @details
  * libuv is a cross platform event framework using a completion-based programming
  * model. Since most distributions do not offer up-to-date libuv binary packages
  * and because libuv is constantly evolving itself, binary packages are not

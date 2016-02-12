@@ -52,27 +52,8 @@ lcb_observe_seqno3(lcb_t instance, const void *cookie, const lcb_CMDOBSEQNO *cmd
 
     uuid = lcb_htonll(cmd->uuid);
     memcpy(SPAN_BUFFER(&pkt->u_value.single), &uuid, sizeof uuid);
-    mcreq_sched_add(pl, pkt);
+    LCB_SCHED_ADD(instance, pl, pkt);
     return LCB_SUCCESS;
-}
-
-const lcb_MUTATION_TOKEN *
-lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb)
-{
-    const lcb_MUTATION_TOKEN *ss = NULL;
-    if (cbtype == LCB_CALLBACK_STORE) {
-        ss = &((const lcb_RESPSTORE*)rb)->mutation_token;
-    } else if (cbtype == LCB_CALLBACK_COUNTER) {
-        ss = &((const lcb_RESPCOUNTER*)rb)->mutation_token;
-    } else if (cbtype == LCB_CALLBACK_REMOVE) {
-        ss = &((const lcb_RESPREMOVE*)rb)->mutation_token;
-    } else {
-        return NULL;
-    }
-    if (ss->uuid_ == 0 && ss->seqno_ == 0) {
-        return NULL;
-    }
-    return ss;
 }
 
 const lcb_MUTATION_TOKEN *

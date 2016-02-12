@@ -161,8 +161,19 @@ init_providers(lcb_t obj, const lcb_CONNSPEC *spec)
         http_enabled = 0;
     }
 
-    /* The only way we can get to here is if one of the vars are set */
+    if (spec->flags & LCB_CONNSPEC_F_FILEONLY) {
+        http_enabled = cccp_enabled = 0;
+    }
+
     if (cccp_enabled == 0 && http_enabled == 0) {
+        if (spec->flags & LCB_CONNSPEC_F_FILEONLY) {
+            /* If the 'file_only' provider is set, just assume something else
+             * will provide us with the config, and forget about it. */
+            clconfig_provider *prov = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_FILE);
+            if (prov && prov->enabled) {
+                return LCB_SUCCESS;
+            }
+        }
         return LCB_BAD_ENVIRONMENT;
     }
 
@@ -500,8 +511,8 @@ void lcb_destroy(lcb_t instance)
                 lcb_http_request_t htreq = (lcb_http_request_t)hs->items[ii];
 
                 /* Prevents lcb's globals from being modified during destruction */
-                htreq->status |= LCB_HTREQ_S_NOLCB;
-                lcb_http_request_finish(instance, htreq, LCB_ERROR);
+                lcb_htreq_block_callback(htreq);
+                lcb_htreq_finish(instance, htreq, LCB_ERROR);
             }
         }
     }

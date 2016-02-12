@@ -42,7 +42,7 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd)
     if (cmd->lock) {
         extlen = 4;
         opcode = PROTOCOL_BINARY_CMD_GET_LOCKED;
-    } else if (cmd->exptime) {
+    } else if (cmd->exptime || (cmd->cmdflags & LCB_CMDGET_F_CLEAREXP)) {
         extlen = 4;
         opcode = PROTOCOL_BINARY_CMD_GAT;
     }
@@ -73,7 +73,7 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd)
     }
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), gcmd.bytes, MCREQ_PKT_BASESIZE + extlen);
-    mcreq_sched_add(pl, pkt);
+    LCB_SCHED_ADD(instance, pl, pkt);
     TRACE_GET_BEGIN(hdr, cmd);
 
     return LCB_SUCCESS;
@@ -145,7 +145,7 @@ lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd)
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
     TRACE_UNLOCK_BEGIN(&hdr, cmd);
-    mcreq_sched_add(pl, pkt);
+    LCB_SCHED_ADD(instance, pl, pkt);
     return LCB_SUCCESS;
 }
 
@@ -370,6 +370,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
         mcreq_sched_add(pl, pkt);
     } while (++r0 < r1);
 
+    MAYBE_SCHEDLEAVE(instance);
     return LCB_SUCCESS;
 }
 

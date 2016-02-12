@@ -15,6 +15,7 @@
  */
 
 #include "internal.h"
+#include "simplestring.h"
 #include <http/http.h>
 
 static void

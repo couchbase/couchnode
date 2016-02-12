@@ -1,5 +1,131 @@
 # Release Notes
 
+## 2.5.6 (February 18 2016)
+
+* Sub-Document API (_experimental_)
+  The client-side sub-document API has been implemented. Sub-document is
+  a feature which vastly reduces network usage when operating on parts
+  of documents.
+  The API as it appears in this version is highly experimental and may
+  (and likely will) change. Examples of use can be found in the `examples/subdoc`
+  directory.
+  * Priority: Major
+
+* Make `lcb_sched_enter` and `lcb_sched_leave` optional.
+  When scheduling an operation (e.g. `lcb_get3()`), the scheduling function
+  will implicitly create a scheduling context and submit the operation if
+  none exists already. A scheduling context is explicitly created by calling
+  `lcb_sched_enter()` and finished by calling `lcb_sched_leave()` or
+  `lcb_sched_fail()`.
+  * Issues: [CCBC-664](https://issues.couchbase.com/browse/CCBC-664)
+  * Priority: Major
+
+* API3 is now stable.
+  The scheduling based API, introduced in version 2.4.0 and known as 'api3',
+  is now stable and considered the API for use with the library.
+  The previous API (i.e. 'api2') is considered deprecated.
+
+  While API3 has been promoted to stable in this version, it has been available
+  in its current form (and in a mostly compatible manner, _except_ the implicit
+  scheduling feature - CCBC-664) since 2.4.0.
+
+  Storing an item in API2:
+
+    lcb_get_store_t cmd = { 0 }, *cmd_p = &cmd;
+    cmd.v.v0.key = "key";
+    cmd.v.v0.nkey = 3;
+    cmd.v.v0.bytes = "value";
+    cmd.v.v0.nbytes = 5;
+    cmd.v.v0.operation = LCB_SET;
+    lcb_store(instance, NULL, 1, &cmd_p);
+
+  Storing an item in API3:
+
+    lcb_CMDSTORE cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, "key", 3);
+    LCB_CMD_SET_VALUE(&cmd, "value", 5);
+    cmd.operation - LCB_SET;
+    lcb_store3(instance, NULL, &cmd);
+
+
+* Add `libcouchbase/` string to version identification to Memcached
+  Connections to memcached will now be identified as `libcouchbase/version`
+  rather than `version`. This increases readability for server logs
+  * Issues: [CCBC-656](https://issues.couchbase.com/browse/CCBC-656)
+  * Priority: Minor
+
+* Hide `mutation_token` field from API3 mutation respones. The `mutation_token`
+  field has never been part of the API itself (it was previously present when
+  api3 was marked as "experimental").
+  The mutation token for any operation must now be retrieved using the
+  `lcb_resp_get_mutation_token()` to retrieve the actual mutation token.
+  * Issues: [CCBC-671](https://issues.couchbase.com/browse/CCBC-671)
+  * Priority: Minor
+
+* Server's `PROTOCOL_BINARY_RESPONSE_EINTERNAL` is no longer mapped to
+  `LCB_EINTERNAL`. `LCB_UNKNOWN_MEMCACHED_ERROR` will be returned instead
+
+* Allow get-and-touch with an expiry of 0.
+  Clearing a document's expiry with `get` is now possible, using the new
+  `LCB_CMDGET_F_CLEAREXP` in `lcb_CMDGET::cmdflags`.
+  * Issues: [CCBC-667](https://issues.couchbase.com/browse/CCBC-667)
+  * Priority: Major
+
+* Allow multiple buckets when using sequence number consistency with N1QL
+  This uses the new internal `scan_vector` protocol supporting multiple buckets,
+  each providing their own `lcb_MUTATION_TOKEN` objects.
+  * Issues: [CCBC-658](https://issues.couchbase.com/browse/CCBC-658)
+  * Priority: Major
+
+## 2.5.5 (January 12 2016)
+
+* Add `retry_interval` string option to adjust retry interval.
+  This allows the setting to be modified via `lcb_cntl_string()` and specified
+  in the connection string.
+  * Priority: Major
+  * Issues: [CCBC-654](https://issues.couchbase.com/browse/CCBC-654)
+
+* Handle backslashes in view row ID fields.
+  This would previously not be handled correctly as the backslashes would not
+  be removed, for example an ID of `has_a_"quote` would appear in the API as
+  `has_a_\"quote`. This has been fixed and document IDs are now properly
+  processed as JSON
+  * Priority: Major
+  * Issues: [CCBC-649](https://issues.couchbase.com/browse/CCBC-649)
+
+* Allow 'file-only' configuration mode.
+  This allows applications to make the library instance exclusively configured
+  from a file on the local filesystem rather than through network bootstrap.
+  This feature is undocumented and unsupported. It may be enabled using the
+  `bootstrap_on=file_only` connection string directive.
+  * Priority: Major
+  * Issues: [CCBC-652](https://issues.couchbase.com/browse/CCBC-652)
+
+* Log when squashing network errors.
+  This will make the library log the original error whenever a network error
+  is translated from a more detailed description into `LCB_NETWORK_ERROR`
+  (in case `detailed_errcodes` is not enabled), or if an OS-level error is
+  found which cannot be translated into a more specific library error.
+  * Priority: Major
+
+* Fix memcached/ketama hashing
+  This fixes a bug in the ketama hasing code which caused a key to be mapped
+  to an effectively arbitrary server for the library instance. In practice the
+  node a key was mapped to depended on the order in which the hosts were
+  specified in the connection string. This has been fixed to always use
+  hashing based on the lexical sort order of each server node.
+  It is highly recommended that applications upgrade to this version (2.5.5)
+  for proper memcached (cache) bucket functionality.
+  * Priority: Critical
+  * Issues: [CCBC-653](https://issues.couchbase.com/browse/CCBC-653)
+
+* Add `cbc-touch` subcommand.
+  This now allows the simple "touching", or modifying expiration time via the
+  `cbc` command line client.
+  * Priority: Major
+  * Issues: [CCBC-651](https://issues.couchbase.com/browse/CCBC-651)
+
+
 ## 2.5.4 (November 25 2015)
 
 * Validate vBucket master nodes for bounds when receiving new configuration.

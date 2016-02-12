@@ -19,6 +19,7 @@
 #define POOL_H
 
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <pthread.h>
 #include <queue>
 #include <vector>

@@ -96,14 +96,31 @@ chunk_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 }
 
 static void
-mk_docreq_iov(lcbview_DOCREQ *dr,
-    const lcb_IOV *src, lcb_IOV *dst, const char *buf)
+do_copy_iov(char *dstbuf, lcb_IOV *dstiov, const lcb_IOV *srciov, size_t *off)
 {
-    dst->iov_len = src->iov_len;
-    if (dst->iov_len != 0) {
-        size_t diff = ((const char *)src->iov_base) - buf;
-        dst->iov_base = dr->rowbuf + diff;
-    }
+    dstiov->iov_len = srciov->iov_len;
+    dstiov->iov_base = dstbuf + *off;
+    *off += dstiov->iov_len;
+    memcpy(dstiov->iov_base, srciov->iov_base, srciov->iov_len);
+}
+
+static lcbview_DOCREQ *
+mk_docreq(const lcbjsp_ROW *datum)
+{
+    size_t extra_alloc = 0;
+    size_t cur_offset = 0;
+    lcbview_DOCREQ *dreq;
+
+    extra_alloc =
+            datum->key.iov_len + datum->value.iov_len +
+            datum->geo.iov_len + datum->docid.iov_len;
+
+    dreq = calloc(1, sizeof(*dreq) + extra_alloc);
+    do_copy_iov(dreq->rowbuf, &dreq->key, &datum->key, &cur_offset);
+    do_copy_iov(dreq->rowbuf, &dreq->value, &datum->value, &cur_offset);
+    do_copy_iov(dreq->rowbuf, &dreq->base.docid, &datum->docid, &cur_offset);
+    do_copy_iov(dreq->rowbuf, &dreq->geo, &datum->geo, &cur_offset);
+    return dreq;
 }
 
 static void
@@ -116,16 +133,8 @@ row_callback(lcbjsp_PARSER *parser, const lcbjsp_ROW *datum)
         }
 
         if (req->include_docs && datum->docid.iov_len && req->callback) {
-            lcbview_DOCREQ *dreq = calloc(1, sizeof(*dreq) + datum->row.iov_len);
-            const char *orig = datum->row.iov_base;
-
+            lcbview_DOCREQ *dreq = mk_docreq(datum);
             dreq->parent = req;
-            memcpy(dreq->rowbuf, datum->row.iov_base, datum->row.iov_len);
-
-            mk_docreq_iov(dreq, &datum->key, &dreq->key, orig);
-            mk_docreq_iov(dreq, &datum->value, &dreq->value, orig);
-            mk_docreq_iov(dreq, &datum->docid, &dreq->base.docid, orig);
-            mk_docreq_iov(dreq, &datum->geo, &dreq->geo,orig);
             lcbdocq_add(req->docq, &dreq->base);
             req->refcount++;
 

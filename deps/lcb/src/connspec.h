@@ -43,6 +43,8 @@ typedef struct {
 
 } lcb_HOSTSPEC;
 
+#define LCB_CONNSPEC_F_FILEONLY (1<<4)
+
 typedef struct {
     char *ctlopts; /**< Iterator for option string. opt1=val1&opt2=val2 */
     unsigned optslen; /**< Total number of bytes in ctlopts */

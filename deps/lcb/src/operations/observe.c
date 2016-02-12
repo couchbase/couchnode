@@ -256,6 +256,7 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         free(ctx);
         return LCB_EINVAL;
     } else {
+        MAYBE_SCHEDLEAVE(ctx->instance);
         return LCB_SUCCESS;
     }
 }

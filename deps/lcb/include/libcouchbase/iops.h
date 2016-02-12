@@ -33,15 +33,12 @@
 
 /**
  * @ingroup lcbio lcb-public-api
- * @defgroup lcb-io-plugin-api I/O Operations API
+ * @defgroup lcb-io-plugin-api Network I/O
  * @details
  *
  * I/O Integration comes in two flavors:
  *
- * ## Event/Poll Based Integration
- *
- * **Mnemonic**: **E**
- *
+ * @par (E)vent/Poll Based Integration
  * This system is based upon the interfaces exposed by the `poll(2)` and
  * `select(2)` calls found in POSIX-based systems and are wrapped by systems
  * such as _libevent_ and _libev_. At their core is the notion that a socket
@@ -50,10 +47,7 @@
  * which events took place.
  *
  *
- * ## Completion/Operation/Buffer Based Integration
- *
- * **Mnemonic**: **C**
- *
+ * @par (C)ompletion/Operation/Buffer Based Integration
  * This system is based upon the interfaces exposed in the Win32 API where
  * I/O is done in terms of operations which are awaiting _completion_. As such
  * buffers are passed into the core, and the application is notified when the
@@ -967,6 +961,85 @@ typedef lcb_error_t (*lcb_io_create_fn)
 LIBCOUCHBASE_API
 void
 lcb_iops_wire_bsd_impl2(lcb_bsd_procs *procs, int version);
+
+/******************************************************************************
+ ******************************************************************************
+ ** IO CREATION                                                              **
+ ******************************************************************************
+ ******************************************************************************/
+
+/**
+ * @brief Built-in I/O plugins
+ * @committed
+ */
+typedef enum {
+    LCB_IO_OPS_INVALID = 0x00, /**< @private */
+    LCB_IO_OPS_DEFAULT = 0x01, /**< @private */
+
+    /** Integrate with the libevent loop. See lcb_create_libevent_io_opts() */
+    LCB_IO_OPS_LIBEVENT = 0x02,
+    LCB_IO_OPS_WINSOCK = 0x03, /**< @private */
+    LCB_IO_OPS_LIBEV = 0x04,
+    LCB_IO_OPS_SELECT = 0x05,
+    LCB_IO_OPS_WINIOCP = 0x06,
+    LCB_IO_OPS_LIBUV = 0x07
+} lcb_io_ops_type_t;
+
+/** @brief IO Creation for builtin plugins */
+typedef struct {
+    lcb_io_ops_type_t type; /**< The predefined type you want to create */
+    void *cookie; /**< Plugin-specific argument */
+} lcb_IOCREATEOPTS_BUILTIN;
+
+#ifndef __LCB_DOXYGEN__
+/* These are mostly internal structures which may be in use by older applications.*/
+typedef struct { const char *sofile; const char *symbol; void *cookie; } lcb_IOCREATEOPTS_DSO;
+typedef struct { lcb_io_create_fn create; void *cookie; } lcb_IOCREATEOPS_FUNCTIONPOINTER;
+#endif
+
+/** @uncommited */
+struct lcb_create_io_ops_st {
+    int version;
+    union {
+        lcb_IOCREATEOPTS_BUILTIN v0;
+        lcb_IOCREATEOPTS_DSO v1;
+        lcb_IOCREATEOPS_FUNCTIONPOINTER v2;
+    } v;
+};
+
+/**
+ * Create a new instance of one of the library-supplied io ops types.
+ *
+ * This function should only be used if you wish to override/customize the
+ * default I/O plugin behavior; for example to select a specific implementation
+ * (e.g. always for the _select_ plugin) and/or to integrate
+ * a builtin plugin with your own application (e.g. pass an existing `event_base`
+ * structure to the _libevent_ plugin).
+ *
+ * If you _do_ use this function, then you must call lcb_destroy_io_ops() on
+ * the plugin handle once it is no longer required (and no instance is using
+ * it).
+ *
+ * Whether a single `lcb_io_opt_t` may be used by multiple instances at once
+ * is dependent on the specific implementation, but as a general rule it should
+ * be assumed to be unsafe.
+ *
+ * @param[out] op The newly created io ops structure
+ * @param options How to create the io ops structure
+ * @return @ref LCB_SUCCESS on success
+ * @uncommitted
+ */
+LIBCOUCHBASE_API
+lcb_error_t lcb_create_io_ops(lcb_io_opt_t *op, const struct lcb_create_io_ops_st *options);
+
+/**
+ * Destroy the plugin handle created by lcb_create_io_ops()
+ * @param op ops structure
+ * @return LCB_SUCCESS on success
+ * @uncommitted
+ */
+LIBCOUCHBASE_API
+lcb_error_t lcb_destroy_io_ops(lcb_io_opt_t op);
 
 #ifdef __cplusplus
 }

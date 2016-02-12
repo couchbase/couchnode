@@ -78,13 +78,9 @@ lcbio_mksyserr(lcbio_OSERR in, lcbio_OSERR *out)
     }
 }
 
-lcb_error_t
-lcbio_mklcberr(lcbio_OSERR in, const lcb_settings *settings)
+static lcb_error_t
+ioerr2lcberr(lcbio_OSERR in, const lcb_settings *settings)
 {
-    if (settings->detailed_neterr == 0) {
-        return LCB_NETWORK_ERROR;
-    }
-
     switch (in) {
     case 0:
         return LCB_ESOCKSHUTDOWN;
@@ -104,8 +100,21 @@ lcbio_mklcberr(lcbio_OSERR in, const lcb_settings *settings)
     case ECONNABORTED:
         return LCB_ECONNRESET;
     default:
+        lcb_log(settings, "lcbio", LCB_LOG_WARN, __FILE__, __LINE__, "FIXME: Unknown iops/os error code %d. Using NETWORK_ERROR", in);
         return LCB_NETWORK_ERROR;
     }
+}
+
+lcb_error_t
+lcbio_mklcberr(lcbio_OSERR in, const lcb_settings *settings)
+{
+    if (settings->detailed_neterr == 0) {
+        lcb_log(settings, "lcbio", LCB_LOG_INFO, __FILE__, __LINE__, "Translating errno=%d, lcb=0x%x to NETWORK_ERROR",
+            in, ioerr2lcberr(in, settings));
+        return LCB_NETWORK_ERROR;
+    }
+
+    return ioerr2lcberr(in, settings);
 }
 
 lcb_socket_t

@@ -25,7 +25,7 @@ extern "C" {
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-n1ql-api N1QL Query API
+ * @defgroup lcb-n1ql-api N1QL
  * @brief Execute N1QL queries and receive resultant rows
  */
 
@@ -195,10 +195,26 @@ lcb_n1p_setconsistency(lcb_N1QLPARAMS *params, int mode);
 /**
  * Indicate that the query should synchronize its internal snapshot to reflect
  * the changes indicated by the given mutation token (`ss`).
+ * @param params the parameters object
+ * @param keyspace the keyspace (or bucket name) which this mutation token
+ *        pertains to
+ * @param st the mutation token
  */
 LIBCOUCHBASE_API
 lcb_error_t
-lcb_n1p_mutation_token(lcb_N1QLPARAMS *params, const lcb_MUTATION_TOKEN *st);
+lcb_n1p_setconsistent_token(lcb_N1QLPARAMS *params,
+    const char *keyspace, const lcb_MUTATION_TOKEN *st);
+
+/**
+ * Indicate that the query should synchronize its internal snapshot to reflect
+ * any past changes made by the given instance `instance`.
+ *
+ * This iterates over all the vbuckets for the given instance and inserts
+ * the relevant mutation token, using @ref lcb_get_mutation_token
+ */
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_n1p_setconsistent_handle(lcb_N1QLPARAMS *params, lcb_t instance);
 
 /**
  * Encodes the request and returns it as a string. The string is valid

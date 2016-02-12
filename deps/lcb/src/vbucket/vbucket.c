@@ -275,7 +275,7 @@ static int continuum_item_cmp(const void *t1, const void *t2)
 }
 
 static int
-parse_ketama(lcbvb_CONFIG *cfg)
+update_ketama(lcbvb_CONFIG *cfg)
 {
     char host[MAX_AUTHORITY_SIZE+10] = "";
     int nhost;
@@ -571,8 +571,12 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
             goto GT_ERROR;
         }
     } else {
-        if (!parse_ketama(cfg)) {
-            SET_ERRSTR(cfg, "Failed to establish ketama continuums");
+        /* If there is no $HOST then we can update the ketama config, otherwise
+         * we must wait for the hostname to be replaced! */
+        if (strstr(data, "$HOST") == NULL) {
+            if (!update_ketama(cfg)) {
+                SET_ERRSTR(cfg, "Failed to establish ketama continuums");
+            }
         }
     }
     cfg->servers = realloc(cfg->servers, sizeof(*cfg->servers) * cfg->nsrv);
@@ -637,6 +641,9 @@ lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
         }
         /* reassign authority */
         srv->authority = srv->svc.hoststrs[LCBVB_SVCTYPE_DATA];
+    }
+    if (cfg->dtype == LCBVB_DIST_KETAMA) {
+        update_ketama(cfg);
     }
 }
 
@@ -1151,8 +1158,8 @@ lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix)
 
 LIBCOUCHBASE_API
 int
-lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
+lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
+    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode, int *used)
 {
     size_t nn, oix = 0;
 
@@ -1166,6 +1173,11 @@ lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
         const lcbvb_SERVICES *svcs = mode == LCBVB_SVCMODE_PLAIN ?
                 &server->svc : &server->svc_ssl;
         int has_svc = 0;
+
+        // Check if this node is in the exclude list
+        if (used && used[nn]) {
+            continue;
+        }
 
         has_svc =
                 (type == LCBVB_SVCTYPE_DATA && svcs->data) ||
@@ -1188,6 +1200,14 @@ lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
     nn = rand();
     nn %= oix;
     return cfg->randbuf[nn];
+}
+
+LIBCOUCHBASE_API
+int
+lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
+    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
+{
+    return lcbvb_get_randhost_ex(cfg, type, mode, NULL);
 }
 
 LIBCOUCHBASE_API
@@ -1412,7 +1432,7 @@ lcbvb_make_ketama(lcbvb_CONFIG *vb)
     vb->dtype = LCBVB_DIST_KETAMA;
     vb->nrepl = 0;
     vb->nvb = 0;
-    parse_ketama(vb);
+    update_ketama(vb);
 }
 
 

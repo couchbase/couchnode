@@ -371,4 +371,35 @@ TEST_F(ViewsUnitTest, testOptionValidation)
     cmd.cmdflags |= LCB_CMDVIEWQUERY_F_NOROWPARSE;
     ASSERT_EQ(LCB_OPTIONS_CONFLICT, lcb_view_query(instance, NULL, &cmd));
 }
+
+TEST_F(ViewsUnitTest, testBackslashDocid)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    lcb_error_t rc;
+    connectBeerSample(hw, instance);
+
+    string key("backslash\\docid");
+    string doc("{\"type\":\"brewery\", \"name\":\"Backslash IPA\"}");
+    storeKey(instance, key, doc);
+
+    ViewInfo vi;
+    lcb_CMDVIEWQUERY cmd = { 0 };
+
+    lcb_view_query_initcmd(&cmd, "beer", "brewery_beers", "stale=false&key=[\"backslash\\\\docid\"]", viewCallback);
+    rc = lcb_view_query(instance, &vi, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    lcb_wait(instance);
+    ASSERT_EQ(LCB_SUCCESS, vi.err);
+    ASSERT_EQ(1, vi.rows.size());
+    ASSERT_EQ(key, vi.rows[0].docid);
+
+    vi.clear();
+    cmd.cmdflags = LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
+    rc = lcb_view_query(instance, &vi, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    lcb_wait(instance);
+    ASSERT_EQ(1, vi.rows.size());
+    ASSERT_EQ(doc.size(), vi.rows[0].docContents.nvalue);
+}
 }

@@ -31,7 +31,7 @@ extern "C" {
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-vbucket-api vBucket Mapping/Parsing API
+ * @defgroup lcb-vbucket-api vBucket
  * @details
  * These routines contain functionality for parsing a cluster topology configuration
  * and mapping keys to cluster nodes appropriately.
@@ -446,6 +446,24 @@ LIBCOUCHBASE_API
 int
 lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
     lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
+
+/**
+ * Get random node, excluding nodes already tried
+ * @param cfg the config
+ * @param type type of service
+ * @param mode transport mode
+ * @param used an array of integers representing server indexes (should be of
+ * size LCBVB_NSERVERS). Servers whose indexes in the `used` array are nonzero
+ * will be *skipped*.
+ *
+ * @return a server index, or -1 if no server remains (either because no
+ * server has the service, or because all available servers are in the
+ * exclude list)
+ */
+LIBCOUCHBASE_API
+int
+lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
+    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode, int *used);
 
 /** @brief Structure representing changes between two configurations */
 typedef struct {

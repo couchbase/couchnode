@@ -32,7 +32,7 @@ PROJECT_NAME           = "Couchbase C Client"
 # This could be handy for archiving the generated documentation or
 # if some version control system is used.
 
-PROJECT_NUMBER         = 2.5.4
+PROJECT_NUMBER         = 2.5.6
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer
@@ -208,6 +208,7 @@ ALIASES += "committed=\par Stability\n\xrefitem lcb_apiattr_committed \"Committe
 ALIASES += "uncommitted=\par Stability\n\xrefitem lcb_apiattr_uncommitted \"Uncommitted\" \"Unommitted Interfaces\""
 ALIASES += "volatile=\par Stability\n\xrefitem lcb_apiattr_volatile \"Volatile\" \"Volatile Interfaces\""
 ALIASES += "commited=committed"
+ALISES  += "comitted=committed"
 ALIASES += "uncommited=uncommitted"
 ALIASES += "uncomitted=uncommitted"
 ALIASES += "lcb_see_detailed_neterr=\n\note This error code is returned only if \ref LCB_CNTL_DETAILED_ERRCODES is set\n"
@@ -680,7 +681,8 @@ WARN_LOGFILE           =
 # directories like "/usr/src/myproject". Separate the files or directories
 # with spaces.
 
-INPUT = include/libcouchbase
+INPUT = include/libcouchbase/couchbase.h
+INPUT += include/libcouchbase
 INPUT += plugins/io/libevent/libevent_io_opts.h
 INPUT += plugins/io/libev/libev_io_opts.h
 INPUT += plugins/io/libuv/libuv_io_opts.h

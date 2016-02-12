@@ -136,7 +136,6 @@ TEST_F(McAlloc, testKeyAlloc)
     mcreq_release_packet(pipeline, packet);
 }
 
-// Check that our value allocation stuff works. This only tests copied values
 TEST_F(McAlloc, testValueAlloc)
 {
     CQWrap q;
@@ -200,6 +199,26 @@ TEST_F(McAlloc, testValueAlloc)
     ASSERT_NE(&iov[0], (nb_IOV *)packet->u_value.multi.iov);
     ASSERT_EQ(2, packet->u_value.multi.niov);
     ASSERT_EQ(5, packet->u_value.multi.total_length);
+    mcreq_wipe_packet(pipeline, packet);
+    mcreq_release_packet(pipeline, packet);
+
+    iov[0].iov_base = (void *)value;
+    iov[0].iov_len = 3;
+    iov[1].iov_base = (void *)(value + 3);
+    iov[1].iov_len = 2;
+    vreq.u_buf.multi.iov = (lcb_IOV *)iov;
+    vreq.u_buf.multi.niov = 2;
+    vreq.u_buf.multi.total_length = 0;
+
+    vreq.vtype = LCB_KV_IOVCOPY;
+    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, &packet, &pipeline, 0);
+    ASSERT_EQ(LCB_SUCCESS, ret);
+
+    ret = mcreq_reserve_value(pipeline, packet, &vreq);
+    ASSERT_EQ(LCB_SUCCESS, ret);
+
+    ASSERT_EQ(MCREQ_F_HASVALUE, packet->flags);
+    ASSERT_EQ(0, memcmp(SPAN_BUFFER(&packet->u_value.single), value, 5));
     mcreq_wipe_packet(pipeline, packet);
     mcreq_release_packet(pipeline, packet);
 }

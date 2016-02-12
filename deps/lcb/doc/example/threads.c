@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 
 typedef struct {
     lcb_t instance;
@@ -14,12 +15,11 @@ static void *
 thrfunc_locked(void *arg)
 {
     my_CTX *ctx = arg;
-    lcb_get_cmd_t cmd = { 0 }, *cmdp = &cmd;
-    cmd.v.v0.key = "Hello";
-    cmd.v.v0.nkey = strlen("Hello");
+    lcb_CMDGET cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, "Hello", strlen("Hello"));
 
     pthread_mutex_lock(&ctx->mutex);
-    lcb_get(ctx->instance, NULL, 1, &cmdp);
+    lcb_get3(ctx->instance, NULL, &cmd);
     lcb_wait(ctx->instance);
     pthread_mutex_unlock(&ctx->mutex);
     return NULL;

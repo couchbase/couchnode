@@ -19,14 +19,12 @@
 #include <list>
 #include <iostream>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <getopt.h>
 #include <cstdlib>
 
 extern "C" {
-    static void storage_callback(lcb_t, const void *, lcb_storage_t,
-                                 lcb_error_t, const lcb_store_resp_t *);
-    static void get_callback(lcb_t, const void *, lcb_error_t,
-                             const lcb_get_resp_t *);
+static void op_callback(lcb_t, int, const lcb_RESPBASE*);
 }
 
 class MultiClusterClient {
@@ -109,9 +107,8 @@ public:
                           << std::endl;
                 exit(1);
             }
-
-            lcb_set_get_callback(instance, get_callback);
-            lcb_set_store_callback(instance, storage_callback);
+            lcb_install_callback3(instance, LCB_CALLBACK_GET, op_callback);
+            lcb_install_callback3(instance, LCB_CALLBACK_STORE, op_callback);
 
 
             lcb_connect(instance);
@@ -129,23 +126,17 @@ public:
     }
 
     lcb_error_t store(const std::string &key, const std::string &value) {
-        const lcb_store_cmd_t *commands[1];
-        lcb_store_cmd_t cmd;
-        commands[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.key = key.c_str();
-        cmd.v.v0.nkey = key.length();
-        cmd.v.v0.bytes = value.c_str();
-        cmd.v.v0.nbytes = value.length();
-        cmd.v.v0.operation = LCB_SET;
-
+        lcb_CMDSTORE scmd = { 0 };
+        LCB_CMD_SET_KEY(&scmd, key.c_str(), key.size());
+        LCB_CMD_SET_VALUE(&scmd, value.c_str(), value.size());
+        scmd.operation = LCB_SET;
         Operation *oper = new Operation(this);
         lcb_error_t error;
         for (std::list<lcb_t>::iterator iter = instances.begin();
              iter != instances.end();
              ++iter) {
 
-            if ((error = lcb_store(*iter, oper, 1, commands)) != LCB_SUCCESS) {
+            if ((error = lcb_store3(*iter, oper, &scmd)) != LCB_SUCCESS) {
                 oper->response(error, "");
             }
         }
@@ -157,21 +148,15 @@ public:
     }
 
     lcb_error_t get(const std::string &key, std::string &value) {
-        lcb_get_cmd_t cmd;
-        const lcb_get_cmd_t *commands[1];
-
-        commands[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.key = key.c_str();
-        cmd.v.v0.nkey = key.length();
-
+        lcb_CMDGET gcmd = { 0 };
+        LCB_CMD_SET_KEY(&gcmd, key.c_str(), key.size());
         Operation *oper = new Operation(this);
         lcb_error_t error;
         for (std::list<lcb_t>::iterator iter = instances.begin();
              iter != instances.end();
              ++iter) {
 
-            if ((error = lcb_get(*iter, oper, 1, commands)) != LCB_SUCCESS) {
+            if ((error = lcb_get3(*iter, oper, &gcmd)) != LCB_SUCCESS) {
                 oper->response(error, "");
             }
         }
@@ -196,25 +181,16 @@ private:
     std::list<lcb_t> instances;
 };
 
-static void storage_callback(lcb_t, const void *cookie,
-                             lcb_storage_t, lcb_error_t error,
-                             const lcb_store_resp_t *)
+static void op_callback(lcb_t, int cbtype, const lcb_RESPBASE *rb)
 {
-    MultiClusterClient::Operation *o;
-    o = (MultiClusterClient::Operation *)cookie;
-    o->response(error, "");
-}
-
-static void get_callback(lcb_t, const void *cookie, lcb_error_t error,
-                         const lcb_get_resp_t *resp)
-{
-    MultiClusterClient::Operation *o;
-    o = (MultiClusterClient::Operation *)cookie;
-    if (error == LCB_SUCCESS) {
-        std::string value((char*)resp->v.v0.bytes, resp->v.v0.nbytes);
-        o->response(error, value);
-    } else {
-        o->response(error, "");
+    MultiClusterClient::Operation *o =
+            reinterpret_cast<MultiClusterClient::Operation*>(rb->cookie);
+    if (rb->rc != LCB_SUCCESS) {
+        o->response(rb->rc, "");
+    } else if (cbtype == LCB_CALLBACK_GET) {
+        const lcb_RESPGET *rg = reinterpret_cast<const lcb_RESPGET*>(rb);
+        std::string value(reinterpret_cast<const char*>(rg->value), rg->nvalue);
+        o->response(rb->rc, value);
     }
 }
 

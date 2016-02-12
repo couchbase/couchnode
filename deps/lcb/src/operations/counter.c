@@ -73,7 +73,7 @@ lcb_counter3(
 
     memcpy(SPAN_BUFFER(&packet->kh_span), acmd.bytes, sizeof(acmd.bytes));
     TRACE_ARITHMETIC_BEGIN(hdr, cmd);
-    mcreq_sched_add(pipeline, packet);
+    LCB_SCHED_ADD(instance, pipeline, packet);
     return LCB_SUCCESS;
 }
 

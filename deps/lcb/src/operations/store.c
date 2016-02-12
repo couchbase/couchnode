@@ -34,6 +34,7 @@ handle_dur_storecb(mc_PIPELINE *pl, mc_PACKET *pkt,
     lcb_RESPCALLBACK cb;
     lcb_RESPSTOREDUR resp = { 0 };
     lcb_CMDENDURE dcmd = { 0 };
+    const lcb_MUTATION_TOKEN *mt;
     DURSTORECTX *dctx = (DURSTORECTX *)pkt->u_rdata.exdata;
     lcb_MULTICMD_CTX *mctx;
     lcb_durability_opts_t opts = { 0 };
@@ -51,8 +52,9 @@ handle_dur_storecb(mc_PIPELINE *pl, mc_PACKET *pkt,
     LCB_CMD_SET_KEY(&dcmd, sresp->key, sresp->nkey);
     dcmd.cas = sresp->cas;
 
-    if (LCB_MUTATION_TOKEN_ISVALID(&sresp->mutation_token)) {
-        dcmd.mutation_token = &sresp->mutation_token;
+    mt = lcb_resp_get_mutation_token(LCB_CALLBACK_STORE, (const lcb_RESPBASE*)sresp);
+    if (mt && LCB_MUTATION_TOKEN_ISVALID(mt)) {
+        dcmd.mutation_token = mt;
     }
 
     /* Set the options.. */
@@ -303,7 +305,7 @@ do_store3(lcb_t instance, const void *cookie,
             + get_value_size(packet));
 
     memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
-    mcreq_sched_add(pipeline, packet);
+    LCB_SCHED_ADD(instance, pipeline, packet);
     TRACE_STORE_BEGIN(hdr, (lcb_CMDSTORE* )cmd);
     return LCB_SUCCESS;
 }

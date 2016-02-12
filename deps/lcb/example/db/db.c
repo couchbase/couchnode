@@ -31,6 +31,7 @@
  */
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -54,55 +55,29 @@ static void handle_sigint(int sig)
 #define INSTALL_SIGINT_HANDLER()
 #endif
 
-static void bootstrap_callback(lcb_t instance, lcb_error_t error)
+static void store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 {
-    if (error == LCB_SUCCESS) {
-        return;
-    }
-    fprintf(stderr, "ERROR: %s (0x%x)\n", lcb_strerror(instance, error), error);
-    exit(EXIT_FAILURE);
-}
-
-static void store_callback(lcb_t instance, const void *cookie,
-                           lcb_storage_t operation,
-                           lcb_error_t error,
-                           const lcb_store_resp_t *item)
-{
-    if (error == LCB_SUCCESS) {
-        fprintf(stderr, "STORED \"");
-        fwrite(item->v.v0.key, sizeof(char), item->v.v0.nkey, stderr);
-        fprintf(stderr, "\" CAS: %"PRIu64"\n", item->v.v0.cas);
-    } else {
-        fprintf(stderr, "STORE ERROR: %s (0x%x)\n",
-                lcb_strerror(instance, error), error);
+    if (rb->rc != LCB_SUCCESS) {
+        fprintf(stderr, "Couldn't perform initial storage: %s\n", lcb_strerror(NULL, rb->rc));
         exit(EXIT_FAILURE);
     }
-    (void)cookie;
-    (void)operation;
+    (void)cbtype; /* unused argument */
 }
 
-static void get_callback(lcb_t instance, const void *cookie, lcb_error_t error,
-                         const lcb_get_resp_t *item)
+static void get_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 {
-    if (error == LCB_SUCCESS) {
-        lcb_get_cmd_t cmd;
-        lcb_error_t err;
-        const lcb_get_cmd_t *commands[1];
-        commands[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.key = item->v.v0.key;
-        cmd.v.v0.nkey = item->v.v0.nkey;
-        err = lcb_get(instance, NULL, 1, commands);
-        if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to get: %s\n", lcb_strerror(NULL, err));
+    if (rb->rc == LCB_SUCCESS) {
+        lcb_CMDGET gcmd = { 0 };
+        lcb_error_t rc;
+        LCB_CMD_SET_KEY(&gcmd, rb->key, rb->nkey);
+        rc = lcb_get3(instance, NULL, &gcmd);
+        if (rc != LCB_SUCCESS) {
+            fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror(NULL, rc));
             exit(EXIT_FAILURE);
         }
     } else {
-        fprintf(stderr, "GET ERROR: %s (0x%x)\n",
-                lcb_strerror(instance, error), error);
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Failed to retrieve key: %s\n", lcb_strerror(NULL, rb->rc));
     }
-    (void)cookie;
 }
 
 int main(int argc, char *argv[])
@@ -136,64 +111,56 @@ int main(int argc, char *argv[])
 
     err = lcb_create(&instance, &create_options);
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to create libcouchbase instance: %s\n",
-                lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to create libcouchbase instance: %s\n", lcb_strerror(NULL, err));
         exit(EXIT_FAILURE);
     }
-    lcb_set_bootstrap_callback(instance, bootstrap_callback);
+
     /* Initiate the connect sequence in libcouchbase */
     if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to initiate connect: %s\n",
-                lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to initiate connect: %s\n", lcb_strerror(NULL, err));
         lcb_destroy(instance);
         exit(EXIT_FAILURE);
     }
-    (void)lcb_set_get_callback(instance, get_callback);
-    (void)lcb_set_store_callback(instance, store_callback);
-    /* Run the event loop and wait until we've connected */
-    lcb_wait(instance);
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
+        fprintf(stderr, "Couldn't establish connection to cluster: %s\n", lcb_strerror(NULL, err));
+        lcb_destroy(instance);
+        exit(EXIT_FAILURE);
+    }
+
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
 
     fprintf(stderr, "key: \"%s\"\n", key);
     fprintf(stderr, "value size: %ld\n", nbytes);
-    fprintf(stderr, "connection string: %s\n",
-        create_options.v.v3.connstr ? create_options.v.v3.connstr : "");
-    fprintf(stderr, "password: %s\n",
-        create_options.v.v0.passwd ? create_options.v.v3.passwd : "");
+    fprintf(stderr, "connection string: %s\n", create_options.v.v3.connstr ? create_options.v.v3.connstr : "");
+    fprintf(stderr, "password: %s\n", create_options.v.v0.passwd ? create_options.v.v3.passwd : "");
+
     bytes = malloc(nbytes);
 
     {
-        lcb_store_cmd_t cmd;
-        const lcb_store_cmd_t *commands[1];
-
-        commands[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.operation = LCB_SET;
-        cmd.v.v0.key = key;
-        cmd.v.v0.nkey = nkey;
-        cmd.v.v0.bytes = bytes;
-        cmd.v.v0.nbytes = nbytes;
-        err = lcb_store(instance, NULL, 1, commands);
+        lcb_CMDSTORE cmd = { 0 };
+        cmd.operation = LCB_SET;
+        LCB_CMD_SET_KEY(&cmd, key, nkey);
+        LCB_CMD_SET_VALUE(&cmd, bytes, nbytes);
+        err = lcb_store3(instance, NULL, &cmd);
         if (err != LCB_SUCCESS) {
             fprintf(stderr, "Failed to store: %s\n", lcb_strerror(NULL, err));
             exit(EXIT_FAILURE);
         }
     }
-    lcb_wait(instance);
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
     fprintf(stderr, "Benchmarking... CTRL-C to stop\n");
     {
-        lcb_get_cmd_t cmd;
-        const lcb_get_cmd_t *commands[1];
-        commands[0] = &cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.key = key;
-        cmd.v.v0.nkey = nkey;
-        err = lcb_get(instance, NULL, 1, commands);
+        lcb_CMDGET cmd = { 0 };
+        LCB_CMD_SET_KEY(&cmd, key, nkey);
+        err = lcb_get3(instance, NULL, &cmd);
         if (err != LCB_SUCCESS) {
             fprintf(stderr, "Failed to get: %s\n", lcb_strerror(NULL, err));
             exit(EXIT_FAILURE);
         }
     }
-    lcb_wait(instance);
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
     lcb_destroy(instance);
 
     exit(EXIT_SUCCESS);

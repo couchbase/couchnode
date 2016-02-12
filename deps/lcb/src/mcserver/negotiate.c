@@ -303,7 +303,7 @@ send_hello(mc_pSESSREQ sreq)
     protocol_binary_request_no_extras req;
     protocol_binary_request_header *hdr = &req.message.header;
     unsigned ii;
-    static const char client_id[] = LCB_VERSION_STRING;
+    static const char client_id[] = "libcouchbase/" LCB_VERSION_STRING;
     lcb_U16 features[MEMCACHED_TOTAL_HELLO_FEATURES];
     unsigned nfeatures = 0;
     lcb_SIZE nclistr;

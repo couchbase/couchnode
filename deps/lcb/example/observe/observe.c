@@ -22,7 +22,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
 
 #define fail(msg) \
     fprintf(stderr, "%s\n", msg); \
@@ -44,57 +46,41 @@ typedef struct {
 } observe_info;
 
 static void
-observe_callback(lcb_t instance, const void *cookie, lcb_error_t error,
-    const lcb_observe_resp_t *resp)
+observe_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 {
-    observe_info *obs_info = (observe_info *)cookie;
+    const lcb_RESPOBSERVE *resp = (const lcb_RESPOBSERVE*)rb;
+    observe_info *obs_info = (observe_info *)rb->cookie;
     node_info *ni = &obs_info->nodeinfo[obs_info->nresp];
 
-    if (resp->v.v0.nkey == 0) {
+    if (rb->nkey == 0) {
         fprintf(stderr, "All nodes have replied\n");
         return;
     }
 
-    if (error != LCB_SUCCESS) {
+    if (rb->rc != LCB_SUCCESS) {
         fprintf(stderr, "Failed to observe key from node. 0x%x (%s)\n",
-            error, lcb_strerror(instance, error));
+            rb->rc, lcb_strerror(instance, rb->rc));
         obs_info->nresp++;
         return;
     }
 
     /* Copy over the fields we care about */
-    ni->cas = resp->v.v0.cas;
-    ni->status = resp->v.v0.status;
-    ni->master = resp->v.v0.from_master;
+    ni->cas = resp->cas;
+    ni->status = resp->status;
+    ni->master = resp->ismaster;
 
     /* Increase the response counter */
     obs_info->nresp++;
-}
-
-static void
-observe_masteronly_callback(lcb_t instance, const void *cookie, lcb_error_t err,
-    const lcb_observe_resp_t *resp)
-{
-    if (!resp->v.v0.nkey) {
-        return;
-    }
-
-    if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to get CAS from master: 0x%x (%s)\n", err, lcb_strerror(instance, err));
-        return;
-    }
-    *(lcb_cas_t*)cookie = resp->v.v0.cas;
 }
 
 int main(int argc, char *argv[])
 {
     lcb_t instance;
     lcb_error_t err;
-    lcb_observe_cmd_t cmd = { 0 };
-    const lcb_observe_cmd_t *cmdp = &cmd;
+    lcb_CMDOBSERVE cmd = { 0 };
+    lcb_MULTICMD_CTX *mctx = NULL;
     observe_info obs_info;
     unsigned nservers, ii;
-    lcb_cas_t curcas = 0;
 
     if (argc != 2) {
         fail("requires key as argument");
@@ -110,18 +96,18 @@ int main(int argc, char *argv[])
     if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
         fail2("Couldn't get initial cluster configuration", err);
     }
-
+    lcb_install_callback3(instance, LCB_CALLBACK_OBSERVE, observe_callback);
 
     nservers = lcb_get_num_nodes(instance);
     obs_info.nodeinfo = calloc(nservers, sizeof (*obs_info.nodeinfo));
     obs_info.nresp = 0;
-    cmd.v.v0.key = argv[1];
-    cmd.v.v0.nkey = strlen(argv[1]);
 
-    lcb_set_observe_callback(instance, observe_callback);
+    mctx = lcb_observe3_ctxnew(instance);
+    LCB_CMD_SET_KEY(&cmd, argv[1], strlen(argv[1]));
+    mctx->addcmd(mctx, (const lcb_CMDBASE*)&cmd);
+
     printf("observing the state of '%s':\n", argv[1]);
-
-    if ((err = lcb_observe(instance, &obs_info, 1, &cmdp)) != LCB_SUCCESS) {
+    if ((err = mctx->done(mctx, &obs_info)) != LCB_SUCCESS) {
         fail2("Couldn't schedule observe request", err);
     }
 
@@ -129,30 +115,32 @@ int main(int argc, char *argv[])
     for (ii = 0; ii < obs_info.nresp; ii++) {
         node_info *ni = &obs_info.nodeinfo[ii];
         fprintf(stderr, "Got status from %s node:\n", ni->master ? "master" : "replica");
-        fprintf(stderr, "\tCAS: 0x0%lx\n", ni->cas);
+        fprintf(stderr, "\tCAS: 0x0%llx\n", ni->cas);
         fprintf(stderr, "\tStatus (RAW): 0x%02x\n", ni->status);
         fprintf(stderr, "\tExists [CACHE]: %s\n", ni->status & LCB_OBSERVE_NOT_FOUND ? "No" : "Yes");
         fprintf(stderr, "\tExists [DISK]: %s\n", ni->status & LCB_OBSERVE_PERSISTED ? "Yes" : "No");
         fprintf(stderr, "\n");
     }
-    free(obs_info.nodeinfo);
 
     /* The next example shows how to use lcb_observe() to only request the
      * CAS from the master node */
+    obs_info.nresp = 0;
+    memset(obs_info.nodeinfo, 0, sizeof(obs_info.nodeinfo[0]) * nservers);
 
     fprintf(stderr, "Will request CAS from master...\n");
-    lcb_set_observe_callback(instance, observe_masteronly_callback);
-    cmd.version = 1;
-    cmd.v.v1.options = LCB_OBSERVE_MASTER_ONLY;
-    cmd.v.v1.key = argv[1];
-    cmd.v.v1.nkey = strlen(argv[1]);
-    cmdp = &cmd;
-    if ((err = lcb_observe(instance, &curcas, 1, &cmdp)) != LCB_SUCCESS) {
+    cmd.cmdflags |= LCB_CMDOBSERVE_F_MASTER_ONLY;
+    mctx = lcb_observe3_ctxnew(instance);
+    mctx->addcmd(mctx, (const lcb_CMDBASE*)&cmd);
+    if ((err = mctx->done(mctx, &obs_info)) != LCB_SUCCESS) {
         fail2("Couldn't schedule observe request!\n", err);
     }
+
     lcb_wait(instance);
-    fprintf(stderr, "CAS on master is 0x%lx\n", curcas);
+
+    assert(obs_info.nresp == 1 && obs_info.nodeinfo[0].master);
+    fprintf(stderr, "CAS on master is 0x%llx\n", obs_info.nodeinfo[0].cas);
 
     lcb_destroy(instance);
+    free(obs_info.nodeinfo);
     return EXIT_SUCCESS;
 }
