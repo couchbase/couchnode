@@ -295,17 +295,20 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
     me->encodeDoc(encoder, &cmd->v.v0.bytes, &cmd->v.v0.nbytes,
             &cmd->v.v0.flags, info[2]);
 
-    if (!_ParseUintOption(&cmd->v.v0.exptime, info[3])) {
+    if (!info[3]->IsUndefined() && !info[3]->IsNull() && !_ParseUintOption(&cmd->v.v0.flags, info[3])) {
+        return Nan::ThrowError(Error::create("bad flags passed"));
+    }
+    if (!_ParseUintOption(&cmd->v.v0.exptime, info[4])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!_ParseCas(&cmd->v.v0, info[4])) {
+    if (!_ParseCas(&cmd->v.v0, info[5])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
-    if (!_ParseUintOption(&cmd->v.v0.operation, info[5])) {
+    if (!_ParseUintOption(&cmd->v.v0.operation, info[6])) {
         return Nan::ThrowError(Error::create("bad operation passed"));
     }
 
-    if (!_ParseCookie(&cookie, info[6])) {
+    if (!_ParseCookie(&cookie, info[7])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
