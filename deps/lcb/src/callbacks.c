@@ -316,6 +316,50 @@ lcb_get_callback3(lcb_t instance, int cbtype)
     return instance->callbacks.v3callbacks[cbtype];
 }
 
+LIBCOUCHBASE_API
+const char *
+lcb_strcbtype(int cbtype)
+{
+    switch (cbtype) {
+    case LCB_CALLBACK_GET:
+        return "GET";
+    case LCB_CALLBACK_STORE:
+        return "STORE";
+    case LCB_CALLBACK_COUNTER:
+        return "COUNTER";
+    case LCB_CALLBACK_TOUCH:
+        return "TOUCH";
+    case LCB_CALLBACK_REMOVE:
+        return "REMOVE";
+    case LCB_CALLBACK_UNLOCK:
+        return "UNLOCK";
+    case LCB_CALLBACK_STATS:
+        return "STATS";
+    case LCB_CALLBACK_VERSIONS:
+        return "VERSIONS";
+    case LCB_CALLBACK_VERBOSITY:
+        return "VERBOSITY";
+    case LCB_CALLBACK_FLUSH:
+        return "FLUSH";
+    case LCB_CALLBACK_OBSERVE:
+        return "OBSERVE";
+    case LCB_CALLBACK_GETREPLICA:
+        return "GETREPLICA";
+    case LCB_CALLBACK_ENDURE:
+        return "ENDURE";
+    case LCB_CALLBACK_HTTP:
+        return "HTTP";
+    case LCB_CALLBACK_CBFLUSH:
+        return "CBFLUSH";
+    case LCB_CALLBACK_OBSEQNO:
+        return "OBSEQNO";
+    case LCB_CALLBACK_STOREDUR:
+        return "STOREDUR";
+    default:
+        return "UNKNOWN";
+    }
+}
+
 static void
 nocb_fallback(lcb_t instance, int type, const lcb_RESPBASE *response)
 {

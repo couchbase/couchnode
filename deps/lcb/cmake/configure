@@ -64,11 +64,11 @@ my @HELP_DESCRIPTIONS = (
         "Path to snappy installation",
         "%s", \(my $SNAPPY_ROOT = "")],
 
-    [ "--disable-snappy", "",
+    [ "disable-snappy", "",
         "Do not build static snappy",
         "%d", \(my $NO_SNAPPY = 0)],
 
-    [ "--enable-static-snappy", "",
+    [ "enable-static-snappy", "",
         "Build the bundled snappy and do not link against the system version",
         "%d", \(my $STATIC_SNAPPY = 0) ],
 

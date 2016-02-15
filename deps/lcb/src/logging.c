@@ -189,6 +189,24 @@ void lcb_log(const struct lcb_settings_st *settings,
     va_end(ap);
 }
 
+LCB_INTERNAL_API
+void lcb_log_badconfig(const struct lcb_settings_st *settings,
+    const char *subsys, int severity, const char *srcfile, int srcline,
+    const lcbvb_CONFIG *vbc, const char *origin_txt)
+{
+    const char *errstr = lcbvb_get_error(vbc);
+    if (!errstr) {
+        errstr = "<FIXME: No error string provided for parse failure>";
+    }
+
+    lcb_log(settings, subsys, severity, srcfile, srcline,
+        "vBucket config parsing failed: %s. Raw text in DEBUG level", errstr);
+    if (!origin_txt) {
+        errstr = "<FIXME: No origin text available>";
+    }
+    lcb_log(settings, subsys, LCB_LOG_DEBUG, srcfile, srcline, "%s", origin_txt);
+}
+
 lcb_logprocs * lcb_init_console_logger(void)
 {
     char vbuf[1024];

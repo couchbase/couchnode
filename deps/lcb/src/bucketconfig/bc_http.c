@@ -202,7 +202,8 @@ process_chunk(http_provider *http, const void *buf, unsigned nbuf)
     }
     rv = lcbvb_load_json(cfgh, resp->body.base);
     if (rv != 0) {
-        lcb_log(LOGARGS(http, ERR), LOGFMT "Failed to parse a valid config from HTTP stream: %s", LOGID(http), cfgh->errstr);
+        lcb_log(LOGARGS(http, ERR), LOGFMT "Failed to parse a valid config from HTTP stream", LOGID(http));
+        lcb_log_badconfig(LOGARGS(http, ERR), cfgh, resp->body.base);
         lcbvb_destroy(cfgh);
         return LCB_PROTOCOL_ERROR;
     }

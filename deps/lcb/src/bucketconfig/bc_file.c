@@ -112,6 +112,7 @@ static int load_cache(file_provider *provider)
     if (fail) {
         status = -1;
         lcb_log(LOGARGS(provider, ERROR), LOGFMT "Couldn't parse configuration", LOGID(provider));
+        lcb_log_badconfig(LOGARGS(provider, ERROR), config, str.base);
         if (!provider->ro_mode) {
             remove(provider->filename);
         }

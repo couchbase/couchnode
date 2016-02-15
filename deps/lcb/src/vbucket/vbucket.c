@@ -41,7 +41,7 @@
  ******************************************************************************
  ******************************************************************************/
 static lcbvb_VBUCKET *
-build_vbmap(cJSON *cj, unsigned *nitems)
+build_vbmap(lcbvb_CONFIG *cfg, cJSON *cj, unsigned *nitems)
 {
     lcbvb_VBUCKET *vblist = NULL;
     cJSON *jvb;
@@ -77,6 +77,10 @@ build_vbmap(cJSON *cj, unsigned *nitems)
                 goto GT_ERR;
             }
             cvb->servers[jj] = jsix->valueint;
+            if (cvb->servers[jj] > (int)cfg->nsrv-1) {
+                SET_ERRSTR(cfg, "Invalid vBucket map received from server. Above-bounds vBucket target found");
+                goto GT_ERR;
+            }
         }
     }
 
@@ -228,11 +232,11 @@ parse_vbucket(lcbvb_CONFIG *cfg, cJSON *cj)
 
     get_jarray(vbconfig, "vBucketMapForward", &ffmap);
 
-    if ((cfg->vbuckets = build_vbmap(vbmap, &cfg->nvb)) == NULL) {
+    if ((cfg->vbuckets = build_vbmap(cfg, vbmap, &cfg->nvb)) == NULL) {
         goto GT_ERROR;
     }
 
-    if (ffmap && (cfg->ffvbuckets = build_vbmap(ffmap, &cfg->nvb)) == NULL) {
+    if (ffmap && (cfg->ffvbuckets = build_vbmap(cfg, ffmap, &cfg->nvb)) == NULL) {
         goto GT_ERROR;
     }
 
@@ -1132,6 +1136,17 @@ lcbvb_get_hostport(lcbvb_CONFIG *cfg,
         sprintf(*strp, "%s:%d", srv->hostname, port);
     }
     return *strp;
+}
+
+LIBCOUCHBASE_API
+const char *
+lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix)
+{
+    if (cfg->nsrv > ix) {
+        return cfg->servers[ix].hostname;
+    } else {
+        return NULL;
+    }
 }
 
 LIBCOUCHBASE_API

@@ -436,7 +436,7 @@ mcreq_basic_packet(
 
     mcreq_map_key(queue, &cmd->key, &cmd->_hashkey,
         sizeof(*req) + extlen, &vb, &srvix);
-    if (srvix > -1) {
+    if (srvix > -1 && srvix < (int)queue->npipelines) {
         *pipeline = queue->pipelines[srvix];
 
     } else {

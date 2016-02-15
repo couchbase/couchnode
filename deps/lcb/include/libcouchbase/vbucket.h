@@ -115,7 +115,7 @@ typedef enum {
 
 /**@volatile. ABI/API compatibility not guaranteed between versions.
  * @brief Structure containing the configuration.*/
-typedef struct {
+typedef struct lcbvb_CONFIG_st {
     lcbvb_DISTMODE dtype; /**< Type of bucket/distribution */
     unsigned nvb; /**< Number of vbuckets */
     unsigned ndatasrv; /**< Number of data (memcached) servers */
@@ -404,6 +404,22 @@ LIBCOUCHBASE_API
 const char *
 lcbvb_get_hostport(lcbvb_CONFIG *cfg, unsigned ix,
     lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
+
+/**
+ * @committed
+ *
+ * @brief Get the hostname of a given server index. This may be used if all
+ * nodes reside on different hostnames, and can be used to answer the question
+ * of "which node does this index belong to" without having to perform
+ * additional string processing on the port of the string.
+ *
+ * @param cfg the configuration
+ * @param ix the index of the server to look up
+ * @return a hostname without a port, or NULL if the index is out of bounds
+ */
+LIBCOUCHBASE_API
+const char *
+lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix);
 
 /**
  * Function to return the URL prefix for a REST service.

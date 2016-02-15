@@ -266,6 +266,7 @@ do_store3(lcb_t instance, const void *cookie,
         if (err != LCB_SUCCESS) {
             mcreq_wipe_packet(pipeline, packet);
             mcreq_release_packet(pipeline, packet);
+            free(dctx);
             return err;
         }
 

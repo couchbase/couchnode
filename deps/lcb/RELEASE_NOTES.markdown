@@ -1,5 +1,68 @@
 # Release Notes
 
+## 2.5.4 (November 25 2015)
+
+* Validate vBucket master nodes for bounds when receiving new configuration.
+  This ensures that invalid configurations (addressing nodes which do not
+  exist) do not make their way to KV routing operations.
+  * Priority: Major
+  * Issues: [CCBC-643](https://issues.couchbase.com/browse/CCBC-643)
+
+* Add `lcb_strcbtype` to print the name of the callback type
+  This small convenience function is added to pretty-print the type
+  of callback being invoked. The second argument to the callback can be passed
+  to this function.
+  * Priority: Minor
+
+* Disallow using `certpath` connection string option without explicit SSL
+  (`couchbases://`) scheme. Since the SSL and non-SSL schemes are similar,
+  a typo can let a user mistakenly think that SSL is being used. This is
+  fixed by disallowing the other SSL option (`certpath`) when SSL is not
+  enabled.
+  * Priority: Minor
+  * Issues: [CCBC-644](https://issues.couchbase.com/browse/CCBC-644)
+
+* Add convenience function to retrieve hostname for key.
+  This is an alternative to retrieving the vBucket configuration (via `lcb_cntl()`)
+  and mapping the key to an index, and mapping the index to a node. Note that
+  hostnames are sufficient for most but not all configurations. Those running
+  multiple server instances on the same host (for example, `cluster_run`) will
+  still need to use the full set of steps as this function does not return a
+  port. This function is provided both as a vBucket API (`lcbvb_get_hostname()`)
+  which retrieves the hostname for an index as well as a top-level instance
+  (`lcb_t`) function (`lcb_get_keynode()`) which accepts a key buffer and length.
+  * Priority: Minor
+
+* Ensure embedded jsoncpp does not throw exceptions.
+  This caused some build issues with other build systems. This has been fixed
+  by replacing any exception throwing code with `abort()` and `assert()`
+  statements.
+  * Priority: Minor
+  * Issues: [CCBC-634](https://issues.couchbase.com/browse/CCBC-634)
+
+* Log vBucket configuration parsing failures.
+  This logs vBucket configuration parsing failures when a given config received
+  could not be parsed. Parsing failures include both JSON syntax errors as well
+  as improper fields or values within the config itself.
+  * Priority: Major
+  * Issues: [CCBC-647](https://issues.couchbase.com/browse/CCBC-647)
+
+* Allow per-request N1QL timeouts to exceed global timeouts.
+  This scans the `"timeout"` property of the N1QL request and if set, will
+  make the value of this property the timeout value for the request. A small
+  parser was implemented which converted the N1QL timeout values (`s`, `h`, etc.)
+  into microseconds.
+  * Priority: Major
+  * Issues: [CCBC-660](https://issues.couchbase.com/browse/CCBC-660)
+
+* Request configuration refresh when HTTP API redirects are received.
+  Redirects in Couchbase Server are sent when a node is about to exit the
+  cluster. We should take this as a sign to refresh the config since it indicates
+  a node is about to be removed.
+  * Priority: Major
+  * Issues: [CCBC-646](https://issues.couchbase.com/browse/CCBC-646)
+
+
 ## 2.5.3 (August 27 2015)
 
 * Add N1QL timeout feature.

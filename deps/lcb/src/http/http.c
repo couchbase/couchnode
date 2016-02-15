@@ -525,6 +525,9 @@ lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd)
     req->chunked = cmd->cmdflags & LCB_CMDHTTP_F_STREAM;
     req->method = method;
     req->reqtype = cmd->type;
+    if (cmd->cmdflags & LCB_CMDHTTP_F_CASTMO) {
+        req->timeout = cmd->cas;
+    }
     lcb_list_init(&req->headers_out.list);
     if ((method == LCB_HTTP_METHOD_POST || method == LCB_HTTP_METHOD_PUT) &&
             (req->nbody = cmd->nbody)) {
