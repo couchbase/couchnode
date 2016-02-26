@@ -125,8 +125,6 @@ public:
   T cmd;
 };
 
-
-
 NAN_METHOD(CouchbaseImpl::fnGet) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     LcbCmd<lcb_get_cmd_st> cmd;
@@ -292,8 +290,11 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
     }
 
     DefaultTranscoder encoder;
-    me->encodeDoc(encoder, &cmd->v.v0.bytes, &cmd->v.v0.nbytes,
-            &cmd->v.v0.flags, info[2]);
+    if (!me->encodeDoc(encoder, &cmd->v.v0.bytes, &cmd->v.v0.nbytes,
+                &cmd->v.v0.flags, info[2])) {
+        // Nothing to return, its already configured by the TryCatch failure.
+        return;
+    }
 
     if (!_ParseUintOption(&cmd->v.v0.exptime, info[3])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));

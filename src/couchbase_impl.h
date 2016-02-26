@@ -54,7 +54,6 @@
 #include <libcouchbase/api3.h>
 #include <libcouchbase/views.h>
 #include <libcouchbase/n1ql.h>
-#include <libcouchbase/configuration.h>
 
 #include "cas.h"
 #include "token.h"
@@ -138,7 +137,7 @@ public:
 
 
     Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags);
-    void encodeDoc(DefaultTranscoder& transcoder, const void **,
+    bool encodeDoc(DefaultTranscoder& transcoder, const void **,
             lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value);
 
 protected:

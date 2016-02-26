@@ -119,14 +119,20 @@ Handle<Value> CouchbaseImpl::decodeDoc(
     return DefaultTranscoder::decode(bytes, nbytes, flags);
 }
 
-void CouchbaseImpl::encodeDoc(DefaultTranscoder& transcoder, const void **bytes,
+bool CouchbaseImpl::encodeDoc(DefaultTranscoder& transcoder, const void **bytes,
         lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value) {
     // There must never be a NanScope here, the system relies on the fact
     //   that the scope will exist until the lcb_cmd_XXX_t object has been
     //   passed to LCB already.
     if (transEncodeFunc) {
         Local<Value> args[] = { value };
-        Handle<Value> res = transEncodeFunc->Call(1, args);
+        Nan::TryCatch tryCatch;
+        Handle<Value> res = transEncodeFunc->GetFunction()->
+                CallAsFunction(Nan::GetCurrentContext()->Global(), 1, args);
+        if (tryCatch.HasCaught()) {
+            tryCatch.ReThrow();
+            return false;
+        }
         if (!res.IsEmpty() && res->IsObject()) {
             Handle<Object> encObj = res.As<Object>();
             Handle<Value> flagsObj = encObj->Get(Nan::New(flagsKey));
@@ -136,12 +142,13 @@ void CouchbaseImpl::encodeDoc(DefaultTranscoder& transcoder, const void **bytes,
                     *nbytes = node::Buffer::Length(valueObj);
                     *bytes = node::Buffer::Data(valueObj);
                     *flags = flagsObj->Uint32Value();
-                    return;
+                    return true;
                 }
             }
         }
     }
     transcoder.encode(bytes, nbytes, flags, value);
+    return true;
 }
 
 template<typename T>
