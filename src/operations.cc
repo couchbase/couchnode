@@ -417,3 +417,162 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
 
     return info.GetReturnValue().Set(true);
 }
+
+NAN_METHOD(CouchbaseImpl::fnLookupIn) {
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_CMDSUBDOC cmd;
+    lcb_SDSPEC sdcmd;
+    void *cookie;
+    lcb_error_t err = LCB_SUCCESS;
+    std::vector<lcb_SDSPEC> specs;
+    Nan::HandleScope scope;
+    CommandEncoder enc;
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.multimode = LCB_SDMULTI_MODE_LOOKUP;
+    if (!enc.parseKeyBuf(&cmd.key, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
+    }
+    if (!enc.parseKeyBuf(&cmd._hashkey, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
+    }
+    if (!enc.parseCookie(&cookie, info[info.Length()-1])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    for (int index = 2; index < info.Length() - 1; ++index) {
+        memset(&sdcmd, 0, sizeof(sdcmd));
+
+        if (!enc.parseUintOption(&sdcmd.sdcmd, info[index])) {
+            return Nan::ThrowError(Error::create("bad optype passed"));
+        }
+
+        switch(sdcmd.sdcmd) {
+        case LCB_SDCMD_GET:
+        case LCB_SDCMD_EXISTS:
+            break;
+        default:
+            return Nan::ThrowError(Error::create("unexpected optype"));
+        }
+
+        if (index + 1 >= info.Length()) {
+            return Nan::ThrowError(Error::create("missing params"));
+        }
+
+        if (!enc.parseKeyBuf(&sdcmd.path, info[index + 1])) {
+            return Nan::ThrowError(Error::create("invalid path"));
+        }
+
+        specs.push_back(sdcmd);
+        index += 1;
+    }
+
+    cmd.specs = &specs[0];
+    cmd.nspecs = specs.size();
+
+    err = lcb_subdoc3(me->getLcbHandle(), cookie, &cmd);
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}
+
+NAN_METHOD(CouchbaseImpl::fnMutateIn) {
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_CMDSUBDOC cmd;
+    lcb_SDSPEC sdcmd;
+    void *cookie;
+    lcb_error_t err = LCB_SUCCESS;
+    std::vector<lcb_SDSPEC> specs;
+    Nan::HandleScope scope;
+    CommandEncoder enc;
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.multimode = LCB_SDMULTI_MODE_MUTATE;
+    if (!enc.parseKeyBuf(&cmd.key, info[0])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
+    }
+    if (!enc.parseKeyBuf(&cmd._hashkey, info[1])) {
+        return Nan::ThrowError(Error::create("bad hashkey passed"));
+    }
+    if (!enc.parseUintOption(&cmd.exptime, info[2])) {
+        return Nan::ThrowError(Error::create("bad expiry passed"));
+    }
+    if (!enc.parseCas(&cmd.cas, info[3])) {
+        return Nan::ThrowError(Error::create("bad cas passed"));
+    }
+    if (!enc.parseCookie(&cookie, info[info.Length()-1])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    for (int index = 4; index < info.Length() - 1; ++index) {
+        memset(&sdcmd, 0, sizeof(sdcmd));
+
+        if (!enc.parseUintOption(&sdcmd.sdcmd, info[index])) {
+            return Nan::ThrowError(Error::create("bad optype passed"));
+        }
+
+        int dataCount = 0;
+        switch(sdcmd.sdcmd) {
+        case LCB_SDCMD_REMOVE:
+            dataCount = 1;
+            break;
+        case LCB_SDCMD_REPLACE:
+        case LCB_SDCMD_ARRAY_INSERT:
+            dataCount = 2;
+            break;
+        case LCB_SDCMD_DICT_ADD:
+        case LCB_SDCMD_DICT_UPSERT:
+        case LCB_SDCMD_ARRAY_ADD_FIRST:
+        case LCB_SDCMD_ARRAY_ADD_LAST:
+        case LCB_SDCMD_ARRAY_ADD_UNIQUE:
+        case LCB_SDCMD_COUNTER:
+            dataCount = 3;
+            break;
+        default:
+            return Nan::ThrowError(Error::create("unexpected optype"));
+        }
+
+        if (index + dataCount >= info.Length()) {
+            return Nan::ThrowError(Error::create("missing params"));
+        }
+
+        // path
+        if (dataCount >= 1) {
+            if (!enc.parseKeyBuf(&sdcmd.path, info[index + 1])) {
+                return Nan::ThrowError(Error::create("invalid path"));
+            }
+        }
+
+        // value/delta
+        if (dataCount >= 2) {
+            // I don't believe this can actually fail, no need to test
+            sdcmd.value.vtype = LCB_KV_COPY;
+            DefaultTranscoder::encodeJson(enc,
+                    &sdcmd.value.u_buf.contig.bytes,
+                    &sdcmd.value.u_buf.contig.nbytes,
+                    info[index + 2]);
+        }
+
+        // createParents
+        if (dataCount >= 3) {
+            if (info[index + 3]->BooleanValue()) {
+                sdcmd.options |= LCB_SDSPEC_F_MKINTERMEDIATES;
+            }
+        }
+
+        specs.push_back(sdcmd);
+        index += dataCount;
+    }
+
+    cmd.specs = &specs[0];
+    cmd.nspecs = specs.size();
+
+    err = lcb_subdoc3(me->getLcbHandle(), cookie, &cmd);
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}

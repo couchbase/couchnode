@@ -33,6 +33,7 @@ Nan::Persistent<String> CouchbaseImpl::geometryKey;
 Nan::Persistent<String> CouchbaseImpl::rowsKey;
 Nan::Persistent<String> CouchbaseImpl::resultsKey;
 Nan::Persistent<String> CouchbaseImpl::tokenKey;
+Nan::Persistent<String> CouchbaseImpl::errorKey;
 Nan::Persistent<String> lcbErrorKey;
 
 extern "C" {
@@ -83,6 +84,8 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "durability", fnDurability);
     Nan::SetPrototypeMethod(t, "viewQuery", fnViewQuery);
     Nan::SetPrototypeMethod(t, "n1qlQuery", fnN1qlQuery);
+    Nan::SetPrototypeMethod(t, "lookupIn", fnLookupIn);
+    Nan::SetPrototypeMethod(t, "mutateIn", fnMutateIn);
 
     target->Set(
             Nan::New<String>("CouchbaseImpl").ToLocalChecked(),
@@ -103,6 +106,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     rowsKey.Reset(Nan::New<String>("rows").ToLocalChecked());
     resultsKey.Reset(Nan::New<String>("results").ToLocalChecked());
     tokenKey.Reset(Nan::New<String>("token").ToLocalChecked());
+    errorKey.Reset(Nan::New<String>("error").ToLocalChecked());
 
     Handle<Object> jMod = Nan::GetCurrentContext()->Global()->Get(
             Nan::New<String>("JSON").ToLocalChecked()).As<Object>();

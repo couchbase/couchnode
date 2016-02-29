@@ -124,6 +124,8 @@ public:
     static NAN_METHOD(fnDurability);
     static NAN_METHOD(fnViewQuery);
     static NAN_METHOD(fnN1qlQuery);
+    static NAN_METHOD(fnLookupIn);
+    static NAN_METHOD(fnMutateIn);
 
 public:
     CouchbaseImpl(lcb_t inst);
@@ -165,6 +167,7 @@ public:
     static Nan::Persistent<String> rowsKey;
     static Nan::Persistent<String> resultsKey;
     static Nan::Persistent<String> tokenKey;
+    static Nan::Persistent<String> errorKey;
 
 };
 

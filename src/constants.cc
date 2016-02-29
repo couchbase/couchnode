@@ -38,6 +38,7 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(CNTL_DETAILED_ERRCODES) \
     X(CNTL_REINIT_CONNSTR) \
     X(CNTL_CONFDELAY_THRESH) \
+    \
     X(ADD) \
     X(REPLACE) \
     X(SET) \
@@ -87,7 +88,19 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(HTTP_METHOD_GET) \
     X(HTTP_METHOD_POST) \
     X(HTTP_METHOD_PUT) \
-    X(HTTP_METHOD_DELETE)
+    X(HTTP_METHOD_DELETE) \
+    \
+    X(SDCMD_GET) \
+    X(SDCMD_EXISTS) \
+    X(SDCMD_REPLACE) \
+    X(SDCMD_DICT_ADD) \
+    X(SDCMD_DICT_UPSERT) \
+    X(SDCMD_ARRAY_ADD_FIRST) \
+    X(SDCMD_ARRAY_ADD_LAST) \
+    X(SDCMD_ARRAY_ADD_UNIQUE) \
+    X(SDCMD_ARRAY_INSERT) \
+    X(SDCMD_REMOVE) \
+    X(SDCMD_COUNTER)
 #undef X
 
     return o;
