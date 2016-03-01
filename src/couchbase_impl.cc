@@ -119,7 +119,7 @@ Handle<Value> CouchbaseImpl::decodeDoc(
     return DefaultTranscoder::decode(bytes, nbytes, flags);
 }
 
-bool CouchbaseImpl::encodeDoc(DefaultTranscoder& transcoder, const void **bytes,
+bool CouchbaseImpl::encodeDoc(CommandEncoder& enc, const void **bytes,
         lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value) {
     // There must never be a NanScope here, the system relies on the fact
     //   that the scope will exist until the lcb_cmd_XXX_t object has been
@@ -147,7 +147,7 @@ bool CouchbaseImpl::encodeDoc(DefaultTranscoder& transcoder, const void **bytes,
             }
         }
     }
-    transcoder.encode(bytes, nbytes, flags, value);
+    DefaultTranscoder::encode(enc, bytes, nbytes, flags, value);
     return true;
 }
 

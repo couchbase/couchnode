@@ -38,10 +38,6 @@ enum Flags {
 
 };
 
-void DefaultTranscoder::Init()
-{
-}
-
 Local<Value> DefaultTranscoder::decodeJson(const void *bytes,
         size_t nbytes)
 {
@@ -53,22 +49,14 @@ Local<Value> DefaultTranscoder::decodeJson(const void *bytes,
             Nan::GetCurrentContext()->Global(), 1, &stringVal);
 }
 
-void DefaultTranscoder::encodeJson(const void **bytes,
+void DefaultTranscoder::encodeJson(CommandEncoder &enc, const void **bytes,
         lcb_SIZE *nbytes, Local<Value> value)
 {
     Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
     Local<Value> ret = jsonStringifyLcl->Call(
             Nan::GetCurrentContext()->Global(), 1, &value);
 
-    if (!ret->IsString()) {
-        *bytes = NULL;
-        *nbytes = 0;
-        return;
-    }
-
-    Nan::Utf8String *utfString = makeString(ret);
-    *bytes = **utfString;
-    *nbytes = utfString->length();
+    enc.parseString(bytes, nbytes, ret);
 }
 
 Local<Value> DefaultTranscoder::decode(const void *bytes,
@@ -113,17 +101,11 @@ Local<Value> DefaultTranscoder::decode(const void *bytes,
     return decode(bytes, nbytes, NF_RAW);
 }
 
-void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
+void DefaultTranscoder::encode(CommandEncoder &enc, const void **bytes, lcb_SIZE *nbytes,
         lcb_U32 *flags, Local<Value> value)
 {
     if (value->IsString()) {
-        static Nan::Utf8String *utf8String = NULL;
-        if (utf8String) {
-            delete utf8String;
-        }
-        utf8String = new Nan::Utf8String(value);
-        *nbytes = utf8String->length();
-        *bytes = **utf8String;
+        enc.parseString(bytes, nbytes, value);
         *flags = CF_UTF8 | NF_UTF8;
         return;
     } else if (node::Buffer::HasInstance(value)) {
@@ -135,7 +117,7 @@ void DefaultTranscoder::encode(const void **bytes, lcb_SIZE *nbytes,
         *flags = CF_RAW | NF_RAW;
         return;
     } else {
-        encodeJson(bytes, nbytes, value);
+        encodeJson(enc, bytes, nbytes, value);
         *flags = CF_JSON | NF_JSON;
         return;
     }

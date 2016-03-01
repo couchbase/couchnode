@@ -57,8 +57,9 @@
 
 #include "cas.h"
 #include "token.h"
-#include "transcoder.h"
 #include "exception.h"
+#include "cmdencoder.h"
+#include "transcoder.h"
 
 #if LCB_VERSION < 0x020503
 #error "Couchnode requires libcouchbase >= 2.5.3"
@@ -137,7 +138,7 @@ public:
 
 
     Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags);
-    bool encodeDoc(DefaultTranscoder& transcoder, const void **,
+    bool encodeDoc(CommandEncoder& enc, const void **,
             lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value);
 
 protected:

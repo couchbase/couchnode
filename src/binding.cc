@@ -43,7 +43,6 @@ extern "C" {
         Error::Init();
         Cas::Init();
         MutationToken::Init();
-        DefaultTranscoder::Init();
         CouchbaseImpl::Init(target);
     }
 
