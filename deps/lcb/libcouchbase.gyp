@@ -203,7 +203,7 @@
         'src/operations/remove.c',
         'src/operations/stats.c',
         'src/operations/store.c',
-        'src/operations/subdoc.c',
+        'src/operations/subdoc.cc',
         'src/operations/touch.c',
         'src/rdb/bigalloc.c',
         'src/rdb/chunkalloc.c',
