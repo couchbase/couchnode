@@ -290,6 +290,19 @@ describe('#Querying', function() {
                 });
           });
 
+      it('view should include docs', function (done) {
+        H.b.query(Vq.from(ddKey, 'simple').include_docs(true).limit(1),
+            function (err, res, meta) {
+              assert(!err);
+              assert(res);
+              assert(res.length > 0);
+              assert(res[0].doc);
+              assert(meta);
+              assert(meta.total_rows > 0);
+              done();
+            });
+      });
+
       /*
        * Disabled because Couchbase Server isn't allowing it to work
        *   properly at the moment...
