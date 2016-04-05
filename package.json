@@ -21,17 +21,17 @@
   "name": "couchbase",
   "dependencies": {
     "bindings": "~1.2.1",
-    "nan": "~2.0.8",
-    "prebuild": "~2.8.1",
-    "request": "~2.61.0"
+    "nan": "~2.2.1",
+    "prebuild": "~4.1.1",
+    "request": "~2.70.0"
   },
   "devDependencies": {
     "ink-docstrap": "git+https://github.com/brett19/docstrap.git#master",
-    "istanbul": "~0.3.19",
-    "jsdoc": "~3.3.2",
+    "istanbul": "~0.4.2",
+    "jsdoc": "~3.4.0",
     "jsdoc-stability-tag": "~1.0.0",
-    "jshint": "~2.8.0",
-    "mocha": "~2.3.0"
+    "jshint": "~2.9.1",
+    "mocha": "~2.4.5"
   },
   "repository": {
     "type": "git",
