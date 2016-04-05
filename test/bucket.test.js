@@ -76,6 +76,12 @@ describe('#Bucket', function() {
       assert.notEqual(H.b.viewTimeout, origValue);
       H.b.viewTimeout = origValue;
     });
+    it('n1qlTimeout property should work', function () {
+      var origValue = H.b.n1qlTimeout;
+      H.b.n1qlTimeout = origValue + 1;
+      assert.notEqual(H.b.n1qlTimeout, origValue);
+      H.b.n1qlTimeout = origValue;
+    });
     it('durabilityInterval property should work', function () {
       var origValue = H.b.durabilityInterval;
       assert(origValue > 0);
