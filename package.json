@@ -31,7 +31,6 @@
     "istanbul": "~0.4.2",
     "jsdoc": "~3.4.0",
     "jsdoc-stability-tag": "~1.0.0",
-    "jshint": "~2.9.1",
     "mocha": "~2.4.5"
   },
   "repository": {
