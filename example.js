@@ -1,3 +1,5 @@
+'use strict';
+
 var couchbase = require("./lib/couchbase.js"),
     http = require("http"),
     fs = require("fs"),
@@ -6,6 +8,7 @@ var couchbase = require("./lib/couchbase.js"),
 var port = 8080;
 
 var configFilename = 'config.json';
+var config;
 if (fs.existsSync(configFilename)) {
   config = JSON.parse(fs.readFileSync(configFilename));
 } else {
@@ -13,7 +16,7 @@ if (fs.existsSync(configFilename)) {
   config = { };
 }
 
-bucket = new couchbase.Connection(config, function(err) {
+var bucket = new couchbase.Connection(config, function(err) {
   if (err) {
     // For some reason we failed to make a connection to the
     // Couchbase cluster.

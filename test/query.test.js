@@ -271,7 +271,7 @@ describe('#Querying', function() {
       it('view queries should emit an error event with a row handler',
           function (done) {
             H.b.query(Vq.from(ddKey, 'no_exist_view').limit(1))
-                .on('row', function (rows) {
+                .on('row', function () {
                   // Do Nothing
                 }).on('error', function (err) {
                   assert(err);
@@ -282,7 +282,7 @@ describe('#Querying', function() {
       it('view queries should emit an error event with a rows handler',
           function (done) {
             H.b.query(Vq.from(ddKey, 'no_exist_view').limit(1))
-                .on('rows', function (rows) {
+                .on('rows', function () {
                   // Do Nothing
                 }).on('error', function (err) {
                   assert(err);

@@ -1,7 +1,6 @@
 'use strict';
 
 var couchbase = require('./../lib/couchbase.js');
-var fs = require('fs');
 var util = require('util');
 var assert = require('assert');
 
