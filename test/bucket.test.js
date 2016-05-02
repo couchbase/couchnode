@@ -22,7 +22,8 @@ describe('#Bucket', function() {
       });
     });
 
-    it('should throw exception for operations on a dead bucket', function (done) {
+    it('should throw exception for operations on a dead bucket',
+    function (done) {
       var cluster = new H.lib.Cluster(H.connstr);
       var bucket = cluster.openBucket('invalid_bucket', function () {
         assert.throws(function () {

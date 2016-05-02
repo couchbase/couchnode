@@ -158,9 +158,11 @@ describe('#Querying', function() {
         }, function (err, res) {
           assert(!err);
           assert(res);
+          var spatialGeo = 'function(doc, meta){emit({type:"Point"';
+          spatialGeo = ',coordinates:doc.loc},[meta.id, doc.loc]);}';
           bm.insertDesignDocument(ddKeyGeo, {
             spatial: {
-              'simpleGeo': 'function(doc, meta){emit({type:"Point",coordinates:doc.loc},[meta.id, doc.loc]);}'
+              'simpleGeo': spatialGeo
             }
           }, function(err, res) {
             assert(!err);
