@@ -1,9 +1,9 @@
 'use strict';
 
 var couchbase = require('./lib/couchbase.js'),
-    http = require('http'),
-    fs = require('fs'),
-    util = require('util');
+  http = require('http'),
+  fs = require('fs'),
+  util = require('util');
 
 var port = 8080;
 
@@ -38,13 +38,13 @@ http.createServer(function(req, resp) {
 
     bucket.set('hitcount', doc, {}, function(err) {
       if (err) {
-          console.warn('Failed to store hit counter: ' +
+        console.warn('Failed to store hit counter: ' +
                        util.inspect(err));
-          resp.end('<p>Internal server error. ' +
+        resp.end('<p>Internal server error. ' +
                    'Failed to store:</p><pre>' + util.inspect(err) +
                    '</pre>');
       } else {
-          resp.end('<p>The server has seen '+doc.count+' hits</p>');
+        resp.end('<p>The server has seen '+doc.count+' hits</p>');
       }
     });
   })
