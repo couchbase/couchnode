@@ -1,3 +1,5 @@
+'use strict';
+
 /* Bench.js
  * Config params: bench_config object
  * @param num_clients - Number of concurrent connections

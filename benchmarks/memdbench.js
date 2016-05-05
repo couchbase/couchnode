@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  *     Copyright 2012 Couchbase, Inc.
  *
