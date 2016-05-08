@@ -63,7 +63,10 @@ TestServer::~TestServer()
         delete *iter;
     }
     mutex.unlock();
-    thr->join();
+    // We don't want to explicitly call join() here since that
+    // gets called in the destructor.  This is unncessary
+    // and broken on musl.
+    // thr->join();
     delete thr;
     mutex.close();
     delete lsn;

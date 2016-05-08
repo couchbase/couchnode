@@ -309,10 +309,6 @@ cntl_getset_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int oslevel,
 static int
 cntl_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int option, void *arg)
 {
-    #define BSDIO_INL_GETSET_CTL(lvl, name) { \
-        int rv; \
-        if (mode == LCB_)
-
     switch (option) {
     case LCB_IO_CNTL_TCP_NODELAY:
         return cntl_getset_impl(io,

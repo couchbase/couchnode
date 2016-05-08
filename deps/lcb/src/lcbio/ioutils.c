@@ -315,7 +315,7 @@ lcbio_ssl_supported(void)
 #endif
 }
 
-void*
+lcbio_pSSLCTX
 lcbio_ssl_new__fallback(const char *ca, int noverify, lcb_error_t *errp,
     lcb_settings *settings)
 {

@@ -525,8 +525,8 @@ convert_hosts(lcb_string *outstr, const char *instr, int deflport)
         return err;
     }
 
-    for (ii = 0; ii < hlist->nentries; ii++) {
-        const lcb_host_t *src = hlist->entries + ii;
+    for (ii = 0; ii < hostlist_size(hlist); ii++) {
+        const lcb_host_t *src = hostlist_get(hlist, ii);
         int port, rv;
         lcb_string_appendz(outstr, src->host);
         rv = sscanf(src->port, "%d", &port);

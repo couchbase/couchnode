@@ -92,8 +92,6 @@ map_error(lcb_t instance, int in)
     case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
         return LCB_SUBDOC_MULTI_FAILURE;
     case PROTOCOL_BINARY_RESPONSE_EINVAL:
-        printf("Got memcached EINVAL!\n");
-        abort();
         return LCB_EINVAL_MCD;
     case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
         return LCB_NOT_STORED;

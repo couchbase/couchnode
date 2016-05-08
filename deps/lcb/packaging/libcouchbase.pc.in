@@ -1,7 +1,7 @@
 prefix=@CMAKE_INSTALL_PREFIX@
-exec_prefix=${prefix}/bin
+exec_prefix=${prefix}/@CMAKE_INSTALL_BINDIR@
 includedir=${prefix}/include
-libdir=${prefix}/lib
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
 
 Name: libcouchbase @LCB_VERSION@
 Description: Couchbase client library

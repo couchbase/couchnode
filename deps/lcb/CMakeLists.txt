@@ -422,3 +422,8 @@ ADD_CUSTOM_TARGET(dist
 
 # Generate our configuration file _after_ we've collected everything
 INCLUDE(cmake/Modules/GenerateConfigDotH.cmake)
+
+# Build any local tests/scripts
+IF (EXISTS ${SOURCE_ROOT}/tests/LOCAL)
+    ADD_SUBDIRECTORY(${SOURCE_ROOT}/tests/LOCAL)
+ENDIF()

@@ -134,7 +134,7 @@
         'contrib/genhash/genhash.c'
        ]
     },
-    
+
     #libjsoncpp
     {
       'target_name': 'jsoncpp',
@@ -144,7 +144,7 @@
         'contrib/lcb-jsoncpp/lcb-jsoncpp.cpp'
        ],
     },
-    
+
     #libcouchbase
     {
       'target_name': 'couchbase',
@@ -168,6 +168,7 @@
         './'
       ],
       'sources': [
+        'src/auth.cc',
         'src/bucketconfig/bc_cccp.c',
         'src/bucketconfig/bc_file.c',
         'src/bucketconfig/bc_http.c',

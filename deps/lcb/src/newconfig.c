@@ -62,6 +62,11 @@ void
 lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
 {
     unsigned ii;
+
+    if (!guesses) {
+        return;
+    }
+
     for (ii = 0; ii < cfg->nvb; ii++) {
         lcb_GUESSVB *guess = guesses + ii;
         lcbvb_VBUCKET *vb = cfg->vbuckets + ii;
@@ -89,24 +94,30 @@ int
 lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
 {
 
-    lcb_GUESSVB *guesses = instance->vbguess;
-    lcb_GUESSVB *guess = guesses + vbid;
-    int newix;
-
     if (LCBT_SETTING(instance, vb_noguess)) {
-        return -1;
+        int newix = lcbvb_nmv_remap_ex(LCBT_VBCONFIG(instance), vbid, bad, 0);
+        if (newix > -1 && newix != bad) {
+            lcb_log(LOGARGS(instance, TRACE), "Got new index from ffmap. VBID=%d. Old=%d. New=%d", vbid, bad, newix);
+        }
+        return newix;
+
     } else {
-        newix = lcbvb_nmv_remap(LCBT_VBCONFIG(instance), vbid, bad);
+        lcb_GUESSVB *guesses = instance->vbguess;
+        lcb_GUESSVB *guess = guesses + vbid;
+        int newix = lcbvb_nmv_remap_ex(LCBT_VBCONFIG(instance), vbid, bad, 1);
+        if (!guesses) {
+            guesses = instance->vbguess = calloc(
+                LCBT_VBCONFIG(instance)->nvb, sizeof *guesses);
+        }
+        if (newix > -1 && newix != bad) {
+            guess->newix = newix;
+            guess->oldix = bad;
+            guess->used = 1;
+            guess->last_update = time(NULL);
+            lcb_log(LOGARGS(instance, TRACE), "Guessed new heuristic index VBID=%d. Old=%d. New=%d", vbid, bad, newix);
+        }
+        return newix;
     }
-
-    if (guesses && newix > -1 && newix != bad) {
-        guess->newix = newix;
-        guess->oldix = bad;
-        guess->used = 1;
-        guess->last_update = time(NULL);
-    }
-
-    return newix;
 }
 
 /**
@@ -314,10 +325,6 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
     lcb_clconfig_incref(config);
     q->config = instance->cur_configinfo->vbc;
     q->cqdata = instance;
-
-    if (!instance->vbguess) {
-        instance->vbguess = calloc(config->vbc->nvb, sizeof(*instance->vbguess));
-    }
 
     if (old_config) {
         lcbvb_CONFIGDIFF *diff = lcbvb_compare(old_config->vbc, config->vbc);

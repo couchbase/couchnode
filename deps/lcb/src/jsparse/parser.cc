@@ -314,8 +314,10 @@ lcbjsp_create(int mode)
 
     if (ctx->mode == LCBJSP_MODE_VIEWS) {
         ctx->jpr = jsonsl_jpr_new("/rows/^", &err);
-    } else {
+    } else if (ctx->mode == LCBJSP_MODE_N1QL) {
         ctx->jpr = jsonsl_jpr_new("/results/^", &err);
+    } else {
+        ctx->jpr = jsonsl_jpr_new("/hits/^", &err);
     }
     ctx->jsn_rdetails = jsonsl_new(32);
 
