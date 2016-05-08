@@ -146,7 +146,7 @@ typedef void (*lcbio_CONNDONE_cb)
 lcbio_pCONNSTART
 lcbio_connect(lcbio_pTABLE iot,
               lcb_settings *settings,
-              lcb_host_t *dest,
+              const lcb_host_t *dest,
               uint32_t timeout,
               lcbio_CONNDONE_cb handler, void *arg);
 

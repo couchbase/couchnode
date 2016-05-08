@@ -874,8 +874,44 @@ typedef enum {
  */
 #define LCB_CNTL_N1QL_CLEARACHE 0x3E
 
+/**
+ * @committed
+ * Sets additional text for negotiation. This allows wrappers or applications
+ * to add additional identifying information which can then be seen in the
+ * server logs.
+ *
+ * @cntl_arg_get_and_set{`const char**`, `const char*`}
+ *
+ * Use `"client_string"` for the string version
+ */
+#define LCB_CNTL_CLIENT_STRING 0x3F
+
+typedef const char *lcb_BUCKETCRED[2];
+
+/**
+ * Set credentials for a bucket. This is used for N1QL and CBFT APIs to allow
+ * access to multiple buckets. It can also be used to set the password
+ * of the current bucket when reconnecting (in case it changes).
+ *
+ * The format for the credentials is an array of two nul-terminated strings,
+ * the first refers to the bucket and the second refers to the password.
+ */
+#define LCB_CNTL_BUCKET_CRED 0x40
+
+/**
+ * Set the amount of time the client should wait before retrying a
+ * not-my-vbucket response packet. The default is 100ms. The value should
+ * be specified in microseconds
+ *
+ * @committed
+ * @cntl_arg_both{lcb_U32*}
+ *
+ * Use `"retry_nmv_interval"` with lcb_cntl_string()
+ */
+#define LCB_CNTL_RETRY_NMV_INTERVAL 0x41
+
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x3F
+#define LCB_CNTL__MAX                    0x42
 /**@}*/
 
 #ifdef __cplusplus

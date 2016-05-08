@@ -314,13 +314,8 @@ static void cccp_cleanup(clconfig_provider *pb)
 static void
 configure_nodes(clconfig_provider *pb, const hostlist_t nodes)
 {
-    unsigned ii;
     cccp_provider *cccp = (cccp_provider *)pb;
-    hostlist_clear(cccp->nodes);
-
-    for (ii = 0; ii < nodes->nentries; ii++) {
-        hostlist_add_host(cccp->nodes, nodes->entries + ii);
-    }
+    hostlist_assign(cccp->nodes, nodes);
     if (PROVIDER_SETTING(pb, randomize_bootstrap_nodes)) {
         hostlist_randomize(cccp->nodes);
     }
@@ -468,8 +463,8 @@ static void do_dump(clconfig_provider *pb, FILE *fp)
         fprintf(fp, "CCCP does not have a dedicated connection\n");
     }
 
-    for (ii = 0; ii < cccp->nodes->nentries; ii++) {
-        const lcb_host_t *curhost = &cccp->nodes->entries[ii];
+    for (ii = 0; ii < hostlist_size(cccp->nodes); ii++) {
+        const lcb_host_t *curhost = hostlist_get(cccp->nodes, ii);
         fprintf(fp, "CCCP NODE: %s:%s\n", curhost->host, curhost->port);
     }
     fprintf(fp, "## END CCCP PROVIDER DUMP ##\n");

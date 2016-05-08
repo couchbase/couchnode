@@ -413,7 +413,7 @@ C_connect(lcbio_CONNSTART *cs)
 }
 
 struct lcbio_CONNSTART *
-lcbio_connect(lcbio_TABLE *iot, lcb_settings *settings, lcb_host_t *dest,
+lcbio_connect(lcbio_TABLE *iot, lcb_settings *settings, const lcb_host_t *dest,
               uint32_t timeout, lcbio_CONNDONE_cb handler, void *arg)
 {
     lcbio_SOCKET *s;
@@ -483,11 +483,12 @@ lcbio_connect_hl(lcbio_TABLE *iot, lcb_settings *settings,
                  hostlist_t hl, int rollover, uint32_t timeout,
                  lcbio_CONNDONE_cb handler, void *arg)
 {
-    lcb_host_t *cur;
-    unsigned ii;
+    const lcb_host_t *cur;
+    unsigned ii, hlmax;
     ii = 0;
+    hlmax = hostlist_size(hl);
 
-    while ( (cur = hostlist_shift_next(hl, rollover)) && ii++ < hl->nentries) {
+    while ( (cur = hostlist_shift_next(hl, rollover)) && ii++ < hlmax) {
         lcbio_CONNSTART *ret = lcbio_connect(
                 iot, settings, cur, timeout, handler, arg);
         if (ret) {

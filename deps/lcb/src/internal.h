@@ -50,6 +50,8 @@
 /* n1ql cache */
 #include "n1ql/n1ql-internal.h"
 
+#include "hostlist.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -81,7 +83,6 @@ struct lcb_callback_st {
 };
 
 struct lcb_confmon_st;
-struct hostlist_st;
 struct lcb_BOOTSTRAP;
 struct lcb_GUESSVB_st;
 
@@ -89,8 +90,8 @@ struct lcb_st {
     mc_CMDQUEUE cmdq; /**< Base command queue object */
     const void *cookie; /**< User defined pointer */
     struct lcb_confmon_st *confmon; /**< Cluster config manager */
-    struct hostlist_st *mc_nodes; /**< List of current memcached endpoints */
-    struct hostlist_st *ht_nodes; /**< List of current management endpoints */
+    hostlist_t mc_nodes; /**< List of current memcached endpoints */
+    hostlist_t ht_nodes; /**< List of current management endpoints */
     struct clconfig_info_st *cur_configinfo; /**< Pointer to current config */
     struct lcb_BOOTSTRAP *bootstrap; /**< Bootstrapping state */
     struct lcb_callback_st callbacks; /**< Callback table */

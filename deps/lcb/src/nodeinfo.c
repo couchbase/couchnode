@@ -101,10 +101,9 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
                     return NULL;
                 }
             }
-            if (hp == NULL && instance->ht_nodes && instance->ht_nodes->nentries) {
-                ix %= instance->ht_nodes->nentries;
-                hostlist_ensure_strlist(instance->ht_nodes);
-                hp = instance->ht_nodes->slentries[ix];
+            if (hp == NULL && instance->ht_nodes && hostlist_size(instance->ht_nodes)) {
+                ix %= hostlist_size(instance->ht_nodes);
+                hp = hostlist_strents(instance->ht_nodes)[ix];
             }
             if (!hp) {
                 if ((hp = return_badhost(type)) == NULL) {
@@ -184,8 +183,7 @@ lcb_int32_t lcb_get_num_nodes(lcb_t instance)
 LIBCOUCHBASE_API
 const char *const *lcb_get_server_list(lcb_t instance)
 {
-    hostlist_ensure_strlist(instance->ht_nodes);
-    return (const char * const * )instance->ht_nodes->slentries;
+    return hostlist_strents(instance->ht_nodes);
 }
 
 LIBCOUCHBASE_API

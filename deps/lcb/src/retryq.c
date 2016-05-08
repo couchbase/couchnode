@@ -293,7 +293,7 @@ op_dtorfn(mc_EPKTDATUM *d)
 #define RETRY_SCHED_IMM 0x01
 
 static void
-add_op(lcb_RETRYQ *rq, mc_EXPACKET *pkt, lcb_error_t err, int options)
+add_op(lcb_RETRYQ *rq, mc_EXPACKET *pkt, const lcb_error_t err, int options)
 {
     lcb_RETRYOP *op;
     mc_EPKTDATUM *d;
@@ -314,6 +314,8 @@ add_op(lcb_RETRYQ *rq, mc_EXPACKET *pkt, lcb_error_t err, int options)
     assign_error(op, err);
     if (options & RETRY_SCHED_IMM) {
         op->trytime = gethrtime(); /* now */
+    } else if (err == LCB_NOT_MY_VBUCKET) {
+        op->trytime = gethrtime() + LCB_US2NS(rq->settings->retry_nmv_interval);
     } else {
         update_trytime(rq, op, 0);
     }

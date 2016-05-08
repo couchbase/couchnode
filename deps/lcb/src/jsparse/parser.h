@@ -30,7 +30,8 @@ typedef struct lcbvrow_PARSER_st lcbjsp_PARSER;
 
 typedef enum {
     LCBJSP_MODE_VIEWS,
-    LCBJSP_MODE_N1QL
+    LCBJSP_MODE_N1QL,
+    LCBJSP_MODE_FTS
 } lcbjsp_MODE;
 
 typedef enum {

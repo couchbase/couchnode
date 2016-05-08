@@ -36,6 +36,7 @@ void
 Thread::close()
 {
     if (initialized) {
+        join();
         CloseHandle(hThread);
         initialized = false;
     }

@@ -80,18 +80,6 @@ TEST_F(Hostlist, testEquals)
     ASSERT_EQ(0, lcb_host_equals(&host_a, &host_b));
 }
 
-static bool hostlistContains(hostlist_t ll, const char *spec) {
-    lcb_host_t tmphost;
-    EXPECT_EQ(LCB_SUCCESS, lcb_host_parsez(&tmphost, spec, 99999));
-
-    for (unsigned int ii = 0; ii < ll->nentries; ii++) {
-        if (lcb_host_equals(ll->entries + ii, &tmphost)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 TEST_F(Hostlist, testParseList)
 {
     hostlist_t hosts = hostlist_create();
@@ -100,66 +88,66 @@ TEST_F(Hostlist, testParseList)
     lcb_error_t err;
     err = hostlist_add_stringz(hosts, "1.1.1.1",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(1, hosts->nentries);
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:8091"));
+    ASSERT_EQ(1, hosts->size());
+    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
 
 
     hostlist_clear(hosts);
     err = hostlist_add_stringz(hosts, "1.1.1.1;",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(1, hosts->nentries);
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:8091"));
+    ASSERT_EQ(1, hosts->size());
+    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
 
     hostlist_clear(hosts);
     err = hostlist_add_stringz(hosts, ";",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(0, hosts->nentries);
+    ASSERT_EQ(0, hosts->size());
 
     hostlist_clear(hosts);
     err = hostlist_add_stringz(hosts, ";;;;",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(0, hosts->nentries);
+    ASSERT_EQ(0, hosts->size());
 
     hostlist_clear(hosts);
     err = hostlist_add_stringz(hosts, "1.1.1.1;2.2.2.2",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(2, hosts->nentries);
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:8091"));
-    ASSERT_TRUE(hostlistContains(hosts, "2.2.2.2:8091"));
+    ASSERT_EQ(2, hosts->size());
+    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
+    ASSERT_TRUE(hosts->exists("2.2.2.2:8091"));
 
 
     hostlist_clear(hosts);
     err = hostlist_add_stringz(hosts, "1.1.1.1:1000;2.2.2.2:2000;3.3.3.3", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(3, hosts->nentries);
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:1000"));
-    ASSERT_TRUE(hostlistContains(hosts, "2.2.2.2:2000"));
-    ASSERT_TRUE(hostlistContains(hosts, "3.3.3.3:8091"));
+    ASSERT_EQ(3, hosts->size());
+    ASSERT_TRUE(hosts->exists("1.1.1.1:1000"));
+    ASSERT_TRUE(hosts->exists("2.2.2.2:2000"));
+    ASSERT_TRUE(hosts->exists("3.3.3.3:8091"));
 
     hostlist_clear(hosts);
     err = hostlist_add_stringz(hosts, "1.1.1.1;1.1.1.1;1.1.1.1", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(1, hosts->nentries);
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:8091"));
+    ASSERT_EQ(1, hosts->size());
+    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
 
 
     hostlist_clear(hosts);
     err = hostlist_add_stringz(hosts, "1.1.1.1:9000;1.1.1.1:9001;1.1.1.1:9002",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(3, hosts->nentries);
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:9000"));
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:9001"));
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:9002"));
+    ASSERT_EQ(3, hosts->size());
+    ASSERT_TRUE(hosts->exists("1.1.1.1:9000"));
+    ASSERT_TRUE(hosts->exists("1.1.1.1:9001"));
+    ASSERT_TRUE(hosts->exists("1.1.1.1:9002"));
 
     hostlist_clear(hosts);
     ASSERT_EQ(LCB_SUCCESS, hostlist_add_stringz(hosts, "1.1.1.1", 8091));
     ASSERT_EQ(LCB_SUCCESS, hostlist_add_stringz(hosts, "2.2.2.2", 8091));
     ASSERT_EQ(LCB_SUCCESS, hostlist_add_stringz(hosts, "3.3.3.3", 8091));
-    ASSERT_EQ(3, hosts->nentries);
+    ASSERT_EQ(3, hosts->size());
 
-    ASSERT_TRUE(hostlistContains(hosts, "1.1.1.1:8091"));
-    ASSERT_TRUE(hostlistContains(hosts, "2.2.2.2:8091"));
-    ASSERT_TRUE(hostlistContains(hosts, "3.3.3.3:8091"));
+    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
+    ASSERT_TRUE(hosts->exists("2.2.2.2:8091"));
+    ASSERT_TRUE(hosts->exists("3.3.3.3:8091"));
 
     hostlist_randomize(hosts);
     hostlist_clear(hosts);

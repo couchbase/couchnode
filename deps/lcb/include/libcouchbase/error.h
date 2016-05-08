@@ -245,10 +245,10 @@ typedef enum {
     X(LCB_CLIENT_ENOMEM, 0x1A, LCB_ERRTYPE_FATAL, \
       "Memory allocation for libcouchbase failed. Severe problems ahead") \
     \
-    /** Client could not forward the request. This is typically received when
+    /** Client could not schedule the request. This is typically received when
      an operation is requested before the initial bootstrap has completed */ \
-    X(LCB_CLIENT_ETMPFAIL, 0x1B, LCB_ERRTYPE_TRANSIENT, \
-      "Temporary failure on the client side. Did you call lcb_connect?") \
+    X(LCB_CLIENT_ENOCONF, 0x1B, LCB_ERRTYPE_TRANSIENT, \
+      "Client not bootstrapped. Ensure bootstrap/connect was attempted and was successful") \
     \
     X(LCB_EBADHANDLE, 0x1C, LCB_ERRTYPE_INPUT, \
       "Bad handle type for operation. " \
@@ -500,7 +500,9 @@ typedef enum {
         "A badly formatted packet was sent to the server. Please report this in a bug") \
     X(LCB_EMPTY_PATH, 0x4C, LCB_ERRTYPE_INPUT, "Missing subdocument path") \
     X(LCB_UNKNOWN_SDCMD, 0x4D, LCB_ERRTYPE_INPUT, "Unknown subdocument command") \
-    X(LCB_ENO_COMMANDS, 0x4E, LCB_ERRTYPE_INPUT, "No commands specified")
+    X(LCB_ENO_COMMANDS, 0x4E, LCB_ERRTYPE_INPUT, "No commands specified") \
+    X(LCB_QUERY_ERROR, 0x4F, LCB_ERRTYPE_SRVGEN, \
+        "Query execution failed. Inspect raw response object for information")
 
 /** Error codes returned by the library. */
 typedef enum {
@@ -518,6 +520,9 @@ typedef enum {
     /* The errors below this value reserver for libcouchbase usage. */
     LCB_MAX_ERROR = 0x1000
 } lcb_error_t;
+
+/** @deprecated. Use new, less ambiguous identifier (@ref LCB_CLIENT_ENOCONF) */
+#define LCB_CLIENT_ETMPFAIL LCB_CLIENT_ENOCONF
 
 /** @brief If the error is a result of bad input */
 #define LCB_EIFINPUT(e) (lcb_get_errtype(e) & LCB_ERRTYPE_INPUT)

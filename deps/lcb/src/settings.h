@@ -17,6 +17,7 @@
 
 #ifndef LCB_SETTINGS_H
 #define LCB_SETTINGS_H
+#include "auth.h"
 
 /**
  * Handy macros for converting between different time resolutions
@@ -81,6 +82,8 @@
 #define LCB_DEFAULT_COMPRESSOPTS LCB_COMPRESS_NONE
 
 #define LCB_DEFAULT_NVM_RETRY_IMM 1
+#define LCB_DEFAULT_RETRY_NMV_INTERVAL LCB_MS2US(100)
+#define LCB_DEFAULT_VB_NOGUESS 1
 #define LCB_DEFAULT_TCP_NODELAY 1
 
 #include "config.h"
@@ -152,16 +155,17 @@ typedef struct lcb_settings_st {
     uint8_t retry[LCB_RETRY_ON_MAX];
     float retry_backoff;
 
-    char *username;
-    char *password;
     char *bucket;
     char *sasl_mech_force;
     char *certpath;
+    lcb_AUTHENTICATOR *auth;
     struct rdb_ALLOCATOR* (*allocator_factory)(void);
     struct lcbio_SSLCTX *ssl_ctx;
     struct lcb_logprocs_st *logger;
     void (*dtorcb)(const void *);
     void *dtorarg;
+    char *client_string;
+    lcb_U32 retry_nmv_interval;
 } lcb_settings;
 
 LCB_INTERNAL_API

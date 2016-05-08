@@ -143,6 +143,8 @@ TEST_F(ConfigTest, testAltMap)
 {
     lcbvb_CONFIG *cfg = lcbvb_create();
     lcbvb_genconfig(cfg, 4, 1, 64);
+    lcbvb_genffmap(cfg);
+
     string key("Dummy Key");
     int vbix = lcbvb_k2vb(cfg, key.c_str(), key.size());
     int master = lcbvb_vbmaster(cfg, vbix);
@@ -252,13 +254,14 @@ TEST_F(ConfigTest, testNondataNodes)
         servers.size(), // include non-data servers
         nreplica,
         1024);
-
     ASSERT_EQ(0, rv);
+    lcbvb_genffmap(cfg_ex);
 
     lcbvb_CONFIG *cfg_old = lcbvb_create();
     rv = lcbvb_genconfig_ex(cfg_old, "default", NULL,
         &servers[0], ndatasrv, nreplica, 1024);
     ASSERT_EQ(0, rv);
+    lcbvb_genffmap(cfg_old);
 
     ASSERT_EQ(ndatasrv, cfg_ex->ndatasrv);
     ASSERT_EQ(nservers, cfg_ex->nsrv);
@@ -285,13 +288,9 @@ TEST_F(ConfigTest, testNondataNodes)
         ASSERT_EQ(ix_exp, ix_cur);
     }
 
-    // On the new config, ensure that:
-    // 1) Remap maps to all replicas
-    // 2) Remap never maps to a non-data node.
+    // On the new config, ensure that remap never maps to a non-data node.
     for (ii = 0; ii < keys.size(); ii++) {
-        map<int, bool> usedMap;
         const string& s = keys[ii];
-
         for (size_t jj = 0; jj < cfg_ex->nsrv * 2; jj++) {
             int ix;
             lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix);
@@ -300,11 +299,7 @@ TEST_F(ConfigTest, testNondataNodes)
                 continue;
             } else {
                 ASSERT_TRUE(newix < cfg_ex->ndatasrv);
-                usedMap[newix] = true;
             }
-        }
-        for (size_t jj = 0; jj < cfg_ex->ndatasrv; ++jj) {
-            ASSERT_TRUE(usedMap[jj]);
         }
     }
 

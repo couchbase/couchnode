@@ -656,6 +656,8 @@ typedef enum {
 /** Callback type for N1QL (cannot be used for lcb_install_callback3()) */
 #define LCB_CALLBACK_N1QL -2
 
+#define LCB_CALLBACK_IXMGMT -3
+
 /**
  * @committed
  *
@@ -2353,6 +2355,9 @@ typedef enum {
     /** Execute an N1QL Query */
     LCB_HTTP_TYPE_N1QL = 3,
 
+    /** Search a fulltext index */
+    LCB_HTTP_TYPE_FTS = 4,
+
     LCB_HTTP_TYPE_MAX
 } lcb_http_type_t;
 
@@ -2387,6 +2392,12 @@ typedef enum {
  * specific request.
  */
 #define LCB_CMDHTTP_F_CASTMO 1<<17
+
+/**
+ * @private
+ * Do not inject authentication header into the request.
+ */
+#define LCB_CMDHTTP_F_NOUPASS 1<<18
 
 /**
  * Structure for performing an HTTP request.

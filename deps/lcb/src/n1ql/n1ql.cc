@@ -132,6 +132,10 @@ struct lcb_N1QLCACHE_st {
         lru.clear();
         by_name.clear();
     }
+
+    ~lcb_N1QLCACHE_st() {
+        clear();
+    }
 };
 
 typedef struct lcb_N1QLREQ {
@@ -501,8 +505,9 @@ N1QLREQ::issue_htreq(const std::string& body)
     htcmd.content_type = "application/json";
     htcmd.method = LCB_HTTP_METHOD_POST;
     htcmd.type = LCB_HTTP_TYPE_N1QL;
-    htcmd.cmdflags = LCB_CMDHTTP_F_STREAM;
+    htcmd.cmdflags = LCB_CMDHTTP_F_STREAM|LCB_CMDHTTP_F_CASTMO;
     htcmd.reqhandle = &htreq;
+    htcmd.cas = timeout;
 
     lcb_error_t rc = lcb_http3(instance, this, &htcmd);
     if (rc == LCB_SUCCESS) {
@@ -664,6 +669,15 @@ LIBCOUCHBASE_API
 void
 lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle)
 {
+    // Note that this function is just an elaborate way to nullify the
+    // callback. We are very particular about _not_ cancelling the underlying
+    // http request, because the handle's deletion is controlled
+    // from the HTTP callback, which checks if the callback is NULL before
+    // deleting.
+    // at worst, deferring deletion to the http response might cost a few
+    // extra network reads; whereas this function itself is intended as a
+    // bailout for unexpected destruction.
+
     if (handle->prepare_req) {
         lcb_n1ql_cancel(instance, handle->prepare_req);
         handle->prepare_req = NULL;

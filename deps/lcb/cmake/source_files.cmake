@@ -10,7 +10,6 @@ SET(LCB_UTILS_SRC
     src/gethrtime.c
     src/hashtable.c
     src/hashset.c
-    src/hostlist.c
     src/list.c
     src/logging.c
     src/packetutils.c
@@ -45,12 +44,10 @@ SET(LCB_CORE_SRC
     ${LCB_N1QL_SRC}
     src/bootstrap.c
     src/callbacks.c
-    src/cntl.c
     src/dump.c
     src/connspec.c
     src/handler.c
     src/getconfig.c
-    src/instance.c
     src/legacy.c
     src/mcserver/negotiate.c
     src/mcserver/mcserver.c
@@ -64,8 +61,14 @@ SET(LCB_CORE_SRC
     src/wait.c)
 
 SET(LCB_CORE_CXXSRC
+    src/instance.cc
+    src/auth.cc
+    src/hostlist.cc
     src/http/http.cc
     src/http/http_io.cc
     src/n1ql/params.cc
     src/n1ql/n1ql.cc
-    src/operations/subdoc.cc)
+    src/n1ql/ixmgmt.cc
+    src/cbft.cc
+    src/operations/subdoc.cc
+    src/cntl.cc)
