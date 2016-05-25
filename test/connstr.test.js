@@ -32,6 +32,11 @@ describe('#ConnStr', function() {
       var x = connstr.normalize('localhost');
       assert.equal(x, 'http://localhost/default');
     });
+
+    it('should work with array options', function() {
+      var x = connstr.normalize('http://test?opt=1&opt=2');
+      assert.equal(x, 'http://test/default?opt=1&opt=2');
+    });
   });
 
   describe('stringify', function() {
