@@ -25,6 +25,7 @@
 #define LOGARGS(obj,lvl) (obj)->settings, "instance", LCB_LOG_##lvl, __FILE__, __LINE__
 
 static volatile unsigned int lcb_instance_index = 0;
+using namespace lcb;
 
 LIBCOUCHBASE_API
 const char *lcb_get_version(lcb_uint32_t *version)
@@ -50,30 +51,43 @@ const void *lcb_get_cookie(lcb_t instance)
     return instance->cookie;
 }
 
-static void
-add_and_log_host(lcb_t obj, const lcb_host_t *host, lcb_config_transport_t type)
+void
+lcb_st::add_bs_host(const char *host, int port, unsigned bstype)
 {
-    const char *typename = NULL;
-    hostlist_t target;
-    if (type == LCB_CONFIG_TRANSPORT_CCCP) {
-        typename = "CCCP";
-        target = obj->mc_nodes;
+    const char *tname = NULL;
+    lcb::Hostlist* target;
+    if (bstype == LCB_CONFIG_TRANSPORT_CCCP) {
+        tname = "CCCP";
+        target = mc_nodes;
     } else {
-        typename = "HTTP";
-        target = obj->ht_nodes;
+        tname = "HTTP";
+        target = ht_nodes;
     }
-    lcb_log(LOGARGS(obj, DEBUG), "Adding host %s:%s to initial %s bootstrap list", host->host, host->port, typename);
-    hostlist_add_host(target, host);
+    lcb_log(LOGARGS(this, DEBUG), "Adding host %s:%d to initial %s bootstrap list", host, port, tname);
+    target->add(host, port);
 }
 
-static void
-populate_nodes(lcb_t obj, const lcb_CONNSPEC *spec)
+void
+lcb_st::add_bs_host(const lcb::Spechost& host, int defl_http, int defl_cccp)
 {
-    lcb_list_t *llcur;
-    int has_ssl = obj->settings->sslopts & LCB_SSL_ENABLED;
+    if (host.isTypeless()) {
+        add_bs_host(host.hostname.c_str(), defl_http, LCB_CONFIG_TRANSPORT_HTTP);
+        add_bs_host(host.hostname.c_str(), defl_cccp, LCB_CONFIG_TRANSPORT_CCCP);
+        return;
+    } else {
+        add_bs_host(host.hostname.c_str(), host.port,
+            host.isAnyHttp()
+            ? LCB_CONFIG_TRANSPORT_HTTP : LCB_CONFIG_TRANSPORT_CCCP);
+    }
+}
+
+void
+lcb_st::populate_nodes(const Connspec& spec)
+{
+    int has_ssl = settings->sslopts & LCB_SSL_ENABLED;
     int defl_http, defl_cccp;
 
-    if (spec->implicit_port == LCB_CONFIG_MCCOMPAT_PORT) {
+    if (spec.default_port() == LCB_CONFIG_MCCOMPAT_PORT) {
         defl_http = -1;
         defl_cccp = LCB_CONFIG_MCCOMPAT_PORT;
 
@@ -85,88 +99,49 @@ populate_nodes(lcb_t obj, const lcb_CONNSPEC *spec)
         defl_cccp = LCB_CONFIG_MCD_PORT;
     }
 
-    LCB_LIST_FOR(llcur, &spec->hosts) {
-        lcb_host_t host;
-        const lcb_HOSTSPEC *dh = LCB_LIST_ITEM(llcur, lcb_HOSTSPEC, llnode);
-        strcpy(host.host, dh->hostname);
-
-        #define ADD_CCCP() add_and_log_host(obj, &host, LCB_CONFIG_TRANSPORT_CCCP)
-        #define ADD_HTTP() add_and_log_host(obj, &host, LCB_CONFIG_TRANSPORT_HTTP)
-
-        /* if we didn't specify any port in the spec, just use the simple
-         * default port (based on the SSL settings) */
-        if (dh->type == 0) {
-            sprintf(host.port, "%d", defl_http);
-            ADD_HTTP();
-            sprintf(host.port, "%d", defl_cccp);
-            ADD_CCCP();
-            continue;
-        } else {
-            sprintf(host.port, "%d", dh->port);
-            switch (dh->type) {
-            case LCB_CONFIG_MCD_PORT:
-            case LCB_CONFIG_MCD_SSL_PORT:
-            case LCB_CONFIG_MCCOMPAT_PORT:
-                ADD_CCCP();
-                break;
-            case LCB_CONFIG_HTTP_PORT:
-            case LCB_CONFIG_HTTP_SSL_PORT:
-                ADD_HTTP();
-                break;
-            default:
-                break;
-            }
-        }
+    for (size_t ii = 0; ii < spec.hosts().size(); ++ii) {
+        const Spechost &dh = spec.hosts()[ii];
+        add_bs_host(dh, defl_http, defl_cccp);
     }
-#undef ADD_HTTP
-#undef ADD_CCCP
 }
 
 static lcb_error_t
-init_providers(lcb_t obj, const lcb_CONNSPEC *spec)
+init_providers(lcb_t obj, const Connspec &spec)
 {
-    int http_enabled = 1, cccp_enabled = 1, cccp_found = 0, http_found = 0;
-    const lcb_config_transport_t *cur;
     clconfig_provider *http, *cccp, *mcraw;
-
     http = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_HTTP);
     cccp = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_CCCP);
     mcraw = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_MCRAW);
 
-    if (spec->implicit_port == LCB_CONFIG_MCCOMPAT_PORT) {
+    if (spec.default_port() == LCB_CONFIG_MCCOMPAT_PORT) {
         lcb_confmon_set_provider_active(obj->confmon, LCB_CLCONFIG_MCRAW, 1);
         mcraw->configure_nodes(mcraw, obj->mc_nodes);
         return LCB_SUCCESS;
     }
 
-    for (cur = spec->transports; *cur != LCB_CONFIG_TRANSPORT_LIST_END; cur++) {
-        if (*cur == LCB_CONFIG_TRANSPORT_CCCP) {
-            cccp_found = 1;
-        } else if (*cur == LCB_CONFIG_TRANSPORT_HTTP) {
-            http_found = 1;
-        } else {
-            return LCB_EINVAL;
-        }
-    }
-    if (http_found || cccp_found) {
-        cccp_enabled = cccp_found;
+    bool cccp_found = spec.is_bs_cccp();
+    bool http_found = spec.is_bs_http();
+    bool cccp_enabled = true, http_enabled = true;
+
+    if (cccp_found || http_found || spec.is_bs_file()) {
         http_enabled = http_found;
+        cccp_enabled = cccp_found;
+
     }
 
     if (lcb_getenv_boolean("LCB_NO_CCCP")) {
-        cccp_enabled = 0;
+        cccp_enabled = false;
     }
-
     if (lcb_getenv_boolean("LCB_NO_HTTP")) {
-        http_enabled = 0;
+        http_enabled = false;
     }
-
-    if (spec->flags & LCB_CONNSPEC_F_FILEONLY) {
-        http_enabled = cccp_enabled = 0;
+    if (spec.is_bs_file()) {
+        cccp_found = false;
+        http_found = false;
     }
 
     if (cccp_enabled == 0 && http_enabled == 0) {
-        if (spec->flags & LCB_CONNSPEC_F_FILEONLY) {
+        if (spec.is_bs_file()) {
             /* If the 'file_only' provider is set, just assume something else
              * will provide us with the config, and forget about it. */
             clconfig_provider *prov = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_FILE);
@@ -194,7 +169,7 @@ init_providers(lcb_t obj, const lcb_CONNSPEC *spec)
 }
 
 static lcb_error_t
-setup_ssl(lcb_t obj, lcb_CONNSPEC *params)
+setup_ssl(lcb_t obj, const Connspec& params)
 {
     char optbuf[4096];
     int env_policy = -1;
@@ -216,12 +191,12 @@ setup_ssl(lcb_t obj, lcb_CONNSPEC *params)
         }
     }
 
-    if (settings->certpath == NULL && params->certpath && *params->certpath) {
-        settings->certpath = params->certpath; params->certpath = NULL;
+    if (settings->certpath == NULL && !params.certpath().empty()) {
+        settings->certpath = strdup(params.certpath().c_str());
     }
 
     if (env_policy == -1) {
-        settings->sslopts = params->sslopts;
+        settings->sslopts = params.sslopts();
     }
 
     if (settings->sslopts & LCB_SSL_ENABLED) {
@@ -236,14 +211,15 @@ setup_ssl(lcb_t obj, lcb_CONNSPEC *params)
 }
 
 static lcb_error_t
-apply_spec_options(lcb_t obj, lcb_CONNSPEC *params)
+apply_spec_options(lcb_t obj, const Connspec& params)
 {
-    const char *key, *value;
-    int itmp = 0;
     lcb_error_t err;
-    while ((lcb_connspec_next_option(params, &key, &value, &itmp))) {
-        lcb_log(LOGARGS(obj, DEBUG), "Applying initial cntl %s=%s", key, value);
-        err = lcb_cntl_string(obj, key, value);
+    Connspec::Options::const_iterator ii = params.options().begin();
+    for (; ii != params.options().end(); ++ii) {
+        lcb_log(LOGARGS(obj, DEBUG), "Applying initial cntl %s=%s",
+            ii->first.c_str(), ii->second.c_str());
+
+        err = lcb_cntl_string(obj, ii->first.c_str(), ii->second.c_str());
         if (err != LCB_SUCCESS) {
             return err;
         }
@@ -254,84 +230,66 @@ apply_spec_options(lcb_t obj, lcb_CONNSPEC *params)
 static lcb_error_t
 apply_env_options(lcb_t obj)
 {
-    lcb_string tmpstr;
-    lcb_CONNSPEC tmpspec;
-    lcb_error_t err;
-    const char *errmsg = NULL;
+    Connspec tmpspec;
     const char *options = getenv("LCB_OPTIONS");
 
     if (!options) {
         return LCB_SUCCESS;
     }
 
-    memset(&tmpspec, 0, sizeof tmpspec);
-    lcb_string_init(&tmpstr);
-    lcb_string_appendz(&tmpstr, "couchbase://?");
-    lcb_string_appendz(&tmpstr, options);
-    err = lcb_connspec_parse(tmpstr.base, &tmpspec, &errmsg);
-    if (err != LCB_SUCCESS) {
-        err = LCB_BAD_ENVIRONMENT;
-        goto GT_DONE;
+    std::string tmp("couchbase://?");
+    tmp.append(options);
+    if (tmpspec.parse(tmp.c_str()) != LCB_SUCCESS) {
+        return LCB_BAD_ENVIRONMENT;
     }
-    err = apply_spec_options(obj, &tmpspec);
-    if (err != LCB_SUCCESS) {
-        err = LCB_BAD_ENVIRONMENT;
-    }
-
-    GT_DONE:
-    lcb_string_release(&tmpstr);
-    lcb_connspec_clean(&tmpspec);
-    return err;
-
+    return apply_spec_options(obj, tmpspec);
 }
 
 lcb_error_t
 lcb_init_providers2(lcb_t obj, const struct lcb_create_st2 *options)
 {
-    lcb_CONNSPEC params;
+    Connspec params;
     lcb_error_t err;
     struct lcb_create_st cropts;
     cropts.version = 2;
     cropts.v.v2 = *options;
-    err = lcb_connspec_convert(&params, &cropts);
+    err = params.load(cropts);
     if (err == LCB_SUCCESS) {
-        err = init_providers(obj, &params);
+        err = init_providers(obj, params);
     }
-    lcb_connspec_clean(&params);
     return err;
 }
 
 lcb_error_t
 lcb_reinit3(lcb_t obj, const char *connstr)
 {
-    lcb_CONNSPEC params;
+    Connspec params;
     lcb_error_t err;
     const char *errmsg = NULL;
     memset(&params, 0, sizeof params);
-    err = lcb_connspec_parse(connstr, &params, &errmsg);
+    err = params.parse(connstr, &errmsg);
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS(obj, ERROR), "Couldn't reinit: %s", errmsg);
     }
 
-    if (params.sslopts != LCBT_SETTING(obj, sslopts) || params.certpath) {
+    if (params.sslopts() != LCBT_SETTING(obj, sslopts) ||
+            !params.certpath().empty()) {
         lcb_log(LOGARGS(obj, WARN), "Ignoring SSL reinit options");
     }
 
     /* apply the options */
-    err = apply_spec_options(obj, &params);
+    err = apply_spec_options(obj, params);
     if (err != LCB_SUCCESS) {
         goto GT_DONE;
     }
-
-    populate_nodes(obj, &params);
-    err = init_providers(obj, &params);
+    obj->populate_nodes(params);
+    err = init_providers(obj, params);
     if (err != LCB_SUCCESS) {
         goto GT_DONE;
     }
 
     GT_DONE:
-    lcb_connspec_clean(&params);
     return err;
 }
 
@@ -339,7 +297,7 @@ LIBCOUCHBASE_API
 lcb_error_t lcb_create(lcb_t *instance,
                        const struct lcb_create_st *options)
 {
-    lcb_CONNSPEC spec = { NULL };
+    Connspec spec;
     struct lcb_io_opt_st *io_priv = NULL;
     lcb_type_t type = LCB_TYPE_BUCKET;
     lcb_t obj = NULL;
@@ -351,16 +309,16 @@ lcb_error_t lcb_create(lcb_t *instance,
         if (options->version > 0) {
             type = options->v.v1.type;
         }
-        err = lcb_connspec_convert(&spec, options);
+        err = spec.load(*options);
     } else {
         const char *errmsg;
-        err = lcb_connspec_parse("couchbase://", &spec, &errmsg);
+        err = spec.parse("couchbase://", &errmsg);
     }
     if (err != LCB_SUCCESS) {
         goto GT_DONE;
     }
 
-    if ((obj = calloc(1, sizeof(*obj))) == NULL) {
+    if ((obj = (lcb_t)calloc(1, sizeof(*obj))) == NULL) {
         err = LCB_CLIENT_ENOMEM;
         goto GT_DONE;
     }
@@ -372,26 +330,22 @@ lcb_error_t lcb_create(lcb_t *instance,
     /* initialize the settings */
     obj->type = type;
     obj->settings = settings;
-    settings->bucket = spec.bucket; spec.bucket = NULL;
-    settings->username = spec.username; spec.username = NULL;
-    settings->password = spec.password; spec.password = NULL;
+
+    settings->bucket = strdup(spec.bucket().c_str());
+    if ((err = settings->auth->init(spec.username(), spec.bucket(),
+        spec.password(), type)) != LCB_SUCCESS) {
+        goto GT_DONE;
+    }
+
     settings->logger = lcb_init_console_logger();
     settings->iid = lcb_instance_index++;
-    if (spec.loglevel) {
-        lcb_U32 val = spec.loglevel;
+    if (spec.loglevel()) {
+        lcb_U32 val = spec.loglevel();
         lcb_cntl(obj, LCB_CNTL_SET, LCB_CNTL_CONLOGGER_LEVEL, &val);
     }
 
     lcb_log(LOGARGS(obj, INFO), "Version=%s, Changeset=%s", lcb_get_version(NULL), LCB_VERSION_CHANGESET);
-    lcb_log(LOGARGS(obj, INFO), "Effective connection string: %s. Bucket=%s", options && options->version >= 3 ? options->v.v3.connstr : spec.connstr, settings->bucket);
-
-    /* Do not allow people use Administrator account for data access */
-    if (type == LCB_TYPE_BUCKET && settings->username) {
-        if (strcmp(settings->username, settings->bucket) != 0) {
-            err = LCB_INVALID_USERNAME;
-            goto GT_DONE;
-        }
-    }
+    lcb_log(LOGARGS(obj, INFO), "Effective connection string: %s. Bucket=%s", spec.connstr().c_str(), settings->bucket);
 
     if (io_priv == NULL) {
         lcb_io_opt_t ops;
@@ -418,19 +372,19 @@ lcb_error_t lcb_create(lcb_t *instance,
     lcb_initialize_packet_handlers(obj);
     lcb_aspend_init(&obj->pendops);
 
-    if ((err = setup_ssl(obj, &spec)) != LCB_SUCCESS) {
+    if ((err = setup_ssl(obj, spec)) != LCB_SUCCESS) {
         goto GT_DONE;
     }
 
-    if ((err = apply_spec_options(obj, &spec)) != LCB_SUCCESS) {
+    if ((err = apply_spec_options(obj, spec)) != LCB_SUCCESS) {
         goto GT_DONE;
     }
     if ((err = apply_env_options(obj)) != LCB_SUCCESS) {
         goto GT_DONE;
     }
 
-    populate_nodes(obj, &spec);
-    err = init_providers(obj, &spec);
+    obj->populate_nodes(spec);
+    err = init_providers(obj, spec);
     if (err != LCB_SUCCESS) {
         lcb_destroy(obj);
         return err;
@@ -438,7 +392,6 @@ lcb_error_t lcb_create(lcb_t *instance,
 
     obj->last_error = err;
     GT_DONE:
-    lcb_connspec_clean(&spec);
     if (err != LCB_SUCCESS && obj) {
         lcb_destroy(obj);
         *instance = NULL;
@@ -457,7 +410,7 @@ typedef struct {
 static void
 sync_dtor_cb(void *arg)
 {
-    SYNCDTOR *sd = arg;
+    SYNCDTOR *sd = (SYNCDTOR*)arg;
     if (sd->table->refcount == 2) {
         lcbio_timer_destroy(sd->timer);
         IOT_STOP(sd->table);
@@ -544,8 +497,7 @@ void lcb_destroy(lcb_t instance)
     DESTROY(lcb_settings_unref, settings);
     DESTROY(lcb_histogram_destroy, kv_timings);
     if (instance->scratch) {
-        lcb_string_release(instance->scratch);
-        free(instance->scratch);
+        delete instance->scratch;
         instance->scratch = NULL;
     }
 
@@ -558,7 +510,7 @@ void lcb_destroy(lcb_t instance)
 static void
 destroy_cb(void *arg)
 {
-    lcb_t instance = arg;
+    lcb_t instance = (lcb_t)arg;
     lcbio_timer_destroy(instance->dtor_timer);
     lcb_destroy(instance);
 }
@@ -725,7 +677,7 @@ static void
 timings_wrapper_callback(const void *cookie, lcb_timeunit_t unit, lcb_U32 start,
     lcb_U32 end, lcb_U32 val, lcb_U32 max)
 {
-    const timings_wrapper *wrap = cookie;
+    const timings_wrapper *wrap = (const timings_wrapper*)cookie;
     wrap->real_cb(wrap->instance, wrap->real_cookie, unit, start, end, val, max);
 }
 

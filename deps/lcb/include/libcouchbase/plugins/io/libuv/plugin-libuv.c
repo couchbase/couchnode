@@ -281,7 +281,7 @@ static int cntl_socket(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase,
 
     switch (option) {
     case LCB_IO_CNTL_TCP_NODELAY:
-        if (mode == LCB_IO_CNTL_GET) {
+        if (mode == LCB_IO_CNTL_SET) {
             rv = uv_tcp_nodelay(&sd->tcp.t, *(int *)arg);
             if (rv != 0) {
                 set_last_error((my_iops_t*)iobase, rv);

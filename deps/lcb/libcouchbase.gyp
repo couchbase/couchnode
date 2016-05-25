@@ -158,11 +158,18 @@
         '-fno-strict-aliasing',
         '-Wno-missing-field-initializers'
       ],
+      'cflags!': [
+        '-fno-exceptions'
+      ],
+      'cflags_cc!': [
+        '-fno-exceptions'
+      ],
       'xcode_settings': {
         'WARNING_CFLAGS': [
           '-fno-strict-aliasing',
           '-Wno-missing-field-initializers'
-        ]
+        ],
+        'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
       },
       'include_dirs': [
         './'
@@ -213,15 +220,16 @@
         ## 'src/ssl/ssl_common.c',
         ## 'src/ssl/ssl_e.c',
         'src/strcodecs/base64.c',
-        'src/strcodecs/url_encoding.c',
         'src/vbucket/ketama.c',
         'src/vbucket/vbucket.c',
         'src/views/docreq.c',
         'src/views/viewreq.c',
+        'src/auth.cc',
         'src/bootstrap.c',
         'src/callbacks.c',
-        'src/cntl.c',
-        'src/connspec.c',
+        'src/cbft.cc',
+        'src/cntl.cc',
+        'src/connspec.cc',
         'src/dump.c',
         'src/getconfig.c',
         'src/gethrtime.c',
@@ -229,14 +237,14 @@
         'src/hashset.c',
         'src/hashtable.c',
         ## 'src/hdr_timings.c',
-        'src/hostlist.c',
-        'src/instance.c',
+        'src/hostlist.cc',
+        'src/instance.cc',
         'src/iofactory.c',
         'src/legacy.c',
         'src/list.c',
         'src/logging.c',
         'src/newconfig.c',
-        'src/nodeinfo.c',
+        'src/nodeinfo.cc',
         'src/packetutils.c',
         'src/retrychk.c',
         'src/retryq.c',
@@ -248,6 +256,7 @@
         'src/wait.c',
 
         'src/n1ql/n1ql.cc',
+        'src/n1ql/ixmgmt.cc',
         'src/n1ql/params.cc',
 
         'plugins/io/select/plugin-select.c'

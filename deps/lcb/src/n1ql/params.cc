@@ -90,18 +90,22 @@ encode_mutation_token(Json::Value& sparse, const lcb_MUTATION_TOKEN *sv)
     char buf[64] = { 0 };
     sprintf(buf, "%u", sv->vbid_);
     Json::Value& cur_sv = sparse[buf];
+
+    cur_sv[0] = static_cast<Json::UInt64>(sv->seqno_);
     sprintf(buf, "%llu", sv->uuid_);
-    cur_sv["guard"] = buf;
-    cur_sv["value"] = static_cast<Json::UInt64>(sv->seqno_);
+    cur_sv[1] = buf;
 }
 
 lcb_error_t
 lcb_n1p_setconsistent_token(lcb_N1QLPARAMS *params,
     const char *keyspace, const lcb_MUTATION_TOKEN *sv)
 {
-    Json::Value sv_json = params->root["scan_vector"][keyspace];
+    if (!LCB_MUTATION_TOKEN_ISVALID(sv)) {
+        return LCB_EINVAL;
+    }
+
     params->root["scan_consistency"] = "at_plus";
-    encode_mutation_token(sv_json, sv);
+    encode_mutation_token(params->root["scan_vector"][keyspace], sv);
     return LCB_SUCCESS;
 }
 
@@ -120,9 +124,7 @@ lcb_n1p_setconsistent_handle(lcb_N1QLPARAMS *params, lcb_t instance)
         return rc;
     }
 
-    params->root["scan_consistency"] = "at_plus";
-
-    Json::Value sv_json = params->root["scan_vector"][bucketname];
+    Json::Value* sv_json = NULL;
 
     size_t vbmax = vbc->nvb;
     for (size_t ii = 0; ii < vbmax; ++ii) {
@@ -132,9 +134,18 @@ lcb_n1p_setconsistent_handle(lcb_N1QLPARAMS *params, lcb_t instance)
         kb.contig.bytes = NULL;
         const lcb_MUTATION_TOKEN *mt = lcb_get_mutation_token(instance, &kb, &rc);
         if (rc == LCB_SUCCESS && mt != NULL) {
-            encode_mutation_token(sv_json, mt);
+            if (sv_json == NULL) {
+                sv_json = &params->root["scan_vectors"][bucketname];
+                params->root["scan_consistency"] = "at_plus";
+            }
+            encode_mutation_token(*sv_json, mt);
         }
     }
+
+    if (!sv_json) {
+        return LCB_KEY_ENOENT;
+    }
+
     return LCB_SUCCESS;
 }
 

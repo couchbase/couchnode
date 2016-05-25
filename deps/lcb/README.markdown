@@ -18,7 +18,6 @@ necessary to connect to the cluster and execute data operations.
     * `select` (Windows and POSIX)
     * IOCP (Windows Only)
 * Support for operation batching
-* ANSI C ("_C89_")
 * Cross Platform - Tested on Linux, OS X, and Windows.
 
 ## Building
@@ -89,10 +88,15 @@ irc.freenode.net.
 ## Examples
 
 * The `examples` directory
-* Client libraries wrapping this library
+* Official client libraries using libcouchbase
     * [node.js](http://github.com/couchbase/couchnode)
     * [Python](http://github.com/couchbase/couchbase-python-client)
-    * [Ruby](http://github.com/couchbase/couchbase-ruby-client)
+    * [Ruby](http://github.com/couchbase/couchbase-ruby-client) (uses the old < 2.6 API)
+    * [PHP](http://github.com/couchbase/php-couchbase) (uses the old < 2.6 API)
+* Community projects using libcouchbase
+    * [C++11 wrapper](https://github.com/couchbaselabs/libcouchbase-cxx)
+    * [cberl - Couchbase NIF](https://github.com/chitika/cberl)
+    * [Perl client](https://github.com/mnunberg/perl-Couchbase-Client)
 
 ## Documentation
 

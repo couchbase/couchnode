@@ -25,19 +25,25 @@
 #ifdef LIBCOUCHBASE_INTERNAL
     #ifdef __SUNPRO_C
         #define LIBCOUCHBASE_API __global
+        #define LCB_CLASS_EXPORT LIBCOUCHBASE_API
     #elif defined(HAVE_VISIBILITY) && HAVE_VISIBILITY
         #define LIBCOUCHBASE_API __attribute__ ((visibility("default")))
+        #define LCB_CLASS_EXPORT LIBCOUCHBASE_API
     #elif defined(_MSC_VER)
         #define LIBCOUCHBASE_API extern __declspec(dllexport)
+        #define LCB_CLASS_EXPORT __declspec(dllexport)
     #else
         #define LIBCOUCHBASE_API
+        #define LCB_CLASS_EXPORT
     #endif /* compiler version */
 
 #else /* !LIBCOUCHBASE_INTERNAL */
     #ifdef _MSC_VER
         #define LIBCOUCHBASE_API extern __declspec(dllimport)
+        #define LCB_CLASS_EXPORT __declspec(dllimport)
     #else
         #define LIBCOUCHBASE_API
+        #define LCB_CLASS_EXPORT
     #endif
 #endif /* LIBCOUCHBASE_INTERNAL */
 

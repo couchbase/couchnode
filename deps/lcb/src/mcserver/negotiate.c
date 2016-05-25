@@ -72,11 +72,13 @@ static int
 sasl_get_username(void *context, int id, const char **result, unsigned int *len)
 {
     struct mc_SESSINFO *ctx = context;
+    const char *u = NULL, *p = NULL;
     if (!context || !result || (id != CBSASL_CB_USER && id != CBSASL_CB_AUTHNAME)) {
         return SASL_BADPARAM;
     }
 
-    *result = ctx->settings->username;
+    lcbauth_get_upass(ctx->settings->auth, &u, &p);
+    *result = u;
     if (len) {
         *len = (unsigned int)strlen(*result);
     }
@@ -102,7 +104,7 @@ setup_sasl_params(struct mc_SESSINFO *ctx)
 {
     int ii;
     cbsasl_callback_t *callbacks = ctx->sasl_callbacks;
-    const char *password = ctx->settings->password;
+    const char *pass = NULL, *user = NULL;
 
     callbacks[0].id = CBSASL_CB_USER;
     callbacks[0].proc = (int( *)(void)) &sasl_get_username;
@@ -122,17 +124,18 @@ setup_sasl_params(struct mc_SESSINFO *ctx)
     }
 
     memset(&ctx->u_auth, 0, sizeof(ctx->u_auth));
+    lcbauth_get_upass(ctx->settings->auth, &user, &pass);
 
-    if (password) {
+    if (pass) {
         unsigned long pwlen;
         lcb_size_t maxlen;
 
-        pwlen = (unsigned long)strlen(password);
+        pwlen = (unsigned long)strlen(pass);
         maxlen = sizeof(ctx->u_auth.buffer) - offsetof(cbsasl_secret_t, data);
         ctx->u_auth.secret.len = pwlen;
 
         if (pwlen < maxlen) {
-            memcpy(ctx->u_auth.secret.data, password, pwlen);
+            memcpy(ctx->u_auth.secret.data, pass, pwlen);
         } else {
             return LCB_EINVAL;
         }
@@ -303,10 +306,12 @@ send_hello(mc_pSESSREQ sreq)
     protocol_binary_request_no_extras req;
     protocol_binary_request_header *hdr = &req.message.header;
     unsigned ii;
-    static const char client_id[] = "libcouchbase/" LCB_VERSION_STRING;
+    const char *external_id = "";
+    const char *comma = "";
+    char client_id[200] = { 0 };
     lcb_U16 features[MEMCACHED_TOTAL_HELLO_FEATURES];
     unsigned nfeatures = 0;
-    lcb_SIZE nclistr;
+    size_t nclistr;
 
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TLS;
     if (sreq->inner->settings->tcp_nodelay) {
@@ -323,7 +328,15 @@ send_hello(mc_pSESSREQ sreq)
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO;
     }
 
+    if (sreq->inner->settings->client_string) {
+        external_id = sreq->inner->settings->client_string;
+        comma = ", ";
+    }
+
+    snprintf(client_id, 199, "libcouchbase/%s%s%s",
+        LCB_VERSION_STRING, comma, external_id);
     nclistr = strlen(client_id);
+
     memset(&req, 0, sizeof req);
     hdr->request.opcode = PROTOCOL_BINARY_CMD_HELLO;
     hdr->request.magic = PROTOCOL_BINARY_REQ;

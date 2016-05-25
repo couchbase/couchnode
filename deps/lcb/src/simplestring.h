@@ -46,6 +46,20 @@ typedef struct lcb_string_st {
 
     /** Number of bytes used */
     lcb_size_t nused;
+#ifdef __cplusplus
+    typedef char *iterator;
+    typedef const char *const_iterator;
+
+    iterator begin() { return base; };
+    iterator end() { return base + nused; }
+    const_iterator begin() const { return base; }
+    const_iterator end() const { return base + nused; }
+    size_t size() const { return nused; }
+    size_t capacity() const { return nalloc; }
+    const char *c_str() const { return base; }
+
+    inline void insert(iterator p, const char *first, const char *last);
+#endif
 } lcb_string;
 
 #ifdef __cplusplus
@@ -150,9 +164,65 @@ void lcb_string_erase_beginning(lcb_string *str, lcb_size_t to_remove);
  */
 void lcb_string_transfer(lcb_string *from, lcb_string *to);
 
+/**
+ * Inserts a string at a given position
+ * @param str the string object
+ * @param at position at which to insert
+ * @param src the string to insert
+ * @param len length of string to insert
+ */
+int lcb_string_insert(lcb_string *str, size_t at, const char *src, size_t len);
+
 #define lcb_string_tail(str) ((str)->base + (str)->nused)
 
 #ifdef __cplusplus
 }
+
+#include <stdexcept>
+#include <new>
+void
+lcb_string_st::insert(iterator p, const char *first, const char *last) {
+    size_t at = p - base;
+    size_t n = last - first;
+    if (lcb_string_insert(this, at, first, n) != 0) {
+        throw std::bad_alloc();
+    }
+}
+
+namespace lcb {
+class AutoString : public lcb_string_st {
+public:
+    AutoString() {
+        lcb_string_init(this);
+    }
+    ~AutoString() {
+        lcb_string_release(this);
+    }
+
+    char *take(size_t& len, size_t& cap) {
+        char *ret = base;
+        len = nused;
+        cap = nalloc;
+
+        base = NULL;
+        nalloc = 0;
+        nused = 0;
+        return ret;
+    }
+    char *take(size_t& len) {
+        size_t dummy;
+        return take(len, dummy);
+    }
+    char *take() {
+        size_t dummy;
+        return take(dummy, dummy);
+    }
+
+private:
+    AutoString(lcb_string_st&);
+    AutoString(const lcb_string_st&);
+};
+}
+
 #endif /** __cplusplus */
 #endif /* LCB_STRING_H */

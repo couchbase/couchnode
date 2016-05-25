@@ -23,7 +23,7 @@
 #include "sllist.h"
 #include <lcbio/ssl.h>
 
-using namespace lcbhtapi;
+using namespace lcb::http;
 
 #define LOGFMT "<%s:%s>"
 #define LOGID(req) get_ctx_host((req)->ioctx), get_ctx_port((req)->ioctx)
@@ -158,6 +158,7 @@ io_read(lcbio_CTX *ctx, unsigned nr)
         if (req->has_pending_redirect()) {
             lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE);
             // Transfer control to redirect function()
+            lcb_log(LOGARGS(req, DEBUG), LOGFMT "Attempting redirect to %s", LOGID(req), req->pending_redirect.c_str());
             req->redirect();
         } else {
             err = LCB_PROTOCOL_ERROR;

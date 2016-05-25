@@ -50,7 +50,13 @@
 /* n1ql cache */
 #include "n1ql/n1ql-internal.h"
 
+#include "hostlist.h"
+
 #ifdef __cplusplus
+namespace lcb {
+class Connspec;
+struct Spechost;
+}
 extern "C" {
 #endif
 
@@ -81,16 +87,22 @@ struct lcb_callback_st {
 };
 
 struct lcb_confmon_st;
-struct hostlist_st;
 struct lcb_BOOTSTRAP;
 struct lcb_GUESSVB_st;
+
+#ifdef __cplusplus
+#include <string>
+typedef std::string* lcb_pSCRATCHBUF;
+#else
+typedef struct lcb_SCRATCHBUF* lcb_pSCRATCHBUF;
+#endif
 
 struct lcb_st {
     mc_CMDQUEUE cmdq; /**< Base command queue object */
     const void *cookie; /**< User defined pointer */
     struct lcb_confmon_st *confmon; /**< Cluster config manager */
-    struct hostlist_st *mc_nodes; /**< List of current memcached endpoints */
-    struct hostlist_st *ht_nodes; /**< List of current management endpoints */
+    hostlist_t mc_nodes; /**< List of current memcached endpoints */
+    hostlist_t ht_nodes; /**< List of current management endpoints */
     struct clconfig_info_st *cur_configinfo; /**< Pointer to current config */
     struct lcb_BOOTSTRAP *bootstrap; /**< Bootstrapping state */
     struct lcb_callback_st callbacks; /**< Callback table */
@@ -103,7 +115,7 @@ struct lcb_st {
     lcb_settings *settings; /**< User settings */
     lcbio_pTABLE iotable; /**< IO Routine table */
     lcb_RETRYQ *retryq; /**< Retry queue for failed operations */
-    struct lcb_string_st *scratch; /**< Generic buffer space */
+    lcb_pSCRATCHBUF scratch; /**< Generic buffer space */
     struct lcb_GUESSVB_st *vbguess; /**< Heuristic masters for vbuckets */
     lcb_N1QLCACHE *n1ql_cache;
     lcb_MUTATION_TOKEN *dcpinfo; /**< Mapping of known vbucket to {uuid,seqno} info */
@@ -113,6 +125,9 @@ struct lcb_st {
     #ifdef __cplusplus
     lcb_settings* getSettings() { return settings; }
     lcbio_pTABLE getIOT() { return iotable; }
+    inline void add_bs_host(const char *host, int port, unsigned bstype);
+    inline void add_bs_host(const lcb::Spechost& host, int defl_http, int defl_cccp);
+    inline void populate_nodes(const lcb::Connspec&);
     #endif
 };
 

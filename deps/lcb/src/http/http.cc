@@ -19,7 +19,7 @@
 #include "bucketconfig/clconfig.h"
 #include "http/http.h"
 #include "http/http-priv.h"
-using namespace lcbhtapi;
+using namespace lcb::http;
 
 #define LOGFMT "<%s:%s>"
 #define LOGID(req) (req)->host.c_str(), (req)->port.c_str()
@@ -237,6 +237,7 @@ Request::submit()
     add_to_preamble(host);
     add_to_preamble(":");
     add_to_preamble(port);
+    add_to_preamble("\r\n");
 
     // Add the rest of the headers
     std::vector<Header>::const_iterator ii = request_headers.begin();
@@ -297,26 +298,32 @@ Request::assign_url(const char *base, size_t nbase, const char *path, size_t npa
                 url.append("/");
             }
 
-            lcb_size_t n_added;
-            std::vector<char> encpath;
-            encpath.resize((npath * 3) + 1);
-            char *pp = &encpath[0];
-            lcb_error_t rc = lcb_urlencode_path(path, npath, &pp, &n_added);
-            if (rc != LCB_SUCCESS) {
-                return rc;
+            if (!lcb::strcodecs::urlencode(path, path + npath, url)) {
+                return LCB_INVALID_CHAR;
             }
-            encpath.resize(n_added);
-            url.append(encpath.begin(), encpath.end());
         }
     }
 
+
+    bool redir_checked = false;
+    static const unsigned required_fields =
+            ((1 << UF_HOST) | (1 << UF_PORT) | (1 << UF_PATH));
+
+    GT_REPARSE:
     if (_lcb_http_parser_parse_url(url.c_str(), url.size(), 0, &url_info)) {
         return LCB_EINVAL;
     }
 
-    static const unsigned required_fields =
-            ((1 << UF_HOST) | (1 << UF_PORT) | (1 << UF_PATH));
     if ((url_info.field_set & required_fields) != required_fields) {
+        if (base == NULL && path == NULL && !redir_checked) {
+            redir_checked = true;
+            std::string first_part(htscheme, schemsize);
+            first_part += host;
+            first_part += ':';
+            first_part += port;
+            url = first_part + url;
+            goto GT_REPARSE;
+        }
         return LCB_EINVAL;
     }
 
@@ -333,6 +340,7 @@ Request::redirect()
     if (LCBT_SETTING(instance, max_redir) > -1) {
         if (LCBT_SETTING(instance, max_redir) < ++redircount) {
             finish(LCB_TOO_MANY_REDIRECTS);
+            return;
         }
     }
 
@@ -341,11 +349,28 @@ Request::redirect()
     pending_redirect.clear();
 
     if ((rc = assign_url(NULL, 0, NULL, 0)) != LCB_SUCCESS) {
+        lcb_log(LOGARGS(this, ERR), LOGFMT "Failed to add redirect URL (%s)", LOGID(this), url.c_str());
         finish(rc);
+        return;
     }
 
     if ((rc = submit()) != LCB_SUCCESS) {
         finish(rc);
+    }
+}
+
+static lcbvb_SVCTYPE
+httype2svctype(unsigned httype)
+{
+    switch (httype) {
+    case LCB_HTTP_TYPE_VIEW:
+        return LCBVB_SVCTYPE_VIEWS;
+    case LCB_HTTP_TYPE_N1QL:
+        return LCBVB_SVCTYPE_N1QL;
+    case LCB_HTTP_TYPE_FTS:
+        return LCBVB_SVCTYPE_FTS;
+    default:
+        return LCBVB_SVCTYPE__MAX;
     }
 }
 
@@ -361,8 +386,7 @@ Request::get_api_node(lcb_error_t &rc)
         return NULL;
     }
 
-    const lcbvb_SVCTYPE svc = reqtype == LCB_HTTP_TYPE_VIEW ?
-            LCBVB_SVCTYPE_VIEWS : LCBVB_SVCTYPE_N1QL;
+    const lcbvb_SVCTYPE svc = httype2svctype(reqtype);
     const lcbvb_SVCMODE mode = LCBT_SETTING(instance, sslopts) ?
             LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN;
 
@@ -405,9 +429,10 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
         if (cmd->host) {
             return LCB_EINVAL;
         }
-        if (username == NULL && password == NULL) {
-            username = LCBT_SETTING(instance, username);
-            password = LCBT_SETTING(instance, password);
+        if (cmd->cmdflags & LCB_CMDHTTP_F_NOUPASS) {
+            username = password = NULL;
+        } else if (username == NULL && password == NULL) {
+            lcbauth_get_upass(LCBT_SETTING(instance, auth), &username, &password);
         }
 
         base = get_api_node(rc);
@@ -490,6 +515,7 @@ Request::timeout() const
     }
     switch (reqtype) {
     case LCB_HTTP_TYPE_N1QL:
+    case LCB_HTTP_TYPE_FTS:
         return LCBT_SETTING(instance, n1ql_timeout);
     case LCB_HTTP_TYPE_VIEW:
         return LCBT_SETTING(instance, views_timeout);

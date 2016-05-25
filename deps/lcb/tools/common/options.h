@@ -4,6 +4,9 @@
 #define CLIOPTS_ENABLE_CXX 1
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/api3.h>
+#include <exception>
+#include <stdexcept>
+#include <sstream>
 #include "contrib/cliopts/cliopts.h"
 
 #define CBC_CONFIG_FILENAME ".cbcrc"
@@ -28,6 +31,25 @@ namespace cbc {
     X(Bool, dump, "dump", '\0') \
     X(List, cparams, "cparam", 'D')
 
+
+class LcbError : public std::runtime_error {
+private:
+    static std::string format_err(lcb_error_t err) {
+        std::stringstream ss;
+        ss << "libcouchbase error: " << lcb_strerror(NULL, err);
+        ss << " (0x" << std::hex << err << ")";
+        return ss.str();
+    }
+
+public:
+    lcb_error_t rc;
+    LcbError(lcb_error_t code) : std::runtime_error(format_err(code)) {}
+};
+
+class BadArg : public std::runtime_error {
+public:
+    BadArg(std::string w) : std::runtime_error(w) {}
+};
 
 class ConnParams {
 public:

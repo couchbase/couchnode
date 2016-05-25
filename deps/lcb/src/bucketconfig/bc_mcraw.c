@@ -65,7 +65,7 @@ static void configure_nodes(clconfig_provider *pb, const hostlist_t hl)
     lcbvb_CONFIG *newconfig;
     unsigned ii, nsrv;
 
-    nsrv = hl->nentries;
+    nsrv = hostlist_size(hl);
 
     if (!nsrv) {
         lcb_log(LOGARGS(mcr, FATAL), "No nodes provided");
@@ -75,7 +75,7 @@ static void configure_nodes(clconfig_provider *pb, const hostlist_t hl)
     servers = calloc(nsrv, sizeof(*servers));
     for (ii = 0; ii < nsrv; ii++) {
         int itmp;
-        const lcb_host_t *curhost = hl->entries + ii;
+        const lcb_host_t *curhost = hostlist_get(hl, ii);
         lcbvb_SERVER *srv = servers + ii;
 
         /* just set the memcached port and hostname */

@@ -1,5 +1,122 @@
 # Release Notes
 
+## 2.6.0 (May 17 2016)
+
+* Improve index management API and implementation. The `rawjson` field was
+  being ignored and the `condition` field was missing as well.
+
+* Add pillowfight support for subdoc. At the simplest level you can simply
+  invoke pillowfight as `cbc-pillowfight --subdoc --json <other args>`.
+  Refer to the pillowfight documentation for more details.
+
+## 2.5.8 (April 19 2016)
+
+* Fix SSL connectivity errors with views and HTTP bootstrapping.
+  This would cause network connectivity issues when attempting to bootstrap
+  via `https://` or using views (`lcb_view_query()`). The fix is a workaround
+  to not advertise older SSL encryption methods.
+  * Priority: Major
+  * Issues: [CCBC-688](https://issues.couchbase.com/browse/CCBC-688)
+
+* Do not abort when receiving a memcached EINVAL response.
+  While the client should never end up in a situation where it receives an
+  `EINVAL` from the server, it should nevertheless not terminate the execution
+  of the current process. This bug was introduced in 2.5.6
+  * Issues: [CCBC-689](https://issues.couchbase.com/browse/CCBC-689)
+
+* Fix memory leak when using N1QL prepared statements.
+  Prepared statements would never be freed, even when the client handle was
+  destroyed (`lcb_destroy()`) causing a slight memory leak.
+
+* Append CRLF header after host header.
+  This would sometimes result in odd HTTP headers being sent out.
+  * Issues: [CCBC-694](https://issues.couchbase.com/browse/CCBC-694)
+
+* Experimental CBFT (Full-Text search API)
+  This version adds a new fulltext api. The API is a row-based API similar
+  to N1QL and MapReduce. See the `<libcouchbase/cbft.h>` header for more details.
+  The API is experimental and subject to change.
+  * Issues: [CCBC-638](https://issues.couchbase.com/browse/CCBC-638)
+
+* Allow additional client identifier for HELLO command.
+  The SDK sends a version string to the server when doing initial negotiation.
+  The server then uses this string in the context of any logging messages
+  pertaining to that connection. In this version, a new setting has been added
+  to allow 'user-defined' version strings to be appended to the logs. Note that
+  this feature is intended only for use with wrapping SDKs such as Python, node.js
+  and PHP so that their versions can be present in the log messages as well.
+  This setting is exposed as a string control (in the connection string, or
+  `lcb_cntl_string()` with the name of `client_string`.
+  * Issues: [CCBC-693](https://issues.couchbase.com/browse/CCBC-693)
+
+* vBucket retry logic changes.
+  The client will now retry at constant 100ms rate when receiving not-my-vbucket
+  error replies from the server (adjustable using `retry_nmv_interval`).
+  It will also only use fast-forward map to determine the new location for the
+  vbucket, and will not use extended hueristics.
+
+  The most noteworthy user-visible change is the 100ms retry interval which
+  will significantly decrease the network traffic used by the SDK
+  during a rebalance.
+
+  To restore the pre-2.5.8 behavior (i.e. use extended heuristics and and
+  exponential retry rate), specify `vb_noguess=false`.
+  * Priority: Major
+  * Issues: [CCBC-660](https://issues.couchbase.com/browse/CCBC-660)
+
+* Add interface for multi-bucket authentication.
+  A new API has been added to modify and add additional bucket/password
+  pairs in the library. This is done using `lcb_cntl` and the `LCB_CNTL_BUCKET_CRED`
+  setting.
+
+  Note that this functionality is not yet used in N1QL queries due to
+  [MB-16964](https://issues.couchbase.com/browse/MB-16964)
+  * Priority: Minor
+  * Issues: [CCBC-661](https://issues.couchbase.com/browse/CCBC-661)
+
+
+## 2.5.7 (March 22 2016)
+
+* High-level index management operations.
+  A volatile API for high level index management operations has been added to
+  assist in common N1QL index operations such as creating the primary index
+  and removing indexes.
+  * Priority: Major
+  * Issues: [CCBC-662](https://issues.couchbase.com/browse/CCBC-662)
+
+* Fix N1QL mutation token queries.
+  This fixes some bugs in the previous implementation of the way mutation tokens
+  were handled with `lcb_N1QLPARAMS`. The bugs and fixes only affect consumers
+  of that API. Couchbase SDKs do not consume this API
+  * Priority: Minor
+  * Issues: [CCBC-658](https://issues.couchbase.com/browse/CCBC-658)
+
+* Throttle config request retries on empty NMVB responses.
+  This changes the previous behavior where a new configuration would be
+  retrieved _immediately_ upon a not-my-vbucket reply if a configuration
+  was not included within the error reply itself. The new behavior is to
+  request a delayed retry (i.e. subject to the default throttle settings)
+  if the current configuration originated from the CCCP (Memcached) provider.
+  * Priority: Major
+  * Issues: [CCBC-681](https://issues.couchbase.com/browse/CCBC-681)
+
+* Rename `LCB_CLIENT_ETMPFAIL` to `LCB_CLIENT_ENOCONF`.
+  This error code is returned only when there is no current client configuration.
+  This error condition is _not_ temporary and is actually fatal; a result of
+  an initial bootstrapping failure. Note that the older name is still valid
+  in older code for compatibility purposes.
+  * Priority: Minor
+  * Issues: [CCBC-679](https://issues.couchbase.com/browse/CCBC-679)
+
+* Include PID in log messages on OS X.
+  This makes the library logs (via `LCB_LOGLEVEL` etc.) easier to read on a
+  mac. Previously this used to display only the thread ID, which was identical
+  for multiple processes. Now the display reads as _pid/tid_, making it easier
+  to read the logs in a multi-process environment.
+  * Priority: Minor
+  * Issues: [CCBC-677](https://issues.couchbase.com/browse/CCBC-677)
+
+
 ## 2.5.6 (February 18 2016)
 
 * Sub-Document API (_experimental_)
@@ -784,7 +901,7 @@ new 2.5 version is built on the 2.4.x codebase.
   feature, a `cbc stats --keystats` option is also provided to employ
   this functionality from the command line.
   * Priority: Major
-  * Issues: [CCBC-318](http://couchbase.com/issues/CCBC-318)
+  * Issues: [CCBC-318](http://issues.couchbase.com/browse/CCBC-318)
 
 * Add more details about replica nodes in the `cbc hash` command.
   * Priority: Minor
@@ -795,7 +912,7 @@ new 2.5 version is built on the 2.4.x codebase.
   could be retrieved. Using the `LCB_CNTL_BUCKETNAME` setting, the bucket
   name will now be returned.
   * Priority: Major
-  * Issues: [CCBC-502](http://couchbase.com/issues/CCBC-502)
+  * Issues: [CCBC-502](http://issues.couchbase.com/browse/CCBC-502)
 
 ## 2.4.1
 

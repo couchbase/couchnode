@@ -25,35 +25,24 @@
 /* We're gonna try to be extra careful in this function since many SDKs use
  * this to display node and/or host-port information.*/
 
-static int
-ensure_scratch(lcb_t instance, lcb_SIZE capacity)
+static std::string&
+ensure_scratch(lcb_t instance)
 {
     if (!instance->scratch) {
-        instance->scratch = calloc(1, sizeof(*instance->scratch));
-        if (!instance->scratch) {
-            return 0;
-        }
-        lcb_string_init(instance->scratch);
-    } else {
-        lcb_string_clear(instance->scratch);
+        instance->scratch = new std::string;
     }
-
-    if (0 != lcb_string_reserve(instance->scratch, capacity)) {
-        return 0;
-    }
-    return 1;
+    instance->scratch->clear();
+    return *instance->scratch;
 }
 
 static const char *
 mk_scratch_host(lcb_t instance, const lcb_host_t *host)
 {
-    if (!ensure_scratch(instance, strlen(host->host)+strlen(host->port)+2)) {
-        return NULL;
-    }
-    lcb_string_appendz(instance->scratch, host->host);
-    lcb_string_appendz(instance->scratch, ":");
-    lcb_string_appendz(instance->scratch, host->port);
-    return instance->scratch->base;
+    std::string& s = ensure_scratch(instance);
+    s.append(host->host);
+    s.append(":");
+    s.append(host->port);
+    return s.c_str();
 }
 
 static const char *
@@ -101,21 +90,15 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
                     return NULL;
                 }
             }
-            if (hp == NULL && instance->ht_nodes && instance->ht_nodes->nentries) {
-                ix %= instance->ht_nodes->nentries;
-                hostlist_ensure_strlist(instance->ht_nodes);
-                hp = instance->ht_nodes->slentries[ix];
+            if (hp == NULL && instance->ht_nodes && !instance->ht_nodes->empty()) {
+                ix %= instance->ht_nodes->size();
+                instance->ht_nodes->ensure_strlist();
+                hp = instance->ht_nodes->hoststrs[ix];
             }
             if (!hp) {
-                if ((hp = return_badhost(type)) == NULL) {
-                    return NULL;
-                }
+                return return_badhost(type);
             }
-            if (!ensure_scratch(instance, strlen(hp)+1)) {
-                return NULL;
-            }
-            lcb_string_appendz(instance->scratch, hp);
-            return instance->scratch->base;
+            return ensure_scratch(instance).append(hp).c_str();
         }
     } else if (type & (LCB_NODE_DATA|LCB_NODE_VIEWS)) {
         const mc_SERVER *server;
@@ -143,10 +126,14 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
 LIBCOUCHBASE_API const char * lcb_get_host(lcb_t instance) {
     char *colon;
     const char *rv = lcb_get_node(instance,
-        LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL, 0);
+        static_cast<lcb_GETNODETYPE>(LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL), 0);
     if (rv != NULL && (colon = (char *)strstr(rv, ":"))  != NULL) {
-        if (instance->scratch && rv == instance->scratch->base) {
-            *colon = '\0';
+        if (instance->scratch && rv == instance->scratch->c_str()) {
+            // We have a colon
+            size_t colon_pos = instance->scratch->find(':');
+            if (colon_pos != std::string::npos) {
+                instance->scratch->erase(colon_pos);
+            }
         }
     }
     return rv;
@@ -154,7 +141,7 @@ LIBCOUCHBASE_API const char * lcb_get_host(lcb_t instance) {
 
 LIBCOUCHBASE_API const char * lcb_get_port(lcb_t instance) {
     const char *rv = lcb_get_node(instance,
-        LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL, 0);
+        static_cast<lcb_GETNODETYPE>(LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL), 0);
     if (rv && (rv = strstr(rv, ":"))) {
         rv++;
     }
@@ -184,8 +171,7 @@ lcb_int32_t lcb_get_num_nodes(lcb_t instance)
 LIBCOUCHBASE_API
 const char *const *lcb_get_server_list(lcb_t instance)
 {
-    hostlist_ensure_strlist(instance->ht_nodes);
-    return (const char * const * )instance->ht_nodes->slentries;
+    return hostlist_strents(instance->ht_nodes);
 }
 
 LIBCOUCHBASE_API

@@ -184,6 +184,25 @@ void lcb_string_erase_beginning(lcb_string *str, lcb_size_t to_remove)
     ensure_cstr(str);
 }
 
+int lcb_string_insert(lcb_string *str, size_t at, const char *src, size_t nsrc)
+{
+    if (!nsrc) {
+        return 0;
+    }
+    if (at == str->nused) {
+        return lcb_string_append(str, src, nsrc);
+    }
+
+    if (lcb_string_reserve(str, nsrc) != 0) {
+        return -1;
+    }
+    memmove(str->base + at + nsrc, str->base + at, str->nused - at);
+    memcpy(str->base + at, src, nsrc);
+    str->nused += nsrc;
+    ensure_cstr(str);
+    return 0;
+}
+
 void lcb_string_transfer(lcb_string *from, lcb_string *to)
 {
     lcb_assert(to->base == NULL);

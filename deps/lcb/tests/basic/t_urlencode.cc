@@ -23,176 +23,110 @@ class UrlEncoding : public ::testing::Test
 {
 };
 
+using lcb::strcodecs::urlencode;
+using lcb::strcodecs::urldecode;
+
 TEST_F(UrlEncoding, plainTextTests)
 {
-    char *out = NULL;
-    lcb_size_t nout;
-
     std::string input("abcdef");
     std::string exp("abcdef");
-
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-    EXPECT_EQ(exp, output);
-    free(out);
+    std::string out;
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(exp, out);
 }
 
 TEST_F(UrlEncoding, plainTextWithSlashTests)
 {
-    char *out = NULL;
-    lcb_size_t nout;
-
     std::string input("a/b/c/d/e/f/g/h/i/j");
-
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-    EXPECT_EQ(input, output);
-    free(out);
+    std::string out;
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(input, out);
 }
 
 TEST_F(UrlEncoding, plainTextWithSpaceTests)
 {
-    char *out = NULL;
-    lcb_size_t nout;
-
+    std::string out;
     std::string input("a b c d e f g");
     std::string exp("a%20b%20c%20d%20e%20f%20g");
-
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-    EXPECT_EQ(exp, output);
-    free(out);
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(exp, out);
 }
 
 TEST_F(UrlEncoding, encodedTextWithPlusAsApaceTests)
 {
-    char *out = NULL;
-    lcb_size_t nout;
-
     std::string input("a+b+c+d+e+g+h");
-
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-    EXPECT_EQ(input, output);
-    free(out);
+    std::string out;
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(input, out);
 }
 
 TEST_F(UrlEncoding, encodedTextWithPlusAndHexAsApaceTests)
 {
-    char *out = NULL;
-    lcb_size_t nout;
-
     std::string input("a+b%20c%20d+e+g+h");
-
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-    EXPECT_EQ(input, output);
-    free(out);
+    std::string out;
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(input, out);
 }
 
 TEST_F(UrlEncoding, mixedLegalTextTests)
 {
-    char *out = NULL;
-    lcb_size_t nout;
-
     std::string input("a/b/c/d/e f g+32%20");
     std::string exp("a/b/c/d/e%20f%20g+32%20");
+    std::string out;
 
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-
-    EXPECT_EQ(exp, output);
-    free(out);
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(exp, out);
 }
 
 TEST_F(UrlEncoding, mixedIllegalEncodingTextTests)
 {
-    char *out = NULL;
-    lcb_size_t nout;
-
     std::string input("a+ ");
-
-    EXPECT_EQ(LCB_INVALID_CHAR, lcb_urlencode_path(input.data(),
-                                                   input.length(),
-                                                   &out, &nout));
+    std::string out;
+    ASSERT_FALSE(urlencode(input.begin(), input.end(), out));
 }
 
 TEST_F(UrlEncoding, internationalTest)
 {
-    char *out = NULL;
-    lcb_size_t nout;
     std::string input("_design/beer/_view/all?startkey=\"\xc3\xb8l\"");
     std::string exp("_design/beer/_view/all?startkey=%22%C3%B8l%22");
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-    EXPECT_EQ(exp, output);
-    free(out);
+    std::string out;
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(exp, out);
 }
 
 TEST_F(UrlEncoding, internationalEncodedTest)
 {
-    char *out = NULL;
-    lcb_size_t nout;
     std::string input("_design/beer/_view/all?startkey=%22%C3%B8l%22");
     std::string exp("_design/beer/_view/all?startkey=%22%C3%B8l%22");
-    EXPECT_EQ(LCB_SUCCESS, lcb_urlencode_path(input.data(), input.length(),
-                                              &out, &nout));
-    std::string output(out, nout);
-
-    EXPECT_EQ(exp, output);
-    free(out);
+    std::string out;
+    ASSERT_TRUE(urlencode(input.begin(), input.end(), out));
+    ASSERT_EQ(exp, out);
 }
 
 TEST_F(UrlEncoding, testDecode)
 {
     char obuf[4096];
-    ASSERT_EQ(0, lcb_urldecode("%22", obuf, 3)) << "Single character";
+
+    ASSERT_TRUE(urldecode("%22", obuf)) << "Single character";
     ASSERT_STREQ("\x22", obuf);
 
-    ASSERT_EQ(0, lcb_urldecode("Hello World", obuf, -1)) << "No pct encode";
+    ASSERT_TRUE(urldecode("Hello World", obuf)) << "No pct encode";
     ASSERT_STREQ("Hello World", obuf);
 
-    ASSERT_EQ(0, lcb_urldecode("Hello%20World", obuf, -1));
+    ASSERT_TRUE(urldecode("Hello%20World", obuf));
     ASSERT_STREQ("Hello World", obuf);
 
-    ASSERT_EQ(0, lcb_urldecode("%2Ffoo%2Fbar%2Fbaz%2F", obuf, -1));
+    ASSERT_TRUE(urldecode("%2Ffoo%2Fbar%2Fbaz%2F", obuf));
     ASSERT_STREQ("/foo/bar/baz/", obuf);
 
-    ASSERT_EQ(0, lcb_urldecode("%01%02%03%04", obuf, -1)) << "Multiple octets";
+    ASSERT_TRUE(urldecode("%01%02%03%04", obuf)) << "Multiple octets";
     ASSERT_STREQ("\x01\x02\x03\x04", obuf);
 
-    ASSERT_EQ(0, lcb_urldecode("%FFFF", obuf, -1)) << "Recognize only first two hex digits";
+    ASSERT_TRUE(urldecode("%FFFF", obuf)) << "Recognize only first two hex digits";
     // Split the hex literal so we don't confuse the preprocessor
     ASSERT_STREQ("\xff" "FF", obuf);
 
     // Error tests
-    ASSERT_EQ(-1, lcb_urldecode("%", obuf, -1));
-    ASSERT_EQ(-1, lcb_urldecode("%22", obuf, 1));
-    ASSERT_EQ(-1, lcb_urldecode("%22", obuf, 2));
-    ASSERT_EQ(-1, lcb_urldecode("%RR", obuf, -1)) << "Invalid hex digits";
-}
-
-TEST_F(UrlEncoding, testUserBuffer)
-{
-    char buf[1024];
-    char *pp = buf;
-    const char *pth = "/foo/bar/baz";
-    lcb_size_t n;
-    lcb_error_t rc = lcb_urlencode_path(pth, strlen(pth), &pp, &n);
-    ASSERT_EQ(LCB_SUCCESS, rc);
-    ASSERT_EQ(buf, pp);
+    ASSERT_FALSE(urldecode("%", obuf));
+    ASSERT_FALSE(urldecode("%RR", obuf)) << "Invalid hex digits";
 }

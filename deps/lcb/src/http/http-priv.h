@@ -28,7 +28,8 @@
 #include <vector>
 #include <set>
 
-namespace lcbhtapi {
+namespace lcb {
+namespace http {
 
 // Simple object for header key and value
 struct Header {
@@ -140,7 +141,9 @@ struct Request {
      */
     uint32_t timeout() const;
     bool is_data_request() const {
-        return reqtype == LCB_HTTP_TYPE_N1QL || reqtype == LCB_HTTP_TYPE_VIEW;
+        return reqtype == LCB_HTTP_TYPE_N1QL ||
+                reqtype == LCB_HTTP_TYPE_VIEW ||
+                reqtype == LCB_HTTP_TYPE_FTS;
     }
 
     /**
@@ -296,8 +299,9 @@ struct Request {
     void incref() { refcount++; }
 };
 
-} // namespace
+} // namespace: http
+} // namespace: lcb
 
-struct lcb_http_request_st : public lcbhtapi::Request {};
+struct lcb_http_request_st : public lcb::http::Request {};
 
 #endif /* HEADER GUARD */

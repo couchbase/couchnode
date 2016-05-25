@@ -67,7 +67,9 @@ my @HELP_DESCRIPTIONS = (
     [ "disable-snappy", "",
         "Do not build static snappy",
         "%d", \(my $NO_SNAPPY = 0)],
-
+    [ "enable-snappy", "",
+        "Enable experimental snappy support",
+        "%d", \(my $ENABLE_SNAPPY = 0)],
     [ "enable-static-snappy", "",
         "Build the bundled snappy and do not link against the system version",
         "%d", \(my $STATIC_SNAPPY = 0) ],
@@ -285,6 +287,9 @@ if ($SNAPPY_ROOT) {
 }
 if ($NO_SNAPPY) {
     push @CM_OPTIONS, "-DLCB_NO_SNAPPY=1";
+}
+if ($ENABLE_SNAPPY) {
+    push @CM_OPTIONS, "-DLCB_NO_SNAPPY=0";
 }
 if ($STATIC_SNAPPY) {
     push @CM_OPTIONS, "-DLCB_STATIC_SNAPPY";

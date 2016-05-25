@@ -13,6 +13,9 @@
 #define LOGID(req) static_cast<const void*>(req)
 #define LOGARGS(req, lvl) req->instance->settings, "n1ql", LCB_LOG_##lvl, __FILE__, __LINE__
 
+// Indicate that the 'creds' field is to be used.
+#define F_CMDN1QL_CREDSAUTH 1<<15
+
 class Plan {
 private:
     friend struct lcb_N1QLCACHE_st;
@@ -132,6 +135,10 @@ struct lcb_N1QLCACHE_st {
         lru.clear();
         by_name.clear();
     }
+
+    ~lcb_N1QLCACHE_st() {
+        clear();
+    }
 };
 
 typedef struct lcb_N1QLREQ {
@@ -152,6 +159,7 @@ typedef struct lcb_N1QLREQ {
 
     /** Request body as received from the application */
     Json::Value json;
+    const Json::Value& json_const() const { return json; }
 
     /** String of the original statement. Cached here to avoid jsoncpp lookups */
     std::string statement;
@@ -279,12 +287,15 @@ has_retriable_error(const Json::Value& root)
         if (!cur.isObject()) {
             continue; // eh?
         }
-        std::string msg = cur["msg"].asString();
-        unsigned code = cur["code"].asUInt();
-        if (code == 4050 || code == 4070) {
-            return true;
+        const Json::Value& jmsg = cur["msg"];
+        const Json::Value& jcode = cur["code"];
+        if (jcode.isNumeric()) {
+            unsigned code = jcode.asUInt();
+            if (code == 4050 || code == 4070) {
+                return true;
+            }
         }
-        if (msg.find(WTF_MAGIC_STRING) != std::string::npos) {
+        if (jmsg.isString() && strstr(jmsg.asCString(), WTF_MAGIC_STRING) != NULL) {
             return true;
         }
     }
@@ -501,8 +512,12 @@ N1QLREQ::issue_htreq(const std::string& body)
     htcmd.content_type = "application/json";
     htcmd.method = LCB_HTTP_METHOD_POST;
     htcmd.type = LCB_HTTP_TYPE_N1QL;
-    htcmd.cmdflags = LCB_CMDHTTP_F_STREAM;
+    htcmd.cmdflags = LCB_CMDHTTP_F_STREAM|LCB_CMDHTTP_F_CASTMO;
+    if (flags & F_CMDN1QL_CREDSAUTH) {
+        htcmd.cmdflags |= LCB_CMDHTTP_F_NOUPASS;
+    }
     htcmd.reqhandle = &htreq;
+    htcmd.cas = timeout;
 
     lcb_error_t rc = lcb_http3(instance, this, &htcmd);
     if (rc == LCB_SUCCESS) {
@@ -585,9 +600,12 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
         return;
     }
 
-    statement = json["statement"].asString();
-    if (statement.empty()) {
-        json.removeMember("statement");
+    const Json::Value& j_statement = json_const()["statement"];
+    if (j_statement.isString()) {
+        statement = j_statement.asString();
+    } else if (!j_statement.isNull()) {
+        lasterr = LCB_EINVAL;
+        return;
     }
 
     Json::Value& tmoval = json["timeout"];
@@ -598,8 +616,35 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
         sprintf(buf, "%uus", LCBT_SETTING(obj, n1ql_timeout));
         tmoval = buf;
         timeout = LCBT_SETTING(obj, n1ql_timeout);
-    } else {
+    } else if (tmoval.isString()) {
         timeout = lcb_n1qlreq_parsetmo(tmoval.asString());
+    } else {
+        // Timeout is not a string!
+        lasterr = LCB_EINVAL;
+        return;
+    }
+
+    // Determine if we need to add more credentials.
+    // Because N1QL multi-bucket auth will not work on server versions < 4.5
+    // using JSON encoding, we need to only use the multi-bucket auth feature
+    // if there are actually multiple credentials to employ.
+    const lcb::Authenticator& auth = *instance->settings->auth;
+    if (auth.buckets().size() > 1) {
+        flags |= F_CMDN1QL_CREDSAUTH;
+        Json::Value& creds = json["creds"];
+        lcb::Authenticator::Map::const_iterator ii = auth.buckets().begin();
+        if (! (creds.isNull() || creds.isArray())) {
+            lasterr = LCB_EINVAL;
+            return;
+        }
+        for (; ii != auth.buckets().end(); ++ii) {
+            if (ii->second.empty()) {
+                continue;
+            }
+            Json::Value& curCreds = creds.append(Json::Value(Json::objectValue));
+            curCreds["user"] = ii->first;
+            curCreds["pass"] = ii->second;
+        }
     }
 }
 
@@ -664,6 +709,15 @@ LIBCOUCHBASE_API
 void
 lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle)
 {
+    // Note that this function is just an elaborate way to nullify the
+    // callback. We are very particular about _not_ cancelling the underlying
+    // http request, because the handle's deletion is controlled
+    // from the HTTP callback, which checks if the callback is NULL before
+    // deleting.
+    // at worst, deferring deletion to the http response might cost a few
+    // extra network reads; whereas this function itself is intended as a
+    // bailout for unexpected destruction.
+
     if (handle->prepare_req) {
         lcb_n1ql_cancel(instance, handle->prepare_req);
         handle->prepare_req = NULL;

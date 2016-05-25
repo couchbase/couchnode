@@ -55,7 +55,7 @@ typedef struct lcbio_TABLE {
 } lcbio_TABLE;
 
 /** Whether the underlying model is event-based */
-#define IOT_IS_EVENT(iot) (iot)->model == LCB_IOMODEL_EVENT
+#define IOT_IS_EVENT(iot) ((iot)->model == LCB_IOMODEL_EVENT)
 
 /** Returns an lcb_ev_procs structure for event-based I/O */
 #define IOT_V0EV(iot) (iot)->u_io.v0.ev

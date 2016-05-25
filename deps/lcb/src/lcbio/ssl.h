@@ -51,7 +51,7 @@ typedef struct lcbio_SSLCTX *lcbio_pSSLCTX;
 int
 lcbio_ssl_supported(void);
 
-void*
+lcbio_pSSLCTX
 lcbio_ssl_new__fallback(const char *, int, lcb_error_t *, lcb_settings *);
 
 #ifndef LCB_NO_SSL

@@ -391,7 +391,7 @@ void
 rdb_seg_unref(rdb_ROPESEG *seg);
 
 /** @private */
-#define rdb_seg_recyclable(seg) ((seg)->shflags & RDB_ROPESEG_F_USER) == 0
+#define rdb_seg_recyclable(seg) (((seg)->shflags & RDB_ROPESEG_F_USER) == 0)
 
 /**
  * Get the first segment. Useful for associating a contiguous consolidated

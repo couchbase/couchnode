@@ -18,15 +18,14 @@
 #ifndef LCB_PACKETUTILS_H
 #define LCB_PACKETUTILS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <libcouchbase/couchbase.h>
 #include "ringbuffer.h"
 #include "rdb/rope.h"
 #include "memcached/protocol_binary.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * Response packet informational structure.
  *

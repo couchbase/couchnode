@@ -18,10 +18,6 @@
 #ifndef LCB_HOSTLIST_H
 #define LCB_HOSTLIST_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "config.h"
 #include <libcouchbase/couchbase.h>
 
@@ -38,14 +34,46 @@ typedef struct lcb_host_st {
  * Structure representing a list of hosts. This has an internal iteration
  * index which is used to cycle between 'good' and 'bad' hosts.
  */
-typedef struct hostlist_st {
+#ifndef __cplusplus
+struct hostlist_st;
+typedef struct hostlist_st *hostlist_t;
+#else
+#include <vector>
+
+namespace lcb {
+struct Hostlist {
+    Hostlist() : ix(0) {}
+    ~Hostlist();
+
+    void add(const lcb_host_t&);
+    lcb_error_t add(const char *s, long len, int deflport);
+    lcb_error_t add(const char *s, int deflport) { return add(s, -1, deflport); }
+    bool exists(const lcb_host_t&) const;
+    bool exists(const char *hostport) const;
+    lcb_host_t *next(bool wrap);
+    bool finished() const;
+
+    size_t size() const { return hosts.size(); }
+    bool empty() const { return hosts.empty(); }
+    Hostlist& assign(const Hostlist& other);
+    void clear() { hosts.clear(); reset_strlist(); ix = 0; }
+    void randomize();
+    void ensure_strlist();
+    void reset_strlist();
     unsigned int ix;
-    lcb_host_t *entries;
-    lcb_size_t nentries;
-    lcb_size_t nalloc;
-    /** So we can return this easily */
-    char **slentries;
-} *hostlist_t;
+    const lcb_host_t& operator[](size_t ix_) const { return hosts[ix_]; }
+
+    std::vector<lcb_host_t> hosts;
+    std::vector<const char *> hoststrs;
+};
+}
+typedef lcb::Hostlist* hostlist_t;
+#define hostlist_st lcb::Hostlist
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Creates a new hostlist. Returns NULL on allocation failure
@@ -126,17 +154,17 @@ lcb_host_t *hostlist_shift_next(hostlist_t hostlist, int rollover);
 void hostlist_randomize(hostlist_t hostlist);
 
 /**
- * Whether the internal iterator has finished.
- */
-#define hostlist_finished(hostlist) (hostlist->ix == hostlist->nentries)
-
-/**
  * String list handling functions. These are used to return the hostlist via
  * the API where we return a char*[] terminated by a NULL pointer.
  */
-void hostlist_ensure_strlist(hostlist_t hostlist);
 void hostlist_reset_strlist(hostlist_t hostlist);
 
+/** Whether the internal iterator has finished. */
+int hostlist_finished(hostlist_t);
+size_t hostlist_size(const hostlist_t hl);
+void hostlist_assign(hostlist_t dst, const hostlist_t src);
+const lcb_host_t *hostlist_get(const hostlist_t, size_t);
+const char * const *hostlist_strents(const hostlist_t hl);
 #ifdef __cplusplus
 }
 #endif
