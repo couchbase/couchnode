@@ -18,8 +18,14 @@
 #ifndef TOKEN_H_
 #define TOKEN_H_
 
+#ifndef COUCHBASE_H
+#error "include couchbase_impl.h first"
+#endif
+
 namespace Couchnode
 {
+
+using namespace v8;
 
 class MutationToken
 {
@@ -28,8 +34,8 @@ public:
     static NAN_METHOD(fnToString);
     static NAN_METHOD(fnInspect);
 
-    static bool GetToken(v8::Local<v8::Value>, lcb_MUTATION_TOKEN*);
-    static v8::Handle<v8::Value> CreateToken(const lcb_MUTATION_TOKEN*);
+    static bool GetToken(v8::Local<v8::Value>, lcb_MUTATION_TOKEN*, int);
+    static v8::Handle<v8::Value> CreateToken(lcb_t instance, const lcb_MUTATION_TOKEN*);
 
 private:
     static Nan::Persistent<v8::Function> tokenClass;
