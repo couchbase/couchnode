@@ -455,6 +455,53 @@ void n1qlrow_callback(lcb_t instance, int ignoreme,
     callback->Call(2, args);
 }
 
+void ftsrow_callback(lcb_t instance, int ignoreme,
+        const lcb_RESPFTS *resp)
+{
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope scope;
+
+    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
+
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        Local<Value> dataRes;
+        if (resp->rc != LCB_SUCCESS) {
+            if (resp->row) {
+                dataRes = Nan::New<String>((const char*)resp->row, (int)resp->nrow).ToLocalChecked();
+            } else {
+                dataRes = Nan::Null();
+            }
+        } else {
+            Handle<Value> metaStr =
+                    Nan::New<String>((const char*)resp->row, (int)resp->nrow).ToLocalChecked();
+            dataRes = jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &metaStr);
+            Local<Object> metaObj = dataRes->ToObject();
+            if (!metaObj.IsEmpty()) {
+                metaObj->Delete(Nan::New(CouchbaseImpl::resultsKey));
+            }
+        }
+
+        Local<Value> args[] = {
+                Nan::New<Number>(resp->rc),
+                dataRes
+        };
+        callback->Call(2, args);
+
+        delete callback;
+        return;
+    }
+
+    Handle<Value> rowStr =
+            Nan::New<String>((const char*)resp->row, (int)resp->nrow).ToLocalChecked();
+    Local<Value> rowObj =
+            jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &rowStr);
+    Local<Value> args[] = {
+            Nan::New<Number>(-1),
+            rowObj
+    };
+    callback->Call(2, args);
+}
+
 static void
 subdoc_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase)
 {

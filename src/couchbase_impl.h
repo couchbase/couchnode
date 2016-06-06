@@ -54,6 +54,7 @@
 #include <libcouchbase/api3.h>
 #include <libcouchbase/views.h>
 #include <libcouchbase/n1ql.h>
+#include <libcouchbase/cbft.h>
 
 #include "cas.h"
 #include "token.h"
@@ -124,6 +125,7 @@ public:
     static NAN_METHOD(fnDurability);
     static NAN_METHOD(fnViewQuery);
     static NAN_METHOD(fnN1qlQuery);
+    static NAN_METHOD(fnFtsQuery);
     static NAN_METHOD(fnLookupIn);
     static NAN_METHOD(fnMutateIn);
 
@@ -178,6 +180,8 @@ void viewrow_callback(lcb_t instance, int ignoreme,
         const lcb_RESPVIEWQUERY *resp);
 void n1qlrow_callback(lcb_t instance, int ignoreme,
         const lcb_RESPN1QL *resp);
+void ftsrow_callback(lcb_t instance, int ignoreme,
+        const lcb_RESPFTS *resp);
 }
 
 #endif

@@ -418,6 +418,38 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     return info.GetReturnValue().Set(true);
 }
 
+NAN_METHOD(CouchbaseImpl::fnFtsQuery) {
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_CMDFTS cmd;
+    void *cookie;
+    Nan::HandleScope scope;
+    CommandEncoder enc;
+
+    Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.callback = ftsrow_callback;
+
+    Handle<Value> optsinfo[] = { info[0] };
+    Local<Value> optsVal =
+            jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, optsinfo);
+    Local<String> optsStr = optsVal.As<String>();
+    if (!enc.parseString(&cmd.query, &cmd.nquery, optsStr)) {
+        return Nan::ThrowError(Error::create("bad opts passed"));
+    }
+
+    if (!enc.parseCookie(&cookie, info[1])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_error_t err = lcb_fts_query(me->getLcbHandle(), cookie, &cmd);
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}
+
 NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDSUBDOC cmd;
