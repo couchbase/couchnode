@@ -1,7 +1,6 @@
 'use strict';
 
 var couchbase = require('./../lib/couchbase.js');
-var fs = require('fs');
 var util = require('util');
 var assert = require('assert');
 
@@ -52,8 +51,10 @@ Harness.prototype.okCallback = function(target) {
   var stack = (new Error()).stack;
   return function(err, res) {
     if (err) {
+      /*eslint-disable no-console */
       console.log(stack);
       console.log(err);
+      /*eslint-enable no-console */
       assert(!err, err);
     }
     assert(typeof res === 'object', 'Result is missing');

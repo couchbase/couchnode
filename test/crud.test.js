@@ -298,7 +298,7 @@ describe('#crud', function () {
         it('should fail on a timed out lock (slow)', function(done) {
           this.timeout(3000);
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
+          H.b.insert(key, 'foo', H.okCallback(function() {
             H.b.getAndLock(key, {lockTime:1}, H.okCallback(function(lockRes) {
               setTimeout(function() {
                 H.b.unlock(key, lockRes.cas, function(err, res) {
@@ -560,7 +560,7 @@ describe('#crud', function () {
     it('should fail to insert an already existing document', function(done) {
       var key = H.key();
       H.b.insert(key, 'bar', H.okCallback(function() {
-        H.b.insert(key, 'foo', function(err, res) {
+        H.b.insert(key, 'foo', function(err) {
           assert(err);
           done();
         });
@@ -637,7 +637,7 @@ describe('#crud', function () {
         this.timeout(5000);
         var key = H.key();
         H.b.insert(key, 'foo', {expiry: 1}, H.okCallback(function () {
-          touchFn(key, 2, H.okCallback(function (res) {
+          touchFn(key, 2, H.okCallback(function () {
             setTimeout(function () {
               H.b.get(key, H.okCallback(function() {
                 setTimeout(function() {
@@ -802,7 +802,7 @@ describe('#crud', function () {
 
     it('durability should propagate errors', function (done) {
       H.b.replace(H.key(), 'bar', {persist_to: 1, replicate_to: 0},
-        function (err, res) {
+        function (err) {
           assert(err);
           done();
         });
@@ -811,8 +811,8 @@ describe('#crud', function () {
     it('should return from replace with 0 expiry (slow)', function(done) {
       this.timeout(3000);
       var key = H.key();
-      H.b.insert(key, 'bar', {expiry:1}, H.okCallback(function(insertRes) {
-        H.b.replace(key, 'foo', {expiry:0}, H.okCallback(function (replaceRes) {
+      H.b.insert(key, 'bar', {expiry:1}, H.okCallback(function() {
+        H.b.replace(key, 'foo', {expiry:0}, H.okCallback(function () {
           setTimeout(function () {
             H.b.get(key, H.okCallback(function (getRes) {
               assert(getRes);
@@ -833,7 +833,7 @@ describe('#crud', function () {
         assert(jsonCas === '"'+strCas+'"');
         H.b.upsert(key, 'test2', {cas:'14'}, function(err) {
           assert(err);
-          H.b.upsert(key, 'test3', {cas:strCas}, H.okCallback(function(res) {
+          H.b.upsert(key, 'test3', {cas:strCas}, H.okCallback(function() {
             done();
           }));
         });

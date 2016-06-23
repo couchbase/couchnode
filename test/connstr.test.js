@@ -93,7 +93,12 @@ describe('#ConnStr', function() {
 
     it('should parse a string with no host', function() {
       var x = connstr.parse('https:///shirley');
-      assert.deepEqual(x, {scheme:'https',hosts:[],bucket:'shirley',options:{}});
+      assert.deepEqual(x, {
+        scheme:'https',
+        hosts:[],
+        bucket:'shirley',
+        options:{}
+      });
     });
 
     it('should parse a string with options', function() {
