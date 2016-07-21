@@ -17,6 +17,7 @@
 #include "couchbase_impl.h"
 #include "exception.h"
 #include <libcouchbase/libuv_io_opts.h>
+#include <libcouchbase/vbucket.h>
 
 using namespace Couchnode;
 
@@ -291,13 +292,13 @@ NAN_METHOD(CouchbaseImpl::fnGetViewNode)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     Nan::HandleScope scope;
+    lcbvb_CONFIG *cfg;
 
-    lcb_int32_t numNodes = lcb_get_num_nodes(me->getLcbHandle());
-    if (numNodes <= 0) {
-        return info.GetReturnValue().SetNull();
-    }
+    lcb_cntl(me->getLcbHandle(), LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &cfg);
 
-    unsigned int nodeIdx = rand() % numNodes;
+    int nodeIdx =
+        lcbvb_get_randhost(cfg, LCBVB_SVCTYPE_VIEWS, LCBVB_SVCMODE_PLAIN);
+
     const char *viewNode =
         lcb_get_node(
             me->getLcbHandle(),
@@ -312,13 +313,13 @@ NAN_METHOD(CouchbaseImpl::fnGetMgmtNode)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     Nan::HandleScope scope;
+    lcbvb_CONFIG *cfg;
 
-    lcb_int32_t numNodes = lcb_get_num_nodes(me->getLcbHandle());
-    if (numNodes <= 0) {
-        return info.GetReturnValue().SetNull();
-    }
+    lcb_cntl(me->getLcbHandle(), LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &cfg);
 
-    unsigned int nodeIdx = rand() % numNodes;
+    int nodeIdx =
+        lcbvb_get_randhost(cfg, LCBVB_SVCTYPE_MGMT, LCBVB_SVCMODE_PLAIN);
+
     const char *mgmtNode =
         lcb_get_node(
             me->getLcbHandle(),
