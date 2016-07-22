@@ -12,7 +12,7 @@ Source - [http://github.com/couchbase/couchnode](http://github.com/couchbase/cou
 
 Bug Tracker - [http://www.couchbase.com/issues/browse/JSCBC](http://www.couchbase.com/issues/browse/JSCBC)
 
-Couchbase Node.js Community - [http://couchbase.com/communities/nodejs](http://couchbase.com/communities/nodejs)
+Couchbase Developer Portal - [http://developer.couchbase.com/](http://developer.couchbase.com/documentation/server/4.5/sdk/nodejs/start-using-sdk.html)
 
 
 ## Installing
