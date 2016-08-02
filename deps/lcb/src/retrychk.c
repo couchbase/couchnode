@@ -71,6 +71,9 @@ lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err)
     /* get is a safe operation which may be retried */
     case PROTOCOL_BINARY_CMD_GET:
     case PROTOCOL_BINARY_CMD_GETKQ:
+    case PROTOCOL_BINARY_CMD_SUBDOC_GET:
+    case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
+    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
         return policy & LCB_RETRY_CMDS_GET;
 
     case PROTOCOL_BINARY_CMD_ADD:
@@ -83,6 +86,15 @@ lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err)
     case PROTOCOL_BINARY_CMD_PREPEND:
     case PROTOCOL_BINARY_CMD_DELETE:
     case PROTOCOL_BINARY_CMD_UNLOCK_KEY:
+    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_ADD_UNIQUE:
+    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_FIRST:
+    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_LAST:
+    case PROTOCOL_BINARY_CMD_SUBDOC_COUNTER:
+    case PROTOCOL_BINARY_CMD_SUBDOC_DELETE:
+    case PROTOCOL_BINARY_CMD_SUBDOC_DICT_UPSERT:
+    case PROTOCOL_BINARY_CMD_SUBDOC_REPLACE:
+    case PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD:
+    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
         if (hdr.request.cas) {
             return policy & LCB_RETRY_CMDS_SAFE;
         } else {

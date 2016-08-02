@@ -282,6 +282,7 @@ H_get(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
 
     o = pipeline->parent->cqdata;
     init_resp3(o, response, request, immerr, (lcb_RESPBASE *)&resp);
+    resp.rflags |= LCB_RESP_F_FINAL;
 
     if (resp.rc == LCB_SUCCESS) {
         const protocol_binary_response_getq *getq =
@@ -333,6 +334,7 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
     int cbtype;
     o = pipeline->parent->cqdata;
     init_resp3(o, response, request, immerr, (lcb_RESPBASE *)&w.resp);
+    w.resp.rflags |= LCB_RESP_F_FINAL;
 
     /* For mutations, add the mutation token */
     switch (PACKET_OPCODE(response)) {
@@ -492,7 +494,7 @@ H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, packet_info *response,
 {
     lcb_t root = pipeline->parent->cqdata;
     respack_REMOVE w = { { 0 } };
-    w.resp.rflags |= LCB_RESP_F_EXTDATA;
+    w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     init_resp3(root, response, packet, immerr, (lcb_RESPBASE *)&w.resp);
     handle_mutation_token(root, response, packet, &w.mt);
     TRACE_REMOVE_END(response, &w.resp);
@@ -629,7 +631,7 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
     } else if (opcode == PROTOCOL_BINARY_CMD_SET) {
         w.resp.op = LCB_SET;
     }
-    w.resp.rflags |= LCB_RESP_F_EXTDATA;
+    w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     handle_mutation_token(root, response, request, &w.mt);
     TRACE_STORE_END(response, &w.resp);
     if (request->flags & MCREQ_F_REQEXT) {
@@ -653,6 +655,7 @@ H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
         w.resp.rflags |= LCB_RESP_F_EXTDATA;
         handle_mutation_token(root, response, request, &w.mt);
     }
+    w.resp.rflags |= LCB_RESP_F_FINAL;
     w.resp.cas = PACKET_CAS(response);
     TRACE_ARITHMETIC_END(response, &w.resp);
     INVOKE_CALLBACK3(request, &w.resp, root, LCB_CALLBACK_COUNTER);
@@ -724,8 +727,8 @@ H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
 {
     lcb_t root = pipeline->parent->cqdata;
     lcb_RESPTOUCH resp = { 0 };
-
     init_resp3(root, response, request, immerr, &resp);
+    resp.rflags |= LCB_RESP_F_FINAL;
     TRACE_TOUCH_END(response, &resp);
     INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_TOUCH);
 }
@@ -748,6 +751,7 @@ H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
     lcb_t root = pipeline->parent->cqdata;
     lcb_RESPUNLOCK resp = { 0 };
     init_resp3(root, response, request, immerr, &resp);
+    resp.rflags |= LCB_RESP_F_FINAL;
     TRACE_UNLOCK_END(response, &resp);
     INVOKE_CALLBACK3(request, &resp, root, LCB_CALLBACK_UNLOCK);
 }

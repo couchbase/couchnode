@@ -21,7 +21,7 @@
 #include "http/http-priv.h"
 using namespace lcb::http;
 
-#define LOGFMT "<%s:%s>"
+#define LOGFMT "<%s:%s> "
 #define LOGID(req) (req)->host.c_str(), (req)->port.c_str()
 #define LOGARGS(req, lvl) req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -227,6 +227,7 @@ Request::submit()
     size_t path_len = url.size() - path_off;
     preamble.insert(preamble.end(),
         url_s + path_off, url_s + path_off + path_len);
+    lcb_log(LOGARGS(this, TRACE), LOGFMT "%s %s. Body=%lu bytes", LOGID(this), method_strings[method], url.c_str(), body.size());
 
     add_to_preamble(" HTTP/1.1\r\n");
 

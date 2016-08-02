@@ -505,7 +505,8 @@ typedef struct lcb_logprocs_st {
 
 typedef enum {
     LCB_SSL_ENABLED = 1 << 0, /**< Use SSL */
-    LCB_SSL_NOVERIFY = 1 << 1 /**< Don't verify certificates */
+    LCB_SSL_NOVERIFY = 1 << 1, /**< Don't verify certificates */
+    LCB_SSL_NOGLOBALINIT = 1 << 2 /**< Do not call SSL's global init functions */
 } lcb_SSLOPTS;
 
 /**

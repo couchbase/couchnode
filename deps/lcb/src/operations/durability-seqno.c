@@ -20,7 +20,7 @@
 #include <libcouchbase/api3.h>
 #include "durability_internal.h"
 
-#define ENT_SEQNO(ent) (ent)->reqcas
+#define ENT_SEQNO(ent) (ent)->reqseqno
 
 static void
 seqno_callback(lcb_t instance, int ign, const lcb_RESPBASE *rb)
@@ -155,4 +155,3 @@ lcbdur_PROCS lcbdur_seqno_procs = {
         NULL, /*schedule*/
         NULL /*clean*/
 };
-

@@ -2,7 +2,7 @@
 
 ## SYNOPSIS
 
-`cbc-pillowfight` -f QUERYFILE [_OPTIONS_]
+`cbc-n1qlback` -f QUERYFILE [_OPTIONS_]
 
 ## DESCRIPTION
 

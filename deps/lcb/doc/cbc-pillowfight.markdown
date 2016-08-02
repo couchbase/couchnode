@@ -107,9 +107,11 @@ The following options control workload generation:
 
 * `-T`, `--timings`:
   Dump a histogram of command timings and latencies to the screen every second.
-
-
-The following options control how `cbc-pillowfight` connects to the cluster
+  
+* `-e`, `--expiry`=_SECONDS_:
+  Set the expiration time on the document for _SECONDS_ when performing each
+  operation. Note that setting this too low may cause not-found errors to
+  appear on the screen.
 
 * `-U`, `--spec`=_SPEC_:
   A string describing the cluster to connect to. The string is in a URI-like syntax,
@@ -144,21 +146,21 @@ The following options control how `cbc-pillowfight` connects to the cluster
   pair (for example, `-Doperation_timeout=10 -Dconfig_cache=/foo/bar/baz`).
   See [ADDITIONAL OPTIONS](#additional-options) for more information
 
-* `--json`
+* `--json`:
   Make `pillowfight` store document as JSON rather than binary. This will
   allow the documents to nominally be analyzed by other Couchbase services
   such as Query and MapReduce.
 
   JSON documents are created by creating an empty JSON object (`{}`) and then
   repeated populating it with `Field_%d` property names (where `%d` is `1` and
-  higher), and setting its value to a repeating asterisk `*` up to 16 times.
+  higher), and setting its value to a repeating asterisk `*` up to 16 times:
 
         {
-        "Field_1": "****************",
-        "Field_2": "****************",
-        "Field_3": "****************",
-        "Field_4": "****************",
-        "Field_5": "********"
+            "Field_1": "****************",
+            "Field_2": "****************",
+            "Field_3": "****************",
+            "Field_4": "****************",
+            "Field_5": "********"
         }
 
   When using document size constraints, be aware that the minimum and maximum
@@ -166,13 +168,13 @@ The following options control how `cbc-pillowfight` connects to the cluster
   resultant sizes may be bigger or smaller by a few bytes in order to satisfy
   the requirements of proper JSON syntax.
 
-* `--subdoc`
+* `--subdoc`:
   Use couchbase sub-document operations when running the workload. In this
   mode `pillowfight` will use Couchbase
   [sub-document operations](http://blog.couchbase.com/2016/february/subdoc-explained)
   to perform gets and sets of data. This option must be used with `--json`
 
-* `--pathcount`
+* `--pathcount`:
   Specify the number of paths a single sub-document operation should contain.
   By default, each subdoc operation operates on only a single path within the
   document. You can specify multiple paths to atomically executed multiple

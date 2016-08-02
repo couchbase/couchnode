@@ -80,8 +80,7 @@ on_flush_done(lcbio_CTX *ctx, unsigned expected, unsigned actual)
 {
     mc_SERVER *server = lcbio_ctx_data(ctx);
     lcb_U64 now = 0;
-
-    if (LCBT_SETTING(server->instance, readj_ts_wait)) {
+    if (server->settings->readj_ts_wait) {
         now = gethrtime();
     }
 
@@ -486,7 +485,7 @@ maybe_retry_timeout_connection(mc_SERVER *server, lcb_error_t err)
     if (err != LCB_ETIMEDOUT) {
         return 0; /* not a timeout */
     }
-    if (!LCBT_SETTING(server->instance, readj_ts_wait)) {
+    if (!server->settings->readj_ts_wait) {
         return 0; /* normal timeout behavior */
     }
     if (!mcserver_has_pending(server)) {
@@ -779,7 +778,7 @@ check_closed(mc_SERVER *server)
     if (server->state == S_CLEAN) {
         return 0;
     }
-    lcb_log(LOGARGS(server, INFO), LOGFMT "Got handler after close. Checking pending calls", LOGID(server));
+    lcb_log(LOGARGS(server, INFO), LOGFMT "Got handler after close. Checking pending calls (pending=%u)", LOGID(server), server->connctx->npending);
     finalize_errored_ctx(server);
     return 1;
 }

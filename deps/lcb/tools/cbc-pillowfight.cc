@@ -118,7 +118,9 @@ public:
         o_writeJson("json"),
         o_templatePairs("template"),
         o_subdoc("subdoc"),
-        o_sdPathCount("pathcount")
+        o_sdPathCount("pathcount"),
+        o_populateOnly("populate-only"),
+        o_exptime("expiry")
     {
         o_multiSize.setDefault(100).abbrev('B').description("Number of operations to batch");
         o_numItems.setDefault(1000).abbrev('I').description("Number of items to operate on");
@@ -140,6 +142,8 @@ public:
         o_templatePairs.argdesc("FIELD,MIN,MAX[,SEQUENTIAL]").hide();
         o_subdoc.description("Use subdoc instead of fulldoc operations");
         o_sdPathCount.description("Number of subdoc paths per command").setDefault(1);
+        o_populateOnly.description("Exit after documents have been populated");
+        o_exptime.description("Set TTL for items").abbrev('e');
     }
 
     void processOptions() {
@@ -153,6 +157,20 @@ public:
             maxCycles = -1;
         } else {
             maxCycles = o_numCycles.result();
+        }
+
+        if (o_populateOnly.passed()) {
+            // Determine how many iterations are required.
+            if (o_numCycles.passed()) {
+                throw std::runtime_error("--num-cycles incompatible with --populate-only");
+            }
+            size_t est = (o_numItems / o_numThreads) / o_multiSize;
+            while (est * o_numThreads * o_multiSize < o_numItems) {
+                est++;
+            }
+            maxCycles = est;
+            o_sequential.setDefault(true);
+            fprintf(stderr, "Populating using %lu cycles\n", maxCycles);
         }
 
         if (depr.iterations.passed()) {
@@ -239,6 +257,8 @@ public:
         parser.addOption(o_templatePairs);
         parser.addOption(o_subdoc);
         parser.addOption(o_sdPathCount);
+        parser.addOption(o_populateOnly);
+        parser.addOption(o_exptime);
         params.addToParser(parser);
         depr.addOptions(parser);
     }
@@ -261,6 +281,7 @@ public:
     unsigned firstKeyOffset() { return o_startAt; }
     uint32_t getNumItems() { return o_numItems; }
     uint32_t getRateLimit() { return o_rateLimit; }
+    unsigned getExptime() { return o_exptime; }
 
     uint32_t opsPerCycle;
     uint32_t sdOpsPerCmd;
@@ -299,6 +320,11 @@ private:
     ListOption o_templatePairs;
     BoolOption o_subdoc;
     UIntOption o_sdPathCount;
+
+    // Compound option
+    BoolOption o_populateOnly;
+
+    UIntOption o_exptime;
 
     DeprecatedOptions depr;
 } config;
@@ -509,6 +535,7 @@ public:
         bool hasItems = false;
         lcb_sched_enter(instance);
         NextOp opinfo;
+        unsigned exptime = config.getExptime();
 
         for (size_t ii = 0; ii < config.opsPerCycle; ++ii) {
             kgen.setNextOp(opinfo);
@@ -517,6 +544,7 @@ public:
             case NextOp::STORE: {
                 lcb_CMDSTORE scmd = { 0 };
                 scmd.operation = LCB_SET;
+                scmd.exptime = exptime;
                 LCB_CMD_SET_KEY(&scmd, opinfo.m_key.c_str(), opinfo.m_key.size());
                 LCB_CMD_SET_VALUEIOV(&scmd, &opinfo.m_valuefrags[0], opinfo.m_valuefrags.size());
                 error = lcb_store3(instance, this, &scmd);
@@ -525,12 +553,16 @@ public:
             case NextOp::GET: {
                 lcb_CMDGET gcmd = { 0 };
                 LCB_CMD_SET_KEY(&gcmd, opinfo.m_key.c_str(), opinfo.m_key.size());
+                gcmd.exptime = exptime;
                 error = lcb_get3(instance, this, &gcmd);
                 break;
             }
             case NextOp::SDSTORE:
             case NextOp::SDGET: {
                 lcb_CMDSUBDOC sdcmd = { 0 };
+                if (opinfo.m_mode == NextOp::SDSTORE) {
+                    sdcmd.exptime = exptime;
+                }
                 LCB_CMD_SET_KEY(&sdcmd, opinfo.m_key.c_str(), opinfo.m_key.size());
                 sdcmd.specs = &opinfo.m_specs[0];
                 sdcmd.nspecs = opinfo.m_specs.size();

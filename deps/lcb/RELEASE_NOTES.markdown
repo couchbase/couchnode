@@ -1,5 +1,62 @@
 # Release Notes
 
+## 2.6.2 (July 26 2016)
+
+* Don't crash on high number of FDs with select plugin. Because `select(2)`
+  can only accomodate up to a certain number of file descriptors in the
+  application, if opening a socket results in a too-high-numbered FD, the
+  plugin will return an error rather than silently failing during polling.
+  * Priority: Major
+  * Issues: [CCBC-567](https://issues.couchbase.com/browse/CCBC-567)
+
+* Pillowfight can now set ttl (expiry). This is done via the `-e` or `--expiry`
+  option.
+  * Priority: Major
+  * Issues: [CCBC-637](https://issues.couchbase.com/browse/CCBC-637)
+
+* Log URLs of HTTP requests. This may make it easier to debug some HTTP-based
+  APIs. The URLs are printed as part of the `TRACE` logging level.
+  * Priority: Major
+  * Issues: [CCBC-641](https://issues.couchbase.com/browse/CCBC-641)
+
+* Fix crash on shutdown with completion-based I/O. The crash was a result
+  of dereferencing the `lcb_t` after it had been destroyed. This bug affected
+  completion-based I/O subsystems such as libuv and IOCP.
+  * Priority: Major
+  * Issues: [CCBC-707](https://issues.couchbase.com/browse/CCBC-707)
+
+* Do not require `operation` field to be set on `lcb_CMDSTORE`.
+  Starting from this version, a new `lcb_storage_t` constant, `LCB_UPSERT`
+  has been added with a value of 0. This means that upsert operations no
+  longer need to explicitly use `LCB_SET`, it being the default.
+  * Priority: Major
+  * Issues: [CCBC-545](https://issues.couchbase.com/browse/CCBC-545)
+
+## 2.6.1 (June 21 2016)
+
+* Index management API now properly handles 'fields' field. Previously this
+  was treated as a csv string, when it is in fact a JSON array.
+
+* `pillowfight` now has a `--populate-only` option, which is useful when simply
+  trying to populate buckets with large amounts of data.
+
+* Allow to bypass OpenSSL initialization. This allows applications which already
+  have OpenSSL intialization code in place to suppress libcouchbase's own
+  OpenSSL initialization code. You can disable SSL initialization by using
+  `ssl=no_global_init` in the connection string.
+
+* Allow to toggle sending of multiple credentials in N1QL queries.
+  You can use the `LCB_CMD_F_MULTIAUTH` in the `lcb_CMDN1QL::cmdflags` field
+  to indicate that multiple credentials should be added. Otherwise only the
+  current bucket's credentials will be sent.
+
+* Fix infinite loop on completion (UV,nodejs,IOCP) type IO plugins.
+  This bug would be triggered when only a single server remained in the cluster
+  and that single server failed. This would result in the client never being
+  able to perform operations due to a delayed reference count decrement.
+  * Priority: Major
+  * Issues: [CCBC-704](https://issues.couchbase.com/browse/CCBC-704)
+
 ## 2.6.0 (May 17 2016)
 
 * Improve index management API and implementation. The `rawjson` field was

@@ -124,7 +124,7 @@ static lcb_error_t
 get_esize_and_opcode(
         lcb_storage_t ucmd, lcb_uint8_t *opcode, lcb_uint8_t *esize)
 {
-    if (ucmd == LCB_SET) {
+    if (ucmd == LCB_SET || ucmd == LCB_UPSERT) {
         *opcode = PROTOCOL_BINARY_CMD_SET;
         *esize = 8;
     } else if (ucmd == LCB_ADD) {

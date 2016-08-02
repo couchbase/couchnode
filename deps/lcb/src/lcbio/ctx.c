@@ -524,13 +524,17 @@ Cw_ex_handler(lcb_sockdata_t *sd, int status, void *wdata)
 {
     lcbio_CTX *ctx = ((lcbio_SOCKET *)sd->lcbconn)->ctx;
     unsigned nflushed = (uintptr_t)wdata;
-    ctx->procs.cb_flush_done(ctx, nflushed, nflushed);
-
     ctx->npending--;
-    assert(ctx->state == ES_ACTIVE);
 
-    if (status != 0) {
-        lcbio_ctx_senderr(ctx, convert_lcberr(ctx, LCBIO_IOERR));
+    ctx->entered = 1;
+    ctx->procs.cb_flush_done(ctx, nflushed, nflushed);
+    ctx->entered = 0;
+
+    if (ctx->state == ES_ACTIVE && status) {
+        invoke_entered_errcb(ctx, convert_lcberr(ctx, LCBIO_IOERR));
+    }
+    if (ctx->state != ES_ACTIVE && !ctx->npending) {
+        free_ctx(ctx);
     }
 }
 

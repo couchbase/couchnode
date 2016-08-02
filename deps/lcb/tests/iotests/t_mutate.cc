@@ -583,3 +583,27 @@ TEST_F(MutateUnitTest, testCasReplace)
     getKey(instance, key, itm);
     EXPECT_STREQ("bar", itm.val.c_str());
 }
+
+extern "C" {
+static void storeCb(lcb_t, int, const lcb_RESPBASE *rb)
+{
+    ASSERT_EQ(LCB_SUCCESS, rb->rc);
+    *(bool*)rb->cookie = true;
+}
+}
+
+TEST_F(MutateUnitTest, testSetDefault)
+{
+    std::string key("testDefaultMode");
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, storeCb);
+
+    lcb_CMDSTORE cmd = { 0 };
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+    LCB_CMD_SET_VALUE(&cmd, "foo", 3);
+    bool cookie = false;
+    ASSERT_EQ(LCB_SUCCESS, lcb_store3(instance, &cookie, &cmd));
+    lcb_wait(instance);
+}

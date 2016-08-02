@@ -200,7 +200,11 @@ setup_ssl(lcb_t obj, const Connspec& params)
     }
 
     if (settings->sslopts & LCB_SSL_ENABLED) {
-        lcbio_ssl_global_init();
+        if (! (settings->sslopts & LCB_SSL_NOGLOBALINIT)) {
+            lcbio_ssl_global_init();
+        } else {
+            lcb_log(LOGARGS(obj, INFO), "ssl=no_global_init. Not initializing openssl globals");
+        }
         settings->ssl_ctx = lcbio_ssl_new(settings->certpath,
             settings->sslopts & LCB_SSL_NOVERIFY, &err, settings);
         if (!settings->ssl_ctx) {

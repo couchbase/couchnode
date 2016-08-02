@@ -468,6 +468,13 @@ typedef struct lcb_CMDBASE {
 #define LCB_CMD_F_INTERNAL_CALLBACK (1 << 0)
 
 /**
+ * If this flag is set, then multiple authentication credentials will be passed
+ * to the server. By default only the bucket's credentials (i.e. bucket SASL
+ * password) are passed.
+ */
+#define LCB_CMD_F_MULTIAUTH (1<<1)
+
+/**
  * @committed
  *
  * Set the key for the command.
@@ -982,30 +989,19 @@ typedef enum {
     LCB_SET = 0x03,
 
     /**
+     * The default storage mode. This constant was added in version 2.6.2 for
+     * the sake of maintaining a default storage mode, eliminating the need
+     * for simple storage operations to explicitly define
+     * lcb_CMDSTORE::operation. Behaviorally it is identical to @ref LCB_SET
+     * in that it will make the server unconditionally store the item, whether
+     * it exists or not.
+     */
+    LCB_UPSERT = 0x00,
+
+    /**
      * Rather than setting the contents of the entire document, take the value
      * specified in lcb_CMDSTORE::value and _append_ it to the existing bytes in
      * the value.
-     *
-     * This is functionally equivalent to the following:
-     * @code{.c}
-     * static void get_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
-     * {
-     *     const lcb_RESPGET *resp = (const lcb_RESPGET *)rb;
-     *     const char *to_append = "stuff to append";
-     *     char *new_value;
-     *     size_t new_value_len;
-     *     lcb_CMDSTORE cmd = { 0 };
-     *     lcb_IOV iov[2];
-     *     cmd.operation = LCB_APPEND;
-     *     iov[0].iov_base = (void *)resp->value;
-     *     iov[0].iov_len = resp->nvalue;
-     *     iov[1].iov_base = (void *)to_append;
-     *     iov[1].iov_len = strlen(to_append);
-     *     LCB_CMD_SET_VALUEIOV(&cmd, iov, 2);
-     *     LCB_CMD_SET_KEY(&cmd, resp->key, resp->nkey);
-     *     lcb_store3(instance, NULL, &cmd);
-     * }
-     * @endcode
      */
     LCB_APPEND = 0x04,
 

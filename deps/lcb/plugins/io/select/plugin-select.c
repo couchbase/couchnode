@@ -357,6 +357,29 @@ sel_destroy_iops(struct lcb_io_opt_st *iops)
     free(iops);
 }
 
+static lcb_socket_t
+sel_socket_wrap(lcb_io_opt_t io, int domain, int type, int protocol)
+{
+    lcb_socket_t res = socket_impl(io, domain, type, protocol);
+#ifndef _WIN32
+
+    /* This only works on non-Windows where FD_SETSIZE is in effect wrt the
+     * actual FD number. On Windows, FD_SETSIZE is the cap on the _total_
+     * number of sockets to be used in select; not necessarily what their
+     * FD values are.
+     *
+     * TODO: Just use poll() on POSIX in the future.
+     */
+    if (res != INVALID_SOCKET && res > FD_SETSIZE) {
+        close_impl(io, res);
+        fprintf(stderr, "COUCHBASE: too many FDs. Cannot have socket > FD_SETSIZE. Use other I/O plugin\n");
+        io->v.v3.error = EINVAL;
+        res = INVALID_SOCKET;
+    }
+#endif
+    return res;
+}
+
 static void
 procs2_sel_callback(int version, lcb_loop_procs *loop_procs,
     lcb_timer_procs *timer_procs, lcb_bsd_procs *bsd_procs,
@@ -379,6 +402,9 @@ procs2_sel_callback(int version, lcb_loop_procs *loop_procs,
 
     *iomodel = LCB_IOMODEL_EVENT;
     wire_lcb_bsd_impl2(bsd_procs, version);
+
+    /* Override */
+    bsd_procs->socket0 = sel_socket_wrap;
     (void)completion_procs;
 }
 

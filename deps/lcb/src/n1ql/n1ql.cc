@@ -536,6 +536,9 @@ N1QLREQ::request_plan()
     newcmd.cmdflags = LCB_CMDN1QL_F_JSONQUERY;
     newcmd.handle = &prepare_req;
     newcmd.query = reinterpret_cast<const char*>(&newbody);
+    if (flags & F_CMDN1QL_CREDSAUTH) {
+        newcmd.cmdflags |= LCB_CMD_F_MULTIAUTH;
+    }
 
     return lcb_n1ql_query(instance, this, &newcmd);
 }
@@ -629,7 +632,7 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
     // using JSON encoding, we need to only use the multi-bucket auth feature
     // if there are actually multiple credentials to employ.
     const lcb::Authenticator& auth = *instance->settings->auth;
-    if (auth.buckets().size() > 1) {
+    if (auth.buckets().size() > 1 && (cmd->cmdflags & LCB_CMD_F_MULTIAUTH)) {
         flags |= F_CMDN1QL_CREDSAUTH;
         Json::Value& creds = json["creds"];
         lcb::Authenticator::Map::const_iterator ii = auth.buckets().begin();

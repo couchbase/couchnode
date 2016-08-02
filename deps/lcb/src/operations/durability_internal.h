@@ -51,7 +51,8 @@ typedef struct {
 /**Information a single entry in a durability set. Each entry contains a single
  * key */
 typedef struct lcb_DURITEM_st {
-    lcb_U64 reqcas; /**< Last known CAS for the user; or the seqno */
+    lcb_U64 reqcas; /**< Last known CAS for the user */
+    lcb_U64 reqseqno; /**< Last known seqno for the user */
     lcb_U64 uuid;
     lcb_RESPENDURE result; /**< Result to be passed to user */
     struct lcb_DURSET_st *parent;
