@@ -23,7 +23,7 @@
     "bindings": "~1.2.1",
     "nan": "~2.3.2",
     "prebuild": "~4.1.2",
-    "request": "~2.72.0"
+    "request": "~2.74.0"
   },
   "devDependencies": {
     "ink-docstrap": "git+https://github.com/brett19/docstrap.git#master",
