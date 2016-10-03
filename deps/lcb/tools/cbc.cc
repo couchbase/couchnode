@@ -709,7 +709,7 @@ UnlockHandler::run()
         int rv;
         rv = sscanf(args[ii+1].c_str(), "0x%" PRIx64, &cas);
         if (rv != 1) {
-            BadArg("CAS must be formatted as a hex string beginning with '0x'");
+            throw BadArg("CAS must be formatted as a hex string beginning with '0x'");
         }
 
         lcb_CMDUNLOCK cmd;
@@ -1239,7 +1239,7 @@ ConnstrHandler::run()
     if (spec.is_bs_cccp()) {
         bsStr += "CCCP, ";
     }
-    if (spec.is_bs_cccp()) {
+    if (spec.is_bs_http()) {
         bsStr += "HTTP, ";
     }
     if (bsStr.empty()) {

@@ -605,11 +605,11 @@ WatchIndexCtx::WatchIndexCtx(lcb_t instance, const void *cookie_, const lcb_CMDN
 
 WatchIndexCtx::~WatchIndexCtx()
 {
-    lcb_aspend_del(&m_instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
     if (m_timer) {
         lcbio_timer_destroy(m_timer);
     }
     if (m_instance) {
+        lcb_aspend_del(&m_instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
         lcb_maybe_breakout(m_instance);
     }
 

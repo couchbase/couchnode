@@ -180,6 +180,9 @@ HANDLER(readj_ts_wait_handler) {
 HANDLER(kv_hg_handler) {
     RETURN_GET_ONLY(lcb_HISTOGRAM*, instance->kv_timings);
 }
+HANDLER(read_chunk_size_handler) {
+    RETURN_GET_SET(lcb_U32, LCBT_SETTING(instance, read_chunk_size));
+}
 
 HANDLER(get_kvb) {
     lcb_cntl_vbinfo_st *vbi = reinterpret_cast<lcb_cntl_vbinfo_st*>(arg);
@@ -582,7 +585,8 @@ static ctl_handler handlers[] = {
     n1ql_cache_clear_handler, /* LCB_CNTL_N1QL_CLEARCACHE */
     client_string_handler, /* LCB_CNTL_CLIENT_STRING */
     bucket_auth_handler, /* LCB_CNTL_BUCKET_CRED */
-    timeout_common /* LCB_CNTL_RETRY_NMV_DELAY */
+    timeout_common, /* LCB_CNTL_RETRY_NMV_DELAY */
+    read_chunk_size_handler /*LCB_CNTL_READ_CHUNKSIZE */
 };
 
 /* Union used for conversion to/from string functions */
@@ -733,6 +737,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"client_string", LCB_CNTL_CLIENT_STRING, convert_passthru},
         {"retry_nmv_delay", LCB_CNTL_RETRY_NMV_INTERVAL, convert_timeout},
         {"bucket_cred", LCB_CNTL_BUCKET_CRED, NULL},
+        {"read_chunk_size", LCB_CNTL_READ_CHUNKSIZE, convert_u32},
         {NULL, -1}
 };
 

@@ -331,6 +331,9 @@ Connspec::parse(const char *connstr_, const char **errmsg)
                 SET_ERROR("Couldn't decode bucket string");
             }
         }
+        if (m_bucket.empty()) {
+            SET_ERROR("Bucket name is set to empty");
+        }
     } else if (bucket_s == NULL) {
         m_bucket = "default";
     }

@@ -74,6 +74,9 @@ static const Traits
 Exists(PROTOCOL_BINARY_CMD_SUBDOC_EXISTS, IS_LOOKUP);
 
 static const Traits
+GetCount(PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT, IS_LOOKUP|EMPTY_PATH);
+
+static const Traits
 DictAdd(PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD, ALLOW_EXPIRY|HAS_VALUE);
 
 static const Traits
@@ -130,6 +133,8 @@ find(unsigned mode)
         return Get;
     case LCB_SDCMD_EXISTS:
         return Exists;
+    case LCB_SDCMD_GET_COUNT:
+        return GetCount;
     case LCB_SDCMD_REMOVE:
         return Remove;
     case LCB_SDCMD_COUNTER:
@@ -143,7 +148,7 @@ find(unsigned mode)
 static size_t
 get_valbuf_size(const lcb_VALBUF& vb)
 {
-    if (vb.vtype == LCB_KV_COPY || LCB_KV_CONTIG) {
+    if (vb.vtype == LCB_KV_COPY || vb.vtype == LCB_KV_CONTIG) {
         return vb.u_buf.contig.nbytes;
     } else {
         if (vb.u_buf.multi.total_length) {
@@ -264,6 +269,9 @@ MultiBuilder::add_spec(const lcb_SDSPEC *spec)
     uint8_t sdflags = 0;
     if (spec->options & LCB_SDSPEC_F_MKINTERMEDIATES) {
         sdflags = SUBDOC_FLAG_MKDIR_P;
+    }
+    if (spec->options & LCB_SDSPEC_F_MKDOCUMENT) {
+        sdflags |= SUBDOC_FLAG_MKDOC;
     }
     add_field(sdflags, 1);
 
@@ -386,16 +394,18 @@ sd3_single(lcb_t instance, const void *cookie, const lcb_CMDSUBDOC *cmd)
     hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr->request.extlen = packet->extlen;
     hdr->request.opaque = packet->opaque;
-    hdr->request.cas = cmd->cas;
+    hdr->request.cas = lcb_htonll(cmd->cas);
     hdr->request.bodylen = htonl(hdr->request.extlen +
         ntohs(hdr->request.keylen) + get_value_size(packet));
 
     request.message.extras.pathlen = htons(spec->path.contig.nbytes);
+    request.message.extras.subdoc_flags = 0;
 
     if (spec->options & LCB_SDSPEC_F_MKINTERMEDIATES) {
-        request.message.extras.subdoc_flags = SUBDOC_FLAG_MKDIR_P;
-    } else {
-        request.message.extras.subdoc_flags = 0;
+        request.message.extras.subdoc_flags |= SUBDOC_FLAG_MKDIR_P;
+    }
+    if (spec->options & LCB_SDSPEC_F_MKDOCUMENT) {
+        request.message.extras.subdoc_flags |= SUBDOC_FLAG_MKDOC;
     }
 
     hdr->request.opcode = traits.opcode;
@@ -483,7 +493,7 @@ lcb_subdoc3(lcb_t instance, const void *cookie, const lcb_CMDSUBDOC *cmd)
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.extlen = pkt->extlen;
     hdr.request.opaque = pkt->opaque;
-    hdr.request.cas = cmd->cas;
+    hdr.request.cas = lcb_htonll(cmd->cas);
     hdr.request.bodylen = htonl(hdr.request.extlen +
         ntohs(hdr.request.keylen) + ctx.payload_size);
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof hdr.bytes);

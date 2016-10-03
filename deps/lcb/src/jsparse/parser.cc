@@ -139,7 +139,7 @@ row_pop_callback(jsonsl_t jsn, jsonsl_action_t action,
 
             /* While the entire meta is available to us, the _closing_ part
              * of the meta is handled in a different callback. */
-            buffer_append(&ctx->meta_buf, jsn->base, jsn->pos);
+            buffer_append(&ctx->meta_buf, ctx->current_buf.base, jsn->pos);
             ctx->header_len = jsn->pos;
         }
         return;

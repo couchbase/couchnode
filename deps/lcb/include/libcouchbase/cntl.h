@@ -911,8 +911,21 @@ typedef const char *lcb_BUCKETCRED[2];
  */
 #define LCB_CNTL_RETRY_NMV_INTERVAL 0x41
 
+/**
+ * Limit the number of bytes to be read (and thereby processed) during I/O
+ * read operations. This setting may be useful when the network is faster than
+ * processing resources.
+ *
+ * @note This setting only works for event-style I/O plugins. This means it
+ * has no effect on completion style plugins such as libuv or Windows IOCP
+ *
+ * @committed
+ * @cntl_arg_both{lcb_U32*}
+ */
+#define LCB_CNTL_READ_CHUNKSIZE 0x42
+
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x42
+#define LCB_CNTL__MAX                    0x43
 /**@}*/
 
 #ifdef __cplusplus

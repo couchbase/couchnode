@@ -42,7 +42,7 @@ lcb_remove3(lcb_t instance, const void *cookie, const lcb_CMDREMOVE * cmd)
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_DELETE;
-    hdr.request.cas = cmd->cas;
+    hdr.request.cas = lcb_htonll(cmd->cas);
     hdr.request.opaque = pkt->opaque;
     hdr.request.bodylen = htonl((lcb_uint32_t)ntohs(hdr.request.keylen));
 

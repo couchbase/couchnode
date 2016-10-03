@@ -20,8 +20,8 @@
 #include "config.h"
 #include <gtest/gtest.h>
 #include <libcouchbase/couchbase.h>
-#include "contrib/cJSON/cJSON.h"
 #include "serverparams.h"
+#include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 
 
 class HandleWrap
@@ -94,10 +94,9 @@ public:
     MockCommand(Code code);
 
     // Various methods to set a field in the payload
-    void set(const std::string &, const std::string &);
-    void set(const std::string &, int);
-    void set(const std::string, bool);
-    void set(const std::string&, cJSON *);
+    template <typename T> void set(const std::string& s, const T& v) {
+        (*payload)[s] = v;
+    }
     virtual ~MockCommand();
 
     // Encodes the command in a form suitable for sending over the network
@@ -106,8 +105,8 @@ public:
 protected:
     Code code;
     std::string name;
-    cJSON *command;
-    cJSON *payload;
+    Json::Value command;
+    Json::Value *payload;
     virtual void finalizePayload() {}
 
 private:
@@ -168,18 +167,18 @@ protected:
 class MockResponse
 {
 public:
-    MockResponse() : jresp(NULL) {}
+    MockResponse() {}
     ~MockResponse();
     void assign(const std::string& s);
 
     bool isOk();
-
-    const cJSON *getRawResponse() {
+    const Json::Value& getRawResponse() {
         return jresp;
     }
+    const Json::Value& constResp() const { return jresp; }
 
 protected:
-    cJSON *jresp;
+    Json::Value jresp;
     friend std::ostream& operator<<(std::ostream&, const MockResponse&);
 private:
     MockResponse(const MockResponse&);

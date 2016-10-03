@@ -133,6 +133,11 @@ typedef enum {
      */
     LCB_SDCMD_REMOVE,
 
+    /**
+     * Count the number of elements in an array or dictionary
+     */
+    LCB_SDCMD_GET_COUNT,
+
     LCB_SDCMD_MAX
 } lcb_SUBDOCOP;
 
@@ -171,6 +176,9 @@ typedef struct {
 
 /** Create intermediate paths */
 #define LCB_SDSPEC_F_MKINTERMEDIATES (1<<16)
+
+/** Create document if it does not exist */
+#define LCB_SDSPEC_F_MKDOCUMENT (1<<17)
 
 /**
  * Set the path for an @ref lcb_SDSPEC structure

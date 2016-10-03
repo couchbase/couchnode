@@ -231,7 +231,7 @@ TEST_F(ConnstrTest, testParseBucket)
 TEST_F(ConnstrTest, testOptionsPassthrough)
 {
     lcb_error_t err;
-    err = lcb_connspec_parse("couchbase:///?foo=bar", &params, &errmsg);
+    err = lcb_connspec_parse("couchbase://?foo=bar", &params, &errmsg);
     ASSERT_EQ(LCB_SUCCESS, err) << "Options only";
     ASSERT_FALSE(params.options().empty());
     ASSERT_NE(0, params.options().size());

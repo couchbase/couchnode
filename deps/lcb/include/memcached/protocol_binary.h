@@ -445,6 +445,8 @@ extern "C"
         PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP = 0xd0,
         PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION = 0xd1,
 
+        /* Subdoc additions for Spock: */
+        PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT = 0xd2,
 
         /* Scrub the data */
         PROTOCOL_BINARY_CMD_SCRUB = 0xf0,
@@ -499,7 +501,12 @@ extern "C"
         SUBDOC_FLAG_NONE = 0x0,
 
         /* (Mutation) Should non-existent intermediate paths be created? */
-        SUBDOC_FLAG_MKDIR_P = 0x01
+        SUBDOC_FLAG_MKDIR_P = 0x01,
+
+        /* (Mutation) Create the document if it does not exist. Implies
+         * SUBDOC_FLAG_MKDIR_P.
+         */
+        SUBDOC_FLAG_MKDOC = 0x02
     } protocol_binary_subdoc_flag;
 
     /**

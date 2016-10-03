@@ -1,5 +1,40 @@
 # Release Notes
 
+## 2.6.3 (September 27 2016)
+
+* Fix memory corruption for some JSON APIs when no rows are returned.
+  This fixes a bug where the JSON parser would read from garbage memory when
+  parsing a response that had no rows, but due to a slow network, would be
+  received in multiple chunks.
+  This affects N1QL, CBFT, and View APIs.
+  * Priority: Major
+  * Issues: [CCBC-721](https://issues.couchbase.com/browse/CCBC-721)
+
+* Allow to adjust bytes to read per event loop iteration.
+  This allows applications with high network throughput but low CPU capacity
+  to prevent the library from oversaturating a specific event callback invocation
+  or starve other sockets. It may be controlled through the `read_chunk_size`
+  connection string option or via `lcb_cntl_string`.
+  * Priority: Major
+  * Issues: [CCBC-568](https://issues.couchbase.com/browse/CCBC-568)
+
+* Use `htonll` for CAS values.
+  This allows a consistent representation of CAS values regardless of underlying
+  platform. This allows interoperability between other SDKs with respect to
+  exchanging CAS values. This however may break interoperability with older
+  versions of the same SDK, if the CAS value is being passed around (which it
+  shouldn't be).
+
+* New subdocument additions.
+  This adds the `LCB_SUBDOC_F_MKDOCUMENT` flag which allows document creation
+  if the document does not exist, and can be used for mutation operations which
+  may create new paths or values. The `LCB_SUBDOC_CMD_GET_COUNT` is also added,
+  which is a new command which retrieves the number of elements (for an array)
+  or key-value items (within an object/dictionary) of a given path.
+  Both these features require Couchbase Server 4.6 (or its prereleases).
+  * Priority: Major
+  * Issues: [CCBC-718](https://issues.couchbase.com/browse/CCBC-718)
+
 ## 2.6.2 (July 26 2016)
 
 * Don't crash on high number of FDs with select plugin. Because `select(2)`

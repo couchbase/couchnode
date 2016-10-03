@@ -385,7 +385,7 @@ TEST_F(GetUnitTest, testGetReplica)
     for (unsigned ii = 0; ii < nreplicas; ii++) {
         MockMutationCommand mcCmd(MockCommand::CACHE, key);
         mcCmd.cas = ii + 100;
-        rck.cas = ((lcb_U64)htonl((lcb_U32)mcCmd.cas)) << 32;
+        rck.cas = mcCmd.cas;
         mcCmd.replicaList.clear();
         mcCmd.replicaList.push_back(ii);
 
@@ -415,7 +415,7 @@ TEST_F(GetUnitTest, testGetReplica)
     mock->getResponse();
 
     rck.remaining = nreplicas;
-    rck.cas = ((lcb_U64)ntohl((lcb_U32)mcCmd.cas)) << 32;
+    rck.cas = mcCmd.cas;
     rck.expectrc = LCB_SUCCESS;
     rcmd.strategy = LCB_REPLICA_ALL;
 
@@ -439,7 +439,8 @@ TEST_F(GetUnitTest, testGetReplica)
     mcCmd.replicaList.clear();
     mcCmd.replicaList.push_back(nreplicas-1);
     mcCmd.cas = 42;
-    rck.cas = ((lcb_U64)ntohl((lcb_U32)mcCmd.cas)) << 32;
+    rck.cas = mcCmd.cas;
+
 
     // Set the timeout to something higher, since we have more than one packet
     // to send.

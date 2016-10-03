@@ -53,7 +53,7 @@ handle_dur_storecb(mc_PIPELINE *pl, mc_PACKET *pkt,
     dcmd.cas = sresp->cas;
 
     mt = lcb_resp_get_mutation_token(LCB_CALLBACK_STORE, (const lcb_RESPBASE*)sresp);
-    if (mt && LCB_MUTATION_TOKEN_ISVALID(mt)) {
+    if (LCB_MUTATION_TOKEN_ISVALID(mt)) {
         dcmd.mutation_token = mt;
     }
 
@@ -289,7 +289,7 @@ do_store3(lcb_t instance, const void *cookie,
     scmd.message.body.expiration = htonl(cmd->exptime);
     scmd.message.body.flags = htonl(flags);
     hdr->request.magic = PROTOCOL_BINARY_REQ;
-    hdr->request.cas = cmd->cas;
+    hdr->request.cas = lcb_htonll(cmd->cas);
     hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
 
     if (should_compress || (datatype & LCB_VALUE_F_SNAPPYCOMP)) {

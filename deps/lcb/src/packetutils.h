@@ -77,7 +77,7 @@ typedef struct packet_info_st {
 /**
  * Gets the CAS for the packet
  */
-#define PACKET_CAS(pkt) ((pkt)->res.response.cas)
+#define PACKET_CAS(pkt) lcb_ntohll((pkt)->res.response.cas)
 
 /**
  * Gets the 'datatype' field for the packet.

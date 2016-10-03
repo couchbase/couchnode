@@ -556,7 +556,7 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response,
 
         resp.key = key;
         resp.nkey = nkey;
-        resp.cas = cas;
+        resp.cas = lcb_ntohll(cas);
         resp.status = obs;
         resp.ismaster = pipeline->index == lcbvb_vbmaster(config, vb);
         resp.ttp = 0;
@@ -837,6 +837,7 @@ mcreq_dispatch_response(
     case PROTOCOL_BINARY_CMD_SUBDOC_REPLACE:
     case PROTOCOL_BINARY_CMD_SUBDOC_DELETE:
     case PROTOCOL_BINARY_CMD_SUBDOC_COUNTER:
+    case PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT:
     case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
     case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
         INVOKE_OP(H_subdoc);

@@ -491,6 +491,31 @@ TEST_F(SubdocUnitTest, testSdStore)
     ASSERT_PATHVAL_EQ("true", instance, key, "array[1]");
 }
 
+TEST_F(SubdocUnitTest, testMkdoc) {
+    HandleWrap hw;
+    lcb_t instance;
+    lcb_CMDSUBDOC cmd = { 0 };
+    lcb_SDSPEC spec = { 0 };
+    MultiResult res;
+
+    CREATE_SUBDOC_CONNECTION(hw, instance);
+
+    // Remove the item first
+    removeKey(instance, key);
+
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+    cmd.specs = &spec;
+    cmd.nspecs = 1;
+
+    LCB_SDSPEC_SET_PATH(&spec, "pth", 3);
+    LCB_SDSPEC_SET_VALUE(&spec, "123", 3);
+    spec.options |= LCB_SDSPEC_F_MKDOCUMENT;
+    spec.sdcmd = LCB_SDCMD_DICT_UPSERT;
+
+    ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, &cmd, lcb_subdoc3));
+    ASSERT_PATHVAL_EQ("123", instance, key, "pth");
+}
+
 TEST_F(SubdocUnitTest, testUnique)
 {
     HandleWrap hw;
@@ -756,4 +781,42 @@ TEST_F(SubdocUnitTest, testMultiMutations)
     ASSERT_EQ(1, mr.size());
     ASSERT_EQ(LCB_SUBDOC_PATH_ENOENT, mr.results[0].rc);
     ASSERT_EQ(1, mr.results[0].index);
+}
+
+TEST_F(SubdocUnitTest, testGetCount) {
+    HandleWrap hw;
+    lcb_t instance;
+    lcb_CMDSUBDOC cmd = { 0 };
+    lcb_SDSPEC spec = { 0 };
+    lcb_error_t rc;
+    MultiResult mres;
+
+    CREATE_SUBDOC_CONNECTION(hw, instance);
+    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+
+    cmd.specs = &spec;
+    cmd.nspecs = 1;
+    LCB_SDSPEC_SET_PATH(&spec, "", 0);
+    spec.sdcmd = LCB_SDCMD_GET_COUNT;
+
+    ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, &cmd, lcb_subdoc3));
+    ASSERT_SD_VAL(mres, "2");
+
+    // Use this within an array of specs
+    lcb_SDSPEC specs[2];
+    memset(specs, 0, sizeof specs);
+    cmd.specs = specs;
+    cmd.nspecs = 2;
+
+    LCB_SDSPEC_SET_PATH(&specs[0], "404", 3);
+    specs[0].sdcmd = LCB_SDCMD_GET_COUNT;
+    LCB_SDSPEC_SET_PATH(&specs[1], "array", strlen("array"));
+    specs[1].sdcmd = LCB_SDCMD_GET_COUNT;
+
+    ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, &cmd, lcb_subdoc3));
+    ASSERT_EQ(LCB_SUBDOC_MULTI_FAILURE, mres.rc);
+
+    ASSERT_EQ(LCB_SUBDOC_PATH_ENOENT, mres.results[0].rc);
+    ASSERT_EQ(LCB_SUCCESS, mres.results[1].rc);
+    ASSERT_EQ("5", mres.results[1].value);
 }

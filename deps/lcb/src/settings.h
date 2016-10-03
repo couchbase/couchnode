@@ -106,6 +106,7 @@ typedef struct lcb_settings_st {
     lcb_U16 iid;
     lcb_U8 compressopts;
     lcb_U8 syncmode;
+    lcb_U32 read_chunk_size;
     lcb_U32 operation_timeout;
     lcb_U32 views_timeout;
     lcb_U32 http_timeout;

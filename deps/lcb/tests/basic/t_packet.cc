@@ -32,7 +32,7 @@ public:
         hdr->response.opaque = opaque;
         hdr->response.status = htons(status);
         hdr->response.opcode = PROTOCOL_BINARY_CMD_GETQ;
-        hdr->response.cas = cas;
+        hdr->response.cas = lcb_htonll(cas);
         hdr->response.bodylen = htonl((lcb_uint32_t)value.size() + 4);
         hdr->response.extlen = 4;
         msg.message.body.flags = htonl(flags);
@@ -61,7 +61,7 @@ public:
         protocol_binary_response_header *hdr = &msg.message.header;
         hdr->response.magic = PROTOCOL_BINARY_RES;
         hdr->response.opaque = opaque;
-        hdr->response.cas = cas;
+        hdr->response.cas = lcb_htonll(cas);
         hdr->response.opcode = PROTOCOL_BINARY_CMD_GET;
         hdr->response.keylen = htons((lcb_uint16_t)key.size());
         hdr->response.extlen = 4;

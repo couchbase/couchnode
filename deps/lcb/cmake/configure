@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This script will eventually become the top-level configure directory ONCE
 # we've completely migrated away from autotools

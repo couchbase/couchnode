@@ -141,7 +141,7 @@ lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd)
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.bodylen = htonl((lcb_uint32_t)ntohs(hdr.request.keylen));
     hdr.request.opaque = pkt->opaque;
-    hdr.request.cas = cmd->cas;
+    hdr.request.cas = lcb_htonll(cmd->cas);
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
     TRACE_UNLOCK_BEGIN(&hdr, cmd);
