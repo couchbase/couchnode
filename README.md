@@ -14,6 +14,7 @@ Bug Tracker - [http://www.couchbase.com/issues/browse/JSCBC](http://www.couchbas
 
 Couchbase Developer Portal - [http://developer.couchbase.com/](http://developer.couchbase.com/documentation/server/4.5/sdk/nodejs/start-using-sdk.html)
 
+Release Notes - [http://developer.couchbase.com/server/other-products/release-notes-archives/nodejs-sdk](http://developer.couchbase.com/server/other-products/release-notes-archives/nodejs-sdk)
 
 ## Installing
 
