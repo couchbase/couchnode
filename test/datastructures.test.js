@@ -87,16 +87,16 @@ describe('#datastructures', function () {
       }));
     });
 
-    it('should push/shift correctly', function(done) {
+    it('should append/prepend correctly', function(done) {
       var itemArray = [
           'one'
       ];
 
-      H.b.upsert('listPushShift', itemArray, H.okCallback(function() {
-        H.b.listPush('listPushShift', 'two', H.okCallback(function() {
-          H.b.listShift('listPushShift', 'three', H.okCallback(function() {
+      H.b.upsert('listAppendPrepend', itemArray, H.okCallback(function() {
+        H.b.listAppend('listAppendPrepend', 'two', H.okCallback(function() {
+          H.b.listPrepend('listAppendPrepend', 'three', H.okCallback(function() {
 
-            H.b.get('listPushShift', H.okCallback(function (res) {
+            H.b.get('listAppendPrepend', H.okCallback(function (res) {
               assert(res.value.length === 3);
               assert(res.value[0] === 'three');
               assert(res.value[2] === 'two');
