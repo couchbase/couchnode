@@ -218,6 +218,65 @@ describe('#datastructures', function () {
         }));
       }));
     });
+  });
 
+  describe('#queue', function () {
+    it('should get size correctly', function(done) {
+      var itemArray = [
+        'one',
+        'two',
+        'three',
+        'four'
+      ];
+
+      H.b.upsert('queueSize', itemArray, H.okCallback(function() {
+        H.b.listSize('queueSize', H.okCallback(function(res) {
+          assert(res.value === 4);
+
+          done();
+        }));
+      }));
+    });
+
+    it('should push correctly', function(done) {
+      var itemArray = [
+        'one',
+        'two'
+      ];
+
+      H.b.upsert('queuePush', itemArray, H.okCallback(function() {
+        H.b.queuePush('queuePush', 'three', H.okCallback(function() {
+
+          H.b.get('queuePush', H.okCallback(function (res) {
+            assert(res.value.length === 3);
+            assert(res.value[0] === 'three');
+
+            done();
+          }));
+        }));
+      }));
+    });
+
+    it('should pop correctly', function(done) {
+      var itemArray = [
+        'one',
+        'two',
+        'three'
+      ];
+
+      H.b.upsert('queuePop', itemArray, H.okCallback(function() {
+        H.b.queuePop('queuePop', H.okCallback(function(res) {
+          assert(res.value === 'three');
+
+          H.b.get('queuePop', H.okCallback(function(res) {
+            assert(res.value.length === 2);
+            assert(res.value[0] === 'one');
+            assert(res.value[1] === 'two');
+
+            done();
+          }));
+        }));
+      }));
+    });
   });
 });
