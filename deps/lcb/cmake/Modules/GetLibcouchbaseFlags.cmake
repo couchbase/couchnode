@@ -63,6 +63,7 @@ list2args(LCB_GNUC_CXX_WARNINGS)
 
 #MSVC-specific flags for C/C++
 LIST(APPEND LCB_CL_CPPFLAGS /nologo /W3 /MP /EHsc)
+LIST(APPEND LCB_CL_CPPFLAGS /wd4800 /wd4244 /wd4267)
 list2args(LCB_CL_CPPFLAGS)
 
 # Common flags for DEBUG

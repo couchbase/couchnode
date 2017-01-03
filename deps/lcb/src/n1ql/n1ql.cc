@@ -2,6 +2,7 @@
 #include <libcouchbase/n1ql.h>
 #include <jsparse/parser.h>
 #include "internal.h"
+#include "auth-priv.h"
 #include "http/http.h"
 #include "logging.h"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"

@@ -19,8 +19,6 @@ lcb_error_t
 lcb_observe_seqno3(lcb_t instance, const void *cookie, const lcb_CMDOBSEQNO *cmd)
 {
     mc_PACKET *pkt;
-    mc_SERVER *server;
-    mc_PIPELINE *pl;
     protocol_binary_request_header hdr;
     lcb_U64 uuid;
 
@@ -28,11 +26,10 @@ lcb_observe_seqno3(lcb_t instance, const void *cookie, const lcb_CMDOBSEQNO *cmd
         return LCB_EINVAL;
     }
 
-    server = LCBT_GET_SERVER(instance, cmd->server_index);
-    pl = &server->pipeline;
-    pkt = mcreq_allocate_packet(pl);
-    mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
-    mcreq_reserve_value2(pl, pkt, 8);
+    lcb::Server *server = instance->get_server(cmd->server_index);
+    pkt = mcreq_allocate_packet(server);
+    mcreq_reserve_header(server, pkt, MCREQ_PKT_BASESIZE);
+    mcreq_reserve_value2(server, pkt, 8);
 
     /* Set the static fields */
     MCREQ_PKT_RDATA(pkt)->cookie = cookie;
@@ -52,7 +49,7 @@ lcb_observe_seqno3(lcb_t instance, const void *cookie, const lcb_CMDOBSEQNO *cmd
 
     uuid = lcb_htonll(cmd->uuid);
     memcpy(SPAN_BUFFER(&pkt->u_value.single), &uuid, sizeof uuid);
-    LCB_SCHED_ADD(instance, pl, pkt);
+    LCB_SCHED_ADD(instance, server, pkt);
     return LCB_SUCCESS;
 }
 

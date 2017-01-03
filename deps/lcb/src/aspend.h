@@ -18,8 +18,13 @@
 #ifndef LCB_ASPEND_H
 #define LCB_ASPEND_H
 
-#include "config.h"
-#include "hashset.h"
+#ifdef __cplusplus
+#include <set>
+typedef std::set<void*> lcb_ASPEND_SETTYPE;
+#else
+typedef void lcb_ASPEND_SETTYPE;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,9 +53,10 @@ typedef enum {
     LCB_PENDTYPE_MAX
 } lcb_ASPENDTYPE;
 
+
 /** Items for pending operations */
 typedef struct {
-    hashset_t items[LCB_PENDTYPE_MAX];
+    lcb_ASPEND_SETTYPE* items[LCB_PENDTYPE_MAX];
     unsigned count;
 } lcb_ASPEND;
 
@@ -86,13 +92,6 @@ void lcb_aspend_add(lcb_ASPEND *ops, lcb_ASPENDTYPE type, const void *item);
  * counter is always decremented.
  */
 void lcb_aspend_del(lcb_ASPEND *ops, lcb_ASPENDTYPE type, const void *item);
-
-/**
- * Get a queue for a given type
- * @param ops
- * @param type
- */
-#define lcb_aspend_get(ops, type) (ops)->items[type]
 
 /**
  * Determine whether there are pending items in any of the queues

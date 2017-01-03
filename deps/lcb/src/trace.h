@@ -18,9 +18,14 @@
 #ifndef LIBCOUCHBASE_TRACE_H
 #define LIBCOUCHBASE_TRACE_H 1
 
-#ifdef __clang__
+#if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
+
+#ifdef __clang__
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#else
+#pragma GCC diagnostic ignored "-Wvariadic-macros"
+#endif
 #endif
 
 #ifdef HAVE_DTRACE
@@ -42,11 +47,11 @@
         (cmd)->key.contig.bytes, (cmd)->key.contig.nbytes)
 
 #define TRACE_END_COMMON(TGT, mcresp, resp, ...) \
-    TGT(PACKET_OPAQUE(mcresp), 0, PACKET_OPCODE(mcresp), (resp)->rc, (resp)->key, (resp)->nkey, \
+    TGT(mcresp->opaque(), 0, mcresp->opcode(), (resp)->rc, (const char *)(resp)->key, (resp)->nkey, \
         ## __VA_ARGS__)
 
 #define TRACE_END_SIMPLE(TGT, mcresp, resp) \
-    TGT(PACKET_OPAQUE(mcresp), 0, PACKET_OPCODE(mcresp), (resp)->rc, (resp)->key, (resp)->nkey)
+    TGT(mcresp->opaque(), 0, mcresp->opcode(), (resp)->rc, (const char *)(resp)->key, (resp)->nkey)
 
 #define TRACE_GET_BEGIN(req, cmd) \
     TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_GET_BEGIN, req, cmd, (cmd)->exptime))
@@ -54,7 +59,7 @@
 #define TRACE_GET_END(mcresp, resp) \
     TRACE(TRACE_END_COMMON(LIBCOUCHBASE_GET_END, mcresp, resp, \
         (char*)(resp)->value, (resp)->nvalue, (resp)->itmflags, (resp)->cas, \
-        PACKET_DATATYPE(mcresp)))
+        mcresp->datatype()))
 
 #define TRACE_UNLOCK_BEGIN(req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_UNLOCK_BEGIN, req, cmd))
 #define TRACE_UNLOCK_END(mcresp, resp) TRACE(TRACE_END_SIMPLE(LIBCOUCHBASE_UNLOCK_END, mcresp, resp))
@@ -93,7 +98,7 @@
         (resp)->cas, (resp)->status, (resp)->ismaster, (resp)->ttp, (resp)->ttr))
 
 #define TRACE_OBSERVE_END(mcresp) \
-    TRACE(LIBCOUCHBASE_OBSERVE_END(PACKET_OPAQUE(mcresp), 0, PACKET_OPCODE(mcresp), LCB_SUCCESS))
+    TRACE(LIBCOUCHBASE_OBSERVE_END(mcresp->opaque(), 0, mcresp->opcode(), LCB_SUCCESS))
 
 #define TRACE_HTTP_BEGIN(req) TRACE(LIBCOUCHBASE_HTTP_BEGIN((req)->url, (req)->nurl, (req)->method))
 #define TRACE_HTTP_END(req, rc, resp) TRACE(LIBCOUCHBASE_HTTP_END((req)->url, (req)->nurl, (req)->method, (resp)->rc, (resp)->htstatus

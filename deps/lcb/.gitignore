@@ -128,3 +128,5 @@ packaging/distinfo/MANIFEST
 *.tlog
 *.nupkg
 *.suo
+tests/LOCAL
+inst

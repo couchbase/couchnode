@@ -25,7 +25,7 @@
 #define LOG(instance, lvlbase, msg) lcb_log(instance->settings, "newconfig", LCB_LOG_##lvlbase, __FILE__, __LINE__, msg)
 
 #define SERVER_FMT "%s:%s (%p)"
-#define SERVER_ARGS(s) (s)->curhost->host, (s)->curhost->port, (void *)s
+#define SERVER_ARGS(s) (s)->get_host().host, (s)->get_host().port, (void *)s
 
 typedef struct lcb_GUESSVB_st {
     time_t last_update; /**< Last time this vBucket was heuristically set */
@@ -106,8 +106,8 @@ lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
         lcb_GUESSVB *guess = guesses + vbid;
         int newix = lcbvb_nmv_remap_ex(LCBT_VBCONFIG(instance), vbid, bad, 1);
         if (!guesses) {
-            guesses = instance->vbguess = calloc(
-                LCBT_VBCONFIG(instance)->nvb, sizeof *guesses);
+            guesses = instance->vbguess = reinterpret_cast<lcb_GUESSVB*>(calloc(
+                LCBT_VBCONFIG(instance)->nvb, sizeof *guesses));
         }
         if (newix > -1 && newix != bad) {
             guess->newix = newix;
@@ -136,18 +136,17 @@ lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
  */
 static int
 find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
-    mc_SERVER *server)
+    lcb::Server *server)
 {
-    size_t ii;
     const char *old_datahost = lcbvb_get_hostport(oldconfig,
-        server->pipeline.index, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
+        server->get_index(), LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
 
     if (!old_datahost) {
         /* Old server had no data service */
         return -1;
     }
 
-    for (ii = 0; ii < LCBVB_NSERVERS(newconfig); ii++) {
+    for (size_t ii = 0; ii < LCBVB_NSERVERS(newconfig); ii++) {
         const char *new_datahost = lcbvb_get_hostport(newconfig, ii,
             LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
         if (new_datahost && strcmp(new_datahost, old_datahost) == 0) {
@@ -160,15 +159,14 @@ find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
 static void
 log_vbdiff(lcb_t instance, lcbvb_CONFIGDIFF *diff)
 {
-    char **curserver;
     lcb_log(LOGARGS(instance, INFO), "Config Diff: [ vBuckets Modified=%d ], [Sequence Changed=%d]", diff->n_vb_changes, diff->sequence_changed);
     if (diff->servers_added) {
-        for (curserver = diff->servers_added; *curserver; curserver++) {
+        for (char **curserver = diff->servers_added; *curserver; curserver++) {
             lcb_log(LOGARGS(instance, INFO), "Detected server %s added", *curserver);
         }
     }
     if (diff->servers_removed) {
-        for (curserver = diff->servers_removed; *curserver; curserver++) {
+        for (char **curserver = diff->servers_removed; *curserver; curserver++) {
             lcb_log(LOGARGS(instance, INFO), "Detected server %s removed", *curserver);
         }
     }
@@ -187,19 +185,15 @@ log_vbdiff(lcb_t instance, lcbvb_CONFIGDIFF *diff)
  * another server.
  */
 static int
-iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
+iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
 {
     protocol_binary_request_header hdr;
-    mc_SERVER *srv = (mc_SERVER *)oldpl;
-    mc_PIPELINE *newpl;
-    mc_PACKET *newpkt;
+    lcb::Server *srv = static_cast<lcb::Server *>(oldpl);
     int newix;
-
-    (void)arg;
 
     mcreq_read_hdr(oldpkt, &hdr);
 
-    if (!lcb_should_retry(srv->settings, oldpkt, LCB_MAX_ERROR)) {
+    if (!lcb_should_retry(srv->get_settings(), oldpkt, LCB_MAX_ERROR)) {
         return MCREQ_KEEP_PACKET;
     }
 
@@ -222,23 +216,23 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *arg)
     }
 
 
-    newpl = cq->pipelines[newix];
+    mc_PIPELINE *newpl = cq->pipelines[newix];
     if (newpl == oldpl || newpl == NULL) {
         return MCREQ_KEEP_PACKET;
     }
 
-    lcb_log(LOGARGS((lcb_t)cq->cqdata, DEBUG), "Remapped packet %p (SEQ=%u) from "SERVER_FMT " to " SERVER_FMT,
-        (void*)oldpkt, oldpkt->opaque, SERVER_ARGS((mc_SERVER*)oldpl), SERVER_ARGS((mc_SERVER*)newpl));
+    lcb_log(LOGARGS((lcb_t)cq->cqdata, DEBUG), "Remapped packet %p (SEQ=%u) from " SERVER_FMT " to " SERVER_FMT,
+        (void*)oldpkt, oldpkt->opaque, SERVER_ARGS((lcb::Server*)oldpl), SERVER_ARGS((lcb::Server*)newpl));
 
     /** Otherwise, copy over the packet and find the new vBucket to map to */
-    newpkt = mcreq_renew_packet(oldpkt);
+    mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
     newpkt->flags &= ~MCREQ_STATE_FLAGS;
     mcreq_reenqueue_packet(newpl, newpkt);
     mcreq_packet_handled(oldpl, oldpkt);
     return MCREQ_REMOVE_PACKET;
 }
 
-static int
+static void
 replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
@@ -248,7 +242,7 @@ replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
     assert(LCBT_VBCONFIG(instance) == newconfig);
 
     nnew = LCBVB_NSERVERS(newconfig);
-    ppnew = calloc(nnew, sizeof(*ppnew));
+    ppnew = reinterpret_cast<mc_PIPELINE**>(calloc(nnew, sizeof(*ppnew)));
     ppold = mcreq_queue_take_pipelines(cq, &nold);
 
     /**
@@ -256,26 +250,25 @@ replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
      * and place it inside the new list.
      */
     for (ii = 0; ii < nold; ii++) {
-        mc_SERVER *cur = (mc_SERVER *)ppold[ii];
+        lcb::Server *cur = static_cast<lcb::Server *>(ppold[ii]);
         int newix = find_new_data_index(oldconfig, newconfig, cur);
         if (newix > -1) {
-            cur->pipeline.index = newix;
-            ppnew[newix] = &cur->pipeline;
+            cur->set_new_index(newix);
+            ppnew[newix] = cur;
             ppold[ii] = NULL;
-            lcb_log(LOGARGS(instance, INFO), "Reusing server "SERVER_FMT". OldIndex=%d. NewIndex=%d", SERVER_ARGS(cur), ii, newix);
+            lcb_log(LOGARGS(instance, INFO), "Reusing server " SERVER_FMT ". OldIndex=%d. NewIndex=%d", SERVER_ARGS(cur), ii, newix);
         }
     }
 
     /**
-     * Once we've moved the kept servers to the new list, allocate new mc_SERVER
-     * structures for slots that don't have an existing mc_SERVER. We must do
+     * Once we've moved the kept servers to the new list, allocate new lcb::Server
+     * structures for slots that don't have an existing lcb::Server. We must do
      * this before add_pipelines() is called, so that there are no holes inside
      * ppnew
      */
     for (ii = 0; ii < nnew; ii++) {
         if (!ppnew[ii]) {
-            ppnew[ii] = (mc_PIPELINE *)mcserver_alloc(instance, ii);
-            ppnew[ii]->index = ii;
+            ppnew[ii] = new lcb::Server(instance, ii);
         }
     }
 
@@ -298,29 +291,26 @@ replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
         }
 
         mcreq_iterwipe(cq, ppold[ii], iterwipe_cb, NULL);
-        mcserver_fail_chain((mc_SERVER *)ppold[ii], LCB_MAP_CHANGED);
-        mcserver_close((mc_SERVER *)ppold[ii]);
+        static_cast<lcb::Server*>(ppold[ii])->purge(LCB_MAP_CHANGED);
+        static_cast<lcb::Server*>(ppold[ii])->close();
     }
 
     for (ii = 0; ii < nnew; ii++) {
-        if (mcserver_has_pending((mc_SERVER*)ppnew[ii])) {
+        if (static_cast<lcb::Server*>(ppnew[ii])->has_pending()) {
             ppnew[ii]->flush_start(ppnew[ii]);
         }
     }
 
     free(ppnew);
     free(ppold);
-    return LCB_CONFIGURATION_CHANGED;
 }
 
 void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
 {
-    lcb_size_t ii;
-    int change_status;
-    clconfig_info *old_config;
+    lcb_configuration_t change_status;
+    clconfig_info *old_config = instance->cur_configinfo;
     mc_CMDQUEUE *q = &instance->cmdq;
 
-    old_config = instance->cur_configinfo;
     instance->cur_configinfo = config;
     lcb_clconfig_incref(config);
     q->config = instance->cur_configinfo->vbc;
@@ -337,49 +327,31 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
         /* Apply the vb guesses */
         lcb_vbguess_newconfig(instance, config->vbc, instance->vbguess);
 
-        change_status = replace_config(instance, old_config->vbc, config->vbc);
-        if (change_status == -1) {
-            LOG(instance, ERR, "Couldn't replace config");
-            return;
-        }
+        replace_config(instance, old_config->vbc, config->vbc);
         lcb_clconfig_decref(old_config);
+        change_status = LCB_CONFIGURATION_CHANGED;
     } else {
-        unsigned nservers;
-        mc_PIPELINE **servers;
-        nservers = VB_NSERVERS(config->vbc);
-        if ((servers = malloc(sizeof(*servers) * nservers)) == NULL) {
-            assert(servers);
-            lcb_log(LOGARGS(instance, FATAL), "Couldn't allocate memory for new server list! (n=%u)", nservers);
-            return;
+        size_t nservers = VB_NSERVERS(config->vbc);
+        std::vector<mc_PIPELINE*> servers;
+
+        for (size_t ii = 0; ii < nservers; ii++) {
+            servers.push_back(new lcb::Server(instance, ii));
         }
 
-        for (ii = 0; ii < nservers; ii++) {
-            mc_SERVER *srv;
-            if ((srv = mcserver_alloc(instance, ii)) == NULL) {
-                assert(srv);
-                lcb_log(LOGARGS(instance, FATAL), "Couldn't allocate memory for server instance!");
-                return;
-            }
-            servers[ii] = &srv->pipeline;
-        }
-
-        mcreq_queue_add_pipelines(q, servers, nservers, config->vbc);
+        mcreq_queue_add_pipelines(q, &servers[0], nservers, config->vbc);
         change_status = LCB_CONFIGURATION_NEW;
-        free(servers);
     }
 
     /* Update the list of nodes here for server list */
-    hostlist_clear(instance->ht_nodes);
-    for (ii = 0; ii < LCBVB_NSERVERS(config->vbc); ++ii) {
+    instance->ht_nodes->clear();
+    for (size_t ii = 0; ii < LCBVB_NSERVERS(config->vbc); ++ii) {
         const char *hp = lcbvb_get_hostport(config->vbc, ii,
             LCBVB_SVCTYPE_MGMT, LCBVB_SVCMODE_PLAIN);
         if (hp) {
-            hostlist_add_stringz(instance->ht_nodes, hp, LCB_CONFIG_HTTP_PORT);
+            instance->ht_nodes->add(hp, LCB_CONFIG_HTTP_PORT);
         }
     }
 
     instance->callbacks.configuration(instance, change_status);
     lcb_maybe_breakout(instance);
 }
-
-

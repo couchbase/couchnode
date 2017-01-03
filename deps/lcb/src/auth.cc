@@ -1,5 +1,5 @@
 #include <libcouchbase/couchbase.h>
-#include "auth.h"
+#include "auth-priv.h"
 
 using namespace lcb;
 
@@ -9,53 +9,78 @@ lcbauth_new()
     return new Authenticator();
 }
 
-void
-lcbauth_free(lcb_AUTHENTICATOR *auth)
-{
-    delete auth;
-}
-
 const char *
 lcbauth_get_bpass(const lcb_AUTHENTICATOR *auth, const char *u)
 {
-    Authenticator::Map::const_iterator ii = auth->m_buckets.find(u);
-    if (ii == auth->m_buckets.end()) {
+    Authenticator::Map::const_iterator ii = auth->buckets().find(u);
+    if (ii == auth->buckets().end()) {
         return NULL;
     }
     return ii->second.c_str();
 }
 
-void
-lcbauth_set(lcb_AUTHENTICATOR *auth, const char *u, const char *p,
-    int is_global)
+lcb_error_t
+lcbauth_add_pass(lcb_AUTHENTICATOR *auth, const char *u, const char *p, int flags)
 {
-    if (is_global) {
-        auth->m_username = u;
-        auth->m_password = p;
-    } else {
-        auth->m_buckets[u] = p;
-    }
+    return auth->add(u, p, flags);
 }
 
-void
-lcb_authenticator_clear(lcb_AUTHENTICATOR *auth)
+lcb_error_t
+Authenticator::add(const char *u, const char *p, int flags)
 {
-    auth->m_buckets.clear();
+    if (!flags) {
+        return LCB_EINVAL;
+    }
+
+    if (flags & LCBAUTH_F_CLUSTER) {
+        if (!p) {
+            m_username.clear();
+            m_password.clear();
+        } else {
+            m_username = u;
+            m_password = p;
+        }
+    }
+    if (flags & LCBAUTH_F_BUCKET) {
+        if (!p) {
+            m_buckets.erase(u);
+        } else {
+            m_buckets[u] = p;
+        }
+    }
+    return LCB_SUCCESS;
 }
 
 void
 lcbauth_get_upass(const lcb_AUTHENTICATOR *auth, const char **u, const char **p)
 {
-    if (!auth->m_username.empty()) {
-        *u = auth->m_username.c_str();
+    if (!auth->username().empty()) {
+        *u = auth->username().c_str();
+        *p = auth->password().empty() ? NULL : auth->password().c_str();
+
+    } else if (!auth->buckets().empty()) {
+        Authenticator::Map::const_iterator it = auth->buckets().begin();
+        *u = it->first.c_str();
+        if (!it->second.empty()) {
+            *p = it->second.c_str();
+        } else {
+            *p = NULL;
+        }
     } else {
-        *u = NULL;
+        *u = *p = NULL;
     }
-    if (!auth->m_password.empty()) {
-        *p = auth->m_password.c_str();
-    } else {
-        *p = NULL;
-    }
+}
+
+void
+lcbauth_ref(lcb_AUTHENTICATOR *auth)
+{
+    auth->incref();
+}
+
+void
+lcbauth_unref(lcb_AUTHENTICATOR *auth)
+{
+    auth->decref();
 }
 
 lcb_error_t

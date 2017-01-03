@@ -135,23 +135,22 @@ TEST_F(Packet, testParseBasic)
     pkt.getq(value, 0);
     pkt.rbWrite(&ior);
 
-    packet_info pi;
+    lcb::MemcachedResponse pi;
     memset(&pi, 0, sizeof(pi));
     unsigned wanted;
-    int rv = lcb_pktinfo_ior_get(&pi, &ior, &wanted);
-    ASSERT_EQ(rv, 1);
+    ASSERT_TRUE(pi.load(&ior, &wanted));
 
-    ASSERT_EQ(0, PACKET_STATUS(&pi));
-    ASSERT_EQ(PROTOCOL_BINARY_CMD_GETQ, PACKET_OPCODE(&pi));
-    ASSERT_EQ(0, PACKET_OPAQUE(&pi));
-    ASSERT_EQ(7, PACKET_NBODY(&pi));
-    ASSERT_EQ(3, PACKET_NVALUE(&pi));
-    ASSERT_EQ(0, PACKET_NKEY(&pi));
-    ASSERT_EQ(4, PACKET_EXTLEN(&pi));
-    ASSERT_EQ(PACKET_NBODY(&pi), rdb_get_nused(&ior));
-    ASSERT_EQ(0, strncmp(value.c_str(), PACKET_VALUE(&pi), 3));
+    ASSERT_EQ(0, pi.status());
+    ASSERT_EQ(PROTOCOL_BINARY_CMD_GETQ, pi.opcode());
+    ASSERT_EQ(0, pi.opaque());
+    ASSERT_EQ(7, pi.bodylen());
+    ASSERT_EQ(3, pi.vallen());
+    ASSERT_EQ(0, pi.keylen());
+    ASSERT_EQ(4, pi.extlen());
+    ASSERT_EQ(pi.bodylen(), rdb_get_nused(&ior));
+    ASSERT_EQ(0, strncmp(value.c_str(), pi.value(), 3));
 
-    lcb_pktinfo_ior_done(&pi, &ior);
+    pi.release(&ior);
     ASSERT_EQ(0, rdb_get_nused(&ior));
     rdb_cleanup(&ior);
 }
@@ -165,26 +164,22 @@ TEST_F(Packet, testParsePartial)
     std::string value;
     value.insert(0, 1024, '*');
 
-    packet_info pi;
-    int rv;
+    lcb::MemcachedResponse pi;
 
     // Test where we're missing just one byte
     pkt.writeGenericHeader(10, &ior);
     unsigned wanted;
-    rv = lcb_pktinfo_ior_get(&pi, &ior, &wanted);
-    ASSERT_EQ(0, rv);
+    ASSERT_FALSE(pi.load(&ior, &wanted));
 
     for (int ii = 0; ii < 9; ii++) {
         char c = 'O';
         rdb_copywrite(&ior, &c, 1);
-        rv = lcb_pktinfo_ior_get(&pi, &ior, &wanted);
-        ASSERT_EQ(0, rv);
+        ASSERT_FALSE(pi.load(&ior, &wanted));
     }
     char tmp = 'O';
     rdb_copywrite(&ior, &tmp, 1);
-    rv = lcb_pktinfo_ior_get(&pi, &ior, &wanted);
-    ASSERT_EQ(1, rv);
-    lcb_pktinfo_ior_done(&pi, &ior);
+    ASSERT_TRUE(pi.load(&ior, &wanted));
+    pi.release(&ior);
     rdb_cleanup(&ior);
 }
 
@@ -199,24 +194,22 @@ TEST_F(Packet, testKeys)
     pkt.get(key, value, 1000, PROTOCOL_BINARY_RESPONSE_ETMPFAIL, 0xdeadbeef, 50);
     pkt.rbWrite(&ior);
 
-    packet_info pi;
-    memset(&pi, 0, sizeof(pi));
+    lcb::MemcachedResponse pi;
     unsigned wanted;
-    int rv = lcb_pktinfo_ior_get(&pi, &ior, &wanted);
-    ASSERT_EQ(1, rv);
+    ASSERT_TRUE(pi.load(&ior, &wanted));
 
-    ASSERT_EQ(key.size(), PACKET_NKEY(&pi));
-    ASSERT_EQ(0, memcmp(key.c_str(), PACKET_KEY(&pi), PACKET_NKEY(&pi)));
-    ASSERT_EQ(value.size(), PACKET_NVALUE(&pi));
-    ASSERT_EQ(0, memcmp(value.c_str(), PACKET_VALUE(&pi), PACKET_NVALUE(&pi)));
-    ASSERT_EQ(0xdeadbeef, PACKET_CAS(&pi));
-    ASSERT_EQ(PROTOCOL_BINARY_RESPONSE_ETMPFAIL, PACKET_STATUS(&pi));
-    ASSERT_EQ(PROTOCOL_BINARY_CMD_GET, PACKET_OPCODE(&pi));
-    ASSERT_EQ(4, PACKET_EXTLEN(&pi));
-    ASSERT_EQ(4 + key.size() + value.size(), PACKET_NBODY(&pi));
-    ASSERT_NE(pi.payload, PACKET_VALUE(&pi));
-    ASSERT_EQ(4 + key.size(), PACKET_VALUE(&pi) - (char *)pi.payload);
+    ASSERT_EQ(key.size(), pi.keylen());
+    ASSERT_EQ(0, memcmp(key.c_str(), pi.key(), pi.keylen()));
+    ASSERT_EQ(value.size(), pi.vallen());
+    ASSERT_EQ(0, memcmp(value.c_str(), pi.value(), pi.vallen()));
+    ASSERT_EQ(0xdeadbeef, pi.cas());
+    ASSERT_EQ(PROTOCOL_BINARY_RESPONSE_ETMPFAIL, pi.status());
+    ASSERT_EQ(PROTOCOL_BINARY_CMD_GET, pi.opcode());
+    ASSERT_EQ(4, pi.extlen());
+    ASSERT_EQ(4 + key.size() + value.size(), pi.bodylen());
+    ASSERT_NE(pi.body<const char*>(), pi.value());
+    ASSERT_EQ(4 + key.size(), pi.value() - pi.body<const char*>());
 
-    lcb_pktinfo_ior_done(&pi, &ior);
+    pi.release(&ior);
     rdb_cleanup(&ior);
 }

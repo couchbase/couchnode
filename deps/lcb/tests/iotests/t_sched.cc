@@ -28,8 +28,7 @@ static bool
 hasPendingOps(lcb_t instance)
 {
     for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ++ii) {
-        mc_SERVER *ss = LCBT_GET_SERVER(instance, ii);
-        if (mcserver_has_pending(ss)) {
+        if (instance->get_server(ii)->has_pending()) {
             return true;
         }
     }

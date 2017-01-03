@@ -6,6 +6,9 @@
 
 #ifndef GENHASH_H
 #define GENHASH_H 1
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*! \mainpage genhash
  *
@@ -232,4 +235,7 @@ int genhash_string_hash(const void *k, lcb_size_t nkey);
  * @}
  */
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* GENHASH_H */

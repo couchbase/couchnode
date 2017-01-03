@@ -20,32 +20,51 @@
 #include <libcouchbase/api3.h>
 #include "durability_internal.h"
 
+using namespace lcb::durability;
+
+namespace {
+class SeqnoDurset : public Durset {
+public:
+    SeqnoDurset(lcb_t instance_, const lcb_durability_opts_t *options)
+        : Durset(instance_, options) {
+    }
+
+    // Override
+    lcb_error_t poll_impl();
+
+    // Override
+    lcb_error_t after_add(Item& item, const lcb_CMDENDURE *cmd);
+
+    void update(const lcb_RESPOBSEQNO *resp);
+};
+}
+
+Durset *
+Durset::createSeqnoDurset(lcb_t instance, const lcb_durability_opts_t *options) {
+    return new SeqnoDurset(instance, options);
+}
+
 #define ENT_SEQNO(ent) (ent)->reqseqno
 
 static void
-seqno_callback(lcb_t instance, int ign, const lcb_RESPBASE *rb)
+seqno_callback(lcb_t, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPOBSEQNO *resp = (const lcb_RESPOBSEQNO*)rb;
-    char *pp = resp->cookie;
-    lcb_DURITEM *ent;
     int flags = 0;
-    lcb_U64 seqno_mem, seqno_disk;
+    Item *ent = static_cast<Item*>(reinterpret_cast<CallbackCookie*>(resp->cookie));
 
-    pp -= offsetof(lcb_DURITEM, callback);
-    ent = (lcb_DURITEM *)pp;
     /* Now, process the response */
-
     if (resp->rc != LCB_SUCCESS) {
-        RESFLD(ent, rc) = resp->rc;
+        ent->res().rc = resp->rc;
         goto GT_TALLY;
     }
 
+    lcb_U64 seqno_mem, seqno_disk;
     if (resp->old_uuid) {
         /* Failover! */
         seqno_mem = seqno_disk = resp->old_seqno;
         if (seqno_mem < ENT_SEQNO(ent)) {
-            RESFLD(ent, rc) = LCB_MUTATION_LOST;
-            lcbdur_ent_finish(ent);
+            ent->finish(LCB_MUTATION_LOST);
             goto GT_TALLY;
         }
     } else {
@@ -57,57 +76,52 @@ seqno_callback(lcb_t instance, int ign, const lcb_RESPBASE *rb)
         goto GT_TALLY;
     }
 
-    flags = LCBDUR_UPDATE_REPLICATED;
+    flags = Item::UPDATE_REPLICATED;
     if (seqno_disk >= ENT_SEQNO(ent)) {
-        flags |= LCBDUR_UPDATE_PERSISTED;
+        flags |= Item::UPDATE_PERSISTED;
     }
 
-    lcbdur_update_item(ent, flags, resp->server_index);
+    ent->update(flags, resp->server_index);
 
     GT_TALLY:
     if (!--ent->parent->waiting) {
         /* avoid ssertion (wait==0)! */
         ent->parent->waiting = 1;
-        lcbdur_reqs_done(ent->parent);
+        ent->parent->on_poll_done();
     }
-
-    (void)ign; (void)instance;
 }
 
-static lcb_error_t
-seqno_poll(lcb_DURSET *dset)
+lcb_error_t
+SeqnoDurset::poll_impl()
 {
     lcb_error_t ret_err = LCB_EINTERNAL; /* This should never be returned */
-    size_t ii;
-    int has_ops = 0;
-    lcb_t instance = dset->instance;
+    bool has_ops = false;
 
     lcb_sched_enter(instance);
-    for (ii = 0; ii < DSET_COUNT(dset); ii++) {
-        lcb_DURITEM *ent = DSET_ENTRIES(dset) + ii;
-        size_t jj, nservers = 0;
+    for (size_t ii = 0; ii < entries.size(); ii++) {
+        Item& ent = entries[ii];
         lcb_U16 servers[4];
         lcb_CMDOBSEQNO cmd = { 0 };
 
-        if (ent->done) {
+        if (ent.done) {
             continue;
         }
 
-        cmd.uuid = ent->uuid;
-        cmd.vbid = ent->vbid;
+        cmd.uuid = ent.uuid;
+        cmd.vbid = ent.vbid;
         cmd.cmdflags = LCB_CMD_F_INTERNAL_CALLBACK;
-        ent->callback = seqno_callback;
+        ent.callback = seqno_callback;
 
-        lcbdur_prepare_item(ent, servers, &nservers);
-        for (jj = 0; jj < nservers; jj++) {
+        size_t nservers = ent.prepare(servers);
+        for (size_t jj = 0; jj < nservers; jj++) {
             lcb_error_t err;
             cmd.server_index = servers[jj];
-            err = lcb_observe_seqno3(instance, &ent->callback, &cmd);
+            err = lcb_observe_seqno3(instance, &ent.callback, &cmd);
             if (err == LCB_SUCCESS) {
-                dset->waiting++;
-                has_ops = 1;
+                waiting++;
+                has_ops = true;
             } else {
-                RESFLD(ent, rc) = ret_err = err;
+                ent.res().rc = ret_err = err;
             }
         }
     }
@@ -119,8 +133,8 @@ seqno_poll(lcb_DURSET *dset)
     }
 }
 
-static lcb_error_t
-seqno_ent_add(lcb_DURSET *dset, lcb_DURITEM *item, const lcb_CMDENDURE *cmd)
+lcb_error_t
+SeqnoDurset::after_add(Item &item, const lcb_CMDENDURE *cmd)
 {
     const lcb_MUTATION_TOKEN *stok = NULL;
 
@@ -129,29 +143,21 @@ seqno_ent_add(lcb_DURSET *dset, lcb_DURITEM *item, const lcb_CMDENDURE *cmd)
     }
 
     if (stok == NULL) {
-        lcb_t instance = dset->instance;
         if (!instance->dcpinfo) {
             return LCB_DURABILITY_NO_MUTATION_TOKENS;
         }
-        if (item->vbid >= LCBT_VBCONFIG(instance)->nvb) {
+        if (item.vbid >= LCBT_VBCONFIG(instance)->nvb) {
             return LCB_EINVAL;
         }
-        stok = instance->dcpinfo + item->vbid;
+        stok = instance->dcpinfo + item.vbid;
         if (LCB_MUTATION_TOKEN_ID(stok) == 0) {
             return LCB_DURABILITY_NO_MUTATION_TOKENS;
         }
     }
 
     /* Set the fields */
-    memset(item->sinfo, 0, sizeof(item->sinfo[0]) * 4);
-    item->uuid = LCB_MUTATION_TOKEN_ID(stok);
-    ENT_SEQNO(item) = LCB_MUTATION_TOKEN_SEQ(stok);
+    memset(item.sinfo, 0, sizeof(item.sinfo[0]) * 4);
+    item.uuid = LCB_MUTATION_TOKEN_ID(stok);
+    ENT_SEQNO(&item) = LCB_MUTATION_TOKEN_SEQ(stok);
     return LCB_SUCCESS;
 }
-
-lcbdur_PROCS lcbdur_seqno_procs = {
-        seqno_poll,
-        seqno_ent_add,
-        NULL, /*schedule*/
-        NULL /*clean*/
-};

@@ -101,20 +101,16 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
             return ensure_scratch(instance).append(hp).c_str();
         }
     } else if (type & (LCB_NODE_DATA|LCB_NODE_VIEWS)) {
-        const mc_SERVER *server;
         ix %= LCBT_NSERVERS(instance);
-        server = LCBT_GET_SERVER(instance, ix);
+        const lcb::Server *server = instance->get_server(ix);
 
-        if ((type & LCB_NODE_CONNECTED) && server->connctx == NULL) {
-            return return_badhost(type);
-        }
-        if (server->curhost == NULL) {
+        if ((type & LCB_NODE_CONNECTED) && !server->is_connected()) {
             return return_badhost(type);
         }
 
         /* otherwise, return the actual host:port of the server */
         if (type & LCB_NODE_DATA) {
-            return mk_scratch_host(instance, server->curhost);
+            return mk_scratch_host(instance, &server->get_host());
         } else {
             return lcbvb_get_hostport(vbc, ix, LCBVB_SVCTYPE_VIEWS, mode);
         }

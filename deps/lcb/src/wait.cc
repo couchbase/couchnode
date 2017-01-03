@@ -18,44 +18,39 @@
 #include <lcbio/iotable.h>
 #include <lcbio/timer-ng.h>
 
-static int
+static bool
 has_pending(lcb_t instance)
 {
-    unsigned ii;
 
-    if (!lcb_retryq_empty(instance->retryq)) {
-        return 1;
+    if (!instance->retryq->empty()) {
+        return true;
     }
 
     if (lcb_aspend_pending(&instance->pendops)) {
-        return 1;
+        return true;
     }
 
-    for (ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
-        mc_SERVER *ss = LCBT_GET_SERVER(instance, ii);
-        if (mcserver_has_pending(ss)) {
-            return 1;
+    for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
+        if (instance->get_server(ii)->has_pending()) {
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 static void
 maybe_reset_timeouts(lcb_t instance)
 {
-    size_t ii;
-    lcb_U64 now;
 
     if (!LCBT_SETTING(instance, readj_ts_wait)) {
         return;
     }
 
-    now = lcb_nstime();
-    for (ii = 0; ii < LCBT_NSERVERS(instance); ++ii) {
-        mc_SERVER *ss = LCBT_GET_SERVER(instance, ii);
-        mcreq_reset_timeouts(&ss->pipeline, now);
+    uint64_t now = lcb_nstime();
+    for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ++ii) {
+        mcreq_reset_timeouts(instance->get_server(ii), now);
     }
-    lcb_retryq_reset_timeouts(instance->retryq, now);
+    instance->retryq->reset_timeouts(now);
 }
 
 void

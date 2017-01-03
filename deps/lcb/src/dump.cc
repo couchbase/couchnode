@@ -50,10 +50,10 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
     } else {
         fprintf(fp, "NO CLUSTER CONFIG\n");
     }
-    fprintf(fp,"Retry queue has items: %s\n", lcb_retryq_empty(instance->retryq) ? "No" : "Yes");
+    fprintf(fp,"Retry queue has items: %s\n", instance->retryq->empty() ? "No" : "Yes");
     if (flags & LCB_DUMP_PKTINFO) {
         fprintf(fp, "=== BEGIN RETRY QUEUE DUMP ===\n");
-        lcb_retryq_dump(instance->retryq, fp, NULL);
+        instance->retryq->dump(fp, NULL);
         fprintf(fp, "=== END RETRY QUEUE DUMP ===\n");
     } else {
         fprintf(fp, "=== NOT DUMPING PACKET INFO. LCB_DUMP_PKTINFO not passed\n");
@@ -61,10 +61,7 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
 
     fprintf(fp, "=== BEGIN PIPELINE DUMP ===\n");
     for (ii = 0; ii < instance->cmdq.npipelines; ii++) {
-        mc_SERVER *server;
-        mc_PIPELINE *pl = instance->cmdq.pipelines[ii];
-
-        server = (mc_SERVER *)pl;
+        lcb::Server *server = static_cast<lcb::Server*>(instance->cmdq.pipelines[ii]);
         fprintf(fp, "** [%u] SERVER %s:%s\n", ii, server->curhost->host, server->curhost->port);
         if (server->connctx) {
             fprintf(fp, "** == BEGIN SOCKET INFO\n");
@@ -77,14 +74,14 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
         }
         if (flags & LCB_DUMP_BUFINFO) {
             fprintf(fp, "** == DUMPING NETBUF INFO (For packet network data)\n");
-            netbuf_dump_status(&pl->nbmgr, fp);
+            netbuf_dump_status(&server->nbmgr, fp);
             fprintf(fp, "** == DUMPING NETBUF INFO (For packet structures)\n");
-            netbuf_dump_status(&pl->reqpool, fp);
+            netbuf_dump_status(&server->reqpool, fp);
         } else {
             fprintf(fp, "** == NOT DUMPING NETBUF INFO. LCB_DUMP_BUFINFO not passed\n");
         }
         if (flags & LCB_DUMP_PKTINFO) {
-            mcreq_dump_chain(pl, fp, NULL);
+            mcreq_dump_chain(server, fp, NULL);
         } else {
             fprintf(fp, "** == NOT DUMPING PACKETS. LCB_DUMP_PKTINFO not passed\n");
         }

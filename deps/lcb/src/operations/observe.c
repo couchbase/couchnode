@@ -16,6 +16,7 @@
  */
 
 #include "internal.h"
+#include "simplestring.h"
 #include "durability_internal.h"
 #include "trace.h"
 
@@ -81,8 +82,7 @@ handle_observe_callback(mc_PIPELINE *pl,
     resp->rc = err;
     if (oc->oflags & F_DURABILITY) {
         resp->ttp = pl ? pl->index : -1;
-        lcbdur_cas_update( instance,
-            (lcb_DURSET *)MCREQ_PKT_COOKIE(pkt), err, resp);
+        lcbdur_cas_update(instance, (void*)MCREQ_PKT_COOKIE(pkt), err, resp);
 
     } else if ((oc->oflags & F_SCHEDFAILED) == 0) {
         lcb_RESPCALLBACK callback = lcb_find_callback(instance, LCB_CALLBACK_OBSERVE);

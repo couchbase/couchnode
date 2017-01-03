@@ -24,6 +24,15 @@
 #include <vector>
 #include <set>
 
+#ifdef _MSC_VER
+/*
+ * Disable DLL interface warning. This isn't an issue since this API is
+ * private anyway
+ */
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#endif
+
 namespace lcb {
 struct Spechost {
     Spechost() : port(0), type(0) {}
@@ -102,4 +111,8 @@ private:
 #define LCB_SPECSCHEME_HTTP_SSL "https-internal://"
 #define LCB_SPECSCHEME_MCCOMPAT "memcached://"
 } // namespace
+#endif
+
+#ifdef _MSC_VER
+#pragma warning(pop)
 #endif

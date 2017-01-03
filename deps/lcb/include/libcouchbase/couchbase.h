@@ -54,6 +54,7 @@ typedef struct lcb_http_request_st *lcb_http_request_t;
 #include <libcouchbase/http.h>
 #include <libcouchbase/configuration.h>
 #include <libcouchbase/kvbuf.h>
+#include <libcouchbase/auth.h>
 #include <libcouchbase/_cxxwrap.h>
 
 #ifdef __cplusplus
@@ -387,6 +388,18 @@ lcb_set_bootstrap_callback(lcb_t instance, lcb_bootstrap_callback callback);
 LIBCOUCHBASE_API
 lcb_error_t
 lcb_get_bootstrap_status(lcb_t instance);
+
+/**
+ * Sets the authenticator object for the instance. This may be done anytime, but
+ * should probably be done before calling `lcb_connect()` for best effect.
+ *
+ * @param instance the handle
+ * @param auth the authenticator object used. The library will increase the
+ * refcount on the authenticator object.
+ */
+LIBCOUCHBASE_API
+void
+lcb_set_auth(lcb_t instance, lcb_AUTHENTICATOR *auth);
 /**@}*/
 
 

@@ -647,7 +647,7 @@ void lcb_clconfig_cccp_enable(clconfig_provider *pb, lcb_t instance);
  * set
  */
 lcb_error_t
-lcb_cccp_update(clconfig_provider *provider, const char *host, lcb_string *data);
+lcb_cccp_update(clconfig_provider *provider, const char *host, const char *data);
 
 /**
  * @brief Notify the CCCP provider about a configuration received from a

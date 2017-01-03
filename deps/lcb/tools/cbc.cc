@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "common/my_inttypes.h"
 #include <map>
 #include <sstream>
@@ -7,6 +8,7 @@
 #include <libcouchbase/vbucket.h>
 #include <libcouchbase/views.h>
 #include <libcouchbase/n1ql.h>
+#include <limits>
 #include <stddef.h>
 #include "common/options.h"
 #include "common/histogram.h"
@@ -907,7 +909,14 @@ ArithmeticHandler::run()
             cmd.create = 1;
             cmd.initial = o_initial.result();
         }
-        cmd.delta = getDelta();
+        uint64_t delta = o_delta.result();
+        if (delta > std::numeric_limits<int64_t>::max()) {
+            throw BadArg("Delta too big");
+        }
+        cmd.delta = static_cast<int64_t>(delta);
+        if (shouldInvert()) {
+            cmd.delta *= -1;
+        }
         cmd.exptime = o_expiry.result();
         lcb_error_t err = lcb_counter3(instance, NULL, &cmd);
         if (err != LCB_SUCCESS) {

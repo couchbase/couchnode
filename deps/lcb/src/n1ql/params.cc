@@ -105,7 +105,7 @@ lcb_n1p_setconsistent_token(lcb_N1QLPARAMS *params,
     }
 
     params->root["scan_consistency"] = "at_plus";
-    encode_mutation_token(params->root["scan_vector"][keyspace], sv);
+    encode_mutation_token(params->root["scan_vectors"][keyspace], sv);
     return LCB_SUCCESS;
 }
 

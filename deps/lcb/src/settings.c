@@ -18,7 +18,6 @@
 #include "settings.h"
 #include <lcbio/ssl.h>
 #include <rdb/rope.h>
-#include "auth.h"
 
 LCB_INTERNAL_API
 void lcb_default_settings(lcb_settings *settings)
@@ -83,7 +82,7 @@ lcb_settings_unref(lcb_settings *settings)
     free(settings->certpath);
     free(settings->client_string);
 
-    lcbauth_free(settings->auth);
+    lcbauth_unref(settings->auth);
 
     if (settings->ssl_ctx) {
         lcbio_ssl_free(settings->ssl_ctx);

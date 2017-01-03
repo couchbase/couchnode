@@ -16,16 +16,50 @@
  */
 
 #define LCBDUR_PRIV_SYMS
+
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/api3.h>
 #include "internal.h"
 #include "durability_internal.h"
 
-#define DSET_HT(dset) (dset)->impldata
+using namespace lcb::durability;
+
+namespace {
+struct CasDurset : public Durset {
+    CasDurset(lcb_t instance_, const lcb_durability_opts_t *options)
+        : Durset(instance_, options), ht(NULL) {
+    }
+
+    virtual ~CasDurset();
+
+    void update(lcb_error_t err, const lcb_RESPOBSERVE *resp);
+    Item& find(const char *s, size_t n) {
+        if (entries.size() == 1) {
+            return entries.back();
+        } else {
+            return *reinterpret_cast<Item*>(genhash_find(ht, s, n));
+        }
+    }
+
+    // Override
+    lcb_error_t prepare_schedule();
+    lcb_error_t poll_impl();
+
+    genhash_t *ht;
+};
+}
+
+
+Durset*
+Durset::createCasDurset(lcb_t instance, const lcb_durability_opts_t *options) {
+    return new CasDurset(instance, options);
+}
+
+
 
 /* Called when the criteria is to ensure the key exists somewhow */
 static int
-check_positive_durability(lcb_DURITEM *ent, const lcb_RESPOBSERVE *res)
+check_positive_durability(Item& ent, const lcb_RESPOBSERVE *res)
 {
     switch (res->status) {
     case LCB_OBSERVE_NOT_FOUND:
@@ -33,131 +67,122 @@ check_positive_durability(lcb_DURITEM *ent, const lcb_RESPOBSERVE *res)
         /* If we get NOT_FOUND from the master, this means the key
          * simply does not exists (and we don't have to continue polling) */
         if (res->ismaster) {
-            RESFLD(ent, rc) = LCB_KEY_ENOENT;
-            lcbdur_ent_finish(ent);
+            ent.finish(LCB_KEY_ENOENT);
         }
-        return 0;
+        return Item::NO_CHANGES;
 
     case LCB_OBSERVE_PERSISTED:
-        return LCBDUR_UPDATE_PERSISTED | LCBDUR_UPDATE_REPLICATED;
+        return Item::UPDATE_PERSISTED | Item::UPDATE_REPLICATED;
 
     case LCB_OBSERVE_FOUND:
-        return LCBDUR_UPDATE_REPLICATED;
+        return Item::UPDATE_REPLICATED;
 
     default:
-        RESFLD(ent, rc) = LCB_EINTERNAL;
-        lcbdur_ent_finish(ent);
-        return 0;
+        ent.finish(LCB_EINTERNAL);
+        return Item::NO_CHANGES;
     }
 }
 
 /* Called when the criteria is to ensure that the key is deleted somehow */
 static int
-check_negative_durability(lcb_DURITEM *ent, const lcb_RESPOBSERVE *res)
+check_negative_durability(Item& ent, const lcb_RESPOBSERVE *res)
 {
     switch (res->status) {
     case LCB_OBSERVE_PERSISTED:
     case LCB_OBSERVE_FOUND:
         /* Still there! */
-        return 0;
+        return Item::NO_CHANGES;
 
     case LCB_OBSERVE_LOGICALLY_DELETED:
         /* removed from cache, but not actually deleted from disk */
-        return LCBDUR_UPDATE_REPLICATED;
+        return Item::UPDATE_REPLICATED;
 
     case LCB_OBSERVE_NOT_FOUND:
         /* No knowledge of key. */
-        return LCBDUR_UPDATE_PERSISTED | LCBDUR_UPDATE_REPLICATED;
+        return Item::UPDATE_PERSISTED | Item::UPDATE_REPLICATED;
 
     default:
-        RESFLD(ent, rc) = LCB_EINTERNAL;
-        lcbdur_ent_finish(ent);
-        return 0;
+        ent.finish(LCB_EINTERNAL);
+        return Item::NO_CHANGES;
     }
+}
+
+void lcbdur_cas_update(lcb_t, void *dset, lcb_error_t err,
+                       const lcb_RESPOBSERVE *resp)
+{
+    reinterpret_cast<CasDurset*>(dset)->update(err, resp);
 }
 
 /* Observe callback. Called internally by observe.c */
 void
-lcbdur_cas_update(lcb_t instance,
-    lcb_DURSET *dset, lcb_error_t err, const lcb_RESPOBSERVE *resp)
+CasDurset::update(lcb_error_t err, const lcb_RESPOBSERVE *resp)
 {
-    lcb_DURITEM *ent;
-    int flags;
-
     if (resp->key == NULL) {
         /* Last observe response for requests. Start polling after interval */
-        lcbdur_reqs_done(dset);
+        on_poll_done();
         return;
     }
 
-    if (DSET_COUNT(dset) == 1) {
-        ent = DSET_ENTRIES(dset);
-    } else {
-        ent = genhash_find(DSET_HT(dset), resp->key, resp->nkey);
-    }
+    Item& ent = find(reinterpret_cast<const char *>(resp->key), resp->nkey);
 
-    if (ent->done) {
+    if (ent.done) {
         /* ignore subsequent errors */
         return;
     }
 
     if (err != LCB_SUCCESS) {
-        RESFLD(ent, rc) = err;
+        ent.res().rc = err;
         return;
     }
 
-    RESFLD(ent, nresponses)++;
+    ent.res().nresponses++;
     if (resp->cas && resp->ismaster) {
-        RESFLD(ent, cas) = resp->cas;
+        ent.res().cas = resp->cas;
 
-        if (ent->reqcas && ent->reqcas != resp->cas) {
-            RESFLD(ent, rc) = LCB_KEY_EEXISTS;
-            lcbdur_ent_finish(ent);
+        if (ent.reqcas && ent.reqcas != resp->cas) {
+            ent.finish(LCB_KEY_EEXISTS);
             return;
         }
     }
 
-    if (DSET_OPTFLD(ent->parent, check_delete)) {
+    int flags;
+    if (opts.check_delete) {
         flags = check_negative_durability(ent, resp);
     } else {
         flags = check_positive_durability(ent, resp);
     }
 
-    lcbdur_update_item(ent, flags, resp->ttp);
-    (void)instance;
+    ent.update(flags, resp->ttp);
 }
 
-static lcb_error_t
-cas_poll(lcb_DURSET *dset)
+lcb_error_t
+CasDurset::poll_impl()
 {
     lcb_MULTICMD_CTX *mctx;
-    size_t ii;
     lcb_error_t err;
-    lcb_t instance = dset->instance;
 
-    mctx = lcb_observe_ctx_dur_new(dset->instance);
+    mctx = lcb_observe_ctx_dur_new(instance);
     if (!mctx) {
         return LCB_CLIENT_ENOMEM;
     }
 
-    for (ii = 0; ii < DSET_COUNT(dset); ii++) {
+    for (size_t ii = 0; ii < entries.size(); ii++) {
         lcb_CMDOBSERVE cmd = { 0 };
-        lcb_U16 servers[4];
-        size_t nservers = 0;
+        uint16_t servers[4];
 
-        struct lcb_DURITEM_st *ent = DSET_ENTRIES(dset) + ii;
-        if (ent->done) {
+        Item& ent = entries[ii];
+        if (ent.done) {
             continue;
         }
 
-        lcbdur_prepare_item(ent, servers, &nservers);
+        size_t nservers = ent.prepare(servers);
         if (nservers == 0) {
-            RESFLD(ent, rc) = LCB_NO_MATCHING_SERVER;
+            ent.res().rc = LCB_NO_MATCHING_SERVER;
             continue;
         }
 
-        LCB_KREQ_SIMPLE(&cmd.key, RESFLD(ent, key), RESFLD(ent, nkey));
-        LCB_CMD__SETVBID(&cmd, ent->vbid);
+        LCB_KREQ_SIMPLE(&cmd.key, ent.res().key, ent.res().nkey);
+        LCB_CMD__SETVBID(&cmd, ent.vbid);
         cmd.servers_ = servers;
         cmd.nservers_ = nservers;
 
@@ -169,38 +194,36 @@ cas_poll(lcb_DURSET *dset)
     }
 
     lcb_sched_enter(instance);
-    err = mctx->done(mctx, dset);
+    err = mctx->done(mctx, this);
     mctx = NULL;
 
     if (err == LCB_SUCCESS) {
         lcb_sched_leave(instance);
-        dset->waiting = 1;
+        waiting = 1;
     } else {
         lcb_sched_fail(instance);
     }
     return err;
 }
 
-static lcb_error_t
-cas_schedule(lcb_DURSET *dset)
+lcb_error_t
+CasDurset::prepare_schedule()
 {
-    size_t ii;
-
-    if (DSET_COUNT(dset) < 2) {
+    Durset::prepare_schedule();
+    if (entries.size() < 2) {
         return LCB_SUCCESS;
     }
 
-    DSET_HT(dset) = lcb_hashtable_nc_new(DSET_COUNT(dset));
-    if (!DSET_HT(dset)) {
+    ht = lcb_hashtable_nc_new(entries.size());
+    if (!ht) {
         return LCB_CLIENT_ENOMEM;
     }
 
-    for (ii = 0; ii < DSET_COUNT(dset); ++ii) {
+    for (size_t ii = 0; ii < entries.size(); ++ii) {
         int mt;
-        lcb_DURITEM *ent = DSET_ENTRIES(dset) + ii;
+        Item &ent = entries[ii];
 
-        mt = genhash_update(DSET_HT(dset),
-            RESFLD(ent, key), RESFLD(ent, nkey), ent, 0);
+        mt = genhash_update(ht, ent.res().key, ent.res().nkey, &ent, 0);
         if (mt != NEW) {
             return LCB_DUPLICATE_COMMANDS;
         }
@@ -208,17 +231,10 @@ cas_schedule(lcb_DURSET *dset)
     return LCB_SUCCESS;
 }
 
-static void
-cas_clean(lcb_DURSET *dset)
+CasDurset::~CasDurset()
 {
-    if (DSET_HT(dset)) {
-        genhash_free(DSET_HT(dset));
+    if (ht) {
+        genhash_free(ht);
+        ht = NULL;
     }
 }
-
-lcbdur_PROCS lcbdur_cas_procs = {
-        cas_poll,
-        NULL, /* ent_add */
-        cas_schedule,
-        cas_clean
-};

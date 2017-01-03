@@ -66,15 +66,11 @@
         'BUILDING_CBSASL'
       ],
       'sources': [
-         'contrib/cbsasl/include/cbsasl/cbsasl.h',
-         'contrib/cbsasl/include/cbsasl/visibility.h',
          'contrib/cbsasl/src/client.c',
          'contrib/cbsasl/src/common.c',
          'contrib/cbsasl/src/cram-md5/hmac.c',
-         'contrib/cbsasl/src/cram-md5/hmac.h',
          'contrib/cbsasl/src/cram-md5/md5.c',
-         'contrib/cbsasl/src/cram-md5/md5.h',
-         'contrib/cbsasl/src/util.h'
+         'contrib/cbsasl/src/hash.c'
       ]
     },
 
@@ -86,6 +82,42 @@
       'sources': [
         'contrib/cJSON/cJSON.c'
       ]
+    },
+
+    #libgenhash
+    {
+      'target_name': 'genhash',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'include_dirs': [
+        './'
+      ],
+      'sources': [
+        'contrib/genhash/genhash.c'
+       ]
+    },
+
+    #libhttpparser
+    {
+      'target_name': 'httpparser',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'include_dirs': [
+        './'
+      ],
+      'sources': [
+        'contrib/http_parser/http_parser.c'
+       ]
+    },
+
+    #libjsoncpp
+    {
+      'target_name': 'jsoncpp',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'sources': [
+        'contrib/lcb-jsoncpp/lcb-jsoncpp.cpp'
+       ],
     },
 
     #libsnappy
@@ -107,42 +139,6 @@
           '-Wno-sign-compare'
         ]
       }
-    },
-
-    #libhttpparser
-    {
-      'target_name': 'httpparser',
-      'product_prefix': 'lib',
-      'type': 'static_library',
-      'include_dirs': [
-        './'
-      ],
-      'sources': [
-        'contrib/http_parser/http_parser.c'
-       ]
-    },
-
-    #libgenhash
-    {
-      'target_name': 'genhash',
-      'product_prefix': 'lib',
-      'type': 'static_library',
-      'include_dirs': [
-        './'
-      ],
-      'sources': [
-        'contrib/genhash/genhash.c'
-       ]
-    },
-    
-    #libjsoncpp
-    {
-      'target_name': 'jsoncpp',
-      'product_prefix': 'lib',
-      'type': 'static_library',
-      'sources': [
-        'contrib/lcb-jsoncpp/lcb-jsoncpp.cpp'
-       ],
     },
     
     #libcouchbase
@@ -175,7 +171,7 @@
         './'
       ],
       'sources': [
-        'src/bucketconfig/bc_cccp.c',
+        'src/bucketconfig/bc_cccp.cc',
         'src/bucketconfig/bc_file.c',
         'src/bucketconfig/bc_http.c',
         'src/bucketconfig/bc_mcraw.c',
@@ -194,21 +190,23 @@
         'src/mc/compress.c',
         'src/mc/forward.c',
         'src/mc/mcreq.c',
-        'src/mcserver/mcserver.c',
-        'src/mcserver/negotiate.c',
+        'src/mcserver/mcserver.cc',
+        'src/mcserver/negotiate.cc',
+        'src/n1ql/ixmgmt.cc',
+        'src/n1ql/n1ql.cc',
+        'src/n1ql/params.cc',
         'src/netbuf/netbuf.c',
         'src/operations/cbflush.c',
         'src/operations/counter.c',
-        'src/operations/durability-cas.c',
-        'src/operations/durability-seqno.c',
-        'src/operations/durability.c',
+        'src/operations/durability-cas.cc',
+        'src/operations/durability-seqno.cc',
+        'src/operations/durability.cc',
         'src/operations/get.c',
-        'src/operations/observe-seqno.c',
+        'src/operations/observe-seqno.cc',
         'src/operations/observe.c',
-        'src/operations/touch.c',
         'src/operations/pktfwd.c',
         'src/operations/remove.c',
-        'src/operations/stats.c',
+        'src/operations/stats.cc',
         'src/operations/store.c',
         'src/operations/subdoc.cc',
         'src/operations/touch.c',
@@ -230,11 +228,10 @@
         'src/cbft.cc',
         'src/cntl.cc',
         'src/connspec.cc',
-        'src/dump.c',
-        'src/getconfig.c',
+        'src/dump.cc',
+        'src/getconfig.cc',
         'src/gethrtime.c',
-        'src/handler.c',
-        'src/hashset.c',
+        'src/handler.cc',
         'src/hashtable.c',
         ## 'src/hdr_timings.c',
         'src/hostlist.cc',
@@ -243,21 +240,16 @@
         'src/legacy.c',
         'src/list.c',
         'src/logging.c',
-        'src/newconfig.c',
+        'src/newconfig.cc',
         'src/nodeinfo.cc',
-        'src/packetutils.c',
         'src/retrychk.c',
-        'src/retryq.c',
+        'src/retryq.cc',
         'src/ringbuffer.c',
         'src/settings.c',
         'src/simplestring.c',
         'src/timings.c',
         'src/utilities.c',
-        'src/wait.c',
-
-        'src/n1ql/n1ql.cc',
-        'src/n1ql/ixmgmt.cc',
-        'src/n1ql/params.cc',
+        'src/wait.cc',
 
         'plugins/io/select/plugin-select.c'
       ],

@@ -8,10 +8,8 @@ SET(LCB_UTILS_SRC
     src/strcodecs/base64.c
     src/gethrtime.c
     src/hashtable.c
-    src/hashset.c
     src/list.c
     src/logging.c
-    src/packetutils.c
     src/ringbuffer.c
     src/simplestring.c)
 
@@ -43,31 +41,38 @@ SET(LCB_CORE_SRC
     ${LCB_N1QL_SRC}
     src/bootstrap.c
     src/callbacks.c
-    src/dump.c
-    src/handler.c
-    src/getconfig.c
     src/legacy.c
-    src/mcserver/negotiate.c
-    src/mcserver/mcserver.c
-    src/newconfig.c
+    # src/mcserver/negotiate.c
     src/iofactory.c
-    src/retryq.c
     src/retrychk.c
     src/settings.c
-    src/utilities.c
-    src/wait.c)
+    src/utilities.c)
 
 SET(LCB_CORE_CXXSRC
     src/instance.cc
     src/auth.cc
+    src/bucketconfig/bc_cccp.cc
     src/connspec.cc
+    src/dump.cc
+    src/getconfig.cc
     src/nodeinfo.cc
+    src/handler.cc
     src/hostlist.cc
     src/http/http.cc
     src/http/http_io.cc
+    src/newconfig.cc
     src/n1ql/params.cc
     src/n1ql/n1ql.cc
     src/n1ql/ixmgmt.cc
     src/cbft.cc
+    src/operations/durability.cc
+    src/operations/durability-cas.cc
+    src/operations/durability-seqno.cc
+    src/operations/observe-seqno.cc
+    src/operations/stats.cc
     src/operations/subdoc.cc
-    src/cntl.cc)
+    src/mcserver/mcserver.cc
+    src/mcserver/negotiate.cc
+    src/retryq.cc
+    src/cntl.cc
+    src/wait.cc)

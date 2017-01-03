@@ -206,7 +206,7 @@ HANDLER(conninfo) {
     if (si->version < 0 || si->version > 1) { return LCB_ECTL_BADARG; }
 
     if (cmd == LCB_CNTL_MEMDNODE_INFO) {
-        mc_SERVER *server;
+        lcb::Server *server;
         int ix = si->v.v0.index;
 
         if (ix < 0 || ix > (int)LCBT_NSERVERS(instance)) {
@@ -218,9 +218,9 @@ HANDLER(conninfo) {
         }
         sock = server->connctx->sock;
         if (si->version == 1 && sock) {
-            mc_pSESSINFO sasl = mc_sess_get(server->connctx->sock);
-            if (sasl) {
-                si->v.v1.sasl_mech = mc_sess_get_saslmech(sasl);
+            lcb::SessionInfo *info = lcb::SessionInfo::get(server->connctx->sock);
+            if (info) {
+                si->v.v1.sasl_mech = info->get_mech().c_str();
             }
         }
     } else if (cmd == LCB_CNTL_CONFIGNODE_INFO) {
@@ -470,8 +470,7 @@ HANDLER(mutation_tokens_supported_handler) {
     *(int *)arg = 0;
 
     for (ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
-        mc_SERVER *s = LCBT_GET_SERVER(instance, ii);
-        if (s->mutation_tokens) {
+        if (instance->get_server(ii)->supports_mutation_tokens()) {
             *(int *)arg = 1;
             break;
         }
@@ -497,7 +496,7 @@ HANDLER(bucket_auth_handler) {
     if (mode == LCB_CNTL_SET) {
         /* Parse the bucket string... */
         cred = (const lcb_BUCKETCRED *)arg;
-        lcbauth_set(instance->settings->auth, (*cred)[0], (*cred)[1], 0);
+        lcbauth_add_pass(instance->settings->auth, (*cred)[0], (*cred)[1], LCBAUTH_F_BUCKET);
         (void)cmd; (void)arg;
     } else if (mode == CNTL__MODE_SETSTRING) {
         const char *ss = reinterpret_cast<const char *>(arg);
@@ -509,9 +508,9 @@ HANDLER(bucket_auth_handler) {
         if (!root.isArray() || root.size() != 2) {
             return LCB_ECTL_BADARG;
         }
-        lcbauth_set(instance->settings->auth,
+        lcbauth_add_pass(instance->settings->auth,
             root[0].asString().c_str(),
-            root[1].asString().c_str(), 0);
+            root[1].asString().c_str(), LCBAUTH_F_BUCKET);
     } else {
         return LCB_ECTL_UNSUPPMODE;
     }

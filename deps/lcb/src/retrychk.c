@@ -18,7 +18,7 @@
 #include "internal.h"
 
 int
-lcb_should_retry(lcb_settings *settings, mc_PACKET *pkt, lcb_error_t err)
+lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_error_t err)
 {
     lcb_RETRYCMDOPTS policy;
     lcb_RETRYMODEOPTS mode;

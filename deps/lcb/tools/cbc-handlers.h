@@ -223,11 +223,11 @@ public:
         o_expiry.abbrev('e').description("Expiration time for key");
     }
 protected:
-    cliopts::UIntOption o_initial;
-    cliopts::IntOption o_delta;
+    cliopts::ULongLongOption o_initial;
+    cliopts::ULongLongOption o_delta;
     cliopts::UIntOption o_expiry;
     void run();
-    virtual int64_t getDelta() = 0;
+    virtual bool shouldInvert() const = 0;
     void addOptions() {
         Handler::addOptions();
         parser.addOption(o_initial);
@@ -243,7 +243,7 @@ public:
         o_delta.description("Amount to increment by");
     }
 protected:
-    int64_t getDelta() { return o_delta.result(); }
+    bool shouldInvert() const { return false; }
 };
 
 class DecrHandler : public ArithmeticHandler {
@@ -253,7 +253,7 @@ public:
         o_delta.description("Amount to decrement by");
     }
 protected:
-    int64_t getDelta() { return o_delta.result() * -1; }
+    bool shouldInvert() const { return true; }
 };
 
 class ViewsHandler : public Handler {

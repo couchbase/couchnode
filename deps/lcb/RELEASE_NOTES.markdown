@@ -1,5 +1,25 @@
 # Release Notes
 
+## 2.7.0 (December 21 2016)
+
+This release consists mainly of internal refactoring. Many of the internals
+have been 'upgraded' to C++
+
+## 2.6.4 (November 28 2016)
+
+* Fix bug in pillowfight where large value sizes would cause a segfault.
+  * Issues: [CCBC-727](https://issues.couchbase.com/browse/CCBC-727)
+
+* Allow 64 bit values with `cbc-incr` and `cbc-decr`.
+  * Issues: [CCBC-716](https://issues.couchbase.com/browse/CCBC-716)
+
+* Fix encoding in `lcb_n1p_setconsistent_token`. This function would encode
+  it as `scan_vector` but it should be `scan_vectors`.
+
+* Refactor negotiation internals to use C++.
+  This is part of an internal refactoring to move our internals over to C++.
+  This will make the code more manageable and extendable in the future.
+
 ## 2.6.3 (September 27 2016)
 
 * Fix memory corruption for some JSON APIs when no rows are returned.

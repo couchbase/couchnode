@@ -107,7 +107,7 @@ public:
     RawDocGenerator(uint32_t minsz, uint32_t maxsz)
     : m_sizes(gen_graded_sizes(minsz, maxsz)) {
         // Populate the buffer to its capacity
-        m_buf.insert(0, '#', maxsz);
+        m_buf.insert(0, maxsz, '#');
     }
 
 

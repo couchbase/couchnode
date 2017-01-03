@@ -163,7 +163,7 @@ can_compress(lcb_t instance, const mc_PIPELINE *pipeline,
     if ((compressopts & LCB_COMPRESS_OUT) == 0) {
         return 0;
     }
-    if (server->compsupport == 0 && (compressopts & LCB_COMPRESS_FORCE) == 0) {
+    if (mcserver_supports_compression(server) == 0 && (compressopts & LCB_COMPRESS_FORCE) == 0) {
         return 0;
     }
     if (datatype & LCB_VALUE_F_SNAPPYCOMP) {
