@@ -24,10 +24,11 @@ void Error::Init() {
 }
 
 Local<Value> Error::create(const std::string &msg, int err) {
-    Handle<Value> args[] = {
+    Local<Value> args[] = {
         Nan::New<String>(msg.c_str()).ToLocalChecked()
     };
-    Local<Object> errObj = getErrorClass()->NewInstance(1, args);
+    Local<Object> errObj =
+        Nan::NewInstance(getErrorClass(), 1, args).ToLocalChecked();
     if (err > 0) {
         errObj->Set(Nan::New(codeKey), Nan::New<Integer>(err));
     }
@@ -42,7 +43,8 @@ Local<Value> Error::create(lcb_error_t err) {
     Local<Value> args[] = {
         Nan::New<String>(lcb_strerror(NULL, err)).ToLocalChecked()
     };
-    Local<Object> errObj = getErrorClass()->NewInstance(1, args);
+    Local<Object> errObj =
+        Nan::NewInstance(getErrorClass(), 1, args).ToLocalChecked();
     errObj->Set(Nan::New(codeKey), Nan::New<Integer>(err));
     return errObj;
 }
@@ -51,6 +53,6 @@ void Error::setErrorClass(Local<Function> func) {
     errorClass.Reset(func);
 }
 
-Handle<Function> Error::getErrorClass() {
+Local<Function> Error::getErrorClass() {
     return Nan::New(errorClass);
 }

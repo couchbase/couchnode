@@ -57,7 +57,8 @@ NAN_METHOD(Cas::fnInspect)
 }
 
 Handle<Value> Cas::CreateCas(uint64_t cas) {
-    Local<Object> ret = Nan::New<Function>(casClass)->NewInstance();
+    Local<Object> ret =
+        Nan::NewInstance(Nan::New<Function>(casClass)).ToLocalChecked();
 
     Local<Value> casData =
             Nan::CopyBuffer((char*)&cas, sizeof(uint64_t)).ToLocalChecked();

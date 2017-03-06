@@ -7,7 +7,9 @@ namespace Couchnode {
  */
 static void define_constant(Handle<Object> target, const char *k, int n)
 {
-    target->ForceSet(Nan::New<String>(k).ToLocalChecked(), Nan::New<Number>(n),
+    Nan::ForceSet(target,
+                Nan::New<String>(k).ToLocalChecked(),
+                Nan::New<Number>(n),
                 static_cast<v8::PropertyAttribute>(v8::ReadOnly|v8::DontDelete));
 }
 

@@ -75,7 +75,8 @@ Handle<Value> MutationToken::CreateToken(lcb_t instance, const lcb_MUTATION_TOKE
         return Nan::Undefined();
     }
 
-    Local<Object> ret = Nan::New<Function>(tokenClass)->NewInstance();
+    Local<Object> ret =
+        Nan::NewInstance(Nan::New<Function>(tokenClass)).ToLocalChecked();
 
     const char *nameStr;
     lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETNAME, &nameStr);

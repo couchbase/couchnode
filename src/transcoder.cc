@@ -87,7 +87,7 @@ Local<Value> DefaultTranscoder::decode(const void *bytes,
         return Nan::CopyBuffer((char*)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_JSON) {
         // JSON decodes to an Object
-        v8::TryCatch tryCatch;
+        Nan::TryCatch tryCatch;
         Local<Value> ret = decodeJson(bytes, nbytes);
         if (!tryCatch.HasCaught()) {
             return ret;

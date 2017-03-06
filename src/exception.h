@@ -35,7 +35,7 @@ public:
     static Local<Value> create(lcb_error_t err);
 
     static void setErrorClass(Local<Function> func);
-    static Handle<Function> getErrorClass();
+    static Local<Function> getErrorClass();
 
 private:
     static Nan::Persistent<Function> errorClass;

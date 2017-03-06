@@ -127,24 +127,28 @@ bool CouchbaseImpl::encodeDoc(CommandEncoder& enc, const void **bytes,
     if (transEncodeFunc) {
         Local<Value> args[] = { value };
         Nan::TryCatch tryCatch;
-        Handle<Value> res = transEncodeFunc->GetFunction()->
-                CallAsFunction(Nan::GetCurrentContext()->Global(), 1, args);
+        Nan::MaybeLocal<Value> mres = Nan::CallAsFunction(
+          transEncodeFunc->GetFunction(),
+          Nan::GetCurrentContext()->Global(), 1, args);
         if (tryCatch.HasCaught()) {
             tryCatch.ReThrow();
             return false;
         }
-        if (!res.IsEmpty() && res->IsObject()) {
-            Handle<Object> encObj = res.As<Object>();
-            Handle<Value> flagsObj = encObj->Get(Nan::New(flagsKey));
-            Handle<Value> valueObj = encObj->Get(Nan::New(valueKey));
-            if (!flagsObj.IsEmpty() && !valueObj.IsEmpty()) {
-                if (node::Buffer::HasInstance(valueObj)) {
-                    *nbytes = node::Buffer::Length(valueObj);
-                    *bytes = node::Buffer::Data(valueObj);
-                    *flags = flagsObj->Uint32Value();
-                    return true;
-                }
-            }
+        if (!mres.IsEmpty()) {
+          Local<Value> res = mres.ToLocalChecked();
+          if (res->IsObject()) {
+              Handle<Object> encObj = res.As<Object>();
+              Handle<Value> flagsObj = encObj->Get(Nan::New(flagsKey));
+              Handle<Value> valueObj = encObj->Get(Nan::New(valueKey));
+              if (!flagsObj.IsEmpty() && !valueObj.IsEmpty()) {
+                  if (node::Buffer::HasInstance(valueObj)) {
+                      *nbytes = node::Buffer::Length(valueObj);
+                      *bytes = node::Buffer::Data(valueObj);
+                      *flags = flagsObj->Uint32Value();
+                      return true;
+                  }
+              }
+          }
         }
     }
     DefaultTranscoder::encode(enc, bytes, nbytes, flags, value);

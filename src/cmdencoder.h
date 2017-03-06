@@ -81,12 +81,12 @@ public:
          return true;
        }
 
-       Local<Uint32> valueTyped = value->ToUint32();
+       Nan::MaybeLocal<Uint32> valueTyped = Nan::To<Uint32>(value);
        if (valueTyped.IsEmpty()) {
          return false;
        }
 
-       *out = (T)valueTyped->Value();
+       *out = (T)valueTyped.ToLocalChecked()->Value();
        return true;
      }
 
@@ -96,12 +96,12 @@ public:
          return true;
        }
 
-       Local<Integer> valueTyped = value->ToInteger();
+       Nan::MaybeLocal<Integer> valueTyped = Nan::To<Integer>(value);
        if (valueTyped.IsEmpty()) {
          return false;
        }
 
-       *out = valueTyped->Value();
+       *out = valueTyped.ToLocalChecked()->Value();
        return true;
      }
 
