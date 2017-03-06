@@ -148,7 +148,7 @@ lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg,
     }
 
     oldrc = ctx->sock->refcount;
-    lcb_log(LOGARGS(ctx, DEBUG), CTX_LOGFMT "Destroying. PND=%d,ENT=%d,SORC=%d", CTX_LOGID(ctx), (int)ctx->npending, (int)ctx->entered, oldrc);
+    lcb_log(LOGARGS(ctx, DEBUG), CTX_LOGFMT "Destroying context. Pending Writes=%d, Entered=%s, Socket Refcount=%d", CTX_LOGID(ctx), (int)ctx->npending, (int)ctx->entered ? "true": "false", oldrc);
 
     if (cb) {
         int reusable =

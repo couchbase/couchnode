@@ -43,8 +43,6 @@ listing of the various subcomponents and what they do:
 
 * `sllist.h, sllist-inl.h` contain the implementation for a single-linked list
 
-* `simplestring.{c,h}` contains the implementation for a dynamically sized string
-
 * `logging.{c,h}` contains the implementation for the library's logging mechanism
 
 * `hostlist.{c,h}` defines a list of hosts, with features for de-duping and converting

@@ -78,7 +78,7 @@ If you wish to link against OpenSSL, you should set the value of
 
 ## Bugs, Support, Issues
 You may report issues in the library in our issue tracked at
-<http://couchbase.com/issues>. Sign up for an account and file an issue
+<https://issues.couchbase.com>. Sign up for an account and file an issue
 against the _Couchbase C Client Library_ project.
 
 The developers of the library hang out in IRC on `#libcouchbase` on
@@ -95,7 +95,7 @@ irc.freenode.net.
     * [PHP](http://github.com/couchbase/php-couchbase) (uses the old < 2.6 API)
 * Community projects using libcouchbase
     * [C++11 wrapper](https://github.com/couchbaselabs/libcouchbase-cxx)
-    * [cberl - Couchbase NIF](https://github.com/chitika/cberl)
+    * [cberl - Couchbase NIF](https://github.com/wcummings/cberl)
     * [Perl client](https://github.com/mnunberg/perl-Couchbase-Client)
 
 ## Documentation

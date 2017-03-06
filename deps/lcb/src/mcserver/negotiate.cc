@@ -323,6 +323,7 @@ SessionRequestImpl::send_hello()
 
     unsigned nfeatures = 0;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TLS;
+    features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XATTR;
     if (settings->tcp_nodelay) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TCPNODELAY;
     }
@@ -374,7 +375,7 @@ SessionRequestImpl::read_hello(const lcb::MemcachedResponse& resp)
         lcb_U16 tmp;
         memcpy(&tmp, cur, sizeof(tmp));
         tmp = ntohs(tmp);
-        lcb_log(LOGARGS(this, DEBUG), SESSREQ_LOGFMT "Found feature 0x%x (%s)", SESSREQ_LOGID(this), tmp, protocol_feature_2_text(tmp));
+        lcb_log(LOGARGS(this, DEBUG), SESSREQ_LOGFMT "Server supports feature: 0x%x (%s)", SESSREQ_LOGID(this), tmp, protocol_feature_2_text(tmp));
         info->server_features.push_back(tmp);
     }
     return true;

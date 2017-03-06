@@ -16,7 +16,6 @@
  */
 
 #include "hostlist.h"
-#include "simplestring.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <limits.h>

@@ -19,6 +19,8 @@
 #define LCB_DURABILITY_INTERNAL_H
 
 #ifdef __cplusplus
+#include "mctx-helper.h"
+
 extern "C" {
 #endif
 
@@ -191,7 +193,7 @@ struct Item : public CallbackCookie {
  * A collection encompassing one or more entries which are to be checked for
  * persistence
  */
-struct Durset : public lcb_MULTICMD_CTX {
+struct Durset : public MultiCmdContext {
     /**
      * Call this when the polling method (poll_impl()) has completed. This will
      * trigger a new poll after the interval.
@@ -248,8 +250,9 @@ struct Durset : public lcb_MULTICMD_CTX {
     Durset(lcb_t instance, const lcb_durability_opts_t* options);
 
     // Implementation for MULTICMD_CTX
-    inline lcb_error_t mctx_schedule(const void *cookie);
-    inline lcb_error_t mctx_add(const lcb_CMDBASE *cmd);
+    lcb_error_t MCTX_done(const void *cookie);
+    lcb_error_t MCTX_addcmd(const lcb_CMDBASE *cmd);
+    void MCTX_fail();
 
     /**
      * This function calls poll_impl(). The implementation should then call

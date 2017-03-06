@@ -26,7 +26,6 @@
 #include "json-inl.h"
 #include "hash.h"
 #include "crc32.h"
-#include "simplestring.h"
 
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)

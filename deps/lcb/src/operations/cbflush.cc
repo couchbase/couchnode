@@ -15,11 +15,10 @@
  */
 
 #include "internal.h"
-#include "simplestring.h"
 #include <http/http.h>
 
 static void
-flush_cb(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+flush_cb(lcb_t instance, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)rb;
     lcb_RESPCBFLUSH fresp = { 0 };
@@ -35,37 +34,30 @@ flush_cb(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
     if (callback) {
         callback(instance, LCB_CALLBACK_CBFLUSH, (lcb_RESPBASE*)&fresp);
     }
-    (void)cbtype;
 }
 
 LIBCOUCHBASE_API
 lcb_error_t
-lcb_cbflush3(lcb_t instance, const void *cookie, const lcb_CMDBASE *cmd)
+lcb_cbflush3(lcb_t instance, const void *cookie, const lcb_CMDBASE *)
 {
     lcb_http_request_t htr;
     lcb_CMDHTTP htcmd = { 0 };
-    lcb_string urlpath;
     lcb_error_t rc;
 
-    (void)cmd;
-
-    lcb_string_init(&urlpath);
-    lcb_string_appendz(&urlpath, "/pools/default/buckets/");
-    lcb_string_appendz(&urlpath, LCBT_SETTING(instance, bucket));
-    lcb_string_appendz(&urlpath, "/controller/doFlush");
-
+    std::string urlpath("/pools/default/buckets/");
+    urlpath.append(LCBT_SETTING(instance, bucket));
+    urlpath.append("/controller/doFlush");
 
     htcmd.type = LCB_HTTP_TYPE_MANAGEMENT;
     htcmd.method = LCB_HTTP_METHOD_POST;
     htcmd.reqhandle = &htr;
-    LCB_CMD_SET_KEY(&htcmd, urlpath.base, urlpath.nused);
+    LCB_CMD_SET_KEY(&htcmd, urlpath.c_str(), urlpath.size());
 
     rc = lcb_http3(instance, cookie, &htcmd);
-    lcb_string_release(&urlpath);
 
     if (rc != LCB_SUCCESS) {
         return rc;
     }
-    lcb_htreq_setcb(htr, flush_cb);
+    htr->set_callback(flush_cb);
     return LCB_SUCCESS;
 }

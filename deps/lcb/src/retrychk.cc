@@ -20,8 +20,8 @@
 int
 lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_error_t err)
 {
-    lcb_RETRYCMDOPTS policy;
-    lcb_RETRYMODEOPTS mode;
+    unsigned policy;
+    unsigned mode;
     protocol_binary_request_header hdr;
 
     mcreq_read_hdr(pkt, &hdr);

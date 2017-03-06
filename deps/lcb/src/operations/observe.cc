@@ -16,23 +16,28 @@
  */
 
 #include "internal.h"
-#include "simplestring.h"
 #include "durability_internal.h"
 #include "trace.h"
+#include "mctx-helper.h"
 
-typedef struct {
-    mc_REQDATAEX base;
-    lcb_MULTICMD_CTX mctx;
+struct ObserveCtx : mc_REQDATAEX, lcb::MultiCmdContext {
+    void clear_requests() { requests.clear(); }
+    ObserveCtx(lcb_t instance_);
+
+    // Overrides
+    lcb_error_t MCTX_addcmd(const lcb_CMDBASE*);
+    lcb_error_t MCTX_done(const void *);
+    void MCTX_fail();
+
     lcb_t instance;
-
     size_t remaining;
     unsigned oflags;
 
+    typedef std::vector<uint8_t> ServerBuf;
     /* requests array contains one buffer per server. nrequest essentially
      * says how many elements (and thus how many servers) */
-    size_t nrequests;
-    lcb_string requests[1];
-} OBSERVECTX;
+    std::vector<ServerBuf> requests;
+};
 
 typedef enum {
     F_DURABILITY = 0x01,
@@ -40,12 +45,20 @@ typedef enum {
     F_SCHEDFAILED = 0x04
 } obs_flags;
 
+// TODO: Move this to a common file
+template <typename ContainerType, typename ValueType>
+void add_to_buf(ContainerType& c, ValueType v) {
+    typename ContainerType::value_type *p =
+            reinterpret_cast<typename ContainerType::value_type*>(&v);
+    c.insert(c.end(), p, p + sizeof(ValueType));
+}
+
 static void
 handle_observe_callback(mc_PIPELINE *pl,
     mc_PACKET *pkt, lcb_error_t err, const void *arg)
 {
-    OBSERVECTX *oc = (void *)pkt->u_rdata.exdata;
-    lcb_RESPOBSERVE *resp = (void *)arg;
+    ObserveCtx *oc = static_cast<ObserveCtx*>(pkt->u_rdata.exdata);
+    lcb_RESPOBSERVE *resp = reinterpret_cast<lcb_RESPOBSERVE*>(const_cast<void*>(arg));
     lcb_t instance = oc->instance;
 
     (void)pl;
@@ -68,7 +81,7 @@ handle_observe_callback(mc_PIPELINE *pl,
             memset(&cur, 0, sizeof(cur));
             cur.key = ptr;
             cur.nkey = nkey;
-            cur.cookie = (void *)oc->base.cookie;
+            cur.cookie = (void *)oc->cookie;
             cur.rc = err;
             handle_observe_callback(NULL, pkt, err, &cur);
             ptr += nkey;
@@ -78,7 +91,7 @@ handle_observe_callback(mc_PIPELINE *pl,
         return;
     }
 
-    resp->cookie = (void *)oc->base.cookie;
+    resp->cookie = (void *)oc->cookie;
     resp->rc = err;
     if (oc->oflags & F_DURABILITY) {
         resp->ttp = pl ? pl->index : -1;
@@ -101,36 +114,23 @@ handle_observe_callback(mc_PIPELINE *pl,
         resp2.rflags = LCB_RESP_F_CLIENTGEN|LCB_RESP_F_FINAL;
         oc->oflags |= F_DESTROY;
         handle_observe_callback(NULL, pkt, err, &resp2);
-        free(oc);
+        delete oc;
     }
 }
 
 static void
 handle_schedfail(mc_PACKET *pkt)
 {
-    OBSERVECTX *oc = (void *)pkt->u_rdata.exdata;
+    ObserveCtx *oc = static_cast<ObserveCtx*>(pkt->u_rdata.exdata);
     oc->oflags |= F_SCHEDFAILED;
     handle_observe_callback(NULL, pkt, LCB_SCHEDFAIL_INTERNAL, NULL);
 }
 
-static void destroy_requests(OBSERVECTX *reqs)
-{
-    size_t ii;
-    for (ii = 0; ii < reqs->nrequests; ii++) {
-        lcb_string_release(reqs->requests + ii);
-    }
-}
-
-#define CTX_FROM_MULTI(mcmd) (void *) ((((char *) (mcmd))) - offsetof(OBSERVECTX, mctx))
-
-static lcb_error_t
-obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDBASE *cmdbase)
+lcb_error_t ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
 {
     int vbid, srvix_dummy;
     unsigned ii;
     const lcb_CMDOBSERVE *cmd = (const lcb_CMDOBSERVE *)cmdbase;
-    OBSERVECTX *ctx = CTX_FROM_MULTI(mctx);
-    lcb_t instance = ctx->instance;
     mc_CMDQUEUE *cq = &instance->cmdq;
     lcb_U16 servers_s[4];
     const lcb_U16 *servers;
@@ -178,23 +178,18 @@ obs_ctxadd(lcb_MULTICMD_CTX *mctx, const lcb_CMDBASE *cmdbase)
     }
 
     for (ii = 0; ii < nservers; ii++) {
-        lcb_string *rr;
-        lcb_U16 vb16, klen16;
         lcb_U16 ix = servers[ii];
 
-        lcb_assert(ix < ctx->nrequests);
-        rr = ctx->requests + ix;
-        if (0 != lcb_string_reserve(rr, 4 + cmd->key.contig.nbytes)) {
-            return LCB_CLIENT_ENOMEM;
-        }
+        lcb_assert(ix < requests.size());
 
-        vb16 = htons((lcb_U16)vbid);
-        klen16 = htons((lcb_U16)cmd->key.contig.nbytes);
-        lcb_string_append(rr, &vb16, sizeof vb16);
-        lcb_string_append(rr, &klen16, sizeof klen16);
-        lcb_string_append(rr, cmd->key.contig.bytes, cmd->key.contig.nbytes);
-
-        ctx->remaining++;
+        ServerBuf& rr = requests[ix];
+        add_to_buf(rr, uint16_t(htons(vbid)));
+        add_to_buf(rr, uint16_t(htons(cmd->key.contig.nbytes)));
+        rr.insert(rr.end(),
+            reinterpret_cast<const uint8_t*>(cmd->key.contig.bytes),
+            reinterpret_cast<const uint8_t*>(cmd->key.contig.bytes) +
+            cmd->key.contig.nbytes);
+        remaining++;
     }
     return LCB_SUCCESS;
 }
@@ -204,21 +199,19 @@ static mc_REQDATAPROCS obs_procs = {
         handle_schedfail
 };
 
-static lcb_error_t
-obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
+lcb_error_t ObserveCtx::MCTX_done(const void *cookie_)
 {
     unsigned ii;
-    OBSERVECTX *ctx = CTX_FROM_MULTI(mctx);
-    mc_CMDQUEUE *cq = &ctx->instance->cmdq;
+    mc_CMDQUEUE *cq = &instance->cmdq;
 
-    for (ii = 0; ii < ctx->nrequests; ii++) {
+    for (ii = 0; ii < requests.size(); ii++) {
         protocol_binary_request_header hdr;
         mc_PACKET *pkt;
         mc_PIPELINE *pipeline;
-        lcb_string *rr = ctx->requests + ii;
+        ServerBuf& rr = requests[ii];
         pipeline = cq->pipelines[ii];
 
-        if (!rr->nused) {
+        if (rr.empty()) {
             continue;
         }
 
@@ -226,7 +219,7 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         lcb_assert(pkt);
 
         mcreq_reserve_header(pipeline, pkt, MCREQ_PKT_BASESIZE);
-        mcreq_reserve_value2(pipeline, pkt, rr->nused);
+        mcreq_reserve_value2(pipeline, pkt, rr.size());
 
         hdr.request.magic = PROTOCOL_BINARY_REQ;
         hdr.request.opcode = PROTOCOL_BINARY_CMD_OBSERVE;
@@ -236,70 +229,52 @@ obs_ctxdone(lcb_MULTICMD_CTX *mctx, const void *cookie)
         hdr.request.vbucket = 0;
         hdr.request.extlen = 0;
         hdr.request.opaque = pkt->opaque;
-        hdr.request.bodylen = htonl((lcb_uint32_t)rr->nused);
+        hdr.request.bodylen = htonl((lcb_uint32_t)rr.size());
 
         memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
-        memcpy(SPAN_BUFFER(&pkt->u_value.single), rr->base, rr->nused);
+        memcpy(SPAN_BUFFER(&pkt->u_value.single), &rr[0], rr.size());
 
         pkt->flags |= MCREQ_F_REQEXT;
-        pkt->u_rdata.exdata = (mc_REQDATAEX *)ctx;
+        pkt->u_rdata.exdata = this;
         mcreq_sched_add(pipeline, pkt);
         TRACE_OBSERVE_BEGIN(&hdr, SPAN_BUFFER(&pkt->u_value.single));
     }
 
-    destroy_requests(ctx);
-    ctx->base.start = gethrtime();
-    ctx->base.cookie = cookie;
-    ctx->base.procs = &obs_procs;
+    start = gethrtime();
+    cookie = cookie_;
 
-    if (ctx->nrequests == 0 || ctx->remaining == 0) {
-        free(ctx);
+    if (requests.size() == 0 || remaining == 0) {
+        delete this;
         return LCB_EINVAL;
     } else {
-        MAYBE_SCHEDLEAVE(ctx->instance);
+        MAYBE_SCHEDLEAVE(instance);
         return LCB_SUCCESS;
     }
 }
 
-static void
-obs_ctxfail(lcb_MULTICMD_CTX *mctx)
-{
-    OBSERVECTX *ctx = CTX_FROM_MULTI(mctx);
-    destroy_requests(ctx);
-    free(ctx);
+void ObserveCtx::MCTX_fail() {
+    delete this;
+}
+
+ObserveCtx::ObserveCtx(lcb_t instance_)
+    : mc_REQDATAEX(NULL, obs_procs, 0),
+      instance(instance_),
+      remaining(0),
+      oflags(0) {
+
+    requests.resize(LCBT_NSERVERS(instance));
 }
 
 LIBCOUCHBASE_API
-lcb_MULTICMD_CTX *
-lcb_observe3_ctxnew(lcb_t instance)
-{
-    OBSERVECTX *ctx;
-    size_t ii, n_extra = LCBT_NSERVERS(instance)-1;
-    ctx = calloc(1, sizeof(*ctx) + sizeof(ctx->requests) * n_extra);
-    ctx->instance = instance;
-    ctx->nrequests = n_extra + 1;
-    ctx->mctx.addcmd = obs_ctxadd;
-    ctx->mctx.done = obs_ctxdone;
-    ctx->mctx.fail = obs_ctxfail;
-
-    /* note this block doesn't do anything not done with calloc, but makes for
-     * easier reading/tracking */
-    for (ii = 0; ii < ctx->nrequests; ii++) {
-        lcb_string_init(ctx->requests + ii);
-    }
-
-    return &ctx->mctx;
+lcb_MULTICMD_CTX * lcb_observe3_ctxnew(lcb_t instance) {
+    return new ObserveCtx(instance);
 }
 
 lcb_MULTICMD_CTX *
-lcb_observe_ctx_dur_new(lcb_t instance)
-{
-    lcb_MULTICMD_CTX *mctx = lcb_observe3_ctxnew(instance);
-    if (mctx) {
-        OBSERVECTX *ctx = CTX_FROM_MULTI(mctx);
-        ctx->oflags |= F_DURABILITY;
-    }
-    return mctx;
+lcb_observe_ctx_dur_new(lcb_t instance) {
+    ObserveCtx *ctx = new ObserveCtx(instance);
+    ctx->oflags |= F_DURABILITY;
+    return ctx;
 }
 
 LIBCOUCHBASE_API

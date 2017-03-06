@@ -18,31 +18,6 @@
 #include "internal.h"
 #include "packetutils.h"
 #include <bucketconfig/clconfig.h>
-LCB_INTERNAL_API
-lcb::Server *
-lcb_find_server_by_host(lcb_t instance, const lcb_host_t *host)
-{
-    mc_CMDQUEUE *cq = &instance->cmdq;
-    unsigned ii;
-    for (ii = 0; ii < cq->npipelines; ii++) {
-        lcb::Server *server = static_cast<lcb::Server*>(cq->pipelines[ii]);
-        if (lcb_host_equals(&server->get_host(), host)) {
-            return server;
-        }
-    }
-    return NULL;
-}
-
-LCB_INTERNAL_API
-lcb::Server *
-lcb_find_server_by_index(lcb_t instance, int ix)
-{
-    mc_CMDQUEUE *cq = &instance->cmdq;
-    if (ix < 0 || ix >= static_cast<int>(cq->npipelines)) {
-        return NULL;
-    }
-    return static_cast<lcb::Server*>(cq->pipelines[ix]);
-}
 
 static void
 ext_callback_proxy(mc_PIPELINE *pl, mc_PACKET *req, lcb_error_t rc,
@@ -53,19 +28,18 @@ ext_callback_proxy(mc_PIPELINE *pl, mc_PACKET *req, lcb_error_t rc,
     const lcb::MemcachedResponse *res =
             reinterpret_cast<const lcb::MemcachedResponse*>(resdata);
 
-    lcb_cccp_update2(rd->cookie, rc, res->body<const char*>(), res->bodylen(),
-                     &server->get_host());
+    lcb::clconfig::cccp_update(
+        rd->cookie, rc, res->body<const char*>(), res->bodylen(),
+        &server->get_host());
     free(rd);
 }
 
 static mc_REQDATAPROCS procs = { ext_callback_proxy };
 
-LCB_INTERNAL_API
 lcb_error_t
-lcb_getconfig(lcb_t instance, const void *cookie, lcb::Server *server)
+lcb_st::request_config(const void *cookie_, lcb::Server *server)
 {
     lcb_error_t err;
-    mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PACKET *packet;
     mc_REQDATAEX *rd;
 
@@ -82,7 +56,7 @@ lcb_getconfig(lcb_t instance, const void *cookie, lcb::Server *server)
 
     rd = reinterpret_cast<mc_REQDATAEX*>(calloc(1, sizeof(*rd)));
     rd->procs = &procs;
-    rd->cookie = cookie;
+    rd->cookie = cookie_;
     rd->start = gethrtime();
     packet->u_rdata.exdata = rd;
     packet->flags |= MCREQ_F_REQEXT;
@@ -92,8 +66,8 @@ lcb_getconfig(lcb_t instance, const void *cookie, lcb::Server *server)
     hdr.opaque(packet->opaque);
     memcpy(SPAN_BUFFER(&packet->kh_span), hdr.data(), hdr.size());
 
-    mcreq_sched_enter(cq);
+    mcreq_sched_enter(&cmdq);
     mcreq_sched_add(server, packet);
-    mcreq_sched_leave(cq, 1);
+    mcreq_sched_leave(&cmdq, 1);
     return LCB_SUCCESS;
 }

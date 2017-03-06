@@ -40,11 +40,11 @@
 
 #define TRACE_BEGIN_COMMON(TGT, req, cmd,  ...) \
     TGT((req)->request.opaque, ntohs((req)->request.vbucket), (req)->request.opcode, \
-    (cmd)->key.contig.bytes, (cmd)->key.contig.nbytes, ## __VA_ARGS__)
+    (const char *)((cmd)->key.contig.bytes), (cmd)->key.contig.nbytes, ## __VA_ARGS__)
 
 #define TRACE_BEGIN_SIMPLE(TGT, req, cmd) \
     TGT((req)->request.opaque, ntohs((req)->request.vbucket), (req)->request.opcode, \
-        (cmd)->key.contig.bytes, (cmd)->key.contig.nbytes)
+        (const char *)(cmd)->key.contig.bytes, (cmd)->key.contig.nbytes)
 
 #define TRACE_END_COMMON(TGT, mcresp, resp, ...) \
     TGT(mcresp->opaque(), 0, mcresp->opcode(), (resp)->rc, (const char *)(resp)->key, (resp)->nkey, \
@@ -58,7 +58,7 @@
 
 #define TRACE_GET_END(mcresp, resp) \
     TRACE(TRACE_END_COMMON(LIBCOUCHBASE_GET_END, mcresp, resp, \
-        (char*)(resp)->value, (resp)->nvalue, (resp)->itmflags, (resp)->cas, \
+        (const char*)(resp)->value, (resp)->nvalue, (resp)->itmflags, (resp)->cas, \
         mcresp->datatype()))
 
 #define TRACE_UNLOCK_BEGIN(req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_UNLOCK_BEGIN, req, cmd))
@@ -66,7 +66,7 @@
 
 #define TRACE_STORE_BEGIN(req, cmd) \
     TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_STORE_BEGIN, req, cmd, \
-        ( (cmd)->value.vtype == LCB_KV_IOV ? NULL : (cmd)->value.u_buf.contig.bytes ),\
+        (const char *)( (cmd)->value.vtype == LCB_KV_IOV ? NULL : (cmd)->value.u_buf.contig.bytes ),\
         ( (cmd)->value.vtype == LCB_KV_IOV ? 0 : (cmd)->value.u_buf.contig.nbytes ),\
         (cmd)->flags, (cmd)->cas, (req)->request.datatype, (cmd)->exptime))
 

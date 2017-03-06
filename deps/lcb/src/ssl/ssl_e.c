@@ -16,7 +16,6 @@
  */
 
 #include "ssl_iot_common.h"
-#include "simplestring.h"
 #include <openssl/err.h>
 /**
  * Event-Style SSL Wrapping.

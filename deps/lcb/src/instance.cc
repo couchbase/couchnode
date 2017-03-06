@@ -116,17 +116,56 @@ lcb_st::populate_nodes(const Connspec& spec)
     }
 }
 
+lcb_error_t
+lcb_st::process_dns_srv(Connspec& spec)
+{
+    if (!spec.can_dnssrv()) {
+        return LCB_SUCCESS;
+    }
+    if (spec.hosts().empty()) {
+        lcb_log(LOGARGS(this, ERR), "Cannot use DNS SRV without a hostname");
+        return spec.is_explicit_dnssrv() ? LCB_EINVAL : LCB_SUCCESS;
+    }
+
+    const Spechost& host = spec.hosts().front();
+    lcb_error_t rc = LCB_ERROR;
+    Hostlist* hl = lcb_dnssrv_getbslist(host.hostname.c_str(), host.isSSL(), &rc);
+
+    if (hl == NULL) {
+        lcb_log(LOGARGS(this, INFO), "DNS SRV lookup failed: %s. Ignore this if not relying on DNS SRV records", lcb_strerror(this, rc));
+        if (spec.is_explicit_dnssrv()) {
+            return rc;
+        } else {
+            return LCB_SUCCESS;
+        }
+    }
+
+    spec.clear_hosts();
+    for (size_t ii = 0; ii < hl->size(); ++ii) {
+        const lcb_host_t& src = (*hl)[ii];
+        Spechost sh;
+        sh.hostname = src.host;
+        sh.port = std::atoi(src.port);
+        sh.type = spec.default_port();
+        spec.add_host(sh);
+    }
+    delete hl;
+
+    return LCB_SUCCESS;
+}
+
 static lcb_error_t
 init_providers(lcb_t obj, const Connspec &spec)
 {
-    clconfig_provider *http, *cccp, *mcraw;
-    http = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_HTTP);
-    cccp = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_CCCP);
-    mcraw = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_MCRAW);
+    using namespace lcb::clconfig;
+    Provider *http, *cccp, *mcraw;
+    http = obj->confmon->get_provider(CLCONFIG_HTTP);
+    cccp = obj->confmon->get_provider(CLCONFIG_CCCP);
+    mcraw = obj->confmon->get_provider(CLCONFIG_MCRAW);
 
     if (spec.default_port() == LCB_CONFIG_MCCOMPAT_PORT) {
-        lcb_confmon_set_provider_active(obj->confmon, LCB_CLCONFIG_MCRAW, 1);
-        mcraw->configure_nodes(mcraw, obj->mc_nodes);
+        obj->confmon->set_active(CLCONFIG_MCRAW, true);
+        mcraw->configure_nodes(*obj->mc_nodes);
         return LCB_SUCCESS;
     }
 
@@ -155,7 +194,7 @@ init_providers(lcb_t obj, const Connspec &spec)
         if (spec.is_bs_file()) {
             /* If the 'file_only' provider is set, just assume something else
              * will provide us with the config, and forget about it. */
-            clconfig_provider *prov = lcb_confmon_get_provider(obj->confmon, LCB_CLCONFIG_FILE);
+            Provider *prov = obj->confmon->get_provider(CLCONFIG_FILE);
             if (prov && prov->enabled) {
                 return LCB_SUCCESS;
             }
@@ -164,17 +203,17 @@ init_providers(lcb_t obj, const Connspec &spec)
     }
 
     if (http_enabled) {
-        lcb_clconfig_http_enable(http);
-        lcb_clconfig_http_set_nodes(http, obj->ht_nodes);
+        http->enable();
+        http->configure_nodes(*obj->ht_nodes);
     } else {
-        lcb_confmon_set_provider_active(obj->confmon, LCB_CLCONFIG_HTTP, 0);
+        obj->confmon->set_active(CLCONFIG_HTTP, false);
     }
 
     if (cccp_enabled && obj->type != LCB_TYPE_CLUSTER) {
-        lcb_clconfig_cccp_enable(cccp, obj);
-        lcb_clconfig_cccp_set_nodes(cccp, obj->mc_nodes);
+        cccp->enable(obj);
+        cccp->configure_nodes(*obj->mc_nodes);
     } else {
-        lcb_confmon_set_provider_active(obj->confmon, LCB_CLCONFIG_CCCP, 0);
+        obj->confmon->set_active(CLCONFIG_CCCP, false);
     }
     return LCB_SUCCESS;
 }
@@ -379,7 +418,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     obj->memd_sockpool->tmoidle = 10000000;
     obj->http_sockpool->maxidle = 1;
     obj->http_sockpool->tmoidle = 10000000;
-    obj->confmon = lcb_confmon_create(settings, obj->iotable);
+    obj->confmon = new clconfig::Confmon(settings, obj->iotable);
     obj->ht_nodes = new Hostlist();
     obj->mc_nodes = new Hostlist();
     obj->retryq = new RetryQueue(&obj->cmdq, obj->iotable, obj->settings);
@@ -399,7 +438,13 @@ lcb_error_t lcb_create(lcb_t *instance,
     }
 
     obj->populate_nodes(spec);
-    err = init_providers(obj, spec);
+    if ((err = init_providers(obj, spec)) != LCB_SUCCESS) {
+        goto GT_DONE;
+    }
+
+    if ((err = obj->process_dns_srv(spec)) != LCB_SUCCESS) {
+        goto GT_DONE;
+    }
     if (err != LCB_SUCCESS) {
         lcb_destroy(obj);
         return err;
@@ -446,10 +491,12 @@ void lcb_destroy(lcb_t instance)
     lcb_ASPEND_SETTYPE::iterator it;
     lcb_ASPEND_SETTYPE *pendq;
 
-    DESTROY(lcb_clconfig_decref, cur_configinfo);
+    if (instance->cur_configinfo) {
+        instance->cur_configinfo->decref();
+        instance->cur_configinfo = NULL;
+    }
     instance->cmdq.config = NULL;
-
-    lcb_bootstrap_destroy(instance);
+    DESTROY(delete, bs_state);
     DESTROY(delete, ht_nodes);
     DESTROY(delete, mc_nodes);
 
@@ -473,14 +520,14 @@ void lcb_destroy(lcb_t instance)
 
     if ((pendq = po->items[LCB_PENDTYPE_HTTP])) {
         for (it = pendq->begin(); it != pendq->end(); ++it) {
-            lcb_http_request_t htreq = reinterpret_cast<lcb_http_request_t>(*it);
-            lcb_htreq_block_callback(htreq);
-            lcb_htreq_finish(instance, htreq, LCB_ERROR);
+            http::Request *htreq = reinterpret_cast<http::Request*>(*it);
+            htreq->block_callback();
+            htreq->finish(LCB_ERROR);
         }
     }
 
     DESTROY(delete, retryq);
-    DESTROY(lcb_confmon_destroy, confmon);
+    DESTROY(delete, confmon);
     DESTROY(lcbio_mgr_destroy, memd_sockpool);
     DESTROY(lcbio_mgr_destroy, http_sockpool);
     DESTROY(lcb_vbguess_destroy, vbguess);
@@ -534,10 +581,23 @@ lcb_destroy_async(lcb_t instance, const void *arg)
     lcbio_async_signal(instance->dtor_timer);
 }
 
+lcb::Server *
+lcb_st::find_server(const lcb_host_t& host) const
+{
+    unsigned ii;
+    for (ii = 0; ii < cmdq.npipelines; ii++) {
+        lcb::Server *server = static_cast<lcb::Server*>(cmdq.pipelines[ii]);
+        if (lcb_host_equals(&server->get_host(), &host)) {
+            return server;
+        }
+    }
+    return NULL;
+}
+
 LIBCOUCHBASE_API
 lcb_error_t lcb_connect(lcb_t instance)
 {
-    lcb_error_t err = lcb_bootstrap_common(instance, LCB_BS_REFRESH_INITIAL);
+    lcb_error_t err = instance->bootstrap(BS_REFRESH_INITIAL);
     if (err == LCB_SUCCESS) {
         SYNCMODE_INTERCEPT(instance);
     } else {
@@ -716,6 +776,15 @@ const char *lcb_strerror(lcb_t instance, lcb_error_t error)
 
     (void)instance;
     return "Unknown error";
+}
+
+LCB_INTERNAL_API
+const char *lcb_strerror_short(lcb_error_t error)
+{
+#define X(c, v, t, s) if (error == c) { return #c " (" #v ")"; }
+    LCB_XERR(X)
+#undef X
+    return "<FIXME: Not an LCB error>";
 }
 
 LIBCOUCHBASE_API

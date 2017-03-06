@@ -151,12 +151,12 @@ IF(WIN32)
     ADD_DEFINITIONS(-DWINVER=${NT_REQUIRED_VERSION})
     ADD_DEFINITIONS(-D_WIN32_WINNT=${NT_REQUIRED_VERSION})
     SET(lcb_plat_includes "${SOURCE_ROOT}/contrib/win32-defs")
-    SET(lcb_plat_libs ws2_32.lib)
+    SET(lcb_plat_libs ws2_32.lib dnsapi.lib)
     SET(lcb_plat_objs $<TARGET_OBJECTS:couchbase_iocp>)
 ELSE()
     SET(lcb_plat_libs m)
     IF(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-        SET(lcb_plat_libs ${lcb_plat_libs} dl)
+        SET(lcb_plat_libs ${lcb_plat_libs} dl resolv)
     ELSE()
         # BSD _and_ DTrace
         IF(LCB_BUILD_DTRACE)
@@ -245,10 +245,6 @@ IF(NOT WIN32 AND LCB_BUILD_DTRACE)
     INCLUDE(cmake/Modules/ConfigureDtrace.cmake)
 ENDIF()
 
-FILE(GLOB LCB_VIEWS_C_SRC src/views/*.c)
-ADD_LIBRARY(lcb_views_c OBJECT ${LCB_VIEWS_C_SRC})
-LCB_UTIL(lcb_views_c)
-
 FILE(GLOB LCB_JSPARSE_SRC src/jsparse/*.cc)
 ADD_LIBRARY(lcb_jsparse OBJECT ${LCB_JSPARSE_SRC})
 LCB_CXXUTIL(lcb_jsparse)
@@ -265,7 +261,6 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:lcbht>
     $<TARGET_OBJECTS:lcbcore>
     $<TARGET_OBJECTS:lcbcore-cxx>
-    $<TARGET_OBJECTS:lcb_views_c>
     $<TARGET_OBJECTS:lcb_jsparse>
     $<TARGET_OBJECTS:lcb_jsoncpp>
     ${LCB_DTRACE_OBJECT}

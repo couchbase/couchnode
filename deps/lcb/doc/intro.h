@@ -110,7 +110,6 @@
  * * <genhash.h> - Hashtable
  * * <hashset.h> - Set of unique elements
  * * <hostlist.h> - Host/Port structures and lists
- * * <simplestring.h> - string structure with dynamically expanding storage
  *
  * @endinternal
  *

@@ -10,14 +10,23 @@
 #include <lcbio/lcbio.h>
 #include "sllist.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace lcb {
+namespace docreq {
 
-struct lcb_DOCQUEUE_st;
-struct lcb_DOCREQ_st;
+struct Queue;
+struct DocRequest;
 
-typedef struct lcb_DOCQUEUE_st{
+struct Queue {
+    Queue(lcb_t);
+    ~Queue();
+    void add(DocRequest*);
+    void unref();
+    void ref() {refcount++;}
+    void cancel();
+    bool has_pending() const {
+        return n_awaiting_response || n_awaiting_schedule;
+    }
+
     lcb_t instance;
     void *parent;
     lcbio_pTIMER timer;
@@ -25,13 +34,13 @@ typedef struct lcb_DOCQUEUE_st{
     /**Called when a document is ready
      * @param The queue
      * @param The document */
-    void (*cb_ready)(struct lcb_DOCQUEUE_st*,struct lcb_DOCREQ_st*);
+    void (*cb_ready)(struct Queue*,struct DocRequest*);
 
     /**Called when throttle state changes. This may be used by higher layers
      * for appropriate flow control
      * @param The queue
      * @param enabled Whether throttling has been enabled or disabled */
-    void (*cb_throttle)(struct lcb_DOCQUEUE_st*, int enabled);
+    void (*cb_throttle)(struct Queue*, int enabled);
 
     /**This queue holds requests which were not yet issued to the library
      * via lcb_get3(). This list is aggregated after each chunk callback and
@@ -49,35 +58,20 @@ typedef struct lcb_DOCQUEUE_st{
     unsigned min_batch_size;
     unsigned cancelled;
     unsigned refcount;
-} lcb_DOCQUEUE;
+};
 
-typedef struct lcb_DOCREQ_st {
+struct DocRequest {
     /* Callback. Must be first */
     lcb_RESPCALLBACK callback;
     sllist_node slnode;
-    lcb_DOCQUEUE *parent;
+    Queue *parent;
     lcb_RESPGET docresp;
     /* To be filled in by the subclass */
     lcb_IOV docid;
     unsigned ready;
-} lcb_DOCQREQ;
+};
 
-lcb_DOCQUEUE *
-lcbdocq_create(lcb_t instance);
 
-void
-lcbdocq_add(lcb_DOCQUEUE *q, lcb_DOCQREQ *req);
-
-void
-lcbdocq_unref(lcb_DOCQUEUE *);
-
-void
-lcbdocq_cancel(lcb_DOCQUEUE *q);
-
-#define lcbdocq_has_pending(q) \
-    ((q)->n_awaiting_response || (q)->n_awaiting_schedule)
-
-#ifdef __cplusplus
-}
-#endif
+} // namespace docreq
+} // namespace lcb
 #endif

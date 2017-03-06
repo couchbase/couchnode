@@ -284,7 +284,7 @@ cntl_getset_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int oslevel,
     #ifndef _WIN32
     socklen_t dummy = optsize;
     #else
-    int dummy = optsize;
+    char dummy = optsize;
     #endif
 
     if (mode == LCB_IO_CNTL_GET) {

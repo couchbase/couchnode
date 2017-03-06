@@ -31,6 +31,8 @@
 #define F_HASUSER (1<<2)
 #define F_SSLSCHEME (1<<3)
 #define F_FILEONLY (1<<4)
+#define F_DNSSRV (1<<5)
+#define F_DNSSRV_EXPLICIT ( (1<<6) |F_DNSSRV)
 
 using namespace lcb;
 
@@ -102,6 +104,14 @@ Connspec::parse_hosts(const char *hostbegin,
         } else {
             hostlen = colonpos;
             port = scratch.substr(colonpos + 1);
+        }
+
+        if (m_flags & F_DNSSRV_EXPLICIT) {
+            if (!m_hosts.empty()) {
+                SET_ERROR("Only a single host is allowed with DNS SRV");
+            } else if (!port.empty()) {
+                SET_ERROR("Port cannot be specified with DNS SRV");
+            }
         }
 
         m_hosts.resize(m_hosts.size() + 1);
@@ -288,10 +298,17 @@ Connspec::parse(const char *connstr_, const char **errmsg)
         m_implicit_port = 0;
     } else if (SCHEME_MATCHES(LCB_SPECSCHEME_MCCOMPAT)) {
         m_implicit_port = LCB_CONFIG_MCCOMPAT_PORT;
+    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_SRV)) {
+        m_implicit_port = LCB_CONFIG_MCD_PORT;
+        m_flags |= F_DNSSRV_EXPLICIT;
+    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_SRV_SSL)) {
+        m_implicit_port = LCB_CONFIG_MCD_SSL_PORT;
+        m_sslopts |= LCB_SSL_ENABLED;
+        m_flags |= F_SSLSCHEME | F_DNSSRV_EXPLICIT;
     } else {
         /* If we don't have a scheme at all: */
         if (strstr(connstr_, "://")) {
-            SET_ERROR("String must begin with ''couchbase://, 'couchbases://', or 'http://'");
+            SET_ERROR("String must begin with 'couchbase://, 'couchbases://', or 'http://'");
         } else {
             found_scheme = "";
             m_implicit_port = LCB_CONFIG_HTTP_PORT;
@@ -345,6 +362,8 @@ Connspec::parse(const char *connstr_, const char **errmsg)
     if (m_hosts.empty()) {
         m_hosts.resize(m_hosts.size()+1);
         m_hosts.back().hostname = "localhost";
+    } else if (m_hosts.size() == 1 && m_hosts[0].isTypeless()) {
+        m_flags |= F_DNSSRV;
     }
 
     if (options_ != NULL) {
@@ -459,4 +478,14 @@ Connspec::load(const lcb_create_st& cropts)
 
     GT_DONE:
     return err;
+}
+
+bool
+Connspec::can_dnssrv() const {
+    return m_flags & F_DNSSRV;
+}
+
+bool
+Connspec::is_explicit_dnssrv() const {
+    return (m_flags & F_DNSSRV_EXPLICIT) == F_DNSSRV_EXPLICIT;
 }

@@ -567,6 +567,13 @@ LIBCOUCHBASE_API
 const char *lcb_strerror(lcb_t instance, lcb_error_t error);
 
 /**
+ * Get a shorter textual description of an error message. This is the
+ * constant name
+ */
+LCB_INTERNAL_API
+const char *lcb_strerror_short(lcb_error_t error);
+
+/**
  * This may be used in conjunction with the errmap callback if it wishes
  * to fallback for default behavior for the given code.
  * @uncomitted

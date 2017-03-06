@@ -48,11 +48,12 @@ extern "C" {
      * Create an instance of an event handler that utilize libev for
      * event notification.
      *
-     * @param version the API version to use
+     * @param version Set this to 0. This may be used in the future to allow
+     *        variation on the third argument (`void*` currently).
+     * @param[out] io a pointer to a newly created and initialized event handler
      * @param loop the event loop (struct ev_loop *) to hook use (please
      *             note that you shouldn't reference the event loop from
      *             multiple threads)
-     * @param io a pointer to a newly created and initialized event handler
      * @return status of the operation
      */
     LIBCOUCHBASE_API

@@ -630,7 +630,7 @@ private:
 
         const lcb_U64 elapsed_ns = now - previous_time;
         const lcb_U64 wanted_duration_ns =
-                config.opsPerCycle * 1e9 / config.getRateLimit();
+                (config.opsPerCycle * 1e9) / (config.getRateLimit() * config.getNumThreads());
         // On first invocation no previous_time, so skip attempting to sleep.
         if (elapsed_ns > 0 && elapsed_ns < wanted_duration_ns) {
             // Dampen the sleep time by averaging with the previous

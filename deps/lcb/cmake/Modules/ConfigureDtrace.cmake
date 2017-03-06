@@ -11,6 +11,17 @@ IF(DTRACE)
         RETURN()
     ENDIF()
 
+    # Fix probes.h on FreeBSD
+    IF(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+        FIND_PROGRAM(SED sed)
+        EXECUTE_PROCESS(COMMAND ${SED} -i.tmp "s/, *char \\*/, const char \\*/g" ${LCB_DTRACE_HEADER}
+            RESULT_VARIABLE _rv)
+        IF(NOT ${_rv} EQUAL 0)
+            MESSAGE(WARNING "Could not execute sed to update dtrace-generated header. DTrace support will be disabled!")
+            RETURN()
+        ENDIF()
+    ENDIF()
+
     ADD_DEFINITIONS(-DHAVE_DTRACE)
     IF(NOT APPLE)
         SET(LCB_DTRACE_OBJECT "${LCB_GENSRCDIR}/probes.o")

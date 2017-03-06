@@ -34,7 +34,7 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
     fprintf(fp, "Settings=%p\n", (void*)instance->settings);
 
     if (instance->cur_configinfo) {
-        clconfig_info *cfg = instance->cur_configinfo;
+        lcb::clconfig::ConfigInfo *cfg = instance->cur_configinfo;
         fprintf(fp, "Current VBC=%p\n", (void*)cfg->vbc);
         fprintf(fp, "Config RevID=%d\n", cfg->vbc->revid);
         if (flags & LCB_DUMP_VBCONFIG) {
@@ -90,6 +90,6 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
     fprintf(fp, "=== END PIPELINE DUMP ===\n");
 
     fprintf(fp, "=== BEGIN CONFMON DUMP ===\n");
-    lcb_confmon_dump(instance->confmon, fp);
+    instance->confmon->dump(fp);
     fprintf(fp, "=== END CONFMON DUMP ===\n");
 }

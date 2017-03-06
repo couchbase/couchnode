@@ -19,12 +19,9 @@
 #define LCB_CLCONFIG_H
 
 #include "hostlist.h"
-#include "list.h"
-#include "simplestring.h"
+#include <list>
 #include <lcbio/timer-ng.h>
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <lcbio/timer-cxx.h>
 
 /** @file */
 
@@ -45,22 +42,22 @@ extern "C" {
  * <ol>
  *
  * <li>
- * There is a _Configuration Monitor_ object (lcb_confmon) which acts
+ * There is a _Configuration Monitor_ object (Confmon) which acts
  * as the configuration supervisor. It is responsible for returning
  * configuration objects to those entities which request it.
  * </li>
  *
  * <li>
- * There are multiple _Configuration Provider_ (clconfig_provider) objects.
+ * There are multiple _Configuration Provider_ (Provider) objects.
  * These providers aggregate configurations from multiple sources and
  * implement a common interface to:
  *
  *  <ol>
  *  <li>Return a _quick_ configuration without fetching from network or disk
- *  (see clconfig_provider::get_cached())</i>
+ *  (see Provider::get_cached())</i>
 
  *  <li>Schedule a refresh to retrieve the latest configuration from the
- *  network (see clconfig_provider::refresh())</li>
+ *  network (see Provider::refresh())</li>
  *
  *  <li>Notify the monitor that it has received a new configuration. The
  *  monitor itself will determine whether or not to accept the new
@@ -72,7 +69,7 @@ extern "C" {
  * _Configuration Info_ objects. These objects are refcounted wrappers
  * around vbucket configuration handles. They have a refcount and also an
  * integer which can be used to compare with other objects for 'freshness'.
- * See clconfig_info
+ * See ConfigInfo
  * </li>
  *
  * <li>
@@ -80,7 +77,7 @@ extern "C" {
  * and are invoked whenever a new valid configuration is detected. This is
  * really only ever used during bootstrap or testing where we are explicitly
  * waiting for a configuration without having any actual commands to schedule.
- * See clconfig_listener
+ * See Listener
  * </li>
  * </ol>
  */
@@ -90,55 +87,295 @@ extern "C" {
  *@{
  */
 
+namespace lcb {
+namespace clconfig {
+
 /**
  * @brief Enumeration of the various config providers available.
  * The type of methods available. These are enumerated in order of preference
  */
-typedef enum {
-    /** Currently unused. The intent here is to allow a user to provide means
-     * by which the application may give a configuration file to the library */
-    LCB_CLCONFIG_USER,
+enum Method {
     /** File-based "configcache" provider. Implemented in bc_file.c */
-    LCB_CLCONFIG_FILE,
+    CLCONFIG_FILE,
     /** New-style config-over-memcached provider. Implemented in bc_cccp.c */
-    LCB_CLCONFIG_CCCP,
+    CLCONFIG_CCCP,
     /** Old-style streaming HTTP provider. Implemented in bc_http.c */
-    LCB_CLCONFIG_HTTP,
+    CLCONFIG_HTTP,
     /** Raw memcached provided */
-    LCB_CLCONFIG_MCRAW,
+    CLCONFIG_MCRAW,
 
-    LCB_CLCONFIG_MAX,
+    CLCONFIG_MAX,
 
     /** Ephemeral source, used for tests */
-    LCB_CLCONFIG_PHONY
-} clconfig_method_t;
+    CLCONFIG_PHONY
+};
 
 
-struct clconfig_info_st;
-struct clconfig_provider_st;
-struct clconfig_listener_st;
-struct lcb_confmon_st;
+/** Event types propagated to listeners */
+enum EventType {
+    /** Called when a new configuration is being set in confmon */
+    CLCONFIG_EVENT_GOT_NEW_CONFIG,
+
+    /** Called when _any_ configuration is received via set_enxt */
+    CLCONFIG_EVENT_GOT_ANY_CONFIG,
+
+    /** Called when all providers have been tried */
+    CLCONFIG_EVENT_PROVIDERS_CYCLED,
+
+    /** The monitor has stopped */
+    CLCONFIG_EVENT_MONITOR_STOPPED
+};
+
+
+/** @brief Possible confmon states */
+enum State {
+    /** The monitor is idle and not requesting a new configuration */
+    CONFMON_S_INACTIVE = 0,
+
+    /** The monitor is actively requesting a configuration */
+    CONFMON_S_ACTIVE = 1 << 0,
+
+    /** The monitor is fetching a configuration, but is in a throttle state */
+    CONFMON_S_ITERGRACE = 1 << 1
+};
+
+
+struct Provider;
+struct Listener;
+class ConfigInfo;
 
 /**
  * This object contains the information needed for libcouchbase to deal with
  * when retrieving new configs.
  */
-typedef struct lcb_confmon_st {
-    /** Linked list of active/enabled providers */
-    lcb_clist_t active_providers;
+struct Confmon {
+    /**
+     * @brief Create a new configuration monitor.
+     * This function creates a new `confmon` object which can be used to manage
+     * configurations and their providers.
+     *
+     * @param settings
+     * @param iot
+     *
+     * Once the confmon object has been created you may enable or disable various
+     * providers (see lcb_confmon_set_provider_active()). Once no more providers
+     * remain to be activated you should call lcb_confmon_prepare() once. Then
+     * call the rest of the functions.
+     */
+    Confmon(lcb_settings*, lcbio_pTABLE iot);
+    void destroy() { delete this; }
+    ~Confmon();
+
+    /**
+     * Get the provider following the current provider, or NULL if this is
+     * the last provider in the list.
+     * @param cur The current provider.
+     * @return The next provider, or NULL if no more providers remain.
+     */
+    Provider *next_active(Provider *cur);
+
+    /**
+     * Gets the first active provider.
+     * @return the first provider, or NULL if no providers exist.
+     */
+    Provider *first_active();
+
+    /**
+     * Prepares the configuration monitor object for operations. This will insert
+     * all the enabled providers into a list. Call this function each time a
+     * provider has been enabled.
+     * @param mon
+     */
+    void prepare();
+
+    /**
+     * Set a given provider as being 'active'. This will activate the
+     * provider as well as call #prepare() to update the list.
+     * @param type The ID of the provider to activate
+     * @param enabled true for activate, false for deactivate
+     */
+    void set_active(Method type, bool enabled);
+
+    /**
+     * @brief Request a configuration refresh
+     *
+     * Start traversing the list of current providers, requesting a new
+     * configuration for each. This function will asynchronously loop through all
+     * providers until one provides a new configuration.
+     *
+     * You may call #stop() to asynchronously break out of the loop.
+     * If the confmon is already in a refreshing state
+     * (i.e. #is_refreshing()) returns true then this function does
+     * nothing.
+     *
+     * This function is reentrant safe and may be called at any time.
+     *
+     * @param mon
+     * @see lcb_confmon_add_listener()
+     * @see #stop()
+     * @see #is_refreshing()
+     */
+    void start();
+
+    /**
+     * @brief Cancel a pending configuration refresh.
+     *
+     * Stops the monitor. This will call Provider::pause() for each active
+     * provider. Typically called before destruction or when a new configuration
+     * has been found.
+     *
+     * This function is safe to call anywhere. If the monitor is already stopped
+     * then this function does nothing.
+     *
+     * @param mon
+     * @see #start()
+     * @see #is_refreshing()
+     */
+    void stop();
+
+    /**
+     * @brief Check if the monitor is waiting for a new config from a provider
+     * @param mon
+     * @return true if refreshing, false if idle
+     */
+    bool is_refreshing() const {
+        return (state & CONFMON_S_ACTIVE) != 0;
+    }
+
+    /**
+     * Get the current configuration
+     * @return The configuration
+     */
+    ConfigInfo* get_config() const {
+        return config;
+    }
+
+    /**
+     * Get the last error which occurred on this object
+     * @return The last error
+     */
+    lcb_error_t get_last_error() const {
+        return last_error;
+    }
+
+    /**
+     * @brief Get the current monitor state
+     * @param mon the monitor
+     * @return a set of flags consisting of @ref State values.
+     */
+    int get_state() const {
+        return state;
+    }
+
+    void stop_real();
+    void do_next_provider();
+    int do_set_next(ConfigInfo*, bool notify_miss);
+    void invoke_listeners(EventType, ConfigInfo*);
+
+    /**
+     * @brief Indicate that a provider has failed and advance the monitor
+     *
+     * Indicate that the current provider has failed to obtain a new configuration.
+     * This is always called by a provider and should be invoked when the provider
+     * has encountered an internal error which caused it to be unable to fetch
+     * the configuration.
+     *
+     * Note that this function is safe to call from any provider at any time. If
+     * the provider is not the current provider then it is treated as an async
+     * push notification failure and ignored. This function is _not_ safe to call
+     * from consumers of providers
+     *
+     * Once this is called, the confmon instance will either roll over to the next
+     * provider or enter the inactive state depending on the configuration and
+     * whether the current provider is the last provider in the list.
+     *
+     * @param provider
+     * @param err
+     */
+    void provider_failed(Provider *which, lcb_error_t why);
+
+    /**
+     * @brief Indicate that a provider has successfuly retrieved a configuration.
+     *
+     * Indicates that the provider has fetched a new configuration from the network
+     * and that confmon should attempt to propagate it. It has similar semantics
+     * to lcb_confmon_provider_failed() except that the second argument is a config
+     * object rather than an error code. The second argument must not be `NULL`
+     *
+     * The monitor will compare the new config against the current config.
+     * If the new config does not feature any changes from the current config then
+     * it is ignored and the confmon instance will proceed to the next provider.
+     * This is done through a direct call to provider_failed(provider, LCB_SUCCESS).
+     *
+     * This function should _not_ be called outside of an asynchronous provider's
+     * handler.
+     *
+     * @param provider the provider which yielded the new configuration
+     * @param info the new configuration
+     */
+    void provider_got_config(Provider *which, ConfigInfo* config);
+
+    /** Dump information about the monitor
+     * @param mon the monitor object
+     * @param fp the file to which information should be written
+     */
+    void dump(FILE *fp);
+
+    Provider* get_provider(Method m) const {
+        return all_providers[m];
+    }
+
+    /**
+     * @brief Register a listener to be invoked on state changes and events
+     *
+     * Adds a 'listener' object to be called at each configuration update. The
+     * listener may co-exist with other listeners (though it should never be added
+     * twice). When a new configuration is received and accept, the listener's
+     * Listener::callback field will be invoked with it.
+     *
+     * The callback will continue to be invoked for each new configuration received
+     * until remove_listener is called. Note that the listener is not allocated
+     * by the confmon and its responsibility is the user's
+     *
+     * @param mon the monitor
+     * @param listener the listener. The listener's contents are not copied into
+     * confmon and should thus remain valid until it is removed
+     */
+    void add_listener(Listener* lsn);
+
+    /**
+     * @brief Unregister (and remove) a listener added via lcb_confmon_add_listener()
+     * @param mon the monitor
+     * @param listener the listener
+     */
+    void remove_listener(Listener *lsn);
 
     /**Current provider. This provider may either fail or succeed.
      * In either case unless the provider can provide us with a specific
      * config which is newer than the one we have, it will roll over to the
      * next provider. */
-    struct clconfig_provider_st *cur_provider;
+    Provider *cur_provider;
 
     /** All providers we know about. Currently this means the 'builtin' providers */
-    struct clconfig_provider_st * all_providers[LCB_CLCONFIG_MAX];
+    Provider* all_providers[CLCONFIG_MAX];
 
     /** The current configuration pointer. This contains the most recent accepted
      * configuration */
-    struct clconfig_info_st * config;
+    ConfigInfo * config;
+
+    typedef std::list<Listener*> ListenerList;
+    /**  List of listeners for events */
+    ListenerList listeners;
+
+    lcb_settings *settings;
+    lcb_error_t last_error;
+    lcbio_pTABLE iot;
+
+    /** This is the async handle for a reentrant start */
+    lcb::io::Timer<Confmon, &Confmon::do_next_provider> as_start;
+
+    /** Async handle for a reentrant stop */
+    lcb::io::Timer<Confmon, &Confmon::stop_real> as_stop;
 
     /* CONFMON_S_* values. Used internally */
     int state;
@@ -146,44 +383,27 @@ typedef struct lcb_confmon_st {
     /** Last time the provider was stopped. As a microsecond timestamp */
     lcb_uint32_t last_stop_us;
 
-    /** This is the async handle for a reentrant start */
-    lcbio_pTIMER as_start;
-
-    /** Async handle for a reentrant stop */
-    lcbio_pTIMER as_stop;
-
-    /**  List of listeners for events */
-    lcb_list_t listeners;
-    lcb_settings *settings;
-    lcb_error_t last_error;
-    lcbio_pTABLE iot;
-} lcb_confmon;
+    typedef std::list<Provider*> ProviderList;
+    ProviderList active_providers;
+};
 
 /**
  * The base structure of a provider. This structure is intended to be
  * 'subclassed' by implementors.
  */
-typedef struct clconfig_provider_st {
-    lcb_list_t ll; /**< Node in linked list of active providers (if active) */
+struct Provider {
+    Provider(Confmon*, Method type_);
 
-    /** The type of provider */
-    clconfig_method_t type;
-
-    /** Whether this provider has been disabled/enabled explicitly by a user */
-    int enabled;
-
-    /** The parent manager object */
-    struct lcb_confmon_st *parent;
+    /** Destroy the resources created by this provider. */
+    virtual ~Provider();
 
     /**
      * Get the current map known to this provider. This should not perform
      * any blocking operations. Providers which use a push model may use
      * this method as an asynchronous return value for a previously-received
      * configuration.
-     *
-     * @param pb
      */
-    struct clconfig_info_st* (*get_cached)(struct clconfig_provider_st *pb);
+    virtual ConfigInfo* get_cached() = 0;
 
 
     /**
@@ -202,7 +422,7 @@ typedef struct clconfig_provider_st {
      *
      * @param pb
      */
-    lcb_error_t (*refresh)(struct clconfig_provider_st *pb);
+    virtual lcb_error_t refresh() = 0;
 
     /**
      * Callback invoked to the provider to indicate that it should cease
@@ -213,8 +433,11 @@ typedef struct clconfig_provider_st {
      * between 0 seconds and several minutes depending on how a user has
      * configured the client.
      * @param pb
+     * @return true if actually paused
      */
-    lcb_error_t (*pause)(struct clconfig_provider_st *pb);
+    virtual bool pause() {
+        return false;
+    }
 
     /**
      * Called when a new configuration has been received.
@@ -224,64 +447,132 @@ typedef struct clconfig_provider_st {
      * Note that this should only update the server list and do nothing
      * else.
      */
-    void (*config_updated)(struct clconfig_provider_st *provider,
-            lcbvb_CONFIG* config);
+    virtual void config_updated(lcbvb_CONFIG*) {
+    }
 
     /**
      * Retrieve the list of nodes from this provider, if applicable
      * @param p the provider
      * @return A list of nodes, or NULL if the provider does not have a list
      */
-    hostlist_t (*get_nodes)(const struct clconfig_provider_st *p);
+    virtual const lcb::Hostlist* get_nodes() const {
+        return NULL;
+    }
 
     /**
      * Call to change the configured nodes of this provider.
      * @param p The provider
      * @param l The list of nodes to apply
      */
-    void (*configure_nodes)(struct clconfig_provider_st *p, const hostlist_t l);
-
-    /** Destroy the resources created by this provider. */
-    void (*shutdown)(struct clconfig_provider_st *);
+    virtual void configure_nodes(const lcb::Hostlist&) {
+    }
 
     /**
      * Dump state information. This callback is optional
      * @param p the provider
      * @param f the file to write to
      */
-    void (*dump)(struct clconfig_provider_st *p, FILE *f);
-} clconfig_provider;
+    virtual void dump(FILE *) const {
+    }
+
+    void enable() {
+        enabled = 1;
+    }
+
+    virtual void enable(void *) {
+        assert("Must be implemented in subclass if used" && 0);
+    }
+
+    /** The type of provider */
+    const Method type;
+
+    /** Whether this provider has been disabled/enabled explicitly by a user */
+    bool enabled;
+
+    /** The parent manager object */
+    Confmon *parent;
+
+    lcb_settings& settings() const {
+        return *parent->settings;
+    }
+};
+
+Provider *new_cccp_provider(Confmon*);
+Provider *new_file_provider(Confmon*);
+Provider *new_http_provider(Confmon*);
+Provider *new_mcraw_provider(Confmon*);
 
 
 /** @brief refcounted object encapsulating a vbucket config */
-typedef struct clconfig_info_st {
+class ConfigInfo {
+public:
+    /**
+     * Creates a new configuration wrapper object containing the vbucket config
+     * pointed to by 'config'. Its initial refcount will be set to 1.
+     *
+     * @param config a newly parsed configuration
+     * @param origin the type of provider from which the config originated.
+     * @return a new ConfigInfo object. This should be incref()'d/decref()'d
+     * as needed.
+     */
+    static ConfigInfo* create(lcbvb_CONFIG *vbc, Method origin) {
+        return new ConfigInfo(vbc, origin);
+    }
+    /**
+     * @brief Compares two info structures and determine which one is newer
+     *
+     * This function returns an integer less than
+     * zero, zero or greater than zero if the first argument is considered older
+     * than, equal to, or later than the second argument.
+     * @param a
+     * @param b
+     * @see lcbvb_get_revision
+     * @see ConfigInfo::cmpclock
+     */
+    int compare(const ConfigInfo&);
+
+    /**
+     * @brief Increment the refcount on a config object
+     */
+    void incref() { refcount++; }
+
+    /**
+     * @brief Decrement the refcount on a config object.
+     * Decrement the refcount. If the internal refcount reaches 0 then the internal
+     * members (including the vbucket config handle itself) will be freed.
+     * @param info the configuration
+     */
+    void decref() {
+        if (!--refcount) {
+            delete this;
+        }
+    }
+
+    operator lcbvb_CONFIG*() const {
+        return vbc;
+    }
+
+    Method get_origin() const {
+        return origin;
+    }
+
     /** Actual configuration */
     lcbvb_CONFIG* vbc;
 
+private:
+    ConfigInfo(lcbvb_CONFIG *vbc, Method origin);
+
+    ~ConfigInfo();
+
     /** Comparative clock with which to compare */
-    lcb_uint64_t cmpclock;
+    uint64_t cmpclock;
 
     /** Reference counter */
     unsigned int refcount;
 
     /** Origin provider type which produced this config */
-    clconfig_method_t origin;
-} clconfig_info;
-
-/** Event types propagated to listeners */
-typedef enum {
-    /** Called when a new configuration is being set in confmon */
-    CLCONFIG_EVENT_GOT_NEW_CONFIG,
-
-    /** Called when _any_ configuration is received via set_enxt */
-    CLCONFIG_EVENT_GOT_ANY_CONFIG,
-
-    /** Called when all providers have been tried */
-    CLCONFIG_EVENT_PROVIDERS_CYCLED,
-
-    /** The monitor has stopped */
-    CLCONFIG_EVENT_MONITOR_STOPPED
-} clconfig_event_t;
+    Method origin;
+};
 
 /**
  * @brief Listener for events
@@ -289,288 +580,24 @@ typedef enum {
  * a callback invoked on significant vbucket events. See clconfig_event_t
  * for a variety of events the listener can know.
  */
-typedef struct clconfig_listener_st {
+struct Listener {
+    virtual ~Listener() {
+    }
+
     /** Linked list node */
     lcb_list_t ll;
-
-    /** Monitor object */
-    lcb_confmon *parent;
 
     /**
      * Callback invoked for significant events
      *
-     * @param lsn the listener structure itself
      * @param event the event which took place
      * @param config the configuration associated with the event. Note that
      * `config` may also be NULL
      */
-    void (*callback)(struct clconfig_listener_st *lsn, clconfig_event_t event,
-            struct clconfig_info_st *config);
-
-} clconfig_listener;
+    virtual void clconfig_lsn(EventType event, ConfigInfo *config) = 0;
+};
 
 /* Method-specific setup methods.. */
-
-clconfig_provider * lcb_clconfig_create_http(lcb_confmon *mon);
-clconfig_provider * lcb_clconfig_create_cccp(lcb_confmon *mon);
-clconfig_provider * lcb_clconfig_create_file(lcb_confmon *mon);
-clconfig_provider * lcb_clconfig_create_user(lcb_confmon *mon);
-clconfig_provider * lcb_clconfig_create_mcraw(lcb_confmon *mon);
-
-/**@brief Get a provider by its type
- * @param mon the monitor
- * @param ix a clconfig_method_t indicating the type of provider to fetch
- * @return a pointer to the provider of the given type
- */
-#define lcb_confmon_get_provider(mon, ix) (mon)->all_providers[ix]
-
-/**
- * @brief Macro used to retrieve a setting from a provider
- * @param p the provider pointer
- * @param n the name of the setting field to retrieve as token
- */
-#define PROVIDER_SETTING(p, n) ((p)->parent->settings->n)
-
-/**
- * @brief Macro used by a provider to set the failure code in the parent
- * lcb_confmon object
- * @param p the provider pointer
- * @param e the error code
- */
-#define PROVIDER_SET_ERROR(p, e) (p)->parent->last_error = e
-
-/**
- * @brief Create a new configuration monitor.
- * This function creates a new `confmon` object which can be used to manage
- * configurations and their providers.
- *
- * @param settings
- * @param iot
- *
- * Once the confmon object has been created you may enable or disable various
- * providers (see lcb_confmon_set_provider_active()). Once no more providers
- * remain to be activated you should call lcb_confmon_prepare() once. Then
- * call the rest of the functions.
- */
-LIBCOUCHBASE_API
-lcb_confmon *
-lcb_confmon_create(lcb_settings *settings, lcbio_pTABLE iot);
-
-/**Destroy the confmon object.
- * @param mon */
-LIBCOUCHBASE_API
-void
-lcb_confmon_destroy(lcb_confmon *mon);
-
-/**
- * Prepares the configuration monitor object for operations. This will insert
- * all the enabled providers into a list. Call this function each time a
- * provider has been enabled.
- * @param mon
- */
-LIBCOUCHBASE_API
-void
-lcb_confmon_prepare(lcb_confmon *mon);
-
-LCB_INTERNAL_API
-void
-lcb_confmon_set_provider_active(lcb_confmon *mon,
-    clconfig_method_t type, int enabled);
-
-
-/**
- * @brief Request a configuration refresh
- *
- * Start traversing the list of current providers, requesting a new
- * configuration for each. This function will asynchronously loop through all
- * providers until one provides a new configuration.
- *
- * You may call lcb_confmon_stop() to asynchronously break out of the loop.
- * If the confmon is already in a refreshing state
- * (i.e. lcb_confmon_is_refreshing()) returns true then this function does
- * nothing.
- *
- * This function is reentrant safe and may be called at any time.
- *
- * @param mon
- * @see lcb_confmon_add_listener()
- * @see lcb_confmon_stop()
- * @see lcb_confmon_is_refreshing()
- */
-LIBCOUCHBASE_API
-lcb_error_t lcb_confmon_start(lcb_confmon *mon);
-
-/**
- * @brief Cancel a pending configuration refresh.
- *
- * Stops the monitor. This will call clconfig_provider::pause() for each active
- * provider. Typically called before destruction or when a new configuration
- * has been found.
- *
- * This function is safe to call anywhere. If the monitor is already stopped
- * then this function does nothing.
- *
- * @param mon
- * @see lcb_confmon_start()
- * @see lcb_confmon_is_refreshing()
- */
-LIBCOUCHBASE_API
-lcb_error_t lcb_confmon_stop(lcb_confmon *mon);
-
-/**
- * @brief Check if the monitor is waiting for a new config from a provider
- * @param mon
- * @return true if refreshing, false if idle
- */
-LCB_INTERNAL_API
-int lcb_confmon_is_refreshing(lcb_confmon *mon);
-
-
-/**@brief Get the current configuration object
- * @return The current configuration */
-#define lcb_confmon_get_config(mon) (mon)->config
-
-/**@brief Get the last error code set by a provider
- * @return the last error code (if failure) */
-#define lcb_confmon_last_error(mon) (mon)->last_error
-
-/**
- * @brief Indicate that a provider has failed and advance the monitor
- *
- * Indicate that the current provider has failed to obtain a new configuration.
- * This is always called by a provider and should be invoked when the provider
- * has encountered an internal error which caused it to be unable to fetch
- * the configuration.
- *
- * Note that this function is safe to call from any provider at any time. If
- * the provider is not the current provider then it is treated as an async
- * push notification failure and ignored. This function is _not_ safe to call
- * from consumers of providers
- *
- * Once this is called, the confmon instance will either roll over to the next
- * provider or enter the inactive state depending on the configuration and
- * whether the current provider is the last provider in the list.
- *
- * @param provider
- * @param err
- */
-LIBCOUCHBASE_API
-void
-lcb_confmon_provider_failed(clconfig_provider *provider, lcb_error_t err);
-
-
-/**
- * @brief Indicate that a provider has successfuly retrieved a configuration.
- *
- * Indicates that the provider has fetched a new configuration from the network
- * and that confmon should attempt to propagate it. It has similar semantics
- * to lcb_confmon_provider_failed() except that the second argument is a config
- * object rather than an error code. The second argument must not be `NULL`
- *
- * The monitor will compare the new config against the current config.
- * If the new config does not feature any changes from the current config then
- * it is ignored and the confmon instance will proceed to the next provider.
- * This is done through a direct call to provider_failed(provider, LCB_SUCCESS).
- *
- * This function should _not_ be called outside of an asynchronous provider's
- * handler.
- *
- * @param provider the provider which yielded the new configuration
- * @param info the new configuration
- */
-LIBCOUCHBASE_API
-void
-lcb_confmon_provider_success(clconfig_provider *provider, clconfig_info *info);
-
-/**
- * @brief Register a listener to be invoked on state changes and events
- *
- * Adds a 'listener' object to be called at each configuration update. The
- * listener may co-exist with other listeners (though it should never be added
- * twice). When a new configuration is received and accept, the listener's
- * clconfig_listener::callback field will be invoked with it.
- *
- * The callback will continue to be invoked for each new configuration received
- * until remove_listener is called. Note that the listener is not allocated
- * by the confmon and its responsibility is the user's
- *
- * @param mon the monitor
- * @param listener the listener. The listener's contents are not copied into
- * confmon and should thus remain valid until it is removed
- */
-LIBCOUCHBASE_API
-void lcb_confmon_add_listener(lcb_confmon *mon, clconfig_listener *listener);
-
-/**
- * @brief Unregister (and remove) a listener added via lcb_confmon_add_listener()
- * @param mon the monitor
- * @param listener the listener
- */
-LIBCOUCHBASE_API
-void lcb_confmon_remove_listener(lcb_confmon *mon, clconfig_listener *listener);
-
-/** @brief Possible confmon states */
-typedef enum {
-    /** The monitor is idle and not requesting a new configuration */
-    CONFMON_S_INACTIVE = 0,
-
-    /** The monitor is actively requesting a configuration */
-    CONFMON_S_ACTIVE = 1 << 0,
-
-    /** The monitor is fetching a configuration, but is in a throttle state */
-    CONFMON_S_ITERGRACE = 1 << 1
-} confmon_state_t;
-
-/**
- * @brief Get the current monitor state
- * @param mon the monitor
- * @return a set of flags consisting of confmon_state_t values.
- */
-#define lcb_confmon_get_state(mon) (mon)->state
-
-/**
- * Creates a new configuration wrapper object containing the vbucket config
- * pointed to by 'config'. Its initial refcount will be set to 1.
- *
- * @param config a newly parsed configuration
- * @param origin the type of provider from which the config originated.
- */
-clconfig_info *
-lcb_clconfig_create(lcbvb_CONFIG* config, clconfig_method_t origin);
-
-/**
- * @brief Compares two info structures and determine which one is newer
- *
- * This function returns an integer less than
- * zero, zero or greater than zero if the first argument is considered older
- * than, equal to, or later than the second argument.
- * @param a
- * @param b
- * @see lcbvb_get_revision
- * @see clconfig_info::cmpclock
- */
-LIBCOUCHBASE_API
-int lcb_clconfig_compare(const clconfig_info *a, const clconfig_info *b);
-
-/**
- * @brief Decrement the refcount on a config object.
- * Decrement the refcount. If the internal refcount reaches 0 then the internal
- * members (including the vbucket config handle itself) will be freed.
- * @param info the configuration
- */
-void lcb_clconfig_decref(clconfig_info *info);
-
-/**
- * @brief Increment the refcount on a config object
- * @param info the config object
- */
-#define lcb_clconfig_incref(info) (info)->refcount++
-
-/** Dump information about the monitor
- * @param mon the monitor object
- * @param fp the file to which information should be written
- */
-void lcb_confmon_dump(lcb_confmon *mon, FILE *fp);
 
 /**
  * @name File Provider-specific APIs
@@ -583,18 +610,17 @@ void lcb_confmon_dump(lcb_confmon *mon, FILE *fp);
  * @param p the provider
  * @param f the filename (if NULL, a temporary filename will be created)
  * @param ro whether the client will never modify the file
- * @return zero on success, nonzero on failure.
+ * @return true on success, false on failure.
  */
-int lcb_clconfig_file_set_filename(clconfig_provider *p, const char *f, int ro);
+bool file_set_filename(Provider *p, const char *f, bool ro);
 
 /**
  * Retrieve the filename for the provider
  * @param p The provider of type LCB_CLCONFIG_FILE
  * @return the current filename being used.
  */
-const char * lcb_clconfig_file_get_filename(clconfig_provider *p);
-
-void lcb_clconfig_file_set_readonly(clconfig_provider *p, int val);
+const char* file_get_filename(Provider *p);
+void file_set_readonly(Provider *p, bool val);
 /**@}*/
 
 /**
@@ -608,30 +634,32 @@ void lcb_clconfig_file_set_readonly(clconfig_provider *p, int val);
  * @param mon
  * @return
  */
-lcbio_SOCKET* lcb_confmon_get_rest_connection(lcb_confmon *mon);
+const lcbio_SOCKET* http_get_conn(const Provider *p);
+
+static inline const lcbio_SOCKET* http_get_conn(Confmon *c) {
+    return http_get_conn(c->get_provider(CLCONFIG_HTTP));
+}
 
 /**
  * Get the hostname for the current REST connection to the cluster
  * @param mon
  * @return
  */
-lcb_host_t * lcb_confmon_get_rest_host(lcb_confmon *mon);
-
-/**
- * Enables the HTTP provider
- * @param pb a provider of type LCB_CLCONFIG_HTTP
- */
-LCB_INTERNAL_API
-void lcb_clconfig_http_enable(clconfig_provider *pb);
-#define lcb_clconfig_http_set_nodes lcb_clconfig_cccp_set_nodes
+const lcb_host_t * http_get_host(const Provider *p);
+static inline const lcb_host_t* http_get_host(Confmon *c) {
+    return http_get_host(c->get_provider(CLCONFIG_HTTP));
+}
 /**@}*/
 
 /**
  * @name CCCP Provider-specific APIs
  * @{
  */
-LCB_INTERNAL_API
-void lcb_clconfig_cccp_enable(clconfig_provider *pb, lcb_t instance);
+
+/**
+ * Note, to initialize the CCCP provider, you should use
+ * cccp->enable(instance);
+ */
 
 /**
  * @brief Notify the CCCP provider about a new configuration from a
@@ -647,7 +675,7 @@ void lcb_clconfig_cccp_enable(clconfig_provider *pb, lcb_t instance);
  * set
  */
 lcb_error_t
-lcb_cccp_update(clconfig_provider *provider, const char *host, const char *data);
+cccp_update(Provider *provider, const char *host, const char *data);
 
 /**
  * @brief Notify the CCCP provider about a configuration received from a
@@ -659,23 +687,16 @@ lcb_cccp_update(clconfig_provider *provider, const char *host, const char *data)
  * @param nbytes Size of payload
  * @param origin Host object from which the packet was received
  */
-void
-lcb_cccp_update2(const void *cookie, lcb_error_t err,
-    const void *bytes, lcb_size_t nbytes, const lcb_host_t *origin);
+void cccp_update(const void *cookie, lcb_error_t err,
+    const void *bytes, size_t nbytes, const lcb_host_t *origin);
 
-#define lcb_clconfig_cccp_set_nodes(pb, nodes) (pb)->configure_nodes(pb, nodes)
 /**@}*/
 
 /**@name Raw Memcached (MCRAW) Provider-specific APIs
  * @{*/
-LCB_INTERNAL_API
-lcb_error_t
-lcb_clconfig_mcraw_update(clconfig_provider *pb, const char *nodes);
+/**@}*/
 /**@}*/
 
-/**@}*/
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+} // clconfig
+} // lcb
 #endif /* LCB_CLCONFIG_H */

@@ -198,7 +198,7 @@ HANDLER(get_kvb) {
 
 
 HANDLER(conninfo) {
-    lcbio_SOCKET *sock;
+    const lcbio_SOCKET *sock;
     lcb_cntl_server_st *si = reinterpret_cast<lcb_cntl_server_st*>(arg);
     const lcb_host_t *host;
 
@@ -212,7 +212,7 @@ HANDLER(conninfo) {
         if (ix < 0 || ix > (int)LCBT_NSERVERS(instance)) {
             return LCB_ECTL_BADARG;
         }
-        server = LCBT_GET_SERVER(instance, ix);
+        server = instance->get_server(ix);
         if (!server) {
             return LCB_NETWORK_ERROR;
         }
@@ -224,7 +224,7 @@ HANDLER(conninfo) {
             }
         }
     } else if (cmd == LCB_CNTL_CONFIGNODE_INFO) {
-        sock = lcb_confmon_get_rest_connection(instance->confmon);
+        sock = lcb::clconfig::http_get_conn(instance->confmon);
     } else {
         return LCB_ECTL_BADARG;
     }
@@ -246,7 +246,8 @@ HANDLER(conninfo) {
 
 HANDLER(config_cache_loaded_handler) {
     if (mode != LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; }
-    *(int *)arg = instance->cur_configinfo && instance->cur_configinfo->origin == LCB_CLCONFIG_FILE;
+    *(int *)arg = instance->cur_configinfo &&
+            instance->cur_configinfo->get_origin() == lcb::clconfig::CLCONFIG_FILE;
     (void)cmd; return LCB_SUCCESS;
 }
 
@@ -282,9 +283,9 @@ HANDLER(config_transport) {
     if (mode == LCB_CNTL_SET) { return LCB_ECTL_UNSUPPMODE; }
     if (!instance->cur_configinfo) { return LCB_CLIENT_ETMPFAIL; }
 
-    switch (instance->cur_configinfo->origin) {
-        case LCB_CLCONFIG_HTTP: *val = LCB_CONFIG_TRANSPORT_HTTP; break;
-        case LCB_CLCONFIG_CCCP: *val = LCB_CONFIG_TRANSPORT_CCCP; break;
+    switch (instance->cur_configinfo->get_origin()) {
+        case lcb::clconfig::CLCONFIG_HTTP: *val = LCB_CONFIG_TRANSPORT_HTTP; break;
+        case lcb::clconfig::CLCONFIG_CCCP: *val = LCB_CONFIG_TRANSPORT_CCCP; break;
         default: return LCB_CLIENT_ETMPFAIL;
     }
     (void)cmd; return LCB_SUCCESS;
@@ -292,7 +293,7 @@ HANDLER(config_transport) {
 
 HANDLER(config_nodes) {
     const char *node_strs = reinterpret_cast<const char*>(arg);
-    clconfig_provider *target;
+    lcb::clconfig::Provider *target;
     lcb::Hostlist hostlist;
     lcb_error_t err;
 
@@ -309,12 +310,12 @@ HANDLER(config_nodes) {
     }
 
     if (cmd == LCB_CNTL_CONFIG_HTTP_NODES) {
-        target = lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_HTTP);
-        lcb_clconfig_http_set_nodes(target, &hostlist);
+        target = instance->confmon->get_provider(lcb::clconfig::CLCONFIG_HTTP);
     } else {
-        target = lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_CCCP);
-        lcb_clconfig_cccp_set_nodes(target, &hostlist);
+        target = instance->confmon->get_provider(lcb::clconfig::CLCONFIG_CCCP);
     }
+
+    target->configure_nodes(hostlist);
 
     return LCB_SUCCESS;
 }
@@ -327,22 +328,22 @@ HANDLER(init_providers) {
 }
 
 HANDLER(config_cache_handler) {
-    clconfig_provider *provider;
+    using namespace lcb::clconfig;
+    Provider *provider;
 
-    provider = lcb_confmon_get_provider(instance->confmon, LCB_CLCONFIG_FILE);
+    provider = instance->confmon->get_provider(lcb::clconfig::CLCONFIG_FILE);
     if (mode == LCB_CNTL_SET) {
-        int rv;
-        rv = lcb_clconfig_file_set_filename(provider,
+        bool rv = file_set_filename(provider,
             reinterpret_cast<const char*>(arg),
             cmd == LCB_CNTL_CONFIGCACHE_RO);
 
-        if (rv == 0) {
+        if (rv) {
             instance->settings->bc_http_stream_time = LCB_MS2US(10000);
             return LCB_SUCCESS;
         }
         return LCB_ERROR;
     } else {
-        *(const char **)arg = lcb_clconfig_file_get_filename(provider);
+        *(const char **)arg = file_get_filename(provider);
         return LCB_SUCCESS;
     }
 }

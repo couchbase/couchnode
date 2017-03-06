@@ -31,6 +31,8 @@
 #cmakedefine HAVE_SYS_UIO_H
 #cmakedefine HAVE_UNISTD_H
 #cmakedefine HAVE_ARPA_INET_H
+#cmakedefine HAVE_RES_SEARCH
+#cmakedefine HAVE_ARPA_NAMESER_H
 
 #ifndef HAVE_LIBEVENT
 #cmakedefine HAVE_LIBEVENT

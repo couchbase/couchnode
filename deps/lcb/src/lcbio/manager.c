@@ -314,11 +314,11 @@ start_new_connection(mgr_HOST *he, uint32_t tmo)
 
     err = lcb_host_parsez(&tmphost, he->key, 80);
     if (err != LCB_SUCCESS) {
-        lcb_log(LOGARGS(he->parent, ERROR), HE_LOGFMT "Could not parse host! Will supply dummy host", HE_LOGID(he));
+        lcb_log(LOGARGS(he->parent, ERROR), HE_LOGFMT "Could not parse host! Will supply dummy host (I=%p)", HE_LOGID(he), (void*)info);
         strcpy(tmphost.host, "BADHOST");
         strcpy(tmphost.port, "BADPORT");
     }
-    lcb_log(LOGARGS(he->parent, DEBUG), HE_LOGFMT "Starting connection on I=%p", HE_LOGID(he), (void*)info);
+    lcb_log(LOGARGS(he->parent, TRACE), HE_LOGFMT "New pool entry: I=%p", HE_LOGID(he), (void*)info);
 
     info->cs = lcbio_connect(he->parent->io, he->parent->settings, &tmphost,
                              tmo, on_connected, info);

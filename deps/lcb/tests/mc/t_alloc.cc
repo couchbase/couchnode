@@ -223,15 +223,16 @@ TEST_F(McAlloc, testValueAlloc)
     mcreq_release_packet(pipeline, packet);
 }
 
-struct ExtraCookie {
-    mc_REQDATAEX base;
+struct ExtraCookie : mc_REQDATAEX {
     int remaining;
+    ExtraCookie(const mc_REQDATAPROCS& procs_)
+        : mc_REQDATAEX(NULL, procs_, 0), remaining(0) {
+    }
 };
 
 extern "C" {
 static void pkt_dtor(mc_PACKET *pkt) {
-    mc_REQDATAEX *rd = pkt->u_rdata.exdata;
-    ExtraCookie *ec = (ExtraCookie *)rd;
+    ExtraCookie *ec = static_cast<ExtraCookie*>(pkt->u_rdata.exdata);
     ec->remaining--;
 }
 }
@@ -240,17 +241,16 @@ TEST_F(McAlloc, testRdataExDtor)
 {
     CQWrap q;
     lcb_CMDBASE basecmd;
-    ExtraCookie ec;
+    const static mc_REQDATAPROCS procs = { NULL, pkt_dtor };
     protocol_binary_request_header hdr;
 
     memset(&hdr, 0, sizeof hdr);
     memset(&basecmd, 0, sizeof basecmd);
-    memset(&ec, 0, sizeof ec);
 
-    mc_REQDATAPROCS procs = { NULL, pkt_dtor };
-    ec.base.procs = &procs;
     basecmd.key.contig.bytes = "foo";
     basecmd.key.contig.nbytes = 3;
+
+    ExtraCookie ec(procs);
 
     mcreq_sched_enter(&q);
     for (unsigned ii = 0; ii < 5; ii++) {
@@ -260,7 +260,7 @@ TEST_F(McAlloc, testRdataExDtor)
         err = mcreq_basic_packet(&q, &basecmd, &hdr, 0, &pkt, &pl, 0);
         ASSERT_EQ(LCB_SUCCESS, err);
         pkt->flags |= MCREQ_F_REQEXT;
-        pkt->u_rdata.exdata = &ec.base;
+        pkt->u_rdata.exdata = &ec;
         mcreq_sched_add(pl, pkt);
         ec.remaining++;
     }

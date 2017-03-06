@@ -43,8 +43,8 @@ public:
     }
 
     MemcachedResponse(protocol_binary_command cmd, uint32_t opaque_,
-                      protocol_binary_response_status code) {
-        std::memset(this, 0, sizeof *this);
+                      protocol_binary_response_status code)
+        : res(), payload(NULL), bufh(NULL) {
         res.response.opcode = cmd;
         res.response.opaque = opaque_;
         res.response.status = htons(code);

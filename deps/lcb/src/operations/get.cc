@@ -181,28 +181,31 @@ lcb_unlock(lcb_t instance, const void *cookie, lcb_size_t num,
     }
 }
 
-typedef struct {
-    mc_REQDATAEX base;
+struct RGetCookie : mc_REQDATAEX {
+    RGetCookie(const void *cookie, lcb_t instance, lcb_replica_t, int vb);
+    void decref() {
+        if (!--remaining) {
+            delete this;
+        }
+    }
+
     unsigned r_cur;
     unsigned r_max;
     int remaining;
     int vbucket;
     lcb_replica_t strategy;
     lcb_t instance;
-} rget_cookie;
+};
 
 static void rget_dtor(mc_PACKET *pkt) {
-    rget_cookie *rck = (rget_cookie *)pkt->u_rdata.exdata;
-    if (! --rck->remaining) {
-        free(rck);
-    }
+    static_cast<RGetCookie*>(pkt->u_rdata.exdata)->decref();
 }
 
 static void
-rget_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
+rget_callback(mc_PIPELINE *, mc_PACKET *pkt, lcb_error_t err, const void *arg)
 {
-    rget_cookie *rck = (rget_cookie *)pkt->u_rdata.exdata;
-    lcb_RESPGET *resp = (void *)arg;
+    RGetCookie *rck = static_cast<RGetCookie*>(pkt->u_rdata.exdata);
+    lcb_RESPGET *resp = reinterpret_cast<lcb_RESPGET*>(const_cast<void*>(arg));
     lcb_RESPCALLBACK callback;
     lcb_t instance = rck->instance;
 
@@ -247,17 +250,20 @@ rget_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
             rck->remaining = 2;
         }
     }
-
-    if (!--rck->remaining) {
-        free(rck);
-    }
-    (void)pl;
+    rck->decref();
 }
 
 static mc_REQDATAPROCS rget_procs = {
         rget_callback,
         rget_dtor
 };
+
+RGetCookie::RGetCookie(const void *cookie_, lcb_t instance_,
+    lcb_replica_t strategy_, int vbucket_)
+    : mc_REQDATAEX(cookie_, rget_procs, gethrtime()),
+      r_cur(0), r_max(LCBT_NREPLICAS(instance_)), remaining(0),
+      vbucket(vbucket_), strategy(strategy_), instance(instance_) {
+}
 
 LIBCOUCHBASE_API
 lcb_error_t
@@ -271,7 +277,6 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     int vbid, ixtmp;
     protocol_binary_request_header req;
     unsigned r0, r1 = 0;
-    rget_cookie *rck = NULL;
 
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
@@ -323,15 +328,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     }
 
     /* Initialize the cookie */
-    rck = calloc(1, sizeof(*rck));
-    rck->base.cookie = cookie;
-    rck->base.start = gethrtime();
-    rck->base.procs = &rget_procs;
-    rck->strategy = cmd->strategy;
-    rck->r_cur = r0;
-    rck->r_max = LCBT_NREPLICAS(instance);
-    rck->instance = instance;
-    rck->vbucket = vbid;
+    RGetCookie *rck = new RGetCookie(cookie, instance, cmd->strategy, vbid);
 
     /* Initialize the packet */
     req.request.magic = PROTOCOL_BINARY_REQ;
@@ -343,6 +340,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
     req.request.keylen = htons((lcb_uint16_t)cmd->key.contig.nbytes);
     req.request.bodylen = htonl((lcb_uint32_t)cmd->key.contig.nbytes);
 
+    rck->r_cur = r0;
     do {
         int curix;
         mc_PIPELINE *pl;
@@ -359,7 +357,7 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd)
             return LCB_CLIENT_ENOMEM;
         }
 
-        pkt->u_rdata.exdata = &rck->base;
+        pkt->u_rdata.exdata = rck;
         pkt->flags |= MCREQ_F_REQEXT;
 
         mcreq_reserve_key(pl, pkt, sizeof(req.bytes), &cmd->key);

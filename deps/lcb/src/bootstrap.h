@@ -17,9 +17,6 @@
 
 #ifndef LCB_BOOTSTRAP_H
 #define LCB_BOOTSTRAP_H
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /**@file
  * Core bootstrap/cluster configuration routines */
@@ -29,19 +26,43 @@ extern "C" {
  * @{
  */
 
-#if defined(__LCB_DOXYGEN__) || defined(LCB_BOOTSTRAP_DEFINE_STRUCT)
+#ifdef __cplusplus
 #include "bucketconfig/clconfig.h"
+#include <lcbio/timer-cxx.h>
 
+namespace lcb {
 /**
  * Structure containing the bootstrap state for the instance.
+ *
+ * Derived from Listener,
+ * used to react when a new configuration is received. This
+ * is used for both requested configurations (i.e. an explicit call to
+ * lcb_bootstrap_common()) as well as unsolicited updates such as
+ * HTTP streaming configurations or Not-My-Vbucket "Carrier" updates.
  */
-struct lcb_BOOTSTRAP {
-    /**Listener object used to react when a new configuration is received. This
-     * is used for both requested configurations (i.e. an explicit call to
-     * lcb_bootstrap_common()) as well as unsolicited updates such as
-     * HTTP streaming configurations or Not-My-Vbucket "Carrier" updates.
-     */
-    clconfig_listener listener;
+class Bootstrap : lcb::clconfig::Listener {
+public:
+    Bootstrap(lcb_t);
+    ~Bootstrap();
+    lcb_error_t bootstrap(unsigned options);
+
+    hrtime_t get_last_refresh() const {
+        return last_refresh;
+    }
+    void reset_last_refresh() {
+        last_refresh = 0;
+    }
+    size_t get_errcounter() const {
+        return errcounter;
+    }
+
+private:
+    // Override
+    void clconfig_lsn(lcb::clconfig::EventType e, lcb::clconfig::ConfigInfo* i);
+
+    inline void config_callback(lcb::clconfig::EventType, lcb::clconfig::ConfigInfo*);
+    inline void initial_error(lcb_error_t, const char *);
+    void timer_dispatch();
 
     lcb_t parent;
 
@@ -49,7 +70,7 @@ struct lcb_BOOTSTRAP {
      * updates as an asynchronous event (to allow safe updates and avoid
      * reentrancy issues)
      */
-    lcbio_pTIMER tm;
+    lcb::io::Timer<Bootstrap, &Bootstrap::timer_dispatch> tm;
 
     /**
      * Timestamp indicating the most recent configuration activity. This
@@ -73,57 +94,47 @@ struct lcb_BOOTSTRAP {
      */
     unsigned errcounter;
 
-    /** Flag indicating whether the _initial_ configuration has been received */
-    int bootstrapped;
+    enum State {
+        /** Initial 'blank' state */
+        S_INITIAL_PRE = 0,
+        /** We got something after our initial callback */
+        S_INITIAL_TRIGGERED,
+        /** Have received at least one valid configuration */
+        S_BOOTSTRAPPED
+    };
+    State state;
 };
-#endif
 
 /**
  * These flags control the bootstrap refreshing mode that will take place
  * when lcb_bootstrap_common() is invoked. These options may be OR'd with
  * each other (with the exception of ::LCB_BS_REFRESH_ALWAYS).
  */
-typedef enum {
+enum BootstrapOptions {
     /** Always fetch a new configuration. No throttling checks are performed */
-    LCB_BS_REFRESH_ALWAYS = 0x00,
+    BS_REFRESH_ALWAYS = 0x00,
     /** Special mode used to fetch the first configuration */
-    LCB_BS_REFRESH_INITIAL = 0x02,
+    BS_REFRESH_INITIAL = 0x02,
 
     /** Make the request for a new configuration subject to throttling
      * limitations. Currently this will be subject to the interval specified
      * in the @ref LCB_CNTL_CONFDELAY_THRESH setting and the @ref
      * LCB_CNTL_CONFERRTHRESH setting. If the refresh has been throttled
      * the lcb_confmon_is_refreshing() function will return false */
-    LCB_BS_REFRESH_THROTTLE = 0x04,
+    BS_REFRESH_THROTTLE = 0x04,
 
     /** To be used in conjunction with ::LCB_BS_REFRESH_THROTTLE, this will
      * increment the error counter in case the current refresh is throttled,
      * such that when the error counter reaches the threshold, the throttle
      * limitations will expire and a new refresh will take place */
-    LCB_BS_REFRESH_INCRERR = 0x08
-} lcb_BSFLAGS;
-
-/**
- * @brief Request that the handle update its configuration.
- *
- * This function acts as a gateway to the more abstract confmon interface.
- *
- * @param instance The instance
- * @param options A set of options specified as flags, indicating under what
- * conditions a new configuration should be refetched.
- *
- * @return
- */
-LCB_INTERNAL_API
-lcb_error_t
-lcb_bootstrap_common(lcb_t instance, int options);
+    BS_REFRESH_INCRERR = 0x08
+};
 
 void
 lcb_bootstrap_destroy(lcb_t instance);
 
 /**@}*/
 
-#ifdef __cplusplus
-}
-#endif
+} // namespace lcb
+#endif // __cplusplus
 #endif /* LCB_BOOTSTRAP_H */

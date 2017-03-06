@@ -305,14 +305,14 @@ replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
     free(ppold);
 }
 
-void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
+void lcb_update_vbconfig(lcb_t instance, lcb_pCONFIGINFO config)
 {
     lcb_configuration_t change_status;
-    clconfig_info *old_config = instance->cur_configinfo;
+    lcb::clconfig::ConfigInfo *old_config = instance->cur_configinfo;
     mc_CMDQUEUE *q = &instance->cmdq;
 
     instance->cur_configinfo = config;
-    lcb_clconfig_incref(config);
+    config->incref();
     q->config = instance->cur_configinfo->vbc;
     q->cqdata = instance;
 
@@ -328,7 +328,7 @@ void lcb_update_vbconfig(lcb_t instance, clconfig_info *config)
         lcb_vbguess_newconfig(instance, config->vbc, instance->vbguess);
 
         replace_config(instance, old_config->vbc, config->vbc);
-        lcb_clconfig_decref(old_config);
+        old_config->decref();
         change_status = LCB_CONFIGURATION_CHANGED;
     } else {
         size_t nservers = VB_NSERVERS(config->vbc);

@@ -58,6 +58,17 @@ struct Traits {
         return is_lookup ? LCB_SDMULTI_MODE_LOOKUP : LCB_SDMULTI_MODE_MUTATE;
     }
 
+    inline bool chk_allow_empty_path(uint32_t options) const {
+        if (allow_empty_path) {
+            return true;
+        }
+        if (!is_lookup) {
+            return false;
+        }
+
+        return (options & LCB_SDSPEC_F_XATTRPATH) != 0;
+    }
+
     inline Traits(uint8_t op, unsigned options) :
         allow_empty_path(options & EMPTY_PATH),
         allow_expiry(options & ALLOW_EXPIRY),
@@ -163,6 +174,28 @@ get_valbuf_size(const lcb_VALBUF& vb)
     }
 }
 
+static uint8_t
+make_subdoc_flags(const uint32_t user)
+{
+    uint8_t subdoc_flags = 0;
+    if (user & LCB_SDSPEC_F_MKINTERMEDIATES) {
+        subdoc_flags |= SUBDOC_FLAG_MKDIR_P;
+    }
+    if (user & LCB_SDSPEC_F_MKDOCUMENT) {
+        subdoc_flags |= SUBDOC_FLAG_MKDOC;
+    }
+    if (user & LCB_SDSPEC_F_XATTRPATH) {
+        subdoc_flags |= SUBDOC_FLAG_XATTR_PATH;
+    }
+    if (user & LCB_SDSPEC_F_XATTR_MACROVALUES) {
+        subdoc_flags |= (SUBDOC_FLAG_EXPAND_MACROS | SUBDOC_FLAG_XATTR_PATH);
+    }
+    if (user & LCB_SDSPEC_F_XATTR_DELETED_OK) {
+        subdoc_flags |= (SUBDOC_FLAG_XATTR_PATH|SUBDOC_FLAG_ACCESS_DELETED);
+    }
+    return subdoc_flags;
+}
+
 struct MultiBuilder {
     MultiBuilder(const lcb_CMDSUBDOC *cmd_)
     : cmd(cmd_), payload_size(0), mode(0) {
@@ -266,17 +299,10 @@ MultiBuilder::add_spec(const lcb_SDSPEC *spec)
     // opcode
     add_field(trait.opcode, 1);
     // flags
-    uint8_t sdflags = 0;
-    if (spec->options & LCB_SDSPEC_F_MKINTERMEDIATES) {
-        sdflags = SUBDOC_FLAG_MKDIR_P;
-    }
-    if (spec->options & LCB_SDSPEC_F_MKDOCUMENT) {
-        sdflags |= SUBDOC_FLAG_MKDOC;
-    }
-    add_field(sdflags, 1);
+    add_field(make_subdoc_flags(spec->options), 1);
 
     uint16_t npath = static_cast<uint16_t>(spec->path.contig.nbytes);
-    if (!npath && !trait.allow_empty_path) {
+    if (!npath && !trait.chk_allow_empty_path(spec->options)) {
         return LCB_EMPTY_PATH;
     }
 
@@ -329,7 +355,8 @@ sd3_single(lcb_t instance, const void *cookie, const lcb_CMDSUBDOC *cmd)
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
     }
-    if (LCB_KEYBUF_IS_EMPTY(&spec->path) && !traits.allow_empty_path) {
+    if (LCB_KEYBUF_IS_EMPTY(&spec->path) &&
+            !traits.chk_allow_empty_path(spec->options)) {
         return LCB_EMPTY_PATH;
     }
 
@@ -399,14 +426,7 @@ sd3_single(lcb_t instance, const void *cookie, const lcb_CMDSUBDOC *cmd)
         ntohs(hdr->request.keylen) + get_value_size(packet));
 
     request.message.extras.pathlen = htons(spec->path.contig.nbytes);
-    request.message.extras.subdoc_flags = 0;
-
-    if (spec->options & LCB_SDSPEC_F_MKINTERMEDIATES) {
-        request.message.extras.subdoc_flags |= SUBDOC_FLAG_MKDIR_P;
-    }
-    if (spec->options & LCB_SDSPEC_F_MKDOCUMENT) {
-        request.message.extras.subdoc_flags |= SUBDOC_FLAG_MKDOC;
-    }
+    request.message.extras.subdoc_flags = make_subdoc_flags(spec->options);
 
     hdr->request.opcode = traits.opcode;
     memcpy(SPAN_BUFFER(&packet->kh_span), request.bytes, sizeof request.bytes);

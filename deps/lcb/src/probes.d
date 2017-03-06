@@ -28,7 +28,7 @@ provider libcouchbase {
                   uint16_t,     /* return code (from libcouchbase) */
                   const char*,  /* key */
                   size_t,       /* nkey */
-                  const void*,  /* bytes */
+                  const char*,  /* bytes */
                   size_t,       /* nbytes */
                   uint32_t,     /* flags */
                   uint64_t,     /* cas */

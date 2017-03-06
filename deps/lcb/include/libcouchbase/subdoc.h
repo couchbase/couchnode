@@ -180,6 +180,15 @@ typedef struct {
 /** Create document if it does not exist */
 #define LCB_SDSPEC_F_MKDOCUMENT (1<<17)
 
+/** Access document XATTR path */
+#define LCB_SDSPEC_F_XATTRPATH (1<<18)
+
+/** Access document virtual/materialized path. Implies F_XATTRPATH */
+#define LCB_SDSPEC_F_XATTR_MACROVALUES (1<<19)
+
+/** Access Xattrs of deleted documents */
+#define LCB_SDSPEC_F_XATTR_DELETED_OK (1<<20)
+
 /**
  * Set the path for an @ref lcb_SDSPEC structure
  * @param s pointer to spec

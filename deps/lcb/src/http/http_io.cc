@@ -30,19 +30,13 @@ using namespace lcb::http;
 #define LOGARGS(req, lvl) req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
 
 void
-Request::assign_response_headers(const lcbht_RESPONSE *resp)
+Request::assign_response_headers(const lcb::htparse::Response& resp)
 {
-    response_headers.clear();
+    response_headers.assign(resp.headers.begin(), resp.headers.end());
     response_headers_clist.clear();
 
-    sllist_node *curnode;
-    SLLIST_ITERBASIC(&resp->headers, curnode) {
-        lcbht_MIMEHDR *hdr = SLLIST_ITEM(curnode, lcbht_MIMEHDR, slnode);
-        response_headers.push_back(Header(hdr->key, hdr->value));
-    }
-
-    std::vector<Header>::const_iterator ii = response_headers.begin();
-    for (; ii != response_headers.end(); ++ii) {
+    std::vector<lcb::htparse::MimeHeader>::const_iterator ii;
+    for (ii = response_headers.begin(); ii != response_headers.end(); ++ii) {
         response_headers_clist.push_back(ii->key.c_str());
         response_headers_clist.push_back(ii->value.c_str());
     }
@@ -53,29 +47,30 @@ int
 Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 {
     int parse_state, oldstate, diff;
-    lcbht_RESPONSE *res = lcbht_get_response(parser);
+    using lcb::htparse::Parser;
+    lcb::htparse::Response& res = parser->get_cur_response();
 
     do {
         const char *rbody;
         unsigned nused = -1, nbody = -1;
-        oldstate = res->state;
+        oldstate = res.state;
 
-        parse_state = lcbht_parse_ex(parser, buf, nbuf, &nused, &nbody, &rbody);
+        parse_state = parser->parse_ex(buf, nbuf, &nused, &nbody, &rbody);
         diff = oldstate ^ parse_state;
 
         /* Got headers now for the first time */
-        if (diff & LCBHT_S_HEADER) {
+        if (diff & Parser::S_HEADER) {
             assign_response_headers(res);
-            if (res->status >=  300 && res->status <= 400) {
-                const char *redir = lcbht_get_resphdr(res, "Location");
+            if (res.status >=  300 && res.status <= 400) {
+                const char *redir = res.get_header_value("Location");
                 if (redir != NULL) {
                     pending_redirect.assign(redir);
-                    return LCBHT_S_DONE;
+                    return Parser::S_DONE;
                 }
             }
         }
 
-        if (parse_state & LCBHT_S_ERROR) {
+        if (parse_state & Parser::S_ERROR) {
             /* nothing to do here */
             return parse_state;
         }
@@ -91,22 +86,22 @@ Request::handle_parse_chunked(const char *buf, unsigned nbuf)
                 callback(instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE *)&htresp);
 
             } else {
-                lcb_string_append(&res->body, rbody, nbody);
+                res.body.append(rbody, nbody);
             }
         }
 
         buf += nused;
         nbuf -= nused;
-    } while ((parse_state & LCBHT_S_DONE) == 0 && is_ongoing() && nbuf);
+    } while ((parse_state & Parser::S_DONE) == 0 && is_ongoing() && nbuf);
 
-    if ( (parse_state & LCBHT_S_DONE) && is_ongoing()) {
+    if ( (parse_state & Parser::S_DONE) && is_ongoing()) {
         lcb_RESPHTTP resp = { 0 };
         if (chunked) {
             buf = NULL;
             nbuf = 0;
         } else {
-            buf = res->body.base;
-            nbuf = res->body.nused;
+            buf = res.body.c_str();
+            nbuf = res.body.size();
         }
 
         init_resp(&resp);
@@ -143,7 +138,8 @@ io_read(lcbio_CTX *ctx, unsigned nr)
         nbuf = lcbio_ctx_risize(&iter);
         parse_state = req->handle_parse_chunked(buf, nbuf);
 
-        if ((parse_state & LCBHT_S_ERROR) || req->has_pending_redirect()) {
+        if ((parse_state & lcb::htparse::Parser::S_ERROR) ||
+                req->has_pending_redirect()) {
             rv = -1;
             break;
         } else if (!req->is_ongoing()) {
@@ -156,7 +152,7 @@ io_read(lcbio_CTX *ctx, unsigned nr)
         // parse error or redirect
         lcb_error_t err;
         if (req->has_pending_redirect()) {
-            lcb_bootstrap_common(instance, LCB_BS_REFRESH_THROTTLE);
+            instance->bootstrap(lcb::BS_REFRESH_THROTTLE);
             // Transfer control to redirect function()
             lcb_log(LOGARGS(req, DEBUG), LOGFMT "Attempting redirect to %s", LOGID(req), req->pending_redirect.c_str());
             req->redirect();
@@ -297,7 +293,7 @@ Request::close_io()
     int can_ka;
 
     if (parser && is_data_request()) {
-        can_ka = lcbht_can_keepalive(parser);
+        can_ka = parser->can_keepalive();
     } else {
         can_ka = 0;
     }

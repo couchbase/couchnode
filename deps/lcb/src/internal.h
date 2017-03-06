@@ -57,11 +57,14 @@ namespace lcb {
 class Connspec;
 struct Spechost;
 class RetryQueue;
+class Bootstrap;
+namespace clconfig {
+struct Confmon;
+class ConfigInfo;
+}
 }
 extern "C" {
 #endif
-
-struct lcb_string_st;
 
 struct lcb_callback_st {
     lcb_RESPCALLBACK v3callbacks[LCB_CALLBACK__MAX];
@@ -87,27 +90,31 @@ struct lcb_callback_st {
     lcb_pktflushed_callback pktflushed;
 };
 
-struct lcb_confmon_st;
-struct lcb_BOOTSTRAP;
 struct lcb_GUESSVB_st;
 
 #ifdef __cplusplus
 #include <string>
 typedef std::string* lcb_pSCRATCHBUF;
 typedef lcb::RetryQueue lcb_RETRYQ;
+typedef lcb::clconfig::Confmon* lcb_pCONFMON;
+typedef lcb::clconfig::ConfigInfo *lcb_pCONFIGINFO;
+typedef lcb::Bootstrap lcb_BOOTSTRAP;
 #else
 typedef struct lcb_SCRATCHBUF* lcb_pSCRATCHBUF;
 typedef struct lcb_RETRYQ_st lcb_RETRYQ;
+typedef struct lcb_CONFMON_st* lcb_pCONFMON;
+typedef struct lcb_CONFIGINFO_st* lcb_pCONFIGINFO;
+typedef struct lcb_BOOTSTRAP_st lcb_BOOTSTRAP;
 #endif
 
 struct lcb_st {
     mc_CMDQUEUE cmdq; /**< Base command queue object */
     const void *cookie; /**< User defined pointer */
-    struct lcb_confmon_st *confmon; /**< Cluster config manager */
+    lcb_pCONFMON confmon; /**< Cluster config manager */
     hostlist_t mc_nodes; /**< List of current memcached endpoints */
     hostlist_t ht_nodes; /**< List of current management endpoints */
-    struct clconfig_info_st *cur_configinfo; /**< Pointer to current config */
-    struct lcb_BOOTSTRAP *bootstrap; /**< Bootstrapping state */
+    lcb_pCONFIGINFO cur_configinfo; /**< Pointer to current config */
+    lcb_BOOTSTRAP *bs_state; /**< Bootstrapping state */
     struct lcb_callback_st callbacks; /**< Callback table */
     lcb_HISTOGRAM *kv_timings; /**< Histogram object (for timing) */
     lcb_ASPEND pendops; /**< Pending asynchronous requests */
@@ -130,9 +137,33 @@ struct lcb_st {
     lcbio_pTABLE getIOT() { return iotable; }
     inline void add_bs_host(const char *host, int port, unsigned bstype);
     inline void add_bs_host(const lcb::Spechost& host, int defl_http, int defl_cccp);
+    inline lcb_error_t process_dns_srv(lcb::Connspec& spec);
     inline void populate_nodes(const lcb::Connspec&);
-    mc_SERVER *get_server(size_t index) const {
-        return static_cast<mc_SERVER*>(cmdq.pipelines[index]);
+    lcb::Server *get_server(size_t index) const {
+        return static_cast<lcb::Server*>(cmdq.pipelines[index]);
+    }
+    lcb::Server *find_server(const lcb_host_t& host) const;
+    lcb_error_t request_config(const void *cookie, lcb::Server* server);
+
+    /**
+     * @brief Request that the handle update its configuration.
+     *
+     * This function acts as a gateway to the more abstract confmon interface.
+     *
+     * @param instance The instance
+     * @param options A set of options specified as flags, indicating under what
+     * conditions a new configuration should be refetched.
+     *
+     * This should be a combination of one or more @ref lcb::BootstrapOptions
+     *
+     * Note, the definition for this function (and the flags)
+     * are found in bootstrap.cc
+     */
+    inline lcb_error_t bootstrap(unsigned options) {
+        if (!bs_state) {
+            bs_state = new lcb::Bootstrap(this);
+        }
+        return bs_state->bootstrap(options);
     }
     #endif
 };
@@ -141,7 +172,7 @@ struct lcb_st {
 #define LCBT_NSERVERS(instance) (instance)->cmdq.npipelines
 #define LCBT_NDATASERVERS(instance) LCBVB_NDATASERVERS(LCBT_VBCONFIG(instance))
 #define LCBT_NREPLICAS(instance) LCBVB_NREPLICAS(LCBT_VBCONFIG(instance))
-#define LCBT_GET_SERVER(instance, ix) ((mc_SERVER *)(instance)->cmdq.pipelines[ix])
+#define LCBT_GET_SERVER(instance, ix) (instance)->cmdq.pipelines[ix]
 #define LCBT_SETTING(instance, name) (instance)->settings->name
 
 void lcb_initialize_packet_handlers(lcb_t instance);
@@ -149,8 +180,7 @@ void lcb_initialize_packet_handlers(lcb_t instance);
 LCB_INTERNAL_API
 void lcb_maybe_breakout(lcb_t instance);
 
-struct clconfig_info_st;
-void lcb_update_vbconfig(lcb_t instance, struct clconfig_info_st *config);
+void lcb_update_vbconfig(lcb_t instance, lcb_pCONFIGINFO config);
 /**
  * Hashtable wrappers
  */
@@ -185,20 +215,6 @@ lcb_error_t lcb_initialize_socket_subsystem(void);
 lcb_error_t lcb_init_providers2(lcb_t obj,
                                const struct lcb_create_st2 *e_options);
 lcb_error_t lcb_reinit3(lcb_t obj, const char *connstr);
-
-
-LCB_INTERNAL_API
-mc_SERVER *
-lcb_find_server_by_host(lcb_t instance, const lcb_host_t *host);
-
-
-LCB_INTERNAL_API
-mc_SERVER *
-lcb_find_server_by_index(lcb_t instance, int ix);
-
-LCB_INTERNAL_API
-lcb_error_t
-lcb_getconfig(lcb_t instance, const void *cookie, mc_SERVER *server);
 
 int
 lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_error_t err);

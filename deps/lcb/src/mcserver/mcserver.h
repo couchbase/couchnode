@@ -24,9 +24,6 @@
 #include <netbuf/netbuf.h>
 
 #ifdef __cplusplus
-struct lcb_settings_st;
-struct lcb_server_st;
-
 namespace lcb {
 
 class RetryQueue;
@@ -107,6 +104,10 @@ public:
 
     bool supports_mutation_tokens() const {
         return mutation_tokens;
+    }
+
+    bool supports_compression() const {
+        return compsupport;
     }
 
     bool is_connected() const {
@@ -206,13 +207,5 @@ public:
     lcb_host_t *curhost;
 };
 }
-
-typedef lcb::Server mc_SERVER;
-extern "C" {int mcserver_supports_compression(mc_SERVER*);}
-
-#else
-/* C only */
-typedef struct mc_SERVER mc_SERVER;
-int mcserver_supports_compression(mc_SERVER *server);
 #endif /* __cplusplus */
 #endif /* LCB_MCSERVER_H */

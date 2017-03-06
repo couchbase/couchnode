@@ -33,8 +33,14 @@ extern "C" {
  * @addtogroup lcb-view-api
  * @{
  */
-typedef struct lcb_RESPVIEW_st lcb_RESPVIEWQUERY;
+#ifdef __cplusplus
+namespace lcb { namespace views { struct ViewRequest; } }
+typedef lcb::views::ViewRequest* lcb_VIEWHANDLE;
+#else
 typedef struct lcbview_REQUEST_st *lcb_VIEWHANDLE;
+#endif
+
+typedef struct lcb_RESPVIEW_st lcb_RESPVIEWQUERY;
 
 /**
  * Callback function invoked for each row returned from the view

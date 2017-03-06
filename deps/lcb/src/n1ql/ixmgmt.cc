@@ -210,8 +210,7 @@ dispatch_common(lcb_t instance,
 // mind-numbing buffer copies. Maybe this can be done via a macro instead?
 class IndexSpec : public lcb_N1XSPEC {
 public:
-    IndexSpec(const char *s, size_t n) {
-        memset(static_cast<lcb_N1XSPEC*>(this), 0, sizeof (lcb_N1XSPEC));
+    IndexSpec(const char *s, size_t n) : lcb_N1XSPEC() {
         load_json(s, n);
     }
     inline IndexSpec(const lcb_N1XSPEC *spec);

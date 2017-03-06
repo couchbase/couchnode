@@ -113,7 +113,7 @@ cs_handler(void *cookie)
     if (s) {
         lcbio__load_socknames(s);
         if (err == LCB_SUCCESS) {
-            lcb_log(LOGARGS(s, INFO), CSLOGFMT "Connected ", CSLOGID(s));
+            lcb_log(LOGARGS(s, INFO), CSLOGFMT "Connected established", CSLOGID(s));
 
             if (s->settings->tcp_nodelay) {
                 lcb_error_t ndrc = lcbio_disable_nagle(s);
@@ -124,7 +124,7 @@ cs_handler(void *cookie)
                 }
             }
         } else {
-            lcb_log(LOGARGS(s, ERR), CSLOGFMT "Failed: lcb_err=0x%x, os_errno=%u", CSLOGID(s), err, cs->syserr);
+            lcb_log(LOGARGS(s, ERR), CSLOGFMT "Failed to establish connection: %s, os errno=%u", CSLOGID(s), lcb_strerror_short(err), cs->syserr);
         }
     }
 
@@ -199,6 +199,7 @@ ensure_sock(lcbio_CONNSTART *cs)
         while (s->u.fd == INVALID_SOCKET && cs->ai != NULL) {
             s->u.fd = lcbio_E_ai2sock(io, &cs->ai, &errtmp);
             if (s->u.fd != INVALID_SOCKET) {
+                lcb_log(LOGARGS(s, DEBUG), CSLOGFMT "Created new socket with FD=%d", CSLOGID(s), s->u.fd);
                 return 0;
             }
         }
@@ -264,8 +265,6 @@ E_connect(lcb_socket_t sock, short events, void *arg)
 
     (void)sock;
 
-    lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Got event handler for new connection", CSLOGID(s));
-
     GT_NEXTSOCK:
     if (ensure_sock(cs) == -1) {
         cs_state_signal(cs, CS_ERROR, LCB_CONNECT_ERROR);
@@ -311,7 +310,7 @@ E_connect(lcb_socket_t sock, short events, void *arg)
         return;
 
     case LCBIO_CSERR_BUSY:
-        lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Scheduling asynchronous watch for socket.", CSLOGID(s));
+        lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Scheduling I/O watcher for asynchronous connection completion.", CSLOGID(s));
         IOT_V0EV(io).watch(
                 IOT_ARG(io), s->u.fd, cs->event, LCB_WRITE_EVENT, cs, E_connect);
         cs->ev_active = 1;
@@ -327,7 +326,7 @@ E_connect(lcb_socket_t sock, short events, void *arg)
     case LCBIO_CSERR_EFAIL:
     default:
         /* close the current socket and try again */
-        lcb_log(LOGARGS(s, TRACE), CSLOGFMT "connect() failed. os_error=%d [%s]", CSLOGID(s), IOT_ERRNO(io), strerror(IOT_ERRNO(io)));
+        lcb_log(LOGARGS(s, TRACE), CSLOGFMT "connect() failed. errno=%d [%s]", CSLOGID(s), IOT_ERRNO(io), strerror(IOT_ERRNO(io)));
         destroy_cursock(cs);
         goto GT_NEXTSOCK;
     }

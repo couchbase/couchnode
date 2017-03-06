@@ -17,7 +17,6 @@ INTERNAL_SRC = \
 			   src/retryq.h \
 			   src/bucketconfig/clconfig.h \
 			   src/mcserver \
-			   src/simplestring.h \
 			   src/list.h \
 			   src/sllist.h \
 			   src/sllist-inl.h \

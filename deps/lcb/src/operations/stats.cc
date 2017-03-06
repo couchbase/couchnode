@@ -22,14 +22,9 @@ struct BcastCookie : mc_REQDATAEX {
     int remaining;
 
     BcastCookie(lcb_CALLBACKTYPE type_,
-                 mc_REQDATAPROCS* procs_,
-                 const void *cookie_) {
-
-        mc_REQDATAEX::procs = procs_;
-        mc_REQDATAEX::cookie = cookie_;
-        mc_REQDATAEX::start = gethrtime();
-        type = type_;
-        remaining = 0;
+                const mc_REQDATAPROCS* procs_, const void *cookie_)
+        : mc_REQDATAEX(cookie_, *procs_, gethrtime()),
+          type(type_), remaining(0) {
     }
 };
 

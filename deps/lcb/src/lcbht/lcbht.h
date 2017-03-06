@@ -19,14 +19,11 @@
 #define LCB_HTTP_H
 
 #include <libcouchbase/couchbase.h>
-#include "simplestring.h"
-#include "sllist.h"
+#include "contrib/http_parser/http_parser.h"
+#include <list>
+#include <string>
+
 struct lcb_settings_st;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 
 /**
  * @file
@@ -39,161 +36,175 @@ extern "C" {
  * body.
  */
 
-/** Response state */
-typedef enum {
-    LCBHT_S_HTSTATUS = 1 << 0, /**< Have HTTP status */
-    LCBHT_S_HEADER = 1 << 1, /**< Have HTTP header */
-    LCBHT_S_BODY = 1 << 2, /**< Have HTTP body */
-    LCBHT_S_DONE = 1 << 3, /**< Have a full message */
+namespace lcb {
+namespace htparse {
 
-    /**Have a parse error. Note this is not the same as a HTTP error */
-    LCBHT_S_ERROR = 1 << 4
-} lcbht_RESPSTATE;
 
-typedef struct {
-    sllist_node slnode; /**< Next header in list */
-    const char *key;
-    const char *value;
-    lcb_string buf_; /**< Storage for the key and value */
-} lcbht_MIMEHDR;
+struct MimeHeader {
+    std::string key;
+    std::string value;
+};
 
-typedef struct {
+struct Response {
+    void clear() {
+        status = 0;
+        state = 0;
+        headers.clear();
+        body.clear();
+    }
+
+    /**
+     * Get a header value for a key
+     * @param response The response
+     * @param key The key to look up
+     * @return A string containing the value. If the header has no value then the
+     * empty string will be returned. If the header does not exist NULL will be
+     * returned.
+     */
+    const MimeHeader* get_header(const std::string& key) const;
+
+    /**
+     * Get a header value for a key
+     * @param key The key to look up
+     * @return A string containing the value. If the header has no value then the
+     * empty string will be returned. If the header does not exist NULL will be
+     * returned.
+     */
+    const char *get_header_value(const std::string& key) const {
+        const MimeHeader *header = get_header(key);
+        if (header) {
+            return header->value.c_str();
+        }
+        return NULL;
+    }
+
     unsigned short status; /**< HTTP Status code */
-    lcbht_RESPSTATE state;
-    sllist_root headers; /**< List of response headers */
-    lcb_string body; /**< Body */
-} lcbht_RESPONSE;
+    unsigned state;
+    typedef std::list<MimeHeader> HeaderList;
+    HeaderList headers;
+    std::string body; /**< Body */
+};
 
-typedef struct lcbht_PARSER *lcbht_pPARSER;
+class Parser : private http_parser {
+public:
+    /**
+     * Initialize the parser object
+     * @param settings the settings structure used for logging
+     */
+    Parser(lcb_settings_st*);
+    ~Parser();
 
-/**
- * Initialize the parser object
- * @param settings the settings structure used for logging
- * @return a new parser object
- */
-lcbht_pPARSER
-lcbht_new(struct lcb_settings_st *settings);
+    /** Response state */
+    enum State {
+        S_NONE = 0,
+        S_HTSTATUS = 1 << 0, /**< Have HTTP status */
+        S_HEADER = 1 << 1, /**< Have HTTP header */
+        S_BODY = 1 << 2, /**< Have HTTP body */
+        S_DONE = 1 << 3, /**< Have a full message */
 
-/** Free the parser object */
-void
-lcbht_free(lcbht_pPARSER);
+        /**Have a parse error. Note this is not the same as a HTTP error */
+        S_ERROR = 1 << 4
+    };
 
-void
-lcbht_reset(lcbht_pPARSER);
+    /**
+     * Parse incoming data into a message
+     * @param data Pointer to new data
+     * @param ndata Size of the data
+     *
+     * @return The current state of the parser. If `state & LCBHT_S_DONE` then
+     * the current response should be handled before continuing.
+     * If `state & LCBHT_S_ERROR` then there was an error parsing the contents
+     * as it violated the HTTP protocol.
+     */
+    unsigned parse(const void *data, size_t ndata);
 
-/**
- * Parse incoming data into a message
- * @param parser The parser
- * @param data Pointer to new data
- * @param ndata Size of the data
- *
- * @return The current state of the parser. If `state & LCBHT_S_DONE` then
- * the current response should be handled before continuing.
- * If `state & LCBHT_S_ERROR` then there was an error parsing the contents
- * as it violated the HTTP protocol.
- */
-lcbht_RESPSTATE
-lcbht_parse(lcbht_pPARSER parser, const void *data, unsigned ndata);
+    /**
+     * Parse incoming data without buffering
+     * @param data The data to parse
+     * @param ndata Length of the data
+     * @param[out] nused How much of the data was actually consumed
+     * @param[out] nbody Size of the body pointer
+     * @param[out] pbody a pointer for the body
+     *
+     * @return See lcbht_set_bufmode for the meaning of this value
+     *
+     * @note It is not an error if `pbody` is NULL. It may mean that the parse state
+     * is still within the headers and there is no body to parse yet.
+     *
+     * This function is intended to be used in a loop, until there is no input
+     * remaining. The use of the `nused` pointer is to determine by how much the
+     * `data` pointer should be incremented (and the `ndata` decremented) for the
+     * next call. When this function returns with a non-error status, `pbody`
+     * will contain a pointer to a buffer of data (but see note above) which can
+     * then be processed by the application.
+     *
+     * @code{.c++}
+     * char **body, *input;
+     * unsigned inlen = get_input_len(), nused, bodylen;
+     * unsigned res;
+     * do {
+     *   res = parser->parse_ex(input, inlen, &nused, &nbody, &body);
+     *   if (res & Parser::S_ERROR) {
+     *     // handle error
+     *     break;
+     *   }
+     *   if (nbody) {
+     *     // handle body
+     *   }
+     *   input += nused;
+     *   inlen -= nused;
+     * } while (!(res & Parser::S_DONE));
+     * @endcode
+     */
+    unsigned parse_ex(const void *data, unsigned ndata,
+                      unsigned* nused, unsigned *nbody, const char **pbody);
 
-/**
- * Parse incoming data without buffering
- * @param parser The parser to use
- * @param data The data to parse
- * @param ndata Length of the data
- * @param[out] nused How much of the data was actually consumed
- * @param[out] nbody Size of the body pointer
- * @param[out] pbody a pointer for the body
- *
- * @return See lcbht_set_bufmode for the meaning of this value
- *
- * @note It is not an error if `pbody` is NULL. It may mean that the parse state
- * is still within the headers and there is no body to parse yet.
- *
- * This function is intended to be used in a loop, until there is no input
- * remaining. The use of the `nused` pointer is to determine by how much the
- * `data` pointer should be incremented (and the `ndata` decremented) for the
- * next call. When this function returns with a non-error status, `pbody`
- * will contain a pointer to a buffer of data (but see note above) which can
- * then be processed by the application.
- *
- * @code{.c}
- * char **body, *input;
- * unsigned inlen = get_input_len(), nused, bodylen;
- * lcbht_RESPSTATE res;
- * do {
- *   res = lcbht_parse_ex(parser, input, inlen, &nused, &nbody, &body);
- *   if (res & LCBHT_S_ERROR) {
- *     // handle error
- *     break;
- *   }
- *   if (nbody) {
- *     // handle body
- *   }
- *   input += nused;
- *   inlen -= nused;
- * } while (!(res & LCBHT_S_DONE));
- * @endcode
- */
-lcbht_RESPSTATE
-lcbht_parse_ex(lcbht_pPARSER parser, const void *data, unsigned ndata,
-    unsigned *nused, unsigned *nbody, const char **pbody);
+    /**
+     * Obtain the current response being processed.
+     * @return a reference to a response object. The response object is only valid
+     * until the next call into another parser API
+     */
+    Response& get_cur_response() {
+        return resp;
+    }
 
+    /**
+     * Determine whether HTTP/1.1 keepalive is enabled on the connection
+     * @return true if keepalive is enabled, false otherwise.
+     */
+    bool can_keepalive() const;
 
-/**
- * Obtain the current response being processed.
- * @param parser The parser
- * @return a pointer to a response object. The response object is only valid
- * until the next call into another parser API
- */
-lcbht_RESPONSE *
-lcbht_get_response(lcbht_pPARSER parser);
+    void reset();
 
-/**
- * Determine whether HTTP/1.1 keepalive is enabled on the connection
- * @param parser The parser
- * @return true if keepalive is enabled, false otherwise.
- */
-int
-lcbht_can_keepalive(lcbht_pPARSER parser);
+    // Callbacks:
+    inline int on_hdr_key(const char *, size_t);
+    inline int on_hdr_value(const char *, size_t);
+    inline int on_hdr_done();
+    inline int on_body(const char *, size_t);
+    inline int on_msg_done();
 
-/**
- * Clear the response object
- * @param resp the response to clear
- */
-void
-lcbht_clear_response(lcbht_RESPONSE *resp);
+    static Parser* from_htp(http_parser *p) {
+        return static_cast<Parser*>(p);
+    }
 
-/**
- * Get a header value for a key
- * @param response The response
- * @param key The key to look up
- * @return A string containing the value. If the header has no value then the
- * empty string will be returned. If the header does not exist NULL will be
- * returned.
- */
-const char *
-lcbht_get_resphdr(const lcbht_RESPONSE *response, const char *key);
+private:
+    Response resp;
+    lcb_settings_st *settings;
 
-/**
- * Return a list of headers
- * @param response The response
- * @return A list of headers. Iterate over this value like so:
- * @code{.c}
- * char **hdrlist = lcbht_make_resphdrlist(response);
- * for (char **cur = hdrlist; *cur; cur += 2) {
- *      char *key = cur[0];
- *      char *value = cur[1];
- *      // do something
- *      free(key);
- *      free(value);
- * }
- * free(hdrlist);
- * @endcode
- */
-char **
-lcbht_make_resphdrlist(lcbht_RESPONSE *response);
+    enum last_call_type {
+        CB_NONE, CB_HDR_KEY, CB_HDR_VALUE,
+        CB_HDR_DONE, CB_BODY, CB_MSG_DONE
+    };
+    last_call_type lastcall;
 
-#ifdef __cplusplus
-}
-#endif
+    /* For parse_ex */
+    const char *last_body;
+    unsigned last_bodylen;
+
+    bool paused;
+    bool is_ex;
+};
+
+} // namespace htparse
+} // namespace lcb
 #endif

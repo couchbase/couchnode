@@ -43,7 +43,7 @@ Request::decref()
     close_io();
 
     if (parser) {
-        lcbht_free(parser);
+        delete parser;
     }
 
     if (timer) {
@@ -103,7 +103,6 @@ void
 Request::maybe_refresh_config(lcb_error_t err)
 {
     int htstatus_ok;
-    lcbht_RESPONSE *resp;
     if (!parser) {
         return;
     }
@@ -112,25 +111,25 @@ Request::maybe_refresh_config(lcb_error_t err)
         return;
     }
 
-    resp = lcbht_get_response(parser);
-    htstatus_ok = resp->status >= 200 && resp->status < 299;
+    const lcb::htparse::Response& resp = parser->get_cur_response();
+    htstatus_ok = resp.status >= 200 && resp.status < 299;
 
     if (err != LCB_SUCCESS && (err == LCB_ESOCKSHUTDOWN && htstatus_ok) == 0) {
         /* ignore graceful close */
-        lcb_bootstrap_common(instance, LCB_BS_REFRESH_ALWAYS);
+        instance->bootstrap(BS_REFRESH_ALWAYS);
         return;
     }
 
     if (htstatus_ok) {
         return;
     }
-    lcb_bootstrap_common(instance, LCB_BS_REFRESH_ALWAYS);
+    instance->bootstrap(BS_REFRESH_ALWAYS);
 }
 
 void
 Request::init_resp(lcb_RESPHTTP *res)
 {
-    const lcbht_RESPONSE *htres = lcbht_get_response(parser);
+    const lcb::htparse::Response& htres = parser->get_cur_response();
 
     res->cookie = const_cast<void*>(command_cookie);
     res->key = url.c_str() + url_info.field_data[UF_PATH].off;
@@ -139,9 +138,7 @@ Request::init_resp(lcb_RESPHTTP *res)
     if (!response_headers.empty()) {
         res->headers = &response_headers_clist[0];
     }
-    if (htres) {
-        res->htstatus = htres->status;
-    }
+    res->htstatus = htres.status;
 }
 
 void
@@ -254,9 +251,9 @@ Request::submit()
         // Only wipe old parser/response information if current I/O request
         // was a success
         if (parser) {
-            lcbht_reset(parser);
+            parser->reset();
         } else {
-            parser = lcbht_new(instance->settings);
+            parser = new lcb::htparse::Parser(instance->settings);
         }
         response_headers.clear();
         response_headers_clist.clear();
@@ -611,23 +608,6 @@ Request::cancel()
     }
     status |= CBINVOKED;
     finish(LCB_SUCCESS);
-}
-
-// Wrappers
-void lcb_htreq_setcb(lcb_http_request_t req, lcb_RESPCALLBACK callback) {
-    req->callback = callback;
-}
-void lcb_htreq_block_callback(lcb_http_request_t req) {
-    req->block_callback();
-}
-void lcb_htreq_pause(lcb_http_request_t req) {
-    req->pause();
-}
-void lcb_htreq_resume(lcb_http_request_t req) {
-    req->resume();
-}
-void lcb_htreq_finish(lcb_t, lcb_http_request_t req, lcb_error_t rc) {
-    req->finish(rc);
 }
 
 LIBCOUCHBASE_API

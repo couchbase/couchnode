@@ -73,6 +73,18 @@ public:
     bool is_bs_http() const { return has_bsmode(LCB_CONFIG_TRANSPORT_HTTP); }
     bool is_bs_cccp() const { return has_bsmode(LCB_CONFIG_TRANSPORT_CCCP); }
     bool is_bs_file() const { return m_flags & LCB_CONNSPEC_F_FILEONLY; }
+
+    /**
+     * Whether a DNS SRV lookup can be performed on this connection string.
+     * @return true if a DNS SRV lookup is possible, or false if there is
+     * a parameter or format of the connection string preventing a lookup
+     */
+    bool can_dnssrv() const;
+
+    /**
+     * Whether the explicit `couchbase{s}+dnssrv` internal scheme is used
+     */
+    bool is_explicit_dnssrv() const;
     uint16_t default_port() const { return m_implicit_port; }
     const std::vector<Spechost>& hosts() const { return m_hosts; }
     const std::string& bucket() const { return m_bucket; }
@@ -83,6 +95,8 @@ public:
     const Options& options() const { return m_ctlopts; }
     unsigned loglevel() const { return m_loglevel; }
     const std::string& connstr() const { return m_connstr; }
+    void clear_hosts() { m_hosts.clear(); }
+    void add_host(const Spechost& host) { m_hosts.push_back(host); }
 private:
     Options m_ctlopts;
     std::string m_bucket;
@@ -110,7 +124,10 @@ private:
 #define LCB_SPECSCHEME_HTTP "http://"
 #define LCB_SPECSCHEME_HTTP_SSL "https-internal://"
 #define LCB_SPECSCHEME_MCCOMPAT "memcached://"
+#define LCB_SPECSCHEME_SRV "couchbase+dnssrv://"
+#define LCB_SPECSCHEME_SRV_SSL "couchbases+dnssrv://"
 } // namespace
+
 #endif
 
 #ifdef _MSC_VER

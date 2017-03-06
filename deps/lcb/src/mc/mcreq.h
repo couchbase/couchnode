@@ -179,10 +179,17 @@ typedef struct {
  * packets, or when the packet itself is generated internally rather than
  * on behalf of an API request.
  */
-typedef struct {
+typedef struct mc_REQDATAEX {
     const void *cookie; /**< User data */
     hrtime_t start; /**< Start time */
-    mc_REQDATAPROCS *procs; /**< Common routines for the packet */
+    const mc_REQDATAPROCS *procs; /**< Common routines for the packet */
+
+    #ifdef __cplusplus
+    mc_REQDATAEX(const void *cookie_,
+                const mc_REQDATAPROCS &procs_, hrtime_t start_)
+        : cookie(cookie_), start(start_), procs(&procs_) {
+    }
+    #endif
 } mc_REQDATAEX;
 
 /**

@@ -2,56 +2,53 @@
 #include "internal.h"
 #include "sllist-inl.h"
 
+using namespace lcb::docreq;
+
 static void docreq_handler(void *arg);
-static void invoke_pending(lcb_DOCQUEUE*);
+static void invoke_pending(Queue*);
 static void doc_callback(lcb_t,int, const lcb_RESPBASE *);
 
 #define MAX_PENDING_DOCREQ 10
 #define MIN_SCHED_SIZE 5
 #define DOCQ_DELAY_US 200000
 
-#define DOCQ_REF(q) (q)->refcount++
-#define DOCQ_UNREF(q) if (!--(q)->refcount) { docq_free(q); }
+Queue::Queue(lcb_t instance_)
+    : instance(instance_),
+      parent(NULL),
+      timer(lcbio_timer_new(instance->iotable, this, docreq_handler)),
+      cb_ready(NULL), cb_throttle(NULL),
+      n_awaiting_schedule(0),
+      n_awaiting_response(0),
+      max_pending_response(MAX_PENDING_DOCREQ),
+      min_batch_size(MIN_SCHED_SIZE),
+      cancelled(false),
+      refcount(1)
+      {
 
-lcb_DOCQUEUE *
-lcbdocq_create(lcb_t instance)
-{
-    lcb_DOCQUEUE *q = calloc(1, sizeof *q);
-    q->timer = lcbio_timer_new(instance->iotable, q, docreq_handler);
-    q->refcount = 1;
-    q->instance = instance;
-    q->max_pending_response = MAX_PENDING_DOCREQ;
-    q->min_batch_size = MIN_SCHED_SIZE;
-    return q;
+    memset(&pending_gets, 0, sizeof pending_gets);
+    memset(&cb_queue, 0, sizeof cb_queue);
 }
 
-static void
-docq_free(lcb_DOCQUEUE *q)
-{
-    lcbdocq_cancel(q);
-    lcbio_timer_destroy(q->timer);
-    free(q);
+Queue::~Queue() {
+    cancel();
+    lcbio_timer_destroy(timer);
 }
 
-void
-lcbdocq_unref(lcb_DOCQUEUE *q)
-{
-    DOCQ_UNREF(q);
-}
-
-void
-lcbdocq_cancel(lcb_DOCQUEUE *q)
-{
-    if (!q->cancelled) {
-        q->cancelled = 1;
+void Queue::unref() {
+    if (!--refcount) {
+        delete this;
     }
+}
+
+void Queue::cancel() {
+    cancelled = true;
 }
 
 /* Calling this function ensures that the request will be scheduled in due
  * time. This may be done at the next event loop iteration, or after a delay
  * depending on how many items are actually found within the queue. */
 static void
-docq_poke(lcb_DOCQUEUE *q)
+docq_poke(Queue *q)
 {
     if (q->n_awaiting_response < q->max_pending_response) {
         if (q->n_awaiting_schedule > q->min_batch_size) {
@@ -65,27 +62,26 @@ docq_poke(lcb_DOCQUEUE *q)
     }
 }
 
-void
-lcbdocq_add(lcb_DOCQUEUE *q, lcb_DOCQREQ *req)
+void Queue::add(DocRequest *req)
 {
-    sllist_append(&q->pending_gets, &req->slnode);
-    q->n_awaiting_schedule++;
-    req->parent = q;
+    sllist_append(&pending_gets, &req->slnode);
+    n_awaiting_schedule++;
+    req->parent = this;
     req->ready = 0;
-    DOCQ_REF(q);
-    docq_poke(q);
+    ref();
+    docq_poke(this);
 }
 
 static void
 docreq_handler(void *arg)
 {
-    lcb_DOCQUEUE *q = arg;
+    Queue *q = reinterpret_cast<Queue*>(arg);
     sllist_iterator iter;
     lcb_t instance = q->instance;
 
     lcb_sched_enter(instance);
     SLLIST_ITERFOR(&q->pending_gets, &iter) {
-        lcb_DOCQREQ *cont = SLLIST_ITEM(iter.cur, lcb_DOCQREQ, slnode);
+        DocRequest *cont = SLLIST_ITEM(iter.cur, DocRequest, slnode);
 
         if (q->n_awaiting_response > q->max_pending_response) {
             lcbio_timer_rearm(q->timer, DOCQ_DELAY_US);
@@ -136,13 +132,12 @@ docreq_handler(void *arg)
 /* Invokes the callback on all requests which are ready, until a request which
  * is not yet ready is reached. */
 static void
-invoke_pending(lcb_DOCQUEUE *q)
+invoke_pending(Queue *q)
 {
     sllist_iterator iter = { NULL };
-
-    DOCQ_REF(q);
+    q->ref();
     SLLIST_ITERFOR(&q->cb_queue, &iter) {
-        lcb_DOCQREQ *dreq = SLLIST_ITEM(iter.cur, lcb_DOCQREQ, slnode);
+        DocRequest *dreq = SLLIST_ITEM(iter.cur, DocRequest, slnode);
         void *bufh = NULL;
 
         if (dreq->ready == 0) {
@@ -157,21 +152,21 @@ invoke_pending(lcb_DOCQUEUE *q)
 
         q->cb_ready(q, dreq);
         if (bufh) {
-            lcb_backbuf_unref(bufh);
+            lcb_backbuf_unref(reinterpret_cast<lcb_BACKBUF>(bufh));
         }
-        DOCQ_UNREF(q);
+        q->unref();
     }
-    DOCQ_UNREF(q);
+    q->unref();
 }
 
 static void
-doc_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+doc_callback(lcb_t, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
-    lcb_DOCQREQ *dreq = rb->cookie;
-    lcb_DOCQUEUE *q = dreq->parent;
+    DocRequest *dreq = reinterpret_cast<DocRequest*>(rb->cookie);
+    Queue *q = dreq->parent;
 
-    DOCQ_REF(q);
+    q->ref();
 
     q->n_awaiting_response--;
     dreq->docresp = *rg;
@@ -182,13 +177,12 @@ doc_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
     /* Reference the response data, since we might not be invoking this right
      * away */
     if (rg->rc == LCB_SUCCESS) {
-        lcb_backbuf_ref(dreq->docresp.bufh);
+        lcb_backbuf_ref(reinterpret_cast<lcb_BACKBUF>(dreq->docresp.bufh));
     }
 
     /* Ensure the invoke_pending doesn't destroy us */
     invoke_pending(q);
     docq_poke(q);
 
-    DOCQ_UNREF(q);
-    (void)instance; (void)cbtype;
+    q->unref();
 }

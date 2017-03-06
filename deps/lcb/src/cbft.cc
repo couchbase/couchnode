@@ -27,10 +27,10 @@
 #define LOGID(req) static_cast<const void*>(req)
 #define LOGARGS(req, lvl) req->instance->settings, "n1ql", LCB_LOG_##lvl, __FILE__, __LINE__
 
-struct lcb_FTSREQ {
+struct lcb_FTSREQ : lcb::jsparse::Parser::Actions {
     const lcb_RESPHTTP *cur_htresp;
     lcb_http_request_t htreq;
-    lcbjsp_PARSER *parser;
+    lcb::jsparse::Parser *parser;
     const void *cookie;
     lcb_FTSCALLBACK callback;
     lcb_t instance;
@@ -41,25 +41,20 @@ struct lcb_FTSREQ {
 
     lcb_FTSREQ(lcb_t, const void *, const lcb_CMDFTS *);
     ~lcb_FTSREQ();
-};
-
-static void
-row_callback(lcbjsp_PARSER *parser, const lcbjsp_ROW *datum)
-{
-    lcb_FTSREQ *req = static_cast<lcb_FTSREQ*>(parser->data);
-    lcb_RESPFTS resp = { 0 };
-
-    if (datum->type == LCBJSP_TYPE_ROW) {
-        resp.row = static_cast<const char*>(datum->row.iov_base);
-        resp.nrow = datum->row.iov_len;
-        req->nrows++;
-        req->invoke_row(&resp);
-    } else if (datum->type == LCBJSP_TYPE_ERROR) {
-        req->lasterr = resp.rc = LCB_PROTOCOL_ERROR;
-    } else if (datum->type == LCBJSP_TYPE_COMPLETE) {
-        /* Nothing */
+    void JSPARSE_on_row(const lcb::jsparse::Row& datum) {
+        lcb_RESPFTS resp = { 0 };
+        resp.row = static_cast<const char*>(datum.row.iov_base);
+        resp.nrow = datum.row.iov_len;
+        nrows++;
+        invoke_row(&resp);
     }
-}
+    void JSPARSE_on_error(const std::string&) {
+        lasterr = LCB_PROTOCOL_ERROR;
+    }
+    void JSPARSE_on_complete(const std::string&) {
+        // Nothing
+    }
+};
 
 static void
 chunk_callback(lcb_t, int, const lcb_RESPBASE *rb)
@@ -83,7 +78,7 @@ chunk_callback(lcb_t, int, const lcb_RESPBASE *rb)
          * should remain alive (so we can cancel it later on) */
         delete req;
     } else {
-        lcbjsp_feed(req->parser, static_cast<const char*>(rh->body), rh->nbody);
+        req->parser->feed(static_cast<const char*>(rh->body), rh->nbody);
     }
 }
 
@@ -107,7 +102,7 @@ lcb_FTSREQ::invoke_last()
 
     if (parser) {
         lcb_IOV meta;
-        lcbjsp_get_postmortem(parser, &meta);
+        parser->get_postmortem(meta);
         resp.row = static_cast<const char*>(meta.iov_base);
         resp.nrow = meta.iov_len;
     }
@@ -116,7 +111,9 @@ lcb_FTSREQ::invoke_last()
 }
 
 lcb_FTSREQ::lcb_FTSREQ(lcb_t instance_, const void *cookie_, const lcb_CMDFTS *cmd)
-: cur_htresp(NULL), htreq(NULL), parser(lcbjsp_create(LCBJSP_MODE_FTS)),
+: lcb::jsparse::Parser::Actions(),
+  cur_htresp(NULL), htreq(NULL),
+  parser(new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_FTS, this)),
   cookie(cookie_), callback(cmd->callback), instance(instance_), nrows(0),
   lasterr(LCB_SUCCESS)
 {
@@ -165,12 +162,10 @@ lcb_FTSREQ::lcb_FTSREQ(lcb_t instance_, const void *cookie_, const lcb_CMDFTS *c
     std::string qbody(Json::FastWriter().write(root));
     htcmd.body = qbody.c_str();
     htcmd.nbody = qbody.size();
-    parser->data = this;
-    parser->callback = row_callback;
 
     lasterr = lcb_http3(instance, this, &htcmd);
     if (lasterr == LCB_SUCCESS) {
-        lcb_htreq_setcb(htreq, chunk_callback);
+        htreq->set_callback(chunk_callback);
         if (cmd->handle) {
             *cmd->handle = reinterpret_cast<lcb_FTSREQ*>(this);
         }
@@ -184,7 +179,7 @@ lcb_FTSREQ::~lcb_FTSREQ()
         htreq = NULL;
     }
     if (parser) {
-        lcbjsp_free(parser);
+        delete parser;
         parser = NULL;
     }
 }

@@ -323,16 +323,7 @@ lcb_durability_validate(lcb_t instance,
 
 }
 
-static lcb_error_t
-dset_ctx_add(lcb_MULTICMD_CTX *mctx, const lcb_CMDBASE *cmd)
-{
-    return static_cast<Durset*>(mctx)->mctx_add(cmd);
-}
-
-lcb_error_t
-Durset::mctx_add(const lcb_CMDBASE *cmd)
-{
-
+lcb_error_t Durset::MCTX_addcmd(const lcb_CMDBASE *cmd) {
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
     }
@@ -357,14 +348,8 @@ Durset::mctx_add(const lcb_CMDBASE *cmd)
     return after_add(ent, reinterpret_cast<const lcb_CMDENDURE*>(cmd));
 }
 
-static lcb_error_t
-dset_ctx_schedule(lcb_MULTICMD_CTX *mctx, const void *cookie)
-{
-    return static_cast<Durset*>(mctx)->mctx_schedule(cookie);
-}
-
 lcb_error_t
-Durset::mctx_schedule(const void *cookie_) {
+Durset::MCTX_done(const void *cookie_) {
     lcb_error_t err;
     const char *kptr = kvbufs.c_str();
 
@@ -395,10 +380,8 @@ Durset::mctx_schedule(const void *cookie_) {
     return LCB_SUCCESS;
 }
 
-static void
-dset_ctx_fail(lcb_MULTICMD_CTX *mctx)
-{
-    delete static_cast<Durset*>(mctx);
+void Durset::MCTX_fail() {
+    delete this;
 }
 
 void lcbdurctx_set_durstore(lcb_MULTICMD_CTX *mctx, int enabled)
@@ -436,14 +419,11 @@ get_poll_meth(lcb_t instance, const lcb_durability_opts_t *options)
 }
 
 Durset::Durset(lcb_t instance_, const lcb_durability_opts_t *options)
-    : nremaining(0), waiting(0), refcnt(0), next_state(STATE_OBSPOLL),
+    : MultiCmdContext(),
+      nremaining(0), waiting(0), refcnt(0), next_state(STATE_OBSPOLL),
       lasterr(LCB_SUCCESS), is_durstore(false), cookie(NULL),
       ns_timeout(0), timer(NULL), instance(instance_)
 {
-    lcb_MULTICMD_CTX::addcmd = dset_ctx_add;
-    lcb_MULTICMD_CTX::done = dset_ctx_schedule;
-    lcb_MULTICMD_CTX::fail = dset_ctx_fail;
-
     const lcb_DURABILITYOPTSv0 *opts_in = &options->v.v0;
 
     std::memset(&opts, 0, sizeof opts);

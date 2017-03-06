@@ -97,7 +97,7 @@ void
 lcb_sched_flush(lcb_t instance)
 {
     for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
-        Server *server = LCBT_GET_SERVER(instance, ii);
+        Server *server = instance->get_server(ii);
 
         if (!server->has_pending()) {
             continue;
@@ -120,8 +120,8 @@ Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
     protocol_binary_request_header hdr;
     lcb_error_t err = LCB_ERROR;
     lcb_U16 vbid;
-    clconfig_provider *cccp = lcb_confmon_get_provider(instance->confmon,
-        LCB_CLCONFIG_CCCP);
+    lcb::clconfig::Provider *cccp =
+            instance->confmon->get_provider(lcb::clconfig::CLCONFIG_CCCP);
 
     mcreq_read_hdr(oldpkt, &hdr);
     vbid = ntohs(hdr.request.vbucket);
@@ -132,12 +132,12 @@ Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
 
     if (resinfo.bodylen() && cccp->enabled) {
         std::string s(resinfo.body<const char*>(), resinfo.vallen());
-        err = lcb_cccp_update(cccp, curhost->host, s.c_str());
+        err = lcb::clconfig::cccp_update(cccp, curhost->host, s.c_str());
     }
 
     if (err != LCB_SUCCESS) {
         int bs_options;
-        if (instance->cur_configinfo->origin == LCB_CLCONFIG_CCCP) {
+        if (instance->cur_configinfo->get_origin() == lcb::clconfig::CLCONFIG_CCCP) {
             /**
              * XXX: Not enough to see if cccp was enabled, since cccp might
              * be requested by a user, but would still not actually be active
@@ -146,11 +146,11 @@ Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
              *
              * For this reason, we don't use if (cccp->enabled) {...}
              */
-            bs_options = LCB_BS_REFRESH_THROTTLE;
+            bs_options = BS_REFRESH_THROTTLE;
         } else {
-            bs_options = LCB_BS_REFRESH_ALWAYS;
+            bs_options = BS_REFRESH_ALWAYS;
         }
-        lcb_bootstrap_common(instance, bs_options);
+        instance->bootstrap(bs_options);
     }
 
     if (!lcb_should_retry(settings, oldpkt, LCB_NOT_MY_VBUCKET)) {
@@ -219,7 +219,7 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     }
 
     if (!request) {
-        lcb_log(LOGARGS_T(WARN), LOGFMT "Found stale packet (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
+        lcb_log(LOGARGS_T(WARN), LOGFMT "Server sent us reply for a timed-out command. (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
         rdb_consumed(ior, pktsize);
         return PKT_READ_COMPLETE;
     }
@@ -340,7 +340,7 @@ void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
                            hdr.request.opaque,
                            PROTOCOL_BINARY_RESPONSE_EINVAL);
 
-    lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error 0x%x", LOGID_T(), (void*)pkt, (unsigned long)pkt->opaque, hdr.request.opcode, err);
+    lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error %s", LOGID_T(), (void*)pkt, (unsigned long)pkt->opaque, hdr.request.opcode, lcb_strerror_short(err));
     int rv = mcreq_dispatch_response(this, pkt, &resp, err);
     lcb_assert(rv == 0);
 }
@@ -365,8 +365,7 @@ Server::purge(lcb_error_t error, hrtime_t thresh, hrtime_t *next,
     }
 
     if (affected || policy == REFRESH_ALWAYS) {
-        lcb_bootstrap_common(instance,
-            LCB_BS_REFRESH_THROTTLE|LCB_BS_REFRESH_INCRERR);
+        instance->bootstrap(BS_REFRESH_THROTTLE|BS_REFRESH_INCRERR);
     }
     return affected;
 }
@@ -420,7 +419,7 @@ void Server::io_timeout()
     }
 
     uint32_t next_us = next_timeout();
-    lcb_log(LOGARGS_T(DEBUG), LOGFMT "Scheduling next timeout for %u ms", LOGID_T(), next_us / 1000);
+    lcb_log(LOGARGS_T(TRACE), LOGFMT "Scheduling next timeout for %u ms. This is not an error", LOGID_T(), next_us / 1000);
     lcbio_timer_rearm(io_timer, next_us);
     lcb_maybe_breakout(instance);
 }
@@ -465,7 +464,7 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
     LCBIO_CONNREQ_CLEAR(&connreq);
 
     if (err != LCB_SUCCESS) {
-        lcb_log(LOGARGS_T(ERR), LOGFMT "Got error for connection! (OS=%d)", LOGID_T(), syserr);
+        lcb_log(LOGARGS_T(ERR), LOGFMT "Connection attempt failed. Received %s from libcouchbase, received %d from operating system", LOGID_T(), lcb_strerror_short(err), syserr);
         if (!maybe_reconnect_on_fake_timeout(err)) {
             socket_failed(err);
         }
@@ -494,10 +493,9 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
     procs.cb_flush_ready = on_flush_ready;
     connctx = lcbio_ctx_new(sock, this, &procs);
     connctx->subsys = "memcached";
-    mc_PIPELINE::flush_start = (mcreq_flushstart_fn)mcserver_flush;
+    flush_start = (mcreq_flushstart_fn)mcserver_flush;
 
     uint32_t tmo = next_timeout();
-    lcb_log(LOGARGS_T(DEBUG), LOGFMT "Setting initial timeout=%ums", LOGID_T(), tmo/1000);
     lcbio_timer_rearm(io_timer, tmo);
     flush();
 }
@@ -508,7 +506,7 @@ Server::connect()
     lcbio_pMGRREQ mr = lcbio_mgr_get(instance->memd_sockpool, curhost,
         default_timeout(), on_connected, this);
     LCBIO_CONNREQ_MKPOOLED(&connreq, mr);
-    mc_PIPELINE::flush_start = flush_noop;
+    flush_start = flush_noop;
     state = Server::S_CLEAN;
 }
 
@@ -520,7 +518,7 @@ buf_done_cb(mc_PIPELINE *pl, const void *cookie, void *, void *)
 }
 
 Server::Server(lcb_t instance_, int ix)
-    : state(S_CLEAN),
+    : mc_PIPELINE(), state(S_CLEAN),
       io_timer(lcbio_timer_new(instance_->iotable, this, timeout_server)),
       instance(instance_),
       settings(lcb_settings_ref2(instance_->settings)),
@@ -529,11 +527,10 @@ Server::Server(lcb_t instance_, int ix)
       connctx(NULL),
       curhost(new lcb_host_t())
 {
-    std::memset(static_cast<mc_PIPELINE*>(this), 0, sizeof(mc_PIPELINE));
     mcreq_pipeline_init(this);
-    mc_PIPELINE::flush_start = (mcreq_flushstart_fn)server_connect;
-    mc_PIPELINE::buf_done_callback = buf_done_cb;
-    mc_PIPELINE::index = ix;
+    flush_start = (mcreq_flushstart_fn)server_connect;
+    buf_done_callback = buf_done_cb;
+    index = ix;
 
     std::memset(&connreq, 0, sizeof connreq);
     std::memset(curhost, 0, sizeof *curhost);
@@ -580,7 +577,7 @@ static void
 on_error(lcbio_CTX *ctx, lcb_error_t err)
 {
     Server *server = Server::get(ctx);
-    lcb_log(LOGARGS(server, WARN), LOGFMT "Got socket error 0x%x", LOGID(server), err);
+    lcb_log(LOGARGS(server, WARN), LOGFMT "Got socket error %s", LOGID(server), lcb_strerror_short(err));
     if (server->check_closed()) {
         return;
     }
@@ -636,7 +633,7 @@ Server::start_errored_ctx(State next_state)
             return;
         } else {
             /* Not closed but don't have a current context */
-            mc_PIPELINE::flush_start = (mcreq_flushstart_fn)server_connect;
+            flush_start = (mcreq_flushstart_fn)server_connect;
             if (has_pending()) {
                 if (!lcbio_timer_armed(io_timer)) {
                     /* TODO: Maybe throttle reconnection attempts? */
@@ -656,7 +653,7 @@ Server::start_errored_ctx(State next_state)
             /* Close the socket not to leak resources */
             lcbio_shutdown(lcbio_ctx_sock(ctx));
             if (next_state == Server::S_ERRDRAIN) {
-                mc_PIPELINE::flush_start = (mcreq_flushstart_fn)flush_errdrain;
+                flush_start = (mcreq_flushstart_fn)flush_errdrain;
             }
         } else {
             finalize_errored_ctx();
@@ -701,7 +698,6 @@ Server::finalize_errored_ctx()
         /* Otherwise, cycle the state back to CLEAN and reinit
          * the connection */
         state = Server::S_CLEAN;
-        mc_PIPELINE::flush_start = (mcreq_flushstart_fn)server_connect;
         connect();
     }
 }
@@ -722,9 +718,4 @@ Server::check_closed()
     lcb_log(LOGARGS_T(INFO), LOGFMT "Got handler after close. Checking pending calls (pending=%u)", LOGID_T(), connctx->npending);
     finalize_errored_ctx();
     return 1;
-}
-
-int
-mcserver_supports_compression(mc_SERVER *server) {
-    return server->compsupport;
 }

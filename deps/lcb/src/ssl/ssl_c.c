@@ -137,6 +137,7 @@ async_write(void *arg)
 {
     lcbio_CSSL *cs = arg;
     appdata_encode(cs);
+    schedule_wants(cs);
     appdata_free_flushed(cs);
 }
 

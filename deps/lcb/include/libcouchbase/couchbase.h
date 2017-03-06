@@ -3679,6 +3679,16 @@ lcb_histogram_read(const lcb_HISTOGRAM *hg, const void *cookie,
 LCB_INTERNAL_API
 void lcb_histogram_print(lcb_HISTOGRAM* hg, FILE* stream);
 
+struct hostlist_st;
+
+LCB_INTERNAL_API
+lcb_error_t
+lcb_dnssrv_query(const char *, struct hostlist_st*);
+
+LCB_INTERNAL_API
+struct hostlist_st*
+lcb_dnssrv_getbslist(const char *, int, lcb_error_t*);
+
 /* Post-include some other headers */
 #ifdef __cplusplus
 }

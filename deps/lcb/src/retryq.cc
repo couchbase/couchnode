@@ -231,8 +231,8 @@ RetryQueue::flush(bool throttle)
              * configuration (i.e. the attempt has not been throttled) then
              * keep the command in there until it has a chance to be scheduled.
              */
-            lcb_bootstrap_common(get_instance(), LCB_BS_REFRESH_THROTTLE);
-            if (lcb_confmon_is_refreshing(get_instance()->confmon) ||
+            get_instance()->bootstrap(lcb::BS_REFRESH_THROTTLE);
+            if (get_instance()->confmon->is_refreshing() ||
                     settings->retry[LCB_RETRY_ON_MISSINGNODE]) {
 
                 lcb_list_delete(static_cast<SchedNode*>(op));
@@ -276,8 +276,8 @@ static void op_dtorfn(mc_EPKTDATUM *d) {
     delete static_cast<RetryOp*>(d);
 }
 
-RetryOp::RetryOp() {
-    memset(this, 0, sizeof *this);
+RetryOp::RetryOp()
+    : mc_EPKTDATUM(), start(0), trytime(0), pkt(NULL), origerr(LCB_SUCCESS) {
     mc_EPKTDATUM::dtorfn = op_dtorfn;
     mc_EPKTDATUM::key = RETRY_PKT_KEY;
 }

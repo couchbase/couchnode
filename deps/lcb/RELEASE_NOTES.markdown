@@ -1,5 +1,49 @@
 # Release Notes
 
+## 2.7.2 (February 21 2017)
+
+This release consists of additional internal refactoring and some improved
+logging messages. There is enhanced experimental XATTR support. This release
+also contains some bug fixes:
+
+* Fix build issues on FreeBSD. This allows normal BSD `make` to be used, rather
+  than forcing `gmake`
+
+* Fixed broken JIRA link in README
+
+* Fix hanging SSL connections in IOCP/Completion mode. This would sometimes
+  stall the connection by not requesting a write if a read was in progress.
+  This would result in the command not being sent and the client hanging.
+  Note that this only affects completion-style I/O plugins such as IOCP and
+  libuv.
+  * Issues: [CCBC-744](https://issues.couchbase.com/browse/CCBC-744)
+
+* Rename `LCB_SDSPEC_F_VIRTPATH` to `LCB_SDSPEC_F_MACROVALUES`. `VIRTPATH`
+  is intended for possible future materialized XATTRs.
+
+* Add `LCB_SDSPEC_F_XATTR_DELETED_OK`, which maps to the protocol flag of
+  roughly the same name.
+
+## 2.7.1 (January 19 2017)
+
+This release consists of additional internal refactoring. More internals have
+been converted to C++.
+
+* Provide XATTR (Extended Attribute) prototype support.
+  This provides a prototype implementation of xattrs, allowing the client to
+  access extended (hidden) attributes of a document. This feature can be used
+  on the client side by simply setting the `LCB_SDSPEC_F_XATTRPATH` bit in
+  the `lcb_SDSPEC::options` field.
+  * Issues: [CCBC-728](https://issues.couchbase.com/browse/CCBC-728)
+
+* Add automatic DNS SRV record lookup when simple hostname supplied.
+  The library will now automatically attempt to look up SRV records
+  for various couchbase services if only one host is present in the
+  connection string. Automatic lookup will not be performed if more
+  than a single host is provded. See the [Java Documentation](https://developer.couchbase.com/documentation/server/current/sdk/java/managing-connections.html)
+  on the matter (go to the bottom of the page).
+  * Issues: [CCBC-566](https://issues.couchbase.com/browse/CCBC-566)
+
 ## 2.7.0 (December 21 2016)
 
 This release consists mainly of internal refactoring. Many of the internals

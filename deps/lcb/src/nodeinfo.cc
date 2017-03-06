@@ -70,7 +70,7 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
 
     if (type & LCB_NODE_HTCONFIG) {
         if (type & LCB_NODE_CONNECTED) {
-            const lcb_host_t *host = lcb_confmon_get_rest_host(instance->confmon);
+            const lcb_host_t *host = lcb::clconfig::http_get_host(instance->confmon);
             if (host) {
                 return mk_scratch_host(instance, host);
             } else {

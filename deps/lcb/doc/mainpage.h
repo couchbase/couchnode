@@ -64,7 +64,6 @@
  * @brief Generic utilities and containers
  * @addtogroup lcb-generics
  * @{
- * @file src/simplestring.h
  * @file src/list.h
  * @file src/sllist.h
  * @file src/sllist-inl.h
