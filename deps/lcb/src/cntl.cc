@@ -183,6 +183,12 @@ HANDLER(kv_hg_handler) {
 HANDLER(read_chunk_size_handler) {
     RETURN_GET_SET(lcb_U32, LCBT_SETTING(instance, read_chunk_size));
 }
+HANDLER(enable_errmap_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, use_errmap));
+}
+HANDLER(select_bucket_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, select_bucket));
+}
 
 HANDLER(get_kvb) {
     lcb_cntl_vbinfo_st *vbi = reinterpret_cast<lcb_cntl_vbinfo_st*>(arg);
@@ -586,7 +592,9 @@ static ctl_handler handlers[] = {
     client_string_handler, /* LCB_CNTL_CLIENT_STRING */
     bucket_auth_handler, /* LCB_CNTL_BUCKET_CRED */
     timeout_common, /* LCB_CNTL_RETRY_NMV_DELAY */
-    read_chunk_size_handler /*LCB_CNTL_READ_CHUNKSIZE */
+    read_chunk_size_handler, /*LCB_CNTL_READ_CHUNKSIZE */
+    enable_errmap_handler, /* LCB_CNTL_ENABLE_ERRMAP */
+    select_bucket_handler /* LCB_CNTL_SELECT_BUCKET */
 };
 
 /* Union used for conversion to/from string functions */
@@ -738,6 +746,8 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"retry_nmv_delay", LCB_CNTL_RETRY_NMV_INTERVAL, convert_timeout},
         {"bucket_cred", LCB_CNTL_BUCKET_CRED, NULL},
         {"read_chunk_size", LCB_CNTL_READ_CHUNKSIZE, convert_u32},
+        {"enable_errmap", LCB_CNTL_ENABLE_ERRMAP, convert_intbool},
+        {"select_bucket", LCB_CNTL_SELECT_BUCKET, convert_intbool},
         {NULL, -1}
 };
 

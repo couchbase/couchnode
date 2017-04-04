@@ -262,6 +262,15 @@ lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd);
 #define LCB_CMDN1QL_F_JSONQUERY 1<<17
 
 /**
+ * This is an analytics query. Use the `host` field to specify the host/port
+ * to target. When this flag is set, things like prepared queries and
+ * parametrized statements will not work.
+ *
+ * @uncommited
+ */
+#define LCB_CMDN1QL_F_CBASQUERY 1<<18
+
+/**
  * Command structure for N1QL queries. Typically an application will use the
  * lcb_N1QLPARAMS structure to populate the #query and #content_type fields.
  *
@@ -287,7 +296,10 @@ struct lcb_CMDN1QL {
     /** Length of the query data */
     size_t nquery;
 
-    /** Ignored since version 2.5.3 */
+    /**
+     * Ignored since version 2.5.3.
+     * Starting from version 2.7.3, is used for experimental CBAS support
+     */
     const char *host;
 
     /** Ignored since version 2.5.3 */

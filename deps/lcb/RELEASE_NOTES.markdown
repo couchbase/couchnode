@@ -1,5 +1,47 @@
 # Release Notes
 
+## 2.7.3 (March 21 2017)
+
+* Provide the ability to send the `SELECT_BUCKET` when establishing a
+  to a server. This is a building block allowing us to use 'RBAC'/username
+  auth in the future.
+  Note that this requires the `select_bucket=true` option in the connection
+  string or equivalent, and that this feature as a whole is considered
+  experimental.
+  * Priority: Major
+  * Issues: [CCBC-758](https://issues.couchbase.com/browse/CCBC-758)
+
+* Provide an option to disable DNS-SRV lookups. Because DNS SRV lookups often
+  result in no result (i.e. `NXDOMAIN`) - which takes longer, allowing to
+  disable such lookups may speed up startup time.
+  This option is available via the connection string, using `dnssrv=off`
+  * Priority: Minor
+  * Issues: [CCBC-756](https://issues.couchbase.com/browse/CCBC-756)
+
+* Send client/user-specific identifier in `User-Agent` HTTP header.
+  The library already does this for data nodes (Memcached). Using it in HTTP
+  services allows better supportability when diagnosing issues by reading the
+  HTTP logs.
+  * Priority: Major
+  * Issues: [CCBC-755](https://issues.couchbase.com/browse/CCBC-755)
+
+* Fix bug where DNS SRV hostnames would not be used.
+  While DNS SRV lookup was working, the library would not actually attempt
+  bootstrap off those received hostnames.
+  * Priority: Major
+  * Issues: [CCBC-753](https://issues.couchbase.com/browse/CCBC-753)
+
+* Provide experimental Analytics support.
+  This allows access to the Couchbase Analytics Service, available in
+  some pre-release builds. API and syntax wise, Analytics is very similar
+  to N1QL.
+  To use the analytics service, set the `LCB_CMDN1QL_F_CBASQUERY` bit in
+  `lcb_CMDN1QL::cmdflags`, and provide the appropriate _host:port_ combination
+  in the `lcb_CMDN1QL::host` field. - Currently, analytics support is not
+  used in the cluster map/configuration.
+  * Priority: Major
+  * Issues: [CCBC-734](https://issues.couchbase.com/browse/CCBC-734)
+
 ## 2.7.2 (February 21 2017)
 
 This release consists of additional internal refactoring and some improved

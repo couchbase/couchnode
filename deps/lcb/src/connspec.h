@@ -20,9 +20,11 @@
 
 #include <libcouchbase/couchbase.h>
 #include "config.h"
+
 #include <string>
 #include <vector>
 #include <set>
+#include "hostlist.h"
 
 #ifdef _MSC_VER
 /*
@@ -126,6 +128,14 @@ private:
 #define LCB_SPECSCHEME_MCCOMPAT "memcached://"
 #define LCB_SPECSCHEME_SRV "couchbase+dnssrv://"
 #define LCB_SPECSCHEME_SRV_SSL "couchbases+dnssrv://"
+
+// Standalone functionality:
+lcb_error_t
+dnssrv_query(const char *name, Hostlist& hostlist);
+
+Hostlist *
+dnssrv_getbslist(const char *addr, bool is_ssl, lcb_error_t& errout);
+
 } // namespace
 
 #endif

@@ -141,14 +141,13 @@ TEST_F(ConfmonTest, testCycle)
     Provider *cccp = mon->get_provider(CLCONFIG_CCCP);
     Provider *http = mon->get_provider(CLCONFIG_HTTP);
 
-    hostlist_t hl = hostlist_create();
-    hostlist_add_stringz(hl, cropts.v.v2.mchosts, 11210);
+    lcb::Hostlist hl;
+    hl.add(cropts.v.v2.mchosts, 11210);
     cccp->enable(instance);
-    cccp->configure_nodes(*hl);
+    cccp->configure_nodes(hl);
 
     http->enable();
     http->configure_nodes(*instance->ht_nodes);
-    hostlist_destroy(hl);
 
     mon->prepare();
     mon->start();

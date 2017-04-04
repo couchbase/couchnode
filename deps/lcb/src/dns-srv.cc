@@ -2,6 +2,8 @@
 
 #include "config.h"
 #include "hostlist.h"
+#include "connspec.h"
+#include "hostlist.h"
 
 #ifndef _WIN32
 #include <string>
@@ -20,9 +22,8 @@
 #include <netinet/in.h>
 #include <resolv.h>
 
-LCB_INTERNAL_API
 lcb_error_t
-lcb_dnssrv_query(const char *name, hostlist_t hostlist)
+lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
 {
     ns_msg msg;
 
@@ -82,7 +83,7 @@ lcb_dnssrv_query(const char *name, hostlist_t hostlist)
         ns_name_uncompress(
             ns_msg_base(msg), ns_msg_end(msg),
             rdata, &dname[0], NS_MAXDNAME);
-        hostlist->add(&dname[0], srv_port);
+        hostlist.add(&dname[0], srv_port);
     }
     return LCB_SUCCESS;
 }
@@ -92,9 +93,8 @@ lcb_dnssrv_query(const char *name, hostlist_t hostlist)
 #include <windns.h>
 #define CAN_SRV_LOOKUP
 /* Implement via DnsQuery() */
-LCB_INTERNAL_API
 lcb_error_t
-lcb_dnssrv_query(const char *addr, hostlist_t hs)
+lcb::dnssrv_query(const char *addr, Hostlist& hs)
 {
     DNS_STATUS status;
     PDNS_RECORDA root, cur;
@@ -108,7 +108,7 @@ lcb_dnssrv_query(const char *addr, hostlist_t hs)
     for (cur = root; cur; cur = cur->pNext) {
         // Use the ASCII version of the DNS lookup structure
         const DNS_SRV_DATAA *srv = &cur->Data.SRV;
-        hostlist_add_stringz(hs, srv->pNameTarget, srv->wPort);
+        hs.add(srv->pNameTarget, srv->wPort);
     }
     DnsRecordListFree(root, DnsFreeRecordList);
     return LCB_SUCCESS;
@@ -118,7 +118,7 @@ lcb_dnssrv_query(const char *addr, hostlist_t hs)
 
 
 #ifndef CAN_SRV_LOOKUP
-LCB_INTERNAL_API lcb_error_t lcb_dnssrv_query(const char *, hostlist_t) {
+lcb_error_t lcb::dnssrv_query(const char *, Hostlist&) {
     return LCB_CLIENT_FEATURE_UNAVAILABLE;
 }
 #endif
@@ -126,18 +126,17 @@ LCB_INTERNAL_API lcb_error_t lcb_dnssrv_query(const char *, hostlist_t) {
 #define SVCNAME_PLAIN "_couchbase._tcp."
 #define SVCNAME_SSL "_couchbases._tcp."
 
-LCB_INTERNAL_API
-hostlist_st*
-lcb_dnssrv_getbslist(const char *addr, int is_ssl, lcb_error_t *errp) {
+lcb::Hostlist*
+lcb::dnssrv_getbslist(const char *addr, bool is_ssl, lcb_error_t& errp) {
     std::string ss;
-    lcb::Hostlist *ret = new lcb::Hostlist();
+    Hostlist *ret = new Hostlist();
     ss.append(is_ssl ? SVCNAME_SSL : SVCNAME_PLAIN);
     ss.append(addr);
 
-    *errp = lcb_dnssrv_query(ss.c_str(), ret);
-    if (*errp != LCB_SUCCESS) {
+    errp = dnssrv_query(ss.c_str(), *ret);
+    if (errp != LCB_SUCCESS) {
         delete ret;
         ret = NULL;
     }
-    return static_cast<hostlist_st*>(ret);
+    return ret;
 }

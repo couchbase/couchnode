@@ -924,8 +924,34 @@ typedef const char *lcb_BUCKETCRED[2];
  */
 #define LCB_CNTL_READ_CHUNKSIZE 0x42
 
+/**
+ * Enable/Disable the Error Map feature. This is disabled by default.
+ * Works only on servers which support error map
+ *
+ * Use `enable_errmap` in the connection string
+ *
+ * @volatile
+ * @cntl_arg_both{int* (as boolean)}
+ */
+#define LCB_CNTL_ENABLE_ERRMAP 0x43
+
+/**
+ * Enable/Disable sending the SELECT_BUCKET command after authentication.
+ * This is useful to test auth, and should not be set by end-users.
+ *
+ * Note that even if this feature is enabled (the default), the client will
+ * only send `SELECT_BUCKET` if the server indicates that it is supported
+ * during negotiation.
+ *
+ * Use `select_bucket` in the connection string
+ *
+ * @volatile
+ * @cntl_arg_both{int* (as boolean)}
+ */
+#define LCB_CNTL_SELECT_BUCKET 0x44
+
 /** This is not a command, but rather an indicator of the last item */
-#define LCB_CNTL__MAX                    0x43
+#define LCB_CNTL__MAX                    0x45
 /**@}*/
 
 #ifdef __cplusplus

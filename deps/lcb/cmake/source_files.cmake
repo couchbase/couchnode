@@ -14,6 +14,7 @@ SET(LCB_UTILS_SRC
 
 # lcbio
 FILE(GLOB LCB_IO_SRC src/lcbio/*.c)
+FILE(GLOB LCB_IO_CXXSRC src/lcbio/*.cc)
 
 # common memcached operations
 FILE(GLOB LCB_OP_SRC src/operations/*.c)
@@ -56,6 +57,7 @@ SET(LCB_CORE_CXXSRC
     src/connspec.cc
     src/dns-srv.cc
     src/dump.cc
+    src/errmap.cc
     src/getconfig.cc
     src/nodeinfo.cc
     src/handler.cc

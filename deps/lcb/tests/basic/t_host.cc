@@ -82,117 +82,109 @@ TEST_F(Hostlist, testEquals)
 
 TEST_F(Hostlist, testParseList)
 {
-    hostlist_t hosts = hostlist_create();
-    ASSERT_FALSE(NULL == hosts);
+    lcb::Hostlist hosts;
 
     lcb_error_t err;
-    err = hostlist_add_stringz(hosts, "1.1.1.1",  8091);
+    err = hosts.add("1.1.1.1",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(1, hosts->size());
-    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
+    ASSERT_EQ(1, hosts.size());
+    ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
 
-
-    hostlist_clear(hosts);
-    err = hostlist_add_stringz(hosts, "1.1.1.1;",  8091);
+    hosts.clear();
+    err = hosts.add("1.1.1.1;",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(1, hosts->size());
-    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
+    ASSERT_EQ(1, hosts.size());
+    ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
 
-    hostlist_clear(hosts);
-    err = hostlist_add_stringz(hosts, ";",  8091);
+    hosts.clear();
+    err = hosts.add(";",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(0, hosts->size());
+    ASSERT_EQ(0, hosts.size());
 
-    hostlist_clear(hosts);
-    err = hostlist_add_stringz(hosts, ";;;;",  8091);
+    hosts.clear();
+    err = hosts.add(";;;;",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(0, hosts->size());
+    ASSERT_EQ(0, hosts.size());
 
-    hostlist_clear(hosts);
-    err = hostlist_add_stringz(hosts, "1.1.1.1;2.2.2.2",  8091);
+    hosts.clear();
+    err = hosts.add("1.1.1.1;2.2.2.2",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(2, hosts->size());
-    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
-    ASSERT_TRUE(hosts->exists("2.2.2.2:8091"));
+    ASSERT_EQ(2, hosts.size());
+    ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
+    ASSERT_TRUE(hosts.exists("2.2.2.2:8091"));
 
-
-    hostlist_clear(hosts);
-    err = hostlist_add_stringz(hosts, "1.1.1.1:1000;2.2.2.2:2000;3.3.3.3", 8091);
+    hosts.clear();
+    err = hosts.add("1.1.1.1:1000;2.2.2.2:2000;3.3.3.3", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(3, hosts->size());
-    ASSERT_TRUE(hosts->exists("1.1.1.1:1000"));
-    ASSERT_TRUE(hosts->exists("2.2.2.2:2000"));
-    ASSERT_TRUE(hosts->exists("3.3.3.3:8091"));
+    ASSERT_EQ(3, hosts.size());
+    ASSERT_TRUE(hosts.exists("1.1.1.1:1000"));
+    ASSERT_TRUE(hosts.exists("2.2.2.2:2000"));
+    ASSERT_TRUE(hosts.exists("3.3.3.3:8091"));
 
-    hostlist_clear(hosts);
-    err = hostlist_add_stringz(hosts, "1.1.1.1;1.1.1.1;1.1.1.1", 8091);
+    hosts.clear();
+    err = hosts.add("1.1.1.1;1.1.1.1;1.1.1.1", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(1, hosts->size());
-    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
+    ASSERT_EQ(1, hosts.size());
+    ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
 
 
-    hostlist_clear(hosts);
-    err = hostlist_add_stringz(hosts, "1.1.1.1:9000;1.1.1.1:9001;1.1.1.1:9002",  8091);
+    hosts.clear();
+    err = hosts.add("1.1.1.1:9000;1.1.1.1:9001;1.1.1.1:9002",  8091);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(3, hosts->size());
-    ASSERT_TRUE(hosts->exists("1.1.1.1:9000"));
-    ASSERT_TRUE(hosts->exists("1.1.1.1:9001"));
-    ASSERT_TRUE(hosts->exists("1.1.1.1:9002"));
+    ASSERT_EQ(3, hosts.size());
+    ASSERT_TRUE(hosts.exists("1.1.1.1:9000"));
+    ASSERT_TRUE(hosts.exists("1.1.1.1:9001"));
+    ASSERT_TRUE(hosts.exists("1.1.1.1:9002"));
 
-    hostlist_clear(hosts);
-    ASSERT_EQ(LCB_SUCCESS, hostlist_add_stringz(hosts, "1.1.1.1", 8091));
-    ASSERT_EQ(LCB_SUCCESS, hostlist_add_stringz(hosts, "2.2.2.2", 8091));
-    ASSERT_EQ(LCB_SUCCESS, hostlist_add_stringz(hosts, "3.3.3.3", 8091));
-    ASSERT_EQ(3, hosts->size());
+    hosts.clear();
+    ASSERT_EQ(LCB_SUCCESS, hosts.add("1.1.1.1", 8091));
+    ASSERT_EQ(LCB_SUCCESS, hosts.add("2.2.2.2", 8091));
+    ASSERT_EQ(LCB_SUCCESS, hosts.add("3.3.3.3", 8091));
+    ASSERT_EQ(3, hosts.size());
 
-    ASSERT_TRUE(hosts->exists("1.1.1.1:8091"));
-    ASSERT_TRUE(hosts->exists("2.2.2.2:8091"));
-    ASSERT_TRUE(hosts->exists("3.3.3.3:8091"));
+    ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
+    ASSERT_TRUE(hosts.exists("2.2.2.2:8091"));
+    ASSERT_TRUE(hosts.exists("3.3.3.3:8091"));
 
-    hostlist_randomize(hosts);
-    hostlist_clear(hosts);
-    hostlist_randomize(hosts);
-
-    hostlist_destroy(hosts);
+    hosts.randomize();
+    hosts.clear();
+    hosts.randomize();
 }
 
 TEST_F(Hostlist, testCycle)
 {
-    hostlist_t hosts = hostlist_create();
+    lcb::Hostlist hosts;
     lcb_host_t *curhost;
 
-
     // Empty list
-    ASSERT_EQ(NULL, hostlist_shift_next(hosts, 0));
-    ASSERT_EQ(NULL, hostlist_shift_next(hosts, 1));
-    hostlist_destroy(hosts);
-    hosts = hostlist_create();
+    ASSERT_EQ(NULL, hosts.next(false));
+    ASSERT_EQ(NULL, hosts.next(true));
 
-    hostlist_add_stringz(hosts, "1.1.1.1", 8091);
-    curhost = hostlist_shift_next(hosts, 0);
+    hosts.clear();
+    hosts.add("1.1.1.1", 8091);
+    curhost = hosts.next(false);
     ASSERT_TRUE(curhost != NULL);
     ASSERT_TRUE(hostEquals(*curhost, "1.1.1.1", "8091"));
 
-    curhost = hostlist_shift_next(hosts, 0);
-    ASSERT_TRUE(hostlist_shift_next(hosts, 0) == NULL);
-    ASSERT_TRUE(hostlist_shift_next(hosts, 0) == NULL);
-    ASSERT_TRUE(hosts->ix == 1);
+    curhost = hosts.next(false);
+    ASSERT_TRUE(hosts.next(false) == NULL);
+    ASSERT_TRUE(hosts.next(false) == NULL);
+    ASSERT_TRUE(hosts.ix == 1);
 
-    curhost = hostlist_shift_next(hosts, 1);
+    curhost = hosts.next(true);
     ASSERT_TRUE(curhost != NULL);
     ASSERT_TRUE(hostEquals(*curhost, "1.1.1.1", "8091"));
 
-    hostlist_add_stringz(hosts, "2.2.2.2", 8091);
-    curhost = hostlist_shift_next(hosts, 0);
+    hosts.add("2.2.2.2", 8091);
+    curhost = hosts.next(false);
     ASSERT_TRUE(hostEquals(*curhost, "2.2.2.2", "8091"));
-    ASSERT_TRUE(hostlist_shift_next(hosts, 0) == NULL);
+    ASSERT_TRUE(hosts.next(false) == NULL);
 
-    curhost = hostlist_shift_next(hosts, 1);
+    curhost = hosts.next(true);
     ASSERT_TRUE(hostEquals(*curhost, "1.1.1.1", "8091"));
-    curhost = hostlist_shift_next(hosts, 0);
+    curhost = hosts.next(false);
     ASSERT_TRUE(hostEquals(*curhost, "2.2.2.2", "8091"));
 
-    hostlist_clear(hosts);
-    ASSERT_TRUE(hostlist_shift_next(hosts, 1) == NULL);
-    hostlist_destroy(hosts);
+    hosts.clear();
+    ASSERT_TRUE(hosts.next(true) == NULL);
 }

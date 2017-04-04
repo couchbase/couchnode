@@ -23,7 +23,16 @@
 #include "settings.h"
 #include "hostlist.h"
 #ifdef __cplusplus
+namespace lcb {
+namespace io {
+struct Connstart;
+}
+}
+typedef lcb::io::Connstart* lcbio_pCONNSTART;
 extern "C" {
+#else
+struct lcbio_CONNSTART;
+typedef struct lcbio_CONNSTART* lcbio_pCONNSTART;
 #endif
 
 /**
@@ -39,11 +48,9 @@ extern "C" {
  * @{
  */
 
-struct lcbio_CONNSTART;
 struct lcbio_MGRREQ;
 
 /** @brief Pending connection request */
-typedef struct lcbio_CONNSTART *lcbio_pCONNSTART;
 typedef struct lcbio_MGRREQ *lcbio_pMGRREQ;
 typedef struct lcbio_TABLE *lcbio_pTABLE;
 typedef struct lcbio_TIMER *lcbio_pTIMER, *lcbio_pASYNC;

@@ -502,7 +502,14 @@ typedef enum {
     X(LCB_UNKNOWN_SDCMD, 0x4D, LCB_ERRTYPE_INPUT, "Unknown subdocument command") \
     X(LCB_ENO_COMMANDS, 0x4E, LCB_ERRTYPE_INPUT, "No commands specified") \
     X(LCB_QUERY_ERROR, 0x4F, LCB_ERRTYPE_SRVGEN, \
-        "Query execution failed. Inspect raw response object for information")
+        "Query execution failed. Inspect raw response object for information") \
+    \
+    X(LCB_GENERIC_TMPERR, 0x50, LCB_ERRTYPE_TRANSIENT|LCB_ERRTYPE_SRVGEN, \
+        "Generic temporary error received from server") \
+    X(LCB_GENERIC_SUBDOCERR, 0x51, LCB_ERRTYPE_SUBDOC|LCB_ERRTYPE_SRVGEN, \
+        "Generic subdocument error received from server") \
+    X(LCB_GENERIC_CONSTRAINT_ERR, 0x52, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN, \
+        "Generic constraint error received from server")
 
 /** Error codes returned by the library. */
 typedef enum {

@@ -244,6 +244,24 @@ Connspec::parse_options(
             if (sscanf(value, "%d", &m_loglevel) != 1) {
                 SET_ERROR("console_log_level must be a numeric value");
             }
+        } else if (!strcmp(key, "dnssrv")) {
+            if ((m_flags & F_DNSSRV_EXPLICIT) == F_DNSSRV_EXPLICIT) {
+                SET_ERROR("Cannot use dnssrv scheme with dnssrv option");
+            }
+            int btmp = 0;
+            if (!strcmp(value, "on") || !strcmp(value, "true")) {
+                btmp = 1;
+            } else if (!strcmp(value, "off") || !strcmp(value, "false")) {
+                btmp = 0;
+            } else if (sscanf(value, "%d", &btmp) != 1) {
+                printf("Coldn't parse value!\n");
+                SET_ERROR("dnssrv must have numeric (boolean) value");
+            }
+            if (btmp) {
+                m_flags |= F_DNSSRV;
+            } else {
+                m_flags &= ~F_DNSSRV_EXPLICIT;
+            }
         } else {
             m_ctlopts.push_back(std::make_pair(key, value));
         }

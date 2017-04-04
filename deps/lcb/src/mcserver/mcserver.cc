@@ -633,13 +633,15 @@ Server::start_errored_ctx(State next_state)
             return;
         } else {
             /* Not closed but don't have a current context */
-            flush_start = (mcreq_flushstart_fn)server_connect;
             if (has_pending()) {
                 if (!lcbio_timer_armed(io_timer)) {
                     /* TODO: Maybe throttle reconnection attempts? */
                     lcbio_timer_rearm(io_timer, default_timeout());
                 }
                 connect();
+            } else {
+                // Connect once someone actually wants a connection.
+                flush_start = (mcreq_flushstart_fn)server_connect;
             }
         }
 

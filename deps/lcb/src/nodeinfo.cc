@@ -167,7 +167,7 @@ lcb_int32_t lcb_get_num_nodes(lcb_t instance)
 LIBCOUCHBASE_API
 const char *const *lcb_get_server_list(lcb_t instance)
 {
-    return hostlist_strents(instance->ht_nodes);
+    return instance->ht_nodes->get_strlist();
 }
 
 LIBCOUCHBASE_API

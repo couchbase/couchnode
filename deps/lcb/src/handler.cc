@@ -822,8 +822,6 @@ mcreq_dispatch_response(
     break;
 
     switch (res->opcode()) {
-    case PROTOCOL_BINARY_CMD_GETQ:
-    case PROTOCOL_BINARY_CMD_GATQ:
     case PROTOCOL_BINARY_CMD_GET:
     case PROTOCOL_BINARY_CMD_GAT:
     case PROTOCOL_BINARY_CMD_GET_LOCKED:

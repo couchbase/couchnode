@@ -95,6 +95,16 @@ LIBCOUCHBASE_API
 void
 lcbauth_unref(lcb_AUTHENTICATOR *auth);
 
+/**
+ * Makes a copy of an existing lcb_AUTHENTICATOR object. The returned
+ * authenticator object has a reference count of 1.
+ * @param src the authenticator object to clone
+ * @return the cloned authenticator.
+ */
+LIBCOUCHBASE_API
+lcb_AUTHENTICATOR *
+lcbauth_clone(const lcb_AUTHENTICATOR *src);
+
 #ifdef __cplusplus
 }
 #endif

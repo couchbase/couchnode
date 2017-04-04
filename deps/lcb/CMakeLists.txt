@@ -21,7 +21,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 # These variables can be modified as needed
 
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.4.3.jar)
+SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.4.7.jar)
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
 SET(COUCHBASE_MOCK_DLSERVER http://packages.couchbase.com/clients/c/mock)
 project(libcouchbase)
@@ -205,6 +205,7 @@ ADD_LIBRARY(netbuf-malloc OBJECT ${LCB_NETBUF_SRC})
 ADD_LIBRARY(mcreq OBJECT ${LCB_MC_SRC})
 ADD_LIBRARY(rdb OBJECT ${LCB_RDB_SRC})
 ADD_LIBRARY(lcbio OBJECT ${LCB_IO_SRC})
+ADD_LIBRARY(lcbio-cxx OBJECT ${LCB_IO_CXXSRC})
 ADD_LIBRARY(lcbht OBJECT ${LCB_HT_SRC})
 ADD_LIBRARY(lcbcore OBJECT ${LCB_CORE_SRC})
 ADD_LIBRARY(lcbcore-cxx OBJECT ${LCB_CORE_CXXSRC})
@@ -214,6 +215,7 @@ LCB_UTIL(netbuf-malloc)
 LCB_UTIL(netbuf)
 LCB_UTIL(rdb)
 LCB_UTIL(lcbio)
+LCB_CXXUTIL(lcbio-cxx)
 LCB_UTIL(couchbase_utils)
 LCB_UTIL(mcreq)
 LCB_UTIL(lcbht)
@@ -257,6 +259,7 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:netbuf>
     $<TARGET_OBJECTS:cbsasl>
     $<TARGET_OBJECTS:lcbio>
+    $<TARGET_OBJECTS:lcbio-cxx>
     $<TARGET_OBJECTS:rdb>
     $<TARGET_OBJECTS:lcbht>
     $<TARGET_OBJECTS:lcbcore>

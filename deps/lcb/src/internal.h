@@ -165,6 +165,16 @@ struct lcb_st {
         }
         return bs_state->bootstrap(options);
     }
+
+    lcbvb_CONFIG *getConfig() const {
+        return cur_configinfo->vbc;
+    }
+
+    int map_key(const std::string& key) {
+        int srvix, tmpvb;
+        lcbvb_map_key(getConfig(), key.c_str(), key.size(), &tmpvb, &srvix);
+        return srvix;
+    }
     #endif
 };
 

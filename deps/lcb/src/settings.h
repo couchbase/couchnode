@@ -84,9 +84,11 @@
 #define LCB_DEFAULT_RETRY_NMV_INTERVAL LCB_MS2US(100)
 #define LCB_DEFAULT_VB_NOGUESS 1
 #define LCB_DEFAULT_TCP_NODELAY 1
+#define LCB_DEFAULT_SELECT_BUCKET 0
 
 #include "config.h"
 #include <libcouchbase/couchbase.h>
+#include "errmap.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -148,6 +150,8 @@ typedef struct lcb_settings_st {
     unsigned ipv6 : 2;
     unsigned tcp_nodelay : 1;
     unsigned readj_ts_wait : 1;
+    unsigned use_errmap : 1;
+    unsigned select_bucket : 1;
 
     short max_redir;
     unsigned refcount;
@@ -165,6 +169,7 @@ typedef struct lcb_settings_st {
     void (*dtorcb)(const void *);
     void *dtorarg;
     char *client_string;
+    lcb_pERRMAP errmap;
     lcb_U32 retry_nmv_interval;
 } lcb_settings;
 

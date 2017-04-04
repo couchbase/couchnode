@@ -70,7 +70,6 @@ lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_error_t
 
     /* get is a safe operation which may be retried */
     case PROTOCOL_BINARY_CMD_GET:
-    case PROTOCOL_BINARY_CMD_GETKQ:
     case PROTOCOL_BINARY_CMD_SUBDOC_GET:
     case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
     case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:

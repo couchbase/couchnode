@@ -155,6 +155,9 @@ typedef struct lcb_N1QLREQ : lcb::jsparse::Parser::Actions {
     // How many rows were received. Used to avoid parsing the meta
     size_t nrows;
 
+    // Host for CBAS/Analytics query
+    std::string cbashost;
+
     /** The PREPARE query itself */
     struct lcb_N1QLREQ *prepare_req;
 
@@ -226,6 +229,10 @@ typedef struct lcb_N1QLREQ : lcb::jsparse::Parser::Actions {
      * @param err The error code
      */
     inline void fail_prepared(const lcb_RESPN1QL *orig, lcb_error_t err);
+
+    bool is_cbas() const {
+        return !cbashost.empty();
+    }
 
     inline lcb_N1QLREQ(lcb_t obj, const void *user_cookie, const lcb_CMDN1QL *cmd);
     inline ~lcb_N1QLREQ();
@@ -507,7 +514,14 @@ N1QLREQ::issue_htreq(const std::string& body)
 
     htcmd.content_type = "application/json";
     htcmd.method = LCB_HTTP_METHOD_POST;
-    htcmd.type = LCB_HTTP_TYPE_N1QL;
+
+    if (is_cbas()) {
+        htcmd.type = LCB_HTTP_TYPE_RAW;
+        htcmd.host = cbashost.c_str();
+    } else {
+        htcmd.type = LCB_HTTP_TYPE_N1QL;
+    }
+
     htcmd.cmdflags = LCB_CMDHTTP_F_STREAM|LCB_CMDHTTP_F_CASTMO;
     if (flags & F_CMDN1QL_CREDSAUTH) {
         htcmd.cmdflags |= LCB_CMDHTTP_F_NOUPASS;
@@ -596,6 +610,22 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
     } else if (!parse_json(cmd->query, cmd->nquery, json)) {
         lasterr = LCB_EINVAL;
         return;
+    }
+
+    if (flags & LCB_CMDN1QL_F_CBASQUERY) {
+        if (!cmd->host) {
+            lasterr = LCB_EINVAL;
+            return;
+        }
+        cbashost.assign(cmd->host);
+        if (cbashost.empty()) {
+            lasterr = LCB_EINVAL;
+            return;
+        }
+        if (flags & LCB_CMDN1QL_F_PREPCACHE) {
+            lasterr = LCB_OPTIONS_CONFLICT;
+            return;
+        }
     }
 
     const Json::Value& j_statement = json_const()["statement"];

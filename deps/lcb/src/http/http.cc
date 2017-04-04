@@ -459,7 +459,12 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
         return rc;
     }
 
-    add_header("User-Agent", "libcouchbase/" LCB_VERSION_STRING);
+    std::string ua("libcouchbase/" LCB_VERSION_STRING);
+    if (instance->settings->client_string) {
+        ua.append(" ").append(instance->settings->client_string);
+    }
+    add_header("User-Agent", ua);
+
     if (instance->http_sockpool->maxidle == 0 || !is_data_request()) {
         add_header("Connection", "close");
     }

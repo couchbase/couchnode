@@ -14,6 +14,7 @@ public:
     const std::string& password() const { return m_password; }
     const Map& buckets() const { return m_buckets; }
     Authenticator() : m_refcount(1) {}
+    Authenticator(const Authenticator&);
 
     size_t refcount() const { return m_refcount; }
     void incref() { ++m_refcount; }

@@ -263,38 +263,3 @@ Hostlist::assign(const Hostlist& src)
     }
     return *this;
 }
-
-extern "C" {
-Hostlist* hostlist_create(void) { return new Hostlist(); }
-void hostlist_destroy(hostlist_t l) { delete l; }
-void hostlist_clear(hostlist_t l) { l->clear(); }
-void hostlist_reset_strlist(hostlist_t l) { l->reset_strlist(); }
-lcb_error_t hostlist_add_host(hostlist_t l, const lcb_host_t *h) { l->add(*h); return LCB_SUCCESS; }
-lcb_host_t *hostlist_shift_next(hostlist_t hl, int wrap) { return hl->next(wrap); }
-int hostlist_finished(hostlist_t l) { return l->ix == l->hosts.size(); }
-size_t hostlist_size(hostlist_t l) { return l->size(); }
-void hostlist_randomize(hostlist_t l) { l->randomize(); }
-
-lcb_error_t
-hostlist_add_string(hostlist_t hl, const char *spec, int len, int deflport) {
-    return hl->add(spec, len, deflport);
-}
-
-void
-hostlist_assign(hostlist_t dst, const hostlist_t src) {
-    dst->assign(*src);
-}
-
-const lcb_host_t*
-hostlist_get(const hostlist_t h, size_t ix) { return &h->hosts[ix]; }
-
-const char * const *
-hostlist_strents(const hostlist_t h) {
-    h->ensure_strlist();
-    if (h->hoststrs.size()) {
-        return &h->hoststrs[0];
-    } else {
-        return NULL;
-    }
-}
-}

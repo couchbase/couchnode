@@ -45,56 +45,74 @@ struct Hostlist {
     Hostlist() : ix(0) {}
     ~Hostlist();
 
-    void add(const lcb_host_t&);
+    /**
+     * Adds a string to the hostlist. See lcb_host_parse for details.
+     * Note that if the host already exists (see 'lcb_host_equals') it will
+     * not be added
+     * @param s the string to parse
+     * @param len the length of the string
+     * @param deflport If `s` does not contain an explicit port, use this
+     *        port instead.
+     * @return LCB_EINVAL if the host string is not valid
+     */
     lcb_error_t add(const char *s, long len, int deflport);
     lcb_error_t add(const char *s, int deflport) { return add(s, -1, deflport); }
+    void add(const lcb_host_t&);
+
     bool exists(const lcb_host_t&) const;
     bool exists(const char *hostport) const;
+
+    /**
+     * Return the next host in the list.
+     * @param wrap If the internal iterator has reached its limit, this
+     * indicates whether it should be reset, or if it should return NULL
+     * @return a new host if available, or NULL if the list is empty or the
+     * iterator is finished.
+     */
     lcb_host_t *next(bool wrap);
     bool finished() const;
 
     size_t size() const { return hosts.size(); }
     bool empty() const { return hosts.empty(); }
     Hostlist& assign(const Hostlist& other);
+
+    /** Clears the hostlist */
     void clear() { hosts.clear(); reset_strlist(); ix = 0; }
+
+    /** Randomize the hostlist by shuffling the order. */
     void randomize();
+
+    /**
+     * String list handling functions. These are used to return the hostlist via
+     * the API where we return a char*[] terminated by a NULL pointer.
+     */
+
+    /** Ensure that the string list contains at least one entry */
     void ensure_strlist();
+
+    /** Frees the current list of strings */
     void reset_strlist();
+
+    const char * const *get_strlist() const { return &hoststrs[0]; }
+
     unsigned int ix;
     const lcb_host_t& operator[](size_t ix_) const { return hosts[ix_]; }
 
     std::vector<lcb_host_t> hosts;
     std::vector<const char *> hoststrs;
-    static Hostlist* from_c(hostlist_st* src) {
-        return reinterpret_cast<Hostlist*>(src);
-    }
 };
 }
 typedef lcb::Hostlist* hostlist_t;
 
 struct hostlist_st : lcb::Hostlist {
+    hostlist_st() : Hostlist() {
+    }
 };
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * Creates a new hostlist. Returns NULL on allocation failure
- */
-hostlist_t hostlist_create(void);
-
-/**
- * Frees resources associated with the hostlist
- */
-void hostlist_destroy(hostlist_t hostlist);
-
-/**
- * Clears the hostlist
- */
-void hostlist_clear(hostlist_t hostlist);
-
 /**
  * Parses a string into a hostlist
  * @param host the target host to populate
@@ -126,50 +144,6 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport);
  */
 int lcb_host_equals(const lcb_host_t *a, const lcb_host_t *b);
 
-/**
- * Adds a string to the hostlist. See lcb_host_parse for details.
- * Note that if the host already exists (see 'lcb_host_equals') it will
- * not be added
- * @return LCB_EINVAL if the host string is not value, LCB_CLIENT_ENOMEM on
- * allocation failure.
- */
-lcb_error_t hostlist_add_string(hostlist_t hostlist,
-                                const char *spec,
-                                int speclen,
-                                int deflport);
-
-#define hostlist_add_stringz(hostlist, spec, deflport) \
-    hostlist_add_string(hostlist, spec, -1, deflport)
-
-lcb_error_t hostlist_add_host(hostlist_t hostlist, const lcb_host_t *host);
-
-/**
- * Return the next host in the list.
- * @param hostlist the hostlist to use
- * @param rollover If the internal iterator has reached its limit, this
- * indicates whether it should be reset, or if it should return NULL
- * @return a new host if available, or NULL if the list is empty or the
- * iterator is finished.
- */
-lcb_host_t *hostlist_shift_next(hostlist_t hostlist, int rollover);
-
-/**
- * Randomize the hostlist
- */
-void hostlist_randomize(hostlist_t hostlist);
-
-/**
- * String list handling functions. These are used to return the hostlist via
- * the API where we return a char*[] terminated by a NULL pointer.
- */
-void hostlist_reset_strlist(hostlist_t hostlist);
-
-/** Whether the internal iterator has finished. */
-int hostlist_finished(hostlist_t);
-size_t hostlist_size(const hostlist_t hl);
-void hostlist_assign(hostlist_t dst, const hostlist_t src);
-const lcb_host_t *hostlist_get(const hostlist_t, size_t);
-const char * const *hostlist_strents(const hostlist_t hl);
 #ifdef __cplusplus
 }
 #endif

@@ -37,22 +37,6 @@
 extern "C" {
 #endif
 
-typedef struct lcbio_TABLE {
-    lcb_io_opt_t p;
-    lcb_iomodel_t model;
-    lcb_timer_procs timer;
-    lcb_loop_procs loop;
-
-    union {
-        struct {
-            lcb_ev_procs ev;
-            lcb_bsd_procs io;
-        } v0;
-        lcb_completion_procs completion;
-    } u_io;
-    unsigned refcount;
-    void (*dtor)(void *);
-} lcbio_TABLE;
 
 /** Whether the underlying model is event-based */
 #define IOT_IS_EVENT(iot) ((iot)->model == LCB_IOMODEL_EVENT)
@@ -77,6 +61,67 @@ typedef struct lcbio_TABLE {
 
 /** First argument to IO Table */
 #define IOT_ARG(iot) (iot)->p
+
+typedef struct lcbio_TABLE {
+    lcb_io_opt_t p;
+    lcb_iomodel_t model;
+    lcb_timer_procs timer;
+    lcb_loop_procs loop;
+
+    union {
+        struct {
+            lcb_ev_procs ev;
+            lcb_bsd_procs io;
+        } v0;
+        lcb_completion_procs completion;
+    } u_io;
+    unsigned refcount;
+    void (*dtor)(void *);
+
+#ifdef __cplusplus
+    bool is_E() const { return IOT_IS_EVENT(this); }
+    bool is_C() const { return !is_E(); }
+    int get_errno() const { return IOT_ERRNO(this); }
+
+    void run_loop() { IOT_START(this); }
+    void stop_loop() { IOT_STOP(this); }
+
+    int E_connect(lcb_socket_t sock, const sockaddr* saddr, unsigned addrlen) {
+       return IOT_V0IO(this).connect0(p, sock, saddr, addrlen);
+    }
+
+    void E_close(lcb_socket_t sock) {
+        IOT_V0IO(this).close(p, sock);
+    }
+
+    void *E_event_create() {
+        return IOT_V0EV(this).create(p);
+    }
+
+    void E_event_watch(lcb_socket_t fd, void *event, short mask, void *arg,
+                       lcb_ioE_callback cb) {
+        IOT_V0EV(this).watch(p, fd, event, mask, arg, cb);
+    }
+
+     void E_event_destroy(void *event) {
+         IOT_V0EV(this).destroy(p, event);
+     }
+
+    void E_event_cancel(lcb_socket_t fd, void *event) {
+        IOT_V0EV(this).cancel(p, fd, event);
+    }
+
+    void C_close(lcb_sockdata_t *sd) {
+        IOT_V1(this).close(p, sd);
+    }
+
+    int C_connect(lcb_sockdata_t *sd, const sockaddr *addr, unsigned addrlen,
+                  lcb_io_connect_cb callback) {
+        return IOT_V1(this).connect(p, sd, addr, addrlen, callback);
+    }
+#endif
+
+} lcbio_TABLE;
 
 #ifdef __cplusplus
 }
