@@ -18,6 +18,7 @@
 #include "internal.h"
 #include "clconfig.h"
 #include "bc_http.h"
+#include "auth-priv.h"
 #include <lcbio/ssl.h>
 #include "ctx-log-inl.h"
 #define LOGARGS(ht, lvlbase) ht->parent->settings, "htconfig", LCB_LOG_##lvlbase, __FILE__, __LINE__
@@ -250,18 +251,18 @@ lcb_error_t HttpProvider::setup_request_header(const lcb_host_t &host) {
     }
 
     request_buf.append(" HTTP/1.1\r\n");
-    const char *username = NULL, *password = NULL;
-    lcbauth_get_upass(settings().auth, &username, &password);
-
-    if (password) {
-        char cred[256], b64[256];
-        snprintf(cred, sizeof(cred), "%s:%s", username, password);
-
-        if (lcb_base64_encode(cred, b64, sizeof(b64)) == -1) {
+    const std::string& password = settings().auth->password_for(settings().bucket);
+    if (!password.empty()) {
+        const std::string& username = settings().auth->username_for(settings().bucket);
+        std::string cred;
+        cred.append(username).append(":").append(password);
+        char b64[256] = { 0 };
+        if (lcb_base64_encode(cred.c_str(), b64, sizeof(b64)) == -1) {
             return LCB_EINTERNAL;
         }
         request_buf.append("Authorization: Basic ").append(b64).append("\r\n");
     }
+
     request_buf.append("Host: ").append(host.host).append(":").append(host.port).append("\r\n");
     request_buf.append("User-Agent: libcouchbase/").append(LCB_VERSION_STRING).append("\r\n");
     request_buf.append("\r\n");

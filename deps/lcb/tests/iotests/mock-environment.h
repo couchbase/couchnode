@@ -71,7 +71,8 @@ class MockCommand
     X(GET_MCPORTS) \
     X(SET_CCCP) \
     X(REGEN_VBCOORDS) \
-    X(RESET_QUERYSTATE)
+    X(RESET_QUERYSTATE) \
+    X(OPFAIL)
 
 public:
     enum Code {
@@ -352,6 +353,7 @@ protected:
     lcb_io_opt_st *iops;
     std::set<std::string> featureRegistry;
     std::string bucketName;
+    std::string userName;
     const char **argv;
     void clearAndReset();
 

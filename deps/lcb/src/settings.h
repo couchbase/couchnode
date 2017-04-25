@@ -84,7 +84,7 @@
 #define LCB_DEFAULT_RETRY_NMV_INTERVAL LCB_MS2US(100)
 #define LCB_DEFAULT_VB_NOGUESS 1
 #define LCB_DEFAULT_TCP_NODELAY 1
-#define LCB_DEFAULT_SELECT_BUCKET 0
+#define LCB_DEFAULT_SELECT_BUCKET 1
 
 #include "config.h"
 #include <libcouchbase/couchbase.h>

@@ -29,6 +29,8 @@
 #define LOGARGS_T(lvl) LOGARGS(this, lvl)
 
 #define LOGFMT "<%s:%s> (SRV=%p,IX=%d) "
+#define PKTFMT "OP=0x%x, RC=0x%x, SEQ=%u"
+#define PKTARGS(pkt) (pkt).opcode(), (pkt).status(), (pkt).opaque()
 
 #define LOGID(server) get_ctx_host(server->connctx), get_ctx_port(server->connctx), (void*)server, server->index
 #define LOGID_T() LOGID(this)
@@ -164,6 +166,107 @@ Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
     return true;
 }
 
+/**
+ * Determine if this is an error code that we can pass to the user, or can
+ * otherwise handle "innately"
+ */
+static bool is_fastpath_error(uint16_t rc) {
+    switch (rc) {
+    case PROTOCOL_BINARY_RESPONSE_SUCCESS:
+    case PROTOCOL_BINARY_RESPONSE_KEY_ENOENT:
+    case PROTOCOL_BINARY_RESPONSE_KEY_EEXISTS:
+    case PROTOCOL_BINARY_RESPONSE_E2BIG:
+    case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
+    case PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL:
+    case PROTOCOL_BINARY_RESPONSE_ERANGE:
+    case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
+    case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
+    case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
+    case PROTOCOL_BINARY_RESPONSE_ENOMEM:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EEXISTS:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_E2BIG:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_CANTINSERT:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_ETOODEEP:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_NOTJSON:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_NUM_ERANGE:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_DELTA_ERANGE:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
+        return true;
+    default:
+        if (rc >= 0xc0 && rc <= 0xcc) {
+            // other subdoc?
+            return true;
+        } else {
+            return false;
+        }
+        break;
+    }
+}
+
+/**
+ * Handle an unknown memcached error
+ *
+ * @param mcresp Response which contains the unknown error
+ * @param[out] newerr more user-friendly based on error map attributes
+ *
+ * @return true if this function handled the error specially (by disconnecting)
+ * or false if normal handling should continue.
+ */
+bool Server::handle_unknown_error(const MemcachedResponse& mcresp,
+                                  lcb_error_t& newerr) {
+
+    if (!settings->errmap->isLoaded() || !settings->use_errmap) {
+        // If there's no error map, just return false
+        return false;
+    }
+
+    // Look up the error map definition for this error
+    const errmap::Error& err = settings->errmap->getError(mcresp.status());
+
+    if (!err.isValid() || err.hasAttribute(errmap::SPECIAL_HANDLING)) {
+        lcb_log(LOGARGS_T(ERR), LOGFMT "Received error not in error map or requires special handling! " PKTFMT, LOGID_T(), PKTARGS(mcresp));
+        lcbio_ctx_senderr(connctx, LCB_PROTOCOL_ERROR);
+        return true;
+    } else {
+        lcb_log(LOGARGS_T(WARN), LOGFMT "Received server error %s (0x%x) on packet: " PKTFMT, LOGID_T(), err.shortname.c_str(), err.code, PKTARGS(mcresp));
+    }
+
+    if (err.hasAttribute(errmap::FETCH_CONFIG)) {
+        instance->bootstrap(BS_REFRESH_THROTTLE);
+    }
+
+    if (err.hasAttribute(errmap::TEMPORARY)) {
+        newerr = LCB_GENERIC_TMPERR;
+    }
+
+    if (err.hasAttribute(errmap::CONSTRAINT_FAILURE)) {
+        newerr = LCB_GENERIC_CONSTRAINT_ERR;
+    }
+
+    if (err.hasAttribute(errmap::AUTH)) {
+        newerr = LCB_AUTH_ERROR;
+    }
+
+    if (err.hasAttribute(errmap::SUBDOC) && newerr == LCB_SUCCESS) {
+        newerr = LCB_GENERIC_SUBDOCERR;
+    }
+
+    if (err.hasAttribute(errmap::CONN_STATE_INVALIDATED)) {
+        if (newerr != LCB_SUCCESS) {
+            newerr = LCB_ERROR;
+        }
+        lcbio_ctx_senderr(connctx, newerr);
+        return true;
+    }
+
+    return false;
+
+}
+
 /* This function is called within a loop to process a single packet.
  *
  * If a full packet is available, it will process the packet and return
@@ -224,7 +327,14 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         return PKT_READ_COMPLETE;
     }
 
-    if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET) {
+    lcb_error_t err_override = LCB_SUCCESS;
+    ReadState rdstate = PKT_READ_COMPLETE;
+
+    /* Check if the status code is one which must be handled carefully by the
+     * client */
+    if (is_fastpath_error(mcresp.status())) {
+        // Nothing here!
+    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET) {
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
         if (!handle_nmv(mcresp, request)) {
@@ -232,13 +342,19 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         }
         DO_SWALLOW_PAYLOAD()
         goto GT_DONE;
+    } else if (handle_unknown_error(mcresp, err_override)) {
+        DO_ASSIGN_PAYLOAD()
+        mcreq_dispatch_response(this, request, &mcresp, err_override);
+        DO_SWALLOW_PAYLOAD()
+        rdstate = PKT_READ_ABORT;
+        goto GT_DONE;
     }
 
     /* Figure out if the request is 'ufwd' or not */
     if (!(request->flags & MCREQ_F_UFWD)) {
         DO_ASSIGN_PAYLOAD();
         mcresp.bufh = rdb_get_first_segment(ior);
-        mcreq_dispatch_response(this, request, &mcresp, LCB_SUCCESS);
+        mcreq_dispatch_response(this, request, &mcresp, err_override);
         DO_SWALLOW_PAYLOAD()
 
     } else {
@@ -265,7 +381,7 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     if (is_last) {
         mcreq_packet_handled(this, request);
     }
-    return PKT_READ_COMPLETE;
+    return rdstate;
 }
 
 static void

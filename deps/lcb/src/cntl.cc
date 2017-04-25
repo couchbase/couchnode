@@ -503,7 +503,7 @@ HANDLER(bucket_auth_handler) {
     if (mode == LCB_CNTL_SET) {
         /* Parse the bucket string... */
         cred = (const lcb_BUCKETCRED *)arg;
-        lcbauth_add_pass(instance->settings->auth, (*cred)[0], (*cred)[1], LCBAUTH_F_BUCKET);
+        return lcbauth_add_pass(instance->settings->auth, (*cred)[0], (*cred)[1], LCBAUTH_F_BUCKET);
         (void)cmd; (void)arg;
     } else if (mode == CNTL__MODE_SETSTRING) {
         const char *ss = reinterpret_cast<const char *>(arg);
@@ -515,7 +515,7 @@ HANDLER(bucket_auth_handler) {
         if (!root.isArray() || root.size() != 2) {
             return LCB_ECTL_BADARG;
         }
-        lcbauth_add_pass(instance->settings->auth,
+        return lcbauth_add_pass(instance->settings->auth,
             root[0].asString().c_str(),
             root[1].asString().c_str(), LCBAUTH_F_BUCKET);
     } else {

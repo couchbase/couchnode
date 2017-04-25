@@ -389,11 +389,6 @@ Connspec::parse(const char *connstr_, const char **errmsg)
             goto GT_DONE;
         }
     }
-
-    if (m_username.empty()) {
-        m_username = m_bucket;
-    }
-
     GT_DONE:
     return err;
 }

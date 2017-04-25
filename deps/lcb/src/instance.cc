@@ -387,8 +387,17 @@ lcb_error_t lcb_create(lcb_t *instance,
     obj->settings = settings;
 
     settings->bucket = strdup(spec.bucket().c_str());
-    if ((err = settings->auth->init(spec.username(), spec.bucket(),
-        spec.password(), type)) != LCB_SUCCESS) {
+
+    if (!spec.username().empty()) {
+        settings->auth->set_mode(LCBAUTH_MODE_RBAC);
+        err = settings->auth->add(spec.username(), spec.password(),
+                                  LCBAUTH_F_CLUSTER);
+    } else {
+        settings->auth->set_mode(LCBAUTH_MODE_CLASSIC);
+        err = settings->auth->add(spec.bucket(), spec.password(),
+                                  LCBAUTH_F_BUCKET);
+    }
+    if (err != LCB_SUCCESS) {
         goto GT_DONE;
     }
 

@@ -386,7 +386,7 @@ void MockEnvironment::SetUp()
     }
     serverParams = ServerParams(http,
                                 bucketName.c_str(),
-                                bucketName.c_str(),
+                                userName.c_str(),
                                 NULL);
 
     // Mock 0.6

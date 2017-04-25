@@ -9,16 +9,6 @@ lcbauth_new()
     return new Authenticator();
 }
 
-const char *
-lcbauth_get_bpass(const lcb_AUTHENTICATOR *auth, const char *u)
-{
-    Authenticator::Map::const_iterator ii = auth->buckets().find(u);
-    if (ii == auth->buckets().end()) {
-        return NULL;
-    }
-    return ii->second.c_str();
-}
-
 lcb_error_t
 lcbauth_add_pass(lcb_AUTHENTICATOR *auth, const char *u, const char *p, int flags)
 {
@@ -28,46 +18,63 @@ lcbauth_add_pass(lcb_AUTHENTICATOR *auth, const char *u, const char *p, int flag
 lcb_error_t
 Authenticator::add(const char *u, const char *p, int flags)
 {
-    if (!flags) {
+    if (!(flags & (LCBAUTH_F_BUCKET|LCBAUTH_F_CLUSTER))) {
         return LCB_EINVAL;
     }
 
+    if (m_mode == LCBAUTH_MODE_RBAC && (flags & LCBAUTH_F_BUCKET)) {
+        return LCB_OPTIONS_CONFLICT;
+    }
+
     if (flags & LCBAUTH_F_CLUSTER) {
-        if (!p) {
-            m_username.clear();
-            m_password.clear();
-        } else {
+        if (p) {
             m_username = u;
             m_password = p;
-        }
-    }
-    if (flags & LCBAUTH_F_BUCKET) {
-        if (!p) {
-            m_buckets.erase(u);
         } else {
-            m_buckets[u] = p;
+            m_username.clear();
+            m_password.clear();
         }
     }
+
+    if (flags & LCBAUTH_F_BUCKET) {
+        if (p) {
+            m_buckets[u] = p;
+        } else {
+            m_buckets.erase(u);
+        }
+    }
+
     return LCB_SUCCESS;
 }
 
-void
-lcbauth_get_upass(const lcb_AUTHENTICATOR *auth, const char **u, const char **p)
-{
-    if (!auth->username().empty()) {
-        *u = auth->username().c_str();
-        *p = auth->password().empty() ? NULL : auth->password().c_str();
+static const std::string EmptyString;
 
-    } else if (!auth->buckets().empty()) {
-        Authenticator::Map::const_iterator it = auth->buckets().begin();
-        *u = it->first.c_str();
-        if (!it->second.empty()) {
-            *p = it->second.c_str();
+const std::string&
+Authenticator::username_for(const char *bucket) const {
+    if (m_mode == LCBAUTH_MODE_CLASSIC) {
+        // Find bucket specific credentials:
+        const Map::const_iterator it = m_buckets.find(bucket);
+        if (it == m_buckets.end()) {
+            return EmptyString;
         } else {
-            *p = NULL;
+            return it->first;
         }
     } else {
-        *u = *p = NULL;
+        return m_username;
+    }
+}
+
+const std::string&
+Authenticator::password_for(const char *bucket) const {
+    if (m_mode == LCBAUTH_MODE_CLASSIC) {
+        const Map::const_iterator it = m_buckets.find(bucket);
+        if (it == m_buckets.end()) {
+            return EmptyString;
+        } else {
+            return it->second;
+        }
+    } else {
+        return m_password;
     }
 }
 
@@ -83,23 +90,18 @@ lcbauth_unref(lcb_AUTHENTICATOR *auth)
     auth->decref();
 }
 
-lcb_error_t
-Authenticator::init(const std::string& username_, const std::string& bucket,
-    const std::string& passwd, lcb_type_t conntype)
-{
-    m_username = (!username_.empty()) ? username_ : bucket;
-    m_password = passwd;
-
-    m_buckets[bucket] = m_password;
-    return LCB_SUCCESS;
-}
-
 Authenticator::Authenticator(const Authenticator& other)
     : m_buckets(other.m_buckets), m_username(other.m_username),
-      m_password(other.m_password), m_refcount(1) {
+      m_password(other.m_password), m_refcount(1),
+      m_mode(other.m_mode) {
 }
 
 lcb_AUTHENTICATOR *
 lcbauth_clone(const lcb_AUTHENTICATOR *src) {
     return new Authenticator(*src);
+}
+
+lcb_error_t
+lcbauth_set_mode(lcb_AUTHENTICATOR *src, lcbauth_MODE mode) {
+    return src->set_mode(mode);
 }

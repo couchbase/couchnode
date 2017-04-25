@@ -142,6 +142,7 @@ public:
         cbsasl_secret_t secret;
         char buffer[256];
     } u_auth;
+    std::string username;
 
     lcbio_CTX *ctx;
     lcbio_CONNDONE_cb cb;
@@ -161,16 +162,12 @@ static int
 sasl_get_username(void *context, int id, const char **result, unsigned int *len)
 {
     SessionRequestImpl *ctx = SessionRequestImpl::get(context);
-    const char *u = NULL, *p = NULL;
     if (!context || !result || (id != CBSASL_CB_USER && id != CBSASL_CB_AUTHNAME)) {
         return SASL_BADPARAM;
     }
 
-    lcbauth_get_upass(ctx->settings->auth, &u, &p);
-    *result = u;
-    if (len) {
-        *len = (unsigned int)strlen(*result);
-    }
+    *result = ctx->username.c_str();
+    *len = ctx->username.size();
 
     return SASL_OK;
 }
@@ -216,21 +213,20 @@ SessionRequestImpl::setup(const lcbio_NAMEINFO& nistrs, const lcb_host_t& host,
         sasl_callbacks[ii].context = this;
     }
 
-    const char *pass = NULL, *user = NULL;
-    lcbauth_get_upass(&auth, &user, &pass);
+    // Get the credentials
+    username = auth.username_for(settings->bucket);
+    const std::string& pass = auth.password_for(settings->bucket);
 
-    if (pass) {
-        unsigned long pwlen = (unsigned long)strlen(pass);
+    if (!pass.empty()) {
         size_t maxlen = sizeof(u_auth.buffer) - offsetof(cbsasl_secret_t, data);
-        u_auth.secret.len = pwlen;
+        u_auth.secret.len = pass.size();
 
-        if (pwlen < maxlen) {
-            memcpy(u_auth.secret.data, pass, pwlen);
+        if (pass.size() < maxlen) {
+            memcpy(u_auth.secret.data, pass.c_str(), pass.size());
         } else {
             return false;
         }
     }
-
 
     cbsasl_error_t saslerr = cbsasl_client_new(
             "couchbase", host.host, nistrs.local, nistrs.remote,

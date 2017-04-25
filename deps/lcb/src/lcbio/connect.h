@@ -26,14 +26,19 @@
 namespace lcb {
 namespace io {
 struct Connstart;
+struct PoolRequest;
 }
 }
 typedef lcb::io::Connstart* lcbio_pCONNSTART;
+typedef lcb::io::PoolRequest lcbio_MGRREQ;
 extern "C" {
 #else
 struct lcbio_CONNSTART;
 typedef struct lcbio_CONNSTART* lcbio_pCONNSTART;
+typedef struct lcbio_MGRREQ lcbio_MGRREQ;
 #endif
+
+typedef lcbio_MGRREQ* lcbio_pMGRREQ;
 
 /**
  * @file
@@ -48,10 +53,6 @@ typedef struct lcbio_CONNSTART* lcbio_pCONNSTART;
  * @{
  */
 
-struct lcbio_MGRREQ;
-
-/** @brief Pending connection request */
-typedef struct lcbio_MGRREQ *lcbio_pMGRREQ;
 typedef struct lcbio_TABLE *lcbio_pTABLE;
 typedef struct lcbio_TIMER *lcbio_pTIMER, *lcbio_pASYNC;
 

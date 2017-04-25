@@ -156,7 +156,9 @@ iotssl_log_errors(lcbio_XSSL *xs)
         if (ERR_GET_LIB(curerr) == ERR_LIB_SSL) {
             switch (ERR_GET_REASON(curerr)) {
             case SSL_R_CERTIFICATE_VERIFY_FAILED:
+#ifdef SSL_R_MISSING_VERIFY_MESSAGE
             case SSL_R_MISSING_VERIFY_MESSAGE:
+#endif
                 xs->errcode = LCB_SSL_CANTVERIFY;
                 break;
 

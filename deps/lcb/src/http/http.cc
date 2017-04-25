@@ -19,6 +19,7 @@
 #include "bucketconfig/clconfig.h"
 #include "http/http.h"
 #include "http/http-priv.h"
+#include "auth-priv.h"
 using namespace lcb::http;
 
 #define LOGFMT "<%s:%s> "
@@ -430,11 +431,13 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
         if (cmd->cmdflags & LCB_CMDHTTP_F_NOUPASS) {
             username = password = NULL;
         } else if (username == NULL && password == NULL) {
+            const Authenticator& auth = *LCBT_SETTING(instance, auth);
             if (reqtype == LCB_HTTP_TYPE_MANAGEMENT) {
-                lcbauth_get_upass(LCBT_SETTING(instance, auth), &username, &password);
+                username = auth.username().c_str();
+                password = auth.password().c_str();
             } else {
-                username = LCBT_SETTING(instance, bucket);
-                password = lcbauth_get_bpass(LCBT_SETTING(instance, auth), username);
+                username = auth.username_for(LCBT_SETTING(instance, bucket)).c_str();
+                password = auth.password_for(LCBT_SETTING(instance, bucket)).c_str();
             }
         }
 

@@ -253,8 +253,18 @@ struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
  */
 struct lcb_create_st3 {
     const char *connstr; /**< Connection string */
-    const char *username; /**< Username for bucket. Unused as of Server 2.5 */
-    const char *passwd; /**< Password for bucket */
+
+    /**
+     * Username to use for authentication. This should only be set when
+     * connecting to a server 5.0 or greater.
+     */
+    const char *username;
+
+    /**
+     * Password for bucket. Can also be password for username on servers >= 5.0
+     */
+    const char *passwd;
+
     void *_pad_bucket; /**< @private */
     struct lcb_io_opt_st *io; /**< IO Options */
     lcb_type_t type;

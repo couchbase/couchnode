@@ -1,5 +1,31 @@
 # Release Notes
 
+## 2.7.4 (April 18 2017)
+
+* Send `SELECT_BUCKET` command by default if server supports it. This enables
+  new-style 'RBAC' authentication by default. In 2.7.3 users were required to
+  use `select_bucket=true` in the connection string to enable this feature.
+  In this version, the option is still available but is now mainly useful to
+  disable it.
+
+* Improve `lcb_AUTHENTICATOR` API. This provides better documentation and some
+  API/design/implementation fixes to the authenticator interface. The
+  authenticator may be useful for integrators/wrappers who wish to correlate
+  multiple credentials with their buckets.
+  Note that the use of `lcb_AUTHENTICATOR` is *not* required for RBAC support.
+  In order to use RBAC, simply make use of the `username` field in
+  the `lcb_create_st` struct, or the `username` parameter in the connection
+  string.
+  * Issues: [CCBC-751](https://issues.couchbase.com/browse/CCBC-751)
+
+* Fix bug where `lcb_get_server_list()` would return NULL.
+  * Issues: [CCBC-764](https://issues.couchbase.com/browse/CCBC-764)
+
+* Fix bug where client would not recover from failover. Clients from version
+  2.7.1 through 2.7.3 would not obtain a new cluster map after a node had
+  been failed over (e.g. by hitting the "fail over" button in the UI).
+  * Issues: [CCBC-761](https://issues.couchbase.com/browse/CCBC-761)
+
 ## 2.7.3 (March 21 2017)
 
 * Provide the ability to send the `SELECT_BUCKET` when establishing a

@@ -93,7 +93,10 @@ struct Hostlist {
     /** Frees the current list of strings */
     void reset_strlist();
 
-    const char * const *get_strlist() const { return &hoststrs[0]; }
+    const char * const *get_strlist() {
+        ensure_strlist();
+        return &hoststrs[0];
+    }
 
     unsigned int ix;
     const lcb_host_t& operator[](size_t ix_) const { return hosts[ix_]; }

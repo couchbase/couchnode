@@ -339,3 +339,33 @@ TEST_F(ConfigTest, testKetamaUniformity)
     ASSERT_STREQ("localhost:12006", vbc->servers[3].authority);
     lcbvb_destroy(vbc);
 }
+
+TEST_F(ConfigTest, testKetamaCompliance) {
+    string txt = getConfigFile("memd_ketama_config.json");
+    lcbvb_CONFIG *vbc = lcbvb_parse_json(txt.c_str());
+    ASSERT_TRUE(vbc != NULL);
+    ASSERT_EQ(4, vbc->nsrv);
+    ASSERT_EQ(LCBVB_DIST_KETAMA, vbc->dtype);
+
+    lcbvb_replace_host(vbc, "192.168.1.104");
+    // Now, load the hash file
+    string expected_txt = getConfigFile("ketama_expected.json");
+    Json::Value json;
+    ASSERT_TRUE(Json::Reader().parse(expected_txt, json));
+
+    ASSERT_EQ(json.size(), vbc->ncontinuum);
+
+    // Iterate over the continuum in the vbuckets
+    for (size_t ii = 0; ii < json.size(); ++ii) {
+        const Json::Value& cur = json[static_cast<int>(ii)];
+        unsigned exp_hash = cur["hash"].asUInt();
+        string exp_server = cur["hostname"].asString();
+        unsigned got_hash = vbc->continuum[ii].point;
+        unsigned got_index = vbc->continuum[ii].index;
+
+        ASSERT_EQ(exp_server, vbc->servers[got_index].authority);
+        ASSERT_EQ(exp_hash, got_hash);
+    }
+
+    lcbvb_destroy(vbc);
+}
