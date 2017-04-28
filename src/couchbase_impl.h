@@ -113,6 +113,7 @@ public:
     static NAN_METHOD(fnControl);
     static NAN_METHOD(fnGetViewNode);
     static NAN_METHOD(fnGetMgmtNode);
+    static NAN_METHOD(fnInvalidateQueryCache);
     static NAN_METHOD(fnErrorTest);
 
     static NAN_METHOD(fnGet);

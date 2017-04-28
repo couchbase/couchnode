@@ -69,6 +69,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "connect", fnConnect);
     Nan::SetPrototypeMethod(t, "getViewNode", fnGetViewNode);
     Nan::SetPrototypeMethod(t, "getMgmtNode", fnGetMgmtNode);
+    Nan::SetPrototypeMethod(t, "invalidateQueryCache", fnInvalidateQueryCache);
     Nan::SetPrototypeMethod(t, "_errorTest", fnErrorTest);
 
     Nan::SetPrototypeMethod(t, "setConnectCallback", fnSetConnectCallback);
@@ -328,6 +329,12 @@ NAN_METHOD(CouchbaseImpl::fnGetMgmtNode)
 
     return info.GetReturnValue().Set(
         Nan::New<String>(mgmtNode).ToLocalChecked());
+}
+
+NAN_METHOD(CouchbaseImpl::fnInvalidateQueryCache)
+{
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_cntl(me->getLcbHandle(), LCB_CNTL_SET, LCB_CNTL_N1QL_CLEARACHE, NULL);
 }
 
 NAN_METHOD(CouchbaseImpl::fnShutdown)

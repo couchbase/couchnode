@@ -55,6 +55,10 @@ describe('#Bucket', function() {
       });
     });
 
+    it('should successfully invalidate the query cache', function() {
+      H.b.invalidateQueryCache();
+    });
+
     it('clientVersion property should work', function () {
       assert(typeof H.b.clientVersion === 'string');
     });
