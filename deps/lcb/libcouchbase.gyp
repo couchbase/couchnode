@@ -185,7 +185,7 @@
         'src/lcbio/ctx.c',
         'src/lcbio/iotable.c',
         'src/lcbio/ioutils.c',
-        'src/lcbio/manager.c',
+        'src/lcbio/manager.cc',
         'src/lcbio/protoctx.c',
         'src/lcbio/timer.c',
         'src/mc/compress.c',
