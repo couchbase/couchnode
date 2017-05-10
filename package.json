@@ -24,6 +24,7 @@
     "mocha": "~3.2.0",
     "nan": "~2.5.1",
     "prebuild": "~6.1.0",
+    "prebuild-install": "~2.1.2",
     "request": "~2.80.0"
   },
   "devDependencies": {
@@ -36,16 +37,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://github.com/couchbase/couchnode.git"
+    "url": "http://github.com/stelcheck/couchnode.git"
   },
   "version": "2.3.3",
   "config": {
     "native": false
   },
   "scripts": {
-    "install": "prebuild --install",
+    "install": "prebuild-install || prebuild --compile",
     "test": "mocha",
     "rebuild": "prebuild --compile",
-    "prebuild": "prebuild --verbose --strip"
+    "prebuild": "prebuild --verbose --strip",
+    "prebuild-all": "prebuild --all"
   }
 }

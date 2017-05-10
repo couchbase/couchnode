@@ -1,0 +1,18 @@
+os:
+  - linux
+  - osx
+
+dist: trusty
+
+language: node_js
+node_js:
+  - 7
+
+script:
+  - npm install
+  - npm run prebuild-all -- -u "${GITHUB_OAUTH_TOKEN}"
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
