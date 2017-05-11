@@ -23,7 +23,7 @@
     "bindings": "~1.2.1",
     "mocha": "~3.2.0",
     "nan": "~2.5.1",
-    "prebuild": "~6.1.0",
+    "prebuild-install": "^2.1.2",
     "request": "~2.80.0"
   },
   "devDependencies": {
@@ -32,7 +32,8 @@
     "jsdoc": "~3.4.0",
     "jsdoc-stability-tag": "~1.0.0",
     "jshint": "~2.9.2",
-    "mocha": "~3.2.0"
+    "mocha": "~3.2.0",
+    "prebuild": "~6.1.0"
   },
   "repository": {
     "type": "git",
@@ -43,9 +44,9 @@
     "native": false
   },
   "scripts": {
-    "install": "prebuild --install",
+    "install": "prebuild-install || node-gyp rebuild",
     "test": "mocha",
-    "rebuild": "prebuild --compile",
+    "rebuild": "node-gyp rebuild",
     "prebuild": "prebuild --verbose --strip"
   }
 }
