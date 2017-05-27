@@ -90,10 +90,10 @@ bucket.upsert('testdoc', {name:'Frank'}, function(err, result) {
 
 ## Documentation
 
-An extensive documentation is available on the Couchbase website.  Visit our
-[Node.js Community](http://couchbase.com/communities/nodejs) on
+An extensive documentation is available on the [Couchbase website](http://developer-stage.cbauthx.com/documentation/server/4.0/sdks/node-2.0/).
+Visit our [Node.js Community](http://couchbase.com/communities/nodejs) on
 the [Couchbase](http://couchbase.com) website for the documentation as well as
-numerous examples and samples.
+numerous examples and [API docs](http://docs.couchbase.com/sdk-api/couchbase-node-client-2.1.2/).
 
 
 ## Source Control
