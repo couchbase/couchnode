@@ -149,7 +149,8 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(SDCMD_ARRAY_ADD_UNIQUE) \
     X(SDCMD_ARRAY_INSERT) \
     X(SDCMD_REMOVE) \
-    X(SDCMD_COUNTER)
+    X(SDCMD_COUNTER) \
+    X(SDCMD_GET_COUNT)
 #undef X
 
     return o;

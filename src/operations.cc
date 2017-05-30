@@ -481,6 +481,7 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
 
         switch(sdcmd.sdcmd) {
         case LCB_SDCMD_GET:
+        case LCB_SDCMD_GET_COUNT:
         case LCB_SDCMD_EXISTS:
             break;
         default:
