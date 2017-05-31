@@ -488,16 +488,20 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
             return Nan::ThrowError(Error::create("unexpected optype"));
         }
 
-        if (index + 1 >= info.Length()) {
+        if (index + 2 >= info.Length()) {
             return Nan::ThrowError(Error::create("missing params"));
         }
 
+        // path
         if (!enc.parseKeyBuf(&sdcmd.path, info[index + 1])) {
             return Nan::ThrowError(Error::create("invalid path"));
         }
 
+        // flags
+        sdcmd.options |= info[index + 2]->Int32Value();
+
         specs.push_back(sdcmd);
-        index += 1;
+        index += 2;
     }
 
     cmd.specs = &specs[0];
@@ -535,11 +539,14 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     if (!enc.parseCas(&cmd.cas, info[3])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
+    if (!enc.parseUintOption(&cmd.cmdflags, info[4])) {
+        return Nan::ThrowError(Error::create("bad flags passed"));
+    }
     if (!enc.parseCookie(&cookie, info[info.Length()-1])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    for (int index = 4; index < info.Length() - 1; ++index) {
+    for (int index = 5; index < info.Length() - 1; ++index) {
         memset(&sdcmd, 0, sizeof(sdcmd));
 
         if (!enc.parseUintOption(&sdcmd.sdcmd, info[index])) {
@@ -549,12 +556,10 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
         int dataCount = 0;
         switch(sdcmd.sdcmd) {
         case LCB_SDCMD_REMOVE:
-            dataCount = 1;
+            dataCount = 2;
             break;
         case LCB_SDCMD_REPLACE:
         case LCB_SDCMD_ARRAY_INSERT:
-            dataCount = 2;
-            break;
         case LCB_SDCMD_DICT_ADD:
         case LCB_SDCMD_DICT_UPSERT:
         case LCB_SDCMD_ARRAY_ADD_FIRST:
@@ -578,21 +583,19 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
             }
         }
 
-        // value/delta
+        // flags
         if (dataCount >= 2) {
+            sdcmd.options |= info[index + 2]->Int32Value();
+        }
+
+        // value/delta
+        if (dataCount >= 3) {
             // I don't believe this can actually fail, no need to test
             sdcmd.value.vtype = LCB_KV_COPY;
             DefaultTranscoder::encodeJson(enc,
                     &sdcmd.value.u_buf.contig.bytes,
                     &sdcmd.value.u_buf.contig.nbytes,
-                    info[index + 2]);
-        }
-
-        // createParents
-        if (dataCount >= 3) {
-            if (info[index + 3]->BooleanValue()) {
-                sdcmd.options |= LCB_SDSPEC_F_MKINTERMEDIATES;
-            }
+                    info[index + 3]);
         }
 
         specs.push_back(sdcmd);

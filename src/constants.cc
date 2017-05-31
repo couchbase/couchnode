@@ -150,7 +150,16 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(SDCMD_ARRAY_INSERT) \
     X(SDCMD_REMOVE) \
     X(SDCMD_COUNTER) \
-    X(SDCMD_GET_COUNT)
+    X(SDCMD_GET_COUNT) \
+    \
+    X(CMDSUBDOC_F_UPSERT_DOC) \
+    X(CMDSUBDOC_F_INSERT_DOC) \
+    X(CMDSUBDOC_F_ACCESS_DELETED) \
+    \
+    X(SDSPEC_F_MKINTERMEDIATES) \
+    X(SDSPEC_F_XATTRPATH) \
+    X(SDSPEC_F_XATTR_MACROVALUES) \
+    X(SDSPEC_F_XATTR_DELETED_OK)
 #undef X
 
     return o;
