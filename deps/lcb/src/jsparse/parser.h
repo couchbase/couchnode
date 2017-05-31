@@ -79,13 +79,6 @@ struct Parser {
     ~Parser();
 
     /**
-     * Resets the context to a pristine state. Callbacks and cookies are kept.
-     * This may be more efficient than allocating/freeing a context each time
-     * (as this can be expensive with the jsonsl structures)
-     */
-    void reset();
-
-    /**
      * Feeds data into the vrow. The callback may be invoked multiple times
      * in this function. In the context of normal lcb usage, this will typically
      * be invoked from within an http_data_callback.

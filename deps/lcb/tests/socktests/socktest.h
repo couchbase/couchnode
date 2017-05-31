@@ -87,7 +87,7 @@ public:
  */
 struct ESocket {
     /** This contains the pending request. See the underlying C object for details */
-    lcbio_CONNREQ creq;
+    lcb::io::ConnectionRequest *creq;
     /** The underlying @ref lcbio_SOCKET */
     lcbio_SOCKET *sock;
     /** The current context */
@@ -122,8 +122,7 @@ struct ESocket {
         syserr = 0;
         callCount = 0;
         conn = NULL;
-        creq.u.preq = NULL;
-        creq.type = LCBIO_CONNREQ_RAW;
+        creq = NULL;
         actions = &defaultActions;
     }
 

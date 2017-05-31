@@ -12,7 +12,7 @@ TEST_F(SockConnTest, testBasic)
     // We can connect
     loop->connect(&sock);
     ASSERT_FALSE(sock.sock == NULL);
-    ASSERT_TRUE(sock.creq.u.cs == NULL);
+    ASSERT_TRUE(sock.creq == NULL);
     ASSERT_EQ(1, sock.sock->refcount);
 
     // We can send data
@@ -105,10 +105,10 @@ TEST_F(SockConnTest, testCancellation)
     ESocket sock;
     lcb_host_t host;
     loop->populateHost(&host);
-    sock.creq.u.cs = lcbio_connect(
+    sock.creq = lcbio_connect(
             loop->iot, loop->settings, &host, 100000, NULL, NULL);
-    ASSERT_FALSE(sock.creq.u.cs == NULL);
-    lcbio_connreq_cancel(&sock.creq);
+    ASSERT_FALSE(sock.creq == NULL);
+    lcb::io::ConnectionRequest::cancel(&sock.creq);
 
     NullBreakCondition nbc;
     loop->setBreakCondition(&nbc);
@@ -120,7 +120,7 @@ static void
 conncb_1(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
 {
     ESocket *es = (ESocket *)arg;
-    es->creq.u.cs = NULL;
+    es->creq = NULL;
     es->callCount++;
     es->ctx = NULL;
     es->lasterr = err;
@@ -135,7 +135,7 @@ TEST_F(SockConnTest, testImmediateUnref)
     lcb_host_t host;
     sock.parent = loop;
     loop->populateHost(&host);
-    sock.creq.u.cs = lcbio_connect(
+    sock.creq = lcbio_connect(
             loop->iot, loop->settings, &host, 1000000, conncb_1, &sock);
     loop->start();
     ASSERT_EQ(1, sock.callCount);

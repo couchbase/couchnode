@@ -506,7 +506,7 @@ TEST_F(MockUnitTest, testSaslMechs)
     doLcbCreate(&instance, &crParams, protectedEnv);
 
     // Make the socket pool disallow idle connections
-    instance->memd_sockpool->maxidle = 0;
+    instance->memd_sockpool->get_options().maxidle = 0;
 
     err = lcb_connect(instance);
     ASSERT_EQ(LCB_SUCCESS, err);

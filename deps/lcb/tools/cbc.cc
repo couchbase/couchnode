@@ -910,7 +910,7 @@ ArithmeticHandler::run()
             cmd.initial = o_initial.result();
         }
         uint64_t delta = o_delta.result();
-        if (delta > std::numeric_limits<int64_t>::max()) {
+        if (delta > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
             throw BadArg("Delta too big");
         }
         cmd.delta = static_cast<int64_t>(delta);
@@ -1495,6 +1495,14 @@ wrapExternalBinary(int argc, char **argv, const std::string& name)
 #endif
 }
 
+static void cleanupHandlers()
+{
+    map<string,Handler*>::iterator iter = handlers_s.begin();
+    for (; iter != handlers_s.end(); iter++) {
+        delete iter->second;
+    }
+}
+
 int main(int argc, char **argv)
 {
 
@@ -1508,6 +1516,8 @@ int main(int argc, char **argv)
     }
 
     setupHandlers();
+    std::atexit(cleanupHandlers);
+
     string cmdname;
     parseCommandname(cmdname, argc, argv);
 
@@ -1541,10 +1551,4 @@ int main(int argc, char **argv)
         fprintf(stderr, "%s\n", err.what());
         exit(EXIT_FAILURE);
     }
-
-    map<string,Handler*>::iterator iter = handlers_s.begin();
-    for (; iter != handlers_s.end(); iter++) {
-        delete iter->second;
-    }
-    exit(EXIT_SUCCESS);
 }

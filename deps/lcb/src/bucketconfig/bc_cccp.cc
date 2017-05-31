@@ -76,14 +76,14 @@ struct CccpProvider : public Provider {
 
     // Whether there is a pending CCCP config request.
     bool has_pending_request() const {
-        return creq.u.p_generic != NULL || cmdcookie != NULL || ioctx != NULL;
+        return creq != NULL || cmdcookie != NULL || ioctx != NULL;
     }
 
     lcb::Hostlist *nodes;
     ConfigInfo *config;
     lcb::io::Timer<CccpProvider, &CccpProvider::on_timeout> timer;
     lcb_t instance;
-    lcbio_CONNREQ creq;
+    lcb::io::ConnectionRequest *creq;
     lcbio_CTX *ioctx;
     CccpCookie *cmdcookie;
 };
@@ -105,9 +105,9 @@ pooled_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
     bool *ru_ex = reinterpret_cast<bool*>(arg);
     lcbio_ref(sock);
     if (reusable && *ru_ex) {
-        lcbio_mgr_put(sock);
+        lcb::io::Pool::put(sock);
     } else {
-        lcbio_mgr_discard(sock);
+        lcb::io::Pool::discard(sock);
     }
 }
 
@@ -119,7 +119,7 @@ CccpProvider::stop_current_request(bool is_clean)
         cmdcookie =  NULL;
     }
 
-    lcbio_connreq_cancel(&creq);
+    lcb::io::ConnectionRequest::cancel(&creq);
 
     if (ioctx) {
         lcbio_ctx_close(ioctx, pooled_close_cb, &is_clean);
@@ -147,11 +147,9 @@ CccpProvider::schedule_next_request(lcb_error_t err, bool can_rollover)
     } else {
 
         lcb_log(LOGARGS(this, INFO), "Requesting connection to node %s:%s for CCCP configuration", next_host->host, next_host->port);
-        lcbio_pMGRREQ preq = lcbio_mgr_get(
-                instance->memd_sockpool, next_host,
-                settings().config_node_timeout,
-                on_connected, this);
-        LCBIO_CONNREQ_MKPOOLED(&creq, preq);
+        creq = instance->memd_sockpool->get(*next_host,
+            settings().config_node_timeout,
+            on_connected, this);
     }
 
     return LCB_SUCCESS;
@@ -219,21 +217,22 @@ void lcb::clconfig::cccp_update(
     CccpCookie *cookie = reinterpret_cast<CccpCookie*>(const_cast<void*>(cookie_));
     CccpProvider *cccp = cookie->parent;
 
+    bool was_active = cookie->active;
     if (cookie->active) {
         cookie->active = false;
         cccp->timer.cancel();
         cccp->cmdcookie = NULL;
     }
+    delete cookie;
 
     if (err == LCB_SUCCESS) {
         std::string ss(reinterpret_cast<const char *>(bytes), nbytes);
         err = cccp->update(origin->host, ss.c_str());
     }
 
-    if (err != LCB_SUCCESS && cookie->active) {
+    if (err != LCB_SUCCESS && was_active) {
         cccp->mcio_error(err);
     }
-    delete cookie;
 }
 
 static void
@@ -242,21 +241,20 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR)
     lcbio_CTXPROCS ioprocs;
     CccpProvider *cccp = reinterpret_cast<CccpProvider*>(data);
     lcb_settings *settings = cccp->parent->settings;
+    cccp->creq = NULL;
 
-    LCBIO_CONNREQ_CLEAR(&cccp->creq);
     if (err != LCB_SUCCESS) {
         if (sock) {
-            lcbio_mgr_discard(sock);
+            lcb::io::Pool::discard(sock);
         }
         cccp->mcio_error(err);
         return;
     }
 
     if (lcbio_protoctx_get(sock, LCBIO_PROTOCTX_SESSINFO) == NULL) {
-        lcb::SessionRequest *sreq = lcb::SessionRequest::start(
+        cccp->creq = lcb::SessionRequest::start(
                 sock, settings, settings->config_node_timeout, on_connected,
                 cccp);
-        LCBIO_CONNREQ_MKGENERIC(&cccp->creq, sreq, lcb::sessreq_cancel);
         return;
     }
 
@@ -423,7 +421,7 @@ void CccpProvider::dump(FILE *fp) const {
     if (ioctx) {
         fprintf(fp, "CCCP Owns connection:\n");
         lcbio_ctx_dump(ioctx, fp);
-    } else if (creq.u.p_generic) {
+    } else if (creq) {
         fprintf(fp, "CCCP Is connecting\n");
     } else {
         fprintf(fp, "CCCP does not have a dedicated connection\n");

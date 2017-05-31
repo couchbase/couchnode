@@ -58,6 +58,8 @@ void lcb_default_settings(lcb_settings *settings)
     settings->retry_nmv_interval = LCB_DEFAULT_RETRY_NMV_INTERVAL;
     settings->vb_noguess = LCB_DEFAULT_VB_NOGUESS;
     settings->select_bucket = LCB_DEFAULT_SELECT_BUCKET;
+    settings->tcp_keepalive = LCB_DEFAULT_TCP_KEEPALIVE;
+    settings->send_hello = 1;
 }
 
 LCB_INTERNAL_API

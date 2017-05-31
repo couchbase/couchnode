@@ -27,10 +27,11 @@ namespace lcb {
 namespace io {
 struct Connstart;
 struct PoolRequest;
+class ConnectionRequest;
 }
 }
-typedef lcb::io::Connstart* lcbio_pCONNSTART;
-typedef lcb::io::PoolRequest lcbio_MGRREQ;
+typedef lcb::io::ConnectionRequest* lcbio_pCONNSTART;
+typedef lcb::io::ConnectionRequest lcbio_MGRREQ;
 extern "C" {
 #else
 struct lcbio_CONNSTART;
@@ -274,7 +275,7 @@ lcbio_protoctx_add(lcbio_SOCKET *socket, lcbio_PROTOCTX *proto);
  * @return the context, or NULL if not found
  */
 lcbio_PROTOCTX *
-lcbio_protoctx_get(lcbio_SOCKET *socket, lcbio_PROTOID id);
+lcbio_protoctx_get(const lcbio_SOCKET *socket, lcbio_PROTOID id);
 
 /**
  * Remove a protocol context by its ID

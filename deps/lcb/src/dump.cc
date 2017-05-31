@@ -67,7 +67,7 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
             fprintf(fp, "** == BEGIN SOCKET INFO\n");
             lcbio_ctx_dump(server->connctx, fp);
             fprintf(fp, "** == END SOCKET INFO\n");
-        } else if (server->connreq.u.p_generic) {
+        } else if (server->connreq) {
             fprintf(fp, "** == STILL CONNECTING\n");
         } else {
             fprintf(fp, "** == NOT CONNECTED\n");

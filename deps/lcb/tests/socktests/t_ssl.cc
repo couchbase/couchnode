@@ -37,7 +37,7 @@ TEST_F(SSLTest, testBasic)
     // We can connect
     loop->connect(&sock);
     ASSERT_FALSE(sock.sock == NULL);
-    ASSERT_TRUE(sock.creq.u.cs == NULL);
+    ASSERT_TRUE(sock.creq == NULL);
     ASSERT_EQ(1, sock.sock->refcount);
 
     // We can send data

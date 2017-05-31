@@ -162,11 +162,6 @@ process_chunk(HttpProvider *http, const void *buf, unsigned nbuf)
         return LCB_SUCCESS;
     }
 
-    if (http->settings().conntype == LCB_TYPE_CLUSTER) {
-        /* don't bother with parsing the actual config */
-        resp.body.clear();
-        return LCB_SUCCESS;
-    }
     if (!(state & htp::Parser::S_BODY)) {
         /* nothing to parse yet */
         return LCB_SUCCESS;
@@ -237,23 +232,25 @@ read_common(lcbio_CTX *ctx, unsigned nr)
 
 lcb_error_t HttpProvider::setup_request_header(const lcb_host_t &host) {
     request_buf.assign("GET ");
-    if (settings().conntype == LCB_TYPE_BUCKET) {
+    if (settings().conntype == LCB_TYPE_BUCKET || settings().conntype == LCB_TYPE_CLUSTER) {
         if (uritype == LCB_HTCONFIG_URLTYPE_25PLUS) {
             request_buf.append(REQBUCKET_TERSE_PREFIX);
         } else {
             request_buf.append(REQBUCKET_COMPAT_PREFIX);
         }
         request_buf.append(settings().bucket);
-    } else if (settings().conntype == LCB_TYPE_CLUSTER) {
-        request_buf.append(REQPOOLS_URI);
     } else {
         return LCB_EINVAL;
     }
 
     request_buf.append(" HTTP/1.1\r\n");
-    const std::string& password = settings().auth->password_for(settings().bucket);
+    const std::string& password = (settings().conntype == LCB_TYPE_BUCKET)
+        ? settings().auth->password_for(settings().bucket)
+        : settings().auth->password();
     if (!password.empty()) {
-        const std::string& username = settings().auth->username_for(settings().bucket);
+        const std::string& username = (settings().conntype == LCB_TYPE_BUCKET)
+            ? settings().auth->username_for(settings().bucket)
+            : settings().auth->username();
         std::string cred;
         cred.append(username).append(":").append(password);
         char b64[256] = { 0 };

@@ -509,7 +509,9 @@ typedef enum {
     X(LCB_GENERIC_SUBDOCERR, 0x51, LCB_ERRTYPE_SUBDOC|LCB_ERRTYPE_SRVGEN, \
         "Generic subdocument error received from server") \
     X(LCB_GENERIC_CONSTRAINT_ERR, 0x52, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN, \
-        "Generic constraint error received from server")
+        "Generic constraint error received from server") \
+    X(LCB_NAMESERVER_ERROR, 0x53, LCB_ERRTYPE_NETWORK, \
+        "Invalid reply received from nameserver")
 
 /** Error codes returned by the library. */
 typedef enum {

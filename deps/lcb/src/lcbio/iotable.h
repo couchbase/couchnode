@@ -90,6 +90,14 @@ typedef struct lcbio_TABLE {
        return IOT_V0IO(this).connect0(p, sock, saddr, addrlen);
     }
 
+    lcb_socket_t E_socket(int domain, int type, int protocol) {
+        return IOT_V0IO(this).socket0(p, domain, type, protocol);
+    }
+
+    lcb_socket_t E_socket(const addrinfo *ai) {
+        return E_socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    }
+
     void E_close(lcb_socket_t sock) {
         IOT_V0IO(this).close(p, sock);
     }
@@ -111,6 +119,14 @@ typedef struct lcbio_TABLE {
         IOT_V0EV(this).cancel(p, fd, event);
     }
 
+    int E_check_closed(lcb_socket_t s, int flags) {
+        return IOT_V0IO(this).is_closed(p, s, flags);
+    }
+
+    int E_cntl(lcb_socket_t s, int mode, int opt, void *val) {
+        return IOT_V0IO(this).cntl(p, s, mode, opt, val);
+    }
+
     void C_close(lcb_sockdata_t *sd) {
         IOT_V1(this).close(p, sd);
     }
@@ -118,6 +134,30 @@ typedef struct lcbio_TABLE {
     int C_connect(lcb_sockdata_t *sd, const sockaddr *addr, unsigned addrlen,
                   lcb_io_connect_cb callback) {
         return IOT_V1(this).connect(p, sd, addr, addrlen, callback);
+    }
+
+    lcb_sockdata_t* C_socket(int domain, int type, int protocol) {
+        return IOT_V1(this).socket(p, domain, type, protocol);
+    }
+
+    lcb_sockdata_t* C_socket(const addrinfo *ai) {
+        return C_socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    }
+
+    int C_check_closed(lcb_sockdata_t *sock, int flags) {
+        return IOT_V1(this).is_closed(p, sock, flags);
+    }
+
+    int C_cntl(lcb_sockdata_t *sd, int mode, int opt, void *val) {
+        return IOT_V1(this).cntl(p, sd, mode, opt, val) == 0;
+    }
+
+    bool has_cntl() {
+        if (is_E()) {
+            return IOT_V0IO(this).cntl != NULL;
+        } else {
+            return IOT_V1(this).cntl != NULL;
+        }
     }
 #endif
 

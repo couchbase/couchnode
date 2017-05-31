@@ -128,7 +128,7 @@ TEST_F(ConfmonTest, testCycle)
 
     mock->createConnection(hw, instance);
     instance->settings->bc_http_stream_time = 100000;
-    instance->memd_sockpool->tmoidle = 100000;
+    instance->memd_sockpool->get_options().tmoidle = 100000;
 
     Confmon *mon = new Confmon(instance->settings, instance->iotable);
 

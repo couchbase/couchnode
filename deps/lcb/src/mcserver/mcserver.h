@@ -203,7 +203,7 @@ public:
     short mutation_tokens;
 
     lcbio_CTX *connctx;
-    lcbio_CONNREQ connreq;
+    lcb::io::ConnectionRequest *connreq;
 
     /** Request for current connection */
     lcb_host_t *curhost;

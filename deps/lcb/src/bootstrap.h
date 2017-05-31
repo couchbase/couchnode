@@ -56,6 +56,11 @@ public:
         return errcounter;
     }
 
+    /**
+     * Try to start/stop background polling depending on whether we're able to.
+     */
+    void check_bgpoll();
+
 private:
     // Override
     void clconfig_lsn(lcb::clconfig::EventType e, lcb::clconfig::ConfigInfo* i);
@@ -63,6 +68,7 @@ private:
     inline void config_callback(lcb::clconfig::EventType, lcb::clconfig::ConfigInfo*);
     inline void initial_error(lcb_error_t, const char *);
     void timer_dispatch();
+    void bgpoll();
 
     lcb_t parent;
 
@@ -71,6 +77,9 @@ private:
      * reentrancy issues)
      */
     lcb::io::Timer<Bootstrap, &Bootstrap::timer_dispatch> tm;
+
+    /**Timer used for periodic polling of config */
+    lcb::io::Timer<Bootstrap, &Bootstrap::bgpoll> tmpoll;
 
     /**
      * Timestamp indicating the most recent configuration activity. This

@@ -468,7 +468,7 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
     }
     add_header("User-Agent", ua);
 
-    if (instance->http_sockpool->maxidle == 0 || !is_data_request()) {
+    if (instance->http_sockpool->get_options().maxidle == 0 || !is_data_request()) {
         add_header("Connection", "close");
     }
 

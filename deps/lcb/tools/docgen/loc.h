@@ -202,7 +202,7 @@ public:
             const Loc& loc = vecs[ii];
             std::string s = loc.to_string();
             printf("Loc[%lu]. Buf=%p. Len=%lu. Content=%s\n",
-                ii, loc.at, loc.length, s.c_str());
+                ii, (void *)loc.at, loc.length, s.c_str());
         }
     }
 };

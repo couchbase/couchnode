@@ -64,30 +64,31 @@ lcb_error_t McRawProvider::refresh() {
 
 void McRawProvider::configure_nodes(const lcb::Hostlist& hl)
 {
-    lcbvb_SERVER *servers;
     lcbvb_CONFIG *newconfig;
-    unsigned nsrv = hl.size();
 
-    if (!nsrv) {
+    if (hl.empty()) {
         lcb_log(LOGARGS(this, FATAL), "No nodes provided");
         return;
     }
 
-    servers = reinterpret_cast<lcbvb_SERVER*>(calloc(nsrv, sizeof(*servers)));
-    for (size_t ii = 0; ii < nsrv; ii++) {
+    std::vector<lcbvb_SERVER> servers;
+    servers.reserve(hl.size());
+
+    for (size_t ii = 0; ii < hl.size(); ii++) {
         const lcb_host_t& curhost = hl[ii];
-        lcbvb_SERVER *srv = servers + ii;
+        servers.resize(servers.size() + 1);
+        lcbvb_SERVER& srv = servers.back();
 
         /* just set the memcached port and hostname */
-        srv->hostname = (char *)curhost.host;
-        srv->svc.data = std::atoi(curhost.port);
+        srv.hostname = (char *)curhost.host;
+        srv.svc.data = std::atoi(curhost.port);
         if (parent->settings->sslopts) {
-            srv->svc_ssl.data = srv->svc.data;
+            srv.svc_ssl.data = srv.svc.data;
         }
     }
 
     newconfig = lcbvb_create();
-    lcbvb_genconfig_ex(newconfig, "NOBUCKET", "deadbeef", servers, nsrv, 0, 2);
+    lcbvb_genconfig_ex(newconfig, "NOBUCKET", "deadbeef", &servers[0], servers.size(), 0, 2);
     lcbvb_make_ketama(newconfig);
     newconfig->revid = -1;
 

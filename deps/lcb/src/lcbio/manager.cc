@@ -109,13 +109,14 @@ struct PoolConnInfo : lcbio_PROTOCTX, CinfoNode {
 struct ReqNode : lcb_list_t {};
 namespace lcb {
 namespace io {
-struct PoolRequest : ReqNode {
+struct PoolRequest : ReqNode, ConnectionRequest {
     PoolRequest(PoolHost *host_, lcbio_CONNDONE_cb cb, void *cbarg)
         : host(host_), callback(cb), arg(cbarg), timer(host->parent->io, this),
           state(PENDING), sock(NULL), err(LCB_SUCCESS) {
     }
 
-    inline void cancel();
+    virtual ~PoolRequest() {}
+    virtual void cancel();
     inline void invoke();
     void invoke(lcb_error_t err_) {
         err = err_;
@@ -187,22 +188,22 @@ cinfo_protoctx_dtor(lcbio_PROTOCTX *ctx)
 }
 
 Pool::Pool(lcb_settings* settings_, lcbio_pTABLE io_)
-    : settings(settings_), io(io_),
-      tmoidle(0), maxidle(0), maxtotal(0), refcount(1) {
+    : settings(settings_), io(io_), refcount(1) {
 }
-
-Pool *lcbio_mgr_create(lcb_settings *settings, lcbio_TABLE *io) {
-    return new Pool(settings, io);
-}
-
 
 typedef std::vector<PoolHost*> HeList;
 
-void lcbio_mgr_destroy(Pool *mgr) {
-    mgr->shutdown();
+Pool::~Pool() {
 }
 
-Pool::~Pool() {
+void Pool::ref() {
+    refcount++;
+}
+
+void Pool::unref() {
+    if (!--refcount) {
+        delete this;
+    }
 }
 
 void Pool::shutdown() {
@@ -299,7 +300,7 @@ void PoolConnInfo::on_connected(lcbio_SOCKET *sock_, lcb_error_t err) {
         lcbio_protoctx_add(sock, this);
 
         lcb_clist_append(&parent->ll_idle, this);
-        idle_timer.rearm(parent->parent->tmoidle);
+        idle_timer.rearm(parent->parent->options.maxidle);
         parent->connection_available();
     }
 }
@@ -357,13 +358,7 @@ PoolHost::PoolHost(Pool *parent_, const std::string& key_)
     lcb_clist_init(&requests);
 }
 
-PoolRequest *lcbio_mgr_get(Pool *pool, lcb_host_t *dest, uint32_t timeout,
-              lcbio_CONNDONE_cb handler, void *arg)
-{
-    return pool->get(*dest, timeout, handler, arg);
-}
-
-PoolRequest*
+ConnectionRequest*
 Pool::get(const lcb_host_t& dest, uint32_t timeout, lcbio_CONNDONE_cb cb,
                void *cbarg)
 {
@@ -420,16 +415,12 @@ Pool::get(const lcb_host_t& dest, uint32_t timeout, lcbio_CONNDONE_cb cb,
     return req;
 }
 
-void lcbio_mgr_cancel(PoolRequest *req) {
-    req->cancel();
-}
-
 void PoolRequest::cancel() {
     Pool *mgr = host->parent;
 
     if (sock) {
         lcb_log(LOGARGS(mgr, DEBUG), HE_LOGFMT "Cancelling request=%p with existing connection", HE_LOGID(host), (void*)this);
-        lcbio_mgr_put(sock);
+        Pool::put(sock);
         host->async.signal();
     } else {
         lcb_log(LOGARGS(mgr, DEBUG), HE_LOGFMT "Request=%p has no connection.. yet", HE_LOGID(host), (void*)this);
@@ -443,8 +434,7 @@ void PoolConnInfo::on_idle_timeout() {
     lcbio_unref(sock);
 }
 
-void
-lcbio_mgr_put(lcbio_SOCKET *sock)
+void Pool::put(lcbio_SOCKET *sock)
 {
     PoolHost *he;
     Pool *mgr;
@@ -459,28 +449,28 @@ lcbio_mgr_put(lcbio_SOCKET *sock)
     he = info->parent;
     mgr = he->parent;
 
-    if (he->num_idle() >= mgr->maxidle) {
+    if (he->num_idle() >= mgr->options.maxidle) {
         lcb_log(LOGARGS(mgr, INFO), HE_LOGFMT "Closing idle connection. Too many in quota", HE_LOGID(he));
         lcbio_unref(info->sock);
         return;
     }
 
     lcb_log(LOGARGS(mgr, INFO), HE_LOGFMT "Placing socket back into the pool. I=%p,C=%p", HE_LOGID(he), (void*)info, (void*)sock);
-    info->idle_timer.rearm(mgr->tmoidle);
+    info->idle_timer.rearm(mgr->options.tmoidle);
     lcb_clist_append(&he->ll_idle, info);
     info->state = PoolConnInfo::IDLE;
 }
 
-void
-lcbio_mgr_discard(lcbio_SOCKET *sock)
-{
+void Pool::discard(lcbio_SOCKET *sock) {
     lcbio_unref(sock);
 }
 
-void
-lcbio_mgr_detach(lcbio_SOCKET *sock)
-{
+void Pool::detach(lcbio_SOCKET *sock) {
     lcbio_protoctx_delid(sock, LCBIO_PROTOCTX_POOL, 1);
+}
+
+bool Pool::is_from_pool(const lcbio_SOCKET *sock) {
+    return lcbio_protoctx_get(sock, LCBIO_PROTOCTX_POOL) != NULL;
 }
 
 
@@ -535,13 +525,6 @@ PoolHost::dump(FILE *out) const {
 
     fprintf(out, "\n");
 
-}
-
-/**
- * Dumps the connection manager state to stderr
- */
-LCB_INTERNAL_API void lcbio_mgr_dump(Pool *mgr, FILE *out) {
-    mgr->dump(out);
 }
 
 void Pool::dump(FILE *out) const {

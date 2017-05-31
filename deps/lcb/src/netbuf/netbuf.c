@@ -405,7 +405,7 @@ mblock_release_ptr(nb_MBPOOL *pool, char * ptr, nb_SIZE size)
         return;
     }
 
-    fprintf(stderr, "NETBUF: Requested to release pointer %p which was not allocated\n", ptr);
+    fprintf(stderr, "NETBUF: Requested to release pointer %p which was not allocated\n", (void *)ptr);
     assert(0);
 }
 
@@ -785,7 +785,7 @@ dump_managed_block(nb_MBLOCK *block, FILE *fp)
 {
     const char *indent = "  ";
     fprintf(fp, "%sBLOCK(MANAGED)=%p; BUF=%p, %uB\n", indent,
-        (void *)block, block->root, block->nalloc);
+        (void *)block, (void *)block->root, block->nalloc);
     indent = "     ";
 
     fprintf(fp, "%sUSAGE:\n", indent);
@@ -828,7 +828,7 @@ dump_sendq(nb_SENDQ *q, FILE *fp)
     fprintf(fp, "Send Queue\n");
     SLLIST_FOREACH(&q->pending, ll) {
         nb_SNDQELEM *e = SLLIST_ITEM(ll, nb_SNDQELEM, slnode);
-        fprintf(fp, "%s[Base=%p, Len=%u]\n", indent, e->base, e->len);
+        fprintf(fp, "%s[Base=%p, Len=%u]\n", indent, (void *)e->base, e->len);
         if (q->last_requested == e) {
             fprintf(fp, "%s<Current Flush Limit @%u^^^>\n", indent, q->last_offset);
         }
@@ -851,7 +851,7 @@ netbuf_dump_status(nb_MGR *mgr, FILE *fp)
         nb_MBLOCK *block = SLLIST_ITEM(ll, nb_MBLOCK, slnode);
         const char *indent = "    ";
         fprintf(fp, "%sBLOCK(AVAIL)=%p; BUF=%p, %uB\n", indent,
-            (void*)block, block->root, block->nalloc);
+            (void*)block, (void *)block->root, block->nalloc);
     }
     dump_sendq(&mgr->sendq, fp);
 }

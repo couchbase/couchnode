@@ -294,24 +294,6 @@ Parser::Parser(Mode mode_, Parser::Actions* actions_) :
     actions(actions_) {
 
     jsonsl_jpr_match_state_init(jsn, &jpr, 1);
-    reset();
-}
-
-void Parser::get_postmortem(lcb_IOV &out) const {
-    if (meta_complete) {
-        out.iov_base = const_cast<char*>(meta_buf.c_str());
-        out.iov_len = meta_buf.size();
-    } else {
-        out.iov_base = const_cast<char*>(current_buf.c_str());
-        out.iov_len = current_buf.size();
-    }
-}
-
-void Parser::reset() {
-    /**
-     * We create a copy, and set its relevant fields. All other
-     * fields are zeroed implicitly. Then we copy the object back.
-     */
     jsonsl_reset(jsn);
     jsonsl_reset(jsn_rdetails);
     current_buf.clear();
@@ -326,16 +308,16 @@ void Parser::reset() {
     jsn->max_callback_level = 4;
     jsn->data = this;
     jsonsl_enable_all_callbacks(jsn);
+}
 
-    have_error = 0;
-    initialized = 0;
-    meta_complete = 0;
-    rowcount = 0;
-    min_pos = 0;
-    keep_pos = 0;
-    header_len = 0;
-    last_row_endpos = 0;
-    cxx_data.clear();
+void Parser::get_postmortem(lcb_IOV &out) const {
+    if (meta_complete) {
+        out.iov_base = const_cast<char*>(meta_buf.c_str());
+        out.iov_len = meta_buf.size();
+    } else {
+        out.iov_base = const_cast<char*>(current_buf.c_str());
+        out.iov_len = current_buf.size();
+    }
 }
 
 Parser::~Parser() {

@@ -380,6 +380,9 @@ typedef int (*lcb_ioE_chkclosed_fn)
 /** Disable Nagle's algorithm (use an int) */
 #define LCB_IO_CNTL_TCP_NODELAY 1
 
+/** Enable/Disable TCP Keepalive */
+#define LCB_IO_CNTL_TCP_KEEPALIVE 2
+
 /**
  * @brief Execute a specificied operation on a socket.
  * @param iops The iops

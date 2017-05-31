@@ -26,7 +26,8 @@ enum ErrorAttribute {
     X(INTERNAL, "internal") \
     X(DCP, "dcp") \
     X(FETCH_CONFIG, "fetch-config") \
-    X(SPECIAL_HANDLING, "special-handling")
+    X(SPECIAL_HANDLING, "special-handling") \
+    X(AUTO_RETRY, "auto-retry")
 
     #define X(c, s) c,
     LCB_XERRMAP_ATTRIBUTES(X)

@@ -138,6 +138,16 @@ typedef enum {
      */
     LCB_SDCMD_GET_COUNT,
 
+    /**
+     * Retrieve the entire document
+     */
+    LCB_SDCMD_GET_FULLDOC,
+
+    /**
+     * Replace the entire document
+     */
+    LCB_SDCMD_SET_FULLDOC,
+
     LCB_SDCMD_MAX
 } lcb_SUBDOCOP;
 
@@ -176,9 +186,6 @@ typedef struct {
 
 /** Create intermediate paths */
 #define LCB_SDSPEC_F_MKINTERMEDIATES (1<<16)
-
-/** Create document if it does not exist */
-#define LCB_SDSPEC_F_MKDOCUMENT (1<<17)
 
 /** Access document XATTR path */
 #define LCB_SDSPEC_F_XATTRPATH (1<<18)
@@ -219,6 +226,24 @@ typedef struct {
 #define LCB_SDMULTI_MODE_INVALID 0
 #define LCB_SDMULTI_MODE_LOOKUP 1
 #define LCB_SDMULTI_MODE_MUTATE 2
+
+/**
+ * This command flag should be used if the document is to be created
+ * if it does not exist.
+ */
+#define LCB_CMDSUBDOC_F_UPSERT_DOC (1<<16)
+
+/**
+ * This command flag should be used if the document must be created anew.
+ * In this case, it will fail if it already exists
+ */
+#define LCB_CMDSUBDOC_F_INSERT_DOC (1<<17)
+
+/**
+ * Access a potentially deleted document. For internal Couchbase use
+ */
+#define LCB_CMDSUBDOC_F_ACCESS_DELETED (1<<18)
+
 typedef struct {
     LCB_CMD_BASE;
 

@@ -254,7 +254,6 @@ Connspec::parse_options(
             } else if (!strcmp(value, "off") || !strcmp(value, "false")) {
                 btmp = 0;
             } else if (sscanf(value, "%d", &btmp) != 1) {
-                printf("Coldn't parse value!\n");
                 SET_ERROR("dnssrv must have numeric (boolean) value");
             }
             if (btmp) {

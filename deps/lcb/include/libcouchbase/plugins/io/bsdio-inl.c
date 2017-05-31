@@ -313,6 +313,9 @@ cntl_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int option, void *arg)
     case LCB_IO_CNTL_TCP_NODELAY:
         return cntl_getset_impl(io,
             sock, mode, IPPROTO_TCP, TCP_NODELAY, sizeof(int), arg);
+    case LCB_IO_CNTL_TCP_KEEPALIVE:
+        return cntl_getset_impl(io,
+            sock, mode, IPPROTO_TCP, SO_KEEPALIVE, sizeof(int), arg);
     default:
         LCB_IOPS_ERRNO(io) = ENOTSUP;
         return -1;

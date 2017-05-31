@@ -65,10 +65,6 @@ static bool validateBadParse(const char *txt, size_t ntxt, Parser::Mode mode)
     Parser p(mode, &cx);
     p.feed(JSON_fts_bad, sizeof(JSON_fts_bad));
     EXPECT_EQ(LCB_PROTOCOL_ERROR, cx.rc);
-
-    p.reset();
-    cx.reset();
-
     return true;
 }
 

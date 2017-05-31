@@ -16,17 +16,26 @@ server_runfunc(void *arg)
 void
 TestServer::run()
 {
+    fd_set fds;
+    struct timeval tmout = { 1, 0 };
+
+    FD_ZERO(&fds);
+    FD_SET(*lsn, &fds);
+
     while (!closed) {
         struct sockaddr_in newaddr;
         socklen_t naddr = sizeof(newaddr);
-        int newsock = accept(*lsn, (struct sockaddr *)&newaddr, &naddr);
 
-        if (newsock == -1) {
-            break;
+        if (select(*lsn + 1, &fds, NULL, NULL, &tmout) == 1) {
+            int newsock = accept(*lsn, (struct sockaddr *)&newaddr, &naddr);
+
+            if (newsock == -1) {
+                break;
+            }
+
+            TestConnection *newconn = new TestConnection(this, factory(newsock));
+            startConnection(newconn);
         }
-
-        TestConnection *newconn = new TestConnection(this, factory(newsock));
-        startConnection(newconn);
     }
 }
 

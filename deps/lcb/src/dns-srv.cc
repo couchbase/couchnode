@@ -136,7 +136,12 @@ lcb::dnssrv_getbslist(const char *addr, bool is_ssl, lcb_error_t& errp) {
     errp = dnssrv_query(ss.c_str(), *ret);
     if (errp != LCB_SUCCESS) {
         delete ret;
-        ret = NULL;
+        return NULL;
+    }
+    if (ret->empty()) {
+        delete ret;
+        errp = LCB_NAMESERVER_ERROR;
+        return NULL;
     }
     return ret;
 }

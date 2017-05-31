@@ -163,6 +163,8 @@ cbsasl_error_t cbsasl_client_step(cbsasl_conn_t *conn,
     cbsasl_secret_t *pass;
     cbsasl_error_t ret;
 
+    (void)not_used;
+
     if (conn->client == 0) {
         return SASL_BADPARAM;
     }

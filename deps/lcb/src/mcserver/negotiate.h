@@ -38,7 +38,7 @@
 struct lcb_settings_st;
 
 namespace lcb {
-class SessionRequest {
+class SessionRequest : public lcb::io::ConnectionRequest {
 public:
     /**
      * @brief Start negotiation on a connected socket
@@ -81,8 +81,6 @@ public:
     virtual ~SessionRequest(){}
 };
 class SessionRequestImpl;
-
-extern "C" { void sessreq_cancel(SessionRequest *); }
 
 class SessionInfo : public lcbio_PROTOCTX {
 public:

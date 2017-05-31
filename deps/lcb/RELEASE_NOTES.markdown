@@ -1,5 +1,58 @@
 # Release Notes
 
+## 2.7.5 (May 17 2017)
+
+* Allow to disable sending the `HELLO` command when connecting to a server.
+  Sending `HELLO` will cause a bootstrap failure with Couchbase Server 2.0 and
+  older.
+  * Issues: [CCBC-786](https://issues.couchbase.com/browse/CCBC-786)
+
+* Fix error return value on reprepared query.
+  Previously an error was returned if a N1QL query was reprepared, because
+  the prior internal failure status was not updated.
+  * Issues: [CCBC-782](https://issues.couchbase.com/browse/CCBC-782)
+
+* Check for more N1QL error strings indicating the need to reprepare a statement.
+
+* Fix uninitialized memory issue when initializing `lcb::Server` and `mc_PIPELINE`
+
+* Couchbase 5.0 additions for Subdocument.
+  This adds new protocol extensions for Couchbase 5.0. This consists of:
+  * New `LCB_SDCMD_SET_FULLDOC` and `LCB_SDCMD_GET_FULLDOC` for full-doucument
+    gets and sets via the subdoc API. This allows to access xattrs atomically
+    with the document body.
+  * New 'document flags'. These are in the form of `LCB_CMDSUBDOC_F_`.
+  * Issues: [CCBC-774](https://issues.couchbase.com/browse/CCBC-774)
+
+* Fix bug where CCCP subsystem would be suspended indefinitely.
+  CCCP subsystem would hang if an error was received for the config request
+  itself.
+  * Issues: [CCBC-779](https://issues.couchbase.com/browse/CCBC-779)
+
+* Fix bootstrap with `LCB_TYPE_CLUSTER`. Previously bootstrap would fail because
+  the client would not send proper credentials. Note that at this point, the
+  `default` bucket must still exist.
+  * Issues: [CCBC-778](https://issues.couchbase.com/browse/CCBC-778)
+
+* Ignore empty DNS SRV replies.
+  Some buggy DNS configurations return positive replies to SRV queries, but
+  without actually containing any kind of A record as a response.
+  * Issues: [CCBC-776](https://issues.couchbase.com/browse/CCBC-776)
+
+* Enable background polling for configuration changes.
+  This allows the client to periodically poll for configuration changes. This
+  feature is disabled by default. You can use the `config_poll_interval`
+  setting to enable it in the connection string.
+  * Issues: [CCBC-627](https://issues.couchbase.com/browse/CCBC-627)
+
+* Enable TCP Keepalive for newly created sockets.
+  Newly created sockets have TCP keepalive enabled in order to avoid firewalls
+  breaking connections due to inactivity. TCP Keepalive does not yet work for
+  the libuv plugin (e.g. nodejs).
+  You can use the `tcp_keepalive=false` directive in the connection string
+  to disable it.
+  * Issues: [CCBC-690](https://issues.couchbase.com/browse/CCBC-690)
+
 ## 2.7.4 (April 18 2017)
 
 * Send `SELECT_BUCKET` command by default if server supports it. This enables

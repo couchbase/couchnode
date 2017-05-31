@@ -24,9 +24,9 @@ lcbio_protoctx_add(lcbio_SOCKET *sock, lcbio_PROTOCTX *ctx)
 }
 
 lcbio_PROTOCTX *
-lcbio_protoctx_get(lcbio_SOCKET *sock, lcbio_PROTOID id)
+lcbio_protoctx_get(const lcbio_SOCKET *sock, lcbio_PROTOID id)
 {
-    lcb_list_t *ll;
+    const lcb_list_t *ll;
     LCB_LIST_FOR(ll, &sock->protos) {
         lcbio_PROTOCTX *cur = LCB_LIST_ITEM(ll, lcbio_PROTOCTX, ll);
         if (cur->id == id) {

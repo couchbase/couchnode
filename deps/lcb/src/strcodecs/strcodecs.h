@@ -105,7 +105,7 @@ bool urldecode(Ti first, Ti last, To out, size_t& nout) {
 
 inline bool
 urldecode(const char *input, char *output) {
-    const char *endp = NULL;
+    const char *endp = input + strlen(input);
     size_t nout = 0;
     if (urldecode(input, endp, output, nout)) {
         output[nout] = '\0';

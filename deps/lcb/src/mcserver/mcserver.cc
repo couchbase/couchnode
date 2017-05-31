@@ -577,7 +577,7 @@ static void mcserver_flush(Server *s) { s->flush(); }
 void
 Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr)
 {
-    LCBIO_CONNREQ_CLEAR(&connreq);
+    connreq = NULL;
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS_T(ERR), LOGFMT "Connection attempt failed. Received %s from libcouchbase, received %d from operating system", LOGID_T(), lcb_strerror_short(err), syserr);
@@ -593,9 +593,8 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
     SessionInfo* sessinfo = SessionInfo::get(sock);
     if (sessinfo == NULL) {
         lcb_log(LOGARGS_T(TRACE), "<%s:%s> (SRV=%p) Session not yet negotiated. Negotiating", curhost->host, curhost->port, (void*)this);
-        SessionRequest *sreq = SessionRequest::start(
+        connreq = SessionRequest::start(
             sock, settings, default_timeout(), on_connected, this);
-        LCBIO_CONNREQ_MKGENERIC(&connreq, sreq, lcb::sessreq_cancel);
         return;
     } else {
         compsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_DATATYPE);
@@ -619,9 +618,8 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
 void
 Server::connect()
 {
-    lcbio_pMGRREQ mr = lcbio_mgr_get(instance->memd_sockpool, curhost,
+    connreq = instance->memd_sockpool->get(*curhost,
         default_timeout(), on_connected, this);
-    LCBIO_CONNREQ_MKPOOLED(&connreq, mr);
     flush_start = flush_noop;
     state = Server::S_CLEAN;
 }
@@ -663,7 +661,7 @@ Server::Server(lcb_t instance_, int ix)
 Server::Server()
     : state(S_TEMPORARY),
       io_timer(NULL), instance(NULL), settings(NULL), compsupport(0),
-      mutation_tokens(0), connctx(NULL), curhost(NULL)
+      mutation_tokens(0), connctx(NULL), connreq(NULL), curhost(NULL)
 {
 }
 
@@ -686,7 +684,7 @@ static void
 close_cb(lcbio_SOCKET *sock, int, void *)
 {
     lcbio_ref(sock);
-    lcbio_mgr_discard(sock);
+    lcb::io::Pool::discard(sock);
 }
 
 static void
@@ -735,7 +733,7 @@ Server::start_errored_ctx(State next_state)
 
     state = next_state;
     /* Cancel any pending connection attempt? */
-    lcbio_connreq_cancel(&connreq);
+    lcb::io::ConnectionRequest::cancel(&connreq);
 
     /* If the server is being destroyed, silence the timer */
     if (next_state == Server::S_CLOSED && io_timer != NULL) {

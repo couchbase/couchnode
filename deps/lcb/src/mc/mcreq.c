@@ -543,6 +543,15 @@ int
 mcreq_pipeline_init(mc_PIPELINE *pipeline)
 {
     nb_SETTINGS settings;
+
+    /* Initialize all members to 0 */
+    memset(&pipeline->requests, 0, sizeof pipeline->requests);
+    pipeline->parent = NULL;
+    pipeline->flush_start = NULL;
+    pipeline->index = 0;
+    memset(&pipeline->ctxqueued, 0, sizeof pipeline->ctxqueued);
+    pipeline->buf_done_callback = NULL;
+
     netbuf_default_settings(&settings);
 
     /** Initialize datapool */
@@ -550,7 +559,7 @@ mcreq_pipeline_init(mc_PIPELINE *pipeline)
 
     /** Initialize request pool */
     settings.data_basealloc = sizeof(mc_PACKET) * 32;
-    netbuf_init(&pipeline->reqpool, &settings);
+    netbuf_init(&pipeline->reqpool, &settings);;
     return 0;
 }
 
@@ -911,7 +920,7 @@ mcreq_dump_packet(const mc_PACKET *packet, FILE *fp, mcreq_payload_dump_fn dumpf
                 fprintf(fp, "%sValue is user allocated\n", indent);
             }
             fprintf(fp, "%sValue: %p, %u bytes\n", indent,
-                SPAN_BUFFER(&packet->u_value.single), packet->u_value.single.size);
+                (void *)SPAN_BUFFER(&packet->u_value.single), packet->u_value.single.size);
         }
     }
 

@@ -395,7 +395,7 @@ dump_ropebuf(const rdb_ROPEBUF *buf, FILE *fp)
         rdb_ROPESEG *seg = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
         fprintf(fp, "%sSEG=%p\n", indent, (void*)seg);
         fprintf(fp, "%sALLOCATOR=%p [%u]\n", indent, (void*)seg->allocator, seg->allocid);
-        fprintf(fp, "%sBUFROOT=%p\n", indent, seg->root);
+        fprintf(fp, "%sBUFROOT=%p\n", indent, (void *)seg->root);
         fprintf(fp, "%sALLOC SIZE: %u\n", indent, seg->nalloc);
         fprintf(fp, "%sDATA SIZE: %u\n", indent, seg->nused);
         fprintf(fp, "%sDATS OFFSET: %u\n", indent, seg->start);

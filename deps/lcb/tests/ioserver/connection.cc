@@ -37,7 +37,7 @@ TestConnection::sendData()
         void *outbuf;
 #endif
         size_t n = f_send->getBuf((void**)&outbuf);
-        size_t nw = datasock->send(outbuf, n);
+        ssize_t nw = datasock->send(outbuf, n);
         if (nw < 0) {
             f_send->bail();
         } else {

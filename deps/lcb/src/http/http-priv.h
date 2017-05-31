@@ -303,7 +303,7 @@ struct Request {
     lcbio_pTABLE io;
     lcbio_pCTX ioctx;
     lcbio_pTIMER timer;
-    lcbio_CONNREQ creq;
+    lcb::io::ConnectionRequest *creq;
 
     /** HTTP Protocol parser */
     lcb::htparse::Parser* parser;
