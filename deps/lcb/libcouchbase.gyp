@@ -184,7 +184,7 @@
         'src/lcbio/connect.cc',
         'src/lcbio/ctx.c',
         'src/lcbio/iotable.c',
-        'src/lcbio/ioutils.c',
+        'src/lcbio/ioutils.cc',
         'src/lcbio/manager.cc',
         'src/lcbio/protoctx.c',
         'src/lcbio/timer.c',
