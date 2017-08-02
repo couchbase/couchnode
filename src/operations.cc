@@ -359,11 +359,14 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery) {
     if (!enc.parseString(&cmd.optstr, &cmd.noptstr, info[3])) {
         return Nan::ThrowError(Error::create("bad optstr passed"));
     }
-    if (info[4]->BooleanValue()) {
+    if (!enc.parseString(&cmd.postdata, &cmd.npostdata, info[4])) {
+        return Nan::ThrowError(Error::create("bad postdata passed"));
+    }
+    if (info[5]->BooleanValue()) {
         cmd.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
     }
 
-    if (!enc.parseCookie(&cookie, info[5])) {
+    if (!enc.parseCookie(&cookie, info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
