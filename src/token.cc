@@ -95,6 +95,10 @@ Handle<Value> MutationToken::CreateToken(lcb_t instance, const lcb_MUTATION_TOKE
     return ret;
 }
 
+Handle<Value> MutationToken::CreateToken(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase) {
+    return CreateToken(instance, lcb_resp_get_mutation_token(cbtype, respbase));
+}
+
 bool _StrToToken(Handle<Value> obj, lcb_MUTATION_TOKEN *p, int pSize) {
     if (sscanf(*Nan::Utf8String(obj->ToString()), "%hu:%llu:%llu",
             (unsigned short*)&LCB_MUTATION_TOKEN_VB(p),

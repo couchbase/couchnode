@@ -155,124 +155,104 @@ bool CouchbaseImpl::encodeDoc(CommandEncoder& enc, const void **bytes,
     return true;
 }
 
-template<typename T>
-void _DispatchValueCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
+void _DispatchValueCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase) {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope scope;
-
-    Local<Value> errObj = Error::create(error);
-    Local<Value> resVal;
-    if (!error) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
-        resObj->Set(Nan::New(me->valueKey), me->decodeDoc(resp->v.v0.bytes, resp->v.v0.nbytes, resp->v.v0.flags));
-        resVal = resObj;
-    } else {
-        resVal = Nan::Null();
-    }
-
-    Local<Value> args[] = { errObj, resVal };
-    callback->Call(2, args);
-
-    delete callback;
-}
-
-template<typename T>
-void _DispatchArithCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope scope;
-
-    Local<Value> errObj = Error::create(error);
-    Local<Value> resVal;
-    if (!error) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
-        resObj->Set(Nan::New(me->tokenKey), MutationToken::CreateToken(instance, resp->v.v0.mutation_token));
-        resObj->Set(Nan::New(me->valueKey), Nan::New<Number>(resp->v.v0.value));
-        resVal = resObj;
-    } else {
-        resVal = Nan::Null();
-    }
-
-    Local<Value> args[] = { errObj, resVal };
-    callback->Call(2, args);
-
-    delete callback;
-}
-
-template<typename T>
-void _DispatchBasicCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope scope;
-
-    Local<Value> errObj = Error::create(error);
-    Local<Value> resVal;
-    if (!error) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
-        resVal = resObj;
-    } else {
-        resVal = Nan::Null();
-    }
-
-    Local<Value> args[] = { errObj, resVal };
-    callback->Call(2, args);
-
-    delete callback;
-}
-
-template<typename T>
-void _DispatchStoreCallback(lcb_t instance, const void *cookie, lcb_error_t error, const T *resp) {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope scope;
-
-    Local<Value> errObj = Error::create(error);
-    Local<Value> resVal;
-    if (!error) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->v.v0.cas));
-        resObj->Set(Nan::New(me->tokenKey), MutationToken::CreateToken(instance, resp->v.v0.mutation_token));
-        resVal = resObj;
-    } else {
-        resVal = Nan::Null();
-    }
-
-    Local<Value> args[] = { errObj, resVal };
-    callback->Call(2, args);
-
-    delete callback;
-}
-
-void _DispatchErrorCallback(lcb_t instance, const void *cookie, lcb_error_t error) {
-    Nan::Callback *callback = (Nan::Callback*)cookie;
-    Nan::HandleScope scope;
-
-    Local<Value> errObj = Error::create(error);
-    Local<Value> resVal = Nan::Null();
-
-    Local<Value> args[] = { errObj, resVal };
-    callback->Call(2, args);
-
-    delete callback;
-}
-
-template<typename T>
-void _DispatchValueCallback3(lcb_t instance, const lcb_RESPBASE *respbase) {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    const T *resp = (const T*)respbase;
+    const lcb_RESPGET *resp = (const lcb_RESPGET*)respbase;
     Nan::Callback *callback = (Nan::Callback*)resp->cookie;
     Nan::HandleScope scope;
 
-    Local<Value> errObj = Error::create(LCB_SUCCESS);
-    Local<Object> resObj = Nan::New<Object>();
-    resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
-    resObj->Set(Nan::New(me->valueKey), me->decodeDoc(resp->value, resp->nvalue, resp->itmflags));
+    Local<Value> errObj = Error::create(resp->rc);
+    Local<Value> resVal;
+    if (!resp->rc) {
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        resObj->Set(Nan::New(me->valueKey), me->decodeDoc(resp->value, resp->nvalue, resp->itmflags));
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
 
-    Local<Value> args[] = { errObj, resObj };
+    Local<Value> args[] = { errObj, resVal };
+    callback->Call(2, args);
+
+    delete callback;
+}
+
+void _DispatchArithCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase) {
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    const lcb_RESPCOUNTER *resp = (const lcb_RESPCOUNTER*)respbase;
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope scope;
+
+    Local<Value> errObj = Error::create(resp->rc);
+    Local<Value> resVal;
+    if (!resp->rc) {
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        resObj->Set(Nan::New(me->tokenKey), MutationToken::CreateToken(instance, cbtype, respbase));
+        resObj->Set(Nan::New(me->valueKey), Nan::New<Number>(resp->value));
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
+
+    Local<Value> args[] = { errObj, resVal };
+    callback->Call(2, args);
+
+    delete callback;
+}
+
+void _DispatchBasicCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp) {
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope scope;
+
+    Local<Value> errObj = Error::create(resp->rc);
+    Local<Value> resVal;
+    if (!resp->rc) {
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
+
+    Local<Value> args[] = { errObj, resVal };
+    callback->Call(2, args);
+
+    delete callback;
+}
+
+void _DispatchStoreCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp) {
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope scope;
+
+    Local<Value> errObj = Error::create(resp->rc);
+    Local<Value> resVal;
+    if (!resp->rc) {
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        resObj->Set(Nan::New(me->tokenKey), MutationToken::CreateToken(instance, cbtype, resp));
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
+
+    Local<Value> args[] = { errObj, resVal };
+    callback->Call(2, args);
+
+    delete callback;
+}
+
+void _DispatchErrorCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp) {
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope scope;
+
+    Local<Value> errObj = Error::create(resp->rc);
+    Local<Value> resVal = Nan::Null();
+
+    Local<Value> args[] = { errObj, resVal };
     callback->Call(2, args);
 
     delete callback;
@@ -285,47 +265,39 @@ static void bootstrap_callback(lcb_t instance, lcb_error_t err)
     me->onConnect(err);
 }
 
-
-static void get_callback(lcb_t instance, const void *cookie,
-        lcb_error_t error, const lcb_get_resp_t *resp)
+static void get_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    _DispatchValueCallback(instance, cookie, error, resp);
+    _DispatchValueCallback(instance, cbtype, resp);
 }
 
-static void store_callback(lcb_t instance, const void *cookie, lcb_storage_t,
-        lcb_error_t error, const lcb_store_resp_t *resp)
+static void store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    _DispatchStoreCallback(instance, cookie, error, resp);
+    _DispatchStoreCallback(instance, cbtype, resp);
 }
 
-static void arithmetic_callback(lcb_t instance, const void *cookie,
-        lcb_error_t error, const lcb_arithmetic_resp_t *resp)
+static void arithmetic_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    _DispatchArithCallback(instance, cookie, error, resp);
+    _DispatchArithCallback(instance, cbtype, resp);
 }
 
-static void remove_callback(lcb_t instance, const void *cookie,
-        lcb_error_t error, const lcb_remove_resp_t *resp)
+static void remove_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    _DispatchStoreCallback(instance, cookie, error, resp);
+    _DispatchStoreCallback(instance, cbtype, resp);
 }
 
-static void touch_callback(lcb_t instance, const void *cookie,
-        lcb_error_t error, const lcb_touch_resp_t *resp)
+static void touch_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    _DispatchBasicCallback(instance, cookie, error, resp);
+    _DispatchBasicCallback(instance, cbtype, resp);
 }
 
-static void unlock_callback(lcb_t instance, const void *cookie,
-        lcb_error_t error, const lcb_unlock_resp_t *resp)
+static void unlock_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    _DispatchErrorCallback(instance, cookie, error);
+    _DispatchErrorCallback(instance, cbtype, resp);
 }
 
-static void durability_callback(lcb_t instance, const void *cookie,
-        lcb_error_t error, const lcb_durability_resp_t *resp)
+static void durability_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    _DispatchErrorCallback(instance, cookie, error);
+    _DispatchErrorCallback(instance, cbtype, resp);
 }
 
 void viewrow_callback(lcb_t instance, int ignoreme,
@@ -584,14 +556,13 @@ void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
 {
     lcb_set_bootstrap_callback(instance, bootstrap_callback);
 
-    lcb_set_get_callback(instance, get_callback);
-    lcb_set_store_callback(instance, store_callback);
-    lcb_set_arithmetic_callback(instance, arithmetic_callback);
-    lcb_set_remove_callback(instance, remove_callback);
-    lcb_set_touch_callback(instance, touch_callback);
-    lcb_set_unlock_callback(instance, unlock_callback);
-    lcb_set_durability_callback(instance, durability_callback);
-
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_COUNTER, arithmetic_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, remove_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, touch_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_UNLOCK, unlock_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_ENDURE, durability_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_SDLOOKUP, subdoc_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_SDMUTATE, subdoc_callback);
 }

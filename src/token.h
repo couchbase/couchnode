@@ -36,6 +36,7 @@ public:
 
     static bool GetToken(v8::Local<v8::Value>, lcb_MUTATION_TOKEN*, int);
     static v8::Handle<v8::Value> CreateToken(lcb_t instance, const lcb_MUTATION_TOKEN*);
+    static v8::Handle<v8::Value> CreateToken(lcb_t instance, int cbtype, const lcb_RESPBASE*);
 
 private:
     static Nan::Persistent<v8::Function> tokenClass;
