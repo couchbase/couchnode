@@ -72,6 +72,14 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
         }
     }
 
+    if (instance->type == LCB_TYPE_CLUSTER && info->get_origin() == CLCONFIG_CLADMIN) {
+        /* Disable HTTP provider for management operations, and fallback to static */
+        if (instance->cur_configinfo == NULL ||
+                instance->cur_configinfo->get_origin() != CLCONFIG_HTTP) {
+            instance->confmon->set_active(CLCONFIG_HTTP, false);
+        }
+    }
+
     if (instance->type != LCB_TYPE_CLUSTER) {
         lcb_update_vbconfig(instance, info);
     }
@@ -221,7 +229,7 @@ lcb_get_bootstrap_status(lcb_t instance)
         return instance->last_error;
     }
     if (instance->type == LCB_TYPE_CLUSTER) {
-        if (lcb::clconfig::http_get_conn(instance->confmon) != NULL) {
+        if (lcb::clconfig::http_get_conn(instance->confmon) != NULL || instance->confmon->get_config() != NULL) {
             return LCB_SUCCESS;
         }
     }

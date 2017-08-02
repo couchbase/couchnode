@@ -51,6 +51,7 @@ provider_string(Method type) {
     if (type == CLCONFIG_CCCP) { return "CCCP"; }
     if (type == CLCONFIG_FILE) { return "FILE"; }
     if (type == CLCONFIG_MCRAW) { return "MCRAW"; }
+    if (type == CLCONFIG_CLADMIN) { return "CLADMIN"; }
     return "";
 }
 
@@ -72,6 +73,7 @@ Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_)
     all_providers[CLCONFIG_CCCP] = new_cccp_provider(this);
     all_providers[CLCONFIG_HTTP] = new_http_provider(this);
     all_providers[CLCONFIG_MCRAW] = new_mcraw_provider(this);
+    all_providers[CLCONFIG_CLADMIN] = new_cladmin_provider(this);
 
     for (size_t ii = 0; ii < CLCONFIG_MAX; ii++) {
         all_providers[ii]->parent = this;
@@ -124,6 +126,9 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
 {
     unsigned ii;
 
+    if (config && new_config == config) {
+        return 0;
+    }
     if (config) {
         lcbvb_CHANGETYPE chstatus = LCBVB_NO_CHANGES;
         lcbvb_CONFIGDIFF *diff = lcbvb_compare(config->vbc, new_config->vbc);
@@ -192,6 +197,16 @@ void Confmon::provider_failed(Provider *provider, lcb_error_t reason) {
             }
         } else {
             last_error = reason;
+        }
+    }
+
+    if (settings->conntype == LCB_TYPE_CLUSTER && provider->type == CLCONFIG_HTTP) {
+        Provider *cladmin = get_provider(CLCONFIG_CLADMIN);
+        if (!cladmin->enabled) {
+            cladmin->enable();
+            cladmin->configure_nodes(*provider->get_nodes());
+            active_providers.push_back(cladmin);
+            lcb_log(LOGARGS(this, DEBUG), "Static configuration provider has been enabled");
         }
     }
 

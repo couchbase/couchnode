@@ -27,6 +27,7 @@
 #ifndef __cplusplus
 typedef struct packet_info_st packet_info;
 #else
+#include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 namespace lcb {
 class Server;
 
@@ -209,6 +210,33 @@ public:
 
     void *bufseg() const {
         return bufh;
+    }
+
+    static lcb_error_t
+    parse_enhanced_error(const char *value, lcb_SIZE nvalue, char **err_ref, char **err_ctx)
+    {
+        if (value == NULL || nvalue == 0) {
+            return LCB_EINVAL;
+        }
+        Json::Value jval;
+        if (!Json::Reader().parse(value, value + nvalue, jval)) {
+            return LCB_EINVAL;
+        }
+        if (jval.empty()) {
+            return LCB_EINVAL;
+        }
+        Json::Value jerr = jval["error"];
+        if (jerr.empty()) {
+            return LCB_EINVAL;
+        }
+        std::string emsg;
+        if (!jerr["ref"].empty()) {
+            *err_ref = strdup(jerr["ref"].asString().c_str());
+        }
+        if (!jerr["context"].empty()) {
+            *err_ctx = strdup(jerr["context"].asString().c_str());
+        }
+        return LCB_SUCCESS;
     }
 
 protected:

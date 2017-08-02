@@ -367,6 +367,134 @@ protected:
 
 };
 
+class RbacHandler : public AdminHandler {
+public:
+    HANDLER_USAGE("[OPTIONS ...]")
+    RbacHandler(const char *name) : AdminHandler(name),
+        o_raw('r', "raw")
+    {
+        o_raw.description("Do not reformat output from server (display JSON response)");
+    }
+
+protected:
+    virtual void run();
+    virtual void format() = 0;
+    virtual void addOptions() {
+        AdminHandler::addOptions();
+        parser.addOption(o_raw);
+    }
+
+private:
+    cliopts::BoolOption o_raw;
+};
+
+class RoleListHandler : public RbacHandler {
+public:
+    HANDLER_DESCRIPTION("List roles")
+        RoleListHandler() : RbacHandler("role-list")
+    {
+    }
+
+protected:
+    virtual void format();
+    virtual void addOptions() {
+        RbacHandler::addOptions();
+    }
+    std::string getURI() { return "/settings/rbac/roles"; }
+    const std::string& getBody() { static std::string e; return e; }
+    lcb_http_method_t getMethod() { return LCB_HTTP_METHOD_GET; }
+};
+
+class UserListHandler : public RbacHandler {
+public:
+    HANDLER_DESCRIPTION("List users")
+        UserListHandler() : RbacHandler("user-list")
+    {
+    }
+
+protected:
+    virtual void format();
+    virtual void addOptions() {
+        RbacHandler::addOptions();
+    }
+    std::string getURI() { return "/settings/rbac/users"; }
+    const std::string& getBody() { static std::string e; return e; }
+    lcb_http_method_t getMethod() { return LCB_HTTP_METHOD_GET; }
+};
+
+class UserDeleteHandler : public AdminHandler {
+public:
+    HANDLER_DESCRIPTION("Delete a user")
+    HANDLER_USAGE("NAME [OPTIONS ...]")
+    UserDeleteHandler() : AdminHandler("user-delete"),
+        o_domain("domain")
+    {
+        o_domain.description("The domain, where user account defined {local,external}").setDefault("local");
+    }
+
+protected:
+    virtual void addOptions() {
+        AdminHandler::addOptions();
+        parser.addOption(o_domain);
+    }
+    void run() {
+        name = getRequiredArg();
+        domain = o_domain.result();
+        if (domain != "local" && domain != "external") {
+            throw BadArg("Unrecognized domain type");
+        }
+        AdminHandler::run();
+    }
+    std::string getURI() { return std::string("/settings/rbac/users/") + domain + "/" + name; }
+    const std::string& getBody() { static std::string e; return e; }
+    lcb_http_method_t getMethod() { return LCB_HTTP_METHOD_DELETE; }
+
+private:
+    cliopts::StringOption o_domain;
+    std::string name;
+    std::string domain;
+};
+
+class UserUpsertHandler : public AdminHandler {
+public:
+    HANDLER_DESCRIPTION("Create or update a user")
+    HANDLER_USAGE("NAME [OPTIONS ...]")
+    UserUpsertHandler() : AdminHandler("user-upsert"),
+        o_domain("domain"),
+        o_full_name("full-name"),
+        o_password("user-password"),
+        o_roles("role")
+    {
+        o_domain.description("The domain, where user account defined {local,external}").setDefault("local");
+        o_full_name.description("The user's fullname");
+        o_roles.description("The role associated with user (can be specified multiple times if needed)");
+        o_password.description("The password for the user");
+    }
+
+protected:
+    virtual void addOptions() {
+        AdminHandler::addOptions();
+        parser.addOption(o_domain);
+        parser.addOption(o_full_name);
+        parser.addOption(o_roles);
+        parser.addOption(o_password);
+    }
+    virtual void run();
+    std::string getURI() { return std::string("/settings/rbac/users/") + domain + "/" + name; }
+    const std::string& getBody() { return body; }
+    std::string getContentType() { return "application/x-www-form-urlencoded"; }
+    lcb_http_method_t getMethod() { return LCB_HTTP_METHOD_PUT; }
+
+private:
+    cliopts::StringOption o_domain;
+    cliopts::StringOption o_full_name;
+    cliopts::StringOption o_password;
+    cliopts::ListOption o_roles;
+    std::string name;
+    std::string domain;
+    std::string body;
+};
+
 class BucketCreateHandler : public AdminHandler {
 public:
     HANDLER_DESCRIPTION("Create a bucket")

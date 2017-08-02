@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-N1QLBACK" "1" "July 2016" "" ""
+.TH "CBC\-N1QLBACK" "1" "June 2017" "" ""
 .
 .SH "NAME"
 \fBcbc\-n1qlback\fR \- Stress Test for Couchbase Query (N1QL)
@@ -75,6 +75,10 @@ Dump command timings at the end of execution\. This will display a histogram sho
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Specify more information to standard error about what the client is doing\. You may specify this option multiple times for increased output detail\.
+.
+.TP
+\fB\-e\fR, \fB\-\-error\-log\fR=\fIPATH\fR
+Path to a file, where the command will write failed queries along with error details\. Use this option to figure out why \fBERRORS\fR metric is not zero\.
 .
 .TP
 \fB\-D\fR, \fB\-\-cparam\fR=OPTION=VALUE

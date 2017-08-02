@@ -60,3 +60,5 @@
 
 #include "config_static.h"
 #endif
+
+#define TEST_SHARED_OBJECT "${CMAKE_TEST_SHARED_OBJECT}"

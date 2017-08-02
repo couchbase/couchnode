@@ -128,8 +128,29 @@ public:
         delete this;
     }
 
-    void set_error(lcb_error_t error, const char *msg = "") {
-        lcb_log(LOGARGS(this, ERR), SESSREQ_LOGFMT "Error: 0x%x, %s", SESSREQ_LOGID(this), error, msg);
+    void set_error(lcb_error_t error, const char *msg, const lcb::MemcachedResponse *packet = NULL) {
+        char *err_ref = NULL, *err_ctx = NULL;
+        if (packet) {
+            MemcachedResponse::parse_enhanced_error(packet->value(), packet->vallen(), &err_ref, &err_ctx);
+        }
+        if (err_ref || err_ctx) {
+            std::stringstream emsg;
+            if (err_ref) {
+                emsg << "ref: \"" << err_ref << "\"";
+            }
+            if (err_ctx) {
+                if (err_ref) {
+                    emsg << ", ";
+                }
+                emsg << "context: \"" << err_ctx << "\"";
+            }
+            lcb_log(LOGARGS(this, ERR), SESSREQ_LOGFMT "Error: 0x%x, %s (%s)",
+                    SESSREQ_LOGID(this), error, msg, emsg.str().c_str());
+            free(err_ref);
+            free(err_ctx);
+        } else {
+            lcb_log(LOGARGS(this, ERR), SESSREQ_LOGFMT "Error: 0x%x, %s", SESSREQ_LOGID(this), error, msg);
+        }
         if (last_err == LCB_SUCCESS) {
             last_err = error;
         }
@@ -506,7 +527,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
         } else if (status == PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE) {
             send_step(resp);
         } else {
-            set_error(LCB_AUTH_ERROR, "SASL AUTH failed");
+            set_error(LCB_AUTH_ERROR, "SASL AUTH failed", &resp);
             break;
         }
         break;
@@ -517,7 +538,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
             completed = !maybe_select_bucket();
         } else {
             lcb_log(LOGARGS(this, WARN), SESSREQ_LOGFMT "SASL auth failed with STATUS=0x%x", SESSREQ_LOGID(this), status);
-            set_error(LCB_AUTH_ERROR, "SASL Step Failed");
+            set_error(LCB_AUTH_ERROR, "SASL Step failed", &resp);
         }
         break;
     }
@@ -532,7 +553,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
             lcb_log(LOGARGS(this, DEBUG), SESSREQ_LOGFMT "Server does not support HELLO", SESSREQ_LOGID(this));
         } else {
             lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Unexpected status 0x%x received for HELLO", SESSREQ_LOGID(this), status);
-            set_error(LCB_PROTOCOL_ERROR, "Hello response unexpected");
+            set_error(LCB_PROTOCOL_ERROR, "Hello response unexpected", &resp);
             break;
         }
 
@@ -555,7 +576,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
             lcb_log(LOGARGS(this, DEBUG), SESSREQ_LOGFMT "Server does not support GET_ERRMAP (0x%x)", SESSREQ_LOGID(this), status);
         } else {
             lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Unexpected status 0x%x received for GET_ERRMAP", SESSREQ_LOGID(this), status);
-            set_error(LCB_PROTOCOL_ERROR, "GET_ERRMAP response unexpected");
+            set_error(LCB_PROTOCOL_ERROR, "GET_ERRMAP response unexpected", &resp);
         }
         // Note, there is no explicit state transition here. LIST_MECHS is
         // pipelined after this request.
@@ -566,17 +587,17 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
         if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
             completed = true;
         } else if (status == PROTOCOL_BINARY_RESPONSE_EACCESS) {
-            set_error(LCB_AUTH_ERROR, "Provided credentials not allowed for bucket");
+            set_error(LCB_AUTH_ERROR, "Provided credentials not allowed for bucket", &resp);
         } else {
             lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", SESSREQ_LOGID(this), status);
-            set_error(LCB_PROTOCOL_ERROR, "Other auth error");
+            set_error(LCB_PROTOCOL_ERROR, "Other auth error", &resp);
         }
         break;
     }
 
     default: {
         lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Received unknown response. OP=0x%x. RC=0x%x", SESSREQ_LOGID(this), resp.opcode(), resp.status());
-        set_error(LCB_NOT_SUPPORTED, "Received unknown response");
+        set_error(LCB_NOT_SUPPORTED, "Received unknown response", &resp);
         break;
     }
     }

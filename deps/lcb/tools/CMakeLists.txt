@@ -4,7 +4,7 @@ FILE(GLOB T_COMMONSRC common/*.cc)
 ADD_LIBRARY(lcbtools OBJECT ${T_COMMONSRC})
 
 ADD_EXECUTABLE(cbc cbc.cc
-    $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts>)
+    $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts> $<TARGET_OBJECTS:lcb_jsoncpp>)
 TARGET_LINK_LIBRARIES(cbc couchbase)
 
 ADD_EXECUTABLE(cbc-pillowfight cbc-pillowfight.cc
@@ -38,7 +38,7 @@ IF(NOT WIN32)
         cat create observe observe-seqno incr decr mcflush hash lock
         unlock rm stats version verbosity view n1ql admin
         bucket-create bucket-delete bucket-flush connstr write-config strerror
-        touch)
+        touch role-list user-list user-upsert user-delete)
 
     FOREACH(subcmd IN ITEMS ${CBC_SUBCOMMANDS})
         ADD_CUSTOM_COMMAND(TARGET cbc POST_BUILD

@@ -53,7 +53,7 @@ struct Traits {
     const uint8_t opcode;
 
     inline bool valid() const {
-        return opcode != 0;
+        return opcode != PROTOCOL_BINARY_CMD_INVALID;
     }
 
     inline unsigned mode() const {
@@ -128,7 +128,7 @@ static const Traits
 SetDoc(PROTOCOL_BINARY_CMD_SET, EMPTY_PATH|NO_STANDALONE);
 
 static const Traits
-Invalid(0, 0);
+Invalid(PROTOCOL_BINARY_CMD_INVALID, 0);
 
 const Traits&
 find(unsigned mode)

@@ -175,7 +175,7 @@
         'src/bucketconfig/bc_cccp.cc',
         'src/bucketconfig/bc_file.cc',
         'src/bucketconfig/bc_http.cc',
-        'src/bucketconfig/bc_mcraw.cc',
+        'src/bucketconfig/bc_static.cc',
         'src/bucketconfig/confmon.cc',
         'src/http/http.cc',
         'src/http/http_io.cc',

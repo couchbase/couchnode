@@ -72,8 +72,8 @@ public:
      * it may _not_ be used for memcached buckets (which is typically OK, as we only
      * map things here as a response for a not-my-vbucket).
      */
-    void add(mc_EXPACKET *detchpkt, lcb_error_t err) {
-        add(detchpkt, err, 0);
+    void add(mc_EXPACKET *detchpkt, lcb_error_t err, errmap::RetrySpec *spec) {
+        add(detchpkt, err, spec, 0);
     }
 
     /**
@@ -151,7 +151,7 @@ private:
     enum AddOptions {
         RETRY_SCHED_IMM = 0x01
     };
-    void add(mc_EXPACKET *pkt, lcb_error_t, int options);
+    void add(mc_EXPACKET *pkt, lcb_error_t, errmap::RetrySpec*, int options);
 
     /** List of operations in retry ordering. Sorted by 'crtime' */
     lcb_list_t schedops;

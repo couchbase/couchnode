@@ -72,7 +72,10 @@ class MockCommand
     X(SET_CCCP) \
     X(REGEN_VBCOORDS) \
     X(RESET_QUERYSTATE) \
-    X(OPFAIL)
+    X(OPFAIL) \
+    X(START_RETRY_VERIFY) \
+    X(CHECK_RETRY_VERIFY) \
+    X(SET_ENHANCED_ERRORS)
 
 public:
     enum Code {
@@ -163,6 +166,38 @@ protected:
     virtual void finalizePayload();
     int ix;
     std::string bucket;
+};
+
+class MockOpfailCommand : public MockCommand
+{
+public:
+    MockOpfailCommand(uint16_t errcode, int index, int count = -1,
+                      std::string bucketstr = "default")
+        : MockCommand(OPFAIL) {
+        set("count", count);
+        set("bucket", bucketstr);
+        set("code", errcode);
+
+        Json::Value srvlist(Json::arrayValue);
+        srvlist.append(index);
+        set("servers", srvlist);
+    }
+};
+
+class MockOpFailClearCommand : public MockCommand {
+public:
+    MockOpFailClearCommand(size_t nservers, std::string bucketstr = "default")
+        : MockCommand(OPFAIL) {
+        set("count", -1);
+        set("bucket", bucketstr);
+        set("code", 0);
+
+        Json::Value srvlist(Json::arrayValue);
+        for (size_t ii = 0; ii < nservers; ++ii) {
+            srvlist.append(static_cast<int>(ii));
+        }
+        set("servers", srvlist);
+    }
 };
 
 class MockResponse
@@ -277,6 +312,19 @@ public:
     void setCCCP(bool enabled,
                  std::string bucket = "",
                  const std::vector<int>* nodes = NULL);
+
+    /**
+     * Enable enhanced errors on the mock cluster
+     *
+     * This includes generation event id (ref), and setting context for some errors
+     * .
+     * @param bucket the bucket on which to enable enhanced errors
+     * @param nodes a list of by-index nodes on which to enable Enhanced Errors. If NULL
+     * then all nodes are enabled
+     */
+    void setEnhancedErrors(bool enabled,
+                           std::string bucket = "",
+                           const std::vector<int>* nodes = NULL);
 
     /**
      * Create a connection to the mock/real server.

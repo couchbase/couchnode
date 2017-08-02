@@ -37,7 +37,13 @@ struct lcb::RetryOp : mc_EPKTDATUM, SchedNode, TmoNode {
     hrtime_t trytime; /**< Next retry time */
     mc_PACKET *pkt;
     lcb_error_t origerr;
-    RetryOp();
+    errmap::RetrySpec *spec;
+    RetryOp(errmap::RetrySpec *spec);
+    ~RetryOp() {
+        if (spec != NULL) {
+            spec->unref();
+        }
+    }
 };
 
 static RetryOp *from_schednode(lcb_list_t *ll) {
@@ -79,10 +85,24 @@ RetryQueue::update_trytime(RetryOp *op, hrtime_t now)
     if (!now) {
         now = gethrtime();
     }
-    op->trytime = now + (hrtime_t) (
-            (float)get_retry_interval() *
-            (float)op->pkt->retries *
-            (float)settings->retry_backoff);
+
+    if (op->spec) {
+        uint32_t us_trytime = op->spec->get_next_interval(op->pkt->retries - 1);
+        if (op->pkt->retries == 1) {
+            us_trytime += op->spec->after;
+        }
+        if (!us_trytime) {
+            goto GT_DEFAULT;
+        }
+        op->trytime = now + (LCB_US2NS(us_trytime));
+    } else {
+        GT_DEFAULT:
+        op->trytime = now + (hrtime_t) (
+                (float)get_retry_interval() *
+                (float)op->pkt->retries *
+                (float)settings->retry_backoff);
+
+    }
 }
 
 /** Comparison routine for sorting by timeout */
@@ -139,7 +159,7 @@ RetryQueue::fail(RetryOp *op, lcb_error_t err)
                            PROTOCOL_BINARY_RESPONSE_EINVAL);
 
     assign_error(op, err);
-    lcb_log(LOGARGS(this, WARN), "Failing command (seq=%u) from retry queue with error code 0x%x", op->pkt->opaque, op->origerr);
+    lcb_log(LOGARGS(this, WARN), "Failing command (seq=%u) from retry queue: %s", op->pkt->opaque, lcb_strerror_short(op->origerr));
 
     mcreq_dispatch_response(&tmpsrv, op->pkt, &resp, op->origerr);
     op->pkt->flags |= MCREQ_F_FLUSHED|MCREQ_F_INVOKED;
@@ -276,22 +296,40 @@ static void op_dtorfn(mc_EPKTDATUM *d) {
     delete static_cast<RetryOp*>(d);
 }
 
-RetryOp::RetryOp()
-    : mc_EPKTDATUM(), start(0), trytime(0), pkt(NULL), origerr(LCB_SUCCESS) {
+RetryOp::RetryOp(errmap::RetrySpec *spec_)
+    : mc_EPKTDATUM(), start(0), trytime(0), pkt(NULL), origerr(LCB_SUCCESS),
+      spec(spec_) {
     mc_EPKTDATUM::dtorfn = op_dtorfn;
     mc_EPKTDATUM::key = RETRY_PKT_KEY;
+
+    if (spec != NULL) {
+        spec->ref();
+    }
 }
 
 void
-RetryQueue::add(mc_EXPACKET *pkt, const lcb_error_t err, int options)
+RetryQueue::add(mc_EXPACKET *pkt, const lcb_error_t err,
+                errmap::RetrySpec *spec, int options)
 {
     RetryOp *op;
     mc_EPKTDATUM *d = mcreq_epkt_find(pkt, RETRY_PKT_KEY);
     if (d) {
         op = static_cast<RetryOp *>(d);
     } else {
-        op = new RetryOp();
+        op = new RetryOp(NULL);
         op->start = MCREQ_PKT_RDATA(&pkt->base)->start;
+        if (spec) {
+            op->spec = spec;
+            spec->ref();
+
+            if (spec->max_duration && spec->max_duration < settings->operation_timeout) {
+                // Offset the start by the difference between the duration and
+                // the timeout. We really use this number only for calculating
+                // the timeout, so it shouldn't hurt to fake it.
+                uint32_t diff = settings->operation_timeout - op->spec->max_duration;
+                op->start -= LCB_US2NS(diff);
+            }
+        }
         mcreq_epkt_insert(pkt, op);
     }
 
@@ -320,7 +358,7 @@ RetryQueue::nmvadd(mc_EXPACKET *detchpkt)
     if (settings->nmv_retry_imm) {
         flags = RETRY_SCHED_IMM;
     }
-    add(detchpkt, LCB_NOT_MY_VBUCKET, flags);
+    add(detchpkt, LCB_NOT_MY_VBUCKET, NULL, flags);
 }
 
 static void
@@ -332,7 +370,7 @@ fallback_handler(mc_CMDQUEUE *cq, mc_PACKET *pkt)
 
 void RetryQueue::add_fallback(mc_PACKET *pkt) {
     mc_PACKET *copy = mcreq_renew_packet(pkt);
-    add((mc_EXPACKET*)copy, LCB_NO_MATCHING_SERVER, RETRY_SCHED_IMM);
+    add((mc_EXPACKET*)copy, LCB_NO_MATCHING_SERVER, NULL, RETRY_SCHED_IMM);
 }
 
 void

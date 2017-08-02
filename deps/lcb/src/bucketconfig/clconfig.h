@@ -103,6 +103,8 @@ enum Method {
     CLCONFIG_HTTP,
     /** Raw memcached provided */
     CLCONFIG_MCRAW,
+    /** Cluster administration provider. Static config with services */
+    CLCONFIG_CLADMIN,
 
     CLCONFIG_MAX,
 
@@ -501,6 +503,7 @@ Provider *new_cccp_provider(Confmon*);
 Provider *new_file_provider(Confmon*);
 Provider *new_http_provider(Confmon*);
 Provider *new_mcraw_provider(Confmon*);
+Provider *new_cladmin_provider(Confmon*);
 
 
 /** @brief refcounted object encapsulating a vbucket config */

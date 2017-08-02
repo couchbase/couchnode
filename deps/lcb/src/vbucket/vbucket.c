@@ -1366,15 +1366,12 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
         }
     }
 
-    if (!vb->ndatasrv) {
-        vb->errstr = "No data servers in list";
-        return -1;
-    }
-
-    vb->vbuckets = malloc(vb->nvb * sizeof(*vb->vbuckets));
-    if (!vb->vbuckets) {
-        vb->errstr = "Couldn't allocate vbucket array";
-        return -1;
+    if (vb->nvb) {
+        vb->vbuckets = malloc(vb->nvb * sizeof(*vb->vbuckets));
+        if (!vb->vbuckets) {
+            vb->errstr = "Couldn't allocate vbucket array";
+            return -1;
+        }
     }
 
     for (ii = 0; ii < vb->nvb; ii++) {

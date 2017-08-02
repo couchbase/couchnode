@@ -212,13 +212,7 @@ TEST_F(Behavior, BadPluginEnvironment)
 
     // Find a DLL that we know can be loaded, but doesn't have the symbols
     // we need. For windows, we use the unqualified name,
-#ifdef _WIN32
-    const char *dllname = "kernel32.dll.";
-#elif __APPLE__
-    const char *dllname = "libm.dylib";
-#else
-    const char *dllname = "libm.so";
-#endif
+    const char *dllname = TEST_SHARED_OBJECT;
 
     setPluginEnv(dllname, "nonexist-symbol");
     ASSERT_EQ(lcb_create(&instance2, NULL), LCB_DLSYM_FAILED);

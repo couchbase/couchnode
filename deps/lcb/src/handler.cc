@@ -21,6 +21,8 @@
 #include "mc/compress.h"
 #include "trace.h"
 
+#define LOGARGS(obj, lvl) (obj)->settings, "handler", LCB_LOG_##lvl, __FILE__, __LINE__
+
 using lcb::MemcachedResponse;
 
 template <typename T>
@@ -28,11 +30,59 @@ class ResponsePack {
 public:
     T resp;
     lcb_MUTATION_TOKEN mt;
+    const char *value;
+    lcb_SIZE nvalue;
+    char *err_ref;
+    char *err_ctx;
+
+    ~ResponsePack() {
+        free(err_ref);
+        free(err_ctx);
+    }
 
     static const lcb_MUTATION_TOKEN*
     get_mt(const lcb_RESPBASE *rb) {
         const ResponsePack *rp = reinterpret_cast<const ResponsePack*>(rb);
         return &rp->mt;
+    }
+
+    static const char*
+    get_err_ctx(const lcb_RESPBASE *rb) {
+        const ResponsePack *rp = reinterpret_cast<const ResponsePack*>(rb);
+        if (rp->resp.rflags & LCB_RESP_F_ERRINFO) {
+            if (rp->err_ctx) {
+                return rp->err_ctx;
+            } else {
+                parse_enhanced_error(rp);
+                return rp->err_ctx;
+            }
+        }
+        return NULL;
+    }
+
+    static const char*
+    get_err_ref(const lcb_RESPBASE *rb) {
+        const ResponsePack *rp = reinterpret_cast<const ResponsePack*>(rb);
+        if (rp->resp.rflags & LCB_RESP_F_ERRINFO) {
+            if (rp->err_ref) {
+                return rp->err_ref;
+            } else {
+                parse_enhanced_error(rp);
+                return rp->err_ref;
+            }
+        }
+        return NULL;
+    }
+
+ private:
+
+    static void
+    parse_enhanced_error(const ResponsePack *rp) {
+        ResponsePack *mrp = const_cast<ResponsePack *>(rp);
+        lcb_error_t rc = MemcachedResponse::parse_enhanced_error(mrp->value, mrp->nvalue, &mrp->err_ref, &mrp->err_ctx);
+        if (rc != LCB_SUCCESS) {
+            mrp->resp.rflags &= ~LCB_RESP_F_ERRINFO;
+        }
     }
 };
 
@@ -53,7 +103,7 @@ lcb_errmap_default(lcb_t instance, lcb_uint16_t in)
     case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
     default:
         if (instance) {
-            lcb_log(instance->settings, "handler", LCB_LOG_ERROR, __FILE__, __LINE__, "Got unhandled memcached error 0x%X", in);
+            lcb_log(LOGARGS(instance, ERROR), "Got unhandled memcached error 0x%X", in);
         } else {
             fprintf(stderr, "COUCHBASE: Unhandled memcached status=0x%x\n", in);
         }
@@ -113,6 +163,8 @@ map_error(lcb_t instance, int in)
         return LCB_UNKNOWN_COMMAND;
     case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
         return LCB_NOT_SUPPORTED;
+    case PROTOCOL_BINARY_RESPONSE_EACCESS:
+        return LCB_NOT_AUTHORIZED;
     default:
         if (instance != NULL) {
             return instance->callbacks.errmap(instance, in);
@@ -171,6 +223,18 @@ void make_error(lcb_t instance, T* resp,
         resp->rc = LCB_SUCCESS;
     } else {
         resp->rc = map_error(instance, response->status());
+    }
+}
+
+template <typename T>
+void handle_error_info(const MemcachedResponse* mc_resp, ResponsePack<T>* rp)
+{
+    if (mc_resp->status() != PROTOCOL_BINARY_RESPONSE_SUCCESS
+        && mc_resp->datatype() & PROTOCOL_BINARY_DATATYPE_JSON
+        && mc_resp->vallen() > 0) {
+        rp->resp.rflags |= LCB_RESP_F_ERRINFO;
+        rp->value = mc_resp->value();
+        rp->nvalue = mc_resp->vallen();
     }
 }
 
@@ -289,10 +353,12 @@ static void
 H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse* response,
       lcb_error_t immerr)
 {
-    lcb_RESPGET resp = { 0 };
+    ResponsePack<lcb_RESPGET> w = {{ 0 }};
+    lcb_RESPGET& resp = w.resp;
 
     lcb_t o = get_instance(pipeline);
     init_resp(o, response, request, immerr, &resp);
+    handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
 
     if (resp.rc == LCB_SUCCESS) {
@@ -317,12 +383,14 @@ static void
 H_getreplica(mc_PIPELINE *pipeline, mc_PACKET *request,
              MemcachedResponse *response, lcb_error_t immerr)
 {
-    lcb_RESPGET resp = { 0 };
+    ResponsePack<lcb_RESPGET> w = {{ 0 }};
+    lcb_RESPGET& resp = w.resp;
     lcb_t instance = get_instance(pipeline);
     void *freeptr = NULL;
     mc_REQDATAEX *rd = request->u_rdata.exdata;
 
     init_resp(instance, response, request, immerr, &resp);
+    handle_error_info(response, &w);
 
     if (resp.rc == LCB_SUCCESS) {
         const protocol_binary_response_get *get =
@@ -511,6 +579,7 @@ H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse *response,
     ResponsePack<lcb_RESPREMOVE> w = { { 0 } };
     w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     init_resp(root, response, packet, immerr, &w.resp);
+    handle_error_info(response, &w);
     handle_mutation_token(root, response, packet, &w.mt);
     TRACE_REMOVE_END(response, &w.resp);
     invoke_callback(packet, root, &w.resp, LCB_CALLBACK_REMOVE);
@@ -628,6 +697,7 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     ResponsePack<lcb_RESPSTORE> w = { { 0 } };
     uint8_t opcode;
     init_resp(root, response, request, immerr, &w.resp);
+    handle_error_info(response, &w);
     if (!immerr) {
         opcode = response->opcode();
     } else {
@@ -669,6 +739,8 @@ H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request,
         w.resp.value = lcb_ntohll(w.resp.value);
         w.resp.rflags |= LCB_RESP_F_EXTDATA;
         handle_mutation_token(root, response, request, &w.mt);
+    } else {
+        handle_error_info(response, &w);
     }
     w.resp.rflags |= LCB_RESP_F_FINAL;
     w.resp.cas = response->cas();
@@ -741,8 +813,10 @@ H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
         lcb_error_t immerr)
 {
     lcb_t root = get_instance(pipeline);
-    lcb_RESPTOUCH resp = { 0 };
+    ResponsePack<lcb_RESPTOUCH> w = {{ 0 }};
+    lcb_RESPTOUCH& resp = w.resp;
     init_resp(root, response, request, immerr, &resp);
+    handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
     TRACE_TOUCH_END(response, &resp);
     invoke_callback(request, root, &resp, LCB_CALLBACK_TOUCH);
@@ -764,8 +838,10 @@ H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
          lcb_error_t immerr)
 {
     lcb_t root = get_instance(pipeline);
-    lcb_RESPUNLOCK resp = { 0 };
+    ResponsePack<lcb_RESPUNLOCK> w = {{ 0 }};
+    lcb_RESPUNLOCK& resp = w.resp;
     init_resp(root, response, request, immerr, &resp);
+    handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
     TRACE_UNLOCK_END(response, &resp);
     invoke_callback(request, root, &resp, LCB_CALLBACK_UNLOCK);
@@ -931,4 +1007,39 @@ lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb)
         return NULL;
     }
     return ss;
+}
+
+#define ERRINFO_CALLBACKS(X)                    \
+    X(GET)                                      \
+    X(STORE)                                    \
+    X(COUNTER)                                  \
+    X(TOUCH)                                    \
+    X(REMOVE)                                   \
+    X(UNLOCK)                                   \
+
+
+const char *
+lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb)
+{
+    if ((rb->rflags & LCB_RESP_F_ERRINFO) == 0) {
+        return NULL;
+    }
+
+#define X(NAME) if (cbtype == LCB_CALLBACK_##NAME) { return ResponsePack<lcb_RESP##NAME>::get_err_ctx(rb); }
+    ERRINFO_CALLBACKS(X);
+#undef X
+    return NULL;
+}
+
+const char *
+lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb)
+{
+    if ((rb->rflags & LCB_RESP_F_ERRINFO) == 0) {
+        return NULL;
+    }
+
+#define X(NAME) if (cbtype == LCB_CALLBACK_##NAME) { return ResponsePack<lcb_RESP##NAME>::get_err_ref(rb); }
+    ERRINFO_CALLBACKS(X);
+#undef X
+    return NULL;
 }

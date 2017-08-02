@@ -16,6 +16,10 @@ server_runfunc(void *arg)
 void
 TestServer::run()
 {
+    if (closed) {
+        return;
+    }
+
     fd_set fds;
     struct timeval tmout = { 1, 0 };
 

@@ -88,8 +88,6 @@ public:
      */
     void shutdown();
 
-    inline ~Pool();
-
     /**
      * Request a connection from the socket pool. The semantics and prototype
      * of this function are by design similar to lcbio_connect() as they do the

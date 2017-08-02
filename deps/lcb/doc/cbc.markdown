@@ -59,7 +59,7 @@ The following common options may be applied to most of the commands
   used to log into the web interface.
 
   Specifying the `-` as the password indicates that the program should prompt for the
-  password. You may also specify the password on the commandline, directly, 
+  password. You may also specify the password on the commandline, directly,
   but is insecure as command line arguments are visible via commands such as `ps`.
 
 * `-T`, `--timings`:
@@ -412,7 +412,53 @@ require that _flush_ be enabled for the bucket.
 
 See the [OPTIONS](#OPTIONS) for accepted options
 
-### connstr 
+### role-list
+
+List accessible RBAC user roles in the cluster.
+
+In addition to the [OPTIONS](#OPTIONS) specified above, the following options are recognized:
+
+* `-r`, `--raw`:
+  Print unformatted server response in JSON form.
+
+### user-list
+
+List users in the cluster.
+
+In addition to the [OPTIONS](#OPTIONS) specified above, the following options are recognized:
+
+* `-r`, `--raw`:
+  Print unformatted server response in JSON form.
+
+### user-upsert
+
+Create or update a user in the cluster. Takes user ID as an argument.
+
+In addition to the [OPTIONS](#OPTIONS) specified above, the following options are recognized:
+
+* `--domain`=_local|remote_:
+  The domain, where user account defined. If not specified, the default is _local_.
+
+* `--full-name`=_FULL_NAME_:
+  The user's fullname. If not specified, the default is empty string.
+
+* `--role`=_ROLE_:
+  The role associated with user (can be specified multiple times if needed).
+
+* `--user-password`=_PASSWORD_:
+  The password for the user.
+
+### user-delete
+
+Delete a user in the cluster. Takes user ID as an argument.
+
+In addition to the [OPTIONS](#OPTIONS) specified above, the following options are recognized:
+
+* `--domain`=_local|remote_:
+  The domain, where user account defined. If not specified, the default is _local_.
+
+
+### connstr
 
 This command will parse a connection string into its constituent parts and
 display them on the screen. The command takes a single positional argument

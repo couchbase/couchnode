@@ -200,7 +200,15 @@ init_providers(lcb_t obj, const Connspec &spec)
                 return LCB_SUCCESS;
             }
         }
-        return LCB_BAD_ENVIRONMENT;
+        if (obj->type == LCB_TYPE_CLUSTER) {
+            /* Cluster-level connection always falls back to static config */
+            Provider *cladmin;
+            cladmin = obj->confmon->get_provider(CLCONFIG_CLADMIN);
+            cladmin->enable();
+            cladmin->configure_nodes(*obj->ht_nodes);
+        } else {
+            return LCB_BAD_ENVIRONMENT;
+        }
     }
 
     if (http_enabled) {

@@ -635,7 +635,10 @@ typedef enum {
 
     /**Flag, only valid for subdoc responses, indicates that the response was
      * processed using the single-operation protocol. */
-    LCB_RESP_F_SDSINGLE = 0x010
+    LCB_RESP_F_SDSINGLE = 0x10,
+
+    /**The response has extra error information as value (see SDK-RFC-28). */
+    LCB_RESP_F_ERRINFO = 0x20
 } lcb_RESPFLAGS;
 
 /**
@@ -3688,6 +3691,33 @@ lcb_histogram_read(const lcb_HISTOGRAM *hg, const void *cookie,
  */
 LCB_INTERNAL_API
 void lcb_histogram_print(lcb_HISTOGRAM* hg, FILE* stream);
+
+/**
+ * @volatile
+ *
+ * Retrieves the extra error context from the response structure.
+ *
+ * This context does not duplicate information described by status
+ * code rendered by lcb_strerror() function, and should be logged
+ * if available.
+ *
+ * @return the pointer to string or NULL if context wasn't specified.
+ */
+const char *
+lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb);
+
+/**
+ * @volatile
+ *
+ * Retrieves the error reference id from the response structure.
+ *
+ * Error reference id (or event id) should be logged to allow
+ * administrators match client-side events with cluster logs.
+ *
+ * @return the pointer to string or NULL if ref wasn't specified.
+ */
+const char *
+lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb);
 
 /* Post-include some other headers */
 #ifdef __cplusplus

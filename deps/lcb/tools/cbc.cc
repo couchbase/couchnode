@@ -3,6 +3,7 @@
 #include <map>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <algorithm>
 #include <libcouchbase/vbucket.h>
@@ -14,6 +15,8 @@
 #include "common/histogram.h"
 #include "cbc-handlers.h"
 #include "connspec.h"
+#include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
+
 using namespace cbc;
 
 using std::string;
@@ -1166,7 +1169,7 @@ AdminHandler::run()
 {
     fprintf(stderr, "Requesting %s\n", getURI().c_str());
     HttpBaseHandler::run();
-    printf("%s", resbuf.c_str());
+    printf("%s\n", resbuf.c_str());
 }
 
 void
@@ -1198,6 +1201,125 @@ BucketCreateHandler::run()
 
     ss << "&replicaNumber=" << o_replicas.result();
     body_s = ss.str();
+
+    AdminHandler::run();
+}
+
+void
+RbacHandler::run()
+{
+    fprintf(stderr, "Requesting %s\n", getURI().c_str());
+    HttpBaseHandler::run();
+    if (o_raw.result()) {
+        printf("%s\n", resbuf.c_str());
+    } else {
+        format();
+    }
+}
+
+void
+RoleListHandler::format()
+{
+    Json::Value json;
+    if (!Json::Reader().parse(resbuf, json)) {
+        fprintf(stderr, "Failed to parse response as JSON, falling back to raw mode\n");
+        printf("%s\n", resbuf.c_str());
+    }
+
+    std::map<string, string> roles;
+    size_t max_width = 0;
+    for (Json::Value::iterator i = json.begin(); i != json.end(); i++) {
+        Json::Value role = *i;
+        string role_id = role["role"].asString() + ": ";
+        roles[role_id] = role["desc"].asString();
+        if (max_width < role_id.size()) {
+            max_width = role_id.size();
+        }
+    }
+    for (map<string, string>::iterator i = roles.begin(); i != roles.end(); i++) {
+        std::cout << std::left << std::setw(max_width) << i->first << i->second << std::endl;
+    }
+}
+
+void
+UserListHandler::format()
+{
+    Json::Value json;
+    if (!Json::Reader().parse(resbuf, json)) {
+        fprintf(stderr, "Failed to parse response as JSON, falling back to raw mode\n");
+        printf("%s\n", resbuf.c_str());
+    }
+
+    map<string, map<string, string> > users;
+    size_t max_width = 0;
+    for (Json::Value::iterator i = json.begin(); i != json.end(); i++) {
+        Json::Value user = *i;
+        string domain = user["domain"].asString();
+        string user_id = user["id"].asString();
+        string user_name = user["name"].asString();
+        if (!user_name.empty()) {
+            user_id += " (" + user_name + "): ";
+        }
+        stringstream roles;
+        Json::Value roles_ary = user["roles"];
+        for (Json::Value::iterator j = roles_ary.begin(); j != roles_ary.end(); j++) {
+            Json::Value role = *j;
+            roles << "\n   - " << role["role"].asString();
+            if (!role["bucket_name"].empty()) {
+                roles << "[" << role["bucket_name"].asString() << "]";
+            }
+        }
+        if (max_width < user_id.size()) {
+            max_width = user_id.size();
+        }
+        users[domain][user_id] = roles.str();
+    }
+    if (!users["local"].empty()) {
+        std::cout << "Local users:" << std::endl;
+        int j = 1;
+        for (map<string, string>::iterator i = users["local"].begin(); i != users["local"].end(); i++, j++) {
+            std::cout << j << ". " << std::left << std::setw(max_width) << i->first << i->second << std::endl;
+        }
+    }
+    if (!users["external"].empty()) {
+        std::cout << "External users:" << std::endl;
+        int j = 1;
+        for (map<string, string>::iterator i = users["external"].begin(); i != users["external"].end(); i++, j++) {
+            std::cout << j << ". " << std::left << std::setw(max_width) << i->first << i->second << std::endl;
+        }
+    }
+}
+
+void
+UserUpsertHandler::run()
+{
+    stringstream ss;
+
+    name = getRequiredArg();
+    domain = o_domain.result();
+    if (domain != "local" && domain != "external") {
+        throw BadArg("Unrecognized domain type");
+    }
+    if (!o_roles.passed()) {
+        throw BadArg("At least one role has to be specified");
+    }
+    std::vector<std::string> roles = o_roles.result();
+    std::string roles_param;
+    for (size_t ii = 0; ii < roles.size(); ii++) {
+        if (roles_param.empty()) {
+            roles_param += roles[ii];
+        } else {
+            roles_param += std::string(",") + roles[ii];
+        }
+    }
+    ss << "roles=" << roles_param;
+    if (o_full_name.passed()) {
+        ss << "&name=" << o_full_name.result();
+    }
+    if (o_password.passed()) {
+        ss << "&password=" << o_password.result();
+    }
+    body = ss.str();
 
     AdminHandler::run();
 }
@@ -1326,6 +1448,7 @@ static const char* optionsOrder[] = {
         "hash",
         "lock",
         "unlock",
+        "cp",
         "rm",
         "stats",
         // "verify,
@@ -1337,6 +1460,10 @@ static const char* optionsOrder[] = {
         "bucket-create",
         "bucket-delete",
         "bucket-flush",
+        "role-list",
+        "user-list",
+        "user-upsert",
+        "user-delete",
         "connstr",
         "write-config",
         "strerror",
@@ -1423,8 +1550,10 @@ setupHandlers()
     handlers_s["strerror"] = new StrErrorHandler();
     handlers_s["observe-seqno"] = new ObserveSeqnoHandler();
     handlers_s["touch"] = new TouchHandler();
-
-
+    handlers_s["role-list"] = new RoleListHandler();
+    handlers_s["user-list"] = new UserListHandler();
+    handlers_s["user-upsert"] = new UserUpsertHandler();
+    handlers_s["user-delete"] = new UserDeleteHandler();
 
     map<string,Handler*>::iterator ii;
     for (ii = handlers_s.begin(); ii != handlers_s.end(); ++ii) {

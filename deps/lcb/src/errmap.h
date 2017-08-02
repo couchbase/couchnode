@@ -2,10 +2,12 @@
 #define LCB_ERRMAP_H
 
 #ifdef __cplusplus
-
 #include <map>
 #include <set>
 #include <string>
+#include <cmath>
+
+namespace Json { class Value; }
 
 namespace lcb {
 namespace errmap {
@@ -36,11 +38,91 @@ enum ErrorAttribute {
     INVALID_ATTRIBUTE
 };
 
+class RetrySpec {
+public:
+    enum Strategy { CONSTANT, LINEAR, EXPONENTIAL };
+    // Grace time
+    uint32_t after;
+
+    // Maximum duration for retry.
+    uint32_t max_duration;
+
+    uint32_t get_next_interval(size_t num_attempts) const {
+        uint32_t cur_interval = 0; // 50ms is a safe bet.
+        if (strategy == CONSTANT) {
+            return interval;
+        } else if (strategy == LINEAR) {
+            cur_interval = num_attempts * interval;
+        } else if (strategy == EXPONENTIAL) {
+            // Convert to ms for pow(), convert result back to us.
+            cur_interval = std::pow((double)(interval / 1000), (int)num_attempts) * 1000;
+        }
+        if (ceil != 0) {
+            // Note, I *could* use std::min here, but this file gets
+            // included by other files, and Windows is giving a hard time
+            // because it defines std::min as a macro. NOMINMAX is a possible
+            // definition, but I'd rather not touch all including files
+            // to contain that macro, and I don't want to add additional
+            // preprocessor defs at this time.
+            cur_interval = ceil > cur_interval ? cur_interval : ceil;
+        }
+        return cur_interval;
+    }
+
+    void ref() {
+        refcount++;
+    }
+
+    void unref() {
+        if (!--refcount) {
+            delete this;
+        }
+    }
+
+    static inline RetrySpec* parse(const Json::Value& specJson,
+                                   std::string& errmsg);
+
+private:
+    Strategy strategy;
+
+    // Base interval
+    uint32_t interval;
+
+    // Max interval
+    uint32_t ceil;
+
+
+    size_t refcount;
+};
+
+class SpecWrapper {
+private:
+    friend class RetrySpec;
+    friend struct Error;
+    friend class ErrorMap;
+
+    RetrySpec *specptr;
+    SpecWrapper() : specptr(NULL) {}
+    SpecWrapper(const SpecWrapper& other) {
+        specptr = other.specptr;
+        if (specptr != NULL) {
+            specptr->ref();
+        }
+    }
+    ~SpecWrapper() {
+        if (specptr) {
+            specptr->unref();
+        }
+        specptr = NULL;
+    }
+};
+
 struct Error {
     uint16_t code;
     std::string shortname;
     std::string description;
     std::set<ErrorAttribute> attributes;
+    SpecWrapper retry;
 
     Error() : code(-1) {
     }
@@ -52,6 +134,8 @@ struct Error {
     bool hasAttribute(ErrorAttribute attr) const {
         return attributes.find(attr) != attributes.end();
     }
+
+    RetrySpec *getRetrySpec() const;
 };
 
 class ErrorMap {

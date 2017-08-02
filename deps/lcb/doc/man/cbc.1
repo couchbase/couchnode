@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "July 2015" "" ""
+.TH "CBC" "1" "June 2017" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -401,6 +401,58 @@ This command does not require administrative level credentials, however it does 
 .
 .P
 See the \fIOPTIONS\fR for accepted options
+.
+.SS "role\-list"
+List accessible RBAC user roles in the cluster\.
+.
+.P
+In addition to the \fIOPTIONS\fR specified above, the following options are recognized:
+.
+.TP
+\fB\-r\fR, \fB\-\-raw\fR
+Print unformatted server response in JSON form\.
+.
+.SS "user\-list"
+List users in the cluster\.
+.
+.P
+In addition to the \fIOPTIONS\fR specified above, the following options are recognized:
+.
+.TP
+\fB\-r\fR, \fB\-\-raw\fR
+Print unformatted server response in JSON form\.
+.
+.SS "user\-upsert"
+Create or update a user in the cluster\. Takes user ID as an argument\.
+.
+.P
+In addition to the \fIOPTIONS\fR specified above, the following options are recognized:
+.
+.TP
+\fB\-\-domain\fR=\fIlocal|remote\fR
+The domain, where user account defined\. If not specified, the default is \fIlocal\fR\.
+.
+.TP
+\fB\-\-full\-name\fR=\fIFULL_NAME\fR
+The user\'s fullname\. If not specified, the default is empty string\.
+.
+.TP
+\fB\-\-role\fR=\fIROLE\fR
+The role associated with user (can be specified multiple times if needed)\.
+.
+.TP
+\fB\-\-user\-password\fR=\fIPASSWORD\fR
+The password for the user\.
+.
+.SS "user\-delete"
+Delete a user in the cluster\. Takes user ID as an argument\.
+.
+.P
+In addition to the \fIOPTIONS\fR specified above, the following options are recognized:
+.
+.TP
+\fB\-\-domain\fR=\fIlocal|remote\fR
+The domain, where user account defined\. If not specified, the default is \fIlocal\fR\.
 .
 .SS "connstr"
 This command will parse a connection string into its constituent parts and display them on the screen\. The command takes a single positional argument which is the string to parse\.

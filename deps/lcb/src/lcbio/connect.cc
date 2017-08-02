@@ -95,7 +95,7 @@ void Connstart::unwatch() {
 static void try_enable_sockopt(lcbio_SOCKET *sock, int cntl) {
     lcb_error_t rv = lcbio_enable_sockopt(sock, cntl);
     if (rv == LCB_SUCCESS) {
-        lcb_log(LOGARGS(sock, DEBUG), CSLOGFMT "Successfuly set %s", CSLOGID(sock), lcbio_strsockopt(cntl));
+        lcb_log(LOGARGS(sock, DEBUG), CSLOGFMT "Successfully set %s", CSLOGID(sock), lcbio_strsockopt(cntl));
     } else {
         lcb_log(LOGARGS(sock, INFO), CSLOGFMT "Couldn't set %s", CSLOGID(sock), lcbio_strsockopt(cntl));
     }

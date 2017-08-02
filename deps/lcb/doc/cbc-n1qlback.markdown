@@ -68,6 +68,10 @@ The following options control how `cbc-n1qlback` connects to the cluster
   Specify more information to standard error about what the client is doing. You may
   specify this option multiple times for increased output detail.
 
+* `-e`, `--error-log`=_PATH_:
+  Path to a file, where the command will write failed queries along with error details.
+  Use this option to figure out why `ERRORS` metric is not zero.
+
 * `-D`, `--cparam`=OPTION=VALUE:
   Provide additional client options. Acceptable options can also be placed
   in the connection string, however this option is provided as a convenience.

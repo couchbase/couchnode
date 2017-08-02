@@ -143,6 +143,31 @@ void MockEnvironment::setCCCP(bool enabled, std::string bucket,
     getResponse();
 }
 
+void MockEnvironment::setEnhancedErrors(bool enabled, std::string bucket,
+                                        const std::vector<int>* nodes)
+{
+    MockCommand cmd(MockCommand::SET_ENHANCED_ERRORS);
+    cmd.set("enabled", enabled);
+
+    if (!bucket.empty()) {
+        cmd.set("bucket", bucket);
+    }
+
+    if (nodes != NULL) {
+        const std::vector<int>& v = *nodes;
+        Json::Value array(Json::arrayValue);
+
+        for (std::vector<int>::const_iterator ii = v.begin(); ii != v.end(); ii++) {
+            array.append(*ii);
+        }
+
+        cmd.set("servers", array);
+    }
+
+    sendCommand(cmd);
+    getResponse();
+}
+
 void MockEnvironment::sendCommand(MockCommand &cmd)
 {
     std::string s = cmd.encode();
@@ -166,6 +191,7 @@ void MockEnvironment::getResponse(MockResponse& ret)
     ret.assign(rbuf);
     if (!ret.isOk()) {
         std::cerr << "Mock command failed!" << std::endl;
+        std::cerr << ret.constResp()["error"].asString() << std::endl;
         std::cerr << ret;
     }
 }

@@ -362,6 +362,24 @@ lcb_n1ql_query(lcb_t instance, const void *cookie, const lcb_CMDN1QL *cmd);
  * @param instance the instance
  * @param handle the handle for the request. This is obtained during the
  *  request as an 'out' parameter (see lcb_CMDN1QL::handle)
+ *
+ * To obtain the `handle` parameter, do something like this:
+ *
+ * @code{.c}
+ * lcb_N1QLHANDLE handle;
+ * lcb_CMDN1QL cmd;
+ * // (Initialize command...)
+ * cmd.handle = &handle;
+ * lcb_n1ql_query(instance, cookie, &cmd);
+ * @endcode.
+ *
+ * If the lcb_n1ql_query() function returns `LCB_SUCCESS` then the `handle`
+ * above is populated with the opaque handle. You can then use this handle
+ * to cancel the query at a later point, such as within the callback.
+ *
+ * @code{.c}
+ * lcb_n1ql_cancel(instance, handle);
+ * @endcode
  */
 LIBCOUCHBASE_API
 void

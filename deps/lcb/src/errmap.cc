@@ -14,6 +14,62 @@ static ErrorAttribute getAttribute(const std::string& s) {
     return INVALID_ATTRIBUTE;
 }
 
+RetrySpec *Error::getRetrySpec() const {
+    return retry.specptr;
+}
+
+RetrySpec* RetrySpec::parse(const Json::Value& retryJson, std::string& emsg) {
+
+    RetrySpec *spec = new RetrySpec();
+    spec->refcount = 1;
+
+#define FAIL_RETRY(s) \
+    emsg = s; \
+    delete spec; \
+    return NULL;
+
+    if (!retryJson.isObject()) {
+        FAIL_RETRY("Missing retry specification");
+    }
+
+    const Json::Value& strategyJson = retryJson["strategy"];
+    if (!strategyJson.isString()) {
+        FAIL_RETRY("Missing `strategy`");
+    }
+    const char* strategy = strategyJson.asCString();
+    if (!strcasecmp(strategy, "constant")) {
+        spec->strategy = CONSTANT;
+    } else if (!strcasecmp(strategy, "linear")) {
+        spec->strategy = LINEAR;
+    } else if (!strcasecmp(strategy, "exponential")) {
+        spec->strategy = EXPONENTIAL;
+    } else {
+        FAIL_RETRY("Unknown strategy");
+    }
+
+#define GET_TIMEFLD(srcname, dstname, required) { \
+    Json::Value dstname##Json = retryJson[srcname]; \
+    if (dstname##Json.isNumeric()) { \
+        spec->dstname = (dstname##Json).asUInt() * 1000; \
+    } else if (required) { \
+        FAIL_RETRY("Missing " # srcname); \
+    } else { \
+        spec->dstname = 0; \
+    } \
+}
+
+    GET_TIMEFLD("interval", interval, true);
+    GET_TIMEFLD("after", after, true);
+    GET_TIMEFLD("ceil", ceil, false);
+    GET_TIMEFLD("max-duration", max_duration, false);
+
+    return spec;
+
+#undef FAIL_RETRY
+#undef GET_TIMEFLD
+
+}
+
 const uint32_t ErrorMap::MAX_VERSION = 1;
 
 ErrorMap::ParseStatus
@@ -85,6 +141,16 @@ ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
                 return UNKNOWN_VERSION;
             }
             error.attributes.insert(attr);
+        }
+        if (error.hasAttribute(AUTO_RETRY)) {
+            const Json::Value& retryJson = errorJson["retry"];
+            if (!retryJson.isObject()) {
+                errmsg = "Need `retry` specification for `auto-retry` attribute";
+                return PARSE_ERROR;
+            }
+            if ((error.retry.specptr = RetrySpec::parse(retryJson, errmsg)) == NULL) {
+                return PARSE_ERROR;
+            }
         }
         errors.insert(MapType::value_type(ec, error));
     }
