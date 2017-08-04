@@ -37,7 +37,7 @@ describe('#subdoc', function () {
     }));
   });
 
-  it('should getCount correctly', function(done) {
+  it.skip('should getCount correctly', function(done) {
     var itemMap = {test: [1, 2, 3, 4, 5]};
 
     H.b.upsert('sdGetCount', itemMap, H.okCallback(function() {
@@ -106,7 +106,7 @@ describe('#subdoc', function () {
     }));
   });
 
-  it('should use xattrs correctly', function(done) {
+  it.skip('should use xattrs correctly', function(done) {
     var itemMap = {test: [1, 2, 3], val: 14};
 
     H.b.mutateIn('sdXattr', {upsert: true})
