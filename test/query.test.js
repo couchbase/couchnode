@@ -70,7 +70,7 @@ describe('#Querying', function() {
       });
       it('should work with keys', function () {
         var q = Vq.from('d', 'v').keys(['test1', 'test2']);
-        assert.equal(q.options.keys, '["test1","test2"]');
+        assert.equal(q.postoptions.keys, ['test1','test2']);
       });
       it('should work with grouping set', function () {
         var q = Vq.from('d', 'v').group(3);
