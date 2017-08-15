@@ -1,5 +1,8 @@
 {
-  'variables': { 'target_arch%': 'ia32' }, # default for node v0.6.x
+  'variables': {
+    'target_arch%': 'ia32', # default for node v0.6.x
+    'node_major_version': '<!(node -e "console.log(process.versions.node.split(\'.\')[0])")'
+  },
 
   'target_defaults': {
     'default_configuration': 'Debug',
@@ -141,15 +144,14 @@
         ]
       }
     },
-    
+
     #libcouchbase
     {
       'target_name': 'couchbase',
       'product_prefix': 'lib',
       'type': 'static_library',
       'defines': [
-        'CBSASL_STATIC',
-        'LCB_NO_SSL'
+        'CBSASL_STATIC'
       ],
       'cflags': [
         '-fno-strict-aliasing',
@@ -215,9 +217,6 @@
         'src/rdb/chunkalloc.c',
         'src/rdb/libcalloc.c',
         'src/rdb/rope.c',
-        ## 'src/ssl/ssl_c.c',
-        ## 'src/ssl/ssl_common.c',
-        ## 'src/ssl/ssl_e.c',
         'src/strcodecs/base64.c',
         'src/vbucket/ketama.c',
         'src/vbucket/vbucket.c',
@@ -296,6 +295,18 @@
               'plugins/io/libuv'
             ],
           },
+        }],
+		    ['OS!="win" or node_major_version>=6', {
+          'sources': [
+            'src/ssl/ssl_c.c',
+            'src/ssl/ssl_common.c',
+            'src/ssl/ssl_e.c',
+          ]
+        }],
+		    ['OS=="win" and node_major_version<6', {
+          'defines': [
+            'LCB_NO_SSL'
+          ]
         }]
       ]
     }
