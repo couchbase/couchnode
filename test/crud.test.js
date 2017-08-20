@@ -310,7 +310,7 @@ describe('#crud', function () {
             }));
           }));
         });
-        it('should fail for an incorrect as', function(done) {
+        it('should fail for an incorrect cas', function(done) {
           var key = H.key();
           H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
             H.b.getAndLock(key, H.okCallback(function() {
@@ -831,7 +831,7 @@ describe('#crud', function () {
         assert(jsonCas);
         assert(strCas);
         assert(jsonCas === '"'+strCas+'"');
-        H.b.upsert(key, 'test2', {cas:'14'}, function(err) {
+        H.b.upsert(key, 'test2', {cas:'18446744073709551614'}, function(err) {
           assert(err);
           H.b.upsert(key, 'test3', {cas:strCas}, H.okCallback(function(res) {
             done();

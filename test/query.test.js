@@ -145,9 +145,8 @@ describe('#Querying', function() {
     describe('#View Queries (slow)', function () {
       var key = H.key();
       var ddKey = H.key();
-      var ddKeyGeo = H.key();
-      var bm = H.b.manager();
       before(function (done) {
+        var bm = H.b.manager();
         this.timeout(8000);
         bm.insertDesignDocument(ddKey, {
           views: {
@@ -158,36 +157,30 @@ describe('#Querying', function() {
         }, function (err, res) {
           assert(!err);
           assert(res);
-          bm.insertDesignDocument(ddKeyGeo, {
-            spatial: {
-              'simpleGeo': 'function(doc, meta){emit({type:"Point",coordinates:doc.loc},[meta.id, doc.loc]);}'
-            }
-          }, function(err, res) {
-            assert(!err);
-            assert(res);
-            H.b.insert(key, 'foo', H.okCallback(function() {
-              setTimeout(function () {
-                H.b.query(
-                    Vq.from(ddKey, 'simple').stale(Vq.Update.BEFORE).limit(1),
-                    function (err) {
-                      assert(!err);
-                      done();
-                    });
-              }, 3000);
-            }));
-          });
+          H.b.insert(key, 'foo', H.okCallback(function() {
+            function _tryQuery() {
+              H.b.query(
+                  Vq.from(ddKey, 'simple').stale(Vq.Update.BEFORE).limit(1),
+                  function (err) {
+                    if (err) {
+                      setTimeout(_tryQuery, 100);
+                      return;
+                    }
+
+                    done();
+                  });
+            };
+            _tryQuery();
+          }));
         });
       });
       after(function (done) {
+        var bm = H.b.manager();
         H.b.remove(key, H.okCallback(function() {
-          bm.removeDesignDocument(ddKeyGeo, function(err, res) {
+          bm.removeDesignDocument(ddKey, function(err, res) {
             assert.ifError(err);
             assert(res);
-            bm.removeDesignDocument(ddKey, function(err, res) {
-              assert.ifError(err);
-              assert(res);
-              done();
-            });
+            done();
           });
         }));
       });
@@ -289,21 +282,6 @@ describe('#Querying', function() {
                   done();
                 });
           });
-
-      /*
-       * Disabled because Couchbase Server isn't allowing it to work
-       *   properly at the moment...
-       */
-      it.skip('spatial queries should work', function (done) {
-        this.timeout(4000);
-        H.b.query(Vq.fromSpatial(ddKeyGeo, 'simpleGeo'),
-            function (err, rows, meta) {
-              assert(!err);
-              assert(rows);
-              assert(meta);
-              done();
-            });
-      });
     });
   }
 

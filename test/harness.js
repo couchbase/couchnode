@@ -1,12 +1,13 @@
 'use strict';
 
-var couchbase = require('./../lib/couchbase.js');
+var couchbase = require('./../lib/couchbase');
+var jcbmock = require('./jcbmock');
 var fs = require('fs');
 var util = require('util');
 var assert = require('assert');
 
 var config = {
-  connstr: 'http://localhost:8091/',
+  connstr: '',
   bucket : 'default',
   bpass  : '',
   muser  : 'Administrator',
@@ -31,6 +32,48 @@ if (process.env.CNMUSER !== undefined) {
 }
 if (process.env.CNMPASS !== undefined) {
   config.mpass = process.env.CNMPASS;
+}
+
+var configWaits = [];
+function _waitForConfig(callback) {
+  if (!configWaits) {
+    setImmediate(callback);
+    return;
+  }
+
+  configWaits.push(callback);
+  if (configWaits.length > 1) {
+    return;
+  }
+
+  var _handleWaiters = function(err) {
+    for (var i = 0; i < configWaits.length; ++i) {
+      configWaits[i](err);
+    }
+    configWaits = null;
+  };
+
+  if (config.connstr) {
+    _handleWaiters(null);
+    return;
+  }
+
+  before(function(done) {
+    this.timeout(60000);
+
+    jcbmock.create({}, function(err, mock) {
+      if (err) {
+        console.error('failed to start mock', err);
+        process.exit(1);
+        return;
+      }
+
+      config.mockInst = mock;
+      config.connstr = 'http://localhost:' + mock.entryPort.toString();
+      _handleWaiters(null);
+      done();
+    });
+  });
 }
 
 function Harness() {
@@ -68,6 +111,7 @@ Harness.prototype.timeTravel = function(callback, period) {
 function MockHarness() {
   Harness.call(this);
 
+  this.mockInst = null;
   this.connstr = 'couchbase://mock-server';
   this.bucket = 'default';
   this.qhosts = null;
@@ -93,25 +137,45 @@ MockHarness.prototype.timeTravel = function(callback, period) {
 function RealHarness() {
   Harness.call(this);
 
-  this.connstr = config.connstr;
-  this.bucket = config.bucket;
-  this.qhosts = config.qhosts;
-  this.bpass = config.bpass;
-  this.muser = config.muser;
-  this.mpass = config.mpass;
+  this.mock = new MockHarness();
 
   this.lib = couchbase;
-
   this.e = this.lib.errors;
-  this.c = new this.lib.Cluster(this.connstr);
-  this.b = this.c.openBucket(this.bucket);
-  if (this.qhosts) {
-    this.b.enableN1ql(this.qhosts);
-  }
 
-  this.mock = new MockHarness();
+  _waitForConfig(function() {
+    this.mockInst = config.mockInst;
+    this.connstr = config.connstr;
+    this.bucket = config.bucket;
+    this.qhosts = config.qhosts;
+    this.bpass = config.bpass;
+    this.muser = config.muser;
+    this.mpass = config.mpass;
+
+    this.c = new this.lib.Cluster(this.connstr);
+    this.b = this.c.openBucket(this.bucket);
+    if (this.qhosts) {
+      this.b.enableN1ql(this.qhosts);
+    }
+  }.bind(this));
 }
 util.inherits(RealHarness, Harness);
+
+RealHarness.prototype.timeTravel = function(callback, period) {
+  if (!this.mockInst) {
+    Harness.prototype.timeTravel.apply(this, arguments);
+  } else {
+    var periodSecs = Math.ceil(period / 1000);
+    this.mockInst.command('TIME_TRAVEL', {
+      Offset: periodSecs
+    }, function(err) {
+      if (err) {
+        console.error('time travel error:', err);
+      }
+
+      callback();
+    });
+  }
+};
 
 var myHarness = new RealHarness();
 module.exports = myHarness;
