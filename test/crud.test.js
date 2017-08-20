@@ -300,13 +300,13 @@ describe('#crud', function () {
           var key = H.key();
           H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
             H.b.getAndLock(key, {lockTime:1}, H.okCallback(function(lockRes) {
-              setTimeout(function() {
+              H.timeTravel(function() {
                 H.b.unlock(key, lockRes.cas, function(err, res) {
                   assert(err);
                   assert(!res);
                   done();
                 });
-              },2000);
+              }, 2000);
             }));
           }));
         });
@@ -622,7 +622,7 @@ describe('#crud', function () {
       var key = H.key();
       H.b.insert(key, 'foo', {expiry: 1}, H.okCallback(function () {
         H.b.get(key, H.okCallback(function () {
-          setTimeout(function () {
+          H.timeTravel(function () {
             H.b.get(key, function (err) {
               assert(err);
               done();
@@ -638,9 +638,9 @@ describe('#crud', function () {
         var key = H.key();
         H.b.insert(key, 'foo', {expiry: 1}, H.okCallback(function () {
           touchFn(key, 2, H.okCallback(function (res) {
-            setTimeout(function () {
+            H.timeTravel(function () {
               H.b.get(key, H.okCallback(function() {
-                setTimeout(function() {
+                H.timeTravel(function() {
                   H.b.get(key, function (err, res) {
                     assert(err);
                     assert(!res);
@@ -774,7 +774,7 @@ describe('#crud', function () {
           H.b.replace(key, 'foo', function(getErr, getRes) {
             assert(getErr);
             assert(!getRes);
-            setTimeout(function() {
+            H.timeTravel(function() {
               H.b.replace(key, 'rew', H.okCallback(function(replaceRes) {
                 assert.notDeepEqual(lockRes.cas, replaceRes.cas);
                 done();
@@ -813,7 +813,7 @@ describe('#crud', function () {
       var key = H.key();
       H.b.insert(key, 'bar', {expiry:1}, H.okCallback(function(insertRes) {
         H.b.replace(key, 'foo', {expiry:0}, H.okCallback(function (replaceRes) {
-          setTimeout(function () {
+          H.timeTravel(function () {
             H.b.get(key, H.okCallback(function (getRes) {
               assert(getRes);
               done();

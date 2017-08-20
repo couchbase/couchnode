@@ -61,6 +61,10 @@ Harness.prototype.okCallback = function(target) {
   };
 };
 
+Harness.prototype.timeTravel = function(callback, period) {
+  setTimeout(callback, period);
+};
+
 function MockHarness() {
   Harness.call(this);
 
@@ -80,6 +84,11 @@ function MockHarness() {
   this.mock = this;
 }
 util.inherits(MockHarness, Harness);
+
+MockHarness.prototype.timeTravel = function(callback, period) {
+  this.b.timeTravel(period);
+  setImmediate(callback);
+};
 
 function RealHarness() {
   Harness.call(this);
