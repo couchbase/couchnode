@@ -129,6 +129,7 @@ start_connect(lcb_io_opt_t iobase, lcb_sockdata_t *sdbase,
     pConnectEx = iocp_initialize_connectex(sd->sSocket);
     if (!pConnectEx) {
         iocp_set_last_error(iobase, INVALID_SOCKET);
+        free(conn);
         return -1;
     }
 

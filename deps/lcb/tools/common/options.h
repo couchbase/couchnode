@@ -34,8 +34,11 @@ namespace cbc {
 
 class LcbError : public std::runtime_error {
 private:
-    static std::string format_err(lcb_error_t err) {
+    static std::string format_err(lcb_error_t err, std::string msg) {
         std::stringstream ss;
+        if (!msg.empty()) {
+            ss << msg << ". ";
+        }
         ss << "libcouchbase error: " << lcb_strerror(NULL, err);
         ss << " (0x" << std::hex << err << ")";
         return ss.str();
@@ -43,7 +46,7 @@ private:
 
 public:
     lcb_error_t rc;
-    LcbError(lcb_error_t code) : std::runtime_error(format_err(code)) {}
+    LcbError(lcb_error_t code, std::string msg = "") : std::runtime_error(format_err(code, msg)) {}
 };
 
 class BadArg : public std::runtime_error {
@@ -61,6 +64,7 @@ public:
     void setAdminMode();
     bool shouldDump() { return o_dump.result(); }
     void writeConfig(const std::string& dest = getConfigfileName());
+    static std::string getUserHome();
     static std::string getConfigfileName();
 
 private:

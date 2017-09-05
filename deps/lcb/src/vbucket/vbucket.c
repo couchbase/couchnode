@@ -538,6 +538,37 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
         cfg->revid = -1;
     }
 
+    cfg->caps = 0;
+    {
+        cJSON *jcaps = NULL;
+        if (get_jarray(cj, "bucketCapabilities", &jcaps)) {
+            int ncaps = cJSON_GetArraySize(jcaps);
+            int ii;
+            for (ii = 0; ii < ncaps; ii++) {
+                cJSON *jcap = cJSON_GetArrayItem(jcaps, ii);
+                if (jcap || jcap->type == cJSON_String) {
+                    if (strcmp(jcap->valuestring, "xattr") == 0) {
+                        cfg->caps |= LCBVB_CAP_XATTR;
+                    } else if (strcmp(jcap->valuestring, "dcp") == 0) {
+                        cfg->caps |= LCBVB_CAP_DCP;
+                    } else if (strcmp(jcap->valuestring, "cbhello") == 0) {
+                        cfg->caps |= LCBVB_CAP_CBHELLO;
+                    } else if (strcmp(jcap->valuestring, "touch") == 0) {
+                        cfg->caps |= LCBVB_CAP_TOUCH;
+                    } else if (strcmp(jcap->valuestring, "couchapi") == 0) {
+                        cfg->caps |= LCBVB_CAP_COUCHAPI;
+                    } else if (strcmp(jcap->valuestring, "cccp") == 0) {
+                        cfg->caps |= LCBVB_CAP_CCCP;
+                    } else if (strcmp(jcap->valuestring, "xdcrCheckpointing") == 0) {
+                        cfg->caps |= LCBVB_CAP_XDCR_CHECKPOINTING;
+                    } else if (strcmp(jcap->valuestring, "nodesExt") == 0) {
+                        cfg->caps |= LCBVB_CAP_NODES_EXT;
+                    }
+                }
+            }
+        }
+    }
+
     /** Get the number of nodes. This traverses the list. Yuck */
     cfg->nsrv = cJSON_GetArraySize(jnodes);
 

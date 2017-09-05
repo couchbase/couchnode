@@ -5,6 +5,7 @@
 #include <libcouchbase/api3.h>
 #include <assert.h>
 #include <string.h>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -46,6 +47,16 @@ int main(int argc, char **argv) {
         crst.v.v3.connstr = argv[1];
     } else {
         crst.v.v3.connstr = DEFAULT_CONNSTR;
+    }
+    if (argc > 2) {
+        crst.v.v3.username = argv[2];
+    } else {
+        crst.v.v3.username = "Administrator";
+    }
+    if (argc > 3) {
+        crst.v.v3.passwd = argv[3];
+    } else {
+        crst.v.v3.passwd = "password";
     }
 
     lcb_t instance;

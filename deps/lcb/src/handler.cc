@@ -809,6 +809,19 @@ H_version(mc_PIPELINE *pipeline, mc_PACKET *request,
 }
 
 static void
+H_noop(mc_PIPELINE *pipeline, mc_PACKET *request,
+       MemcachedResponse *response, lcb_error_t immerr)
+{
+    lcb_t root = get_instance(pipeline);
+    lcb_RESPNOOP resp = { 0 };
+    mc_REQDATAEX *exdata = request->u_rdata.exdata;
+
+    make_error(root, &resp, response, immerr);
+
+    exdata->procs->handler(pipeline, request, resp.rc, &resp);
+}
+
+static void
 H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
         lcb_error_t immerr)
 {
@@ -960,10 +973,8 @@ mcreq_dispatch_response(
     case PROTOCOL_BINARY_CMD_VERBOSITY:
         INVOKE_OP(H_verbosity);
 
-#if 0
     case PROTOCOL_BINARY_CMD_NOOP:
         INVOKE_OP(H_noop);
-#endif
 
     case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
         INVOKE_OP(H_config);
@@ -1018,6 +1029,7 @@ lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb)
     X(UNLOCK)                                   \
 
 
+LIBCOUCHBASE_API
 const char *
 lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb)
 {
@@ -1031,6 +1043,7 @@ lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb)
     return NULL;
 }
 
+LIBCOUCHBASE_API
 const char *
 lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb)
 {

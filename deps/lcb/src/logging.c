@@ -202,7 +202,7 @@ void lcb_log_badconfig(const struct lcb_settings_st *settings,
     lcb_log(settings, subsys, severity, srcfile, srcline,
         "vBucket config parsing failed: %s. Raw text in DEBUG level", errstr);
     if (!origin_txt) {
-        errstr = "<FIXME: No origin text available>";
+        origin_txt = "<FIXME: No origin text available>";
     }
     lcb_log(settings, subsys, LCB_LOG_DEBUG, srcfile, srcline, "%s", origin_txt);
 }

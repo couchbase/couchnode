@@ -35,6 +35,7 @@ lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_error_t
     case PROTOCOL_BINARY_CMD_STAT:
     case PROTOCOL_BINARY_CMD_VERBOSITY:
     case PROTOCOL_BINARY_CMD_VERSION:
+    case PROTOCOL_BINARY_CMD_NOOP:
         return 0;
     }
 

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "June 2017" "" ""
+.TH "CBC" "1" "August 2017" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -306,6 +306,13 @@ Display information about the underlying version of \fIlibcouchbase\fR to which 
 .
 .SS "verbosity"
 Set the memcached logging versbosity on the cluster\. This affects how the memcached processes write their logs\. This command accepts a single positional argument which is a string describing the verbosity level to be set\. The options are \fBdetail\fR, \fBdebug\fR \fBinfo\fR, and \fBwarning\fR\.
+.
+.SS "ping"
+Sends NOOP\-like request to every service on each cluster node, and report time it took to response\.
+.
+.TP
+\fB\-\-details\fR
+Provide more details about status of the service\.
 .
 .SS "mcflush"
 Flush a \fImemcached\fR bucket\. This command takes no arguments, and will fail if the bucket specified is not a memcached bucket\. You may also use \fIbucket\-flush\fR to flush any bucket (including a couchbase bucket)\. The \fBmcflush\fR command may be quicker for memcached buckets, though\.
@@ -759,6 +766,127 @@ Issue a N1QL query:
 .nf
 
 $ cbc n1ql \'SELECT * FROM `travel\-sample` WHERE type="airport" AND city=$city\' \-Qscan_consistency=request_plus \-A\'$city=\e"Reno\e"\'
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Check health of the cluster services:
+.
+.IP "" 4
+.
+.nf
+
+$ cbc ping \-\-details  \-Ucouchbase://192\.168\.1\.101
+{
+   "services" : {
+      "fts" : [
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "7\.833ms",
+            "server" : "192\.168\.1\.101:8094",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "9\.898ms",
+            "server" : "192\.168\.1\.102:8094",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "10\.979ms",
+            "server" : "192\.168\.1\.103:8094",
+            "status" : 0
+         },
+         {
+            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
+            "latency" : "75\.000s",
+            "server" : "192\.168\.1\.104:8094",
+            "status" : 23
+         }
+      ],
+      "kv" : [
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "2\.617ms",
+            "server" : "192\.168\.1\.101:11210",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "19\.330ms",
+            "server" : "192\.168\.1\.102:11210",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "19\.334ms",
+            "server" : "192\.168\.1\.103:11210",
+            "status" : 0
+         },
+         {
+            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
+            "latency" : "2\.505s",
+            "server" : "192\.168\.1\.104:11210",
+            "status" : 23
+         }
+      ],
+      "n1ql" : [
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "5\.671ms",
+            "server" : "192\.168\.1\.102:8093",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "6\.595ms",
+            "server" : "192\.168\.1\.103:8093",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "11\.106ms",
+            "server" : "192\.168\.1\.101:8093",
+            "status" : 0
+         },
+         {
+            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
+            "latency" : "75\.000s",
+            "server" : "192\.168\.1\.104:8093",
+            "status" : 23
+         }
+      ],
+      "views" : [
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "7\.001ms",
+            "server" : "192\.168\.1\.101:8092",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "9\.022ms",
+            "server" : "192\.168\.1\.102:8092",
+            "status" : 0
+         },
+         {
+            "details" : "Success (Not an error)",
+            "latency" : "10\.866ms",
+            "server" : "192\.168\.1\.103:8092",
+            "status" : 0
+         },
+         {
+            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
+            "latency" : "75\.000s",
+            "server" : "192\.168\.1\.104:8092",
+            "status" : 23
+         }
+      ]
+   }
+}
 .
 .fi
 .

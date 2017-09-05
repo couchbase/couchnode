@@ -189,16 +189,26 @@ appdata_read(lcbio_CSSL *cs)
 static void
 read_callback(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
 {
+#if LCB_CAN_OPTIMIZE_SSL_BIO
     lcbio_CSSL *cs = arg;
+#else
+    my_WBUF *rb = arg;
+    lcbio_CSSL *cs = rb->parent;
+#endif
+
     cs->rdactive = 0;
     cs->entered++;
 
     if (nr > 0) {
+#if LCB_CAN_OPTIMIZE_SSL_BIO
         BUF_MEM *mb;
 
         BIO_clear_retry_flags(cs->rbio);
         BIO_get_mem_ptr(cs->rbio, &mb);
         mb->length += nr;
+#else
+        BIO_write(cs->rbio, rb->buf, nr);
+#endif
 
     } else if (nr == 0) {
         cs->closed = 1;
@@ -208,6 +218,9 @@ read_callback(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
         cs->error = 1;
         IOTSSL_ERRNO(cs) = IOT_ERRNO(cs->orig);
     }
+#if !LCB_CAN_OPTIMIZE_SSL_BIO
+    free(rb);
+#endif
 
     appdata_encode(cs);
     appdata_read(cs);
@@ -271,17 +284,30 @@ schedule_wants(lcbio_CSSL *cs)
 
         } else if (SSL_want_read(cs->ssl) || (cs->urd_cb && has_appdata == 0)) {
             /* request more data from the socket */
-            BUF_MEM *mb;
             lcb_IOV iov;
+#if LCB_CAN_OPTIMIZE_SSL_BIO
+            BUF_MEM *mb;
+#else
+#define BUFSZ 4096
+            my_WBUF *rb = malloc(sizeof(*rb) + BUFSZ);
+            rb->parent = cs;
+#endif
 
             cs->rdactive = 1;
+            lcbio_table_ref(&cs->base_);
+#if LCB_CAN_OPTIMIZE_SSL_BIO
             BIO_get_mem_ptr(cs->rbio, &mb);
             iotssl_bm_reserve(mb);
             iov.iov_base = mb->data + mb->length;
             iov.iov_len = mb->max - mb->length;
-            lcbio_table_ref(&cs->base_);
             IOT_V1(cs->orig).read2(
                 IOT_ARG(cs->orig), cs->sd, &iov, 1, cs, read_callback);
+#else
+            iov.iov_base = rb->buf;
+            iov.iov_len = BUFSZ;
+            IOT_V1(cs->orig).read2(
+                IOT_ARG(cs->orig), cs->sd, &iov, 1, rb, read_callback);
+#endif
         }
 
     }

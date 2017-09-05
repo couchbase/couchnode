@@ -14,22 +14,95 @@ namespace errmap {
 
 enum ErrorAttribute {
 #define LCB_XERRMAP_ATTRIBUTES(X) \
-    X(TEMPORARY, "temp") \
-    X(SUBDOC, "subdoc") \
-    X(RETRY_NOW, "retry-now") \
-    X(RETRY_LATER, "retry-later") \
-    X(INVALID_INPUT, "invalid-input") \
-    X(NOT_ENABLED, "support") \
-    X(AUTH, "auth") \
-    X(CONN_STATE_INVALIDATED, "conn-state-invalidated") \
-    X(CONSTRAINT_FAILURE, "item-only") \
-    X(RETRY_EXP_BACKOFF, "retry-exp-backoff") \
-    X(RETRY_LINEAR_BACKOFF, "retry-linear-backoff") \
-    X(INTERNAL, "internal") \
-    X(DCP, "dcp") \
-    X(FETCH_CONFIG, "fetch-config") \
-    X(SPECIAL_HANDLING, "special-handling") \
-    X(AUTO_RETRY, "auto-retry")
+    /**                                                                 \
+     * This error is transient. Note that this does not mean the        \
+     * error is retriable.                                              \
+     */                                                                 \
+    X(TEMPORARY, "temp")                                                \
+    /**                                                                 \
+     * The error is related to the subdocument subsystem.               \
+     */                                                                 \
+    X(SUBDOC, "subdoc")                                                 \
+    /**                                                                 \
+     * The operation may be retried immediately.                        \
+     */                                                                 \
+    X(RETRY_NOW, "retry-now")                                           \
+    /**                                                                 \
+     * The operation may be retried after some time.                    \
+     */                                                                 \
+    X(RETRY_LATER, "retry-later")                                       \
+    /**                                                                 \
+     * This attribute means that a user's input was invalid because it  \
+     * violates the semantics of the operation, or exceeds some         \
+     * predefined limit.                                                \
+     */                                                                 \
+    X(INVALID_INPUT, "invalid-input")                                   \
+    /**                                                                 \
+     * The operation is not supported, possibly because the of server   \
+     * version, bucket type, or  current user.                          \
+     */                                                                 \
+    X(NOT_ENABLED, "support")                                           \
+    /**                                                                 \
+     * The operation failed because the client failed to authenticate   \
+     * or is not authorized to perform this operation. Note that this   \
+     * error in itself does not mean the connection is invalid, unless  \
+     * conn-state-invalidated is also present.                          \
+     */                                                                 \
+    X(AUTH, "auth")                                                     \
+    /**                                                                 \
+     * The current connection is no longer valid. The client must       \
+     * reconnect to the server. Note that the presence of other         \
+     * attributes may indicate an alternate remedy to fixing the        \
+     * connection without a disconnect, but without special remedial    \
+     * action a disconnect is needed.                                   \
+     */                                                                 \
+    X(CONN_STATE_INVALIDATED, "conn-state-invalidated")                 \
+    /**                                                                 \
+     * This attribute means that the error is related to a constraint   \
+     * failure regarding the item itself, i.e. the item does not exist, \
+     * already exists, or its current value makes the current operation \
+     * impossible. Retrying the operation when the item's value or      \
+     * status has changed may succeed.                                  \
+     */                                                                 \
+    X(CONSTRAINT_FAILURE, "item-only")                                  \
+    /**                                                                 \
+     *  This is an internal error in the server.                        \
+     */                                                                 \
+    X(INTERNAL, "internal")                                             \
+    /**                                                                 \
+     * The error is related to the DCP subsystem.                       \
+     */                                                                 \
+    X(DCP, "dcp")                                                       \
+    /**                                                                 \
+     * The client's cluster map may be outdated and requires updating.  \
+     * The client should obtain a newer configuration.                  \
+     */                                                                 \
+    X(FETCH_CONFIG, "fetch-config")                                     \
+    /**                                                                 \
+     * This error code must be handled specially. If it is not handled, \
+     * the connection must be dropped.                                  \
+     */                                                                 \
+    X(SPECIAL_HANDLING, "special-handling")                             \
+    /**                                                                 \
+     * Use retry specifications from the server                         \
+     */                                                                 \
+    X(AUTO_RETRY, "auto-retry")                                         \
+    /**                                                                 \
+     * The operation was successful for those situations                \
+     * where the error code is indicating successful (i.e. subdoc       \
+     * operations carried out on a deleted document)                    \
+     */                                                                 \
+    X(SUCCESS, "success")                                               \
+    /**                                                                 \
+     * This attribute specifies that the requested item is currently    \
+     * locked.                                                          \
+     */                                                                 \
+    X(ITEM_LOCKED, "item-locked")                                       \
+    /**                                                                 \
+     * This attribute means that the error is related to operating on   \
+     * a soft-deleted document.                                         \
+     */                                                                 \
+    X(ITEM_DELETED, "item-deleted")                                     \
 
     #define X(c, s) c,
     LCB_XERRMAP_ATTRIBUTES(X)

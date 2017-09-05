@@ -310,6 +310,8 @@ struct Request {
 
     /** overrides default timeout if nonzero */
     const uint32_t user_timeout;
+
+    hrtime_t start; /**< Start time */
 };
 
 } // namespace: http

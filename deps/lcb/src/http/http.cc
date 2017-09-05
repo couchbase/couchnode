@@ -548,6 +548,7 @@ Request::create(lcb_t instance,
         *rc = LCB_CLIENT_ENOMEM;
         return NULL;
     }
+    req->start = gethrtime();
 
     *rc = req->setup_inputs(cmd);
     if (*rc != LCB_SUCCESS) {

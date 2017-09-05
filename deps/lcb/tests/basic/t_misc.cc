@@ -20,5 +20,5 @@ TEST_F(MiscTests, testGetTmpdir)
     ASSERT_STRNE("", tmpdir);
 }
 TEST_F(MiscTests, testVersionG) {
-    ASSERT_GT(lcb_version_g, 0);
+    ASSERT_GT(lcb_version_g, (lcb_U32)0);
 }

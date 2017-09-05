@@ -141,8 +141,8 @@ private:
             final_suffix = "\n";
         }
 
-        printf("%sQUERIES/SEC: %lu\n", prefix, n_queries / duration);
-        printf("%sROWS/SEC:    %lu\n", prefix, n_rows / duration);
+        printf("%sQUERIES/SEC: %lu\n", prefix, (long int)(n_queries / duration));
+        printf("%sROWS/SEC:    %lu\n", prefix, (long int)(n_rows / duration));
         printf("%sERRORS:      %lu%s", prefix, n_errors, final_suffix);
 
         if (hg != NULL) {

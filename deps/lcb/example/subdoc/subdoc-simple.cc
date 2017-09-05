@@ -57,6 +57,16 @@ int main(int argc, char **argv)
     } else {
         crst.v.v3.connstr = DEFAULT_CONNSTR;
     }
+    if (argc > 2) {
+        crst.v.v3.username = argv[2];
+    } else {
+        crst.v.v3.username = "Administrator";
+    }
+    if (argc > 3) {
+        crst.v.v3.passwd = argv[3];
+    } else {
+        crst.v.v3.passwd = "password";
+    }
 
     lcb_t instance;
     lcb_error_t rc = lcb_create(&instance, &crst);

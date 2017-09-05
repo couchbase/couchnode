@@ -9,11 +9,12 @@ SRCDIR=.
 ronn --pipe --roff $SRCDIR/cbc.markdown > $OUTDIR/cbc.1
 ronn --pipe --roff $SRCDIR/cbc-pillowfight.markdown > $OUTDIR/cbc-pillowfight.1
 ronn --pipe --roff $SRCDIR/cbc-n1qlback.markdown > $OUTDIR/cbc-n1qlback.1
+ronn --pipe --roff $SRCDIR/cbc-subdoc.markdown > $OUTDIR/cbc-subdoc.1
 ronn --pipe --roff $SRCDIR/cbcrc.markdown > $OUTDIR/cbcrc.4
 
 MANLINKS="cat cp create observe flush hash lock unlock rm stats \
 version verbosity view admin bucket-create bucket-delete connstr \
-role-list user-list user-upsert user-delete"
+role-list user-list user-upsert user-delete ping"
 
 for link in $MANLINKS; do
     dest="$OUTDIR/cbc-${link}.1"

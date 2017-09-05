@@ -303,6 +303,13 @@ processes write their logs. This command accepts a single positional argument wh
 is a string describing the verbosity level to be set. The options are `detail`, `debug`
 `info`, and `warning`.
 
+### ping
+
+Sends NOOP-like request to every service on each cluster node, and report time it took to response.
+
+* `--details`:
+  Provide more details about status of the service.
+
 ### mcflush
 
 Flush a _memcached_ bucket. This command takes no arguments, and will fail if the
@@ -622,6 +629,120 @@ Query a view:
 Issue a N1QL query:
 
     $ cbc n1ql 'SELECT * FROM `travel-sample` WHERE type="airport" AND city=$city' -Qscan_consistency=request_plus -A'$city=\"Reno\"'
+
+
+Check health of the cluster services:
+
+    $ cbc ping --details  -Ucouchbase://192.168.1.101
+    {
+       "services" : {
+          "fts" : [
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "7.833ms",
+                "server" : "192.168.1.101:8094",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "9.898ms",
+                "server" : "192.168.1.102:8094",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "10.979ms",
+                "server" : "192.168.1.103:8094",
+                "status" : 0
+             },
+             {
+                "details" : "Client-Side timeout exceeded for operation. Inspect network conditions or increase the timeout",
+                "latency" : "75.000s",
+                "server" : "192.168.1.104:8094",
+                "status" : 23
+             }
+          ],
+          "kv" : [
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "2.617ms",
+                "server" : "192.168.1.101:11210",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "19.330ms",
+                "server" : "192.168.1.102:11210",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "19.334ms",
+                "server" : "192.168.1.103:11210",
+                "status" : 0
+             },
+             {
+                "details" : "Client-Side timeout exceeded for operation. Inspect network conditions or increase the timeout",
+                "latency" : "2.505s",
+                "server" : "192.168.1.104:11210",
+                "status" : 23
+             }
+          ],
+          "n1ql" : [
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "5.671ms",
+                "server" : "192.168.1.102:8093",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "6.595ms",
+                "server" : "192.168.1.103:8093",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "11.106ms",
+                "server" : "192.168.1.101:8093",
+                "status" : 0
+             },
+             {
+                "details" : "Client-Side timeout exceeded for operation. Inspect network conditions or increase the timeout",
+                "latency" : "75.000s",
+                "server" : "192.168.1.104:8093",
+                "status" : 23
+             }
+          ],
+          "views" : [
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "7.001ms",
+                "server" : "192.168.1.101:8092",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "9.022ms",
+                "server" : "192.168.1.102:8092",
+                "status" : 0
+             },
+             {
+                "details" : "Success (Not an error)",
+                "latency" : "10.866ms",
+                "server" : "192.168.1.103:8092",
+                "status" : 0
+             },
+             {
+                "details" : "Client-Side timeout exceeded for operation. Inspect network conditions or increase the timeout",
+                "latency" : "75.000s",
+                "server" : "192.168.1.104:8092",
+                "status" : 23
+             }
+          ]
+       }
+    }
+
 
 ## FILES
 

@@ -208,6 +208,7 @@
         'src/operations/observe-seqno.cc',
         'src/operations/observe.cc',
         'src/operations/pktfwd.cc',
+        'src/operations/ping.cc',
         'src/operations/remove.cc',
         'src/operations/stats.cc',
         'src/operations/store.cc',

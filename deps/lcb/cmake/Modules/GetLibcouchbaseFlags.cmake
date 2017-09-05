@@ -25,7 +25,7 @@ LIST(APPEND LCB_GNUC_CPP_WARNINGS
     -Wno-strict-aliasing -Wextra -Winit-self -Wno-missing-field-initializers
     -Wno-variadic-macros)
 
-IF("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
+IF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     LIST(APPEND LCB_GNUC_CPP_WARNINGS -Wno-cast-align -Wno-dollar-in-identifier-extension)
 ENDIF()
 

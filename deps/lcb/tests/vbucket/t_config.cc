@@ -55,10 +55,10 @@ ConfigTest::testConfig(const char *fname, bool checkNew)
     ASSERT_TRUE(vbc != NULL);
     int rv = lcbvb_load_json(vbc, testData.c_str());
     ASSERT_EQ(0, rv);
-    ASSERT_GT(vbc->nsrv, 0);
+    ASSERT_GT(vbc->nsrv, (unsigned int)0);
 
     if (vbc->dtype == LCBVB_DIST_VBUCKET) {
-        ASSERT_GT(vbc->nvb, 0);
+        ASSERT_GT(vbc->nvb, (unsigned int)0);
 
         for (unsigned ii = 0; ii < vbc->nvb; ii++) {
             lcbvb_vbmaster(vbc, ii);
@@ -284,7 +284,7 @@ TEST_F(ConfigTest, testNondataNodes)
 
         lcbvb_map_key(cfg_old, s.c_str(), s.size(), &vbid, &ix_exp);
         lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix_cur);
-        ASSERT_TRUE(ix_exp > -1 && ix_exp <  cfg_ex->ndatasrv);
+        ASSERT_TRUE(ix_exp > -1 && ix_exp < (int)cfg_ex->ndatasrv);
         ASSERT_EQ(ix_exp, ix_cur);
     }
 
@@ -298,7 +298,7 @@ TEST_F(ConfigTest, testNondataNodes)
             if (newix == -1) {
                 continue;
             } else {
-                ASSERT_TRUE(newix < cfg_ex->ndatasrv);
+                ASSERT_TRUE(newix < (int)cfg_ex->ndatasrv);
             }
         }
     }
@@ -310,7 +310,7 @@ TEST_F(ConfigTest, testNondataNodes)
         const string& s = keys[ii];
         lcbvb_map_key(cfg_old, s.c_str(), s.size(), &vbid, &ix_exp);
         lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix_cur);
-        ASSERT_TRUE(ix_exp > -1 && ix_exp < cfg_old->ndatasrv);
+        ASSERT_TRUE(ix_exp > -1 && ix_exp < (int)cfg_old->ndatasrv);
         ASSERT_EQ(ix_exp, ix_cur);
     }
 

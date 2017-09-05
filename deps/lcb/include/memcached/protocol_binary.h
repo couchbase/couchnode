@@ -99,7 +99,13 @@ extern "C"
         PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL = 0x06,
         /** The server is not responsible for the requested vbucket */
         PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET = 0x07,
+        /** Not connected to a bucket */
+        PROTOCOL_BINARY_RESPONSE_NO_BUCKET = 0x08,
+        /** The requested resource is locked */
+        PROTOCOL_BINARY_RESPONSE_LOCKED = 0x09,
 
+        /** The authentication context is stale. You should reauthenticate*/
+        PROTOCOL_BINARY_RESPONSE_AUTH_STALE = 0x1f,
         /** Authentication failure (invalid user/password combination,
          * OR an internal error in the authentication library. Could
          * be a misconfigured SASL configuration. See server logs for
@@ -113,6 +119,10 @@ extern "C"
 
         /** No access (could be opcode, value, bucket etc) */
         PROTOCOL_BINARY_RESPONSE_EACCESS = 0x24,
+        /** The Couchbase cluster is currently initializing this
+         * node, and the Cluster manager has not yet granted all
+         * users access to the cluster. */
+        PROTOCOL_BINARY_RESPONSE_NOT_INITIALIZED = 0x25,
 
         /** The server have no idea what this command is for */
         PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND = 0x81,
@@ -136,6 +146,11 @@ extern "C"
          * etc).
          */
         PROTOCOL_BINARY_RESPONSE_ETMPFAIL = 0x86,
+        /**
+         * There is something wrong with the syntax of the provided
+         * XATTR.
+         */
+        PROTOCOL_BINARY_RESPONSE_XATTR_EINVAL = 0x87,
 
         /*
          * Sub-document specific responses.
@@ -191,8 +206,53 @@ extern "C"
          * found, but one or more path operations failed. Examine the individual
          * lookup_result (MULTI_LOOKUP) / mutation_result (MULTI_MUTATION)
          * structures for details. */
-        PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE = 0xcc
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE = 0xcc,
 
+        /**
+         * The operation completed successfully, but operated on a deleted
+         * document.
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED = 0xcd,
+
+        /**
+         * The combination of the subdoc flags for the xattrs doesn't make
+         * any sense
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO = 0xce,
+
+        /**
+         * Only a single xattr key may be accessed at the same time.
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO = 0xcf,
+
+        /**
+         * The server has no knowledge of the requested macro
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO = 0xd0,
+
+        /**
+         * The server has no knowledge of the requested virtual xattr
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR = 0xd1,
+
+        /**
+         * Virtual xattrs can't be modified
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR = 0xd2,
+
+        /**
+         * [For multi-path commands only] Specified key was found as a
+         * Deleted document, but one or more path operations
+         * failed. Examine the individual lookup_result (MULTI_LOOKUP) /
+         * mutation_result (MULTI_MUTATION) structures for details.
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED = 0xd3,
+
+        /**
+         * According to the spec all xattr commands should come first,
+         * followed by the commands for the document body
+         */
+        PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER = 0xd4
     } protocol_binary_response_status;
 
     /**
@@ -209,6 +269,7 @@ extern "C"
         PROTOCOL_BINARY_CMD_DECREMENT = 0x06,
         PROTOCOL_BINARY_CMD_FLUSH = 0x08,
         PROTOCOL_BINARY_CMD_GETQ = 0x09 /* Used in tests */,
+        PROTOCOL_BINARY_CMD_NOOP = 0x0a,
         PROTOCOL_BINARY_CMD_VERSION = 0x0b,
         PROTOCOL_BINARY_CMD_APPEND = 0x0e,
         PROTOCOL_BINARY_CMD_PREPEND = 0x0f,

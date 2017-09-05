@@ -96,7 +96,6 @@ TEST_F(ObseqnoTest, testObserve) {
 
     HandleWrap hw;
     lcb_t instance;
-    lcb_error_t rc;
     createConnection(hw, instance);
     lcbvb_CONFIG *vbc;
 

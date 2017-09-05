@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-PILLOWFIGHT" "1" "July 2016" "" ""
+.TH "CBC\-PILLOWFIGHT" "1" "August 2017" "" ""
 .
 .SH "NAME"
 \fBcbc\-pillowfight\fR \- Stress Test for Couchbase Client and Cluster
@@ -160,6 +160,10 @@ JSON documents are created by creating an empty JSON object (\fB{}\fR) and then 
 .
 .IP
 When using document size constraints, be aware that the minimum and maximum sizes (\fB\-\-min\-size\fR and \fB\-\-max\-size\fR) are not strict limits, and that the resultant sizes may be bigger or smaller by a few bytes in order to satisfy the requirements of proper JSON syntax\.
+.
+.TP
+\fB\-\-noop\fR
+Use couchbase NOOP operations when running the workload\. This mode ignores population, and all other document operations\. Useful as the most lightweight workload\.
 .
 .TP
 \fB\-\-subdoc\fR

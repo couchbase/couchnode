@@ -8,7 +8,6 @@ class N1qLStringTests : public ::testing::Test {
 
 TEST_F(N1qLStringTests, testParseTimeout)
 {
-    lcb_U32 value;
     ASSERT_EQ(1500000, lcb_n1qlreq_parsetmo("1.5s"));
     ASSERT_EQ(1500000, lcb_n1qlreq_parsetmo("1500ms"));
     ASSERT_EQ(1500000, lcb_n1qlreq_parsetmo("1500000us"));

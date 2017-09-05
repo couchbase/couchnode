@@ -204,9 +204,6 @@ struct lcb_cntl_iops_info_st {
 #define LCB_CNTL_CONFIG_ALL_NODES 0x20
 
 /**
- * @internal
- *
- * @volatile
  * Reinitialize the instance using a connection string. Only options and
  * the hostlists are used from this string. The bucket in the string (if specified)
  * and any SSL options (i.e. `couchbases://` or `ssl=no_verify`) are ignored.
@@ -214,6 +211,7 @@ struct lcb_cntl_iops_info_st {
  *
  * This is the newer variant of @ref LCB_CNTL_CONFIG_ALL_NODES
  * @cntl_arg_setonly{const char *}
+ * @internal
  */
 #define LCB_CNTL_REINIT_CONNSTR 0x2B
 
@@ -290,7 +288,6 @@ struct lcb_cntl_rdballocfactory {
     lcb_RDBALLOCFACTORY factory;
 };
 /**
- * @volatile
  * Set the allocator factory used by libcouchbase. The allocator factory is
  * a function invoked with no arguments which yields a new rdb_ALLOCATOR
  * object. Currently the use and API of this object is considered internal
@@ -299,6 +296,7 @@ struct lcb_cntl_rdballocfactory {
  * Mode|Arg
  * ----|---
  * Set, Get | `lcb_cntl_rdballocfactory*`
+ * @volatile
  */
 #define LCB_CNTL_RDBALLOCFACTORY 0x27
 
@@ -319,37 +317,37 @@ typedef enum {
 
 
 /**
- * @volatile
  * @brief Persist heuristic vbucket information across updates.
  *
  * As of version 2.4.8 this option no longer has any effect, and vBucket
  * heuristics are always retained for a maximum of 20 seconds.
  * @cntl_arg_both{int*}
+ * @volatile
  */
 #define LCB_CNTL_VBGUESS_PERSIST 0x32
 
 /**
- * @volatile
  * This is a collection of various options which sacrifice data safety for
  * speed.
+ * @volatile
  */
 #define LCB_CNTL_UNSAFE_OPTIMIZE 0x33
 
 /**
- * @volatile
  * Disable or enable Nagle's algorithm. The default is to disable it, as it
  * will typically reduce latency. In general it is recommended not to touch
  * this setting. It is here mainly for debugging.
  *
  * Conventionally, the option to disable Nagle's algorithm is called "TCP_NODELAY",
  * thus if this value is one, Nagle is off, and vice versa.
+ * @volatile
  */
 #define LCB_CNTL_TCP_NODELAY 0x39
 
 /**
- * @volatile
  * Get the lcb_HISTOGRAM object for key-value timings
  * @cntl_arg_getonly{lcb_HISTOGRAM**}
+ * @volatile
  */
 #define LCB_CNTL_KVTIMINGS 0x3C
 

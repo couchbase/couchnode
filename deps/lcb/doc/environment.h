@@ -89,5 +89,5 @@
  * A string containing extra options for the connection string. These options
  * are processed right after the existing connection string options (if any).
  *
- * @endinternal
+ * @internal
  */

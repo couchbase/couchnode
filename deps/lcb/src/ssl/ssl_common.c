@@ -127,6 +127,7 @@ iotssl_destroy_common(lcbio_XSSL *xs)
     lcbio_table_unref(xs->orig);
 }
 
+#if LCB_CAN_OPTIMIZE_SSL_BIO
 void
 iotssl_bm_reserve(BUF_MEM *bm)
 {
@@ -139,6 +140,7 @@ iotssl_bm_reserve(BUF_MEM *bm)
     }
     bm->length = oldlen;
 }
+#endif
 
 void
 iotssl_log_errors(lcbio_XSSL *xs)

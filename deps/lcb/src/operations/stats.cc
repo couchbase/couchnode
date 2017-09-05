@@ -184,6 +184,7 @@ handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err,
         lcb_RESPVERBOSITY *verbosity;
         lcb_RESPMCVERSION *version;
         lcb_RESPFLUSH *flush;
+        lcb_RESPNOOP *noop;
     } u_resp;
 
     union {
@@ -191,6 +192,7 @@ handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err,
         lcb_RESPVERBOSITY verbosity;
         lcb_RESPMCVERSION version;
         lcb_RESPFLUSH flush;
+        lcb_RESPNOOP noop;
     } u_empty;
 
     memset(&u_empty, 0, sizeof(u_empty));
@@ -258,6 +260,8 @@ pkt_bcast_simple(lcb_t instance, const void *cookie, lcb_CALLBACKTYPE type)
             hdr.request.opcode = PROTOCOL_BINARY_CMD_FLUSH;
         } else if (type == LCB_CALLBACK_VERSIONS) {
             hdr.request.opcode = PROTOCOL_BINARY_CMD_VERSION;
+        } else if (type == LCB_CALLBACK_NOOP) {
+            hdr.request.opcode = PROTOCOL_BINARY_CMD_NOOP;
         } else {
             fprintf(stderr, "pkt_bcast_simple passed unknown type %u\n", type);
             assert(0);
@@ -284,6 +288,12 @@ lcb_server_versions3(lcb_t instance, const void *cookie, const lcb_CMDBASE *)
     return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_VERSIONS);
 }
 
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_noop3(lcb_t instance, const void *cookie, const lcb_CMDNOOP *)
+{
+    return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_NOOP);
+}
 
 LIBCOUCHBASE_API
 lcb_error_t

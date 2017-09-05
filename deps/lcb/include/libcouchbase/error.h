@@ -532,7 +532,7 @@ typedef enum {
     LCB_MAX_ERROR = 0x1000
 } lcb_error_t;
 
-/** @deprecated. Use new, less ambiguous identifier (@ref LCB_CLIENT_ENOCONF) */
+/** @deprecated Use new, less ambiguous identifier (@ref LCB_CLIENT_ENOCONF) */
 #define LCB_CLIENT_ETMPFAIL LCB_CLIENT_ENOCONF
 
 /** @brief If the error is a result of bad input */

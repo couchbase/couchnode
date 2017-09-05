@@ -107,7 +107,7 @@ The following options control workload generation:
 
 * `-T`, `--timings`:
   Dump a histogram of command timings and latencies to the screen every second.
-  
+
 * `-e`, `--expiry`=_SECONDS_:
   Set the expiration time on the document for _SECONDS_ when performing each
   operation. Note that setting this too low may cause not-found errors to
@@ -128,7 +128,7 @@ The following options control workload generation:
   used to log into the web interface.
 
   Specifying the `-` as the password indicates that the program should prompt for the
-  password. You may also specify the password on the commandline, directly, 
+  password. You may also specify the password on the commandline, directly,
   but is insecure as command line arguments are visible via commands such as `ps`.
 
 * `-T`, `--timings`:
@@ -167,6 +167,11 @@ The following options control workload generation:
   sizes (`--min-size` and `--max-size`) are not strict limits, and that the
   resultant sizes may be bigger or smaller by a few bytes in order to satisfy
   the requirements of proper JSON syntax.
+
+* `--noop`:
+  Use couchbase NOOP operations when running the workload. This mode ignores
+  population, and all other document operations. Useful as the most lightweight
+  workload.
 
 * `--subdoc`:
   Use couchbase sub-document operations when running the workload. In this

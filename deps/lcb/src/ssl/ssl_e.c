@@ -112,24 +112,38 @@ schedule_pending(lcbio_ESSL *es)
 static int
 read_ssl_data(lcbio_ESSL *es)
 {
-    BUF_MEM *rmb;
     int nr;
     lcbio_pTABLE iot = es->orig;
+
+#if LCB_CAN_OPTIMIZE_SSL_BIO
+    BUF_MEM *rmb;
 
     /* This block is an optimization over BIO_write to avoid copying the memory
      * to a temporary buffer and _then_ copying it into the BIO */
 
     BIO_get_mem_ptr(es->rbio, &rmb);
+#endif
+
     while (1) {
+#if LCB_CAN_OPTIMIZE_SSL_BIO
         /* I don't know why this is here, but it's found inside BIO_write */
         BIO_clear_retry_flags(es->rbio);
         iotssl_bm_reserve(rmb);
         nr = IOT_V0IO(iot).recv(IOT_ARG(iot), es->fd,
             rmb->data + rmb->length, rmb->max - rmb->length, 0);
+#else
+#define BUFSZ 4096
+        char buf[BUFSZ];
+        nr = IOT_V0IO(iot).recv(IOT_ARG(iot), es->fd, buf, BUFSZ, 0);
+#endif
 
         if (nr > 0) {
+#if LCB_CAN_OPTIMIZE_SSL_BIO
             /* Extend the BIO used length */
             rmb->length += nr;
+#else
+            BIO_write(es->rbio, buf, nr);
+#endif
         } else if (nr == 0) {
             es->closed = 1;
             return -1;

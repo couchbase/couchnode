@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2010-2017 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 /**
  * @page lcb_attributes Interface Attributes
  *
@@ -12,6 +29,9 @@
  * functions or files you should *not* use them. They may be changed in
  * incompatible ways without any notice. Unless explicitly noted the
  * interface stability applies to both source code and binaries.
+ *
+ * This is a standard definition across all official Couchbase Server SDKs.
+ * @see https://developer.couchbase.com/documentation/server/current/sdk/c/compatibility-versions-features.html
  *
  * The following classifications exist:
  *
@@ -28,7 +48,7 @@
  * _This is the default interface level for an API, unless the API is specifically
  * marked otherwise._
  *
- * ### Uncommitted interface
+ * ### Uncommitted
  *
  * No commitment is made about the interface (in binary or source
  * form). It may be changed in incompatible ways and dropped from one
@@ -36,7 +56,7 @@
  * and a volatile interface is its maturity and likelyhood of being
  * changed. Uncommitted interfaces may mature into committed interfaces.
  *
- * ### Volatile interfaces
+ * ### Volatile
  *
  * Volatile interfaces can change at any time and for any reason.
  *
@@ -58,13 +78,16 @@
  * as specific bugs found within the API itself, or a more uniform and/or
  * direct method of achieving the same goal.
  *
- * ### Private
+ * ### Internal
  *
- * Private interfaces is used internally in libcouchbase and should not
+ * Internal interfaces are used internally in libcouchbase and should not
  * be used elsewhere. Doing so may cause libcouchbase to misbehave.
  *
  * Unless otherwise noted, any API not found in the <include/libcouchbase>
- * directory is considered to be private
+ * directory is considered to be internal.
+ *
+ * Some earlier versions of libcouchbase may have listed APIs as private,
+ * when the intended term in the taxonomy is internal.
  *
  * The listing of interfaces may be found here:
  *
@@ -72,6 +95,7 @@
  * * @subpage lcb_apiattr_uncommitted
  * * @subpage lcb_apiattr_volatile
  * * @subpage deprecated
+ * * @subpage lcb_apiattr_internal
  **/
 
 /**
@@ -86,4 +110,8 @@
  *
  * @page deprecated Deprecated Interfaces
  * @see @ref lcb_attributes
+
+ * @page lcb_apiattr_internal Internal Interfaces
+ * @see @ref lcb_attributes
+ *
  */

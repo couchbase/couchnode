@@ -129,7 +129,7 @@ lcb_st::process_dns_srv(Connspec& spec)
 
     const Spechost& host = spec.hosts().front();
     lcb_error_t rc = LCB_ERROR;
-    Hostlist* hl = dnssrv_getbslist(host.hostname.c_str(), host.isSSL(), rc);
+    Hostlist* hl = dnssrv_getbslist(host.hostname.c_str(), spec.sslopts() & LCB_SSL_ENABLED, rc);
 
     if (hl == NULL) {
         lcb_log(LOGARGS(this, INFO), "DNS SRV lookup failed: %s. Ignore this if not relying on DNS SRV records", lcb_strerror(this, rc));

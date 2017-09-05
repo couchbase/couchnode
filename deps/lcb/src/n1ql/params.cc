@@ -84,6 +84,34 @@ lcb_n1p_posparam(lcb_N1QLPARAMS *params, const char *value, size_t nvalue)
     return LCB_SUCCESS;
 }
 
+lcb_error_t
+lcb_n1p_readonly(lcb_N1QLPARAMS *params, int readonly)
+{
+    params->root["readonly"] = readonly ? true : false;
+    return LCB_SUCCESS;
+}
+
+lcb_error_t
+lcb_n1p_scancap(lcb_N1QLPARAMS *params, int scancap)
+{
+    params->root["scan_cap"] = Json::valueToString(scancap);
+    return LCB_SUCCESS;
+}
+
+lcb_error_t
+lcb_n1p_pipelinecap(lcb_N1QLPARAMS *params, int pipelinecap)
+{
+    params->root["pipeline_cap"] = Json::valueToString(pipelinecap);
+    return LCB_SUCCESS;
+}
+
+lcb_error_t
+lcb_n1p_pipelinebatch(lcb_N1QLPARAMS *params, int pipelinebatch)
+{
+    params->root["pipeline_batch"] = Json::valueToString(pipelinebatch);
+    return LCB_SUCCESS;
+}
+
 static void
 encode_mutation_token(Json::Value& sparse, const lcb_MUTATION_TOKEN *sv)
 {

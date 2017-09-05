@@ -105,6 +105,7 @@ lcb_timer_t lcb_timer_create(lcb_t instance, const void *command_cookie, lcb_uin
         return NULL;
     }
     if (!callback) {
+        free(tmr);
         *error = LCB_EINVAL;
         return NULL;
     }

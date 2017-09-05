@@ -117,6 +117,17 @@ typedef enum {
     LCBVB_DIST_KETAMA = 1 /**< Ketama hashing ("memcached") bucket */
 } lcbvb_DISTMODE;
 
+typedef enum {
+    LCBVB_CAP_XATTR = 0x01,
+    LCBVB_CAP_CBHELLO = 0x02,
+    LCBVB_CAP_CCCP = 0x04,
+    LCBVB_CAP_COUCHAPI = 0x08,
+    LCBVB_CAP_DCP = 0x10,
+    LCBVB_CAP_NODES_EXT = 0x20,
+    LCBVB_CAP_TOUCH = 0x40,
+    LCBVB_CAP_XDCR_CHECKPOINTING = 0x80
+} lcbvb_BUCKET_CAPABILITIES;
+
 /**@volatile. ABI/API compatibility not guaranteed between versions.
  * @brief Structure containing the configuration.*/
 typedef struct lcbvb_CONFIG_st {
@@ -136,6 +147,7 @@ typedef struct lcbvb_CONFIG_st {
     lcbvb_VBUCKET *ffvbuckets; /* fast-forward map */
     lcbvb_CONTINUUM *continuum; /* ketama continuums */
     int *randbuf; /* Used for random server selection */
+    long caps; /**< Server capabilities */
 } lcbvb_CONFIG;
 
 
@@ -143,6 +155,7 @@ typedef struct lcbvb_CONFIG_st {
 #define LCBVB_NDATASERVERS(cfg) (cfg)->ndatasrv
 #define LCBVB_NREPLICAS(cfg) (cfg)->nrepl
 #define LCBVB_DISTTYPE(cfg) (cfg)->dtype
+#define LCBVB_CAPS(cfg) (cfg)->caps
 #define LCBVB_GET_SERVER(conf, ix) ((conf)->servers + ix)
 
 /**

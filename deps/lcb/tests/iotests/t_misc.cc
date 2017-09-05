@@ -293,7 +293,7 @@ TEST_F(MockUnitTest, testGetHostInfo)
     map<string,bool> smap;
 
     // Ensure we only get unique nodes
-    for (size_t ii = 0; ii < lcb_get_num_nodes(instance); ii++) {
+    for (lcb_S32 ii = 0; ii < lcb_get_num_nodes(instance); ii++) {
         const char *cur = lcb_get_node(instance, LCB_NODE_DATA, ii);
         ASSERT_FALSE(cur == NULL);
         ASSERT_FALSE(smap[cur]);
@@ -435,7 +435,7 @@ TEST_F(MockUnitTest, testCtls)
     lcbvb_CONFIG *cfg = ctlGet<lcbvb_CONFIG*>(instance, LCB_CNTL_VBCONFIG);
     // Do we have a way to verify this?
     ASSERT_FALSE(cfg == NULL);
-    ASSERT_GT(cfg->nsrv, 0);
+    ASSERT_GT(cfg->nsrv, (unsigned int)0);
 
     lcb_io_opt_t io = ctlGet<lcb_io_opt_t>(instance, LCB_CNTL_IOPS);
     ASSERT_TRUE(io == instance->getIOT()->p);
@@ -517,7 +517,7 @@ TEST_F(MockUnitTest, testCtls)
 
     ctlGetSet<int>(instance, LCB_CNTL_DETAILED_ERRCODES, 1);
     ctlGetSet<lcb_U32>(instance, LCB_CNTL_RETRY_INTERVAL, UINT_MAX);
-    ctlGetSet<float>(instance, LCB_CNTL_RETRY_BACKOFF, 3.4);
+    ctlGetSet<float>(instance, LCB_CNTL_RETRY_BACKOFF, (float)3.4);
     ctlGetSet<lcb_SIZE>(instance, LCB_CNTL_HTTP_POOLSIZE, UINT_MAX);
     ctlGetSet<int>(instance, LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR, 0);
 

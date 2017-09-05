@@ -415,7 +415,6 @@ TEST_F(ConnstrTest, testDnsSrvExplicit)
 
 TEST_F(ConnstrTest, testDnsSrvImplicit)
 {
-    lcb_error_t err;
     EXPECT_EQ(LCB_SUCCESS, params.parse("couchbase://"));
     EXPECT_FALSE(params.can_dnssrv());
     EXPECT_FALSE(params.is_explicit_dnssrv());

@@ -103,6 +103,66 @@ cliopts_list_clear(cliopts_list *l)
     l->nalloc = 0;
 }
 
+static void
+add_pair_list_value(const char *src, size_t nsrc, cliopts_pair_list *l)
+{
+    char *key = NULL, *val = NULL;
+    char *sep = memchr(src, '=', nsrc);
+    if (sep == NULL) {
+        key = malloc(nsrc + 1);
+        memcpy(key, src, nsrc);
+        key[nsrc] = '\0';
+        val = malloc(1);
+        val[0] = '\0';
+    } else {
+        char *pp = sep;
+        size_t nkey = sep - src;
+        size_t nval = nsrc - nkey - 1;
+        for (; pp > src; pp--, nkey--) {
+            if (*pp != ' ' && *pp != '\t' && *pp != '\0') {
+                break;
+            }
+        }
+        key = malloc(nkey + 1);
+        memcpy(key, src, nkey);
+        key[nkey] = '\0';
+        val = malloc(nval + 1);
+        memcpy(val, sep + 1, nval);
+        val[nval] = '\0';
+    }
+
+    if (!l->nalloc) {
+        l->nalloc = 2;
+        l->keys = malloc(l->nalloc * sizeof(*l->keys));
+        l->values = malloc(l->nalloc * sizeof(*l->values));
+    } else {
+        l->nalloc *= 1.5;
+        l->keys = realloc(l->keys, sizeof(*l->keys) * l->nalloc);
+        l->values = realloc(l->values, sizeof(*l->values) * l->nalloc);
+    }
+
+    l->keys[l->nvalues] = key;
+    l->values[l->nvalues] = val;
+    l->nvalues++;
+}
+
+CLIOPTS_API
+void
+cliopts_pair_list_clear(cliopts_pair_list *l)
+{
+    size_t ii;
+    for (ii = 0; ii < l->nvalues; ii++) {
+        free(l->keys[ii]);
+        free(l->values[ii]);
+    }
+    free(l->keys);
+    free(l->values);
+    l->keys = NULL;
+    l->values = NULL;
+    l->nvalues = 0;
+    l->nalloc = 0;
+}
+
 /**
  * Various extraction/conversion functions for numerics
  */
@@ -236,6 +296,10 @@ parse_value(struct cliopts_priv *ctx,
 
     if (entry->ktype == CLIOPTS_ARGT_LIST) {
         add_list_value(value, vlen, (cliopts_list *)entry->dest);
+        return WANT_OPTION;
+    }
+    if (entry->ktype == CLIOPTS_ARGT_PAIR_LIST) {
+        add_pair_list_value(value, vlen, (cliopts_pair_list *)entry->dest);
         return WANT_OPTION;
     }
 
@@ -596,6 +660,17 @@ print_help(struct cliopts_priv *ctx, struct cliopts_extra_settings *settings)
                 }
                 break;
             }
+            case CLIOPTS_ARGT_PAIR_LIST: {
+                size_t ii;
+                cliopts_pair_list *l = (cliopts_pair_list *)cur->dest;
+                for (ii = 0; ii < l->nvalues; ii++) {
+                    fprintf(stderr, "'%s=%s'", l->keys[ii], l->values[ii]);
+                    if (ii != l->nvalues-1) {
+                        fprintf(stderr, ", ");
+                    }
+                }
+                break;
+            }
             case CLIOPTS_ARGT_FLOAT:
                 fprintf(stderr, "%0.2f", *(float*)cur->dest);
                 break;
@@ -723,7 +798,9 @@ cliopts_parse_options(cliopts_entry *entries,
             }
 
             print_help(&ctx, settings);
-            exit(0);
+            if (!settings->help_noexit) {
+                exit(0);
+            }
 
         } else if (curmode == MODE_RESTARGS) {
             ii++;
@@ -775,4 +852,86 @@ cliopts_parse_options(cliopts_entry *entries,
         }
     }
     return ret;
+}
+
+CLIOPTS_API
+int cliopts_split_args(char *args, int *argc, char ***argv)
+{
+    char *p = args;
+    char *current = NULL;
+    int skip = 0;
+
+    *argc = 0;
+    *argv = NULL;
+
+#define ch(x) (*(x + skip))
+
+    while (1) {
+
+        while (ch(p) && isspace(ch(p))) {
+            p++;
+        }
+        if (*p) {
+            int insq = 0;
+            int done = 0;
+
+            if (current == NULL) {
+                current = p;
+            }
+            while (!done) {
+                if (insq) {
+                    if (ch(p) == '\\' && ch(p + 1) == '\'') {
+                        skip++;
+                    } else if (ch(p) == '\'') {
+                        if (ch(p + 1) && !isspace(ch(p + 1))) {
+                            // do not consider single quote inside word as terminating
+                        } else {
+                            *p = '\0';
+                            p++;
+                            done = 1;
+                        }
+                    } else if (!*p) {
+                        cliopt_debug("unterminated single quote");
+                        goto err;
+                    }
+                } else {
+                    switch (ch(p)) {
+                    case '\'':
+                        if (current == p) {
+                            current++;
+                            insq = 1;
+                        }
+                        break;
+                    case ' ':
+                    case '\n':
+                    case '\r':
+                    case '\t':
+                        *p = '\0';
+                        p++;
+                    case '\0':
+                        done = 1;
+                        break;
+                    }
+                }
+                if (skip) {
+                    *p = ch(p);
+                }
+                if (*p && !done) {
+                    p++;
+                }
+            }
+            *argv = realloc(*argv, (*argc + 1) * sizeof(char *));
+            (*argv)[*argc] = current;
+            (*argc)++;
+            current = NULL;
+        } else {
+            return 0;
+        }
+    }
+
+err:
+    free(*argv);
+    *argc = 0;
+    *argv = NULL;
+    return 1;
 }

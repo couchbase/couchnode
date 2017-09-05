@@ -1,7 +1,5 @@
 # Couchbase C Client
 
-[![Build Status](https://travis-ci.org/couchbase/libcouchbase.png?branch=master)](https://travis-ci.org/couchbase/libcouchbase)
-
 This is the C client library for [Couchbase](http://www.couchbase.com)
 It communicates with the cluster and speaks the relevant protocols
 necessary to connect to the cluster and execute data operations.
@@ -23,7 +21,7 @@ necessary to connect to the cluster and execute data operations.
 ## Building
 
 Before you build from this repository, please check the
-[installation page](http://developer.couchbase.com/server/other-products/release-notes-archives/c-sdk)
+[installation page](https://developer.couchbase.com/server/other-products/release-notes-archives/c-sdk)
 to see if there is a binary or release tarball available for your needs. Since the code here is
 not part of an official release it has therefore not gone through our
 release testing process.
@@ -91,18 +89,18 @@ irc.freenode.net.
 * Official client libraries using libcouchbase
     * [node.js](http://github.com/couchbase/couchnode)
     * [Python](http://github.com/couchbase/couchbase-python-client)
-    * [Ruby](http://github.com/couchbase/couchbase-ruby-client) (uses the old < 2.6 API)
-    * [PHP](http://github.com/couchbase/php-couchbase) (uses the old < 2.6 API)
+    * [PHP](http://github.com/couchbase/php-couchbase)
 * Community projects using libcouchbase
     * [C++11 wrapper](https://github.com/couchbaselabs/libcouchbase-cxx)
     * [cberl - Couchbase NIF](https://github.com/wcummings/cberl)
     * [Perl client](https://github.com/mnunberg/perl-Couchbase-Client)
+    * [Ruby](http://github.com/couchbase/couchbase-ruby-client) (uses the old < 2.6 API)
 
 ## Documentation
 
 Documentation is available in guide format (introducing the basic concepts of
 Couchbase and the library). It is recommended for first-time users, and can
-be accessed at our [Documentation Site](http://developer.couchbase.com/documentation/server/4.5/sdk/c/start-using-sdk.html).
+be accessed at our [Documentation Site](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html).
 
 API documentation is also available and is generated from the library's headers.
 It may contain references to more advanced features not found in the guide.

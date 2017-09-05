@@ -17,6 +17,10 @@
 #include "connspec.h"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 
+#ifndef LCB_NO_SSL
+#include <openssl/crypto.h>
+#endif
+
 using namespace cbc;
 
 using std::string;
@@ -232,6 +236,18 @@ common_server_callback(lcb_t, int cbtype, const lcb_RESPSERVERBASE *sbase)
 }
 
 static void
+ping_callback(lcb_t, int, const lcb_RESPPING *resp)
+{
+    if (resp->rc != LCB_SUCCESS) {
+        fprintf(stderr, "failed: %s\n", lcb_strerror(NULL, resp->rc));
+    } else {
+        if (resp->njson) {
+            printf("%.*s", (int)resp->njson, resp->json);
+        }
+    }
+}
+
+static void
 arithmetic_callback(lcb_t, lcb_CALLBACKTYPE type, const lcb_RESPCOUNTER *resp)
 {
     string key = getRespKey((const lcb_RESPBASE *)resp);
@@ -403,21 +419,36 @@ GetHandler::run()
     lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, (lcb_RESPCALLBACK)get_callback);
     const vector<string>& keys = parser.getRestArgs();
-    lcb_error_t err;
+    std::string replica_mode = o_replica.result();
 
     lcb_sched_enter(instance);
     for (size_t ii = 0; ii < keys.size(); ++ii) {
-        lcb_CMDGET cmd = { 0 };
-        const string& key = keys[ii];
-        LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
-        if (o_exptime.passed()) {
-            cmd.exptime = o_exptime.result();
+        lcb_error_t err;
+        if (o_replica.passed()) {
+            lcb_CMDGETREPLICA cmd = { 0 };
+            const string& key = keys[ii];
+            LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+            if (replica_mode == "first") {
+                cmd.strategy = LCB_REPLICA_FIRST;
+            } else if (replica_mode == "all") {
+                cmd.strategy = LCB_REPLICA_ALL;
+            } else {
+                cmd.strategy = LCB_REPLICA_SELECT;
+                cmd.index = std::atoi(replica_mode.c_str());
+            }
+            err = lcb_rget3(instance, this, &cmd);
+        } else {
+            lcb_CMDGET cmd = { 0 };
+            const string& key = keys[ii];
+            LCB_KREQ_SIMPLE(&cmd.key, key.c_str(), key.size());
+            if (o_exptime.passed()) {
+                cmd.exptime = o_exptime.result();
+            }
+            if (isLock()) {
+                cmd.lock = 1;
+            }
+            err = lcb_get3(instance, this, &cmd);
         }
-        if (isLock()) {
-            cmd.lock = 1;
-        }
-
-        err = lcb_get3(instance, this, &cmd);
         if (err != LCB_SUCCESS) {
             throw LcbError(err);
         }
@@ -763,11 +794,48 @@ VersionHandler::run()
     memset(&info, 0, sizeof info);
     err = lcb_cntl(NULL, LCB_CNTL_GET, LCB_CNTL_IOPS_DEFAULT_TYPES, &info);
     if (err == LCB_SUCCESS) {
-        fprintf(stderr, "  IO: Default=%s, Current=%s\n",
+        fprintf(stderr, "  IO: Default=%s, Current=%s, Accessible=",
             iops_to_string(info.v.v0.os_default), iops_to_string(info.v.v0.effective));
     }
-    printf("  SSL: .. %s\n",
-            lcb_supports_feature(LCB_SUPPORTS_SSL) ? "SUPPORTED" : "NOT SUPPORTED");
+    {
+        size_t ii;
+        char buf[256] = {0}, *p = buf;
+        lcb_io_ops_type_t known_io[] = {
+            LCB_IO_OPS_WINIOCP,
+            LCB_IO_OPS_LIBEVENT,
+            LCB_IO_OPS_LIBUV,
+            LCB_IO_OPS_LIBEV,
+            LCB_IO_OPS_SELECT
+        };
+
+
+        for (ii = 0; ii < sizeof(known_io) / sizeof(known_io[0]); ii++) {
+            struct lcb_create_io_ops_st cio = {0};
+            lcb_io_opt_t io = NULL;
+
+            cio.v.v0.type = known_io[ii];
+            if (lcb_create_io_ops(&io, &cio) == LCB_SUCCESS) {
+                p += sprintf(p, "%s,", iops_to_string(known_io[ii]));
+            }
+        }
+        *(--p) = '\n';
+        fprintf(stderr, "%s", buf);
+    }
+
+    if (lcb_supports_feature(LCB_SUPPORTS_SSL)) {
+#ifdef LCB_NO_SSL
+        printf("  SSL: SUPPORTED\n");
+#else
+#if defined(OPENSSL_VERSION)
+        printf("  SSL Runtime: %s\n", OpenSSL_version(OPENSSL_VERSION));
+#elif defined(SSLEAY_VERSION)
+        printf("  SSL Runtime: %s\n", SSLeay_version(SSLEAY_VERSION));
+#endif
+        printf("  SSL Headers: %s\n", OPENSSL_VERSION_TEXT);
+#endif
+    } else {
+        printf("  SSL: NOT SUPPORTED\n");
+    }
 }
 
 void
@@ -845,6 +913,28 @@ VerbosityHandler::run()
     lcb_error_t err;
     lcb_sched_enter(instance);
     err = lcb_server_verbosity3(instance, NULL, &cmd);
+    if (err != LCB_SUCCESS) {
+        throw LcbError(err);
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
+PingHandler::run()
+{
+    Handler::run();
+
+    lcb_install_callback3(instance, LCB_CALLBACK_PING, (lcb_RESPCALLBACK)ping_callback);
+    lcb_CMDPING cmd = { 0 };
+    lcb_error_t err;
+    cmd.services = LCB_PINGSVC_F_KV | LCB_PINGSVC_F_N1QL | LCB_PINGSVC_F_VIEWS | LCB_PINGSVC_F_FTS;
+    cmd.options = LCB_PINGOPT_F_JSON | LCB_PINGOPT_F_JSONPRETTY;
+    if (o_details.passed()) {
+        cmd.options |= LCB_PINGOPT_F_JSONDETAILS;
+    }
+    lcb_sched_enter(instance);
+    err = lcb_ping3(instance, NULL, &cmd);
     if (err != LCB_SUCCESS) {
         throw LcbError(err);
     }
@@ -1362,6 +1452,8 @@ ConnstrHandler::run()
         if (spec.sslopts() & LCB_SSL_NOVERIFY) {
             sslOpts += "|NOVERIFY";
         }
+    } else {
+        sslOpts = "DISABLED";
     }
     printf("SSL: %s\n", sslOpts.c_str());
 
@@ -1467,6 +1559,7 @@ static const char* optionsOrder[] = {
         "connstr",
         "write-config",
         "strerror",
+        "ping",
         NULL
 };
 
@@ -1536,6 +1629,7 @@ setupHandlers()
     handlers_s["cp"] = new SetHandler("cp");
     handlers_s["stats"] = new StatsHandler();
     handlers_s["verbosity"] = new VerbosityHandler();
+    handlers_s["ping"] = new PingHandler();
     handlers_s["mcflush"] = new McFlushHandler();
     handlers_s["incr"] = new IncrHandler();
     handlers_s["decr"] = new DecrHandler();
@@ -1641,6 +1735,8 @@ int main(int argc, char **argv)
             wrapExternalBinary(argc, argv, "cbc-pillowfight");
         } else if (strcmp(argv[1], "n1qlback") == 0) {
             wrapExternalBinary(argc, argv, "cbc-n1qlback");
+        } else if (strcmp(argv[1], "subdoc") == 0) {
+            wrapExternalBinary(argc, argv, "cbc-subdoc");
         }
     }
 

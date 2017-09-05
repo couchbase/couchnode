@@ -1,5 +1,5 @@
 /*
- *     Copyright 2015 Couchbase, Inc.
+ *     Copyright 2017 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ lcb_n1p_free(lcb_N1QLPARAMS *params);
 /** Query is a statement string */
 #define LCB_N1P_QUERY_STATEMENT 1
 
-/** @private */
+/** @internal */
 #define LCB_N1P_QUERY_PREPARED 2
 
 /**
@@ -112,6 +112,7 @@ LIBCOUCHBASE_API
 lcb_error_t
 lcb_n1p_setquery(lcb_N1QLPARAMS *params, const char *qstr, size_t nqstr, int type);
 
+/** Shortcut to set NUL-terminated string as statement via @ref lcb_n1p_setquery */
 #define lcb_n1p_setstmtz(params, qstr) \
     lcb_n1p_setquery(params, qstr, -1, LCB_N1P_QUERY_STATEMENT)
 
@@ -128,6 +129,7 @@ lcb_error_t
 lcb_n1p_namedparam(lcb_N1QLPARAMS *params, const char *name, size_t n_name,
     const char *value, size_t n_value);
 
+/** Shortcut to set NUL-terminated string as named param via @ref lcb_n1p_namedparam */
 #define lcb_n1p_namedparamz(params, name, value) \
     lcb_n1p_namedparam(params, name, -1, value, -1)
 
@@ -140,6 +142,66 @@ lcb_n1p_namedparam(lcb_N1QLPARAMS *params, const char *name, size_t n_name,
 LIBCOUCHBASE_API
 lcb_error_t
 lcb_n1p_posparam(lcb_N1QLPARAMS *params, const char *value, size_t n_value);
+
+
+/**
+ * Marks query as read-only.
+ *
+ * If the user knows the request is only ever a select, for security
+ * reasons it can make sense to tell the server this thing is readonly
+ * and it will prevent mutations from happening.
+ *
+ * If readonly is set, then the following statements are not allowed:
+ *   * CREATE INDEX
+ *   * DROP INDEX
+ *   * INSERT
+ *   * MERGE
+ *   * UPDATE
+ *   * UPSERT
+ *   * DELETE
+ *
+ * @param params the params object
+ * @param readonly if non-zero, the query will be read-only
+ */
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_n1p_readonly(lcb_N1QLPARAMS *params, int readonly);
+
+/**
+ * Sets maximum buffered channel size between the indexer client
+ * and the query service for index scans.
+ *
+ * This parameter controls when to use scan backfill. Use 0 or
+ * a negative number to disable.
+ *
+ * @param params the params object
+ * @param scancap channel size
+ */
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_n1p_scancap(lcb_N1QLPARAMS *params, int scancap);
+
+/**
+ * Sets maximum number of items each execution operator can buffer
+ * between various operators.
+ *
+ * @param params the params object
+ * @param pipelinecap number of items
+ */
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_n1p_pipelinecap(lcb_N1QLPARAMS *params, int pipelinecap);
+
+/**
+ * Sets the number of items execution operators can batch for
+ * fetch from the KV.
+ *
+ * @param params the params object
+ * @param pipelinebatch number of items
+ */
+LIBCOUCHBASE_API
+lcb_error_t
+lcb_n1p_pipelinebatch(lcb_N1QLPARAMS *params, int pipelinebatch);
 
 /**
  * Set a query option
@@ -258,7 +320,7 @@ lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd);
  */
 #define LCB_CMDN1QL_F_PREPCACHE 1<<16
 
-/** @private The lcb_CMDN1QL::query member is an internal JSON structure */
+/** The lcb_CMDN1QL::query member is an internal JSON structure. @internal */
 #define LCB_CMDN1QL_F_JSONQUERY 1<<17
 
 /**
@@ -266,7 +328,7 @@ lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd);
  * to target. When this flag is set, things like prepared queries and
  * parametrized statements will not work.
  *
- * @uncommited
+ * @uncommitted
  */
 #define LCB_CMDN1QL_F_CBASQUERY 1<<18
 

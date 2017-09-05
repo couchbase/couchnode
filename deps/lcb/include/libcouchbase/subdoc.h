@@ -148,6 +148,11 @@ typedef enum {
      */
     LCB_SDCMD_SET_FULLDOC,
 
+    /**
+     * Remove the entire document
+     */
+    LCB_SDCMD_REMOVE_FULLDOC,
+
     LCB_SDCMD_MAX
 } lcb_SUBDOCOP;
 

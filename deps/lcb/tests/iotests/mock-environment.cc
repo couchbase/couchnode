@@ -112,7 +112,7 @@ std::vector<int> MockEnvironment::getMcPorts(std::string bucket)
 
     std::vector<int> ret;
 
-    for (int ii = 0; ii < payload.size(); ii++) {
+    for (int ii = 0; ii < (int)payload.size(); ii++) {
         ret.push_back(payload[ii].asInt());
     }
     return ret;

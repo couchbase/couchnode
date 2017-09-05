@@ -118,6 +118,7 @@ public:
         o_writeJson("json"),
         o_templatePairs("template"),
         o_subdoc("subdoc"),
+        o_noop("noop"),
         o_sdPathCount("pathcount"),
         o_populateOnly("populate-only"),
         o_exptime("expiry")
@@ -141,6 +142,7 @@ public:
         o_templatePairs.description("Values for templates to be inserted into user documents");
         o_templatePairs.argdesc("FIELD,MIN,MAX[,SEQUENTIAL]").hide();
         o_subdoc.description("Use subdoc instead of fulldoc operations");
+        o_noop.description("Use NOOP instead of document operations").setDefault(0);
         o_sdPathCount.description("Number of subdoc paths per command").setDefault(1);
         o_populateOnly.description("Exit after documents have been populated");
         o_exptime.description("Set TTL for items").abbrev('e');
@@ -256,6 +258,7 @@ public:
         parser.addOption(o_writeJson);
         parser.addOption(o_templatePairs);
         parser.addOption(o_subdoc);
+        parser.addOption(o_noop);
         parser.addOption(o_sdPathCount);
         parser.addOption(o_populateOnly);
         parser.addOption(o_exptime);
@@ -278,6 +281,7 @@ public:
     bool shouldPauseAtEnd() { return o_pauseAtEnd; }
     bool sequentialAccess() { return o_sequential; }
     bool isSubdoc() { return o_subdoc; }
+    bool isNoop() { return o_noop.result(); }
     unsigned firstKeyOffset() { return o_startAt; }
     uint32_t getNumItems() { return o_numItems; }
     uint32_t getRateLimit() { return o_rateLimit; }
@@ -319,6 +323,7 @@ private:
     // List of template ranges for value generation
     ListOption o_templatePairs;
     BoolOption o_subdoc;
+    BoolOption o_noop;
     UIntOption o_sdPathCount;
 
     // Compound option
@@ -394,17 +399,43 @@ struct NextOp {
     vector<lcb_IOV> m_valuefrags;
     vector<lcb_SDSPEC> m_specs;
     // The mode here is for future use with subdoc
-    enum Mode { STORE, GET, SDSTORE, SDGET };
+    enum Mode { STORE, GET, SDSTORE, SDGET, NOOP };
     Mode m_mode;
 };
 
+class OpGenerator {
+public:
+    OpGenerator(int id): m_id(id) {}
+
+    virtual ~OpGenerator() {};
+    virtual void setNextOp(NextOp& op) = 0;
+    virtual const char *getStageString() const = 0;
+
+protected:
+    int m_id;
+};
+
+class NoopGenerator : public OpGenerator {
+public:
+    NoopGenerator(int ix) : OpGenerator(ix) {}
+
+
+    void setNextOp(NextOp& op) {
+        op.m_mode = NextOp::NOOP;
+    }
+
+    const char *getStageString() const {
+        return "Run";
+    }
+};
+
 /** Stateful, per-thread generator */
-class KeyGenerator {
+class KeyGenerator : public OpGenerator {
 public:
     KeyGenerator(int ix)
-    : m_gencount(0), m_force_sequential(false),
+      : OpGenerator(ix), m_gencount(0), m_force_sequential(false),
       m_in_population(config.shouldPopulate)
-{
+    {
         srand(config.getRandomSeed());
 
         m_genrandom = new SeqGenerator(
@@ -423,7 +454,6 @@ public:
             m_force_sequential = config.sequentialAccess();
         }
 
-        m_id = ix;
         m_local_genstate = config.docgen->createState(config.getNumThreads(), ix);
         if (config.isSubdoc()) {
             m_mode_read = NextOp::SDGET;
@@ -485,6 +515,15 @@ public:
         generateKey(op);
     }
 
+    const char *getStageString() const {
+        if (m_in_population) {
+            return "Populate";
+        } else {
+            return "Run";
+        }
+    }
+
+private:
     bool shouldStore(uint32_t seqno) {
         if (config.setprc == 0) {
             return false;
@@ -502,15 +541,7 @@ public:
         op.m_key.assign(config.getKeyPrefix() + buffer);
     }
 
-    const char *getStageString() const {
-        if (m_in_population) {
-            return "Populate";
-        } else {
-            return "Run";
-        }
-    }
 
-private:
     SeqGenerator *m_genrandom;
     SeqGenerator *m_gensequence;
     size_t m_gencount;
@@ -527,8 +558,16 @@ private:
 class ThreadContext
 {
 public:
-    ThreadContext(lcb_t handle, int ix) : kgen(ix), niter(0), instance(handle) {
+    ThreadContext(lcb_t handle, int ix) : niter(0), instance(handle) {
+        if (config.isNoop()) {
+            gen = new NoopGenerator(ix);
+        } else {
+            gen = new KeyGenerator(ix);
+        }
+    }
 
+    ~ThreadContext() {
+        delete gen;
     }
 
     void singleLoop() {
@@ -538,7 +577,7 @@ public:
         unsigned exptime = config.getExptime();
 
         for (size_t ii = 0; ii < config.opsPerCycle; ++ii) {
-            kgen.setNextOp(opinfo);
+            gen->setNextOp(opinfo);
 
             switch (opinfo.m_mode) {
             case NextOp::STORE: {
@@ -569,6 +608,11 @@ public:
                 error = lcb_subdoc3(instance, this, &sdcmd);
                 break;
             }
+            case NextOp::NOOP: {
+                lcb_CMDNOOP ncmd = { 0 };
+                error = lcb_noop3(instance, this, &ncmd);
+                break;
+            }
             }
 
             if (error != LCB_SUCCESS) {
@@ -594,7 +638,7 @@ public:
             singleLoop();
 
             if (config.isTimings()) {
-                InstanceCookie::dumpTimings(instance, kgen.getStageString());
+                InstanceCookie::dumpTimings(instance, gen->getStageString());
             }
             if (config.params.shouldDump()) {
                 lcb_dump(instance, stderr, LCB_DUMP_ALL);
@@ -606,7 +650,7 @@ public:
         } while (!config.isLoopDone(++niter));
 
         if (config.isTimings()) {
-            InstanceCookie::dumpTimings(instance, kgen.getStageString(), true);
+            InstanceCookie::dumpTimings(instance, gen->getStageString(), true);
         }
         return true;
     }
@@ -645,7 +689,7 @@ private:
         previous_time = now;
     }
 
-    KeyGenerator kgen;
+    OpGenerator *gen;
     size_t niter;
     lcb_error_t error;
     lcb_t instance;
@@ -758,8 +802,8 @@ int main(int argc, char **argv)
     setup_sigint_handler();
 
     Parser parser("cbc-pillowfight");
-    config.addOptions(parser);
     try {
+        config.addOptions(parser);
         parser.parse(argc, argv, false);
         config.processOptions();
     } catch (std::string& e) {
@@ -795,6 +839,7 @@ int main(int argc, char **argv)
         lcb_install_callback3(instance, LCB_CALLBACK_GET, operationCallback);
         lcb_install_callback3(instance, LCB_CALLBACK_SDMUTATE, operationCallback);
         lcb_install_callback3(instance, LCB_CALLBACK_SDLOOKUP, operationCallback);
+        lcb_install_callback3(instance, LCB_CALLBACK_NOOP, operationCallback);
         cp.doCtls(instance);
 
         new InstanceCookie(instance);

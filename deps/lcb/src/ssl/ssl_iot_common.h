@@ -31,7 +31,7 @@
     lcbio_pTABLE orig; /**< Table pointer we are wrapping */ \
     SSL *ssl; /**< SSL object */ \
     BIO *wbio; /**< BIO used for writing data to network */ \
-    BIO *rbio; /**<< BIO used for reading data from network */\
+    BIO *rbio; /**< BIO used for reading data from network */\
     lcb_io_opt_t iops_dummy_; /**< Dummy IOPS structure which is exposed to LCB */ \
     int error; /**< Internal error flag set once a fatal error is detect */\
     lcb_error_t errcode; /**< The error, converted into libcouchbase */
@@ -113,6 +113,7 @@ iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *ctx);
 void
 iotssl_destroy_common(lcbio_XSSL *xs);
 
+#if LCB_CAN_OPTIMIZE_SSL_BIO
 /**
  * Reserve a specified amount of bytes for reading into a `BUF_MEM*` structure.
  * Currently the amount reserved is hard coded.
@@ -132,6 +133,7 @@ iotssl_destroy_common(lcbio_XSSL *xs);
  */
 void
 iotssl_bm_reserve(BUF_MEM *bm);
+#endif
 
 /**
  * Prepare the SSL structure so that a subsequent call to SSL_pending will

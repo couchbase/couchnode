@@ -1,5 +1,109 @@
 # Release Notes
 
+## 2.8.0 (August 31 2017)
+
+* Add support for OpenSSL-1.1.
+  * Issues: [CCBC-832](https://issues.couchbase.com/browse/CCBC-832)
+
+* Mask `LOCKED` status code for backward compatibility. This code
+  (as well as others possible codes with 'item-locked' attribute)
+  replaced with `LCB_KEY_EEXISTS` for `SET`, `REPLACE` and `DELETE`
+  operations, and with `LCB_ETMPFAIL` for the rest.
+  * Issues: [CCBC-832](https://issues.couchbase.com/browse/CCBC-832)
+
+* Stop enumerating bootstrap nodes and mechanisms when the server
+  returns authentication error.
+  * Issues: [CCBC-825](https://issues.couchbase.com/browse/CCBC-825)
+
+* Fixed double free error with `lcb_ping3`.
+  * Issues: [CCBC-826](https://issues.couchbase.com/browse/CCBC-826)
+
+* Exposed additional N1QL query parameters: `lcb_n1p_readonly`,
+  `lcb_n1p_scancap`, `lcb_n1p_pipelinecap`.
+  * Issues: [CCBC-823](https://issues.couchbase.com/browse/CCBC-823)
+
+* Fixed `cbc-subdoc/upsert` without XATTR.
+  * Issues: [CCBC-823](https://issues.couchbase.com/browse/CCBC-823)
+
+* XERROR attributes synchronized with recent list on server.
+  * Issues: [CCBC-828](https://issues.couchbase.com/browse/CCBC-828)
+
+* Add missing documentation, and update stability of the API.
+  * Issues:
+  [CCBC-830](https://issues.couchbase.com/browse/CCBC-830),
+  [CCBC-831](https://issues.couchbase.com/browse/CCBC-831),
+  [CCBC-827](https://issues.couchbase.com/browse/CCBC-827)
+
+* Do not throttle background configuration polling by throttle interval
+  of configuration error handler.
+  * Issues: [CCBC-829](https://issues.couchbase.com/browse/CCBC-829)
+
+* Turn on background polling by default. The library will try
+  to schedule configuration update every 2.5 seconds. To disable it
+  use `config_poll_interval=0`.
+  * Issues: [CCBC-836](https://issues.couchbase.com/browse/CCBC-836)
+
+## 2.7.7 (August 17 2017)
+
+* Implement new function `lcb_ping3`, which sends NOOP-like message to
+  each service in the cluster and allows to measure latency along with
+  health status of the connection. Might be useful for application-side
+  keep-alive mechanisms.
+  * Issues: [CCBC-801](https://issues.couchbase.com/browse/CCBC-801)
+
+* Detect and expose bucket type through `LCB_CNTL_BUCKETTYPE`:
+
+        lcb_BTYPE type;
+        lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETTYPE, &type);
+
+  * Issues: [CCBC-790](https://issues.couchbase.com/browse/CCBC-790)
+
+* Fixed setting expiration in subdoc mutations.
+  * Issues: [CCBC-799](https://issues.couchbase.com/browse/CCBC-816)
+
+* Fixed DNS SRV support of Fedora 26 and FreeBSD.
+  * Issues: [CCBC-816](https://issues.couchbase.com/browse/CCBC-816)
+
+* Fixed DNS SRV with SSL connections.
+  * Issues: [CCBC-794](https://issues.couchbase.com/browse/CCBC-794)
+
+* Define EREMOTEIO in libuv
+  * Issues: [CCBC-812](https://issues.couchbase.com/browse/CCBC-812)
+
+* New subdocument command to remove whole document
+  * Issues: [CCBC-811](https://issues.couchbase.com/browse/CCBC-811)
+
+* New cbc command: `cbc-subdoc`. It provides interactive shell, where
+  all subdocument commands accessible to inspect and modify documents
+  in the cluster.
+
+* New cbc command: `cbc-ping`. It sends NOOP-like messages to all accessible
+  services in the cluster, and displays the status along with latency.
+  * Issues: [CCBC-801](https://issues.couchbase.com/browse/CCBC-801)
+
+* Fix `cbc-cat --replica`, which now allows reading documents from replicas.
+  * Issues: [CCBC-820](https://issues.couchbase.com/browse/CCBC-820)
+
+* Implement NOOP command and `cbc-pillowfight --noop`, which sends NOOP
+  instead of data manipulation commands.
+  * Issues: [CCBC-801](https://issues.couchbase.com/browse/CCBC-801)
+
+* Clarify errors found in `.cbcrc`. Now it will display configuration path
+  along with error message.
+  * Issues: [CCBC-759](https://issues.couchbase.com/browse/CCBC-759]
+
+* Update examples:
+  * Support username/password in subdoc and libeventdirect examples
+  * Added example for subdoc XATTRs
+
+* Integrate fix for parallel build with dtrace on FreeBSD
+  https://github.com/freebsd/freebsd-ports/commit/a71e1a86b851d42cd08319d9b28a4424e508e216
+
+* Make enhanced errors API public
+  * Issues: [CCBC-803](https://issues.couchbase.com/browse/CCBC-803)
+
+* Fixed various compiler and cppcheck warnings and documentation update.
+
 ## 2.7.6 (July 11 2017)
 
 * Expose enhanced errors for data commands. Couchbase Server 5 might return

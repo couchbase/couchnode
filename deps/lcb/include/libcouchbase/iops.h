@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2017 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -313,20 +313,20 @@ typedef int (*lcb_ioE_connect_fn)
                 const struct sockaddr *dst,
                 unsigned int addrlen);
 
-/** @private */
+/** @internal */
 typedef int (*lcb_ioE_bind_fn)
         (lcb_io_opt_t iops,
                 lcb_socket_t sock,
                 const struct sockaddr *srcaddr,
                 unsigned int addrlen);
 
-/** @private */
+/** @internal */
 typedef int (*lcb_ioE_listen_fn)
         (lcb_io_opt_t iops,
                 lcb_socket_t bound_sock,
                 unsigned int queuelen);
 
-/** @private */
+/** @internal */
 typedef lcb_socket_t (*lcb_ioE_accept_fn)
         (lcb_io_opt_t iops,
                 lcb_socket_t lsnsock);
@@ -976,12 +976,12 @@ lcb_iops_wire_bsd_impl2(lcb_bsd_procs *procs, int version);
  * @committed
  */
 typedef enum {
-    LCB_IO_OPS_INVALID = 0x00, /**< @private */
-    LCB_IO_OPS_DEFAULT = 0x01, /**< @private */
+    LCB_IO_OPS_INVALID = 0x00, /**< @internal */
+    LCB_IO_OPS_DEFAULT = 0x01, /**< @internal */
 
     /** Integrate with the libevent loop. See lcb_create_libevent_io_opts() */
     LCB_IO_OPS_LIBEVENT = 0x02,
-    LCB_IO_OPS_WINSOCK = 0x03, /**< @private */
+    LCB_IO_OPS_WINSOCK = 0x03, /**< @internal */
     LCB_IO_OPS_LIBEV = 0x04,
     LCB_IO_OPS_SELECT = 0x05,
     LCB_IO_OPS_WINIOCP = 0x06,
@@ -1000,7 +1000,7 @@ typedef struct { const char *sofile; const char *symbol; void *cookie; } lcb_IOC
 typedef struct { lcb_io_create_fn create; void *cookie; } lcb_IOCREATEOPS_FUNCTIONPOINTER;
 #endif
 
-/** @uncommited */
+/** @uncommitted */
 struct lcb_create_io_ops_st {
     int version;
     union {

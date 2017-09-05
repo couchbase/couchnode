@@ -261,6 +261,19 @@ int Server::handle_unknown_error(const mc_PACKET *request,
         newerr = LCB_GENERIC_SUBDOCERR;
     }
 
+    /* TODO: remove masking LOCKED in 3.0 release */
+    if (err.hasAttribute(errmap::ITEM_LOCKED)) {
+        switch (mcresp.opcode()) {
+        case PROTOCOL_BINARY_CMD_SET:
+        case PROTOCOL_BINARY_CMD_REPLACE:
+        case PROTOCOL_BINARY_CMD_DELETE:
+            newerr = LCB_KEY_EEXISTS;
+            break;
+        default:
+            newerr = LCB_ETMPFAIL;
+        }
+    }
+
     int rv = 0;
 
     if (err.hasAttribute(errmap::AUTO_RETRY)) {

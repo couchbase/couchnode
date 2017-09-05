@@ -104,6 +104,8 @@ create_libcouchbase_handle(lcb_io_opt_t ioops)
 
     /* If NULL, will default to localhost */
     copts.v.v0.host = getenv("LCB_EVENT_SERVER");
+    copts.v.v0.user = getenv("LCB_USERNAME");
+    copts.v.v0.passwd = getenv("LCB_PASSWORD");
     copts.v.v0.io = ioops;
     error = lcb_create(&instance, &copts);
 

@@ -198,6 +198,9 @@ void Confmon::provider_failed(Provider *provider, lcb_error_t reason) {
         } else {
             last_error = reason;
         }
+        if (reason == LCB_AUTH_ERROR) {
+            goto GT_ERROR;
+        }
     }
 
     if (settings->conntype == LCB_TYPE_CLUSTER && provider->type == CLCONFIG_HTTP) {
@@ -211,13 +214,7 @@ void Confmon::provider_failed(Provider *provider, lcb_error_t reason) {
     }
 
     cur_provider = next_active(cur_provider);
-
-    if (!cur_provider) {
-        LOG(this, TRACE, "Maximum provider reached. Resetting index");
-        invoke_listeners(CLCONFIG_EVENT_PROVIDERS_CYCLED, NULL);
-        cur_provider = first_active();
-        stop();
-    } else {
+    if (cur_provider) {
         uint32_t interval = 0;
         if (config) {
             /* Not first */
@@ -226,7 +223,15 @@ void Confmon::provider_failed(Provider *provider, lcb_error_t reason) {
         lcb_log(LOGARGS(this, DEBUG), "Will try next provider in %uus", interval);
         state |= CONFMON_S_ITERGRACE;
         as_start.rearm(interval);
+        return;
+    } else {
+        LOG(this, TRACE, "Maximum provider reached. Resetting index");
     }
+
+GT_ERROR:
+    invoke_listeners(CLCONFIG_EVENT_PROVIDERS_CYCLED, NULL);
+    cur_provider = first_active();
+    stop();
 }
 
 void Confmon::provider_got_config(Provider *, ConfigInfo *config_) {

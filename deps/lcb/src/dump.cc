@@ -31,7 +31,11 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
         fp = stderr;
     }
     fprintf(fp, "Dumping state for lcb_t=%p\n", (void*)instance);
+    if (instance == NULL) {
+        return;
+    }
     fprintf(fp, "Settings=%p\n", (void*)instance->settings);
+    fprintf(fp, "BucketType=%d\n", instance->btype);
 
     if (instance->cur_configinfo) {
         lcb::clconfig::ConfigInfo *cfg = instance->cur_configinfo;

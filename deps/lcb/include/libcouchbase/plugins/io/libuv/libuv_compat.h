@@ -87,6 +87,9 @@
 #ifndef EAI_ADDRFAMILY
 #define EAI_ADDRFAMILY -9
 #endif
+#ifndef EREMOTEIO
+#define EREMOTEIO -121
+#endif
 #ifndef EAI_BADHINTS
 #define EAI_BADHINTS EAI_FAIL
 #endif

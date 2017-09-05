@@ -203,6 +203,23 @@ protected:
     void run();
 };
 
+class PingHandler : public Handler {
+public:
+    HANDLER_DESCRIPTION("Reach all services on every node and measure response time")
+    HANDLER_USAGE("[OPTIONS ...]")
+    PingHandler() : Handler("ping"), o_details("details") {
+        o_details.description("Render extra details about status of the services");
+    }
+protected:
+    void run();
+    void addOptions() {
+        Handler::addOptions();
+        parser.addOption(o_details);
+    }
+private:
+    cliopts::BoolOption o_details;
+};
+
 class McFlushHandler : public Handler {
 public:
     HANDLER_DESCRIPTION("Flush a memcached bucket")

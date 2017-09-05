@@ -10,14 +10,13 @@
 
 #ifdef HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
-#if __NAMESER < 19991006
+#if defined(__NAMESER) && __NAMESER < 19991006
 #undef HAVE_RES_SEARCH
 #endif /* __NAMESER < NNN */
 #endif /* HAVE_ARPA_NAMESER_H */
 
 #if defined(HAVE_ARPA_NAMESER_H) && defined(HAVE_RES_SEARCH)
 #define CAN_SRV_LOOKUP
-#include <cstdio>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <resolv.h>

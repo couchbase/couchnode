@@ -23,7 +23,6 @@ static lcb_t create(const char *connstr = NULL) {
 TEST_F(CredsTest, testLegacyCreds)
 {
     lcb_t instance;
-    lcb_BUCKETCRED cred;
     ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance, NULL));
     lcb::Authenticator& auth = *instance->settings->auth;
     ASSERT_TRUE(auth.username().empty());

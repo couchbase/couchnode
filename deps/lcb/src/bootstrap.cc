@@ -53,7 +53,7 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
 
     tm.cancel();
 
-    lcb_log(LOGARGS(instance, DEBUG), "Instance configured!");
+    lcb_log(LOGARGS(instance, DEBUG), "Instance configured");
 
     if (info->get_origin() != CLCONFIG_FILE) {
         /* Set the timestamp for the current config to control throttling,
@@ -88,14 +88,28 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
         state = S_BOOTSTRAPPED;
         lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
 
-        if (instance->type == LCB_TYPE_BUCKET &&
-                LCBVB_DISTTYPE(LCBT_VBCONFIG(instance)) == LCBVB_DIST_KETAMA &&
+        if (instance->type == LCB_TYPE_BUCKET) {
+            if (LCBVB_DISTTYPE(LCBT_VBCONFIG(instance)) == LCBVB_DIST_KETAMA &&
                 instance->cur_configinfo->get_origin() != CLCONFIG_MCRAW) {
+                lcb_log(LOGARGS(instance, INFO), "Reverting to HTTP Config for memcached buckets");
+                instance->settings->bc_http_stream_time = -1;
+                instance->confmon->set_active(CLCONFIG_HTTP, true);
+                instance->confmon->set_active(CLCONFIG_CCCP, false);
+            }
 
-            lcb_log(LOGARGS(instance, INFO), "Reverting to HTTP Config for memcached buckets");
-            instance->settings->bc_http_stream_time = -1;
-            instance->confmon->set_active(CLCONFIG_HTTP, true);
-            instance->confmon->set_active(CLCONFIG_CCCP, false);
+            /* infer bucket type using distribution and capabilities set */
+            switch (LCBVB_DISTTYPE(LCBT_VBCONFIG(instance))) {
+            case LCBVB_DIST_VBUCKET:
+                if (LCBVB_CAPS(LCBT_VBCONFIG(instance)) & LCBVB_CAP_COUCHAPI) {
+                    instance->btype = LCB_BTYPE_COUCHBASE;
+                } else {
+                    instance->btype = LCB_BTYPE_EPHEMERAL;
+                }
+                break;
+            case LCBVB_DIST_KETAMA:
+                instance->btype = LCB_BTYPE_MEMCACHED;
+                break;
+            }
         }
         instance->callbacks.bootstrap(instance, LCB_SUCCESS);
 
@@ -127,7 +141,7 @@ void Bootstrap::check_bgpoll() {
 
 void Bootstrap::bgpoll() {
     lcb_log(LOGARGS(parent, TRACE), "Background-polling for new configuration");
-    bootstrap(BS_REFRESH_THROTTLE);
+    bootstrap(BS_REFRESH_ALWAYS);
     check_bgpoll();
 }
 

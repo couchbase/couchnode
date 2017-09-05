@@ -128,6 +128,9 @@ static const Traits
 SetDoc(PROTOCOL_BINARY_CMD_SET, EMPTY_PATH|NO_STANDALONE);
 
 static const Traits
+DeleteDoc(PROTOCOL_BINARY_CMD_DELETE, EMPTY_PATH|NO_STANDALONE);
+
+static const Traits
 Invalid(PROTOCOL_BINARY_CMD_INVALID, 0);
 
 const Traits&
@@ -162,6 +165,8 @@ find(unsigned mode)
         return GetDoc;
     case LCB_SDCMD_SET_FULLDOC:
         return SetDoc;
+    case LCB_SDCMD_REMOVE_FULLDOC:
+        return DeleteDoc;
     default:
         return Invalid;
     }
@@ -229,8 +234,20 @@ make_doc_flags(const uint32_t user) {
 }
 
 struct MultiBuilder {
+    static unsigned infer_mode(const lcb_CMDSUBDOC *cmd) {
+        if (cmd->nspecs == 0) {
+            return 0;
+        }
+        const SubdocCmdTraits::Traits& trait = SubdocCmdTraits::find(cmd->specs[0].sdcmd);
+        if (!trait.valid()) {
+            return 0;
+        }
+        return trait.mode();
+    }
+
     MultiBuilder(const lcb_CMDSUBDOC *cmd_)
-    : cmd(cmd_), payload_size(0), mode(0) {
+    : cmd(cmd_), payload_size(0) {
+        mode = infer_mode(cmd_);
         size_t ebufsz = is_lookup() ? cmd->nspecs * 4 : cmd->nspecs * 8;
         extra_body = new char[ebufsz];
         bodysz = 0;
@@ -502,6 +519,7 @@ lcb_subdoc3(lcb_t instance, const void *cookie, const lcb_CMDSUBDOC *cmd)
         switch (cmd->specs[0].sdcmd) {
         case LCB_SDCMD_GET_FULLDOC:
         case LCB_SDCMD_SET_FULLDOC:
+        case LCB_SDCMD_REMOVE_FULLDOC:
             break;
         default:
             return sd3_single(instance, cookie, cmd);
@@ -594,4 +612,3 @@ lcb_subdoc3(lcb_t instance, const void *cookie, const lcb_CMDSUBDOC *cmd)
     LCB_SCHED_ADD(instance, pl, pkt);
     return LCB_SUCCESS;
 }
-

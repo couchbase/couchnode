@@ -354,6 +354,8 @@ lcb_strcbtype(int cbtype)
         return "SDMUTATE";
     case LCB_CALLBACK_SDLOOKUP:
         return "SDLOOKUP";
+    case LCB_CALLBACK_NOOP:
+        return "NOOP";
     default:
         return "UNKNOWN";
     }

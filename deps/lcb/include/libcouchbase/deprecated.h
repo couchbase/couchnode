@@ -225,9 +225,9 @@ lcb_error_t lcb_verify_struct_size(lcb_uint32_t id, lcb_uint32_t version,
 /**@deprecated Initial connections are always attempted */
 #define LCB_CNTL_SKIP_CONFIGURATION_ERRORS_ON_CONNECT 0x13
 
-/**@deprecated - Use error classifiers */
+/**@deprecated Use error classifiers */
 #define lcb_is_error_enomem(a) ((a == LCB_CLIENT_ENOMEM) || (a == LCB_ENOMEM))
-/**@deprecated - Use error classifiers */
+/**@deprecated Use error classifiers */
 #define lcb_is_error_etmpfail(a) ((a == LCB_CLIENT_ETMPFAIL) || (a == LCB_ETMPFAIL))
 
 typedef enum {

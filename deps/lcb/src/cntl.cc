@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2017 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 #include <lcbio/iotable.h>
 #include <mcserver/negotiate.h>
 #include <lcbio/ssl.h>
+
+#define LOGARGS(instance, lvl) instance->settings, "cntl", LCB_LOG_##lvl, __FILE__, __LINE__
 
 #define CNTL__MODE_SETSTRING 0x1000
 
@@ -157,6 +159,9 @@ HANDLER(compmode_handler) {
 HANDLER(bucketname_handler) {
     RETURN_GET_ONLY(const char*, LCBT_SETTING(instance, bucket))
 }
+HANDLER(buckettype_handler) {
+    RETURN_GET_ONLY(lcb_BTYPE, static_cast<lcb_BTYPE>(instance->btype))
+}
 HANDLER(schedflush_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, sched_implicit_flush))
 }
@@ -197,6 +202,11 @@ HANDLER(send_hello_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, send_hello));
 }
 HANDLER(config_poll_interval_handler) {
+    lcb_U32 *user = reinterpret_cast<lcb_U32*>(arg);
+    if (mode == LCB_CNTL_SET && *user > 0 && *user < LCB_CONFIG_POLL_INTERVAL_FLOOR) {
+        lcb_log(LOGARGS(instance, ERROR), "Interval for background poll is too low: %dus (min: %dus)", *user, LCB_CONFIG_POLL_INTERVAL_FLOOR);
+        return LCB_ECTL_BADARG;
+    }
     lcb_error_t rv = timeout_common(mode, instance, cmd, arg);
     if (rv == LCB_SUCCESS &&
             (mode == LCB_CNTL_SET || CNTL__MODE_SETSTRING) &&
@@ -614,7 +624,8 @@ static ctl_handler handlers[] = {
     select_bucket_handler, /* LCB_CNTL_SELECT_BUCKET */
     tcp_keepalive_handler, /* LCB_CNTL_TCP_KEEPALIVE */
     config_poll_interval_handler, /* LCB_CNTL_CONFIG_POLL_INTERVAL */
-    send_hello_handler /* LCB_CNTL_SEND_HELLO */
+    send_hello_handler, /* LCB_CNTL_SEND_HELLO */
+    buckettype_handler /* LCB_CNTL_BUCKETTYPE */
 };
 
 /* Union used for conversion to/from string functions */
@@ -638,7 +649,7 @@ typedef struct {
     ctl_str_cb converter;
 } cntl_OPCODESTRS;
 
-static lcb_error_t convert_timeout(const char *arg, u_STRCONVERT *u) {
+static lcb_error_t convert_timevalue(const char *arg, u_STRCONVERT *u) {
     int rv;
     unsigned long tmp;
 
@@ -673,7 +684,7 @@ static lcb_error_t convert_int(const char *arg, u_STRCONVERT *u) {
 }
 
 static lcb_error_t convert_u32(const char *arg, u_STRCONVERT *u) {
-    return convert_timeout(arg, u);
+    return convert_timevalue(arg, u);
 }
 static lcb_error_t convert_float(const char *arg, u_STRCONVERT *u) {
     double d;
@@ -729,19 +740,19 @@ static lcb_error_t convert_retrymode(const char *arg, u_STRCONVERT *u) {
 }
 
 static cntl_OPCODESTRS stropcode_map[] = {
-        {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timeout},
-        {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timeout},
-        {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timeout},
-        {"n1ql_timeout", LCB_CNTL_N1QL_TIMEOUT, convert_timeout},
-        {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timeout},
-        {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timeout},
-        {"http_timeout", LCB_CNTL_HTTP_TIMEOUT, convert_timeout},
+        {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
+        {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
+        {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timevalue},
+        {"n1ql_timeout", LCB_CNTL_N1QL_TIMEOUT, convert_timevalue},
+        {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timevalue},
+        {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timevalue},
+        {"http_timeout", LCB_CNTL_HTTP_TIMEOUT, convert_timevalue},
         {"randomize_nodes", LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS, convert_intbool},
         {"sasl_mech_force", LCB_CNTL_FORCE_SASL_MECH, convert_passthru},
         {"error_thresh_count", LCB_CNTL_CONFERRTHRESH, convert_SIZE},
-        {"error_thresh_delay", LCB_CNTL_CONFDELAY_THRESH, convert_timeout},
-        {"config_total_timeout", LCB_CNTL_CONFIGURATION_TIMEOUT, convert_timeout},
-        {"config_node_timeout", LCB_CNTL_CONFIG_NODE_TIMEOUT, convert_timeout},
+        {"error_thresh_delay", LCB_CNTL_CONFDELAY_THRESH, convert_timevalue},
+        {"config_total_timeout", LCB_CNTL_CONFIGURATION_TIMEOUT, convert_timevalue},
+        {"config_node_timeout", LCB_CNTL_CONFIG_NODE_TIMEOUT, convert_timevalue},
         {"compression", LCB_CNTL_COMPRESSION_OPTS, convert_compression},
         {"console_log_level", LCB_CNTL_CONLOGGER_LEVEL, convert_u32},
         {"config_cache", LCB_CNTL_CONFIGCACHE, convert_passthru },
@@ -752,7 +763,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"sync_dtor", LCB_CNTL_SYNCDESTROY, convert_intbool },
         {"_reinit_connstr", LCB_CNTL_REINIT_CONNSTR },
         {"retry_backoff", LCB_CNTL_RETRY_BACKOFF, convert_float },
-        {"retry_interval", LCB_CNTL_RETRY_INTERVAL, convert_timeout},
+        {"retry_interval", LCB_CNTL_RETRY_INTERVAL, convert_timevalue},
         {"http_poolsize", LCB_CNTL_HTTP_POOLSIZE, convert_SIZE },
         {"vbguess_persist", LCB_CNTL_VBGUESS_PERSIST, convert_intbool },
         {"unsafe_optimize", LCB_CNTL_UNSAFE_OPTIMIZE, convert_intbool },
@@ -763,13 +774,13 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"readj_ts_wait", LCB_CNTL_RESET_TIMEOUT_ON_WAIT, convert_intbool },
         {"console_log_file", LCB_CNTL_CONLOGGER_FP, NULL },
         {"client_string", LCB_CNTL_CLIENT_STRING, convert_passthru},
-        {"retry_nmv_delay", LCB_CNTL_RETRY_NMV_INTERVAL, convert_timeout},
+        {"retry_nmv_delay", LCB_CNTL_RETRY_NMV_INTERVAL, convert_timevalue},
         {"bucket_cred", LCB_CNTL_BUCKET_CRED, NULL},
         {"read_chunk_size", LCB_CNTL_READ_CHUNKSIZE, convert_u32},
         {"enable_errmap", LCB_CNTL_ENABLE_ERRMAP, convert_intbool},
         {"select_bucket", LCB_CNTL_SELECT_BUCKET, convert_intbool},
         {"tcp_keepalive", LCB_CNTL_TCP_KEEPALIVE, convert_intbool},
-        {"config_poll_interval", LCB_CNTL_CONFIG_POLL_INTERVAL, convert_timeout},
+        {"config_poll_interval", LCB_CNTL_CONFIG_POLL_INTERVAL, convert_timevalue},
         {"send_hello", LCB_CNTL_SEND_HELLO, convert_intbool},
         {NULL, -1}
 };

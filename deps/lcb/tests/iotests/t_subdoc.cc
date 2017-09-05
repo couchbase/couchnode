@@ -300,7 +300,6 @@ TEST_F(SubdocUnitTest, testSdGetExists)
     CREATE_SUBDOC_CONNECTION(hw, instance);
 
     MultiResult res;
-    lcb_error_t rc;
     lcb_SDSPEC spec = { 0 };
     lcb_CMDSUBDOC cmd = { 0 };
     LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
@@ -403,7 +402,6 @@ TEST_F(SubdocUnitTest, testSdStore)
 {
     HandleWrap hw;
     lcb_t instance;
-    lcb_error_t rc;
     CREATE_SUBDOC_CONNECTION(hw, instance);
     lcb_CMDSUBDOC cmd = { 0 };
     lcb_SDSPEC spec = { 0 };
@@ -583,7 +581,6 @@ TEST_F(SubdocUnitTest, testCounter)
     lcb_t instance;
     lcb_CMDSUBDOC cmd = { 0 };
     lcb_SDSPEC spec = { 0 };
-    lcb_error_t rc;
     MultiResult res;
 
     CREATE_SUBDOC_CONNECTION(hw, instance);
@@ -792,6 +789,20 @@ TEST_F(SubdocUnitTest, testMultiMutations)
     ASSERT_EQ(1, mr.size());
     ASSERT_EQ(LCB_SUBDOC_PATH_ENOENT, mr.results[0].rc);
     ASSERT_EQ(1, mr.results[0].index);
+
+    /* check if lcb_subdoc3 can detect mutation, and allow setting exptime */
+    specs.clear();
+    mcmd.multimode = 0;
+    mcmd.exptime = 42;
+
+    LCB_SDSPEC_INIT(&spec, LCB_SDCMD_DICT_UPSERT, "tmpPath", strlen("tmpPath"), "null", 4);
+    specs.push_back(spec);
+    mcmd.specs = &specs[0];
+    mcmd.nspecs = specs.size();
+    ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mr, &mcmd, lcb_subdoc3));
+    ASSERT_EQ(LCB_SUCCESS, mr.rc);
+    ASSERT_EQ(1, mr.size());
+    ASSERT_EQ(LCB_SUCCESS, mr.results[0].rc);
 }
 
 TEST_F(SubdocUnitTest, testGetCount) {
@@ -799,7 +810,6 @@ TEST_F(SubdocUnitTest, testGetCount) {
     lcb_t instance;
     lcb_CMDSUBDOC cmd = { 0 };
     lcb_SDSPEC spec = { 0 };
-    lcb_error_t rc;
     MultiResult mres;
 
     CREATE_SUBDOC_CONNECTION(hw, instance);

@@ -902,7 +902,6 @@ TEST_F(DurabilityUnitTest, testOptionValidation)
     HandleWrap hw;
     lcb_t instance;
     lcb_U16 persist = 0, replicate = 0;
-    int options;
     lcb_error_t rc;
 
     createConnection(hw, instance);
