@@ -231,7 +231,7 @@ describe('#crud', function () {
         //  work in some way.  In reality, we can't consistently test this since
         //  we can't predetermine the cluster size.
         it('should not crash', function(done) {
-          H.b.getReplica(H.key(), {index:99}, function () {
+          H.b.getReplica(H.key(), function () {
             done();
           });
         });

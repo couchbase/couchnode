@@ -557,6 +557,7 @@ void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
     lcb_set_bootstrap_callback(instance, bootstrap_callback);
 
     lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, get_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_COUNTER, arithmetic_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, remove_callback);
