@@ -74,6 +74,11 @@ function _waitForConfig(callback) {
       done();
     });
   });
+
+  after(function(done) {
+    config.mockInst.close();
+    done();
+  });
 }
 
 function Harness() {

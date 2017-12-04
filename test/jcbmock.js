@@ -107,6 +107,9 @@ function _startMock(mockpath, options, callback) {
   }
 
   var server = net.createServer(function (socket) {
+    // Close the socket immediately
+    server.close();
+
     var readBuf = null;
     var mockPort = -1;
     var msgHandlers = [];
@@ -170,6 +173,9 @@ function _startMock(mockpath, options, callback) {
       }) + '\n';
       socket.write(dataOut);
     };
+    socket.close = function() {
+      socket.end();
+    };
     console.log('got server connection');
   });
   server.on('error', function(err) {
@@ -213,9 +219,10 @@ function _startMock(mockpath, options, callback) {
       //console.log('mockerr: ' + data.toString());
     });
     mockproc.on('close', function(code) {
-      if (code !== 0) {
+      if (code !== 0 && code !== 1) {
         console.log('mock closed with non-zero exit code: ' + code);
       }
+      mockproc.close();
       server.close();
     });
 
