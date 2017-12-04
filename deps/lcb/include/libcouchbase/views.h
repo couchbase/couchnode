@@ -57,14 +57,14 @@ typedef void (*lcb_VIEWQUERYCALLBACK)(lcb_t instance,
         int cbtype, const lcb_RESPVIEWQUERY *row);
 
 /** Set this flag to execute an actual get with each response */
-#define LCB_CMDVIEWQUERY_F_INCLUDE_DOCS 1 << 16
+#define LCB_CMDVIEWQUERY_F_INCLUDE_DOCS (1 << 16)
 
 /**Set this flag to only parse the top level row, and not its constituent
  * parts. Note this is incompatible with `F_INCLUDE_DOCS`*/
-#define LCB_CMDVIEWQUERY_F_NOROWPARSE 1 << 17
+#define LCB_CMDVIEWQUERY_F_NOROWPARSE (1 << 17)
 
 /**This view is spatial. Modifies how the final view path will be constructed */
-#define LCB_CMDVIEWQUERY_F_SPATIAL 1 << 18
+#define LCB_CMDVIEWQUERY_F_SPATIAL (1 << 18)
 
 /** Command structure for querying a view */
 typedef struct {

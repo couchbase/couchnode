@@ -37,12 +37,12 @@ using namespace lcb;
 #define LOGARGS(ctx, lvl) ctx->settings, "negotiation", LCB_LOG_##lvl, __FILE__, __LINE__
 static void cleanup_negotiated(SessionInfo* info);
 static void handle_ioerr(lcbio_CTX *ctx, lcb_error_t err);
-#define SESSREQ_LOGFMT "<%s:%s> (SASLREQ=%p) "
 
+#define LOGFMT CTX_LOGFMT_PRE ",SASLREQ=%p) "
+#define LOGID(s) CTX_LOGID(s->ctx), (void *)s
 
 static void timeout_handler(void *arg);
 
-#define SESSREQ_LOGID(s) get_ctx_host(s->ctx), get_ctx_port(s->ctx), (void*)s
 
 static void
 close_cb(lcbio_SOCKET *s, int reusable, void *arg)
@@ -144,12 +144,12 @@ public:
                 }
                 emsg << "context: \"" << err_ctx << "\"";
             }
-            lcb_log(LOGARGS(this, ERR), SESSREQ_LOGFMT "Error: 0x%x, %s (%s)",
-                    SESSREQ_LOGID(this), error, msg, emsg.str().c_str());
+            lcb_log(LOGARGS(this, ERR), LOGFMT "Error: 0x%x, %s (%s)",
+                    LOGID(this), error, msg, emsg.str().c_str());
             free(err_ref);
             free(err_ctx);
         } else {
-            lcb_log(LOGARGS(this, ERR), SESSREQ_LOGFMT "Error: 0x%x, %s", SESSREQ_LOGID(this), error, msg);
+            lcb_log(LOGARGS(this, ERR), LOGFMT "Error: 0x%x, %s", LOGID(this), error, msg);
         }
         if (last_err == LCB_SUCCESS) {
             last_err = error;
@@ -291,11 +291,11 @@ SessionRequestImpl::set_chosen_mech(std::string& mechlist,
         info->mech.assign(chosenmech);
         return MECH_OK;
     case SASL_NOMECH:
-        lcb_log(LOGARGS(this, INFO), SESSREQ_LOGFMT "Server does not support SASL (no mechanisms supported)", SESSREQ_LOGID(this));
+        lcb_log(LOGARGS(this, INFO), LOGFMT "Server does not support SASL (no mechanisms supported)", LOGID(this));
         return MECH_NOT_NEEDED;
         break;
     default:
-        lcb_log(LOGARGS(this, INFO), SESSREQ_LOGFMT "cbsasl_client_start returned %d", SESSREQ_LOGID(this), saslerr);
+        lcb_log(LOGARGS(this, INFO), LOGFMT "cbsasl_client_start returned %d", LOGID(this), saslerr);
         set_error(LCB_EINTERNAL, "Couldn't start SASL client");
         return MECH_UNAVAILABLE;
     }
@@ -387,9 +387,11 @@ SessionRequestImpl::send_hello()
 
     lcbio_ctx_put(ctx, hdr.data(), hdr.size());
     lcbio_ctx_put(ctx, clistr, nclistr);
+    lcb_log(LOGARGS(this, DEBUG), LOGFMT "HELLO identificator: \"%.*s\"", LOGID(this), (int)nclistr, clistr);
     for (size_t ii = 0; ii < nfeatures; ii++) {
         lcb_U16 tmp = htons(features[ii]);
         lcbio_ctx_put(ctx, &tmp, sizeof tmp);
+        lcb_log(LOGARGS(this, DEBUG), LOGFMT "Request feature: 0x%x (%s)", LOGID(this), features[ii], protocol_feature_2_text(features[ii]));
     }
 
     lcbio_ctx_rwant(ctx, 24);
@@ -415,7 +417,7 @@ SessionRequestImpl::read_hello(const lcb::MemcachedResponse& resp)
         lcb_U16 tmp;
         memcpy(&tmp, cur, sizeof(tmp));
         tmp = ntohs(tmp);
-        lcb_log(LOGARGS(this, DEBUG), SESSREQ_LOGFMT "Server supports feature: 0x%x (%s)", SESSREQ_LOGID(this), tmp, protocol_feature_2_text(tmp));
+        lcb_log(LOGARGS(this, DEBUG), LOGFMT "Server supports feature: 0x%x (%s)", LOGID(this), tmp, protocol_feature_2_text(tmp));
         info->server_features.push_back(tmp);
     }
     return true;
@@ -464,12 +466,12 @@ SessionRequestImpl::maybe_select_bucket() {
     }
 
     if (!settings->select_bucket) {
-        lcb_log(LOGARGS(this, WARN), SESSREQ_LOGFMT "SELECT_BUCKET Disabled by application", SESSREQ_LOGID(this));
+        lcb_log(LOGARGS(this, WARN), LOGFMT "SELECT_BUCKET Disabled by application", LOGID(this));
         return false;
     }
 
     // send the SELECT_BUCKET command:
-    lcb_log(LOGARGS(this, INFO), SESSREQ_LOGFMT "Sending SELECT_BUCKET", SESSREQ_LOGID(this));
+    lcb_log(LOGARGS(this, INFO), LOGFMT "Sending SELECT_BUCKET", LOGID(this));
     lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SELECT_BUCKET);
     req.sizes(0, strlen(settings->bucket), 0);
     lcbio_ctx_put(ctx, req.data(), req.size());
@@ -537,7 +539,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
         if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
             completed = !maybe_select_bucket();
         } else {
-            lcb_log(LOGARGS(this, WARN), SESSREQ_LOGFMT "SASL auth failed with STATUS=0x%x", SESSREQ_LOGID(this), status);
+            lcb_log(LOGARGS(this, WARN), LOGFMT "SASL auth failed with STATUS=0x%x", LOGID(this), status);
             set_error(LCB_AUTH_ERROR, "SASL Step failed", &resp);
         }
         break;
@@ -550,9 +552,9 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
                 break;
             }
         } else if (isUnsupported(status)) {
-            lcb_log(LOGARGS(this, DEBUG), SESSREQ_LOGFMT "Server does not support HELLO", SESSREQ_LOGID(this));
+            lcb_log(LOGARGS(this, DEBUG), LOGFMT "Server does not support HELLO", LOGID(this));
         } else {
-            lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Unexpected status 0x%x received for HELLO", SESSREQ_LOGID(this), status);
+            lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for HELLO", LOGID(this), status);
             set_error(LCB_PROTOCOL_ERROR, "Hello response unexpected", &resp);
             break;
         }
@@ -560,7 +562,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
         if (info->has_feature(PROTOCOL_BINARY_FEATURE_XERROR)) {
             request_errmap();
         } else {
-            lcb_log(LOGARGS(this, TRACE), SESSREQ_LOGFMT "GET_ERRORMAP unsupported/disabled", SESSREQ_LOGID(this));
+            lcb_log(LOGARGS(this, TRACE), LOGFMT "GET_ERRORMAP unsupported/disabled", LOGID(this));
         }
 
         // In any event, it's also time to send the LIST_MECHS request
@@ -573,9 +575,9 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
             if (!update_errmap(resp)) {
             }
         } else if (isUnsupported(status)) {
-            lcb_log(LOGARGS(this, DEBUG), SESSREQ_LOGFMT "Server does not support GET_ERRMAP (0x%x)", SESSREQ_LOGID(this), status);
+            lcb_log(LOGARGS(this, DEBUG), LOGFMT "Server does not support GET_ERRMAP (0x%x)", LOGID(this), status);
         } else {
-            lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Unexpected status 0x%x received for GET_ERRMAP", SESSREQ_LOGID(this), status);
+            lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for GET_ERRMAP", LOGID(this), status);
             set_error(LCB_PROTOCOL_ERROR, "GET_ERRMAP response unexpected", &resp);
         }
         // Note, there is no explicit state transition here. LIST_MECHS is
@@ -589,14 +591,14 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
         } else if (status == PROTOCOL_BINARY_RESPONSE_EACCESS) {
             set_error(LCB_AUTH_ERROR, "Provided credentials not allowed for bucket", &resp);
         } else {
-            lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", SESSREQ_LOGID(this), status);
+            lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", LOGID(this), status);
             set_error(LCB_PROTOCOL_ERROR, "Other auth error", &resp);
         }
         break;
     }
 
     default: {
-        lcb_log(LOGARGS(this, ERROR), SESSREQ_LOGFMT "Received unknown response. OP=0x%x. RC=0x%x", SESSREQ_LOGID(this), resp.opcode(), resp.status());
+        lcb_log(LOGARGS(this, ERROR), LOGFMT "Received unknown response. OP=0x%x. RC=0x%x", LOGID(this), resp.opcode(), resp.status());
         set_error(LCB_NOT_SUPPORTED, "Received unknown response", &resp);
         break;
     }
@@ -658,7 +660,7 @@ SessionRequestImpl::start(lcbio_SOCKET *sock) {
     if (settings->send_hello) {
         send_hello();
     } else {
-        lcb_log(LOGARGS(this, INFO), SESSREQ_LOGFMT "HELLO negotiation disabled by user", SESSREQ_LOGID(this));
+        lcb_log(LOGARGS(this, INFO), LOGFMT "HELLO negotiation disabled by user", LOGID(this));
         send_list_mechs();
     }
     LCBIO_CTX_RSCHEDULE(ctx, 24);

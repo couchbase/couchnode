@@ -206,7 +206,7 @@ Loop::initSockCommon(ESocket *sock)
 void
 Loop::connectPooled(ESocket *sock, lcb_host_t *host, unsigned mstmo)
 {
-    lcb_host_t tmphost;
+    lcb_host_t tmphost = {0};
     sock->parent = this;
     if (!host) {
         populateHost(&tmphost);
@@ -222,7 +222,7 @@ Loop::connectPooled(ESocket *sock, lcb_host_t *host, unsigned mstmo)
 void
 Loop::connect(ESocket *sock, lcb_host_t *host, unsigned mstmo)
 {
-    lcb_host_t tmphost;
+    lcb_host_t tmphost = {0};
 
     if (host == NULL) {
         populateHost(&tmphost);

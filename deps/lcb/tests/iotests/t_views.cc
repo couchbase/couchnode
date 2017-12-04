@@ -34,14 +34,15 @@ ViewsUnitTest::connectBeerSample(HandleWrap& hw, lcb_t& instance, bool first)
     MockEnvironment::getInstance()->makeConnectParams(crparams, NULL);
     crparamsAdmin = crparams;
 
-    // We could do CCCP if we really cared.. but it's simpler and makes
-    // the logs cleaner.
     crparams.v.v2.bucket = "beer-sample";
-    crparams.v.v2.user = "beer-sample";
-    crparams.v.v2.mchosts = NULL;
-    lcb_config_transport_t transports[] = {
-            LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END };
-    crparams.v.v2.transports = transports;
+    if (!CLUSTER_VERSION_IS_HIGHER_THAN(MockEnvironment::VERSION_50)) {
+        // We could do CCCP if we really cared.. but it's simpler and makes
+        // the logs cleaner.
+        crparams.v.v2.user = "beer-sample";
+        crparams.v.v2.mchosts = NULL;
+        lcb_config_transport_t transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
+        crparams.v.v2.transports = transports;
+    }
 
     // See if we can connect:
     lcb_error_t rv = tryCreateConnection(hw, instance, crparams);
@@ -147,8 +148,12 @@ struct ViewInfo {
                 cJSON *cj = cJSON_Parse(resp->value);
                 ASSERT_FALSE(cj == NULL);
                 cJSON *jTotal = cJSON_GetObjectItem(cj, "total_rows");
-                ASSERT_FALSE(jTotal == NULL);
-                totalRows = jTotal->valueint;
+                if (jTotal != NULL) {
+                    totalRows = jTotal->valueint;
+                } else {
+                    // Reduce responses might skip total_rows
+                    totalRows = rows.size();
+                }
                 cJSON_Delete(cj);
             }
             if (resp->htresp) {
@@ -274,8 +279,8 @@ TEST_F(ViewsUnitTest, testReduce) {
     rc = lcb_view_query(instance, &vi, &vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
-    ASSERT_EQ(1411, vi.totalRows);
     ASSERT_EQ(1, vi.rows.size());
+    ASSERT_STREQ("1411", vi.rows[0].value.c_str());
 
     vi.clear();
     // Try with include_docs
@@ -401,5 +406,12 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     lcb_wait(instance);
     ASSERT_EQ(1, vi.rows.size());
     ASSERT_EQ(doc.size(), vi.rows[0].docContents.nvalue);
+
+    removeKey(instance, key);
+    vi.clear();
+    rc = lcb_view_query(instance, &vi, &cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    lcb_wait(instance);
+    ASSERT_EQ(0, vi.rows.size());
 }
 }

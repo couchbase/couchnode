@@ -22,8 +22,9 @@
 #include "auth-priv.h"
 using namespace lcb::http;
 
-#define LOGFMT "<%s:%s> "
-#define LOGID(req) (req)->host.c_str(), (req)->port.c_str()
+#define LOGFMT "<%s%s%s:%s> "
+#define LOGID(req) ((req)->ipv6 ? "[" : ""), (req)->host.c_str(), ((req)->ipv6 ? "]" : ""), (req)->port.c_str()
+
 #define LOGARGS(req, lvl) req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
 
 static const char *method_strings[] = {
@@ -83,19 +84,35 @@ Request::finish_or_retry(lcb_error_t rc)
         finish(rc);
         return;
     }
+    struct http_parser_url next_info;
+    if (_lcb_http_parser_parse_url(nextnode, strlen(nextnode), 0, &next_info)) {
+        lcb_log(LOGARGS(this, WARN), LOGFMT "Not retrying. Invalid API endpoint", LOGID(this));
+        finish(LCB_EINVAL);
+        return;
+    }
 
     // Reassemble URL:
+    lcb_log(LOGARGS(this, DEBUG), LOGFMT "Retrying request on new node %s. Reason: 0x%02x (%s)", LOGID(this), nextnode,
+            rc, lcb_strerror(NULL, rc));
 
-    // get offset and length of host bits
-    size_t host_begin = url_info.field_data[UF_HOST].off;
-    size_t hplen =
-            url_info.field_data[UF_HOST].len +
-            url_info.field_data[UF_PORT].len + 1; // +1 for ":"
+    url.replace(url_info.field_data[UF_PORT].off, url_info.field_data[UF_PORT].len,
+                nextnode + next_info.field_data[UF_PORT].off, next_info.field_data[UF_PORT].len);
+    url.replace(url_info.field_data[UF_HOST].off, url_info.field_data[UF_HOST].len,
+                nextnode + next_info.field_data[UF_HOST].off, next_info.field_data[UF_HOST].len);
 
-    url.replace(host_begin, hplen, nextnode);
-    lcb_error_t newrc = submit();
+    lcb_error_t newrc;
+    newrc = assign_url(NULL, 0, NULL, 0);
     if (newrc != LCB_SUCCESS) {
-        lcb_log(LOGARGS(this, WARN), LOGFMT "Retry failed!", LOGID(this));
+        lcb_log(LOGARGS(this, ERR), LOGFMT "Failed to assign URL for retry request on next endpoint (%s): 0x%02x (%s)",
+                LOGID(this), nextnode, newrc, lcb_strerror(NULL, newrc));
+        finish(rc);
+        return;
+    }
+
+    newrc = submit();
+    if (newrc != LCB_SUCCESS) {
+        lcb_log(LOGARGS(this, WARN), LOGFMT "Failed to retry request on next endpoint (%s): 0x%02x (%s)", LOGID(this),
+                nextnode, newrc, lcb_strerror(NULL, newrc));
         finish(rc);
     }
 }
@@ -199,7 +216,7 @@ lcb_error_t
 Request::submit()
 {
     lcb_error_t rc;
-    lcb_host_t reqhost;
+    lcb_host_t reqhost = {0};
 
     // Stop any pending socket/request
     close_io();
@@ -215,6 +232,7 @@ Request::submit()
     strncpy(reqhost.port, port.c_str(), port.size());
     reqhost.host[host.size()] = '\0';
     reqhost.port[port.size()] = '\0';
+    reqhost.ipv6 = ipv6;
 
     // Add the HTTP verb (e.g. "GET ") [note, the string contains a trailing space]
     add_to_preamble(method_strings[method]);
@@ -328,6 +346,7 @@ Request::assign_url(const char *base, size_t nbase, const char *path, size_t npa
 
     assign_from_urlfield(UF_HOST, host);
     assign_from_urlfield(UF_PORT, port);
+    ipv6 = host.find(':') != std::string::npos;
     return LCB_SUCCESS;
 }
 
@@ -368,6 +387,8 @@ httype2svctype(unsigned httype)
         return LCBVB_SVCTYPE_N1QL;
     case LCB_HTTP_TYPE_FTS:
         return LCBVB_SVCTYPE_FTS;
+    case LCB_HTTP_TYPE_CBAS:
+        return LCBVB_SVCTYPE_CBAS;
     default:
         return LCBVB_SVCTYPE__MAX;
     }
@@ -415,7 +436,7 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
 {
     const char *base = NULL, *username, *password;
     size_t nbase = 0;
-    lcb_error_t rc;
+    lcb_error_t rc = LCB_SUCCESS;
 
     if (method > LCB_HTTP_METHOD_MAX) {
         return LCB_EINVAL;

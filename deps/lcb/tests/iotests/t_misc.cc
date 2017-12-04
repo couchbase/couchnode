@@ -715,6 +715,7 @@ TEST_F(MockUnitTest, testEmptyCtx)
 
 TEST_F(MockUnitTest, testMultiCreds)
 {
+    SKIP_IF_CLUSTER_VERSION_IS_HIGHER_THAN(MockEnvironment::VERSION_50);
     using lcb::Authenticator;
 
     HandleWrap hw;
@@ -730,4 +731,47 @@ TEST_F(MockUnitTest, testMultiCreds)
     lcb::Authenticator::Map::const_iterator res = auth.buckets().find("protected");
     ASSERT_NE(auth.buckets().end(), res);
     ASSERT_EQ("secret", res->second);
+}
+
+extern "C" {
+static void appendE2BIGcb(lcb_t, int, const lcb_RESPBASE *rb)
+{
+    lcb_error_t *e = (lcb_error_t *)rb->cookie;
+    *e = rb->rc;
+}
+}
+
+TEST_F(MockUnitTest, testAppendE2BIG)
+{
+    HandleWrap hw;
+    lcb_t instance;
+    createConnection(hw, instance);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, appendE2BIGcb);
+
+    lcb_error_t err, res;
+
+    const char *key = "key";
+    size_t nkey = strlen(key);
+
+    size_t nvalue1 = 20 * 1024 * 1024;
+    void *value1 = malloc(nvalue1);
+    lcb_CMDSTORE scmd = { 0 };
+    scmd.operation = LCB_SET;
+    LCB_CMD_SET_KEY(&scmd, key, nkey);
+    LCB_CMD_SET_VALUE(&scmd, value1, nvalue1);
+    err = lcb_store3(instance, &res, &scmd);
+    lcb_wait(instance);
+    ASSERT_EQ(LCB_SUCCESS, res);
+    free(value1);
+
+    size_t nvalue2 = 1 * 1024 * 1024;
+    void *value2 = malloc(nvalue2);
+    lcb_CMDSTORE acmd = { 0 };
+    acmd.operation = LCB_APPEND;
+    LCB_CMD_SET_KEY(&acmd, key, nkey);
+    LCB_CMD_SET_VALUE(&acmd, value2, nvalue2);
+    err = lcb_store3(instance, &res, &acmd);
+    lcb_wait(instance);
+    ASSERT_EQ(LCB_E2BIG, res);
+    free(value2);
 }

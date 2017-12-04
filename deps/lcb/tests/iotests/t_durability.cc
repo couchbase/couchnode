@@ -1056,3 +1056,53 @@ TEST_F(DurabilityUnitTest, testDurStore)
         lcb_log(LOGARGS(instance, WARN), "Test skipped because mock is too fast(!)");
     }
 }
+
+TEST_F(DurabilityUnitTest, testFailoverAndSeqno)
+{
+    SKIP_UNLESS_MOCK();
+
+    // Disable CCCP so that we get streaming updates
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    mock->setCCCP(false);
+
+    HandleWrap hwrap;
+    lcb_t instance;
+    lcb_durability_opts_t opts = { 0 };
+    string key = "key-failover-seqno";
+    Item itm = Item(key, key);
+    KVOperation kvo(&itm);
+
+    createConnection(hwrap);
+    instance = hwrap.getLcb();
+
+    kvo.store(instance);
+
+    defaultOptions(instance, opts);
+    DurabilityOperation dop;
+
+    /* make sure that seqno works on healthy cluster */
+    opts.version = 1;
+    opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
+    dop = DurabilityOperation();
+    dop.run(instance, &opts, kvo.result);
+    ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+
+    /* failover all nodes but master */
+    lcbvb_CONFIG *vbc;
+    ASSERT_EQ(LCB_SUCCESS, lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc));
+    int vbid, srvix;
+    lcbvb_map_key(vbc, key.c_str(), key.size(), &vbid, &srvix);
+    for (size_t jj = 0; jj < lcbvb_get_nreplicas(vbc); jj++) {
+        int rix = lcbvb_vbreplica(vbc, vbid, jj);
+        mock->failoverNode(rix, "default", false);
+    }
+
+    /* make sure that client gets new configration */
+    instance->bs_state->reset_last_refresh();
+    instance->confmon->stop();
+    instance->bootstrap(lcb::BS_REFRESH_ALWAYS);
+
+    dop = DurabilityOperation();
+    dop.run(instance, &opts, kvo.result);
+    ASSERT_EQ(LCB_DURABILITY_ETOOMANY, dop.resp.rc);
+}

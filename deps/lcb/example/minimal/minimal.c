@@ -54,9 +54,8 @@ op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
             fprintf(stderr, "FLAGS: 0x%x\n", rg->itmflags);
         }
     } else {
-        die(instance, lcb_strcbtype(rb->rc), rb->rc);
+        die(instance, lcb_strcbtype(cbtype), rb->rc);
     }
-    (void)instance;
 }
 
 int main(int argc, char *argv[])
@@ -70,13 +69,16 @@ int main(int argc, char *argv[])
     create_options.version = 3;
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s couchbase://host/bucket [ password ]\n", argv[0]);
+        fprintf(stderr, "Usage: %s couchbase://host/bucket [ password [ username ] ]\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
     create_options.v.v3.connstr = argv[1];
-    if (argc >= 3) {
+    if (argc > 2) {
         create_options.v.v3.passwd = argv[2];
+    }
+    if (argc > 3) {
+        create_options.v.v3.username = argv[3];
     }
 
     err = lcb_create(&instance, &create_options);
@@ -114,7 +116,7 @@ int main(int argc, char *argv[])
     lcb_wait(instance);
 
     /* Now fetch the item back */
-    LCB_CMD_SET_KEY(&gcmd, "foo", strlen("foo"));
+    LCB_CMD_SET_KEY(&gcmd, "key", strlen("key"));
     err = lcb_get3(instance, NULL, &gcmd);
     if (err != LCB_SUCCESS) {
         die(instance, "Couldn't schedule retrieval operation", err);

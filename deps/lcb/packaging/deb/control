@@ -64,7 +64,7 @@ Description: library for the Couchbase protocol, development files
 Package: libcouchbase2-bin
 Section: utils
 Architecture: any
-Depends: libcouchbase2-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: libcouchbase2-core (= ${binary:Version}), libcouchbase2-libevent (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Conflicts: libcouchbase1-bin
 Description: library for the Couchbase protocol
  libcouchbase is a library implementing Couchbase protocol.

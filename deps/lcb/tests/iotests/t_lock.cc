@@ -122,12 +122,11 @@ TEST_F(LockUnitTest, testUnlockMissingCas)
     err = lcb_unlock(instance, &reserr, 1, &cmdlist);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_wait(instance);
-
-    /**
-     * maybe I mis-understood lock, but isn't it an error to use unlock
-     * without a valid CAS? -
-     */
-    ASSERT_EQ(LCB_ETMPFAIL, reserr);
+    if (CLUSTER_VERSION_IS_HIGHER_THAN(MockEnvironment::VERSION_50)) {
+        ASSERT_EQ(LCB_EINVAL_MCD, reserr);
+    } else {
+        ASSERT_EQ(LCB_ETMPFAIL, reserr);
+    }
 }
 
 extern "C" {

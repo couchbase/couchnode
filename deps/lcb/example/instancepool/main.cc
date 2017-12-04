@@ -70,7 +70,7 @@ pthr_func(void *arg) {
 }
 
 #define NUM_WORKERS 20
-int main(void) {
+int main(int argc, char *argv[]) {
     lcb_create_st options;
     pthread_t workers[NUM_WORKERS];
     Pool *pool;
@@ -79,7 +79,17 @@ int main(void) {
     // set up the options to represent your cluster (hostname etc)
     memset(&options, 0, sizeof options);
     options.version = 3;
-    options.v.v3.connstr = "couchbase://localhost/default";
+    options.v.v3.connstr = "couchbase://localhost";
+    if (argc > 1) {
+        options.v.v3.connstr = argv[1];
+    }
+    if (argc > 2) {
+        options.v.v3.passwd = argv[2];
+    }
+    if (argc > 3) {
+        options.v.v3.username = argv[3];
+    }
+
     pool = new MyPool(options, 5);
 
     err = pool->connect();

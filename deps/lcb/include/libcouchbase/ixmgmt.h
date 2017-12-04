@@ -103,14 +103,14 @@ typedef struct {
 } lcb_N1XSPEC;
 
 /** Input/Output flag. The index is the primary index for the bucket */
-#define LCB_N1XSPEC_F_PRIMARY 1<<16
+#define LCB_N1XSPEC_F_PRIMARY (1 << 16)
 
 /**
  * Input flag for creation. Defer the index building until later. This may
  * be used to accelerate the building of multiple indexes, so that the index
  * builder can construct all indexes by scanning items only once
  */
-#define LCB_N1XSPEC_F_DEFER 1<<17
+#define LCB_N1XSPEC_F_DEFER (1 << 17)
 
 /**
  * Input for index type. It's best to just leave this value to 0 (DEFAULT)

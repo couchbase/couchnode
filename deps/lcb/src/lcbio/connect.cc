@@ -32,15 +32,17 @@ using namespace lcb::io;
 #endif
 #define LOGARGS(conn, lvl) conn->settings, "connection", LCB_LOG_##lvl, __FILE__, __LINE__
 static const lcb_host_t *get_loghost(lcbio_SOCKET *s) {
-    static lcb_host_t host = { "NOHOST", "NOPORT" };
+    static lcb_host_t host = {"NOHOST", "NOPORT", 0};
     if (!s) { return &host; }
     if (!s->info) { return &host; }
     return &s->info->ep;
 }
 
 /** Format string arguments for %p%s:%s */
-#define CSLOGID(sock) get_loghost(sock)->host, get_loghost(sock)->port, (void*)sock
-#define CSLOGFMT "<%s:%s> (SOCK=%p) "
+#define CSLOGID(sock)                                                                                                  \
+    get_loghost(sock)->ipv6 ? "[" : "", get_loghost(sock)->host, get_loghost(sock)->ipv6 ? "]" : "",                   \
+        get_loghost(sock)->port, (void *)sock
+#define CSLOGFMT "<%s%s%s:%s> (SOCK=%p) "
 
 #define LOGARGS_T(lvl) LOGARGS(this->sock, lvl)
 #define CSLOGID_T() CSLOGID(this->sock)
@@ -302,7 +304,6 @@ E_conncb(lcb_socket_t, short events, void *arg)
         goto GT_NEXTSOCK;
 
     } else {
-        rv = 0;
         ai = cs->ai;
 
         GT_CONNECT:
@@ -357,7 +358,8 @@ C_conncb(lcb_sockdata_t *sock, int status)
     lcbio_SOCKET *s = reinterpret_cast<lcbio_SOCKET*>(sock->lcbconn);
     Connstart *cs = reinterpret_cast<Connstart*>(s->ctx);
 
-    lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Received completion handler. Status=%d. errno=%d", CSLOGID(s), status, IOT_ERRNO(s->io));
+    lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Received completion handler. Status=%d. errno=%d [%s]", CSLOGID(s), status,
+            IOT_ERRNO(s->io), strerror(IOT_ERRNO(s->io)));
 
     if (!--s->refcount) {
         lcbio__destroy(s);
@@ -434,8 +436,8 @@ lcbio_connect(lcbio_TABLE *iot, lcb_settings *settings, const lcb_host_t *dest,
 
 Connstart::Connstart(lcbio_TABLE* iot_, lcb_settings* settings_,
                     const lcb_host_t *dest, uint32_t timeout,
-                    lcbio_CONNDONE_cb handler, void *arg)
-    : user_handler(handler), user_arg(arg), sock(NULL), syserr(0),
+                    lcbio_CONNDONE_cb handler_, void *arg)
+    : user_handler(handler_), user_arg(arg), sock(NULL), syserr(0),
       event(NULL), ev_active(false), in_uhandler(false),
       ai_root(NULL), ai(NULL), state(CS_PENDING), last_error(LCB_SUCCESS),
       timer(iot_, this) {

@@ -16,12 +16,23 @@
  */
 
 /* small utility for retrieving host/port information from the CTX */
-static const char* get__ctx_hostinfo(const lcbio_CTX *ctx, int is_host)
+static const lcb_host_t *get_ctx_host(const lcbio_CTX *ctx)
 {
-    if (ctx == NULL || ctx->sock == NULL || ctx->sock->info == NULL) {
-        return is_host ? "NOHOST" : "NOPORT";
+    static lcb_host_t host = {"NOHOST", "NOPORT", 0};
+    if (!ctx) {
+        return &host;
     }
-    return is_host ? ctx->sock->info->ep.host : ctx->sock->info->ep.port;
+    if (!ctx->sock) {
+        return &host;
+    }
+    if (!ctx->sock->info) {
+        return &host;
+    }
+    return &ctx->sock->info->ep;
 }
-static const char *get_ctx_host(const lcbio_CTX *ctx) { return get__ctx_hostinfo(ctx, 1); }
-static const char *get_ctx_port(const lcbio_CTX *ctx) { return get__ctx_hostinfo(ctx, 0); }
+
+#define CTX_LOGFMT_PRE "<%s%s%s:%s> (CTX=%p,%s"
+#define CTX_LOGFMT CTX_LOGFMT_PRE ") "
+#define CTX_LOGID(ctx)                                                                                                 \
+    (get_ctx_host(ctx)->ipv6 ? "[" : ""), get_ctx_host(ctx)->host, (get_ctx_host(ctx)->ipv6 ? "]" : ""),               \
+        get_ctx_host(ctx)->port, (void *)ctx, ctx ? ctx->subsys : ""

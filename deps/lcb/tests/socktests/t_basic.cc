@@ -62,7 +62,7 @@ static bool isRefused(lcbio_OSERR err)
 TEST_F(SockConnTest, testRefused)
 {
     ESocket sock;
-    lcb_host_t host;
+    lcb_host_t host = {0};
     strcpy(host.host, "localhost");
     strcpy(host.port, "1");
     loop->connect(&sock, &host, 100000);
@@ -73,7 +73,7 @@ TEST_F(SockConnTest, testRefused)
 TEST_F(SockConnTest, testBadDomain)
 {
     ESocket sock;
-    lcb_host_t host;
+    lcb_host_t host = {0};
     strcpy(host.host, "domain-should-not-work.nonexist.com");
     strcpy(host.port, "123");
     loop->connect(&sock, &host, 1000);
@@ -83,7 +83,7 @@ TEST_F(SockConnTest, testBadDomain)
 TEST_F(SockConnTest, testInvalidPort)
 {
     ESocket sock;
-    lcb_host_t host;
+    lcb_host_t host = {0};
     strcpy(host.host, "localhost");
     strcpy(host.port, "111111111");
     loop->connect(&sock, &host, 1000);
@@ -93,7 +93,7 @@ TEST_F(SockConnTest, testInvalidPort)
 TEST_F(SockTest, testEmptyHost)
 {
     ESocket sock;
-    lcb_host_t host;
+    lcb_host_t host = {0};
     host.host[0] = '\0';
     host.port[0] = '\0';
     loop->connect(&sock, &host, 1000);
@@ -103,7 +103,7 @@ TEST_F(SockTest, testEmptyHost)
 TEST_F(SockConnTest, testCancellation)
 {
     ESocket sock;
-    lcb_host_t host;
+    lcb_host_t host = {0};
     loop->populateHost(&host);
     sock.creq = lcbio_connect(
             loop->iot, loop->settings, &host, 100000, NULL, NULL);
@@ -132,7 +132,7 @@ conncb_1(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
 TEST_F(SockConnTest, testImmediateUnref)
 {
     ESocket sock;
-    lcb_host_t host;
+    lcb_host_t host = {0};
     sock.parent = loop;
     loop->populateHost(&host);
     sock.creq = lcbio_connect(

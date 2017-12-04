@@ -149,7 +149,6 @@ static struct genhash_entry_t *genhash_find_entry(genhash_t *h,
     n = h->ops.hashfunc(k, klen) % h->size;
     lcb_assert(n < h->size);
 
-    p = h->buckets[n];
     for (p = h->buckets[n]; p && !h->ops.hasheq(k, klen, p->key, p->nkey); p = p->next);
     return p;
 }
@@ -181,7 +180,7 @@ enum update_type genhash_update(genhash_t *h, const void *k, lcb_size_t klen,
         rv = MODIFICATION;
     } else {
         if (-1 == genhash_store(h, k, klen, v, vlen)) {
-            rv = ALLOC_FAILURE;
+            return ALLOC_FAILURE;
         }
         rv = NEW;
     }

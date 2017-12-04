@@ -225,8 +225,11 @@ class MockEnvironment : public ::testing::Environment
 public:
     enum ServerVersion {
         VERSION_UNKNOWN = 0,
-        VERSION_10 = 1,
-        VERSION_20 = 2
+        VERSION_40 = 4,
+        VERSION_41 = 5,
+        VERSION_45 = 6,
+        VERSION_46 = 7,
+        VERSION_50 = 8
     };
 
     virtual void SetUp();
@@ -273,7 +276,7 @@ public:
      * @param index the index of the node on the mock
      * @param bucket the name of the bucket
      */
-    void failoverNode(int index, std::string bucket = "default");
+    void failoverNode(int index, std::string bucket = "default", bool rebalance = true);
 
     /**
      * Simulate node reconvering. In this case mock will enable server
@@ -373,7 +376,7 @@ public:
 
     static void printSkipMessage(std::string file, int line, std::string reason) {
         std::cerr << "Skipping " << file << ":" << std::dec << line;
-        std::cerr << "(" << reason << ")";
+        std::cerr << " (" << reason << ")";
         std::cerr << std::endl;
     }
 
@@ -431,5 +434,21 @@ private:
         return; \
     }
 
+#define CLUSTER_VERSION_IS_HIGHER_THAN(v)                                                                              \
+    (MockEnvironment::getInstance()->isRealCluster() && MockEnvironment::getInstance()->getServerVersion() >= v)
 
+#define SKIP_IF_CLUSTER_VERSION_IS_HIGHER_THAN(v)                                                                      \
+    if (CLUSTER_VERSION_IS_HIGHER_THAN(v)) {                                                                           \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__, "needs lower cluster version");                          \
+        return;                                                                                                        \
+    }
+
+#define CLUSTER_VERSION_IS_LOWER_THAN(v)                                                                               \
+    (MockEnvironment::getInstance()->isRealCluster() && MockEnvironment::getInstance()->getServerVersion() < v)
+
+#define SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(v)                                                                       \
+    if (CLUSTER_VERSION_IS_LOWER_THAN(v)) {                                                                            \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__, "needs higher cluster version");                         \
+        return;                                                                                                        \
+    }
 #endif

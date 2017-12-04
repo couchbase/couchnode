@@ -610,9 +610,9 @@ typedef enum {
 #define LCB_RETRYOPT_CREATE(mode, policy) (((mode) << 16) | policy)
 
 /** Get mode from retry setting value */
-#define LCB_RETRYOPT_GETMODE(u) (u) >> 16
+#define LCB_RETRYOPT_GETMODE(u) ((u) >> 16)
 /** Get policy from retry setting value */
-#define LCB_RETRYOPT_GETPOLICY(u) (u) & 0xffff
+#define LCB_RETRYOPT_GETPOLICY(u) ((u)&0xffff)
 
 /**
  * @volatile
@@ -673,7 +673,7 @@ typedef enum {
 /**
  * @brief Set the URL selection mode.
  *
- * The URL type can be a mask of the lcb_HTCONFIG_URLTYPE constants which
+ * The URL type can be a mask of the #lcb_HTCONFIG_URLTYPE constants which
  * indicate which URLs the HTTP provider should use.
  *
  * The default is to use the `25PLUS` URI first, and fallback on the compat uri
@@ -713,8 +713,8 @@ typedef enum {
  * it from the environment.
  *
  * The argument passed to lcb_cntl() is an integer of 0 until
- * `LCB_LOGLEVEL_MAX`, though the actual type is of `lcb_U32` rather than
- * an enum type.
+ * `LCB_LOG_MAX`, though the actual type is of `lcb_U32` rather than
+ * an enum type #lcb_log_severity_t.
  *
  * @cntl_arg_setonly{const lcb_U32 *}
  * @see LCB_CNTL_LOGGER
@@ -1026,7 +1026,7 @@ typedef const char *lcb_BUCKETCRED[2];
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x49
+#define LCB_CNTL__MAX                    0x4A
 /**@}*/
 
 #ifdef __cplusplus

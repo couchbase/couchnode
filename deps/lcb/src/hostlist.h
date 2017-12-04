@@ -28,8 +28,11 @@
 typedef struct lcb_host_st {
     char host[NI_MAXHOST + 1];
     char port[NI_MAXSERV + 1];
+    int ipv6;
 } lcb_host_t;
 
+#define LCB_HOST_FMT "%s%s%s:%s"
+#define LCB_HOST_ARG(__host) ((__host)->ipv6 ? "[" : ""), (__host)->host, ((__host)->ipv6 ? "]" : ""), (__host)->port
 /**
  * Structure representing a list of hosts. This has an internal iteration
  * index which is used to cycle between 'good' and 'bad' hosts.

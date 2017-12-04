@@ -284,6 +284,9 @@ lcb_error_t
 lcb_durability_validate(lcb_t instance,
     lcb_U16 *persist_to, lcb_U16 *replicate_to, int options)
 {
+    if (!LCBT_VBCONFIG(instance)) {
+        return LCB_CLIENT_ENOCONF;
+    }
     int replica_max = std::min(
         LCBT_NREPLICAS(instance),
         LCBT_NDATASERVERS(instance)-1);

@@ -29,9 +29,10 @@
 #include <lcbio/timer-cxx.h>
 #include <lcbio/ssl.h>
 #include "ctx-log-inl.h"
+
+#define LOGFMT CTX_LOGFMT
+#define LOGID(p) CTX_LOGID(p->ioctx)
 #define LOGARGS(cccp, lvl) cccp->parent->settings, "cccp", LCB_LOG_##lvl, __FILE__, __LINE__
-#define LOGFMT "<%s:%s> "
-#define LOGID(cccp) get_ctx_host(cccp->ioctx), get_ctx_port(cccp->ioctx)
 
 struct CccpCookie;
 
@@ -140,13 +141,15 @@ CccpProvider::schedule_next_request(lcb_error_t err, bool can_rollover)
     lcb::Server* server = instance->find_server(*next_host);
     if (server) {
         cmdcookie = new CccpCookie(this);
-        lcb_log(LOGARGS(this, INFO), "Re-Issuing CCCP Command on server struct %p (%s:%s)", (void*)server, next_host->host, next_host->port);
+        lcb_log(LOGARGS(this, TRACE), "Re-Issuing CCCP Command on server struct %p (" LCB_HOST_FMT ")", (void *)server,
+                LCB_HOST_ARG(next_host));
         timer.rearm(settings().config_node_timeout);
         instance->request_config(cmdcookie, server);
 
     } else {
 
-        lcb_log(LOGARGS(this, INFO), "Requesting connection to node %s:%s for CCCP configuration", next_host->host, next_host->port);
+        lcb_log(LOGARGS(this, INFO), "Requesting connection to node " LCB_HOST_FMT " for CCCP configuration",
+                LCB_HOST_ARG(next_host));
         creq = instance->memd_sockpool->get(*next_host,
             settings().config_node_timeout,
             on_connected, this);
@@ -429,7 +432,7 @@ void CccpProvider::dump(FILE *fp) const {
 
     for (size_t ii = 0; ii < nodes->size(); ii++) {
         const lcb_host_t &curhost = (*nodes)[ii];
-        fprintf(fp, "CCCP NODE: %s:%s\n", curhost.host, curhost.port);
+        fprintf(fp, "CCCP NODE: " LCB_HOST_FMT "\n", LCB_HOST_ARG(&curhost));
     }
     fprintf(fp, "## END CCCP PROVIDER DUMP ##\n");
 }

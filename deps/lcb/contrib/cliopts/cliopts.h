@@ -292,9 +292,9 @@ public:
     TOption(TOption& other) {
         *(cliopts_entry*)this = *(cliopts_entry*) &other;
         innerVal = other.innerVal;
-        dest = &innerVal;
         other.dest = NULL;
         doCopy(other);
+        dest = &innerVal;
     }
 
     ~TOption() {
@@ -319,6 +319,7 @@ public:
      * @return the option object, for method chaining.
      */
     inline Ttype& setDefault(const T& val) {
+        freeInnerVal();
         innerVal = val;
         return *this;
     }
@@ -376,19 +377,7 @@ protected:
     /** Called from within copy constructor */
     inline void doCopy(TOption&) {}
 
-    inline void freeInnerVal() {
-        switch (ktype) {
-            case CLIOPTS_ARGT_LIST:
-                cliopts_list_clear((cliopts_list *)&innerVal);
-                break;
-            case CLIOPTS_ARGT_PAIR_LIST:
-                cliopts_pair_list_clear((cliopts_pair_list *)&innerVal);
-                break;
-            default:
-                /* nothing to do */
-                break;
-        }
-    }
+    inline void freeInnerVal() {}
 
     /** Create the default value for the option */
     static inline Taccum createDefault() { return Taccum(); }
@@ -443,18 +432,24 @@ template<> inline std::string& StringOption::const_result() {
 template<> inline std::string StringOption::result() {
     return const_result();
 }
+template<> inline void StringOption::freeInnerVal() {
+    free((void *)innerVal);
+    innerVal = NULL;
+}
 template<> inline StringOption& StringOption::setDefault(const std::string& s) {
     priv = s;
-    innerVal = priv.c_str();
+    freeInnerVal();
+    innerVal = strdup(priv.c_str());
     return *this;
 }
 template<> inline void StringOption::doCopy(StringOption& other) {
     priv = other.priv;
     if (other.innerVal == other.priv.c_str()) {
-        innerVal = priv.c_str();
+        freeInnerVal();
+        innerVal = strdup(priv.c_str());
     }
 }
-template<> inline const char* StringOption::createDefault() { return ""; }
+template<> inline const char* StringOption::createDefault() { return NULL; }
 
 // LIST ROUTINES
 template<> inline std::vector<std::string>& ListOption::const_result() {
@@ -468,6 +463,13 @@ template<> inline std::vector<std::string>& ListOption::const_result() {
 template<> inline std::vector<std::string> ListOption::result() {
     return const_result();
 }
+template<> inline void ListOption::freeInnerVal() { cliopts_list_clear(&innerVal); }
+
+struct PairListDtor {
+    static void call(void *arg) {
+        cliopts_pair_list_clear((cliopts_pair_list *)arg);
+    }
+};
 
 // PAIR LIST ROUTINES
 template<> inline std::vector<std::pair<std::string, std::string> >& PairListOption::const_result() {
@@ -481,6 +483,7 @@ template<> inline std::vector<std::pair<std::string, std::string> >& PairListOpt
 template<> inline std::vector<std::pair<std::string, std::string> > PairListOption::result() {
     return const_result();
 }
+template<> inline void PairListOption::freeInnerVal() { cliopts_pair_list_clear(&innerVal); }
 
 // BOOL ROUTINES
 template<> inline BoolOption& BoolOption::setDefault(const bool& b) {

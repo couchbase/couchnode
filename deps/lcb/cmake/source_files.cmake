@@ -87,6 +87,7 @@ SET(LCB_CORE_CXXSRC
     src/operations/ping.cc
     src/mcserver/mcserver.cc
     src/mcserver/negotiate.cc
+    src/metrics.cc
     src/retrychk.cc
     src/retryq.cc
     src/views/docreq.cc

@@ -148,6 +148,7 @@ extern "C" {
  */
 TEST_F(ServeropsUnitTest, testFlush)
 {
+    SKIP_UNLESS_MOCK();
     lcb_t instance;
     HandleWrap hw;
     createConnection(hw, instance);

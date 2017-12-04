@@ -551,6 +551,25 @@ HANDLER(bucket_auth_handler) {
     return LCB_SUCCESS;
 }
 
+HANDLER(metrics_handler) {
+    if (mode == LCB_CNTL_SET) {
+        int val = *(int *)arg;
+        if (!val) {
+            return LCB_ECTL_BADARG;
+        }
+        if (!instance->settings->metrics) {
+            instance->settings->metrics = lcb_metrics_new();
+        }
+        return LCB_SUCCESS;
+    } else if (mode == LCB_CNTL_GET) {
+        *(lcb_METRICS**)arg = instance->settings->metrics;
+        return LCB_SUCCESS;
+    } else {
+        return LCB_ECTL_UNSUPPMODE;
+    }
+    (void)cmd;
+}
+
 
 static ctl_handler handlers[] = {
     timeout_common, /* LCB_CNTL_OP_TIMEOUT */
@@ -625,7 +644,8 @@ static ctl_handler handlers[] = {
     tcp_keepalive_handler, /* LCB_CNTL_TCP_KEEPALIVE */
     config_poll_interval_handler, /* LCB_CNTL_CONFIG_POLL_INTERVAL */
     send_hello_handler, /* LCB_CNTL_SEND_HELLO */
-    buckettype_handler /* LCB_CNTL_BUCKETTYPE */
+    buckettype_handler, /* LCB_CNTL_BUCKETTYPE */
+    metrics_handler /* LCB_CNTL_METRICS */
 };
 
 /* Union used for conversion to/from string functions */
@@ -739,6 +759,18 @@ static lcb_error_t convert_retrymode(const char *arg, u_STRCONVERT *u) {
     return LCB_SUCCESS;
 }
 
+static lcb_error_t convert_ipv6(const char *arg, u_STRCONVERT *u)
+{
+    static const STR_u32MAP optmap[] = {
+        {"disabled", LCB_IPV6_DISABLED},
+        {"only", LCB_IPV6_ONLY},
+        {"allow", LCB_IPV6_ALLOW},
+        {NULL}
+    };
+    DO_CONVERT_STR2NUM(arg, optmap, u->i);
+    return LCB_SUCCESS;
+}
+
 static cntl_OPCODESTRS stropcode_map[] = {
         {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
         {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
@@ -782,6 +814,8 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"tcp_keepalive", LCB_CNTL_TCP_KEEPALIVE, convert_intbool},
         {"config_poll_interval", LCB_CNTL_CONFIG_POLL_INTERVAL, convert_timevalue},
         {"send_hello", LCB_CNTL_SEND_HELLO, convert_intbool},
+        {"ipv6", LCB_CNTL_IP6POLICY, convert_ipv6},
+        {"metrics", LCB_CNTL_METRICS, convert_intbool },
         {NULL, -1}
 };
 

@@ -22,8 +22,10 @@ protected:
     void checkRetryVerify(uint16_t errcode);
 
     void TearDown() {
-        MockOpFailClearCommand clearCmd(MockEnvironment::getInstance()->getNumNodes());
-        doMockTxn(clearCmd);
+        if (!MockEnvironment::getInstance()->isRealCluster()) {
+            MockOpFailClearCommand clearCmd(MockEnvironment::getInstance()->getNumNodes());
+            doMockTxn(clearCmd);
+        }
         MockUnitTest::TearDown();
     }
 };

@@ -6,15 +6,16 @@ set -x
 OUTDIR=man
 SRCDIR=.
 
-ronn --pipe --roff $SRCDIR/cbc.markdown > $OUTDIR/cbc.1
-ronn --pipe --roff $SRCDIR/cbc-pillowfight.markdown > $OUTDIR/cbc-pillowfight.1
-ronn --pipe --roff $SRCDIR/cbc-n1qlback.markdown > $OUTDIR/cbc-n1qlback.1
-ronn --pipe --roff $SRCDIR/cbc-subdoc.markdown > $OUTDIR/cbc-subdoc.1
-ronn --pipe --roff $SRCDIR/cbcrc.markdown > $OUTDIR/cbcrc.4
+MANPAGES="cbc cbc-pillowfight cbc-n1qlback cbc-subdoc"
+for page in $MANPAGES; do
+  ronn --pipe --roff $SRCDIR/$page.markdown | sed 's/\\.\\.\\./\\[char46]\\[char46]\\[char46]/g' > $OUTDIR/$page.1
+done
+ronn --pipe --roff $SRCDIR/cbcrc.markdown | sed 's/\\.\\.\\./\\[char46]\\[char46]\\[char46]/g' > $OUTDIR/cbcrc.4
 
 MANLINKS="cat cp create observe flush hash lock unlock rm stats \
 version verbosity view admin bucket-create bucket-delete connstr \
-role-list user-list user-upsert user-delete ping"
+role-list user-list user-upsert user-delete ping n1ql mcflush \
+decr incr"
 
 for link in $MANLINKS; do
     dest="$OUTDIR/cbc-${link}.1"

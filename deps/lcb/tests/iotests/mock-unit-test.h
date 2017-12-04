@@ -24,16 +24,16 @@
 
 class HandleWrap;
 
-#define SKIP_IF_MOCK()                                                  \
-    if (!getenv(LCB_TEST_REALCLUSTER_ENV)) {                            \
-         std::cerr << "Skipping: Need real cluster\n" << std::endl; \
-        return;                                                         \
+#define SKIP_IF_MOCK()                                                                                                 \
+    if (!getenv(LCB_TEST_REALCLUSTER_ENV)) {                                                                           \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__, "needs real cluster");                                   \
+        return;                                                                                                        \
     }
 
-#define SKIP_UNLESS_MOCK() \
-    if (getenv(LCB_TEST_REALCLUSTER_ENV)) { \
-        std::cerr << "Skipping: Need mock cluster\n" << std::endl; \
-        return; \
+#define SKIP_UNLESS_MOCK()                                                                                             \
+    if (getenv(LCB_TEST_REALCLUSTER_ENV)) {                                                                            \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__, "needs mock cluster");                                   \
+        return;                                                                                                        \
     }
 
 #define ASSERT_ERRISA(err, et) \

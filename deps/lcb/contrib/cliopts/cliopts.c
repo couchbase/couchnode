@@ -290,6 +290,7 @@ parse_value(struct cliopts_priv *ctx,
         char *vp = malloc(vlen+1);
         vp[vlen] = 0;
         strcpy(vp, value);
+        free(*(char**)entry->dest);
         *(char**)entry->dest = vp;
         return WANT_OPTION;
     }

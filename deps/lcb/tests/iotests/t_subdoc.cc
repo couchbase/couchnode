@@ -295,6 +295,7 @@ verifyPathValue(const char *, const char *, const char *, const char *,
 
 TEST_F(SubdocUnitTest, testSdGetExists)
 {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
     HandleWrap hw;
     lcb_t instance;
     CREATE_SUBDOC_CONNECTION(hw, instance);
@@ -400,6 +401,7 @@ TEST_F(SubdocUnitTest, testSdGetExists)
 
 TEST_F(SubdocUnitTest, testSdStore)
 {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
     HandleWrap hw;
     lcb_t instance;
     CREATE_SUBDOC_CONNECTION(hw, instance);
@@ -490,6 +492,7 @@ TEST_F(SubdocUnitTest, testSdStore)
 }
 
 TEST_F(SubdocUnitTest, testMkdoc) {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_50);
     HandleWrap hw;
     lcb_t instance;
     lcb_CMDSUBDOC cmd = { 0 };
@@ -527,6 +530,7 @@ TEST_F(SubdocUnitTest, testMkdoc) {
 
 TEST_F(SubdocUnitTest, testUnique)
 {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
     HandleWrap hw;
     lcb_t instance;
     lcb_CMDSUBDOC cmd = { 0 };
@@ -577,6 +581,7 @@ TEST_F(SubdocUnitTest, testUnique)
 
 TEST_F(SubdocUnitTest, testCounter)
 {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
     HandleWrap hw;
     lcb_t instance;
     lcb_CMDSUBDOC cmd = { 0 };
@@ -609,6 +614,12 @@ TEST_F(SubdocUnitTest, testCounter)
     // Try to increment by 1
     spec.sdcmd = LCB_SDCMD_COUNTER;
     LCB_SDSPEC_SET_VALUE(&spec, "1", 1);
+    ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, &cmd, lcb_subdoc3));
+    ASSERT_SD_ERR(res, LCB_SUBDOC_VALUE_CANTINSERT);
+
+    // Try to increment by 0
+    spec.sdcmd = LCB_SDCMD_COUNTER;
+    LCB_SDSPEC_SET_VALUE(&spec, "0", 1);
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, &cmd, lcb_subdoc3));
     ASSERT_SD_ERR(res, LCB_SUBDOC_BAD_DELTA);
 
@@ -653,6 +664,7 @@ TEST_F(SubdocUnitTest, testCounter)
 
 TEST_F(SubdocUnitTest, testMultiLookup)
 {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
     HandleWrap hw;
     lcb_t instance;
     CREATE_SUBDOC_CONNECTION(hw, instance);
@@ -724,6 +736,7 @@ TEST_F(SubdocUnitTest, testMultiLookup)
 
 TEST_F(SubdocUnitTest, testMultiMutations)
 {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
     HandleWrap hw;
     lcb_t instance;
     CREATE_SUBDOC_CONNECTION(hw, instance);
@@ -806,6 +819,7 @@ TEST_F(SubdocUnitTest, testMultiMutations)
 }
 
 TEST_F(SubdocUnitTest, testGetCount) {
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_50);
     HandleWrap hw;
     lcb_t instance;
     lcb_CMDSUBDOC cmd = { 0 };

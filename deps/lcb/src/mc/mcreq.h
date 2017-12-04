@@ -22,6 +22,7 @@
 #include <libcouchbase/api3.h>
 #include <libcouchbase/vbucket.h>
 #include <memcached/protocol_binary.h>
+#include <libcouchbase/metrics.h>
 #include "netbuf/netbuf.h"
 #include "sllist.h"
 #include "config.h"
@@ -400,6 +401,9 @@ typedef struct mc_pipeline_st {
 
     /** Allocator for packet structures */
     nb_MGR reqpool;
+
+    /** Optional metrics structure for server */
+    struct lcb_SERVERMETRICS_st *metrics;
 } mc_PIPELINE;
 
 typedef struct mc_cmdqueue_st {
@@ -975,6 +979,13 @@ mcreq_dump_chain(const mc_PIPELINE *pipeline, FILE *fp, mcreq_payload_dump_fn du
 #define mcreq_first_packet(pipeline) \
         SLLIST_IS_EMPTY(&(pipeline)->requests) ? NULL : \
                 SLLIST_ITEM(SLLIST_FIRST(&(pipeline)->requests), mc_PACKET, slnode)
+
+/* Increment a metric */
+#define MC_INCR_METRIC(pipeline, metric, amount) do { \
+        if ((pipeline)->metrics) { \
+            (pipeline)->metrics->metric += amount; \
+        } \
+} while (0)
 
 /**@}*/
 

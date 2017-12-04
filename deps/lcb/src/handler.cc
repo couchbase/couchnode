@@ -437,6 +437,8 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
             response->opcode() == PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION) {
         if (w.resp.rc == LCB_SUCCESS || w.resp.rc == LCB_SUBDOC_MULTI_FAILURE) {
             w.resp.responses = response;
+        } else {
+            handle_error_info(response, &w);
         }
     } else {
         /* Single response */
@@ -446,6 +448,8 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
         } else if (LCB_EIFSUBDOC(w.resp.rc)) {
             w.resp.responses = response;
             w.resp.rc = LCB_SUBDOC_MULTI_FAILURE;
+        } else {
+            handle_error_info(response, &w);
         }
     }
     invoke_callback(request, o, &w.resp, cbtype);
@@ -865,7 +869,7 @@ H_config(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
          lcb_error_t immerr)
 {
     /** We just jump to the normal config handler */
-    lcb_RESPBASE dummy;
+    lcb_RESPBASE dummy = {0};
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
     make_error(get_instance(pipeline), &dummy, response, immerr);
 
@@ -1021,12 +1025,14 @@ lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb)
 }
 
 #define ERRINFO_CALLBACKS(X)                    \
-    X(GET)                                      \
-    X(STORE)                                    \
-    X(COUNTER)                                  \
-    X(TOUCH)                                    \
-    X(REMOVE)                                   \
-    X(UNLOCK)                                   \
+    X(LCB_CALLBACK_GET, lcb_RESPGET)            \
+    X(LCB_CALLBACK_STORE, lcb_RESPSTORE)        \
+    X(LCB_CALLBACK_COUNTER, lcb_RESPCOUNTER)    \
+    X(LCB_CALLBACK_TOUCH, lcb_RESPTOUCH)        \
+    X(LCB_CALLBACK_REMOVE, lcb_RESPREMOVE)      \
+    X(LCB_CALLBACK_UNLOCK, lcb_RESPUNLOCK)      \
+    X(LCB_CALLBACK_SDLOOKUP, lcb_RESPSUBDOC)    \
+    X(LCB_CALLBACK_SDMUTATE, lcb_RESPSUBDOC)    \
 
 
 LIBCOUCHBASE_API
@@ -1037,7 +1043,7 @@ lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb)
         return NULL;
     }
 
-#define X(NAME) if (cbtype == LCB_CALLBACK_##NAME) { return ResponsePack<lcb_RESP##NAME>::get_err_ctx(rb); }
+#define X(CBTYPE, RESP) if (cbtype == CBTYPE) { return ResponsePack<RESP>::get_err_ctx(rb); }
     ERRINFO_CALLBACKS(X);
 #undef X
     return NULL;
@@ -1051,7 +1057,7 @@ lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb)
         return NULL;
     }
 
-#define X(NAME) if (cbtype == LCB_CALLBACK_##NAME) { return ResponsePack<lcb_RESP##NAME>::get_err_ref(rb); }
+#define X(CBTYPE, RESP) if (cbtype == CBTYPE) { return ResponsePack<RESP>::get_err_ref(rb); }
     ERRINFO_CALLBACKS(X);
 #undef X
     return NULL;

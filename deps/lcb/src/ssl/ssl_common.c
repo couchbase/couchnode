@@ -430,6 +430,7 @@ ossl_init_locks(void)
     for (ii = 0; ii < nlocks; ii++) {
         ossl_lock_init(ossl_locks + ii);
     }
+    /* TODO: locking API has been removed in OpenSSL 1.1 */
     CRYPTO_set_locking_callback(ossl_lockfn);
 }
 

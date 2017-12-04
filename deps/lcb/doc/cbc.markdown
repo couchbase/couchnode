@@ -500,7 +500,6 @@ Connect to a password protected bucket (`protected`) on a remote host:
 
     cbc cat key -U couchbase://remote.host.net/protected -P-
     Bucket password:
-    ...
 
 Connect to a password protected bucket, specifying the password on the
 command line (INSECURE, but useful for testing dummy environments)

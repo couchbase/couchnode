@@ -80,6 +80,9 @@ The following options control workload generation:
   option bypasses this stage. Useful if the items have already been loaded in a
   previous run.
 
+* `--populate-only`:
+  Stop after population. Useful to populate buckets with large amounts of data.
+
 * `-m`, `--min-size`=_MINSIZE_:
 * `-M`, `--max-size`=_MAXSIZE_:
   Specify the minimum and maximum value sizes to be stored into the cluster.

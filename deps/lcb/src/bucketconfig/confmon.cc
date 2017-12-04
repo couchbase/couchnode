@@ -147,7 +147,7 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
             ca = config->vbc;
             cb = new_config->vbc;
 
-            lcb_log(LOGARGS(this, INFO), "Not applying configuration received via %s. No changes detected. A.rev=%d, B.rev=%d", provider_string(new_config->get_origin()), ca->revid, cb->revid);
+            lcb_log(LOGARGS(this, TRACE), "Not applying configuration received via %s. No changes detected. A.rev=%d, B.rev=%d", provider_string(new_config->get_origin()), ca->revid, cb->revid);
             if (notify_miss) {
                 invoke_listeners(CLCONFIG_EVENT_GOT_ANY_CONFIG, new_config);
             }

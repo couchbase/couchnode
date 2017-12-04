@@ -28,11 +28,11 @@
 #define LOGARGS(c, lvl) (c)->settings, "server", LCB_LOG_##lvl, __FILE__, __LINE__
 #define LOGARGS_T(lvl) LOGARGS(this, lvl)
 
-#define LOGFMT "<%s:%s> (SRV=%p,IX=%d) "
+#define LOGFMT CTX_LOGFMT_PRE ",SRV=%p,IX=%d) "
 #define PKTFMT "OP=0x%x, RC=0x%x, SEQ=%u"
 #define PKTARGS(pkt) (pkt).opcode(), (pkt).status(), (pkt).opaque()
 
-#define LOGID(server) get_ctx_host(server->connctx), get_ctx_port(server->connctx), (void*)server, server->index
+#define LOGID(server) CTX_LOGID(server->connctx), (void *)server, server->index
 #define LOGID_T() LOGID(this)
 
 #define MCREQ_MAXIOV 32
@@ -124,6 +124,8 @@ Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
     lcb_U16 vbid;
     lcb::clconfig::Provider *cccp =
             instance->confmon->get_provider(lcb::clconfig::CLCONFIG_CCCP);
+
+    MC_INCR_METRIC(this, packets_nmv, 1);
 
     mcreq_read_hdr(oldpkt, &hdr);
     vbid = ntohs(hdr.request.vbucket);
@@ -334,6 +336,8 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         RETURN_NEED_MORE(pktsize)
     }
 
+    MC_INCR_METRIC(this, packets_read, 1);
+
     /* copy bytes into the info structure */
     rdb_copyread(ior, mcresp.hdrbytes(), mcresp.hdrsize());
 
@@ -352,6 +356,7 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     }
 
     if (!request) {
+        MC_INCR_METRIC(this, packets_ownerless, 1);
         lcb_log(LOGARGS_T(WARN), LOGFMT "Server sent us reply for a timed-out command. (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
         rdb_consumed(ior, pktsize);
         return PKT_READ_COMPLETE;
@@ -398,7 +403,7 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         /* figure out how many buffers we want to use as an upper limit for the
          * IOV arrays. Currently we'll keep it simple and ensure the entire
          * response is contiguous. */
-        lcb_PKTFWDRESP resp = { 0 };
+        lcb_PKTFWDRESP resp = { 0 }; /* TODO: next ABI version should include is_last flag */
         rdb_ROPESEG *segs;
         nb_IOV iov;
 
@@ -514,6 +519,7 @@ Server::purge(lcb_error_t error, hrtime_t thresh, hrtime_t *next,
         affected = -1;
     }
 
+    MC_INCR_METRIC(this, packets_errored, affected);
     if (policy == REFRESH_NEVER) {
         return affected;
     }
@@ -569,6 +575,7 @@ void Server::io_timeout()
     int npurged = purge(LCB_ETIMEDOUT, min_valid, &next_ns,
                         Server::REFRESH_ONFAILED);
     if (npurged) {
+        MC_INCR_METRIC(this, packets_timeout, npurged);
         lcb_log(LOGARGS_T(ERR), LOGFMT "Server timed out. Some commands have failed", LOGID_T());
     }
 
@@ -619,6 +626,7 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS_T(ERR), LOGFMT "Connection attempt failed. Received %s from libcouchbase, received %d from operating system", LOGID_T(), lcb_strerror_short(err), syserr);
+        MC_INCR_METRIC(this, iometrics.io_error, 1);
         if (!maybe_reconnect_on_fake_timeout(err)) {
             socket_failed(err);
         }
@@ -626,6 +634,9 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
     }
 
     lcb_assert(sock);
+    if (metrics) {
+        lcbio_set_metrics(sock, &metrics->iometrics);
+    }
 
     /** Do we need sasl? */
     SessionInfo* sessinfo = SessionInfo::get(sock);
@@ -693,6 +704,12 @@ Server::Server(lcb_t instance_, int ix)
                 LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN);
     if (datahost) {
         lcb_host_parsez(curhost, datahost, LCB_CONFIG_MCD_PORT);
+    }
+
+    if (settings->metrics) {
+        /** Allocate / reinitialize the metrics here */
+        metrics = lcb_metrics_getserver(settings->metrics, curhost->host, curhost->port, 1);
+        lcb_metrics_reset_pipeline_gauges(metrics);
     }
 }
 
@@ -829,7 +846,7 @@ Server::finalize_errored_ctx()
         return;
     }
 
-    lcb_log(LOGARGS_T(DEBUG), LOGFMT "Finalizing ctx %p", LOGID_T(), (void*)connctx);
+    lcb_log(LOGARGS_T(DEBUG), LOGFMT "Finalizing context", LOGID_T());
 
     /* Always close the existing context. */
     lcbio_ctx_close(connctx, close_cb, NULL);

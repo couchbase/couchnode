@@ -74,6 +74,40 @@ If you wish to link against OpenSSL, you should set the value of
 `OPENSSL_ROOT_DIR` to the location of the installation path, as described
 [here](https://github.com/Kitware/CMake/blob/master/Modules/FindOpenSSL.cmake)
 
+## Running tests
+
+To run tests, you can use either ctest directly or generated build targets.
+For Unix-like:
+
+```shell
+make test
+```
+
+For windows:
+
+```batchfile
+cmake --build . --target alltests
+ctest -C debug
+```
+
+By default tests will use [CouchbaseMock](https://github.com/couchbase/CouchbaseMock) project to simulate the Couchbase
+Cluster. It allows to cover more different failure scenarios, although does not implement all kinds of APIs provided
+by real server.
+
+If you need to test against real server, you have to provide comma-separated configuration in `LCB_TEST_CLUSTER_CONF`
+environment variable. For example, the following command will run tests against local cluster and bucket `default` using
+administrator credentials:
+
+```shell
+export LCB_TEST_CLUSTER_CONF=couchbase://localhost,default,Administrator,password
+make test
+```
+Note that specifying username will automatically switch to RBAC mode, which supported by Couchbase Server 5.0+. For old
+servers the spec will look like `couchbase://localhost,default` or `couchbase://localhost,protected,,secret`.
+
+Also tests expecting `beer-sample` bucket loaded. It comes with the server. Look at "Sample buckets" section of Admin
+Console.
+
 ## Bugs, Support, Issues
 You may report issues in the library in our issue tracked at
 <https://issues.couchbase.com>. Sign up for an account and file an issue

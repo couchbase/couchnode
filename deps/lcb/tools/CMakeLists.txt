@@ -50,6 +50,14 @@ IF(NOT WIN32)
     INSTALL(TARGETS cbc-subdoc RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     SET_SOURCE_FILES_PROPERTIES(cbc-subdoc.cc PROPERTIES COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}")
 
+    IF(HAVE_LIBEVENT2)
+      INCLUDE_DIRECTORIES(AFTER ${LIBEVENT_INCLUDE_DIR})
+      ADD_EXECUTABLE(cbc-proxy cbc-proxy.cc $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts>)
+      TARGET_LINK_LIBRARIES(cbc-proxy couchbase ${LIBEVENT_LIBRARIES})
+      INSTALL(TARGETS cbc-proxy RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+      SET_SOURCE_FILES_PROPERTIES(cbc-proxy.cc PROPERTIES COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}")
+    ENDIF()
+
     LIST(APPEND CBC_SUBCOMMANDS
         cat create observe observe-seqno incr decr mcflush hash lock
         unlock rm stats version verbosity view n1ql admin ping

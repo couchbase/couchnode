@@ -114,6 +114,8 @@ lcb_st::populate_nodes(const Connspec& spec)
         const Spechost &dh = spec.hosts()[ii];
         add_bs_host(dh, defl_http, defl_cccp);
     }
+    lcb_log(LOGARGS(this, TRACE), "Bootstrap hosts loaded (cccp:%d, http:%d)", (int)mc_nodes->size(),
+            (int)ht_nodes->size());
 }
 
 lcb_error_t
@@ -394,6 +396,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     obj->type = type;
     obj->settings = settings;
     obj->settings->conntype = type;
+    obj->settings->ipv6 = spec.ipv6_policy();
 
     settings->bucket = strdup(spec.bucket().c_str());
 

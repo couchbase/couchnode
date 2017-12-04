@@ -21,6 +21,9 @@
 #include <mocksupport/server.h>
 #include "mock-environment.h"
 #include <sstream>
+#include "internal.h" /* settings from lcb_t for logging */
+
+#define LOGARGS(instance, lvl) instance->settings, "tests-ENV", LCB_LOG_##lvl, __FILE__, __LINE__
 
 MockEnvironment *MockEnvironment::instance;
 
@@ -66,9 +69,10 @@ MockEnvironment::MockEnvironment(const char **args, std::string bucketname)
     SetUp();
 }
 
-void MockEnvironment::failoverNode(int index, std::string bucket)
+void MockEnvironment::failoverNode(int index, std::string bucket, bool rebalance)
 {
     MockBucketCommand bCmd(MockCommand::FAILOVER, index, bucket);
+    bCmd.set("rebalance", rebalance);
     sendCommand(bCmd);
     getResponse();
 }
@@ -250,44 +254,61 @@ void MockEnvironment::createConnection(lcb_t &instance)
 
 }
 
-#define STAT_EP_VERSION "ep_version"
+#define STAT_VERSION "version"
 
 extern "C" {
-    static void statsCallback(lcb_t, const void *cookie,
-                              lcb_error_t err,
-                              const lcb_server_stat_resp_t *resp)
-    {
-        MockEnvironment *me = (MockEnvironment *)cookie;
-        ASSERT_EQ(LCB_SUCCESS, err);
+static void statsCallback(lcb_t instance, const void *cookie, lcb_error_t err, const lcb_server_stat_resp_t *resp)
+{
+    MockEnvironment *me = (MockEnvironment *)cookie;
+    ASSERT_EQ(LCB_SUCCESS, err);
 
-        if (resp->v.v0.server_endpoint == NULL) {
-            return;
-        }
+    if (resp->v.v0.server_endpoint == NULL) {
+        return;
+    }
 
-        if (!resp->v.v0.nkey) {
-            return;
-        }
+    if (!resp->v.v0.nkey) {
+        return;
+    }
 
-        if (resp->v.v0.nkey != sizeof(STAT_EP_VERSION) - 1  ||
-                memcmp(resp->v.v0.key, STAT_EP_VERSION,
-                       sizeof(STAT_EP_VERSION) - 1) != 0) {
-            return;
-        }
-        int version = ((const char *)resp->v.v0.bytes)[0] - '0';
-        if (version == 1) {
-            me->setServerVersion(MockEnvironment::VERSION_10);
-        } else if (version == 2) {
-            me->setServerVersion(MockEnvironment::VERSION_20);
-
-        } else {
-            std::cerr << "Unable to determine version from string '";
-            std::cerr.write((const char *)resp->v.v0.bytes,
-                            resp->v.v0.nbytes);
-            std::cerr << "' assuming 1.x" << std::endl;
-
-            me->setServerVersion(MockEnvironment::VERSION_10);
+    if (resp->v.v0.nkey != sizeof(STAT_VERSION) - 1 ||
+        memcmp(resp->v.v0.key, STAT_VERSION, sizeof(STAT_VERSION) - 1) != 0) {
+        return;
+    }
+    MockEnvironment::ServerVersion version = MockEnvironment::VERSION_UNKNOWN;
+    if (resp->v.v0.nbytes > 2) {
+        int major = ((const char *)resp->v.v0.bytes)[0] - '0';
+        int minor = ((const char *)resp->v.v0.bytes)[2] - '0';
+        switch (major) {
+            case 4:
+                switch (minor) {
+                    case 0:
+                        version = MockEnvironment::VERSION_40;
+                        break;
+                    case 1:
+                        version = MockEnvironment::VERSION_41;
+                        break;
+                    case 5:
+                        version = MockEnvironment::VERSION_45;
+                        break;
+                    case 6:
+                        version = MockEnvironment::VERSION_46;
+                        break;
+                }
+                break;
+            case 5:
+                version = MockEnvironment::VERSION_50;
+                break;
         }
     }
+    if (version == MockEnvironment::VERSION_UNKNOWN) {
+        lcb_log(LOGARGS(instance, ERROR), "Unable to determine version from string '%.*s', assuming 4.0",
+                (int)resp->v.v0.nbytes, (const char *)resp->v.v0.bytes);
+        version = MockEnvironment::VERSION_40;
+    }
+    me->setServerVersion(version);
+    lcb_log(LOGARGS(instance, INFO), "Using real cluster version %.*s (id=%d)", (int)resp->v.v0.nbytes,
+            (const char *)resp->v.v0.bytes, version);
+}
 }
 
 void MockEnvironment::bootstrapRealCluster()
@@ -318,14 +339,11 @@ void MockEnvironment::bootstrapRealCluster()
         // no body
     }
 
-    if (serverVersion == VERSION_20) {
-        // Couchbase 2.0.x
-        featureRegistry.insert("observe");
-        featureRegistry.insert("views");
-        featureRegistry.insert("http");
-        featureRegistry.insert("replica_read");
-        featureRegistry.insert("lock");
-    }
+    featureRegistry.insert("observe");
+    featureRegistry.insert("views");
+    featureRegistry.insert("http");
+    featureRegistry.insert("replica_read");
+    featureRegistry.insert("lock");
 
     numNodes = ii;
     lcb_destroy(tmphandle);

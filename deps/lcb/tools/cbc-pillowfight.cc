@@ -409,6 +409,8 @@ public:
 
     virtual ~OpGenerator() {};
     virtual void setNextOp(NextOp& op) = 0;
+    virtual void setValue(NextOp& op) = 0;
+    virtual bool inPopulation() const = 0;
     virtual const char *getStageString() const = 0;
 
 protected:
@@ -422,6 +424,12 @@ public:
 
     void setNextOp(NextOp& op) {
         op.m_mode = NextOp::NOOP;
+    }
+
+    void setValue(NextOp&) {}
+
+    bool inPopulation() const {
+        return false;
     }
 
     const char *getStageString() const {
@@ -469,6 +477,10 @@ public:
         }
     }
 
+    void setValue(NextOp& op) {
+        m_local_genstate->populateIov(op.m_seqno, op.m_valuefrags);
+    }
+
     void setNextOp(NextOp& op) {
         bool store_override = false;
 
@@ -491,12 +503,12 @@ public:
         if (store_override) {
             // Populate
             op.m_mode = NextOp::STORE;
-            m_local_genstate->populateIov(op.m_seqno, op.m_valuefrags);
+            setValue(op);
 
         } else if (shouldStore(op.m_seqno)) {
             op.m_mode = m_mode_write;
             if (op.m_mode == NextOp::STORE) {
-                m_local_genstate->populateIov(op.m_seqno, op.m_valuefrags);
+                setValue(op);
             } else if (op.m_mode == NextOp::SDSTORE) {
                 op.m_specs.resize(config.sdOpsPerCmd);
                 m_sdgenstate->populateMutate(op.m_seqno, op.m_specs);
@@ -513,6 +525,10 @@ public:
         }
 
         generateKey(op);
+    }
+
+    bool inPopulation() const {
+        return m_in_population;
     }
 
     const char *getStageString() const {
@@ -568,14 +584,19 @@ public:
 
     ~ThreadContext() {
         delete gen;
+        gen = NULL;
+    }
+
+    bool inPopulation() {
+        return gen && (gen->inPopulation() || !retryq.empty());
     }
 
     void singleLoop() {
         bool hasItems = false;
-        lcb_sched_enter(instance);
         NextOp opinfo;
         unsigned exptime = config.getExptime();
 
+        lcb_sched_enter(instance);
         for (size_t ii = 0; ii < config.opsPerCycle; ++ii) {
             gen->setNextOp(opinfo);
 
@@ -631,6 +652,25 @@ public:
         } else {
             lcb_sched_fail(instance);
         }
+
+        while (!retryq.empty()) {
+            lcb_sched_enter(instance);
+            while (!retryq.empty()) {
+                opinfo = retryq.front();
+                retryq.pop();
+                lcb_CMDSTORE scmd = { 0 };
+                scmd.operation = LCB_SET;
+                scmd.exptime = exptime;
+                LCB_CMD_SET_KEY(&scmd, opinfo.m_key.c_str(), opinfo.m_key.size());
+                LCB_CMD_SET_VALUEIOV(&scmd, &opinfo.m_valuefrags[0], opinfo.m_valuefrags.size());
+                error = lcb_store3(instance, this, &scmd);
+            }
+            lcb_sched_leave(instance);
+            lcb_wait(instance);
+            if (error != LCB_SUCCESS) {
+                log("Operation(s) failed: [0x%x] %s", error, lcb_strerror(instance, error));
+            }
+        }
     }
 
     bool run() {
@@ -653,6 +693,13 @@ public:
             InstanceCookie::dumpTimings(instance, gen->getStageString(), true);
         }
         return true;
+    }
+
+    void retry(NextOp &op) {
+        if (op.m_mode == NextOp::STORE) {
+            gen->setValue(op);
+        }
+        retryq.push(op);
     }
 
 #ifndef WIN32
@@ -693,27 +740,35 @@ private:
     size_t niter;
     lcb_error_t error;
     lcb_t instance;
+    std::queue<NextOp> retryq;
 };
 
-static void operationCallback(lcb_t, int, const lcb_RESPBASE *resp)
+static void operationCallback(lcb_t, int cbtype, const lcb_RESPBASE *resp)
 {
     ThreadContext *tc;
 
     tc = const_cast<ThreadContext *>(reinterpret_cast<const ThreadContext *>(resp->cookie));
-    tc->setError(resp->rc);
+    if (cbtype == LCB_CALLBACK_STORE && resp->rc != LCB_SUCCESS && tc->inPopulation()) {
+        NextOp op;
+        op.m_mode = NextOp::STORE;
+        op.m_key.assign((char *)resp->key, resp->nkey);
+        op.m_seqno = atoi(op.m_key.c_str());
+        tc->retry(op);
+    } else {
+        tc->setError(resp->rc);
+    }
 
 #ifndef WIN32
     static volatile unsigned long nops = 1;
     static time_t start_time = time(NULL);
-    static int is_tty = isatty(STDOUT_FILENO);
+    static int is_tty = isatty(STDERR_FILENO);
     if (is_tty) {
         if (++nops % 1000 == 0) {
             time_t now = time(NULL);
             time_t nsecs = now - start_time;
             if (!nsecs) { nsecs = 1; }
             unsigned long ops_sec = nops / nsecs;
-            printf("OPS/SEC: %10lu\r", ops_sec);
-            fflush(stdout);
+            fprintf(stderr, "OPS/SEC: %10lu\r", ops_sec);
         }
     }
 #endif

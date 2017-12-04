@@ -103,12 +103,12 @@ lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
 
     } else {
         lcb_GUESSVB *guesses = instance->vbguess;
+        if (!guesses) {
+            guesses = instance->vbguess =
+                reinterpret_cast< lcb_GUESSVB * >(calloc(LCBT_VBCONFIG(instance)->nvb, sizeof(lcb_GUESSVB)));
+        }
         lcb_GUESSVB *guess = guesses + vbid;
         int newix = lcbvb_nmv_remap_ex(LCBT_VBCONFIG(instance), vbid, bad, 1);
-        if (!guesses) {
-            guesses = instance->vbguess = reinterpret_cast<lcb_GUESSVB*>(calloc(
-                LCBT_VBCONFIG(instance)->nvb, sizeof *guesses));
-        }
         if (newix > -1 && newix != bad) {
             guess->newix = newix;
             guess->oldix = bad;

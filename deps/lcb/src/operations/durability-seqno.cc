@@ -113,6 +113,10 @@ SeqnoDurset::poll_impl()
         ent.callback = seqno_callback;
 
         size_t nservers = ent.prepare(servers);
+        if (nservers == 0) {
+            ret_err = LCB_DURABILITY_ETOOMANY;
+            continue;
+        }
         for (size_t jj = 0; jj < nservers; jj++) {
             lcb_error_t err;
             cmd.server_index = servers[jj];

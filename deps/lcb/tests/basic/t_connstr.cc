@@ -189,6 +189,20 @@ TEST_F(ConnstrTest, testParseHosts)
     ASSERT_FALSE(NULL == findHost(&params, "foo.com"));
     ASSERT_FALSE(NULL == findHost(&params, "bar.com"));
     ASSERT_FALSE(NULL == findHost(&params, "baz.com"));
+
+    reinit();
+    err = params.parse("couchbase://"
+                       "::a15:f2df:3fef:51bb:212a:8cec,[::a15:f2df:3fef:51bb:212a:8ced],[::a15:f2df:3fef:51bb:212a:"
+                       "8cee]:9001",
+                       &errmsg);
+    ASSERT_EQ(LCB_SUCCESS, err) << "Cannot parse IPv6";
+    ASSERT_EQ(3, countHosts(&params));
+    ASSERT_FALSE(NULL == findHost(&params, "::a15:f2df:3fef:51bb:212a:8cec"));
+    ASSERT_FALSE(NULL == findHost(&params, "::a15:f2df:3fef:51bb:212a:8ced"));
+    dh = findHost(&params, "::a15:f2df:3fef:51bb:212a:8cee");
+    ASSERT_FALSE(dh == NULL);
+    ASSERT_EQ("::a15:f2df:3fef:51bb:212a:8cee", dh->hostname);
+    ASSERT_EQ(9001, dh->port);
 }
 
 TEST_F(ConnstrTest, testParseBucket)

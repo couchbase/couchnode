@@ -122,7 +122,7 @@ private:
 
         last_update = now;
 
-        const char *prefix = use_ansi_codes ? "\x1B[K" : "";
+        const char *prefix;
         const char *final_suffix;
 
         // Only use "ticker" style updates if we're a TTY and we have no

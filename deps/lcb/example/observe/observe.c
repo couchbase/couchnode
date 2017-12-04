@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2017 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -28,11 +28,12 @@
 
 #define fail(msg) \
     fprintf(stderr, "%s\n", msg); \
-    exit(EXIT_FAILURE);
+    exit(EXIT_FAILURE)
 
 #define fail2(msg, err) \
     fprintf(stderr, "%s\n", msg); \
-    fprintf(stderr, "Error was 0x%x (%s)\n", err, lcb_strerror(NULL, err))
+    fprintf(stderr, "Error was 0x%x (%s)\n", err, lcb_strerror(NULL, err)); \
+    exit(EXIT_FAILURE)
 
 typedef struct {
     int master;
@@ -81,12 +82,24 @@ int main(int argc, char *argv[])
     lcb_MULTICMD_CTX *mctx = NULL;
     observe_info obs_info;
     unsigned nservers, ii;
+    struct lcb_create_st create_options = { 0 };
 
-    if (argc != 2) {
-        fail("requires key as argument");
+    if (argc < 2) {
+        fail("Requires key as argument\n"
+             "Usage: observe KEY [CONNSTRING [ PASSWORD [ USERNAME ] ] ]\n");
+    }
+    create_options.version = 3;
+    if (argc > 2) {
+        create_options.v.v3.connstr = argv[2];
+    }
+    if (argc > 3) {
+        create_options.v.v3.passwd = argv[3];
+    }
+    if (argc > 4) {
+        create_options.v.v3.username = argv[4];
     }
 
-    if ((err = lcb_create(&instance, NULL)) != LCB_SUCCESS) {
+    if ((err = lcb_create(&instance, &create_options)) != LCB_SUCCESS) {
         fail2("cannot create connection instance", err);
     }
     if ((err = lcb_connect(instance)) != LCB_SUCCESS) {

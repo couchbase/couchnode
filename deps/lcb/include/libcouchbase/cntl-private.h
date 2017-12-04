@@ -351,4 +351,17 @@ typedef enum {
  */
 #define LCB_CNTL_KVTIMINGS 0x3C
 
+/**
+ * @volatile
+ * Activate/Get library metrics per-server
+ *
+ * If using @ref LCB_CNTL_SET, then this will activate the metrics, and should
+ * be called immediately after lcb_create. The `arg` parameter should be a pointer
+ * to an integer with the activation value (any non-zero value to activate).
+ *
+ * If using @ref LCB_CNTL_GET, the `arg` parameter should be a @ref `lcb_METRICS**`
+ * variable, which will contain the pointer to the metrics upon completion.
+ */
+#define LCB_CNTL_METRICS 0x49
+
 /**@}*/

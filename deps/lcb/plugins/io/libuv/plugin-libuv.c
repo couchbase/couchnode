@@ -16,6 +16,7 @@
  */
 
 #include "plugin-internal.h"
+#include <libcouchbase/plugins/io/bsdio-inl.c>
 
 static my_uvreq_t *alloc_uvreq(my_sockdata_t *sock, generic_callback_t callback);
 static void set_last_error(my_iops_t *io, int error);
@@ -232,6 +233,7 @@ static lcb_sockdata_t *create_socket(lcb_io_opt_t iobase,
     }
 
     uv_tcp_init(io->loop, &ret->tcp.t);
+    ret->base.socket = INVALID_SOCKET;
 
     incref_iops(io);
     incref_sock(ret);
@@ -328,6 +330,7 @@ static int start_connect(lcb_io_opt_t iobase,
     my_uvreq_t *uvr;
     int ret;
     int err_is_set = 0;
+    uv_os_fd_t fd = INVALID_SOCKET;
 
     uvr = alloc_uvreq(sock, (generic_callback_t)callback);
     if (!uvr) {
@@ -361,6 +364,13 @@ static int start_connect(lcb_io_opt_t iobase,
 
     } else {
         incref_sock(sock);
+    }
+
+    /* Fetch socket descriptor for internal usage.
+     * For example to detect dead sockets. */
+    ret = uv_fileno((uv_handle_t *)&sock->tcp, &fd);
+    if (ret == 0) {
+        sock->base.socket = fd;
     }
 
     return ret;
@@ -610,6 +620,48 @@ static void set_last_error(my_iops_t *io, int error)
     io->base.v.v1.error = uvc_last_errno(io->loop, error);
 }
 
+static int check_closed(lcb_io_opt_t io, lcb_sockdata_t *sockbase, int flags)
+{
+    my_sockdata_t *sd = (my_sockdata_t *)sockbase;
+
+    char buf = 0;
+    int rv = 0;
+    lcb_socket_t sock = sd->base.socket;
+
+    if (sock == INVALID_SOCKET) {
+        return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+    }
+
+GT_RETRY:
+    /* We can ignore flags for now, since both Windows and POSIX support MSG_PEEK */
+    rv = recv(sock, &buf, 1, MSG_PEEK);
+    if (rv == 1) {
+        if (flags & LCB_IO_SOCKCHECK_PEND_IS_ERROR) {
+            return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+        } else {
+            return LCB_IO_SOCKCHECK_STATUS_OK;
+        }
+    } else if (rv == 0) {
+        /* Really closed! */
+        return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+    } else {
+        int last_err;
+#ifdef _WIN32
+        last_err = get_wserr(sock);
+#else
+        last_err = errno;
+#endif
+
+        if (last_err == EINTR) {
+            goto GT_RETRY;
+        } else if (last_err == EWOULDBLOCK || last_err == EAGAIN) {
+            return LCB_IO_SOCKCHECK_STATUS_OK; /* Nothing to report. So we're good */
+        } else {
+            return LCB_IO_SOCKCHECK_STATUS_CLOSED;
+        }
+    }
+}
+
 static void wire_iops2(int version,
                        lcb_loop_procs *loop,
                        lcb_timer_procs *timer,
@@ -635,6 +687,7 @@ static void wire_iops2(int version,
     iocp->read2 = start_read;
     iocp->write2 = start_write2;
     iocp->cntl = cntl_socket;
+    iocp->is_closed = check_closed;
 
     /** Stuff we don't use */
     iocp->write = NULL;

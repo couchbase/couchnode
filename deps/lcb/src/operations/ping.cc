@@ -163,8 +163,7 @@ invoke_ping_callback(lcb_t instance, PingCookie *ck)
 }
 
 static void
-handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err,
-             const void *arg)
+handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err, const void *)
 {
     lcb::Server *server = static_cast<lcb::Server*>(pipeline);
     PingCookie *ck = (PingCookie *)req->u_rdata.exdata;

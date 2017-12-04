@@ -145,4 +145,8 @@ typedef struct {
   typedef size_t lcb_uvbuf_len_t;
 #endif
 
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET -1
+#endif
+
 #endif

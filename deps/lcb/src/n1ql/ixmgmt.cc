@@ -407,9 +407,6 @@ do_index_list(lcb_t instance, const void *cookie, const lcb_CMDN1XMGMT *cmd,
     if (spec.ixtype) {
         const char *s_ixtype = ixtype_2_str(spec.ixtype);
         if (s_ixtype == NULL) {
-            if (ctx != NULL) {
-                delete ctx;
-            }
             return LCB_EINVAL;
         }
         ss.append(" using=\"").append(s_ixtype).append("\" AND");

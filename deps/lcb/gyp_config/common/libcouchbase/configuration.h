@@ -33,7 +33,7 @@
  */
 
 /** @brief libcouchbase version string */
-#define LCB_VERSION_STRING "2.7.5-njs"
+#define LCB_VERSION_STRING "2.8.3-njs"
 
 /**@brief libcouchbase hex version
  *
@@ -50,12 +50,12 @@
  * 2.1.3	| 0x020103
  * 3.0.15	| 0x030015
  */
-#define LCB_VERSION 0x020705
+#define LCB_VERSION 0x020803
 
 /**@brief The SCM revision ID
  * @see LCB_CNTL_CHANGESET
  */
-#define LCB_VERSION_CHANGESET "09a9e28dfaf9f70a7e230de66909fc5d9f3a6b4f"
+#define LCB_VERSION_CHANGESET "8ce52f9294cfef59b9ff44f3cfc18cc3ca8c2860"
 
 #ifdef __cplusplus
 extern "C" {

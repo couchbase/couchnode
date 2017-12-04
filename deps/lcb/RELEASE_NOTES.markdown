@@ -1,9 +1,88 @@
 # Release Notes
 
+## 2.8.3 (November 21 2017)
+
+* [CCBC-415](https://issues.couchbase.com/browse/CCBC-415): Fixes in IPv6 support.
+  To use IPv6 addresses, the application should connect to IPv6-enabled Couchbase Server,
+  and explicitly switch on option via connection string `ipv6=allow` or `ipv6=only`,
+  where first variant permits the library to use both IPv6 and IPv4, and the second --
+  disables IPv6. Alternatively this setting controlled with `LCB_CNTL_IP6POLICY` and
+  `lcb_cntl`.
+
+* [CCBC-872](https://issues.couchbase.com/browse/CCBC-872): Metrics management
+  These metrics are intended at providing information on libcouchbase operations performed
+  over the lifetime of the current `lcb_t` instance (processed request packets, processed
+  response packets, request packets pending emission, server errors, server timeouts,
+  misrouted operations, retried operations).
+
+  Metrics collection is currently disabled by default. To enable metrics collection,
+  the user should call:
+
+        int activate = 1;
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_METRICS, &activate);
+
+  Access to the collected metrics is done using:
+
+        lcb_METRICS* my_metrics;
+        lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_METRICS, &my_metrics);
+
+* [CCBC-870](https://issues.couchbase.com/browse/CCBC-870): Fix updating URL on retry. When retrying HTTP request, instead of replacing just `host:port` part of the old URL, the library inserted full URL.
+
+* [CCBC-547](https://issues.couchbase.com/browse/CCBC-547): Detect dead sockets under libuv.
+
+* Ensure macros safe by surrounding values with parentheses
+
+## 2.8.2 (October 17 2017)
+
+* [CCBC-833](https://issues.couchbase.com/browse/CCBC-833), [CCBC-834](https://issues.couchbase.com/browse/CCBC-834):
+  Update real cluster integration in the test suite.
+
+* [CCBC-860](https://issues.couchbase.com/browse/CCBC-860): cbc-connstr: Do not zero out C++ instances.
+
+* [CCBC-859](https://issues.couchbase.com/browse/CCBC-859): Fix libm shared object detection on Debian 9.
+
+* Bugs reported by [clang analyzer](http://clang-analyzer.llvm.org/):
+
+  * [CCBC-858](https://issues.couchbase.com/browse/CCBC-858): Fix memory leak for compressed packet.
+  * [CCBC-857](https://issues.couchbase.com/browse/CCBC-857): Fix possible NULL pointer dereference in `mcreq_reserve_key`.
+  * [CCBC-856](https://issues.couchbase.com/browse/CCBC-856): Initialize response struct in `H_config`.
+  * [CCBC-855](https://issues.couchbase.com/browse/CCBC-855): Fix dead assignments in `contrib/genhash`.
+  * [CCBC-854](https://issues.couchbase.com/browse/CCBC-854): Init vbguess array before entry lookup.
+  * [CCBC-853](https://issues.couchbase.com/browse/CCBC-853): cbc-proxy: do not use client object after free.
+  * [CCBC-852](https://issues.couchbase.com/browse/CCBC-852): Do not free memory twice in N1QL index manager.
+
+## 2.8.1 (September 20 2017)
+
+* Check nodes number for durability checks. The store with durability
+  requirements will report more specific error when the library cannot
+  fulfill the condition during failover.
+  * Issues: [CCBC-817](https://issues.couchbase.com/browse/CCBC-817)
+
+* Handle enhanced error messages for subdoc operations. The subdoc
+  responses will now expose context and reference ID if present.
+  * Issues: [CCBC-846](https://issues.couchbase.com/browse/CCBC-846)
+
+* Discover and bootstrap analytics service from cluster configuration.
+  * Issues: [CCBC-840](https://issues.couchbase.com/browse/CCBC-840)
+
+* Improve documentation of configuration parameters.
+  * Issues: [CCBC-835](https://issues.couchbase.com/browse/CCBC-835)
+
+* Enable Error Map feature by default.
+  * Issues: [CCBC-838](https://issues.couchbase.com/browse/CCBC-838)
+
+* Cleanup and extend `minimal`, `libeventdirect`, `instancepool` examples
+
+* Tools:
+  * improve error reporting
+  * experimental subcommand `cbc-proxy`
+  * fix memory leaks
+  * retry store operations during population phase in `cbc-pillowfight`
+
 ## 2.8.0 (August 31 2017)
 
 * Add support for OpenSSL-1.1.
-  * Issues: [CCBC-832](https://issues.couchbase.com/browse/CCBC-832)
+  * Issues: [CCBC-814](https://issues.couchbase.com/browse/CCBC-814)
 
 * Mask `LOCKED` status code for backward compatibility. This code
   (as well as others possible codes with 'item-locked' attribute)

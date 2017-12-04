@@ -48,6 +48,7 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     char *host_s;
     char *port_s;
     char *delim;
+    bool ipv6 = false;
 
     /** Parse the host properly */
     if (speclen < 0) {
@@ -64,10 +65,6 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     zspec.push_back('\0');
     host_s = &zspec[0];
 
-    if (*host_s == ':') {
-        return LCB_INVALID_HOST_FORMAT;
-    }
-
     if ( (delim = strstr(host_s, "://"))) {
         host_s = delim + 3;
     }
@@ -77,6 +74,24 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     }
 
     port_s = strstr(host_s, ":");
+    if (port_s != NULL && strstr(port_s + 1, ":") != NULL) {
+        ipv6 = true;
+        // treat as IPv6 address
+        if (host_s[0] == '[') {
+            host_s++;
+            char *hostend = strstr(host_s, "]");
+            if (hostend == NULL) {
+                return LCB_INVALID_HOST_FORMAT;
+            }
+            port_s = hostend + 1;
+            if (*port_s != ':' || (size_t)(port_s - host_s) >= strlen(host_s)) {
+                port_s = NULL;
+            }
+            *hostend = '\0';
+        } else {
+            port_s = NULL;
+        }
+    }
     if (port_s != NULL) {
         char *endp;
         long ll;
@@ -118,6 +133,13 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
         case '-':
         case '_':
             break;
+        case ':':
+        case '[':
+        case ']':
+            if (ipv6) {
+                break;
+            }
+        /* fallthrough */
         default:
             return LCB_INVALID_HOST_FORMAT;
         }
@@ -129,6 +151,7 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     } else {
         sprintf(host->port, "%d", deflport);
     }
+    host->ipv6 = ipv6;
 
     return LCB_SUCCESS;
 }
@@ -152,7 +175,7 @@ Hostlist::exists(const lcb_host_t& host) const
 bool
 Hostlist::exists(const char *s) const
 {
-    lcb_host_t tmp;
+    lcb_host_t tmp = {0};
     if (lcb_host_parse(&tmp, s, -1, 1) != LCB_SUCCESS) {
         return false;
     }
@@ -189,7 +212,7 @@ Hostlist::add(const char *hostport, long len, int deflport)
     const char *curstart = ss.c_str();
     const char *delim;
     while ( (delim = strstr(curstart, ";"))) {
-        lcb_host_t curhost;
+        lcb_host_t curhost = {0};
         size_t curlen;
 
         if (delim == curstart) {
@@ -243,7 +266,12 @@ void Hostlist::ensure_strlist() {
     }
     for (size_t ii = 0; ii < hosts.size(); ii++) {
         const lcb_host_t& host = hosts[ii];
-        std::string ss(host.host);
+        std::string ss;
+        if (host.ipv6) {
+            ss.append("[").append(host.host).append("]");
+        } else {
+            ss.append(host.host);
+        }
         ss.append(":").append(host.port);
         char *newstr = new char[ss.size() + 1];
         newstr[ss.size()] = '\0';

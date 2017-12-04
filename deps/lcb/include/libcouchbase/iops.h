@@ -338,7 +338,7 @@ typedef void (*lcb_ioE_close_fn)
 
 
 /**
- * While checking the socket, treat pending data as an _erorr_.
+ * While checking the socket, treat pending data as an _error_.
  * This flag will be _missing_ if the socket participates in a protocol
  * where unsolicited data is possible.
  *

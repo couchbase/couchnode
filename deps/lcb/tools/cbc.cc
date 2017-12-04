@@ -11,6 +11,7 @@
 #include <libcouchbase/n1ql.h>
 #include <limits>
 #include <stddef.h>
+#include <errno.h>
 #include "common/options.h"
 #include "common/histogram.h"
 #include "cbc-handlers.h"
@@ -38,11 +39,19 @@ string getRespKey(const lcb_RESPBASE* resp)
 }
 
 static void
-printKeyError(string& key, lcb_error_t err, const char *additional = NULL)
+printKeyError(string& key, int cbtype, const lcb_RESPBASE *resp, const char *additional = NULL)
 {
-    fprintf(stderr, "%-20s %s (0x%x)\n", key.c_str(), lcb_strerror(NULL, err), err);
+    fprintf(stderr, "%-20s %s (0x%x)\n", key.c_str(), lcb_strerror(NULL, resp->rc), resp->rc);
+    const char *ctx = lcb_resp_get_error_context(cbtype, resp);
+    if (ctx != NULL) {
+        fprintf(stderr, "%-20s %s\n", "", ctx);
+    }
+    const char *ref = lcb_resp_get_error_ref(cbtype, resp);
+    if (ref != NULL) {
+        fprintf(stderr, "%-20s Ref: %s\n", "", ref);
+    }
     if (additional) {
-        fprintf(stderr, "%-20s%s\n", "", additional);
+        fprintf(stderr, "%-20s %s\n", "", additional);
     }
 }
 
@@ -64,7 +73,7 @@ printKeyCasStatus(string& key, int cbtype, const lcb_RESPBASE *resp,
 
 extern "C" {
 static void
-get_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPGET *resp)
+get_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPGET *resp)
 {
     string key = getRespKey((const lcb_RESPBASE *)resp);
     if (resp->rc == LCB_SUCCESS) {
@@ -75,7 +84,7 @@ get_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPGET *resp)
         fflush(stdout);
         fprintf(stderr, "\n");
     } else {
-        printKeyError(key, resp->rc);
+        printKeyError(key, cbtype, (const lcb_RESPBASE *)resp);
     }
 }
 
@@ -100,13 +109,13 @@ store_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPBASE *resp)
             } else {
                 sprintf(buf, "%s", "Store failed");
             }
-            printKeyError(key, resp->rc, buf);
+            printKeyError(key, cbtype, resp);
         }
     } else {
         if (resp->rc == LCB_SUCCESS) {
             printKeyCasStatus(key, cbtype, resp, "Stored.");
         } else {
-            printKeyError(key, resp->rc);
+            printKeyError(key, cbtype, resp);
         }
     }
 }
@@ -116,7 +125,7 @@ common_callback(lcb_t, int type, const lcb_RESPBASE *resp)
 {
     string key = getRespKey(resp);
     if (resp->rc != LCB_SUCCESS) {
-        printKeyError(key, resp->rc);
+        printKeyError(key, type, resp);
         return;
     }
     switch (type) {
@@ -135,7 +144,7 @@ common_callback(lcb_t, int type, const lcb_RESPBASE *resp)
 }
 
 static void
-observe_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPOBSERVE *resp)
+observe_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPOBSERVE *resp)
 {
     if (resp->nkey == 0) {
         return;
@@ -148,7 +157,7 @@ observe_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPOBSERVE *resp)
             resp->ismaster ? "Master" : "Replica",
                     resp->status, resp->cas);
     } else {
-        printKeyError(key, resp->rc);
+        printKeyError(key, cbtype, (const lcb_RESPBASE *)resp);
     }
 }
 
@@ -184,7 +193,7 @@ static void
 stats_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
 {
     if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "Got error %s (%d) in stats\n", lcb_strerror(NULL, resp->rc), resp->rc);
+        fprintf(stderr, "ERROR 0x%02X (%s)\n", resp->rc, lcb_strerror(NULL, resp->rc));
         return;
     }
     if (resp->server == NULL || resp->key == NULL) {
@@ -252,7 +261,7 @@ arithmetic_callback(lcb_t, lcb_CALLBACKTYPE type, const lcb_RESPCOUNTER *resp)
 {
     string key = getRespKey((const lcb_RESPBASE *)resp);
     if (resp->rc != LCB_SUCCESS) {
-        printKeyError(key, resp->rc);
+        printKeyError(key, type, (lcb_RESPBASE *)resp);
     } else {
         char buf[4096] = { 0 };
         sprintf(buf, "Current value is %" PRIu64 ".", resp->value);
@@ -363,17 +372,17 @@ Handler::run()
     lcb_error_t err;
     err = lcb_create(&instance, &cropts);
     if (err != LCB_SUCCESS) {
-        throw LcbError(err);
+        throw LcbError(err, "Failed to create instance");
     }
     params.doCtls(instance);
     err = lcb_connect(instance);
     if (err != LCB_SUCCESS) {
-        throw LcbError(err);
+        throw LcbError(err, "Failed to connect instance");
     }
     lcb_wait(instance);
     err = lcb_get_bootstrap_status(instance);
     if (err != LCB_SUCCESS) {
-        throw LcbError(err);
+        throw LcbError(err, "Failed to bootstrap instance");
     }
 
     if (params.useTimings()) {
@@ -816,6 +825,7 @@ VersionHandler::run()
             cio.v.v0.type = known_io[ii];
             if (lcb_create_io_ops(&io, &cio) == LCB_SUCCESS) {
                 p += sprintf(p, "%s,", iops_to_string(known_io[ii]));
+                lcb_destroy_io_ops(io);
             }
         }
         *(--p) = '\n';
@@ -1069,11 +1079,11 @@ extern "C" {
 static void n1qlCallback(lcb_t, int, const lcb_RESPN1QL *resp)
 {
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        fprintf(stderr, "** N1QL Response finished\n");
+        fprintf(stderr, "---> Query response finished\n");
         if (resp->rc != LCB_SUCCESS) {
-            fprintf(stderr, "N1QL query failed with library code 0x%x\n", resp->rc);
+            fprintf(stderr, "---> Query failed with library code 0x%x (%s)\n", resp->rc, lcb_strerror(NULL, resp->rc));
             if (resp->htresp) {
-                fprintf(stderr, "Inner HTTP request failed with library code 0x%x and HTTP status %d\n",
+                fprintf(stderr, "---> Inner HTTP request failed with library code 0x%x and HTTP status %d\n",
                     resp->htresp->rc, resp->htresp->htstatus);
             }
         }
@@ -1129,7 +1139,10 @@ N1qlHandler::run()
     if (o_prepare.passed()) {
         cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
     }
-    fprintf(stderr, "Encoded query: %.*s\n", (int)cmd.nquery, cmd.query);
+    if (o_analytics.passed()) {
+        cmd.cmdflags |= LCB_CMDN1QL_F_CBASQUERY;
+    }
+    fprintf(stderr, "---> Encoded query: %.*s\n", (int)cmd.nquery, cmd.query);
     cmd.callback = n1qlCallback;
     rc = lcb_n1ql_query(instance, NULL, &cmd);
     if (rc != LCB_SUCCESS) {
@@ -1438,7 +1451,6 @@ ConnstrHandler::run()
     lcb_error_t err;
     const char *errmsg;
     lcb::Connspec spec;
-    memset(&spec, 0, sizeof spec);
     err = spec.parse(connstr_s.c_str(), &errmsg);
     if (err != LCB_SUCCESS) {
         throw BadArg(errmsg);
@@ -1547,7 +1559,7 @@ static const char* optionsOrder[] = {
         "version",
         "verbosity",
         "view",
-        "n1ql",
+        "query",
         "admin",
         "bucket-create",
         "bucket-delete",
@@ -1638,7 +1650,7 @@ setupHandlers()
     handlers_s["bucket-delete"] = new BucketDeleteHandler();
     handlers_s["bucket-flush"] = new BucketFlushHandler();
     handlers_s["view"] = new ViewsHandler();
-    handlers_s["n1ql"] = new N1qlHandler();
+    handlers_s["query"] = new N1qlHandler();
     handlers_s["connstr"] = new ConnstrHandler();
     handlers_s["write-config"] = new WriteConfigHandler();
     handlers_s["strerror"] = new StrErrorHandler();
@@ -1655,6 +1667,7 @@ setupHandlers()
     }
 
     handlers["cat"] = handlers["get"];
+    handlers["n1ql"] = handlers["query"];
 }
 
 #if _POSIX_VERSION >= 200112L
@@ -1698,7 +1711,8 @@ wrapExternalBinary(int argc, char **argv, const std::string& name)
     size_t cbc_pos = exePath.find("cbc");
 
     if (cbc_pos == string::npos) {
-        throw BadArg("Couldn't invoke " + name);
+        fprintf(stderr, "Failed to invoke %s (%s)\n", name.c_str(), exePath.c_str());
+        exit(EXIT_FAILURE);
     }
 
     exePath.replace(cbc_pos, 3, name);
@@ -1711,11 +1725,11 @@ wrapExternalBinary(int argc, char **argv, const std::string& name)
     }
     args.push_back((char*)NULL);
     execvp(exePath.c_str(), &args[0]);
-    perror(exePath.c_str());
-    throw BadArg("Couldn't execute " + name + " !");
+    fprintf(stderr, "Failed to execute execute %s (%s): %s\n", name.c_str(), exePath.c_str(), strerror(errno));
 #else
-    throw BadArg("Can't wrap around " + name + " on non-POSIX environments");
+    fprintf(stderr, "Can't wrap around %s on non-POSIX environments", name.c_str());
 #endif
+    exit(EXIT_FAILURE);
 }
 
 static void cleanupHandlers()
@@ -1737,6 +1751,8 @@ int main(int argc, char **argv)
             wrapExternalBinary(argc, argv, "cbc-n1qlback");
         } else if (strcmp(argv[1], "subdoc") == 0) {
             wrapExternalBinary(argc, argv, "cbc-subdoc");
+        } else if (strcmp(argv[1], "proxy") == 0) {
+            wrapExternalBinary(argc, argv, "cbc-proxy");
         }
     }
 

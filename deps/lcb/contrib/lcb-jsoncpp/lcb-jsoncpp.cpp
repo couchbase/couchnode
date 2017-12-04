@@ -1275,7 +1275,8 @@ bool OurReader::readToken(Token& token) {
     token.type_ = tokenString;
     ok = readStringSingleQuote();
     break;
-    } // else continue
+    }
+    /* falls through */
   case '/':
     token.type_ = tokenComment;
     ok = readComment();
@@ -2351,12 +2352,12 @@ RuntimeError::RuntimeError(std::string const& msg)
 LogicError::LogicError(std::string const& msg)
   : Exception(msg)
 {}
-void throwRuntimeError(std::string const& msg)
+void throwRuntimeError(std::string const& )
 {
     assert(false);
 //  throw RuntimeError(msg);
 }
-void throwLogicError(std::string const& msg)
+void throwLogicError(std::string const&)
 {
     assert(false);
 //  throw LogicError(msg);

@@ -30,7 +30,7 @@ static bool hostEquals(const lcb_host_t &host, const char *addr, const char *por
 
 TEST_F(Hostlist, testParseBasic)
 {
-    lcb_host_t curhost;
+    lcb_host_t curhost = {0};
     lcb_error_t err;
 
     err = lcb_host_parsez(&curhost, "1.2.3.4", 8091);
@@ -59,12 +59,24 @@ TEST_F(Hostlist, testParseBasic)
 
     err = lcb_host_parsez(&curhost, "localhost:1111111111111111111111111111", 100);
     ASSERT_EQ(LCB_INVALID_HOST_FORMAT, err);
+
+    err = lcb_host_parsez(&curhost, "[::a15:f2df:4854:9ac6:8ceb:30a5]:9000", 8091);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_TRUE(hostEquals(curhost, "::a15:f2df:4854:9ac6:8ceb:30a5", "9000"));
+
+    err = lcb_host_parsez(&curhost, "::a15:f2df:4854:9ac6:8ceb:30a5", 8091);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_TRUE(hostEquals(curhost, "::a15:f2df:4854:9ac6:8ceb:30a5", "8091"));
+
+    err = lcb_host_parsez(&curhost, "::1", 8091);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_TRUE(hostEquals(curhost, "::1", "8091"));
 }
 
 
 TEST_F(Hostlist, testEquals)
 {
-    lcb_host_t host_a, host_b;
+    lcb_host_t host_a = {0}, host_b = {0};
     strcpy(host_a.host, "foo.com");
     strcpy(host_a.port, "1234");
     strcpy(host_b.host, "foo.com");
@@ -149,6 +161,14 @@ TEST_F(Hostlist, testParseList)
     hosts.randomize();
     hosts.clear();
     hosts.randomize();
+
+    hosts.clear();
+    err = hosts.add("fe80::dc59:5260:117d:33ec;[::a15:f2df:4854:9ac6:8ceb:30a5]:9000;::1:9000", 8091);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_EQ(3, hosts.size());
+    ASSERT_TRUE(hosts.exists("[fe80::dc59:5260:117d:33ec]:8091"));
+    ASSERT_TRUE(hosts.exists("[::a15:f2df:4854:9ac6:8ceb:30a5]:9000"));
+    ASSERT_TRUE(hosts.exists("[::1:9000]:8091"));
 }
 
 TEST_F(Hostlist, testCycle)

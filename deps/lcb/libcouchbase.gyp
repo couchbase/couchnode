@@ -245,6 +245,7 @@
         'src/logging.c',
         'src/newconfig.cc',
         'src/nodeinfo.cc',
+        'src/metrics.cc',
         'src/retrychk.cc',
         'src/retryq.cc',
         'src/ringbuffer.c',

@@ -89,6 +89,10 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
         } else {
             fprintf(fp, "** == NOT DUMPING PACKETS. LCB_DUMP_PKTINFO not passed\n");
         }
+        if ((flags & LCB_DUMP_METRICS) && server->metrics) {
+            fprintf(fp, "=== SERVER METRICS ===\n");
+            lcb_metrics_dumpserver(server->metrics, fp);
+        }
         fprintf(fp, "\n\n");
     }
     fprintf(fp, "=== END PIPELINE DUMP ===\n");

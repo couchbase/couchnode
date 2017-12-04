@@ -1,79 +1,80 @@
-Summary: Couchbase Client & Protocol Library
+Summary: Client and protocol library for the Couchbase project
 Name: libcouchbase
 Version: @VERSION@
 Release: @RELEASE@%{?dist}
 Vendor: Couchbase, Inc.
 Packager: Couchbase SDK Team <support@couchbase.com>
-License: Apache-2
+License: ASL 2.0
 Group: System Environment/Libraries
-%if %{?fedora}0 >= 180 || %{?rhel}0 >= 60
+BuildRequires: gcc, gcc-c++
 BuildRequires: cmake >= 2.8.9
-%else
-BuildRequires: cmake28
-%endif
-BuildRequires: libevent-devel >= 1.4, libev-devel >= 3, openssl-devel
-URL: https://github.com/couchbase/libcouchbase
-Source: @TARREDAS@.tar.gz
+BuildRequires: pkgconfig(libevent) >= 2
+BuildRequires: libev-devel >= 3
+BuildRequires: openssl-devel
+URL: https://developer.couchbase.com/server/other-products/release-notes-archives/c-sdk
+Source: https://packages.couchbase.com/clients/c/@TARREDAS@.tar.gz
 BuildRoot: %{_topdir}/build/@TARREDAS@
+%if ! (0%{?rhel} && 0%{?rhel} <= 7)
+Recommends: %{name}2-libevent%{_isa} = %{version}-%{release}
+Suggests: %{name}2-libev%{_isa} = %{version}-%{release}
+Suggests: %{name}2-tools%{_isa} = %{version}-%{release}
+%endif
 
 %description
 This is the client and protocol library for Couchbase project.
 
 %package -n %{name}2-libevent
 Group: System Environment/Libraries
-Summary: Couchbase Client & Protocol Library (libevent backend)
-Requires: %{name}2-core = %{version}-%{release}, libevent >= 1.4
+Summary: Couchbase client library - libevent IO back-end
+Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description -n %{name}2-libevent
-This package provides libevent backend for libcouchbase
+This package provides libevent back-end for libcouchbase
 
 %package -n %{name}2-libev
 Group: System Environment/Libraries
-Summary: Couchbase Client & Protocol Library (libev backend)
-Requires: %{name}2-core = %{version}-%{release}, libev >= 3
+Summary: Couchbase client library - libev IO back-end
+Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description -n %{name}2-libev
-This package provides libev backend for libcouchbase
+This package provides libev back-end for libcouchbase
 
 %package -n %{name}2-core
 Group: System Environment/Libraries
-Summary: Couchbase Client & Protocol Library (core)
-Provides: %{name}2
+Summary: Couchbase client library - core
+Provides: %{name}2%{?_isa} = %{version}-%{release}
 %description -n %{name}2-core
 This package provides the core for libcouchbase. It contains an IO
 implementation based on select(2). If preferred, you can install one
-of the available backends (libcouchbase2-libevent or
+of the available back-ends (libcouchbase2-libevent or
 libcouchbase2-libev).  libcouchbase will automatically use the
-installed backend. It is also possible to integrate another IO backend
+installed back-end. It is also possible to integrate another IO back-end
 or write your own.
 
 %package -n %{name}2-bin
 Group: Development/Tools
 Summary: Couchbase Client Tools
-Requires: %{name}2-core = %{version}-%{release}
+Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description -n %{name}2-bin
 This is the CLI tools Couchbase project.
 
 %package devel
 Group: Development/Libraries
 Summary: Couchbase Client & Protocol Library - Header files
-Requires: %{name}2-core = %{version}-%{release}
+Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description devel
 Development files for the Couchbase Client & Protocol Library
 
 %prep
-%if 0%{?rhel} > 5 || 0%{?fedora} > 7
-%define __lcb_cmake %cmake
-%else
-%define __lcb_cmake %cmake28
-%endif
-
 %setup -q -n @TARREDAS@
-%{__lcb_cmake} -DLCB_NO_TESTS=1 -DLCB_BUILD_LIBUV=OFF
+%cmake -DLCB_NO_MOCK=1 -DLCB_BUILD_LIBUV=OFF
 
 %build
-%{__make} %{_smp_mflags}
+%make_build
 
 %install
-%{__make} install DESTDIR="%{buildroot}" AM_INSTALL_PROGRAM_FLAGS=""
+%make_install
+
+%check
+make test
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -84,16 +85,16 @@ Development files for the Couchbase Client & Protocol Library
 
 %files -n %{name}2-core
 %defattr(-, root, root)
-%{_libdir}/libcouchbase.so.*
+%{_libdir}/%{name}.so.*
 %doc README.markdown LICENSE RELEASE_NOTES.markdown
 
 %files -n %{name}2-libevent
 %defattr(-, root, root)
-%{_libdir}/libcouchbase_libevent.so
+%{_libdir}/%{name}_libevent.so
 
 %files -n %{name}2-libev
 %defattr(-, root, root)
-%{_libdir}/libcouchbase_libev.so
+%{_libdir}/%{name}_libev.so
 
 %files -n %{name}2-bin
 %defattr(-, root, root)
@@ -103,6 +104,6 @@ Development files for the Couchbase Client & Protocol Library
 
 %files devel
 %defattr(-, root, root)
-%{_includedir}/libcouchbase
-%{_libdir}/libcouchbase.so
-%{_libdir}/pkgconfig/libcouchbase.pc
+%{_includedir}/%{name}
+%{_libdir}/%{name}.so
+%{_libdir}/pkgconfig/%{name}.pc

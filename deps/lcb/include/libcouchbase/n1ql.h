@@ -318,10 +318,10 @@ lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd);
  * Prepare and cache the query if required. This may be used on frequently
  * issued queries, so they perform better.
  */
-#define LCB_CMDN1QL_F_PREPCACHE 1<<16
+#define LCB_CMDN1QL_F_PREPCACHE (1 << 16)
 
 /** The lcb_CMDN1QL::query member is an internal JSON structure. @internal */
-#define LCB_CMDN1QL_F_JSONQUERY 1<<17
+#define LCB_CMDN1QL_F_JSONQUERY (1 << 17)
 
 /**
  * This is an analytics query. Use the `host` field to specify the host/port
@@ -330,7 +330,7 @@ lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd);
  *
  * @uncommitted
  */
-#define LCB_CMDN1QL_F_CBASQUERY 1<<18
+#define LCB_CMDN1QL_F_CBASQUERY (1 << 18)
 
 /**
  * Command structure for N1QL queries. Typically an application will use the

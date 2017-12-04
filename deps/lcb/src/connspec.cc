@@ -66,7 +66,7 @@ Connspec::parse_hosts(const char *hostbegin,
     while (*c) {
         // get the current host
         const char *curend;
-        unsigned curlen, hostlen;
+        unsigned curlen, hostlen, hoststart;
         int rv;
 
         /* Seek ahead, chopping off any ',' */
@@ -95,15 +95,30 @@ Connspec::parse_hosts(const char *hostbegin,
         }
 
         size_t colonpos = scratch.find(":");
+        size_t rcolonpos = scratch.rfind(":");
         std::string port;
 
+        hoststart = 0;
         if (colonpos == std::string::npos) {
             hostlen = scratch.size();
-        } else if (colonpos == 0 || colonpos == scratch.size()-1) {
-            SET_ERROR("First or last character in spec is colon!");
+        } else if (colonpos == rcolonpos) {
+            if (colonpos == 0 || colonpos == scratch.size() - 1) {
+                SET_ERROR("First or last character in spec is colon!");
+            } else {
+                hostlen = colonpos;
+                port = scratch.substr(colonpos + 1);
+            }
         } else {
-            hostlen = colonpos;
-            port = scratch.substr(colonpos + 1);
+            size_t rbracket = scratch.rfind(']');
+            if (scratch[0] == '[' && rbracket != std::string::npos) {
+                hoststart = 1;
+                hostlen = rbracket - hoststart;
+                if (scratch.size() > rbracket + 1) {
+                    port = scratch.substr(rbracket + 2);
+                }
+            } else {
+                hostlen = scratch.size();
+            }
         }
 
         if (m_flags & F_DNSSRV_EXPLICIT) {
@@ -116,7 +131,7 @@ Connspec::parse_hosts(const char *hostbegin,
 
         m_hosts.resize(m_hosts.size() + 1);
         Spechost *dh = &m_hosts.back();
-        dh->hostname = scratch.substr(0, hostlen);
+        dh->hostname = scratch.substr(hoststart, hostlen);
 
         if (port.empty()) {
             continue;
@@ -260,6 +275,16 @@ Connspec::parse_options(
                 m_flags |= F_DNSSRV;
             } else {
                 m_flags &= ~F_DNSSRV_EXPLICIT;
+            }
+        } else if (!strcmp(key, "ipv6")) {
+            if (!strcmp(value, "only")) {
+                m_ipv6 = LCB_IPV6_ONLY;
+            } else if (!strcmp(value, "disabled")) {
+                m_ipv6 = LCB_IPV6_DISABLED;
+            } else if (!strcmp(value, "allow")) {
+                m_ipv6 = LCB_IPV6_ALLOW;
+            } else {
+                SET_ERROR("Value for ipv6 must be 'disabled', 'allow', or 'only'");
             }
         } else {
             m_ctlopts.push_back(std::make_pair(key, value));

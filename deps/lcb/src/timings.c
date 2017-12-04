@@ -111,7 +111,6 @@ lcb_histogram_read(const lcb_HISTOGRAM *hg,
         start = end + 1;
     }
 
-    start = 1000;
     for (ii = 1; ii < 9; ++ii) {
         start = ii * 1000;
         end = ((ii + 1) * 1000) - 1;

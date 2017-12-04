@@ -91,6 +91,16 @@ build_vbmap(lcbvb_CONFIG *cfg, cJSON *cj, unsigned *nitems)
     return NULL;
 }
 
+static void copy_address(char *buf, size_t nbuf, const char *host, lcb_U16 port)
+{
+    if (strchr(host, ':')) {
+        // IPv6 and should be bracketed
+        snprintf(buf, nbuf, "[%s]:%d", host, port);
+    } else {
+        snprintf(buf, nbuf, "%s:%d", host, port);
+    }
+}
+
 static lcbvb_SERVER *
 find_server_memd(lcbvb_SERVER *servers, unsigned n, const char *s)
 {
@@ -98,7 +108,7 @@ find_server_memd(lcbvb_SERVER *servers, unsigned n, const char *s)
     for (ii = 0; ii < n; ii++) {
         char buf[4096] = { 0 };
         lcbvb_SERVER *cur = servers + ii;
-        snprintf(buf, sizeof(buf), "%s:%d", cur->hostname, cur->svc.data);
+        copy_address(buf, sizeof(buf), cur->hostname, cur->svc.data);
         if (!strncmp(s, buf, sizeof(buf))) {
             return cur;
         }
@@ -329,6 +339,7 @@ extract_services(lcbvb_CONFIG *cfg, cJSON *jsvc, lcbvb_SERVICES *svc, int is_ssl
     EXTRACT_SERVICE("fts", fts);
     EXTRACT_SERVICE("indexAdmin", ixadmin);
     EXTRACT_SERVICE("indexScan", ixquery);
+    EXTRACT_SERVICE("cbas", cbas);
 
     #undef EXTRACT_SERVICE
 
@@ -342,7 +353,7 @@ build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
     /* get the authority */
     char tmpbuf[4096];
 
-    sprintf(tmpbuf, "%s:%d", server->hostname, server->svc.data);
+    copy_address(tmpbuf, sizeof(tmpbuf), server->hostname, server->svc.data);
     server->authority = strdup(tmpbuf);
     if (!server->authority) {
         SET_ERRSTR(cfg, "Couldn't allocate authority");
@@ -359,6 +370,9 @@ build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
     }
     if (server->ftspath == NULL && server->svc.fts) {
         server->ftspath = strdup("/");
+    }
+    if (server->cbaspath == NULL && server->svc.cbas) {
+        server->cbaspath = strdup("/query/service");
     }
     return 1;
 }
@@ -542,8 +556,7 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
     {
         cJSON *jcaps = NULL;
         if (get_jarray(cj, "bucketCapabilities", &jcaps)) {
-            int ncaps = cJSON_GetArraySize(jcaps);
-            int ii;
+            unsigned ncaps = cJSON_GetArraySize(jcaps);
             for (ii = 0; ii < ncaps; ii++) {
                 cJSON *jcap = cJSON_GetArrayItem(jcaps, ii);
                 if (jcap || jcap->type == cJSON_String) {
@@ -658,7 +671,16 @@ LIBCOUCHBASE_API
 void
 lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
 {
-    unsigned ii;
+    unsigned ii, copy = 0;
+    char *replacement = (char *)hoststr;
+    if (strchr(replacement, ':')) {
+        size_t len = strlen(hoststr);
+        replacement = calloc(len + 2, sizeof(char));
+        replacement[0] = '[';
+        memcpy(replacement + 1, hoststr, len);
+        replacement[len + 1] = ']';
+        copy = 1;
+    }
     for (ii = 0; ii < cfg->nsrv; ++ii) {
         unsigned jj;
         lcbvb_SERVER *srv = cfg->servers + ii;
@@ -668,13 +690,16 @@ lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
         for (jj = 0; jj < 2; ++jj) {
             unsigned kk;
             lcbvb_SERVICES *cursvc = svcs[jj];
-            replace_hoststr(&cursvc->views_base_, hoststr);
+            replace_hoststr(&cursvc->views_base_, replacement);
             for (kk = 0; kk < LCBVB_SVCTYPE__MAX; ++kk) {
-                replace_hoststr(&cursvc->hoststrs[kk], hoststr);
+                replace_hoststr(&cursvc->hoststrs[kk], replacement);
             }
         }
         /* reassign authority */
         srv->authority = srv->svc.hoststrs[LCBVB_SVCTYPE_DATA];
+    }
+    if (copy) {
+        free(replacement);
     }
     if (cfg->dtype == LCBVB_DIST_KETAMA) {
         update_ketama(cfg);
@@ -711,6 +736,7 @@ free_service_strs(lcbvb_SERVICES *svc)
     free(svc->views_base_);
     free(svc->query_base_);
     free(svc->fts_base_);
+    free(svc->cbas_base_);
 }
 
 void
@@ -723,6 +749,7 @@ lcbvb_destroy(lcbvb_CONFIG *conf)
         free(srv->viewpath);
         free(srv->querypath);
         free(srv->ftspath);
+        free(srv->cbaspath);
         free_service_strs(&srv->svc);
         free_service_strs(&srv->svc_ssl);
     }
@@ -1146,6 +1173,8 @@ lcbvb_get_port(lcbvb_CONFIG *cfg,
         return svc->n1ql;
     } else if (type == LCBVB_SVCTYPE_FTS) {
         return svc->fts;
+    } else if (type == LCBVB_SVCTYPE_CBAS) {
+        return svc->cbas;
     } else {
         return 0;
     }
@@ -1174,8 +1203,9 @@ lcbvb_get_hostport(lcbvb_CONFIG *cfg,
 
     strp = &svc->hoststrs[type];
     if (*strp == NULL) {
-        *strp = malloc(strlen(srv->hostname) + 20);
-        sprintf(*strp, "%s:%d", srv->hostname, port);
+        size_t strn = strlen(srv->hostname) + 20;
+        *strp = calloc(strn, sizeof(char));
+        copy_address(*strp, strn, srv->hostname, port);
     }
     return *strp;
 }
@@ -1221,7 +1251,8 @@ lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
                 (type == LCBVB_SVCTYPE_MGMT && svcs->mgmt) ||
                 (type == LCBVB_SVCTYPE_N1QL && svcs->n1ql) ||
                 (type == LCBVB_SVCTYPE_FTS && svcs->fts) ||
-                (type == LCBVB_SVCTYPE_VIEWS && svcs->views);
+                (type == LCBVB_SVCTYPE_VIEWS && svcs->views) ||
+                (type == LCBVB_SVCTYPE_CBAS && svcs->cbas);
 
         if (has_svc) {
             cfg->randbuf[oix++] = (int)nn;
@@ -1252,7 +1283,6 @@ lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
     lcbvb_SVCTYPE svc, lcbvb_SVCMODE mode)
 {
     char **strp;
-    char buf[4096];
     const char *prefix;
     const char *path;
 
@@ -1282,6 +1312,9 @@ lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
     } else if (svc == LCBVB_SVCTYPE_FTS) {
         path = srv->ftspath;
         strp = &svcs->fts_base_;
+    } else if (svc == LCBVB_SVCTYPE_CBAS) {
+        path = srv->cbaspath;
+        strp = &svcs->cbas_base_;
     } else {
         /* Unknown service! */
         return NULL;
@@ -1290,7 +1323,13 @@ lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
     if (path == NULL) {
         return NULL;
     } else if (!*strp) {
-        sprintf(buf, "%s://%s:%d%s", prefix, srv->hostname, port, path);
+        char buf[4096];
+        if (strchr(srv->hostname, ':')) {
+            // IPv6 and should be bracketed
+            snprintf(buf, sizeof(buf), "%s://[%s]:%d%s", prefix, srv->hostname, port, path);
+        } else {
+            snprintf(buf, sizeof(buf), "%s://%s:%d%s", prefix, srv->hostname, port, path);
+        }
         *strp = strdup(buf);
     }
 
@@ -1325,11 +1364,8 @@ LIBCOUCHBASE_API const char *lcbvb_get_error(const lcbvb_CONFIG *cfg) {
  ******************************************************************************
  ******************************************************************************/
 
-static void
-copy_service(const char *hostname,
-    const lcbvb_SERVICES *src, lcbvb_SERVICES *dst)
+static void copy_service(const char *hostname, const lcbvb_SERVICES *src, lcbvb_SERVICES *dst)
 {
-    char buf[4096];
     *dst = *src;
     memset(&dst->hoststrs, 0, sizeof dst->hoststrs);
     if (src->views_base_) {
@@ -1341,8 +1377,12 @@ copy_service(const char *hostname,
     if (src->fts_base_) {
         dst->fts_base_ = strdup(src->fts_base_);
     }
+    if (src->cbas_base_) {
+        dst->cbas_base_ = strdup(src->cbas_base_);
+    }
     if (dst->data) {
-        sprintf(buf, "%s:%d", hostname, dst->data);
+        char buf[4096];
+        copy_address(buf, sizeof(buf), hostname, dst->data);
         dst->hoststrs[LCBVB_SVCTYPE_DATA] = strdup(buf);
     }
 }
@@ -1431,6 +1471,9 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
         }
         if (src->ftspath) {
             dst->ftspath = strdup(src->ftspath);
+        }
+        if (src->cbaspath) {
+            dst->cbaspath = strdup(src->cbaspath);
         }
 
         copy_service(src->hostname, &src->svc, &dst->svc);

@@ -95,6 +95,7 @@
 
 #include "config.h"
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/metrics.h>
 #include "errmap.h"
 
 #ifdef __cplusplus
@@ -104,6 +105,7 @@ extern "C" {
 struct lcb_logprocs_st;
 struct lcbio_SSLCTX;
 struct rdb_ALLOCATOR;
+struct lcb_METRICS_st;
 
 /**
  * Stateless setting structure.
@@ -183,6 +185,7 @@ typedef struct lcb_settings_st {
     char *client_string;
     lcb_pERRMAP errmap;
     lcb_U32 retry_nmv_interval;
+    struct lcb_METRICS_st *metrics;
 } lcb_settings;
 
 LCB_INTERNAL_API
@@ -198,6 +201,29 @@ lcb_settings_unref(lcb_settings *);
 
 #define lcb_settings_ref(settings) ((void)(settings)->refcount++)
 #define lcb_settings_ref2(settings) ((settings)->refcount++, settings)
+
+/**
+ * Metric functionality. Defined in metrics.h, but retains a global-like
+ * setting similar to lcb_settings
+ */
+void
+lcb_metrics_dumpio(const lcb_IOMETRICS *metrics, FILE *fp);
+
+void
+lcb_metrics_dumpserver(const lcb_SERVERMETRICS *metrics, FILE *fp);
+
+lcb_METRICS *
+lcb_metrics_new(void);
+
+void
+lcb_metrics_destroy(lcb_METRICS *metrics);
+
+lcb_SERVERMETRICS *
+lcb_metrics_getserver(lcb_METRICS *metrics,
+    const char *host, const char *port, int create);
+
+void
+lcb_metrics_reset_pipeline_gauges(lcb_SERVERMETRICS *metrics);
 
 #ifdef __cplusplus
 }

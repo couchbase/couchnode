@@ -61,6 +61,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->tcp_keepalive = LCB_DEFAULT_TCP_KEEPALIVE;
     settings->send_hello = 1;
     settings->config_poll_interval = LCB_DEFAULT_CONFIG_POLL_INTERVAL;
+    settings->use_errmap = 1;
 }
 
 LCB_INTERNAL_API
@@ -92,6 +93,9 @@ lcb_settings_unref(lcb_settings *settings)
 
     if (settings->ssl_ctx) {
         lcbio_ssl_free(settings->ssl_ctx);
+    }
+    if (settings->metrics) {
+        lcb_metrics_destroy(settings->metrics);
     }
     if (settings->dtorcb) {
         settings->dtorcb(settings->dtorarg);

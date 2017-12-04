@@ -23,10 +23,10 @@
 #include "sllist.h"
 #include <lcbio/ssl.h>
 
+#define LOGFMT CTX_LOGFMT
+#define LOGID(req) CTX_LOGID(req->ioctx)
 using namespace lcb::http;
 
-#define LOGFMT "<%s:%s>"
-#define LOGID(req) get_ctx_host((req)->ioctx), get_ctx_port((req)->ioctx)
 #define LOGARGS(req, lvl) req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
 
 void
