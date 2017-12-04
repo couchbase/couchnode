@@ -83,6 +83,16 @@ describe('#ConnStr', function() {
       assert.equal(x,
         'http://1.1.1.1:8094/joe');
     });
+
+    it('should stringify a connstr spec with ipv6 addresses', function() {
+      var x = connstr._stringify({
+        scheme: 'couchbase',
+        hosts: [['[2001:4860:4860::8888]', 8094]],
+        bucket: 'joe'
+      });
+      assert.equal(x,
+          'couchbase://[2001:4860:4860::8888]:8094/joe');
+    });
   });
 
   describe('parse', function() {
@@ -93,13 +103,21 @@ describe('#ConnStr', function() {
 
     it('should parse a string with no host', function() {
       var x = connstr.parse('https:///shirley');
-      assert.deepEqual(x, {scheme:'https',hosts:[],bucket:'shirley',options:{}});
+      assert.deepEqual(x, {scheme:'https',hosts:[],bucket:'shirley',
+        options:{}});
     });
 
     it('should parse a string with options', function() {
       var x = connstr.parse('http:///b?c=d&e=f');
       assert.deepEqual(x,
           {scheme:'http',hosts:[],bucket:'b',options:{c:'d',e:'f'}});
+    });
+
+    it('should parse a string with ipv6', function() {
+      var x = connstr.parse('couchbase://[2001:4860:4860::8888]:9011/b');
+      assert.deepEqual(x,
+          {scheme:'couchbase',hosts:[['[2001:4860:4860::8888]', 9011]],
+            bucket:'b', options: {}});
     });
   });
 });
