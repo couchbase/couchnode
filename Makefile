@@ -24,6 +24,9 @@ install:
 node_modules:
 	@npm install
 
+checkdeps:
+	node ./node_modules/npm-check/lib/cli.js -s
+
 test: node_modules
 	./node_modules/mocha/bin/mocha test/*.test.js
 fasttest: node_modules
@@ -37,7 +40,7 @@ cover: node_modules
 fastcover: node_modules
 	node ./node_modules/istanbul/lib/cli.js cover ./node_modules/mocha/bin/_mocha -- test/*.test.js -ig "(slow)"
 
-check: test lint cover
+check: checkdeps test lint cover
 
 docs: node_modules
 	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
