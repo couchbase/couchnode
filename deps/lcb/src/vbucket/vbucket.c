@@ -189,7 +189,7 @@ pair_server_list(lcbvb_CONFIG *cfg, cJSON *vbconfig)
     }
 
     /* allocate an array for the reordered server list */
-    newlist = malloc(sizeof(*cfg->servers) * nsrv);
+    newlist = calloc(nsrv, sizeof(*cfg->servers));
 
     for (ii = 0; ii < nsrv; ii++) {
         char *tmp;
@@ -360,7 +360,7 @@ build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
         return 0;
     }
 
-    server->svc.hoststrs[LCBVB_SVCTYPE_DATA] = server->authority;
+    server->svc.hoststrs[LCBVB_SVCTYPE_DATA] = strdup(server->authority);
     if (server->viewpath == NULL && server->svc.views) {
         server->viewpath = malloc(strlen(cfg->bname) + 2);
         sprintf(server->viewpath, "/%s", cfg->bname);
@@ -696,7 +696,8 @@ lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
             }
         }
         /* reassign authority */
-        srv->authority = srv->svc.hoststrs[LCBVB_SVCTYPE_DATA];
+        free(srv->authority);
+        srv->authority = strdup(srv->svc.hoststrs[LCBVB_SVCTYPE_DATA]);
     }
     if (copy) {
         free(replacement);
@@ -752,6 +753,7 @@ lcbvb_destroy(lcbvb_CONFIG *conf)
         free(srv->cbaspath);
         free_service_strs(&srv->svc);
         free_service_strs(&srv->svc_ssl);
+        free(srv->authority);
     }
     free(conf->servers);
     free(conf->continuum);
@@ -1478,7 +1480,11 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
 
         copy_service(src->hostname, &src->svc, &dst->svc);
         copy_service(src->hostname, &src->svc_ssl, &dst->svc_ssl);
-        dst->authority = dst->svc.hoststrs[LCBVB_SVCTYPE_DATA];
+        {
+            char tmpbuf[MAX_AUTHORITY_SIZE] = {0};
+            copy_address(tmpbuf, sizeof(tmpbuf), dst->hostname, dst->svc.data);
+            dst->authority = strdup(tmpbuf);
+        }
     }
 
     for (ii = 0; ii < vb->nvb; ii++) {

@@ -173,6 +173,8 @@ public:
         return options;
     }
 
+    void toJSON(hrtime_t now, Json::Value &node);
+
 private:
     friend struct PoolRequest;
     friend struct PoolConnInfo;

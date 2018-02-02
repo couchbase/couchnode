@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-PILLOWFIGHT" "1" "September 2017" "" ""
+.TH "CBC\-PILLOWFIGHT" "1" "December 2017" "" ""
 .
 .SH "NAME"
 \fBcbc\-pillowfight\fR \- Stress Test for Couchbase Client and Cluster
@@ -140,6 +140,10 @@ Specify more information to standard error about what the client is doing\. You 
 Provide additional client options\. Acceptable options can also be placed in the connection string, however this option is provided as a convenience\. This option may be specified multiple times, each time specifying a key=value pair (for example, \fB\-Doperation_timeout=10 \-Dconfig_cache=/foo/bar/baz\fR)\. See \fIADDITIONAL OPTIONS\fR for more information
 .
 .TP
+\fB\-y\fR, \fB\-\-compress\fR
+Enable compressing of documents\. When library compiled with compression support, this option will enable Snappy compression for outgoing data\. Incoming compressed data handled automatically regardless of this option\. Note, that because the compression support have to be negotiated with the server, first packets might be sent uncompressed even when this switch was specified\. This is because the library might queue data commands before socket connection has been established, and the library will negotiate compression feature\. If it is known that all server support compression repeating the switch (like \fB\-yy\fR) will force compression for all outgoing mutations, even scheduled before establishing connection\.
+.
+.TP
 \fB\-\-json\fR
 Make \fBpillowfight\fR store document as JSON rather than binary\. This will allow the documents to nominally be analyzed by other Couchbase services such as Query and MapReduce\.
 .
@@ -197,6 +201,10 @@ Enables the client to make use of a file based configuration cache rather than c
 .TP
 \fBcertpath=PATH\fR
 The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system (only applicable with \fBcouchbases://\fR scheme)
+.
+.TP
+\fBkeypath=PATH\fR
+The path to the client SSL private key\. This is typically required for SSL client certificate authentication\. The certificate itself have to go first in chain specified by \fBcertpath\fR (only applicable with \fBcouchbases://\fR scheme)
 .
 .TP
 \fBssl=no_verify\fR

@@ -364,4 +364,11 @@ typedef enum {
  */
 #define LCB_CNTL_METRICS 0x49
 
+/**
+ *
+ * @cntl_arg_both{int (as boolean)}
+ * @volatile
+ */
+#define LCB_CNTL_USE_COLLECTIONS 0x4a
+
 /**@}*/

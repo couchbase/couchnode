@@ -585,6 +585,12 @@ LCB_INTERNAL_API
 const char *lcb_strerror_short(lcb_error_t error);
 
 /**
+ * Get a longer textual description of an error message.
+ */
+LCB_INTERNAL_API
+const char *lcb_strerror_long(lcb_error_t error);
+
+/**
  * This may be used in conjunction with the errmap callback if it wishes
  * to fallback for default behavior for the given code.
  * @uncomitted

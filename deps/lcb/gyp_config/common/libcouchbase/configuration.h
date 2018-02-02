@@ -57,6 +57,10 @@
  */
 #define LCB_VERSION_CHANGESET "8ce52f9294cfef59b9ff44f3cfc18cc3ca8c2860"
 
+/**@brief The client ID
+ */
+#define LCB_CLIENT_ID "libcouchbase/" LCB_VERSION_STRING
+
 #ifdef __cplusplus
 extern "C" {
 #endif

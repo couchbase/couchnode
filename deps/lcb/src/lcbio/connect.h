@@ -77,6 +77,21 @@ typedef struct {
 
 struct lcb_IOMETRICS_st;
 
+/** @brief Subsystem, which utilizes the socket */
+typedef enum {
+    LCBIO_SERVICE_UNSPEC = 0,
+    LCBIO_SERVICE_CFG,
+    LCBIO_SERVICE_KV,
+    LCBIO_SERVICE_MGMT,
+    LCBIO_SERVICE_VIEW,
+    LCBIO_SERVICE_N1QL,
+    LCBIO_SERVICE_FTS,
+    LCBIO_SERVICE_CBAS,
+    LCBIO_SERVICE_MAX
+} lcbio_SERVICE;
+
+const char * lcbio_svcstr(lcbio_SERVICE service);
+
 /** @brief Core socket structure */
 typedef struct lcbio_SOCKET {
     lcbio_pTABLE io;
@@ -91,6 +106,8 @@ typedef struct lcbio_SOCKET {
         lcb_socket_t fd;
     } u;
     lcb_list_t protos;
+    hrtime_t atime;
+    lcbio_SERVICE service;
 } lcbio_SOCKET;
 
 

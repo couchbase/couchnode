@@ -32,6 +32,7 @@
 
     'defines': [
       'LIBCOUCHBASE_INTERNAL=1',
+      'LCB_STATIC_SNAPPY=1',
       'LCB_LIBDIR=""'
     ],
 
@@ -40,6 +41,7 @@
       'src',
       'contrib',
       'contrib/cbsasl/include',
+      'contrib/snappy',
       'gyp_config/common',
       'gyp_config/<(OS)/<(target_arch)'
     ],

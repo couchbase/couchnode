@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "September 2017" "" ""
+.TH "CBC" "1" "December 2017" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -123,6 +123,10 @@ Specify more information to standard error about what the client is doing\. You 
 \fB\-D\fR, \fB\-\-cparam\fR=OPTION=VALUE
 Provide additional client options\. Acceptable options can also be placed in the connection string, however this option is provided as a convenience\. This option may be specified multiple times, each time specifying a key=value pair (for example, \fB\-Doperation_timeout=10 \-Dconfig_cache=/foo/bar/baz\fR)\. See \fIADDITIONAL OPTIONS\fR for more information
 .
+.TP
+\fB\-y\fR, \fB\-\-compress\fR
+Enable compressing of documents\. When library compiled with compression support, this option will enable Snappy compression for outgoing data\. Incoming compressed data handled automatically regardless of this option\. Note, that because the compression support have to be negotiated with the server, first packets might be sent uncompressed even when this switch was specified\. This is because the library might queue data commands before socket connection has been established, and the library will negotiate compression feature\. If it is known that all server support compression repeating the switch (like \fB\-yy\fR) will force compression for all outgoing mutations, even scheduled before establishing connection\.
+.
 .P
  \fI\fR
 .
@@ -140,6 +144,10 @@ Enables the client to make use of a file based configuration cache rather than c
 .TP
 \fBcertpath=PATH\fR
 The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system (only applicable with \fBcouchbases://\fR scheme)
+.
+.TP
+\fBkeypath=PATH\fR
+The path to the client SSL private key\. This is typically required for SSL client certificate authentication\. The certificate itself have to go first in chain specified by \fBcertpath\fR (only applicable with \fBcouchbases://\fR scheme)
 .
 .TP
 \fBssl=no_verify\fR
@@ -771,7 +779,7 @@ $ cbc n1ql \'SELECT * FROM `travel\-sample` WHERE type="airport" AND city=$city\
 .IP "" 0
 .
 .P
-Check health of the cluster services:
+Ping cluster services:
 .
 .IP "" 4
 .
@@ -779,109 +787,128 @@ Check health of the cluster services:
 
 $ cbc ping \-\-details  \-Ucouchbase://192\.168\.1\.101
 {
+   "version" : 1,
+   "config_rev" : 54,
+   "id" : "0x1d67af0",
+   "sdk" : "libcouchbase/2\.8\.4",
    "services" : {
       "fts" : [
          {
-            "details" : "Success (Not an error)",
-            "latency" : "7\.833ms",
-            "server" : "192\.168\.1\.101:8094",
-            "status" : 0
+            "id" : "0x1d75e90",
+            "latency_us" : 1500,
+            "local" : "192\.168\.1\.12:35232",
+            "remote" : "192\.168\.1\.101:8094",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "9\.898ms",
-            "server" : "192\.168\.1\.102:8094",
-            "status" : 0
+            "id" : "0x1da6800",
+            "latency_us" : 2301,
+            "local" : "192\.168\.1\.12:40344",
+            "remote" : "192\.168\.1\.103:8094",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "10\.979ms",
-            "server" : "192\.168\.1\.103:8094",
-            "status" : 0
+            "id" : "0x1da3270",
+            "latency_us" : 2820,
+            "local" : "192\.168\.1\.12:42730",
+            "remote" : "192\.168\.1\.102:8094",
+            "status" : "ok"
          },
          {
-            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
-            "latency" : "75\.000s",
-            "server" : "192\.168\.1\.104:8094",
-            "status" : 23
+            "details" : "LCB_ENETUNREACH (0x31): The remote host was unreachable \- is your network OK?",
+            "latency_us" : 3071733,
+            "remote" : "192\.168\.1\.104:8094",
+            "status" : "error"
          }
       ],
       "kv" : [
          {
-            "details" : "Success (Not an error)",
-            "latency" : "2\.617ms",
-            "server" : "192\.168\.1\.101:11210",
-            "status" : 0
+            "id" : "0x1d6bde0",
+            "latency_us" : 3700,
+            "local" : "192\.168\.1\.12:42006",
+            "remote" : "192\.168\.1\.101:11210",
+            "scope" : "default",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "19\.330ms",
-            "server" : "192\.168\.1\.102:11210",
-            "status" : 0
+            "id" : "0x1dadcf0",
+            "latency_us" : 5509,
+            "local" : "192\.168\.1\.12:39936",
+            "remote" : "192\.168\.1\.103:11210",
+            "scope" : "default",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "19\.334ms",
-            "server" : "192\.168\.1\.103:11210",
-            "status" : 0
+            "id" : "0x1dac500",
+            "latency_us" : 5594,
+            "local" : "192\.168\.1\.12:33868",
+            "remote" : "192\.168\.1\.102:11210",
+            "scope" : "default",
+            "status" : "ok"
          },
          {
-            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
-            "latency" : "2\.505s",
-            "server" : "192\.168\.1\.104:11210",
-            "status" : 23
+            "latency_us" : 2501688,
+            "remote" : "192\.168\.1\.104:11210",
+            "scope" : "default",
+            "status" : "timeout"
          }
       ],
       "n1ql" : [
          {
-            "details" : "Success (Not an error)",
-            "latency" : "5\.671ms",
-            "server" : "192\.168\.1\.102:8093",
-            "status" : 0
+            "id" : "0x1d7f280",
+            "latency_us" : 3235,
+            "local" : "192\.168\.1\.12:54210",
+            "remote" : "192\.168\.1\.101:8093",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "6\.595ms",
-            "server" : "192\.168\.1\.103:8093",
-            "status" : 0
+            "id" : "0x1d76f20",
+            "latency_us" : 4625,
+            "local" : "192\.168\.1\.12:58454",
+            "remote" : "192\.168\.1\.102:8093",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "11\.106ms",
-            "server" : "192\.168\.1\.101:8093",
-            "status" : 0
+            "id" : "0x1da44b0",
+            "latency_us" : 4477,
+            "local" : "192\.168\.1\.12:36678",
+            "remote" : "192\.168\.1\.103:8093",
+            "status" : "ok"
          },
          {
-            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
-            "latency" : "75\.000s",
-            "server" : "192\.168\.1\.104:8093",
-            "status" : 23
+            "details" : "LCB_ENETUNREACH (0x31): The remote host was unreachable \- is your network OK?",
+            "latency_us" : 3071843,
+            "remote" : "192\.168\.1\.104:8093",
+            "status" : "error"
          }
       ],
       "views" : [
          {
-            "details" : "Success (Not an error)",
-            "latency" : "7\.001ms",
-            "server" : "192\.168\.1\.101:8092",
-            "status" : 0
+            "id" : "0x1da55c0",
+            "latency_us" : 1762,
+            "local" : "192\.168\.1\.12:52166",
+            "remote" : "192\.168\.1\.103:8092",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "9\.022ms",
-            "server" : "192\.168\.1\.102:8092",
-            "status" : 0
+            "id" : "0x1da20d0",
+            "latency_us" : 2016,
+            "local" : "192\.168\.1\.12:59420",
+            "remote" : "192\.168\.1\.102:8092",
+            "status" : "ok"
          },
          {
-            "details" : "Success (Not an error)",
-            "latency" : "10\.866ms",
-            "server" : "192\.168\.1\.103:8092",
-            "status" : 0
+            "id" : "0x1d6a740",
+            "latency_us" : 2567,
+            "local" : "192\.168\.1\.12:38614",
+            "remote" : "192\.168\.1\.101:8092",
+            "status" : "ok"
          },
          {
-            "details" : "Client\-Side timeout exceeded for operation\. Inspect network conditions or increase the timeout",
-            "latency" : "75\.000s",
-            "server" : "192\.168\.1\.104:8092",
-            "status" : 23
+            "details" : "LCB_ENETUNREACH (0x31): The remote host was unreachable \- is your network OK?",
+            "latency_us" : 3071798,
+            "remote" : "192\.168\.1\.104:8092",
+            "status" : "error"
          }
       ]
    }

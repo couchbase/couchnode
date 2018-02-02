@@ -559,6 +559,20 @@ typedef enum {
  * @see LCB_CNTL_SSL_MODE
  */
 #define LCB_CNTL_SSL_CERT 0x23
+
+/**
+ * @brief Get SSL private key path
+ *
+ * Retrieve the path to the private key (if any) being used.
+ * When key specified, the library will use it to authenticate on the services,
+ * skipping all other authentication mechanisms (SASL, HTTP Basic auth, etc)
+ *
+ * @cntl_arg_getonly{`char**`}
+ * @see LCB_CNTL_SSL_MODE
+ * @see https://developer.couchbase.com/documentation/server/5.0/security/security-certs-auth.html
+ */
+#define LCB_CNTL_SSL_KEY 0x4b
+
 /**
  * Alias for @ref LCB_CNTL_SSL_CERT for backward compatibility.
  * @deprecated
@@ -1026,7 +1040,7 @@ typedef const char *lcb_BUCKETCRED[2];
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x4A
+#define LCB_CNTL__MAX                    0x4c
 /**@}*/
 
 #ifdef __cplusplus

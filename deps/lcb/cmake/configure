@@ -292,7 +292,7 @@ if ($ENABLE_SNAPPY) {
     push @CM_OPTIONS, "-DLCB_NO_SNAPPY=0";
 }
 if ($STATIC_SNAPPY) {
-    push @CM_OPTIONS, "-DLCB_STATIC_SNAPPY";
+    push @CM_OPTIONS, "-DLCB_STATIC_SNAPPY=1";
 }
 if ($LCB_USE_ASAN) {
     push @CM_OPTIONS, "-DLCB_USE_ASAN=1";

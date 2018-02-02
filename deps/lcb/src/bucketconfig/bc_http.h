@@ -34,7 +34,7 @@
 
 #define REQPOOLS_URI "/pools/"
 #define HOSTHDR_FMT  "Host: %s:%s\r\n"
-#define LAST_HTTP_HEADER "X-Libcouchbase: " LCB_VERSION_STRING "\r\n"
+#define LAST_HTTP_HEADER "X-Libcouchbase: " LCB_CLIENT_ID "\r\n"
 #define CONFIG_DELIMITER "\n\n\n\n"
 
 namespace lcb {

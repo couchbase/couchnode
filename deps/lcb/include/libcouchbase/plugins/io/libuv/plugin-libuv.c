@@ -16,6 +16,7 @@
  */
 
 #include "plugin-internal.h"
+#include <libcouchbase/plugins/io/bsdio-inl.c>
 
 static my_uvreq_t *alloc_uvreq(my_sockdata_t *sock, generic_callback_t callback);
 static void set_last_error(my_iops_t *io, int error);

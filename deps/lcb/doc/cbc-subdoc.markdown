@@ -46,6 +46,11 @@ The following options control workload generation:
   connectivity unless the certificate has already been added to the openssl
   installation on the system (only applicable with `couchbases://` scheme)
 
+* `--keypath`=_PATH_:
+  The path to the client SSL private key. This is typically required for SSL
+  client certificate authentication. The certificate itself have to go first
+  in chain specified by `certpath` (only applicable with `couchbases://` scheme)
+
 * `-v`, `--verbose`:
   Specify more information to standard error about what the client is doing. You may
   specify this option multiple times for increased output detail.

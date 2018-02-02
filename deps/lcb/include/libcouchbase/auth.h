@@ -204,6 +204,33 @@ LIBCOUCHBASE_API
 lcb_AUTHENTICATOR *
 lcbauth_clone(const lcb_AUTHENTICATOR *src);
 
+/**
+ * @private
+ *
+ * Callback invoked for LCBAUTH_MODE_DYNAMIC type of authenticator.
+ *
+ * @param cookie The opaque pointer, configured during callbacks setup.
+ * @param host The hostname of the service.
+ * @param port The port of the service.
+ * @param bucket The bucket name.
+ * @return password or username, depending on where the callback used
+ */
+typedef const char *(*lcb_AUTHCALLBACK)(void *cookie, const char *host, const char *port, const char *bucket);
+
+/**
+ * @private
+ *
+ * Sets callback, which will be invoked every time the library needs credentials.
+ *
+ * @param auth
+ * @param cookie the opaque pointer, which will be passed to callbacks
+ * @param usercb the callback, which should return user name
+ * @param passcb the callback, which should return user name
+ */
+LIBCOUCHBASE_API
+lcb_error_t lcbauth_set_callbacks(lcb_AUTHENTICATOR *auth, void *cookie, lcb_AUTHCALLBACK usercb,
+                                  lcb_AUTHCALLBACK passcb);
+
 typedef enum {
     /**
      * Use "bucket-specific" credentials when authenticating. This is the
@@ -218,7 +245,15 @@ typedef enum {
      * Note that if this option is selected, it becomes impossible to use
      * @ref LCBAUTH_F_BUCKET with lcbauth_add_pass()
      */
-    LCBAUTH_MODE_RBAC = 1
+    LCBAUTH_MODE_RBAC = 1,
+
+    /**
+     * @private
+     *
+     * This mode allows to supply username/password with user-specified
+     * callback. See lcbauth_set_callback().
+     */
+    LCBAUTH_MODE_DYNAMIC = 2
 } lcbauth_MODE;
 
 /**

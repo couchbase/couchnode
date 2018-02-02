@@ -102,6 +102,10 @@ command-line
   The path to the server's SSL certificate. This is typically required for SSL
   connectivity unless the certificate has already been added to the openssl
   installation on the system (only applicable with `couchbases://` scheme)
+* `keypath=PATH`:
+  The path to the client SSL private key. This is typically required for SSL
+  client certificate authentication. The certificate itself have to go first
+  in chain specified by `certpath` (only applicable with `couchbases://` scheme)
 * `ssl=no_verify`:
   Temporarily disable certificate verification for SSL (only applicable with
   `couchbases://` scheme). This should only be used for quickly debugging SSL

@@ -569,3 +569,27 @@ lcbio__destroy(lcbio_SOCKET *s)
     lcb_settings_unref(s->settings);
     free(s);
 }
+
+const char * lcbio_svcstr(lcbio_SERVICE service)
+{
+    switch (service) {
+    case LCBIO_SERVICE_CFG:
+        return "config";
+    case LCBIO_SERVICE_KV:
+        return "kv";
+    case LCBIO_SERVICE_MGMT:
+        return "mgmt";
+    case LCBIO_SERVICE_VIEW:
+        return "view";
+    case LCBIO_SERVICE_N1QL:
+        return "n1ql";
+    case LCBIO_SERVICE_FTS:
+        return "fts";
+    case LCBIO_SERVICE_CBAS:
+        return "cbas";
+    case LCBIO_SERVICE_UNSPEC:
+        /* fallthrough */
+    default:
+        return "unspec";
+    }
+}

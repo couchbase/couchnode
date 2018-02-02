@@ -56,6 +56,11 @@ LIBCOUCHBASE_API
 void
 lcb_set_auth(lcb_t instance, lcb_AUTHENTICATOR *auth)
 {
+    if (LCBT_SETTING(instance, keypath)) {
+        lcb_log(LOGARGS(instance, WARN),
+                "Custom authenticator ignored when SSL client certificate authentication in use");
+        return;
+    }
     /* First increase refcount in case they are the same object(!) */
     lcbauth_ref(auth);
     lcbauth_unref(instance->settings->auth);
@@ -74,7 +79,9 @@ lcb_st::add_bs_host(const char *host, int port, unsigned bstype)
         tname = "HTTP";
         target = ht_nodes;
     }
-    lcb_log(LOGARGS(this, DEBUG), "Adding host %s:%d to initial %s bootstrap list", host, port, tname);
+    bool ipv6 = strchr(host, ':') != NULL;
+    lcb_log(LOGARGS(this, DEBUG), "Adding host %s%s%s:%d to initial %s bootstrap list", ipv6 ? "[" : "", host,
+            ipv6 ? "]" : "", port, tname);
     target->add(host, port);
 }
 
@@ -150,7 +157,9 @@ lcb_st::process_dns_srv(Connspec& spec)
         sh.port = std::atoi(src.port);
         sh.type = spec.default_port();
         spec.add_host(sh);
-        lcb_log(LOGARGS(this, INFO), "Found host %s:%d via DNS SRV", sh.hostname.c_str(), sh.port);
+        bool ipv6 = sh.hostname.find(':') != std::string::npos;
+        lcb_log(LOGARGS(this, INFO), "Found host %s%s%s:%d via DNS SRV", ipv6 ? "[" : "", sh.hostname.c_str(),
+                ipv6 ? "]" : "", (int)sh.port);
     }
     delete hl;
 
@@ -242,6 +251,11 @@ setup_ssl(lcb_t obj, const Connspec& params)
         settings->certpath = strdup(optbuf);
     }
 
+    if (lcb_getenv_nonempty("LCB_SSL_KEY", optbuf, sizeof optbuf)) {
+        lcb_log(LOGARGS(obj, INFO), "SSL key %s specified on environment", optbuf);
+        settings->keypath = strdup(optbuf);
+    }
+
     if (lcb_getenv_nonempty("LCB_SSL_MODE", optbuf, sizeof optbuf)) {
         if (sscanf(optbuf, "%d", &env_policy) != 1) {
             lcb_log(LOGARGS(obj, ERR), "Invalid value for environment LCB_SSL. (%s)", optbuf);
@@ -256,6 +270,10 @@ setup_ssl(lcb_t obj, const Connspec& params)
         settings->certpath = strdup(params.certpath().c_str());
     }
 
+    if (settings->keypath == NULL && !params.keypath().empty()) {
+        settings->keypath = strdup(params.keypath().c_str());
+    }
+
     if (env_policy == -1) {
         settings->sslopts = params.sslopts();
     }
@@ -266,11 +284,20 @@ setup_ssl(lcb_t obj, const Connspec& params)
         } else {
             lcb_log(LOGARGS(obj, INFO), "ssl=no_global_init. Not initializing openssl globals");
         }
-        settings->ssl_ctx = lcbio_ssl_new(settings->certpath,
-            settings->sslopts & LCB_SSL_NOVERIFY, &err, settings);
+        if (settings->keypath && !settings->certpath) {
+            lcb_log(LOGARGS(obj, ERR), "SSL key have to be specified with certificate");
+            return LCB_EINVAL;
+        }
+        settings->ssl_ctx =
+            lcbio_ssl_new(settings->certpath, settings->keypath, settings->sslopts & LCB_SSL_NOVERIFY, &err, settings);
         if (!settings->ssl_ctx) {
             return err;
         }
+    } else {
+        // keypath might be used to flag, that library is using SSL authentication
+        // To avoid skipping other authentication mechanisms, cleanup the keypath.
+        free(settings->keypath);
+        settings->keypath = NULL;
     }
     return LCB_SUCCESS;
 }
@@ -813,6 +840,15 @@ LCB_INTERNAL_API
 const char *lcb_strerror_short(lcb_error_t error)
 {
 #define X(c, v, t, s) if (error == c) { return #c " (" #v ")"; }
+    LCB_XERR(X)
+#undef X
+    return "<FIXME: Not an LCB error>";
+}
+
+LCB_INTERNAL_API
+const char *lcb_strerror_long(lcb_error_t error)
+{
+#define X(c, v, t, s) if (error == c) { return #c " (" #v "): " s; }
     LCB_XERR(X)
 #undef X
     return "<FIXME: Not an LCB error>";

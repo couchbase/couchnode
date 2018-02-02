@@ -149,6 +149,18 @@ The following options control workload generation:
   pair (for example, `-Doperation_timeout=10 -Dconfig_cache=/foo/bar/baz`).
   See [ADDITIONAL OPTIONS](#additional-options) for more information
 
+* `-y`, `--compress`:
+  Enable compressing of documents. When library compiled with compression
+  support, this option will enable Snappy compression for outgoing data.
+  Incoming compressed data handled automatically regardless of this option.
+  Note, that because the compression support have to be negotiated with the
+  server, first packets might be sent uncompressed even when this switch
+  was specified. This is because the library might queue data commands before
+  socket connection has been established, and the library will negotiate
+  compression feature. If it is known that all server support compression
+  repeating the switch (like `-yy`) will force compression for all outgoing
+  mutations, even scheduled before establishing connection.
+
 * `--json`:
   Make `pillowfight` store document as JSON rather than binary. This will
   allow the documents to nominally be analyzed by other Couchbase services
@@ -215,6 +227,10 @@ command-line
   The path to the server's SSL certificate. This is typically required for SSL
   connectivity unless the certificate has already been added to the openssl
   installation on the system (only applicable with `couchbases://` scheme)
+* `keypath=PATH`:
+  The path to the client SSL private key. This is typically required for SSL
+  client certificate authentication. The certificate itself have to go first
+  in chain specified by `certpath` (only applicable with `couchbases://` scheme)
 * `ssl=no_verify`:
   Temporarily disable certificate verification for SSL (only applicable with
   `couchbases://` scheme). This should only be used for quickly debugging SSL

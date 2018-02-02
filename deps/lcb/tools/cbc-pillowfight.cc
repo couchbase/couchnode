@@ -121,7 +121,9 @@ public:
         o_noop("noop"),
         o_sdPathCount("pathcount"),
         o_populateOnly("populate-only"),
-        o_exptime("expiry")
+        o_exptime("expiry"),
+        o_collection("collection"),
+        o_separator("separator")
     {
         o_multiSize.setDefault(100).abbrev('B').description("Number of operations to batch");
         o_numItems.setDefault(1000).abbrev('I').description("Number of items to operate on");
@@ -146,6 +148,8 @@ public:
         o_sdPathCount.description("Number of subdoc paths per command").setDefault(1);
         o_populateOnly.description("Exit after documents have been populated");
         o_exptime.description("Set TTL for items").abbrev('e');
+        o_collection.description("Allowed collection name (could be specified multiple times)").hide();
+        o_separator.setDefault(":").description("Separator for collection prefix in keys").hide();
     }
 
     void processOptions() {
@@ -154,6 +158,9 @@ public:
         setprc = o_setPercent.result();
         shouldPopulate = !o_noPopulate.result();
 
+        if (o_keyPrefix.passed() && o_collection.passed()) {
+            throw std::runtime_error("The --collection is not compatible with --key-prefix");
+        }
         if (depr.loop.passed()) {
             fprintf(stderr, "The --loop/-l option is deprecated. Use --num-cycles\n");
             maxCycles = -1;
@@ -237,6 +244,17 @@ public:
         if (o_sdPathCount.passed()) {
             o_subdoc.setDefault(true);
         }
+
+        if (o_collection.passed()) {
+            string separator = o_separator.result();
+            if (separator.empty()) {
+                throw std::runtime_error("Collection name separator must not be empty");
+            }
+            vector<string> names = o_collection.result();
+            for (size_t ii = 0; ii < names.size(); ii++) {
+                collections.push_back(names[ii] + separator);
+            }
+        }
     }
 
     void addOptions(Parser& parser) {
@@ -262,6 +280,8 @@ public:
         parser.addOption(o_sdPathCount);
         parser.addOption(o_populateOnly);
         parser.addOption(o_exptime);
+        parser.addOption(o_collection);
+        parser.addOption(o_separator);
         params.addToParser(parser);
         depr.addOptions(parser);
     }
@@ -282,6 +302,7 @@ public:
     bool sequentialAccess() { return o_sequential; }
     bool isSubdoc() { return o_subdoc; }
     bool isNoop() { return o_noop.result(); }
+    bool useCollections() { return o_collection.passed(); }
     unsigned firstKeyOffset() { return o_startAt; }
     uint32_t getNumItems() { return o_numItems; }
     uint32_t getRateLimit() { return o_rateLimit; }
@@ -296,6 +317,7 @@ public:
     bool hasTemplates;
     ConnParams params;
     const DocGeneratorBase *docgen;
+    vector<string> collections;
 
 private:
     UIntOption o_multiSize;
@@ -330,6 +352,9 @@ private:
     BoolOption o_populateOnly;
 
     UIntOption o_exptime;
+
+    ListOption o_collection;
+    StringOption o_separator;
 
     DeprecatedOptions depr;
 } config;
@@ -381,9 +406,9 @@ public:
 
         Histogram &h = ic->hg;
         printf("[%f %s]\n", lcb_nstime() / 1000000000.0, header);
-        printf("              +---------+---------+---------+---------+\n");
+        printf("                +---------+---------+---------+---------+\n");
         h.write();
-        printf("              +----------------------------------------\n");
+        printf("                +----------------------------------------\n");
     }
 
 private:
@@ -554,14 +579,16 @@ private:
         uint32_t seqno = op.m_seqno;
         char buffer[21];
         snprintf(buffer, sizeof(buffer), "%020d", seqno);
-        op.m_key.assign(config.getKeyPrefix() + buffer);
+        string &prefix = config.useCollections()
+            ? config.collections[seqno % config.collections.size()]
+            : config.getKeyPrefix();
+        op.m_key.assign(prefix + buffer);
     }
 
 
     SeqGenerator *m_genrandom;
     SeqGenerator *m_gensequence;
     size_t m_gencount;
-    int m_id;
 
     bool m_force_sequential;
     bool m_in_population;
@@ -896,6 +923,10 @@ int main(int argc, char **argv)
         lcb_install_callback3(instance, LCB_CALLBACK_SDLOOKUP, operationCallback);
         lcb_install_callback3(instance, LCB_CALLBACK_NOOP, operationCallback);
         cp.doCtls(instance);
+        if (config.useCollections()) {
+            int use = 1;
+            lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_USE_COLLECTIONS, &use);
+        }
 
         new InstanceCookie(instance);
 

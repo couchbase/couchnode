@@ -82,6 +82,8 @@ lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs)
     ctx->state = ES_ACTIVE;
     ctx->as_err = lcbio_timer_new(ctx->io, ctx, err_handler);
     ctx->subsys = "unknown";
+    sock->service = LCBIO_SERVICE_UNSPEC;
+    sock->atime = LCB_NS2US(gethrtime());
 
     rdb_init(&ctx->ior, sock->settings->allocator_factory());
     lcbio_ref(sock);
@@ -296,6 +298,7 @@ E_handler(lcb_socket_t sock, short which, void *arg)
         status = lcbio_E_rdb_slurp(ctx, &ctx->ior);
         nb = rdb_get_nused(&ctx->ior);
 
+        ctx->sock->atime = LCB_NS2US(gethrtime());
         if (nb >= ctx->rdwant) {
             invoke_read_cb(ctx, nb);
             if (E_free_detached(ctx)) {
@@ -376,6 +379,7 @@ Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
     ctx->npending--;
 
     if (ctx->state == ES_ACTIVE) {
+        ctx->sock->atime = LCB_NS2US(gethrtime());
         if (nr > 0) {
             unsigned total;
             rdb_rdend(&ctx->ior, nr);

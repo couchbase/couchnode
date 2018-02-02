@@ -166,6 +166,7 @@ typedef struct lcb_settings_st {
     unsigned select_bucket : 1;
     unsigned tcp_keepalive : 1;
     unsigned send_hello : 1;
+    unsigned use_collections : 1;
 
     short max_redir;
     unsigned refcount;
@@ -176,6 +177,7 @@ typedef struct lcb_settings_st {
     char *bucket;
     char *sasl_mech_force;
     char *certpath;
+    char *keypath;
     lcb_AUTHENTICATOR *auth;
     struct rdb_ALLOCATOR* (*allocator_factory)(void);
     struct lcbio_SSLCTX *ssl_ctx;

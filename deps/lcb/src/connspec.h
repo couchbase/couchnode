@@ -93,6 +93,7 @@ public:
     const std::string& username() const { return m_username; }
     const std::string& password() const { return m_password; }
     const std::string& certpath() const { return m_certpath; }
+    const std::string& keypath() const { return m_keypath; }
     unsigned sslopts() const { return m_sslopts; }
     const Options& options() const { return m_ctlopts; }
     unsigned loglevel() const { return m_loglevel; }
@@ -106,6 +107,7 @@ private:
     std::string m_username;
     std::string m_password;
     std::string m_certpath;
+    std::string m_keypath;
     std::string m_connstr;
     unsigned m_sslopts; /**< SSL Options */
     std::vector<Spechost> m_hosts;

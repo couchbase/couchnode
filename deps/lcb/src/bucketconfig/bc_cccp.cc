@@ -265,6 +265,7 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR)
     ioprocs.cb_read = io_read_handler;
     cccp->ioctx = lcbio_ctx_new(sock, data, &ioprocs);
     cccp->ioctx->subsys = "bc_cccp";
+    sock->service = LCBIO_SERVICE_CFG;
     cccp->request_config();
 }
 

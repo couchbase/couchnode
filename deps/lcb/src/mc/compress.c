@@ -19,7 +19,7 @@
 #include "compress.h"
 
 #ifndef LCB_NO_SNAPPY
-#include <contrib/snappy/snappy-c.h>
+#include <snappy-c.h>
 #endif
 
 int

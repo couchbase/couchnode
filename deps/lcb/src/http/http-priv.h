@@ -314,6 +314,7 @@ struct Request {
     const uint32_t user_timeout;
 
     hrtime_t start; /**< Start time */
+    lcbio_SERVICE service;
 };
 
 } // namespace: http

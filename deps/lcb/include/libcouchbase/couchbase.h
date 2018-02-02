@@ -174,6 +174,12 @@ typedef lcb_U32 lcb_USECS;
  *   SSL certificate. Only applicable if SSL is being used (i.e. the scheme is
  *   `couchbases`)
  *
+ * * `keypath` - Specify the path (on the local filesystem) to the client
+ *   SSL private key. Only applicable if SSL client certificate authentication
+ *   is being used (i.e. the scheme is `couchbases` and `certpath` contains
+ *   client certificate). Read more in the server documentation:
+ *   https://developer.couchbase.com/documentation/server/5.0/security/security-certs-auth.html
+ *
  * ### Bucket Identification and Credentials
  *
  * The most common settings you will wish to modify are the bucket name
@@ -692,6 +698,7 @@ typedef enum {
     LCB_CALLBACK_SDMUTATE,
     LCB_CALLBACK_NOOP, /**< lcb_noop3() */
     LCB_CALLBACK_PING, /**< lcb_ping3() */
+    LCB_CALLBACK_DIAG, /**< lcb_diag() */
     LCB_CALLBACK__MAX /* Number of callbacks */
 } lcb_CALLBACKTYPE;
 
@@ -2449,6 +2456,7 @@ typedef struct {
     LCB_CMD_BASE;
     int services; /**< bitmap for services to ping */
     int options; /**< extra options, e.g. for result representation */
+    const char *id; /**< optional, zero-terminated string to identify the report */
 } lcb_CMDPING;
 
 /**
@@ -2465,6 +2473,18 @@ typedef enum {
 } lcb_PINGSVCTYPE;
 
 /**
+ * Status of the service
+ *
+ * @uncommitted
+ */
+typedef enum {
+    LCB_PINGSTATUS_OK = 0,
+    LCB_PINGSTATUS_TIMEOUT,
+    LCB_PINGSTATUS_ERROR,
+    LCB_PINGSTATUS__MAX
+} lcb_PINGSTATUS;
+
+/**
  * Entry describing the status of the service in the cluster.
  * It is part of lcb_RESPING structure.
  *
@@ -2472,9 +2492,14 @@ typedef enum {
  */
 typedef struct {
     lcb_PINGSVCTYPE type; /**< type of the service */
-    char *server; /**< server host:port */
+    /* TODO: rename to "remote" */
+    const char *server; /**< server host:port */
     lcb_U64 latency; /**< latency in nanoseconds */
-    lcb_error_t status; /**< status of the operation */
+    lcb_error_t rc; /**< raw return code of the operation */
+    const char *local; /**< server host:port */
+    const char *id; /**< service identifier (unique in scope of lcb_t connection instance) */
+    const char *scope; /**< optional scope name (typically equals to the bucket name) */
+    lcb_PINGSTATUS status; /**< status of the operation */
 } lcb_PINGSVC;
 
 /**
@@ -2532,6 +2557,54 @@ typedef struct {
 LIBCOUCHBASE_API
 lcb_error_t
 lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd);
+
+typedef struct {
+    LCB_CMD_BASE;
+    int options;  /**< extra options, e.g. for result representation */
+    const char *id; /**< optional, zero-terminated string to identify the report */
+} lcb_CMDDIAG;
+
+typedef struct {
+    LCB_RESP_BASE
+    lcb_SIZE njson;   /**< length of JSON string (when #LCB_PINGOPT_F_JSON was specified) */
+    const char *json; /**< pointer to JSON string */
+} lcb_RESPDIAG;
+
+/**
+ * @brief Returns diagnostics report about network connections.
+ *
+ * @uncommitted
+ *
+ * @par Request
+ * @code{.c}
+ * lcb_CMDDIAG cmd = { 0 };
+ * lcb_diag(instance, fp, &cmd);
+ * lcb_wait(instance);
+ * @endcode
+ *
+ * @par Response
+ * @code{.c}
+ * lcb_install_callback3(instance, LCB_CALLBACK_DIAG, diag_callback);
+ * void diag_callback(lcb_t, int, const lcb_RESPBASE *rb)
+ * {
+ *     const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
+ *     if (resp->rc != LCB_SUCCESS) {
+ *         fprintf(stderr, "failed: %s\n", lcb_strerror(NULL, resp->rc));
+ *     } else {
+ *         if (resp->njson) {
+ *             fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);
+ *         }
+ *     }
+ * }
+ * @endcode
+ *
+ * @param instance the library handle
+ * @param cookie the cookie passed in the callback
+ * @param cmd command structure.
+ * @return status code for scheduling.
+ */
+LIBCOUCHBASE_API
+lcb_error_t lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd);
 /**@} (Group: PING) */
 
 /**@ingroup lcb-public-api

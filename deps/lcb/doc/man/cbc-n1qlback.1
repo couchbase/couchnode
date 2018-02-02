@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-N1QLBACK" "1" "June 2017" "" ""
+.TH "CBC\-N1QLBACK" "1" "December 2017" "" ""
 .
 .SH "NAME"
 \fBcbc\-n1qlback\fR \- Stress Test for Couchbase Query (N1QL)
@@ -101,6 +101,10 @@ Enables the client to make use of a file based configuration cache rather than c
 .TP
 \fBcertpath=PATH\fR
 The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system (only applicable with \fBcouchbases://\fR scheme)
+.
+.TP
+\fBkeypath=PATH\fR
+The path to the client SSL private key\. This is typically required for SSL client certificate authentication\. The certificate itself have to go first in chain specified by \fBcertpath\fR (only applicable with \fBcouchbases://\fR scheme)
 .
 .TP
 \fBssl=no_verify\fR

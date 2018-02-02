@@ -1,3 +1,5 @@
+# -*- mode: cmake; cmake-tab-width: 4; indent-tabs-mode: nil -*-
+#
 # libcouchbase
 # Copyright (C) 2013 Couchbase, Inc
 # All rights reserved.
@@ -306,19 +308,18 @@ ELSE()
 ENDIF()
 
 
-IF(NOT LCB_NO_SNAPPY)
-    IF(LCB_STATIC_SNAPPY)
-        MESSAGE(STATUS "Will use embedded libsnappy")
-        ADD_SUBDIRECTORY(contrib/snappy)
-        SET(LCB_SNAPPY_LINK lcbsnappy)
+IF(LCB_STATIC_SNAPPY)
+    MESSAGE(STATUS "Will use embedded libsnappy")
+    ADD_SUBDIRECTORY(contrib/snappy)
+    INCLUDE_DIRECTORIES(contrib/snappy)
+    SET(LCB_SNAPPY_LINK lcbsnappy)
+ELSEIF(NOT LCB_NO_SNAPPY)
+    INCLUDE(cmake/Modules/FindCouchbaseSnappy.cmake)
+    IF(NOT SNAPPY_FOUND)
+        MESSAGE(FATAL_ERROR "Snappy not found and building with dynamic snappy requested")
     ELSE()
-        INCLUDE(cmake/Modules/FindCouchbaseSnappy.cmake)
-        IF(NOT SNAPPY_FOUND)
-            MESSAGE(FATAL_ERROR "Snappy not found and building with dynamic snappy requested")
-        ELSE()
-            SET(LCB_SNAPPY_LINK ${SNAPPY_LIBRARIES})
-            INCLUDE_DIRECTORIES(${SNAPPY_INCLUDES})
-        ENDIF()
+        SET(LCB_SNAPPY_LINK ${SNAPPY_LIBRARIES})
+        INCLUDE_DIRECTORIES(${SNAPPY_INCLUDES})
     ENDIF()
 ELSE()
     MESSAGE(STATUS "Compression support will be disabled")

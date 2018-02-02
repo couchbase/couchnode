@@ -233,6 +233,23 @@ on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
     procs.cb_err = io_error;
     procs.cb_read = io_read;
     req->ioctx = lcbio_ctx_new(sock, arg, &procs);
+    switch (req->reqtype) {
+    case LCB_HTTP_TYPE_N1QL:
+        sock->service = LCBIO_SERVICE_N1QL;
+        break;
+    case LCB_HTTP_TYPE_VIEW:
+        sock->service = LCBIO_SERVICE_VIEW;
+        break;
+    case LCB_HTTP_TYPE_FTS:
+        sock->service = LCBIO_SERVICE_FTS;
+        break;
+    case LCB_HTTP_TYPE_CBAS:
+        sock->service = LCBIO_SERVICE_CBAS;
+        break;
+    default:
+        sock->service = LCBIO_SERVICE_MGMT;
+        break;
+    }
     req->ioctx->subsys = "mgmt/capi";
     lcbio_ctx_put(req->ioctx, &req->preamble[0], req->preamble.size());
     if (!req->body.empty()) {

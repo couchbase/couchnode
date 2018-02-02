@@ -871,8 +871,10 @@ do_fallback_flush(mc_PIPELINE *pipeline)
 void
 mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler)
 {
+    mc_FALLBACKPL *fallback;
     assert(!cq->fallback);
-    cq->fallback = calloc(1, sizeof (mc_FALLBACKPL));
+    fallback = calloc(1, sizeof (mc_FALLBACKPL));
+    cq->fallback = (mc_PIPELINE *)fallback;
     mcreq_pipeline_init(cq->fallback);
     cq->fallback->parent = cq;
     cq->fallback->index = cq->npipelines;

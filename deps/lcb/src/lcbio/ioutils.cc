@@ -300,9 +300,7 @@ lcbio_ssl_supported(void)
 #endif
 }
 
-lcbio_pSSLCTX
-lcbio_ssl_new__fallback(const char *, int, lcb_error_t *errp,
-    lcb_settings *)
+lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, int, lcb_error_t *errp, lcb_settings *)
 {
     if (errp) { *errp = LCB_CLIENT_FEATURE_UNAVAILABLE; }
     return NULL;
@@ -327,3 +325,32 @@ lcb_error_t lcbio_sslify_if_needed(lcbio_SOCKET *, lcb_settings *) {
     return LCB_SUCCESS;
 }
 #endif
+
+std::string lcbio__inet_ntop(sockaddr_storage *ss)
+{
+    char buf[4096] = {0};
+    switch(ss->ss_family) {
+    case AF_INET:
+    {
+        struct sockaddr_in *addr = (struct sockaddr_in *)ss;
+        inet_ntop(AF_INET, &(addr->sin_addr), buf, sizeof(buf));
+        size_t len = strlen(buf);
+        snprintf(buf + len, 10, ":%d", (int)ntohs(addr->sin_port));
+    }
+    break;
+
+    case AF_INET6:
+    {
+        struct sockaddr_in6 *addr = (struct sockaddr_in6 *)ss;
+        inet_ntop(AF_INET6, &(addr->sin6_addr), buf, sizeof(buf));
+        size_t len = strlen(buf);
+        snprintf(buf + len, 10, ":%d", (int)ntohs(addr->sin6_port));
+    }
+    break;
+
+    default:
+        strncpy(buf, "Unknown AF", sizeof(buf));
+    }
+
+    return std::string(buf);
+}

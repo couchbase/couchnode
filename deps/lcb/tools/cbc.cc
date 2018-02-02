@@ -21,6 +21,9 @@
 #ifndef LCB_NO_SSL
 #include <openssl/crypto.h>
 #endif
+#ifndef LCB_NO_SNAPPY
+#include <snappy-stubs-public.h>
+#endif
 
 using namespace cbc;
 
@@ -846,6 +849,24 @@ VersionHandler::run()
     } else {
         printf("  SSL: NOT SUPPORTED\n");
     }
+    if (lcb_supports_feature(LCB_SUPPORTS_SNAPPY)) {
+#ifdef LCB_NO_SNAPPY
+        printf("  Snappy: SUPPORTED\n");
+#else
+        printf("  Snappy: %d.%d.%d ("
+#ifdef LCB_STATIC_SNAPPY
+               "static"
+#else
+               "dynamic"
+#endif
+               ")\n", SNAPPY_MAJOR, SNAPPY_MINOR, SNAPPY_PATCHLEVEL);
+#endif
+    } else {
+        printf("  Snappy: NOT SUPPORTED\n");
+    }
+    printf("  System: %s; %s\n", LCB_SYSTEM, LCB_SYSTEM_PROCESSOR);
+    printf("  CC: %s; %s\n", LCB_C_COMPILER, LCB_C_FLAGS);
+    printf("  CXX: %s; %s\n", LCB_CXX_COMPILER, LCB_CXX_FLAGS);
 }
 
 void

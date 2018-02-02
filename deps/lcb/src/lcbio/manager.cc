@@ -159,7 +159,7 @@ struct PoolRequest : ReqNode, ConnectionRequest {
 }
 }
 
-static const char *get_hehost(PoolHost *h) {
+static const char *get_hehost(const PoolHost *h) {
     if (!h) { return "NOHOST:NOPORT"; }
     return h->key.c_str();
 }
@@ -236,6 +236,32 @@ void Pool::shutdown() {
     }
 
     unref();
+}
+
+static void endpointToJSON(hrtime_t now, Json::Value &node, const PoolHost *host, const PoolConnInfo *info) {
+    Json::Value endpoint;
+    char id[20] = {0};
+    snprintf(id, sizeof(id), "%p", (void *)info->sock);
+    endpoint["id"] = id;
+    endpoint["remote"] = get_hehost(host);
+    endpoint["local"] = lcbio__inet_ntop(&info->sock->info->sa_local);
+    endpoint["last_activity_us"] = (Json::Value::UInt64)(now - info->sock->atime);
+    endpoint["status"] = "connected";
+    node[lcbio_svcstr(info->sock->service)].append(endpoint);
+}
+
+void Pool::toJSON(hrtime_t now, Json::Value &node) {
+    lcbio_MGR::HostMap::const_iterator it;
+    for (it = ht.begin(); it != ht.end(); ++it) {
+        const PoolHost *host = it->second;
+        lcb_list_t *llcur;
+        LCB_LIST_FOR(llcur, (lcb_list_t *)&host->ll_idle) {
+            endpointToJSON(now, node, host, PoolConnInfo::from_llnode(llcur));
+        }
+        LCB_LIST_FOR(llcur, (lcb_list_t *)&host->ll_pending) {
+            endpointToJSON(now, node, host, PoolConnInfo::from_llnode(llcur));
+        }
+    }
 }
 
 void
@@ -318,7 +344,7 @@ PoolConnInfo::PoolConnInfo(PoolHost *he, uint32_t timeout)
     id = LCBIO_PROTOCTX_POOL;
     dtor = cinfo_protoctx_dtor;
 
-    lcb_host_t tmphost = {0};
+    lcb_host_t tmphost = {};
     lcb_error_t err = lcb_host_parsez(&tmphost, he->key.c_str(), 80);
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS(he->parent, ERROR), HE_LOGFMT "Could not parse host! Will supply dummy host (I=%p)", HE_LOGID(he), (void*)this);

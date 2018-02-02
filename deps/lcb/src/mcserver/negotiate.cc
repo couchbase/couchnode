@@ -236,8 +236,8 @@ SessionRequestImpl::setup(const lcbio_NAMEINFO& nistrs, const lcb_host_t& host,
     }
 
     // Get the credentials
-    username = auth.username_for(settings->bucket);
-    const std::string& pass = auth.password_for(settings->bucket);
+    username = auth.username_for(host.host, host.port, settings->bucket);
+    const std::string pass = auth.password_for(host.host, host.port, settings->bucket);
 
     if (!pass.empty()) {
         size_t maxlen = sizeof(u_auth.buffer) - offsetof(cbsasl_secret_t, data);
@@ -340,7 +340,7 @@ SessionRequestImpl::send_step(const lcb::MemcachedResponse& packet)
     return true;
 }
 
-#define LCB_HELLO_DEFL_STRING "libcouchbase/" LCB_VERSION_STRING
+#define LCB_HELLO_DEFL_STRING LCB_CLIENT_ID
 #define LCB_HELLO_DEFL_LENGTH (sizeof(LCB_HELLO_DEFL_STRING)-1)
 
 bool
@@ -361,12 +361,15 @@ SessionRequestImpl::send_hello()
 
 #ifndef LCB_NO_SNAPPY
     if (settings->compressopts != LCB_COMPRESS_NONE) {
-        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_DATATYPE;
+        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_SNAPPY;
     }
 #endif
 
     if (settings->fetch_mutation_tokens) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO;
+    }
+    if (settings->use_collections) {
+        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_COLLECTIONS;
     }
 
     std::string client_string;
@@ -375,7 +378,7 @@ SessionRequestImpl::send_hello()
 
     if (settings->client_string) {
         client_string.assign(LCB_HELLO_DEFL_STRING);
-        client_string += ", ";
+        client_string += " ";
         client_string += settings->client_string;
 
         clistr = client_string.c_str();
@@ -565,8 +568,12 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
             lcb_log(LOGARGS(this, TRACE), LOGFMT "GET_ERRORMAP unsupported/disabled", LOGID(this));
         }
 
-        // In any event, it's also time to send the LIST_MECHS request
-        send_list_mechs();
+        if (settings->keypath) {
+            completed = !maybe_select_bucket();
+        } else {
+            // In any event, it's also time to send the LIST_MECHS request
+            send_list_mechs();
+        }
         break;
     }
 

@@ -488,7 +488,7 @@ class UpsertHandler : public Handler
         }
         // currently it is not possible to upsert document without XATTRs
         // so lets allocate "_cbc" object with some useful stuff
-        std::string ver = "\"libcouchbase/" LCB_VERSION_STRING "\"";
+        std::string ver = "\"" LCB_CLIENT_ID "\"";
         std::string path = "_cbc.version";
 
         std::string key = args[0];

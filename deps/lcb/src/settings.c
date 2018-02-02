@@ -62,6 +62,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->send_hello = 1;
     settings->config_poll_interval = LCB_DEFAULT_CONFIG_POLL_INTERVAL;
     settings->use_errmap = 1;
+    settings->use_collections = 0;
 }
 
 LCB_INTERNAL_API
@@ -86,6 +87,7 @@ lcb_settings_unref(lcb_settings *settings)
     free(settings->bucket);
     free(settings->sasl_mech_force);
     free(settings->certpath);
+    free(settings->keypath);
     free(settings->client_string);
 
     lcbauth_unref(settings->auth);

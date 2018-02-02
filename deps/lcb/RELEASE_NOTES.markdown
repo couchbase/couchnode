@@ -1,12 +1,115 @@
 # Release Notes
 
+## 2.8.4 (December 20 2017)
+
+* [CCBC-880](https://issues.couchbase.com/browse/CCBC-880): Implement x.509 client
+  certificate authentication. Connection string must use TLS-enabled scheme
+  (`couchbases://` or `https://`) and set options `certpath` and `keypath`. For example,
+
+        couchbases://127.0.0.1?certpath=/path/to/chain.pem&keypath=/path/to/client.key
+
+  Read more at server docs: https://developer.couchbase.com/documentation/server/5.0/security/security-x509certsintro.html
+
+* [CCBC-883](https://issues.couchbase.com/browse/CCBC-883): Revisit builtin compression
+  implementation (snappy). Add compression to cbc tools (see `--compress`, `-y` options).
+  Future versions of Couchbase Server will have end-to-end compression.
+
+* [CCBC-885](https://issues.couchbase.com/browse/CCBC-885): Do not skip HTTP Basic
+  authentication when password is empty.
+
+* [CCBC-876](https://issues.couchbase.com/browse/CCBC-876): Make sure that server
+  authority is always specified.  In some cases, when libcouchbase generates vbucket
+  configuration or data service is not available, the authority of the server might be
+  NULL.  This could cause issues, as we compare servers from configs using their authority
+  fields.
+
+* [CCBC-878](https://issues.couchbase.com/browse/CCBC-878): Support collections in
+  cbc-pillowfight.
+
+  Note that this change does not expose anything related to Collections API for
+  libcouchbase. It defines hidden switches for pillowfight tool to allow benchmark of
+  collections. The switches are not documented and might be removed in the future. Use
+  with care.
+
+  Generate only `beer:<seqno>` keys:
+
+        cbc pillowfight --separator : --collection beer
+
+  Using many --collection will alternate in generating `beer:<seqno>`, `brewery:<seqno>`
+  keys (default separator is ":"):
+
+        cbc pillowfight --collection beer --collection brewery
+
+* [CCBC-801](https://issues.couchbase.com/browse/CCBC-801): Expose information about
+  network IO for monitoring. The diagnostics exposed as string with encoded JSON object.
+
+        void diag_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+        {
+            const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
+            if (resp->rc != LCB_SUCCESS) {
+                fprintf(stderr, "failed: %s\n", lcb_strerror(NULL, resp->rc));
+            } else {
+                if (resp->njson) {
+                    fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);
+                }
+            }
+        }
+
+        lcb_install_callback3(instance, LCB_CALLBACK_DIAG, diag_callback);
+        lcb_CMDDIAG cmd = { 0 };
+        lcb_diag(instance, NULL, &cmd);
+        lcb_wait(instance);
+
+* [CCBC-874](https://issues.couchbase.com/browse/CCBC-874): Dynamic authenticator. Note
+  that this feature should not be considered at public interface. To use it, application
+  have to define two callbacks, which will return username and password dependending on
+  bucket name and hostname/port of the endpoint.
+
+        std::map< std::string, std::string > credentials = {
+            {"protected", "secret"}
+        };
+        extern "C" {
+          static const char *get_username(void *cookie,
+                                          const char *host,
+                                          const char *port,
+                                          const char *bucket)
+          {
+              return bucket;
+          }
+
+          static const char *get_password(void *cookie,
+                                          const char *host,
+                                          const char *port,
+                                          const char *bucket)
+          {
+              std::map< std::string, std::string > *credentials =
+                  static_cast<std::map< std::string, std::string > *>(cookie);
+              return (*credentials)[bucket].c_str();
+          }
+        }
+
+
+   and later pass these callbacks to authenticator like this:
+
+
+        lcb_AUTHENTICATOR *auth = lcbauth_new();
+        lcbauth_set_callbacks(auth, &credentials, get_username, get_password);
+        lcbauth_set_mode(auth, LCBAUTH_MODE_DYNAMIC);
+        lcb_set_auth(instance, auth);
+
+* Include platform/compiler into client id, which included into HELLO and HTTP requests.
+
+* Fix parallel build on Linux when dtrace enabled
+
+* cbc-proxy: proxy N1QL, FTS and Analytics queries using STAT command.
+
 ## 2.8.3 (November 21 2017)
 
 * [CCBC-415](https://issues.couchbase.com/browse/CCBC-415): Fixes in IPv6 support.
   To use IPv6 addresses, the application should connect to IPv6-enabled Couchbase Server,
   and explicitly switch on option via connection string `ipv6=allow` or `ipv6=only`,
   where first variant permits the library to use both IPv6 and IPv4, and the second --
-  disables IPv6. Alternatively this setting controlled with `LCB_CNTL_IP6POLICY` and
+  disables IPv4. Alternatively this setting controlled with `LCB_CNTL_IP6POLICY` and
   `lcb_cntl`.
 
 * [CCBC-872](https://issues.couchbase.com/browse/CCBC-872): Metrics management

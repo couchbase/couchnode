@@ -537,6 +537,53 @@ TEST_F(MockUnitTest, testSaslMechs)
     lcb_destroy(instance);
 }
 
+extern "C" {
+static const char *get_username(void *cookie, const char *host, const char *port, const char *bucket)
+{
+    return bucket;
+}
+
+static const char *get_password(void *cookie, const char *host, const char *port, const char *bucket)
+{
+    std::map< std::string, std::string > *credentials = static_cast< std::map< std::string, std::string > * >(cookie);
+    return (*credentials)[bucket].c_str();
+}
+}
+
+TEST_F(MockUnitTest, testDynamicAuth)
+{
+    SKIP_UNLESS_MOCK();
+
+    const char *argv[] = {"--buckets", "protected:secret:couchbase", NULL};
+
+    lcb_t instance;
+    lcb_error_t err;
+    struct lcb_create_st crParams;
+    MockEnvironment mock_o(argv, "protected"), *mock = &mock_o;
+    mock->makeConnectParams(crParams, NULL);
+    mock->setCCCP(false);
+
+    crParams.v.v0.bucket = "protected";
+    doLcbCreate(&instance, &crParams, mock);
+
+    std::map< std::string, std::string > credentials;
+    credentials["protected"] = "secret";
+    lcb_AUTHENTICATOR *auth = lcbauth_new();
+    lcbauth_set_callbacks(auth, &credentials, get_username, get_password);
+    lcbauth_set_mode(auth, LCBAUTH_MODE_DYNAMIC);
+    lcb_set_auth(instance, auth);
+
+    err = lcb_connect(instance);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance));
+
+    Item itm("key", "value");
+    KVOperation kvo(&itm);
+    kvo.store(instance);
+    lcb_destroy(instance);
+    lcbauth_unref(auth);
+}
+
 static void
 doManyItems(lcb_t instance, std::vector<std::string> keys)
 {

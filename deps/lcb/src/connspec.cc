@@ -255,6 +255,11 @@ Connspec::parse_options(
                 SET_ERROR("Certificate path must be specified with SSL host or scheme");
             }
             m_certpath = value;
+        } else if (!strcmp(key, "keypath")) {
+            if (! (m_flags & F_SSLSCHEME)) {
+                SET_ERROR("Private key path must be specified with SSL host or scheme");
+            }
+            m_keypath = value;
         } else if (!strcmp(key, "console_log_level")) {
             if (sscanf(value, "%d", &m_loglevel) != 1) {
                 SET_ERROR("console_log_level must be a numeric value");
@@ -289,6 +294,9 @@ Connspec::parse_options(
         } else {
             m_ctlopts.push_back(std::make_pair(key, value));
         }
+    }
+    if (!m_keypath.empty() && m_certpath.empty()) {
+        SET_ERROR("Private key path must be specified with certificate path");
     }
 
     return LCB_SUCCESS;
