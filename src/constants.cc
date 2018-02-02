@@ -159,7 +159,12 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(SDSPEC_F_MKINTERMEDIATES) \
     X(SDSPEC_F_XATTRPATH) \
     X(SDSPEC_F_XATTR_MACROVALUES) \
-    X(SDSPEC_F_XATTR_DELETED_OK)
+    X(SDSPEC_F_XATTR_DELETED_OK) \
+    \
+    X(PINGSVC_F_KV) \
+    X(PINGSVC_F_N1QL) \
+    X(PINGSVC_F_VIEWS) \
+    X(PINGSVC_F_FTS)
 #undef X
 
     return o;

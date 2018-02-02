@@ -550,6 +550,56 @@ subdoc_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase)
     delete callback;
 }
 
+static void
+ping_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase)
+{
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    const lcb_RESPPING *resp = (const lcb_RESPPING*)respbase;
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope scope;
+
+    Local<Value> errObj = Error::create(resp->rc);
+    Local<Value> resVal;
+    if (!resp->rc) {
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->valueKey),
+          Nan::New<String>((const char*)resp->json, (int)resp->njson).ToLocalChecked());
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
+
+    Local<Value> args[] = { errObj, resVal };
+    callback->Call(2, args);
+
+    delete callback;
+}
+
+static void
+diag_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase)
+{
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    const lcb_RESPDIAG *resp = (const lcb_RESPDIAG*)respbase;
+    Nan::Callback *callback = (Nan::Callback*)resp->cookie;
+    Nan::HandleScope scope;
+
+    Local<Value> errObj = Error::create(resp->rc);
+    Local<Value> resVal;
+    if (!resp->rc) {
+        Local<Object> resObj = Nan::New<Object>();
+        resObj->Set(Nan::New(me->valueKey),
+          Nan::New<String>((const char*)resp->json, (int)resp->njson).ToLocalChecked());
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
+
+    Local<Value> args[] = { errObj, resVal };
+    callback->Call(2, args);
+
+    delete callback;
+}
+
 }
 
 void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
@@ -566,4 +616,6 @@ void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
     lcb_install_callback3(instance, LCB_CALLBACK_ENDURE, durability_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_SDLOOKUP, subdoc_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_SDMUTATE, subdoc_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_PING, ping_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_DIAG, diag_callback);
 }

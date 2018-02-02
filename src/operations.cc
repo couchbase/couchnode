@@ -615,3 +615,47 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
 
     return info.GetReturnValue().Set(true);
 }
+
+NAN_METHOD(CouchbaseImpl::fnPing) {
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_CMDPING cmd;
+    void *cookie;
+    Nan::HandleScope scope;
+    CommandEncoder enc;
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.options = LCB_PINGOPT_F_JSON | LCB_PINGOPT_F_JSONDETAILS;
+    if (!enc.parseUintOption(&cmd.services, info[0])) {
+        return Nan::ThrowError(Error::create("bad services passed"));
+    }
+    if (!enc.parseCookie(&cookie, info[1])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_error_t err = lcb_ping3(me->getLcbHandle(), cookie, &cmd);
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}
+
+NAN_METHOD(CouchbaseImpl::fnDiag) {
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_CMDDIAG cmd;
+    void *cookie;
+    Nan::HandleScope scope;
+    CommandEncoder enc;
+
+    memset(&cmd, 0, sizeof(cmd));
+    if (!enc.parseCookie(&cookie, info[0])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_error_t err = lcb_diag(me->getLcbHandle(), cookie, &cmd);
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}

@@ -129,6 +129,8 @@ public:
     static NAN_METHOD(fnFtsQuery);
     static NAN_METHOD(fnLookupIn);
     static NAN_METHOD(fnMutateIn);
+    static NAN_METHOD(fnPing);
+    static NAN_METHOD(fnDiag);
 
 public:
     CouchbaseImpl(lcb_t inst);

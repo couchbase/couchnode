@@ -89,6 +89,8 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "ftsQuery", fnFtsQuery);
     Nan::SetPrototypeMethod(t, "lookupIn", fnLookupIn);
     Nan::SetPrototypeMethod(t, "mutateIn", fnMutateIn);
+    Nan::SetPrototypeMethod(t, "ping", fnPing);
+    Nan::SetPrototypeMethod(t, "diag", fnDiag);
 
     target->Set(
             Nan::New<String>("CouchbaseImpl").ToLocalChecked(),
