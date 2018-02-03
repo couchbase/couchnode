@@ -120,4 +120,61 @@ describe('#subdoc', function () {
           }));
         }));
   });
+
+  it('should use arrayAppend and arrayAppendAll correctly', function(done) {
+    var itemMap = {test: [1, 2, 3]};
+
+    H.b.upsert('sdArrAppend', itemMap, H.okCallback(function() {
+      H.b.mutateIn('sdArrAppend')
+          .arrayAppend('test', 4)
+          .execute(H.okCallback(function(res) {
+            H.b.mutateIn('sdArrAppend')
+                .arrayAppendAll('test', [5, 6, 7])
+                .execute(H.okCallback(function(res) {
+                  H.b.get('sdArrAppend', H.okCallback(function (res) {
+                    assert.deepEqual(res.value.test, [1, 2, 3, 4, 5, 6, 7]);
+                    done();
+                  }));
+                }));
+          }));
+    }));
+  });
+
+  it('should use arrayPrepend and arrayPrependAll correctly', function(done) {
+    var itemMap = {test: [5, 6, 7]};
+
+    H.b.upsert('sdArrPrepend', itemMap, H.okCallback(function() {
+      H.b.mutateIn('sdArrPrepend')
+          .arrayPrepend('test', 4)
+          .execute(H.okCallback(function(res) {
+            H.b.mutateIn('sdArrPrepend')
+                .arrayPrependAll('test', [1, 2, 3])
+                .execute(H.okCallback(function(res) {
+                  H.b.get('sdArrPrepend', H.okCallback(function (res) {
+                    assert.deepEqual(res.value.test, [1, 2, 3, 4, 5, 6, 7]);
+                    done();
+                  }));
+                }));
+          }));
+    }));
+  });
+
+  it('should use arrayInsert and arrayInsertAll correctly', function(done) {
+    var itemMap = {test: [1, 2, 6, 7]};
+
+    H.b.upsert('sdArrInsert', itemMap, H.okCallback(function() {
+      H.b.mutateIn('sdArrInsert')
+          .arrayInsert('test[2]', 3)
+          .execute(H.okCallback(function(res) {
+            H.b.mutateIn('sdArrInsert')
+                .arrayInsertAll('test[3]', [4, 5])
+                .execute(H.okCallback(function(res) {
+                  H.b.get('sdArrInsert', H.okCallback(function (res) {
+                    assert.deepEqual(res.value.test, [1, 2, 3, 4, 5, 6, 7]);
+                    done();
+                  }));
+                }));
+          }));
+    }));
+  });
 });
