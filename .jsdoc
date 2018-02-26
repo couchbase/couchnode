@@ -8,7 +8,7 @@
     "excludePattern": "(^|\\/|\\\\)_"
   },
   "opts": {
-    "template": "../../node_modules/ink-docstrap/template",
+    "template": "./node_modules/ink-docstrap/template",
     "destination": "./docs/",
     "private": true
   },
@@ -19,6 +19,6 @@
   "templates": {
     "systemName": "Couchbase Node.js SDK",
     "copyright": "Copyright 2010-2013 Couchbase, Inc.",
-    "theme": "couchbase"
+    "theme": "lumen"
   }
 }

@@ -26,7 +26,7 @@
     "request": "~2.83.0"
   },
   "devDependencies": {
-    "ink-docstrap": "git+https://github.com/brett19/docstrap.git#master",
+    "ink-docstrap": "~1.1.4",
     "istanbul": "~0.4.3",
     "jsdoc": "~3.5.5",
     "jsdoc-stability-tag": "~1.0.0",
