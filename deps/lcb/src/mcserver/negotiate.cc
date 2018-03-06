@@ -67,6 +67,7 @@ public:
         const lcb::Authenticator& auth);
     void start(lcbio_SOCKET *sock);
     void send_list_mechs();
+    std::string generate_agent_json();
     bool send_hello();
     bool send_step(const lcb::MemcachedResponse& packet);
     bool read_hello(const lcb::MemcachedResponse& packet);
@@ -323,8 +324,7 @@ SessionRequestImpl::send_step(const lcb::MemcachedResponse& packet)
     const char *step_data;
     unsigned int ndata;
 
-    saslerr = cbsasl_client_step(sasl_client,
-        packet.body<const char*>(), packet.bodylen(), NULL, &step_data, &ndata);
+    saslerr = cbsasl_client_step(sasl_client, packet.value(), packet.vallen(), NULL, &step_data, &ndata);
 
     if (saslerr != SASL_CONTINUE) {
         set_error(LCB_EINTERNAL, "Unable to perform SASL STEP");
@@ -340,8 +340,30 @@ SessionRequestImpl::send_step(const lcb::MemcachedResponse& packet)
     return true;
 }
 
-#define LCB_HELLO_DEFL_STRING LCB_CLIENT_ID
-#define LCB_HELLO_DEFL_LENGTH (sizeof(LCB_HELLO_DEFL_STRING)-1)
+std::string
+SessionRequestImpl::generate_agent_json()
+{
+    std::string client_string(LCB_CLIENT_ID);
+    if (settings->client_string) {
+        client_string += " ";
+        client_string += settings->client_string;
+    }
+    if (client_string.size() > 200) {
+        client_string.resize(200);
+    }
+    char id[34] = {};
+    snprintf(id, sizeof(id), "%016" PRIx64 "/%016" PRIx64, (lcb_U64)settings->iid, ctx->sock->id);
+
+    Json::Value ua;
+    ua["a"] = client_string;
+    ua["i"] = id;
+    Json::FastWriter w;
+    std::string res = w.write(ua);
+    if (res[res.size() - 1] == '\n') {
+        res.resize(res.size() - 1);
+    }
+    return res;
+}
 
 bool
 SessionRequestImpl::send_hello()
@@ -351,6 +373,7 @@ SessionRequestImpl::send_hello()
     unsigned nfeatures = 0;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TLS;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XATTR;
+    features[nfeatures++] = PROTOCOL_BINARY_FEATURE_JSON;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_SELECT_BUCKET;
     if (settings->use_errmap) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XERROR;
@@ -358,39 +381,25 @@ SessionRequestImpl::send_hello()
     if (settings->tcp_nodelay) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TCPNODELAY;
     }
-
-#ifndef LCB_NO_SNAPPY
     if (settings->compressopts != LCB_COMPRESS_NONE) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_SNAPPY;
     }
-#endif
-
     if (settings->fetch_mutation_tokens) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO;
     }
     if (settings->use_collections) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_COLLECTIONS;
     }
-
-    std::string client_string;
-    const char *clistr = LCB_HELLO_DEFL_STRING;
-    size_t nclistr = LCB_HELLO_DEFL_LENGTH;
-
-    if (settings->client_string) {
-        client_string.assign(LCB_HELLO_DEFL_STRING);
-        client_string += " ";
-        client_string += settings->client_string;
-
-        clistr = client_string.c_str();
-        nclistr = client_string.size();
+    if (settings->use_tracing) {
+        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TRACING;
     }
 
+    std::string agent = generate_agent_json();
     lcb::MemcachedRequest hdr(PROTOCOL_BINARY_CMD_HELLO);
-    hdr.sizes(0, nclistr, (sizeof features[0]) * nfeatures);
-
+    hdr.sizes(0, agent.size(), (sizeof features[0]) * nfeatures);
     lcbio_ctx_put(ctx, hdr.data(), hdr.size());
-    lcbio_ctx_put(ctx, clistr, nclistr);
-    lcb_log(LOGARGS(this, DEBUG), LOGFMT "HELLO identificator: \"%.*s\"", LOGID(this), (int)nclistr, clistr);
+    lcbio_ctx_put(ctx, agent.c_str(), agent.size());
+    lcb_log(LOGARGS(this, DEBUG), LOGFMT "HELLO identificator: %.*s", LOGID(this), (int)agent.size(), agent.c_str());
     for (size_t ii = 0; ii < nfeatures; ii++) {
         lcb_U16 tmp = htons(features[ii]);
         lcbio_ctx_put(ctx, &tmp, sizeof tmp);
@@ -414,8 +423,8 @@ SessionRequestImpl::read_hello(const lcb::MemcachedResponse& resp)
 {
     /* some caps */
     const char *cur;
-    const char *payload = resp.body<const char*>();
-    const char *limit = payload + resp.bodylen();
+    const char *payload = resp.value();
+    const char *limit = payload + resp.vallen();
     for (cur = payload; cur < limit; cur += 2) {
         lcb_U16 tmp;
         memcpy(&tmp, cur, sizeof(tmp));
@@ -447,8 +456,7 @@ SessionRequestImpl::update_errmap(const lcb::MemcachedResponse& resp)
 
     std::string errmsg;
     ErrorMap& mm = *settings->errmap;
-    ErrorMap::ParseStatus status = mm.parse(
-        resp.body<const char*>(), resp.bodylen(), errmsg);
+    ErrorMap::ParseStatus status = mm.parse(resp.value(), resp.vallen(), errmsg);
 
     if (status != ErrorMap::UPDATED && status != ErrorMap::NOT_UPDATED) {
         errmsg = "Couldn't update error map: " + errmsg;
@@ -512,7 +520,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
     case PROTOCOL_BINARY_CMD_SASL_LIST_MECHS: {
         const char *mechlist_data;
         unsigned int nmechlist_data;
-        std::string mechs(resp.body<const char*>(), resp.bodylen());
+        std::string mechs(resp.value(), resp.vallen());
 
         MechStatus mechrc = set_chosen_mech(mechs, &mechlist_data, &nmechlist_data);
         if (mechrc == MECH_OK) {

@@ -69,8 +69,16 @@ extern "C"
      * See section 3.1 Magic byte
      */
     typedef enum {
+        /* Request packet from client to server */
         PROTOCOL_BINARY_REQ = 0x80,
-        PROTOCOL_BINARY_RES = 0x81
+        /* Response packet from server to client */
+        PROTOCOL_BINARY_RES = 0x81,
+        /* Response packet from server to client containing frame extras */
+        PROTOCOL_BINARY_ARES = 0x18,
+        /* Request packet from server to client */
+        PROTOCOL_BINARY_SREQ = 0x82,
+        /* Response packet from client to server */
+        PROTOCOL_BINARY_SRES = 0x83
     } protocol_binary_magic;
 
     /**
@@ -722,11 +730,14 @@ extern "C"
         PROTOCOL_BINARY_FEATURE_COLLECTIONS = 0x09,
         PROTOCOL_BINARY_FEATURE_SNAPPY = 0x0a,
         PROTOCOL_BINARY_FEATURE_JSON = 0x0b,
-        PROTOCOL_BINARY_FEATURE_DUPLEX = 0x0c
+        PROTOCOL_BINARY_FEATURE_DUPLEX = 0x0c,
+        PROTOCOL_BINARY_FEATURE_CLUSTERMAP_CHANGE_NOTIFICATION = 0x0d,
+        PROTOCOL_BINARY_FEATURE_UNORDERED_EXECUTION = 0x0e,
+        PROTOCOL_BINARY_FEATURE_TRACING = 0x0f
     } protocol_binary_hello_features;
 
 #define MEMCACHED_FIRST_HELLO_FEATURE 0x01
-#define MEMCACHED_TOTAL_HELLO_FEATURES 10
+#define MEMCACHED_TOTAL_HELLO_FEATURES 15
 
     // clang-format off
 #define protocol_feature_2_text(a) \
@@ -741,7 +752,11 @@ extern "C"
     (a == PROTOCOL_BINARY_FEATURE_COLLECTIONS) ? "Collections": \
     (a == PROTOCOL_BINARY_FEATURE_SNAPPY) ? "Snappy": \
     (a == PROTOCOL_BINARY_FEATURE_JSON) ? "JSON": \
-    (a == PROTOCOL_BINARY_FEATURE_DUPLEX) ? "Duplex": "Unknown"
+    (a == PROTOCOL_BINARY_FEATURE_DUPLEX) ? "Duplex": \
+    (a == PROTOCOL_BINARY_FEATURE_CLUSTERMAP_CHANGE_NOTIFICATION) ? "Clustermap change notification": \
+    (a == PROTOCOL_BINARY_FEATURE_UNORDERED_EXECUTION) ? "Unordered execution": \
+    (a == PROTOCOL_BINARY_FEATURE_TRACING) ? "Tracing": \
+    "Unknown"
     // clang-format on
 
     /**

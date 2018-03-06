@@ -34,6 +34,11 @@ extern lcb_uint64_t lcb_byteswap64(lcb_uint64_t val)
     return ret;
 }
 
+extern lcb_uint16_t lcb_byteswap16(lcb_uint16_t val)
+{
+    return ((val & 0xff) << 8) | ((val >> 8) & 0xff);
+}
+
 /**
  * While the C standard library uses 'putenv' for environment variable
  * manipulation, POSIX defines setenv (which works sanely) but Windows

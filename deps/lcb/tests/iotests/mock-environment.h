@@ -75,7 +75,8 @@ class MockCommand
     X(OPFAIL) \
     X(START_RETRY_VERIFY) \
     X(CHECK_RETRY_VERIFY) \
-    X(SET_ENHANCED_ERRORS)
+    X(SET_ENHANCED_ERRORS) \
+    X(SET_COMPRESSION)
 
 public:
     enum Code {
@@ -328,6 +329,20 @@ public:
     void setEnhancedErrors(bool enabled,
                            std::string bucket = "",
                            const std::vector<int>* nodes = NULL);
+
+    /**
+     * Change compression mode on the server
+     *
+     * @param mode compression mode ("off", "passive", "active")
+     * @param bucket the bucket on which to enable compression
+     * @param nodes a list of by-index nodes on which to enable compression. If NULL
+     * then all nodes are enabled
+     */
+    void setCompression(std::string mode,
+                        std::string bucket = "",
+                        const std::vector<int>* nodes = NULL);
+
+    const Json::Value getKeyInfo(std::string key, std::string bucket = "");
 
     /**
      * Create a connection to the mock/real server.

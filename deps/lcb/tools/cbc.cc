@@ -1,5 +1,4 @@
 #define NOMINMAX
-#include "common/my_inttypes.h"
 #include <map>
 #include <sstream>
 #include <iostream>
@@ -21,9 +20,7 @@
 #ifndef LCB_NO_SSL
 #include <openssl/crypto.h>
 #endif
-#ifndef LCB_NO_SNAPPY
 #include <snappy-stubs-public.h>
-#endif
 
 using namespace cbc;
 
@@ -80,8 +77,17 @@ get_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPGET *resp)
 {
     string key = getRespKey((const lcb_RESPBASE *)resp);
     if (resp->rc == LCB_SUCCESS) {
-        fprintf(stderr, "%-20s CAS=0x%" PRIx64 ", Flags=0x%x. Size=%lu\n",
-            key.c_str(), resp->cas, resp->itmflags, (unsigned long)resp->nvalue);
+        fprintf(stderr, "%-20s CAS=0x%" PRIx64 ", Flags=0x%x, Size=%lu, Datatype=0x%02x",
+                key.c_str(), resp->cas, resp->itmflags, (unsigned long)resp->nvalue,
+                (int)resp->datatype);
+        if (resp->datatype) {
+            fprintf(stderr, "(");
+            if (resp->datatype & LCB_VALUE_F_JSON) {
+                fprintf(stderr, "JSON");
+            }
+            fprintf(stderr, ")");
+        }
+        fprintf(stderr, "\n");
         fflush(stderr);
         fwrite(resp->value, 1, resp->nvalue, stdout);
         fflush(stdout);
@@ -223,6 +229,34 @@ stats_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
         }
     }
     fprintf(stdout, "\n");
+}
+
+static void
+watch_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
+{
+    if (resp->rc != LCB_SUCCESS) {
+        fprintf(stderr, "ERROR 0x%02X (%s)\n", resp->rc, lcb_strerror(NULL, resp->rc));
+        return;
+    }
+    if (resp->server == NULL || resp->key == NULL) {
+        return;
+    }
+
+    string key = getRespKey((const lcb_RESPBASE *)resp);
+    if (resp->nvalue >  0) {
+        char *nptr = NULL;
+        uint64_t val =
+#ifdef _WIN32
+            _strtoi64
+#else
+            strtoll
+#endif
+            ((const char *)resp->value, &nptr, 10);
+        if (nptr != (const char *)resp->value) {
+            map<string, int64_t> *entry = reinterpret_cast< map<string, int64_t> *>(resp->cookie);
+            (*entry)[key] += val;
+        }
+    }
 }
 
 static void
@@ -511,8 +545,7 @@ SetHandler::addOptions()
     if (!hasFileList()) {
         parser.addOption(o_value);
     }
-    // This may be enabled again if datatype support is re-added
-    // parser.addOption(o_json);
+    parser.addOption(o_json);
 }
 
 lcb_storage_t
@@ -850,20 +883,18 @@ VersionHandler::run()
         printf("  SSL: NOT SUPPORTED\n");
     }
     if (lcb_supports_feature(LCB_SUPPORTS_SNAPPY)) {
-#ifdef LCB_NO_SNAPPY
-        printf("  Snappy: SUPPORTED\n");
+#define EXPAND(VAR)   VAR ## 1
+#define IS_EMPTY(VAR) EXPAND(VAR)
+
+#if defined(SNAPPY_MAJOR) && (IS_EMPTY(SNAPPY_MAJOR) != 1)
+        printf("  Snappy: %d.%d.%d\n", SNAPPY_MAJOR, SNAPPY_MINOR, SNAPPY_PATCHLEVEL);
 #else
-        printf("  Snappy: %d.%d.%d ("
-#ifdef LCB_STATIC_SNAPPY
-               "static"
-#else
-               "dynamic"
-#endif
-               ")\n", SNAPPY_MAJOR, SNAPPY_MINOR, SNAPPY_PATCHLEVEL);
+        printf("  Snappy: unknown\n");
 #endif
     } else {
         printf("  Snappy: NOT SUPPORTED\n");
     }
+    printf("  Tracing: %sSUPPORTED\n", lcb_supports_feature(LCB_SUPPORTS_TRACING) ? "" : "NOT ");
     printf("  System: %s; %s\n", LCB_SYSTEM, LCB_SYSTEM_PROCESSOR);
     printf("  CC: %s; %s\n", LCB_C_COMPILER, LCB_C_FLAGS);
     printf("  CXX: %s; %s\n", LCB_CXX_COMPILER, LCB_CXX_FLAGS);
@@ -918,6 +949,57 @@ StatsHandler::run()
     lcb_sched_leave(instance);
     lcb_wait(instance);
 }
+
+void
+WatchHandler::run()
+{
+    Handler::run();
+    lcb_install_callback3(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)watch_callback);
+    vector<string> keys = parser.getRestArgs();
+    if (keys.empty()) {
+        keys.push_back("cmd_total_ops");
+        keys.push_back("cmd_total_gets");
+        keys.push_back("cmd_total_sets");
+    }
+    int interval = o_interval.result();
+
+    map<string, int64_t> prev;
+
+    bool first = true;
+    while (true) {
+        map<string, int64_t> entry;
+        lcb_sched_enter(instance);
+        lcb_CMDSTATS cmd = { 0 };
+        lcb_error_t err = lcb_stats3(instance, (void *)&entry, &cmd);
+        if (err != LCB_SUCCESS) {
+            throw LcbError(err);
+        }
+        lcb_sched_leave(instance);
+        lcb_wait(instance);
+        if (first) {
+            for (vector<string>::iterator it = keys.begin(); it != keys.end(); ++it) {
+                fprintf(stderr, "%s: %" PRId64 "\n", it->c_str(), entry[*it]);
+            }
+            first = false;
+        } else {
+#ifndef _WIN32
+            if (isatty(STDERR_FILENO)) {
+                fprintf(stderr, "\033[%dA", (int)keys.size());
+            }
+#endif
+            for (vector<string>::iterator it = keys.begin(); it != keys.end(); ++it) {
+                fprintf(stderr, "%s: %" PRId64 "%20s\n", it->c_str(), (entry[*it] - prev[*it]) / interval, "");
+            }
+        }
+        prev = entry;
+#ifdef _WIN32
+        Sleep(interval * 1000);
+#else
+        sleep(interval);
+#endif
+    }
+}
+
 
 void
 VerbosityHandler::run()
@@ -1661,6 +1743,7 @@ setupHandlers()
     handlers_s["rm"] = new RemoveHandler();
     handlers_s["cp"] = new SetHandler("cp");
     handlers_s["stats"] = new StatsHandler();
+    handlers_s["watch"] = new WatchHandler();
     handlers_s["verbosity"] = new VerbosityHandler();
     handlers_s["ping"] = new PingHandler();
     handlers_s["mcflush"] = new McFlushHandler();

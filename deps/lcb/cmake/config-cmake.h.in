@@ -21,6 +21,7 @@
 #cmakedefine HAVE_NETDB_H
 #cmakedefine HAVE_SETITIMER
 #cmakedefine HAVE_STDINT_H
+#cmakedefine HAVE_STDDEF_H
 #cmakedefine HAVE_FCNTL_H
 #cmakedefine HAVE_HTONLL
 #cmakedefine HAVE_STRINGS_H
@@ -62,6 +63,7 @@
 #endif
 
 #define TEST_SHARED_OBJECT "${CMAKE_TEST_SHARED_OBJECT}"
+#cmakedefine COMPILER_SUPPORTS_CXX11
 
 #define LCB_SYSTEM "${CMAKE_SYSTEM}"
 #define LCB_SYSTEM_PROCESSOR "${CMAKE_SYSTEM_PROCESSOR}"
@@ -71,4 +73,3 @@
 #define LCB_C_FLAGS "${CMAKE_C_FLAGS}"
 
 #define LCB_CLIENT_ID "libcouchbase/" LCB_VERSION_STRING " (" LCB_SYSTEM "; " LCB_SYSTEM_PROCESSOR "; " LCB_C_COMPILER ")"
-#cmakedefine LCB_STATIC_SNAPPY

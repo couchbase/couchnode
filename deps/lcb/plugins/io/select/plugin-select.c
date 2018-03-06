@@ -342,7 +342,10 @@ sel_destroy_iops(struct lcb_io_opt_st *iops)
     sel_EVENT *ev;
     sel_TIMER *tm;
 
-    assert(io->event_loop == 0);
+    if (io->event_loop != 0) {
+        fprintf(stderr, "WARN: libcouchbase(plugin-select): the event loop might be still active, but it still try to "
+                        "free resources\n");
+    }
     LCB_LIST_SAFE_FOR(ii, nn, &io->events.list) {
         ev = LCB_LIST_ITEM(ii, sel_EVENT, list);
         sel_event_free(iops, ev);

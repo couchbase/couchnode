@@ -195,8 +195,8 @@ RetryQueue::schedule(hrtime_t now)
         diff = selected - now;
     }
 
-    uint32_t us_interval = LCB_NS2US(diff);
-    lcb_log(LOGARGS(this, TRACE), "Next tick in %u ms", (unsigned)us_interval/1000);
+    uint64_t us_interval = LCB_NS2US(diff);
+    lcb_log(LOGARGS(this, TRACE), "Next tick in %" PRIu64 " ms", us_interval/1000);
     lcbio_timer_rearm(timer, us_interval);
 }
 

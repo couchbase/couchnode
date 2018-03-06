@@ -8,6 +8,14 @@ using namespace PacketMaker;
 
 class ForwardTests : public MockUnitTest
 {
+protected:
+    virtual void createConnection(HandleWrap& hw, lcb_t& instance) {
+        MockEnvironment::getInstance()->createConnection(hw, instance);
+        lcb_cntl_string(instance, "enable_tracing", "off");
+        ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
+        lcb_wait(instance);
+        ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(instance));
+    }
 };
 
 struct ForwardCookie {

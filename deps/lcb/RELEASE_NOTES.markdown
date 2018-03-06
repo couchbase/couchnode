@@ -1,5 +1,62 @@
 # Release Notes
 
+## 2.8.5 (February 23 2018)
+
+* [CCBC-883](https://issues.couchbase.com/browse/CCBC-883): Always use built-in compression.
+  It is not possible to unbundle the Snappy library, as libcouchbase uses the C++ API which is not
+  exported in the headers. Also, compression can now work on all types of buffers, including
+  `LCB_KV_IOV` and `LCB_KV_IOVCOPY`. This fixes compression in `cbc-pillowfight` tool.
+
+* [CCBC-895](https://issues.couchbase.com/browse/CCBC-895): Fix typo in rendering IPv6 addresses
+  in `lcb_diag`.
+
+* [CCBC-879](https://issues.couchbase.com/browse/CCBC-879): Implement log redaction. When
+  `log_redaction=on` is specified in the connection string, the library will wrap sensitive
+  data in the logs in special tags, which can be processed by the
+  `cblogredaction` tool from the server distribution.
+
+* [CCBC-893](https://issues.couchbase.com/browse/CCBC-894): Updated list of subdoc error codes.
+
+* [CCBC-892](https://issues.couchbase.com/browse/CCBC-892): Enable the SSL trust store to be in
+  a separate file. Trust store has to be specified with option `truststorepath=…`, otherwise
+  the library will expect it to be stored with the certificate in `certpath=`.
+
+* [CCBC-888](https://issues.couchbase.com/browse/CCBC-888): Per operation tracing. When
+  compiled with tracing support (`cmake -DLCB_TRACING=ON`), the library will expose the tracing
+  API, which allows to measure time of every data operation, and include some extra information.
+  The API is modeled after OpenTracing and allows one to write custom tracers to consume this 
+  information. For more information, see an example in
+  [example/tracing/tracing.c](example/tracing/tracing.c).  This is uncommitted API at this time.
+
+  Also this feature includes support for new type of the server responses, which include
+  time spent to execute the KV command on the server. This feature controlled by `enable_tracing`
+  option in connection string or `lcb_cntl(..., LCB_CNTL_ENABLE_TRACING, ...)`.
+
+* Added basic support of JSON datatype. The library will negotiate a mode, in which the
+  application will see `LCB_VALUE_F_JSON` flag on datatype field of the response in the
+  operation callback, if the cluster  detected the content of the document to be valid JSON.
+  Also the application can send this flag on the outgoing documents to notify the server
+  about payload format.
+
+* Refresh dtrace/systemtap integration. Also adds tapset for SystemTap to simplify access to
+  trace points.
+
+* cbc-pillowfight improvements and changes:
+  * dump diagnostics on `SIGQUIT` (CTRL-\ in terminal).
+  * with `-J`/`--json`, the JSON datatype will be sent on the documents.
+  * enable randomized document bodies with `-R`/`--random-body` switch.
+  * durability checks for pillowfight with `--persist-to`/`--replicate-to`.
+  * pessimistic locking of keys before updating with `--lock`.
+  * when requesting timings with `-T`/`--timings`, the application will no longer dump them
+    periodically.Instead it will await for the user to signal `SIGQUIT` and also dump
+    them on exit. The old mode of reporting regularly is enabled by repeating the switch more than
+    once (e.g. `-TT`).
+
+* Added the cbc-watch command to monitor server stats. By default it tracks `cmd_total_ops`,
+  `cmd_total_gets` and `cmd_total_sets` updating stats once a second, and displaying
+  diff with the previous value.
+
+
 ## 2.8.4 (December 20 2017)
 
 * [CCBC-880](https://issues.couchbase.com/browse/CCBC-880): Implement x.509 client
@@ -47,10 +104,12 @@
         {
             const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
             if (resp->rc != LCB_SUCCESS) {
-                fprintf(stderr, "failed: %s\n", lcb_strerror(NULL, resp->rc));
+                fprintf(stderr, "failed: %s
+", lcb_strerror(NULL, resp->rc));
             } else {
                 if (resp->njson) {
-                    fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);
+                    fprintf(stderr, "
+%.*s", (int)resp->njson, resp->json);
                 }
             }
         }
@@ -2052,7 +2111,8 @@ These changes extend existing features with enhanced APIs
 
     lcb_error_t rc = lcb_create(&instance, &options);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to create instance: %s\n", lcb_strerror(instance, rc));
+        fprintf(stderr, "Failed to create instance: %s
+", lcb_strerror(instance, rc));
     }
 
   The above snippet will configure a client to _always_ use the `CCCP` protocol
@@ -2112,7 +2172,8 @@ These changes extend existing features with enhanced APIs
         node.v.v1.index = 0; /* first node */
         lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_MEMDNODE_INFO, &node);
         if (node.v.v1.sasl_mech) {
-            printf("authenticated via SASL '%s'\n",
+            printf("authenticated via SASL '%s'
+",
                    node.v.v1.sasl_mech);
         }
 
@@ -2148,9 +2209,11 @@ These changes extend existing features with enhanced APIs
       int is_loaded;
       lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_CONFIG_CACHE_LOADED, &is_loaded);
       if (is_loaded) {
-          printf("Configuration cache saved us a trip to the config server\n");
+          printf("Configuration cache saved us a trip to the config server
+");
       } else {
-          printf("We had to contact the configuration server for some reason\n");
+          printf("We had to contact the configuration server for some reason
+");
       }
 
 * [major] CCBC-278 Use common config retry mechanism for bad
@@ -2178,7 +2241,8 @@ These changes extend existing features with enhanced APIs
       lcb_error_t user_map_error(lcb_t instance, lcb_uint16_t in)
       {
         if (in == PROTOCOL_BINARY_RESPONSE_ETMPFAIL) {
-          fprintf(stderr, "temporary failure on server\n");
+          fprintf(stderr, "temporary failure on server
+");
         }
         return default_callback(instance, in);
       }

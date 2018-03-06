@@ -69,6 +69,26 @@ public:
     virtual ~DocGeneratorBase() {}
 };
 
+static const char alphabet[] = "0123456789 abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+static void random_fill(std::string& str, int level) {
+    if (level > 1) {
+        for (size_t ii = 0; ii < str.size(); ii++) {
+            str[ii] = rand() % (0x7e - 0x20) + 0x20; // printable
+            switch (str[ii]) {
+            case 0x5c: // backslash
+            case 0x22: // double quote
+                str[ii]++;
+                break;
+            }
+        }
+    } else if (level > 0) {
+        for (size_t ii = 0; ii < str.size(); ii++) {
+            str[ii] = alphabet[rand() % (sizeof(alphabet) - 1)];
+        }
+    }
+}
+
 /**
  * Generator class for raw objects. This contains a fixed buffer and will
  * simply vary in how 'long' the buffer is
@@ -104,10 +124,13 @@ public:
         return ret;
     }
 
-    RawDocGenerator(uint32_t minsz, uint32_t maxsz)
+    RawDocGenerator(uint32_t minsz, uint32_t maxsz, int rnd)
     : m_sizes(gen_graded_sizes(minsz, maxsz)) {
         // Populate the buffer to its capacity
         m_buf.insert(0, maxsz, '#');
+        if (rnd) {
+            random_fill(m_buf, rnd);
+        }
     }
 
 
@@ -202,18 +225,18 @@ public:
      * @param minsz Minimum JSON document size
      * @param maxsz Maximum JSON document size
      */
-    JsonDocGenerator(uint32_t minsz, uint32_t maxsz)
+    JsonDocGenerator(uint32_t minsz, uint32_t maxsz, int rnd)
     {
-        genDocuments(minsz, maxsz, m_docs);
+        genDocuments(minsz, maxsz, m_docs, rnd);
         for (size_t ii = 0; ii < m_docs.size(); ++ii) {
             m_bufs.push_back(m_docs[ii].m_doc);
         }
     }
 
-    static void genDocuments(uint32_t minsz, uint32_t maxsz, std::vector<std::string>& out)
+    static void genDocuments(uint32_t minsz, uint32_t maxsz, std::vector<std::string>& out, int rnd)
     {
         std::vector<Doc> docs;
-        genDocuments(minsz, maxsz, docs);
+        genDocuments(minsz, maxsz, docs, rnd);
         for (size_t ii = 0; ii < docs.size(); ++ii) {
             out.push_back(docs[ii].m_doc);
         }
@@ -234,12 +257,12 @@ private:
     }
 
     static void
-    genDocuments(uint32_t minsz, uint32_t maxsz, std::vector<Doc>& out)
+    genDocuments(uint32_t minsz, uint32_t maxsz, std::vector<Doc>& out, int rnd)
     {
         std::vector<size_t> sizes = RawDocGenerator::gen_graded_sizes(minsz, maxsz);
         for (std::vector<size_t>::iterator ii = sizes.begin();
                 ii != sizes.end(); ++ii) {
-            out.push_back(generate(*ii));
+            out.push_back(generate(*ii, rnd));
         }
     }
 
@@ -249,7 +272,7 @@ private:
      * "Field_$incr" and values will be evenly distributed as fixed 16 byte
      * strings. (See JSON_VALUE_SIZE)
      */
-    static Doc generate(int docsize)
+    static Doc generate(int docsize, int rnd)
     {
         int counter = 0;
         char keybuf[128] = { 0 };
@@ -264,6 +287,9 @@ private:
                 valsize = 1;
             }
             std::string value(valsize, '*');
+            if (rnd) {
+                random_fill(value, rnd);
+            }
             decrSize(&docsize, valsize + 3);
             root[keybuf] = value;
             value = '"' + value;
@@ -424,10 +450,10 @@ public:
      * @param maxsz Maximum document size
      */
     PlaceholderJsonGenerator(uint32_t minsz, uint32_t maxsz,
-        const std::vector<TemplateSpec>& specs) {
+                             const std::vector<TemplateSpec>& specs, int rnd) {
 
         std::vector<std::string> jsondocs;
-        JsonDocGenerator::genDocuments(minsz, maxsz, jsondocs);
+        JsonDocGenerator::genDocuments(minsz, maxsz, jsondocs, rnd);
         initJsonPlaceholders(specs, jsondocs);
     }
 

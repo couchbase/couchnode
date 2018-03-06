@@ -194,6 +194,23 @@ private:
     cliopts::BoolOption o_keystats;
 };
 
+class WatchHandler : public Handler {
+public:
+    HANDLER_DESCRIPTION("Aggregate and display server statistics")
+    HANDLER_USAGE("[KEYS ....] [OPTIONS ...]")
+        WatchHandler() : Handler("watch"), o_interval("interval") {
+        o_interval.abbrev('n').description("Update interval in seconds").setDefault(1);
+    }
+protected:
+    void run();
+    void addOptions() {
+        Handler::addOptions();
+        parser.addOption(o_interval);
+    }
+private:
+    cliopts::UIntOption o_interval;
+};
+
 class VerbosityHandler : public Handler {
 public:
     HANDLER_DESCRIPTION("Modify the memcached logging level")

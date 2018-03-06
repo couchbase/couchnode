@@ -38,4 +38,15 @@ IF(DTRACE)
                 COMMAND ${DTRACE} -C -G ${LCB_DTRACE_OPTIONS} -s ${LCB_DTRACE_SRC} -o ${LCB_DTRACE_OBJECT})
         ENDIF()
     ENDIF()
+
+    FIND_PROGRAM(STAP stap)
+    IF(STAP)
+      SET(LCB_TAPSET_ROOT /usr/share/systemtap/tapset)
+      CONFIGURE_FILE(
+        ${PROJECT_SOURCE_DIR}/cmake/libcouchbase.stp.in
+        ${LCB_GENSRCDIR}/libcouchbase.so.${LCB_SONAME_FULL}.stp)
+      INSTALL(
+        FILES ${LCB_GENSRCDIR}/libcouchbase.so.${LCB_SONAME_FULL}.stp
+        DESTINATION ${LCB_TAPSET_ROOT})
+    ENDIF()
 ENDIF()

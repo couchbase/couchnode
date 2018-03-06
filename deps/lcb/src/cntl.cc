@@ -132,6 +132,9 @@ HANDLER(get_changeset) {
 HANDLER(ssl_mode_handler) {
     RETURN_GET_ONLY(int, LCBT_SETTING(instance, sslopts))
 }
+HANDLER(ssl_truststorepath_handler) {
+    RETURN_GET_ONLY(char*, LCBT_SETTING(instance, truststorepath))
+}
 HANDLER(ssl_certpath_handler) {
     RETURN_GET_ONLY(char*, LCBT_SETTING(instance, certpath))
 }
@@ -203,6 +206,12 @@ HANDLER(select_bucket_handler) {
 }
 HANDLER(send_hello_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, send_hello));
+}
+HANDLER(log_redaction_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, log_redaction));
+}
+HANDLER(enable_tracing_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, use_tracing));
 }
 HANDLER(config_poll_interval_handler) {
     lcb_U32 *user = reinterpret_cast<lcb_U32*>(arg);
@@ -656,7 +665,10 @@ static ctl_handler handlers[] = {
     buckettype_handler, /* LCB_CNTL_BUCKETTYPE */
     metrics_handler, /* LCB_CNTL_METRICS */
     collections_handler, /* LCB_CNTL_USE_COLLECTIONS */
-    ssl_keypath_handler /* LCB_CNTL_SSL_KEY */
+    ssl_keypath_handler, /* LCB_CNTL_SSL_KEY */
+    log_redaction_handler, /* LCB_CNTL_LOG_REDACTION */
+    ssl_truststorepath_handler, /* LCB_CNTL_SSL_TRUSTSTORE */
+    enable_tracing_handler, /* LCB_CNTL_ENABLE_TRACING */
 };
 
 /* Union used for conversion to/from string functions */
@@ -827,6 +839,8 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"send_hello", LCB_CNTL_SEND_HELLO, convert_intbool},
         {"ipv6", LCB_CNTL_IP6POLICY, convert_ipv6},
         {"metrics", LCB_CNTL_METRICS, convert_intbool },
+        {"log_redaction", LCB_CNTL_LOG_REDACTION, convert_intbool},
+        {"enable_tracing", LCB_CNTL_ENABLE_TRACING, convert_intbool},
         {NULL, -1}
 };
 

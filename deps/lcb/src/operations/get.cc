@@ -74,7 +74,8 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd)
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), gcmd.bytes, MCREQ_PKT_BASESIZE + extlen);
     LCB_SCHED_ADD(instance, pl, pkt);
-    TRACE_GET_BEGIN(hdr, cmd);
+    LCBTRACE_KV_START(instance->settings, cmd, pkt->opaque, rdata->span);
+    TRACE_GET_BEGIN(instance, hdr, cmd);
 
     return LCB_SUCCESS;
 }
@@ -144,8 +145,9 @@ lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd)
     hdr.request.cas = lcb_htonll(cmd->cas);
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
-    TRACE_UNLOCK_BEGIN(&hdr, cmd);
     LCB_SCHED_ADD(instance, pl, pkt);
+    LCBTRACE_KV_START(instance->settings, cmd, pkt->opaque, rd->span);
+    TRACE_UNLOCK_BEGIN(instance, &hdr, cmd);
     return LCB_SUCCESS;
 }
 

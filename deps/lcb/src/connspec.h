@@ -61,7 +61,7 @@ struct Spechost {
 class LCB_CLASS_EXPORT Connspec {
 public:
     typedef std::vector<std::pair<std::string,std::string> > Options;
-    Connspec() : m_sslopts(0), m_implicit_port(0), m_loglevel(0), m_flags(0), m_ipv6(LCB_IPV6_DISABLED) {}
+    Connspec() : m_sslopts(0), m_implicit_port(0), m_loglevel(0), m_logredact(false), m_flags(0), m_ipv6(LCB_IPV6_DISABLED) {}
 
     lcb_error_t parse(const char *connstr, const char **errmsg = NULL);
     lcb_error_t load(const lcb_create_st&);
@@ -92,11 +92,13 @@ public:
     const std::string& bucket() const { return m_bucket; }
     const std::string& username() const { return m_username; }
     const std::string& password() const { return m_password; }
+    const std::string& truststorepath() const { return m_truststorepath; }
     const std::string& certpath() const { return m_certpath; }
     const std::string& keypath() const { return m_keypath; }
     unsigned sslopts() const { return m_sslopts; }
     const Options& options() const { return m_ctlopts; }
     unsigned loglevel() const { return m_loglevel; }
+    bool logredact() const { return m_logredact; }
     const std::string& connstr() const { return m_connstr; }
     void clear_hosts() { m_hosts.clear(); }
     void add_host(const Spechost& host) { m_hosts.push_back(host); }
@@ -106,6 +108,7 @@ private:
     std::string m_bucket;
     std::string m_username;
     std::string m_password;
+    std::string m_truststorepath;
     std::string m_certpath;
     std::string m_keypath;
     std::string m_connstr;
@@ -113,6 +116,7 @@ private:
     std::vector<Spechost> m_hosts;
     lcb_U16 m_implicit_port; /**< Implicit port, based on scheme */
     int m_loglevel; /* cached loglevel */
+    bool m_logredact;
 
     inline lcb_error_t parse_options(
         const char *options, const char *optend, const char **errmsg);

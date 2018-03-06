@@ -108,10 +108,17 @@ command-line
   than connecting for the bootstrap operation. If the file does not exist, the
   client will first connect to the cluster and then cache the bootstrap information
   in the file.
-* `certpath=PATH`:
+* `truststorepath=PATH`:
   The path to the server's SSL certificate. This is typically required for SSL
   connectivity unless the certificate has already been added to the openssl
   installation on the system (only applicable with `couchbases://` scheme)
+* `certpath=PATH`:
+  The path to the server's SSL certificate. This is typically required for SSL
+  connectivity unless the certificate has already been added to the openssl
+  installation on the system (only applicable with `couchbases://` scheme).
+  This also should contain client certificate when certificate authentication
+  used, and in this case other public certificates could be extracted into
+  `truststorepath` chain.
 * `keypath=PATH`:
   The path to the client SSL private key. This is typically required for SSL
   client certificate authentication. The certificate itself have to go first
@@ -305,6 +312,18 @@ value for this statistic.
 
 
 See the [OPTIONS](#OPTIONS) for accepted options
+
+### watch
+
+Retrieve a list of cluster statistics, select specified sub-keys and aggregate values
+across the cluster. Then continuously poll the stats and display the difference with
+the previous values. If the list of stat sub-keys not specified, the command will use
+`cmd_total_ops`, `cmd_total_gets`, `cmd_total_sets`.
+
+In addition to the options in the [OPTIONS](#OPTIONS) section, the following options are supported:
+* `-n`, `--interval`=_VALUE_:
+  Update interval in seconds (default `1` second).
+
 
 ### version
 

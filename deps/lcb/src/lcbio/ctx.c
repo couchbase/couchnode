@@ -98,7 +98,7 @@ lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs)
     ctx->procs = *procs;
     ctx->state = ES_ACTIVE;
 
-    lcb_log(LOGARGS(ctx, DEBUG), CTX_LOGFMT "Pairing with SOCK=%p", CTX_LOGID(ctx), (void*)sock);
+    lcb_log(LOGARGS(ctx, DEBUG), CTX_LOGFMT "Pairing with SOCK=%016" PRIx64, CTX_LOGID(ctx), sock->id);
     return ctx;
 }
 

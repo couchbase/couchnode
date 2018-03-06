@@ -371,4 +371,15 @@ typedef enum {
  */
 #define LCB_CNTL_USE_COLLECTIONS 0x4a
 
+
+/**
+ * Activate end-to-end tracing.
+ *
+ * Use `enable_tracing` in the connection string
+ *
+ * @cntl_arg_both{int* (as boolean)}
+ * @uncommitted
+ */
+#define LCB_CNTL_ENABLE_TRACING 0x4e
+
 /**@}*/

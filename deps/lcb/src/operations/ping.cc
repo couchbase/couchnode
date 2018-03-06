@@ -111,7 +111,8 @@ build_ping_json(lcb_t instance, lcb_RESPPING &ping, Json::Value &root, PingCooki
         if (svc.scope) {
             service["scope"] = svc.scope;
         }
-        service["latency_us"] = LCB_NS2US(svc.latency);
+
+        service["latency_us"] = (Json::Value::UInt64)LCB_NS2US(svc.latency);
         switch (svc.status) {
         case LCB_PINGSTATUS_OK:
             service["status"] = "ok";
@@ -423,15 +424,15 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
         if (ctx) {
             Json::Value endpoint;
             char id[20] = {0};
-            snprintf(id, sizeof(id), "%p", (void *)ctx->sock);
+            snprintf(id, sizeof(id), "%016" PRIx64, ctx->sock ? ctx->sock->id : (lcb_U64)0);
             endpoint["id"] = id;
             if (server->curhost->ipv6) {
-                endpoint["remote"] = std::string(server->curhost->host) + ":" + std::string(server->curhost->port);
-            } else {
                 endpoint["remote"] = "[" + std::string(server->curhost->host) + "]:" + std::string(server->curhost->port);
+            } else {
+                endpoint["remote"] = std::string(server->curhost->host) + ":" + std::string(server->curhost->port);
             }
             endpoint["local"] = lcbio__inet_ntop(&ctx->sock->info->sa_local);
-            endpoint["last_activity_us"] = (Json::Value::UInt64)(now - ctx->sock->atime);
+            endpoint["last_activity_us"] = (Json::Value::UInt64)(now > ctx->sock->atime ? now - ctx->sock->atime : 0);
             endpoint["status"] = "connected";
             root[lcbio_svcstr(ctx->sock->service)].append(endpoint);
         }
@@ -449,7 +450,7 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
                 if (ctx) {
                     Json::Value endpoint;
                     char id[20] = {0};
-                    snprintf(id, sizeof(id), "%p", (void *)ctx->sock);
+                    snprintf(id, sizeof(id), "%016" PRIx64, ctx->sock ? ctx->sock->id : (lcb_U64)0);
                     endpoint["id"] = id;
                     if (htreq->ipv6) {
                         endpoint["remote"] = "[" + std::string(htreq->host) + "]:" + std::string(htreq->port);
@@ -457,7 +458,7 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
                         endpoint["remote"] = std::string(htreq->host) + ":" + std::string(htreq->port);
                     }
                     endpoint["local"] = lcbio__inet_ntop(&ctx->sock->info->sa_local);
-                    endpoint["last_activity_us"] = (Json::Value::UInt64)(now - ctx->sock->atime);
+                    endpoint["last_activity_us"] = (Json::Value::UInt64)(now > ctx->sock->atime ? now - ctx->sock->atime : 0);
                     endpoint["status"] = "connected";
                     root[lcbio_svcstr(ctx->sock->service)].append(endpoint);
                 }

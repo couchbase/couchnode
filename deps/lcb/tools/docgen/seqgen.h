@@ -35,6 +35,8 @@ public:
         offset = start;
         uint32_t total = end - start;
         total_self = total / num_workers;
+        locked = std::vector<bool>(total_self, false);
+        lnum = 0;
         offset += total_self * cur_worker;
         rnum = 0;
         sequential = true;
@@ -44,6 +46,8 @@ public:
     /** Initialize as a random range */
     SeqGenerator(uint32_t start, uint32_t end) {
         total_self = end - start;
+        locked = std::vector<bool>(total_self, false);
+        lnum = 0;
         offset = start;
         rnum = 0;
         curr_seqno = 0;
@@ -78,6 +82,28 @@ public:
         }
     }
 
+    uint32_t checkout() {
+        uint32_t num;
+        num = next();
+        if (lnum == locked.size()) {
+            lnum = 0;
+            std::fill(locked.begin(), locked.end(), false);
+        } else {
+            while (locked[num - offset]) {
+                num = next();
+            }
+        }
+        locked[num - offset] = true;
+        lnum++;
+        return num;
+    }
+
+    void checkin(uint32_t num) {
+        if (num - offset < locked.size()) {
+            locked[num - offset] = 0;
+        }
+    }
+
     uint32_t maxItems() const {
         return total_self;
     }
@@ -85,6 +111,8 @@ public:
 private:
     bool sequential;
     std::vector<uint32_t> seqpool;
+    std::vector<bool> locked; // lock markers
+    uint32_t lnum; // number of locked keys
     uint32_t rnum; // internal iterator
     uint32_t offset; // beginning numerical offset
     uint32_t total_self; // maximum value of iterator

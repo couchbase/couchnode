@@ -24,8 +24,12 @@
 #define LOGARGS(instance, lvl) (instance)->settings, "newconfig", LCB_LOG_##lvl, __FILE__, __LINE__
 #define LOG(instance, lvlbase, msg) lcb_log(instance->settings, "newconfig", LCB_LOG_##lvlbase, __FILE__, __LINE__, msg)
 
-#define SERVER_FMT "%s:%s (%p)"
-#define SERVER_ARGS(s) (s)->get_host().host, (s)->get_host().port, (void *)s
+#define SERVER_FMT LCB_LOG_SPEC("%s:%s") " (%p)"
+#define SERVER_ARGS(s)                                          \
+    (s)->settings->log_redaction ? LCB_LOG_SD_OTAG : "",       \
+        (s)->get_host().host, (s)->get_host().port,             \
+        (s)->settings->log_redaction ? LCB_LOG_SD_CTAG : "",   \
+        (void *)s
 
 typedef struct lcb_GUESSVB_st {
     time_t last_update; /**< Last time this vBucket was heuristically set */

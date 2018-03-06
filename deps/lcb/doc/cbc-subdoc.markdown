@@ -41,10 +41,18 @@ The following options control workload generation:
   Dump command timings at the end of execution. This will display a histogram
   showing the latencies for the commands executed.
 
-* `--certpath`=_PATH_:
+* `--truststorepath`=_PATH_:
   The path to the server's SSL certificate. This is typically required for SSL
   connectivity unless the certificate has already been added to the openssl
   installation on the system (only applicable with `couchbases://` scheme)
+
+* `--certpath`=_PATH_:
+  The path to the server's SSL certificate. This is typically required for SSL
+  connectivity unless the certificate has already been added to the openssl
+  installation on the system (only applicable with `couchbases://` scheme).
+  This also should contain client certificate when certificate authentication
+  used, and in this case other public certificates could be extracted into
+  `truststorepath` chain.
 
 * `--keypath`=_PATH_:
   The path to the client SSL private key. This is typically required for SSL

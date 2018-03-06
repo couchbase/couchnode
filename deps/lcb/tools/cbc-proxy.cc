@@ -16,7 +16,6 @@
 
 #define LCB_NO_DEPR_CXX_CTORS
 
-#include "common/my_inttypes.h"
 #include "config.h"
 #include <sys/types.h>
 #include <libcouchbase/couchbase.h>

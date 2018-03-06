@@ -279,6 +279,9 @@ mcreq_allocate_packet(mc_PIPELINE *pipeline)
     ret->flags = 0;
     ret->retries = 0;
     ret->opaque = pipeline->parent->seq++;
+#ifdef LCB_TRACING
+    ret->u_rdata.reqdata.span = NULL;
+#endif
     return ret;
 }
 

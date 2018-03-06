@@ -108,6 +108,7 @@ typedef struct lcbio_SOCKET {
     lcb_list_t protos;
     hrtime_t atime;
     lcbio_SERVICE service;
+    lcb_U64 id;
 } lcbio_SOCKET;
 
 

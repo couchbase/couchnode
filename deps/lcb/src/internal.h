@@ -51,6 +51,8 @@
 /* n1ql cache */
 #include "n1ql/n1ql-internal.h"
 
+#include "tracing/tracing-internal.h"
+
 #include "hostlist.h"
 
 #ifdef __cplusplus

@@ -204,7 +204,7 @@ lcb_error_t Bootstrap::bootstrap(unsigned options) {
         next_ts += LCB_US2NS(LCBT_SETTING(parent, weird_things_delay));
         if (now < next_ts && errcounter < errthresh) {
             lcb_log(LOGARGS(parent, INFO),
-                "Not requesting a config refresh because of throttling parameters. Next refresh possible in %ums or %u errors. "
+                "Not requesting a config refresh because of throttling parameters. Next refresh possible in %" PRIu64 "ms or %u errors. "
                 "See LCB_CNTL_CONFDELAY_THRESH and LCB_CNTL_CONFERRTHRESH to modify the throttling settings",
                 LCB_NS2US(next_ts-now)/1000, (unsigned)errthresh-errcounter);
             return LCB_SUCCESS;

@@ -31,8 +31,7 @@ extern "C" {
  * @return 0 if successful, nonzero on error.
  */
 int
-mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_CONTIGBUF *vbuf);
-
+mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf);
 
 /**
  * Inflate a compressed value
@@ -48,12 +47,6 @@ mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_CONTIGBUF *vbuf)
 int
 mcreq_inflate_value(const void *compressed, lcb_SIZE ncompressed,
     const void **bytes, lcb_SIZE *nbytes, void **freeptr);
-
-#ifndef LCB_NO_SNAPPY
-#define mcreq_compression_supported() 1
-#else
-#define mcreq_compression_supported() 0
-#endif
 
 #ifdef __cplusplus
 }

@@ -149,6 +149,24 @@ map_error(lcb_t instance, int in)
         return LCB_SUBDOC_PATH_EEXISTS;
     case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
         return LCB_SUBDOC_MULTI_FAILURE;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO:
+        return LCB_SUBDOC_INVALID_COMBO;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED:
+        return LCB_SUBDOC_SUCCESS_DELETED;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO:
+        return LCB_SUBDOC_XATTR_INVALID_FLAG_COMBO;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO:
+        return LCB_SUBDOC_XATTR_INVALID_KEY_COMBO;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO:
+        return LCB_SUBDOC_XATTR_UNKNOWN_MACRO;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR:
+        return LCB_SUBDOC_XATTR_UNKNOWN_VATTR;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR:
+        return LCB_SUBDOC_XATTR_CANT_MODIFY_VATTR;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED:
+        return LCB_SUBDOC_MULTI_PATH_FAILURE_DELETED;
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER:
+        return LCB_SUBDOC_INVALID_XATTR_ORDER;
     case PROTOCOL_BINARY_RESPONSE_EINVAL:
         return LCB_EINVAL_MCD;
     case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
@@ -273,7 +291,7 @@ handle_mutation_token(lcb_t instance, const MemcachedResponse *mc_resp,
         }
     }
 
-    sbuf = mc_resp->body<const char*>();
+    sbuf = mc_resp->ext();
     vbid = mcreq_get_vbucket(req);
     stok->vbid_ = vbid;
     memcpy(&stok->uuid_, sbuf, 8);
@@ -364,19 +382,20 @@ H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse* response,
     resp.rflags |= LCB_RESP_F_FINAL;
 
     if (resp.rc == LCB_SUCCESS) {
-        const protocol_binary_response_get *get =
-                reinterpret_cast<const protocol_binary_response_get*>(
-                        response->ephemeral_start());
         resp.datatype = response->datatype();
-        resp.itmflags = ntohl(get->message.body.flags);
         resp.value = response->value();
         resp.nvalue = response->vallen();
         resp.bufh = response->bufseg();
+        if (response->extlen() == sizeof(uint32_t)) {
+            memcpy(&resp.itmflags, response->ext(), sizeof(uint32_t));
+            resp.itmflags = ntohl(resp.itmflags);
+        }
     }
 
     void *freeptr = NULL;
     maybe_decompress(o, response, &resp, &freeptr);
-    TRACE_GET_END(response, &resp);
+    LCBTRACE_KV_FINISH(pipeline, request, response);
+    TRACE_GET_END(o, request, response, &resp);
     invoke_callback(request, o, &resp, LCB_CALLBACK_GET);
     free(freeptr);
 }
@@ -395,14 +414,14 @@ H_getreplica(mc_PIPELINE *pipeline, mc_PACKET *request,
     handle_error_info(response, &w);
 
     if (resp.rc == LCB_SUCCESS) {
-        const protocol_binary_response_get *get =
-                reinterpret_cast<const protocol_binary_response_get*>(
-                        response->ephemeral_start());
-        resp.itmflags = ntohl(get->message.body.flags);
         resp.datatype = response->datatype();
         resp.value = response->value();
         resp.nvalue = response->vallen();
         resp.bufh = response->bufseg();
+        if (response->extlen() == sizeof(uint32_t)) {
+            memcpy(&resp.itmflags, response->ext(), sizeof(uint32_t));
+            resp.itmflags = ntohl(resp.itmflags);
+        }
     }
 
     maybe_decompress(instance, response, &resp, &freeptr);
@@ -535,6 +554,7 @@ sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
         ent->nvalue = 0;
     }
 
+    (void)buf_end;
     return 1;
     #undef ADVANCE_BUF
 }
@@ -587,7 +607,8 @@ H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse *response,
     init_resp(root, response, packet, immerr, &w.resp);
     handle_error_info(response, &w);
     handle_mutation_token(root, response, packet, &w.mt);
-    TRACE_REMOVE_END(response, &w.resp);
+    LCBTRACE_KV_FINISH(pipeline, packet, response);
+    TRACE_REMOVE_END(root, packet, response, &w.resp);
     invoke_callback(packet, root, &w.resp, LCB_CALLBACK_REMOVE);
 }
 
@@ -622,8 +643,8 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
     ttr = ntohl(ttr);
 
     /** Actual payload sequence of (vb, nkey, key). Repeats multiple times */
-    ptr = response->body<const char *>();
-    end = ptr + response->bodylen();
+    ptr = response->value();
+    end = ptr + response->vallen();
     config = pipeline->parent->config;
 
     for (pos = 0; ptr < end; pos++) {
@@ -650,14 +671,14 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
         resp.cas = lcb_ntohll(cas);
         resp.status = obs;
         resp.ismaster = pipeline->index == lcbvb_vbmaster(config, vb);
-        resp.ttp = 0;
-        resp.ttr = 0;
-        TRACE_OBSERVE_PROGRESS(response, &resp);
+        resp.ttp = ttp;
+        resp.ttr = ttr;
+        TRACE_OBSERVE_PROGRESS(root, request, response, &resp);
         if (! (request->flags & MCREQ_F_INVOKED)) {
             rd->procs->handler(pipeline, request, resp.rc, &resp);
         }
     }
-    TRACE_OBSERVE_END(response);
+    TRACE_OBSERVE_END(root, request, response);
 }
 
 static void
@@ -670,7 +691,7 @@ H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
     resp.server_index = pipeline->index;
 
     if (resp.rc == LCB_SUCCESS) {
-        const uint8_t *data = response->body<const uint8_t*>();
+        const uint8_t *data = reinterpret_cast<const uint8_t *>(response->value());
         bool is_failover = *data != 0;
 
         data++;
@@ -724,7 +745,8 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     }
     w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     handle_mutation_token(root, response, request, &w.mt);
-    TRACE_STORE_END(response, &w.resp);
+    LCBTRACE_KV_FINISH(pipeline, request, response);
+    TRACE_STORE_END(root, request, response, &w.resp);
     if (request->flags & MCREQ_F_REQEXT) {
         request->u_rdata.exdata->procs->handler(pipeline, request, immerr, &w.resp);
     } else {
@@ -750,7 +772,8 @@ H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request,
     }
     w.resp.rflags |= LCB_RESP_F_FINAL;
     w.resp.cas = response->cas();
-    TRACE_ARITHMETIC_END(response, &w.resp);
+    LCBTRACE_KV_FINISH(pipeline, request, response);
+    TRACE_ARITHMETIC_END(root, request, response, &w.resp);
     invoke_callback(request, root, &w.resp, LCB_CALLBACK_COUNTER);
 }
 
@@ -805,9 +828,9 @@ H_version(mc_PIPELINE *pipeline, mc_PACKET *request,
 
     make_error(root, &resp, response, immerr);
 
-    if (response->bodylen()) {
-        resp.mcversion = response->body<const char *>();
-        resp.nversion = response->bodylen();
+    if (response->vallen()) {
+        resp.mcversion = response->value();
+        resp.nversion = response->vallen();
     }
 
 
@@ -837,7 +860,8 @@ H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     init_resp(root, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
-    TRACE_TOUCH_END(response, &resp);
+    LCBTRACE_KV_FINISH(pipeline, request, response);
+    TRACE_TOUCH_END(root, request, response, &resp);
     invoke_callback(request, root, &resp, LCB_CALLBACK_TOUCH);
 }
 
@@ -862,7 +886,8 @@ H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     init_resp(root, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
-    TRACE_UNLOCK_END(response, &resp);
+    LCBTRACE_KV_FINISH(pipeline, request, response);
+    TRACE_UNLOCK_END(root, request, response, &resp);
     invoke_callback(request, root, &resp, LCB_CALLBACK_UNLOCK);
 }
 
@@ -882,9 +907,17 @@ static void
 record_metrics(mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *)
 {
     lcb_t instance = get_instance(pipeline);
+    if (
+#ifdef HAVE_DTRACE
+        1
+#else
+        instance->kv_timings
+#endif
+        ) {
+        MCREQ_PKT_RDATA(req)->dispatch = gethrtime();
+    }
     if (instance->kv_timings) {
-        lcb_histogram_record(instance->kv_timings,
-            gethrtime() - MCREQ_PKT_RDATA(req)->start);
+        lcb_histogram_record(instance->kv_timings, MCREQ_PKT_RDATA(req)->dispatch - MCREQ_PKT_RDATA(req)->start);
     }
 }
 

@@ -46,6 +46,9 @@ specific settings which may make `pillowfight` generate more operations.
   inside the server's CPU cache (which is extremely fast), rather than in main
   memory (slower), or disk (much slower)
 
+The benchmark tool sets up SIGQUIT (CTRL-/) handler and dumps useful diagnostics
+and metrics to STDERR on this signal.
+
 ## OPTIONS
 
 Options may be read either from the command line, or from a configuration file
@@ -109,7 +112,9 @@ The following options control workload generation:
   the items. This is useful to resume a previously cancelled load operation.
 
 * `-T`, `--timings`:
-  Dump a histogram of command timings and latencies to the screen every second.
+  Enabled timing recorded. Timing histogram will be dumped to STDERR on SIGQUIT
+  (CTRL-/). When specified second time, it will dump a histogram of command
+  timings and latencies to the screen every second.
 
 * `-e`, `--expiry`=_SECONDS_:
   Set the expiration time on the document for _SECONDS_ when performing each
@@ -148,6 +153,22 @@ The following options control workload generation:
   This option may be specified multiple times, each time specifying a key=value
   pair (for example, `-Doperation_timeout=10 -Dconfig_cache=/foo/bar/baz`).
   See [ADDITIONAL OPTIONS](#additional-options) for more information
+
+* `p`, `--persist-to`=_NUMNODES_:
+  Wait until the item has been persisted to at least `NUMNODES` nodes' disk. If
+  `NUMNODES` is 1 then wait until only the master node has persisted the item for
+  this key. You may not specify a number greater than the number of nodes actually
+  in the cluster. `-1` is special value, which mean to use all available nodes.
+
+* `r` `--replicate-to`=_NREPLICAS_:
+  Wait until the item has been replicated to at least `NREPLICAS` replica nodes.
+  The bucket must be configured with at least one replica, and at least `NREPLICAS`
+  replica nodes must be online. `-1` is special value, which mean to use all
+  available replicas.
+
+* `--lock`=_TIME_:
+  This will retrieve and lock an item before update, making it inaccessible for
+  modification until the update completed, or `TIME` has passed.
 
 * `-y`, `--compress`:
   Enable compressing of documents. When library compiled with compression
@@ -223,10 +244,17 @@ command-line
   than connecting for the bootstrap operation. If the file does not exist, the
   client will first connect to the cluster and then cache the bootstrap information
   in the file.
-* `certpath=PATH`:
+* `truststorepath=PATH`:
   The path to the server's SSL certificate. This is typically required for SSL
   connectivity unless the certificate has already been added to the openssl
   installation on the system (only applicable with `couchbases://` scheme)
+* `certpath=PATH`:
+  The path to the server's SSL certificate. This is typically required for SSL
+  connectivity unless the certificate has already been added to the openssl
+  installation on the system (only applicable with `couchbases://` scheme).
+  This also should contain client certificate when certificate authentication
+  used, and in this case other public certificates could be extracted into
+  `truststorepath` chain.
 * `keypath=PATH`:
   The path to the client SSL private key. This is typically required for SSL
   client certificate authentication. The certificate itself have to go first

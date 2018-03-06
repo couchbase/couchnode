@@ -212,7 +212,7 @@ rdb_bigalloc_dump(rdb_BIGALLOC *alloc, FILE *fp)
 {
     static const char *indent = "  ";
     fprintf(fp, "BIGALLOC @%p\n", (void *)alloc);
-    fprintf(fp, "%sPooled Blocks: %lu\n", indent, LCB_CLIST_SIZE(&alloc->bufs));
+    fprintf(fp, "%sPooled Blocks: %lu\n", indent, (unsigned long int)LCB_CLIST_SIZE(&alloc->bufs));
     fprintf(fp, "%sMinAlloc: %u\n", indent, alloc->min_blk_alloc);
     fprintf(fp, "%sMaxAlloc: %u\n", indent, alloc->max_blk_alloc);
     fprintf(fp, "%sMaxBlocks: %u\n", indent, alloc->max_blk_count);

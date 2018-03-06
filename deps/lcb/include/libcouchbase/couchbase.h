@@ -55,6 +55,7 @@ typedef struct lcb_http_request_st *lcb_http_request_t;
 #include <libcouchbase/configuration.h>
 #include <libcouchbase/kvbuf.h>
 #include <libcouchbase/auth.h>
+#include <libcouchbase/tracing.h>
 #include <libcouchbase/_cxxwrap.h>
 
 #ifdef __cplusplus
@@ -169,6 +170,12 @@ typedef lcb_U32 lcb_USECS;
  *   old-style bootstrap mode for legacy clusters, `cccp` to force bootstrap
  *   over the memcached port (For clusters 2.5 and above), or `all` to try with
  *   _cccp_ and revert to _http_
+ *
+ * * `truststorepath` - Specify the path (on the local filesystem) to the server's
+ *   SSL certificate truststore. Only applicable if SSL is being used (i.e. the
+ *   scheme is `couchbases`). The trust store is optional, and when missing,
+ *   the library will use `certpath` as location for verification, and expect
+ *   any extra certificates to be concatenated in there.
  *
  * * `certpath` - Specify the path (on the local filesystem) to the server's
  *   SSL certificate. Only applicable if SSL is being used (i.e. the scheme is
@@ -3313,7 +3320,7 @@ void lcb_destroy_async(lcb_t instance, const void *arg);
 #define LCB_DATATYPE_JSON 0x01
 
 /** @internal */
-typedef enum { LCB_VALUE_RAW = 0x00, LCB_VALUE_F_JSON = 0x01, LCB_VALUE_F_SNAPPYCOMP } lcb_VALUEFLAGS;
+typedef enum { LCB_VALUE_RAW = 0x00, LCB_VALUE_F_JSON = 0x01, LCB_VALUE_F_SNAPPYCOMP = 0x02 } lcb_VALUEFLAGS;
 
 
 /**
@@ -3864,6 +3871,8 @@ const lcb_U32 lcb_version_g;
 #define LCB_SUPPORTS_SSL 1
 /**@brief Whether the library has experimental compression support */
 #define LCB_SUPPORTS_SNAPPY 2
+/**@brief Whether the library has experimental tracing support */
+#define LCB_SUPPORTS_TRACING 3
 
 /**
  * @committed
@@ -4012,6 +4021,15 @@ lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb);
 LIBCOUCHBASE_API
 const char *
 lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb);
+
+/**
+ * @volatile
+ * Returns whether the library redacting logs for this connection instance.
+ *
+ * @return non-zero if the logs are being redacted for this instance.
+ */
+LIBCOUCHBASE_API
+int lcb_is_redacting_logs(lcb_t instance);
 
 /* Post-include some other headers */
 #ifdef __cplusplus

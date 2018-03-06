@@ -165,8 +165,13 @@ static const char *get_hehost(const PoolHost *h) {
 }
 
 /** Format string arguments for %p%s:%s */
-#define HE_LOGID(h) get_hehost(h), (void*)h
-#define HE_LOGFMT "<%s> (HE=%p) "
+#define HE_LOGID(h)                                                    \
+    (h && h->parent && h->parent->settings->log_redaction) ?  LCB_LOG_SD_OTAG : "", \
+        get_hehost(h),                                                  \
+        (h && h->parent && h->parent->settings->log_redaction) ?  LCB_LOG_SD_CTAG : "", \
+        (void*)h
+#define HE_LOGFMT "<" LCB_LOG_SPEC("%s") "> (HE=%p) "
+
 
 PoolConnInfo::~PoolConnInfo() {
     parent->n_total--;
@@ -270,7 +275,7 @@ PoolRequest::invoke() {
         PoolConnInfo *info = PoolConnInfo::from_sock(sock);
         info->set_leased();
         state = ASSIGNED;
-        lcb_log(LOGARGS(info->parent->parent, DEBUG), HE_LOGFMT "Assigning R=%p SOCKET=%p",HE_LOGID(info->parent), (void*)this, (void*)sock);
+        lcb_log(LOGARGS(info->parent->parent, DEBUG), HE_LOGFMT "Assigning R=%p SOCKET=%p", HE_LOGID(info->parent), (void*)this, (void*)sock);
     }
 
     callback(sock, arg, err, 0);
@@ -344,7 +349,7 @@ PoolConnInfo::PoolConnInfo(PoolHost *he, uint32_t timeout)
     id = LCBIO_PROTOCTX_POOL;
     dtor = cinfo_protoctx_dtor;
 
-    lcb_host_t tmphost = {};
+    lcb_host_t tmphost = {"", "", 0};
     lcb_error_t err = lcb_host_parsez(&tmphost, he->key.c_str(), 80);
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS(he->parent, ERROR), HE_LOGFMT "Could not parse host! Will supply dummy host (I=%p)", HE_LOGID(he), (void*)this);
@@ -536,7 +541,8 @@ PoolHost::dump(FILE *out) const {
     lcb_list_t *llcur;
     fprintf(out, "HOST=%s", key.c_str());
     fprintf(out, "Requests=%lu, Idle=%lu, Pending=%lu, Leased=%lu\n",
-            num_requests(), num_idle(), num_pending(), num_leased());
+            (unsigned long int)num_requests(), (unsigned long int)num_idle(),
+            (unsigned long int)num_pending(), (unsigned long int)num_leased());
 
     fprintf(out, CONN_INDENT "Idle Connections:\n");
     write_he_list(&ll_idle, out);

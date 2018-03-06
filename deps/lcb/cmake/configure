@@ -24,6 +24,10 @@ my @HELP_DESCRIPTIONS = (
         "Create a debug build",
         "%d", \(my $DEBUG = 0) ],
 
+    [ "enable-tracing", "",
+        "Enable builtin tracing",
+        "%d", \(my $TRACING = 0) ],
+
     [ "with-ninja", "s",
         "Generate Ninja Makefiles",
         "%s", \(my $USE_NINJA = "") ],
@@ -59,20 +63,6 @@ my @HELP_DESCRIPTIONS = (
     [ "with-openssl", "s",
         "Path to OpenSSL installation",
         "%s", \(my $OPENSSL_ROOT = "")],
-
-    [ "with-snappy", "s",
-        "Path to snappy installation",
-        "%s", \(my $SNAPPY_ROOT = "")],
-
-    [ "disable-snappy", "",
-        "Do not build static snappy",
-        "%d", \(my $NO_SNAPPY = 0)],
-    [ "enable-snappy", "",
-        "Enable experimental snappy support",
-        "%d", \(my $ENABLE_SNAPPY = 0)],
-    [ "enable-static-snappy", "",
-        "Build the bundled snappy and do not link against the system version",
-        "%d", \(my $STATIC_SNAPPY = 0) ],
 
     [ "disable-plugins", "",
         "Disable building of external plugins",
@@ -243,6 +233,12 @@ if ($NO_TOOLS) {
     push @CM_OPTIONS, "-DLCB_NO_TOOLS=1";
 }
 
+if ($TRACING) {
+    push @CM_OPTIONS, "-DLCB_TRACING=1";
+} else {
+    push @CM_OPTIONS, "-DLCB_TRACING=0"
+}
+
 if ($NO_PLUGINS) {
     push @CM_OPTIONS, "-DLCB_NO_PLUGINS=1";
 }
@@ -281,18 +277,6 @@ if ($NO_SSL) {
 }
 if ($OPENSSL_ROOT) {
     push @CM_OPTIONS, "-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT";
-}
-if ($SNAPPY_ROOT) {
-    push @CM_OPTIONS, "-DSNAPPY_ROOT=$SNAPPY_ROOT";
-}
-if ($NO_SNAPPY) {
-    push @CM_OPTIONS, "-DLCB_NO_SNAPPY=1";
-}
-if ($ENABLE_SNAPPY) {
-    push @CM_OPTIONS, "-DLCB_NO_SNAPPY=0";
-}
-if ($STATIC_SNAPPY) {
-    push @CM_OPTIONS, "-DLCB_STATIC_SNAPPY=1";
 }
 if ($LCB_USE_ASAN) {
     push @CM_OPTIONS, "-DLCB_USE_ASAN=1";

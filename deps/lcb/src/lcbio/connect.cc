@@ -22,6 +22,7 @@
 #include "settings.h"
 #include "timer-ng.h"
 #include "timer-cxx.h"
+#include "rnd.h"
 #include <errno.h>
 
 using namespace lcb::io;
@@ -39,10 +40,15 @@ static const lcb_host_t *get_loghost(lcbio_SOCKET *s) {
 }
 
 /** Format string arguments for %p%s:%s */
-#define CSLOGID(sock)                                                                                                  \
-    get_loghost(sock)->ipv6 ? "[" : "", get_loghost(sock)->host, get_loghost(sock)->ipv6 ? "]" : "",                   \
-        get_loghost(sock)->port, (void *)sock
-#define CSLOGFMT "<%s%s%s:%s> (SOCK=%p) "
+#define CSLOGID(sock)                                           \
+    sock->settings->log_redaction ? LCB_LOG_SD_OTAG : "",       \
+        get_loghost(sock)->ipv6 ? "[" : "",                     \
+        get_loghost(sock)->host,                                \
+        get_loghost(sock)->ipv6 ? "]" : "",                     \
+        get_loghost(sock)->port,                                \
+        sock->settings->log_redaction ? LCB_LOG_SD_CTAG : "",   \
+        sock->id
+#define CSLOGFMT "<" LCB_LOG_SPEC("%s%s%s:%s") "> (SOCK=%016" PRIx64 ") "
 
 #define LOGARGS_T(lvl) LOGARGS(this->sock, lvl)
 #define CSLOGID_T() CSLOGID(this->sock)
@@ -452,6 +458,7 @@ Connstart::Connstart(lcbio_TABLE* iot_, lcb_settings* settings_,
     sock->settings = settings_;
     sock->ctx = this;
     sock->refcount = 1;
+    sock->id = lcb_next_rand64();
     sock->info = reinterpret_cast<lcbio_CONNINFO*>(calloc(1, sizeof(*sock->info)));
     sock->info->ep = *dest;
     lcbio_table_ref(sock->io);
@@ -532,6 +539,7 @@ lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd)
     ret->io = iot;
     ret->refcount = 1;
     ret->u.fd = fd;
+    ret->id = lcb_next_rand64();
 
     lcbio_table_ref(ret->io);
     lcb_settings_ref(ret->settings);

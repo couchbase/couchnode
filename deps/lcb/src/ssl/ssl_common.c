@@ -257,8 +257,8 @@ struct lcbio_SSLCTX {
 
 #define LOGARGS_S(settings, lvl) settings, "SSL", lvl, __FILE__, __LINE__
 
-lcbio_pSSLCTX lcbio_ssl_new(const char *cafile, const char *keyfile, int noverify, lcb_error_t *errp,
-                            lcb_settings *settings)
+lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *keyfile, int noverify,
+                            lcb_error_t *errp, lcb_settings *settings)
 {
     lcb_error_t err_s;
     lcbio_pSSLCTX ret;
@@ -282,7 +282,8 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *cafile, const char *keyfile, int noverif
 //    SSL_CTX_set_cipher_list(ret->ctx, "!NULL");
 
     if (cafile) {
-        if (!SSL_CTX_load_verify_locations(ret->ctx, cafile, NULL)) {
+        lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Load verify locations from \"%s\"", tsfile ? tsfile : keyfile);
+        if (!SSL_CTX_load_verify_locations(ret->ctx, tsfile ? tsfile : cafile, NULL)) {
             *errp = LCB_SSL_ERROR;
             goto GT_ERR;
         }

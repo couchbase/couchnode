@@ -34,10 +34,10 @@ ENDIF()
 ADD_EXECUTABLE(nonio-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_BASIC_SRC})
 
 ADD_EXECUTABLE(mc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC}
-    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:netbuf> $<TARGET_OBJECTS:vbucket>)
+    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:mcreq-cxx> $<TARGET_OBJECTS:netbuf> $<TARGET_OBJECTS:vbucket>)
 
 ADD_EXECUTABLE(mc-malloc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC}
-    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:netbuf-malloc> $<TARGET_OBJECTS:vbucket>)
+    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:mcreq-cxx> $<TARGET_OBJECTS:netbuf-malloc> $<TARGET_OBJECTS:vbucket>)
 
 ADD_EXECUTABLE(netbuf-tests
     EXCLUDE_FROM_ALL nonio_tests.cc basic/t_netbuf.cc $<TARGET_OBJECTS:netbuf>)
@@ -75,9 +75,8 @@ ENDIF(NOT EXISTS ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MO
 INCLUDE_DIRECTORIES(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(unit-tests couchbaseS gtest)
 TARGET_LINK_LIBRARIES(nonio-tests couchbaseS gtest)
-TARGET_LINK_LIBRARIES(mc-tests gtest ${LCB_SNAPPY_LINK})
-TARGET_LINK_LIBRARIES(mc-malloc-tests
-    gtest ${LCB_SNAPPY_LINK})
+TARGET_LINK_LIBRARIES(mc-tests couchbaseS gtest)
+TARGET_LINK_LIBRARIES(mc-malloc-tests couchbaseS gtest)
 TARGET_LINK_LIBRARIES(netbuf-tests gtest)
 TARGET_LINK_LIBRARIES(rdb-tests gtest)
 TARGET_LINK_LIBRARIES(sock-tests couchbaseS gtest)
@@ -91,6 +90,7 @@ ENDIF()
 
 ADD_CUSTOM_TARGET(alltests DEPENDS check-all unit-tests nonio-tests
     rdb-tests sock-tests vbucket-tests mc-tests htparse-tests)
+
 
 ADD_TEST(NAME BUILD-TESTS COMMAND ${CMAKE_COMMAND} --build "${PROJECT_BINARY_DIR}" --target alltests)
 

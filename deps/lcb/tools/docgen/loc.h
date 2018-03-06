@@ -191,9 +191,9 @@ public:
     dumpIovs(const std::vector<lcb_IOV>& vecs) {
         for (size_t ii = 0; ii < vecs.size(); ii++) {
             const lcb_IOV& iov = vecs[ii];
-            printf("IOV[%lu]. Buf=%p. Len=%lu. Content=%.*s\n",
-                ii, iov.iov_base, iov.iov_len,
-                (int)iov.iov_len, (const char*)iov.iov_base);
+            printf("IOV[%lu]. Buf=%p. Len=%lu. Content=%.*s\n", (unsigned long int)ii,
+                   (void *)iov.iov_base, (unsigned long int)iov.iov_len,
+                   (int)iov.iov_len, (const char*)iov.iov_base);
         }
     }
     static void
@@ -202,7 +202,8 @@ public:
             const Loc& loc = vecs[ii];
             std::string s = loc.to_string();
             printf("Loc[%lu]. Buf=%p. Len=%lu. Content=%s\n",
-                ii, (void *)loc.at, loc.length, s.c_str());
+                   (unsigned long int)ii, (void *)loc.at,
+                   (unsigned long int)loc.length, s.c_str());
         }
     }
 };

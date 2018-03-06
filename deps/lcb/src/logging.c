@@ -147,7 +147,7 @@ static void console_log(struct lcb_logprocs_st *procs,
     flockfile(fp);
     fprintf(fp, "%lums ", (unsigned long)(now - start_time) / 1000000);
 
-    fprintf(fp, "[I%d] {%"THREAD_ID_FMT"} [%s] (%s - L:%d) ",
+    fprintf(fp, "[I%08x] {%"THREAD_ID_FMT"} [%s] (%s - L:%d) ",
             iid,
             GET_THREAD_ID(),
             level_to_string(severity),

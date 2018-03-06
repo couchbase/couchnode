@@ -5,12 +5,12 @@ Release: @RELEASE@%{?dist}
 Vendor: Couchbase, Inc.
 Packager: Couchbase SDK Team <support@couchbase.com>
 License: ASL 2.0
-Group: System Environment/Libraries
 BuildRequires: gcc, gcc-c++
 BuildRequires: cmake >= 2.8.9
 BuildRequires: pkgconfig(libevent) >= 2
 BuildRequires: libev-devel >= 3
 BuildRequires: openssl-devel
+BuildRequires: systemtap-sdt-devel, systemtap-devel
 URL: https://developer.couchbase.com/server/other-products/release-notes-archives/c-sdk
 Source: https://packages.couchbase.com/clients/c/@TARREDAS@.tar.gz
 BuildRoot: %{_topdir}/build/@TARREDAS@
@@ -24,21 +24,18 @@ Suggests: %{name}2-tools%{_isa} = %{version}-%{release}
 This is the client and protocol library for Couchbase project.
 
 %package -n %{name}2-libevent
-Group: System Environment/Libraries
 Summary: Couchbase client library - libevent IO back-end
 Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description -n %{name}2-libevent
 This package provides libevent back-end for libcouchbase
 
 %package -n %{name}2-libev
-Group: System Environment/Libraries
 Summary: Couchbase client library - libev IO back-end
 Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description -n %{name}2-libev
 This package provides libev back-end for libcouchbase
 
 %package -n %{name}2-core
-Group: System Environment/Libraries
 Summary: Couchbase client library - core
 Provides: %{name}2%{?_isa} = %{version}-%{release}
 %description -n %{name}2-core
@@ -50,22 +47,20 @@ installed back-end. It is also possible to integrate another IO back-end
 or write your own.
 
 %package -n %{name}2-bin
-Group: Development/Tools
 Summary: Couchbase Client Tools
 Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description -n %{name}2-bin
 This is the CLI tools Couchbase project.
 
 %package devel
-Group: Development/Libraries
 Summary: Couchbase Client & Protocol Library - Header files
 Requires: %{name}2-core%{?_isa} = %{version}-%{release}
 %description devel
 Development files for the Couchbase Client & Protocol Library
 
 %prep
-%setup -q -n @TARREDAS@
-%cmake -DLCB_NO_MOCK=1 -DLCB_BUILD_LIBUV=OFF -DLCB_STATIC_SNAPPY=1
+%autosetup -p1 -n@TARREDAS@
+%cmake -DLCB_NO_MOCK=1 -DLCB_BUILD_LIBUV=OFF
 
 %build
 %make_build
@@ -74,7 +69,7 @@ Development files for the Couchbase Client & Protocol Library
 %make_install
 
 %check
-make test
+make %{_smp_mflags} alltests && make test
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -84,26 +79,23 @@ make test
 %postun -n %{name}2-core -p /sbin/ldconfig
 
 %files -n %{name}2-core
-%defattr(-, root, root)
 %{_libdir}/%{name}.so.*
-%doc README.markdown LICENSE RELEASE_NOTES.markdown
+%doc README.markdown RELEASE_NOTES.markdown
+%license LICENSE
+%{_datadir}/systemtap/tapset/libcouchbase.so*
 
 %files -n %{name}2-libevent
-%defattr(-, root, root)
 %{_libdir}/%{name}_libevent.so
 
 %files -n %{name}2-libev
-%defattr(-, root, root)
 %{_libdir}/%{name}_libev.so
 
 %files -n %{name}2-bin
-%defattr(-, root, root)
 %{_bindir}/cbc*
 %{_mandir}/man1/cbc*.1*
 %{_mandir}/man4/cbcrc*.4*
 
 %files devel
-%defattr(-, root, root)
 %{_includedir}/%{name}
 %{_libdir}/%{name}.so
 %{_libdir}/pkgconfig/%{name}.pc

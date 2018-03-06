@@ -23,7 +23,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 # These variables can be modified as needed
 
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.5.12.jar)
+SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.5.15.jar)
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
 SET(COUCHBASE_MOCK_DLSERVER http://packages.couchbase.com/clients/c/mock)
 project(libcouchbase)
@@ -36,10 +36,8 @@ OPTION(LCB_BUILD_LIBEV "Build the libev plugin (if available)" ON)
 OPTION(LCB_BUILD_LIBUV "Build the libuv plugin (if available)" ON)
 OPTION(LCB_MAINTAINER_MODE "Enables maintainer mode" OFF)
 OPTION(LCB_NO_SSL "Do not compile SSL support" OFF)
-OPTION(LCB_NO_SNAPPY "Do not compile snappy support" ON)
 OPTION(LCB_USE_ASAN "Use AddressSanitizer support (Requires Clang)" OFF)
 OPTION(LCB_USE_COVERAGE "Build with code coverage support" OFF)
-OPTION(LCB_STATIC_SNAPPY "Use the bundled libsnappy. Do not link with system snappy" ${WIN32})
 OPTION(LCB_USE_ARCHLIBDIR "Use architecture-prefixed library installation directory, if possible" OFF)
 OPTION(LCB_BUILD_EXAMPLES "Build example applications" OFF)
 OPTION(LCB_NO_MOCK "Don't run tests which depend on the mock" OFF)
@@ -47,6 +45,7 @@ OPTION(LCB_BUILD_DTRACE "Build DTrace instrumentation, if available on platform"
 OPTION(LCB_EMBED_PLUGIN_LIBEVENT "Embed the libevent plugin" OFF)
 OPTION(LCB_STATIC_LIBEVENT "Link static libevent (only applicable if EMBED_PLUGIN_LIBEVENT is ON" OFF)
 OPTION(LCB_USE_HDR_HISTOGRAM "Use HdrHistogram for statistics recording" OFF)
+OPTION(LCB_TRACING "Enable builtin tracing" OFF)
 
 ### END CONFIGURABLES ###
 IF(MSVC)
@@ -205,6 +204,7 @@ ENDMACRO()
 ADD_LIBRARY(netbuf OBJECT ${LCB_NETBUF_SRC})
 ADD_LIBRARY(netbuf-malloc OBJECT ${LCB_NETBUF_SRC})
 ADD_LIBRARY(mcreq OBJECT ${LCB_MC_SRC})
+ADD_LIBRARY(mcreq-cxx OBJECT ${LCB_MC_CXXSRC})
 ADD_LIBRARY(rdb OBJECT ${LCB_RDB_SRC})
 ADD_LIBRARY(lcbio OBJECT ${LCB_IO_SRC})
 ADD_LIBRARY(lcbio-cxx OBJECT ${LCB_IO_CXXSRC})
@@ -220,6 +220,7 @@ LCB_UTIL(lcbio)
 LCB_CXXUTIL(lcbio-cxx)
 LCB_UTIL(couchbase_utils)
 LCB_UTIL(mcreq)
+LCB_CXXUTIL(mcreq-cxx)
 LCB_UTIL(lcbht)
 LCB_UTIL(lcbcore)
 LCB_CXXUTIL(lcbcore-cxx)
@@ -229,6 +230,7 @@ ADD_SUBDIRECTORY(contrib/cbsasl)
 ADD_SUBDIRECTORY(contrib/cliopts)
 ADD_SUBDIRECTORY(src/ssl)
 ADD_SUBDIRECTORY(contrib/lcb-jsoncpp)
+ADD_SUBDIRECTORY(contrib/snappy)
 IF(LCB_BUILD_EXAMPLES)
     ADD_SUBDIRECTORY(example)
 ENDIF()
@@ -253,11 +255,14 @@ FILE(GLOB LCB_JSPARSE_SRC src/jsparse/*.cc)
 ADD_LIBRARY(lcb_jsparse OBJECT ${LCB_JSPARSE_SRC})
 LCB_CXXUTIL(lcb_jsparse)
 
+INCLUDE_DIRECTORIES(contrib/snappy)
+
 SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:couchbase_select>
     $<TARGET_OBJECTS:couchbase_utils>
     $<TARGET_OBJECTS:vbucket>
     $<TARGET_OBJECTS:mcreq>
+    $<TARGET_OBJECTS:mcreq-cxx>
     $<TARGET_OBJECTS:netbuf>
     $<TARGET_OBJECTS:cbsasl>
     $<TARGET_OBJECTS:lcbio>
@@ -268,6 +273,7 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:lcbcore-cxx>
     $<TARGET_OBJECTS:lcb_jsparse>
     $<TARGET_OBJECTS:lcb_jsoncpp>
+    $<TARGET_OBJECTS:lcb_snappy>
     ${LCB_DTRACE_OBJECT}
     ${lcb_plat_objs}
     ${lcb_ssl_objs})
@@ -307,29 +313,9 @@ ELSE()
         DESTINATION ${CMAKE_INSTALL_LIBDIR})
 ENDIF()
 
-
-IF(LCB_STATIC_SNAPPY)
-    MESSAGE(STATUS "Will use embedded libsnappy")
-    ADD_SUBDIRECTORY(contrib/snappy)
-    INCLUDE_DIRECTORIES(contrib/snappy)
-    SET(LCB_SNAPPY_LINK lcbsnappy)
-ELSEIF(NOT LCB_NO_SNAPPY)
-    INCLUDE(cmake/Modules/FindCouchbaseSnappy.cmake)
-    IF(NOT SNAPPY_FOUND)
-        MESSAGE(FATAL_ERROR "Snappy not found and building with dynamic snappy requested")
-    ELSE()
-        SET(LCB_SNAPPY_LINK ${SNAPPY_LIBRARIES})
-        INCLUDE_DIRECTORIES(${SNAPPY_INCLUDES})
-    ENDIF()
-ELSE()
-    MESSAGE(STATUS "Compression support will be disabled")
-    ADD_DEFINITIONS(-DLCB_NO_SNAPPY=1)
-    SET(LCB_SNAPPY_LINK "")
-ENDIF()
-
 SET_TARGET_PROPERTIES(couchbase PROPERTIES PREFIX "lib")
 SET_TARGET_PROPERTIES(couchbase PROPERTIES IMPORT_PREFIX "lib")
-SET(LCB_LINK_DEPS ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_SNAPPY_LINK} ${LCB_HDR_HISTOGRAM_LINK})
+SET(LCB_LINK_DEPS ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_HDR_HISTOGRAM_LINK})
 IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} rt)
 ENDIF()

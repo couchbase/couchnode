@@ -19,6 +19,7 @@
 #include "clconfig.h"
 #include <list>
 #include <algorithm>
+#include "trace.h"
 
 #define LOGARGS(mon, lvlbase) mon->settings, "confmon", LCB_LOG_##lvlbase, __FILE__, __LINE__
 #define LOG(mon, lvlbase, msg) lcb_log(mon->settings, "confmon", LCB_LOG_##lvlbase, __FILE__, __LINE__, msg)
@@ -55,7 +56,7 @@ provider_string(Method type) {
     return "";
 }
 
-Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_)
+Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_t instance_)
     : cur_provider(NULL),
       config(NULL),
       settings(settings_),
@@ -64,7 +65,8 @@ Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_)
       as_start(iot_, this),
       as_stop(iot_, this),
       state(0),
-      last_stop_us(0) {
+      last_stop_us(0),
+      instance(instance_) {
 
     lcbio_table_ref(iot);
     lcb_settings_ref(settings);
@@ -156,6 +158,7 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
     }
 
     lcb_log(LOGARGS(this, INFO), "Setting new configuration. Received via %s", provider_string(new_config->get_origin()));
+    TRACE_NEW_CONFIG(instance, new_config);
 
     if (config) {
         /** DECREF the old one */

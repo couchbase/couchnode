@@ -513,7 +513,37 @@ typedef enum {
     X(LCB_NAMESERVER_ERROR, 0x53, LCB_ERRTYPE_NETWORK, \
         "Invalid reply received from nameserver") \
     X(LCB_NOT_AUTHORIZED, 0x54, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN, \
-        "Not authorized for operation")
+        "Not authorized for operation") \
+    X(LCB_SUBDOC_INVALID_COMBO, 0x55, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC,  \
+      "An invalid combination of commands was specified") \
+    X(LCB_SUBDOC_MULTI_PATH_FAILURE, 0x56, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "Specified key was successfully found, but one or more path operations failed") \
+    X(LCB_SUBDOC_SUCCESS_DELETED, 0x57, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "The operation completed successfully, but operated on a deleted document") \
+    X(LCB_SUBDOC_XATTR_INVALID_FLAG_COMBO, 0x58, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "The combination of the subdoc flags for the xattrs is not valid") \
+    X(LCB_SUBDOC_XATTR_INVALID_KEY_COMBO, 0x59, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "Only a single xattr key may be accessed at the same time") \
+    X(LCB_SUBDOC_XATTR_UNKNOWN_MACRO, 0x5a, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "The server has no knowledge of the requested macro") \
+    X(LCB_SUBDOC_XATTR_UNKNOWN_VATTR, 0x5b, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "The server has no knowledge of the requested virtual xattr") \
+    X(LCB_SUBDOC_XATTR_CANT_MODIFY_VATTR, 0x5c, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "Virtual xattrs cannot be modified") \
+    X(LCB_SUBDOC_MULTI_PATH_FAILURE_DELETED, 0x5d, \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "Specified key was found as a deleted document, but one or more path operations failed") \
+    X(LCB_SUBDOC_INVALID_XATTR_ORDER, 0x5e,                    \
+      LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
+      "According to the spec all xattr commands should come first, followed by the commands for the document body")
 
 /** Error codes returned by the library. */
 typedef enum {

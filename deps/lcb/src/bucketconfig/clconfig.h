@@ -164,7 +164,7 @@ struct Confmon {
      * remain to be activated you should call lcb_confmon_prepare() once. Then
      * call the rest of the functions.
      */
-    Confmon(lcb_settings*, lcbio_pTABLE iot);
+    Confmon(lcb_settings*, lcbio_pTABLE iot, lcb_t instance);
     void destroy() { delete this; }
     ~Confmon();
 
@@ -383,10 +383,12 @@ struct Confmon {
     int state;
 
     /** Last time the provider was stopped. As a microsecond timestamp */
-    lcb_uint32_t last_stop_us;
+    lcb_uint64_t last_stop_us;
 
     typedef std::list<Provider*> ProviderList;
     ProviderList active_providers;
+
+    lcb_t instance;
 };
 
 /**

@@ -302,7 +302,7 @@ on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
         return;
     }
     host = lcbio_get_host(sock);
-    lcb_log(LOGARGS(http, DEBUG), "Successfuly connected to REST API " LCB_HOST_FMT, LCB_HOST_ARG(host));
+    lcb_log(LOGARGS(http, DEBUG), "Successfuly connected to REST API " LCB_HOST_FMT, LCB_HOST_ARG(http->parent->settings, host));
 
     lcbio_sslify_if_needed(sock, http->parent->settings);
     http->reset_stream_state();

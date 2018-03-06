@@ -102,24 +102,24 @@ lcb_metrics_getserver(lcb_METRICS *metrics, const char *h, const char *p, int c)
 void
 lcb_metrics_dumpio(const lcb_IOMETRICS *metrics, FILE *fp)
 {
-    fprintf(fp, "Bytes sent: %lu\n", metrics->bytes_sent);
-    fprintf(fp, "Bytes received: %lu\n", metrics->bytes_received);
-    fprintf(fp, "IO Close: %lu\n", metrics->io_close);
-    fprintf(fp, "IO Error: %lu\n", metrics->io_error);
+    fprintf(fp, "Bytes sent: %lu\n", (unsigned long int)metrics->bytes_sent);
+    fprintf(fp, "Bytes received: %lu\n", (unsigned long int)metrics->bytes_received);
+    fprintf(fp, "IO Close: %lu\n", (unsigned long int)metrics->io_close);
+    fprintf(fp, "IO Error: %lu\n", (unsigned long int)metrics->io_error);
 }
 
 void
 lcb_metrics_dumpserver(const lcb_SERVERMETRICS *metrics, FILE *fp)
 {
     lcb_metrics_dumpio(&metrics->iometrics, fp);
-    fprintf(fp, "Packets queued: %lu\n", metrics->packets_queued);
-    fprintf(fp, "Bytes queued: %lu\n", metrics->bytes_queued);
-    fprintf(fp, "Packets sent: %lu\n", metrics->packets_sent);
-    fprintf(fp, "Packets received: %lu\n", metrics->packets_read);
-    fprintf(fp, "Packets errored: %lu\n", metrics->packets_errored);
-    fprintf(fp, "Packets NMV: %lu\n", metrics->packets_nmv);
-    fprintf(fp, "Packets timeout: %lu\n", metrics->packets_timeout);
-    fprintf(fp, "Packets orphaned: %lu", metrics->packets_ownerless);
+    fprintf(fp, "Packets queued: %lu\n", (unsigned long int)metrics->packets_queued);
+    fprintf(fp, "Bytes queued: %lu\n", (unsigned long int)metrics->bytes_queued);
+    fprintf(fp, "Packets sent: %lu\n", (unsigned long int)metrics->packets_sent);
+    fprintf(fp, "Packets received: %lu\n", (unsigned long int)metrics->packets_read);
+    fprintf(fp, "Packets errored: %lu\n", (unsigned long int)metrics->packets_errored);
+    fprintf(fp, "Packets NMV: %lu\n", (unsigned long int)metrics->packets_nmv);
+    fprintf(fp, "Packets timeout: %lu\n", (unsigned long int)metrics->packets_timeout);
+    fprintf(fp, "Packets orphaned: %lu", (unsigned long int)metrics->packets_ownerless);
 }
 
 void

@@ -62,7 +62,7 @@ IF(NOT WIN32)
         cat create observe observe-seqno incr decr mcflush hash lock
         unlock rm stats version verbosity view n1ql admin ping
         bucket-create bucket-delete bucket-flush connstr write-config strerror
-        touch role-list user-list user-upsert user-delete)
+        touch role-list user-list user-upsert user-delete watch)
 
     FOREACH(subcmd IN ITEMS ${CBC_SUBCOMMANDS})
         ADD_CUSTOM_COMMAND(TARGET cbc POST_BUILD

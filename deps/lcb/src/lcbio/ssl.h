@@ -61,7 +61,7 @@ typedef struct lcbio_SSLCTX *lcbio_pSSLCTX;
 int
 lcbio_ssl_supported(void);
 
-lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, int, lcb_error_t *, lcb_settings *);
+lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, const char *, int, lcb_error_t *, lcb_settings *);
 
 #ifndef LCB_NO_SSL
 /**
@@ -73,8 +73,8 @@ lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, int, lcb_error
  *
  * @return A new SSL context, or NULL on error.
  */
-lcbio_pSSLCTX lcbio_ssl_new(const char *cafile, const char *keyfile, int noverify, lcb_error_t *errp,
-                            lcb_settings *settings);
+lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *keyfile, int noverify,
+                            lcb_error_t *errp, lcb_settings *settings);
 #else
 #define lcbio_ssl_new lcbio_ssl_new__fallback
 #endif

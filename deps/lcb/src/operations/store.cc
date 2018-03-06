@@ -149,19 +149,11 @@ get_esize_and_opcode(
 
 
 static int
-can_compress(lcb_t instance, const mc_PIPELINE *pipeline,
-    const lcb_VALBUF *vbuf, lcb_datatype_t datatype)
+can_compress(lcb_t instance, const mc_PIPELINE *pipeline, lcb_datatype_t datatype)
 {
     const lcb::Server *server = static_cast<const lcb::Server*>(pipeline);
     int compressopts = LCBT_SETTING(instance, compressopts);
 
-    if (mcreq_compression_supported() == 0) {
-        return 0;
-    }
-
-    if (vbuf->vtype != LCB_KV_COPY) {
-        return 0;
-    }
     if ((compressopts & LCB_COMPRESS_OUT) == 0) {
         return 0;
     }
@@ -243,9 +235,9 @@ do_store3(lcb_t instance, const void *cookie,
         return err;
     }
 
-    should_compress = can_compress(instance, pipeline, vbuf, datatype);
+    should_compress = can_compress(instance, pipeline, datatype);
     if (should_compress) {
-        int rv = mcreq_compress_value(pipeline, packet, &vbuf->u_buf.contig);
+        int rv = mcreq_compress_value(pipeline, packet, vbuf);
         if (rv != 0) {
             mcreq_release_packet(pipeline, packet);
             return LCB_CLIENT_ENOMEM;
@@ -260,7 +252,7 @@ do_store3(lcb_t instance, const void *cookie,
         const lcb_CMDSTOREDUR *dcmd = (const lcb_CMDSTOREDUR *)cmd;
         persist_u = dcmd->persist_to;
         replicate_u = dcmd->replicate_to;
-        if (dcmd->replicate_to == -1 || dcmd->persist_to == -1) {
+        if (dcmd->replicate_to == (char)-1 || dcmd->persist_to == (char)-1) {
             duropts = LCB_DURABILITY_VALIDATE_CAPMAX;
         }
 
@@ -301,7 +293,8 @@ do_store3(lcb_t instance, const void *cookie,
 
     memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
     LCB_SCHED_ADD(instance, pipeline, packet);
-    TRACE_STORE_BEGIN(hdr, (lcb_CMDSTORE* )cmd);
+    LCBTRACE_KV_START(instance->settings, cmd, packet->opaque, MCREQ_PKT_RDATA(packet)->span);
+    TRACE_STORE_BEGIN(instance, hdr, (lcb_CMDSTORE *)cmd);
     return LCB_SUCCESS;
 }
 

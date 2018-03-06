@@ -31,8 +31,14 @@ static const lcb_host_t *get_ctx_host(const lcbio_CTX *ctx)
     return &ctx->sock->info->ep;
 }
 
-#define CTX_LOGFMT_PRE "<%s%s%s:%s> (CTX=%p,%s"
+#define CTX_LOGFMT_PRE "<" LCB_LOG_SPEC("%s%s%s:%s") "> (CTX=%p,%s"
 #define CTX_LOGFMT CTX_LOGFMT_PRE ") "
-#define CTX_LOGID(ctx)                                                                                                 \
-    (get_ctx_host(ctx)->ipv6 ? "[" : ""), get_ctx_host(ctx)->host, (get_ctx_host(ctx)->ipv6 ? "]" : ""),               \
-        get_ctx_host(ctx)->port, (void *)ctx, ctx ? ctx->subsys : ""
+#define CTX_LOGID(ctx)                                                  \
+    (ctx && ctx->sock && ctx->sock->settings->log_redaction) ? LCB_LOG_SD_OTAG : "", \
+        (get_ctx_host(ctx)->ipv6 ? "[" : ""),                           \
+        get_ctx_host(ctx)->host,                                        \
+        (get_ctx_host(ctx)->ipv6 ? "]" : ""),                           \
+        get_ctx_host(ctx)->port,                                        \
+        (ctx && ctx->sock && ctx->sock->settings->log_redaction)  ? LCB_LOG_SD_CTAG : "", \
+        (void *)ctx,                                                    \
+        ctx ? ctx->subsys : ""

@@ -28,6 +28,7 @@
 typedef struct packet_info_st packet_info;
 #else
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
+#include <math.h>
 namespace lcb {
 class Server;
 
@@ -124,18 +125,66 @@ public:
         return res.response.datatype;
     }
 
+    #define FRAMING_EXTRAS_TRACING 0x00
+#if defined(_MSC_VER)
+#define __lcb_round(d) ((d) > 0.0) ? ((d) + 0.5) : ((d) - 0.5)
+#else
+#define __lcb_round(d) round(d)
+#endif
+
+    uint64_t duration() const {
+        if (ffextlen() == 0) {
+            return 0;
+        }
+
+        const char *end, *ptr;
+        ptr = ffext();
+        end = ptr + ffextlen();
+
+        for (; ptr < end;) {
+            uint8_t control = *ptr;
+            uint8_t id = control & 0xF0;
+            uint8_t len = control & 0x0F;
+            ptr++;
+            if (id == FRAMING_EXTRAS_TRACING && len == sizeof(uint16_t)) {
+                uint16_t encoded;
+                memcpy(&encoded, ptr, sizeof(uint16_t));
+                encoded = ntohs(encoded);
+                return (uint64_t)__lcb_round(pow(encoded, 1.74) / 2);
+            }
+            ptr += len;
+        }
+        return 0;
+    }
+
+#undef __lcb_round
+
+    /**
+     * Gets a pointer starting at the packet's flexible framing ext field
+     */
+    const char *ffext() const {
+        return body<const char*>();
+    }
+
+    /**
+     * Gets a pointer starting at the packet's ext field.
+     */
+    const char *ext() const {
+        return body<const char*>() + ffextlen();
+    }
+
     /**
      * Gets a pointer starting at the packet's key field. Only use if NKEY is 0
      */
     const char *key() const {
-        return body<const char*>() + extlen();
+        return body<const char*>() + extlen() + ffextlen();
     }
 
     /**
      * Gets a pointer starting at the packet's value field. Only use if NVALUE is 0
      */
     const char *value() const {
-        return body<const char*>() + keylen() + extlen();
+        return body<const char*>() + keylen() + extlen() + ffextlen();
     }
 
     /**
@@ -143,7 +192,7 @@ public:
      * which is after the key (if applicable) and extras (if applicable).
      */
     uint32_t vallen() const {
-        return bodylen() - (keylen() + extlen());
+        return bodylen() - (keylen() + extlen() + ffextlen());
     }
 
 
@@ -183,7 +232,11 @@ public:
      * Gets the key size, if included in the packet.
      */
     uint16_t keylen() const {
-        return ntohs(res.response.keylen);
+        if (res.response.magic == PROTOCOL_BINARY_ARES) {
+            return (res.response.keylen >> 8) & 0xff;
+        } else {
+            return ntohs(res.response.keylen);
+        }
     }
 
     /**
@@ -191,6 +244,17 @@ public:
      */
     uint8_t extlen() const {
         return (res.response.extlen);
+    }
+
+    /**
+     * Gets flexible framing extras length
+     */
+    uint8_t ffextlen() const {
+        if (res.response.magic == PROTOCOL_BINARY_ARES) {
+            return res.response.keylen & 0xff;
+        } else {
+            return 0;
+        }
     }
 
     /**

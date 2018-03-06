@@ -237,7 +237,7 @@ lcb_error_t ObserveCtx::MCTX_done(const void *cookie_)
         pkt->flags |= MCREQ_F_REQEXT;
         pkt->u_rdata.exdata = this;
         mcreq_sched_add(pipeline, pkt);
-        TRACE_OBSERVE_BEGIN(&hdr, SPAN_BUFFER(&pkt->u_value.single));
+        TRACE_OBSERVE_BEGIN(instance, &hdr, SPAN_BUFFER(&pkt->u_value.single));
     }
 
     start = gethrtime();

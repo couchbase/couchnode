@@ -175,7 +175,7 @@ Hostlist::exists(const lcb_host_t& host) const
 bool
 Hostlist::exists(const char *s) const
 {
-    lcb_host_t tmp = {};
+    lcb_host_t tmp = {"", "", 0};
     if (lcb_host_parse(&tmp, s, -1, 1) != LCB_SUCCESS) {
         return false;
     }
@@ -212,7 +212,7 @@ Hostlist::add(const char *hostport, long len, int deflport)
     const char *curstart = ss.c_str();
     const char *delim;
     while ( (delim = strstr(curstart, ";"))) {
-        lcb_host_t curhost = {};
+        lcb_host_t curhost = {"", "", 0};
         size_t curlen;
 
         if (delim == curstart) {

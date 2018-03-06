@@ -300,7 +300,7 @@ lcbio_ssl_supported(void)
 #endif
 }
 
-lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, int, lcb_error_t *errp, lcb_settings *)
+lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, const char *, int, lcb_error_t *errp, lcb_settings *)
 {
     if (errp) { *errp = LCB_CLIENT_FEATURE_UNAVAILABLE; }
     return NULL;

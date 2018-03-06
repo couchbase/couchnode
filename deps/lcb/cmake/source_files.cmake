@@ -21,6 +21,7 @@ FILE(GLOB LCB_OP_SRC src/operations/*.c)
 
 # memcached packets
 FILE(GLOB LCB_MC_SRC src/mc/*.c)
+FILE(GLOB LCB_MC_CXXSRC src/mc/*.cc)
 
 # read buffer management
 FILE(GLOB LCB_RDB_SRC src/rdb/*.c)
@@ -40,10 +41,13 @@ SET(LCB_CORE_SRC
     ${LCB_N1QL_SRC}
     src/callbacks.c
     src/legacy.c
-    # src/mcserver/negotiate.c
     src/iofactory.c
     src/settings.c
     src/utilities.c)
+
+IF (LCB_TRACING)
+  FILE(GLOB LCB_TRACING_SRC src/tracing/*.cc)
+ENDIF()
 
 SET(LCB_CORE_CXXSRC
     src/instance.cc
@@ -90,7 +94,10 @@ SET(LCB_CORE_CXXSRC
     src/metrics.cc
     src/retrychk.cc
     src/retryq.cc
+    src/rnd.cc
     src/views/docreq.cc
     src/views/viewreq.cc
     src/cntl.cc
-    src/wait.cc)
+    src/wait.cc
+    ${LCB_TRACING_SRC}
+    )

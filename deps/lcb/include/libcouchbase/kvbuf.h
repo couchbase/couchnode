@@ -43,7 +43,12 @@ typedef enum {
      * The buffers are not contiguous (multi-part buffers) but should be
      * copied. This avoids having to make the buffers contiguous before
      * passing it into the library (only to have the library copy it again) */
-    LCB_KV_IOVCOPY
+    LCB_KV_IOVCOPY,
+
+    /**
+     * For use within the hashkey field, indicates that the _pointer to bytes_
+     * of the hashkey is the tracing span, rather than an actual hashkey */
+    LCB_KV_TRACESPAN,
 } lcb_KVBUFTYPE;
 
 #define LCB_KV_HEADER_AND_KEY LCB_KV_CONTIG

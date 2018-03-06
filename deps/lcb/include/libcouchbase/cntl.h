@@ -425,6 +425,60 @@ typedef struct lcb_logprocs_st {
  *
  * @cntl_arg_get_and_set{lcb_logprocs**,lcb_logprocs*}*/
 #define LCB_CNTL_LOGGER 0x18
+
+/**
+ * Helper to express printf spec for sensitive data. Usage:
+ *
+ *   printf("Logged as " LCB_LOG_SPEC("%s") " user", LCB_LOG_UD(instance, doc->username));
+ */
+#define LCB_LOG_SPEC(fmt) "%s" fmt "%s"
+
+#define LCB_LOG_UD_OTAG "<ud>"
+#define LCB_LOG_UD_CTAG "</ud>"
+/**
+ * User data is data that is stored into Couchbase by the application user account.
+ *
+ * - Key and value pairs in JSON documents, or the key exclusively
+ * - Application/Admin usernames that identify the human person
+ * - Names and email addresses asked during product registration and alerting
+ * - Usernames
+ * - Document xattrs
+ * - Query statements included in the log file collected by support that leak
+ *   the document fields (Select floor_price from stock).
+ */
+#define LCB_LOG_UD(instance, val)                                                                                      \
+    lcb_is_redacting_logs(instance) ? LCB_LOG_UD_OTAG : "", val, lcb_is_redacting_logs(instance) ? LCB_LOG_UD_CTAG : ""
+
+#define LCB_LOG_MD_OTAG "<md>"
+#define LCB_LOG_MD_CTAG "</md>"
+/**
+ * Metadata is logical data needed by Couchbase to store and process user data.
+ *
+ * - Cluster name
+ * - Bucket names
+ * - DDoc/view names
+ * - View code
+ * - Index names
+ * - Mapreduce Design Doc Name and Definition (IP)
+ * - XDCR Replication Stream Names
+ * - And other couchbase resource specific meta data
+ */
+#define LCB_LOG_MD(instance, val)                                                                                      \
+    lcb_is_redacting_logs(instance) ? LCB_LOG_MD_OTAG : "", val, lcb_is_redacting_logs(instance) ? LCB_LOG_MD_CTAG : ""
+
+#define LCB_LOG_SD_OTAG "<sd>"
+#define LCB_LOG_SD_CTAG "</sd>"
+/**
+ * System data is data from other parts of the system Couchbase interacts with over the network.
+ *
+ * - IP addresses
+ * - IP tables
+ * - Hosts names
+ * - Ports
+ * - DNS topology
+ */
+#define LCB_LOG_SD(instance, val)                                                                                      \
+    lcb_is_redacting_logs(instance) ? LCB_LOG_SD_OTAG : "", val, lcb_is_redacting_logs(instance) ? LCB_LOG_SD_CTAG : ""
 /**@}*/
 
 
@@ -572,6 +626,17 @@ typedef enum {
  * @see https://developer.couchbase.com/documentation/server/5.0/security/security-certs-auth.html
  */
 #define LCB_CNTL_SSL_KEY 0x4b
+
+/**
+ * @brief Get SSL trust store path
+ *
+ * Trust store might be NULL, in this case the library expects it to be concatenated with certificate.
+ *
+ * @cntl_arg_getonly{`char**`}
+ * @see LCB_CNTL_SSL_MODE
+ * @see https://developer.couchbase.com/documentation/server/5.0/security/security-certs-auth.html
+ */
+#define LCB_CNTL_SSL_TRUSTSTORE 0x4d
 
 /**
  * Alias for @ref LCB_CNTL_SSL_CERT for backward compatibility.
@@ -1037,10 +1102,22 @@ typedef const char *lcb_BUCKETCRED[2];
 #define LCB_CNTL_SEND_HELLO 0x47
 
 /**
+ * Once redaction is enabled, anything at ERROR, WARN and INFO will wrap
+ * sensitive information with special tags, for further processing with the goal
+ * to remove or encrypt that information.  DEBUG or TRACE level logging are
+ * expected to have specific info.
+ *
+ * Use `log_redaction` in the connection string
+
+ * @cntl_arg_both{int* (as boolean)}
+ */
+#define LCB_CNTL_LOG_REDACTION 0x4c
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x4c
+#define LCB_CNTL__MAX                    0x4f
 /**@}*/
 
 #ifdef __cplusplus

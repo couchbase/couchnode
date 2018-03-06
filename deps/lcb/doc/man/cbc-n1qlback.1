@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-N1QLBACK" "1" "December 2017" "" ""
+.TH "CBC\-N1QLBACK" "1" "February 2018" "" ""
 .
 .SH "NAME"
 \fBcbc\-n1qlback\fR \- Stress Test for Couchbase Query (N1QL)
@@ -99,8 +99,12 @@ Specify the operation timeout in seconds\. This is the time the client will wait
 Enables the client to make use of a file based configuration cache rather than connecting for the bootstrap operation\. If the file does not exist, the client will first connect to the cluster and then cache the bootstrap information in the file\.
 .
 .TP
-\fBcertpath=PATH\fR
+\fBtruststorepath=PATH\fR
 The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system (only applicable with \fBcouchbases://\fR scheme)
+.
+.TP
+\fBcertpath=PATH\fR
+The path to the server\'s SSL certificate\. This is typically required for SSL connectivity unless the certificate has already been added to the openssl installation on the system (only applicable with \fBcouchbases://\fR scheme)\. This also should contain client certificate when certificate authentication used, and in this case other public certificates could be extracted into \fBtruststorepath\fR chain\.
 .
 .TP
 \fBkeypath=PATH\fR

@@ -172,6 +172,41 @@ void MockEnvironment::setEnhancedErrors(bool enabled, std::string bucket,
     getResponse();
 }
 
+void MockEnvironment::setCompression(std::string mode, std::string bucket,
+                                     const std::vector<int>* nodes)
+{
+    MockCommand cmd(MockCommand::SET_COMPRESSION);
+    cmd.set("mode", mode);
+
+    if (!bucket.empty()) {
+        cmd.set("bucket", bucket);
+    }
+
+    if (nodes != NULL) {
+        const std::vector<int>& v = *nodes;
+        Json::Value array(Json::arrayValue);
+
+        for (std::vector<int>::const_iterator ii = v.begin(); ii != v.end(); ii++) {
+            array.append(*ii);
+        }
+
+        cmd.set("servers", array);
+    }
+
+    sendCommand(cmd);
+    getResponse();
+}
+
+const Json::Value MockEnvironment::getKeyInfo(std::string key, std::string bucket)
+{
+    MockKeyCommand cmd(MockCommand::KEYINFO, key);
+    cmd.bucket = bucket;
+    sendCommand(cmd);
+    MockResponse resp;
+    getResponse(resp);
+    return resp.constResp()["payload"];
+}
+
 void MockEnvironment::sendCommand(MockCommand &cmd)
 {
     std::string s = cmd.encode();

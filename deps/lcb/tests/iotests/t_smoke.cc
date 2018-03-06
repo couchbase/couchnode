@@ -497,7 +497,7 @@ TEST_F(SmokeTest, testMemcachedBucket)
 TEST_F(SmokeTest, testCouchbaseBucket)
 {
     SKIP_UNLESS_MOCK();
-    const char *args[] = { "--buckets", "default::couchbase", NULL };
+    const char *args[] = { "--buckets", "default::couchbase", "--debug", NULL };
     mock = new MockEnvironment(args);
     mock->setCCCP(false);
     connectCommon();

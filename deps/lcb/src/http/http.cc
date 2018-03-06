@@ -20,6 +20,8 @@
 #include "http/http.h"
 #include "http/http-priv.h"
 #include "auth-priv.h"
+#include "trace.h"
+
 using namespace lcb::http;
 
 #define LOGFMT "<%s%s%s:%s> "
@@ -182,6 +184,7 @@ Request::finish(lcb_error_t error)
         return;
     }
 
+    TRACE_HTTP_END(this, error, parser->get_cur_response().status);
     status |= FINISHED;
 
     if (!(status & NOLCB)) {
@@ -216,7 +219,7 @@ lcb_error_t
 Request::submit()
 {
     lcb_error_t rc;
-    lcb_host_t reqhost = {};
+    lcb_host_t reqhost = {"", "", 0};
 
     // Stop any pending socket/request
     close_io();
@@ -243,7 +246,8 @@ Request::submit()
     size_t path_len = url.size() - path_off;
     preamble.insert(preamble.end(),
         url_s + path_off, url_s + path_off + path_len);
-    lcb_log(LOGARGS(this, TRACE), LOGFMT "%s %s. Body=%lu bytes", LOGID(this), method_strings[method], url.c_str(), body.size());
+    lcb_log(LOGARGS(this, TRACE), LOGFMT "%s %s. Body=%lu bytes", LOGID(this), method_strings[method], url.c_str(),
+            (unsigned long int)body.size());
 
     add_to_preamble(" HTTP/1.1\r\n");
 
@@ -276,6 +280,7 @@ Request::submit()
         }
         response_headers.clear();
         response_headers_clist.clear();
+        TRACE_HTTP_BEGIN(this);
     }
 
     return rc;
@@ -526,7 +531,7 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
 
     if (!body.empty()) {
         char lenbuf[64];
-        sprintf(lenbuf, "%ld", body.size());
+        sprintf(lenbuf, "%lu", (unsigned long int)body.size());
         add_header("Content-Length", lenbuf);
         if (cmd->content_type) {
             add_header("Content-Type", cmd->content_type);

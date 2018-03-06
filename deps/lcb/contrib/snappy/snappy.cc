@@ -1,3 +1,9 @@
+#if defined(__clang__) || __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2)
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 // Copyright 2005 Google Inc. All Rights Reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,10 +32,10 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "snappy-lcb-msvc.h" // Added by libcouchbase
 #include "snappy.h"
 #include "snappy-internal.h"
 #include "snappy-sinksource.h"
-#include "snappy-lcb-msvc.h" // Added by libcouchbase
 
 #include <stdio.h>
 
@@ -1304,4 +1310,3 @@ size_t Compress(const char* input, size_t input_length, string* compressed) {
 
 
 } // end namespace snappy
-

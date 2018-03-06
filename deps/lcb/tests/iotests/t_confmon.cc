@@ -46,7 +46,7 @@ TEST_F(ConfmonTest, testBasic)
     MockEnvironment::getInstance()->createConnection(hw, instance);
 
 
-    Confmon *mon = new Confmon(instance->settings, instance->iotable);
+    Confmon *mon = new Confmon(instance->settings, instance->iotable, instance);
     Provider *http = mon->get_provider(CLCONFIG_HTTP);
     http->enable();
     http->configure_nodes(*instance->ht_nodes);
@@ -130,7 +130,7 @@ TEST_F(ConfmonTest, testCycle)
     instance->settings->bc_http_stream_time = 100000;
     instance->memd_sockpool->get_options().tmoidle = 100000;
 
-    Confmon *mon = new Confmon(instance->settings, instance->iotable);
+    Confmon *mon = new Confmon(instance->settings, instance->iotable, instance);
 
     struct listener2 lsn;
     lsn.io = instance->iotable;

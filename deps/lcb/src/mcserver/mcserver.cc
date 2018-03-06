@@ -134,8 +134,8 @@ Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
     /* Notify of new map */
     lcb_vbguess_remap(instance, vbid, index);
 
-    if (resinfo.bodylen() && cccp->enabled) {
-        std::string s(resinfo.body<const char*>(), resinfo.vallen());
+    if (resinfo.vallen() && cccp->enabled) {
+        std::string s(resinfo.value(), resinfo.vallen());
         err = lcb::clconfig::cccp_update(cccp, curhost->host, s.c_str());
     }
 

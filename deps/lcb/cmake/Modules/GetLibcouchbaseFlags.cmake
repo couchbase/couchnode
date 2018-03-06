@@ -58,8 +58,15 @@ list2args(LCB_GNUC_C_WARNINGS)
 
 LIST(APPEND LCB_GNUC_CXX_WARNINGS
     ${LCB_GNUC_CPP_WARNINGS}
-    -std=gnu++98 -Woverloaded-virtual -Wnon-virtual-dtor -Wctor-dtor-privacy
+    -Woverloaded-virtual -Wnon-virtual-dtor -Wctor-dtor-privacy
     -Wno-long-long -Wredundant-decls)
+
+INCLUDE(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+IF(COMPILER_SUPPORTS_CXX11)
+    LIST(APPEND LCB_GNUC_CXX_WARNINGS -std=c++11)
+ENDIF()
+
 list2args(LCB_GNUC_CXX_WARNINGS)
 
 #MSVC-specific flags for C/C++

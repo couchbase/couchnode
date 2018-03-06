@@ -32,7 +32,7 @@
 #define LCB_S2NS(s) (((hrtime_t)s) * 1000000000)
 
 /** Convert nanoseconds to microseconds */
-#define LCB_NS2US(s) (lcb_uint32_t) ((s) / 1000)
+#define LCB_NS2US(s) ((s) / 1000)
 
 #define LCB_MS2US(s) ((s) * 1000)
 
@@ -80,7 +80,7 @@
 #define LCB_DEFAULT_NETRETRY LCB_RETRY_CMDS_ALL
 #define LCB_DEFAULT_NMVRETRY LCB_RETRY_CMDS_ALL
 #define LCB_DEFAULT_HTCONFIG_URLTYPE LCB_HTCONFIG_URLTYPE_TRYALL
-#define LCB_DEFAULT_COMPRESSOPTS LCB_COMPRESS_NONE
+#define LCB_DEFAULT_COMPRESSOPTS LCB_COMPRESS_INOUT
 
 #define LCB_DEFAULT_NVM_RETRY_IMM 1
 #define LCB_DEFAULT_RETRY_NMV_INTERVAL LCB_MS2US(100)
@@ -98,6 +98,10 @@
 #include <libcouchbase/metrics.h>
 #include "errmap.h"
 
+#ifdef LCB_TRACING
+#include <libcouchbase/tracing.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -113,7 +117,8 @@ struct lcb_METRICS_st;
  * which are intended to be passed around to other objects.
  */
 typedef struct lcb_settings_st {
-    lcb_U16 iid;
+    /* TODO: [SDK3] change to uint64_t as per RFC. logging API exposes it as unsigned int currently */
+    lcb_U32 iid;
     lcb_U8 compressopts;
     lcb_U8 syncmode;
     lcb_U32 read_chunk_size;
@@ -167,6 +172,8 @@ typedef struct lcb_settings_st {
     unsigned tcp_keepalive : 1;
     unsigned send_hello : 1;
     unsigned use_collections : 1;
+    unsigned log_redaction : 1;
+    unsigned use_tracing : 1;
 
     short max_redir;
     unsigned refcount;
@@ -176,6 +183,7 @@ typedef struct lcb_settings_st {
 
     char *bucket;
     char *sasl_mech_force;
+    char *truststorepath;
     char *certpath;
     char *keypath;
     lcb_AUTHENTICATOR *auth;
@@ -188,6 +196,9 @@ typedef struct lcb_settings_st {
     lcb_pERRMAP errmap;
     lcb_U32 retry_nmv_interval;
     struct lcb_METRICS_st *metrics;
+#ifdef LCB_TRACING
+    lcbtrace_TRACER *tracer;
+#endif
 } lcb_settings;
 
 LCB_INTERNAL_API
