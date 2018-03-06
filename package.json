@@ -21,17 +21,17 @@
   "name": "couchbase",
   "dependencies": {
     "bindings": "~1.3.0",
-    "nan": "~2.8.0",
-    "prebuild-install": "~2.5.0",
+    "nan": "~2.9.2",
+    "prebuild-install": "~2.5.1",
     "request": "~2.83.0"
   },
   "devDependencies": {
-    "ink-docstrap": "~1.1.4",
+    "ink-docstrap": "~1.3.2",
     "istanbul": "~0.4.3",
     "jsdoc": "~3.5.5",
     "jsdoc-stability-tag": "~1.0.0",
     "jshint": "~2.9.2",
-    "mocha": "~5.0.0",
+    "mocha": "~5.0.1",
     "npm-check": "~5.5.2",
     "prebuild": "~7.4.0"
   },
