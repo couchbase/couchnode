@@ -46,11 +46,26 @@ lcb_urldecode(const char *in, char *out, lcb_SSIZE n);
 /**
  * Base64 encode a string into an output buffer.
  * @param src string to encode
+ * @param len size of source buffer
  * @param dst destination buffer
  * @param sz size of destination buffer
  * @return 0 if success, -1 if the destination buffer isn't big enough
  */
-int lcb_base64_encode(const char *src, char *dst, lcb_size_t sz);
+int lcb_base64_encode(const char *src, lcb_SIZE len, char *dst, lcb_SIZE sz);
+
+/**
+ * Base64 encode a string into an output buffer.
+ * @param src string to encode
+ * @param len size of source buffer
+ * @param dst destination buffer
+ * @param sz size of destination buffer
+ * @return 0 if success, -1 if function wasn't able to allocate enough memory
+ */
+int lcb_base64_encode2(const char *src, lcb_SIZE len, char **dst, lcb_SIZE *sz);
+
+
+lcb_SSIZE lcb_base64_decode(const char *src, lcb_SIZE nsrc, char *dst, lcb_SIZE ndst);
+lcb_SSIZE lcb_base64_decode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *ndst);
 
 /**
  * Encodes a string suitable for being passed as either a key or value in an

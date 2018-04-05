@@ -293,7 +293,7 @@ do_store3(lcb_t instance, const void *cookie,
 
     memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
     LCB_SCHED_ADD(instance, pipeline, packet);
-    LCBTRACE_KV_START(instance->settings, cmd, packet->opaque, MCREQ_PKT_RDATA(packet)->span);
+    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_STORE2NAME(operation), packet->opaque, MCREQ_PKT_RDATA(packet)->span);
     TRACE_STORE_BEGIN(instance, hdr, (lcb_CMDSTORE *)cmd);
     return LCB_SUCCESS;
 }

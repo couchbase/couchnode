@@ -36,6 +36,10 @@ struct lcb_FTSREQ : lcb::jsparse::Parser::Actions {
     lcb_t instance;
     size_t nrows;
     lcb_error_t lasterr;
+#ifdef LCB_TRACING
+    lcbtrace_SPAN *span;
+#endif
+
     void invoke_row(lcb_RESPFTS *resp);
     void invoke_last();
 
@@ -116,6 +120,9 @@ lcb_FTSREQ::lcb_FTSREQ(lcb_t instance_, const void *cookie_, const lcb_CMDFTS *c
   parser(new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_FTS, this)),
   cookie(cookie_), callback(cmd->callback), instance(instance_), nrows(0),
   lasterr(LCB_SUCCESS)
+#ifdef LCB_TRACING
+    , span(NULL)
+#endif
 {
     lcb_CMDHTTP htcmd = { 0 };
     htcmd.type = LCB_HTTP_TYPE_FTS;
@@ -169,6 +176,15 @@ lcb_FTSREQ::lcb_FTSREQ(lcb_t instance_, const void *cookie_, const lcb_CMDFTS *c
         if (cmd->handle) {
             *cmd->handle = reinterpret_cast<lcb_FTSREQ*>(this);
         }
+#ifdef LCB_TRACING
+        if (instance->settings->tracer) {
+            char id[20] = {0};
+            snprintf(id, sizeof(id), "%p", (void *)this);
+            span = lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, NULL);
+            lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_OPERATION_ID, id);
+            lcbtrace_span_add_system_tags(span, instance->settings, LCBTRACE_TAG_SERVICE_SEARCH);
+        }
+#endif
     }
 }
 
@@ -178,6 +194,26 @@ lcb_FTSREQ::~lcb_FTSREQ()
         lcb_cancel_http_request(instance, htreq);
         htreq = NULL;
     }
+#ifdef LCB_TRACING
+    if (span) {
+        if (htreq) {
+            lcbio_CTX *ctx = htreq->ioctx;
+            if (ctx) {
+                std::string remote;
+                if (htreq->ipv6) {
+                    remote = "[" + std::string(htreq->host) + "]:" + std::string(htreq->port);
+                } else {
+                    remote = std::string(htreq->host) + ":" + std::string(htreq->port);
+                }
+                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, remote.c_str());
+                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS,
+                                          lcbio__inet_ntop(&ctx->sock->info->sa_local).c_str());
+            }
+        }
+        lcbtrace_span_finish(span, LCBTRACE_NOW);
+        span = NULL;
+    }
+#endif
     if (parser) {
         delete parser;
         parser = NULL;
@@ -203,3 +239,15 @@ lcb_fts_cancel(lcb_t, lcb_FTSHANDLE handle)
 {
     handle->callback = NULL;
 }
+
+#ifdef LCB_TRACING
+
+LIBCOUCHBASE_API
+void lcb_fts_set_parent_span(lcb_t, lcb_FTSHANDLE handle, lcbtrace_SPAN *span)
+{
+    if (handle) {
+        lcbtrace_span_set_parent(handle->span, span);
+    }
+}
+
+#endif

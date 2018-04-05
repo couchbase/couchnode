@@ -17,6 +17,7 @@
 
 #include "strcodecs.h"
 #include <string.h>
+#include <stdlib.h>
 
 /*
  * Function to base64 encode a text string as described in RFC 4648
@@ -37,19 +38,19 @@ static const lcb_uint8_t code[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrs
  * @param num the number of characters from s to encode
  * @return 0 upon success, -1 otherwise.
  */
-static int encode_rest(const lcb_uint8_t *s, lcb_uint8_t *d, lcb_size_t num)
+static int encode_rest(const lcb_uint8_t *s, lcb_uint8_t *d, lcb_SIZE num)
 {
     lcb_uint32_t val = 0;
 
     switch (num) {
-    case 2:
-        val = (lcb_uint32_t)((*s << 16) | (*(s + 1) << 8));
-        break;
-    case 1:
-        val = (lcb_uint32_t)((*s << 16));
-        break;
-    default:
-        return -1;
+        case 2:
+            val = (lcb_uint32_t)((*s << 16) | (*(s + 1) << 8));
+            break;
+        case 1:
+            val = (lcb_uint32_t)((*s << 16));
+            break;
+        default:
+            return -1;
     }
 
     d[3] = '=';
@@ -75,7 +76,7 @@ static int encode_rest(const lcb_uint8_t *s, lcb_uint8_t *d, lcb_size_t num)
 static int encode_triplet(const lcb_uint8_t *s, lcb_uint8_t *d)
 {
     lcb_uint32_t val = (lcb_uint32_t)((*s << 16) | (*(s + 1) << 8) | (*(s + 2)));
-    d[3] = code[val & 63] ;
+    d[3] = code[val & 63];
     d[2] = code[(val >> 6) & 63];
     d[1] = code[(val >> 12) & 63];
     d[0] = code[(val >> 18) & 63];
@@ -90,16 +91,15 @@ static int encode_triplet(const lcb_uint8_t *s, lcb_uint8_t *d)
  * @param sz size of destination buffer
  * @return 0 if success, -1 if the destination buffer isn't big enough
  */
-int lcb_base64_encode(const char *src, char *dst, lcb_size_t sz)
+int lcb_base64_encode(const char *src, lcb_SIZE len, char *dst, lcb_SIZE sz)
 {
-    lcb_size_t len = strlen(src);
-    lcb_size_t triplets = len / 3;
-    lcb_size_t rest = len % 3;
-    lcb_size_t ii;
+    lcb_SIZE triplets = len / 3;
+    lcb_SIZE rest = len % 3;
+    lcb_SIZE ii;
     const lcb_uint8_t *in = (const lcb_uint8_t *)src;
     lcb_uint8_t *out = (lcb_uint8_t *)dst;
 
-    if (sz < (lcb_size_t)((triplets + 1) * 4)) {
+    if (sz < (lcb_SIZE)((triplets + 1) * 4)) {
         return -1;
     }
 
@@ -120,4 +120,129 @@ int lcb_base64_encode(const char *src, char *dst, lcb_size_t sz)
     *out = '\0';
 
     return 0;
+}
+
+int lcb_base64_encode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *ndst)
+{
+    lcb_SIZE len = (nsrc / 3 + 1) * 4 + 1;
+    char *ptr = calloc(len, sizeof(char));
+    int rc = lcb_base64_encode(src, nsrc, ptr, len);
+    if (rc == 0) {
+        *ndst = strlen(ptr);
+        *dst = ptr;
+    } else {
+        free(ptr);
+    }
+    return rc;
+}
+
+static int code2val(char c)
+{
+    if (c >= 'A' && c <= 'Z') {
+        return c - 'A';
+    }
+    if (c >= 'a' && c <= 'z') {
+        return c - 'a' + 26;
+    }
+    if (c >= '0' && c <= '9') {
+        return c - '0' + 52;
+    }
+    if (c == '+') {
+        return 62;
+    }
+    if (c == '/') {
+        return 63;
+    }
+    return -1;
+}
+
+lcb_SSIZE lcb_base64_decode(const char *src, lcb_SIZE nsrc, char *dst, lcb_SIZE ndst)
+{
+    lcb_SIZE offset = 0;
+    lcb_SSIZE idx = 0;
+
+    if (nsrc == 0) {
+        *dst = '\0';
+        return 0;
+    }
+
+    while (offset < nsrc) {
+        int val, ins;
+        lcb_U32 value;
+
+        if (isspace((int)*src)) {
+            ++offset;
+            ++src;
+            continue;
+        }
+
+        // We need at least 4 bytes
+        if ((offset + 4) > nsrc) {
+            return -1;
+        }
+
+        val = code2val(src[0]);
+        if (val < 0) {
+            return -1;
+        }
+        value = val << 18;
+        val = code2val(src[1]);
+        if (val < 0) {
+            return -1;
+        }
+        value |= val << 12;
+
+        ins = 3; /* number of characters to insert */
+        if (src[2] == '=') {
+            ins = 1;
+        } else {
+            value |= code2val(src[2]) << 6;
+            if (src[3] == '=') {
+                ins = 2;
+            } else {
+                value |= code2val(src[3]);
+            }
+        }
+
+        if ((lcb_SIZE)idx >= ndst) {
+            return -1;
+        }
+        dst[idx++] = (char)(value >> 16);
+        if (ins > 1) {
+            if ((lcb_SIZE)idx >= ndst) {
+                return -1;
+            }
+            dst[idx++] = (char)(value >> 8);
+            if (ins > 2) {
+                if ((lcb_SIZE)idx >= ndst) {
+                    return -1;
+                }
+                dst[idx++] = (char)(value);
+            }
+        }
+
+        src += 4;
+        offset += 4;
+    }
+    dst[idx + 1] = '\0';
+
+    return idx;
+}
+
+lcb_SSIZE lcb_base64_decode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *ndst)
+{
+    // To reduce the number of reallocations, start by reserving an
+    // output buffer of 75% of the input size (and add 3 to avoid dealing
+    // with zero)
+    lcb_SIZE len = nsrc * 3 / 4 + 3;
+    char *ptr = calloc(len, sizeof(char));
+
+    lcb_SSIZE rc = lcb_base64_decode(src, nsrc, ptr, len);
+    if (rc < 0) {
+        free(ptr);
+    } else {
+        *ndst = rc;
+        *dst = ptr;
+    }
+    return rc;
 }

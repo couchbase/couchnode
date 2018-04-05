@@ -64,7 +64,18 @@ void lcb_default_settings(lcb_settings *settings)
     settings->use_errmap = 1;
     settings->use_collections = 0;
     settings->log_redaction = 0;
-    settings->use_tracing = 1;
+    settings->use_tracing = 0;
+#ifdef LCB_TRACING
+    settings->tracer_orphaned_queue_flush_interval = LCBTRACE_DEFAULT_ORPHANED_QUEUE_FLUSH_INTERVAL;
+    settings->tracer_orphaned_queue_size = LCBTRACE_DEFAULT_ORPHANED_QUEUE_SIZE;
+    settings->tracer_threshold_queue_flush_interval = LCBTRACE_DEFAULT_THRESHOLD_QUEUE_FLUSH_INTERVAL;
+    settings->tracer_threshold_queue_size = LCBTRACE_DEFAULT_THRESHOLD_QUEUE_SIZE;
+    settings->tracer_threshold[LCBTRACE_THRESHOLD_KV] =  LCBTRACE_DEFAULT_THRESHOLD_KV;
+    settings->tracer_threshold[LCBTRACE_THRESHOLD_N1QL] =  LCBTRACE_DEFAULT_THRESHOLD_N1QL;
+    settings->tracer_threshold[LCBTRACE_THRESHOLD_VIEW] =  LCBTRACE_DEFAULT_THRESHOLD_VIEW;
+    settings->tracer_threshold[LCBTRACE_THRESHOLD_FTS] =  LCBTRACE_DEFAULT_THRESHOLD_FTS;
+    settings->tracer_threshold[LCBTRACE_THRESHOLD_ANALYTICS] =  LCBTRACE_DEFAULT_THRESHOLD_ANALYTICS;
+#endif
 }
 
 LCB_INTERNAL_API
@@ -104,6 +115,7 @@ lcb_settings_unref(lcb_settings *settings)
 #ifdef LCB_TRACING
     if (settings->tracer) {
         lcbtrace_destroy(settings->tracer);
+        settings->tracer = NULL;
     }
 #endif
     if (settings->dtorcb) {

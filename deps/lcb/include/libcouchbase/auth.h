@@ -195,7 +195,7 @@ void
 lcbauth_ref(lcb_AUTHENTICATOR *auth);
 
 /**
- * @uncomitted
+ * @uncommitted
  *
  * Decrements the refcount on the authenticator object, freeing it if there
  * are no more owners.
@@ -207,7 +207,7 @@ void
 lcbauth_unref(lcb_AUTHENTICATOR *auth);
 
 /**
- * @uncomitted
+ * @uncommitted
  *
  * Makes a copy of an existing lcb_AUTHENTICATOR object. The returned
  * authenticator object has a reference count of 1.
@@ -274,7 +274,7 @@ typedef enum {
 } lcbauth_MODE;
 
 /**
- * @uncomitted
+ * @uncommitted
  *
  * Set the mode of this authenticator.
  * @param src the authenticator

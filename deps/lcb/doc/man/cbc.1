@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "February 2018" "" ""
+.TH "CBC" "1" "March 2018" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -32,6 +32,9 @@
 .
 .br
 \fBcbc decr\fR \fIKEY\fR [\fIOPTIONS\fR]
+.
+.br
+\fBcbc touch\fR \fIKEY\fR [\fIOPTIONS\fR]
 .
 .br
 \fBcbc rm\fR \fIKEY\fR [\fIOPTIONS\fR]
@@ -67,10 +70,34 @@
 \fBcbc bucket\-flush\fR \fINAME\fR [\fIOPTIONS\fR]
 .
 .br
+\fBcbc role\-list\fR [\fIOPTIONS\fR]
+.
+.br
+\fBcbc user\-list\fR [\fIOPTIONS\fR]
+.
+.br
+\fBcbc user\-upsert\fR \fINAME\fR [\fIOPTIONS\fR]
+.
+.br
+\fBcbc user\-delete\fR \fINAME\fR [\fIOPTIONS\fR]
+.
+.br
 \fBcbc connstr\fR \fISPEC\fR
 .
 .br
-\fBcbc n1ql\fR \fIQUERY\fR \[char46]\[char46]\[char46] [\fIOPTIONS\fR]
+\fBcbc query\fR \fIQUERY\fR \[char46]\[char46]\[char46] [\fIOPTIONS\fR]
+.
+.br
+\fBcbc write\-config\fR [\fIOPTIONS\fR \[char46]\[char46]\[char46]]
+.
+.br
+\fBcbc strerror\fR \fIHEX\-OR\-DECIMAL\-CODE\fR
+.
+.br
+\fBcbc ping\fR [\fIOPTIONS\fR \[char46]\[char46]\[char46]]
+.
+.br
+\fBcbc watch\fR [\fIKEYS\fR \[char46]\[char46]\[char46]] [\fIOPTIONS\fR \[char46]\[char46]\[char46]]
 .
 .br
 .
@@ -319,6 +346,12 @@ Retrieve a list of cluster statistics, select specified sub\-keys and aggregate 
 .P
 In addition to the options in the \fIOPTIONS\fR section, the following options are supported: * \fB\-n\fR, \fB\-\-interval\fR=\fIVALUE\fR: Update interval in seconds (default \fB1\fR second)\.
 .
+.SS "write\-config"
+Write the configuration file based on arguments passed\.
+.
+.SS "strerror"
+Decode library error code
+.
 .SS "version"
 Display information about the underlying version of \fIlibcouchbase\fR to which the \fBcbc\fR binary is linked\.
 .
@@ -354,7 +387,7 @@ In addition to the \fIOPTIONS\fR specified above, the following options are reco
 \fB\-X\fR, \fB\-\-method\fR=\fIGET|PUT|POST|DELETE\fR
 Specify the HTTP method to use for the specific request\. The default method is \fBGET\fR to query a view\. To delete an existing design document, specify \fBDELETE\fR, and to create a new design document, specify \fBPUT\fR\.
 .
-.SS "n1ql"
+.SS "query"
 Execute a N1QL Query\. The cluster must have at least one query node enabled\.
 .
 .P
@@ -373,6 +406,14 @@ Specify additional options controlling the execution of the query\. This can be 
 .TP
 \fB\-A\fR, \fB\-\-qarg\fR=\fIPLACEHOLDER=VALUE\fR
 Supply values for placeholders found in the query string\. The placeholders must evaluate to valid JSON values\.
+.
+.TP
+\fB\-\-prepare\fR
+Prepare query before issuing\. Default is FALSE\.
+.
+.TP
+\fB\-\-analytics\fR
+Perform query to analytics service\. Default is FALSE\.
 .
 .SS "admin"
 Execute an administrative request against the management REST API\. Note that in order to perform an administrative API you will need to provide \fIadministrative\fR credentials to \fBcbc admin\fR\. This means the username and password used to log into the administration console\.
@@ -782,7 +823,7 @@ Issue a N1QL query:
 .
 .nf
 
-$ cbc n1ql \'SELECT * FROM `travel\-sample` WHERE type="airport" AND city=$city\' \-Qscan_consistency=request_plus \-A\'$city=\e"Reno\e"\'
+$ cbc query \'SELECT * FROM `travel\-sample` WHERE type="airport" AND city=$city\' \-Qscan_consistency=request_plus \-A\'$city=\e"Reno\e"\'
 .
 .fi
 .

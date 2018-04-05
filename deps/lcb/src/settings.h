@@ -93,6 +93,16 @@
 /* 50 ms */
 #define LCB_CONFIG_POLL_INTERVAL_FLOOR LCB_MS2US(50)
 
+#define LCBTRACE_DEFAULT_ORPHANED_QUEUE_FLUSH_INTERVAL LCB_MS2US(1000)
+#define LCBTRACE_DEFAULT_ORPHANED_QUEUE_SIZE 128
+#define LCBTRACE_DEFAULT_THRESHOLD_QUEUE_FLUSH_INTERVAL LCB_MS2US(3000)
+#define LCBTRACE_DEFAULT_THRESHOLD_QUEUE_SIZE 128
+#define LCBTRACE_DEFAULT_THRESHOLD_KV  LCB_MS2US(500)
+#define LCBTRACE_DEFAULT_THRESHOLD_N1QL LCB_MS2US(1000)
+#define LCBTRACE_DEFAULT_THRESHOLD_VIEW LCB_MS2US(1000)
+#define LCBTRACE_DEFAULT_THRESHOLD_FTS LCB_MS2US(1000)
+#define LCBTRACE_DEFAULT_THRESHOLD_ANALYTICS LCB_MS2US(1000)
+
 #include "config.h"
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/metrics.h>
@@ -198,6 +208,11 @@ typedef struct lcb_settings_st {
     struct lcb_METRICS_st *metrics;
 #ifdef LCB_TRACING
     lcbtrace_TRACER *tracer;
+    lcb_U32 tracer_orphaned_queue_flush_interval;
+    lcb_U32 tracer_orphaned_queue_size;
+    lcb_U32 tracer_threshold_queue_flush_interval;
+    lcb_U32 tracer_threshold_queue_size;
+    lcb_U32 tracer_threshold[LCBTRACE_THRESHOLD__MAX];
 #endif
 } lcb_settings;
 

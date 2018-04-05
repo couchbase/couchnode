@@ -623,7 +623,7 @@ const char *lcb_strerror_long(lcb_error_t error);
 /**
  * This may be used in conjunction with the errmap callback if it wishes
  * to fallback for default behavior for the given code.
- * @uncomitted
+ * @uncommitted
  */
 LIBCOUCHBASE_API
 lcb_error_t lcb_errmap_default(lcb_t instance, lcb_U16 code);

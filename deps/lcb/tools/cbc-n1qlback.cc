@@ -213,11 +213,14 @@ public:
         }
 
         string curline;
-        while (std::getline(ifs, curline).good() && !ifs.eof()) {
+        while (ifs.good()) {
+            std::getline(ifs, curline);
             if (!curline.empty()) {
                 m_queries.push_back(curline);
             }
         }
+        std::cerr << "Loaded " << m_queries.size() << " queries "
+                  << "from \"" << o_file.const_result() << "\"" << std::endl;
         if (m_params.useTimings()) {
             GlobalMetrics.prepare_timings();
         }

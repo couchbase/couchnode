@@ -18,17 +18,35 @@
 #include <gtest/gtest.h>
 
 extern "C" {
-    extern int lcb_base64_encode(const char *src, char *dst,
-                                 size_t sz);
+extern int lcb_base64_encode(const char *src, size_t nsrc, char *dst, size_t ndst);
+extern int lcb_base64_decode(const char *src, size_t nsrc, char *dst, size_t ndst);
+
+extern int lcb_base64_encode2(const char *src, size_t nsrc, char **dst, size_t *ndst);
+extern int lcb_base64_decode2(const char *src, size_t nsrc, char **dst, size_t *ndst);
 }
 
 class Base64 : public ::testing::Test
 {
-protected:
-    void validate(const char *src, const char *result) {
+  protected:
+    void validate(const char *src, const char *result)
+    {
         char dest[1024];
-        ASSERT_NE(-1, lcb_base64_encode(src, dest, sizeof(dest)));
+        ASSERT_GE(lcb_base64_encode(src, strlen(src), dest, sizeof(dest)), 0);
         EXPECT_STREQ(result, dest);
+        memset(dest, 0, sizeof(dest));
+        ASSERT_GE(lcb_base64_decode(result, strlen(result), dest, sizeof(dest)), 0);
+        EXPECT_STREQ(src, dest);
+
+        char *tmp = NULL;
+        size_t ntmp = 0;
+        ASSERT_GE(lcb_base64_encode2(src, strlen(src), &tmp, &ntmp), 0);
+        EXPECT_STREQ(result, tmp);
+        free(tmp);
+        tmp = NULL;
+        ntmp = 0;
+        ASSERT_GE(lcb_base64_decode2(result, strlen(result), &tmp, &ntmp), 0);
+        EXPECT_STREQ(src, tmp);
+        free(tmp);
     }
 };
 
@@ -62,7 +80,6 @@ TEST_F(Base64, testWikipediaExample)
     validate("sure.", "c3VyZS4=");
 }
 
-
 TEST_F(Base64, testStuff)
 {
     // Dummy test data. It looks like the "base64" command line
@@ -78,4 +95,15 @@ TEST_F(Base64, testStuff)
     validate("@@@@\n", "QEBAQAo=");
     validate("blahblah:bla@@h", "YmxhaGJsYWg6YmxhQEBo");
     validate("blahblah:bla@@h\n", "YmxhaGJsYWg6YmxhQEBoCg==");
+}
+
+TEST_F(Base64, testTooSmallOutputBuffer)
+{
+    const char *plain = "foobar";
+    const char *base64 = "Zm9vYmFy";
+
+    char dest[2];
+
+    ASSERT_EQ(lcb_base64_encode(plain, strlen(plain), dest, sizeof(dest)), -1);
+    ASSERT_EQ(lcb_base64_decode(base64, strlen(base64), dest, sizeof(dest)), -1);
 }

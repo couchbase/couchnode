@@ -18,7 +18,7 @@
 #include "rnd.h"
 #include "internal.h"
 
-#if !defined(COMPILER_SUPPORTS_CXX11) || _MSC_VER < 1600
+#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600)
 static volatile int rnd_initialized = 0;
 LCB_INTERNAL_API
 void lcb_rnd_global_init(void)

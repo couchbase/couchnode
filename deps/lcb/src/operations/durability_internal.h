@@ -102,11 +102,24 @@ struct Durset;
 // For use in conjunction with MCREQ_F_PRIVCALLBACK
 struct CallbackCookie {
     lcb_RESPCALLBACK callback;
+
+    CallbackCookie() : callback(NULL) {}
 };
 
 /**Information a single entry in a durability set. Each entry contains a single
  * key */
 struct Item : public CallbackCookie {
+    Item():
+        reqcas(0),
+        reqseqno(0),
+        uuid(0),
+        result(),
+        parent(NULL),
+        vbid(0),
+        done(0)
+    {
+    }
+
     /**
      * Returns true if the entry is complete, false otherwise. This only assumes
      * successful entries.

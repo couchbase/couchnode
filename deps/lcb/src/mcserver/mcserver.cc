@@ -499,6 +499,9 @@ void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
                            hdr.request.opaque,
                            PROTOCOL_BINARY_RESPONSE_EINVAL);
 
+#ifdef LCB_TRACING
+    lcbtrace_span_set_orphaned(MCREQ_PKT_RDATA(pkt)->span, true);
+#endif
     lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error %s", LOGID_T(), (void*)pkt, (unsigned long)pkt->opaque, hdr.request.opcode, lcb_strerror_short(err));
     int rv = mcreq_dispatch_response(this, pkt, &resp, err);
     lcb_assert(rv == 0);

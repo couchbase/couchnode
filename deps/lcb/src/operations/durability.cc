@@ -158,7 +158,7 @@ Item::update(int flags, int srvix)
     bool is_master = lcbvb_vbmaster(LCBT_VBCONFIG(instance), vbid) == srvix;
     const lcb::Server *server = instance->get_server(srvix);
 
-    memset(info, 0, sizeof(*info));
+    info->clear();
     info->server = server;
 
     if (flags & UPDATE_PERSISTED) {
@@ -339,7 +339,6 @@ lcb_error_t Durset::MCTX_addcmd(const lcb_CMDBASE *cmd) {
         MCREQ_PKT_BASESIZE, &vbid, &srvix);
 
     /* ok. now let's initialize the entry..*/
-    memset(&ent, 0, sizeof (ent));
     ent.res().nkey = cmd->key.contig.nbytes;
     ent.reqcas = cmd->cas;
     ent.parent = this;

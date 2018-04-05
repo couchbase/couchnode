@@ -48,7 +48,7 @@ typedef enum {
     /**
      * For use within the hashkey field, indicates that the _pointer to bytes_
      * of the hashkey is the tracing span, rather than an actual hashkey */
-    LCB_KV_TRACESPAN,
+    LCB_KV_TRACESPAN
 } lcb_KVBUFTYPE;
 
 #define LCB_KV_HEADER_AND_KEY LCB_KV_CONTIG

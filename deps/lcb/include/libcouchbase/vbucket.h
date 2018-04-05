@@ -342,7 +342,7 @@ int
 lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n);
 
 /**
- * @uncomitted
+ * @uncommitted
  * Determines if a given server index is either a master or a replica for a
  * vbucket
  * @param vbc the configuration

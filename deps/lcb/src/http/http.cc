@@ -523,7 +523,7 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
         char auth[256];
         std::string upassbuf;
         upassbuf.append(username).append(":").append(password);
-        if (lcb_base64_encode(upassbuf.c_str(), auth, sizeof(auth)) == -1) {
+        if (lcb_base64_encode(upassbuf.c_str(), upassbuf.size(), auth, sizeof(auth)) == -1) {
             return LCB_EINVAL;
         }
         add_header("Authorization", std::string("Basic ") + auth);

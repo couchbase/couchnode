@@ -45,7 +45,7 @@ OPTION(LCB_BUILD_DTRACE "Build DTrace instrumentation, if available on platform"
 OPTION(LCB_EMBED_PLUGIN_LIBEVENT "Embed the libevent plugin" OFF)
 OPTION(LCB_STATIC_LIBEVENT "Link static libevent (only applicable if EMBED_PLUGIN_LIBEVENT is ON" OFF)
 OPTION(LCB_USE_HDR_HISTOGRAM "Use HdrHistogram for statistics recording" OFF)
-OPTION(LCB_TRACING "Enable builtin tracing" OFF)
+OPTION(LCB_TRACING "Enable builtin tracing" ON)
 
 ### END CONFIGURABLES ###
 IF(MSVC)

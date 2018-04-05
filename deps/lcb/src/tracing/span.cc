@@ -16,17 +16,27 @@
  */
 
 #include "internal.h"
+#ifdef HAVE__FTIME64_S
+#include <sys/timeb.h>
+#endif
 
 LIBCOUCHBASE_API
 uint64_t lcbtrace_now()
 {
     uint64_t ret;
+#ifdef HAVE__FTIME64_S
+    struct __timeb64 tb;
+    _ftime64_s(&tb);
+    ret = (uint64_t)tb.time * 1000000; /* sec */
+    ret += (uint64_t)tb.millitm * 1000;
+#else
     struct timeval tv;
     if (gettimeofday(&tv, NULL) == -1) {
         return -1;
     }
     ret = (uint64_t)tv.tv_sec * 1000000;
     ret += (uint64_t)tv.tv_usec;
+#endif
     return ret;
 }
 
@@ -62,7 +72,7 @@ void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value
 }
 
 LCB_INTERNAL_API
-void lcbtrace_spann_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, const char *service)
+void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, const char *service)
 {
     lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_SERVICE, service);
     std::string client_string(LCB_CLIENT_ID);
@@ -82,6 +92,12 @@ lcbtrace_SPAN *lcbtrace_span_get_parent(lcbtrace_SPAN *span)
     return span->m_parent;
 }
 
+LCB_INTERNAL_API
+void lcbtrace_span_set_parent(lcbtrace_SPAN *span, lcbtrace_SPAN *parent)
+{
+    span->m_parent = parent;
+}
+
 LIBCOUCHBASE_API
 uint64_t lcbtrace_span_get_start_ts(lcbtrace_SPAN *span)
 {
@@ -92,6 +108,20 @@ LIBCOUCHBASE_API
 uint64_t lcbtrace_span_get_finish_ts(lcbtrace_SPAN *span)
 {
     return span->m_finish;
+}
+
+LIBCOUCHBASE_API
+int lcbtrace_span_is_orphaned(lcbtrace_SPAN *span)
+{
+    return span && span->m_orphaned;
+}
+
+LCB_INTERNAL_API
+void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val)
+{
+    if (span) {
+        span->m_orphaned = (val != 0);
+    }
 }
 
 LIBCOUCHBASE_API
@@ -178,6 +208,7 @@ Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace
 {
     m_start = start ? start : lcbtrace_now();
     m_span_id = lcb_next_rand64();
+    m_orphaned = false;
     add_tag(LCBTRACE_TAG_DB_TYPE, "couchbase");
     add_tag(LCBTRACE_TAG_SPAN_KIND, "client");
 
@@ -188,9 +219,9 @@ Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace
     }
 }
 
-void Span::finish(uint64_t finish)
+void Span::finish(uint64_t now)
 {
-    m_finish = finish ? finish : lcbtrace_now();
+    m_finish = now ? now : lcbtrace_now();
     if (m_tracer && m_tracer->version == 0 && m_tracer->v.v0.report) {
         m_tracer->v.v0.report(m_tracer, this);
     }

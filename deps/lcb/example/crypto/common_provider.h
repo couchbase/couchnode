@@ -15,25 +15,17 @@
  *   limitations under the License.
  */
 
-#ifndef LIBCOUCHBASE_RND_H
-#define LIBCOUCHBASE_RND_H 1
+#ifndef _COMMON_PROVIDER_H
+#define _COMMON_PROVIDER_H
 
-#include "config.h"
 #include <libcouchbase/couchbase.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define AES256_KEY_SIZE 32
+#define AES256_IV_SIZE 16
 
-LCB_INTERNAL_API lcb_U32 lcb_next_rand32(void);
-LCB_INTERNAL_API lcb_U64 lcb_next_rand64(void);
+extern uint8_t common_aes256_key[AES256_KEY_SIZE];
+extern uint8_t common_aes256_iv[AES256_IV_SIZE];
 
-#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600)
-    LCB_INTERNAL_API void lcb_rnd_global_init(void);
-#endif
-
-#ifdef __cplusplus
-}
-#endif
+extern uint8_t *common_hmac_sha256_key;
 
 #endif

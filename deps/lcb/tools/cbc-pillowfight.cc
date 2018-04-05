@@ -895,21 +895,22 @@ private:
 
 static void updateOpsPerSecDisplay()
 {
-#ifndef WIN32
 
     static time_t start_time = time(NULL);
-    static int is_tty = isatty(STDERR_FILENO);
-    if (is_tty) {
-        static volatile unsigned long nops = 0;
-        if (++nops % 10000 == 0) {
-            time_t now = time(NULL);
-            time_t nsecs = now - start_time;
-            if (!nsecs) { nsecs = 1; }
-            unsigned long ops_sec = nops / nsecs;
-            fprintf(stderr, "OPS/SEC: %10lu\r", ops_sec);
-        }
-    }
+    static int is_tty =
+#ifdef WIN32
+        0;
+#else
+        isatty(STDERR_FILENO);
 #endif
+    static volatile unsigned long nops = 0;
+    time_t now = time(NULL);
+    time_t nsecs = now - start_time;
+    if (!nsecs) { nsecs = 1; }
+    unsigned long ops_sec = nops / nsecs;
+    if (++nops % 10000 == 0) {
+	    fprintf(stderr, "OPS/SEC: %10lu%c", ops_sec, is_tty ? '\r' : '\n');
+    }
 }
 
 static void updateStats(InstanceCookie *cookie, lcb_error_t rc)

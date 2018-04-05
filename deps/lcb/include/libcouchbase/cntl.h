@@ -1113,11 +1113,20 @@ typedef const char *lcb_BUCKETCRED[2];
  */
 #define LCB_CNTL_LOG_REDACTION 0x4c
 
+typedef enum {
+    LCBTRACE_THRESHOLD_KV = 0,
+    LCBTRACE_THRESHOLD_N1QL,
+    LCBTRACE_THRESHOLD_VIEW,
+    LCBTRACE_THRESHOLD_FTS,
+    LCBTRACE_THRESHOLD_ANALYTICS,
+    LCBTRACE_THRESHOLD__MAX
+} lcbtrace_THRESHOLDOPTS;
+
 /**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x4f
+#define LCB_CNTL__MAX                    0x58
 /**@}*/
 
 #ifdef __cplusplus

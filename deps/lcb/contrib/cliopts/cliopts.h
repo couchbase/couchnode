@@ -222,7 +222,20 @@ public:
     bool passed() const { return found != 0; }
     void setPassed(bool val = true) { found = val ? 1 : 0; }
     int numSpecified() const { return found; }
-    Option() { memset(this, 0, sizeof (cliopts_entry)); }
+
+    Option()
+    {
+        kshort = 0;
+        klong = NULL;
+        ktype = CLIOPTS_ARGT_NONE;
+        dest = NULL;
+        help = NULL;
+        vdesc = NULL;
+        required = 0;
+        hidden = 0;
+        found = 0;
+    }
+
 private:
     friend class Parser;
 };

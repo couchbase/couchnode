@@ -24,9 +24,9 @@ my @HELP_DESCRIPTIONS = (
         "Create a debug build",
         "%d", \(my $DEBUG = 0) ],
 
-    [ "enable-tracing", "",
-        "Enable builtin tracing",
-        "%d", \(my $TRACING = 0) ],
+    [ "disable-tracing", "",
+        "Disable builtin tracing",
+        "%d", \(my $NO_TRACING = 0) ],
 
     [ "with-ninja", "s",
         "Generate Ninja Makefiles",
@@ -233,9 +233,7 @@ if ($NO_TOOLS) {
     push @CM_OPTIONS, "-DLCB_NO_TOOLS=1";
 }
 
-if ($TRACING) {
-    push @CM_OPTIONS, "-DLCB_TRACING=1";
-} else {
+if ($NO_TRACING) {
     push @CM_OPTIONS, "-DLCB_TRACING=0"
 }
 

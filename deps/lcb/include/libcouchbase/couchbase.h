@@ -2337,7 +2337,7 @@ typedef lcb_CMDBASE lcb_CMDCBFLUSH;
 typedef lcb_RESPBASE lcb_RESPCBFLUSH;
 
 /**
- * @uncomitted
+ * @uncommitted
  *
  * Flush a bucket
  * This function will properly flush any type of bucket using the REST API
@@ -3035,7 +3035,7 @@ void lcb_breakout(lcb_t instance);
  * @brief Check if instance is blocked in the event loop
  * @param instance the instance to run the event loop for.
  * @return non-zero if nobody is waiting for IO interaction
- * @uncomitted
+ * @uncommitted
  */
 LIBCOUCHBASE_API
 int lcb_is_waiting(lcb_t instance);

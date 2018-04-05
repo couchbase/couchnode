@@ -11,6 +11,7 @@
 `cbc cp` _FILES_ ... [_OPTIONS_]<br>
 `cbc incr` _KEY_ [_OPTIONS_]<br>
 `cbc decr` _KEY_ [_OPTIONS_]<br>
+`cbc touch` _KEY_ [_OPTIONS_]<br>
 `cbc rm` _KEY_ [_OPTIONS_]<br>
 `cbc hash` _KEY_ [_OPTIONS_]<br>
 `cbc stats` _KEYS_ ... [_OPTIONS_]<br>
@@ -22,8 +23,17 @@
 `cbc bucket-create` _-P PASSWORD_ _NAME_ [_OPTIONS_]<br>
 `cbc bucket-delete` _-P PASSWORD_ _NAME_ [_OPTIONS_]<br>
 `cbc bucket-flush` _NAME_ [_OPTIONS_]<br>
+`cbc role-list` [_OPTIONS_]<br>
+`cbc user-list` [_OPTIONS_]<br>
+`cbc user-upsert` _NAME_ [_OPTIONS_]<br>
+`cbc user-delete` _NAME_ [_OPTIONS_]<br>
 `cbc connstr` _SPEC_<br>
-`cbc n1ql` _QUERY_ ... [_OPTIONS_]<br>
+`cbc query` _QUERY_ ... [_OPTIONS_]<br>
+`cbc write-config` [_OPTIONS_ ...]<br>
+`cbc strerror` _HEX-OR-DECIMAL-CODE_<br>
+`cbc ping` [_OPTIONS_ ...]<br>
+`cbc watch` [_KEYS_ ...] [_OPTIONS_ ...]<br>
+
 
 ## DESCRIPTION
 
@@ -324,6 +334,13 @@ In addition to the options in the [OPTIONS](#OPTIONS) section, the following opt
 * `-n`, `--interval`=_VALUE_:
   Update interval in seconds (default `1` second).
 
+### write-config
+
+Write the configuration file based on arguments passed.
+
+### strerror
+
+Decode library error code
 
 ### version
 
@@ -373,7 +390,7 @@ In addition to the [OPTIONS](#OPTIONS) specified above, the following options ar
   to query a view. To delete an existing design document, specify `DELETE`, and to
   create a new design document, specify `PUT`.
 
-### n1ql
+### query
 
 Execute a N1QL Query. The cluster must have at least one query node enabled.
 
@@ -394,6 +411,12 @@ are recognized:
 * `-A`, `--qarg`=_PLACEHOLDER=VALUE_:
   Supply values for placeholders found in the query string. The placeholders
   must evaluate to valid JSON values.
+
+* `--prepare`:
+  Prepare query before issuing. Default is FALSE.
+
+* `--analytics`:
+  Perform query to analytics service. Default is FALSE.
 
 ### admin
 
@@ -661,7 +684,7 @@ Query a view:
 
 Issue a N1QL query:
 
-    $ cbc n1ql 'SELECT * FROM `travel-sample` WHERE type="airport" AND city=$city' -Qscan_consistency=request_plus -A'$city=\"Reno\"'
+    $ cbc query 'SELECT * FROM `travel-sample` WHERE type="airport" AND city=$city' -Qscan_consistency=request_plus -A'$city=\"Reno\"'
 
 
 Ping cluster services:

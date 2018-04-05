@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2018 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/n1ql.h>
 #include <jsparse/parser.h>
@@ -170,6 +187,10 @@ typedef struct lcb_N1QLREQ : lcb::jsparse::Parser::Actions {
 
     /** Is this query to Analytics (CBAS) service */
     bool is_cbas;
+
+#ifdef LCB_TRACING
+    lcbtrace_SPAN *span;
+#endif
 
     lcb_N1QLCACHE& cache() { return *instance->n1ql_cache; }
 
@@ -424,6 +445,27 @@ lcb_N1QLREQ::~lcb_N1QLREQ()
         invoke_row(&resp, 1);
     }
 
+#ifdef LCB_TRACING
+    if (span) {
+        if (htreq) {
+            lcbio_CTX *ctx = htreq->ioctx;
+            if (ctx) {
+                std::string remote;
+                if (htreq->ipv6) {
+                    remote = "[" + std::string(htreq->host) + "]:" + std::string(htreq->port);
+                } else {
+                    remote = std::string(htreq->host) + ":" + std::string(htreq->port);
+                }
+                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, remote.c_str());
+                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS,
+                                          lcbio__inet_ntop(&ctx->sock->info->sa_local).c_str());
+            }
+        }
+        lcbtrace_span_finish(span, LCBTRACE_NOW);
+        span = NULL;
+    }
+#endif
+
     if (parser) {
         delete parser;
     }
@@ -609,6 +651,9 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
       cookie(user_cookie), callback(cmd->callback), instance(obj),
       lasterr(LCB_SUCCESS), flags(cmd->cmdflags), timeout(0),
       nrows(0), prepare_req(NULL), was_retried(false), is_cbas(false)
+#ifdef LCB_TRACING
+    , span(NULL)
+#endif
 {
     if (cmd->handle) {
         *cmd->handle = this;
@@ -675,6 +720,15 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
             curCreds["pass"] = ii->second;
         }
     }
+#ifdef LCB_TRACING
+    if (instance->settings->tracer) {
+        char id[20] = {0};
+        snprintf(id, sizeof(id), "%p", (void *)this);
+        span = lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, NULL);
+        lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_OPERATION_ID, id);
+        lcbtrace_span_add_system_tags(span, instance->settings, is_cbas ? LCBTRACE_TAG_SERVICE_ANALYTICS : LCBTRACE_TAG_SERVICE_N1QL);
+    }
+#endif
 }
 
 LIBCOUCHBASE_API
@@ -753,3 +807,15 @@ lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle)
     }
     handle->callback = NULL;
 }
+
+#ifdef LCB_TRACING
+
+LIBCOUCHBASE_API
+void lcb_n1ql_set_parent_span(lcb_t, lcb_N1QLHANDLE handle, lcbtrace_SPAN *span)
+{
+    if (handle) {
+        lcbtrace_span_set_parent(handle->span, span);
+    }
+}
+
+#endif

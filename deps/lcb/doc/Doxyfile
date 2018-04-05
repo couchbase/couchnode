@@ -32,7 +32,7 @@ PROJECT_NAME           = "Couchbase C Client"
 # This could be handy for archiving the generated documentation or
 # if some version control system is used.
 
-PROJECT_NUMBER         = 2.8.5
+PROJECT_NUMBER         = 2.8.6
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer
@@ -211,7 +211,6 @@ ALIASES += "internal=\par Stability\n\xrefitem lcb_apiattr_internal \"Internal\"
 ALIASES += "commited=committed"
 ALISES  += "comitted=committed"
 ALIASES += "uncommited=uncommitted"
-ALIASES += "uncomitted=uncommitted"
 ALIASES += "lcb_see_detailed_neterr=\n\note This error code is returned only if \ref LCB_CNTL_DETAILED_ERRCODES is set\n"
 
 # Make the lcb_cntl documentation less wordy in the header

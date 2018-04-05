@@ -256,7 +256,7 @@ lcb_error_t HttpProvider::setup_request_header(const lcb_host_t &host) {
             std::string cred;
             cred.append(username).append(":").append(password);
             char b64[256] = { 0 };
-            if (lcb_base64_encode(cred.c_str(), b64, sizeof(b64)) == -1) {
+            if (lcb_base64_encode(cred.c_str(), cred.size(), b64, sizeof(b64)) == -1) {
                 return LCB_EINTERNAL;
             }
             request_buf.append("Authorization: Basic ").append(b64).append("\r\n");

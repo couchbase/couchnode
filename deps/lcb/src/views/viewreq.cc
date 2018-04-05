@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014-2018 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "viewreq.h"
 #include "sllist-inl.h"
 #include "http/http.h"
@@ -188,6 +205,27 @@ cb_docq_throttle(lcb::docreq::Queue *q, int enabled)
 ViewRequest::~ViewRequest() {
     invoke_last();
 
+#ifdef LCB_TRACING
+    if (span) {
+        if (htreq) {
+            lcbio_CTX *ctx = htreq->ioctx;
+            if (ctx) {
+                std::string remote;
+                if (htreq->ipv6) {
+                    remote = "[" + std::string(htreq->host) + "]:" + std::string(htreq->port);
+                } else {
+                    remote = std::string(htreq->host) + ":" + std::string(htreq->port);
+                }
+                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, remote.c_str());
+                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS,
+                                          lcbio__inet_ntop(&ctx->sock->info->sa_local).c_str());
+            }
+        }
+        lcbtrace_span_finish(span, LCBTRACE_NOW);
+        span = NULL;
+    }
+#endif
+
     if (parser != NULL) {
         delete parser;
     }
@@ -239,7 +277,11 @@ ViewRequest::ViewRequest(lcb_t instance_, const void *cookie_,
       cookie(cookie_), docq(NULL), callback(cmd->callback),
       instance(instance_), refcount(1),
       cmdflags(cmd->cmdflags),
-      lasterr(LCB_SUCCESS) {
+      lasterr(LCB_SUCCESS)
+#ifdef LCB_TRACING
+    , span(NULL)
+#endif
+    {
 
     // Validate:
     if (cmd->nddoc == 0 || cmd->nview == 0 || callback == NULL) {
@@ -270,6 +312,15 @@ ViewRequest::ViewRequest(lcb_t instance_, const void *cookie_,
     lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
 
     lasterr = request_http(cmd);
+#ifdef LCB_TRACING
+    if (lasterr == LCB_SUCCESS && instance->settings->tracer) {
+        char id[20] = {0};
+        snprintf(id, sizeof(id), "%p", (void *)this);
+        span = lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, NULL);
+        lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_OPERATION_ID, id);
+        lcbtrace_span_add_system_tags(span, instance->settings, LCBTRACE_TAG_SERVICE_VIEW);
+    }
+#endif
 }
 
 LIBCOUCHBASE_API
@@ -316,3 +367,15 @@ void ViewRequest::cancel() {
         }
     }
 }
+
+#ifdef LCB_TRACING
+
+LIBCOUCHBASE_API
+void lcb_view_set_parent_span(lcb_t, lcb_VIEWHANDLE handle, lcbtrace_SPAN *span)
+{
+    if (handle && handle->span) {
+        lcbtrace_span_set_parent(handle->span, span);
+    }
+}
+
+#endif

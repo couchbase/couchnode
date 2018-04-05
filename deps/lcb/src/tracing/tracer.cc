@@ -26,29 +26,6 @@ LIBCOUCHBASE_API void lcbtrace_destroy(lcbtrace_TRACER *tracer)
     }
 }
 
-static void lcbtrace_destructor(lcbtrace_TRACER *tracer)
-{
-    free(tracer);
-}
-
-static void lcbtrace_report(lcbtrace_TRACER *tracer, lcbtrace_SPAN *)
-{
-    if (tracer == NULL || tracer->version != 0 || (tracer->flags & LCBTRACE_F_THRESHOLD) == 0) {
-        return;
-    }
-    /* TODO: implement threshold tracer */
-}
-
-LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(uint64_t flags)
-{
-    lcbtrace_TRACER *tracer = reinterpret_cast< lcbtrace_TRACER * >(calloc(1, sizeof(lcbtrace_TRACER)));
-    tracer->destructor = lcbtrace_destructor;
-    tracer->flags = flags;
-    tracer->version = 0;
-    tracer->v.v0.report = lcbtrace_report;
-    return tracer;
-}
-
 LIBCOUCHBASE_API
 lcbtrace_SPAN *lcbtrace_span_start(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF *ref)
 {

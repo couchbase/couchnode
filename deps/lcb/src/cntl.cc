@@ -82,6 +82,15 @@ static lcb_uint32_t *get_timeout_field(lcb_t instance, int cmd)
     case LCB_CNTL_RETRY_INTERVAL: return &settings->retry_interval;
     case LCB_CNTL_RETRY_NMV_INTERVAL: return &settings->retry_nmv_interval;
     case LCB_CNTL_CONFIG_POLL_INTERVAL: return &settings->config_poll_interval;
+#ifdef LCB_TRACING
+    case LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL: return &settings->tracer_orphaned_queue_flush_interval;
+    case LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL: return &settings->tracer_threshold_queue_flush_interval;
+    case LCB_CNTL_TRACING_THRESHOLD_KV: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_KV];
+    case LCB_CNTL_TRACING_THRESHOLD_N1QL: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_N1QL];
+    case LCB_CNTL_TRACING_THRESHOLD_VIEW: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_VIEW];
+    case LCB_CNTL_TRACING_THRESHOLD_FTS: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_FTS];
+    case LCB_CNTL_TRACING_THRESHOLD_ANALYTICS: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_ANALYTICS];
+#endif
     default: return NULL;
     }
 }
@@ -213,6 +222,21 @@ HANDLER(log_redaction_handler) {
 HANDLER(enable_tracing_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, use_tracing));
 }
+HANDLER(tracing_orphaned_queue_size_handler) {
+#ifdef LCB_TRACING
+    RETURN_GET_SET(lcb_U32, LCBT_SETTING(instance, tracer_orphaned_queue_size));
+#else
+    return LCB_ECTL_BADARG;
+#endif
+}
+HANDLER(tracing_threshold_queue_size_handler) {
+#ifdef LCB_TRACING
+    RETURN_GET_SET(lcb_U32, LCBT_SETTING(instance, tracer_threshold_queue_size));
+#else
+    return LCB_ECTL_BADARG;
+#endif
+}
+
 HANDLER(config_poll_interval_handler) {
     lcb_U32 *user = reinterpret_cast<lcb_U32*>(arg);
     if (mode == LCB_CNTL_SET && *user > 0 && *user < LCB_CONFIG_POLL_INTERVAL_FLOOR) {
@@ -669,6 +693,15 @@ static ctl_handler handlers[] = {
     log_redaction_handler, /* LCB_CNTL_LOG_REDACTION */
     ssl_truststorepath_handler, /* LCB_CNTL_SSL_TRUSTSTORE */
     enable_tracing_handler, /* LCB_CNTL_ENABLE_TRACING */
+    timeout_common, /* LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL */
+    tracing_orphaned_queue_size_handler, /* LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE */
+    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL */
+    tracing_threshold_queue_size_handler, /* LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE */
+    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_KV */
+    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_N1QL */
+    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_VIEW */
+    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_FTS */
+    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_ANALYTICS */
 };
 
 /* Union used for conversion to/from string functions */
@@ -841,6 +874,15 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"metrics", LCB_CNTL_METRICS, convert_intbool },
         {"log_redaction", LCB_CNTL_LOG_REDACTION, convert_intbool},
         {"enable_tracing", LCB_CNTL_ENABLE_TRACING, convert_intbool},
+        {"tracing_orphaned_queue_flush_interval", LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL, convert_timevalue},
+        {"tracing_orphaned_queue_size", LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE, convert_u32},
+        {"tracing_threshold_queue_flush_interval", LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL, convert_timevalue},
+        {"tracing_threshold_queue_size", LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE, convert_u32},
+        {"tracing_threshold_kv", LCB_CNTL_TRACING_THRESHOLD_KV, convert_timevalue},
+        {"tracing_threshold_n1ql", LCB_CNTL_TRACING_THRESHOLD_N1QL, convert_timevalue},
+        {"tracing_threshold_view", LCB_CNTL_TRACING_THRESHOLD_VIEW, convert_timevalue},
+        {"tracing_threshold_fts", LCB_CNTL_TRACING_THRESHOLD_FTS, convert_timevalue},
+        {"tracing_threshold_analytics", LCB_CNTL_TRACING_THRESHOLD_ANALYTICS, convert_timevalue},
         {NULL, -1}
 };
 

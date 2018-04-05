@@ -49,7 +49,7 @@ lcb_touch3(lcb_t instance, const void *cookie, const lcb_CMDTOUCH *cmd)
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();
     LCB_SCHED_ADD(instance, pl, pkt);
-    LCBTRACE_KV_START(instance->settings, cmd, pkt->opaque, pkt->u_rdata.reqdata.span);
+    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_TOUCH, pkt->opaque, pkt->u_rdata.reqdata.span);
     TRACE_TOUCH_BEGIN(instance, hdr, cmd);
     return LCB_SUCCESS;
 }

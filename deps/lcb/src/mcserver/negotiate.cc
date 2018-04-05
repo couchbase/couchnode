@@ -292,11 +292,11 @@ SessionRequestImpl::set_chosen_mech(std::string& mechlist,
         info->mech.assign(chosenmech);
         return MECH_OK;
     case SASL_NOMECH:
-        lcb_log(LOGARGS(this, INFO), LOGFMT "Server does not support SASL (no mechanisms supported)", LOGID(this));
+        lcb_log(LOGARGS(this, WARN), LOGFMT "Server does not support SASL (no mechanisms supported)", LOGID(this));
         return MECH_NOT_NEEDED;
         break;
     default:
-        lcb_log(LOGARGS(this, INFO), LOGFMT "cbsasl_client_start returned %d", LOGID(this), saslerr);
+        lcb_log(LOGARGS(this, ERROR), LOGFMT "cbsasl_client_start returned %d", LOGID(this), saslerr);
         set_error(LCB_EINTERNAL, "Couldn't start SASL client");
         return MECH_UNAVAILABLE;
     }
@@ -482,7 +482,7 @@ SessionRequestImpl::maybe_select_bucket() {
     }
 
     // send the SELECT_BUCKET command:
-    lcb_log(LOGARGS(this, INFO), LOGFMT "Sending SELECT_BUCKET", LOGID(this));
+    lcb_log(LOGARGS(this, DEBUG), LOGFMT "Sending SELECT_BUCKET", LOGID(this));
     lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SELECT_BUCKET);
     req.sizes(0, strlen(settings->bucket), 0);
     lcbio_ctx_put(ctx, req.data(), req.size());
@@ -675,7 +675,7 @@ SessionRequestImpl::start(lcbio_SOCKET *sock) {
     if (settings->send_hello) {
         send_hello();
     } else {
-        lcb_log(LOGARGS(this, INFO), LOGFMT "HELLO negotiation disabled by user", LOGID(this));
+        lcb_log(LOGARGS(this, WARN), LOGFMT "HELLO negotiation disabled by user", LOGID(this));
         send_list_mechs();
     }
     LCBIO_CTX_RSCHEDULE(ctx, 24);

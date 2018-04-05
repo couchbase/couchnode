@@ -80,7 +80,7 @@ lcb_st::add_bs_host(const char *host, int port, unsigned bstype)
         target = ht_nodes;
     }
     bool ipv6 = strchr(host, ':') != NULL;
-    lcb_log(LOGARGS(this, DEBUG), "Adding host " LCB_LOG_SPEC("%s%s%s:%d") "to initial %s bootstrap list",
+    lcb_log(LOGARGS(this, DEBUG), "Adding host " LCB_LOG_SPEC("%s%s%s:%d") " to initial %s bootstrap list",
             this->settings->log_redaction ? LCB_LOG_SD_OTAG : "",
             ipv6 ? "[" : "", host, ipv6 ? "]" : "", port,
             this->settings->log_redaction ? LCB_LOG_SD_CTAG : "", tname);
@@ -365,7 +365,6 @@ lcb_reinit3(lcb_t obj, const char *connstr)
     Connspec params;
     lcb_error_t err;
     const char *errmsg = NULL;
-    memset(&params, 0, sizeof params);
     err = params.parse(connstr, &errmsg);
 
     if (err != LCB_SUCCESS) {
@@ -403,7 +402,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     lcb_error_t err;
     lcb_settings *settings;
 
-#if !defined(COMPILER_SUPPORTS_CXX11) || _MSC_VER < 1600
+#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600)
     lcb_rnd_global_init();
 #endif
 
@@ -425,6 +424,7 @@ lcb_error_t lcb_create(lcb_t *instance,
         err = LCB_CLIENT_ENOMEM;
         goto GT_DONE;
     }
+    obj->crypto = new std::map<std::string, lcbcrypto_PROVIDER*>();
     if (!(settings = lcb_settings_new())) {
         err = LCB_CLIENT_ENOMEM;
         goto GT_DONE;
@@ -518,11 +518,11 @@ lcb_error_t lcb_create(lcb_t *instance,
     if ((err = init_providers(obj, spec)) != LCB_SUCCESS) {
         goto GT_DONE;
     }
-
-    if (err != LCB_SUCCESS) {
-        lcb_destroy(obj);
-        return err;
+#ifdef LCB_TRACING
+    if (settings->use_tracing) {
+        settings->tracer = lcbtrace_new(obj, LCBTRACE_F_THRESHOLD);
     }
+#endif
 
     obj->last_error = err;
     GT_DONE:
@@ -639,6 +639,13 @@ void lcb_destroy(lcb_t instance)
         delete instance->scratch;
         instance->scratch = NULL;
     }
+
+    for (std::map< std::string, lcbcrypto_PROVIDER * >::iterator ii = instance->crypto->begin();
+         ii != instance->crypto->end(); ++ii) {
+        lcbcrypto_unref(ii->second);
+    }
+    delete instance->crypto;
+    instance->crypto = NULL;
 
     delete[] instance->dcpinfo;
     memset(instance, 0xff, sizeof(*instance));

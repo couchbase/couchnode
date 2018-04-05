@@ -1,5 +1,6 @@
 #ifdef _WIN32
 #define CONFIG_H
+#cmakedefine HAVE__FTIME64_S
 #define HAVE_QUERYPERFORMANCECOUNTER
 #include "config_static.h"
 #endif

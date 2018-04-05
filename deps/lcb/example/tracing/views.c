@@ -24,7 +24,7 @@
  *
  *   docker run -d -p 9411:9411 openzipkin/zipkin
  *   make
- *   ./tracing couchbase://localhost password Administrator
+ *   ./views couchbase://localhost/beer-sample password Administrator
  *
  *  open browser at http://localhost:9411
  */
@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/api3.h>
+#include <libcouchbase/views.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h> /* strlen */
@@ -320,6 +321,22 @@ static void op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
     }
 }
 
+static void view_callback(lcb_t instance, int cbtype, const lcb_RESPVIEWQUERY *rv)
+{
+    if (rv->rflags & LCB_RESP_F_FINAL) {
+        printf("*** META FROM VIEWS ***\n");
+        fprintf(stderr, "%.*s\n", (int)rv->nvalue, rv->value);
+        return;
+    }
+
+    printf("Got row callback from LCB: RC=0x%X, DOCID=%.*s. KEY=%.*s\n", rv->rc, (int)rv->ndocid, rv->docid,
+           (int)rv->nkey, rv->key);
+
+    if (rv->docresp) {
+        printf("   Document for response. RC=0x%X. CAS=0x%" PRIx64 "\n", rv->docresp->rc, rv->docresp->cas);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     lcb_error_t err;
@@ -389,44 +406,32 @@ int main(int argc, char *argv[])
         lcbtrace_span_finish(encoding, LCBTRACE_NOW);
     }
 
-    LCB_CMD_SET_TRACESPAN(&scmd, span);
-    LCB_CMD_SET_KEY(&scmd, "key", strlen("key"));
-    LCB_CMD_SET_VALUE(&scmd, "value", strlen("value"));
-    scmd.operation = LCB_SET;
-    err = lcb_store3(instance, NULL, &scmd);
+    lcb_CMDVIEWQUERY vcmd = {0};
+    char *doc_name = "beer";
+    char *view_name = "by_location";
+    char *options = "reduce=false&limit=3";
+
+    vcmd.callback = view_callback;
+    vcmd.ddoc = doc_name;
+    vcmd.nddoc = strlen(doc_name);
+    vcmd.view = view_name;
+    vcmd.nview = strlen(view_name);
+    vcmd.optstr = options;
+    vcmd.noptstr = strlen(options);
+    vcmd.cmdflags = LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
+
+    lcb_VIEWHANDLE handle;
+    vcmd.handle = &handle;
+
+    err = lcb_view_query(instance, NULL, &vcmd);
     if (err != LCB_SUCCESS) {
-        die(instance, "Couldn't schedule storage operation", err);
+        die(instance, "Couldn't schedule view operation", err);
     }
+    lcb_view_set_parent_span(instance, handle, span);
 
     /* The store_callback is invoked from lcb_wait() */
-    fprintf(stderr, "Will wait for storage operation to complete..\n");
+    fprintf(stderr, "Will wait for view operation to complete..\n");
     lcb_wait(instance);
-
-    /* Now fetch the item back */
-    LCB_CMD_SET_TRACESPAN(&gcmd, span);
-    LCB_CMD_SET_KEY(&gcmd, "key", strlen("key"));
-    err = lcb_get3(instance, NULL, &gcmd);
-    if (err != LCB_SUCCESS) {
-        die(instance, "Couldn't schedule retrieval operation", err);
-    }
-
-    /* Likewise, the get_callback is invoked from here */
-    fprintf(stderr, "Will wait to retrieve item..\n");
-    lcb_wait(instance);
-
-    {
-        int decoding_time_us = rand() % 1000;
-        lcbtrace_SPAN *decoding;
-        lcbtrace_REF ref;
-
-        ref.type = LCBTRACE_REF_CHILD_OF;
-        ref.span = span;
-
-        decoding = lcbtrace_span_start(tracer, LCBTRACE_OP_RESPONSE_DECODING, 0, &ref);
-        lcbtrace_span_add_tag_str(decoding, LCBTRACE_TAG_COMPONENT, COMPONENT_NAME);
-        usleep(decoding_time_us);
-        lcbtrace_span_finish(decoding, LCBTRACE_NOW);
-    }
 
     lcbtrace_span_finish(span, LCBTRACE_NOW);
 

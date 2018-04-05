@@ -72,7 +72,7 @@ lcb_counter3(
     }
 
     memcpy(SPAN_BUFFER(&packet->kh_span), acmd.bytes, sizeof(acmd.bytes));
-    LCBTRACE_KV_START(instance->settings, cmd, packet->opaque, rdata->span);
+    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_COUNTER, packet->opaque, rdata->span);
     TRACE_ARITHMETIC_BEGIN(instance, hdr, cmd);
     LCB_SCHED_ADD(instance, pipeline, packet);
     return LCB_SUCCESS;

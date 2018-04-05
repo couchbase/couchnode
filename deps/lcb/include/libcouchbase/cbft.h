@@ -100,6 +100,14 @@ LIBCOUCHBASE_API
 void
 lcb_fts_cancel(lcb_t, lcb_FTSHANDLE);
 
+#ifdef LCB_TRACING
+/**
+ * @uncommitted
+ */
+LIBCOUCHBASE_API
+void lcb_fts_set_parent_span(lcb_t instance, lcb_FTSHANDLE handle, lcbtrace_SPAN *span);
+#endif
+
 /**
  * @}
  */

@@ -27,9 +27,6 @@
 #include "sllist.h"
 #include "config.h"
 #include "packetutils.h"
-#ifdef LCB_TRACING
-#include <libcouchbase/tracing.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {

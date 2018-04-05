@@ -5,7 +5,8 @@
 #  LIBUV_INCLUDE_DIR, where to find the ICU headers
 
 FIND_PATH(LIBUV_INCLUDE_DIR uv.h
-          HINTS ${LIBUV_ROOT}
+          HINTS
+               ${LIBUV_ROOT}
           PATH_SUFFIXES include
           PATHS
                ~/Library/Frameworks

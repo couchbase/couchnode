@@ -34,6 +34,7 @@
 #include <libcouchbase/vbucket.h>
 #include <libcouchbase/api3.h>
 #include <libcouchbase/pktfwd.h>
+#include <libcouchbase/crypto.h>
 
 /* Internal dependencies */
 #include <lcbio/lcbio.h>
@@ -137,6 +138,7 @@ struct lcb_st {
     lcb_BTYPE btype; /**< Type of the bucket */
 
     #ifdef __cplusplus
+    std::map<std::string, lcbcrypto_PROVIDER *> *crypto;
     lcb_settings* getSettings() { return settings; }
     lcbio_pTABLE getIOT() { return iotable; }
     inline void add_bs_host(const char *host, int port, unsigned bstype);

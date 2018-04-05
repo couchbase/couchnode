@@ -181,7 +181,7 @@ struct lcb_cntl_iops_info_st {
  * Similar to @ref LCB_CNTL_CONFIG_HTTP_NODES, but affects the CCCP provider
  * instead. Ports should specify the _memcached_ port
  * @cntl_arg_setonly{char** (Array of strings)}
- * @uncomitted
+ * @uncommitted
  */
 #define LCB_CNTL_CONFIG_CCCP_NODES 0x1E
 
@@ -381,5 +381,15 @@ typedef enum {
  * @uncommitted
  */
 #define LCB_CNTL_ENABLE_TRACING 0x4e
+
+#define LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL 0x4f
+#define LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE 0x50
+#define LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL 0x51
+#define LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE 0x52
+#define LCB_CNTL_TRACING_THRESHOLD_KV 0x53
+#define LCB_CNTL_TRACING_THRESHOLD_N1QL 0x54
+#define LCB_CNTL_TRACING_THRESHOLD_VIEW 0x55
+#define LCB_CNTL_TRACING_THRESHOLD_FTS 0x56
+#define LCB_CNTL_TRACING_THRESHOLD_ANALYTICS 0x57
 
 /**@}*/

@@ -1,5 +1,39 @@
 # Release Notes
 
+## 2.8.6 (April 5 2018)
+
+* [CCBC-888](https://issues.couchbase.com/browse/CCBC-888): Add threshold
+  logging tracer, which tracks and reports above threshold and orphaned operations.
+  This is beta functionality, which is disabled by default. To enable it, use
+  `enable_tracing=on` in the connection string.
+
+* [CCBC-910](https://issues.couchbase.com/browse/CCBC-910): Field encryption
+  API. The `lcbcrypto_*` functions abstracts encrypted field layout from actual
+  crypto implementations (OpenSSL, libsodium, etc.). The wrapper or application
+  using libcouchbase is expected to connect their own crypto and key providers, while
+  libcouchbase provides transformation of the encrypted data. See
+  sample crypto provider in [example/crypto](example/crypto).
+
+* [CCBC-904](https://issues.couchbase.com/browse/CCBC-904): Remove trailing
+  comma in `lcb_KVBUFTYPE` enum. Fixes build on some older
+  compilers.
+
+* [CCBC-907](https://issues.couchbase.com/browse/CCBC-907): cbc-n1qlback: Do
+  not require trailing empty line for input.
+
+* [CCBC-908](https://issues.couchbase.com/browse/CCBC-908): cbc-n1qlback:
+  Report number of loaded queries.
+
+* Add ability to write OPS/SEC from cbc-pillowfight to a file
+
+      cbc-pillowfight 2> /tmp/stats.txt
+
+  or, when writing to terminal required
+
+      cbc-pillowfight 2>&1 | tee /tmp/stats.txt
+
+* Build improvements for easier integration into with server manifest (and TLM project).
+
 ## 2.8.5 (February 23 2018)
 
 * [CCBC-883](https://issues.couchbase.com/browse/CCBC-883): Always use built-in compression.
@@ -24,7 +58,7 @@
 * [CCBC-888](https://issues.couchbase.com/browse/CCBC-888): Per operation tracing. When
   compiled with tracing support (`cmake -DLCB_TRACING=ON`), the library will expose the tracing
   API, which allows to measure time of every data operation, and include some extra information.
-  The API is modeled after OpenTracing and allows one to write custom tracers to consume this 
+  The API is modeled after OpenTracing and allows one to write custom tracers to consume this
   information. For more information, see an example in
   [example/tracing/tracing.c](example/tracing/tracing.c).  This is uncommitted API at this time.
 
@@ -104,12 +138,10 @@
         {
             const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
             if (resp->rc != LCB_SUCCESS) {
-                fprintf(stderr, "failed: %s
-", lcb_strerror(NULL, resp->rc));
+                fprintf(stderr, "failed: %s ", lcb_strerror(NULL, resp->rc));
             } else {
                 if (resp->njson) {
-                    fprintf(stderr, "
-%.*s", (int)resp->njson, resp->json);
+                    fprintf(stderr, "%.*s", (int)resp->njson, resp->json);
                 }
             }
         }
@@ -1917,7 +1949,7 @@ These changes extend existing features with enhanced APIs
 
 * [major] Add interface attributes to all API calls
   This properly documents all API calls with a certain API stability level
-  such as _committed_ (for stable APIs), _uncomitted_ for APIs which may, but
+  such as _committed_ (for stable APIs), _uncommitted_ for APIs which may, but
   are not likely to change, and _volatile_ for APIs which are likely to be
   changed or removed.
 

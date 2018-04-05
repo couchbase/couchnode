@@ -8,6 +8,7 @@
 
 FIND_PATH(LIBEVENT_INCLUDE_DIR evutil.h
           HINTS
+               ${LIBEVENT_ROOT}
                ENV LIBEVENT_DIR
           PATH_SUFFIXES include
           PATHS
@@ -22,6 +23,7 @@ FIND_PATH(LIBEVENT_INCLUDE_DIR evutil.h
 FIND_LIBRARY(LIBEVENT_LIBRARIES
              NAMES event_core libevent_core
              HINTS
+                 ${LIBEVENT_ROOT}
                  ENV LIBEVENT_DIR
              PATHS
                  ${DEPS_LIB_DIR}

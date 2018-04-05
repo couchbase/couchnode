@@ -446,6 +446,15 @@ lcb_n1ql_query(lcb_t instance, const void *cookie, const lcb_CMDN1QL *cmd);
 LIBCOUCHBASE_API
 void
 lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle);
+
+#ifdef LCB_TRACING
+/**
+ * @uncommitted
+ */
+LIBCOUCHBASE_API
+void lcb_n1ql_set_parent_span(lcb_t instance, lcb_N1QLHANDLE handle, lcbtrace_SPAN *span);
+#endif
+
 /**@}*/
 
 /**@}*/
