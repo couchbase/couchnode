@@ -42,7 +42,6 @@ public:
 NAN_METHOD(CouchbaseImpl::fnGet) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDGET cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -59,22 +58,22 @@ NAN_METHOD(CouchbaseImpl::fnGet) {
     if (!enc.parseUintOption(&cmd.lock, info[3])) {
         return Nan::ThrowError(Error::create("bad locked passed"));
     }
-    if (!enc.parseCookie(&cookie, info[4])) {
+    if (!enc.parseCallback(info[4])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_get3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_get3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnGetReplica) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDGETREPLICA cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -94,22 +93,22 @@ NAN_METHOD(CouchbaseImpl::fnGetReplica) {
         }
     }
 
-    if (!enc.parseCookie(&cookie, info[3])) {
+    if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_rget3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_rget3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnTouch) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDTOUCH cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -123,22 +122,22 @@ NAN_METHOD(CouchbaseImpl::fnTouch) {
     if (!enc.parseUintOption(&cmd.exptime, info[2])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!enc.parseCookie(&cookie, info[3])) {
+    if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_touch3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_touch3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnUnlock) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDUNLOCK cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -152,22 +151,22 @@ NAN_METHOD(CouchbaseImpl::fnUnlock) {
     if (!enc.parseCas(&cmd.cas, info[2])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
-    if (!enc.parseCookie(&cookie, info[3])) {
+    if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_unlock3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_unlock3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnRemove) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDREMOVE cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -181,22 +180,22 @@ NAN_METHOD(CouchbaseImpl::fnRemove) {
     if (!enc.parseCas(&cmd.cas, info[2])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
-    if (!enc.parseCookie(&cookie, info[3])) {
+    if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_remove3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_remove3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnStore) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDSTORE cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -226,7 +225,7 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
         return Nan::ThrowError(Error::create("bad operation passed"));
     }
 
-    if (!enc.parseCookie(&cookie, info[6])) {
+    if (!enc.parseCallback(info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -235,18 +234,18 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
         cmd.flags = 0;
     }
 
-    lcb_error_t err = lcb_store3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_store3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnArithmetic) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDCOUNTER cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -269,15 +268,16 @@ NAN_METHOD(CouchbaseImpl::fnArithmetic) {
     if (!info[4]->IsUndefined() && !info[4]->IsNull()) {
         cmd.create = 1;
     }
-    if (!enc.parseCookie(&cookie, info[5])) {
+    if (!enc.parseCallback(info[5])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_counter3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_counter3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
@@ -285,7 +285,6 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDENDURE cmd;
     lcb_durability_opts_t opts;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -312,7 +311,7 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
         return Nan::ThrowError(Error::create("bad check_delete passed"));
     }
 
-    if (!enc.parseCookie(&cookie, info[6])) {
+    if (!enc.parseCallback(info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -328,11 +327,12 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
         return Nan::ThrowError(Error::create(err));
     }
 
-    err = mctx->done(mctx, cookie);
+    err = mctx->done(mctx, enc.cookie());
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
@@ -366,22 +366,22 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery) {
         cmd.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
     }
 
-    if (!enc.parseCookie(&cookie, info[6])) {
+    if (!enc.parseCallback(info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_view_query(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_view_query(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDN1QL cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -409,22 +409,22 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
         cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
     }
 
-    if (!enc.parseCookie(&cookie, info[3])) {
+    if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_n1ql_query(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_n1ql_query(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnFtsQuery) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDFTS cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -441,15 +441,16 @@ NAN_METHOD(CouchbaseImpl::fnFtsQuery) {
         return Nan::ThrowError(Error::create("bad opts passed"));
     }
 
-    if (!enc.parseCookie(&cookie, info[1])) {
+    if (!enc.parseCallback(info[1])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_fts_query(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_fts_query(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
@@ -457,7 +458,6 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDSUBDOC cmd;
     lcb_SDSPEC sdcmd;
-    void *cookie;
     lcb_error_t err = LCB_SUCCESS;
     std::vector<lcb_SDSPEC> specs;
     Nan::HandleScope scope;
@@ -471,7 +471,7 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     if (!enc.parseKeyBuf(&cmd._hashkey, info[1])) {
         return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (!enc.parseCookie(&cookie, info[info.Length()-1])) {
+    if (!enc.parseCallback(info[info.Length()-1])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -510,11 +510,12 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     cmd.specs = &specs[0];
     cmd.nspecs = specs.size();
 
-    err = lcb_subdoc3(me->getLcbHandle(), cookie, &cmd);
+    err = lcb_subdoc3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
@@ -522,7 +523,6 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDSUBDOC cmd;
     lcb_SDSPEC sdcmd;
-    void *cookie;
     lcb_error_t err = LCB_SUCCESS;
     std::vector<lcb_SDSPEC> specs;
     Nan::HandleScope scope;
@@ -545,7 +545,7 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     if (!enc.parseUintOption(&cmd.cmdflags, info[4])) {
         return Nan::ThrowError(Error::create("bad flags passed"));
     }
-    if (!enc.parseCookie(&cookie, info[info.Length()-1])) {
+    if (!enc.parseCallback(info[info.Length()-1])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -618,18 +618,18 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     cmd.specs = &specs[0];
     cmd.nspecs = specs.size();
 
-    err = lcb_subdoc3(me->getLcbHandle(), cookie, &cmd);
+    err = lcb_subdoc3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnPing) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDPING cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
@@ -638,34 +638,35 @@ NAN_METHOD(CouchbaseImpl::fnPing) {
     if (!enc.parseUintOption(&cmd.services, info[0])) {
         return Nan::ThrowError(Error::create("bad services passed"));
     }
-    if (!enc.parseCookie(&cookie, info[1])) {
+    if (!enc.parseCallback(info[1])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_ping3(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_ping3(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
 
 NAN_METHOD(CouchbaseImpl::fnDiag) {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDDIAG cmd;
-    void *cookie;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
     memset(&cmd, 0, sizeof(cmd));
-    if (!enc.parseCookie(&cookie, info[0])) {
+    if (!enc.parseCallback(info[0])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_error_t err = lcb_diag(me->getLcbHandle(), cookie, &cmd);
+    lcb_error_t err = lcb_diag(me->getLcbHandle(), enc.cookie(), &cmd);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
+    enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }

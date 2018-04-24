@@ -230,6 +230,11 @@ NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
                 Error::create("invalid number of parameters passed"));
     }
 
+    if (me->connectContext) {
+        delete me->connectContext;
+        me->connectContext = NULL;
+    }
+
     if (me->connectCallback) {
       delete me->connectCallback;
       me->connectCallback = NULL;
@@ -240,6 +245,7 @@ NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
           return Nan::ThrowError(Error::create("must pass function"));
       }
 
+      me->connectContext = new Nan::AsyncResource("couchbase:connect.Callback");
       me->connectCallback = new Nan::Callback(info[0].As<Function>());
     }
 

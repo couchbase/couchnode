@@ -15,16 +15,38 @@
 namespace Couchnode
 {
 
+class OpCookie : public Nan::AsyncResource {
+public:
+    OpCookie()
+        : Nan::AsyncResource("couchbase:op.Callback"), traceSpan(NULL) {
+    }
+
+    ~OpCookie() {
+        callback.Reset();
+    }
+
+    Nan::AsyncResource * asyncContext() {
+        return static_cast<Nan::AsyncResource*>(this);
+    }
+
+    Nan::Callback callback;
+};
+
 using namespace v8;
 
 class CommandEncoder {
 public:
-    CommandEncoder() {
+    CommandEncoder()
+        : _cookie(new OpCookie()), _cookiePersist(false) {
     }
 
     ~CommandEncoder() {
-        for (size_t i = 0; i < strings.size(); ++i) {
-            delete strings[i];
+        if (!_cookiePersist) {
+            delete _cookie;
+        }
+
+        for (size_t i = 0; i < _strings.size(); ++i) {
+            delete _strings[i];
         }
     }
 
@@ -39,7 +61,7 @@ public:
         }
 
         Nan::Utf8String *utfStr = new Nan::Utf8String(str);
-        strings.push_back(utfStr);
+        _strings.push_back(utfStr);
         if (nval) {
             *nval = utfStr->length();
         }
@@ -60,12 +82,12 @@ public:
                 key);
     }
 
-    bool parseCookie(void ** cookie, Local<Value> callback) {
-       if (callback->IsFunction()) {
-         *cookie = new Nan::Callback(callback.As<v8::Function>());
-         return true;
-       }
-       return false;
+    bool parseCallback(Local<Value> callback) {
+        if (callback->IsFunction()) {
+            _cookie->callback.Reset(callback.As<v8::Function>());
+            return true;
+        }
+        return false;
      }
 
      bool parseCas(lcb_U64* casOut, Local<Value> cas) {
@@ -105,7 +127,18 @@ public:
        return true;
      }
 
-    std::vector<Nan::Utf8String*> strings;
+    void persistCookie() {
+        _cookiePersist = true;
+    }
+
+    OpCookie * cookie() const {
+        return _cookie;
+    }
+
+private:
+    std::vector<Nan::Utf8String*> _strings;
+    OpCookie *_cookie;
+    bool _cookiePersist;
 
 };
 

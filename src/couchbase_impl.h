@@ -154,6 +154,7 @@ protected:
 
     void setupLibcouchbaseCallbacks(void);
 
+    Nan::AsyncResource *connectContext;
     Nan::Callback *connectCallback;
     Nan::Callback *transEncodeFunc;
     Nan::Callback *transDecodeFunc;
