@@ -23,6 +23,10 @@ public:
 
     ~OpCookie() {
         callback.Reset();
+
+        if (traceSpan) {
+            lcbtrace_span_finish(traceSpan, LCBTRACE_NOW);
+        }
     }
 
     Nan::AsyncResource * asyncContext() {
@@ -30,6 +34,7 @@ public:
     }
 
     Nan::Callback callback;
+    lcbtrace_SPAN *traceSpan;
 };
 
 using namespace v8;

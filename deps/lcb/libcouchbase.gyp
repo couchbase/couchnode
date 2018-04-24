@@ -33,7 +33,8 @@
     'defines': [
       'LIBCOUCHBASE_INTERNAL=1',
       'LCB_STATIC_SNAPPY=1',
-      'LCB_LIBDIR=""'
+      'LCB_LIBDIR=""',
+      'LCB_TRACING'
     ],
 
     'include_dirs': [
@@ -221,6 +222,9 @@
         'src/rdb/libcalloc.c',
         'src/rdb/rope.c',
         'src/strcodecs/base64.c',
+        'src/tracing/span.cc',
+        'src/tracing/threshold_logging_tracer.cc',
+        'src/tracing/tracer.cc',
         'src/vbucket/ketama.c',
         'src/vbucket/vbucket.c',
         'src/views/docreq.cc',
@@ -231,6 +235,7 @@
         'src/cbft.cc',
         'src/cntl.cc',
         'src/connspec.cc',
+        'src/crypto.cc',
         'src/dns-srv.cc',
         'src/dump.cc',
         'src/errmap.cc',

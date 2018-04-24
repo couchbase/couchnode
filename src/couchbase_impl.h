@@ -143,14 +143,23 @@ public:
         return instance;
     }
 
+    const char * getClientString();
 
-    Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags);
+    Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags, Nan::AsyncResource *asyncContext);
     bool encodeDoc(CommandEncoder& enc, const void **,
             lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value);
+
+    lcbtrace_SPAN * startOpTrace(const char * opmame);
+    void endOpTrace(lcbtrace_SPAN *span);
+    lcbtrace_SPAN * startEncodeTrace(lcbtrace_SPAN *opSpan);
+    void endEncodeTrace(lcbtrace_SPAN *span);
+    lcbtrace_SPAN * startDecodeTrace(lcbtrace_SPAN *opSpan);
+    void endDecodeTrace(lcbtrace_SPAN *span);
 
 protected:
     lcb_t instance;
     uv_prepare_t flushWatch;
+    const char *clientStringCache;
 
     void setupLibcouchbaseCallbacks(void);
 

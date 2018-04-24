@@ -5,7 +5,8 @@
       'couchbase_root%': ''
     },
     'defines': [
-      'LCBUV_EMBEDDED_SOURCE'
+      'LCBUV_EMBEDDED_SOURCE',
+      'LCB_TRACING'
     ],
     'conditions': [
       [ 'couchbase_root==""', {
