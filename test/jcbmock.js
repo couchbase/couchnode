@@ -7,7 +7,7 @@ var http = require('http');
 var net = require('net');
 var child_process = require('child_process');
 
-var defaultMockFile = 'CouchbaseMock-1.5.8.jar';
+var defaultMockFile = 'CouchbaseMock-1.5.15.jar';
 var defaultMockUrlBase = 'http://packages.couchbase.com/clients/c/mock/';
 
 function _getMockJar(callback) {
