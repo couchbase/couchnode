@@ -38,6 +38,7 @@
 #define HAVE_WINSOCK2_H 1
 #define HAVE_WS2TCPIP_H 1
 #define HAVE_QUERYPERFORMANCECOUNTER 1
+#define HAVE__FTIME64_S 1
 #define HAVE_STDARG_H 1
 
 #include "config_static.h"
