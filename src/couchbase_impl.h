@@ -62,8 +62,8 @@
 #include "cmdencoder.h"
 #include "transcoder.h"
 
-#if LCB_VERSION < 0x020503
-#error "Couchnode requires libcouchbase >= 2.5.3"
+#if LCB_VERSION < 0x020806
+#error "Couchnode requires libcouchbase >= 2.8.6"
 #endif
 
 namespace Couchnode
