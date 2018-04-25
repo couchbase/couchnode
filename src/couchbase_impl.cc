@@ -82,7 +82,6 @@ void CouchbaseImpl::onConnect(lcb_error_t err)
 {
     if (err != 0) {
         lcb_set_bootstrap_callback(instance, bootstrap_callback_empty);
-        lcb_destroy_async(instance, NULL);
     } else {
         uv_prepare_init(uv_default_loop(), &flushWatch);
         flushWatch.data = this;
