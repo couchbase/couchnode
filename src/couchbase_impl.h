@@ -92,6 +92,11 @@ enum ControlCode {
     CNTL_RESTURI = 0x1004
 };
 
+struct node_logger_st {
+    struct lcb_logprocs_st base;
+    Nan::Callback callback;
+};
+
 class CouchbaseImpl: public Nan::ObjectWrap
 {
 public:
@@ -107,6 +112,7 @@ public:
     static NAN_METHOD(fnConnect);
     static NAN_METHOD(fnShutdown);
 
+    static NAN_METHOD(fnSetLoggingCallback);
     static NAN_METHOD(fnSetConnectCallback);
     static NAN_METHOD(fnSetTranscoder);
     static NAN_METHOD(fnLcbVersion);
@@ -160,6 +166,7 @@ protected:
     lcb_t instance;
     uv_prepare_t flushWatch;
     const char *clientStringCache;
+    node_logger_st *logger;
 
     void setupLibcouchbaseCallbacks(void);
 
@@ -183,6 +190,11 @@ public:
     static Nan::Persistent<String> resultsKey;
     static Nan::Persistent<String> tokenKey;
     static Nan::Persistent<String> errorKey;
+    static Nan::Persistent<String> messageKey;
+    static Nan::Persistent<String> severityKey;
+    static Nan::Persistent<String> subsysKey;
+    static Nan::Persistent<String> srcFileKey;
+    static Nan::Persistent<String> srcLineKey;
 
 };
 

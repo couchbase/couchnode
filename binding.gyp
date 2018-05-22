@@ -98,6 +98,7 @@
       'src/cas.cc',
       'src/token.cc',
       'src/exception.cc',
+      'src/logging.cc',
       'src/uv-plugin-all.c'
     ],
     'include_dirs': [

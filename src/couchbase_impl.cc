@@ -51,7 +51,8 @@ NAUV_PREPARE_CB(lcbuv_flush) {
 }
 
 CouchbaseImpl::CouchbaseImpl(lcb_t inst) :
-    ObjectWrap(), instance(inst), clientStringCache(NULL), connectContext(NULL), connectCallback(NULL),
+    ObjectWrap(), instance(inst), clientStringCache(NULL), logger(NULL),
+    connectContext(NULL), connectCallback(NULL),
     transEncodeFunc(NULL), transDecodeFunc(NULL)
 {
     lcb_set_cookie(instance, reinterpret_cast<void *>(this));
@@ -74,6 +75,10 @@ CouchbaseImpl::~CouchbaseImpl()
     }
     if (instance) {
         lcb_destroy(instance);
+    }
+    if (logger) {
+        delete logger;
+        logger = NULL;
     }
 }
 

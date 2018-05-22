@@ -6,6 +6,10 @@ var fs = require('fs');
 var util = require('util');
 var assert = require('assert');
 
+// We enable logging to ensure that logging doesn't break any of the tests,
+// but we explicitly disable all output sources to avoid spamming anything.
+couchbase.logging.enableLogging({console: false, filename: false});
+
 var config = {
   connstr: '',
   bucket : 'default',

@@ -164,7 +164,14 @@ Handle<Object> CouchbaseImpl::createConstants()
     X(PINGSVC_F_KV) \
     X(PINGSVC_F_N1QL) \
     X(PINGSVC_F_VIEWS) \
-    X(PINGSVC_F_FTS)
+    X(PINGSVC_F_FTS) \
+    \
+    X(LOG_TRACE) \
+    X(LOG_DEBUG) \
+    X(LOG_INFO) \
+    X(LOG_WARN) \
+    X(LOG_ERROR) \
+    X(LOG_FATAL)
 #undef X
 
     return o;

@@ -35,6 +35,11 @@ Nan::Persistent<String> CouchbaseImpl::rowsKey;
 Nan::Persistent<String> CouchbaseImpl::resultsKey;
 Nan::Persistent<String> CouchbaseImpl::tokenKey;
 Nan::Persistent<String> CouchbaseImpl::errorKey;
+Nan::Persistent<String> CouchbaseImpl::messageKey;
+Nan::Persistent<String> CouchbaseImpl::severityKey;
+Nan::Persistent<String> CouchbaseImpl::subsysKey;
+Nan::Persistent<String> CouchbaseImpl::srcFileKey;
+Nan::Persistent<String> CouchbaseImpl::srcLineKey;
 Nan::Persistent<String> lcbErrorKey;
 
 extern "C" {
@@ -72,6 +77,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "invalidateQueryCache", fnInvalidateQueryCache);
     Nan::SetPrototypeMethod(t, "_errorTest", fnErrorTest);
 
+    Nan::SetPrototypeMethod(t, "setLoggingCallback", fnSetLoggingCallback);
     Nan::SetPrototypeMethod(t, "setConnectCallback", fnSetConnectCallback);
     Nan::SetPrototypeMethod(t, "setTranscoder", fnSetTranscoder);
     Nan::SetPrototypeMethod(t, "lcbVersion", fnLcbVersion);
@@ -112,6 +118,11 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     resultsKey.Reset(Nan::New<String>("results").ToLocalChecked());
     tokenKey.Reset(Nan::New<String>("token").ToLocalChecked());
     errorKey.Reset(Nan::New<String>("error").ToLocalChecked());
+    messageKey.Reset(Nan::New<String>("message").ToLocalChecked());
+    severityKey.Reset(Nan::New<String>("severity").ToLocalChecked());
+    subsysKey.Reset(Nan::New<String>("subsys").ToLocalChecked());
+    srcFileKey.Reset(Nan::New<String>("srcFile").ToLocalChecked());
+    srcLineKey.Reset(Nan::New<String>("srcLine").ToLocalChecked());
 
     Handle<Object> jMod = Nan::GetCurrentContext()->Global()->Get(
             Nan::New<String>("JSON").ToLocalChecked()).As<Object>();
@@ -218,7 +229,6 @@ NAN_METHOD(CouchbaseImpl::fnConnect)
 
     return info.GetReturnValue().Set(true);
 }
-
 
 NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
 {
