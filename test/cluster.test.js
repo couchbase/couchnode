@@ -36,4 +36,13 @@ describe('#cluster', function() {
     });
     done();
   });
+
+  it('should fail when using keypath with no cert authenticator', function(done) {
+    var cluster = new harness.lib.Cluster('couchbase://test?certpath=./cert&keypath=./key');
+    cluster.authenticate('username', 'password');
+    assert.throws(function() {
+      cluster.openBucket('bucket', '', function(err) {});
+    });
+    done();
+  });
 });
