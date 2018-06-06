@@ -27,4 +27,13 @@ describe('#cluster', function() {
 
   describe('#RealBucket', allTests.bind(this, harness));
   describe('#MockBucket', allTests.bind(this, harness.mock));
+
+  it('should fail when using password with authenticators', function(done) {
+    var cluster = new harness.lib.Cluster(harness.connstr);
+    cluster.authenticate('username', 'password');
+    assert.throws(function() {
+      cluster.openBucket('bucket', 'password', function(err) {});
+    });
+    done();
+  });
 });
