@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "March 2018" "" ""
+.TH "CBC" "1" "May 2018" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -125,15 +125,15 @@ The default for this option is \fBcouchbase://localhost/default\fR
 .
 .TP
 \fB\-u\fR, \fB\-\-username\fR=\fIUSERNAME\fR
-Specify the \fIusername\fR for the bucket\. As of Couchbase Server 2\.5 this field should be either left empty or set to the name of the bucket itself\.
+Specify the \fIusername\fR for the bucket\. As of Couchbase Server 2\.5 this field should be either left empty or set to the name of the bucket itself\. Since Couchbase 5\.x this is mandatory switch, and it must specify the name of the user exisiting on cluster (read more at "Security/Authorization" section of the server manual)\.
 .
 .TP
-\fB\-P\fR, \fB\-\-password\fR=\fISASLPASS\fR:
+\fB\-P\fR, \fB\-\-password\fR=\fIPASSWORD\fR:
 
 .
 .TP
 \fB\-P \-\fR, \fB\-\-password=\-\fR
-Specify the SASL password for the bucket\. This is only needed if the bucket is protected with a password\. Note that this is \fInot\fR the administrative password used to log into the web interface\.
+Specify the password for the bucket\. As for servers before 5\.x this was only needed if the bucket is protected with a password\. For cluster version after 5\.x, the password is mandatory, and should match the selected account (read more at "Security/Authorization" section of the server manual)\.
 .
 .IP
 Specifying the \fB\-\fR as the password indicates that the program should prompt for the password\. You may also specify the password on the commandline, directly, but is insecure as command line arguments are visible via commands such as \fBps\fR\.
@@ -529,7 +529,20 @@ This command will parse a connection string into its constituent parts and displ
 The following shows how to connect to various types of buckets\. These examples all show how to retrieve the key \fBkey\fR\. See \fIOPERATION EXAMPLES\fR for more information on specific sub\-commands\.
 .
 .P
-Run against a bucket (\fBa_bucket\fR) on a cluster on a remote host:
+Connect to a bucket (\fBa_bucket\fR) on a cluster on a remote host (for servers version 5\.x+)\. It uses account \'myname\' and asks password interactively:
+.
+.IP "" 4
+.
+.nf
+
+cbc cat key \-U couchbase://192\.168\.33\.101/a_bucket \-u myname \-P\-
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Run against a password\-less bucket (\fBa_bucket\fR) on a cluster on a remote host (for servers older than 5\.x):
 .
 .IP "" 4
 .
@@ -568,7 +581,7 @@ cbc cat key \-U couchbases://secure\.net/topsecret_bucket?ssl=no_verify
 .IP "" 0
 .
 .P
-Connect to a password protected bucket (\fBprotected\fR) on a remote host:
+Connect to a password protected bucket (\fBprotected\fR) on a remote host (for servers older than 5\.x):
 .
 .IP "" 4
 .
@@ -582,7 +595,7 @@ Bucket password:
 .IP "" 0
 .
 .P
-Connect to a password protected bucket, specifying the password on the command line (INSECURE, but useful for testing dummy environments)
+Connect to a password protected bucket (for servers older than 5\.x), specifying the password on the command line (INSECURE, but useful for testing dummy environments)
 .
 .IP "" 4
 .

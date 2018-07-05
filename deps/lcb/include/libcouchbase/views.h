@@ -37,6 +37,9 @@ extern "C" {
 namespace lcb { namespace views { struct ViewRequest; } }
 typedef lcb::views::ViewRequest* lcb_VIEWHANDLE;
 #else
+/**
+ * Pointer for request instance
+ */
 typedef struct lcbview_REQUEST_st *lcb_VIEWHANDLE;
 #endif
 
@@ -294,17 +297,59 @@ lcb_view_query_initcmd(lcb_CMDVIEWQUERY *vq,
 LIBCOUCHBASE_API
 void
 lcb_view_cancel(lcb_t instance, lcb_VIEWHANDLE handle);
+/**@}*/
 
-#ifdef LCB_TRACING
+
 /**
- * @uncommitted
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-tracing-api
+ * @{
+ */
+#ifdef LCB_TRACING
+
+/**
+ * Associate parent tracing span with the View request.
+ *
+ * @param instance the instance
+ * @param handle View request handle
+ * @param span parent span
+ *
+ * @par Attach parent tracing span to view request object.
+ * @code{.c}
+ * lcb_CMDVIEWQUERY vcmd = {0};
+ * char *doc_name = "beer";
+ * char *view_name = "by_location";
+ * char *options = "reduce=false&limit=3";
+ *
+ * vcmd.callback = view_callback;
+ * vcmd.ddoc = doc_name;
+ * vcmd.nddoc = strlen(doc_name);
+ * vcmd.view = view_name;
+ * vcmd.nview = strlen(view_name);
+ * vcmd.optstr = options;
+ * vcmd.noptstr = strlen(options);
+ * vcmd.cmdflags = LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
+ *
+ * lcb_VIEWHANDLE handle;
+ * vcmd.handle = &handle;
+ *
+ * err = lcb_view_query(instance, NULL, &vcmd);
+ * if (err != LCB_SUCCESS) {
+ *     die(instance, "Couldn't schedule view operation", err);
+ * }
+ * lcb_view_set_parent_span(instance, handle, span);
+ * @endcode
+ *
+ * @see @ref example/tracing/views.c
+ * @committed
  */
 LIBCOUCHBASE_API
 void lcb_view_set_parent_span(lcb_t instance, lcb_VIEWHANDLE handle, lcbtrace_SPAN *span);
+
 #endif
-
-/**@}*/
-
+/**
+ * @} (Group: Tracing)
+ */
 #ifdef __cplusplus
 }
 #endif

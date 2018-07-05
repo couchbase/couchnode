@@ -74,3 +74,6 @@
 #define LCB_C_FLAGS "${CMAKE_C_FLAGS}"
 
 #define LCB_CLIENT_ID "libcouchbase/" LCB_VERSION_STRING " (" LCB_SYSTEM "; " LCB_SYSTEM_PROCESSOR "; " LCB_C_COMPILER ")"
+
+#cmakedefine HAVE_PKCS5_PBKDF2_HMAC
+#cmakedefine LCB_DUMP_PACKETS

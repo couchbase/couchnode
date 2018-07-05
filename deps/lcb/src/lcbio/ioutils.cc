@@ -109,7 +109,7 @@ lcb_error_t
 lcbio_mklcberr(lcbio_OSERR in, const lcb_settings *settings)
 {
     if (settings->detailed_neterr == 0) {
-        lcb_log(settings, "lcbio", LCB_LOG_INFO, __FILE__, __LINE__, "Translating errno=%d, lcb=0x%x to NETWORK_ERROR",
+        lcb_log(settings, "lcbio", LCB_LOG_WARN, __FILE__, __LINE__, "Translating errno=%d, lcb=0x%x to NETWORK_ERROR",
             in, ioerr2lcberr(in, settings));
         return LCB_NETWORK_ERROR;
     }

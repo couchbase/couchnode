@@ -50,6 +50,7 @@ lcb_observe_seqno3(lcb_t instance, const void *cookie, const lcb_CMDOBSEQNO *cmd
     uuid = lcb_htonll(cmd->uuid);
     memcpy(SPAN_BUFFER(&pkt->u_value.single), &uuid, sizeof uuid);
     LCB_SCHED_ADD(instance, server, pkt);
+    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_OBSERVE_SEQNO, pkt->opaque, MCREQ_PKT_RDATA(pkt)->span);
     return LCB_SUCCESS;
 }
 

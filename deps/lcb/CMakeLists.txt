@@ -23,9 +23,9 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 # These variables can be modified as needed
 
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.5.15.jar)
+SET(COUCHBASE_MOCK_VERSION CouchbaseMock-1.5.19.jar)
 # Maven repository where ${COUCHBASE_MOCK_VERSION} is to be found
-SET(COUCHBASE_MOCK_DLSERVER http://packages.couchbase.com/clients/c/mock)
+SET(COUCHBASE_MOCK_DLSERVER https://packages.couchbase.com/clients/c/mock)
 project(libcouchbase)
 
 OPTION(LCB_NO_TESTS "Disable building of tests" OFF)
@@ -46,6 +46,10 @@ OPTION(LCB_EMBED_PLUGIN_LIBEVENT "Embed the libevent plugin" OFF)
 OPTION(LCB_STATIC_LIBEVENT "Link static libevent (only applicable if EMBED_PLUGIN_LIBEVENT is ON" OFF)
 OPTION(LCB_USE_HDR_HISTOGRAM "Use HdrHistogram for statistics recording" OFF)
 OPTION(LCB_TRACING "Enable builtin tracing" ON)
+OPTION(LCB_INSTALL_HEADERS "Install header files" ON)
+OPTION(LCB_INSTALL_PKGCONFIG "Install pkgconfig/libcouchbase.pc" ON)
+OPTION(LCB_DUMP_PACKETS "Enable dumping network packets on TRACE log level" OFF)
+OPTION(LCB_USE_PROFILER "Build with profiler support (from gperftools)" OFF)
 
 ### END CONFIGURABLES ###
 IF(MSVC)
@@ -77,11 +81,16 @@ INCLUDE(cmake/Modules/FindCouchbaseLibev.cmake)
 INCLUDE(cmake/Modules/FindCouchbaseLibuv.cmake)
 INCLUDE(cmake/Modules/GetPlatformCCInfo.cmake)
 INCLUDE(cmake/Modules/GetVersionInfo.cmake)
-INCLUDE(cmake/Modules/CopyPDB.cmake)
+IF (MSVC)
+    INCLUDE(cmake/Modules/CopyPDB.cmake)
+ENDIF ()
 INCLUDE(cmake/Modules/DownloadLcbDep.cmake)
 INCLUDE(CheckIncludeFiles)
 INCLUDE(cmake/source_files.cmake)
 
+IF(LCB_USE_PROFILER)
+    INCLUDE(cmake/Modules/FindProfiler.cmake)
+ENDIF()
 IF(LCB_USE_HDR_HISTOGRAM)
     INCLUDE(cmake/Modules/FindCouchbaseHdrHistogram.cmake)
 ENDIF()
@@ -225,6 +234,31 @@ LCB_UTIL(lcbht)
 LCB_UTIL(lcbcore)
 LCB_CXXUTIL(lcbcore-cxx)
 
+IF(LCB_NO_SSL)
+    MESSAGE(STATUS "SSL support will be disabled")
+    ADD_DEFINITIONS(-DLCB_NO_SSL=1)
+ELSE()
+    IF(NOT OPENSSL_FOUND)
+        # When building under Couchbase Server we've already detected
+        # and set the appropriate OpenSSL variables
+        IF(APPLE)
+            IF(NOT OpenSSL_DIR)
+                EXECUTE_PROCESS(COMMAND brew --prefix openssl
+                    OUTPUT_VARIABLE OPENSSL_ROOT_DIR
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+                MESSAGE(STATUS "Found OpenSSL Prefix: ${OPENSSL_ROOT_DIR}")
+            ENDIF()
+        ENDIF()
+        FIND_PACKAGE(OpenSSL)
+    ENDIF(NOT OPENSSL_FOUND)
+
+    IF(OPENSSL_FOUND)
+        MESSAGE(STATUS "SSL Found")
+    ELSE()
+        MESSAGE(STATUS "SSL Not Found")
+    ENDIF()
+ENDIF()
+
 ADD_SUBDIRECTORY(src/vbucket)
 ADD_SUBDIRECTORY(contrib/cbsasl)
 ADD_SUBDIRECTORY(contrib/cliopts)
@@ -233,11 +267,6 @@ ADD_SUBDIRECTORY(contrib/lcb-jsoncpp)
 ADD_SUBDIRECTORY(contrib/snappy)
 IF(LCB_BUILD_EXAMPLES)
     ADD_SUBDIRECTORY(example)
-ENDIF()
-
-IF(LCB_NO_SSL)
-    MESSAGE(STATUS "SSL support will be disabled")
-    ADD_DEFINITIONS(-DLCB_NO_SSL=1)
 ENDIF()
 
 IF(LCB_BUILD_STATIC)
@@ -260,11 +289,11 @@ INCLUDE_DIRECTORIES(contrib/snappy)
 SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:couchbase_select>
     $<TARGET_OBJECTS:couchbase_utils>
-    $<TARGET_OBJECTS:vbucket>
+    $<TARGET_OBJECTS:vbucket-lcb>
     $<TARGET_OBJECTS:mcreq>
     $<TARGET_OBJECTS:mcreq-cxx>
     $<TARGET_OBJECTS:netbuf>
-    $<TARGET_OBJECTS:cbsasl>
+    $<TARGET_OBJECTS:cbsasl-lcb>
     $<TARGET_OBJECTS:lcbio>
     $<TARGET_OBJECTS:lcbio-cxx>
     $<TARGET_OBJECTS:rdb>
@@ -305,12 +334,14 @@ ELSE()
     SET_TARGET_PROPERTIES(couchbase PROPERTIES
         LINK_FLAGS "-compatibility_version ${LCB_SONAME_MAJOR} -current_version ${LCB_SONAME_FULL}"
         OUTPUT_NAME couchbase.2)
-    ADD_CUSTOM_COMMAND(TARGET couchbase POST_BUILD
-        COMMAND rm -f libcouchbase.dylib
-        COMMAND ln libcouchbase.2.dylib libcouchbase.dylib
-        WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-    INSTALL(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libcouchbase.dylib
-        DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    IF(NOT LCB_BUILD_STATIC)
+        ADD_CUSTOM_COMMAND(TARGET couchbase POST_BUILD
+            COMMAND rm -f libcouchbase.dylib
+            COMMAND ln libcouchbase.2.dylib libcouchbase.dylib
+            WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+        INSTALL(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libcouchbase.dylib
+            DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    ENDIF()
 ENDIF()
 
 SET_TARGET_PROPERTIES(couchbase PROPERTIES PREFIX "lib")
@@ -318,6 +349,9 @@ SET_TARGET_PROPERTIES(couchbase PROPERTIES IMPORT_PREFIX "lib")
 SET(LCB_LINK_DEPS ${lcb_plat_libs} ${lcb_ssl_libs} ${LCB_HDR_HISTOGRAM_LINK})
 IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} rt)
+ENDIF()
+IF(LIBPROFILER)
+    SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} ${LIBPROFILER})
 ENDIF()
 
 TARGET_LINK_LIBRARIES(couchbase ${LCB_LINK_DEPS})
@@ -369,20 +403,24 @@ INSTALL(TARGETS couchbase
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-INSTALL(DIRECTORY include/libcouchbase ${LCB_GENSRCDIR}/libcouchbase
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    FILES_MATCHING PATTERN *.h PATTERN *.c)
+IF(LCB_INSTALL_HEADERS)
+    INSTALL(DIRECTORY include/libcouchbase ${LCB_GENSRCDIR}/libcouchbase
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN *.h PATTERN *.c)
+ENDIF()
 
 INSTALL(DIRECTORY doc/man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 FILES_MATCHING PATTERN *.1)
 INSTALL(DIRECTORY doc/man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man4  FILES_MATCHING PATTERN *.4)
 
-INSTALL_PDBS(couchbase)
+IF(MSVC)
+    INSTALL_PDBS(couchbase)
+ENDIF()
 
 SET(_lcb_tarname "libcouchbase-${LCB_VERSION}")
 SET(_lcb_manifest "${LCB_GENINFODIR}/MANIFEST")
 
 # pkg-config stuff goes with installation
-IF(NOT WIN32)
+IF(NOT WIN32 AND LCB_INSTALL_PKGCONFIG)
     CONFIGURE_FILE(packaging/libcouchbase.pc.in packaging/libcouchbase.pc @ONLY)
     INSTALL(FILES ${PROJECT_BINARY_DIR}/packaging/libcouchbase.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 ENDIF()

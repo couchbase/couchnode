@@ -46,7 +46,7 @@ static void
 on_flush_ready(lcbio_CTX *ctx)
 {
     Server *server = Server::get(ctx);
-    nb_IOV iov[MCREQ_MAXIOV];
+    nb_IOV iov[MCREQ_MAXIOV] = {};
     int ready;
 
     do {
@@ -56,6 +56,15 @@ on_flush_ready(lcbio_CTX *ctx)
         if (!nb) {
             return;
         }
+#ifdef LCB_DUMP_PACKETS
+        {
+            char *b64 = NULL;
+            int nb64 = 0;
+            lcb_base64_encode_iov((lcb_IOV *)iov, niov, nb, &b64, &nb64);
+            lcb_log(LOGARGS(server, TRACE), LOGFMT "pkt,snd,fill: size=%d, %.*s", LOGID(server), nb64, nb64, b64);
+            free(b64);
+        }
+#endif
         ready = lcbio_ctx_put_ex(ctx, (lcb_IOV *)iov, niov, nb);
     } while (ready);
     lcbio_ctx_wwant(ctx);
@@ -70,6 +79,9 @@ on_flush_done(lcbio_CTX *ctx, unsigned expected, unsigned actual)
         now = gethrtime();
     }
 
+#ifdef LCB_DUMP_PACKETS
+    lcb_log(LOGARGS(server, TRACE), LOGFMT "pkt,snd,flush: expected=%u, actual=%u", LOGID(server), expected, actual);
+#endif
     mcreq_flush_done_ex(server, actual, expected, now);
     server->check_closed();
 }
@@ -197,6 +209,14 @@ static bool is_fastpath_error(uint16_t rc) {
     case PROTOCOL_BINARY_RESPONSE_SUBDOC_DELTA_ERANGE:
     case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO:
     case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED:
+    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER:
     case PROTOCOL_BINARY_RESPONSE_EACCESS:
         return true;
     default:
@@ -357,7 +377,7 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
 
     if (!request) {
         MC_INCR_METRIC(this, packets_ownerless, 1);
-        lcb_log(LOGARGS_T(WARN), LOGFMT "Server sent us reply for a timed-out command. (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
+        lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server sent us reply for a timed-out command. (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
         rdb_consumed(ior, pktsize);
         return PKT_READ_COMPLETE;
     }
@@ -475,6 +495,100 @@ fail_callback(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_error_t err, void *) {
     static_cast<Server*>(pipeline)->purge_single(pkt, err);
 }
 
+static const char *opcode_name(uint8_t code)
+{
+    switch (code) {
+        case PROTOCOL_BINARY_CMD_GET:
+            return "get";
+        case PROTOCOL_BINARY_CMD_SET:
+            return "set";
+        case PROTOCOL_BINARY_CMD_ADD:
+            return "add";
+        case PROTOCOL_BINARY_CMD_REPLACE:
+            return "replace";
+        case PROTOCOL_BINARY_CMD_DELETE:
+            return "delete";
+        case PROTOCOL_BINARY_CMD_INCREMENT:
+            return "incr";
+        case PROTOCOL_BINARY_CMD_DECREMENT:
+            return "decr";
+        case PROTOCOL_BINARY_CMD_FLUSH:
+            return "flush";
+        case PROTOCOL_BINARY_CMD_GETQ:
+            return "getq";
+        case PROTOCOL_BINARY_CMD_NOOP:
+            return "noop";
+        case PROTOCOL_BINARY_CMD_VERSION:
+            return "version";
+        case PROTOCOL_BINARY_CMD_APPEND:
+            return "append";
+        case PROTOCOL_BINARY_CMD_PREPEND:
+            return "prepend";
+        case PROTOCOL_BINARY_CMD_STAT:
+            return "stat";
+        case PROTOCOL_BINARY_CMD_VERBOSITY:
+            return "verbosity";
+        case PROTOCOL_BINARY_CMD_TOUCH:
+            return "touch";
+        case PROTOCOL_BINARY_CMD_GAT:
+            return "gat";
+        case PROTOCOL_BINARY_CMD_HELLO:
+            return "hello";
+        case PROTOCOL_BINARY_CMD_SASL_LIST_MECHS:
+            return "sasl_list_mechs";
+        case PROTOCOL_BINARY_CMD_SASL_AUTH:
+            return "sasl_auth";
+        case PROTOCOL_BINARY_CMD_SASL_STEP:
+            return "sasl_step";
+        case PROTOCOL_BINARY_CMD_GET_REPLICA:
+            return "get_replica";
+        case PROTOCOL_BINARY_CMD_SELECT_BUCKET:
+            return "select_bucket";
+        case PROTOCOL_BINARY_CMD_OBSERVE_SEQNO:
+            return "observe_seqno";
+        case PROTOCOL_BINARY_CMD_OBSERVE:
+            return "observe";
+        case PROTOCOL_BINARY_CMD_GET_LOCKED:
+            return "get_locked";
+        case PROTOCOL_BINARY_CMD_UNLOCK_KEY:
+            return "unlock_key";
+        case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
+            return "get_cluster_config";
+        case PROTOCOL_BINARY_CMD_SUBDOC_GET:
+            return "subdoc_get";
+        case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
+            return "subdoc_exists";
+        case PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD:
+            return "subdoc_dict_add";
+        case PROTOCOL_BINARY_CMD_SUBDOC_DICT_UPSERT:
+            return "subdoc_dict_upsert";
+        case PROTOCOL_BINARY_CMD_SUBDOC_DELETE:
+            return "subdoc_delete";
+        case PROTOCOL_BINARY_CMD_SUBDOC_REPLACE:
+            return "subdoc_replace";
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_LAST:
+            return "subdoc_array_push_last";
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_FIRST:
+            return "subdoc_array_push_first";
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_INSERT:
+            return "subdoc_array_insert";
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_ADD_UNIQUE:
+            return "subdoc_array_add_unique";
+        case PROTOCOL_BINARY_CMD_SUBDOC_COUNTER:
+            return "subdoc_counter";
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
+            return "subdoc_multi_lookup";
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
+            return "subdoc_multi_mutation";
+        case PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT:
+            return "subdoc_get_count";
+        case PROTOCOL_BINARY_CMD_GET_ERROR_MAP:
+            return "get_error_map";
+        default:
+            return "unknown";
+    }
+}
+
 void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
     if (maybe_retry_packet(pkt, err)) {
         return;
@@ -502,7 +616,39 @@ void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
 #ifdef LCB_TRACING
     lcbtrace_span_set_orphaned(MCREQ_PKT_RDATA(pkt)->span, true);
 #endif
-    lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error %s", LOGID_T(), (void*)pkt, (unsigned long)pkt->opaque, hdr.request.opcode, lcb_strerror_short(err));
+    if (err == LCB_ETIMEDOUT && settings->use_tracing) {
+        Json::Value info;
+
+        char opid[30] = {};
+        snprintf(opid, sizeof(opid), "kv:%s", opcode_name(hdr.request.opcode));
+        info["s"] = opid;
+        info["b"] = settings->bucket;
+        info["t"] = settings->operation_timeout;
+
+        const lcb_host_t &remote = get_host();
+        std::string rhost;
+        if (remote.ipv6) {
+            rhost.append("[").append(remote.host).append("]:").append(remote.port);
+        } else {
+            rhost.append(remote.host).append(":").append(remote.port);
+        }
+        info["r"] = rhost.c_str();
+
+        if (connctx) {
+            char local_id[54] = {};
+            snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64 "/%x",
+                     (lcb_U64)settings->iid, connctx->sock->id, (int)pkt->opaque);
+            info["i"] = local_id;
+            info["l"] = lcbio__inet_ntop(&connctx->sock->info->sa_local).c_str();
+        }
+        std::string msg(Json::FastWriter().write(info));
+        if (msg.size() > 1) {
+            lcb_log(LOGARGS(instance, WARN), "Failing command with error %s: %.*s",
+                    lcb_strerror_short(err), (int)(msg.size() - 1), msg.c_str());
+        }
+    } else {
+        lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error %s", LOGID_T(), (void*)pkt, (unsigned long)pkt->opaque, hdr.request.opcode, lcb_strerror_short(err));
+    }
     int rv = mcreq_dispatch_response(this, pkt, &resp, err);
     lcb_assert(rv == 0);
 }
@@ -579,7 +725,7 @@ void Server::io_timeout()
                         Server::REFRESH_ONFAILED);
     if (npurged) {
         MC_INCR_METRIC(this, packets_timeout, npurged);
-        lcb_log(LOGARGS_T(ERR), LOGFMT "Server timed out. Some commands have failed", LOGID_T());
+        lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server timed out. Some commands have failed", LOGID_T());
     }
 
     uint32_t next_us = next_timeout();
@@ -649,6 +795,7 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
             sock, settings, default_timeout(), on_connected, this);
         return;
     } else {
+        jsonsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_JSON);
         compsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_SNAPPY);
         mutation_tokens = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO);
     }
@@ -690,6 +837,7 @@ Server::Server(lcb_t instance_, int ix)
       instance(instance_),
       settings(lcb_settings_ref2(instance_->settings)),
       compsupport(0),
+      jsonsupport(0),
       mutation_tokens(0),
       connctx(NULL),
       curhost(new lcb_host_t())
@@ -704,8 +852,7 @@ Server::Server(lcb_t instance_, int ix)
 
     const char *datahost = lcbvb_get_hostport(
         LCBT_VBCONFIG(instance), ix,
-        LCBVB_SVCTYPE_DATA, settings->sslopts & LCB_SSL_ENABLED ?
-                LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN);
+        LCBVB_SVCTYPE_DATA, LCBT_SETTING_SVCMODE(instance));
     if (datahost) {
         lcb_host_parsez(curhost, datahost, LCB_CONFIG_MCD_PORT);
     }
@@ -719,7 +866,7 @@ Server::Server(lcb_t instance_, int ix)
 
 Server::Server()
     : state(S_TEMPORARY),
-      io_timer(NULL), instance(NULL), settings(NULL), compsupport(0),
+      io_timer(NULL), instance(NULL), settings(NULL), compsupport(0), jsonsupport(0),
       mutation_tokens(0), connctx(NULL), connreq(NULL), curhost(NULL)
 {
 }

@@ -128,12 +128,19 @@ The following options control workload generation:
 
   The default for this option is `couchbase://localhost/default`
 
-* `-P`, `--password`=_SASLPASS_:
+* `-u`, `--username`=_USERNAME_:
+  Specify the _username_ for the bucket. As of Couchbase Server 2.5 this field
+  should be either left empty or set to the name of the bucket itself. Since
+  Couchbase 5.x this is mandatory switch, and it must specify the name of
+  the user exisiting on cluster (read more at "Security/Authorization" section of
+  the server manual).
 
+* `-P`, `--password`=_PASSWORD_:
 * `-P -`, `--password=-`:
-  Specify the SASL password for the bucket. This is only needed if the bucket is
-  protected with a password. Note that this is _not_ the administrative password
-  used to log into the web interface.
+  Specify the password for the bucket. As for servers before 5.x this was only
+  needed if the bucket is protected with a password. For cluster version after 5.x,
+  the password is mandatory, and should match the selected account (read more at
+  "Security/Authorization" section of the server manual).
 
   Specifying the `-` as the password indicates that the program should prompt for the
   password. You may also specify the password on the commandline, directly,
@@ -282,45 +289,50 @@ command-line
 The following examples show how to connect `pillowfight` to different types
 of cluster configurations.
 
-Run against a bucket (`a_bucket`) on a cluster on a remote host:
+Connect to a bucket (`a_bucket`) on a cluster on a remote host (for servers version 5.x+).
+It uses account 'myname' and asks password interactively:
 
-    cbc cat key -U couchbase://192.168.33.101/a_bucket
+    cbc-pillowfight -U couchbase://192.168.33.101/a_bucket -u myname -P-
+
+Run against a password-less bucket (`a_bucket`) on a cluster on a remote host (for servers older than 5.x):
+
+    cbc-pillowfight -U couchbase://192.168.33.101/a_bucket
 
 Connect to an SSL cluster at `secure.net`. The certificate for the cluster is
 stored locally at `/home/couchbase/couchbase_cert.pem`:
 
-    cbc cat key -U couchbases://secure.net/topsecret_bucket?certpath=/home/couchbase/couchbase_cert.pem
+    cbc-pillowfight -U couchbases://secure.net/topsecret_bucket?certpath=/home/couchbase/couchbase_cert.pem
 
 Connect to an SSL cluster at `secure.net`, ignoring certificate verification.
 This is insecure but handy for testing:
 
-    cbc cat key -U couchbases://secure.net/topsecret_bucket?ssl=no_verify
+    cbc-pillowfight -U couchbases://secure.net/topsecret_bucket?ssl=no_verify
 
-Connect to a password protected bucket (`protected`) on a remote host:
+Connect to a password protected bucket (`protected`) on a remote host (for servers older than 5.x):
 
-    cbc cat key -U couchbase://remote.host.net/protected -P -
+    cbc-pillowfight -U couchbase://remote.host.net/protected -P -
     Bucket password:
     ...
 
-Connect to a password protected bucket, specifying the password on the
+Connect to a password protected bucket (for servers older than 5.x), specifying the password on the
 command line (INSECURE, but useful for testing dummy environments)
 
-    cbc cat key -U couchbase://remote.host.net/protected -P t0ps3cr3t
+    cbc-pillowfight -U couchbase://remote.host.net/protected -P t0ps3cr3t
 
 Connect to a bucket running on a cluster with a custom REST API port
 
-    cbc cat key -U http://localhost:9000/default
+    cbc-pillowfight -U http://localhost:9000/default
 
 Connec to bucket running on a cluster with a custom memcached port
 
-    cbc cat key -U couchbase://localhost:12000/default
+    cbc-pillowfight -U couchbase://localhost:12000/default
 
 Connect to a *memcached* (http://memcached.org)
 cluster using the binary protocol. A vanilla memcached cluster is not the same
 as a memcached bucket residing within a couchbase cluster (use the normal
 `couchbase://` scheme for that):
 
-    cbc cat key -U memcached://host1,host2,host3,host4
+    cbc-pillowfight -U memcached://host1,host2,host3,host4
 
 Connect to an SSL cluster at `secure.net`:
 

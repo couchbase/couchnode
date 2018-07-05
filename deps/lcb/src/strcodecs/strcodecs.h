@@ -67,6 +67,8 @@ int lcb_base64_encode2(const char *src, lcb_SIZE len, char **dst, lcb_SIZE *sz);
 lcb_SSIZE lcb_base64_decode(const char *src, lcb_SIZE nsrc, char *dst, lcb_SIZE ndst);
 lcb_SSIZE lcb_base64_decode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *ndst);
 
+void lcb_base64_encode_iov(lcb_IOV *iov, unsigned niov, unsigned nb, char **dst, int *ndst);
+
 /**
  * Encodes a string suitable for being passed as either a key or value in an
  * "HTTP Form" per application/x-www-form-urlencoded

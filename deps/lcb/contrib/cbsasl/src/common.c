@@ -24,6 +24,10 @@ void cbsasl_dispose(cbsasl_conn_t **conn)
     if (*conn != NULL) {
         if ((*conn)->client) {
             free((*conn)->c.client.userdata);
+            free((*conn)->c.client.nonce);
+            free((*conn)->c.client.client_first_message_bare);
+            free((*conn)->c.client.saltedpassword);
+            free((*conn)->c.client.auth_message);
         } else {
             free((*conn)->c.server.username);
             free((*conn)->c.server.config);

@@ -39,6 +39,7 @@ static void op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
     if (rb->rc == LCB_SUCCESS) {
         const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
         lcbcrypto_CMDDECRYPT dcmd = {};
+        lcbcrypto_FIELDSPEC field = {};
         lcb_error_t err;
 
         printf("VALUE:  %.*s\n", (int)rg->nvalue, rg->value);
@@ -48,7 +49,11 @@ static void op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
         dcmd.ndoc = rg->nvalue;
         dcmd.out = NULL;
         dcmd.nout = 0;
-        err = lcbcrypto_decrypt_document(instance, &dcmd);
+        dcmd.nfields = 1;
+        dcmd.fields = &field;
+        field.name = "message";
+        field.alg = "AES-256-HMAC-SHA256";
+        err = lcbcrypto_decrypt_fields(instance, &dcmd);
         if (err != LCB_SUCCESS) {
             die(instance, "Couldn't decrypt field 'message'", err);
         }

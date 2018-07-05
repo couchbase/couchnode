@@ -46,6 +46,8 @@ void lcb_default_settings(lcb_settings *settings)
     settings->retry[LCB_RETRY_ON_MISSINGNODE] = 0;
     settings->bc_http_urltype = LCB_DEFAULT_HTCONFIG_URLTYPE;
     settings->compressopts = LCB_DEFAULT_COMPRESSOPTS;
+    settings->compress_min_size = LCB_DEFAULT_COMPRESS_MIN_SIZE;
+    settings->compress_min_ratio = LCB_DEFAULT_COMPRESS_MIN_RATIO;
     settings->allocator_factory = rdb_bigalloc_new;
     settings->syncmode = LCB_ASYNCHRONOUS;
     settings->detailed_neterr = 0;
@@ -57,6 +59,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->tcp_nodelay = LCB_DEFAULT_TCP_NODELAY;
     settings->retry_nmv_interval = LCB_DEFAULT_RETRY_NMV_INTERVAL;
     settings->vb_noguess = LCB_DEFAULT_VB_NOGUESS;
+    settings->vb_noremap = LCB_DEFAULT_VB_NOREMAP;
     settings->select_bucket = LCB_DEFAULT_SELECT_BUCKET;
     settings->tcp_keepalive = LCB_DEFAULT_TCP_KEEPALIVE;
     settings->send_hello = 1;
@@ -64,7 +67,8 @@ void lcb_default_settings(lcb_settings *settings)
     settings->use_errmap = 1;
     settings->use_collections = 0;
     settings->log_redaction = 0;
-    settings->use_tracing = 0;
+    settings->use_tracing = 1;
+    settings->network = NULL;
 #ifdef LCB_TRACING
     settings->tracer_orphaned_queue_flush_interval = LCBTRACE_DEFAULT_ORPHANED_QUEUE_FLUSH_INTERVAL;
     settings->tracer_orphaned_queue_size = LCBTRACE_DEFAULT_ORPHANED_QUEUE_SIZE;
@@ -102,6 +106,7 @@ lcb_settings_unref(lcb_settings *settings)
     free(settings->certpath);
     free(settings->keypath);
     free(settings->client_string);
+    free(settings->network);
 
     lcbauth_unref(settings->auth);
     lcb_errmap_free(settings->errmap);
@@ -112,12 +117,6 @@ lcb_settings_unref(lcb_settings *settings)
     if (settings->metrics) {
         lcb_metrics_destroy(settings->metrics);
     }
-#ifdef LCB_TRACING
-    if (settings->tracer) {
-        lcbtrace_destroy(settings->tracer);
-        settings->tracer = NULL;
-    }
-#endif
     if (settings->dtorcb) {
         settings->dtorcb(settings->dtorarg);
     }

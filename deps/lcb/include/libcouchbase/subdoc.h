@@ -113,7 +113,7 @@ typedef enum {
      * should be placed, for example `array[2]` will cause the value(s) to be
      * the 3rd item(s) in the array.
      *
-     * The array must already exist and the @ref LCB_SDCMD_F_MKINTERMEDIATES
+     * The array must already exist and the @ref LCB_SDSPEC_F_MKINTERMEDIATES
      * flag is not honored.
      */
     LCB_SDCMD_ARRAY_INSERT,
@@ -182,7 +182,7 @@ typedef struct {
     lcb_KEYBUF path;
 
     /**
-     * @value for the operation. This should be assigned using
+     * Value for the operation. This should be assigned using
      * @ref LCB_SDSPEC_SET_VALUE. The contents of the value should be valid
      * until the operation is scheduled (i.e. lcb_subdoc3())
      */
@@ -307,7 +307,7 @@ typedef struct {
  * Note that #value and #nvalue are only valid if #status is ::LCB_SUCCESS
  */
 typedef struct {
-    /** Value for the mutation (only applicable for ::LCB_SUBDOC_COUNTER, currently) */
+    /** Value for the mutation (only applicable for ::LCB_SDCMD_COUNTER, currently) */
     const void *value;
     /** Length of the value */
     size_t nvalue;

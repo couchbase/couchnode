@@ -60,13 +60,17 @@ The following common options may be applied to most of the commands
 
 * `-u`, `--username`=_USERNAME_:
   Specify the _username_ for the bucket. As of Couchbase Server 2.5 this field
-  should be either left empty or set to the name of the bucket itself.
+  should be either left empty or set to the name of the bucket itself. Since
+  Couchbase 5.x this is mandatory switch, and it must specify the name of
+  the user exisiting on cluster (read more at "Security/Authorization" section of
+  the server manual).
 
-* `-P`, `--password`=_SASLPASS_:
+* `-P`, `--password`=_PASSWORD_:
 * `-P -`, `--password=-`:
-  Specify the SASL password for the bucket. This is only needed if the bucket is
-  protected with a password. Note that this is _not_ the administrative password
-  used to log into the web interface.
+  Specify the password for the bucket. As for servers before 5.x this was only
+  needed if the bucket is protected with a password. For cluster version after 5.x,
+  the password is mandatory, and should match the selected account (read more at
+  "Security/Authorization" section of the server manual).
 
   Specifying the `-` as the password indicates that the program should prompt for the
   password. You may also specify the password on the commandline, directly,
@@ -538,8 +542,12 @@ all show how to retrieve the key `key`. See
 [OPERATION EXAMPLES](#OPERATION EXAMPLES) for more information on specific
 sub-commands.
 
+Connect to a bucket (`a_bucket`) on a cluster on a remote host (for servers version 5.x+).
+It uses account 'myname' and asks password interactively:
 
-Run against a bucket (`a_bucket`) on a cluster on a remote host:
+    cbc cat key -U couchbase://192.168.33.101/a_bucket -u myname -P-
+
+Run against a password-less bucket (`a_bucket`) on a cluster on a remote host (for servers older than 5.x):
 
     cbc cat key -U couchbase://192.168.33.101/a_bucket
 
@@ -553,12 +561,12 @@ This is insecure but handy for testing:
 
     cbc cat key -U couchbases://secure.net/topsecret_bucket?ssl=no_verify
 
-Connect to a password protected bucket (`protected`) on a remote host:
+Connect to a password protected bucket (`protected`) on a remote host (for servers older than 5.x):
 
     cbc cat key -U couchbase://remote.host.net/protected -P-
     Bucket password:
 
-Connect to a password protected bucket, specifying the password on the
+Connect to a password protected bucket (for servers older than 5.x), specifying the password on the
 command line (INSECURE, but useful for testing dummy environments)
 
     cbc cat key -U couchbase://remote.host.net/protected -P t0ps3cr3t

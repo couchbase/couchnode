@@ -97,6 +97,9 @@ lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
 int
 lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
 {
+    if (LCBT_SETTING(instance, vb_noremap)) {
+        return -1;
+    }
 
     if (LCBT_SETTING(instance, vb_noguess)) {
         int newix = lcbvb_nmv_remap_ex(LCBT_VBCONFIG(instance), vbid, bad, 0);
@@ -142,8 +145,9 @@ static int
 find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
     lcb::Server *server)
 {
+    lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(server->get_instance());
     const char *old_datahost = lcbvb_get_hostport(oldconfig,
-        server->get_index(), LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
+        server->get_index(), LCBVB_SVCTYPE_DATA, mode);
 
     if (!old_datahost) {
         /* Old server had no data service */
@@ -152,7 +156,7 @@ find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
 
     for (size_t ii = 0; ii < LCBVB_NSERVERS(newconfig); ii++) {
         const char *new_datahost = lcbvb_get_hostport(newconfig, ii,
-            LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
+            LCBVB_SVCTYPE_DATA, mode);
         if (new_datahost && strcmp(new_datahost, old_datahost) == 0) {
             return ii;
         }
@@ -350,7 +354,7 @@ void lcb_update_vbconfig(lcb_t instance, lcb_pCONFIGINFO config)
     instance->ht_nodes->clear();
     for (size_t ii = 0; ii < LCBVB_NSERVERS(config->vbc); ++ii) {
         const char *hp = lcbvb_get_hostport(config->vbc, ii,
-            LCBVB_SVCTYPE_MGMT, LCBVB_SVCMODE_PLAIN);
+            LCBVB_SVCTYPE_MGMT, LCBT_SETTING_SVCMODE(instance));
         if (hp) {
             instance->ht_nodes->add(hp, LCB_CONFIG_HTTP_PORT);
         }

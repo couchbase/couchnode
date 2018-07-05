@@ -88,10 +88,11 @@ void KVOperation::assertOk(lcb_error_t err)
     }
 
     if (allowableErrors.empty()) {
-        ASSERT_EQ(LCB_SUCCESS, err);
+        ASSERT_EQ(LCB_SUCCESS, err) << "Unexpected error: " << lcb_strerror_short(err);
         return;
     }
-    ASSERT_TRUE(allowableErrors.find(err) != allowableErrors.end());
+    ASSERT_TRUE(allowableErrors.find(err) != allowableErrors.end())
+        << "Unable to find " << lcb_strerror_short(err) << " in allowable errors";
 }
 
 void KVOperation::store(lcb_t instance)

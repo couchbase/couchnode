@@ -1,8 +1,10 @@
-INSTALL(
-    FILES
-    libevent_io_opts.h
-    DESTINATION
-    include/libcouchbase)
+IF(LCB_INSTALL_HEADERS)
+  INSTALL(
+      FILES
+      libevent_io_opts.h
+      DESTINATION
+      include/libcouchbase)
+ENDIF(LCB_INSTALL_HEADERS)
 
 
 IF(NOT (HAVE_LIBEVENT OR HAVE_LIBEVENT2))

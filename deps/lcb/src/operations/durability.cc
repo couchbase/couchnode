@@ -249,6 +249,13 @@ Durset::on_poll_done()
 
     if (nremaining > 0) {
         switch_state(STATE_OBSPOLL);
+#ifdef LCB_TRACING
+    } else {
+        if (span) {
+            lcbtrace_span_finish(span, LCBTRACE_NOW);
+            span = NULL;
+        }
+#endif
     }
     decref();
 }
@@ -326,6 +333,13 @@ lcb_durability_validate(lcb_t instance,
 
 }
 
+#ifdef LCB_TRACING
+void Durset::MCTX_setspan(lcbtrace_SPAN *span_)
+{
+    span = span_;
+}
+#endif
+
 lcb_error_t Durset::MCTX_addcmd(const lcb_CMDBASE *cmd) {
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_EMPTY_KEY;
@@ -383,6 +397,12 @@ Durset::MCTX_done(const void *cookie_) {
 }
 
 void Durset::MCTX_fail() {
+#ifdef LCB_TRACING
+    if (span) {
+        lcbtrace_span_finish(span, LCBTRACE_NOW);
+        span = NULL;
+    }
+#endif
     delete this;
 }
 
@@ -425,6 +445,9 @@ Durset::Durset(lcb_t instance_, const lcb_durability_opts_t *options)
       nremaining(0), waiting(0), refcnt(0), next_state(STATE_OBSPOLL),
       lasterr(LCB_SUCCESS), is_durstore(false), cookie(NULL),
       ns_timeout(0), timer(NULL), instance(instance_)
+#ifdef LCB_TRACING
+    , span(NULL)
+#endif
 {
     const lcb_DURABILITYOPTSv0 *opts_in = &options->v.v0;
 

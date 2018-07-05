@@ -22,6 +22,19 @@
 extern "C" {
 #endif
 
+#define MECH_PLAIN         "PLAIN"
+#define MECH_CRAM_MD5      "CRAM-MD5"
+#define MECH_SCRAM_SHA1    "SCRAM-SHA1"
+#define MECH_SCRAM_SHA256  "SCRAM-SHA256"
+#define MECH_SCRAM_SHA512  "SCRAM-SHA512"
+
+// size in bytes - to double if the nonce is displayed in hexadecimal
+#define SCRAM_NONCE_SIZE   8
+
+#define CBSASL_SHA1_DIGEST_SIZE 20
+#define CBSASL_SHA256_DIGEST_SIZE 32
+#define CBSASL_SHA512_DIGEST_SIZE 64
+
     typedef enum cbsasl_error {
         SASL_OK,
         SASL_CONTINUE,
@@ -32,6 +45,15 @@ extern "C" {
         SASL_NOUSER
     }
     cbsasl_error_t;
+
+    typedef enum cbsasl_auth_mechanism {
+        SASL_AUTH_MECH_PLAIN,
+        SASL_AUTH_MECH_CRAM_MD5, // deprecated
+        SASL_AUTH_MECH_SCRAM_SHA1,
+        SASL_AUTH_MECH_SCRAM_SHA256,
+        SASL_AUTH_MECH_SCRAM_SHA512
+    }
+    cbsasl_auth_mechanism_t;
 
     typedef struct {
         unsigned long len;
@@ -60,13 +82,18 @@ extern "C" {
 
     struct cbsasl_client_conn_t {
         char *userdata;
-        int plain;
+        cbsasl_auth_mechanism_t auth_mech; // authentication mechanism
         int (*get_username)(void *context, int id, const char **result,
                             unsigned int *len);
         void *get_username_ctx;
         int (*get_password)(cbsasl_conn_t *conn, void *context, int id,
                             cbsasl_secret_t **psecret);
         void *get_password_ctx;
+        char *nonce; // client nonce for SCRAM-SHA authentication
+        char *client_first_message_bare; // for SCRAM-SHA authentication
+        unsigned char *saltedpassword; // for SCRAM-SHA authentication
+        unsigned int saltedpasslen; // length of the salted password field
+        char *auth_message; // for SCRAM-SHA authentication
     };
 
     struct cbsasl_server_conn_t {
@@ -144,6 +171,20 @@ extern "C" {
                                       unsigned *outputlen);
 
     /**
+     * Final authentication step, if need to be (depending on the mechanism).
+     *
+     * This is mainly use for SCRAM-SHA authentication family, to verify the
+     * server signature. Even if the server accepted the authentication, if
+     * we can't verify its signature, we must reject the connection.
+     *
+     * @return Whether or not the sasl check was successful
+     */
+    CBSASL_PUBLIC_API
+    cbsasl_error_t cbsasl_client_check(cbsasl_conn_t *conn,
+                                       const char *input,
+                                       unsigned int inputlen);
+
+    /**
      * Frees up funushed sasl connections
      *
      * @param conn The sasl connection to free
@@ -199,7 +240,8 @@ extern "C" {
                                        void **prompt_need,
                                        const char **clientout,
                                        unsigned int *clientoutlen,
-                                       const char **mech);
+                                       const char **mech,
+                                       int allow_scram_sha);
 
     CBSASL_PUBLIC_API
     cbsasl_error_t cbsasl_client_step(cbsasl_conn_t *conn,

@@ -20,6 +20,9 @@
  */
 #include <errno.h>
 #include <limits.h> /* For IOV_MAX */
+#include "ctx-log-inl.h"
+#include "strcodecs/strcodecs.h"
+
 #ifndef INLINE
 #ifdef _MSC_VER
 #define INLINE __inline
@@ -57,6 +60,15 @@ lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
         GT_READ:
         rv = IOT_V0IO(iot).recvv(IOT_ARG(iot), CTX_FD(ctx), iov, niov);
         if (rv > 0) {
+#ifdef LCB_DUMP_PACKETS
+            {
+                char *b64 = NULL;
+                int nb64 = 0;
+                lcb_base64_encode_iov((lcb_IOV *)iov, niov, rv, &b64, &nb64);
+                lcb_log(LOGARGS(ctx, TRACE), CTX_LOGFMT "pkt,rcv: size=%d, %.*s", CTX_LOGID(ctx), nb64, nb64, b64);
+                free(b64);
+            }
+#endif
             rdb_rdend(ior, rv);
             if (rdsize && (total_nr += rv) >= rdsize) {
                 return LCBIO_PENDING;
@@ -83,7 +95,7 @@ lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
 static INLINE lcbio_IOSTATUS
 lcbio_E_rb_write(lcbio_CTX *ctx, ringbuffer_t *buf)
 {
-    lcb_IOV iov[2];
+    lcb_IOV iov[2] = {0};
     lcb_ssize_t nw;
     lcbio_TABLE *iot = ctx->io;
     while (buf->nbytes) {
@@ -108,6 +120,15 @@ lcbio_E_rb_write(lcbio_CTX *ctx, ringbuffer_t *buf)
             }
         }
         if (nw) {
+#ifdef LCB_DUMP_PACKETS
+            {
+                char *b64 = NULL;
+                int nb64 = 0;
+                lcb_base64_encode_iov((lcb_IOV *)iov, niov, nw, &b64, &nb64);
+                lcb_log(LOGARGS(ctx, TRACE), CTX_LOGFMT "pkt,snd: size=%d, %.*s", CTX_LOGID(ctx), nb64, nb64, b64);
+                free(b64);
+            }
+#endif
             ringbuffer_consumed(buf, nw);
             CTX_INCR_METRIC(ctx, bytes_sent, nw);
         }

@@ -1,16 +1,18 @@
-INSTALL(
-    FILES
-    plugin-libuv.c
-    plugin-internal.h
-    libuv_compat.h
-    DESTINATION
-    include/libcouchbase/plugins/io/libuv)
+IF(LCB_INSTALL_HEADERS)
+  INSTALL(
+      FILES
+      plugin-libuv.c
+      plugin-internal.h
+      libuv_compat.h
+      DESTINATION
+      include/libcouchbase/plugins/io/libuv)
 
-INSTALL(
-    FILES
-    libuv_io_opts.h
-    DESTINATION
-    include/libcouchbase)
+  INSTALL(
+      FILES
+      libuv_io_opts.h
+      DESTINATION
+      include/libcouchbase)
+ENDIF(LCB_INSTALL_HEADERS)
 
 IF(NOT HAVE_LIBUV OR LCB_NO_PLUGINS OR NOT LCB_BUILD_LIBUV)
     RETURN()

@@ -110,6 +110,10 @@ public:
         return compsupport;
     }
 
+    bool supports_json() const {
+        return jsonsupport;
+    }
+
     bool is_connected() const {
         return connctx != NULL;
     }
@@ -199,6 +203,9 @@ public:
 
     /** Whether compression is supported */
     short compsupport;
+
+    /** Whether JSON datatype is supported */
+    short jsonsupport;
 
     /** Whether extended 'UUID' and 'seqno' are available for each mutation */
     short mutation_tokens;

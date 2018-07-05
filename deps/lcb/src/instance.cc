@@ -451,7 +451,10 @@ lcb_error_t lcb_create(lcb_t *instance,
         goto GT_DONE;
     }
 
-    settings->logger = lcb_init_console_logger();
+    settings->logger = spec.logger();
+    if (settings->logger == NULL) {
+        settings->logger = lcb_init_console_logger();
+    }
     settings->iid = lcb_next_rand32();
     if (spec.loglevel()) {
         lcb_U32 val = spec.loglevel();
@@ -617,6 +620,13 @@ void lcb_destroy(lcb_t instance)
 
     mcreq_queue_cleanup(&instance->cmdq);
     lcb_aspend_cleanup(po);
+
+#ifdef LCB_TRACING
+    if (instance->settings && instance->settings->tracer) {
+        lcbtrace_destroy(instance->settings->tracer);
+        instance->settings->tracer = NULL;
+    }
+#endif
 
     if (instance->iotable && instance->iotable->refcount > 1 &&
             instance->settings && instance->settings->syncdtor) {

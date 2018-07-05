@@ -209,3 +209,108 @@ TEST_F(SnappyUnitTest, testIOV)
     ASSERT_EQ(LCB_SUCCESS, cookie.rc);
     ASSERT_STREQ(compressed.c_str(), cookie.value.c_str());
 }
+
+
+TEST_F(SnappyUnitTest, testSettings)
+{
+
+    SKIP_UNLESS_MOCK();
+    HandleWrap hw;
+    lcb_t instance;
+
+    setCompression("passive");
+    createConnection(hw, instance);
+    lcb_cntl_string(instance, "compression", "deflate_only");
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, getcb);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, storecb);
+
+    std::string key("hello");
+    std::string value("A big black bug bit a big black bear, made the big black bear bleed blood");
+    std::string compressed("IPA big black bug bit a.\x14");
+
+    SnappyCookie cookie;
+    lcb_CMDSTORE scmd;
+    lcb_CMDGET gcmd;
+
+    scmd = lcb_CMDSTORE();
+    scmd.operation = LCB_UPSERT;
+    LCB_CMD_SET_KEY(&scmd, key.c_str(), key.size());
+    LCB_CMD_SET_VALUE(&scmd, value.c_str(), value.size());
+    cookie = SnappyCookie();
+    lcb_store3(instance, &cookie, &scmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+    /* now we have negotiated snappy feature */
+    cookie = SnappyCookie();
+    lcb_store3(instance, &cookie, &scmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+
+    value = "A big black bug";
+    compressed = "A big black bug";
+    scmd = lcb_CMDSTORE();
+    scmd.operation = LCB_UPSERT;
+    LCB_CMD_SET_KEY(&scmd, key.c_str(), key.size());
+    LCB_CMD_SET_VALUE(&scmd, value.c_str(), value.size());
+    cookie = SnappyCookie();
+    lcb_store3(instance, &cookie, &scmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+
+    cookie = SnappyCookie();
+    gcmd = lcb_CMDGET();
+    LCB_CMD_SET_KEY(&gcmd, key.c_str(), key.size());
+    lcb_get3(instance, &cookie, &gcmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+    ASSERT_STREQ(compressed.c_str(), cookie.value.c_str());
+
+    lcb_cntl_string(instance, "compression_min_size", "1024"); /* greater than size of the value */
+    value = "A big black bug bit a big black bear, made the big black bear bleed blood";
+    compressed = "A big black bug bit a big black bear, made the big black bear bleed blood";
+    scmd = lcb_CMDSTORE();
+    scmd.operation = LCB_UPSERT;
+    LCB_CMD_SET_KEY(&scmd, key.c_str(), key.size());
+    LCB_CMD_SET_VALUE(&scmd, value.c_str(), value.size());
+    cookie = SnappyCookie();
+    lcb_store3(instance, &cookie, &scmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+
+    cookie = SnappyCookie();
+    gcmd = lcb_CMDGET();
+    LCB_CMD_SET_KEY(&gcmd, key.c_str(), key.size());
+    lcb_get3(instance, &cookie, &gcmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+    ASSERT_STREQ(compressed.c_str(), cookie.value.c_str());
+
+    lcb_cntl_string(instance, "compression_min_size", "40"); /* less than size of the value */
+    lcb_cntl_string(instance, "compression_min_ratio", "0.1"); /* expect to reduce size in 10 times */
+    value = "A big black bug bit a big black bear, made the big black bear bleed blood";
+    compressed = "A big black bug bit a big black bear, made the big black bear bleed blood";
+    scmd = lcb_CMDSTORE();
+    scmd.operation = LCB_UPSERT;
+    LCB_CMD_SET_KEY(&scmd, key.c_str(), key.size());
+    LCB_CMD_SET_VALUE(&scmd, value.c_str(), value.size());
+    cookie = SnappyCookie();
+    lcb_store3(instance, &cookie, &scmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+
+    cookie = SnappyCookie();
+    gcmd = lcb_CMDGET();
+    LCB_CMD_SET_KEY(&gcmd, key.c_str(), key.size());
+    lcb_get3(instance, &cookie, &gcmd);
+    lcb_wait(instance);
+    ASSERT_TRUE(cookie.called);
+    ASSERT_EQ(LCB_SUCCESS, cookie.rc);
+    ASSERT_STREQ(compressed.c_str(), cookie.value.c_str());
+}

@@ -61,7 +61,7 @@ struct Spechost {
 class LCB_CLASS_EXPORT Connspec {
 public:
     typedef std::vector<std::pair<std::string,std::string> > Options;
-    Connspec() : m_sslopts(0), m_implicit_port(0), m_loglevel(0), m_logredact(false), m_flags(0), m_ipv6(LCB_IPV6_DISABLED) {}
+    Connspec() : m_sslopts(0), m_implicit_port(0), m_loglevel(0), m_logredact(false), m_flags(0), m_ipv6(LCB_IPV6_DISABLED), m_logger(NULL) {}
 
     lcb_error_t parse(const char *connstr, const char **errmsg = NULL);
     lcb_error_t load(const lcb_create_st&);
@@ -97,6 +97,7 @@ public:
     const std::string& keypath() const { return m_keypath; }
     unsigned sslopts() const { return m_sslopts; }
     const Options& options() const { return m_ctlopts; }
+    lcb_logprocs * logger() const { return m_logger; }
     unsigned loglevel() const { return m_loglevel; }
     bool logredact() const { return m_logredact; }
     const std::string& connstr() const { return m_connstr; }
@@ -126,6 +127,7 @@ private:
     std::set<int> m_transports;
     unsigned m_flags; /**< Internal flags */
     lcb_ipv6_t m_ipv6;
+    lcb_logprocs *m_logger;
 };
 
 #define LCB_SPECSCHEME_RAW "couchbase+explicit://"

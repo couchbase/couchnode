@@ -186,7 +186,7 @@ CccpProvider::update(const char *host, const char *data)
     if (!vbc) {
         return LCB_CLIENT_ENOMEM;
     }
-    rv = lcbvb_load_json(vbc, data);
+    rv = lcbvb_load_json_ex(vbc, data, host, &LCBT_SETTING(this->parent, network));
 
     if (rv) {
         lcb_log(LOGARGS(this, ERROR), LOGFMT "Failed to parse config", LOGID(this));
@@ -313,17 +313,12 @@ CccpProvider::configure_nodes(const lcb::Hostlist& nodes_)
 void
 CccpProvider::config_updated(lcbvb_CONFIG *vbc)
 {
-    lcbvb_SVCMODE mode;
+    lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(parent);
     if (LCBVB_NSERVERS(vbc) < 1) {
         return;
     }
 
     nodes->clear();
-    if (settings().sslopts & LCB_SSL_ENABLED) {
-        mode = LCBVB_SVCMODE_SSL;
-    } else {
-        mode = LCBVB_SVCMODE_PLAIN;
-    }
     for (size_t ii = 0; ii < LCBVB_NSERVERS(vbc); ii++) {
         const char *mcaddr = lcbvb_get_hostport(vbc,
             ii, LCBVB_SVCTYPE_DATA, mode);

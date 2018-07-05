@@ -57,6 +57,7 @@ typedef struct lcb_http_request_st *lcb_http_request_t;
 #include <libcouchbase/auth.h>
 #include <libcouchbase/tracing.h>
 #include <libcouchbase/_cxxwrap.h>
+#include <libcouchbase/cntl.h>
 
 #ifdef __cplusplus
 extern "C"{
@@ -275,7 +276,7 @@ struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
 #endif
 
 /**
- * @brief Innser structure for lcb_create().
+ * @brief Inner structure V3 for lcb_create().
  */
 struct lcb_create_st3 {
     const char *connstr; /**< Connection string */
@@ -297,6 +298,30 @@ struct lcb_create_st3 {
 };
 
 /**
+ * @brief Inner structure V4 for lcb_create().
+ *
+ * Same as V3, but allows to supply logger (@see LCB_CNTL_LOGGER).
+ */
+struct lcb_create_st4 {
+    const char *connstr; /**< Connection string */
+
+    /**
+     * Username to use for authentication. This should only be set when
+     * connecting to a server 5.0 or greater.
+     */
+    const char *username;
+
+    /**
+     * Password for bucket. Can also be password for username on servers >= 5.0
+     */
+    const char *passwd;
+
+    lcb_logprocs *logger; /**< Logger */
+    struct lcb_io_opt_st *io; /**< IO Options */
+    lcb_type_t type;
+};
+
+/**
  * @brief Wrapper structure for lcb_create()
  * @see lcb_create_st3
  */
@@ -311,6 +336,7 @@ struct lcb_create_st {
         struct lcb_create_st1 v1;
         struct lcb_create_st2 v2;
         struct lcb_create_st3 v3; /**< Use this field */
+        struct lcb_create_st4 v4;
     } v;
     LCB_DEPR_CTORS_CRST
 };
@@ -1343,6 +1369,16 @@ typedef struct lcb_MULTICMD_CTX_st {
      * @param ctx
      */
     void (*fail)(struct lcb_MULTICMD_CTX_st *ctx);
+
+#ifdef LCB_TRACING
+    /**
+     * Associate parent tracing span with the group operation
+     *
+     * @param ctx The multi context
+     * @param span Parent span
+     */
+    void (*setspan)(struct lcb_MULTICMD_CTX_st *ctx, lcbtrace_SPAN *span);
+#endif
 } lcb_MULTICMD_CTX;
 /**@}*/
 
@@ -2386,7 +2422,7 @@ typedef lcb_CMDBASE lcb_CMDNOOP;
 typedef lcb_RESPSERVERBASE lcb_RESPNOOP;
 
 /**
- * @uncommitted
+ * @committed
  *
  * Send NOOP to the node
  *
@@ -2457,7 +2493,7 @@ lcb_noop3(lcb_t instance, const void *cookie, const lcb_CMDNOOP *cmd);
 /**
  * Structure for PING requests.
  *
- * @uncommitted
+ * @committed
  */
 typedef struct {
     LCB_CMD_BASE;
@@ -2469,7 +2505,7 @@ typedef struct {
 /**
  * Type of the service. This enumeration is used in PING responses.
  *
- * @uncommitted
+ * @committed
  */
 typedef enum {
     LCB_PINGSVC_KV = 0,
@@ -2482,7 +2518,7 @@ typedef enum {
 /**
  * Status of the service
  *
- * @uncommitted
+ * @committed
  */
 typedef enum {
     LCB_PINGSTATUS_OK = 0,
@@ -2495,7 +2531,7 @@ typedef enum {
  * Entry describing the status of the service in the cluster.
  * It is part of lcb_RESPING structure.
  *
- * @uncommitted
+ * @committed
  */
 typedef struct {
     lcb_PINGSVCTYPE type; /**< type of the service */
@@ -2512,7 +2548,7 @@ typedef struct {
 /**
  * Structure for PING responses.
  *
- * @uncommitted
+ * @committed
  */
 typedef struct {
     LCB_RESP_BASE
@@ -2526,7 +2562,7 @@ typedef struct {
 /**
  * @brief Check connections by sending NOOP-like messages to all services.
  *
- * @uncommitted
+ * @committed
  *
  * When no metrics, required, it is possible to reduce memory overhead
  * by turning off response contents using #LCB_PINGOPT_F_NOMETRICS.
@@ -2580,7 +2616,7 @@ typedef struct {
 /**
  * @brief Returns diagnostics report about network connections.
  *
- * @uncommitted
+ * @committed
  *
  * @par Request
  * @code{.c}
@@ -4036,7 +4072,6 @@ int lcb_is_redacting_logs(lcb_t instance);
 }
 #endif /* __cplusplus */
 #include <libcouchbase/subdoc.h>
-#include <libcouchbase/cntl.h>
 #include <libcouchbase/deprecated.h>
 #include <libcouchbase/api-legacy.h>
 #endif /* LIBCOUCHBASE_COUCHBASE_H */

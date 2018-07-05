@@ -652,7 +652,6 @@ SetHandler::run()
 
     lcb_sched_leave(instance);
     lcb_wait(instance);
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
 }
 
 void

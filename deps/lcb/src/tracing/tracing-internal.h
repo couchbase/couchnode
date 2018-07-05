@@ -117,7 +117,7 @@ class ThresholdLoggingTracer
     FixedQueue< ReportedSpan > m_orphans;
     FixedQueue< ReportedSpan > m_threshold;
 
-    void flush_queue(FixedQueue< ReportedSpan > &queue, const char *message);
+    void flush_queue(FixedQueue< ReportedSpan > &queue, const char *message, bool warn);
     ReportedSpan convert(lcbtrace_SPAN *span);
 
   public:
@@ -129,6 +129,8 @@ class ThresholdLoggingTracer
 
     void flush_orphans();
     void flush_threshold();
+    void do_flush_orphans();
+    void do_flush_threshold();
 
     lcb::io::Timer< ThresholdLoggingTracer, &ThresholdLoggingTracer::flush_orphans > m_oflush;
     lcb::io::Timer< ThresholdLoggingTracer, &ThresholdLoggingTracer::flush_threshold > m_tflush;
@@ -158,20 +160,22 @@ void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val);
         lcbtrace_span_add_system_tags(outspan, (settings), LCBTRACE_TAG_SERVICE_KV);                                   \
     }
 
-#define LCBTRACE_KV_FINISH(pipeline, request, response)                                                                \
+#define LCBTRACE_KV_COMPLETE(pipeline, request, response)                                                              \
     do {                                                                                                               \
         lcbtrace_SPAN *span = MCREQ_PKT_RDATA(request)->span;                                                          \
         if (span) {                                                                                                    \
             lcbtrace_span_add_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, (response)->duration());                     \
             lcb::Server *server = static_cast< lcb::Server * >(pipeline);                                              \
-            const lcb_host_t &remote = server->get_host();                                                             \
-            std::string hh;                                                                                            \
-            if (remote.ipv6) {                                                                                         \
-                hh.append("[").append(remote.host).append("]:").append(remote.port);                                   \
-            } else {                                                                                                   \
-                hh.append(remote.host).append(":").append(remote.port);                                                \
+            const lcb_host_t *remote = server->curhost;                                                                \
+            if (remote) {                                                                                              \
+                std::string hh;                                                                                        \
+                if (remote->ipv6) {                                                                                    \
+                    hh.append("[").append(remote->host).append("]:").append(remote->port);                             \
+                } else {                                                                                               \
+                    hh.append(remote->host).append(":").append(remote->port);                                          \
+                }                                                                                                      \
+                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, hh.c_str());                                \
             }                                                                                                          \
-            lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, hh.c_str());                                    \
             lcbio_CTX *ctx = server->connctx;                                                                          \
             if (ctx) {                                                                                                 \
                 char local_id[34] = {};                                                                                \
@@ -181,10 +185,21 @@ void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val);
                 lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS,                                            \
                                           lcbio__inet_ntop(&ctx->sock->info->sa_local).c_str());                       \
             }                                                                                                          \
+        }                                                                                                              \
+    } while (0);
+
+#define LCBTRACE_KV_CLOSE(request)                                                                                     \
+    do {                                                                                                               \
+        lcbtrace_SPAN *span = MCREQ_PKT_RDATA(request)->span;                                                          \
+        if (span) {                                                                                                    \
             lcbtrace_span_finish(span, LCBTRACE_NOW);                                                                  \
             MCREQ_PKT_RDATA(request)->span = NULL;                                                                     \
         }                                                                                                              \
     } while (0);
+
+#define LCBTRACE_KV_FINISH(pipeline, request, response)                                                                \
+    LCBTRACE_KV_COMPLETE(pipeline, request, response)                                                                  \
+    LCBTRACE_KV_CLOSE(request)
 
 #ifdef __cplusplus
 }
@@ -193,6 +208,8 @@ void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val);
 #else
 
 #define LCBTRACE_KV_START(settings, cmd, operation_name, opaque, outspan)
+#define LCBTRACE_KV_COMPLETE(pipeline, request, response)
+#define LCBTRACE_KV_CLOSE(request)
 #define LCBTRACE_KV_FINISH(pipeline, request, response)
 
 #endif /* LCB_TRACING */

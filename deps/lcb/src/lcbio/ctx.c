@@ -31,10 +31,10 @@
     } \
 } while (0)
 
-#include "rw-inl.h"
-#include "ctx-log-inl.h"
 
 #define LOGARGS(c, lvl) (c)->sock->settings, "ioctx", LCB_LOG_##lvl, __FILE__, __LINE__
+
+#include "rw-inl.h"
 
 typedef enum {
     ES_ACTIVE = 0,
@@ -385,6 +385,18 @@ Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
             rdb_rdend(&ctx->ior, nr);
             total = rdb_get_nused(&ctx->ior);
             if (total >= ctx->rdwant) {
+#ifdef LCB_DUMP_PACKETS
+                {
+                    char *b64 = NULL;
+                    lcb_SIZE nb64 = 0;
+                    char *buf = calloc(total, sizeof(char));
+                    rdb_copyread(&ctx->ior, buf, total);
+                    lcb_base64_encode2(buf, total, &b64, &nb64);
+                    lcb_log(LOGARGS(ctx, TRACE), CTX_LOGFMT "pkt,rcv: size=%d, %.*s", CTX_LOGID(ctx), (int)nb64, (int)nb64, b64);
+                    free(b64);
+                    free(buf);
+                }
+#endif
                 invoke_read_cb(ctx, total);
             }
             CTX_INCR_METRIC(ctx, bytes_received, total);
@@ -421,7 +433,7 @@ C_schedule(lcbio_CTX *ctx)
 
     if (ctx->output && ctx->output->rb.nbytes) {
         /** Schedule a write */
-        lcb_IOV iov[2];
+        lcb_IOV iov[2] = {0};
         unsigned niov;
 
         ringbuffer_get_iov(&ctx->output->rb, RINGBUFFER_READ, iov);
@@ -433,6 +445,15 @@ C_schedule(lcbio_CTX *ctx)
         } else {
             ctx->output = NULL;
             ctx->npending++;
+#ifdef LCB_DUMP_PACKETS
+            {
+                char *b64 = NULL;
+                int nb64 = 0;
+                lcb_base64_encode_iov((lcb_IOV *)iov, niov, iov[0].iov_len + iov[1].iov_len, &b64, &nb64);
+                lcb_log(LOGARGS(ctx, TRACE), CTX_LOGFMT "pkt,snd: size=%d, %.*s", CTX_LOGID(ctx), nb64, nb64, b64);
+                free(b64);
+            }
+#endif
         }
     }
 

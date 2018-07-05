@@ -16,6 +16,7 @@
  */
 
 #include "mcreq.h"
+#include "settings.h"
 #ifndef LCB_MCCOMPRESS_H
 #define LCB_MCCOMPRESS_H
 
@@ -28,10 +29,12 @@ extern "C" {
  * @param pl The pipeline which hosts the packet
  * @param pkt The packet which hosts the value
  * @param vbuf The user input to be compressed
+ * @param settings The instance settings
+ * @param should_compress The pointer, which stores zero if the value is not compressed
  * @return 0 if successful, nonzero on error.
  */
-int
-mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf);
+int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf, lcb_settings *settings,
+                         int *should_compress);
 
 /**
  * Inflate a compressed value
@@ -44,9 +47,8 @@ mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf);
  * longer required.
  * @return 0 if successful, nonzero on error.
  */
-int
-mcreq_inflate_value(const void *compressed, lcb_SIZE ncompressed,
-    const void **bytes, lcb_SIZE *nbytes, void **freeptr);
+int mcreq_inflate_value(const void *compressed, lcb_SIZE ncompressed, const void **bytes, lcb_SIZE *nbytes,
+                        void **freeptr);
 
 #ifdef __cplusplus
 }

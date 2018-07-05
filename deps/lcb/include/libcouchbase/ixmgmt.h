@@ -43,7 +43,7 @@ typedef struct {
      * populate the internal equivalents of the fields in this structure.
      *
      * Note that when using this field as an input for creating indexes, you
-     * should still set the ::flags field if you wish to set flags (e.g. in
+     * should still set the @ref flags field if you wish to set flags (e.g. in
      * order to create a deferred-build index).
      */
     const char *rawjson;

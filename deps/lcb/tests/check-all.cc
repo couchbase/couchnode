@@ -404,7 +404,7 @@ static void setLinkerEnvironment(std::string &path)
         newenv += ":";
     }
     newenv += path;
-    fprintf(stderr, "%s=%s\n", varname, newenv.c_str());
+    fprintf(stderr, "export %s=%s\n", varname, newenv.c_str());
     setenv(varname, newenv.c_str(), 1);
 }
 
@@ -562,6 +562,7 @@ static bool runSingleCycle(TestConfiguration &config)
                 iterbins++) {
 
             std::string cmdline = config.setupCommandline(*iterbins);
+            fprintf(stderr, "Command line '%s'\n", cmdline.c_str());
             scheduler.schedule(Process(*iter, *iterbins, cmdline, config));
         }
 
@@ -584,19 +585,22 @@ int main(int argc, char **argv)
 
     // Set the environment for 'srcdir'
     std::stringstream ss;
-    fprintf(stderr, "%s=%s\n", LCB_SRCROOT_ENV_VAR, config.srcroot.c_str());
+    fprintf(stderr, "export %s=%s\n", LCB_SRCROOT_ENV_VAR, config.srcroot.c_str());
     setenv(LCB_SRCROOT_ENV_VAR, config.srcroot.c_str(), 1);
+    fprintf(stderr, "export LCB_VERBOSE_TESTS=1\n");
     setenv("LCB_VERBOSE_TESTS", "1", 1);
 
     char loglevel_s[4096] = { 0 };
     if (config.getVerbosityLevel() > 0) {
         sprintf(loglevel_s, "%d", config.getVerbosityLevel());
         setenv("LCB_LOGLEVEL", loglevel_s, 0);
+        fprintf(stderr, "export LCB_LOGLEVEL=%s\n", loglevel_s);
     }
 
     if (!config.realClusterEnv.empty()) {
         // format the string
         setenv("LCB_TEST_CLUSTER_CONF", config.realClusterEnv.c_str(), 0);
+        fprintf(stderr, "export LCB_TEST_CLUSTER_CONF=%s\n", config.realClusterEnv.c_str());
     }
 
     for (int ii = 0; ii < config.maxCycles; ii++) {

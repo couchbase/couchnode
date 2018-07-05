@@ -41,17 +41,9 @@ static void osp_release_bytes(lcbcrypto_PROVIDER *provider, void *bytes)
     (void)provider;
 }
 
-static lcb_error_t osp_load_key(struct lcbcrypto_PROVIDER *provider, lcbcrypto_KEYTYPE type, const char *keyid,
-                                uint8_t **key, size_t *key_len)
+static const char *osp_get_key_id(lcbcrypto_PROVIDER *provider)
 {
-    *key_len = AES256_KEY_SIZE;
-    *key = malloc(*key_len);
-    memcpy(*key, common_aes256_key, *key_len);
-
-    (void)type;
-    (void)keyid;
-    (void)provider;
-    return LCB_SUCCESS;
+    return common_aes256_key_id;
 }
 
 static lcb_error_t osp_generate_iv(struct lcbcrypto_PROVIDER *provider, uint8_t **iv, size_t *iv_len)
@@ -170,15 +162,14 @@ static lcb_error_t osp_verify_signature(struct lcbcrypto_PROVIDER *provider, con
 }
 
 static lcb_error_t osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
-                               const uint8_t *key, size_t key_len, const uint8_t *iv, size_t iv_len, uint8_t **output,
-                               size_t *output_len)
+                               const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len)
 {
     EVP_CIPHER_CTX *ctx;
     const EVP_CIPHER *cipher;
     int rc, len, block_len, out_len;
     uint8_t *out;
 
-    if (iv_len != 16 || key_len != 32) {
+    if (iv_len != 16) {
         return LCB_EINVAL;
     }
 
@@ -187,7 +178,7 @@ static lcb_error_t osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_
         return LCB_EINVAL;
     }
     cipher = EVP_aes_256_cbc();
-    rc = EVP_EncryptInit_ex(ctx, cipher, NULL, key, iv);
+    rc = EVP_EncryptInit_ex(ctx, cipher, NULL, common_aes256_key, iv);
     if (rc != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return LCB_EINVAL;
@@ -215,15 +206,14 @@ static lcb_error_t osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_
 }
 
 static lcb_error_t osp_decrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
-                               const uint8_t *key, size_t key_len, const uint8_t *iv, size_t iv_len, uint8_t **output,
-                               size_t *output_len)
+                               const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len)
 {
     EVP_CIPHER_CTX *ctx;
     const EVP_CIPHER *cipher;
     int rc, len, out_len;
     uint8_t *out;
 
-    if (iv_len != 16 || key_len != 32) {
+    if (iv_len != 16) {
         return LCB_EINVAL;
     }
 
@@ -232,7 +222,7 @@ static lcb_error_t osp_decrypt(struct lcbcrypto_PROVIDER *provider, const uint8_
         return LCB_EINVAL;
     }
     cipher = EVP_aes_256_cbc();
-    rc = EVP_DecryptInit_ex(ctx, cipher, NULL, key, iv);
+    rc = EVP_DecryptInit_ex(ctx, cipher, NULL, common_aes256_key, iv);
     if (rc != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return LCB_EINVAL;
@@ -261,15 +251,15 @@ static lcb_error_t osp_decrypt(struct lcbcrypto_PROVIDER *provider, const uint8_
 lcbcrypto_PROVIDER *osp_create()
 {
     lcbcrypto_PROVIDER *provider = calloc(1, sizeof(lcbcrypto_PROVIDER));
-    provider->version = 0;
+    provider->version = 1;
     provider->destructor = osp_free;
-    provider->v.v0.release_bytes = osp_release_bytes;
-    provider->v.v0.load_key = osp_load_key;
-    provider->v.v0.generate_iv = osp_generate_iv;
-    provider->v.v0.sign = osp_sign;
-    provider->v.v0.verify_signature = osp_verify_signature;
-    provider->v.v0.encrypt = osp_encrypt;
-    provider->v.v0.decrypt = osp_decrypt;
+    provider->v.v1.release_bytes = osp_release_bytes;
+    provider->v.v1.generate_iv = osp_generate_iv;
+    provider->v.v1.sign = osp_sign;
+    provider->v.v1.verify_signature = osp_verify_signature;
+    provider->v.v1.encrypt = osp_encrypt;
+    provider->v.v1.decrypt = osp_decrypt;
+    provider->v.v1.get_key_id = osp_get_key_id;
     return provider;
 }
 

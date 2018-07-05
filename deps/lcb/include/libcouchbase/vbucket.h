@@ -101,6 +101,9 @@ typedef struct {
     char *ftspath; /**< Path prefix for fulltext queries */
     char *cbaspath; /**< Path prefix for analytics queries */
     unsigned nvbs; /**< Total number of vbuckets the server has assigned */
+    char *alt_hostname; /**< selected alternative hostname for the node */
+    lcbvb_SERVICES alt_svc; /**< selected alternative plain services */
+    lcbvb_SERVICES alt_svc_ssl; /**< selected alternative SSL Services */
 } lcbvb_SERVER;
 
 /**@volatile. ABI/API compatibility not guaranteed between versions */
@@ -194,6 +197,13 @@ lcbvb_parse_json(const char *data);
  * Load a JSON-based configuration string into a configuration object
  * @param vbc Object to populate
  * @param data NUL-terminated string to parse
+ * @param source hostname of the node, which emitted configuration. Pointer
+ *   to NULL will disable heuristic when network argument is pointer to NULL
+ *   string.
+ * @param network pointer to string, which specified key in alternative
+ *   addresses dict. Use pointer NULL string to trigger heuristic, in this
+ *   case, the function will try to match configuration source address to
+ *   the list of addresses to determine best network.
  * @return 0 on success, nonzero on failure
  * @note it is recommended to use this function rather than lcbvb_parse_json()
  *  as this will contain the error string in the configuration in case of parse
@@ -202,6 +212,14 @@ lcbvb_parse_json(const char *data);
 LIBCOUCHBASE_API
 int
 lcbvb_load_json(lcbvb_CONFIG *vbc, const char *data);
+
+
+/**
+ * @uncommmitted
+ */
+LIBCOUCHBASE_API
+int
+lcbvb_load_json_ex(lcbvb_CONFIG *vbc, const char *data, const char *source, char **network);
 
 /**@brief Serialize the current config as a JSON string.
  * @volatile

@@ -186,6 +186,17 @@ CasDurset::poll_impl()
         cmd.servers_ = servers;
         cmd.nservers_ = nservers;
 
+#ifdef LCB_TRACING
+        if (instance->settings->tracer) {
+            lcbtrace_REF ref;
+            ref.type = LCBTRACE_REF_CHILD_OF;
+            ref.span = span;
+            lcbtrace_SPAN *child =
+                lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_OBSERVE_CAS_ROUND, LCBTRACE_NOW, &ref);
+            lcbtrace_span_add_system_tags(child, instance->settings, LCBTRACE_TAG_SERVICE_KV);
+            mctx->setspan(mctx, child);
+        }
+#endif
         err = mctx->addcmd(mctx, (lcb_CMDBASE *)&cmd);
         if (err != LCB_SUCCESS) {
             mctx->fail(mctx);

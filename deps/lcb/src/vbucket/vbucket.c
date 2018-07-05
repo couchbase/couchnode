@@ -385,7 +385,7 @@ build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
  * @return
  */
 static int
-build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
+build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **network)
 {
     cJSON *jsvcs;
     char *htmp;
@@ -414,6 +414,37 @@ build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
         goto GT_ERR;
     }
 
+    if (network && *network && strcmp(*network, "default") != 0) {
+        cJSON *jaltaddr = cJSON_GetObjectItem(js, "alternateAddresses");
+        if (jaltaddr && jaltaddr->type == cJSON_Object) {
+            cJSON *jnetwork = cJSON_GetObjectItem(jaltaddr, *network);
+            if (jnetwork && get_jstr(jnetwork, "hostname", &htmp)) {
+                cJSON *jports;
+                server->alt_hostname = strdup(htmp);
+                jports = cJSON_GetObjectItem(jnetwork, "ports");
+                if (jports && jports->type == cJSON_Object) {
+                    extract_services(cfg, jports, &server->alt_svc, 0);
+                    extract_services(cfg, jports, &server->alt_svc_ssl, 1);
+                }
+
+#define COPY_SERVICE(src, dst)                                          \
+                if ((dst)->data == 0) (dst)->data = (src)->data;        \
+                if ((dst)->mgmt == 0) (dst)->mgmt = (src)->mgmt;        \
+                if ((dst)->views == 0) (dst)->views = (src)->views;     \
+                if ((dst)->n1ql == 0) (dst)->n1ql = (src)->n1ql;        \
+                if ((dst)->fts == 0) (dst)->fts = (src)->fts;           \
+                if ((dst)->ixadmin == 0) (dst)->ixadmin = (src)->ixadmin; \
+                if ((dst)->ixquery == 0) (dst)->ixquery = (src)->ixquery; \
+                if ((dst)->cbas == 0) (dst)->cbas = (src)->cbas;
+
+                COPY_SERVICE(&server->svc, &server->alt_svc);
+                COPY_SERVICE(&server->svc_ssl, &server->alt_svc_ssl);
+
+#undef COPY_SERVICE
+            }
+        }
+    }
+
     return 1;
 
     GT_ERR:
@@ -427,7 +458,7 @@ build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
  * @return nonzero on success, 0 on failure.
  */
 static int
-build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
+build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **network)
 {
     char *tmp = NULL, *colon;
     int itmp;
@@ -508,8 +539,44 @@ build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
     return 0;
 }
 
+static void
+guess_network(cJSON *jnodes, int nsrv, const char *source, char **network)
+{
+    int ii;
+    for (ii = 0; ii < nsrv; ii++) {
+        cJSON *jsrv = cJSON_GetArrayItem(jnodes, ii);
+        {
+            cJSON *jhostname = cJSON_GetObjectItem(jsrv, "hostname");
+            if (jhostname && jhostname->type == cJSON_String) {
+                if (strcmp(jhostname->valuestring, source) == 0) {
+                    *network = strdup("default");
+                    return;
+                }
+            }
+        }
+        {
+            cJSON *jaltaddr = cJSON_GetObjectItem(jsrv, "alternateAddresses");
+            if (jaltaddr && jaltaddr->type == cJSON_Object) {
+                cJSON *cur;
+                for (cur = jaltaddr->child; cur != NULL; cur = cur->next) {
+                    if (cur->type == cJSON_Object) {
+                        cJSON *jhostname = cJSON_GetObjectItem(cur, "hostname");
+                        if (jhostname && jhostname->type == cJSON_String) {
+                            if (strcmp(jhostname->valuestring, source) == 0) {
+                                *network = strdup(cur->string);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    *network = strdup("default");
+}
+
 int
-lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
+lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char **network)
 {
     cJSON *cj = NULL, *jnodes = NULL;
     char *tmp = NULL;
@@ -585,6 +652,10 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
     /** Get the number of nodes. This traverses the list. Yuck */
     cfg->nsrv = cJSON_GetArraySize(jnodes);
 
+    if (network && *network == NULL) {
+        guess_network(jnodes, cfg->nsrv, source, network);
+    }
+
     /** Allocate a temporary one on the heap */
     cfg->servers = calloc(cfg->nsrv, sizeof(*cfg->servers));
     for (ii = 0; ii < cfg->nsrv; ii++) {
@@ -592,9 +663,9 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
         cJSON *jsrv = cJSON_GetArrayItem(jnodes, ii);
 
         if (cfg->is3x) {
-            rv = build_server_3x(cfg, cfg->servers + ii, jsrv);
+            rv = build_server_3x(cfg, cfg->servers + ii, jsrv, network);
         } else {
-            rv = build_server_2x(cfg, cfg->servers + ii, jsrv);
+            rv = build_server_2x(cfg, cfg->servers + ii, jsrv, network);
         }
 
         if (!rv) {
@@ -636,6 +707,12 @@ lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
         cJSON_Delete(cj);
     }
     return -1;
+}
+
+int
+lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
+{
+    return lcbvb_load_json_ex(cfg, data, NULL, NULL);
 }
 
 static void
@@ -754,6 +831,9 @@ lcbvb_destroy(lcbvb_CONFIG *conf)
         free_service_strs(&srv->svc);
         free_service_strs(&srv->svc_ssl);
         free(srv->authority);
+        free(srv->alt_hostname);
+        free_service_strs(&srv->alt_svc);
+        free_service_strs(&srv->alt_svc_ssl);
     }
     free(conf->servers);
     free(conf->continuum);
@@ -783,6 +863,9 @@ svcs_to_json(lcbvb_SERVICES *svc, cJSON *jsvc, int is_ssl)
     EXTRACT_SERVICE("n1ql", n1ql);
     EXTRACT_SERVICE("indexScan", ixquery);
     EXTRACT_SERVICE("indexAdmin", ixadmin);
+    EXTRACT_SERVICE("fts", fts);
+    EXTRACT_SERVICE("cbas", cbas);
+
     #undef EXTRACT_SERVICE
 }
 
@@ -1139,12 +1222,41 @@ lcbvb_get_changetype(lcbvb_CONFIGDIFF *diff)
  ** String/Port Getters                                                      **
  ******************************************************************************
  ******************************************************************************/
+
+static const lcbvb_SERVICES *
+get_svc(const lcbvb_SERVER *srv, lcbvb_SVCMODE mode)
+{
+    if (srv->alt_hostname) {
+        if (mode == LCBVB_SVCMODE_PLAIN) {
+            return &srv->alt_svc;
+        } else {
+            return &srv->alt_svc_ssl;
+        }
+    } else {
+        if (mode == LCBVB_SVCMODE_PLAIN) {
+            return &srv->svc;
+        } else {
+            return &srv->svc_ssl;
+        }
+    }
+}
+
+static const char *
+get_hostname(const lcbvb_SERVER *srv)
+{
+    if (srv->alt_hostname) {
+        return srv->alt_hostname;
+    } else {
+        return srv->hostname;
+    }
+}
+
 LIBCOUCHBASE_API
 unsigned
 lcbvb_get_port(lcbvb_CONFIG *cfg,
     unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
 {
-    lcbvb_SERVICES *svc;
+    const lcbvb_SERVICES *svc;
     lcbvb_SERVER *srv;
     if (type >= LCBVB_SVCTYPE__MAX || mode >= LCBVB_SVCMODE__MAX) {
         return 0;
@@ -1154,12 +1266,7 @@ lcbvb_get_port(lcbvb_CONFIG *cfg,
     }
 
     srv = cfg->servers + ix;
-
-    if (mode == LCBVB_SVCMODE_PLAIN) {
-        svc = &srv->svc;
-    } else {
-        svc = &srv->svc_ssl;
-    }
+    svc = get_svc(srv, mode);
 
     if (type == LCBVB_SVCTYPE_DATA) {
         return svc->data;
@@ -1197,17 +1304,13 @@ lcbvb_get_hostport(lcbvb_CONFIG *cfg,
     }
 
     srv = cfg->servers + ix;
-    if (mode == LCBVB_SVCMODE_PLAIN) {
-        svc = &srv->svc;
-    } else {
-        svc = &srv->svc_ssl;
-    }
+    svc = (lcbvb_SERVICES *)get_svc(srv, mode);
 
     strp = &svc->hoststrs[type];
     if (*strp == NULL) {
         size_t strn = strlen(srv->hostname) + 20;
         *strp = calloc(strn, sizeof(char));
-        copy_address(*strp, strn, srv->hostname, port);
+        copy_address(*strp, strn, get_hostname(srv), port);
     }
     return *strp;
 }
@@ -1217,7 +1320,7 @@ const char *
 lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix)
 {
     if (cfg->nsrv > ix) {
-        return cfg->servers[ix].hostname;
+        return get_hostname(cfg->servers + ix);
     } else {
         return NULL;
     }
@@ -1237,8 +1340,7 @@ lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
      */
     for (nn = 0; nn < cfg->nsrv; nn++) {
         const lcbvb_SERVER *server = cfg->servers + nn;
-        const lcbvb_SERVICES *svcs = mode == LCBVB_SVCMODE_PLAIN ?
-                &server->svc : &server->svc_ssl;
+        const lcbvb_SERVICES *svcs = get_svc(server, mode);
         int has_svc = 0;
 
         // Check if this node is in the exclude list
@@ -1299,11 +1401,10 @@ lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
     srv = cfg->servers + ix;
     if (mode == LCBVB_SVCMODE_PLAIN) {
         prefix = "http";
-        svcs = &srv->svc;
     } else {
         prefix = "https";
-        svcs = &srv->svc_ssl;
     }
+    svcs = (lcbvb_SERVICES *)get_svc(srv, mode);
 
     if (svc == LCBVB_SVCTYPE_VIEWS) {
         path = srv->viewpath;
@@ -1326,11 +1427,12 @@ lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
         return NULL;
     } else if (!*strp) {
         char buf[4096];
-        if (strchr(srv->hostname, ':')) {
+        const char *hostname = get_hostname(srv);
+        if (strchr(hostname, ':')) {
             // IPv6 and should be bracketed
-            snprintf(buf, sizeof(buf), "%s://[%s]:%d%s", prefix, srv->hostname, port, path);
+            snprintf(buf, sizeof(buf), "%s://[%s]:%d%s", prefix, hostname, port, path);
         } else {
-            snprintf(buf, sizeof(buf), "%s://%s:%d%s", prefix, srv->hostname, port, path);
+            snprintf(buf, sizeof(buf), "%s://%s:%d%s", prefix, hostname, port, path);
         }
         *strp = strdup(buf);
     }

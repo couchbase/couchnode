@@ -78,6 +78,8 @@ lcb_logprocs * lcb_init_console_logger(void);
 
 /** Macro for overcoming Win32 identifiers */
 #define LCB_LOG_ERR LCB_LOG_ERROR
+/** Undefine DEBUG macro to fix environments which are defining it */
+#undef DEBUG
 
 #ifdef __cplusplus
 }

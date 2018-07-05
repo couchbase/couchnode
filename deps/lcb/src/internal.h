@@ -138,7 +138,8 @@ struct lcb_st {
     lcb_BTYPE btype; /**< Type of the bucket */
 
     #ifdef __cplusplus
-    std::map<std::string, lcbcrypto_PROVIDER *> *crypto;
+    typedef std::map<std::string, lcbcrypto_PROVIDER *> lcb_ProviderMap;
+    lcb_ProviderMap *crypto;
     lcb_settings* getSettings() { return settings; }
     lcbio_pTABLE getIOT() { return iotable; }
     inline void add_bs_host(const char *host, int port, unsigned bstype);
@@ -195,6 +196,7 @@ struct lcb_st {
 #define LCBT_NREPLICAS(instance) LCBVB_NREPLICAS(LCBT_VBCONFIG(instance))
 #define LCBT_GET_SERVER(instance, ix) (instance)->cmdq.pipelines[ix]
 #define LCBT_SETTING(instance, name) (instance)->settings->name
+#define LCBT_SETTING_SVCMODE(instance) (((instance)->settings->sslopts & LCB_SSL_ENABLED) ? LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN)
 
 void lcb_initialize_packet_handlers(lcb_t instance);
 

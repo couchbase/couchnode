@@ -76,26 +76,44 @@ class FragBufSource : public snappy::Source
     unsigned int idx;
 };
 
-int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf)
+int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf, lcb_settings *settings,
+                         int *should_compress)
 {
-    size_t maxsize, compsize;
+    size_t maxsize, compsize = 0, origsize = 0;
 
     snappy::Source *source = NULL;
     switch (vbuf->vtype) {
         case LCB_KV_COPY:
         case LCB_KV_CONTIG:
+            origsize = vbuf->u_buf.contig.nbytes;
+            if (origsize < settings->compress_min_size) {
+                *should_compress = 0;
+                mcreq_reserve_value(pl, pkt, vbuf);
+                return 0;
+            }
             source = new snappy::ByteArraySource(static_cast< const char * >(vbuf->u_buf.contig.bytes),
                                                  vbuf->u_buf.contig.nbytes);
             break;
 
         case LCB_KV_IOV:
         case LCB_KV_IOVCOPY:
+            if (vbuf->u_buf.multi.total_length == 0) {
+                for (unsigned int ii = 0; ii < vbuf->u_buf.multi.niov; ii++) {
+                    origsize += vbuf->u_buf.multi.iov[ii].iov_len;
+                }
+            }
+            if (origsize < settings->compress_min_size) {
+                *should_compress = 0;
+                mcreq_reserve_value(pl, pkt, vbuf);
+                return 0;
+            }
             source = new FragBufSource(&vbuf->u_buf.multi);
             break;
 
         default:
             return -1;
     }
+
     maxsize = snappy::MaxCompressedLength(source->Available());
     if (mcreq_reserve_value2(pl, pkt, maxsize) != LCB_SUCCESS) {
         return -1;
@@ -106,6 +124,13 @@ int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf
     Compress(source, &sink);
     compsize = sink.CurrentDestination() - SPAN_BUFFER(outspan);
     delete source;
+
+    if (compsize == 0 || ((compsize / origsize) > settings->compress_min_ratio)) {
+        netbuf_mblock_release(&pl->nbmgr, outspan);
+        *should_compress = 0;
+        mcreq_reserve_value(pl, pkt, vbuf);
+        return 0;
+    }
 
     if (compsize < maxsize) {
         /* chop off some bytes? */

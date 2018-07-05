@@ -412,8 +412,7 @@ Request::get_api_node(lcb_error_t &rc)
     }
 
     const lcbvb_SVCTYPE svc = httype2svctype(reqtype);
-    const lcbvb_SVCMODE mode = LCBT_SETTING(instance, sslopts) ?
-            LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN;
+    const lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(instance);
 
     lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
 

@@ -24,7 +24,7 @@ extern "C" {
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-cbft-api Full Text Search (Experimental)
+ * @defgroup lcb-cbft-api Full Text Search
  * @brief Search for strings in documents and more
  */
 
@@ -55,6 +55,9 @@ typedef struct {
 } lcb_RESPFTS;
 
 typedef void (*lcb_FTSCALLBACK)(lcb_t, int, const lcb_RESPFTS *);
+/**
+ * Pointer for request instance
+ */
 typedef struct lcb_FTSREQ* lcb_FTSHANDLE;
 
 /**
@@ -100,17 +103,48 @@ LIBCOUCHBASE_API
 void
 lcb_fts_cancel(lcb_t, lcb_FTSHANDLE);
 
-#ifdef LCB_TRACING
-/**
- * @uncommitted
- */
-LIBCOUCHBASE_API
-void lcb_fts_set_parent_span(lcb_t instance, lcb_FTSHANDLE handle, lcbtrace_SPAN *span);
-#endif
-
 /**
  * @}
  */
+
+/**
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-tracing-api
+ * @{
+ */
+#ifdef LCB_TRACING
+
+/**
+ * Associate parent tracing span with the FTS request.
+ *
+ * @param instance the instance
+ * @param handle FTS request handle
+ * @param span parent span
+ *
+ * @par Attach parent tracing span to request object.
+ * @code{.c}
+ * lcb_CMDFTS cmd = {};
+ * // initialize FTS command...
+ *
+ * lcb_FTSHANDLE handle = NULL;
+ * cmd->handle = &handle;
+ *
+ * lcb_error_t err = lcb_fts_query(instance, cookie, cmd);
+ * if (err == LCB_SUCCESS) {
+ *     lcb_fts_set_parent_span(instance, handle, span);
+ * }
+ * @endcode
+ *
+ * @committed
+ */
+LIBCOUCHBASE_API
+void lcb_fts_set_parent_span(lcb_t instance, lcb_FTSHANDLE handle, lcbtrace_SPAN *span);
+
+#endif
+/**
+ * @} (Group: Tracing)
+ */
+
 #ifdef __cplusplus
 }
 #endif

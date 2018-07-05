@@ -76,7 +76,8 @@ class MockCommand
     X(START_RETRY_VERIFY) \
     X(CHECK_RETRY_VERIFY) \
     X(SET_ENHANCED_ERRORS) \
-    X(SET_COMPRESSION)
+    X(SET_COMPRESSION) \
+    X(SET_SASL_MECHANISMS)
 
 public:
     enum Code {
@@ -305,6 +306,16 @@ public:
      * @return a vector of ports to use.
      */
     std::vector<int> getMcPorts(std::string bucket = "default");
+
+    /**
+     * Enable SASL mechanisms on the mock cluster
+     * @param mechanisms list of mechanisms to enable
+     * @param bucket the bucket on which to enable these mechanisms
+     * @param nodes a list of by-index nodes on which to enable mechanisms. If NULL
+     * then all nodes are enabled
+     */
+    void setSaslMechs(std::vector<std::string>& mechanisms, std::string bucket = "",
+                      const std::vector<int>* nodes = NULL);
 
     /**
      * Enable CCCP on the mock cluster

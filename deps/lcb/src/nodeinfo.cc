@@ -59,14 +59,8 @@ LIBCOUCHBASE_API
 const char *
 lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
 {
-    lcbvb_SVCMODE mode;
+    lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(instance);
     lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
-
-    if (LCBT_SETTING(instance, sslopts) & LCB_SSL_ENABLED) {
-        mode = LCBVB_SVCMODE_SSL;
-    } else {
-        mode = LCBVB_SVCMODE_PLAIN;
-    }
 
     if (type & LCB_NODE_HTCONFIG) {
         if (type & LCB_NODE_CONNECTED) {

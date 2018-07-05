@@ -35,6 +35,9 @@ extern "C" {
  */
 typedef struct lcb_RESPN1QL lcb_RESPN1QL;
 typedef struct lcb_CMDN1QL lcb_CMDN1QL;
+/**
+ * Pointer for request instance
+ */
 typedef struct lcb_N1QLREQ* lcb_N1QLHANDLE;
 
 /**
@@ -447,18 +450,47 @@ LIBCOUCHBASE_API
 void
 lcb_n1ql_cancel(lcb_t instance, lcb_N1QLHANDLE handle);
 
-#ifdef LCB_TRACING
+/**@}*/
+
+/**@}*/
+
 /**
- * @uncommitted
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-tracing-api
+ * @{
+ */
+#ifdef LCB_TRACING
+
+/**
+ * Associate parent tracing span with the N1QL request.
+ *
+ * @param instance the instance
+ * @param handle N1QL request handle
+ * @param span parent span
+ *
+ * @par Attach parent tracing span to request object.
+ * @code{.c}
+ * lcb_CMDN1QL cmd = {};
+ * // initialize N1QL command...
+ *
+ * lcb_N1QLHANDLE handle = NULL;
+ * cmd->handle = &handle;
+ *
+ * lcb_error_t err = lcb_fts_query(instance, cookie, cmd);
+ * if (err == LCB_SUCCESS) {
+ *     lcb_n1ql_set_parent_span(instance, handle, span);
+ * }
+ * @endcode
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 void lcb_n1ql_set_parent_span(lcb_t instance, lcb_N1QLHANDLE handle, lcbtrace_SPAN *span);
+
 #endif
-
-/**@}*/
-
-/**@}*/
-
+/**
+ * @} (Group: Tracing)
+ */
 #ifdef __cplusplus
 }
 #endif

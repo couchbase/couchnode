@@ -66,7 +66,9 @@ lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, const char *, 
 #ifndef LCB_NO_SSL
 /**
  * Create a new SSL context to be used to establish SSL policy.
+ * @param tsfile Path to trusted store file
  * @param cafile Optional path to CA file
+ * @param keyfile Path to private key file
  * @param noverify To not attempt to verify server's certificate
  * @param errp a pointer to contain the error code if initialization failed
  * @param settings settings structure, used for logging.

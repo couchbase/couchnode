@@ -120,6 +120,9 @@ SeqnoDurset::poll_impl()
         for (size_t jj = 0; jj < nservers; jj++) {
             lcb_error_t err;
             cmd.server_index = servers[jj];
+#ifdef LCB_TRACING
+            LCB_CMD_SET_TRACESPAN(&cmd, span);
+#endif
             err = lcb_observe_seqno3(instance, &ent.callback, &cmd);
             if (err == LCB_SUCCESS) {
                 waiting++;

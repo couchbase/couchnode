@@ -34,10 +34,10 @@ ENDIF()
 ADD_EXECUTABLE(nonio-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_BASIC_SRC})
 
 ADD_EXECUTABLE(mc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC}
-    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:mcreq-cxx> $<TARGET_OBJECTS:netbuf> $<TARGET_OBJECTS:vbucket>)
+    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:mcreq-cxx> $<TARGET_OBJECTS:netbuf> $<TARGET_OBJECTS:vbucket-lcb>)
 
 ADD_EXECUTABLE(mc-malloc-tests EXCLUDE_FROM_ALL nonio_tests.cc ${T_MC_SRC}
-    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:mcreq-cxx> $<TARGET_OBJECTS:netbuf-malloc> $<TARGET_OBJECTS:vbucket>)
+    $<TARGET_OBJECTS:mcreq> $<TARGET_OBJECTS:mcreq-cxx> $<TARGET_OBJECTS:netbuf-malloc> $<TARGET_OBJECTS:vbucket-lcb>)
 
 ADD_EXECUTABLE(netbuf-tests
     EXCLUDE_FROM_ALL nonio_tests.cc basic/t_netbuf.cc $<TARGET_OBJECTS:netbuf>)

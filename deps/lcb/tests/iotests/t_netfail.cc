@@ -537,6 +537,83 @@ TEST_F(MockUnitTest, testSaslMechs)
     lcb_destroy(instance);
 }
 
+TEST_F(MockUnitTest, testSaslSHA)
+{
+    // Ensure our SASL mech listing works.
+    SKIP_UNLESS_MOCK();
+
+    const char *argv[] = { "--buckets", "protected:secret:couchbase", NULL };
+
+    lcb_t instance = NULL;
+    lcb_error_t err;
+    struct lcb_create_st crParams;
+    MockEnvironment mock_o(argv, "protected"), *protectedEnv = &mock_o;
+    protectedEnv->makeConnectParams(crParams, NULL);
+    protectedEnv->setCCCP(false);
+
+    crParams.v.v2.user = "protected";
+    crParams.v.v2.passwd = "secret";
+    crParams.v.v2.bucket = "protected";
+    crParams.v.v2.mchosts = NULL;
+
+    {
+        doLcbCreate(&instance, &crParams, protectedEnv);
+
+        // Make the socket pool disallow idle connections
+        instance->memd_sockpool->get_options().maxidle = 0;
+
+        ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
+        ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance));
+
+        err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"SCRAM-SHA512");
+        ASSERT_EQ(LCB_SUCCESS, err);
+
+        Item itm("key", "value");
+        KVOperation kvo(&itm);
+
+        kvo.allowableErrors.insert(LCB_SASLMECH_UNAVAILABLE);
+        kvo.allowableErrors.insert(LCB_ETIMEDOUT);
+        kvo.store(instance);
+
+        ASSERT_FALSE(kvo.globalErrors.find(LCB_SASLMECH_UNAVAILABLE) == kvo.globalErrors.end());
+
+        lcb_destroy(instance);
+    }
+
+    std::vector<std::string> mechs;
+    mechs.push_back("SCRAM-SHA512");
+    protectedEnv->setSaslMechs(mechs);
+
+    {
+        instance = NULL;
+        doLcbCreate(&instance, &crParams, protectedEnv);
+
+        // Make the socket pool disallow idle connections
+        instance->memd_sockpool->get_options().maxidle = 0;
+
+        ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
+        ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance));
+
+        Item itm("key", "value");
+        KVOperation kvo(&itm);
+
+        kvo.allowableErrors.insert(LCB_SASLMECH_UNAVAILABLE);
+        kvo.allowableErrors.insert(LCB_ETIMEDOUT);
+        kvo.store(instance);
+
+#ifndef LCB_NO_SSL
+        err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"SCRAM-SHA512");
+        ASSERT_EQ(LCB_SUCCESS, err);
+
+        kvo.clear();
+        kvo.store(instance);
+#endif
+
+        lcb_destroy(instance);
+    }
+}
+
+
 extern "C" {
 static const char *get_username(void *cookie, const char *host, const char *port, const char *bucket)
 {

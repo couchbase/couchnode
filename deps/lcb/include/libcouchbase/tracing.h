@@ -22,7 +22,12 @@
  * @file
  * End to end tracing
  *
- * @uncommitted
+ * @ingroup lcb-public-api
+ * @defgroup lcb-tracing-api End to end tracing
+ * @brief Tracing operations through SDK and the Cluster.
+ *
+ * @addtogroup lcb-tracing-api
+ * @{
  */
 
 #ifdef __cplusplus
@@ -40,40 +45,62 @@ extern "C" {
 typedef struct lcbtrace_SPAN_Cdummy lcbtrace_SPAN;
 #endif
 
+/**
+ * Flag for @ref lcbtrace_new to request threshold logging tracer.
+ */
 #define LCBTRACE_F_THRESHOLD 0x01
 
 struct lcbtrace_TRACER;
+/**
+ * Tracer interface.
+ */
 typedef struct lcbtrace_TRACER {
-    lcb_U16 version;
-    lcb_U64 flags;
-    void *cookie;
-    void (*destructor)(struct lcbtrace_TRACER *tracer);
+    lcb_U16 version;                                    /**< version of the structure, current value is 0 */
+    lcb_U64 flags;                                      /**< tracer-specific flags */
+    void *cookie;                                       /**< opaque pointer (e.g. pointer to wrapper structure) */
+    void (*destructor)(struct lcbtrace_TRACER *tracer); /**< destructor function or NULL, if it is not necessary */
     union {
         struct {
-            void (*report)(struct lcbtrace_TRACER *tracer, lcbtrace_SPAN *span);
+            void (*report)(struct lcbtrace_TRACER *tracer, lcbtrace_SPAN *span); /**< optional reporter function */
         } v0;
     } v;
 } lcbtrace_TRACER;
 
 /**
- * @uncommitted
+ * Get current tracer of the connection.
+ *
+ * @param instance current connection
  * @return tracer
+ *
+ * @committed
  */
 LIBCOUCHBASE_API lcbtrace_TRACER *lcb_get_tracer(lcb_t instance);
 
 /**
- * @uncommitted
- * @return tracer
+ * Set current tracer for the connection.
+ *
+ * @param instance current connection
+ * @param tracer tracer instance
+ *
+ * @committed
  */
 LIBCOUCHBASE_API void lcb_set_tracer(lcb_t instance, lcbtrace_TRACER *tracer);
 
 /**
- * @uncommitted
+ * Create default libcouchbase tracer instance.
+ *
+ * @param instance current connection
+ * @param flags pass @ref LCBTRACE_F_THRESHOLD if needed threshold logging tracer.
+ * @return new tracer or NULL when nothing has been created.
+ *
+ * @committed
  */
 LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_t instance, lcb_U64 flags);
 
 /**
- * @uncommitted
+ * Destroy tracer object.
+ *
+ * @committed
  */
 LIBCOUCHBASE_API void lcbtrace_destroy(lcbtrace_TRACER *tracer);
 
@@ -89,55 +116,86 @@ typedef struct {
     lcbtrace_SPAN *span;
 } lcbtrace_REF;
 
-#define LCBTRACE_OP_GET "get"
-
 /** zero means the library will trigger timestamp automatically */
 #define LCBTRACE_NOW 0
 
 /**
- * @return time in microseconds
+ * Get current timestamp.
+ *
+ * @return current wall clock time in microseconds
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_U64 lcbtrace_now(void);
 
 /**
- * @uncommitted
- * @param tracer
- * @param operation
- * @param now
- * @param ctx
+ * Start span.
+ *
+ * @param tracer tracer instance
+ * @param operation the operation code
+ * @param now start timestamp or @ref LCBTRACE_NOW to let the library to record current time from the wall clock.
+ * @param ref reference to the other span, or NULL
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcbtrace_SPAN *lcbtrace_span_start(lcbtrace_TRACER *tracer, const char *operation, lcb_U64 now, lcbtrace_REF *ref);
 
 /**
- * @uncommitted
- * @param span
- * @param now
+ * Mark the span as finished.
+ *
+ * @param span span instance
+ * @param now finish timestamp or @ref LCBTRACE_NOW to let the library to record current time from the wall clock.
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 void lcbtrace_span_finish(lcbtrace_SPAN *span, lcb_U64 now);
 
 /**
- * @uncommitted
+ * Get start timestamp of the span.
+ *
+ * @param span span instance
+ * @return timestamp in microseconds when the span has been started.
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_U64 lcbtrace_span_get_start_ts(lcbtrace_SPAN *span);
 
 /**
- * @uncommitted
+ * Get finish timestamp of the span.
+ *
+ * @param span span instance
+ * @return timestamp in microseconds when the span has been finished.
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_U64 lcbtrace_span_get_finish_ts(lcbtrace_SPAN *span);
 
 /**
- * @uncommitted
+ * Check if the span is orphaned.
+ *
+ * Spans might be marked as orphaned, when the library has discarded
+ * request structure without waiting for server response (e.g. on timeout).
+ *
+ * @param span span instance
+ * @return non-zero if span is orphaned.
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 int lcbtrace_span_is_orphaned(lcbtrace_SPAN *span);
 
 /**
- * @uncomitted
+ * Get operation code of the span.
+ *
+ * @param span span instance
+ * @return operation code
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
@@ -153,6 +211,7 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_OP_GET_FROM_REPLICA "get_from_replica"
 #define LCBTRACE_OP_INSERT "insert"
 #define LCBTRACE_OP_OBSERVE_CAS "observe_cas"
+#define LCBTRACE_OP_OBSERVE_CAS_ROUND "observe_cas_round"
 #define LCBTRACE_OP_OBSERVE_SEQNO "observe_seqno"
 #define LCBTRACE_OP_PREPEND "prepend"
 #define LCBTRACE_OP_REMOVE "remove"
@@ -162,11 +221,10 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_OP_UPSERT "upsert"
 #define LCBTRACE_OP_UPSERT "upsert"
 
-#define LCBTRACE_OP_STORE2NAME(code)                \
-    (code == LCB_ADD) ? LCBTRACE_OP_ADD :           \
-    (code == LCB_PREPEND) ? LCBTRACE_OP_PREPEND :   \
-    (code == LCB_APPEND) ? LCBTRACE_OP_APPEND :     \
-    LCBTRACE_OP_UPSERT
+#define LCBTRACE_OP_STORE2NAME(code)                                                                                   \
+    (code == LCB_ADD)                                                                                                  \
+        ? LCBTRACE_OP_ADD                                                                                              \
+        : (code == LCB_PREPEND) ? LCBTRACE_OP_PREPEND : (code == LCB_APPEND) ? LCBTRACE_OP_APPEND : LCBTRACE_OP_UPSERT
 
 #define LCBTRACE_TAG_DB_TYPE "db.type"
 #define LCBTRACE_TAG_SPAN_KIND "span.kind"
@@ -214,79 +272,135 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_TAG_PEER_LATENCY "peer.latency"
 
 /**
- * @uncommitted
+ * Get ID of the span.
+ *
+ * @param span span instance
+ * @return span ID
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_U64 lcbtrace_span_get_span_id(lcbtrace_SPAN *span);
 
 /**
- * @uncommitted
+ * Get trace ID of the span.
+ *
+ * @param span span instance
+ * @return trace ID
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_U64 lcbtrace_span_get_trace_id(lcbtrace_SPAN *span);
 
 /**
- * @uncommitted
+ * Get parent span of the span.
+ *
+ * @param span span instance
+ * @return parent span or NULL
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcbtrace_SPAN *lcbtrace_span_get_parent(lcbtrace_SPAN *span);
 
 /**
- * @uncommitted
+ * Get value of the string tag of the span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value pointer to result string
+ * @param nvalue pointer to length of the result string
+ * @return LCB_SUCCESS if value exists and was written to result pointer
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_error_t lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char **value, size_t *nvalue);
 
 /**
- * @uncommitted
+ * Get value of the integer tag of the span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value pointer to result
+ * @return LCB_SUCCESS if value exists and was written to result pointer
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_error_t lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, const char *name, lcb_U64 *value);
 
 /**
- * @uncommitted
+ * Get value of the double tag of the span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value pointer to result
+ * @return LCB_SUCCESS if value exists and was written to result pointer
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 lcb_error_t lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, const char *name, double *value);
 
 /**
- * @uncommitted
+ * Get value of the boolean tag of the span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value pointer to result
+ * @return LCB_SUCCESS if value exists and was written to result pointer
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, const char *name, int value);
+lcb_error_t lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, const char *name, int *value);
 
 /**
- * @uncommitted
- * @param span
- * @param name
- * @param value
+ * Add string tag to span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value value of the tag (NUL-terminated)
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_str(lcbtrace_SPAN *span, const char *name, const char *value);
 
 /**
- * @uncommitted
- * @param span
- * @param name
- * @param value
+ * Add integer tag to span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value value of the tag
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_uint64(lcbtrace_SPAN *span, const char *name, lcb_U64 value);
 
 /**
- * @uncommitted
- * @param span
- * @param name
- * @param value
+ * Add double tag to span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value value of the tag
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_double(lcbtrace_SPAN *span, const char *name, double value);
 
 /**
- * @uncommitted
- * @param span
- * @param name
- * @param value
+ * Add boolean tag to span.
+ *
+ * @param span span instance
+ * @param name name of the tag
+ * @param value value of the tag. 0 if false, otherwise -- true.
+ *
+ * @committed
  */
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value);
@@ -296,7 +410,8 @@ void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value
  *
  * @param cmd the command structure
  * @param ctx the lcbtrace_SPAN pointer
- * @uncommitted
+ *
+ * @committed
  */
 #define LCB_CMD_SET_TRACESPAN(cmd, span)                                                                               \
     do {                                                                                                               \
@@ -311,6 +426,10 @@ typedef struct {
     void *state;
     void (*report)(void *state, lcbtrace_SPAN *span);
 } ldcptrace_REPORTER;
+
+/**
+ * @} (Group: Tracing)
+ */
 
 #ifdef __cplusplus
 }

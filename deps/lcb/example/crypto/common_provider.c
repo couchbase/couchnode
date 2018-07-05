@@ -17,6 +17,8 @@
 
 #include "common_provider.h"
 
+char * common_aes256_key_id = "mykeyid";
+
 uint8_t *common_hmac_sha256_key = "myauthpassword";
 
 uint8_t common_aes256_key[AES256_KEY_SIZE] = "!mysecretkey#9^5usdk39d&dlf)03sL";

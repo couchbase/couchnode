@@ -73,6 +73,15 @@ handle_dur_storecb(mc_PIPELINE *, mc_PACKET *pkt,
         goto GT_BAIL;
     }
 
+#ifdef LCB_TRACING
+    {
+        lcbtrace_SPAN *span = MCREQ_PKT_RDATA(pkt)->span;
+        if (span) {
+            mctx->setspan(mctx, span);
+        }
+    }
+#endif
+
     lcbdurctx_set_durstore(mctx, 1);
     err = mctx->addcmd(mctx, (lcb_CMDBASE*)&dcmd);
     if (err != LCB_SUCCESS) {
@@ -237,7 +246,7 @@ do_store3(lcb_t instance, const void *cookie,
 
     should_compress = can_compress(instance, pipeline, datatype);
     if (should_compress) {
-        int rv = mcreq_compress_value(pipeline, packet, vbuf);
+        int rv = mcreq_compress_value(pipeline, packet, vbuf, instance->settings, &should_compress);
         if (rv != 0) {
             mcreq_release_packet(pipeline, packet);
             return LCB_CLIENT_ENOMEM;
@@ -282,7 +291,8 @@ do_store3(lcb_t instance, const void *cookie,
     if (should_compress || (datatype & LCB_VALUE_F_SNAPPYCOMP)) {
         hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_COMPRESSED;
     }
-    if (datatype & LCB_VALUE_F_JSON) {
+
+    if ((datatype & LCB_VALUE_F_JSON) && static_cast<const lcb::Server*>(pipeline)->supports_json()) {
         hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_JSON;
     }
 

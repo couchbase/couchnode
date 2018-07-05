@@ -27,7 +27,6 @@
  *
  * * Couchbase Python SDK (http://github.com/couchbase/couchbase-python-client).
  * * Couchbase node.js SDK (http://github.com/couchbase/couchnode)
- * * Couchbase Ruby SDK (http://github.com/couchbase/couchbase-ruby-client)
  *
  *
  * @section lcb_jira Reporting Issues
@@ -45,6 +44,36 @@
  *
  * @example example/libeventdirect/main.c
  * Shows how to integrate the library with an external event loop
+ *
+ * @example example/subdoc/subdoc-simple.cc
+ * Shows how to use subdocument API.
+ *
+ * @example example/subdoc/subdoc-multi.cc
+ * Shows how to make multi-path requests using subdocument API.
+ *
+ * @example example/subdoc/subdoc-xattrs.c
+ * Shows how to work with XATTRs using subdocument API.
+ *
+ * @example example/crypto/openssl_symmetric_provider.c
+ * Shows how to implement crypto provider using OpenSSL for field-level encryption.
+ *
+ * @example example/crypto/openssl_symmetric_encrypt.c
+ * Shows how to use field-encryption API to encrypt JSON values.
+ *
+ * @example example/crypto/openssl_symmetric_decrypt.c
+ * Shows how to use field-encryption API to decrypt JSON values.
+ *
+ * @example example/observe/observe.c
+ * Show how to use oberve to request state of the key on the cluster.
+ *
+ * @example example/observe/durability.c
+ * Show how to enforce durability requirements for store operations.
+ *
+ * @example example/tracing/tracing.c
+ * Shows how to implement custom tracer (e.g. for OpenZipkin)
+ *
+ * @example example/tracing/views.c
+ * Shows tracing for HTTP APIs of the cluster (e.g. Couchbase Views)
  */
 
 /**

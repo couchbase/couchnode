@@ -294,6 +294,18 @@ typedef enum {
     LCB_HTTP_STATUS_INSUFFICIENT_STORAGE = 507
 } lcb_http_status_t;
 
+/**
+ * @deprecated
+ */
+typedef enum {
+    /* encryption (e.g. private key for assymetric ciphers) */
+    LCBCRYPTO_KEY_ENCRYPT = 0,
+    /* decryption (e.g. private key for assymetric ciphers) */
+    LCBCRYPTO_KEY_DECRYPT = 1,
+    LCBCRYPTO_KEY__MAX
+} lcbcrypto_KEYTYPE;
+
+
 #ifdef __cplusplus
 }
 #endif

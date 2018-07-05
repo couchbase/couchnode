@@ -136,6 +136,65 @@ int lcb_base64_encode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *nds
     return rc;
 }
 
+void lcb_base64_encode_iov(lcb_IOV *iov, unsigned niov, unsigned nb, char **dst, int *ndst)
+{
+    lcb_SIZE nsrc = 0;
+    lcb_SIZE len;
+    char *ptr;
+    lcb_SIZE io;
+
+
+    for (io = 0; io < niov; io++) {
+        nsrc += iov[io].iov_len;
+    }
+    if (nb < nsrc) {
+        nsrc = nb;
+    }
+    len = (nsrc / 3 + 1) * 4 + 1;
+    ptr = calloc(len, sizeof(char));
+
+    {
+        lcb_SIZE triplets = nsrc / 3;
+        lcb_SIZE rest = nsrc % 3;
+        lcb_uint8_t *out = (lcb_uint8_t *)ptr;
+        lcb_SIZE iop, ii;
+        lcb_uint8_t triplet[3];
+
+        io = 0;
+        iop = 0;
+
+
+        for (ii = 0; ii < triplets; ii++) {
+            int tt;
+
+            for (tt = 0; tt < 3; tt++) {
+                if (iop >= iov[io].iov_len) {
+                    io++;
+                    iop = 0;
+                }
+                triplet[tt] = ((const lcb_uint8_t *)iov[io].iov_base)[iop++];
+            }
+            encode_triplet(triplet, out);
+            out += 4;
+        }
+
+        if (rest > 0) {
+            for (ii = 0; ii < rest; ii++) {
+                if (iop >= iov[io].iov_len) {
+                    io++;
+                    iop = 0;
+                }
+                triplet[ii] = ((const lcb_uint8_t *)iov[io].iov_base)[iop++];
+            }
+            encode_rest(triplet, out, rest);
+        }
+        *out = '\0';
+    }
+
+    *ndst = strlen(ptr);
+    *dst = ptr;
+}
+
 static int code2val(char c)
 {
     if (c >= 'A' && c <= 'Z') {

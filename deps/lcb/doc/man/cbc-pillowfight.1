@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-PILLOWFIGHT" "1" "February 2018" "" ""
+.TH "CBC\-PILLOWFIGHT" "1" "May 2018" "" ""
 .
 .SH "NAME"
 \fBcbc\-pillowfight\fR \- Stress Test for Couchbase Client and Cluster
@@ -120,12 +120,16 @@ A string describing the cluster to connect to\. The string is in a URI\-like syn
 The default for this option is \fBcouchbase://localhost/default\fR
 .
 .TP
-\fB\-P\fR, \fB\-\-password\fR=\fISASLPASS\fR:
+\fB\-u\fR, \fB\-\-username\fR=\fIUSERNAME\fR
+Specify the \fIusername\fR for the bucket\. As of Couchbase Server 2\.5 this field should be either left empty or set to the name of the bucket itself\. Since Couchbase 5\.x this is mandatory switch, and it must specify the name of the user exisiting on cluster (read more at "Security/Authorization" section of the server manual)\.
+.
+.TP
+\fB\-P\fR, \fB\-\-password\fR=\fIPASSWORD\fR:
 
 .
 .TP
 \fB\-P \-\fR, \fB\-\-password=\-\fR
-Specify the SASL password for the bucket\. This is only needed if the bucket is protected with a password\. Note that this is \fInot\fR the administrative password used to log into the web interface\.
+Specify the password for the bucket\. As for servers before 5\.x this was only needed if the bucket is protected with a password\. For cluster version after 5\.x, the password is mandatory, and should match the selected account (read more at "Security/Authorization" section of the server manual)\.
 .
 .IP
 Specifying the \fB\-\fR as the password indicates that the program should prompt for the password\. You may also specify the password on the commandline, directly, but is insecure as command line arguments are visible via commands such as \fBps\fR\.
@@ -243,13 +247,26 @@ Specify the bootstrap protocol the client should use when attempting to connect 
 The following examples show how to connect \fBpillowfight\fR to different types of cluster configurations\.
 .
 .P
-Run against a bucket (\fBa_bucket\fR) on a cluster on a remote host:
+Connect to a bucket (\fBa_bucket\fR) on a cluster on a remote host (for servers version 5\.x+)\. It uses account \'myname\' and asks password interactively:
 .
 .IP "" 4
 .
 .nf
 
-cbc cat key \-U couchbase://192\.168\.33\.101/a_bucket
+cbc\-pillowfight \-U couchbase://192\.168\.33\.101/a_bucket \-u myname \-P\-
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Run against a password\-less bucket (\fBa_bucket\fR) on a cluster on a remote host (for servers older than 5\.x):
+.
+.IP "" 4
+.
+.nf
+
+cbc\-pillowfight \-U couchbase://192\.168\.33\.101/a_bucket
 .
 .fi
 .
@@ -262,7 +279,7 @@ Connect to an SSL cluster at \fBsecure\.net\fR\. The certificate for the cluster
 .
 .nf
 
-cbc cat key \-U couchbases://secure\.net/topsecret_bucket?certpath=/home/couchbase/couchbase_cert\.pem
+cbc\-pillowfight \-U couchbases://secure\.net/topsecret_bucket?certpath=/home/couchbase/couchbase_cert\.pem
 .
 .fi
 .
@@ -275,20 +292,20 @@ Connect to an SSL cluster at \fBsecure\.net\fR, ignoring certificate verificatio
 .
 .nf
 
-cbc cat key \-U couchbases://secure\.net/topsecret_bucket?ssl=no_verify
+cbc\-pillowfight \-U couchbases://secure\.net/topsecret_bucket?ssl=no_verify
 .
 .fi
 .
 .IP "" 0
 .
 .P
-Connect to a password protected bucket (\fBprotected\fR) on a remote host:
+Connect to a password protected bucket (\fBprotected\fR) on a remote host (for servers older than 5\.x):
 .
 .IP "" 4
 .
 .nf
 
-cbc cat key \-U couchbase://remote\.host\.net/protected \-P \-
+cbc\-pillowfight \-U couchbase://remote\.host\.net/protected \-P \-
 Bucket password:
 \[char46]\[char46]\[char46]
 .
@@ -297,13 +314,13 @@ Bucket password:
 .IP "" 0
 .
 .P
-Connect to a password protected bucket, specifying the password on the command line (INSECURE, but useful for testing dummy environments)
+Connect to a password protected bucket (for servers older than 5\.x), specifying the password on the command line (INSECURE, but useful for testing dummy environments)
 .
 .IP "" 4
 .
 .nf
 
-cbc cat key \-U couchbase://remote\.host\.net/protected \-P t0ps3cr3t
+cbc\-pillowfight \-U couchbase://remote\.host\.net/protected \-P t0ps3cr3t
 .
 .fi
 .
@@ -316,7 +333,7 @@ Connect to a bucket running on a cluster with a custom REST API port
 .
 .nf
 
-cbc cat key \-U http://localhost:9000/default
+cbc\-pillowfight \-U http://localhost:9000/default
 .
 .fi
 .
@@ -329,7 +346,7 @@ Connec to bucket running on a cluster with a custom memcached port
 .
 .nf
 
-cbc cat key \-U couchbase://localhost:12000/default
+cbc\-pillowfight \-U couchbase://localhost:12000/default
 .
 .fi
 .
@@ -342,7 +359,7 @@ Connect to a \fImemcached\fR (http://memcached\.org) cluster using the binary pr
 .
 .nf
 
-cbc cat key \-U memcached://host1,host2,host3,host4
+cbc\-pillowfight \-U memcached://host1,host2,host3,host4
 .
 .fi
 .

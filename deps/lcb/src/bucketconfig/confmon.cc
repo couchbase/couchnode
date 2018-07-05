@@ -247,9 +247,11 @@ void Confmon::do_next_provider()
     state &= ~CONFMON_S_ITERGRACE;
     for (ProviderList::const_iterator ii = active_providers.begin();
             ii != active_providers.end(); ++ii) {
-        ConfigInfo *info;
         Provider* cached_provider = *ii;
-        info = cached_provider->get_cached();
+        if (!cached_provider) {
+            continue;
+        }
+        ConfigInfo *info = cached_provider->get_cached();
         if (!info) {
             continue;
         }

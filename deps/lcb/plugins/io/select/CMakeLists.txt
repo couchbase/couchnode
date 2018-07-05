@@ -4,8 +4,10 @@ SET_TARGET_PROPERTIES(couchbase_select
     PROPERTIES
         COMPILE_FLAGS "${CMAKE_C_FLAGS} ${LCB_CORE_CFLAGS}"
         POSITION_INDEPENDENT_CODE TRUE)
-INSTALL(
-    FILES
-        select_io_opts.h
-    DESTINATION
-        include/libcouchbase/)
+IF(LCB_INSTALL_HEADERS)
+  INSTALL(
+      FILES
+          select_io_opts.h
+      DESTINATION
+          include/libcouchbase/)
+ENDIF(LCB_INSTALL_HEADERS)

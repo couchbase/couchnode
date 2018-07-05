@@ -40,6 +40,8 @@ static void tlt_destructor(lcbtrace_TRACER *wrapper)
     }
     if (wrapper->cookie) {
         ThresholdLoggingTracer *tracer = reinterpret_cast< ThresholdLoggingTracer * >(wrapper->cookie);
+        tracer->do_flush_orphans();
+        tracer->do_flush_threshold();
         delete tracer;
         wrapper->cookie = NULL;
     }
@@ -105,7 +107,7 @@ void ThresholdLoggingTracer::check_threshold(lcbtrace_SPAN *span)
     }
 }
 
-void ThresholdLoggingTracer::flush_queue(FixedQueue< ReportedSpan > &queue, const char *message)
+void ThresholdLoggingTracer::flush_queue(FixedQueue< ReportedSpan > &queue, const char *message, bool warn = false)
 {
     std::vector< ReportedSpan > &slice = queue.get_sorted();
     Json::Value entries;
@@ -123,8 +125,28 @@ void ThresholdLoggingTracer::flush_queue(FixedQueue< ReportedSpan > &queue, cons
     if (doc.size() > 0 && doc[doc.size() - 1] == '\n') {
         doc[doc.size() - 1] = '\0';
     }
-    lcb_log(LOGARGS(this, WARN), "%s: %s", message, doc.c_str());
+    if (warn) {
+        lcb_log(LOGARGS(this, WARN), "%s: %s", message, doc.c_str());
+    } else {
+        lcb_log(LOGARGS(this, INFO), "%s: %s", message, doc.c_str());
+    }
     queue.clear();
+}
+
+void ThresholdLoggingTracer::do_flush_orphans()
+{
+    if (m_orphans.empty()) {
+        return;
+    }
+    flush_queue(m_orphans, "Orphan responses observed", true);
+}
+
+void ThresholdLoggingTracer::do_flush_threshold()
+{
+    if (m_threshold.empty()) {
+        return;
+    }
+    flush_queue(m_threshold, "Operations over threshold");
 }
 
 void ThresholdLoggingTracer::flush_orphans()
@@ -135,10 +157,7 @@ void ThresholdLoggingTracer::flush_orphans()
     } else {
         m_oflush.rearm(tv);
     }
-    if (m_orphans.empty()) {
-        return;
-    }
-    flush_queue(m_orphans, "Orphan responses observed");
+    do_flush_orphans();
 }
 
 void ThresholdLoggingTracer::flush_threshold()
@@ -149,10 +168,7 @@ void ThresholdLoggingTracer::flush_threshold()
     } else {
         m_tflush.rearm(tv);
     }
-    if (m_threshold.empty()) {
-        return;
-    }
-    flush_queue(m_threshold, "Operations over threshold");
+    do_flush_threshold();
 }
 
 ThresholdLoggingTracer::ThresholdLoggingTracer(lcb_t instance)

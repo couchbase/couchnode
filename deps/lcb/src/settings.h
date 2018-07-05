@@ -82,9 +82,15 @@
 #define LCB_DEFAULT_HTCONFIG_URLTYPE LCB_HTCONFIG_URLTYPE_TRYALL
 #define LCB_DEFAULT_COMPRESSOPTS LCB_COMPRESS_INOUT
 
+/* in bytes */
+#define LCB_DEFAULT_COMPRESS_MIN_SIZE 32
+/* compressed_bytes / original_bytes */
+#define LCB_DEFAULT_COMPRESS_MIN_RATIO 0.83
+
 #define LCB_DEFAULT_NVM_RETRY_IMM 1
 #define LCB_DEFAULT_RETRY_NMV_INTERVAL LCB_MS2US(100)
 #define LCB_DEFAULT_VB_NOGUESS 1
+#define LCB_DEFAULT_VB_NOREMAP 0
 #define LCB_DEFAULT_TCP_NODELAY 1
 #define LCB_DEFAULT_SELECT_BUCKET 1
 #define LCB_DEFAULT_TCP_KEEPALIVE 1
@@ -93,9 +99,9 @@
 /* 50 ms */
 #define LCB_CONFIG_POLL_INTERVAL_FLOOR LCB_MS2US(50)
 
-#define LCBTRACE_DEFAULT_ORPHANED_QUEUE_FLUSH_INTERVAL LCB_MS2US(1000)
+#define LCBTRACE_DEFAULT_ORPHANED_QUEUE_FLUSH_INTERVAL LCB_MS2US(10000)
 #define LCBTRACE_DEFAULT_ORPHANED_QUEUE_SIZE 128
-#define LCBTRACE_DEFAULT_THRESHOLD_QUEUE_FLUSH_INTERVAL LCB_MS2US(3000)
+#define LCBTRACE_DEFAULT_THRESHOLD_QUEUE_FLUSH_INTERVAL LCB_MS2US(10000)
 #define LCBTRACE_DEFAULT_THRESHOLD_QUEUE_SIZE 128
 #define LCBTRACE_DEFAULT_THRESHOLD_KV  LCB_MS2US(500)
 #define LCBTRACE_DEFAULT_THRESHOLD_N1QL LCB_MS2US(1000)
@@ -184,6 +190,8 @@ typedef struct lcb_settings_st {
     unsigned use_collections : 1;
     unsigned log_redaction : 1;
     unsigned use_tracing : 1;
+    /** Do not use remap vbuckets (do not use fast forward map, or any other heuristics) */
+    unsigned vb_noremap : 1;
 
     short max_redir;
     unsigned refcount;
@@ -214,6 +222,9 @@ typedef struct lcb_settings_st {
     lcb_U32 tracer_threshold_queue_size;
     lcb_U32 tracer_threshold[LCBTRACE_THRESHOLD__MAX];
 #endif
+    lcb_U32 compress_min_size;
+    float compress_min_ratio;
+    char *network; /** network resolution, AKA "Multi Network Configurations" */
 } lcb_settings;
 
 LCB_INTERNAL_API

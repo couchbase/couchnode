@@ -43,6 +43,10 @@ uint64_t lcbtrace_now()
 LIBCOUCHBASE_API
 void lcbtrace_span_finish(lcbtrace_SPAN *span, uint64_t now)
 {
+    if (!span) {
+        return;
+    }
+
     span->finish(now);
     delete span;
 }
@@ -50,30 +54,45 @@ void lcbtrace_span_finish(lcbtrace_SPAN *span, uint64_t now)
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_str(lcbtrace_SPAN *span, const char *name, const char *value)
 {
+    if (!span) {
+        return;
+    }
     span->add_tag(name, value);
 }
 
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_uint64(lcbtrace_SPAN *span, const char *name, uint64_t value)
 {
+    if (!span) {
+        return;
+    }
     span->add_tag(name, (Json::Value::UInt64)value);
 }
 
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_double(lcbtrace_SPAN *span, const char *name, double value)
 {
+    if (!span) {
+        return;
+    }
     span->add_tag(name, value);
 }
 
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value)
 {
+    if (!span) {
+        return;
+    }
     span->add_tag(name, value);
 }
 
 LCB_INTERNAL_API
 void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, const char *service)
 {
+    if (!span) {
+        return;
+    }
     lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_SERVICE, service);
     std::string client_string(LCB_CLIENT_ID);
     if (settings->client_string) {
@@ -89,24 +108,36 @@ void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, 
 LIBCOUCHBASE_API
 lcbtrace_SPAN *lcbtrace_span_get_parent(lcbtrace_SPAN *span)
 {
+    if (!span) {
+        return NULL;
+    }
     return span->m_parent;
 }
 
 LCB_INTERNAL_API
 void lcbtrace_span_set_parent(lcbtrace_SPAN *span, lcbtrace_SPAN *parent)
 {
+    if (!span) {
+        return;
+    }
     span->m_parent = parent;
 }
 
 LIBCOUCHBASE_API
 uint64_t lcbtrace_span_get_start_ts(lcbtrace_SPAN *span)
 {
+    if (!span) {
+        return 0;
+    }
     return span->m_start;
 }
 
 LIBCOUCHBASE_API
 uint64_t lcbtrace_span_get_finish_ts(lcbtrace_SPAN *span)
 {
+    if (!span) {
+        return 0;
+    }
     return span->m_finish;
 }
 
@@ -119,26 +150,36 @@ int lcbtrace_span_is_orphaned(lcbtrace_SPAN *span)
 LCB_INTERNAL_API
 void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val)
 {
-    if (span) {
-        span->m_orphaned = (val != 0);
+    if (!span) {
+        return;
     }
+    span->m_orphaned = (val != 0);
 }
 
 LIBCOUCHBASE_API
 uint64_t lcbtrace_span_get_span_id(lcbtrace_SPAN *span)
 {
+    if (!span) {
+        return 0;
+    }
     return span->m_span_id;
 }
 
 LIBCOUCHBASE_API
 const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span)
 {
+    if (!span) {
+        return NULL;
+    }
     return span->m_opname.c_str();
 }
 
 LIBCOUCHBASE_API
 uint64_t lcbtrace_span_get_trace_id(lcbtrace_SPAN *span)
 {
+    if (!span) {
+        return 0;
+    }
     if (span->m_parent) {
         return span->m_parent->m_span_id;
     }
@@ -148,6 +189,9 @@ uint64_t lcbtrace_span_get_trace_id(lcbtrace_SPAN *span)
 LIBCOUCHBASE_API
 lcb_error_t lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char **value, size_t *nvalue)
 {
+    if (!span) {
+        return LCB_EINVAL;
+    }
     Json::Value &val = span->tags[name];
     if (val.isString()) {
         std::string str = val.asString();
@@ -168,6 +212,9 @@ lcb_error_t lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, cha
 
 LIBCOUCHBASE_API lcb_error_t lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, const char *name, uint64_t *value)
 {
+    if (!span) {
+        return LCB_EINVAL;
+    }
     Json::Value &val = span->tags[name];
     if (val.isNumeric()) {
         *value = val.asUInt64();
@@ -178,6 +225,9 @@ LIBCOUCHBASE_API lcb_error_t lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, c
 
 LIBCOUCHBASE_API lcb_error_t lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, const char *name, double *value)
 {
+    if (!span) {
+        return LCB_EINVAL;
+    }
     Json::Value &val = span->tags[name];
     if (val.isNumeric()) {
         *value = val.asDouble();
@@ -188,6 +238,9 @@ LIBCOUCHBASE_API lcb_error_t lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, c
 
 LIBCOUCHBASE_API lcb_error_t lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, const char *name, int *value)
 {
+    if (!span) {
+        return LCB_EINVAL;
+    }
     Json::Value &val = span->tags[name];
     if (val.isBool()) {
         *value = val.asBool();
@@ -198,6 +251,9 @@ LIBCOUCHBASE_API lcb_error_t lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, con
 
 LIBCOUCHBASE_API int lcbtrace_span_has_tag(lcbtrace_SPAN *span, const char *name)
 {
+    if (!span) {
+        return 0;
+    }
     return span->tags.isMember(name);
 }
 

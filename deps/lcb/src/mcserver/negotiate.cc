@@ -70,6 +70,7 @@ public:
     std::string generate_agent_json();
     bool send_hello();
     bool send_step(const lcb::MemcachedResponse& packet);
+    bool check_auth(const lcb::MemcachedResponse& packet);
     bool read_hello(const lcb::MemcachedResponse& packet);
     void send_auth(const char *sasl_data, unsigned ndata);
     void handle_read(lcbio_CTX *ioctx);
@@ -274,6 +275,13 @@ SessionRequestImpl::set_chosen_mech(std::string& mechlist,
     const char **data, unsigned int *ndata)
 {
     cbsasl_error_t saslerr;
+    int allow_scram_sha = 0;
+
+    if (mechlist.empty()) {
+        lcb_log(LOGARGS(this, WARN), LOGFMT "Server does not support SASL (no mechanisms supported)", LOGID(this));
+        return MECH_NOT_NEEDED;
+    }
+
     if (settings->sasl_mech_force) {
         char *forcemech = settings->sasl_mech_force;
         if (mechlist.find(forcemech) == std::string::npos) {
@@ -282,19 +290,20 @@ SessionRequestImpl::set_chosen_mech(std::string& mechlist,
             return MECH_UNAVAILABLE;
         }
         mechlist.assign(forcemech);
+        if (memcmp(forcemech, "SCRAM-SHA", sizeof("SCRAM-SHA") - 1) == 0) {
+            allow_scram_sha = 1;
+        }
     }
 
     const char *chosenmech;
-    saslerr = cbsasl_client_start(sasl_client, mechlist.c_str(),
-                                  NULL, data, ndata, &chosenmech);
+    saslerr = cbsasl_client_start(sasl_client, mechlist.c_str(), NULL, data, ndata, &chosenmech, allow_scram_sha);
     switch (saslerr) {
     case SASL_OK:
         info->mech.assign(chosenmech);
         return MECH_OK;
     case SASL_NOMECH:
         lcb_log(LOGARGS(this, WARN), LOGFMT "Server does not support SASL (no mechanisms supported)", LOGID(this));
-        return MECH_NOT_NEEDED;
-        break;
+        return MECH_UNAVAILABLE;
     default:
         lcb_log(LOGARGS(this, ERROR), LOGFMT "cbsasl_client_start returned %d", LOGID(this), saslerr);
         set_error(LCB_EINTERNAL, "Couldn't start SASL client");
@@ -363,6 +372,26 @@ SessionRequestImpl::generate_agent_json()
         res.resize(res.size() - 1);
     }
     return res;
+}
+
+/**
+ * Final step for SASL authentication: in SCRAM-SHA mechanisms,
+ * we have to validate the server signature returned in the final
+ * message.
+ */
+bool
+SessionRequestImpl::check_auth(const lcb::MemcachedResponse& packet)
+{
+    cbsasl_error_t saslerr;
+
+    saslerr = cbsasl_client_check(sasl_client,
+        packet.value(), packet.vallen());
+
+    if (saslerr != SASL_OK) {
+        set_error(LCB_AUTH_ERROR, "Invalid SASL check");
+        return false;
+    }
+    return true;
 }
 
 bool
@@ -547,7 +576,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
     }
 
     case PROTOCOL_BINARY_CMD_SASL_STEP: {
-        if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
+        if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS && check_auth(resp)) {
             completed = !maybe_select_bucket();
         } else {
             lcb_log(LOGARGS(this, WARN), LOGFMT "SASL auth failed with STATUS=0x%x", LOGID(this), status);

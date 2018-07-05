@@ -31,6 +31,9 @@ key multiple times the last value "wins". The following keys exists:
 
     couchbase://localhost:9100,localhost:9200,localhost:9300
 
+* `user`:
+    This is the user name used during authentication to your bucket
+
 * `password`:
     This is the password used during authentication to your bucket
 

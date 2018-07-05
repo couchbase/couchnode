@@ -97,8 +97,8 @@ public:
     /**
      * @brief Get the mechanism employed for authentication
      * @param info pointer retrieved via mc_sasl_get()
-     * @return A string indicating the mechanism used. This may be `PLAIN` or
-     * `CRAM-MD5`.
+     * @return A string indicating the mechanism used. This may be `PLAIN`,
+     * `CRAM-MD5`, `SCRAM-SHA1`, `SCRAM-SHA256` or `SCRAM-SHA512` .
      */
     const std::string& get_mech() const {
         return mech;

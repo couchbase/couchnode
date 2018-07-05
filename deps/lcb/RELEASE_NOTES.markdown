@@ -1,5 +1,108 @@
 # Release Notes
 
+## 2.9.2 (June 22 2018)
+
+* [CCBC-946](https://issues.couchbase.com/browse/CCBC-946): Restore broken ABI in 360ea68ef7738d543bbd3feac3f2c3c6c8ff976b
+
+## 2.9.1 (June 22 2018)
+
+* [CCBC-942](https://issues.couchbase.com/browse/CCBC-942): Expose new error
+  codes for subdocument operations.
+
+* [CCBC-866](https://issues.couchbase.com/browse/CCBC-866): Check cached
+  provider isn't NULL.
+
+* [CCBC-890](https://issues.couchbase.com/browse/CCBC-890): Always check if SSL
+  used when getting ports.
+
+* [CCBC-945](https://issues.couchbase.com/browse/CCBC-945): Allow to specify
+  logger in lcb_create().
+
+* [CCBC-935](https://issues.couchbase.com/browse/CCBC-935): Display orphan
+  tracer report on WARN log level.
+
+* [CCBC-936](https://issues.couchbase.com/browse/CCBC-936): Update default
+  tracing interval to 10 seconds.
+
+* [CCBC-937](https://issues.couchbase.com/browse/CCBC-937): Implement support
+  for alternate addresses.
+
+* [CCBC-943](https://issues.couchbase.com/browse/CCBC-943): Implement option to
+  dump TCP packets.
+
+  This change introduces new cmake option, which will force library to report
+  all incoming/outgoing TCP packets on TRACE log level. It renders the bytes
+  in Base64 encoding.
+
+  Also there is simple extraction tool, which beautifies packet traces, and
+  could be used like this:
+
+      cbc cat  -vvv foo bar 2>&1 | tools/extract-packets.rb
+
+## 2.9.0 (May 24 2018)
+
+This release is mostly about API visibility bump from uncommited to committed,
+but also includes several bug fixes.
+
+* [CCBC-930](https://issues.couchbase.com/browse/CCBC-930): Dump threshold
+  logging tracer queues before destroying the tracer.
+
+* Updates in crypto API as per RFC. This basically change of the API (ABI has
+  preserved compatible, but `v0` crypto API will return runtime error with 2.9.0
+  library. From this release, all encryption key management encapsulated into
+  crypto provider, so it does not need to expose key loader interface. In
+  addition, that user API is changed to conform RFC, and use noun `fields`
+  instead of `document` (e.g. `lcbcrypt_encrypt_fields`).
+
+* [CCBC-925](https://issues.couchbase.com/browse/CCBC-925): Fix existence checks
+  for registered crypto providers.
+
+* [CCBC-924](https://issues.couchbase.com/browse/CCBC-924): Initialize flag for
+  JSON server feature. Otherwise it might be left uninitialized and the library
+  will send JSON datatype to servers, which do not support it.
+
+* [PCBC-543](https://issues.couchbase.com/browse/PCBC-543), [CCBC-932](https://issues.couchbase.com/browse/CCBC-932), [CCBC-933](https://issues.couchbase.com/browse/CCBC-933): Update log levels
+
+## 2.8.7 (May 2 2018)
+
+* [CCBC-917](https://issues.couchbase.com/browse/CCBC-917): Add tracing for
+  observe. So now the library will group all CAS-observe operations, and in
+  general will nest observe operations under common parent when
+  `lcb_storedur3` API used.
+
+* [CCBC-918](https://issues.couchbase.com/browse/CCBC-918): Don't ping KV on
+  nodes without DATA service.
+
+* [CCBC-685](https://issues.couchbase.com/browse/CCBC-685): Implementation of
+  SCRAM-SHA{1,256,512} authentication mechanisms for KV service. Support for
+  SCRAM-SHA* SASL auth is disabled by default, because it is not portable, and
+  not every Couchbase service supports it. But if it is necessary, it could be
+  enabled using `lcb_cntl(..., LCB_CNTL_FORCE_SASL_MECH, ...)` operation, or
+  `"force_sasl_mech=SCRAM-SHA512"` option in connection string.
+
+* [CCBC-919](https://issues.couchbase.com/browse/CCBC-919): More granular
+  settings for compression. Now it is possible to specify minimum size of the
+  value to be considered for compression, and also the minimal ratio
+  `(compressed / original)`. See `LCB_CNTL_COMPRESSION_MIN_SIZE` (or
+  `"compression_min_size=100"` in bytes), and `LCB_CNTL_COMPRESSION_MIN_RATIO`
+  (or `"compression=0.9"`).
+
+* [CCBC-916](https://issues.couchbase.com/browse/CCBC-916): Do not set JSON
+  datatype if server didn't ack it. Fixes behavior where old server rejecting
+  commands as invalid when compression is enabled.
+
+* [CCBC-923](https://issues.couchbase.com/browse/CCBC-923): Allow to disable
+  fast-forward map for NMV handler. See `LCB_CNTL_VB_NOREMAP`
+  (`"vb_noremap=true"`). This option is disabled by default.
+
+Build improvements:
+
+* [CCBC-915](https://issues.couchbase.com/browse/CCBC-915): Fix builds
+  where DEBUG macro is defined
+
+* [CBD-2405](https://issues.couchbase.com/browse/CBD-2405): Change
+  target names in conflict with Server targets
+
 ## 2.8.6 (April 5 2018)
 
 * [CCBC-888](https://issues.couchbase.com/browse/CCBC-888): Add threshold

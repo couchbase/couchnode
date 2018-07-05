@@ -122,6 +122,35 @@ std::vector<int> MockEnvironment::getMcPorts(std::string bucket)
     return ret;
 }
 
+void MockEnvironment::setSaslMechs(std::vector<std::string>& mechanisms, std::string bucket,
+                                   const std::vector<int>* nodes)
+{
+    MockCommand cmd(MockCommand::SET_SASL_MECHANISMS);
+    Json::Value mechs(Json::arrayValue);
+    for (std::vector<std::string>::const_iterator ii = mechanisms.begin(); ii != mechanisms.end(); ii++) {
+        mechs.append(*ii);
+    }
+    cmd.set("mechs", mechs);
+
+    if (!bucket.empty()) {
+        cmd.set("bucket", bucket);
+    }
+
+    if (nodes != NULL) {
+        const std::vector<int>& v = *nodes;
+        Json::Value array(Json::arrayValue);
+
+        for (std::vector<int>::const_iterator ii = v.begin(); ii != v.end(); ii++) {
+            array.append(*ii);
+        }
+
+        cmd.set("servers", array);
+    }
+
+    sendCommand(cmd);
+    getResponse();
+}
+
 void MockEnvironment::setCCCP(bool enabled, std::string bucket,
                               const std::vector<int>* nodes)
 {

@@ -24,6 +24,10 @@ my @HELP_DESCRIPTIONS = (
         "Create a debug build",
         "%d", \(my $DEBUG = 0) ],
 
+    [ "enable-profiler", "",
+        "Build with profiler support (gperftools)",
+        "%d", \(my $USE_PROFILER = 0) ],
+
     [ "disable-tracing", "",
         "Disable builtin tracing",
         "%d", \(my $NO_TRACING = 0) ],
@@ -221,6 +225,10 @@ if ($DEBUG) {
     push @CM_OPTIONS, "-DCMAKE_BUILD_TYPE=DEBUG";
 } else {
     push @CM_OPTIONS, "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+}
+
+if ($USE_PROFILER) {
+    push @CM_OPTIONS, "-DLCB_USE_PROFILER=1";
 }
 
 if ($PREFIX) {

@@ -266,6 +266,9 @@ struct Durset : public MultiCmdContext {
     lcb_error_t MCTX_done(const void *cookie);
     lcb_error_t MCTX_addcmd(const lcb_CMDBASE *cmd);
     void MCTX_fail();
+#ifdef LCB_TRACING
+    void MCTX_setspan(lcbtrace_SPAN *span);
+#endif
 
     /**
      * This function calls poll_impl(). The implementation should then call
@@ -292,6 +295,9 @@ struct Durset : public MultiCmdContext {
     hrtime_t ns_timeout; /**< Timestamp of next timeout */
     void *timer;
     lcb_t instance;
+#ifdef LCB_TRACING
+    lcbtrace_SPAN *span;
+#endif
 };
 
 } // namespace durability

@@ -460,87 +460,118 @@ typedef enum {
     X(LCB_MUTATION_LOST, 0x3E, LCB_ERRTYPE_SRVGEN,\
       "The given mutation has been permanently lost due to the node failing " \
       "before replication") \
+    /** Sub-document path does not exist */ \
     X(LCB_SUBDOC_PATH_ENOENT, 0x3F, \
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Sub-document path does not exist") \
+    /** Type of element in sub-document path conflicts with type in document */ \
     X(LCB_SUBDOC_PATH_MISMATCH, 0x40,\
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Type of element in sub-document path conflicts with type in document") \
+    /** Malformed sub-document path */ \
     X(LCB_SUBDOC_PATH_EINVAL, 0x41, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Malformed sub-document path") \
+    /** Sub-document contains too many components */ \
     X(LCB_SUBDOC_PATH_E2BIG, 0x42, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Sub-document contains too many components") \
+    /** Existing document contains too many levels of nesting */ \
     X(LCB_SUBDOC_DOC_E2DEEP, 0x43,\
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Existing document contains too many levels of nesting") \
+    /** Subdocument operation would invalidate the JSON */ \
     X(LCB_SUBDOC_VALUE_CANTINSERT, 0x44, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Subdocument operation would invalidate the JSON") \
+    /** Existing document is not valid JSON */ \
     X(LCB_SUBDOC_DOC_NOTJSON, 0x45,\
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Existing document is not valid JSON") \
+    /** The existing numeric value is too large */ \
     X(LCB_SUBDOC_NUM_ERANGE, 0x46, \
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "The existing numeric value is too large") \
+    /** Delta must be numeric, within the 64 bit signed range, and non-zero */ \
     X(LCB_SUBDOC_BAD_DELTA, 0x47,\
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Delta must be numeric, within the 64 bit signed range, and non-zero") \
+    /** The given path already exists in the document */ \
     X(LCB_SUBDOC_PATH_EEXISTS, 0x48,\
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "The given path already exists in the document") \
+    /** Could not execute one or more multi lookups or mutations */ \
     X(LCB_SUBDOC_MULTI_FAILURE, 0x49,\
       LCB_ERRTYPE_DATAOP|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Could not execute one or more multi lookups or mutations") \
+    /** Value is too deep to insert */ \
     X(LCB_SUBDOC_VALUE_E2DEEP, 0x4A,\
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Value is too deep to insert") \
+    /** A badly formatted packet was sent to the server. Please report this in a bug */ \
     X(LCB_EINVAL_MCD, 0x4B, LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_INTERNAL, \
         "A badly formatted packet was sent to the server. Please report this in a bug") \
+    /** Missing subdocument path */ \
     X(LCB_EMPTY_PATH, 0x4C, LCB_ERRTYPE_INPUT, "Missing subdocument path") \
+    /** Unknown subdocument command */ \
     X(LCB_UNKNOWN_SDCMD, 0x4D, LCB_ERRTYPE_INPUT, "Unknown subdocument command") \
+    /** No commands specified */ \
     X(LCB_ENO_COMMANDS, 0x4E, LCB_ERRTYPE_INPUT, "No commands specified") \
+    /** Query execution failed. Inspect raw response object for information */ \
     X(LCB_QUERY_ERROR, 0x4F, LCB_ERRTYPE_SRVGEN, \
         "Query execution failed. Inspect raw response object for information") \
-    \
+    /** Generic temporary error received from server*/ \
     X(LCB_GENERIC_TMPERR, 0x50, LCB_ERRTYPE_TRANSIENT|LCB_ERRTYPE_SRVGEN, \
         "Generic temporary error received from server") \
+    /** Generic subdocument error received from server*/ \
     X(LCB_GENERIC_SUBDOCERR, 0x51, LCB_ERRTYPE_SUBDOC|LCB_ERRTYPE_SRVGEN, \
         "Generic subdocument error received from server") \
+    /** Generic constraint error received from server*/ \
     X(LCB_GENERIC_CONSTRAINT_ERR, 0x52, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN, \
         "Generic constraint error received from server") \
+    /** Invalid reply received from nameserver*/ \
     X(LCB_NAMESERVER_ERROR, 0x53, LCB_ERRTYPE_NETWORK, \
         "Invalid reply received from nameserver") \
+    /** Not authorized for operation*/ \
     X(LCB_NOT_AUTHORIZED, 0x54, LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN, \
         "Not authorized for operation") \
+    /** An invalid combination of commands was specified*/ \
     X(LCB_SUBDOC_INVALID_COMBO, 0x55, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC,  \
       "An invalid combination of commands was specified") \
+    /** Specified key was successfully found, but one or more path operations failed*/ \
     X(LCB_SUBDOC_MULTI_PATH_FAILURE, 0x56, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Specified key was successfully found, but one or more path operations failed") \
+    /** The operation completed successfully, but operated on a deleted document*/ \
     X(LCB_SUBDOC_SUCCESS_DELETED, 0x57, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "The operation completed successfully, but operated on a deleted document") \
+    /** The combination of the subdoc flags for the xattrs is not valid*/ \
     X(LCB_SUBDOC_XATTR_INVALID_FLAG_COMBO, 0x58, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "The combination of the subdoc flags for the xattrs is not valid") \
+    /** Only a single xattr key may be accessed at the same time*/ \
     X(LCB_SUBDOC_XATTR_INVALID_KEY_COMBO, 0x59, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Only a single xattr key may be accessed at the same time") \
+    /** The server has no knowledge of the requested macro*/ \
     X(LCB_SUBDOC_XATTR_UNKNOWN_MACRO, 0x5a, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "The server has no knowledge of the requested macro") \
+    /** The server has no knowledge of the requested virtual xattr */ \
     X(LCB_SUBDOC_XATTR_UNKNOWN_VATTR, 0x5b, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "The server has no knowledge of the requested virtual xattr") \
+    /** Virtual xattrs cannot be modified */ \
     X(LCB_SUBDOC_XATTR_CANT_MODIFY_VATTR, 0x5c, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Virtual xattrs cannot be modified") \
+    /** Specified key was found as a deleted document, but one or more path operations failed*/ \
     X(LCB_SUBDOC_MULTI_PATH_FAILURE_DELETED, 0x5d, \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "Specified key was found as a deleted document, but one or more path operations failed") \
+    /** According to the spec all xattr commands should come first, followed by the commands for the document body */ \
     X(LCB_SUBDOC_INVALID_XATTR_ORDER, 0x5e,                    \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
       "According to the spec all xattr commands should come first, followed by the commands for the document body")
@@ -558,7 +589,7 @@ typedef enum {
     LCB_MAX_ERROR_VAL,
     #endif
 
-    /* The errors below this value reserver for libcouchbase usage. */
+    /** The errors below this value reserved for libcouchbase usage. */
     LCB_MAX_ERROR = 0x1000
 } lcb_error_t;
 

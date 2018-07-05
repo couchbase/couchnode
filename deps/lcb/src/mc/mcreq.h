@@ -699,7 +699,7 @@ mcreq_get_bodysize(const mc_PACKET *packet);
 
 /**
  * @brief get the total packet size (header+body)
- * @param pkt the packet
+ * @param packet the packet
  * @return the total size
  */
 uint32_t

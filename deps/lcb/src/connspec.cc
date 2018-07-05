@@ -496,7 +496,11 @@ Connspec::load(const lcb_create_st& cropts)
         m_password = cr2->passwd;
     }
 
-    if (cropts.version == 3) {
+    if (cropts.version == 4) {
+        m_logger = cropts.v.v4.logger;
+    }
+
+    if (cropts.version == 3 || cropts.version == 4) {
         return parse(cropts.v.v3.connstr, &errmsg);
     }
 

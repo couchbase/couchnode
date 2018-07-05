@@ -53,7 +53,6 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
 
     tm.cancel();
 
-    lcb_log(LOGARGS(instance, DEBUG), "Instance configured");
 
     if (info->get_origin() != CLCONFIG_FILE) {
         /* Set the timestamp for the current config to control throttling,
@@ -88,6 +87,7 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
         state = S_BOOTSTRAPPED;
         lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
 
+        lcb_log(LOGARGS(instance, INFO), "Selected network configuration: \"%s\"", LCBT_SETTING(instance, network));
         if (instance->type == LCB_TYPE_BUCKET) {
             if (LCBVB_DISTTYPE(LCBT_VBCONFIG(instance)) == LCBVB_DIST_KETAMA &&
                 instance->cur_configinfo->get_origin() != CLCONFIG_MCRAW) {
@@ -212,6 +212,11 @@ lcb_error_t Bootstrap::bootstrap(unsigned options) {
     }
 
     if (options == BS_REFRESH_INITIAL) {
+        if (LCBT_SETTING(parent, network)) {
+            lcb_log(LOGARGS(parent, INFO), "Requested network configuration: \"%s\"", LCBT_SETTING(parent, network));
+        } else {
+            lcb_log(LOGARGS(parent, INFO), "Requested network configuration: heuristic");
+        }
         state = S_INITIAL_PRE;
         parent->confmon->prepare();
         tm.rearm(LCBT_SETTING(parent, config_timeout));

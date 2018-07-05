@@ -314,8 +314,15 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
         }
     }
 
+    lcbvb_CONFIG *cfg = LCBT_VBCONFIG(instance);
+    const lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(instance);
     if (cmd->services & LCB_PINGSVC_F_KV) {
         for (ii = 0; ii < cq->npipelines; ii++) {
+            unsigned port = lcbvb_get_port(cfg, ii, LCBVB_SVCTYPE_DATA, mode);
+            if (!port) {
+                continue;
+            }
+
             mc_PIPELINE *pl = cq->pipelines[ii];
             mc_PACKET *pkt = mcreq_allocate_packet(pl);
             protocol_binary_request_header hdr;
@@ -339,9 +346,6 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
         }
     }
 
-    lcbvb_CONFIG *cfg = LCBT_VBCONFIG(instance);
-    const lcbvb_SVCMODE mode = LCBT_SETTING(instance, sslopts) ?
-            LCBVB_SVCMODE_SSL : LCBVB_SVCMODE_PLAIN;
     for (int idx = 0; idx < (int)LCBVB_NSERVERS(cfg); idx++) {
 #define PING_HTTP(SVC, PATH, TMO, CB) \
             lcb_error_t rc; \

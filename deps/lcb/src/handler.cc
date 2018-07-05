@@ -674,6 +674,7 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
         resp.ttp = ttp;
         resp.ttr = ttr;
         TRACE_OBSERVE_PROGRESS(root, request, response, &resp);
+        LCBTRACE_KV_FINISH(pipeline, request, response);
         if (! (request->flags & MCREQ_F_INVOKED)) {
             rd->procs->handler(pipeline, request, resp.rc, &resp);
         }
@@ -713,6 +714,7 @@ H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
         /* Get the server for this command. Note that since this is a successful
          * operation, the server is never a dummy */
     }
+    LCBTRACE_KV_FINISH(pipeline, request, response);
     invoke_callback(request, root, &resp, LCB_CALLBACK_OBSEQNO);
 }
 
@@ -745,11 +747,12 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     }
     w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     handle_mutation_token(root, response, request, &w.mt);
-    LCBTRACE_KV_FINISH(pipeline, request, response);
     TRACE_STORE_END(root, request, response, &w.resp);
     if (request->flags & MCREQ_F_REQEXT) {
+        LCBTRACE_KV_COMPLETE(pipeline, request, response);
         request->u_rdata.exdata->procs->handler(pipeline, request, immerr, &w.resp);
     } else {
+        LCBTRACE_KV_FINISH(pipeline, request, response);
         invoke_callback(request, root, &w.resp, LCB_CALLBACK_STORE);
     }
 }

@@ -238,6 +238,28 @@ typedef struct lcb_cntl_vbinfo_st {
  */
 #define LCB_CNTL_VBMAP                  0x07
 
+
+/**
+ * Modes for handling IPv6 in the IO layer.
+ */
+typedef enum {
+    LCB_IPV6_DISABLED = 0x00, /**< disable IPv6 */
+    LCB_IPV6_ONLY = 0x1, /**< enforce only IPv6 */
+    LCB_IPV6_ALLOW = 0x02 /**< use both IPv6 and IPv4 */
+} lcb_ipv6_t;
+
+/**
+ * @brief IPv4/IPv6 selection policy
+ *
+ * Setting which controls whether hostname lookups should prefer IPv4 or IPv6
+ *
+ * Use `ipv6` in the connection string (e.g. "ipv6=allow" or "ipv6=only")
+ *
+ * @cntl_arg_both{lcb_ipv6_t*}
+ * @committed
+ */
+#define LCB_CNTL_IP6POLICY              0x0b
+
 /**
  * @brief Configuration error threshold.
  *
@@ -262,13 +284,15 @@ typedef struct lcb_cntl_vbinfo_st {
  */
 #define LCB_CNTL_DURABILITY_TIMEOUT     0x0d
 
-/**@brief Polling grace interval for lcb_durability_poll()
+/**
+ * @brief Polling grace interval for lcb_durability_poll()
  *
  * This is the time the client will wait between repeated probes to
  * a given server.
  *
  * @cntl_arg_both{lcb_U32*}
- * @committed*/
+ * @committed
+ */
 #define LCB_CNTL_DURABILITY_INTERVAL    0x0e
 
 /**
@@ -278,7 +302,8 @@ typedef struct lcb_cntl_vbinfo_st {
  * user management, etc.
  *
  * @cntl_arg_both{lcb_U32*}
- * @committed*/
+ * @committed
+ */
 #define LCB_CNTL_HTTP_TIMEOUT           0x0f
 
 /**
@@ -377,9 +402,18 @@ typedef struct lcb_cntl_vbinfo_st {
  * @{
  */
 
-/** @brief Logging Levels */
-typedef enum { LCB_LOG_TRACE = 0, LCB_LOG_DEBUG, LCB_LOG_INFO, LCB_LOG_WARN,
-    LCB_LOG_ERROR, LCB_LOG_FATAL, LCB_LOG_MAX
+/**
+ * @brief Logging Levels
+ * @committed
+ */
+typedef enum {
+    LCB_LOG_TRACE = 0, /**< the most verbose level */
+    LCB_LOG_DEBUG, /**< diagnostic information, required to investigate problems */
+    LCB_LOG_INFO,  /**< useful notices, not often */
+    LCB_LOG_WARN,  /**< error notifications */
+    LCB_LOG_ERROR, /**< error messages, usually the library have to re-initialize connection instance */
+    LCB_LOG_FATAL, /**< fatal errors, the library cannot proceed */
+    LCB_LOG_MAX /**< internal value for total number of levels */
 } lcb_log_severity_t;
 
 struct lcb_logprocs_st;
@@ -587,6 +621,11 @@ typedef struct lcb_logprocs_st {
  */
 #define LCB_CNTL_CONFIGCACHE_RO 0x36
 
+/**
+ * SSL options
+ *
+ * @committed
+ */
 typedef enum {
     LCB_SSL_ENABLED = 1 << 0, /**< Use SSL */
     LCB_SSL_NOVERIFY = 1 << 1, /**< Don't verify certificates */
@@ -601,6 +640,7 @@ typedef enum {
  * within the connection string. See @ref lcb_create_st3 for details.
  *
  * @cntl_arg_getonly{`int*` (value is one of @ref lcb_SSLOPTS)}
+ * @committed
  */
 #define LCB_CNTL_SSL_MODE 0x22
 
@@ -611,6 +651,7 @@ typedef enum {
  *
  * @cntl_arg_getonly{`char**`}
  * @see LCB_CNTL_SSL_MODE
+ * @committed
  */
 #define LCB_CNTL_SSL_CERT 0x23
 
@@ -624,6 +665,7 @@ typedef enum {
  * @cntl_arg_getonly{`char**`}
  * @see LCB_CNTL_SSL_MODE
  * @see https://developer.couchbase.com/documentation/server/5.0/security/security-certs-auth.html
+ * @committed
  */
 #define LCB_CNTL_SSL_KEY 0x4b
 
@@ -635,6 +677,7 @@ typedef enum {
  * @cntl_arg_getonly{`char**`}
  * @see LCB_CNTL_SSL_MODE
  * @see https://developer.couchbase.com/documentation/server/5.0/security/security-certs-auth.html
+ * @committed
  */
 #define LCB_CNTL_SSL_TRUSTSTORE 0x4d
 
@@ -1108,10 +1151,22 @@ typedef const char *lcb_BUCKETCRED[2];
  * expected to have specific info.
  *
  * Use `log_redaction` in the connection string
-
+ *
  * @cntl_arg_both{int* (as boolean)}
+ * @committed
  */
 #define LCB_CNTL_LOG_REDACTION 0x4c
+
+/**
+ * Activate/deactivate end-to-end tracing.
+ *
+ * Use `enable_tracing` in the connection string
+ *
+ * @cntl_arg_both{int* (as boolean)}
+ * @see lcb-tracing-api
+ * @committed
+ */
+#define LCB_CNTL_ENABLE_TRACING 0x4e
 
 typedef enum {
     LCBTRACE_THRESHOLD_KV = 0,
@@ -1123,10 +1178,225 @@ typedef enum {
 } lcbtrace_THRESHOLDOPTS;
 
 /**
+ * Flush interval for orphaned spans queue in default tracer.
+ *
+ * This is the time the tracer will wait between repeated attempts
+ * to flush most recent orphaned spans.
+ *
+ * Use `tracing_orphaned_queue_flush_interval` in the connection string
+ *
+ * @code{.c}
+ * lcb_U32 tmo = 10000000; // 10 seconds in microseconds
+ * lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL, &tmo);
+ * @endcode
+ *
+ * @code{.c}
+ * rv = lcb_cntl_string("tracing_orphaned_queue_flush_interval", "10.0");
+ * @endcode
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL 0x4f
+
+/**
+ * Size of orphaned spans queue in default tracer.
+ *
+ * Queues in default tracer has fixed size, and it will remove information about older spans,
+ * when the limit will be reached before flushing time.
+ *
+ * Use `tracing_orphaned_queue_size` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE 0x50
+
+/**
+ * Flush interval for spans with total time over threshold in default tracer.
+ *
+ * This is the time the tracer will wait between repeated attempts
+ * to flush threshold queue.
+ *
+ * Use `tracing_threshold_queue_flush_interval` in the connection string
+ *
+ * @code{.c}
+ * lcb_U32 tmo = 10000000; // 10 seconds in microseconds
+ * lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL, &tmo);
+ * @endcode
+ *
+ * @code{.c}
+ * rv = lcb_cntl_string("tracing_threshold_queue_flush_interval", "10.0");
+ * @endcode
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL 0x51
+
+/**
+ * Size of threshold queue in default tracer.
+ *
+ * Queues in default tracer has fixed size, and it will remove information about older spans,
+ * when the limit will be reached before flushing time.
+ *
+ * Use `tracing_threshold_queue_size` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE 0x52
+
+/**
+ * Minimum time for the tracing span of KV service to be considered by threshold tracer.
+ *
+ * Use `tracing_threshold_kv` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_THRESHOLD_KV 0x53
+
+/**
+ * Minimum time for the tracing span of N1QL service to be considered by threshold tracer.
+ *
+ * Use `tracing_threshold_n1ql` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_THRESHOLD_N1QL 0x54
+
+/**
+ * Minimum time for the tracing span of VIEW service to be considered by threshold tracer.
+ *
+ * Use `tracing_threshold_view` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_THRESHOLD_VIEW 0x55
+
+/**
+ * Minimum time for the tracing span of FTS service to be considered by threshold tracer.
+ *
+ * Use `tracing_threshold_fts` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_THRESHOLD_FTS 0x56
+
+/**
+ * Minimum time for the tracing span of ANALYTICS service to be considered by threshold tracer.
+ *
+ * Use `tracing_threshold_analytics` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_TRACING_THRESHOLD_ANALYTICS 0x57
+
+/**
+ * Options for how to handle compression
+ *
+ * @committed
+ */
+typedef enum {
+    /** Do not perform compression in any direction. Data which is received
+     * compressed via the server will be indicated as such by having the
+     * `LCB_VALUE_F_SNAPPYCOMP` flag set in the lcb_GETRESPv0::datatype field */
+    LCB_COMPRESS_NONE = 0x00,
+
+    /**
+     * Decompress incoming data, if the data has been compressed at the server.
+     * If this is set, the `datatype` field in responses will always be stripped
+     * of the `LCB_VALUE_F_SNAPPYCOMP` flag.
+     */
+    LCB_COMPRESS_IN = 1 << 0,
+
+    /**
+     * Compress outgoing data. Note that if the `datatype` field contains the
+     * `LCB_VALUE_F_SNAPPYCOMP` flag, then the data will never be compressed
+     * as it is assumed that it is already compressed.
+     */
+    LCB_COMPRESS_OUT = 1 << 1,
+
+
+    LCB_COMPRESS_INOUT = (LCB_COMPRESS_IN|LCB_COMPRESS_OUT),
+
+    /**
+     * By default the library will send a HELLO command to the server to
+     * determine whether compression is supported or not. Because commands may
+     * be pipelined prior to the scheduing of the HELLO command it is possible
+     * that the first few commands may not be compressed when schedule due to
+     * the library not yet having negotiated settings with the server. Setting
+     * this flag will force the client to assume that all servers support
+     * compression despite a HELLO not having been intially negotiated.
+     */
+    LCB_COMPRESS_FORCE = 1 << 2
+} lcb_COMPRESSOPTS;
+
+/**
+ * @brief Control how the library handles compression and deflation to and from
+ * the server.
+ *
+ * Starting in Couchbase Server 3.0, compression can optionally be applied to
+ * incoming and outcoming data. For incoming (i.e. `GET` requests) the data
+ * may be received in compressed format and then allow the client to inflate
+ * the data upon receipt. For outgoing (i.e. `SET` requests) the data may be
+ * compressed on the client side and then be stored and recognized on the
+ * server itself.
+ *
+ * The default behavior is to transparently handle compression for both incoming
+ * and outgoing data.
+ *
+ * Note that if the lcb_STORECMDv0::datatype field is set with compression
+ * flags, the data will _never_ be compressed by the library as this is an
+ * indication that it is _already_ compressed.
+ *
+ * @cntl_arg_both{`int*` (value is one of @ref lcb_COMPRESSOPTS)}
+ * @committed
+ */
+#define LCB_CNTL_COMPRESSION_OPTS 0x26
+
+/**
+ * Minimum size of the document payload to be compressed when compression enabled.
+ *
+ * Use `compression_min_size` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_COMPRESSION_MIN_SIZE 0x58
+
+/**
+ * Minimum compression ratio (compressed / original) of the compressed payload to allow sending it to cluster.
+ *
+ * Use `compression_min_ratio` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_COMPRESSION_MIN_RATIO 0x59
+
+
+/**
+ * Select type of network (alternative addresses).
+ *
+ * Use `network` in the connection string
+ *
+ * @cntl_arg_get_and_set{`const char**`, `const char*`}
+ *
+ * @uncommitted
+ */
+#define LCB_CNTL_NETWORK 0x5b
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x58
+#define LCB_CNTL__MAX                    0x5c
 /**@}*/
 
 #ifdef __cplusplus

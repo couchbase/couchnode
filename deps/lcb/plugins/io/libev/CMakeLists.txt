@@ -1,8 +1,10 @@
-INSTALL(
-    FILES
-    libev_io_opts.h
-    DESTINATION
-    include/libcouchbase)
+IF(LCB_INSTALL_HEADERS)
+  INSTALL(
+      FILES
+      libev_io_opts.h
+      DESTINATION
+      include/libcouchbase)
+ENDIF(LCB_INSTALL_HEADERS)
 
 IF(NOT (HAVE_LIBEV3 OR HAVE_LIBEV4))
     RETURN()
