@@ -76,9 +76,10 @@
       'sources': [
          'contrib/cbsasl/src/client.c',
          'contrib/cbsasl/src/common.c',
+         'contrib/cbsasl/src/hash.c',
          'contrib/cbsasl/src/cram-md5/hmac.c',
          'contrib/cbsasl/src/cram-md5/md5.c',
-         'contrib/cbsasl/src/hash.c'
+         'contrib/cbsasl/src/scram-sha/scram_utils.c'
       ]
     },
 
