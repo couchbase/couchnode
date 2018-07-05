@@ -80,6 +80,13 @@
          'contrib/cbsasl/src/cram-md5/hmac.c',
          'contrib/cbsasl/src/cram-md5/md5.c',
          'contrib/cbsasl/src/scram-sha/scram_utils.c'
+      ],
+      'conditions': [
+        ['OS=="win" and node_major_version<6', {
+          'defines': [
+            'LCB_NO_SSL'
+          ]
+        }]
       ]
     },
 
