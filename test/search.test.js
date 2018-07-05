@@ -18,23 +18,23 @@ describe('#search', function () {
     ]);
     var qd = JSON.parse(JSON.stringify(q));
     assert(qd.sort[0].by === 'score');
-    assert(qd.sort[0].descending === true);
+    assert(qd.sort[0].desc === true);
 
     assert(qd.sort[1].by === 'id');
-    assert(qd.sort[1].descending === true);
+    assert(qd.sort[1].desc === true);
 
     assert(qd.sort[2].by === 'field');
     assert(qd.sort[2].field === 'f1');
     assert(qd.sort[2].type === 'a');
     assert(qd.sort[2].mode === 'b');
     assert(qd.sort[2].missing === 'c');
-    assert(qd.sort[2].descending === true);
+    assert(qd.sort[2].desc === true);
 
     assert(qd.sort[3].by === 'geo_distance');
     assert(qd.sort[3].field === 'f2');
     assert(qd.sort[3].location[0] === 3);
     assert(qd.sort[3].location[1] === 2);
     assert(qd.sort[3].unit === 'km');
-    assert(qd.sort[3].descending === true);
+    assert(qd.sort[3].desc === true);
   });
 });
