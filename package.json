@@ -40,7 +40,7 @@
     "type": "git",
     "url": "http://github.com/couchbase/couchnode.git"
   },
-  "version": "2.5.0-beta",
+  "version": "2.5.0",
   "config": {
     "native": false
   },
