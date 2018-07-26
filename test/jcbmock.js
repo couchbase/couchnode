@@ -58,9 +58,9 @@ function _bufferIndexOf(buffer, search) {
     return buffer.indexOf(search);
   } else {
     if (typeof search === 'string') {
-      search = new Buffer(search);
+      search = Buffer.from(search);
     } else if (typeof search === 'number' && !isNaN(search)) {
-      search = new Buffer([search]);
+      search = Buffer.from([search]);
     }
     for (var i = 0; i < buffer.length; ++i) {
       if (buffer[i] === search[0]) {
