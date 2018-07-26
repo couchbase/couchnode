@@ -43,17 +43,17 @@ Nan::Persistent<String> CouchbaseImpl::srcLineKey;
 Nan::Persistent<String> lcbErrorKey;
 
 extern "C" {
-    static NAN_MODULE_INIT(init)
-    {
-        lcbErrorKey.Reset(Nan::New<String>("lcbError").ToLocalChecked());
+static NAN_MODULE_INIT(init)
+{
+    lcbErrorKey.Reset(Nan::New<String>("lcbError").ToLocalChecked());
 
-        Error::Init();
-        Cas::Init();
-        MutationToken::Init();
-        CouchbaseImpl::Init(target);
-    }
+    Error::Init();
+    Cas::Init();
+    MutationToken::Init();
+    CouchbaseImpl::Init(target);
+}
 
-    NODE_MODULE(couchbase_impl, init)
+NODE_MODULE(couchbase_impl, init)
 }
 
 Nan::Persistent<Function> Cas::casClass;
@@ -98,12 +98,10 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "ping", fnPing);
     Nan::SetPrototypeMethod(t, "diag", fnDiag);
 
-    target->Set(
-            Nan::New<String>("CouchbaseImpl").ToLocalChecked(),
-            t->GetFunction());
-    target->Set(
-            Nan::New<String>("Constants").ToLocalChecked(),
-            createConstants());
+    target->Set(Nan::New<String>("CouchbaseImpl").ToLocalChecked(),
+                t->GetFunction());
+    target->Set(Nan::New<String>("Constants").ToLocalChecked(),
+                createConstants());
     Nan::SetMethod(target, "_setErrorClass", sfnSetErrorClass);
 
     valueKey.Reset(Nan::New<String>("value").ToLocalChecked());
@@ -124,13 +122,16 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     srcFileKey.Reset(Nan::New<String>("srcFile").ToLocalChecked());
     srcLineKey.Reset(Nan::New<String>("srcLine").ToLocalChecked());
 
-    Handle<Object> jMod = Nan::GetCurrentContext()->Global()->Get(
-            Nan::New<String>("JSON").ToLocalChecked()).As<Object>();
+    Handle<Object> jMod = Nan::GetCurrentContext()
+                              ->Global()
+                              ->Get(Nan::New<String>("JSON").ToLocalChecked())
+                              .As<Object>();
     assert(!jMod.IsEmpty());
     jsonParse.Reset(
-            jMod->Get(Nan::New<String>("parse").ToLocalChecked()).As<Function>());
+        jMod->Get(Nan::New<String>("parse").ToLocalChecked()).As<Function>());
     jsonStringify.Reset(
-            jMod->Get(Nan::New<String>("stringify").ToLocalChecked()).As<Function>());
+        jMod->Get(Nan::New<String>("stringify").ToLocalChecked())
+            .As<Function>());
     assert(!jsonParse.IsEmpty());
     assert(!jsonStringify.IsEmpty());
 }
@@ -140,7 +141,8 @@ NAN_METHOD(CouchbaseImpl::sfnSetErrorClass)
     Nan::HandleScope scope;
 
     if (info.Length() != 1) {
-        info.GetReturnValue().Set(Error::create("invalid number of parameters passed"));
+        info.GetReturnValue().Set(
+            Error::create("invalid number of parameters passed"));
         return;
     }
 
@@ -151,7 +153,7 @@ NAN_METHOD(CouchbaseImpl::sfnSetErrorClass)
 
 NAN_METHOD(CouchbaseImpl::fnNew)
 {
-    //CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    // CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     Nan::HandleScope scope;
 
     if (info.Length() != 3) {
@@ -237,7 +239,7 @@ NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
 
     if (info.Length() != 1) {
         return info.GetReturnValue().Set(
-                Error::create("invalid number of parameters passed"));
+            Error::create("invalid number of parameters passed"));
     }
 
     if (me->connectContext) {
@@ -246,17 +248,18 @@ NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
     }
 
     if (me->connectCallback) {
-      delete me->connectCallback;
-      me->connectCallback = NULL;
+        delete me->connectCallback;
+        me->connectCallback = NULL;
     }
 
     if (info[0]->BooleanValue()) {
-      if (!info[0]->IsFunction()) {
-          return Nan::ThrowError(Error::create("must pass function"));
-      }
+        if (!info[0]->IsFunction()) {
+            return Nan::ThrowError(Error::create("must pass function"));
+        }
 
-      me->connectContext = new Nan::AsyncResource("couchbase:connect.Callback");
-      me->connectCallback = new Nan::Callback(info[0].As<Function>());
+        me->connectContext =
+            new Nan::AsyncResource("couchbase:connect.Callback");
+        me->connectCallback = new Nan::Callback(info[0].As<Function>());
     }
 
     return info.GetReturnValue().Set(true);
@@ -268,37 +271,37 @@ NAN_METHOD(CouchbaseImpl::fnSetTranscoder)
     Nan::HandleScope scope;
 
     if (info.Length() != 2) {
-        return Nan::ThrowError(Error::create("invalid number of parameters passed"));
+        return Nan::ThrowError(
+            Error::create("invalid number of parameters passed"));
     }
 
     if (me->transEncodeFunc) {
-      delete me->transEncodeFunc;
-      me->transEncodeFunc = NULL;
+        delete me->transEncodeFunc;
+        me->transEncodeFunc = NULL;
     }
     if (me->transDecodeFunc) {
-      delete me->transDecodeFunc;
-      me->transDecodeFunc = NULL;
+        delete me->transDecodeFunc;
+        me->transDecodeFunc = NULL;
     }
 
     if (info[0]->BooleanValue()) {
-      if (!info[0]->IsFunction()) {
-          return Nan::ThrowError(Error::create("must pass function"));
-      }
+        if (!info[0]->IsFunction()) {
+            return Nan::ThrowError(Error::create("must pass function"));
+        }
 
-      me->transEncodeFunc = new Nan::Callback(info[0].As<Function>());
+        me->transEncodeFunc = new Nan::Callback(info[0].As<Function>());
     }
 
     if (info[1]->BooleanValue()) {
-      if (!info[1]->IsFunction()) {
-          return Nan::ThrowError(Error::create("must pass function"));
-      }
+        if (!info[1]->IsFunction()) {
+            return Nan::ThrowError(Error::create("must pass function"));
+        }
 
-      me->transDecodeFunc = new Nan::Callback(info[1].As<Function>());
+        me->transDecodeFunc = new Nan::Callback(info[1].As<Function>());
     }
 
     return info.GetReturnValue().Set(true);
 }
-
 
 NAN_METHOD(CouchbaseImpl::fnLcbVersion)
 {
@@ -318,11 +321,8 @@ NAN_METHOD(CouchbaseImpl::fnGetViewNode)
     int nodeIdx =
         lcbvb_get_randhost(cfg, LCBVB_SVCTYPE_VIEWS, LCBVB_SVCMODE_PLAIN);
 
-    const char *viewNode =
-        lcb_get_node(
-            me->getLcbHandle(),
-            (lcb_GETNODETYPE)LCB_NODE_VIEWS,
-            nodeIdx);
+    const char *viewNode = lcb_get_node(
+        me->getLcbHandle(), (lcb_GETNODETYPE)LCB_NODE_VIEWS, nodeIdx);
 
     return info.GetReturnValue().Set(
         Nan::New<String>(viewNode).ToLocalChecked());
@@ -339,11 +339,8 @@ NAN_METHOD(CouchbaseImpl::fnGetMgmtNode)
     int nodeIdx =
         lcbvb_get_randhost(cfg, LCBVB_SVCTYPE_MGMT, LCBVB_SVCMODE_PLAIN);
 
-    const char *mgmtNode =
-        lcb_get_node(
-            me->getLcbHandle(),
-            (lcb_GETNODETYPE)LCB_NODE_HTCONFIG,
-            nodeIdx);
+    const char *mgmtNode = lcb_get_node(
+        me->getLcbHandle(), (lcb_GETNODETYPE)LCB_NODE_HTCONFIG, nodeIdx);
 
     return info.GetReturnValue().Set(
         Nan::New<String>(mgmtNode).ToLocalChecked());

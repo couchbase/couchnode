@@ -5,8 +5,8 @@ var harness = require('./harness.js');
 
 var H = harness;
 
-describe('#datastructures', function () {
-  describe('#maps', function () {
+describe('#datastructures', function() {
+  describe('#maps', function() {
     it('should get and size correctly', function(done) {
       var itemMap = {
         'one': '1',
@@ -16,10 +16,12 @@ describe('#datastructures', function () {
       };
 
       H.b.upsert('mapGet', itemMap, H.okCallback(function() {
-        H.b.mapGet('mapGet', 'three', H.okCallback(function(res) {
+        H.b.mapGet('mapGet', 'three', H.okCallback(function(
+          res) {
           assert(res.value === '3');
 
-          H.b.mapSize('mapGet', H.okCallback(function(res) {
+          H.b.mapSize('mapGet', H.okCallback(function(
+            res) {
             assert(res.value === 4);
 
             done();
@@ -37,13 +39,15 @@ describe('#datastructures', function () {
       };
 
       H.b.upsert('mapRemove', itemMap, H.okCallback(function() {
-        H.b.mapRemove('mapRemove', 'two', H.okCallback(function() {
-          H.b.get('mapRemove', H.okCallback(function(res) {
-            assert(res.value.two === undefined);
+        H.b.mapRemove('mapRemove', 'two', H.okCallback(
+          function() {
+            H.b.get('mapRemove', H.okCallback(function(
+              res) {
+              assert(res.value.two === undefined);
 
-            done();
+              done();
+            }));
           }));
-        }));
       }));
     });
 
@@ -54,18 +58,19 @@ describe('#datastructures', function () {
       };
 
       H.b.upsert('mapAdd', itemMap, H.okCallback(function() {
-        H.b.mapAdd('mapAdd', 'three', '3', H.okCallback(function() {
-          H.b.get('mapAdd', H.okCallback(function(res) {
-            assert(res.value.three === '3');
+        H.b.mapAdd('mapAdd', 'three', '3', H.okCallback(
+          function() {
+            H.b.get('mapAdd', H.okCallback(function(res) {
+              assert(res.value.three === '3');
 
-            done();
+              done();
+            }));
           }));
-        }));
       }));
     });
   });
 
-  describe('#list', function () {
+  describe('#list', function() {
     it('should get/size correctly', function(done) {
       var itemArray = [
         'one',
@@ -78,7 +83,8 @@ describe('#datastructures', function () {
         H.b.listGet('listGet', 1, H.okCallback(function(res) {
           assert(res.value === 'two');
 
-          H.b.listSize('listGet', H.okCallback(function(res) {
+          H.b.listSize('listGet', H.okCallback(function(
+            res) {
             assert(res.value === 4);
 
             done();
@@ -89,23 +95,29 @@ describe('#datastructures', function () {
 
     it('should append/prepend correctly', function(done) {
       var itemArray = [
-          'one'
+        'one'
       ];
 
-      H.b.upsert('listAppendPrepend', itemArray, H.okCallback(function() {
-        H.b.listAppend('listAppendPrepend', 'two', H.okCallback(function() {
-          H.b.listPrepend('listAppendPrepend', 'three', H.okCallback(function() {
+      H.b.upsert('listAppendPrepend', itemArray, H.okCallback(
+        function() {
+          H.b.listAppend('listAppendPrepend', 'two', H.okCallback(
+            function() {
+              H.b.listPrepend('listAppendPrepend', 'three',
+                H.okCallback(function() {
 
-            H.b.get('listAppendPrepend', H.okCallback(function (res) {
-              assert(res.value.length === 3);
-              assert(res.value[0] === 'three');
-              assert(res.value[2] === 'two');
+                  H.b.get('listAppendPrepend', H.okCallback(
+                    function(res) {
+                      assert(res.value.length ===
+                        3);
+                      assert(res.value[0] ===
+                        'three');
+                      assert(res.value[2] === 'two');
 
-              done();
+                      done();
+                    }));
+                }));
             }));
-          }));
         }));
-      }));
     });
 
     it('should remove correctly', function(done) {
@@ -118,7 +130,8 @@ describe('#datastructures', function () {
 
       H.b.upsert('listRemove', itemArray, H.okCallback(function() {
         H.b.listRemove('listRemove', 2, H.okCallback(function() {
-          H.b.get('listRemove', H.okCallback(function(res) {
+          H.b.get('listRemove', H.okCallback(function(
+            res) {
             assert(res.value.length === 3);
 
             done();
@@ -136,26 +149,28 @@ describe('#datastructures', function () {
       ];
 
       H.b.upsert('listSet', itemArray, H.okCallback(function() {
-        H.b.listSet('listSet', 2, 'six', H.okCallback(function() {
-          H.b.get('listSet', H.okCallback(function(res) {
-            assert(res.value[2] === 'six');
+        H.b.listSet('listSet', 2, 'six', H.okCallback(
+          function() {
+            H.b.get('listSet', H.okCallback(function(res) {
+              assert(res.value[2] === 'six');
 
-            done();
+              done();
+            }));
           }));
-        }));
       }));
     });
   });
 
-  describe('#sets', function () {
-    it('should add correctly', function (done) {
+  describe('#sets', function() {
+    it('should add correctly', function(done) {
       var itemArray = [
         'one'
       ];
 
-      H.b.upsert('setAdd', itemArray, H.okCallback(function () {
-        H.b.setAdd('setAdd', 'four', H.okCallback(function (res) {
-          H.b.get('setAdd', H.okCallback(function (res) {
+      H.b.upsert('setAdd', itemArray, H.okCallback(function() {
+        H.b.setAdd('setAdd', 'four', H.okCallback(function(
+          res) {
+          H.b.get('setAdd', H.okCallback(function(res) {
             assert(res.value.length === 2);
 
             done();
@@ -164,27 +179,29 @@ describe('#datastructures', function () {
       }));
     });
 
-    it('should check exists correctly', function (done) {
+    it('should check exists correctly', function(done) {
       var itemArray = [
         'one',
         'two',
         'three'
       ];
 
-      H.b.upsert('setExists', itemArray, H.okCallback(function () {
-        H.b.setExists('setExists', 'three', H.okCallback(function (res) {
-          assert(res.value === true);
+      H.b.upsert('setExists', itemArray, H.okCallback(function() {
+        H.b.setExists('setExists', 'three', H.okCallback(
+          function(res) {
+            assert(res.value === true);
 
-          H.b.setExists('setExists', 'five', H.okCallback(function (res) {
-            assert(res.value === false);
+            H.b.setExists('setExists', 'five', H.okCallback(
+              function(res) {
+                assert(res.value === false);
 
-            done();
+                done();
+              }));
           }));
-        }));
       }));
     });
 
-    it('should remove correctly', function (done) {
+    it('should remove correctly', function(done) {
       var itemArray = [
         'one',
         'two',
@@ -192,14 +209,16 @@ describe('#datastructures', function () {
         'four'
       ];
 
-      H.b.upsert('setRemove', itemArray, H.okCallback(function () {
-        H.b.setRemove('setRemove', 'three', H.okCallback(function (res) {
-          H.b.get('setRemove', H.okCallback(function (res) {
-            assert(res.value.length === 3);
+      H.b.upsert('setRemove', itemArray, H.okCallback(function() {
+        H.b.setRemove('setRemove', 'three', H.okCallback(
+          function(res) {
+            H.b.get('setRemove', H.okCallback(function(
+              res) {
+              assert(res.value.length === 3);
 
-            done();
+              done();
+            }));
           }));
-        }));
       }));
     });
 
@@ -220,7 +239,7 @@ describe('#datastructures', function () {
     });
   });
 
-  describe('#queue', function () {
+  describe('#queue', function() {
     it('should get size correctly', function(done) {
       var itemArray = [
         'one',
@@ -245,15 +264,17 @@ describe('#datastructures', function () {
       ];
 
       H.b.upsert('queuePush', itemArray, H.okCallback(function() {
-        H.b.queuePush('queuePush', 'three', H.okCallback(function() {
+        H.b.queuePush('queuePush', 'three', H.okCallback(
+          function() {
 
-          H.b.get('queuePush', H.okCallback(function (res) {
-            assert(res.value.length === 3);
-            assert(res.value[0] === 'three');
+            H.b.get('queuePush', H.okCallback(function(
+              res) {
+              assert(res.value.length === 3);
+              assert(res.value[0] === 'three');
 
-            done();
+              done();
+            }));
           }));
-        }));
       }));
     });
 

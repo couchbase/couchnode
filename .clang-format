@@ -1,0 +1,14 @@
+---
+BasedOnStyle: LLVM
+Standard: Cpp11
+BreakBeforeBraces: Linux
+ColumnLimit: '80'
+IndentWidth: 4
+PointerAlignment: Right
+
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: None
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+KeepEmptyLinesAtTheStartOfBlocks: true
+...

@@ -19,7 +19,8 @@
 #include <stdlib.h>
 using namespace Couchnode;
 
-void Cas::Init() {
+void Cas::Init()
+{
     Nan::HandleScope scope;
 
     Local<FunctionTemplate> t = Nan::New<FunctionTemplate>();
@@ -40,42 +41,43 @@ NAN_METHOD(Cas::fnToString)
 
     Cas::GetCas(info.This(), &casVal);
     sprintf(casStr, "%llu", (unsigned long long int)casVal);
-    return info.GetReturnValue().Set(
-            Nan::New<String>(casStr).ToLocalChecked());
+    return info.GetReturnValue().Set(Nan::New<String>(casStr).ToLocalChecked());
 }
 
 NAN_METHOD(Cas::fnInspect)
 {
     uint64_t casVal = 0;
-    char casStr[14+24] = "";
+    char casStr[14 + 24] = "";
     Nan::HandleScope scope;
 
     Cas::GetCas(info.This(), &casVal);
     sprintf(casStr, "CouchbaseCas<%llu>", (unsigned long long int)casVal);
-    return info.GetReturnValue().Set(
-            Nan::New<String>(casStr).ToLocalChecked());
+    return info.GetReturnValue().Set(Nan::New<String>(casStr).ToLocalChecked());
 }
 
-Handle<Value> Cas::CreateCas(uint64_t cas) {
+Handle<Value> Cas::CreateCas(uint64_t cas)
+{
     Local<Object> ret =
         Nan::NewInstance(Nan::New<Function>(casClass)).ToLocalChecked();
 
     Local<Value> casData =
-            Nan::CopyBuffer((char*)&cas, sizeof(uint64_t)).ToLocalChecked();
+        Nan::CopyBuffer((char *)&cas, sizeof(uint64_t)).ToLocalChecked();
     ret->Set(0, casData);
 
     return ret;
 }
 
-bool _StrToCas(Handle<Value> obj, uint64_t *p) {
+bool _StrToCas(Handle<Value> obj, uint64_t *p)
+{
     if (sscanf(*Nan::Utf8String(obj->ToString()), "%llu",
-            (unsigned long long int*)p) != 1) {
+               (unsigned long long int *)p) != 1) {
         return false;
     }
     return true;
 }
 
-bool _ObjToCas(Local<Value> obj, uint64_t *p) {
+bool _ObjToCas(Local<Value> obj, uint64_t *p)
+{
     Local<Object> realObj = obj.As<Object>();
     Local<Value> casData = realObj->Get(0);
 
@@ -87,12 +89,13 @@ bool _ObjToCas(Local<Value> obj, uint64_t *p) {
         return false;
     }
 
-    *p = *(uint64_t*)node::Buffer::Data(casData);
+    *p = *(uint64_t *)node::Buffer::Data(casData);
 
     return true;
 }
 
-bool Cas::GetCas(Local<Value> obj, uint64_t *p) {
+bool Cas::GetCas(Local<Value> obj, uint64_t *p)
+{
     Nan::HandleScope scope;
     *p = 0;
     if (obj->IsObject()) {

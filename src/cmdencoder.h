@@ -15,13 +15,15 @@
 namespace Couchnode
 {
 
-class OpCookie : public Nan::AsyncResource {
+class OpCookie : public Nan::AsyncResource
+{
 public:
-    OpCookie()
-        : Nan::AsyncResource("couchbase:op.Callback"), traceSpan(NULL) {
+    OpCookie() : Nan::AsyncResource("couchbase:op.Callback"), traceSpan(NULL)
+    {
     }
 
-    ~OpCookie() {
+    ~OpCookie()
+    {
         callback.Reset();
 
         if (traceSpan) {
@@ -29,8 +31,9 @@ public:
         }
     }
 
-    Nan::AsyncResource * asyncContext() {
-        return static_cast<Nan::AsyncResource*>(this);
+    Nan::AsyncResource *asyncContext()
+    {
+        return static_cast<Nan::AsyncResource *>(this);
     }
 
     Nan::Callback callback;
@@ -39,13 +42,15 @@ public:
 
 using namespace v8;
 
-class CommandEncoder {
+class CommandEncoder
+{
 public:
-    CommandEncoder()
-        : _cookie(new OpCookie()), _cookiePersist(false) {
+    CommandEncoder() : _cookie(new OpCookie()), _cookiePersist(false)
+    {
     }
 
-    ~CommandEncoder() {
+    ~CommandEncoder()
+    {
         if (!_cookiePersist) {
             delete _cookie;
         }
@@ -55,8 +60,9 @@ public:
         }
     }
 
-    template<typename T, typename V>
-    bool parseString(const T** val, V* nval, Local<Value> str) {
+    template <typename T, typename V>
+    bool parseString(const T **val, V *nval, Local<Value> str)
+    {
         if (str->IsUndefined() || str->IsNull()) {
             if (nval) {
                 *nval = 0;
@@ -74,83 +80,85 @@ public:
         return true;
     }
 
-    template<typename T>
-    bool parseString(const T** val, Local<Value> str) {
-        return parseString(val, (size_t*)NULL, str);
+    template <typename T> bool parseString(const T **val, Local<Value> str)
+    {
+        return parseString(val, (size_t *)NULL, str);
     }
 
-    bool parseKeyBuf(lcb_KEYBUF *buf, Local<Value> key) {
+    bool parseKeyBuf(lcb_KEYBUF *buf, Local<Value> key)
+    {
         buf->type = LCB_KV_COPY;
-        return parseString(
-                &buf->contig.bytes,
-                &buf->contig.nbytes,
-                key);
+        return parseString(&buf->contig.bytes, &buf->contig.nbytes, key);
     }
 
-    bool parseCallback(Local<Value> callback) {
+    bool parseCallback(Local<Value> callback)
+    {
         if (callback->IsFunction()) {
             _cookie->callback.Reset(callback.As<v8::Function>());
             return true;
         }
         return false;
-     }
+    }
 
-     bool parseCas(lcb_U64* casOut, Local<Value> cas) {
-         if (!cas->IsUndefined() && !cas->IsNull()) {
-             return Cas::GetCas(cas, casOut);
-         }
-         return true;
-     }
+    bool parseCas(lcb_U64 *casOut, Local<Value> cas)
+    {
+        if (!cas->IsUndefined() && !cas->IsNull()) {
+            return Cas::GetCas(cas, casOut);
+        }
+        return true;
+    }
 
-     template<typename T>
-     bool parseUintOption(T *out, Local<Value> value) {
-       if (value.IsEmpty()) {
-         return true;
-       }
+    template <typename T> bool parseUintOption(T *out, Local<Value> value)
+    {
+        if (value.IsEmpty()) {
+            return true;
+        }
 
-       Nan::MaybeLocal<Uint32> valueTyped = Nan::To<Uint32>(value);
-       if (valueTyped.IsEmpty()) {
-         return false;
-       }
+        Nan::MaybeLocal<Uint32> valueTyped = Nan::To<Uint32>(value);
+        if (valueTyped.IsEmpty()) {
+            return false;
+        }
 
-       *out = (T)valueTyped.ToLocalChecked()->Value();
-       return true;
-     }
+        *out = (T)valueTyped.ToLocalChecked()->Value();
+        return true;
+    }
 
-     template<typename T>
-     bool parseIntOption(T *out, Local<Value> value) {
-       if (value.IsEmpty()) {
-         return true;
-       }
+    template <typename T> bool parseIntOption(T *out, Local<Value> value)
+    {
+        if (value.IsEmpty()) {
+            return true;
+        }
 
-       Nan::MaybeLocal<Integer> valueTyped = Nan::To<Integer>(value);
-       if (valueTyped.IsEmpty()) {
-         return false;
-       }
+        Nan::MaybeLocal<Integer> valueTyped = Nan::To<Integer>(value);
+        if (valueTyped.IsEmpty()) {
+            return false;
+        }
 
-       *out = valueTyped.ToLocalChecked()->Value();
-       return true;
-     }
+        *out = valueTyped.ToLocalChecked()->Value();
+        return true;
+    }
 
-    void registerTraceSpan(lcbtrace_SPAN *span) {
+    void registerTraceSpan(lcbtrace_SPAN *span)
+    {
         _cookie->traceSpan = span;
     }
 
-    void persistCookie() {
+    void persistCookie()
+    {
         _cookiePersist = true;
     }
 
-    OpCookie * cookie() const {
+    OpCookie *cookie() const
+    {
         return _cookie;
     }
 
 private:
-    std::vector<Nan::Utf8String*> _strings;
+    std::vector<Nan::Utf8String *> _strings;
     OpCookie *_cookie;
     bool _cookiePersist;
-
 };
 
-}
+} // namespace Couchnode
 
 #endif /* CMDENCODER_H_ */

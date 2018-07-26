@@ -3,96 +3,112 @@
 var assert = require('assert');
 var harness = require('./harness.js');
 
-describe('#crud', function () {
+describe('#crud', function() {
   function allTests(H) {
     function testBadBasic(fn) {
-      it('should fail with an invalid key type', function () {
-        assert.throws(function () {
+      it('should fail with an invalid key type', function() {
+        assert.throws(function() {
           fn({}, undefined, H.noCallback());
         }, TypeError);
       });
-      it('should fail with an invalid hashkey option', function () {
-        assert.throws(function () {
-          fn(H.key(), {hashkey: {}}, H.noCallback());
+      it('should fail with an invalid hashkey option', function() {
+        assert.throws(function() {
+          fn(H.key(), {
+            hashkey: {}
+          }, H.noCallback());
         }, TypeError);
       });
-      it('should fail with non object options', function () {
-        assert.throws(function () {
+      it('should fail with non object options', function() {
+        assert.throws(function() {
           fn(H.key(), 'opts', H.noCallback());
         }, TypeError);
       });
-      it('should fail if no callback is passed', function () {
-        assert.throws(function () {
+      it('should fail if no callback is passed', function() {
+        assert.throws(function() {
           fn(H.key(), {});
         }, TypeError);
       });
     }
+
     function testBadDura(fn) {
       it('should fail for negative persist_to values', function() {
         assert.throws(function() {
-          fn(H.key(), {persist_to:-1}, H.noCallback());
+          fn(H.key(), {
+            persist_to: -1
+          }, H.noCallback());
         });
       });
       it('should fail for negative replicate_to values', function() {
         assert.throws(function() {
-          fn(H.key(), {replicate_to:-1}, H.noCallback());
+          fn(H.key(), {
+            replicate_to: -1
+          }, H.noCallback());
         });
       });
       it('should fail for very-high persist_to values', function() {
         assert.throws(function() {
-          fn(H.key(), {persist_to:10}, H.noCallback());
+          fn(H.key(), {
+            persist_to: 10
+          }, H.noCallback());
         });
       });
       it('should fail for very-high replicate_to values', function() {
         assert.throws(function() {
-          fn(H.key(), {replicate_to:10}, H.noCallback());
+          fn(H.key(), {
+            replicate_to: 10
+          }, H.noCallback());
         });
       });
     }
+
     function testBadExpiry(fn) {
-      it('should fail with negative expiry', function () {
-        assert.throws(function () {
+      it('should fail with negative expiry', function() {
+        assert.throws(function() {
           fn(H.key(), -1, H.noCallback());
         }, TypeError);
       });
-      it('should fail with null expiry', function () {
-        assert.throws(function () {
+      it('should fail with null expiry', function() {
+        assert.throws(function() {
           fn(H.key(), null, H.noCallback());
         }, TypeError);
       });
-      it('should fail with non-numeric expiry', function () {
-        assert.throws(function () {
+      it('should fail with non-numeric expiry', function() {
+        assert.throws(function() {
           fn(H.key(), '1', H.noCallback());
         }, TypeError);
       });
     }
 
     function testBadCas(fn) {
-      it('should fail with an invalid cas option', function () {
-        assert.throws(function () {
+      it('should fail with an invalid cas option', function() {
+        assert.throws(function() {
           fn(H.key(), 1111, H.noCallback());
         }, Error);
       });
     }
 
     function testBadValue(fn) {
-      it('should fail with an undefined value', function () {
-        assert.throws(function () {
+      it('should fail with an undefined value', function() {
+        assert.throws(function() {
           fn(H.key(), undefined, H.noCallback());
         }, TypeError);
       });
     }
 
-    describe('#store', function () {
-      describe('upsert', function () {
-        testBadBasic(function (key, options, callback) {
+    describe('#store', function() {
+      describe('upsert', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.upsert(key, 'bar', options, callback);
         });
-        testBadExpiry(function (key, expiry, callback) {
-          H.b.upsert(key, 'bar', {expiry: expiry}, callback);
+        testBadExpiry(function(key, expiry, callback) {
+          H.b.upsert(key, 'bar', {
+            expiry: expiry
+          }, callback);
         });
         testBadCas(function(key, cas, callback) {
-          H.b.upsert(key, 'bar', {cas: cas}, callback);
+          H.b.upsert(key, 'bar', {
+            cas: cas
+          }, callback);
         });
         testBadValue(function(key, value, callback) {
           H.b.upsert(key, value, {}, callback);
@@ -102,15 +118,19 @@ describe('#crud', function () {
         });
       });
 
-      describe('insert', function () {
-        testBadBasic(function (key, options, callback) {
+      describe('insert', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.insert(key, 'bar', options, callback);
         });
-        testBadExpiry(function (key, expiry, callback) {
-          H.b.insert(key, 'bar', {expiry: expiry}, callback);
+        testBadExpiry(function(key, expiry, callback) {
+          H.b.insert(key, 'bar', {
+            expiry: expiry
+          }, callback);
         });
         testBadCas(function(key, cas, callback) {
-          H.b.insert(key, 'bar', {cas: cas}, callback);
+          H.b.insert(key, 'bar', {
+            cas: cas
+          }, callback);
         });
         testBadValue(function(key, value, callback) {
           H.b.insert(key, value, {}, callback);
@@ -120,12 +140,11 @@ describe('#crud', function () {
         });
       });
 
-
     });
 
-    describe('#retrieve', function () {
-      describe('get', function () {
-        testBadBasic(function (key, options, callback) {
+    describe('#retrieve', function() {
+      describe('get', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.get(key, options, callback);
         });
       });
@@ -155,7 +174,8 @@ describe('#crud', function () {
           var key2 = H.key();
           H.b.insert(key1, 'foo', H.okCallback(function() {
             H.b.insert(key2, 'bar', H.okCallback(function() {
-              H.b.getMulti([key1, key2], function(err, res) {
+              H.b.getMulti([key1, key2], function(
+                err, res) {
                 assert(!err);
                 assert(res);
                 assert(res[key1]);
@@ -191,39 +211,45 @@ describe('#crud', function () {
           }));
         });
       });
-      describe('getAndLock', function () {
-        testBadBasic(function (key, options, callback) {
+      describe('getAndLock', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.getAndLock(key, options, callback);
         });
-        it('should fail with an invalid lockTime', function () {
-          assert.throws(function () {
-            H.b.getAndLock(H.key(), {lockTime: 0}, H.noCallback());
+        it('should fail with an invalid lockTime', function() {
+          assert.throws(function() {
+            H.b.getAndLock(H.key(), {
+              lockTime: 0
+            }, H.noCallback());
           }, TypeError);
         });
-        it('should fail with a negative lockTime', function () {
-          assert.throws(function () {
-            H.b.getAndLock(H.key(), {lockTime: -1}, H.noCallback());
+        it('should fail with a negative lockTime', function() {
+          assert.throws(function() {
+            H.b.getAndLock(H.key(), {
+              lockTime: -1
+            }, H.noCallback());
           }, TypeError);
         });
-        it('should fail with an non-numeric lockTime', function () {
-          assert.throws(function () {
-            H.b.getAndLock(H.key(), {lockTime: '1'}, H.noCallback());
+        it('should fail with an non-numeric lockTime', function() {
+          assert.throws(function() {
+            H.b.getAndLock(H.key(), {
+              lockTime: '1'
+            }, H.noCallback());
           }, TypeError);
         });
       });
-      describe('getAndTouch', function () {
-        testBadBasic(function (key, options, callback) {
+      describe('getAndTouch', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.getAndTouch(key, 1, options, callback);
         });
-        testBadExpiry(function (key, expiry, callback) {
+        testBadExpiry(function(key, expiry, callback) {
           H.b.getAndTouch(key, expiry, {}, callback);
         });
         testBadDura(function(key, options, callback) {
           H.b.getAndTouch(key, 1, options, callback);
         });
       });
-      describe('getReplica', function () {
-        testBadBasic(function (key, options, callback) {
+      describe('getReplica', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.getReplica(key, options, callback);
         });
 
@@ -231,20 +257,22 @@ describe('#crud', function () {
         //  work in some way.  In reality, we can't consistently test this since
         //  we can't predetermine the cluster size.
         it('should not crash', function(done) {
-          H.b.getReplica(H.key(), function () {
+          H.b.getReplica(H.key(), function() {
             done();
           });
         });
       });
     });
 
-    describe('#misc', function () {
-      describe('remove', function () {
-        testBadBasic(function (key, options, callback) {
+    describe('#misc', function() {
+      describe('remove', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.remove(key, options, callback);
         });
         testBadCas(function(key, cas, callback) {
-          H.b.remove(key, {cas: cas}, callback);
+          H.b.remove(key, {
+            cas: cas
+          }, callback);
         });
         testBadDura(function(key, options, callback) {
           H.b.remove(key, options, callback);
@@ -259,7 +287,7 @@ describe('#crud', function () {
         });
         it('should fail on a locked key', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(){
+          H.b.insert(key, 'foo', H.okCallback(function() {
             H.b.getAndLock(key, H.okCallback(function() {
               H.b.remove(key, function(err, res) {
                 assert(err);
@@ -271,8 +299,8 @@ describe('#crud', function () {
         });
       });
 
-      describe('unlock', function () {
-        testBadBasic(function (key, options, callback) {
+      describe('unlock', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.unlock(key, {}, options, callback);
         });
         testBadCas(function(key, cas, callback) {
@@ -287,8 +315,10 @@ describe('#crud', function () {
         });
         it('should fail on an never been locked key', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
-            H.b.unlock(key, insertRes.cas, function(err, res) {
+          H.b.insert(key, 'foo', H.okCallback(function(
+            insertRes) {
+            H.b.unlock(key, insertRes.cas, function(err,
+              res) {
               assert(err);
               assert(!res);
               done();
@@ -298,49 +328,57 @@ describe('#crud', function () {
         it('should fail on a timed out lock (slow)', function(done) {
           this.timeout(3000);
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
-            H.b.getAndLock(key, {lockTime:1}, H.okCallback(function(lockRes) {
+          H.b.insert(key, 'foo', H.okCallback(function(
+            insertRes) {
+            H.b.getAndLock(key, {
+              lockTime: 1
+            }, H.okCallback(function(lockRes) {
               H.timeTravel(function() {
-                H.b.unlock(key, lockRes.cas, function(err, res) {
-                  assert(err);
-                  assert(!res);
-                  done();
-                });
+                H.b.unlock(key, lockRes.cas,
+                  function(err, res) {
+                    assert(err);
+                    assert(!res);
+                    done();
+                  });
               }, 2000);
             }));
           }));
         });
         it('should fail for an incorrect cas', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
+          H.b.insert(key, 'foo', H.okCallback(function(
+            insertRes) {
             H.b.getAndLock(key, H.okCallback(function() {
-              H.b.unlock(key, insertRes.cas, function(err, res) {
-                assert(err);
-                assert(!res);
-                done();
-              });
+              H.b.unlock(key, insertRes.cas,
+                function(err, res) {
+                  assert(err);
+                  assert(!res);
+                  done();
+                });
             }));
           }));
         });
         it('should actually unlock the key', function(done) {
           var key = H.key();
           H.b.insert(key, 'foo', H.okCallback(function() {
-            H.b.getAndLock(key, H.okCallback(function(lockRes) {
+            H.b.getAndLock(key, H.okCallback(function(
+              lockRes) {
               H.b.unlock(key, lockRes.cas, function() {
-                H.b.replace(key, 'bar', H.okCallback(function() {
-                  done();
-                }));
+                H.b.replace(key, 'bar', H.okCallback(
+                  function() {
+                    done();
+                  }));
               });
             }));
           }));
         });
       });
 
-      describe('touch', function () {
-        testBadBasic(function (key, options, callback) {
+      describe('touch', function() {
+        testBadBasic(function(key, options, callback) {
           H.b.touch(key, 1, options, callback);
         });
-        testBadExpiry(function (key, expiry, callback) {
+        testBadExpiry(function(key, expiry, callback) {
           H.b.touch(key, expiry, {}, callback);
         });
         testBadDura(function(key, options, callback) {
@@ -349,40 +387,46 @@ describe('#crud', function () {
       });
 
       describe('counter', function() {
-        testBadBasic(function (key, options, callback) {
+        testBadBasic(function(key, options, callback) {
           H.b.counter(key, 1, options, callback);
         });
         testBadDura(function(key, options, callback) {
           H.b.counter(key, 1, options, callback);
         });
 
-        it('should fail when passed a 0 delta', function () {
-          assert.throws(function () {
+        it('should fail when passed a 0 delta', function() {
+          assert.throws(function() {
             H.b.counter(H.key(), 0, H.noCallback());
           }, TypeError);
         });
-        it('should fail when passed a non-numeric delta', function () {
-          assert.throws(function () {
+        it('should fail when passed a non-numeric delta', function() {
+          assert.throws(function() {
             H.b.counter(H.key(), {}, H.noCallback());
           }, TypeError);
         });
-        it('should fail when passed a negative initial', function () {
-          assert.throws(function () {
-            H.b.counter(H.key(), 1, {initial:-1}, H.noCallback());
+        it('should fail when passed a negative initial', function() {
+          assert.throws(function() {
+            H.b.counter(H.key(), 1, {
+              initial: -1
+            }, H.noCallback());
           }, TypeError);
         });
-        it('should fail when passed a non-numeric initial', function () {
-          assert.throws(function () {
-            H.b.counter(H.key(), 1, {initial:{}}, H.noCallback());
-          }, TypeError);
-        });
+        it('should fail when passed a non-numeric initial',
+          function() {
+            assert.throws(function() {
+              H.b.counter(H.key(), 1, {
+                initial: {}
+              }, H.noCallback());
+            }, TypeError);
+          });
 
         it('should increment properly', function(done) {
           var key = H.key();
           H.b.insert(key, '6', H.okCallback(function() {
             H.b.counter(key, 1, H.okCallback(function(res) {
               assert(res.value, 7);
-              H.b.get(key, H.okCallback(function(getRes) {
+              H.b.get(key, H.okCallback(function(
+                getRes) {
                 assert(getRes.value, res.value);
                 done();
               }));
@@ -395,7 +439,8 @@ describe('#crud', function () {
           H.b.insert(key, '6', H.okCallback(function() {
             H.b.counter(key, 3, H.okCallback(function(res) {
               assert(res.value, 9);
-              H.b.get(key, H.okCallback(function(getRes) {
+              H.b.get(key, H.okCallback(function(
+                getRes) {
                 assert(getRes.value, res.value);
                 done();
               }));
@@ -406,9 +451,11 @@ describe('#crud', function () {
         it('should decrement properly', function(done) {
           var key = H.key();
           H.b.insert(key, '6', H.okCallback(function() {
-            H.b.counter(key, -1, H.okCallback(function(res) {
+            H.b.counter(key, -1, H.okCallback(function(
+              res) {
               assert(res.value, 5);
-              H.b.get(key, H.okCallback(function(getRes) {
+              H.b.get(key, H.okCallback(function(
+                getRes) {
                 assert(getRes.value, res.value);
                 done();
               }));
@@ -419,10 +466,13 @@ describe('#crud', function () {
         it('should subtract properly', function(done) {
           var key = H.key();
           H.b.insert(key, '6', H.okCallback(function() {
-            H.b.counter(key, -3, H.okCallback(function(res) {
+            H.b.counter(key, -3, H.okCallback(function(
+              res) {
               assert.equal(res.value, 3);
-              H.b.get(key, H.okCallback(function(getRes) {
-                assert.equal(getRes.value, res.value);
+              H.b.get(key, H.okCallback(function(
+                getRes) {
+                assert.equal(getRes.value,
+                  res.value);
                 done();
               }));
             }));
@@ -438,7 +488,7 @@ describe('#crud', function () {
         });
         it('should fail on a locked key', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(){
+          H.b.insert(key, 'foo', H.okCallback(function() {
             H.b.getAndLock(key, H.okCallback(function() {
               H.b.counter(key, 1, function(err, res) {
                 assert(err);
@@ -451,7 +501,9 @@ describe('#crud', function () {
 
         it('should create with initial set', function(done) {
           var key = H.key();
-          H.b.counter(key, 1, {initial:7}, H.okCallback(function(res) {
+          H.b.counter(key, 1, {
+            initial: 7
+          }, H.okCallback(function(res) {
             assert.equal(res.value, 7);
             H.b.get(key, H.okCallback(function(getRes) {
               assert.equal(getRes.value, '7');
@@ -462,7 +514,7 @@ describe('#crud', function () {
       });
 
       describe('append', function() {
-        testBadBasic(function (key, options, callback) {
+        testBadBasic(function(key, options, callback) {
           H.b.append(key, 'foo', options, callback);
         });
         testBadDura(function(key, options, callback) {
@@ -471,12 +523,18 @@ describe('#crud', function () {
 
         it('should append to a key', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
-            H.b.append(key, 'bar', H.okCallback(function(appendRes) {
-              assert.notDeepEqual(insertRes.cas, appendRes.cas);
-              H.b.get(key, H.okCallback(function(getRes) {
-                assert.deepEqual(getRes.cas, appendRes.cas);
-                assert.equal(getRes.value, 'foobar');
+          H.b.insert(key, 'foo', H.okCallback(function(
+            insertRes) {
+            H.b.append(key, 'bar', H.okCallback(function(
+              appendRes) {
+              assert.notDeepEqual(insertRes.cas,
+                appendRes.cas);
+              H.b.get(key, H.okCallback(function(
+                getRes) {
+                assert.deepEqual(getRes.cas,
+                  appendRes.cas);
+                assert.equal(getRes.value,
+                  'foobar');
                 done();
               }));
             }));
@@ -491,9 +549,10 @@ describe('#crud', function () {
         });
         it('should fail on a locked key', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(){
+          H.b.insert(key, 'foo', H.okCallback(function() {
             H.b.getAndLock(key, H.okCallback(function() {
-              H.b.append(key, 'bar', function(err, res) {
+              H.b.append(key, 'bar', function(err,
+                res) {
                 assert(err);
                 assert(!res);
                 done();
@@ -504,7 +563,7 @@ describe('#crud', function () {
       });
 
       describe('prepend', function() {
-        testBadBasic(function (key, options, callback) {
+        testBadBasic(function(key, options, callback) {
           H.b.prepend(key, 'foo', options, callback);
         });
         testBadDura(function(key, options, callback) {
@@ -513,12 +572,18 @@ describe('#crud', function () {
 
         it('should prepend to a key', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
-            H.b.prepend(key, 'bar', H.okCallback(function(appendRes) {
-              assert.notDeepEqual(insertRes.cas, appendRes.cas);
-              H.b.get(key, H.okCallback(function(getRes) {
-                assert.deepEqual(getRes.cas, appendRes.cas);
-                assert.equal(getRes.value, 'barfoo');
+          H.b.insert(key, 'foo', H.okCallback(function(
+            insertRes) {
+            H.b.prepend(key, 'bar', H.okCallback(function(
+              appendRes) {
+              assert.notDeepEqual(insertRes.cas,
+                appendRes.cas);
+              H.b.get(key, H.okCallback(function(
+                getRes) {
+                assert.deepEqual(getRes.cas,
+                  appendRes.cas);
+                assert.equal(getRes.value,
+                  'barfoo');
                 done();
               }));
             }));
@@ -533,9 +598,10 @@ describe('#crud', function () {
         });
         it('should fail on a locked key', function(done) {
           var key = H.key();
-          H.b.insert(key, 'foo', H.okCallback(function(){
+          H.b.insert(key, 'foo', H.okCallback(function() {
             H.b.getAndLock(key, H.okCallback(function() {
-              H.b.prepend(key, 'bar', function(err, res) {
+              H.b.prepend(key, 'bar', function(err,
+                res) {
                 assert(err);
                 assert(!res);
                 done();
@@ -546,11 +612,14 @@ describe('#crud', function () {
       });
     });
 
-    it('should successfully round-trip a document', function (done) {
+    it('should successfully round-trip a document', function(done) {
       var key = H.key();
-      var doc = {x: 'hello', y: 'world'};
-      H.b.insert(key, doc, H.okCallback(function () {
-        H.b.get(key, H.okCallback(function (res) {
+      var doc = {
+        x: 'hello',
+        y: 'world'
+      };
+      H.b.insert(key, doc, H.okCallback(function() {
+        H.b.get(key, H.okCallback(function(res) {
           assert.deepEqual(res.value, doc);
           done();
         }));
@@ -569,7 +638,7 @@ describe('#crud', function () {
 
     it('should successfully upsert a document', function(done) {
       var key = H.key();
-      H.b.upsert(key, 'bar', H.okCallback(function(upsertRes){
+      H.b.upsert(key, 'bar', H.okCallback(function(upsertRes) {
         H.b.get(key, H.okCallback(function(getRes) {
           assert.deepEqual(getRes.cas, upsertRes.cas);
           done();
@@ -579,7 +648,7 @@ describe('#crud', function () {
 
     it('should fail upsert on a locked key', function(done) {
       var key = H.key();
-      H.b.insert(key, 'foo', H.okCallback(function(){
+      H.b.insert(key, 'foo', H.okCallback(function() {
         H.b.getAndLock(key, H.okCallback(function() {
           H.b.upsert(key, 'bar', function(err, res) {
             assert(err);
@@ -592,7 +661,7 @@ describe('#crud', function () {
 
     it('should fail replace on a locked key', function(done) {
       var key = H.key();
-      H.b.insert(key, 'foo', H.okCallback(function(){
+      H.b.insert(key, 'foo', H.okCallback(function() {
         H.b.getAndLock(key, H.okCallback(function() {
           H.b.replace(key, 'bar', function(err, res) {
             assert(err);
@@ -603,12 +672,13 @@ describe('#crud', function () {
       }));
     });
 
-
     it('should fail upsert with cas mismatch', function(done) {
       var key = H.key();
-      H.b.insert(key, 'foo', H.okCallback(function(insertRes){
-        H.b.upsert(key, 'bar', H.okCallback(function(){
-          H.b.upsert(key, 'wat', {cas:insertRes.cas}, function(err, res) {
+      H.b.insert(key, 'foo', H.okCallback(function(insertRes) {
+        H.b.upsert(key, 'bar', H.okCallback(function() {
+          H.b.upsert(key, 'wat', {
+            cas: insertRes.cas
+          }, function(err, res) {
             assert(err);
             assert(!res);
             done();
@@ -617,13 +687,15 @@ describe('#crud', function () {
       }));
     });
 
-    it('should successfully expire a document (slow)', function (done) {
+    it('should successfully expire a document (slow)', function(done) {
       this.timeout(3000);
       var key = H.key();
-      H.b.insert(key, 'foo', {expiry: 1}, H.okCallback(function () {
-        H.b.get(key, H.okCallback(function () {
-          H.timeTravel(function () {
-            H.b.get(key, function (err) {
+      H.b.insert(key, 'foo', {
+        expiry: 1
+      }, H.okCallback(function() {
+        H.b.get(key, H.okCallback(function() {
+          H.timeTravel(function() {
+            H.b.get(key, function(err) {
               assert(err);
               done();
             });
@@ -636,12 +708,15 @@ describe('#crud', function () {
       it('should succesfully update expiry (slow)', function(done) {
         this.timeout(5000);
         var key = H.key();
-        H.b.insert(key, 'foo', {expiry: 1}, H.okCallback(function () {
-          touchFn(key, 2, H.okCallback(function (res) {
-            H.timeTravel(function () {
+        H.b.insert(key, 'foo', {
+          expiry: 1
+        }, H.okCallback(function() {
+          touchFn(key, 2, H.okCallback(function(res) {
+            H.timeTravel(function() {
               H.b.get(key, H.okCallback(function() {
                 H.timeTravel(function() {
-                  H.b.get(key, function (err, res) {
+                  H.b.get(key, function(err,
+                    res) {
                     assert(err);
                     assert(!res);
                     done();
@@ -661,7 +736,7 @@ describe('#crud', function () {
       });
       it('should fail on a locked key', function(done) {
         var key = H.key();
-        H.b.insert(key, 'foo', H.okCallback(function(){
+        H.b.insert(key, 'foo', H.okCallback(function() {
           H.b.getAndLock(key, H.okCallback(function() {
             touchFn(key, 1, function(err, res) {
               assert(err);
@@ -683,11 +758,13 @@ describe('#crud', function () {
       });
     });
 
-    it('should require an accurate cas', function (done) {
+    it('should require an accurate cas', function(done) {
       var key = H.key();
-      H.b.insert(key, 'bar', H.okCallback(function (insertRes) {
-        H.b.replace(key, 'foo', H.okCallback(function () {
-          H.b.replace(key, 'dog', {cas: insertRes.cas}, function (err) {
+      H.b.insert(key, 'bar', H.okCallback(function(insertRes) {
+        H.b.replace(key, 'foo', H.okCallback(function() {
+          H.b.replace(key, 'dog', {
+            cas: insertRes.cas
+          }, function(err) {
             assert(err);
             done();
           });
@@ -695,10 +772,12 @@ describe('#crud', function () {
       }));
     });
 
-    it('should work with a valid cas', function (done) {
+    it('should work with a valid cas', function(done) {
       var key = H.key();
-      H.b.insert(key, 'bar', H.okCallback(function (insertRes) {
-        H.b.replace(key, 'dog', {cas: insertRes.cas}, H.okCallback(function () {
+      H.b.insert(key, 'bar', H.okCallback(function(insertRes) {
+        H.b.replace(key, 'dog', {
+          cas: insertRes.cas
+        }, H.okCallback(function() {
           done();
         }));
       }));
@@ -721,7 +800,7 @@ describe('#crud', function () {
     it('getAndLock should get the value', function(done) {
       var key = H.key();
       H.b.insert(key, 'bar', H.okCallback(function(insertRes) {
-        H.b.getAndLock(key, H.okCallback(function(lockRes){
+        H.b.getAndLock(key, H.okCallback(function(lockRes) {
           assert.notDeepEqual(insertRes.cas, lockRes.cas);
           assert.equal(lockRes.value, 'bar');
           done();
@@ -732,7 +811,7 @@ describe('#crud', function () {
     it('get should work on a locked key', function(done) {
       var key = H.key();
       H.b.insert(key, 'bar', H.okCallback(function() {
-        H.b.getAndLock(key, H.okCallback(function(){
+        H.b.getAndLock(key, H.okCallback(function() {
           H.b.get(key, H.okCallback(function(res) {
             assert(res.value, 'bar');
             done();
@@ -752,7 +831,9 @@ describe('#crud', function () {
     it('should fail getAndLock for locked key', function(done) {
       var key = H.key();
       H.b.insert(key, 'bar', H.okCallback(function(insertRes) {
-        H.b.getAndLock(key, {lockTime: 1}, H.okCallback(function (lockRes) {
+        H.b.getAndLock(key, {
+          lockTime: 1
+        }, H.okCallback(function(lockRes) {
           assert.notDeepEqual(insertRes.cas, lockRes.cas);
           H.b.getAndLock(key, function(err, res) {
             assert(err);
@@ -769,16 +850,20 @@ describe('#crud', function () {
       this.timeout(3000);
       var key = H.key();
       H.b.insert(key, 'bar', H.okCallback(function(insertRes) {
-        H.b.getAndLock(key, {lockTime:1}, H.okCallback(function(lockRes){
+        H.b.getAndLock(key, {
+          lockTime: 1
+        }, H.okCallback(function(lockRes) {
           assert.notDeepEqual(insertRes.cas, lockRes.cas);
           H.b.replace(key, 'foo', function(getErr, getRes) {
             assert(getErr);
             assert(!getRes);
             H.timeTravel(function() {
-              H.b.replace(key, 'rew', H.okCallback(function(replaceRes) {
-                assert.notDeepEqual(lockRes.cas, replaceRes.cas);
-                done();
-              }));
+              H.b.replace(key, 'rew', H.okCallback(
+                function(replaceRes) {
+                  assert.notDeepEqual(lockRes.cas,
+                    replaceRes.cas);
+                  done();
+                }));
             }, 2000);
           });
         }));
@@ -793,16 +878,22 @@ describe('#crud', function () {
       });
     });
 
-    it('durability should not crash', function (done) {
+    it('durability should not crash', function(done) {
       this.timeout(4000);
-      H.b.insert(H.key(), 'foo', {persist_to: 1, replicate_to: 0}, function() {
+      H.b.insert(H.key(), 'foo', {
+        persist_to: 1,
+        replicate_to: 0
+      }, function() {
         done();
       });
     });
 
-    it('durability should propagate errors', function (done) {
-      H.b.replace(H.key(), 'bar', {persist_to: 1, replicate_to: 0},
-        function (err, res) {
+    it('durability should propagate errors', function(done) {
+      H.b.replace(H.key(), 'bar', {
+          persist_to: 1,
+          replicate_to: 0
+        },
+        function(err, res) {
           assert(err);
           done();
         });
@@ -811,10 +902,14 @@ describe('#crud', function () {
     it('should return from replace with 0 expiry (slow)', function(done) {
       this.timeout(3000);
       var key = H.key();
-      H.b.insert(key, 'bar', {expiry:1}, H.okCallback(function(insertRes) {
-        H.b.replace(key, 'foo', {expiry:0}, H.okCallback(function (replaceRes) {
-          H.timeTravel(function () {
-            H.b.get(key, H.okCallback(function (getRes) {
+      H.b.insert(key, 'bar', {
+        expiry: 1
+      }, H.okCallback(function(insertRes) {
+        H.b.replace(key, 'foo', {
+          expiry: 0
+        }, H.okCallback(function(replaceRes) {
+          H.timeTravel(function() {
+            H.b.get(key, H.okCallback(function(getRes) {
               assert(getRes);
               done();
             }));
@@ -830,10 +925,14 @@ describe('#crud', function () {
         var jsonCas = JSON.stringify(res.cas);
         assert(jsonCas);
         assert(strCas);
-        assert(jsonCas === '"'+strCas+'"');
-        H.b.upsert(key, 'test2', {cas:'18446744073709551614'}, function(err) {
+        assert(jsonCas === '"' + strCas + '"');
+        H.b.upsert(key, 'test2', {
+          cas: '18446744073709551614'
+        }, function(err) {
           assert(err);
-          H.b.upsert(key, 'test3', {cas:strCas}, H.okCallback(function(res) {
+          H.b.upsert(key, 'test3', {
+            cas: strCas
+          }, H.okCallback(function(res) {
             done();
           }));
         });

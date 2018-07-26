@@ -5,27 +5,28 @@ var harness = require('./harness.js');
 
 describe('#Bucket', function() {
   function allTests(H) {
-    it('should queue operations until connected', function (done) {
+    it('should queue operations until connected', function(done) {
       var cluster = new H.lib.Cluster(H.connstr);
       var bucket = cluster.openBucket(H.bucket);
-      bucket.insert(H.key(), 'bar', H.okCallback(function () {
+      bucket.insert(H.key(), 'bar', H.okCallback(function() {
         done();
       }));
     });
 
-    it('should cancel queued options on connection failure', function (done) {
+    it('should cancel queued options on connection failure', function(done) {
       var cluster = new H.lib.Cluster(H.connstr);
       var bucket = cluster.openBucket('invalid_bucket');
-      bucket.insert(H.key(), 'bar', function (err) {
+      bucket.insert(H.key(), 'bar', function(err) {
         assert(err);
         done();
       });
     });
 
-    it('should throw exception for operations on a dead bucket', function (done) {
+    it('should throw exception for operations on a dead bucket', function(
+      done) {
       var cluster = new H.lib.Cluster(H.connstr);
-      var bucket = cluster.openBucket('invalid_bucket', function () {
-        assert.throws(function () {
+      var bucket = cluster.openBucket('invalid_bucket', function() {
+        assert.throws(function() {
           bucket.insert(H.key(), 'bar', H.noCallback());
         }, Error);
         done();
@@ -33,20 +34,20 @@ describe('#Bucket', function() {
     });
 
     it('should throw exception for operations on a disconnected bucket',
-      function (done) {
+      function(done) {
         var cluster = new H.lib.Cluster(H.connstr);
-        var bucket = cluster.openBucket(H.bucket, function () {
+        var bucket = cluster.openBucket(H.bucket, function() {
           bucket.disconnect();
-          assert.throws(function () {
+          assert.throws(function() {
             bucket.insert(H.key(), 'bar', H.noCallback());
           }, Error);
           done();
         });
       });
 
-    it('should ignore superflous disconnects', function (done) {
+    it('should ignore superflous disconnects', function(done) {
       var cluster = new H.lib.Cluster(H.connstr);
-      var bucket = cluster.openBucket(H.bucket, function () {
+      var bucket = cluster.openBucket(H.bucket, function() {
         bucket.disconnect();
         bucket.disconnect();
         bucket.disconnect();
@@ -59,69 +60,69 @@ describe('#Bucket', function() {
       H.b.invalidateQueryCache();
     });
 
-    it('clientVersion property should work', function () {
+    it('clientVersion property should work', function() {
       assert(typeof H.b.clientVersion === 'string');
     });
-    it('lcbVersion property should work', function () {
+    it('lcbVersion property should work', function() {
       assert(typeof H.b.lcbVersion === 'string');
     });
 
-    it('operationTimeout property should work', function () {
+    it('operationTimeout property should work', function() {
       var origValue = H.b.operationTimeout;
       assert(origValue > 0);
       H.b.operationTimeout = origValue + 1;
       assert.notEqual(H.b.operationTimeout, origValue);
       H.b.operationTimeout = origValue;
     });
-    it('viewTimeout property should work', function () {
+    it('viewTimeout property should work', function() {
       var origValue = H.b.viewTimeout;
       assert(origValue > 0);
       H.b.viewTimeout = origValue + 1;
       assert.notEqual(H.b.viewTimeout, origValue);
       H.b.viewTimeout = origValue;
     });
-    it('n1qlTimeout property should work', function () {
+    it('n1qlTimeout property should work', function() {
       var origValue = H.b.n1qlTimeout;
       H.b.n1qlTimeout = origValue + 1;
       assert.notEqual(H.b.n1qlTimeout, origValue);
       H.b.n1qlTimeout = origValue;
     });
-    it('durabilityInterval property should work', function () {
+    it('durabilityInterval property should work', function() {
       var origValue = H.b.durabilityInterval;
       assert(origValue > 0);
       H.b.durabilityInterval = origValue + 1;
       assert.notEqual(H.b.durabilityInterval, origValue);
       H.b.durabilityInterval = origValue;
     });
-    it('durabilityTimeout property should work', function () {
+    it('durabilityTimeout property should work', function() {
       var origValue = H.b.durabilityTimeout;
       assert(origValue > 0);
       H.b.durabilityTimeout = origValue + 1;
       assert.notEqual(H.b.durabilityTimeout, origValue);
       H.b.durabilityTimeout = origValue;
     });
-    it('managementTimeout property should work', function () {
+    it('managementTimeout property should work', function() {
       var origValue = H.b.managementTimeout;
       assert(origValue > 0);
       H.b.managementTimeout = origValue + 1;
       assert.notEqual(H.b.managementTimeout, origValue);
       H.b.managementTimeout = origValue;
     });
-    it('configThrottle property should work', function () {
+    it('configThrottle property should work', function() {
       var origValue = H.b.configThrottle;
       assert(origValue > 0);
       H.b.configThrottle = origValue + 1;
       assert.notEqual(H.b.configThrottle, origValue);
       H.b.configThrottle = origValue;
     });
-    it('connectionTimeout property should work', function () {
+    it('connectionTimeout property should work', function() {
       var origValue = H.b.connectionTimeout;
       assert(origValue > 0);
       H.b.connectionTimeout = origValue + 1;
       assert.notEqual(H.b.connectionTimeout, origValue);
       H.b.connectionTimeout = origValue;
     });
-    it('nodeConnectionTimeout property should work', function () {
+    it('nodeConnectionTimeout property should work', function() {
       var origValue = H.b.nodeConnectionTimeout;
       assert(origValue > 0);
       H.b.nodeConnectionTimeout = origValue + 1;

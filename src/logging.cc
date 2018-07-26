@@ -20,18 +20,13 @@ using namespace Couchnode;
 
 // We take advantage of the fact that everything here is single-threaded
 // and we can have only a single log buffer that is reused.
-char * logBuffer = NULL;
+char *logBuffer = NULL;
 int logBufferLen = 0;
 
 extern "C" {
-static void log_handler(struct lcb_logprocs_st *procs,
-                        unsigned int iid,
-                        const char *subsys,
-                        int severity,
-                        const char *srcfile,
-                        int srcline,
-                        const char *fmt,
-                        va_list ap)
+static void log_handler(struct lcb_logprocs_st *procs, unsigned int iid,
+                        const char *subsys, int severity, const char *srcfile,
+                        int srcline, const char *fmt, va_list ap)
 {
     node_logger_st *logger = (node_logger_st *)procs;
     Nan::HandleScope scope;
@@ -51,12 +46,15 @@ static void log_handler(struct lcb_logprocs_st *procs,
 
     Local<Object> infoObj = Nan::New<Object>();
     infoObj->Set(Nan::New(CouchbaseImpl::severityKey), Nan::New(severity));
-    infoObj->Set(Nan::New(CouchbaseImpl::srcFileKey), Nan::New(srcfile).ToLocalChecked());
+    infoObj->Set(Nan::New(CouchbaseImpl::srcFileKey),
+                 Nan::New(srcfile).ToLocalChecked());
     infoObj->Set(Nan::New(CouchbaseImpl::srcLineKey), Nan::New(srcline));
-    infoObj->Set(Nan::New(CouchbaseImpl::subsysKey), Nan::New(subsys).ToLocalChecked());
-    infoObj->Set(Nan::New(CouchbaseImpl::messageKey), Nan::New(logBuffer).ToLocalChecked());
+    infoObj->Set(Nan::New(CouchbaseImpl::subsysKey),
+                 Nan::New(subsys).ToLocalChecked());
+    infoObj->Set(Nan::New(CouchbaseImpl::messageKey),
+                 Nan::New(logBuffer).ToLocalChecked());
 
-    Local<Value> args[] = { infoObj };
+    Local<Value> args[] = {infoObj};
     logger->callback.Call(1, args);
 }
 }
@@ -68,18 +66,18 @@ NAN_METHOD(CouchbaseImpl::fnSetLoggingCallback)
 
     if (info.Length() != 1) {
         return info.GetReturnValue().Set(
-                Error::create("invalid number of parameters passed"));
+            Error::create("invalid number of parameters passed"));
     }
 
     if (me->logger) {
-      delete me->logger;
-      me->logger = NULL;
+        delete me->logger;
+        me->logger = NULL;
     }
 
     if (info[0]->BooleanValue()) {
-      if (!info[0]->IsFunction()) {
-          return Nan::ThrowError(Error::create("must pass function"));
-      }
+        if (!info[0]->IsFunction()) {
+            return Nan::ThrowError(Error::create("must pass function"));
+        }
     }
 
     node_logger_st *logger = new node_logger_st();
@@ -88,7 +86,8 @@ NAN_METHOD(CouchbaseImpl::fnSetLoggingCallback)
     logger->callback.Reset(info[0].As<Function>());
     me->logger = logger;
 
-    lcb_error_t ec = lcb_cntl(me->instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
+    lcb_error_t ec =
+        lcb_cntl(me->instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
     if (ec != LCB_SUCCESS) {
         return Nan::ThrowError(Error::create(ec));
     }

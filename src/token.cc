@@ -19,7 +19,8 @@
 #include <stdlib.h>
 using namespace Couchnode;
 
-void MutationToken::Init() {
+void MutationToken::Init()
+{
     Nan::HandleScope scope;
 
     Local<FunctionTemplate> t = Nan::New<FunctionTemplate>();
@@ -35,42 +36,44 @@ void MutationToken::Init() {
 NAN_METHOD(MutationToken::fnToString)
 {
     char tokenBuf[sizeof(lcb_MUTATION_TOKEN) + 256];
-    lcb_MUTATION_TOKEN *tokenVal = (lcb_MUTATION_TOKEN*)tokenBuf;
+    lcb_MUTATION_TOKEN *tokenVal = (lcb_MUTATION_TOKEN *)tokenBuf;
     const char *tokenBucket = &tokenBuf[sizeof(lcb_MUTATION_TOKEN)];
-    char tokenStr[24+24+24+3] = "";
+    char tokenStr[24 + 24 + 24 + 3] = "";
     Nan::HandleScope scope;
 
     MutationToken::GetToken(info.This(), tokenVal,
-            sizeof(lcb_MUTATION_TOKEN) + 256);
+                            sizeof(lcb_MUTATION_TOKEN) + 256);
     sprintf(tokenStr, "%hu:%llu:%llu:%s",
             (unsigned short)LCB_MUTATION_TOKEN_VB(tokenVal),
             (unsigned long long int)LCB_MUTATION_TOKEN_ID(tokenVal),
             (unsigned long long int)LCB_MUTATION_TOKEN_SEQ(tokenVal),
             tokenBucket);
     return info.GetReturnValue().Set(
-            Nan::New<String>(tokenStr).ToLocalChecked());
+        Nan::New<String>(tokenStr).ToLocalChecked());
 }
 
 NAN_METHOD(MutationToken::fnInspect)
 {
     char tokenBuf[sizeof(lcb_MUTATION_TOKEN) + 256];
-    lcb_MUTATION_TOKEN *tokenVal = (lcb_MUTATION_TOKEN*)tokenBuf;
+    lcb_MUTATION_TOKEN *tokenVal = (lcb_MUTATION_TOKEN *)tokenBuf;
     const char *tokenBucket = &tokenBuf[sizeof(lcb_MUTATION_TOKEN)];
-    char tokenStr[14+24+24+24+3] = "";
+    char tokenStr[14 + 24 + 24 + 24 + 3] = "";
     Nan::HandleScope scope;
 
     MutationToken::GetToken(info.This(), tokenVal,
-            sizeof(lcb_MUTATION_TOKEN) + 256);
+                            sizeof(lcb_MUTATION_TOKEN) + 256);
     sprintf(tokenStr, "CouchbaseToken<%hu,%llu,%llu,%s>",
             (unsigned short)LCB_MUTATION_TOKEN_VB(tokenVal),
             (unsigned long long int)LCB_MUTATION_TOKEN_ID(tokenVal),
             (unsigned long long int)LCB_MUTATION_TOKEN_SEQ(tokenVal),
             tokenBucket);
     return info.GetReturnValue().Set(
-            Nan::New<String>(tokenStr).ToLocalChecked());
+        Nan::New<String>(tokenStr).ToLocalChecked());
 }
 
-Handle<Value> MutationToken::CreateToken(lcb_t instance, const lcb_MUTATION_TOKEN *token) {
+Handle<Value> MutationToken::CreateToken(lcb_t instance,
+                                         const lcb_MUTATION_TOKEN *token)
+{
     if (!LCB_MUTATION_TOKEN_ISVALID(token)) {
         return Nan::Undefined();
     }
@@ -82,12 +85,13 @@ Handle<Value> MutationToken::CreateToken(lcb_t instance, const lcb_MUTATION_TOKE
     lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETNAME, &nameStr);
     uint32_t nameStrLen = strlen(nameStr) + 1;
     char *tokenBuf = new char[sizeof(lcb_MUTATION_TOKEN) + nameStrLen];
-    memcpy(tokenBuf, (const char*)token, sizeof(lcb_MUTATION_TOKEN));
+    memcpy(tokenBuf, (const char *)token, sizeof(lcb_MUTATION_TOKEN));
     memcpy(&tokenBuf[sizeof(lcb_MUTATION_TOKEN)], nameStr, nameStrLen);
 
     Local<Value> tokenData =
-            Nan::CopyBuffer((const char*)tokenBuf,
-                    sizeof(lcb_MUTATION_TOKEN) + nameStrLen).ToLocalChecked();
+        Nan::CopyBuffer((const char *)tokenBuf,
+                        sizeof(lcb_MUTATION_TOKEN) + nameStrLen)
+            .ToLocalChecked();
     ret->Set(0, tokenData);
 
     delete[] tokenBuf;
@@ -95,21 +99,25 @@ Handle<Value> MutationToken::CreateToken(lcb_t instance, const lcb_MUTATION_TOKE
     return ret;
 }
 
-Handle<Value> MutationToken::CreateToken(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase) {
+Handle<Value> MutationToken::CreateToken(lcb_t instance, int cbtype,
+                                         const lcb_RESPBASE *respbase)
+{
     return CreateToken(instance, lcb_resp_get_mutation_token(cbtype, respbase));
 }
 
-bool _StrToToken(Handle<Value> obj, lcb_MUTATION_TOKEN *p, int pSize) {
+bool _StrToToken(Handle<Value> obj, lcb_MUTATION_TOKEN *p, int pSize)
+{
     if (sscanf(*Nan::Utf8String(obj->ToString()), "%hu:%llu:%llu",
-            (unsigned short*)&LCB_MUTATION_TOKEN_VB(p),
-            (unsigned long long int*)&LCB_MUTATION_TOKEN_ID(p),
-            (unsigned long long int*)&LCB_MUTATION_TOKEN_SEQ(p)) != 1) {
+               (unsigned short *)&LCB_MUTATION_TOKEN_VB(p),
+               (unsigned long long int *)&LCB_MUTATION_TOKEN_ID(p),
+               (unsigned long long int *)&LCB_MUTATION_TOKEN_SEQ(p)) != 1) {
         return false;
     }
     return true;
 }
 
-bool _ObjToToken(Local<Value> obj, lcb_MUTATION_TOKEN *p, int pSize) {
+bool _ObjToToken(Local<Value> obj, lcb_MUTATION_TOKEN *p, int pSize)
+{
     Local<Object> realObj = obj.As<Object>();
     Local<Value> tokenData = realObj->Get(0);
 
@@ -129,7 +137,8 @@ bool _ObjToToken(Local<Value> obj, lcb_MUTATION_TOKEN *p, int pSize) {
     return true;
 }
 
-bool MutationToken::GetToken(Local<Value> obj, lcb_MUTATION_TOKEN *p, int pSize) {
+bool MutationToken::GetToken(Local<Value> obj, lcb_MUTATION_TOKEN *p, int pSize)
+{
     Nan::HandleScope scope;
     if (pSize == 0) {
         pSize = sizeof(lcb_MUTATION_TOKEN);

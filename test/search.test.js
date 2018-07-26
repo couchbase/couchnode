@@ -5,16 +5,16 @@ var harness = require('./harness.js');
 
 var H = harness;
 
-describe('#search', function () {
+describe('#search', function() {
   it('should generate sort correctly', function() {
     var q = H.lib.SearchQuery.new('index', null);
     q.sort([
-        H.lib.SearchSort.score().descending(true),
-        H.lib.SearchSort.id().descending(true),
-        H.lib.SearchSort.field('f1')
-            .type('a').mode('b').missing('c').descending(true),
-        H.lib.SearchSort.geoDistance('f2', 2, 3)
-            .unit('km').descending(true)
+      H.lib.SearchSort.score().descending(true),
+      H.lib.SearchSort.id().descending(true),
+      H.lib.SearchSort.field('f1')
+      .type('a').mode('b').missing('c').descending(true),
+      H.lib.SearchSort.geoDistance('f2', 2, 3)
+      .unit('km').descending(true)
     ]);
     var qd = JSON.parse(JSON.stringify(q));
     assert(qd.sort[0].by === 'score');

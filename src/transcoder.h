@@ -30,20 +30,15 @@ using namespace v8;
 class DefaultTranscoder
 {
 public:
-    static Local<Value> decodeJson(const void *bytes,
-            size_t nbytes);
+    static Local<Value> decodeJson(const void *bytes, size_t nbytes);
     static void encodeJson(CommandEncoder &enc, const void **bytes,
-            lcb_SIZE *nbytes, Local<Value> value);
+                           lcb_SIZE *nbytes, Local<Value> value);
 
-    static Local<Value> decode(const void *bytes,
-            size_t nbytes, lcb_U32 flags);
-    static void encode(CommandEncoder &enc,
-            const void **bytes, lcb_SIZE *nbytes,
-            lcb_U32 *flags, Local<Value> value);
-
+    static Local<Value> decode(const void *bytes, size_t nbytes, lcb_U32 flags);
+    static void encode(CommandEncoder &enc, const void **bytes,
+                       lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value);
 };
 
-
-}
+} // namespace Couchnode
 
 #endif

@@ -8,17 +8,20 @@ var assert = require('assert');
 
 // We enable logging to ensure that logging doesn't break any of the tests,
 // but we explicitly disable all output sources to avoid spamming anything.
-couchbase.logging.enableLogging({console: false, filename: false});
+couchbase.logging.enableLogging({
+  console: false,
+  filename: false
+});
 
 var config = {
   connstr: '',
-  bucket : 'default',
-  bpass  : '',
-  user   : '',
-  pass   : '',
-  muser  : 'Administrator',
-  mpass  : 'administrator',
-  qhosts : null
+  bucket: 'default',
+  bpass: '',
+  user: '',
+  pass: '',
+  muser: 'Administrator',
+  mpass: 'administrator',
+  qhosts: null
 };
 
 if (process.env.CNCSTR !== undefined) {
@@ -47,6 +50,7 @@ if (process.env.CNMPASS !== undefined) {
 }
 
 var configWaits = [];
+
 function _waitForConfig(callback) {
   if (!configWaits) {
     setImmediate(callback);

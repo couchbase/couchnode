@@ -8,16 +8,17 @@ describe('#Bucket Diagnostics', function() {
 
   it('should successfully ping the server', function(done) {
     H.b.ping(
-        [H.lib.ServiceType.KeyValue, H.lib.ServiceType.Views],
-        H.okCallback(function(res) {
-          assert.ok(res.id);
-          assert.ok(res.sdk);
-          assert.equal(res.version, 1);
-          done();
-        }));
+      [H.lib.ServiceType.KeyValue, H.lib.ServiceType.Views],
+      H.okCallback(function(res) {
+        assert.ok(res.id);
+        assert.ok(res.sdk);
+        assert.equal(res.version, 1);
+        done();
+      }));
   });
 
-  it('should successfully get diagnostics info from the client', function(done) {
+  it('should successfully get diagnostics info from the client', function(
+    done) {
     H.b.diagnostics(H.okCallback(function(res) {
       assert.ok(res.id);
       assert.ok(res.sdk);

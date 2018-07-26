@@ -36,8 +36,8 @@
 #endif
 #endif
 
-#include <node.h>
 #include "nan.h"
+#include <node.h>
 
 #if __GNUC__
 #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
@@ -46,20 +46,20 @@
 #endif
 
 #include <iostream>
+#include <libcouchbase/api3.h>
+#include <libcouchbase/cbft.h>
+#include <libcouchbase/couchbase.h>
+#include <libcouchbase/n1ql.h>
+#include <libcouchbase/views.h>
 #include <map>
+#include <queue>
 #include <string>
 #include <vector>
-#include <queue>
-#include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
-#include <libcouchbase/views.h>
-#include <libcouchbase/n1ql.h>
-#include <libcouchbase/cbft.h>
 
 #include "cas.h"
-#include "token.h"
-#include "exception.h"
 #include "cmdencoder.h"
+#include "exception.h"
+#include "token.h"
 #include "transcoder.h"
 
 #if LCB_VERSION < 0x020806
@@ -68,20 +68,20 @@
 
 namespace Couchnode
 {
-using v8::Value;
-using v8::Handle;
-using v8::Local;
-using v8::Persistent;
-using v8::Function;
-using v8::HandleScope;
-using v8::String;
-using v8::Number;
-using v8::Object;
-using v8::Integer;
-using v8::FunctionTemplate;
-using v8::Uint32;
 using v8::Array;
 using v8::Exception;
+using v8::Function;
+using v8::FunctionTemplate;
+using v8::Handle;
+using v8::HandleScope;
+using v8::Integer;
+using v8::Local;
+using v8::Number;
+using v8::Object;
+using v8::Persistent;
+using v8::String;
+using v8::Uint32;
+using v8::Value;
 
 // These codes *should* be in lcb_cntl, but currently aren't.
 enum ControlCode {
@@ -97,7 +97,7 @@ struct node_logger_st {
     Nan::Callback callback;
 };
 
-class CouchbaseImpl: public Nan::ObjectWrap
+class CouchbaseImpl : public Nan::ObjectWrap
 {
 public:
     // Methods called directly from JavaScript
@@ -145,21 +145,23 @@ public:
     void onConnect(lcb_error_t err);
     void onShutdown();
 
-    lcb_t getLcbHandle(void) const {
+    lcb_t getLcbHandle(void) const
+    {
         return instance;
     }
 
-    const char * getClientString();
+    const char *getClientString();
 
-    Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags, Nan::AsyncResource *asyncContext);
-    bool encodeDoc(CommandEncoder& enc, const void **,
-            lcb_SIZE *nbytes, lcb_U32 *flags, Local<Value> value);
+    Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags,
+                            Nan::AsyncResource *asyncContext);
+    bool encodeDoc(CommandEncoder &enc, const void **, lcb_SIZE *nbytes,
+                   lcb_U32 *flags, Local<Value> value);
 
-    lcbtrace_SPAN * startOpTrace(const char * opmame);
+    lcbtrace_SPAN *startOpTrace(const char *opmame);
     void endOpTrace(lcbtrace_SPAN *span);
-    lcbtrace_SPAN * startEncodeTrace(lcbtrace_SPAN *opSpan);
+    lcbtrace_SPAN *startEncodeTrace(lcbtrace_SPAN *opSpan);
     void endEncodeTrace(lcbtrace_SPAN *span);
-    lcbtrace_SPAN * startDecodeTrace(lcbtrace_SPAN *opSpan);
+    lcbtrace_SPAN *startDecodeTrace(lcbtrace_SPAN *opSpan);
     void endDecodeTrace(lcbtrace_SPAN *span);
 
 protected:
@@ -195,18 +197,15 @@ public:
     static Nan::Persistent<String> subsysKey;
     static Nan::Persistent<String> srcFileKey;
     static Nan::Persistent<String> srcLineKey;
-
 };
 
 } // namespace Couchnode
 
 extern "C" {
 void viewrow_callback(lcb_t instance, int ignoreme,
-        const lcb_RESPVIEWQUERY *resp);
-void n1qlrow_callback(lcb_t instance, int ignoreme,
-        const lcb_RESPN1QL *resp);
-void ftsrow_callback(lcb_t instance, int ignoreme,
-        const lcb_RESPFTS *resp);
+                      const lcb_RESPVIEWQUERY *resp);
+void n1qlrow_callback(lcb_t instance, int ignoreme, const lcb_RESPN1QL *resp);
+void ftsrow_callback(lcb_t instance, int ignoreme, const lcb_RESPFTS *resp);
 }
 
 #endif

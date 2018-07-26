@@ -38,53 +38,52 @@ enum Flags {
 
 };
 
-Local<Value> DefaultTranscoder::decodeJson(const void *bytes,
-        size_t nbytes)
+Local<Value> DefaultTranscoder::decodeJson(const void *bytes, size_t nbytes)
 {
     Handle<Value> stringVal =
-            Nan::New<String>((char*)bytes, nbytes).ToLocalChecked();
+        Nan::New<String>((char *)bytes, nbytes).ToLocalChecked();
 
     Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
-    return jsonParseLcl->Call(
-            Nan::GetCurrentContext()->Global(), 1, &stringVal);
+    return jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1,
+                              &stringVal);
 }
 
 void DefaultTranscoder::encodeJson(CommandEncoder &enc, const void **bytes,
-        lcb_SIZE *nbytes, Local<Value> value)
+                                   lcb_SIZE *nbytes, Local<Value> value)
 {
     Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
-    Local<Value> ret = jsonStringifyLcl->Call(
-            Nan::GetCurrentContext()->Global(), 1, &value);
+    Local<Value> ret =
+        jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, &value);
 
     enc.parseString(bytes, nbytes, ret);
 }
 
-Local<Value> DefaultTranscoder::decode(const void *bytes,
-        size_t nbytes, lcb_U32 flags)
+Local<Value> DefaultTranscoder::decode(const void *bytes, size_t nbytes,
+                                       lcb_U32 flags)
 {
     lcb_U32 format = flags & NF_MASK;
     lcb_U32 cfformat = flags & CF_MASK;
 
     if (cfformat != 0) {
-      if (cfformat == CF_JSON) {
-        format = NF_JSON;
-      } else if (cfformat == CF_RAW) {
-        format = NF_RAW;
-      } else if (cfformat == CF_UTF8) {
-        format = NF_UTF8;
-      } else if (cfformat != CF_PRIVATE) {
-        // Unknown CF Format!  The following will force
-        //   fallback to reporting RAW data.
-        format = 0x100;
-      }
+        if (cfformat == CF_JSON) {
+            format = NF_JSON;
+        } else if (cfformat == CF_RAW) {
+            format = NF_RAW;
+        } else if (cfformat == CF_UTF8) {
+            format = NF_UTF8;
+        } else if (cfformat != CF_PRIVATE) {
+            // Unknown CF Format!  The following will force
+            //   fallback to reporting RAW data.
+            format = 0x100;
+        }
     }
 
     if (format == NF_UTF8) {
         // UTF8 decodes into a String
-        return Nan::New<String>((char*)bytes, nbytes).ToLocalChecked();
+        return Nan::New<String>((char *)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_RAW) {
         // RAW decodes into a Buffer
-        return Nan::CopyBuffer((char*)bytes, nbytes).ToLocalChecked();
+        return Nan::CopyBuffer((char *)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_JSON) {
         // JSON decodes to an Object
         Nan::TryCatch tryCatch;
@@ -101,8 +100,9 @@ Local<Value> DefaultTranscoder::decode(const void *bytes,
     return decode(bytes, nbytes, NF_RAW);
 }
 
-void DefaultTranscoder::encode(CommandEncoder &enc, const void **bytes, lcb_SIZE *nbytes,
-        lcb_U32 *flags, Local<Value> value)
+void DefaultTranscoder::encode(CommandEncoder &enc, const void **bytes,
+                               lcb_SIZE *nbytes, lcb_U32 *flags,
+                               Local<Value> value)
 {
     if (value->IsString()) {
         enc.parseString(bytes, nbytes, value);

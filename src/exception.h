@@ -41,11 +41,11 @@ private:
     static Nan::Persistent<Function> errorClass;
     static Nan::Persistent<String> codeKey;
 
-    Error() {}
-
+    Error()
+    {
+    }
 };
 
-
-}
+} // namespace Couchnode
 
 #endif

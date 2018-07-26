@@ -19,33 +19,37 @@
 using namespace std;
 using namespace Couchnode;
 
-template <typename T>
-class LcbCmd {
+template <typename T> class LcbCmd
+{
 public:
-  LcbCmd() {
-    memset(&cmd, 0, sizeof(cmd));
-    cmds[0] = &cmd;
-  }
+    LcbCmd()
+    {
+        memset(&cmd, 0, sizeof(cmd));
+        cmds[0] = &cmd;
+    }
 
-  T * operator->() const {
-      return (T*)&cmd;
-  }
+    T *operator->() const
+    {
+        return (T *)&cmd;
+    }
 
-  operator const T *const *() const {
-      return cmds;
-  }
+    operator const T *const *() const
+    {
+        return cmds;
+    }
 
-  T *cmds[1];
-  T cmd;
+    T *cmds[1];
+    T cmd;
 };
 
-NAN_METHOD(CouchbaseImpl::fnGet) {
+NAN_METHOD(CouchbaseImpl::fnGet)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDGET cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("store");
+    lcbtrace_SPAN *span = me->startOpTrace("store");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -76,13 +80,14 @@ NAN_METHOD(CouchbaseImpl::fnGet) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnGetReplica) {
+NAN_METHOD(CouchbaseImpl::fnGetReplica)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDGETREPLICA cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("getReplica");
+    lcbtrace_SPAN *span = me->startOpTrace("getReplica");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -116,13 +121,14 @@ NAN_METHOD(CouchbaseImpl::fnGetReplica) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnTouch) {
+NAN_METHOD(CouchbaseImpl::fnTouch)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDTOUCH cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("touch");
+    lcbtrace_SPAN *span = me->startOpTrace("touch");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -150,13 +156,14 @@ NAN_METHOD(CouchbaseImpl::fnTouch) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnUnlock) {
+NAN_METHOD(CouchbaseImpl::fnUnlock)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDUNLOCK cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("unlock");
+    lcbtrace_SPAN *span = me->startOpTrace("unlock");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -184,13 +191,14 @@ NAN_METHOD(CouchbaseImpl::fnUnlock) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnRemove) {
+NAN_METHOD(CouchbaseImpl::fnRemove)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDREMOVE cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("remove");
+    lcbtrace_SPAN *span = me->startOpTrace("remove");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -218,7 +226,8 @@ NAN_METHOD(CouchbaseImpl::fnRemove) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnStore) {
+NAN_METHOD(CouchbaseImpl::fnStore)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDSTORE cmd;
     Nan::HandleScope scope;
@@ -230,16 +239,26 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
         Nan::MaybeLocal<Uint32> opTypeTyped = Nan::To<Uint32>(opType);
         if (!opTypeTyped.IsEmpty()) {
             switch (opTypeTyped.ToLocalChecked()->Value()) {
-                case LCB_SET: opName = "upsert"; break;
-                case LCB_ADD: opName = "insert"; break;
-                case LCB_REPLACE: opName = "replace"; break;
-                case LCB_APPEND: opName = "append"; break;
-                case LCB_PREPEND: opName = "prepend"; break;
+            case LCB_SET:
+                opName = "upsert";
+                break;
+            case LCB_ADD:
+                opName = "insert";
+                break;
+            case LCB_REPLACE:
+                opName = "replace";
+                break;
+            case LCB_APPEND:
+                opName = "append";
+                break;
+            case LCB_PREPEND:
+                opName = "prepend";
+                break;
             }
         }
     }
 
-    lcbtrace_SPAN * span = me->startOpTrace(opName);
+    lcbtrace_SPAN *span = me->startOpTrace(opName);
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -253,14 +272,11 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
         return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
 
-    lcbtrace_SPAN * encSpan = me->startEncodeTrace(span);
+    lcbtrace_SPAN *encSpan = me->startEncodeTrace(span);
 
     cmd.value.vtype = LCB_KV_COPY;
-    me->encodeDoc(enc,
-            &cmd.value.u_buf.contig.bytes,
-            &cmd.value.u_buf.contig.nbytes,
-            &cmd.flags,
-            info[2]);
+    me->encodeDoc(enc, &cmd.value.u_buf.contig.bytes,
+                  &cmd.value.u_buf.contig.nbytes, &cmd.flags, info[2]);
 
     me->endEncodeTrace(encSpan);
 
@@ -278,8 +294,7 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    if (cmd.operation == LCB_APPEND
-          || cmd.operation == LCB_PREPEND) {
+    if (cmd.operation == LCB_APPEND || cmd.operation == LCB_PREPEND) {
         cmd.flags = 0;
     }
 
@@ -292,13 +307,14 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnArithmetic) {
+NAN_METHOD(CouchbaseImpl::fnArithmetic)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDCOUNTER cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("arithmetic");
+    lcbtrace_SPAN *span = me->startOpTrace("arithmetic");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -335,14 +351,15 @@ NAN_METHOD(CouchbaseImpl::fnArithmetic) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnDurability) {
+NAN_METHOD(CouchbaseImpl::fnDurability)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDENDURE cmd;
     lcb_durability_opts_t opts;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("durability");
+    lcbtrace_SPAN *span = me->startOpTrace("durability");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -374,12 +391,13 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
     }
 
     lcb_error_t err;
-    lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(me->getLcbHandle(), &opts, &err);
+    lcb_MULTICMD_CTX *mctx =
+        lcb_endure3_ctxnew(me->getLcbHandle(), &opts, &err);
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
 
-    err = mctx->addcmd(mctx, (const lcb_CMDBASE*)&cmd);
+    err = mctx->addcmd(mctx, (const lcb_CMDBASE *)&cmd);
     if (err) {
         mctx->fail(mctx);
         return Nan::ThrowError(Error::create(err));
@@ -394,13 +412,14 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnViewQuery) {
+NAN_METHOD(CouchbaseImpl::fnViewQuery)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDVIEWQUERY cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("query::view");
+    lcbtrace_SPAN *span = me->startOpTrace("query::view");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -445,13 +464,14 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
+NAN_METHOD(CouchbaseImpl::fnN1qlQuery)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDN1QL cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("query::n1ql");
+    lcbtrace_SPAN *span = me->startOpTrace("query::n1ql");
     enc.registerTraceSpan(span);
 
     Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
@@ -465,14 +485,14 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     cmd.content_type = "application/json";
 
     if (!info[0]->IsUndefined()) {
-        if(!enc.parseString(&cmd.host, info[0])) {
+        if (!enc.parseString(&cmd.host, info[0])) {
             return Nan::ThrowError(Error::create("bad host passed"));
         }
     }
 
-    Handle<Value> optsinfo[] = { info[1] };
+    Handle<Value> optsinfo[] = {info[1]};
     Local<Value> optsVal =
-            jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, optsinfo);
+        jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, optsinfo);
     Local<String> optsStr = optsVal.As<String>();
     if (!enc.parseString(&cmd.query, &cmd.nquery, optsStr)) {
         return Nan::ThrowError(Error::create("bad opts passed"));
@@ -497,13 +517,14 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnFtsQuery) {
+NAN_METHOD(CouchbaseImpl::fnFtsQuery)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDFTS cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("query::fts");
+    lcbtrace_SPAN *span = me->startOpTrace("query::fts");
     enc.registerTraceSpan(span);
 
     Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
@@ -515,9 +536,9 @@ NAN_METHOD(CouchbaseImpl::fnFtsQuery) {
 
     cmd.callback = ftsrow_callback;
 
-    Handle<Value> optsinfo[] = { info[0] };
+    Handle<Value> optsinfo[] = {info[0]};
     Local<Value> optsVal =
-            jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, optsinfo);
+        jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, optsinfo);
     Local<String> optsStr = optsVal.As<String>();
     if (!enc.parseString(&cmd.query, &cmd.nquery, optsStr)) {
         return Nan::ThrowError(Error::create("bad opts passed"));
@@ -538,7 +559,8 @@ NAN_METHOD(CouchbaseImpl::fnFtsQuery) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnLookupIn) {
+NAN_METHOD(CouchbaseImpl::fnLookupIn)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDSUBDOC cmd;
     lcb_SDSPEC sdcmd;
@@ -547,7 +569,7 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("lookupIn");
+    lcbtrace_SPAN *span = me->startOpTrace("lookupIn");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -560,7 +582,7 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     if (!enc.parseKeyBuf(&cmd._hashkey, info[1])) {
         return Nan::ThrowError(Error::create("bad hashkey passed"));
     }
-    if (!enc.parseCallback(info[info.Length()-1])) {
+    if (!enc.parseCallback(info[info.Length() - 1])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -571,7 +593,7 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
             return Nan::ThrowError(Error::create("bad optype passed"));
         }
 
-        switch(sdcmd.sdcmd) {
+        switch (sdcmd.sdcmd) {
         case LCB_SDCMD_GET:
         case LCB_SDCMD_GET_COUNT:
         case LCB_SDCMD_EXISTS:
@@ -608,7 +630,8 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnMutateIn) {
+NAN_METHOD(CouchbaseImpl::fnMutateIn)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDSUBDOC cmd;
     lcb_SDSPEC sdcmd;
@@ -617,7 +640,7 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("mutateIn");
+    lcbtrace_SPAN *span = me->startOpTrace("mutateIn");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -639,7 +662,7 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     if (!enc.parseUintOption(&cmd.cmdflags, info[4])) {
         return Nan::ThrowError(Error::create("bad flags passed"));
     }
-    if (!enc.parseCallback(info[info.Length()-1])) {
+    if (!enc.parseCallback(info[info.Length() - 1])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -652,7 +675,7 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
 
         int dataCount = 0;
         int isMultiValued = 0;
-        switch(sdcmd.sdcmd) {
+        switch (sdcmd.sdcmd) {
         case LCB_SDCMD_REMOVE:
             dataCount = 2;
             break;
@@ -693,16 +716,15 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
         if (dataCount >= 3) {
             // I don't believe this can actually fail, no need to test
             sdcmd.value.vtype = LCB_KV_COPY;
-            DefaultTranscoder::encodeJson(enc,
-                    &sdcmd.value.u_buf.contig.bytes,
-                    &sdcmd.value.u_buf.contig.nbytes,
-                    info[index + 3]);
+            DefaultTranscoder::encodeJson(enc, &sdcmd.value.u_buf.contig.bytes,
+                                          &sdcmd.value.u_buf.contig.nbytes,
+                                          info[index + 3]);
 
-           if (isMultiValued != 0) {
-              // Strip the brackets off of this.
-              *((char*)&sdcmd.value.u_buf.contig.bytes) += 1;
-              sdcmd.value.u_buf.contig.nbytes -= 2;
-           }
+            if (isMultiValued != 0) {
+                // Strip the brackets off of this.
+                *((char *)&sdcmd.value.u_buf.contig.bytes) += 1;
+                sdcmd.value.u_buf.contig.nbytes -= 2;
+            }
         }
 
         specs.push_back(sdcmd);
@@ -721,13 +743,14 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnPing) {
+NAN_METHOD(CouchbaseImpl::fnPing)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDPING cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("ping");
+    lcbtrace_SPAN *span = me->startOpTrace("ping");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
@@ -750,13 +773,14 @@ NAN_METHOD(CouchbaseImpl::fnPing) {
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(CouchbaseImpl::fnDiag) {
+NAN_METHOD(CouchbaseImpl::fnDiag)
+{
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
     lcb_CMDDIAG cmd;
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN * span = me->startOpTrace("diag");
+    lcbtrace_SPAN *span = me->startOpTrace("diag");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));

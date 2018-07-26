@@ -15,7 +15,6 @@
  *   limitations under the License.
  */
 
-
 #include "couchbase_impl.h"
 #include "exception.h"
 
@@ -50,7 +49,8 @@ NAN_METHOD(CouchbaseImpl::fnControl)
     }
 
     if (option == LCB_CNTL_SET && optVal.IsEmpty()) {
-        return Nan::ThrowError(Error::create("Valid argument missing for 'CNTL_SET'"));
+        return Nan::ThrowError(
+            Error::create("Valid argument missing for 'CNTL_SET'"));
     }
 
     switch (mode) {
@@ -61,11 +61,10 @@ NAN_METHOD(CouchbaseImpl::fnControl)
     case LCB_CNTL_HTTP_TIMEOUT:
     case LCB_CNTL_DURABILITY_INTERVAL:
     case LCB_CNTL_DURABILITY_TIMEOUT:
-    case LCB_CNTL_OP_TIMEOUT:
-    {
+    case LCB_CNTL_OP_TIMEOUT: {
         lcb_uint32_t tmoval;
         if (option == LCB_CNTL_GET) {
-            err =  lcb_cntl(instance, option, mode, &tmoval);
+            err = lcb_cntl(instance, option, mode, &tmoval);
             if (err != LCB_SUCCESS) {
                 return Nan::ThrowError(Error::create(err));
             } else {
@@ -100,7 +99,7 @@ NAN_METHOD(CouchbaseImpl::fnControl)
         String::Utf8Value s(optVal->ToString());
         err = lcb_cntl(instance, option, mode, (char *)*s);
         break;
-     }
+    }
 
     default:
         return Nan::ThrowError(Error::create("Not supported yet"));
@@ -113,4 +112,4 @@ NAN_METHOD(CouchbaseImpl::fnControl)
     }
 }
 
-}
+} // namespace Couchnode

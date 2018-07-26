@@ -15,7 +15,6 @@
  *   limitations under the License.
  */
 
-
 #ifndef CAS_H_
 #define CAS_H_
 
@@ -29,12 +28,11 @@ public:
     static NAN_METHOD(fnToString);
     static NAN_METHOD(fnInspect);
 
-    static bool GetCas(v8::Local<v8::Value>, uint64_t*);
+    static bool GetCas(v8::Local<v8::Value>, uint64_t *);
     static v8::Handle<v8::Value> CreateCas(uint64_t);
 
 private:
     static Nan::Persistent<v8::Function> casClass;
-
 };
 
 } // namespace Couchnode

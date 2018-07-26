@@ -19,14 +19,14 @@
 #include <stdlib.h>
 using namespace Couchnode;
 
-void Error::Init() {
+void Error::Init()
+{
     codeKey.Reset(Nan::New<String>("code").ToLocalChecked());
 }
 
-Local<Value> Error::create(const std::string &msg, int err) {
-    Local<Value> args[] = {
-        Nan::New<String>(msg.c_str()).ToLocalChecked()
-    };
+Local<Value> Error::create(const std::string &msg, int err)
+{
+    Local<Value> args[] = {Nan::New<String>(msg.c_str()).ToLocalChecked()};
     Local<Object> errObj =
         Nan::NewInstance(getErrorClass(), 1, args).ToLocalChecked();
     if (err > 0) {
@@ -35,24 +35,26 @@ Local<Value> Error::create(const std::string &msg, int err) {
     return errObj;
 }
 
-Local<Value> Error::create(lcb_error_t err) {
+Local<Value> Error::create(lcb_error_t err)
+{
     if (err == LCB_SUCCESS) {
         return Nan::Null();
     }
 
     Local<Value> args[] = {
-        Nan::New<String>(lcb_strerror(NULL, err)).ToLocalChecked()
-    };
+        Nan::New<String>(lcb_strerror(NULL, err)).ToLocalChecked()};
     Local<Object> errObj =
         Nan::NewInstance(getErrorClass(), 1, args).ToLocalChecked();
     errObj->Set(Nan::New(codeKey), Nan::New<Integer>(err));
     return errObj;
 }
 
-void Error::setErrorClass(Local<Function> func) {
+void Error::setErrorClass(Local<Function> func)
+{
     errorClass.Reset(func);
 }
 
-Local<Function> Error::getErrorClass() {
+Local<Function> Error::getErrorClass()
+{
     return Nan::New(errorClass);
 }
