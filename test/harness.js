@@ -166,6 +166,12 @@ function RealHarness() {
       this.b.enableN1ql(this.qhosts);
     }
   }.bind(this));
+
+  after(function() {
+    if (this.b) {
+      this.b.disconnect();
+    }
+  }.bind(this));
 }
 util.inherits(RealHarness, Harness);
 
