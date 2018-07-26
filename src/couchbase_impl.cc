@@ -764,6 +764,40 @@ static void diag_callback(lcb_t instance, int cbtype,
 
     delete cookie;
 }
+
+static void httpdata_callback(lcb_t instance, int ignoreme,
+                              const lcb_RESPBASE *respbase)
+{
+    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
+    const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)respbase;
+    OpCookie *cookie = (OpCookie *)resp->cookie;
+    Nan::HandleScope scope;
+
+    if (resp->rflags & LCB_RESP_F_FINAL) {
+        me->endOpTrace(cookie->traceSpan);
+        cookie->traceSpan = NULL;
+
+        Local<Object> metaObj = Nan::New<Object>();
+        metaObj->Set(Nan::New(me->statusCodeKey),
+                     Nan::New<Number>(resp->htstatus));
+
+        Local<Value> args[] = {
+            Nan::New<Number>(resp->rc),
+            metaObj,
+        };
+        cookie->callback.Call(2, args, cookie->asyncContext());
+
+        delete cookie;
+        return;
+    }
+
+    Local<Value> bodyData =
+        Nan::New<String>((const char *)resp->body, (int)resp->nbody)
+            .ToLocalChecked();
+
+    Local<Value> args[] = {Nan::New<Number>(-1), bodyData};
+    cookie->callback.Call(2, args, cookie->asyncContext());
+}
 }
 
 void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
@@ -782,4 +816,5 @@ void CouchbaseImpl::setupLibcouchbaseCallbacks(void)
     lcb_install_callback3(instance, LCB_CALLBACK_SDMUTATE, subdoc_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_PING, ping_callback);
     lcb_install_callback3(instance, LCB_CALLBACK_DIAG, diag_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, httpdata_callback);
 }

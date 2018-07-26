@@ -137,6 +137,7 @@ public:
     static NAN_METHOD(fnMutateIn);
     static NAN_METHOD(fnPing);
     static NAN_METHOD(fnDiag);
+    static NAN_METHOD(fnHttpRequest);
 
 public:
     CouchbaseImpl(lcb_t inst);
@@ -197,6 +198,7 @@ public:
     static Nan::Persistent<String> subsysKey;
     static Nan::Persistent<String> srcFileKey;
     static Nan::Persistent<String> srcLineKey;
+    static Nan::Persistent<String> statusCodeKey;
 };
 
 } // namespace Couchnode

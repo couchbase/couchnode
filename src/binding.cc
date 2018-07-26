@@ -40,6 +40,7 @@ Nan::Persistent<String> CouchbaseImpl::severityKey;
 Nan::Persistent<String> CouchbaseImpl::subsysKey;
 Nan::Persistent<String> CouchbaseImpl::srcFileKey;
 Nan::Persistent<String> CouchbaseImpl::srcLineKey;
+Nan::Persistent<String> CouchbaseImpl::statusCodeKey;
 Nan::Persistent<String> lcbErrorKey;
 
 extern "C" {
@@ -97,6 +98,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "mutateIn", fnMutateIn);
     Nan::SetPrototypeMethod(t, "ping", fnPing);
     Nan::SetPrototypeMethod(t, "diag", fnDiag);
+    Nan::SetPrototypeMethod(t, "httpRequest", fnHttpRequest);
 
     target->Set(Nan::New<String>("CouchbaseImpl").ToLocalChecked(),
                 t->GetFunction());
@@ -121,6 +123,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     subsysKey.Reset(Nan::New<String>("subsys").ToLocalChecked());
     srcFileKey.Reset(Nan::New<String>("srcFile").ToLocalChecked());
     srcLineKey.Reset(Nan::New<String>("srcLine").ToLocalChecked());
+    statusCodeKey.Reset(Nan::New<String>("statusCode").ToLocalChecked());
 
     Handle<Object> jMod = Nan::GetCurrentContext()
                               ->Global()

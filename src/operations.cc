@@ -798,3 +798,52 @@ NAN_METHOD(CouchbaseImpl::fnDiag)
     enc.persistCookie();
     return info.GetReturnValue().Set(true);
 }
+
+NAN_METHOD(CouchbaseImpl::fnHttpRequest)
+{
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_CMDHTTP cmd;
+    Nan::HandleScope scope;
+    CommandEncoder enc;
+
+    lcbtrace_SPAN *span = me->startOpTrace("http::generic");
+    enc.registerTraceSpan(span);
+
+    memset(&cmd, 0, sizeof(cmd));
+    LCB_CMD_SET_TRACESPAN(&cmd, span);
+
+    cmd.cmdflags = LCB_CMDHTTP_F_STREAM;
+
+    if (!enc.parseUintOption(&cmd.type, info[0])) {
+        return Nan::ThrowError(Error::create("bad type passed"));
+    }
+    if (!enc.parseUintOption(&cmd.method, info[1])) {
+        return Nan::ThrowError(Error::create("bad method passed"));
+    }
+    if (!enc.parseString(&cmd.username, info[2])) {
+        return Nan::ThrowError(Error::create("bad username passed"));
+    }
+    if (!enc.parseString(&cmd.password, info[3])) {
+        return Nan::ThrowError(Error::create("bad password passed"));
+    }
+    if (!enc.parseKeyBuf(&cmd.key, info[4])) {
+        return Nan::ThrowError(Error::create("bad path passed"));
+    }
+    if (!enc.parseString(&cmd.content_type, info[5])) {
+        return Nan::ThrowError(Error::create("bad content type passed"));
+    }
+    if (!enc.parseString(&cmd.body, &cmd.nbody, info[6])) {
+        return Nan::ThrowError(Error::create("bad body passed"));
+    }
+    if (!enc.parseCallback(info[7])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_error_t err = lcb_http3(me->getLcbHandle(), enc.cookie(), &cmd);
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    enc.persistCookie();
+    return info.GetReturnValue().Set(true);
+}
