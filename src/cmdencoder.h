@@ -132,6 +132,10 @@ public:
        return true;
      }
 
+    void registerTraceSpan(lcbtrace_SPAN *span) {
+        _cookie->traceSpan = span;
+    }
+
     void persistCookie() {
         _cookiePersist = true;
     }

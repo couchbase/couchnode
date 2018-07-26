@@ -263,6 +263,7 @@ void _DispatchValueCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = { errObj, resVal };
     cookie->callback.Call(2, args, cookie->asyncContext());
@@ -289,6 +290,7 @@ void _DispatchArithCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = { errObj, resVal };
     cookie->callback.Call(2, args, cookie->asyncContext());
@@ -312,6 +314,7 @@ void _DispatchBasicCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = { errObj, resVal };
     cookie->callback.Call(2, args, cookie->asyncContext());
@@ -336,6 +339,7 @@ void _DispatchStoreCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = { errObj, resVal };
     cookie->callback.Call(2, args, cookie->asyncContext());
@@ -352,6 +356,7 @@ void _DispatchErrorCallback(lcb_t instance, int cbtype, const lcb_RESPBASE *resp
     Local<Value> resVal = Nan::Null();
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = { errObj, resVal };
     cookie->callback.Call(2, args, cookie->asyncContext());
@@ -479,6 +484,7 @@ void viewrow_callback(lcb_t instance, int ignoreme,
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = {
             Nan::New<Number>(-1),
@@ -530,6 +536,7 @@ void n1qlrow_callback(lcb_t instance, int ignoreme,
             jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &rowStr);
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = {
             Nan::New<Number>(-1),
@@ -581,6 +588,7 @@ void ftsrow_callback(lcb_t instance, int ignoreme,
             jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &rowStr);
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = {
             Nan::New<Number>(-1),
@@ -654,6 +662,7 @@ subdoc_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase)
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = {
             Nan::New<Number>(errorCount),
@@ -683,6 +692,7 @@ ping_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase)
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = { errObj, resVal };
     cookie->callback.Call(2, args, cookie->asyncContext());
@@ -710,6 +720,7 @@ diag_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *respbase)
     }
 
     me->endOpTrace(cookie->traceSpan);
+    cookie->traceSpan = NULL;
 
     Local<Value> args[] = { errObj, resVal };
     cookie->callback.Call(2, args, cookie->asyncContext());

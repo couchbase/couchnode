@@ -46,6 +46,7 @@ NAN_METHOD(CouchbaseImpl::fnGet) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("store");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -82,6 +83,7 @@ NAN_METHOD(CouchbaseImpl::fnGetReplica) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("getReplica");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -121,6 +123,7 @@ NAN_METHOD(CouchbaseImpl::fnTouch) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("touch");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -154,6 +157,7 @@ NAN_METHOD(CouchbaseImpl::fnUnlock) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("unlock");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -187,6 +191,7 @@ NAN_METHOD(CouchbaseImpl::fnRemove) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("remove");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -235,6 +240,7 @@ NAN_METHOD(CouchbaseImpl::fnStore) {
     }
 
     lcbtrace_SPAN * span = me->startOpTrace(opName);
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -293,6 +299,7 @@ NAN_METHOD(CouchbaseImpl::fnArithmetic) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("arithmetic");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -336,6 +343,7 @@ NAN_METHOD(CouchbaseImpl::fnDurability) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("durability");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     memset(&opts, 0, sizeof(opts));
@@ -393,6 +401,7 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("query::view");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
 
@@ -443,6 +452,7 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("query::n1ql");
+    enc.registerTraceSpan(span);
 
     Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
 
@@ -494,6 +504,7 @@ NAN_METHOD(CouchbaseImpl::fnFtsQuery) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("query::fts");
+    enc.registerTraceSpan(span);
 
     Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
 
@@ -537,6 +548,7 @@ NAN_METHOD(CouchbaseImpl::fnLookupIn) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("lookupIn");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -606,6 +618,7 @@ NAN_METHOD(CouchbaseImpl::fnMutateIn) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("mutateIn");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -715,6 +728,7 @@ NAN_METHOD(CouchbaseImpl::fnPing) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("ping");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
@@ -743,6 +757,7 @@ NAN_METHOD(CouchbaseImpl::fnDiag) {
     CommandEncoder enc;
 
     lcbtrace_SPAN * span = me->startOpTrace("diag");
+    enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
     LCB_CMD_SET_TRACESPAN(&cmd, span);
