@@ -22,7 +22,7 @@ static bool
 has_pending(lcb_t instance)
 {
 
-    if (!instance->retryq->empty()) {
+    if (!instance->retryq->empty(!LCBT_SETTING(instance, wait_for_config))) {
         return true;
     }
 

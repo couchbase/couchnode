@@ -19,15 +19,28 @@ TARGET_LINK_LIBRARIES(db couchbase)
 TARGET_LINK_LIBRARIES(vb couchbase)
 
 ADD_EXAMPLE(mcc mcc "" "")
-ADD_EXAMPLE(minimal minimal "" "")
-ADD_EXAMPLE(observe observe "" "")
 ADD_EXAMPLE(views-example views "" "")
 ADD_EXAMPLE(tick tick "" "")
+ADD_EXAMPLE(users users "" "")
 
 ADD_EXECUTABLE(subdoc-simple subdoc/subdoc-simple.cc)
 ADD_EXECUTABLE(subdoc-multi subdoc/subdoc-multi.cc)
+ADD_EXECUTABLE(subdoc-xattrs subdoc/subdoc-xattrs.c)
 TARGET_LINK_LIBRARIES(subdoc-simple couchbase)
 TARGET_LINK_LIBRARIES(subdoc-multi couchbase)
+TARGET_LINK_LIBRARIES(subdoc-xattrs couchbase)
+
+ADD_EXECUTABLE(minimal minimal/minimal.c)
+TARGET_LINK_LIBRARIES(minimal couchbase)
+
+ADD_EXECUTABLE(query minimal/query.c)
+TARGET_LINK_LIBRARIES(query couchbase)
+
+ADD_EXECUTABLE(observe observe/observe.c)
+TARGET_LINK_LIBRARIES(observe couchbase)
+
+ADD_EXECUTABLE(durability observe/durability.c)
+TARGET_LINK_LIBRARIES(durability couchbase)
 
 IF(NOT WIN32)
     ADD_EXAMPLE(instancepool instancepool pthread "")

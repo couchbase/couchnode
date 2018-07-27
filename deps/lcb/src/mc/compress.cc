@@ -125,7 +125,7 @@ int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf
     compsize = sink.CurrentDestination() - SPAN_BUFFER(outspan);
     delete source;
 
-    if (compsize == 0 || ((compsize / origsize) > settings->compress_min_ratio)) {
+    if (compsize == 0 || (((float)compsize / origsize) > settings->compress_min_ratio)) {
         netbuf_mblock_release(&pl->nbmgr, outspan);
         *should_compress = 0;
         mcreq_reserve_value(pl, pkt, vbuf);

@@ -51,6 +51,8 @@ OPTION(LCB_INSTALL_PKGCONFIG "Install pkgconfig/libcouchbase.pc" ON)
 OPTION(LCB_DUMP_PACKETS "Enable dumping network packets on TRACE log level" OFF)
 OPTION(LCB_USE_PROFILER "Build with profiler support (from gperftools)" OFF)
 
+STRING(TIMESTAMP LCB_BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S" UTC)
+
 ### END CONFIGURABLES ###
 IF(MSVC)
     SET(CMAKE_DEBUG_POSTFIX "_d")
@@ -255,7 +257,8 @@ ELSE()
     IF(OPENSSL_FOUND)
         MESSAGE(STATUS "SSL Found")
     ELSE()
-        MESSAGE(STATUS "SSL Not Found")
+        MESSAGE(STATUS "SSL Not Found. SSL support will be disabled")
+        ADD_DEFINITIONS(-DLCB_NO_SSL=1)
     ENDIF()
 ENDIF()
 

@@ -1396,7 +1396,7 @@ typedef enum {
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x5c
+#define LCB_CNTL__MAX                    0x5d
 /**@}*/
 
 #ifdef __cplusplus

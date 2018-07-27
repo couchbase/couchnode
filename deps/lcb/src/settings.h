@@ -192,6 +192,9 @@ typedef struct lcb_settings_st {
     unsigned use_tracing : 1;
     /** Do not use remap vbuckets (do not use fast forward map, or any other heuristics) */
     unsigned vb_noremap : 1;
+    /** Do not wait for GET_CLUSTER_CONFIG request to finish in lcb_wait(),
+     * when it is the only request in retry queue */
+    unsigned wait_for_config : 1;
 
     short max_redir;
     unsigned refcount;

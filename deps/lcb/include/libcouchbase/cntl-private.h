@@ -305,4 +305,15 @@ struct lcb_cntl_rdballocfactory {
 #define LCB_CNTL_VB_NOREMAP 0x5a
 
 
+/**
+ * Do not wait for GET_CLUSTER_CONFIG request to finish in lcb_wait(),
+ * when it is the only request in retry queue. Consider such retry queue
+ * as empty, and breakout to the place where lcb_wait() was invoked.
+ *
+ * @cntl_arg_both{int* (as boolean)}
+ *
+ * @uncommitted
+ */
+#define LCB_CNTL_WAIT_FOR_CONFIG 0x5c
+
 /**@}*/

@@ -26,8 +26,8 @@
  * RUN:
  *
  *      valgrind -v --tool=memcheck  --leak-check=full --show-reachable=yes ./db
- *      ./db key size <host:port> <bucket> <passwd>
- *      db.exe key size <host:port> <bucket> <passwd>
+ *      ./db key size <host:port> <bucket> <passwd> <username>
+ *      db.exe key size <host:port> <bucket> <passwd> <username>
  */
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
@@ -106,6 +106,9 @@ int main(int argc, char *argv[])
     if (argc > 4) {
         create_options.v.v3.passwd = argv[4];
     }
+    if (argc > 5) {
+        create_options.v.v3.username = argv[5];
+    }
 
     INSTALL_SIGINT_HANDLER();
 
@@ -151,16 +154,17 @@ int main(int argc, char *argv[])
     }
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     fprintf(stderr, "Benchmarking... CTRL-C to stop\n");
-    {
-        lcb_CMDGET cmd = { 0 };
+    while (1) {
+        lcb_CMDGET cmd = {0};
         LCB_CMD_SET_KEY(&cmd, key, nkey);
         err = lcb_get3(instance, NULL, &cmd);
         if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to get: %s\n", lcb_strerror(NULL, err));
+            fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror(NULL, err));
             exit(EXIT_FAILURE);
         }
+        lcb_wait3(instance, LCB_WAIT_NOCHECK);
+        fprintf(stderr, "retry\n");
     }
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
     lcb_destroy(instance);
 
     exit(EXIT_SUCCESS);

@@ -111,6 +111,9 @@
 #ifndef EAI_OVERFLOW
 #define EAI_OVERFLOW EAI_FAIL
 #endif
+#ifndef EFTYPE
+#define EFTYPE EAI_FAIL
+#endif
 
 #define OK 0
 

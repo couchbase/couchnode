@@ -28,10 +28,6 @@ extern "C" {
  * 4.5 release which allows access to parts of the document. These parts are
  * called _sub-documents_ and can be accessed using the sub-document API
  *
- * @warning
- * The sub-document API is experimental and subject to change and is here for
- * demonstration purposes only.
- *
  * @addtogroup lcb-subdoc
  * @{
  */

@@ -834,6 +834,7 @@ VersionHandler::run()
         lcb_get_version(NULL), changeset);
     fprintf(stderr, "  Headers: Version=%s, Changeset=%s\n",
         LCB_VERSION_STRING, LCB_VERSION_CHANGESET);
+    fprintf(stderr, "  Build Timestamp: %s\n", LCB_BUILD_TIMESTAMP);
 
     struct lcb_cntl_iops_info_st info;
     memset(&info, 0, sizeof info);

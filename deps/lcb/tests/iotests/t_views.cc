@@ -31,6 +31,7 @@ ViewsUnitTest::connectBeerSample(HandleWrap& hw, lcb_t& instance, bool first)
 {
     lcb_create_st crparams;
     lcb_create_st crparamsAdmin;
+    lcb_config_transport_t transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
     MockEnvironment::getInstance()->makeConnectParams(crparams, NULL);
     crparamsAdmin = crparams;
 
@@ -40,7 +41,6 @@ ViewsUnitTest::connectBeerSample(HandleWrap& hw, lcb_t& instance, bool first)
         // the logs cleaner.
         crparams.v.v2.user = "beer-sample";
         crparams.v.v2.mchosts = NULL;
-        lcb_config_transport_t transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
         crparams.v.v2.transports = transports;
     }
 

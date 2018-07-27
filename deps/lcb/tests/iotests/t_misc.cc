@@ -754,7 +754,7 @@ TEST_F(MockUnitTest, testAppendE2BIG)
     size_t nkey = strlen(key);
 
     size_t nvalue1 = 20 * 1024 * 1024;
-    void *value1 = malloc(nvalue1);
+    void *value1 = calloc(nvalue1, sizeof(char));
     lcb_CMDSTORE scmd = { 0 };
     scmd.operation = LCB_SET;
     LCB_CMD_SET_KEY(&scmd, key, nkey);
@@ -765,7 +765,7 @@ TEST_F(MockUnitTest, testAppendE2BIG)
     free(value1);
 
     size_t nvalue2 = 1 * 1024 * 1024;
-    void *value2 = malloc(nvalue2);
+    void *value2 = calloc(nvalue2, sizeof(char));
     lcb_CMDSTORE acmd = { 0 };
     acmd.operation = LCB_APPEND;
     LCB_CMD_SET_KEY(&acmd, key, nkey);

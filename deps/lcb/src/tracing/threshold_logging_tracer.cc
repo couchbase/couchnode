@@ -55,11 +55,15 @@ static void tlt_report(lcbtrace_TRACER *wrapper, lcbtrace_SPAN *span)
     }
 
     ThresholdLoggingTracer *tracer = reinterpret_cast< ThresholdLoggingTracer * >(wrapper->cookie);
-    if (span->tags[LCBTRACE_TAG_SERVICE] == LCBTRACE_TAG_SERVICE_KV) {
-        if (lcbtrace_span_is_orphaned(span)) {
-            tracer->add_orphan(span);
-        } else {
-            tracer->check_threshold(span);
+    char *value = NULL;
+    size_t nvalue;
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_SERVICE, &value, &nvalue) == LCB_SUCCESS) {
+        if (memcmp(value, LCBTRACE_TAG_SERVICE_KV, nvalue) == 0) {
+            if (lcbtrace_span_is_orphaned(span)) {
+                tracer->add_orphan(span);
+            } else {
+                tracer->check_threshold(span);
+            }
         }
     }
 }
@@ -84,12 +88,25 @@ ReportedSpan ThresholdLoggingTracer::convert(lcbtrace_SPAN *span)
     ReportedSpan orphan;
     orphan.duration = span->duration();
     Json::Value entry;
-    entry["operation_name"] = span->m_opname;
-    entry["operation_id"] = span->tags[LCBTRACE_TAG_OPERATION_ID];
-    entry["last_local_id"] = span->tags[LCBTRACE_TAG_LOCAL_ID];
-    entry["last_local_address"] = span->tags[LCBTRACE_TAG_LOCAL_ADDRESS];
-    entry["last_remote_address"] = span->tags[LCBTRACE_TAG_PEER_ADDRESS];
-    entry["server_us"] = span->tags[LCBTRACE_TAG_PEER_LATENCY];
+    char *value;
+    size_t nvalue;
+
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_OPERATION_ID, &value, &nvalue) == LCB_SUCCESS) {
+        entry["last_operation_id"] = span->m_opname + ":" + value;
+    }
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ID, &value, &nvalue) == LCB_SUCCESS) {
+        entry["last_local_id"] = value;
+    }
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
+        entry["last_local_address"] = value;
+    }
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
+        entry["last_remote_address"] = value;
+    }
+    uint64_t num;
+    if (lcbtrace_span_get_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, &num) == LCB_SUCCESS) {
+        entry["server_us"] = (Json::UInt64)num;
+    }
     entry["total_us"] = (Json::UInt64)orphan.duration;
     orphan.payload = Json::FastWriter().write(entry);
     return orphan;

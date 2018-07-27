@@ -186,6 +186,9 @@ HANDLER(vbguess_handler) {
 HANDLER(vb_noremap_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, vb_noremap))
 }
+HANDLER(wait_for_config_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, wait_for_config))
+}
 HANDLER(fetch_mutation_tokens_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, fetch_mutation_tokens))
 }
@@ -750,6 +753,7 @@ static ctl_handler handlers[] = {
     comp_min_ratio_handler, /* LCB_CNTL_COMPRESSION_MIN_RATIO */
     vb_noremap_handler, /* LCB_CNTL_VB_NOREMAP */
     network_handler, /* LCB_CNTL_NETWORK */
+    wait_for_config_handler /* LCB_CNTL_WAIT_FOR_CONFIG */
 };
 
 /* Union used for conversion to/from string functions */
@@ -808,7 +812,10 @@ static lcb_error_t convert_int(const char *arg, u_STRCONVERT *u) {
 }
 
 static lcb_error_t convert_u32(const char *arg, u_STRCONVERT *u) {
-    return convert_timevalue(arg, u);
+    unsigned int tmp;
+    int rv = sscanf(arg, "%u", &tmp);
+    u->u32 = tmp;
+    return rv == 1 ? LCB_SUCCESS : LCB_ECTL_BADARG;
 }
 static lcb_error_t convert_float(const char *arg, u_STRCONVERT *u) {
     double d;
@@ -936,6 +943,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"compression_min_ratio", LCB_CNTL_COMPRESSION_MIN_RATIO, convert_float},
         {"vb_noremap", LCB_CNTL_VB_NOREMAP, convert_intbool },
         {"network", LCB_CNTL_NETWORK, convert_passthru },
+        {"wait_for_config", LCB_CNTL_WAIT_FOR_CONFIG, convert_intbool },
         {NULL, -1}
 };
 

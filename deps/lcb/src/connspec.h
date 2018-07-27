@@ -61,7 +61,7 @@ struct Spechost {
 class LCB_CLASS_EXPORT Connspec {
 public:
     typedef std::vector<std::pair<std::string,std::string> > Options;
-    Connspec() : m_sslopts(0), m_implicit_port(0), m_loglevel(0), m_logredact(false), m_flags(0), m_ipv6(LCB_IPV6_DISABLED), m_logger(NULL) {}
+    Connspec() : m_sslopts(0), m_implicit_port(0), m_loglevel(0), m_logredact(false), m_transports(), m_flags(0), m_ipv6(LCB_IPV6_DISABLED), m_logger(NULL) {}
 
     lcb_error_t parse(const char *connstr, const char **errmsg = NULL);
     lcb_error_t load(const lcb_create_st&);

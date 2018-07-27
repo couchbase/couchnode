@@ -35,6 +35,7 @@ class Span
 {
   public:
     Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF_TYPE ref, lcbtrace_SPAN *other);
+    ~Span();
 
     void finish(uint64_t finish);
     uint64_t duration()
@@ -42,7 +43,11 @@ class Span
         return m_finish - m_start;
     }
 
-    template < typename T > void add_tag(const char *name, T value);
+    void add_tag(const char *name, int copy, const char *value);
+    void add_tag(const char *name, int copy, const char *value, size_t value_len);
+    void add_tag(const char *name, int copy, uint64_t value);
+    void add_tag(const char *name, int copy, double value);
+    void add_tag(const char *name, int copy, bool value);
 
     lcbtrace_TRACER *m_tracer;
     std::string m_opname;
@@ -50,8 +55,8 @@ class Span
     uint64_t m_start;
     uint64_t m_finish;
     bool m_orphaned;
-    Json::Value tags;
     Span *m_parent;
+    sllist_root m_tags;
 };
 
 struct ReportedSpan {

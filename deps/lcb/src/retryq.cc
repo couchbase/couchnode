@@ -355,6 +355,28 @@ RetryQueue::add(mc_EXPACKET *pkt, const lcb_error_t err,
     }
 }
 
+bool
+RetryQueue::empty(bool ignore_cfgreq) const
+{
+    bool is_empty = LCB_LIST_IS_EMPTY(&schedops);
+    if (is_empty) {
+        return true;
+    }
+    if (ignore_cfgreq) {
+        lcb_list_t *ll, *llnext;
+        LCB_LIST_SAFE_FOR(ll, llnext, &schedops) {
+            protocol_binary_request_header hdr  = {};
+            RetryOp *op = from_schednode(ll);
+            mcreq_read_hdr(op->pkt, &hdr);
+            if (hdr.request.opcode != PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
 void
 RetryQueue::nmvadd(mc_EXPACKET *detchpkt)
 {

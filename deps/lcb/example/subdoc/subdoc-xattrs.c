@@ -88,12 +88,12 @@ static void n1qlrow_callback(lcb_t instance, int type, const lcb_RESPN1QL *resp)
     char *start = "{\"docID\":\"";
     char *stop = "\"";
 
-    char *key = strnstr(resp->row, start, resp->nrow);
+    char *key = strstr(resp->row, start);
     if (key == NULL || key != resp->row) {
         return;
     }
     key += strlen(start);
-    char *z = strnstr(key, stop, resp->nrow - (resp->row - key));
+    char *z = strstr(key, stop);
     if (z == NULL) {
         return;
     }

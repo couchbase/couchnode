@@ -115,9 +115,10 @@ public:
 
     /**
      * @brief Check if there are operations to retry
+     * @param ignore_cfgreq if true, consider queue with single 0xb5 request as empty
      * @return nonzero if there are pending operations
      */
-    bool empty() const { return LCB_LIST_IS_EMPTY(&schedops); }
+    bool empty(bool ignore_cfgreq = false) const;
 
     /**
      * @brief Reset all timeouts on the retry queue.
