@@ -49,7 +49,7 @@ NAN_METHOD(CouchbaseImpl::fnGet)
     Nan::HandleScope scope;
     CommandEncoder enc;
 
-    lcbtrace_SPAN *span = me->startOpTrace("store");
+    lcbtrace_SPAN *span = me->startOpTrace("get");
     enc.registerTraceSpan(span);
 
     memset(&cmd, 0, sizeof(cmd));
