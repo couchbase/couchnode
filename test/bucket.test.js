@@ -27,6 +27,9 @@ describe('#Bucket', function() {
       var cluster = new H.lib.Cluster(H.connstr);
       var bucket = cluster.openBucket('invalid_bucket', function() {
         assert.throws(function() {
+          bucket.invalidateQueryCache();
+        }, Error);
+        assert.throws(function() {
           bucket.insert(H.key(), 'bar', H.noCallback());
         }, Error);
         done();
