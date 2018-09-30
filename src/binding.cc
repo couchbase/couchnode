@@ -93,6 +93,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "durability", fnDurability);
     Nan::SetPrototypeMethod(t, "viewQuery", fnViewQuery);
     Nan::SetPrototypeMethod(t, "n1qlQuery", fnN1qlQuery);
+    Nan::SetPrototypeMethod(t, "cbasQuery", fnCbasQuery);
     Nan::SetPrototypeMethod(t, "ftsQuery", fnFtsQuery);
     Nan::SetPrototypeMethod(t, "lookupIn", fnLookupIn);
     Nan::SetPrototypeMethod(t, "mutateIn", fnMutateIn);

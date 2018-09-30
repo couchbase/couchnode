@@ -533,7 +533,8 @@ void viewrow_callback(lcb_t instance, int ignoreme,
     cookie->callback.Call(2, args, cookie->asyncContext());
 }
 
-void n1qlrow_callback(lcb_t instance, int ignoreme, const lcb_RESPN1QL *resp)
+void cbasn1qlrow_callback(lcb_t instance, int ignoreme,
+                          const lcb_RESPN1QL *resp)
 {
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     OpCookie *cookie = (OpCookie *)resp->cookie;
@@ -581,6 +582,16 @@ void n1qlrow_callback(lcb_t instance, int ignoreme, const lcb_RESPN1QL *resp)
 
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
     cookie->callback.Call(2, args, cookie->asyncContext());
+}
+
+void n1qlrow_callback(lcb_t instance, int ignoreme, const lcb_RESPN1QL *resp)
+{
+    cbasn1qlrow_callback(instance, ignoreme, resp);
+}
+
+void cbasrow_callback(lcb_t instance, int ignoreme, const lcb_RESPN1QL *resp)
+{
+    cbasn1qlrow_callback(instance, ignoreme, resp);
 }
 
 void ftsrow_callback(lcb_t instance, int ignoreme, const lcb_RESPFTS *resp)

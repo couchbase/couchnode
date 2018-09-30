@@ -517,6 +517,56 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery)
     return info.GetReturnValue().Set(true);
 }
 
+NAN_METHOD(CouchbaseImpl::fnCbasQuery)
+{
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
+    lcb_CMDN1QL cmd;
+    Nan::HandleScope scope;
+    CommandEncoder enc;
+
+    lcbtrace_SPAN *span = me->startOpTrace("query::cbas");
+    enc.registerTraceSpan(span);
+
+    Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
+
+    memset(&cmd, 0, sizeof(cmd));
+
+    lcb_N1QLHANDLE handle;
+    cmd.handle = &handle;
+
+    cmd.callback = cbasrow_callback;
+    cmd.content_type = "application/json";
+    cmd.cmdflags = LCB_CMDN1QL_F_CBASQUERY;
+
+    if (!info[0]->IsUndefined()) {
+        if (!enc.parseString(&cmd.host, info[0])) {
+            return Nan::ThrowError(Error::create("bad host passed"));
+        }
+    }
+
+    Handle<Value> optsinfo[] = {info[1]};
+    Local<Value> optsVal =
+        jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, optsinfo);
+    Local<String> optsStr = optsVal.As<String>();
+    if (!enc.parseString(&cmd.query, &cmd.nquery, optsStr)) {
+        return Nan::ThrowError(Error::create("bad opts passed"));
+    }
+
+    if (!enc.parseCallback(info[2])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_error_t err = lcb_n1ql_query(me->getLcbHandle(), enc.cookie(), &cmd);
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    lcb_n1ql_set_parent_span(me->instance, handle, span);
+
+    enc.persistCookie();
+    return info.GetReturnValue().Set(true);
+}
+
 NAN_METHOD(CouchbaseImpl::fnFtsQuery)
 {
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(info.This());
