@@ -69,61 +69,37 @@ struct ReportedSpan {
     }
 };
 
-template < typename T > class FixedQueue
+template < typename T > class FixedQueue: private std::priority_queue<T>
 {
   public:
     explicit FixedQueue(size_t capacity) : m_capacity(capacity) {}
 
-    void push(T item)
-    {
-        if (m_items.size() < m_capacity) {
-            m_items.push_back(item);
-            std::push_heap(m_items.begin(), m_items.end());
-        } else {
-            std::sort_heap(m_items.begin(), m_items.end());
-            if (m_items.front() < item) {
-                m_items[0] = item;
-            }
-            std::make_heap(m_items.begin(), m_items.end());
+    void push(const T& item) {
+        std::priority_queue<T>::push(item);
+        if (this->size() > m_capacity) {
+            this->c.pop_back();
         }
     }
-
-    size_t size()
-    {
-        return m_items.size();
-    }
-
-    bool empty()
-    {
-        return m_items.empty();
-    }
-
-    void clear()
-    {
-        m_items.clear();
-    }
-
-    std::vector< T > &get_sorted()
-    {
-        std::sort_heap(m_items.begin(), m_items.end());
-        return m_items;
-    }
-
+    using std::priority_queue<T>::empty;
+    using std::priority_queue<T>::top;
+    using std::priority_queue<T>::pop;
+    using std::priority_queue<T>::size;
   private:
     size_t m_capacity;
-    std::vector< T > m_items;
 };
 
+typedef ReportedSpan QueueEntry;
+typedef FixedQueue<QueueEntry> FixedSpanQueue;
 class ThresholdLoggingTracer
 {
     lcbtrace_TRACER *m_wrapper;
     lcb_settings *m_settings;
 
-    FixedQueue< ReportedSpan > m_orphans;
-    FixedQueue< ReportedSpan > m_threshold;
+    FixedSpanQueue m_orphans;
+    FixedSpanQueue m_threshold;
 
-    void flush_queue(FixedQueue< ReportedSpan > &queue, const char *message, bool warn);
-    ReportedSpan convert(lcbtrace_SPAN *span);
+    void flush_queue(FixedSpanQueue &queue, const char *message, bool warn);
+    QueueEntry convert(lcbtrace_SPAN *span);
 
   public:
     ThresholdLoggingTracer(lcb_t instance);

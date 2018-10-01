@@ -369,3 +369,18 @@ TEST_F(ConfigTest, testKetamaCompliance) {
 
     lcbvb_destroy(vbc);
 }
+
+TEST_F(ConfigTest, testPresentNodesextMissingNodesKetama)
+{
+    // Scenario when a node is in nodesext but not nodes
+    string txt = getConfigFile("map_node_present_nodesext_missing_nodes.json");
+    lcbvb_CONFIG *vbc = lcbvb_parse_json(txt.c_str());
+    ASSERT_TRUE(vbc != NULL);
+    ASSERT_EQ(4, vbc->nsrv);
+    ASSERT_EQ(LCBVB_DIST_KETAMA, vbc->dtype);
+
+    ASSERT_NE((const char *)NULL, lcbvb_get_hostport(vbc, 0, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN));
+    ASSERT_NE((const char *)NULL, lcbvb_get_hostport(vbc, 1, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN));
+    ASSERT_NE((const char *)NULL, lcbvb_get_hostport(vbc, 2, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN));
+    ASSERT_EQ((const char *)NULL, lcbvb_get_hostport(vbc, 3, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN));
+}

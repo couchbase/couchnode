@@ -165,6 +165,9 @@ HANDLER(retry_backoff_handler) {
 HANDLER(http_poolsz_handler) {
     RETURN_GET_SET(lcb_SIZE, instance->http_sockpool->get_options().maxidle)
 }
+HANDLER(http_pooltmo_handler) {
+    RETURN_GET_SET(uint32_t, instance->http_sockpool->get_options().tmoidle)
+}
 HANDLER(http_refresh_config_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, refresh_on_hterr))
 }
@@ -654,7 +657,7 @@ HANDLER(network_handler) {
             LCBT_SETTING(instance, network) = strdup(val);
         }
     } else {
-        *(const char **)arg = LCBT_SETTING(instance, client_string);
+        *(const char **)arg = LCBT_SETTING(instance, network);
     }
     (void)cmd;
     return LCB_SUCCESS;
@@ -753,7 +756,8 @@ static ctl_handler handlers[] = {
     comp_min_ratio_handler, /* LCB_CNTL_COMPRESSION_MIN_RATIO */
     vb_noremap_handler, /* LCB_CNTL_VB_NOREMAP */
     network_handler, /* LCB_CNTL_NETWORK */
-    wait_for_config_handler /* LCB_CNTL_WAIT_FOR_CONFIG */
+    wait_for_config_handler, /* LCB_CNTL_WAIT_FOR_CONFIG */
+    http_pooltmo_handler /* LCB_CNTL_HTTP_POOL_TIMEOUT */
 };
 
 /* Union used for conversion to/from string functions */
@@ -944,6 +948,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
         {"vb_noremap", LCB_CNTL_VB_NOREMAP, convert_intbool },
         {"network", LCB_CNTL_NETWORK, convert_passthru },
         {"wait_for_config", LCB_CNTL_WAIT_FOR_CONFIG, convert_intbool },
+        {"http_pool_timeout", LCB_CNTL_HTTP_POOL_TIMEOUT, convert_timevalue },
         {NULL, -1}
 };
 

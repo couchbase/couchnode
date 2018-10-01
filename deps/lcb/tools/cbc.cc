@@ -81,9 +81,15 @@ get_callback(lcb_t, lcb_CALLBACKTYPE cbtype, const lcb_RESPGET *resp)
                 key.c_str(), resp->cas, resp->itmflags, (unsigned long)resp->nvalue,
                 (int)resp->datatype);
         if (resp->datatype) {
+            int nflags = 0;
             fprintf(stderr, "(");
             if (resp->datatype & LCB_VALUE_F_JSON) {
                 fprintf(stderr, "JSON");
+                nflags++;
+            }
+            if (resp->datatype & LCB_VALUE_F_SNAPPYCOMP) {
+                fprintf(stderr, "%sSNAPPY", nflags > 0 ? "," : "");
+                nflags++;
             }
             fprintf(stderr, ")");
         }
@@ -262,11 +268,14 @@ watch_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
 static void
 common_server_callback(lcb_t, int cbtype, const lcb_RESPSERVERBASE *sbase)
 {
-    const char *msg;
+    string msg;
     if (cbtype == LCB_CALLBACK_VERBOSITY) {
         msg = "Set verbosity";
     } else if (cbtype == LCB_CALLBACK_FLUSH) {
         msg = "Flush";
+    } else if (cbtype == LCB_CALLBACK_VERSIONS) {
+        const lcb_RESPMCVERSION *resp = (const lcb_RESPMCVERSION *)sbase;
+        msg = string(resp->mcversion, resp->nversion);
     } else {
         msg = "";
     }
@@ -274,10 +283,10 @@ common_server_callback(lcb_t, int cbtype, const lcb_RESPSERVERBASE *sbase)
         return;
     }
     if (sbase->rc != LCB_SUCCESS) {
-        fprintf(stderr, "%s failed for server %s: %s\n", msg, sbase->server,
+        fprintf(stderr, "%s failed for server %s: %s\n", msg.c_str(), sbase->server,
             lcb_strerror(NULL, sbase->rc));
     } else {
-        fprintf(stderr, "%s: %s\n", msg, sbase->server);
+        fprintf(stderr, "%s: %s\n", msg.c_str(), sbase->server);
     }
 }
 
@@ -1035,6 +1044,23 @@ VerbosityHandler::run()
 }
 
 void
+McVersionHandler::run()
+{
+    Handler::run();
+
+    lcb_install_callback3(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)common_server_callback);
+    lcb_CMDBASE cmd = { 0 };
+    lcb_error_t err;
+    lcb_sched_enter(instance);
+    err = lcb_server_versions3(instance, NULL, &cmd);
+    if (err != LCB_SUCCESS) {
+        throw LcbError(err);
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void
 PingHandler::run()
 {
     Handler::run();
@@ -1244,7 +1270,7 @@ N1qlHandler::run()
         cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
     }
     if (o_analytics.passed()) {
-        cmd.cmdflags |= LCB_CMDN1QL_F_CBASQUERY;
+        cmd.cmdflags |= LCB_CMDN1QL_F_ANALYTICSQUERY;
     }
     fprintf(stderr, "---> Encoded query: %.*s\n", (int)cmd.nquery, cmd.query);
     cmd.callback = n1qlCallback;
@@ -1766,6 +1792,7 @@ setupHandlers()
     handlers_s["user-list"] = new UserListHandler();
     handlers_s["user-upsert"] = new UserUpsertHandler();
     handlers_s["user-delete"] = new UserDeleteHandler();
+    handlers_s["mcversion"] = new McVersionHandler();
 
     map<string,Handler*>::iterator ii;
     for (ii = handlers_s.begin(); ii != handlers_s.end(); ++ii) {

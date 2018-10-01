@@ -79,6 +79,7 @@ struct Request {
         return reqtype == LCB_HTTP_TYPE_N1QL ||
                 reqtype == LCB_HTTP_TYPE_VIEW ||
                 reqtype == LCB_HTTP_TYPE_FTS ||
+                reqtype == LCB_HTTP_TYPE_PING ||
                 reqtype == LCB_HTTP_TYPE_CBAS;
     }
 

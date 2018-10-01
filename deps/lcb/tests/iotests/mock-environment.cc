@@ -415,7 +415,7 @@ void MockEnvironment::bootstrapRealCluster()
 
 extern "C" {
 static void mock_flush_callback(lcb_t, int, const lcb_RESPBASE *resp) {
-    assert(resp->rc == LCB_SUCCESS);
+    ASSERT_EQ(LCB_SUCCESS, resp->rc);
 }
 }
 

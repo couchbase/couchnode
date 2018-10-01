@@ -578,9 +578,10 @@ guess_network(cJSON *jnodes, int nsrv, const char *source, char **network)
 int
 lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char **network)
 {
-    cJSON *cj = NULL, *jnodes = NULL;
+    cJSON *cj = NULL, *jnodes_ext = NULL, *jnodes = NULL;
     char *tmp = NULL;
-    unsigned ii;
+    unsigned ii, jnodes_size = 0;
+    int jnodes_defined = 0;
 
     if ((cj = cJSON_Parse(data)) == NULL) {
         SET_ERRSTR(cfg, "Couldn't parse JSON");
@@ -598,9 +599,16 @@ lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char
         goto GT_ERROR;
     }
 
-    if (get_jarray(cj, "nodesExt", &jnodes)) {
+    get_jarray(cj, "nodes", &jnodes);
+    if (jnodes) {
+        jnodes_defined = 1;
+        jnodes_size = cJSON_GetArraySize(jnodes);
+    }
+    if (get_jarray(cj, "nodesExt", &jnodes_ext)) {
         cfg->is3x = 1;
-    } else if (!get_jarray(cj, "nodes", &jnodes)) {
+        cfg->nsrv = cJSON_GetArraySize(jnodes_ext);
+        jnodes = jnodes_ext;
+    } else if (jnodes == NULL) {
         SET_ERRSTR(cfg, "expected 'nodesExt' or 'nodes' array");
         goto GT_ERROR;
     }
@@ -664,6 +672,12 @@ lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char
 
         if (cfg->is3x) {
             rv = build_server_3x(cfg, cfg->servers + ii, jsrv, network);
+            if (jnodes_defined && rv && ii >= jnodes_size) {
+                cfg->servers[ii].svc.data = 0;
+                cfg->servers[ii].svc_ssl.data = 0;
+                cfg->servers[ii].alt_svc.data = 0;
+                cfg->servers[ii].alt_svc_ssl.data = 0;
+            }
         } else {
             rv = build_server_2x(cfg, cfg->servers + ii, jsrv, network);
         }

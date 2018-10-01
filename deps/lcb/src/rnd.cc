@@ -18,15 +18,10 @@
 #include "rnd.h"
 #include "internal.h"
 
-#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600)
-static volatile int rnd_initialized = 0;
+#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600) || defined(__APPLE__)
 LCB_INTERNAL_API
 void lcb_rnd_global_init(void)
 {
-    if (rnd_initialized) {
-        return;
-    }
-    rnd_initialized = 1;
     if (lcb_getenv_boolean("LCB_NO_SRAND")) {
         return;
     }
@@ -51,18 +46,16 @@ lcb_U64 lcb_next_rand64(void)
 LCB_INTERNAL_API
 lcb_U32 lcb_next_rand32(void)
 {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution< lcb_U32 > dis;
+    static thread_local std::mt19937 gen { std::random_device { } () };
+    std::uniform_int_distribution< lcb_U32 > dis;
     return dis(gen);
 }
 
 LCB_INTERNAL_API
 lcb_U64 lcb_next_rand64(void)
 {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution< lcb_U64 > dis;
+    static thread_local std::mt19937 gen { std::random_device { } () };
+    std::uniform_int_distribution< lcb_U64 > dis;
     return dis(gen);
 }
 #endif

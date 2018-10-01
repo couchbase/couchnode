@@ -618,6 +618,15 @@ void lcb_destroy(lcb_t instance)
     DESTROY(lcb_vbguess_destroy, vbguess);
     DESTROY(lcb_n1qlcache_destroy, n1ql_cache);
 
+    if (instance->cmdq.pipelines) {
+        unsigned ii;
+        for (ii = 0; ii < instance->cmdq.npipelines; ii++) {
+            lcb::Server *server = static_cast<lcb::Server*>(instance->cmdq.pipelines[ii]);
+            if (server) {
+                server->instance = NULL;
+            }
+        }
+    }
     mcreq_queue_cleanup(&instance->cmdq);
     lcb_aspend_cleanup(po);
 
@@ -686,7 +695,7 @@ lcb_st::find_server(const lcb_host_t& host) const
     unsigned ii;
     for (ii = 0; ii < cmdq.npipelines; ii++) {
         lcb::Server *server = static_cast<lcb::Server*>(cmdq.pipelines[ii]);
-        if (lcb_host_equals(&server->get_host(), &host)) {
+        if (server && lcb_host_equals(&server->get_host(), &host)) {
             return server;
         }
     }

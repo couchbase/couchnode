@@ -640,6 +640,8 @@ mcreq_queue_cleanup(mc_CMDQUEUE *queue)
     }
     free(queue->scheds);
     free(queue->pipelines);
+    queue->pipelines = NULL;
+    queue->npipelines = 0;
     queue->scheds = NULL;
 }
 

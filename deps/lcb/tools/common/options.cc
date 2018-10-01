@@ -434,7 +434,7 @@ ConnParams::doCtls(lcb_t instance)
         // Set the detailed error codes option
         doSctl<int>(instance, LCB_CNTL_DETAILED_ERRCODES, 1);
 
-        {
+        if (!o_connstr.passed() || o_connstr.result().find("compression=") == std::string::npos) {
             int opts = LCB_COMPRESS_IN;
             if (o_compress.passed()) {
                 opts |= LCB_COMPRESS_OUT;

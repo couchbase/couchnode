@@ -17,7 +17,7 @@
     <tab type="files" visible="yes" title="">
       <tab type="filelist" visible="yes" title="" intro=""/>
     </tab>
-    <tab type="examples" visible="yes" title="" intro=""/>
+    <tab type="examples" visible="yes" title="" intro="Here is a list of examples. Find more at https://github.com/couchbaselabs/devguide-examples/tree/master/c"/>
     <tab type="pages" visible="yes" title="" intro=""/>
   </navindex>
 

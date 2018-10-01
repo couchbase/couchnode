@@ -58,7 +58,7 @@ static void tlt_report(lcbtrace_TRACER *wrapper, lcbtrace_SPAN *span)
     char *value = NULL;
     size_t nvalue;
     if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_SERVICE, &value, &nvalue) == LCB_SUCCESS) {
-        if (memcmp(value, LCBTRACE_TAG_SERVICE_KV, nvalue) == 0) {
+        if (strncmp(value, LCBTRACE_TAG_SERVICE_KV, nvalue) == 0) {
             if (lcbtrace_span_is_orphaned(span)) {
                 tracer->add_orphan(span);
             } else {
@@ -83,28 +83,37 @@ lcbtrace_TRACER *ThresholdLoggingTracer::wrap()
     return m_wrapper;
 }
 
-ReportedSpan ThresholdLoggingTracer::convert(lcbtrace_SPAN *span)
+QueueEntry ThresholdLoggingTracer::convert(lcbtrace_SPAN *span)
 {
-    ReportedSpan orphan;
+    QueueEntry orphan;
     orphan.duration = span->duration();
     Json::Value entry;
     char *value;
     size_t nvalue;
 
-    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_OPERATION_ID, &value, &nvalue) == LCB_SUCCESS) {
-        entry["last_operation_id"] = span->m_opname + ":" + value;
+    if (lcbtrace_span_get_tag_str(
+                span, LCBTRACE_TAG_OPERATION_ID, &value, &nvalue) ==
+        LCB_SUCCESS) {
+        entry["last_operation_id"] = std::string(span->m_opname) + ":" +
+                                     std::string(value, value + nvalue);
     }
-    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ID, &value, &nvalue) == LCB_SUCCESS) {
-        entry["last_local_id"] = value;
+    if (lcbtrace_span_get_tag_str(
+                span, LCBTRACE_TAG_LOCAL_ID, &value, &nvalue) == LCB_SUCCESS) {
+        entry["last_local_id"] = std::string(value, value + nvalue);
     }
-    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
-        entry["last_local_address"] = value;
+    if (lcbtrace_span_get_tag_str(
+                span, LCBTRACE_TAG_LOCAL_ADDRESS, &value, &nvalue) ==
+        LCB_SUCCESS) {
+        entry["last_local_address"] = std::string(value, value + nvalue);
     }
-    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
-        entry["last_remote_address"] = value;
+    if (lcbtrace_span_get_tag_str(
+                span, LCBTRACE_TAG_PEER_ADDRESS, &value, &nvalue) ==
+        LCB_SUCCESS) {
+        entry["last_remote_address"] = std::string(value, value + nvalue);
     }
     uint64_t num;
-    if (lcbtrace_span_get_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, &num) == LCB_SUCCESS) {
+    if (lcbtrace_span_get_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, &num) ==
+        LCB_SUCCESS) {
         entry["server_us"] = (Json::UInt64)num;
     }
     entry["total_us"] = (Json::UInt64)orphan.duration;
@@ -124,18 +133,19 @@ void ThresholdLoggingTracer::check_threshold(lcbtrace_SPAN *span)
     }
 }
 
-void ThresholdLoggingTracer::flush_queue(FixedQueue< ReportedSpan > &queue, const char *message, bool warn = false)
+void ThresholdLoggingTracer::flush_queue(FixedSpanQueue &queue, const char *message, bool warn = false)
 {
-    std::vector< ReportedSpan > &slice = queue.get_sorted();
     Json::Value entries;
     entries["service"] = "kv";
-    entries["count"] = (Json::UInt)slice.size();
+    entries["count"] = (Json::UInt)queue.size();
     Json::Value top;
-    for (size_t ii = 0; ii < slice.size(); ii++) {
+    while (!queue.empty())
+    {
         Json::Value entry;
-        if (Json::Reader().parse(slice[ii].payload, entry)) {
+        if (Json::Reader().parse(queue.top().payload, entry)) {
             top.append(entry);
         }
+        queue.pop();
     }
     entries["top"] = top;
     std::string doc = Json::FastWriter().write(entries);
@@ -147,7 +157,6 @@ void ThresholdLoggingTracer::flush_queue(FixedQueue< ReportedSpan > &queue, cons
     } else {
         lcb_log(LOGARGS(this, INFO), "%s: %s", message, doc.c_str());
     }
-    queue.clear();
 }
 
 void ThresholdLoggingTracer::do_flush_orphans()

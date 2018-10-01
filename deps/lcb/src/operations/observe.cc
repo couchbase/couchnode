@@ -133,6 +133,7 @@ static void handle_observe_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t
     }
     opc->remaining--;
     if (opc->remaining == 0) {
+        TRACE_OBSERVE_END(instance, pkt);
         delete opc;
     }
 }

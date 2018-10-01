@@ -96,8 +96,8 @@
 #define TRACE_OBSERVE_PROGRESS(instance, pkt, mcresp, resp)                                                            \
     TRACE(TRACE_END_COMMON(LIBCOUCHBASE_OBSERVE_PROGRESS, instance, pkt, mcresp, resp, (resp)->cas, (resp)->status,    \
                            (resp)->ismaster, (resp)->ttp, (resp)->ttr))
-#define TRACE_OBSERVE_END(instance, pkt, mcresp)                                                                       \
-    TRACE(LIBCOUCHBASE_OBSERVE_END(instance, mcresp->opaque(), mcresp->opcode(),                                       \
+#define TRACE_OBSERVE_END(instance, pkt)                                                                               \
+    TRACE(LIBCOUCHBASE_OBSERVE_END(instance, pkt->opaque, PROTOCOL_BINARY_CMD_OBSERVE,                                 \
                                    MCREQ_PKT_RDATA(pkt)->dispatch - MCREQ_PKT_RDATA(pkt)->start, LCB_SUCCESS))
 
 #define TRACE_HTTP_BEGIN(req)                                                                                          \

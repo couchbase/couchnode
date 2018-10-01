@@ -361,7 +361,7 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
                          ipv6 ? "[" : "", srv->hostname, ipv6 ? "]" : "", port, PATH); \
                 htcmd.host = buf; \
                 htcmd.method = LCB_HTTP_METHOD_GET; \
-                htcmd.type = LCB_HTTP_TYPE_RAW; \
+                htcmd.type = LCB_HTTP_TYPE_PING; \
                 htcmd.reqhandle = &htreq; \
                 const lcb::Authenticator& auth = *instance->settings->auth; \
                 htcmd.username = auth.username_for(NULL, NULL, LCBT_SETTING(instance, bucket)).c_str(); \

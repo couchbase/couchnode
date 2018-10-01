@@ -220,6 +220,15 @@ protected:
     void run();
 };
 
+class McVersionHandler : public Handler {
+public:
+    HANDLER_DESCRIPTION("Query server versions using the memcached command")
+    HANDLER_USAGE("[OPTIONS ...]")
+    McVersionHandler() : Handler("mcversion") {}
+protected:
+    void run();
+};
+
 class PingHandler : public Handler {
 public:
     HANDLER_DESCRIPTION("Reach all services on every node and measure response time")

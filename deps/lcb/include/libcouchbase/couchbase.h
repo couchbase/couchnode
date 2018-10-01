@@ -2695,6 +2695,13 @@ typedef enum {
     /** Execute an Analytics Query */
     LCB_HTTP_TYPE_CBAS = 5,
 
+    /**
+     * Special pseudo-type, for ping endpoints in various services.
+     * Behaves like RAW (the lcb_ping3() function will setup custom path),
+     * but supports Keep-Alive
+     */
+    LCB_HTTP_TYPE_PING = 6,
+
     LCB_HTTP_TYPE_MAX
 } lcb_http_type_t;
 

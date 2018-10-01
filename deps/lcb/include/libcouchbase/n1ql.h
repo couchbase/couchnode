@@ -25,8 +25,48 @@ extern "C" {
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-n1ql-api N1QL
- * @brief Execute N1QL queries and receive resultant rows
+ * @defgroup lcb-n1ql-api N1QL/Analytics
+ * @brief Execute N1QL/Analytics queries.
+ *
+ * Query language based on SQL, but designed for structured and flexible JSON
+ * documents. Querying can solve typical programming tasks such as finding a
+ * user profile by email address, performing aggregations etc.
+ *
+ * @code{.c}
+ * const char *query = "{\"statement\":\"SELECT * FROM breweries LIMIT 10\"}";
+ * lcb_CMDN1QL cmd = {0};
+ * int idx = 0;
+ * // NOTE: with this flag, the request will be issued to Analytics service
+ * cmd.cmdflags = LCB_CMDN1QL_F_ANALYTICSQUERY;
+ * cmd.callback = row_callback;
+ * cmd.query = query;
+ * cmd.nquery = strlen(query);
+ * lcb_n1ql_query(instance, &idx, &cmd);
+ * lcb_wait(instance);
+ * @endcode
+ *
+ * Where row_callback might be implemented like this:
+ *
+ * @code{.c}
+ * static void row_callback(lcb_t instance, int type, const lcb_RESPN1QL *resp)
+ * {
+ *     int *idx = (int *)resp->cookie;
+ *     if (resp->rc != LCB_SUCCESS) {
+ *         printf("failed to execute query: %s\n", lcb_strerror_short(resp->rc));
+ *         exit(EXIT_FAILURE);
+ *     }
+ *     if (resp->rflags & LCB_RESP_F_FINAL) {
+ *         printf("META: ");
+ *     } else {
+ *         printf("ROW #%d: ", (*idx)++);
+ *     }
+ *     printf("%.*s\n", (int)resp->nrow, (char *)resp->row);
+ * }
+ * @endcode
+ *
+ * @see more details on @ref lcb_n1ql_query and @ref lcb_CMDN1QL.
+ *
+ * Also there is a query builder available for N1QL queries: @ref lcb_n1p_new/@ref lcb_n1p_mkcmd.
  */
 
 /**
@@ -327,13 +367,13 @@ lcb_n1p_mkcmd(lcb_N1QLPARAMS *params, lcb_CMDN1QL *cmd);
 #define LCB_CMDN1QL_F_JSONQUERY (1 << 17)
 
 /**
- * This is an analytics query. Use the `host` field to specify the host/port
- * to target. When this flag is set, things like prepared queries and
- * parametrized statements will not work.
+ * This is an Analytics query.
  *
- * @uncommitted
+ * @committed
  */
-#define LCB_CMDN1QL_F_CBASQUERY (1 << 18)
+#define LCB_CMDN1QL_F_ANALYTICSQUERY (1 << 18)
+/* @private an alias for compatibility */
+#define LCB_CMDN1QL_F_CBASQUERY LCB_CMDN1QL_F_ANALYTICSQUERY
 
 /**
  * Command structure for N1QL queries. Typically an application will use the
@@ -409,6 +449,8 @@ struct lcb_RESPN1QL {
  *
  * This function will send the query to a query server in the cluster
  * and will invoke the callback (lcb_CMDN1QL::callback) for each result returned.
+ * By default it will run query as N1QL flavour, for Analytics set
+ * @ref LCB_CMDN1QL_F_ANALYTICSQUERY flag in cmdflags of @ref lcb_CMDN1QL argument.
  *
  * @param instance The instance
  * @param cookie Pointer to application data

@@ -350,7 +350,7 @@ static void conn_readcb(struct bufferevent *bev, void *cookie)
             cmd.callback = n1ql_callback;
             cl->cnt = 0;
             if (cbas) {
-                cmd.cmdflags |= LCB_CMDN1QL_F_CBASQUERY;
+                cmd.cmdflags |= LCB_CMDN1QL_F_ANALYTICSQUERY;
             }
             rc = lcb_n1ql_query(instance, cl, &cmd);
             if (rc != LCB_SUCCESS) {

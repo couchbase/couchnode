@@ -66,10 +66,19 @@ IF(CMAKE_COMPILER_IS_GNUCXX)
         COMPILE_FLAGS "-Wno-sign-compare -Wno-missing-field-initializers")
 ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 
-IF(NOT EXISTS ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
-    DOWNLOAD_LCB_DEP("${COUCHBASE_MOCK_DLSERVER}/${COUCHBASE_MOCK_VERSION}"
-        "${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar")
-ENDIF(NOT EXISTS ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar AND NOT LCB_NO_MOCK)
+IF(NOT LCB_NO_MOCK)
+    IF(NOT EXISTS ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar)
+        DOWNLOAD_LCB_DEP("${COUCHBASE_MOCK_URL}" "${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar")
+    ENDIF()
+    FIND_PROGRAM(JAVA java)
+    EXECUTE_PROCESS(COMMAND "${JAVA}" -jar "${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar" --version
+                    RESULT_VARIABLE RET OUTPUT_VARIABLE VER OUTPUT_STRIP_TRAILING_WHITESPACE)
+    IF(RET EQUAL 0)
+        MESSAGE(STATUS "Using ${VER}")
+    ELSE()
+        MESSAGE(FATAL_ERROR "Unable to use ${PROJECT_SOURCE_DIR}/tests/CouchbaseMock.jar as CouchbaseMock")
+    ENDIF()
+ENDIF()
 
 # We're a library using the shared CRT. Don't use the static one
 INCLUDE_DIRECTORIES(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})

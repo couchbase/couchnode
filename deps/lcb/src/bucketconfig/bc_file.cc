@@ -82,7 +82,7 @@ FileProvider::Status FileProvider::load_cache()
     }
 
     if (last_mtime == st.st_mtime) {
-        lcb_log(LOGARGS(this, WARN), LOGFMT "Modification time too old", LOGID(this));
+        lcb_log(LOGARGS(this, DEBUG), LOGFMT "Modification time too old", LOGID(this));
         return NO_CHANGES;
     }
 

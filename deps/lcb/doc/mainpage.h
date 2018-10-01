@@ -21,6 +21,7 @@
  * * @ref example/libeventdirect/main.c - Shows how to integrate with an external
  *   event library (libevent, in this case).
  *
+ * @see more examples in devguides repository: https://github.com/couchbaselabs/devguide-examples/tree/master/c
  *
  * Some more extensive examples may be observed in the SDKs wrapping libcouchbase
  * to expose interfaces in their native languages.
@@ -32,7 +33,7 @@
  * @section lcb_jira Reporting Issues
  *
  * If you think you've found an issue, please file a bug on
- * http://couchbase.com/issues. Select the _Couchbase C Client_ project. Before
+ * https://couchbase.com/issues. Select the _Couchbase C Client_ project. Before
  * filing an issue, search for existing issues to determine if your issue has
  * not yet been fixed in a newer version.
  *
@@ -74,6 +75,15 @@
  *
  * @example example/tracing/views.c
  * Shows tracing for HTTP APIs of the cluster (e.g. Couchbase Views)
+ *
+ * @example example/fts/fts.c
+ * Shows Full Text search queries.
+ *
+ * @example example/analytics/analytics.c
+ * Shows N1QL for Analytics queries.
+ *
+ * @example example/minimal/query.c
+ * Shows N1QL query API. Also because queries executed in a loop, the sample might be used as simple benchmark (more sofisticated shipped with cbc tools, as cbc-n1qlback)
  */
 
 /**

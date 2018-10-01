@@ -185,7 +185,7 @@ typedef struct lcb_N1QLREQ : lcb::jsparse::Parser::Actions {
     /** Whether we're retrying this */
     bool was_retried;
 
-    /** Is this query to Analytics (CBAS) service */
+    /** Is this query to Analytics for N1QL service */
     bool is_cbas;
 
 #ifdef LCB_TRACING
@@ -341,9 +341,18 @@ N1QLREQ::has_retriable_error(const Json::Value& root)
         unsigned code = 0;
         if (jcode.isNumeric()) {
             code = jcode.asUInt();
-            if (code == 4050 || code == 4070) {
+            switch (code) {
+                /* n1ql */
+            case 4050:
+            case 4070:
+                /* analytics */
+            case 23000:
+            case 23003:
+            case 23007:
                 lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. code: %d", LOGID(this), code);
                 return true;
+            default:
+                break;
             }
         }
         if (jmsg.isString()) {
@@ -666,7 +675,7 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
         return;
     }
 
-    if (flags & LCB_CMDN1QL_F_CBASQUERY) {
+    if (flags & LCB_CMDN1QL_F_ANALYTICSQUERY) {
         is_cbas = true;
     }
     if (is_cbas && (flags & LCB_CMDN1QL_F_PREPCACHE)) {

@@ -88,7 +88,7 @@ lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
 }
 #endif /* HAVE_RES_SEARCH */
 
-#else
+#elif defined(_MSC_VER)
 #include <windns.h>
 #define CAN_SRV_LOOKUP
 /* Implement via DnsQuery() */

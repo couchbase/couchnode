@@ -679,7 +679,6 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
             rd->procs->handler(pipeline, request, resp.rc, &resp);
         }
     }
-    TRACE_OBSERVE_END(root, request, response);
 }
 
 static void

@@ -876,6 +876,18 @@ Server::~Server() {
         return;
     }
 
+    if (this->instance) {
+        unsigned ii;
+        mc_CMDQUEUE *cmdq = &this->instance->cmdq;
+        for (ii = 0; ii < cmdq->npipelines; ii++) {
+            lcb::Server *server = static_cast<lcb::Server*>(cmdq->pipelines[ii]);
+            if (server == this) {
+                cmdq->pipelines[ii] = NULL;
+                break;
+            }
+        }
+    }
+    this->instance = NULL;
     mcreq_pipeline_cleanup(this);
 
     if (io_timer) {

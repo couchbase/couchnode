@@ -330,7 +330,6 @@ static int start_connect(lcb_io_opt_t iobase,
     my_uvreq_t *uvr;
     int ret;
     int err_is_set = 0;
-    uv_os_fd_t fd = INVALID_SOCKET;
 
     uvr = alloc_uvreq(sock, (generic_callback_t)callback);
     if (!uvr) {
@@ -366,12 +365,17 @@ static int start_connect(lcb_io_opt_t iobase,
         incref_sock(sock);
     }
 
-    /* Fetch socket descriptor for internal usage.
-     * For example to detect dead sockets. */
-    ret = uv_fileno((uv_handle_t *)&sock->tcp, &fd);
-    if (ret == 0) {
-        sock->base.socket = fd;
+#if UV_VERSION_HEX >= 0x010000
+    {
+        uv_os_fd_t fd = INVALID_SOCKET;
+        /* Fetch socket descriptor for internal usage.
+         * For example to detect dead sockets. */
+        ret = uv_fileno((uv_handle_t *)&sock->tcp, &fd);
+        if (ret == 0) {
+            sock->base.socket = fd;
+        }
     }
+#endif
 
     return ret;
 }
@@ -620,6 +624,7 @@ static void set_last_error(my_iops_t *io, int error)
     io->base.v.v1.error = uvc_last_errno(io->loop, error);
 }
 
+#if UV_VERSION_HEX >= 0x010000
 static int check_closed(lcb_io_opt_t io, lcb_sockdata_t *sockbase, int flags)
 {
     my_sockdata_t *sd = (my_sockdata_t *)sockbase;
@@ -661,6 +666,7 @@ GT_RETRY:
         }
     }
 }
+#endif
 
 static void wire_iops2(int version,
                        lcb_loop_procs *loop,
@@ -687,7 +693,9 @@ static void wire_iops2(int version,
     iocp->read2 = start_read;
     iocp->write2 = start_write2;
     iocp->cntl = cntl_socket;
+#if UV_VERSION_HEX >= 0x010000
     iocp->is_closed = check_closed;
+#endif
 
     /** Stuff we don't use */
     iocp->write = NULL;

@@ -290,7 +290,7 @@ SessionRequestImpl::set_chosen_mech(std::string& mechlist,
             return MECH_UNAVAILABLE;
         }
         mechlist.assign(forcemech);
-        if (memcmp(forcemech, "SCRAM-SHA", sizeof("SCRAM-SHA") - 1) == 0) {
+        if (strncmp(forcemech, "SCRAM-SHA", sizeof("SCRAM-SHA") - 1) == 0) {
             allow_scram_sha = 1;
         }
     }
@@ -428,12 +428,17 @@ SessionRequestImpl::send_hello()
     hdr.sizes(0, agent.size(), (sizeof features[0]) * nfeatures);
     lcbio_ctx_put(ctx, hdr.data(), hdr.size());
     lcbio_ctx_put(ctx, agent.c_str(), agent.size());
-    lcb_log(LOGARGS(this, DEBUG), LOGFMT "HELLO identificator: %.*s", LOGID(this), (int)agent.size(), agent.c_str());
+
+    std::string fstr;
     for (size_t ii = 0; ii < nfeatures; ii++) {
+        char buf[50] = { 0 };
         lcb_U16 tmp = htons(features[ii]);
         lcbio_ctx_put(ctx, &tmp, sizeof tmp);
-        lcb_log(LOGARGS(this, DEBUG), LOGFMT "Request feature: 0x%x (%s)", LOGID(this), features[ii], protocol_feature_2_text(features[ii]));
+        snprintf(buf, sizeof(buf), "%s0x%02x (%s)", ii > 0 ? ", " : "", features[ii], protocol_feature_2_text(features[ii]));
+        fstr.append(buf);
     }
+    lcb_log(LOGARGS(this, DEBUG), LOGFMT "HELO identificator: %.*s, features: %s", LOGID(this), (int)agent.size(),
+            agent.c_str(), fstr.c_str());
 
     lcbio_ctx_rwant(ctx, 24);
     return true;
@@ -454,13 +459,18 @@ SessionRequestImpl::read_hello(const lcb::MemcachedResponse& resp)
     const char *cur;
     const char *payload = resp.value();
     const char *limit = payload + resp.vallen();
-    for (cur = payload; cur < limit; cur += 2) {
+    size_t ii;
+    std::string fstr;
+    for (ii = 0, cur = payload; cur < limit; cur += 2, ii++) {
         lcb_U16 tmp;
+        char buf[50] = { 0 };
         memcpy(&tmp, cur, sizeof(tmp));
         tmp = ntohs(tmp);
-        lcb_log(LOGARGS(this, DEBUG), LOGFMT "Server supports feature: 0x%x (%s)", LOGID(this), tmp, protocol_feature_2_text(tmp));
         info->server_features.push_back(tmp);
+        snprintf(buf, sizeof(buf), "%s0x%02x (%s)", ii > 0 ? ", " : "", tmp, protocol_feature_2_text(tmp));
+        fstr.append(buf);
     }
+    lcb_log(LOGARGS(this, DEBUG), LOGFMT "Server supports features: %s", LOGID(this), fstr.c_str());
     return true;
 }
 
@@ -633,7 +643,7 @@ SessionRequestImpl::handle_read(lcbio_CTX *ioctx)
         if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
             completed = true;
         } else if (status == PROTOCOL_BINARY_RESPONSE_EACCESS) {
-            set_error(LCB_AUTH_ERROR, "Provided credentials not allowed for bucket", &resp);
+            set_error(LCB_AUTH_ERROR, "Provided credentials not allowed for bucket or bucket does not exist", &resp);
         } else {
             lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", LOGID(this), status);
             set_error(LCB_PROTOCOL_ERROR, "Other auth error", &resp);

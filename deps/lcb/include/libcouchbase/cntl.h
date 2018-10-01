@@ -1393,10 +1393,20 @@ typedef enum {
 #define LCB_CNTL_NETWORK 0x5b
 
 /**
+ * The amount of time the pool should wait before closing idle connections.
+ *
+ * Use `http_pool_timeout` in the connection string
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_HTTP_POOL_TIMEOUT 0x5d
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x5d
+#define LCB_CNTL__MAX                    0x5e
 /**@}*/
 
 #ifdef __cplusplus
