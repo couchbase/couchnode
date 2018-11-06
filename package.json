@@ -21,10 +21,10 @@
   "name": "couchbase",
   "dependencies": {
     "bindings": "~1.3.0",
-    "nan": "~2.10.0",
-    "prebuild-install": "^5.0.0",
-    "request": "^2.87.0",
-    "winston": "^3.0.0",
+    "nan": "^2.11.1",
+    "prebuild-install": "^5.2.1",
+    "request": "^2.88.0",
+    "winston": "^3.1.0",
     "winston-null": "^1.0.2"
   },
   "devDependencies": {
@@ -32,10 +32,10 @@
     "istanbul": "~0.4.3",
     "jsdoc": "~3.5.5",
     "jsdoc-stability-tag": "~1.0.0",
-    "jshint": "~2.9.2",
+    "jshint": "^2.9.6",
     "mocha": "^5.2.0",
-    "npm-check": "^5.7.1",
-    "prebuild": "^7.6.0"
+    "npm-check": "^5.9.0",
+    "prebuild": "^8.1.2"
   },
   "repository": {
     "type": "git",
