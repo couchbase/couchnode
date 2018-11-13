@@ -12,9 +12,9 @@ Source - [http://github.com/couchbase/couchnode](http://github.com/couchbase/cou
 
 Bug Tracker - [http://www.couchbase.com/issues/browse/JSCBC](http://www.couchbase.com/issues/browse/JSCBC)
 
-Couchbase Developer Portal - [http://developer.couchbase.com/](http://developer.couchbase.com/documentation/server/4.5/sdk/nodejs/start-using-sdk.html)
+Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/2.6/start-using-sdk.html)
 
-Release Notes - [http://developer.couchbase.com/server/other-products/release-notes-archives/nodejs-sdk](http://developer.couchbase.com/server/other-products/release-notes-archives/nodejs-sdk)
+Release Notes - [https://docs.couchbase.com/nodejs-sdk/2.6/relnotes-nodejs-sdk.html](https://docs.couchbase.com/nodejs-sdk/2.6/relnotes-nodejs-sdk.html)
 
 ## Installing
 
