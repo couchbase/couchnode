@@ -2,6 +2,7 @@
 
 var assert = require('assert');
 var harness = require('./harness.js');
+var vm = require('vm')
 
 var Vq = harness.lib.ViewQuery;
 
@@ -287,7 +288,15 @@ describe('#Querying', function() {
               done();
             });
         });
+
+      it('view queries should work with callback in the nodejs vm sandbox',
+        function(done) {
+          vm.runInNewContext(`bucket.query(query, function (err, res) {
+            done(err)
+          })`, { bucket: H.b, query: Vq.from(ddKey, 'simple'), done })          
+        });
     });
+    
   }
 
   describe('#RealBucket', allTests.bind(this, harness));
