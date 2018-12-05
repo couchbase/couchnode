@@ -47,7 +47,7 @@ if ($WantHelp) {
 
 my $output;
 if (!$Input) {
-    $output = qx(git describe --long);
+    $output = qx(git describe --long --abbrev=10);
 } else {
     $output = $Input;
 }

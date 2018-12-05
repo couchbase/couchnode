@@ -121,7 +121,7 @@ IF(NOT CMAKE_BUILD_TYPE)
     SET(CPACK_INSTALL_SCRIPT
         "${PROJECT_SOURCE_DIR}/cmake/Modules/DistScript.cmake")
 ENDIF()
-SET(lcb_package_name "libcouchbase-${LCB_VERSION}_${LCB_ARCH_STRING}_${LCB_CC_STRING}")
+SET(lcb_package_name "libcouchbase-${LCB_VERSION}_${LCB_CC_STRING}_${LCB_ARCH_STRING}")
 SET(CPACK_PACKAGE_FILE_NAME ${lcb_package_name})
 
 IF(WIN32)

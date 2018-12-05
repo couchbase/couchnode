@@ -8,7 +8,9 @@ SRCDIR=.
 
 MANPAGES="cbc cbc-pillowfight cbc-n1qlback cbc-subdoc"
 for page in $MANPAGES; do
-  ronn --pipe --roff $SRCDIR/$page.markdown | sed 's/\\.\\.\\./\\[char46]\\[char46]\\[char46]/g' > $OUTDIR/$page.1
+  ruby -e "puts ARGF.read.gsub('@@common-options.markdown@@', File.read('common-options.markdown'))" $SRCDIR/$page.markdown | \
+  ruby -e "puts ARGF.read.gsub('@@common-additional-options.markdown@@', File.read('common-additional-options.markdown'))" | \
+    ronn --pipe --roff  | sed 's/\\.\\.\\./\\[char46]\\[char46]\\[char46]/g' > $OUTDIR/$page.1
 done
 ronn --pipe --roff $SRCDIR/cbcrc.markdown | sed 's/\\.\\.\\./\\[char46]\\[char46]\\[char46]/g' > $OUTDIR/cbcrc.4
 

@@ -97,6 +97,29 @@ parseTemplateSpec(const string& input)
     return spec;
 }
 
+// Given a string representing a uint32_t (base16) return a string storing the
+// leb128 encoded representation of that value.
+static string leb128_encode(string in) {
+    unsigned long int value = strtoul(in.c_str(), NULL, 16);
+
+    // 00000000 maps to [0]
+    if (value == 0) {
+        return string(1, 0);
+    }
+
+    string rv;
+    while (value > 0) {
+        char byte = static_cast<char>(value & 0x7full);
+        value >>= 7;
+        // value has more data?
+        if (value > 0) {
+            byte |= 0x80;
+        }
+        rv.push_back(byte);
+    }
+    return rv;
+}
+
 class Configuration
 {
 public:
@@ -125,7 +148,6 @@ public:
         o_populateOnly("populate-only"),
         o_exptime("expiry"),
         o_collection("collection"),
-        o_separator("separator"),
         o_persist("persist-to"),
         o_replicate("replicate-to"),
         o_lock("lock")
@@ -154,8 +176,7 @@ public:
         o_sdPathCount.description("Number of subdoc paths per command").setDefault(1);
         o_populateOnly.description("Exit after documents have been populated");
         o_exptime.description("Set TTL for items").abbrev('e');
-        o_collection.description("Allowed collection name (could be specified multiple times)").hide();
-        o_separator.setDefault(":").description("Separator for collection prefix in keys").hide();
+        o_collection.description("Allowed collection ID in base16 (could be specified multiple times)").hide();
         o_persist.description("Wait until item is persisted to this number of nodes (-1 for master+replicas)").setDefault(0);
         o_replicate.description("Wait until item is replicated to this number of nodes (-1 for all replicas)").setDefault(0);
         o_lock.description("Lock keys for updates for given time (will not lock when set to zero)").setDefault(0);
@@ -264,13 +285,9 @@ public:
         }
 
         if (o_collection.passed()) {
-            string separator = o_separator.result();
-            if (separator.empty()) {
-                throw std::runtime_error("Collection name separator must not be empty");
-            }
-            vector<string> names = o_collection.result();
-            for (size_t ii = 0; ii < names.size(); ii++) {
-                collections.push_back(names[ii] + separator);
+            vector<string> ids = o_collection.result();
+            for (vector<string>::iterator it = ids.begin() ; it != ids.end(); ++it) {
+                collections.push_back(leb128_encode(*it));
             }
         }
     }
@@ -300,7 +317,6 @@ public:
         parser.addOption(o_populateOnly);
         parser.addOption(o_exptime);
         parser.addOption(o_collection);
-        parser.addOption(o_separator);
         parser.addOption(o_persist);
         parser.addOption(o_replicate);
         parser.addOption(o_lock);
@@ -381,7 +397,6 @@ private:
     UIntOption o_exptime;
 
     ListOption o_collection;
-    StringOption o_separator;
     IntOption o_persist;
     IntOption o_replicate;
 

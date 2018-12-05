@@ -301,6 +301,9 @@ do_store3(lcb_t instance, const void *cookie,
             hdr->request.extlen + ntohs(hdr->request.keylen)
             + get_value_size(packet));
 
+    if (cmd->cmdflags & LCB_CMD_F_INTERNAL_CALLBACK) {
+        packet->flags |= MCREQ_F_PRIVCALLBACK;
+    }
     memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
     LCB_SCHED_ADD(instance, pipeline, packet);
     LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_STORE2NAME(operation), packet->opaque, MCREQ_PKT_RDATA(packet)->span);

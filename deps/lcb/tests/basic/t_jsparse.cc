@@ -63,7 +63,7 @@ static bool validateBadParse(const char *txt, size_t ntxt, Parser::Mode mode)
 {
     Context cx;
     Parser p(mode, &cx);
-    p.feed(JSON_fts_bad, sizeof(JSON_fts_bad));
+    p.feed(txt, ntxt);
     EXPECT_EQ(LCB_PROTOCOL_ERROR, cx.rc);
     return true;
 }
@@ -79,4 +79,8 @@ TEST_F(JsonParseTest, testN1QL) {
     ASSERT_TRUE(validateJsonRows(JSON_n1ql_nonempty, sizeof(JSON_n1ql_nonempty), Parser::MODE_N1QL));
     ASSERT_TRUE(validateJsonRows(JSON_n1ql_empty, sizeof(JSON_n1ql_empty), Parser::MODE_N1QL));
     ASSERT_TRUE(validateBadParse(JSON_n1ql_bad, sizeof(JSON_n1ql_bad), Parser::MODE_N1QL));
+}
+
+TEST_F(JsonParseTest, testAnalyticsDeferred) {
+    ASSERT_TRUE(validateJsonRows(JSON_ad_nonempty, sizeof(JSON_ad_nonempty), Parser::MODE_ANALYTICS_DEFERRED));
 }

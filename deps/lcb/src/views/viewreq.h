@@ -20,7 +20,7 @@
 #include <libcouchbase/pktfwd.h>
 #include <jsparse/parser.h>
 #include <string>
-#include "docreq.h"
+#include "docreq/docreq.h"
 
 namespace lcb {
 namespace views {

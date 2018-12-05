@@ -123,7 +123,7 @@ IF(MSVC)
 
 ELSE()
     # GCC
-    SET_ALL_FLAGS("-fno-strict-aliasing")
+    SET_ALL_FLAGS("-fno-strict-aliasing -ggdb3")
     IF(WIN32)
         SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -gstabs")
         SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gstabs")

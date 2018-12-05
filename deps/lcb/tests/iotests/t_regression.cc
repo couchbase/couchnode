@@ -306,6 +306,7 @@ TEST_F(MockUnitTest, testDoubleFreeError)
 
 TEST_F(MockUnitTest, testBrokenFirstNodeInList)
 {
+    SKIP_UNLESS_MOCK();
     MockEnvironment *mock = MockEnvironment::getInstance();
     lcb_create_st options;
     mock->makeConnectParams(options, NULL);

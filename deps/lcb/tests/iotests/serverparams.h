@@ -35,13 +35,19 @@ public:
 
     void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io) {
         memset(&crst, 0, sizeof(crst));
-        crst.version = 2;
-        crst.v.v2.host = host.c_str();
-        crst.v.v2.bucket = bucket.c_str();
-        crst.v.v2.user = user.c_str();
-        crst.v.v2.passwd = pass.c_str();
-        crst.v.v2.io = io;
-        if (!mcNodes.empty()) {
+        if (mcNodes.empty()) {
+            crst.version = 3;
+            crst.v.v3.connstr = host.c_str();
+            crst.v.v3.username = user.c_str();
+            crst.v.v3.passwd = pass.c_str();
+            crst.v.v3.io = io;
+        } else {
+            crst.version = 2;
+            crst.v.v2.host = host.c_str();
+            crst.v.v2.bucket = bucket.c_str();
+            crst.v.v2.user = user.c_str();
+            crst.v.v2.passwd = pass.c_str();
+            crst.v.v2.io = io;
             crst.v.v2.mchosts = mcNodes.c_str();
         }
     }

@@ -749,6 +749,8 @@ typedef enum {
 /** Callback type for N1QL index management (cannot be used for lcb_install_callback3()) */
 #define LCB_CALLBACK_IXMGMT -3
 
+/** Callback type for Analytics (cannot be used for lcb_install_callback3()) */
+#define LCB_CALLBACK_ANALYTICS -4
 /**
  * Callback invoked for responses.
  * @param instance The handle
@@ -2464,6 +2466,11 @@ lcb_noop3(lcb_t instance, const void *cookie, const lcb_CMDNOOP *cmd);
  * Ping full text search (FTS) service. Used in lcb_CMDPING#services
  */
 #define LCB_PINGSVC_F_FTS 0x08
+
+/**
+ * Ping Analytics for N1QL service. Used in lcb_CMDPING#services
+ */
+#define LCB_PINGSVC_F_ANALYTICS 0x10
 
 /**
  * Do not record any metrics or status codes from ping responses.

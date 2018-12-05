@@ -29,7 +29,7 @@
 #include <string.h>
 
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/n1ql.h>
+#include <libcouchbase/analytics.h>
 
 #include "queries.h"
 #include "cJSON.h"
@@ -59,7 +59,7 @@ static int err2color(lcb_error_t err)
     }
 }
 
-static void row_callback(lcb_t instance, int type, const lcb_RESPN1QL *resp)
+static void row_callback(lcb_t instance, int type, const lcb_RESPANALYTICS *resp)
 {
     int *idx = (int *)resp->cookie;
     if (resp->rc != LCB_SUCCESS) {
@@ -139,16 +139,15 @@ int main(int argc, char *argv[])
     }
 
     for (ii = 0; ii < num_queries; ii++) {
-        lcb_CMDN1QL cmd = {0};
+        lcb_CMDANALYTICS *cmd;
         int idx = 0;
-        /* NOTE: with this flag, the request will be issued to Analytics service */
-        cmd.cmdflags = LCB_CMDN1QL_F_ANALYTICSQUERY;
-        cmd.callback = row_callback;
-        cmd.query = queries[ii].query;
-        cmd.nquery = queries[ii].query_len;
-        check(lcb_n1ql_query(instance, &idx, &cmd), "schedule analytics query");
+        cmd = lcb_analytics_new();
+        lcb_analytics_setcallback(cmd, row_callback);
+        lcb_analytics_setquery(cmd, queries[ii].query, queries[ii].query_len);
+        check(lcb_analytics_query(instance, &idx, cmd), "schedule analytics query");
         printf("----> \x1b[1m%s\x1b[0m\n", queries[ii].comment);
         printf("----> \x1b[36m%.*s\x1b[0m\n", (int)queries[ii].query_len, queries[ii].query);
+        lcb_analytics_free(cmd);
         lcb_wait(instance);
     }
 

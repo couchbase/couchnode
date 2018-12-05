@@ -638,6 +638,7 @@ TEST_F(MockUnitTest, testDump)
 
 TEST_F(MockUnitTest, testRefreshConfig)
 {
+    SKIP_UNLESS_MOCK();
     HandleWrap hw;
     lcb_t instance;
     createConnection(hw, instance);

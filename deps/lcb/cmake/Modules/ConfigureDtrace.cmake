@@ -41,7 +41,7 @@ IF(DTRACE)
 
     FIND_PROGRAM(STAP stap)
     IF(STAP)
-      SET(LCB_TAPSET_ROOT /usr/share/systemtap/tapset)
+      SET(LCB_TAPSET_ROOT ${CMAKE_INSTALL_PREFIX}/share/systemtap/tapset)
       CONFIGURE_FILE(
         ${PROJECT_SOURCE_DIR}/cmake/libcouchbase.stp.in
         ${LCB_GENSRCDIR}/libcouchbase.so.${LCB_SONAME_FULL}.stp)

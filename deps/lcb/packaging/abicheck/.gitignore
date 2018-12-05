@@ -1,4 +1,3 @@
-NEW.xml
-OLD.xml
+*.xml
 compat_reports/*
 logs/*

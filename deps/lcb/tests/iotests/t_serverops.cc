@@ -68,6 +68,7 @@ TEST_F(ServeropsUnitTest, testServerStats)
 
 TEST_F(ServeropsUnitTest, testKeyStats)
 {
+    SKIP_UNLESS_MOCK(); // FIXME: works on 5.5.0, fails on 6.0.0
     lcb_t instance;
     HandleWrap hw;
     createConnection(hw, instance);

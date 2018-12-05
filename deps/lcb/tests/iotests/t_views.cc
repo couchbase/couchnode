@@ -194,6 +194,7 @@ static void viewCallback(lcb_t, int cbtype, const lcb_RESPVIEWQUERY *resp)
 
 TEST_F(ViewsUnitTest, testSimpleView)
 {
+    SKIP_UNLESS_MOCK();
     // Requires beer-sample
     HandleWrap hw;
     lcb_t instance;
@@ -241,6 +242,7 @@ TEST_F(ViewsUnitTest, testSimpleView)
 }
 
 TEST_F(ViewsUnitTest, testIncludeDocs) {
+    SKIP_UNLESS_MOCK();
     HandleWrap hw;
     lcb_t instance;
     lcb_error_t rc;
@@ -268,6 +270,7 @@ TEST_F(ViewsUnitTest, testIncludeDocs) {
 }
 
 TEST_F(ViewsUnitTest, testReduce) {
+    SKIP_UNLESS_MOCK();
     HandleWrap hw;
     lcb_t instance;
     lcb_error_t rc;
@@ -320,6 +323,7 @@ TEST_F(ViewsUnitTest, testReduce) {
 }
 
 TEST_F(ViewsUnitTest, testEngineErrors) {
+    SKIP_UNLESS_MOCK();
     // Tests various things which can go wrong; basically negative responses
     HandleWrap hw;
     lcb_t instance;
@@ -379,6 +383,7 @@ TEST_F(ViewsUnitTest, testOptionValidation)
 
 TEST_F(ViewsUnitTest, testBackslashDocid)
 {
+    SKIP_UNLESS_MOCK();
     HandleWrap hw;
     lcb_t instance;
     lcb_error_t rc;

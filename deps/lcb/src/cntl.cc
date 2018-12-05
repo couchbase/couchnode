@@ -664,100 +664,100 @@ HANDLER(network_handler) {
 }
 
 static ctl_handler handlers[] = {
-    timeout_common, /* LCB_CNTL_OP_TIMEOUT */
-    timeout_common, /* LCB_CNTL_VIEW_TIMEOUT */
-    noop_handler, /* LCB_CNTL_RBUFSIZE */
-    noop_handler, /* LCB_CNTL_WBUFSIZE */
-    get_htype,      /* LCB_CNTL_HANDLETYPE */
-    get_vbconfig,   /* LCB_CNTL_VBCONFIG */
-    get_iops,       /* LCB_CNTL_IOPS */
-    get_kvb,        /* LCB_CNTL_VBMAP */
-    conninfo,       /* LCB_CNTL_MEMDNODE_INFO */
-    conninfo,       /* LCB_CNTL_CONFIGNODE_INFO */
-    syncmode,       /* LCB_CNTL_SYNCMODE */
-    ippolicy,       /* LCB_CNTL_IP6POLICY */
-    confthresh      /* LCB_CNTL_CONFERRTHRESH */,
-    timeout_common, /* LCB_CNTL_DURABILITY_INTERVAL */
-    timeout_common, /* LCB_CNTL_DURABILITY_TIMEOUT */
-    timeout_common, /* LCB_CNTL_HTTP_TIMEOUT */
-    lcb_iops_cntl_handler, /* LCB_CNTL_IOPS_DEFAULT_TYPES */
-    lcb_iops_cntl_handler, /* LCB_CNTL_IOPS_DLOPEN_DEBUG */
-    timeout_common,  /* LCB_CNTL_CONFIGURATION_TIMEOUT */
-    noop_handler,   /* LCB_CNTL_SKIP_CONFIGURATION_ERRORS_ON_CONNECT */
-    randomize_bootstrap_hosts_handler /* LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS */,
-    config_cache_loaded_handler /* LCB_CNTL_CONFIG_CACHE_LOADED */,
-    force_sasl_mech_handler, /* LCB_CNTL_FORCE_SASL_MECH */
-    max_redirects, /* LCB_CNTL_MAX_REDIRECTS */
-    logprocs_handler /* LCB_CNTL_LOGGER */,
-    timeout_common, /* LCB_CNTL_CONFDELAY_THRESH */
-    config_transport, /* LCB_CNTL_CONFIG_TRANSPORT */
-    timeout_common, /* LCB_CNTL_CONFIG_NODE_TIMEOUT */
-    timeout_common, /* LCB_CNTL_HTCONFIG_IDLE_TIMEOUT */
-    config_nodes, /* LCB_CNTL_CONFIG_HTTP_NODES */
-    config_nodes, /* LCB_CNTL_CONFIG_CCCP_NODES */
-    get_changeset, /* LCB_CNTL_CHANGESET */
-    init_providers, /* LCB_CNTL_CONFIG_ALL_NODES */
-    config_cache_handler, /* LCB_CNTL_CONFIGCACHE */
-    ssl_mode_handler, /* LCB_CNTL_SSL_MODE */
-    ssl_certpath_handler, /* LCB_CNTL_SSL_CERT */
-    retrymode_handler, /* LCB_CNTL_RETRYMODE */
-    htconfig_urltype_handler, /* LCB_CNTL_HTCONFIG_URLTYPE */
-    compmode_handler, /* LCB_CNTL_COMPRESSION_OPTS */
-    allocfactory_handler, /* LCB_CNTL_RDBALLOCFACTORY */
-    syncdtor_handler, /* LCB_CNTL_SYNCDESTROY */
-    console_log_handler, /* LCB_CNTL_CONLOGGER_LEVEL */
-    detailed_errcode_handler, /* LCB_CNTL_DETAILED_ERRCODES */
-    reinit_spec_handler, /* LCB_CNTL_REINIT_CONNSTR */
-    timeout_common, /* LCB_CNTL_RETRY_INTERVAL */
-    retry_backoff_handler, /* LCB_CNTL_RETRY_BACKOFF */
-    http_poolsz_handler, /* LCB_CNTL_HTTP_POOLSIZE */
-    http_refresh_config_handler, /* LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR */
-    bucketname_handler, /* LCB_CNTL_BUCKETNAME */
-    schedflush_handler, /* LCB_CNTL_SCHED_IMPLICIT_FLUSH */
-    vbguess_handler, /* LCB_CNTL_VBGUESS_PERSIST */
-    unsafe_optimize, /* LCB_CNTL_UNSAFE_OPTIMIZE */
-    fetch_mutation_tokens_handler, /* LCB_CNTL_FETCH_MUTATION_TOKENS */
-    dur_mutation_tokens_handler, /* LCB_CNTL_DURABILITY_MUTATION_TOKENS */
-    config_cache_handler, /* LCB_CNTL_CONFIGCACHE_READONLY */
-    nmv_imm_retry_handler, /* LCB_CNTL_RETRY_NMV_IMM */
-    mutation_tokens_supported_handler, /* LCB_CNTL_MUTATION_TOKENS_SUPPORTED */
-    tcp_nodelay_handler, /* LCB_CNTL_TCP_NODELAY */
-    readj_ts_wait_handler, /* LCB_CNTL_RESET_TIMEOUT_ON_WAIT */
-    console_fp_handler, /* LCB_CNTL_CONLOGGER_FP */
-    kv_hg_handler, /* LCB_CNTL_KVTIMINGS */
-    timeout_common, /* LCB_CNTL_N1QL_TIMEOUT */
-    n1ql_cache_clear_handler, /* LCB_CNTL_N1QL_CLEARCACHE */
-    client_string_handler, /* LCB_CNTL_CLIENT_STRING */
-    bucket_auth_handler, /* LCB_CNTL_BUCKET_CRED */
-    timeout_common, /* LCB_CNTL_RETRY_NMV_DELAY */
-    read_chunk_size_handler, /*LCB_CNTL_READ_CHUNKSIZE */
-    enable_errmap_handler, /* LCB_CNTL_ENABLE_ERRMAP */
-    select_bucket_handler, /* LCB_CNTL_SELECT_BUCKET */
-    tcp_keepalive_handler, /* LCB_CNTL_TCP_KEEPALIVE */
-    config_poll_interval_handler, /* LCB_CNTL_CONFIG_POLL_INTERVAL */
-    send_hello_handler, /* LCB_CNTL_SEND_HELLO */
-    buckettype_handler, /* LCB_CNTL_BUCKETTYPE */
-    metrics_handler, /* LCB_CNTL_METRICS */
-    collections_handler, /* LCB_CNTL_USE_COLLECTIONS */
-    ssl_keypath_handler, /* LCB_CNTL_SSL_KEY */
-    log_redaction_handler, /* LCB_CNTL_LOG_REDACTION */
-    ssl_truststorepath_handler, /* LCB_CNTL_SSL_TRUSTSTORE */
-    enable_tracing_handler, /* LCB_CNTL_ENABLE_TRACING */
-    timeout_common, /* LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL */
-    tracing_orphaned_queue_size_handler, /* LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE */
-    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL */
+    timeout_common,                       /* LCB_CNTL_OP_TIMEOUT */
+    timeout_common,                       /* LCB_CNTL_VIEW_TIMEOUT */
+    noop_handler,                         /* LCB_CNTL_RBUFSIZE */
+    noop_handler,                         /* LCB_CNTL_WBUFSIZE */
+    get_htype,                            /* LCB_CNTL_HANDLETYPE */
+    get_vbconfig,                         /* LCB_CNTL_VBCONFIG */
+    get_iops,                             /* LCB_CNTL_IOPS */
+    get_kvb,                              /* LCB_CNTL_VBMAP */
+    conninfo,                             /* LCB_CNTL_MEMDNODE_INFO */
+    conninfo,                             /* LCB_CNTL_CONFIGNODE_INFO */
+    syncmode,                             /* LCB_CNTL_SYNCMODE */
+    ippolicy,                             /* LCB_CNTL_IP6POLICY */
+    confthresh,                           /* LCB_CNTL_CONFERRTHRESH */
+    timeout_common,                       /* LCB_CNTL_DURABILITY_INTERVAL */
+    timeout_common,                       /* LCB_CNTL_DURABILITY_TIMEOUT */
+    timeout_common,                       /* LCB_CNTL_HTTP_TIMEOUT */
+    lcb_iops_cntl_handler,                /* LCB_CNTL_IOPS_DEFAULT_TYPES */
+    lcb_iops_cntl_handler,                /* LCB_CNTL_IOPS_DLOPEN_DEBUG */
+    timeout_common,                       /* LCB_CNTL_CONFIGURATION_TIMEOUT */
+    noop_handler,                         /* LCB_CNTL_SKIP_CONFIGURATION_ERRORS_ON_CONNECT */
+    randomize_bootstrap_hosts_handler,    /* LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS */
+    config_cache_loaded_handler,          /* LCB_CNTL_CONFIG_CACHE_LOADED */
+    force_sasl_mech_handler,              /* LCB_CNTL_FORCE_SASL_MECH */
+    max_redirects,                        /* LCB_CNTL_MAX_REDIRECTS */
+    logprocs_handler,                     /* LCB_CNTL_LOGGER */
+    timeout_common,                       /* LCB_CNTL_CONFDELAY_THRESH */
+    config_transport,                     /* LCB_CNTL_CONFIG_TRANSPORT */
+    timeout_common,                       /* LCB_CNTL_CONFIG_NODE_TIMEOUT */
+    timeout_common,                       /* LCB_CNTL_HTCONFIG_IDLE_TIMEOUT */
+    config_nodes,                         /* LCB_CNTL_CONFIG_HTTP_NODES */
+    config_nodes,                         /* LCB_CNTL_CONFIG_CCCP_NODES */
+    get_changeset,                        /* LCB_CNTL_CHANGESET */
+    init_providers,                       /* LCB_CNTL_CONFIG_ALL_NODES */
+    config_cache_handler,                 /* LCB_CNTL_CONFIGCACHE */
+    ssl_mode_handler,                     /* LCB_CNTL_SSL_MODE */
+    ssl_certpath_handler,                 /* LCB_CNTL_SSL_CERT */
+    retrymode_handler,                    /* LCB_CNTL_RETRYMODE */
+    htconfig_urltype_handler,             /* LCB_CNTL_HTCONFIG_URLTYPE */
+    compmode_handler,                     /* LCB_CNTL_COMPRESSION_OPTS */
+    allocfactory_handler,                 /* LCB_CNTL_RDBALLOCFACTORY */
+    syncdtor_handler,                     /* LCB_CNTL_SYNCDESTROY */
+    console_log_handler,                  /* LCB_CNTL_CONLOGGER_LEVEL */
+    detailed_errcode_handler,             /* LCB_CNTL_DETAILED_ERRCODES */
+    reinit_spec_handler,                  /* LCB_CNTL_REINIT_CONNSTR */
+    timeout_common,                       /* LCB_CNTL_RETRY_INTERVAL */
+    retry_backoff_handler,                /* LCB_CNTL_RETRY_BACKOFF */
+    http_poolsz_handler,                  /* LCB_CNTL_HTTP_POOLSIZE */
+    http_refresh_config_handler,          /* LCB_CNTL_HTTP_REFRESH_CONFIG_ON_ERROR */
+    bucketname_handler,                   /* LCB_CNTL_BUCKETNAME */
+    schedflush_handler,                   /* LCB_CNTL_SCHED_IMPLICIT_FLUSH */
+    vbguess_handler,                      /* LCB_CNTL_VBGUESS_PERSIST */
+    unsafe_optimize,                      /* LCB_CNTL_UNSAFE_OPTIMIZE */
+    fetch_mutation_tokens_handler,        /* LCB_CNTL_FETCH_MUTATION_TOKENS */
+    dur_mutation_tokens_handler,          /* LCB_CNTL_DURABILITY_MUTATION_TOKENS */
+    config_cache_handler,                 /* LCB_CNTL_CONFIGCACHE_READONLY */
+    nmv_imm_retry_handler,                /* LCB_CNTL_RETRY_NMV_IMM */
+    mutation_tokens_supported_handler,    /* LCB_CNTL_MUTATION_TOKENS_SUPPORTED */
+    tcp_nodelay_handler,                  /* LCB_CNTL_TCP_NODELAY */
+    readj_ts_wait_handler,                /* LCB_CNTL_RESET_TIMEOUT_ON_WAIT */
+    console_fp_handler,                   /* LCB_CNTL_CONLOGGER_FP */
+    kv_hg_handler,                        /* LCB_CNTL_KVTIMINGS */
+    timeout_common,                       /* LCB_CNTL_N1QL_TIMEOUT */
+    n1ql_cache_clear_handler,             /* LCB_CNTL_N1QL_CLEARCACHE */
+    client_string_handler,                /* LCB_CNTL_CLIENT_STRING */
+    bucket_auth_handler,                  /* LCB_CNTL_BUCKET_CRED */
+    timeout_common,                       /* LCB_CNTL_RETRY_NMV_DELAY */
+    read_chunk_size_handler,              /* LCB_CNTL_READ_CHUNKSIZE */
+    enable_errmap_handler,                /* LCB_CNTL_ENABLE_ERRMAP */
+    select_bucket_handler,                /* LCB_CNTL_SELECT_BUCKET */
+    tcp_keepalive_handler,                /* LCB_CNTL_TCP_KEEPALIVE */
+    config_poll_interval_handler,         /* LCB_CNTL_CONFIG_POLL_INTERVAL */
+    send_hello_handler,                   /* LCB_CNTL_SEND_HELLO */
+    buckettype_handler,                   /* LCB_CNTL_BUCKETTYPE */
+    metrics_handler,                      /* LCB_CNTL_METRICS */
+    collections_handler,                  /* LCB_CNTL_USE_COLLECTIONS */
+    ssl_keypath_handler,                  /* LCB_CNTL_SSL_KEY */
+    log_redaction_handler,                /* LCB_CNTL_LOG_REDACTION */
+    ssl_truststorepath_handler,           /* LCB_CNTL_SSL_TRUSTSTORE */
+    enable_tracing_handler,               /* LCB_CNTL_ENABLE_TRACING */
+    timeout_common,                       /* LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL */
+    tracing_orphaned_queue_size_handler,  /* LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL */
     tracing_threshold_queue_size_handler, /* LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE */
-    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_KV */
-    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_N1QL */
-    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_VIEW */
-    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_FTS */
-    timeout_common, /* LCB_CNTL_TRACING_THRESHOLD_ANALYTICS */
-    comp_min_size_handler, /* LCB_CNTL_COMPRESSION_MIN_SIZE */
-    comp_min_ratio_handler, /* LCB_CNTL_COMPRESSION_MIN_RATIO */
-    vb_noremap_handler, /* LCB_CNTL_VB_NOREMAP */
-    network_handler, /* LCB_CNTL_NETWORK */
-    wait_for_config_handler, /* LCB_CNTL_WAIT_FOR_CONFIG */
-    http_pooltmo_handler /* LCB_CNTL_HTTP_POOL_TIMEOUT */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_KV */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_N1QL */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_VIEW */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_FTS */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_ANALYTICS */
+    comp_min_size_handler,                /* LCB_CNTL_COMPRESSION_MIN_SIZE */
+    comp_min_ratio_handler,               /* LCB_CNTL_COMPRESSION_MIN_RATIO */
+    vb_noremap_handler,                   /* LCB_CNTL_VB_NOREMAP */
+    network_handler,                      /* LCB_CNTL_NETWORK */
+    wait_for_config_handler,              /* LCB_CNTL_WAIT_FOR_CONFIG */
+    http_pooltmo_handler                  /* LCB_CNTL_HTTP_POOL_TIMEOUT */
 };
 
 /* Union used for conversion to/from string functions */
@@ -888,69 +888,68 @@ static lcb_error_t convert_ipv6(const char *arg, u_STRCONVERT *u)
 }
 
 static cntl_OPCODESTRS stropcode_map[] = {
-        {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
-        {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
-        {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timevalue},
-        {"n1ql_timeout", LCB_CNTL_N1QL_TIMEOUT, convert_timevalue},
-        {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timevalue},
-        {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timevalue},
-        {"http_timeout", LCB_CNTL_HTTP_TIMEOUT, convert_timevalue},
-        {"randomize_nodes", LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS, convert_intbool},
-        {"sasl_mech_force", LCB_CNTL_FORCE_SASL_MECH, convert_passthru},
-        {"error_thresh_count", LCB_CNTL_CONFERRTHRESH, convert_SIZE},
-        {"error_thresh_delay", LCB_CNTL_CONFDELAY_THRESH, convert_timevalue},
-        {"config_total_timeout", LCB_CNTL_CONFIGURATION_TIMEOUT, convert_timevalue},
-        {"config_node_timeout", LCB_CNTL_CONFIG_NODE_TIMEOUT, convert_timevalue},
-        {"compression", LCB_CNTL_COMPRESSION_OPTS, convert_compression},
-        {"console_log_level", LCB_CNTL_CONLOGGER_LEVEL, convert_u32},
-        {"config_cache", LCB_CNTL_CONFIGCACHE, convert_passthru },
-        {"config_cache_ro", LCB_CNTL_CONFIGCACHE_RO, convert_passthru },
-        {"detailed_errcodes", LCB_CNTL_DETAILED_ERRCODES, convert_intbool},
-        {"retry_policy", LCB_CNTL_RETRYMODE, convert_retrymode},
-        {"http_urlmode", LCB_CNTL_HTCONFIG_URLTYPE, convert_int },
-        {"sync_dtor", LCB_CNTL_SYNCDESTROY, convert_intbool },
-        {"_reinit_connstr", LCB_CNTL_REINIT_CONNSTR },
-        {"retry_backoff", LCB_CNTL_RETRY_BACKOFF, convert_float },
-        {"retry_interval", LCB_CNTL_RETRY_INTERVAL, convert_timevalue},
-        {"http_poolsize", LCB_CNTL_HTTP_POOLSIZE, convert_SIZE },
-        {"vbguess_persist", LCB_CNTL_VBGUESS_PERSIST, convert_intbool },
-        {"unsafe_optimize", LCB_CNTL_UNSAFE_OPTIMIZE, convert_intbool },
-        {"fetch_mutation_tokens", LCB_CNTL_FETCH_MUTATION_TOKENS, convert_intbool },
-        {"dur_mutation_tokens", LCB_CNTL_DURABILITY_MUTATION_TOKENS, convert_intbool },
-        {"retry_nmv_imm", LCB_CNTL_RETRY_NMV_IMM, convert_intbool },
-        {"tcp_nodelay", LCB_CNTL_TCP_NODELAY, convert_intbool },
-        {"readj_ts_wait", LCB_CNTL_RESET_TIMEOUT_ON_WAIT, convert_intbool },
-        {"console_log_file", LCB_CNTL_CONLOGGER_FP, NULL },
-        {"client_string", LCB_CNTL_CLIENT_STRING, convert_passthru},
-        {"retry_nmv_delay", LCB_CNTL_RETRY_NMV_INTERVAL, convert_timevalue},
-        {"bucket_cred", LCB_CNTL_BUCKET_CRED, NULL},
-        {"read_chunk_size", LCB_CNTL_READ_CHUNKSIZE, convert_u32},
-        {"enable_errmap", LCB_CNTL_ENABLE_ERRMAP, convert_intbool},
-        {"select_bucket", LCB_CNTL_SELECT_BUCKET, convert_intbool},
-        {"tcp_keepalive", LCB_CNTL_TCP_KEEPALIVE, convert_intbool},
-        {"config_poll_interval", LCB_CNTL_CONFIG_POLL_INTERVAL, convert_timevalue},
-        {"send_hello", LCB_CNTL_SEND_HELLO, convert_intbool},
-        {"ipv6", LCB_CNTL_IP6POLICY, convert_ipv6},
-        {"metrics", LCB_CNTL_METRICS, convert_intbool },
-        {"log_redaction", LCB_CNTL_LOG_REDACTION, convert_intbool},
-        {"enable_tracing", LCB_CNTL_ENABLE_TRACING, convert_intbool},
-        {"tracing_orphaned_queue_flush_interval", LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL, convert_timevalue},
-        {"tracing_orphaned_queue_size", LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE, convert_u32},
-        {"tracing_threshold_queue_flush_interval", LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL, convert_timevalue},
-        {"tracing_threshold_queue_size", LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE, convert_u32},
-        {"tracing_threshold_kv", LCB_CNTL_TRACING_THRESHOLD_KV, convert_timevalue},
-        {"tracing_threshold_n1ql", LCB_CNTL_TRACING_THRESHOLD_N1QL, convert_timevalue},
-        {"tracing_threshold_view", LCB_CNTL_TRACING_THRESHOLD_VIEW, convert_timevalue},
-        {"tracing_threshold_fts", LCB_CNTL_TRACING_THRESHOLD_FTS, convert_timevalue},
-        {"tracing_threshold_analytics", LCB_CNTL_TRACING_THRESHOLD_ANALYTICS, convert_timevalue},
-        {"compression_min_size", LCB_CNTL_COMPRESSION_MIN_SIZE, convert_u32},
-        {"compression_min_ratio", LCB_CNTL_COMPRESSION_MIN_RATIO, convert_float},
-        {"vb_noremap", LCB_CNTL_VB_NOREMAP, convert_intbool },
-        {"network", LCB_CNTL_NETWORK, convert_passthru },
-        {"wait_for_config", LCB_CNTL_WAIT_FOR_CONFIG, convert_intbool },
-        {"http_pool_timeout", LCB_CNTL_HTTP_POOL_TIMEOUT, convert_timevalue },
-        {NULL, -1}
-};
+    {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
+    {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
+    {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timevalue},
+    {"n1ql_timeout", LCB_CNTL_N1QL_TIMEOUT, convert_timevalue},
+    {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timevalue},
+    {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timevalue},
+    {"http_timeout", LCB_CNTL_HTTP_TIMEOUT, convert_timevalue},
+    {"randomize_nodes", LCB_CNTL_RANDOMIZE_BOOTSTRAP_HOSTS, convert_intbool},
+    {"sasl_mech_force", LCB_CNTL_FORCE_SASL_MECH, convert_passthru},
+    {"error_thresh_count", LCB_CNTL_CONFERRTHRESH, convert_SIZE},
+    {"error_thresh_delay", LCB_CNTL_CONFDELAY_THRESH, convert_timevalue},
+    {"config_total_timeout", LCB_CNTL_CONFIGURATION_TIMEOUT, convert_timevalue},
+    {"config_node_timeout", LCB_CNTL_CONFIG_NODE_TIMEOUT, convert_timevalue},
+    {"compression", LCB_CNTL_COMPRESSION_OPTS, convert_compression},
+    {"console_log_level", LCB_CNTL_CONLOGGER_LEVEL, convert_u32},
+    {"config_cache", LCB_CNTL_CONFIGCACHE, convert_passthru},
+    {"config_cache_ro", LCB_CNTL_CONFIGCACHE_RO, convert_passthru},
+    {"detailed_errcodes", LCB_CNTL_DETAILED_ERRCODES, convert_intbool},
+    {"retry_policy", LCB_CNTL_RETRYMODE, convert_retrymode},
+    {"http_urlmode", LCB_CNTL_HTCONFIG_URLTYPE, convert_int},
+    {"sync_dtor", LCB_CNTL_SYNCDESTROY, convert_intbool},
+    {"_reinit_connstr", LCB_CNTL_REINIT_CONNSTR},
+    {"retry_backoff", LCB_CNTL_RETRY_BACKOFF, convert_float},
+    {"retry_interval", LCB_CNTL_RETRY_INTERVAL, convert_timevalue},
+    {"http_poolsize", LCB_CNTL_HTTP_POOLSIZE, convert_SIZE},
+    {"vbguess_persist", LCB_CNTL_VBGUESS_PERSIST, convert_intbool},
+    {"unsafe_optimize", LCB_CNTL_UNSAFE_OPTIMIZE, convert_intbool},
+    {"fetch_mutation_tokens", LCB_CNTL_FETCH_MUTATION_TOKENS, convert_intbool},
+    {"dur_mutation_tokens", LCB_CNTL_DURABILITY_MUTATION_TOKENS, convert_intbool},
+    {"retry_nmv_imm", LCB_CNTL_RETRY_NMV_IMM, convert_intbool},
+    {"tcp_nodelay", LCB_CNTL_TCP_NODELAY, convert_intbool},
+    {"readj_ts_wait", LCB_CNTL_RESET_TIMEOUT_ON_WAIT, convert_intbool},
+    {"console_log_file", LCB_CNTL_CONLOGGER_FP, NULL},
+    {"client_string", LCB_CNTL_CLIENT_STRING, convert_passthru},
+    {"retry_nmv_delay", LCB_CNTL_RETRY_NMV_INTERVAL, convert_timevalue},
+    {"bucket_cred", LCB_CNTL_BUCKET_CRED, NULL},
+    {"read_chunk_size", LCB_CNTL_READ_CHUNKSIZE, convert_u32},
+    {"enable_errmap", LCB_CNTL_ENABLE_ERRMAP, convert_intbool},
+    {"select_bucket", LCB_CNTL_SELECT_BUCKET, convert_intbool},
+    {"tcp_keepalive", LCB_CNTL_TCP_KEEPALIVE, convert_intbool},
+    {"config_poll_interval", LCB_CNTL_CONFIG_POLL_INTERVAL, convert_timevalue},
+    {"send_hello", LCB_CNTL_SEND_HELLO, convert_intbool},
+    {"ipv6", LCB_CNTL_IP6POLICY, convert_ipv6},
+    {"metrics", LCB_CNTL_METRICS, convert_intbool},
+    {"log_redaction", LCB_CNTL_LOG_REDACTION, convert_intbool},
+    {"enable_tracing", LCB_CNTL_ENABLE_TRACING, convert_intbool},
+    {"tracing_orphaned_queue_flush_interval", LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL, convert_timevalue},
+    {"tracing_orphaned_queue_size", LCB_CNTL_TRACING_ORPHANED_QUEUE_SIZE, convert_u32},
+    {"tracing_threshold_queue_flush_interval", LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL, convert_timevalue},
+    {"tracing_threshold_queue_size", LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE, convert_u32},
+    {"tracing_threshold_kv", LCB_CNTL_TRACING_THRESHOLD_KV, convert_timevalue},
+    {"tracing_threshold_n1ql", LCB_CNTL_TRACING_THRESHOLD_N1QL, convert_timevalue},
+    {"tracing_threshold_view", LCB_CNTL_TRACING_THRESHOLD_VIEW, convert_timevalue},
+    {"tracing_threshold_fts", LCB_CNTL_TRACING_THRESHOLD_FTS, convert_timevalue},
+    {"tracing_threshold_analytics", LCB_CNTL_TRACING_THRESHOLD_ANALYTICS, convert_timevalue},
+    {"compression_min_size", LCB_CNTL_COMPRESSION_MIN_SIZE, convert_u32},
+    {"compression_min_ratio", LCB_CNTL_COMPRESSION_MIN_RATIO, convert_float},
+    {"vb_noremap", LCB_CNTL_VB_NOREMAP, convert_intbool},
+    {"network", LCB_CNTL_NETWORK, convert_passthru},
+    {"wait_for_config", LCB_CNTL_WAIT_FOR_CONFIG, convert_intbool},
+    {"http_pool_timeout", LCB_CNTL_HTTP_POOL_TIMEOUT, convert_timevalue},
+    {NULL, -1}};
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))
 

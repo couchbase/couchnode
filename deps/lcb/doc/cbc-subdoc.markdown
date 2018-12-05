@@ -16,63 +16,7 @@ Options may be read either from the command line, or from a configuration file
 
 The following options control workload generation:
 
-* `-U`, `--spec`=_SPEC_:
-  A string describing the cluster to connect to. The string is in a URI-like syntax,
-  and may also contain other options. See the [EXAMPLES](#examples) section for information.
-  Typically such a URI will look like `couchbase://host1,host2,host3/bucket`.
-
-  The default for this option is `couchbase://localhost/default`
-
-* `-u`, `--username`=_USERNAME_:
-  Specify the _username_ for the connection.
-
-* `-P`, `--password`=_SASLPASS_:
-
-* `-P -`, `--password=-`:
-  Specify the SASL password for the bucket. This is only needed if the bucket is
-  protected with a password. Note that this is _not_ the administrative password
-  used to log into the web interface.
-
-  Specifying the `-` as the password indicates that the program should prompt for the
-  password. You may also specify the password on the commandline, directly,
-  but is insecure as command line arguments are visible via commands such as `ps`.
-
-* `-T`, `--timings`:
-  Dump command timings at the end of execution. This will display a histogram
-  showing the latencies for the commands executed.
-
-* `--truststorepath`=_PATH_:
-  The path to the server's SSL certificate. This is typically required for SSL
-  connectivity unless the certificate has already been added to the openssl
-  installation on the system (only applicable with `couchbases://` scheme)
-
-* `--certpath`=_PATH_:
-  The path to the server's SSL certificate. This is typically required for SSL
-  connectivity unless the certificate has already been added to the openssl
-  installation on the system (only applicable with `couchbases://` scheme).
-  This also should contain client certificate when certificate authentication
-  used, and in this case other public certificates could be extracted into
-  `truststorepath` chain.
-
-* `--keypath`=_PATH_:
-  The path to the client SSL private key. This is typically required for SSL
-  client certificate authentication. The certificate itself have to go first
-  in chain specified by `certpath` (only applicable with `couchbases://` scheme)
-
-* `-v`, `--verbose`:
-  Specify more information to standard error about what the client is doing. You may
-  specify this option multiple times for increased output detail.
-
-* `--dump`:
-  Dump verbose internal state after operations are done.
-
-* `-D`, `--cparam`=OPTION=VALUE:
-  Provide additional client options. Acceptable options can also be placed
-  in the connection string, however this option is provided as a convenience.
-  This option may be specified multiple times, each time specifying a key=value
-  pair (for example, `-Doperation_timeout=10 -Dconfig_cache=/foo/bar/baz`).
-  See [ADDITIONAL OPTIONS](#additional-options) for more information
-
+@@common-options.markdown@@
 
 <a name="additional-options"></a>
 ## ADDITIONAL OPTIONS
@@ -85,29 +29,7 @@ key=value pairs passed to the `-D` switch (e.g. `-Doption1=value1
 and is provided as a convenience for options to be easily passed on the
 command-line
 
-* `operation_timeout=SECONDS`:
-  Specify the operation timeout in seconds. This is the time the client will
-  wait for an operation to complete before timing it out. The default is `2.5`
-* `config_cache=PATH`:
-  Enables the client to make use of a file based configuration cache rather
-  than connecting for the bootstrap operation. If the file does not exist, the
-  client will first connect to the cluster and then cache the bootstrap information
-  in the file.
-* `ssl=no_verify`:
-  Temporarily disable certificate verification for SSL (only applicable with
-  `couchbases://` scheme). This should only be used for quickly debugging SSL
-  functionality.
-* `sasl_mech_force=MECHANISM`:
-  Force a specific _SASL_ mechanism to be used when performing the initial
-  connection. This should only need to be modified for debugging purposes.
-  The currently supported mechanisms are `PLAIN` and `CRAM-MD5`
-* `bootstrap_on=<both,http,cccp>`:
-  Specify the bootstrap protocol the client should use when attempting to connect
-  to the cluster. Options are: `cccp`: Bootstrap using the Memcached protocol
-  (supported on clusters 2.5 and greater); `http`: Bootstrap using the HTTP REST
-  protocol (supported on any cluster version); and `both`: First attempt bootstrap
-  over the Memcached protocol, and use the HTTP protocol if Memcached bootstrap fails.
-  The default is `both`
+@@common-additional-options.markdown@@
 
 <a name="commands"></a>
 ## COMMANDS

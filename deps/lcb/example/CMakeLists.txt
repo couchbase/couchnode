@@ -24,6 +24,8 @@ ADD_EXAMPLE(tick tick "" "")
 ADD_EXAMPLE(users users "" "")
 ADD_EXAMPLE(fts fts "" "")
 ADD_EXAMPLE(analytics analytics "" "")
+ADD_EXAMPLE(analytics-deferred analytics-deferred "" "")
+ADD_EXAMPLE(analytics-ingest analytics-ingest "" "")
 
 ADD_EXECUTABLE(subdoc-simple subdoc/subdoc-simple.cc)
 ADD_EXECUTABLE(subdoc-multi subdoc/subdoc-multi.cc)

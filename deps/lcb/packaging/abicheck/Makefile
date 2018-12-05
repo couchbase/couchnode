@@ -1,17 +1,13 @@
+OLDVER ?= $(shell git tag --list --sort=-v:refname | head -1)
+NEWVER ?= $(shell git describe)
+NEWROOT ?= $(shell realpath ../../../libcouchbase-${NEWVER})
+OLDROOT ?= $(shell realpath ../../../libcouchbase-${OLDVER})
+
 all: report
 
-OLDVER := 2.3.2
-NEWVER ?= $(shell git describe)
-CURDIR := $(shell pwd)
-NEWROOT ?= $(CURDIR)/../../inst
-OLDROOT ?= $(CURDIR)/../../../libcouchbase-$(OLDVER)/inst
+templates:
+	PREFIX=${NEWROOT} VERSION=${NEWVER} erb -P -T 2 template.xml.erb > ${NEWVER}.xml
+	PREFIX=${OLDROOT} VERSION=${OLDVER} erb -P -T 2 template.xml.erb > ${OLDVER}.xml
 
 report:
-	# Generate the oldone
-	sed 's#@VERSION@#$(OLDVER)#g;s#@INST@#$(OLDROOT)#g' < template.xml > OLD.xml
-	sed 's#@VERSION@#$(NEWVER)#g;s#@INST@#$(NEWROOT)#g' < template.xml > NEW.xml
-	abi-compliance-checker -lib couchbase -old OLD.xml -new NEW.xml
-
-clean:
-	rm -f NEW.xml OLD.xml
-	rm -fr logs compat_reports
+	abi-compliance-checker -lib libcouchbase -old ${OLDVER}.xml -new ${NEWVER}.xml

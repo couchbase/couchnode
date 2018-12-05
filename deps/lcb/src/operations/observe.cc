@@ -215,7 +215,7 @@ lcb_error_t ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
         rr.insert(rr.end(), reinterpret_cast< const uint8_t * >(cmd->key.contig.bytes),
                   reinterpret_cast< const uint8_t * >(cmd->key.contig.bytes) + cmd->key.contig.nbytes);
         remaining++;
-        num_requests[ii]++;
+        num_requests[ix]++;
     }
     return LCB_SUCCESS;
 }
@@ -309,7 +309,7 @@ ObserveCtx::ObserveCtx(lcb_t instance_)
 #endif
 {
     requests.resize(LCBT_NSERVERS(instance));
-    num_requests.resize(requests.size());
+    num_requests.resize(requests.size(), 0);
 }
 
 OperationCtx::OperationCtx(ObserveCtx *parent_, size_t remaining_)

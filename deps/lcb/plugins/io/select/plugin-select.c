@@ -253,10 +253,14 @@ run_loop(sel_LOOP *io, int is_tick)
         }
 
         has_timers = get_next_timeout(io, &tmo, now);
-        if (has_timers && !is_tick) {
+        if (has_timers) {
+            t = &tmo;
+        } else if (is_tick) {
+            /* do not wait forever on tick */
+            tmo.tv_sec = 0;
+            tmo.tv_usec = LCB_MS2US(100);
             t = &tmo;
         }
-
 
         if (nevents == 0 && has_timers == 0) {
             io->event_loop = 0;

@@ -167,6 +167,50 @@ void ViewRequest::JSPARSE_on_complete(const std::string&) {
 }
 
 static void
+doc_callback(lcb_t, int, const lcb_RESPBASE *rb)
+{
+    const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
+    lcb::docreq::DocRequest *dreq = reinterpret_cast<lcb::docreq::DocRequest*>(rb->cookie);
+    lcb::docreq::Queue *q = dreq->parent;
+
+    q->ref();
+
+    q->n_awaiting_response--;
+    dreq->docresp = *rg;
+    dreq->ready = 1;
+    dreq->docresp.key = dreq->docid.iov_base;
+    dreq->docresp.nkey = dreq->docid.iov_len;
+
+    /* Reference the response data, since we might not be invoking this right
+     * away */
+    if (rg->rc == LCB_SUCCESS) {
+        lcb_backbuf_ref(reinterpret_cast<lcb_BACKBUF>(dreq->docresp.bufh));
+    }
+    q->check();
+
+    q->unref();
+}
+
+static lcb_error_t
+cb_op_schedule(lcb::docreq::Queue *q, lcb::docreq::DocRequest *dreq)
+{
+    lcb_CMDGET gcmd = { 0 };
+
+    LCB_CMD_SET_KEY(&gcmd, dreq->docid.iov_base, dreq->docid.iov_len);
+#ifdef LCB_TRACING
+    if (dreq->parent->parent) {
+        lcb::views::ViewRequest *req = reinterpret_cast<lcb::views::ViewRequest *>(dreq->parent->parent);
+        if (req->span) {
+            LCB_CMD_SET_TRACESPAN(&gcmd, req->span);
+        }
+    }
+#endif
+    dreq->callback = doc_callback;
+    gcmd.cmdflags |= LCB_CMD_F_INTERNAL_CALLBACK;
+    return lcb_get3(q->instance, &dreq->callback, &gcmd);
+}
+
+static void
 cb_doc_ready(lcb::docreq::Queue *q, lcb::docreq::DocRequest *req_base)
 {
     lcb_RESPVIEWQUERY resp = { 0 };
@@ -298,6 +342,7 @@ ViewRequest::ViewRequest(lcb_t instance_, const void *cookie_,
     if (is_include_docs()) {
         docq = new lcb::docreq::Queue(instance);
         docq->parent = this;
+        docq->cb_schedule = cb_op_schedule;
         docq->cb_ready = cb_doc_ready;
         docq->cb_throttle = cb_docq_throttle;
         if (cmd->docs_concurrent_max) {

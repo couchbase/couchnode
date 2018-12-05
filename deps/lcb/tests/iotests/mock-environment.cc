@@ -360,6 +360,7 @@ static void statsCallback(lcb_t instance, const void *cookie, lcb_error_t err, c
                 }
                 break;
             case 5:
+            case 6:
                 version = MockEnvironment::VERSION_50;
                 break;
         }

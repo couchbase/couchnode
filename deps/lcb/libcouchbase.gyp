@@ -186,11 +186,13 @@
         './'
       ],
       'sources': [
+        'src/analytics/analytics.cc',
         'src/bucketconfig/bc_cccp.cc',
         'src/bucketconfig/bc_file.cc',
         'src/bucketconfig/bc_http.cc',
         'src/bucketconfig/bc_static.cc',
         'src/bucketconfig/confmon.cc',
+        'src/docreq/docreq.cc',
         'src/http/http.cc',
         'src/http/http_io.cc',
         'src/jsparse/parser.cc',
@@ -236,7 +238,6 @@
         'src/tracing/tracer.cc',
         'src/vbucket/ketama.c',
         'src/vbucket/vbucket.c',
-        'src/views/docreq.cc',
         'src/views/viewreq.cc',
         'src/auth.cc',
         'src/bootstrap.cc',

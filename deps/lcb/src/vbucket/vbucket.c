@@ -944,6 +944,34 @@ lcbvb_save_json(lcbvb_CONFIG *cfg)
         cJSON_AddItemToObject(vbroot, "vBucketMap", vbmap);
         cJSON_AddItemToObject(root, "vBucketServerMap", vbroot);
     }
+    if (cfg->caps != 0) {
+        cJSON *jcaps = cJSON_CreateArray();
+        if (cfg->caps & LCBVB_CAP_XATTR) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("xattr"));
+        }
+        if (cfg->caps & LCBVB_CAP_DCP) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("dcp"));
+        }
+        if (cfg->caps & LCBVB_CAP_CBHELLO) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("cbhello"));
+        }
+        if (cfg->caps & LCBVB_CAP_TOUCH) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("touch"));
+        }
+        if (cfg->caps & LCBVB_CAP_COUCHAPI) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("couchapi"));
+        }
+        if (cfg->caps & LCBVB_CAP_CCCP) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("cccp"));
+        }
+        if (cfg->caps & LCBVB_CAP_XDCR_CHECKPOINTING) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("xdcrCheckpointing"));
+        }
+        if (cfg->caps & LCBVB_CAP_NODES_EXT) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("nodesExt"));
+        }
+        cJSON_AddItemToObject(root, "bucketCapabilities", jcaps);
+    }
 
     ret = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);

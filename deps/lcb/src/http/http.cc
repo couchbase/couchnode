@@ -456,9 +456,16 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
         }
     } else {
         if (cmd->host) {
-            return LCB_EINVAL;
+            if (reqtype == LCB_HTTP_TYPE_CBAS) {
+                /* might be a deferred URL */
+                base = cmd->host;
+            } else {
+                return LCB_EINVAL;
+            }
         }
-        base = get_api_node(rc);
+        if (base == NULL) {
+            base = get_api_node(rc);
+        }
         if (base == NULL || *base == '\0') {
             if (rc == LCB_SUCCESS) {
                 return LCB_EINTERNAL;

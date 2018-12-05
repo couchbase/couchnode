@@ -1,3 +1,4 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #define LCB_BOOTSTRAP_DEFINE_STRUCT
 
 #include "iotests.h"
@@ -41,6 +42,7 @@ static void listen_callback1(Listener *lsn, EventType event,
 
 TEST_F(ConfmonTest, testBasic)
 {
+    SKIP_UNLESS_MOCK();
     HandleWrap hw;
     lcb_t instance;
     MockEnvironment::getInstance()->createConnection(hw, instance);

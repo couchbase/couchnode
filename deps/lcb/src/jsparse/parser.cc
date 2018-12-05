@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
  *     Copyright 2013-2015 Couchbase, Inc.
  *
@@ -126,6 +127,21 @@ row_pop_callback(jsonsl_t jsn, jsonsl_action_t,
 
     if (state->data == JOBJ_ROWSET) {
         /** The closing ] of "rows" : [ ... ] */
+        if (ctx->mode == Parser::MODE_ANALYTICS_DEFERRED) {
+            if (ctx->keep_pos > ctx->min_pos) {
+                ctx->current_buf.erase(0, ctx->keep_pos - ctx->min_pos);
+                ctx->min_pos = ctx->keep_pos;
+            }
+            ctx->meta_buf.append(ctx->current_buf);
+            ctx->header_len = jsn->pos;
+            ctx->meta_complete = 1;
+            if (ctx->actions) {
+                ctx->actions->JSPARSE_on_complete(ctx->meta_buf);
+                ctx->actions = NULL;
+            }
+            return;
+        }
+
         jsn->action_callback_POP = trailer_pop_callback;
         jsn->action_callback_PUSH = NULL;
         if (ctx->rowcount == 0) {
@@ -171,6 +187,7 @@ trailer_pop_callback(jsonsl_t jsn, jsonsl_action_t,
     struct jsonsl_state_st *state, const jsonsl_char_t *)
 {
     Parser *ctx = get_ctx(jsn);
+
     if (state->data != JOBJ_RESPONSE_ROOT) {
         return;
     }
@@ -225,6 +242,10 @@ initial_push_callback(jsonsl_t jsn, jsonsl_action_t,
     }
     ctx->last_hk.clear();
 
+    if (ctx->mode == Parser::MODE_ANALYTICS_DEFERRED) {
+        ctx->initialized = 1;
+    }
+
     if (ctx->initialized == 0) {
         if (state->type != JSONSL_T_OBJECT) {
             ctx->have_error = 1;
@@ -268,7 +289,10 @@ const char* Parser::jprstr_for_mode(Mode mode) {
     case MODE_VIEWS:
         return "/rows/^";
     case MODE_N1QL:
+    case MODE_ANALYTICS:
         return "/results/^";
+    case MODE_ANALYTICS_DEFERRED:
+        return "/^";
     case MODE_FTS:
         return "/hits/^";
     default:
@@ -305,7 +329,11 @@ Parser::Parser(Mode mode_, Parser::Actions* actions_) :
     jsn->action_callback_POP = initial_pop_callback;
     jsn->action_callback_PUSH = initial_push_callback;
     jsn->error_callback = parse_error_callback;
-    jsn->max_callback_level = 4;
+    if (mode == MODE_ANALYTICS_DEFERRED) {
+        jsn->max_callback_level = 3;
+    } else {
+        jsn->max_callback_level = 4;
+    }
     jsn->data = this;
     jsonsl_enable_all_callbacks(jsn);
 }

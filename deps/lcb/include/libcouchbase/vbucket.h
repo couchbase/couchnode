@@ -52,7 +52,9 @@ typedef enum {
     LCBVB_SVCTYPE_IXADMIN, /**< Index administration */
     LCBVB_SVCTYPE_N1QL, /**< N1QL Query */
     LCBVB_SVCTYPE_FTS, /**< Fulltext */
-    LCBVB_SVCTYPE_CBAS, /**< Analytics Query */
+    LCBVB_SVCTYPE_ANALYTICS, /**< Analytics Query */
+    /* for backward compatiblity */
+#define LCBVB_SVCTYPE_CBAS LCBVB_SVCTYPE_ANALYTICS
     LCBVB_SVCTYPE__MAX
 } lcbvb_SVCTYPE;
 

@@ -384,6 +384,9 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
         if (cmd->services & LCB_PINGSVC_F_FTS) {
             PING_HTTP(LCBVB_SVCTYPE_FTS, "/api/ping", http_timeout, handle_fts);
         }
+        if (cmd->services & LCB_PINGSVC_F_ANALYTICS) {
+            PING_HTTP(LCBVB_SVCTYPE_ANALYTICS, "/admin/ping", n1ql_timeout, handle_n1ql);
+        }
 #undef PING_HTTP
     }
 
