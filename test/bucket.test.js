@@ -63,6 +63,11 @@ describe('#Bucket', function() {
       H.b.invalidateQueryCache();
     });
 
+    it('should expose the bucket name', function() {
+      assert.equal(typeof H.b.name, 'string');
+      assert.notEqual(H.b.name, '');
+    });
+
     it('clientVersion property should work', function() {
       assert(typeof H.b.clientVersion === 'string');
     });
