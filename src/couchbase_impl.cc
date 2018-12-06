@@ -19,6 +19,10 @@
 #include <sstream>
 
 #include "couchbase_impl.h"
+#include "exception.h"
+#include "opbuilder.h"
+#include "token.h"
+#include "transcoder.h"
 #include <libcouchbase/libuv_io_opts.h>
 
 using namespace std;
@@ -40,6 +44,30 @@ using namespace Couchnode;
 #define NAUV_PREPARE_CB(func) void func(uv_prepare_t *handle)
 #endif
 
+Local<String> lcbNanToString(const void *value, lcb_U32 nvalue)
+{
+    return Nan::New<String>((const char *)value, (int)nvalue).ToLocalChecked();
+}
+
+Local<Value> lcbNanParseJson(const void *value, lcb_U32 nvalue)
+{
+    Local<String> lclString = lcbNanToString(value, nvalue);
+    Nan::MaybeLocal<Value> lclValue = Nan::JSON{}.Parse(lclString);
+    if (lclValue.IsEmpty()) {
+        return Nan::New<Object>();
+    }
+
+    return lclValue.ToLocalChecked();
+}
+
+void cbNanMaybeDeleteProp(Local<Value> value, Local<String> propName)
+{
+    Nan::MaybeLocal<Object> valueObj = Nan::To<Object>(value);
+    if (!valueObj.IsEmpty()) {
+        Nan::Delete(valueObj.ToLocalChecked(), propName);
+    }
+}
+
 NAUV_PREPARE_CB(lcbuv_flush)
 {
     CouchbaseImpl *me = reinterpret_cast<CouchbaseImpl *>(handle->data);
@@ -47,9 +75,14 @@ NAUV_PREPARE_CB(lcbuv_flush)
 }
 
 CouchbaseImpl::CouchbaseImpl(lcb_t inst)
-    : ObjectWrap(), instance(inst), clientStringCache(NULL), logger(NULL),
-      connectContext(NULL), connectCallback(NULL), transEncodeFunc(NULL),
-      transDecodeFunc(NULL)
+    : ObjectWrap()
+    , instance(inst)
+    , clientStringCache(NULL)
+    , logger(NULL)
+    , connectContext(NULL)
+    , connectCallback(NULL)
+    , transEncodeFunc(NULL)
+    , transDecodeFunc(NULL)
 {
     lcb_set_cookie(instance, reinterpret_cast<void *>(this));
     setupLibcouchbaseCallbacks();
@@ -128,80 +161,6 @@ const char *CouchbaseImpl::getClientString()
     return "couchbase-nodejs-sdk";
 };
 
-lcbtrace_SPAN *CouchbaseImpl::startOpTrace(const char *opName)
-{
-    lcbtrace_TRACER *tracer = lcb_get_tracer(instance);
-
-    if (!tracer) {
-        return NULL;
-    }
-
-    lcbtrace_SPAN *span = lcbtrace_span_start(tracer, opName, 0, NULL);
-    lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_COMPONENT, getClientString());
-    return span;
-}
-
-void CouchbaseImpl::endOpTrace(lcbtrace_SPAN *span)
-{
-    if (span) {
-        lcbtrace_span_finish(span, LCBTRACE_NOW);
-    }
-}
-
-lcbtrace_SPAN *CouchbaseImpl::startEncodeTrace(lcbtrace_SPAN *opSpan)
-{
-    if (!opSpan) {
-        return NULL;
-    }
-
-    lcbtrace_TRACER *tracer = lcb_get_tracer(instance);
-    if (!tracer) {
-        return NULL;
-    }
-
-    lcbtrace_REF ref;
-    ref.type = LCBTRACE_REF_CHILD_OF;
-    ref.span = opSpan;
-    lcbtrace_SPAN *span = lcbtrace_span_start(
-        tracer, LCBTRACE_OP_REQUEST_ENCODING, LCBTRACE_NOW, &ref);
-    lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_COMPONENT, getClientString());
-    return span;
-}
-
-void CouchbaseImpl::endEncodeTrace(lcbtrace_SPAN *span)
-{
-    if (span) {
-        lcbtrace_span_finish(span, LCBTRACE_NOW);
-    }
-}
-
-lcbtrace_SPAN *CouchbaseImpl::startDecodeTrace(lcbtrace_SPAN *opSpan)
-{
-    if (!opSpan) {
-        return NULL;
-    }
-
-    lcbtrace_TRACER *tracer = lcb_get_tracer(instance);
-    if (!tracer) {
-        return NULL;
-    }
-
-    lcbtrace_REF ref;
-    ref.type = LCBTRACE_REF_CHILD_OF;
-    ref.span = opSpan;
-    lcbtrace_SPAN *span = lcbtrace_span_start(
-        tracer, LCBTRACE_OP_RESPONSE_DECODING, LCBTRACE_NOW, &ref);
-    lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_COMPONENT, getClientString());
-    return span;
-}
-
-void CouchbaseImpl::endDecodeTrace(lcbtrace_SPAN *span)
-{
-    if (span) {
-        lcbtrace_span_finish(span, LCBTRACE_NOW);
-    }
-}
-
 Handle<Value> CouchbaseImpl::decodeDoc(const void *bytes, size_t nbytes,
                                        lcb_U32 flags,
                                        Nan::AsyncResource *asyncContext)
@@ -218,7 +177,7 @@ Handle<Value> CouchbaseImpl::decodeDoc(const void *bytes, size_t nbytes,
     return DefaultTranscoder::decode(bytes, nbytes, flags);
 }
 
-bool CouchbaseImpl::encodeDoc(CommandEncoder &enc, const void **bytes,
+bool CouchbaseImpl::encodeDoc(ValueParser &venc, const void **bytes,
                               lcb_SIZE *nbytes, lcb_U32 *flags,
                               Local<Value> value)
 {
@@ -245,32 +204,36 @@ bool CouchbaseImpl::encodeDoc(CommandEncoder &enc, const void **bytes,
                     if (node::Buffer::HasInstance(valueObj)) {
                         *nbytes = node::Buffer::Length(valueObj);
                         *bytes = node::Buffer::Data(valueObj);
-                        *flags = flagsObj->Uint32Value();
+                        *flags = flagsObj->Uint32Value(Nan::GetCurrentContext())
+                                     .FromMaybe(0);
+
                         return true;
                     }
                 }
             }
         }
     }
-    DefaultTranscoder::encode(enc, bytes, nbytes, flags, value);
+    DefaultTranscoder::encode(venc, bytes, nbytes, flags, value);
     return true;
 }
 
 void _DispatchValueCallback(lcb_t instance, int cbtype,
                             const lcb_RESPBASE *respbase)
 {
+    Nan::HandleScope scope;
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     const lcb_RESPGET *resp = (const lcb_RESPGET *)respbase;
     OpCookie *cookie = (OpCookie *)resp->cookie;
-    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(resp->rc);
     Local<Value> resVal;
     if (!resp->rc) {
-        lcbtrace_SPAN *decSpan = me->startDecodeTrace(cookie->traceSpan);
-        Local<Value> resData = me->decodeDoc(
-            resp->value, resp->nvalue, resp->itmflags, cookie->asyncContext());
-        me->endDecodeTrace(decSpan);
+        Local<Value> resData;
+        {
+            ScopedTraceSpan decSpan = cookie->startDecodeTrace();
+            resData = me->decodeDoc(resp->value, resp->nvalue, resp->itmflags,
+                                    cookie->asyncContext());
+        }
 
         Local<Object> resObj = Nan::New<Object>();
         resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
@@ -280,11 +243,10 @@ void _DispatchValueCallback(lcb_t instance, int cbtype,
         resVal = Nan::Null();
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {errObj, resVal};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -292,10 +254,10 @@ void _DispatchValueCallback(lcb_t instance, int cbtype,
 void _DispatchArithCallback(lcb_t instance, int cbtype,
                             const lcb_RESPBASE *respbase)
 {
+    Nan::HandleScope scope;
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     const lcb_RESPCOUNTER *resp = (const lcb_RESPCOUNTER *)respbase;
     OpCookie *cookie = (OpCookie *)resp->cookie;
-    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(resp->rc);
     Local<Value> resVal;
@@ -310,11 +272,10 @@ void _DispatchArithCallback(lcb_t instance, int cbtype,
         resVal = Nan::Null();
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {errObj, resVal};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -322,9 +283,9 @@ void _DispatchArithCallback(lcb_t instance, int cbtype,
 void _DispatchBasicCallback(lcb_t instance, int cbtype,
                             const lcb_RESPBASE *resp)
 {
+    Nan::HandleScope scope;
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     OpCookie *cookie = (OpCookie *)resp->cookie;
-    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(resp->rc);
     Local<Value> resVal;
@@ -336,11 +297,10 @@ void _DispatchBasicCallback(lcb_t instance, int cbtype,
         resVal = Nan::Null();
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {errObj, resVal};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -348,9 +308,9 @@ void _DispatchBasicCallback(lcb_t instance, int cbtype,
 void _DispatchStoreCallback(lcb_t instance, int cbtype,
                             const lcb_RESPBASE *resp)
 {
+    Nan::HandleScope scope;
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     OpCookie *cookie = (OpCookie *)resp->cookie;
-    Nan::HandleScope scope;
 
     Local<Value> errObj = Error::create(resp->rc);
     Local<Value> resVal;
@@ -364,11 +324,10 @@ void _DispatchStoreCallback(lcb_t instance, int cbtype,
         resVal = Nan::Null();
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {errObj, resVal};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -376,18 +335,16 @@ void _DispatchStoreCallback(lcb_t instance, int cbtype,
 void _DispatchErrorCallback(lcb_t instance, int cbtype,
                             const lcb_RESPBASE *resp)
 {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    OpCookie *cookie = (OpCookie *)resp->cookie;
     Nan::HandleScope scope;
+    OpCookie *cookie = (OpCookie *)resp->cookie;
 
     Local<Value> errObj = Error::create(resp->rc);
     Local<Value> resVal = Nan::Null();
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {errObj, resVal};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -441,75 +398,50 @@ static void durability_callback(lcb_t instance, int cbtype,
 void viewrow_callback(lcb_t instance, int ignoreme,
                       const lcb_RESPVIEWQUERY *resp)
 {
+    Nan::HandleScope scope;
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     OpCookie *cookie = (OpCookie *)resp->cookie;
-    Nan::HandleScope scope;
-
-    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
         Local<Value> dataRes;
         if (resp->rc != LCB_SUCCESS) {
             if (resp->htresp && resp->htresp->body) {
-                dataRes = Nan::New<String>((const char *)resp->htresp->body,
-                                           (int)resp->htresp->nbody)
-                              .ToLocalChecked();
+                dataRes =
+                    lcbNanToString(resp->htresp->body, resp->htresp->nbody);
             } else {
                 dataRes = Nan::Null();
             }
         } else {
-            Local<Value> metaStr =
-                Nan::New<String>((const char *)resp->value, (int)resp->nvalue)
-                    .ToLocalChecked();
-            dataRes = jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1,
-                                         &metaStr);
-            Local<Object> metaObj = dataRes->ToObject();
-            if (!metaObj.IsEmpty()) {
-                metaObj->Delete(Nan::New(CouchbaseImpl::rowsKey));
-            }
+            dataRes = lcbNanParseJson(resp->value, resp->nvalue);
+            cbNanMaybeDeleteProp(dataRes, Nan::New(CouchbaseImpl::rowsKey));
         }
 
         Local<Value> args[] = {Nan::New<Number>(resp->rc), dataRes};
-        cookie->callback.Call(2, args, cookie->asyncContext());
+        cookie->invokeCallback(2, args);
 
         delete cookie;
         return;
     }
 
     Local<Object> rowObj = Nan::New<Object>();
-
-    Handle<Value> keyStr =
-        Nan::New<String>((const char *)resp->key, (int)resp->nkey)
-            .ToLocalChecked();
-    rowObj->Set(
-        Nan::New(CouchbaseImpl::keyKey),
-        jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &keyStr));
+    rowObj->Set(Nan::New(CouchbaseImpl::keyKey),
+                lcbNanParseJson(resp->key, resp->nkey));
 
     if (resp->value) {
-        Handle<Value> valueStr =
-            Nan::New<String>((const char *)resp->value, (int)resp->nvalue)
-                .ToLocalChecked();
         rowObj->Set(Nan::New(CouchbaseImpl::valueKey),
-                    jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1,
-                                       &valueStr));
+                    lcbNanParseJson(resp->value, resp->nvalue));
     } else {
         rowObj->Set(Nan::New(CouchbaseImpl::valueKey), Nan::Null());
     }
 
     if (resp->geometry) {
-        Handle<Value> geometryStr =
-            Nan::New<String>((const char *)resp->geometry, (int)resp->ngeometry)
-                .ToLocalChecked();
         rowObj->Set(Nan::New(CouchbaseImpl::geometryKey),
-                    jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1,
-                                       &geometryStr));
+                    lcbNanParseJson(resp->geometry, resp->ngeometry));
     }
 
     if (resp->docid) {
-        rowObj->Set(
-            Nan::New(CouchbaseImpl::idKey),
-            Nan::New<String>((const char *)resp->docid, (int)resp->ndocid)
-                .ToLocalChecked());
+        rowObj->Set(Nan::New(CouchbaseImpl::idKey),
+                    lcbNanToString(resp->docid, resp->ndocid));
 
         if (resp->docresp) {
             const lcb_RESPGET *rg = resp->docresp;
@@ -526,62 +458,44 @@ void viewrow_callback(lcb_t instance, int ignoreme,
         rowObj->Set(Nan::New(CouchbaseImpl::idKey), Nan::Null());
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 }
 
 void cbasn1qlrow_callback(lcb_t instance, int ignoreme,
                           const lcb_RESPN1QL *resp)
 {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    OpCookie *cookie = (OpCookie *)resp->cookie;
     Nan::HandleScope scope;
-
-    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
+    OpCookie *cookie = (OpCookie *)resp->cookie;
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
         Local<Value> dataRes;
         if (resp->rc != LCB_SUCCESS) {
             if (resp->row) {
-                dataRes =
-                    Nan::New<String>((const char *)resp->row, (int)resp->nrow)
-                        .ToLocalChecked();
+                dataRes = lcbNanToString(resp->row, resp->nrow);
             } else {
                 dataRes = Nan::Null();
             }
         } else {
-            Handle<Value> metaStr =
-                Nan::New<String>((const char *)resp->row, (int)resp->nrow)
-                    .ToLocalChecked();
-            dataRes = jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1,
-                                         &metaStr);
-            Local<Object> metaObj = dataRes->ToObject();
-            if (!metaObj.IsEmpty()) {
-                metaObj->Delete(Nan::New(CouchbaseImpl::resultsKey));
-            }
+            dataRes = lcbNanParseJson(resp->row, resp->nrow);
+            cbNanMaybeDeleteProp(dataRes, Nan::New(CouchbaseImpl::resultsKey));
         }
 
         Local<Value> args[] = {Nan::New<Number>(resp->rc), dataRes};
-        cookie->callback.Call(2, args, cookie->asyncContext());
+        cookie->invokeCallback(2, args);
 
         delete cookie;
         return;
     }
 
-    Handle<Value> rowStr =
-        Nan::New<String>((const char *)resp->row, (int)resp->nrow)
-            .ToLocalChecked();
-    Local<Value> rowObj =
-        jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &rowStr);
+    Local<Value> rowObj = lcbNanParseJson(resp->row, resp->nrow);
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 }
 
 void n1qlrow_callback(lcb_t instance, int ignoreme, const lcb_RESPN1QL *resp)
@@ -596,71 +510,52 @@ void cbasrow_callback(lcb_t instance, int ignoreme, const lcb_RESPN1QL *resp)
 
 void ftsrow_callback(lcb_t instance, int ignoreme, const lcb_RESPFTS *resp)
 {
-    CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
-    OpCookie *cookie = (OpCookie *)resp->cookie;
     Nan::HandleScope scope;
-
-    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
+    OpCookie *cookie = (OpCookie *)resp->cookie;
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
         Local<Value> dataRes;
         if (resp->rc != LCB_SUCCESS) {
             if (resp->row) {
-                dataRes =
-                    Nan::New<String>((const char *)resp->row, (int)resp->nrow)
-                        .ToLocalChecked();
+                dataRes = lcbNanToString(resp->row, resp->nrow);
             } else {
                 dataRes = Nan::Null();
             }
         } else {
-            Handle<Value> metaStr =
-                Nan::New<String>((const char *)resp->row, (int)resp->nrow)
-                    .ToLocalChecked();
-            dataRes = jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1,
-                                         &metaStr);
-            Local<Object> metaObj = dataRes->ToObject();
-            if (!metaObj.IsEmpty()) {
-                metaObj->Delete(Nan::New(CouchbaseImpl::resultsKey));
-            }
+            dataRes = lcbNanParseJson(resp->row, resp->nrow);
+            cbNanMaybeDeleteProp(dataRes, Nan::New(CouchbaseImpl::resultsKey));
         }
 
         Local<Value> args[] = {Nan::New<Number>(resp->rc), dataRes};
-        cookie->callback.Call(2, args, cookie->asyncContext());
+        cookie->invokeCallback(2, args);
 
         delete cookie;
         return;
     }
 
-    Handle<Value> rowStr =
-        Nan::New<String>((const char *)resp->row, (int)resp->nrow)
-            .ToLocalChecked();
-    Local<Value> rowObj =
-        jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1, &rowStr);
+    Local<Value> rowObj = lcbNanParseJson(resp->row, resp->nrow);
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 }
 
 static void subdoc_callback(lcb_t instance, int cbtype,
                             const lcb_RESPBASE *respbase)
 {
+    Nan::HandleScope scope;
     CouchbaseImpl *me = (CouchbaseImpl *)lcb_get_cookie(instance);
     const lcb_RESPSUBDOC *resp = (const lcb_RESPSUBDOC *)respbase;
     OpCookie *cookie = (OpCookie *)resp->cookie;
-    Nan::HandleScope scope;
     std::vector<lcb_SDENTRY> results;
     Local<Array> outArr;
     Local<Object> outObj;
     int errorCount = 0;
 
-    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
-
     if (resp->rc != LCB_SUCCESS && resp->rc != LCB_SUBDOC_MULTI_FAILURE) {
         Local<Value> errObj = Error::create(resp->rc);
-        cookie->callback.Call(1, &errObj, cookie->asyncContext());
+        cookie->invokeCallback(1, &errObj);
         return;
     }
 
@@ -695,12 +590,8 @@ static void subdoc_callback(lcb_t instance, int cbtype,
             resObj->Set(Nan::New(me->errorKey), errObj);
         } else {
             if (respitem.nvalue > 0) {
-                Handle<Value> valueStr =
-                    Nan::New<String>((const char *)respitem.value,
-                                     (int)respitem.nvalue)
-                        .ToLocalChecked();
-                Local<Value> valueObj = jsonParseLcl->Call(
-                    Nan::GetCurrentContext()->Global(), 1, &valueStr);
+                Local<Value> valueObj =
+                    lcbNanParseJson(respitem.value, respitem.nvalue);
                 resObj->Set(Nan::New(me->valueKey), valueObj);
             } else {
                 resObj->Set(Nan::New(me->valueKey), Nan::Null());
@@ -710,11 +601,10 @@ static void subdoc_callback(lcb_t instance, int cbtype,
         outArr->Set(i, resObj);
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {Nan::New<Number>(errorCount), outObj};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -739,11 +629,10 @@ static void ping_callback(lcb_t instance, int cbtype,
         resVal = Nan::Null();
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {errObj, resVal};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -768,11 +657,10 @@ static void diag_callback(lcb_t instance, int cbtype,
         resVal = Nan::Null();
     }
 
-    me->endOpTrace(cookie->traceSpan);
-    cookie->traceSpan = NULL;
+    cookie->endTrace();
 
     Local<Value> args[] = {errObj, resVal};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 
     delete cookie;
 }
@@ -786,18 +674,17 @@ static void httpdata_callback(lcb_t instance, int ignoreme,
     Nan::HandleScope scope;
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        me->endOpTrace(cookie->traceSpan);
-        cookie->traceSpan = NULL;
-
         Local<Object> metaObj = Nan::New<Object>();
         metaObj->Set(Nan::New(me->statusCodeKey),
                      Nan::New<Number>(resp->htstatus));
+
+        cookie->endTrace();
 
         Local<Value> args[] = {
             Nan::New<Number>(resp->rc),
             metaObj,
         };
-        cookie->callback.Call(2, args, cookie->asyncContext());
+        cookie->invokeCallback(2, args);
 
         delete cookie;
         return;
@@ -808,7 +695,7 @@ static void httpdata_callback(lcb_t instance, int ignoreme,
             .ToLocalChecked();
 
     Local<Value> args[] = {Nan::New<Number>(-1), bodyData};
-    cookie->callback.Call(2, args, cookie->asyncContext());
+    cookie->invokeCallback(2, args);
 }
 }
 

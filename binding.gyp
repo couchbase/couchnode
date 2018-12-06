@@ -89,16 +89,17 @@
       }]
     ],
     'sources': [
-      'src/couchbase_impl.cc',
-      'src/control.cc',
-      'src/constants.cc',
-      'src/transcoder.cc',
       'src/binding.cc',
-      'src/operations.cc',
       'src/cas.cc',
-      'src/token.cc',
+      'src/constants.cc',
+      'src/control.cc',
+      'src/couchbase_impl.cc',
       'src/exception.cc',
       'src/logging.cc',
+      'src/opbuilder.cc',
+      'src/operations.cc',
+      'src/token.cc',
+      'src/transcoder.cc',
       'src/uv-plugin-all.c'
     ],
     'include_dirs': [

@@ -45,6 +45,7 @@
 #endif
 #endif
 
+#include "valueparser.h"
 #include <iostream>
 #include <libcouchbase/api3.h>
 #include <libcouchbase/cbft.h>
@@ -55,12 +56,6 @@
 #include <queue>
 #include <string>
 #include <vector>
-
-#include "cas.h"
-#include "cmdencoder.h"
-#include "exception.h"
-#include "token.h"
-#include "transcoder.h"
 
 #if LCB_VERSION < 0x020806
 #error "Couchnode requires libcouchbase >= 2.8.6"
@@ -156,15 +151,8 @@ public:
 
     Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags,
                             Nan::AsyncResource *asyncContext);
-    bool encodeDoc(CommandEncoder &enc, const void **, lcb_SIZE *nbytes,
+    bool encodeDoc(ValueParser &enc, const void **, lcb_SIZE *nbytes,
                    lcb_U32 *flags, Local<Value> value);
-
-    lcbtrace_SPAN *startOpTrace(const char *opmame);
-    void endOpTrace(lcbtrace_SPAN *span);
-    lcbtrace_SPAN *startEncodeTrace(lcbtrace_SPAN *opSpan);
-    void endEncodeTrace(lcbtrace_SPAN *span);
-    lcbtrace_SPAN *startDecodeTrace(lcbtrace_SPAN *opSpan);
-    void endDecodeTrace(lcbtrace_SPAN *span);
 
 protected:
     lcb_t instance;
@@ -180,8 +168,6 @@ protected:
     Nan::Callback *transDecodeFunc;
 
 public:
-    static Nan::Persistent<Function> jsonParse;
-    static Nan::Persistent<Function> jsonStringify;
     static Nan::Persistent<String> valueKey;
     static Nan::Persistent<String> casKey;
     static Nan::Persistent<String> flagsKey;

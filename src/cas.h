@@ -18,6 +18,8 @@
 #ifndef CAS_H_
 #define CAS_H_
 
+#include <nan.h>
+
 namespace Couchnode
 {
 

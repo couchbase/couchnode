@@ -18,9 +18,8 @@
 #ifndef TOKEN_H_
 #define TOKEN_H_
 
-#ifndef COUCHBASE_H
-#error "include couchbase_impl.h first"
-#endif
+#include <libcouchbase/couchbase.h>
+#include <nan.h>
 
 namespace Couchnode
 {

@@ -14,7 +14,8 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-#include "couchbase_impl.h"
+
+#include "transcoder.h"
 #include "node_buffer.h"
 
 using namespace Couchnode;
@@ -40,22 +41,17 @@ enum Flags {
 
 Local<Value> DefaultTranscoder::decodeJson(const void *bytes, size_t nbytes)
 {
-    Handle<Value> stringVal =
-        Nan::New<String>((char *)bytes, nbytes).ToLocalChecked();
-
-    Local<Function> jsonParseLcl = Nan::New(CouchbaseImpl::jsonParse);
-    return jsonParseLcl->Call(Nan::GetCurrentContext()->Global(), 1,
-                              &stringVal);
+    Local<String> stringVal =
+        Nan::New<String>((const char *)bytes, nbytes).ToLocalChecked();
+    return Nan::JSON{}.Parse(stringVal).ToLocalChecked();
 }
 
-void DefaultTranscoder::encodeJson(CommandEncoder &enc, const void **bytes,
+void DefaultTranscoder::encodeJson(ValueParser &venc, const void **bytes,
                                    lcb_SIZE *nbytes, Local<Value> value)
 {
-    Local<Function> jsonStringifyLcl = Nan::New(CouchbaseImpl::jsonStringify);
-    Local<Value> ret =
-        jsonStringifyLcl->Call(Nan::GetCurrentContext()->Global(), 1, &value);
-
-    enc.parseString(bytes, nbytes, ret);
+    Local<Object> objValue = Nan::To<Object>(value).ToLocalChecked();
+    Local<String> ret = Nan::JSON{}.Stringify(objValue).ToLocalChecked();
+    venc.parseString(bytes, nbytes, ret);
 }
 
 Local<Value> DefaultTranscoder::decode(const void *bytes, size_t nbytes,
@@ -100,12 +96,12 @@ Local<Value> DefaultTranscoder::decode(const void *bytes, size_t nbytes,
     return decode(bytes, nbytes, NF_RAW);
 }
 
-void DefaultTranscoder::encode(CommandEncoder &enc, const void **bytes,
+void DefaultTranscoder::encode(ValueParser &venc, const void **bytes,
                                lcb_SIZE *nbytes, lcb_U32 *flags,
                                Local<Value> value)
 {
     if (value->IsString()) {
-        enc.parseString(bytes, nbytes, value);
+        venc.parseString(bytes, nbytes, value);
         *flags = CF_UTF8 | NF_UTF8;
         return;
     } else if (node::Buffer::HasInstance(value)) {
@@ -117,7 +113,7 @@ void DefaultTranscoder::encode(CommandEncoder &enc, const void **bytes,
         *flags = CF_RAW | NF_RAW;
         return;
     } else {
-        encodeJson(enc, bytes, nbytes, value);
+        encodeJson(venc, bytes, nbytes, value);
         *flags = CF_JSON | NF_JSON;
         return;
     }

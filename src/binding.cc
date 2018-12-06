@@ -16,13 +16,12 @@
  */
 #include "couchbase_impl.h"
 #include "exception.h"
+#include "token.h"
 #include <libcouchbase/libuv_io_opts.h>
 #include <libcouchbase/vbucket.h>
 
 using namespace Couchnode;
 
-Nan::Persistent<Function> CouchbaseImpl::jsonParse;
-Nan::Persistent<Function> CouchbaseImpl::jsonStringify;
 Nan::Persistent<String> CouchbaseImpl::valueKey;
 Nan::Persistent<String> CouchbaseImpl::casKey;
 Nan::Persistent<String> CouchbaseImpl::flagsKey;
@@ -125,19 +124,6 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     srcFileKey.Reset(Nan::New<String>("srcFile").ToLocalChecked());
     srcLineKey.Reset(Nan::New<String>("srcLine").ToLocalChecked());
     statusCodeKey.Reset(Nan::New<String>("statusCode").ToLocalChecked());
-
-    Handle<Object> jMod = Nan::GetCurrentContext()
-                              ->Global()
-                              ->Get(Nan::New<String>("JSON").ToLocalChecked())
-                              .As<Object>();
-    assert(!jMod.IsEmpty());
-    jsonParse.Reset(
-        jMod->Get(Nan::New<String>("parse").ToLocalChecked()).As<Function>());
-    jsonStringify.Reset(
-        jMod->Get(Nan::New<String>("stringify").ToLocalChecked())
-            .As<Function>());
-    assert(!jsonParse.IsEmpty());
-    assert(!jsonStringify.IsEmpty());
 }
 
 NAN_METHOD(CouchbaseImpl::sfnSetErrorClass)

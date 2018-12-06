@@ -14,7 +14,10 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
+
 #include "couchbase_impl.h"
+#include "exception.h"
+#include <nan.h>
 
 using namespace Couchnode;
 
@@ -54,8 +57,9 @@ static void log_handler(struct lcb_logprocs_st *procs, unsigned int iid,
     infoObj->Set(Nan::New(CouchbaseImpl::messageKey),
                  Nan::New(logBuffer).ToLocalChecked());
 
+    Nan::AsyncResource asyncContext("libcouchbaseAsync");
     Local<Value> args[] = {infoObj};
-    logger->callback.Call(1, args);
+    logger->callback.Call(1, args, &asyncContext);
 }
 }
 

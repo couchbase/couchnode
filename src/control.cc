@@ -96,7 +96,7 @@ NAN_METHOD(CouchbaseImpl::fnControl)
     }
 
     case LCB_CNTL_REINIT_CONNSTR: {
-        String::Utf8Value s(optVal->ToString());
+        Nan::Utf8String s(optVal->ToString());
         err = lcb_cntl(instance, option, mode, (char *)*s);
         break;
     }

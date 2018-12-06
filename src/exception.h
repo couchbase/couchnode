@@ -15,11 +15,10 @@
  *   limitations under the License.
  */
 #ifndef EXCEPTION_H
-#define EXCEPTION_H 1
+#define EXCEPTION_H
 
-#ifndef COUCHBASE_H
-#error "include couchbase_impl.h first"
-#endif
+#include <libcouchbase/couchbase.h>
+#include <nan.h>
 
 namespace Couchnode
 {

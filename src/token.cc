@@ -14,9 +14,11 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-#include "couchbase_impl.h"
+
+#include "token.h"
 #include <sstream>
 #include <stdlib.h>
+
 using namespace Couchnode;
 
 void MutationToken::Init()
