@@ -416,6 +416,8 @@ void viewrow_callback(lcb_t instance, int ignoreme,
             cbNanMaybeDeleteProp(dataRes, Nan::New(CouchbaseImpl::rowsKey));
         }
 
+        cookie->endTrace();
+
         Local<Value> args[] = {Nan::New<Number>(resp->rc), dataRes};
         cookie->invokeCallback(2, args);
 
@@ -458,8 +460,6 @@ void viewrow_callback(lcb_t instance, int ignoreme,
         rowObj->Set(Nan::New(CouchbaseImpl::idKey), Nan::Null());
     }
 
-    cookie->endTrace();
-
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
     cookie->invokeCallback(2, args);
 }
@@ -483,6 +483,8 @@ void cbasn1qlrow_callback(lcb_t instance, int ignoreme,
             cbNanMaybeDeleteProp(dataRes, Nan::New(CouchbaseImpl::resultsKey));
         }
 
+        cookie->endTrace();
+
         Local<Value> args[] = {Nan::New<Number>(resp->rc), dataRes};
         cookie->invokeCallback(2, args);
 
@@ -491,8 +493,6 @@ void cbasn1qlrow_callback(lcb_t instance, int ignoreme,
     }
 
     Local<Value> rowObj = lcbNanParseJson(resp->row, resp->nrow);
-
-    cookie->endTrace();
 
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
     cookie->invokeCallback(2, args);
@@ -526,6 +526,8 @@ void ftsrow_callback(lcb_t instance, int ignoreme, const lcb_RESPFTS *resp)
             cbNanMaybeDeleteProp(dataRes, Nan::New(CouchbaseImpl::resultsKey));
         }
 
+        cookie->endTrace();
+
         Local<Value> args[] = {Nan::New<Number>(resp->rc), dataRes};
         cookie->invokeCallback(2, args);
 
@@ -534,8 +536,6 @@ void ftsrow_callback(lcb_t instance, int ignoreme, const lcb_RESPFTS *resp)
     }
 
     Local<Value> rowObj = lcbNanParseJson(resp->row, resp->nrow);
-
-    cookie->endTrace();
 
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
     cookie->invokeCallback(2, args);
