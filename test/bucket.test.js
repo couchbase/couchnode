@@ -6,26 +6,23 @@ var harness = require('./harness.js');
 describe('#Bucket', function() {
   function allTests(H) {
     it('should queue operations until connected', function(done) {
-      var cluster = new H.lib.Cluster(H.connstr);
-      var bucket = cluster.openBucket(H.bucket);
+      var bucket = H.c.openBucket(H.bucket);
       bucket.insert(H.key(), 'bar', H.okCallback(function() {
+        bucket.disconnect();
         done();
       }));
     });
 
     it('should cancel queued options on connection failure', function(done) {
-      var cluster = new H.lib.Cluster(H.connstr);
-      var bucket = cluster.openBucket('invalid_bucket');
+      var bucket = H.c.openBucket('invalid_bucket');
       bucket.insert(H.key(), 'bar', function(err) {
         assert(err);
         done();
       });
     });
 
-    it('should throw exception for operations on a dead bucket', function(
-      done) {
-      var cluster = new H.lib.Cluster(H.connstr);
-      var bucket = cluster.openBucket('invalid_bucket', function() {
+    it('should throw for ops on a dead bucket', function(done) {
+      var bucket = H.c.openBucket('invalid_bucket', function() {
         assert.throws(function() {
           bucket.invalidateQueryCache();
         }, Error);
@@ -36,21 +33,18 @@ describe('#Bucket', function() {
       });
     });
 
-    it('should throw exception for operations on a disconnected bucket',
-      function(done) {
-        var cluster = new H.lib.Cluster(H.connstr);
-        var bucket = cluster.openBucket(H.bucket, function() {
-          bucket.disconnect();
-          assert.throws(function() {
-            bucket.insert(H.key(), 'bar', H.noCallback());
-          }, Error);
-          done();
-        });
+    it('should throw for ops on a disconnected bucket', function(done) {
+      var bucket = H.c.openBucket(H.bucket, function() {
+        bucket.disconnect();
+        assert.throws(function() {
+          bucket.insert(H.key(), 'bar', H.noCallback());
+        }, Error);
+        done();
       });
+    });
 
     it('should ignore superflous disconnects', function(done) {
-      var cluster = new H.lib.Cluster(H.connstr);
-      var bucket = cluster.openBucket(H.bucket, function() {
+      var bucket = H.c.openBucket(H.bucket, function() {
         bucket.disconnect();
         bucket.disconnect();
         bucket.disconnect();

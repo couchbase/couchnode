@@ -5,6 +5,25 @@ var jcbmock = require('./jcbmock');
 var fs = require('fs');
 var util = require('util');
 var assert = require('assert');
+var semver = require('semver');
+
+function ServerVersion(major, minor, patch, isMock) {
+  this.major = major;
+  this.minor = minor;
+  this.patch = patch;
+  this.isMock = isMock;
+}
+
+var ServerFeatures = {
+  KeyValue: 'kv',
+  Ssl: 'ssl',
+  Views: 'views',
+  SpatialViews: 'spatial_views',
+  N1ql: 'n1ql',
+  Subdoc: 'subdoc',
+  Fts: 'fts',
+  Analytics: 'analytics',
+};
 
 // We enable logging to ensure that logging doesn't break any of the tests,
 // but we explicitly disable all output sources to avoid spamming anything.
@@ -14,18 +33,27 @@ couchbase.logging.enableLogging({
 });
 
 var config = {
-  connstr: '',
+  connstr: undefined,
   bucket: 'default',
-  bpass: '',
-  user: '',
-  pass: '',
-  muser: 'Administrator',
-  mpass: 'administrator',
-  qhosts: null
+  bpass: undefined,
+  user: undefined,
+  pass: undefined,
+  muser: undefined,
+  mpass: undefined,
+  qhosts: undefined,
+  version: new ServerVersion(0, 0, 0, false)
 };
 
 if (process.env.CNCSTR !== undefined) {
   config.connstr = process.env.CNCSTR;
+}
+if (process.env.CNCVER !== undefined) {
+  assert(!config.connstr, 'must not specify a version without a connstr');
+  var ver = process.env.CNCVER;
+  var major = semver.major(ver);
+  var minor = semver.minor(ver);
+  var patch = semver.patch(ver);
+  config.version = new ServerVersion(major, minor, patch, false);
 }
 if (process.env.CNQHOSTS !== undefined) {
   config.qhosts = process.env.CNQHOSTS;
@@ -74,6 +102,10 @@ function _waitForConfig(callback) {
     return;
   }
 
+  var mockVer = jcbmock.version();
+  config.version =
+    new ServerVersion(mockVer[0], mockVer[1], mockVer[2], true);
+
   before(function(done) {
     this.timeout(60000);
 
@@ -97,9 +129,40 @@ function _waitForConfig(callback) {
   });
 }
 
+function _supportsFeature(feature) {
+  switch (feature) {
+    case ServerFeatures.KeyValue:
+    case ServerFeatures.Ssl:
+    case ServerFeatures.Views:
+    case ServerFeatures.SpatialViews:
+    case ServerFeatures.Subdoc:
+      return true;
+    case ServerFeatures.Fts:
+    case ServerFeatures.N1ql:
+    case ServerFeatures.Analytics:
+      // supported on all versions except the mock
+      return !config.version.isMock;
+  }
+
+  throw new Error('invalid code for feature checking');
+}
+
 function Harness() {
   this.keyPrefix = (new Date()).getTime();
   this.keySerial = 0;
+}
+
+Harness.prototype.requireFeature = function(feature, callback) {
+  if (!_supportsFeature(feature)) {
+    var oldIt = global.it;
+    global.it = function(title, callback) {
+      return oldIt(title);
+    };
+    callback();
+    global.it = oldIt;
+  } else {
+    callback();
+  }
 }
 
 Harness.prototype.key = function() {
@@ -210,4 +273,5 @@ RealHarness.prototype.timeTravel = function(callback, period) {
 };
 
 var myHarness = new RealHarness();
+myHarness.Features = ServerFeatures;
 module.exports = myHarness;

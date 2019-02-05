@@ -1,34 +1,56 @@
 'use strict';
 
 var assert = require('assert');
+var uuid = require('uuid');
 var harness = require('./harness.js');
 
-// TODO(brett19): Currently skipped as the mock does not support FTS
-describe.skip('#search index management', function() {
+describe('#search index management', function() {
   this.timeout(5000);
 
-  describe('#RealBucket', function() {
-    var H = harness;
-    var searchIdxMgr;
-    before(function() {
-      searchIdxMgr = H.c.manager(H.muser, H.mpass).searchIndexManager();
-    });
+  var testIdxName = 'testidx-' + uuid.v4();
+  var H = harness;
+  var searchIdxMgr;
 
+  before(function() {
+    searchIdxMgr = H.c.manager().searchIndexManager();
+  });
+
+  H.requireFeature(H.Features.Fts, function() {
     it('should be able to fetch indexes', function(done) {
       searchIdxMgr.getAllIndexDefinitions(function(err, indexes) {
         done(err);
       });
     });
 
-    it('should be able to fetch a single index', function(done) {
-      searchIdxMgr.getIndexDefinition('test', function(err, index) {
-        done(err);
-      });
+    it('should be able to create an index', function(done) {
+      searchIdxMgr.createIndex({
+          name: testIdxName,
+          type: 'fulltext-index',
+          sourceType: 'couchbase',
+          sourceName: H.b.name,
+          params: {
+            default_mapping: {
+              enabled: true,
+              dynamic: true,
+              default_analyzer: ''
+            },
+            type_field: '_type',
+            default_type: '_default',
+            default_analyzer: 'standard',
+            default_datetime_parser: 'dateTimeOptional',
+            default_field: '_all',
+            byte_array_converter: 'json',
+            analysis: {}
+          },
+        },
+        function(err) {
+          done(err);
+        });
     });
 
-    it('should be able to fetch a index document counts', function(done) {
-      searchIdxMgr.getIndexedDocumentCount('test', function(err,
-        documents) {
+    it('should be able to fetch a single index', function(done) {
+      searchIdxMgr.getIndexDefinition(testIdxName, function(err,
+        index) {
         done(err);
       });
     });
@@ -40,7 +62,32 @@ describe.skip('#search index management', function() {
     });
 
     it('should be able to fetch a single index stats', function(done) {
-      searchIdxMgr.getIndexStats('test', function(err, stats) {
+      searchIdxMgr.getIndexStats(testIdxName, function(err, stats) {
+        done(err);
+      });
+    });
+
+    it('should eventually finish preparing the test index', function(
+      done) {
+      this.timeout(10000);
+
+      function checkOnce() {
+        searchIdxMgr.getIndexStats(testIdxName, function(err, stats) {
+          if (err || Object.keys(stats.pindexes).length <= 0) {
+            setTimeout(checkOnce, 250);
+            return;
+          }
+
+          done();
+        });
+      }
+      checkOnce();
+    });
+
+    it('should be able to fetch a index document counts', function(done) {
+      searchIdxMgr.getIndexedDocumentCount(testIdxName, function(
+        err,
+        documents) {
         done(err);
       });
     });
@@ -65,20 +112,19 @@ describe.skip('#search index management', function() {
       });
     });
 
-    // Disabled because for some odd reason, it doesn't seem to work...
-    // (always get err: `pindex not found`, even though the next call works with the same name)
-    it.skip('should be able to fetch a single partition info', function(
-      done) {
-      if (!firstPIndexName) {
-        done(new Error('no pindexes to test against'));
-        return;
-      }
+    it('should be able to fetch a single partition info',
+      function(done) {
+        if (!firstPIndexName) {
+          done(new Error('no pindexes to test against'));
+          return;
+        }
 
-      searchIdxMgr.getIndexPartitionInfo(firstPIndexName, function(
-        err, pIndexInfo) {
-        done(err);
+        searchIdxMgr.getIndexPartitionInfo(firstPIndexName,
+          function(
+            err, pIndexInfo) {
+            done(err);
+          });
       });
-    });
 
     it('should be able to fetch a single partitions document count',
       function(done) {
@@ -93,5 +139,9 @@ describe.skip('#search index management', function() {
             done(err);
           });
       });
+
+    it('should be able to delete the test index', function(done) {
+      searchIdxMgr.deleteIndex(testIdxName, done);
+    });
   });
 });

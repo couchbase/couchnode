@@ -7,17 +7,18 @@ describe('#cluster', function() {
   function allTests(H) {
     describe('openBucket', function() {
       it('should invoke the callback', function(done) {
-        var cluster = new H.lib.Cluster(H.connstr);
-        cluster.openBucket(H.bucket, function(err) {
+        var newBucket = H.c.openBucket(H.bucket, function(err) {
           assert(!err);
+
+          newBucket.disconnect();
           done();
         });
       });
 
       it('should invoke the callback for failure', function(done) {
         this.timeout(10000);
-        var cluster = new H.lib.Cluster(H.connstr);
-        cluster.openBucket('invalid_bucket', function(err) {
+
+        H.c.openBucket('invalid_bucket', function(err) {
           assert(err);
           done();
         });
@@ -28,8 +29,10 @@ describe('#cluster', function() {
   describe('#RealBucket', allTests.bind(this, harness));
   describe('#MockBucket', allTests.bind(this, harness.mock));
 
+  var H = harness;
+
   it('should fail when using password with authenticators', function(done) {
-    var cluster = new harness.lib.Cluster(harness.connstr);
+    var cluster = new H.lib.Cluster(H.connstr);
     cluster.authenticate('username', 'password');
     assert.throws(function() {
       cluster.openBucket('bucket', 'password', function(err) {});
@@ -39,7 +42,7 @@ describe('#cluster', function() {
 
   it('should fail when using keypath with no cert authenticator', function(
     done) {
-    var cluster = new harness.lib.Cluster(
+    var cluster = new H.lib.Cluster(
       'couchbase://test?certpath=./cert&keypath=./key');
     cluster.authenticate('username', 'password');
     assert.throws(function() {

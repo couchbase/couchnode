@@ -5,7 +5,7 @@ var harness = require('./harness.js');
 
 var Vq = harness.lib.ViewQuery;
 
-describe('#Querying', function() {
+describe('#views', function() {
   function allTests(H) {
     describe('#View Queries', function() {
       it('should set ddoc/name properly', function() {
