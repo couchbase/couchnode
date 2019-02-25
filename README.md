@@ -75,7 +75,7 @@ be shared.
 Using the Mock is as simple as this:
 ```javascript
 var couchbase = require('couchbase').Mock;
-var db = new couchbase.Cluster();
+var cluster = new couchbase.Cluster();
 var bucket = cluster.openBucket();
 
 bucket.upsert('testdoc', {name:'Frank'}, function(err, result) {
