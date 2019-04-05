@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017 Couchbase, Inc.
+ *     Copyright 2017-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -30,34 +30,40 @@
 
 #include <libcouchbase/couchbase.h>
 
-static void die(lcb_t instance, const char *msg, lcb_error_t err)
+static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
     fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
     exit(EXIT_FAILURE);
 }
 
-void http_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *r)
+void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP *resp)
 {
-    const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)r;
-
-    printf("HTTP status: %d\n", resp->htstatus);
-    if (resp->headers) {
-        for (const char *const *cur = resp->headers; *cur; cur += 2) {
+    uint16_t status;
+    lcb_resphttp_http_status(resp, &status);
+    printf("HTTP status: %d\n", status);
+    const char *const *headers;
+    lcb_resphttp_headers(resp, &headers);
+    if (headers) {
+        for (const char *const *cur = headers; *cur; cur += 2) {
             printf("%s: %s\n", cur[0], cur[1]);
         }
     }
-    if (resp->nbody) {
-        printf("%*s\n", (int)resp->nbody, (char *)resp->body);
+    const char *body;
+    size_t nbody;
+    lcb_resphttp_body(resp, &body, &nbody);
+    if (nbody) {
+        printf("%*s\n", (int)nbody, body);
     }
-    if (resp->rc != LCB_SUCCESS) {
-        die(instance, "Failed to execute HTTP request", resp->rc);
+    lcb_STATUS rc = lcb_resphttp_status(resp);
+    if (rc != LCB_SUCCESS) {
+        die(instance, "Failed to execute HTTP request", rc);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    lcb_error_t err;
-    lcb_t instance;
+    lcb_STATUS err;
+    lcb_INSTANCE *instance;
     struct lcb_create_st create_options = {0};
 
     create_options.version = 3;
@@ -88,22 +94,23 @@ int main(int argc, char *argv[])
         die(instance, "Failed bootstrap from cluster", err);
     }
 
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, http_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
 
     printf("1. Create account 'cbtestuser' with predefined set of roles\n");
     {
-        lcb_CMDHTTP cmd = {0};
+        lcb_CMDHTTP *cmd;
         char *path = "/settings/rbac/users/local/cbtestuser";
         char *body = "name=TestUser&password=cbtestuserpwd&roles=cluster_admin,bucket_admin[default]";
+        char *content_type = "application/x-www-form-urlencoded";
 
-        cmd.type = LCB_HTTP_TYPE_MANAGEMENT;
-        cmd.method = LCB_HTTP_METHOD_PUT;
-        cmd.content_type = "application/x-www-form-urlencoded";
-        LCB_CMD_SET_KEY(&cmd, path, strlen(path));
-        cmd.body = body;
-        cmd.nbody = strlen(body);
+        lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
+        lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_PUT);
+        lcb_cmdhttp_content_type(cmd, content_type, strlen(content_type));
+        lcb_cmdhttp_path(cmd, path, strlen(path));
+        lcb_cmdhttp_body(cmd, body, strlen(body));
 
-        err = lcb_http3(instance, NULL, &cmd);
+        err = lcb_http(instance, NULL, cmd);
+        lcb_cmdhttp_destroy(cmd);
         if (err != LCB_SUCCESS) {
             die(instance, "Failed schedule command to upsert user", err);
         }
@@ -112,14 +119,15 @@ int main(int argc, char *argv[])
 
     printf("2. Retrieve list of all accounts in the cluster\n");
     {
-        lcb_CMDHTTP cmd = {0};
+        lcb_CMDHTTP *cmd;
         char *path = "/settings/rbac/users/local";
 
-        cmd.type = LCB_HTTP_TYPE_MANAGEMENT;
-        cmd.method = LCB_HTTP_METHOD_GET;
-        LCB_CMD_SET_KEY(&cmd, path, strlen(path));
+        lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
+        lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_GET);
+        lcb_cmdhttp_path(cmd, path, strlen(path));
 
-        err = lcb_http3(instance, NULL, &cmd);
+        err = lcb_http(instance, NULL, cmd);
+        lcb_cmdhttp_destroy(cmd);
         if (err != LCB_SUCCESS) {
             die(instance, "Failed schedule command to upsert user", err);
         }
@@ -128,14 +136,15 @@ int main(int argc, char *argv[])
 
     printf("3. Remove account 'cbtestuser'\n");
     {
-        lcb_CMDHTTP cmd = {0};
+        lcb_CMDHTTP *cmd;
         char *path = "/settings/rbac/users/local/cbtestuser";
 
-        cmd.type = LCB_HTTP_TYPE_MANAGEMENT;
-        cmd.method = LCB_HTTP_METHOD_DELETE;
-        LCB_CMD_SET_KEY(&cmd, path, strlen(path));
+        lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
+        lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_DELETE);
+        lcb_cmdhttp_path(cmd, path, strlen(path));
 
-        err = lcb_http3(instance, NULL, &cmd);
+        err = lcb_http(instance, NULL, cmd);
+        lcb_cmdhttp_destroy(cmd);
         if (err != LCB_SUCCESS) {
             die(instance, "Failed schedule command to upsert user", err);
         }

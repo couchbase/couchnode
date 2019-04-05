@@ -1,5 +1,5 @@
 /**
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
 #define LCB_VIEWROW_H_
 
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/views.h>
 #include "contrib/jsonsl/jsonsl.h"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 #include <string>
 
-namespace lcb {
-namespace jsparse {
+namespace lcb
+{
+namespace jsparse
+{
 
 struct Parser;
 
@@ -37,13 +38,7 @@ struct Row {
 };
 
 struct Parser {
-    enum Mode {
-        MODE_VIEWS,
-        MODE_N1QL,
-        MODE_FTS,
-        MODE_ANALYTICS,
-        MODE_ANALYTICS_DEFERRED
-    };
+    enum Mode { MODE_VIEWS, MODE_N1QL, MODE_FTS, MODE_ANALYTICS, MODE_ANALYTICS_DEFERRED };
 
     struct Actions {
         /**
@@ -51,7 +46,7 @@ struct Parser {
          * This is a row of view data. You can parse this as JSON from your
          * favorite decoder/converter
          */
-        virtual void JSPARSE_on_row(const Row&) = 0;
+        virtual void JSPARSE_on_row(const Row &) = 0;
 
         /**
          * A JSON parse error occured. The payload will contain string data. This
@@ -59,16 +54,16 @@ struct Parser {
          * The callback will be delivered twice. First when the error is noticed,
          * and second at the end (instead of a COMPLETE callback)
          */
-        virtual void JSPARSE_on_error(const std::string& buf) = 0;
+        virtual void JSPARSE_on_error(const std::string &buf) = 0;
 
         /**
          * All the rows have been returned. In this case, the data is the 'meta'.
          * This is a valid JSON payload which was returned from the server.
          * The "rows" : [] array will be empty.
          */
-        virtual void JSPARSE_on_complete(const std::string& meta) = 0;
+        virtual void JSPARSE_on_complete(const std::string &meta) = 0;
 
-        virtual ~Actions(){}
+        virtual ~Actions() {}
     };
 
     /**
@@ -77,7 +72,7 @@ struct Parser {
      * You must feed it data (calling vrow_feed) as well. The data may be fed
      * in chunks and callbacks will be invoked as each row is read.
      */
-    Parser(Mode mode, Actions* actions_);
+    Parser(Mode mode, Actions *actions_);
     ~Parser();
 
     /**
@@ -86,7 +81,8 @@ struct Parser {
      * be invoked from within an http_data_callback.
      */
     void feed(const char *s, size_t n);
-    void feed(const std::string& s) {
+    void feed(const std::string &s)
+    {
         feed(s.c_str(), s.size());
     }
 
@@ -98,7 +94,7 @@ struct Parser {
      * @param vr The row to parse. This assumes the row's "row" field is properly
      * set.
      */
-    void parse_viewrow(Row& vr);
+    void parse_viewrow(Row &vr);
 
     /**
      * Get the raw contents of the current buffer. This can be used to debug errors.
@@ -108,18 +104,18 @@ struct Parser {
      *
      * @param out The iov structure to contain the buffer/offset
      */
-    void get_postmortem(lcb_IOV& out) const;
+    void get_postmortem(lcb_IOV &out) const;
 
-    inline const char *get_buffer_region(size_t pos, size_t desired, size_t* actual);
+    inline const char *get_buffer_region(size_t pos, size_t desired, size_t *actual);
     inline void combine_meta();
     inline static const char *jprstr_for_mode(Mode);
 
-    jsonsl_t jsn; /**< Parser for the row itself */
-    jsonsl_t jsn_rdetails; /**< Parser for the row details */
-    jsonsl_jpr_t jpr; /**< jsonpointer match object */
-    std::string meta_buf; /**< String containing the skeleton (outer layer) */
+    jsonsl_t jsn;            /**< Parser for the row itself */
+    jsonsl_t jsn_rdetails;   /**< Parser for the row details */
+    jsonsl_jpr_t jpr;        /**< jsonpointer match object */
+    std::string meta_buf;    /**< String containing the skeleton (outer layer) */
     std::string current_buf; /**< Scratch/read buffer */
-    std::string last_hk; /**< Last hashkey */
+    std::string last_hk;     /**< Last hashkey */
 
     lcb_U8 mode;
 
@@ -156,6 +152,6 @@ struct Parser {
     Actions *actions;
 };
 
-}
-}
+} // namespace jsparse
+} // namespace lcb
 #endif /* LCB_VIEWROW_H_ */

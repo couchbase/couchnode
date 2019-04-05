@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -31,10 +31,9 @@ struct W_1to3_st {
     unsigned int last_error;
 };
 
-static void
-W_1to3_callback(lcb_sockdata_t *sd, lcb_io_writebuf_t *wb, int status)
+static void W_1to3_callback(lcb_sockdata_t *sd, lcb_io_writebuf_t *wb, int status)
 {
-    struct W_1to3_st *ott = (struct W_1to3_st*)(void *)wb->buffer.root;
+    struct W_1to3_st *ott = (struct W_1to3_st *)(void *)wb->buffer.root;
     lcb_ioC_wbfree_fn wbfree;
 
     wb->buffer.root = NULL;
@@ -58,13 +57,8 @@ W_1to3_callback(lcb_sockdata_t *sd, lcb_io_writebuf_t *wb, int status)
     }
 }
 
-static int
-W_1to3_write(lcb_io_opt_t iops,
-            lcb_sockdata_t *sd,
-            struct lcb_iovec_st *iov,
-            lcb_size_t niov,
-            void *uarg,
-            lcb_ioC_write2_callback cb)
+static int W_1to3_write(lcb_io_opt_t iops, lcb_sockdata_t *sd, struct lcb_iovec_st *iov, lcb_size_t niov, void *uarg,
+                        lcb_ioC_write2_callback cb)
 {
     unsigned int ii = 0;
     struct W_1to3_st *ott;
@@ -91,7 +85,7 @@ W_1to3_write(lcb_io_opt_t iops,
         lcb_io_writebuf_t *wb;
 
         wb = wballoc(iops, sd);
-        wb->buffer.root = (char*)ott;
+        wb->buffer.root = (char *)ott;
         wb->buffer.ringbuffer = NULL;
 
         for (jj = 0; jj < 2 && ii < niov; ii++, jj++) {
@@ -108,8 +102,7 @@ struct R_1to3_st {
     void *uarg;
 };
 
-static void
-R_1to3_callback(lcb_sockdata_t *sd, lcb_ssize_t nread)
+static void R_1to3_callback(lcb_sockdata_t *sd, lcb_ssize_t nread)
 {
     struct lcb_buf_info *bi = &sd->read_buffer;
     struct R_1to3_st *st = (void *)bi->root;
@@ -118,9 +111,8 @@ R_1to3_callback(lcb_sockdata_t *sd, lcb_ssize_t nread)
     free(st);
 }
 
-static int
-R_1to3_read(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
-            void *uarg, lcb_ioC_read2_callback callback)
+static int R_1to3_read(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov, void *uarg,
+                       lcb_ioC_read2_callback callback)
 {
     unsigned ii;
     int rv;
@@ -141,7 +133,6 @@ R_1to3_read(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
         bi->iov[ii].iov_len = 0;
     }
 
-
     bi->root = (void *)st;
     if (io->version >= 2) {
         rdstart = GET_23_FIELD(io, iot->u_io.completion.read);
@@ -153,19 +144,26 @@ R_1to3_read(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
     return rv;
 }
 
-static int dummy_bsd_chkclosed(lcb_io_opt_t io, lcb_socket_t s, int f) {
-    (void)io; (void)s; (void)f; return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+static int dummy_bsd_chkclosed(lcb_io_opt_t io, lcb_socket_t s, int f)
+{
+    (void)io;
+    (void)s;
+    (void)f;
+    return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
 }
-static int dummy_comp_chkclosed(lcb_io_opt_t io, lcb_sockdata_t* s, int f) {
-    (void)io; (void)s; (void)f; return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
+static int dummy_comp_chkclosed(lcb_io_opt_t io, lcb_sockdata_t *s, int f)
+{
+    (void)io;
+    (void)s;
+    (void)f;
+    return LCB_IO_SOCKCHECK_STATUS_UNKNOWN;
 }
 
-static void
-init_v23_table(lcbio_TABLE *table, lcb_io_opt_t io)
+static void init_v23_table(lcbio_TABLE *table, lcb_io_opt_t io)
 {
     lcb_io_procs_fn fn = GET_23_FIELD(io, get_procs);
-    fn(LCB_IOPROCS_VERSION, &table->loop, &table->timer, &table->u_io.v0.io,
-        &table->u_io.v0.ev, &table->u_io.completion, &table->model);
+    fn(LCB_IOPROCS_VERSION, &table->loop, &table->timer, &table->u_io.v0.io, &table->u_io.v0.ev,
+       &table->u_io.completion, &table->model);
 
     table->p = io;
     if (table->model == LCB_IOMODEL_COMPLETION) {
@@ -189,8 +187,7 @@ init_v23_table(lcbio_TABLE *table, lcb_io_opt_t io)
     }
 }
 
-lcbio_TABLE *
-lcbio_table_new(lcb_io_opt_t io)
+lcbio_TABLE *lcbio_table_new(lcb_io_opt_t io)
 {
     lcbio_TABLE *table = calloc(1, sizeof(*table));
     table->p = io;
@@ -264,8 +261,7 @@ lcbio_table_new(lcb_io_opt_t io)
     return table;
 }
 
-void
-lcbio_table_unref(lcbio_TABLE *table)
+void lcbio_table_unref(lcbio_TABLE *table)
 {
     if (--table->refcount) {
         return;
@@ -283,8 +279,7 @@ lcbio_table_unref(lcbio_TABLE *table)
     free(table);
 }
 
-void
-lcbio_table_ref(lcbio_TABLE *table)
+void lcbio_table_ref(lcbio_TABLE *table)
 {
     ++table->refcount;
 }

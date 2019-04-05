@@ -1,33 +1,53 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2011-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "config.h"
 #include "iotests.h"
 #include <map>
-#include <libcouchbase/views.h>
 #include <libcouchbase/pktfwd.h>
 #include "contrib/cJSON/cJSON.h"
 
-namespace {
+namespace
+{
 
 class ViewsUnitTest : public MockUnitTest
 {
-protected:
-    void SetUp() { }
-    void TearDown() { }
-    void connectBeerSample(HandleWrap& hw, lcb_t& instance, bool first=true);
+  protected:
+    void SetUp() {}
+    void TearDown() {}
+    void connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, bool first = true);
 };
 
 using std::string;
 using std::vector;
 
 extern "C" {
-static void bktCreateCb(lcb_t, int, const lcb_RESPBASE *rb) {
-    const lcb_RESPHTTP *htr = (const lcb_RESPHTTP *)rb;
-    ASSERT_EQ(LCB_SUCCESS, htr->rc);
-    ASSERT_TRUE(htr->htstatus > 199 && htr->htstatus < 300);
+static void bktCreateCb(lcb_INSTANCE *, int, const lcb_RESPHTTP *resp)
+{
+    ASSERT_EQ(LCB_SUCCESS, lcb_resphttp_status(resp));
+    uint16_t status;
+    lcb_resphttp_http_status(resp, &status);
+    ASSERT_TRUE(status > 199 && status < 300);
 }
 }
 
-void
-ViewsUnitTest::connectBeerSample(HandleWrap& hw, lcb_t& instance, bool first)
+static const char *content_type = "application/json";
+
+void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, bool first)
 {
     lcb_create_st crparams;
     lcb_create_st crparamsAdmin;
@@ -45,7 +65,7 @@ ViewsUnitTest::connectBeerSample(HandleWrap& hw, lcb_t& instance, bool first)
     }
 
     // See if we can connect:
-    lcb_error_t rv = tryCreateConnection(hw, instance, crparams);
+    lcb_STATUS rv = tryCreateConnection(hw, instance, crparams);
     if (rv == LCB_SUCCESS) {
         return;
     } else if (!first) {
@@ -67,20 +87,20 @@ ViewsUnitTest::connectBeerSample(HandleWrap& hw, lcb_t& instance, bool first)
     const char *path = "/sampleBuckets/install";
     const char *body = "[\"beer-sample\"]";
 
-    lcb_CMDHTTP htcmd = { 0 };
-    LCB_CMD_SET_KEY(&htcmd, path, strlen(path));
+    lcb_CMDHTTP *htcmd;
+    lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_MANAGEMENT);
+    lcb_cmdhttp_path(htcmd, path, strlen(path));
+    lcb_cmdhttp_body(htcmd, body, strlen(body));
+    lcb_cmdhttp_content_type(htcmd, content_type, strlen(content_type));
+    lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_POST);
 
-    htcmd.body = body;
-    htcmd.nbody = strlen(body);
-    htcmd.method = LCB_HTTP_METHOD_POST;
-    htcmd.type = LCB_HTTP_TYPE_MANAGEMENT;
-    htcmd.content_type = "application/json";
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, bktCreateCb);
-    lcb_sched_enter(instance);
-    rv = lcb_http3(instance, NULL, &htcmd);
+    lcb_install_callback3(*instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)bktCreateCb);
+    lcb_sched_enter(*instance);
+    rv = lcb_http(*instance, NULL, htcmd);
+    lcb_cmdhttp_destroy(htcmd);
     ASSERT_EQ(LCB_SUCCESS, rv);
-    lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_sched_leave(*instance);
+    lcb_wait(*instance);
     hw.destroy();
 
     // Now it should all be good, so we can call recursively..
@@ -91,32 +111,46 @@ struct ViewRow {
     string key;
     string value;
     string docid;
-    lcb_RESPGET docContents;
 
-    void clear() {
-        if (docContents.value) {
-            lcb_backbuf_unref((lcb_BACKBUF)docContents.bufh);
-            docContents.value = NULL;
+    struct {
+        lcb_STATUS rc;
+        const char *key;
+        size_t nkey;
+        const char *value;
+        size_t nvalue;
+        uint64_t cas;
+    } docContents;
+
+    void clear() {}
+
+    ViewRow(const lcb_RESPVIEW *resp)
+    {
+        const char *p;
+        size_t n;
+
+        lcb_respview_key(resp, &p, &n);
+        if (p != NULL) {
+            key.assign(p, n);
         }
-    }
-
-    ViewRow(const lcb_RESPVIEWQUERY *resp) {
-        const lcb_RESPGET *rg = resp->docresp;
-
-        if (resp->key != NULL) {
-            key.assign((const char *)resp->key, resp->nkey);
-        }
-        if (resp->value != NULL) {
-            value.assign((const char *)resp->value, resp->nvalue);
+        lcb_respview_row(resp, &p, &n);
+        if (p != NULL) {
+            value.assign(p, n);
         }
 
-        if (resp->docid != NULL) {
-            docid.assign((const char *)resp->docid, resp->ndocid);
+        const lcb_RESPGET *rg;
+        lcb_respview_document(resp, &rg);
+
+        lcb_respview_doc_id(resp, &p, &n);
+        if (p != NULL) {
+            docid.assign(p, n);
             if (rg != NULL) {
-                string tmpId((const char *)rg->key, rg->nkey);
+                docContents.rc = lcb_respget_status(rg);
+                lcb_respget_cas(rg, &docContents.cas);
+                lcb_respget_key(rg, &docContents.key, &docContents.nkey);
+                lcb_respget_value(rg, &docContents.value, &docContents.nvalue);
+
+                string tmpId(docContents.key, docContents.nkey);
                 EXPECT_EQ(tmpId, docid);
-                docContents = *rg;
-                lcb_backbuf_ref((lcb_BACKBUF)docContents.bufh);
             } else {
                 memset(&docContents, 0, sizeof docContents);
             }
@@ -128,24 +162,28 @@ struct ViewRow {
 };
 
 struct ViewInfo {
-    vector<ViewRow> rows;
+    vector< ViewRow > rows;
     size_t totalRows;
-    lcb_error_t err;
-    short http_status;
+    lcb_STATUS err;
+    uint16_t http_status;
 
-    void addRow(const lcb_RESPVIEWQUERY *resp) {
-        if (err == LCB_SUCCESS && resp->rc != LCB_SUCCESS) {
-            err = resp->rc;
+    void addRow(const lcb_RESPVIEW *resp)
+    {
+        lcb_STATUS rc = lcb_respview_status(resp);
+        if (err == LCB_SUCCESS && rc != LCB_SUCCESS) {
+            err = rc;
         }
 
-        if (! (resp->rflags & LCB_RESP_F_FINAL)) {
+        if (!lcb_respview_is_final(resp)) {
             rows.push_back(ViewRow(resp));
-
         } else {
-            if (resp->value != NULL) {
+            const char *row;
+            size_t nrow;
+            lcb_respview_row(resp, &row, &nrow);
+            if (row != NULL) {
                 // See if we have a 'value' for the final response
-                string vBuf(resp->value, resp->nvalue);
-                cJSON *cj = cJSON_Parse(resp->value);
+                string vBuf(row, nrow);
+                cJSON *cj = cJSON_Parse(row);
                 ASSERT_FALSE(cj == NULL);
                 cJSON *jTotal = cJSON_GetObjectItem(cj, "total_rows");
                 if (jTotal != NULL) {
@@ -156,13 +194,16 @@ struct ViewInfo {
                 }
                 cJSON_Delete(cj);
             }
-            if (resp->htresp) {
-                http_status = resp->htresp->htstatus;
+            const lcb_RESPHTTP *http = NULL;
+            lcb_respview_http_response(resp, &http);
+            if (http) {
+                lcb_resphttp_http_status(http, &http_status);
             }
         }
     }
 
-    void clear() {
+    void clear()
+    {
         for (size_t ii = 0; ii < rows.size(); ii++) {
             rows[ii].clear();
         }
@@ -172,59 +213,71 @@ struct ViewInfo {
         err = LCB_SUCCESS;
     }
 
-    ~ViewInfo() {
+    ~ViewInfo()
+    {
         clear();
     }
 
-    ViewInfo() {
+    ViewInfo()
+    {
         clear();
     }
 };
 
 extern "C" {
-static void viewCallback(lcb_t, int cbtype, const lcb_RESPVIEWQUERY *resp)
+static void viewCallback(lcb_INSTANCE *, int cbtype, const lcb_RESPVIEW *resp)
 {
     EXPECT_EQ(LCB_CALLBACK_VIEWQUERY, cbtype);
-//    printf("View Callback invoked!\n");
-    ViewInfo *info = reinterpret_cast<ViewInfo*>(resp->cookie);
+    //    printf("View Callback invoked!\n");
+    ViewInfo *info;
+    lcb_respview_cookie(resp, (void **)&info);
     info->addRow(resp);
 }
 }
-
 
 TEST_F(ViewsUnitTest, testSimpleView)
 {
     SKIP_UNLESS_MOCK();
     // Requires beer-sample
     HandleWrap hw;
-    lcb_t instance;
-    connectBeerSample(hw, instance);
+    lcb_INSTANCE *instance;
+    connectBeerSample(hw, &instance);
 
-    lcb_CMDVIEWQUERY vq = { 0 };
-    lcb_view_query_initcmd(&vq, "beer", "brewery_beers", NULL, viewCallback);
+    const char *ddoc = "beer", *view = "brewery_beers";
+
+    lcb_CMDVIEW *vq;
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_callback(vq, viewCallback);
+
     ViewInfo vi;
 
-    lcb_error_t rc = lcb_view_query(instance, &vi, &vq);
+    lcb_STATUS rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
 
     lcb_wait(instance);
     ASSERT_EQ(LCB_SUCCESS, vi.err);
     ASSERT_GT(vi.rows.size(), 0U);
     ASSERT_EQ(7303, vi.totalRows);
-
     // Check the row parses correctly:
-    const ViewRow& row = vi.rows.front();
+    const ViewRow &row = vi.rows.front();
     // Unquoted docid
     ASSERT_EQ("21st_amendment_brewery_cafe", row.docid);
     ASSERT_EQ("[\"21st_amendment_brewery_cafe\"]", row.key);
     ASSERT_EQ("null", row.value);
-
     vi.clear();
 
-    //apply limit
-    lcb_view_query_initcmd(&vq, "beer", "brewery_beers", "limit=10", viewCallback);
-
-    rc = lcb_view_query(instance, &vi, &vq);
+    // apply limit
+    const char *optstr = "limit=10";
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_option_string(vq, optstr, strlen(optstr));
+    lcb_cmdview_callback(vq, viewCallback);
+    rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(LCB_SUCCESS, vi.err);
@@ -233,26 +286,38 @@ TEST_F(ViewsUnitTest, testSimpleView)
     vi.clear();
 
     // Set the limit to 0
-    lcb_view_query_initcmd(&vq, "beer", "brewery_beers", "limit=0", viewCallback);
-    rc = lcb_view_query(instance, &vi, &vq);
+    optstr = "limit=0";
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_option_string(vq, optstr, strlen(optstr));
+    lcb_cmdview_callback(vq, viewCallback);
+    rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(0, vi.rows.size());
     ASSERT_EQ(7303, vi.totalRows);
 }
 
-TEST_F(ViewsUnitTest, testIncludeDocs) {
+TEST_F(ViewsUnitTest, testIncludeDocs)
+{
     SKIP_UNLESS_MOCK();
     HandleWrap hw;
-    lcb_t instance;
-    lcb_error_t rc;
-    connectBeerSample(hw, instance);
+    lcb_INSTANCE *instance;
+    lcb_STATUS rc;
+    connectBeerSample(hw, &instance);
 
     ViewInfo vi;
-    lcb_CMDVIEWQUERY vq = { 0 };
-    lcb_view_query_initcmd(&vq, "beer", "brewery_beers", NULL, viewCallback);
-    vq.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    rc = lcb_view_query(instance, &vi, &vq);
+    const char *ddoc = "beer", *view = "brewery_beers";
+    lcb_CMDVIEW *vq;
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_callback(vq, viewCallback);
+    lcb_cmdview_include_docs(vq, true);
+    rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
 
@@ -261,7 +326,7 @@ TEST_F(ViewsUnitTest, testIncludeDocs) {
     ASSERT_EQ(7303, vi.rows.size());
 
     for (size_t ii = 0; ii < vi.rows.size(); ii++) {
-        const ViewRow& row = vi.rows[ii];
+        const ViewRow &row = vi.rows[ii];
         ASSERT_FALSE(row.docContents.key == NULL);
         ASSERT_EQ(row.docid.size(), row.docContents.nkey);
         ASSERT_EQ(LCB_SUCCESS, row.docContents.rc);
@@ -269,17 +334,23 @@ TEST_F(ViewsUnitTest, testIncludeDocs) {
     }
 }
 
-TEST_F(ViewsUnitTest, testReduce) {
+TEST_F(ViewsUnitTest, testReduce)
+{
     SKIP_UNLESS_MOCK();
     HandleWrap hw;
-    lcb_t instance;
-    lcb_error_t rc;
-    connectBeerSample(hw, instance);
+    lcb_INSTANCE *instance;
+    lcb_STATUS rc;
+    connectBeerSample(hw, &instance);
 
+    const char *ddoc = "beer", *view = "by_location";
     ViewInfo vi;
-    lcb_CMDVIEWQUERY vq = { 0 };
-    lcb_view_query_initcmd(&vq, "beer", "by_location", NULL, viewCallback);
-    rc = lcb_view_query(instance, &vi, &vq);
+    lcb_CMDVIEW *vq;
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_callback(vq, viewCallback);
+    rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(1, vi.rows.size());
@@ -287,32 +358,49 @@ TEST_F(ViewsUnitTest, testReduce) {
 
     vi.clear();
     // Try with include_docs
-    vq.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    rc = lcb_view_query(instance, &vi, &vq);
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_callback(vq, viewCallback);
+    lcb_cmdview_include_docs(vq, true);
+    rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(1, vi.rows.size());
 
     vi.clear();
     // Try with reduce=false
-    vq.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    lcb_view_query_initcmd(&vq, "beer", "by_location", "reduce=false&limit=10", viewCallback);
-    rc = lcb_view_query(instance, &vi, &vq);
+    const char *optstr = "reduce=false&limit=10";
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_option_string(vq, optstr, strlen(optstr));
+    lcb_cmdview_callback(vq, viewCallback);
+    lcb_cmdview_include_docs(vq, true);
+    rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(10, vi.rows.size());
     ASSERT_EQ(1411, vi.totalRows);
 
-    ViewRow* firstRow = &vi.rows[0];
+    ViewRow *firstRow = &vi.rows[0];
     ASSERT_EQ("[\"Argentina\",\"\",\"Mendoza\"]", firstRow->key);
     ASSERT_EQ("1", firstRow->value);
     ASSERT_EQ("cervecera_jerome", firstRow->docid);
 
     // try with grouplevel
     vi.clear();
-    memset(&vq, 0, sizeof vq);
-    lcb_view_query_initcmd(&vq, "beer", "by_location", "group_level=1", viewCallback);
-    rc = lcb_view_query(instance, &vi, &vq);
+    optstr = "group_level=1";
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_design_document(vq, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(vq, view, strlen(view));
+    lcb_cmdview_option_string(vq, optstr, strlen(optstr));
+    lcb_cmdview_callback(vq, viewCallback);
+    lcb_cmdview_include_docs(vq, true);
+    rc = lcb_view(instance, &vi, vq);
+    lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
 
@@ -322,34 +410,54 @@ TEST_F(ViewsUnitTest, testReduce) {
     ASSERT_TRUE(firstRow->docid.empty());
 }
 
-TEST_F(ViewsUnitTest, testEngineErrors) {
+TEST_F(ViewsUnitTest, testEngineErrors)
+{
     SKIP_UNLESS_MOCK();
     // Tests various things which can go wrong; basically negative responses
     HandleWrap hw;
-    lcb_t instance;
-    connectBeerSample(hw, instance);
-    lcb_error_t rc;
+    lcb_INSTANCE *instance;
+    connectBeerSample(hw, &instance);
+    lcb_STATUS rc;
 
+    const char *ddoc = "nonexist", *view = "nonexist";
     ViewInfo vi;
-    lcb_CMDVIEWQUERY cmd = { 0 };
-    lcb_view_query_initcmd(&cmd, "nonexist", "nonexist", NULL, viewCallback);
-    rc = lcb_view_query(instance, &vi, &cmd);
+    lcb_CMDVIEW *cmd;
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_design_document(cmd, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(cmd, view, strlen(view));
+    lcb_cmdview_callback(cmd, viewCallback);
+    rc = lcb_view(instance, &vi, cmd);
+    lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(LCB_HTTP_ERROR, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
     vi.clear();
-    lcb_view_query_initcmd(&cmd, "beer", "badview", NULL, viewCallback);
-    rc = lcb_view_query(instance, &vi, &cmd);
+    ddoc = "beer";
+    view = "badview";
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_design_document(cmd, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(cmd, view, strlen(view));
+    lcb_cmdview_callback(cmd, viewCallback);
+    rc = lcb_view(instance, &vi, cmd);
+    lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(LCB_HTTP_ERROR, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
     vi.clear();
-    lcb_view_query_initcmd(&cmd, "beer", "brewery_beers", "reduce=true", viewCallback);
-    rc = lcb_view_query(instance, &vi, &cmd);
+    ddoc = "beer";
+    view = "brewery_beers";
+    const char *optstr = "reduce=true";
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_design_document(cmd, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(cmd, view, strlen(view));
+    lcb_cmdview_option_string(cmd, optstr, strlen(optstr));
+    lcb_cmdview_callback(cmd, viewCallback);
+    rc = lcb_view(instance, &vi, cmd);
+    lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(LCB_HTTP_ERROR, vi.err);
@@ -359,45 +467,61 @@ TEST_F(ViewsUnitTest, testEngineErrors) {
 TEST_F(ViewsUnitTest, testOptionValidation)
 {
     HandleWrap hw;
-    lcb_t instance;
-    connectBeerSample(hw, instance);
+    lcb_INSTANCE *instance;
+    connectBeerSample(hw, &instance);
 
-    lcb_CMDVIEWQUERY cmd = { 0 };
-    ASSERT_EQ(LCB_EINVAL, lcb_view_query(instance, NULL, &cmd));
+    lcb_CMDVIEW *cmd;
+    lcb_cmdview_create(&cmd);
+    ASSERT_EQ(LCB_EINVAL, lcb_view(instance, NULL, cmd));
+    lcb_cmdview_destroy(cmd);
 
-    cmd.callback = viewCallback;
-    ASSERT_EQ(LCB_EINVAL, lcb_view_query(instance, NULL, &cmd));
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_callback(cmd, viewCallback);
+    ASSERT_EQ(LCB_EINVAL, lcb_view(instance, NULL, cmd));
+    lcb_cmdview_destroy(cmd);
 
-    cmd.view = "view";
-    cmd.nview = strlen("view");
-    ASSERT_EQ(LCB_EINVAL, lcb_view_query(instance, NULL, &cmd));
+    const char *view = "view";
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_callback(cmd, viewCallback);
+    lcb_cmdview_view_name(cmd, view, strlen(view));
+    ASSERT_EQ(LCB_EINVAL, lcb_view(instance, NULL, cmd));
+    lcb_cmdview_destroy(cmd);
 
-    cmd.ddoc = "design";
-    cmd.nddoc = strlen("design");
-
+    const char *ddoc = "design";
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_callback(cmd, viewCallback);
+    lcb_cmdview_view_name(cmd, view, strlen(view));
+    lcb_cmdview_design_document(cmd, ddoc, strlen(ddoc));
     // Expect it to fail with flags
-    cmd.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    cmd.cmdflags |= LCB_CMDVIEWQUERY_F_NOROWPARSE;
-    ASSERT_EQ(LCB_OPTIONS_CONFLICT, lcb_view_query(instance, NULL, &cmd));
+    lcb_cmdview_include_docs(cmd, true);
+    lcb_cmdview_no_row_parse(cmd, true);
+    ASSERT_EQ(LCB_OPTIONS_CONFLICT, lcb_view(instance, NULL, cmd));
+    lcb_cmdview_destroy(cmd);
 }
 
 TEST_F(ViewsUnitTest, testBackslashDocid)
 {
     SKIP_UNLESS_MOCK();
     HandleWrap hw;
-    lcb_t instance;
-    lcb_error_t rc;
-    connectBeerSample(hw, instance);
+    lcb_INSTANCE *instance;
+    lcb_STATUS rc;
+    connectBeerSample(hw, &instance);
 
     string key("backslash\\docid");
     string doc("{\"type\":\"brewery\", \"name\":\"Backslash IPA\"}");
     storeKey(instance, key, doc);
 
-    ViewInfo vi;
-    lcb_CMDVIEWQUERY cmd = { 0 };
+    const char *ddoc = "beer", *view = "brewery_beers", *optstr = "stale=false&key=[\"backslash\\\\docid\"]";
 
-    lcb_view_query_initcmd(&cmd, "beer", "brewery_beers", "stale=false&key=[\"backslash\\\\docid\"]", viewCallback);
-    rc = lcb_view_query(instance, &vi, &cmd);
+    ViewInfo vi;
+    lcb_CMDVIEW *cmd;
+
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_callback(cmd, viewCallback);
+    lcb_cmdview_design_document(cmd, ddoc, strlen(ddoc));
+    lcb_cmdview_view_name(cmd, view, strlen(view));
+    lcb_cmdview_option_string(cmd, optstr, strlen(optstr));
+    rc = lcb_view(instance, &vi, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(LCB_SUCCESS, vi.err);
@@ -405,8 +529,8 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     ASSERT_EQ(key, vi.rows[0].docid);
 
     vi.clear();
-    cmd.cmdflags = LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    rc = lcb_view_query(instance, &vi, &cmd);
+    lcb_cmdview_include_docs(cmd, true);
+    rc = lcb_view(instance, &vi, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(1, vi.rows.size());
@@ -414,9 +538,10 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
 
     removeKey(instance, key);
     vi.clear();
-    rc = lcb_view_query(instance, &vi, &cmd);
+    rc = lcb_view(instance, &vi, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(0, vi.rows.size());
+    lcb_cmdview_destroy(cmd);
 }
-}
+} // namespace

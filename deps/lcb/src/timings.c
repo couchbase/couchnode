@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2015 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -54,24 +54,19 @@ struct lcb_histogram_st {
 };
 
 LCB_INTERNAL_API
-lcb_HISTOGRAM *
-lcb_histogram_create(void)
+lcb_HISTOGRAM *lcb_histogram_create(void)
 {
     return calloc(1, sizeof(lcb_HISTOGRAM));
 }
 
 LCB_INTERNAL_API
-void
-lcb_histogram_destroy(lcb_HISTOGRAM *hg)
+void lcb_histogram_destroy(lcb_HISTOGRAM *hg)
 {
     free(hg);
 }
 
-
 LCB_INTERNAL_API
-void
-lcb_histogram_read(const lcb_HISTOGRAM *hg,
-    const void *cookie, lcb_HISTOGRAM_CALLBACK callback)
+void lcb_histogram_read(const lcb_HISTOGRAM *hg, const void *cookie, lcb_HISTOGRAM_CALLBACK callback)
 {
     lcb_U32 max, start, ii, end;
 
@@ -124,12 +119,10 @@ lcb_histogram_read(const lcb_HISTOGRAM *hg,
     }
 }
 
-static void
-default_timings_callback(const void *cookie,
-                         lcb_timeunit_t timeunit,
-                         lcb_uint32_t min_val, lcb_uint32_t max_val,
-                         lcb_uint32_t total, lcb_uint32_t maxtotal) {
-    FILE* stream = (FILE*)cookie;
+static void default_timings_callback(const void *cookie, lcb_timeunit_t timeunit, lcb_uint32_t min_val,
+                                     lcb_uint32_t max_val, lcb_uint32_t total, lcb_uint32_t maxtotal)
+{
+    FILE *stream = (FILE *)cookie;
     const char *unit = NULL;
     int ii;
     int num_hash;
@@ -157,17 +150,14 @@ default_timings_callback(const void *cookie,
     fprintf(stream, " - %u\n", total);
 }
 
-
 LCB_INTERNAL_API
-void lcb_histogram_print(lcb_HISTOGRAM* hg, FILE* stream)
+void lcb_histogram_print(lcb_HISTOGRAM *hg, FILE *stream)
 {
     lcb_histogram_read(hg, stream, default_timings_callback);
 }
 
-
 LCB_INTERNAL_API
-void
-lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)
+void lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)
 {
     lcb_U32 num;
 
@@ -179,19 +169,19 @@ lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)
     } else if (delta < LCB_US2NS(1000)) {
         /* micros */
         delta /= LCB_US2NS(1);
-        if ((num = ++hg->usec[delta/10]) > hg->max) {
+        if ((num = ++hg->usec[delta / 10]) > hg->max) {
             hg->max = num;
         }
     } else if (delta < LCB_US2NS(10000)) {
         /* 1-10ms */
         delta /= LCB_US2NS(1);
         assert(delta <= 10000);
-        if ((num = ++hg->lt10msec[delta/100]) > hg->max) {
+        if ((num = ++hg->lt10msec[delta / 100]) > hg->max) {
             hg->max = num;
         }
     } else if (delta < LCB_S2NS(1)) {
         delta /= LCB_US2NS(1000);
-        if ((num = ++hg->msec[delta/10]) > hg->max) {
+        if ((num = ++hg->msec[delta / 10]) > hg->max) {
             hg->max = num;
         }
     } else {

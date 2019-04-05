@@ -3,7 +3,8 @@
 #include <libcouchbase/couchbase.h>
 #include "n1ql/n1ql-internal.h"
 
-class N1qLStringTests : public ::testing::Test {
+class N1qLStringTests : public ::testing::Test
+{
 };
 
 TEST_F(N1qLStringTests, testParseTimeout)

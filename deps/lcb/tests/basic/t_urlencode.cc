@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ class UrlEncoding : public ::testing::Test
 {
 };
 
-using lcb::strcodecs::urlencode;
 using lcb::strcodecs::urldecode;
+using lcb::strcodecs::urlencode;
 
 TEST_F(UrlEncoding, plainTextTests)
 {
@@ -124,7 +124,9 @@ TEST_F(UrlEncoding, testDecode)
 
     ASSERT_TRUE(urldecode("%FFFF", obuf)) << "Recognize only first two hex digits";
     // Split the hex literal so we don't confuse the preprocessor
-    ASSERT_STREQ("\xff" "FF", obuf);
+    ASSERT_STREQ("\xff"
+                 "FF",
+                 obuf);
 
     // Error tests
     ASSERT_FALSE(urldecode("%", obuf));

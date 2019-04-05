@@ -170,6 +170,9 @@ function _startMock(mockpath, options, callback) {
         break;
       }
     });
+    socket.on('error', function(err) {
+      // console.log('mocksock err', err);
+    });
     socket.command = function(cmdName, payload, callback) {
       if (callback === undefined) {
         callback = payload;
@@ -186,7 +189,7 @@ function _startMock(mockpath, options, callback) {
     socket.close = function() {
       socket.end();
     };
-    console.log('got server connection');
+    console.log('got mock server connection');
   });
   server.on('error', function(err) {
     callback(err);
@@ -226,13 +229,12 @@ function _startMock(mockpath, options, callback) {
       return;
     });
     mockproc.stderr.on('data', function(data) {
-      //console.log('mockerr: ' + data.toString());
+      //console.log('mockproc err: ' + data.toString());
     });
     mockproc.on('close', function(code) {
       if (code !== 0 && code !== 1) {
         console.log('mock closed with non-zero exit code: ' + code);
       }
-      mockproc.close();
       server.close();
     });
 

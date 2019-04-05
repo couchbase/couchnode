@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2012 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ hrtime_t gethrtime(void)
      * https://developer.apple.com/library/mac/qa/qa1398/_index.html */
 
     static uint64_t start = 0;
-    uint64_t now ;
+    uint64_t now;
     static mach_timebase_info_data_t tmbi;
 
     if (start == 0) {
@@ -79,7 +79,7 @@ hrtime_t gethrtime(void)
     // gethrtime should be called in a global static variable first.
     // It will guarantee the local static variable will be initialized
     // before any thread calls the function.
-    static LARGE_INTEGER pf = { 0 };
+    static LARGE_INTEGER pf = {0};
     static double freq;
     LARGE_INTEGER currtime;
 
@@ -91,7 +91,7 @@ hrtime_t gethrtime(void)
 
     QueryPerformanceCounter(&currtime);
 
-    ret = (double)currtime.QuadPart * freq ;
+    ret = (double)currtime.QuadPart * freq;
     return (hrtime_t)ret + CLOCK_START_OFFSET;
 #else
 #error "I don't know how to build a highres clock..."
@@ -104,6 +104,7 @@ hrtime_t gethrtime(void)
  */
 
 LCB_INTERNAL_API
-lcb_U64 lcb_nstime(void) {
+lcb_U64 lcb_nstime(void)
+{
     return gethrtime();
 }

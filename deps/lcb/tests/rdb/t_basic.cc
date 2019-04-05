@@ -1,6 +1,25 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2011-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "rdbtest.h"
 
-class RopeTest : public ::testing::Test {};
+class RopeTest : public ::testing::Test
+{
+};
 using std::string;
 
 TEST_F(RopeTest, testBasic)
@@ -41,7 +60,7 @@ TEST_F(RopeTest, testFragmented)
     ASSERT_EQ(hello.size(), rope.usedSize());
 
     // Now we should be able to extract it properly
-    char tmpbuf[32] = { 0 };
+    char tmpbuf[32] = {0};
     rdb_copyread(&rope, tmpbuf, hello.size());
     ASSERT_STREQ(tmpbuf, hello.c_str());
 
@@ -66,7 +85,7 @@ TEST_F(RopeTest, testFragmented)
     ASSERT_STREQ(tmpbuf, hello.c_str());
 
     nitems = rdb_refread_ex(&rope, iovs2, backs, 32, hello.size());
-    ASSERT_EQ(hello.size()-4, nitems);
+    ASSERT_EQ(hello.size() - 4, nitems);
 }
 
 // This tests the functionality where we want _subsequent_ reads to be
@@ -94,7 +113,6 @@ TEST_F(RopeTest, testConsolidatedReadAhead)
     ASSERT_EQ(*(char *)iovs[1].iov_base, '7');
     ASSERT_EQ(*(char *)iovs[2].iov_base, '8');
 }
-
 
 // When I was integrating this into LCBIO, I realized this scenario. Trying to
 // figure out what the intended outcome is.

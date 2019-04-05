@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -36,9 +36,10 @@ struct lcb_settings_st;
  * body.
  */
 
-namespace lcb {
-namespace htparse {
-
+namespace lcb
+{
+namespace htparse
+{
 
 struct MimeHeader {
     std::string key;
@@ -46,7 +47,8 @@ struct MimeHeader {
 };
 
 struct Response {
-    void clear() {
+    void clear()
+    {
         status = 0;
         state = 0;
         headers.clear();
@@ -61,7 +63,7 @@ struct Response {
      * empty string will be returned. If the header does not exist NULL will be
      * returned.
      */
-    const MimeHeader* get_header(const std::string& key) const;
+    const MimeHeader *get_header(const std::string &key) const;
 
     /**
      * Get a header value for a key
@@ -70,7 +72,8 @@ struct Response {
      * empty string will be returned. If the header does not exist NULL will be
      * returned.
      */
-    const char *get_header_value(const std::string& key) const {
+    const char *get_header_value(const std::string &key) const
+    {
         const MimeHeader *header = get_header(key);
         if (header) {
             return header->value.c_str();
@@ -80,27 +83,28 @@ struct Response {
 
     unsigned short status; /**< HTTP Status code */
     unsigned state;
-    typedef std::list<MimeHeader> HeaderList;
+    typedef std::list< MimeHeader > HeaderList;
     HeaderList headers;
     std::string body; /**< Body */
 };
 
-class Parser : private http_parser {
-public:
+class Parser : private http_parser
+{
+  public:
     /**
      * Initialize the parser object
      * @param settings the settings structure used for logging
      */
-    Parser(lcb_settings_st*);
+    Parser(lcb_settings_st *);
     ~Parser();
 
     /** Response state */
     enum State {
         S_NONE = 0,
         S_HTSTATUS = 1 << 0, /**< Have HTTP status */
-        S_HEADER = 1 << 1, /**< Have HTTP header */
-        S_BODY = 1 << 2, /**< Have HTTP body */
-        S_DONE = 1 << 3, /**< Have a full message */
+        S_HEADER = 1 << 1,   /**< Have HTTP header */
+        S_BODY = 1 << 2,     /**< Have HTTP body */
+        S_DONE = 1 << 3,     /**< Have a full message */
 
         /**Have a parse error. Note this is not the same as a HTTP error */
         S_ERROR = 1 << 4
@@ -156,15 +160,15 @@ public:
      * } while (!(res & Parser::S_DONE));
      * @endcode
      */
-    unsigned parse_ex(const void *data, unsigned ndata,
-                      unsigned* nused, unsigned *nbody, const char **pbody);
+    unsigned parse_ex(const void *data, unsigned ndata, unsigned *nused, unsigned *nbody, const char **pbody);
 
     /**
      * Obtain the current response being processed.
      * @return a reference to a response object. The response object is only valid
      * until the next call into another parser API
      */
-    Response& get_cur_response() {
+    Response &get_cur_response()
+    {
         return resp;
     }
 
@@ -183,18 +187,16 @@ public:
     inline int on_body(const char *, size_t);
     inline int on_msg_done();
 
-    static Parser* from_htp(http_parser *p) {
-        return static_cast<Parser*>(p);
+    static Parser *from_htp(http_parser *p)
+    {
+        return static_cast< Parser * >(p);
     }
 
-private:
+  private:
     Response resp;
     lcb_settings_st *settings;
 
-    enum last_call_type {
-        CB_NONE, CB_HDR_KEY, CB_HDR_VALUE,
-        CB_HDR_DONE, CB_BODY, CB_MSG_DONE
-    };
+    enum last_call_type { CB_NONE, CB_HDR_KEY, CB_HDR_VALUE, CB_HDR_DONE, CB_BODY, CB_MSG_DONE };
     last_call_type lastcall;
 
     /* For parse_ex */

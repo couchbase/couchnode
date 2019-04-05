@@ -23,7 +23,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
 # These variables can be modified as needed
 
 # Couchbase mock path to download
-SET(COUCHBASE_MOCK_VERSION 1.5.19)
+SET(COUCHBASE_MOCK_VERSION 1.5.22)
 SET(COUCHBASE_MOCK_URL "https://github.com/couchbase/CouchbaseMock/releases/download/${COUCHBASE_MOCK_VERSION}/CouchbaseMock-${COUCHBASE_MOCK_VERSION}.jar")
 project(libcouchbase)
 
@@ -44,7 +44,6 @@ OPTION(LCB_BUILD_DTRACE "Build DTrace instrumentation, if available on platform"
 OPTION(LCB_EMBED_PLUGIN_LIBEVENT "Embed the libevent plugin" OFF)
 OPTION(LCB_STATIC_LIBEVENT "Link static libevent (only applicable if EMBED_PLUGIN_LIBEVENT is ON" OFF)
 OPTION(LCB_USE_HDR_HISTOGRAM "Use HdrHistogram for statistics recording" OFF)
-OPTION(LCB_TRACING "Enable builtin tracing" ON)
 OPTION(LCB_INSTALL_HEADERS "Install header files" ON)
 OPTION(LCB_INSTALL_PKGCONFIG "Install pkgconfig/libcouchbase.pc" ON)
 OPTION(LCB_DUMP_PACKETS "Enable dumping network packets on TRACE log level" OFF)

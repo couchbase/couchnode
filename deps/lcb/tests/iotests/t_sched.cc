@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016 Couchbase, Inc.
+ *     Copyright 2016-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ class SchedUnitTests : public MockUnitTest
 {
 };
 
-static bool
-hasPendingOps(lcb_t instance)
+static bool hasPendingOps(lcb_INSTANCE *instance)
 {
     for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ++ii) {
         if (instance->get_server(ii)->has_pending()) {
@@ -35,36 +34,36 @@ hasPendingOps(lcb_t instance)
     return false;
 }
 
-static void
-opCallback(lcb_t, int, const lcb_RESPBASE *rb) {
-    size_t *counter = reinterpret_cast<size_t*>(rb->cookie);
+static void opCallback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
+{
+    size_t *counter = reinterpret_cast< size_t * >(rb->cookie);
     *counter += 1;
 }
 
 TEST_F(SchedUnitTests, testSched)
 {
     HandleWrap hw;
-    lcb_t instance;
-    lcb_error_t rc;
+    lcb_INSTANCE *instance;
+    lcb_STATUS rc;
     size_t counter;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
     lcb_install_callback3(instance, LCB_CALLBACK_STORE, opCallback);
 
-    // lcb_store3
-    lcb_CMDSTORE scmd = { 0 };
-    LCB_CMD_SET_KEY(&scmd, "key", 3);
-    LCB_CMD_SET_VALUE(&scmd, "val", 3);
-    scmd.operation = LCB_SET;
+    // lcb_store
+    lcb_CMDSTORE *scmd;
+    lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+    lcb_cmdstore_key(scmd, "key", 3);
+    lcb_cmdstore_value(scmd, "val", 3);
 
-    rc = lcb_store3(instance, &counter, &scmd);
+    rc = lcb_store(instance, &counter, scmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     ASSERT_TRUE(hasPendingOps(instance));
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     ASSERT_FALSE(hasPendingOps(instance));
 
     lcb_sched_enter(instance);
-    rc = lcb_store3(instance, &counter, &scmd);
+    rc = lcb_store(instance, &counter, scmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     ASSERT_FALSE(hasPendingOps(instance));
     lcb_sched_leave(instance);
@@ -75,13 +74,15 @@ TEST_F(SchedUnitTests, testSched)
     // Try with multiple operations..
     counter = 0;
     for (size_t ii = 0; ii < 5; ++ii) {
-        rc = lcb_store3(instance, &counter, &scmd);
+        rc = lcb_store(instance, &counter, scmd);
     }
 
     ASSERT_TRUE(hasPendingOps(instance));
     lcb_sched_enter(instance);
-    rc = lcb_store3(instance, &counter, &scmd);
+    rc = lcb_store(instance, &counter, scmd);
     lcb_sched_fail(instance);
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     ASSERT_EQ(5, counter);
+
+    lcb_cmdstore_destroy(scmd);
 }

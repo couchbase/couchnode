@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@
 
 #define MAXIMUM(a, b) (a) > (b) ? a : b
 
-static void
-alloc_decref(rdb_ALLOCATOR *abase)
+static void alloc_decref(rdb_ALLOCATOR *abase)
 {
     lcb_list_t *llcur, *llnext;
     rdb_BIGALLOC *alloc = (rdb_BIGALLOC *)abase;
@@ -31,7 +30,8 @@ alloc_decref(rdb_ALLOCATOR *abase)
         return;
     }
 
-    LCB_LIST_SAFE_FOR(llcur, llnext, (lcb_list_t *)&alloc->bufs) {
+    LCB_LIST_SAFE_FOR(llcur, llnext, (lcb_list_t *)&alloc->bufs)
+    {
         rdb_ROPESEG *seg = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
         lcb_clist_delete(&alloc->bufs, &seg->llnode);
         free(seg->root);
@@ -40,8 +40,7 @@ alloc_decref(rdb_ALLOCATOR *abase)
     free(alloc);
 }
 
-static void
-recheck_thresholds(rdb_BIGALLOC *alloc)
+static void recheck_thresholds(rdb_BIGALLOC *alloc)
 {
     if (++alloc->n_requests % RDB_BIGALLOC_RECHECK_RATE) {
         return;
@@ -56,12 +55,12 @@ recheck_thresholds(rdb_BIGALLOC *alloc)
 
     } else if (alloc->n_toobig > alloc->n_toosmall) {
         /* seems we need to allocate bigger chunks? */
-        if (alloc->n_toobig*2 > alloc->n_toosmall) {
+        if (alloc->n_toobig * 2 > alloc->n_toosmall) {
             alloc->min_blk_alloc *= 2;
             alloc->max_blk_alloc *= 2;
         }
     } else if (alloc->n_toosmall > alloc->n_toobig) {
-        if (alloc->n_toosmall*2 > alloc->n_toobig) {
+        if (alloc->n_toosmall * 2 > alloc->n_toobig) {
             alloc->min_blk_alloc /= 2;
             alloc->max_blk_alloc /= 2;
         }
@@ -72,8 +71,7 @@ recheck_thresholds(rdb_BIGALLOC *alloc)
     alloc->n_toosmall = 0;
 }
 
-static rdb_ROPESEG *
-seg_alloc(rdb_ALLOCATOR *abase, unsigned size)
+static rdb_ROPESEG *seg_alloc(rdb_ALLOCATOR *abase, unsigned size)
 {
     lcb_list_t *llcur;
     rdb_ROPESEG *newseg = NULL;
@@ -95,7 +93,8 @@ seg_alloc(rdb_ALLOCATOR *abase, unsigned size)
         alloc->n_toosmall++;
     }
 
-    LCB_LIST_FOR(llcur, (lcb_list_t *)&alloc->bufs) {
+    LCB_LIST_FOR(llcur, (lcb_list_t *)&alloc->bufs)
+    {
         rdb_ROPESEG *cur = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
         if (cur->nalloc < size) {
             continue;
@@ -118,14 +117,14 @@ seg_alloc(rdb_ALLOCATOR *abase, unsigned size)
         }
 
         while (newsize < size) {
-            newsize = (unsigned) ((double)newsize * 1.5);
+            newsize = (unsigned)((double)newsize * 1.5);
         }
 
         newseg->root = malloc(newsize);
         newseg->nalloc = newsize;
     }
 
-    GT_RETNEW:
+GT_RETNEW:
     newseg->shflags = RDB_ROPESEG_F_LIB;
     newseg->allocator = abase;
     newseg->allocid = RDB_ALLOCATOR_CHUNKED;
@@ -135,8 +134,7 @@ seg_alloc(rdb_ALLOCATOR *abase, unsigned size)
     return newseg;
 }
 
-static void
-buf_reserve(rdb_pALLOCATOR abase, rdb_ROPEBUF *buf, unsigned size)
+static void buf_reserve(rdb_pALLOCATOR abase, rdb_ROPEBUF *buf, unsigned size)
 {
     rdb_BIGALLOC *alloc = (rdb_BIGALLOC *)abase;
     rdb_ROPESEG *newseg, *lastseg;
@@ -150,8 +148,7 @@ buf_reserve(rdb_pALLOCATOR abase, rdb_ROPEBUF *buf, unsigned size)
     lcb_list_append(&buf->segments, &newseg->llnode);
 }
 
-static rdb_ROPESEG *
-seg_realloc(rdb_ALLOCATOR *abase, rdb_ROPESEG *seg, unsigned size)
+static rdb_ROPESEG *seg_realloc(rdb_ALLOCATOR *abase, rdb_ROPESEG *seg, unsigned size)
 {
     rdb_BIGALLOC *alloc = (rdb_BIGALLOC *)abase;
 
@@ -168,13 +165,11 @@ seg_realloc(rdb_ALLOCATOR *abase, rdb_ROPESEG *seg, unsigned size)
     return seg;
 }
 
-static void
-seg_release(rdb_ALLOCATOR *abase, rdb_ROPESEG *seg)
+static void seg_release(rdb_ALLOCATOR *abase, rdb_ROPESEG *seg)
 {
     rdb_BIGALLOC *alloc = (rdb_BIGALLOC *)abase;
-    if (LCB_CLIST_SIZE(&alloc->bufs) >= alloc->max_blk_count ||
-            seg->nalloc > alloc->max_blk_alloc ||
-            seg->nalloc < alloc->min_blk_alloc) {
+    if (LCB_CLIST_SIZE(&alloc->bufs) >= alloc->max_blk_count || seg->nalloc > alloc->max_blk_alloc ||
+        seg->nalloc < alloc->min_blk_alloc) {
         free(seg->root);
         free(seg);
     } else {
@@ -183,11 +178,12 @@ seg_release(rdb_ALLOCATOR *abase, rdb_ROPESEG *seg)
     alloc_decref(abase);
 }
 
-static void
-dump_wrap(rdb_pALLOCATOR alloc, FILE *fp) { rdb_bigalloc_dump((rdb_BIGALLOC*)alloc, fp); }
+static void dump_wrap(rdb_pALLOCATOR alloc, FILE *fp)
+{
+    rdb_bigalloc_dump((rdb_BIGALLOC *)alloc, fp);
+}
 
-rdb_ALLOCATOR *
-rdb_bigalloc_new(void)
+rdb_ALLOCATOR *rdb_bigalloc_new(void)
 {
     rdb_ALLOCATOR *abase;
     rdb_BIGALLOC *alloc = calloc(1, sizeof(*alloc));
@@ -207,8 +203,7 @@ rdb_bigalloc_new(void)
     return &alloc->base;
 }
 
-void
-rdb_bigalloc_dump(rdb_BIGALLOC *alloc, FILE *fp)
+void rdb_bigalloc_dump(rdb_BIGALLOC *alloc, FILE *fp)
 {
     static const char *indent = "  ";
     fprintf(fp, "BIGALLOC @%p\n", (void *)alloc);
@@ -221,5 +216,4 @@ rdb_bigalloc_dump(rdb_BIGALLOC *alloc, FILE *fp)
     fprintf(fp, "%sTotalRequests: %u\n", indent, alloc->total_requests);
     fprintf(fp, "%sTotalToobig: %u\n", indent, alloc->total_toobig);
     fprintf(fp, "%sTotalToosmall: %u\n", indent, alloc->total_toosmall);
-
 }

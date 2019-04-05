@@ -799,7 +799,7 @@ probe libcouchbase.http.end =
 }
 
 /**
- * probe libcouchbase.config.new - new configuration applied to the lcb_t instance
+ * probe libcouchbase.config.new - new configuration applied to the lcb_INSTANCE * instance
  *
  * @lcb: client instance
  * @revid: configuration revision

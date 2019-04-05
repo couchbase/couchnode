@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016 Couchbase, Inc.
+ *     Copyright 2016-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -28,65 +28,55 @@
 #include "hdr_histogram.h"
 
 struct lcb_histogram_st {
-    struct hdr_histogram* hdr_histogram;
+    struct hdr_histogram *hdr_histogram;
 };
 
 LCB_INTERNAL_API
-lcb_HISTOGRAM *
-lcb_histogram_create(void)
+lcb_HISTOGRAM *lcb_histogram_create(void)
 {
-    lcb_HISTOGRAM* histo = calloc(1, sizeof(struct lcb_histogram_st));
+    lcb_HISTOGRAM *histo = calloc(1, sizeof(struct lcb_histogram_st));
 
     if (histo != NULL) {
         hdr_init(/* minimum - 1 ns*/ 1,
                  /* maximum - 30 s*/ 30e9,
-                 /* s   ignificant figures */3,
-                 &histo->hdr_histogram);
+                 /* s   ignificant figures */ 3, &histo->hdr_histogram);
     }
 
     return histo;
 }
 
 LCB_INTERNAL_API
-void
-lcb_histogram_destroy(lcb_HISTOGRAM *hg)
+void lcb_histogram_destroy(lcb_HISTOGRAM *hg)
 {
     free(hg->hdr_histogram);
     free(hg);
 }
 
 LCB_INTERNAL_API
-void
-lcb_histogram_read(const lcb_HISTOGRAM *hg,
-    const void *cookie, lcb_HISTOGRAM_CALLBACK callback)
+void lcb_histogram_read(const lcb_HISTOGRAM *hg, const void *cookie, lcb_HISTOGRAM_CALLBACK callback)
 {
     struct hdr_iter iter;
     hdr_iter_recorded_init(&iter, hg->hdr_histogram);
 
     while (hdr_iter_next(&iter)) {
-        callback(cookie, LCB_TIMEUNIT_NSEC,
-                 iter.value_iterated_from, iter.value_iterated_to,
-                 iter.count,
+        callback(cookie, LCB_TIMEUNIT_NSEC, iter.value_iterated_from, iter.value_iterated_to, iter.count,
                  hdr_max(hg->hdr_histogram));
-
     }
 }
 
 LCB_INTERNAL_API
-lcb_error_t lcb_histogram_print(lcb_HISTOGRAM* hg, FILE* stream) {
-    hdr_percentiles_print(
-        hg->hdr_histogram,
-        stream,
-        5,  // Granularity of printed values
-        1.0,  // Multiplier for results
-        CLASSIC);  // Format CLASSIC/CSV supported.
+lcb_STATUS lcb_histogram_print(lcb_HISTOGRAM *hg, FILE *stream)
+{
+    hdr_percentiles_print(hg->hdr_histogram, stream,
+                          5,        // Granularity of printed values
+                          1.0,      // Multiplier for results
+                          CLASSIC); // Format CLASSIC/CSV supported.
 
     return LCB_SUCCESS;
 }
 
 LCB_INTERNAL_API
-void
-lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)
+void lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)
 {
     hdr_record_value(hg->hdr_histogram, delta);
 }

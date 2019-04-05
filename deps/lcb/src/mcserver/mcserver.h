@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@
 #include <netbuf/netbuf.h>
 
 #ifdef __cplusplus
-namespace lcb {
+namespace lcb
+{
 
 class RetryQueue;
 struct RetryOp;
@@ -32,15 +33,16 @@ struct RetryOp;
 /**
  * The structure representing each couchbase server
  */
-class Server : public mc_PIPELINE {
-public:
+class Server : public mc_PIPELINE
+{
+  public:
     /**
      * Allocate and initialize a new server object. The object will not be
      * connected
      * @param instance the instance to which the server belongs
      * @param ix the server index in the configuration
      */
-    Server(lcb_t, int);
+    Server(lcb_INSTANCE *, int);
 
     /**
      * Close the server. The resources of the server may still continue to persist
@@ -67,54 +69,70 @@ public:
      * @note This function does not modify the server's socket or state in itself,
      * but rather simply wipes the commands from its queue
      */
-    void purge(lcb_error_t err) {
+    void purge(lcb_STATUS err)
+    {
         purge(err, 0, NULL, Server::REFRESH_NEVER);
     }
 
     /** Callback for mc_pipeline_fail_chain */
-    inline void purge_single(mc_PACKET*, lcb_error_t);
+    inline void purge_single(mc_PACKET *, lcb_STATUS);
 
     /**
      * Returns true or false depending on whether there are pending commands on
      * this server
      */
-    bool has_pending() const {
+    bool has_pending() const
+    {
         return !SLLIST_IS_EMPTY(&requests);
     }
 
-    int get_index() const {
+    int get_index() const
+    {
         return mc_PIPELINE::index;
     }
 
-    lcb_t get_instance() const {
+    lcb_INSTANCE *get_instance() const
+    {
         return instance;
     }
 
-    const lcb_settings* get_settings() const {
+    const lcb_settings *get_settings() const
+    {
         return settings;
     }
 
-    void set_new_index(int new_index) {
+    void set_new_index(int new_index)
+    {
         mc_PIPELINE::index = new_index;
     }
 
-    const lcb_host_t& get_host() const {
+    const lcb_host_t &get_host() const
+    {
         return *curhost;
     }
 
-    bool supports_mutation_tokens() const {
+    bool supports_mutation_tokens() const
+    {
         return mutation_tokens;
     }
 
-    bool supports_compression() const {
+    bool supports_compression() const
+    {
         return compsupport;
     }
 
-    bool supports_json() const {
+    bool supports_json() const
+    {
         return jsonsupport;
     }
 
-    bool is_connected() const {
+    bool supports_new_durability() const
+    {
+        return new_durability;
+    }
+
+    bool is_connected() const
+    {
         return connctx != NULL;
     }
 
@@ -136,7 +154,7 @@ public:
         S_ERRDRAIN,
 
         /* The server object has been closed, either because it has been removed
-         * from the cluster or because the related lcb_t has been destroyed.
+         * from the cluster or because the related lcb_INSTANCE *has been destroyed.
          */
         S_CLOSED,
 
@@ -146,11 +164,13 @@ public:
         S_TEMPORARY
     };
 
-    static Server* get(lcbio_CTX *ctx) {
-        return reinterpret_cast<Server*>(lcbio_ctx_data(ctx));
+    static Server *get(lcbio_CTX *ctx)
+    {
+        return reinterpret_cast< Server * >(lcbio_ctx_data(ctx));
     }
 
-    uint32_t default_timeout() const {
+    uint32_t default_timeout() const
+    {
         return settings->operation_timeout;
     }
 
@@ -159,37 +179,29 @@ public:
     bool check_closed();
     void start_errored_ctx(State next_state);
     void finalize_errored_ctx();
-    void socket_failed(lcb_error_t);
+    void socket_failed(lcb_STATUS);
     void io_timeout();
 
-    enum RefreshPolicy {
-        REFRESH_ALWAYS,
-        REFRESH_ONFAILED,
-        REFRESH_NEVER
-    };
+    enum RefreshPolicy { REFRESH_ALWAYS, REFRESH_ONFAILED, REFRESH_NEVER };
 
-    int purge(lcb_error_t error, hrtime_t thresh, hrtime_t *next,
-              RefreshPolicy policy);
+    int purge(lcb_STATUS error, hrtime_t thresh, hrtime_t *next, RefreshPolicy policy);
 
     void connect();
 
-    void handle_connected(lcbio_SOCKET *socket, lcb_error_t err, lcbio_OSERR syserr);
+    void handle_connected(lcbio_SOCKET *socket, lcb_STATUS err, lcbio_OSERR syserr);
 
-    enum ReadState {
-        PKT_READ_COMPLETE,
-        PKT_READ_PARTIAL,
-        PKT_READ_ABORT
-    };
+    enum ReadState { PKT_READ_COMPLETE, PKT_READ_PARTIAL, PKT_READ_ABORT };
 
     ReadState try_read(lcbio_CTX *ctx, rdb_IOROPE *ior);
-    int handle_unknown_error(const mc_PACKET *request,
-                             const MemcachedResponse& resinfo, lcb_error_t& newerr);
-    bool handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt);
-    bool maybe_retry_packet(mc_PACKET *pkt, lcb_error_t err);
-    bool maybe_reconnect_on_fake_timeout(lcb_error_t received_error);
+    int handle_unknown_error(const mc_PACKET *request, const MemcachedResponse &resinfo, lcb_STATUS &newerr);
+    bool handle_nmv(MemcachedResponse &resinfo, mc_PACKET *oldpkt);
+    bool handle_unknown_collection(MemcachedResponse &resinfo, mc_PACKET *oldpkt);
+
+    bool maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err);
+    bool maybe_reconnect_on_fake_timeout(lcb_STATUS received_error);
 
     /** Disable */
-    Server(const Server&);
+    Server(const Server &);
 
     State state;
 
@@ -197,7 +209,7 @@ public:
     lcbio_pTIMER io_timer;
 
     /** Pointer back to the instance */
-    lcb_t instance;
+    lcb_INSTANCE *instance;
 
     lcb_settings *settings;
 
@@ -210,12 +222,15 @@ public:
     /** Whether extended 'UUID' and 'seqno' are available for each mutation */
     short mutation_tokens;
 
+    /** Whether new durability is supported */
+    short new_durability;
+
     lcbio_CTX *connctx;
     lcb::io::ConnectionRequest *connreq;
 
     /** Request for current connection */
     lcb_host_t *curhost;
 };
-}
+} // namespace lcb
 #endif /* __cplusplus */
 #endif /* LCB_MCSERVER_H */

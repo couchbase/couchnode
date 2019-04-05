@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -25,8 +25,7 @@
 #include "rope.h"
 #include "list.h"
 
-static rdb_ROPESEG *
-seg_alloc(rdb_pALLOCATOR alloc, unsigned size)
+static rdb_ROPESEG *seg_alloc(rdb_pALLOCATOR alloc, unsigned size)
 {
     unsigned newsize;
     rdb_ROPESEG *ret;
@@ -41,8 +40,7 @@ seg_alloc(rdb_pALLOCATOR alloc, unsigned size)
     return ret;
 }
 
-static rdb_ROPESEG *
-seg_realloc(rdb_pALLOCATOR alloc, rdb_ROPESEG *seg, unsigned size)
+static rdb_ROPESEG *seg_realloc(rdb_pALLOCATOR alloc, rdb_ROPESEG *seg, unsigned size)
 {
     unsigned newsize = size + sizeof(*seg);
     seg = realloc(seg, newsize);
@@ -52,15 +50,13 @@ seg_realloc(rdb_pALLOCATOR alloc, rdb_ROPESEG *seg, unsigned size)
     return seg;
 }
 
-static void
-seg_free(rdb_pALLOCATOR alloc, rdb_ROPESEG *seg)
+static void seg_free(rdb_pALLOCATOR alloc, rdb_ROPESEG *seg)
 {
     (void)alloc;
     free(seg);
 }
 
-static void
-buf_reserve(rdb_pALLOCATOR alloc, rdb_ROPEBUF *buf, unsigned cap)
+static void buf_reserve(rdb_pALLOCATOR alloc, rdb_ROPEBUF *buf, unsigned cap)
 {
     rdb_ROPESEG *newseg, *lastseg;
     unsigned to_alloc;
@@ -77,18 +73,14 @@ buf_reserve(rdb_pALLOCATOR alloc, rdb_ROPEBUF *buf, unsigned cap)
     lcb_list_append(&buf->segments, &newseg->llnode);
 }
 
-static void release_noop(rdb_pALLOCATOR alloc) { (void)alloc; }
+static void release_noop(rdb_pALLOCATOR alloc)
+{
+    (void)alloc;
+}
 
-static rdb_ALLOCATOR lcalloc = {
-        buf_reserve,
-        seg_alloc,
-        seg_realloc,
-        seg_free,
-        release_noop
-};
+static rdb_ALLOCATOR lcalloc = {buf_reserve, seg_alloc, seg_realloc, seg_free, release_noop};
 
-rdb_ALLOCATOR *
-rdb_libcalloc_new(void)
+rdb_ALLOCATOR *rdb_libcalloc_new(void)
 {
     return &lcalloc;
 }

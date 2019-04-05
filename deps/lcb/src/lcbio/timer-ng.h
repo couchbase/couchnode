@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -100,15 +100,13 @@ typedef struct lcbio_TIMER {
  * @param callback
  * @return A new timer object. Destroy with lcbio_timer_destroy()
  */
-lcbio_TIMER *
-lcbio_timer_new(lcbio_pTABLE iot, void *data, lcbio_TIMER_cb callback);
+lcbio_TIMER *lcbio_timer_new(lcbio_pTABLE iot, void *data, lcbio_TIMER_cb callback);
 
 /**
  * @brief Release the memory allocated by the timers
  * @param tm the timer to free
  */
-void
-lcbio_timer_destroy(lcbio_TIMER *tm);
+void lcbio_timer_destroy(lcbio_TIMER *tm);
 
 /**
  * @brief Schedule the timer invocation
@@ -116,16 +114,14 @@ lcbio_timer_destroy(lcbio_TIMER *tm);
  * @param usec The number of microseconds (from now) in which the callback
  * should be invoked
  */
-void
-lcbio_timer_rearm(lcbio_TIMER *timer, uint32_t usec);
+void lcbio_timer_rearm(lcbio_TIMER *timer, uint32_t usec);
 
 /**
  * @brief Cancel a pending invocation
  * @param timer The timer
  * If no pending invocation is present, this does nothing
  */
-void
-lcbio_timer_disarm(lcbio_TIMER *timer);
+void lcbio_timer_disarm(lcbio_TIMER *timer);
 
 /**
  * @brief Schedule an asynchronous call
@@ -136,15 +132,13 @@ lcbio_timer_disarm(lcbio_TIMER *timer);
  * lcbio_timer_rearm(timer, 0);
  * @endcode
  */
-void
-lcbio_async_signal(lcbio_TIMER *timer);
+void lcbio_async_signal(lcbio_TIMER *timer);
 
 /**
  * @brief alias for lcbio_timer_disarm()
  * @param timer
  */
-void
-lcbio_async_cancel(lcbio_TIMER *timer);
+void lcbio_async_cancel(lcbio_TIMER *timer);
 
 /**
  * @brief Check if timer is armed
@@ -168,8 +162,7 @@ lcbio_async_cancel(lcbio_TIMER *timer);
  */
 #define lcbio_timer_set_target(timer, tgt) (timer)->callback = tgt
 
-void
-lcbio_timer_dump(lcbio_TIMER *timer, FILE *fp);
+void lcbio_timer_dump(lcbio_TIMER *timer, FILE *fp);
 
 /**@}*/
 

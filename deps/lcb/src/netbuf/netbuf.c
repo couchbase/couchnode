@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -44,23 +44,19 @@
 
 #define BLOCK_IS_EMPTY(block) ((block)->start == (block)->cursor)
 
-#define FIRST_BLOCK(pool) \
-    (SLLIST_ITEM(SLLIST_FIRST(&(pool)->active), nb_MBLOCK, slnode))
+#define FIRST_BLOCK(pool) (SLLIST_ITEM(SLLIST_FIRST(&(pool)->active), nb_MBLOCK, slnode))
 
-#define LAST_BLOCK(mgr) \
-    (SLLIST_ITEM((mgr)->active_blocks.last, nb_BLOCKHDR, slnode))
+#define LAST_BLOCK(mgr) (SLLIST_ITEM((mgr)->active_blocks.last, nb_BLOCKHDR, slnode))
 
-#define NEXT_BLOCK(block) \
-    (SLLIST_ITEM((block)->slnode.next, nb_BLOCKHDR, slnode))
+#define NEXT_BLOCK(block) (SLLIST_ITEM((block)->slnode.next, nb_BLOCKHDR, slnode))
 
-#define BLOCK_HAS_DEALLOCS(block) \
-    ((block)->deallocs && SLLIST_IS_EMPTY(&(block)->deallocs->pending))
+#define BLOCK_HAS_DEALLOCS(block) ((block)->deallocs && SLLIST_IS_EMPTY(&(block)->deallocs->pending))
 
 /** Static forward decls */
-static void mblock_release_data(nb_MBPOOL*,nb_MBLOCK*,nb_SIZE,nb_SIZE);
-static void mblock_release_ptr(nb_MBPOOL*,char*,nb_SIZE);
-static void mblock_init(nb_MBPOOL*);
-static void mblock_cleanup(nb_MBPOOL*);
+static void mblock_release_data(nb_MBPOOL *, nb_MBLOCK *, nb_SIZE, nb_SIZE);
+static void mblock_release_ptr(nb_MBPOOL *, char *, nb_SIZE);
+static void mblock_init(nb_MBPOOL *);
+static void mblock_cleanup(nb_MBPOOL *);
 static void mblock_wipe_block(nb_MBLOCK *block);
 
 /******************************************************************************
@@ -73,8 +69,7 @@ static void mblock_wipe_block(nb_MBLOCK *block);
  * Determines whether the block is allocated as a standalone block, or if it's
  * part of a larger allocation
  */
-static int
-mblock_is_standalone(nb_MBLOCK *block)
+static int mblock_is_standalone(nb_MBLOCK *block)
 {
     return block->parent == NULL;
 }
@@ -83,8 +78,7 @@ mblock_is_standalone(nb_MBLOCK *block)
  * Allocates a new block with at least the given capacity and places it
  * inside the active list.
  */
-static nb_MBLOCK*
-alloc_new_block(nb_MBPOOL *pool, nb_SIZE capacity)
+static nb_MBLOCK *alloc_new_block(nb_MBPOOL *pool, nb_SIZE capacity)
 {
     unsigned int ii;
     nb_MBLOCK *ret = NULL;
@@ -128,11 +122,11 @@ alloc_new_block(nb_MBPOOL *pool, nb_SIZE capacity)
  * Finds an available block within the available list. The block will have
  * room for at least capacity bytes.
  */
-static nb_MBLOCK*
-find_free_block(nb_MBPOOL *pool, nb_SIZE capacity)
+static nb_MBLOCK *find_free_block(nb_MBPOOL *pool, nb_SIZE capacity)
 {
     sllist_iterator iter;
-    SLLIST_ITERFOR(&pool->avail, &iter) {
+    SLLIST_ITERFOR(&pool->avail, &iter)
+    {
         nb_MBLOCK *cur = SLLIST_ITEM(iter.cur, nb_MBLOCK, slnode);
         if (cur->nalloc >= capacity) {
             sllist_iter_remove(&pool->avail, &iter);
@@ -150,12 +144,11 @@ find_free_block(nb_MBPOOL *pool, nb_SIZE capacity)
  * The block may either be popped from the available section or allocated
  * as a standalone depending on current constraints.
  */
-static int
-reserve_empty_block(nb_MBPOOL *pool, nb_SPAN *span)
+static int reserve_empty_block(nb_MBPOOL *pool, nb_SPAN *span)
 {
     nb_MBLOCK *block;
 
-    if ( (block = find_free_block(pool, span->size)) == NULL) {
+    if ((block = find_free_block(pool, span->size)) == NULL) {
         block = alloc_new_block(pool, span->size);
     }
 
@@ -181,8 +174,7 @@ reserve_empty_block(nb_MBPOOL *pool, nb_SPAN *span)
  * @return 0 if the active block had enough space and the span was initialized
  * and nonzero otherwise.
  */
-static int
-reserve_active_block(nb_MBLOCK *block, nb_SPAN *span)
+static int reserve_active_block(nb_MBLOCK *block, nb_SPAN *span)
 {
     if (BLOCK_HAS_DEALLOCS(block)) {
         return -1;
@@ -216,8 +208,7 @@ reserve_active_block(nb_MBLOCK *block, nb_SPAN *span)
     }
 }
 
-static int
-mblock_reserve_data(nb_MBPOOL *pool, nb_SPAN *span)
+static int mblock_reserve_data(nb_MBPOOL *pool, nb_SPAN *span)
 {
     nb_MBLOCK *block;
     int rv;
@@ -251,8 +242,7 @@ mblock_reserve_data(nb_MBPOOL *pool, nb_SPAN *span)
  ** Out-Of-Order Deallocation Functions                                      **
  ******************************************************************************
  ******************************************************************************/
-static void
-ooo_queue_dealoc(nb_MGR *mgr, nb_MBLOCK *block, nb_SPAN *span)
+static void ooo_queue_dealoc(nb_MGR *mgr, nb_MBLOCK *block, nb_SPAN *span)
 {
     nb_QDEALLOC *qd;
     nb_DEALLOC_QUEUE *queue;
@@ -285,8 +275,7 @@ ooo_queue_dealoc(nb_MGR *mgr, nb_MBLOCK *block, nb_SPAN *span)
     sllist_append(&queue->pending, &qd->slnode);
 }
 
-static INLINE void
-maybe_unwrap_block(nb_MBLOCK *block)
+static INLINE void maybe_unwrap_block(nb_MBLOCK *block)
 {
     if (!BLOCK_IS_EMPTY(block) && block->start == block->wrap) {
         block->wrap = block->cursor;
@@ -294,14 +283,14 @@ maybe_unwrap_block(nb_MBLOCK *block)
     }
 }
 
-static void
-ooo_apply_dealloc(nb_MBLOCK *block)
+static void ooo_apply_dealloc(nb_MBLOCK *block)
 {
     nb_SIZE min_next = -1;
     sllist_iterator iter;
     nb_DEALLOC_QUEUE *queue = block->deallocs;
 
-    SLLIST_ITERFOR(&queue->pending, &iter) {
+    SLLIST_ITERFOR(&queue->pending, &iter)
+    {
         nb_QDEALLOC *cur = SLLIST_ITEM(iter.cur, nb_QDEALLOC, slnode);
         if (cur->offset == block->start) {
             block->start += cur->size;
@@ -316,10 +305,7 @@ ooo_apply_dealloc(nb_MBLOCK *block)
     queue->min_offset = min_next;
 }
 
-
-static INLINE void
-mblock_release_data(nb_MBPOOL *pool,
-                    nb_MBLOCK *block, nb_SIZE size, nb_SIZE offset)
+static INLINE void mblock_release_data(nb_MBPOOL *pool, nb_MBLOCK *block, nb_SIZE size, nb_SIZE offset)
 {
     if (offset == block->start) {
         /** Removing from the beginning */
@@ -362,7 +348,8 @@ mblock_release_data(nb_MBPOOL *pool,
 
     {
         sllist_iterator iter;
-        SLLIST_ITERFOR(&pool->active, &iter) {
+        SLLIST_ITERFOR(&pool->active, &iter)
+        {
             if (&block->slnode == iter.cur) {
                 sllist_iter_remove(&pool->active, &iter);
                 break;
@@ -378,8 +365,7 @@ mblock_release_data(nb_MBPOOL *pool,
     }
 }
 
-static void
-mblock_release_ptr(nb_MBPOOL *pool, char * ptr, nb_SIZE size)
+static void mblock_release_ptr(nb_MBPOOL *pool, char *ptr, nb_SIZE size)
 {
     nb_MBLOCK *block;
     nb_SIZE offset;
@@ -391,8 +377,8 @@ mblock_release_ptr(nb_MBPOOL *pool, char * ptr, nb_SIZE size)
     return;
 #endif
 
-
-    SLLIST_FOREACH(&pool->active, ll) {
+    SLLIST_FOREACH(&pool->active, ll)
+    {
         block = SLLIST_ITEM(ll, nb_MBLOCK, slnode);
         if (block->root > ptr) {
             continue;
@@ -409,8 +395,7 @@ mblock_release_ptr(nb_MBPOOL *pool, char * ptr, nb_SIZE size)
     assert(0);
 }
 
-static int
-mblock_get_next_size(const nb_MBPOOL *pool, int allow_wrap)
+static int mblock_get_next_size(const nb_MBPOOL *pool, int allow_wrap)
 {
     nb_MBLOCK *block;
     if (SLLIST_IS_EMPTY(&pool->avail)) {
@@ -440,8 +425,7 @@ mblock_get_next_size(const nb_MBPOOL *pool, int allow_wrap)
     return block->nalloc - block->wrap;
 }
 
-static void
-mblock_wipe_block(nb_MBLOCK *block)
+static void mblock_wipe_block(nb_MBLOCK *block)
 {
     if (block->root) {
         free(block->root);
@@ -450,7 +434,8 @@ mblock_wipe_block(nb_MBLOCK *block)
         sllist_iterator dea_iter;
         nb_DEALLOC_QUEUE *queue = block->deallocs;
 
-        SLLIST_ITERFOR(&queue->pending, &dea_iter) {
+        SLLIST_ITERFOR(&queue->pending, &dea_iter)
+        {
             nb_QDEALLOC *qd = SLLIST_ITEM(dea_iter.cur, nb_QDEALLOC, slnode);
             sllist_iter_remove(&queue->pending, &dea_iter);
             mblock_release_ptr(&queue->qpool, (char *)qd, sizeof(*qd));
@@ -466,11 +451,11 @@ mblock_wipe_block(nb_MBLOCK *block)
     }
 }
 
-static void
-free_blocklist(nb_MBPOOL *pool, sllist_root *list)
+static void free_blocklist(nb_MBPOOL *pool, sllist_root *list)
 {
     sllist_iterator iter;
-    SLLIST_ITERFOR(list, &iter) {
+    SLLIST_ITERFOR(list, &iter)
+    {
         nb_MBLOCK *block = SLLIST_ITEM(iter.cur, nb_MBLOCK, slnode);
         sllist_iter_remove(list, &iter);
         mblock_wipe_block(block);
@@ -478,17 +463,14 @@ free_blocklist(nb_MBPOOL *pool, sllist_root *list)
     (void)pool;
 }
 
-
-static void
-mblock_cleanup(nb_MBPOOL *pool)
+static void mblock_cleanup(nb_MBPOOL *pool)
 {
     free_blocklist(pool, &pool->active);
     free_blocklist(pool, &pool->avail);
     free(pool->cacheblocks);
 }
 
-static void
-mblock_init(nb_MBPOOL *pool)
+static void mblock_init(nb_MBPOOL *pool)
 {
     unsigned int ii;
     pool->cacheblocks = calloc(pool->ncacheblocks, sizeof(*pool->cacheblocks));
@@ -500,8 +482,7 @@ mblock_init(nb_MBPOOL *pool)
     }
 }
 
-int
-netbuf_mblock_reserve(nb_MGR *mgr, nb_SPAN *span)
+int netbuf_mblock_reserve(nb_MGR *mgr, nb_SPAN *span)
 {
     return mblock_reserve_data(&mgr->datapool, span);
 }
@@ -511,18 +492,17 @@ netbuf_mblock_reserve(nb_MGR *mgr, nb_SPAN *span)
  ** Informational Routines                                                   **
  ******************************************************************************
  ******************************************************************************/
-nb_SIZE
-netbuf_mblock_get_next_size(const nb_MGR *mgr, int allow_wrap)
+nb_SIZE netbuf_mblock_get_next_size(const nb_MGR *mgr, int allow_wrap)
 {
     return mblock_get_next_size(&mgr->datapool, allow_wrap);
 }
 
-unsigned int
-netbuf_get_niov(nb_MGR *mgr)
+unsigned int netbuf_get_niov(nb_MGR *mgr)
 {
     sllist_node *ll;
     unsigned int ret = 0;
-    SLLIST_FOREACH(&mgr->sendq.pending, ll) {
+    SLLIST_FOREACH(&mgr->sendq.pending, ll)
+    {
         ret++;
     }
 
@@ -534,8 +514,7 @@ netbuf_get_niov(nb_MGR *mgr)
  ** Flush Routines                                                           **
  ******************************************************************************
  ******************************************************************************/
-static nb_SNDQELEM *
-get_sendqe(nb_SENDQ* sq, const nb_IOV *bufinfo)
+static nb_SNDQELEM *get_sendqe(nb_SENDQ *sq, const nb_IOV *bufinfo)
 {
     nb_SNDQELEM *sndqe;
     nb_SPAN span;
@@ -548,8 +527,7 @@ get_sendqe(nb_SENDQ* sq, const nb_IOV *bufinfo)
     return sndqe;
 }
 
-void
-netbuf_enqueue(nb_MGR *mgr, const nb_IOV *bufinfo)
+void netbuf_enqueue(nb_MGR *mgr, const nb_IOV *bufinfo, const void *parent)
 {
     nb_SENDQ *q = &mgr->sendq;
     nb_SNDQELEM *win;
@@ -568,19 +546,18 @@ netbuf_enqueue(nb_MGR *mgr, const nb_IOV *bufinfo)
             sllist_append(&q->pending, &win->slnode);
         }
     }
+    win->parent = parent;
 }
 
-void
-netbuf_enqueue_span(nb_MGR *mgr, nb_SPAN *span)
+void netbuf_enqueue_span(nb_MGR *mgr, nb_SPAN *span, const void *parent)
 {
     nb_IOV spinfo;
     spinfo.iov_base = SPAN_BUFFER(span);
     spinfo.iov_len = span->size;
-    netbuf_enqueue(mgr, &spinfo);
+    netbuf_enqueue(mgr, &spinfo, parent);
 }
 
-nb_SIZE
-netbuf_start_flush(nb_MGR *mgr, nb_IOV *iovs, int niov, int *nused)
+nb_SIZE netbuf_start_flush(nb_MGR *mgr, nb_IOV *iovs, int niov, int *nused)
 {
     nb_SIZE ret = 0;
     nb_IOV *iov_end = iovs + niov, *iov_start = iovs;
@@ -627,12 +604,12 @@ netbuf_start_flush(nb_MGR *mgr, nb_IOV *iovs, int niov, int *nused)
     return ret;
 }
 
-void
-netbuf_end_flush(nb_MGR *mgr, unsigned int nflushed)
+void netbuf_end_flush(nb_MGR *mgr, unsigned int nflushed)
 {
     nb_SENDQ *q = &mgr->sendq;
     sllist_iterator iter;
-    SLLIST_ITERFOR(&q->pending, &iter) {
+    SLLIST_ITERFOR(&q->pending, &iter)
+    {
         nb_SNDQELEM *win = SLLIST_ITEM(iter.cur, nb_SNDQELEM, slnode);
         nb_SIZE to_chop = MINIMUM(win->len, nflushed);
 
@@ -647,7 +624,7 @@ netbuf_end_flush(nb_MGR *mgr, unsigned int nflushed)
                 q->last_offset = 0;
             }
         } else {
-            win->base +=  to_chop;
+            win->base += to_chop;
             if (win == q->last_requested) {
                 q->last_offset -= to_chop;
             }
@@ -660,19 +637,13 @@ netbuf_end_flush(nb_MGR *mgr, unsigned int nflushed)
     assert(!nflushed);
 }
 
-void
-netbuf_pdu_enqueue(nb_MGR *mgr, void *pdu, nb_SIZE lloff)
+void netbuf_pdu_enqueue(nb_MGR *mgr, void *pdu, nb_SIZE lloff)
 {
     nb_SENDQ *q = &mgr->sendq;
-    sllist_append(&q->pdus, (sllist_node *) (void *)( (char *)pdu + lloff));
+    sllist_append(&q->pdus, (sllist_node *)(void *)((char *)pdu + lloff));
 }
 
-void
-netbuf_end_flush2(nb_MGR *mgr,
-                  unsigned int nflushed,
-                  nb_getsize_fn callback,
-                  nb_SIZE lloff,
-                  void *arg)
+void netbuf_end_flush2(nb_MGR *mgr, unsigned int nflushed, nb_getsize_fn callback, nb_SIZE lloff, void *arg)
 {
     sllist_iterator iter;
     nb_SENDQ *q = &mgr->sendq;
@@ -680,7 +651,8 @@ netbuf_end_flush2(nb_MGR *mgr,
 
     /** Add to the nflushed overflow from last call */
     nflushed += q->pdu_offset;
-    SLLIST_ITERFOR(&q->pdus, &iter) {
+    SLLIST_ITERFOR(&q->pdus, &iter)
+    {
         nb_SIZE cursize;
         char *ptmp = (char *)iter.cur;
         cursize = callback(ptmp - lloff, nflushed, arg);
@@ -706,8 +678,7 @@ netbuf_end_flush2(nb_MGR *mgr,
  ** Release                                                                  **
  ******************************************************************************
  ******************************************************************************/
-void
-netbuf_mblock_release(nb_MGR *mgr, nb_SPAN *span)
+void netbuf_mblock_release(nb_MGR *mgr, nb_SPAN *span)
 {
 #ifdef NETBUF_LIBC_PROXY
     free(span->parent);
@@ -732,8 +703,7 @@ void netbuf_default_settings(nb_SETTINGS *settings)
     settings->sndq_cacheblocks = NB_SNDQ_CACHEBLOCKS;
 }
 
-void
-netbuf_init(nb_MGR *mgr, const nb_SETTINGS *user_settings)
+void netbuf_init(nb_MGR *mgr, const nb_SETTINGS *user_settings)
 {
     nb_MBPOOL *sqpool = &mgr->sendq.elempool;
     nb_MBPOOL *bufpool = &mgr->datapool;
@@ -758,13 +728,12 @@ netbuf_init(nb_MGR *mgr, const nb_SETTINGS *user_settings)
     mblock_init(bufpool);
 }
 
-
-void
-netbuf_cleanup(nb_MGR *mgr)
+void netbuf_cleanup(nb_MGR *mgr)
 {
     sllist_iterator iter;
 
-    SLLIST_ITERFOR(&mgr->sendq.pending, &iter) {
+    SLLIST_ITERFOR(&mgr->sendq.pending, &iter)
+    {
         nb_SNDQELEM *e = SLLIST_ITEM(iter.cur, nb_SNDQELEM, slnode);
         sllist_iter_remove(&mgr->sendq.pending, &iter);
         mblock_release_ptr(&mgr->sendq.elempool, (char *)e, sizeof(*e));
@@ -780,12 +749,10 @@ netbuf_cleanup(nb_MGR *mgr)
  ******************************************************************************
  ******************************************************************************/
 
-static void
-dump_managed_block(nb_MBLOCK *block, FILE *fp)
+static void dump_managed_block(nb_MBLOCK *block, FILE *fp)
 {
     const char *indent = "  ";
-    fprintf(fp, "%sBLOCK(MANAGED)=%p; BUF=%p, %uB\n", indent,
-        (void *)block, (void *)block->root, block->nalloc);
+    fprintf(fp, "%sBLOCK(MANAGED)=%p; BUF=%p, %uB\n", indent, (void *)block, (void *)block->root, block->nalloc);
     indent = "     ";
 
     fprintf(fp, "%sUSAGE:\n", indent);
@@ -820,13 +787,13 @@ dump_managed_block(nb_MBLOCK *block, FILE *fp)
     fprintf(fp, "]\n");
 }
 
-static void
-dump_sendq(nb_SENDQ *q, FILE *fp)
+static void dump_sendq(nb_SENDQ *q, FILE *fp)
 {
     const char *indent = "  ";
     sllist_node *ll;
     fprintf(fp, "Send Queue\n");
-    SLLIST_FOREACH(&q->pending, ll) {
+    SLLIST_FOREACH(&q->pending, ll)
+    {
         nb_SNDQELEM *e = SLLIST_ITEM(ll, nb_SNDQELEM, slnode);
         fprintf(fp, "%s[Base=%p, Len=%u]\n", indent, (void *)e->base, e->len);
         if (q->last_requested == e) {
@@ -835,46 +802,45 @@ dump_sendq(nb_SENDQ *q, FILE *fp)
     }
 }
 
-void
-netbuf_dump_status(nb_MGR *mgr, FILE *fp)
+void netbuf_dump_status(nb_MGR *mgr, FILE *fp)
 {
     sllist_node *ll;
     fprintf(fp, "Status for MGR=%p\n", (void *)mgr);
     fprintf(fp, "ACTIVE:\n");
 
-    SLLIST_FOREACH(&mgr->datapool.active, ll) {
+    SLLIST_FOREACH(&mgr->datapool.active, ll)
+    {
         nb_MBLOCK *block = SLLIST_ITEM(ll, nb_MBLOCK, slnode);
         dump_managed_block(block, fp);
     }
     fprintf(fp, "AVAILABLE:\n");
-    SLLIST_FOREACH(&mgr->datapool.avail, ll) {
+    SLLIST_FOREACH(&mgr->datapool.avail, ll)
+    {
         nb_MBLOCK *block = SLLIST_ITEM(ll, nb_MBLOCK, slnode);
         const char *indent = "    ";
-        fprintf(fp, "%sBLOCK(AVAIL)=%p; BUF=%p, %uB\n", indent,
-            (void*)block, (void *)block->root, block->nalloc);
+        fprintf(fp, "%sBLOCK(AVAIL)=%p; BUF=%p, %uB\n", indent, (void *)block, (void *)block->root, block->nalloc);
     }
     dump_sendq(&mgr->sendq, fp);
 }
 
-static int
-is_pool_clean(const nb_MBPOOL *pool, int is_dealloc)
+static int is_pool_clean(const nb_MBPOOL *pool, int is_dealloc)
 {
     int ret = 1;
     sllist_node *ll;
 
-    SLLIST_FOREACH(&pool->active, ll) {
+    SLLIST_FOREACH(&pool->active, ll)
+    {
         nb_MBLOCK *block = SLLIST_ITEM(ll, nb_MBLOCK, slnode);
 
         if (!BLOCK_IS_EMPTY(block)) {
-            printf("MBLOCK %p: Cursor (%u) != Start (%u)\n",
-                   (void*)block, block->cursor, block->start);
+            printf("MBLOCK %p: Cursor (%u) != Start (%u)\n", (void *)block, block->cursor, block->start);
             ret = 0;
         }
 
         if (block->deallocs) {
             nb_DEALLOC_QUEUE *dq = block->deallocs;
             if (!SLLIST_IS_EMPTY(&dq->pending)) {
-                printf("MBLOCK %p: Dealloc queue still has items\n", (void*)block);
+                printf("MBLOCK %p: Dealloc queue still has items\n", (void *)block);
                 ret = 0;
             }
 
@@ -888,8 +854,7 @@ is_pool_clean(const nb_MBPOOL *pool, int is_dealloc)
     return ret;
 }
 
-int
-netbuf_is_clean(nb_MGR *mgr)
+int netbuf_is_clean(nb_MGR *mgr)
 {
     int ret = 1;
 
@@ -898,26 +863,24 @@ netbuf_is_clean(nb_MGR *mgr)
     }
 
     if (!SLLIST_IS_EMPTY(&mgr->sendq.pending)) {
-        printf("SENDQ @%p: Still have pending flush items\n", (void*)mgr);
+        printf("SENDQ @%p: Still have pending flush items\n", (void *)mgr);
         ret = 0;
     }
 
     if (!SLLIST_IS_EMPTY(&mgr->sendq.pdus)) {
-        printf("PDUQ @%p: Still have pending PDU items\n", (void*)mgr);
+        printf("PDUQ @%p: Still have pending PDU items\n", (void *)mgr);
         ret = 0;
     }
 
     if (!is_pool_clean(&mgr->sendq.elempool, 0)) {
-        printf("SENDQ/MBLOCK @%p: Still have unfreed members in send queue\n",
-               (void*)mgr);
+        printf("SENDQ/MBLOCK @%p: Still have unfreed members in send queue\n", (void *)mgr);
         ret = 0;
     }
 
     return ret;
 }
 
-int
-netbuf_has_flushdata(nb_MGR *mgr)
+int netbuf_has_flushdata(nb_MGR *mgr)
 {
     if (!SLLIST_IS_EMPTY(&mgr->sendq.pending)) {
         return 1;

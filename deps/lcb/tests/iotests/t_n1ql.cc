@@ -1,25 +1,42 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2011-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "config.h"
 #include "iotests.h"
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/n1ql.h>
 #include "internal.h"
 
-using std::vector;
 using std::string;
-
+using std::vector;
 
 struct N1QLResult {
-    vector<string> rows;
+    vector< string > rows;
     string meta;
-    int htcode;
-    lcb_error_t rc;
+    uint16_t htcode;
+    lcb_STATUS rc;
     bool called;
 
-    N1QLResult() {
+    N1QLResult()
+    {
         reset();
     }
 
-    void reset() {
+    void reset()
+    {
         called = false;
         rc = LCB_SUCCESS;
         meta.clear();
@@ -28,76 +45,83 @@ struct N1QLResult {
     }
 };
 
-#define SKIP_QUERY_TEST() \
-    fprintf(stderr, "Requires recent mock with query support"); \
+#define SKIP_QUERY_TEST()                                                                                              \
+    fprintf(stderr, "Requires recent mock with query support");                                                        \
     return
 
 extern "C" {
-static void rowcb(lcb_t, int, const lcb_RESPN1QL *resp)
+static void rowcb(lcb_INSTANCE *, int, const lcb_RESPN1QL *resp)
 {
-    N1QLResult *res = reinterpret_cast<N1QLResult*>(resp->cookie);
-    if (resp->rflags & LCB_RESP_F_FINAL) {
-        res->rc = resp->rc;
-        if (resp->row) {
-            res->meta.assign(static_cast<const char*>(resp->row), resp->nrow);
+    N1QLResult *res;
+    lcb_respn1ql_cookie(resp, (void **)&res);
+
+    const char *row;
+    size_t nrow;
+    lcb_respn1ql_row(resp, &row, &nrow);
+
+    if (lcb_respn1ql_is_final(resp)) {
+        res->rc = lcb_respn1ql_status(resp);
+        if (row) {
+            res->meta.assign(row, nrow);
         }
-        if (resp->htresp) {
-            res->htcode = resp->htresp->htstatus;
+        const lcb_RESPHTTP *http = NULL;
+        lcb_respn1ql_http_response(resp, &http);
+        if (http) {
+            lcb_resphttp_http_status(http, &res->htcode);
         }
     } else {
-        string row(static_cast<const char*>(resp->row), resp->nrow);
-        res->rows.push_back(row);
+        res->rows.push_back(string(row, nrow));
     }
     res->called = true;
 }
 }
 
-class QueryUnitTest : public MockUnitTest {
-protected:
-    lcb_N1QLPARAMS *params;
-    void SetUp() {
-        params = lcb_n1p_new();
+class QueryUnitTest : public MockUnitTest
+{
+  protected:
+    lcb_CMDN1QL *cmd;
+    void SetUp()
+    {
+        lcb_cmdn1ql_create(&cmd);
     }
-    void TearDown() {
-        lcb_n1p_free(params);
+    void TearDown()
+    {
+        lcb_cmdn1ql_destroy(cmd);
     }
-    bool createQueryConnection(HandleWrap& hw, lcb_t& instance) {
+    bool createQueryConnection(HandleWrap &hw, lcb_INSTANCE **instance)
+    {
         if (MockEnvironment::getInstance()->isRealCluster()) {
             return false;
         }
         createConnection(hw, instance);
         const lcbvb_CONFIG *vbc;
-        lcb_error_t rc;
-        rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+        lcb_STATUS rc;
+        rc = lcb_cntl(*instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
         EXPECT_EQ(LCB_SUCCESS, rc);
         int ix = lcbvb_get_randhost(vbc, LCBVB_SVCTYPE_N1QL, LCBVB_SVCMODE_PLAIN);
         return ix > -1;
     }
 
-    void makeCommand(const char *query, lcb_CMDN1QL& cmd, bool prepared=false) {
-        lcb_n1p_setstmtz(params, query);
-        lcb_error_t rc = lcb_n1p_mkcmd(params, &cmd);
-        ASSERT_EQ(LCB_SUCCESS, rc);
-
-        cmd.callback = rowcb;
-        if (prepared) {
-            cmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
-        }
+    void makeCommand(const char *query, bool prepared = false)
+    {
+        lcb_cmdn1ql_reset(cmd);
+        lcb_cmdn1ql_statement(cmd, query, strlen(query));
+        lcb_cmdn1ql_callback(cmd, rowcb);
+        lcb_cmdn1ql_adhoc(cmd, !prepared);
     }
 };
 
 TEST_F(QueryUnitTest, testSimple)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    if (!createQueryConnection(hw, instance)) {
+    if (!createQueryConnection(hw, &instance)) {
         SKIP_QUERY_TEST();
     }
 
-    lcb_CMDN1QL cmd = { 0 };
     N1QLResult res;
-    makeCommand("SELECT mockrow", cmd);
-    lcb_error_t rc = lcb_n1ql_query(instance, &res, &cmd);
+    makeCommand("SELECT mockrow");
+    lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(LCB_SUCCESS, res.rc);
@@ -106,15 +130,14 @@ TEST_F(QueryUnitTest, testSimple)
 
 TEST_F(QueryUnitTest, testQueryError)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    if (!createQueryConnection(hw, instance)) {
+    if (!createQueryConnection(hw, &instance)) {
         SKIP_QUERY_TEST();
     }
-    lcb_CMDN1QL cmd = { 0 };
     N1QLResult res;
-    makeCommand("SELECT blahblah FROM blahblah", cmd);
-    lcb_error_t rc = lcb_n1ql_query(instance, &res, &cmd);
+    makeCommand("SELECT blahblah FROM blahblah");
+    lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_TRUE(res.rows.empty());
@@ -122,28 +145,27 @@ TEST_F(QueryUnitTest, testQueryError)
 
 TEST_F(QueryUnitTest, testInvalidJson)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
-    lcb_CMDN1QL cmd = { 0 };
-    cmd.query = "blahblah";
-    cmd.nquery = strlen(cmd.query);
-    cmd.callback = rowcb;
-    lcb_error_t rc = lcb_n1ql_query(instance, NULL, &cmd);
-    ASSERT_NE(LCB_SUCCESS, rc);
+    createConnection(hw, &instance);
+    lcb_CMDN1QL *cmd;
+    lcb_cmdn1ql_create(&cmd);
+
+    const char *bad_query = "blahblah";
+    ASSERT_NE(LCB_SUCCESS, lcb_cmdn1ql_query(cmd, bad_query, strlen(bad_query)));
+    lcb_cmdn1ql_destroy(cmd);
 }
 
 TEST_F(QueryUnitTest, testPrepareOk)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    if (!createQueryConnection(hw, instance)) {
+    if (!createQueryConnection(hw, &instance)) {
         SKIP_QUERY_TEST();
     }
-    lcb_CMDN1QL cmd = { 0 };
     N1QLResult res;
-    makeCommand("SELECT mockrow", cmd, true);
-    lcb_error_t rc = lcb_n1ql_query(instance, &res, &cmd);
+    makeCommand("SELECT mockrow", true);
+    lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(res.rc, LCB_SUCCESS);
@@ -157,9 +179,9 @@ TEST_F(QueryUnitTest, testPrepareOk)
     ASSERT_FALSE(plan.empty());
 
     // Issue it again..
-    makeCommand("SELECT mockrow", cmd, true);
+    makeCommand("SELECT mockrow", true);
     res.reset();
-    rc = lcb_n1ql_query(instance, &res, &cmd);
+    rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     string plan2;
@@ -173,9 +195,9 @@ TEST_F(QueryUnitTest, testPrepareOk)
     ASSERT_TRUE(plan.empty());
 
     // Issue it again!
-    makeCommand("SELECT mockrow", cmd, true);
+    makeCommand("SELECT mockrow", true);
     res.reset();
-    rc = lcb_n1ql_query(instance, &res, &cmd);
+    rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
 
@@ -186,15 +208,14 @@ TEST_F(QueryUnitTest, testPrepareOk)
 
 TEST_F(QueryUnitTest, testPrepareStale)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    if (!createQueryConnection(hw, instance)) {
+    if (!createQueryConnection(hw, &instance)) {
         SKIP_QUERY_TEST();
     }
-    lcb_CMDN1QL cmd = { 0 };
     N1QLResult res;
-    makeCommand("SELECT mockrow", cmd, true);
-    lcb_error_t rc = lcb_n1ql_query(instance, &res, &cmd);
+    makeCommand("SELECT mockrow", true);
+    lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(1, res.rows.size());
@@ -205,16 +226,17 @@ TEST_F(QueryUnitTest, testPrepareStale)
 
     // Ensure the previous plan fails
     string query("SELECT mockrow");
+
     string raw;
     lcb_n1qlcache_getplan(instance->n1ql_cache, query, raw);
     ASSERT_FALSE(raw.empty());
 
-    cmd.query = raw.c_str();
-    cmd.nquery = raw.size();
-    cmd.cmdflags = 0;
+    lcb_cmdn1ql_reset(cmd);
+    lcb_cmdn1ql_callback(cmd, rowcb);
+    ASSERT_EQ(LCB_SUCCESS, lcb_cmdn1ql_query(cmd, raw.c_str(), raw.size()));
 
     res.reset();
-    rc = lcb_n1ql_query(instance, &res, &cmd);
+    rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_TRUE(res.rows.empty());
@@ -223,9 +245,9 @@ TEST_F(QueryUnitTest, testPrepareStale)
 
     // Now that we've verified our current plan isn't working, let's try to
     // issue the cached plan again. lcb should get us a new plan
-    makeCommand("SELECT mockrow", cmd , true);
+    makeCommand("SELECT mockrow", true);
     res.reset();
-    rc = lcb_n1ql_query(instance, &res, &cmd);
+    rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_EQ(1, res.rows.size());
@@ -233,15 +255,14 @@ TEST_F(QueryUnitTest, testPrepareStale)
 
 TEST_F(QueryUnitTest, testPrepareFailure)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    if (!createQueryConnection(hw, instance)) {
+    if (!createQueryConnection(hw, &instance)) {
         SKIP_QUERY_TEST();
     }
-    lcb_CMDN1QL cmd = { 0 };
     N1QLResult res;
-    makeCommand("SELECT blahblah", cmd, true);
-    lcb_error_t rc = lcb_n1ql_query(instance, &res, &cmd);
+    makeCommand("SELECT blahblah", true);
+    lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
     ASSERT_TRUE(res.called);
@@ -251,17 +272,16 @@ TEST_F(QueryUnitTest, testPrepareFailure)
 
 TEST_F(QueryUnitTest, testCancellation)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    if (!createQueryConnection(hw, instance)) {
+    if (!createQueryConnection(hw, &instance)) {
         SKIP_QUERY_TEST();
     }
-    lcb_CMDN1QL cmd = { 0 };
     N1QLResult res;
-    makeCommand("SELECT mockrow", cmd);
-    lcb_N1QLHANDLE handle = NULL;
-    cmd.handle = &handle;
-    lcb_error_t rc = lcb_n1ql_query(instance, &res, &cmd);
+    makeCommand("SELECT mockrow");
+    lcb_N1QL_HANDLE *handle = NULL;
+    lcb_cmdn1ql_handle(cmd, &handle);
+    lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     ASSERT_TRUE(handle != NULL);
     lcb_n1ql_cancel(instance, handle);

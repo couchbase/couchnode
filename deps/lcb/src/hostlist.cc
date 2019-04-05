@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ Hostlist::reset_strlist()
     hoststrs.clear();
 }
 
-lcb_error_t
+lcb_STATUS
 lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
 {
     std::vector<char> zspec;
@@ -192,10 +192,10 @@ Hostlist::add(const lcb_host_t& host)
     reset_strlist();
 }
 
-lcb_error_t
+lcb_STATUS
 Hostlist::add(const char *hostport, long len, int deflport)
 {
-    lcb_error_t err = LCB_SUCCESS;
+    lcb_STATUS err = LCB_SUCCESS;
 
     if (len < 0) {
         len = strlen(hostport);

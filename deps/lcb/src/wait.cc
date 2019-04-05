@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2013 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <lcbio/timer-ng.h>
 
 static bool
-has_pending(lcb_t instance)
+has_pending(lcb_INSTANCE *instance)
 {
 
     if (!instance->retryq->empty(!LCBT_SETTING(instance, wait_for_config))) {
@@ -39,7 +39,7 @@ has_pending(lcb_t instance)
 }
 
 static void
-maybe_reset_timeouts(lcb_t instance)
+maybe_reset_timeouts(lcb_INSTANCE *instance)
 {
 
     if (!LCBT_SETTING(instance, readj_ts_wait)) {
@@ -54,7 +54,7 @@ maybe_reset_timeouts(lcb_t instance)
 }
 
 void
-lcb_maybe_breakout(lcb_t instance)
+lcb_maybe_breakout(lcb_INSTANCE *instance)
 {
     if (!instance->wait) {
         return;
@@ -73,7 +73,7 @@ lcb_maybe_breakout(lcb_t instance)
  * @param instance the instance to run the event loop for.
  */
 LIBCOUCHBASE_API
-int lcb_is_waiting(lcb_t instance)
+int lcb_is_waiting(lcb_INSTANCE *instance)
 {
     return instance->wait != 0;
 }
@@ -87,7 +87,7 @@ int lcb_is_waiting(lcb_t instance)
  * @author Trond Norbye
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_wait(lcb_t instance)
+lcb_STATUS lcb_wait(lcb_INSTANCE *instance)
 {
     if (instance->wait != 0) {
         return instance->last_error;
@@ -111,7 +111,7 @@ lcb_error_t lcb_wait(lcb_t instance)
 }
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_tick_nowait(lcb_t instance)
+lcb_STATUS lcb_tick_nowait(lcb_INSTANCE *instance)
 {
     lcb_io_tick_fn tick = instance->iotable->loop.tick;
     if (!tick) {
@@ -124,7 +124,7 @@ lcb_error_t lcb_tick_nowait(lcb_t instance)
 }
 
 LIBCOUCHBASE_API
-void lcb_wait3(lcb_t instance, lcb_WAITFLAGS flags)
+void lcb_wait3(lcb_INSTANCE *instance, lcb_WAITFLAGS flags)
 {
     if (flags == LCB_WAIT_DEFAULT) {
         if (instance->wait) {
@@ -147,7 +147,7 @@ void lcb_wait3(lcb_t instance, lcb_WAITFLAGS flags)
  * @param instance the instance to run the event loop for.
  */
 LIBCOUCHBASE_API
-void lcb_breakout(lcb_t instance)
+void lcb_breakout(lcb_INSTANCE *instance)
 {
     if (instance->wait) {
         IOT_STOP(instance->iotable);

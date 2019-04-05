@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017-2018 Couchbase, Inc.
+ *     Copyright 2017-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ void lcbcrypto_unref(lcbcrypto_PROVIDER *provider)
     }
 }
 
-void lcbcrypto_register(lcb_t instance, const char *name, lcbcrypto_PROVIDER *provider)
+void lcbcrypto_register(lcb_INSTANCE *instance, const char *name, lcbcrypto_PROVIDER *provider)
 {
     if (provider->version != 1) {
         lcb_log(LOGARGS(instance, ERROR), "Unsupported version for \"%s\" crypto provider, ignoring", name);
@@ -46,7 +46,7 @@ void lcbcrypto_register(lcb_t instance, const char *name, lcbcrypto_PROVIDER *pr
     (*instance->crypto)[name] = provider;
 }
 
-void lcbcrypto_unregister(lcb_t instance, const char *name)
+void lcbcrypto_unregister(lcb_INSTANCE *instance, const char *name)
 {
     std::map< std::string, lcbcrypto_PROVIDER * >::iterator old = instance->crypto->find(name);
     if (old != instance->crypto->end()) {
@@ -96,7 +96,7 @@ static lcbcrypto_PROVIDER *lcb_get_provider(const lcb_st *instance, const std::s
     return provider_iterator != (*instance->crypto).end() ? provider_iterator->second : NULL;
 }
 
-lcb_error_t lcbcrypto_encrypt_fields(lcb_t instance, lcbcrypto_CMDENCRYPT *cmd)
+lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT *cmd)
 {
     cmd->out = NULL;
     cmd->nout = 0;
@@ -109,7 +109,7 @@ lcb_error_t lcbcrypto_encrypt_fields(lcb_t instance, lcbcrypto_CMDENCRYPT *cmd)
     std::string prefix = (cmd->prefix == NULL) ? LCBCRYPTO_DEFAULT_FIELD_PREFIX : cmd->prefix;
     for (size_t ii = 0; ii < cmd->nfields; ii++) {
         lcbcrypto_FIELDSPEC *field = cmd->fields + ii;
-        lcb_error_t rc;
+        lcb_STATUS rc;
 
         if (field->name == NULL) {
             lcb_log(LOGARGS(instance, WARN), "field name cannot be NULL");
@@ -226,7 +226,7 @@ lcb_error_t lcbcrypto_encrypt_fields(lcb_t instance, lcbcrypto_CMDENCRYPT *cmd)
     return LCB_SUCCESS;
 }
 
-lcb_error_t lcbcrypto_decrypt_fields(lcb_t instance, lcbcrypto_CMDDECRYPT *cmd)
+lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT *cmd)
 {
     cmd->out = NULL;
     cmd->nout = 0;
@@ -289,7 +289,7 @@ lcb_error_t lcbcrypto_decrypt_fields(lcb_t instance, lcbcrypto_CMDDECRYPT *cmd)
         }
 
         int ret;
-        lcb_error_t rc;
+        lcb_STATUS rc;
 
         Json::Value &jctext = encrypted["ciphertext"];
         if (!jctext.isString()) {
@@ -388,12 +388,12 @@ lcb_error_t lcbcrypto_decrypt_fields(lcb_t instance, lcbcrypto_CMDDECRYPT *cmd)
     return LCB_SUCCESS;
 }
 
-lcb_error_t lcbcrypto_encrypt_document(lcb_t, lcbcrypto_CMDENCRYPT *)
+lcb_STATUS lcbcrypto_encrypt_document(lcb_INSTANCE *, lcbcrypto_CMDENCRYPT *)
 {
     return LCB_NOT_SUPPORTED;
 }
 
-lcb_error_t lcbcrypto_decrypt_document(lcb_t, lcbcrypto_CMDDECRYPT *)
+lcb_STATUS lcbcrypto_decrypt_document(lcb_INSTANCE *, lcbcrypto_CMDDECRYPT *)
 {
     return LCB_NOT_SUPPORTED;
 }

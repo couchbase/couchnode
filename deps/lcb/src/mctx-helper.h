@@ -1,5 +1,6 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016 Couchbase, Inc.
+ *     Copyright 2016-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,45 +19,46 @@
 #define LCB_MCTX_HELPER_H
 #include <libcouchbase/couchbase.h>
 
-namespace lcb {
+namespace lcb
+{
 
-class MultiCmdContext : public lcb_MULTICMD_CTX {
-protected:
-    virtual lcb_error_t MCTX_addcmd(const lcb_CMDBASE* cmd) = 0;
-    virtual lcb_error_t MCTX_done(const void *cookie) = 0;
+class MultiCmdContext : public lcb_MULTICMD_CTX
+{
+  protected:
+    virtual lcb_STATUS MCTX_addcmd(const lcb_CMDBASE *cmd) = 0;
+    virtual lcb_STATUS MCTX_done(const void *cookie) = 0;
     virtual void MCTX_fail() = 0;
-#ifdef LCB_TRACING
     virtual void MCTX_setspan(lcbtrace_SPAN *span) = 0;
-#endif
 
-    MultiCmdContext() {
+    MultiCmdContext()
+    {
         lcb_MULTICMD_CTX::addcmd = dispatch_mctx_addcmd;
         lcb_MULTICMD_CTX::done = dispatch_mctx_done;
         lcb_MULTICMD_CTX::fail = dispatch_mctx_fail;
-#ifdef LCB_TRACING
         lcb_MULTICMD_CTX::setspan = dispatch_mctx_setspan;
-#endif
     }
 
     virtual ~MultiCmdContext() {}
 
-private:
-    static lcb_error_t dispatch_mctx_addcmd(lcb_MULTICMD_CTX* ctx, const lcb_CMDBASE * cmd) {
-        return static_cast<MultiCmdContext*>(ctx)->MCTX_addcmd(cmd);
+  private:
+    static lcb_STATUS dispatch_mctx_addcmd(lcb_MULTICMD_CTX *ctx, const lcb_CMDBASE *cmd)
+    {
+        return static_cast< MultiCmdContext * >(ctx)->MCTX_addcmd(cmd);
     }
-    static lcb_error_t dispatch_mctx_done(lcb_MULTICMD_CTX* ctx, const void *cookie) {
-        return static_cast<MultiCmdContext*>(ctx)->MCTX_done(cookie);
+    static lcb_STATUS dispatch_mctx_done(lcb_MULTICMD_CTX *ctx, const void *cookie)
+    {
+        return static_cast< MultiCmdContext * >(ctx)->MCTX_done(cookie);
     }
-    static void dispatch_mctx_fail(lcb_MULTICMD_CTX* ctx) {
-        static_cast<MultiCmdContext*>(ctx)->MCTX_fail();
+    static void dispatch_mctx_fail(lcb_MULTICMD_CTX *ctx)
+    {
+        static_cast< MultiCmdContext * >(ctx)->MCTX_fail();
     }
-#ifdef LCB_TRACING
-    static void dispatch_mctx_setspan(lcb_MULTICMD_CTX* ctx, lcbtrace_SPAN *span) {
-        static_cast<MultiCmdContext*>(ctx)->MCTX_setspan(span);
+    static void dispatch_mctx_setspan(lcb_MULTICMD_CTX *ctx, lcbtrace_SPAN *span)
+    {
+        static_cast< MultiCmdContext * >(ctx)->MCTX_setspan(span);
     }
-#endif
 };
 
-}
+} // namespace lcb
 
 #endif

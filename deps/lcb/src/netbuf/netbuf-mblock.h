@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ typedef struct {
 typedef struct {
     sllist_node slnode;
     nb_SIZE offset; /**< Offset into the nb_MBLOCK to release */
-    nb_SIZE size; /**< Size to release */
+    nb_SIZE size;   /**< Size to release */
 } nb_QDEALLOC;
 
 /**
@@ -224,7 +224,7 @@ typedef struct netbuf_mblock_st {
 typedef struct netbuf_mblock_dealloc_queue_st {
     sllist_root pending;
     nb_SIZE min_offset; /**< The first offset contained in the list */
-    nb_MBPOOL qpool; /**< Used to allcate the nb_QDEALLOC structures themselves*/
+    nb_MBPOOL qpool;    /**< Used to allcate the nb_QDEALLOC structures themselves*/
 } nb_DEALLOC_QUEUE;
 
 /**@}*/

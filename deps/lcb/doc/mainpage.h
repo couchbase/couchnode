@@ -126,11 +126,11 @@
  * The library uses no internal locking and is thus not safe to be used
  * concurrently from multiple threads. As the library contains no globals
  * you may call into the library from multiple threads so long as the same data
- * structure (specifically, the same `lcb_t`) is not used.
+ * structure (specifically, the same `lcb_INSTANCE *`) is not used.
  *
  * @include doc/example/threads.c
  *
- * In this quick mockup example, the same `lcb_t` is being used from multiple
- * threads and thus requires locking. Now if each thread created its own `lcb_t`
+ * In this quick mockup example, the same `lcb_INSTANCE *` is being used from multiple
+ * threads and thus requires locking. Now if each thread created its own `lcb_INSTANCE *`
  * it would be free to operate upon it without locking.
  */

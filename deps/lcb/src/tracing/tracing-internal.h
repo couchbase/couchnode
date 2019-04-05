@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 #ifndef LCB_TRACING_INTERNAL_H
 #define LCB_TRACING_INTERNAL_H
 
-#ifdef LCB_TRACING
 #include <libcouchbase/tracing.h>
 #include "rnd.h"
 
@@ -69,27 +68,29 @@ struct ReportedSpan {
     }
 };
 
-template < typename T > class FixedQueue: private std::priority_queue<T>
+template < typename T > class FixedQueue : private std::priority_queue< T >
 {
   public:
     explicit FixedQueue(size_t capacity) : m_capacity(capacity) {}
 
-    void push(const T& item) {
-        std::priority_queue<T>::push(item);
+    void push(const T &item)
+    {
+        std::priority_queue< T >::push(item);
         if (this->size() > m_capacity) {
             this->c.pop_back();
         }
     }
-    using std::priority_queue<T>::empty;
-    using std::priority_queue<T>::top;
-    using std::priority_queue<T>::pop;
-    using std::priority_queue<T>::size;
+    using std::priority_queue< T >::empty;
+    using std::priority_queue< T >::top;
+    using std::priority_queue< T >::pop;
+    using std::priority_queue< T >::size;
+
   private:
     size_t m_capacity;
 };
 
 typedef ReportedSpan QueueEntry;
-typedef FixedQueue<QueueEntry> FixedSpanQueue;
+typedef FixedQueue< QueueEntry > FixedSpanQueue;
 class ThresholdLoggingTracer
 {
     lcbtrace_TRACER *m_wrapper;
@@ -102,7 +103,7 @@ class ThresholdLoggingTracer
     QueueEntry convert(lcbtrace_SPAN *span);
 
   public:
-    ThresholdLoggingTracer(lcb_t instance);
+    ThresholdLoggingTracer(lcb_INSTANCE *instance);
 
     lcbtrace_TRACER *wrap();
     void add_orphan(lcbtrace_SPAN *span);
@@ -135,7 +136,7 @@ void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val);
         char opid[20] = {};                                                                                            \
         snprintf(opid, sizeof(opid), "0x%x", (int)opaque);                                                             \
         ref.type = LCBTRACE_REF_CHILD_OF;                                                                              \
-        ref.span = (cmd->_hashkey.type & LCB_KV_TRACESPAN) ? (lcbtrace_SPAN *)cmd->_hashkey.contig.bytes : NULL;       \
+        ref.span = cmd->pspan;                                                                                         \
         outspan = lcbtrace_span_start((settings)->tracer, operation_name, LCBTRACE_NOW, &ref);                         \
         lcbtrace_span_add_tag_str(outspan, LCBTRACE_TAG_OPERATION_ID, opid);                                           \
         lcbtrace_span_add_system_tags(outspan, (settings), LCBTRACE_TAG_SERVICE_KV);                                   \
@@ -192,7 +193,5 @@ void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val);
 #define LCBTRACE_KV_COMPLETE(pipeline, request, response)
 #define LCBTRACE_KV_CLOSE(request)
 #define LCBTRACE_KV_FINISH(pipeline, request, response)
-
-#endif /* LCB_TRACING */
 
 #endif /* LCB_TRACING_INTERNAL_H */

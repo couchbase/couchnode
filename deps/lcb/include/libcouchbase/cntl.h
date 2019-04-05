@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017 Couchbase, Inc.
+ *     Copyright 2017-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
 
 /**
  * @file
@@ -34,7 +33,6 @@
 extern "C" {
 #endif
 
-
 /**
  * @ingroup lcb-cntl
  * @defgroup lcb-cntl-settings Setting List
@@ -47,7 +45,7 @@ extern "C" {
  *
  * @code{.c}
  * char something;
- * lcb_error_t rv;
+ * lcb_STATUS rv;
  * rv = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_FOO, &something);
  * @endcode
  *
@@ -146,7 +144,7 @@ extern "C" {
  * @committed
  * @see lcb-time-info
  */
-#define LCB_CNTL_OP_TIMEOUT             0x00
+#define LCB_CNTL_OP_TIMEOUT 0x00
 
 /**
  * @brief Views Timeout
@@ -155,7 +153,7 @@ extern "C" {
  * @cntl_arg_both{lcb_U32*}
  * @committed
  */
-#define LCB_CNTL_VIEW_TIMEOUT           0x01
+#define LCB_CNTL_VIEW_TIMEOUT 0x01
 
 /**
  * @brief N1QL Timeout
@@ -174,7 +172,7 @@ extern "C" {
  * @cntl_arg_getonly{`const char*`}
  * @committed
  */
-#define LCB_CNTL_BUCKETNAME             0x30
+#define LCB_CNTL_BUCKETNAME 0x30
 
 /**
  * @brief Get the bucket type.
@@ -189,7 +187,7 @@ extern "C" {
  *
  * @cntl_arg_getonly{lcb_BTYPE*}
  */
-#define LCB_CNTL_BUCKETTYPE             0x48
+#define LCB_CNTL_BUCKETTYPE 0x48
 
 /**
  * @brief Get the handle type.
@@ -198,22 +196,21 @@ extern "C" {
  *
  * @cntl_arg_getonly{lcb_type_t*}
  */
-#define LCB_CNTL_HANDLETYPE             0x04
+#define LCB_CNTL_HANDLETYPE 0x04
 
 /**@brief Get the vBucket handle.
  * Obtains the current cluster configuration from the client.
  *
  * @cntl_arg_getonly{lcbvb_CONFIG**}
  */
-#define LCB_CNTL_VBCONFIG               0x05
+#define LCB_CNTL_VBCONFIG 0x05
 
 /**@brief Get the iops implementation instance
  *
  * @cntl_arg_getonly{lcb_io_opt_t*}
  * @uncommitted
  */
-#define LCB_CNTL_IOPS                   0x06
-
+#define LCB_CNTL_IOPS 0x06
 
 /** @brief Structure containing mapping information for a key */
 typedef struct lcb_cntl_vbinfo_st {
@@ -222,9 +219,9 @@ typedef struct lcb_cntl_vbinfo_st {
     union {
         /** v0 */
         struct {
-            const void *key; /**< **Input** Key */
-            lcb_SIZE nkey; /**< **Input** Length of key */
-            int vbucket; /**< **Output** Mapped vBucket */
+            const void *key;  /**< **Input** Key */
+            lcb_SIZE nkey;    /**< **Input** Length of key */
+            int vbucket;      /**< **Output** Mapped vBucket */
             int server_index; /**< **Output** Server index for vBucket */
         } v0;
     } v;
@@ -236,16 +233,15 @@ typedef struct lcb_cntl_vbinfo_st {
  * @cntl_arg_getonly{lcb_cntl_vbinfo_t*}
  * @committed
  */
-#define LCB_CNTL_VBMAP                  0x07
-
+#define LCB_CNTL_VBMAP 0x07
 
 /**
  * Modes for handling IPv6 in the IO layer.
  */
 typedef enum {
     LCB_IPV6_DISABLED = 0x00, /**< disable IPv6 */
-    LCB_IPV6_ONLY = 0x1, /**< enforce only IPv6 */
-    LCB_IPV6_ALLOW = 0x02 /**< use both IPv6 and IPv4 */
+    LCB_IPV6_ONLY = 0x1,      /**< enforce only IPv6 */
+    LCB_IPV6_ALLOW = 0x02     /**< use both IPv6 and IPv4 */
 } lcb_ipv6_t;
 
 /**
@@ -258,7 +254,7 @@ typedef enum {
  * @cntl_arg_both{lcb_ipv6_t*}
  * @committed
  */
-#define LCB_CNTL_IP6POLICY              0x0b
+#define LCB_CNTL_IP6POLICY 0x0b
 
 /**
  * @brief Configuration error threshold.
@@ -269,7 +265,7 @@ typedef enum {
  *
  * @cntl_arg_both{lcb_SIZE*}
  */
-#define LCB_CNTL_CONFERRTHRESH          0x0c
+#define LCB_CNTL_CONFERRTHRESH 0x0c
 
 /**
  * @brief Default timeout for lcb_durability_poll()
@@ -282,7 +278,7 @@ typedef enum {
  * @cntl_arg_both{lcb_U32*}
  * @committed
  */
-#define LCB_CNTL_DURABILITY_TIMEOUT     0x0d
+#define LCB_CNTL_DURABILITY_TIMEOUT 0x0d
 
 /**
  * @brief Polling grace interval for lcb_durability_poll()
@@ -293,7 +289,7 @@ typedef enum {
  * @cntl_arg_both{lcb_U32*}
  * @committed
  */
-#define LCB_CNTL_DURABILITY_INTERVAL    0x0e
+#define LCB_CNTL_DURABILITY_INTERVAL 0x0e
 
 /**
  * @brief Timeout for otherwise unspecified HTTP requests
@@ -304,7 +300,7 @@ typedef enum {
  * @cntl_arg_both{lcb_U32*}
  * @committed
  */
-#define LCB_CNTL_HTTP_TIMEOUT           0x0f
+#define LCB_CNTL_HTTP_TIMEOUT 0x0f
 
 /**
  * @brief Print verbose plugin load information to console
@@ -321,14 +317,14 @@ typedef enum {
  * @note Pass NULL to lcb_cntl for the 'instance' parameter.
  * @volatile
  */
-#define LCB_CNTL_IOPS_DLOPEN_DEBUG       0x11
+#define LCB_CNTL_IOPS_DLOPEN_DEBUG 0x11
 
 /**@brief Initial bootstrap timeout.
  * This is how long the client will wait to obtain the initial configuration.
  *
  * @cntl_arg_both{lcb_U32*}
  * @committed*/
-#define LCB_CNTL_CONFIGURATION_TIMEOUT   0x12
+#define LCB_CNTL_CONFIGURATION_TIMEOUT 0x12
 
 /**
  * @brief Randomize order of bootstrap nodes.
@@ -408,12 +404,12 @@ typedef enum {
  */
 typedef enum {
     LCB_LOG_TRACE = 0, /**< the most verbose level */
-    LCB_LOG_DEBUG, /**< diagnostic information, required to investigate problems */
-    LCB_LOG_INFO,  /**< useful notices, not often */
-    LCB_LOG_WARN,  /**< error notifications */
-    LCB_LOG_ERROR, /**< error messages, usually the library have to re-initialize connection instance */
-    LCB_LOG_FATAL, /**< fatal errors, the library cannot proceed */
-    LCB_LOG_MAX /**< internal value for total number of levels */
+    LCB_LOG_DEBUG,     /**< diagnostic information, required to investigate problems */
+    LCB_LOG_INFO,      /**< useful notices, not often */
+    LCB_LOG_WARN,      /**< error notifications */
+    LCB_LOG_ERROR,     /**< error messages, usually the library have to re-initialize connection instance */
+    LCB_LOG_FATAL,     /**< fatal errors, the library cannot proceed */
+    LCB_LOG_MAX        /**< internal value for total number of levels */
 } lcb_log_severity_t;
 
 struct lcb_logprocs_st;
@@ -432,9 +428,8 @@ struct lcb_logprocs_st;
  * @param fmt a printf format string
  * @param ap a va_list for vprintf
  */
-typedef void (*lcb_logging_callback)(struct lcb_logprocs_st *procs,
-        unsigned int iid, const char *subsys, int severity, const char *srcfile,
-        int srcline, const char *fmt, va_list ap);
+typedef void (*lcb_logging_callback)(struct lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity,
+                                     const char *srcfile, int srcline, const char *fmt, va_list ap);
 
 /**
  * @brief Logging context
@@ -446,7 +441,11 @@ typedef void (*lcb_logging_callback)(struct lcb_logprocs_st *procs,
  */
 typedef struct lcb_logprocs_st {
     int version;
-    union { struct { lcb_logging_callback callback; } v0; } v;
+    union {
+        struct {
+            lcb_logging_callback callback;
+        } v0;
+    } v;
 } lcb_logprocs;
 
 /**
@@ -514,7 +513,6 @@ typedef struct lcb_logprocs_st {
 #define LCB_LOG_SD(instance, val)                                                                                      \
     lcb_is_redacting_logs(instance) ? LCB_LOG_SD_OTAG : "", val, lcb_is_redacting_logs(instance) ? LCB_LOG_SD_CTAG : ""
 /**@}*/
-
 
 /**
  * @brief Refresh Throttling
@@ -627,8 +625,8 @@ typedef struct lcb_logprocs_st {
  * @committed
  */
 typedef enum {
-    LCB_SSL_ENABLED = 1 << 0, /**< Use SSL */
-    LCB_SSL_NOVERIFY = 1 << 1, /**< Don't verify certificates */
+    LCB_SSL_ENABLED = 1 << 0,     /**< Use SSL */
+    LCB_SSL_NOVERIFY = 1 << 1,    /**< Don't verify certificates */
     LCB_SSL_NOGLOBALINIT = 1 << 2 /**< Do not call SSL's global init functions */
 } lcb_SSLOPTS;
 
@@ -692,8 +690,8 @@ typedef enum {
  */
 typedef enum {
     LCB_RETRY_ON_TOPOCHANGE = 0, /**< Select retry for topology */
-    LCB_RETRY_ON_SOCKERR, /**< Select retry for network errors */
-    LCB_RETRY_ON_VBMAPERR, /**< Select retry for NOT_MY_VBUCKET responses */
+    LCB_RETRY_ON_SOCKERR,        /**< Select retry for network errors */
+    LCB_RETRY_ON_VBMAPERR,       /**< Select retry for NOT_MY_VBUCKET responses */
 
     /** Retry when there is no node for the item. This case is special as the
      * `cmd` setting is treated as a boolean rather than a bitmask*/
@@ -756,7 +754,7 @@ typedef enum {
  * @code{.c}
  * for (int ii = 0; ii < LCB_RETRY_ON_MAX; ++ii) {
  *   lcb_U32 val = LCB_RETRYOPT_CREATE(ii, LCB_RETRY_CMDS_NONE);
- *   lcb_error_t err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_RETRYMODE, &val);
+ *   lcb_STATUS err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_RETRYMODE, &val);
  * }
  * @endcode
  *
@@ -888,21 +886,8 @@ typedef enum {
  * network traffic for operations which are not yet ready to be retried.
  *
  * @cntl_arg_both{lcb_U32* (microseconds)}
- *
- * @see LCB_CNTL_RETRY_BACKOFF
  */
 #define LCB_CNTL_RETRY_INTERVAL 0x2C
-
-/**
- *
- * When an operation has been retried more than once and it has still not
- * succeeded, the library will attempt to back off for the operation by
- * scheduling it to be retried in `LCB_CNTL_RETRY_INTEVAL * ${n}` microseconds,
- * where `${n}` is the factor controlled by this setting.
- *
- * @cntl_arg_both{float*}
- */
-#define LCB_CNTL_RETRY_BACKOFF 0x2D
 
 /**
  * Whether commands are retried immediately upon receipt of not-my-vbucket
@@ -911,9 +896,9 @@ typedef enum {
  * Since version 2.4.8, packets by default are retried immediately on a
  * different node if it had previously failed with a not-my-vbucket
  * response, and is thus not subject to the @ref LCB_CNTL_RETRY_INTERVAL
- * and @ref LCB_CNTL_RETRY_BACKOFF settings. Disabling this setting will
- * restore the older behavior. This may be used in case there are problems
- * with the default heuristic/retry algorithm.
+ * setting. Disabling this setting will restore the older behavior.
+ * This may be used in case there are problems with the default
+ * heuristic/retry algorithm.
  *
  * @volatile
  */
@@ -996,7 +981,6 @@ typedef enum {
  * @uncommitted
  */
 #define LCB_CNTL_MUTATION_TOKENS_SUPPORTED 0x38
-
 
 /**
  * This setting determines if calls to lcb_wait() and lcb_wait3() will reset
@@ -1322,8 +1306,7 @@ typedef enum {
      */
     LCB_COMPRESS_OUT = 1 << 1,
 
-
-    LCB_COMPRESS_INOUT = (LCB_COMPRESS_IN|LCB_COMPRESS_OUT),
+    LCB_COMPRESS_INOUT = (LCB_COMPRESS_IN | LCB_COMPRESS_OUT),
 
     /**
      * By default the library will send a HELLO command to the server to
@@ -1380,7 +1363,6 @@ typedef enum {
  */
 #define LCB_CNTL_COMPRESSION_MIN_RATIO 0x59
 
-
 /**
  * Select type of network (alternative addresses).
  *
@@ -1403,10 +1385,24 @@ typedef enum {
 #define LCB_CNTL_HTTP_POOL_TIMEOUT 0x5d
 
 /**
+ *
+ * @cntl_arg_both{int (as boolean)}
+ * @volatile
+ */
+#define LCB_CNTL_ENABLE_COLLECTIONS 0x4a
+
+/**
+ *
+ * @cntl_arg_both{int (as boolean)}
+ * @volatile
+ */
+#define LCB_CNTL_ENABLE_DURABLE_WRITE 0x5e
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX                    0x5e
+#define LCB_CNTL__MAX 0x5f
 /**@}*/
 
 #ifdef __cplusplus

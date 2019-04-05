@@ -1,7 +1,26 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2011-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "mctest.h"
 #include "mc/mcreq-flush-inl.h"
 
-class McContext : public ::testing::Test {};
+class McContext : public ::testing::Test
+{
+};
 
 struct CtxCookie {
     int ncalled;
@@ -10,7 +29,7 @@ struct CtxCookie {
 };
 
 extern "C" {
-static void failcb(mc_PIPELINE *, mc_PACKET *pkt, lcb_error_t, void *)
+static void failcb(mc_PIPELINE *, mc_PACKET *pkt, lcb_STATUS, void *)
 {
     CtxCookie *cookie = (CtxCookie *)MCREQ_PKT_COOKIE(pkt);
     cookie->ncalled++;
@@ -89,7 +108,6 @@ TEST_F(McContext, testFailedContext)
         if (!cq.scheds[pl->index]) {
             continue;
         }
-
 
         ASSERT_TRUE(SLLIST_IS_EMPTY(&pl->requests));
         ASSERT_TRUE(SLLIST_IS_EMPTY(&pl->ctxqueued));

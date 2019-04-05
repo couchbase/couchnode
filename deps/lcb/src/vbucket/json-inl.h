@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -25,8 +25,7 @@
  * @param[out] value
  * @return nonzero on success, zero if not found, or not a string
  */
-static int
-get_jstr(cJSON *parent, const char *key, char **value)
+static int get_jstr(cJSON *parent, const char *key, char **value)
 {
     cJSON *res = cJSON_GetObjectItem(parent, key);
     if (res == NULL || res->type != cJSON_String) {
@@ -45,8 +44,7 @@ get_jstr(cJSON *parent, const char *key, char **value)
  * @param[out] value
  * @return nonzero on success, zero if not found or not an object
  */
-static int
-get_jobj(cJSON *parent, const char *key, cJSON **value)
+static int get_jobj(cJSON *parent, const char *key, cJSON **value)
 {
     cJSON *res = cJSON_GetObjectItem(parent, key);
     if (res == NULL || res->type != cJSON_Object) {
@@ -65,8 +63,7 @@ get_jobj(cJSON *parent, const char *key, cJSON **value)
  * @param[out] value
  * @return nonzero on success, zero if not found or not a number
  */
-static int
-get_jint(cJSON *parent, const char *key, int *value)
+static int get_jint(cJSON *parent, const char *key, int *value)
 {
     cJSON *res = cJSON_GetObjectItem(parent, key);
     if (res == NULL || res->type != cJSON_Number) {
@@ -87,8 +84,7 @@ get_jint(cJSON *parent, const char *key, int *value)
  * @param value
  * @return
  */
-static int
-get_juint(cJSON *parent, const char *key, unsigned *value)
+static int get_juint(cJSON *parent, const char *key, unsigned *value)
 {
     int tmp = 0;
     if (!get_jint(parent, key, &tmp)) {
@@ -99,8 +95,7 @@ get_juint(cJSON *parent, const char *key, unsigned *value)
     return 1;
 }
 
-static int
-get_jarray(cJSON *parent, const char *key, cJSON **value)
+static int get_jarray(cJSON *parent, const char *key, cJSON **value)
 {
     cJSON *res = cJSON_GetObjectItem(parent, key);
     if (res == NULL || res->type != cJSON_Array) {

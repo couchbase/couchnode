@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -25,37 +25,32 @@
 #define CTX_FD(ctx) (ctx)->fd
 #define CTX_SD(ctx) (ctx)->sd
 #define CTX_IOT(ctx) (ctx)->io
-#define CTX_INCR_METRIC(ctx, metric, n) do { \
-    if (ctx->sock->metrics) { \
-        ctx->sock->metrics->metric += n; \
-    } \
-} while (0)
-
+#define CTX_INCR_METRIC(ctx, metric, n)                                                                                \
+    do {                                                                                                               \
+        if (ctx->sock->metrics) {                                                                                      \
+            ctx->sock->metrics->metric += n;                                                                           \
+        }                                                                                                              \
+    } while (0)
 
 #define LOGARGS(c, lvl) (c)->sock->settings, "ioctx", LCB_LOG_##lvl, __FILE__, __LINE__
 
 #include "rw-inl.h"
 
-typedef enum {
-    ES_ACTIVE = 0,
-    ES_DETACHED
-} easy_state;
+typedef enum { ES_ACTIVE = 0, ES_DETACHED } easy_state;
 
-static void
-err_handler(void *cookie)
+static void err_handler(void *cookie)
 {
     lcbio_CTX *ctx = (void *)cookie;
     ctx->procs.cb_err(ctx, ctx->err);
 }
 
-static lcb_error_t
-convert_lcberr(const lcbio_CTX *ctx, lcbio_IOSTATUS status)
+static lcb_STATUS convert_lcberr(const lcbio_CTX *ctx, lcbio_IOSTATUS status)
 {
     const lcb_settings *settings = ctx->sock->settings;
     lcbio_OSERR oserr = IOT_ERRNO(ctx->sock->io);
 
     if (lcbio_ssl_check(ctx->sock)) {
-        lcb_error_t err = lcbio_ssl_get_error(ctx->sock);
+        lcb_STATUS err = lcbio_ssl_get_error(ctx->sock);
         if (err) {
             return err;
         }
@@ -70,8 +65,7 @@ convert_lcberr(const lcbio_CTX *ctx, lcbio_IOSTATUS status)
     }
 }
 
-lcbio_CTX *
-lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs)
+lcbio_CTX *lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs)
 {
     lcbio_CTX *ctx = calloc(1, sizeof(*ctx));
     ctx->sock = sock;
@@ -102,8 +96,7 @@ lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs)
     return ctx;
 }
 
-static void
-free_ctx(lcbio_CTX *ctx)
+static void free_ctx(lcbio_CTX *ctx)
 {
     rdb_cleanup(&ctx->ior);
     lcbio_unref(ctx->sock);
@@ -118,19 +111,15 @@ free_ctx(lcbio_CTX *ctx)
     free(ctx);
 }
 
-static void
-deactivate_watcher(lcbio_CTX *ctx)
+static void deactivate_watcher(lcbio_CTX *ctx)
 {
     if (ctx->evactive && ctx->event) {
-        IOT_V0EV(CTX_IOT(ctx)).cancel(
-                IOT_ARG(CTX_IOT(ctx)), CTX_FD(ctx), ctx->event);
+        IOT_V0EV(CTX_IOT(ctx)).cancel(IOT_ARG(CTX_IOT(ctx)), CTX_FD(ctx), ctx->event);
         ctx->evactive = 0;
     }
 }
 
-void
-lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg,
-                   lcbio_CTXDTOR_cb dtor, void *dtor_arg)
+void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg, lcbio_CTXDTOR_cb dtor, void *dtor_arg)
 {
     unsigned oldrc;
     ctx->state = ES_DETACHED;
@@ -148,15 +137,15 @@ lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg,
     }
 
     oldrc = ctx->sock->refcount;
-    lcb_log(LOGARGS(ctx, DEBUG), CTX_LOGFMT "Destroying context. Pending Writes=%d, Entered=%s, Socket Refcount=%d", CTX_LOGID(ctx), (int)ctx->npending, (int)ctx->entered ? "true": "false", oldrc);
+    lcb_log(LOGARGS(ctx, DEBUG), CTX_LOGFMT "Destroying context. Pending Writes=%d, Entered=%s, Socket Refcount=%d",
+            CTX_LOGID(ctx), (int)ctx->npending, (int)ctx->entered ? "true" : "false", oldrc);
 
     if (cb) {
-        int reusable =
-                ctx->npending == 0 && /* no pending events */
-                ctx->err == LCB_SUCCESS && /* no socket errors */
-                ctx->rdwant == 0 && /* no expected input */
-                ctx->wwant == 0 && /* no expected output */
-                (ctx->output == NULL || ctx->output->rb.nbytes == 0);
+        int reusable = ctx->npending == 0 &&      /* no pending events */
+                       ctx->err == LCB_SUCCESS && /* no socket errors */
+                       ctx->rdwant == 0 &&        /* no expected input */
+                       ctx->wwant == 0 &&         /* no expected output */
+                       (ctx->output == NULL || ctx->output->rb.nbytes == 0);
         cb(ctx->sock, reusable, arg);
     }
 
@@ -187,14 +176,12 @@ lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg,
     }
 }
 
-void
-lcbio_ctx_close(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg)
+void lcbio_ctx_close(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg)
 {
     lcbio_ctx_close_ex(ctx, cb, arg, NULL, NULL);
 }
 
-void
-lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf)
+void lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf)
 {
     lcbio__EASYRB *erb = ctx->output;
 
@@ -222,14 +209,12 @@ lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf)
     ringbuffer_write(&erb->rb, buf, nbuf);
 }
 
-void
-lcbio_ctx_rwant(lcbio_CTX *ctx, unsigned n)
+void lcbio_ctx_rwant(lcbio_CTX *ctx, unsigned n)
 {
     ctx->rdwant = n;
 }
 
-static void
-set_iterbuf(lcbio_CTX *ctx, lcbio_CTXRDITER *iter)
+static void set_iterbuf(lcbio_CTX *ctx, lcbio_CTXRDITER *iter)
 {
     if ((iter->nbuf = rdb_get_contigsize(&ctx->ior))) {
         if (iter->nbuf > iter->remaining) {
@@ -241,23 +226,20 @@ set_iterbuf(lcbio_CTX *ctx, lcbio_CTXRDITER *iter)
     }
 }
 
-void
-lcbio_ctx_ristart(lcbio_CTX *ctx, lcbio_CTXRDITER *iter, unsigned nb)
+void lcbio_ctx_ristart(lcbio_CTX *ctx, lcbio_CTXRDITER *iter, unsigned nb)
 {
     iter->remaining = nb;
     set_iterbuf(ctx, iter);
 }
 
-void
-lcbio_ctx_rinext(lcbio_CTX *ctx, lcbio_CTXRDITER *iter)
+void lcbio_ctx_rinext(lcbio_CTX *ctx, lcbio_CTXRDITER *iter)
 {
     rdb_consumed(&ctx->ior, iter->nbuf);
     iter->remaining -= iter->nbuf;
     set_iterbuf(ctx, iter);
 }
 
-static int
-E_free_detached(lcbio_CTX *ctx)
+static int E_free_detached(lcbio_CTX *ctx)
 {
     if (ctx->state == ES_DETACHED) {
         free_ctx(ctx);
@@ -266,8 +248,7 @@ E_free_detached(lcbio_CTX *ctx)
     return 0;
 }
 
-static void
-invoke_read_cb(lcbio_CTX *ctx, unsigned nb)
+static void invoke_read_cb(lcbio_CTX *ctx, unsigned nb)
 {
     ctx->rdwant = 0;
     ctx->entered++;
@@ -275,10 +256,9 @@ invoke_read_cb(lcbio_CTX *ctx, unsigned nb)
     ctx->entered--;
 }
 
-static void
-send_io_error(lcbio_CTX *ctx, lcbio_IOSTATUS status)
+static void send_io_error(lcbio_CTX *ctx, lcbio_IOSTATUS status)
 {
-    lcb_error_t rc = convert_lcberr(ctx, status);
+    lcb_STATUS rc = convert_lcberr(ctx, status);
     CTX_INCR_METRIC(ctx, io_error, 1);
     if (status == LCBIO_SHUTDOWN) {
         CTX_INCR_METRIC(ctx, io_close, 1);
@@ -286,8 +266,7 @@ send_io_error(lcbio_CTX *ctx, lcbio_IOSTATUS status)
     lcbio_ctx_senderr(ctx, rc);
 }
 
-static void
-E_handler(lcb_socket_t sock, short which, void *arg)
+static void E_handler(lcb_socket_t sock, short which, void *arg)
 {
     lcbio_CTX *ctx = arg;
     lcbio_IOSTATUS status;
@@ -332,8 +311,7 @@ E_handler(lcb_socket_t sock, short which, void *arg)
     lcbio_ctx_schedule(ctx);
 }
 
-static void
-invoke_entered_errcb(lcbio_CTX *ctx, lcb_error_t err)
+static void invoke_entered_errcb(lcbio_CTX *ctx, lcb_STATUS err)
 {
     ctx->err = err;
     ctx->entered++;
@@ -341,8 +319,7 @@ invoke_entered_errcb(lcbio_CTX *ctx, lcb_error_t err)
     ctx->entered--;
 }
 
-static void
-Cw_handler(lcb_sockdata_t *sd, int status, void *arg)
+static void Cw_handler(lcb_sockdata_t *sd, int status, void *arg)
 {
     lcbio__EASYRB *erb = arg;
     lcbio_CTX *ctx = erb->parent;
@@ -371,8 +348,7 @@ Cw_handler(lcb_sockdata_t *sd, int status, void *arg)
 
 static void C_schedule(lcbio_CTX *ctx);
 
-static void
-Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
+static void Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
 {
     lcbio_CTX *ctx = arg;
     sd->is_reading = 0;
@@ -392,7 +368,8 @@ Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
                     char *buf = calloc(total, sizeof(char));
                     rdb_copyread(&ctx->ior, buf, total);
                     lcb_base64_encode2(buf, total, &b64, &nb64);
-                    lcb_log(LOGARGS(ctx, TRACE), CTX_LOGFMT "pkt,rcv: size=%d, %.*s", CTX_LOGID(ctx), (int)nb64, (int)nb64, b64);
+                    lcb_log(LOGARGS(ctx, TRACE), CTX_LOGFMT "pkt,rcv: size=%d, %.*s", CTX_LOGID(ctx), (int)nb64,
+                            (int)nb64, b64);
                     free(b64);
                     free(buf);
                 }
@@ -403,7 +380,7 @@ Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
             lcbio_ctx_schedule(ctx);
         } else {
             lcbio_IOSTATUS iostatus;
-            lcb_error_t err;
+            lcb_STATUS err;
 
             CTX_INCR_METRIC(ctx, io_error, 1);
             if (nr) {
@@ -424,8 +401,7 @@ Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
     }
 }
 
-static void
-C_schedule(lcbio_CTX *ctx)
+static void C_schedule(lcbio_CTX *ctx)
 {
     lcbio_TABLE *io = ctx->io;
     lcb_sockdata_t *sd = CTX_SD(ctx);
@@ -482,8 +458,7 @@ C_schedule(lcbio_CTX *ctx)
     }
 }
 
-static void
-E_schedule(lcbio_CTX *ctx)
+static void E_schedule(lcbio_CTX *ctx)
 {
     lcbio_TABLE *io = ctx->io;
     short which = 0;
@@ -504,8 +479,7 @@ E_schedule(lcbio_CTX *ctx)
     ctx->evactive = 1;
 }
 
-void
-lcbio_ctx_schedule(lcbio_CTX *ctx)
+void lcbio_ctx_schedule(lcbio_CTX *ctx)
 {
     if (ctx->entered || ctx->err || ctx->state != ES_ACTIVE) {
         /* don't schedule events on i/o errors or on entered state */
@@ -519,16 +493,14 @@ lcbio_ctx_schedule(lcbio_CTX *ctx)
 }
 
 /** Extended function used for write-on-callback mode */
-static int
-E_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
+static int E_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
 {
     lcb_ssize_t nw;
     lcbio_TABLE *iot = ctx->io;
     lcb_socket_t fd = CTX_FD(ctx);
 
-    GT_WRITE_AGAIN:
-    nw = IOT_V0IO(iot).sendv(IOT_ARG(iot), fd, iov,
-        niov <= RWINL_IOVSIZE ? niov : RWINL_IOVSIZE);
+GT_WRITE_AGAIN:
+    nw = IOT_V0IO(iot).sendv(IOT_ARG(iot), fd, iov, niov <= RWINL_IOVSIZE ? niov : RWINL_IOVSIZE);
     if (nw > 0) {
         CTX_INCR_METRIC(ctx, bytes_sent, nw);
         ctx->procs.cb_flush_done(ctx, nb, nw);
@@ -536,21 +508,21 @@ E_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
 
     } else if (nw == -1) {
         switch (IOT_ERRNO(iot)) {
-        case EINTR:
-            /* jump back to retry */
-            goto GT_WRITE_AGAIN;
+            case EINTR:
+                /* jump back to retry */
+                goto GT_WRITE_AGAIN;
 
-        case C_EAGAIN:
-        case EWOULDBLOCK:
-            nw = 0;
-            /* indicate zero bytes were written, but don't send an error */
-            goto GT_WRITE0;
-        default:
-            /* pretend all the bytes were written and deliver an error during
-             * the next event loop iteration. */
-            nw = nb;
-            send_io_error(ctx, LCBIO_IOERR);
-            goto GT_WRITE0;
+            case C_EAGAIN:
+            case EWOULDBLOCK:
+                nw = 0;
+                /* indicate zero bytes were written, but don't send an error */
+                goto GT_WRITE0;
+            default:
+                /* pretend all the bytes were written and deliver an error during
+                 * the next event loop iteration. */
+                nw = nb;
+                send_io_error(ctx, LCBIO_IOERR);
+                goto GT_WRITE0;
         }
     } else {
         /* connection closed. pretend everything was written and send an error */
@@ -559,13 +531,12 @@ E_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
         goto GT_WRITE0;
     }
 
-    GT_WRITE0:
+GT_WRITE0:
     ctx->procs.cb_flush_done(ctx, nb, nw);
     return 0;
 }
 
-static void
-Cw_ex_handler(lcb_sockdata_t *sd, int status, void *wdata)
+static void Cw_ex_handler(lcb_sockdata_t *sd, int status, void *wdata)
 {
     lcbio_CTX *ctx = ((lcbio_SOCKET *)sd->lcbconn)->ctx;
     unsigned nflushed = (uintptr_t)wdata;
@@ -585,13 +556,11 @@ Cw_ex_handler(lcb_sockdata_t *sd, int status, void *wdata)
     }
 }
 
-static int
-C_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
+static int C_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
 {
     lcbio_TABLE *iot = ctx->io;
     lcb_sockdata_t *sd = CTX_SD(ctx);
-    int status = IOT_V1(iot).write2(IOT_ARG(iot),
-        sd, iov, niov, (void *)(uintptr_t)nb, Cw_ex_handler);
+    int status = IOT_V1(iot).write2(IOT_ARG(iot), sd, iov, niov, (void *)(uintptr_t)nb, Cw_ex_handler);
     if (status) {
         /** error! */
         lcbio_OSERR saverr = IOT_ERRNO(iot);
@@ -604,8 +573,7 @@ C_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
     }
 }
 
-int
-lcbio_ctx_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
+int lcbio_ctx_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
 {
     lcbio_TABLE *iot = ctx->io;
     if (IOT_IS_EVENT(iot)) {
@@ -615,8 +583,7 @@ lcbio_ctx_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb)
     }
 }
 
-void
-lcbio_ctx_wwant(lcbio_CTX *ctx)
+void lcbio_ctx_wwant(lcbio_CTX *ctx)
 {
     if ((IOT_IS_EVENT(ctx->io)) == 0 && ctx->entered == 0) {
         ctx->procs.cb_flush_ready(ctx);
@@ -625,8 +592,7 @@ lcbio_ctx_wwant(lcbio_CTX *ctx)
     }
 }
 
-void
-lcbio_ctx_senderr(lcbio_CTX *ctx, lcb_error_t err)
+void lcbio_ctx_senderr(lcbio_CTX *ctx, lcb_STATUS err)
 {
     if (ctx->err == LCB_SUCCESS) {
         ctx->err = err;
@@ -635,16 +601,15 @@ lcbio_ctx_senderr(lcbio_CTX *ctx, lcb_error_t err)
     lcbio_async_signal(ctx->as_err);
 }
 
-void
-lcbio_ctx_dump(lcbio_CTX *ctx, FILE *fp)
+void lcbio_ctx_dump(lcbio_CTX *ctx, FILE *fp)
 {
-    fprintf(fp, "IOCTX=%p. SUBSYS=%s\n", (void*)ctx, ctx->subsys);
+    fprintf(fp, "IOCTX=%p. SUBSYS=%s\n", (void *)ctx, ctx->subsys);
     fprintf(fp, "  Pending=%d\n", ctx->npending);
     fprintf(fp, "  ReqRead=%d\n", ctx->rdwant);
     fprintf(fp, "  WantWrite=%d\n", ctx->wwant);
     fprintf(fp, "  Entered=%d\n", ctx->entered);
     fprintf(fp, "  Active=%d\n", ctx->state == ES_ACTIVE);
-    fprintf(fp, "  SOCKET=%p\n", (void*)ctx->sock);
+    fprintf(fp, "  SOCKET=%p\n", (void *)ctx->sock);
     fprintf(fp, "    Model=%s\n", ctx->io->model == LCB_IOMODEL_EVENT ? "Event" : "Completion");
     if (IOT_IS_EVENT(ctx->io)) {
         fprintf(fp, "    FD=%d\n", ctx->sock->u.fd);

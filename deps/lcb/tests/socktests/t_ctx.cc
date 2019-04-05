@@ -2,7 +2,9 @@
 using namespace LCBTest;
 using std::string;
 using std::vector;
-class SockCtxTest : public SockTest {};
+class SockCtxTest : public SockTest
+{
+};
 
 /**
  * While some of the previous tests also used the 'Easy' context implicitly,
@@ -31,16 +33,20 @@ TEST_F(SockCtxTest, testClose)
 struct ReleaseInfo {
     lcbio_SOCKET *sock;
     bool reusable;
-    ReleaseInfo() {
+    ReleaseInfo()
+    {
         sock = NULL;
         reusable = false;
     }
-    void reset() { sock = NULL; reusable = false; }
+    void reset()
+    {
+        sock = NULL;
+        reusable = false;
+    }
 };
 
 extern "C" {
-static void
-release_cb(lcbio_SOCKET *s, int reusable, void *arg)
+static void release_cb(lcbio_SOCKET *s, int reusable, void *arg)
 {
     ReleaseInfo *info = (ReleaseInfo *)arg;
     if (reusable) {

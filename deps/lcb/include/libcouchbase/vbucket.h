@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -45,15 +45,15 @@ extern "C" {
 /**@brief This enum functions as a 'key' to indicate a specific service offered
  * by a node */
 typedef enum {
-    LCBVB_SVCTYPE_DATA = 0, /**< memcached/Data port */
-    LCBVB_SVCTYPE_VIEWS, /**< Views/CAPI port */
-    LCBVB_SVCTYPE_MGMT, /**< Administrative/'REST' UI */
-    LCBVB_SVCTYPE_IXQUERY, /**< Index query */
-    LCBVB_SVCTYPE_IXADMIN, /**< Index administration */
-    LCBVB_SVCTYPE_N1QL, /**< N1QL Query */
-    LCBVB_SVCTYPE_FTS, /**< Fulltext */
+    LCBVB_SVCTYPE_DATA = 0,  /**< memcached/Data port */
+    LCBVB_SVCTYPE_VIEWS,     /**< Views/CAPI port */
+    LCBVB_SVCTYPE_MGMT,      /**< Administrative/'REST' UI */
+    LCBVB_SVCTYPE_IXQUERY,   /**< Index query */
+    LCBVB_SVCTYPE_IXADMIN,   /**< Index administration */
+    LCBVB_SVCTYPE_N1QL,      /**< N1QL Query */
+    LCBVB_SVCTYPE_FTS,       /**< Fulltext */
     LCBVB_SVCTYPE_ANALYTICS, /**< Analytics Query */
-    /* for backward compatiblity */
+/* for backward compatiblity */
 #define LCBVB_SVCTYPE_CBAS LCBVB_SVCTYPE_ANALYTICS
     LCBVB_SVCTYPE__MAX
 } lcbvb_SVCTYPE;
@@ -62,7 +62,7 @@ typedef enum {
  * this is to distinguish between SSL and plain transports */
 typedef enum {
     LCBVB_SVCMODE_PLAIN = 0, /**< Plain transport */
-    LCBVB_SVCMODE_SSL, /**< SSL Transport */
+    LCBVB_SVCMODE_SSL,       /**< SSL Transport */
     LCBVB_SVCMODE__MAX
 } lcbvb_SVCMODE;
 
@@ -71,14 +71,14 @@ typedef enum {
  * @brief Services which may be provided by a node
  */
 typedef struct {
-    lcb_U16 data; /**< Data port for key-value operations (memcached protocol) */
-    lcb_U16 mgmt; /**< Port for adminsitrative operations (HTTP) */
-    lcb_U16 views; /**< Port for view queries (HTTP) */
-    lcb_U16 ixquery; /**< Indexing query port */
-    lcb_U16 ixadmin; /**< Indexing admin port (HTTP) */
-    lcb_U16 n1ql; /**< Query port */
-    lcb_U16 fts; /**< CBFT */
-    lcb_U16 cbas; /**< CBAS (Analytics) */
+    lcb_U16 data;      /**< Data port for key-value operations (memcached protocol) */
+    lcb_U16 mgmt;      /**< Port for adminsitrative operations (HTTP) */
+    lcb_U16 views;     /**< Port for view queries (HTTP) */
+    lcb_U16 ixquery;   /**< Indexing query port */
+    lcb_U16 ixadmin;   /**< Indexing admin port (HTTP) */
+    lcb_U16 n1ql;      /**< Query port */
+    lcb_U16 fts;       /**< CBFT */
+    lcb_U16 cbas;      /**< CBAS (Analytics) */
     char *views_base_; /**< Views base URL */
     char *query_base_; /**< N1QL base URL */
     char *fts_base_;
@@ -94,17 +94,17 @@ typedef struct {
  * (@ref #hostname), and various services.
  */
 typedef struct {
-    lcbvb_SERVICES svc; /**< Plain services */
-    lcbvb_SERVICES svc_ssl; /**< SSL Services */
-    char *authority; /**< host:dataport for comparison */
-    char *hostname; /**< Hostname for the node */
-    char *viewpath; /**< Path prefix for view queries */
-    char *querypath; /**< Path prefix for n1ql queries */
-    char *ftspath; /**< Path prefix for fulltext queries */
-    char *cbaspath; /**< Path prefix for analytics queries */
-    unsigned nvbs; /**< Total number of vbuckets the server has assigned */
-    char *alt_hostname; /**< selected alternative hostname for the node */
-    lcbvb_SERVICES alt_svc; /**< selected alternative plain services */
+    lcbvb_SERVICES svc;         /**< Plain services */
+    lcbvb_SERVICES svc_ssl;     /**< SSL Services */
+    char *authority;            /**< host:dataport for comparison */
+    char *hostname;             /**< Hostname for the node */
+    char *viewpath;             /**< Path prefix for view queries */
+    char *querypath;            /**< Path prefix for n1ql queries */
+    char *ftspath;              /**< Path prefix for fulltext queries */
+    char *cbaspath;             /**< Path prefix for analytics queries */
+    unsigned nvbs;              /**< Total number of vbuckets the server has assigned */
+    char *alt_hostname;         /**< selected alternative hostname for the node */
+    lcbvb_SERVICES alt_svc;     /**< selected alternative plain services */
     lcbvb_SERVICES alt_svc_ssl; /**< selected alternative SSL Services */
 } lcbvb_SERVER;
 
@@ -123,42 +123,43 @@ typedef struct {
  * This also indicates the type of bucket */
 typedef enum {
     LCBVB_DIST_VBUCKET = 0, /**< vBucket hashing ("couchbase") bucket */
-    LCBVB_DIST_KETAMA = 1 /**< Ketama hashing ("memcached") bucket */
+    LCBVB_DIST_KETAMA = 1   /**< Ketama hashing ("memcached") bucket */
 } lcbvb_DISTMODE;
 
 typedef enum {
-    LCBVB_CAP_XATTR = 0x01,
-    LCBVB_CAP_CBHELLO = 0x02,
-    LCBVB_CAP_CCCP = 0x04,
-    LCBVB_CAP_COUCHAPI = 0x08,
-    LCBVB_CAP_DCP = 0x10,
-    LCBVB_CAP_NODES_EXT = 0x20,
-    LCBVB_CAP_TOUCH = 0x40,
-    LCBVB_CAP_XDCR_CHECKPOINTING = 0x80
+    LCBVB_CAP_XATTR = 1 << 0,
+    LCBVB_CAP_CBHELLO = 1 << 1,
+    LCBVB_CAP_CCCP = 1 << 2,
+    LCBVB_CAP_COUCHAPI = 1 << 3,
+    LCBVB_CAP_DCP = 1 << 4,
+    LCBVB_CAP_NODES_EXT = 1 << 5,
+    LCBVB_CAP_TOUCH = 1 << 6,
+    LCBVB_CAP_XDCR_CHECKPOINTING = 1 << 7,
+    LCBVB_CAP_COLLECTIONS = 1 << 8,
+    LCBVB_CAP_DURABLE_WRITE = 1 << 9
 } lcbvb_BUCKET_CAPABILITIES;
 
 /**@volatile. ABI/API compatibility not guaranteed between versions.
  * @brief Structure containing the configuration.*/
 typedef struct lcbvb_CONFIG_st {
-    lcbvb_DISTMODE dtype; /**< Type of bucket/distribution */
-    unsigned nvb; /**< Number of vbuckets */
-    unsigned ndatasrv; /**< Number of data (memcached) servers */
-    unsigned nsrv; /** Number of servers */
-    unsigned nrepl; /**< Number of replicas */
-    unsigned ncontinuum; /* number of continuum points */
-    unsigned is3x; /* whether server 3.0 config semantics are in place */
-    int revid; /* revision ID from the config (-1 if not present) */
-    char *buuid; /* bucket UUID */
-    char *bname; /* bucket name */
-    const char *errstr; /* last error */
-    lcbvb_SERVER *servers; /* nodes */
-    lcbvb_VBUCKET *vbuckets; /* vbucket map */
-    lcbvb_VBUCKET *ffvbuckets; /* fast-forward map */
+    lcbvb_DISTMODE dtype;       /**< Type of bucket/distribution */
+    unsigned nvb;               /**< Number of vbuckets */
+    unsigned ndatasrv;          /**< Number of data (memcached) servers */
+    unsigned nsrv;              /** Number of servers */
+    unsigned nrepl;             /**< Number of replicas */
+    unsigned ncontinuum;        /* number of continuum points */
+    unsigned is3x;              /* whether server 3.0 config semantics are in place */
+    int revid;                  /* revision ID from the config (-1 if not present) */
+    char *buuid;                /* bucket UUID */
+    char *bname;                /* bucket name */
+    const char *errstr;         /* last error */
+    lcbvb_SERVER *servers;      /* nodes */
+    lcbvb_VBUCKET *vbuckets;    /* vbucket map */
+    lcbvb_VBUCKET *ffvbuckets;  /* fast-forward map */
     lcbvb_CONTINUUM *continuum; /* ketama continuums */
-    int *randbuf; /* Used for random server selection */
-    long caps; /**< Server capabilities */
+    int *randbuf;               /* Used for random server selection */
+    long caps;                  /**< Server capabilities */
 } lcbvb_CONFIG;
-
 
 #define LCBVB_NSERVERS(cfg) (cfg)->nsrv
 #define LCBVB_NDATASERVERS(cfg) (cfg)->ndatasrv
@@ -181,8 +182,7 @@ typedef struct lcbvb_CONFIG_st {
  * @endcode
  */
 LIBCOUCHBASE_API
-lcbvb_CONFIG *
-lcbvb_create(void);
+lcbvb_CONFIG *lcbvb_create(void);
 
 /**
  * @uncommitted
@@ -191,8 +191,7 @@ lcbvb_create(void);
  * @return A new config object, or NULL on error.
  */
 LIBCOUCHBASE_API
-lcbvb_CONFIG *
-lcbvb_parse_json(const char *data);
+lcbvb_CONFIG *lcbvb_parse_json(const char *data);
 
 /**
  * @committed
@@ -212,16 +211,13 @@ lcbvb_parse_json(const char *data);
  *  failures.
  */
 LIBCOUCHBASE_API
-int
-lcbvb_load_json(lcbvb_CONFIG *vbc, const char *data);
-
+int lcbvb_load_json(lcbvb_CONFIG *vbc, const char *data);
 
 /**
- * @uncommmitted
+ * @uncommitted
  */
 LIBCOUCHBASE_API
-int
-lcbvb_load_json_ex(lcbvb_CONFIG *vbc, const char *data, const char *source, char **network);
+int lcbvb_load_json_ex(lcbvb_CONFIG *vbc, const char *data, const char *source, char **network);
 
 /**@brief Serialize the current config as a JSON string.
  * @volatile
@@ -229,8 +225,7 @@ lcbvb_load_json_ex(lcbvb_CONFIG *vbc, const char *data, const char *source, char
  * NUL-terminated and should be freed using the free() function.
  */
 LIBCOUCHBASE_API
-char *
-lcbvb_save_json(lcbvb_CONFIG *vbc);
+char *lcbvb_save_json(lcbvb_CONFIG *vbc);
 
 /**
  * @committed
@@ -238,8 +233,7 @@ lcbvb_save_json(lcbvb_CONFIG *vbc);
  * @return An error string. Do not free this string
  */
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_error(const lcbvb_CONFIG *vbc);
+const char *lcbvb_get_error(const lcbvb_CONFIG *vbc);
 
 /**
  * @volatile
@@ -252,8 +246,7 @@ lcbvb_get_error(const lcbvb_CONFIG *vbc);
  * Use this immediately after a successful parsing of the configuration file.
  */
 LIBCOUCHBASE_API
-void
-lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hostname);
+void lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hostname);
 
 /**
  * @committed
@@ -261,8 +254,7 @@ lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hostname);
  * @param conf
  */
 LIBCOUCHBASE_API
-void
-lcbvb_destroy(lcbvb_CONFIG *conf);
+void lcbvb_destroy(lcbvb_CONFIG *conf);
 
 /**
  * @committed
@@ -275,8 +267,7 @@ lcbvb_destroy(lcbvb_CONFIG *conf);
  * within range of `0 < vbid < cfg->nvbs`
  */
 LIBCOUCHBASE_API
-int
-lcbvb_vbmaster(lcbvb_CONFIG *cfg, int vbid);
+int lcbvb_vbmaster(lcbvb_CONFIG *cfg, int vbid);
 
 /**
  * @committed
@@ -292,8 +283,7 @@ lcbvb_vbmaster(lcbvb_CONFIG *cfg, int vbid);
  * that `0 < vbid < cfg->nvbs` and `-1 < ix < cfg->nrepl`
  */
 LIBCOUCHBASE_API
-int
-lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
+int lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
 
 /**
  * @volatile
@@ -301,9 +291,7 @@ lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
  * 0 then this returns the master index, if the index is greater then it
  * returns the replica index
  */
-#define lcbvb_vbserver(cfg, vbid, ix) ( (ix == 0) ? \
-        lcbvb_vbmaster(cfg, vbid) : lcbvb_vbreplica(cfg, vbid, ix-1) )
-
+#define lcbvb_vbserver(cfg, vbid, ix) ((ix == 0) ? lcbvb_vbmaster(cfg, vbid) : lcbvb_vbreplica(cfg, vbid, ix - 1))
 
 /**
  * uncommitted
@@ -329,8 +317,7 @@ lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix);
  * @param use_heuristics whether additional heuristics should be used. If
  *  heuristics is off, only the fast-forward map is employed.
  */
-int
-lcbvb_nmv_remap_ex(lcbvb_CONFIG *cfg, int vbid, int bad, int use_heuristics);
+int lcbvb_nmv_remap_ex(lcbvb_CONFIG *cfg, int vbid, int bad, int use_heuristics);
 
 /**
  * @committed
@@ -344,9 +331,7 @@ lcbvb_nmv_remap_ex(lcbvb_CONFIG *cfg, int vbid, int bad, int use_heuristics);
  * @return 0 for now
  */
 LIBCOUCHBASE_API
-int
-lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n,
-    int *vbid, int *srvix);
+int lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n, int *vbid, int *srvix);
 
 /**
  * @committed
@@ -358,8 +343,7 @@ lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n,
  * @return the vBucket for the key
  */
 LIBCOUCHBASE_API
-int
-lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n);
+int lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n);
 
 /**
  * @uncommitted
@@ -372,8 +356,7 @@ lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE n);
  * vbucket `vbid`. Returns 0 otherwise.
  */
 LIBCOUCHBASE_API
-int
-lcbvb_has_vbucket(lcbvb_CONFIG *vbc, int vbid, int ix);
+int lcbvb_has_vbucket(lcbvb_CONFIG *vbc, int vbid, int ix);
 
 /**@committed
  * @brief Get the number of servers in the bucket. Note that not all servers
@@ -382,8 +365,7 @@ lcbvb_has_vbucket(lcbvb_CONFIG *vbc, int vbid, int ix);
  * @return The number of servers
  **/
 LIBCOUCHBASE_API
-unsigned
-lcbvb_get_nservers(const lcbvb_CONFIG *cfg);
+unsigned lcbvb_get_nservers(const lcbvb_CONFIG *cfg);
 
 /**@committed
  * @brief Get the number of replicas the bucket is configured with
@@ -392,8 +374,14 @@ lcbvb_get_nservers(const lcbvb_CONFIG *cfg);
  * @return the number of configured replicas
  */
 LIBCOUCHBASE_API
-unsigned
-lcbvb_get_nreplicas(const lcbvb_CONFIG *cfg);
+unsigned lcbvb_get_nreplicas(const lcbvb_CONFIG *cfg);
+
+/**@committed
+ * @brief Get the number of vbuckets the bucket is configured with.
+ * @return the number of vbuckets, or zero if not applicable
+ */
+LIBCOUCHBASE_API
+unsigned lcbvb_get_nvbuckets(const lcbvb_CONFIG *cfg);
 
 /**@committed
  * @brief Get the distribution mode (AKA bucket type) of the bucket
@@ -401,8 +389,7 @@ lcbvb_get_nreplicas(const lcbvb_CONFIG *cfg);
  * @return the distribution mode
  */
 LIBCOUCHBASE_API
-lcbvb_DISTMODE
-lcbvb_get_distmode(const lcbvb_CONFIG *cfg);
+lcbvb_DISTMODE lcbvb_get_distmode(const lcbvb_CONFIG *cfg);
 
 /**
  * @committed
@@ -418,8 +405,7 @@ lcbvb_get_distmode(const lcbvb_CONFIG *cfg);
  * @return The revision ID, or `-1` if the config does not have a revision
  */
 LIBCOUCHBASE_API
-int
-lcbvb_get_revision(const lcbvb_CONFIG *cfg);
+int lcbvb_get_revision(const lcbvb_CONFIG *cfg);
 
 /**
  * @committed
@@ -432,10 +418,7 @@ lcbvb_get_revision(const lcbvb_CONFIG *cfg);
  * @return a number greater than zero if the port exists, 0 otherwise
  */
 LIBCOUCHBASE_API
-unsigned
-lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
-
+unsigned lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
 
 /**
  * @committed
@@ -453,9 +436,7 @@ lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix,
  * destroyed.
  */
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_hostport(lcbvb_CONFIG *cfg, unsigned ix,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
+const char *lcbvb_get_hostport(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
 
 /**
  * @committed
@@ -470,8 +451,7 @@ lcbvb_get_hostport(lcbvb_CONFIG *cfg, unsigned ix,
  * @return a hostname without a port, or NULL if the index is out of bounds
  */
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix);
+const char *lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix);
 
 /**
  * Function to return the URL prefix for a REST service.
@@ -485,9 +465,7 @@ lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix);
  * function will guarantee the URL prefix is correct.
  */
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
+const char *lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
 
 /**
  * Convenience function to select a random node for a service.
@@ -495,9 +473,7 @@ lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
  * contains a service with the given criteria.
  */
 LIBCOUCHBASE_API
-int
-lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
+int lcbvb_get_randhost(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode);
 
 /**
  * Get random node, excluding nodes already tried
@@ -513,9 +489,7 @@ lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
  * exclude list)
  */
 LIBCOUCHBASE_API
-int
-lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode, int *used);
+int lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode, int *used);
 
 /** @brief Structure representing changes between two configurations */
 typedef struct {
@@ -531,10 +505,11 @@ typedef struct {
 
 /** @brief Convenience enum to determine the mode of change */
 typedef enum {
-    LCBVB_NO_CHANGES = 0, /**< No changes between configs */
+    LCBVB_NO_CHANGES = 0,            /**< No changes between configs */
     LCBVB_SERVERS_MODIFIED = 1 << 0, /**< Servers have been added or removed */
-    LCBVB_MAP_MODIFIED = 1 << 1 /**< vBuckets have been transferred */
-} lcbvb_CHANGETYPE, VBUCKET_CHANGE_STATUS;
+    LCBVB_MAP_MODIFIED = 1 << 1      /**< vBuckets have been transferred */
+} lcbvb_CHANGETYPE,
+    VBUCKET_CHANGE_STATUS;
 
 /**
  * @volatile
@@ -547,20 +522,17 @@ typedef enum {
  * @see lcbvb_get_changetype()
  */
 LIBCOUCHBASE_API
-lcbvb_CONFIGDIFF *
-lcbvb_compare(lcbvb_CONFIG *from, lcbvb_CONFIG *to);
+lcbvb_CONFIGDIFF *lcbvb_compare(lcbvb_CONFIG *from, lcbvb_CONFIG *to);
 
 /** @brief Free the structure returned by lcbvb_compare() */
 LIBCOUCHBASE_API
-void
-lcbvb_free_diff(lcbvb_CONFIGDIFF *diff);
+void lcbvb_free_diff(lcbvb_CONFIGDIFF *diff);
 
 /**@brief Get a quick summary of the changes in the passed object
  * @param diff the diff returned from lcbvb_compare()
  */
 LIBCOUCHBASE_API
-lcbvb_CHANGETYPE
-lcbvb_get_changetype(lcbvb_CONFIGDIFF *diff);
+lcbvb_CHANGETYPE lcbvb_get_changetype(lcbvb_CONFIGDIFF *diff);
 
 /**
  * @volatile
@@ -577,11 +549,8 @@ lcbvb_get_changetype(lcbvb_CONFIGDIFF *diff);
  * @param nvbuckets how many vbuckets for the bucket
  */
 LIBCOUCHBASE_API
-int
-lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
-    const char *name, const char *uuid,
-    const lcbvb_SERVER *servers,
-    unsigned nservers, unsigned nreplica, unsigned nvbuckets);
+int lcbvb_genconfig_ex(lcbvb_CONFIG *vb, const char *name, const char *uuid, const lcbvb_SERVER *servers,
+                       unsigned nservers, unsigned nreplica, unsigned nvbuckets);
 
 /**
  * @volatile
@@ -599,9 +568,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
  * each additional node.
  */
 LIBCOUCHBASE_API
-int
-lcbvb_genconfig(lcbvb_CONFIG *vb,
-    unsigned nservers, unsigned nreplica, unsigned nvbuckets);
+int lcbvb_genconfig(lcbvb_CONFIG *vb, unsigned nservers, unsigned nreplica, unsigned nvbuckets);
 
 /**
  * @volatile
@@ -609,9 +576,7 @@ lcbvb_genconfig(lcbvb_CONFIG *vb,
  * provides alternate indices.
  */
 LIBCOUCHBASE_API
-void
-lcbvb_genffmap(lcbvb_CONFIG *vb);
-
+void lcbvb_genffmap(lcbvb_CONFIG *vb);
 
 /**
  * @volatile
@@ -619,8 +584,7 @@ lcbvb_genffmap(lcbvb_CONFIG *vb);
  * @param vb The configuration object.
  */
 LIBCOUCHBASE_API
-void
-lcbvb_make_ketama(lcbvb_CONFIG *vb);
+void lcbvb_make_ketama(lcbvb_CONFIG *vb);
 
 /**
  * @committed
@@ -632,17 +596,13 @@ lcbvb_make_ketama(lcbvb_CONFIG *vb);
  * @return A string reprenting the URL, or NULL if not available.
  */
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_capibase(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCMODE mode);
+const char *lcbvb_get_capibase(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCMODE mode);
 /**@}*/
 
 /*the rest of these symbols are deprecated and should not be touched by
  * doxygen */
 
-typedef enum {
-    LIBVBUCKET_SOURCE_FILE,
-    LIBVBUCKET_SOURCE_MEMORY
-} vbucket_source_t;
+typedef enum { LIBVBUCKET_SOURCE_FILE, LIBVBUCKET_SOURCE_MEMORY } vbucket_source_t;
 
 typedef lcbvb_CONFIG *VBUCKET_CONFIG_HANDLE;
 typedef lcbvb_DISTMODE VBUCKET_DISTRIBUTION_TYPE;
@@ -652,27 +612,26 @@ typedef lcbvb_DISTMODE VBUCKET_DISTRIBUTION_TYPE;
 #define VBUCKET_SERVERS_MODIFIED LCBVB_SERVERS_MODIFIED
 #define VBUCKET_MAP_MODIFIED LCVBVB_MAP_MODIFIED
 
-LIBCOUCHBASE_API int vbucket_config_parse(lcbvb_CONFIG*,vbucket_source_t,const char*);
-LIBCOUCHBASE_API const char *vbucket_get_error_message(lcbvb_CONFIG*);
-LIBCOUCHBASE_API lcbvb_CONFIG* vbucket_config_create(void);
-LIBCOUCHBASE_API void vbucket_config_destroy(lcbvb_CONFIG*);
-LIBCOUCHBASE_API int vbucket_config_get_num_replicas(lcbvb_CONFIG*);
-LIBCOUCHBASE_API int vbucket_config_get_num_vbuckets(lcbvb_CONFIG*);
-LIBCOUCHBASE_API int vbucket_config_get_num_servers(lcbvb_CONFIG*);
-LIBCOUCHBASE_API const char *vbucket_config_get_server(lcbvb_CONFIG*,int);
-LIBCOUCHBASE_API const char *vbucket_config_get_couch_api_base(lcbvb_CONFIG*,int);
-LIBCOUCHBASE_API const char *vbucket_config_get_rest_api_server(lcbvb_CONFIG*,int);
-LIBCOUCHBASE_API lcbvb_DISTMODE vbucket_config_get_distribution_type(lcbvb_CONFIG*);
-LIBCOUCHBASE_API int vbucket_map(lcbvb_CONFIG*,const void*,lcb_SIZE,int*,int*);
-LIBCOUCHBASE_API int vbucket_get_vbucket_by_key(lcbvb_CONFIG*,const void*,lcb_SIZE);
-LIBCOUCHBASE_API int vbucket_get_master(lcbvb_CONFIG*,int);
-LIBCOUCHBASE_API int vbucket_get_replica(lcbvb_CONFIG*,int,int);
-LIBCOUCHBASE_API lcbvb_CONFIGDIFF* vbucket_compare(lcbvb_CONFIG*,lcbvb_CONFIG*);
-LIBCOUCHBASE_API void vbucket_free_diff(lcbvb_CONFIGDIFF*);
-LIBCOUCHBASE_API int vbucket_config_get_revision(lcbvb_CONFIG*);
+LIBCOUCHBASE_API int vbucket_config_parse(lcbvb_CONFIG *, vbucket_source_t, const char *);
+LIBCOUCHBASE_API const char *vbucket_get_error_message(lcbvb_CONFIG *);
+LIBCOUCHBASE_API lcbvb_CONFIG *vbucket_config_create(void);
+LIBCOUCHBASE_API void vbucket_config_destroy(lcbvb_CONFIG *);
+LIBCOUCHBASE_API int vbucket_config_get_num_replicas(lcbvb_CONFIG *);
+LIBCOUCHBASE_API int vbucket_config_get_num_vbuckets(lcbvb_CONFIG *);
+LIBCOUCHBASE_API int vbucket_config_get_num_servers(lcbvb_CONFIG *);
+LIBCOUCHBASE_API const char *vbucket_config_get_server(lcbvb_CONFIG *, int);
+LIBCOUCHBASE_API const char *vbucket_config_get_couch_api_base(lcbvb_CONFIG *, int);
+LIBCOUCHBASE_API const char *vbucket_config_get_rest_api_server(lcbvb_CONFIG *, int);
+LIBCOUCHBASE_API lcbvb_DISTMODE vbucket_config_get_distribution_type(lcbvb_CONFIG *);
+LIBCOUCHBASE_API int vbucket_map(lcbvb_CONFIG *, const void *, lcb_SIZE, int *, int *);
+LIBCOUCHBASE_API int vbucket_get_vbucket_by_key(lcbvb_CONFIG *, const void *, lcb_SIZE);
+LIBCOUCHBASE_API int vbucket_get_master(lcbvb_CONFIG *, int);
+LIBCOUCHBASE_API int vbucket_get_replica(lcbvb_CONFIG *, int, int);
+LIBCOUCHBASE_API lcbvb_CONFIGDIFF *vbucket_compare(lcbvb_CONFIG *, lcbvb_CONFIG *);
+LIBCOUCHBASE_API void vbucket_free_diff(lcbvb_CONFIGDIFF *);
+LIBCOUCHBASE_API int vbucket_config_get_revision(lcbvb_CONFIG *);
 LIBCOUCHBASE_API lcbvb_CHANGETYPE vbucket_what_changed(lcbvb_CONFIGDIFF *diff);
 LIBCOUCHBASE_API int vbucket_config_generate(lcbvb_CONFIG *vb, unsigned, unsigned, unsigned);
-
 
 #ifdef __cplusplus
 }

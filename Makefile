@@ -1,13 +1,4 @@
-SOURCE = src/buflist.h src/cas.cc src/cas.h src/commandbase.cc  \
-         src/commandlist.h src/commandoptions.h src/commands.cc \
-         src/commands.h src/constants.cc src/control.cc         \
-         src/cookie.cc src/cookie.h src/couchbase_impl.cc       \
-         src/couchbase_impl.h src/exception.cc src/exception.h  \
-         src/logger.h src/namemap.cc src/namemap.h              \
-         src/options.cc src/options.h src/uv-plugin-all.c       \
-         src/valueformat.cc src/valueformat.h
-
-all: binding $(SOURCE)
+all: binding src/ deps/
 	@node-gyp build
 
 binding: binding.gyp
@@ -45,27 +36,7 @@ check: checkdeps test lint cover
 docs: node_modules
 	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
 
-browser: lib/mock.js lib/viewQuery.js
-	browserify -r "./lib/mock.js:cbmock" > cbmock.js
-
 prebuilds:
 	node ./node_modules/prebuild/bin.js
-
-reformat:
-	@astyle --mode=c \
-               --quiet \
-               --style=1tbs \
-               --indent=spaces=4 \
-               --indent-namespaces \
-               --indent-col1-comments \
-               --max-instatement-indent=78 \
-               --pad-oper \
-               --pad-header \
-               --add-brackets \
-               --unpad-paren \
-               --align-pointer=name \
-               io/*.c io/*.h io/util/hexdump.c \
-               src/*.cc \
-               src/*.h
 
 .PHONY: all test clean docs browser prebuilds

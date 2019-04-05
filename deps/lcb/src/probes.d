@@ -17,14 +17,14 @@
 
 provider libcouchbase
 {
-    probe get_begin(void *,       /* lcb_t */
+    probe get_begin(void *,       /* lcb_INSTANCE* */
                     uint32_t,     /* opaque */
                     uint16_t,     /* vbucket */
                     uint8_t,      /* opcode (get, gat, getl) */
                     const char *, /* key */
                     size_t,       /* nkey */
                     uint32_t);    /* expiration */
-    probe get_end(void *,         /* lcb_t */
+    probe get_end(void *,         /* lcb_INSTANCE* */
                   uint32_t,       /* opaque */
                   uint8_t,        /* opcode (get, gat, getl) */
                   uint64_t,       /* latency, ns */
@@ -37,13 +37,13 @@ provider libcouchbase
                   uint64_t,       /* cas */
                   uint8_t);       /* datatype */
 
-    probe unlock_begin(void *,       /* lcb_t */
+    probe unlock_begin(void *,       /* lcb_INSTANCE* */
                        uint32_t,     /* opaque */
                        uint16_t,     /* vbucket */
                        uint8_t,      /* opcode */
                        const char *, /* key */
                        size_t);      /* nkey */
-    probe unlock_end(void *,         /* lcb_t */
+    probe unlock_end(void *,         /* lcb_INSTANCE* */
                      uint32_t,       /* opaque */
                      uint8_t,        /* opcode */
                      uint64_t,       /* latency, ns */
@@ -51,7 +51,7 @@ provider libcouchbase
                      const char *,   /* key */
                      size_t);        /* nkey */
 
-    probe store_begin(void *,       /* lcb_t */
+    probe store_begin(void *,       /* lcb_INSTANCE* */
                       uint32_t,     /* opaque */
                       uint16_t,     /* vbucket */
                       uint8_t,      /* opcode (set, add, replace, append, prepend) */
@@ -63,7 +63,7 @@ provider libcouchbase
                       uint64_t,     /* cas */
                       uint8_t,      /* datatype */
                       uint32_t);    /* expiration */
-    probe store_end(void *,         /* lcb_t */
+    probe store_end(void *,         /* lcb_INSTANCE* */
                     uint32_t,       /* opaque */
                     uint8_t,        /* opcode (set, add, replace, append, prepend) */
                     uint64_t,       /* latency, ns */
@@ -72,7 +72,7 @@ provider libcouchbase
                     size_t,         /* nkey */
                     uint64_t);      /* cas */
 
-    probe arithmetic_begin(void *,       /* lcb_t */
+    probe arithmetic_begin(void *,       /* lcb_INSTANCE* */
                            uint32_t,     /* opaque */
                            uint16_t,     /* vbucket */
                            uint8_t,      /* opcode (increment, decrement) */
@@ -81,7 +81,7 @@ provider libcouchbase
                            uint64_t,     /* delta */
                            uint64_t,     /* initial */
                            uint32_t);    /* expiration */
-    probe arithmetic_end(void *,         /* lcb_t */
+    probe arithmetic_end(void *,         /* lcb_INSTANCE* */
                          uint32_t,       /* opaque */
                          uint8_t,        /* opcode (increment, decrement) */
                          uint64_t,       /* latency, ns */
@@ -91,14 +91,14 @@ provider libcouchbase
                          uint64_t,       /* value */
                          uint64_t);      /* cas */
 
-    probe touch_begin(void *,       /* lcb_t */
+    probe touch_begin(void *,       /* lcb_INSTANCE* */
                       uint32_t,     /* opaque */
                       uint16_t,     /* vbucket */
                       uint8_t,      /* opcode */
                       const char *, /* key */
                       size_t,       /* nkey */
                       uint32_t);    /* expiration */
-    probe touch_end(void *,         /* lcb_t */
+    probe touch_end(void *,         /* lcb_INSTANCE* */
                     uint32_t,       /* opaque */
                     uint8_t,        /* opcode */
                     uint64_t,       /* latency, ns */
@@ -107,13 +107,13 @@ provider libcouchbase
                     size_t,         /* nkey */
                     uint64_t);      /* cas */
 
-    probe remove_begin(void *,       /* lcb_t */
+    probe remove_begin(void *,       /* lcb_INSTANCE* */
                        uint32_t,     /* opaque */
                        uint16_t,     /* vbucket */
                        uint8_t,      /* opcode */
                        const char *, /* key */
                        size_t);      /* nkey */
-    probe remove_end(void *,         /* lcb_t */
+    probe remove_end(void *,         /* lcb_INSTANCE* */
                      uint32_t,       /* opaque */
                      uint8_t,        /* opcode */
                      uint64_t,       /* latency, ns */
@@ -132,12 +132,12 @@ provider libcouchbase
      * | vbucket |   nkey  |    key     | ...
      * +---------+---------+------------+----
      */
-    probe observe_begin(void *,          /* lcb_t */
+    probe observe_begin(void *,          /* lcb_INSTANCE* */
                         uint32_t,        /* opaque */
                         uint8_t,         /* opcode */
                         const char *,    /* bytes */
                         size_t);         /* nbytes */
-    probe observe_progress(void *,       /* lcb_t */
+    probe observe_progress(void *,       /* lcb_INSTANCE* */
                            uint32_t,     /* opaque */
                            uint8_t,      /* opcode */
                            uint64_t,     /* latency, ns */
@@ -149,13 +149,13 @@ provider libcouchbase
                            uint8_t,      /* master (zero if from replica) */
                            uint32_t,     /* ttp, time to persist */
                            uint32_t);    /* ttr, time to replicate */
-    probe observe_end(void *,            /* lcb_t */
+    probe observe_end(void *,            /* lcb_INSTANCE* */
                       uint32_t,          /* opaque */
                       uint8_t,           /* opcode */
                       uint64_t,          /* latency, ns */
                       uint16_t);         /* return code (from libcouchbase) */
 
-    probe http_begin(void *,        /* lcb_t */
+    probe http_begin(void *,        /* lcb_INSTANCE* */
                      void *,        /* pointer to request */
                      uint16_t,      /* type */
                      uint16_t,      /* method */
@@ -173,7 +173,7 @@ provider libcouchbase
                    uint16_t,        /* HTTP status code or zero */
                    uint64_t);       /* latency, ns */
 
-    probe new_config(void *,         /* lcb_t */
+    probe new_config(void *,         /* lcb_INSTANCE* */
                      int32_t,        /* revid */
                      const char*,    /* bucket name */
                      const char*,    /* bucket UUID */

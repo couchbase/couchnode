@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include "internal.h"
 
 int
-lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_error_t err)
+lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_STATUS err)
 {
     unsigned policy;
     unsigned mode;

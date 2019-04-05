@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,18 +24,18 @@ class GetUnitTest : public MockUnitTest
 };
 
 extern "C" {
-    static void testGetMissGetCallback(lcb_t, const void *cookie,
-                                       lcb_error_t error,
-                                       const lcb_get_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        EXPECT_EQ(LCB_KEY_ENOENT, error);
-        ASSERT_NE((const lcb_get_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        std::string val((const char *)resp->v.v0.key, resp->v.v0.nkey);
-        EXPECT_TRUE(val == "testGetMiss1" || val == "testGetMiss2");
-        ++(*counter);
-    }
+static void testGetMissGetCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
+{
+    int *counter;
+    lcb_respget_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_KEY_ENOENT, lcb_respget_status(resp));
+    const char *key;
+    size_t nkey;
+    lcb_respget_key(resp, &key, &nkey);
+    std::string val(key, nkey);
+    EXPECT_TRUE(val == "testGetMiss1" || val == "testGetMiss2");
+    ++(*counter);
+}
 }
 
 /**
@@ -55,35 +55,38 @@ extern "C" {
 TEST_F(GetUnitTest, testGetMiss)
 {
     HandleWrap hw;
-    lcb_t instance;
-    createConnection(hw, instance);
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
 
-    (void)lcb_set_get_callback(instance, testGetMissGetCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetMissGetCallback);
     int numcallbacks = 0;
+    std::string key1("testGetMiss1"), key2("testGetMiss2");
 
-    removeKey(instance, "testGetMiss1");
-    removeKey(instance, "testGetMiss2");
+    removeKey(instance, key1);
+    removeKey(instance, key2);
 
-    lcb_get_cmd_t cmd1("testGetMiss1");
-    lcb_get_cmd_t cmd2("testGetMiss2");
-    lcb_get_cmd_t *cmds[] = { &cmd1, &cmd2 };
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, 2, cmds));
+    lcb_CMDGET *cmd;
+
+    lcb_cmdget_create(&cmd);
+    lcb_cmdget_key(cmd, key1.c_str(), key1.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmd));
+
+    lcb_cmdget_key(cmd, key2.c_str(), key2.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmd));
+    lcb_cmdget_destroy(cmd);
 
     lcb_wait(instance);
     EXPECT_EQ(2, numcallbacks);
 }
 
 extern "C" {
-    static void testGetHitGetCallback(lcb_t, const void *cookie,
-                                      lcb_error_t error,
-                                      const lcb_get_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        EXPECT_EQ(LCB_SUCCESS, error);
-        ASSERT_NE((const lcb_get_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        ++(*counter);
-    }
+static void testGetHitGetCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
+{
+    int *counter;
+    lcb_respget_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respget_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -99,34 +102,38 @@ extern "C" {
 TEST_F(GetUnitTest, testGetHit)
 {
     HandleWrap hw;
-    lcb_t instance;
-    createConnection(hw, instance);
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
 
-    (void)lcb_set_get_callback(instance, testGetHitGetCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetHitGetCallback);
     int numcallbacks = 0;
+    std::string key1("testGetKey1"), key2("testGetKey2");
 
-    storeKey(instance, "testGetKey1", "foo");
-    storeKey(instance, "testGetKey2", "foo");
-    lcb_get_cmd_t cmd1("testGetKey1");
-    lcb_get_cmd_t cmd2("testGetKey2");
-    lcb_get_cmd_t *cmds[] = { &cmd1, &cmd2 };
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, 2, cmds));
+    storeKey(instance, key1, "foo");
+    storeKey(instance, key2, "foo");
+
+    lcb_CMDGET *cmd;
+
+    lcb_cmdget_create(&cmd);
+    lcb_cmdget_key(cmd, key1.c_str(), key1.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmd));
+
+    lcb_cmdget_key(cmd, key2.c_str(), key2.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmd));
+    lcb_cmdget_destroy(cmd);
 
     lcb_wait(instance);
     EXPECT_EQ(2, numcallbacks);
 }
 
 extern "C" {
-    static void testTouchMissCallback(lcb_t, const void *cookie,
-                                      lcb_error_t error,
-                                      const lcb_touch_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        EXPECT_EQ(LCB_KEY_ENOENT, error);
-        ASSERT_NE((const lcb_touch_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        ++(*counter);
-    }
+static void testTouchMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPTOUCH *resp)
+{
+    int *counter;
+    lcb_resptouch_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_KEY_ENOENT, lcb_resptouch_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -138,31 +145,32 @@ TEST_F(GetUnitTest, testTouchMiss)
 {
     std::string key("testTouchMissKey");
     HandleWrap hw;
-    lcb_t instance;
-    createConnection(hw, instance);
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
 
-    (void)lcb_set_touch_callback(instance, testTouchMissCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, (lcb_RESPCALLBACK)testTouchMissCallback);
     removeKey(instance, key);
 
     int numcallbacks = 0;
-    lcb_touch_cmd_t cmd(key.data(), key.length(), 666);
-    lcb_touch_cmd_t *cmds[] = { &cmd };
-    EXPECT_EQ(LCB_SUCCESS, lcb_touch(instance, &numcallbacks, 1, cmds));
+
+    lcb_CMDTOUCH *cmd;
+    lcb_cmdtouch_create(&cmd);
+    lcb_cmdtouch_key(cmd, key.c_str(), key.size());
+    lcb_cmdtouch_expiration(cmd, 666);
+    lcb_touch(instance, &numcallbacks, cmd);
+    lcb_cmdtouch_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
 }
 
 extern "C" {
-    static void testTouchHitCallback(lcb_t, const void *cookie,
-                                     lcb_error_t error,
-                                     const lcb_touch_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        EXPECT_EQ(LCB_SUCCESS, error);
-        ASSERT_NE((const lcb_touch_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        ++(*counter);
-    }
+static void testTouchHitCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPTOUCH *resp)
+{
+    int *counter;
+    lcb_resptouch_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_SUCCESS, lcb_resptouch_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -174,193 +182,134 @@ TEST_F(GetUnitTest, testTouchHit)
 {
     std::string key("testTouchHitKey");
     HandleWrap hw;
-    lcb_t instance;
-    createConnection(hw, instance);
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
 
-    (void)lcb_set_touch_callback(instance, testTouchHitCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, (lcb_RESPCALLBACK)testTouchHitCallback);
     storeKey(instance, key, "foo");
 
     int numcallbacks = 0;
-    lcb_touch_cmd_t cmd(key.data(), key.length(), 666);
-    lcb_touch_cmd_t *cmds[] = { &cmd };
-    EXPECT_EQ(LCB_SUCCESS, lcb_touch(instance, &numcallbacks, 1, cmds));
+    lcb_CMDTOUCH *cmd;
+    lcb_cmdtouch_create(&cmd);
+    lcb_cmdtouch_key(cmd, key.c_str(), key.size());
+    lcb_cmdtouch_expiration(cmd, 666);
+    lcb_touch(instance, &numcallbacks, cmd);
+    lcb_cmdtouch_destroy(cmd);
+
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
 }
 
 extern "C" {
-    static void testMixedMultiGetCallback(lcb_t, const void *cookie,
-                                          lcb_error_t error,
-                                          const lcb_get_resp_t *resp)
-    {
-        using namespace std;
-        map<string, Item> *kmap = (map<string, Item> *)cookie;
-
-        Item itm;
-        itm.assign(resp, error);
-
-        (*kmap)[itm.key] = itm;
-    }
-}
-
-/**
- * Adopted from smoke-test.c:test_get2
- *
- * @test Multi Get (Interleaved)
- *
- * @pre
- * Create two maps of 26 key-value pairs, one called @c kexisting and one
- * called @c kmissing. Store the @c kexisting map but not the @c kmissing one.
- *
- * Create a list of GET commands interleaving keys from @c kmissing and
- * @c kexisting. Schedule the operation
- *
- * @post
- * Returned result set has exactly 52 items. All the keys from @c kmissing
- * have @c KEY_ENOENT from their result code, and all keys from @c kexisting
- * contain the appropriate values.
- */
-TEST_F(GetUnitTest, testMixedMultiGet)
+static void flags_store_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
-    using namespace std;
-    HandleWrap hw;
-    lcb_t instance;
-    createConnection(hw, instance);
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    ASSERT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
 
+    const char *key;
+    size_t nkey;
+    lcb_respstore_key(resp, &key, &nkey);
+    ASSERT_EQ(5, nkey);
+    ASSERT_EQ(0, memcmp(key, "flags", 5));
 
-    vector<string> kexisting;
-    vector<string> kmissing;
-    map<string, Item> kmap;
-
-    vector<lcb_get_cmd_t> cmds;
-    vector<lcb_get_cmd_t *> cmdptrs;
-
-    int iterations = 4;
-
-    for (int ii = 0; ii < iterations; ii++) {
-        char suffix = 'a' + ii;
-        string k("existingKey");
-        k += suffix;
-        kexisting.push_back(k);
-        storeKey(instance, k, k);
-
-        k = "nonExistKey";
-        k += suffix;
-        removeKey(instance, k);
-        kmissing.push_back(k);
-    }
-
-    for (int ii = 0; ii < iterations; ii++) {
-        lcb_get_cmd_t cmdhit(kexisting[ii].c_str(), kexisting[ii].size());
-        lcb_get_cmd_t cmdmiss(kmissing[ii].c_str(), kmissing[ii].size());
-
-        cmds.push_back(cmdhit);
-        cmds.push_back(cmdmiss);
-    }
-
-    for (unsigned int ii = 0; ii < cmds.size(); ii++) {
-        cmdptrs.push_back(&cmds[ii]);
-    }
-
-    lcb_set_get_callback(instance, testMixedMultiGetCallback);
-
-    EXPECT_EQ(LCB_SUCCESS,
-              lcb_get(instance, &kmap, cmds.size(), &cmdptrs[0]));
-
-    lcb_wait(instance);
-    ASSERT_EQ(iterations * 2, kmap.size());
-
-    for (int ii = 0; ii < iterations; ii++) {
-        string k = kexisting[ii];
-        ASSERT_EQ(1, kmap.count(k));
-        Item itm = kmap[k];
-        ASSERT_EQ(LCB_SUCCESS, itm.err);
-        ASSERT_EQ(k, itm.val);
-
-        k = kmissing[ii];
-        ASSERT_EQ(1, kmap.count(k));
-        itm = kmap[k];
-        ASSERT_EQ(LCB_KEY_ENOENT, itm.err);
-    }
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_SET, op);
+    ++(*counter);
 }
 
-extern "C" {
-    static void flags_store_callback(lcb_t,
-                                     const void *,
-                                     lcb_storage_t operation,
-                                     lcb_error_t error,
-                                     const lcb_store_resp_t *resp)
-    {
-        ASSERT_EQ(LCB_SUCCESS, error);
-        ASSERT_EQ(5, resp->v.v0.nkey);
-        ASSERT_EQ(0, memcmp(resp->v.v0.key, "flags", 5));
-        ASSERT_EQ(LCB_SET, operation);
-    }
+static void flags_get_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
+{
+    int *counter;
+    lcb_respget_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respget_status(resp));
 
-    static void flags_get_callback(lcb_t, const void *,
-                                   lcb_error_t error,
-                                   const lcb_get_resp_t *resp)
-    {
-        ASSERT_EQ(LCB_SUCCESS, error);
-        ASSERT_EQ(5, resp->v.v0.nkey);
-        ASSERT_EQ(0, memcmp(resp->v.v0.key, "flags", 5));
-        ASSERT_EQ(1, resp->v.v0.nbytes);
-        ASSERT_EQ(0, memcmp(resp->v.v0.bytes, "x", 1));
-        ASSERT_EQ(0xdeadbeef, resp->v.v0.flags);
-    }
+    const char *key;
+    size_t nkey;
+    lcb_respget_key(resp, &key, &nkey);
+    ASSERT_EQ(5, nkey);
+    ASSERT_EQ(0, memcmp(key, "flags", 5));
+
+    const char *value;
+    size_t nvalue;
+    lcb_respget_value(resp, &value, &nvalue);
+    ASSERT_EQ(1, nvalue);
+    ASSERT_EQ(0, memcmp(value, "x", 1));
+
+    uint32_t flags;
+    lcb_respget_flags(resp, &flags);
+    ASSERT_EQ(0xdeadbeef, flags);
+    ++(*counter);
+}
 }
 
 TEST_F(GetUnitTest, testFlags)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
 
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_get_callback(instance, flags_get_callback);
-    (void)lcb_set_store_callback(instance, flags_store_callback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)flags_get_callback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)flags_store_callback);
 
-    lcb_store_cmd_t storeCommand(LCB_SET, "flags", 5, "x", 1, 0xdeadbeef);
-    lcb_store_cmd_t *storeCommands[] = { &storeCommand };
+    int numcallbacks = 0;
 
-    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, NULL, 1, storeCommands));
+    lcb_CMDSTORE *scmd;
+    lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+    lcb_cmdstore_key(scmd, "flags", 5);
+    lcb_cmdstore_value(scmd, "x", 1);
+    lcb_cmdstore_flags(scmd, 0xdeadbeef);
+
+    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, scmd));
+    lcb_cmdstore_destroy(scmd);
+
     // Wait for it to be persisted
     lcb_wait(instance);
 
-    lcb_get_cmd_t cmd("flags", 5);
-    lcb_get_cmd_t *cmds[] = { &cmd };
-    ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, NULL, 1, cmds));
+    lcb_CMDGET *gcmd;
+    lcb_cmdget_create(&gcmd);
+    lcb_cmdget_key(gcmd, "flags", 5);
+    ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, gcmd));
+    lcb_cmdget_destroy(gcmd);
 
     /* Wait for it to be received */
     lcb_wait(instance);
+    EXPECT_EQ(2, numcallbacks);
 }
 
 struct RGetCookie {
     unsigned remaining;
-    lcb_error_t expectrc;
+    lcb_STATUS expectrc;
     std::string value;
     lcb_U64 cas;
 };
 
 extern "C" {
-static void
-rget_callback(lcb_t instance, int, const lcb_RESPBASE *resp)
+static void rget_callback(lcb_INSTANCE *instance, int, const lcb_RESPGETREPLICA *resp)
 {
-    const lcb_RESPGET *gresp = (const lcb_RESPGET *)resp;
-    RGetCookie *rck = (RGetCookie *)resp->cookie;
+    RGetCookie *rck;
+    lcb_respgetreplica_cookie(resp, (void **)&rck);
 
-    ASSERT_EQ(rck->expectrc, resp->rc);
+    lcb_STATUS rc = lcb_respgetreplica_status(resp);
+    ASSERT_EQ(rck->expectrc, rc);
     ASSERT_NE(0, rck->remaining);
     rck->remaining--;
 
-    if (resp->rc == LCB_SUCCESS) {
-        std::string value((const char*)gresp->value, gresp->nvalue);
+    if (rc == LCB_SUCCESS) {
+        const char *v;
+        size_t n;
+        lcb_respgetreplica_value(resp, &v, &n);
+        std::string value(v, n);
         ASSERT_STREQ(rck->value.c_str(), value.c_str());
-        ASSERT_EQ(rck->cas, resp->cas);
-    }
 
+        uint64_t cas;
+        lcb_respgetreplica_cas(resp, &cas);
+        ASSERT_EQ(rck->cas, cas);
+    }
 }
-static void rget_noop_callback(lcb_t,int,const lcb_RESPBASE*){}
+static void rget_noop_callback(lcb_INSTANCE *, int, const lcb_RESPGETREPLICA *) {}
 }
 
 TEST_F(GetUnitTest, testGetReplica)
@@ -368,18 +317,17 @@ TEST_F(GetUnitTest, testGetReplica)
     SKIP_UNLESS_MOCK();
     MockEnvironment *mock = MockEnvironment::getInstance();
     HandleWrap hw;
-    lcb_t instance;
-    createConnection(hw, instance);
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
     std::string key("a_key_GETREPLICA");
     std::string val("a_value");
 
-    lcb_CMDGETREPLICA rcmd = { 0 };
+    lcb_CMDGETREPLICA *rcmd;
 
-    lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, rget_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, (lcb_RESPCALLBACK)rget_callback);
     RGetCookie rck;
     rck.remaining = 1;
     rck.expectrc = LCB_SUCCESS;
-    LCB_CMD_SET_KEY(&rcmd, key.c_str(), key.size());
     unsigned nreplicas = lcb_get_num_replicas(instance);
 
     for (unsigned ii = 0; ii < nreplicas; ii++) {
@@ -392,14 +340,30 @@ TEST_F(GetUnitTest, testGetReplica)
         mock->sendCommand(mcCmd);
         mock->getResponse();
 
-        lcb_error_t err;
-        rcmd.index = ii;
-        rcmd.strategy = LCB_REPLICA_SELECT;
+        lcb_STATUS err;
+        lcb_REPLICA_MODE mode;
+        switch (ii) {
+            case 0:
+                mode = LCB_REPLICA_MODE_IDX0;
+                break;
+            case 1:
+                mode = LCB_REPLICA_MODE_IDX1;
+                break;
+            case 2:
+                mode = LCB_REPLICA_MODE_IDX2;
+                break;
+            default:
+                ASSERT_FALSE("Unexpected replica index");
+                break;
+        }
+        lcb_cmdgetreplica_create(&rcmd, mode);
+        lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
 
         rck.remaining = 1;
         lcb_sched_enter(instance);
-        err = lcb_rget3(instance, &rck, &rcmd);
+        err = lcb_getreplica(instance, &rck, rcmd);
         ASSERT_EQ(LCB_SUCCESS, err);
+        lcb_cmdgetreplica_destroy(rcmd);
 
         lcb_sched_leave(instance);
         lcb_wait(instance);
@@ -417,12 +381,15 @@ TEST_F(GetUnitTest, testGetReplica)
     rck.remaining = nreplicas;
     rck.cas = mcCmd.cas;
     rck.expectrc = LCB_SUCCESS;
-    rcmd.strategy = LCB_REPLICA_ALL;
 
+    lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_ALL);
+    lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
     lcb_sched_enter(instance);
-    lcb_error_t err = lcb_rget3(instance, &rck, &rcmd);
+    lcb_STATUS err = lcb_getreplica(instance, &rck, rcmd);
+    lcb_cmdgetreplica_destroy(rcmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
+
     lcb_wait(instance);
     ASSERT_EQ(0, rck.remaining);
 
@@ -435,12 +402,11 @@ TEST_F(GetUnitTest, testGetReplica)
     // Test with the "First" mode. Ensure that only the _last_ replica
     // contains the item
     mcCmd.onMaster = false;
-    mcCmd.replicaCount = 0 ;
+    mcCmd.replicaCount = 0;
     mcCmd.replicaList.clear();
-    mcCmd.replicaList.push_back(nreplicas-1);
+    mcCmd.replicaList.push_back(nreplicas - 1);
     mcCmd.cas = 42;
     rck.cas = mcCmd.cas;
-
 
     // Set the timeout to something higher, since we have more than one packet
     // to send.
@@ -450,20 +416,21 @@ TEST_F(GetUnitTest, testGetReplica)
     // though
     mock->sendCommand(mcCmd);
     mock->getResponse();
-    rcmd.strategy = LCB_REPLICA_FIRST;
+    lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_ANY);
+    lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
     rck.remaining = 1;
     lcb_sched_enter(instance);
-    err = lcb_rget3(instance, &rck, &rcmd);
+    err = lcb_getreplica(instance, &rck, rcmd);
+    lcb_cmdgetreplica_destroy(rcmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
     lcb_wait(instance);
     ASSERT_EQ(0, rck.remaining);
 
     // Test with an invalid index
-    rcmd.index = nreplicas;
-    rcmd.strategy = LCB_REPLICA_SELECT;
-    err = lcb_rget3(instance, NULL, &rcmd);
-    ASSERT_EQ(LCB_NO_MATCHING_SERVER, err);
+    rcmd = NULL;
+    ASSERT_EQ(LCB_EINVAL, lcb_cmdgetreplica_create(&rcmd, (lcb_REPLICA_MODE)42));
+    ASSERT_EQ((lcb_CMDGETREPLICA *)NULL, rcmd);
 
     // If no crash, it's good.
     if (lcb_get_num_replicas(instance) > 1) {
@@ -475,24 +442,28 @@ TEST_F(GetUnitTest, testGetReplica)
         int vbid = lcbvb_k2vb(vbc, key.c_str(), key.size());
         int oldix;
 
-        lcbvb_VBUCKET* vb = &vbc->vbuckets[vbid];
+        lcbvb_VBUCKET *vb = &vbc->vbuckets[vbid];
         oldix = vb->servers[2];
         vb->servers[2] = -1;
 
         rck.expectrc = LCB_KEY_ENOENT;
         rck.remaining = 1;
         lcb_sched_enter(instance);
-        rcmd.strategy = LCB_REPLICA_FIRST;
-        err = lcb_rget3(instance, &rck, &rcmd);
+        lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_ANY);
+        lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
+        err = lcb_getreplica(instance, &rck, rcmd);
+        lcb_cmdgetreplica_destroy(rcmd);
         ASSERT_EQ(LCB_SUCCESS, err);
         lcb_sched_leave(instance);
         lcb_wait(instance);
         ASSERT_EQ(0, rck.remaining);
 
         // Try with ALL again (should give an error)
-        rcmd.strategy = LCB_REPLICA_ALL;
+        lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_ALL);
+        lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
         lcb_sched_enter(instance);
-        err = lcb_rget3(instance, NULL, &rcmd);
+        err = lcb_getreplica(instance, NULL, rcmd);
+        lcb_cmdgetreplica_destroy(rcmd);
         ASSERT_EQ(LCB_NO_MATCHING_SERVER, err);
         lcb_sched_leave(instance);
 
@@ -502,11 +473,13 @@ TEST_F(GetUnitTest, testGetReplica)
     }
 
     // Test rget with a missing key. Fixes a potential bug
-    lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, rget_noop_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, (lcb_RESPCALLBACK)rget_noop_callback);
     removeKey(instance, key);
-    rcmd.strategy = LCB_REPLICA_FIRST;
+    lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_ANY);
+    lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
     lcb_sched_enter(instance);
-    err = lcb_rget3(instance, NULL, &rcmd);
+    err = lcb_getreplica(instance, NULL, rcmd);
+    lcb_cmdgetreplica_destroy(rcmd);
     lcb_sched_leave(instance);
     lcb_wait(instance);
 }

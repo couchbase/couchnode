@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -53,7 +53,6 @@ void lcb_list_delete(lcb_list_t *item)
     item->next = item->prev = NULL;
 }
 
-
 lcb_list_t *lcb_list_shift(lcb_list_t *list)
 {
     lcb_list_t *item;
@@ -96,7 +95,8 @@ void lcb_list_add_sorted(lcb_list_t *list, lcb_list_t *item, lcb_list_cmp_fn cmp
     if (LCB_LIST_IS_EMPTY(list)) {
         list_insert(list->prev, list, item);
     } else {
-        LCB_LIST_FOR(p, list) {
+        LCB_LIST_FOR(p, list)
+        {
             if (cmp(item, p) < 0) {
                 break;
             }
@@ -105,15 +105,14 @@ void lcb_list_add_sorted(lcb_list_t *list, lcb_list_t *item, lcb_list_cmp_fn cmp
     }
 }
 
-
 void lcb_clist_init(lcb_clist_t *cl)
 {
-    lcb_list_init((lcb_list_t*)cl);
+    lcb_list_init((lcb_list_t *)cl);
     cl->size = 0;
 }
 void lcb_clist_append(lcb_clist_t *cl, lcb_list_t *item)
 {
-    lcb_list_append((lcb_list_t*)cl, item);
+    lcb_list_append((lcb_list_t *)cl, item);
     cl->size++;
 }
 void lcb_clist_prepend(lcb_clist_t *cl, lcb_list_t *item)
@@ -128,7 +127,7 @@ void lcb_clist_delete(lcb_clist_t *cl, lcb_list_t *item)
 }
 lcb_list_t *lcb_clist_pop(lcb_clist_t *cl)
 {
-    lcb_list_t *ret = lcb_list_pop((lcb_list_t*)cl);
+    lcb_list_t *ret = lcb_list_pop((lcb_list_t *)cl);
     if (ret) {
         cl->size--;
     }

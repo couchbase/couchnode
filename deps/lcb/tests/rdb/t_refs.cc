@@ -1,7 +1,9 @@
 #include "rdbtest.h"
 #include "list.h"
 
-class RefTest : public ::testing::Test {};
+class RefTest : public ::testing::Test
+{
+};
 
 TEST_F(RefTest, testLifecycle)
 {
@@ -69,7 +71,6 @@ TEST_F(RefTest, testCycle2)
     rp2.unrefSegment(0);
     rp3.unrefSegment(1);
 }
-
 
 // See what happens when we try to consolidate buffers as part of an already
 // referenced segment.

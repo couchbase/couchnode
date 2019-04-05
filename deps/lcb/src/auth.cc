@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017-2018 Couchbase, Inc.
+ *     Copyright 2017-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -26,13 +26,13 @@ lcbauth_new()
     return new Authenticator();
 }
 
-lcb_error_t
+lcb_STATUS
 lcbauth_add_pass(lcb_AUTHENTICATOR *auth, const char *u, const char *p, int flags)
 {
     return auth->add(u, p, flags);
 }
 
-lcb_error_t
+lcb_STATUS
 Authenticator::add(const char *u, const char *p, int flags)
 {
     if (!u) {
@@ -134,12 +134,12 @@ lcbauth_clone(const lcb_AUTHENTICATOR *src) {
     return new Authenticator(*src);
 }
 
-lcb_error_t
+lcb_STATUS
 lcbauth_set_mode(lcb_AUTHENTICATOR *src, lcbauth_MODE mode) {
     return src->set_mode(mode);
 }
 
-lcb_error_t lcbauth_set_callbacks(lcb_AUTHENTICATOR *auth, void *cookie, lcb_AUTHCALLBACK usercb,
+lcb_STATUS lcbauth_set_callbacks(lcb_AUTHENTICATOR *auth, void *cookie, lcb_AUTHCALLBACK usercb,
                                   lcb_AUTHCALLBACK passcb)
 {
     return auth->set_callbacks(cookie, usercb, passcb);

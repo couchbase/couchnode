@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 /** Whether the underlying model is event-based */
 #define IOT_IS_EVENT(iot) ((iot)->model == LCB_IOMODEL_EVENT)
@@ -79,80 +78,110 @@ typedef struct lcbio_TABLE {
     void (*dtor)(void *);
 
 #ifdef __cplusplus
-    bool is_E() const { return IOT_IS_EVENT(this); }
-    bool is_C() const { return !is_E(); }
-    int get_errno() const { return IOT_ERRNO(this); }
-
-    void run_loop() { IOT_START(this); }
-    void stop_loop() { IOT_STOP(this); }
-
-    int E_connect(lcb_socket_t sock, const sockaddr* saddr, unsigned addrlen) {
-       return IOT_V0IO(this).connect0(p, sock, saddr, addrlen);
+    bool is_E() const
+    {
+        return IOT_IS_EVENT(this);
+    }
+    bool is_C() const
+    {
+        return !is_E();
+    }
+    int get_errno() const
+    {
+        return IOT_ERRNO(this);
     }
 
-    lcb_socket_t E_socket(int domain, int type, int protocol) {
+    void run_loop()
+    {
+        IOT_START(this);
+    }
+    void stop_loop()
+    {
+        IOT_STOP(this);
+    }
+
+    int E_connect(lcb_socket_t sock, const sockaddr *saddr, unsigned addrlen)
+    {
+        return IOT_V0IO(this).connect0(p, sock, saddr, addrlen);
+    }
+
+    lcb_socket_t E_socket(int domain, int type, int protocol)
+    {
         return IOT_V0IO(this).socket0(p, domain, type, protocol);
     }
 
-    lcb_socket_t E_socket(const addrinfo *ai) {
+    lcb_socket_t E_socket(const addrinfo *ai)
+    {
         return E_socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
     }
 
-    void E_close(lcb_socket_t sock) {
+    void E_close(lcb_socket_t sock)
+    {
         IOT_V0IO(this).close(p, sock);
     }
 
-    void *E_event_create() {
+    void *E_event_create()
+    {
         return IOT_V0EV(this).create(p);
     }
 
-    void E_event_watch(lcb_socket_t fd, void *event, short mask, void *arg,
-                       lcb_ioE_callback cb) {
+    void E_event_watch(lcb_socket_t fd, void *event, short mask, void *arg, lcb_ioE_callback cb)
+    {
         IOT_V0EV(this).watch(p, fd, event, mask, arg, cb);
     }
 
-     void E_event_destroy(void *event) {
-         IOT_V0EV(this).destroy(p, event);
-     }
+    void E_event_destroy(void *event)
+    {
+        IOT_V0EV(this).destroy(p, event);
+    }
 
-    void E_event_cancel(lcb_socket_t fd, void *event) {
+    void E_event_cancel(lcb_socket_t fd, void *event)
+    {
         IOT_V0EV(this).cancel(p, fd, event);
     }
 
-    int E_check_closed(lcb_socket_t s, int flags) {
+    int E_check_closed(lcb_socket_t s, int flags)
+    {
         return IOT_V0IO(this).is_closed(p, s, flags);
     }
 
-    int E_cntl(lcb_socket_t s, int mode, int opt, void *val) {
+    int E_cntl(lcb_socket_t s, int mode, int opt, void *val)
+    {
         return IOT_V0IO(this).cntl(p, s, mode, opt, val);
     }
 
-    void C_close(lcb_sockdata_t *sd) {
+    void C_close(lcb_sockdata_t *sd)
+    {
         IOT_V1(this).close(p, sd);
     }
 
-    int C_connect(lcb_sockdata_t *sd, const sockaddr *addr, unsigned addrlen,
-                  lcb_io_connect_cb callback) {
+    int C_connect(lcb_sockdata_t *sd, const sockaddr *addr, unsigned addrlen, lcb_io_connect_cb callback)
+    {
         return IOT_V1(this).connect(p, sd, addr, addrlen, callback);
     }
 
-    lcb_sockdata_t* C_socket(int domain, int type, int protocol) {
+    lcb_sockdata_t *C_socket(int domain, int type, int protocol)
+    {
         return IOT_V1(this).socket(p, domain, type, protocol);
     }
 
-    lcb_sockdata_t* C_socket(const addrinfo *ai) {
+    lcb_sockdata_t *C_socket(const addrinfo *ai)
+    {
         return C_socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
     }
 
-    int C_check_closed(lcb_sockdata_t *sock, int flags) {
+    int C_check_closed(lcb_sockdata_t *sock, int flags)
+    {
         return IOT_V1(this).is_closed(p, sock, flags);
     }
 
-    int C_cntl(lcb_sockdata_t *sd, int mode, int opt, void *val) {
+    int C_cntl(lcb_sockdata_t *sd, int mode, int opt, void *val)
+    {
         return IOT_V1(this).cntl(p, sd, mode, opt, val) == 0;
     }
 
-    bool has_cntl() {
+    bool has_cntl()
+    {
         if (is_E()) {
             return IOT_V0IO(this).cntl != NULL;
         } else {

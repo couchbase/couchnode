@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -51,8 +51,7 @@ typedef struct {
     int event_loop;
 } sel_LOOP;
 
-static int
-timer_cmp_asc(lcb_list_t *a, lcb_list_t *b)
+static int timer_cmp_asc(lcb_list_t *a, lcb_list_t *b)
 {
     sel_TIMER *ta = LCB_LIST_ITEM(a, sel_TIMER, list);
     sel_TIMER *tb = LCB_LIST_ITEM(b, sel_TIMER, list);
@@ -65,8 +64,7 @@ timer_cmp_asc(lcb_list_t *a, lcb_list_t *b)
     }
 }
 
-static void *
-sel_event_new(lcb_io_opt_t iops)
+static void *sel_event_new(lcb_io_opt_t iops)
 {
     sel_LOOP *io = iops->v.v2.cookie;
     sel_EVENT *ret = calloc(1, sizeof(sel_EVENT));
@@ -76,9 +74,8 @@ sel_event_new(lcb_io_opt_t iops)
     return ret;
 }
 
-static int
-sel_event_update(lcb_io_opt_t iops, lcb_socket_t sock, void *event, short flags,
-    void *cb_data, lcb_ioE_callback handler)
+static int sel_event_update(lcb_io_opt_t iops, lcb_socket_t sock, void *event, short flags, void *cb_data,
+                            lcb_ioE_callback handler)
 {
     sel_EVENT *ev = event;
     ev->sock = sock;
@@ -89,8 +86,7 @@ sel_event_update(lcb_io_opt_t iops, lcb_socket_t sock, void *event, short flags,
     return 0;
 }
 
-static void
-sel_event_free(lcb_io_opt_t iops, void *event)
+static void sel_event_free(lcb_io_opt_t iops, void *event)
 {
     sel_EVENT *ev = event;
     lcb_list_delete(&ev->list);
@@ -98,8 +94,7 @@ sel_event_free(lcb_io_opt_t iops, void *event)
     (void)iops;
 }
 
-static void
-sel_event_cancel(lcb_io_opt_t iops, lcb_socket_t sock, void *event)
+static void sel_event_cancel(lcb_io_opt_t iops, lcb_socket_t sock, void *event)
 {
     sel_EVENT *ev = event;
     ev->flags = 0;
@@ -109,16 +104,14 @@ sel_event_cancel(lcb_io_opt_t iops, lcb_socket_t sock, void *event)
     (void)sock;
 }
 
-static void *
-sel_timer_new(lcb_io_opt_t iops)
+static void *sel_timer_new(lcb_io_opt_t iops)
 {
     sel_TIMER *ret = calloc(1, sizeof(sel_TIMER));
     (void)iops;
     return ret;
 }
 
-static void
-sel_timer_cancel(lcb_io_opt_t iops, void *timer)
+static void sel_timer_cancel(lcb_io_opt_t iops, void *timer)
 {
     sel_TIMER *tm = timer;
     if (tm->active) {
@@ -128,7 +121,6 @@ sel_timer_cancel(lcb_io_opt_t iops, void *timer)
     (void)iops;
 }
 
-
 static void sel_timer_free(lcb_io_opt_t iops, void *timer)
 {
     sel_timer_cancel(iops, timer);
@@ -136,9 +128,7 @@ static void sel_timer_free(lcb_io_opt_t iops, void *timer)
     (void)iops;
 }
 
-static int
-sel_timer_schedule(lcb_io_opt_t iops, void *timer, lcb_U32 usec, void *cb_data,
-    lcb_ioE_callback handler)
+static int sel_timer_schedule(lcb_io_opt_t iops, void *timer, lcb_U32 usec, void *cb_data, lcb_ioE_callback handler)
 {
     sel_TIMER *tm = timer;
     sel_LOOP *cookie = iops->v.v2.cookie;
@@ -153,15 +143,13 @@ sel_timer_schedule(lcb_io_opt_t iops, void *timer, lcb_U32 usec, void *cb_data,
     return 0;
 }
 
-static void
-sel_stop_loop(struct lcb_io_opt_st *iops)
+static void sel_stop_loop(struct lcb_io_opt_st *iops)
 {
     sel_LOOP *io = iops->v.v2.cookie;
     io->event_loop = 0;
 }
 
-static sel_TIMER *
-pop_next_timer(sel_LOOP *cookie, hrtime_t now)
+static sel_TIMER *pop_next_timer(sel_LOOP *cookie, hrtime_t now)
 {
     sel_TIMER *ret;
 
@@ -178,8 +166,7 @@ pop_next_timer(sel_LOOP *cookie, hrtime_t now)
     return ret;
 }
 
-static int
-get_next_timeout(sel_LOOP *cookie, struct timeval *tmo, hrtime_t now)
+static int get_next_timeout(sel_LOOP *cookie, struct timeval *tmo, hrtime_t now)
 {
     sel_TIMER *first;
     hrtime_t delta;
@@ -197,7 +184,6 @@ get_next_timeout(sel_LOOP *cookie, struct timeval *tmo, hrtime_t now)
         delta = 0;
     }
 
-
     if (delta) {
         delta /= 1000;
         tmo->tv_sec = (long)(delta / 1000000);
@@ -209,8 +195,7 @@ get_next_timeout(sel_LOOP *cookie, struct timeval *tmo, hrtime_t now)
     return 1;
 }
 
-static void
-run_loop(sel_LOOP *io, int is_tick)
+static void run_loop(sel_LOOP *io, int is_tick)
 {
     sel_EVENT *ev;
     lcb_list_t *ii;
@@ -233,7 +218,8 @@ run_loop(sel_LOOP *io, int is_tick)
         FD_ZERO(&writefds);
         FD_ZERO(&exceptfds);
 
-        LCB_LIST_FOR(ii, &io->events.list) {
+        LCB_LIST_FOR(ii, &io->events.list)
+        {
             ev = LCB_LIST_ITEM(ii, sel_EVENT, list);
             if (ev->flags != 0) {
                 if (ev->flags & LCB_READ_EVENT) {
@@ -279,7 +265,6 @@ run_loop(sel_LOOP *io, int is_tick)
             }
         }
 
-
         /** Always invoke the pending timers */
         if (has_timers) {
             sel_TIMER *tm;
@@ -298,7 +283,8 @@ run_loop(sel_LOOP *io, int is_tick)
 
         if (ret && nevents) {
             sel_EVENT *active = NULL;
-            LCB_LIST_FOR(ii, &io->events.list) {
+            LCB_LIST_FOR(ii, &io->events.list)
+            {
                 ev = LCB_LIST_ITEM(ii, sel_EVENT, list);
                 if (ev->flags != 0) {
                     ev->eflags = 0;
@@ -327,19 +313,16 @@ run_loop(sel_LOOP *io, int is_tick)
     } while (io->event_loop);
 }
 
-static void
-sel_run_loop(struct lcb_io_opt_st *iops)
+static void sel_run_loop(struct lcb_io_opt_st *iops)
 {
     run_loop(iops->v.v2.cookie, 0);
 }
-static void
-sel_tick_loop(struct lcb_io_opt_st *iops)
+static void sel_tick_loop(struct lcb_io_opt_st *iops)
 {
     run_loop(iops->v.v2.cookie, 1);
 }
 
-static void
-sel_destroy_iops(struct lcb_io_opt_st *iops)
+static void sel_destroy_iops(struct lcb_io_opt_st *iops)
 {
     sel_LOOP *io = iops->v.v2.cookie;
     lcb_list_t *nn, *ii;
@@ -350,12 +333,14 @@ sel_destroy_iops(struct lcb_io_opt_st *iops)
         fprintf(stderr, "WARN: libcouchbase(plugin-select): the event loop might be still active, but it still try to "
                         "free resources\n");
     }
-    LCB_LIST_SAFE_FOR(ii, nn, &io->events.list) {
+    LCB_LIST_SAFE_FOR(ii, nn, &io->events.list)
+    {
         ev = LCB_LIST_ITEM(ii, sel_EVENT, list);
         sel_event_free(iops, ev);
     }
     assert(LCB_LIST_IS_EMPTY(&io->events.list));
-    LCB_LIST_SAFE_FOR(ii, nn, &io->timers) {
+    LCB_LIST_SAFE_FOR(ii, nn, &io->timers)
+    {
         tm = LCB_LIST_ITEM(ii, sel_TIMER, list);
         sel_timer_free(iops, tm);
     }
@@ -364,8 +349,7 @@ sel_destroy_iops(struct lcb_io_opt_st *iops)
     free(iops);
 }
 
-static lcb_socket_t
-sel_socket_wrap(lcb_io_opt_t io, int domain, int type, int protocol)
+static lcb_socket_t sel_socket_wrap(lcb_io_opt_t io, int domain, int type, int protocol)
 {
     lcb_socket_t res = socket_impl(io, domain, type, protocol);
 #ifndef _WIN32
@@ -387,11 +371,9 @@ sel_socket_wrap(lcb_io_opt_t io, int domain, int type, int protocol)
     return res;
 }
 
-static void
-procs2_sel_callback(int version, lcb_loop_procs *loop_procs,
-    lcb_timer_procs *timer_procs, lcb_bsd_procs *bsd_procs,
-    lcb_ev_procs *ev_procs, lcb_completion_procs *completion_procs,
-    lcb_iomodel_t *iomodel)
+static void procs2_sel_callback(int version, lcb_loop_procs *loop_procs, lcb_timer_procs *timer_procs,
+                                lcb_bsd_procs *bsd_procs, lcb_ev_procs *ev_procs,
+                                lcb_completion_procs *completion_procs, lcb_iomodel_t *iomodel)
 {
     ev_procs->create = sel_event_new;
     ev_procs->destroy = sel_event_free;
@@ -416,8 +398,7 @@ procs2_sel_callback(int version, lcb_loop_procs *loop_procs,
 }
 
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *arg)
+lcb_STATUS lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *arg)
 {
     lcb_io_opt_t ret;
     sel_LOOP *cookie;

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -40,9 +40,9 @@ typedef struct {
     unsigned min_blk_alloc; /* minimum alloc size */
     unsigned max_blk_alloc; /* maximum alloc size (bigger than this is not pooled) */
     unsigned max_blk_count; /* maximum number of blocks to pool */
-    unsigned n_requests; /* number of requests. Reset every RECHECK_RATE */
-    unsigned n_toobig; /* number of requests > max_blk_alloc */
-    unsigned n_toosmall; /* number of requests < min_blk_alloc */
+    unsigned n_requests;    /* number of requests. Reset every RECHECK_RATE */
+    unsigned n_toobig;      /* number of requests > max_blk_alloc */
+    unsigned n_toosmall;    /* number of requests < min_blk_alloc */
 
     /** counters updated at the end only */
     unsigned total_malloc;
@@ -63,8 +63,7 @@ typedef struct {
  * @param alloc
  * @param fp
  */
-void
-rdb_bigalloc_dump(rdb_BIGALLOC *alloc, FILE *fp);
+void rdb_bigalloc_dump(rdb_BIGALLOC *alloc, FILE *fp);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
 
 struct lcb_settings_st;
 struct lcb_st;
@@ -48,33 +47,25 @@ struct lcb_CONSOLELOGGER {
  * number of arguments manually passed for each message.
  */
 LCB_INTERNAL_API
-void lcb_log(const struct lcb_settings_st *settings,
-             const char *subsys,
-             int severity,
-             const char *srcfile,
-             int srcline,
+void lcb_log(const struct lcb_settings_st *settings, const char *subsys, int severity, const char *srcfile, int srcline,
              const char *fmt, ...)
 
 #ifdef __GNUC__
-             __attribute__ ((format(printf, 6, 7)))
+    __attribute__((format(printf, 6, 7)))
 #endif
-             ;
+    ;
 
 LCB_INTERNAL_API
-void lcb_log_badconfig(const struct lcb_settings_st *settings,
-    const char *subsys, int severity, const char *srcfile, int srcline,
-    const struct lcbvb_CONFIG_st *vbc, const char *origin_txt);
+void lcb_log_badconfig(const struct lcb_settings_st *settings, const char *subsys, int severity, const char *srcfile,
+                       int srcline, const struct lcbvb_CONFIG_st *vbc, const char *origin_txt);
 
-lcb_logprocs * lcb_init_console_logger(void);
+lcb_logprocs *lcb_init_console_logger(void);
 
-#define LCB_LOGS(settings, subsys, severity, msg) \
-    lcb_log(settings, subsys, severity, __FILE__, __LINE__, msg)
+#define LCB_LOGS(settings, subsys, severity, msg) lcb_log(settings, subsys, severity, __FILE__, __LINE__, msg)
 
-#define LCB_LOG_EX(settings, subsys, severity, msg) \
-    lcb_log(settings, subsys, severity, __FILE__, __LINE__, msg)
+#define LCB_LOG_EX(settings, subsys, severity, msg) lcb_log(settings, subsys, severity, __FILE__, __LINE__, msg)
 
-#define LCB_LOG_BASIC(settings, msg) \
-    lcb_log(settings, "unknown", 0, __FILE__, __LINE__, msg)
+#define LCB_LOG_BASIC(settings, msg) lcb_log(settings, "unknown", 0, __FILE__, __LINE__, msg)
 
 /** Macro for overcoming Win32 identifiers */
 #define LCB_LOG_ERR LCB_LOG_ERROR

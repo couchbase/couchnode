@@ -1,5 +1,5 @@
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -26,14 +26,12 @@
 
 CBSASL_PUBLIC_API
 cbsasl_error_t cbsasl_client_new(const char *service, const char *serverFQDN, const char *iplocalport,
-                                 const char *ipremoteport, const cbsasl_callback_t *prompt_supp, unsigned flags,
+                                 const char *ipremoteport, const cbsasl_callbacks_t *callbacks, unsigned flags,
                                  cbsasl_conn_t **pconn)
 {
     cbsasl_conn_t *conn;
-    cbsasl_callback_t *callbacks = (cbsasl_callback_t *)prompt_supp;
-    int ii;
 
-    if (prompt_supp == NULL) {
+    if (callbacks == NULL) {
         return SASL_BADPARAM;
     }
 
@@ -44,28 +42,11 @@ cbsasl_error_t cbsasl_client_new(const char *service, const char *serverFQDN, co
 
     conn->client = 1;
 
-    ii = 0;
     /* Locate the callbacks */
-    while (callbacks[ii].id != CBSASL_CB_LIST_END) {
-        if (callbacks[ii].id == CBSASL_CB_USER || callbacks[ii].id == CBSASL_CB_AUTHNAME) {
-            union {
-                int (*get)(void *, int, const char **, unsigned int *);
-                int (*proc)(void);
-            } hack;
-            hack.proc = callbacks[ii].proc;
-            conn->c.client.get_username = hack.get;
-            conn->c.client.get_username_ctx = callbacks[ii].context;
-        } else if (callbacks[ii].id == CBSASL_CB_PASS) {
-            union {
-                int (*get)(cbsasl_conn_t *, void *, int, cbsasl_secret_t **);
-                int (*proc)(void);
-            } hack;
-            hack.proc = callbacks[ii].proc;
-            conn->c.client.get_password = hack.get;
-            conn->c.client.get_password_ctx = callbacks[ii].context;
-        }
-        ++ii;
-    }
+    conn->c.client.get_username = callbacks->username;
+    conn->c.client.get_username_ctx = callbacks->context;
+    conn->c.client.get_password = callbacks->password;
+    conn->c.client.get_password_ctx = callbacks->context;
 
     if (conn->c.client.get_username == NULL || conn->c.client.get_password == NULL) {
         cbsasl_dispose(&conn);

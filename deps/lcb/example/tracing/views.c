@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -31,8 +31,6 @@
 
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
-#include <libcouchbase/views.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h> /* strlen */
@@ -299,51 +297,46 @@ lcbtrace_TRACER *zipkin_new()
     return tracer;
 }
 
-static void die(lcb_t instance, const char *msg, lcb_error_t err)
+static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
     fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
     exit(EXIT_FAILURE);
 }
 
-static void op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void view_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPVIEW *rv)
 {
-    fprintf(stderr, "=== %s ===\n", lcb_strcbtype(cbtype));
-    if (rb->rc == LCB_SUCCESS) {
-        fprintf(stderr, "KEY: %.*s\n", (int)rb->nkey, rb->key);
-        fprintf(stderr, "CAS: 0x%" PRIx64 "\n", rb->cas);
-        if (cbtype == LCB_CALLBACK_GET) {
-            const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
-            fprintf(stderr, "VALUE: %.*s\n", (int)rg->nvalue, rg->value);
-            fprintf(stderr, "FLAGS: 0x%x\n", rg->itmflags);
-        }
-    } else {
-        die(instance, lcb_strcbtype(cbtype), rb->rc);
-    }
-}
+    lcb_STATUS rc = lcb_respview_status(rv);
 
-static void view_callback(lcb_t instance, int cbtype, const lcb_RESPVIEWQUERY *rv)
-{
-    if (rv->rflags & LCB_RESP_F_FINAL) {
+    if (lcb_respview_is_final(rv)) {
+        const char *row;
+        size_t nrow;
+        lcb_respview_row(rv, &row, &nrow);
         printf("*** META FROM VIEWS ***\n");
-        fprintf(stderr, "%.*s\n", (int)rv->nvalue, rv->value);
+        fprintf(stderr, "%.*s\n", (int)nrow, row);
         return;
     }
 
-    printf("Got row callback from LCB: RC=0x%X, DOCID=%.*s. KEY=%.*s\n", rv->rc, (int)rv->ndocid, rv->docid,
-           (int)rv->nkey, rv->key);
+    const char *key, *docid;
+    size_t nkey, ndocid;
+    lcb_respview_key(rv, &key, &nkey);
+    lcb_respview_doc_id(rv, &docid, &ndocid);
+    printf("Got row callback from LCB: RC=0x%X, DOCID=%.*s. KEY=%.*s\n", rc, (int)ndocid, docid, (int)nkey, key);
 
-    if (rv->docresp) {
-        printf("   Document for response. RC=0x%X. CAS=0x%" PRIx64 "\n", rv->docresp->rc, rv->docresp->cas);
+    const lcb_RESPGET *doc = NULL;
+    lcb_respview_document(rv, &doc);
+    if (doc) {
+        rc = lcb_respget_status(doc);
+        uint64_t cas;
+        lcb_respget_cas(doc, &cas);
+        printf("   Document for response. RC=0x%X. CAS=0x%llx\n", rc, cas);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    lcb_error_t err;
-    lcb_t instance;
+    lcb_STATUS err;
+    lcb_INSTANCE *instance;
     struct lcb_create_st create_options = {0};
-    lcb_CMDSTORE scmd = {0};
-    lcb_CMDGET gcmd = {0};
     lcbtrace_SPAN *span = NULL;
     lcbtrace_TRACER *tracer = NULL;
 
@@ -381,10 +374,6 @@ int main(int argc, char *argv[])
         die(instance, "Couldn't bootstrap from cluster", err);
     }
 
-    /* Assign the handlers to be called for the operation types */
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, op_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, op_callback);
-
     tracer = zipkin_new();
 
     lcb_set_tracer(instance, tracer);
@@ -406,28 +395,26 @@ int main(int argc, char *argv[])
         lcbtrace_span_finish(encoding, LCBTRACE_NOW);
     }
 
-    lcb_CMDVIEWQUERY vcmd = {0};
+    lcb_CMDVIEW *vcmd;
     char *doc_name = "beer";
     char *view_name = "by_location";
     char *options = "reduce=false&limit=3";
 
-    vcmd.callback = view_callback;
-    vcmd.ddoc = doc_name;
-    vcmd.nddoc = strlen(doc_name);
-    vcmd.view = view_name;
-    vcmd.nview = strlen(view_name);
-    vcmd.optstr = options;
-    vcmd.noptstr = strlen(options);
-    vcmd.cmdflags = LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
+    lcb_cmdview_create(&vcmd);
+    lcb_cmdview_callback(vcmd, view_callback);
+    lcb_cmdview_design_document(vcmd, doc_name, strlen(doc_name));
+    lcb_cmdview_view_name(vcmd, view_name, strlen(view_name));
+    lcb_cmdview_option_string(vcmd, options, strlen(options));
+    lcb_cmdview_include_docs(vcmd, 1);
+    lcb_cmdview_parent_span(vcmd, span);
+    lcb_VIEW_HANDLE *handle;
+    lcb_cmdview_handle(vcmd, &handle);
 
-    lcb_VIEWHANDLE handle;
-    vcmd.handle = &handle;
-
-    err = lcb_view_query(instance, NULL, &vcmd);
+    err = lcb_view(instance, NULL, vcmd);
+    lcb_cmdview_destroy(vcmd);
     if (err != LCB_SUCCESS) {
         die(instance, "Couldn't schedule view operation", err);
     }
-    lcb_view_set_parent_span(instance, handle, span);
 
     /* The store_callback is invoked from lcb_wait() */
     fprintf(stderr, "Will wait for view operation to complete..\n");

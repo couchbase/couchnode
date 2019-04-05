@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@
  */
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -55,35 +54,43 @@ static void handle_sigint(int sig)
 #define INSTALL_SIGINT_HANDLER()
 #endif
 
-static void store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)
 {
-    if (rb->rc != LCB_SUCCESS) {
-        fprintf(stderr, "Couldn't perform initial storage: %s\n", lcb_strerror(NULL, rb->rc));
+    lcb_STATUS rc = lcb_respstore_status(resp);
+    if (rc != LCB_SUCCESS) {
+        fprintf(stderr, "Couldn't perform initial storage: %s\n", lcb_strerror(NULL, rc));
         exit(EXIT_FAILURE);
     }
     (void)cbtype; /* unused argument */
 }
 
-static void get_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *resp)
 {
-    if (rb->rc == LCB_SUCCESS) {
-        lcb_CMDGET gcmd = { 0 };
-        lcb_error_t rc;
-        LCB_CMD_SET_KEY(&gcmd, rb->key, rb->nkey);
-        rc = lcb_get3(instance, NULL, &gcmd);
+    const char *key;
+    size_t nkey;
+    lcb_STATUS rc;
+
+    rc = lcb_respget_status(resp);
+    if (rc == LCB_SUCCESS) {
+        lcb_CMDGET *gcmd;
+        lcb_respget_key(resp, &key, &nkey);
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, key, nkey);
+        rc = lcb_get(instance, NULL, gcmd);
+        lcb_cmdget_destroy(gcmd);
         if (rc != LCB_SUCCESS) {
             fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror(NULL, rc));
             exit(EXIT_FAILURE);
         }
     } else {
-        fprintf(stderr, "Failed to retrieve key: %s\n", lcb_strerror(NULL, rb->rc));
+        fprintf(stderr, "Failed to retrieve key: %s\n", lcb_strerror(NULL, rc));
     }
 }
 
 int main(int argc, char *argv[])
 {
-    lcb_error_t err;
-    lcb_t instance;
+    lcb_STATUS err;
+    lcb_INSTANCE *instance;
     struct lcb_create_st create_options;
     const char *key = "foo";
     size_t nkey = strlen(key);
@@ -131,8 +138,8 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     fprintf(stderr, "key: \"%s\"\n", key);
     fprintf(stderr, "value size: %ld\n", nbytes);
@@ -142,11 +149,12 @@ int main(int argc, char *argv[])
     bytes = malloc(nbytes);
 
     {
-        lcb_CMDSTORE cmd = { 0 };
-        cmd.operation = LCB_SET;
-        LCB_CMD_SET_KEY(&cmd, key, nkey);
-        LCB_CMD_SET_VALUE(&cmd, bytes, nbytes);
-        err = lcb_store3(instance, NULL, &cmd);
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, key, nkey);
+        lcb_cmdstore_value(cmd, bytes, nbytes);
+        err = lcb_store(instance, NULL, cmd);
+        lcb_cmdstore_destroy(cmd);
         if (err != LCB_SUCCESS) {
             fprintf(stderr, "Failed to store: %s\n", lcb_strerror(NULL, err));
             exit(EXIT_FAILURE);
@@ -155,9 +163,11 @@ int main(int argc, char *argv[])
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     fprintf(stderr, "Benchmarking... CTRL-C to stop\n");
     while (1) {
-        lcb_CMDGET cmd = {0};
-        LCB_CMD_SET_KEY(&cmd, key, nkey);
-        err = lcb_get3(instance, NULL, &cmd);
+        lcb_CMDGET *cmd;
+        lcb_cmdget_create(&cmd);
+        lcb_cmdget_key(cmd, key, nkey);
+        err = lcb_get(instance, NULL, cmd);
+        lcb_cmdget_destroy(cmd);
         if (err != LCB_SUCCESS) {
             fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror(NULL, err));
             exit(EXIT_FAILURE);

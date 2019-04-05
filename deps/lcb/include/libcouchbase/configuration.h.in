@@ -20,10 +20,4 @@
 #define LCB_VERSION_STRING "@LCB_VERSION@"
 #define LCB_VERSION @LCB_VERSION_HEX@
 #define LCB_VERSION_CHANGESET "@LCB_VERSION_CHANGESET@"
-
-/*
- * NOTE:
- * This symbol might be removed in future releases once tracing will reach GA status.
- */
-#cmakedefine LCB_TRACING
 #endif

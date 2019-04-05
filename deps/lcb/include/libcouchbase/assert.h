@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -23,19 +23,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define lcb_assert(a) \
-    if (!(a)) { \
-        fprintf(stderr, "FATAL ERROR:\n"); \
-        fprintf(stderr, "    libcouchbase experienced an unrecoverable error");\
-        fprintf(stderr, " and terminates the program\n"); \
-        fprintf(stderr, "    to avoid undefined behavior.\n"); \
-        fprintf(stderr, "    The program should have generated a "); \
-        fprintf(stderr, "\"corefile\" which may used\n");\
-        fprintf(stderr, "    to gather more information about the problem.\n"); \
-        fprintf(stderr, "    If your system doesn't create \"corefiles\" I "); \
-        fprintf(stderr, "can tell you that the\n"); \
-        fprintf(stderr, "    assertion failed in %s at line %d\n", __FILE__, \
-                __LINE__); \
+#define lcb_assert(a)                                                                                                  \
+    if (!(a)) {                                                                                                        \
+        fprintf(stderr, "FATAL ERROR:\n");                                                                             \
+        fprintf(stderr, "    libcouchbase experienced an unrecoverable error");                                        \
+        fprintf(stderr, " and terminates the program\n");                                                              \
+        fprintf(stderr, "    to avoid undefined behavior.\n");                                                         \
+        fprintf(stderr, "    The program should have generated a ");                                                   \
+        fprintf(stderr, "\"corefile\" which may used\n");                                                              \
+        fprintf(stderr, "    to gather more information about the problem.\n");                                        \
+        fprintf(stderr, "    If your system doesn't create \"corefiles\" I ");                                         \
+        fprintf(stderr, "can tell you that the\n");                                                                    \
+        fprintf(stderr, "    assertion failed in %s at line %d\n", __FILE__, __LINE__);                                \
     }
 #else
 #define lcb_assert(a) assert(a)

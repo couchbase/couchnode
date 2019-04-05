@@ -11,3 +11,6 @@ CONTRIBUTING.md
 AUTHORS
 Makefile
 prebuilds/
+test.js
+.vscode/
+.idea/

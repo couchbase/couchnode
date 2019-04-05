@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  *   limitations under the License.
  */
 
-
 #include "procutil.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,11 +24,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wordexp.h>
-#include <fcntl.h> /* O_* */
+#include <fcntl.h>  /* O_* */
 #include <unistd.h> /* usleep */
 #include <signal.h> /* kill */
 #include <time.h>
-#include <errno.h> /* ESRCH */
+#include <errno.h>    /* ESRCH */
 #include <sys/wait.h> /* waitpid */
 
 static char **clisplit(const char *s)
@@ -84,7 +83,7 @@ static int spawn_process_impl(child_process_t *proc)
             perror("dup2");
             exit(EXIT_FAILURE);
         }
-        setvbuf(stderr, NULL,  _IOLBF, 0);
+        setvbuf(stderr, NULL, _IOLBF, 0);
     }
     rv = execvp(argv[0], argv);
     if (rv < 0) {
@@ -133,11 +132,9 @@ int wait_process(child_process_t *process, int tmosec)
                 process->status = WEXITSTATUS(ec);
                 process->exited = 1;
 
-
             } else if (WIFSIGNALED(ec)) {
                 process->status = WTERMSIG(ec);
                 process->exited = 1;
-
 
             } else if (WIFSTOPPED(ec) || WIFCONTINUED(ec)) {
                 continue;
@@ -152,9 +149,7 @@ int wait_process(child_process_t *process, int tmosec)
             }
 
         } else if (pidrv == -1 && errno == ESRCH) {
-            fprintf(stderr,
-                    "Process has already terminated. waitpid(%d) == ESRCH\n",
-                    process->pid);
+            fprintf(stderr, "Process has already terminated. waitpid(%d) == ESRCH\n", process->pid);
 
             process->exited = 1;
         }
@@ -193,23 +188,14 @@ static int spawn_process_impl(child_process_t *proc)
         memset(&attrs, 0, sizeof(attrs));
         attrs.nLength = sizeof(attrs);
         attrs.bInheritHandle = TRUE;
-        out = CreateFile(proc->redirect,
-                         FILE_APPEND_DATA,
-                         FILE_SHARE_WRITE | FILE_SHARE_READ,
-                         &attrs,
-                         OPEN_ALWAYS,
-                         FILE_ATTRIBUTE_NORMAL,
-                         NULL);
+        out = CreateFile(proc->redirect, FILE_APPEND_DATA, FILE_SHARE_WRITE | FILE_SHARE_READ, &attrs, OPEN_ALWAYS,
+                         FILE_ATTRIBUTE_NORMAL, NULL);
         if (out == INVALID_HANDLE_VALUE) {
-            fprintf(stderr, "Couldn't open '%s'. %d\n",
-                    proc->redirect, (int)GetLastError());
+            fprintf(stderr, "Couldn't open '%s'. %d\n", proc->redirect, (int)GetLastError());
             return -1;
         }
-        if (!DuplicateHandle(GetCurrentProcess(), out,
-                             GetCurrentProcess(), &err,
-                             0, TRUE, DUPLICATE_SAME_ACCESS)) {
-            fprintf(stderr, "Couldn't DuplicateHandle. %d\n",
-                    (int)GetLastError());
+        if (!DuplicateHandle(GetCurrentProcess(), out, GetCurrentProcess(), &err, 0, TRUE, DUPLICATE_SAME_ACCESS)) {
+            fprintf(stderr, "Couldn't DuplicateHandle. %d\n", (int)GetLastError());
             return -1;
         }
         proc->si.cb = sizeof(proc->si);
@@ -218,20 +204,19 @@ static int spawn_process_impl(child_process_t *proc)
         proc->si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
         proc->si.dwFlags = STARTF_USESTDHANDLES;
     }
-    success = CreateProcess(NULL, /* name */
+    success = CreateProcess(NULL,               /* name */
                             (char *)proc->name, /* commandline */
-                            NULL, /* process attributes */
-                            NULL, /* security attributes */
-                            TRUE, /* inherit handles */
-                            0,  /* creation flags */
-                            NULL, /* environment */
-                            NULL, /* current directory */
-                            &proc->si, /* STARTUPINFO */
+                            NULL,               /* process attributes */
+                            NULL,               /* security attributes */
+                            TRUE,               /* inherit handles */
+                            0,                  /* creation flags */
+                            NULL,               /* environment */
+                            NULL,               /* current directory */
+                            &proc->si,          /* STARTUPINFO */
                             &proc->pi /* PROCESS_INFORMATION */);
 
     if (!success) {
-        fprintf(stderr, "Couldn't spawn '%s'. [%d]\n",
-                proc->name, (int)GetLastError());
+        fprintf(stderr, "Couldn't spawn '%s'. [%d]\n", proc->name, (int)GetLastError());
         return -1;
     }
 
@@ -263,8 +248,7 @@ int wait_process(child_process_t *process, int tmosec)
     result = WaitForSingleObject(process->pi.hProcess, millis);
     if (result != WAIT_OBJECT_0) {
         if (result == WAIT_FAILED) {
-            fprintf(stderr, "Wait failed with code [%d]\n",
-                    (int)GetLastError());
+            fprintf(stderr, "Wait failed with code [%d]\n", (int)GetLastError());
         }
         return -1;
     }

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,31 +24,31 @@
  */
 
 /**@internal*/
-#define LCB_CNTL_SERVER_COMMON_FIELDS \
-    /** Server index to query */ \
-    int index; \
-    \
-    /** NUL-terminated string containing the address */ \
-    const char *host; \
-    /** NUL-terminated string containing the port */ \
-    const char *port; \
-    /** Whether the node is connected */ \
-    int connected; \
-    \
-    /**
-     * Socket information. If a v0 IO plugin is being used, the sockfd
-     * is set to the socket descriptor. If a v1 plugin is being used, the
-     * sockptr is set to point to the appropriate structure.
-     *
-     * Note that you *MAY* perform various 'setsockopt' calls on the
-     * sockfd (though it is your responsibility to ensure those options
-     * are valid); however the actual socket descriptor may change
-     * in the case of a cluster configuration update.
-     */ \
-    union { \
-        lcb_socket_t sockfd; \
-        lcb_sockdata_t *sockptr; \
-    } sock; \
+#define LCB_CNTL_SERVER_COMMON_FIELDS                                                                                  \
+    /** Server index to query */                                                                                       \
+    int index;                                                                                                         \
+                                                                                                                       \
+    /** NUL-terminated string containing the address */                                                                \
+    const char *host;                                                                                                  \
+    /** NUL-terminated string containing the port */                                                                   \
+    const char *port;                                                                                                  \
+    /** Whether the node is connected */                                                                               \
+    int connected;                                                                                                     \
+                                                                                                                       \
+    /**                                                                                                                \
+     * Socket information. If a v0 IO plugin is being used, the sockfd                                                 \
+     * is set to the socket descriptor. If a v1 plugin is being used, the                                              \
+     * sockptr is set to point to the appropriate structure.                                                           \
+     *                                                                                                                 \
+     * Note that you *MAY* perform various 'setsockopt' calls on the                                                   \
+     * sockfd (though it is your responsibility to ensure those options                                                \
+     * are valid); however the actual socket descriptor may change                                                     \
+     * in the case of a cluster configuration update.                                                                  \
+     */                                                                                                                \
+    union {                                                                                                            \
+        lcb_socket_t sockfd;                                                                                           \
+        lcb_sockdata_t *sockptr;                                                                                       \
+    } sock;
 
 /**
  * @internal
@@ -90,7 +90,7 @@ typedef struct lcb_cntl_server_st {
  * @cntl_arg_getonly{lcb_cntl_server_t*}
  * @volatile
  */
-#define LCB_CNTL_MEMDNODE_INFO          0x08
+#define LCB_CNTL_MEMDNODE_INFO 0x08
 
 /**
  * @internal
@@ -102,7 +102,7 @@ typedef struct lcb_cntl_server_st {
  * @cntl_arg_getonly{lcb_cntl_server_t*}
  * @volatile
  */
-#define LCB_CNTL_CONFIGNODE_INFO        0x09
+#define LCB_CNTL_CONFIGNODE_INFO 0x09
 
 /**@internal
  * @brief Information about the I/O plugin
@@ -150,7 +150,7 @@ struct lcb_cntl_iops_info_st {
  *
  * @uncommitted
  */
-#define LCB_CNTL_IOPS_DEFAULT_TYPES      0x10
+#define LCB_CNTL_IOPS_DEFAULT_TYPES 0x10
 
 /**
  * @internal
@@ -215,9 +215,8 @@ struct lcb_cntl_iops_info_st {
  */
 #define LCB_CNTL_REINIT_CONNSTR 0x2B
 
-
 struct rdb_ALLOCATOR;
-typedef struct rdb_ALLOCATOR* (*lcb_RDBALLOCFACTORY)(void);
+typedef struct rdb_ALLOCATOR *(*lcb_RDBALLOCFACTORY)(void);
 
 /**Structure being used because function pointers can't technically be cast
  * to void*
@@ -237,7 +236,6 @@ struct lcb_cntl_rdballocfactory {
  * @volatile
  */
 #define LCB_CNTL_RDBALLOCFACTORY 0x27
-
 
 /**
  * @brief Persist heuristic vbucket information across updates.
@@ -288,13 +286,6 @@ struct lcb_cntl_rdballocfactory {
 #define LCB_CNTL_METRICS 0x49
 
 /**
- *
- * @cntl_arg_both{int (as boolean)}
- * @volatile
- */
-#define LCB_CNTL_USE_COLLECTIONS 0x4a
-
-/**
  * Do not use fast-forward map from cluster configuration.
  *
  * Use `vb_noremap` in the connection string
@@ -303,7 +294,6 @@ struct lcb_cntl_rdballocfactory {
  * @uncommitted
  */
 #define LCB_CNTL_VB_NOREMAP 0x5a
-
 
 /**
  * Do not wait for GET_CLUSTER_CONFIG request to finish in lcb_wait(),

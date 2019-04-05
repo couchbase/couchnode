@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017 Couchbase, Inc.
+ *     Copyright 2017-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -16,31 +16,230 @@
  */
 
 #include "internal.h"
-#include <libcouchbase/n1ql.h>
 #include "http/http.h"
 #include "auth-priv.h"
 
-static void refcnt_dtor_ping(mc_PACKET *);
-static void handle_ping(mc_PIPELINE *, mc_PACKET *, lcb_error_t, const void *);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_status(const lcb_RESPPING *resp)
+{
+    return resp->rc;
+}
 
-static mc_REQDATAPROCS ping_procs = {
-    handle_ping,
-    refcnt_dtor_ping
-};
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_cookie(const lcb_RESPPING *resp, void **cookie)
+{
+    *cookie = resp->cookie;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_value(const lcb_RESPPING *resp, const char **json, size_t *json_len)
+{
+    *json = resp->json;
+    *json_len = resp->njson;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API size_t lcb_respping_result_size(const lcb_RESPPING *resp)
+{
+    return resp->nservices;
+}
+
+LIBCOUCHBASE_API lcb_PING_STATUS lcb_respping_result_status(const lcb_RESPPING *resp, size_t index)
+{
+    if (index >= resp->nservices) {
+        return LCB_PING_STATUS_INVALID;
+    }
+    return resp->services[index].status;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_id(const lcb_RESPPING *resp, size_t index, const char **endpoint_id,
+                                                   size_t *endpoint_id_len)
+{
+    if (index >= resp->nservices) {
+        return LCB_OPTIONS_CONFLICT;
+    }
+    *endpoint_id = resp->services[index].id;
+    *endpoint_id_len = strlen(*endpoint_id);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_service(const lcb_RESPPING *resp, size_t index, lcb_PING_SERVICE *type)
+{
+    if (index >= resp->nservices) {
+        return LCB_OPTIONS_CONFLICT;
+    }
+    *type = resp->services[index].type;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_remote(const lcb_RESPPING *resp, size_t index, const char **address,
+                                                       size_t *address_len)
+{
+    if (index >= resp->nservices) {
+        return LCB_OPTIONS_CONFLICT;
+    }
+    *address = resp->services[index].server;
+    *address_len = strlen(*address);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_local(const lcb_RESPPING *resp, size_t index, const char **address,
+                                                      size_t *address_len)
+{
+    if (index >= resp->nservices) {
+        return LCB_OPTIONS_CONFLICT;
+    }
+    *address = resp->services[index].local;
+    *address_len = strlen(*address);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_latency(const lcb_RESPPING *resp, size_t index, uint64_t *latency)
+{
+    if (index >= resp->nservices) {
+        return LCB_OPTIONS_CONFLICT;
+    }
+    *latency = resp->services[index].latency;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_scope(const lcb_RESPPING *resp, size_t index, const char **name,
+                                                      size_t *name_len)
+{
+    if (index >= resp->nservices) {
+        return LCB_OPTIONS_CONFLICT;
+    }
+    *name = resp->services[index].scope;
+    *name_len = strlen(*name);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_create(lcb_CMDPING **cmd)
+{
+    *cmd = (lcb_CMDPING *)calloc(1, sizeof(lcb_CMDPING));
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_destroy(lcb_CMDPING *cmd)
+{
+    free(cmd);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_parent_span(lcb_CMDPING *cmd, lcbtrace_SPAN *span)
+{
+    cmd->pspan = span;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_report_id(lcb_CMDPING *cmd, const char *report_id, size_t report_id_len)
+{
+    cmd->id = report_id;
+    cmd->nid = report_id_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_all(lcb_CMDPING *cmd)
+{
+    cmd->services =
+        LCB_PINGSVC_F_KV | LCB_PINGSVC_F_N1QL | LCB_PINGSVC_F_VIEWS | LCB_PINGSVC_F_FTS | LCB_PINGSVC_F_ANALYTICS;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_kv(lcb_CMDPING *cmd, int enable)
+{
+    if (enable) {
+        cmd->services |= LCB_PINGSVC_F_KV;
+    } else {
+        cmd->services &= ~LCB_PINGSVC_F_KV;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_n1ql(lcb_CMDPING *cmd, int enable)
+{
+    if (enable) {
+        cmd->services |= LCB_PINGSVC_F_N1QL;
+    } else {
+        cmd->services &= ~LCB_PINGSVC_F_N1QL;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_views(lcb_CMDPING *cmd, int enable)
+{
+    if (enable) {
+        cmd->services |= LCB_PINGSVC_F_VIEWS;
+    } else {
+        cmd->services &= ~LCB_PINGSVC_F_VIEWS;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_fts(lcb_CMDPING *cmd, int enable)
+{
+    if (enable) {
+        cmd->services |= LCB_PINGSVC_F_FTS;
+    } else {
+        cmd->services &= ~LCB_PINGSVC_F_FTS;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_analytics(lcb_CMDPING *cmd, int enable)
+{
+    if (enable) {
+        cmd->services |= LCB_PINGSVC_F_ANALYTICS;
+    } else {
+        cmd->services &= ~LCB_PINGSVC_F_ANALYTICS;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_no_metrics(lcb_CMDPING *cmd, int enable)
+{
+    if (enable) {
+        cmd->options |= LCB_PINGOPT_F_NOMETRICS;
+    } else {
+        cmd->options &= ~LCB_PINGOPT_F_NOMETRICS;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_encode_json(lcb_CMDPING *cmd, int enable, int pretty, int with_details)
+{
+    if (enable) {
+        uint32_t flags = LCB_PINGOPT_F_JSON;
+        if (pretty) {
+            flags |= LCB_PINGOPT_F_JSONPRETTY;
+        }
+        if (with_details) {
+            flags |= LCB_PINGOPT_F_JSONDETAILS;
+        }
+        cmd->options |= flags;
+    } else {
+        cmd->options &= ~(LCB_PINGOPT_F_JSON | LCB_PINGOPT_F_JSONPRETTY | LCB_PINGOPT_F_JSONDETAILS);
+    }
+    return LCB_SUCCESS;
+}
+
+static void refcnt_dtor_ping(mc_PACKET *);
+static void handle_ping(mc_PIPELINE *, mc_PACKET *, lcb_STATUS, const void *);
+
+static mc_REQDATAPROCS ping_procs = {handle_ping, refcnt_dtor_ping};
 
 struct PingCookie : mc_REQDATAEX {
     int remaining;
     int options;
-    std::list<lcb_PINGSVC> responses;
+    std::list< lcb_PINGSVC > responses;
     std::string id;
 
     PingCookie(const void *cookie_, int _options)
-        : mc_REQDATAEX(cookie_, ping_procs, gethrtime()),
-        remaining(0), options(_options) {
+        : mc_REQDATAEX(cookie_, ping_procs, gethrtime()), remaining(0), options(_options)
+    {
     }
 
-    ~PingCookie() {
-        for (std::list<lcb_PINGSVC>::iterator it = responses.begin(); it != responses.end(); it++) {
+    ~PingCookie()
+    {
+        for (std::list< lcb_PINGSVC >::iterator it = responses.begin(); it != responses.end(); it++) {
             if (it->server) {
                 free((void *)it->server);
                 it->server = NULL;
@@ -52,50 +251,52 @@ struct PingCookie : mc_REQDATAEX {
         }
     }
 
-    bool needMetrics() {
+    bool needMetrics()
+    {
         return (options & LCB_PINGOPT_F_NOMETRICS) == 0;
     }
 
-    bool needJSON() {
+    bool needJSON()
+    {
         return options & LCB_PINGOPT_F_JSON;
     }
 
-    bool needDetails() {
+    bool needDetails()
+    {
         return options & LCB_PINGOPT_F_JSONDETAILS;
     }
 
-    bool needPretty() {
+    bool needPretty()
+    {
         return options & LCB_PINGOPT_F_JSONPRETTY;
     }
 };
 
-static void
-refcnt_dtor_ping(mc_PACKET *pkt)
+static void refcnt_dtor_ping(mc_PACKET *pkt)
 {
-    PingCookie *ck = static_cast<PingCookie *>(pkt->u_rdata.exdata);
+    PingCookie *ck = static_cast< PingCookie * >(pkt->u_rdata.exdata);
     if (!--ck->remaining) {
         delete ck;
     }
 }
 
-static const char* svc_to_string(lcb_PINGSVCTYPE type)
+static const char *svc_to_string(const lcb_PING_SERVICE type)
 {
     switch (type) {
-    case LCB_PINGSVC_KV:
-        return "kv";
-    case LCB_PINGSVC_VIEWS:
-        return "views";
-    case LCB_PINGSVC_N1QL:
-        return "n1ql";
-    case LCB_PINGSVC_FTS:
-        return "fts";
-    default:
-        return "unknown";
+        case LCB_PING_SERVICE_KV:
+            return "kv";
+        case LCB_PING_SERVICE_VIEWS:
+            return "views";
+        case LCB_PING_SERVICE_N1QL:
+            return "n1ql";
+        case LCB_PING_SERVICE_FTS:
+            return "fts";
+        default:
+            return "unknown";
     }
 }
 
-static void
-build_ping_json(lcb_t instance, lcb_RESPPING &ping, Json::Value &root, PingCookie *ck)
+static void build_ping_json(lcb_INSTANCE *instance, lcb_RESPPING &ping, Json::Value &root, PingCookie *ck)
 {
     Json::Value services;
     for (size_t ii = 0; ii < ping.nservices; ii++) {
@@ -114,17 +315,17 @@ build_ping_json(lcb_t instance, lcb_RESPPING &ping, Json::Value &root, PingCooki
 
         service["latency_us"] = (Json::Value::UInt64)LCB_NS2US(svc.latency);
         switch (svc.status) {
-        case LCB_PINGSTATUS_OK:
-            service["status"] = "ok";
-            break;
-        case LCB_PINGSTATUS_TIMEOUT:
-            service["status"] = "timeout";
-            break;
-        default:
-            service["status"] = "error";
-            if (ck->needDetails()) {
-                service["details"] = lcb_strerror_long(svc.rc);
-            }
+            case LCB_PING_STATUS_OK:
+                service["status"] = "ok";
+                break;
+            case LCB_PING_STATUS_TIMEOUT:
+                service["status"] = "timeout";
+                break;
+            default:
+                service["status"] = "error";
+                if (ck->needDetails()) {
+                    service["details"] = lcb_strerror_long(svc.rc);
+                }
         }
         services[svc_to_string(svc.type)].append(service);
     }
@@ -146,8 +347,7 @@ build_ping_json(lcb_t instance, lcb_RESPPING &ping, Json::Value &root, PingCooki
     root["config_rev"] = config_rev;
 }
 
-static void
-invoke_ping_callback(lcb_t instance, PingCookie *ck)
+static void invoke_ping_callback(lcb_INSTANCE *instance, PingCookie *ck)
 {
     lcb_RESPPING ping;
     std::string json;
@@ -156,7 +356,7 @@ invoke_ping_callback(lcb_t instance, PingCookie *ck)
     if (ck->needMetrics()) {
         ping.nservices = ck->responses.size();
         ping.services = new lcb_PINGSVC[ping.nservices];
-        for(std::list<lcb_PINGSVC>::const_iterator it = ck->responses.begin(); it != ck->responses.end(); ++it){
+        for (std::list< lcb_PINGSVC >::const_iterator it = ck->responses.begin(); it != ck->responses.end(); ++it) {
             ping.services[idx++] = *it;
         }
         if (ck->needJSON()) {
@@ -176,18 +376,17 @@ invoke_ping_callback(lcb_t instance, PingCookie *ck)
     }
     lcb_RESPCALLBACK callback;
     callback = lcb_find_callback(instance, LCB_CALLBACK_PING);
-    ping.cookie = const_cast<void*>(ck->cookie);
+    ping.cookie = const_cast< void * >(ck->cookie);
     callback(instance, LCB_CALLBACK_PING, (lcb_RESPBASE *)&ping);
     if (ping.services != NULL) {
-        delete []ping.services;
+        delete[] ping.services;
     }
     delete ck;
 }
 
-static void
-handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err, const void *)
+static void handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, const void *)
 {
-    lcb::Server *server = static_cast<lcb::Server*>(pipeline);
+    lcb::Server *server = static_cast< lcb::Server * >(pipeline);
     PingCookie *ck = (PingCookie *)req->u_rdata.exdata;
 
     if (ck->needMetrics()) {
@@ -199,20 +398,20 @@ handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err, const void *
             hh.append(remote.host).append(":").append(remote.port);
         }
         lcb_PINGSVC svc = {};
-        svc.type = LCB_PINGSVC_KV;
+        svc.type = LCB_PING_SERVICE_KV;
         svc.server = strdup(hh.c_str());
         svc.latency = gethrtime() - MCREQ_PKT_RDATA(req)->start;
         svc.rc = err;
         switch (err) {
-        case LCB_ETIMEDOUT:
-            svc.status = LCB_PINGSTATUS_TIMEOUT;
-            break;
-        case LCB_SUCCESS:
-            svc.status = LCB_PINGSTATUS_OK;
-            break;
-        default:
-            svc.status = LCB_PINGSTATUS_ERROR;
-            break;
+            case LCB_ETIMEDOUT:
+                svc.status = LCB_PING_STATUS_TIMEOUT;
+                break;
+            case LCB_SUCCESS:
+                svc.status = LCB_PING_STATUS_OK;
+                break;
+            default:
+                svc.status = LCB_PING_STATUS_ERROR;
+                break;
         }
         lcbio_CTX *ctx = server->connctx;
         if (ctx) {
@@ -232,13 +431,13 @@ handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_error_t err, const void *
     invoke_ping_callback(server->get_instance(), ck);
 }
 
-static void handle_http(lcb_t instance, lcb_PINGSVCTYPE type, const lcb_RESPHTTP *resp)
+static void handle_http(lcb_INSTANCE *instance, lcb_PING_SERVICE type, const lcb_RESPHTTP *resp)
 {
     if ((resp->rflags & LCB_RESP_F_FINAL) == 0) {
         return;
     }
     PingCookie *ck = (PingCookie *)resp->cookie;
-    lcb::http::Request *htreq = reinterpret_cast<lcb::http::Request*>(resp->_htreq);
+    lcb::http::Request *htreq = reinterpret_cast< lcb::http::Request * >(resp->_htreq);
 
     if (ck->needMetrics()) {
         lcb_PINGSVC svc = {};
@@ -253,15 +452,15 @@ static void handle_http(lcb_t instance, lcb_PINGSVCTYPE type, const lcb_RESPHTTP
         svc.latency = gethrtime() - htreq->start;
         svc.rc = resp->rc;
         switch (resp->rc) {
-        case LCB_ETIMEDOUT:
-            svc.status = LCB_PINGSTATUS_TIMEOUT;
-            break;
-        case LCB_SUCCESS:
-            svc.status = LCB_PINGSTATUS_OK;
-            break;
-        default:
-            svc.status = LCB_PINGSTATUS_ERROR;
-            break;
+            case LCB_ETIMEDOUT:
+                svc.status = LCB_PING_STATUS_TIMEOUT;
+                break;
+            case LCB_SUCCESS:
+                svc.status = LCB_PING_STATUS_OK;
+                break;
+            default:
+                svc.status = LCB_PING_STATUS_ERROR;
+                break;
         }
         lcbio_CTX *ctx = htreq->ioctx;
         if (ctx) {
@@ -278,24 +477,23 @@ static void handle_http(lcb_t instance, lcb_PINGSVCTYPE type, const lcb_RESPHTTP
     invoke_ping_callback(instance, ck);
 }
 
-static void handle_n1ql(lcb_t instance, int, const lcb_RESPBASE *resp)
+static void handle_n1ql(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
-    handle_http(instance, LCB_PINGSVC_N1QL, (const lcb_RESPHTTP *)resp);
+    handle_http(instance, LCB_PING_SERVICE_N1QL, (const lcb_RESPHTTP *)resp);
 }
 
-static void handle_views(lcb_t instance, int, const lcb_RESPBASE *resp)
+static void handle_views(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
-    handle_http(instance, LCB_PINGSVC_VIEWS, (const lcb_RESPHTTP *)resp);
+    handle_http(instance, LCB_PING_SERVICE_VIEWS, (const lcb_RESPHTTP *)resp);
 }
 
-static void handle_fts(lcb_t instance, int, const lcb_RESPBASE *resp)
+static void handle_fts(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
-    handle_http(instance, LCB_PINGSVC_FTS, (const lcb_RESPHTTP *)resp);
+    handle_http(instance, LCB_PING_SERVICE_FTS, (const lcb_RESPHTTP *)resp);
 }
 
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
+lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
@@ -347,33 +545,35 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
     }
 
     for (int idx = 0; idx < (int)LCBVB_NSERVERS(cfg); idx++) {
-#define PING_HTTP(SVC, PATH, TMO, CB) \
-            lcb_error_t rc; \
-            struct lcb_http_request_st *htreq; \
-            lcb_CMDHTTP htcmd = {0}; \
-            char buf[1024] = {0}; \
-            unsigned port; \
-            port = lcbvb_get_port(cfg, idx, SVC, mode); \
-            if (port) { \
-                lcbvb_SERVER *srv = LCBVB_GET_SERVER(cfg, idx); \
-                bool ipv6 = strchr(srv->hostname, ':'); \
-                snprintf(buf, sizeof(buf), "%s://%s%s%s:%d%s", (mode == LCBVB_SVCMODE_PLAIN) ? "http" : "https", \
-                         ipv6 ? "[" : "", srv->hostname, ipv6 ? "]" : "", port, PATH); \
-                htcmd.host = buf; \
-                htcmd.method = LCB_HTTP_METHOD_GET; \
-                htcmd.type = LCB_HTTP_TYPE_PING; \
-                htcmd.reqhandle = &htreq; \
-                const lcb::Authenticator& auth = *instance->settings->auth; \
-                htcmd.username = auth.username_for(NULL, NULL, LCBT_SETTING(instance, bucket)).c_str(); \
-                htcmd.password = auth.password_for(NULL, NULL, LCBT_SETTING(instance, bucket)).c_str(); \
-                htcmd.cmdflags = LCB_CMDHTTP_F_CASTMO; \
-                htcmd.cas = LCBT_SETTING(instance, TMO); \
-                rc = lcb_http3(instance, ckwrap, &htcmd); \
-                if (rc == LCB_SUCCESS) { \
-                    htreq->set_callback(CB); \
-                    ckwrap->remaining++; \
-                } \
-            }
+#define PING_HTTP(SVC, PATH, TMO, CB)                                                                                  \
+    lcb_STATUS rc;                                                                                                     \
+    lcb_HTTP_HANDLE *htreq;                                                                                            \
+    lcb_CMDHTTP *htcmd;                                                                                                \
+    char buf[1024] = {0};                                                                                              \
+    unsigned port;                                                                                                     \
+    port = lcbvb_get_port(cfg, idx, SVC, mode);                                                                        \
+    if (port) {                                                                                                        \
+        lcbvb_SERVER *srv = LCBVB_GET_SERVER(cfg, idx);                                                                \
+        bool ipv6 = strchr(srv->hostname, ':');                                                                        \
+        snprintf(buf, sizeof(buf), "%s://%s%s%s:%d%s", (mode == LCBVB_SVCMODE_PLAIN) ? "http" : "https",               \
+                 ipv6 ? "[" : "", srv->hostname, ipv6 ? "]" : "", port, PATH);                                         \
+        lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_PING);                                                                \
+        lcb_cmdhttp_host(htcmd, buf, strlen(buf));                                                                     \
+        lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_GET);                                                                \
+        lcb_cmdhttp_handle(htcmd, &htreq);                                                                             \
+        const lcb::Authenticator &auth = *instance->settings->auth;                                                    \
+        std::string username = auth.username_for(NULL, NULL, LCBT_SETTING(instance, bucket));                          \
+        lcb_cmdhttp_username(htcmd, username.c_str(), username.size());                                                \
+        std::string password = auth.password_for(NULL, NULL, LCBT_SETTING(instance, bucket));                          \
+        lcb_cmdhttp_password(htcmd, password.c_str(), password.size());                                                \
+        lcb_cmdhttp_timeout(htcmd, LCBT_SETTING(instance, TMO));                                                       \
+        rc = lcb_http(instance, ckwrap, htcmd);                                                                        \
+        lcb_cmdhttp_destroy(htcmd);                                                                                    \
+        if (rc == LCB_SUCCESS) {                                                                                       \
+            htreq->set_callback(CB);                                                                                   \
+            ckwrap->remaining++;                                                                                       \
+        }                                                                                                              \
+    }
 
         if (cmd->services & LCB_PINGSVC_F_N1QL) {
             PING_HTTP(LCBVB_SVCTYPE_N1QL, "/admin/ping", n1ql_timeout, handle_n1ql);
@@ -398,10 +598,55 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
     return LCB_SUCCESS;
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_status(const lcb_RESPDIAG *resp)
+{
+    return resp->rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_cookie(const lcb_RESPDIAG *resp, void **cookie)
+{
+    *cookie = resp->cookie;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_value(const lcb_RESPDIAG *resp, const char **json, size_t *json_len)
+{
+    *json = resp->json;
+    *json_len = resp->njson;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_create(lcb_CMDDIAG **cmd)
+{
+    *cmd = (lcb_CMDDIAG *)calloc(1, sizeof(lcb_CMDDIAG));
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_destroy(lcb_CMDDIAG *cmd)
+{
+    free(cmd);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_report_id(lcb_CMDDIAG *cmd, const char *report_id, size_t report_id_len)
+{
+    cmd->id = report_id;
+    cmd->nid = report_id_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_prettify(lcb_CMDDIAG *cmd, int enable)
+{
+    if (enable) {
+        cmd->options |= LCB_PINGOPT_F_JSONPRETTY;
+    } else {
+        cmd->options &= ~LCB_PINGOPT_F_JSONPRETTY;
+    }
+    return LCB_SUCCESS;
+}
 
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
+lcb_STATUS lcb_diag(lcb_INSTANCE *instance, void *cookie, const lcb_CMDDIAG *cmd)
 {
     Json::Value root;
     hrtime_t now = LCB_NS2US(gethrtime());
@@ -426,7 +671,7 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
     size_t ii;
     Json::Value kv;
     for (ii = 0; ii < instance->cmdq.npipelines; ii++) {
-        lcb::Server *server = static_cast<lcb::Server*>(instance->cmdq.pipelines[ii]);
+        lcb::Server *server = static_cast< lcb::Server * >(instance->cmdq.pipelines[ii]);
         lcbio_CTX *ctx = server->connctx;
         if (ctx) {
             Json::Value endpoint;
@@ -434,7 +679,8 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
             snprintf(id, sizeof(id), "%016" PRIx64, ctx->sock ? ctx->sock->id : (lcb_U64)0);
             endpoint["id"] = id;
             if (server->curhost->ipv6) {
-                endpoint["remote"] = "[" + std::string(server->curhost->host) + "]:" + std::string(server->curhost->port);
+                endpoint["remote"] =
+                    "[" + std::string(server->curhost->host) + "]:" + std::string(server->curhost->port);
             } else {
                 endpoint["remote"] = std::string(server->curhost->host) + ":" + std::string(server->curhost->port);
             }
@@ -452,7 +698,7 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
         lcb_ASPEND_SETTYPE *pendq;
         if ((pendq = instance->pendops.items[LCB_PENDTYPE_HTTP])) {
             for (it = pendq->begin(); it != pendq->end(); ++it) {
-                lcb::http::Request *htreq = reinterpret_cast<lcb::http::Request*>(*it);
+                lcb::http::Request *htreq = reinterpret_cast< lcb::http::Request * >(*it);
                 lcbio_CTX *ctx = htreq->ioctx;
                 if (ctx) {
                     Json::Value endpoint;
@@ -465,7 +711,8 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
                         endpoint["remote"] = std::string(htreq->host) + ":" + std::string(htreq->port);
                     }
                     endpoint["local"] = lcbio__inet_ntop(&ctx->sock->info->sa_local);
-                    endpoint["last_activity_us"] = (Json::Value::UInt64)(now > ctx->sock->atime ? now - ctx->sock->atime : 0);
+                    endpoint["last_activity_us"] =
+                        (Json::Value::UInt64)(now > ctx->sock->atime ? now - ctx->sock->atime : 0);
                     endpoint["status"] = "connected";
                     root[lcbio_svcstr(ctx->sock->service)].append(endpoint);
                 }
@@ -489,7 +736,7 @@ lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd)
     resp.json = json.c_str();
 
     callback = lcb_find_callback(instance, LCB_CALLBACK_DIAG);
-    resp.cookie = const_cast<void*>(cookie);
+    resp.cookie = const_cast< void * >(cookie);
     callback(instance, LCB_CALLBACK_DIAG, (lcb_RESPBASE *)&resp);
 
     return LCB_SUCCESS;

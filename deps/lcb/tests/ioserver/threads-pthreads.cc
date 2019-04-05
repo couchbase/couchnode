@@ -5,9 +5,9 @@
 #include <pthread.h>
 
 extern "C" {
-static void* startfunc(void *arg)
+static void *startfunc(void *arg)
 {
-    Thread *thr = reinterpret_cast<Thread *>(arg);
+    Thread *thr = reinterpret_cast< Thread * >(arg);
     thr->doRun();
     return NULL;
 }
@@ -21,8 +21,7 @@ Thread::Thread(StartFunc startfn, void *arg)
     pthread_create(&thr, NULL, startfunc, this);
 }
 
-void
-Thread::close()
+void Thread::close()
 {
     if (!initialized) {
         return;
@@ -36,13 +35,11 @@ Thread::~Thread()
     close();
 }
 
-void
-Thread::join()
+void Thread::join()
 {
     void *res;
     pthread_join(thr, &res);
 }
-
 
 // Mutex:
 Mutex::Mutex()
@@ -51,26 +48,22 @@ Mutex::Mutex()
     initialized = true;
 }
 
-void
-Mutex::lock()
+void Mutex::lock()
 {
     pthread_mutex_lock(&mutex);
 }
 
-bool
-Mutex::tryLock()
+bool Mutex::tryLock()
 {
     return pthread_mutex_trylock(&mutex) == 0;
 }
 
-void
-Mutex::unlock()
+void Mutex::unlock()
 {
     pthread_mutex_unlock(&mutex);
 }
 
-void
-Mutex::close()
+void Mutex::close()
 {
     if (initialized) {
         initialized = false;
@@ -83,7 +76,6 @@ Mutex::~Mutex()
     close();
 }
 
-
 // Condvar
 Condvar::Condvar()
 {
@@ -91,20 +83,17 @@ Condvar::Condvar()
     initialized = true;
 }
 
-void
-Condvar::wait(Mutex& mutex)
+void Condvar::wait(Mutex &mutex)
 {
     pthread_cond_wait(&cond, &mutex.mutex);
 }
 
-void
-Condvar::signal()
+void Condvar::signal()
 {
     pthread_cond_signal(&cond);
 }
 
-void
-Condvar::close()
+void Condvar::close()
 {
     if (initialized) {
         pthread_cond_destroy(&cond);

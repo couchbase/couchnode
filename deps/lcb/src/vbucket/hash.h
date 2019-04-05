@@ -24,7 +24,7 @@
 
 uint32_t vb__hash_ketama(const char *key, size_t key_length);
 void vb__hash_md5(const char *key, size_t key_length, unsigned char *result);
-void* vb__hash_md5_update(void *ctx, const char *key, size_t key_length);
+void *vb__hash_md5_update(void *ctx, const char *key, size_t key_length);
 void vb__hash_md5_final(void *ctx, unsigned char *result);
 
 #endif

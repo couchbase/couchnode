@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2015 Couchbase, Inc.
+ *     Copyright 2015-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,15 +24,18 @@
 #include "seqgen.h"
 #include "loc.h"
 
-namespace Pillowfight {
-namespace Placeholders {
+namespace Pillowfight
+{
+namespace Placeholders
+{
 
 /**
  * Placeholder specification.
  * This contains information about a single placeholder's input specification.
  */
-class Spec {
-public:
+class Spec
+{
+  public:
     /**
      * @param s placeholder string
      * @param minval_ minimum value for replacement
@@ -40,10 +43,12 @@ public:
      * @param sequential_ if replacement should be done sequentially
      */
     Spec(const std::string &s, unsigned minval, unsigned maxval, unsigned sequential)
-    : m_term(s), m_minval(minval), m_maxval(maxval), m_sequential(sequential) {
+        : m_term(s), m_minval(minval), m_maxval(maxval), m_sequential(sequential)
+    {
     }
 
-    SeqGenerator *createSeqgen(int total, int cur) const {
+    SeqGenerator *createSeqgen(int total, int cur) const
+    {
         if (m_sequential) {
             return new SeqGenerator(m_minval, m_maxval, total, cur);
         } else {
@@ -51,9 +56,12 @@ public:
         }
     }
 
-    const std::string& term() const { return m_term; }
+    const std::string &term() const
+    {
+        return m_term;
+    }
 
-private:
+  private:
     std::string m_term; // Placeholder string to search for
     unsigned m_minval;
     unsigned m_maxval;
@@ -67,18 +75,28 @@ private:
  * This class can be copied since we don't have pointer references within the
  * match itself.
  */
-class Match {
-public:
+class Match
+{
+  public:
     // Size of the placeholder (derived from spec)
-    size_t size() const { return m_placeholder->term().size(); }
-    size_t offset() const { return m_offset; }
-    const Spec& spec() const { return *m_placeholder; }
+    size_t size() const
+    {
+        return m_placeholder->term().size();
+    }
+    size_t offset() const
+    {
+        return m_offset;
+    }
+    const Spec &spec() const
+    {
+        return *m_placeholder;
+    }
 
-    template <class Tin, class Tres> static void
-    find(const std::string& base, const Tin& specs, Tres& results) {
+    template < class Tin, class Tres > static void find(const std::string &base, const Tin &specs, Tres &results)
+    {
 
         for (size_t ii = 0; ii < specs.size(); ii++) {
-            const Spec& pl = specs[ii];
+            const Spec &pl = specs[ii];
             size_t findpos = base.find(pl.term());
             if (findpos != std::string::npos) {
                 results.push_back(Match(&pl, findpos));
@@ -87,17 +105,16 @@ public:
         std::sort(results.begin(), results.end(), compare);
     }
 
-private:
+  private:
     // Actual placeholder containing the information
     const Spec *m_placeholder;
 
     // Offset into the document in which the placeholder text begins
     size_t m_offset;
-    Match(const Spec *spec_, size_t off)
-    : m_placeholder(spec_), m_offset(off) {
-    }
+    Match(const Spec *spec_, size_t off) : m_placeholder(spec_), m_offset(off) {}
 
-    static bool compare(const Match& a, const Match& b) {
+    static bool compare(const Match &a, const Match &b)
+    {
         return a.m_offset < b.m_offset;
     }
 };
@@ -109,10 +126,11 @@ private:
  * The document is split into fragments, where some fragments are constant
  * and some are empty and have DocPlaceholder objects mapped to them.
  */
-class DocumentMatches {
-public:
-    DocumentMatches(const std::string& original,
-        const std::vector<Spec>& placeholders) : m_base(original) {
+class DocumentMatches
+{
+  public:
+    DocumentMatches(const std::string &original, const std::vector< Spec > &placeholders) : m_base(original)
+    {
 
         Match::find(m_base, placeholders, m_matches);
 
@@ -120,7 +138,7 @@ public:
         m_fragments.push_back(baseloc);
 
         for (size_t ii = 0; ii < m_matches.size(); ii++) {
-            Match& dph = m_matches[ii];
+            Match &dph = m_matches[ii];
 
             // Location of text to cut out
             Loc dph_loc(m_base.c_str() + dph.offset(), dph.size());
@@ -143,27 +161,31 @@ public:
         }
     }
 
-    const std::vector<Match>& matches() const { return m_matches; }
+    const std::vector< Match > &matches() const
+    {
+        return m_matches;
+    }
 
-private:
-    DocumentMatches(const DocumentMatches& other);
+  private:
+    DocumentMatches(const DocumentMatches &other);
 
     friend class Substitutions;
-    std::string m_base; // Base document text
-    std::vector<Loc> m_fragments; // Fragments of the document
-    std::vector<Match> m_matches;
-    std::vector<int> m_matchix_to_fragix; // Mapping of matches to IOV indexes
+    std::string m_base;             // Base document text
+    std::vector< Loc > m_fragments; // Fragments of the document
+    std::vector< Match > m_matches;
+    std::vector< int > m_matchix_to_fragix; // Mapping of matches to IOV indexes
 };
 
-class Substitutions {
-public:
+class Substitutions
+{
+  public:
     // Backing buffer for data
-    typedef std::vector<std::string> Backbuffer;
+    typedef std::vector< std::string > Backbuffer;
 
-    Substitutions(const DocumentMatches *matches, int total, int cur)
-    : m_matches(matches) {
+    Substitutions(const DocumentMatches *matches, int total, int cur) : m_matches(matches)
+    {
         for (size_t ii = 0; ii < m_matches->m_matches.size(); ii++) {
-            const Match& m = m_matches->m_matches[ii];
+            const Match &m = m_matches->m_matches[ii];
             SeqGenerator *gen = m.spec().createSeqgen(total, cur);
             m_generators.resize(ii + 1);
             m_generators[ii] = gen;
@@ -178,14 +200,15 @@ public:
      * @param[out] iovs Vector to contain the output IOVs
      * @param[out] backbuf backing buffers for substitutions
      */
-    void makeIovs(std::vector<lcb_IOV>& iovs, Backbuffer& backbuf) {
+    void makeIovs(std::vector< lcb_IOV > &iovs, Backbuffer &backbuf)
+    {
         iovs = m_iovs;
         backbuf.resize(m_matches->matches().size());
 
         for (size_t ii = 0; ii < m_matches->matches().size(); ii++) {
             char buf[64];
-            std::string& output_str = backbuf[ii];
-            lcb_IOV& output_iov = iovs[m_matches->m_matchix_to_fragix[ii]];
+            std::string &output_str = backbuf[ii];
+            lcb_IOV &output_iov = iovs[m_matches->m_matchix_to_fragix[ii]];
             SeqGenerator *gen = m_generators[ii];
 
             // Get the number
@@ -193,19 +216,19 @@ public:
 
             sprintf(buf, "%u", cur);
             output_str.assign(buf);
-            output_iov.iov_base = const_cast<char *>(output_str.c_str());
+            output_iov.iov_base = const_cast< char * >(output_str.c_str());
             output_iov.iov_len = output_str.size();
         }
     }
 
-private:
+  private:
     const DocumentMatches *m_matches;
     // Array of generators, one for each Match index
-    std::vector<SeqGenerator *> m_generators;
-    std::vector<lcb_IOV> m_iovs;
+    std::vector< SeqGenerator * > m_generators;
+    std::vector< lcb_IOV > m_iovs;
 };
 
-} // namespace
-} // namespace
+} // namespace Placeholders
+} // namespace Pillowfight
 
 #endif

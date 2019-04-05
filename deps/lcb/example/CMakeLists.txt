@@ -27,6 +27,12 @@ ADD_EXAMPLE(analytics analytics "" "")
 ADD_EXAMPLE(analytics-deferred analytics-deferred "" "")
 ADD_EXAMPLE(analytics-ingest analytics-ingest "" "")
 
+ADD_EXECUTABLE(tracing-zipkin tracing/tracing.c tracing/cJSON.c)
+TARGET_LINK_LIBRARIES(tracing-zipkin couchbase)
+
+ADD_EXECUTABLE(tracing-views tracing/views.c tracing/cJSON.c)
+TARGET_LINK_LIBRARIES(tracing-views couchbase)
+
 ADD_EXECUTABLE(subdoc-simple subdoc/subdoc-simple.cc)
 ADD_EXECUTABLE(subdoc-multi subdoc/subdoc-multi.cc)
 ADD_EXECUTABLE(subdoc-xattrs subdoc/subdoc-xattrs.c)

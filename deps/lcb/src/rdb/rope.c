@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -29,8 +29,7 @@
 #define ROPE_SALLOC(rope, n) (rope)->allocator->s_alloc((rope)->allocator, n)
 static void wipe_rope(rdb_ROPEBUF *rope);
 
-unsigned
-rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov)
+unsigned rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov)
 {
     unsigned orig_niov = niov;
     unsigned cur_rdsize = 0;
@@ -53,12 +52,12 @@ rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov)
         return orig_niov - niov;
     }
 
-    ior->avail.allocator->r_reserve(
-            ior->avail.allocator, &ior->avail, ior->rdsize - cur_rdsize);
+    ior->avail.allocator->r_reserve(ior->avail.allocator, &ior->avail, ior->rdsize - cur_rdsize);
 
     assert(!LCB_LIST_IS_EMPTY(&ior->avail.segments));
 
-    LCB_LIST_FOR(ll, &ior->avail.segments) {
+    LCB_LIST_FOR(ll, &ior->avail.segments)
+    {
         rdb_ROPESEG *cur = LCB_LIST_ITEM(ll, rdb_ROPESEG, llnode);
         iov->iov_base = RDB_SEG_WBUF(cur);
         iov->iov_len = RDB_SEG_SPACE(cur);
@@ -71,9 +70,7 @@ rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov)
     return orig_niov - niov;
 }
 
-
-void
-rdb_rdend(rdb_IOROPE *ior, unsigned nr)
+void rdb_rdend(rdb_IOROPE *ior, unsigned nr)
 {
     unsigned to_chop;
     lcb_list_t *llcur, *llnext;
@@ -85,13 +82,14 @@ rdb_rdend(rdb_IOROPE *ior, unsigned nr)
         seg->nused += to_chop;
         ior->recvd.nused += to_chop;
 
-        if (! (nr -= to_chop)) {
+        if (!(nr -= to_chop)) {
             wipe_rope(&ior->avail);
             return;
         }
     }
 
-    LCB_LIST_SAFE_FOR(llcur, llnext, &ior->avail.segments) {
+    LCB_LIST_SAFE_FOR(llcur, llnext, &ior->avail.segments)
+    {
         seg = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
         to_chop = MINIMUM(nr, RDB_SEG_SPACE(seg));
 
@@ -100,7 +98,7 @@ rdb_rdend(rdb_IOROPE *ior, unsigned nr)
 
         lcb_list_delete(&seg->llnode);
         lcb_list_append(&ior->recvd.segments, &seg->llnode);
-        if (! (nr -= to_chop)) {
+        if (!(nr -= to_chop)) {
             wipe_rope(&ior->avail);
             return;
         }
@@ -111,8 +109,7 @@ rdb_rdend(rdb_IOROPE *ior, unsigned nr)
     assert(0);
 }
 
-static void
-seg_consumed(rdb_ROPEBUF *rope, rdb_ROPESEG *seg, unsigned nr)
+static void seg_consumed(rdb_ROPEBUF *rope, rdb_ROPESEG *seg, unsigned nr)
 {
     assert(nr <= seg->nused);
     seg->nused -= nr;
@@ -128,32 +125,30 @@ seg_consumed(rdb_ROPEBUF *rope, rdb_ROPESEG *seg, unsigned nr)
     }
 }
 
-static void
-rope_consumed(rdb_ROPEBUF *rope, unsigned nr)
+static void rope_consumed(rdb_ROPEBUF *rope, unsigned nr)
 {
     lcb_list_t *llcur, *llnext;
     assert(nr <= rope->nused);
 
-    LCB_LIST_SAFE_FOR(llcur, llnext, &rope->segments) {
+    LCB_LIST_SAFE_FOR(llcur, llnext, &rope->segments)
+    {
         unsigned to_chop;
         rdb_ROPESEG *seg = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
         to_chop = MINIMUM(nr, seg->nused);
         seg_consumed(rope, seg, to_chop);
 
-        if (! (nr -= to_chop)) {
+        if (!(nr -= to_chop)) {
             break;
         }
     }
 }
 
-void
-rdb_consumed(rdb_IOROPE *ior, unsigned nr)
+void rdb_consumed(rdb_IOROPE *ior, unsigned nr)
 {
     rope_consumed(&ior->recvd, nr);
 }
 
-static void
-try_compact(rdb_ROPESEG *seg)
+static void try_compact(rdb_ROPESEG *seg)
 {
     /** Can't move stuff around.. */
     char *cp_end;
@@ -180,8 +175,7 @@ try_compact(rdb_ROPESEG *seg)
     seg->start = 0;
 }
 
-static void
-rope_consolidate(rdb_ROPEBUF *rope, unsigned nr)
+static void rope_consolidate(rdb_ROPEBUF *rope, unsigned nr)
 {
     rdb_ROPESEG *seg, *newseg;
     lcb_list_t *llcur, *llnext;
@@ -209,7 +203,8 @@ rope_consolidate(rdb_ROPEBUF *rope, unsigned nr)
     rope->nused -= newseg->nused;
     nr -= newseg->nused;
 
-    LCB_LIST_SAFE_FOR(llcur, llnext, &rope->segments) {
+    LCB_LIST_SAFE_FOR(llcur, llnext, &rope->segments)
+    {
         unsigned to_copy;
         seg = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
         to_copy = MINIMUM(nr, seg->nused);
@@ -218,7 +213,7 @@ rope_consolidate(rdb_ROPEBUF *rope, unsigned nr)
         newseg->nused += to_copy;
 
         seg_consumed(rope, seg, to_copy);
-        if (! (nr -= to_copy)) {
+        if (!(nr -= to_copy)) {
             break;
         }
     }
@@ -228,19 +223,18 @@ rope_consolidate(rdb_ROPEBUF *rope, unsigned nr)
     assert(rope->nused >= nr);
 }
 
-void
-rdb_consolidate(rdb_IOROPE *ior, unsigned nr)
+void rdb_consolidate(rdb_IOROPE *ior, unsigned nr)
 {
     rope_consolidate(&ior->recvd, nr);
 }
 
-void
-rdb_copyread(rdb_IOROPE *ior, void *tgt, unsigned n)
+void rdb_copyread(rdb_IOROPE *ior, void *tgt, unsigned n)
 {
     lcb_list_t *ll;
     char *p = tgt;
 
-    LCB_LIST_FOR(ll, &ior->recvd.segments) {
+    LCB_LIST_FOR(ll, &ior->recvd.segments)
+    {
         rdb_ROPESEG *seg = LCB_LIST_ITEM(ll, rdb_ROPESEG, llnode);
         unsigned to_copy = MINIMUM(seg->nused, n);
         memcpy(p, RDB_SEG_RBUF(seg), to_copy);
@@ -252,13 +246,12 @@ rdb_copyread(rdb_IOROPE *ior, void *tgt, unsigned n)
     }
 }
 
-int
-rdb_refread_ex(rdb_IOROPE *ior, nb_IOV *iov, rdb_ROPESEG **segs,
-               unsigned nelem, unsigned ndata)
+int rdb_refread_ex(rdb_IOROPE *ior, nb_IOV *iov, rdb_ROPESEG **segs, unsigned nelem, unsigned ndata)
 {
     unsigned orig_nelem = nelem;
     lcb_list_t *ll;
-    LCB_LIST_FOR(ll, &ior->recvd.segments) {
+    LCB_LIST_FOR(ll, &ior->recvd.segments)
+    {
         rdb_ROPESEG *seg = LCB_LIST_ITEM(ll, rdb_ROPESEG, llnode);
         unsigned cur_len = MINIMUM(ndata, seg->nused);
         iov->iov_len = cur_len;
@@ -285,8 +278,7 @@ rdb_refread_ex(rdb_IOROPE *ior, nb_IOV *iov, rdb_ROPESEG **segs,
     return -1;
 }
 
-unsigned
-rdb_get_contigsize(rdb_IOROPE *ior)
+unsigned rdb_get_contigsize(rdb_IOROPE *ior)
 {
     rdb_ROPESEG *seg = RDB_SEG_FIRST(&ior->recvd);
     if (!seg) {
@@ -295,23 +287,20 @@ rdb_get_contigsize(rdb_IOROPE *ior)
     return seg->nused;
 }
 
-char *
-rdb_get_consolidated(rdb_IOROPE *ior, unsigned n)
+char *rdb_get_consolidated(rdb_IOROPE *ior, unsigned n)
 {
     assert(ior->recvd.nused >= n);
     rdb_consolidate(ior, n);
     return RDB_SEG_RBUF(RDB_SEG_FIRST(&ior->recvd));
 }
 
-void
-rdb_seg_ref(rdb_ROPESEG *seg)
+void rdb_seg_ref(rdb_ROPESEG *seg)
 {
     seg->refcnt++;
     seg->shflags |= RDB_ROPESEG_F_USER;
 }
 
-void
-rdb_seg_unref(rdb_ROPESEG *seg)
+void rdb_seg_unref(rdb_ROPESEG *seg)
 {
     if (--seg->refcnt) {
         return;
@@ -323,8 +312,7 @@ rdb_seg_unref(rdb_ROPESEG *seg)
     SEG_RELEASE(seg);
 }
 
-void
-rdb_init(rdb_IOROPE *ior, rdb_ALLOCATOR *alloc)
+void rdb_init(rdb_IOROPE *ior, rdb_ALLOCATOR *alloc)
 {
     memset(ior, 0, sizeof(*ior));
     lcb_list_init(&ior->recvd.segments);
@@ -333,26 +321,24 @@ rdb_init(rdb_IOROPE *ior, rdb_ALLOCATOR *alloc)
     ior->rdsize = 32768;
 }
 
-static void
-wipe_rope(rdb_ROPEBUF *rope)
+static void wipe_rope(rdb_ROPEBUF *rope)
 {
     lcb_list_t *llcur, *llnext;
-    LCB_LIST_SAFE_FOR(llcur, llnext, &rope->segments) {
+    LCB_LIST_SAFE_FOR(llcur, llnext, &rope->segments)
+    {
         rdb_ROPESEG *seg = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
         seg_consumed(rope, seg, seg->nused);
     }
 }
 
-void
-rdb_cleanup(rdb_IOROPE *ior)
+void rdb_cleanup(rdb_IOROPE *ior)
 {
     wipe_rope(&ior->recvd);
     wipe_rope(&ior->avail);
     ior->recvd.allocator->a_release(ior->recvd.allocator);
 }
 
-void
-rdb_challoc(rdb_IOROPE *ior, rdb_ALLOCATOR *alloc)
+void rdb_challoc(rdb_IOROPE *ior, rdb_ALLOCATOR *alloc)
 {
     if (ior->recvd.allocator) {
         ior->recvd.allocator->a_release(ior->recvd.allocator);
@@ -362,8 +348,7 @@ rdb_challoc(rdb_IOROPE *ior, rdb_ALLOCATOR *alloc)
     ior->avail.allocator = alloc;
 }
 
-void
-rdb_copywrite(rdb_IOROPE *ior, void *buf, unsigned nbuf)
+void rdb_copywrite(rdb_IOROPE *ior, void *buf, unsigned nbuf)
 {
     char *cur = buf;
 
@@ -384,17 +369,17 @@ rdb_copywrite(rdb_IOROPE *ior, void *buf, unsigned nbuf)
     }
 }
 
-static void
-dump_ropebuf(const rdb_ROPEBUF *buf, FILE *fp)
+static void dump_ropebuf(const rdb_ROPEBUF *buf, FILE *fp)
 {
     lcb_list_t *llcur;
     fprintf(fp, "TOTAL LENGTH: %u\n", buf->nused);
     fprintf(fp, "WILL DUMP SEGMENTS..\n");
-    LCB_LIST_FOR(llcur, &buf->segments) {
+    LCB_LIST_FOR(llcur, &buf->segments)
+    {
         const char *indent = "    ";
         rdb_ROPESEG *seg = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
-        fprintf(fp, "%sSEG=%p\n", indent, (void*)seg);
-        fprintf(fp, "%sALLOCATOR=%p [%u]\n", indent, (void*)seg->allocator, seg->allocid);
+        fprintf(fp, "%sSEG=%p\n", indent, (void *)seg);
+        fprintf(fp, "%sALLOCATOR=%p [%u]\n", indent, (void *)seg->allocator, seg->allocid);
         fprintf(fp, "%sBUFROOT=%p\n", indent, (void *)seg->root);
         fprintf(fp, "%sALLOC SIZE: %u\n", indent, seg->nalloc);
         fprintf(fp, "%sDATA SIZE: %u\n", indent, seg->nused);
@@ -405,13 +390,12 @@ dump_ropebuf(const rdb_ROPEBUF *buf, FILE *fp)
     }
 }
 
-void
-rdb_dump(const rdb_IOROPE *ior, FILE *fp)
+void rdb_dump(const rdb_IOROPE *ior, FILE *fp)
 {
-    fprintf(fp, "@@ DUMP IOROPE=%p\n", (void*)ior);
-    fprintf(fp, "@@ ROPEBUF[AVAIL]=%p\n", (void*)&ior->avail);
+    fprintf(fp, "@@ DUMP IOROPE=%p\n", (void *)ior);
+    fprintf(fp, "@@ ROPEBUF[AVAIL]=%p\n", (void *)&ior->avail);
     dump_ropebuf(&ior->avail, fp);
-    fprintf(fp, "@@ ROPEBUF[ACTIVE]=%p\n", (void*)&ior->recvd);
+    fprintf(fp, "@@ ROPEBUF[ACTIVE]=%p\n", (void *)&ior->recvd);
     dump_ropebuf(&ior->recvd, fp);
     if (ior->avail.allocator && ior->avail.allocator->dump) {
         ior->avail.allocator->dump(ior->avail.allocator, fp);

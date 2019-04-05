@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -45,11 +45,11 @@ void iocp_initialize_loop_globals(void)
         return;
     }
 
-    pGetQueuedCompletionStatusEx = (sGetQueuedCompletionStatusEx)GetProcAddress(hKernel32, "GetQueuedCompletionStatusEx");
+    pGetQueuedCompletionStatusEx =
+        (sGetQueuedCompletionStatusEx)GetProcAddress(hKernel32, "GetQueuedCompletionStatusEx");
     if (pGetQueuedCompletionStatusEx == NULL) {
         Have_GQCS_Ex = 0;
-        fprintf(stderr, "Couldn't load GetQueuedCompletionStatusEx. Using fallback [%u]\n",
-                GetLastError());
+        fprintf(stderr, "Couldn't load GetQueuedCompletionStatusEx. Using fallback [%u]\n", GetLastError());
     }
 }
 
@@ -59,7 +59,10 @@ void iocp_initialize_loop_globals(void)
  * lcb.
  */
 #define LOOP_CAN_CONTINUE(io) ((io)->breakout == FALSE)
-#define DO_IF_BREAKOUT(io, e) if (!LOOP_CAN_CONTINUE(io)) { e; }
+#define DO_IF_BREAKOUT(io, e)                                                                                          \
+    if (!LOOP_CAN_CONTINUE(io)) {                                                                                      \
+        e;                                                                                                             \
+    }
 #define HAS_QUEUED_IO(io) (io)->n_iopending
 
 void iocp_write_done(iocp_t *io, iocp_write_t *w, int status)
@@ -80,11 +83,13 @@ void iocp_write_done(iocp_t *io, iocp_write_t *w, int status)
  * Handles a single OVERLAPPED entry, and invokes
  * the appropriate event
  */
-static void
-handle_single_overlapped(iocp_t *io, OVERLAPPED *lpOverlapped,
-    ULONG_PTR lpCompletionKey, DWORD dwNumberOfBytesTransferred)
+static void handle_single_overlapped(iocp_t *io, OVERLAPPED *lpOverlapped, ULONG_PTR lpCompletionKey,
+                                     DWORD dwNumberOfBytesTransferred)
 {
-    union { iocp_write_t *w; iocp_connect_t *conn; } u_ol;
+    union {
+        iocp_write_t *w;
+        iocp_connect_t *conn;
+    } u_ol;
     void *pointer_to_free = NULL;
     int opstatus = 0;
     int ws_status;
@@ -105,39 +110,38 @@ handle_single_overlapped(iocp_t *io, OVERLAPPED *lpOverlapped,
     action = ol->action;
 
     switch (action) {
-    case LCBIOCP_ACTION_READ:
-        /** Nothing special in the OVERLAPPED. */
-        if (sd->rdcb) {
-            sd->rdcb(&sd->sd_base, dwNumberOfBytesTransferred, sd->rdarg);
-        }
-        break;
-
-    case LCBIOCP_ACTION_WRITE:
-        u_ol.w = IOCP_WRITEOBJ_FROM_OVERLAPPED(lpOverlapped);
-        iocp_write_done(io, u_ol.w, opstatus);
-        break;
-
-    case LCBIOCP_ACTION_CONNECT:
-        u_ol.conn = (iocp_connect_t *)ol;
-
-        if (opstatus == 0) {
-            /* This "Syncs" the connected state on the socket.. */
-            int rv = setsockopt(ol->sd->sSocket,
-                SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0);
-
-            if (rv == SOCKET_ERROR) {
-                iocp_set_last_error(&io->base, ol->sd->sSocket);
-                opstatus = -1;
+        case LCBIOCP_ACTION_READ:
+            /** Nothing special in the OVERLAPPED. */
+            if (sd->rdcb) {
+                sd->rdcb(&sd->sd_base, dwNumberOfBytesTransferred, sd->rdarg);
             }
-        }
-        u_ol.conn->cb(&sd->sd_base, opstatus);
-        pointer_to_free = u_ol.conn;
-        break;
+            break;
 
-    default:
-        fprintf(stderr, "COUCHBASE-IOCP: Unrecognized OVERLAPPED action %d\n", (int)action);
-        assert(0);
-        return;
+        case LCBIOCP_ACTION_WRITE:
+            u_ol.w = IOCP_WRITEOBJ_FROM_OVERLAPPED(lpOverlapped);
+            iocp_write_done(io, u_ol.w, opstatus);
+            break;
+
+        case LCBIOCP_ACTION_CONNECT:
+            u_ol.conn = (iocp_connect_t *)ol;
+
+            if (opstatus == 0) {
+                /* This "Syncs" the connected state on the socket.. */
+                int rv = setsockopt(ol->sd->sSocket, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0);
+
+                if (rv == SOCKET_ERROR) {
+                    iocp_set_last_error(&io->base, ol->sd->sSocket);
+                    opstatus = -1;
+                }
+            }
+            u_ol.conn->cb(&sd->sd_base, opstatus);
+            pointer_to_free = u_ol.conn;
+            break;
+
+        default:
+            fprintf(stderr, "COUCHBASE-IOCP: Unrecognized OVERLAPPED action %d\n", (int)action);
+            assert(0);
+            return;
     }
 
     iocp_on_dequeued(io, sd, action);
@@ -152,8 +156,7 @@ static int dequeue_io_impl_ex(iocp_t *io, DWORD msTimeout)
     const unsigned max_entries = sizeof(entries) / sizeof(entries[0]);
     unsigned int ii;
 
-    status = pGetQueuedCompletionStatusEx(io->hCompletionPort,
-        entries, max_entries, &ulRemoved, msTimeout, FALSE);
+    status = pGetQueuedCompletionStatusEx(io->hCompletionPort, entries, max_entries, &ulRemoved, msTimeout, FALSE);
 
     if (status == FALSE || ulRemoved == 0) {
         return 0;
@@ -163,8 +166,7 @@ static int dequeue_io_impl_ex(iocp_t *io, DWORD msTimeout)
         OVERLAPPED_ENTRY *ent = entries + ii;
 
         io->n_iopending--;
-        handle_single_overlapped(io, ent->lpOverlapped, ent->lpCompletionKey,
-            ent->dwNumberOfBytesTransferred);
+        handle_single_overlapped(io, ent->lpOverlapped, ent->lpCompletionKey, ent->dwNumberOfBytesTransferred);
     }
 
     return LOOP_CAN_CONTINUE(io);
@@ -177,8 +179,7 @@ static int dequeue_io_impl_compat(iocp_t *io, DWORD msTimeout)
     ULONG_PTR ulPtr;
     OVERLAPPED *lpOverlapped;
 
-    result = GetQueuedCompletionStatus(io->hCompletionPort,
-        &dwNbytes, &ulPtr, &lpOverlapped, msTimeout);
+    result = GetQueuedCompletionStatus(io->hCompletionPort, &dwNbytes, &ulPtr, &lpOverlapped, msTimeout);
 
     if (lpOverlapped == NULL) {
         IOCP_LOG(IOCP_TRACE, "No events left");
@@ -268,11 +269,9 @@ void iocp_run(lcb_io_opt_t iobase)
 
         usStartTime = iocp_micros();
         do {
-            remaining = Have_GQCS_Ex ?
-                dequeue_io_impl_ex(io, tmo) : dequeue_io_impl_compat(io, tmo);
+            remaining = Have_GQCS_Ex ? dequeue_io_impl_ex(io, tmo) : dequeue_io_impl_compat(io, tmo);
             tmo = 0;
-        } while (LOOP_CAN_CONTINUE(io) &&
-            remaining && should_yield(usStartTime) == 0);
+        } while (LOOP_CAN_CONTINUE(io) && remaining && should_yield(usStartTime) == 0);
 
         IOCP_LOG(IOCP_TRACE, "Stopped IO loop");
 

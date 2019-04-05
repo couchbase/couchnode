@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@
 #include "ioutils.h"
 #include <stdio.h>
 
-
 /**
  * @file
  * @brief Socket pooling routines
@@ -44,8 +43,10 @@
 #ifdef __cplusplus
 #include <map>
 
-namespace lcb {
-namespace io {
+namespace lcb
+{
+namespace io
+{
 
 /** @brief Socket Pool */
 class Pool;
@@ -57,8 +58,8 @@ struct PoolConnInfo;
 struct PoolRequest;
 
 struct PoolHost;
-}
-}
+} // namespace io
+} // namespace lcb
 
 typedef lcb::io::Pool lcbio_MGR;
 extern "C" {
@@ -71,16 +72,19 @@ typedef struct lcbio_MGR_CDUMMY lcbio_MGR;
 #ifdef __cplusplus
 }
 
-namespace lcb {
-namespace io {
-class Pool {
-public:
+namespace lcb
+{
+namespace io
+{
+class Pool
+{
+  public:
     /**
      * Create a socket pool controlled by the given settings and IO structure.
      * This function will increment the refcount on both the settings and table
      * objects.
      */
-    Pool(lcb_settings*, lcbio_pTABLE);
+    Pool(lcb_settings *, lcbio_pTABLE);
 
     /**
      * Destroy the socket pool. Note that internally this just decrements the
@@ -100,7 +104,7 @@ public:
      * @return a request handle which may be cancelled
      * @see lcbio_connect()
      */
-    ConnectionRequest* get(const lcb_host_t&, uint32_t, lcbio_CONNDONE_cb, void *);
+    ConnectionRequest *get(const lcb_host_t &, uint32_t, lcbio_CONNDONE_cb, void *);
 
     /**
      * Release a socket back into the pool. This means the socket is no longer
@@ -144,8 +148,7 @@ public:
     inline void unref();
 
     struct Options {
-        Options() : maxtotal(0), maxidle(0), tmoidle(0) {
-        }
+        Options() : maxtotal(0), maxidle(0), tmoidle(0) {}
 
         /** Maximum *total* number of connections opened by the pool. If this
          * number is exceeded, the pool will black hole future requests until
@@ -165,22 +168,24 @@ public:
         uint32_t tmoidle;
     };
 
-    void set_options(const Options& opts) {
+    void set_options(const Options &opts)
+    {
         options = opts;
     }
 
-    Options& get_options() {
+    Options &get_options()
+    {
         return options;
     }
 
     void toJSON(hrtime_t now, Json::Value &node);
 
-private:
+  private:
     friend struct PoolRequest;
     friend struct PoolConnInfo;
     friend struct PoolHost;
 
-    typedef std::map<std::string, PoolHost*> HostMap;
+    typedef std::map< std::string, PoolHost * > HostMap;
     HostMap ht;
     lcb_settings *settings;
     lcbio_pTABLE io;

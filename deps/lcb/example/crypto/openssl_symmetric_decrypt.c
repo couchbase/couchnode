@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -28,19 +28,19 @@
 
 #include "openssl_symmetric_provider.h"
 
-static void die(lcb_t instance, const char *msg, lcb_error_t err)
+static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
     fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
     exit(EXIT_FAILURE);
 }
 
-static void op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void op_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
 {
     if (rb->rc == LCB_SUCCESS) {
         const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
         lcbcrypto_CMDDECRYPT dcmd = {};
         lcbcrypto_FIELDSPEC field = {};
-        lcb_error_t err;
+        lcb_STATUS err;
 
         printf("VALUE:  %.*s\n", (int)rg->nvalue, rg->value);
         dcmd.version = 0;
@@ -72,10 +72,10 @@ static void op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
     }
 }
 
-static void get_encrypted(lcb_t instance, const char *key)
+static void get_encrypted(lcb_INSTANCE *instance, const char *key)
 {
     lcb_CMDGET cmd = {};
-    lcb_error_t err;
+    lcb_STATUS err;
     LCB_CMD_SET_KEY(&cmd, key, strlen(key));
     printf("KEY:    %s\n", key);
     err = lcb_get3(instance, NULL, &cmd);
@@ -87,8 +87,8 @@ static void get_encrypted(lcb_t instance, const char *key)
 
 int main(int argc, char *argv[])
 {
-    lcb_error_t err;
-    lcb_t instance;
+    lcb_STATUS err;
+    lcb_INSTANCE *instance;
 
     {
         struct lcb_create_st create_options = {};

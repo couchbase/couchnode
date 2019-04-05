@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 #include "common_provider.h"
 
-char * common_aes256_key_id = "mykeyid";
+char *common_aes256_key_id = "mykeyid";
 
 uint8_t *common_hmac_sha256_key = "myauthpassword";
 

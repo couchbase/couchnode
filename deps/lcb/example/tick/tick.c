@@ -1,5 +1,5 @@
 /*
- *     Copyright 2015 Couchbase, Inc.
+ *     Copyright 2015-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 #include <string.h>
 #include <assert.h>
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
 #include <unistd.h>
 
 #define VALUE_SIZE 1048576
@@ -27,9 +26,9 @@ static int counter = 0;
 static const char *key = "Hello";
 static char value[VALUE_SIZE];
 
-static void store_cb(lcb_t instance, int cbtype, const lcb_RESPSTORE *resp)
+static void store_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)
 {
-    assert(resp->rc == LCB_SUCCESS);
+    assert(lcb_respstore_status(resp) == LCB_SUCCESS);
     counter--;
     printf("-");
     fflush(stdout);
@@ -37,11 +36,11 @@ static void store_cb(lcb_t instance, int cbtype, const lcb_RESPSTORE *resp)
 
 int main(int argc, char **argv)
 {
-    lcb_t instance;
-    lcb_error_t rc;
+    lcb_INSTANCE *instance;
+    lcb_STATUS rc;
     int ii;
-    struct lcb_create_st options = { 0 };
-    lcb_CMDSTORE cmd = { 0 };
+    struct lcb_create_st options = {0};
+    lcb_CMDSTORE *cmd;
 
     if (argc != 2) {
         fprintf(stderr, "Must have connection string!\n");
@@ -71,9 +70,9 @@ int main(int argc, char **argv)
         value[ii] = '*';
     }
 
-    LCB_CMD_SET_KEY(&cmd, key, strlen(key));
-    LCB_CMD_SET_VALUE(&cmd, value, VALUE_SIZE);
-    cmd.operation = LCB_SET;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, key, strlen(key));
+    lcb_cmdstore_value(cmd, value, VALUE_SIZE);
 
     printf("Running sample. This will schedule 1000 operations, invoking \n");
     printf("an event loop tick after each one. The tick is non-blocking\n");
@@ -89,7 +88,7 @@ int main(int argc, char **argv)
 
         // Note: lcb_store() implicitly does lcb_sched_enter(), lcb_store3(),
         // and lcb_sched_leave().
-        rc = lcb_store3(instance, NULL, &cmd);
+        rc = lcb_store(instance, NULL, cmd);
         assert(rc == LCB_SUCCESS);
         lcb_sched_leave(instance);
         counter++;
@@ -103,6 +102,7 @@ int main(int argc, char **argv)
         printf("+");
         fflush(stdout);
     }
+    lcb_cmdstore_destroy(cmd);
 
     printf("\nCalling lcb_wait()\n");
     lcb_wait(instance);

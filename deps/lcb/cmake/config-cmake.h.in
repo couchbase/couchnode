@@ -58,10 +58,10 @@
 
 #cmakedefine LCB_USE_HDR_HISTOGRAM
 
-#define LCB_LIBDIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
-
 #include "config_static.h"
 #endif
+
+#define LCB_LIBDIR "${CMAKE_INSTALL_LIBDIR}/libcouchbase"
 
 #define TEST_SHARED_OBJECT "${CMAKE_TEST_SHARED_OBJECT}"
 #cmakedefine COMPILER_SUPPORTS_CXX11

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "logging.h"
 #include "internal.h"
 #include "bucketconfig/clconfig.h"
+#include "sllist-inl.h"
 
 #define LOGARGS(rq, lvl) (rq)->settings, "retryq", LCB_LOG_##lvl, __FILE__, __LINE__
 #define RETRY_PKT_KEY "retry_queue"
@@ -36,7 +37,7 @@ struct lcb::RetryOp : mc_EPKTDATUM, SchedNode, TmoNode {
     hrtime_t start;
     hrtime_t trytime; /**< Next retry time */
     mc_PACKET *pkt;
-    lcb_error_t origerr;
+    lcb_STATUS origerr;
     errmap::RetrySpec *spec;
     RetryOp(errmap::RetrySpec *spec);
     ~RetryOp() {
@@ -97,11 +98,7 @@ RetryQueue::update_trytime(RetryOp *op, hrtime_t now)
         op->trytime = now + (LCB_US2NS(us_trytime));
     } else {
         GT_DEFAULT:
-        op->trytime = now + (hrtime_t) (
-                (float)get_retry_interval() *
-                (float)op->pkt->retries *
-                (float)settings->retry_backoff);
-
+            op->trytime = now + (hrtime_t)((float)get_retry_interval() * (float)op->pkt->retries);
     }
 }
 
@@ -115,7 +112,7 @@ static int cmpfn_retry(lcb_list_t *ll_a, lcb_list_t *ll_b) {
 }
 
 static void
-assign_error(RetryOp *op, lcb_error_t err)
+assign_error(RetryOp *op, lcb_STATUS err)
 {
     if (err == LCB_NOT_MY_VBUCKET) {
         err = LCB_ETIMEDOUT; /* :( */
@@ -145,7 +142,7 @@ RetryQueue::erase(RetryOp *op)
 }
 
 void
-RetryQueue::fail(RetryOp *op, lcb_error_t err)
+RetryQueue::fail(RetryOp *op, lcb_STATUS err)
 {
     protocol_binary_request_header hdr;
 
@@ -308,7 +305,7 @@ RetryOp::RetryOp(errmap::RetrySpec *spec_)
 }
 
 void
-RetryQueue::add(mc_EXPACKET *pkt, const lcb_error_t err,
+RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err,
                 errmap::RetrySpec *spec, int options)
 {
     RetryOp *op;
@@ -331,6 +328,35 @@ RetryQueue::add(mc_EXPACKET *pkt, const lcb_error_t err,
             }
         }
         mcreq_epkt_insert(pkt, op);
+    }
+
+    if (op->pkt) {
+        /* if there is an old packet associated, we make sure that none
+         * of the pipelines use it in the pending/flush queues
+         */
+        for (size_t ii = 0; ii < cq->npipelines; ii++) {
+            sllist_iterator iter;
+            lcb::Server *server = static_cast<lcb::Server*>(cq->pipelines[ii]);
+            if (server == NULL) {
+                continue;
+            }
+            /* check pending queue */
+            SLLIST_ITERFOR(&server->nbmgr.sendq.pending, &iter) {
+                nb_SNDQELEM *el = SLLIST_ITEM(iter.cur, nb_SNDQELEM, slnode);
+                if (el->parent == op->pkt) {
+                    sllist_iter_remove(&server->nbmgr.sendq.pending, &iter);
+                }
+            }
+            /* check flush queue */
+            SLLIST_ITERFOR(&server->nbmgr.sendq.pdus, &iter) {
+                mc_PACKET *el = SLLIST_ITEM(iter.cur, mc_PACKET, sl_flushq);
+                if (el == op->pkt) {
+                    sllist_iter_remove(&server->nbmgr.sendq.pdus, &iter);
+                }
+            }
+        }
+        /* by setting this flag we allow the caller to release the packet */
+        op->pkt->flags |= MCREQ_F_FLUSHED;
     }
 
     op->pkt = &pkt->base;
@@ -387,10 +413,16 @@ RetryQueue::nmvadd(mc_EXPACKET *detchpkt)
     add(detchpkt, LCB_NOT_MY_VBUCKET, NULL, flags);
 }
 
+void
+RetryQueue::ucadd(mc_EXPACKET *pkt)
+{
+    add(pkt, LCB_COLLECTION_UNKNOWN, NULL, RETRY_SCHED_IMM);
+}
+
 static void
 fallback_handler(mc_CMDQUEUE *cq, mc_PACKET *pkt)
 {
-    lcb_t instance = reinterpret_cast<lcb_t>(cq->cqdata);
+    lcb_INSTANCE *instance = reinterpret_cast<lcb_INSTANCE *>(cq->cqdata);
     instance->retryq->add_fallback(pkt);
 }
 
@@ -433,7 +465,7 @@ RetryQueue::~RetryQueue() {
     lcb_settings_unref(settings);
 }
 
-lcb_error_t
+lcb_STATUS
 RetryQueue::error_for(const mc_PACKET *packet)
 {
     if (! (packet->flags & MCREQ_F_DETACHED)) {

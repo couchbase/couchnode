@@ -1,20 +1,9 @@
-'use strict';
+const assert = require('chai').assert;
+const uuid = require('uuid');
+const couchbase = require('../lib/couchbase');
+const jcbmock = require('./jcbmock');
 
-var couchbase = require('./../lib/couchbase');
-var jcbmock = require('./jcbmock');
-var fs = require('fs');
-var util = require('util');
-var assert = require('assert');
-var semver = require('semver');
-
-function ServerVersion(major, minor, patch, isMock) {
-  this.major = major;
-  this.minor = minor;
-  this.patch = patch;
-  this.isMock = isMock;
-}
-
-var ServerFeatures = {
+const ServerFeatures = {
   KeyValue: 'kv',
   Ssl: 'ssl',
   Views: 'views',
@@ -23,255 +12,249 @@ var ServerFeatures = {
   Subdoc: 'subdoc',
   Fts: 'fts',
   Analytics: 'analytics',
+  Collections: 'collections',
 };
 
-// We enable logging to ensure that logging doesn't break any of the tests,
-// but we explicitly disable all output sources to avoid spamming anything.
-couchbase.logging.enableLogging({
-  console: false,
-  filename: false
-});
+class ServerVersion {
+  constructor(major, minor, patch, isMock) {
+    this.major = major;
+    this.minor = minor;
+    this.patch = patch;
+    this.isMock = isMock;
+  }
 
-var config = {
+  isAtLeast(major, minor, patch) {
+    if (this.major === 0 && this.minor === 0 && this.patch === 0) {
+      // if no version is provided, assume latest
+      return true;
+    }
+
+    if (major < this.major) {
+      return true;
+    } else if (major > this.major) {
+      return false;
+    }
+
+    if (minor < this.minor) {
+      return true;
+    } else if (minor > this.minor) {
+      return false;
+    }
+
+    return patch <= this.patch;
+  }
+}
+
+var TEST_CONFIG = {
   connstr: undefined,
+  version: new ServerVersion(0, 0, 0, false),
   bucket: 'default',
-  bpass: undefined,
+  coll: 'test',
   user: undefined,
   pass: undefined,
-  muser: undefined,
-  mpass: undefined,
-  qhosts: undefined,
-  version: new ServerVersion(0, 0, 0, false)
 };
 
 if (process.env.CNCSTR !== undefined) {
-  config.connstr = process.env.CNCSTR;
+  TEST_CONFIG.connstr = process.env.CNCSTR;
 }
 if (process.env.CNCVER !== undefined) {
-  assert(!config.connstr, 'must not specify a version without a connstr');
+  assert(!TEST_CONFIG.connstr, 'must not specify a version without a connstr');
   var ver = process.env.CNCVER;
   var major = semver.major(ver);
   var minor = semver.minor(ver);
   var patch = semver.patch(ver);
-  config.version = new ServerVersion(major, minor, patch, false);
-}
-if (process.env.CNQHOSTS !== undefined) {
-  config.qhosts = process.env.CNQHOSTS;
+  TEST_CONFIG.version = new ServerVersion(major, minor, patch, false);
 }
 if (process.env.CNBUCKET !== undefined) {
-  config.bucket = process.env.CNBUCKET;
+  TEST_CONFIG.bucket = process.env.CNBUCKET;
 }
-if (process.env.CNBPASS !== undefined) {
-  config.bpass = process.env.CNBPASS;
+if (process.env.CNCOLL !== undefined) {
+  TEST_CONFIG.coll = process.env.CNCOLL;
 }
 if (process.env.CNUSER !== undefined) {
-  config.user = process.env.CNUSER;
+  TEST_CONFIG.user = process.env.CNUSER;
 }
 if (process.env.CNPASS !== undefined) {
-  config.pass = process.env.CNPASS;
-}
-if (process.env.CNMUSER !== undefined) {
-  config.muser = process.env.CNMUSER;
-}
-if (process.env.CNMPASS !== undefined) {
-  config.mpass = process.env.CNMPASS;
+  TEST_CONFIG.pass = process.env.CNPASS;
 }
 
-var configWaits = [];
+class Harness {
+  get Features() { return ServerFeatures; }
 
-function _waitForConfig(callback) {
-  if (!configWaits) {
-    setImmediate(callback);
-    return;
-  }
+  constructor() {
+    this._connstr = TEST_CONFIG.connstr;
+    this._version = TEST_CONFIG.version;
+    this._bucket = TEST_CONFIG.bucket;
+    this._coll = TEST_CONFIG.coll;
+    this._user = TEST_CONFIG.user;
+    this._pass = TEST_CONFIG.pass;
+    this._usingMock = false;
 
-  configWaits.push(callback);
-  if (configWaits.length > 1) {
-    return;
-  }
+    if (!this._connstr) {
+      var mockVer = jcbmock.version();
 
-  var _handleWaiters = function(err) {
-    for (var i = 0; i < configWaits.length; ++i) {
-      configWaits[i](err);
+      this._connstr = 'pending-mock-connect';
+      this._version =
+        new ServerVersion(mockVer[0], mockVer[1], mockVer[2], true);
+      this._usingMock = true;
     }
-    configWaits = null;
-  };
 
-  if (config.connstr) {
-    _handleWaiters(null);
-    return;
+    this._testKey = uuid.v1().substr(0, 8);
+    this._testCtr = 1;
+
+    this._mockInst = null;
+    this._testCluster = null;
+    this._testBucket = null;
+    this._testScope = null;
+    this._testColl = null;
+    this._testDColl = null;
   }
 
-  var mockVer = jcbmock.version();
-  config.version =
-    new ServerVersion(mockVer[0], mockVer[1], mockVer[2], true);
+  async throwsHelper(fn) {
+    // TODO: This really should not need to exist...
+    var assertArgs = Array.from(arguments).slice(1);
 
-  before(function(done) {
-    this.timeout(60000);
+    var savedErr = null;
+    try {
+      await fn();
+    } catch (err) {
+      savedErr = err;
+    }
 
-    jcbmock.create({}, function(err, mock) {
-      if (err) {
-        console.error('failed to start mock', err);
-        process.exit(1);
-        return;
+    assert.throws(() => {
+      if (savedErr) {
+        throw err;
       }
-
-      config.mockInst = mock;
-      config.connstr = 'http://localhost:' + mock.entryPort.toString();
-      _handleWaiters(null);
-      done();
-    });
-  });
-
-  after(function(done) {
-    config.mockInst.close();
-    done();
-  });
-}
-
-function _supportsFeature(feature) {
-  switch (feature) {
-    case ServerFeatures.KeyValue:
-    case ServerFeatures.Ssl:
-    case ServerFeatures.Views:
-    case ServerFeatures.SpatialViews:
-    case ServerFeatures.Subdoc:
-      return true;
-    case ServerFeatures.Fts:
-    case ServerFeatures.N1ql:
-    case ServerFeatures.Analytics:
-      // supported on all versions except the mock
-      return !config.version.isMock;
+    }, ...assertArgs);
   }
 
-  throw new Error('invalid code for feature checking');
-}
-
-function Harness() {
-  this.keyPrefix = (new Date()).getTime();
-  this.keySerial = 0;
-}
-
-Harness.prototype.requireFeature = function(feature, callback) {
-  if (!_supportsFeature(feature)) {
-    var oldIt = global.it;
-    global.it = function(title, callback) {
-      return oldIt(title);
-    };
-    callback();
-    global.it = oldIt;
-  } else {
-    callback();
-  }
-}
-
-Harness.prototype.key = function() {
-  return 'tk-' + this.keyPrefix + '-' + this.keySerial++;
-};
-
-Harness.prototype.noCallback = function() {
-  return function() {
-    throw new Error('callback should not have been invoked');
-  };
-};
-
-Harness.prototype.okCallback = function(target) {
-  var stack = (new Error()).stack;
-  return function(err, res) {
-    if (err) {
-      console.log(stack);
-      console.log(err);
-      assert(!err, err);
-    }
-    assert(typeof res === 'object', 'Result is missing');
-    target(res);
-  };
-};
-
-Harness.prototype.timeTravel = function(callback, period) {
-  setTimeout(callback, period);
-};
-
-function MockHarness() {
-  Harness.call(this);
-
-  this.mockInst = null;
-  this.connstr = 'couchbase://mock-server';
-  this.bucket = 'default';
-  this.qhosts = null;
-
-  this.lib = couchbase.Mock;
-
-  this.e = this.lib.errors;
-  this.c = new this.lib.Cluster(this.connstr);
-  this.b = this.c.openBucket(this.bucket);
-  if (this.qhosts) {
-    this.b.enableN1ql(this.qhosts);
+  genTestKey() {
+    return this._testKey + '_' + this._testCtr++;
   }
 
-  this.mock = this;
-}
-util.inherits(MockHarness, Harness);
+  async _createMock() {
+    return new Promise((resolve, reject) => {
+      jcbmock.create({}, function(err, mock) {
+        if (err) {
+          reject(err);
+          return;
+        }
 
-MockHarness.prototype.timeTravel = function(callback, period) {
-  this.b.timeTravel(period);
-  setImmediate(callback);
-};
-
-function RealHarness() {
-  Harness.call(this);
-
-  this.mock = new MockHarness();
-
-  this.lib = couchbase;
-  this.e = this.lib.errors;
-
-  _waitForConfig(function() {
-    this.mockInst = config.mockInst;
-    this.connstr = config.connstr;
-    this.bucket = config.bucket;
-    this.user = config.user;
-    this.pass = config.pass;
-    this.qhosts = config.qhosts;
-    this.bpass = config.bpass;
-    this.muser = config.muser;
-    this.mpass = config.mpass;
-
-    this.c = new this.lib.Cluster(this.connstr);
-    if (this.user || this.pass) {
-      this.c.authenticate(this.user, this.pass);
-    }
-    this.b = this.c.openBucket(this.bucket);
-    if (this.qhosts) {
-      this.b.enableN1ql(this.qhosts);
-    }
-  }.bind(this));
-
-  after(function() {
-    if (this.b) {
-      this.b.disconnect();
-    }
-  }.bind(this));
-}
-util.inherits(RealHarness, Harness);
-
-RealHarness.prototype.timeTravel = function(callback, period) {
-  if (!this.mockInst) {
-    Harness.prototype.timeTravel.apply(this, arguments);
-  } else {
-    var periodSecs = Math.ceil(period / 1000);
-    this.mockInst.command('TIME_TRAVEL', {
-      Offset: periodSecs
-    }, function(err) {
-      if (err) {
-        console.error('time travel error:', err);
-      }
-
-      callback();
+        resolve(mock);
+      });
     });
   }
-};
 
-var myHarness = new RealHarness();
-myHarness.Features = ServerFeatures;
-module.exports = myHarness;
+  async prepare() {
+    if (this._usingMock) {
+      var mockInst = await this._createMock();
+      var mockEntryPort = mockInst.entryPort;
+
+      this._mockInst = mockInst;
+      this._connstr =
+        `http://localhost:${mockEntryPort}`;
+    }
+
+    var cluster = new couchbase.Cluster(
+      this._connstr, {
+        username: this._user,
+        password: this._pass,
+      });
+    var bucket = cluster.bucket(this._bucket);
+    var scope = bucket.defaultScope();
+    var coll = bucket.collection(this._coll);
+    var dcoll = bucket.defaultCollection();
+
+    this._testCluster = cluster;
+    this._testBucket = bucket;
+    this._testScope = scope;
+    this._testColl = coll;
+    this._testDColl = dcoll;
+  }
+
+  async cleanup() {
+    var cluster = this._testCluster;
+
+    this._testCluster = null;
+    this._testBucket = null;
+    this._testScope = null;
+    this._testColl = null;
+    this._testDColl = null;
+
+    await cluster.close();
+
+    if (this._mockInst) {
+      this._mockInst.close();
+      this._mockInst = null;
+    }
+  }
+
+  sleep(ms) {
+    // TODO: Implement time-travelling on the server...
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  supportsFeature(feature) {
+    switch (feature) {
+      case ServerFeatures.KeyValue:
+      case ServerFeatures.Ssl:
+      case ServerFeatures.Views:
+      case ServerFeatures.SpatialViews:
+      case ServerFeatures.Subdoc:
+        return true;
+      case ServerFeatures.Fts:
+      case ServerFeatures.N1ql:
+      case ServerFeatures.Analytics:
+        // supported on all versions except the mock
+        return !this._version.isMock;
+      case ServerFeatures.Collections:
+        return !this._version.isMock &&
+          this._version.isAtLeast(6, 0, 0);
+    }
+
+    throw new Error('invalid code for feature checking');
+  }
+
+  requireFeature(feature, cb) {
+    if (this.supportsFeature(feature)) {
+      cb();
+    }
+  }
+
+  get lib() {
+    return couchbase;
+  }
+
+  get c() {
+    return this._testCluster;
+  }
+  get b() {
+    return this._testBucket;
+  }
+  get s() {
+    return this._testScope;
+  }
+  get co() {
+    return this._testColl;
+  }
+  get dco() {
+    return this._testDColl;
+  }
+
+}
+
+var harness = new Harness();
+
+// These are written as normal functions, not async lambdas
+// due to our need to specify custom timeouts, which are not
+// yet supported on before/after methods yet.
+before(function(done) {
+  this.timeout(10000);
+  harness.prepare().then(done).catch(done);
+});
+after(function(done) {
+  this.timeout(2000);
+  harness.cleanup().then(done).catch(done);
+});
+
+module.exports = harness;

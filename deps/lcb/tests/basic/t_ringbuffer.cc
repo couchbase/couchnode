@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@
 
 class Ringbuffer : public ::testing::Test
 {
-protected:
+  protected:
     // Helper function used for debugging ;)
-    void dump_buffer(ringbuffer_t *ring) {
+    void dump_buffer(ringbuffer_t *ring)
+    {
         const char *begin = (const char *)ringbuffer_get_start(ring);
         const char *end = begin + ringbuffer_get_size(ring);
         const char *rd = (const char *)ringbuffer_get_read_head(ring);
@@ -94,7 +95,6 @@ TEST_F(Ringbuffer, basicTests)
 
     // wrapped_buffer_test();
     // my_regression_1_test();
-
 }
 
 TEST_F(Ringbuffer, wrappedBufferTest)

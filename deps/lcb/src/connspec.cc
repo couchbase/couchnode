@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ static int string_to_porttype(const char *s) {
     }
 }
 
-lcb_error_t
+lcb_STATUS
 Connspec::parse_hosts(const char *hostbegin,
     const char *hostend, const char **errmsg)
 {
@@ -176,7 +176,7 @@ Connspec::parse_hosts(const char *hostbegin,
     return LCB_SUCCESS;
 }
 
-lcb_error_t
+lcb_STATUS
 Connspec::parse_options(
     const char *options_, const char *specend, const char **errmsg)
 {
@@ -317,10 +317,10 @@ Connspec::parse_options(
     return LCB_SUCCESS;
 }
 
-lcb_error_t
+lcb_STATUS
 Connspec::parse(const char *connstr_, const char **errmsg)
 {
-    lcb_error_t err = LCB_SUCCESS;
+    lcb_STATUS err = LCB_SUCCESS;
     const char *errmsg_s; /* stack based error message pointer */
     const char *hlend; /* end of hosts list */
     const char *bucket_s = NULL; /* beginning of bucket (path) string */
@@ -442,11 +442,11 @@ Connspec::parse(const char *connstr_, const char **errmsg)
 
 #define MAYBEDUP(s) ((s) && (*s)) ? strdup(s) : NULL
 
-static lcb_error_t
+static lcb_STATUS
 convert_hosts(std::string& outstr, const char *instr, int deflport)
 {
     Hostlist hl;
-    lcb_error_t rc = hl.add(instr, -1, deflport);
+    lcb_STATUS rc = hl.add(instr, -1, deflport);
     if (rc != LCB_SUCCESS) {
         return rc;
     }
@@ -473,12 +473,12 @@ convert_hosts(std::string& outstr, const char *instr, int deflport)
 }
 
 #define TRYDUP(s) (s) ? strdup(s) : NULL
-lcb_error_t
+lcb_STATUS
 Connspec::load(const lcb_create_st& cropts)
 {
     const char *errmsg;
     const struct lcb_create_st2 *cr2 = &cropts.v.v2;
-    lcb_error_t err = LCB_SUCCESS;
+    lcb_STATUS err = LCB_SUCCESS;
 
     /* handle overrides */
     if (cr2->bucket && *cr2->bucket) {

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ struct libev_cookie {
     int suspended;
 };
 
-
 struct libev_event {
     union {
         struct ev_io io;
@@ -65,14 +64,12 @@ static void handler_thunk(struct ev_loop *loop, ev_io *io, int events)
     (void)loop;
 }
 
-
 static void timer_thunk(struct ev_loop *loop, ev_timer *timer, int events)
 {
     struct libev_event *evt = (struct libev_event *)timer;
     evt->handler(0, 0, evt->data);
     (void)events;
     (void)loop;
-
 }
 
 static void *lcb_io_create_event(struct lcb_io_opt_st *iops)
@@ -82,14 +79,8 @@ static void *lcb_io_create_event(struct lcb_io_opt_st *iops)
     return event;
 }
 
-static int lcb_io_update_event(struct lcb_io_opt_st *iops,
-                               lcb_socket_t sock,
-                               void *event,
-                               short flags,
-                               void *cb_data,
-                               void (*handler)(lcb_socket_t sock,
-                                               short which,
-                                               void *cb_data))
+static int lcb_io_update_event(struct lcb_io_opt_st *iops, lcb_socket_t sock, void *event, short flags, void *cb_data,
+                               void (*handler)(lcb_socket_t sock, short which, void *cb_data))
 {
     struct libev_cookie *io_cookie = iops->v.v2.cookie;
     struct libev_event *evt = event;
@@ -117,9 +108,7 @@ static int lcb_io_update_event(struct lcb_io_opt_st *iops,
 
     return 0;
 }
-static void lcb_io_delete_event(struct lcb_io_opt_st *iops,
-                                lcb_socket_t sock,
-                                void *event)
+static void lcb_io_delete_event(struct lcb_io_opt_st *iops, lcb_socket_t sock, void *event)
 {
     struct libev_cookie *io_cookie = iops->v.v2.cookie;
     struct libev_event *evt = event;
@@ -128,20 +117,14 @@ static void lcb_io_delete_event(struct lcb_io_opt_st *iops,
     (void)sock;
 }
 
-static void lcb_io_destroy_event(struct lcb_io_opt_st *iops,
-                                 void *event)
+static void lcb_io_destroy_event(struct lcb_io_opt_st *iops, void *event)
 {
     lcb_io_delete_event(iops, -1, event);
     free(event);
 }
 
-static int lcb_io_update_timer(struct lcb_io_opt_st *iops,
-                               void *timer,
-                               lcb_uint32_t usec,
-                               void *cb_data,
-                               void (*handler)(lcb_socket_t sock,
-                                               short which,
-                                               void *cb_data))
+static int lcb_io_update_timer(struct lcb_io_opt_st *iops, void *timer, lcb_uint32_t usec, void *cb_data,
+                               void (*handler)(lcb_socket_t sock, short which, void *cb_data))
 {
     struct libev_cookie *io_cookie = iops->v.v2.cookie;
     struct libev_event *evt = timer;
@@ -155,16 +138,14 @@ static int lcb_io_update_timer(struct lcb_io_opt_st *iops,
     return 0;
 }
 
-static void lcb_io_delete_timer(struct lcb_io_opt_st *iops,
-                                void *event)
+static void lcb_io_delete_timer(struct lcb_io_opt_st *iops, void *event)
 {
     struct libev_cookie *io_cookie = iops->v.v2.cookie;
     struct libev_event *evt = event;
     ev_timer_stop(io_cookie->loop, &evt->ev.timer);
 }
 
-static void lcb_io_destroy_timer(struct lcb_io_opt_st *iops,
-                                 void *event)
+static void lcb_io_destroy_timer(struct lcb_io_opt_st *iops, void *event)
 {
     lcb_io_delete_timer(iops, event);
     free(event);
@@ -194,7 +175,6 @@ static void run_common(struct lcb_io_opt_st *iops, int is_tick)
     ev_loop(io_cookie->loop, flags);
 #endif
     io_cookie->suspended = 1;
-
 }
 
 static void lcb_io_run_event_loop(struct lcb_io_opt_st *iops)
@@ -217,11 +197,9 @@ static void lcb_destroy_io_opts(struct lcb_io_opt_st *iops)
     free(iops);
 }
 
-static void
-procs2_ev_callback(int version, lcb_loop_procs *loop_procs,
-    lcb_timer_procs *timer_procs, lcb_bsd_procs *bsd_procs,
-    lcb_ev_procs *ev_procs, lcb_completion_procs *completion_procs,
-    lcb_iomodel_t *iomodel)
+static void procs2_ev_callback(int version, lcb_loop_procs *loop_procs, lcb_timer_procs *timer_procs,
+                               lcb_bsd_procs *bsd_procs, lcb_ev_procs *ev_procs, lcb_completion_procs *completion_procs,
+                               lcb_iomodel_t *iomodel)
 {
     ev_procs->cancel = lcb_io_delete_event;
     ev_procs->create = lcb_io_create_event;
@@ -242,7 +220,7 @@ procs2_ev_callback(int version, lcb_loop_procs *loop_procs,
 }
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_create_libev_io_opts(int version, lcb_io_opt_t *io, void *arg)
+lcb_STATUS lcb_create_libev_io_opts(int version, lcb_io_opt_t *io, void *arg)
 {
     struct ev_loop *loop = arg;
     struct lcb_io_opt_st *ret;

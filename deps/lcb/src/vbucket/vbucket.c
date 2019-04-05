@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -30,17 +30,17 @@
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)
 #define MAX_AUTHORITY_SIZE 100
-#define SET_ERRSTR(cfg, s) if (!(cfg)->errstr) { \
-    (cfg)->errstr = __FILE__ ":" STRINGIFY(__LINE__) " " s ; \
-}
+#define SET_ERRSTR(cfg, s)                                                                                             \
+    if (!(cfg)->errstr) {                                                                                              \
+        (cfg)->errstr = __FILE__ ":" STRINGIFY(__LINE__) " " s;                                                        \
+    }
 
 /******************************************************************************
  ******************************************************************************
  ** Core Parsing Routines                                                    **
  ******************************************************************************
  ******************************************************************************/
-static lcbvb_VBUCKET *
-build_vbmap(lcbvb_CONFIG *cfg, cJSON *cj, unsigned *nitems)
+static lcbvb_VBUCKET *build_vbmap(lcbvb_CONFIG *cfg, cJSON *cj, unsigned *nitems)
 {
     lcbvb_VBUCKET *vblist = NULL;
     cJSON *jvb;
@@ -76,7 +76,7 @@ build_vbmap(lcbvb_CONFIG *cfg, cJSON *cj, unsigned *nitems)
                 goto GT_ERR;
             }
             cvb->servers[jj] = jsix->valueint;
-            if (cvb->servers[jj] > (int)cfg->nsrv-1) {
+            if (cvb->servers[jj] > (int)cfg->nsrv - 1) {
                 SET_ERRSTR(cfg, "Invalid vBucket map received from server. Above-bounds vBucket target found");
                 goto GT_ERR;
             }
@@ -86,7 +86,7 @@ build_vbmap(lcbvb_CONFIG *cfg, cJSON *cj, unsigned *nitems)
     *nitems = nalloc;
     return vblist;
 
-    GT_ERR:
+GT_ERR:
     free(vblist);
     return NULL;
 }
@@ -101,12 +101,11 @@ static void copy_address(char *buf, size_t nbuf, const char *host, lcb_U16 port)
     }
 }
 
-static lcbvb_SERVER *
-find_server_memd(lcbvb_SERVER *servers, unsigned n, const char *s)
+static lcbvb_SERVER *find_server_memd(lcbvb_SERVER *servers, unsigned n, const char *s)
 {
     unsigned ii;
     for (ii = 0; ii < n; ii++) {
-        char buf[4096] = { 0 };
+        char buf[4096] = {0};
         lcbvb_SERVER *cur = servers + ii;
         copy_address(buf, sizeof(buf), cur->hostname, cur->svc.data);
         if (!strncmp(s, buf, sizeof(buf))) {
@@ -116,8 +115,7 @@ find_server_memd(lcbvb_SERVER *servers, unsigned n, const char *s)
     return NULL;
 }
 
-static int
-assign_dumy_server(lcbvb_CONFIG *cfg, lcbvb_SERVER *dst, const char *s)
+static int assign_dumy_server(lcbvb_CONFIG *cfg, lcbvb_SERVER *dst, const char *s)
 {
     int itmp;
     char *colon;
@@ -131,7 +129,7 @@ assign_dumy_server(lcbvb_CONFIG *cfg, lcbvb_SERVER *dst, const char *s)
         goto GT_ERR;
     }
 
-    if (sscanf(colon+1, "%d", &itmp) != 1) {
+    if (sscanf(colon + 1, "%d", &itmp) != 1) {
         SET_ERRSTR(cfg, "Badly formatted port");
         goto GT_ERR;
     }
@@ -139,13 +137,12 @@ assign_dumy_server(lcbvb_CONFIG *cfg, lcbvb_SERVER *dst, const char *s)
     dst->svc.data = itmp;
     return 1;
 
-    GT_ERR:
+GT_ERR:
     free(dst->authority);
     return 0;
 }
 
-static void
-set_vb_count(lcbvb_CONFIG *cfg, lcbvb_VBUCKET *vbs)
+static void set_vb_count(lcbvb_CONFIG *cfg, lcbvb_VBUCKET *vbs)
 {
     unsigned ii, jj;
     if (!vbs) {
@@ -153,7 +150,7 @@ set_vb_count(lcbvb_CONFIG *cfg, lcbvb_VBUCKET *vbs)
     }
 
     for (ii = 0; ii < cfg->nvb; ++ii) {
-        for (jj = 0; jj < cfg->nrepl+1; ++jj) {
+        for (jj = 0; jj < cfg->nrepl + 1; ++jj) {
             int ix = vbs[ii].servers[jj];
             if (ix < 0 || (unsigned)ix > cfg->nsrv) {
                 continue;
@@ -163,8 +160,7 @@ set_vb_count(lcbvb_CONFIG *cfg, lcbvb_VBUCKET *vbs)
     }
 }
 
-static int
-pair_server_list(lcbvb_CONFIG *cfg, cJSON *vbconfig)
+static int pair_server_list(lcbvb_CONFIG *cfg, cJSON *vbconfig)
 {
     cJSON *servers;
     lcbvb_SERVER *newlist = NULL;
@@ -213,14 +209,12 @@ pair_server_list(lcbvb_CONFIG *cfg, cJSON *vbconfig)
     cfg->servers = newlist;
     return 1;
 
-    GT_ERROR:
+GT_ERROR:
     free(newlist);
     return 0;
-
 }
 
-static int
-parse_vbucket(lcbvb_CONFIG *cfg, cJSON *cj)
+static int parse_vbucket(lcbvb_CONFIG *cfg, cJSON *cj)
 {
     cJSON *vbconfig, *vbmap, *ffmap = NULL;
 
@@ -260,14 +254,13 @@ parse_vbucket(lcbvb_CONFIG *cfg, cJSON *cj)
     set_vb_count(cfg, cfg->ffvbuckets);
     return 1;
 
-    GT_ERROR:
+GT_ERROR:
     return 0;
 }
 
 static int server_cmp(const void *s1, const void *s2)
 {
-    return strcmp(((const lcbvb_SERVER *)s1)->authority,
-        ((const lcbvb_SERVER *)s2)->authority);
+    return strcmp(((const lcbvb_SERVER *)s1)->authority, ((const lcbvb_SERVER *)s2)->authority);
 }
 
 static int continuum_item_cmp(const void *t1, const void *t2)
@@ -283,10 +276,9 @@ static int continuum_item_cmp(const void *t1, const void *t2)
     }
 }
 
-static int
-update_ketama(lcbvb_CONFIG *cfg)
+static int update_ketama(lcbvb_CONFIG *cfg)
 {
-    char host[MAX_AUTHORITY_SIZE+10] = "";
+    char host[MAX_AUTHORITY_SIZE + 10] = "";
     int nhost;
     unsigned pp, hh, ss, nn;
     unsigned char digest[16];
@@ -300,14 +292,13 @@ update_ketama(lcbvb_CONFIG *cfg)
         /* we can add more points to server which have more memory */
         for (hh = 0; hh < 40; ++hh) {
             lcbvb_SERVER *srv = cfg->servers + ss;
-            nhost = snprintf(host, MAX_AUTHORITY_SIZE+10, "%s-%u", srv->authority, hh);
+            nhost = snprintf(host, MAX_AUTHORITY_SIZE + 10, "%s-%u", srv->authority, hh);
             vb__hash_md5(host, nhost, digest);
             for (nn = 0; nn < 4; ++nn, ++pp) {
                 new_continuum[pp].index = ss;
-                new_continuum[pp].point = ((uint32_t) (digest[3 + nn * 4] & 0xFF) << 24)
-                                        | ((uint32_t) (digest[2 + nn * 4] & 0xFF) << 16)
-                                        | ((uint32_t) (digest[1 + nn * 4] & 0xFF) << 8)
-                                        | (digest[0 + nn * 4] & 0xFF);
+                new_continuum[pp].point = ((uint32_t)(digest[3 + nn * 4] & 0xFF) << 24) |
+                                          ((uint32_t)(digest[2 + nn * 4] & 0xFF) << 16) |
+                                          ((uint32_t)(digest[1 + nn * 4] & 0xFF) << 8) | (digest[0 + nn * 4] & 0xFF);
             }
         }
     }
@@ -320,17 +311,20 @@ update_ketama(lcbvb_CONFIG *cfg)
     return 1;
 }
 
-static int
-extract_services(lcbvb_CONFIG *cfg, cJSON *jsvc, lcbvb_SERVICES *svc, int is_ssl)
+static int extract_services(lcbvb_CONFIG *cfg, cJSON *jsvc, lcbvb_SERVICES *svc, int is_ssl)
 {
     int itmp;
     int rv;
     const char *key;
 
-    #define EXTRACT_SERVICE(k, fld) \
-        key = is_ssl ? k"SSL" : k; \
-        rv = get_jint(jsvc, key, &itmp); \
-        if (rv) { svc->fld = itmp; } else { svc->fld = 0; }
+#define EXTRACT_SERVICE(k, fld)                                                                                        \
+    key = is_ssl ? k "SSL" : k;                                                                                        \
+    rv = get_jint(jsvc, key, &itmp);                                                                                   \
+    if (rv) {                                                                                                          \
+        svc->fld = itmp;                                                                                               \
+    } else {                                                                                                           \
+        svc->fld = 0;                                                                                                  \
+    }
 
     EXTRACT_SERVICE("kv", data);
     EXTRACT_SERVICE("mgmt", mgmt);
@@ -341,14 +335,13 @@ extract_services(lcbvb_CONFIG *cfg, cJSON *jsvc, lcbvb_SERVICES *svc, int is_ssl
     EXTRACT_SERVICE("indexScan", ixquery);
     EXTRACT_SERVICE("cbas", cbas);
 
-    #undef EXTRACT_SERVICE
+#undef EXTRACT_SERVICE
 
     (void)cfg;
     return 1;
 }
 
-static int
-build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
+static int build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
 {
     /* get the authority */
     char tmpbuf[4096];
@@ -384,8 +377,7 @@ build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
  * @param js
  * @return
  */
-static int
-build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **network)
+static int build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **network)
 {
     cJSON *jsvcs;
     char *htmp;
@@ -427,15 +419,23 @@ build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **netwo
                     extract_services(cfg, jports, &server->alt_svc_ssl, 1);
                 }
 
-#define COPY_SERVICE(src, dst)                                          \
-                if ((dst)->data == 0) (dst)->data = (src)->data;        \
-                if ((dst)->mgmt == 0) (dst)->mgmt = (src)->mgmt;        \
-                if ((dst)->views == 0) (dst)->views = (src)->views;     \
-                if ((dst)->n1ql == 0) (dst)->n1ql = (src)->n1ql;        \
-                if ((dst)->fts == 0) (dst)->fts = (src)->fts;           \
-                if ((dst)->ixadmin == 0) (dst)->ixadmin = (src)->ixadmin; \
-                if ((dst)->ixquery == 0) (dst)->ixquery = (src)->ixquery; \
-                if ((dst)->cbas == 0) (dst)->cbas = (src)->cbas;
+#define COPY_SERVICE(src, dst)                                                                                         \
+    if ((dst)->data == 0)                                                                                              \
+        (dst)->data = (src)->data;                                                                                     \
+    if ((dst)->mgmt == 0)                                                                                              \
+        (dst)->mgmt = (src)->mgmt;                                                                                     \
+    if ((dst)->views == 0)                                                                                             \
+        (dst)->views = (src)->views;                                                                                   \
+    if ((dst)->n1ql == 0)                                                                                              \
+        (dst)->n1ql = (src)->n1ql;                                                                                     \
+    if ((dst)->fts == 0)                                                                                               \
+        (dst)->fts = (src)->fts;                                                                                       \
+    if ((dst)->ixadmin == 0)                                                                                           \
+        (dst)->ixadmin = (src)->ixadmin;                                                                               \
+    if ((dst)->ixquery == 0)                                                                                           \
+        (dst)->ixquery = (src)->ixquery;                                                                               \
+    if ((dst)->cbas == 0)                                                                                              \
+        (dst)->cbas = (src)->cbas;
 
                 COPY_SERVICE(&server->svc, &server->alt_svc);
                 COPY_SERVICE(&server->svc_ssl, &server->alt_svc_ssl);
@@ -447,7 +447,7 @@ build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **netwo
 
     return 1;
 
-    GT_ERR:
+GT_ERR:
     return 0;
 }
 
@@ -457,12 +457,12 @@ build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **netwo
  * @param js The object which contains the server information
  * @return nonzero on success, 0 on failure.
  */
-static int
-build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **network)
+static int build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **network)
 {
     char *tmp = NULL, *colon;
     int itmp;
     cJSON *jsports;
+    (void)network;
 
     if (!get_jstr(js, "hostname", &tmp)) {
         SET_ERRSTR(cfg, "Couldn't find hostname");
@@ -480,7 +480,7 @@ build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **netwo
         SET_ERRSTR(cfg, "Expected ':' in 'hostname'");
         goto GT_ERR;
     }
-    if (sscanf(colon+1, "%d", &itmp) != 1) {
+    if (sscanf(colon + 1, "%d", &itmp) != 1) {
         SET_ERRSTR(cfg, "Expected port after ':'");
         goto GT_ERR;
     }
@@ -499,7 +499,7 @@ build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **netwo
             /* no port */
             goto GT_ERR;
         }
-        if (sscanf(colon+1, "%d", &itmp) != 1) {
+        if (sscanf(colon + 1, "%d", &itmp) != 1) {
             goto GT_ERR;
         }
 
@@ -535,12 +535,11 @@ build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **netwo
     }
     return 1;
 
-    GT_ERR:
+GT_ERR:
     return 0;
 }
 
-static void
-guess_network(cJSON *jnodes, int nsrv, const char *source, char **network)
+static void guess_network(cJSON *jnodes, int nsrv, const char *source, char **network)
 {
     int ii;
     for (ii = 0; ii < nsrv; ii++) {
@@ -575,8 +574,7 @@ guess_network(cJSON *jnodes, int nsrv, const char *source, char **network)
     *network = strdup("default");
 }
 
-int
-lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char **network)
+int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char **network)
 {
     cJSON *cj = NULL, *jnodes_ext = NULL, *jnodes = NULL;
     char *tmp = NULL;
@@ -651,6 +649,10 @@ lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char
                         cfg->caps |= LCBVB_CAP_XDCR_CHECKPOINTING;
                     } else if (strcmp(jcap->valuestring, "nodesExt") == 0) {
                         cfg->caps |= LCBVB_CAP_NODES_EXT;
+                    } else if (strcmp(jcap->valuestring, "collections") == 0) {
+                        cfg->caps |= LCBVB_CAP_COLLECTIONS;
+                    } else if (strcmp(jcap->valuestring, "durableWrite") == 0) {
+                        cfg->caps |= LCBVB_CAP_DURABLE_WRITE;
                     }
                 }
             }
@@ -716,21 +718,19 @@ lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char
     cJSON_Delete(cj);
     return 0;
 
-    GT_ERROR:
+GT_ERROR:
     if (cj) {
         cJSON_Delete(cj);
     }
     return -1;
 }
 
-int
-lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
+int lcbvb_load_json(lcbvb_CONFIG *cfg, const char *data)
 {
     return lcbvb_load_json_ex(cfg, data, NULL, NULL);
 }
 
-static void
-replace_hoststr(char **orig, const char *replacement)
+static void replace_hoststr(char **orig, const char *replacement)
 {
     char *match;
     char *newbuf;
@@ -752,15 +752,14 @@ replace_hoststr(char **orig, const char *replacement)
     /* copy the host */
     strcat(newbuf, replacement);
     /* copy after the placeholder */
-    match += sizeof("$HOST")-1;
+    match += sizeof("$HOST") - 1;
     strcat(newbuf, match);
     free(*orig);
     *orig = newbuf;
 }
 
 LIBCOUCHBASE_API
-void
-lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
+void lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
 {
     unsigned ii, copy = 0;
     char *replacement = (char *)hoststr;
@@ -775,7 +774,7 @@ lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
     for (ii = 0; ii < cfg->nsrv; ++ii) {
         unsigned jj;
         lcbvb_SERVER *srv = cfg->servers + ii;
-        lcbvb_SERVICES *svcs[] = { &srv->svc, &srv->svc_ssl };
+        lcbvb_SERVICES *svcs[] = {&srv->svc, &srv->svc_ssl};
 
         replace_hoststr(&srv->hostname, hoststr);
         for (jj = 0; jj < 2; ++jj) {
@@ -798,8 +797,7 @@ lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
     }
 }
 
-lcbvb_CONFIG *
-lcbvb_parse_json(const char *js)
+lcbvb_CONFIG *lcbvb_parse_json(const char *js)
 {
     int rv;
     lcbvb_CONFIG *cfg = calloc(1, sizeof(*cfg));
@@ -812,14 +810,12 @@ lcbvb_parse_json(const char *js)
 }
 
 LIBCOUCHBASE_API
-lcbvb_CONFIG *
-lcbvb_create(void)
+lcbvb_CONFIG *lcbvb_create(void)
 {
     return calloc(1, sizeof(lcbvb_CONFIG));
 }
 
-static void
-free_service_strs(lcbvb_SERVICES *svc)
+static void free_service_strs(lcbvb_SERVICES *svc)
 {
     unsigned ii;
     for (ii = 0; ii < LCBVB_SVCTYPE__MAX; ii++) {
@@ -831,8 +827,7 @@ free_service_strs(lcbvb_SERVICES *svc)
     free(svc->cbas_base_);
 }
 
-void
-lcbvb_destroy(lcbvb_CONFIG *conf)
+void lcbvb_destroy(lcbvb_CONFIG *conf)
 {
     unsigned ii;
     for (ii = 0; ii < conf->nsrv; ii++) {
@@ -859,16 +854,15 @@ lcbvb_destroy(lcbvb_CONFIG *conf)
     free(conf);
 }
 
-static void
-svcs_to_json(lcbvb_SERVICES *svc, cJSON *jsvc, int is_ssl)
+static void svcs_to_json(lcbvb_SERVICES *svc, cJSON *jsvc, int is_ssl)
 {
     cJSON *tmp;
     const char *key;
-    #define EXTRACT_SERVICE(name, fld) \
-    if (svc->fld) { \
-        key = is_ssl ? name"SSL" : name; \
-        tmp = cJSON_CreateNumber(svc->fld); \
-        cJSON_AddItemToObject(jsvc, key, tmp); \
+#define EXTRACT_SERVICE(name, fld)                                                                                     \
+    if (svc->fld) {                                                                                                    \
+        key = is_ssl ? name "SSL" : name;                                                                              \
+        tmp = cJSON_CreateNumber(svc->fld);                                                                            \
+        cJSON_AddItemToObject(jsvc, key, tmp);                                                                         \
     }
 
     EXTRACT_SERVICE("mgmt", mgmt);
@@ -880,12 +874,11 @@ svcs_to_json(lcbvb_SERVICES *svc, cJSON *jsvc, int is_ssl)
     EXTRACT_SERVICE("fts", fts);
     EXTRACT_SERVICE("cbas", cbas);
 
-    #undef EXTRACT_SERVICE
+#undef EXTRACT_SERVICE
 }
 
 LIBCOUCHBASE_API
-char *
-lcbvb_save_json(lcbvb_CONFIG *cfg)
+char *lcbvb_save_json(lcbvb_CONFIG *cfg)
 {
     unsigned ii;
     char *ret;
@@ -936,8 +929,7 @@ lcbvb_save_json(lcbvb_CONFIG *cfg)
         cJSON_AddItemToObject(vbroot, "numReplicas", tmp);
 
         for (ii = 0; ii < cfg->nvb; ii++) {
-            cJSON *curvb = cJSON_CreateIntArray(
-                cfg->vbuckets[ii].servers, cfg->nrepl+1);
+            cJSON *curvb = cJSON_CreateIntArray(cfg->vbuckets[ii].servers, cfg->nrepl + 1);
             cJSON_AddItemToArray(vbmap, curvb);
         }
 
@@ -970,6 +962,12 @@ lcbvb_save_json(lcbvb_CONFIG *cfg)
         if (cfg->caps & LCBVB_CAP_NODES_EXT) {
             cJSON_AddItemToArray(jcaps, cJSON_CreateString("nodesExt"));
         }
+        if (cfg->caps & LCBVB_CAP_COLLECTIONS) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("collections"));
+        }
+        if (cfg->caps & LCBVB_CAP_DURABLE_WRITE) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("durableWrite"));
+        }
         cJSON_AddItemToObject(root, "bucketCapabilities", jcaps);
     }
 
@@ -984,8 +982,7 @@ lcbvb_save_json(lcbvb_CONFIG *cfg)
  ******************************************************************************
  ******************************************************************************/
 
-static int
-map_ketama(lcbvb_CONFIG *cfg, const void *key, size_t nkey)
+static int map_ketama(lcbvb_CONFIG *cfg, const void *key, size_t nkey)
 {
     uint32_t digest, mid, prev;
     lcbvb_CONTINUUM *beginp, *endp, *midp, *highp, *lowp;
@@ -996,8 +993,7 @@ map_ketama(lcbvb_CONFIG *cfg, const void *key, size_t nkey)
 
     /* divide and conquer array search to find server with next biggest
      * point after what this key hashes to */
-    while (1)
-    {
+    while (1) {
         /* pick the middle point */
         midp = lowp + (highp - lowp) / 2;
 
@@ -1008,7 +1004,7 @@ map_ketama(lcbvb_CONFIG *cfg, const void *key, size_t nkey)
         }
 
         mid = midp->point;
-        prev = (midp == beginp) ? 0 : (midp-1)->point;
+        prev = (midp == beginp) ? 0 : (midp - 1)->point;
 
         if (digest <= mid && digest > prev) {
             /* we found nearest server */
@@ -1031,24 +1027,21 @@ map_ketama(lcbvb_CONFIG *cfg, const void *key, size_t nkey)
     return -1;
 }
 
-int
-lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *k, lcb_SIZE n)
+int lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *k, lcb_SIZE n)
 {
     uint32_t digest = hash_crc32(k, n);
     return digest % cfg->nvb;
 }
 
-int
-lcbvb_vbmaster(lcbvb_CONFIG *cfg, int vbid)
+int lcbvb_vbmaster(lcbvb_CONFIG *cfg, int vbid)
 {
     return cfg->vbuckets[vbid].servers[0];
 }
 
-int
-lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix)
+int lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix)
 {
     if (ix < cfg->nrepl) {
-        return cfg->vbuckets[vbid].servers[ix+1];
+        return cfg->vbuckets[vbid].servers[ix + 1];
     } else {
         return -1;
     }
@@ -1082,8 +1075,7 @@ lcbvb_vbreplica(lcbvb_CONFIG *cfg, int vbid, unsigned ix)
  *    and nodes you have already tried to end. If one of nodes agrees to perform
  *    your request. Exit. Otherwise propagate error to back to app
  */
-int
-lcbvb_nmv_remap_ex(lcbvb_CONFIG *cfg, int vbid, int bad, int heuristic)
+int lcbvb_nmv_remap_ex(lcbvb_CONFIG *cfg, int vbid, int bad, int heuristic)
 {
     int cur = cfg->vbuckets[vbid].servers[0];
     int rv = cur;
@@ -1097,9 +1089,8 @@ lcbvb_nmv_remap_ex(lcbvb_CONFIG *cfg, int vbid, int bad, int heuristic)
      * and update that information in the current table. We also need to Update the
      * replica information for that vbucket */
 
-    if (cfg->ffvbuckets &&
-            (rv = cfg->ffvbuckets[vbid].servers[0]) != bad && rv > -1) {
-        memcpy(&cfg->vbuckets[vbid], &cfg->ffvbuckets[vbid], sizeof (lcbvb_VBUCKET));
+    if (cfg->ffvbuckets && (rv = cfg->ffvbuckets[vbid].servers[0]) != bad && rv > -1) {
+        memcpy(&cfg->vbuckets[vbid], &cfg->ffvbuckets[vbid], sizeof(lcbvb_VBUCKET));
     }
 
     /* this path is usually only followed if fvbuckets is not present */
@@ -1130,28 +1121,29 @@ lcbvb_nmv_remap_ex(lcbvb_CONFIG *cfg, int vbid, int bad, int heuristic)
     return rv;
 }
 
-
-int
-lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE nkey,
-    int *vbid, int *srvix)
+int lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE nkey, int *vbid, int *srvix)
 {
     if (cfg->dtype == LCBVB_DIST_KETAMA) {
         *srvix = map_ketama(cfg, key, nkey);
-        *vbid = 0;
+        if (vbid) {
+            *vbid = 0;
+        }
         return 0;
     } else {
-        *vbid = lcbvb_k2vb(cfg, key, nkey);
-        *srvix = lcbvb_vbmaster(cfg, *vbid);
+        int vb = lcbvb_k2vb(cfg, key, nkey);
+        *srvix = lcbvb_vbmaster(cfg, vb);
+        if (vbid) {
+            *vbid = vb;
+        }
     }
     return 0;
 }
 
-int
-lcbvb_has_vbucket(lcbvb_CONFIG *vbc, int vbid, int ix)
+int lcbvb_has_vbucket(lcbvb_CONFIG *vbc, int vbid, int ix)
 {
     unsigned ii;
-    lcbvb_VBUCKET *vb = & vbc->vbuckets[vbid];
-    for (ii = 0; ii < vbc->nrepl+1; ii++) {
+    lcbvb_VBUCKET *vb = &vbc->vbuckets[vbid];
+    for (ii = 0; ii < vbc->nrepl + 1; ii++) {
         if (vb->servers[ii] == ix) {
             return 1;
         }
@@ -1164,8 +1156,7 @@ lcbvb_has_vbucket(lcbvb_CONFIG *vbc, int vbid, int ix)
  ** Configuration Comparisons/Diffs                                          **
  ******************************************************************************
  ******************************************************************************/
-static void
-compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **out)
+static void compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **out)
 {
     int offset = 0;
     unsigned ii, jj;
@@ -1180,17 +1171,15 @@ compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **out)
         if (!found) {
             char *infostr = malloc(strlen(newsrv->authority) + 128);
             assert(infostr);
-            sprintf(infostr, "%s(Data=%d, Index=%d, Query=%d)",
-                newsrv->authority,
-                newsrv->svc.data, newsrv->svc.n1ql, newsrv->svc.ixquery);
+            sprintf(infostr, "%s(Data=%d, Index=%d, Query=%d)", newsrv->authority, newsrv->svc.data, newsrv->svc.n1ql,
+                    newsrv->svc.ixquery);
             out[offset] = infostr;
             ++offset;
         }
     }
 }
 
-lcbvb_CONFIGDIFF *
-lcbvb_compare(lcbvb_CONFIG *from, lcbvb_CONFIG *to)
+lcbvb_CONFIGDIFF *lcbvb_compare(lcbvb_CONFIG *from, lcbvb_CONFIG *to)
 {
     int nservers;
     lcbvb_CONFIGDIFF *ret;
@@ -1227,8 +1216,7 @@ lcbvb_compare(lcbvb_CONFIG *from, lcbvb_CONFIG *to)
     return ret;
 }
 
-static void
-free_array_helper(char **l)
+static void free_array_helper(char **l)
 {
     int ii;
     for (ii = 0; l[ii]; ii++) {
@@ -1237,17 +1225,15 @@ free_array_helper(char **l)
     free(l);
 }
 
-void
-lcbvb_free_diff(lcbvb_CONFIGDIFF *diff) {
+void lcbvb_free_diff(lcbvb_CONFIGDIFF *diff)
+{
     assert(diff);
     free_array_helper(diff->servers_added);
     free_array_helper(diff->servers_removed);
     free(diff);
 }
 
-
-lcbvb_CHANGETYPE
-lcbvb_get_changetype(lcbvb_CONFIGDIFF *diff)
+lcbvb_CHANGETYPE lcbvb_get_changetype(lcbvb_CONFIGDIFF *diff)
 {
     lcbvb_CHANGETYPE ret = 0;
     if (diff->n_vb_changes) {
@@ -1265,8 +1251,7 @@ lcbvb_get_changetype(lcbvb_CONFIGDIFF *diff)
  ******************************************************************************
  ******************************************************************************/
 
-static const lcbvb_SERVICES *
-get_svc(const lcbvb_SERVER *srv, lcbvb_SVCMODE mode)
+static const lcbvb_SERVICES *get_svc(const lcbvb_SERVER *srv, lcbvb_SVCMODE mode)
 {
     if (srv->alt_hostname) {
         if (mode == LCBVB_SVCMODE_PLAIN) {
@@ -1283,8 +1268,7 @@ get_svc(const lcbvb_SERVER *srv, lcbvb_SVCMODE mode)
     }
 }
 
-static const char *
-get_hostname(const lcbvb_SERVER *srv)
+static const char *get_hostname(const lcbvb_SERVER *srv)
 {
     if (srv->alt_hostname) {
         return srv->alt_hostname;
@@ -1294,9 +1278,7 @@ get_hostname(const lcbvb_SERVER *srv)
 }
 
 LIBCOUCHBASE_API
-unsigned
-lcbvb_get_port(lcbvb_CONFIG *cfg,
-    unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
+unsigned lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
 {
     const lcbvb_SERVICES *svc;
     lcbvb_SERVER *srv;
@@ -1332,9 +1314,7 @@ lcbvb_get_port(lcbvb_CONFIG *cfg,
 }
 
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_hostport(lcbvb_CONFIG *cfg,
-    unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
+const char *lcbvb_get_hostport(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
 {
     char **strp;
     lcbvb_SERVER *srv;
@@ -1358,8 +1338,7 @@ lcbvb_get_hostport(lcbvb_CONFIG *cfg,
 }
 
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix)
+const char *lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix)
 {
     if (cfg->nsrv > ix) {
         return get_hostname(cfg->servers + ix);
@@ -1369,9 +1348,7 @@ lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix)
 }
 
 LIBCOUCHBASE_API
-int
-lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode, int *used)
+int lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode, int *used)
 {
     size_t nn, oix = 0;
 
@@ -1390,15 +1367,10 @@ lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
             continue;
         }
 
-        has_svc =
-                (type == LCBVB_SVCTYPE_DATA && svcs->data) ||
-                (type == LCBVB_SVCTYPE_IXADMIN && svcs->ixadmin) ||
-                (type == LCBVB_SVCTYPE_IXQUERY && svcs->ixquery) ||
-                (type == LCBVB_SVCTYPE_MGMT && svcs->mgmt) ||
-                (type == LCBVB_SVCTYPE_N1QL && svcs->n1ql) ||
-                (type == LCBVB_SVCTYPE_FTS && svcs->fts) ||
-                (type == LCBVB_SVCTYPE_VIEWS && svcs->views) ||
-                (type == LCBVB_SVCTYPE_CBAS && svcs->cbas);
+        has_svc = (type == LCBVB_SVCTYPE_DATA && svcs->data) || (type == LCBVB_SVCTYPE_IXADMIN && svcs->ixadmin) ||
+                  (type == LCBVB_SVCTYPE_IXQUERY && svcs->ixquery) || (type == LCBVB_SVCTYPE_MGMT && svcs->mgmt) ||
+                  (type == LCBVB_SVCTYPE_N1QL && svcs->n1ql) || (type == LCBVB_SVCTYPE_FTS && svcs->fts) ||
+                  (type == LCBVB_SVCTYPE_VIEWS && svcs->views) || (type == LCBVB_SVCTYPE_CBAS && svcs->cbas);
 
         if (has_svc) {
             cfg->randbuf[oix++] = (int)nn;
@@ -1416,17 +1388,13 @@ lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg,
 }
 
 LIBCOUCHBASE_API
-int
-lcbvb_get_randhost(const lcbvb_CONFIG *cfg,
-    lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
+int lcbvb_get_randhost(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode)
 {
     return lcbvb_get_randhost_ex(cfg, type, mode, NULL);
 }
 
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
-    lcbvb_SVCTYPE svc, lcbvb_SVCMODE mode)
+const char *lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE svc, lcbvb_SVCMODE mode)
 {
     char **strp;
     const char *prefix;
@@ -1483,25 +1451,33 @@ lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix,
 }
 
 LIBCOUCHBASE_API
-const char *
-lcbvb_get_capibase(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCMODE mode)
+const char *lcbvb_get_capibase(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCMODE mode)
 {
     return lcbvb_get_resturl(cfg, ix, LCBVB_SVCTYPE_VIEWS, mode);
 }
 
-LIBCOUCHBASE_API int lcbvb_get_revision(const lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API int lcbvb_get_revision(const lcbvb_CONFIG *cfg)
+{
     return cfg->revid;
 }
-LIBCOUCHBASE_API unsigned lcbvb_get_nservers(const lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API unsigned lcbvb_get_nservers(const lcbvb_CONFIG *cfg)
+{
     return cfg->nsrv;
 }
-LIBCOUCHBASE_API unsigned lcbvb_get_nreplicas(const lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API unsigned lcbvb_get_nreplicas(const lcbvb_CONFIG *cfg)
+{
     return cfg->nrepl;
 }
-LIBCOUCHBASE_API lcbvb_DISTMODE lcbvb_get_distmode(const lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API unsigned lcbvb_get_nvbuckets(const lcbvb_CONFIG *cfg)
+{
+    return cfg->nvb;
+}
+LIBCOUCHBASE_API lcbvb_DISTMODE lcbvb_get_distmode(const lcbvb_CONFIG *cfg)
+{
     return cfg->dtype;
 }
-LIBCOUCHBASE_API const char *lcbvb_get_error(const lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API const char *lcbvb_get_error(const lcbvb_CONFIG *cfg)
+{
     return cfg->errstr;
 }
 /******************************************************************************
@@ -1534,11 +1510,8 @@ static void copy_service(const char *hostname, const lcbvb_SERVICES *src, lcbvb_
 }
 
 LIBCOUCHBASE_API
-int
-lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
-    const char *name, const char *uuid,
-    const lcbvb_SERVER *servers,
-    unsigned nservers, unsigned nreplica, unsigned nvbuckets)
+int lcbvb_genconfig_ex(lcbvb_CONFIG *vb, const char *name, const char *uuid, const lcbvb_SERVER *servers,
+                       unsigned nservers, unsigned nreplica, unsigned nvbuckets)
 {
     unsigned ii, jj;
     int srvix = 0, in_nondata = 0;
@@ -1594,7 +1567,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     for (ii = 0; ii < vb->nvb; ii++) {
         lcbvb_VBUCKET *cur = vb->vbuckets + ii;
         cur->servers[0] = srvix;
-        for (jj = 1; jj < vb->nrepl+1; jj++) {
+        for (jj = 1; jj < vb->nrepl + 1; jj++) {
             cur->servers[jj] = (srvix + jj) % vb->ndatasrv;
         }
         srvix = (srvix + 1) % vb->ndatasrv;
@@ -1632,7 +1605,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     }
 
     for (ii = 0; ii < vb->nvb; ii++) {
-        for (jj = 0; jj < vb->nrepl+1; jj++) {
+        for (jj = 0; jj < vb->nrepl + 1; jj++) {
             int ix = vb->vbuckets[ii].servers[jj];
             if (ix >= 0) {
                 vb->servers[ix].nvbs++;
@@ -1642,9 +1615,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     return 0;
 }
 
-int
-lcbvb_genconfig(lcbvb_CONFIG *vb,
-    unsigned nservers, unsigned nreplica, unsigned nvbuckets)
+int lcbvb_genconfig(lcbvb_CONFIG *vb, unsigned nservers, unsigned nreplica, unsigned nvbuckets)
 {
     unsigned ii;
     int rv;
@@ -1658,14 +1629,12 @@ lcbvb_genconfig(lcbvb_CONFIG *vb,
         srvarry[ii].hostname = "localhost";
         srvarry[ii].svc.views_base_ = "/default";
     }
-    rv = lcbvb_genconfig_ex(vb,
-        "default", NULL, srvarry, nservers, nreplica, nvbuckets);
+    rv = lcbvb_genconfig_ex(vb, "default", NULL, srvarry, nservers, nreplica, nvbuckets);
     free(srvarry);
     return rv;
 }
 
-void
-lcbvb_genffmap(lcbvb_CONFIG *cfg)
+void lcbvb_genffmap(lcbvb_CONFIG *cfg)
 {
     size_t ii;
     assert(cfg->nrepl);
@@ -1683,8 +1652,7 @@ lcbvb_genffmap(lcbvb_CONFIG *cfg)
     }
 }
 
-void
-lcbvb_make_ketama(lcbvb_CONFIG *vb)
+void lcbvb_make_ketama(lcbvb_CONFIG *vb)
 {
     if (vb->dtype == LCBVB_DIST_KETAMA) {
         return;
@@ -1695,69 +1663,89 @@ lcbvb_make_ketama(lcbvb_CONFIG *vb)
     update_ketama(vb);
 }
 
-
 /******************************************************************************
  ******************************************************************************
  ** Compatibility APIs                                                       **
  ******************************************************************************
  ******************************************************************************/
-LIBCOUCHBASE_API lcbvb_CONFIG* vbucket_config_create(void) {
+LIBCOUCHBASE_API lcbvb_CONFIG *vbucket_config_create(void)
+{
     return lcbvb_create();
 }
-LIBCOUCHBASE_API void vbucket_config_destroy(lcbvb_CONFIG*h) {
+LIBCOUCHBASE_API void vbucket_config_destroy(lcbvb_CONFIG *h)
+{
     lcbvb_destroy(h);
 }
-LIBCOUCHBASE_API int vbucket_config_parse(lcbvb_CONFIG*h, vbucket_source_t src, const char *s) {
-    (void)src; return lcbvb_load_json(h, s);
+LIBCOUCHBASE_API int vbucket_config_parse(lcbvb_CONFIG *h, vbucket_source_t src, const char *s)
+{
+    (void)src;
+    return lcbvb_load_json(h, s);
 }
-LIBCOUCHBASE_API const char * vbucket_get_error_message(lcbvb_CONFIG*h) {
+LIBCOUCHBASE_API const char *vbucket_get_error_message(lcbvb_CONFIG *h)
+{
     return h->errstr;
 }
-LIBCOUCHBASE_API int vbucket_config_get_num_servers(lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API int vbucket_config_get_num_servers(lcbvb_CONFIG *cfg)
+{
     return cfg->nsrv;
 }
-LIBCOUCHBASE_API int vbucket_config_get_num_replicas(lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API int vbucket_config_get_num_replicas(lcbvb_CONFIG *cfg)
+{
     return cfg->nrepl;
 }
-LIBCOUCHBASE_API int vbucket_config_get_num_vbuckets(lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API int vbucket_config_get_num_vbuckets(lcbvb_CONFIG *cfg)
+{
     return cfg->nvb;
 }
-LIBCOUCHBASE_API const char *vbucket_config_get_server(lcbvb_CONFIG *cfg, int ix) {
+LIBCOUCHBASE_API const char *vbucket_config_get_server(lcbvb_CONFIG *cfg, int ix)
+{
     return lcbvb_get_hostport(cfg, ix, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
 }
-LIBCOUCHBASE_API const char *vbucket_config_get_rest_api_server(lcbvb_CONFIG *cfg, int ix) {
+LIBCOUCHBASE_API const char *vbucket_config_get_rest_api_server(lcbvb_CONFIG *cfg, int ix)
+{
     return lcbvb_get_hostport(cfg, ix, LCBVB_SVCTYPE_MGMT, LCBVB_SVCMODE_PLAIN);
 }
-LIBCOUCHBASE_API const char *vbucket_config_get_couch_api_base(lcbvb_CONFIG *cfg, int ix) {
+LIBCOUCHBASE_API const char *vbucket_config_get_couch_api_base(lcbvb_CONFIG *cfg, int ix)
+{
     return lcbvb_get_capibase(cfg, ix, LCBVB_SVCMODE_PLAIN);
 }
-LIBCOUCHBASE_API lcbvb_DISTMODE vbucket_config_get_distribution_type(lcbvb_CONFIG *cfg) {
+LIBCOUCHBASE_API lcbvb_DISTMODE vbucket_config_get_distribution_type(lcbvb_CONFIG *cfg)
+{
     return cfg->dtype;
 }
-LIBCOUCHBASE_API int vbucket_map(lcbvb_CONFIG *cfg, const void *k, lcb_SIZE nk, int *pvb, int *pix) {
+LIBCOUCHBASE_API int vbucket_map(lcbvb_CONFIG *cfg, const void *k, lcb_SIZE nk, int *pvb, int *pix)
+{
     return lcbvb_map_key(cfg, k, nk, pvb, pix);
 }
-LIBCOUCHBASE_API int vbucket_get_vbucket_by_key(lcbvb_CONFIG *cfg, const void *k, lcb_SIZE nk) {
+LIBCOUCHBASE_API int vbucket_get_vbucket_by_key(lcbvb_CONFIG *cfg, const void *k, lcb_SIZE nk)
+{
     return lcbvb_k2vb(cfg, k, nk);
 }
-LIBCOUCHBASE_API int vbucket_get_master(lcbvb_CONFIG *cfg, int vb) {
+LIBCOUCHBASE_API int vbucket_get_master(lcbvb_CONFIG *cfg, int vb)
+{
     return lcbvb_vbmaster(cfg, vb);
 }
-LIBCOUCHBASE_API int vbucket_get_replica(lcbvb_CONFIG *cfg, int vb, int repl) {
+LIBCOUCHBASE_API int vbucket_get_replica(lcbvb_CONFIG *cfg, int vb, int repl)
+{
     return lcbvb_vbreplica(cfg, vb, repl);
 }
-LIBCOUCHBASE_API lcbvb_CONFIGDIFF *vbucket_compare(lcbvb_CONFIG*a,lcbvb_CONFIG*b) {
-    return lcbvb_compare(a,b);
+LIBCOUCHBASE_API lcbvb_CONFIGDIFF *vbucket_compare(lcbvb_CONFIG *a, lcbvb_CONFIG *b)
+{
+    return lcbvb_compare(a, b);
 }
-LIBCOUCHBASE_API void vbucket_free_diff(lcbvb_CONFIGDIFF *p) {
+LIBCOUCHBASE_API void vbucket_free_diff(lcbvb_CONFIGDIFF *p)
+{
     lcbvb_free_diff(p);
 }
-LIBCOUCHBASE_API int vbucket_config_get_revision(lcbvb_CONFIG *p) {
+LIBCOUCHBASE_API int vbucket_config_get_revision(lcbvb_CONFIG *p)
+{
     return lcbvb_get_revision(p);
 }
-LIBCOUCHBASE_API lcbvb_CHANGETYPE vbucket_what_changed(lcbvb_CONFIGDIFF *diff) {
+LIBCOUCHBASE_API lcbvb_CHANGETYPE vbucket_what_changed(lcbvb_CONFIGDIFF *diff)
+{
     return lcbvb_get_changetype(diff);
 }
-LIBCOUCHBASE_API int vbucket_config_generate(lcbvb_CONFIG*cfg, unsigned nsrv, unsigned nrepl, unsigned nvb) {
-    return lcbvb_genconfig(cfg,nsrv,nrepl,nvb);
+LIBCOUCHBASE_API int vbucket_config_generate(lcbvb_CONFIG *cfg, unsigned nsrv, unsigned nrepl, unsigned nvb)
+{
+    return lcbvb_genconfig(cfg, nsrv, nrepl, nvb);
 }

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -59,18 +59,13 @@ extern "C" {
 #endif
 
 /** @see iocp_overlapped_t */
-enum {
-    LCBIOCP_ACTION_NONE = 100,
-    LCBIOCP_ACTION_READ,
-    LCBIOCP_ACTION_WRITE,
-    LCBIOCP_ACTION_CONNECT
-};
+enum { LCBIOCP_ACTION_NONE = 100, LCBIOCP_ACTION_READ, LCBIOCP_ACTION_WRITE, LCBIOCP_ACTION_CONNECT };
 
 struct iocp_sockdata_st;
 
 /**
  * This structure is our 'overlapped' subclass. It in itself does not
- * contain any data, but rather determines how to read the 
+ * contain any data, but rather determines how to read the
  * CompletionKey passed along with GetQueuedCompletionStatus
  * This information is determined from the ::action field */
 typedef struct {
@@ -79,11 +74,7 @@ typedef struct {
     unsigned char action;
 } iocp_overlapped_t;
 
-typedef enum {
-    IOCP_WRITEBUF_AVAILABLE = 0,
-    IOCP_WRITEBUF_INUSE,
-    IOCP_WRITEBUF_ALLOCATED
-} iocp_wbuf_state_t;
+typedef enum { IOCP_WRITEBUF_AVAILABLE = 0, IOCP_WRITEBUF_INUSE, IOCP_WRITEBUF_ALLOCATED } iocp_wbuf_state_t;
 
 typedef struct {
     iocp_overlapped_t ol_write;
@@ -92,8 +83,7 @@ typedef struct {
     void *uarg;
 } iocp_write_t;
 
-#define IOCP_WRITEOBJ_FROM_OVERLAPPED(ol) \
-    (iocp_write_t *)(((char *)ol) - offsetof(iocp_write_t, ol_write))
+#define IOCP_WRITEOBJ_FROM_OVERLAPPED(ol) (iocp_write_t *)(((char *)ol) - offsetof(iocp_write_t, ol_write))
 
 typedef struct iocp_sockdata_st {
     lcb_sockdata_t sd_base;
@@ -131,11 +121,11 @@ typedef struct iocp_timer_st {
 
 typedef struct iocp_st {
     struct lcb_io_opt_st base; /**< Base table */
-    HANDLE hCompletionPort; /**< Completion port */
-    iocp_timer_t timer_queue; /**< Pending timers */
-    lcb_list_t sockets; /**< List of all sockets */
-    unsigned int n_iopending; /**< Count of outstanding I/O operations */
-    BOOL breakout; /**< Flag unset during lcb_wait() and set during lcb_breakout() */
+    HANDLE hCompletionPort;    /**< Completion port */
+    iocp_timer_t timer_queue;  /**< Pending timers */
+    lcb_list_t sockets;        /**< List of all sockets */
+    unsigned int n_iopending;  /**< Count of outstanding I/O operations */
+    BOOL breakout;             /**< Flag unset during lcb_wait() and set during lcb_breakout() */
 } iocp_t;
 
 /**
@@ -144,7 +134,7 @@ typedef struct iocp_st {
  * @param ol the overlapped upon which the operation was associated with
  * @param status the return code of the scheduling API.
  * @return an error code suitable for propagating up to the library.
- * 
+ *
  * Note that this function does more than convert an error code. If an operation
  * has been successfuly scheduled, the relevant socket's reference count will
  * also be incremented.
@@ -197,14 +187,14 @@ lcb_U64 iocp_tmq_next_timeout(lcb_list_t *list, lcb_U64 now);
 iocp_timer_t *iocp_tmq_pop(lcb_list_t *list, lcb_U64 now);
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg);
+lcb_STATUS lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg);
 
 enum { IOCP_TRACE, IOCP_DEBUG, IOCP_INFO, IOCP_WARN, IOCP_ERR, IOCP_FATAL };
 #ifdef IOCP_LOG_VERBOSE
 #include <stdio.h>
-#define IOCP_LOG(facil, ...) \
-    fprintf(stderr, "[%s] <%s:%d>: ", #facil, __FILE__, __LINE__); \
-    fprintf(stderr, __VA_ARGS__); \
+#define IOCP_LOG(facil, ...)                                                                                           \
+    fprintf(stderr, "[%s] <%s:%d>: ", #facil, __FILE__, __LINE__);                                                     \
+    fprintf(stderr, __VA_ARGS__);                                                                                      \
     fprintf(stderr, "\n");
 #else
 #define IOCP_LOG(...)

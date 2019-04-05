@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@
 #include <lcbio/ssl.h>
 #include "ctx-log-inl.h"
 
+#include <cstring>
+
 #define LOGFMT CTX_LOGFMT
 #define LOGID(p) CTX_LOGID(p->ioctx)
 #define LOGARGS(cccp, lvl) cccp->parent->settings, "cccp", LCB_LOG_##lvl, __FILE__, __LINE__
@@ -49,41 +51,48 @@ struct CccpProvider : public Provider {
      *        because we have received a successful response.
      */
     void stop_current_request(bool is_clean);
-    lcb_error_t schedule_next_request(lcb_error_t why, bool can_rollover);
-    lcb_error_t mcio_error(lcb_error_t why);
-    void on_timeout() { mcio_error(LCB_ETIMEDOUT); }
-    lcb_error_t update(const char *host, const char* data);
+    lcb_STATUS schedule_next_request(lcb_STATUS why, bool can_rollover);
+    lcb_STATUS mcio_error(lcb_STATUS why);
+    void on_timeout()
+    {
+        mcio_error(LCB_ETIMEDOUT);
+    }
+    lcb_STATUS update(const char *host, const char *data);
     void request_config();
     void on_io_read();
 
-    bool pause(); // Override
-    void configure_nodes(const lcb::Hostlist&); // Override
-    void config_updated(lcbvb_CONFIG *); // Override;
-    void dump(FILE*) const; // Override
-    lcb_error_t refresh(); // Override
+    bool pause();                                // Override
+    void configure_nodes(const lcb::Hostlist &); // Override
+    void config_updated(lcbvb_CONFIG *);         // Override;
+    void dump(FILE *) const;                     // Override
+    lcb_STATUS refresh();                        // Override
 
-    ConfigInfo *get_cached() /* Override */ {
+    ConfigInfo *get_cached() /* Override */
+    {
         return config;
     }
 
-    const lcb::Hostlist* get_nodes() const /* Override */ {
+    const lcb::Hostlist *get_nodes() const /* Override */
+    {
         return nodes;
     }
 
-    void enable(void *arg) {
-        instance = reinterpret_cast<lcb_t>(arg);
+    void enable(void *arg)
+    {
+        instance = reinterpret_cast< lcb_INSTANCE * >(arg);
         Provider::enable();
     }
 
     // Whether there is a pending CCCP config request.
-    bool has_pending_request() const {
+    bool has_pending_request() const
+    {
         return creq != NULL || cmdcookie != NULL || ioctx != NULL;
     }
 
     lcb::Hostlist *nodes;
     ConfigInfo *config;
-    lcb::io::Timer<CccpProvider, &CccpProvider::on_timeout> timer;
-    lcb_t instance;
+    lcb::io::Timer< CccpProvider, &CccpProvider::on_timeout > timer;
+    lcb_INSTANCE *instance;
     lcb::io::ConnectionRequest *creq;
     lcbio_CTX *ioctx;
     CccpCookie *cmdcookie;
@@ -92,18 +101,16 @@ struct CccpProvider : public Provider {
 struct CccpCookie {
     CccpProvider *parent;
     bool active;
-    CccpCookie(CccpProvider *parent_) : parent(parent_), active(true) {
-    }
+    CccpCookie(CccpProvider *parent_) : parent(parent_), active(true) {}
 };
 
-static void io_error_handler(lcbio_CTX *, lcb_error_t);
+static void io_error_handler(lcbio_CTX *, lcb_STATUS);
 static void io_read_handler(lcbio_CTX *, unsigned nr);
-static void on_connected(lcbio_SOCKET *, void*, lcb_error_t, lcbio_OSERR);
+static void on_connected(lcbio_SOCKET *, void *, lcb_STATUS, lcbio_OSERR);
 
-static void
-pooled_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
+static void pooled_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
 {
-    bool *ru_ex = reinterpret_cast<bool*>(arg);
+    bool *ru_ex = reinterpret_cast< bool * >(arg);
     lcbio_ref(sock);
     if (reusable && *ru_ex) {
         lcb::io::Pool::put(sock);
@@ -112,12 +119,11 @@ pooled_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
     }
 }
 
-void
-CccpProvider::stop_current_request(bool is_clean)
+void CccpProvider::stop_current_request(bool is_clean)
 {
     if (cmdcookie) {
         cmdcookie->active = false;
-        cmdcookie =  NULL;
+        cmdcookie = NULL;
     }
 
     lcb::io::ConnectionRequest::cancel(&creq);
@@ -128,8 +134,7 @@ CccpProvider::stop_current_request(bool is_clean)
     }
 }
 
-lcb_error_t
-CccpProvider::schedule_next_request(lcb_error_t err, bool can_rollover)
+lcb_STATUS CccpProvider::schedule_next_request(lcb_STATUS err, bool can_rollover)
 {
     lcb_host_t *next_host = nodes->next(can_rollover);
     if (!next_host) {
@@ -138,7 +143,7 @@ CccpProvider::schedule_next_request(lcb_error_t err, bool can_rollover)
         return err;
     }
 
-    lcb::Server* server = instance->find_server(*next_host);
+    lcb::Server *server = instance->find_server(*next_host);
     if (server) {
         cmdcookie = new CccpCookie(this);
         lcb_log(LOGARGS(this, TRACE), "Re-Issuing CCCP Command on server struct %p (" LCB_HOST_FMT ")", (void *)server,
@@ -150,16 +155,13 @@ CccpProvider::schedule_next_request(lcb_error_t err, bool can_rollover)
 
         lcb_log(LOGARGS(this, INFO), "Requesting connection to node " LCB_HOST_FMT " for CCCP configuration",
                 LCB_HOST_ARG(this->parent->settings, next_host));
-        creq = instance->memd_sockpool->get(*next_host,
-            settings().config_node_timeout,
-            on_connected, this);
+        creq = instance->memd_sockpool->get(*next_host, settings().config_node_timeout, on_connected, this);
     }
 
     return LCB_SUCCESS;
 }
 
-lcb_error_t
-CccpProvider::mcio_error(lcb_error_t err)
+lcb_STATUS CccpProvider::mcio_error(lcb_STATUS err)
 {
     if (err != LCB_NOT_SUPPORTED && err != LCB_UNKNOWN_COMMAND) {
         lcb_log(LOGARGS(this, ERR), LOGFMT "Could not get configuration: %s", LOGID(this), lcb_strerror_short(err));
@@ -170,15 +172,14 @@ CccpProvider::mcio_error(lcb_error_t err)
 }
 
 /** Update the configuration from a server. */
-lcb_error_t
-lcb::clconfig::cccp_update(Provider *provider, const char *host, const char *data) {
-    return static_cast<CccpProvider*>(provider)->update(host, data);
+lcb_STATUS lcb::clconfig::cccp_update(Provider *provider, const char *host, const char *data)
+{
+    return static_cast< CccpProvider * >(provider)->update(host, data);
 }
 
-lcb_error_t
-CccpProvider::update(const char *host, const char *data)
+lcb_STATUS CccpProvider::update(const char *host, const char *data)
 {
-    lcbvb_CONFIG* vbc;
+    lcbvb_CONFIG *vbc;
     int rv;
     ConfigInfo *new_config;
     vbc = lcbvb_create();
@@ -213,11 +214,10 @@ CccpProvider::update(const char *host, const char *data)
     return LCB_SUCCESS;
 }
 
-void lcb::clconfig::cccp_update(
-    const void *cookie_, lcb_error_t err,
-    const void *bytes, size_t nbytes, const lcb_host_t *origin)
+void lcb::clconfig::cccp_update(const void *cookie_, lcb_STATUS err, const void *bytes, size_t nbytes,
+                                const lcb_host_t *origin)
 {
-    CccpCookie *cookie = reinterpret_cast<CccpCookie*>(const_cast<void*>(cookie_));
+    CccpCookie *cookie = reinterpret_cast< CccpCookie * >(const_cast< void * >(cookie_));
     CccpProvider *cccp = cookie->parent;
 
     bool was_active = cookie->active;
@@ -229,7 +229,7 @@ void lcb::clconfig::cccp_update(
     delete cookie;
 
     if (err == LCB_SUCCESS) {
-        std::string ss(reinterpret_cast<const char *>(bytes), nbytes);
+        std::string ss(reinterpret_cast< const char * >(bytes), nbytes);
         err = cccp->update(origin->host, ss.c_str());
     }
 
@@ -238,11 +238,10 @@ void lcb::clconfig::cccp_update(
     }
 }
 
-static void
-on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR)
+static void on_connected(lcbio_SOCKET *sock, void *data, lcb_STATUS err, lcbio_OSERR)
 {
     lcbio_CTXPROCS ioprocs;
-    CccpProvider *cccp = reinterpret_cast<CccpProvider*>(data);
+    CccpProvider *cccp = reinterpret_cast< CccpProvider * >(data);
     lcb_settings *settings = cccp->parent->settings;
     cccp->creq = NULL;
 
@@ -255,9 +254,7 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR)
     }
 
     if (lcbio_protoctx_get(sock, LCBIO_PROTOCTX_SESSINFO) == NULL) {
-        cccp->creq = lcb::SessionRequest::start(
-                sock, settings, settings->config_node_timeout, on_connected,
-                cccp);
+        cccp->creq = lcb::SessionRequest::start(sock, settings, settings->config_node_timeout, on_connected, cccp);
         return;
     }
 
@@ -269,7 +266,8 @@ on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR)
     cccp->request_config();
 }
 
-lcb_error_t CccpProvider::refresh() {
+lcb_STATUS CccpProvider::refresh()
+{
     if (has_pending_request()) {
         return LCB_BUSY;
     }
@@ -277,8 +275,7 @@ lcb_error_t CccpProvider::refresh() {
     return schedule_next_request(LCB_SUCCESS, true);
 }
 
-bool
-CccpProvider::pause()
+bool CccpProvider::pause()
 {
     if (!has_pending_request()) {
         return true;
@@ -289,7 +286,8 @@ CccpProvider::pause()
     return true;
 }
 
-CccpProvider::~CccpProvider() {
+CccpProvider::~CccpProvider()
+{
     stop_current_request(false);
 
     if (config) {
@@ -301,8 +299,7 @@ CccpProvider::~CccpProvider() {
     timer.release();
 }
 
-void
-CccpProvider::configure_nodes(const lcb::Hostlist& nodes_)
+void CccpProvider::configure_nodes(const lcb::Hostlist &nodes_)
 {
     nodes->assign(nodes_);
     if (parent->settings->randomize_bootstrap_nodes) {
@@ -310,8 +307,7 @@ CccpProvider::configure_nodes(const lcb::Hostlist& nodes_)
     }
 }
 
-void
-CccpProvider::config_updated(lcbvb_CONFIG *vbc)
+void CccpProvider::config_updated(lcbvb_CONFIG *vbc)
 {
     lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(parent);
     if (LCBVB_NSERVERS(vbc) < 1) {
@@ -320,8 +316,7 @@ CccpProvider::config_updated(lcbvb_CONFIG *vbc)
 
     nodes->clear();
     for (size_t ii = 0; ii < LCBVB_NSERVERS(vbc); ii++) {
-        const char *mcaddr = lcbvb_get_hostport(vbc,
-            ii, LCBVB_SVCTYPE_DATA, mode);
+        const char *mcaddr = lcbvb_get_hostport(vbc, ii, LCBVB_SVCTYPE_DATA, mode);
         if (!mcaddr) {
             lcb_log(LOGARGS(this, DEBUG), "Node %lu has no data service", (unsigned long int)ii);
             continue;
@@ -334,25 +329,24 @@ CccpProvider::config_updated(lcbvb_CONFIG *vbc)
     }
 }
 
-static void
-io_error_handler(lcbio_CTX *ctx, lcb_error_t err)
+static void io_error_handler(lcbio_CTX *ctx, lcb_STATUS err)
 {
-    CccpProvider *cccp = reinterpret_cast<CccpProvider*>(lcbio_ctx_data(ctx));
+    CccpProvider *cccp = reinterpret_cast< CccpProvider * >(lcbio_ctx_data(ctx));
     cccp->mcio_error(err);
 }
 
-static void io_read_handler(lcbio_CTX *ioctx, unsigned) {
-    reinterpret_cast<CccpProvider*>(lcbio_ctx_data(ioctx))->on_io_read();
+static void io_read_handler(lcbio_CTX *ioctx, unsigned)
+{
+    reinterpret_cast< CccpProvider * >(lcbio_ctx_data(ioctx))->on_io_read();
 }
 
-void
-CccpProvider::on_io_read()
+void CccpProvider::on_io_read()
 {
     unsigned required;
 
-#define return_error(e) \
-    resp.release(ioctx); \
-    mcio_error(e); \
+#define return_error(e)                                                                                                \
+    resp.release(ioctx);                                                                                               \
+    mcio_error(e);                                                                                                     \
     return
 
     lcb::MemcachedResponse resp;
@@ -363,16 +357,15 @@ CccpProvider::on_io_read()
     }
 
     if (resp.status() != PROTOCOL_BINARY_RESPONSE_SUCCESS) {
-        lcb_log(LOGARGS(this, WARN), LOGFMT "CCCP Packet responded with 0x%x; nkey=%d, nbytes=%lu, cmd=0x%x, seq=0x%x", LOGID(this),
-                resp.status(), resp.keylen(), (unsigned long)resp.bodylen(),
-                resp.opcode(), resp.opaque());
+        lcb_log(LOGARGS(this, WARN), LOGFMT "CCCP Packet responded with 0x%x; nkey=%d, nbytes=%lu, cmd=0x%x, seq=0x%x",
+                LOGID(this), resp.status(), resp.keylen(), (unsigned long)resp.bodylen(), resp.opcode(), resp.opaque());
 
         switch (resp.status()) {
-        case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
-        case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
-            return_error(LCB_NOT_SUPPORTED);
-        default:
-            return_error(LCB_PROTOCOL_ERROR);
+            case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
+            case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
+                return_error(LCB_NOT_SUPPORTED);
+            default:
+                return_error(LCB_PROTOCOL_ERROR);
         }
 
         return;
@@ -388,7 +381,7 @@ CccpProvider::on_io_read()
     resp.release(ioctx);
     stop_current_request(true);
 
-    lcb_error_t err = update(hoststr.c_str(), jsonstr.c_str());
+    lcb_STATUS err = update(hoststr.c_str(), jsonstr.c_str());
 
     if (err == LCB_SUCCESS) {
         timer.cancel();
@@ -409,14 +402,15 @@ void CccpProvider::request_config()
     timer.rearm(settings().config_node_timeout);
 }
 
-void CccpProvider::dump(FILE *fp) const {
+void CccpProvider::dump(FILE *fp) const
+{
     if (!enabled) {
         return;
     }
 
     fprintf(fp, "## BEGIN CCCP PROVIDER DUMP ##\n");
     fprintf(fp, "TIMER ACTIVE: %s\n", timer.is_armed() ? "YES" : "NO");
-    fprintf(fp, "PIPELINE RESPONSE COOKIE: %p\n", (void*)cmdcookie);
+    fprintf(fp, "PIPELINE RESPONSE COOKIE: %p\n", (void *)cmdcookie);
     if (ioctx) {
         fprintf(fp, "CCCP Owns connection:\n");
         lcbio_ctx_dump(ioctx, fp);
@@ -435,16 +429,13 @@ void CccpProvider::dump(FILE *fp) const {
 }
 
 CccpProvider::CccpProvider(Confmon *mon)
-    : Provider(mon, CLCONFIG_CCCP),
-      nodes(new lcb::Hostlist()),
-      config(NULL),
-      timer(mon->iot, this),
-      instance(NULL),
-      ioctx(NULL),
-      cmdcookie(NULL) {
+    : Provider(mon, CLCONFIG_CCCP), nodes(new lcb::Hostlist()), config(NULL), timer(mon->iot, this), instance(NULL),
+      ioctx(NULL), cmdcookie(NULL)
+{
     std::memset(&creq, 0, sizeof creq);
 }
 
-Provider* lcb::clconfig::new_cccp_provider(Confmon *mon) {
+Provider *lcb::clconfig::new_cccp_provider(Confmon *mon)
+{
     return new CccpProvider(mon);
 }

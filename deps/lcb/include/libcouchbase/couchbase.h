@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2017 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -38,9 +38,8 @@ struct lcb_st;
  * @see lcb_create
  * @see lcb_destroy
  */
-typedef struct lcb_st *lcb_t;
-struct lcb_http_request_st;
-typedef struct lcb_http_request_st *lcb_http_request_t;
+typedef struct lcb_st lcb_INSTANCE;
+typedef struct lcb_HTTP_HANDLE_ lcb_HTTP_HANDLE;
 
 #include <stddef.h>
 #include <time.h>
@@ -51,21 +50,18 @@ typedef struct lcb_http_request_st *lcb_http_request_t;
 #include <libcouchbase/visibility.h>
 #include <libcouchbase/error.h>
 #include <libcouchbase/iops.h>
-#include <libcouchbase/http.h>
 #include <libcouchbase/configuration.h>
 #include <libcouchbase/kvbuf.h>
 #include <libcouchbase/auth.h>
 #include <libcouchbase/tracing.h>
-#include <libcouchbase/_cxxwrap.h>
 #include <libcouchbase/cntl.h>
 
 #ifdef __cplusplus
-extern "C"{
+extern "C" {
 #endif
 
 typedef lcb_U8 lcb_datatype_t;
 typedef lcb_U32 lcb_USECS;
-
 
 /******************************************************************************
  ******************************************************************************
@@ -82,7 +78,7 @@ typedef lcb_U32 lcb_USECS;
  * @details
  *
  * To communicate with a Couchbase cluster, a new library handle instance is
- * created in the form of an lcb_t. To create such an object, the lcb_create()
+ * created in the form of an lcb_INSTANCE. To create such an object, the lcb_create()
  * function is called, passing it a structure of type lcb_create_st. The structure
  * acts as a container for a union of other structures which are extended
  * as more features are added. This container is forwards and backwards
@@ -261,18 +257,35 @@ typedef enum {
     LCB_BTYPE_MEMCACHED = 0x03  /**< Data not persisted and not replicated */
 } lcb_BTYPE;
 
-
 #ifndef __LCB_DOXYGEN__
 /* These are definitions for some of the older fields of the `lcb_create_st`
  * structure. They are here for backwards compatibility and should not be
  * used by new code */
-typedef enum { LCB_CONFIG_TRANSPORT_LIST_END = 0, LCB_CONFIG_TRANSPORT_HTTP = 1, LCB_CONFIG_TRANSPORT_CCCP, LCB_CONFIG_TRANSPORT_MAX } lcb_config_transport_t;
-#define LCB_CREATE_V0_FIELDS const char *host; const char *user; const char *passwd; const char *bucket; struct lcb_io_opt_st *io;
+typedef enum {
+    LCB_CONFIG_TRANSPORT_LIST_END = 0,
+    LCB_CONFIG_TRANSPORT_HTTP = 1,
+    LCB_CONFIG_TRANSPORT_CCCP,
+    LCB_CONFIG_TRANSPORT_MAX
+} lcb_config_transport_t;
+#define LCB_CREATE_V0_FIELDS                                                                                           \
+    const char *host;                                                                                                  \
+    const char *user;                                                                                                  \
+    const char *passwd;                                                                                                \
+    const char *bucket;                                                                                                \
+    struct lcb_io_opt_st *io;
 #define LCB_CREATE_V1_FIELDS LCB_CREATE_V0_FIELDS lcb_type_t type;
-#define LCB_CREATE_V2_FIELDS LCB_CREATE_V1_FIELDS const char *mchosts; const lcb_config_transport_t* transports;
-struct lcb_create_st0 { LCB_CREATE_V0_FIELDS };
-struct lcb_create_st1 { LCB_CREATE_V1_FIELDS };
-struct lcb_create_st2 { LCB_CREATE_V2_FIELDS };
+#define LCB_CREATE_V2_FIELDS                                                                                           \
+    LCB_CREATE_V1_FIELDS const char *mchosts;                                                                          \
+    const lcb_config_transport_t *transports;
+struct lcb_create_st0 {
+    LCB_CREATE_V0_FIELDS
+};
+struct lcb_create_st1 {
+    LCB_CREATE_V1_FIELDS
+};
+struct lcb_create_st2 {
+    LCB_CREATE_V2_FIELDS
+};
 #endif
 
 /**
@@ -292,7 +305,7 @@ struct lcb_create_st3 {
      */
     const char *passwd;
 
-    void *_pad_bucket; /**< @private */
+    void *_pad_bucket;        /**< @private */
     struct lcb_io_opt_st *io; /**< IO Options */
     lcb_type_t type;
 };
@@ -316,7 +329,7 @@ struct lcb_create_st4 {
      */
     const char *passwd;
 
-    lcb_logprocs *logger; /**< Logger */
+    lcb_logprocs *logger;     /**< Logger */
     struct lcb_io_opt_st *io; /**< IO Options */
     lcb_type_t type;
 };
@@ -338,7 +351,6 @@ struct lcb_create_st {
         struct lcb_create_st3 v3; /**< Use this field */
         struct lcb_create_st4 v4;
     } v;
-    LCB_DEPR_CTORS_CRST
 };
 
 /**
@@ -352,8 +364,8 @@ struct lcb_create_st {
  * Create an instance using the default values:
  *
  * @code{.c}
- * lcb_t instance;
- * lcb_error_t err = lcb_create(&instance, NULL);
+ * lcb_INSTANCE *instance;
+ * lcb_STATUS err = lcb_create(&instance, NULL);
  * if (err != LCB_SUCCESS) {
  *    fprintf(stderr, "Failed to create instance: %s\n", lcb_strerror(NULL, err));
  *    exit(EXIT_FAILURE);
@@ -385,7 +397,7 @@ struct lcb_create_st {
  * @see lcb_create_st3
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_create(lcb_t *instance, const struct lcb_create_st *options);
+lcb_STATUS lcb_create(lcb_INSTANCE **instance, const struct lcb_create_st *options);
 
 /**
  * @brief Schedule the initial connection
@@ -397,7 +409,7 @@ lcb_error_t lcb_create(lcb_t *instance, const struct lcb_create_st *options);
  *
  * @par Synchronous Usage
  * @code{.c}
- * lcb_error_t rc = lcb_connect(instance);
+ * lcb_STATUS rc = lcb_connect(instance);
  * if (rc != LCB_SUCCESS) {
  *    your_error_handling(rc);
  * }
@@ -410,7 +422,7 @@ lcb_error_t lcb_create(lcb_t *instance, const struct lcb_create_st *options);
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_connect(lcb_t instance);
+lcb_STATUS lcb_connect(lcb_INSTANCE *instance);
 
 /**
  * Bootstrap callback. Invoked once the instance is ready to perform operations
@@ -421,7 +433,7 @@ lcb_error_t lcb_connect(lcb_t instance);
  * @attention This callback only receives information during instantiation.
  * @committed
  */
-typedef void (*lcb_bootstrap_callback)(lcb_t instance, lcb_error_t err);
+typedef void (*lcb_bootstrap_callback)(lcb_INSTANCE *instance, lcb_STATUS err);
 
 /**
  * @brief Set the callback for notification of success or failure of
@@ -434,8 +446,7 @@ typedef void (*lcb_bootstrap_callback)(lcb_t instance, lcb_error_t err);
  * @see lcb_get_bootstrap_status()
  */
 LIBCOUCHBASE_API
-lcb_bootstrap_callback
-lcb_set_bootstrap_callback(lcb_t instance, lcb_bootstrap_callback callback);
+lcb_bootstrap_callback lcb_set_bootstrap_callback(lcb_INSTANCE *instance, lcb_bootstrap_callback callback);
 
 /**
  * @brief Gets the initial bootstrap status
@@ -450,8 +461,7 @@ lcb_set_bootstrap_callback(lcb_t instance, lcb_bootstrap_callback callback);
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_get_bootstrap_status(lcb_t instance);
+lcb_STATUS lcb_get_bootstrap_status(lcb_INSTANCE *instance);
 
 /**
  * Sets the authenticator object for the instance. This may be done anytime, but
@@ -462,11 +472,8 @@ lcb_get_bootstrap_status(lcb_t instance);
  * refcount on the authenticator object.
  */
 LIBCOUCHBASE_API
-void
-lcb_set_auth(lcb_t instance, lcb_AUTHENTICATOR *auth);
+void lcb_set_auth(lcb_INSTANCE *instance, lcb_AUTHENTICATOR *auth);
 /**@}*/
-
-
 
 /**
  * @ingroup lcb-public-api
@@ -484,185 +491,14 @@ lcb_set_auth(lcb_t instance, lcb_AUTHENTICATOR *auth);
  * @{
  */
 
-/**
- * @name Creating Commands
- * @details
- *
- * Issuing a command to the Cluster involves selecting the correct command
- * structure, populating it with the data relevant for the command, optionally
- * associating the command with your own application data, issuing the command
- * to a spooling function, and finally receiving the response.
- *
- * Command structures all derive from the common @ref lcb_CMDBASE structure. This
- * structure defines the common fields for all commands.
- *
- * Almost all commands need to contain a key, which should be assigned using
- * the LCB_CMD_SET_KEY() macro.
- *
- * @{*/
-
-#define LCB_CMD_BASE \
-    /**Common flags for the command. These modify the command itself. Currently
-     the lower 16 bits of this field are reserved, and the higher 16 bits are
-     used for individual commands.*/ \
-    lcb_U32 cmdflags; \
-    \
-    /**Specify the expiration time. This is either an absolute Unix time stamp
-     or a relative offset from now, in seconds. If the value of this number
-     is greater than the value of thirty days in seconds, then it is a Unix
-     timestamp.
-
-     This field is used in mutation operations (lcb_store3()) to indicate
-     the lifetime of the item. It is used in lcb_get3() with the lcb_CMDGET::lock
-     option to indicate the lock expiration itself. */ \
-    lcb_U32 exptime; \
-    \
-    /**The known CAS of the item. This is passed to mutation to commands to
-     ensure the item is only changed if the server-side CAS value matches the
-     one specified here. For other operations (such as lcb_CMDENDURE) this
-     is used to ensure that the item has been persisted/replicated to a number
-     of servers with the value specified here. */ \
-    lcb_U64 cas; \
-    \
-    /**The key for the document itself. This should be set via LCB_CMD_SET_KEY() */ \
-    lcb_KEYBUF key; \
-    \
-    /** \volatile */ \
-    lcb_KEYBUF _hashkey
-
-/**@brief Common ABI header for all commands. _Any_ command may be safely
- * casted to this type.*/
-typedef struct lcb_CMDBASE {
-    LCB_CMD_BASE;
-} lcb_CMDBASE;
-
-/**
- * Flag for lcb_CMDBASE::cmdflags which indicates that the lcb_CMDBASE::cookie
- * is a special callback object. This flag is used internally within the
- * library.
- *
- * @internal
- */
-#define LCB_CMD_F_INTERNAL_CALLBACK (1 << 0)
-
-/**
- * If this flag is set, then multiple authentication credentials will be passed
- * to the server. By default only the bucket's credentials (i.e. bucket SASL
- * password) are passed.
- */
-#define LCB_CMD_F_MULTIAUTH (1<<1)
-
-/**
- * Set the key for the command.
- * @param cmd A command derived from lcb_CMDBASE
- * @param keybuf the buffer for the key
- * @param keylen the length of the key.
- *
- * @code{.c}
- * lcb_CMDGET cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "key", strlen("key"));
- * @endcode
- *
- * The storage for `keybuf` may be released or modified after the command has
- * been spooled.
- */
-#define LCB_CMD_SET_KEY(cmd, keybuf, keylen) \
-        LCB_KREQ_SIMPLE(&(cmd)->key, keybuf, keylen)
-
-/**
- * Sets the vBucket ID for the item. This accomplishes the same effect as
- * _hashkey_ except that this assumes the vBucket has already been obtained.
- *
- * The intent of this API is to override the default vBucket hashing/calculation.
- *
- * @param cmd the command structure
- * @param vbid the vBucket ID for the key.
- * @volatile
- */
-#define LCB_CMD__SETVBID(cmd, vbid) do { \
-        (cmd)->_hashkey.type = LCB_KV_VBID; \
-        (cmd)->_hashkey.contig.nbytes = vbid; \
-} while (0);
-/**@}*/
-
-/**
- * @name Receiving Responses
- * @details
- *
- * This section describes the APIs used in receiving responses.
- *
- * Each command will have a callback invoked (typically once, for some commands
- * this may be more than once) with a response structure. The response structure
- * will be of a type that extends lcb_RESPBASE. The response structure should
- * not be modified and any of its fields should be considered to point to memory
- * which will be released after the callback exits.
- *
- * The common response header contains the lcb_RESPBASE::cookie field which
- * is the pointer to your application context (passed as the second argument
- * to the spooling function) and allows you to associate a specific command
- * with a specific response.
- *
- * The header will also contain the key (lcb_RESPBASE::key) field which can
- * also help identify the specific command. This is useful if you maintain a
- * single _cookie_ for multiple commands, and have per-item specific data
- * you wish to associate within the _cookie_ itself.
- *
- * Success or failure of the operation is signalled through the lcb_RESPBASE::rc
- * field. Note that even in the case of failure, the lcb_RESPBASE::cookie and
- * lcb_RESPBASE::key fields will _always_ be populated.
- *
- * Most commands also return the CAS of the item (as it exists on the server)
- * and this is placed inside the lcb_RESPBASE::cas field, however it is
- * only valid in the case where lcb_RESPBASE::rc is LCB_SUCCESS.
- *
- * @{
- */
-
-#define LCB_RESP_BASE \
-    /**
-     Application-defined pointer passed as the `cookie` parameter when
-     scheduling the command.
-     */ \
-    void *cookie; \
-    const void *key; /**< Key for request */ \
-    lcb_SIZE nkey; /**< Size of key */ \
-    lcb_CAS cas; /**< CAS for response (if applicable) */ \
-    lcb_error_t rc; /**< Status code */ \
-    lcb_U16 version; /**< ABI version for response */ \
-    /** Response specific flags. see ::lcb_RESPFLAGS */ \
-    lcb_U16 rflags;
-
-
-/**
- * @brief
- * Base response structure for callbacks.
- * All responses structures derive from this ABI.
- */
-typedef struct {
-    LCB_RESP_BASE
-} lcb_RESPBASE;
-
-
-#define LCB_RESP_SERVER_FIELDS \
-    /** String containing the `host:port` of the server which sent this response */ \
-    const char *server;
-
-/**
- * @brief Base structure for informational commands from servers
- * This contains an additional lcb_RESPSERVERBASE::server field containing the
- * server which emitted this response.
- */
-typedef struct {
-    LCB_RESP_BASE
-    LCB_RESP_SERVER_FIELDS
-} lcb_RESPSERVERBASE;
-
 /** @ingroup lcb-mutation-tokens */
-typedef struct lcb_MUTATION_TOKEN {
-    lcb_U64 uuid_; /**< Use LCB_MUTATION_TOKEN_ID() */
-    lcb_U64 seqno_; /**< Use LCB_MUTATION_TOKEN_SEQ() */
-    lcb_U16 vbid_; /**< Use LCB_MUTATION_TOKEN_VB() */
+typedef struct {
+    uint64_t uuid_;  /**< @private */
+    uint64_t seqno_; /**< @private */
+    uint16_t vbid_;  /**< @private */
 } lcb_MUTATION_TOKEN;
+
+LIBCOUCHBASE_API int lcb_mutation_token_is_valid(const lcb_MUTATION_TOKEN *token);
 
 /**
  * @brief Response flags.
@@ -710,30 +546,31 @@ typedef enum {
  */
 typedef enum {
     LCB_CALLBACK_DEFAULT = 0, /**< Default callback invoked as a fallback */
-    LCB_CALLBACK_GET, /**< lcb_get3() */
-    LCB_CALLBACK_STORE, /**< lcb_store3() */
-    LCB_CALLBACK_COUNTER, /**< lcb_counter3() */
-    LCB_CALLBACK_TOUCH, /**< lcb_touch3() */
-    LCB_CALLBACK_REMOVE, /**< lcb_remove3() */
-    LCB_CALLBACK_UNLOCK, /**< lcb_unlock3() */
-    LCB_CALLBACK_STATS, /**< lcb_stats3() */
-    LCB_CALLBACK_VERSIONS, /**< lcb_server_versions3() */
-    LCB_CALLBACK_VERBOSITY, /**< lcb_server_verbosity3() */
-    LCB_CALLBACK_FLUSH, /**< lcb_flush3() */
-    LCB_CALLBACK_OBSERVE, /**< lcb_observe3_ctxnew() */
-    LCB_CALLBACK_GETREPLICA, /**< lcb_rget3() */
-    LCB_CALLBACK_ENDURE, /**< lcb_endure3_ctxnew() */
-    LCB_CALLBACK_HTTP, /**< lcb_http3() */
-    LCB_CALLBACK_CBFLUSH, /**< lcb_cbflush3() */
-    LCB_CALLBACK_OBSEQNO, /**< For lcb_observe_seqno3() */
-    LCB_CALLBACK_STOREDUR, /** <for lcb_storedur3() */
+    LCB_CALLBACK_GET,         /**< lcb_get3() */
+    LCB_CALLBACK_STORE,       /**< lcb_store3() */
+    LCB_CALLBACK_COUNTER,     /**< lcb_counter3() */
+    LCB_CALLBACK_TOUCH,       /**< lcb_touch3() */
+    LCB_CALLBACK_REMOVE,      /**< lcb_remove3() */
+    LCB_CALLBACK_UNLOCK,      /**< lcb_unlock3() */
+    LCB_CALLBACK_STATS,       /**< lcb_stats3() */
+    LCB_CALLBACK_VERSIONS,    /**< lcb_server_versions3() */
+    LCB_CALLBACK_VERBOSITY,   /**< lcb_server_verbosity3() */
+    LCB_CALLBACK_OBSERVE,     /**< lcb_observe3_ctxnew() */
+    LCB_CALLBACK_GETREPLICA,  /**< lcb_rget3() */
+    LCB_CALLBACK_ENDURE,      /**< lcb_endure3_ctxnew() */
+    LCB_CALLBACK_HTTP,        /**< lcb_http3() */
+    LCB_CALLBACK_CBFLUSH,     /**< lcb_cbflush3() */
+    LCB_CALLBACK_OBSEQNO,     /**< For lcb_observe_seqno3() */
+    LCB_CALLBACK_STOREDUR,    /** <for lcb_storedur3() */
     LCB_CALLBACK_SDLOOKUP,
     LCB_CALLBACK_SDMUTATE,
-    LCB_CALLBACK_NOOP, /**< lcb_noop3() */
-    LCB_CALLBACK_PING, /**< lcb_ping3() */
-    LCB_CALLBACK_DIAG, /**< lcb_diag() */
-    LCB_CALLBACK__MAX /* Number of callbacks */
-} lcb_CALLBACKTYPE;
+    LCB_CALLBACK_NOOP,                     /**< lcb_noop3() */
+    LCB_CALLBACK_PING,                     /**< lcb_ping3() */
+    LCB_CALLBACK_DIAG,                     /**< lcb_diag() */
+    LCB_CALLBACK_COLLECTIONS_GET_MANIFEST, /**< lcb_getmanifest() */
+    LCB_CALLBACK_GETCID,                   /**< lcb_getcid() */
+    LCB_CALLBACK__MAX                      /* Number of callbacks */
+} lcb_CALLBACK_TYPE;
 
 /* The following callback types cannot be set using lcb_install_callback3(),
  * however, their value is passed along as the second argument of their
@@ -751,6 +588,33 @@ typedef enum {
 
 /** Callback type for Analytics (cannot be used for lcb_install_callback3()) */
 #define LCB_CALLBACK_ANALYTICS -4
+
+/**
+ * @uncommitted
+ * Durability levels
+ */
+typedef enum {
+    LCB_DURABILITYLEVEL_NONE = 0x00,
+    /**
+     * Mutation must be replicated to (i.e. held in memory of that node) a
+     * majority ((configured_nodes / 2) + 1) of the configured nodes of the
+     * bucket.
+     */
+    LCB_DURABILITYLEVEL_MAJORITY = 0x01,
+    /**
+     * As majority, but additionally persisted to the active node.
+     */
+    LCB_DURABILITYLEVEL_MAJORITY_AND_PERSIST_ON_MASTER = 0x02,
+    /**
+     * Mutation must be persisted to (i.e. written and fsync'd to disk) a
+     * majority of the configured nodes of the bucket.
+     */
+    LCB_DURABILITYLEVEL_PERSIST_TO_MAJORITY = 0x03
+} lcb_DURABILITY_LEVEL;
+
+typedef struct lcb_CMDBASE_ lcb_CMDBASE;
+typedef struct lcb_RESPBASE_ lcb_RESPBASE;
+
 /**
  * Callback invoked for responses.
  * @param instance The handle
@@ -759,8 +623,7 @@ typedef enum {
  * @param resp The response for the operation. Depending on the operation this
  * response structure should be casted into a more specialized type.
  */
-typedef void (*lcb_RESPCALLBACK)
-        (lcb_t instance, int cbtype, const lcb_RESPBASE* resp);
+typedef void (*lcb_RESPCALLBACK)(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *resp);
 
 /**
  * @committed
@@ -770,7 +633,7 @@ typedef void (*lcb_RESPCALLBACK)
  *
  * @param instance the handle
  * @param cbtype the type of operation for which this callback should be installed.
- *        The value should be one of the lcb_CALLBACKTYPE constants
+ *        The value should be one of the lcb_CALLBACK_TYPE constants
  * @param cb the callback to install
  * @return the old callback
  *
@@ -784,8 +647,7 @@ typedef void (*lcb_RESPCALLBACK)
  * to set the default callback to `NULL`.
  */
 LIBCOUCHBASE_API
-lcb_RESPCALLBACK
-lcb_install_callback3(lcb_t instance, int cbtype, lcb_RESPCALLBACK cb);
+lcb_RESPCALLBACK lcb_install_callback3(lcb_INSTANCE *instance, int cbtype, lcb_RESPCALLBACK cb);
 
 /**
  * @committed
@@ -800,8 +662,7 @@ lcb_install_callback3(lcb_t instance, int cbtype, lcb_RESPCALLBACK cb);
  * @return the installed callback for the type.
  */
 LIBCOUCHBASE_API
-lcb_RESPCALLBACK
-lcb_get_callback3(lcb_t instance, int cbtype);
+lcb_RESPCALLBACK lcb_get_callback3(lcb_INSTANCE *instance, int cbtype);
 
 /**
  * Returns the type of the callback as a string.
@@ -810,8 +671,7 @@ lcb_get_callback3(lcb_t instance, int cbtype);
  * @return a string describing the callback type
  */
 LIBCOUCHBASE_API
-const char *
-lcb_strcbtype(int cbtype);
+const char *lcb_strcbtype(int cbtype);
 
 /**@}*/
 
@@ -822,12 +682,6 @@ lcb_strcbtype(int cbtype);
  * @addtogroup lcb-get
  * @{
  */
-
-/**
- * If this bit is set in lcb_CMDGET::cmdflags then the expiry time is cleared if
- * lcb_CMDGET::exptime is 0. This allows get-and-touch with an expiry of 0.
- */
-#define LCB_CMDGET_F_CLEAREXP (1<<16)
 
 /**@brief Command for retrieving a single item
  *
@@ -853,26 +707,6 @@ lcb_strcbtype(int cbtype);
  * </li>
  * </ul>
  */
-typedef struct {
-    LCB_CMD_BASE;
-    /**If set to true, the `exptime` field inside `options` will take to mean
-     * the time the lock should be held. While the lock is held, other operations
-     * trying to access the key will fail with an `LCB_ETMPFAIL` error. The
-     * item may be unlocked either via `lcb_unlock3()` or via a mutation
-     * operation with a supplied CAS
-     */
-    int lock;
-} lcb_CMDGET;
-
-/** @brief Response structure when retrieving a single item */
-typedef struct {
-    LCB_RESP_BASE
-    const void *value; /**< Value buffer for the item */
-    lcb_SIZE nvalue; /**< Length of value */
-    void* bufh;
-    lcb_datatype_t datatype; /**< @internal */
-    lcb_U32 itmflags; /**< User-defined flags for the item */
-} lcb_RESPGET;
 
 /**
  * @committed
@@ -893,7 +727,7 @@ typedef struct {
  * @par Response
  * @code{.c}
  * lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
- * static void get_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb) {
+ * static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb) {
  *     const lcb_RESPGET *resp = (const lcb_RESPGET*)rb;
  *     printf("Got response for key: %.*s\n", (int)resp->key, resp->nkey);
  *
@@ -914,9 +748,33 @@ typedef struct {
  * was already locked. Note that this error may also be returned (as a generic
  * error) if there is a resource constraint within the server itself.
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd);
+
+typedef struct lcb_RESPGET_ lcb_RESPGET;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_status(const lcb_RESPGET *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_error_context(const lcb_RESPGET *resp, const char **ctx, size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_error_ref(const lcb_RESPGET *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_cookie(const lcb_RESPGET *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_cas(const lcb_RESPGET *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_datatype(const lcb_RESPGET *resp, uint8_t *datatype);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_flags(const lcb_RESPGET *resp, uint32_t *flags);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_key(const lcb_RESPGET *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_value(const lcb_RESPGET *resp, const char **value, size_t *value_len);
+
+typedef struct lcb_CMDGET_ lcb_CMDGET;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_create(lcb_CMDGET **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_destroy(lcb_CMDGET *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_parent_span(lcb_CMDGET *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_collection(lcb_CMDGET *cmd, const char *scope, size_t scope_len,
+                                                  const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_key(lcb_CMDGET *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_expiration(lcb_CMDGET *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_locktime(lcb_CMDGET *cmd, uint32_t duration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_durability(lcb_CMDGET *cmd, lcb_DURABILITY_LEVEL level);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_timeout(lcb_CMDGET *cmd, uint32_t timeout);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_get(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGET *cmd);
 /**@}*/
 
 /**
@@ -927,66 +785,6 @@ lcb_get3(lcb_t instance, const void *cookie, const lcb_CMDGET *cmd);
  * @addtogroup lcb-get-replica
  * @{
  */
-
-
-/**@brief Select get-replica mode
- * @see lcb_rget3_cmd_t */
-typedef enum {
-    /**Query all the replicas sequentially, retrieving the first successful
-     * response */
-    LCB_REPLICA_FIRST = 0x00,
-
-    /**Query all the replicas concurrently, retrieving all the responses*/
-    LCB_REPLICA_ALL = 0x01,
-
-    /**Query the specific replica specified by the
-     * lcb_rget3_cmd_t#index field */
-    LCB_REPLICA_SELECT = 0x02
-} lcb_replica_t;
-
-/**
- * @brief Command for requesting an item from a replica
- * @note The `options.exptime` and `options.cas` fields are ignored for this
- * command.
- *
- * This structure is similar to @ref lcb_RESPGET with the addition of an
- * `index` and `strategy` field which allow you to control and select how
- * many replicas are queried.
- *
- * @see lcb_rget3(), lcb_RESPGET
- */
-typedef struct {
-    LCB_CMD_BASE;
-    /**
-     * Strategy for selecting a replica. The default is ::LCB_REPLICA_FIRST
-     * which results in the client trying each replica in sequence until a
-     * successful reply is found, and returned in the callback.
-     *
-     * ::LCB_REPLICA_FIRST evaluates to 0.
-     *
-     * Other options include:
-     * <ul>
-     * <li>::LCB_REPLICA_ALL - queries all replicas concurrently and dispatches
-     * a callback for each reply</li>
-     * <li>::LCB_REPLICA_SELECT - queries a specific replica indicated in the
-     * #index field</li>
-     * </ul>
-     *
-     * @note When ::LCB_REPLICA_ALL is selected, the callback will be invoked
-     * multiple times, one for each replica. The final callback will have the
-     * ::LCB_RESP_F_FINAL bit set in the lcb_RESPBASE::rflags field. The final
-     * response will also contain the response from the last replica to
-     * respond.
-     */
-    lcb_replica_t strategy;
-
-    /**
-     * Valid only when #strategy is ::LCB_REPLICA_SELECT, specifies the replica
-     * index number to query. This should be no more than `nreplicas-1`
-     * where `nreplicas` is the number of replicas the bucket is configured with.
-     */
-    int index;
-} lcb_CMDGETREPLICA;
 
 /**@committed
  *
@@ -1009,7 +807,7 @@ typedef struct {
  * ### Response
  * @code{.c}
  * lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, rget_callback);
- * static void rget_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+ * static void rget_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPGET *resp = (const lcb_RESPGET *)rb;
  *     printf("Got Get-From-Replica response for %.*s\n", (int)resp->key, resp->nkey);
@@ -1035,9 +833,42 @@ typedef struct {
  * (if lcb_CMDGETREPLICA::strategy is ::LCB_REPLICA_SELECT) is not available or
  * is offline.
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd);
+
+typedef enum {
+    LCB_REPLICA_MODE_ANY = 0x00,
+    LCB_REPLICA_MODE_ALL = 0x01,
+    LCB_REPLICA_MODE_IDX0 = 0x02,
+    LCB_REPLICA_MODE_IDX1 = 0x03,
+    LCB_REPLICA_MODE_IDX2 = 0x04,
+    LCB_REPLICA_MODE__MAX
+} lcb_REPLICA_MODE;
+
+typedef struct lcb_RESPGETREPLICA_ lcb_RESPGETREPLICA;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_status(const lcb_RESPGETREPLICA *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_error_context(const lcb_RESPGETREPLICA *resp, const char **ctx,
+                                                             size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_error_ref(const lcb_RESPGETREPLICA *resp, const char **ref,
+                                                         size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_cookie(const lcb_RESPGETREPLICA *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_cas(const lcb_RESPGETREPLICA *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_datatype(const lcb_RESPGETREPLICA *resp, uint8_t *datatype);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_flags(const lcb_RESPGETREPLICA *resp, uint32_t *flags);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_key(const lcb_RESPGETREPLICA *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_value(const lcb_RESPGETREPLICA *resp, const char **value,
+                                                     size_t *value_len);
+
+typedef struct lcb_CMDGETREPLICA_ lcb_CMDGETREPLICA;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_create(lcb_CMDGETREPLICA **cmd, lcb_REPLICA_MODE mode);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_destroy(lcb_CMDGETREPLICA *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_parent_span(lcb_CMDGETREPLICA *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_collection(lcb_CMDGETREPLICA *cmd, const char *scope, size_t scope_len,
+                                                         const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_key(lcb_CMDGETREPLICA *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_timeout(lcb_CMDGETREPLICA *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_getreplica(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETREPLICA *cmd);
+
 /**@}*/
 
 /**
@@ -1056,129 +887,42 @@ lcb_rget3(lcb_t instance, const void *cookie, const lcb_CMDGETREPLICA *cmd);
  */
 typedef enum {
     /**
+     * The default storage mode. This constant was added in version 2.6.2 for
+     * the sake of maintaining a default storage mode, eliminating the need
+     * for simple storage operations to explicitly define
+     * lcb_CMDSTORE::operation. Behaviorally it is identical to @ref LCB_STORE_SET
+     * in that it will make the server unconditionally store the item, whether
+     * it exists or not.
+     */
+    LCB_STORE_UPSERT = 0x00,
+
+    /**
      * Will cause the operation to fail if the key already exists in the
      * cluster.
      */
-    LCB_ADD = 0x01,
+    LCB_STORE_ADD = 0x01,
 
     /**
      * Will cause the operation to fail _unless_ the key already exists in the
      * cluster.
      */
-    LCB_REPLACE = 0x02,
+    LCB_STORE_REPLACE = 0x02,
 
     /** Unconditionally store the item in the cluster */
-    LCB_SET = 0x03,
-
-    /**
-     * The default storage mode. This constant was added in version 2.6.2 for
-     * the sake of maintaining a default storage mode, eliminating the need
-     * for simple storage operations to explicitly define
-     * lcb_CMDSTORE::operation. Behaviorally it is identical to @ref LCB_SET
-     * in that it will make the server unconditionally store the item, whether
-     * it exists or not.
-     */
-    LCB_UPSERT = 0x00,
+    LCB_STORE_SET = 0x03,
 
     /**
      * Rather than setting the contents of the entire document, take the value
      * specified in lcb_CMDSTORE::value and _append_ it to the existing bytes in
      * the value.
      */
-    LCB_APPEND = 0x04,
+    LCB_STORE_APPEND = 0x04,
 
     /**
-     * Like ::LCB_APPEND, but prepends the new value to the existing value.
+     * Like ::LCB_STORE_APPEND, but prepends the new value to the existing value.
      */
-    LCB_PREPEND = 0x05
-} lcb_storage_t;
-
-/**@brief
- *
- * Command for storing an item to the server. This command must contain the
- * key to mutate, the value which should be set (or appended/prepended) in the
- * lcb_CMDSTORE::value field (see LCB_CMD_SET_VALUE()) and the operation indicating
- * the mutation type (lcb_CMDSTORE::operation).
- *
- * @warning #exptime *cannot* be used with #operation set to @ref LCB_APPEND
- * or @ref LCB_PREPEND.
- */
-typedef struct {
-    LCB_CMD_BASE;
-
-    /**
-     * Value to store on the server. The value may be set using the
-     * LCB_CMD_SET_VALUE() or LCB_CMD_SET_VALUEIOV() API
-     */
-    lcb_VALBUF value;
-
-    /**
-     * Format flags used by clients to determine the underlying encoding of
-     * the value. This value is also returned during retrieval operations in the
-     * lcb_RESPGET::itmflags field
-     */
-    lcb_U32 flags;
-
-    /** Do not set this value for now */
-    lcb_datatype_t datatype;
-
-    /** Controls *how* the operation is perfomed. See the documentation for
-     * @ref lcb_storage_t for the options. There is no default value for this
-     * field.
-     */
-    lcb_storage_t operation;
-} lcb_CMDSTORE;
-
-/**
- * @brief Response structure for lcb_store3()
- */
-typedef struct {
-    LCB_RESP_BASE
-
-    /** The type of operation which was performed */
-    lcb_storage_t op;
-} lcb_RESPSTORE;
-
-/**
- * @committed
- *
- * @brief Set the value buffer for the command. This may be used when the new
- * value is a single contiguous buffer.
- *
- * @param scmd an lcb_CMDSTORE pointer
- * @param valbuf the buffer for the value
- * @param vallen the length of the buffer
- *
- * The buffer needs to remain valid only until the command is passed to the
- * lcb_store3() function.
- */
-#define LCB_CMD_SET_VALUE(scmd, valbuf, vallen) do { \
-    (scmd)->value.vtype = LCB_KV_COPY; \
-    (scmd)->value.u_buf.contig.bytes = valbuf; \
-    (scmd)->value.u_buf.contig.nbytes = vallen; \
-} while (0);
-
-/**
- * @committed
- *
- * @brief Set value from a series of input buffers. This may be used when the
- * input buffer is not contiguous. Using this call eliminates the need for
- * creating a temporary contiguous buffer in which to store the value.
- *
- * @param scmd the command which needs a value
- * @param iovs an array of @ref lcb_IOV structures
- * @param niovs number of items in the array.
- *
- * The buffers (and the IOV array itself)
- * need to remain valid only until the scheduler function is called. Once the
- * scheduling function is called, the buffer contents are copied into the
- * library's internal buffers.
- */
-#define LCB_CMD_SET_VALUEIOV(scmd, iovs, niovs) do { \
-    (scmd)->value.vtype = LCB_KV_IOVCOPY; \
-    (scmd)->value.u_buf.multi.iov = iovs; \
-    (scmd)->value.u_buf.multi.niov = niovs; \
-} while (0);
+    LCB_STORE_PREPEND = 0x05
+} lcb_STORE_OPERATION;
 
 /**
  * @committed
@@ -1203,7 +947,7 @@ typedef struct {
  * ### Response
  * @code{.c}
  * lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
- * void store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+ * void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     if (rb->rc == LCB_SUCCESS) {
  *         printf("Store success: CAS=%llx\n", rb->cas);
@@ -1230,9 +974,45 @@ typedef struct {
  * @note After a successful store operation you can use lcb_endure3_ctxnew()
  * to wait for the item to be persisted and/or replicated to other nodes.
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd);
+
+typedef struct lcb_RESPSTORE_ lcb_RESPSTORE;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_status(const lcb_RESPSTORE *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_error_context(const lcb_RESPSTORE *resp, const char **ctx, size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_error_ref(const lcb_RESPSTORE *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_cookie(const lcb_RESPSTORE *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_cas(const lcb_RESPSTORE *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_key(const lcb_RESPSTORE *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_operation(const lcb_RESPSTORE *resp, lcb_STORE_OPERATION *operation);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_mutation_token(const lcb_RESPSTORE *resp, lcb_MUTATION_TOKEN *token);
+
+LIBCOUCHBASE_API int lcb_respstore_observe_attached(const lcb_RESPSTORE *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_observe_stored(const lcb_RESPSTORE *resp, int *store_ok);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_observe_master_exists(const lcb_RESPSTORE *resp, int *master_exists);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_observe_master_persisted(const lcb_RESPSTORE *resp, int *master_persisted);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_observe_num_responses(const lcb_RESPSTORE *resp, uint16_t *num_responses);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_observe_num_persisted(const lcb_RESPSTORE *resp, uint16_t *num_persisted);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_observe_num_replicated(const lcb_RESPSTORE *resp, uint16_t *num_replicated);
+
+typedef struct lcb_CMDSTORE_ lcb_CMDSTORE;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_create(lcb_CMDSTORE **cmd, lcb_STORE_OPERATION operation);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_destroy(lcb_CMDSTORE *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_parent_span(lcb_CMDSTORE *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_collection(lcb_CMDSTORE *cmd, const char *scope, size_t scope_len,
+                                                    const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_key(lcb_CMDSTORE *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_value(lcb_CMDSTORE *cmd, const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_value_iov(lcb_CMDSTORE *cmd, const lcb_IOV *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_expiration(lcb_CMDSTORE *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_cas(lcb_CMDSTORE *cmd, uint64_t cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_flags(lcb_CMDSTORE *cmd, uint32_t flags);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_datatype(lcb_CMDSTORE *cmd, uint8_t datatype);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_durability(lcb_CMDSTORE *cmd, lcb_DURABILITY_LEVEL level);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_durability_observe(lcb_CMDSTORE *cmd, int persist_to, int replicate_to);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_timeout(lcb_CMDSTORE *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_store(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSTORE *cmd);
+
 /**@}*/
 
 /**
@@ -1242,29 +1022,6 @@ lcb_store3(lcb_t instance, const void *cookie, const lcb_CMDSTORE *cmd);
  * @addtogroup lcb-remove
  * @{
  */
-
-/**@brief
- * Command for removing an item from the server
- * @note The lcb_CMDREMOVE::exptime field here does nothing.
- *
- * The lcb_CMDREMOVE::cas field may be
- * set to the last CAS received from a previous operation if you wish to
- * ensure the item is removed only if it has not been mutated since the last
- * retrieval
- */
-typedef lcb_CMDBASE lcb_CMDREMOVE;
-
-/**@brief
- * Response structure for removal operation. The lcb_RESPREMOVE::cas  field
- * may be used to check that it no longer exists on any node's storage
- * using the lcb_endure3_ctxnew() function. You can also use the
- * @ref lcb_MUTATION_TOKEN (via lcb_resp_get_mutation_token)
- *
- * The lcb_RESPREMOVE::rc field may be set to ::LCB_KEY_ENOENT if the item does
- * not exist, or ::LCB_KEY_EEXISTS if a CAS was specified and the item has since
- * been mutated.
- */
-typedef lcb_RESPBASE lcb_RESPREMOVE;
 
 /**@committed
  * @brief Spool a removal of an item
@@ -1283,7 +1040,7 @@ typedef lcb_RESPBASE lcb_RESPREMOVE;
  * ### Response
  * @code{.c}
  * lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, rm_callback);
- * void rm_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+ * void rm_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     printf("Key: %.*s...", (int)resp->nkey, resp->key);
  *     if (rb->rc != LCB_SUCCESS) {
@@ -1302,724 +1059,31 @@ typedef lcb_RESPBASE lcb_RESPREMOVE;
  *         CAS) was specified.
  *
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_remove3(lcb_t instance, const void *cookie, const lcb_CMDREMOVE * cmd);
+
+typedef struct lcb_RESPREMOVE_ lcb_RESPREMOVE;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_status(const lcb_RESPREMOVE *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_context(const lcb_RESPREMOVE *resp, const char **ctx, size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_ref(const lcb_RESPREMOVE *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_cookie(const lcb_RESPREMOVE *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_cas(const lcb_RESPREMOVE *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_key(const lcb_RESPREMOVE *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_mutation_token(const lcb_RESPREMOVE *resp, lcb_MUTATION_TOKEN *token);
+
+typedef struct lcb_CMDREMOVE_ lcb_CMDREMOVE;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_create(lcb_CMDREMOVE **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_destroy(lcb_CMDREMOVE *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_parent_span(lcb_CMDREMOVE *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_collection(lcb_CMDREMOVE *cmd, const char *scope, size_t scope_len,
+                                                     const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_key(lcb_CMDREMOVE *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_cas(lcb_CMDREMOVE *cmd, uint64_t cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_durability(lcb_CMDREMOVE *cmd, lcb_DURABILITY_LEVEL level);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_timeout(lcb_CMDREMOVE *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, const lcb_CMDREMOVE *cmd);
+
 /**@}*/
-
-/**
- * @ingroup lcb-kv-api
- * @defgroup lcb-mctx MULTICMD API
- * @addtogroup lcb-mctx
- * @{
- */
-/**
- * Multi Command Context API
- * Some commands (notably, OBSERVE and its higher level equivalent, endue)
- * are handled more efficiently at the cluster side by stuffing multiple
- * items into a single packet.
- *
- * This structure defines three function pointers to invoke. The #addcmd()
- * function will add a new command to the current packet, the #done()
- * function will schedule the packet(s) into the current scheduling context
- * and the #fail() function will destroy the context without progressing
- * further.
- *
- * Some commands will return an lcb_MULTICMD_CTX object to be used for this
- * purpose:
- *
- * @code{.c}
- * lcb_MUTLICMD_CTX *ctx = lcb_observe3_ctxnew(instance);
- *
- * lcb_CMDOBSERVE cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "key1", strlen("key1"));
- * ctx->addcmd(ctx, &cmd);
- * LCB_CMD_SET_KEY(&cmd.key, "key2", strlen("key2"));
- * ctx->addcmd(ctx, &cmd);
- * LCB_CMD_SET_KEY(&cmd.key, "key3", strlen("key3"));
- * ctx->addcmd(ctx, &cmd);
- *
- * ctx->done(ctx);
- * lcb_wait(instance);
- * @endcode
- */
-typedef struct lcb_MULTICMD_CTX_st {
-    /**
-     * Add a command to the current context
-     * @param ctx the context
-     * @param cmd the command to add. Note that `cmd` may be a subclass of lcb_CMDBASE
-     * @return LCB_SUCCESS, or failure if a command could not be added.
-     */
-    lcb_error_t (*addcmd)(struct lcb_MULTICMD_CTX_st *ctx, const lcb_CMDBASE *cmd);
-
-    /**
-     * Indicate that no more commands are added to this context, and that the
-     * context should assemble the packets and place them in the current
-     * scheduling context
-     * @param ctx The multi context
-     * @param cookie The cookie for all commands
-     * @return LCB_SUCCESS if scheduled successfully, or an error code if there
-     * was a problem constructing the packet(s).
-     */
-    lcb_error_t (*done)(struct lcb_MULTICMD_CTX_st *ctx, const void *cookie);
-
-    /**
-     * Indicate that no more commands should be added to this context, and that
-     * the context should not add its contents to the packet queues, but rather
-     * release its resources. Called if you don't want to actually perform
-     * the operations.
-     * @param ctx
-     */
-    void (*fail)(struct lcb_MULTICMD_CTX_st *ctx);
-
-#ifdef LCB_TRACING
-    /**
-     * Associate parent tracing span with the group operation
-     *
-     * @param ctx The multi context
-     * @param span Parent span
-     */
-    void (*setspan)(struct lcb_MULTICMD_CTX_st *ctx, lcbtrace_SPAN *span);
-#endif
-} lcb_MULTICMD_CTX;
-/**@}*/
-
-/**
- * @ingroup lcb-kv-api
- * @defgroup lcb-durability Durability
- * @brief Ensure persistence and mutation of documents
- * @addtogroup lcb-durability
- * @{
- */
-
-/**
- * @name Wait for a mutation to be persisted/replicated
- * @{
- */
-
-/**
- * Type of durability polling to use.
- */
-typedef enum {
-    /**
-     * Use the preferred durability. If ::LCB_CNTL_FETCH_MUTATION_TOKENS is
-     * enabled and the server version is 4.0 or greater then ::LCB_DURABILITY_MODE_SEQNO
-     * is used. Otherwise ::LCB_DURABILITY_MODE_CAS is used.
-     */
-    LCB_DURABILITY_MODE_DEFAULT = 0,
-
-    /**
-     * Explicitly request CAS-based durability. This is done by checking the
-     * CAS of the item on each server with the item specified in the input.
-     * The durability operation is considered complete when all items' CAS
-     * values match. If the CAS value on the master node changes then the
-     * durability operation will fail with ::LCB_KEY_EEXISTS.
-     *
-     * @note
-     * CAS may change either because of a failover or because of another
-     * subsequent mutation. These scenarios are possible (though unlikely).
-     * The ::LCB_DURABILITY_MODE_SEQNO mode is not subject to these constraints.
-     */
-    LCB_DURABILITY_MODE_CAS,
-
-    /**
-     * Use sequence-number based polling. This is done by checking the current
-     * "mutation sequence number" for the given mutation. To use this mode
-     * either an explicit @ref lcb_MUTATION_TOKEN needs to be passed, or
-     * the ::LCB_CNTL_DURABILITY_MUTATION_TOKENS should be set, allowing
-     * the caching of the latest mutation token for each vBucket.
-     */
-    LCB_DURABILITY_MODE_SEQNO
-} lcb_DURMODE;
-
-/** @brief Options for lcb_endure3_ctxnew() */
-typedef struct {
-    /**
-     * Upper limit in microseconds from the scheduling of the command. When
-     * this timeout occurs, all remaining non-verified keys will have their
-     * callbacks invoked with @ref LCB_ETIMEDOUT.
-     *
-     * If this field is not set, the value of @ref LCB_CNTL_DURABILITY_TIMEOUT
-     * will be used.
-     */
-    lcb_U32 timeout;
-
-    /**
-     * The durability check may involve more than a single call to observe - or
-     * more than a single packet sent to a server to check the key status. This
-     * value determines the time to wait (in microseconds)
-     * between multiple probes for the same server.
-     * If not set, the @ref LCB_CNTL_DURABILITY_INTERVAL will be used
-     * instead.
-     */
-    lcb_U32 interval;
-
-    /**
-     * how many nodes the key should be persisted to (including master).
-     * If set to 0 then persistence will not be checked. If set to a large
-     * number (i.e. UINT16_MAX) and #cap_max is also set, will be set to the
-     * maximum number of nodes to which persistence is possible (which will
-     * always contain at least the master node).
-     *
-     * The maximum valid value for this field is
-     * 1 + the total number of configured replicas for the bucket which are part
-     * of the cluster. If this number is higher then it will either be
-     * automatically capped to the maximum available if (#cap_max is set) or
-     * will result in an ::LCB_DURABILITY_ETOOMANY error.
-     */
-    lcb_U16 persist_to;
-
-    /**
-     * how many nodes the key should be persisted to (excluding master).
-     * If set to 0 then replication will not be checked. If set to a large
-     * number (i.e. UINT16_MAX) and #cap_max is also set, will be set to the
-     * maximum number of nodes to which replication is possible (which may
-     * be 0 if the bucket is not configured for replicas).
-     *
-     * The maximum valid value for this field is the total number of configured
-     * replicas which are part of the cluster. If this number is higher then
-     * it will either be automatically capped to the maximum available
-     * if (#cap_max is set) or will result in an ::LCB_DURABILITY_ETOOMANY
-     * error.
-     * */
-    lcb_U16 replicate_to;
-
-    /**
-     * this flag inverts the sense of the durability check and ensures that
-     * the key does *not* exist. This should be used if checking durability
-     * after an lcb_remove3() operation.
-     */
-    lcb_U8 check_delete;
-
-    /**
-     * If replication/persistence requirements are excessive, cap to
-     * the maximum available
-     */
-    lcb_U8 cap_max;
-
-    /**
-     * Set the polling method to use.
-     * The value for this field should be one of the @ref lcb_DURMODE constants.
-     */
-    lcb_U8 pollopts;
-} lcb_DURABILITYOPTSv0;
-
-/**@brief Options for lcb_endure3_ctxnew() (wrapper)
- * @see lcb_DURABILITYOPTSv0 */
-typedef struct lcb_durability_opts_st {
-    int version;
-    union {
-        lcb_DURABILITYOPTSv0 v0;
-    } v;
-} lcb_durability_opts_t;
-
-/**Must specify this flag if using the 'mutation_token' field, as it was added in
- * a later version */
-#define LCB_CMDENDURE_F_MUTATION_TOKEN (1 << 16)
-
-/**@brief Command structure for endure.
- * If the lcb_CMDENDURE::cas field is specified, the operation will check and
- * verify that the CAS found on each of the nodes matches the CAS specified
- * and only then consider the item to be replicated and/or persisted to the
- * nodes. If the item exists on the master's cache with a different CAS then
- * the operation will fail
- */
-typedef struct {
-    LCB_CMD_BASE;
-    const lcb_MUTATION_TOKEN *mutation_token;
-} lcb_CMDENDURE;
-
-/**@brief Response structure for endure */
-typedef struct {
-    LCB_RESP_BASE
-    /**
-     * Total number of polls (i.e. how many packets per server) did this
-     * operation require
-     */
-    lcb_U16 nresponses;
-
-    /**
-     * Whether this item exists in the master in its current form. This can be
-     * true even if #rc is not successful
-     */
-    lcb_U8 exists_master;
-
-    /**
-     * True if item was persisted on the master node. This may be true even if
-     * #rc is not successful.
-     */
-    lcb_U8 persisted_master;
-
-    /**
-     * Total number of nodes (including master) on which this mutation has
-     * been persisted. Valid even if #rc is not successful.
-     */
-    lcb_U8 npersisted;
-
-    /**
-     * Total number of replica nodes to which this mutation has been replicated.
-     * Valid even if #rc is not successful.
-     */
-    lcb_U8 nreplicated;
-} lcb_RESPENDURE;
-
-/**
- * @committed
- *
- * @details
- * Ensure a key is replicated to a set of nodes
- *
- * The lcb_endure3_ctxnew() API is used to wait asynchronously until the item
- * have been persisted and/or replicated to at least the number of nodes
- * specified in the durability options.
- *
- * The command is implemented by sending a series of `OBSERVE` broadcasts
- * (see lcb_observe3_ctxnew()) to all the nodes in the cluster which are either
- * master or replica for a specific key. It polls repeatedly
- * (see lcb_DURABILITYOPTSv0::interval) until all the items have been persisted and/or
- * replicated to the number of nodes specified in the criteria, or the timeout
- * (aee lcb_DURABILITYOPTsv0::timeout) has been reached.
- *
- * The lcb_DURABILITYOPTSv0::persist_to and lcb_DURABILITYOPTS::replicate_to
- * control the number of nodes the item must be persisted/replicated to
- * in order for the durability polling to succeed.
- *
- * @brief Return a new command context for scheduling endure operations
- * @param instance the instance
- * @param options a structure containing the various criteria needed for
- * durability requirements
- * @param[out] err Error code if a new context could not be created
- * @return the new context, or NULL on error. Note that in addition to memory
- * allocation failure, this function might also return NULL because the `options`
- * structure contained bad values. Always check the `err` result.
- *
- * @par Scheduling Errors
- * The following errors may be encountered when scheduling:
- *
- * @cb_err ::LCB_DURABILITY_ETOOMANY if either lcb_DURABILITYOPTS::persist_to or
- * lcb_DURABILITYOPTS::replicate_to is too big. `err` may indicate this.
- * @cb_err ::LCB_DURABILITY_NO_MUTATION_TOKENS if no relevant mutation token
- * could be found for a given command (this is returned from the relevant
- * lcb_MULTICMD_CTX::addcmd call).
- * @cb_err ::LCB_DUPLICATE_COMMANDS if using CAS-based durability and the
- * same key was submitted twice to lcb_MULTICMD_CTX::addcmd(). This error is
- * returned from lcb_MULTICMD_CTX::done()
- *
- * @par Callback Errors
- * The following errors may be returned in the callback:
- * @cb_err ::LCB_ETIMEDOUT if the criteria could not be verified within the
- * accepted timeframe (see lcb_DURABILITYOPTSv0::timeout)
- * @cb_err ::LCB_KEY_EEXISTS if using CAS-based durability and the item's
- * CAS has been changed on the master node
- * @cb_err ::LCB_MUTATION_LOST if using sequence-based durability and the
- * server has detected that data loss has occurred due to a failover.
- *
- * @par Creating request context
- * @code{.c}
- * lcb_durability_opts_t dopts;
- * lcb_error_t rc;
- * memset(&dopts, 0, sizeof dopts);
- * dopts.v.v0.persist_to = -1;
- * dopts.v.v0.replicate_to = -1;
- * dopts.v.v0.cap_max = 1;
- * mctx = lcb_endure3_ctxnew(instance, &dopts, &rc);
- * // Check mctx != NULL and rc == LCB_SUCCESS
- * @endcode
- *
- * @par Adding keys - CAS
- * This can be used to add keys using CAS-based durability. This shows an
- * example within a store callback.
- * @code{.c}
- * lcb_RESPSTORE *resp = get_store_response();
- * lcb_CMDENDURE cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, resp->key, resp->nkey);
- * cmd.cas = resp->cas;
- * rc = mctx->addcmd(mctx, (const lcb_CMDBASE*)&cmd);
- * rc = mctx->done(mctx, cookie);
- * @endcode
- *
- * @par Adding keys - explicit sequence number
- * Shows how to use an explicit sequence number as a basis for polling
- * @code{.c}
- * // during instance creation:
- * lcb_cntl_string(instance, "fetch_mutation_tokens", "true");
- * lcb_connect(instance);
- * // ...
- * lcb_RESPSTORE *resp = get_store_response();
- * lcb_CMDENDURE cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, resp->key, resp->nkey);
- * cmd.mutation_token = &resp->mutation_token;
- * cmd.cmdflags |= LCB_CMDENDURE_F_MUTATION_TOKEN;
- * rc = mctx->addcmd(mctx, (const lcb_CMDBASE*)&cmd);
- * rc = mctx->done(mctx, cookie);
- * @endcode
- *
- * @par Adding keys - implicit sequence number
- * Shows how to use an implicit mutation token (internally tracked by the
- * library) for durability:
- * @code{.c}
- * // during instance creation
- * lcb_cntl_string(instance, "fetch_mutation_tokens", "true");
- * lcb_cntl_string(instance, "dur_mutation_tokens", "true");
- * lcb_connect(instance);
- * // ...
- * lcb_CMDENDURE cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "key", strlen("key"));
- * mctx->addcmd(mctx, (const lcb_CMDBASE*)&cmd);
- * mctx->done(mctx, cookie);
- * @endcode
- *
- * @par Response
- * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_ENDURE, dur_callback);
- * void dur_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
- * {
- *     const lcb_RESPENDURE *resp = (const lcb_RESPENDURE*)rb;
- *     printf("Durability polling result for %.*s.. ", (int)resp->nkey, resp->key);
- *     if (resp->rc != LCB_SUCCESS) {
- *         printf("Failed: %s\n", lcb_strerror(NULL, resp->rc);
- *         return;
- *     }
- * }
- * @endcode
- */
-LIBCOUCHBASE_API
-lcb_MULTICMD_CTX *
-lcb_endure3_ctxnew(lcb_t instance,
-    const lcb_durability_opts_t *options, lcb_error_t *err);
-
-/**
- * Command structure for lcb_storedur3()
- * This is much like @ref lcb_CMDSTORE, but also includes durability options.
- */
-typedef struct {
-    LCB_CMD_BASE;
-    lcb_VALBUF value; /**< @see lcb_CMDSTORE::value */
-    lcb_U32 flags; /**< @see lcb_CMDSTORE::flags */
-    lcb_datatype_t datatype; /**< @internal */
-    lcb_storage_t operation; /**< @see lcb_CMDSTORE::operation */
-
-    /**
-     * Number of nodes to persist to. If negative, will be capped at the maximum
-     * allowable for the current cluster.
-     * @see lcb_DURABILITYOPTSv0::persist_to
-     */
-    char persist_to;
-
-    /**
-     * Number of nodes to replicate to. If negative, will be capped at the maximum
-     * allowable for the current cluster.
-     * @see lcb_DURABILITYOPTSv0::replicate_to
-     */
-    char replicate_to;
-} lcb_CMDSTOREDUR;
-
-/**
- * Response structure for `LCB_CALLBACK_STOREDUR.
- */
-typedef struct {
-    LCB_RESP_BASE
-    /** Internal durability response structure. This should never be NULL */
-    const lcb_RESPENDURE *dur_resp;
-
-    /**If the #rc field is not @ref LCB_SUCCESS, this field indicates
-     * what failed. If this field is nonzero, then the store operation failed,
-     * but the durability checking failed. If this field is zero then the
-     * actual storage operation failed. */
-    int store_ok;
-} lcb_RESPSTOREDUR;
-
-/**
- * @volatile
- *
- * Schedule a storage operation with subsequent durability checking.
- *
- * This is a compound of a logical lcb_store3() followed by an
- * lcb_endure3_ctxnew() upon success.
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_storedur3(lcb_t instance, const void *cookie, const lcb_CMDSTOREDUR *cmd);
-
-#define LCB_DURABILITY_VALIDATE_CAPMAX (1 << 1)
-
-/**
- * @committed
- *
- * Validate durability settings.
- *
- * This function will validate (and optionally modify) the settings. This is
- * helpful to ensure the durability options are valid _before_ issuing a command
- *
- * @param instance the instance
- *
- * @param[in,out] persist_to The desired number of servers to persist to.
- *  If the `CAPMAX` flag is set, on output this will contain the effective
- *  number of servers the item can be persisted to
- *
- * @param[in,out] replicate_to The desired number of servers to replicate to.
- *  If the `CAPMAX` flag is set, on output this will contain the effective
- *  number of servers the item can be replicated to
- *
- * @param options Options to use for validating. The only recognized option
- *  is currently `LCB_DURABILITY_VALIDATE_CAPMAX` which has the same semantics
- *  as lcb_DURABILITYOPTSv0::cap_max.
- *
- * @return LCB_SUCCESS on success
- * @return LCB_DURABILITY_ETOOMANY if the requirements exceed the number of
- *  servers currently available, and `CAPMAX` was not specifie
- * @return LCB_EINVAL if both `persist_to` and `replicate_to` are 0.
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_durability_validate(lcb_t instance,
-    lcb_U16 *persist_to, lcb_U16 *replicate_to, int options);
-/**@} (NAME) */
-
-
-/**
- * @name Retrieve current persistence/replication status
- * @{
- */
-
-/**Set this bit in the cmdflags field to indicate that only the master node
- * should be contacted*/
-#define LCB_CMDOBSERVE_F_MASTER_ONLY (1 << 16)
-
-/**@brief Structure for an observe request.
- * To request the status from _only_ the master node of the key, set the
- * LCB_CMDOBSERVE_F_MASTERONLY bit inside the lcb_CMDOBSERVE::cmdflags field
- */
-typedef struct {
-    LCB_CMD_BASE;
-    /**For internal use: This determines the servers the command should be
-     * routed to. Each entry is an index within the server. */
-    const lcb_U16* servers_;
-    size_t nservers_;
-} lcb_CMDOBSERVE;
-
-/**
- * @brief Possible statuses for keys in OBSERVE response
- */
-typedef enum {
-    /** The item found in the memory, but not yet on the disk */
-    LCB_OBSERVE_FOUND = 0x00,
-    /** The item hit the disk */
-    LCB_OBSERVE_PERSISTED = 0x01,
-    /** The item missing on the disk and the memory */
-    LCB_OBSERVE_NOT_FOUND = 0x80,
-    /** No knowledge of the key :) */
-    LCB_OBSERVE_LOGICALLY_DELETED = 0x81,
-
-    LCB_OBSERVE_MAX = 0x82
-} lcb_observe_t;
-
-/**@brief Response structure for an observe command.
- * Note that the lcb_RESPOBSERVE::cas contains the CAS of the item as it is
- * stored within that specific server. The CAS may be incorrect or stale
- * unless lcb_RESPOBSERVE::ismaster is true.
- */
-typedef struct {
-    LCB_RESP_BASE
-    lcb_U8 status; /**<Bit set of flags */
-    lcb_U8 ismaster; /**< Set to true if this response came from the master node */
-    lcb_U32 ttp; /**<Unused. For internal requests, contains the server index */
-    lcb_U32 ttr; /**<Unused */
-} lcb_RESPOBSERVE;
-
-/**
- * @brief Create a new multi context for an observe operation
- * @param instance the instance
- * @return a new multi command context, or NULL on allocation failure.
- * @committed
- *
- * Note that the callback for this command will be invoked multiple times,
- * one for each node. To determine when no more callbacks will be invoked,
- * check for the LCB_RESP_F_FINAL flag inside the lcb_RESPOBSERVE::rflags
- * field.
- *
- * @code{.c}
- * void callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPOBSERVE *resp)
- * {
- *   if (resp->rflags & LCB_RESP_F_FINAL) {
- *     return;
- *   }
- *
- *   printf("Got status for key %.*s\n", (int)resp->nkey, resp->key);
- *   printf("  Node Type: %s\n", resp->ismaster ? "MASTER" : "REPLICA");
- *   printf("  Status: 0x%x\n", resp->status);
- *   printf("  Current CAS: 0x%"PRIx64"\n", resp->cas);
- * }
- *
- * lcb_MULTICMD_CTX *mctx = lcb_observe3_ctxnew(instance);
- * lcb_CMDOBSERVE cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "key", 3);
- * mctx->addcmd(mctx, (lcb_CMDBASE *)&cmd);
- * mctx->done(mctx, cookie);
- * lcb_install_callback3(instance, LCB_CALLBACK_OBSERVE, (lcb_RESP_cb)callback);
- * @endcode
- *
- * @warning
- * Operations created by observe cannot be undone using lcb_sched_fail().
- */
-LIBCOUCHBASE_API
-lcb_MULTICMD_CTX *
-lcb_observe3_ctxnew(lcb_t instance);
-
-/**
- * @brief Command structure for lcb_observe_seqno3().
- * Note #key, #nkey, and #cas are not used in this command.
- */
-typedef struct {
-    LCB_CMD_BASE;
-    /**
-     * Server index to target. The server index must be valid and must also
-     * be either a master or a replica for the vBucket indicated in #vbid
-     */
-    lcb_U16 server_index;
-    lcb_U16 vbid; /**< vBucket ID to query */
-    lcb_U64 uuid; /**< UUID known to client which should be queried */
-} lcb_CMDOBSEQNO;
-
-/**
- * @brief Response structure for lcb_observe_seqno3()
- *
- * Note that #key, #nkey and #cas are empty because the operand is the relevant
- * mutation token fields in @ref lcb_CMDOBSEQNO
- */
-typedef struct {
-    LCB_RESP_BASE
-    lcb_U16 vbid; /**< vBucket ID (for potential mapping) */
-    lcb_U16 server_index; /**< Input server index */
-    lcb_U64 cur_uuid; /**< UUID for this vBucket as known to the server */
-    lcb_U64 persisted_seqno; /**< Highest persisted sequence */
-    lcb_U64 mem_seqno; /**< Highest known sequence */
-
-    /**
-     * In the case where the command's uuid is not the most current, this
-     * contains the last known UUID
-     */
-    lcb_U64 old_uuid;
-
-    /**
-     * If #old_uuid is nonzero, contains the highest sequence number persisted
-     * in the #old_uuid snapshot.
-     */
-    lcb_U64 old_seqno;
-} lcb_RESPOBSEQNO;
-
-/**
- * @volatile
- * @brief Get the persistence/replication status for a given mutation token
- * @param instance the handle
- * @param cookie callback cookie
- * @param cmd the command
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_observe_seqno3(lcb_t instance, const void *cookie, const lcb_CMDOBSEQNO *cmd);
-
-/**@} (Name: OBSERVE) */
-/**@} (Group: Durability) */
-
-/**
- * @ingroup lcb-public-api
- * @defgroup lcb-mutation-tokens Mutation Tokens
- *
- * @details Mutation Tokens are returned with mutations if
- * ::LCB_CNTL_FETCH_MUTATION_TOKENS is enabled (off by default). Mutation tokens
- * are largely of internal use, but can be used by N1QL queries and durability
- * requirement polling
- *
- * @addtogroup lcb-mutation-tokens
- * @{
- */
-
-/**
- * @brief
- * Structure representing a synchronization token. This token may be used
- * for durability operations and N1QL queries. The contents of this structure
- * should be considered opaque, and accessed via the various macros
- * @struct lcb_MUTATION_TOKEN
- */
-
-/** Get the vBucket UUID */
-#define LCB_MUTATION_TOKEN_ID(p) ((p)->uuid_)
-/** Get the sequence number */
-#define LCB_MUTATION_TOKEN_SEQ(p) ((p)->seqno_)
-/** Get the vBucket number itself */
-#define LCB_MUTATION_TOKEN_VB(p) ((p)->vbid_)
-/** Whether this mutation token has valid contents */
-#define LCB_MUTATION_TOKEN_ISVALID(p) \
-    (p && !((p)->uuid_ == 0 && (p)->seqno_ == 0 && (p)->vbid_ == 0))
-
-/**
- * Retrieves the mutation token from the response structure
- * @param cbtype the type of callback invoked
- * @param rb the pointer to the response
- * @return The embedded mutation token, or NULL if the response does not have a
- *         mutation token. This may be either because the command does not support
- *         mutation tokens, or because they have been disabled at the connection
- *         level.
- */
-LIBCOUCHBASE_API
-const lcb_MUTATION_TOKEN *
-lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb);
-
-/**
- * @volatile
- *
- * Retrieves the last mutation token for a given key.
- * This relies on the @ref LCB_CNTL_DURABILITY_MUTATION_TOKENS option, and will
- * check the instance-level log to determine the latest MUTATION_TOKEN for
- * the given vBucket ID which the key maps to.
- *
- * @param instance the instance
- * @param kb The buffer representing the key. The type of the buffer (see
- * lcb_KEYBUF::type) may either be ::LCB_KV_COPY or ::LCB_KV_VBID
- * @param[out] errp Set to an error if this function returns NULL
- * @return The mutation token if successful, otherwise NULL.
- *
- * Getting the latest mutation token for a key:
- *
- * @code{.c}
- * lcb_KEYBUF kb;
- * kb.type = LCB_KV_COPY;
- * kb.contig.bytes = "Hello";
- * kv.config.nbytes = 5;
- * mt = lcb_get_mutation_token(instance, &kb, &rc);
- * @endcode
- *
- * Getting the latest mutation token for a vbucket:
- * @code{.c}
- * lcb_KEYBUF kb;
- * kv.type = LCB_KV_VBID;
- * kv.contig.nbytes = 543;
- * kv.config.bytes = NULL;
- * mt = lcb_get_mutation_token(instance, &kb, &rc);
- * @endcode
- *
- * Getting the mutation token for each vbucket
- * @code{.c}
- * size_t ii, nvb;
- * lcbvb_CONFIG *vbc;
- * lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
- * nvb = vbucket_get_num_vbuckets(vbc);
- * for (ii = 0; ii < nvb; ii++) {
- *   lcb_KEYBUF kb;
- *   const lcb_MUTATION_TOKEN *mt;
- *   kb.type = LCB_KV_VBID;
- *   kb.contig.nbytes = ii;
- *   kb.config.bytes = NULL;
- *   mt = lcb_get_mutation_token(instance, &kb, &rc);
- * }
- * @endcode
- */
-LIBCOUCHBASE_API
-const lcb_MUTATION_TOKEN *
-lcb_get_mutation_token(lcb_t instance, const lcb_KEYBUF *kb, lcb_error_t *errp);
-
-/**@} (Group: Mutation Tokens) */
 
 /**
  * @ingroup lcb-kv-api
@@ -2032,41 +1096,6 @@ lcb_get_mutation_token(lcb_t instance, const lcb_KEYBUF *kb, lcb_error_t *errp);
  * @addtogroup lcb-counter
  * @{
  */
-
-/**
- * @brief Command for counter operations.
- * @see lcb_counter3(), lcb_RESPCOUNTER.
- *
- * @warning You may only set the #exptime member if the #create member is set
- * to a true value. Setting `exptime` otherwise will cause the operation to
- * fail with @ref LCB_OPTIONS_CONFLICT
- *
- * @warning The #cas member should be set to 0 for this operation. As this
- * operation itself is atomic, specifying a CAS is not necessary.
- */
-typedef struct {
-    LCB_CMD_BASE;
-    /**Delta value. If this number is negative the item on the server is
-     * decremented. If this number is positive then the item on the server
-     * is incremented */
-    lcb_int64_t delta;
-    /**If the item does not exist on the server (and `create` is true) then
-     * this will be the initial value for the item. */
-    lcb_U64 initial;
-    /**Boolean value. Create the item and set it to `initial` if it does not
-     * already exist */
-    int create;
-} lcb_CMDCOUNTER;
-
-/**
- * @brief Response structure for counter operations
- * @see lcb_counter3()
- */
-typedef struct {
-    LCB_RESP_BASE
-    /** Contains the _current_ value after the operation was performed */
-    lcb_U64 value;
-} lcb_RESPCOUNTER;
 
 /**@committed
  * @brief Schedule single counter operation
@@ -2089,7 +1118,7 @@ typedef struct {
  * @par Response
  * @code{.c}
  * lcb_install_callback3(instance, LCB_CALLBACKTYPE_COUNTER, counter_cb);
- * void counter_cb(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+ * void counter_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPCOUNTER *resp = (const lcb_RESPCOUNTER *)rb;
  *     if (resp->rc == LCB_SUCCESS) {
@@ -2108,9 +1137,34 @@ typedef struct {
  * @cb_err ::LCB_DELTA_BADVAL if the existing document's content could not
  * be parsed as a number by the server.
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_counter3(lcb_t instance, const void *cookie, const lcb_CMDCOUNTER *cmd);
+
+typedef struct lcb_RESPCOUNTER_ lcb_RESPCOUNTER;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_status(const lcb_RESPCOUNTER *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_context(const lcb_RESPCOUNTER *resp, const char **ctx,
+                                                          size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_ref(const lcb_RESPCOUNTER *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_cookie(const lcb_RESPCOUNTER *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_cas(const lcb_RESPCOUNTER *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_key(const lcb_RESPCOUNTER *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_mutation_token(const lcb_RESPCOUNTER *resp, lcb_MUTATION_TOKEN *token);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_value(const lcb_RESPCOUNTER *resp, uint64_t *value);
+
+typedef struct lcb_CMDCOUNTER_ lcb_CMDCOUNTER;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_create(lcb_CMDCOUNTER **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_destroy(lcb_CMDCOUNTER *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_parent_span(lcb_CMDCOUNTER *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_collection(lcb_CMDCOUNTER *cmd, const char *scope, size_t scope_len,
+                                                      const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_key(lcb_CMDCOUNTER *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_expiration(lcb_CMDCOUNTER *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_delta(lcb_CMDCOUNTER *cmd, int64_t number);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_initial(lcb_CMDCOUNTER *cmd, uint64_t number);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_durability(lcb_CMDCOUNTER *cmd, lcb_DURABILITY_LEVEL level);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_timeout(lcb_CMDCOUNTER *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCOUNTER *cmd);
+
 /**@} (Group: Counter) */
 
 /**@ingroup lcb-kv-api
@@ -2133,15 +1187,6 @@ lcb_counter3(lcb_t instance, const void *cookie, const lcb_CMDCOUNTER *cmd);
  * @{
  */
 
-/**@brief Command for lcb_unlock3()
- * @attention lcb_CMDBASE::cas must be specified, or the operation will fail on
- * the server*/
-typedef lcb_CMDBASE lcb_CMDUNLOCK;
-
-/**@brief Response structure for an unlock command.
- * @note the lcb_RESPBASE::cas field does not contain the CAS of the item*/
-typedef lcb_RESPBASE lcb_RESPUNLOCK;
-
 /**
  * @committed
  * @brief
@@ -2156,7 +1201,7 @@ typedef lcb_RESPBASE lcb_RESPUNLOCK;
  * @par Request
  *
  * @code{.c}
- * void locked_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPBASE *resp) {
+ * void locked_callback(lcb_INSTANCE, lcb_CALLBACK_TYPE, const lcb_RESPBASE *resp) {
  *   lcb_CMDUNLOCK cmd = { 0 };
  *   LCB_CMD_SET_KEY(&cmd, resp->key, resp->nkey);
  *   cmd.cas = resp->cas;
@@ -2165,9 +1210,28 @@ typedef lcb_RESPBASE lcb_RESPUNLOCK;
  *
  * @endcode
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd);
+
+typedef struct lcb_RESPUNLOCK_ lcb_RESPUNLOCK;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_status(const lcb_RESPUNLOCK *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_error_context(const lcb_RESPUNLOCK *resp, const char **ctx, size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_error_ref(const lcb_RESPUNLOCK *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_cookie(const lcb_RESPUNLOCK *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_cas(const lcb_RESPUNLOCK *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_key(const lcb_RESPUNLOCK *resp, const char **key, size_t *key_len);
+
+typedef struct lcb_CMDUNLOCK_ lcb_CMDUNLOCK;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_create(lcb_CMDUNLOCK **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_destroy(lcb_CMDUNLOCK *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_parent_span(lcb_CMDUNLOCK *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_collection(lcb_CMDUNLOCK *cmd, const char *scope, size_t scope_len,
+                                                     const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_key(lcb_CMDUNLOCK *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_cas(lcb_CMDUNLOCK *cmd, uint64_t cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_timeout(lcb_CMDUNLOCK *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_unlock(lcb_INSTANCE *instance, void *cookie, const lcb_CMDUNLOCK *cmd);
+
 /**@} (Group: Unlock) */
 
 /**@ingroup lcb-kv-api
@@ -2181,19 +1245,6 @@ lcb_unlock3(lcb_t instance, const void *cookie, const lcb_CMDUNLOCK *cmd);
  * @addtogroup lcb-touch
  * @{
  */
-
-/**
- * @brief Command structure for a touch request
- * @note The lcb_CMDTOUCH::cas field is ignored. The item's modification time
- * is always updated regardless if the CAS on the server differs.
- * The #exptime field is always used. If 0 then the expiry on the server is
- * cleared.
- */
-typedef lcb_CMDBASE lcb_CMDTOUCH;
-
-/**@brief Response structure for a touch request
- * @note the lcb_RESPTOUCH::cas field contains the current CAS of the item*/
-typedef lcb_RESPBASE lcb_RESPTOUCH;
 
 /**@committed
  * @brief Spool a touch request
@@ -2213,7 +1264,7 @@ typedef lcb_RESPBASE lcb_RESPTOUCH;
  * @par Response
  * @code{.c}
  * lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, touch_callback);
- * void touch_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+ * void touch_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     if (rb->rc == LCB_SUCCESS) {
  *         printf("Touch succeeded\n");
@@ -2221,222 +1272,32 @@ typedef lcb_RESPBASE lcb_RESPTOUCH;
  * }
  * @endcode
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_touch3(lcb_t instance, const void *cookie, const lcb_CMDTOUCH *cmd);
+
+typedef struct lcb_RESPTOUCH_ lcb_RESPTOUCH;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_status(const lcb_RESPTOUCH *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_context(const lcb_RESPTOUCH *resp, const char **ctx, size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_ref(const lcb_RESPTOUCH *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_cookie(const lcb_RESPTOUCH *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_cas(const lcb_RESPTOUCH *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_key(const lcb_RESPTOUCH *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_mutation_token(const lcb_RESPTOUCH *resp, lcb_MUTATION_TOKEN *token);
+
+typedef struct lcb_CMDTOUCH_ lcb_CMDTOUCH;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_create(lcb_CMDTOUCH **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_destroy(lcb_CMDTOUCH *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_parent_span(lcb_CMDTOUCH *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_collection(lcb_CMDTOUCH *cmd, const char *scope, size_t scope_len,
+                                                    const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_key(lcb_CMDTOUCH *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_expiration(lcb_CMDTOUCH *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_durability(lcb_CMDTOUCH *cmd, lcb_DURABILITY_LEVEL level);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_timeout(lcb_CMDTOUCH *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_touch(lcb_INSTANCE *instance, void *cookie, const lcb_CMDTOUCH *cmd);
+
 /**@} (Group: Touch) */
 /**@} (Group: KV API) */
-
-/**@ingroup lcb-public-api
- * @defgroup lcb-misc-cmds Miscellaneous Commands
- * @brief Additional miscellaneous commands which can be executed on the server.
- *
- * @addtogroup lcb-misc-cmds
- * @{
- */
-
-/**
- * @name Server Statistics
- * @{
- */
-
-/**
- * @brief Command structure for stats request
- * The lcb_CMDSTATS::key field should contain the statistics key, or be empty
- * if the default statistics are desired.
- * The #cmdflags field may contain the @ref LCB_CMDSTATS_F_KV flag.
- */
-typedef lcb_CMDBASE lcb_CMDSTATS;
-
-/**
- * The key is a stored item for which statistics should be retrieved. This
- * invokes the 'keystats' semantics. Note that when using _keystats_, a key
- * must be present, and must not have any spaces in it.
- */
-#define LCB_CMDSTATS_F_KV (1 << 16)
-
-/**@brief Response structure for cluster statistics.
- * The lcb_RESPSTATS::key field contains the statistic name (_not_ the same
- * as was passed in lcb_CMDSTATS::key which is the name of the statistical
- * _group_).*/
-typedef struct {
-    LCB_RESP_BASE
-    LCB_RESP_SERVER_FIELDS
-    const char *value; /**< The value, if any, for the given statistic */
-    lcb_SIZE nvalue; /**< Length of value */
-} lcb_RESPSTATS;
-
-/**@committed
- * @brief Schedule a request for statistics from the cluster.
- * @param instance the instance
- * @param cookie pointer to associate with the request
- * @param cmd the command
- * @return LCB_SUCCESS on success, other error code on failure.
- *
- * Note that the callback for this command is invoked an indeterminate amount
- * of times. The callback is invoked once for each statistic for each server.
- * When all the servers have responded with their statistics, a final callback
- * is delivered to the application with the LCB_RESP_F_FINAL flag set in the
- * lcb_RESPSTATS::rflags field. When this response is received no more callbacks
- * for this command shall be invoked.
- *
- * @par Request
- * @code{.c}
- * lcb_CMDSTATS cmd = { 0 };
- * // Using default stats, no further initialization
- * lcb_stats3(instance, fp, &cmd);
- * lcb_wait(instance);
- * @endcode
- *
- * @par Response
- * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_STATS, stats_callback);
- * void stats_callback(lcb_t, int, const lcb_RESPBASE *rb)
- * {
- *     const lcb_RESPSTATS *resp = (const lcb_RESPSTATS*)rb;
- *     if (resp->key) {
- *         printf("Server %s: %.*s = %.*s\n", resp->server,
- *            (int)resp->nkey, resp->key,
- *            (int)resp->nvalue, resp->value);
- *     }
- *     if (resp->rflags & LCB_RESP_F_FINAL) {
- *       printf("No more replies remaining!\n");
- *     }
- * }
- * @endcode
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_stats3(lcb_t instance, const void *cookie, const lcb_CMDSTATS * cmd);
-/**@} (Name: Stats) */
-
-/**@name Server Versions
- * @warning This does not return the actual _Couchbase_ version but rather
- * the internal version of the memcached server.
- * @{
- */
-
-/**@brief Response structure for the version command */
-typedef struct {
-    LCB_RESP_BASE
-    LCB_RESP_SERVER_FIELDS
-    const char *mcversion; /**< The version string */
-    lcb_SIZE nversion; /**< Length of the version string */
-} lcb_RESPMCVERSION;
-
-/**
- * @volatile
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_server_versions3(lcb_t instance, const void *cookie, const lcb_CMDBASE * cmd);
-
-/**@} (Name: MCversion) */
-
-/**
- * @name Server Log Verbosity
- * @{
- */
-
-/** @brief `level` field for lcb_server_verbosity3 () */
-typedef enum {
-    LCB_VERBOSITY_DETAIL = 0x00,
-    LCB_VERBOSITY_DEBUG = 0x01,
-    LCB_VERBOSITY_INFO = 0x02,
-    LCB_VERBOSITY_WARNING = 0x03
-} lcb_verbosity_level_t;
-
-typedef struct {
-    /* unused */
-    LCB_CMD_BASE;
-    const char *server;
-    lcb_verbosity_level_t level;
-} lcb_CMDVERBOSITY;
-typedef lcb_RESPSERVERBASE lcb_RESPVERBOSITY;
-/**@volatile*/
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_server_verbosity3(lcb_t instance, const void *cookie, const lcb_CMDVERBOSITY *cmd);
-/**@} (Name: Verbosity) */
-/**@} (Group: Misc) */
-
-/**
- * @ingroup lcb-public-api
- * @defgroup lcb-flush Flush
- * @brief Clear the contents of a bucket
- *
- * Flush is useful for development environments (for example clearing a bucket
- * before running tests).
- *
- * @addtogroup lcb-flush
- * @{
- */
-typedef lcb_CMDBASE lcb_CMDCBFLUSH;
-typedef lcb_RESPBASE lcb_RESPCBFLUSH;
-
-/**
- * @uncommitted
- *
- * Flush a bucket
- * This function will properly flush any type of bucket using the REST API
- * via HTTP. This may be used in a manner similar to the older lcb_flush3().
- *
- * The callback invoked under ::LCB_CALLBACK_CBFLUSH will be invoked with either
- * a success or failure status depending on the outcome of the operation. Note
- * that in order for lcb_cbflush3() to succeed, flush must already be enabled
- * on the bucket via the administrative interface.
- *
- * @param instance the library handle
- * @param cookie the cookie passed in the callback
- * @param cmd empty command structure. Currently there are no options for this
- *  command.
- * @return status code for scheduling.
- *
- * @attention
- * Because this command is built using HTTP, this is not subject to operation
- * pipeline calls such as lcb_sched_enter()/lcb_sched_leave()
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_cbflush3(lcb_t instance, const void *cookie, const lcb_CMDCBFLUSH *cmd);
-
-
-typedef lcb_CMDBASE lcb_CMDFLUSH;
-typedef lcb_RESPSERVERBASE lcb_RESPFLUSH;
-/**
- * @volatile
- * @deprecated
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_flush3(lcb_t instance, const void *cookie, const lcb_CMDFLUSH *cmd);
-/**@} (Group: Flush) */
-
-/**
- * @ingroup lcb-public-api
- * @defgroup lcb-noop NOOP
- * @brief Send NOOP command to server
- *
- * @addtogroup lcb-noop
- * @{
- */
-typedef lcb_CMDBASE lcb_CMDNOOP;
-typedef lcb_RESPSERVERBASE lcb_RESPNOOP;
-
-/**
- * @committed
- *
- * Send NOOP to the node
- *
- * @param instance the library handle
- * @param cookie the cookie passed in the callback
- * @param cmd empty command structure.
- * @return status code for scheduling.
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_noop3(lcb_t instance, const void *cookie, const lcb_CMDNOOP *cmd);
-/**@} (Group: NOOP) */
 
 /**
  * @ingroup lcb-public-api
@@ -2448,66 +1309,17 @@ lcb_noop3(lcb_t instance, const void *cookie, const lcb_CMDNOOP *cmd);
  */
 
 /**
- * Ping data (Key/Value) service. Used in lcb_CMDPING#services
- */
-#define LCB_PINGSVC_F_KV 0x01
-
-/**
- * Ping query (N1QL) service. Used in lcb_CMDPING#services
- */
-#define LCB_PINGSVC_F_N1QL 0x02
-
-/**
- * Ping views (Map/Reduce) service. Used in lcb_CMDPING#services
- */
-#define LCB_PINGSVC_F_VIEWS 0x04
-
-/**
- * Ping full text search (FTS) service. Used in lcb_CMDPING#services
- */
-#define LCB_PINGSVC_F_FTS 0x08
-
-/**
- * Ping Analytics for N1QL service. Used in lcb_CMDPING#services
- */
-#define LCB_PINGSVC_F_ANALYTICS 0x10
-
-/**
- * Do not record any metrics or status codes from ping responses.
- * This might be useful to reduce overhead, when user-space
- * keep-alive mechanism is not interested in actual latencies,
- * but rather need keep sockets active. Used in lcb_CMDPING#options
- */
-#define LCB_PINGOPT_F_NOMETRICS 0x01
-
-/**
- * Automatically encode PING result as JSON. See njson/json fields
- * of #lcb_RESPPING structure. Used in lcb_CMDPING#options
- */
-#define LCB_PINGOPT_F_JSON 0x02
-
-/**
- * Add extra details about service status into generated JSON.
- * Requires LCB_PINGOPT_F_JSON to be set. Used in lcb_CMDPING#options
- */
-#define LCB_PINGOPT_F_JSONDETAILS 0x04
-
-/**
- * Generate indented JSON, which is better for reading. Used in lcb_CMDPING#options
- */
-#define LCB_PINGOPT_F_JSONPRETTY 0x08
-
-/**
- * Structure for PING requests.
+ * Status of the service
  *
  * @committed
  */
-typedef struct {
-    LCB_CMD_BASE;
-    int services; /**< bitmap for services to ping */
-    int options; /**< extra options, e.g. for result representation */
-    const char *id; /**< optional, zero-terminated string to identify the report */
-} lcb_CMDPING;
+typedef enum {
+    LCB_PING_STATUS_OK = 0,
+    LCB_PING_STATUS_TIMEOUT,
+    LCB_PING_STATUS_ERROR,
+    LCB_PING_STATUS_INVALID, /* bad index or argument */
+    LCB_PING_STATUS__MAX
+} lcb_PING_STATUS;
 
 /**
  * Type of the service. This enumeration is used in PING responses.
@@ -2515,110 +1327,47 @@ typedef struct {
  * @committed
  */
 typedef enum {
-    LCB_PINGSVC_KV = 0,
-    LCB_PINGSVC_VIEWS,
-    LCB_PINGSVC_N1QL,
-    LCB_PINGSVC_FTS,
-    LCB_PINGSVC__MAX
-} lcb_PINGSVCTYPE;
+    LCB_PING_SERVICE_KV = 0,
+    LCB_PING_SERVICE_VIEWS,
+    LCB_PING_SERVICE_N1QL,
+    LCB_PING_SERVICE_FTS,
+    LCB_PING_SERVICE_ANALYTICS,
+    LCB_PING_SERVICE__MAX
+} lcb_PING_SERVICE;
 
-/**
- * Status of the service
- *
- * @committed
- */
-typedef enum {
-    LCB_PINGSTATUS_OK = 0,
-    LCB_PINGSTATUS_TIMEOUT,
-    LCB_PINGSTATUS_ERROR,
-    LCB_PINGSTATUS__MAX
-} lcb_PINGSTATUS;
+typedef struct lcb_RESPPING_ lcb_RESPPING;
 
-/**
- * Entry describing the status of the service in the cluster.
- * It is part of lcb_RESPING structure.
- *
- * @committed
- */
-typedef struct {
-    lcb_PINGSVCTYPE type; /**< type of the service */
-    /* TODO: rename to "remote" */
-    const char *server; /**< server host:port */
-    lcb_U64 latency; /**< latency in nanoseconds */
-    lcb_error_t rc; /**< raw return code of the operation */
-    const char *local; /**< server host:port */
-    const char *id; /**< service identifier (unique in scope of lcb_t connection instance) */
-    const char *scope; /**< optional scope name (typically equals to the bucket name) */
-    lcb_PINGSTATUS status; /**< status of the operation */
-} lcb_PINGSVC;
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_status(const lcb_RESPPING *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_cookie(const lcb_RESPPING *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_value(const lcb_RESPPING *resp, const char **json, size_t *json_len);
+LIBCOUCHBASE_API size_t lcb_respping_result_size(const lcb_RESPPING *resp);
+LIBCOUCHBASE_API lcb_PING_STATUS lcb_respping_result_status(const lcb_RESPPING *resp, size_t index);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_id(const lcb_RESPPING *resp, size_t index, const char **endpoint_id,
+                                                   size_t *endpoint_id_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_service(const lcb_RESPPING *resp, size_t index, lcb_PING_SERVICE *type);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_remote(const lcb_RESPPING *resp, size_t index, const char **address,
+                                                       size_t *address_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_local(const lcb_RESPPING *resp, size_t index, const char **address,
+                                                      size_t *address_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_latency(const lcb_RESPPING *resp, size_t index, uint64_t *latency);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_scope(const lcb_RESPPING *resp, size_t index, const char **name,
+                                                      size_t *name_len);
 
-/**
- * Structure for PING responses.
- *
- * @committed
- */
-typedef struct {
-    LCB_RESP_BASE
-    LCB_RESP_SERVER_FIELDS
-    lcb_SIZE nservices; /**< number of the nodes, replied to ping */
-    lcb_PINGSVC *services; /**< the nodes, replied to ping, if any */
-    lcb_SIZE njson; /**< length of JSON string (when #LCB_PINGOPT_F_JSON was specified) */
-    const char *json; /**< pointer to JSON string */
-} lcb_RESPPING;
+typedef struct lcb_CMDPING_ lcb_CMDPING;
 
-/**
- * @brief Check connections by sending NOOP-like messages to all services.
- *
- * @committed
- *
- * When no metrics, required, it is possible to reduce memory overhead
- * by turning off response contents using #LCB_PINGOPT_F_NOMETRICS.
- *
- * @par Request
- * @code{.c}
- * lcb_CMDPING cmd = { 0 };
- * // select services to ping
- * cmd.services = LCB_PINGSVC_F_KV | LCB_PINGSVC_F_N1QL;
- * lcb_ping3(instance, fp, &cmd);
- * lcb_wait(instance);
- * @endcode
- *
- * @par Response
- * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_PING, ping_callback);
- * void ping_callback(lcb_t, int, const lcb_RESPBASE *rb)
- * {
- *     const lcb_RESPPING *resp = (const lcb_RESPPING*)rb;
- *     int ii;
- *     for (ii = 0; ii < resp->nservices; ii++) {
- *         printf("service: %s, status: %d, host: %s, latency: %lu nanoseconds\n",
- *             resp->services[ii].type == LCB_PINGSVC_KV ? "KV" : "N1QL",
- *             resp->services[ii].status,
- *             resp->services[ii].server,
- *             (unsigned long)resp->services[ii].latency);
- *     }
- * }
- * @endcode
- * @param instance the library handle
- * @param cookie the cookie passed in the callback
- * @param cmd empty command structure.
- * @return status code for scheduling.
- */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd);
-
-typedef struct {
-    LCB_CMD_BASE;
-    int options;  /**< extra options, e.g. for result representation */
-    const char *id; /**< optional, zero-terminated string to identify the report */
-} lcb_CMDDIAG;
-
-typedef struct {
-    LCB_RESP_BASE
-    lcb_SIZE njson;   /**< length of JSON string (when #LCB_PINGOPT_F_JSON was specified) */
-    const char *json; /**< pointer to JSON string */
-} lcb_RESPDIAG;
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_create(lcb_CMDPING **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_destroy(lcb_CMDPING *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_parent_span(lcb_CMDPING *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_report_id(lcb_CMDPING *cmd, const char *report_id, size_t report_id_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_all(lcb_CMDPING *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_kv(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_n1ql(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_views(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_fts(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_analytics(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_no_metrics(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_encode_json(lcb_CMDPING *cmd, int enable, int pretty, int with_details);
+LIBCOUCHBASE_API lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd);
 
 /**
  * @brief Returns diagnostics report about network connections.
@@ -2635,7 +1384,7 @@ typedef struct {
  * @par Response
  * @code{.c}
  * lcb_install_callback3(instance, LCB_CALLBACK_DIAG, diag_callback);
- * void diag_callback(lcb_t, int, const lcb_RESPBASE *rb)
+ * void diag_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
  *     if (resp->rc != LCB_SUCCESS) {
@@ -2653,8 +1402,21 @@ typedef struct {
  * @param cmd command structure.
  * @return status code for scheduling.
  */
-LIBCOUCHBASE_API
-lcb_error_t lcb_diag(lcb_t instance, const void *cookie, const lcb_CMDDIAG *cmd);
+
+typedef struct lcb_RESPDIAG_ lcb_RESPDIAG;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_status(const lcb_RESPDIAG *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_cookie(const lcb_RESPDIAG *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_value(const lcb_RESPDIAG *resp, const char **json, size_t *json_len);
+
+typedef struct lcb_CMDDIAG_ lcb_CMDDIAG;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_create(lcb_CMDDIAG **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_destroy(lcb_CMDDIAG *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_report_id(lcb_CMDDIAG *cmd, const char *report_id, size_t report_id_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_prettify(lcb_CMDDIAG *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_diag(lcb_INSTANCE *instance, void *cookie, const lcb_CMDDIAG *cmd);
+
 /**@} (Group: PING) */
 
 /**@ingroup lcb-public-api
@@ -2710,7 +1472,7 @@ typedef enum {
     LCB_HTTP_TYPE_PING = 6,
 
     LCB_HTTP_TYPE_MAX
-} lcb_http_type_t;
+} lcb_HTTP_TYPE;
 
 /**
  * @brief HTTP Request method enumeration
@@ -2724,99 +1486,7 @@ typedef enum {
     LCB_HTTP_METHOD_PUT = 2,
     LCB_HTTP_METHOD_DELETE = 3,
     LCB_HTTP_METHOD_MAX = 4
-} lcb_http_method_t;
-
-/**
- * Command flag for HTTP to indicate that the callback is to be invoked
- * multiple times for each new chunk of incoming data. Once the entire body
- * have been received, the callback will be invoked once more with the
- * LCB_RESP_F_FINAL flag (in lcb_RESPHTTP::rflags) and an empty content.
- *
- * To use streaming requests, this flag should be set in the
- * lcb_CMDHTTP::cmdflags field
- */
-#define LCB_CMDHTTP_F_STREAM (1 << 16)
-
-/**
- * @internal
- * If specified, the lcb_CMDHTTP::cas field becomes the timeout for this
- * specific request.
- */
-#define LCB_CMDHTTP_F_CASTMO (1 << 17)
-
-/**
- * @internal
- * Do not inject authentication header into the request.
- */
-#define LCB_CMDHTTP_F_NOUPASS (1 << 18)
-
-/**
- * Structure for performing an HTTP request.
- * Note that the key and nkey fields indicate the _path_ for the API
- */
-typedef struct {
-    LCB_CMD_BASE;
-    /**Type of request to issue. LCB_HTTP_TYPE_VIEW will issue a request
-     * against a random node's view API. LCB_HTTP_TYPE_MANAGEMENT will issue
-     * a request against a random node's administrative API, and
-     * LCB_HTTP_TYPE_RAW will issue a request against an arbitrary host. */
-    lcb_http_type_t type;
-    lcb_http_method_t method; /**< HTTP Method to use */
-
-    /** If the request requires a body (e.g. `PUT` or `POST`) then it will
-     * go here. Be sure to indicate the length of the body too. */
-    const char *body;
-
-    /** Length of the body for the request */
-    lcb_SIZE nbody;
-
-    /** If non-NULL, will be assigned a handle which may be used to
-     * subsequently cancel the request */
-    lcb_http_request_t *reqhandle;
-
-    /** For views, set this to `application/json` */
-    const char *content_type;
-
-    /** Username to authenticate with, if left empty, will use the credentials
-     * passed to lcb_create() */
-    const char *username;
-
-    /** Password to authenticate with, if left empty, will use the credentials
-     * passed to lcb_create() */
-    const char *password;
-
-    /** If set, this must be a string in the form of `http://host:port`. Should
-     * only be used for raw requests. */
-    const char *host;
-} lcb_CMDHTTP;
-
-/**
- * Structure for HTTP responses.
- * Note that #rc being `LCB_SUCCESS` does not always indicate that the HTTP
- * request itself was successful. It only indicates that the outgoing request
- * was submitted to the server and the client received a well-formed HTTP
- * response. Check the #hstatus field to see the actual HTTP-level status
- * code received.
- */
-typedef struct {
-    LCB_RESP_BASE
-    /**HTTP status code. The value is only valid if #rc is ::LCB_SUCCESS
-     * (if #rc is not LCB_SUCCESS then this field may be 0 as the response may
-     * have not been read/sent) */
-    short htstatus;
-
-    /**List of key-value headers. This field itself may be `NULL`. The list
-     * is terminated by a `NULL` pointer to indicate no more headers. */
-    const char * const * headers;
-
-    /**If @ref LCB_CMDHTTP_F_STREAM is true, contains the current chunk
-     * of response content. Otherwise, contains the entire response body.*/
-    const void *body;
-    /** Length of buffer in #body */
-    lcb_SIZE nbody;
-    /**@internal*/
-    lcb_http_request_t _htreq;
-} lcb_RESPHTTP;
+} lcb_HTTP_METHOD;
 
 /**
  * @committed
@@ -2829,7 +1499,7 @@ typedef struct {
  *
  * @par Simple Response
  * @code{.c}
- * void http_callback(lcb_t, int, const lcb_RESPBASE *rb)
+ * void http_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)rb;
  *     if (resp->rc != LCB_SUCCESS) {
@@ -2850,7 +1520,7 @@ typedef struct {
  * If the @ref LCB_CMDHTTP_F_STREAM flag is set in lcb_CMDHTTP::cmdflags then the
  * response callback is invoked multiple times as data arrives off the socket.
  * @code{.c}
- * void http_strm_callback(lcb_t, int, const lcb_RESPBASE *rb)
+ * void http_strm_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)resp;
  *     if (resp->rflags & LCB_RESP_F_FINAL) {
@@ -2872,9 +1542,40 @@ typedef struct {
  * @ref LCB_CNTL_HTTP_POOLSIZE.
  *
  */
-LIBCOUCHBASE_API
-lcb_error_t
-lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd);
+
+typedef struct lcb_RESPHTTP_ lcb_RESPHTTP;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_status(const lcb_RESPHTTP *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_cookie(const lcb_RESPHTTP *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_http_status(const lcb_RESPHTTP *resp, uint16_t *status);
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_path(const lcb_RESPHTTP *resp, const char **path, size_t *path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_body(const lcb_RESPHTTP *resp, const char **body, size_t *body_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_handle(const lcb_RESPHTTP *resp, lcb_HTTP_HANDLE **handle);
+LIBCOUCHBASE_API int lcb_resphttp_is_final(const lcb_RESPHTTP *resp);
+/**
+ * List of key-value headers. This field itself may be `NULL`. The list
+ * is terminated by a `NULL` pointer to indicate no more headers.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_headers(const lcb_RESPHTTP *resp, const char *const **headers);
+
+typedef struct lcb_CMDHTTP_ lcb_CMDHTTP;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_destroy(lcb_CMDHTTP *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_parent_span(lcb_CMDHTTP *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_method(lcb_CMDHTTP *cmd, lcb_HTTP_METHOD method);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_path(lcb_CMDHTTP *cmd, const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_content_type(lcb_CMDHTTP *cmd, const char *content_type,
+                                                     size_t content_type_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_body(lcb_CMDHTTP *cmd, const char *body, size_t body_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_handle(lcb_CMDHTTP *cmd, lcb_HTTP_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_username(lcb_CMDHTTP *cmd, const char *username, size_t username_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_password(lcb_CMDHTTP *cmd, const char *password, size_t password_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_host(lcb_CMDHTTP *cmd, const char *host, size_t host_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_streaming(lcb_CMDHTTP *cmd, int streaming);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_skip_auth_header(lcb_CMDHTTP *cmd, int skip_auth);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_timeout(lcb_CMDHTTP *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_http(lcb_INSTANCE *instance, void *cookie, const lcb_CMDHTTP *cmd);
 
 /**
  * @brief Cancel ongoing HTTP request
@@ -2899,9 +1600,8 @@ lcb_http3(lcb_t instance, const void *cookie, const lcb_CMDHTTP *cmd);
  * lcb_cancel_http_request(instance, reqhandle);
  * @endcode
  */
-LIBCOUCHBASE_API
-void
-lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request);
+LIBCOUCHBASE_API lcb_STATUS lcb_http_cancel(lcb_INSTANCE *instance, lcb_HTTP_HANDLE *handle);
+
 /**@} (Group: HTTP) */
 
 /**
@@ -2919,7 +1619,7 @@ lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request);
  * synchronously), on the heap, or may be NULL altogether.
  *
  * In addition to per-operation cookies, the library allows the instance itself
- * (i.e. the `lcb_t` object) to contain its own cookie. This is helpful when
+ * (i.e. the `lcb_INSTANCE` object) to contain its own cookie. This is helpful when
  * there is a wrapper object which needs to be accessed from within the callback
  *
  * @addtogroup lcb-cookie
@@ -2928,8 +1628,8 @@ lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request);
 
 /**
  * Associate a cookie with an instance of lcb. The _cookie_ is a user defined
- * pointer which will remain attached to the specified `lcb_t` for its duration.
- * This is the way to associate user data with the `lcb_t`.
+ * pointer which will remain attached to the specified `lcb_INSTANCE` for its duration.
+ * This is the way to associate user data with the `lcb_INSTANCE`.
  *
  * @param instance the instance to associate the cookie to
  * @param cookie the cookie to associate with this instance.
@@ -2946,7 +1646,7 @@ lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request);
  *   // ....
  * } instance_info;
  *
- * static void bootstrap_callback(lcb_t instance, lcb_error_t err) {
+ * static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err) {
  *   instance_info *info = (instance_info *)lcb_get_cookie(instance);
  *   if (err == LCB_SUCCESS) {
  *     info->status = "Connected";
@@ -2968,7 +1668,7 @@ lcb_cancel_http_request(lcb_t instance, lcb_http_request_t request);
  * @endcode
  */
 LIBCOUCHBASE_API
-void lcb_set_cookie(lcb_t instance, const void *cookie);
+void lcb_set_cookie(lcb_INSTANCE *instance, const void *cookie);
 
 /**
  * Retrieve the cookie associated with this instance
@@ -2978,7 +1678,7 @@ void lcb_set_cookie(lcb_t instance, const void *cookie);
  * @committed
  */
 LIBCOUCHBASE_API
-const void *lcb_get_cookie(lcb_t instance);
+const void *lcb_get_cookie(lcb_INSTANCE *instance);
 /**@} (Group: Cookies) */
 
 /**
@@ -3011,7 +1711,7 @@ const void *lcb_get_cookie(lcb_t instance);
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_wait(lcb_t instance);
+lcb_STATUS lcb_wait(lcb_INSTANCE *instance);
 
 /**
  * @volatile
@@ -3040,7 +1740,7 @@ lcb_error_t lcb_wait(lcb_t instance);
  * the "tick" mode.
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_tick_nowait(lcb_t instance);
+lcb_STATUS lcb_tick_nowait(lcb_INSTANCE *instance);
 
 /**@brief Flags for lcb_wait3()*/
 typedef enum {
@@ -3065,7 +1765,7 @@ typedef enum {
  * behavior identical to lcb_wait().
  */
 LIBCOUCHBASE_API
-void lcb_wait3(lcb_t instance, lcb_WAITFLAGS flags);
+void lcb_wait3(lcb_INSTANCE *instance, lcb_WAITFLAGS flags);
 
 /**
  * @brief Forcefully break from the event loop.
@@ -3079,7 +1779,7 @@ void lcb_wait3(lcb_t instance, lcb_WAITFLAGS flags);
  * @committed
  */
 LIBCOUCHBASE_API
-void lcb_breakout(lcb_t instance);
+void lcb_breakout(lcb_INSTANCE *instance);
 
 /**
  * @brief Check if instance is blocked in the event loop
@@ -3088,7 +1788,7 @@ void lcb_breakout(lcb_t instance);
  * @uncommitted
  */
 LIBCOUCHBASE_API
-int lcb_is_waiting(lcb_t instance);
+int lcb_is_waiting(lcb_INSTANCE *instance);
 /**@} (Group: Wait) */
 
 /**
@@ -3128,7 +1828,7 @@ int lcb_is_waiting(lcb_t instance);
  *
  * @code{.c}
  * unsigned retries = 5;
- * lcb_error_t err;
+ * lcb_STATUS err;
  * do {
  *   retries--;
  *   err = lcb_get(instance, cookie, ncmds, cmds);
@@ -3148,8 +1848,7 @@ int lcb_is_waiting(lcb_t instance);
  * @endcode
  */
 LIBCOUCHBASE_API
-void
-lcb_refresh_config(lcb_t instance);
+void lcb_refresh_config(lcb_INSTANCE *instance);
 
 /**
  * @ingroup lcb-public-api
@@ -3226,7 +1925,7 @@ lcb_refresh_config(lcb_t instance);
  * @endcode
  */
 LIBCOUCHBASE_API
-void lcb_sched_enter(lcb_t instance);
+void lcb_sched_enter(lcb_INSTANCE *instance);
 
 /**
  * @uncommitted
@@ -3247,8 +1946,7 @@ void lcb_sched_enter(lcb_t instance);
  * @param instance the instance
  */
 LIBCOUCHBASE_API
-void lcb_sched_leave(lcb_t instance);
-
+void lcb_sched_leave(lcb_INSTANCE *instance);
 
 /**
  * @uncommitted
@@ -3277,7 +1975,7 @@ void lcb_sched_leave(lcb_t instance);
  * scheduling context.
  */
 LIBCOUCHBASE_API
-void lcb_sched_fail(lcb_t instance);
+void lcb_sched_fail(lcb_INSTANCE *instance);
 
 /**
  * @committed
@@ -3297,7 +1995,7 @@ void lcb_sched_fail(lcb_t instance);
  * each call to lcb_sched_leave() will possibly invoke system repeatedly.
  */
 LIBCOUCHBASE_API
-void lcb_sched_flush(lcb_t instance);
+void lcb_sched_flush(lcb_INSTANCE *instance);
 
 /**@} (Group: Adanced Scheduling) */
 
@@ -3318,7 +2016,7 @@ void lcb_sched_flush(lcb_t instance);
  * @committed
  */
 LIBCOUCHBASE_API
-void lcb_destroy(lcb_t instance);
+void lcb_destroy(lcb_INSTANCE *instance);
 
 /**
  * @brief Callback received when instance is about to be destroyed
@@ -3332,13 +2030,12 @@ typedef void (*lcb_destroy_callback)(const void *cookie);
  * @return the previous callback.
  */
 LIBCOUCHBASE_API
-lcb_destroy_callback
-lcb_set_destroy_callback(lcb_t, lcb_destroy_callback);
+lcb_destroy_callback lcb_set_destroy_callback(lcb_INSTANCE *instance, lcb_destroy_callback);
 /**
  * @brief Asynchronously schedule the destruction of an instance.
  *
  * This function provides a safe way for asynchronous environments to destroy
- * the lcb_t handle without worrying about reentrancy issues.
+ * the lcb_INSTANCE *handle without worrying about reentrancy issues.
  *
  * @param instance
  * @param arg a pointer passed to the callback.
@@ -3361,7 +2058,7 @@ lcb_set_destroy_callback(lcb_t, lcb_destroy_callback);
  * @committed
  */
 LIBCOUCHBASE_API
-void lcb_destroy_async(lcb_t instance, const void *arg);
+void lcb_destroy_async(lcb_INSTANCE *instance, const void *arg);
 /**@} (Group: Destroy) */
 
 /**@}*/
@@ -3371,7 +2068,6 @@ void lcb_destroy_async(lcb_t instance, const void *arg);
 
 /** @internal */
 typedef enum { LCB_VALUE_RAW = 0x00, LCB_VALUE_F_JSON = 0x01, LCB_VALUE_F_SNAPPYCOMP = 0x02 } lcb_VALUEFLAGS;
-
 
 /**
  * @ingroup lcb-public-api
@@ -3461,8 +2157,7 @@ typedef enum {
  * @committed
  */
 LIBCOUCHBASE_API
-const char *
-lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned index);
+const char *lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned index);
 
 /**
  * @committed
@@ -3482,8 +2177,7 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned index);
  * in favor of brevity. Use the full vBucket API for more powerful functions.
  */
 LIBCOUCHBASE_API
-const char *
-lcb_get_keynode(lcb_t instance, const void *key, size_t nkey);
+const char *lcb_get_keynode(lcb_INSTANCE *instance, const void *key, size_t nkey);
 
 /**
  * @brief Get the number of the replicas in the cluster
@@ -3494,7 +2188,7 @@ lcb_get_keynode(lcb_t instance, const void *key, size_t nkey);
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_S32 lcb_get_num_replicas(lcb_t instance);
+lcb_S32 lcb_get_num_replicas(lcb_INSTANCE *instance);
 
 /**
  * @brief Get the number of the nodes in the cluster
@@ -3503,8 +2197,7 @@ lcb_S32 lcb_get_num_replicas(lcb_t instance);
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_S32 lcb_get_num_nodes(lcb_t instance);
-
+lcb_S32 lcb_get_num_nodes(lcb_INSTANCE *instance);
 
 /**
  * @brief Get a list of nodes in the cluster
@@ -3524,25 +2217,8 @@ lcb_S32 lcb_get_num_nodes(lcb_t instance);
  * @committed
  */
 LIBCOUCHBASE_API
-const char *const *lcb_get_server_list(lcb_t instance);
+const char *const *lcb_get_server_list(lcb_INSTANCE *instance);
 
-/**
- * @volatile
- * @brief Write a textual dump to a file.
- *
- * This function will inspect the various internal structures of the current
- * client handle (indicated by `instance`) and write the state information
- * to the file indicated by `fp`.
- * @param instance the handle to dump
- * @param fp the file to which the dump should be written
- * @param flags a set of modifiers (of @ref lcb_DUMPFLAGS) indicating what
- * information to dump. Note that a standard set of information is always
- * dumped, but by default more verbose information is hidden, and may be
- * enabled with these flags.
- */
-LIBCOUCHBASE_API
-void
-lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags);
 /**@} (Group: Cluster Info) */
 
 /**
@@ -3562,7 +2238,7 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags);
 
 /**
  * This function exposes an ioctl/fcntl-like interface to read and write
- * various configuration properties to and from an lcb_t handle.
+ * various configuration properties to and from an lcb_INSTANCE *handle.
  *
  * @param instance The instance to modify
  *
@@ -3605,7 +2281,7 @@ lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags);
  * @see lcb_cntl_string()
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_cntl(lcb_t instance, int mode, int cmd, void *arg);
+lcb_STATUS lcb_cntl(lcb_INSTANCE *instance, int mode, int cmd, void *arg);
 
 /**
  * Alternatively one may change configuration settings by passing a string key
@@ -3649,7 +2325,6 @@ lcb_error_t lcb_cntl(lcb_t instance, int mode, int cmd, void *arg);
  * |@ref LCB_CNTL_CONFIGCACHE                | `"config_cache"`          | Path              |
  * |@ref LCB_CNTL_DETAILED_ERRCODES          | `"detailed_errcodes"`     | Boolean           |
  * |@ref LCB_CNTL_HTCONFIG_URLTYPE           | `"http_urlmode"`          | Number (enum #lcb_HTCONFIG_URLTYPE) |
- * |@ref LCB_CNTL_RETRY_BACKOFF              | `"retry_backoff"`         | Float             |
  * |@ref LCB_CNTL_RETRY_INTERVAL             | `"retry_interval"`        | Timeval           |
  * |@ref LCB_CNTL_HTTP_POOLSIZE              | `"http_poolsize"`         | Number            |
  * |@ref LCB_CNTL_VBGUESS_PERSIST            | `"vbguess_persist"`       | Boolean           |
@@ -3673,31 +2348,30 @@ lcb_error_t lcb_cntl(lcb_t instance, int mode, int cmd, void *arg);
  * @see lcb-cntl-settings
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_cntl_string(lcb_t instance, const char *key, const char *value);
+lcb_STATUS lcb_cntl_string(lcb_INSTANCE *instance, const char *key, const char *value);
 
 /**
-* @brief Convenience function to set a value as an lcb_U32
-* @param instance
-* @param cmd setting to modify
-* @param arg the new value
-* @return see lcb_cntl() for details
-* @committed
-*/
+ * @brief Convenience function to set a value as an lcb_U32
+ * @param instance
+ * @param cmd setting to modify
+ * @param arg the new value
+ * @return see lcb_cntl() for details
+ * @committed
+ */
 LIBCOUCHBASE_API
-lcb_error_t lcb_cntl_setu32(lcb_t instance, int cmd, lcb_U32 arg);
+lcb_STATUS lcb_cntl_setu32(lcb_INSTANCE *instance, int cmd, lcb_U32 arg);
 
 /**
-* @brief Retrieve an lcb_U32 setting
-* @param instance
-* @param cmd setting to retrieve
-* @return the value.
-* @warning This function does not return an error code. Ensure that the cntl is
-* correct for this version, or use lcb_cntl() directly.
-* @committed
-*/
+ * @brief Retrieve an lcb_U32 setting
+ * @param instance
+ * @param cmd setting to retrieve
+ * @return the value.
+ * @warning This function does not return an error code. Ensure that the cntl is
+ * correct for this version, or use lcb_cntl() directly.
+ * @committed
+ */
 LIBCOUCHBASE_API
-lcb_U32 lcb_cntl_getu32(lcb_t instance, int cmd);
+lcb_U32 lcb_cntl_getu32(lcb_INSTANCE *instance, int cmd);
 
 /**
  * Determine if a specific control code exists
@@ -3705,171 +2379,21 @@ lcb_U32 lcb_cntl_getu32(lcb_t instance, int cmd);
  * @return 0 if it does not exist, nonzero if it exists.
  */
 LIBCOUCHBASE_API
-int
-lcb_cntl_exists(int ctl);
+int lcb_cntl_exists(int ctl);
 /**@}*/ /* settings */
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-timings Timings
- * @brief Determine how long operations are taking to be completed
- *
- * libcouchbase provides a simple form of per-command timings you may use
- * to figure out the current lantency for the request-response cycle as
- * generated by your application. Please note that these numbers are not
- * necessarily accurate as you may affect the timing recorded by doing
- * work in the event loop.
- *
- * The time recorded with this library is the time elapsed from the
- * command being called, and the response packet being received from the
- * server.  Everything the application does before driving the event loop
- * will affect the timers.
- *
- * The function lcb_enable_timings() is used to enable the timings for
- * the given instance, and lcb_disable_timings is used to disable the
- * timings. The overhead of using the timers should be negligible.
- *
- * The function lcb_get_timings is used to retrieve the current timing.
- * values from the given instance. The cookie is passed transparently to
- * the callback function.
- *
- * Here is an example of the usage of this module:
- *
- * @code{.c}
- * #include <libcouchbase/couchbase.h>
- *
- * static void callback(
- *  lcb_t instance, const void *cookie, lcb_timeunit_t timeunit, lcb_U32 min,
- *  lcb_U32 max, lcb_U32 total, lcb_U32 maxtotal)
- * {
- *   FILE* out = (void*)cookie;
- *   int num = (float)10.0 * (float)total / ((float)maxtotal);
- *   fprintf(out, "[%3u - %3u]", min, max);
- *   switch (timeunit) {
- *   case LCB_TIMEUNIT_NSEC:
- *      fprintf(out, "ns");
- *      break;
- *   case LCB_TIMEUNIT_USEC:
- *      fprintf(out, "us");
- *      break;
- *   case LCB_TIMEUNIT_MSEC:
- *      fsprintf(out, "ms");
- *      break;
- *   case LCB_TIMEUNIT_SEC:
- *      fprintf(out, "s ");
- *      break;
- *   default:
- *      ;
- *   }
- *
- *   fprintf(out, " |");
- *   for (int ii = 0; ii < num; ++ii) {
- *      fprintf(out, "#");
- *   }
- *   fprintf(out, " - %u\n", total);
- * }
- *
- *
- * lcb_enable_timings(instance);
- * ... do a lot of operations ...
- * fprintf(stderr, "              +---------+\n"
- * lcb_get_timings(instance, stderr, callback);
- * fprintf(stderr, "              +---------+\n"
- * lcb_disable_timings(instance);
- * @endcode
- *
- * @addtogroup lcb-timings
+ * @defgroup lcb-build-info Build Information
+ * @brief Get library version and supported features
+ * @details
+ * These functions and macros may be used to conditionally compile features
+ * depending on the version of the library being used. They may also be used
+ * to employ various features at runtime and to retrieve the version for
+ * informational purposes.
+ * @addtogroup lcb-build-info
  * @{
  */
-
-/**
- * @brief Time units reported by lcb_get_timings()
- */
-enum lcb_timeunit_t {
-    LCB_TIMEUNIT_NSEC = 0, /**< @brief Time is in nanoseconds */
-    LCB_TIMEUNIT_USEC = 1, /**< @brief Time is in microseconds */
-    LCB_TIMEUNIT_MSEC = 2, /**< @brief Time is in milliseconds */
-    LCB_TIMEUNIT_SEC = 3 /**< @brief Time is in seconds */
-};
-typedef enum lcb_timeunit_t lcb_timeunit_t;
-
-/**
- * Start recording timing metrics for the different operations.
- * The timer is started when the command is called (and the data
- * spooled to the server), and the execution time is the time until
- * we parse the response packets. This means that you can affect
- * the timers by doing a lot of other stuff before checking if
- * there is any results available..
- *
- * @param instance the handle to lcb
- * @return Status of the operation.
- * @committed
- */
-LIBCOUCHBASE_API
-lcb_error_t lcb_enable_timings(lcb_t instance);
-
-
-/**
- * Stop recording (and release all resources from previous measurements)
- * timing metrics.
- *
- * @param instance the handle to lcb
- * @return Status of the operation.
- * @committed
- */
-LIBCOUCHBASE_API
-lcb_error_t lcb_disable_timings(lcb_t instance);
-
-/**
- * The following function is called for each bucket in the timings
- * histogram when you call lcb_get_timings.
- * You are guaranteed that the callback will be called with the
- * lowest [min,max] range first.
- *
- * @param instance the handle to lcb
- * @param cookie the cookie you provided that allows you to pass
- *               arbitrary user data to the callback
- * @param timeunit the "scale" for the values
- * @param min The lower bound for this histogram bucket
- * @param max The upper bound for this histogram bucket
- * @param total The number of hits in this histogram bucket
- * @param maxtotal The highest value in all of the buckets
- */
-typedef void (*lcb_timings_callback)(lcb_t instance,
-                                     const void *cookie,
-                                     lcb_timeunit_t timeunit,
-                                     lcb_U32 min,
-                                     lcb_U32 max,
-                                     lcb_U32 total,
-                                     lcb_U32 maxtotal);
-
-/**
- * Get the timings histogram
- *
- * @param instance the handle to lcb
- * @param cookie a cookie that will be present in all of the callbacks
- * @param callback Callback to invoke which will handle the timings
- * @return Status of the operation.
- * @committed
- */
-LIBCOUCHBASE_API
-lcb_error_t lcb_get_timings(lcb_t instance,
-                            const void *cookie,
-                            lcb_timings_callback callback);
-/**@} (Group: Timings) */
-
-/**
-* @ingroup lcb-public-api
-* @defgroup lcb-build-info Build Information
-* @brief Get library version and supported features
-* @details
-* These functions and macros may be used to conditionally compile features
-* depending on the version of the library being used. They may also be used
-* to employ various features at runtime and to retrieve the version for
-* informational purposes.
-* @addtogroup lcb-build-info
-* @{
-*/
 
 #if !defined(LCB_VERSION_STRING) || defined(__LCB_DOXYGEN__)
 /** @brief libcouchbase version string */
@@ -3914,8 +2438,7 @@ LIBCOUCHBASE_API
 const char *lcb_get_version(lcb_U32 *version);
 
 /** Global/extern variable containing the version of the library */
-LIBCOUCHBASE_API LCB_EXTERN_VAR
-const lcb_U32 lcb_version_g;
+LIBCOUCHBASE_API LCB_EXTERN_VAR const lcb_U32 lcb_version_g;
 
 /**@brief Whether the library has SSL support*/
 #define LCB_SUPPORTS_SSL 1
@@ -3931,11 +2454,9 @@ const lcb_U32 lcb_version_g;
  * @return 0 if not supported, nonzero if supported.
  */
 LIBCOUCHBASE_API
-int
-lcb_supports_feature(int n);
+int lcb_supports_feature(int n);
 
 /**@} (Group: Build Info) */
-
 
 /**
  * Functions to allocate and free memory related to libcouchbase. This is
@@ -3959,118 +2480,16 @@ void lcb_mem_free(void *ptr);
  * Internally these proxy to the run_event_loop/stop_event_loop calls
  */
 LCB_INTERNAL_API
-void lcb_run_loop(lcb_t instance);
+void lcb_run_loop(lcb_INSTANCE *instance);
 
 /** @internal */
 LCB_INTERNAL_API
-void lcb_stop_loop(lcb_t instance);
+void lcb_stop_loop(lcb_INSTANCE *instance);
 
 /** @internal */
 /* This returns the library's idea of time */
 LCB_INTERNAL_API
 lcb_U64 lcb_nstime(void);
-
-typedef enum {
-    /** Dump the raw vbucket configuration */
-    LCB_DUMP_VBCONFIG =  0x01,
-    /** Dump information about each packet */
-    LCB_DUMP_PKTINFO = 0x02,
-    /** Dump memory usage/reservation information about buffers */
-    LCB_DUMP_BUFINFO = 0x04,
-    /** Dump various metrics information */
-    LCB_DUMP_METRICS = 0x08,
-    /** Dump everything */
-    LCB_DUMP_ALL = 0xff
-} lcb_DUMPFLAGS;
-
-/** Volatile histogram APIs, used by pillowfight and others */
-struct lcb_histogram_st;
-typedef struct lcb_histogram_st lcb_HISTOGRAM;
-
-/**
- * @volatile
- * Create a histogram structure
- * @return a new histogram structure
- */
-LIBCOUCHBASE_API
-lcb_HISTOGRAM *
-lcb_histogram_create(void);
-
-/**
- * @volatile free a histogram structure
- * @param hg the histogram
- */
-LIBCOUCHBASE_API
-void
-lcb_histogram_destroy(lcb_HISTOGRAM *hg);
-
-/**
- * @volatile
- * Add an entry to a histogram structure
- * @param hg the histogram
- * @param duration the duration in nanoseconds
- */
-LIBCOUCHBASE_API
-void
-lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 duration);
-
-typedef void (*lcb_HISTOGRAM_CALLBACK)
-        (const void *cookie, lcb_timeunit_t timeunit, lcb_U32 min, lcb_U32 max,
-                lcb_U32 total, lcb_U32 maxtotal);
-
-/**
- * @volatile
- * Repeatedly invoke a callback for all entries in the histogram
- * @param hg the histogram
- * @param cookie pointer passed to callback
- * @param cb callback to invoke
- */
-LIBCOUCHBASE_API
-void
-lcb_histogram_read(const lcb_HISTOGRAM *hg, const void *cookie,
-    lcb_HISTOGRAM_CALLBACK cb);
-
-/**
- * Print the histogram to the specified FILE.
- *
- * This essentially outputs the same raw information as lcb_histogram_read(),
- * except it prints in implementation-defined format. It's simpler to use
- * than lcb_histogram_read, but less flexible.
- *
- * @param hg the histogram
- * @param stream File to print the histogram to.
- */
-LIBCOUCHBASE_API
-void lcb_histogram_print(lcb_HISTOGRAM* hg, FILE* stream);
-
-/**
- * @volatile
- *
- * Retrieves the extra error context from the response structure.
- *
- * This context does not duplicate information described by status
- * code rendered by lcb_strerror() function, and should be logged
- * if available.
- *
- * @return the pointer to string or NULL if context wasn't specified.
- */
-LIBCOUCHBASE_API
-const char *
-lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb);
-
-/**
- * @uncommitted
- *
- * Retrieves the error reference id from the response structure.
- *
- * Error reference id (or event id) should be logged to allow
- * administrators match client-side events with cluster logs.
- *
- * @return the pointer to string or NULL if ref wasn't specified.
- */
-LIBCOUCHBASE_API
-const char *
-lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb);
 
 /**
  * @volatile
@@ -4079,13 +2498,404 @@ lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb);
  * @return non-zero if the logs are being redacted for this instance.
  */
 LIBCOUCHBASE_API
-int lcb_is_redacting_logs(lcb_t instance);
+int lcb_is_redacting_logs(lcb_INSTANCE *instance);
+
+/**
+ * @addtogroup lcb-analytics-api
+ * @{
+ */
+
+typedef struct lcb_ANALYTICS_HANDLE_ lcb_ANALYTICS_HANDLE;
+typedef struct lcb_DEFERRED_HANDLE_ lcb_DEFERRED_HANDLE;
+typedef struct lcb_RESPANALYTICS_ lcb_RESPANALYTICS;
+typedef void (*lcb_ANALYTICS_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPANALYTICS *);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_status(const lcb_RESPANALYTICS *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_cookie(const lcb_RESPANALYTICS *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_row(const lcb_RESPANALYTICS *resp, const char **row, size_t *row_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_http_response(const lcb_RESPANALYTICS *resp, const lcb_RESPHTTP **http);
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_handle(const lcb_RESPANALYTICS *resp, lcb_ANALYTICS_HANDLE **handle);
+LIBCOUCHBASE_API int lcb_respanalytics_is_final(const lcb_RESPANALYTICS *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_deferred_handle_extract(const lcb_RESPANALYTICS *resp,
+                                                                      lcb_DEFERRED_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_destroy(lcb_DEFERRED_HANDLE *handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_status(lcb_DEFERRED_HANDLE *handle, const char **status,
+                                                       size_t *status_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_callback(lcb_DEFERRED_HANDLE *handle, lcb_ANALYTICS_CALLBACK callback);
+LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_poll(lcb_INSTANCE *instance, void *cookie, lcb_DEFERRED_HANDLE *handle);
+
+typedef struct lcb_CMDANALYTICS_ lcb_CMDANALYTICS;
+
+typedef struct lcb_INGEST_OPTIONS_ lcb_INGEST_OPTIONS;
+typedef enum {
+    LCB_INGEST_METHOD_NONE = 0,
+    LCB_INGEST_METHOD_UPSERT,
+    LCB_INGEST_METHOD_INSERT,
+    LCB_INGEST_METHOD_REPLACE,
+    LCB_INGEST_METHOD__MAX
+} lcb_INGEST_METHOD;
+
+typedef enum { LCB_INGEST_STATUS_OK = 0, LCB_INGEST_STATUS_IGNORE, LCB_INGEST_STATUS__MAX } lcb_INGEST_STATUS;
+
+typedef struct lcb_INGEST_PARAM_ lcb_INGEST_PARAM;
+
+typedef lcb_INGEST_STATUS (*lcb_INGEST_DATACONVERTER_CALLBACK)(lcb_INSTANCE *instance, lcb_INGEST_PARAM *param);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_create(lcb_INGEST_OPTIONS **options);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_destroy(lcb_INGEST_OPTIONS *options);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_method(lcb_INGEST_OPTIONS *options, lcb_INGEST_METHOD method);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_expiration(lcb_INGEST_OPTIONS *options, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_ignore_error(lcb_INGEST_OPTIONS *options, int flag);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_data_converter(lcb_INGEST_OPTIONS *options,
+                                                              lcb_INGEST_DATACONVERTER_CALLBACK callback);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_dataconverter_param_cookie(lcb_INGEST_PARAM *param, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_dataconverter_param_row(lcb_INGEST_PARAM *param, const char **row,
+                                                               size_t *row_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_dataconverter_param_method(lcb_INGEST_PARAM *param, lcb_INGEST_METHOD *method);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_dataconverter_param_set_id(lcb_INGEST_PARAM *param, const char *id,
+                                                                  size_t id_len, void (*id_dtor)(const char *));
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_dataconverter_param_set_out(lcb_INGEST_PARAM *param, const char *out,
+                                                                   size_t out_len, void (*out_dtor)(const char *));
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_create(lcb_CMDANALYTICS **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_destroy(lcb_CMDANALYTICS *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_reset(lcb_CMDANALYTICS *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_parent_span(lcb_CMDANALYTICS *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_callback(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_CALLBACK callback);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_query(lcb_CMDANALYTICS *cmd, const char *query, size_t query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_statement(lcb_CMDANALYTICS *cmd, const char *statement,
+                                                       size_t statement_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_named_param(lcb_CMDANALYTICS *cmd, const char *name, size_t name_len,
+                                                         const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_positional_param(lcb_CMDANALYTICS *cmd, const char *value,
+                                                              size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_ingest_options(lcb_CMDANALYTICS *cmd, lcb_INGEST_OPTIONS *options);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_deferred(lcb_CMDANALYTICS *cmd, int deferred);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_option(lcb_CMDANALYTICS *cmd, const char *name, size_t name_len,
+                                                    const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_handle(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_timeout(lcb_CMDANALYTICS *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_analytics(lcb_INSTANCE *instance, void *cookie, const lcb_CMDANALYTICS *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_analytics_cancel(lcb_INSTANCE *instance, lcb_ANALYTICS_HANDLE *handle);
+
+/** @} */
+
+/**
+ * @ingroup lcb-public-api
+ * @defgroup lcb-cbft-api Full Text Search
+ * @brief Search for strings in documents and more
+ */
+
+/**
+ * @addtogroup lcb-cbft-api
+ * @{
+ */
+typedef struct lcb_FTS_HANDLE_ lcb_FTS_HANDLE;
+typedef struct lcb_RESPFTS_ lcb_RESPFTS;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respfts_status(const lcb_RESPFTS *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respfts_cookie(const lcb_RESPFTS *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respfts_row(const lcb_RESPFTS *resp, const char **row, size_t *row_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respfts_http_response(const lcb_RESPFTS *resp, const lcb_RESPHTTP **http);
+LIBCOUCHBASE_API lcb_STATUS lcb_respfts_handle(const lcb_RESPFTS *resp, lcb_FTS_HANDLE **handle);
+LIBCOUCHBASE_API int lcb_respfts_is_final(const lcb_RESPFTS *resp);
+
+typedef struct lcb_CMDFTS_ lcb_CMDFTS;
+typedef void (*lcb_FTS_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPFTS *);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_create(lcb_CMDFTS **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_destroy(lcb_CMDFTS *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_parent_span(lcb_CMDFTS *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_callback(lcb_CMDFTS *cmd, lcb_FTS_CALLBACK callback);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_query(lcb_CMDFTS *cmd, const char *query, size_t query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_handle(lcb_CMDFTS *cmd, lcb_FTS_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_timeout(lcb_CMDFTS *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_fts(lcb_INSTANCE *instance, void *cookie, const lcb_CMDFTS *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_fts_cancel(lcb_INSTANCE *instance, lcb_FTS_HANDLE *handle);
+/** @} */
+
+/**
+ * @ingroup lcb-public-api
+ * @defgroup lcb-n1ql-api N1QL/Analytics
+ * @brief Execute N1QL/Analytics queries.
+ *
+ * Query language based on SQL, but designed for structured and flexible JSON
+ * documents. Querying can solve typical programming tasks such as finding a
+ * user profile by email address, performing aggregations etc.
+ *
+ * @code{.c}
+ * const char *query = "{\"statement\":\"SELECT * FROM breweries LIMIT 10\"}";
+ * lcb_CMDN1QL cmd = {0};
+ * int idx = 0;
+ * // NOTE: with this flag, the request will be issued to Analytics service
+ * cmd.cmdflags = LCB_CMDN1QL_F_ANALYTICSQUERY;
+ * cmd.callback = row_callback;
+ * cmd.query = query;
+ * cmd.nquery = strlen(query);
+ * lcb_n1ql_query(instance, &idx, &cmd);
+ * lcb_wait(instance);
+ * @endcode
+ *
+ * Where row_callback might be implemented like this:
+ *
+ * @code{.c}
+ * static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPN1QL *resp)
+ * {
+ *     int *idx = (int *)resp->cookie;
+ *     if (resp->rc != LCB_SUCCESS) {
+ *         printf("failed to execute query: %s\n", lcb_strerror_short(resp->rc));
+ *         exit(EXIT_FAILURE);
+ *     }
+ *     if (resp->rflags & LCB_RESP_F_FINAL) {
+ *         printf("META: ");
+ *     } else {
+ *         printf("ROW #%d: ", (*idx)++);
+ *     }
+ *     printf("%.*s\n", (int)resp->nrow, (char *)resp->row);
+ * }
+ * @endcode
+ *
+ * @see more details on @ref lcb_n1ql_query and @ref lcb_CMDN1QL.
+ *
+ * Also there is a query builder available for N1QL queries: @ref lcb_n1p_new/@ref lcb_n1p_mkcmd.
+ */
+
+/**
+ * @addtogroup lcb-n1ql-api
+ * @{
+ */
+typedef struct lcb_RESPN1QL_ lcb_RESPN1QL;
+typedef struct lcb_CMDN1QL_ lcb_CMDN1QL;
+/**
+ * Pointer for request instance
+ */
+typedef struct lcb_N1QL_HANDLE_ lcb_N1QL_HANDLE;
+
+/**
+ * Callback to be invoked for each row
+ * @param The instance
+ * @param Callback type. This is set to @ref LCB_CALLBACK_N1QL
+ * @param The response.
+ */
+typedef void (*lcb_N1QL_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPN1QL *);
+
+typedef enum {
+    /** No consistency constraints */
+    LCB_N1QL_CONSISTENCY_NONE = 0,
+
+    /**
+     * This is implicitly set by the lcb_n1p_synctok() family of functions. This
+     * will ensure that mutations up to the vector indicated by the mutation token
+     * passed to lcb_n1p_synctok() are used.
+     */
+    LCB_N1QL_CONSISTENCY_RYOW = 1,
+
+    /** Refresh the snapshot for each request */
+    LCB_N1QL_CONSISTENCY_REQUEST = 2,
+
+    /** Refresh the snapshot for each statement */
+    LCB_N1QL_CONSISTENCY_STATEMENT = 3
+} lcb_N1QL_CONSISTENCY;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_status(const lcb_RESPN1QL *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_cookie(const lcb_RESPN1QL *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_row(const lcb_RESPN1QL *resp, const char **row, size_t *row_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_http_response(const lcb_RESPN1QL *resp, const lcb_RESPHTTP **http);
+LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_handle(const lcb_RESPN1QL *resp, lcb_N1QL_HANDLE **handle);
+LIBCOUCHBASE_API int lcb_respn1ql_is_final(const lcb_RESPN1QL *resp);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_create(lcb_CMDN1QL **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_destroy(lcb_CMDN1QL *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_reset(lcb_CMDN1QL *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_payload(lcb_CMDN1QL *cmd, const char **payload, size_t *payload_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_parent_span(lcb_CMDN1QL *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_callback(lcb_CMDN1QL *cmd, lcb_N1QL_CALLBACK callback);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_query(lcb_CMDN1QL *cmd, const char *query, size_t query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_statement(lcb_CMDN1QL *cmd, const char *statement, size_t statement_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_named_param(lcb_CMDN1QL *cmd, const char *name, size_t name_len,
+                                                    const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_positional_param(lcb_CMDN1QL *cmd, const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_adhoc(lcb_CMDN1QL *cmd, int adhoc);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_readonly(lcb_CMDN1QL *cmd, int readonly);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_scan_cap(lcb_CMDN1QL *cmd, int value);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pipeline_cap(lcb_CMDN1QL *cmd, int value);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pipeline_batch(lcb_CMDN1QL *cmd, int value);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_consistency(lcb_CMDN1QL *cmd, lcb_N1QL_CONSISTENCY mode);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_consistency_token_for_keyspace(lcb_CMDN1QL *cmd, const char *keyspace,
+                                                                       size_t keyspace_len, lcb_MUTATION_TOKEN *token);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_consistency_tokens(lcb_CMDN1QL *cmd, lcb_INSTANCE *instance);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_option(lcb_CMDN1QL *cmd, const char *name, size_t name_len, const char *value,
+                                               size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_handle(lcb_CMDN1QL *cmd, lcb_N1QL_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_timeout(lcb_CMDN1QL *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_n1ql(lcb_INSTANCE *instance, void *cookie, const lcb_CMDN1QL *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_n1ql_cancel(lcb_INSTANCE *instance, lcb_N1QL_HANDLE *handle);
+/** @} */
+
+/**
+ * @ingroup lcb-public-api
+ * @defgroup lcb-view-api Views (Map-Reduce)
+ * @brief Higher level API which splits view results into rows
+ */
+
+/**
+ * @addtogroup lcb-view-api
+ * @{
+ */
+
+typedef struct lcb_RESPVIEW_ lcb_RESPVIEW;
+typedef struct lcb_CMDVIEW_ lcb_CMDVIEW;
+
+/**
+ * Pointer for request instance
+ */
+typedef struct lcb_VIEW_HANDLE_ lcb_VIEW_HANDLE;
+
+/**
+ * Callback function invoked for each row returned from the view
+ * @param instance the library handle
+ * @param cbtype the callback type. This is set to @ref LCB_CALLBACK_VIEWQUERY
+ * @param row Information about the current row
+ *
+ * Note that this callback's `row->rflags` will contain the @ref LCB_RESP_F_FINAL
+ * flag set after all rows have been returned. Applications should check for
+ * the presence of this flag. If this flag is present, the row itself will
+ * contain the raw response metadata in its lcb_RESPVIEWQUERY::value field.
+ */
+typedef void (*lcb_VIEW_CALLBACK)(lcb_INSTANCE *instance, int cbtype, const lcb_RESPVIEW *row);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_status(const lcb_RESPVIEW *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_cookie(const lcb_RESPVIEW *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_key(const lcb_RESPVIEW *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_doc_id(const lcb_RESPVIEW *resp, const char **doc_id, size_t *doc_id_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_row(const lcb_RESPVIEW *resp, const char **row, size_t *row_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_geometry(const lcb_RESPVIEW *resp, const char **geom, size_t *geom_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_document(const lcb_RESPVIEW *resp, const lcb_RESPGET **doc);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_http_response(const lcb_RESPVIEW *resp, const lcb_RESPHTTP **http);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_handle(const lcb_RESPVIEW *resp, lcb_VIEW_HANDLE **handle);
+LIBCOUCHBASE_API int lcb_respview_is_final(const lcb_RESPVIEW *resp);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_create(lcb_CMDVIEW **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_destroy(lcb_CMDVIEW *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_parent_span(lcb_CMDVIEW *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_callback(lcb_CMDVIEW *cmd, lcb_VIEW_CALLBACK callback);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_design_document(lcb_CMDVIEW *cmd, const char *ddoc, size_t ddoc_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_view_name(lcb_CMDVIEW *cmd, const char *view, size_t view_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_option_string(lcb_CMDVIEW *cmd, const char *optstr, size_t optstr_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_post_data(lcb_CMDVIEW *cmd, const char *data, size_t data_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_include_docs(lcb_CMDVIEW *cmd, int include_docs);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_max_concurrent_docs(lcb_CMDVIEW *cmd, uint32_t num);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_spatial(lcb_CMDVIEW *cmd, int is_spatial);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_no_row_parse(lcb_CMDVIEW *cmd, int flag);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_handle(lcb_CMDVIEW *cmd, lcb_VIEW_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_timeout(lcb_CMDVIEW *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_view(lcb_INSTANCE *instance, void *cookie, const lcb_CMDVIEW *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_view_cancel(lcb_INSTANCE *instance, lcb_VIEW_HANDLE *handle);
+/** @} */
+
+/**@ingroup lcb-public-api
+ * @defgroup lcb-subdoc Sub-Document API
+ * @brief Experimental in-document API access
+ * @details The sub-document API uses features from the upcoming Couchbase
+ * 4.5 release which allows access to parts of the document. These parts are
+ * called _sub-documents_ and can be accessed using the sub-document API
+ *
+ * @addtogroup lcb-subdoc
+ * @{
+ */
+
+typedef struct lcb_RESPSUBDOC_ lcb_RESPSUBDOC;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_status(const lcb_RESPSUBDOC *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_error_context(const lcb_RESPSUBDOC *resp, const char **ctx, size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_error_ref(const lcb_RESPSUBDOC *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_cookie(const lcb_RESPSUBDOC *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_cas(const lcb_RESPSUBDOC *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_key(const lcb_RESPSUBDOC *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_mutation_token(const lcb_RESPSUBDOC *resp, lcb_MUTATION_TOKEN *token);
+
+LIBCOUCHBASE_API size_t lcb_respsubdoc_result_size(const lcb_RESPSUBDOC *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_result_status(const lcb_RESPSUBDOC *resp, size_t index);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_result_value(const lcb_RESPSUBDOC *resp, size_t index, const char **value,
+                                                        size_t *value_len);
+
+typedef struct lcb_SUBDOCOPS_ lcb_SUBDOCOPS;
+
+/** Create intermediate paths */
+#define LCB_SUBDOCOPS_F_MKINTERMEDIATES (1 << 16)
+
+/** Access document XATTR path */
+#define LCB_SUBDOCOPS_F_XATTRPATH (1 << 18)
+
+/** Access document virtual/materialized path. Implies F_XATTRPATH */
+#define LCB_SUBDOCOPS_F_XATTR_MACROVALUES (1 << 19)
+
+/** Access Xattrs of deleted documents */
+#define LCB_SUBDOCOPS_F_XATTR_DELETED_OK (1 << 20)
+
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_create(lcb_SUBDOCOPS **operations, size_t capacity);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_destroy(lcb_SUBDOCOPS *operations);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_get(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags, const char *path,
+                                              size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_exists(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                 const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_replace(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                  const char *path, size_t path_len, const char *value,
+                                                  size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_dict_add(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                   const char *path, size_t path_len, const char *value,
+                                                   size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_dict_upsert(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                      const char *path, size_t path_len, const char *value,
+                                                      size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_add_first(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                          const char *path, size_t path_len, const char *value,
+                                                          size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_add_last(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                         const char *path, size_t path_len, const char *value,
+                                                         size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_add_unique(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                           const char *path, size_t path_len, const char *value,
+                                                           size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_insert(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                       const char *path, size_t path_len, const char *value,
+                                                       size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_counter(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                  const char *path, size_t path_len, int64_t delta);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_remove(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                 const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_get_count(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                    const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_get(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_add(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                      const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_upsert(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                         const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_replace(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+                                                          const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_remove(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags);
+
+typedef struct lcb_CMDSUBDOC_ lcb_CMDSUBDOC;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create(lcb_CMDSUBDOC **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_destroy(lcb_CMDSUBDOC *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_parent_span(lcb_CMDSUBDOC *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_collection(lcb_CMDSUBDOC *cmd, const char *scope, size_t scope_len,
+                                                     const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_key(lcb_CMDSUBDOC *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_cas(lcb_CMDSUBDOC *cmd, uint64_t cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_operations(lcb_CMDSUBDOC *cmd, const lcb_SUBDOCOPS *operations);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_expiration(lcb_CMDSUBDOC *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_durability(lcb_CMDSUBDOC *cmd, lcb_DURABILITY_LEVEL level);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create_if_missing(lcb_CMDSUBDOC *cmd, int flag);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_timeout(lcb_CMDSUBDOC *cmd, uint32_t timeout);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC *cmd);
+/** @} */
 
 /* Post-include some other headers */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#include <libcouchbase/subdoc.h>
-#include <libcouchbase/deprecated.h>
-#include <libcouchbase/api-legacy.h>
 #endif /* LIBCOUCHBASE_COUCHBASE_H */

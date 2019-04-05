@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -32,12 +32,12 @@
 
 typedef struct {
     IOTSSL_COMMON_FIELDS
-    void *event; /**< Event pointer (parent->create_event) */
-    void *arg; /**< Argument to pass for user-defined callback */
-    short requested; /**< User defined event flags */
-    short fakewhich; /**< Flags to deliver immediately */
+    void *event;          /**< Event pointer (parent->create_event) */
+    void *arg;            /**< Argument to pass for user-defined callback */
+    short requested;      /**< User defined event flags */
+    short fakewhich;      /**< Flags to deliver immediately */
     lcb_ioE_callback ucb; /**< User defined callback */
-    int entered; /**< Whether we are inside a handler */
+    int entered;          /**< Whether we are inside a handler */
     int closed;
     lcb_socket_t fd; /**< Socket descriptor */
     lcbio_pTIMER as_fake;
@@ -45,28 +45,33 @@ typedef struct {
 } lcbio_ESSL;
 
 #ifdef USE_EAGAIN
-#define C_EAGAIN EWOULDBLOCK: case EAGAIN
+#define C_EAGAIN                                                                                                       \
+    EWOULDBLOCK:                                                                                                       \
+    case EAGAIN
 #else
 #define C_EAGAIN EWOULDBLOCK
 #endif
 
 #define ES_FROM_IOPS(iops) (lcbio_ESSL *)(IOTSSL_FROM_IOPS(iops))
-#define MINIMUM(a,b) a < b ? a : b
+#define MINIMUM(a, b) a < b ? a : b
 
-static int maybe_error(lcbio_ESSL *es, int rv) {
+static int maybe_error(lcbio_ESSL *es, int rv)
+{
     return iotssl_maybe_error((lcbio_XSSL *)es, rv);
 }
 
 static void event_handler(lcb_socket_t, short, void *);
 
-#define SCHEDULE_PENDING_SAFE(es) if (!(es)->entered) { schedule_pending(es); }
+#define SCHEDULE_PENDING_SAFE(es)                                                                                      \
+    if (!(es)->entered) {                                                                                              \
+        schedule_pending(es);                                                                                          \
+    }
 /* Schedule watch events:
  * - If we have SSL data to be written, the watcher is activated for WRITE_EVENT
  * - If SSL_pending() is true and the user has requested read, the as_fake
  *   handler is triggered
  */
-static void
-schedule_pending(lcbio_ESSL *es)
+static void schedule_pending(lcbio_ESSL *es)
 {
     short avail = LCB_WRITE_EVENT;
     /* Bitflags of events that the SSL pointer needs in order to progress */
@@ -103,14 +108,11 @@ schedule_pending(lcbio_ESSL *es)
     }
 
     /* Schedule events to watch for here */
-    IOT_V0EV(es->orig).watch(
-        IOT_ARG(es->orig), es->fd, es->event, wanted, es, event_handler);
-
+    IOT_V0EV(es->orig).watch(IOT_ARG(es->orig), es->fd, es->event, wanted, es, event_handler);
 }
 
 /* Reads encrypted data from the socket into SSL */
-static int
-read_ssl_data(lcbio_ESSL *es)
+static int read_ssl_data(lcbio_ESSL *es)
 {
     int nr;
     lcbio_pTABLE iot = es->orig;
@@ -129,8 +131,7 @@ read_ssl_data(lcbio_ESSL *es)
         /* I don't know why this is here, but it's found inside BIO_write */
         BIO_clear_retry_flags(es->rbio);
         iotssl_bm_reserve(rmb);
-        nr = IOT_V0IO(iot).recv(IOT_ARG(iot), es->fd,
-            rmb->data + rmb->length, rmb->max - rmb->length, 0);
+        nr = IOT_V0IO(iot).recv(IOT_ARG(iot), es->fd, rmb->data + rmb->length, rmb->max - rmb->length, 0);
 #else
 #define BUFSZ 4096
         char buf[BUFSZ];
@@ -149,12 +150,12 @@ read_ssl_data(lcbio_ESSL *es)
             return -1;
         } else {
             switch (IOT_ERRNO(iot)) {
-            case C_EAGAIN:
-                return 0;
-            case EINTR:
-                continue;
-            default:
-                return -1;
+                case C_EAGAIN:
+                    return 0;
+                case EINTR:
+                    continue;
+                default:
+                    return -1;
             }
         }
     }
@@ -163,8 +164,7 @@ read_ssl_data(lcbio_ESSL *es)
 }
 
 /* Writes encrypted data from SSL over to the network */
-static int
-flush_ssl_data(lcbio_ESSL *es)
+static int flush_ssl_data(lcbio_ESSL *es)
 {
     BUF_MEM *wmb;
     char *tmp_p;
@@ -196,23 +196,23 @@ flush_ssl_data(lcbio_ESSL *es)
             return -1;
         } else {
             switch (IOT_ERRNO(iot)) {
-            case C_EAGAIN:
-                goto GT_WRITE_DONE;
-            case EINTR:
-                continue;
-            default:
-                return -1;
+                case C_EAGAIN:
+                    goto GT_WRITE_DONE;
+                case EINTR:
+                    continue;
+                default:
+                    return -1;
             }
         }
     }
 
-    /* TODO: This block is inefficient as it results in a bunch of memmove()
-     * calls. While we could have done this inline with the send() call this
-     * would make future optimization more difficult. */
-    GT_WRITE_DONE:
+/* TODO: This block is inefficient as it results in a bunch of memmove()
+ * calls. While we could have done this inline with the send() call this
+ * would make future optimization more difficult. */
+GT_WRITE_DONE:
     while (wmb->length > (size_t)tmp_len) {
         char dummy[4096];
-        unsigned to_read = MINIMUM(wmb->length-tmp_len, sizeof dummy);
+        unsigned to_read = MINIMUM(wmb->length - tmp_len, sizeof dummy);
         BIO_read(es->wbio, dummy, to_read);
     }
     BIO_clear_retry_flags(es->wbio);
@@ -220,8 +220,7 @@ flush_ssl_data(lcbio_ESSL *es)
 }
 
 /* This is the raw event handler called from the underlying IOPS */
-static void
-event_handler(lcb_socket_t fd, short which, void *arg)
+static void event_handler(lcb_socket_t fd, short which, void *arg)
 {
     lcbio_ESSL *es = arg;
     int rv = 0;
@@ -239,8 +238,7 @@ event_handler(lcb_socket_t fd, short which, void *arg)
         es->error = 1;
 
         /* stop internal watcher */
-        IOT_V0EV(es->orig).watch(
-            IOT_ARG(es->orig), es->fd, es->event, 0, NULL, NULL);
+        IOT_V0EV(es->orig).watch(IOT_ARG(es->orig), es->fd, es->event, 0, NULL, NULL);
 
         /* send/recv will detect es->error and return -1/EINVAL appropriately */
         if (es->requested && es->ucb) {
@@ -274,8 +272,7 @@ event_handler(lcb_socket_t fd, short which, void *arg)
 
 /* User events are delivered out-of-sync with SSL events. This is mainly with
  * respect to write events. */
-static void
-fake_signal(void *arg)
+static void fake_signal(void *arg)
 {
     lcbio_ESSL *es = arg;
     short which = es->fakewhich;
@@ -291,9 +288,8 @@ fake_signal(void *arg)
     schedule_pending(es);
 }
 
-static int
-start_watch(lcb_io_opt_t iops, lcb_socket_t sock, void *event, short which,
-            void *uarg, lcb_ioE_callback callback)
+static int start_watch(lcb_io_opt_t iops, lcb_socket_t sock, void *event, short which, void *uarg,
+                       lcb_ioE_callback callback)
 {
     lcbio_ESSL *es = ES_FROM_IOPS(iops);
     es->arg = uarg;
@@ -306,20 +302,15 @@ start_watch(lcb_io_opt_t iops, lcb_socket_t sock, void *event, short which,
     (void)sock;
 
     return 0;
-
 }
 
-static void
-stop_watch(lcb_io_opt_t iops, lcb_socket_t sock, void *event)
+static void stop_watch(lcb_io_opt_t iops, lcb_socket_t sock, void *event)
 {
     start_watch(iops, sock, event, 0, NULL, NULL);
 }
 
-
 /** socket routines go here now.. */
-static lcb_ssize_t
-Essl_recv(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf,
-          int ign)
+static lcb_ssize_t Essl_recv(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf, int ign)
 {
     lcbio_ESSL *es = ES_FROM_IOPS(iops);
     int rv = SSL_read(es->ssl, buf, nbuf);
@@ -339,17 +330,17 @@ Essl_recv(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf,
     } else {
         IOTSSL_ERRNO(es) = EWOULDBLOCK;
     }
-    (void) ign; (void) sock;
+    (void)ign;
+    (void)sock;
     return -1;
 }
 
-static lcb_ssize_t
-Essl_send(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf,
-          int ign)
+static lcb_ssize_t Essl_send(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf, int ign)
 {
     lcbio_ESSL *es = ES_FROM_IOPS(iops);
     int rv;
-    (void) ign; (void) sock;
+    (void)ign;
+    (void)sock;
 
     if (es->error) {
         IOTSSL_ERRNO(es) = EINVAL;
@@ -370,28 +361,26 @@ Essl_send(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf
     }
 }
 
-static lcb_ssize_t
-Essl_recvv(lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_size_t niov) {
-    (void) niov;
+static lcb_ssize_t Essl_recvv(lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_size_t niov)
+{
+    (void)niov;
     return Essl_recv(iops, sock, iov->iov_base, iov->iov_len, 0);
 }
 
-static lcb_ssize_t
-Essl_sendv(lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_size_t niov) {
-    (void) niov;
+static lcb_ssize_t Essl_sendv(lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_size_t niov)
+{
+    (void)niov;
     return Essl_send(iops, sock, iov->iov_base, iov->iov_len, 0);
 }
 
-static void
-Essl_close(lcb_io_opt_t iops, lcb_socket_t fd)
+static void Essl_close(lcb_io_opt_t iops, lcb_socket_t fd)
 {
     lcbio_ESSL *es = ES_FROM_IOPS(iops);
     IOT_V0IO(es->orig).close(IOT_ARG(es->orig), fd);
     es->fd = -1;
 }
 
-static void
-Essl_dtor(void *arg)
+static void Essl_dtor(void *arg)
 {
     lcbio_ESSL *es = arg;
     IOT_V0EV(es->orig).destroy(IOT_ARG(es->orig), es->event);
@@ -400,8 +389,7 @@ Essl_dtor(void *arg)
     free(es);
 }
 
-lcbio_pTABLE
-lcbio_Essl_new(lcbio_pTABLE orig, lcb_socket_t fd, SSL_CTX *sctx)
+lcbio_pTABLE lcbio_Essl_new(lcbio_pTABLE orig, lcb_socket_t fd, SSL_CTX *sctx)
 {
     lcbio_ESSL *es = calloc(1, sizeof(*es));
     lcbio_TABLE *iot = &es->base_;

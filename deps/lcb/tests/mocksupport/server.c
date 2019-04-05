@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2012 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
 #else
 #define DIRSEP "\\"
 #include <io.h> /* for access() */
-#endif /* ! _WIN32 */
+#endif          /* ! _WIN32 */
 
 static int create_monitor(struct test_server_info *info)
 {
@@ -58,8 +58,7 @@ static int create_monitor(struct test_server_info *info)
 #else
         if (error != EAI_SYSTEM) {
 #endif
-            fprintf(stderr, "getaddrinfo failed: %s\n",
-                    gai_strerror(error));
+            fprintf(stderr, "getaddrinfo failed: %s\n", gai_strerror(error));
         } else {
             perror("getaddrinfo failed:");
         }
@@ -70,14 +69,11 @@ static int create_monitor(struct test_server_info *info)
         int flags = 1;
         socklen_t len;
 
-        if ((info->sock = socket(next->ai_family,
-                                 next->ai_socktype,
-                                 next->ai_protocol)) == -1) {
+        if ((info->sock = socket(next->ai_family, next->ai_socktype, next->ai_protocol)) == -1) {
             continue;
         }
 
-        setsockopt(info->sock, SOL_SOCKET, SO_REUSEADDR,
-                   (void *)&flags, sizeof(flags));
+        setsockopt(info->sock, SOL_SOCKET, SO_REUSEADDR, (void *)&flags, sizeof(flags));
 
         if (bind(info->sock, next->ai_addr, next->ai_addrlen) == -1) {
             closesocket(info->sock);
@@ -125,8 +121,7 @@ static void wait_for_server(const char *port)
 #else
         if (0) {
 #endif
-            fprintf(stderr, "getaddrinfo failed: %s\n",
-                    gai_strerror(error));
+            fprintf(stderr, "getaddrinfo failed: %s\n", gai_strerror(error));
         } else {
             perror("getaddrinfo failed:");
         }
@@ -135,9 +130,7 @@ static void wait_for_server(const char *port)
 
     while (1) {
         for (next = ai; next; next = next->ai_next) {
-            if ((sock = socket(next->ai_family,
-                               next->ai_socktype,
-                               next->ai_protocol)) == -1) {
+            if ((sock = socket(next->ai_family, next->ai_socktype, next->ai_protocol)) == -1) {
                 continue;
             }
 
@@ -159,7 +152,7 @@ static void wait_for_server(const char *port)
  */
 static int parse_server_conf(struct test_server_info *info, const char *param)
 {
-    char *strings[10] = { NULL };
+    char *strings[10] = {NULL};
     int curix = 0;
     char *param_copy = strdup(param);
     param = param_copy;
@@ -169,7 +162,8 @@ static int parse_server_conf(struct test_server_info *info, const char *param)
         char *curval;
         size_t diff;
 
-        for (curfld = param; *param && *param != ','; param++);
+        for (curfld = param; *param && *param != ','; param++)
+            ;
         diff = (param - curfld);
         curval = calloc(1, diff + 1);
         curval[diff] = '\0';
@@ -196,7 +190,7 @@ static int parse_server_conf(struct test_server_info *info, const char *param)
 
 static int start_mock_process(struct test_server_info *info, char **argv)
 {
-    char argbuf[4096] = { 0 };
+    char argbuf[4096] = {0};
     char **arg;
     for (arg = argv; *arg; arg++) {
         strcat(argbuf, *arg);
@@ -249,8 +243,7 @@ static void negotiate_mock_connection(struct test_server_info *info)
     assert(info->client != -1);
     /* Get the port number of the http server */
     offset = snprintf(buffer, sizeof(buffer), "localhost:");
-    nr = recv(info->client, buffer + offset,
-              sizeof(buffer) - (size_t)offset - 1, 0);
+    nr = recv(info->client, buffer + offset, sizeof(buffer) - (size_t)offset - 1, 0);
     assert(nr > 0);
     buffer[nr + offset] = '\0';
     info->http = strdup(buffer);
@@ -270,22 +263,16 @@ static int start_mock_server(struct test_server_info *info, char **cmdline)
 #endif
     const char *srcdir = getenv("srcdir");
 
-
     if (srcdir == NULL) {
         srcdir = ".";
     }
 
-    snprintf(wrapper, sizeof(wrapper),
-             "%s" DIRSEP "tests" DIRSEP WRAPPER_BASE,
-             srcdir);
+    snprintf(wrapper, sizeof(wrapper), "%s" DIRSEP "tests" DIRSEP WRAPPER_BASE, srcdir);
 
     if (access(wrapper, access_mode) == -1) {
-        fprintf(stderr, "Failed to locate \"%s\": %s\n",
-                wrapper,
-                strerror(errno));
+        fprintf(stderr, "Failed to locate \"%s\": %s\n", wrapper, strerror(errno));
         return 0;
     }
-
 
     if (!create_monitor(info)) {
         return 0;
@@ -304,7 +291,6 @@ static int start_mock_server(struct test_server_info *info, char **cmdline)
             }
         }
         argv[arg++] = NULL;
-
     }
 
     start_mock_process(info, argv);

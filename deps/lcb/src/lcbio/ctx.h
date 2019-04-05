@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ typedef struct lcbio_CTX *lcbio_pCTX;
  */
 typedef struct {
     /** Error handler invoked with the context and the received error */
-    void (*cb_err)(lcbio_pCTX, lcb_error_t);
+    void (*cb_err)(lcbio_pCTX, lcb_STATUS);
 
     /** Read handler invoked with the context and the number of bytes read */
     void (*cb_read)(lcbio_pCTX, unsigned total);
@@ -131,24 +131,24 @@ typedef struct {
  * application data with the socket.
  */
 typedef struct lcbio_CTX {
-    lcbio_SOCKET *sock; /**< Socket resource */
-    lcbio_pTABLE io; /**< Cached IO table */
-    void *data; /**< Associative pointer */
-    void *event; /**< event pointer for E-model I/O */
-    lcb_sockdata_t *sd; /**< cached SD for C-model I/O */
+    lcbio_SOCKET *sock;    /**< Socket resource */
+    lcbio_pTABLE io;       /**< Cached IO table */
+    void *data;            /**< Associative pointer */
+    void *event;           /**< event pointer for E-model I/O */
+    lcb_sockdata_t *sd;    /**< cached SD for C-model I/O */
     lcbio__EASYRB *output; /**< for lcbio_ctx_put() */
-    lcb_socket_t fd; /**< cached FD for E-model I/O */
-    char evactive; /**< watcher is active for E-model I/O */
-    char wwant; /**< flag for lcbio_ctx_put_ex */
-    char state; /**< internal state */
-    char entered; /**< inside event handler */
-    unsigned npending; /**< reference count on pending I/O */
-    unsigned rdwant; /**< number of remaining bytes to read */
-    lcb_error_t err; /**< pending error */
-    rdb_IOROPE ior; /**< for reads */
-    lcbio_pASYNC as_err; /**< async error handler */
-    lcbio_CTXPROCS procs; /**< callbacks */
-    const char *subsys; /**< Informational description of connection */
+    lcb_socket_t fd;       /**< cached FD for E-model I/O */
+    char evactive;         /**< watcher is active for E-model I/O */
+    char wwant;            /**< flag for lcbio_ctx_put_ex */
+    char state;            /**< internal state */
+    char entered;          /**< inside event handler */
+    unsigned npending;     /**< reference count on pending I/O */
+    unsigned rdwant;       /**< number of remaining bytes to read */
+    lcb_STATUS err;        /**< pending error */
+    rdb_IOROPE ior;        /**< for reads */
+    lcbio_pASYNC as_err;   /**< async error handler */
+    lcbio_CTXPROCS procs;  /**< callbacks */
+    const char *subsys;    /**< Informational description of connection */
 } lcbio_CTX;
 
 /**@name Creating and Closing
@@ -167,9 +167,7 @@ typedef struct lcbio_CTX {
  * @param procs callback table
  * @return a new context object.
  */
-lcbio_CTX *
-lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs);
-
+lcbio_CTX *lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs);
 
 /**
  * Callback invoked when the connection is about to be release
@@ -180,8 +178,7 @@ lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs);
  * If you wish to reuse the socket (and reusable is true) then the socket's
  * reference count should be incremented via lcbio_ref().
  */
-typedef void
-(*lcbio_CTXCLOSE_cb)(lcbio_SOCKET *sock, int releasable, void *arg);
+typedef void (*lcbio_CTXCLOSE_cb)(lcbio_SOCKET *sock, int releasable, void *arg);
 
 /**
  * @brief Close the context object.
@@ -194,15 +191,11 @@ typedef void
  * @param callback a callback to invoke (see above)
  * @param arg argument passed to the callback
  */
-void
-lcbio_ctx_close(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb callback, void *arg);
+void lcbio_ctx_close(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb callback, void *arg);
 
 typedef void (*lcbio_CTXDTOR_cb)(lcbio_pCTX);
-void
-lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *cbarg,
-                   lcbio_CTXDTOR_cb dtor, void *dtor_arg);
+void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *cbarg, lcbio_CTXDTOR_cb dtor, void *dtor_arg);
 /**@}*/
-
 
 /**@name Informational Routines
  * @{*/
@@ -217,15 +210,12 @@ lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *cbarg,
 #define lcbio_ctx_sock(ctx) (ctx)->sock
 
 /** Dump a textual representation of the context to the screen */
-void
-lcbio_ctx_dump(lcbio_CTX *ctx, FILE *fp);
+void lcbio_ctx_dump(lcbio_CTX *ctx, FILE *fp);
 
 /**@}*/
 
 /** Asynchronously trigger the error callback */
-void
-lcbio_ctx_senderr(lcbio_CTX *ctx, lcb_error_t err);
-
+void lcbio_ctx_senderr(lcbio_CTX *ctx, lcb_STATUS err);
 
 /**
  * Schedule any pending I/O to be scheduled immediately. If data was requested
@@ -240,8 +230,7 @@ lcbio_ctx_senderr(lcbio_CTX *ctx, lcb_error_t err);
  * multiple times. Each invocation may potentially involve system calls
  * and buffer allocations, depending on the I/O plugin being used.
  */
-void
-lcbio_ctx_schedule(lcbio_CTX *ctx);
+void lcbio_ctx_schedule(lcbio_CTX *ctx);
 
 /**
  * @brief Add output data to the write buffer.
@@ -254,8 +243,7 @@ lcbio_ctx_schedule(lcbio_CTX *ctx);
  * @param buf the buffer to write
  * @param nbuf the size of the buffer to write
  */
-void
-lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf);
+void lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf);
 
 /**
  * Invoke the lcbio_CTXPROCS#cb_flush_ready()
@@ -302,8 +290,7 @@ lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf);
  * flush_ready() callback is invoked as well - typically in a loop until an
  * `EWOULDBLOCK` is received on the socket itself.
  */
-void
-lcbio_ctx_wwant(lcbio_CTX *ctx);
+void lcbio_ctx_wwant(lcbio_CTX *ctx);
 
 /**
  * @brief Flush data from the lcbio_CTXPROCS#cb_flush_ready() callback
@@ -320,8 +307,7 @@ lcbio_ctx_wwant(lcbio_CTX *ctx);
  * @return nonzero if more data can be written (i.e. this function may be
  * invoked again), zero otherwise.
  */
-int
-lcbio_ctx_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb);
+int lcbio_ctx_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb);
 
 /**
  * Require that the read callback not be invoked until at least `n`
@@ -342,9 +328,7 @@ lcbio_ctx_put_ex(lcbio_CTX *ctx, lcb_IOV *iov, unsigned niov, unsigned nb);
  * you should set this to the total number of bytes needed, and **not** the
  * number of remaining bytes that should be read.
  */
-void
-lcbio_ctx_rwant(lcbio_CTX *ctx, unsigned n);
-
+void lcbio_ctx_rwant(lcbio_CTX *ctx, unsigned n);
 
 /** @private */
 typedef struct {
@@ -374,9 +358,8 @@ typedef struct {
  * @param[in,out] iter an empty iterator
  * @param[in] nb the number of bytes to iterate over.
  */
-#define LCBIO_CTX_ITERFOR(ctx, iter, nb) \
-    for (lcbio_ctx_ristart(ctx, iter, nb); !lcbio_ctx_ridone(iter); \
-    lcbio_ctx_rinext(ctx, iter))
+#define LCBIO_CTX_ITERFOR(ctx, iter, nb)                                                                               \
+    for (lcbio_ctx_ristart(ctx, iter, nb); !lcbio_ctx_ridone(iter); lcbio_ctx_rinext(ctx, iter))
 
 /** Obtains the buffer from the current iterator */
 #define lcbio_ctx_ribuf(iter) ((iter)->buf)
@@ -384,18 +367,17 @@ typedef struct {
 /** Obtains the length of the buffer from the current iterator */
 #define lcbio_ctx_risize(iter) ((iter)->nbuf)
 
-void
-lcbio_ctx_ristart(lcbio_CTX *ctx, lcbio_CTXRDITER *iter, unsigned nb);
+void lcbio_ctx_ristart(lcbio_CTX *ctx, lcbio_CTXRDITER *iter, unsigned nb);
 
-void
-lcbio_ctx_rinext(lcbio_CTX *ctx, lcbio_CTXRDITER *iter);
+void lcbio_ctx_rinext(lcbio_CTX *ctx, lcbio_CTXRDITER *iter);
 
 #define lcbio_ctx_ridone(iter) (!(iter)->remaining)
 
-#define LCBIO_CTX_RSCHEDULE(ctx, nb) do { \
-    lcbio_ctx_rwant(ctx, nb); \
-    lcbio_ctx_schedule(ctx); \
-} while (0)
+#define LCBIO_CTX_RSCHEDULE(ctx, nb)                                                                                   \
+    do {                                                                                                               \
+        lcbio_ctx_rwant(ctx, nb);                                                                                      \
+        lcbio_ctx_schedule(ctx);                                                                                       \
+    } while (0)
 
 #ifdef __cplusplus
 }

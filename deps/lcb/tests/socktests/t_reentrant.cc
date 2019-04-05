@@ -3,23 +3,28 @@ using namespace LCBTest;
 using std::string;
 using std::vector;
 
-class SockReentrantTest : public SockTest {};
+class SockReentrantTest : public SockTest
+{
+};
 
 /**
  * This file tests various reentrant actions within the socket handlers.
  */
-class ReadAgainAction : public IOActions {
-public:
-    ReadAgainAction() {
+class ReadAgainAction : public IOActions
+{
+  public:
+    ReadAgainAction()
+    {
         callCount = 0;
         sf = NULL;
     }
 
-    virtual ~ReadAgainAction(){}
+    virtual ~ReadAgainAction() {}
 
     int callCount;
     SendFuture *sf;
-    void onRead(ESocket *s, size_t nr) {
+    void onRead(ESocket *s, size_t nr)
+    {
         if (callCount++) {
             s->parent->stop();
             return;
@@ -30,19 +35,26 @@ public:
         s->conn->setSend(sf);
         s->schedule();
     }
-    void onError(ESocket *) {
+    void onError(ESocket *)
+    {
         // do nothing
     }
 };
 
-class CallCountBreakCondition : public BreakCondition {
-public:
+class CallCountBreakCondition : public BreakCondition
+{
+  public:
     ReadAgainAction *raa;
-    CallCountBreakCondition(ReadAgainAction *action) {
+    CallCountBreakCondition(ReadAgainAction *action)
+    {
         raa = action;
     }
-protected:
-    bool shouldBreakImpl() { return raa->callCount >= 2; }
+
+  protected:
+    bool shouldBreakImpl()
+    {
+        return raa->callCount >= 2;
+    }
 };
 
 TEST_F(SockReentrantTest, testReadAgain)
@@ -66,12 +78,16 @@ TEST_F(SockReentrantTest, testReadAgain)
     delete raa.sf;
 }
 
-
-class CloseReadAction : public IOActions {
-public:
-    CloseReadAction() { wasCalled = false; }
+class CloseReadAction : public IOActions
+{
+  public:
+    CloseReadAction()
+    {
+        wasCalled = false;
+    }
     virtual ~CloseReadAction() {}
-    void onRead(ESocket *s, size_t) {
+    void onRead(ESocket *s, size_t)
+    {
         EXPECT_FALSE(wasCalled);
         wasCalled = true;
         s->parent->stop();
@@ -81,12 +97,20 @@ public:
     bool wasCalled;
 };
 
-class CRABreakCondition : public BreakCondition {
-public:
+class CRABreakCondition : public BreakCondition
+{
+  public:
     CloseReadAction *cra;
-    CRABreakCondition(CloseReadAction *action) { cra = action; }
-protected:
-    bool shouldBreakImpl() { return cra->wasCalled; }
+    CRABreakCondition(CloseReadAction *action)
+    {
+        cra = action;
+    }
+
+  protected:
+    bool shouldBreakImpl()
+    {
+        return cra->wasCalled;
+    }
 };
 
 TEST_F(SockReentrantTest, testCloseOnRead)
@@ -106,12 +130,17 @@ TEST_F(SockReentrantTest, testCloseOnRead)
     ASSERT_TRUE(cra.wasCalled);
 }
 
-class CloseWriteAction : public IOActions {
-public:
+class CloseWriteAction : public IOActions
+{
+  public:
     bool wasCalled;
-    CloseWriteAction() { wasCalled = false; }
-    virtual ~CloseWriteAction() { }
-    void onRead(ESocket *s, size_t) {
+    CloseWriteAction()
+    {
+        wasCalled = false;
+    }
+    virtual ~CloseWriteAction() {}
+    void onRead(ESocket *s, size_t)
+    {
         EXPECT_FALSE(wasCalled);
         wasCalled = true;
         for (int ii = 0; ii < 100; ii++) {
@@ -121,7 +150,7 @@ public:
         s->close();
         s->parent->stop();
     }
-    void onError(ESocket *){}
+    void onError(ESocket *) {}
 };
 TEST_F(SockReentrantTest, testCloseOnWrite)
 {

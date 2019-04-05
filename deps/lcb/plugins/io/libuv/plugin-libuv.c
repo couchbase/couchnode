@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -22,14 +22,8 @@ static my_uvreq_t *alloc_uvreq(my_sockdata_t *sock, generic_callback_t callback)
 static void set_last_error(my_iops_t *io, int error);
 static void socket_closed_callback(uv_handle_t *handle);
 
-static void wire_iops2(int version,
-                       lcb_loop_procs *loop,
-                       lcb_timer_procs *timer,
-                       lcb_bsd_procs *bsd,
-                       lcb_ev_procs *ev,
-                       lcb_completion_procs *iocp,
-                       lcb_iomodel_t *model);
-
+static void wire_iops2(int version, lcb_loop_procs *loop, lcb_timer_procs *timer, lcb_bsd_procs *bsd, lcb_ev_procs *ev,
+                       lcb_completion_procs *iocp, lcb_iomodel_t *model);
 
 static void decref_iops(lcb_io_opt_t iobase)
 {
@@ -81,7 +75,8 @@ static void do_stop_loop(my_iops_t *io)
     io->do_stop = 1;
 }
 #else
-static void do_run_loop(my_iops_t *io) {
+static void do_run_loop(my_iops_t *io)
+{
     uv_run(io->loop, UV_RUN_DEFAULT);
 }
 static void do_stop_loop(my_iops_t *io)
@@ -89,7 +84,6 @@ static void do_stop_loop(my_iops_t *io)
     uv_stop(io->loop);
 }
 #endif
-
 
 static void run_event_loop(lcb_io_opt_t iobase)
 {
@@ -122,9 +116,7 @@ static void stop_event_loop(lcb_io_opt_t iobase)
 }
 
 LCBUV_API
-lcb_error_t lcb_create_libuv_io_opts(int version,
-                                     lcb_io_opt_t *io,
-                                     lcbuv_options_t *options)
+lcb_STATUS lcb_create_libuv_io_opts(int version, lcb_io_opt_t *io, lcbuv_options_t *options)
 {
     lcb_io_opt_t iop;
     uv_loop_t *loop = NULL;
@@ -141,17 +133,15 @@ lcb_error_t lcb_create_libuv_io_opts(int version,
         /* We need to provide a symbol */
         static int dummy;
         BOOL result;
-        result = GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                                   GET_MODULE_HANDLE_EX_FLAG_PIN,
-                                   (LPCSTR)&dummy,
-                                   &module);
+        result = GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+                                   (LPCSTR)&dummy, &module);
         if (!result) {
             return LCB_EINTERNAL;
         }
     }
 #endif
 
-    ret = calloc(1, sizeof(*ret));
+    ret = (my_iops_t *)calloc(1, sizeof(*ret));
 
     if (!ret) {
         return LCB_CLIENT_ENOMEM;
@@ -189,7 +179,7 @@ lcb_error_t lcb_create_libuv_io_opts(int version,
 static void sock_dump_pending(my_sockdata_t *sock)
 {
     printf("Socket %p:\n", (void *)sock);
-    printf("\tRead: %d\n",  sock->pending.read);
+    printf("\tRead: %d\n", sock->pending.read);
     printf("\tWrite: %d\n", sock->pending.write);
 }
 #endif
@@ -219,15 +209,12 @@ static void decref_sock(my_sockdata_t *sock)
  ** Socket Functions                                                         **
  ******************************************************************************
  ******************************************************************************/
-static lcb_sockdata_t *create_socket(lcb_io_opt_t iobase,
-                                     int domain,
-                                     int type,
-                                     int protocol)
+static lcb_sockdata_t *create_socket(lcb_io_opt_t iobase, int domain, int type, int protocol)
 {
     my_sockdata_t *ret;
     my_iops_t *io = (my_iops_t *)iobase;
 
-    ret = calloc(1, sizeof(*ret));
+    ret = (my_sockdata_t *)calloc(1, sizeof(*ret));
     if (!ret) {
         return NULL;
     }
@@ -256,7 +243,7 @@ static void socket_closed_callback(uv_handle_t *handle)
     my_iops_t *io = (my_iops_t *)sock->base.parent;
 
     if (sock->pending.read) {
-        CbREQ(&sock->tcp)(&sock->base, -1, sock->rdarg);
+        CbREQ (&sock->tcp)(&sock->base, -1, sock->rdarg);
     }
 
     memset(sock, 0xEE, sizeof(*sock));
@@ -264,7 +251,6 @@ static void socket_closed_callback(uv_handle_t *handle)
 
     decref_iops(&io->base);
 }
-
 
 static unsigned int close_socket(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase)
 {
@@ -275,30 +261,28 @@ static unsigned int close_socket(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase)
     return 0;
 }
 
-static int cntl_socket(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase,
-    int mode, int option, void *arg)
+static int cntl_socket(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase, int mode, int option, void *arg)
 {
     my_sockdata_t *sd = (my_sockdata_t *)sockbase;
     int rv;
 
     switch (option) {
-    case LCB_IO_CNTL_TCP_NODELAY:
-        if (mode == LCB_IO_CNTL_SET) {
-            rv = uv_tcp_nodelay(&sd->tcp.t, *(int *)arg);
-            if (rv != 0) {
-                set_last_error((my_iops_t*)iobase, rv);
+        case LCB_IO_CNTL_TCP_NODELAY:
+            if (mode == LCB_IO_CNTL_SET) {
+                rv = uv_tcp_nodelay(&sd->tcp.t, *(int *)arg);
+                if (rv != 0) {
+                    set_last_error((my_iops_t *)iobase, rv);
+                }
+                return rv;
+            } else {
+                LCB_IOPS_ERRNO(iobase) = ENOTSUP;
+                return -1;
             }
-            return rv;
-        } else {
+        default:
             LCB_IOPS_ERRNO(iobase) = ENOTSUP;
             return -1;
-        }
-    default:
-        LCB_IOPS_ERRNO(iobase) = ENOTSUP;
-        return -1;
     }
 }
-
 
 /******************************************************************************
  ******************************************************************************
@@ -319,11 +303,8 @@ static void connect_callback(uv_connect_t *req, int status)
     free(uvr);
 }
 
-static int start_connect(lcb_io_opt_t iobase,
-                         lcb_sockdata_t *sockbase,
-                         const struct sockaddr *name,
-                         unsigned int namelen,
-                         lcb_io_connect_cb callback)
+static int start_connect(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase, const struct sockaddr *name,
+                         unsigned int namelen, lcb_io_connect_cb callback)
 {
     my_sockdata_t *sock = (my_sockdata_t *)sockbase;
     my_iops_t *io = (my_iops_t *)iobase;
@@ -337,16 +318,10 @@ static int start_connect(lcb_io_opt_t iobase,
     }
 
     if (namelen == sizeof(struct sockaddr_in)) {
-        ret = UVC_TCP_CONNECT(&uvr->uvreq.conn,
-                             &sock->tcp.t,
-                             name,
-                             connect_callback);
+        ret = UVC_TCP_CONNECT(&uvr->uvreq.conn, &sock->tcp.t, name, connect_callback);
 
     } else if (namelen == sizeof(struct sockaddr_in6)) {
-        ret = UVC_TCP_CONNECT6(&uvr->uvreq.conn,
-                              &sock->tcp.t,
-                              name,
-                              connect_callback);
+        ret = UVC_TCP_CONNECT6(&uvr->uvreq.conn, &sock->tcp.t, name, connect_callback);
 
     } else {
         io->base.v.v1.error = EINVAL;
@@ -367,12 +342,12 @@ static int start_connect(lcb_io_opt_t iobase,
 
 #if UV_VERSION_HEX >= 0x010000
     {
-        uv_os_fd_t fd = INVALID_SOCKET;
+        uv_os_fd_t fd = (uv_os_fd_t)INVALID_SOCKET;
         /* Fetch socket descriptor for internal usage.
          * For example to detect dead sockets. */
         ret = uv_fileno((uv_handle_t *)&sock->tcp, &fd);
         if (ret == 0) {
-            sock->base.socket = fd;
+            sock->base.socket = (lcb_socket_t)fd;
         }
     }
 #endif
@@ -398,26 +373,19 @@ static void write2_callback(uv_write_t *req, int status)
     free(mw);
 }
 
-static int start_write2(lcb_io_opt_t iobase,
-                        lcb_sockdata_t *sockbase,
-                        struct lcb_iovec_st *iov,
-                        lcb_size_t niov,
-                        void *uarg,
-                        lcb_ioC_write2_callback callback)
+static int start_write2(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase, struct lcb_iovec_st *iov, lcb_size_t niov,
+                        void *uarg, lcb_ioC_write2_callback callback)
 {
     my_write_t *w;
     my_sockdata_t *sd = (my_sockdata_t *)sockbase;
     int ret;
 
-    w = calloc(1, sizeof(*w));
+    w = (my_write_t *)calloc(1, sizeof(*w));
     w->w.data = uarg;
     w->callback = callback;
     w->sock = sd;
 
-    ret = uv_write(&w->w, (uv_stream_t *)&sd->tcp,
-                   (uv_buf_t *)iov,
-                   niov,
-                   write2_callback);
+    ret = uv_write(&w->w, (uv_stream_t *)&sd->tcp, (uv_buf_t *)iov, niov, write2_callback);
 
     if (ret != 0) {
         free(w);
@@ -455,7 +423,7 @@ static UVC_ALLOC_CB(alloc_cb)
     UVC_ALLOC_CB_VARS()
 
     my_sockdata_t *sock = PTR_FROM_FIELD(my_sockdata_t, handle, tcp);
-    buf->base = sock->iov.iov_base;
+    buf->base = (char *)sock->iov.iov_base;
     buf->len = sock->iov.iov_len;
 
     (void)suggested_size;
@@ -499,11 +467,7 @@ static UVC_READ_CB(read_cb)
     (void)buf;
 }
 
-static int start_read(lcb_io_opt_t iobase,
-                      lcb_sockdata_t *sockbase,
-                      lcb_IOV *iov,
-                      lcb_size_t niov,
-                      void *uarg,
+static int start_read(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase, lcb_IOV *iov, lcb_size_t niov, void *uarg,
                       lcb_ioC_read2_callback callback)
 {
     my_sockdata_t *sock = (my_sockdata_t *)sockbase;
@@ -524,9 +488,7 @@ static int start_read(lcb_io_opt_t iobase,
     return ret;
 }
 
-static int get_nameinfo(lcb_io_opt_t iobase,
-                        lcb_sockdata_t *sockbase,
-                        struct lcb_nameinfo_st *ni)
+static int get_nameinfo(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase, struct lcb_nameinfo_st *ni)
 {
     my_sockdata_t *sock = (my_sockdata_t *)sockbase;
     my_iops_t *io = (my_iops_t *)iobase;
@@ -554,7 +516,7 @@ static UVC_TIMER_CB(timer_cb)
 static void *create_timer(lcb_io_opt_t iobase)
 {
     my_iops_t *io = (my_iops_t *)iobase;
-    my_timer_t *timer = calloc(1, sizeof(*timer));
+    my_timer_t *timer = (my_timer_t *)calloc(1, sizeof(*timer));
     if (!timer) {
         return NULL;
     }
@@ -566,10 +528,7 @@ static void *create_timer(lcb_io_opt_t iobase)
     return timer;
 }
 
-static int update_timer(lcb_io_opt_t iobase,
-                        void *timer_opaque,
-                        lcb_uint32_t usec,
-                        void *cbdata,
+static int update_timer(lcb_io_opt_t iobase, void *timer_opaque, lcb_uint32_t usec, void *cbdata,
                         v0_callback_t callback)
 {
     my_timer_t *timer = (my_timer_t *)timer_opaque;
@@ -608,7 +567,7 @@ static void destroy_timer(lcb_io_opt_t io, void *timer_opaque)
 
 static my_uvreq_t *alloc_uvreq(my_sockdata_t *sock, generic_callback_t callback)
 {
-    my_uvreq_t *ret = calloc(1, sizeof(*ret));
+    my_uvreq_t *ret = (my_uvreq_t *)calloc(1, sizeof(*ret));
     if (!ret) {
         sock->base.parent->v.v1.error = ENOMEM;
         return NULL;
@@ -617,7 +576,6 @@ static my_uvreq_t *alloc_uvreq(my_sockdata_t *sock, generic_callback_t callback)
     ret->cb.cb_ = callback;
     return ret;
 }
-
 
 static void set_last_error(my_iops_t *io, int error)
 {
@@ -668,13 +626,8 @@ GT_RETRY:
 }
 #endif
 
-static void wire_iops2(int version,
-                       lcb_loop_procs *loop,
-                       lcb_timer_procs *timer,
-                       lcb_bsd_procs *bsd,
-                       lcb_ev_procs *ev,
-                       lcb_completion_procs *iocp,
-                       lcb_iomodel_t *model)
+static void wire_iops2(int version, lcb_loop_procs *loop, lcb_timer_procs *timer, lcb_bsd_procs *bsd, lcb_ev_procs *ev,
+                       lcb_completion_procs *iocp, lcb_iomodel_t *model)
 {
     *model = LCB_IOMODEL_COMPLETION;
     loop->start = run_event_loop;

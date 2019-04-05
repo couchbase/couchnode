@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 #include <libcouchbase/couchbase.h>
 
-extern char * common_aes256_key_id;
+extern char *common_aes256_key_id;
 
 #define AES256_KEY_SIZE 32
 #define AES256_IV_SIZE 16

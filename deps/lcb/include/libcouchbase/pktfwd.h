@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -163,8 +163,7 @@ typedef struct {
  * @see lcb_set_pktfwd_callback lcb_set_pktflushed_callback, mc_forward_packet
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_pktfwd3(lcb_t instance, const void *cookie, const lcb_CMDPKTFWD *cmd);
+lcb_STATUS lcb_pktfwd3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDPKTFWD *cmd);
 
 /**
  * Callback invoked when a response packet has arrived for a request
@@ -180,15 +179,14 @@ lcb_pktfwd3(lcb_t instance, const void *cookie, const lcb_CMDPKTFWD *cmd);
  * invoke lcb_backbuf_ref() on the required lcb_BACKBUF structures and then
  * once they are no longer needed use lcb_backbuf_unref()
  */
-typedef void (*lcb_pktfwd_callback)
-        (lcb_t instance, const void *cookie, lcb_error_t err, lcb_PKTFWDRESP *resp);
+typedef void (*lcb_pktfwd_callback)(lcb_INSTANCE *instance, const void *cookie, lcb_STATUS err, lcb_PKTFWDRESP *resp);
 
 /**
  * Callback invoked when the request buffer for a packet is no longer required.
  * @param instance
  * @param cookie The cookie associated with the request data
  */
-typedef void (*lcb_pktflushed_callback) (lcb_t instance, const void *cookie);
+typedef void (*lcb_pktflushed_callback)(lcb_INSTANCE *instance, const void *cookie);
 
 /**
  * @uncommitted
@@ -201,8 +199,7 @@ typedef void (*lcb_pktflushed_callback) (lcb_t instance, const void *cookie);
  * the existing callback
  */
 LIBCOUCHBASE_API
-lcb_pktfwd_callback
-lcb_set_pktfwd_callback(lcb_t instance, lcb_pktfwd_callback callback);
+lcb_pktfwd_callback lcb_set_pktfwd_callback(lcb_INSTANCE *instance, lcb_pktfwd_callback callback);
 
 /**
  * @uncommitted
@@ -216,9 +213,7 @@ lcb_set_pktfwd_callback(lcb_t instance, lcb_pktfwd_callback callback);
  * returns the existing callback.
  */
 LIBCOUCHBASE_API
-lcb_pktflushed_callback
-lcb_set_pktflushed_callback(lcb_t instance, lcb_pktflushed_callback callback);
-
+lcb_pktflushed_callback lcb_set_pktflushed_callback(lcb_INSTANCE *instance, lcb_pktflushed_callback callback);
 
 /**
  * @name Response Buffer Handling
@@ -248,8 +243,7 @@ lcb_set_pktflushed_callback(lcb_t instance, lcb_pktflushed_callback callback);
  * invocation.
  */
 LIBCOUCHBASE_API
-void
-lcb_backbuf_ref(lcb_BACKBUF buf);
+void lcb_backbuf_ref(lcb_BACKBUF buf);
 
 /**
  * Indicate that the IOV backed by the specified `buf` is no longer required
@@ -258,10 +252,8 @@ lcb_backbuf_ref(lcb_BACKBUF buf);
  * accessed
  */
 LIBCOUCHBASE_API
-void
-lcb_backbuf_unref(lcb_BACKBUF buf);
+void lcb_backbuf_unref(lcb_BACKBUF buf);
 /**@}*/
-
 
 /**@}*/
 #ifdef __cplusplus

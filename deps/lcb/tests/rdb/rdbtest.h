@@ -5,47 +5,57 @@
 
 class RdbAllocator
 {
-public:
+  public:
     rdb_ALLOCATOR *_inner;
-    rdb_ROPESEG *alloc(size_t n) {
+    rdb_ROPESEG *alloc(size_t n)
+    {
         return _inner->s_alloc(_inner, n);
     }
-    rdb_ROPESEG *realloc(rdb_ROPESEG *prev, size_t n) {
+    rdb_ROPESEG *realloc(rdb_ROPESEG *prev, size_t n)
+    {
         return _inner->s_realloc(_inner, prev, n);
     }
-    void reserve(rdb_ROPEBUF *buf, size_t cap) {
+    void reserve(rdb_ROPEBUF *buf, size_t cap)
+    {
         _inner->r_reserve(_inner, buf, cap);
     }
-    void free(rdb_ROPESEG *seg) {
+    void free(rdb_ROPESEG *seg)
+    {
         _inner->s_release(_inner, seg);
     }
-    void release() {
+    void release()
+    {
         _inner->a_release(_inner);
     }
 
-    RdbAllocator(rdb_ALLOCATOR *inner) {
+    RdbAllocator(rdb_ALLOCATOR *inner)
+    {
         _inner = inner;
     }
 };
 
 struct IORope : public rdb_IOROPE {
-    IORope(rdb_ALLOCATOR *allocator) {
+    IORope(rdb_ALLOCATOR *allocator)
+    {
         rdb_init(this, allocator);
         rdsize = 256;
     }
 
-    IORope() {
+    IORope()
+    {
         rdb_init(this, rdb_bigalloc_new());
         rdsize = 256;
     }
 
-    ~IORope() {
+    ~IORope()
+    {
         rdb_cleanup(this);
     }
 
-    IORope(const IORope&);
+    IORope(const IORope &);
 
-    std::string stlstr(size_t n) {
+    std::string stlstr(size_t n)
+    {
         char *buf = new char[n];
         rdb_copyread(this, buf, n);
         std::string rv(buf, n);
@@ -53,11 +63,13 @@ struct IORope : public rdb_IOROPE {
         return rv;
     }
 
-    size_t usedSize() const {
+    size_t usedSize() const
+    {
         return recvd.nused;
     }
 
-    void feed(const std::string &s) {
+    void feed(const std::string &s)
+    {
         size_t n_fed = 0;
         nb_IOV iov[32];
 
@@ -78,16 +90,18 @@ struct IORope : public rdb_IOROPE {
         }
     }
 
-    void feed(const char *s) {
+    void feed(const char *s)
+    {
         feed(std::string(s));
     }
 };
 
 struct ReadPacket {
-    std::vector<rdb_ROPESEG*> segments;
-    std::vector<nb_IOV> iovs;
+    std::vector< rdb_ROPESEG * > segments;
+    std::vector< nb_IOV > iovs;
 
-    ReadPacket(nb_IOV *iov, rdb_ROPESEG **segs, unsigned n) {
+    ReadPacket(nb_IOV *iov, rdb_ROPESEG **segs, unsigned n)
+    {
         segments.reserve(n);
         iovs.reserve(n);
 
@@ -96,7 +110,8 @@ struct ReadPacket {
         iovs.insert(iovs.begin(), iov, iov + n);
     }
 
-    ReadPacket(rdb_IOROPE *ior, unsigned nb) {
+    ReadPacket(rdb_IOROPE *ior, unsigned nb)
+    {
         segments.resize(2);
         iovs.resize(2);
         unsigned niov;
@@ -114,11 +129,13 @@ struct ReadPacket {
         }
     }
 
-    void refSegment(unsigned ix) {
+    void refSegment(unsigned ix)
+    {
         rdb_seg_ref(segments[ix]);
     }
 
-    std::string asString() {
+    std::string asString()
+    {
         std::string s;
         for (size_t ii = 0; ii < iovs.size(); ii++) {
             nb_IOV *cur = &iovs[ii];
@@ -127,7 +144,8 @@ struct ReadPacket {
         return s;
     }
 
-    void unrefSegment(unsigned ix) {
+    void unrefSegment(unsigned ix)
+    {
         rdb_seg_unref(segments[ix]);
     }
 };

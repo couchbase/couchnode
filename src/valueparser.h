@@ -1,22 +1,16 @@
-/*
- * valueparser.h
- *
- *  Created on: Feb 29, 2016
- *      Author: brettlawson
- */
-
-#ifndef VALUEPARSER_H_
-#define VALUEPARSER_H_
+#pragma once
+#ifndef VALUEPARSER_H
+#define VALUEPARSER_H
 
 #include "cas.h"
 #include <libcouchbase/couchbase.h>
 #include <stdint.h>
 #include <vector>
 
-using namespace v8;
-
-namespace Couchnode
+namespace couchnode
 {
+
+using namespace v8;
 
 class ValueParser
 {
@@ -44,6 +38,19 @@ public:
         }
 
         Nan::Utf8String *utfStr = new Nan::Utf8String(str);
+
+        if (utfStr->length() == 0) {
+            // If the length of the string is Zero, we can return a NULL val
+            // along with an nval of 0 and avoid holding onto the string ref.
+
+            delete utfStr;
+
+            *val = NULL;
+            *nval = 0;
+
+            return true;
+        }
+
         _strings.push_back(utfStr);
 
         if (val) {
@@ -65,7 +72,7 @@ public:
     bool parseCas(lcb_U64 *casOut, Local<Value> cas)
     {
         if (!cas->IsUndefined() && !cas->IsNull()) {
-            return Cas::GetCas(cas, casOut);
+            return Cas::parse(cas, casOut);
         }
         return true;
     }
@@ -98,13 +105,20 @@ public:
             return false;
         }
 
-        *out = valueTyped.ToLocalChecked()->Value();
+        *out = static_cast<T>(valueTyped.ToLocalChecked()->Value());
         return true;
     }
 
-    static lcb_U32 asUint(Local<Value> value)
+    static int32_t asInt(Local<Value> value)
     {
-        lcb_U32 parsedValue = 0;
+        int32_t parsedValue = 0;
+        parseInt(&parsedValue, value);
+        return parsedValue;
+    }
+
+    static uint32_t asUint(Local<Value> value)
+    {
+        uint32_t parsedValue = 0;
         parseUint(&parsedValue, value);
         return parsedValue;
     }
@@ -113,6 +127,6 @@ private:
     std::vector<Nan::Utf8String *> _strings;
 };
 
-} // namespace Couchnode
+} // namespace couchnode
 
-#endif /* VALUEPARSER_H_ */
+#endif // VALUEPARSER_H

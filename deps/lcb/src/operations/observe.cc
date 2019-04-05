@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2012 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -27,17 +27,15 @@ struct ObserveCtx : lcb::MultiCmdContext {
         requests.clear();
         num_requests.clear();
     }
-    ObserveCtx(lcb_t instance_);
+    ObserveCtx(lcb_INSTANCE *instance_);
 
     // Overrides
-    lcb_error_t MCTX_addcmd(const lcb_CMDBASE *);
-    lcb_error_t MCTX_done(const void *);
+    lcb_STATUS MCTX_addcmd(const lcb_CMDBASE *);
+    lcb_STATUS MCTX_done(const void *);
     void MCTX_fail();
-#ifdef LCB_TRACING
     void MCTX_setspan(lcbtrace_SPAN *span);
-#endif
 
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     size_t remaining;
     unsigned oflags;
 
@@ -46,9 +44,7 @@ struct ObserveCtx : lcb::MultiCmdContext {
      * says how many elements (and thus how many servers) */
     std::vector< ServerBuf > requests;
     std::vector< size_t > num_requests;
-#ifdef LCB_TRACING
     lcbtrace_SPAN *span;
-#endif
 };
 
 struct OperationCtx : mc_REQDATAEX {
@@ -67,12 +63,12 @@ template < typename ContainerType, typename ValueType > void add_to_buf(Containe
     c.insert(c.end(), p, p + sizeof(ValueType));
 }
 
-static void handle_observe_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t err, const void *arg)
+static void handle_observe_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_STATUS err, const void *arg)
 {
     OperationCtx *opc = static_cast< OperationCtx * >(pkt->u_rdata.exdata);
     ObserveCtx *oc = opc->parent;
     lcb_RESPOBSERVE *resp = reinterpret_cast< lcb_RESPOBSERVE * >(const_cast< void * >(arg));
-    lcb_t instance = oc->instance;
+    lcb_INSTANCE *instance = oc->instance;
 
     if (resp == NULL) {
         int nfailed = 0;
@@ -105,12 +101,10 @@ static void handle_observe_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_error_t
     resp->cookie = (void *)opc->cookie;
     resp->rc = err;
     oc->remaining--;
-#ifdef LCB_TRACING
     if (oc->remaining == 0 && oc->span) {
         lcbtrace_span_finish(oc->span, LCBTRACE_NOW);
         oc->span = NULL;
     }
-#endif
     if (oc->oflags & F_DURABILITY) {
         resp->ttp = pl ? pl->index : -1;
         lcbdur_cas_update(instance, (void *)MCREQ_PKT_COOKIE(pkt), err, resp);
@@ -146,14 +140,12 @@ static void handle_schedfail(mc_PACKET *pkt)
     handle_observe_callback(NULL, pkt, LCB_SCHEDFAIL_INTERNAL, NULL);
 }
 
-#ifdef LCB_TRACING
 void ObserveCtx::MCTX_setspan(lcbtrace_SPAN *span_)
 {
     span = span_;
 }
-#endif
 
-lcb_error_t ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
+lcb_STATUS ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
 {
     int vbid, srvix_dummy;
     unsigned ii;
@@ -175,7 +167,7 @@ lcb_error_t ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
         return LCB_NOT_SUPPORTED;
     }
 
-    mcreq_map_key(cq, &cmd->key, &cmd->_hashkey, 24, &vbid, &srvix_dummy);
+    mcreq_map_key(cq, &cmd->key, 24, &vbid, &srvix_dummy);
 
     if (cmd->servers_) {
         servers = cmd->servers_;
@@ -222,7 +214,7 @@ lcb_error_t ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
 
 static mc_REQDATAPROCS obs_procs = {handle_observe_callback, handle_schedfail};
 
-lcb_error_t ObserveCtx::MCTX_done(const void *cookie_)
+lcb_STATUS ObserveCtx::MCTX_done(const void *cookie_)
 {
     unsigned ii;
     mc_CMDQUEUE *cq = &instance->cmdq;
@@ -263,7 +255,6 @@ lcb_error_t ObserveCtx::MCTX_done(const void *cookie_)
 
         pkt->flags |= MCREQ_F_REQEXT;
         pkt->u_rdata.exdata = ctx;
-#ifdef LCB_TRACING
         if (instance->settings->tracer) {
             lcbtrace_REF ref;
             char opid[20] = {};
@@ -275,7 +266,6 @@ lcb_error_t ObserveCtx::MCTX_done(const void *cookie_)
             lcbtrace_span_add_tag_str(MCREQ_PKT_RDATA(pkt)->span, LCBTRACE_TAG_OPERATION_ID, opid);
             lcbtrace_span_add_system_tags(MCREQ_PKT_RDATA(pkt)->span, instance->settings, LCBTRACE_TAG_SERVICE_KV);
         }
-#endif
 
         mcreq_sched_add(pipeline, pkt);
         TRACE_OBSERVE_BEGIN(instance, &hdr, SPAN_BUFFER(&pkt->u_value.single));
@@ -292,21 +282,14 @@ lcb_error_t ObserveCtx::MCTX_done(const void *cookie_)
 
 void ObserveCtx::MCTX_fail()
 {
-#ifdef LCB_TRACING
     if (span) {
         lcbtrace_span_finish(span, LCBTRACE_NOW);
         span = NULL;
     }
-#endif
     delete this;
 }
 
-ObserveCtx::ObserveCtx(lcb_t instance_)
-    : instance(instance_), remaining(0), oflags(0)
-#ifdef LCB_TRACING
-      ,
-      span(NULL)
-#endif
+ObserveCtx::ObserveCtx(lcb_INSTANCE *instance_) : instance(instance_), remaining(0), oflags(0), span(NULL)
 {
     requests.resize(LCBT_NSERVERS(instance));
     num_requests.resize(requests.size(), 0);
@@ -318,50 +301,14 @@ OperationCtx::OperationCtx(ObserveCtx *parent_, size_t remaining_)
 }
 
 LIBCOUCHBASE_API
-lcb_MULTICMD_CTX *lcb_observe3_ctxnew(lcb_t instance)
+lcb_MULTICMD_CTX *lcb_observe3_ctxnew(lcb_INSTANCE *instance)
 {
     return new ObserveCtx(instance);
 }
 
-lcb_MULTICMD_CTX *lcb_observe_ctx_dur_new(lcb_t instance)
+lcb_MULTICMD_CTX *lcb_observe_ctx_dur_new(lcb_INSTANCE *instance)
 {
     ObserveCtx *ctx = new ObserveCtx(instance);
     ctx->oflags |= F_DURABILITY;
     return ctx;
-}
-
-LIBCOUCHBASE_API
-lcb_error_t lcb_observe(lcb_t instance, const void *command_cookie, lcb_size_t num,
-                        const lcb_observe_cmd_t *const *items)
-{
-    unsigned ii;
-    lcb_error_t err;
-    lcb_MULTICMD_CTX *mctx;
-
-    lcb_sched_enter(instance);
-
-    mctx = lcb_observe3_ctxnew(instance);
-    if (mctx == NULL) {
-        return LCB_CLIENT_ENOMEM;
-    }
-
-    for (ii = 0; ii < num; ii++) {
-        lcb_CMDOBSERVE cmd = {0};
-        const lcb_observe_cmd_t *src = items[ii];
-        if (src->version == 1 && (src->v.v1.options & LCB_OBSERVE_MASTER_ONLY)) {
-            cmd.cmdflags |= LCB_CMDOBSERVE_F_MASTER_ONLY;
-        }
-        LCB_KREQ_SIMPLE(&cmd.key, src->v.v0.key, src->v.v0.nkey);
-        LCB_KREQ_SIMPLE(&cmd._hashkey, src->v.v0.hashkey, src->v.v0.nhashkey);
-
-        err = mctx->addcmd(mctx, (lcb_CMDBASE *)&cmd);
-        if (err != LCB_SUCCESS) {
-            mctx->fail(mctx);
-            return err;
-        }
-    }
-    lcb_sched_enter(instance);
-    mctx->done(mctx, command_cookie);
-    lcb_sched_leave(instance);
-    SYNCMODE_INTERCEPT(instance)
 }

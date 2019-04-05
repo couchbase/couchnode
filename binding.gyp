@@ -48,23 +48,6 @@
           }]
         ]
       }],
-      [ 'OS=="win"', {
-        'configurations': {
-          'Release': {
-            'msvs_settings': {
-              'VCCLCompilerTool': {
-                'ExceptionHandling': '2',
-                'RuntimeLibrary': 0,
-              },
-            },
-          },
-        },
-      }],
-      ['OS=="mac"', {
-        'xcode_settings': {
-          'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-        },
-      }],
       ['OS!="win"', {
         'link_settings': {
           'libraries': [
@@ -89,23 +72,22 @@
       }]
     ],
     'sources': [
-      'src/binding.cc',
-      'src/cas.cc',
-      'src/constants.cc',
-      'src/control.cc',
-      'src/couchbase_impl.cc',
-      'src/exception.cc',
-      'src/logging.cc',
-      'src/opbuilder.cc',
-      'src/operations.cc',
-      'src/token.cc',
-      'src/transcoder.cc',
-      'src/uv-plugin-all.c'
+      'src/binding.cpp',
+      'src/cas.cpp',
+      'src/connection_callbacks.cpp',
+      'src/connection_ops.cpp',
+      'src/connection.cpp',
+      'src/constants.cpp',
+      'src/error.cpp',
+      'src/lcbx.cpp',
+      'src/logger.cpp',
+      'src/mutationtoken.cpp',
+      'src/opbuilder.cpp',
+      'src/transcoder.cpp',
+      'src/uv-plugin-all.cpp'
     ],
     'include_dirs': [
-      '<!(node -e "require(\'nan\')")',
-      './',
-      './src/io'
+      '<!(node -e "require(\'nan\')")'
     ]
   }]
 }

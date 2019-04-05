@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017 Couchbase, Inc.
+ *     Copyright 2017-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@
 #include <string.h>
 #include <assert.h>
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
 
 #define fail(msg)                                                                                                      \
     fprintf(stderr, "%s\n", msg);                                                                                      \
@@ -44,23 +43,33 @@
     fprintf(stderr, "Error was 0x%x (%s)\n", err, lcb_strerror(NULL, err));                                            \
     exit(EXIT_FAILURE)
 
-static void store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)
 {
-    const lcb_RESPSTOREDUR *resp = (const lcb_RESPSTOREDUR *)rb;
-    fprintf(stderr, "Got status of operation: 0x%02x, %s\n", resp->rc, lcb_strerror(NULL, resp->rc));
-    fprintf(stderr, "Stored: %s\n", resp->store_ok ? "true" : "false");
-    fprintf(stderr, "Number of roundtrips: %d\n", resp->dur_resp->nresponses);
-    fprintf(stderr, "In memory on master: %s\n", resp->dur_resp->exists_master ? "true" : "false");
-    fprintf(stderr, "Persisted on master: %s\n", resp->dur_resp->persisted_master ? "true" : "false");
-    fprintf(stderr, "Nodes have value replicated: %d\n", resp->dur_resp->nreplicated);
-    fprintf(stderr, "Nodes have value persisted (including master): %d\n", resp->dur_resp->npersisted);
+    lcb_STATUS rc = lcb_respstore_status(resp);
+    int store_ok, exists_master, persisted_master;
+    uint16_t num_responses, num_replicated, num_persisted;
+
+    lcb_respstore_observe_stored(resp, &store_ok);
+    lcb_respstore_observe_master_exists(resp, &exists_master);
+    lcb_respstore_observe_master_persisted(resp, &persisted_master);
+    lcb_respstore_observe_num_responses(resp, &num_responses);
+    lcb_respstore_observe_num_replicated(resp, &num_replicated);
+    lcb_respstore_observe_num_persisted(resp, &num_persisted);
+
+    fprintf(stderr, "Got status of operation: 0x%02x, %s\n", rc, lcb_strerror_short(rc));
+    fprintf(stderr, "Stored: %s\n", store_ok ? "true" : "false");
+    fprintf(stderr, "Number of roundtrips: %d\n", (int)num_responses);
+    fprintf(stderr, "In memory on master: %s\n", exists_master ? "true" : "false");
+    fprintf(stderr, "Persisted on master: %s\n", persisted_master ? "true" : "false");
+    fprintf(stderr, "Nodes have value replicated: %d\n", (int)num_replicated);
+    fprintf(stderr, "Nodes have value persisted (including master): %d\n", (int)num_persisted);
 }
 
 int main(int argc, char *argv[])
 {
-    lcb_t instance;
-    lcb_error_t err;
-    lcb_CMDSTOREDUR cmd = {0};
+    lcb_INSTANCE *instance;
+    lcb_STATUS err;
+    lcb_CMDSTORE *cmd;
     struct lcb_create_st create_options = {0};
     const char *key = "foo";
     const char *value = "{\"val\":42}";
@@ -86,14 +95,15 @@ int main(int argc, char *argv[])
     if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
         fail2("Couldn't get initial cluster configuration", err);
     }
-    lcb_install_callback3(instance, LCB_CALLBACK_STOREDUR, store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
-    LCB_CMD_SET_KEY(&cmd, key, strlen(key));
-    LCB_CMD_SET_VALUE(&cmd, value, strlen(value));
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+    lcb_cmdstore_key(cmd, key, strlen(key));
+    lcb_cmdstore_value(cmd, value, strlen(value));
     /* replicate and persist on all nodes */
-    cmd.replicate_to = -1;
-    cmd.persist_to = -1;
-    lcb_storedur3(instance, NULL, &cmd);
+    lcb_cmdstore_durability_observe(cmd, -1, -1);
+    lcb_store(instance, NULL, cmd);
+    lcb_cmdstore_destroy(cmd);
 
     lcb_wait(instance);
 

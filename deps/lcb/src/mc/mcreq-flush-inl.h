@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -38,14 +38,12 @@ typedef struct {
  * @param nused set to the number of IOVs actually used
  * @return the number of data inside all the IOVs
  */
-static unsigned int
-mcreq_flush_iov_fill(mc_PIPELINE *pipeline, nb_IOV *iov, int niov, int *nused)
+static unsigned int mcreq_flush_iov_fill(mc_PIPELINE *pipeline, nb_IOV *iov, int niov, int *nused)
 {
     return netbuf_start_flush(&pipeline->nbmgr, iov, niov, nused);
 }
 
-static nb_SIZE
-mcreq__pktflush_callback(void *p, nb_SIZE hint, void *arg)
+static nb_SIZE mcreq__pktflush_callback(void *p, nb_SIZE hint, void *arg)
 {
     nb_SIZE pktsize;
     mc_PACKET *pkt = (mc_PACKET *)p;
@@ -88,15 +86,11 @@ mcreq__pktflush_callback(void *p, nb_SIZE hint, void *arg)
  * This is a thin wrapper around netbuf_end_flush (and optionally
  * nebtuf_reset_flush())
  */
-static void
-mcreq_flush_done_ex(mc_PIPELINE *pl,
-    unsigned nflushed, unsigned expected, lcb_U64 now)
+static void mcreq_flush_done_ex(mc_PIPELINE *pl, unsigned nflushed, unsigned expected, lcb_U64 now)
 {
     if (nflushed) {
-        mc__FLUSHINFO info = { pl, now };
-        netbuf_end_flush2(&pl->nbmgr, nflushed,
-                          mcreq__pktflush_callback,
-                          offsetof(mc_PACKET, sl_flushq), &info);
+        mc__FLUSHINFO info = {pl, now};
+        netbuf_end_flush2(&pl->nbmgr, nflushed, mcreq__pktflush_callback, offsetof(mc_PACKET, sl_flushq), &info);
     }
     if (nflushed < expected) {
         netbuf_reset_flush(&pl->nbmgr);
@@ -104,8 +98,7 @@ mcreq_flush_done_ex(mc_PIPELINE *pl,
 }
 
 /* Mainly for tests */
-static void
-mcreq_flush_done(mc_PIPELINE *pl, unsigned nflushed, unsigned expected)
+static void mcreq_flush_done(mc_PIPELINE *pl, unsigned nflushed, unsigned expected)
 {
     mcreq_flush_done_ex(pl, nflushed, expected, 0);
 }

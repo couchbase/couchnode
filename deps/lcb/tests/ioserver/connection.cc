@@ -5,18 +5,19 @@
 using namespace LCBTest;
 
 extern "C" {
-static void
-client_runfunc(void *arg)
+static void client_runfunc(void *arg)
 {
     TestConnection *conn = (TestConnection *)arg;
     conn->_doRun();
 }
 }
 
-void TestConnection::_doRun() { run(); }
+void TestConnection::_doRun()
+{
+    run();
+}
 
-void
-TestConnection::setCommon(void *src, void **target)
+void TestConnection::setCommon(void *src, void **target)
 {
     mutex.lock();
     assert(*target == NULL);
@@ -26,8 +27,7 @@ TestConnection::setCommon(void *src, void **target)
     mutex.unlock();
 }
 
-void
-TestConnection::sendData()
+void TestConnection::sendData()
 {
     f_send->startUpdate();
     do {
@@ -36,7 +36,7 @@ TestConnection::sendData()
 #else
         void *outbuf;
 #endif
-        size_t n = f_send->getBuf((void**)&outbuf);
+        size_t n = f_send->getBuf((void **)&outbuf);
         ssize_t nw = datasock->send(outbuf, n);
         if (nw < 0) {
             f_send->bail();
@@ -48,8 +48,7 @@ TestConnection::sendData()
     f_send = NULL;
 }
 
-void
-TestConnection::recvData()
+void TestConnection::recvData()
 {
     f_recv->startUpdate();
     char buf[32768];
@@ -69,8 +68,7 @@ TestConnection::recvData()
     f_recv = NULL;
 }
 
-void
-TestConnection::handleClose()
+void TestConnection::handleClose()
 {
     f_close->startUpdate();
     datasock->close();
@@ -79,8 +77,7 @@ TestConnection::handleClose()
     f_close = NULL;
 }
 
-void
-TestConnection::run()
+void TestConnection::run()
 {
     char dummy = 0;
     mutex.lock();

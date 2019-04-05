@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -146,14 +146,13 @@ extern "C" {
  * @{
  */
 
-
 typedef struct rdb_ALLOCATOR *rdb_pALLOCATOR;
 typedef struct rdb_ROPESEG *rdb_pROPESEG;
 typedef struct rdb_ROPEBUF *rdb_pROPEBUF;
 
 typedef struct rdb_ROPEBUF {
-    lcb_list_t segments; /* linked list of buffer segments */
-    unsigned nused; /* bytes of data in use */
+    lcb_list_t segments;      /* linked list of buffer segments */
+    unsigned nused;           /* bytes of data in use */
     rdb_pALLOCATOR allocator; /* pointer to allocator structure */
 } rdb_ROPEBUF;
 
@@ -161,7 +160,7 @@ struct rdb_ROPESEG;
 
 enum rdb_SEGFLAGS {
     RDB_ROPESEG_F_USER = 0x01, /* segment has pinned data */
-    RDB_ROPESEG_F_LIB = 0x02 /* segment is in use by the library */
+    RDB_ROPESEG_F_LIB = 0x02   /* segment is in use by the library */
 };
 
 enum rdb_ALLOCID {
@@ -175,23 +174,22 @@ enum rdb_ALLOCID {
 
 /** Segment within a rope buffer */
 typedef struct rdb_ROPESEG {
-    lcb_list_t llnode; /** linked list node */
-    char *root; /** Allocated buffer */
+    lcb_list_t llnode;     /** linked list node */
+    char *root;            /** Allocated buffer */
     unsigned char shflags; /** rdb_SEGFLAGS */
     unsigned char allocid; /** rdb_ALLOCID */
-    unsigned nalloc; /** total allocated length */
-    unsigned nused; /** number of bytes containing data */
-    unsigned start; /** offset where data begins */
-    unsigned refcnt; /** see ref/unref */
+    unsigned nalloc;       /** total allocated length */
+    unsigned nused;        /** number of bytes containing data */
+    unsigned start;        /** offset where data begins */
+    unsigned refcnt;       /** see ref/unref */
     rdb_pALLOCATOR allocator;
 } rdb_ROPESEG;
 
 typedef struct {
     rdb_ROPEBUF recvd; /** rope containing read data */
     rdb_ROPEBUF avail; /** rope used for subsequent network reads */
-    unsigned rdsize; /** preferred read size */
+    unsigned rdsize;   /** preferred read size */
 } rdb_IOROPE;
-
 
 /**
  * @name Allocator API
@@ -211,29 +209,24 @@ typedef struct {
  * Each of the appended rdb_ROPESEG structures should initially have the
  * `RDB_ROPESEG_F_LIB` indicating they are in use by the library.
  */
-typedef void (*rdb_buf_reserve_fn)
-        (rdb_pALLOCATOR allocator, rdb_ROPEBUF *buf, unsigned total_capacity);
-
+typedef void (*rdb_buf_reserve_fn)(rdb_pALLOCATOR allocator, rdb_ROPEBUF *buf, unsigned total_capacity);
 
 /**
  * Allocate a new segment.
  * The returned segment should have enough capacity for capacity bytes. The
  * returned shflags should contain RDB_ROPESEG_F_LIBUSED
  */
-typedef rdb_ROPESEG *(*rdb_seg_alloc_fn)
-        (rdb_pALLOCATOR allocator, unsigned capacity);
+typedef rdb_ROPESEG *(*rdb_seg_alloc_fn)(rdb_pALLOCATOR allocator, unsigned capacity);
 
 /**
  * This will resize the segment to be able to contain up to `capacity` bytes.
  * Any contents previously in the buffer should not be changed, though the
  * underlying `root` pointer may change.
  */
-typedef rdb_ROPESEG *(*rdb_seg_realloc_fn)
-        (rdb_pALLOCATOR allocator, rdb_ROPESEG *orig, unsigned capacity);
+typedef rdb_ROPESEG *(*rdb_seg_realloc_fn)(rdb_pALLOCATOR allocator, rdb_ROPESEG *orig, unsigned capacity);
 
 /** Release a previous segment allocated by rdb_seg_alloc_fn */
 typedef void (*rdb_seg_free_fn)(rdb_pALLOCATOR allocator, rdb_ROPESEG *seg);
-
 
 /** Allocator routines. This table is owned by the user. */
 typedef struct rdb_ALLOCATOR {
@@ -248,7 +241,7 @@ typedef struct rdb_ALLOCATOR {
      * of any existing segments before freeing all its resources.
      */
     void (*a_release)(rdb_pALLOCATOR);
-    void (*dump)(rdb_pALLOCATOR,FILE*);
+    void (*dump)(rdb_pALLOCATOR, FILE *);
 } rdb_ALLOCATOR;
 
 /**
@@ -261,8 +254,7 @@ typedef struct rdb_ALLOCATOR {
  * @param allocator the allocator to use for allocation. The IOROPE structure
  * takes ownership of the allocator.
  */
-void
-rdb_init(rdb_IOROPE *rope, rdb_ALLOCATOR *allocator);
+void rdb_init(rdb_IOROPE *rope, rdb_ALLOCATOR *allocator);
 
 /**
  * Change the allocator for the rope. This can be done at any time during
@@ -270,12 +262,9 @@ rdb_init(rdb_IOROPE *rope, rdb_ALLOCATOR *allocator);
  * @param rope
  * @param allocator The new allocator to use
  */
-void
-rdb_challoc(rdb_IOROPE *rope, rdb_ALLOCATOR *allocator);
+void rdb_challoc(rdb_IOROPE *rope, rdb_ALLOCATOR *allocator);
 
-void
-rdb_cleanup(rdb_IOROPE *ior);
-
+void rdb_cleanup(rdb_IOROPE *ior);
 
 /**
  * @name Basic Read API
@@ -289,9 +278,7 @@ rdb_cleanup(rdb_IOROPE *ior);
  * @param[in,out] iov an array of IOV elements
  * @param niov the number of IOV elements
  */
-unsigned
-rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov);
-
+unsigned rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov);
 
 /**
  * Indicate that some data was placed into the IOV structures populated with
@@ -299,8 +286,7 @@ rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov);
  * @param ior the IOROPE structure
  * @param nr the number of total bytes placed into the IOV buffers
  */
-void
-rdb_rdend(rdb_IOROPE *ior, unsigned nr);
+void rdb_rdend(rdb_IOROPE *ior, unsigned nr);
 
 /**
  * Indicate that some data at the beginning of the buffer is no longer needed
@@ -310,8 +296,7 @@ rdb_rdend(rdb_IOROPE *ior, unsigned nr);
  * Note that if a segment was previously referenced, it is not invalidated
  * but is no longer used within the IOROPE structure itself
  */
-void
-rdb_consumed(rdb_IOROPE *ior, unsigned nr);
+void rdb_consumed(rdb_IOROPE *ior, unsigned nr);
 
 /**
  * Ensure that a given chunk of data at the beginning of the rope structure
@@ -319,15 +304,13 @@ rdb_consumed(rdb_IOROPE *ior, unsigned nr);
  * @param ior the IOROPE structure
  * @param n number of bytes which must be contiguous
  */
-void
-rdb_consolidate(rdb_IOROPE *ior, unsigned n);
+void rdb_consolidate(rdb_IOROPE *ior, unsigned n);
 
 /**
  * Convenience function to retrieve a pointer to the beginning of the
  * buffer. The pointer is guaranteed to point to n contiguous bytes.
  */
-char *
-rdb_get_consolidated(rdb_IOROPE *ior, unsigned n);
+char *rdb_get_consolidated(rdb_IOROPE *ior, unsigned n);
 
 /**
  * @}
@@ -342,13 +325,12 @@ rdb_get_consolidated(rdb_IOROPE *ior, unsigned n);
  * Copy n bytes of data from the beginning of the rope structure into the
  * buffer pointed to by buf
  */
-void
-rdb_copyread(rdb_IOROPE *ior, void *buf, unsigned n);
+void rdb_copyread(rdb_IOROPE *ior, void *buf, unsigned n);
 
 /** Get the pointer to the beginning of the buffer in the IOROPE. */
-#define rdb_refread(ior) \
-    ((LCB_LIST_ITEM(ior->recvd.segments.next, rdb_ROPESEG, llnode))->root + \
-    (LCB_LIST_ITEM(ior->recvd.segments.next, rdb_ROPESEG, llnode))->start)
+#define rdb_refread(ior)                                                                                               \
+    ((LCB_LIST_ITEM(ior->recvd.segments.next, rdb_ROPESEG, llnode))->root +                                            \
+     (LCB_LIST_ITEM(ior->recvd.segments.next, rdb_ROPESEG, llnode))->start)
 
 /**
  * Populate an array of ROPESEG and IOV structures with data from the IOROPE.
@@ -360,18 +342,14 @@ rdb_copyread(rdb_IOROPE *ior, void *buf, unsigned n);
  * @return the number of IOV elements actually used, or -1 if the arrays
  *  did not contain enough elements to contain the IOVs completely.
  */
-int
-rdb_refread_ex(rdb_IOROPE *ior, nb_IOV *iov, rdb_ROPESEG **segs,
-               unsigned nelem, unsigned ndata);
-
+int rdb_refread_ex(rdb_IOROPE *ior, nb_IOV *iov, rdb_ROPESEG **segs, unsigned nelem, unsigned ndata);
 
 /**
  * Get the maximum contiguous size of the current input. This is the size of
  * data which may be read efficiently via 'get_consolidated' without actually
  * reallocating memory
  */
-unsigned
-rdb_get_contigsize(rdb_IOROPE *ior);
+unsigned rdb_get_contigsize(rdb_IOROPE *ior);
 
 /**
  * Increase the reference count on the segment. When a reference count is set
@@ -380,15 +358,13 @@ rdb_get_contigsize(rdb_IOROPE *ior);
  * actually reserved are pinned to the contextual IOV structure which should
  * be available when receiving the segment.
  */
-void
-rdb_seg_ref(rdb_ROPESEG *seg);
+void rdb_seg_ref(rdb_ROPESEG *seg);
 
 /**
  * When you are done with the segment (or the borrowed IOVs thereof) call this.
  * The segment may no longer be accessed by the caller.
  */
-void
-rdb_seg_unref(rdb_ROPESEG *seg);
+void rdb_seg_unref(rdb_ROPESEG *seg);
 
 /** @private */
 #define rdb_seg_recyclable(seg) (((seg)->shflags & RDB_ROPESEG_F_USER) == 0)
@@ -420,16 +396,12 @@ rdb_seg_unref(rdb_ROPESEG *seg);
 #define RDB_SEG_WBUF(seg) (seg)->root + (seg)->start + (seg)->nused
 
 /** last segment in the rope structure */
-#define RDB_SEG_LAST(rope) \
-    (LCB_LIST_TAIL(&(rope)->segments)) \
-    ? LCB_LIST_ITEM(LCB_LIST_TAIL(&(rope)->segments), rdb_ROPESEG, llnode) \
-    : NULL
+#define RDB_SEG_LAST(rope)                                                                                             \
+    (LCB_LIST_TAIL(&(rope)->segments)) ? LCB_LIST_ITEM(LCB_LIST_TAIL(&(rope)->segments), rdb_ROPESEG, llnode) : NULL
 
 /** first segment in the rope structure */
-#define RDB_SEG_FIRST(rope) \
-    (LCB_LIST_HEAD(&(rope)->segments)) \
-    ? LCB_LIST_ITEM(LCB_LIST_HEAD(&(rope)->segments), rdb_ROPESEG, llnode) \
-    : NULL
+#define RDB_SEG_FIRST(rope)                                                                                            \
+    (LCB_LIST_HEAD(&(rope)->segments)) ? LCB_LIST_ITEM(LCB_LIST_HEAD(&(rope)->segments), rdb_ROPESEG, llnode) : NULL
 /**
  * @}
  */
@@ -443,16 +415,14 @@ rdb_seg_unref(rdb_ROPESEG *seg);
  * @param buf The buffer to copy
  * @param nbuf Size of the buffer
  */
-void
-rdb_copywrite(rdb_IOROPE *ior, void *buf, unsigned nbuf);
+void rdb_copywrite(rdb_IOROPE *ior, void *buf, unsigned nbuf);
 
 /**
  * Allocator APIs
  * Returns the big or "Default" allocator.
  */
 LCB_INTERNAL_API
-rdb_ALLOCATOR *
-rdb_bigalloc_new(void);
+rdb_ALLOCATOR *rdb_bigalloc_new(void);
 
 /**
  * Returns a chunked allocator which will attempt to allocated readahead buffers
@@ -460,23 +430,20 @@ rdb_bigalloc_new(void);
  * @param chunksize the desired chunk/segment size
  */
 LCB_INTERNAL_API
-rdb_ALLOCATOR *
-rdb_chunkalloc_new(unsigned chunksize);
+rdb_ALLOCATOR *rdb_chunkalloc_new(unsigned chunksize);
 
 /**
  * Returns a simple allocator which merely proxies to malloc/calloc/realloc/free
  */
 LCB_INTERNAL_API
-rdb_ALLOCATOR *
-rdb_libcalloc_new(void);
+rdb_ALLOCATOR *rdb_libcalloc_new(void);
 
 /**
  * Dump information about the iorope structure to a file
  * @param ior The rope structure to dump
  * @param fp The destination file.
  */
-void
-rdb_dump(const rdb_IOROPE *ior, FILE *fp);
+void rdb_dump(const rdb_IOROPE *ior, FILE *fp);
 
 #ifdef __cplusplus
 }

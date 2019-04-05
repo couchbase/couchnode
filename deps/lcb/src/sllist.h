@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -49,9 +49,7 @@ typedef struct {
  *  @param list the list to iterate
  *  @param pos a local variable to use as the iterator
  */
-#define SLLIST_FOREACH(list, pos) \
-    for (pos = SLLIST_FIRST(list); pos; pos = pos->next)
-
+#define SLLIST_FOREACH(list, pos) for (pos = SLLIST_FIRST(list); pos; pos = pos->next)
 
 typedef struct sllist_iterator_st {
     sllist_node *cur;
@@ -62,15 +60,11 @@ typedef struct sllist_iterator_st {
 
 #define sllist_iter_end(list, iter) ((iter)->cur == NULL)
 
-#define SLLIST_ITEM(ptr, type, member) \
-        ((type *) (void *) ((char *)(ptr) - offsetof(type, member)))
+#define SLLIST_ITEM(ptr, type, member) ((type *)(void *)((char *)(ptr)-offsetof(type, member)))
 
-#define SLLIST_ITERFOR(list, iter) \
-    for (slist_iter_init(list, iter); \
-            !sllist_iter_end(list, iter); \
-            slist_iter_incr(list, iter))
+#define SLLIST_ITERFOR(list, iter)                                                                                     \
+    for (slist_iter_init(list, iter); !sllist_iter_end(list, iter); slist_iter_incr(list, iter))
 
-#define SLLIST_ITERBASIC(list, elem) \
-        for (elem = SLLIST_FIRST(list); elem; elem = elem->next)
+#define SLLIST_ITERBASIC(list, elem) for (elem = SLLIST_FIRST(list); elem; elem = elem->next)
 
 #endif

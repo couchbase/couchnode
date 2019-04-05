@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@
 
 using namespace lcb::clconfig;
 
-Provider* Confmon::next_active(Provider *cur) {
-    ProviderList::iterator ii = std::find(
-        active_providers.begin(), active_providers.end(), cur);
+Provider *Confmon::next_active(Provider *cur)
+{
+    ProviderList::iterator ii = std::find(active_providers.begin(), active_providers.end(), cur);
 
     if (ii == active_providers.end() || (++ii) == active_providers.end()) {
         return NULL;
@@ -37,7 +37,7 @@ Provider* Confmon::next_active(Provider *cur) {
     }
 }
 
-Provider* Confmon::first_active()
+Provider *Confmon::first_active()
 {
     if (active_providers.empty()) {
         return NULL;
@@ -46,27 +46,30 @@ Provider* Confmon::first_active()
     }
 }
 
-static const char *
-provider_string(Method type) {
-    if (type == CLCONFIG_HTTP) { return "HTTP"; }
-    if (type == CLCONFIG_CCCP) { return "CCCP"; }
-    if (type == CLCONFIG_FILE) { return "FILE"; }
-    if (type == CLCONFIG_MCRAW) { return "MCRAW"; }
-    if (type == CLCONFIG_CLADMIN) { return "CLADMIN"; }
+static const char *provider_string(Method type)
+{
+    if (type == CLCONFIG_HTTP) {
+        return "HTTP";
+    }
+    if (type == CLCONFIG_CCCP) {
+        return "CCCP";
+    }
+    if (type == CLCONFIG_FILE) {
+        return "FILE";
+    }
+    if (type == CLCONFIG_MCRAW) {
+        return "MCRAW";
+    }
+    if (type == CLCONFIG_CLADMIN) {
+        return "CLADMIN";
+    }
     return "";
 }
 
-Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_t instance_)
-    : cur_provider(NULL),
-      config(NULL),
-      settings(settings_),
-      last_error(LCB_SUCCESS),
-      iot(iot_),
-      as_start(iot_, this),
-      as_stop(iot_, this),
-      state(0),
-      last_stop_us(0),
-      instance(instance_) {
+Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_INSTANCE *instance_)
+    : cur_provider(NULL), config(NULL), settings(settings_), last_error(LCB_SUCCESS), iot(iot_), as_start(iot_, this),
+      as_stop(iot_, this), state(0), last_stop_us(0), instance(instance_)
+{
 
     lcbio_table_ref(iot);
     lcb_settings_ref(settings);
@@ -82,7 +85,8 @@ Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_t instance_)
     }
 }
 
-void Confmon::prepare() {
+void Confmon::prepare()
+{
     active_providers.clear();
     lcb_log(LOGARGS(this, DEBUG), "Preparing providers (this may be called multiple times)");
 
@@ -102,7 +106,8 @@ void Confmon::prepare() {
     cur_provider = first_active();
 }
 
-Confmon::~Confmon() {
+Confmon::~Confmon()
+{
     as_start.release();
     as_stop.release();
 
@@ -149,15 +154,22 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
             ca = config->vbc;
             cb = new_config->vbc;
 
-            lcb_log(LOGARGS(this, TRACE), "Not applying configuration received via %s. No changes detected. A.rev=%d, B.rev=%d", provider_string(new_config->get_origin()), ca->revid, cb->revid);
+            lcb_log(LOGARGS(this, TRACE),
+                    "Not applying configuration received via %s. No changes detected. A.rev=%d, B.rev=%d",
+                    provider_string(new_config->get_origin()), ca->revid, cb->revid);
             if (notify_miss) {
                 invoke_listeners(CLCONFIG_EVENT_GOT_ANY_CONFIG, new_config);
             }
             return 0;
         }
     }
+    /* TODO: remove when cluster will merge http://review.couchbase.org/c/105943/ */
+    if (LCBT_SETTING(instance, enable_durable_write)) {
+        LCBVB_CAPS(new_config->vbc) |= LCBVB_CAP_DURABLE_WRITE;
+    }
 
-    lcb_log(LOGARGS(this, INFO), "Setting new configuration. Received via %s", provider_string(new_config->get_origin()));
+    lcb_log(LOGARGS(this, INFO), "Setting new configuration. Received via %s",
+            provider_string(new_config->get_origin()));
     TRACE_NEW_CONFIG(instance, new_config);
 
     if (config) {
@@ -181,11 +193,13 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
     return 1;
 }
 
-void Confmon::provider_failed(Provider *provider, lcb_error_t reason) {
+void Confmon::provider_failed(Provider *provider, lcb_STATUS reason)
+{
     lcb_log(LOGARGS(this, INFO), "Provider '%s' failed", provider_string(provider->type));
 
     if (provider != cur_provider) {
-        lcb_log(LOGARGS(this, TRACE), "Ignoring failure. Current=%p (%s)", (void*)cur_provider, provider_string(cur_provider->type));
+        lcb_log(LOGARGS(this, TRACE), "Ignoring failure. Current=%p (%s)", (void *)cur_provider,
+                provider_string(cur_provider->type));
         return;
     }
     if (!is_refreshing()) {
@@ -237,7 +251,8 @@ GT_ERROR:
     stop();
 }
 
-void Confmon::provider_got_config(Provider *, ConfigInfo *config_) {
+void Confmon::provider_got_config(Provider *, ConfigInfo *config_)
+{
     do_set_next(config_, true);
     stop();
 }
@@ -245,9 +260,8 @@ void Confmon::provider_got_config(Provider *, ConfigInfo *config_) {
 void Confmon::do_next_provider()
 {
     state &= ~CONFMON_S_ITERGRACE;
-    for (ProviderList::const_iterator ii = active_providers.begin();
-            ii != active_providers.end(); ++ii) {
-        Provider* cached_provider = *ii;
+    for (ProviderList::const_iterator ii = active_providers.begin(); ii != active_providers.end(); ++ii) {
+        Provider *cached_provider = *ii;
         if (!cached_provider) {
             continue;
         }
@@ -266,7 +280,8 @@ void Confmon::do_next_provider()
     cur_provider->refresh();
 }
 
-void Confmon::start() {
+void Confmon::start()
+{
     lcb_U32 tmonext = 0;
     as_stop.cancel();
     if (is_refreshing()) {
@@ -276,7 +291,7 @@ void Confmon::start() {
 
     LOG(this, TRACE, "Refreshing current cluster map");
     lcb_assert(cur_provider);
-    state = CONFMON_S_ACTIVE|CONFMON_S_ITERGRACE;
+    state = CONFMON_S_ACTIVE | CONFMON_S_ITERGRACE;
 
     if (last_stop_us > 0) {
         lcb_U32 diff = LCB_NS2US(gethrtime()) - last_stop_us;
@@ -288,7 +303,8 @@ void Confmon::start() {
     as_start.rearm(tmonext);
 }
 
-void Confmon::stop_real() {
+void Confmon::stop_real()
+{
     ProviderList::const_iterator ii;
     for (ii = active_providers.begin(); ii != active_providers.end(); ++ii) {
         (*ii)->pause();
@@ -298,7 +314,8 @@ void Confmon::stop_real() {
     invoke_listeners(CLCONFIG_EVENT_MONITOR_STOPPED, NULL);
 }
 
-void Confmon::stop() {
+void Confmon::stop()
+{
     if (!is_refreshing()) {
         return;
     }
@@ -307,26 +324,27 @@ void Confmon::stop() {
     state = CONFMON_S_INACTIVE;
 }
 
-Provider::Provider(Confmon *parent_, Method type_)
-    : type(type_), enabled(false), parent(parent_) {
-}
+Provider::Provider(Confmon *parent_, Method type_) : type(type_), enabled(false), parent(parent_) {}
 
-Provider::~Provider() {
+Provider::~Provider()
+{
     parent = NULL;
 }
 
-ConfigInfo::~ConfigInfo() {
+ConfigInfo::~ConfigInfo()
+{
     if (vbc) {
         lcbvb_destroy(vbc);
     }
 }
 
-int ConfigInfo::compare(const ConfigInfo& other) {
+int ConfigInfo::compare(const ConfigInfo &other)
+{
     /** First check if both have revisions */
     int rev_a, rev_b;
     rev_a = lcbvb_get_revision(this->vbc);
     rev_b = lcbvb_get_revision(other.vbc);
-    if (rev_a >= 0  && rev_b >= 0) {
+    if (rev_a >= 0 && rev_b >= 0) {
         return rev_a - rev_b;
     }
 
@@ -341,25 +359,28 @@ int ConfigInfo::compare(const ConfigInfo& other) {
 }
 
 ConfigInfo::ConfigInfo(lcbvb_CONFIG *config_, Method origin_)
-    : vbc(config_), cmpclock(gethrtime()), refcount(1), origin(origin_) {
+    : vbc(config_), cmpclock(gethrtime()), refcount(1), origin(origin_)
+{
 }
 
-void Confmon::add_listener(Listener *lsn) {
+void Confmon::add_listener(Listener *lsn)
+{
     listeners.push_back(lsn);
 }
 
-void Confmon::remove_listener(Listener *lsn) {
+void Confmon::remove_listener(Listener *lsn)
+{
     listeners.remove(lsn);
 }
 
-void Confmon::invoke_listeners(EventType event, ConfigInfo *info) {
+void Confmon::invoke_listeners(EventType event, ConfigInfo *info)
+{
     ListenerList::iterator ii = listeners.begin();
     while (ii != listeners.end()) {
         ListenerList::iterator cur = ii++;
         (*cur)->clconfig_lsn(event, info);
     }
 }
-
 
 void Confmon::set_active(Method type, bool enabled)
 {
@@ -372,8 +393,9 @@ void Confmon::set_active(Method type, bool enabled)
     prepare();
 }
 
-void Confmon::dump(FILE *fp) {
-    fprintf(fp, "CONFMON=%p\n", (void*)this);
+void Confmon::dump(FILE *fp)
+{
+    fprintf(fp, "CONFMON=%p\n", (void *)this);
     fprintf(fp, "STATE= (0x%x)", state);
     if (state & CONFMON_S_ACTIVE) {
         fprintf(fp, "ACTIVE|");
@@ -387,14 +409,13 @@ void Confmon::dump(FILE *fp) {
     fprintf(fp, "\n");
     fprintf(fp, "LAST ERROR: 0x%x\n", last_error);
 
-
     for (size_t ii = 0; ii < CLCONFIG_MAX; ii++) {
         Provider *cur = all_providers[ii];
         if (!cur) {
             continue;
         }
 
-        fprintf(fp, "** PROVIDER: 0x%x (%s) %p\n", cur->type, provider_string(cur->type), (void*)cur);
+        fprintf(fp, "** PROVIDER: 0x%x (%s) %p\n", cur->type, provider_string(cur->type), (void *)cur);
         fprintf(fp, "** ENABLED: %s\n", cur->enabled ? "YES" : "NO");
         fprintf(fp, "** CURRENT: %s\n", cur == cur_provider ? "YES" : "NO");
         cur->dump(fp);

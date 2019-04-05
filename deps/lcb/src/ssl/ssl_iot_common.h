@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -26,15 +26,15 @@
 #include <openssl/ssl.h>
 #include <lcbio/ssl.h>
 
-#define IOTSSL_COMMON_FIELDS \
-    lcbio_TABLE base_; /**< Base table structure to export */ \
-    lcbio_pTABLE orig; /**< Table pointer we are wrapping */ \
-    SSL *ssl; /**< SSL object */ \
-    BIO *wbio; /**< BIO used for writing data to network */ \
-    BIO *rbio; /**< BIO used for reading data from network */\
-    lcb_io_opt_t iops_dummy_; /**< Dummy IOPS structure which is exposed to LCB */ \
-    int error; /**< Internal error flag set once a fatal error is detect */\
-    lcb_error_t errcode; /**< The error, converted into libcouchbase */
+#define IOTSSL_COMMON_FIELDS                                                                                           \
+    lcbio_TABLE base_;        /**< Base table structure to export */                                                   \
+    lcbio_pTABLE orig;        /**< Table pointer we are wrapping */                                                    \
+    SSL *ssl;                 /**< SSL object */                                                                       \
+    BIO *wbio;                /**< BIO used for writing data to network */                                             \
+    BIO *rbio;                /**< BIO used for reading data from network */                                           \
+    lcb_io_opt_t iops_dummy_; /**< Dummy IOPS structure which is exposed to LCB */                                     \
+    int error;                /**< Internal error flag set once a fatal error is detect */                             \
+    lcb_STATUS errcode;       /**< The error, converted into libcouchbase */
 
 /**
  * @brief
@@ -79,16 +79,14 @@ typedef struct {
  *
  * @note Do not call this function if `rv` is `>0`.
  */
-int
-iotssl_maybe_error(lcbio_XSSL *xs, int rv);
+int iotssl_maybe_error(lcbio_XSSL *xs, int rv);
 
 /**
  * Flush errors from the internal error queue. Call this whenever an error
  * has taken place
  * @param xs
  */
-void
-iotssl_log_errors(lcbio_XSSL *xs);
+void iotssl_log_errors(lcbio_XSSL *xs);
 
 /**
  * This function acts as the 'base' constructor for lcbio_XSSL. It will
@@ -101,8 +99,7 @@ iotssl_log_errors(lcbio_XSSL *xs);
  * @param orig The original lcbio_TABLE containing the actual socket I/O routines.
  * @param ctx the `SSL_CTX*` which will be used to create the `SSL*` pointer
  */
-void
-iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *ctx);
+void iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *ctx);
 
 /**
  * This function acts as the base destructor for lcbio_XSSL
@@ -110,8 +107,7 @@ iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *ctx);
  * After this function has been called, none of the base fields should be
  * considered valid (unless a refcounted item is specifically kept alive).
  */
-void
-iotssl_destroy_common(lcbio_XSSL *xs);
+void iotssl_destroy_common(lcbio_XSSL *xs);
 
 #if LCB_CAN_OPTIMIZE_SSL_BIO
 /**
@@ -131,8 +127,7 @@ iotssl_destroy_common(lcbio_XSSL *xs);
  * recv(fd, bm->data, bm->max-mb->length, 0);
  * @endcode
  */
-void
-iotssl_bm_reserve(BUF_MEM *bm);
+void iotssl_bm_reserve(BUF_MEM *bm);
 #endif
 
 /**
@@ -141,10 +136,11 @@ iotssl_bm_reserve(BUF_MEM *bm);
  * @param ssl the SSL object
  * @return
  */
-#define IOTSSL_PENDING_PRECHECK(ssl) do { \
-    char iotssl__dummy; \
-    SSL_peek(ssl, &iotssl__dummy, 1); \
-} while (0);
+#define IOTSSL_PENDING_PRECHECK(ssl)                                                                                   \
+    do {                                                                                                               \
+        char iotssl__dummy;                                                                                            \
+        SSL_peek(ssl, &iotssl__dummy, 1);                                                                              \
+    } while (0);
 
 /**
  * Wrapper for SSL_pending. In order to work around another bug of the well
@@ -155,8 +151,7 @@ iotssl_bm_reserve(BUF_MEM *bm);
  * See: http://stackoverflow.com/questions/22753221/openssl-read-write-handshake-data-with-memory-bio
  * See: http://www.opensubscriber.com/message/openssl-users@openssl.org/8638179.html
  */
-#define IOTSSL_IS_PENDING(ssl) \
-        (SSL_get_ssl_method(ssl) != SSLv23_client_method()) && SSL_pending(ssl)
+#define IOTSSL_IS_PENDING(ssl) (SSL_get_ssl_method(ssl) != SSLv23_client_method()) && SSL_pending(ssl)
 /**
  * Create and return a pointer to an lcbio_TABLE with an underlying
  * completion-based I/O model
@@ -165,8 +160,7 @@ iotssl_bm_reserve(BUF_MEM *bm);
  * @param sctx
  * @return NULL on error
  */
-lcbio_pTABLE
-lcbio_Cssl_new(lcbio_pTABLE orig, lcb_sockdata_t *sd, SSL_CTX *sctx);
+lcbio_pTABLE lcbio_Cssl_new(lcbio_pTABLE orig, lcb_sockdata_t *sd, SSL_CTX *sctx);
 
 /**
  * Create and return a pointer to an lcbio_TABLE with an underlying event
@@ -176,7 +170,6 @@ lcbio_Cssl_new(lcbio_pTABLE orig, lcb_sockdata_t *sd, SSL_CTX *sctx);
  * @param sctx
  * @return NULL on error.
  */
-lcbio_pTABLE
-lcbio_Essl_new(lcbio_pTABLE orig, lcb_socket_t fd, SSL_CTX *sctx);
+lcbio_pTABLE lcbio_Essl_new(lcbio_pTABLE orig, lcb_socket_t fd, SSL_CTX *sctx);
 
 #endif

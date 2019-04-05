@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@
 #endif
 
 #if !defined HAVE_STDINT_H && defined _WIN32 && defined(_MSC_VER)
-# include "win_stdint.h"
+#include "win_stdint.h"
 #else
-# include <stdint.h>
+#include <stdint.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
@@ -92,7 +92,6 @@
 #include <dlfcn.h>
 #endif
 
-
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
@@ -116,8 +115,8 @@
 #define snprintf _snprintf
 #endif
 
-#define strcasecmp(a,b) _stricmp(a,b)
-#define strncasecmp(a,b,c) _strnicmp(a,b,c)
+#define strcasecmp(a, b) _stricmp(a, b)
+#define strncasecmp(a, b, c) _strnicmp(a, b, c)
 #undef strdup
 #define strdup _strdup
 #endif
@@ -127,23 +126,22 @@
 #define SOCKET_ERROR -1
 #endif /* _WIN32 */
 
-
 #if defined(HAVE_HTONLL)
-    #define lcb_htonll htonll
-    #define lcb_ntohll ntohll
+#define lcb_htonll htonll
+#define lcb_ntohll ntohll
 #elif defined(WORDS_BIGENDIAN)
-    #define lcb_ntohll(a) a
-    #define lcb_htonll(a) a
+#define lcb_ntohll(a) a
+#define lcb_htonll(a) a
 #else
-    #define lcb_ntohll(a) lcb_byteswap64(a)
-    #define lcb_htonll(a) lcb_byteswap64(a)
+#define lcb_ntohll(a) lcb_byteswap64(a)
+#define lcb_htonll(a) lcb_byteswap64(a)
 #endif /* HAVE_HTONLL */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-    extern uint64_t lcb_byteswap64(uint64_t val);
-    extern uint16_t lcb_byteswap16(uint16_t val);
+extern uint64_t lcb_byteswap64(uint64_t val);
+extern uint16_t lcb_byteswap16(uint16_t val);
 #ifdef __cplusplus
 }
 #endif
@@ -162,8 +160,8 @@ extern "C" {
 #ifdef __cplusplus
 extern "C" {
 #endif
-    typedef uint64_t hrtime_t;
-    extern hrtime_t gethrtime(void);
+typedef uint64_t hrtime_t;
+extern hrtime_t gethrtime(void);
 #ifdef __cplusplus
 }
 #endif

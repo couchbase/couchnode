@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2013 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,64 +24,59 @@
  * Helper functions
  */
 extern "C" {
-    static void storeKvoCallback(lcb_t, const void *cookie,
-                                 lcb_storage_t operation,
-                                 lcb_error_t error,
-                                 const lcb_store_resp_t *resp)
-    {
-
-        KVOperation *kvo = (KVOperation *)cookie;
-        kvo->cbCommon(error);
-        kvo->result.assignKC(resp, error);
-        ASSERT_EQ(LCB_SET, operation);
-    }
-
-    static void getKvoCallback(lcb_t, const void *cookie,
-                               lcb_error_t error,
-                               const lcb_get_resp_t *resp)
-    {
-        KVOperation *kvo = (KVOperation *)cookie;
-        kvo->cbCommon(error);
-        kvo->result.assign(resp, error);
-    }
-
-    static void removeKvoCallback(lcb_t, const void *cookie,
-                                  lcb_error_t error,
-                                  const lcb_remove_resp_t *resp)
-    {
-        KVOperation *kvo = (KVOperation *)cookie;
-        kvo->cbCommon(error);
-        kvo->result.assignKC(resp, error);
-    }
+static void storeKvoCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    KVOperation *kvo;
+    lcb_respstore_cookie(resp, (void **)&kvo);
+    kvo->cbCommon(lcb_respstore_status(resp));
+    kvo->result.assign(resp);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_SET, op);
 }
 
-void KVOperation::handleInstanceError(lcb_t instance, lcb_error_t err,
-                                      const char *)
+static void getKvoCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
 {
-    KVOperation *kvo = reinterpret_cast<KVOperation *>(
-            const_cast<void*>(lcb_get_cookie(instance)));
+    KVOperation *kvo;
+    lcb_respget_cookie(resp, (void **)&kvo);
+    kvo->cbCommon(lcb_respget_status(resp));
+    kvo->result.assign(resp);
+}
+
+static void removeKvoCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPREMOVE *resp)
+{
+    KVOperation *kvo;
+    lcb_respremove_cookie(resp, (void **)&kvo);
+    kvo->cbCommon(lcb_respremove_status(resp));
+    kvo->result.assign(resp);
+}
+}
+
+void KVOperation::handleInstanceError(lcb_INSTANCE *instance, lcb_STATUS err, const char *)
+{
+    KVOperation *kvo = reinterpret_cast< KVOperation * >(const_cast< void * >(lcb_get_cookie(instance)));
     kvo->assertOk(err);
     kvo->globalErrors.insert(err);
 }
 
-void KVOperation::enter(lcb_t instance)
+void KVOperation::enter(lcb_INSTANCE *instance)
 {
-    callbacks.get = lcb_set_get_callback(instance, getKvoCallback);
-    callbacks.rm = lcb_set_remove_callback(instance, removeKvoCallback);
-    callbacks.store = lcb_set_store_callback(instance, storeKvoCallback);
+    callbacks.get = lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getKvoCallback);
+    callbacks.rm = lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)removeKvoCallback);
+    callbacks.store = lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeKvoCallback);
     oldCookie = lcb_get_cookie(instance);
     lcb_set_cookie(instance, this);
 }
 
-void KVOperation::leave(lcb_t instance)
+void KVOperation::leave(lcb_INSTANCE *instance)
 {
-    lcb_set_get_callback(instance, callbacks.get);
-    lcb_set_remove_callback(instance, callbacks.rm);
-    lcb_set_store_callback(instance, callbacks.store);
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, callbacks.get);
+    lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, callbacks.rm);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, callbacks.store);
     lcb_set_cookie(instance, oldCookie);
 }
 
-void KVOperation::assertOk(lcb_error_t err)
+void KVOperation::assertOk(lcb_STATUS err)
 {
     if (ignoreErrors) {
         return;
@@ -95,62 +90,66 @@ void KVOperation::assertOk(lcb_error_t err)
         << "Unable to find " << lcb_strerror_short(err) << " in allowable errors";
 }
 
-void KVOperation::store(lcb_t instance)
+void KVOperation::store(lcb_INSTANCE *instance)
 {
-    lcb_store_cmd_t cmd(LCB_SET,
-                        request->key.data(), request->key.length(),
-                        request->val.data(), request->val.length(),
-                        request->flags,
-                        request->exp,
-                        request->cas,
-                        request->datatype);
-    lcb_store_cmd_t *cmds[] = { &cmd };
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, request->key.data(), request->key.length());
+    lcb_cmdstore_value(cmd, request->val.data(), request->val.length());
+    lcb_cmdstore_flags(cmd, request->flags);
+    lcb_cmdstore_expiration(cmd, request->exp);
+    lcb_cmdstore_cas(cmd, request->cas);
+    lcb_cmdstore_datatype(cmd, request->datatype);
 
     enter(instance);
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, this, 1, cmds));
-    EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
-    leave(instance);
-
-    ASSERT_EQ(1, callCount);
-
-}
-
-void KVOperation::remove(lcb_t instance)
-{
-    lcb_remove_cmd_t cmd(request->key.data(), request->key.length(),
-                         request->cas);
-    lcb_remove_cmd_t *cmds[] = { &cmd };
-
-    enter(instance);
-    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, this, 1, cmds));
-    EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
-    leave(instance);
-
-    ASSERT_EQ(1, callCount);
-
-}
-
-void KVOperation::get(lcb_t instance)
-{
-    lcb_get_cmd_t cmd(request->key.data(), request->key.length(), request->exp);
-    lcb_get_cmd_t *cmds[] = { &cmd };
-
-    enter(instance);
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, this, 1, cmds));
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, this, cmd));
+    lcb_cmdstore_destroy(cmd);
     EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
     leave(instance);
 
     ASSERT_EQ(1, callCount);
 }
 
-void storeKey(lcb_t instance, const std::string &key, const std::string &value)
+void KVOperation::remove(lcb_INSTANCE *instance)
+{
+    lcb_CMDREMOVE *cmd;
+    lcb_cmdremove_create(&cmd);
+    lcb_cmdremove_key(cmd, request->key.data(), request->key.length());
+
+    enter(instance);
+    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, this, cmd));
+    lcb_cmdremove_destroy(cmd);
+    EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
+    leave(instance);
+
+    ASSERT_EQ(1, callCount);
+}
+
+void KVOperation::get(lcb_INSTANCE *instance)
+{
+    lcb_CMDGET *cmd;
+    lcb_cmdget_create(&cmd);
+    lcb_cmdget_key(cmd, request->key.data(), request->key.length());
+    lcb_cmdget_expiration(cmd, request->exp);
+
+    enter(instance);
+    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, this, cmd));
+    EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
+    leave(instance);
+
+    lcb_cmdget_destroy(cmd);
+
+    ASSERT_EQ(1, callCount);
+}
+
+void storeKey(lcb_INSTANCE *instance, const std::string &key, const std::string &value)
 {
     Item req = Item(key, value);
     KVOperation kvo = KVOperation(&req);
     kvo.store(instance);
 }
 
-void removeKey(lcb_t instance, const std::string &key)
+void removeKey(lcb_INSTANCE *instance, const std::string &key)
 {
     Item req = Item();
     req.key = key;
@@ -160,7 +159,7 @@ void removeKey(lcb_t instance, const std::string &key)
     kvo.remove(instance);
 }
 
-void getKey(lcb_t instance, const std::string &key, Item &item)
+void getKey(lcb_INSTANCE *instance, const std::string &key, Item &item)
 {
     Item req = Item();
     req.key = key;
@@ -172,11 +171,11 @@ void getKey(lcb_t instance, const std::string &key, Item &item)
     item = kvo.result;
 }
 
-void genDistKeys(lcbvb_CONFIG *vbc, std::vector<std::string> &out)
+void genDistKeys(lcbvb_CONFIG *vbc, std::vector< std::string > &out)
 {
-    char buf[1024] = { '\0' };
+    char buf[1024] = {'\0'};
     int servers_max = lcbvb_get_nservers(vbc);
-    std::map<int, bool> found_servers;
+    std::map< int, bool > found_servers;
     EXPECT_TRUE(servers_max > 0);
 
     for (int cur_num = 0; found_servers.size() != servers_max; cur_num++) {
@@ -194,23 +193,14 @@ void genDistKeys(lcbvb_CONFIG *vbc, std::vector<std::string> &out)
     EXPECT_EQ(servers_max, out.size());
 }
 
-void genStoreCommands(const std::vector<std::string> &keys,
-                      std::vector<lcb_store_cmd_t> &cmds,
-                      std::vector<lcb_store_cmd_t*> &cmdpp)
+void genStoreCommands(const std::vector< std::string > &keys, std::vector< lcb_CMDSTORE * > &cmds)
 {
     for (unsigned int ii = 0; ii < keys.size(); ii++) {
-        lcb_store_cmd_t cmd;
-        memset(&cmd, 0, sizeof(cmd));
-        cmd.v.v0.key = keys[ii].c_str();
-        cmd.v.v0.nkey = keys[ii].size();
-        cmd.v.v0.bytes = cmd.v.v0.key;
-        cmd.v.v0.nbytes = cmd.v.v0.nkey;
-        cmd.v.v0.operation = LCB_SET;
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, keys[ii].c_str(), keys[ii].size());
+        lcb_cmdstore_value(cmd, keys[ii].c_str(), keys[ii].size());
         cmds.push_back(cmd);
-    }
-
-    for (unsigned int ii = 0; ii < keys.size(); ii++) {
-        cmdpp.push_back(&cmds[ii]);
     }
 }
 
@@ -218,7 +208,7 @@ void genStoreCommands(const std::vector<std::string> &keys,
  * This doesn't _actually_ attempt to make sense of an operation. It simply
  * will try to keep the event loop alive.
  */
-void doDummyOp(lcb_t& instance)
+void doDummyOp(lcb_INSTANCE *instance)
 {
     Item itm("foo", "bar");
     KVOperation kvo(&itm);
@@ -232,16 +222,15 @@ void doDummyOp(lcb_t& instance)
  * @param item the item to print
  * @return the stream
  */
-std::ostream &operator<< (std::ostream &out, const Item &item)
+std::ostream &operator<<(std::ostream &out, const Item &item)
 {
     using namespace std;
     out << "Key: " << item.key << endl;
     if (item.val.length()) {
-        out <<  "Value: " << item.val << endl;
+        out << "Value: " << item.val << endl;
     }
 
-    out << ios::hex << "CAS: 0x" << item.cas << endl
-        << "Flags: 0x" << item.flags << endl;
+    out << ios::hex << "CAS: 0x" << item.cas << endl << "Flags: 0x" << item.flags << endl;
 
     if (item.err != LCB_SUCCESS) {
         out << "Error: " << item.err << endl;

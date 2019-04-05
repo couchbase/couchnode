@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2012 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -44,20 +44,20 @@
 extern "C" {
 #endif
 
-    /**
-     * Create an instance of an event handler that utilize libev for
-     * event notification.
-     *
-     * @param version Set this to 0. This may be used in the future to allow
-     *        variation on the third argument (`void*` currently).
-     * @param[out] io a pointer to a newly created and initialized event handler
-     * @param loop the event loop (struct ev_loop *) to hook use (please
-     *             note that you shouldn't reference the event loop from
-     *             multiple threads)
-     * @return status of the operation
-     */
-    LIBCOUCHBASE_API
-    lcb_error_t lcb_create_libev_io_opts(int version, lcb_io_opt_t *io, void *loop);
+/**
+ * Create an instance of an event handler that utilize libev for
+ * event notification.
+ *
+ * @param version Set this to 0. This may be used in the future to allow
+ *        variation on the third argument (`void*` currently).
+ * @param[out] io a pointer to a newly created and initialized event handler
+ * @param loop the event loop (struct ev_loop *) to hook use (please
+ *             note that you shouldn't reference the event loop from
+ *             multiple threads)
+ * @return status of the operation
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcb_create_libev_io_opts(int version, lcb_io_opt_t *io, void *loop);
 #ifdef __cplusplus
 }
 #endif

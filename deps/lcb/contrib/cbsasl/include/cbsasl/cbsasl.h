@@ -1,5 +1,6 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -60,13 +61,13 @@ extern "C" {
         unsigned char data[1];
     } cbsasl_secret_t;
 
-    typedef struct {
-        unsigned long id;
-        int (*proc)(void);
-        void *context;
-    } cbsasl_callback_t;
-
     typedef struct cbsasl_conn_st cbsasl_conn_t;
+
+    typedef struct {
+        void *context;
+        int (*username)(void *context, int id, const char **result, unsigned int *len);
+        int (*password)(cbsasl_conn_t *conn, void *context, int id, cbsasl_secret_t **psecret);
+    } cbsasl_callbacks_t;
 
     typedef cbsasl_error_t (*cbsasl_init_fn)(void);
     typedef cbsasl_error_t (*cbsasl_start_fn)(cbsasl_conn_t *);
@@ -230,7 +231,7 @@ extern "C" {
                                      const char *serverFQDN,
                                      const char *iplocalport,
                                      const char *ipremoteport,
-                                     const cbsasl_callback_t *prompt_supp,
+                                     const cbsasl_callbacks_t *prompt_supp,
                                      unsigned int flags,
                                      cbsasl_conn_t **pconn);
 

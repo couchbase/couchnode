@@ -1,5 +1,5 @@
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -420,7 +420,7 @@ cbsasl_error_t compute_client_proof(cbsasl_auth_mechanism_t auth_mech, const uns
     // final step:
     // ClientProof     := ClientKey XOR ClientSignature
     char clientproof[EVP_MAX_MD_SIZE]; // binary client proof
-    unsigned int i = 0;
+    unsigned int i;
     for (i = 0; i < clientsignlen; ++i) {
         clientproof[i] = clientkeyhmac[i] ^ clientsign[i];
     }

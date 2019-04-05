@@ -1,5 +1,6 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -17,14 +18,14 @@
 #include "internal.h"
 #include <http/http.h>
 
-static void
-flush_cb(lcb_t instance, int, const lcb_RESPBASE *rb)
+static void flush_cb(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)rb;
-    lcb_RESPCBFLUSH fresp = { 0 };
     lcb_RESPCALLBACK callback = lcb_find_callback(instance, LCB_CALLBACK_CBFLUSH);
 
-    fresp = *(lcb_RESPBASE *)rb;
+    const lcb_RESPCBFLUSH *iresp = (const lcb_RESPCBFLUSH *)rb;
+    lcb_RESPCBFLUSH fresp = {0};
+    fresp = *iresp;
     fresp.rflags |= LCB_RESP_F_FINAL;
     if (resp->rc == LCB_SUCCESS) {
         if (resp->htstatus < 200 || resp->htstatus > 299) {
@@ -32,28 +33,28 @@ flush_cb(lcb_t instance, int, const lcb_RESPBASE *rb)
         }
     }
     if (callback) {
-        callback(instance, LCB_CALLBACK_CBFLUSH, (lcb_RESPBASE*)&fresp);
+        callback(instance, LCB_CALLBACK_CBFLUSH, (lcb_RESPBASE *)&fresp);
     }
 }
 
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_cbflush3(lcb_t instance, const void *cookie, const lcb_CMDBASE *)
+lcb_STATUS lcb_cbflush3(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCBFLUSH *)
 {
-    lcb_http_request_t htr;
-    lcb_CMDHTTP htcmd = { 0 };
-    lcb_error_t rc;
+    lcb_HTTP_HANDLE *htr;
+    lcb_STATUS rc;
 
     std::string urlpath("/pools/default/buckets/");
     urlpath.append(LCBT_SETTING(instance, bucket));
     urlpath.append("/controller/doFlush");
 
-    htcmd.type = LCB_HTTP_TYPE_MANAGEMENT;
-    htcmd.method = LCB_HTTP_METHOD_POST;
-    htcmd.reqhandle = &htr;
-    LCB_CMD_SET_KEY(&htcmd, urlpath.c_str(), urlpath.size());
+    lcb_CMDHTTP *htcmd;
+    lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_MANAGEMENT);
+    lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_POST);
+    lcb_cmdhttp_handle(htcmd, &htr);
+    lcb_cmdhttp_path(htcmd, urlpath.c_str(), urlpath.size());
 
-    rc = lcb_http3(instance, cookie, &htcmd);
+    rc = lcb_http(instance, cookie, htcmd);
+    lcb_cmdhttp_destroy(htcmd);
 
     if (rc != LCB_SUCCESS) {
         return rc;

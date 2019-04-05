@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -45,8 +45,7 @@
 #define C_EAGAIN EAGAIN
 #endif
 
-static INLINE lcbio_IOSTATUS
-lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
+static INLINE lcbio_IOSTATUS lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
 {
     lcb_ssize_t rv;
     lcb_IOV iov[RWINL_IOVSIZE];
@@ -57,7 +56,7 @@ lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
 
     do {
         niov = rdb_rdstart(ior, (nb_IOV *)iov, RWINL_IOVSIZE);
-        GT_READ:
+    GT_READ:
         rv = IOT_V0IO(iot).recvv(IOT_ARG(iot), CTX_FD(ctx), iov, niov);
         if (rv > 0) {
 #ifdef LCB_DUMP_PACKETS
@@ -75,14 +74,14 @@ lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
             }
         } else if (rv == -1) {
             switch (IOT_ERRNO(iot)) {
-            case EWOULDBLOCK:
-            case C_EAGAIN:
-                return LCBIO_PENDING;
-            case EINTR:
-                goto GT_READ;
-            default:
-                ctx->sock->last_error = IOT_ERRNO(iot);
-                return LCBIO_IOERR;
+                case EWOULDBLOCK:
+                case C_EAGAIN:
+                    return LCBIO_PENDING;
+                case EINTR:
+                    goto GT_READ;
+                default:
+                    ctx->sock->last_error = IOT_ERRNO(iot);
+                    return LCBIO_IOERR;
             }
         } else {
             return LCBIO_SHUTDOWN;
@@ -92,8 +91,7 @@ lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
     return LCBIO_IOERR;
 }
 
-static INLINE lcbio_IOSTATUS
-lcbio_E_rb_write(lcbio_CTX *ctx, ringbuffer_t *buf)
+static INLINE lcbio_IOSTATUS lcbio_E_rb_write(lcbio_CTX *ctx, ringbuffer_t *buf)
 {
     lcb_IOV iov[2] = {0};
     lcb_ssize_t nw;
@@ -109,14 +107,14 @@ lcbio_E_rb_write(lcbio_CTX *ctx, ringbuffer_t *buf)
         nw = IOT_V0IO(iot).sendv(IOT_ARG(iot), CTX_FD(ctx), iov, niov);
         if (nw == -1) {
             switch (IOT_ERRNO(iot)) {
-            case EINTR:
-                break;
-            case EWOULDBLOCK:
-            case C_EAGAIN:
-                return LCBIO_PENDING;
-            default:
-                ctx->sock->last_error = IOT_ERRNO(iot);
-                return LCBIO_IOERR;
+                case EINTR:
+                    break;
+                case EWOULDBLOCK:
+                case C_EAGAIN:
+                    return LCBIO_PENDING;
+                default:
+                    ctx->sock->last_error = IOT_ERRNO(iot);
+                    return LCBIO_IOERR;
             }
         }
         if (nw) {

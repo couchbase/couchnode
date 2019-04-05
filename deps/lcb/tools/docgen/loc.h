@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016 Couchbase, Inc.
+ *     Copyright 2016-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -17,38 +17,40 @@
 #ifndef CBC_PILLOWFIGHT_LOC_H
 #define CBC_PILLOWFIGHT_LOC_H
 
-namespace Pillowfight {
+namespace Pillowfight
+{
 
 // This class copy/pasted from Subdoc (which I also wrote)
-class Loc {
-public:
+class Loc
+{
+  public:
     const char *at;
     size_t length;
 
-    Loc() : at(NULL), length(0) {
-    }
+    Loc() : at(NULL), length(0) {}
 
-    Loc(const lcb_IOV& iov) :
-        at(reinterpret_cast<const char*>(iov.iov_base)), length(iov.iov_len) {
-    }
+    Loc(const lcb_IOV &iov) : at(reinterpret_cast< const char * >(iov.iov_base)), length(iov.iov_len) {}
 
-    Loc(const char *s, size_t n) {
+    Loc(const char *s, size_t n)
+    {
         assign(s, n);
     }
 
-    lcb_IOV to_iov() const {
+    lcb_IOV to_iov() const
+    {
         lcb_IOV ret;
-        ret.iov_base = const_cast<char*>(at);
+        ret.iov_base = const_cast< char * >(at);
         ret.iov_len = length;
         return ret;
     }
 
-    enum OverlapMode {
-        NO_OVERLAP = 0,
-        OVERLAP = 1
-    };
+    enum OverlapMode { NO_OVERLAP = 0, OVERLAP = 1 };
 
-    void assign(const char *s, size_t n) { at = s; length = n; }
+    void assign(const char *s, size_t n)
+    {
+        at = s;
+        length = n;
+    }
 
     /**
      * Modifies the object so that it ends where `until` begins.
@@ -67,7 +69,8 @@ public:
      * @param until position at where this buffer should end
      * @param overlap Whether the end should overlap with the first byte of `until`
      */
-    void end_at_begin(const Loc& base, const Loc& until, OverlapMode overlap) {
+    void end_at_begin(const Loc &base, const Loc &until, OverlapMode overlap)
+    {
         at = base.at;
         length = until.at - base.at;
         if (overlap == OVERLAP) {
@@ -94,7 +97,8 @@ public:
      * @param overlap Whether the current buffer should overlap `until`'s last
      *        byte
      */
-    void begin_at_end(const Loc& base, const Loc& from, OverlapMode overlap) {
+    void begin_at_end(const Loc &base, const Loc &from, OverlapMode overlap)
+    {
         at = from.at + from.length;
         length = base.length - (at - base.at);
         if (overlap == OVERLAP) {
@@ -119,7 +123,8 @@ public:
      * @param base Common buffer
      * @param from The begin position
      */
-    void begin_at_begin(const Loc& base, const Loc& from) {
+    void begin_at_begin(const Loc &base, const Loc &from)
+    {
         at = from.at;
         length = base.length - (from.at - base.at);
     }
@@ -141,7 +146,8 @@ public:
      * @param until
      * @param overlap
      */
-    void end_at_end(const Loc& base, const Loc& until, OverlapMode overlap) {
+    void end_at_end(const Loc &base, const Loc &until, OverlapMode overlap)
+    {
         at = base.at;
         length = (until.at + until.length) - base.at;
         if (overlap == NO_OVERLAP) {
@@ -149,9 +155,13 @@ public:
         }
     }
 
-    bool empty() const { return length == 0; }
+    bool empty() const
+    {
+        return length == 0;
+    }
 
-    std::string to_string() const {
+    std::string to_string() const
+    {
         if (!empty()) {
             return std::string(at, length);
         } else {
@@ -160,13 +170,15 @@ public:
     }
 
     // Move buffer start ahead n bytes
-    void ltrim(size_t n) {
+    void ltrim(size_t n)
+    {
         at += n;
         length -= n;
     }
 
     // Move buffer end back n bytes
-    void rtrim(size_t n) {
+    void rtrim(size_t n)
+    {
         length -= n;
     }
 
@@ -174,38 +186,38 @@ public:
     //
     // Set buffer to end where 'loc' begins, while not touching the beginning
     // of the buffer
-    void rtrim_to(const Loc& loc) {
+    void rtrim_to(const Loc &loc)
+    {
         assert(loc.at > at);
         size_t diff = loc.at - at;
         length = diff;
     }
 
     // Added for pillowfight
-    bool contains(const Loc& sub) const {
-        return sub.at >= at && // Begins at or after our beginning
-                sub.at < at + length && // begins before or at the end
-                sub.at + sub.length <= at + length;
+    bool contains(const Loc &sub) const
+    {
+        return sub.at >= at &&         // Begins at or after our beginning
+               sub.at < at + length && // begins before or at the end
+               sub.at + sub.length <= at + length;
     }
 
-    static void
-    dumpIovs(const std::vector<lcb_IOV>& vecs) {
+    static void dumpIovs(const std::vector< lcb_IOV > &vecs)
+    {
         for (size_t ii = 0; ii < vecs.size(); ii++) {
-            const lcb_IOV& iov = vecs[ii];
-            printf("IOV[%lu]. Buf=%p. Len=%lu. Content=%.*s\n", (unsigned long int)ii,
-                   (void *)iov.iov_base, (unsigned long int)iov.iov_len,
-                   (int)iov.iov_len, (const char*)iov.iov_base);
+            const lcb_IOV &iov = vecs[ii];
+            printf("IOV[%lu]. Buf=%p. Len=%lu. Content=%.*s\n", (unsigned long int)ii, (void *)iov.iov_base,
+                   (unsigned long int)iov.iov_len, (int)iov.iov_len, (const char *)iov.iov_base);
         }
     }
-    static void
-    dumpIovs(const std::vector<Loc>& vecs) {
+    static void dumpIovs(const std::vector< Loc > &vecs)
+    {
         for (size_t ii = 0; ii < vecs.size(); ii++) {
-            const Loc& loc = vecs[ii];
+            const Loc &loc = vecs[ii];
             std::string s = loc.to_string();
-            printf("Loc[%lu]. Buf=%p. Len=%lu. Content=%s\n",
-                   (unsigned long int)ii, (void *)loc.at,
+            printf("Loc[%lu]. Buf=%p. Len=%lu. Content=%s\n", (unsigned long int)ii, (void *)loc.at,
                    (unsigned long int)loc.length, s.c_str());
         }
     }
 };
-}
+} // namespace Pillowfight
 #endif

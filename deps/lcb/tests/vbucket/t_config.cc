@@ -8,9 +8,9 @@
 #include <map>
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 
+using std::map;
 using std::string;
 using std::vector;
-using std::map;
 
 static string getConfigFile(const char *fname)
 {
@@ -41,14 +41,13 @@ static string getConfigFile(const char *fname)
     return ss.str();
 }
 
-class ConfigTest : public ::testing::Test {
-protected:
+class ConfigTest : public ::testing::Test
+{
+  protected:
     void testConfig(const char *fname, bool checkNew = false);
 };
 
-
-void
-ConfigTest::testConfig(const char *fname, bool checkNew)
+void ConfigTest::testConfig(const char *fname, bool checkNew)
 {
     string testData = getConfigFile(fname);
     lcbvb_CONFIG *vbc = lcbvb_create();
@@ -190,7 +189,6 @@ TEST_F(ConfigTest, testGetReplicaNode)
     rv = lcbvb_vbreplica(cfg, 0, 0);
     ASSERT_EQ(-1, rv);
     lcbvb_destroy(cfg);
-
 }
 
 TEST_F(ConfigTest, testBadInput)
@@ -209,7 +207,6 @@ TEST_F(ConfigTest, testBadInput)
     rc = lcbvb_load_json(cfg, "");
     ASSERT_EQ(-1, rc);
     lcbvb_destroy(cfg);
-
 }
 
 TEST_F(ConfigTest, testEmptyMap)
@@ -228,38 +225,34 @@ TEST_F(ConfigTest, testNondataNodes)
     const size_t ndatasrv = 3;
     const size_t nreplica = ndatasrv - 1;
 
-    vector<lcbvb_SERVER> servers;
+    vector< lcbvb_SERVER > servers;
     servers.resize(nservers);
 
-
     size_t ii;
-    for (ii = 0; ii < nservers-ndatasrv; ++ii) {
-        lcbvb_SERVER& server = servers[ii];
+    for (ii = 0; ii < nservers - ndatasrv; ++ii) {
+        lcbvb_SERVER &server = servers[ii];
         memset(&server, 0, sizeof server);
         server.svc.data = 1000 + ii;
         server.svc.views = 2000 + ii;
-        server.hostname = const_cast<char*>("dummy.host.ru");
+        server.hostname = const_cast< char * >("dummy.host.ru");
     }
 
     for (; ii < nservers; ii++) {
-        lcbvb_SERVER& server = servers[ii];
+        lcbvb_SERVER &server = servers[ii];
         memset(&server, 0, sizeof server);
         server.svc.n1ql = 3000 + ii;
-        server.hostname = const_cast<char*>("query.host.biz");
+        server.hostname = const_cast< char * >("query.host.biz");
     }
 
     lcbvb_CONFIG *cfg_ex = lcbvb_create();
-    int rv = lcbvb_genconfig_ex(cfg_ex, "default", NULL,
-        &servers[0],
-        servers.size(), // include non-data servers
-        nreplica,
-        1024);
+    int rv = lcbvb_genconfig_ex(cfg_ex, "default", NULL, &servers[0],
+                                servers.size(), // include non-data servers
+                                nreplica, 1024);
     ASSERT_EQ(0, rv);
     lcbvb_genffmap(cfg_ex);
 
     lcbvb_CONFIG *cfg_old = lcbvb_create();
-    rv = lcbvb_genconfig_ex(cfg_old, "default", NULL,
-        &servers[0], ndatasrv, nreplica, 1024);
+    rv = lcbvb_genconfig_ex(cfg_old, "default", NULL, &servers[0], ndatasrv, nreplica, 1024);
     ASSERT_EQ(0, rv);
     lcbvb_genffmap(cfg_old);
 
@@ -270,7 +263,7 @@ TEST_F(ConfigTest, testNondataNodes)
     ASSERT_EQ(ndatasrv, cfg_old->nsrv);
 
     // So far, so good.
-    vector<string> keys;
+    vector< string > keys;
     for (ii = 0; ii < 1024; ii++) {
         std::stringstream ss;
         ss << "Key_" << ii;
@@ -280,7 +273,7 @@ TEST_F(ConfigTest, testNondataNodes)
     int vbid, ix_exp, ix_cur;
     // Ensure vBucket mapping, etc. is the same
     for (ii = 0; ii < keys.size(); ii++) {
-        const string& s = keys[ii];
+        const string &s = keys[ii];
 
         lcbvb_map_key(cfg_old, s.c_str(), s.size(), &vbid, &ix_exp);
         lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix_cur);
@@ -290,7 +283,7 @@ TEST_F(ConfigTest, testNondataNodes)
 
     // On the new config, ensure that remap never maps to a non-data node.
     for (ii = 0; ii < keys.size(); ii++) {
-        const string& s = keys[ii];
+        const string &s = keys[ii];
         for (size_t jj = 0; jj < cfg_ex->nsrv * 2; jj++) {
             int ix;
             lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix);
@@ -307,7 +300,7 @@ TEST_F(ConfigTest, testNondataNodes)
     lcbvb_make_ketama(cfg_ex);
     lcbvb_make_ketama(cfg_old);
     for (ii = 0; ii < keys.size(); ii++) {
-        const string& s = keys[ii];
+        const string &s = keys[ii];
         lcbvb_map_key(cfg_old, s.c_str(), s.size(), &vbid, &ix_exp);
         lcbvb_map_key(cfg_ex, s.c_str(), s.size(), &vbid, &ix_cur);
         ASSERT_TRUE(ix_exp > -1 && ix_exp < (int)cfg_old->ndatasrv);
@@ -317,7 +310,6 @@ TEST_F(ConfigTest, testNondataNodes)
     // destroy 'em
     lcbvb_destroy(cfg_ex);
     lcbvb_destroy(cfg_old);
-
 }
 
 TEST_F(ConfigTest, testKetamaUniformity)
@@ -340,7 +332,8 @@ TEST_F(ConfigTest, testKetamaUniformity)
     lcbvb_destroy(vbc);
 }
 
-TEST_F(ConfigTest, testKetamaCompliance) {
+TEST_F(ConfigTest, testKetamaCompliance)
+{
     string txt = getConfigFile("memd_ketama_config.json");
     lcbvb_CONFIG *vbc = lcbvb_parse_json(txt.c_str());
     ASSERT_TRUE(vbc != NULL);
@@ -357,7 +350,7 @@ TEST_F(ConfigTest, testKetamaCompliance) {
 
     // Iterate over the continuum in the vbuckets
     for (size_t ii = 0; ii < json.size(); ++ii) {
-        const Json::Value& cur = json[static_cast<int>(ii)];
+        const Json::Value &cur = json[static_cast< int >(ii)];
         unsigned exp_hash = cur["hash"].asUInt();
         string exp_server = cur["hostname"].asString();
         unsigned got_hash = vbc->continuum[ii].point;

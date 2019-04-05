@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
  * this to display node and/or host-port information.*/
 
 static std::string&
-ensure_scratch(lcb_t instance)
+ensure_scratch(lcb_INSTANCE *instance)
 {
     if (!instance->scratch) {
         instance->scratch = new std::string;
@@ -36,7 +36,7 @@ ensure_scratch(lcb_t instance)
 }
 
 static const char *
-mk_scratch_host(lcb_t instance, const lcb_host_t *host)
+mk_scratch_host(lcb_INSTANCE *instance, const lcb_host_t *host)
 {
     std::string& s = ensure_scratch(instance);
     s.append(host->host);
@@ -57,7 +57,7 @@ return_badhost(lcb_GETNODETYPE type)
 
 LIBCOUCHBASE_API
 const char *
-lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
+lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
 {
     lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(instance);
     lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
@@ -113,33 +113,8 @@ lcb_get_node(lcb_t instance, lcb_GETNODETYPE type, unsigned ix)
     }
 }
 
-LIBCOUCHBASE_API const char * lcb_get_host(lcb_t instance) {
-    char *colon;
-    const char *rv = lcb_get_node(instance,
-        static_cast<lcb_GETNODETYPE>(LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL), 0);
-    if (rv != NULL && (colon = (char *)strstr(rv, ":"))  != NULL) {
-        if (instance->scratch && rv == instance->scratch->c_str()) {
-            // We have a colon
-            size_t colon_pos = instance->scratch->find(':');
-            if (colon_pos != std::string::npos) {
-                instance->scratch->erase(colon_pos);
-            }
-        }
-    }
-    return rv;
-}
-
-LIBCOUCHBASE_API const char * lcb_get_port(lcb_t instance) {
-    const char *rv = lcb_get_node(instance,
-        static_cast<lcb_GETNODETYPE>(LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL), 0);
-    if (rv && (rv = strstr(rv, ":"))) {
-        rv++;
-    }
-    return rv;
-}
-
 LIBCOUCHBASE_API
-lcb_int32_t lcb_get_num_replicas(lcb_t instance)
+lcb_int32_t lcb_get_num_replicas(lcb_INSTANCE *instance)
 {
     if (LCBT_VBCONFIG(instance)) {
         return LCBT_NREPLICAS(instance);
@@ -149,7 +124,7 @@ lcb_int32_t lcb_get_num_replicas(lcb_t instance)
 }
 
 LIBCOUCHBASE_API
-lcb_int32_t lcb_get_num_nodes(lcb_t instance)
+lcb_int32_t lcb_get_num_nodes(lcb_INSTANCE *instance)
 {
     if (LCBT_VBCONFIG(instance)) {
         return LCBT_NSERVERS(instance);
@@ -159,14 +134,14 @@ lcb_int32_t lcb_get_num_nodes(lcb_t instance)
 }
 
 LIBCOUCHBASE_API
-const char *const *lcb_get_server_list(lcb_t instance)
+const char *const *lcb_get_server_list(lcb_INSTANCE *instance)
 {
     return instance->ht_nodes->get_strlist();
 }
 
 LIBCOUCHBASE_API
 const char *
-lcb_get_keynode(lcb_t instance, const void *key, size_t nkey)
+lcb_get_keynode(lcb_INSTANCE *instance, const void *key, size_t nkey)
 {
     lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
     int srvix, vbid;

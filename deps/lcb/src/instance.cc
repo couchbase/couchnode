@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2013 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -41,20 +41,20 @@ const char *lcb_get_version(lcb_uint32_t *version)
 const lcb_U32 lcb_version_g = LCB_VERSION;
 
 LIBCOUCHBASE_API
-void lcb_set_cookie(lcb_t instance, const void *cookie)
+void lcb_set_cookie(lcb_INSTANCE *instance, const void *cookie)
 {
     instance->cookie = cookie;
 }
 
 LIBCOUCHBASE_API
-const void *lcb_get_cookie(lcb_t instance)
+const void *lcb_get_cookie(lcb_INSTANCE *instance)
 {
     return instance->cookie;
 }
 
 LIBCOUCHBASE_API
 void
-lcb_set_auth(lcb_t instance, lcb_AUTHENTICATOR *auth)
+lcb_set_auth(lcb_INSTANCE *instance, lcb_AUTHENTICATOR *auth)
 {
     if (LCBT_SETTING(instance, keypath)) {
         lcb_log(LOGARGS(instance, WARN),
@@ -127,7 +127,7 @@ lcb_st::populate_nodes(const Connspec& spec)
             (int)ht_nodes->size());
 }
 
-lcb_error_t
+lcb_STATUS
 lcb_st::process_dns_srv(Connspec& spec)
 {
     if (!spec.can_dnssrv()) {
@@ -139,7 +139,7 @@ lcb_st::process_dns_srv(Connspec& spec)
     }
 
     const Spechost& host = spec.hosts().front();
-    lcb_error_t rc = LCB_ERROR;
+    lcb_STATUS rc = LCB_ERROR;
     Hostlist* hl = dnssrv_getbslist(host.hostname.c_str(), spec.sslopts() & LCB_SSL_ENABLED, rc);
 
     if (hl == NULL) {
@@ -168,8 +168,8 @@ lcb_st::process_dns_srv(Connspec& spec)
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
-init_providers(lcb_t obj, const Connspec &spec)
+static lcb_STATUS
+init_providers(lcb_INSTANCE *obj, const Connspec &spec)
 {
     using namespace lcb::clconfig;
     Provider *http, *cccp, *mcraw;
@@ -240,13 +240,13 @@ init_providers(lcb_t obj, const Connspec &spec)
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
-setup_ssl(lcb_t obj, const Connspec& params)
+static lcb_STATUS
+setup_ssl(lcb_INSTANCE *obj, const Connspec& params)
 {
     char optbuf[4096];
     int env_policy = -1;
     lcb_settings *settings = obj->settings;
-    lcb_error_t err = LCB_SUCCESS;
+    lcb_STATUS err = LCB_SUCCESS;
 
     if (lcb_getenv_nonempty("LCB_SSL_CACERT", optbuf, sizeof optbuf)) {
         lcb_log(LOGARGS(obj, INFO), "SSL CA certificate %s specified on environment", optbuf);
@@ -309,10 +309,10 @@ setup_ssl(lcb_t obj, const Connspec& params)
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
-apply_spec_options(lcb_t obj, const Connspec& params)
+static lcb_STATUS
+apply_spec_options(lcb_INSTANCE *obj, const Connspec& params)
 {
-    lcb_error_t err;
+    lcb_STATUS err;
     Connspec::Options::const_iterator ii = params.options().begin();
     for (; ii != params.options().end(); ++ii) {
         lcb_log(LOGARGS(obj, DEBUG), "Applying initial cntl %s=%s",
@@ -326,8 +326,8 @@ apply_spec_options(lcb_t obj, const Connspec& params)
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
-apply_env_options(lcb_t obj)
+static lcb_STATUS
+apply_env_options(lcb_INSTANCE *obj)
 {
     Connspec tmpspec;
     const char *options = getenv("LCB_OPTIONS");
@@ -344,11 +344,11 @@ apply_env_options(lcb_t obj)
     return apply_spec_options(obj, tmpspec);
 }
 
-lcb_error_t
-lcb_init_providers2(lcb_t obj, const struct lcb_create_st2 *options)
+lcb_STATUS
+lcb_init_providers2(lcb_INSTANCE *obj, const struct lcb_create_st2 *options)
 {
     Connspec params;
-    lcb_error_t err;
+    lcb_STATUS err;
     struct lcb_create_st cropts;
     cropts.version = 2;
     cropts.v.v2 = *options;
@@ -359,11 +359,11 @@ lcb_init_providers2(lcb_t obj, const struct lcb_create_st2 *options)
     return err;
 }
 
-lcb_error_t
-lcb_reinit3(lcb_t obj, const char *connstr)
+lcb_STATUS
+lcb_reinit3(lcb_INSTANCE *obj, const char *connstr)
 {
     Connspec params;
-    lcb_error_t err;
+    lcb_STATUS err;
     const char *errmsg = NULL;
     err = params.parse(connstr, &errmsg);
 
@@ -392,14 +392,14 @@ lcb_reinit3(lcb_t obj, const char *connstr)
 }
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_create(lcb_t *instance,
+lcb_STATUS lcb_create(lcb_INSTANCE **instance,
                        const struct lcb_create_st *options)
 {
     Connspec spec;
     struct lcb_io_opt_st *io_priv = NULL;
     lcb_type_t type = LCB_TYPE_BUCKET;
-    lcb_t obj = NULL;
-    lcb_error_t err;
+    lcb_INSTANCE *obj = NULL;
+    lcb_STATUS err;
     lcb_settings *settings;
 
 #if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600)
@@ -420,7 +420,7 @@ lcb_error_t lcb_create(lcb_t *instance,
         goto GT_DONE;
     }
 
-    if ((obj = (lcb_t)calloc(1, sizeof(*obj))) == NULL) {
+    if ((obj = (lcb_INSTANCE *)calloc(1, sizeof(*obj))) == NULL) {
         err = LCB_CLIENT_ENOMEM;
         goto GT_DONE;
     }
@@ -455,7 +455,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     if (settings->logger == NULL) {
         settings->logger = lcb_init_console_logger();
     }
-    settings->iid = lcb_next_rand32();
+    settings->iid = lcb_next_rand64();
     if (spec.loglevel()) {
         lcb_U32 val = spec.loglevel();
         lcb_cntl(obj, LCB_CNTL_SET, LCB_CNTL_CONLOGGER_LEVEL, &val);
@@ -501,6 +501,7 @@ lcb_error_t lcb_create(lcb_t *instance,
     obj->n1ql_cache = lcb_n1qlcache_create();
     lcb_initialize_packet_handlers(obj);
     lcb_aspend_init(&obj->pendops);
+    obj->collcache = new lcb::CollectionCache();
 
     if ((err = setup_ssl(obj, spec)) != LCB_SUCCESS) {
         goto GT_DONE;
@@ -521,11 +522,9 @@ lcb_error_t lcb_create(lcb_t *instance,
     if ((err = init_providers(obj, spec)) != LCB_SUCCESS) {
         goto GT_DONE;
     }
-#ifdef LCB_TRACING
     if (settings->use_tracing) {
         settings->tracer = lcbtrace_new(obj, LCBTRACE_F_THRESHOLD);
     }
-#endif
 
     obj->last_error = err;
     GT_DONE:
@@ -539,7 +538,7 @@ lcb_error_t lcb_create(lcb_t *instance,
 }
 
 LIBCOUCHBASE_API
-int lcb_is_redacting_logs(lcb_t instance)
+int lcb_is_redacting_logs(lcb_INSTANCE *instance)
 {
     return instance && instance->settings && instance->settings->log_redaction;
 }
@@ -568,7 +567,7 @@ void lcbdur_destroy(void*);
 static void do_pool_shutdown(io::Pool *pool) { pool->shutdown(); }
 
 LIBCOUCHBASE_API
-void lcb_destroy(lcb_t instance)
+void lcb_destroy(lcb_INSTANCE *instance)
 {
     #define DESTROY(fn,fld) if(instance->fld){fn(instance->fld);instance->fld=NULL;}
 
@@ -584,12 +583,7 @@ void lcb_destroy(lcb_t instance)
     DESTROY(delete, bs_state);
     DESTROY(delete, ht_nodes);
     DESTROY(delete, mc_nodes);
-
-    if ((pendq = po->items[LCB_PENDTYPE_TIMER])) {
-        for (it = pendq->begin(); it != pendq->end(); ++it) {
-            lcb__timer_destroy_nowarn(instance, (lcb_timer_t)*it);
-        }
-    }
+    DESTROY(delete, collcache);
 
     if ((pendq = po->items[LCB_PENDTYPE_DURABILITY])) {
         std::vector<void*> dsets(pendq->begin(), pendq->end());
@@ -630,12 +624,10 @@ void lcb_destroy(lcb_t instance)
     mcreq_queue_cleanup(&instance->cmdq);
     lcb_aspend_cleanup(po);
 
-#ifdef LCB_TRACING
     if (instance->settings && instance->settings->tracer) {
         lcbtrace_destroy(instance->settings->tracer);
         instance->settings->tracer = NULL;
     }
-#endif
 
     if (instance->iotable && instance->iotable->refcount > 1 &&
             instance->settings && instance->settings->syncdtor) {
@@ -675,14 +667,14 @@ void lcb_destroy(lcb_t instance)
 static void
 destroy_cb(void *arg)
 {
-    lcb_t instance = (lcb_t)arg;
+    lcb_INSTANCE *instance = (lcb_INSTANCE *)arg;
     lcbio_timer_destroy(instance->dtor_timer);
     lcb_destroy(instance);
 }
 
 LIBCOUCHBASE_API
 void
-lcb_destroy_async(lcb_t instance, const void *arg)
+lcb_destroy_async(lcb_INSTANCE *instance, const void *arg)
 {
     instance->dtor_timer = lcbio_timer_new(instance->iotable, instance, destroy_cb);
     instance->settings->dtorarg = (void *)arg;
@@ -703,14 +695,9 @@ lcb_st::find_server(const lcb_host_t& host) const
 }
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_connect(lcb_t instance)
+lcb_STATUS lcb_connect(lcb_INSTANCE *instance)
 {
-    lcb_error_t err = instance->bootstrap(BS_REFRESH_INITIAL);
-    if (err == LCB_SUCCESS) {
-        SYNCMODE_INTERCEPT(instance);
-    } else {
-        return err;
-    }
+    return instance->bootstrap(BS_REFRESH_INITIAL);
 }
 
 LIBCOUCHBASE_API
@@ -726,13 +713,13 @@ void lcb_mem_free(void *ptr)
 }
 
 LCB_INTERNAL_API
-void lcb_run_loop(lcb_t instance)
+void lcb_run_loop(lcb_INSTANCE *instance)
 {
     IOT_START(instance->iotable);
 }
 
 LCB_INTERNAL_API
-void lcb_stop_loop(lcb_t instance)
+void lcb_stop_loop(lcb_INSTANCE *instance)
 {
     IOT_STOP(instance->iotable);
 }
@@ -780,19 +767,19 @@ lcb_aspend_cleanup(lcb_ASPEND *ops)
 
 LIBCOUCHBASE_API
 void
-lcb_sched_enter(lcb_t instance)
+lcb_sched_enter(lcb_INSTANCE *instance)
 {
     mcreq_sched_enter(&instance->cmdq);
 }
 LIBCOUCHBASE_API
 void
-lcb_sched_leave(lcb_t instance)
+lcb_sched_leave(lcb_INSTANCE *instance)
 {
     mcreq_sched_leave(&instance->cmdq, LCBT_SETTING(instance, sched_implicit_flush));
 }
 LIBCOUCHBASE_API
 void
-lcb_sched_fail(lcb_t instance)
+lcb_sched_fail(lcb_INSTANCE *instance)
 {
     mcreq_sched_fail(&instance->cmdq);
 }
@@ -802,11 +789,7 @@ int
 lcb_supports_feature(int n)
 {
     if (n == LCB_SUPPORTS_TRACING) {
-#ifdef LCB_TRACING
         return 1;
-#else
-        return 0;
-#endif
     }
     if (n == LCB_SUPPORTS_SNAPPY) {
         return 1;
@@ -819,16 +802,16 @@ lcb_supports_feature(int n)
 }
 
 
-LCB_INTERNAL_API void lcb_loop_ref(lcb_t instance) {
+LCB_INTERNAL_API void lcb_loop_ref(lcb_INSTANCE *instance) {
     lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
 }
-LCB_INTERNAL_API void lcb_loop_unref(lcb_t instance) {
+LCB_INTERNAL_API void lcb_loop_unref(lcb_INSTANCE *instance) {
     lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
     lcb_maybe_breakout(instance);
 }
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_enable_timings(lcb_t instance)
+lcb_STATUS lcb_enable_timings(lcb_INSTANCE *instance)
 {
     if (instance->kv_timings != NULL) {
         return LCB_KEY_EEXISTS;
@@ -838,7 +821,7 @@ lcb_error_t lcb_enable_timings(lcb_t instance)
 }
 
 LIBCOUCHBASE_API
-lcb_error_t lcb_disable_timings(lcb_t instance)
+lcb_STATUS lcb_disable_timings(lcb_INSTANCE *instance)
 {
     if (instance->kv_timings == NULL) {
         return LCB_KEY_ENOENT;
@@ -849,7 +832,7 @@ lcb_error_t lcb_disable_timings(lcb_t instance)
 }
 
 typedef struct {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     const void *real_cookie;
     lcb_timings_callback real_cb;
 } timings_wrapper;
@@ -863,8 +846,8 @@ timings_wrapper_callback(const void *cookie, lcb_timeunit_t unit, lcb_U32 start,
 }
 
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_get_timings(lcb_t instance, const void *cookie, lcb_timings_callback cb)
+lcb_STATUS
+lcb_get_timings(lcb_INSTANCE *instance, const void *cookie, lcb_timings_callback cb)
 {
     timings_wrapper wrap;
     wrap.instance = instance;
@@ -879,7 +862,7 @@ lcb_get_timings(lcb_t instance, const void *cookie, lcb_timings_callback cb)
 }
 
 LIBCOUCHBASE_API
-const char *lcb_strerror(lcb_t instance, lcb_error_t error)
+const char *lcb_strerror(lcb_INSTANCE *instance, lcb_STATUS error)
 {
     #define X(c, v, t, s) if (error == c) { return s; }
     LCB_XERR(X)
@@ -890,7 +873,7 @@ const char *lcb_strerror(lcb_t instance, lcb_error_t error)
 }
 
 LCB_INTERNAL_API
-const char *lcb_strerror_short(lcb_error_t error)
+const char *lcb_strerror_short(lcb_STATUS error)
 {
 #define X(c, v, t, s) if (error == c) { return #c " (" #v ")"; }
     LCB_XERR(X)
@@ -899,7 +882,7 @@ const char *lcb_strerror_short(lcb_error_t error)
 }
 
 LCB_INTERNAL_API
-const char *lcb_strerror_long(lcb_error_t error)
+const char *lcb_strerror_long(lcb_STATUS error)
 {
 #define X(c, v, t, s) if (error == c) { return #c " (" #v "): " s; }
     LCB_XERR(X)
@@ -908,7 +891,7 @@ const char *lcb_strerror_long(lcb_error_t error)
 }
 
 LIBCOUCHBASE_API
-int lcb_get_errtype(lcb_error_t err)
+int lcb_get_errtype(lcb_STATUS err)
 {
     #define X(c, v, t, s) if (err == c) { return t; }
     LCB_XERR(X)

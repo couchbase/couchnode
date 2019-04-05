@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2013 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -23,73 +23,76 @@
 #include "serverparams.h"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 
-
 class HandleWrap
 {
 
     friend class MockEnvironment;
 
-public:
-    lcb_t getLcb() const {
+  public:
+    lcb_INSTANCE *getLcb() const
+    {
         return instance;
     }
 
     void destroy();
 
     // Don't ever allow copying. C++0x allows = 0, though
-    HandleWrap operator= (const HandleWrap &) {
+    HandleWrap operator=(const HandleWrap &)
+    {
         fprintf(stderr, "Can't copy this object around!\n");
         abort();
         return HandleWrap();
     }
 
-    HandleWrap() : instance(NULL), iops(NULL) { }
+    HandleWrap() : instance(NULL), iops(NULL) {}
     virtual ~HandleWrap();
 
-
-private:
-    lcb_t instance;
+  private:
+    lcb_INSTANCE *instance;
     lcb_io_opt_t iops;
 };
 
-
 class MockCommand
 {
-#define XMOCKCMD(X) \
-    X(FAILOVER) \
-    X(RESPAWN) \
-    X(HICCUP) \
-    X(TRUNCATE) \
-    X(MOCKINFO) \
-    X(PERSIST) \
-    X(CACHE) \
-    X(UNPERSIST) \
-    X(UNCACHE) \
-    X(ENDURE) \
-    X(PURGE) \
-    X(KEYINFO) \
-    X(GET_MCPORTS) \
-    X(SET_CCCP) \
-    X(REGEN_VBCOORDS) \
-    X(RESET_QUERYSTATE) \
-    X(OPFAIL) \
-    X(START_RETRY_VERIFY) \
-    X(CHECK_RETRY_VERIFY) \
-    X(SET_ENHANCED_ERRORS) \
-    X(SET_COMPRESSION) \
+#define XMOCKCMD(X)                                                                                                    \
+    X(FAILOVER)                                                                                                        \
+    X(RESPAWN)                                                                                                         \
+    X(HICCUP)                                                                                                          \
+    X(TRUNCATE)                                                                                                        \
+    X(MOCKINFO)                                                                                                        \
+    X(PERSIST)                                                                                                         \
+    X(CACHE)                                                                                                           \
+    X(UNPERSIST)                                                                                                       \
+    X(UNCACHE)                                                                                                         \
+    X(ENDURE)                                                                                                          \
+    X(PURGE)                                                                                                           \
+    X(KEYINFO)                                                                                                         \
+    X(GET_MCPORTS)                                                                                                     \
+    X(SET_CCCP)                                                                                                        \
+    X(REGEN_VBCOORDS)                                                                                                  \
+    X(RESET_QUERYSTATE)                                                                                                \
+    X(OPFAIL)                                                                                                          \
+    X(START_RETRY_VERIFY)                                                                                              \
+    X(CHECK_RETRY_VERIFY)                                                                                              \
+    X(SET_ENHANCED_ERRORS)                                                                                             \
+    X(SET_COMPRESSION)                                                                                                 \
     X(SET_SASL_MECHANISMS)
 
-public:
+  public:
     enum Code {
 #define X(cc) cc,
         XMOCKCMD(X)
 #undef X
-        _NONE
+            _NONE
     };
 
-    static std::string GetName(Code code) {
+    static std::string GetName(Code code)
+    {
 
-#define X(cc) if (code == cc) { return #cc; }
+#define X(cc)                                                                                                          \
+    if (code == cc) {                                                                                                  \
+        return #cc;                                                                                                    \
+    }
         XMOCKCMD(X)
 #undef X
 
@@ -100,7 +103,8 @@ public:
     MockCommand(Code code);
 
     // Various methods to set a field in the payload
-    template <typename T> void set(const std::string& s, const T& v) {
+    template < typename T > void set(const std::string &s, const T &v)
+    {
         (*payload)[s] = v;
     }
     virtual ~MockCommand();
@@ -108,26 +112,27 @@ public:
     // Encodes the command in a form suitable for sending over the network
     std::string encode();
 
-protected:
+  protected:
     Code code;
     std::string name;
     Json::Value command;
     Json::Value *payload;
     virtual void finalizePayload() {}
 
-private:
+  private:
     MockCommand(const MockCommand &other);
 };
 
 class MockKeyCommand : public MockCommand
 {
-public:
-    MockKeyCommand(Code code, std::string &key)
-        : MockCommand(code), vbucket(-1) {
+  public:
+    MockKeyCommand(Code code, std::string &key) : MockCommand(code), vbucket(-1)
+    {
         this->key = key;
     }
 
-    const std::string &getKey() const {
+    const std::string &getKey() const
+    {
         return key;
     }
 
@@ -135,36 +140,38 @@ public:
     std::string bucket;
     std::string key;
 
-protected:
+  protected:
     virtual void finalizePayload();
 };
 
 class MockMutationCommand : public MockKeyCommand
 {
-public:
+  public:
     MockMutationCommand(Code code, std::string &key)
-        : MockKeyCommand(code, key), onMaster(false), replicaCount(0), cas(0) {}
+        : MockKeyCommand(code, key), onMaster(false), replicaCount(0), cas(0)
+    {
+    }
 
     bool onMaster;
     int replicaCount;
-    std::vector<int> replicaList;
+    std::vector< int > replicaList;
     lcb_uint64_t cas;
     std::string value;
 
-protected:
+  protected:
     virtual void finalizePayload();
 };
 
 class MockBucketCommand : public MockCommand
 {
-public:
-    MockBucketCommand(Code code, int index, std::string bucketstr = "default")
-        : MockCommand(code) {
+  public:
+    MockBucketCommand(Code code, int index, std::string bucketstr = "default") : MockCommand(code)
+    {
         ix = index;
         bucket = bucketstr;
     }
 
-protected:
+  protected:
     virtual void finalizePayload();
     int ix;
     std::string bucket;
@@ -172,10 +179,10 @@ protected:
 
 class MockOpfailCommand : public MockCommand
 {
-public:
-    MockOpfailCommand(uint16_t errcode, int index, int count = -1,
-                      std::string bucketstr = "default")
-        : MockCommand(OPFAIL) {
+  public:
+    MockOpfailCommand(uint16_t errcode, int index, int count = -1, std::string bucketstr = "default")
+        : MockCommand(OPFAIL)
+    {
         set("count", count);
         set("bucket", bucketstr);
         set("code", errcode);
@@ -186,17 +193,18 @@ public:
     }
 };
 
-class MockOpFailClearCommand : public MockCommand {
-public:
-    MockOpFailClearCommand(size_t nservers, std::string bucketstr = "default")
-        : MockCommand(OPFAIL) {
+class MockOpFailClearCommand : public MockCommand
+{
+  public:
+    MockOpFailClearCommand(size_t nservers, std::string bucketstr = "default") : MockCommand(OPFAIL)
+    {
         set("count", -1);
         set("bucket", bucketstr);
         set("code", 0);
 
         Json::Value srvlist(Json::arrayValue);
         for (size_t ii = 0; ii < nservers; ++ii) {
-            srvlist.append(static_cast<int>(ii));
+            srvlist.append(static_cast< int >(ii));
         }
         set("servers", srvlist);
     }
@@ -204,27 +212,32 @@ public:
 
 class MockResponse
 {
-public:
+  public:
     MockResponse() {}
     ~MockResponse();
-    void assign(const std::string& s);
+    void assign(const std::string &s);
 
     bool isOk();
-    const Json::Value& getRawResponse() {
+    const Json::Value &getRawResponse()
+    {
         return jresp;
     }
-    const Json::Value& constResp() const { return jresp; }
+    const Json::Value &constResp() const
+    {
+        return jresp;
+    }
 
-protected:
+  protected:
     Json::Value jresp;
-    friend std::ostream& operator<<(std::ostream&, const MockResponse&);
-private:
-    MockResponse(const MockResponse&);
+    friend std::ostream &operator<<(std::ostream &, const MockResponse &);
+
+  private:
+    MockResponse(const MockResponse &);
 };
 
 class MockEnvironment : public ::testing::Environment
 {
-public:
+  public:
     enum ServerVersion {
         VERSION_UNKNOWN = 0,
         VERSION_40 = 4,
@@ -248,14 +261,16 @@ public:
      * @param io the io ops to use (pass NULL if you don't have a
      *           special io ops you want to use
      */
-    void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io=NULL) {
+    void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io = NULL)
+    {
         serverParams.makeConnectParams(crst, io);
     }
 
     /**
      * Get the number of nodes used in the backend
      */
-    int getNumNodes(void) const {
+    int getNumNodes(void) const
+    {
         return numNodes;
     }
 
@@ -266,7 +281,8 @@ public:
      * You should try your very best to avoid using this variable, and
      * rather extend the mock server to support the requested feature.
      */
-    bool isRealCluster(void) const {
+    bool isRealCluster(void) const
+    {
         return realCluster;
     }
 
@@ -299,13 +315,12 @@ public:
      */
     void regenVbCoords(std::string bucket = "default");
 
-
     /**
      * Retrieve the memcached listening ports for a given bucket
      * @param bucket the bucket for which to retrieve memcached port into
      * @return a vector of ports to use.
      */
-    std::vector<int> getMcPorts(std::string bucket = "default");
+    std::vector< int > getMcPorts(std::string bucket = "default");
 
     /**
      * Enable SASL mechanisms on the mock cluster
@@ -314,8 +329,8 @@ public:
      * @param nodes a list of by-index nodes on which to enable mechanisms. If NULL
      * then all nodes are enabled
      */
-    void setSaslMechs(std::vector<std::string>& mechanisms, std::string bucket = "",
-                      const std::vector<int>* nodes = NULL);
+    void setSaslMechs(std::vector< std::string > &mechanisms, std::string bucket = "",
+                      const std::vector< int > *nodes = NULL);
 
     /**
      * Enable CCCP on the mock cluster
@@ -324,9 +339,7 @@ public:
      * then all nodes are enabled
      * @param bucket the bucket on which to
      */
-    void setCCCP(bool enabled,
-                 std::string bucket = "",
-                 const std::vector<int>* nodes = NULL);
+    void setCCCP(bool enabled, std::string bucket = "", const std::vector< int > *nodes = NULL);
 
     /**
      * Enable enhanced errors on the mock cluster
@@ -337,9 +350,7 @@ public:
      * @param nodes a list of by-index nodes on which to enable Enhanced Errors. If NULL
      * then all nodes are enabled
      */
-    void setEnhancedErrors(bool enabled,
-                           std::string bucket = "",
-                           const std::vector<int>* nodes = NULL);
+    void setEnhancedErrors(bool enabled, std::string bucket = "", const std::vector< int > *nodes = NULL);
 
     /**
      * Change compression mode on the server
@@ -349,9 +360,7 @@ public:
      * @param nodes a list of by-index nodes on which to enable compression. If NULL
      * then all nodes are enabled
      */
-    void setCompression(std::string mode,
-                        std::string bucket = "",
-                        const std::vector<int>* nodes = NULL);
+    void setCompression(std::string mode, std::string bucket = "", const std::vector< int > *nodes = NULL);
 
     const Json::Value getKeyInfo(std::string key, std::string bucket = "");
 
@@ -368,11 +377,10 @@ public:
      *
      * @param instance the instane to create
      */
-    void createConnection(lcb_t &instance);
+    void createConnection(lcb_INSTANCE **instance);
 
-    void createConnection(HandleWrap &handle, lcb_t &instance);
-    void createConnection(HandleWrap &handle, lcb_t& instance,
-        const lcb_create_st &options);
+    void createConnection(HandleWrap &handle, lcb_INSTANCE **instance);
+    void createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const lcb_create_st &options);
 
     /**
      * Setup mock to split response in two parts: send first "offset" bytes
@@ -384,23 +392,31 @@ public:
      */
     void hiccupNodes(int msecs, int offset);
 
-    ServerVersion getServerVersion(void) const {
+    ServerVersion getServerVersion(void) const
+    {
         return serverVersion;
     }
 
-    void setServerVersion(ServerVersion ver)  {
+    void setServerVersion(ServerVersion ver)
+    {
         serverVersion = ver;
     }
 
     void sendCommand(MockCommand &cmd);
     void getResponse(MockResponse &resp);
-    void getResponse() { MockResponse tmp; getResponse(tmp); }
+    void getResponse()
+    {
+        MockResponse tmp;
+        getResponse(tmp);
+    }
 
-    bool hasFeature(const char *feature) {
+    bool hasFeature(const char *feature)
+    {
         return featureRegistry.find(feature) != featureRegistry.end();
     }
 
-    static void printSkipMessage(std::string file, int line, std::string reason) {
+    static void printSkipMessage(std::string file, int line, std::string reason)
+    {
         std::cerr << "Skipping " << file << ":" << std::dec << line;
         std::cerr << " (" << reason << ")";
         std::cerr << std::endl;
@@ -408,9 +424,9 @@ public:
 
     MockEnvironment(const char **argv, std::string name = "default");
     virtual ~MockEnvironment();
-    void postCreate(lcb_t instance);
+    void postCreate(lcb_INSTANCE *instance);
 
-protected:
+  protected:
     /**
      * Protected destructor to make it to a singleton
      */
@@ -428,36 +444,32 @@ protected:
     ServerVersion serverVersion;
     const char *http;
     lcb_io_opt_st *iops;
-    std::set<std::string> featureRegistry;
+    std::set< std::string > featureRegistry;
     std::string bucketName;
     std::string userName;
     const char **argv;
     void clearAndReset();
 
-private:
-    lcb_t innerClient;
+  private:
+    lcb_INSTANCE *innerClient;
     void setupInnerClient();
     void init();
 };
 
-#define LCB_TEST_REQUIRE_CLUSTER_VERSION(v) \
-    if (!MockEnvironment::getInstance()->isRealCluster()) { \
-        MockEnvironment::printSkipMessage(__FILE__, __LINE__, \
-                                          "need real cluster"); \
-        return; \
-    } \
-    if (MockEnvironment::getInstance()->getServerVersion() < v) {      \
-        MockEnvironment::printSkipMessage(__FILE__, __LINE__, \
-                                          "needs higher cluster version"); \
-        return; \
+#define LCB_TEST_REQUIRE_CLUSTER_VERSION(v)                                                                            \
+    if (!MockEnvironment::getInstance()->isRealCluster()) {                                                            \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__, "need real cluster");                                    \
+        return;                                                                                                        \
+    }                                                                                                                  \
+    if (MockEnvironment::getInstance()->getServerVersion() < v) {                                                      \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__, "needs higher cluster version");                         \
+        return;                                                                                                        \
     }
 
-#define LCB_TEST_REQUIRE_FEATURE(s) \
-    if (!MockEnvironment::getInstance()->hasFeature(s)) { \
-        MockEnvironment::printSkipMessage(__FILE__, __LINE__, \
-                                          "Feature " s \
-                                          " missing in server implementation"); \
-        return; \
+#define LCB_TEST_REQUIRE_FEATURE(s)                                                                                    \
+    if (!MockEnvironment::getInstance()->hasFeature(s)) {                                                              \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__, "Feature " s " missing in server implementation");       \
+        return;                                                                                                        \
     }
 
 #define CLUSTER_VERSION_IS_HIGHER_THAN(v)                                                                              \

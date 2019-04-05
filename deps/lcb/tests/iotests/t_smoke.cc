@@ -1,50 +1,102 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2012-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
 #include <gtest/gtest.h>
 #include "iotests.h"
-using std::vector;
+#include <libcouchbase/utils.h>
+
 using std::string;
+using std::vector;
 
 // This file contains the 'migrated' tests from smoke-test.c
 
-static lcb_config_transport_t transports[] = {
-        LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END };
+static lcb_config_transport_t transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
 struct rvbuf {
-    lcb_error_t error;
-    lcb_storage_t operation;
-    vector<char> bytes;
-    vector<char> key;
+    lcb_STATUS error;
+    lcb_STORE_OPERATION operation;
+    vector< char > bytes;
+    vector< char > key;
     lcb_cas_t cas;
     lcb_uint32_t flags;
     lcb_int32_t counter;
     lcb_uint32_t errorCount;
 
-    template <typename T> void setKey(const T* resp) {
+    template < typename T > void setKey(const T *resp)
+    {
         const char *ktmp, *kend;
-        ktmp = (const char*)resp->v.v0.key;
-        kend = ktmp + resp->v.v0.nkey;
+        ktmp = (const char *)resp->key;
+        kend = ktmp + resp->nkey;
         key.assign(ktmp, kend);
     }
 
-    void setValue(const lcb_get_resp_t *resp) {
-        const char *btmp = (const char*)resp->v.v0.bytes;
-        const char *bend = btmp + resp->v.v0.nbytes;
+    void setKey(const lcb_RESPTOUCH *resp)
+    {
+        const char *ktmp, *kend;
+        size_t ntmp;
+        lcb_resptouch_key(resp, &ktmp, &ntmp);
+        kend = ktmp + ntmp;
+        key.assign(ktmp, kend);
+    }
+
+    void setKey(const lcb_RESPSTORE *resp)
+    {
+        const char *ktmp, *kend;
+        size_t ntmp;
+        lcb_respstore_key(resp, &ktmp, &ntmp);
+        kend = ktmp + ntmp;
+        key.assign(ktmp, kend);
+    }
+
+    void setKey(const lcb_RESPGET *resp)
+    {
+        const char *ktmp, *kend;
+        size_t ntmp;
+        lcb_respget_key(resp, &ktmp, &ntmp);
+        kend = ktmp + ntmp;
+        key.assign(ktmp, kend);
+    }
+
+    void setValue(const lcb_RESPGET *resp)
+    {
+        const char *btmp;
+        size_t ntmp;
+        lcb_respget_value(resp, &btmp, &ntmp);
+        const char *bend = btmp + ntmp;
         bytes.assign(btmp, bend);
     }
 
-    string getKeyString() {
+    string getKeyString()
+    {
         return string(key.begin(), key.end());
     }
 
-    string getValueString() {
+    string getValueString()
+    {
         return string(bytes.begin(), bytes.end());
     }
 
-    rvbuf() {
+    rvbuf()
+    {
         reset();
     }
 
-    void reset() {
+    void reset()
+    {
         error = LCB_SUCCESS;
-        operation = LCB_SET;
+        operation = LCB_STORE_SET;
         cas = 0;
         flags = 0;
         counter = 0;
@@ -53,7 +105,8 @@ struct rvbuf {
         bytes.clear();
     }
 
-    void setError(lcb_error_t err) {
+    void setError(lcb_STATUS err)
+    {
         EXPECT_GT(counter, 0);
         counter--;
         if (err != LCB_SUCCESS) {
@@ -61,83 +114,89 @@ struct rvbuf {
             errorCount++;
         }
     }
-    void incRemaining() { counter++; }
+    void incRemaining()
+    {
+        counter++;
+    }
 };
 
-extern "C"
+extern "C" {
+static void store_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
-static void store_callback(lcb_t, const void *cookie, lcb_storage_t op,
-    lcb_error_t err, const lcb_store_resp_t *resp)
-{
-    rvbuf *rv = (rvbuf *)cookie;
-    rv->setError(err);
+    rvbuf *rv;
+    lcb_respstore_cookie(resp, (void **)&rv);
+    rv->setError(lcb_respstore_status(resp));
     rv->setKey(resp);
-    rv->operation = op;
+    lcb_respstore_operation(resp, &rv->operation);
 }
-static void get_callback(lcb_t, const void *cookie, lcb_error_t err,
-    const lcb_get_resp_t *resp)
+
+static void get_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
 {
-    rvbuf *rv = (rvbuf*)cookie;
-    rv->setError(err);
+    rvbuf *rv;
+
+    lcb_respget_cookie(resp, (void **)&rv);
+    rv->setError(lcb_respget_status(resp));
     rv->setKey(resp);
-    if (err == LCB_SUCCESS) {
+    if (lcb_respget_status(resp) == LCB_SUCCESS) {
         rv->setValue(resp);
     }
 }
-static void touch_callback(lcb_t, const void *cookie, lcb_error_t err,
-    const lcb_touch_resp_t *resp)
+
+static void touch_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPTOUCH *resp)
 {
-    rvbuf *rv = (rvbuf *)cookie;
-    rv->setError(err);
+    rvbuf *rv;
+    lcb_resptouch_cookie(resp, (void **)&rv);
+    lcb_STATUS rc = lcb_resptouch_status(resp);
+    rv->setError(rc);
     rv->setKey(resp);
-    EXPECT_EQ(LCB_SUCCESS, err);
+    EXPECT_EQ(LCB_SUCCESS, rc);
 }
-static void version_callback(lcb_t, const void *cookie, lcb_error_t err,
-    const lcb_server_version_resp_t *resp)
+
+static void version_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPMCVERSION *resp)
 {
-    const char *server_endpoint = (const char *)resp->v.v0.server_endpoint;
-    const char *vstring = (const char *)resp->v.v0.vstring;
-    lcb_size_t nvstring = resp->v.v0.nvstring;
-    rvbuf *rv = (rvbuf *)cookie;
+    const char *server_endpoint = (const char *)resp->server;
+    const char *vstring = (const char *)resp->mcversion;
+    lcb_size_t nvstring = resp->nversion;
+    rvbuf *rv = (rvbuf *)resp->cookie;
     char *str;
-    EXPECT_EQ(LCB_SUCCESS, err);
+    EXPECT_EQ(LCB_SUCCESS, resp->rc);
 
     if (server_endpoint == NULL) {
         assert(rv->counter == 0);
         return;
     }
 
-    rv->setError(err);
+    rv->setError(resp->rc);
     /*copy the key to an allocated buffer and ensure the key read from vstring
      * will not segfault
      */
     str = (char *)malloc(nvstring);
     memcpy(str, vstring, nvstring);
     free(str);
-
 }
-} //extern "C"
-static void
-setupCallbacks(lcb_t instance)
+} // extern "C"
+static void setupCallbacks(lcb_INSTANCE *instance)
 {
-    lcb_set_store_callback(instance, store_callback);
-    lcb_set_get_callback(instance, get_callback);
-    lcb_set_touch_callback(instance, touch_callback);
-    lcb_set_version_callback(instance, version_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, (lcb_RESPCALLBACK)touch_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)version_callback);
 }
 
 class SmokeTest : public ::testing::Test
 {
-protected:
+  protected:
     MockEnvironment *mock;
-    lcb_t session;
-    void SetUp() {
+    lcb_INSTANCE *session;
+    void SetUp()
+    {
         assert(session == NULL);
         session = NULL;
         mock = NULL;
     }
 
-    void TearDown() {
+    void TearDown()
+    {
         if (session != NULL) {
             lcb_destroy(session);
         }
@@ -148,7 +207,8 @@ protected:
         session = NULL;
         mock = NULL;
     }
-    void destroySession() {
+    void destroySession()
+    {
         if (session != NULL) {
             lcb_destroy(session);
             session = NULL;
@@ -156,7 +216,8 @@ protected:
     }
 
     SmokeTest() : mock(NULL), session(NULL) {}
-public:
+
+  public:
     void testSet1();
     void testSet2();
     void testGet1();
@@ -164,103 +225,87 @@ public:
     void testTouch1();
     void testVersion1();
     void testSpuriousSaslError();
-    lcb_error_t testMissingBucket();
+    lcb_STATUS testMissingBucket();
 
     // Call to connect instance
-    void connectCommon(const char *password = NULL, lcb_error_t expected = LCB_SUCCESS);
+    void connectCommon(const char *password = NULL, lcb_STATUS expected = LCB_SUCCESS);
 };
 
-void
-SmokeTest::testSet1()
+void SmokeTest::testSet1()
 {
-    lcb_error_t err;
     rvbuf rv;
-    lcb_store_cmd_t cmd;
-    const lcb_store_cmd_t *cmds[] = { &cmd };
-    memset(&cmd, 0, sizeof(cmd));
+    lcb_CMDSTORE *cmd;
 
     string key("foo");
     string value("bar");
 
-    cmd.v.v0.key = key.c_str();
-    cmd.v.v0.nkey = key.size();
-    cmd.v.v0.bytes = value.c_str();
-    cmd.v.v0.nbytes = value.size();
-    cmd.v.v0.operation = LCB_SET;
-    err = lcb_store(session, &rv, 1, cmds);
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, key.c_str(), key.size());
+    lcb_cmdstore_value(cmd, value.c_str(), value.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
+    lcb_cmdstore_destroy(cmd);
     rv.incRemaining();
-    EXPECT_EQ(LCB_SUCCESS, err);
     lcb_wait(session);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
-    EXPECT_EQ(LCB_SET, rv.operation);
+    EXPECT_EQ(LCB_STORE_SET, rv.operation);
     EXPECT_EQ(key, rv.getKeyString());
 }
 
-void
-SmokeTest::testSet2()
+void SmokeTest::testSet2()
 {
-    lcb_error_t err;
     struct rvbuf rv;
     lcb_size_t ii;
-    lcb_store_cmd_t cmd;
-    const lcb_store_cmd_t *cmds[] = { &cmd };
+    lcb_CMDSTORE *cmd;
     string key("foo"), value("bar");
 
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.v.v0.key = key.c_str();
-    cmd.v.v0.nkey = key.size();
-    cmd.v.v0.bytes = value.c_str();
-    cmd.v.v0.nbytes = value.size();
-    cmd.v.v0.operation = LCB_SET;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, key.c_str(), key.size());
+    lcb_cmdstore_value(cmd, value.c_str(), value.size());
 
     rv.errorCount = 0;
     rv.counter = 0;
     for (ii = 0; ii < 10; ++ii, rv.incRemaining()) {
-        err = lcb_store(session, &rv, 1, cmds);
-        EXPECT_EQ(LCB_SUCCESS, err);
+        EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
     }
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(session);
     EXPECT_EQ(0, rv.errorCount);
 }
 
-void
-SmokeTest::testGet1()
+void SmokeTest::testGet1()
 {
-    lcb_error_t err;
+    lcb_STATUS err;
     struct rvbuf rv;
-    lcb_store_cmd_t storecmd;
-    const lcb_store_cmd_t *storecmds[] = { &storecmd };
-    lcb_get_cmd_t getcmd;
-    const lcb_get_cmd_t *getcmds[] = { &getcmd };
     string key("foo"), value("bar");
 
-    memset(&storecmd, 0, sizeof(storecmd));
-    storecmd.v.v0.key = key.c_str();
-    storecmd.v.v0.nkey = key.size();
-    storecmd.v.v0.bytes = value.c_str();
-    storecmd.v.v0.nbytes = value.size();
-    storecmd.v.v0.operation = LCB_SET;
+    lcb_CMDSTORE *storecmd;
+    lcb_cmdstore_create(&storecmd, LCB_STORE_SET);
+    lcb_cmdstore_key(storecmd, key.c_str(), key.size());
+    lcb_cmdstore_value(storecmd, value.c_str(), value.size());
+
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, storecmd));
+    lcb_cmdstore_destroy(storecmd);
     rv.incRemaining();
-    err = lcb_store(session, &rv, 1, storecmds);
-    EXPECT_EQ(LCB_SUCCESS, err);
+
     lcb_wait(session);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
 
     rv.reset();
-    memset(&getcmd, 0, sizeof(getcmd));
-    getcmd.v.v0.key = key.c_str();
-    getcmd.v.v0.nkey = key.size();
+
+    lcb_CMDGET *getcmd;
+    lcb_cmdget_create(&getcmd);
+    lcb_cmdget_key(getcmd, key.c_str(), key.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_get(session, &rv, getcmd));
     rv.incRemaining();
-    err = lcb_get(session, &rv, 1, getcmds);
-    EXPECT_EQ(LCB_SUCCESS, err);
     lcb_wait(session);
+    lcb_cmdget_destroy(getcmd);
+
     EXPECT_EQ(rv.error, LCB_SUCCESS);
     EXPECT_EQ(key, rv.getKeyString());
     EXPECT_EQ(value, rv.getValueString());
 }
 
-static void
-genAZString(vector<string>& coll)
+static void genAZString(vector< string > &coll)
 {
     string base("foo");
     for (size_t ii = 0; ii < 26; ++ii) {
@@ -269,113 +314,100 @@ genAZString(vector<string>& coll)
     }
 }
 
-void
-SmokeTest::testGet2()
+void SmokeTest::testGet2()
 {
-    lcb_error_t err;
     struct rvbuf rv;
     string value("bar");
-    lcb_store_cmd_t storecmd;
-    const lcb_store_cmd_t *storecmds[] = { &storecmd };
-    lcb_get_cmd_t *getcmds[26];
-    vector<string> coll;
+    vector< string > coll;
     genAZString(coll);
 
     for (size_t ii = 0; ii < coll.size(); ii++) {
-        const string& curKey = coll[ii];
+        const string &curKey = coll[ii];
 
-        memset(&storecmd, 0, sizeof(storecmd));
-        storecmd.v.v0.key = curKey.c_str();
-        storecmd.v.v0.nkey = curKey.size();
-        storecmd.v.v0.bytes = value.c_str();
-        storecmd.v.v0.nbytes = value.size();
-        storecmd.v.v0.operation = LCB_SET;
-        err = lcb_store(session, &rv, 1, storecmds);
-        EXPECT_EQ(LCB_SUCCESS, err);
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, curKey.c_str(), curKey.size());
+        lcb_cmdstore_value(cmd, value.c_str(), value.size());
+
+        EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
+        lcb_cmdstore_destroy(cmd);
         rv.incRemaining();
         lcb_wait(session);
         EXPECT_EQ(LCB_SUCCESS, rv.error);
 
         rv.reset();
-        getcmds[ii] = (lcb_get_cmd_t *)calloc(1, sizeof(lcb_get_cmd_t));
-        EXPECT_FALSE(NULL == getcmds[ii]);
-        getcmds[ii]->v.v0.key = curKey.c_str();
-        getcmds[ii]->v.v0.nkey = curKey.size();
     }
 
     rv.counter = coll.size();
-    err = lcb_get(session, &rv, coll.size(), (const lcb_get_cmd_t * const *)getcmds);
-    EXPECT_EQ(LCB_SUCCESS, err);
+
+    for (size_t ii = 0; ii < coll.size(); ii++) {
+        const string &curKey = coll[ii];
+
+        lcb_CMDGET *cmd;
+        lcb_cmdget_create(&cmd);
+        lcb_cmdget_key(cmd, curKey.c_str(), curKey.size());
+        EXPECT_EQ(LCB_SUCCESS, lcb_get(session, &rv, cmd));
+        rv.incRemaining();
+        lcb_cmdget_destroy(cmd);
+    }
     lcb_wait(session);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
     EXPECT_EQ(value, rv.getValueString());
-
-    for (size_t ii = 0; ii < 26; ii++) {
-        free(getcmds[ii]);
-    }
 }
 
-void
-SmokeTest::testTouch1()
+void SmokeTest::testTouch1()
 {
-    lcb_error_t err;
     struct rvbuf rv;
-    lcb_store_cmd_t storecmd;
-    const lcb_store_cmd_t *storecmds[] = { &storecmd };
-    lcb_touch_cmd_t *touchcmds[26];
-    vector<string> coll;
+    vector< string > coll;
     string value("bar");
     genAZString(coll);
+
     for (size_t ii = 0; ii < coll.size(); ii++) {
-        const string& curKey = coll[ii];
-        memset(&storecmd, 0, sizeof(storecmd));
-        storecmd.v.v0.key = curKey.c_str();
-        storecmd.v.v0.nkey = curKey.size();
-        storecmd.v.v0.bytes = value.c_str();
-        storecmd.v.v0.nbytes = value.size();
-        storecmd.v.v0.operation = LCB_SET;
-        err = lcb_store(session, &rv, 1, storecmds);
-        EXPECT_EQ(LCB_SUCCESS, err);
+        const string &curKey = coll[ii];
+
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, curKey.c_str(), curKey.size());
+        lcb_cmdstore_value(cmd, value.c_str(), value.size());
+
+        EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
+        lcb_cmdstore_destroy(cmd);
         rv.incRemaining();
         lcb_wait(session);
         EXPECT_EQ(LCB_SUCCESS, rv.error);
 
         rv.reset();
-        touchcmds[ii] = (lcb_touch_cmd_t*)calloc(1, sizeof(lcb_touch_cmd_t));
-        EXPECT_FALSE(touchcmds[ii] == NULL);
-        touchcmds[ii]->v.v0.key = curKey.c_str();
-        touchcmds[ii]->v.v0.nkey = curKey.size();
     }
 
     rv.counter = coll.size();
-    err = lcb_touch(session, &rv, coll.size(), (const lcb_touch_cmd_t * const *)touchcmds);
-    EXPECT_EQ(LCB_SUCCESS, err);
+    for (size_t ii = 0; ii < coll.size(); ii++) {
+        const string &curKey = coll[ii];
+
+        lcb_CMDTOUCH *cmd;
+        lcb_cmdtouch_create(&cmd);
+        lcb_cmdtouch_key(cmd, curKey.c_str(), curKey.size());
+        EXPECT_EQ(LCB_SUCCESS, lcb_touch(session, &rv, cmd));
+        lcb_cmdtouch_destroy(cmd);
+        rv.incRemaining();
+    }
+
     lcb_wait(session);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
-    for (size_t ii = 0; ii < coll.size(); ii++) {
-        free(touchcmds[ii]);
-    }
 }
 
-void
-SmokeTest::testVersion1()
+void SmokeTest::testVersion1()
 {
-    lcb_error_t err;
     struct rvbuf rv;
-    lcb_server_version_cmd_t cmd;
-    const lcb_server_version_cmd_t *cmds[] = { &cmd };
-    memset(&cmd, 0, sizeof(cmd));
+    lcb_CMDVERSIONS cmd = {0};
 
-    err = lcb_server_versions(session, &rv, 1, cmds);
-    EXPECT_EQ(LCB_SUCCESS, err);
+    EXPECT_EQ(LCB_SUCCESS, lcb_server_versions3(session, &rv, &cmd));
     rv.counter = mock->getNumNodes();
     lcb_wait(session);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
     EXPECT_EQ(0, rv.counter);
 }
 
-lcb_error_t
-SmokeTest::testMissingBucket()
+lcb_STATUS SmokeTest::testMissingBucket()
 {
     destroySession();
     // create a new session
@@ -384,7 +416,7 @@ SmokeTest::testMissingBucket()
     cropts.v.v2.transports = transports;
     cropts.v.v2.bucket = "nonexist";
     cropts.v.v2.user = "nonexist";
-    lcb_error_t err;
+    lcb_STATUS err;
     err = lcb_create(&session, &cropts);
     EXPECT_EQ(LCB_SUCCESS, err);
     mock->postCreate(session);
@@ -394,31 +426,27 @@ SmokeTest::testMissingBucket()
     lcb_wait(session);
     err = lcb_get_bootstrap_status(session);
     EXPECT_NE(LCB_SUCCESS, err);
-    EXPECT_TRUE(err == LCB_BUCKET_ENOENT||err == LCB_AUTH_ERROR);
+    EXPECT_TRUE(err == LCB_BUCKET_ENOENT || err == LCB_AUTH_ERROR);
     destroySession();
     return err;
 }
 
-void
-SmokeTest::testSpuriousSaslError()
+void SmokeTest::testSpuriousSaslError()
 {
     int iterations = 50;
     rvbuf rvs[50];
     int i;
-    lcb_error_t err;
-    lcb_store_cmd_t storecmd;
-    const lcb_store_cmd_t *storecmds[] = { &storecmd };
+    string key("KEY");
 
     for (i = 0; i < iterations; i++) {
         rvs[i].counter = 999;
-        memset(&storecmd, 0, sizeof(storecmd));
-        storecmd.v.v0.key = "KEY";
-        storecmd.v.v0.nkey = strlen((const char *)storecmd.v.v0.key);
-        storecmd.v.v0.bytes = "KEY";
-        storecmd.v.v0.nbytes = strlen((const char *)storecmd.v.v0.bytes);
-        storecmd.v.v0.operation = LCB_SET;
-        err = lcb_store(session, rvs + i, 1, storecmds);
-        EXPECT_EQ(LCB_SUCCESS, err);
+
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, key.c_str(), key.size());
+        EXPECT_EQ(LCB_SUCCESS, lcb_store(session, rvs + i, cmd));
+        lcb_cmdstore_destroy(cmd);
     }
     lcb_wait(session);
 
@@ -428,7 +456,7 @@ SmokeTest::testSpuriousSaslError()
             errinfo = "Did not get success response";
         } else if (rvs[i].key.size() != 3) {
             errinfo = "Did not get expected key length";
-        } else if (rvs[i].getKeyString() != string("KEY")) {
+        } else if (rvs[i].getKeyString() != key) {
             errinfo = "Weird key size";
         }
         if (errinfo) {
@@ -437,8 +465,7 @@ SmokeTest::testSpuriousSaslError()
     }
 }
 
-void
-SmokeTest::connectCommon(const char *password, lcb_error_t expected)
+void SmokeTest::connectCommon(const char *password, lcb_STATUS expected)
 {
     lcb_create_st cropts;
     mock->makeConnectParams(cropts, NULL);
@@ -447,7 +474,7 @@ SmokeTest::connectCommon(const char *password, lcb_error_t expected)
         cropts.v.v2.passwd = password;
     }
     cropts.v.v2.transports = transports;
-    lcb_error_t err = lcb_create(&session, &cropts);
+    lcb_STATUS err = lcb_create(&session, &cropts);
     EXPECT_EQ(LCB_SUCCESS, err);
 
     mock->postCreate(session);
@@ -461,7 +488,7 @@ SmokeTest::connectCommon(const char *password, lcb_error_t expected)
 TEST_F(SmokeTest, testMemcachedBucket)
 {
     SKIP_UNLESS_MOCK();
-    const char *args[] = { "--buckets", "default::memcache", NULL };
+    const char *args[] = {"--buckets", "default::memcache", NULL};
     mock = new MockEnvironment(args);
     mock->setCCCP(false);
     connectCommon();
@@ -473,23 +500,26 @@ TEST_F(SmokeTest, testMemcachedBucket)
 
     // A bit out of place, but check that replica commands fail at schedule-time
     lcb_sched_enter(session);
-    lcb_CMDGETREPLICA cmd = { 0 };
-    LCB_CMD_SET_KEY(&cmd, "key", 3);
-    lcb_error_t rc;
+    lcb_CMDGETREPLICA *cmd;
+    lcb_STATUS rc;
 
-    cmd.strategy = LCB_REPLICA_FIRST;
-    rc = lcb_rget3(session, NULL, &cmd);
+    lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ANY);
+    lcb_cmdgetreplica_key(cmd, "key", 3);
+    rc = lcb_getreplica(session, NULL, cmd);
     ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+    lcb_cmdgetreplica_destroy(cmd);
 
-    cmd.strategy = LCB_REPLICA_ALL;
-    rc = lcb_rget3(session, NULL, &cmd);
+    lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ALL);
+    lcb_cmdgetreplica_key(cmd, "key", 3);
+    rc = lcb_getreplica(session, NULL, cmd);
     ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+    lcb_cmdgetreplica_destroy(cmd);
 
-    cmd.strategy = LCB_REPLICA_SELECT;
-    cmd.index = 0;
-    rc = lcb_rget3(session, NULL, &cmd);
+    lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_IDX0);
+    lcb_cmdgetreplica_key(cmd, "key", 3);
+    rc = lcb_getreplica(session, NULL, cmd);
     ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
-
+    lcb_cmdgetreplica_destroy(cmd);
 
     testMissingBucket();
 }
@@ -497,7 +527,7 @@ TEST_F(SmokeTest, testMemcachedBucket)
 TEST_F(SmokeTest, testCouchbaseBucket)
 {
     SKIP_UNLESS_MOCK();
-    const char *args[] = { "--buckets", "default::couchbase", "--debug", NULL };
+    const char *args[] = {"--buckets", "default::couchbase", "--debug", NULL};
     mock = new MockEnvironment(args);
     mock->setCCCP(false);
     connectCommon();
@@ -512,10 +542,9 @@ TEST_F(SmokeTest, testCouchbaseBucket)
 TEST_F(SmokeTest, testSaslBucket)
 {
     SKIP_UNLESS_MOCK();
-    const char *args[] = { "--buckets", "protected:secret:couchbase", NULL };
+    const char *args[] = {"--buckets", "protected:secret:couchbase", NULL};
     mock = new MockEnvironment(args, "protected");
     mock->setCCCP(false);
-
 
     testMissingBucket();
 

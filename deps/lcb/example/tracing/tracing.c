@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@
 
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h> /* strlen */
@@ -298,35 +297,58 @@ lcbtrace_TRACER *zipkin_new()
     return tracer;
 }
 
-static void die(lcb_t instance, const char *msg, lcb_error_t err)
+static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
     fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
     exit(EXIT_FAILURE);
 }
 
-static void op_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *resp)
 {
+    lcb_STATUS rc = lcb_respget_status(resp);
     fprintf(stderr, "=== %s ===\n", lcb_strcbtype(cbtype));
-    if (rb->rc == LCB_SUCCESS) {
-        fprintf(stderr, "KEY: %.*s\n", (int)rb->nkey, rb->key);
-        fprintf(stderr, "CAS: 0x%" PRIx64 "\n", rb->cas);
-        if (cbtype == LCB_CALLBACK_GET) {
-            const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
-            fprintf(stderr, "VALUE: %.*s\n", (int)rg->nvalue, rg->value);
-            fprintf(stderr, "FLAGS: 0x%x\n", rg->itmflags);
-        }
+    if (rc == LCB_SUCCESS) {
+        const char *key;
+        size_t nkey;
+        lcb_respget_key(resp, &key, &nkey);
+        fprintf(stderr, "KEY: %.*s\n", (int)nkey, key);
+        uint64_t cas;
+        lcb_respget_cas(resp, &cas);
+        fprintf(stderr, "CAS: 0x%" PRIx64 "\n", cas);
+        const char *value;
+        size_t nvalue;
+        lcb_respget_value(resp, &value, &nvalue);
+        fprintf(stderr, "VALUE: %.*s\n", (int)nvalue, value);
+        uint32_t flags;
+        lcb_respget_flags(resp, &flags);
+        fprintf(stderr, "FLAGS: 0x%x\n", flags);
     } else {
-        die(instance, lcb_strcbtype(cbtype), rb->rc);
+        die(instance, lcb_strcbtype(cbtype), rc);
+    }
+}
+
+static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)
+{
+    lcb_STATUS rc = lcb_respstore_status(resp);
+    fprintf(stderr, "=== %s ===\n", lcb_strcbtype(cbtype));
+    if (rc == LCB_SUCCESS) {
+        const char *key;
+        size_t nkey;
+        lcb_respstore_key(resp, &key, &nkey);
+        fprintf(stderr, "KEY: %.*s\n", (int)nkey, key);
+        uint64_t cas;
+        lcb_respstore_cas(resp, &cas);
+        fprintf(stderr, "CAS: 0x%" PRIx64 "\n", cas);
+    } else {
+        die(instance, lcb_strcbtype(cbtype), rc);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    lcb_error_t err;
-    lcb_t instance;
+    lcb_STATUS err;
+    lcb_INSTANCE *instance;
     struct lcb_create_st create_options = {0};
-    lcb_CMDSTORE scmd = {0};
-    lcb_CMDGET gcmd = {0};
     lcbtrace_SPAN *span = NULL;
     lcbtrace_TRACER *tracer = NULL;
 
@@ -365,8 +387,8 @@ int main(int argc, char *argv[])
     }
 
     /* Assign the handlers to be called for the operation types */
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, op_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, op_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     tracer = zipkin_new();
 
@@ -389,11 +411,13 @@ int main(int argc, char *argv[])
         lcbtrace_span_finish(encoding, LCBTRACE_NOW);
     }
 
-    LCB_CMD_SET_TRACESPAN(&scmd, span);
-    LCB_CMD_SET_KEY(&scmd, "key", strlen("key"));
-    LCB_CMD_SET_VALUE(&scmd, "value", strlen("value"));
-    scmd.operation = LCB_SET;
-    err = lcb_store3(instance, NULL, &scmd);
+    lcb_CMDSTORE *scmd;
+    lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
+    lcb_cmdstore_parent_span(scmd, span);
+    lcb_cmdstore_key(scmd, "key", strlen("key"));
+    lcb_cmdstore_value(scmd, "value", strlen("value"));
+    err = lcb_store(instance, NULL, scmd);
+    lcb_cmdstore_destroy(scmd);
     if (err != LCB_SUCCESS) {
         die(instance, "Couldn't schedule storage operation", err);
     }
@@ -403,9 +427,12 @@ int main(int argc, char *argv[])
     lcb_wait(instance);
 
     /* Now fetch the item back */
-    LCB_CMD_SET_TRACESPAN(&gcmd, span);
-    LCB_CMD_SET_KEY(&gcmd, "key", strlen("key"));
-    err = lcb_get3(instance, NULL, &gcmd);
+    lcb_CMDGET *gcmd;
+    lcb_cmdget_create(&gcmd);
+    lcb_cmdget_parent_span(gcmd, span);
+    lcb_cmdget_key(gcmd, "key", strlen("key"));
+    err = lcb_get(instance, NULL, gcmd);
+    lcb_cmdget_destroy(gcmd);
     if (err != LCB_SUCCESS) {
         die(instance, "Couldn't schedule retrieval operation", err);
     }

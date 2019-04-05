@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@
 #include "logging.h"
 #include <openssl/err.h>
 
-#define LOGARGS(ssl, lvl) \
-    ((lcbio_SOCKET*)SSL_get_app_data(ssl))->settings, "SSL", lvl, __FILE__, __LINE__
+#define LOGARGS(ssl, lvl) ((lcbio_SOCKET *)SSL_get_app_data(ssl))->settings, "SSL", lvl, __FILE__, __LINE__
 static char *global_event = "dummy event for ssl";
 
 /******************************************************************************
@@ -33,43 +32,53 @@ static char *global_event = "dummy event for ssl";
  ** Boilerplate lcbio_TABLE Wrappers                                         **
  ******************************************************************************
  ******************************************************************************/
-static void loop_run(lcb_io_opt_t io) {
+static void loop_run(lcb_io_opt_t io)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     IOT_START(xs->orig);
 }
-static void loop_stop(lcb_io_opt_t io) {
+static void loop_stop(lcb_io_opt_t io)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     IOT_STOP(xs->orig);
 }
-static void *create_event(lcb_io_opt_t io) {
+static void *create_event(lcb_io_opt_t io)
+{
     (void)io;
     return global_event;
 }
-static void destroy_event(lcb_io_opt_t io, void *event) {
-    (void) io; (void) event;
+static void destroy_event(lcb_io_opt_t io, void *event)
+{
+    (void)io;
+    (void)event;
 }
-static void *create_timer(lcb_io_opt_t io) {
+static void *create_timer(lcb_io_opt_t io)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     return xs->orig->timer.create(IOT_ARG(xs->orig));
 }
-static int schedule_timer(lcb_io_opt_t io, void *timer, lcb_uint32_t us,
-    void *arg, lcb_ioE_callback callback) {
+static int schedule_timer(lcb_io_opt_t io, void *timer, lcb_uint32_t us, void *arg, lcb_ioE_callback callback)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     return xs->orig->timer.schedule(IOT_ARG(xs->orig), timer, us, arg, callback);
 }
-static void destroy_timer(lcb_io_opt_t io, void *timer) {
+static void destroy_timer(lcb_io_opt_t io, void *timer)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     xs->orig->timer.destroy(IOT_ARG(xs->orig), timer);
 }
-static void cancel_timer(lcb_io_opt_t io, void *timer) {
+static void cancel_timer(lcb_io_opt_t io, void *timer)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     xs->orig->timer.cancel(IOT_ARG(xs->orig), timer);
 }
-static int Eis_closed(lcb_io_opt_t io, lcb_socket_t sock, int flags) {
+static int Eis_closed(lcb_io_opt_t io, lcb_socket_t sock, int flags)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     return xs->orig->u_io.v0.io.is_closed(IOT_ARG(xs->orig), sock, flags);
 }
-static int Cis_closed(lcb_io_opt_t io, lcb_sockdata_t *sd, int flags) {
+static int Cis_closed(lcb_io_opt_t io, lcb_sockdata_t *sd, int flags)
+{
     lcbio_XSSL *xs = IOTSSL_FROM_IOPS(io);
     return xs->orig->u_io.completion.is_closed(IOT_ARG(xs->orig), sd, flags);
 }
@@ -79,8 +88,7 @@ static int Cis_closed(lcb_io_opt_t io, lcb_sockdata_t *sd, int flags) {
  ** Common Routines for lcbio_TABLE Emulation                                **
  ******************************************************************************
  ******************************************************************************/
-void
-iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *sctx)
+void iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *sctx)
 {
     lcbio_TABLE *base = &xs->base_;
     xs->iops_dummy_ = calloc(1, sizeof(*xs->iops_dummy_));
@@ -119,8 +127,7 @@ iotssl_init_common(lcbio_XSSL *xs, lcbio_TABLE *orig, SSL_CTX *sctx)
     SSL_set_connect_state(xs->ssl);
 }
 
-void
-iotssl_destroy_common(lcbio_XSSL *xs)
+void iotssl_destroy_common(lcbio_XSSL *xs)
 {
     free(xs->iops_dummy_);
     SSL_free(xs->ssl);
@@ -128,8 +135,7 @@ iotssl_destroy_common(lcbio_XSSL *xs)
 }
 
 #if LCB_CAN_OPTIMIZE_SSL_BIO
-void
-iotssl_bm_reserve(BUF_MEM *bm)
+void iotssl_bm_reserve(BUF_MEM *bm)
 {
     int oldlen;
     oldlen = bm->length;
@@ -142,8 +148,7 @@ iotssl_bm_reserve(BUF_MEM *bm)
 }
 #endif
 
-void
-iotssl_log_errors(lcbio_XSSL *xs)
+void iotssl_log_errors(lcbio_XSSL *xs)
 {
     unsigned long curerr;
     while ((curerr = ERR_get_error())) {
@@ -157,29 +162,28 @@ iotssl_log_errors(lcbio_XSSL *xs)
 
         if (ERR_GET_LIB(curerr) == ERR_LIB_SSL) {
             switch (ERR_GET_REASON(curerr)) {
-            case SSL_R_CERTIFICATE_VERIFY_FAILED:
+                case SSL_R_CERTIFICATE_VERIFY_FAILED:
 #ifdef SSL_R_MISSING_VERIFY_MESSAGE
-            case SSL_R_MISSING_VERIFY_MESSAGE:
+                case SSL_R_MISSING_VERIFY_MESSAGE:
 #endif
-                xs->errcode = LCB_SSL_CANTVERIFY;
-                break;
+                    xs->errcode = LCB_SSL_CANTVERIFY;
+                    break;
 
-            case SSL_R_BAD_PROTOCOL_VERSION_NUMBER:
-            case SSL_R_UNKNOWN_PROTOCOL:
-            case SSL_R_WRONG_VERSION_NUMBER:
-            case SSL_R_UNKNOWN_SSL_VERSION:
-            case SSL_R_UNSUPPORTED_SSL_VERSION:
-                xs->errcode = LCB_PROTOCOL_ERROR;
-                break;
-            default:
-                xs->errcode = LCB_SSL_ERROR;
+                case SSL_R_BAD_PROTOCOL_VERSION_NUMBER:
+                case SSL_R_UNKNOWN_PROTOCOL:
+                case SSL_R_WRONG_VERSION_NUMBER:
+                case SSL_R_UNKNOWN_SSL_VERSION:
+                case SSL_R_UNSUPPORTED_SSL_VERSION:
+                    xs->errcode = LCB_PROTOCOL_ERROR;
+                    break;
+                default:
+                    xs->errcode = LCB_SSL_ERROR;
             }
         }
     }
 }
 
-static void
-log_global_errors(lcb_settings *settings)
+static void log_global_errors(lcb_settings *settings)
 {
     unsigned long curerr;
     while ((curerr = ERR_get_error())) {
@@ -189,8 +193,7 @@ log_global_errors(lcb_settings *settings)
     }
 }
 
-int
-iotssl_maybe_error(lcbio_XSSL *xs, int rv)
+int iotssl_maybe_error(lcbio_XSSL *xs, int rv)
 {
     assert(rv < 1);
     if (rv == -1) {
@@ -209,8 +212,7 @@ iotssl_maybe_error(lcbio_XSSL *xs, int rv)
  ** Higher Level SSL_CTX Wrappers                                            **
  ******************************************************************************
  ******************************************************************************/
-static void
-log_callback(const SSL *ssl, int where, int ret)
+static void log_callback(const SSL *ssl, int where, int ret)
 {
     const char *retstr = "";
     int should_log = 0;
@@ -232,11 +234,12 @@ log_callback(const SSL *ssl, int where, int ret)
     }
 
     retstr = SSL_alert_type_string(ret);
-    lcb_log(LOGARGS(ssl, LCB_LOG_TRACE), "sock=%p: ST(0x%x). %s. R(0x%x)%s",
-        (void*)sock, where, SSL_state_string_long(ssl), ret, retstr);
+    lcb_log(LOGARGS(ssl, LCB_LOG_TRACE), "sock=%p: ST(0x%x). %s. R(0x%x)%s", (void *)sock, where,
+            SSL_state_string_long(ssl), ret, retstr);
 
     if (where == SSL_CB_HANDSHAKE_DONE) {
-        lcb_log(LOGARGS(ssl, LCB_LOG_DEBUG), "sock=%p. Using SSL version %s. Cipher=%s", (void*)sock, SSL_get_version(ssl), SSL_get_cipher_name(ssl));
+        lcb_log(LOGARGS(ssl, LCB_LOG_DEBUG), "sock=%p. Using SSL version %s. Cipher=%s", (void *)sock,
+                SSL_get_version(ssl), SSL_get_cipher_name(ssl));
     }
 }
 
@@ -257,10 +260,10 @@ struct lcbio_SSLCTX {
 
 #define LOGARGS_S(settings, lvl) settings, "SSL", lvl, __FILE__, __LINE__
 
-lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *keyfile, int noverify,
-                            lcb_error_t *errp, lcb_settings *settings)
+lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *keyfile, int noverify, lcb_STATUS *errp,
+                            lcb_settings *settings)
 {
-    lcb_error_t err_s;
+    lcb_STATUS err_s;
     lcbio_pSSLCTX ret;
 
     if (!errp) {
@@ -276,18 +279,22 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
     if (!ret->ctx) {
         *errp = LCB_SSL_ERROR;
         goto GT_ERR;
-
     }
-    SSL_CTX_set_cipher_list(ret->ctx, "DHE-RSA-AES256-SHA:DHE-DSS-AES256-SHA:AES256-SHA:EDH-RSA-DES-CBC3-SHA:EDH-DSS-DES-CBC3-SHA:DES-CBC3-SHA:DES-CBC3-MD5:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA:AES128-SHA:DHE-RSA-SEED-SHA:DHE-DSS-SEED-SHA:SEED-SHA:RC2-CBC-MD5:RC4-SHA:RC4-MD5:RC4-MD5:EDH-RSA-DES-CBC-SHA:EDH-DSS-DES-CBC-SHA:DES-CBC-SHA:DES-CBC-MD5:EXP-EDH-RSA-DES-CBC-SHA:EXP-EDH-DSS-DES-CBC-SHA:EXP-DES-CBC-SHA:EXP-RC2-CBC-MD5:EXP-RC2-CBC-MD5:EXP-RC4-MD5:EXP-RC4-MD5");
-//    SSL_CTX_set_cipher_list(ret->ctx, "!NULL");
+    SSL_CTX_set_cipher_list(
+        ret->ctx,
+        "DHE-RSA-AES256-SHA:DHE-DSS-AES256-SHA:AES256-SHA:EDH-RSA-DES-CBC3-SHA:EDH-DSS-DES-CBC3-SHA:DES-CBC3-SHA:DES-"
+        "CBC3-MD5:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA:AES128-SHA:DHE-RSA-SEED-SHA:DHE-DSS-SEED-SHA:SEED-SHA:RC2-CBC-"
+        "MD5:RC4-SHA:RC4-MD5:RC4-MD5:EDH-RSA-DES-CBC-SHA:EDH-DSS-DES-CBC-SHA:DES-CBC-SHA:DES-CBC-MD5:EXP-EDH-RSA-DES-"
+        "CBC-SHA:EXP-EDH-DSS-DES-CBC-SHA:EXP-DES-CBC-SHA:EXP-RC2-CBC-MD5:EXP-RC2-CBC-MD5:EXP-RC4-MD5:EXP-RC4-MD5");
+    //    SSL_CTX_set_cipher_list(ret->ctx, "!NULL");
 
-    if (cafile) {
-        lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Load verify locations from \"%s\"", tsfile ? tsfile : keyfile);
+    if (cafile || tsfile) {
+        lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Load verify locations from \"%s\"", tsfile ? tsfile : cafile);
         if (!SSL_CTX_load_verify_locations(ret->ctx, tsfile ? tsfile : cafile, NULL)) {
             *errp = LCB_SSL_ERROR;
             goto GT_ERR;
         }
-        if (keyfile) {
+        if (cafile && keyfile) {
             lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Authenticate with key \"%s\", cert \"%s\"", keyfile, cafile);
             if (!SSL_CTX_use_certificate_file(ret->ctx, cafile, SSL_FILETYPE_PEM)) {
                 *errp = LCB_SSL_ERROR;
@@ -313,9 +320,9 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
     }
 
     SSL_CTX_set_info_callback(ret->ctx, log_callback);
-    #if 0
+#if 0
     SSL_CTX_set_msg_callback(ret->ctx, msg_callback);
-    #endif
+#endif
 
     /* this will allow us to do SSL_write and use a different buffer if the
      * first one fails. This is helpful in the scenario where an initial
@@ -325,10 +332,10 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
      * be using the same buffer.
      */
     SSL_CTX_set_mode(ret->ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
-    SSL_CTX_set_options(ret->ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
+    SSL_CTX_set_options(ret->ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
     return ret;
 
-    GT_ERR:
+GT_ERR:
     log_global_errors(settings);
     if (ret) {
         if (ret->ctx) {
@@ -339,13 +346,12 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
     return NULL;
 }
 
-static void
-noop_dtor(lcbio_PROTOCTX *arg) {
+static void noop_dtor(lcbio_PROTOCTX *arg)
+{
     free(arg);
 }
 
-lcb_error_t
-lcbio_ssl_apply(lcbio_SOCKET *sock, lcbio_pSSLCTX sctx)
+lcb_STATUS lcbio_ssl_apply(lcbio_SOCKET *sock, lcbio_pSSLCTX sctx)
 {
     lcbio_pTABLE old_iot = sock->io, new_iot;
     lcbio_PROTOCTX *sproto;
@@ -372,26 +378,22 @@ lcbio_ssl_apply(lcbio_SOCKET *sock, lcbio_pSSLCTX sctx)
     }
 }
 
-int
-lcbio_ssl_check(lcbio_SOCKET *sock)
+int lcbio_ssl_check(lcbio_SOCKET *sock)
 {
     return lcbio_protoctx_get(sock, LCBIO_PROTOCTX_SSL) != NULL;
 }
 
-lcb_error_t
-lcbio_ssl_get_error(lcbio_SOCKET *sock)
+lcb_STATUS lcbio_ssl_get_error(lcbio_SOCKET *sock)
 {
     lcbio_XSSL *xs = (lcbio_XSSL *)sock->io;
     return xs->errcode;
 }
 
-void
-lcbio_ssl_free(lcbio_pSSLCTX ctx)
+void lcbio_ssl_free(lcbio_pSSLCTX ctx)
 {
     SSL_CTX_free(ctx->ctx);
     free(ctx);
 }
-
 
 /**
  * According to https://www.openssl.org/docs/crypto/threads.html we need
@@ -403,15 +405,33 @@ lcbio_ssl_free(lcbio_pSSLCTX ctx)
 #if defined(_POSIX_THREADS)
 #include <pthread.h>
 typedef pthread_mutex_t ossl_LOCKTYPE;
-static void ossl_lock_init(ossl_LOCKTYPE *l) { pthread_mutex_init(l, NULL); }
-static void ossl_lock_acquire(ossl_LOCKTYPE *l) { pthread_mutex_lock(l); }
-static void ossl_lock_release(ossl_LOCKTYPE *l) { pthread_mutex_unlock(l); }
+static void ossl_lock_init(ossl_LOCKTYPE *l)
+{
+    pthread_mutex_init(l, NULL);
+}
+static void ossl_lock_acquire(ossl_LOCKTYPE *l)
+{
+    pthread_mutex_lock(l);
+}
+static void ossl_lock_release(ossl_LOCKTYPE *l)
+{
+    pthread_mutex_unlock(l);
+}
 #elif defined(_WIN32)
 #include <windows.h>
 typedef CRITICAL_SECTION ossl_LOCKTYPE;
-static void ossl_lock_init(ossl_LOCKTYPE *l) { InitializeCriticalSection(l); }
-static void ossl_lock_acquire(ossl_LOCKTYPE *l) { EnterCriticalSection(l); }
-static void ossl_lock_release(ossl_LOCKTYPE *l) { LeaveCriticalSection(l); }
+static void ossl_lock_init(ossl_LOCKTYPE *l)
+{
+    InitializeCriticalSection(l);
+}
+static void ossl_lock_acquire(ossl_LOCKTYPE *l)
+{
+    EnterCriticalSection(l);
+}
+static void ossl_lock_release(ossl_LOCKTYPE *l)
+{
+    LeaveCriticalSection(l);
+}
 #else
 typedef char ossl_LOCKTYPE;
 #define ossl_lock_init(l)
@@ -419,10 +439,8 @@ typedef char ossl_LOCKTYPE;
 #define ossl_lock_release(l)
 #endif
 
-
 static ossl_LOCKTYPE *ossl_locks;
-static void
-ossl_lockfn(int mode, int lkid, const char *f, int line)
+static void ossl_lockfn(int mode, int lkid, const char *f, int line)
 {
     ossl_LOCKTYPE *l = ossl_locks + lkid;
 
@@ -436,8 +454,7 @@ ossl_lockfn(int mode, int lkid, const char *f, int line)
     (void)line;
 }
 
-static void
-ossl_init_locks(void)
+static void ossl_init_locks(void)
 {
     unsigned ii, nlocks;
     if (CRYPTO_get_locking_callback() != NULL) {
@@ -465,8 +482,7 @@ void lcbio_ssl_global_init(void)
     ossl_init_locks();
 }
 
-lcb_error_t
-lcbio_sslify_if_needed(lcbio_SOCKET *sock, lcb_settings *settings)
+lcb_STATUS lcbio_sslify_if_needed(lcbio_SOCKET *sock, lcb_settings *settings)
 {
     if (!(settings->sslopts & LCB_SSL_ENABLED)) {
         return LCB_SUCCESS; /*not needed*/

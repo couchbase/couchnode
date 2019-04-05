@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2018 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -22,49 +22,44 @@
 using namespace lcb::docreq;
 
 static void docreq_handler(void *arg);
-static void invoke_pending(Queue*);
+static void invoke_pending(Queue *);
 
 #define MAX_PENDING_DOCREQ 10
 #define MIN_SCHED_SIZE 5
 #define DOCQ_DELAY_US 200000
 
-Queue::Queue(lcb_t instance_)
-    : instance(instance_),
-      parent(NULL),
-      timer(lcbio_timer_new(instance->iotable, this, docreq_handler)),
-      cb_ready(NULL), cb_throttle(NULL),
-      n_awaiting_schedule(0),
-      n_awaiting_response(0),
-      max_pending_response(MAX_PENDING_DOCREQ),
-      min_batch_size(MIN_SCHED_SIZE),
-      cancelled(false),
-      refcount(1)
-      {
+Queue::Queue(lcb_INSTANCE *instance_)
+    : instance(instance_), parent(NULL), timer(lcbio_timer_new(instance->iotable, this, docreq_handler)),
+      cb_ready(NULL), cb_throttle(NULL), n_awaiting_schedule(0), n_awaiting_response(0),
+      max_pending_response(MAX_PENDING_DOCREQ), min_batch_size(MIN_SCHED_SIZE), cancelled(false), refcount(1)
+{
 
     memset(&pending_gets, 0, sizeof pending_gets);
     memset(&cb_queue, 0, sizeof cb_queue);
 }
 
-Queue::~Queue() {
+Queue::~Queue()
+{
     cancel();
     lcbio_timer_destroy(timer);
 }
 
-void Queue::unref() {
+void Queue::unref()
+{
     if (!--refcount) {
         delete this;
     }
 }
 
-void Queue::cancel() {
+void Queue::cancel()
+{
     cancelled = true;
 }
 
 /* Calling this function ensures that the request will be scheduled in due
  * time. This may be done at the next event loop iteration, or after a delay
  * depending on how many items are actually found within the queue. */
-static void
-docq_poke(Queue *q)
+static void docq_poke(Queue *q)
 {
     if (q->n_awaiting_response < q->max_pending_response) {
         if (q->n_awaiting_schedule > q->min_batch_size) {
@@ -88,15 +83,15 @@ void Queue::add(DocRequest *req)
     docq_poke(this);
 }
 
-static void
-docreq_handler(void *arg)
+static void docreq_handler(void *arg)
 {
-    Queue *q = reinterpret_cast<Queue*>(arg);
+    Queue *q = reinterpret_cast< Queue * >(arg);
     sllist_iterator iter;
-    lcb_t instance = q->instance;
+    lcb_INSTANCE *instance = q->instance;
 
     lcb_sched_enter(instance);
-    SLLIST_ITERFOR(&q->pending_gets, &iter) {
+    SLLIST_ITERFOR(&q->pending_gets, &iter)
+    {
         DocRequest *cont = SLLIST_ITEM(iter.cur, DocRequest, slnode);
 
         if (q->n_awaiting_response > q->max_pending_response) {
@@ -112,7 +107,7 @@ docreq_handler(void *arg)
             cont->ready = 1;
 
         } else {
-            lcb_error_t rc;
+            lcb_STATUS rc;
             rc = q->cb_schedule(q, cont);
             if (rc != LCB_SUCCESS) {
                 cont->docresp.rc = rc;
@@ -141,12 +136,12 @@ docreq_handler(void *arg)
 
 /* Invokes the callback on all requests which are ready, until a request which
  * is not yet ready is reached. */
-static void
-invoke_pending(Queue *q)
+static void invoke_pending(Queue *q)
 {
-    sllist_iterator iter = { NULL };
+    sllist_iterator iter = {NULL};
     q->ref();
-    SLLIST_ITERFOR(&q->cb_queue, &iter) {
+    SLLIST_ITERFOR(&q->cb_queue, &iter)
+    {
         DocRequest *dreq = SLLIST_ITEM(iter.cur, DocRequest, slnode);
         void *bufh = NULL;
 
@@ -162,14 +157,15 @@ invoke_pending(Queue *q)
 
         q->cb_ready(q, dreq);
         if (bufh) {
-            lcb_backbuf_unref(reinterpret_cast<lcb_BACKBUF>(bufh));
+            lcb_backbuf_unref(reinterpret_cast< lcb_BACKBUF >(bufh));
         }
         q->unref();
     }
     q->unref();
 }
 
-void Queue::check() {
+void Queue::check()
+{
     /* Ensure the invoke_pending doesn't destroy us */
     invoke_pending(this);
     docq_poke(this);

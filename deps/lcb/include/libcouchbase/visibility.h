@@ -24,36 +24,36 @@
 #else
 
 #ifdef LIBCOUCHBASE_INTERNAL
-    #ifdef __SUNPRO_C
-        #define LIBCOUCHBASE_API __global
-        #define LCB_CLASS_EXPORT LIBCOUCHBASE_API
-    #elif defined(HAVE_VISIBILITY) && HAVE_VISIBILITY
-        #define LIBCOUCHBASE_API __attribute__ ((visibility("default")))
-        #define LCB_CLASS_EXPORT LIBCOUCHBASE_API
-    #elif defined(_MSC_VER)
-        #define LIBCOUCHBASE_API extern __declspec(dllexport)
-        #define LCB_CLASS_EXPORT __declspec(dllexport)
-    #else
-        #define LIBCOUCHBASE_API
-        #define LCB_CLASS_EXPORT
-    #endif /* compiler version */
+#ifdef __SUNPRO_C
+#define LIBCOUCHBASE_API __global
+#define LCB_CLASS_EXPORT LIBCOUCHBASE_API
+#elif defined(HAVE_VISIBILITY) && HAVE_VISIBILITY
+#define LIBCOUCHBASE_API __attribute__((visibility("default")))
+#define LCB_CLASS_EXPORT LIBCOUCHBASE_API
+#elif defined(_MSC_VER)
+#define LIBCOUCHBASE_API extern __declspec(dllexport)
+#define LCB_CLASS_EXPORT __declspec(dllexport)
+#else
+#define LIBCOUCHBASE_API
+#define LCB_CLASS_EXPORT
+#endif /* compiler version */
 
 #else /* !LIBCOUCHBASE_INTERNAL */
-    #ifdef _MSC_VER
-        #define LIBCOUCHBASE_API extern __declspec(dllimport)
-        #define LCB_CLASS_EXPORT __declspec(dllimport)
-    #else
-        #define LIBCOUCHBASE_API
-        #define LCB_CLASS_EXPORT
-    #endif
+#ifdef _MSC_VER
+#define LIBCOUCHBASE_API extern __declspec(dllimport)
+#define LCB_CLASS_EXPORT __declspec(dllimport)
+#else
+#define LIBCOUCHBASE_API
+#define LCB_CLASS_EXPORT
+#endif
 #endif /* LIBCOUCHBASE_INTERNAL */
 
 /* Define LCB_EXTERN_VAR only if !LIBCOUCHBASE_STATIC */
 #ifdef _MSC_VER
 /* Already includes 'extern' in LIBCOUCHBASE_API def, don't use it twice! */
-    #define LCB_EXTERN_VAR
+#define LCB_EXTERN_VAR
 #else
-    #define LCB_EXTERN_VAR extern
+#define LCB_EXTERN_VAR extern
 #endif /* _MSC_VER */
 #endif /* !LIBCOUCHBASE_STATIC */
 

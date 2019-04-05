@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -29,13 +29,12 @@ using namespace lcb::http;
 
 #define LOGARGS(req, lvl) req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
 
-void
-Request::assign_response_headers(const lcb::htparse::Response& resp)
+void Request::assign_response_headers(const lcb::htparse::Response &resp)
 {
     response_headers.assign(resp.headers.begin(), resp.headers.end());
     response_headers_clist.clear();
 
-    std::vector<lcb::htparse::MimeHeader>::const_iterator ii;
+    std::vector< lcb::htparse::MimeHeader >::const_iterator ii;
     for (ii = response_headers.begin(); ii != response_headers.end(); ++ii) {
         response_headers_clist.push_back(ii->key.c_str());
         response_headers_clist.push_back(ii->value.c_str());
@@ -43,12 +42,11 @@ Request::assign_response_headers(const lcb::htparse::Response& resp)
     response_headers_clist.push_back(NULL);
 }
 
-int
-Request::handle_parse_chunked(const char *buf, unsigned nbuf)
+int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 {
     int parse_state, oldstate, diff;
     using lcb::htparse::Parser;
-    lcb::htparse::Response& res = parser->get_cur_response();
+    lcb::htparse::Response &res = parser->get_cur_response();
 
     do {
         const char *rbody;
@@ -61,7 +59,7 @@ Request::handle_parse_chunked(const char *buf, unsigned nbuf)
         /* Got headers now for the first time */
         if (diff & Parser::S_HEADER) {
             assign_response_headers(res);
-            if (res.status >=  300 && res.status <= 400) {
+            if (res.status >= 300 && res.status <= 400) {
                 const char *redir = res.get_header_value("Location");
                 if (redir != NULL) {
                     pending_redirect.assign(redir);
@@ -77,7 +75,7 @@ Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 
         if (nbody) {
             if (chunked) {
-                lcb_RESPHTTP htresp = { 0 };
+                lcb_RESPHTTP htresp = {0};
                 init_resp(&htresp);
                 htresp.body = rbody;
                 htresp.nbody = nbody;
@@ -94,8 +92,8 @@ Request::handle_parse_chunked(const char *buf, unsigned nbuf)
         nbuf -= nused;
     } while ((parse_state & Parser::S_DONE) == 0 && is_ongoing() && nbuf);
 
-    if ( (parse_state & Parser::S_DONE) && is_ongoing()) {
-        lcb_RESPHTTP resp = { 0 };
+    if ((parse_state & Parser::S_DONE) && is_ongoing()) {
+        lcb_RESPHTTP resp = {0};
         if (chunked) {
             buf = NULL;
             nbuf = 0;
@@ -110,17 +108,16 @@ Request::handle_parse_chunked(const char *buf, unsigned nbuf)
         resp.body = buf;
         resp.nbody = nbuf;
         passed_data = true;
-        callback(instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE*)&resp);
+        callback(instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE *)&resp);
         status |= Request::CBINVOKED;
     }
     return parse_state;
 }
 
-static void
-io_read(lcbio_CTX *ctx, unsigned nr)
+static void io_read(lcbio_CTX *ctx, unsigned nr)
 {
-    Request *req = reinterpret_cast<Request*>(lcbio_ctx_data(ctx));
-    lcb_t instance = req->instance;
+    Request *req = reinterpret_cast< Request * >(lcbio_ctx_data(ctx));
+    lcb_INSTANCE *instance = req->instance;
     /** this variable set to 0 (in progress), -1 (error), 1 (done) */
     int rv = 0;
     lcbio_CTXRDITER iter;
@@ -129,17 +126,17 @@ io_read(lcbio_CTX *ctx, unsigned nr)
     /** Delay the timer */
     lcbio_timer_rearm(req->timer, req->timeout());
 
-    LCBIO_CTX_ITERFOR(ctx, &iter, nr) {
+    LCBIO_CTX_ITERFOR(ctx, &iter, nr)
+    {
         char *buf;
         unsigned nbuf;
         int parse_state;
 
-        buf = reinterpret_cast<char*>(lcbio_ctx_ribuf(&iter));
+        buf = reinterpret_cast< char * >(lcbio_ctx_ribuf(&iter));
         nbuf = lcbio_ctx_risize(&iter);
         parse_state = req->handle_parse_chunked(buf, nbuf);
 
-        if ((parse_state & lcb::htparse::Parser::S_ERROR) ||
-                req->has_pending_redirect()) {
+        if ((parse_state & lcb::htparse::Parser::S_ERROR) || req->has_pending_redirect()) {
             rv = -1;
             break;
         } else if (!req->is_ongoing()) {
@@ -150,7 +147,7 @@ io_read(lcbio_CTX *ctx, unsigned nr)
 
     if (rv == -1) {
         // parse error or redirect
-        lcb_error_t err;
+        lcb_STATUS err;
         if (req->has_pending_redirect()) {
             instance->bootstrap(lcb::BS_REFRESH_THROTTLE);
             // Transfer control to redirect function()
@@ -173,8 +170,7 @@ io_read(lcbio_CTX *ctx, unsigned nr)
     req->decref();
 }
 
-void
-Request::pause()
+void Request::pause()
 {
     if (!paused) {
         paused = true;
@@ -185,8 +181,7 @@ Request::pause()
     }
 }
 
-void
-Request::resume()
+void Request::resume()
 {
     if (!paused) {
         return;
@@ -200,24 +195,21 @@ Request::resume()
     lcbio_ctx_schedule(ioctx);
 }
 
-static void
-io_error(lcbio_CTX *ctx, lcb_error_t err)
+static void io_error(lcbio_CTX *ctx, lcb_STATUS err)
 {
-    Request *req = reinterpret_cast<Request*>(lcbio_ctx_data(ctx));
+    Request *req = reinterpret_cast< Request * >(lcbio_ctx_data(ctx));
     lcb_log(LOGARGS(req, ERR), LOGFMT "Got error while performing I/O on HTTP stream. Err=0x%x", LOGID(req), err);
     req->finish_or_retry(err);
 }
 
-static void
-request_timed_out(void *arg)
+static void request_timed_out(void *arg)
 {
-    (reinterpret_cast<Request*>(arg))->finish(LCB_ETIMEDOUT);
+    (reinterpret_cast< Request * >(arg))->finish(LCB_ETIMEDOUT);
 }
 
-static void
-on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
+static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    Request *req = reinterpret_cast<Request*>(arg);
+    Request *req = reinterpret_cast< Request * >(arg);
     lcbio_CTXPROCS procs;
     lcb_settings *settings = req->instance->settings;
     req->creq = NULL;
@@ -234,21 +226,21 @@ on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
     procs.cb_read = io_read;
     req->ioctx = lcbio_ctx_new(sock, arg, &procs);
     switch (req->reqtype) {
-    case LCB_HTTP_TYPE_N1QL:
-        sock->service = LCBIO_SERVICE_N1QL;
-        break;
-    case LCB_HTTP_TYPE_VIEW:
-        sock->service = LCBIO_SERVICE_VIEW;
-        break;
-    case LCB_HTTP_TYPE_FTS:
-        sock->service = LCBIO_SERVICE_FTS;
-        break;
-    case LCB_HTTP_TYPE_CBAS:
-        sock->service = LCBIO_SERVICE_CBAS;
-        break;
-    default:
-        sock->service = LCBIO_SERVICE_MGMT;
-        break;
+        case LCB_HTTP_TYPE_N1QL:
+            sock->service = LCBIO_SERVICE_N1QL;
+            break;
+        case LCB_HTTP_TYPE_VIEW:
+            sock->service = LCBIO_SERVICE_VIEW;
+            break;
+        case LCB_HTTP_TYPE_FTS:
+            sock->service = LCBIO_SERVICE_FTS;
+            break;
+        case LCB_HTTP_TYPE_CBAS:
+            sock->service = LCBIO_SERVICE_CBAS;
+            break;
+        default:
+            sock->service = LCBIO_SERVICE_MGMT;
+            break;
     }
     req->ioctx->subsys = "mgmt/capi";
     lcbio_ctx_put(req->ioctx, &req->preamble[0], req->preamble.size());
@@ -260,8 +252,7 @@ on_connected(lcbio_SOCKET *sock, void *arg, lcb_error_t err, lcbio_OSERR syserr)
     (void)syserr;
 }
 
-lcb_error_t
-Request::start_io(lcb_host_t& dest)
+lcb_STATUS Request::start_io(lcb_host_t &dest)
 {
     lcbio_MGR *pool = instance->http_sockpool;
 
@@ -281,8 +272,7 @@ Request::start_io(lcb_host_t& dest)
     return LCB_SUCCESS;
 }
 
-static void
-pool_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
+static void pool_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
 {
     int close_ok = *(int *)arg;
 
@@ -294,8 +284,7 @@ pool_close_cb(lcbio_SOCKET *sock, int reusable, void *arg)
     }
 }
 
-void
-Request::close_io()
+void Request::close_io()
 {
     lcb::io::ConnectionRequest::cancel(&creq);
 

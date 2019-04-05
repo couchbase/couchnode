@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2014 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
+
+#include <cstring>
 
 #include "internal.h"
 #include "logging.h"
@@ -40,10 +42,9 @@
 
 using namespace lcb;
 
-static void on_error(lcbio_CTX *ctx, lcb_error_t err);
+static void on_error(lcbio_CTX *ctx, lcb_STATUS err);
 
-static void
-on_flush_ready(lcbio_CTX *ctx)
+static void on_flush_ready(lcbio_CTX *ctx)
 {
     Server *server = Server::get(ctx);
     nb_IOV iov[MCREQ_MAXIOV] = {};
@@ -70,8 +71,7 @@ on_flush_ready(lcbio_CTX *ctx)
     lcbio_ctx_wwant(ctx);
 }
 
-static void
-on_flush_done(lcbio_CTX *ctx, unsigned expected, unsigned actual)
+static void on_flush_done(lcbio_CTX *ctx, unsigned expected, unsigned actual)
 {
     Server *server = Server::get(ctx);
     lcb_U64 now = 0;
@@ -86,8 +86,7 @@ on_flush_done(lcbio_CTX *ctx, unsigned expected, unsigned actual)
     server->check_closed();
 }
 
-void
-Server::flush()
+void Server::flush()
 {
     /** Call into the wwant stuff.. */
     if (!connctx->rdwant) {
@@ -107,8 +106,7 @@ Server::flush()
 }
 
 LIBCOUCHBASE_API
-void
-lcb_sched_flush(lcb_t instance)
+void lcb_sched_flush(lcb_INSTANCE *instance)
 {
     for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
         Server *server = instance->get_server(ii);
@@ -128,20 +126,19 @@ lcb_sched_flush(lcb_t instance)
  * otherwise it returns 0. If it returns 0 then we give the error back to the
  * user.
  */
-bool
-Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
+bool Server::handle_nmv(MemcachedResponse &resinfo, mc_PACKET *oldpkt)
 {
     protocol_binary_request_header hdr;
-    lcb_error_t err = LCB_ERROR;
+    lcb_STATUS err = LCB_ERROR;
     lcb_U16 vbid;
-    lcb::clconfig::Provider *cccp =
-            instance->confmon->get_provider(lcb::clconfig::CLCONFIG_CCCP);
+    lcb::clconfig::Provider *cccp = instance->confmon->get_provider(lcb::clconfig::CLCONFIG_CCCP);
 
     MC_INCR_METRIC(this, packets_nmv, 1);
 
     mcreq_read_hdr(oldpkt, &hdr);
     vbid = ntohs(hdr.request.vbucket);
-    lcb_log(LOGARGS_T(WARN), LOGFMT "NOT_MY_VBUCKET. Packet=%p (S=%u). VBID=%u", LOGID_T(), (void*)oldpkt, oldpkt->opaque, vbid);
+    lcb_log(LOGARGS_T(WARN), LOGFMT "NOT_MY_VBUCKET. Packet=%p (S=%u). VBID=%u", LOGID_T(), (void *)oldpkt,
+            oldpkt->opaque, vbid);
 
     /* Notify of new map */
     lcb_vbguess_remap(instance, vbid, index);
@@ -176,57 +173,100 @@ Server::handle_nmv(MemcachedResponse& resinfo, mc_PACKET *oldpkt)
     /** Reschedule the packet again .. */
     mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
     newpkt->flags &= ~MCREQ_STATE_FLAGS;
-    instance->retryq->nmvadd((mc_EXPACKET*)newpkt);
+    instance->retryq->nmvadd((mc_EXPACKET *)newpkt);
     return true;
+}
+
+static lcb_STATUS reschedule_clone(const void *src, void **dst)
+{
+    *dst = (void *)src;
+    return LCB_SUCCESS;
+}
+
+static lcb_STATUS reschedule_destroy(void *)
+{
+    return LCB_SUCCESS;
+}
+
+static lcb_STATUS reschedule_with_collection(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
+{
+    /** Reschedule the packet again .. */
+    mc_PACKET *newpkt = (mc_PACKET *)arg;
+    newpkt->flags &= ~MCREQ_STATE_FLAGS;
+    mcreq_set_cid(newpkt, cid);
+    instance->retryq->ucadd((mc_EXPACKET *)newpkt);
+    return LCB_SUCCESS;
+}
+
+bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
+{
+    uint32_t cid = mcreq_get_cid(instance, oldpkt);
+    lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (S=%u), CID=%u", LOGID_T(), (void *)oldpkt,
+            oldpkt->opaque, (unsigned)cid);
+    std::string name = instance->collcache->id_to_name(cid);
+    if (name.empty()) {
+        return false;
+    }
+    instance->collcache->erase(cid);
+
+    mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
+    lcb_STATUS rc = collcache_exec_str(name, instance, NULL, reschedule_with_collection, reschedule_clone,
+                                       reschedule_destroy, newpkt);
+    return rc == LCB_SUCCESS;
 }
 
 /**
  * Determine if this is an error code that we can pass to the user, or can
  * otherwise handle "innately"
  */
-static bool is_fastpath_error(uint16_t rc) {
+static bool is_fastpath_error(uint16_t rc)
+{
     switch (rc) {
-    case PROTOCOL_BINARY_RESPONSE_SUCCESS:
-    case PROTOCOL_BINARY_RESPONSE_KEY_ENOENT:
-    case PROTOCOL_BINARY_RESPONSE_KEY_EEXISTS:
-    case PROTOCOL_BINARY_RESPONSE_E2BIG:
-    case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
-    case PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL:
-    case PROTOCOL_BINARY_RESPONSE_ERANGE:
-    case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
-    case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
-    case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
-    case PROTOCOL_BINARY_RESPONSE_ENOMEM:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EEXISTS:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_E2BIG:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_CANTINSERT:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_ETOODEEP:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_NOTJSON:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_NUM_ERANGE:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_DELTA_ERANGE:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER:
-    case PROTOCOL_BINARY_RESPONSE_EACCESS:
-        return true;
-    default:
-        if (rc >= 0xc0 && rc <= 0xcc) {
-            // other subdoc?
+        case PROTOCOL_BINARY_RESPONSE_SUCCESS:
+        case PROTOCOL_BINARY_RESPONSE_KEY_ENOENT:
+        case PROTOCOL_BINARY_RESPONSE_KEY_EEXISTS:
+        case PROTOCOL_BINARY_RESPONSE_E2BIG:
+        case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
+        case PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL:
+        case PROTOCOL_BINARY_RESPONSE_ERANGE:
+        case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
+        case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
+        case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
+        case PROTOCOL_BINARY_RESPONSE_ENOMEM:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EEXISTS:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_E2BIG:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_CANTINSERT:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_ETOODEEP:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_NOTJSON:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_NUM_ERANGE:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_DELTA_ERANGE:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER:
+        case PROTOCOL_BINARY_RESPONSE_EACCESS:
+        case PROTOCOL_BINARY_RESPONSE_DURABILITY_INVALID_LEVEL:
+        case PROTOCOL_BINARY_RESPONSE_DURABILITY_IMPOSSIBLE:
+        case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_IN_PROGRESS:
+        case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS:
             return true;
-        } else {
-            return false;
-        }
-        break;
+        default:
+            if (rc >= 0xc0 && rc <= 0xcc) {
+                // other subdoc?
+                return true;
+            } else {
+                return false;
+            }
+            break;
     }
 }
 
@@ -243,9 +283,8 @@ static bool is_fastpath_error(uint16_t rc) {
  * @return true if this function handled the error specially (by disconnecting)
  * or false if normal handling should continue.
  */
-int Server::handle_unknown_error(const mc_PACKET *request,
-                                 const MemcachedResponse& mcresp,
-                                 lcb_error_t& newerr) {
+int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedResponse &mcresp, lcb_STATUS &newerr)
+{
 
     if (!settings->errmap->isLoaded() || !settings->use_errmap) {
         // If there's no error map, just return false
@@ -253,14 +292,16 @@ int Server::handle_unknown_error(const mc_PACKET *request,
     }
 
     // Look up the error map definition for this error
-    const errmap::Error& err = settings->errmap->getError(mcresp.status());
+    const errmap::Error &err = settings->errmap->getError(mcresp.status());
 
     if (!err.isValid() || err.hasAttribute(errmap::SPECIAL_HANDLING)) {
-        lcb_log(LOGARGS_T(ERR), LOGFMT "Received error not in error map or requires special handling! " PKTFMT, LOGID_T(), PKTARGS(mcresp));
+        lcb_log(LOGARGS_T(ERR), LOGFMT "Received error not in error map or requires special handling! " PKTFMT,
+                LOGID_T(), PKTARGS(mcresp));
         lcbio_ctx_senderr(connctx, LCB_PROTOCOL_ERROR);
         return ERRMAP_HANDLE_DISCONN;
     } else {
-        lcb_log(LOGARGS_T(WARN), LOGFMT "Received server error %s (0x%x) on packet: " PKTFMT, LOGID_T(), err.shortname.c_str(), err.code, PKTARGS(mcresp));
+        lcb_log(LOGARGS_T(WARN), LOGFMT "Received server error %s (0x%x) on packet: " PKTFMT, LOGID_T(),
+                err.shortname.c_str(), err.code, PKTARGS(mcresp));
     }
 
     if (err.hasAttribute(errmap::FETCH_CONFIG)) {
@@ -286,13 +327,13 @@ int Server::handle_unknown_error(const mc_PACKET *request,
     /* TODO: remove masking LOCKED in 3.0 release */
     if (err.hasAttribute(errmap::ITEM_LOCKED)) {
         switch (mcresp.opcode()) {
-        case PROTOCOL_BINARY_CMD_SET:
-        case PROTOCOL_BINARY_CMD_REPLACE:
-        case PROTOCOL_BINARY_CMD_DELETE:
-            newerr = LCB_KEY_EEXISTS;
-            break;
-        default:
-            newerr = LCB_ETMPFAIL;
+            case PROTOCOL_BINARY_CMD_SET:
+            case PROTOCOL_BINARY_CMD_REPLACE:
+            case PROTOCOL_BINARY_CMD_DELETE:
+                newerr = LCB_KEY_EEXISTS;
+                break;
+            default:
+                newerr = LCB_ETMPFAIL;
         }
     }
 
@@ -316,7 +357,6 @@ int Server::handle_unknown_error(const mc_PACKET *request,
     }
 
     return rv;
-
 }
 
 /* This function is called within a loop to process a single packet.
@@ -328,29 +368,30 @@ int Server::handle_unknown_error(const mc_PACKET *request,
  * When a complete packet is not available, PKT_READ_PARTIAL will be returned
  * and the `on_read()` loop will exit, scheduling any required pending I/O.
  */
-Server::ReadState
-Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
+Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
 {
     MemcachedResponse mcresp;
     mc_PACKET *request;
     unsigned pktsize = 24, is_last = 1;
 
-    #define RETURN_NEED_MORE(n) \
-        if (has_pending()) { \
-            lcbio_ctx_rwant(ctx, n); \
-        } \
-        return PKT_READ_PARTIAL; \
+#define RETURN_NEED_MORE(n)                                                                                            \
+    if (has_pending()) {                                                                                               \
+        lcbio_ctx_rwant(ctx, n);                                                                                       \
+    }                                                                                                                  \
+    return PKT_READ_PARTIAL;
 
-    #define DO_ASSIGN_PAYLOAD() \
-        rdb_consumed(ior, mcresp.hdrsize()); \
-        if (mcresp.bodylen()) { \
-            mcresp.payload = rdb_get_consolidated(ior, mcresp.bodylen()); \
-        } {
+#define DO_ASSIGN_PAYLOAD()                                                                                            \
+    rdb_consumed(ior, mcresp.hdrsize());                                                                               \
+    if (mcresp.bodylen()) {                                                                                            \
+        mcresp.payload = rdb_get_consolidated(ior, mcresp.bodylen());                                                  \
+    }                                                                                                                  \
+    {
 
-    #define DO_SWALLOW_PAYLOAD() \
-        } if (mcresp.bodylen()) { \
-            rdb_consumed(ior, mcresp.bodylen()); \
-        }
+#define DO_SWALLOW_PAYLOAD()                                                                                           \
+    }                                                                                                                  \
+    if (mcresp.bodylen()) {                                                                                            \
+        rdb_consumed(ior, mcresp.bodylen());                                                                           \
+    }
 
     if (rdb_get_nused(ior) < pktsize) {
         RETURN_NEED_MORE(pktsize)
@@ -377,12 +418,13 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
 
     if (!request) {
         MC_INCR_METRIC(this, packets_ownerless, 1);
-        lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server sent us reply for a timed-out command. (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
+        lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server sent us reply for a timed-out command. (OP=0x%x, RC=0x%x, SEQ=%u)",
+                LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
         rdb_consumed(ior, pktsize);
         return PKT_READ_COMPLETE;
     }
 
-    lcb_error_t err_override = LCB_SUCCESS;
+    lcb_STATUS err_override = LCB_SUCCESS;
     ReadState rdstate = PKT_READ_COMPLETE;
     int unknown_err_rv;
 
@@ -398,9 +440,13 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         }
         DO_SWALLOW_PAYLOAD()
         goto GT_DONE;
-    } else if ((unknown_err_rv =
-                handle_unknown_error(request, mcresp, err_override)) !=
-                        ERRMAP_HANDLE_CONTINUE) {
+    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION) {
+        /* consume the header */
+        DO_ASSIGN_PAYLOAD()
+        handle_unknown_collection(mcresp, request);
+        DO_SWALLOW_PAYLOAD()
+        goto GT_DONE;
+    } else if ((unknown_err_rv = handle_unknown_error(request, mcresp, err_override)) != ERRMAP_HANDLE_CONTINUE) {
         DO_ASSIGN_PAYLOAD()
         if (!(unknown_err_rv & ERRMAP_HANDLE_RETRY)) {
             mcreq_dispatch_response(this, request, &mcresp, err_override);
@@ -423,7 +469,7 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         /* figure out how many buffers we want to use as an upper limit for the
          * IOV arrays. Currently we'll keep it simple and ensure the entire
          * response is contiguous. */
-        lcb_PKTFWDRESP resp = { 0 }; /* TODO: next ABI version should include is_last flag */
+        lcb_PKTFWDRESP resp = {0}; /* TODO: next ABI version should include is_last flag */
         rdb_ROPESEG *segs;
         nb_IOV iov;
 
@@ -431,23 +477,21 @@ Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         rdb_refread_ex(ior, &iov, &segs, 1, pktsize);
 
         resp.bufs = &segs;
-        resp.iovs = (lcb_IOV*)&iov;
+        resp.iovs = (lcb_IOV *)&iov;
         resp.nitems = 1;
         resp.header = mcresp.hdrbytes();
-        instance->callbacks.pktfwd(
-            instance, MCREQ_PKT_COOKIE(request), LCB_SUCCESS, &resp);
+        instance->callbacks.pktfwd(instance, MCREQ_PKT_COOKIE(request), LCB_SUCCESS, &resp);
         rdb_consumed(ior, pktsize);
     }
 
-    GT_DONE:
+GT_DONE:
     if (is_last) {
         mcreq_packet_handled(this, request);
     }
     return rdstate;
 }
 
-static void
-on_read(lcbio_CTX *ctx, unsigned)
+static void on_read(lcbio_CTX *ctx, unsigned)
 {
     Server *server = Server::get(ctx);
     rdb_IOROPE *ior = &ctx->ior;
@@ -457,21 +501,23 @@ on_read(lcbio_CTX *ctx, unsigned)
     }
 
     Server::ReadState rv;
-    while ((rv = server->try_read(ctx, ior)) == Server::PKT_READ_COMPLETE);
+    while ((rv = server->try_read(ctx, ior)) == Server::PKT_READ_COMPLETE)
+        ;
     lcbio_ctx_schedule(ctx);
     lcb_maybe_breakout(server->instance);
 }
 
-static void flush_noop(mc_PIPELINE *pipeline) {
+static void flush_noop(mc_PIPELINE *pipeline)
+{
     (void)pipeline;
 }
 
-static void server_connect(Server *server) {
+static void server_connect(Server *server)
+{
     server->connect();
 }
 
-bool
-Server::maybe_retry_packet(mc_PACKET *pkt, lcb_error_t err)
+bool Server::maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err)
 {
     lcbvb_DISTMODE dist_t = lcbvb_get_distmode(parent->config);
 
@@ -490,9 +536,9 @@ Server::maybe_retry_packet(mc_PACKET *pkt, lcb_error_t err)
     return true;
 }
 
-static void
-fail_callback(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_error_t err, void *) {
-    static_cast<Server*>(pipeline)->purge_single(pkt, err);
+static void fail_callback(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_STATUS err, void *)
+{
+    static_cast< Server * >(pipeline)->purge_single(pkt, err);
 }
 
 static const char *opcode_name(uint8_t code)
@@ -589,7 +635,8 @@ static const char *opcode_name(uint8_t code)
     }
 }
 
-void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
+void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
+{
     if (maybe_retry_packet(pkt, err)) {
         return;
     }
@@ -601,7 +648,7 @@ void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
     }
 
     if (err == LCB_ETIMEDOUT) {
-        lcb_error_t tmperr = lcb::RetryQueue::error_for(pkt);
+        lcb_STATUS tmperr = lcb::RetryQueue::error_for(pkt);
         if (tmperr != LCB_SUCCESS) {
             err = tmperr;
         }
@@ -609,13 +656,10 @@ void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
 
     protocol_binary_request_header hdr;
     memcpy(hdr.bytes, SPAN_BUFFER(&pkt->kh_span), sizeof(hdr.bytes));
-    MemcachedResponse resp(protocol_binary_command(hdr.request.opcode),
-                           hdr.request.opaque,
+    MemcachedResponse resp(protocol_binary_command(hdr.request.opcode), hdr.request.opaque,
                            PROTOCOL_BINARY_RESPONSE_EINVAL);
 
-#ifdef LCB_TRACING
     lcbtrace_span_set_orphaned(MCREQ_PKT_RDATA(pkt)->span, true);
-#endif
     if (err == LCB_ETIMEDOUT && settings->use_tracing) {
         Json::Value info;
 
@@ -636,32 +680,30 @@ void Server::purge_single(mc_PACKET *pkt, lcb_error_t err) {
 
         if (connctx) {
             char local_id[54] = {};
-            snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64 "/%x",
-                     (lcb_U64)settings->iid, connctx->sock->id, (int)pkt->opaque);
+            snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64 "/%x", settings->iid, connctx->sock->id,
+                     (int)pkt->opaque);
             info["i"] = local_id;
             info["l"] = lcbio__inet_ntop(&connctx->sock->info->sa_local).c_str();
         }
         std::string msg(Json::FastWriter().write(info));
         if (msg.size() > 1) {
-            lcb_log(LOGARGS(instance, WARN), "Failing command with error %s: %.*s",
-                    lcb_strerror_short(err), (int)(msg.size() - 1), msg.c_str());
+            lcb_log(LOGARGS(instance, WARN), "Failing command with error %s: %.*s", lcb_strerror_short(err),
+                    (int)(msg.size() - 1), msg.c_str());
         }
     } else {
-        lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error %s", LOGID_T(), (void*)pkt, (unsigned long)pkt->opaque, hdr.request.opcode, lcb_strerror_short(err));
+        lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error %s", LOGID_T(),
+                (void *)pkt, (unsigned long)pkt->opaque, hdr.request.opcode, lcb_strerror_short(err));
     }
     int rv = mcreq_dispatch_response(this, pkt, &resp, err);
     lcb_assert(rv == 0);
 }
 
-int
-Server::purge(lcb_error_t error, hrtime_t thresh, hrtime_t *next,
-              RefreshPolicy policy)
+int Server::purge(lcb_STATUS error, hrtime_t thresh, hrtime_t *next, RefreshPolicy policy)
 {
     unsigned affected;
 
     if (thresh) {
-        affected = mcreq_pipeline_timeout(
-                this, error, fail_callback, NULL, thresh, next);
+        affected = mcreq_pipeline_timeout(this, error, fail_callback, NULL, thresh, next);
 
     } else {
         mcreq_pipeline_fail(this, error, fail_callback, NULL);
@@ -674,7 +716,7 @@ Server::purge(lcb_error_t error, hrtime_t thresh, hrtime_t *next,
     }
 
     if (affected || policy == REFRESH_ALWAYS) {
-        instance->bootstrap(BS_REFRESH_THROTTLE|BS_REFRESH_INCRERR);
+        instance->bootstrap(BS_REFRESH_THROTTLE | BS_REFRESH_INCRERR);
     }
     return affected;
 }
@@ -688,8 +730,7 @@ static void flush_errdrain(mc_PIPELINE *pipeline)
     }
 }
 
-uint32_t
-Server::next_timeout() const
+uint32_t Server::next_timeout() const
 {
     hrtime_t now, expiry, diff;
     mc_PACKET *pkt = mcreq_first_packet(this);
@@ -709,10 +750,9 @@ Server::next_timeout() const
     return LCB_NS2US(diff);
 }
 
-static void
-timeout_server(void *arg)
+static void timeout_server(void *arg)
 {
-    reinterpret_cast<Server*>(arg)->io_timeout();
+    reinterpret_cast< Server * >(arg)->io_timeout();
 }
 
 void Server::io_timeout()
@@ -721,21 +761,20 @@ void Server::io_timeout()
     hrtime_t min_valid = now - LCB_US2NS(default_timeout());
 
     hrtime_t next_ns;
-    int npurged = purge(LCB_ETIMEDOUT, min_valid, &next_ns,
-                        Server::REFRESH_ONFAILED);
+    int npurged = purge(LCB_ETIMEDOUT, min_valid, &next_ns, Server::REFRESH_ONFAILED);
     if (npurged) {
         MC_INCR_METRIC(this, packets_timeout, npurged);
         lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server timed out. Some commands have failed", LOGID_T());
     }
 
     uint32_t next_us = next_timeout();
-    lcb_log(LOGARGS_T(TRACE), LOGFMT "Scheduling next timeout for %u ms. This is not an error", LOGID_T(), next_us / 1000);
+    lcb_log(LOGARGS_T(TRACE), LOGFMT "Scheduling next timeout for %u ms. This is not an error", LOGID_T(),
+            next_us / 1000);
     lcbio_timer_rearm(io_timer, next_us);
     lcb_maybe_breakout(instance);
 }
 
-bool
-Server::maybe_reconnect_on_fake_timeout(lcb_error_t err)
+bool Server::maybe_reconnect_on_fake_timeout(lcb_STATUS err)
 {
     if (err != LCB_ETIMEDOUT) {
         return false; /* not a timeout */
@@ -759,22 +798,25 @@ Server::maybe_reconnect_on_fake_timeout(lcb_error_t err)
     return true;
 }
 
-static void
-on_connected(lcbio_SOCKET *sock, void *data, lcb_error_t err, lcbio_OSERR syserr)
+static void on_connected(lcbio_SOCKET *sock, void *data, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    Server *server = reinterpret_cast<Server*>(data);
+    Server *server = reinterpret_cast< Server * >(data);
     server->handle_connected(sock, err, syserr);
 }
 
-static void mcserver_flush(Server *s) { s->flush(); }
+static void mcserver_flush(Server *s)
+{
+    s->flush();
+}
 
-void
-Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr)
+void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR syserr)
 {
     connreq = NULL;
 
     if (err != LCB_SUCCESS) {
-        lcb_log(LOGARGS_T(ERR), LOGFMT "Connection attempt failed. Received %s from libcouchbase, received %d from operating system", LOGID_T(), lcb_strerror_short(err), syserr);
+        lcb_log(LOGARGS_T(ERR),
+                LOGFMT "Connection attempt failed. Received %s from libcouchbase, received %d from operating system",
+                LOGID_T(), lcb_strerror_short(err), syserr);
         MC_INCR_METRIC(this, iometrics.io_error, 1);
         if (!maybe_reconnect_on_fake_timeout(err)) {
             socket_failed(err);
@@ -788,16 +830,18 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
     }
 
     /** Do we need sasl? */
-    SessionInfo* sessinfo = SessionInfo::get(sock);
+    SessionInfo *sessinfo = SessionInfo::get(sock);
     if (sessinfo == NULL) {
-        lcb_log(LOGARGS_T(TRACE), "<%s:%s> (SRV=%p) Session not yet negotiated. Negotiating", curhost->host, curhost->port, (void*)this);
-        connreq = SessionRequest::start(
-            sock, settings, default_timeout(), on_connected, this);
+        lcb_log(LOGARGS_T(TRACE), "<%s:%s> (SRV=%p) Session not yet negotiated. Negotiating", curhost->host,
+                curhost->port, (void *)this);
+        connreq = SessionRequest::start(sock, settings, default_timeout(), on_connected, this);
         return;
     } else {
         jsonsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_JSON);
         compsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_SNAPPY);
         mutation_tokens = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO);
+        new_durability = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_SYNC_REPLICATION) &&
+                         sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_ALT_REQUEST_SUPPORT);
     }
 
     lcbio_CTXPROCS procs;
@@ -815,32 +859,23 @@ Server::handle_connected(lcbio_SOCKET *sock, lcb_error_t err, lcbio_OSERR syserr
     flush();
 }
 
-void
-Server::connect()
+void Server::connect()
 {
-    connreq = instance->memd_sockpool->get(*curhost,
-        default_timeout(), on_connected, this);
+    connreq = instance->memd_sockpool->get(*curhost, default_timeout(), on_connected, this);
     flush_start = flush_noop;
     state = Server::S_CLEAN;
 }
 
-static void
-buf_done_cb(mc_PIPELINE *pl, const void *cookie, void *, void *)
+static void buf_done_cb(mc_PIPELINE *pl, const void *cookie, void *, void *)
 {
-    Server *server = static_cast<Server*>(pl);
+    Server *server = static_cast< Server * >(pl);
     server->instance->callbacks.pktflushed(server->instance, cookie);
 }
 
-Server::Server(lcb_t instance_, int ix)
-    : mc_PIPELINE(), state(S_CLEAN),
-      io_timer(lcbio_timer_new(instance_->iotable, this, timeout_server)),
-      instance(instance_),
-      settings(lcb_settings_ref2(instance_->settings)),
-      compsupport(0),
-      jsonsupport(0),
-      mutation_tokens(0),
-      connctx(NULL),
-      curhost(new lcb_host_t())
+Server::Server(lcb_INSTANCE *instance_, int ix)
+    : mc_PIPELINE(), state(S_CLEAN), io_timer(lcbio_timer_new(instance_->iotable, this, timeout_server)),
+      instance(instance_), settings(lcb_settings_ref2(instance_->settings)), compsupport(0), jsonsupport(0),
+      mutation_tokens(0), new_durability(-1), connctx(NULL), curhost(new lcb_host_t())
 {
     mcreq_pipeline_init(this);
     flush_start = (mcreq_flushstart_fn)server_connect;
@@ -850,9 +885,8 @@ Server::Server(lcb_t instance_, int ix)
     std::memset(&connreq, 0, sizeof connreq);
     std::memset(curhost, 0, sizeof *curhost);
 
-    const char *datahost = lcbvb_get_hostport(
-        LCBT_VBCONFIG(instance), ix,
-        LCBVB_SVCTYPE_DATA, LCBT_SETTING_SVCMODE(instance));
+    const char *datahost =
+        lcbvb_get_hostport(LCBT_VBCONFIG(instance), ix, LCBVB_SVCTYPE_DATA, LCBT_SETTING_SVCMODE(instance));
     if (datahost) {
         lcb_host_parsez(curhost, datahost, LCB_CONFIG_MCD_PORT);
     }
@@ -865,13 +899,13 @@ Server::Server(lcb_t instance_, int ix)
 }
 
 Server::Server()
-    : state(S_TEMPORARY),
-      io_timer(NULL), instance(NULL), settings(NULL), compsupport(0), jsonsupport(0),
+    : state(S_TEMPORARY), io_timer(NULL), instance(NULL), settings(NULL), compsupport(0), jsonsupport(0),
       mutation_tokens(0), connctx(NULL), connreq(NULL), curhost(NULL)
 {
 }
 
-Server::~Server() {
+Server::~Server()
+{
     if (state == S_TEMPORARY) {
         return;
     }
@@ -880,7 +914,7 @@ Server::~Server() {
         unsigned ii;
         mc_CMDQUEUE *cmdq = &this->instance->cmdq;
         for (ii = 0; ii < cmdq->npipelines; ii++) {
-            lcb::Server *server = static_cast<lcb::Server*>(cmdq->pipelines[ii]);
+            lcb::Server *server = static_cast< lcb::Server * >(cmdq->pipelines[ii]);
             if (server == this) {
                 cmdq->pipelines[ii] = NULL;
                 break;
@@ -898,15 +932,13 @@ Server::~Server() {
     lcb_settings_unref(settings);
 }
 
-static void
-close_cb(lcbio_SOCKET *sock, int, void *)
+static void close_cb(lcbio_SOCKET *sock, int, void *)
 {
     lcbio_ref(sock);
     lcb::io::Pool::discard(sock);
 }
 
-static void
-on_error(lcbio_CTX *ctx, lcb_error_t err)
+static void on_error(lcbio_CTX *ctx, lcb_STATUS err)
 {
     Server *server = Server::get(ctx);
     lcb_log(LOGARGS(server, WARN), LOGFMT "Got socket error %s", LOGID(server), lcb_strerror_short(err));
@@ -919,8 +951,7 @@ on_error(lcbio_CTX *ctx, lcb_error_t err)
 /**Handle a socket error. This function will close the current connection
  * and trigger a failout of any pending commands.
  * This function triggers a configuration refresh */
-void
-Server::socket_failed(lcb_error_t err)
+void Server::socket_failed(lcb_STATUS err)
 {
     if (check_closed()) {
         return;
@@ -931,8 +962,7 @@ Server::socket_failed(lcb_error_t err)
     start_errored_ctx(S_ERRDRAIN);
 }
 
-void
-Server::close()
+void Server::close()
 {
     /* Should never be called twice */
     lcb_assert(state != Server::S_CLOSED);
@@ -944,8 +974,7 @@ Server::close()
  * @param server The server
  * @param next_state The next state (S_CLOSED or S_ERRDRAIN)
  */
-void
-Server::start_errored_ctx(State next_state)
+void Server::start_errored_ctx(State next_state)
 {
     lcbio_CTX *ctx = connctx;
 
@@ -1002,8 +1031,7 @@ Server::start_errored_ctx(State next_state)
  * object depending on the actual object state (i.e. if it was closed or
  * simply errored).
  */
-void
-Server::finalize_errored_ctx()
+void Server::finalize_errored_ctx()
 {
     if (connctx->npending) {
         return;
@@ -1043,13 +1071,13 @@ Server::finalize_errored_ctx()
  * If this function returns false then the server is still valid; otherwise it
  * is invalid and must not be used further.
  */
-bool
-Server::check_closed()
+bool Server::check_closed()
 {
     if (state == Server::S_CLEAN) {
         return false;
     }
-    lcb_log(LOGARGS_T(INFO), LOGFMT "Got handler after close. Checking pending calls (pending=%u)", LOGID_T(), connctx->npending);
+    lcb_log(LOGARGS_T(INFO), LOGFMT "Got handler after close. Checking pending calls (pending=%u)", LOGID_T(),
+            connctx->npending);
     finalize_errored_ctx();
     return 1;
 }

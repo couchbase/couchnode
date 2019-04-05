@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -36,21 +36,20 @@ class HandleWrap;
         return;                                                                                                        \
     }
 
-#define ASSERT_ERRISA(err, et) \
-        ASSERT_EQ(et, (int)lcb_get_errtype(err) & (int)et)
+#define ASSERT_ERRISA(err, et) ASSERT_EQ(et, (int)lcb_get_errtype(err) & (int)et)
 
 class MockUnitTest : public ::testing::Test
 {
-protected:
+  protected:
     virtual void SetUp();
-    virtual void createConnection(lcb_t &instance);
+    virtual void createConnection(lcb_INSTANCE **instance);
     virtual void createConnection(HandleWrap &handle);
-    virtual void createConnection(HandleWrap &handle, lcb_t &instance);
-    virtual lcb_error_t tryCreateConnection(HandleWrap &hw,
-        lcb_t &instance, lcb_create_st &crparams);
+    virtual void createConnection(HandleWrap &handle, lcb_INSTANCE **instance);
+    virtual lcb_STATUS tryCreateConnection(HandleWrap &hw, lcb_INSTANCE **instance, lcb_create_st &crparams);
 
     // A mock "Transaction"
-    void doMockTxn(MockCommand &cmd) {
+    void doMockTxn(MockCommand &cmd)
+    {
         MockEnvironment::getInstance()->sendCommand(cmd);
         MockResponse tmp;
         MockEnvironment::getInstance()->getResponse(tmp);

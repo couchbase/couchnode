@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,16 +24,18 @@
 
 class ServerParams
 {
-public:
-    ServerParams() { }
-    ServerParams(const char *h, const char *b, const char *u, const char *p) {
+  public:
+    ServerParams() {}
+    ServerParams(const char *h, const char *b, const char *u, const char *p)
+    {
         loadParam(host, h);
         loadParam(bucket, b);
         loadParam(user, u);
         loadParam(pass, p);
     }
 
-    void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io) {
+    void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io)
+    {
         memset(&crst, 0, sizeof(crst));
         if (mcNodes.empty()) {
             crst.version = 3;
@@ -52,9 +54,10 @@ public:
         }
     }
 
-    void setMcPorts(const std::vector<int>& portlist) {
+    void setMcPorts(const std::vector< int > &portlist)
+    {
         std::stringstream ss;
-        std::vector<int>::const_iterator ii = portlist.begin();
+        std::vector< int >::const_iterator ii = portlist.begin();
         for (; ii != portlist.end(); ii++) {
             ss << "localhost";
             ss << ":";
@@ -64,15 +67,16 @@ public:
         mcNodes = ss.str();
     }
 
-protected:
+  protected:
     std::string host;
     std::string user;
     std::string pass;
     std::string bucket;
     std::string mcNodes;
 
-private:
-    void loadParam(std::string &d, const char *s) {
+  private:
+    void loadParam(std::string &d, const char *s)
+    {
         if (s) {
             d.assign(s);
         }

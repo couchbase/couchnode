@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -33,12 +33,8 @@ static const lcb_host_t *get_ctx_host(const lcbio_CTX *ctx)
 
 #define CTX_LOGFMT_PRE "<" LCB_LOG_SPEC("%s%s%s:%s") "> (CTX=%p,%s"
 #define CTX_LOGFMT CTX_LOGFMT_PRE ") "
-#define CTX_LOGID(ctx)                                                  \
-    (ctx && ctx->sock && ctx->sock->settings->log_redaction) ? LCB_LOG_SD_OTAG : "", \
-        (get_ctx_host(ctx)->ipv6 ? "[" : ""),                           \
-        get_ctx_host(ctx)->host,                                        \
-        (get_ctx_host(ctx)->ipv6 ? "]" : ""),                           \
-        get_ctx_host(ctx)->port,                                        \
-        (ctx && ctx->sock && ctx->sock->settings->log_redaction)  ? LCB_LOG_SD_CTAG : "", \
-        (void *)ctx,                                                    \
-        ctx ? ctx->subsys : ""
+#define CTX_LOGID(ctx)                                                                                                 \
+    (ctx && ctx->sock && ctx->sock->settings->log_redaction) ? LCB_LOG_SD_OTAG : "",                                   \
+        (get_ctx_host(ctx)->ipv6 ? "[" : ""), get_ctx_host(ctx)->host, (get_ctx_host(ctx)->ipv6 ? "]" : ""),           \
+        get_ctx_host(ctx)->port, (ctx && ctx->sock && ctx->sock->settings->log_redaction) ? LCB_LOG_SD_CTAG : "",      \
+        (void *)ctx, ctx ? ctx->subsys : ""

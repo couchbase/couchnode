@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -22,16 +22,14 @@
 
 #define MINIMUM(a, b) (a) < (b) ? a : b
 
-static void
-span_from_first(mc_IOVCURSOR *cursor, unsigned size, nb_SPAN *span)
+static void span_from_first(mc_IOVCURSOR *cursor, unsigned size, nb_SPAN *span)
 {
     nb_IOV dummy;
     iovcursor_adv_first(cursor, size, &dummy);
     CREATE_STANDALONE_SPAN(span, dummy.iov_base, dummy.iov_len);
 }
 
-void
-mc_iovinfo_init(mc_IOVINFO *info, const nb_IOV *iov, unsigned niov)
+void mc_iovinfo_init(mc_IOVINFO *info, const nb_IOV *iov, unsigned niov)
 {
     unsigned ii;
     info->c.iov = (void *)iov;
@@ -47,9 +45,7 @@ mc_iovinfo_init(mc_IOVINFO *info, const nb_IOV *iov, unsigned niov)
 #define REQLEN_HDR(req) sizeof(req.bytes)
 #define REQLEN_
 
-lcb_error_t
-mc_forward_packet(mc_CMDQUEUE *cq,
-    mc_IOVINFO *info, mc_PACKET **pkt_p, mc_PIPELINE **pl_p, int options)
+lcb_STATUS mc_forward_packet(mc_CMDQUEUE *cq, mc_IOVINFO *info, mc_PACKET **pkt_p, mc_PIPELINE **pl_p, int options)
 {
     /* stack based header with our modifications. this is copied into the
      * packet's actual header */
@@ -57,10 +53,10 @@ mc_forward_packet(mc_CMDQUEUE *cq,
     int vbid, srvix;
     mc_IOVCURSOR *mincur = &info->c;
 
-    unsigned n_packet; /* total packet size */
-    unsigned n_header; /* extras + key + memcached header */
+    unsigned n_packet;     /* total packet size */
+    unsigned n_header;     /* extras + key + memcached header */
     unsigned n_body_total; /* size of everything following the memcached header */
-    unsigned n_body_key; /* length of the key */
+    unsigned n_body_key;   /* length of the key */
     unsigned n_body_value; /* packetsize - hdrsize */
 
     unsigned offset;
@@ -81,7 +77,7 @@ mc_forward_packet(mc_CMDQUEUE *cq,
         return LCB_INCOMPLETE_PACKET;
     }
 
-    iovcursor_peek(mincur, (char*)hdr.bytes, sizeof hdr.bytes, 0);
+    iovcursor_peek(mincur, (char *)hdr.bytes, sizeof hdr.bytes, 0);
 
     /* Initialize our size variables */
     n_body_total = ntohl(hdr.request.bodylen);
@@ -139,8 +135,7 @@ mc_forward_packet(mc_CMDQUEUE *cq,
         iovcursor_adv_copy(mincur, SPAN_BUFFER(&pkt->kh_span), n_header);
         if (n_body_value) {
             mcreq_reserve_value2(pl, pkt, n_body_value);
-            iovcursor_adv_copy(mincur,
-                SPAN_BUFFER(&pkt->u_value.single), n_body_value);
+            iovcursor_adv_copy(mincur, SPAN_BUFFER(&pkt->u_value.single), n_body_value);
             pkt->flags |= MCREQ_F_HASVALUE;
         }
 
@@ -163,9 +158,8 @@ mc_forward_packet(mc_CMDQUEUE *cq,
 
             } else {
                 /* body is fragmented */
-                iovcursor_adv_iovalloc(mincur, n_body_value,
-                    (nb_IOV**)&pkt->u_value.multi.iov,
-                    &pkt->u_value.multi.niov);
+                iovcursor_adv_iovalloc(mincur, n_body_value, (nb_IOV **)&pkt->u_value.multi.iov,
+                                       &pkt->u_value.multi.niov);
                 pkt->u_value.multi.total_length = n_body_value;
                 pkt->flags |= MCREQ_F_VALUE_IOV;
             }

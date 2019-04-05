@@ -5,23 +5,21 @@ using namespace LCBTest;
 using std::list;
 
 extern "C" {
-static void
-server_runfunc(void *arg)
+static void server_runfunc(void *arg)
 {
     TestServer *server = (TestServer *)arg;
     server->run();
 }
 }
 
-void
-TestServer::run()
+void TestServer::run()
 {
     if (closed) {
         return;
     }
 
     fd_set fds;
-    struct timeval tmout = { 1, 0 };
+    struct timeval tmout = {1, 0};
 
     FD_ZERO(&fds);
     FD_SET(*lsn, &fds);
@@ -43,8 +41,7 @@ TestServer::run()
     }
 }
 
-void
-TestServer::startConnection(TestConnection *conn)
+void TestServer::startConnection(TestConnection *conn)
 {
     mutex.lock();
     if (isClosed()) {
@@ -70,7 +67,7 @@ TestServer::~TestServer()
 {
     close();
     mutex.lock();
-    std::list<TestConnection*>::iterator iter = conns.begin();
+    std::list< TestConnection * >::iterator iter = conns.begin();
     for (; iter != conns.end(); ++iter) {
         (*iter)->close();
         delete *iter;
@@ -85,19 +82,17 @@ TestServer::~TestServer()
     delete lsn;
 }
 
-std::string
-TestServer::getPortString()
+std::string TestServer::getPortString()
 {
     char buf[4096];
     sprintf(buf, "%d", lsn->getLocalPort());
     return std::string(buf);
 }
 
-TestConnection *
-TestServer::findConnection(uint16_t port)
+TestConnection *TestServer::findConnection(uint16_t port)
 {
     TestConnection *ret = NULL;
-    list<TestConnection *>::iterator iter;
+    list< TestConnection * >::iterator iter;
 
     while (ret == NULL) {
         sched_yield();

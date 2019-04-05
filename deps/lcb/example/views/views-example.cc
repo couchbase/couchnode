@@ -1,6 +1,21 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2013-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
-#include <libcouchbase/views.h>
 #include <string>
 #include <cstring>
 #include <cstdlib>
@@ -10,22 +25,32 @@
 static int cbCounter = 0;
 
 extern "C" {
-static void viewCallback(lcb_t, int, const lcb_RESPVIEWQUERY *rv)
+static void viewCallback(lcb_INSTANCE *, int, const lcb_RESPVIEW *rv)
 {
-    if (rv->rflags & LCB_RESP_F_FINAL) {
+    lcb_STATUS rc = lcb_respview_status(rv);
+
+    if (lcb_respview_is_final(rv)) {
+        const char *row;
+        size_t nrow;
+        lcb_respview_row(rv, &row, &nrow);
         printf("*** META FROM VIEWS ***\n");
-        fprintf(stderr, "%.*s\n", (int)rv->nvalue, rv->value);
+        fprintf(stderr, "%.*s\n", (int)nrow, row);
         return;
     }
 
-    printf("Got row callback from LCB: RC=0x%X, DOCID=%.*s. KEY=%.*s\n",
-        rv->rc,
-        (int)rv->ndocid, rv->docid,
-        (int)rv->nkey, rv->key);
+    const char *key, *docid;
+    size_t nkey, ndocid;
+    lcb_respview_key(rv, &key, &nkey);
+    lcb_respview_doc_id(rv, &docid, &ndocid);
+    printf("Got row callback from LCB: RC=0x%X, DOCID=%.*s. KEY=%.*s\n", rc, (int)ndocid, docid, (int)nkey, key);
 
-    if (rv->docresp) {
-        printf("   Document for response. RC=0x%X. CAS=0x%llx\n",
-            rv->docresp->rc, rv->docresp->cas);
+    const lcb_RESPGET *doc = NULL;
+    lcb_respview_document(rv, &doc);
+    if (doc) {
+        rc = lcb_respget_status(doc);
+        uint64_t cas;
+        lcb_respget_cas(doc, &cas);
+        printf("   Document for response. RC=0x%X. CAS=0x%llx\n", rc, cas);
     }
 
     cbCounter++;
@@ -34,7 +59,7 @@ static void viewCallback(lcb_t, int, const lcb_RESPVIEWQUERY *rv)
 
 int main(int argc, const char **argv)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     lcb_create_st cropts;
     memset(&cropts, 0, sizeof cropts);
     const char *connstr = "couchbase://localhost/beer-sample";
@@ -50,7 +75,7 @@ int main(int argc, const char **argv)
 
     cropts.version = 3;
     cropts.v.v3.connstr = connstr;
-    lcb_error_t rc;
+    lcb_STATUS rc;
     rc = lcb_create(&instance, &cropts);
     assert(rc == LCB_SUCCESS);
     rc = lcb_connect(instance);
@@ -59,22 +84,21 @@ int main(int argc, const char **argv)
     assert(lcb_get_bootstrap_status(instance) == LCB_SUCCESS);
 
     // Nao, set up the views..
-    lcb_CMDVIEWQUERY vq = { 0 };
+    lcb_CMDVIEW *vq;
     std::string dName = "beer";
     std::string vName = "by_location";
     std::string options = "reduce=false";
 
-    vq.callback = viewCallback;
-    vq.ddoc = dName.c_str();
-    vq.nddoc = dName.length();
-    vq.view = vName.c_str();
-    vq.nview = vName.length();
-    vq.optstr = options.c_str();
-    vq.noptstr = options.size();
+    lcb_cmdview_create(&vq);
+    lcb_cmdview_callback(vq, viewCallback);
+    lcb_cmdview_design_document(vq, dName.c_str(), dName.size());
+    lcb_cmdview_view_name(vq, vName.c_str(), vName.size());
+    lcb_cmdview_option_string(vq, options.c_str(), options.size());
+    lcb_cmdview_include_docs(vq, true);
 
-    vq.cmdflags = LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
+    rc = lcb_view(instance, NULL, vq);
+    lcb_cmdview_destroy(vq);
 
-    rc = lcb_view_query(instance, NULL, &vq);
     assert(rc == LCB_SUCCESS);
     lcb_wait(instance);
     lcb_destroy(instance);

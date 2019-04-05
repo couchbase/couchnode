@@ -1,39 +1,60 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2011-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "mctest.h"
 #include "mc/mcreq-flush-inl.h"
 #include "mc/forward.h"
 #include "pktmaker.h"
 
 using namespace PacketMaker;
-using std::vector;
 using std::string;
+using std::vector;
 
 struct Vars {
     mc_PACKET *pkt;
     mc_PIPELINE *pl;
     nb_IOV iovs[10];
     mc_IOVINFO ioi;
-    vector<char> reqbuf;
+    vector< char > reqbuf;
 
-    Vars() {
+    Vars()
+    {
         pkt = NULL;
         pl = NULL;
         memset(&ioi, 0, sizeof(ioi));
         memset(&iovs, 0, sizeof(iovs));
     }
 
-    lcb_error_t requestPacket(mc_CMDQUEUE *cq) {
+    lcb_STATUS requestPacket(mc_CMDQUEUE *cq)
+    {
         return mc_forward_packet(cq, &ioi, &pkt, &pl, 0);
     }
 
-    void initInfo() {
+    void initInfo()
+    {
         mc_iovinfo_init(&ioi, iovs, 10);
     }
 };
 
-class McFwd : public ::testing::Test {};
+class McFwd : public ::testing::Test
+{
+};
 
-static void
-setupRequestBuf(vector<char>& out, size_t nkey, size_t nval)
+static void setupRequestBuf(vector< char > &out, size_t nkey, size_t nval)
 {
     string k(nkey, 'K');
     string v(nval, 'V');
@@ -52,7 +73,7 @@ TEST_F(McFwd, testForwardSingle)
 
     nb_IOV iovs[10];
     // Enqueue first packet inside entire body.
-    vector<char> reqbody;
+    vector< char > reqbody;
     sr.serialize(reqbody);
 
     memset(iovs, 0, sizeof(iovs));
@@ -68,7 +89,7 @@ TEST_F(McFwd, testForwardSingle)
 
     mc_PACKET *pkt = NULL;
     mc_PIPELINE *pl = NULL;
-    lcb_error_t rc = mc_forward_packet(&cq, &iovinfo, &pkt, &pl, 0);
+    lcb_STATUS rc = mc_forward_packet(&cq, &iovinfo, &pkt, &pl, 0);
     ASSERT_EQ(LCB_SUCCESS, rc);
     ASSERT_EQ(0, iovinfo.wanted);
     ASSERT_EQ(reqbody.size(), iovinfo.consumed);
@@ -81,7 +102,7 @@ TEST_F(McFwd, testFragmentedBasic)
 {
     CQWrap cq;
     nb_IOV iovs[10];
-    vector<char> reqbuf;
+    vector< char > reqbuf;
 
     memset(iovs, 0, sizeof(iovs));
     setupRequestBuf(reqbuf, 10, 10);
@@ -95,7 +116,7 @@ TEST_F(McFwd, testFragmentedBasic)
     mc_IOVINFO ioi;
     memset(&ioi, 0, sizeof(ioi));
     mc_iovinfo_init(&ioi, iovs, 10);
-    lcb_error_t rc;
+    lcb_STATUS rc;
     mc_PACKET *pkt;
     mc_PIPELINE *pl;
 
@@ -109,7 +130,8 @@ TEST_F(McFwd, testFragmentedBasic)
     mcreq_sched_fail(&cq);
 }
 
-TEST_F(McFwd, testFragmentedHeader) {
+TEST_F(McFwd, testFragmentedHeader)
+{
     CQWrap cq;
     Vars vars;
 
@@ -125,7 +147,7 @@ TEST_F(McFwd, testFragmentedHeader) {
     vars.initInfo();
     ASSERT_EQ(vars.reqbuf.size(), vars.ioi.total);
 
-    lcb_error_t rc = vars.requestPacket(&cq);
+    lcb_STATUS rc = vars.requestPacket(&cq);
     ASSERT_EQ(LCB_SUCCESS, rc);
     ASSERT_EQ(0, vars.pkt->flags & MCREQ_F_KEY_NOCOPY);
     ASSERT_EQ(0, vars.ioi.total);
@@ -141,7 +163,7 @@ TEST_F(McFwd, testInsufficientHeader)
 {
     CQWrap cq;
     Vars vars;
-    lcb_error_t rc;
+    lcb_STATUS rc;
 
     setupRequestBuf(vars.reqbuf, 100, 100);
 
@@ -174,14 +196,14 @@ TEST_F(McFwd, testMultiValue)
 {
     CQWrap cq;
     Vars vars;
-    lcb_error_t rc;
+    lcb_STATUS rc;
     setupRequestBuf(vars.reqbuf, 1, 810);
 
     vars.iovs[0].iov_base = &vars.reqbuf[0];
     vars.iovs[0].iov_len = 25;
 
     for (int ii = 1; ii < 10; ii++) {
-        vars.iovs[ii].iov_base = &vars.reqbuf[25 + (ii-1) * 90];
+        vars.iovs[ii].iov_base = &vars.reqbuf[25 + (ii - 1) * 90];
         vars.iovs[ii].iov_len = 90;
     }
 
@@ -202,7 +224,7 @@ TEST_F(McFwd, testMultiValue)
 TEST_F(McFwd, testNoMap)
 {
     CQWrap cq;
-    lcb_error_t err;
+    lcb_STATUS err;
     protocol_binary_request_header hdr;
     memset(&hdr, 0, sizeof hdr);
     hdr.request.magic = PROTOCOL_BINARY_REQ;
@@ -210,7 +232,7 @@ TEST_F(McFwd, testNoMap)
     hdr.request.extlen = 8;
     hdr.request.bodylen = htonl(8);
     hdr.request.vbucket = 0;
-    char reqbuf[32] = { 0 };
+    char reqbuf[32] = {0};
     memcpy(reqbuf, hdr.bytes, sizeof hdr.bytes);
     mc_IOVINFO ioi;
     nb_IOV iov;
@@ -228,7 +250,7 @@ TEST_F(McFwd, testNoMap)
     // Get the key
     const void *key;
     lcb_SIZE nkey;
-    mcreq_get_key(pkt_tmp, &key, &nkey);
+    mcreq_get_key(NULL, pkt_tmp, &key, &nkey);
     ASSERT_EQ(0, nkey);
 
     // Ensure we have no vBucket stamping

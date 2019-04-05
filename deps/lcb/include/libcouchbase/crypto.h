@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -71,41 +71,23 @@ typedef struct lcbcrypto_PROVIDER {
     void *cookie;                                            /**< opaque pointer (e.g. pointer to wrapper instance) */
     void (*destructor)(struct lcbcrypto_PROVIDER *provider); /**< destructor function, or NULL */
     union {
-        LCB_DEPRECATED2(
-            struct {
-                void (*release_bytes)(struct lcbcrypto_PROVIDER * provider, void *bytes);
-                lcb_error_t (*load_key)(struct lcbcrypto_PROVIDER * provider, lcbcrypto_KEYTYPE type, const char *keyid,
-                                        uint8_t **key, size_t *key_len);
-                lcb_error_t (*generate_iv)(struct lcbcrypto_PROVIDER * provider, uint8_t * *iv, size_t * iv_len);
-                lcb_error_t (*sign)(struct lcbcrypto_PROVIDER * provider, const lcbcrypto_SIGV *inputs,
-                                    size_t input_num, uint8_t **sig, size_t *sig_len);
-                lcb_error_t (*verify_signature)(struct lcbcrypto_PROVIDER * provider, const lcbcrypto_SIGV *inputs,
-                                                size_t input_num, uint8_t *sig, size_t sig_len);
-                lcb_error_t (*encrypt)(struct lcbcrypto_PROVIDER * provider, const uint8_t *input, size_t input_len,
-                                       const uint8_t *key, size_t key_len, const uint8_t *iv, size_t iv_len,
-                                       uint8_t **output, size_t *output_len);
-                lcb_error_t (*decrypt)(struct lcbcrypto_PROVIDER * provider, const uint8_t *input, size_t input_len,
-                                       const uint8_t *key, size_t key_len, const uint8_t *iv, size_t iv_len,
-                                       uint8_t **output, size_t *output_len);
-            } v0,
-            "v0 crypto API has been deprecated, use v1");
         struct {
             /** function to use when the library wants to deallocate memory, returned by provider */
             void (*release_bytes)(struct lcbcrypto_PROVIDER *provider, void *bytes);
             /** initialization vector (IV) generator */
-            lcb_error_t (*generate_iv)(struct lcbcrypto_PROVIDER *provider, uint8_t **iv, size_t *iv_len);
+            lcb_STATUS (*generate_iv)(struct lcbcrypto_PROVIDER *provider, uint8_t **iv, size_t *iv_len);
             /** generate cryptographic signature for the data */
-            lcb_error_t (*sign)(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs, size_t input_num,
-                                uint8_t **sig, size_t *sig_len);
+            lcb_STATUS (*sign)(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs, size_t input_num,
+                               uint8_t **sig, size_t *sig_len);
             /** verify signature of the data */
-            lcb_error_t (*verify_signature)(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs,
-                                            size_t input_num, uint8_t *sig, size_t sig_len);
+            lcb_STATUS (*verify_signature)(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs,
+                                           size_t input_num, uint8_t *sig, size_t sig_len);
             /** encrypt data */
-            lcb_error_t (*encrypt)(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
-                                   const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len);
+            lcb_STATUS (*encrypt)(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
+                                  const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len);
             /** decrypt data */
-            lcb_error_t (*decrypt)(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
-                                   const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len);
+            lcb_STATUS (*decrypt)(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
+                                  const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len);
             /** returns key identifier, associated with the crypto-provider */
             const char *(*get_key_id)(struct lcbcrypto_PROVIDER *provider);
         } v1;
@@ -185,7 +167,7 @@ typedef struct lcbcrypto_CMDDECRYPT {
  * lcbcrypto_register(instance, "AES-256-HMAC-SHA256", provider);
  * @endcode
  */
-LIBCOUCHBASE_API void lcbcrypto_register(lcb_t instance, const char *name, lcbcrypto_PROVIDER *provider);
+LIBCOUCHBASE_API void lcbcrypto_register(lcb_INSTANCE instance, const char *name, lcbcrypto_PROVIDER *provider);
 
 /**
  * Unregister crypto-provider for specified alias.
@@ -195,7 +177,7 @@ LIBCOUCHBASE_API void lcbcrypto_register(lcb_t instance, const char *name, lcbcr
  * @param instance the handle
  * @param name provider alias.
  */
-LIBCOUCHBASE_API void lcbcrypto_unregister(lcb_t instance, const char *name);
+LIBCOUCHBASE_API void lcbcrypto_unregister(lcb_INSTANCE instance, const char *name);
 
 /**
  * Increment reference counter for crypto-provider.
@@ -234,7 +216,7 @@ LIBCOUCHBASE_API void lcbcrypto_unref(lcbcrypto_PROVIDER *provider);
  * @code{.c}
  * lcbcrypto_CMDENCRYPT cmd = {};
  * lcbcrypto_FIELDSPEC field = {};
- * lcb_error_t err;
+ * lcb_STATUS err;
  *
  * cmd.version = 0;
  * cmd.prefix = NULL;
@@ -250,7 +232,7 @@ LIBCOUCHBASE_API void lcbcrypto_unref(lcbcrypto_PROVIDER *provider);
  *
  * @committed
  */
-LIBCOUCHBASE_API lcb_error_t lcbcrypto_encrypt_fields(lcb_t instance, lcbcrypto_CMDENCRYPT *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE instance, lcbcrypto_CMDENCRYPT *cmd);
 
 /**
  * Decrypt all specified fields in the JSON encoded object.
@@ -268,7 +250,7 @@ LIBCOUCHBASE_API lcb_error_t lcbcrypto_encrypt_fields(lcb_t instance, lcbcrypto_
  * @code{.c}
  * lcbcrypto_CMDDECRYPT cmd = {};
  * lcbcrypto_FIELDSPEC field = {};
- * lcb_error_t err;
+ * lcb_STATUS err;
  *
  * cmd.version = 0;
  * cmd.prefix = NULL;
@@ -290,15 +272,8 @@ LIBCOUCHBASE_API lcb_error_t lcbcrypto_encrypt_fields(lcb_t instance, lcbcrypto_
  *
  * @committed
  */
-LIBCOUCHBASE_API lcb_error_t lcbcrypto_decrypt_fields(lcb_t instance, lcbcrypto_CMDDECRYPT *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE instance, lcbcrypto_CMDDECRYPT *cmd);
 /**@}*/
-
-/** @deprecated Use @ref lcbcrypto_encrypt_fields() */
-LCB_DEPR_API2(lcb_error_t lcbcrypto_encrypt_document(lcb_t instance, lcbcrypto_CMDENCRYPT *cmd),
-              "Use lcbcrypto_encrypt_fields");
-/** @deprecated Use @ref lcbcrypto_decrypt_fields() */
-LCB_DEPR_API2(lcb_error_t lcbcrypto_decrypt_document(lcb_t instance, lcbcrypto_CMDDECRYPT *cmd),
-              "Use lcbcrypto_decrypt_fields");
 
 #ifdef __cplusplus
 }

@@ -1,7 +1,9 @@
 #include "mctest.h"
 #include "mc/mcreq-flush-inl.h"
 
-class McFlush : public ::testing::Test {};
+class McFlush : public ::testing::Test
+{
+};
 
 struct MyCookie {
     int ncalled;
@@ -10,8 +12,7 @@ struct MyCookie {
 };
 
 extern "C" {
-static void
-buf_free_callback(mc_PIPELINE *, const void *cookie, void *kbuf, void *vbuf)
+static void buf_free_callback(mc_PIPELINE *, const void *cookie, void *kbuf, void *vbuf)
 {
     MyCookie *ck = (MyCookie *)cookie;
     EXPECT_TRUE(kbuf == ck->exp_kbuf);
@@ -104,7 +105,6 @@ TEST_F(McFlush, testFlushCopy)
     ASSERT_EQ(0, cookie.ncalled);
 }
 
-
 TEST_F(McFlush, testMultiFlush)
 {
     CQWrap cq;
@@ -112,8 +112,8 @@ TEST_F(McFlush, testMultiFlush)
     const int nitems = 10;
     MyCookie **cookies;
 
-    cookies = new MyCookie*[nitems];
-    PacketWrap **pws = new PacketWrap*[nitems];
+    cookies = new MyCookie *[nitems];
+    PacketWrap **pws = new PacketWrap *[nitems];
     cq.setBufFreeCallback(buf_free_callback);
 
     for (int ii = 0; ii < nitems; ii++) {

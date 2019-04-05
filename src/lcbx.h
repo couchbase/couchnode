@@ -1,0 +1,67 @@
+#pragma once
+#ifndef LCBX_H
+#define LCBX_H
+
+#include <libcouchbase/couchbase.h>
+
+enum lcbx_SDCMD {
+    LCBX_SDCMD_UNKNOWN = 0x00,
+    LCBX_SDCMD_GET = 0x01,
+    LCBX_SDCMD_EXISTS = 0x02,
+    LCBX_SDCMD_REPLACE = 0x03,
+    LCBX_SDCMD_DICT_ADD = 0x04,
+    LCBX_SDCMD_DICT_UPSERT = 0x05,
+    LCBX_SDCMD_ARRAY_ADD_FIRST = 0x06,
+    LCBX_SDCMD_ARRAY_ADD_LAST = 0x07,
+    LCBX_SDCMD_ARRAY_ADD_UNIQUE = 0x08,
+    LCBX_SDCMD_ARRAY_INSERT = 0x09,
+    LCBX_SDCMD_REMOVE = 0x0a,
+    LCBX_SDCMD_COUNTER = 0x0b,
+    LCBX_SDCMD_GET_COUNT = 0x0c,
+};
+
+enum lcbx_SDFLAG {
+    LCBX_SDFLAG_UPSERT_DOC = 1 << 1,
+    LCBX_SDFLAG_INSERT_DOC = 1 << 2,
+    LCBX_SDFLAG_ACCESS_DELETED = 1 << 3,
+};
+
+enum lcbx_VIEWFLAG {
+    LCBX_VIEWFLAG_INCLUDEDOCS = 1 << 1,
+};
+
+enum lcbx_N1QLFLAG {
+    LCBX_N1QLFLAG_PREPCACHE = 1 << 1,
+};
+
+lcb_STATUS lcbx_cmd_create(lcb_CMDGET **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDGETREPLICA **cmd, lcb_REPLICA_MODE mode);
+lcb_STATUS lcbx_cmd_create(lcb_CMDSTORE **cmd, lcb_STORE_OPERATION operation);
+lcb_STATUS lcbx_cmd_create(lcb_CMDREMOVE **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDTOUCH **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDUNLOCK **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDCOUNTER **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDSUBDOC **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_SUBDOCOPS **ops, size_t capacity);
+lcb_STATUS lcbx_cmd_create(lcb_CMDVIEW **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDN1QL **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDANALYTICS **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDFTS **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type);
+
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDGET *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDGETREPLICA *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDSTORE *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDREMOVE *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDTOUCH *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDUNLOCK *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDCOUNTER *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDSUBDOC *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_SUBDOCOPS *ops);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDVIEW *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDN1QL *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDANALYTICS *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDFTS *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDHTTP *cmd);
+
+#endif // LCBX_H

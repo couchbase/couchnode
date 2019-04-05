@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ using namespace lcb;
  */
 void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
     using namespace lcb::clconfig;
-    lcb_t instance = parent;
+    lcb_INSTANCE *instance = parent;
 
     if (event != CLCONFIG_EVENT_GOT_NEW_CONFIG) {
         if (event == CLCONFIG_EVENT_PROVIDERS_CYCLED) {
@@ -95,6 +95,18 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
                 instance->settings->bc_http_stream_time = -1;
                 instance->confmon->set_active(CLCONFIG_HTTP, true);
                 instance->confmon->set_active(CLCONFIG_CCCP, false);
+            }
+
+            if (LCBVB_CAPS(LCBT_VBCONFIG(instance)) & LCBVB_CAP_COLLECTIONS) {
+                LCBT_SETTING(parent, use_collections) = 1;
+            } else {
+                LCBT_SETTING(parent, use_collections) = 0;
+            }
+
+            if (LCBVB_CAPS(LCBT_VBCONFIG(instance)) & LCBVB_CAP_DURABLE_WRITE) {
+                LCBT_SETTING(parent, enable_durable_write) = 1;
+            } else {
+                LCBT_SETTING(parent, enable_durable_write) = 0;
             }
 
             /* infer bucket type using distribution and capabilities set */
@@ -161,12 +173,11 @@ void Bootstrap::timer_dispatch() {
 }
 
 
-void Bootstrap::initial_error(lcb_error_t err, const char *errinfo) {
+void Bootstrap::initial_error(lcb_STATUS err, const char *errinfo) {
     parent->last_error = parent->confmon->get_last_error();
     if (parent->last_error == LCB_SUCCESS) {
         parent->last_error = err;
     }
-    parent->callbacks.error(parent, parent->last_error, errinfo);
     lcb_log(LOGARGS(parent, ERR), "Failed to bootstrap client=%p. Error=%s, Message=%s", (void *)parent, lcb_strerror_short(parent->last_error), errinfo);
     tm.cancel();
 
@@ -176,7 +187,7 @@ void Bootstrap::initial_error(lcb_error_t err, const char *errinfo) {
     lcb_maybe_breakout(parent);
 }
 
-Bootstrap::Bootstrap(lcb_t instance)
+Bootstrap::Bootstrap(lcb_INSTANCE *instance)
     : parent(instance),
       tm(parent->iotable, this),
       tmpoll(parent->iotable, this),
@@ -186,7 +197,7 @@ Bootstrap::Bootstrap(lcb_t instance)
     parent->confmon->add_listener(this);
 }
 
-lcb_error_t Bootstrap::bootstrap(unsigned options) {
+lcb_STATUS Bootstrap::bootstrap(unsigned options) {
     hrtime_t now = gethrtime();
     if (parent->confmon->is_refreshing()) {
         return LCB_SUCCESS;
@@ -238,8 +249,8 @@ Bootstrap::~Bootstrap() {
 }
 
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_get_bootstrap_status(lcb_t instance)
+lcb_STATUS
+lcb_get_bootstrap_status(lcb_INSTANCE *instance)
 {
     if (instance->cur_configinfo) {
         return LCB_SUCCESS;
@@ -257,7 +268,7 @@ lcb_get_bootstrap_status(lcb_t instance)
 
 LIBCOUCHBASE_API
 void
-lcb_refresh_config(lcb_t instance)
+lcb_refresh_config(lcb_INSTANCE *instance)
 {
     instance->bootstrap(BS_REFRESH_ALWAYS);
 }

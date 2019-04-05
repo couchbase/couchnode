@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -32,32 +32,34 @@ using namespace lcb::io;
 #define EAI_SYSTEM 0
 #endif
 #define LOGARGS(conn, lvl) conn->settings, "connection", LCB_LOG_##lvl, __FILE__, __LINE__
-static const lcb_host_t *get_loghost(lcbio_SOCKET *s) {
+static const lcb_host_t *get_loghost(lcbio_SOCKET *s)
+{
     static lcb_host_t host = {"NOHOST", "NOPORT", 0};
-    if (!s) { return &host; }
-    if (!s->info) { return &host; }
+    if (!s) {
+        return &host;
+    }
+    if (!s->info) {
+        return &host;
+    }
     return &s->info->ep;
 }
 
 /** Format string arguments for %p%s:%s */
-#define CSLOGID(sock)                                           \
-    sock->settings->log_redaction ? LCB_LOG_SD_OTAG : "",       \
-        get_loghost(sock)->ipv6 ? "[" : "",                     \
-        get_loghost(sock)->host,                                \
-        get_loghost(sock)->ipv6 ? "]" : "",                     \
-        get_loghost(sock)->port,                                \
-        sock->settings->log_redaction ? LCB_LOG_SD_CTAG : "",   \
-        sock->id
+#define CSLOGID(sock)                                                                                                  \
+    sock->settings->log_redaction ? LCB_LOG_SD_OTAG : "", get_loghost(sock)->ipv6 ? "[" : "", get_loghost(sock)->host, \
+        get_loghost(sock)->ipv6 ? "]" : "", get_loghost(sock)->port,                                                   \
+        sock->settings->log_redaction ? LCB_LOG_SD_CTAG : "", sock->id
 #define CSLOGFMT "<" LCB_LOG_SPEC("%s%s%s:%s") "> (SOCK=%016" PRIx64 ") "
 
 #define LOGARGS_T(lvl) LOGARGS(this->sock, lvl)
 #define CSLOGID_T() CSLOGID(this->sock)
 
-namespace lcb {
-namespace io {
+namespace lcb
+{
+namespace io
+{
 struct Connstart : ConnectionRequest {
-    Connstart(lcbio_TABLE*, lcb_settings*, const lcb_host_t*,
-              uint32_t, lcbio_CONNDONE_cb, void*);
+    Connstart(lcbio_TABLE *, lcb_settings *, const lcb_host_t *, uint32_t, lcbio_CONNDONE_cb, void *);
 
     ~Connstart();
     void unwatch();
@@ -65,13 +67,11 @@ struct Connstart : ConnectionRequest {
     void cancel();
     void C_connect();
 
-    enum State {
-        CS_PENDING, CS_CANCELLED, CS_CONNECTED, CS_ERROR
-    };
+    enum State { CS_PENDING, CS_CANCELLED, CS_CONNECTED, CS_ERROR };
 
-    void state_signal(State next_state, lcb_error_t status);
+    void state_signal(State next_state, lcb_STATUS status);
     void notify_success();
-    void notify_error(lcb_error_t err);
+    void notify_error(lcb_STATUS err);
     bool ensure_sock();
     void clear_sock();
 
@@ -81,18 +81,19 @@ struct Connstart : ConnectionRequest {
     lcbio_SOCKET *sock;
     lcbio_OSERR syserr;
     void *event;
-    bool ev_active; /* whether the event pointer is active (Event only) */
+    bool ev_active;   /* whether the event pointer is active (Event only) */
     bool in_uhandler; /* Whether we're inside the user-defined handler */
     addrinfo *ai_root;
     addrinfo *ai;
     State state;
-    lcb_error_t last_error;
-    Timer<Connstart, &Connstart::handler> timer;
+    lcb_STATUS last_error;
+    Timer< Connstart, &Connstart::handler > timer;
 };
-}
-}
+} // namespace io
+} // namespace lcb
 
-void Connstart::unwatch() {
+void Connstart::unwatch()
+{
     if (sock && ev_active) {
         lcb_assert(sock->u.fd != INVALID_SOCKET);
         sock->io->E_event_cancel(sock->u.fd, event);
@@ -100,8 +101,9 @@ void Connstart::unwatch() {
     }
 }
 
-static void try_enable_sockopt(lcbio_SOCKET *sock, int cntl) {
-    lcb_error_t rv = lcbio_enable_sockopt(sock, cntl);
+static void try_enable_sockopt(lcbio_SOCKET *sock, int cntl)
+{
+    lcb_STATUS rv = lcbio_enable_sockopt(sock, cntl);
     if (rv == LCB_SUCCESS) {
         lcb_log(LOGARGS(sock, DEBUG), CSLOGFMT "Successfully set %s", CSLOGID(sock), lcbio_strsockopt(cntl));
     } else {
@@ -114,8 +116,9 @@ static void try_enable_sockopt(lcbio_SOCKET *sock, int cntl) {
  * the user supplied callback with the relevant status (if it has not been
  * cancelled) and then free the CONNSTART object.
  */
-void Connstart::handler() {
-    lcb_error_t err;
+void Connstart::handler()
+{
+    lcb_STATUS err;
 
     if (sock && event) {
         unwatch();
@@ -153,7 +156,8 @@ void Connstart::handler() {
                 try_enable_sockopt(sock, LCB_IO_CNTL_TCP_KEEPALIVE);
             }
         } else {
-            lcb_log(LOGARGS_T(ERR), CSLOGFMT "Failed to establish connection: %s, os errno=%u", CSLOGID_T(), lcb_strerror_short(err), syserr);
+            lcb_log(LOGARGS_T(ERR), CSLOGFMT "Failed to establish connection: %s, os errno=%u", CSLOGID_T(),
+                    lcb_strerror_short(err), syserr);
         }
     }
 
@@ -162,11 +166,12 @@ void Connstart::handler() {
     user_handler(err == LCB_SUCCESS ? sock : NULL, user_arg, err, syserr);
     in_uhandler = false;
 
-    GT_DTOR:
+GT_DTOR:
     delete this;
 }
 
-Connstart::~Connstart() {
+Connstart::~Connstart()
+{
     timer.release();
     if (sock) {
         lcbio_unref(sock);
@@ -176,12 +181,12 @@ Connstart::~Connstart() {
     }
 }
 
-void Connstart::state_signal(State next_state, lcb_error_t err) {
+void Connstart::state_signal(State next_state, lcb_STATUS err)
+{
     if (state != CS_PENDING) {
         /** State already set */
         return;
     }
-
 
     if (state == CS_CONNECTED) {
         /* clear last errors if we're successful */
@@ -195,20 +200,24 @@ void Connstart::state_signal(State next_state, lcb_error_t err) {
     timer.signal();
 }
 
-void Connstart::notify_success() {
+void Connstart::notify_success()
+{
     state_signal(CS_CONNECTED, LCB_SUCCESS);
 }
 
-void Connstart::notify_error(lcb_error_t err) {
+void Connstart::notify_error(lcb_STATUS err)
+{
     state_signal(CS_ERROR, err);
 }
 
 /** Cancels and mutes any pending event */
-void lcbio_connect_cancel(lcbio_pCONNSTART cs) {
+void lcbio_connect_cancel(lcbio_pCONNSTART cs)
+{
     cs->cancel();
 }
 
-void Connstart::cancel() {
+void Connstart::cancel()
+{
     if (in_uhandler) {
         /* already inside user-defined handler */
         return;
@@ -217,8 +226,8 @@ void Connstart::cancel() {
     handler();
 }
 
-
-bool Connstart::ensure_sock() {
+bool Connstart::ensure_sock()
+{
     lcbio_TABLE *io = sock->io;
     int errtmp = 0;
 
@@ -247,7 +256,7 @@ bool Connstart::ensure_sock() {
         while (sock->u.sd == NULL && ai != NULL) {
             sock->u.sd = lcbio_C_ai2sock(io, &ai, &errtmp);
             if (sock->u.sd) {
-                sock->u.sd->lcbconn = const_cast<lcbio_SOCKET*>(sock);
+                sock->u.sd->lcbconn = const_cast< lcbio_SOCKET * >(sock);
                 sock->u.sd->parent = IOT_ARG(io);
                 return true;
             }
@@ -261,7 +270,8 @@ bool Connstart::ensure_sock() {
     return true;
 }
 
-void Connstart::clear_sock() {
+void Connstart::clear_sock()
+{
     lcbio_TABLE *iot = sock->io;
     if (ai) {
         ai = ai->ai_next;
@@ -283,10 +293,9 @@ void Connstart::clear_sock() {
     }
 }
 
-static void
-E_conncb(lcb_socket_t, short events, void *arg)
+static void E_conncb(lcb_socket_t, short events, void *arg)
 {
-    Connstart *cs = reinterpret_cast<Connstart*>(arg);
+    Connstart *cs = reinterpret_cast< Connstart * >(arg);
     lcbio_SOCKET *s = cs->sock;
     lcbio_TABLE *io = s->io;
     int retry_once = 0;
@@ -294,7 +303,7 @@ E_conncb(lcb_socket_t, short events, void *arg)
     int rv = 0;
     addrinfo *ai = NULL;
 
-    GT_NEXTSOCK:
+GT_NEXTSOCK:
     if (!cs->ensure_sock()) {
         cs->notify_error(LCB_CONNECT_ERROR);
         return;
@@ -312,7 +321,7 @@ E_conncb(lcb_socket_t, short events, void *arg)
     } else {
         ai = cs->ai;
 
-        GT_CONNECT:
+    GT_CONNECT:
         rv = io->E_connect(s->u.fd, ai->ai_addr, ai->ai_addrlen);
         if (rv == 0) {
             cs->unwatch();
@@ -324,45 +333,44 @@ E_conncb(lcb_socket_t, short events, void *arg)
     connstatus = lcbio_mkcserr(io->get_errno());
     lcbio_mksyserr(io->get_errno(), &cs->syserr);
 
-
     switch (connstatus) {
 
-    case LCBIO_CSERR_INTR:
-        goto GT_CONNECT;
-
-    case LCBIO_CSERR_CONNECTED:
-        cs->unwatch();
-        cs->notify_success();
-        return;
-
-    case LCBIO_CSERR_BUSY:
-        lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Scheduling I/O watcher for asynchronous connection completion.", CSLOGID(s));
-        io->E_event_watch(s->u.fd, cs->event, LCB_WRITE_EVENT, cs, E_conncb);
-        cs->ev_active = 1;
-        return;
-
-    case LCBIO_CSERR_EINVAL:
-        if (!retry_once) {
-            retry_once = 1;
+        case LCBIO_CSERR_INTR:
             goto GT_CONNECT;
-        }
-        /* fallthrough */
 
-    case LCBIO_CSERR_EFAIL:
-    default:
-        /* close the current socket and try again */
-        lcb_log(LOGARGS(s, TRACE), CSLOGFMT "connect() failed. errno=%d [%s]", CSLOGID(s), IOT_ERRNO(io), strerror(IOT_ERRNO(io)));
-        cs->clear_sock();
-        goto GT_NEXTSOCK;
+        case LCBIO_CSERR_CONNECTED:
+            cs->unwatch();
+            cs->notify_success();
+            return;
+
+        case LCBIO_CSERR_BUSY:
+            lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Scheduling I/O watcher for asynchronous connection completion.",
+                    CSLOGID(s));
+            io->E_event_watch(s->u.fd, cs->event, LCB_WRITE_EVENT, cs, E_conncb);
+            cs->ev_active = 1;
+            return;
+
+        case LCBIO_CSERR_EINVAL:
+            if (!retry_once) {
+                retry_once = 1;
+                goto GT_CONNECT;
+            }
+            /* fallthrough */
+
+        case LCBIO_CSERR_EFAIL:
+        default:
+            /* close the current socket and try again */
+            lcb_log(LOGARGS(s, TRACE), CSLOGFMT "connect() failed. errno=%d [%s]", CSLOGID(s), IOT_ERRNO(io),
+                    strerror(IOT_ERRNO(io)));
+            cs->clear_sock();
+            goto GT_NEXTSOCK;
     }
 }
 
-
-static void
-C_conncb(lcb_sockdata_t *sock, int status)
+static void C_conncb(lcb_sockdata_t *sock, int status)
 {
-    lcbio_SOCKET *s = reinterpret_cast<lcbio_SOCKET*>(sock->lcbconn);
-    Connstart *cs = reinterpret_cast<Connstart*>(s->ctx);
+    lcbio_SOCKET *s = reinterpret_cast< lcbio_SOCKET * >(sock->lcbconn);
+    Connstart *cs = reinterpret_cast< Connstart * >(s->ctx);
 
     lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Received completion handler. Status=%d. errno=%d [%s]", CSLOGID(s), status,
             IOT_ERRNO(s->io), strerror(IOT_ERRNO(s->io)));
@@ -391,14 +399,14 @@ void Connstart::C_connect()
     lcbio_CSERR status;
     lcbio_TABLE *io = sock->io;
 
-    GT_NEXTSOCK:
+GT_NEXTSOCK:
     if (!ensure_sock()) {
         lcbio_mksyserr(IOT_ERRNO(io), &syserr);
         notify_error(LCB_CONNECT_ERROR);
         return;
     }
 
-    GT_CONNECT:
+GT_CONNECT:
     rv = io->C_connect(sock->u.sd, ai->ai_addr, ai->ai_addrlen, C_conncb);
     if (rv == 0) {
         lcbio_ref(sock);
@@ -409,49 +417,46 @@ void Connstart::C_connect()
     status = lcbio_mkcserr(io->get_errno());
     switch (status) {
 
-    case LCBIO_CSERR_INTR:
-        goto GT_CONNECT;
-
-    case LCBIO_CSERR_CONNECTED:
-        notify_success();
-        return;
-
-    case LCBIO_CSERR_BUSY:
-        return;
-
-    case LCBIO_CSERR_EINVAL:
-        if (!retry_once) {
-            retry_once = 1;
+        case LCBIO_CSERR_INTR:
             goto GT_CONNECT;
-        }
-        /* fallthrough */
 
-    case LCBIO_CSERR_EFAIL:
-    default:
-        clear_sock();
-        goto GT_NEXTSOCK;
+        case LCBIO_CSERR_CONNECTED:
+            notify_success();
+            return;
+
+        case LCBIO_CSERR_BUSY:
+            return;
+
+        case LCBIO_CSERR_EINVAL:
+            if (!retry_once) {
+                retry_once = 1;
+                goto GT_CONNECT;
+            }
+            /* fallthrough */
+
+        case LCBIO_CSERR_EFAIL:
+        default:
+            clear_sock();
+            goto GT_NEXTSOCK;
     }
 }
 
-ConnectionRequest *
-lcbio_connect(lcbio_TABLE *iot, lcb_settings *settings, const lcb_host_t *dest,
-              uint32_t timeout, lcbio_CONNDONE_cb handler, void *arg)
+ConnectionRequest *lcbio_connect(lcbio_TABLE *iot, lcb_settings *settings, const lcb_host_t *dest, uint32_t timeout,
+                                 lcbio_CONNDONE_cb handler, void *arg)
 {
     return new Connstart(iot, settings, dest, timeout, handler, arg);
 }
 
-Connstart::Connstart(lcbio_TABLE* iot_, lcb_settings* settings_,
-                    const lcb_host_t *dest, uint32_t timeout,
-                    lcbio_CONNDONE_cb handler_, void *arg)
-    : user_handler(handler_), user_arg(arg), sock(NULL), syserr(0),
-      event(NULL), ev_active(false), in_uhandler(false),
-      ai_root(NULL), ai(NULL), state(CS_PENDING), last_error(LCB_SUCCESS),
-      timer(iot_, this) {
+Connstart::Connstart(lcbio_TABLE *iot_, lcb_settings *settings_, const lcb_host_t *dest, uint32_t timeout,
+                     lcbio_CONNDONE_cb handler_, void *arg)
+    : user_handler(handler_), user_arg(arg), sock(NULL), syserr(0), event(NULL), ev_active(false), in_uhandler(false),
+      ai_root(NULL), ai(NULL), state(CS_PENDING), last_error(LCB_SUCCESS), timer(iot_, this)
+{
 
     addrinfo hints;
     int rv;
 
-    sock = reinterpret_cast<lcbio_SOCKET*>(calloc(1, sizeof(*sock)));
+    sock = reinterpret_cast< lcbio_SOCKET * >(calloc(1, sizeof(*sock)));
 
     /** Initialize the socket first */
     sock->io = iot_;
@@ -459,7 +464,7 @@ Connstart::Connstart(lcbio_TABLE* iot_, lcb_settings* settings_,
     sock->ctx = this;
     sock->refcount = 1;
     sock->id = lcb_next_rand64();
-    sock->info = reinterpret_cast<lcbio_CONNINFO*>(calloc(1, sizeof(*sock->info)));
+    sock->info = reinterpret_cast< lcbio_CONNINFO * >(calloc(1, sizeof(*sock->info)));
     sock->info->ep = *dest;
     lcbio_table_ref(sock->io);
     lcb_settings_ref(sock->settings);
@@ -501,17 +506,14 @@ Connstart::Connstart(lcbio_TABLE* iot_, lcb_settings* settings_,
     }
 }
 
-ConnectionRequest *
-lcbio_connect_hl(lcbio_TABLE *iot, lcb_settings *settings,
-                 lcb::Hostlist* hl, int rollover, uint32_t timeout,
-                 lcbio_CONNDONE_cb handler, void *arg)
+ConnectionRequest *lcbio_connect_hl(lcbio_TABLE *iot, lcb_settings *settings, lcb::Hostlist *hl, int rollover,
+                                    uint32_t timeout, lcbio_CONNDONE_cb handler, void *arg)
 {
     const lcb_host_t *cur;
     unsigned ii = 0, hlmax = hl->size();
 
-    while ( (cur = hl->next(rollover)) && ii++ < hlmax) {
-        ConnectionRequest *ret = lcbio_connect(
-                iot, settings, cur, timeout, handler, arg);
+    while ((cur = hl->next(rollover)) && ii++ < hlmax) {
+        ConnectionRequest *ret = lcbio_connect(iot, settings, cur, timeout, handler, arg);
         if (ret) {
             return ret;
         }
@@ -520,11 +522,10 @@ lcbio_connect_hl(lcbio_TABLE *iot, lcb_settings *settings,
     return NULL;
 }
 
-lcbio_SOCKET *
-lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd)
+lcbio_SOCKET *lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd)
 {
-    lcbio_SOCKET *ret = reinterpret_cast<lcbio_SOCKET*>(calloc(1, sizeof(*ret)));
-    lcbio_CONNDONE_cb *ci = reinterpret_cast<lcbio_CONNDONE_cb*>(calloc(1, sizeof(*ci)));
+    lcbio_SOCKET *ret = reinterpret_cast< lcbio_SOCKET * >(calloc(1, sizeof(*ret)));
+    lcbio_CONNDONE_cb *ci = reinterpret_cast< lcbio_CONNDONE_cb * >(calloc(1, sizeof(*ci)));
 
     if (ret == NULL || ci == NULL) {
         free(ret);
@@ -547,8 +548,7 @@ lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd)
     return ret;
 }
 
-void
-lcbio_shutdown(lcbio_SOCKET *s)
+void lcbio_shutdown(lcbio_SOCKET *s)
 {
     lcbio_TABLE *io = s->io;
 
@@ -566,8 +566,7 @@ lcbio_shutdown(lcbio_SOCKET *s)
     }
 }
 
-void
-lcbio__destroy(lcbio_SOCKET *s)
+void lcbio__destroy(lcbio_SOCKET *s)
 {
     lcbio_shutdown(s);
     if (s->info) {
@@ -578,26 +577,26 @@ lcbio__destroy(lcbio_SOCKET *s)
     free(s);
 }
 
-const char * lcbio_svcstr(lcbio_SERVICE service)
+const char *lcbio_svcstr(lcbio_SERVICE service)
 {
     switch (service) {
-    case LCBIO_SERVICE_CFG:
-        return "config";
-    case LCBIO_SERVICE_KV:
-        return "kv";
-    case LCBIO_SERVICE_MGMT:
-        return "mgmt";
-    case LCBIO_SERVICE_VIEW:
-        return "view";
-    case LCBIO_SERVICE_N1QL:
-        return "n1ql";
-    case LCBIO_SERVICE_FTS:
-        return "fts";
-    case LCBIO_SERVICE_CBAS:
-        return "cbas";
-    case LCBIO_SERVICE_UNSPEC:
-        /* fallthrough */
-    default:
-        return "unspec";
+        case LCBIO_SERVICE_CFG:
+            return "config";
+        case LCBIO_SERVICE_KV:
+            return "kv";
+        case LCBIO_SERVICE_MGMT:
+            return "mgmt";
+        case LCBIO_SERVICE_VIEW:
+            return "view";
+        case LCBIO_SERVICE_N1QL:
+            return "n1ql";
+        case LCBIO_SERVICE_FTS:
+            return "fts";
+        case LCBIO_SERVICE_CBAS:
+            return "cbas";
+        case LCBIO_SERVICE_UNSPEC:
+            /* fallthrough */
+        default:
+            return "unspec";
     }
 }

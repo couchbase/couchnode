@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  *   limitations under the License.
  */
 
-#if !defined(LCB_TRACING_H) && defined(LCB_TRACING)
+#ifndef LCB_TRACING_H
 #define LCB_TRACING_H
 
 /**
@@ -74,7 +74,7 @@ typedef struct lcbtrace_TRACER {
  *
  * @committed
  */
-LIBCOUCHBASE_API lcbtrace_TRACER *lcb_get_tracer(lcb_t instance);
+LIBCOUCHBASE_API lcbtrace_TRACER *lcb_get_tracer(lcb_INSTANCE *instance);
 
 /**
  * Set current tracer for the connection.
@@ -84,7 +84,7 @@ LIBCOUCHBASE_API lcbtrace_TRACER *lcb_get_tracer(lcb_t instance);
  *
  * @committed
  */
-LIBCOUCHBASE_API void lcb_set_tracer(lcb_t instance, lcbtrace_TRACER *tracer);
+LIBCOUCHBASE_API void lcb_set_tracer(lcb_INSTANCE *instance, lcbtrace_TRACER *tracer);
 
 /**
  * Create default libcouchbase tracer instance.
@@ -95,7 +95,7 @@ LIBCOUCHBASE_API void lcb_set_tracer(lcb_t instance, lcbtrace_TRACER *tracer);
  *
  * @committed
  */
-LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_t instance, lcb_U64 flags);
+LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_INSTANCE *instance, lcb_U64 flags);
 
 /**
  * Destroy tracer object.
@@ -219,12 +219,12 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_OP_TOUCH "touch"
 #define LCBTRACE_OP_UNLOCK "unlock"
 #define LCBTRACE_OP_UPSERT "upsert"
-#define LCBTRACE_OP_UPSERT "upsert"
 
 #define LCBTRACE_OP_STORE2NAME(code)                                                                                   \
-    (code == LCB_ADD)                                                                                                  \
+    (code == LCB_STORE_ADD)                                                                                            \
         ? LCBTRACE_OP_ADD                                                                                              \
-        : (code == LCB_PREPEND) ? LCBTRACE_OP_PREPEND : (code == LCB_APPEND) ? LCBTRACE_OP_APPEND : LCBTRACE_OP_UPSERT
+        : (code == LCB_STORE_PREPEND) ? LCBTRACE_OP_PREPEND                                                            \
+                                      : (code == LCB_STORE_APPEND) ? LCBTRACE_OP_APPEND : LCBTRACE_OP_UPSERT
 
 #define LCBTRACE_TAG_DB_TYPE "db.type"
 #define LCBTRACE_TAG_SPAN_KIND "span.kind"
@@ -316,7 +316,7 @@ lcbtrace_SPAN *lcbtrace_span_get_parent(lcbtrace_SPAN *span);
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char **value, size_t *nvalue);
+lcb_STATUS lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char **value, size_t *nvalue);
 
 /**
  * Get value of the integer tag of the span.
@@ -329,7 +329,7 @@ lcb_error_t lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, cha
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, const char *name, lcb_U64 *value);
+lcb_STATUS lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, const char *name, lcb_U64 *value);
 
 /**
  * Get value of the double tag of the span.
@@ -342,7 +342,7 @@ lcb_error_t lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, const char *name, 
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, const char *name, double *value);
+lcb_STATUS lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, const char *name, double *value);
 
 /**
  * Get value of the boolean tag of the span.
@@ -355,7 +355,7 @@ lcb_error_t lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, const char *name, 
  * @committed
  */
 LIBCOUCHBASE_API
-lcb_error_t lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, const char *name, int *value);
+lcb_STATUS lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, const char *name, int *value);
 
 /**
  * Add string tag to span.
@@ -415,8 +415,7 @@ void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value
  */
 #define LCB_CMD_SET_TRACESPAN(cmd, span)                                                                               \
     do {                                                                                                               \
-        (cmd)->_hashkey.type = LCB_KV_TRACESPAN;                                                                       \
-        (cmd)->_hashkey.contig.bytes = span;                                                                           \
+        (cmd)->pspan = span;                                                                                           \
     } while (0);
 
 /**

@@ -21,7 +21,7 @@
 #include <netinet/in.h>
 #include <resolv.h>
 
-lcb_error_t
+lcb_STATUS
 lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
 {
     ns_msg msg;
@@ -92,7 +92,7 @@ lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
 #include <windns.h>
 #define CAN_SRV_LOOKUP
 /* Implement via DnsQuery() */
-lcb_error_t
+lcb_STATUS
 lcb::dnssrv_query(const char *addr, Hostlist& hs)
 {
     DNS_STATUS status;
@@ -117,7 +117,7 @@ lcb::dnssrv_query(const char *addr, Hostlist& hs)
 
 
 #ifndef CAN_SRV_LOOKUP
-lcb_error_t lcb::dnssrv_query(const char *, Hostlist&) {
+lcb_STATUS lcb::dnssrv_query(const char *, Hostlist&) {
     return LCB_CLIENT_FEATURE_UNAVAILABLE;
 }
 #endif
@@ -126,7 +126,7 @@ lcb_error_t lcb::dnssrv_query(const char *, Hostlist&) {
 #define SVCNAME_SSL "_couchbases._tcp."
 
 lcb::Hostlist*
-lcb::dnssrv_getbslist(const char *addr, bool is_ssl, lcb_error_t& errp) {
+lcb::dnssrv_getbslist(const char *addr, bool is_ssl, lcb_STATUS& errp) {
     std::string ss;
     Hostlist *ret = new Hostlist();
     ss.append(is_ssl ? SVCNAME_SSL : SVCNAME_PLAIN);

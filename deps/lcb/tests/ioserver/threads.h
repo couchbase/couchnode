@@ -6,18 +6,20 @@
 #include <pthread.h>
 #endif
 
-class Thread {
-public:
+class Thread
+{
+  public:
     typedef void (*StartFunc)(void *);
     Thread(StartFunc, void *);
     ~Thread();
     void close();
     void join();
-    void doRun() {
+    void doRun()
+    {
         fn(fnparam);
     }
 
-private:
+  private:
     StartFunc fn;
     void *fnparam;
     bool initialized;
@@ -29,8 +31,9 @@ private:
 };
 
 class Condvar;
-class Mutex {
-public:
+class Mutex
+{
+  public:
     Mutex();
     ~Mutex();
     void lock();
@@ -38,7 +41,7 @@ public:
     bool tryLock();
     void close();
 
-private:
+  private:
     friend class Condvar;
     bool initialized;
 #ifdef _WIN32
@@ -48,15 +51,16 @@ private:
 #endif
 };
 
-class Condvar {
-public:
+class Condvar
+{
+  public:
     Condvar();
     ~Condvar();
     void signal();
-    void wait(Mutex&);
+    void wait(Mutex &);
     void close();
 
-private:
+  private:
     bool initialized;
 #ifdef _WIN32
     CONDITION_VARIABLE cv;

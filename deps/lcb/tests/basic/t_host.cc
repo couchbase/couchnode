@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ static bool hostEquals(const lcb_host_t &host, const char *addr, const char *por
 TEST_F(Hostlist, testParseBasic)
 {
     lcb_host_t curhost = {0};
-    lcb_error_t err;
+    lcb_STATUS err;
 
     err = lcb_host_parsez(&curhost, "1.2.3.4", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -73,7 +73,6 @@ TEST_F(Hostlist, testParseBasic)
     ASSERT_TRUE(hostEquals(curhost, "::1", "8091"));
 }
 
-
 TEST_F(Hostlist, testEquals)
 {
     lcb_host_t host_a = {0}, host_b = {0};
@@ -86,7 +85,6 @@ TEST_F(Hostlist, testEquals)
     strcpy(host_a.host, "bar.com");
     ASSERT_EQ(0, lcb_host_equals(&host_a, &host_b));
 
-
     strcpy(host_a.host, "foo.com");
     strcpy(host_a.port, "44444");
     ASSERT_EQ(0, lcb_host_equals(&host_a, &host_b));
@@ -96,30 +94,30 @@ TEST_F(Hostlist, testParseList)
 {
     lcb::Hostlist hosts;
 
-    lcb_error_t err;
-    err = hosts.add("1.1.1.1",  8091);
+    lcb_STATUS err;
+    err = hosts.add("1.1.1.1", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ(1, hosts.size());
     ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
 
     hosts.clear();
-    err = hosts.add("1.1.1.1;",  8091);
+    err = hosts.add("1.1.1.1;", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ(1, hosts.size());
     ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
 
     hosts.clear();
-    err = hosts.add(";",  8091);
+    err = hosts.add(";", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ(0, hosts.size());
 
     hosts.clear();
-    err = hosts.add(";;;;",  8091);
+    err = hosts.add(";;;;", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ(0, hosts.size());
 
     hosts.clear();
-    err = hosts.add("1.1.1.1;2.2.2.2",  8091);
+    err = hosts.add("1.1.1.1;2.2.2.2", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ(2, hosts.size());
     ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
@@ -139,9 +137,8 @@ TEST_F(Hostlist, testParseList)
     ASSERT_EQ(1, hosts.size());
     ASSERT_TRUE(hosts.exists("1.1.1.1:8091"));
 
-
     hosts.clear();
-    err = hosts.add("1.1.1.1:9000;1.1.1.1:9001;1.1.1.1:9002",  8091);
+    err = hosts.add("1.1.1.1:9000;1.1.1.1:9001;1.1.1.1:9002", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ(3, hosts.size());
     ASSERT_TRUE(hosts.exists("1.1.1.1:9000"));

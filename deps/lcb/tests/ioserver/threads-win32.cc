@@ -4,12 +4,10 @@
 #include <process.h>
 #include "threads.h"
 
-extern "C"
+extern "C" {
+unsigned int __stdcall startfunc(void *param)
 {
-unsigned int __stdcall
-startfunc(void * param)
-{
-    Thread *thr = reinterpret_cast<Thread *>(param);
+    Thread *thr = reinterpret_cast< Thread * >(param);
     thr->doRun();
     return 0;
 }
@@ -26,14 +24,12 @@ Thread::Thread(StartFunc thrfn, void *param)
     initialized = true;
 }
 
-void
-Thread::join()
+void Thread::join()
 {
     WaitForSingleObject(hThread, INFINITE);
 }
 
-void
-Thread::close()
+void Thread::close()
 {
     if (initialized) {
         join();
@@ -58,8 +54,7 @@ Mutex::~Mutex()
     close();
 }
 
-void
-Mutex::close()
+void Mutex::close()
 {
     if (initialized) {
         DeleteCriticalSection(&cs);
@@ -67,24 +62,20 @@ Mutex::close()
     }
 }
 
-void
-Mutex::lock()
+void Mutex::lock()
 {
     EnterCriticalSection(&cs);
 }
 
-bool
-Mutex::tryLock()
+bool Mutex::tryLock()
 {
     return TryEnterCriticalSection(&cs) == TRUE;
 }
 
-void
-Mutex::unlock()
+void Mutex::unlock()
 {
     LeaveCriticalSection(&cs);
 }
-
 
 Condvar::Condvar()
 {
@@ -92,8 +83,7 @@ Condvar::Condvar()
     initialized = true;
 }
 
-void
-Condvar::close()
+void Condvar::close()
 {
     initialized = false;
 }
@@ -103,14 +93,12 @@ Condvar::~Condvar()
     close();
 }
 
-void
-Condvar::signal()
+void Condvar::signal()
 {
     WakeConditionVariable(&cv);
 }
 
-void
-Condvar::wait(Mutex& mutex)
+void Condvar::wait(Mutex &mutex)
 {
     SleepConditionVariableCS(&cv, &mutex.cs, INFINITE);
 }

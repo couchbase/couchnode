@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@
 
 LIBCOUCHBASE_API
 void
-lcb_dump(lcb_t instance, FILE *fp, lcb_U32 flags)
+lcb_dump(lcb_INSTANCE *instance, FILE *fp, lcb_U32 flags)
 {
     unsigned ii;
 
     if (!fp) {
         fp = stderr;
     }
-    fprintf(fp, "Dumping state for lcb_t=%p\n", (void*)instance);
+    fprintf(fp, "Dumping state for lcb_INSTANCE=%p\n", (void*)instance);
     if (instance == NULL) {
         return;
     }

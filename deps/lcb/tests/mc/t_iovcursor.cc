@@ -9,8 +9,8 @@ class McIOVC : public ::testing::Test
 TEST_F(McIOVC, testPeekCopy)
 {
     nb_IOV iov;
-    iov.iov_base = (void*)"ABCDEF";
-    iov.iov_len = strlen((const char*)iov.iov_base);
+    iov.iov_base = (void *)"ABCDEF";
+    iov.iov_len = strlen((const char *)iov.iov_base);
     mc_IOVINFO cursor;
     mc_IOVCURSOR *mincur = &cursor.c;
     mc_iovinfo_init(&cursor, &iov, 1);
@@ -21,7 +21,7 @@ TEST_F(McIOVC, testPeekCopy)
     ASSERT_EQ(1, mincur->niov);
     ASSERT_EQ(&iov, mincur->iov);
 
-    char buf[256] = { 0 };
+    char buf[256] = {0};
     // test basic peek
     iovcursor_peek(mincur, buf, 3, 0);
     ASSERT_STREQ("ABC", buf);
@@ -38,11 +38,11 @@ TEST_F(McIOVC, testPeekCopy)
 TEST_F(McIOVC, testPeekEx)
 {
     nb_IOV iov[3];
-    iov[0].iov_base = (void*)"ABC";
+    iov[0].iov_base = (void *)"ABC";
     iov[0].iov_len = 3;
-    iov[1].iov_base = (void*)"DEF";
+    iov[1].iov_base = (void *)"DEF";
     iov[1].iov_len = 3;
-    iov[2].iov_base = (void*)"GHI";
+    iov[2].iov_base = (void *)"GHI";
     iov[2].iov_len = 3;
 
     iovcursor_STATUS status;
@@ -51,7 +51,7 @@ TEST_F(McIOVC, testPeekEx)
     mc_iovinfo_init(&cursor, iov, 3);
 
     const char *contigptr;
-    char cptgt[256] = { 0 };
+    char cptgt[256] = {0};
 
     // Simple case
     status = iovcursor_peek_ex(mincur, cptgt, NULL, 9, 0);
@@ -88,11 +88,11 @@ TEST_F(McIOVC, testPeekEx)
 TEST_F(McIOVC, testAdvCopy)
 {
     nb_IOV iov[3];
-    iov[0].iov_base = (void*)"ABC";
+    iov[0].iov_base = (void *)"ABC";
     iov[0].iov_len = 3;
-    iov[1].iov_base = (void*)"DEF";
+    iov[1].iov_base = (void *)"DEF";
     iov[1].iov_len = 3;
-    iov[2].iov_base = (void*)"GHI";
+    iov[2].iov_base = (void *)"GHI";
     iov[2].iov_len = 3;
     mc_IOVINFO cursor;
     mc_IOVCURSOR *mincur = &cursor.c;
@@ -132,13 +132,13 @@ TEST_F(McIOVC, testAdvIovalloc)
     unsigned niov;
 
     nb_IOV iov[5];
-    iov[0].iov_base = (void*)"ABC";
+    iov[0].iov_base = (void *)"ABC";
     iov[0].iov_len = 3;
 
-    iov[1].iov_base = (void*)"DEF";
+    iov[1].iov_base = (void *)"DEF";
     iov[1].iov_len = 3;
 
-    iov[2].iov_base = (void*)"GHI";
+    iov[2].iov_base = (void *)"GHI";
     iov[2].iov_len = 3;
 
     iov[3].iov_base = (void *)"JKL";
@@ -151,7 +151,7 @@ TEST_F(McIOVC, testAdvIovalloc)
     mc_IOVCURSOR *mincur = &cursor.c;
     mc_iovinfo_init(&cursor, iov, 5);
 
-    char tgt[256] = { 0 };
+    char tgt[256] = {0};
     // Copy the first 4 fragments
     iovcursor_adv_copy(mincur, tgt, 4);
     ASSERT_STREQ("ABCD", tgt);

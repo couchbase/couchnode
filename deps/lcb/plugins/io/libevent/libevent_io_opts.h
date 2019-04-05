@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2012 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -45,19 +45,19 @@
 extern "C" {
 #endif
 
-    /**
-     * Create an instance of an event handler that utilize libevent for
-     * event notification.
-     *
-     * @param version the API version to use
-     * @param base the event base (struct event_base *) to hook use (please
-     *             note that you shouldn't reference the event base from
-     *             multiple threads)
-     * @param io a pointer to a newly created and initialized event handler
-     * @return status of the operation
-     */
-    LIBCOUCHBASE_API
-    lcb_error_t lcb_create_libevent_io_opts(int version, lcb_io_opt_t *io, void *base);
+/**
+ * Create an instance of an event handler that utilize libevent for
+ * event notification.
+ *
+ * @param version the API version to use
+ * @param base the event base (struct event_base *) to hook use (please
+ *             note that you shouldn't reference the event base from
+ *             multiple threads)
+ * @param io a pointer to a newly created and initialized event handler
+ * @return status of the operation
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcb_create_libevent_io_opts(int version, lcb_io_opt_t *io, void *base);
 
 #ifdef __cplusplus
 }

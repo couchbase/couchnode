@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -84,14 +84,14 @@ int lcb_getenv_nonempty(const char *key, char *buf, lcb_size_t len)
 
 int lcb_getenv_boolean(const char *key)
 {
-    char value[4096] = { 0 };
+    char value[4096] = {0};
     int rv;
     rv = lcb_getenv_nonempty(key, value, sizeof(value));
     return rv != 0 && value[0] != '\0' && value[0] != '0';
 }
 
 #ifdef _WIN32
-lcb_error_t lcb_initialize_socket_subsystem(void)
+lcb_STATUS lcb_initialize_socket_subsystem(void)
 {
     static volatile LONG initialized = 0;
     WSADATA wsaData;
@@ -105,21 +105,20 @@ lcb_error_t lcb_initialize_socket_subsystem(void)
     return LCB_SUCCESS;
 }
 #else
-lcb_error_t lcb_initialize_socket_subsystem(void)
+lcb_STATUS lcb_initialize_socket_subsystem(void)
 {
     return LCB_SUCCESS;
 }
 #endif
 
-int
-lcb_getenv_nonempty_multi(char *buf, lcb_size_t nbuf, ...)
+int lcb_getenv_nonempty_multi(char *buf, lcb_size_t nbuf, ...)
 {
     va_list ap;
     const char *cur;
     int found = 0;
 
     va_start(ap, nbuf);
-    while ((cur = va_arg(ap, const char*))) {
+    while ((cur = va_arg(ap, const char *))) {
         if ((found = lcb_getenv_nonempty(cur, buf, nbuf))) {
             break;
         }
@@ -128,8 +127,7 @@ lcb_getenv_nonempty_multi(char *buf, lcb_size_t nbuf, ...)
     return found;
 }
 
-int
-lcb_getenv_boolean_multi(const char *key, ...)
+int lcb_getenv_boolean_multi(const char *key, ...)
 {
     va_list ap;
     const char *cur;
@@ -150,11 +148,10 @@ lcb_getenv_boolean_multi(const char *key, ...)
     return ret;
 }
 
-const char *
-lcb_get_tmpdir(void)
+const char *lcb_get_tmpdir(void)
 {
 #if defined(_WIN32)
-    static char buf[MAX_PATH+1] = { 0 };
+    static char buf[MAX_PATH + 1] = {0};
     if (buf[0]) {
         return buf;
     }
@@ -166,11 +163,11 @@ lcb_get_tmpdir(void)
         return ret;
     } else {
 
-    #if defined(_POSIX_VERSION)
+#if defined(_POSIX_VERSION)
         return "/tmp";
-    #else
+#else
         return ".";
-    #endif
+#endif
     }
 #endif
 }

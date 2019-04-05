@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@ typedef struct lcb_host_st {
 } lcb_host_t;
 
 #define LCB_HOST_FMT LCB_LOG_SPEC("%s%s%s:%s")
-#define LCB_HOST_ARG(__settings, __host)                                \
-    ((__settings && __settings->log_redaction) ? LCB_LOG_SD_OTAG : ""), \
-        ((__host)->ipv6 ? "[" : ""), (__host)->host, ((__host)->ipv6 ? "]" : ""), (__host)->port, \
-        ((__settings && __settings->log_redaction) ? LCB_LOG_SD_CTAG : "") \
+#define LCB_HOST_ARG(__settings, __host)                                                                               \
+    ((__settings && __settings->log_redaction) ? LCB_LOG_SD_OTAG : ""), ((__host)->ipv6 ? "[" : ""), (__host)->host,   \
+        ((__host)->ipv6 ? "]" : ""), (__host)->port,                                                                   \
+        ((__settings && __settings->log_redaction) ? LCB_LOG_SD_CTAG : "")
 
 /**
  * Structure representing a list of hosts. This has an internal iteration
@@ -47,7 +47,8 @@ typedef struct hostlist_st *hostlist_t;
 #else
 #include <vector>
 
-namespace lcb {
+namespace lcb
+{
 struct Hostlist {
     Hostlist() : ix(0) {}
     ~Hostlist();
@@ -62,11 +63,14 @@ struct Hostlist {
      *        port instead.
      * @return LCB_EINVAL if the host string is not valid
      */
-    lcb_error_t add(const char *s, long len, int deflport);
-    lcb_error_t add(const char *s, int deflport) { return add(s, -1, deflport); }
-    void add(const lcb_host_t&);
+    lcb_STATUS add(const char *s, long len, int deflport);
+    lcb_STATUS add(const char *s, int deflport)
+    {
+        return add(s, -1, deflport);
+    }
+    void add(const lcb_host_t &);
 
-    bool exists(const lcb_host_t&) const;
+    bool exists(const lcb_host_t &) const;
     bool exists(const char *hostport) const;
 
     /**
@@ -79,12 +83,23 @@ struct Hostlist {
     lcb_host_t *next(bool wrap);
     bool finished() const;
 
-    size_t size() const { return hosts.size(); }
-    bool empty() const { return hosts.empty(); }
-    Hostlist& assign(const Hostlist& other);
+    size_t size() const
+    {
+        return hosts.size();
+    }
+    bool empty() const
+    {
+        return hosts.empty();
+    }
+    Hostlist &assign(const Hostlist &other);
 
     /** Clears the hostlist */
-    void clear() { hosts.clear(); reset_strlist(); ix = 0; }
+    void clear()
+    {
+        hosts.clear();
+        reset_strlist();
+        ix = 0;
+    }
 
     /** Randomize the hostlist by shuffling the order. */
     void randomize();
@@ -100,23 +115,26 @@ struct Hostlist {
     /** Frees the current list of strings */
     void reset_strlist();
 
-    const char * const *get_strlist() {
+    const char *const *get_strlist()
+    {
         ensure_strlist();
         return &hoststrs[0];
     }
 
     unsigned int ix;
-    const lcb_host_t& operator[](size_t ix_) const { return hosts[ix_]; }
+    const lcb_host_t &operator[](size_t ix_) const
+    {
+        return hosts[ix_];
+    }
 
-    std::vector<lcb_host_t> hosts;
-    std::vector<const char *> hoststrs;
+    std::vector< lcb_host_t > hosts;
+    std::vector< const char * > hoststrs;
 };
-}
-typedef lcb::Hostlist* hostlist_t;
+} // namespace lcb
+typedef lcb::Hostlist *hostlist_t;
 
 struct hostlist_st : lcb::Hostlist {
-    hostlist_st() : Hostlist() {
-    }
+    hostlist_st() : Hostlist() {}
 };
 #endif
 
@@ -135,8 +153,7 @@ extern "C" {
  *
  * @return LCB_EINVAL if the host format is invalid
  */
-lcb_error_t
-lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport);
+lcb_STATUS lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport);
 
 /** Wrapper around lcb_host_parse() which accepts a NUL-terminated string
  * @param host the host to populate

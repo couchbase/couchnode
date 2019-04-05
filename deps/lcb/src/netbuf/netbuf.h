@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ typedef struct {
     nb_SIZE size;
 } nb_SPAN;
 
-#define NETBUF_INVALID_OFFSET (nb_SIZE)-1
+#define NETBUF_INVALID_OFFSET (nb_SIZE) - 1
 
 /**
  * Creates a span from a buffer _not_ owned by netbufs.
@@ -83,9 +83,9 @@ typedef struct {
  * @param buf the buffer
  * @param len the length of the buffer
  */
-#define CREATE_STANDALONE_SPAN(span, buf, len) \
-    (span)->parent = (nb_MBLOCK *) (void *)buf; \
-    (span)->offset = NETBUF_INVALID_OFFSET; \
+#define CREATE_STANDALONE_SPAN(span, buf, len)                                                                         \
+    (span)->parent = (nb_MBLOCK *)(void *)buf;                                                                         \
+    (span)->offset = NETBUF_INVALID_OFFSET;                                                                            \
     (span)->size = len;
 
 /** @private */
@@ -94,6 +94,7 @@ typedef struct {
     char *base;
     nb_SIZE len;
     /* Extra 4 bytes here. WHAT WE DO!!! */
+    const void *parent; /* mc_PACKET */
 } nb_SNDQELEM;
 
 /** @private */
@@ -158,8 +159,7 @@ struct netbuf_st {
  * @see SPAN_SABUFFER_NC
  * @see SPAN_MBUFFER_NC
  */
-#define SPAN_BUFFER(span) \
-        (((span)->offset == NETBUF_INVALID_OFFSET) ? SPAN_SABUFFER_NC(span) : SPAN_MBUFFER_NC(span))
+#define SPAN_BUFFER(span) (((span)->offset == NETBUF_INVALID_OFFSET) ? SPAN_SABUFFER_NC(span) : SPAN_MBUFFER_NC(span))
 
 /**
  * @brief allocate a span
@@ -172,8 +172,7 @@ struct netbuf_st {
  *
  * @return 0 if successful, -1 on error
  */
-int
-netbuf_mblock_reserve(nb_MGR *mgr, nb_SPAN *span);
+int netbuf_mblock_reserve(nb_MGR *mgr, nb_SPAN *span);
 
 /**
  * @brief release a span
@@ -188,8 +187,7 @@ netbuf_mblock_reserve(nb_MGR *mgr, nb_SPAN *span);
  * @param mgr the manager in which this span is reserved
  * @param span the span
  */
-void
-netbuf_mblock_release(nb_MGR *mgr, nb_SPAN *span);
+void netbuf_mblock_release(nb_MGR *mgr, nb_SPAN *span);
 
 /**
  * @brief Enqueue a span for serialization
@@ -207,18 +205,15 @@ netbuf_mblock_release(nb_MGR *mgr, nb_SPAN *span);
  * iov->iov_base = SPAN_BUFFER(span);
  * @endcode
  */
-void
-netbuf_enqueue(nb_MGR *mgr, const nb_IOV *bufinfo);
+void netbuf_enqueue(nb_MGR *mgr, const nb_IOV *bufinfo, const void *parent);
 
-void
-netbuf_enqueue_span(nb_MGR *mgr, nb_SPAN *span);
+void netbuf_enqueue_span(nb_MGR *mgr, nb_SPAN *span, const void *parent);
 
 /**
  * Gets the number of IOV structures required to flush the entire contents of
  * all buffers.
  */
-unsigned int
-netbuf_get_niov(nb_MGR *mgr);
+unsigned int netbuf_get_niov(nb_MGR *mgr);
 
 /**
  * @brief
@@ -272,8 +267,7 @@ netbuf_get_niov(nb_MGR *mgr);
  * provided and should not be taken as an indicator of how many bytes are
  * used overall.
  */
-nb_SIZE
-netbuf_start_flush(nb_MGR *mgr, nb_IOV *iovs, int niov, int *nused);
+nb_SIZE netbuf_start_flush(nb_MGR *mgr, nb_IOV *iovs, int niov, int *nused);
 
 /**
  * @brief Indicate that a flush has completed.
@@ -284,8 +278,7 @@ netbuf_start_flush(nb_MGR *mgr, nb_IOV *iovs, int niov, int *nused);
  * @param mgr the manager object
  * @param nflushed how much data in bytes was flushed to the network.
  */
-void
-netbuf_end_flush(nb_MGR *mgr, nb_SIZE nflushed);
+void netbuf_end_flush(nb_MGR *mgr, nb_SIZE nflushed);
 
 /**
  * Reset the flush context for the buffer. This should be called only when the
@@ -300,17 +293,17 @@ netbuf_end_flush(nb_MGR *mgr, nb_SIZE nflushed);
  * As a consequence it means that the previous IOV populated with start_flush
  * is no longer valid and start_flush should be called again.
  */
-#define netbuf_reset_flush(mgr) do { \
-    (mgr)->sendq.last_requested = NULL; \
-    (mgr)->sendq.last_offset = 0; \
-} while (0);
+#define netbuf_reset_flush(mgr)                                                                                        \
+    do {                                                                                                               \
+        (mgr)->sendq.last_requested = NULL;                                                                            \
+        (mgr)->sendq.last_offset = 0;                                                                                  \
+    } while (0);
 
 /**
  * Informational function to get the total size of all data in the
  * buffers. This traverses all blocks, so call this for debugging only.
  */
-nb_SIZE
-netbuf_get_size(const nb_MGR *mgr);
+nb_SIZE netbuf_get_size(const nb_MGR *mgr);
 
 /**
  * Get the maximum size of a span which can be satisfied without using an
@@ -332,38 +325,32 @@ netbuf_get_size(const nb_MGR *mgr);
  * @return
  * the maximum span size without requiring additional blocks.
  */
-nb_SIZE
-netbuf_mblock_get_next_size(const nb_MGR *mgr, int allow_wrap);
+nb_SIZE netbuf_mblock_get_next_size(const nb_MGR *mgr, int allow_wrap);
 
 /**
  * @brief Initializes an nb_MGR structure
  * @param mgr the manager to initialize
  * @param settings
  */
-void
-netbuf_init(nb_MGR *mgr, const nb_SETTINGS *settings);
+void netbuf_init(nb_MGR *mgr, const nb_SETTINGS *settings);
 
 /**
  * @brief Frees up any allocated resources for a given manager
  * @param mgr the manager for which to release resources
  */
-void
-netbuf_cleanup(nb_MGR *mgr);
+void netbuf_cleanup(nb_MGR *mgr);
 
 /**
  * Populates the settings structure with the default settings. This structure
  * may then be modified or tuned and passed to netbuf_init()
  */
-void
-netbuf_default_settings(nb_SETTINGS *settings);
+void netbuf_default_settings(nb_SETTINGS *settings);
 
 /**
  * Dump the internal structure of the manager to the screen. Useful for
  * debugging.
  */
-void
-netbuf_dump_status(nb_MGR *mgr, FILE *fp);
-
+void netbuf_dump_status(nb_MGR *mgr, FILE *fp);
 
 /**
  * Mark a PDU as being enqueued. This should be called whenever the final IOV
@@ -380,9 +367,7 @@ netbuf_dump_status(nb_MGR *mgr, FILE *fp);
  * @param lloff The offset from the pdu pointer at which the slist_node
  *        structure may be found.
  */
-void
-netbuf_pdu_enqueue(nb_MGR *mgr, void *pdu, nb_SIZE lloff);
-
+void netbuf_pdu_enqueue(nb_MGR *mgr, void *pdu, nb_SIZE lloff);
 
 /**
  * This callback is invoked during 'end_flush2'.
@@ -417,12 +402,7 @@ netbuf_pdu_enqueue(nb_MGR *mgr, void *pdu, nb_SIZE lloff);
  */
 typedef nb_SIZE (*nb_getsize_fn)(void *pdu, nb_SIZE remaining, void *arg);
 
-void
-netbuf_end_flush2(nb_MGR *mgr,
-                  unsigned int nflushed,
-                  nb_getsize_fn callback,
-                  nb_SIZE lloff, void *arg);
-
+void netbuf_end_flush2(nb_MGR *mgr, unsigned int nflushed, nb_getsize_fn callback, nb_SIZE lloff, void *arg);
 
 /**
  * Ensures that the given internal structures of the manager are not allocated
@@ -434,14 +414,12 @@ netbuf_end_flush2(nb_MGR *mgr,
  *
  * This also checks the PDU and send queues as well.
  */
-int
-netbuf_is_clean(nb_MGR *mgr);
+int netbuf_is_clean(nb_MGR *mgr);
 
 /**
  * Determines if there is any data to be flushed to the network
  */
-int
-netbuf_has_flushdata(nb_MGR *mgr);
+int netbuf_has_flushdata(nb_MGR *mgr);
 
 /**@}*/
 

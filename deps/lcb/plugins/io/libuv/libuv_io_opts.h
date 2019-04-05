@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -82,33 +82,31 @@ extern "C" {
 #define LCBUV_API LIBCOUCHBASE_API
 #endif
 
-    /**Options passed to the iops constructure. You will most likely want
-     * to set the 'startsop_noop' field to true if you are using an async
-     * application.*/
-    typedef struct lcbuv_options_st {
-        int version;
-        union {
-            struct {
-                /** External loop to be used (if not default) */
-                uv_loop_t *loop;
+/**Options passed to the iops constructure. You will most likely want
+ * to set the 'startsop_noop' field to true if you are using an async
+ * application.*/
+typedef struct lcbuv_options_st {
+    int version;
+    union {
+        struct {
+            /** External loop to be used (if not default) */
+            uv_loop_t *loop;
 
-                /** Whether run_event_loop/stop_event_loop should do anything */
-                int startsop_noop;
-            } v0;
-        } v;
-    } lcbuv_options_t;
+            /** Whether run_event_loop/stop_event_loop should do anything */
+            int startsop_noop;
+        } v0;
+    } v;
+} lcbuv_options_t;
 
-    /**
-     * Use this if using an existing uv_loop_t
-     * @param version Set this to `0`
-     * @param [out] io a pointer to an io pointer. Will be populated on success
-     * @param options the options to be passed. From libcouchbase this is a
-     * `void*` parameter.
-     */
-    LCBUV_API
-    lcb_error_t lcb_create_libuv_io_opts(int version,
-                                         lcb_io_opt_t *io,
-                                         lcbuv_options_t *options);
+/**
+ * Use this if using an existing uv_loop_t
+ * @param version Set this to `0`
+ * @param [out] io a pointer to an io pointer. Will be populated on success
+ * @param options the options to be passed. From libcouchbase this is a
+ * `void*` parameter.
+ */
+LCBUV_API
+lcb_STATUS lcb_create_libuv_io_opts(int version, lcb_io_opt_t *io, lcbuv_options_t *options);
 
 #ifdef __cplusplus
 }

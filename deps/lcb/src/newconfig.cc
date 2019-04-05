@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2013 Couchbase, Inc.
+ *     Copyright 2011-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ should_keep_guess(lcb_GUESSVB *guess, lcbvb_VBUCKET *vb)
 }
 
 void
-lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
+lcb_vbguess_newconfig(lcb_INSTANCE *instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
 {
     unsigned ii;
 
@@ -95,7 +95,7 @@ lcb_vbguess_newconfig(lcb_t instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
 }
 
 int
-lcb_vbguess_remap(lcb_t instance, int vbid, int bad)
+lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad)
 {
     if (LCBT_SETTING(instance, vb_noremap)) {
         return -1;
@@ -165,7 +165,7 @@ find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
 }
 
 static void
-log_vbdiff(lcb_t instance, lcbvb_CONFIGDIFF *diff)
+log_vbdiff(lcb_INSTANCE *instance, lcbvb_CONFIGDIFF *diff)
 {
     lcb_log(LOGARGS(instance, INFO), "Config Diff: [ vBuckets Modified=%d ], [Sequence Changed=%d]", diff->n_vb_changes, diff->sequence_changed);
     if (diff->servers_added) {
@@ -198,6 +198,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
     protocol_binary_request_header hdr;
     lcb::Server *srv = static_cast<lcb::Server *>(oldpl);
     int newix;
+    lcb_INSTANCE *instance = (lcb_INSTANCE *)cq->cqdata;
 
     mcreq_read_hdr(oldpkt, &hdr);
 
@@ -215,7 +216,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
 
         /* XXX: We ignore hashkey. This is going away soon, and is probably
          * better than simply failing the items. */
-        mcreq_get_key(oldpkt, &key, &nkey);
+        mcreq_get_key(instance, oldpkt, &key, &nkey);
         lcbvb_map_key(cq->config, key, nkey, &tmpid, &newix);
     }
 
@@ -229,7 +230,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
         return MCREQ_KEEP_PACKET;
     }
 
-    lcb_log(LOGARGS((lcb_t)cq->cqdata, DEBUG), "Remapped packet %p (SEQ=%u) from " SERVER_FMT " to " SERVER_FMT,
+    lcb_log(LOGARGS(instance, DEBUG), "Remapped packet %p (SEQ=%u) from " SERVER_FMT " to " SERVER_FMT,
         (void*)oldpkt, oldpkt->opaque, SERVER_ARGS((lcb::Server*)oldpl), SERVER_ARGS((lcb::Server*)newpl));
 
     /** Otherwise, copy over the packet and find the new vBucket to map to */
@@ -241,7 +242,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
 }
 
 static void
-replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
+replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PIPELINE **ppold, **ppnew;
@@ -313,9 +314,8 @@ replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
     free(ppold);
 }
 
-void lcb_update_vbconfig(lcb_t instance, lcb_pCONFIGINFO config)
+void lcb_update_vbconfig(lcb_INSTANCE *instance, lcb_pCONFIGINFO config)
 {
-    lcb_configuration_t change_status;
     lcb::clconfig::ConfigInfo *old_config = instance->cur_configinfo;
     mc_CMDQUEUE *q = &instance->cmdq;
 
@@ -337,7 +337,6 @@ void lcb_update_vbconfig(lcb_t instance, lcb_pCONFIGINFO config)
 
         replace_config(instance, old_config->vbc, config->vbc);
         old_config->decref();
-        change_status = LCB_CONFIGURATION_CHANGED;
     } else {
         size_t nservers = VB_NSERVERS(config->vbc);
         std::vector<mc_PIPELINE*> servers;
@@ -347,7 +346,6 @@ void lcb_update_vbconfig(lcb_t instance, lcb_pCONFIGINFO config)
         }
 
         mcreq_queue_add_pipelines(q, &servers[0], nservers, config->vbc);
-        change_status = LCB_CONFIGURATION_NEW;
     }
 
     /* Update the list of nodes here for server list */
@@ -360,6 +358,5 @@ void lcb_update_vbconfig(lcb_t instance, lcb_pCONFIGINFO config)
         }
     }
 
-    instance->callbacks.configuration(instance, change_status);
     lcb_maybe_breakout(instance);
 }

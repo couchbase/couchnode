@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -42,7 +42,6 @@
 
 typedef void (*v0_callback_t)(lcb_socket_t, short, void *);
 typedef void (*generic_callback_t)(void);
-
 
 /**
  * These structures come about the limitation that with -Werror -Wextra
@@ -87,13 +86,11 @@ typedef struct {
 
 } my_sockdata_t;
 
-
 typedef struct {
     uv_write_t w;
     lcb_ioC_write2_callback callback;
     my_sockdata_t *sock;
 } my_write_t;
-
 
 typedef struct {
     struct lcb_io_opt_st base;
@@ -138,14 +135,14 @@ typedef struct {
  ** Common Macros                                                            **
  ******************************************************************************
  ******************************************************************************/
-#define PTR_FROM_FIELD(t, p, fld) ((t*)(void*)((char*)p-(offsetof(t, fld))))
+#define PTR_FROM_FIELD(t, p, fld) ((t *)(void *)((char *)p - (offsetof(t, fld))))
 
 #define incref_iops(io) (io)->iops_refcount++
 
 #ifdef _WIN32
-  typedef ULONG lcb_uvbuf_len_t;
+typedef ULONG lcb_uvbuf_len_t;
 #else
-  typedef size_t lcb_uvbuf_len_t;
+typedef size_t lcb_uvbuf_len_t;
 #endif
 
 #ifndef INVALID_SOCKET

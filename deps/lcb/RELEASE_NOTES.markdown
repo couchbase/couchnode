@@ -1,5 +1,98 @@
 # Release Notes
 
+## 3.0.0-alpha.1 (2019-04-03)
+
+* [CCBC-1017](https://issues.couchbase.com/browse/CCBC-1017): Removed v1,v2,v3 APIs.
+
+  Migration path: New API have to used. Instead open structures, setter-functions available.
+
+* [CCBC-655](https://issues.couchbase.com/browse/CCBC-655): Removed `retry_backoff` setting. This is a redundant
+  property, as the wait period is always `retry_interval * retry_backoff * num_attempts`. In this case, `retry_interval`
+  itself can be specified as `retry_interval * retry_backoff` as a single setting.
+
+  Migration path:
+  * if the application used `"retry_backoff"` setting via connection string or `lcb_cntl_string()`, it should remove
+    that call, and set only `"retry_interval"` with new value equal `retry_interval * retry_backoff` (the value is time
+    in seconds represented as floating point number).
+  * if the application used `LCB_CNTL_RETRY_BACKOFF` setting via `lcb_cntl`, it should remove that call, and set only
+    `LCB_CNTL_RETRY_INTERVAL` with new value equal `retry_interval * retry_backoff` (the value is time in microseconds
+    represented as unsigned 32-bit integer).
+
+* [CCBC-465](https://issues.couchbase.com/browse/CCBC-465): Removed `lcb_error_callback` and related function to get
+  and set it for the instance.
+
+  Migration path: the application should use `lcb_bootstrap_callback` instead.
+
+* [CCBC-466](https://issues.couchbase.com/browse/CCBC-466): Removed `lcb_get_last_error`. This function is deprecated
+  and its use can result in false positives, true negatives. Most internals do not set `last_error`, and because there
+  may be multiple things going on within the library, getting the last error does not make sense.
+
+  Migration path: only arguments/fields in operation and bootstrap callbacks should be used.
+
+* [CCBC-463](https://issues.couchbase.com/browse/CCBC-463): Removed syncmode. This simplifies internals of the library,
+  Synchronous mode was never implemented for REST server APIs, or for new subdocument features, and was deprecated.
+
+  Migration path: use `lcb_wait()` and `lcb_wait3()` to implement synchronous interaction.
+
+* [CCBC-863](https://issues.couchbase.com/browse/CCBC-863): Removed `lcb_configuration_callback` and related functions.
+  This API has been superseded by bootstrap callback, which can not just signal about configuration update, but also
+  provide errors code.
+
+  Migration path: the application should use `lcb_bootstrap_callback` instead.
+
+* [CCBC-467](https://issues.couchbase.com/browse/CCBC-467): Removed `lcb_verify_struct_size` and related definitions.
+   These functions have not been widely used or maintained. Their purpose was to assist applications in verifying the
+   structure sizes used by the library conformed to that of what their application was expecting. However in reality the
+   structure sizes rarely changed, and when they did change, they only changed in compatible ways so that applications
+   compiled against older versions would never break anyway.
+
+   Migration path: If the application directly call this API, all the calls could be safely removed.
+
+* [CCBC-468](https://issues.couchbase.com/browse/CCBC-468): Removed `lcb_timer_t` API. The timer API was never really
+  used and should have always been private (its use came in before we started having 'interface attributes' within the
+  library).
+
+  Migration path: Remove all usages of timer API function and structures. If they are necessary, consider using
+  external IO loop, and use its timers API (see `lcb_create_io_ops()`).
+
+* [CCBC-864](https://issues.couchbase.com/browse/CCBC-864): Removed `lcb_flush_buffers`. This function does nothing.
+
+  Migration path: Remove all usages of this function.
+
+* [CCBC-865](https://issues.couchbase.com/browse/CCBC-865): Removed old-style setting accessors. They were implemented
+  before `lcb_cntl`, and should not be used.
+
+  Migration path: the following list represents mapping between old accessors and their `lcb_cntl` equivalents:
+
+  | old                                        | new                                              |
+  |--------------------------------------------|--------------------------------------------------|
+  | `lcb_behavior_set_ipv6`                    | `lcb_cntl(LCB_CNTL_SET, LCB_CNTL_IP6POLICY)`     |
+  | `lcb_behavior_get_ipv6`                    | `lcb_cntl(LCB_CNTL_GET, LCB_CNTL_IP6POLICY)`     |
+  | `lcb_behavior_set_config_errors_threshold` | `lcb_cntl(LCB_CNTL_SET, LCB_CNTL_CONFERRTHRESH)` |
+  | `lcb_behavior_get_config_errors_threshold` | `lcb_cntl(LCB_CNTL_GET, LCB_CNTL_CONFERRTHRESH)` |
+  | `lcb_behavior_set_timeout`                 | `lcb_cntl(LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT)`    |
+  | `lcb_behavior_get_timeout`                 | `lcb_cntl(LCB_CNTL_GET, LCB_CNTL_OP_TIMEOUT)`    |
+  | `lcb_behavior_set_view_timeout`            | `lcb_cntl(LCB_CNTL_SET, LCB_CNTL_VIEW_TIMEOUT)`  |
+  | `lcb_behavior_get_view_timeout`            | `lcb_cntl(LCB_CNTL_GET, LCB_CNTL_VIEW_TIMEOUT)`  |
+
+## 2.10.3 (December 20 2018)
+
+* [CCBC-1008](https://issues.couchbase.com/browse/CCBC-1008): jsoncpp: use
+  `unique_ptr` instead of `auto_ptr`.
+
+* [CCBC-1011](https://issues.couchbase.com/browse/CCBC-1011): Port
+  vbucketkeygen tool to cbc-keygen. The tool generates list of keys, that
+  distributed over all vBuckets in the bucket.
+
+* [CCBC-1006](https://issues.couchbase.com/browse/CCBC-1006): Cleanup pending
+  queue of pipeline on retry
+
+* [CCBC-1007](https://issues.couchbase.com/browse/CCBC-1007): allow using
+  trusted store path without key file
+
+* [MB-31875](https://issues.couchbase.com/browse/MB-31875): cliopts: grow list
+  only if needed
+
 ## 2.10.2 (November 23 2018)
 
 * Fixed incorrect header-guard for analytics.h, which might affect API

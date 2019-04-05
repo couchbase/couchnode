@@ -1,3 +1,20 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2011-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "socktest.h"
 
 #ifndef LCB_NO_SSL
@@ -7,21 +24,24 @@ using namespace LCBTest;
 using std::string;
 using std::vector;
 
-class SSLTest : public SockTest {
-protected:
-    void SetUp() {
+class SSLTest : public SockTest
+{
+  protected:
+    void SetUp()
+    {
         lcbio_ssl_global_init();
-        lcb_error_t errp = LCB_SUCCESS;
+        lcb_STATUS errp = LCB_SUCCESS;
         // Initialize the SSL stuff
 
         SockTest::SetUp();
-        loop->settings->sslopts = LCB_SSL_ENABLED|LCB_SSL_NOVERIFY;
+        loop->settings->sslopts = LCB_SSL_ENABLED | LCB_SSL_NOVERIFY;
         loop->settings->ssl_ctx = lcbio_ssl_new(NULL, NULL, NULL, 1, &errp, loop->settings);
         loop->server->factory = TestServer::sslSocketFactory;
         EXPECT_FALSE(loop->settings->ssl_ctx == NULL) << lcb_strerror(NULL, errp);
     }
 
-    void TearDown() {
+    void TearDown()
+    {
         lcbio_ssl_free(loop->settings->ssl_ctx);
         loop->settings->ssl_ctx = NULL;
         SockTest::TearDown();
@@ -72,7 +92,9 @@ TEST_F(SSLTest, testBasic)
 }
 
 #else
-class SSLTest : public ::testing::Test {};
+class SSLTest : public ::testing::Test
+{
+};
 TEST_F(SSLTest, DISABLED_testBasic)
 {
     EXPECT_FALSE(true);

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ extern "C" {
 #define usleep(us) Sleep((us) / 1000)
 #endif
 #ifndef sleep
-#define sleep(s) Sleep( (s) * 1000)
+#define sleep(s) Sleep((s)*1000)
 #endif
 
 #include <winsock2.h>
@@ -41,29 +41,28 @@ extern "C" {
 #include <libcouchbase/couchbase.h>
 #include "procutil.h"
 
-    struct test_server_info {
-        child_process_t process;
-        char *http;
-        char *bucket;
-        char *username;
-        char *password;
-        in_port_t port;
-        struct sockaddr_storage storage;
-        int sock;
-        int client;
-        int is_mock;
-    };
+struct test_server_info {
+    child_process_t process;
+    char *http;
+    char *bucket;
+    char *username;
+    char *password;
+    in_port_t port;
+    struct sockaddr_storage storage;
+    int sock;
+    int client;
+    int is_mock;
+};
 
+const void *start_test_server(char **cmdline);
+const char *get_mock_http_server(const void *);
+void get_mock_std_creds(const void *handle, const char **userp, const char **passp);
+int is_using_real_cluster(void);
 
-    const void *start_test_server(char **cmdline);
-    const char *get_mock_http_server(const void *);
-    void get_mock_std_creds(const void *handle, const char **userp, const char **passp);
-    int is_using_real_cluster(void);
+void shutdown_mock_server(const void *);
 
-    void shutdown_mock_server(const void *);
-
-    struct lcb_io_opt_st *get_test_io_opts(void);
-    void setup_test_timeout_handler(void);
+struct lcb_io_opt_st *get_test_io_opts(void);
+void setup_test_timeout_handler(void);
 
 #ifdef __cplusplus
 }

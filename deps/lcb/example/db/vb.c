@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -33,8 +33,6 @@
 
 #include <stdio.h>
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
-#include <libcouchbase/views.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -58,14 +56,18 @@ static void handle_sigint(int sig)
 #define INSTALL_SIGINT_HANDLER()
 #endif
 
-
-static void
-store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)
 {
-    if (rb->rc == LCB_SUCCESS) {
-        fprintf(stderr, "STORED \"%.*s\" CAS: %"PRIu64"\n", (int)rb->nkey, rb->key, rb->cas);
+    lcb_STATUS rc = lcb_respstore_status(resp);
+    if (rc == LCB_SUCCESS) {
+        const char *key;
+        size_t nkey;
+        uint64_t cas;
+        lcb_respstore_key(resp, &key, &nkey);
+        lcb_respstore_cas(resp, &cas);
+        fprintf(stderr, "STORED \"%.*s\" CAS: %" PRIu64 "\n", (int)nkey, key, cas);
     } else {
-        fprintf(stderr, "STORE ERROR: %s (0x%x)\n", lcb_strerror(instance, rb->rc), rb->rc);
+        fprintf(stderr, "STORE ERROR: %s (0x%x)\n", lcb_strerror(instance, rc), rc);
         exit(EXIT_FAILURE);
     }
     (void)cbtype;
@@ -74,20 +76,26 @@ store_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
 const char *view;
 const char *design;
 
-static void
-do_query_view(lcb_t instance);
+static void do_query_view(lcb_INSTANCE *instance);
 
-static void
-viewrow_callback(lcb_t instance, int cbtype, const lcb_RESPVIEWQUERY *resp)
+static void viewrow_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPVIEW *resp)
 {
-    if (resp->rflags & LCB_RESP_F_FINAL) {
-        if (resp->rc == LCB_SUCCESS) {
+    if (lcb_respview_is_final(resp)) {
+        lcb_STATUS rc = lcb_respview_status(resp);
+        if (rc == LCB_SUCCESS) {
             do_query_view(instance);
         } else {
-            fprintf(stderr, "Couldn't query view: %s (0x%x)\n", lcb_strerror(NULL, resp->rc), resp->rc);
-            if (resp->htresp != NULL) {
-                fprintf(stderr, "HTTP Status: %u\n", resp->htresp->htstatus);
-                fprintf(stderr, "HTTP Body: %.*s\n", (int)resp->htresp->nbody, resp->htresp->body);
+            const lcb_RESPHTTP *http;
+            fprintf(stderr, "Couldn't query view: %s\n", lcb_strerror_short(rc));
+            lcb_respview_http_response(resp, &http);
+            if (http != NULL) {
+                uint16_t status;
+                const char *body;
+                size_t nbody;
+                lcb_resphttp_http_status(http, &status);
+                fprintf(stderr, "HTTP Status: %u\n", status);
+                lcb_resphttp_body(http, &body, &nbody);
+                fprintf(stderr, "HTTP Body: %.*s\n", (int)nbody, body);
             }
             exit(EXIT_FAILURE);
         }
@@ -95,41 +103,53 @@ viewrow_callback(lcb_t instance, int cbtype, const lcb_RESPVIEWQUERY *resp)
     (void)cbtype;
 }
 
-static void
-http_callback(lcb_t instance, int cbtype, const lcb_RESPBASE *rb)
+static void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP *resp)
 {
-    const lcb_RESPHTTP *rh = (const lcb_RESPHTTP *)rb;
-    fprintf(stderr, "%.*s... %d\n", (int)rb->nkey, rh->key, rh->htstatus);
-    if (rh->rc != LCB_SUCCESS) {
-        fprintf(stderr, "Couldn't issue HTTP request: %s\n", lcb_strerror(NULL, rh->rc));
+    const char *path;
+    size_t npath;
+    uint16_t status;
+    lcb_STATUS rc;
+
+    lcb_resphttp_path(resp, &path, &npath);
+    lcb_resphttp_http_status(resp, &status);
+    fprintf(stderr, "%.*s... %d\n", (int)npath, path, status);
+    rc = lcb_resphttp_status(resp);
+    if (rc != LCB_SUCCESS) {
+        fprintf(stderr, "Couldn't issue HTTP request: %s\n", lcb_strerror(NULL, rc));
         exit(EXIT_FAILURE);
-    } else if (rh->htstatus != 201) {
+    } else if (status != 201) {
+        const char *body;
+        size_t nbody;
+        lcb_resphttp_body(resp, &body, &nbody);
         fprintf(stderr, "Negative reply from server!\n");
-        fprintf(stderr, "%*.s\n", (int)rh->nbody, rh->body);
+        fprintf(stderr, "%*.s\n", (int)nbody, body);
         exit(EXIT_FAILURE);
     }
 
     (void)cbtype;
 }
 
-static void
-do_query_view(lcb_t instance)
+static void do_query_view(lcb_INSTANCE *instance)
 {
-    lcb_CMDVIEWQUERY cmd = { 0 };
-    lcb_error_t err;
-    lcb_view_query_initcmd(&cmd, design, view, NULL, viewrow_callback);
-    cmd.cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    err = lcb_view_query(instance, NULL, &cmd);
+    lcb_CMDVIEW *cmd;
+    lcb_STATUS err;
+    lcb_cmdview_create(&cmd);
+    lcb_cmdview_design_document(cmd, design, strlen(design));
+    lcb_cmdview_view_name(cmd, view, strlen(view));
+    lcb_cmdview_callback(cmd, viewrow_callback);
+    lcb_cmdview_include_docs(cmd, 1);
+    err = lcb_view(instance, NULL, cmd);
+    lcb_cmdview_destroy(cmd);
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Couldn't schedule view query: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Couldn't schedule view query: %s\n", lcb_strerror_short(err));
         exit(EXIT_FAILURE);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    lcb_error_t err;
-    lcb_t instance;
+    lcb_STATUS err;
+    lcb_INSTANCE *instance;
     struct lcb_create_st create_options;
     const char *key = "foo";
     size_t nkey = strlen(key);
@@ -157,8 +177,7 @@ int main(int argc, char *argv[])
 
     err = lcb_create(&instance, &create_options);
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to create libcouchbase instance: %s\n",
-                lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to create libcouchbase instance: %s\n", lcb_strerror(NULL, err));
         exit(EXIT_FAILURE);
     }
     /* Initiate the connect sequence in libcouchbase */
@@ -172,8 +191,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to establish connection to cluster: %s\n", lcb_strerror(NULL, err));
         exit(EXIT_FAILURE);
     }
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, http_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     fprintf(stderr, "key: \"%s\"\n", key);
     fprintf(stderr, "value size: %ld\n", nbytes);
@@ -182,15 +201,16 @@ int main(int argc, char *argv[])
     bytes = malloc(nbytes);
 
     {
-        lcb_CMDSTORE cmd = { 0 };
-        cmd.operation = LCB_SET;
-        LCB_CMD_SET_KEY(&cmd, key, nkey);
-        LCB_CMD_SET_VALUE(&cmd, bytes, nbytes);
-        err = lcb_store3(instance, NULL, &cmd);
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, key, nkey);
+        lcb_cmdstore_value(cmd, bytes, nbytes);
+        err = lcb_store(instance, NULL, cmd);
         if (err != LCB_SUCCESS) {
             fprintf(stderr, "Failed to store: %s\n", lcb_strerror(NULL, err));
             exit(EXIT_FAILURE);
         }
+        lcb_cmdstore_destroy(cmd);
     }
     lcb_wait(instance);
 
@@ -199,19 +219,20 @@ int main(int argc, char *argv[])
     design = key;
 
     {
-        char design_path[64] = { 0 };
-        char doc[256] = { 0 };
-        lcb_CMDHTTP cmd = { 0 };
+        char *content_type = "application/json";
+        char design_path[64] = {0};
+        char doc[256] = {0};
+        lcb_CMDHTTP *cmd;
         sprintf(design_path, "_design/%s", design);
         sprintf(doc, "{\"views\":{\"all\":{\"map\":\"function(doc,meta){if(meta.id=='%s'){emit(meta.id)}}\"}}}", key);
 
-        LCB_CMD_SET_KEY(&cmd, design_path, strlen(design_path));
-        cmd.body = doc;
-        cmd.nbody = strlen(doc);
-        cmd.method = LCB_HTTP_METHOD_PUT;
-        cmd.type = LCB_HTTP_TYPE_VIEW;
-        cmd.content_type = "application/json";
-        err = lcb_http3(instance, NULL, &cmd);
+        lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_VIEW);
+        lcb_cmdhttp_path(cmd, design_path, strlen(design_path));
+        lcb_cmdhttp_content_type(cmd, content_type, strlen(content_type));
+        lcb_cmdhttp_body(cmd, doc, strlen(doc));
+        lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_PUT);
+        err = lcb_http(instance, NULL, cmd);
+        lcb_cmdhttp_destroy(cmd);
         if (err != LCB_SUCCESS) {
             fprintf(stderr, "Failed to create design document: %s (0x%02x)\n", lcb_strerror(NULL, err), err);
             exit(EXIT_FAILURE);

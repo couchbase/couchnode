@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -44,12 +44,10 @@ typedef unsigned int nb_SIZE;
 /** @brief How many SNDQELEM structures per block */
 #define NB_SNDQ_BASEALLOC 128
 
-
 /** @brief How many dealloc blocks to allocated per MBLOCK */
 #define NB_MBDEALLOC_CACHEBLOCKS 0
 /** @brief Number of dealloc structures per block */
 #define NB_MBDEALLOC_BASEALLOC 24
-
 
 /** @brief How many data blocks to allocate per manager */
 #define NB_DATA_CACHEBLOCKS 16
@@ -75,13 +73,19 @@ typedef struct {
 /**Macro which serves as a static initializer for an nb_IOV. This works
  * on both Windows and Unix despite the layout of the structure being different
  */
-#define NETBUF_IOV_INIT(base, len) { base, len }
+#define NETBUF_IOV_INIT(base, len)                                                                                     \
+    {                                                                                                                  \
+        base, len                                                                                                      \
+    }
 #else
 typedef struct {
     ULONG iov_len;
     void *iov_base;
 } nb_IOV;
-#define NETBUF_IOV_INIT(base, len) { len, base }
+#define NETBUF_IOV_INIT(base, len)                                                                                     \
+    {                                                                                                                  \
+        len, base                                                                                                      \
+    }
 #endif
 
 /**@}*/

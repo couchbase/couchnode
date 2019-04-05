@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016 Couchbase, Inc.
+ *     Copyright 2016-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #define LCB_IXMGMT_H
 
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/n1ql.h>
+#include <libcouchbase/utils.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -128,8 +128,7 @@ struct lcb_RESPN1XMGMT_st;
  * @param cbtype - set to LCB_CALLBACK_N1XMGMT
  * @param resp the response structure
  */
-typedef void (*lcb_N1XMGMTCALLBACK)(lcb_t instance,
-        int cbtype, const struct lcb_RESPN1XMGMT_st *resp);
+typedef void (*lcb_N1XMGMTCALLBACK)(lcb_INSTANCE *instance, int cbtype, const struct lcb_RESPN1XMGMT_st *resp);
 
 /**
  * @volatile
@@ -177,8 +176,7 @@ typedef struct lcb_RESPN1XMGMT_st {
  * contains entries then the search will be limited to the appropriate criteria.
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_n1x_list(lcb_t instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+lcb_STATUS lcb_n1x_list(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
 
 /**
  * @volatile
@@ -187,16 +185,14 @@ lcb_n1x_list(lcb_t instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
  * it may be created immediately or it may be deferred.
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_n1x_create(lcb_t instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
 
 /**
  * @volatile
  * Remove an index.
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_n1x_drop(lcb_t instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+lcb_STATUS lcb_n1x_drop(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
 
 /**
  * @volatile
@@ -208,8 +204,7 @@ lcb_n1x_drop(lcb_t instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
  * lcb_n1x_watchbuild may be used to wait on the status of those indexes.
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_n1x_startbuild(lcb_t instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+lcb_STATUS lcb_n1x_startbuild(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
 
 /**
  * @volatile
@@ -222,7 +217,7 @@ typedef struct {
      * callback. If you are building from scratch, only the lcb_N1XSPEC::rawjson
      * and lcb_INDEXSPEC::nrawjson need to be populated
      */
-    const lcb_N1XSPEC * const *specs;
+    const lcb_N1XSPEC *const *specs;
     /** Number of specs */
     size_t nspec;
 
@@ -254,8 +249,7 @@ typedef struct {
  * created.
  */
 LIBCOUCHBASE_API
-lcb_error_t
-lcb_n1x_watchbuild(lcb_t instance, const void *cookie, const lcb_CMDN1XWATCH *cmd);
+lcb_STATUS lcb_n1x_watchbuild(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XWATCH *cmd);
 
 #ifdef __cplusplus
 }

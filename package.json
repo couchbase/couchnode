@@ -5,7 +5,7 @@
   },
   "description": "The official Couchbase Node.js Client Library.",
   "engines": {
-    "node": ">=0.8.8"
+    "node": ">=8.0.0"
   },
   "homepage": "http://www.couchbase.com/communities/nodejs",
   "keywords": [
@@ -20,31 +20,30 @@
   "license": "Apache-2.0",
   "name": "couchbase",
   "dependencies": {
-    "bindings": "~1.3.0",
-    "dev-null": "^0.1.1",
-    "nan": "^2.11.1",
+    "bindings": "^1.5.0",
+    "nan": "^2.13.2",
     "prebuild-install": "^5.2.1",
+    "qs": "^6.7.0",
     "request": "^2.88.0",
     "winston": "^3.1.0"
   },
   "devDependencies": {
-    "cls-hooked": "^4.2.2",
+    "chai": "^4.2.0",
     "ink-docstrap": "~1.3.2",
     "istanbul": "~0.4.3",
     "jsdoc": "~3.5.5",
     "jsdoc-stability-tag": "~1.0.0",
     "jshint": "^2.9.6",
-    "mocha": "^5.2.0",
+    "mocha": "^6.0.2",
     "npm-check": "^5.9.0",
     "prebuild": "^8.1.2",
-    "semver": "^5.6.0",
     "uuid": "^3.3.2"
   },
   "repository": {
     "type": "git",
     "url": "http://github.com/couchbase/couchnode.git"
   },
-  "version": "2.6.3-dev",
+  "version": "3.0.0-dev",
   "config": {
     "native": false
   },

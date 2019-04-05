@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -39,12 +39,14 @@
  * @{
  */
 
-namespace lcb {
+namespace lcb
+{
 
 struct RetryOp;
 
-class RetryQueue {
-public:
+class RetryQueue
+{
+  public:
     /**
      * @brief Create a new retry queue.
      * The retry queue serves as an asynchronous poller which will retry operations
@@ -55,7 +57,7 @@ public:
      * @param settings Used for logging and interval timeouts
      * @return A new retry queue object
      */
-    RetryQueue(mc_CMDQUEUE* cq_, lcbio_pTABLE, lcb_settings *);
+    RetryQueue(mc_CMDQUEUE *cq_, lcbio_pTABLE, lcb_settings *);
     ~RetryQueue();
 
     /**
@@ -72,7 +74,8 @@ public:
      * it may _not_ be used for memcached buckets (which is typically OK, as we only
      * map things here as a response for a not-my-vbucket).
      */
-    void add(mc_EXPACKET *detchpkt, lcb_error_t err, errmap::RetrySpec *spec) {
+    void add(mc_EXPACKET *detchpkt, lcb_STATUS err, errmap::RetrySpec *spec)
+    {
         add(detchpkt, err, spec, 0);
     }
 
@@ -84,6 +87,7 @@ public:
      * @param detchpkt The new packet
      */
     void nmvadd(mc_EXPACKET *detchpkt);
+    void ucadd(mc_EXPACKET *pkt);
 
     /**
      * @brief Retry all queued operations
@@ -104,7 +108,7 @@ public:
      * @return An error code, or LCB_SUCCESS if the packet does not have an
      * original error.
      */
-    static lcb_error_t error_for(const mc_PACKET*);
+    static lcb_STATUS error_for(const mc_PACKET *);
 
     /**
      * Dumps the packets inside the queue
@@ -138,21 +142,20 @@ public:
 
     inline void add_fallback(mc_PACKET *pkt);
 
-private:
-    void erase(RetryOp*);
-    void fail(RetryOp*, lcb_error_t);
+  private:
+    void erase(RetryOp *);
+    void fail(RetryOp *, lcb_STATUS);
     void schedule(hrtime_t now = 0);
     void flush(bool throttle);
     void update_trytime(RetryOp *op, hrtime_t now = 0);
     hrtime_t get_retry_interval() const;
-    lcb_t get_instance() const {
-        return reinterpret_cast<lcb_t>(cq->cqdata);
+    lcb_INSTANCE *get_instance() const
+    {
+        return reinterpret_cast< lcb_INSTANCE * >(cq->cqdata);
     }
 
-    enum AddOptions {
-        RETRY_SCHED_IMM = 0x01
-    };
-    void add(mc_EXPACKET *pkt, lcb_error_t, errmap::RetrySpec*, int options);
+    enum AddOptions { RETRY_SCHED_IMM = 0x01 };
+    void add(mc_EXPACKET *pkt, lcb_STATUS, errmap::RetrySpec *, int options);
 
     /** List of operations in retry ordering. Sorted by 'crtime' */
     lcb_list_t schedops;
@@ -164,7 +167,7 @@ private:
     lcbio_pTIMER timer;
 };
 
-}
+} // namespace lcb
 /**@}*/
 #endif
 #endif

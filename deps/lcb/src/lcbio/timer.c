@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@
 #define TMR_IS_DESTROYED(timer) ((timer)->state & LCBIO_TIMER_S_DESTROYED)
 #define TMR_IS_ARMED(timer) ((timer)->state & LCBIO_TIMER_S_ARMED)
 
-static void
-destroy_timer(lcbio_TIMER *timer)
+static void destroy_timer(lcbio_TIMER *timer)
 {
     if (timer->event) {
         timer->io->timer.destroy(timer->io->p, timer->event);
@@ -32,8 +31,7 @@ destroy_timer(lcbio_TIMER *timer)
     free(timer);
 }
 
-static void
-timer_callback(lcb_socket_t sock, short which, void *arg)
+static void timer_callback(lcb_socket_t sock, short which, void *arg)
 {
     lcbio_TIMER *timer = arg;
 
@@ -54,9 +52,7 @@ timer_callback(lcb_socket_t sock, short which, void *arg)
     (void)which;
 }
 
-
-lcbio_TIMER *
-lcbio_timer_new(lcbio_TABLE *io, void *data, lcbio_TIMER_cb callback)
+lcbio_TIMER *lcbio_timer_new(lcbio_TABLE *io, void *data, lcbio_TIMER_cb callback)
 {
     lcbio_TIMER *ret = calloc(1, sizeof(*ret));
 
@@ -72,8 +68,7 @@ lcbio_timer_new(lcbio_TABLE *io, void *data, lcbio_TIMER_cb callback)
     return ret;
 }
 
-void
-lcbio_timer_destroy(lcbio_TIMER *timer)
+void lcbio_timer_destroy(lcbio_TIMER *timer)
 {
     lcbio_timer_disarm(timer);
     if (timer->state & LCBIO_TIMER_S_ENTERED) {
@@ -83,8 +78,7 @@ lcbio_timer_destroy(lcbio_TIMER *timer)
     }
 }
 
-void
-lcbio_timer_disarm(lcbio_TIMER *timer)
+void lcbio_timer_disarm(lcbio_TIMER *timer)
 {
     if (!TMR_IS_ARMED(timer)) {
         return;
@@ -94,39 +88,34 @@ lcbio_timer_disarm(lcbio_TIMER *timer)
     timer->io->timer.cancel(timer->io->p, timer->event);
 }
 
-void
-lcbio_timer_rearm(lcbio_TIMER * timer, uint32_t usec)
+void lcbio_timer_rearm(lcbio_TIMER *timer, uint32_t usec)
 {
     if (TMR_IS_ARMED(timer)) {
         lcbio_timer_disarm(timer);
     }
 
     timer->usec_ = usec;
-    timer->io->timer.schedule(timer->io->p,
-                              timer->event, usec, timer, timer_callback);
+    timer->io->timer.schedule(timer->io->p, timer->event, usec, timer, timer_callback);
     timer->state |= LCBIO_TIMER_S_ARMED;
 }
 
-void
-lcbio_async_signal(lcbio_TIMER *timer)
+void lcbio_async_signal(lcbio_TIMER *timer)
 {
     lcbio_timer_rearm(timer, 0);
 }
 
-void
-lcbio_async_cancel(lcbio_TIMER *timer)
+void lcbio_async_cancel(lcbio_TIMER *timer)
 {
     lcbio_timer_disarm(timer);
 }
 
-void
-lcbio_timer_dump(lcbio_TIMER *timer, FILE *fp)
+void lcbio_timer_dump(lcbio_TIMER *timer, FILE *fp)
 {
     fprintf(fp, "~~ DUMP TIMER BEGIN ~~\n");
-    fprintf(fp, "TIMER=%p\n", (void*)timer);
+    fprintf(fp, "TIMER=%p\n", (void *)timer);
     fprintf(fp, "INNER PTR=%p\n", timer->event);
     fprintf(fp, "USERDATA=%p\n", timer->data);
-    fprintf(fp, "ACTIVE: %s\n", (timer->state & LCBIO_TIMER_S_ARMED) ? "YES":"NO");
+    fprintf(fp, "ACTIVE: %s\n", (timer->state & LCBIO_TIMER_S_ARMED) ? "YES" : "NO");
     fprintf(fp, "INTERVAL: %lu\n", (unsigned long)timer->usec_);
     fprintf(fp, "~~ DUMP TIMER END ~~\n");
 }

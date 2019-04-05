@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 using namespace lcb::trace;
 
-LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_t instance, uint64_t flags)
+LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_INSTANCE *instance, uint64_t flags)
 {
     if (instance == NULL || (flags & LCBTRACE_F_THRESHOLD) == 0) {
         return NULL;
@@ -91,29 +91,20 @@ QueueEntry ThresholdLoggingTracer::convert(lcbtrace_SPAN *span)
     char *value;
     size_t nvalue;
 
-    if (lcbtrace_span_get_tag_str(
-                span, LCBTRACE_TAG_OPERATION_ID, &value, &nvalue) ==
-        LCB_SUCCESS) {
-        entry["last_operation_id"] = std::string(span->m_opname) + ":" +
-                                     std::string(value, value + nvalue);
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_OPERATION_ID, &value, &nvalue) == LCB_SUCCESS) {
+        entry["last_operation_id"] = std::string(span->m_opname) + ":" + std::string(value, value + nvalue);
     }
-    if (lcbtrace_span_get_tag_str(
-                span, LCBTRACE_TAG_LOCAL_ID, &value, &nvalue) == LCB_SUCCESS) {
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ID, &value, &nvalue) == LCB_SUCCESS) {
         entry["last_local_id"] = std::string(value, value + nvalue);
     }
-    if (lcbtrace_span_get_tag_str(
-                span, LCBTRACE_TAG_LOCAL_ADDRESS, &value, &nvalue) ==
-        LCB_SUCCESS) {
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
         entry["last_local_address"] = std::string(value, value + nvalue);
     }
-    if (lcbtrace_span_get_tag_str(
-                span, LCBTRACE_TAG_PEER_ADDRESS, &value, &nvalue) ==
-        LCB_SUCCESS) {
+    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
         entry["last_remote_address"] = std::string(value, value + nvalue);
     }
     uint64_t num;
-    if (lcbtrace_span_get_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, &num) ==
-        LCB_SUCCESS) {
+    if (lcbtrace_span_get_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, &num) == LCB_SUCCESS) {
         entry["server_us"] = (Json::UInt64)num;
     }
     entry["total_us"] = (Json::UInt64)orphan.duration;
@@ -139,8 +130,7 @@ void ThresholdLoggingTracer::flush_queue(FixedSpanQueue &queue, const char *mess
     entries["service"] = "kv";
     entries["count"] = (Json::UInt)queue.size();
     Json::Value top;
-    while (!queue.empty())
-    {
+    while (!queue.empty()) {
         Json::Value entry;
         if (Json::Reader().parse(queue.top().payload, entry)) {
             top.append(entry);
@@ -197,7 +187,7 @@ void ThresholdLoggingTracer::flush_threshold()
     do_flush_threshold();
 }
 
-ThresholdLoggingTracer::ThresholdLoggingTracer(lcb_t instance)
+ThresholdLoggingTracer::ThresholdLoggingTracer(lcb_INSTANCE *instance)
     : m_wrapper(NULL), m_settings(instance->settings), m_orphans(LCBT_SETTING(instance, tracer_orphaned_queue_size)),
       m_threshold(LCBT_SETTING(instance, tracer_threshold_queue_size)), m_oflush(instance->iotable, this),
       m_tflush(instance->iotable, this)

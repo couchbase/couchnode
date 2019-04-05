@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -25,14 +25,16 @@ typedef void (*TimerCallback)(lcb_socket_t, short, void *);
 
 class IOPS : public ::testing::Test
 {
-public:
-    virtual void SetUp() {
-        lcb_error_t err = lcb_create_io_ops(&io, NULL);
+  public:
+    virtual void SetUp()
+    {
+        lcb_STATUS err = lcb_create_io_ops(&io, NULL);
         ASSERT_EQ(err, LCB_SUCCESS);
         iot = lcbio_table_new(io);
     }
 
-    virtual void TearDown() {
+    virtual void TearDown()
+    {
         lcbio_table_unref(iot);
         if (io) {
             lcb_destroy_io_ops(io);
@@ -40,91 +42,93 @@ public:
         }
     }
 
-    void *createTimer() {
+    void *createTimer()
+    {
         void *ret = iot->timer.create(IOT_ARG(iot));
         EXPECT_TRUE(ret != NULL);
         return ret;
     }
 
-    void cancelTimer(void *timer) {
+    void cancelTimer(void *timer)
+    {
         iot->timer.cancel(IOT_ARG(iot), timer);
     }
 
-    void scheduleTimer(void *timer,
-                       TimerCallback cb,
-                       lcb_uint32_t us,
-                       void *arg) {
+    void scheduleTimer(void *timer, TimerCallback cb, lcb_uint32_t us, void *arg)
+    {
 
         iot->timer.schedule(IOT_ARG(iot), timer, us, arg, cb);
     }
 
-    void freeTimer(void *timer) {
+    void freeTimer(void *timer)
+    {
         iot->timer.destroy(IOT_ARG(iot), timer);
     }
 
-    void startLoop() {
+    void startLoop()
+    {
         IOT_START(iot);
     }
 
-    void stopLoop() {
+    void stopLoop()
+    {
         IOT_STOP(iot);
     }
 
-protected:
+  protected:
     lcb_io_opt_t io;
     lcbio_pTABLE iot;
 };
 
-
 class Continuation
 {
-public:
+  public:
     virtual void nextAction() = 0;
     IOPS *parent;
-
 };
 
-
-
 extern "C" {
-    static void timer_callback(lcb_socket_t, short, void *arg)
-    {
-        reinterpret_cast<Continuation *>(arg)->nextAction();
-    }
+static void timer_callback(lcb_socket_t, short, void *arg)
+{
+    reinterpret_cast< Continuation * >(arg)->nextAction();
+}
 }
 
 class TimerCountdown : public Continuation
 {
-public:
+  public:
     int counter;
     void *timer;
 
-    TimerCountdown(IOPS *self) {
+    TimerCountdown(IOPS *self)
+    {
         parent = self;
         counter = 1;
         timer = parent->createTimer();
     }
 
-    virtual void nextAction() {
+    virtual void nextAction()
+    {
         EXPECT_TRUE(counter > 0);
         parent->cancelTimer(timer);
         counter--;
     }
 
-    virtual ~TimerCountdown() {
+    virtual ~TimerCountdown()
+    {
         parent->cancelTimer(timer);
         parent->freeTimer(timer);
     }
 
-    void reset() {
+    void reset()
+    {
         parent->cancelTimer(timer);
         parent->freeTimer(timer);
         timer = parent->createTimer();
         counter = 1;
     }
 
-
-private:
+  private:
     TimerCountdown(const TimerCountdown &);
 };
 
@@ -135,7 +139,7 @@ TEST_F(IOPS, Timers)
     startLoop();
     ASSERT_EQ(0, cont.counter);
 
-    std::vector<TimerCountdown *> multi;
+    std::vector< TimerCountdown * > multi;
 
     for (int ii = 0; ii < 10; ii++) {
         TimerCountdown *cur = new TimerCountdown(this);
@@ -171,5 +175,4 @@ TEST_F(IOPS, Timers)
     for (unsigned int ii = 0; ii < multi.size(); ii++) {
         delete multi[ii];
     }
-
 }

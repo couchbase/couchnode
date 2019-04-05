@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017 Couchbase, Inc.
+ *     Copyright 2017-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ typedef struct lcb_iovec_st {
 #endif
 
 #if defined(LIBCOUCHBASE_INTERNAL) && !defined(LCB_IOPS_V12_NO_DEPRECATE)
-#define LCB__IOPS_CONCAT2(X, Y) X ## Y
+#define LCB__IOPS_CONCAT2(X, Y) X##Y
 #define LCB__IOPS_CONCAT(X, Y) LCB__IOPS_CONCAT2(X, Y)
 #define LCB_IOPS_DEPRECATED(X) void (*LCB__IOPS_CONCAT(lcb__iops__dummy, __LINE__))(void)
 #else
@@ -119,7 +119,7 @@ struct lcb_nameinfo_st {
  * `iov_len` field which is the length of the buffer.
  */
 
-typedef struct lcb_io_opt_st* lcb_io_opt_t;
+typedef struct lcb_io_opt_st *lcb_io_opt_t;
 
 /**
  * @brief Callback invoked for all poll-like events
@@ -130,8 +130,7 @@ typedef struct lcb_io_opt_st* lcb_io_opt_t;
  * @param uarg a user-defined pointer passed to the
  *        lcb_ioE_event_watch_fn routine.
  */
-typedef void (*lcb_ioE_callback)
-        (lcb_socket_t sock, short events, void *uarg);
+typedef void (*lcb_ioE_callback)(lcb_socket_t sock, short events, void *uarg);
 
 /**@name Timer Callbacks
  *@{*/
@@ -143,8 +142,7 @@ typedef void (*lcb_ioE_callback)
  * @return an opaque timer handle. The timer shall remain inactive and shall
  *         be destroyed via the lcb_io_timer_destroy_fn routine.
  */
-typedef void *(*lcb_io_timer_create_fn)
-        (lcb_io_opt_t iops);
+typedef void *(*lcb_io_timer_create_fn)(lcb_io_opt_t iops);
 
 /**
  * @brief Destroy a timer handler
@@ -154,8 +152,7 @@ typedef void *(*lcb_io_timer_create_fn)
  * @param timer the opaque handle
  * The timer must have already been cancelled via lcb_io_timer_cancel_fn
  */
-typedef void (*lcb_io_timer_destroy_fn)
-        (lcb_io_opt_t iops, void *timer);
+typedef void (*lcb_io_timer_destroy_fn)(lcb_io_opt_t iops, void *timer);
 
 /**
  * @brief Cancel a pending timer callback
@@ -167,8 +164,7 @@ typedef void (*lcb_io_timer_destroy_fn)
  * @param iops the I/O structure
  * @param timer the timer to cancel.
  */
-typedef void (*lcb_io_timer_cancel_fn)
-        (lcb_io_opt_t iops, void *timer);
+typedef void (*lcb_io_timer_cancel_fn)(lcb_io_opt_t iops, void *timer);
 
 /**
  * @brief Schedule a callback to be invoked within a given interval.
@@ -180,14 +176,10 @@ typedef void (*lcb_io_timer_cancel_fn)
  * @param uarg the user-defined pointer to be passed in the callback
  * @param callback the callback to invoke
  */
-typedef int (*lcb_io_timer_schedule_fn)
-        (lcb_io_opt_t iops, void *timer,
-                lcb_U32 usecs,
-                void *uarg,
-                lcb_ioE_callback callback);
+typedef int (*lcb_io_timer_schedule_fn)(lcb_io_opt_t iops, void *timer, lcb_U32 usecs, void *uarg,
+                                        lcb_ioE_callback callback);
 
 /**@}*/
-
 
 /**@name Event Handle Callbacks
  * @{*/
@@ -201,8 +193,7 @@ typedef int (*lcb_io_timer_schedule_fn)
  * The handle may then be associated with a
  * socket and watched (via lcb_ioE_event_watch_fn) for I/O readiness.
  */
-typedef void *(*lcb_ioE_event_create_fn)
-        (lcb_io_opt_t iops);
+typedef void *(*lcb_ioE_event_create_fn)(lcb_io_opt_t iops);
 
 /**
  * @brief Destroy an event handle
@@ -211,8 +202,7 @@ typedef void *(*lcb_ioE_event_create_fn)
  * @param iops the I/O structure
  * @param event the event to free
  */
-typedef void (*lcb_ioE_event_destroy_fn)
-        (lcb_io_opt_t iops, void *event);
+typedef void (*lcb_ioE_event_destroy_fn)(lcb_io_opt_t iops, void *event);
 
 /**
  * @deprecated lcb_ioE_event_watch_fn() should be used with `0` for events
@@ -225,9 +215,7 @@ typedef void (*lcb_ioE_event_destroy_fn)
  * This function may be called multiple times and shall not fail even if the
  * event is already inactive.
  */
-typedef void (*lcb_ioE_event_cancel_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, void *event);
-
+typedef void (*lcb_ioE_event_cancel_fn)(lcb_io_opt_t iops, lcb_socket_t sock, void *event);
 
 /** Data is available for reading */
 #define LCB_READ_EVENT 0x02
@@ -235,7 +223,7 @@ typedef void (*lcb_ioE_event_cancel_fn)
 #define LCB_WRITE_EVENT 0x04
 /** Exceptional condition ocurred on socket */
 #define LCB_ERROR_EVENT 0x08
-#define LCB_RW_EVENT (LCB_READ_EVENT|LCB_WRITE_EVENT)
+#define LCB_RW_EVENT (LCB_READ_EVENT | LCB_WRITE_EVENT)
 
 /**
  * Associate an event with a socket, requesting notification when one of
@@ -262,13 +250,8 @@ typedef void (*lcb_ioE_event_cancel_fn)
  * via passing a `0` to the `evflags` parameter, effectively clearing the
  * event.
  */
-typedef int (*lcb_ioE_event_watch_fn)
-        (lcb_io_opt_t iops,
-                lcb_socket_t socket,
-                void *event,
-                short evflags,
-                void *uarg,
-                lcb_ioE_callback callback);
+typedef int (*lcb_ioE_event_watch_fn)(lcb_io_opt_t iops, lcb_socket_t socket, void *event, short evflags, void *uarg,
+                                      lcb_ioE_callback callback);
 
 /**@}*/
 
@@ -279,63 +262,45 @@ typedef int (*lcb_ioE_event_watch_fn)
  * @brief Receive data into a single buffer
  * @see `recv(2)` socket API call.
  */
-typedef lcb_SSIZE (*lcb_ioE_recv_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, void *target_buf,
-                lcb_SIZE buflen, int _unused_flags);
+typedef lcb_SSIZE (*lcb_ioE_recv_fn)(lcb_io_opt_t iops, lcb_socket_t sock, void *target_buf, lcb_SIZE buflen,
+                                     int _unused_flags);
 
 /** @brief Send data from a single buffer.
  * @see `send(2)` on POSIX
  */
-typedef lcb_SSIZE (*lcb_ioE_send_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, const void *srcbuf,
-                lcb_SIZE buflen, int _ignored);
+typedef lcb_SSIZE (*lcb_ioE_send_fn)(lcb_io_opt_t iops, lcb_socket_t sock, const void *srcbuf, lcb_SIZE buflen,
+                                     int _ignored);
 
 /**@brief Read data into a series of buffers.
  * @see the `recvmsg(2)` function on POSIX */
-typedef lcb_SSIZE (*lcb_ioE_recvv_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_SIZE niov);
+typedef lcb_SSIZE (*lcb_ioE_recvv_fn)(lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_SIZE niov);
 
 /**@brief Write data from multiple buffers.
  * @see the `sendmsg(2)` function on POSIX */
-typedef lcb_SSIZE (*lcb_ioE_sendv_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_SIZE niov);
+typedef lcb_SSIZE (*lcb_ioE_sendv_fn)(lcb_io_opt_t iops, lcb_socket_t sock, lcb_IOV *iov, lcb_SIZE niov);
 
 /**@brief Create a new socket.
  * @see `socket(2)` on POSIX */
-typedef lcb_socket_t (*lcb_ioE_socket_fn)
-        (lcb_io_opt_t iops, int domain, int type, int protocol);
+typedef lcb_socket_t (*lcb_ioE_socket_fn)(lcb_io_opt_t iops, int domain, int type, int protocol);
 
 /**@brief Connect a created socket
  * @see `connect(2)` on POSIX */
-typedef int (*lcb_ioE_connect_fn)
-        (lcb_io_opt_t iops,
-                lcb_socket_t sock,
-                const struct sockaddr *dst,
-                unsigned int addrlen);
+typedef int (*lcb_ioE_connect_fn)(lcb_io_opt_t iops, lcb_socket_t sock, const struct sockaddr *dst,
+                                  unsigned int addrlen);
 
 /** @internal */
-typedef int (*lcb_ioE_bind_fn)
-        (lcb_io_opt_t iops,
-                lcb_socket_t sock,
-                const struct sockaddr *srcaddr,
-                unsigned int addrlen);
+typedef int (*lcb_ioE_bind_fn)(lcb_io_opt_t iops, lcb_socket_t sock, const struct sockaddr *srcaddr,
+                               unsigned int addrlen);
 
 /** @internal */
-typedef int (*lcb_ioE_listen_fn)
-        (lcb_io_opt_t iops,
-                lcb_socket_t bound_sock,
-                unsigned int queuelen);
+typedef int (*lcb_ioE_listen_fn)(lcb_io_opt_t iops, lcb_socket_t bound_sock, unsigned int queuelen);
 
 /** @internal */
-typedef lcb_socket_t (*lcb_ioE_accept_fn)
-        (lcb_io_opt_t iops,
-                lcb_socket_t lsnsock);
+typedef lcb_socket_t (*lcb_ioE_accept_fn)(lcb_io_opt_t iops, lcb_socket_t lsnsock);
 
 /** @brief Close a socket
  * @see `close(2)` and `shutdown(2)` */
-typedef void (*lcb_ioE_close_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock);
-
+typedef void (*lcb_ioE_close_fn)(lcb_io_opt_t iops, lcb_socket_t sock);
 
 /**
  * While checking the socket, treat pending data as an _error_.
@@ -368,9 +333,7 @@ typedef void (*lcb_ioE_close_fn)
  *
  * @since 2.4.4
  */
-typedef int (*lcb_ioE_chkclosed_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, int flags);
-
+typedef int (*lcb_ioE_chkclosed_fn)(lcb_io_opt_t iops, lcb_socket_t sock, int flags);
 
 /** For use with `io{E,C}_cntl_fn`, indicates the setting should be retrieved */
 #define LCB_IO_CNTL_GET 0
@@ -392,10 +355,8 @@ typedef int (*lcb_ioE_chkclosed_fn)
  * @param[in,out] arg the argument for the option
  * @return zero on success, nonzero on failure.
  */
-typedef int (*lcb_ioE_cntl_fn)
-        (lcb_io_opt_t iops, lcb_socket_t sock, int mode, int option, void *arg);
+typedef int (*lcb_ioE_cntl_fn)(lcb_io_opt_t iops, lcb_socket_t sock, int mode, int option, void *arg);
 /**@}*/
-
 
 struct ringbuffer_st;
 struct lcb_connection_st;
@@ -416,11 +377,11 @@ struct lcb_buf_info {
  * the E-model I/O.
  */
 typedef struct lcb_sockdata_st {
-    lcb_socket_t socket; /**< System socket, for informational purposes */
-    lcb_io_opt_t parent; /**< Parent I/O context */
-    struct lcbio_SOCKET *lcbconn; /**< Internal socket equivalent */
-    int closed; /**< @deprecated No longer used by the library */
-    int is_reading; /**< Internally used by lcbio */
+    lcb_socket_t socket;             /**< System socket, for informational purposes */
+    lcb_io_opt_t parent;             /**< Parent I/O context */
+    struct lcbio_SOCKET *lcbconn;    /**< Internal socket equivalent */
+    int closed;                      /**< @deprecated No longer used by the library */
+    int is_reading;                  /**< Internally used by lcbio */
     struct lcb_buf_info read_buffer; /**< @deprecated No longer used by the library */
 } lcb_sockdata_t;
 
@@ -443,8 +404,7 @@ typedef struct lcb_io_writebuf_st {
  * @param protocol the IP protocol, e.g. IPPROTO_TCP
  * @return a socket pointer or NULL on failure.
  */
-typedef lcb_sockdata_t* (*lcb_ioC_socket_fn)
-        (lcb_io_opt_t iops, int domain, int type, int protocol);
+typedef lcb_sockdata_t *(*lcb_ioC_socket_fn)(lcb_io_opt_t iops, int domain, int type, int protocol);
 
 /**
  * @brief Callback to be invoked upon a connection result.
@@ -463,11 +423,8 @@ typedef void (*lcb_io_connect_cb)(lcb_sockdata_t *socket, int status);
  * @param callback the callback to invoke when the connection status is determined
  * @return 0 on success, nonzero if a connection could not be scheduled.
  */
-typedef int (*lcb_ioC_connect_fn)
-        (lcb_io_opt_t iops, lcb_sockdata_t *sd,
-                const struct sockaddr *dst,
-                unsigned int naddr,
-                lcb_io_connect_cb callback);
+typedef int (*lcb_ioC_connect_fn)(lcb_io_opt_t iops, lcb_sockdata_t *sd, const struct sockaddr *dst, unsigned int naddr,
+                                  lcb_io_connect_cb callback);
 
 /**
  * @brief Callback invoked when a new client connection has been established
@@ -475,10 +432,7 @@ typedef int (*lcb_ioC_connect_fn)
  * @param sd_client the new client socket
  * @param status if there was an error accepting (in this case, sd_client is NULL
  */
-typedef void (lcb_ioC_serve_callback)
-        (lcb_sockdata_t *sd_server,
-                lcb_sockdata_t *sd_client,
-                int status);
+typedef void(lcb_ioC_serve_callback)(lcb_sockdata_t *sd_server, lcb_sockdata_t *sd_client, int status);
 
 /**
  * Specify that the socket start accepting connections. This should be called
@@ -488,11 +442,8 @@ typedef void (lcb_ioC_serve_callback)
  * @param sockaddr the local address for listening
  * @param callback the callback to invoke for each new connection
  */
-typedef int (*lcb_ioC_serve_fn)
-        (lcb_io_opt_t iops,
-                lcb_sockdata_t *server_socket,
-                const struct sockaddr *listen_addr,
-                lcb_ioC_serve_callback callback);
+typedef int (*lcb_ioC_serve_fn)(lcb_io_opt_t iops, lcb_sockdata_t *server_socket, const struct sockaddr *listen_addr,
+                                lcb_ioC_serve_callback callback);
 
 /**
  * @brief Request address information on a connected socket
@@ -500,28 +451,23 @@ typedef int (*lcb_ioC_serve_fn)
  * @param sock the socket from which to retrieve information
  * @param ni a nameinfo structure to populate with the relevant details
  */
-typedef int (*lcb_ioC_nameinfo_fn)
-        (lcb_io_opt_t iops,
-                lcb_sockdata_t *sock,
-                struct lcb_nameinfo_st *ni);
+typedef int (*lcb_ioC_nameinfo_fn)(lcb_io_opt_t iops, lcb_sockdata_t *sock, struct lcb_nameinfo_st *ni);
 
 /**@deprecated*/
 typedef void (*lcb_ioC_read_callback)(lcb_sockdata_t *sd, lcb_SSIZE nread);
 #define lcb_io_read_cb lcb_ioC_read_callback
 /**@deprecated See lcb_ioC_read2_fn(). Wrapped if not implemented*/
-typedef int (*lcb_ioC_read_fn)(lcb_io_opt_t,lcb_sockdata_t*,lcb_ioC_read_callback);
+typedef int (*lcb_ioC_read_fn)(lcb_io_opt_t, lcb_sockdata_t *, lcb_ioC_read_callback);
 /**@deprecated See lcb_ioC_write2_fn(). Wrapped if not implemented*/
-typedef lcb_io_writebuf_t* (*lcb_ioC_wballoc_fn)(lcb_io_opt_t,lcb_sockdata_t *);
+typedef lcb_io_writebuf_t *(*lcb_ioC_wballoc_fn)(lcb_io_opt_t, lcb_sockdata_t *);
 /**@deprecated See lcb_ioC_write2_fn(). Wrapped if not implemented */
-typedef void (*lcb_ioC_wbfree_fn)(lcb_io_opt_t,lcb_sockdata_t*,lcb_io_writebuf_t*);
+typedef void (*lcb_ioC_wbfree_fn)(lcb_io_opt_t, lcb_sockdata_t *, lcb_io_writebuf_t *);
 /**@deprecated See lcb_ioC_write2_fn(). This will be wrapped if not implemented */
-typedef void (*lcb_ioC_write_callback)(lcb_sockdata_t*,lcb_io_writebuf_t*,int);
+typedef void (*lcb_ioC_write_callback)(lcb_sockdata_t *, lcb_io_writebuf_t *, int);
 #define lcb_io_write_cb lcb_ioC_write_callback
 
 /**@deprecated*/
-typedef int (*lcb_ioC_write_fn)
-        (lcb_io_opt_t,lcb_sockdata_t*,lcb_io_writebuf_t*,lcb_ioC_write_callback);
-
+typedef int (*lcb_ioC_write_fn)(lcb_io_opt_t, lcb_sockdata_t *, lcb_io_writebuf_t *, lcb_ioC_write_callback);
 
 /**
  * @brief Callback received when a buffer has been flushed
@@ -529,10 +475,7 @@ typedef int (*lcb_ioC_write_fn)
  * @param status nonzero on error
  * @param arg the opaque handle passed in the write2 call
  */
-typedef void (*lcb_ioC_write2_callback)
-        (lcb_sockdata_t *sd,
-                int status,
-                void *arg);
+typedef void (*lcb_ioC_write2_callback)(lcb_sockdata_t *sd, int status, void *arg);
 
 /**
  * @brief Schedule a flush of a series of buffers to the network
@@ -551,14 +494,8 @@ typedef void (*lcb_ioC_write2_callback)
  *        passed have either been completely flushed (and are no longer required)
  *        or when an error has taken place.
  */
-typedef int (*lcb_ioC_write2_fn)
-        (lcb_io_opt_t iops,
-                lcb_sockdata_t *sd,
-                lcb_IOV *iov,
-                lcb_SIZE niov,
-                void *uarg,
-                lcb_ioC_write2_callback callback);
-
+typedef int (*lcb_ioC_write2_fn)(lcb_io_opt_t iops, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_SIZE niov, void *uarg,
+                                 lcb_ioC_write2_callback callback);
 
 /**
  * @brief Callback invoked when a read has been completed
@@ -566,8 +503,7 @@ typedef int (*lcb_ioC_write2_fn)
  * @param nread number of bytes read, or -1 on error
  * @param arg user provided argument for callback.
  */
-typedef void (*lcb_ioC_read2_callback)
-        (lcb_sockdata_t *sd, lcb_SSIZE nread, void *arg);
+typedef void (*lcb_ioC_read2_callback)(lcb_sockdata_t *sd, lcb_SSIZE nread, void *arg);
 /**
  * @brief Schedule a read from the network
  * @param iops the I/O context
@@ -583,13 +519,8 @@ typedef void (*lcb_ioC_read2_callback)
  * called. Note that the underlying buffers _do_ need to remain valid until
  * the callback is received.
  */
-typedef int (*lcb_ioC_read2_fn)
-        (lcb_io_opt_t iops,
-                lcb_sockdata_t *sd,
-                lcb_IOV *iov,
-                lcb_SIZE niov,
-                void *uarg,
-                lcb_ioC_read2_callback callback);
+typedef int (*lcb_ioC_read2_fn)(lcb_io_opt_t iops, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_SIZE niov, void *uarg,
+                                lcb_ioC_read2_callback callback);
 
 /**
  * @brief Asynchronously shutdown the socket.
@@ -605,9 +536,7 @@ typedef int (*lcb_ioC_read2_fn)
  * @param iops the I/O context
  * @param sd the socket structure
  */
-typedef unsigned int (*lcb_ioC_close_fn)
-        (lcb_io_opt_t iops,
-                lcb_sockdata_t *sd);
+typedef unsigned int (*lcb_ioC_close_fn)(lcb_io_opt_t iops, lcb_sockdata_t *sd);
 
 /**
  * This is the completion variant of @ref lcb_ioE_chkclosed_fn. See that
@@ -618,8 +547,7 @@ typedef unsigned int (*lcb_ioC_close_fn)
  * @param flags
  * @return
  */
-typedef int (*lcb_ioC_chkclosed_fn)
-        (lcb_io_opt_t iops, lcb_sockdata_t *sd, int flags);
+typedef int (*lcb_ioC_chkclosed_fn)(lcb_io_opt_t iops, lcb_sockdata_t *sd, int flags);
 
 /**
  * @see lcb_ioE_cntl_fn.
@@ -631,8 +559,7 @@ typedef int (*lcb_ioC_chkclosed_fn)
  * @param arg
  * @return
  */
-typedef int (*lcb_ioC_cntl_fn)
-        (lcb_io_opt_t iops, lcb_sockdata_t *sd, int mode, int option, void *arg);
+typedef int (*lcb_ioC_cntl_fn)(lcb_io_opt_t iops, lcb_sockdata_t *sd, int mode, int option, void *arg);
 
 /**@}*/
 
@@ -664,9 +591,9 @@ typedef void (*lcb_io_stop_fn)(lcb_io_opt_t iops);
 
 LCB_DEPRECATED(typedef void (*lcb_io_error_cb)(lcb_sockdata_t *socket));
 
-#define LCB_IOPS_BASE_FIELDS \
-    void *cookie; \
-    int error; \
+#define LCB_IOPS_BASE_FIELDS                                                                                           \
+    void *cookie;                                                                                                      \
+    int error;                                                                                                         \
     int need_cleanup;
 
 struct lcb_iops_evented_st {
@@ -706,7 +633,7 @@ struct lcb_iops_completion_st {
     LCB_IOPS_DEPRECATED(lcb_ioC_nameinfo_fn get_nameinfo);
     void (*pad1)(void);
     void (*pad2)(void);
-    LCB_IOPS_DEPRECATED(void (*send_error)(struct lcb_io_opt_st*, lcb_sockdata_t*,void(*)(lcb_sockdata_t*)));
+    LCB_IOPS_DEPRECATED(void (*send_error)(struct lcb_io_opt_st *, lcb_sockdata_t *, void (*)(lcb_sockdata_t *)));
     LCB_IOPS_DEPRECATED(lcb_io_stop_fn stop_event_loop);
     LCB_IOPS_DEPRECATED(lcb_io_start_fn run_event_loop);
 };
@@ -771,7 +698,7 @@ typedef struct {
  * Enumeration defining the I/O model
  */
 typedef enum {
-    LCB_IOMODEL_EVENT, /**< Event/Poll style */
+    LCB_IOMODEL_EVENT,     /**< Event/Poll style */
     LCB_IOMODEL_COMPLETION /**< IOCP/Completion style */
 } lcb_iomodel_t;
 
@@ -841,7 +768,7 @@ typedef enum {
  *
  * int main(void) {
  *     lcb_create_st options;
- *     lcb_t instance;
+ *     lcb_INSTANCE instance;
  *     lcb_io_opt_t io;
  *     lcb_create_iops(&io, NULL);
  *     monkey_patch_io(io);
@@ -858,14 +785,9 @@ typedef enum {
  * this example, `monkey_proc_fn()`)
  *
  */
-typedef void (*lcb_io_procs_fn)
-        (int version,
-                lcb_loop_procs *loop_procs,
-                lcb_timer_procs *timer_procs,
-                lcb_bsd_procs *bsd_procs,
-                lcb_ev_procs *ev_procs,
-                lcb_completion_procs *completion_procs,
-                lcb_iomodel_t *iomodel);
+typedef void (*lcb_io_procs_fn)(int version, lcb_loop_procs *loop_procs, lcb_timer_procs *timer_procs,
+                                lcb_bsd_procs *bsd_procs, lcb_ev_procs *ev_procs,
+                                lcb_completion_procs *completion_procs, lcb_iomodel_t *iomodel);
 
 struct lcbio_TABLE;
 struct lcb_iops2_st {
@@ -926,9 +848,7 @@ struct lcb_io_opt_st {
  * @param cookie a user-defined argument passed to the I/O initializer
  * @return LCB_SUCCESS on success, an error on failure
  */
-typedef lcb_error_t (*lcb_io_create_fn)
-        (int version, lcb_io_opt_t *io, void *cookie);
-
+typedef lcb_STATUS (*lcb_io_create_fn)(int version, lcb_io_opt_t *io, void *cookie);
 
 /**
  * @volatile
@@ -962,8 +882,7 @@ typedef lcb_error_t (*lcb_io_create_fn)
  *   but will be implemented if you call this function.
  */
 LIBCOUCHBASE_API
-void
-lcb_iops_wire_bsd_impl2(lcb_bsd_procs *procs, int version);
+void lcb_iops_wire_bsd_impl2(lcb_bsd_procs *procs, int version);
 
 /******************************************************************************
  ******************************************************************************
@@ -991,13 +910,20 @@ typedef enum {
 /** @brief IO Creation for builtin plugins */
 typedef struct {
     lcb_io_ops_type_t type; /**< The predefined type you want to create */
-    void *cookie; /**< Plugin-specific argument */
+    void *cookie;           /**< Plugin-specific argument */
 } lcb_IOCREATEOPTS_BUILTIN;
 
 #ifndef __LCB_DOXYGEN__
 /* These are mostly internal structures which may be in use by older applications.*/
-typedef struct { const char *sofile; const char *symbol; void *cookie; } lcb_IOCREATEOPTS_DSO;
-typedef struct { lcb_io_create_fn create; void *cookie; } lcb_IOCREATEOPS_FUNCTIONPOINTER;
+typedef struct {
+    const char *sofile;
+    const char *symbol;
+    void *cookie;
+} lcb_IOCREATEOPTS_DSO;
+typedef struct {
+    lcb_io_create_fn create;
+    void *cookie;
+} lcb_IOCREATEOPS_FUNCTIONPOINTER;
 #endif
 
 /** @uncommitted */
@@ -1033,7 +959,7 @@ struct lcb_create_io_ops_st {
  * @uncommitted
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_create_io_ops(lcb_io_opt_t *op, const struct lcb_create_io_ops_st *options);
+lcb_STATUS lcb_create_io_ops(lcb_io_opt_t *op, const struct lcb_create_io_ops_st *options);
 
 /**
  * Destroy the plugin handle created by lcb_create_io_ops()
@@ -1042,7 +968,7 @@ lcb_error_t lcb_create_io_ops(lcb_io_opt_t *op, const struct lcb_create_io_ops_s
  * @uncommitted
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_destroy_io_ops(lcb_io_opt_t op);
+lcb_STATUS lcb_destroy_io_ops(lcb_io_opt_t op);
 
 #ifdef __cplusplus
 }

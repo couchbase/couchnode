@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC" "1" "October 2018" "" ""
+.TH "CBC" "1" "December 2018" "" ""
 .
 .SH "NAME"
 \fBcbc\fR \- Couchbase Client Commandline Utility
@@ -98,6 +98,9 @@
 .
 .br
 \fBcbc watch\fR [\fIKEYS\fR \[char46]\[char46]\[char46]] [\fIOPTIONS\fR \[char46]\[char46]\[char46]]
+.
+.br
+\fBcbc keygen\fR [\fIKEYS\fR \[char46]\[char46]\[char46]] [\fIOPTIONS\fR \[char46]\[char46]\[char46]]
 .
 .br
 .
@@ -385,6 +388,12 @@ Retrieve a list of cluster statistics, select specified sub\-keys and aggregate 
 .
 .P
 In addition to the options in the \fIOPTIONS\fR section, the following options are supported: * \fB\-n\fR, \fB\-\-interval\fR=\fIVALUE\fR: Update interval in seconds (default \fB1\fR second)\.
+.
+.SS "keygen"
+Output list of keys that equally distribute amongst every vbucket\.
+.
+.P
+In addition to the options in the \fIOPTIONS\fR section, the following options are supported: * \fB\-\-keys\-per\-vbucket\fR=\fIVALUE\fR: Number of keys to generate per vBucket (default \fB1\fR)\.
 .
 .SS "write\-config"
 Write the configuration file based on arguments passed\.

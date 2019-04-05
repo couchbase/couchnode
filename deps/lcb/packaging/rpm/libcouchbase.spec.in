@@ -15,46 +15,45 @@ URL: https://developer.couchbase.com/server/other-products/release-notes-archive
 Source: https://packages.couchbase.com/clients/c/@TARREDAS@.tar.gz
 BuildRoot: %{_topdir}/build/@TARREDAS@
 %if ! (0%{?rhel} && 0%{?rhel} <= 7)
-Recommends: %{name}2-libevent%{_isa} = %{version}-%{release}
-Suggests: %{name}2-libev%{_isa} = %{version}-%{release}
-Suggests: %{name}2-tools%{_isa} = %{version}-%{release}
+Recommends: %{name}3-libevent%{_isa} = %{version}-%{release}
+Suggests: %{name}3-libev%{_isa} = %{version}-%{release}
+Suggests: %{name}3-tools%{_isa} = %{version}-%{release}
 %endif
 
 %description
 This is the client and protocol library for Couchbase project.
 
-%package -n %{name}2-libevent
+%package -n %{name}3-libevent
 Summary: Couchbase client library - libevent IO back-end
-Requires: %{name}2-core%{?_isa} = %{version}-%{release}
-%description -n %{name}2-libevent
+Requires: %{name}3%{?_isa} = %{version}-%{release}
+%description -n %{name}3-libevent
 This package provides libevent back-end for libcouchbase
 
-%package -n %{name}2-libev
+%package -n %{name}3-libev
 Summary: Couchbase client library - libev IO back-end
-Requires: %{name}2-core%{?_isa} = %{version}-%{release}
-%description -n %{name}2-libev
+Requires: %{name}3%{?_isa} = %{version}-%{release}
+%description -n %{name}3-libev
 This package provides libev back-end for libcouchbase
 
-%package -n %{name}2-core
+%package -n %{name}3
 Summary: Couchbase client library - core
-Provides: %{name}2%{?_isa} = %{version}-%{release}
-%description -n %{name}2-core
+%description -n %{name}3
 This package provides the core for libcouchbase. It contains an IO
 implementation based on select(2). If preferred, you can install one
-of the available back-ends (libcouchbase2-libevent or
-libcouchbase2-libev).  libcouchbase will automatically use the
+of the available back-ends (libcouchbase3-libevent or
+libcouchbase3-libev).  libcouchbase will automatically use the
 installed back-end. It is also possible to integrate another IO back-end
 or write your own.
 
-%package -n %{name}2-bin
+%package -n %{name}3-tools
 Summary: Couchbase Client Tools
-Requires: %{name}2-core%{?_isa} = %{version}-%{release}
-%description -n %{name}2-bin
+Requires: %{name}3%{?_isa} = %{version}-%{release}
+%description -n %{name}3-tools
 This is the CLI tools Couchbase project.
 
 %package devel
 Summary: Couchbase Client & Protocol Library - Header files
-Requires: %{name}2-core%{?_isa} = %{version}-%{release}
+Requires: %{name}3%{?_isa} = %{version}-%{release}
 %description devel
 Development files for the Couchbase Client & Protocol Library
 
@@ -74,23 +73,23 @@ make %{_smp_mflags} alltests && make test
 %clean
 %{__rm} -rf %{buildroot}
 
-%post -n %{name}2-core -p /sbin/ldconfig
+%post -n %{name}3 -p /sbin/ldconfig
 
-%postun -n %{name}2-core -p /sbin/ldconfig
+%postun -n %{name}3 -p /sbin/ldconfig
 
-%files -n %{name}2-core
+%files -n %{name}3
 %{_libdir}/%{name}.so.*
 %doc README.markdown RELEASE_NOTES.markdown
 %license LICENSE
 %{_datadir}/systemtap/tapset/libcouchbase.so*
 
-%files -n %{name}2-libevent
-%{_libdir}/%{name}_libevent.so
+%files -n %{name}3-libevent
+%{_libdir}/%{name}/%{name}_libevent.so
 
-%files -n %{name}2-libev
-%{_libdir}/%{name}_libev.so
+%files -n %{name}3-libev
+%{_libdir}/%{name}/%{name}_libev.so
 
-%files -n %{name}2-bin
+%files -n %{name}3-tools
 %{_bindir}/cbc*
 %{_mandir}/man1/cbc*.1*
 %{_mandir}/man4/cbcrc*.4*

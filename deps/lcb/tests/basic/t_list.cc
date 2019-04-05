@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -88,7 +88,8 @@ TEST_F(List, basicTests)
     EXPECT_STREQ("refactor", tt->desc);
 
     lcb_list_t *nn;
-    LCB_LIST_SAFE_FOR(ii, nn, &root.list) {
+    LCB_LIST_SAFE_FOR(ii, nn, &root.list)
+    {
         tt = LCB_LIST_ITEM(ii, todo_t, list);
         lcb_list_delete(&tt->list);
         memset(tt, 0, sizeof(todo_t));

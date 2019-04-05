@@ -53,7 +53,8 @@ TEST_F(SListTests, testBasic)
     ASSERT_EQ(tmpnode, &elem4.slnode);
     sllist_node *cur;
     int itercount = 0;
-    SLLIST_ITERBASIC(&sl, cur) {
+    SLLIST_ITERBASIC(&sl, cur)
+    {
         itercount++;
     }
     ASSERT_EQ(4, itercount);
@@ -74,7 +75,8 @@ TEST_F(SListTests, testBasicIter)
 
     sllist_node *cur;
     int itercount = 0;
-    SLLIST_ITERBASIC(&sl, cur) {
+    SLLIST_ITERBASIC(&sl, cur)
+    {
         my_elem *elem = SLLIST_ITEM(cur, struct my_elem, slnode);
         itercount++;
         elem->value++;
@@ -86,11 +88,11 @@ TEST_F(SListTests, testBasicIter)
     }
 }
 
-
 static void fillDynamicSlist(sllist_root *root, my_elem **ptrs, int nptrs)
 {
     sllist_iterator iter;
-    SLLIST_ITERFOR(root, &iter) {
+    SLLIST_ITERFOR(root, &iter)
+    {
         sllist_iter_remove(root, &iter);
     }
 
@@ -104,14 +106,15 @@ static void fillDynamicSlist(sllist_root *root, my_elem **ptrs, int nptrs)
 TEST_F(SListTests, testExtendedIter)
 {
     sllist_root sl;
-    my_elem *elemp[BASIC_NELEM] = { NULL };
+    my_elem *elemp[BASIC_NELEM] = {NULL};
     memset(&sl, 0, sizeof(sl));
 
     fillDynamicSlist(&sl, elemp, BASIC_NELEM);
 
     // Delete all elements from the list
     sllist_iterator iter;
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         my_elem *elem = SLLIST_ITEM(iter.cur, struct my_elem, slnode);
         sllist_iter_remove(&sl, &iter);
         memset(elem, 0xff, sizeof(*elem));
@@ -123,7 +126,8 @@ TEST_F(SListTests, testExtendedIter)
 
     // Delete only the first element of the list. Repopulate
     fillDynamicSlist(&sl, elemp, BASIC_NELEM);
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         my_elem *elem = SLLIST_ITEM(iter.cur, struct my_elem, slnode);
         if (elem == elemp[0]) {
             sllist_iter_remove(&sl, &iter);
@@ -134,16 +138,18 @@ TEST_F(SListTests, testExtendedIter)
     }
 
     int itercount = 0;
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         sllist_iter_remove(&sl, &iter);
         itercount++;
     }
-    ASSERT_EQ(BASIC_NELEM-1, itercount);
+    ASSERT_EQ(BASIC_NELEM - 1, itercount);
     ASSERT_TRUE(SLLIST_IS_EMPTY(&sl));
 
     // Delete only the middle element
     fillDynamicSlist(&sl, elemp, BASIC_NELEM);
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         my_elem *elem = SLLIST_ITEM(iter.cur, struct my_elem, slnode);
         if (elem == elemp[1]) {
             sllist_iter_remove(&sl, &iter);
@@ -156,17 +162,19 @@ TEST_F(SListTests, testExtendedIter)
 
     // Delete only the last element
     fillDynamicSlist(&sl, elemp, BASIC_NELEM);
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         my_elem *elem = SLLIST_ITEM(iter.cur, struct my_elem, slnode);
-        if (elem == elemp[BASIC_NELEM-1]) {
+        if (elem == elemp[BASIC_NELEM - 1]) {
             sllist_iter_remove(&sl, &iter);
             memset(elem, 0xff, sizeof(*elem));
             free(elem);
-            elemp[BASIC_NELEM-1] = NULL;
+            elemp[BASIC_NELEM - 1] = NULL;
         }
     }
     ASSERT_FALSE(SLLIST_IS_EMPTY(&sl));
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         my_elem *elem = SLLIST_ITEM(iter.cur, struct my_elem, slnode);
         sllist_iter_remove(&sl, &iter);
         free(elem);
@@ -177,8 +185,7 @@ struct NumberedItem {
     sllist_node slnode;
     int value;
 };
-static int
-ni_compare(sllist_node *a, sllist_node *b)
+static int ni_compare(sllist_node *a, sllist_node *b)
 {
     NumberedItem *na = SLLIST_ITEM(a, NumberedItem, slnode);
     NumberedItem *nb = SLLIST_ITEM(b, NumberedItem, slnode);
@@ -196,9 +203,10 @@ TEST_F(SListTests, testSort)
 
     int last = -1;
     sllist_node *cur;
-    SLLIST_FOREACH(&l, cur) {
+    SLLIST_FOREACH(&l, cur)
+    {
         NumberedItem *ni = SLLIST_ITEM(cur, NumberedItem, slnode);
-        ASSERT_EQ(last, ni->value-1);
+        ASSERT_EQ(last, ni->value - 1);
         last = ni->value;
     }
 
@@ -223,65 +231,77 @@ TEST_F(SListTests, testSort)
     ASSERT_EQ(&middle1.slnode, ni_next->slnode.next);
 }
 
-template <typename T, sllist_node T::*m = &T::slnode>
-class SList : public sllist_root
+template < typename T, sllist_node T::*m = &T::slnode > class SList : public sllist_root
 {
-public:
-    SList() {
+  public:
+    SList()
+    {
         clear();
     };
 
-    void append(T& memb) {
+    void append(T &memb)
+    {
         sllist_append(this, getNode(memb));
     }
 
-    void prepend(T& memb) {
+    void prepend(T &memb)
+    {
         sllist_prepend(this, getNode(memb));
     }
 
-    void insert(T& memb, int (*compar)(sllist_node*,sllist_node*)) {
+    void insert(T &memb, int (*compar)(sllist_node *, sllist_node *))
+    {
         sllist_insert_sorted(this, getNode(memb), compar);
     }
 
-    bool contains(T& memb) {
+    bool contains(T &memb)
+    {
         return sllist_contains(this, getNode(memb)) != 0;
     }
 
-    size_t size() {
+    size_t size()
+    {
         return sllist_get_size(this);
     }
 
-    void remove(T& memb) {
+    void remove(T &memb)
+    {
         sllist_remove(this, getNode(memb));
     }
 
-    bool empty() {
+    bool empty()
+    {
         return SLLIST_IS_EMPTY(this);
     }
 
-    void clear() {
+    void clear()
+    {
         SLLIST_FIRST(this) = NULL;
         last = NULL;
     }
 
-    T& front() {
+    T &front()
+    {
         if (empty()) {
             throw std::out_of_range("List is empty");
         }
         return *llToItem(SLLIST_FIRST(this));
     }
 
-    T& back() {
+    T &back()
+    {
         if (empty()) {
             throw std::out_of_range("List is empty");
         }
         return *llToItem(last);
     }
 
-    T& operator[](int ix) {
+    T &operator[](int ix)
+    {
         int cur = 0;
         sllist_node *ll;
-        SLLIST_FOREACH(this, ll) {
+        SLLIST_FOREACH(this, ll)
+        {
             if (cur++ == ix) {
                 return *llToItem(ll);
             }
@@ -289,24 +309,26 @@ public:
         throw std::out_of_range("No such index");
     }
 
-private:
-    sllist_node * getNode(T& memb) const {
+  private:
+    sllist_node *getNode(T &memb) const
+    {
         return &(memb.*m);
     }
 
-    T* llToItem(sllist_node *node) {
+    T *llToItem(sllist_node *node)
+    {
         // Get the offset
         T *obj = 0;
         sllist_node *offset = &(obj->*m);
-        char *diff = (char *) offset;
-        return (T *) (((char *) node) - diff);
+        char *diff = (char *)offset;
+        return (T *)(((char *)node) - diff);
     }
 };
 
 TEST_F(SListTests, testSandwichSort)
 {
     // moar sort tests
-    SList<NumberedItem> sl;
+    SList< NumberedItem > sl;
     NumberedItem itm_1, itm_2, itm_3;
     itm_1.value = 1;
     itm_2.value = 2;
@@ -342,7 +364,7 @@ TEST_F(SListTests, testSandwichSort)
 
 TEST_F(SListTests, testPrependSort)
 {
-    SList<NumberedItem> sl;
+    SList< NumberedItem > sl;
     NumberedItem itm_1, itm_2, itm_3;
     itm_1.value = 1;
     itm_2.value = 2;
@@ -370,7 +392,7 @@ TEST_F(SListTests, testRemoveTailIter)
     itm_1.value = 1;
     itm_2.value = 2;
     itm_3.value = 3;
-    SList<NumberedItem> sl;
+    SList< NumberedItem > sl;
     sl.append(itm_1);
     sl.append(itm_2);
     sl.append(itm_3);
@@ -380,7 +402,8 @@ TEST_F(SListTests, testRemoveTailIter)
 
     sllist_iterator iter;
     bool removed = false;
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         if (iter.cur == &itm_3.slnode) {
             sllist_iter_remove(&sl, &iter);
             removed = true;
@@ -397,10 +420,11 @@ TEST_F(SListTests, testRemoveTailIter)
 TEST_F(SListTests, testRemoveEmptyTailIter)
 {
     NumberedItem itm_1;
-    SList<NumberedItem> sl;
+    SList< NumberedItem > sl;
     sl.append(itm_1);
     sllist_iterator iter;
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         sllist_iter_remove(&sl, &iter);
     }
     ASSERT_TRUE(sl.empty());
@@ -409,7 +433,7 @@ TEST_F(SListTests, testRemoveEmptyTailIter)
 TEST_F(SListTests, testRemoveFirstIter)
 {
     NumberedItem itm_1, itm_2, itm_3;
-    SList<NumberedItem> sl;
+    SList< NumberedItem > sl;
     itm_1.value = 1;
     itm_2.value = 2;
     itm_3.value = 3;
@@ -417,7 +441,8 @@ TEST_F(SListTests, testRemoveFirstIter)
     sl.append(itm_2);
     sl.append(itm_3);
     sllist_iterator iter;
-    SLLIST_ITERFOR(&sl, &iter) {
+    SLLIST_ITERFOR(&sl, &iter)
+    {
         if (iter.cur == &itm_1.slnode) {
             sllist_iter_remove(&sl, &iter);
         }

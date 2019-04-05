@@ -14,14 +14,12 @@ class Packet : public ::testing::Test
 {
 };
 
-class Pkt {
-public:
+class Pkt
+{
+  public:
     Pkt() : pkt(NULL), len(0) {}
 
-    void getq(const std::string& value,
-              lcb_uint32_t opaque,
-              lcb_uint16_t status = 0,
-              lcb_cas_t cas = 0,
+    void getq(const std::string &value, lcb_uint32_t opaque, lcb_uint16_t status = 0, lcb_cas_t cas = 0,
               lcb_uint32_t flags = 0)
     {
         protocol_binary_response_getq msg;
@@ -46,16 +44,11 @@ public:
 
         memcpy(pkt, msg.bytes, sizeof(msg.bytes));
 
-        memcpy((char *)pkt + sizeof(msg.bytes),
-               value.c_str(),
-               (unsigned long)value.size());
+        memcpy((char *)pkt + sizeof(msg.bytes), value.c_str(), (unsigned long)value.size());
     }
 
-    void get(const std::string& key, const std::string& value,
-             lcb_uint32_t opaque,
-             lcb_uint16_t status = 0,
-             lcb_cas_t cas = 0,
-             lcb_uint32_t flags = 0)
+    void get(const std::string &key, const std::string &value, lcb_uint32_t opaque, lcb_uint16_t status = 0,
+             lcb_cas_t cas = 0, lcb_uint32_t flags = 0)
     {
         protocol_binary_response_getq msg;
         protocol_binary_response_header *hdr = &msg.message.header;
@@ -76,24 +69,28 @@ public:
 
         memcpy(ptr, msg.bytes, sizeof(msg.bytes));
         ptr += sizeof(msg.bytes);
-        memcpy(ptr , key.c_str(), (unsigned long)key.size());
+        memcpy(ptr, key.c_str(), (unsigned long)key.size());
         ptr += key.size();
         memcpy(ptr, value.c_str(), (unsigned long)value.size());
     }
 
-    void rbWrite(rdb_IOROPE *ior) {
+    void rbWrite(rdb_IOROPE *ior)
+    {
         rdb_copywrite(ior, pkt, len);
     }
 
-    void rbWriteHeader(rdb_IOROPE *ior) {
+    void rbWriteHeader(rdb_IOROPE *ior)
+    {
         rdb_copywrite(ior, pkt, 24);
     }
 
-    void rbWriteBody(rdb_IOROPE *ior) {
+    void rbWriteBody(rdb_IOROPE *ior)
+    {
         rdb_copywrite(ior, pkt + 24, len - 24);
     }
 
-    void writeGenericHeader(unsigned long bodylen, rdb_IOROPE *ior) {
+    void writeGenericHeader(unsigned long bodylen, rdb_IOROPE *ior)
+    {
         protocol_binary_response_header hdr;
         memset(&hdr, 0, sizeof(hdr));
         hdr.response.opcode = 0;
@@ -101,11 +98,13 @@ public:
         rdb_copywrite(ior, hdr.bytes, sizeof(hdr.bytes));
     }
 
-    ~Pkt() {
+    ~Pkt()
+    {
         clear();
     }
 
-    void clear() {
+    void clear()
+    {
         if (pkt != NULL) {
             delete[] pkt;
         }
@@ -113,17 +112,16 @@ public:
         len = 0;
     }
 
-    size_t size() {
+    size_t size()
+    {
         return len;
     }
 
-private:
+  private:
     char *pkt;
     size_t len;
-    Pkt(Pkt&);
+    Pkt(Pkt &);
 };
-
-
 
 TEST_F(Packet, testParseBasic)
 {
@@ -183,7 +181,6 @@ TEST_F(Packet, testParsePartial)
     rdb_cleanup(&ior);
 }
 
-
 TEST_F(Packet, testKeys)
 {
     rdb_IOROPE ior;
@@ -207,8 +204,8 @@ TEST_F(Packet, testKeys)
     ASSERT_EQ(PROTOCOL_BINARY_CMD_GET, pi.opcode());
     ASSERT_EQ(4, pi.extlen());
     ASSERT_EQ(4 + key.size() + value.size(), pi.bodylen());
-    ASSERT_NE(pi.body<const char*>(), pi.value());
-    ASSERT_EQ(4 + key.size(), pi.value() - pi.body<const char*>());
+    ASSERT_NE(pi.body< const char * >(), pi.value());
+    ASSERT_EQ(4 + key.size(), pi.value() - pi.body< const char * >());
 
     pi.release(&ior);
     rdb_cleanup(&ior);

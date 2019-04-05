@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2017 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -28,31 +28,33 @@
 using namespace lcb::clconfig;
 using lcb::Hostlist;
 
-
 // Base class for providers which only generate a config once, statically.
-class StaticProvider : public Provider {
-public:
-    StaticProvider(Confmon *parent_, Method m)
-        : Provider(parent_, m), async(parent_->iot, this), config(NULL) {
-    }
+class StaticProvider : public Provider
+{
+  public:
+    StaticProvider(Confmon *parent_, Method m) : Provider(parent_, m), async(parent_->iot, this), config(NULL) {}
 
-    virtual ~StaticProvider() {
+    virtual ~StaticProvider()
+    {
         if (config) {
             config->decref();
         }
         async.release();
     }
 
-    ConfigInfo *get_cached() {
+    ConfigInfo *get_cached()
+    {
         return config;
     }
 
-    lcb_error_t refresh() {
+    lcb_STATUS refresh()
+    {
         async.signal();
         return LCB_SUCCESS;
     }
 
-    void configure_nodes(const Hostlist& hl) {
+    void configure_nodes(const Hostlist &hl)
+    {
         if (hl.empty()) {
             lcb_log(LOGARGS(this, FATAL), "No nodes provided");
             return;
@@ -68,38 +70,37 @@ public:
         }
     }
 
-    virtual lcbvb_CONFIG* gen_config(const Hostlist& hl) = 0;
+    virtual lcbvb_CONFIG *gen_config(const Hostlist &hl) = 0;
 
-private:
-    void async_update() {
+  private:
+    void async_update()
+    {
         if (config != NULL) {
             parent->provider_got_config(this, config);
         }
     }
 
-    lcb::io::Timer<StaticProvider, &StaticProvider::async_update> async;
+    lcb::io::Timer< StaticProvider, &StaticProvider::async_update > async;
     ConfigInfo *config;
 };
-
 
 /* Raw memcached provider */
 
 struct McRawProvider : public StaticProvider {
-    McRawProvider(Confmon* parent_) : StaticProvider(parent_, CLCONFIG_MCRAW) {
-    }
-    lcbvb_CONFIG *gen_config(const lcb::Hostlist& l);
+    McRawProvider(Confmon *parent_) : StaticProvider(parent_, CLCONFIG_MCRAW) {}
+    lcbvb_CONFIG *gen_config(const lcb::Hostlist &l);
 };
 
-lcbvb_CONFIG * McRawProvider::gen_config(const lcb::Hostlist& hl)
+lcbvb_CONFIG *McRawProvider::gen_config(const lcb::Hostlist &hl)
 {
-    std::vector<lcbvb_SERVER> servers;
+    std::vector< lcbvb_SERVER > servers;
     servers.reserve(hl.size());
 
     for (size_t ii = 0; ii < hl.size(); ii++) {
-        const lcb_host_t& curhost = hl[ii];
+        const lcb_host_t &curhost = hl[ii];
         servers.resize(servers.size() + 1);
 
-        lcbvb_SERVER& srv = servers.back();
+        lcbvb_SERVER &srv = servers.back();
         memset(&srv, 0, sizeof srv);
 
         /* just set the memcached port and hostname */
@@ -117,22 +118,23 @@ lcbvb_CONFIG * McRawProvider::gen_config(const lcb::Hostlist& hl)
     return newconfig;
 }
 
-Provider* lcb::clconfig::new_mcraw_provider(Confmon* parent) {
+Provider *lcb::clconfig::new_mcraw_provider(Confmon *parent)
+{
     return new McRawProvider(parent);
 }
 
 struct ClusterAdminProvider : public StaticProvider {
-    ClusterAdminProvider(Confmon *parent_) : StaticProvider(parent_, CLCONFIG_CLADMIN) {
-    }
+    ClusterAdminProvider(Confmon *parent_) : StaticProvider(parent_, CLCONFIG_CLADMIN) {}
 
-    lcbvb_CONFIG *gen_config(const lcb::Hostlist& hl) {
-        std::vector<lcbvb_SERVER> servers;
+    lcbvb_CONFIG *gen_config(const lcb::Hostlist &hl)
+    {
+        std::vector< lcbvb_SERVER > servers;
         servers.reserve(hl.size());
         for (size_t ii = 0; ii < hl.size(); ++ii) {
             servers.resize(servers.size() + 1);
-            lcbvb_SERVER& srv = servers[ii];
-            const lcb_host_t& curhost = hl[ii];
-            srv.hostname = const_cast<char*>(curhost.host);
+            lcbvb_SERVER &srv = servers[ii];
+            const lcb_host_t &curhost = hl[ii];
+            srv.hostname = const_cast< char * >(curhost.host);
             if (parent->settings->sslopts) {
                 srv.svc_ssl.mgmt = std::atoi(curhost.port);
             } else {
@@ -145,6 +147,7 @@ struct ClusterAdminProvider : public StaticProvider {
     }
 };
 
-Provider* lcb::clconfig::new_cladmin_provider(Confmon *parent) {
+Provider *lcb::clconfig::new_cladmin_provider(Confmon *parent)
+{
     return new ClusterAdminProvider(parent);
 }

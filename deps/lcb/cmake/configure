@@ -28,10 +28,6 @@ my @HELP_DESCRIPTIONS = (
         "Build with profiler support (gperftools)",
         "%d", \(my $USE_PROFILER = 0) ],
 
-    [ "disable-tracing", "",
-        "Disable builtin tracing",
-        "%d", \(my $NO_TRACING = 0) ],
-
     [ "with-ninja", "s",
         "Generate Ninja Makefiles",
         "%s", \(my $USE_NINJA = "") ],
@@ -243,10 +239,6 @@ if ($NO_TESTS) {
 }
 if ($NO_TOOLS) {
     push @CM_OPTIONS, "-DLCB_NO_TOOLS=1";
-}
-
-if ($NO_TRACING) {
-    push @CM_OPTIONS, "-DLCB_TRACING=0"
 }
 
 if ($SKIP_GIT_VERSION) {

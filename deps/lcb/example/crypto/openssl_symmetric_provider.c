@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ static const char *osp_get_key_id(lcbcrypto_PROVIDER *provider)
     return common_aes256_key_id;
 }
 
-static lcb_error_t osp_generate_iv(struct lcbcrypto_PROVIDER *provider, uint8_t **iv, size_t *iv_len)
+static lcb_STATUS osp_generate_iv(struct lcbcrypto_PROVIDER *provider, uint8_t **iv, size_t *iv_len)
 {
     *iv_len = AES256_IV_SIZE;
     *iv = malloc(*iv_len);
@@ -56,8 +56,8 @@ static lcb_error_t osp_generate_iv(struct lcbcrypto_PROVIDER *provider, uint8_t 
     return LCB_SUCCESS;
 }
 
-static lcb_error_t osp_sign(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs, size_t inputs_num,
-                            uint8_t **sig, size_t *sig_len)
+static lcb_STATUS osp_sign(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs, size_t inputs_num,
+                           uint8_t **sig, size_t *sig_len)
 {
     const EVP_MD *md;
     uint8_t out[EVP_MAX_MD_SIZE];
@@ -109,8 +109,8 @@ static lcb_error_t osp_sign(struct lcbcrypto_PROVIDER *provider, const lcbcrypto
     return LCB_SUCCESS;
 }
 
-static lcb_error_t osp_verify_signature(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs,
-                                        size_t inputs_num, uint8_t *sig, size_t sig_len)
+static lcb_STATUS osp_verify_signature(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_SIGV *inputs,
+                                       size_t inputs_num, uint8_t *sig, size_t sig_len)
 {
     const EVP_MD *md;
     uint8_t actual[EVP_MAX_MD_SIZE];
@@ -161,8 +161,8 @@ static lcb_error_t osp_verify_signature(struct lcbcrypto_PROVIDER *provider, con
     return LCB_EINVAL;
 }
 
-static lcb_error_t osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
-                               const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len)
+static lcb_STATUS osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
+                              const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len)
 {
     EVP_CIPHER_CTX *ctx;
     const EVP_CIPHER *cipher;
@@ -205,8 +205,8 @@ static lcb_error_t osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_
     return LCB_SUCCESS;
 }
 
-static lcb_error_t osp_decrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
-                               const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len)
+static lcb_STATUS osp_decrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
+                              const uint8_t *iv, size_t iv_len, uint8_t **output, size_t *output_len)
 {
     EVP_CIPHER_CTX *ctx;
     const EVP_CIPHER *cipher;

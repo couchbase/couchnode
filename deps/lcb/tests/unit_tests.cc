@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@
 #include <gtest/gtest.h>
 
 #ifdef NO_COUCHBASEMOCK
-class MockTestsAreDisabled : public ::testing::Test {};
-TEST_F(MockTestsAreDisabled, MockTestsAreDisabled) {
+class MockTestsAreDisabled : public ::testing::Test
+{
+};
+TEST_F(MockTestsAreDisabled, MockTestsAreDisabled)
+{
     fprintf(stderr, "*** WARNING\n");
     fprintf(stderr, "*** libcouchbase Java Mock tests are disabled\n");
     fprintf(stderr, "*** Basic memcached functionality (get, set, etc.) \n");

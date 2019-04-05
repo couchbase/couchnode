@@ -6,40 +6,42 @@
 using namespace LCBTest;
 using std::vector;
 
-class SslSocket : public SockFD {
-public:
+class SslSocket : public SockFD
+{
+  public:
     SslSocket(SockFD *innner);
 
     ~SslSocket();
 
     // Receive data via SSL
-    size_t send(const void*,size_t,int);
+    size_t send(const void *, size_t, int);
 
     // Send data via SSL
-    ssize_t recv(void*,size_t,int);
+    ssize_t recv(void *, size_t, int);
 
     // Close the SSL context first
     void close();
 
     // Return the real FD
-    int getFD() const { return sfd->getFD(); }
+    int getFD() const
+    {
+        return sfd->getFD();
+    }
 
-private:
+  private:
     SSL *ssl;
     SSL_CTX *ctx;
     SockFD *sfd;
     bool ok;
 };
 
-SockFD *
-TestServer::sslSocketFactory(int fd)
+SockFD *TestServer::sslSocketFactory(int fd)
 {
     return new SslSocket(new SockFD(fd));
 }
 
 extern "C" {
-static void
-log_callback(const SSL *ssl, int where, int ret)
+static void log_callback(const SSL *ssl, int where, int ret)
 {
     const char *retstr = "";
     int should_log = 0;
@@ -71,10 +73,11 @@ log_callback(const SSL *ssl, int where, int ret)
 // http://www.opensource.apple.com/source/OpenSSL/OpenSSL-22/openssl/demos/x509/mkcert.c
 // Note we deviate from the examples by directly setting the certificate.
 
-static void genCertificate(SSL_CTX *ctx) {
-    EVP_PKEY * pkey = EVP_PKEY_new();
-    X509 * x509 = X509_new();
-    RSA * rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
+static void genCertificate(SSL_CTX *ctx)
+{
+    EVP_PKEY *pkey = EVP_PKEY_new();
+    X509 *x509 = X509_new();
+    RSA *rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
 
     EVP_PKEY_assign_RSA(pkey, rsa);
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
@@ -82,9 +85,9 @@ static void genCertificate(SSL_CTX *ctx) {
     X509_gmtime_adj(X509_get_notAfter(x509), 31536000L);
     X509_set_pubkey(x509, pkey);
 
-    X509_NAME * name = X509_get_subject_name(x509);
-    X509_NAME_add_entry_by_txt(name, "C",  MBSTRING_ASC, (unsigned char *)"CA", -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name, "O",  MBSTRING_ASC, (unsigned char *)"MyCompany Inc.", -1, -1, 0);
+    X509_NAME *name = X509_get_subject_name(x509);
+    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char *)"CA", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (unsigned char *)"MyCompany Inc.", -1, -1, 0);
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"localhost", -1, -1, 0);
     X509_set_issuer_name(x509, name);
     X509_sign(x509, pkey, EVP_sha1());
@@ -104,7 +107,7 @@ SslSocket::SslSocket(SockFD *inner) : SockFD(inner->getFD())
     SSL_CTX_set_info_callback(ctx, log_callback);
     genCertificate(ctx);
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
-    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
+    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
     SSL_CTX_load_verify_locations(ctx, NULL, NULL);
 
@@ -114,20 +117,17 @@ SslSocket::SslSocket(SockFD *inner) : SockFD(inner->getFD())
     SSL_set_fd(ssl, sfd->getFD());
 }
 
-size_t
-SslSocket::send(const void *buf, size_t n, int)
+size_t SslSocket::send(const void *buf, size_t n, int)
 {
     return SSL_write(ssl, buf, n);
 }
 
-ssize_t
-SslSocket::recv(void *buf, size_t n, int)
+ssize_t SslSocket::recv(void *buf, size_t n, int)
 {
     return SSL_read(ssl, buf, n);
 }
 
-void
-SslSocket::close()
+void SslSocket::close()
 {
     SSL_shutdown(ssl);
     sfd->close();
@@ -141,5 +141,8 @@ SslSocket::~SslSocket()
 }
 
 #else
-namespace { void dummySym() { } }
+namespace
+{
+void dummySym() {}
+} // namespace
 #endif

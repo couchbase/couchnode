@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 #define LCB_MCREQ_H
 
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
 #include <libcouchbase/vbucket.h>
 #include <memcached/protocol_binary.h>
 #include <libcouchbase/metrics.h>
@@ -132,7 +131,6 @@ extern "C" {
  * @{
  */
 
-
 /**
  * @name Core Packet Structure
  * @{
@@ -144,15 +142,13 @@ extern "C" {
 /** @brief Embedded user data for a simple request. */
 typedef struct mc_REQDATA {
     const void *cookie; /**< User pointer to place in callbacks */
-    hrtime_t start; /**< Time of the initial request. Used for timeouts */
+    hrtime_t start;     /**< Time of the initial request. Used for timeouts */
     /**
      * Time when dispatching response has begun for the command.
      * Used for metrics/tracing. Might be zero, when tracing is not enabled.
      */
     hrtime_t dispatch;
-#ifdef LCB_TRACING
     lcbtrace_SPAN *span;
-#endif
 } mc_REQDATA;
 
 struct mc_packet_st;
@@ -168,8 +164,7 @@ typedef struct {
      * @param rc the error code for the response
      * @param arg opaque pointer for callback
      */
-    void (*handler)(struct mc_pipeline_st *pipeline,
-            struct mc_packet_st *pkt, lcb_error_t rc, const void *res);
+    void (*handler)(struct mc_pipeline_st *pipeline, struct mc_packet_st *pkt, lcb_STATUS rc, const void *res);
 
     /**
      * Destructor function called from within mcreq_sched_fail() for packets with
@@ -190,27 +185,21 @@ typedef struct {
  */
 typedef struct mc_REQDATAEX {
     const void *cookie; /**< User data */
-    hrtime_t start; /**< Start time */
+    hrtime_t start;     /**< Start time */
     /**
      * Time when dispatching response has begun for the command.
      * Used for metrics/tracing. Might be zero, when tracing is not enabled.
      */
     hrtime_t dispatch;
-#ifdef LCB_TRACING
     lcbtrace_SPAN *span;
-#endif
     const mc_REQDATAPROCS *procs; /**< Common routines for the packet */
 
-    #ifdef __cplusplus
+#ifdef __cplusplus
     mc_REQDATAEX(const void *cookie_, const mc_REQDATAPROCS &procs_, hrtime_t start_)
-        : cookie(cookie_), start(start_), dispatch(0),
-#ifdef LCB_TRACING
-        span(NULL),
-#endif
-        procs(&procs_)
+        : cookie(cookie_), start(start_), dispatch(0), span(NULL), procs(&procs_)
     {
     }
-    #endif
+#endif
 } mc_REQDATAEX;
 
 /**
@@ -222,8 +211,7 @@ typedef struct mc_REQDATAEX {
  * @param vbuf the pointer to the beginning of the value buffer or the first
  *        IOV within the buffer.
  */
-typedef void (*mcreq_bufdone_fn)(struct mc_pipeline_st *pl,
-        const void *ucookie, void *kbuf, void *vbuf);
+typedef void (*mcreq_bufdone_fn)(struct mc_pipeline_st *pl, const void *ucookie, void *kbuf, void *vbuf);
 
 /**
  * Possible values for the mc_PACKET#flags field in the packet structure.
@@ -289,13 +277,18 @@ typedef enum {
      * };
      * @endcode
      */
-    MCREQ_F_PRIVCALLBACK = 1 << 9
+    MCREQ_F_PRIVCALLBACK = 1 << 9,
+
+    /**
+     * Do not encode collection ID for this packet
+     */
+    MCREQ_F_NOCID = 1 << 10
 } mcreq_flags;
 
 /** @brief mask of flags indicating user-allocated buffers */
-#define MCREQ_UBUF_FLAGS (MCREQ_F_KEY_NOCOPY|MCREQ_F_VALUE_NOCOPY)
+#define MCREQ_UBUF_FLAGS (MCREQ_F_KEY_NOCOPY | MCREQ_F_VALUE_NOCOPY)
 /** @brief mask of flags indicating response state of the packet */
-#define MCREQ_STATE_FLAGS (MCREQ_F_INVOKED|MCREQ_F_FLUSHED)
+#define MCREQ_STATE_FLAGS (MCREQ_F_INVOKED | MCREQ_F_FLUSHED)
 
 /** Union representing the value within a packet */
 union mc_VALUE {
@@ -358,15 +351,12 @@ typedef struct mc_packet_st {
     nb_MBLOCK *alloc_parent;
 } mc_PACKET;
 
-
 /**
  * @brief Gets the request data from the packet structure itself
  * @return an mc_REQDATA or mc_REQDATAEX pointer
  */
-#define MCREQ_PKT_RDATA(pkt) \
-    (((pkt)->flags & MCREQ_F_REQEXT) \
-        ? ((mc_REQDATA *)(pkt)->u_rdata.exdata) \
-        : (&(pkt)->u_rdata.reqdata))
+#define MCREQ_PKT_RDATA(pkt)                                                                                           \
+    (((pkt)->flags & MCREQ_F_REQEXT) ? ((mc_REQDATA *)(pkt)->u_rdata.exdata) : (&(pkt)->u_rdata.reqdata))
 
 /**
  * @brief Retrieve the cookie pointer from a packet
@@ -451,10 +441,10 @@ typedef struct mc_cmdqueue_st {
     uint32_t seq;
 
     /** Configuration handle for vBucket mapping */
-    lcbvb_CONFIG* config;
+    lcbvb_CONFIG *config;
 
     /** Opaque pointer to be used by the application (in this case, lcb core) */
-    void* cqdata;
+    void *cqdata;
 
     /**Special pipeline used to contain orphaned packets within a scheduling
      * context. This field is used by mcreq_set_fallback_handler() */
@@ -466,9 +456,7 @@ typedef struct mc_cmdqueue_st {
  * @param pipeline the pipeline to allocate against
  * @return a new packet structure or NULL on error
  */
-mc_PACKET *
-mcreq_allocate_packet(mc_PIPELINE *pipeline);
-
+mc_PACKET *mcreq_allocate_packet(mc_PIPELINE *pipeline);
 
 /**
  * Free the packet structure. This will simply free the skeleton structure.
@@ -476,8 +464,7 @@ mcreq_allocate_packet(mc_PIPELINE *pipeline);
  * @param pipeline the pipleine which was used to allocate the packet
  * @param packet the packet to release
  */
-void
-mcreq_release_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
+void mcreq_release_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
 
 struct mc_epkt_datum;
 
@@ -534,8 +521,7 @@ typedef struct mc_epkt_datum {
  * "state flags" which indicate if a packet has been flushed and/or handled. If
  * calling this function to retry a packet, ensure to clear these state flags.
  */
-mc_PACKET *
-mcreq_renew_packet(const mc_PACKET *src);
+mc_PACKET *mcreq_renew_packet(const mc_PACKET *src);
 
 /**
  * Associates a datum with the packet. The packet must be a standalone packet,
@@ -545,8 +531,7 @@ mcreq_renew_packet(const mc_PACKET *src);
  *  not be freed until the `dtorfn` or `copyfn` functions have been called
  * @return 0 on success, nonzero on failure (i.e. if packet is not detached).
  */
-int
-mcreq_epkt_insert(mc_EXPACKET *ep, mc_EPKTDATUM *datum);
+int mcreq_epkt_insert(mc_EXPACKET *ep, mc_EPKTDATUM *datum);
 
 /**
  * Locate the datum associated with the given key for the packet.
@@ -554,8 +539,7 @@ mcreq_epkt_insert(mc_EXPACKET *ep, mc_EPKTDATUM *datum);
  * @param key A NUL-terminated string matching the mc_EPKTDATUM::key field
  * @return The datum, or NULL if it does not exist.
  */
-mc_EPKTDATUM *
-mcreq_epkt_find(mc_EXPACKET *ep, const char *key);
+mc_EPKTDATUM *mcreq_epkt_find(mc_EXPACKET *ep, const char *key);
 
 /**
  * Reserve the packet's basic header structure, this is for use for frames
@@ -565,9 +549,7 @@ mcreq_epkt_find(mc_EXPACKET *ep, const char *key);
  * @param packet the packet which should contain the header
  * @param hdrsize the total size of the header+extras+key
  */
-lcb_error_t
-mcreq_reserve_header(
-        mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_t hdrsize);
+lcb_STATUS mcreq_reserve_header(mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_t hdrsize);
 
 /**
  * Initialize the given packet's key structure
@@ -576,13 +558,11 @@ mcreq_reserve_header(
  * @param hdrsize the size of the header before the key. This should contain
  *        the header size (i.e. 24 bytes) PLUS any extras therein.
  * @param kreq the user-provided key structure
+ * @param cid the user-provided collection ID
  * @return LCB_SUCCESS on success, LCB_CLIENT_ENOMEM on allocation failure
  */
-lcb_error_t
-mcreq_reserve_key(
-        mc_PIPELINE *pipeline, mc_PACKET *packet,
-        uint8_t hdrsize, const lcb_KEYBUF *kreq);
-
+lcb_STATUS mcreq_reserve_key(mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_t hdrsize, const lcb_KEYBUF *kreq,
+                             uint32_t cid);
 
 /**
  * Initialize the given packet's value structure. Only applicable for storage
@@ -592,9 +572,7 @@ mcreq_reserve_key(
  * @param vreq the user-provided structure containing the value parameters
  * @return LCB_SUCCESS on success, LCB_CLIENT_ENOMEM on allocation failure
  */
-lcb_error_t
-mcreq_reserve_value(mc_PIPELINE *pipeline, mc_PACKET *packet,
-                    const lcb_VALBUF *vreq);
+lcb_STATUS mcreq_reserve_value(mc_PIPELINE *pipeline, mc_PACKET *packet, const lcb_VALBUF *vreq);
 
 /**
  * Reserves value/body space, but doesn't actually copy the contents over
@@ -602,9 +580,7 @@ mcreq_reserve_value(mc_PIPELINE *pipeline, mc_PACKET *packet,
  * @param packet the packet to host the value
  * @param n the number of bytes to reserve
  */
-lcb_error_t
-mcreq_reserve_value2(mc_PIPELINE *pipeline, mc_PACKET *packet, lcb_size_t n);
-
+lcb_STATUS mcreq_reserve_value2(mc_PIPELINE *pipeline, mc_PACKET *packet, lcb_size_t n);
 
 /**
  * Enqueue the packet to the pipeline. This packet should have fully been
@@ -615,8 +591,7 @@ mcreq_reserve_value2(mc_PIPELINE *pipeline, mc_PACKET *packet, lcb_size_t n);
  * @param packet the packet to enqueue.
  * This function always succeeds.
  */
-void
-mcreq_enqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
+void mcreq_enqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
 
 /**
  * Like enqueue packet, except it will also inspect the packet's timeout field
@@ -626,8 +601,7 @@ mcreq_enqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
  * The default enqueue_packet() just appends the command to the end of the
  * queue while this will perform an additional check (and is less efficient)
  */
-void
-mcreq_reenqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
+void mcreq_reenqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
 
 /**
  * Wipe the packet's internal buffers, releasing them. This should be called
@@ -638,28 +612,28 @@ mcreq_reenqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
  * @param pipeline the pipeline structure used to allocate this packet
  * @param packet the packet to wipe.
  */
-void
-mcreq_wipe_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
+void mcreq_wipe_packet(mc_PIPELINE *pipeline, mc_PACKET *packet);
 
 /**
- * Function to extract mapping information given a key and a hashkey
+ * Function to extract mapping information given a key or precomputed vbucket id
  * @param queue The command queue
  * @param key The structure for the key
- * @param hashkey The optional hashkey structure
+ * @param vbid_in The optional precomputed vbucket id
  * @param nhdr The size of the header (for KV_CONTIG)
  * @param[out] vbid The vBucket ID
  * @param[out] srvix The master server's index
  */
-void
-mcreq_map_key(mc_CMDQUEUE *queue,
-    const lcb_KEYBUF *key, const lcb_KEYBUF *hashkey,
-    unsigned nhdr, int *vbid, int *srvix);
-
+void mcreq_map_key(mc_CMDQUEUE *queue, const lcb_KEYBUF *key, unsigned nhdr, int *vbid, int *srvix);
 
 /**If the packet's vbucket does not have a master node, use the fallback pipeline
  * and let it be handled by the handler installed via mcreq_set_fallback_handler()
  */
 #define MCREQ_BASICPACKET_F_FALLBACKOK 0x01
+
+/**
+ * Selects random pipeline to schedule the request
+ */
+#define MCREQ_BASICPACKET_F_RANDPIPELINE 0x02
 
 /**
  * Handle the basic requirements of a packet common to all commands
@@ -678,11 +652,9 @@ mcreq_map_key(mc_CMDQUEUE *queue,
  * MCREQ_BASICPACKET_F_FALLBACKOK
  */
 
-lcb_error_t
-mcreq_basic_packet(
-        mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd,
-        protocol_binary_request_header *req, uint8_t extlen,
-        mc_PACKET **packet, mc_PIPELINE **pipeline, int options);
+lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protocol_binary_request_header *req,
+                              uint8_t extlen, uint8_t ffextlen, mc_PACKET **packet, mc_PIPELINE **pipeline,
+                              int options);
 
 /**
  * @brief Get the key from a packet
@@ -690,37 +662,34 @@ mcreq_basic_packet(
  * @param[out] key
  * @param[out] nkey
  */
-void
-mcreq_get_key(const mc_PACKET *packet, const void **key, lcb_size_t *nkey);
+void mcreq_get_key(lcb_INSTANCE *instance, const mc_PACKET *packet, const void **key, lcb_size_t *nkey);
 
 /** @brief Returns the size of the entire packet, in bytes */
-uint32_t
-mcreq_get_bodysize(const mc_PACKET *packet);
+uint32_t mcreq_get_bodysize(const mc_PACKET *packet);
 
 /**
  * @brief get the total packet size (header+body)
  * @param packet the packet
  * @return the total size
  */
-uint32_t
-mcreq_get_size(const mc_PACKET *packet);
+uint32_t mcreq_get_size(const mc_PACKET *packet);
+
+uint32_t mcreq_get_cid(lcb_INSTANCE *instance, const mc_PACKET *packet);
+
+void mcreq_set_cid(mc_PACKET *packet, uint32_t cid);
 
 /**
  * @brief Get the vBucket for the request
  * @param packet The packet
  * @return The vBucket ID from the packet.
  */
-uint16_t
-mcreq_get_vbucket(const mc_PACKET *packet);
+uint16_t mcreq_get_vbucket(const mc_PACKET *packet);
 
 /** Initializes a single pipeline object */
-int
-mcreq_pipeline_init(mc_PIPELINE *pipeline);
+int mcreq_pipeline_init(mc_PIPELINE *pipeline);
 
 /** Cleans up any initialization from pipeline_init */
-void
-mcreq_pipeline_cleanup(mc_PIPELINE *pipeline);
-
+void mcreq_pipeline_cleanup(mc_PIPELINE *pipeline);
 
 /**
  * Set the pipelines that this queue will manage
@@ -731,11 +700,8 @@ mcreq_pipeline_cleanup(mc_PIPELINE *pipeline);
  *        and _not_ copied and the caller must ensure it remains valid
  *        until it is replaces.
  */
-void
-mcreq_queue_add_pipelines(
-        mc_CMDQUEUE *queue, mc_PIPELINE * const *pipelines,
-        unsigned npipelines, lcbvb_CONFIG* config);
-
+void mcreq_queue_add_pipelines(mc_CMDQUEUE *queue, mc_PIPELINE *const *pipelines, unsigned npipelines,
+                               lcbvb_CONFIG *config);
 
 /**
  * Set the arra
@@ -746,14 +712,11 @@ mcreq_queue_add_pipelines(
  * When this function completes another call to add_pipelines must be performed
  * in order for the queue to function properly.
  */
-mc_PIPELINE **
-mcreq_queue_take_pipelines(mc_CMDQUEUE *queue, unsigned *count);
+mc_PIPELINE **mcreq_queue_take_pipelines(mc_CMDQUEUE *queue, unsigned *count);
 
-int
-mcreq_queue_init(mc_CMDQUEUE *queue);
+int mcreq_queue_init(mc_CMDQUEUE *queue);
 
-void
-mcreq_queue_cleanup(mc_CMDQUEUE *queue);
+void mcreq_queue_cleanup(mc_CMDQUEUE *queue);
 
 /**
  * @brief Add a packet to the current scheduling context
@@ -761,8 +724,7 @@ mcreq_queue_cleanup(mc_CMDQUEUE *queue);
  * @param pkt
  * @see mcreq_sched_enter()
  */
-void
-mcreq_sched_add(mc_PIPELINE *pipeline, mc_PACKET *pkt);
+void mcreq_sched_add(mc_PIPELINE *pipeline, mc_PACKET *pkt);
 
 /**
  * @brief enter a scheduling scope
@@ -770,8 +732,7 @@ mcreq_sched_add(mc_PIPELINE *pipeline, mc_PACKET *pkt);
  * @attention It is not safe to call this function twice
  * @volatile
  */
-void
-mcreq_sched_enter(struct mc_cmdqueue_st *queue);
+void mcreq_sched_enter(struct mc_cmdqueue_st *queue);
 
 /**
  * @brief successfully exit a scheduling scope
@@ -783,8 +744,7 @@ mcreq_sched_enter(struct mc_cmdqueue_st *queue);
  * @param do_flush Whether the items in the queue should be flushed
  * @volatile
  */
-void
-mcreq_sched_leave(struct mc_cmdqueue_st *queue, int do_flush);
+void mcreq_sched_leave(struct mc_cmdqueue_st *queue, int do_flush);
 
 /**
  * @brief destroy all operations within the scheduling scope
@@ -792,20 +752,17 @@ mcreq_sched_leave(struct mc_cmdqueue_st *queue, int do_flush);
  * be destroyed
  * @param queue
  */
-void
-mcreq_sched_fail(struct mc_cmdqueue_st *queue);
+void mcreq_sched_fail(struct mc_cmdqueue_st *queue);
 
 /**
  * Find a packet with the given opaque value
  */
-mc_PACKET *
-mcreq_pipeline_find(mc_PIPELINE *pipeline, uint32_t opaque);
+mc_PACKET *mcreq_pipeline_find(mc_PIPELINE *pipeline, uint32_t opaque);
 
 /**
  * Find and remove the packet with the given opaque value
  */
-mc_PACKET *
-mcreq_pipeline_remove(mc_PIPELINE *pipeline, uint32_t opaque);
+mc_PACKET *mcreq_pipeline_remove(mc_PIPELINE *pipeline, uint32_t opaque);
 
 /**
  * Handles a received packet in response to a command
@@ -819,10 +776,7 @@ mcreq_pipeline_remove(mc_PIPELINE *pipeline, uint32_t opaque);
  * @return 0 on success, nonzero if the handler could not be found for the
  * command.
  */
-int
-mcreq_dispatch_response(mc_PIPELINE *pipeline, mc_PACKET *request,
-                        packet_info *response, lcb_error_t immerr);
-
+int mcreq_dispatch_response(mc_PIPELINE *pipeline, mc_PACKET *request, packet_info *response, lcb_STATUS immerr);
 
 #define MCREQ_KEEP_PACKET 1
 #define MCREQ_REMOVE_PACKET 2
@@ -837,8 +791,7 @@ mcreq_dispatch_response(mc_PIPELINE *pipeline, mc_PACKET *request,
  * @return one of MCREQ_KEEP_PACKET (if the packet should be kept inside the
  * pipeline) or MCREQ_REMOVE_PACKET (if the packet should not be kept)
  */
-typedef int (*mcreq_iterwipe_fn)
-        (mc_CMDQUEUE *queue, mc_PIPELINE *srcpl, mc_PACKET *pkt, void *cbarg);
+typedef int (*mcreq_iterwipe_fn)(mc_CMDQUEUE *queue, mc_PIPELINE *srcpl, mc_PACKET *pkt, void *cbarg);
 /**
  * Wipe a single pipeline. This may be used to move and/or relocate
  * existing commands to other pipelines.
@@ -847,10 +800,7 @@ typedef int (*mcreq_iterwipe_fn)
  * @param callback the callback to invoke for each packet
  * @param arg the argument passed to the callback
  */
-void
-mcreq_iterwipe(mc_CMDQUEUE *queue, mc_PIPELINE *src,
-               mcreq_iterwipe_fn callback, void *arg);
-
+void mcreq_iterwipe(mc_CMDQUEUE *queue, mc_PIPELINE *src, mcreq_iterwipe_fn callback, void *arg);
 
 /**
  * Called when a packet does not need to have any more references to it
@@ -864,8 +814,7 @@ mcreq_iterwipe(mc_CMDQUEUE *queue, mc_PIPELINE *src,
  * Once this function is called, the packet passed will no longer be valid
  * and thus should not be used.
  */
-void
-mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt);
+void mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt);
 
 /**
  * @brief Indicate that the packet was handled
@@ -874,12 +823,13 @@ mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt);
  * If the packet has also been flushed, the packet's storage will be released
  * and `pkt` will no longer point to valid memory.
  */
-#define mcreq_packet_handled(pipeline, pkt) do { \
-    (pkt)->flags |= MCREQ_F_INVOKED; \
-    if ((pkt)->flags & MCREQ_F_FLUSHED) { \
-        mcreq_packet_done(pipeline, pkt); \
-    } \
-} while (0);
+#define mcreq_packet_handled(pipeline, pkt)                                                                            \
+    do {                                                                                                               \
+        (pkt)->flags |= MCREQ_F_INVOKED;                                                                               \
+        if ((pkt)->flags & MCREQ_F_FLUSHED) {                                                                          \
+            mcreq_packet_done(pipeline, pkt);                                                                          \
+        }                                                                                                              \
+    } while (0);
 
 /**
  * Reset the timeout (or rather, the start time) on all pending packets
@@ -888,8 +838,7 @@ mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt);
  * @param pl The pipeline
  * @param nstime The new timestamp to use.
  */
-void
-mcreq_reset_timeouts(mc_PIPELINE *pl, lcb_U64 nstime);
+void mcreq_reset_timeouts(mc_PIPELINE *pl, lcb_U64 nstime);
 
 /**
  * Callback to be invoked when a packet is about to be failed out from the
@@ -900,8 +849,7 @@ mcreq_reset_timeouts(mc_PIPELINE *pl, lcb_U64 nstime);
  * @param err the error received
  * @param arg an opaque pointer
  */
-typedef void (*mcreq_pktfail_fn)
-        (mc_PIPELINE *pipeline, mc_PACKET *packet, lcb_error_t err, void *arg);
+typedef void (*mcreq_pktfail_fn)(mc_PIPELINE *pipeline, mc_PACKET *packet, lcb_STATUS err, void *arg);
 
 /**
  * Fail out a given pipeline. All commands in the pipeline will be removed
@@ -915,10 +863,7 @@ typedef void (*mcreq_pktfail_fn)
  *
  * @return the number of items actually failed.
  */
-unsigned
-mcreq_pipeline_fail(
-        mc_PIPELINE *pipeline, lcb_error_t err,
-        mcreq_pktfail_fn failcb, void *cbarg);
+unsigned mcreq_pipeline_fail(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfail_fn failcb, void *cbarg);
 
 /**
  * Fail out all commands in the pipeline which are older than a specified
@@ -935,12 +880,8 @@ mcreq_pipeline_fail(
  *
  * @return the number of commands actually failed.
  */
-unsigned
-mcreq_pipeline_timeout(
-        mc_PIPELINE *pipeline, lcb_error_t err,
-        mcreq_pktfail_fn failcb, void *cbarg,
-        hrtime_t oldest_valid,
-        hrtime_t *oldest_start);
+unsigned mcreq_pipeline_timeout(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfail_fn failcb, void *cbarg,
+                                hrtime_t oldest_valid, hrtime_t *oldest_start);
 
 /**
  * This function is called when a packet could not be properly mapped to a real
@@ -961,8 +902,7 @@ typedef void (*mcreq_fallback_cb)(mc_CMDQUEUE *cq, mc_PACKET *pkt);
  * @param cq The command queue
  * @param handler The handler to invoke
  */
-void
-mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler);
+void mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler);
 
 /**
  * Callback used by mcreq_dump_packet() and mcreq_dump_chain() to format the
@@ -971,8 +911,7 @@ mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler);
  * @param size the size of the data
  * @param fp the file to write the output to
  */
-typedef void (*mcreq_payload_dump_fn)
-        (const void *data, unsigned size, FILE *fp);
+typedef void (*mcreq_payload_dump_fn)(const void *data, unsigned size, FILE *fp);
 
 /**
  * Dumps a single packet to the file indicated by `fp`
@@ -981,31 +920,26 @@ typedef void (*mcreq_payload_dump_fn)
  * @param dumpfn If specified, this function is called to handle the packet's
  *  header and payload body
  */
-void
-mcreq_dump_packet(const mc_PACKET *pkt, FILE *fp, mcreq_payload_dump_fn dumpfn);
+void mcreq_dump_packet(const mc_PACKET *pkt, FILE *fp, mcreq_payload_dump_fn dumpfn);
 
-void
-mcreq_dump_chain(const mc_PIPELINE *pipeline, FILE *fp, mcreq_payload_dump_fn dumpfn);
+void mcreq_dump_chain(const mc_PIPELINE *pipeline, FILE *fp, mcreq_payload_dump_fn dumpfn);
 
-#define mcreq_write_hdr(pkt, hdr) \
-        memcpy( SPAN_BUFFER(&(pkt)->kh_span), (hdr)->bytes, sizeof((hdr)->bytes) )
+#define mcreq_write_hdr(pkt, hdr) memcpy(SPAN_BUFFER(&(pkt)->kh_span), (hdr)->bytes, sizeof((hdr)->bytes))
 
-#define mcreq_write_exhdr(pkt, hdr, n) \
-        memcpy(SPAN_BUFFER((&pkt)->kh_span), (hdr)->bytes, n)
+#define mcreq_write_exhdr(pkt, hdr, n) memcpy(SPAN_BUFFER((&pkt)->kh_span), (hdr)->bytes, n)
 
-#define mcreq_read_hdr(pkt, hdr) \
-        memcpy( (hdr)->bytes, SPAN_BUFFER(&(pkt)->kh_span), sizeof((hdr)->bytes) )
+#define mcreq_read_hdr(pkt, hdr) memcpy((hdr)->bytes, SPAN_BUFFER(&(pkt)->kh_span), sizeof((hdr)->bytes))
 
-#define mcreq_first_packet(pipeline) \
-        SLLIST_IS_EMPTY(&(pipeline)->requests) ? NULL : \
-                SLLIST_ITEM(SLLIST_FIRST(&(pipeline)->requests), mc_PACKET, slnode)
+#define mcreq_first_packet(pipeline)                                                                                   \
+    SLLIST_IS_EMPTY(&(pipeline)->requests) ? NULL : SLLIST_ITEM(SLLIST_FIRST(&(pipeline)->requests), mc_PACKET, slnode)
 
 /* Increment a metric */
-#define MC_INCR_METRIC(pipeline, metric, amount) do { \
-        if ((pipeline)->metrics) { \
-            (pipeline)->metrics->metric += amount; \
-        } \
-} while (0)
+#define MC_INCR_METRIC(pipeline, metric, amount)                                                                       \
+    do {                                                                                                               \
+        if ((pipeline)->metrics) {                                                                                     \
+            (pipeline)->metrics->metric += amount;                                                                     \
+        }                                                                                                              \
+    } while (0)
 
 /**@}*/
 

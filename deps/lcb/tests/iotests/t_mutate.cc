@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -22,22 +22,25 @@ class MutateUnitTest : public MockUnitTest
 };
 
 extern "C" {
-    static void testSimpleSetStoreCallback(lcb_t, const void *cookie,
-                                           lcb_storage_t operation,
-                                           lcb_error_t error,
-                                           const lcb_store_resp_t *resp)
-    {
-        using namespace std;
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_SET, operation);
-        EXPECT_EQ(LCB_SUCCESS, error);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        std::string val((const char *)resp->v.v0.key, resp->v.v0.nkey);
-        EXPECT_TRUE(val == "testSimpleStoreKey1" || val == "testSimpleStoreKey2");
-        ++(*counter);
-        EXPECT_NE(0, resp->v.v0.cas);
-    }
+static void testSimpleSetStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    using namespace std;
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_SET, op);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    const char *key;
+    size_t nkey;
+    lcb_respstore_key(resp, &key, &nkey);
+    std::string val(key, nkey);
+    EXPECT_TRUE(val == "testSimpleStoreKey1" || val == "testSimpleStoreKey2");
+    ++(*counter);
+    uint64_t cas;
+    lcb_respstore_cas(resp, &cas);
+    EXPECT_NE(0, cas);
+}
 }
 
 /**
@@ -53,16 +56,26 @@ extern "C" {
  */
 TEST_F(MutateUnitTest, testSimpleSet)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testSimpleSetStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSimpleSetStoreCallback);
+
+    std::string key1("testSimpleStoreKey1"), val1("key1"), key2("testSimpleStoreKey2"), val2("key2");
+
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd1(LCB_SET, "testSimpleStoreKey1", 19, "key1", 4);
-    lcb_store_cmd_t cmd2(LCB_SET, "testSimpleStoreKey2", 19, "key2", 4);
-    lcb_store_cmd_t *cmds[] = { &cmd1, &cmd2 };
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 2, cmds));
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
+    lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+
+    lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
+    lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
+
     lcb_wait(instance);
     EXPECT_EQ(2, numcallbacks);
 }
@@ -74,30 +87,31 @@ TEST_F(MutateUnitTest, testSimpleSet)
  */
 TEST_F(MutateUnitTest, testStoreZeroLengthKey)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
     lcb_sched_enter(instance);
-    lcb_CMDSTORE cmd = { 0 };
-    LCB_CMD_SET_KEY(&cmd, NULL, 0);
-    LCB_CMD_SET_VALUE(&cmd, "bar", 3);
-    cmd.operation = LCB_SET;
-    EXPECT_EQ(LCB_EMPTY_KEY, lcb_store3(instance, NULL, &cmd));
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, NULL, 0);
+    lcb_cmdstore_value(cmd, "bar", 3);
+    EXPECT_EQ(LCB_EMPTY_KEY, lcb_store(instance, NULL, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
 }
 
-
 extern "C" {
-    static void
-    testStoreZeroLengthValueCallback(lcb_t, int, const lcb_RESPBASE *resp)
-    {
-        lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
-        int *counter = (int *)sresp->cookie;
-        ASSERT_EQ(LCB_SET, sresp->op);
-        EXPECT_EQ(LCB_SUCCESS, sresp->rc);
-        ++(*counter);
-    }
+static void testStoreZeroLengthValueCallback(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
+{
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_SET, op);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    ++(*counter);
+}
 }
 /**
  * @test Zero length value
@@ -107,18 +121,19 @@ extern "C" {
 TEST_F(MutateUnitTest, testStoreZeroLengthValue)
 {
     std::string key("foo");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
     lcb_sched_enter(instance);
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, testStoreZeroLengthValueCallback);
-    lcb_CMDSTORE cmd = { 0 };
-    LCB_CMD_SET_KEY(&cmd, key.data(), key.length());
-    LCB_CMD_SET_VALUE(&cmd, NULL, 0);
-    cmd.operation = LCB_SET;
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testStoreZeroLengthValueCallback);
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, NULL, 0);
     int numcallbacks = 0;
-    EXPECT_EQ(LCB_SUCCESS, lcb_store3(instance, &numcallbacks, &cmd));
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     EXPECT_EQ(1, numcallbacks);
@@ -129,16 +144,13 @@ TEST_F(MutateUnitTest, testStoreZeroLengthValue)
 }
 
 extern "C" {
-    static void testRemoveCallback(lcb_t, const void *cookie,
-                                   lcb_error_t error,
-                                   const lcb_remove_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        EXPECT_EQ(LCB_SUCCESS, error);
-        ASSERT_NE((const lcb_remove_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        ++(*counter);
-    }
+static void testRemoveCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPREMOVE *resp)
+{
+    int *counter;
+    lcb_respremove_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respremove_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -149,34 +161,40 @@ extern "C" {
  */
 TEST_F(MutateUnitTest, testRemove)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_remove_callback(instance, testRemoveCallback);
+    std::string key1("testRemoveKey1"), key2("testRemoveKey2");
+
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)testRemoveCallback);
     int numcallbacks = 0;
-    storeKey(instance, "testRemoveKey1", "foo");
-    storeKey(instance, "testRemoveKey2", "foo");
-    lcb_remove_cmd_t cmd1("testRemoveKey1");
-    lcb_remove_cmd_t cmd2("testRemoveKey2");
-    lcb_remove_cmd_t *cmds[] = { &cmd1, &cmd2 };
-    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, &numcallbacks, 2, cmds));
+    storeKey(instance, key1, "foo");
+    storeKey(instance, key2, "foo");
+
+    lcb_CMDREMOVE *cmd;
+    lcb_cmdremove_create(&cmd);
+
+    lcb_cmdremove_key(cmd, key1.c_str(), key1.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, &numcallbacks, cmd));
+
+    lcb_cmdremove_key(cmd, key2.c_str(), key2.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, &numcallbacks, cmd));
+
+    lcb_cmdremove_destroy(cmd);
 
     lcb_wait(instance);
     EXPECT_EQ(2, numcallbacks);
 }
 
 extern "C" {
-    static void testRemoveMissCallback(lcb_t, const void *cookie,
-                                       lcb_error_t error,
-                                       const lcb_remove_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        EXPECT_EQ(LCB_KEY_ENOENT, error);
-        ASSERT_NE((const lcb_remove_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        ++(*counter);
-    }
+static void testRemoveMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPREMOVE *resp)
+{
+    int *counter;
+    lcb_respremove_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_KEY_ENOENT, lcb_respremove_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -186,44 +204,57 @@ extern "C" {
  */
 TEST_F(MutateUnitTest, testRemoveMiss)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_remove_callback(instance, testRemoveMissCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)testRemoveMissCallback);
     int numcallbacks = 0;
-    removeKey(instance, "testRemoveMissKey1");
-    removeKey(instance, "testRemoveMissKey2");
-    lcb_remove_cmd_t cmd1("testRemoveMissKey1");
-    lcb_remove_cmd_t cmd2("testRemoveMissKey2");
-    lcb_remove_cmd_t *cmds[] = { &cmd1, &cmd2 };
-    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, &numcallbacks, 2, cmds));
+    std::string key1("testRemoveMissKey1"), key2("testRemoveMissKey2");
+    removeKey(instance, key1);
+    removeKey(instance, key2);
 
+    lcb_CMDREMOVE *cmd;
+    lcb_cmdremove_create(&cmd);
+
+    lcb_cmdremove_key(cmd, key1.c_str(), key1.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, &numcallbacks, cmd));
+
+    lcb_cmdremove_key(cmd, key2.c_str(), key2.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, &numcallbacks, cmd));
+
+    lcb_cmdremove_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(2, numcallbacks);
 }
 
 extern "C" {
-    static void testSimpleAddStoreCallback(lcb_t, const void *cookie,
-                                           lcb_storage_t operation,
-                                           lcb_error_t error,
-                                           const lcb_store_resp_t *resp)
-    {
-        using namespace std;
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_ADD, operation);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        std::string val((const char *)resp->v.v0.key, resp->v.v0.nkey);
-        EXPECT_STREQ("testSimpleAddKey", val.c_str());
-        if (*counter == 0) {
-            EXPECT_EQ(LCB_SUCCESS, error);
-            EXPECT_NE(0, resp->v.v0.cas);
-        } else {
-            EXPECT_EQ(LCB_KEY_EEXISTS, error);
-        }
-        ++(*counter);
+static void testSimpleAddStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    using namespace std;
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_ADD, op);
+
+    const char *key;
+    size_t nkey;
+    lcb_respstore_key(resp, &key, &nkey);
+    std::string val(key, nkey);
+    EXPECT_STREQ("testSimpleAddKey", val.c_str());
+
+    lcb_STATUS rc = lcb_respstore_status(resp);
+    if (*counter == 0) {
+        uint64_t cas;
+        EXPECT_EQ(LCB_SUCCESS, rc);
+        lcb_respstore_cas(resp, &cas);
+        EXPECT_NE(0, cas);
+    } else {
+        EXPECT_EQ(LCB_KEY_EEXISTS, rc);
     }
+    ++(*counter);
+}
 }
 
 /**
@@ -233,36 +264,44 @@ extern "C" {
  */
 TEST_F(MutateUnitTest, testSimpleAdd)
 {
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testSimpleAddStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSimpleAddStoreCallback);
     removeKey(instance, "testSimpleAddKey");
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd1(LCB_ADD, "testSimpleAddKey", 16, "key1", 4);
-    lcb_store_cmd_t cmd2(LCB_ADD, "testSimpleAddKey", 16, "key2", 4);
-    lcb_store_cmd_t *cmds[] = { &cmd1, &cmd2 };
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 2, cmds));
+    std::string key("testSimpleAddKey"), val1("key1"), val2("key2");
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_ADD);
+    lcb_cmdstore_key(cmd, key.c_str(), key.size());
+
+    lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+
+    lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+
     lcb_wait(instance);
     EXPECT_EQ(2, numcallbacks);
+    lcb_cmdstore_destroy(cmd);
 }
 
 extern "C" {
-    static void testSimpleAppendStoreCallback(lcb_t, const void *cookie,
-                                              lcb_storage_t operation,
-                                              lcb_error_t error,
-                                              const lcb_store_resp_t *resp)
-    {
-        using namespace std;
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_APPEND, operation);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        EXPECT_EQ(LCB_SUCCESS, error);
-        EXPECT_NE(0, resp->v.v0.cas);
-        ++(*counter);
-    }
+static void testSimpleAppendStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    using namespace std;
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_APPEND, op);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    uint64_t cas;
+    lcb_respstore_cas(resp, &cas);
+    EXPECT_NE(0, cas);
+    ++(*counter);
+}
 }
 
 /**
@@ -273,35 +312,41 @@ extern "C" {
 TEST_F(MutateUnitTest, testSimpleAppend)
 {
     std::string key("testSimpleAppendKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testSimpleAppendStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSimpleAppendStoreCallback);
     storeKey(instance, key, "foo");
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd(LCB_APPEND, key.data(), key.length(), "bar", 3);
-    lcb_store_cmd_t *cmds[] = { &cmd };
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 1, cmds));
+
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_APPEND);
+
+    std::string val("bar");
+    lcb_cmdstore_key(cmd, key.c_str(), key.size());
+    lcb_cmdstore_value(cmd, val.c_str(), val.size());
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
 
     Item itm;
     getKey(instance, key, itm);
     EXPECT_STREQ("foobar", itm.val.c_str());
-
 }
 
 extern "C" {
-    static void
-    testAppendNonExistingKeyCallback(lcb_t, int, const lcb_RESPBASE *resp)
-    {
-        lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
-        int *counter = (int *)sresp->cookie;
-        ASSERT_EQ(LCB_APPEND, sresp->op);
-        EXPECT_EQ(LCB_NOT_STORED, sresp->rc);
-        ++(*counter);
-    }
+static void testAppendNonExistingKeyCallback(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
+{
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_APPEND, op);
+    EXPECT_EQ(LCB_NOT_STORED, lcb_respstore_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -312,38 +357,39 @@ extern "C" {
 TEST_F(MutateUnitTest, testAppendNonExistingKey)
 {
     std::string key("testAppendNonExistingKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
     lcb_sched_enter(instance);
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, testAppendNonExistingKeyCallback);
-    lcb_CMDSTORE cmd = { 0 };
-    LCB_CMD_SET_KEY(&cmd, key.data(), key.length());
-    LCB_CMD_SET_VALUE(&cmd, "bar", 3);
-    cmd.operation = LCB_APPEND;
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testAppendNonExistingKeyCallback);
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_APPEND);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, "bar", 3);
     int numcallbacks = 0;
-    EXPECT_EQ(LCB_SUCCESS, lcb_store3(instance, &numcallbacks, &cmd));
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     EXPECT_EQ(1, numcallbacks);
 }
 
 extern "C" {
-    static void testSimplePrependStoreCallback(lcb_t, const void *cookie,
-                                               lcb_storage_t operation,
-                                               lcb_error_t error,
-                                               const lcb_store_resp_t *resp)
-    {
-        using namespace std;
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_PREPEND, operation);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        EXPECT_EQ(LCB_SUCCESS, error);
-        EXPECT_NE(0, resp->v.v0.cas);
-        ++(*counter);
-    }
+static void testSimplePrependStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    using namespace std;
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_PREPEND, op);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    uint64_t cas;
+    lcb_respstore_cas(resp, &cas);
+    EXPECT_NE(0, cas);
+    ++(*counter);
+}
 }
 
 /**
@@ -356,16 +402,20 @@ extern "C" {
 TEST_F(MutateUnitTest, testSimplePrepend)
 {
     std::string key("testSimplePrependKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testSimplePrependStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSimplePrependStoreCallback);
     storeKey(instance, key, "foo");
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd(LCB_PREPEND, key.data(), key.length(), "bar", 3);
-    lcb_store_cmd_t *cmds[] = { &cmd };
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 1, cmds));
+
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_PREPEND);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, "bar", 3);
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
 
@@ -375,15 +425,16 @@ TEST_F(MutateUnitTest, testSimplePrepend)
 }
 
 extern "C" {
-    static void
-    testPrependNonExistingKeyCallback(lcb_t, int, const lcb_RESPBASE *resp)
-    {
-        lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
-        int *counter = (int *)sresp->cookie;
-        ASSERT_EQ(LCB_PREPEND, sresp->op);
-        EXPECT_EQ(LCB_NOT_STORED, sresp->rc);
-        ++(*counter);
-    }
+static void testPrependNonExistingKeyCallback(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
+{
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_PREPEND, op);
+    EXPECT_EQ(LCB_NOT_STORED, lcb_respstore_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -394,36 +445,35 @@ extern "C" {
 TEST_F(MutateUnitTest, testPrependNonExistingKey)
 {
     std::string key("testPrependNonExistingKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
     lcb_sched_enter(instance);
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, testPrependNonExistingKeyCallback);
-    lcb_CMDSTORE cmd = { 0 };
-    LCB_CMD_SET_KEY(&cmd, key.data(), key.length());
-    LCB_CMD_SET_VALUE(&cmd, "foo", 3);
-    cmd.operation = LCB_PREPEND;
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testPrependNonExistingKeyCallback);
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_PREPEND);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, "foo", 3);
     int numcallbacks = 0;
-    EXPECT_EQ(LCB_SUCCESS, lcb_store3(instance, &numcallbacks, &cmd));
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     EXPECT_EQ(1, numcallbacks);
 }
 
 extern "C" {
-    static void testSimpleReplaceNonexistingStoreCallback(lcb_t, const void *cookie,
-                                                          lcb_storage_t operation,
-                                                          lcb_error_t error,
-                                                          const lcb_store_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_REPLACE, operation);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        EXPECT_EQ(LCB_KEY_ENOENT, error);
-        ++(*counter);
-    }
+static void testSimpleReplaceNonexistingStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_REPLACE, op);
+    EXPECT_EQ(LCB_KEY_ENOENT, lcb_respstore_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -435,34 +485,38 @@ extern "C" {
 TEST_F(MutateUnitTest, testSimpleReplaceNonexisting)
 {
     std::string key("testSimpleReplaceNonexistingKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testSimpleReplaceNonexistingStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE,
+                                (lcb_RESPCALLBACK)testSimpleReplaceNonexistingStoreCallback);
     removeKey(instance, key);
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd(LCB_REPLACE, key.data(), key.length(), "bar", 3);
-    lcb_store_cmd_t *cmds[] = { &cmd };
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 1, cmds));
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_REPLACE);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, "bar", 3);
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
 }
 
 extern "C" {
-    static void testSimpleReplaceStoreCallback(lcb_t, const void *cookie,
-                                               lcb_storage_t operation,
-                                               lcb_error_t error,
-                                               const lcb_store_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_REPLACE, operation);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        EXPECT_EQ(LCB_SUCCESS, error);
-        EXPECT_NE(0, resp->v.v0.cas);
-        ++(*counter);
-    }
+static void testSimpleReplaceStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_REPLACE, op);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    uint64_t cas;
+    lcb_respstore_cas(resp, &cas);
+    EXPECT_NE(0, cas);
+    ++(*counter);
+}
 }
 
 /**
@@ -476,16 +530,19 @@ extern "C" {
 TEST_F(MutateUnitTest, testSimpleReplace)
 {
     std::string key("testSimpleReplaceKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testSimpleReplaceStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSimpleReplaceStoreCallback);
     storeKey(instance, key, "foo");
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd(LCB_REPLACE, key.data(), key.length(), "bar", 3);
-    lcb_store_cmd_t *cmds[] = { &cmd };
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 1, cmds));
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_REPLACE);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, "bar", 3);
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
     Item itm;
@@ -494,18 +551,16 @@ TEST_F(MutateUnitTest, testSimpleReplace)
 }
 
 extern "C" {
-    static void testIncorrectCasReplaceStoreCallback(lcb_t, const void *cookie,
-                                                     lcb_storage_t operation,
-                                                     lcb_error_t error,
-                                                     const lcb_store_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_REPLACE, operation);
-        EXPECT_EQ(LCB_KEY_EEXISTS, error);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        ++(*counter);
-    }
+static void testIncorrectCasReplaceStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_REPLACE, op);
+    EXPECT_EQ(LCB_KEY_EEXISTS, lcb_respstore_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -519,37 +574,39 @@ extern "C" {
 TEST_F(MutateUnitTest, testIncorrectCasReplace)
 {
     std::string key("testIncorrectCasReplaceKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testIncorrectCasReplaceStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testIncorrectCasReplaceStoreCallback);
     storeKey(instance, key, "foo");
     Item itm;
     getKey(instance, key, itm);
 
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd(LCB_REPLACE, key.data(), key.length(), "bar", 3);
-    lcb_store_cmd_t *cmds[] = { &cmd };
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_REPLACE);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, "bar", 3);
+    lcb_cmdstore_cas(cmd, itm.cas + 1);
 
-    cmd.v.v0.cas = itm.cas + 1;
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 1, cmds));
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
 }
+
 extern "C" {
-    static void testCasReplaceStoreCallback(lcb_t, const void *cookie,
-                                            lcb_storage_t operation,
-                                            lcb_error_t error,
-                                            const lcb_store_resp_t *resp)
-    {
-        int *counter = (int *)cookie;
-        ASSERT_EQ(LCB_REPLACE, operation);
-        EXPECT_EQ(LCB_SUCCESS, error);
-        ASSERT_NE((const lcb_store_resp_t *)NULL, resp);
-        EXPECT_EQ(0, resp->version);
-        ++(*counter);
-    }
+static void testCasReplaceStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    int *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STORE_OPERATION op;
+    lcb_respstore_operation(resp, &op);
+    ASSERT_EQ(LCB_STORE_REPLACE, op);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    ++(*counter);
+}
 }
 
 /**
@@ -563,21 +620,23 @@ extern "C" {
 TEST_F(MutateUnitTest, testCasReplace)
 {
     std::string key("testCasReplaceKey");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
+    createConnection(hw, &instance);
 
-    (void)lcb_set_store_callback(instance, testCasReplaceStoreCallback);
+    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testCasReplaceStoreCallback);
     storeKey(instance, key, "foo");
     Item itm;
     getKey(instance, key, itm);
 
     int numcallbacks = 0;
-    lcb_store_cmd_t cmd(LCB_REPLACE, key.data(), key.length(), "bar", 3);
-    lcb_store_cmd_t *cmds[] = { &cmd };
-
-    cmd.v.v0.cas = itm.cas;
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, 1, cmds));
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_REPLACE);
+    lcb_cmdstore_key(cmd, key.data(), key.length());
+    lcb_cmdstore_value(cmd, "bar", 3);
+    lcb_cmdstore_cas(cmd, itm.cas);
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(instance);
     EXPECT_EQ(1, numcallbacks);
     getKey(instance, key, itm);
@@ -585,25 +644,29 @@ TEST_F(MutateUnitTest, testCasReplace)
 }
 
 extern "C" {
-static void storeCb(lcb_t, int, const lcb_RESPBASE *rb)
+static void storeCb(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
 {
-    ASSERT_EQ(LCB_SUCCESS, rb->rc);
-    *(bool*)rb->cookie = true;
+    bool *rv;
+    ASSERT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    lcb_respstore_cookie(resp, (void **)&rv);
+    *rv = true;
 }
 }
 
 TEST_F(MutateUnitTest, testSetDefault)
 {
     std::string key("testDefaultMode");
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     HandleWrap hw;
-    createConnection(hw, instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, storeCb);
+    createConnection(hw, &instance);
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeCb);
 
-    lcb_CMDSTORE cmd = { 0 };
-    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-    LCB_CMD_SET_VALUE(&cmd, "foo", 3);
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, key.c_str(), key.size());
+    lcb_cmdstore_value(cmd, "foo", 3);
     bool cookie = false;
-    ASSERT_EQ(LCB_SUCCESS, lcb_store3(instance, &cookie, &cmd));
+    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+    lcb_cmdstore_destroy(cmd);
     lcb_wait(instance);
 }

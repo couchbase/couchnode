@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -47,10 +47,8 @@ typedef enum {
  * them both in the same function call (and the return status may be inspected
  * to see which one of the parameters contains the actual data).
  */
-static iovcursor_STATUS
-iovcursor_peek_ex(const mc_IOVCURSOR *cursor,
-    char *copytgt, const char **contigref,
-    unsigned size, unsigned offset)
+static iovcursor_STATUS iovcursor_peek_ex(const mc_IOVCURSOR *cursor, char *copytgt, const char **contigref,
+                                          unsigned size, unsigned offset)
 {
     unsigned ii;
     const nb_IOV *iov = cursor->iov;
@@ -129,9 +127,7 @@ iovcursor_peek_ex(const mc_IOVCURSOR *cursor,
  * @param offset Position in the input at which to start copying
  * @return true if there were sufficient bytes to copy, false otherwise.
  */
-static int
-iovcursor_peek(const mc_IOVCURSOR *cursor, char *buf,
-    unsigned size, unsigned offset)
+static int iovcursor_peek(const mc_IOVCURSOR *cursor, char *buf, unsigned size, unsigned offset)
 {
     int rv = iovcursor_peek_ex(cursor, buf, NULL, size, offset);
     return rv == IOVCURSOR_STATUS_BUFCOPY_OK;
@@ -145,13 +141,12 @@ iovcursor_peek(const mc_IOVCURSOR *cursor, char *buf,
  * length is greated
  * @param iov The iov to be initialized
  */
-static unsigned
-iovcursor_adv_first(mc_IOVCURSOR *cursor, unsigned maxsize, nb_IOV *iov)
+static unsigned iovcursor_adv_first(mc_IOVCURSOR *cursor, unsigned maxsize, nb_IOV *iov)
 {
     const char *srcbuf = (const char *)cursor->iov->iov_base + cursor->offset;
 
     /* Set the target */
-    iov->iov_base = (void*)srcbuf;
+    iov->iov_base = (void *)srcbuf;
     iov->iov_len = MINIMUM(cursor->iov->iov_len - cursor->offset, maxsize);
 
     if (iov->iov_len == (cursor->iov->iov_len - cursor->offset)) {
@@ -177,8 +172,7 @@ iovcursor_adv_first(mc_IOVCURSOR *cursor, unsigned maxsize, nb_IOV *iov)
  * data contained within the cursor. Exceeding the amount of data will result
  * in undefined behavior.
  */
-static void
-iovcursor_adv_copy(mc_IOVCURSOR *cursor, char *tgt, unsigned size)
+static void iovcursor_adv_copy(mc_IOVCURSOR *cursor, char *tgt, unsigned size)
 {
     nb_IOV tmpiov;
     nb_IOV *iov;
@@ -221,8 +215,7 @@ iovcursor_adv_copy(mc_IOVCURSOR *cursor, char *tgt, unsigned size)
  * @param n the number of bytes to check for
  * @return nonzero if the requested size is available
  */
-#define IOVCURSOR_HAS_CONTIG(mincur, n) \
-    ((mincur)->iov->iov_len - (mincur)->offset) >= n
+#define IOVCURSOR_HAS_CONTIG(mincur, n) ((mincur)->iov->iov_len - (mincur)->offset) >= n
 
 /**
  * Create an allocated array of IOVs which point to a subset of IOVs within
@@ -234,9 +227,7 @@ iovcursor_adv_copy(mc_IOVCURSOR *cursor, char *tgt, unsigned size)
  * should be freed by free() when no longer required.
  * @param[out] narr Number of elements in the resultant array.
  */
-static void
-iovcursor_adv_iovalloc(mc_IOVCURSOR *cursor, unsigned size,
-    nb_IOV **p_arr, unsigned *p_narr)
+static void iovcursor_adv_iovalloc(mc_IOVCURSOR *cursor, unsigned size, nb_IOV **p_arr, unsigned *p_narr)
 {
     unsigned ii, narr;
     nb_IOV dummy, *arr;
@@ -253,14 +244,14 @@ iovcursor_adv_iovalloc(mc_IOVCURSOR *cursor, unsigned size,
         narr += ii;
     }
 
-    arr = (nb_IOV*) malloc(sizeof(*arr) * narr);
+    arr = (nb_IOV *)malloc(sizeof(*arr) * narr);
     arr[0] = dummy;
 
     for (ii = 1; size > 0; ++ii) {
         unsigned to_adv = MINIMUM(size, cursor->iov->iov_len);
-        const char *srcbuf = (const char*)cursor->iov->iov_base;
+        const char *srcbuf = (const char *)cursor->iov->iov_base;
 
-        arr[ii].iov_base = (void*)srcbuf;
+        arr[ii].iov_base = (void *)srcbuf;
         arr[ii].iov_len = MINIMUM(size, cursor->iov->iov_len);
 
         size -= to_adv;

@@ -2,7 +2,9 @@
 using namespace LCBTest;
 using std::string;
 using std::vector;
-class SockWriteTest : public SockTest {};
+class SockWriteTest : public SockTest
+{
+};
 
 /**
  * This file tests the ability of the sockets to write various pieces
@@ -17,9 +19,12 @@ TEST_F(SockWriteTest, testMultiWrite)
     RecvFuture rf(expected.size());
     FutureBreakCondition wbc(&rf);
 
-    sock.put("Hello "); sock.schedule();
-    sock.put("World"); sock.schedule();
-    sock.put("!"); sock.schedule();
+    sock.put("Hello ");
+    sock.schedule();
+    sock.put("World");
+    sock.schedule();
+    sock.put("!");
+    sock.schedule();
     sock.schedule();
 
     sock.conn->setRecv(&rf);
@@ -31,7 +36,6 @@ TEST_F(SockWriteTest, testMultiWrite)
     ASSERT_EQ(expected, rf.getString());
 }
 
-
 /**
  * Test with a very big write
  */
@@ -39,7 +43,7 @@ TEST_F(SockWriteTest, testBigWrite)
 {
     ESocket sock;
     loop->connect(&sock);
-    string expected(1024*1024*2, '*');
+    string expected(1024 * 1024 * 2, '*');
     RecvFuture rf(expected.size());
     sock.conn->setRecv(&rf);
     sock.put(expected);

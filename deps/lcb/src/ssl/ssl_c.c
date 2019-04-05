@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014 Couchbase, Inc.
+ *     Copyright 2014-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -37,14 +37,14 @@ typedef struct {
 
 typedef struct {
     IOTSSL_COMMON_FIELDS
-    lcb_sockdata_t *sd; /**< Socket pointer */
-    lcbio_pTIMER as_read; /**< For callbacks when SSL_pending > 0 */
+    lcb_sockdata_t *sd;    /**< Socket pointer */
+    lcbio_pTIMER as_read;  /**< For callbacks when SSL_pending > 0 */
     lcbio_pTIMER as_write; /**< For callbacks when SSL_writes succeeds */
-    lcb_IOV urd_iov; /**< User-defined buffer to read in applicataion data */
-    void *urd_arg; /**< User-defined argument for read callback */
+    lcb_IOV urd_iov;       /**< User-defined buffer to read in applicataion data */
+    void *urd_arg;         /**< User-defined argument for read callback */
     my_WCTX *wctx_cached;
     lcb_ioC_read2_callback urd_cb; /**< User defined read callback */
-    sllist_root writes; /**< List of pending user writes */
+    sllist_root writes;            /**< List of pending user writes */
 
     /**
      * Whether a current read request is active. This read request refers to
@@ -59,7 +59,10 @@ typedef struct {
 } lcbio_CSSL;
 
 #define CS_FROM_IOPS(iops) (lcbio_CSSL *)IOTSSL_FROM_IOPS(iops)
-#define SCHEDULE_WANT_SAFE(cs) if (!(cs)->entered) { schedule_wants(cs); }
+#define SCHEDULE_WANT_SAFE(cs)                                                                                         \
+    if (!(cs)->entered) {                                                                                              \
+        schedule_wants(cs);                                                                                            \
+    }
 
 static void appdata_encode(lcbio_CSSL *);
 static void appdata_free_flushed(lcbio_CSSL *);
@@ -74,17 +77,17 @@ static int maybe_set_error(lcbio_CSSL *cs, int rv)
  * for write and where the current IOV position is at the end (or niov==0).
  * For each of those routines this function will invoke its write callback
  */
-static void
-appdata_free_flushed(lcbio_CSSL *cs)
+static void appdata_free_flushed(lcbio_CSSL *cs)
 {
     sllist_iterator iter;
-    SLLIST_ITERFOR(&cs->writes, &iter) {
+    SLLIST_ITERFOR(&cs->writes, &iter)
+    {
         my_WCTX *cur = SLLIST_ITEM(iter.cur, my_WCTX, slnode);
         if (cur->niov && cs->error == 0) {
             break;
         }
         /* invoke the callback */
-        cur->cb(cs->sd, cs->error?-1:0, cur->uarg);
+        cur->cb(cs->sd, cs->error ? -1 : 0, cur->uarg);
         sllist_iter_remove(&cs->writes, &iter);
         free(cur->iovroot_);
         if (cs->wctx_cached) {
@@ -97,13 +100,13 @@ appdata_free_flushed(lcbio_CSSL *cs)
 
 /* This function will attempt to encode pending user data into SSL data. This
  * will be output to the wbio. */
-static void
-appdata_encode(lcbio_CSSL *cs)
+static void appdata_encode(lcbio_CSSL *cs)
 {
     sllist_node *cur;
 
     /* each element here represents a used-defined write buffer */
-    SLLIST_FOREACH(&cs->writes, cur) {
+    SLLIST_FOREACH(&cs->writes, cur)
+    {
         my_WCTX *ctx = SLLIST_ITEM(cur, my_WCTX, slnode);
 
         for (; ctx->niov && cs->error == 0; ctx->niov--, ctx->iov++) {
@@ -132,8 +135,7 @@ appdata_encode(lcbio_CSSL *cs)
     }
 }
 
-static void
-async_write(void *arg)
+static void async_write(void *arg)
 {
     lcbio_CSSL *cs = arg;
     appdata_encode(cs);
@@ -142,8 +144,7 @@ async_write(void *arg)
 }
 
 /* Called when SSL data has been written to the socket */
-static void
-write_callback(lcb_sockdata_t *sd, int status, void *arg)
+static void write_callback(lcb_sockdata_t *sd, int status, void *arg)
 {
     my_WBUF *wb = arg;
     lcbio_CSSL *cs = wb->parent;
@@ -157,13 +158,12 @@ write_callback(lcb_sockdata_t *sd, int status, void *arg)
 
     appdata_free_flushed(cs);
     lcbio_table_unref(&cs->base_);
-    (void) sd;
+    (void)sd;
 }
 
 /* Read application data from SSL's rbio buffer. Invokes the user callback
  * for the current read operation if there is data */
-static void
-appdata_read(lcbio_CSSL *cs)
+static void appdata_read(lcbio_CSSL *cs)
 {
     /* either an error or an actual read event */
     int nr;
@@ -186,8 +186,7 @@ appdata_read(lcbio_CSSL *cs)
 }
 
 /* Invoked when SSL data has been read from the socket */
-static void
-read_callback(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
+static void read_callback(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
 {
 #if LCB_CAN_OPTIMIZE_SSL_BIO
     lcbio_CSSL *cs = arg;
@@ -228,14 +227,12 @@ read_callback(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
     cs->entered--;
     schedule_wants(cs);
     lcbio_table_unref(&cs->base_);
-    (void) sd;
+    (void)sd;
 }
-
 
 /* This function schedules any I/O on the actual socket. It writes encoded
  * data and requests to read decoded data */
-static void
-schedule_wants(lcbio_CSSL *cs)
+static void schedule_wants(lcbio_CSSL *cs)
 {
     size_t npend = BIO_ctrl_pending(cs->wbio);
     char dummy;
@@ -264,8 +261,7 @@ schedule_wants(lcbio_CSSL *cs)
          * on us.
          */
         lcbio_table_ref(&cs->base_);
-        IOT_V1(cs->orig).write2(
-            IOT_ARG(cs->orig), cs->sd, &iov, 1, wb, write_callback);
+        IOT_V1(cs->orig).write2(IOT_ARG(cs->orig), cs->sd, &iov, 1, wb, write_callback);
     }
 
     /* Only schedule additional reads if we're not already in the process of a
@@ -300,22 +296,18 @@ schedule_wants(lcbio_CSSL *cs)
             iotssl_bm_reserve(mb);
             iov.iov_base = mb->data + mb->length;
             iov.iov_len = mb->max - mb->length;
-            IOT_V1(cs->orig).read2(
-                IOT_ARG(cs->orig), cs->sd, &iov, 1, cs, read_callback);
+            IOT_V1(cs->orig).read2(IOT_ARG(cs->orig), cs->sd, &iov, 1, cs, read_callback);
 #else
             iov.iov_base = rb->buf;
             iov.iov_len = BUFSZ;
-            IOT_V1(cs->orig).read2(
-                IOT_ARG(cs->orig), cs->sd, &iov, 1, rb, read_callback);
+            IOT_V1(cs->orig).read2(IOT_ARG(cs->orig), cs->sd, &iov, 1, rb, read_callback);
 #endif
         }
-
     }
 }
 
-static int
-Cssl_read2(lcb_io_opt_t iops, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
-    void *uarg, lcb_ioC_read2_callback callback)
+static int Cssl_read2(lcb_io_opt_t iops, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov, void *uarg,
+                      lcb_ioC_read2_callback callback)
 {
     lcbio_CSSL *cs = CS_FROM_IOPS(iops);
     cs->urd_iov = *iov;
@@ -330,13 +322,13 @@ Cssl_read2(lcb_io_opt_t iops, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
         SCHEDULE_WANT_SAFE(cs);
     }
 
-    (void) niov; (void) sd;
+    (void)niov;
+    (void)sd;
     return 0;
 }
 
-static int
-Cssl_write2(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
-    void *uarg, lcb_ioC_write2_callback callback)
+static int Cssl_write2(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov, void *uarg,
+                       lcb_ioC_write2_callback callback)
 {
     lcbio_CSSL *cs = CS_FROM_IOPS(io);
     my_WCTX *wc;
@@ -379,9 +371,9 @@ Cssl_write2(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
      * data. If so, reschedule and place in the queue for later */
     if (niov && cs->error == 0) {
         wc->niov = niov;
-        wc->iov = malloc(sizeof (*iov) * wc->niov);
+        wc->iov = malloc(sizeof(*iov) * wc->niov);
         wc->iovroot_ = wc->iov;
-        memcpy(wc->iov, iov, sizeof (*iov) * niov);
+        memcpy(wc->iov, iov, sizeof(*iov) * niov);
         /* This function will try to schedule the proper events. We need at least
          * one SSL_write() in order to advance the state machine. In the future
          * we could determine if we performed a previous SSL_write above */
@@ -390,12 +382,11 @@ Cssl_write2(lcb_io_opt_t io, lcb_sockdata_t *sd, lcb_IOV *iov, lcb_size_t niov,
 
     /* In most cases we will want to deliver the "flushed" notification */
     lcbio_async_signal(cs->as_write);
-    (void) sd;
+    (void)sd;
     return 0;
 }
 
-static unsigned
-Cssl_close(lcb_io_opt_t io, lcb_sockdata_t *sd)
+static unsigned Cssl_close(lcb_io_opt_t io, lcb_sockdata_t *sd)
 {
     lcbio_CSSL *cs = CS_FROM_IOPS(io);
     IOT_V1(cs->orig).close(IOT_ARG(cs->orig), sd);
@@ -412,8 +403,7 @@ Cssl_close(lcb_io_opt_t io, lcb_sockdata_t *sd)
     return 0;
 }
 
-static void
-Cssl_dtor(void *arg)
+static void Cssl_dtor(void *arg)
 {
     lcbio_CSSL *cs = arg;
     assert(SLLIST_IS_EMPTY(&cs->writes));
@@ -424,13 +414,12 @@ Cssl_dtor(void *arg)
     free(arg);
 }
 
-lcbio_pTABLE
-lcbio_Cssl_new(lcbio_pTABLE orig, lcb_sockdata_t *sd, SSL_CTX *sctx)
+lcbio_pTABLE lcbio_Cssl_new(lcbio_pTABLE orig, lcb_sockdata_t *sd, SSL_CTX *sctx)
 {
     lcbio_CSSL *ret = calloc(1, sizeof(*ret));
     lcbio_pTABLE iot = &ret->base_;
     ret->sd = sd;
-    ret->as_read = lcbio_timer_new(orig, ret, (void (*)(void*))appdata_read);
+    ret->as_read = lcbio_timer_new(orig, ret, (void (*)(void *))appdata_read);
     ret->as_write = lcbio_timer_new(orig, ret, async_write);
     ret->base_.dtor = Cssl_dtor;
 

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013 Couchbase, Inc.
+ *     Copyright 2013-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -24,14 +24,14 @@
 extern "C" {
 #endif
 
-    /**
-     * Create an instance of an event handler that utilize libev for
-     * event notification.
-     *
-     * @return status of the operation
-     */
-    LIBCOUCHBASE_API
-    lcb_error_t lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *loop);
+/**
+ * Create an instance of an event handler that utilize libev for
+ * event notification.
+ *
+ * @return status of the operation
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *loop);
 #ifdef __cplusplus
 }
 #endif

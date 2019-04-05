@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012 Couchbase, Inc.
+ *     Copyright 2012-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -47,23 +47,15 @@ void setup_test_timeout_handler(void)
     }
 
 #ifdef HAVE_SETITIMER
-    struct itimerval timer = { .it_value = { .tv_sec = duration } };
+    struct itimerval timer = {.it_value = {.tv_sec = duration}};
     setitimer(ITIMER_REAL, &timer, NULL);
 #elif defined(HAVE_ALARM)
     alarm(duration);
 #elif defined(_WIN32)
-    CreateTimerQueueTimer(
-        &hTimer,
-        NULL,
-        test_timed_out,
-        NULL,
-        duration * 1000,
-        0,
-        0);
+    CreateTimerQueueTimer(&hTimer, NULL, test_timed_out, NULL, duration * 1000, 0, 0);
 #else
     /* print an error message so that we're using the duration variable
      * and not generate a warning about unused variables ;) */
-    fprintf(stderr, "Tests may run longer than %d due to lack of an alarm\n",
-            duration);
+    fprintf(stderr, "Tests may run longer than %d due to lack of an alarm\n", duration);
 #endif
 }
