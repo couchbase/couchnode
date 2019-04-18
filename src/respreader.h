@@ -82,6 +82,26 @@ public:
         return Nan::New<Number>(value);
     }
 
+    template <lcb_STATUS (*CtxFn)(const RespType *, const char **, size_t *),
+              lcb_STATUS (*RefFn)(const RespType *, const char **, size_t *)>
+    Local<Value> decodeError(lcb_STATUS rc) const
+    {
+        if (rc == LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        Local<Value> errVal = Error::create(rc);
+        Local<Object> errValObj = errVal.As<Object>();
+
+        Nan::Set(errValObj, Nan::New<String>("context").ToLocalChecked(),
+                 parseValue<CtxFn>());
+
+        Nan::Set(errValObj, Nan::New<String>("ref").ToLocalChecked(),
+                 parseValue<RefFn>());
+
+        return errVal;
+    }
+
     template <lcb_STATUS (*GetFn)(const RespType *, lcb_CAS *)>
     Local<Value> decodeCas() const
     {
