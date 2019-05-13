@@ -1399,10 +1399,16 @@ typedef enum {
 #define LCB_CNTL_ENABLE_DURABLE_WRITE 0x5e
 
 /**
+ *
+ * @volatile
+ */
+#define LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR 0x5f
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX 0x5f
+#define LCB_CNTL__MAX 0x60
 /**@}*/
 
 #ifdef __cplusplus

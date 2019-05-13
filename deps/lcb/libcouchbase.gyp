@@ -217,6 +217,7 @@
         'src/operations/durability-cas.cc',
         'src/operations/durability-seqno.cc',
         'src/operations/durability.cc',
+        'src/operations/exists.cc',
         'src/operations/get.cc',
         'src/operations/observe-seqno.cc',
         'src/operations/observe.cc',

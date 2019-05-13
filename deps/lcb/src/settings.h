@@ -105,6 +105,8 @@
 #define LCBTRACE_DEFAULT_THRESHOLD_FTS LCB_MS2US(1000)
 #define LCBTRACE_DEFAULT_THRESHOLD_ANALYTICS LCB_MS2US(1000)
 
+#define LCB_DEFAULT_PERSISTENCE_TIMEOUT_FLOOR 1500000
+
 #include "config.h"
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/metrics.h>
@@ -136,6 +138,7 @@ typedef struct lcb_settings_st {
     lcb_U32 n1ql_timeout;
     lcb_U32 durability_timeout;
     lcb_U32 durability_interval;
+    lcb_U32 persistence_timeout_floor;
     lcb_U32 config_timeout;
     lcb_U32 config_node_timeout;
     lcb_U32 retry_interval;

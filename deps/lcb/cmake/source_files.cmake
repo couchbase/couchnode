@@ -88,6 +88,7 @@ SET(LCB_CORE_CXXSRC
     src/operations/subdoc.cc
     src/operations/touch.cc
     src/operations/ping.cc
+    src/operations/exists.cc
     src/mcserver/mcserver.cc
     src/mcserver/negotiate.cc
     src/metrics.cc

@@ -771,3 +771,49 @@ TEST_F(MockUnitTest, testAppendE2BIG)
     ASSERT_EQ(LCB_E2BIG, res);
     free(value2);
 }
+
+extern "C" {
+static void existsCb(lcb_INSTANCE *, int, const lcb_RESPEXISTS *rb)
+{
+    int *e;
+    lcb_respexists_cookie(rb, (void **)&e);
+    *e = lcb_respexists_is_found(rb);
+}
+}
+
+
+TEST_F(MockUnitTest, testExists)
+{
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
+
+    lcb_install_callback3(instance, LCB_CALLBACK_EXISTS, (lcb_RESPCALLBACK)existsCb);
+
+    const char *key = "testExistsKey";
+    size_t nkey = strlen(key);
+
+    lcb_STATUS err;
+    lcb_CMDEXISTS *cmd;
+    int res;
+
+    lcb_cmdexists_create(&cmd);
+    lcb_cmdexists_key(cmd, key, nkey);
+    res = 0xff;
+    err = lcb_exists(instance, &res, cmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_cmdexists_destroy(cmd);
+    lcb_wait(instance);
+    ASSERT_EQ(0, res);
+
+    storeKey(instance, key, "value");
+
+    lcb_cmdexists_create(&cmd);
+    lcb_cmdexists_key(cmd, key, nkey);
+    res = 0;
+    err = lcb_exists(instance, &res, cmd);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    lcb_cmdexists_destroy(cmd);
+    lcb_wait(instance);
+    ASSERT_EQ(1, res);
+}

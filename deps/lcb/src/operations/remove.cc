@@ -183,7 +183,7 @@ static lcb_STATUS remove_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie
     if (cmd->dur_level && new_durability_supported) {
         req.message.body.alt.meta = (1 << 4) | 3;
         req.message.body.alt.level = cmd->dur_level;
-        req.message.body.alt.timeout = 0;
+        req.message.body.alt.timeout = lcb_durability_timeout(instance);
     }
 
     pkt->u_rdata.reqdata.cookie = cookie;

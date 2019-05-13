@@ -263,6 +263,8 @@ void lcb_vbguess_newconfig(lcb_INSTANCE *instance, lcbvb_CONFIG *cfg, struct lcb
 int lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad);
 #define lcb_vbguess_destroy(p) free(p)
 
+LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance);
+
 #ifdef __cplusplus
 }
 #endif

@@ -30,6 +30,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->n1ql_timeout = LCB_DEFAULT_N1QL_TIMEOUT;
     settings->durability_timeout = LCB_DEFAULT_DURABILITY_TIMEOUT;
     settings->durability_interval = LCB_DEFAULT_DURABILITY_INTERVAL;
+    settings->persistence_timeout_floor = LCB_DEFAULT_PERSISTENCE_TIMEOUT_FLOOR;
     settings->http_timeout = LCB_DEFAULT_HTTP_TIMEOUT;
     settings->weird_things_threshold = LCB_DEFAULT_CONFIG_ERRORS_THRESHOLD;
     settings->weird_things_delay = LCB_DEFAULT_CONFIG_ERRORS_DELAY;

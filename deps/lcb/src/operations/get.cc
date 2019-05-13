@@ -222,7 +222,7 @@ static lcb_STATUS get_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie, c
         if (cmd->dur_level && new_durability_supported) {
             gcmd.message.body.alt.meta = (1 << 4) | 3;
             gcmd.message.body.alt.level = cmd->dur_level;
-            gcmd.message.body.alt.timeout = 0;
+            gcmd.message.body.alt.timeout = lcb_durability_timeout(instance);
             gcmd.message.body.alt.expiration = htonl(cmd->exptime);
         } else {
             gcmd.message.body.norm.expiration = htonl(cmd->exptime);

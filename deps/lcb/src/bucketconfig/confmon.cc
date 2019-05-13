@@ -163,10 +163,6 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
             return 0;
         }
     }
-    /* TODO: remove when cluster will merge http://review.couchbase.org/c/105943/ */
-    if (LCBT_SETTING(instance, enable_durable_write)) {
-        LCBVB_CAPS(new_config->vbc) |= LCBVB_CAP_DURABLE_WRITE;
-    }
 
     lcb_log(LOGARGS(this, INFO), "Setting new configuration. Received via %s",
             provider_string(new_config->get_origin()));

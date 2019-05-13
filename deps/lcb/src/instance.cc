@@ -810,6 +810,17 @@ LCB_INTERNAL_API void lcb_loop_unref(lcb_INSTANCE *instance) {
     lcb_maybe_breakout(instance);
 }
 
+LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance)
+{
+    uint32_t tmo_us = instance->settings->operation_timeout;
+    if (tmo_us < instance->settings->persistence_timeout_floor) {
+        lcb_log(LOGARGS(instance, WARN), "Durability timeout is too low (%uus), using %uus instead", tmo_us,
+                instance->settings->persistence_timeout_floor);
+        tmo_us = instance->settings->persistence_timeout_floor;
+    }
+    return tmo_us / 1000 * 0.9;
+}
+
 LIBCOUCHBASE_API
 lcb_STATUS lcb_enable_timings(lcb_INSTANCE *instance)
 {

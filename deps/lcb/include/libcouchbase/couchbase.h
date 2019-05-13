@@ -569,6 +569,7 @@ typedef enum {
     LCB_CALLBACK_DIAG,                     /**< lcb_diag() */
     LCB_CALLBACK_COLLECTIONS_GET_MANIFEST, /**< lcb_getmanifest() */
     LCB_CALLBACK_GETCID,                   /**< lcb_getcid() */
+    LCB_CALLBACK_EXISTS,                   /**< lcb_exists() */
     LCB_CALLBACK__MAX                      /* Number of callbacks */
 } lcb_CALLBACK_TYPE;
 
@@ -870,6 +871,31 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_timeout(lcb_CMDGETREPLICA *cmd, ui
 LIBCOUCHBASE_API lcb_STATUS lcb_getreplica(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETREPLICA *cmd);
 
 /**@}*/
+
+typedef struct lcb_RESPEXISTS_ lcb_RESPEXISTS;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_status(const lcb_RESPEXISTS *resp);
+LIBCOUCHBASE_API int lcb_respexists_is_persisted(const lcb_RESPEXISTS *resp);
+LIBCOUCHBASE_API int lcb_respexists_is_found(const lcb_RESPEXISTS *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_context(const lcb_RESPEXISTS *resp, const char **ctx, size_t *ctx_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_ref(const lcb_RESPEXISTS *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_cookie(const lcb_RESPEXISTS *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_cas(const lcb_RESPEXISTS *resp, uint64_t *cas);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_datatype(const lcb_RESPEXISTS *resp, uint8_t *datatype);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_flags(const lcb_RESPEXISTS *resp, uint32_t *flags);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_key(const lcb_RESPEXISTS *resp, const char **key, size_t *key_len);
+
+typedef struct lcb_CMDEXISTS_ lcb_CMDEXISTS;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_create(lcb_CMDEXISTS **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_destroy(lcb_CMDEXISTS *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_parent_span(lcb_CMDEXISTS *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_collection(lcb_CMDEXISTS *cmd, const char *scope, size_t scope_len,
+                                                     const char *collection, size_t collection_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_key(lcb_CMDEXISTS *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_timeout(lcb_CMDEXISTS *cmd, uint32_t timeout);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_exists(lcb_INSTANCE *instance, void *cookie, const lcb_CMDEXISTS *cmd);
 
 /**
  * @ingroup lcb-kv-api

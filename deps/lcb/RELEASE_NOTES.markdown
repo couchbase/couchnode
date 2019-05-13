@@ -1,5 +1,17 @@
 # Release Notes
 
+## 3.0.0-alpha.3 (2019-05-02)
+
+* Removed debug output.
+
+## 3.0.0-alpha.2 (2019-05-02)
+
+* CCBC-1030: Derive value of durability timeout from KV operation timeout.
+* CCBC-1037: Implement `lcb_exists` as lightweight way to check if document exists.
+* CCBC-1040: Use aspend counter for ingest queries only (solves inifinite wait for regular analytics queries)
+* CCBC-1036: Add support for durableWrite for `cbc-pillowfight` (see `--durability-level` switch)
+* Fix network IO when running openssl 1.1.1b (solves infinite loop on reading data from sockets).
+
 ## 3.0.0-alpha.1 (2019-04-03)
 
 * [CCBC-1017](https://issues.couchbase.com/browse/CCBC-1017): Removed v1,v2,v3 APIs.

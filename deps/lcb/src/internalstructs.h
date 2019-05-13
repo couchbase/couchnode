@@ -356,6 +356,16 @@ struct lcb_RESPUNLOCK_ {
     LCB_RESP_BASE
 };
 
+struct lcb_CMDEXISTS_ {
+    LCB_CMD_BASE;
+};
+
+struct lcb_RESPEXISTS_ {
+    LCB_RESP_BASE
+    lcb_U8 state;   /**<Bit set of flags */
+};
+
+
 /**
  * @brief Command for counter operations.
  * @see lcb_counter3(), lcb_RESPCOUNTER.

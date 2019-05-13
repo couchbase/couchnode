@@ -17,7 +17,7 @@ void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
     lcb_STATUS rc = rdr.getValue<&lcb_respget_status>();
 
     Local<Value> errVal =
-        rdr.decodeError<lcb_respget_context, lcb_respget_ref>(rc);
+        rdr.decodeError<lcb_respget_error_context, lcb_respget_error_ref>(rc);
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
@@ -42,8 +42,8 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     lcb_STATUS rc = rdr.getValue<&lcb_respgetreplica_status>();
 
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respgetreplica_context, lcb_respgetreplica_ref>(rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respgetreplica_error_context,
+                                          lcb_respgetreplica_error_ref>(rc);
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
@@ -69,7 +69,8 @@ void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
     lcb_STATUS rc = rdr.getValue<&lcb_respunlock_status>();
 
     Local<Value> errVal =
-        rdr.decodeError<lcb_respunlock_context, lcb_respunlock_ref>(rc);
+        rdr.decodeError<lcb_respunlock_error_context, lcb_respunlock_error_ref>(
+            rc);
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
@@ -92,7 +93,8 @@ void Connection::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
     lcb_STATUS rc = rdr.getValue<&lcb_respremove_status>();
 
     Local<Value> errVal =
-        rdr.decodeError<lcb_respremove_context, lcb_respremove_ref>(rc);
+        rdr.decodeError<lcb_respremove_error_context, lcb_respremove_error_ref>(
+            rc);
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
@@ -115,7 +117,8 @@ void Connection::lcbTouchRespHandler(lcb_INSTANCE *instance, int cbtype,
     lcb_STATUS rc = rdr.getValue<&lcb_resptouch_status>();
 
     Local<Value> errVal =
-        rdr.decodeError<lcb_resptouch_context, lcb_resptouch_ref>(rc);
+        rdr.decodeError<lcb_resptouch_error_context, lcb_resptouch_error_ref>(
+            rc);
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
@@ -138,7 +141,8 @@ void Connection::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
     lcb_STATUS rc = rdr.getValue<&lcb_respstore_status>();
 
     Local<Value> errVal =
-        rdr.decodeError<lcb_respstore_context, lcb_respstore_ref>(rc);
+        rdr.decodeError<lcb_respstore_error_context, lcb_respstore_error_ref>(
+            rc);
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
@@ -162,8 +166,8 @@ void Connection::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     lcb_STATUS rc = rdr.getValue<&lcb_respcounter_status>();
 
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respcounter_context, lcb_respcounter_ref>(rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respcounter_error_context,
+                                          lcb_respcounter_error_ref>(rc);
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
@@ -189,7 +193,8 @@ void Connection::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     lcb_STATUS rc = rdr.getValue<&lcb_respsubdoc_status>();
     Local<Value> errVal =
-        rdr.decodeError<lcb_respsubdoc_context, lcb_respsubdoc_ref>(rc);
+        rdr.decodeError<lcb_respsubdoc_error_context, lcb_respsubdoc_error_ref>(
+            rc);
 
     // Special handling for multi failures
     if (rc == LCB_SUBDOC_MULTI_FAILURE) {
@@ -239,7 +244,8 @@ void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     lcb_STATUS rc = rdr.getValue<&lcb_respsubdoc_status>();
     Local<Value> errVal =
-        rdr.decodeError<lcb_respsubdoc_context, lcb_respsubdoc_ref>(rc);
+        rdr.decodeError<lcb_respsubdoc_error_context, lcb_respsubdoc_error_ref>(
+            rc);
 
     size_t numResults = rdr.getValue<&lcb_respsubdoc_result_size>();
     for (size_t i = 0; i < numResults; ++i) {
@@ -387,8 +393,7 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
 
     lcb_STATUS rc = rdr.getValue<&lcb_resphttp_status>();
 
-    Local<Value> errVal =
-        rdr.decodeError<lcb_resphttp_context, lcb_resphttp_ref>(rc);
+    Local<Value> errVal = Error::create(rc);
     Local<Value> dataVal;
 
     uint32_t rflags = 0;

@@ -34,7 +34,7 @@ lcb_STATUS mcreq_reserve_header(mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_
     return LCB_SUCCESS;
 }
 
-static int leb128_encode(uint32_t value, uint8_t *buf)
+int leb128_encode(uint32_t value, uint8_t *buf)
 {
     int idx = 0;
     if (value == 0) {
@@ -52,7 +52,7 @@ static int leb128_encode(uint32_t value, uint8_t *buf)
     return idx;
 }
 
-static int leb128_decode(uint8_t *buf, size_t nbuf, uint32_t *result)
+int leb128_decode(uint8_t *buf, size_t nbuf, uint32_t *result)
 {
     uint32_t value = buf[0] & 0x7f;
     size_t idx = 1;

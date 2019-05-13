@@ -457,12 +457,11 @@ GT_ERR:
  * @param js The object which contains the server information
  * @return nonzero on success, 0 on failure.
  */
-static int build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, char **network)
+static int build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
 {
     char *tmp = NULL, *colon;
     int itmp;
     cJSON *jsports;
-    (void)network;
 
     if (!get_jstr(js, "hostname", &tmp)) {
         SET_ERRSTR(cfg, "Couldn't find hostname");
@@ -681,7 +680,7 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
                 cfg->servers[ii].alt_svc_ssl.data = 0;
             }
         } else {
-            rv = build_server_2x(cfg, cfg->servers + ii, jsrv, network);
+            rv = build_server_2x(cfg, cfg->servers + ii, jsrv);
         }
 
         if (!rv) {

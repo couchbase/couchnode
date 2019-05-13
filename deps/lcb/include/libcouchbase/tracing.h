@@ -219,6 +219,7 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_OP_TOUCH "touch"
 #define LCBTRACE_OP_UNLOCK "unlock"
 #define LCBTRACE_OP_UPSERT "upsert"
+#define LCBTRACE_OP_EXISTS "exists"
 
 #define LCBTRACE_OP_STORE2NAME(code)                                                                                   \
     (code == LCB_STORE_ADD)                                                                                            \

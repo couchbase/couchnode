@@ -627,8 +627,8 @@ lcb_ANALYTICS_HANDLE_::~lcb_ANALYTICS_HANDLE_()
     if (docq != NULL) {
         docq->parent = NULL;
         docq->unref();
+        lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
     }
-    lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
 }
 
 static void chunk_callback(lcb_INSTANCE *instance, int ign, const lcb_RESPBASE *rb)

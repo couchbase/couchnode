@@ -1,3 +1,20 @@
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2014-2019 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "options.h"
 #include <stdexcept>
 #include <iostream>
@@ -265,6 +282,7 @@ void ConnParams::writeConfig(const string &s)
 
 void ConnParams::fillCropts(lcb_create_st &cropts)
 {
+    memset(&cropts, 0, sizeof(lcb_create_st));
     passwd = o_passwd.result();
     if (passwd == "-") {
         passwd = promptPassword("Bucket password: ");
@@ -374,6 +392,8 @@ void ConnParams::fillCropts(lcb_create_st &cropts)
     }
 
     cropts.version = 3;
+    cropts.v.v3.io = NULL;
+    cropts.v.v3.username = NULL;
     cropts.v.v3.passwd = passwd.c_str();
     cropts.v.v3.connstr = connstr.c_str();
     if (isAdmin) {

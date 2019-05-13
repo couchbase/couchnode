@@ -129,7 +129,7 @@ class Configuration
           o_sequential("sequential"), o_startAt("start-at"), o_rateLimit("rate-limit"), o_userdocs("docs"),
           o_writeJson("json"), o_templatePairs("template"), o_subdoc("subdoc"), o_noop("noop"),
           o_sdPathCount("pathcount"), o_populateOnly("populate-only"), o_exptime("expiry"), o_collection("collection"),
-          o_persist("persist-to"), o_replicate("replicate-to"), o_lock("lock")
+          o_durability("durability"), o_persist("persist-to"), o_replicate("replicate-to"), o_lock("lock")
     {
         o_multiSize.setDefault(100).abbrev('B').description("Number of operations to batch");
         o_numItems.setDefault(1000).abbrev('I').description("Number of items to operate on");
@@ -159,6 +159,7 @@ class Configuration
         o_populateOnly.description("Exit after documents have been populated");
         o_exptime.description("Set TTL for items").abbrev('e');
         o_collection.description("Allowed collection ID in base16 (could be specified multiple times)").hide();
+        o_durability.abbrev('d').description("Durability level").setDefault("none");
         o_persist.description("Wait until item is persisted to this number of nodes (-1 for master+replicas)")
             .setDefault(0);
         o_replicate.description("Wait until item is replicated to this number of nodes (-1 for all replicas)")
@@ -167,12 +168,15 @@ class Configuration
         params.getTimings().description("Enable command timings (second time to dump timings automatically)");
     }
 
+    DURABILITY_GETTER()
+
     void processOptions()
     {
         opsPerCycle = o_multiSize.result();
         prefix = o_keyPrefix.result();
         setprc = o_setPercent.result();
         shouldPopulate = !o_noPopulate.result();
+        durabilityLevel = durability();
         persistTo = o_persist.result();
         replicateTo = o_replicate.result();
         lockTime = o_lock.result();
@@ -305,6 +309,7 @@ class Configuration
         parser.addOption(o_populateOnly);
         parser.addOption(o_exptime);
         parser.addOption(o_collection);
+        parser.addOption(o_durability);
         parser.addOption(o_persist);
         parser.addOption(o_replicate);
         parser.addOption(o_lock);
@@ -388,6 +393,7 @@ class Configuration
     ConnParams params;
     const DocGeneratorBase *docgen;
     vector< string > collections;
+    lcb_DURABILITY_LEVEL durabilityLevel;
     int replicateTo;
     int persistTo;
     int lockTime;
@@ -428,6 +434,7 @@ class Configuration
     UIntOption o_exptime;
 
     ListOption o_collection;
+    StringOption o_durability;
     IntOption o_persist;
     IntOption o_replicate;
 
@@ -794,7 +801,9 @@ class ThreadContext
                 }
                 lcb_cmdstore_key(scmd, opinfo.m_key.c_str(), opinfo.m_key.size());
                 lcb_cmdstore_value_iov(scmd, &opinfo.m_valuefrags[0], opinfo.m_valuefrags.size());
-                if (config.persistTo > 0 || config.replicateTo > 0) {
+                if (config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+                    lcb_cmdstore_durability(scmd, config.durabilityLevel);
+                } else if (config.persistTo > 0 || config.replicateTo > 0) {
                     lcb_cmdstore_durability_observe(scmd, config.persistTo, config.replicateTo);
                 }
                 error = lcb_store(instance, NULL, scmd);
@@ -833,7 +842,9 @@ class ThreadContext
                     }
                     lcb_cmdstore_key(scmd, opinfo.m_key.c_str(), opinfo.m_key.size());
                     lcb_cmdstore_value_iov(scmd, &opinfo.m_valuefrags[0], opinfo.m_valuefrags.size());
-                    if (config.persistTo > 0 || config.replicateTo > 0) {
+                    if (config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+                        lcb_cmdstore_durability(scmd, config.durabilityLevel);
+                    } else if (config.persistTo > 0 || config.replicateTo > 0) {
                         lcb_cmdstore_durability_observe(scmd, config.persistTo, config.replicateTo);
                     }
                     error = lcb_store(instance, NULL, scmd);
@@ -853,10 +864,12 @@ class ThreadContext
             case NextOp::SDSTORE:
             case NextOp::SDGET: {
                 lcb_SUBDOCOPS *specs;
+                bool mutate = false;
                 lcb_subdocops_create(&specs, opinfo.m_specs.size());
                 for (size_t ii = 0; ii < opinfo.m_specs.size(); ii++) {
                     SubdocSpec &spec = opinfo.m_specs[ii];
                     if (spec.mutate) {
+                        mutate = true;
                         lcb_subdocops_dict_upsert(specs, ii, 0, spec.path.c_str(), spec.path.size(), spec.value.c_str(),
                                                   spec.value.size());
                     } else {
@@ -869,6 +882,9 @@ class ThreadContext
                     lcb_cmdsubdoc_expiration(sdcmd, exptime);
                 }
                 lcb_cmdsubdoc_key(sdcmd, opinfo.m_key.c_str(), opinfo.m_key.size());
+                if (mutate && config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+                    lcb_cmdsubdoc_durability(sdcmd, config.durabilityLevel);
+                }
                 error = lcb_subdoc(instance, NULL, sdcmd);
                 lcb_subdocops_destroy(specs);
                 lcb_cmdsubdoc_destroy(sdcmd);
@@ -1073,7 +1089,9 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
             }
             lcb_cmdstore_key(scmd, key.c_str(), key.size());
             lcb_cmdstore_value_iov(scmd, &valuefrags[0], valuefrags.size());
-            if (config.persistTo > 0 || config.replicateTo > 0) {
+            if (config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+                lcb_cmdstore_durability(scmd, config.durabilityLevel);
+            } else if (config.persistTo > 0 || config.replicateTo > 0) {
                 lcb_cmdstore_durability_observe(scmd, config.persistTo, config.replicateTo);
             }
             lcb_store(instance, NULL, scmd);

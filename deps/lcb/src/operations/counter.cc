@@ -215,7 +215,7 @@ static lcb_STATUS counter_impl(uint32_t cid, lcb_INSTANCE *instance, void *cooki
     if (cmd->dur_level && new_durability_supported) {
         acmd.message.body.alt.meta = (1 << 4) | 3;
         acmd.message.body.alt.level = cmd->dur_level;
-        acmd.message.body.alt.timeout = 0;
+        acmd.message.body.alt.timeout = lcb_durability_timeout(instance);
         acmd.message.body.alt.initial = lcb_htonll(cmd->initial);
         exp = &acmd.message.body.alt.expiration;
         delta = &acmd.message.body.alt.delta;

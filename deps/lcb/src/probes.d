@@ -179,4 +179,19 @@ provider libcouchbase
                      const char*,    /* bucket UUID */
                      const void*     /* pointer to config */
                     );
+
+    probe exists_begin(void *,       /* lcb_INSTANCE* */
+                       uint32_t,     /* opaque */
+                       uint16_t,     /* vbucket */
+                       uint8_t,      /* opcode */
+                       const char *, /* key */
+                       size_t);      /* nkey */
+    probe exists_end(void *,         /* lcb_INSTANCE* */
+                     uint32_t,       /* opaque */
+                     uint8_t,        /* opcode */
+                     uint64_t,       /* latency, ns */
+                     uint16_t,       /* return code (from libcouchbase) */
+                     const char *,   /* key */
+                     size_t,         /* nkey */
+                     uint64_t);      /* cas */
 };

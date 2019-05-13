@@ -941,6 +941,9 @@ void mcreq_dump_chain(const mc_PIPELINE *pipeline, FILE *fp, mcreq_payload_dump_
         }                                                                                                              \
     } while (0)
 
+int leb128_encode(uint32_t value, uint8_t *buf);
+int leb128_decode(uint8_t *buf, size_t nbuf, uint32_t *result);
+
 /**@}*/
 
 #ifdef __cplusplus

@@ -234,6 +234,28 @@ static void store_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTOR
     }
 }
 
+static void exists_callback(lcb_INSTANCE *, int type, const lcb_RESPEXISTS *resp)
+{
+    const char *p;
+    size_t n;
+
+    lcb_respexists_key(resp, &p, &n);
+    string key(p, n);
+
+    lcb_STATUS rc = lcb_respexists_status(resp);
+    if (rc != LCB_SUCCESS) {
+        printKeyError(key, rc, type, (const lcb_RESPBASE *)resp);
+        return;
+    }
+    if (lcb_respexists_is_found(resp)) {
+        uint64_t cas;
+        lcb_respexists_cas(resp, &cas);
+        fprintf(stderr, "%-20s FOUND, CAS=0x%" PRIx64 "\n", key.c_str(), cas);
+    } else {
+        fprintf(stderr, "%-20s NOT FOUND\n", key.c_str());
+    }
+}
+
 static void unlock_callback(lcb_INSTANCE *, int type, const lcb_RESPUNLOCK *resp)
 {
     const char *p;
@@ -777,7 +799,7 @@ void SetHandler::storeItem(const string &key, const char *value, size_t nvalue)
     if (o_persist.passed() || o_replicate.passed()) {
         lcb_cmdstore_durability_observe(cmd, o_persist.result(), o_replicate.result());
     } else if (o_durability.passed()) {
-        lcb_cmdstore_durability(cmd, LCB_DURABILITYLEVEL_MAJORITY);
+        lcb_cmdstore_durability(cmd, durability());
     }
     err = lcb_store(instance, NULL, cmd);
     if (err != LCB_SUCCESS) {
@@ -941,6 +963,33 @@ void ObserveSeqnoHandler::run()
             if (rc != LCB_SUCCESS) {
                 throw LcbError(rc);
             }
+        }
+    }
+    lcb_sched_leave(instance);
+    lcb_wait(instance);
+}
+
+void ExistsHandler::run()
+{
+    Handler::run();
+    lcb_install_callback3(instance, LCB_CALLBACK_EXISTS, (lcb_RESPCALLBACK)exists_callback);
+    const vector< string > &args = parser.getRestArgs();
+
+    lcb_sched_enter(instance);
+    for (size_t ii = 0; ii < args.size(); ii++) {
+        const string &key = args[ii];
+        lcb_CMDEXISTS *cmd;
+        lcb_cmdexists_create(&cmd);
+        lcb_cmdexists_key(cmd, key.c_str(), key.size());
+        if (o_collection.passed()) {
+            std::string s = o_scope.result();
+            std::string c = o_collection.result();
+            lcb_cmdexists_collection(cmd, s.c_str(), s.size(), c.c_str(), c.size());
+        }
+        lcb_STATUS err = lcb_exists(instance, NULL, cmd);
+        lcb_cmdexists_destroy(cmd);
+        if (err != LCB_SUCCESS) {
+            throw LcbError(err);
         }
     }
     lcb_sched_leave(instance);
@@ -2051,6 +2100,7 @@ static void setupHandlers()
     handlers_s["keygen"] = new KeygenHandler();
     handlers_s["collection-manifest"] = new CollectionGetManifestHandler();
     handlers_s["collection-id"] = new CollectionGetCIDHandler();
+    handlers_s["exists"] = new ExistsHandler();
 
     map< string, Handler * >::iterator ii;
     for (ii = handlers_s.begin(); ii != handlers_s.end(); ++ii) {

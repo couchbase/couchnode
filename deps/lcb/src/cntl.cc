@@ -89,6 +89,7 @@ static lcb_uint32_t *get_timeout_field(lcb_INSTANCE *instance, int cmd)
     case LCB_CNTL_TRACING_THRESHOLD_VIEW: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_VIEW];
     case LCB_CNTL_TRACING_THRESHOLD_FTS: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_FTS];
     case LCB_CNTL_TRACING_THRESHOLD_ANALYTICS: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_ANALYTICS];
+    case LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR: return &settings->persistence_timeout_floor;
     default: return NULL;
     }
 }
@@ -104,6 +105,9 @@ HANDLER(timeout_common) {
     if (mode == LCB_CNTL_GET) {
         *user = *ptr;
     } else {
+        if (cmd == LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR && *user < LCB_DEFAULT_PERSISTENCE_TIMEOUT_FLOOR) {
+            return LCB_ECTL_BADARG;
+        }
         *ptr = *user;
     }
     return LCB_SUCCESS;
@@ -749,6 +753,7 @@ static ctl_handler handlers[] = {
     wait_for_config_handler,              /* LCB_CNTL_WAIT_FOR_CONFIG */
     http_pooltmo_handler,                 /* LCB_CNTL_HTTP_POOL_TIMEOUT */
     durable_write_handler,                /* LCB_CNTL_ENABLE_DURABLE_WRITE */
+    timeout_common,                       /* LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR */
     NULL
 };
 
@@ -944,6 +949,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"http_pool_timeout", LCB_CNTL_HTTP_POOL_TIMEOUT, convert_timevalue},
     {"enable_collections", LCB_CNTL_ENABLE_COLLECTIONS, convert_intbool},
     {"enable_durable_write", LCB_CNTL_ENABLE_DURABLE_WRITE, convert_intbool},
+    {"persistence_timeout_floor", LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR, convert_timevalue},
     {NULL, -1}};
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))

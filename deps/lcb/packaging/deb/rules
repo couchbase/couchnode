@@ -12,17 +12,17 @@ endif
 	dh $@ --verbose --parallel
 
 override_dh_strip:
-	dh_strip -plibcouchbase2-bin -plibcouchbase2-core -plibcouchbase2-libevent -plibcouchbase2-libev --dbg-package=libcouchbase-dbg
+	dh_strip -plibcouchbase3-tools -plibcouchbase3 -plibcouchbase3-libevent -plibcouchbase3-libev --dbg-package=libcouchbase-dbg
 	dh_strip --remaining-packages
 
 override_dh_auto_configure:
 	# Generate the install files
 	echo "usr/lib/$(DEB_HOST_MULTIARCH)/libcouchbase.so.*" \
-		> debian/libcouchbase2-core.install
-	echo "usr/lib/$(DEB_HOST_MULTIARCH)/libcouchbase_libevent.so" \
-		> debian/libcouchbase2-libevent.install
-	echo "usr/lib/$(DEB_HOST_MULTIARCH)/libcouchbase_libev.so" \
-		> debian/libcouchbase2-libev.install
+		> debian/libcouchbase3.install
+	echo "usr/lib/$(DEB_HOST_MULTIARCH)/libcouchbase/libcouchbase_libevent.so" \
+		> debian/libcouchbase3-libevent.install
+	echo "usr/lib/$(DEB_HOST_MULTIARCH)/libcouchbase/libcouchbase_libev.so" \
+		> debian/libcouchbase3-libev.install
 	echo "usr/lib/$(DEB_HOST_MULTIARCH)/libcouchbase.so" \
 		> debian/libcouchbase-dev.install
 	echo "usr/include/*" \
@@ -31,11 +31,11 @@ override_dh_auto_configure:
 		>> debian/libcouchbase-dev.install
 	# Generate 'cbc' files
 	echo "usr/bin/cbc*" \
-		> debian/libcouchbase2-bin.install
+		> debian/libcouchbase3-tools.install
 	echo "usr/share/man/man1/cbc*.1*" \
-		>> debian/libcouchbase2-bin.install
+		>> debian/libcouchbase3-tools.install
 	echo "usr/share/man/man4/cbcrc*.4*" \
-		>> debian/libcouchbase2-bin.install
+		>> debian/libcouchbase3-tools.install
 	dh_auto_configure $(DH_AC_FLAGS)
 
 override_dh_auto_test:
@@ -43,4 +43,4 @@ override_dh_auto_test:
 	dh_auto_test $@
 
 override_dh_installchangelogs:
-	dh_installchangelogs -plibcouchbase2-core --keep RELEASE_NOTES.markdown
+	dh_installchangelogs -plibcouchbase3 --keep RELEASE_NOTES.markdown

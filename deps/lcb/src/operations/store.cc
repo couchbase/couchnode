@@ -475,9 +475,9 @@ static lcb_STATUS store_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie,
         if (cmd->durability.sync.dur_level && new_durability_supported) {
             scmd.message.body.alt.expiration = htonl(cmd->exptime);
             scmd.message.body.alt.flags = htonl(cmd->flags);
-            scmd.message.body.alt.meta = (1 << 4) | 3; /* TODO: allow optional timeout */
+            scmd.message.body.alt.meta = (1 << 4) | 3;
             scmd.message.body.alt.level = cmd->durability.sync.dur_level;
-            scmd.message.body.alt.timeout = 0;
+            scmd.message.body.alt.timeout = lcb_durability_timeout(instance);
         } else {
             scmd.message.body.norm.expiration = htonl(cmd->exptime);
             scmd.message.body.norm.flags = htonl(cmd->flags);

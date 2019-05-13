@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-PILLOWFIGHT" "1" "October 2018" "" ""
+.TH "CBC\-PILLOWFIGHT" "1" "April 2019" "" ""
 .
 .SH "NAME"
 \fBcbc\-pillowfight\fR \- Stress Test for Couchbase Client and Cluster
@@ -167,6 +167,10 @@ The path to the client SSL private key\. This is typically required for SSL clie
 Dump verbose internal state after operations are done\.
 .
 .TP
+\fBd\fR, \fB\-\-durability\fR=\fILEVEL\fR
+Specify durability level for mutation operations\. Known values are: "none", "majority", "majority_and_persist_on_master", "persist_to_majority"\.
+.
+.TP
 \fBp\fR, \fB\-\-persist\-to\fR=\fINUMNODES\fR
 Wait until the item has been persisted to at least \fBNUMNODES\fR nodes\' disk\. If \fBNUMNODES\fR is 1 then wait until only the master node has persisted the item for this key\. You may not specify a number greater than the number of nodes actually in the cluster\. \fB\-1\fR is special value, which mean to use all available nodes\.
 .
@@ -239,6 +243,9 @@ The following options may be included in the connection string (via the \fB\-U\f
 .
 .IP "\(bu" 4
 \fBkeypath=PATH\fR: The path to the client SSL private key\. This is typically required for SSL client certificate authentication\. The certificate itself have to go first in chain specified by \fBcertpath\fR (only applicable with \fBcouchbases://\fR scheme)
+.
+.IP "\(bu" 4
+\fBipv6=allow\fR: Enable IPv6\.
 .
 .IP "\(bu" 4
 \fBssl=no_verify\fR: Temporarily disable certificate verification for SSL (only applicable with \fBcouchbases://\fR scheme)\. This should only be used for quickly debugging SSL functionality\.

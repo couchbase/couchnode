@@ -65,6 +65,10 @@
 #define TRACE_UNLOCK_END(instance, pkt, mcresp, resp)                                                                  \
     TRACE(TRACE_END_SIMPLE(LIBCOUCHBASE_UNLOCK_END, instance, pkt, mcresp, resp))
 
+#define TRACE_EXISTS_BEGIN(instance, req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_EXISTS_BEGIN, instance, req, cmd))
+#define TRACE_EXISTS_END(instance, pkt, mcresp, resp)                                                                  \
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_EXISTS_END, instance, pkt, mcresp, resp, (resp)->cas))
+
 #define TRACE_STORE_BEGIN(instance, req, cmd)                                                                          \
     TRACE(                                                                                                             \
         TRACE_BEGIN_COMMON(LIBCOUCHBASE_STORE_BEGIN, instance, req, cmd,                                               \

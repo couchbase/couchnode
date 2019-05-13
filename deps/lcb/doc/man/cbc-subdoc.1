@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-SUBDOC" "1" "October 2018" "" ""
+.TH "CBC\-SUBDOC" "1" "April 2019" "" ""
 .
 .SH "NAME"
 \fBcbc\-subdoc\fR \- Interactively Inspect Document Using Subdocument API
@@ -95,6 +95,9 @@ The following options may be included in the connection string (via the \fB\-U\f
 .
 .IP "\(bu" 4
 \fBkeypath=PATH\fR: The path to the client SSL private key\. This is typically required for SSL client certificate authentication\. The certificate itself have to go first in chain specified by \fBcertpath\fR (only applicable with \fBcouchbases://\fR scheme)
+.
+.IP "\(bu" 4
+\fBipv6=allow\fR: Enable IPv6\.
 .
 .IP "\(bu" 4
 \fBssl=no_verify\fR: Temporarily disable certificate verification for SSL (only applicable with \fBcouchbases://\fR scheme)\. This should only be used for quickly debugging SSL functionality\.

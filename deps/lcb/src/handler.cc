@@ -657,9 +657,42 @@ H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse *response,
 }
 
 static void
+H_exists(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
+          lcb_STATUS immerr)
+{
+    lcb_INSTANCE *root = get_instance(pipeline);
+    lcb_RESPEXISTS resp = { 0 };
+    make_error(root, &resp, response, immerr);
+    resp.cookie = const_cast<void*>(MCREQ_PKT_COOKIE(request));
+    resp.rflags |= LCB_RESP_F_FINAL;
+    if (resp.rc == LCB_SUCCESS) {
+        const char * ptr = response->value() + sizeof(uint16_t); /* skip vbucket */
+        uint16_t nkey;
+        memcpy(&nkey, ptr, sizeof(uint16_t));
+        ptr += sizeof(uint16_t);
+        resp.nkey = ntohs(nkey);
+        resp.key = ptr;
+        ptr += resp.nkey;
+        memcpy(&resp.state, ptr, sizeof(uint8_t));
+        ptr += sizeof(uint8_t);
+        uint64_t cas;
+        memcpy(&cas, ptr, sizeof(uint64_t));
+        resp.cas = lcb_ntohll(cas);
+    }
+    invoke_callback(request, root, &resp, LCB_CALLBACK_EXISTS);
+    LCBTRACE_KV_FINISH(pipeline, request, response);
+    TRACE_EXISTS_END(root, request, response, &resp);
+}
+
+static void
 H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
           lcb_STATUS immerr)
 {
+    if ((request->flags & MCREQ_F_REQEXT) == 0) {
+        H_exists(pipeline, request, response, immerr);
+        return;
+    }
+
     lcb_INSTANCE *root = get_instance(pipeline);
     uint32_t ttp;
     uint32_t ttr;
@@ -667,6 +700,7 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
     lcbvb_CONFIG* config;
     const char *end, *ptr;
     mc_REQDATAEX *rd = request->u_rdata.exdata;
+
     lcb_RESPOBSERVE resp = { 0 };
     make_error(root, &resp, response, immerr);
 

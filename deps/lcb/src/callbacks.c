@@ -168,6 +168,8 @@ const char *lcb_strcbtype(int cbtype)
             return "SDLOOKUP";
         case LCB_CALLBACK_NOOP:
             return "NOOP";
+        case LCB_CALLBACK_EXISTS:
+            return "EXISTS";
         default:
             return "UNKNOWN";
     }
