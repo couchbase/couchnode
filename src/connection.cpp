@@ -150,28 +150,6 @@ NAN_MODULE_INIT(Connection::Init)
     Nan::SetPrototypeMethod(tpl, "ftsQuery", fnFtsQuery);
     Nan::SetPrototypeMethod(tpl, "httpRequest", fnHttpRequest);
 
-    /*
-        Nan::SetPrototypeMethod(tpl, "control", fnControl);
-
-
-
-        Nan::SetPrototypeMethod(tpl, "touch", fnTouch);
-        Nan::SetPrototypeMethod(tpl, "unlock", fnUnlock);
-        Nan::SetPrototypeMethod(tpl, "remove", fnRemove);
-        Nan::SetPrototypeMethod(tpl, "store", fnStore);
-        Nan::SetPrototypeMethod(tpl, "arithmetic", fnArithmetic);
-        Nan::SetPrototypeMethod(tpl, "durability", fnDurability);
-        Nan::SetPrototypeMethod(tpl, "viewQuery", fnViewQuery);
-        Nan::SetPrototypeMethod(tpl, "n1qlQuery", fnN1qlQuery);
-        Nan::SetPrototypeMethod(tpl, "cbasQuery", fnCbasQuery);
-        Nan::SetPrototypeMethod(tpl, "ftsQuery", fnFtsQuery);
-        Nan::SetPrototypeMethod(tpl, "analyticsIngest", fnAnalyticsIngest);
-        Nan::SetPrototypeMethod(tpl, "lookupIn", fnLookupIn);
-        Nan::SetPrototypeMethod(tpl, "mutateIn", fnMutateIn);
-        Nan::SetPrototypeMethod(tpl, "ping", fnPing);
-        Nan::SetPrototypeMethod(tpl, "diag", fnDiag);
-    */
-
     constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
 
     Nan::Set(target, Nan::New("Connection").ToLocalChecked(),

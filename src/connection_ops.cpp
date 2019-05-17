@@ -386,10 +386,10 @@ NAN_METHOD(Connection::fnMutateIn)
         lcb_cmdsubdoc_create_if_missing(enc.cmd(), 1);
     }
     if (flags & LCBX_SDFLAG_INSERT_DOC) {
-        // TODO: Implement lookupIn's INSERT_DOC flag
+        // TODO: Implement mutateIn's INSERT_DOC flag
     }
     if (flags & LCBX_SDFLAG_ACCESS_DELETED) {
-        // TODO: Implement lookupIn's ACCESS_DELETED flag
+        // TODO: Implement mutateIn's ACCESS_DELETED flag
     }
     if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[info.Length() - 2])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
