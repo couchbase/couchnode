@@ -177,10 +177,21 @@ NAN_METHOD(Connection::fnRemove)
     if (!enc.parseOption<&lcb_cmdremove_cas>(info[3])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
-    if (!enc.parseOption<&lcb_cmdremove_timeout>(info[4])) {
+    lcb_DURABILITY_LEVEL durabilityLevel =
+        static_cast<lcb_DURABILITY_LEVEL>(ValueParser::asUint(info[4]));
+    int persistTo = ValueParser::asInt(info[5]);
+    int replicateTo = ValueParser::asInt(info[6]);
+    if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+        lcb_cmdremove_durability(enc.cmd(), durabilityLevel);
+    } else if (persistTo > 0 || replicateTo > 0) {
+        // TODO(brett19): Implement this when LCB adds support
+        // lcb_cmdremove_durability_observe(enc.cmd(), persistTo, replicateTo);
+        return Nan::ThrowError("unimplemented functionality");
+    }
+    if (!enc.parseOption<&lcb_cmdremove_timeout>(info[7])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[5])) {
+    if (!enc.parseCallback(info[8])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -209,10 +220,21 @@ NAN_METHOD(Connection::fnTouch)
     if (!enc.parseOption<&lcb_cmdtouch_expiration>(info[3])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!enc.parseOption<&lcb_cmdtouch_timeout>(info[4])) {
+    lcb_DURABILITY_LEVEL durabilityLevel =
+        static_cast<lcb_DURABILITY_LEVEL>(ValueParser::asUint(info[4]));
+    int persistTo = ValueParser::asInt(info[5]);
+    int replicateTo = ValueParser::asInt(info[6]);
+    if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+        lcb_cmdtouch_durability(enc.cmd(), durabilityLevel);
+    } else if (persistTo > 0 || replicateTo > 0) {
+        // TODO(brett19): Implement this when LCB adds support
+        // lcb_cmdtouch_durability_observe(enc.cmd(), persistTo, replicateTo);
+        return Nan::ThrowError("unimplemented functionality");
+    }
+    if (!enc.parseOption<&lcb_cmdtouch_timeout>(info[7])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[5])) {
+    if (!enc.parseCallback(info[8])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -279,10 +301,21 @@ NAN_METHOD(Connection::fnCounter)
     if (!enc.parseOption<&lcb_cmdcounter_expiration>(info[5])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!enc.parseOption<&lcb_cmdcounter_timeout>(info[6])) {
+    lcb_DURABILITY_LEVEL durabilityLevel =
+        static_cast<lcb_DURABILITY_LEVEL>(ValueParser::asUint(info[6]));
+    int persistTo = ValueParser::asInt(info[7]);
+    int replicateTo = ValueParser::asInt(info[8]);
+    if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+        lcb_cmdcounter_durability(enc.cmd(), durabilityLevel);
+    } else if (persistTo > 0 || replicateTo > 0) {
+        // TODO(brett19): Implement this when LCB adds support
+        // lcb_cmdcounter_durability_observe(enc.cmd(), persistTo, replicateTo);
+        return Nan::ThrowError("unimplemented functionality");
+    }
+    if (!enc.parseOption<&lcb_cmdcounter_timeout>(info[9])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[7])) {
+    if (!enc.parseCallback(info[10])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -391,6 +424,17 @@ NAN_METHOD(Connection::fnMutateIn)
     if (flags & LCBX_SDFLAG_ACCESS_DELETED) {
         // TODO: Implement mutateIn's ACCESS_DELETED flag
     }
+    lcb_DURABILITY_LEVEL durabilityLevel = static_cast<lcb_DURABILITY_LEVEL>(
+        ValueParser::asUint(info[info.Length() - 5]));
+    int persistTo = ValueParser::asInt(info[info.Length() - 4]);
+    int replicateTo = ValueParser::asInt(info[info.Length() - 3]);
+    if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
+        lcb_cmdsubdoc_durability(enc.cmd(), durabilityLevel);
+    } else if (persistTo > 0 || replicateTo > 0) {
+        // TODO(brett19): Implement this when LCB adds support
+        // lcb_cmdsubdoc_durability_observe(enc.cmd(), persistTo, replicateTo);
+        return Nan::ThrowError("unimplemented functionality");
+    }
     if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[info.Length() - 2])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
@@ -398,7 +442,7 @@ NAN_METHOD(Connection::fnMutateIn)
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    size_t numCmds = (info.Length() - 6 - 2) / 4;
+    size_t numCmds = (info.Length() - 6 - 5) / 4;
     CmdBuilder<lcb_SUBDOCOPS> cmdsEnc =
         enc.makeSubCmdBuilder<lcb_SUBDOCOPS>(numCmds);
 
