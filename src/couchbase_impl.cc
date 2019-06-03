@@ -161,7 +161,7 @@ const char *CouchbaseImpl::getClientString()
     return "couchbase-nodejs-sdk";
 };
 
-Handle<Value> CouchbaseImpl::decodeDoc(const void *bytes, size_t nbytes,
+Local<Value> CouchbaseImpl::decodeDoc(const void *bytes, size_t nbytes,
                                        lcb_U32 flags,
                                        Nan::AsyncResource *asyncContext)
 {
@@ -197,9 +197,9 @@ bool CouchbaseImpl::encodeDoc(ValueParser &venc, const void **bytes,
         if (!mres.IsEmpty()) {
             Local<Value> res = mres.ToLocalChecked();
             if (res->IsObject()) {
-                Handle<Object> encObj = res.As<Object>();
-                Handle<Value> flagsObj = encObj->Get(Nan::New(flagsKey));
-                Handle<Value> valueObj = encObj->Get(Nan::New(valueKey));
+                Local<Object> encObj = res.As<Object>();
+                Local<Value> flagsObj = encObj->Get(Nan::New(flagsKey));
+                Local<Value> valueObj = encObj->Get(Nan::New(valueKey));
                 if (!flagsObj.IsEmpty() && !valueObj.IsEmpty()) {
                     if (node::Buffer::HasInstance(valueObj)) {
                         *nbytes = node::Buffer::Length(valueObj);

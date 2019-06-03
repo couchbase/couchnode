@@ -6,16 +6,16 @@ namespace Couchnode
  * Because some of these values are macros themselves, just use a function
  * and stringify in place
  */
-static void define_constant(Handle<Object> target, const char *k, int n)
+static void define_constant(Local<Object> target, const char *k, int n)
 {
     Nan::DefineOwnProperty(
         target, Nan::New<String>(k).ToLocalChecked(), Nan::New<Number>(n),
         static_cast<v8::PropertyAttribute>(v8::ReadOnly | v8::DontDelete));
 }
 
-Handle<Object> CouchbaseImpl::createConstants()
+Local<Object> CouchbaseImpl::createConstants()
 {
-    Handle<Object> o = Nan::New<Object>();
+    Local<Object> o = Nan::New<Object>();
 
 #define X(n) define_constant(o, #n, LCB_##n);
     X(CNTL_SET)

@@ -67,7 +67,7 @@ using v8::Array;
 using v8::Exception;
 using v8::Function;
 using v8::FunctionTemplate;
-using v8::Handle;
+using v8::Local;
 using v8::HandleScope;
 using v8::Integer;
 using v8::Local;
@@ -98,7 +98,7 @@ public:
     // Methods called directly from JavaScript
     static NAN_MODULE_INIT(Init);
 
-    static Handle<Object> createConstants();
+    static Local<Object> createConstants();
 
     static NAN_METHOD(sfnSetErrorClass);
 
@@ -149,7 +149,7 @@ public:
 
     const char *getClientString();
 
-    Handle<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags,
+    Local<Value> decodeDoc(const void *bytes, size_t nbytes, lcb_U32 flags,
                             Nan::AsyncResource *asyncContext);
     bool encodeDoc(ValueParser &enc, const void **, lcb_SIZE *nbytes,
                    lcb_U32 *flags, Local<Value> value);

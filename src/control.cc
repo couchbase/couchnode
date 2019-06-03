@@ -42,7 +42,7 @@ NAN_METHOD(CouchbaseImpl::fnControl)
     int mode = info[0]->IntegerValue();
     int option = info[1]->IntegerValue();
 
-    Handle<Value> optVal = info[2];
+    Local<Value> optVal = info[2];
 
     if (option != LCB_CNTL_SET && option != LCB_CNTL_GET) {
         return Nan::ThrowError(Error::create("Invalid option mode"));

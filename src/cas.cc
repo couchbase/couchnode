@@ -55,7 +55,7 @@ NAN_METHOD(Cas::fnInspect)
     return info.GetReturnValue().Set(Nan::New<String>(casStr).ToLocalChecked());
 }
 
-Handle<Value> Cas::CreateCas(uint64_t cas)
+Local<Value> Cas::CreateCas(uint64_t cas)
 {
     Local<Object> ret =
         Nan::NewInstance(Nan::New<Function>(casClass)).ToLocalChecked();
@@ -67,7 +67,7 @@ Handle<Value> Cas::CreateCas(uint64_t cas)
     return ret;
 }
 
-bool _StrToCas(Handle<Value> obj, uint64_t *p)
+bool _StrToCas(Local<Value> obj, uint64_t *p)
 {
     if (sscanf(*Nan::Utf8String(obj->ToString()), "%llu",
                (unsigned long long int *)p) != 1) {
