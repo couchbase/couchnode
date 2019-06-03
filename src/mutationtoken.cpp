@@ -48,7 +48,7 @@ NAN_METHOD(MutationToken::fnInspect)
         Nan::New<String>(tokenStr).ToLocalChecked());
 }
 
-v8::Handle<v8::Value> MutationToken::create(lcb_MUTATION_TOKEN token,
+v8::Local<v8::Value> MutationToken::create(lcb_MUTATION_TOKEN token,
                                             const char *bucketName)
 {
     if (!lcb_mutation_token_is_valid(&token) || !bucketName) {
@@ -71,7 +71,7 @@ v8::Handle<v8::Value> MutationToken::create(lcb_MUTATION_TOKEN token,
     return ret;
 }
 
-bool _StrToToken(Handle<Value> obj, lcb_MUTATION_TOKEN *token, char *bucketName)
+bool _StrToToken(Local<Value> obj, lcb_MUTATION_TOKEN *token, char *bucketName)
 {
     if (sscanf(*Nan::Utf8String(obj->ToString()), "%hu:%llu:%llu:%s",
                &token->vbid_, &token->uuid_, &token->seqno_, bucketName) != 1) {

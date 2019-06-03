@@ -16,7 +16,7 @@ class MutationToken
 public:
     static NAN_MODULE_INIT(Init);
 
-    static v8::Handle<v8::Value> create(lcb_MUTATION_TOKEN token,
+    static v8::Local<v8::Value> create(lcb_MUTATION_TOKEN token,
                                         const char *bucketName);
 
     static bool parse(Local<Value> obj, lcb_MUTATION_TOKEN *token,

@@ -35,7 +35,7 @@ public:
     const char *bucketName();
     const char *clientString();
 
-    Handle<Value> decodeDoc(const char *bytes, size_t nbytes, uint32_t flags);
+    Local<Value> decodeDoc(const char *bytes, size_t nbytes, uint32_t flags);
     bool encodeDoc(ValueParser &enc, const char **, size_t *nbytes,
                    uint32_t *flags, Local<Value> value);
 

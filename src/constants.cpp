@@ -9,7 +9,7 @@ namespace couchnode
 namespace constants
 {
 
-static inline void define_constant(Handle<Object> target, const char *k, int n)
+static inline void define_constant(Local<Object> target, const char *k, int n)
 {
     Nan::DefineOwnProperty(
         target, Nan::New<String>(k).ToLocalChecked(), Nan::New<Number>(n),

@@ -66,7 +66,7 @@ const char *Connection::clientString()
     return "couchbase-nodejs-sdk";
 }
 
-Handle<Value> Connection::decodeDoc(const char *bytes, size_t nbytes,
+Local<Value> Connection::decodeDoc(const char *bytes, size_t nbytes,
                                     uint32_t flags)
 {
     if (_transDecodeFunc) {
@@ -105,10 +105,10 @@ bool Connection::encodeDoc(ValueParser &venc, const char **bytes,
         if (!mres.IsEmpty()) {
             Local<Value> res = mres.ToLocalChecked();
             if (res->IsObject()) {
-                Handle<Object> encObj = res.As<Object>();
-                Handle<Value> flagsObj =
+                Local<Object> encObj = res.As<Object>();
+                Local<Value> flagsObj =
                     encObj->Get(Nan::New("flags").ToLocalChecked());
-                Handle<Value> valueObj =
+                Local<Value> valueObj =
                     encObj->Get(Nan::New("value").ToLocalChecked());
                 if (!flagsObj.IsEmpty() && !valueObj.IsEmpty()) {
                     if (node::Buffer::HasInstance(valueObj)) {

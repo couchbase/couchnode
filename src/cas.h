@@ -16,7 +16,7 @@ class Cas
 public:
     static NAN_MODULE_INIT(Init);
 
-    static v8::Handle<v8::Value> create(lcb_CAS);
+    static v8::Local<v8::Value> create(lcb_CAS);
 
     static bool parse(Local<Value>, lcb_CAS *);
 
