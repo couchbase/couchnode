@@ -73,8 +73,10 @@ v8::Local<v8::Value> MutationToken::create(lcb_MUTATION_TOKEN token,
 
 bool _StrToToken(Local<Value> obj, lcb_MUTATION_TOKEN *token, char *bucketName)
 {
-    if (sscanf(*Nan::Utf8String(obj->ToString()), "%hu:%llu:%llu:%s",
-               &token->vbid_, &token->uuid_, &token->seqno_, bucketName) != 1) {
+    if (sscanf(*Nan::Utf8String(
+                   obj->ToString(Nan::GetCurrentContext()).ToLocalChecked()),
+               "%hu:%llu:%llu:%s", &token->vbid_, &token->uuid_, &token->seqno_,
+               bucketName) != 1) {
         return false;
     }
     return true;

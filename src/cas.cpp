@@ -53,8 +53,9 @@ Local<Value> Cas::create(uint64_t cas)
 
 bool _StrToCas(Local<Value> obj, lcb_CAS *p)
 {
-    if (sscanf(*Nan::Utf8String(obj->ToString()), "%llu",
-               (unsigned long long int *)p) != 1) {
+    if (sscanf(*Nan::Utf8String(
+                   obj->ToString(Nan::GetCurrentContext()).ToLocalChecked()),
+               "%llu", (unsigned long long int *)p) != 1) {
         return false;
     }
     return true;
