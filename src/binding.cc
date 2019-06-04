@@ -101,7 +101,7 @@ NAN_MODULE_INIT(CouchbaseImpl::Init)
     Nan::SetPrototypeMethod(t, "httpRequest", fnHttpRequest);
 
     target->Set(Nan::New<String>("CouchbaseImpl").ToLocalChecked(),
-                t->GetFunction());
+                t->GetFunction(Nan::GetCurrentContext()).ToLocalChecked());
     target->Set(Nan::New<String>("Constants").ToLocalChecked(),
                 createConstants());
     Nan::SetMethod(target, "_setErrorClass", sfnSetErrorClass);

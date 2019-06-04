@@ -30,7 +30,7 @@ void Cas::Init()
     Nan::SetPrototypeMethod(t, "toJSON", fnToString);
     Nan::SetPrototypeMethod(t, "inspect", fnInspect);
 
-    casClass.Reset(t->GetFunction());
+    casClass.Reset(t->GetFunction(Nan::GetCurrentContext()).ToLocalChecked());
 }
 
 NAN_METHOD(Cas::fnToString)
@@ -69,8 +69,9 @@ Local<Value> Cas::CreateCas(uint64_t cas)
 
 bool _StrToCas(Local<Value> obj, uint64_t *p)
 {
-    if (sscanf(*Nan::Utf8String(obj->ToString()), "%llu",
-               (unsigned long long int *)p) != 1) {
+    if (sscanf(*Nan::Utf8String(
+                   obj->ToString(Nan::GetCurrentContext()).ToLocalChecked()),
+               "%llu", (unsigned long long int *)p) != 1) {
         return false;
     }
     return true;

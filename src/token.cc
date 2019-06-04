@@ -32,7 +32,7 @@ void MutationToken::Init()
     Nan::SetPrototypeMethod(t, "toJSON", fnToString);
     Nan::SetPrototypeMethod(t, "inspect", fnInspect);
 
-    tokenClass.Reset(t->GetFunction());
+    tokenClass.Reset(t->GetFunction(Nan::GetCurrentContext()).ToLocalChecked());
 }
 
 NAN_METHOD(MutationToken::fnToString)
@@ -109,8 +109,9 @@ Local<Value> MutationToken::CreateToken(lcb_t instance, int cbtype,
 
 bool _StrToToken(Local<Value> obj, lcb_MUTATION_TOKEN *p, int pSize)
 {
-    if (sscanf(*Nan::Utf8String(obj->ToString()), "%hu:%llu:%llu",
-               (unsigned short *)&LCB_MUTATION_TOKEN_VB(p),
+    if (sscanf(*Nan::Utf8String(
+                   obj->ToString(Nan::GetCurrentContext()).ToLocalChecked()),
+               "%hu:%llu:%llu", (unsigned short *)&LCB_MUTATION_TOKEN_VB(p),
                (unsigned long long int *)&LCB_MUTATION_TOKEN_ID(p),
                (unsigned long long int *)&LCB_MUTATION_TOKEN_SEQ(p)) != 1) {
         return false;
