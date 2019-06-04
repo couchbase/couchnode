@@ -78,7 +78,7 @@ NAN_METHOD(CouchbaseImpl::fnSetLoggingCallback)
         me->logger = NULL;
     }
 
-    if (info[0]->BooleanValue()) {
+    if (!info[0]->IsUndefined() && !info[0]->IsNull()) {
         if (!info[0]->IsFunction()) {
             return Nan::ThrowError(Error::create("must pass function"));
         }

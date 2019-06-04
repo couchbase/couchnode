@@ -39,8 +39,8 @@ NAN_METHOD(CouchbaseImpl::fnControl)
         return Nan::ThrowError(Error::create("Too few arguments"));
     }
 
-    int mode = info[0]->IntegerValue();
-    int option = info[1]->IntegerValue();
+    int mode = info[0]->IntegerValue(Nan::GetCurrentContext()).ToChecked();
+    int option = info[1]->IntegerValue(Nan::GetCurrentContext()).ToChecked();
 
     Local<Value> optVal = info[2];
 
@@ -71,7 +71,8 @@ NAN_METHOD(CouchbaseImpl::fnControl)
                 return info.GetReturnValue().Set(tmoval / 1000);
             }
         } else {
-            tmoval = optVal->NumberValue() * 1000;
+            tmoval = optVal->NumberValue(Nan::GetCurrentContext()).ToChecked() *
+                     1000;
             err = lcb_cntl(instance, option, mode, &tmoval);
         }
 
@@ -89,7 +90,7 @@ NAN_METHOD(CouchbaseImpl::fnControl)
                 return info.GetReturnValue().Set(tval);
             }
         } else {
-            tval = optVal->Uint32Value();
+            tval = optVal->Uint32Value(Nan::GetCurrentContext()).ToChecked();
             err = lcb_cntl(instance, option, mode, &tval);
         }
         break;

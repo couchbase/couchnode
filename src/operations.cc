@@ -333,7 +333,7 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery)
 
     enc.cmd()->callback = viewrow_callback;
 
-    if (info[0]->BooleanValue()) {
+    if (info[0]->IsTrue()) {
         enc.cmd()->cmdflags |= LCB_CMDVIEWQUERY_F_SPATIAL;
     }
     if (!enc.parseStrOption<&lcb_CMDVIEWQUERY::ddoc>(info[1])) {
@@ -348,7 +348,7 @@ NAN_METHOD(CouchbaseImpl::fnViewQuery)
     if (!enc.parseStrOption<&lcb_CMDVIEWQUERY::postdata>(info[4])) {
         return Nan::ThrowError(Error::create("bad postdata passed"));
     }
-    if (info[5]->BooleanValue()) {
+    if (info[5]->IsTrue()) {
         enc.cmd()->cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
     }
     if (!enc.parseCallback(info[6])) {
@@ -382,7 +382,7 @@ NAN_METHOD(CouchbaseImpl::fnN1qlQuery)
     if (!enc.parseStrOption<&lcb_CMDN1QL::query>(info[1])) {
         return Nan::ThrowError(Error::create("bad opts passed"));
     }
-    if (!info[2]->BooleanValue()) {
+    if (!info[2]->IsTrue()) {
         enc.cmd()->cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
     }
     if (!enc.parseCallback(info[3])) {

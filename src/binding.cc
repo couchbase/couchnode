@@ -169,19 +169,28 @@ NAN_METHOD(CouchbaseImpl::fnNew)
     createOptions.version = 3;
 
     Nan::Utf8String *utfConnStr = NULL;
-    if (info[0]->BooleanValue()) {
+    if (!info[0]->IsUndefined() && !info[0]->IsNull()) {
+        if (!info[0]->IsString()) {
+            return Nan::ThrowError(Error::create("must pass string"));
+        }
         utfConnStr = new Nan::Utf8String(info[0]);
         createOptions.v.v3.connstr = **utfConnStr;
     }
 
     Nan::Utf8String *utfUsername = NULL;
-    if (info[1]->BooleanValue()) {
+    if (!info[1]->IsUndefined() && !info[1]->IsNull()) {
+        if (!info[1]->IsString()) {
+            return Nan::ThrowError(Error::create("must pass string"));
+        }
         utfUsername = new Nan::Utf8String(info[1]);
         createOptions.v.v3.username = **utfUsername;
     }
 
     Nan::Utf8String *utfPassword = NULL;
-    if (info[2]->BooleanValue()) {
+    if (!info[2]->IsUndefined() && !info[2]->IsNull()) {
+        if (!info[2]->IsString()) {
+            return Nan::ThrowError(Error::create("must pass string"));
+        }
         utfPassword = new Nan::Utf8String(info[2]);
         createOptions.v.v3.passwd = **utfPassword;
     }
@@ -242,7 +251,7 @@ NAN_METHOD(CouchbaseImpl::fnSetConnectCallback)
         me->connectCallback = NULL;
     }
 
-    if (info[0]->BooleanValue()) {
+    if (!info[0]->IsUndefined() && !info[0]->IsNull()) {
         if (!info[0]->IsFunction()) {
             return Nan::ThrowError(Error::create("must pass function"));
         }
@@ -274,7 +283,7 @@ NAN_METHOD(CouchbaseImpl::fnSetTranscoder)
         me->transDecodeFunc = NULL;
     }
 
-    if (info[0]->BooleanValue()) {
+    if (!info[0]->IsUndefined() && !info[0]->IsNull()) {
         if (!info[0]->IsFunction()) {
             return Nan::ThrowError(Error::create("must pass function"));
         }
@@ -282,7 +291,7 @@ NAN_METHOD(CouchbaseImpl::fnSetTranscoder)
         me->transEncodeFunc = new Nan::Callback(info[0].As<Function>());
     }
 
-    if (info[1]->BooleanValue()) {
+    if (!info[1]->IsUndefined() && !info[1]->IsNull()) {
         if (!info[1]->IsFunction()) {
             return Nan::ThrowError(Error::create("must pass function"));
         }
