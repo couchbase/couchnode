@@ -205,25 +205,41 @@ NAN_METHOD(Connection::fnNew)
     createOptions.version = 4;
 
     Nan::Utf8String *utfConnStr = NULL;
-    if (info[0]->BooleanValue()) {
+    if (!info[0]->IsUndefined() && !info[0]->IsNull()) {
+        if (!info[0]->IsString()) {
+            return Nan::ThrowError(
+                Error::create("must pass string for connStr"));
+        }
         utfConnStr = new Nan::Utf8String(info[0]);
         createOptions.v.v4.connstr = **utfConnStr;
     }
 
     Nan::Utf8String *utfUsername = NULL;
-    if (info[1]->BooleanValue()) {
+    if (!info[1]->IsUndefined() && !info[1]->IsNull()) {
+        if (!info[1]->IsString()) {
+            return Nan::ThrowError(
+                Error::create("must pass string for username"));
+        }
         utfUsername = new Nan::Utf8String(info[1]);
         createOptions.v.v4.username = **utfUsername;
     }
 
     Nan::Utf8String *utfPassword = NULL;
-    if (info[2]->BooleanValue()) {
+    if (!info[2]->IsUndefined() && !info[2]->IsNull()) {
+        if (!info[2]->IsString()) {
+            return Nan::ThrowError(
+                Error::create("must pass string for password"));
+        }
         utfPassword = new Nan::Utf8String(info[2]);
         createOptions.v.v4.passwd = **utfPassword;
     }
 
     Logger *logger = nullptr;
-    if (info[3]->BooleanValue()) {
+    if (!info[3]->IsUndefined() && !info[3]->IsNull()) {
+        if (!info[3]->IsFunction()) {
+            return Nan::ThrowError(
+                Error::create("must pass function for logger"));
+        }
         Local<Function> logFn = info[3].As<Function>();
         if (!logFn.IsEmpty()) {
             logger = new Logger(logFn);
