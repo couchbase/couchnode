@@ -27,6 +27,9 @@ node_modules:
 checkdeps:
 	node ./node_modules/npm-check/lib/cli.js -s
 
+checkaudit:
+	npm audit
+
 test: node_modules
 	./node_modules/mocha/bin/mocha test/*.test.js
 fasttest: node_modules
@@ -36,11 +39,11 @@ lint: node_modules
 	./node_modules/jshint/bin/jshint lib/*.js
 
 cover: node_modules
-	node ./node_modules/istanbul/lib/cli.js cover ./node_modules/mocha/bin/_mocha -- test/*.test.js
+	node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/_mocha test/*.test.js
 fastcover: node_modules
-	node ./node_modules/istanbul/lib/cli.js cover ./node_modules/mocha/bin/_mocha -- test/*.test.js -ig "(slow)"
+	node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/_mocha -ig "(slow)" test/*.test.js
 
-check: checkdeps test lint cover
+check: checkdeps checkaudit test lint cover
 
 docs: node_modules
 	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
