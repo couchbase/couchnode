@@ -1,49 +1,80 @@
-We've decided to use "gerrit" for our code review system, making it
-easier for all of us to contribute with code and comments.
+Gerrit is the code review system in use, making it easier
+for all of us to contribute with code and comments. This
+means there are no GitHub Pull Requests to open or emails
+with patches to send.
 
-  1. Visit http://review.couchbase.org and "Register" for an account
-  2. Review http://review.couchbase.org/static/individual_agreement.html
-  3. Agree to agreement by visiting http://review.couchbase.org/#/settings/agreements
-  4. If you do not receive an email, please contact us
-  5. Check out the couchnode area http://review.couchbase.org/#/q/status:open+project:couchnode,n,z
-  6. Join us on IRC at #libcouchbase on Freenode :-)
+Instead, sign in to Gerrit at http://review.couchbase.org/
 
-There is a pretty tight relationship between our Node.js driver
-development and the development of libcouchbase, so for now you have
-to run the latest versions of both projects to be sure that everything
-works. I have however made it easy for you to develop on couchstore by
-using a repo manifest file. If you haven't done so already you should
-download the repo from http://code.google.com/p/git-repo/downloads/list
-and put it in your path. Alternatively, you can also contribute using
-pure git by following http://review.couchbase.org/Documentation/user-upload.html
+Review the [Individual Contributor Agreement](http://review.couchbase.org/static/individual_agreement.html)
+and agree to it in http://review.couchbase.org/#/settings/agreements
 
-All you should need to set up your development environment should be:
+Feel free to check out the [Couchnode project](http://review.couchbase.org/#/q/status:open+project:couchnode)
+and join us on IRC at [#libcouchbase on Freenode](https://webchat.freenode.net?channels=%23libcouchbase).
 
-    trond@ok ~> mkdir sdk
-    trond@ok ~> cd sdk
-    trond@ok ~/sdk> repo init -u git://github.com/trondn/manifests.git -m sdk.xml
-    trond@ok ~/sdk> repo sync
-    trond@ok ~/sdk> repo start my-branch-name --all
-    trond@ok ~/sdk> gmake nodejs
+When submitting a patch, add at least Brett Lawson (brett19@gmail.com)
+as a reviewer for it. He'll know who else to add and do that for you.
 
-This will build the latest version of libcouchbase and the couchnode
-driver. You must have a C and C++ compiler installed, automake,
-autoconf, node and v8.
+# `repo`
 
-If you have to make any changes in libcouchbase or couchnode,
-just commit them before you upload them to gerrit with the
-following command:
+Gerrit integrates well with `repo` - a tool built on top of Git to help
+manage repositories and handle uploads to revision control. You can
+download it from https://storage.googleapis.com/git-repo-downloads/repo
+and put it in your PATH.
 
-    trond@ok ~/sdk> repo upload
+All you need to do for your local development environment should be:
 
-You might experience a problem trying to upload the patches if you've
-selected a different login name at review.couchbase.org than your login
-name. Don't worry, all you need to do is to add the following to your
-~/.gitconfig file:
+    $ mkdir sdk
+    $ cd sdk
 
-    [review "review.couchbase.org"]
-            username = trond
+    $ repo init -u git://github.com/couchbase/manifest.git -m couchnode/master.xml
+    $ repo sync
 
-I normally don't go looking for stuff in gerrit, so you should add at
-least Brett Lawson (brett19@gmail.com) as a reviewer for your patch.
-He'll know who else to add and add them for you.
+    $ repo start branch-name --all
+    $ make install
+
+You must have a C and C++ compiler installed,
+automake, autoconf, Node and v8.
+
+If you are making any changes to the project, just commit them
+and upload to Gerrit by running:
+
+    $ repo upload
+
+If you experience trouble with your login name not matching the one
+that is set at http://review.couchbase.org/#/settings/ all you need
+to do is add your username to your Git configuration:
+
+    $ git config --global review.review.couchbase.org.username trond
+
+You can read the Repo Command Reference at https://source.android.com/setup/develop/repo
+to learn more about how it fits together with Gerrit.
+
+# Pure Git
+
+Alternatively, you can also contribute using pure Git. In order to push
+to Gerrit, your commit message needs a ChangeId reference edded. Set up
+a local commit message hook in order to automatically do that:
+
+    $ curl -Lo .git/hooks/commit-msg http://review.couchbase.org/tools/hooks/commit-msg
+    $ chmod +x .git/hooks/commit-msg
+
+If you already committed before setting up the hook, amend your commit:
+
+    $ git commit --amend
+
+Depending on whether you configured
+[SSH](http://review.couchbase.org/#/settings/ssh-keys) or
+[HTTP](http://review.couchbase.org/#/settings/http-password)
+authentication on your account in Gerrit,
+pushing changes is as simple as one of the following `git push` calls:
+
+    $ git push http://trond@review.couchbase.org/couchnode.git HEAD:refs/for/master
+    $ git push ssh://trond@review.couchbase.org:29418/couchnode.git HEAD:refs/for/master
+
+You might want to configure a remote as to easily `git push review`:
+
+    $ git config remote.review.url ssh://trond@review.couchbase.org:29418/couchnode.git
+    $ git config remote.review.push HEAD:refs/for/master
+
+You can read more details about how to use plain Git with Gerrit at
+http://review.couchbase.org/Documentation/user-upload.html
