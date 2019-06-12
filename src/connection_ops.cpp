@@ -512,31 +512,28 @@ NAN_METHOD(Connection::fnViewQuery)
 
     lcb_cmdview_callback(enc.cmd(), &lcbViewDataHandler);
 
-    if (!enc.parseOption<&lcb_cmdview_spatial>(info[0])) {
-        return Nan::ThrowError(Error::create("bad spatial selector passed"));
-    }
-    if (!enc.parseOption<&lcb_cmdview_design_document>(info[1])) {
+    if (!enc.parseOption<&lcb_cmdview_design_document>(info[0])) {
         return Nan::ThrowError(Error::create("bad ddoc name passed"));
     }
-    if (!enc.parseOption<&lcb_cmdview_view_name>(info[2])) {
+    if (!enc.parseOption<&lcb_cmdview_view_name>(info[1])) {
         return Nan::ThrowError(Error::create("bad view name passed"));
     }
-    if (!enc.parseOption<&lcb_cmdview_option_string>(info[3])) {
+    if (!enc.parseOption<&lcb_cmdview_option_string>(info[2])) {
         return Nan::ThrowError(Error::create("bad options string passed"));
     }
-    if (!enc.parseOption<&lcb_cmdview_post_data>(info[4])) {
+    if (!enc.parseOption<&lcb_cmdview_post_data>(info[3])) {
         return Nan::ThrowError(Error::create("bad post data passed"));
     }
-    uint32_t flags = ValueParser::asUint(info[5]);
+    uint32_t flags = ValueParser::asUint(info[4]);
     if (flags & LCBX_VIEWFLAG_INCLUDEDOCS) {
         lcb_cmdview_include_docs(enc.cmd(), 1);
     } else {
         lcb_cmdview_include_docs(enc.cmd(), 0);
     }
-    if (!enc.parseOption<&lcb_cmdview_timeout>(info[6])) {
+    if (!enc.parseOption<&lcb_cmdview_timeout>(info[5])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[7])) {
+    if (!enc.parseCallback(info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
