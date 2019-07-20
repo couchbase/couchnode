@@ -122,7 +122,6 @@ struct lcb_st {
     lcb_N1QLCACHE *n1ql_cache;
     lcb_MUTATION_TOKEN *dcpinfo; /**< Mapping of known vbucket to {uuid,seqno} info */
     lcbio_pTIMER dtor_timer;     /**< Asynchronous destruction timer */
-    int type;                    /**< Type of connection */
     lcb_BTYPE btype;             /**< Type of the bucket */
     lcb_COLLCACHE *collcache;    /**< Collection cache */
 
@@ -147,6 +146,7 @@ struct lcb_st {
     }
     lcb::Server *find_server(const lcb_host_t &host) const;
     lcb_STATUS request_config(const void *cookie, lcb::Server *server);
+    lcb_STATUS select_bucket(const void *cookie, lcb::Server *server);
 
     /**
      * @brief Request that the handle update its configuration.

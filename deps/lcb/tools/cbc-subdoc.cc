@@ -521,6 +521,9 @@ class UpsertHandler : public Handler
         lcb_SUBDOCOPS *specs;
         lcb_subdocops_create(&specs, total);
 
+        std::string ver = "\"" LCB_CLIENT_ID "\"";
+        std::string path = "_cbc.version";
+
         if (o_xattrs.passed()) {
             for (std::vector< std::pair< std::string, std::string > >::const_iterator it = xattrs.begin();
                  it != xattrs.end(); ++it) {
@@ -530,8 +533,6 @@ class UpsertHandler : public Handler
         } else {
             // currently it is not possible to upsert document without XATTRs
             // so lets allocate "_cbc" object with some useful stuff
-            std::string ver = "\"" LCB_CLIENT_ID "\"";
-            std::string path = "_cbc.version";
             lcb_subdocops_dict_upsert(specs, idx++, LCB_SUBDOCOPS_F_XATTRPATH | LCB_SUBDOCOPS_F_MKINTERMEDIATES,
                                       path.c_str(), path.size(), ver.c_str(), ver.size());
         }

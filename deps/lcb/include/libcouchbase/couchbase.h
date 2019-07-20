@@ -425,6 +425,17 @@ LIBCOUCHBASE_API
 lcb_STATUS lcb_connect(lcb_INSTANCE *instance);
 
 /**
+ * Opens bucket.
+ *
+ * @param instance
+ * @param bucket
+ * @param bucket_len
+ * @return
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_len);
+
+/**
  * Bootstrap callback. Invoked once the instance is ready to perform operations
  * @param instance The instance which was bootstrapped
  * @param err The error code received. If this is not LCB_SUCCESS then the
@@ -881,8 +892,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_context(const lcb_RESPEXISTS *r
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_ref(const lcb_RESPEXISTS *resp, const char **ref, size_t *ref_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_cookie(const lcb_RESPEXISTS *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_cas(const lcb_RESPEXISTS *resp, uint64_t *cas);
-LIBCOUCHBASE_API lcb_STATUS lcb_respexists_datatype(const lcb_RESPEXISTS *resp, uint8_t *datatype);
-LIBCOUCHBASE_API lcb_STATUS lcb_respexists_flags(const lcb_RESPEXISTS *resp, uint32_t *flags);
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_key(const lcb_RESPEXISTS *resp, const char **key, size_t *key_len);
 
 typedef struct lcb_CMDEXISTS_ lcb_CMDEXISTS;
@@ -2743,6 +2752,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_named_param(lcb_CMDN1QL *cmd, const char
                                                     const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_positional_param(lcb_CMDN1QL *cmd, const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_adhoc(lcb_CMDN1QL *cmd, int adhoc);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_client_context_id(lcb_CMDN1QL *cmd, const char* value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_readonly(lcb_CMDN1QL *cmd, int readonly);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_scan_cap(lcb_CMDN1QL *cmd, int value);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pipeline_cap(lcb_CMDN1QL *cmd, int value);
@@ -2796,7 +2806,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respview_cookie(const lcb_RESPVIEW *resp, void *
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_key(const lcb_RESPVIEW *resp, const char **key, size_t *key_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_doc_id(const lcb_RESPVIEW *resp, const char **doc_id, size_t *doc_id_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_row(const lcb_RESPVIEW *resp, const char **row, size_t *row_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_geometry(const lcb_RESPVIEW *resp, const char **geom, size_t *geom_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_document(const lcb_RESPVIEW *resp, const lcb_RESPGET **doc);
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_http_response(const lcb_RESPVIEW *resp, const lcb_RESPHTTP **http);
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_handle(const lcb_RESPVIEW *resp, lcb_VIEW_HANDLE **handle);
@@ -2812,7 +2821,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_option_string(lcb_CMDVIEW *cmd, const ch
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_post_data(lcb_CMDVIEW *cmd, const char *data, size_t data_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_include_docs(lcb_CMDVIEW *cmd, int include_docs);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_max_concurrent_docs(lcb_CMDVIEW *cmd, uint32_t num);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_spatial(lcb_CMDVIEW *cmd, int is_spatial);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_no_row_parse(lcb_CMDVIEW *cmd, int flag);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_handle(lcb_CMDVIEW *cmd, lcb_VIEW_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_timeout(lcb_CMDVIEW *cmd, uint32_t timeout);

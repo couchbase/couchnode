@@ -54,13 +54,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respview_row(const lcb_RESPVIEW *resp, const cha
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_geometry(const lcb_RESPVIEW *resp, const char **geom, size_t *geom_len)
-{
-    *geom = resp->geometry;
-    *geom_len = resp->ngeometry;
-    return LCB_SUCCESS;
-}
-
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_http_response(const lcb_RESPVIEW *resp, const lcb_RESPHTTP **http)
 {
     *http = resp->htresp;
@@ -154,16 +147,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_include_docs(lcb_CMDVIEW *cmd, int inclu
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_max_concurrent_docs(lcb_CMDVIEW *cmd, uint32_t num)
 {
     cmd->docs_concurrent_max = num;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_spatial(lcb_CMDVIEW *cmd, int flag)
-{
-    if (flag) {
-        cmd->cmdflags |= LCB_CMDVIEWQUERY_F_SPATIAL;
-    } else {
-        cmd->cmdflags &= ~LCB_CMDVIEWQUERY_F_SPATIAL;
-    }
     return LCB_SUCCESS;
 }
 

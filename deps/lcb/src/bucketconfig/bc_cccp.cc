@@ -149,6 +149,9 @@ lcb_STATUS CccpProvider::schedule_next_request(lcb_STATUS err, bool can_rollover
         lcb_log(LOGARGS(this, TRACE), "Re-Issuing CCCP Command on server struct %p (" LCB_HOST_FMT ")", (void *)server,
                 LCB_HOST_ARG(this->parent->settings, next_host));
         timer.rearm(settings().config_node_timeout);
+        if (settings().bucket && settings().bucket[0] != '\0' && config && config->vbc->bname == NULL) {
+            instance->select_bucket(cmdcookie, server);
+        }
         instance->request_config(cmdcookie, server);
 
     } else {

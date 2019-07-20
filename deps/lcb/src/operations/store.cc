@@ -169,6 +169,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_destroy(lcb_CMDSTORE *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_timeout(lcb_CMDSTORE *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -253,7 +254,7 @@ struct DurStoreCtx : mc_REQDATAEX {
     static mc_REQDATAPROCS proctable;
 
     DurStoreCtx(lcb_INSTANCE *instance_, lcb_U16 persist_, lcb_U16 replicate_, const void *cookie_)
-        : mc_REQDATAEX(cookie_, proctable, gethrtime()), instance(instance_), persist_to(persist_),
+        : mc_REQDATAEX(cookie_, proctable, 0), instance(instance_), persist_to(persist_),
           replicate_to(replicate_)
     {
     }
@@ -411,7 +412,7 @@ static lcb_STATUS store_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie,
 
     int hsize;
     int should_compress = 0;
-    if (cid > 0) {
+    if (LCBT_SETTING(instance, use_collections)) {
         lcb_CMDSTORE *mut = const_cast< lcb_CMDSTORE * >(cmd);
         mut->cid = cid;
     }
@@ -466,12 +467,15 @@ static lcb_STATUS store_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie,
         }
 
         DurStoreCtx *dctx = new DurStoreCtx(instance, persist_u, replicate_u, cookie);
+        dctx->start = gethrtime();
+        dctx->deadline = dctx->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
         packet->u_rdata.exdata = dctx;
         packet->flags |= MCREQ_F_REQEXT;
     } else {
         mc_REQDATA *rdata = MCREQ_PKT_RDATA(packet);
         rdata->cookie = cookie;
         rdata->start = gethrtime();
+        rdata->deadline = rdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
         if (cmd->durability.sync.dur_level && new_durability_supported) {
             scmd.message.body.alt.expiration = htonl(cmd->exptime);
             scmd.message.body.alt.flags = htonl(cmd->flags);

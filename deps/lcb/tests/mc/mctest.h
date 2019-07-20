@@ -16,6 +16,7 @@
  */
 
 #include "mc/mcreq.h"
+#include "mcserver/mcserver.h"
 #include "sllist-inl.h"
 #include <gtest/gtest.h>
 #include "internalstructs.h"
@@ -30,7 +31,7 @@ struct CQWrap : mc_CMDQUEUE {
         pll = (mc_PIPELINE **)malloc(sizeof(*pll) * NUM_PIPELINES);
         config = lcbvb_create();
         for (unsigned ii = 0; ii < NUM_PIPELINES; ii++) {
-            mc_PIPELINE *pipeline = (mc_PIPELINE *)calloc(1, sizeof(*pipeline));
+            mc_PIPELINE *pipeline = new lcb::Server();
             mcreq_pipeline_init(pipeline);
             pll[ii] = pipeline;
         }

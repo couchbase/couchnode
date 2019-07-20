@@ -790,15 +790,16 @@ TEST_F(MockUnitTest, testExists)
 
     lcb_install_callback3(instance, LCB_CALLBACK_EXISTS, (lcb_RESPCALLBACK)existsCb);
 
-    const char *key = "testExistsKey";
-    size_t nkey = strlen(key);
+    std::stringstream ss;
+    ss << "testExistsKey" << time(NULL);
+    std::string key = ss.str();
 
     lcb_STATUS err;
     lcb_CMDEXISTS *cmd;
     int res;
 
     lcb_cmdexists_create(&cmd);
-    lcb_cmdexists_key(cmd, key, nkey);
+    lcb_cmdexists_key(cmd, key.data(), key.size());
     res = 0xff;
     err = lcb_exists(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -809,7 +810,7 @@ TEST_F(MockUnitTest, testExists)
     storeKey(instance, key, "value");
 
     lcb_cmdexists_create(&cmd);
-    lcb_cmdexists_key(cmd, key, nkey);
+    lcb_cmdexists_key(cmd, key.data(), key.size());
     res = 0;
     err = lcb_exists(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, err);

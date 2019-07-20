@@ -297,7 +297,7 @@ void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instan
 
 void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instance)
 {
-    lcb_create_st options;
+    lcb_create_st options = {};
     makeConnectParams(options, NULL);
     createConnection(handle, instance, options);
 }

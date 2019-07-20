@@ -23,13 +23,13 @@
  */
 
 /** Convert seconds to millis */
-#define LCB_S2MS(s) (((lcb_uint32_t)s) * 1000)
+#define LCB_S2MS(s) (((lcb_uint32_t)(s)) * 1000)
 
 /** Convert seconds to microseconds */
-#define LCB_S2US(s) (((lcb_uint32_t)s) * 1000000)
+#define LCB_S2US(s) (((lcb_uint32_t)(s)) * 1000000)
 
 /** Convert seconds to nanoseconds */
-#define LCB_S2NS(s) (((hrtime_t)s) * 1000000000)
+#define LCB_S2NS(s) (((hrtime_t)(s)) * 1000000000)
 
 /** Convert nanoseconds to microseconds */
 #define LCB_NS2US(s) ((s) / 1000)
@@ -37,9 +37,9 @@
 #define LCB_MS2US(s) ((s)*1000)
 
 /** Convert microseconds to nanoseconds */
-#define LCB_US2NS(s) (((hrtime_t)s) * 1000)
+#define LCB_US2NS(s) (((hrtime_t)(s)) * 1000)
 /** Convert milliseconds to nanoseconds */
-#define LCB_MS2NS(s) (((hrtime_t)s) * 1000000)
+#define LCB_MS2NS(s) (((hrtime_t)(s)) * 1000000)
 
 #define LCB_DEFAULT_TIMEOUT LCB_MS2US(2500)
 

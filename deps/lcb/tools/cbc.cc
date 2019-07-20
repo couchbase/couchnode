@@ -525,10 +525,6 @@ static void view_callback(lcb_INSTANCE *, int, const lcb_RESPVIEW *resp)
     printf("     VALUE: %.*s\n", (int)n, p);
     lcb_respview_doc_id(resp, &p, &n);
     printf("     DOCID: %.*s\n", (int)n, p);
-    lcb_respview_geometry(resp, &p, &n);
-    if (p) {
-        printf("     GEO: %.*s\n", (int)n, p);
-    }
     const lcb_RESPGET *doc = NULL;
     lcb_respview_document(resp, &doc);
     if (doc) {
@@ -1488,9 +1484,6 @@ void ViewsHandler::run()
     lcb_cmdview_view_name(cmd, view.c_str(), view.size());
     lcb_cmdview_option_string(cmd, opts.c_str(), opts.size());
     lcb_cmdview_callback(cmd, view_callback);
-    if (o_spatial) {
-        lcb_cmdview_spatial(cmd, true);
-    }
     if (o_incdocs) {
         lcb_cmdview_include_docs(cmd, true);
     }

@@ -53,6 +53,22 @@ IF(NOT WIN32)
     INSTALL(TARGETS cbc-subdoc RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     SET_SOURCE_FILES_PROPERTIES(cbc-subdoc.cc PROPERTIES COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}")
 
+    IF(COMPILER_SUPPORTS_CXX11)
+        FIND_PROGRAM(RE2C re2c)
+        IF(RE2C)
+            SET(CBC_BENCH_LEXER_SRC "${PROJECT_SOURCE_DIR}/tools/bench/lexer.re")
+            SET(CBC_BENCH_LEXER_GEN "${PROJECT_SOURCE_DIR}/tools/bench/lexer.c")
+            ADD_CUSTOM_COMMAND(OUTPUT ${CBC_BENCH_LEXER_GEN} DEPENDS ${CBC_BENCH_LEXER_SRC}
+                    COMMENT "RE2C tools/bench/lexer.re"
+                    COMMAND ${RE2C} --tags --no-debug-info --output ${CBC_BENCH_LEXER_GEN} ${CBC_BENCH_LEXER_SRC})
+        ENDIF()
+
+        ADD_EXECUTABLE(cbc-bench cbc-bench.cc bench/lexer.c $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts> $<TARGET_OBJECTS:linenoise>)
+        TARGET_LINK_LIBRARIES(cbc-bench couchbase)
+        INSTALL(TARGETS cbc-bench RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        SET_SOURCE_FILES_PROPERTIES(cbc-bench.cc PROPERTIES COMPILE_FLAGS "${LCB_CORE_CXXFLAGS}")
+    ENDIF()
+
     IF(HAVE_LIBEVENT2)
       INCLUDE_DIRECTORIES(AFTER ${LIBEVENT_INCLUDE_DIR})
       ADD_EXECUTABLE(cbc-proxy cbc-proxy.cc $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts>)

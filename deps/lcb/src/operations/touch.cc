@@ -97,6 +97,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_destroy(lcb_CMDTOUCH *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_timeout(lcb_CMDTOUCH *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -148,7 +149,7 @@ static lcb_STATUS touch_validate(lcb_INSTANCE *instance, const lcb_CMDTOUCH *cmd
 static lcb_STATUS touch_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
 {
     const lcb_CMDTOUCH *cmd = (const lcb_CMDTOUCH *)arg;
-    if (cid > 0) {
+    if (LCBT_SETTING(instance, use_collections)) {
         lcb_CMDTOUCH *mut = const_cast< lcb_CMDTOUCH * >(cmd);
         mut->cid = cid;
     }
@@ -192,6 +193,7 @@ static lcb_STATUS touch_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie,
     memcpy(SPAN_BUFFER(&pkt->kh_span), tcmd.bytes, hsize);
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();
+    pkt->u_rdata.reqdata.deadline = pkt->u_rdata.reqdata.start - (cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
     LCB_SCHED_ADD(instance, pl, pkt);
     LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_TOUCH, pkt->opaque, pkt->u_rdata.reqdata.span);
     TRACE_TOUCH_BEGIN(instance, hdr, cmd);

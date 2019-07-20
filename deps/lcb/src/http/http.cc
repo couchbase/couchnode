@@ -186,7 +186,7 @@ static const char *method_strings[] = {
 
 void Request::decref()
 {
-    assert(refcount > 0);
+    lcb_assert(refcount > 0);
     if (--refcount) {
         return;
     }
@@ -497,7 +497,7 @@ GT_REPARSE:
 void Request::redirect()
 {
     lcb_STATUS rc;
-    assert(!pending_redirect.empty());
+    lcb_assert(!pending_redirect.empty());
     if (LCBT_SETTING(instance, max_redir) > -1) {
         if (LCBT_SETTING(instance, max_redir) < ++redircount) {
             finish(LCB_TOO_MANY_REDIRECTS);

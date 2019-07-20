@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@
  */
 
 /**
- * gcc -levent -lcouchbase main.c
+ * cmake -DLCB_BUILD_EXAMPLES=ON .
+ * make
  *
  * # perform STORE and 20 iterations of GET commands with interval 3 seconds
- * ./a.out couchbase://localhost password Administrator 20 3
+ * ./build/bin/examples/libevent-direct couchbase://localhost password Administrator 20 3
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <libcouchbase/couchbase.h>
-#include <event2/event.h>
+#include <uv.h>
 
 const char key[] = "foo";
 lcb_SIZE nkey = sizeof(key);
@@ -37,14 +38,16 @@ lcb_SIZE nval = sizeof(val);
 int nreq = 1;
 int nresp = 1;
 int interval = 0;
-struct event *timer = NULL;
+
+uv_timer_t timer;
 
 static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
 {
     lcb_CMDSTORE *cmd;
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "ERROR: %s\n", lcb_strerror(instance, err));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "bootstrap error: %s\n", lcb_strerror(instance, err));
+        uv_stop((void *)lcb_get_cookie(instance));
+        return;
     }
     printf("successfully bootstrapped\n");
     fflush(stdout);
@@ -55,8 +58,9 @@ static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
     err = lcb_store(instance, NULL, cmd);
     lcb_cmdstore_destroy(cmd);
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to set up store request: %s\n", lcb_strerror(instance, err));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "failed to set up store request: %s\n", lcb_strerror(instance, err));
+        uv_stop((void *)lcb_get_cookie(instance));
+        return;
     }
 }
 
@@ -67,8 +71,9 @@ static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *
     lcb_STATUS rc = lcb_respget_status(rg);
 
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to get key: %s\n", lcb_strerror(instance, rc));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "failed to get key: %s\n", lcb_strerror(instance, rc));
+        uv_stop((void *)lcb_get_cookie(instance));
+        return;
     }
 
     lcb_respget_value(rg, &value, &nvalue);
@@ -77,16 +82,16 @@ static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *
     nresp--;
     if (nresp == 0) {
         printf("stopping the loop\n");
-        event_base_loopbreak((void *)lcb_get_cookie(instance));
+        uv_stop((void *)lcb_get_cookie(instance));
     }
     (void)cbtype;
 }
 
-static void schedule_timer();
+static void schedule_timer(lcb_INSTANCE *instance);
 
-static void timer_callback(int fd, short event, void *arg)
+static void timer_callback(uv_timer_t *event)
 {
-    lcb_INSTANCE *instance = arg;
+    lcb_INSTANCE *instance = event->data;
     lcb_STATUS rc;
     lcb_CMDGET *gcmd;
 
@@ -95,24 +100,20 @@ static void timer_callback(int fd, short event, void *arg)
     rc = lcb_get(instance, NULL, gcmd);
     lcb_cmdget_destroy(gcmd);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to schedule get request: %s\n", lcb_strerror(NULL, rc));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "failed to schedule get request: %s\n", lcb_strerror(NULL, rc));
+        uv_stop((void *)lcb_get_cookie(instance));
+        return;
     }
-    (void)fd;
-    (void)event;
-    schedule_timer();
+    schedule_timer(instance);
 }
 
-static void schedule_timer()
+static void schedule_timer(lcb_INSTANCE *instance)
 {
-    struct timeval tv;
-
     if (!nreq) {
         return;
     }
-    tv.tv_sec = interval;
-    tv.tv_usec = 0;
-    evtimer_add(timer, &tv);
+    timer.data = instance;
+    uv_timer_start(&timer, timer_callback, interval, 0);
     nreq--;
 }
 
@@ -120,36 +121,50 @@ static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTO
 {
     lcb_STATUS rc = lcb_respstore_status(resp);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to store key: %s\n", lcb_strerror(instance, rc));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "failed to store key: %s\n", lcb_strerror(instance, rc));
+        uv_stop((void *)lcb_get_cookie(instance));
+        return;
     }
     printf("stored key 'foo'\n");
     fflush(stdout);
     {
-        struct event_base *evbase = (struct event_base *)lcb_get_cookie(instance);
+        uv_loop_t *evbase = (uv_loop_t *)lcb_get_cookie(instance);
 
         printf("try to get value %d times with %dsec interval\n", nreq, interval);
-        timer = evtimer_new(evbase, timer_callback, instance);
-        schedule_timer();
+        uv_timer_init(evbase, &timer);
+        schedule_timer(instance);
     }
 
     (void)cbtype;
 }
 
-static lcb_io_opt_t create_libevent_io_ops(struct event_base *evbase)
+static lcb_io_opt_t create_libuv_io_ops(uv_loop_t *evbase)
 {
     struct lcb_create_io_ops_st ciops;
     lcb_io_opt_t ioops;
     lcb_STATUS error;
+    struct {
+        int version;
+        union {
+            struct {
+                uv_loop_t *loop;
+                int startsop_noop;
+            } v0;
+        } v;
+    } cookie = {};
+
+    cookie.version = 0;
+    cookie.v.v0.loop = evbase;
+    cookie.v.v0.startsop_noop = 1;
 
     memset(&ciops, 0, sizeof(ciops));
-    ciops.v.v0.type = LCB_IO_OPS_LIBEVENT;
-    ciops.v.v0.cookie = evbase;
+    ciops.v.v0.type = LCB_IO_OPS_LIBUV;
+    ciops.v.v0.cookie = &cookie;
 
     error = lcb_create_io_ops(&ioops, &ciops);
     if (error != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to create an IOOPS structure for libevent: %s\n", lcb_strerror(NULL, error));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Failed to create an IOOPS structure for libuv: %s\n", lcb_strerror(NULL, error));
+        return NULL;
     }
 
     return ioops;
@@ -165,6 +180,8 @@ static lcb_INSTANCE *create_libcouchbase_handle(lcb_io_opt_t ioops, int argc, ch
 
     /* If NULL, will default to localhost */
     copts.version = 3;
+    copts.v.v3.connstr = "couchbase://localhost";
+
     if (argc > 1) {
         copts.v.v3.connstr = argv[1];
     }
@@ -179,7 +196,7 @@ static lcb_INSTANCE *create_libcouchbase_handle(lcb_io_opt_t ioops, int argc, ch
 
     if (error != LCB_SUCCESS) {
         fprintf(stderr, "Failed to create a libcouchbase instance: %s\n", lcb_strerror(NULL, error));
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     /* Set up the callbacks */
@@ -190,40 +207,47 @@ static lcb_INSTANCE *create_libcouchbase_handle(lcb_io_opt_t ioops, int argc, ch
     if ((error = lcb_connect(instance)) != LCB_SUCCESS) {
         fprintf(stderr, "Failed to connect libcouchbase instance: %s\n", lcb_strerror(NULL, error));
         lcb_destroy(instance);
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     return instance;
 }
 
-/* This example shows how we can hook ourself into an external event loop.
- * You may find more information in the blogpost: http://goo.gl/fCTrX */
 int main(int argc, char **argv)
 {
-    struct event_base *evbase = event_base_new();
-    lcb_io_opt_t ioops = create_libevent_io_ops(evbase);
-    lcb_INSTANCE *instance = create_libcouchbase_handle(ioops, argc, argv);
+    uv_loop_t evbase;
+    uv_loop_init(&evbase);
+    lcb_io_opt_t ioops;
+    lcb_INSTANCE *instance;
+
+    ioops = create_libuv_io_ops(&evbase);
+    if (ioops == NULL) {
+        exit(EXIT_FAILURE);
+    }
+    instance = create_libcouchbase_handle(ioops, argc, argv);
+    if (instance == NULL) {
+        exit(EXIT_FAILURE);
+    }
 
     if (argc > 4) {
         nreq = nresp = atoi(argv[4]);
     }
     if (argc > 5) {
-        interval = atoi(argv[5]);
+        interval = atoi(argv[4]);
     }
     /*Store the event base as the user cookie in our instance so that
      * we may terminate the program when we're done */
-    lcb_set_cookie(instance, evbase);
+    lcb_set_cookie(instance, &evbase);
 
     /* Run the event loop */
-    event_base_loop(evbase, 0);
+    uv_run(&evbase, UV_RUN_DEFAULT);
 
     /* Cleanup */
+    uv_timer_stop(&timer);
     lcb_destroy(instance);
-    if (timer) {
-        evtimer_del(timer);
-    }
+
     lcb_destroy_io_ops(ioops);
-    event_base_free(evbase);
+    uv_loop_close(&evbase);
 
     return EXIT_SUCCESS;
 }

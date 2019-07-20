@@ -195,7 +195,7 @@ static void log_global_errors(lcb_settings *settings)
 
 int iotssl_maybe_error(lcbio_XSSL *xs, int rv)
 {
-    assert(rv < 1);
+    lcb_assert(rv < 1);
     if (rv == -1) {
         int err = SSL_get_error(xs->ssl, rv);
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {

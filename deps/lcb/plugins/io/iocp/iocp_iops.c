@@ -39,7 +39,7 @@ static int start_write(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase, struct lcb
         memset(&w->ol_write.base, 0, sizeof(w->ol_write.base));
     } else {
         w = calloc(1, sizeof(*w));
-        assert(w);
+        lcb_assert(w);
         if (!w) {
             iobase->v.v2.error = WSA_NOT_ENOUGH_MEMORY;
             return -1;
@@ -100,7 +100,7 @@ static int start_connect(lcb_io_opt_t iobase, lcb_sockdata_t *sdbase, const stru
 
     conn = calloc(1, sizeof(*conn));
 
-    assert(conn);
+    lcb_assert(conn);
     if (conn == NULL) {
         iobase->v.v2.error = WSA_NOT_ENOUGH_MEMORY;
         return -1;

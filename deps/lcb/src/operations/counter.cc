@@ -172,7 +172,7 @@ static lcb_STATUS counter_validate(lcb_INSTANCE *instance, const lcb_CMDCOUNTER 
 static lcb_STATUS counter_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
 {
     const lcb_CMDCOUNTER *cmd = (const lcb_CMDCOUNTER *)arg;
-    if (cid > 0) {
+    if (LCBT_SETTING(instance, use_collections)) {
         lcb_CMDCOUNTER *mut = const_cast< lcb_CMDCOUNTER * >(cmd);
         mut->cid = cid;
     }
@@ -204,6 +204,7 @@ static lcb_STATUS counter_impl(uint32_t cid, lcb_INSTANCE *instance, void *cooki
     rdata = &packet->u_rdata.reqdata;
     rdata->cookie = cookie;
     rdata->start = gethrtime();
+    rdata->deadline = rdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
     hdr->request.magic = PROTOCOL_BINARY_REQ;
     hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr->request.cas = 0;

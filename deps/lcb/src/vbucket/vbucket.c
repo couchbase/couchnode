@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
-#include <assert.h>
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/vbucket.h>
 #include "config.h"
@@ -354,7 +353,7 @@ static int build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
     }
 
     server->svc.hoststrs[LCBVB_SVCTYPE_DATA] = strdup(server->authority);
-    if (server->viewpath == NULL && server->svc.views) {
+    if (server->viewpath == NULL && server->svc.views && cfg->bname) {
         server->viewpath = malloc(strlen(cfg->bname) + 2);
         sprintf(server->viewpath, "/%s", cfg->bname);
     }
@@ -585,15 +584,25 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
         goto GT_ERROR;
     }
 
-    if (!get_jstr(cj, "name", &tmp)) {
-        SET_ERRSTR(cfg, "Expected 'name' key");
-        goto GT_ERROR;
+    if (get_jstr(cj, "name", &tmp)) {
+        cfg->bname = strdup(tmp);
     }
-    cfg->bname = strdup(tmp);
 
-    if (!get_jstr(cj, "nodeLocator", &tmp)) {
-        SET_ERRSTR(cfg, "Expected 'nodeLocator' key");
-        goto GT_ERROR;
+    cfg->dtype = LCBVB_DIST_UNKNOWN;
+    if (get_jstr(cj, "nodeLocator", &tmp)) {
+        if (!strcmp(tmp, "ketama")) {
+            cfg->dtype = LCBVB_DIST_KETAMA;
+        } else {
+            cfg->dtype = LCBVB_DIST_VBUCKET;
+        }
+    }
+
+    if (get_jstr(cj, "uuid", &tmp)) {
+        cfg->buuid = strdup(tmp);
+    }
+
+    if (!get_jint(cj, "rev", &cfg->revid)) {
+        cfg->revid = -1;
     }
 
     get_jarray(cj, "nodes", &jnodes);
@@ -608,20 +617,6 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
     } else if (jnodes == NULL) {
         SET_ERRSTR(cfg, "expected 'nodesExt' or 'nodes' array");
         goto GT_ERROR;
-    }
-
-    if (!strcmp(tmp, "ketama")) {
-        cfg->dtype = LCBVB_DIST_KETAMA;
-    } else {
-        cfg->dtype = LCBVB_DIST_VBUCKET;
-    }
-
-    if (get_jstr(cj, "uuid", &tmp)) {
-        cfg->buuid = strdup(tmp);
-    }
-
-    if (!get_jint(cj, "rev", &cfg->revid)) {
-        cfg->revid = -1;
     }
 
     cfg->caps = 0;
@@ -652,6 +647,24 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
                         cfg->caps |= LCBVB_CAP_COLLECTIONS;
                     } else if (strcmp(jcap->valuestring, "durableWrite") == 0) {
                         cfg->caps |= LCBVB_CAP_DURABLE_WRITE;
+                    }
+                }
+            }
+        }
+    }
+    cfg->ccaps = 0;
+    {
+        cJSON *jcaps = NULL;
+        if (get_jobj(cj, "clusterCapabilities", &jcaps)) {
+            cJSON *jn1ql = NULL;
+            if (get_jarray(jcaps, "n1ql", &jn1ql)) {
+                unsigned ncaps = cJSON_GetArraySize(jn1ql);
+                for (ii = 0; ii < ncaps; ii++) {
+                    cJSON *jcap = cJSON_GetArrayItem(jn1ql, ii);
+                    if (jcap || jcap->type == cJSON_String) {
+                        if (strcmp(jcap->valuestring, "enhancedPreparedStatements") == 0) {
+                            cfg->ccaps |= LCBVB_CCAP_N1QL_ENHANCED_PREPARED_STATEMENTS;
+                        }
                     }
                 }
             }
@@ -969,6 +982,15 @@ char *lcbvb_save_json(lcbvb_CONFIG *cfg)
         }
         cJSON_AddItemToObject(root, "bucketCapabilities", jcaps);
     }
+    if (cfg->ccaps != 0) {
+        cJSON *jcaps = cJSON_CreateObject();
+        cJSON *jn1ql = cJSON_CreateArray();
+        if (cfg->ccaps & LCBVB_CCAP_N1QL_ENHANCED_PREPARED_STATEMENTS) {
+            cJSON_AddItemToArray(jn1ql, cJSON_CreateString("enhancedPreparedStatements"));
+        }
+        cJSON_AddItemToObject(jcaps, "n1ql", jn1ql);
+        cJSON_AddItemToObject(root, "clusterCapabilities", jcaps);
+    }
 
     ret = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -985,7 +1007,7 @@ static int map_ketama(lcbvb_CONFIG *cfg, const void *key, size_t nkey)
 {
     uint32_t digest, mid, prev;
     lcbvb_CONTINUUM *beginp, *endp, *midp, *highp, *lowp;
-    assert(cfg->continuum);
+    lcb_assert(cfg->continuum);
     digest = vb__hash_ketama(key, nkey);
     beginp = lowp = cfg->continuum;
     endp = highp = cfg->continuum + cfg->ncontinuum;
@@ -1169,7 +1191,7 @@ static void compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **ou
         }
         if (!found) {
             char *infostr = malloc(strlen(newsrv->authority) + 128);
-            assert(infostr);
+            lcb_assert(infostr);
             sprintf(infostr, "%s(Data=%d, Index=%d, Query=%d)", newsrv->authority, newsrv->svc.data, newsrv->svc.n1ql,
                     newsrv->svc.ixquery);
             out[offset] = infostr;
@@ -1226,7 +1248,7 @@ static void free_array_helper(char **l)
 
 void lcbvb_free_diff(lcbvb_CONFIGDIFF *diff)
 {
-    assert(diff);
+    lcb_assert(diff);
     free_array_helper(diff->servers_added);
     free_array_helper(diff->servers_removed);
     free(diff);
@@ -1350,6 +1372,10 @@ LIBCOUCHBASE_API
 int lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVCMODE mode, int *used)
 {
     size_t nn, oix = 0;
+
+    if (cfg == NULL) {
+        return -1;
+    }
 
     /*
      * Since not all nodes support all service types, we need to make it a
@@ -1515,7 +1541,7 @@ int lcbvb_genconfig_ex(lcbvb_CONFIG *vb, const char *name, const char *uuid, con
     unsigned ii, jj;
     int srvix = 0, in_nondata = 0;
 
-    assert(nservers);
+    lcb_assert(nservers);
 
     if (!name) {
         name = "default";
@@ -1636,7 +1662,7 @@ int lcbvb_genconfig(lcbvb_CONFIG *vb, unsigned nservers, unsigned nreplica, unsi
 void lcbvb_genffmap(lcbvb_CONFIG *cfg)
 {
     size_t ii;
-    assert(cfg->nrepl);
+    lcb_assert(cfg->nrepl);
     if (cfg->ffvbuckets) {
         free(cfg->ffvbuckets);
     }

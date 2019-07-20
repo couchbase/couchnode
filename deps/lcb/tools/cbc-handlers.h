@@ -476,7 +476,7 @@ class DecrHandler : public ArithmeticHandler
 class ViewsHandler : public Handler
 {
   public:
-    ViewsHandler() : Handler("view"), o_spatial("spatial"), o_incdocs("with-docs"), o_params("params") {}
+    ViewsHandler() : Handler("view"), o_incdocs("with-docs"), o_params("params") {}
 
     HANDLER_DESCRIPTION("Query a view")
     HANDLER_USAGE("DESIGN/VIEW")
@@ -486,13 +486,11 @@ class ViewsHandler : public Handler
     void addOptions()
     {
         Handler::addOptions();
-        parser.addOption(o_spatial);
         parser.addOption(o_incdocs);
         parser.addOption(o_params);
     }
 
   private:
-    cliopts::BoolOption o_spatial;
     cliopts::BoolOption o_incdocs;
     cliopts::StringOption o_params;
 };

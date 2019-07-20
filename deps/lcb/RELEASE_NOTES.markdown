@@ -1,5 +1,24 @@
 # Release Notes
 
+## 3.0.0-alpha.4 (2019-07-10)
+
+* Do not build cbc-bench if compiler does not support C++11
+* CCBC-1034: Do not enable collections automatically. When user disabled collections, the library should not enable it automatically
+* CCBC-1024: per-operation KV timeouts
+* CCBC-1057: Support enhanced prepared statements
+* Allow to specify `client_context_id` for N1QL query
+* GCCCP (G3CP) implementation
+* CCBC-1056: Workaround for `H_collections_get_cid` segfault due to NULL ext field in response
+* CCBC-983: Example for external libuv loop
+* Implement better benchmarking tool (cbc-benchmark):
+  -  smooth workload generator (no saw-shaped graph)
+  -  better support of writes with durability
+  -  interactive shell
+* CCBC-1052: remove spatial views from API
+* CCBC-600: Use bucket not found error if select bucket fails
+* CCBC-1055: use `lcb_assert` wrapper instead of assert(3). Do not include assert.h if NDEBUG defined
+* CCBC-866: track invalidated `active_provider_list` using unique ID
+
 ## 3.0.0-alpha.3 (2019-05-02)
 
 * Removed debug output.

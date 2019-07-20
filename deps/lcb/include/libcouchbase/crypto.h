@@ -167,7 +167,7 @@ typedef struct lcbcrypto_CMDDECRYPT {
  * lcbcrypto_register(instance, "AES-256-HMAC-SHA256", provider);
  * @endcode
  */
-LIBCOUCHBASE_API void lcbcrypto_register(lcb_INSTANCE instance, const char *name, lcbcrypto_PROVIDER *provider);
+LIBCOUCHBASE_API void lcbcrypto_register(lcb_INSTANCE *instance, const char *name, lcbcrypto_PROVIDER *provider);
 
 /**
  * Unregister crypto-provider for specified alias.
@@ -177,7 +177,7 @@ LIBCOUCHBASE_API void lcbcrypto_register(lcb_INSTANCE instance, const char *name
  * @param instance the handle
  * @param name provider alias.
  */
-LIBCOUCHBASE_API void lcbcrypto_unregister(lcb_INSTANCE instance, const char *name);
+LIBCOUCHBASE_API void lcbcrypto_unregister(lcb_INSTANCE *instance, const char *name);
 
 /**
  * Increment reference counter for crypto-provider.
@@ -232,7 +232,7 @@ LIBCOUCHBASE_API void lcbcrypto_unref(lcbcrypto_PROVIDER *provider);
  *
  * @committed
  */
-LIBCOUCHBASE_API lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE instance, lcbcrypto_CMDENCRYPT *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT *cmd);
 
 /**
  * Decrypt all specified fields in the JSON encoded object.
@@ -272,7 +272,7 @@ LIBCOUCHBASE_API lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE instance, lcbc
  *
  * @committed
  */
-LIBCOUCHBASE_API lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE instance, lcbcrypto_CMDDECRYPT *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT *cmd);
 /**@}*/
 
 #ifdef __cplusplus

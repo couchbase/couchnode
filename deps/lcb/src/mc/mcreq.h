@@ -143,6 +143,7 @@ extern "C" {
 typedef struct mc_REQDATA {
     const void *cookie; /**< User pointer to place in callbacks */
     hrtime_t start;     /**< Time of the initial request. Used for timeouts */
+    hrtime_t deadline;  /**< When the request should be considered timed out */
     /**
      * Time when dispatching response has begun for the command.
      * Used for metrics/tracing. Might be zero, when tracing is not enabled.
@@ -186,6 +187,7 @@ typedef struct {
 typedef struct mc_REQDATAEX {
     const void *cookie; /**< User data */
     hrtime_t start;     /**< Start time */
+    hrtime_t deadline;  /**< When the request should be considered timed out */
     /**
      * Time when dispatching response has begun for the command.
      * Used for metrics/tracing. Might be zero, when tracing is not enabled.
@@ -840,6 +842,8 @@ void mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt);
  */
 void mcreq_reset_timeouts(mc_PIPELINE *pl, lcb_U64 nstime);
 
+void mcreq_rearm_timeout(mc_PIPELINE *pipeline);
+
 /**
  * Callback to be invoked when a packet is about to be failed out from the
  * request queue. This should be used to possibly invoke handlers. The packet
@@ -874,14 +878,11 @@ unsigned mcreq_pipeline_fail(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfai
  * @param err the error to provide to the handlers (usually LCB_ETIMEDOUT)
  * @param failcb the callback to invoke
  * @param cbarg the last argument to the callback
- * @param oldest_valid the _oldest_ time for a command to still be valid
- * @param oldest_start set to the start time of the _oldest_ command which is
- *        still valid.
+ * @param now the current wall clock time
  *
  * @return the number of commands actually failed.
  */
-unsigned mcreq_pipeline_timeout(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfail_fn failcb, void *cbarg,
-                                hrtime_t oldest_valid, hrtime_t *oldest_start);
+unsigned mcreq_pipeline_timeout(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfail_fn failcb, void *cbarg, hrtime_t now);
 
 /**
  * This function is called when a packet could not be properly mapped to a real

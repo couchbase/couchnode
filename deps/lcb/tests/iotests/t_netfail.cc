@@ -263,6 +263,57 @@ TEST_F(MockUnitTest, testTimeoutOnlyStale)
     lcb_cmdstore_destroy(cmd);
 }
 
+TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
+{
+    SKIP_UNLESS_MOCK();
+
+    HandleWrap hw;
+    createConnection(hw);
+    lcb_INSTANCE *instance = hw.getLcb();
+    lcb_uint32_t tmoval = 1000000;
+    int nremaining = 2;
+    struct timeout_test_cookie cookies[2];
+    MockEnvironment *mock = MockEnvironment::getInstance();
+
+    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)set_callback);
+
+    const char *key = "testTimeoutOnlyStaleWithPerOperationProperty";
+    const char *value = "a value";
+
+    removeKey(instance, key); // also needed to warm up the connection before hiccup
+
+    // Make the mock timeout the first cookie. The extras length is:
+    mock->hiccupNodes(1500, 1);
+
+    lcb_CMDSTORE *cmd;
+    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_key(cmd, key, strlen(key));
+    lcb_cmdstore_value(cmd, value, strlen(value));
+    lcb_cmdstore_timeout(cmd, tmoval);
+
+    cookies[0].counter = &nremaining;
+    cookies[0].expected = LCB_ETIMEDOUT;
+    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, cookies, cmd));
+
+    cookies[1].counter = &nremaining;
+    cookies[1].expected = LCB_SUCCESS;
+    struct next_store_st ns;
+    lcb_cmdstore_key(cmd, key, strlen(key));
+    ns.cmdp = cmd;
+    ns.tc = cookies + 1;
+    ns.instance = instance;
+    lcbio_pTIMER timer = lcbio_timer_new(instance->iotable, &ns, reschedule_callback);
+    lcb_loop_ref(instance);
+    lcbio_timer_rearm(timer, 900000);
+
+    lcb_log(LOGARGS(instance, INFO), "Waiting..");
+    lcb_wait(instance);
+    lcbio_timer_destroy(timer);
+
+    ASSERT_EQ(0, nremaining);
+    lcb_cmdstore_destroy(cmd);
+}
+
 extern "C" {
 struct rvbuf {
     lcb_STATUS error;
@@ -773,6 +824,7 @@ TEST_F(MockUnitTest, testNegativeIndex)
     lcb_sched_leave(instance);
     lcb_wait(instance);
     ASSERT_EQ(1, ni.callCount);
+    ASSERT_EQ(LCB_NO_MATCHING_SERVER, ni.err);
     lcb_cmdget_destroy(gcmd);
     // That's it
 }

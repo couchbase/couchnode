@@ -39,6 +39,15 @@ void checkConnectCommon(lcb_INSTANCE *instance)
     ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(instance));
 }
 
+void MockUnitTest::createClusterConnection(HandleWrap &handle, lcb_INSTANCE **instance)
+{
+    lcb_create_st options = {};
+    MockEnvironment::getInstance()->makeConnectParams(options, NULL);
+    options.v.v3.type = LCB_TYPE_CLUSTER;
+    MockEnvironment::getInstance()->createConnection(handle, instance, options);
+    checkConnectCommon(handle.getLcb());
+}
+
 void MockUnitTest::createConnection(HandleWrap &handle, lcb_INSTANCE **instance)
 {
     MockEnvironment::getInstance()->createConnection(handle, instance);

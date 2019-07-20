@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
-#include <assert.h>
+#include <libcouchbase/assert.h>
 #include <stdio.h>
 #include "rope.h"
 
@@ -54,7 +54,7 @@ unsigned rdb_rdstart(rdb_IOROPE *ior, nb_IOV *iov, unsigned niov)
 
     ior->avail.allocator->r_reserve(ior->avail.allocator, &ior->avail, ior->rdsize - cur_rdsize);
 
-    assert(!LCB_LIST_IS_EMPTY(&ior->avail.segments));
+    lcb_assert(!LCB_LIST_IS_EMPTY(&ior->avail.segments));
 
     LCB_LIST_FOR(ll, &ior->avail.segments)
     {
@@ -106,12 +106,12 @@ void rdb_rdend(rdb_IOROPE *ior, unsigned nr)
 
     /** Reads didn't fit into any segment */
     fprintf(stderr, "RDB: Tried to consume more than available in the buffer (n=%u)\n", nr);
-    assert(0);
+    lcb_assert(0);
 }
 
 static void seg_consumed(rdb_ROPEBUF *rope, rdb_ROPESEG *seg, unsigned nr)
 {
-    assert(nr <= seg->nused);
+    lcb_assert(nr <= seg->nused);
     seg->nused -= nr;
     seg->start += nr;
     rope->nused -= nr;
@@ -128,7 +128,7 @@ static void seg_consumed(rdb_ROPEBUF *rope, rdb_ROPESEG *seg, unsigned nr)
 static void rope_consumed(rdb_ROPEBUF *rope, unsigned nr)
 {
     lcb_list_t *llcur, *llnext;
-    assert(nr <= rope->nused);
+    lcb_assert(nr <= rope->nused);
 
     LCB_LIST_SAFE_FOR(llcur, llnext, &rope->segments)
     {
@@ -220,7 +220,7 @@ static void rope_consolidate(rdb_ROPEBUF *rope, unsigned nr)
 
     lcb_list_prepend(&rope->segments, &newseg->llnode);
     rope->nused += newseg->nused;
-    assert(rope->nused >= nr);
+    lcb_assert(rope->nused >= nr);
 }
 
 void rdb_consolidate(rdb_IOROPE *ior, unsigned nr)
@@ -289,7 +289,7 @@ unsigned rdb_get_contigsize(rdb_IOROPE *ior)
 
 char *rdb_get_consolidated(rdb_IOROPE *ior, unsigned n)
 {
-    assert(ior->recvd.nused >= n);
+    lcb_assert(ior->recvd.nused >= n);
     rdb_consolidate(ior, n);
     return RDB_SEG_RBUF(RDB_SEG_FIRST(&ior->recvd));
 }

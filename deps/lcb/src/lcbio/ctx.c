@@ -123,7 +123,7 @@ void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg, lcbio_C
 {
     unsigned oldrc;
     ctx->state = ES_DETACHED;
-    assert(ctx->sock);
+    lcb_assert(ctx->sock);
 
     if (ctx->event) {
         deactivate_watcher(ctx);
@@ -443,9 +443,9 @@ static void C_schedule(lcbio_CTX *ctx)
         unsigned ii;
         unsigned niov = rdb_rdstart(&ctx->ior, (nb_IOV *)iov, RWINL_IOVSIZE);
 
-        assert(niov);
+        lcb_assert(niov);
         for (ii = 0; ii < niov; ++ii) {
-            assert(iov[ii].iov_len);
+            lcb_assert(iov[ii].iov_len);
         }
 
         rv = IOT_V1(io).read2(IOT_ARG(io), sd, iov, niov, ctx, Cr_handler);

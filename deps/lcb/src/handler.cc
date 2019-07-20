@@ -573,7 +573,7 @@ sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
     #define ADVANCE_BUF(sz) \
         buf += sz; \
         *iter += sz; \
-        assert(buf <= buf_end); \
+        lcb_assert(buf <= buf_end); \
 
     /* Index */
     ent->index = *(lcb_U8*)buf;
@@ -744,8 +744,13 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
         memcpy(&cas, ptr, sizeof(cas));
         ptr += sizeof(cas);
 
-        resp.key = key;
-        resp.nkey = nkey;
+        int ncid = 0;
+        if (LCBT_SETTING(root, use_collections)) {
+            uint32_t cid = 0;
+            ncid = leb128_decode((uint8_t *)key, nkey, &cid);
+        }
+        resp.key = key + ncid;
+        resp.nkey = nkey - ncid;
         resp.cas = lcb_ntohll(cas);
         resp.status = obs;
         resp.ismaster = pipeline->index == lcbvb_vbmaster(config, vb);
@@ -913,11 +918,17 @@ H_collections_get_cid(mc_PIPELINE *pipeline, mc_PACKET *request,
     resp.rflags |= LCB_RESP_F_FINAL;
 
     const char *ptr = response->ext();
-    memcpy(&resp.manifest_id, ptr, sizeof(uint64_t));
-    resp.manifest_id = lcb_ntohll(resp.manifest_id);
-    ptr += sizeof(uint64_t);
-    memcpy(&resp.collection_id, ptr, sizeof(uint32_t));
-    resp.collection_id = ntohl(resp.collection_id);
+    if (ptr) {
+        memcpy(&resp.manifest_id, ptr, sizeof(uint64_t));
+        resp.manifest_id = lcb_ntohll(resp.manifest_id);
+        ptr += sizeof(uint64_t);
+        memcpy(&resp.collection_id, ptr, sizeof(uint32_t));
+        resp.collection_id = ntohl(resp.collection_id);
+    } else {
+        resp.manifest_id = 0;
+        resp.collection_id = 0;
+        resp.rc = LCB_NOT_SUPPORTED;
+    }
 
     if (request->flags & MCREQ_F_REQEXT) {
         request->u_rdata.exdata->procs->handler(pipeline, request, immerr, &resp);
@@ -1024,6 +1035,16 @@ H_config(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
 }
 
 static void
+H_select_bucket(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
+         lcb_STATUS immerr)
+{
+    lcb_RESPBASE dummy = {0};
+    mc_REQDATAEX *exdata = request->u_rdata.exdata;
+    make_error(get_instance(pipeline), &dummy, response, immerr);
+    exdata->procs->handler(pipeline, request, dummy.rc, response);
+}
+
+static void
 record_metrics(mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *)
 {
     lcb_INSTANCE *instance = get_instance(pipeline);
@@ -1046,7 +1067,7 @@ dispatch_ufwd_error(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS immerr)
 {
     lcb_PKTFWDRESP resp = { 0 };
     lcb_INSTANCE *instance = static_cast<lcb::Server*>(pipeline)->get_instance();
-    assert(immerr != LCB_SUCCESS);
+    lcb_assert(immerr != LCB_SUCCESS);
     resp.version = 0;
     instance->callbacks.pktfwd(instance, MCREQ_PKT_COOKIE(req), immerr, &resp);
 }
@@ -1137,6 +1158,9 @@ mcreq_dispatch_response(
 
     case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
         INVOKE_OP(H_config);
+
+    case PROTOCOL_BINARY_CMD_SELECT_BUCKET:
+        INVOKE_OP(H_select_bucket);
 
     case PROTOCOL_BINARY_CMD_COLLECTIONS_GET_MANIFEST:
         INVOKE_OP(H_collections_get_manifest);

@@ -196,6 +196,16 @@ lcb_STATUS ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
         return LCB_NO_MATCHING_SERVER;
     }
 
+    uint32_t cid = 0;
+    uint8_t ncid = 0;
+    uint8_t ecid[5] = {0}; /* encoded */
+
+    if (LCBT_SETTING(instance, use_collections)) {
+        std::string path = std::string(cmdbase->scope, cmdbase->nscope) + "." + std::string(cmdbase->collection, cmdbase->ncollection);
+        instance->collcache->get(path, &cid);
+        ncid = leb128_encode(cid, ecid);
+    }
+
     for (ii = 0; ii < nservers; ii++) {
         lcb_U16 ix = servers[ii];
 
@@ -203,7 +213,10 @@ lcb_STATUS ObserveCtx::MCTX_addcmd(const lcb_CMDBASE *cmdbase)
 
         ServerBuf &rr = requests[ix];
         add_to_buf(rr, uint16_t(htons(vbid)));
-        add_to_buf(rr, uint16_t(htons(cmd->key.contig.nbytes)));
+        add_to_buf(rr, uint16_t(htons(ncid + cmd->key.contig.nbytes)));
+        if (ncid) {
+            rr.insert(rr.end(), ecid, ecid + ncid);
+        }
         rr.insert(rr.end(), reinterpret_cast< const uint8_t * >(cmd->key.contig.bytes),
                   reinterpret_cast< const uint8_t * >(cmd->key.contig.bytes) + cmd->key.contig.nbytes);
         remaining++;
@@ -251,6 +264,7 @@ lcb_STATUS ObserveCtx::MCTX_done(const void *cookie_)
 
         OperationCtx *ctx = new OperationCtx(this, this->num_requests[ii]);
         ctx->start = gethrtime();
+        ctx->deadline = ctx->start + LCB_US2NS(LCBT_SETTING(instance, operation_timeout));
         ctx->cookie = cookie_;
 
         pkt->flags |= MCREQ_F_REQEXT;

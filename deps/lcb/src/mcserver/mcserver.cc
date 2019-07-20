@@ -27,6 +27,9 @@
 #include <lcbio/ssl.h>
 #include "ctx-log-inl.h"
 
+#include "sllist.h"
+#include "sllist-inl.h"
+
 #define LOGARGS(c, lvl) (c)->settings, "server", LCB_LOG_##lvl, __FILE__, __LINE__
 #define LOGARGS_T(lvl) LOGARGS(this, lvl)
 
@@ -667,7 +670,7 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
         snprintf(opid, sizeof(opid), "kv:%s", opcode_name(hdr.request.opcode));
         info["s"] = opid;
         info["b"] = settings->bucket;
-        info["t"] = settings->operation_timeout;
+        info["t"] = (Json::UInt64)LCB_NS2US(MCREQ_PKT_RDATA(pkt)->deadline - MCREQ_PKT_RDATA(pkt)->start);
 
         const lcb_host_t &remote = get_host();
         std::string rhost;
@@ -698,12 +701,12 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
     lcb_assert(rv == 0);
 }
 
-int Server::purge(lcb_STATUS error, hrtime_t thresh, hrtime_t *next, RefreshPolicy policy)
+int Server::purge(lcb_STATUS error, hrtime_t now, RefreshPolicy policy)
 {
     unsigned affected;
 
-    if (thresh) {
-        affected = mcreq_pipeline_timeout(this, error, fail_callback, NULL, thresh, next);
+    if (now) {
+        affected = mcreq_pipeline_timeout(this, error, fail_callback, NULL, now);
 
     } else {
         mcreq_pipeline_fail(this, error, fail_callback, NULL);
@@ -732,15 +735,29 @@ static void flush_errdrain(mc_PIPELINE *pipeline)
 
 uint32_t Server::next_timeout() const
 {
-    hrtime_t now, expiry, diff;
-    mc_PACKET *pkt = mcreq_first_packet(this);
+    hrtime_t now, expiry, diff, min = 0;
+    mc_PACKET *pkt = NULL;
+
+    sllist_iterator iter;
+    SLLIST_ITERFOR(const_cast<sllist_root *>(&requests), &iter)
+    {
+        mc_PACKET *p = SLLIST_ITEM(iter.cur, mc_PACKET, slnode);
+        hrtime_t deadline = MCREQ_PKT_RDATA(p)->deadline;
+        if (pkt == NULL) {
+            min = deadline;
+            pkt = p;
+        } else if (deadline < min) {
+            min = deadline;
+            pkt = p;
+        }
+    }
 
     if (!pkt) {
         return default_timeout();
     }
 
     now = gethrtime();
-    expiry = MCREQ_PKT_RDATA(pkt)->start + LCB_US2NS(default_timeout());
+    expiry = MCREQ_PKT_RDATA(pkt)->deadline;
     if (expiry <= now) {
         diff = 0;
     } else {
@@ -748,6 +765,17 @@ uint32_t Server::next_timeout() const
     }
 
     return LCB_NS2US(diff);
+}
+
+void mcreq_rearm_timeout(mc_PIPELINE *pipeline)
+{
+    if ((unsigned)pipeline->index == pipeline->parent->npipelines) {
+        return; /* this is fallback pipeline, skip it */
+    }
+    Server *server = reinterpret_cast<Server *>(pipeline);
+    if (server->io_timer) {
+        lcbio_timer_rearm(server->io_timer, server->next_timeout());
+    }
 }
 
 static void timeout_server(void *arg)
@@ -758,10 +786,8 @@ static void timeout_server(void *arg)
 void Server::io_timeout()
 {
     hrtime_t now = gethrtime();
-    hrtime_t min_valid = now - LCB_US2NS(default_timeout());
 
-    hrtime_t next_ns;
-    int npurged = purge(LCB_ETIMEDOUT, min_valid, &next_ns, Server::REFRESH_ONFAILED);
+    int npurged = purge(LCB_ETIMEDOUT, now, Server::REFRESH_ONFAILED);
     if (npurged) {
         MC_INCR_METRIC(this, packets_timeout, npurged);
         lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server timed out. Some commands have failed", LOGID_T());
@@ -834,7 +860,7 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
     if (sessinfo == NULL) {
         lcb_log(LOGARGS_T(TRACE), "<%s:%s> (SRV=%p) Session not yet negotiated. Negotiating", curhost->host,
                 curhost->port, (void *)this);
-        connreq = SessionRequest::start(sock, settings, default_timeout(), on_connected, this);
+        connreq = SessionRequest::start(sock, settings, settings->config_node_timeout, on_connected, this);
         return;
     } else {
         jsonsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_JSON);
@@ -957,7 +983,7 @@ void Server::socket_failed(lcb_STATUS err)
         return;
     }
 
-    purge(err, 0, NULL, REFRESH_ALWAYS);
+    purge(err, 0, REFRESH_ALWAYS);
     lcb_maybe_breakout(instance);
     start_errored_ctx(S_ERRDRAIN);
 }

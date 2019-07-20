@@ -129,6 +129,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_destroy(lcb_SUBDOCOPS *operations)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_timeout(lcb_CMDSUBDOC *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -862,6 +863,7 @@ static lcb_STATUS sd3_single(lcb_INSTANCE *instance, void *cookie, const lcb_CMD
 
     MCREQ_PKT_RDATA(packet)->cookie = cookie;
     MCREQ_PKT_RDATA(packet)->start = gethrtime();
+    MCREQ_PKT_RDATA(packet)->deadline = MCREQ_PKT_RDATA(packet)->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
@@ -918,7 +920,7 @@ static lcb_STATUS subdoc_validate(lcb_INSTANCE *, const lcb_CMDSUBDOC *cmd)
 static lcb_STATUS subdoc_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
 {
     const lcb_CMDSUBDOC *cmd = (const lcb_CMDSUBDOC *)arg;
-    if (cid > 0) {
+    if (LCBT_SETTING(instance, use_collections)) {
         lcb_CMDSUBDOC *mut = const_cast< lcb_CMDSUBDOC * >(cmd);
         mut->cid = cid;
     }
@@ -1034,6 +1036,7 @@ static lcb_STATUS subdoc_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie
 
     MCREQ_PKT_RDATA(pkt)->cookie = cookie;
     MCREQ_PKT_RDATA(pkt)->start = gethrtime();
+    MCREQ_PKT_RDATA(pkt)->deadline = MCREQ_PKT_RDATA(pkt)->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
     LCB_SCHED_ADD(instance, pl, pkt);
     return LCB_SUCCESS;
 }

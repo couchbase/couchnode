@@ -244,6 +244,7 @@ lcb_STATUS lcb_getmanifest(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGE
 
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();
+    pkt->u_rdata.reqdata.deadline = pkt->u_rdata.reqdata.start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     LCB_SCHED_ADD(instance, pl, pkt);
     (void)cmd;
@@ -359,6 +360,7 @@ lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID 
 
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();
+    pkt->u_rdata.reqdata.deadline = pkt->u_rdata.reqdata.start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     LCB_SCHED_ADD(instance, pl, pkt);
     return LCB_SUCCESS;

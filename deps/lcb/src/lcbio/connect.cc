@@ -533,7 +533,7 @@ lcbio_SOCKET *lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket
         return NULL;
     }
 
-    assert(iot->model = LCB_IOMODEL_EVENT);
+    lcb_assert(iot->model = LCB_IOMODEL_EVENT);
 
     lcb_list_init(&ret->protos);
     ret->settings = settings;

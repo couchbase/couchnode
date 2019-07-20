@@ -49,6 +49,10 @@ struct N1QLResult {
     fprintf(stderr, "Requires recent mock with query support");                                                        \
     return
 
+#define SKIP_CLUSTER_QUERY_TEST()                                                                                      \
+    fprintf(stderr, "Requires recent server with query support");                                                      \
+    return
+
 extern "C" {
 static void rowcb(lcb_INSTANCE *, int, const lcb_RESPN1QL *resp)
 {
@@ -97,6 +101,21 @@ class QueryUnitTest : public MockUnitTest
         const lcbvb_CONFIG *vbc;
         lcb_STATUS rc;
         rc = lcb_cntl(*instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+        EXPECT_EQ(LCB_SUCCESS, rc);
+        int ix = lcbvb_get_randhost(vbc, LCBVB_SVCTYPE_N1QL, LCBVB_SVCMODE_PLAIN);
+        return ix > -1;
+    }
+
+    bool createClusterQueryConnection(HandleWrap &hw, lcb_INSTANCE **instance)
+    {
+        if (!MockEnvironment::getInstance()->isRealCluster()) {
+            return false;
+        }
+        createClusterConnection(hw, instance);
+        const lcbvb_CONFIG *vbc = NULL;
+        lcb_STATUS rc;
+        rc = lcb_cntl(*instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+        EXPECT_TRUE(vbc != NULL);
         EXPECT_EQ(LCB_SUCCESS, rc);
         int ix = lcbvb_get_randhost(vbc, LCBVB_SVCTYPE_N1QL, LCBVB_SVCMODE_PLAIN);
         return ix > -1;
@@ -279,6 +298,25 @@ TEST_F(QueryUnitTest, testCancellation)
     }
     N1QLResult res;
     makeCommand("SELECT mockrow");
+    lcb_N1QL_HANDLE *handle = NULL;
+    lcb_cmdn1ql_handle(cmd, &handle);
+    lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_TRUE(handle != NULL);
+    lcb_n1ql_cancel(instance, handle);
+    lcb_wait(instance);
+    ASSERT_FALSE(res.called);
+}
+
+TEST_F(QueryUnitTest, testClusterwide)
+{
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    if (!createClusterQueryConnection(hw, &instance)) {
+        SKIP_CLUSTER_QUERY_TEST();
+    }
+    N1QLResult res;
+    makeCommand("SELECT 1");
     lcb_N1QL_HANDLE *handle = NULL;
     lcb_cmdn1ql_handle(cmd, &handle);
     lcb_STATUS rc = lcb_n1ql(instance, &res, cmd);

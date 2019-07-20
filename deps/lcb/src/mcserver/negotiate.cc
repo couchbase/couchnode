@@ -489,7 +489,9 @@ bool SessionRequestImpl::update_errmap(const lcb::MemcachedResponse &resp)
 // Returns true if sending the SELECT_BUCKET command, false otherwise.
 bool SessionRequestImpl::maybe_select_bucket()
 {
-
+    if (settings->conntype != LCB_TYPE_BUCKET) {
+        return false;
+    }
     // Only send a SELECT_BUCKET if we have the SELECT_BUCKET bit enabled.
     if (!info->has_feature(PROTOCOL_BINARY_FEATURE_SELECT_BUCKET)) {
         return false;
@@ -623,7 +625,7 @@ GT_NEXT_PACKET:
             if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
                 completed = true;
             } else if (status == PROTOCOL_BINARY_RESPONSE_EACCESS) {
-                set_error(LCB_AUTH_ERROR, "Provided credentials not allowed for bucket or bucket does not exist",
+                set_error(LCB_BUCKET_ENOENT, "Provided credentials not allowed for bucket or bucket does not exist",
                           &resp);
             } else {
                 lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", LOGID(this),

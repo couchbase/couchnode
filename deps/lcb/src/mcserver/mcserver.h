@@ -71,7 +71,7 @@ class Server : public mc_PIPELINE
      */
     void purge(lcb_STATUS err)
     {
-        purge(err, 0, NULL, Server::REFRESH_NEVER);
+        purge(err, 0, Server::REFRESH_NEVER);
     }
 
     /** Callback for mc_pipeline_fail_chain */
@@ -171,7 +171,7 @@ class Server : public mc_PIPELINE
 
     uint32_t default_timeout() const
     {
-        return settings->operation_timeout;
+        return settings ? settings->operation_timeout : LCB_DEFAULT_TIMEOUT;
     }
 
     uint32_t next_timeout() const;
@@ -184,7 +184,7 @@ class Server : public mc_PIPELINE
 
     enum RefreshPolicy { REFRESH_ALWAYS, REFRESH_ONFAILED, REFRESH_NEVER };
 
-    int purge(lcb_STATUS error, hrtime_t thresh, hrtime_t *next, RefreshPolicy policy);
+    int purge(lcb_STATUS error, hrtime_t now, RefreshPolicy policy);
 
     void connect();
 

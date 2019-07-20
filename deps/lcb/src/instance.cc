@@ -213,7 +213,7 @@ init_providers(lcb_INSTANCE *obj, const Connspec &spec)
                 return LCB_SUCCESS;
             }
         }
-        if (obj->type == LCB_TYPE_CLUSTER) {
+        if (obj->settings->conntype == LCB_TYPE_CLUSTER) {
             /* Cluster-level connection always falls back to static config */
             Provider *cladmin;
             cladmin = obj->confmon->get_provider(CLCONFIG_CLADMIN);
@@ -231,7 +231,7 @@ init_providers(lcb_INSTANCE *obj, const Connspec &spec)
         obj->confmon->set_active(CLCONFIG_HTTP, false);
     }
 
-    if (cccp_enabled && obj->type != LCB_TYPE_CLUSTER) {
+    if (cccp_enabled) {
         cccp->enable(obj);
         cccp->configure_nodes(*obj->mc_nodes);
     } else {
@@ -431,7 +431,6 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance,
     }
 
     /* initialize the settings */
-    obj->type = type;
     obj->settings = settings;
     obj->settings->conntype = type;
     obj->settings->ipv6 = spec.ipv6_policy();
@@ -698,6 +697,22 @@ LIBCOUCHBASE_API
 lcb_STATUS lcb_connect(lcb_INSTANCE *instance)
 {
     return instance->bootstrap(BS_REFRESH_INITIAL);
+}
+
+LIBCOUCHBASE_API
+lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_len)
+{
+    lcbvb_CONFIG *cfg = LCBT_VBCONFIG(instance);
+    if (cfg == NULL) {
+        return LCB_EINVAL;
+    }
+    if (LCBVB_BUCKET_NAME(cfg)) {
+        return LCB_EINVAL;
+    }
+    instance->settings->conntype = LCB_TYPE_BUCKET;
+    instance->settings->bucket = (char *)calloc(bucket_len, sizeof(char));
+    memcpy(instance->settings->bucket, bucket, bucket_len);
+    return instance->bootstrap(BS_REFRESH_OPEN_BUCKET);
 }
 
 LIBCOUCHBASE_API

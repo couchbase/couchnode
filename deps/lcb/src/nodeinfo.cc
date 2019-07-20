@@ -75,7 +75,7 @@ lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
             /* Retrieve one from the vbucket configuration */
             const char *hp = NULL;
 
-            if (instance->type == LCB_TYPE_BUCKET) {
+            if (instance->settings->conntype == LCB_TYPE_BUCKET) {
                 if (vbc) {
                     ix %= LCBVB_NSERVERS(vbc);
                     hp = lcbvb_get_hostport(vbc, ix, LCBVB_SVCTYPE_MGMT, mode);

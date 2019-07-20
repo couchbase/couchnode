@@ -118,6 +118,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
     }
 
     BcastCookie *ckwrap = new BcastCookie(LCB_CALLBACK_STATS, &stats_procs, cookie);
+    ckwrap->deadline = ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     for (ii = 0; ii < cq->npipelines; ii++) {
         mc_PACKET *pkt;
@@ -214,7 +215,7 @@ static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, 
 
 static mc_REQDATAPROCS bcast_procs = {handle_bcast, refcnt_dtor_common};
 
-static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, lcb_CALLBACK_TYPE type)
+static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, lcb_CALLBACK_TYPE type, const lcb_CMDBASE *cmd)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
@@ -224,6 +225,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
     }
 
     BcastCookie *ckwrap = new BcastCookie(type, &bcast_procs, cookie);
+    ckwrap->deadline = ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     for (ii = 0; ii < cq->npipelines; ii++) {
         mc_PIPELINE *pl = cq->pipelines[ii];
@@ -246,7 +248,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
             hdr.request.opcode = PROTOCOL_BINARY_CMD_NOOP;
         } else {
             fprintf(stderr, "pkt_bcast_simple passed unknown type %u\n", type);
-            assert(0);
+            lcb_assert(0);
         }
 
         mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
@@ -264,15 +266,15 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
 }
 
 LIBCOUCHBASE_API
-lcb_STATUS lcb_server_versions3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDVERSIONS *)
+lcb_STATUS lcb_server_versions3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDVERSIONS *cmd)
 {
-    return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_VERSIONS);
+    return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_VERSIONS, (const lcb_CMDBASE *)cmd);
 }
 
 LIBCOUCHBASE_API
-lcb_STATUS lcb_noop3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDNOOP *)
+lcb_STATUS lcb_noop3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDNOOP *cmd)
 {
-    return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_NOOP);
+    return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_NOOP, (const lcb_CMDBASE *)cmd);
 }
 
 LIBCOUCHBASE_API
@@ -286,6 +288,7 @@ lcb_STATUS lcb_server_verbosity3(lcb_INSTANCE *instance, const void *cookie, con
     }
 
     BcastCookie *ckwrap = new BcastCookie(LCB_CALLBACK_VERBOSITY, &bcast_procs, cookie);
+    ckwrap->deadline = ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     for (ii = 0; ii < cq->npipelines; ii++) {
         mc_PACKET *pkt;

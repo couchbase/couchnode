@@ -34,6 +34,7 @@ lcb_STATUS lcb_observe_seqno3(lcb_INSTANCE *instance, const void *cookie, const 
     /* Set the static fields */
     MCREQ_PKT_RDATA(pkt)->cookie = cookie;
     MCREQ_PKT_RDATA(pkt)->start = gethrtime();
+    MCREQ_PKT_RDATA(pkt)->deadline = MCREQ_PKT_RDATA(pkt)->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
     if (cmd->cmdflags & LCB_CMD_F_INTERNAL_CALLBACK) {
         pkt->flags |= MCREQ_F_PRIVCALLBACK;
     }

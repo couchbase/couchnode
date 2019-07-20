@@ -141,7 +141,9 @@ enum BootstrapOptions {
      * increment the error counter in case the current refresh is throttled,
      * such that when the error counter reaches the threshold, the throttle
      * limitations will expire and a new refresh will take place */
-    BS_REFRESH_INCRERR = 0x08
+    BS_REFRESH_INCRERR = 0x08,
+
+    BS_REFRESH_OPEN_BUCKET = 0x10
 };
 
 void lcb_bootstrap_destroy(lcb_INSTANCE *instance);

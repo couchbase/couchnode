@@ -27,6 +27,12 @@ SET(COUCHBASE_MOCK_VERSION 1.5.22)
 SET(COUCHBASE_MOCK_URL "https://github.com/couchbase/CouchbaseMock/releases/download/${COUCHBASE_MOCK_VERSION}/CouchbaseMock-${COUCHBASE_MOCK_VERSION}.jar")
 project(libcouchbase)
 
+if (NOT CMAKE_VERSION VERSION_LESS "3.13")
+    # CMP0077: option() honors normal variables
+    # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+    cmake_policy(SET CMP0077 NEW)
+endif()
+
 OPTION(LCB_NO_TESTS "Disable building of tests" OFF)
 OPTION(LCB_NO_TOOLS "Disable building of additional tools" OFF)
 OPTION(LCB_NO_PLUGINS "Disable the building of IO plugins for external libs" OFF)
@@ -78,8 +84,12 @@ SET(LCB_GENINFODIR ${PROJECT_SOURCE_DIR}/packaging/distinfo)
 
 INCLUDE(cmake/Modules/GetLibcouchbaseFlags.cmake)
 INCLUDE(cmake/Modules/FindCouchbaseLibevent.cmake)
-INCLUDE(cmake/Modules/FindCouchbaseLibev.cmake)
-INCLUDE(cmake/Modules/FindCouchbaseLibuv.cmake)
+IF (LCB_BUILD_LIBEV)
+    INCLUDE(cmake/Modules/FindCouchbaseLibev.cmake)
+ENDIF()
+IF (LCB_BUILD_LIBUV)
+    INCLUDE(cmake/Modules/FindCouchbaseLibuv.cmake)
+ENDIF()
 INCLUDE(cmake/Modules/GetPlatformCCInfo.cmake)
 INCLUDE(cmake/Modules/GetVersionInfo.cmake)
 IF (MSVC)

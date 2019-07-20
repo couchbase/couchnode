@@ -135,7 +135,7 @@ TEST_F(RegressionUnitTest, CCBC_275)
     ASSERT_EQ(LCB_SUCCESS, err);
 
     std::string key = "key_CCBC_275";
-    lcb_CMDGET *cmd;
+    lcb_CMDGET *cmd = NULL;
     lcb_cmdget_create(&cmd);
     lcb_cmdget_key(cmd, key.c_str(), key.size());
 

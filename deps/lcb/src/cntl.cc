@@ -120,7 +120,7 @@ HANDLER(get_vbconfig) {
     RETURN_GET_ONLY(lcbvb_CONFIG*, LCBT_VBCONFIG(instance))
 }
 HANDLER(get_htype) {
-    RETURN_GET_ONLY(lcb_type_t, static_cast<lcb_type_t>(instance->type))
+    RETURN_GET_ONLY(lcb_type_t, static_cast<lcb_type_t>(instance->settings->conntype))
 }
 HANDLER(get_iops) {
     RETURN_GET_ONLY(lcb_io_opt_t, instance->iotable->p)
