@@ -49,6 +49,14 @@ Local<Value> DefaultTranscoder::decodeJson(const void *bytes, size_t nbytes)
 void DefaultTranscoder::encodeJson(ValueParser &venc, const void **bytes,
                                    lcb_SIZE *nbytes, Local<Value> value)
 {
+    // The NAN API does not support passing straight values, but instead only
+    // handles objects of v8::Object type.  We manually handle this case.
+    if (value->IsNull()) {
+        *bytes = "null";
+        *nbytes = 4;
+        return;
+    }
+
     Local<Object> objValue = Nan::To<Object>(value).ToLocalChecked();
     Local<String> ret = Nan::JSON{}.Stringify(objValue).ToLocalChecked();
     venc.parseString(bytes, nbytes, ret);

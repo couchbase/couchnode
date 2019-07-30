@@ -938,6 +938,61 @@ describe('#crud', function() {
         });
       }));
     });
+
+    it('null values should work', function(done) {
+      this.timeout(4000);
+      var key = H.key();
+      H.b.insert(key, null, H.okCallback(function() {
+        H.b.get(key, H.okCallback(function(getRes) {
+          assert.deepEqual(getRes.value, null);
+          done();
+        }));
+      }));
+    });
+
+    it('boolean values should work', function(done) {
+      this.timeout(4000);
+      var key = H.key();
+      H.b.insert(key, false, H.okCallback(function() {
+        H.b.get(key, H.okCallback(function(getRes) {
+          assert.deepEqual(getRes.value, false);
+          done();
+        }));
+      }));
+    });
+
+    it('integer values should work', function(done) {
+      this.timeout(4000);
+      var key = H.key();
+      H.b.insert(key, 142525, H.okCallback(function() {
+        H.b.get(key, H.okCallback(function(getRes) {
+          assert.deepEqual(getRes.value, 142525);
+          done();
+        }));
+      }));
+    });
+
+    it('string values should work', function(done) {
+      this.timeout(4000);
+      var key = H.key();
+      H.b.insert(key, 'hello world', H.okCallback(function() {
+        H.b.get(key, H.okCallback(function(getRes) {
+          assert.deepEqual(getRes.value, 'hello world');
+          done();
+        }));
+      }));
+    });
+
+    it('object values should work', function(done) {
+      this.timeout(4000);
+      var key = H.key();
+      H.b.insert(key, { foo: 'bar' }, H.okCallback(function() {
+        H.b.get(key, H.okCallback(function(getRes) {
+          assert.deepEqual(getRes.value, { foo: 'bar' });
+          done();
+        }));
+      }));
+    });
   }
 
   describe('#RealBucket', allTests.bind(this, harness));
