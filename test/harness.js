@@ -1,5 +1,6 @@
 const assert = require('chai').assert;
 const uuid = require('uuid');
+const semver = require('semver');
 const couchbase = require('../lib/couchbase');
 const jcbmock = require('./jcbmock');
 
@@ -58,7 +59,7 @@ if (process.env.CNCSTR !== undefined) {
   TEST_CONFIG.connstr = process.env.CNCSTR;
 }
 if (process.env.CNCVER !== undefined) {
-  assert(!TEST_CONFIG.connstr, 'must not specify a version without a connstr');
+  assert(!!TEST_CONFIG.connstr, 'must not specify a version without a connstr');
   var ver = process.env.CNCVER;
   var major = semver.major(ver);
   var minor = semver.minor(ver);
