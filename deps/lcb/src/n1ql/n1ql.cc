@@ -118,6 +118,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_destroy(lcb_CMDN1QL *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_timeout(lcb_CMDN1QL *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -205,6 +206,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_adhoc(lcb_CMDN1QL *cmd, int adhoc)
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_client_context_id(lcb_CMDN1QL *cmd, const char* value, size_t value_len)
 {
     cmd->root["client_context_id"] = std::string(value, value_len);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pretty(lcb_CMDN1QL *cmd, int pretty)
+{
+    cmd->root["pretty"] = pretty != 0;
     return LCB_SUCCESS;
 }
 
@@ -991,14 +998,15 @@ lcb_N1QL_HANDLE_::lcb_N1QL_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie, c
         return;
     }
 
+    timeout = LCBT_SETTING(obj, n1ql_timeout);
+    if (cmd->timeout) {
+        timeout = cmd->timeout;
+    }
     Json::Value &tmoval = json["timeout"];
     if (tmoval.isNull()) {
-        // Set the default timeout as the server-side query timeout if no
-        // other timeout is used.
         char buf[64] = {0};
-        sprintf(buf, "%uus", LCBT_SETTING(obj, n1ql_timeout));
+        sprintf(buf, "%uus", timeout);
         tmoval = buf;
-        timeout = LCBT_SETTING(obj, n1ql_timeout);
     } else if (tmoval.isString()) {
         timeout = lcb_n1qlreq_parsetmo(tmoval.asString());
     } else {

@@ -359,7 +359,9 @@ void Span::finish(uint64_t now)
 
 void Span::add_tag(const char *name, int copy, const char *value)
 {
-    add_tag(name, copy, value, strlen(value));
+    if (name && value) {
+        add_tag(name, copy, value, strlen(value));
+    }
 }
 
 void Span::add_tag(const char *name, int copy, const char *value, size_t value_len)

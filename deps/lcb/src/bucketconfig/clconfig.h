@@ -218,7 +218,7 @@ struct Confmon {
      * @see #stop()
      * @see #is_refreshing()
      */
-    void start();
+    void start(bool refresh = false);
 
     /**
      * @brief Cancel a pending configuration refresh.
@@ -708,6 +708,13 @@ lcb_STATUS cccp_update(Provider *provider, const char *host, const char *data);
  * @param origin Host object from which the packet was received
  */
 void cccp_update(const void *cookie, lcb_STATUS err, const void *bytes, size_t nbytes, const lcb_host_t *origin);
+
+/**
+ * @brief record status of SELECT_BUCKET command
+ * @param cookie_
+ * @param err
+ */
+void select_status(const void *cookie_, lcb_STATUS err);
 
 /**@}*/
 

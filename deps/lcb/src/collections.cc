@@ -101,6 +101,7 @@ static void handle_collcache_proc(mc_PIPELINE *, mc_PACKET *pkt, lcb_STATUS err,
     if (rc != LCB_SUCCESS) {
         fprintf(stderr, "failed to schedule command\n");
     }
+    delete ctx;
 }
 
 static void handle_collcache_schedfail(mc_PACKET *pkt)
@@ -165,6 +166,9 @@ lcb_STATUS collcache_exec(const char *scope, size_t nscope, const char *collecti
         lcb_INSTANCE *instance, void *cookie, lcb_COLLCACHE_CALLBACK cb,
         lcb_COLLCACHE_ARG_CLONE clone, lcb_COLLCACHE_ARG_DTOR dtor, const void *arg)
 {
+    if (LCBT_SETTING(instance, conntype) != LCB_TYPE_BUCKET) {
+        return LCB_NOT_SUPPORTED;
+    }
     if (!LCBT_SETTING(instance, use_collections)) {
         if (scope != NULL || collection != NULL) {
             return LCB_NOT_SUPPORTED;

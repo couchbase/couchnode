@@ -103,6 +103,7 @@ CALLBACK_ACCESSOR(lcb_set_errmap_callback, lcb_errmap_callback, errmap)
 CALLBACK_ACCESSOR(lcb_set_bootstrap_callback, lcb_bootstrap_callback, bootstrap)
 CALLBACK_ACCESSOR(lcb_set_pktfwd_callback, lcb_pktfwd_callback, pktfwd)
 CALLBACK_ACCESSOR(lcb_set_pktflushed_callback, lcb_pktflushed_callback, pktflushed)
+CALLBACK_ACCESSOR(lcb_set_open_callback, lcb_open_callback, open)
 
 LIBCOUCHBASE_API
 lcb_RESPCALLBACK lcb_install_callback3(lcb_INSTANCE *instance, int cbtype, lcb_RESPCALLBACK cb)

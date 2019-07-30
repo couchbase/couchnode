@@ -104,6 +104,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_destroy(lcb_CMDCOUNTER *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_timeout(lcb_CMDCOUNTER *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 

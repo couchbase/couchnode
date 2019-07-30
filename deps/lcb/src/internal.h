@@ -80,6 +80,7 @@ struct lcb_callback_st {
     lcb_bootstrap_callback bootstrap;
     lcb_pktfwd_callback pktfwd;
     lcb_pktflushed_callback pktflushed;
+    lcb_open_callback open;
 };
 
 struct lcb_GUESSVB_st;

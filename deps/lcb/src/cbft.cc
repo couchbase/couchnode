@@ -77,6 +77,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_destroy(lcb_CMDFTS *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_timeout(lcb_CMDFTS *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -233,14 +234,16 @@ lcb_FTS_HANDLE_::lcb_FTS_HANDLE_(lcb_INSTANCE * instance_, const void *cookie_, 
     // Making a copy here to ensure that we don't accidentally create a new
     // 'ctl' field.
     const Json::Value& ctl = constRoot["value"];
+    uint32_t timeout = cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, n1ql_timeout);
     if (ctl.isObject()) {
         const Json::Value& tmo = ctl["timeout"];
         if (tmo.isNumeric()) {
-            lcb_cmdhttp_timeout(htcmd, tmo.asLargestUInt());
+            timeout = tmo.asLargestUInt();
         }
     } else {
-        root["ctl"]["timeout"] = LCBT_SETTING(instance, n1ql_timeout) / 1000;
+        root["ctl"]["timeout"] =  timeout / 1000;
     }
+    lcb_cmdhttp_timeout(htcmd, timeout);
 
     std::string qbody(Json::FastWriter().write(root));
     lcb_cmdhttp_body(htcmd, qbody.c_str(), qbody.size());

@@ -217,7 +217,8 @@ void Confmon::provider_failed(Provider *provider, lcb_STATUS reason)
         }
     }
 
-    if (settings->conntype == LCB_TYPE_CLUSTER && provider->type == CLCONFIG_HTTP) {
+    if (settings->conntype == LCB_TYPE_CLUSTER && provider->type == CLCONFIG_HTTP
+                                                  && LCBT_SETTING(instance, allow_static_config)) {
         Provider *cladmin = get_provider(CLCONFIG_CLADMIN);
         if (!cladmin->enabled) {
             cladmin->enable();
@@ -285,7 +286,7 @@ void Confmon::do_next_provider()
     cur_provider->refresh();
 }
 
-void Confmon::start()
+void Confmon::start(bool refresh)
 {
     lcb_U32 tmonext = 0;
     as_stop.cancel();
@@ -305,6 +306,9 @@ void Confmon::start()
         }
     }
 
+    if (refresh) {
+        cur_provider->refresh();
+    }
     as_start.rearm(tmonext);
 }
 

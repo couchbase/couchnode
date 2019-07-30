@@ -1351,9 +1351,10 @@ const char *lcbvb_get_hostport(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE typ
 
     strp = &svc->hoststrs[type];
     if (*strp == NULL) {
-        size_t strn = strlen(srv->hostname) + 20;
+        const char *hostname = get_hostname(srv);
+        size_t strn = strlen(hostname) + 20;
         *strp = calloc(strn, sizeof(char));
-        copy_address(*strp, strn, get_hostname(srv), port);
+        copy_address(*strp, strn, hostname, port);
     }
     return *strp;
 }

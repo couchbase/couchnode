@@ -28,6 +28,7 @@
 #include "packetutils.h"
 
 #ifdef __cplusplus
+#include "settings.h"
 extern "C" {
 #endif /** __cplusplus */
 
@@ -200,6 +201,7 @@ typedef struct mc_REQDATAEX {
     mc_REQDATAEX(const void *cookie_, const mc_REQDATAPROCS &procs_, hrtime_t start_)
         : cookie(cookie_), start(start_), dispatch(0), span(NULL), procs(&procs_)
     {
+        deadline = start_ + LCB_DEFAULT_TIMEOUT;
     }
 #endif
 } mc_REQDATAEX;

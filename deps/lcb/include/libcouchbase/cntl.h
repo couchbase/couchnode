@@ -1405,10 +1405,16 @@ typedef enum {
 #define LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR 0x5f
 
 /**
+ *
+ * @volatile
+ */
+#define LCB_CNTL_ALLOW_STATIC_CONFIG 0x60
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX 0x60
+#define LCB_CNTL__MAX 0x61
 /**@}*/
 
 #ifdef __cplusplus

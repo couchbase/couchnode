@@ -101,7 +101,8 @@ struct CccpProvider : public Provider {
 struct CccpCookie {
     CccpProvider *parent;
     bool active;
-    CccpCookie(CccpProvider *parent_) : parent(parent_), active(true) {}
+    lcb_STATUS select_rc;
+    CccpCookie(CccpProvider *parent_) : parent(parent_), active(true), select_rc(LCB_SUCCESS) {}
 };
 
 static void io_error_handler(lcbio_CTX *, lcb_STATUS);
@@ -217,12 +218,19 @@ lcb_STATUS CccpProvider::update(const char *host, const char *data)
     return LCB_SUCCESS;
 }
 
+void lcb::clconfig::select_status(const void *cookie_, lcb_STATUS err)
+{
+    CccpCookie *cookie = reinterpret_cast< CccpCookie * >(const_cast< void * >(cookie_));
+    cookie->select_rc = err;
+}
+
 void lcb::clconfig::cccp_update(const void *cookie_, lcb_STATUS err, const void *bytes, size_t nbytes,
                                 const lcb_host_t *origin)
 {
     CccpCookie *cookie = reinterpret_cast< CccpCookie * >(const_cast< void * >(cookie_));
     CccpProvider *cccp = cookie->parent;
 
+    lcb_STATUS select_rc = cookie->select_rc;
     bool was_active = cookie->active;
     if (cookie->active) {
         cookie->active = false;
@@ -230,6 +238,11 @@ void lcb::clconfig::cccp_update(const void *cookie_, lcb_STATUS err, const void 
         cccp->cmdcookie = NULL;
     }
     delete cookie;
+
+    if (select_rc != LCB_SUCCESS) {
+        cccp->mcio_error(select_rc);
+        return;
+    }
 
     if (err == LCB_SUCCESS) {
         std::string ss(reinterpret_cast< const char * >(bytes), nbytes);

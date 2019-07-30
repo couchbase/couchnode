@@ -24,11 +24,16 @@ static void ext_callback_proxy(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS rc, c
     lcb::Server *server = static_cast< lcb::Server * >(pl);
     const lcb::MemcachedResponse *res = reinterpret_cast< const lcb::MemcachedResponse * >(resdata);
 
-    if (res->opcode() == PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG) {
-        mc_REQDATAEX *rd = req->u_rdata.exdata;
-        lcb::clconfig::cccp_update(rd->cookie, rc, res->value(), res->vallen(), &server->get_host());
-        free(rd);
+    mc_REQDATAEX *rd = req->u_rdata.exdata;
+    switch (res->opcode()) {
+        case PROTOCOL_BINARY_CMD_SELECT_BUCKET:
+            lcb::clconfig::select_status(rd->cookie, rc);
+            break;
+        case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
+            lcb::clconfig::cccp_update(rd->cookie, rc, res->value(), res->vallen(), &server->get_host());
+            break;
     }
+    free(rd);
 }
 
 static mc_REQDATAPROCS procs = {ext_callback_proxy};

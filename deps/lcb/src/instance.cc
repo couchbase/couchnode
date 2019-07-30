@@ -710,7 +710,7 @@ lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_le
         return LCB_EINVAL;
     }
     instance->settings->conntype = LCB_TYPE_BUCKET;
-    instance->settings->bucket = (char *)calloc(bucket_len, sizeof(char));
+    instance->settings->bucket = (char *)calloc(bucket_len + 1, sizeof(char));
     memcpy(instance->settings->bucket, bucket, bucket_len);
     return instance->bootstrap(BS_REFRESH_OPEN_BUCKET);
 }

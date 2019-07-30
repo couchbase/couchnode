@@ -128,7 +128,14 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
                 break;
             }
         }
-        instance->callbacks.bootstrap(instance, LCB_SUCCESS);
+        if (instance->callbacks.bootstrap) {
+            instance->callbacks.bootstrap(instance, LCB_SUCCESS);
+            instance->callbacks.bootstrap = NULL;
+        }
+        if (instance->callbacks.open && LCBT_VBCONFIG(instance)->bname) {
+            instance->callbacks.open(instance, LCB_SUCCESS);
+            instance->callbacks.open = NULL;
+        }
 
         // See if we can enable background polling.
         check_bgpoll();
@@ -186,7 +193,14 @@ void Bootstrap::initial_error(lcb_STATUS err, const char *errinfo) {
     lcb_log(LOGARGS(parent, ERR), "Failed to bootstrap client=%p. Error=%s, Message=%s", (void *)parent, lcb_strerror_short(parent->last_error), errinfo);
     tm.cancel();
 
-    parent->callbacks.bootstrap(parent, parent->last_error);
+    if (parent->callbacks.bootstrap) {
+        parent->callbacks.bootstrap(parent, parent->last_error);
+        parent->callbacks.bootstrap = NULL;
+    }
+    if (parent->callbacks.open) {
+        parent->callbacks.open(parent, parent->last_error);
+        parent->callbacks.open = NULL;
+    }
 
     lcb_aspend_del(&parent->pendops, LCB_PENDTYPE_COUNTER, NULL);
     lcb_maybe_breakout(parent);
@@ -250,7 +264,7 @@ lcb_STATUS Bootstrap::bootstrap(unsigned options) {
     if (options != BS_REFRESH_INITIAL) {
         last_refresh = now;
     }
-    parent->confmon->start();
+    parent->confmon->start(options & BS_REFRESH_OPEN_BUCKET);
     return LCB_SUCCESS;
 }
 
@@ -264,12 +278,22 @@ lcb_STATUS
 lcb_get_bootstrap_status(lcb_INSTANCE *instance)
 {
     if (instance->cur_configinfo) {
-        return LCB_SUCCESS;
+        switch (LCBT_SETTING(instance, conntype)) {
+            case LCB_TYPE_CLUSTER:
+                return LCB_SUCCESS;
+            case LCB_TYPE_BUCKET:
+                if (instance->cur_configinfo->vbc->bname != NULL) {
+                    return LCB_SUCCESS;
+                }
+                /* fall through */
+            default:
+                return LCB_ERROR;
+        }
     }
     if (instance->last_error != LCB_SUCCESS) {
         return instance->last_error;
     }
-    if (instance->settings->conntype == LCB_TYPE_CLUSTER) {
+    if (LCBT_SETTING(instance, conntype) == LCB_TYPE_CLUSTER) {
         if (lcb::clconfig::http_get_conn(instance->confmon) != NULL || instance->confmon->get_config() != NULL) {
             return LCB_SUCCESS;
         }

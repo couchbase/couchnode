@@ -1,5 +1,20 @@
 # Release Notes
 
+## 3.0.0-alpha.5 (2019-08-09)
+
+* Do not fallback to static config automatically. Now when we have G3CP mechanism, we can make static config fallback optional. In case of older server, connection string option `allow_static_config=true` or `LCB_CNTL_ALLOW_STATIC_CONFIG` to use previous behaviour.
+* CCBC-983: Even more asynchronous example for libuv
+* Don't log if the logger callback is not specified
+* 3GCP improvements and examples
+* Fix memory leak in collections wrapper
+* Implement setter for prettiness of N1QL response payload.
+* CCBC-1059: Fixed hostname truncation when using alt-network
+* Add bucket to the connection config cache. When `config_cache` or `LCB_CNTL_CONFIGCACHE` argument is a directory (ends
+  with `/`), the library will use a bucket name as the file name, so that different buckets can use the same connection
+string options set.
+* Add missing timeouts for HTTP APIs.
+* CCBC-1058: Fix some casting warnings on Mac OS.
+
 ## 3.0.0-alpha.4 (2019-07-10)
 
 * Do not build cbc-bench if compiler does not support C++11

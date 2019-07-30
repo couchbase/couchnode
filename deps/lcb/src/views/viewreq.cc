@@ -91,6 +91,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_destroy(lcb_CMDVIEW *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_timeout(lcb_CMDVIEW *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -446,6 +447,7 @@ lcb_STATUS lcb_VIEW_HANDLE_::request_http(const lcb_CMDVIEW *cmd)
         lcb_cmdhttp_body(htcmd, cmd->postdata, cmd->npostdata);
         lcb_cmdhttp_content_type(htcmd, content_type.c_str(), content_type.size());
     }
+    lcb_cmdhttp_timeout(htcmd, cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, views_timeout));
 
     lcb_STATUS err = lcb_http(instance, this, htcmd);
     lcb_cmdhttp_destroy(htcmd);

@@ -41,12 +41,23 @@ int interval = 0;
 
 uv_timer_t timer;
 
+static void timer_close_cb(uv_handle_t *handle)
+{
+    (void)handle;
+}
+
+static void delete_timer()
+{
+    uv_timer_stop(&timer);
+    uv_close((uv_handle_t *)&timer, timer_close_cb);
+}
+
 static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
 {
     lcb_CMDSTORE *cmd;
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "bootstrap error: %s\n", lcb_strerror(instance, err));
-        uv_stop((void *)lcb_get_cookie(instance));
+        lcb_destroy_async(instance, NULL);
         return;
     }
     printf("successfully bootstrapped\n");
@@ -59,7 +70,7 @@ static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
     lcb_cmdstore_destroy(cmd);
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "failed to set up store request: %s\n", lcb_strerror(instance, err));
-        uv_stop((void *)lcb_get_cookie(instance));
+        lcb_destroy_async(instance, NULL);
         return;
     }
 }
@@ -72,17 +83,18 @@ static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *
 
     if (rc != LCB_SUCCESS) {
         fprintf(stderr, "failed to get key: %s\n", lcb_strerror(instance, rc));
-        uv_stop((void *)lcb_get_cookie(instance));
+        lcb_destroy_async(instance, NULL);
         return;
     }
 
     lcb_respget_value(rg, &value, &nvalue);
-    printf("%d. retrieved the key 'foo', value: %.*s\n", nresp, (int)nvalue, value);
+    printf("%d. retrieved the key 'foo', value(%d): %.*s\n", nresp, (int)nvalue, (int)nvalue, value);
     fflush(stdout);
     nresp--;
     if (nresp == 0) {
-        printf("stopping the loop\n");
-        uv_stop((void *)lcb_get_cookie(instance));
+        printf("done with libcouchbase. Destroying it\n");
+        delete_timer();
+        lcb_destroy_async(instance, NULL);
     }
     (void)cbtype;
 }
@@ -101,7 +113,8 @@ static void timer_callback(uv_timer_t *event)
     lcb_cmdget_destroy(gcmd);
     if (rc != LCB_SUCCESS) {
         fprintf(stderr, "failed to schedule get request: %s\n", lcb_strerror(NULL, rc));
-        uv_stop((void *)lcb_get_cookie(instance));
+        delete_timer();
+        lcb_destroy_async(instance, NULL);
         return;
     }
     schedule_timer(instance);
@@ -122,7 +135,7 @@ static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTO
     lcb_STATUS rc = lcb_respstore_status(resp);
     if (rc != LCB_SUCCESS) {
         fprintf(stderr, "failed to store key: %s\n", lcb_strerror(instance, rc));
-        uv_stop((void *)lcb_get_cookie(instance));
+        lcb_destroy_async(instance, NULL);
         return;
     }
     printf("stored key 'foo'\n");
@@ -235,19 +248,21 @@ int main(int argc, char **argv)
     if (argc > 5) {
         interval = atoi(argv[4]);
     }
-    /*Store the event base as the user cookie in our instance so that
+    /* Store the event base as the user cookie in our instance so that
      * we may terminate the program when we're done */
     lcb_set_cookie(instance, &evbase);
 
     /* Run the event loop */
     uv_run(&evbase, UV_RUN_DEFAULT);
 
-    /* Cleanup */
-    uv_timer_stop(&timer);
-    lcb_destroy(instance);
+    /* dump some libuv stats */
+    fprintf(stderr, "uv_loop_alive(): %d\n", uv_loop_alive(&evbase));
+    fprintf(stderr, "evbase.active_handles: %d\n", evbase.active_handles);
+    fprintf(stderr, "evbase.active_reqs.count: %d\n", evbase.active_reqs.count);
+    fprintf(stderr, "evbase.closing_handles: %p\n", (void *)evbase.closing_handles);
 
-    lcb_destroy_io_ops(ioops);
     uv_loop_close(&evbase);
+    lcb_destroy_io_ops(ioops);
 
     return EXIT_SUCCESS;
 }

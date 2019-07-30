@@ -621,6 +621,10 @@ HANDLER(collections_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, use_collections));
 }
 
+HANDLER(allow_static_config_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, allow_static_config));
+}
+
 HANDLER(comp_min_size_handler) {
     if (mode == LCB_CNTL_SET && *reinterpret_cast<lcb_U32*>(arg) < LCB_DEFAULT_COMPRESS_MIN_SIZE) {
         return LCB_ECTL_BADARG;
@@ -754,6 +758,7 @@ static ctl_handler handlers[] = {
     http_pooltmo_handler,                 /* LCB_CNTL_HTTP_POOL_TIMEOUT */
     durable_write_handler,                /* LCB_CNTL_ENABLE_DURABLE_WRITE */
     timeout_common,                       /* LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR */
+    allow_static_config_handler,          /* LCB_CNTL_ALLOW_STATIC_CONFIG */
     NULL
 };
 
@@ -950,6 +955,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"enable_collections", LCB_CNTL_ENABLE_COLLECTIONS, convert_intbool},
     {"enable_durable_write", LCB_CNTL_ENABLE_DURABLE_WRITE, convert_intbool},
     {"persistence_timeout_floor", LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR, convert_timevalue},
+    {"allow_static_config", LCB_CNTL_ALLOW_STATIC_CONFIG, convert_intbool},
     {NULL, -1}};
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))

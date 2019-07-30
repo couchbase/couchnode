@@ -1177,6 +1177,7 @@ struct lcb_RESPGETCID_ {
                 free((void *)cmd->key.contig.bytes);                                                                   \
             }                                                                                                          \
         }                                                                                                              \
+        free(cmd);                                                                                                     \
     } while (0)
 
 #define LCB_CMD_CLONE_WITH_VALUE(TYPE, SRC, DST)                                                                       \
@@ -1192,7 +1193,7 @@ struct lcb_RESPGETCID_ {
         switch (SRC->value.vtype) {                                                                                    \
             case LCB_KV_COPY:                                                                                          \
             case LCB_KV_CONTIG:                                                                                        \
-                ret->value.vtype = LCB_KV_CONTIG;                                                                      \
+                ret->value.vtype = LCB_KV_COPY;                                                                        \
                 ret->value.u_buf.contig.bytes = calloc(SRC->value.u_buf.contig.nbytes, sizeof(uint8_t));               \
                 ret->value.u_buf.contig.nbytes = SRC->value.u_buf.contig.nbytes;                                       \
                 memcpy((void *)ret->value.u_buf.contig.bytes, SRC->value.u_buf.contig.bytes,                           \
@@ -1201,7 +1202,7 @@ struct lcb_RESPGETCID_ {
             case LCB_KV_IOV:                                                                                           \
             case LCB_KV_IOVCOPY:                                                                                       \
                 if (SRC->value.u_buf.multi.iov) {                                                                      \
-                    ret->value.vtype = LCB_KV_IOV;                                                                     \
+                    ret->value.vtype = LCB_KV_IOVCOPY;                                                                 \
                     const lcb_FRAGBUF *msrc = &SRC->value.u_buf.multi;                                                 \
                     lcb_FRAGBUF *mdst = &ret->value.u_buf.multi;                                                       \
                     mdst->total_length = 0;                                                                            \
@@ -1228,7 +1229,7 @@ struct lcb_RESPGETCID_ {
 #define LCB_CMD_DESTROY_CLONE_WITH_VALUE(cmd)                                                                          \
     do {                                                                                                               \
         if (cmd->cmdflags & LCB_CMD_F_CLONE) {                                                                         \
-            if (cmd->key.contig.bytes && cmd->key.type == LCB_KV_CONTIG) {                                             \
+            if (cmd->key.contig.bytes && cmd->key.type == LCB_KV_COPY) {                                               \
                 free((void *)cmd->key.contig.bytes);                                                                   \
             }                                                                                                          \
             switch (cmd->value.vtype) {                                                                                \
