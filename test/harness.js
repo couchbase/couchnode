@@ -48,7 +48,7 @@ if (process.env.CNCSTR !== undefined) {
   config.connstr = process.env.CNCSTR;
 }
 if (process.env.CNCVER !== undefined) {
-  assert(!config.connstr, 'must not specify a version without a connstr');
+  assert(config.connstr, 'must not specify a version without a connstr');
   var ver = process.env.CNCVER;
   var major = semver.major(ver);
   var minor = semver.minor(ver);
