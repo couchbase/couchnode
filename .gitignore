@@ -27,3 +27,4 @@ config.json
 builderror.log
 configcache.txt
 /coverage/
+/.nyc_output/
