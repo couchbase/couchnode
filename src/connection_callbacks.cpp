@@ -296,9 +296,6 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal = Error::create(rc);
     Local<Value> dataRes = rdr.parseValue<&lcb_respview_row>();
 
-    // TODO: Handle the document body itself.
-    // lcb_respview_document
-
     uint32_t rflags = 0;
     if (rdr.getValue<&lcb_respview_is_final>()) {
         rflags |= LCB_RESP_F_FINAL;

@@ -1,6 +1,8 @@
 {
   "tags": {
-    "allowUnknownTags": false
+    "allowUnknownTags": {
+      "category": true
+    }
   },
   "source": {
     "include": ["./lib/", "./README.md"],
@@ -8,12 +10,12 @@
     "excludePattern": "(^|\\/|\\\\)_"
   },
   "opts": {
-    "template": "./node_modules/ink-docstrap/template",
-    "destination": "./docs/",
-    "private": true
+    "template": "./node_modules/better-docs",
+    "destination": "./docs/"
   },
   "plugins": [
     "plugins/markdown",
+    "node_modules/better-docs/category",
     "../../node_modules/jsdoc-stability-tag"
   ],
   "templates": {

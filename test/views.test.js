@@ -50,7 +50,6 @@ describe('#views', () => {
         assert.isArray(res.rows);
         assert.lengthOf(res.rows, testdata.docCount());
         assert.isObject(res.meta);
-        // TODO: Assert that the meta is populated correctly
 
         break;
       }

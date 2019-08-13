@@ -38,7 +38,6 @@ describe.skip('#n1ql', () => {
         assert.isArray(res.rows);
         assert.lengthOf(res.rows, testdata.docCount());
         assert.isObject(res.meta);
-        // TODO: Assert that the meta is populated correctly
 
         break;
       }
@@ -58,7 +57,6 @@ describe.skip('#n1ql', () => {
         assert.isArray(res.rows);
         assert.lengthOf(res.rows, testdata.docCount());
         assert.isObject(res.meta);
-        // TODO: Assert that the meta is populated correctly
 
         break;
       }

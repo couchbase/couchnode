@@ -112,7 +112,6 @@ class Harness {
   }
 
   async throwsHelper(fn) {
-    // TODO: This really should not need to exist...
     var assertArgs = Array.from(arguments).slice(1);
 
     var savedErr = null;
@@ -124,7 +123,7 @@ class Harness {
 
     assert.throws(() => {
       if (savedErr) {
-        throw err;
+        throw savedErr;
       }
     }, ...assertArgs);
   }
@@ -191,7 +190,6 @@ class Harness {
   }
 
   sleep(ms) {
-    // TODO: Implement time-travelling on the server...
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 

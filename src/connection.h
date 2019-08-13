@@ -53,6 +53,7 @@ private:
     static NAN_METHOD(fnNew);
 
     static NAN_METHOD(fnConnect);
+    static NAN_METHOD(fnSelectBucket);
     static NAN_METHOD(fnShutdown);
     static NAN_METHOD(fnCntl);
 
@@ -76,6 +77,7 @@ private:
     static void uvFlushHandler(uv_prepare_t *handle);
     static void lcbRegisterCallbacks(lcb_INSTANCE *instance);
     static void lcbBootstapHandler(lcb_INSTANCE *instance, lcb_STATUS err);
+    static void lcbOpenHandler(lcb_INSTANCE *instance, lcb_STATUS err);
     static void lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
                                   const lcb_RESPGET *resp);
     static void lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -114,7 +116,8 @@ private:
     uv_prepare_t _flushWatch;
     const char *_clientStringCache;
 
-    Nan::Callback *_bootstrapCallback;
+    Cookie *_bootstrapCookie;
+    Cookie *_openCookie;
     Nan::Callback *_transEncodeFunc;
     Nan::Callback *_transDecodeFunc;
 };

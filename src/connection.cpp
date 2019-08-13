@@ -11,7 +11,8 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
     : _instance(instance)
     , _logger(logger)
     , _clientStringCache(nullptr)
-    , _bootstrapCallback(nullptr)
+    , _bootstrapCookie(nullptr)
+    , _openCookie(nullptr)
     , _transEncodeFunc(nullptr)
     , _transDecodeFunc(nullptr)
 {
@@ -27,9 +28,13 @@ Connection::~Connection()
         delete _clientStringCache;
         _clientStringCache = nullptr;
     }
-    if (_bootstrapCallback) {
-        delete _bootstrapCallback;
-        _bootstrapCallback = nullptr;
+    if (_bootstrapCookie) {
+        delete _bootstrapCookie;
+        _bootstrapCookie = nullptr;
+    }
+    if (_openCookie) {
+        delete _openCookie;
+        _openCookie = nullptr;
     }
     if (_transEncodeFunc) {
         delete _transEncodeFunc;
@@ -67,14 +72,14 @@ const char *Connection::clientString()
 }
 
 Local<Value> Connection::decodeDoc(const char *bytes, size_t nbytes,
-                                    uint32_t flags)
+                                   uint32_t flags)
 {
     if (_transDecodeFunc) {
         Local<Object> decObj = Nan::New<Object>();
-        decObj->Set(Nan::New("value").ToLocalChecked(),
-                    Nan::CopyBuffer((char *)bytes, nbytes).ToLocalChecked());
-        decObj->Set(Nan::New("flags").ToLocalChecked(),
-                    Nan::New<Integer>(flags));
+        Nan::Set(decObj, Nan::New("value").ToLocalChecked(),
+                 Nan::CopyBuffer((char *)bytes, nbytes).ToLocalChecked());
+        Nan::Set(decObj, Nan::New("flags").ToLocalChecked(),
+                 Nan::New<Integer>(flags));
         Local<Value> args[] = {decObj};
 
         return Nan::CallAsFunction(_transDecodeFunc->GetFunction(),
@@ -106,11 +111,15 @@ bool Connection::encodeDoc(ValueParser &venc, const char **bytes,
             Local<Value> res = mres.ToLocalChecked();
             if (res->IsObject()) {
                 Local<Object> encObj = res.As<Object>();
-                Local<Value> flagsObj =
-                    encObj->Get(Nan::New("flags").ToLocalChecked());
-                Local<Value> valueObj =
-                    encObj->Get(Nan::New("value").ToLocalChecked());
-                if (!flagsObj.IsEmpty() && !valueObj.IsEmpty()) {
+                MaybeLocal<Value> flagsObjM =
+                    Nan::Get(encObj, Nan::New("flags").ToLocalChecked());
+                MaybeLocal<Value> valueObjM =
+                    Nan::Get(encObj, Nan::New("value").ToLocalChecked());
+
+                if (!flagsObjM.IsEmpty() && !valueObjM.IsEmpty()) {
+                    Local<Value> valueObj = valueObjM.ToLocalChecked();
+                    Local<Value> flagsObj = flagsObjM.ToLocalChecked();
+
                     if (node::Buffer::HasInstance(valueObj)) {
                         *nbytes = node::Buffer::Length(valueObj);
                         *bytes = node::Buffer::Data(valueObj);
@@ -133,6 +142,7 @@ NAN_MODULE_INIT(Connection::Init)
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     Nan::SetPrototypeMethod(tpl, "connect", fnConnect);
+    Nan::SetPrototypeMethod(tpl, "selectBucket", fnSelectBucket);
     Nan::SetPrototypeMethod(tpl, "shutdown", fnShutdown);
     Nan::SetPrototypeMethod(tpl, "cntl", fnCntl);
     Nan::SetPrototypeMethod(tpl, "get", fnGet);
@@ -160,7 +170,7 @@ NAN_METHOD(Connection::fnNew)
 {
     Nan::HandleScope scope;
 
-    if (info.Length() != 4) {
+    if (info.Length() != 5) {
         return Nan::ThrowError(Error::create("expected 4 parameters"));
     }
 
@@ -182,43 +192,55 @@ NAN_METHOD(Connection::fnNew)
     memset(&createOptions, 0, sizeof(createOptions));
     createOptions.version = 4;
 
-    Nan::Utf8String *utfConnStr = NULL;
+    lcb_type_t connType = LCB_TYPE_BUCKET;
     if (!info[0]->IsUndefined() && !info[0]->IsNull()) {
-        if (!info[0]->IsString()) {
+        if (!info[0]->IsNumber()) {
+            return Nan::ThrowError(
+                Error::create("must pass enum integer for connType"));
+        }
+
+        connType =
+            static_cast<lcb_type_t>(Nan::To<uint32_t>(info[0]).ToChecked());
+    }
+
+    Nan::Utf8String *utfConnStr = NULL;
+    if (!info[1]->IsUndefined() && !info[1]->IsNull()) {
+        if (!info[1]->IsString()) {
             return Nan::ThrowError(
                 Error::create("must pass string for connStr"));
         }
-        utfConnStr = new Nan::Utf8String(info[0]);
+        utfConnStr = new Nan::Utf8String(info[1]);
+
         createOptions.v.v4.connstr = **utfConnStr;
     }
 
     Nan::Utf8String *utfUsername = NULL;
-    if (!info[1]->IsUndefined() && !info[1]->IsNull()) {
-        if (!info[1]->IsString()) {
+    if (!info[2]->IsUndefined() && !info[2]->IsNull()) {
+        if (!info[2]->IsString()) {
             return Nan::ThrowError(
                 Error::create("must pass string for username"));
         }
-        utfUsername = new Nan::Utf8String(info[1]);
+        utfUsername = new Nan::Utf8String(info[2]);
         createOptions.v.v4.username = **utfUsername;
     }
 
     Nan::Utf8String *utfPassword = NULL;
-    if (!info[2]->IsUndefined() && !info[2]->IsNull()) {
-        if (!info[2]->IsString()) {
+    if (!info[3]->IsUndefined() && !info[3]->IsNull()) {
+        if (!info[3]->IsString()) {
             return Nan::ThrowError(
                 Error::create("must pass string for password"));
         }
-        utfPassword = new Nan::Utf8String(info[2]);
+        utfPassword = new Nan::Utf8String(info[3]);
         createOptions.v.v4.passwd = **utfPassword;
     }
 
     Logger *logger = nullptr;
-    if (!info[3]->IsUndefined() && !info[3]->IsNull()) {
-        if (!info[3]->IsFunction()) {
+    if (!info[4]->IsUndefined() && !info[4]->IsNull()) {
+        if (!info[4]->IsFunction()) {
             return Nan::ThrowError(
                 Error::create("must pass function for logger"));
         }
-        Local<Function> logFn = info[3].As<Function>();
+        Local<Function> logFn = info[4].As<Function>();
         if (!logFn.IsEmpty()) {
             logger = new Logger(logFn);
 
@@ -229,6 +251,7 @@ NAN_METHOD(Connection::fnNew)
         }
     }
 
+    createOptions.v.v4.type = connType;
     createOptions.v.v4.io = iops;
 
     lcb_INSTANCE *instance;
@@ -257,6 +280,7 @@ NAN_METHOD(Connection::fnNew)
 
     lcb_set_cookie(instance, reinterpret_cast<void *>(obj));
     lcb_set_bootstrap_callback(instance, &lcbBootstapHandler);
+    lcb_set_open_callback(instance, &lcbOpenHandler);
     lcb_install_callback3(
         instance, LCB_CALLBACK_GET,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbGetRespHandler));
@@ -307,6 +331,8 @@ void Connection::lcbBootstapHandler(lcb_INSTANCE *instance, lcb_STATUS err)
 {
     Connection *me = Connection::fromInstance(instance);
 
+    printf("Result: %d\n", err);
+
     if (err != 0) {
         lcb_set_bootstrap_callback(instance, [](lcb_INSTANCE *, lcb_STATUS) {});
         lcb_destroy_async(instance, NULL);
@@ -320,14 +346,29 @@ void Connection::lcbBootstapHandler(lcb_INSTANCE *instance, lcb_STATUS err)
                  &flushMode);
     }
 
-    Nan::HandleScope scope;
-    if (me->_bootstrapCallback) {
-        Local<Value> args[] = {Error::create(err)};
-        Nan::CallAsFunction(me->_bootstrapCallback->GetFunction(),
-                            Nan::GetCurrentContext()->Global(), 1, args);
+    if (me->_bootstrapCookie) {
+        Nan::HandleScope scope;
 
-        delete me->_bootstrapCallback;
-        me->_bootstrapCallback = nullptr;
+        Local<Value> args[] = {Error::create(err)};
+        me->_bootstrapCookie->Call(1, args);
+
+        delete me->_bootstrapCookie;
+        me->_bootstrapCookie = nullptr;
+    }
+}
+
+void Connection::lcbOpenHandler(lcb_INSTANCE *instance, lcb_STATUS err)
+{
+    Connection *me = Connection::fromInstance(instance);
+
+    if (me->_openCookie) {
+        Nan::HandleScope scope;
+
+        Local<Value> args[] = {Error::create(err)};
+        me->_openCookie->Call(1, args);
+
+        delete me->_openCookie;
+        me->_openCookie = nullptr;
     }
 }
 
@@ -340,13 +381,43 @@ NAN_METHOD(Connection::fnConnect)
         return Nan::ThrowError(Error::create("expected 1 parameter"));
     }
 
-    if (me->_bootstrapCallback) {
-        delete me->_bootstrapCallback;
-        me->_bootstrapCallback = nullptr;
+    if (me->_bootstrapCookie) {
+        delete me->_bootstrapCookie;
+        me->_bootstrapCookie = nullptr;
     }
-    me->_bootstrapCallback = new Nan::Callback(info[0].As<Function>());
+    me->_bootstrapCookie = new Cookie("connect", info[0].As<Function>());
 
     lcb_STATUS ec = lcb_connect(me->_instance);
+    if (ec != LCB_SUCCESS) {
+        return Nan::ThrowError(Error::create(ec));
+    }
+
+    info.GetReturnValue().Set(true);
+}
+
+NAN_METHOD(Connection::fnSelectBucket)
+{
+    Connection *me = Nan::ObjectWrap::Unwrap<Connection>(info.This());
+    Nan::HandleScope scope;
+
+    if (info.Length() != 2) {
+        return Nan::ThrowError(Error::create("expected 2 parameters"));
+    }
+
+    if (!info[0]->IsString()) {
+        return Nan::ThrowError(
+            Error::create("must pass string for bucket name"));
+    }
+
+    Nan::Utf8String bucketName(info[0]);
+
+    if (me->_openCookie) {
+        delete me->_openCookie;
+        me->_openCookie = nullptr;
+    }
+    me->_openCookie = new Cookie("open", info[1].As<Function>());
+
+    lcb_STATUS ec = lcb_open(me->_instance, *bucketName, bucketName.length());
     if (ec != LCB_SUCCESS) {
         return Nan::ThrowError(Error::create(ec));
     }

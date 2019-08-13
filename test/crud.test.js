@@ -232,7 +232,6 @@ function genericTests(collFn) {
         assert.isNotEmpty(res.cas);
 
         var gres = await collFn().get(testKeyBin);
-        // TODO: Decide if this should actually return a Buffer?
         assert.isTrue(Buffer.isBuffer(gres.value));
         assert.deepStrictEqual(gres.value.toString(),
           '13world');
