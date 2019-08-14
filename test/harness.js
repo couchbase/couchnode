@@ -197,10 +197,10 @@ class Harness {
     switch (feature) {
       case ServerFeatures.KeyValue:
       case ServerFeatures.Ssl:
-      case ServerFeatures.Views:
       case ServerFeatures.SpatialViews:
       case ServerFeatures.Subdoc:
         return true;
+      case ServerFeatures.Views:
       case ServerFeatures.Fts:
       case ServerFeatures.N1ql:
       case ServerFeatures.Analytics:

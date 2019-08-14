@@ -13,21 +13,25 @@ describe('#views', () => {
     before(async () => {
       await testdata.upsertData(H.dco, testUid);
 
-      await H.b.viewIndices().insertDesignDocument(ddocKey, {
-        views: {
-          simple: {
-            map: `function(doc, meta){
+      var ddoc = {
+        name: ddocKey,
+        data: {
+          views: {
+            simple: {
+              map: `function(doc, meta){
                                 if(meta.id.indexOf("${testUid}")==0){
                                   emit(meta.id);
                                 }
                               }`
+            }
           }
         }
-      });
+      };
+      await H.b.viewIndexes().upsertDesignDocument(ddoc);
     });
 
     after(async () => {
-      await H.b.viewIndices().removeDesignDocument(ddocKey);
+      await H.b.viewIndexes().dropDesignDocument(ddocKey);
 
       await testdata.removeTestData(H.dco, testUid);
     });
