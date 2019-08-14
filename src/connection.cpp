@@ -331,8 +331,6 @@ void Connection::lcbBootstapHandler(lcb_INSTANCE *instance, lcb_STATUS err)
 {
     Connection *me = Connection::fromInstance(instance);
 
-    printf("Result: %d\n", err);
-
     if (err != 0) {
         lcb_set_bootstrap_callback(instance, [](lcb_INSTANCE *, lcb_STATUS) {});
         lcb_destroy_async(instance, NULL);
