@@ -49,7 +49,7 @@ NAN_METHOD(MutationToken::fnInspect)
 }
 
 v8::Local<v8::Value> MutationToken::create(lcb_MUTATION_TOKEN token,
-                                            const char *bucketName)
+                                           const char *bucketName)
 {
     if (!lcb_mutation_token_is_valid(&token) || !bucketName) {
         return Nan::Undefined();
