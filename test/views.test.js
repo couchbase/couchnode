@@ -12,8 +12,14 @@ describe('#views', () => {
 
     before(async () => {
       await testdata.upsertData(H.dco, testUid);
+    });
 
-      var ddoc = new H.lib.DesignDocument(ddocKey, {
+    after(async () => {
+      await testdata.removeTestData(H.dco, testUid);
+    });
+
+    it('should successfully create an index', async () => {
+      var ddoc = new H.lib.DesignDocument(`dev_${ddocKey}`, {
         simple: new H.lib.DesignDocument.View(`
           function(doc, meta){
             if(meta.id.indexOf("${testUid}")==0){
@@ -25,10 +31,14 @@ describe('#views', () => {
       await H.b.viewIndexes().upsertDesignDocument(ddoc);
     });
 
-    after(async () => {
-      await H.b.viewIndexes().dropDesignDocument(ddocKey);
+    it('should successfullly publish an index', async () => {
+      await H.b.viewIndexes().publishDesignDocument(ddocKey);
+    });
 
-      await testdata.removeTestData(H.dco, testUid);
+    it('should fail to publish a non-existant index', async () => {
+      await H.throwsHelper(async () => {
+        await H.b.viewIndexes().publishDesignDocument('missing-index-name');
+      }, H.lib.DesignDocumentNotFoundError);
     });
 
     it('should see test data correctly', async () => {
@@ -53,5 +63,15 @@ describe('#views', () => {
         break;
       }
     }).timeout(20000);
+
+    it('should successfully drop an index', async () => {
+      await H.b.viewIndexes().dropDesignDocument(ddocKey);
+    });
+
+    it('should fail to drop a non-existance index', async () => {
+      await H.throwsHelper(async () => {
+        await H.b.viewIndexes().dropDesignDocument('missing-index-name');
+      }, H.lib.DesignDocumentNotFoundError);
+    });
   });
 });
