@@ -13,20 +13,15 @@ describe('#views', () => {
     before(async () => {
       await testdata.upsertData(H.dco, testUid);
 
-      var ddoc = {
-        name: ddocKey,
-        data: {
-          views: {
-            simple: {
-              map: `function(doc, meta){
-                                if(meta.id.indexOf("${testUid}")==0){
-                                  emit(meta.id);
-                                }
-                              }`
+      var ddoc = new H.lib.DesignDocument(ddocKey, {
+        simple: new H.lib.DesignDocument.View(`
+          function(doc, meta){
+            if(meta.id.indexOf("${testUid}")==0){
+              emit(meta.id);
             }
           }
-        }
-      };
+        `),
+      });
       await H.b.viewIndexes().upsertDesignDocument(ddoc);
     });
 
