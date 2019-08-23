@@ -69,7 +69,7 @@ private:
     static NAN_METHOD(fnViewQuery);
     static NAN_METHOD(fnN1qlQuery);
     static NAN_METHOD(fnFtsQuery);
-    static NAN_METHOD(fnCbasQuery);
+    static NAN_METHOD(fnAnalyticsQuery);
     // static NAN_METHOD(fnPing);
     // static NAN_METHOD(fnDiag);
     static NAN_METHOD(fnHttpRequest);

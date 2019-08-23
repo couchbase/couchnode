@@ -579,7 +579,7 @@ NAN_METHOD(Connection::fnN1qlQuery)
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(Connection::fnCbasQuery)
+NAN_METHOD(Connection::fnAnalyticsQuery)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
     Nan::HandleScope scope;

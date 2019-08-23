@@ -156,7 +156,7 @@ NAN_MODULE_INIT(Connection::Init)
     Nan::SetPrototypeMethod(tpl, "mutateIn", fnMutateIn);
     Nan::SetPrototypeMethod(tpl, "viewQuery", fnViewQuery);
     Nan::SetPrototypeMethod(tpl, "n1qlQuery", fnN1qlQuery);
-    Nan::SetPrototypeMethod(tpl, "cbasQuery", fnCbasQuery);
+    Nan::SetPrototypeMethod(tpl, "analyticsQuery", fnAnalyticsQuery);
     Nan::SetPrototypeMethod(tpl, "ftsQuery", fnFtsQuery);
     Nan::SetPrototypeMethod(tpl, "httpRequest", fnHttpRequest);
 
