@@ -33,6 +33,39 @@ void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, resVal);
 }
 
+void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                      const lcb_RESPEXISTS *resp)
+{
+    Nan::HandleScope scope;
+    RespReader<lcb_RESPEXISTS, &lcb_respexists_cookie> rdr(instance, resp);
+
+    lcb_STATUS rc = rdr.getValue<&lcb_respexists_status>();
+
+    Local<Value> errVal =
+        rdr.decodeError<lcb_respexists_error_context, lcb_respexists_error_ref>(
+            rc);
+    Local<Value> resVal;
+
+    if (rc == LCB_SUCCESS) {
+        Local<Object> resObj = Nan::New<Object>();
+
+        resObj->Set(Nan::New("cas").ToLocalChecked(),
+                    rdr.decodeCas<&lcb_respexists_cas>());
+
+        if (rdr.getValue<&lcb_respexists_is_found>() != 0) {
+            resObj->Set(Nan::New("exists").ToLocalChecked(), Nan::True());
+        } else {
+            resObj->Set(Nan::New("exists").ToLocalChecked(), Nan::False());
+        }
+
+        resVal = resObj;
+    } else {
+        resVal = Nan::Null();
+    }
+
+    rdr.invokeCallback(errVal, resVal);
+}
+
 void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
                                           const lcb_RESPGETREPLICA *resp)
 {

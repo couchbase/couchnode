@@ -146,6 +146,7 @@ NAN_MODULE_INIT(Connection::Init)
     Nan::SetPrototypeMethod(tpl, "shutdown", fnShutdown);
     Nan::SetPrototypeMethod(tpl, "cntl", fnCntl);
     Nan::SetPrototypeMethod(tpl, "get", fnGet);
+    Nan::SetPrototypeMethod(tpl, "exists", fnExists);
     Nan::SetPrototypeMethod(tpl, "getReplica", fnGetReplica);
     Nan::SetPrototypeMethod(tpl, "store", fnStore);
     Nan::SetPrototypeMethod(tpl, "remove", fnRemove);
@@ -284,6 +285,9 @@ NAN_METHOD(Connection::fnNew)
     lcb_install_callback3(
         instance, LCB_CALLBACK_GET,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbGetRespHandler));
+    lcb_install_callback3(
+        instance, LCB_CALLBACK_EXISTS,
+        reinterpret_cast<lcb_RESPCALLBACK>(&lcbExistsRespHandler));
     lcb_install_callback3(
         instance, LCB_CALLBACK_GETREPLICA,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbGetReplicaRespHandler));

@@ -5,6 +5,11 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDGET **cmd)
     return lcb_cmdget_create(cmd);
 }
 
+lcb_STATUS lcbx_cmd_create(lcb_CMDEXISTS **cmd)
+{
+    return lcb_cmdexists_create(cmd);
+}
+
 lcb_STATUS lcbx_cmd_create(lcb_CMDGETREPLICA **cmd, lcb_REPLICA_MODE mode)
 {
     return lcb_cmdgetreplica_create(cmd, mode);
@@ -73,6 +78,11 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type)
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDGET *cmd)
 {
     return lcb_cmdget_destroy(cmd);
+}
+
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDEXISTS *cmd)
+{
+    return lcb_cmdexists_destroy(cmd);
 }
 
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDGETREPLICA *cmd)

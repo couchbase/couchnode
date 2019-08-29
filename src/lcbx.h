@@ -35,6 +35,7 @@ enum lcbx_N1QLFLAG {
 };
 
 lcb_STATUS lcbx_cmd_create(lcb_CMDGET **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDEXISTS **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDGETREPLICA **cmd, lcb_REPLICA_MODE mode);
 lcb_STATUS lcbx_cmd_create(lcb_CMDSTORE **cmd, lcb_STORE_OPERATION operation);
 lcb_STATUS lcbx_cmd_create(lcb_CMDREMOVE **cmd);
@@ -50,6 +51,7 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDFTS **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type);
 
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDGET *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDEXISTS *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDGETREPLICA *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDSTORE *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDREMOVE *cmd);

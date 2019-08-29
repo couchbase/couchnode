@@ -43,6 +43,35 @@ NAN_METHOD(Connection::fnGet)
     return info.GetReturnValue().Set(true);
 }
 
+NAN_METHOD(Connection::fnExists)
+{
+    Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Nan::HandleScope scope;
+    OpBuilder<lcb_CMDEXISTS> enc(me);
+
+    enc.beginTrace("exists");
+
+    if (!enc.parseOption<&lcb_cmdexists_collection>(info[0], info[1])) {
+        return Nan::ThrowError(Error::create("bad scope/collection passed"));
+    }
+    if (!enc.parseOption<&lcb_cmdexists_key>(info[2])) {
+        return Nan::ThrowError(Error::create("bad key passed"));
+    }
+    if (!enc.parseOption<&lcb_cmdexists_timeout>(info[3])) {
+        return Nan::ThrowError(Error::create("bad timeout passed"));
+    }
+    if (!enc.parseCallback(info[4])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_STATUS err = enc.execute<&lcb_exists>();
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}
+
 NAN_METHOD(Connection::fnGetReplica)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());

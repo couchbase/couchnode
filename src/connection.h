@@ -58,6 +58,7 @@ private:
     static NAN_METHOD(fnCntl);
 
     static NAN_METHOD(fnGet);
+    static NAN_METHOD(fnExists);
     static NAN_METHOD(fnGetReplica);
     static NAN_METHOD(fnStore);
     static NAN_METHOD(fnRemove);
@@ -80,6 +81,8 @@ private:
     static void lcbOpenHandler(lcb_INSTANCE *instance, lcb_STATUS err);
     static void lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
                                   const lcb_RESPGET *resp);
+    static void lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                     const lcb_RESPEXISTS *resp);
     static void lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
                                          const lcb_RESPGETREPLICA *resp);
     static void lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,

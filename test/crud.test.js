@@ -41,6 +41,22 @@ function genericTests(collFn) {
       });
     });
 
+    describe('#exists', () => {
+      it('should successfully perform exists -> true', async () => {
+        var res = await collFn().exists(testKeyA);
+        assert.isObject(res);
+        assert.isNotEmpty(res.cas);
+        assert.deepStrictEqual(res.exists, true);
+      });
+
+      it('should successfully perform exists -> false', async () => {
+        var res = await collFn().exists('a-missing-key');
+        assert.isObject(res);
+        assert.isNotEmpty(res.cas);
+        assert.deepStrictEqual(res.exists, false);
+      });
+    });
+
     describe('#getFromReplica', () => {
       it.skip('should perform basic gets from replicas',
         async () => {
