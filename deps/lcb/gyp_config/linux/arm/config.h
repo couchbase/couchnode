@@ -39,6 +39,9 @@
  */
 
 
+#define HAVE_ARPA_NAMESER_H 1
+#define HAVE_RES_SEARCH 1
+
 /* Define if building universal (internal helper macro) */
 /* #undef AC_APPLE_UNIVERSAL_BUILD */
 
