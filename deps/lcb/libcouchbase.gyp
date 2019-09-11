@@ -48,6 +48,13 @@
     ],
 
     'conditions': [
+      ['OS!="win"', {
+        "link_settings": {
+          "libraries": [
+            "-lresolv"
+          ]
+        }
+      }],
       ['OS=="win"', {
         'include_dirs': [
           '<(node_root_dir)/deps/openssl/openssl/include',
