@@ -220,6 +220,21 @@ class Harness {
     }
   }
 
+  supportsForAwaitOf() {
+    try {
+      eval("(async function() { var y = []; for await (var x of y) {} })()");
+      return true;
+    } catch (e) {
+      return !(e instanceof SyntaxError);
+    }
+  }
+
+  requireForAwaitOf(cb) {
+    if (this.supportsForAwaitOf()) {
+      cb();
+    }
+  }
+
   get lib() {
     return couchbase;
   }
