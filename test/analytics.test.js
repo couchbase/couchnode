@@ -30,10 +30,157 @@ describe('#analytics', () => {
       });
     });
 
-    it('should fail to overwrite an existing index', async () => {
+    it('should fail to overwrite an existing dataverse', async () => {
       await H.throwsHelper(async () => {
         await H.c.analyticsIndexes().createDataverse(dvName);
       }, H.lib.DataverseAlreadyExistsError);
     });
+
+    it('should successfully create a dataset', async () => {
+      await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
+        dataverseName: dvName
+      });
+    });
+
+    it('should successfully upsert a dataset', async () => {
+      await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
+        dataverseName: dvName,
+        ignoreIfExists: true
+      });
+    });
+
+    it('should fail to overwrite an existing dataset', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
+          dataverseName: dvName
+        });
+      }, H.lib.DatasetAlreadyExistsError);
+    });
+
+    it('should successfully create an index', async () => {
+      await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
+        dataverseName: dvName
+      });
+    });
+
+    it('should successfully upsert an index', async () => {
+      await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
+        dataverseName: dvName,
+        ignoreIfExists: true
+      });
+    });
+
+    it('should fail to overwrite an existing index', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
+          dataverseName: dvName
+        });
+      }, H.lib.AnalyticsIndexAlreadyExistsError);
+    });
+
+    it('should successfully connect a link', async () => {
+      await H.c.analyticsIndexes().connectLink('Local');
+    });
+
+    it('should successfully list all datasets', async () => {
+      var res = await H.c.analyticsIndexes().getAllDatasets();
+      assert.isAtLeast(res.length, 1);
+    });
+
+    it('should successfully list all indexes', async () => {
+      var res = await H.c.analyticsIndexes().getAllIndexes();
+      assert.isAtLeast(res.length, 1);
+    });
+
+    it.skip('should successfully get pending mutations', async () => {
+      H.c.analyticsIndexes().getPendingMutations();
+    });
+
+    it.skip('should see test data correctly', async () => {
+      while (true) {
+        var res = null;
+
+        // We wrap this in a try-catch block since its possible that the
+        // view won't be available to the query engine yet...
+        try {
+          var targetName = '`' + dvName + '`.`' + dsName + '`';
+          res = await H.c.queryAnalytics(`SELECT * FROM ${targetName}`);
+        } catch (err) {}
+
+        if (!res || res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(20000);
+
+    it('should successfully disconnect a link', async () => {
+      await H.c.analyticsIndexes().disconnectLink('Local');
+    });
+
+    it('should successfully drop an index', async () => {
+      await H.c.analyticsIndexes().dropIndex(dsName, idxName, {
+        dataverseName: dvName,
+      });
+    });
+
+    it('should successfully ignore a missing index when dropping', async () => {
+      await H.c.analyticsIndexes().dropIndex(dsName, idxName, {
+        dataverseName: dvName,
+        ignoreIfNotExists: true
+      });
+    });
+
+    it('should fail to drop a missing index', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.analyticsIndexes().dropIndex(dsName, idxName, {
+          dataverseName: dvName,
+        });
+      }, H.lib.AnalyticsIndexNotFoundError);
+    });
+
+    it('should successfully drop a dataset', async () => {
+      await H.c.analyticsIndexes().dropDataset(dsName, {
+        dataverseName: dvName,
+      });
+    });
+
+    it('should successfully ignore a missing dataset when dropping', async () => {
+      await H.c.analyticsIndexes().dropDataset(dsName, {
+        dataverseName: dvName,
+        ignoreIfNotExists: true
+      });
+    });
+
+    it('should fail to drop a missing dataset', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.analyticsIndexes().dropDataset(dsName, {
+          dataverseName: dvName,
+        });
+      }, H.lib.DatasetNotFoundError);
+    });
+
+    it('should successfully drop a dataverse', async () => {
+      await H.c.analyticsIndexes().dropDataverse(dvName);
+    });
+
+    it('should successfully ignore a missing dataverse when dropping', async () => {
+      await H.c.analyticsIndexes().dropDataverse(dvName, {
+        ignoreIfNotExists: true
+      });
+    });
+
+    it('should fail to drop a missing dataverse', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.analyticsIndexes().dropDataverse(dvName);
+      }, H.lib.DataverseNotFoundError);
+    });
+
   });
 });

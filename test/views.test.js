@@ -31,7 +31,7 @@ describe('#views', () => {
       await H.b.viewIndexes().upsertDesignDocument(ddoc);
     });
 
-    it('should successfullly publish an index', async () => {
+    it('should successfully publish an index', async () => {
       await H.b.viewIndexes().publishDesignDocument(ddocKey);
     });
 

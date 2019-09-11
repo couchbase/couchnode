@@ -8,20 +8,39 @@ const H = require('./harness');
 describe.skip('#n1ql', () => {
   H.requireFeature(H.Features.N1ql, () => {
     const testUid = H.genTestKey();
+    const idxName = H.genTestKey();
+    const sidxName = H.genTestKey();
 
     before(async () => {
       await testdata.upsertData(H.dco, testUid);
-
-      try {
-        await H.b.query('CREATE PRIMARY INDEX ON ' + H.b.name);
-      } catch (e) {
-        // We ignore any errors, and assume that if the index already
-        // exists that this is not due to a testing error...
-      }
     });
 
     after(async () => {
       await testdata.removeTestData(H.dco, testUid);
+    });
+
+    it('should successfully create a primary index', async () => {
+      await H.c.queryIndexes().createPrimaryIndex(H.b.name, {
+        name: idxName
+      });
+    }).timeout(60000);
+
+    it('should fail to create a duplicate primary index', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.queryIndexes().createPrimaryIndex(H.b.name, {
+          name: idxName
+        });
+      }, H.lib.QueryIndexAlreadyExistsError);
+    });
+
+    it('should successfully create a secondary index', async () => {
+      await H.c.queryIndexes().createIndex(H.b.name, sidxName, ['name']);
+    }).timeout(20000);
+
+    it('should fail to create a duplicate secondary index', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.queryIndexes().createIndex(H.b.name, sidxName, ['name']);
+      }, H.lib.QueryIndexAlreadyExistsError);
     });
 
     it('should see test data correctly', async () => {
@@ -61,5 +80,29 @@ describe.skip('#n1ql', () => {
         break;
       }
     }).timeout(10000);
+
+    it('should successfully drop a secondary index', async () => {
+      await H.c.queryIndexes().dropIndex(H.b.name, sidxName);
+    });
+
+    it('should fail to drop a missing secondary index', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.queryIndexes().dropIndex(H.b.name, sidxName);
+      }, H.lib.QueryIndexNotFoundError);
+    });
+
+    it('should successfully drop a primary index', async () => {
+      await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
+        name: idxName
+      });
+    });
+
+    it('should fail to drop a missing primary index', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
+          name: idxName
+        });
+      }, H.lib.QueryIndexNotFoundError);
+    });
   });
 });
