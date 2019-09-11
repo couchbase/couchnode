@@ -16,15 +16,11 @@
  */
 
 #include "config.h"
-#include <sys/types.h>
 #include <signal.h>
 #include <iostream>
 #include <map>
-#include <cassert>
 #include <cstdio>
-#include <cerrno>
 #include <stdexcept>
-#include <sstream>
 #include <list>
 #include <thread>
 #include <mutex>
@@ -35,6 +31,8 @@
 #include <random>
 #include <algorithm>
 #include <iomanip>
+
+#include "internalstructs.h" /* for access to connstr member */
 
 #include "common/options.h"
 #include "common/histogram.h"
@@ -64,18 +62,27 @@ static Histogram hg;
 class Configuration
 {
   public:
-    Configuration() = default;
+    Configuration() : o_script("script")
+    {
+        o_script.abbrev('s').description("Path to script (by default using STDIN interactively)");
+    }
 
     ~Configuration() = default;
 
     void addToParser(Parser &parser)
     {
         m_params.addToParser(parser);
+        parser.addOption(o_script);
+    }
+
+    std::string &scriptPath()
+    {
+        return o_script.const_result();
     }
 
     void processOptions() {}
 
-    void fillCropts(lcb_create_st &opts)
+    void fillCropts(lcb_CREATEOPTS *&opts)
     {
         m_params.fillCropts(opts);
     }
@@ -97,6 +104,7 @@ class Configuration
 
   private:
     ConnParams m_params;
+    StringOption o_script;
 };
 
 static Configuration config;
@@ -218,15 +226,111 @@ class BoundedValueGenerator : public ValueGenerator
     }
 };
 
+class Workload
+{
+  public:
+    enum op_type { op_write = 0, op_read, op_delete };
+
+    Workload(unsigned int writes, unsigned int reads, unsigned int deletes)
+        : rnd(std::chrono::system_clock::now().time_since_epoch().count()), dist(0, 100), weights_(0)
+    {
+        if (writes + reads + deletes != 100) {
+            throw std::runtime_error("Workload definition should give 100% in total");
+        }
+        weights_.emplace_back(op_write, writes);
+        weights_.emplace_back(op_read, reads);
+        weights_.emplace_back(op_delete, deletes);
+        std::sort(weights_.begin(), weights_.end(), [](op a, op b) { return a.second < b.second; });
+    }
+
+    op_type next()
+    {
+        unsigned int num = dist(rnd);
+        op_type res = weights_.back().first;
+        auto margin = std::find_if(weights_.begin(), weights_.end(), [num](op x) { return num < x.second; });
+        if (margin != std::end(weights_)) {
+            res = margin->first;
+        }
+        return res;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Workload &workload)
+    {
+        for (auto &entry : workload.weights_) {
+            os << entry.second << "% ";
+            switch (entry.first) {
+                case op_write:
+                    os << "writes, ";
+                    break;
+                case op_read:
+                    os << "reads, ";
+                    break;
+                case op_delete:
+                    os << "deletes, ";
+                    break;
+            }
+        }
+        return os;
+    }
+
+  private:
+    std::default_random_engine rnd;
+    std::uniform_int_distribution< unsigned int > dist;
+
+    typedef std::pair< op_type, unsigned int > op;
+    std::vector< op > weights_;
+};
+
 class Worker;
-void io_loop(Worker *worker);
-void generator_loop(Worker *worker);
+void io_loop(Worker *worker, size_t num_items);
+void generator_loop(Worker *worker, size_t num_items);
+
+struct Stats {
+    unsigned long total{0};
+    unsigned long reads{0};
+    unsigned long writes{0};
+    unsigned long deletes{0};
+
+    void reset()
+    {
+        total = reads = writes = deletes = 0;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Stats &stats)
+    {
+        os << "total: " << stats.total << ", writes: " << stats.writes << ", reads: " << stats.reads
+           << ", deletes: " << stats.deletes;
+        return os;
+    }
+};
 
 extern "C" {
-void store_callback(lcb_INSTANCE *instance, int cbtype, lcb_RESPSTORE *resp) {}
+void store_callback(lcb_INSTANCE *, int, lcb_RESPSTORE *resp)
+{
+    Stats *stats = nullptr;
+    lcb_respstore_cookie(resp, reinterpret_cast< void ** >(&stats));
+    stats->writes++;
+    stats->total++;
+}
+void get_callback(lcb_INSTANCE *, int, lcb_RESPGET *resp)
+{
+    Stats *stats = nullptr;
+    lcb_respget_cookie(resp, reinterpret_cast< void ** >(&stats));
+    stats->reads++;
+    stats->total++;
+}
+void remove_callback(lcb_INSTANCE *, int, lcb_RESPREMOVE *resp)
+{
+    Stats *stats = nullptr;
+    lcb_respremove_cookie(resp, reinterpret_cast< void ** >(&stats));
+    stats->deletes++;
+    stats->total++;
+}
 }
 
 size_t batch_size = 1024;
+
+Workload current_workload(100, 0, 0);
 
 class Worker
 {
@@ -234,15 +338,18 @@ class Worker
     explicit Worker(const std::string &ident = "")
         : is_running(false), instance(nullptr), io_thr(nullptr), gen_thr(nullptr), keygen(nullptr), valgen(nullptr)
     {
-        lcb_create_st cropts{};
+        lcb_CREATEOPTS *cropts = nullptr;
         memset(&cropts, 0, sizeof cropts);
         config.fillCropts(cropts);
-        do_or_die(lcb_create(&instance, &cropts), "Failed to create connection");
+        do_or_die(lcb_create(&instance, cropts), "Failed to create connection");
+        lcb_createopts_destroy(cropts);
         config.doCtls(instance);
         do_or_die(lcb_connect(instance), "Failed to connect to cluster");
         do_or_die(lcb_wait(instance), "Failed to wait for connection bootstrap");
         do_or_die(lcb_get_bootstrap_status(instance), "Failed to bootstrap");
-        lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)remove_callback);
         if (config.useTimings()) {
             hg.install(instance, stdout);
         }
@@ -291,11 +398,12 @@ class Worker
         return valgen->next();
     }
 
-    void start()
+    void start(size_t num_items)
     {
         is_running = true;
-        io_thr = new std::thread(io_loop, this);
-        gen_thr = new std::thread(generator_loop, this);
+        io_thr = new std::thread(io_loop, this, num_items);
+        gen_thr = new std::thread(generator_loop, this, num_items);
+        stats_.reset();
     }
 
     void stop()
@@ -311,7 +419,7 @@ class Worker
         io_thr->join();
     }
 
-    void push_batch(std::list< lcb_CMDSTORE * > &batch)
+    void push_batch(std::list< std::pair< Workload::op_type, lcb_CMDBASE * > > &batch)
     {
         std::unique_lock< std::mutex > lock(mutex_);
         for (auto &cmd : batch) {
@@ -333,9 +441,25 @@ class Worker
         }
 
         lcb_sched_enter(instance);
-        for (auto &cmd : list_) {
-            lcb_STATUS rc = lcb_store(instance, nullptr, cmd);
-            lcb_cmdstore_destroy(cmd);
+        for (auto &entry : list_) {
+            lcb_STATUS rc;
+            switch (entry.first) {
+                case Workload::op_write: {
+                    auto *cmd = reinterpret_cast< lcb_CMDSTORE * >(entry.second);
+                    rc = lcb_store(instance, reinterpret_cast< void * >(&stats_), cmd);
+                    lcb_cmdstore_destroy(cmd);
+                } break;
+                case Workload::op_read: {
+                    auto *cmd = reinterpret_cast< lcb_CMDGET * >(entry.second);
+                    rc = lcb_get(instance, reinterpret_cast< void * >(&stats_), cmd);
+                    lcb_cmdget_destroy(cmd);
+                } break;
+                case Workload::op_delete: {
+                    auto *cmd = reinterpret_cast< lcb_CMDREMOVE * >(entry.second);
+                    rc = lcb_remove(instance, reinterpret_cast< void * >(&stats_), cmd);
+                    lcb_cmdremove_destroy(cmd);
+                } break;
+            }
             if (rc != LCB_SUCCESS) {
                 lcb_sched_fail(instance);
                 break;
@@ -343,6 +467,16 @@ class Worker
         }
         lcb_sched_leave(instance);
         list_.clear();
+    }
+
+    const Stats &stats()
+    {
+        return stats_;
+    }
+
+    size_t total_ops()
+    {
+        return stats_.total;
     }
 
     std::string id;
@@ -355,48 +489,95 @@ class Worker
     static int next_id;
 
     std::mutex mutex_;
-    std::list< lcb_CMDSTORE * > list_;
+    std::list< std::pair< Workload::op_type, lcb_CMDBASE * > > list_;
 
     KeyGenerator *keygen;
     ValueGenerator *valgen;
+    Stats stats_;
 };
 int Worker::next_id = 0;
 
-void io_loop(Worker *worker)
+void io_loop(Worker *worker, size_t num_items)
 {
+    bool has_limit = num_items > 0;
     while (worker->is_running) {
+        if (has_limit && worker->total_ops() >= num_items) {
+            break;
+        }
         size_t itr = 10;
         while (itr > 0 && worker->is_running) {
             lcb_tick_nowait(worker->instance);
             worker->flush();
             itr--;
+            if (has_limit && worker->total_ops() >= num_items) {
+                break;
+            }
         }
         lcb_wait(worker->instance);
     }
     lcb_wait(worker->instance);
+    if (has_limit) {
+        worker->is_running = false;
+        std::cout << "# worker " << worker->id << " has been stopped: " << worker->stats() << std::endl;
+    }
 }
 
 lcb_DURABILITY_LEVEL durability_level = LCB_DURABILITYLEVEL_NONE;
 
-void generator_loop(Worker *worker)
+void generator_loop(Worker *worker, size_t num_items)
 {
-    std::list< lcb_CMDSTORE * > batch;
+    bool has_limit = num_items > 0;
+    size_t items_left = num_items;
+    std::list< std::pair< Workload::op_type, lcb_CMDBASE * > > batch;
 
     while (worker->is_running) {
+        if (has_limit && items_left == 0) {
+            break;
+        }
         if (worker->want_more()) {
             for (size_t i = 0; i < batch_size; ++i) {
                 lcb_STATUS rc;
-                lcb_CMDSTORE *cmd = nullptr;
-                rc = lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-                if (rc != LCB_SUCCESS) {
-                    continue;
+                Workload::op_type type = current_workload.next();
+                switch (type) {
+                    case Workload::op_write: {
+                        lcb_CMDSTORE *cmd = nullptr;
+                        rc = lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+                        if (rc != LCB_SUCCESS) {
+                            continue;
+                        }
+                        const std::string &key = worker->next_key();
+                        const std::string &value = worker->next_value();
+                        lcb_cmdstore_key(cmd, key.data(), key.size());
+                        lcb_cmdstore_value(cmd, value.data(), value.size());
+                        lcb_cmdstore_durability(cmd, durability_level);
+                        batch.emplace_back(type, reinterpret_cast< lcb_CMDBASE * >(cmd));
+                    } break;
+                    case Workload::op_read: {
+                        lcb_CMDGET *cmd = nullptr;
+                        rc = lcb_cmdget_create(&cmd);
+                        if (rc != LCB_SUCCESS) {
+                            continue;
+                        }
+                        const std::string &key = worker->next_key();
+                        lcb_cmdget_key(cmd, key.data(), key.size());
+                        batch.emplace_back(type, reinterpret_cast< lcb_CMDBASE * >(cmd));
+                    } break;
+                    case Workload::op_delete: {
+                        lcb_CMDREMOVE *cmd = nullptr;
+                        rc = lcb_cmdremove_create(&cmd);
+                        if (rc != LCB_SUCCESS) {
+                            continue;
+                        }
+                        const std::string &key = worker->next_key();
+                        lcb_cmdremove_key(cmd, key.data(), key.size());
+                        lcb_cmdremove_durability(cmd, durability_level);
+                        batch.emplace_back(type, reinterpret_cast< lcb_CMDBASE * >(cmd));
+                    } break;
                 }
-                const std::string &key = worker->next_key();
-                const std::string &value = worker->next_value();
-                lcb_cmdstore_key(cmd, key.data(), key.size());
-                lcb_cmdstore_value(cmd, value.data(), value.size());
-                lcb_cmdstore_durability(cmd, durability_level);
-                batch.push_back(cmd);
+                items_left--;
+                if (has_limit && items_left == 0) {
+                    break;
+                }
             }
             worker->push_batch(batch);
             batch.clear();
@@ -571,6 +752,32 @@ class DestroyHandler : public Handler
     }
 };
 
+class WorkloadHandler : public Handler
+{
+  public:
+    HANDLER_DESCRIPTION("Describes workload for future workers (default writes=100, reads=0, deletes=0)")
+    WorkloadHandler() : Handler("workload") {}
+
+  protected:
+    void execute(bm_COMMAND &cmd) override
+    {
+        if (!cmd.options.empty()) {
+            unsigned int writes = 0, reads = 0, deletes = 0;
+            if (cmd.options.count("writes")) {
+                writes = std::stoull(cmd.options["writes"]);
+            }
+            if (cmd.options.count("reads")) {
+                reads = std::stoull(cmd.options["reads"]);
+            }
+            if (cmd.options.count("deletes")) {
+                deletes = std::stoull(cmd.options["deletes"]);
+            }
+            current_workload = Workload(writes, reads, deletes);
+        }
+        std::cout << "# current_workload = " << current_workload << std::endl;
+    }
+};
+
 class StartHandler : public Handler
 {
   public:
@@ -578,12 +785,18 @@ class StartHandler : public Handler
     StartHandler() : Handler("start") {}
 
   protected:
-    void execute(bm_COMMAND &) override
+    void execute(bm_COMMAND &cmd) override
     {
+        size_t num_items = 0;
+        std::string opt_msg;
+        if (cmd.options.count("num-items")) {
+            num_items = std::stoull(cmd.options["num-items"]);
+            opt_msg = " (with limit of " + std::to_string(num_items) + " items)";
+        }
         for (auto &wpair : workers) {
             if (!wpair.second->is_running) {
-                wpair.second->start();
-                std::cout << "# worker " << wpair.first << " has been started" << std::endl;
+                wpair.second->start(num_items);
+                std::cout << "# worker " << wpair.first << " has been started" << opt_msg << std::endl;
             }
         }
     }
@@ -786,6 +999,7 @@ static void setupHandlers()
     handlers["value-pool-size"] = new bench::ValuePoolSizeHandler();
     handlers["value-size-min"] = new bench::ValueSizeMinHandler();
     handlers["value-size-max"] = new bench::ValueSizeMaxHandler();
+    handlers["workload"] = new bench::WorkloadHandler();
 }
 
 bool cleaning = false;
@@ -834,6 +1048,15 @@ static void real_main(int argc, char **argv)
     parser.parse(argc, argv);
     config.processOptions();
 
+    FILE *finput = stdin;
+    if (!config.scriptPath().empty()) {
+        finput = fopen(config.scriptPath().c_str(), "r");
+        if (finput == NULL) {
+            perror("unable to open script file");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     setupHandlers();
     std::atexit(cleanup);
     setup_sigint_handler();
@@ -841,18 +1064,22 @@ static void real_main(int argc, char **argv)
     linenoiseSetCompletionCallback(command_completion);
     linenoiseSetMultiLine(1);
     linenoiseHistoryLoad(history_path.c_str());
+    linenoiseSetInputStream(finput);
 
     {
-        lcb_create_st cropts{};
-        memset(&cropts, 0, sizeof cropts);
+        lcb_CREATEOPTS *cropts = nullptr;
         config.fillCropts(cropts);
-        std::cerr << "# connection-string = " << cropts.v.v3.connstr << std::endl;
+        std::cerr << "# connection-string = " << cropts->connstr << std::endl;
+        lcb_createopts_destroy(cropts);
     }
-    std::cerr << "# value-pool-size = " << value_pool_size << std::endl;
-    std::cerr << "# value-size-max = " << value_size_max << std::endl;
-    std::cerr << "# value-size-min = " << value_size_min << std::endl;
-    std::cerr << "# batch-size = " << batch_size << std::endl;
-    std::cerr << "# durability-level = " << bench::durability_level_to_string(durability_level) << std::endl;
+    if (finput == stdin) {
+        std::cerr << "# value-pool-size = " << value_pool_size << std::endl;
+        std::cerr << "# value-size-max = " << value_size_max << std::endl;
+        std::cerr << "# value-size-min = " << value_size_min << std::endl;
+        std::cerr << "# batch-size = " << batch_size << std::endl;
+        std::cerr << "# durability-level = " << bench::durability_level_to_string(durability_level) << std::endl;
+        std::cout << "# current_workload = " << current_workload << std::endl;
+    }
 
     do {
         char *line = linenoise("bench> ");
@@ -860,9 +1087,15 @@ static void real_main(int argc, char **argv)
         if (line == nullptr) {
             break;
         }
-        if (isatty(STDIN_FILENO)) {
+        if (strlen(line) == 0 || line[0] == '#') {
+            /* ignore empty lines and comments */
+            continue;
+        }
+        if (finput == stdin && isatty(fileno(stdin))) {
             linenoiseHistoryAdd(line);
             linenoiseHistorySave(history_path.c_str());
+        } else {
+            std::cerr << "> " << line << std::endl;
         }
         ptr = line;
         bm_COMMAND cmd;
@@ -886,8 +1119,8 @@ static void real_main(int argc, char **argv)
                     cmd.args.emplace_back(tok.t.word.ptr, tok.t.word.len);
                     break;
                 case BM_TOKEN_OPTION:
-                    printf("option: <%.*s>, value: <%.*s>\n", tok.t.option.klen, tok.t.option.key, tok.t.option.vlen,
-                           tok.t.option.val);
+                    cmd.options.emplace(std::string(tok.t.option.key, tok.t.option.klen),
+                                        std::string(tok.t.option.val, tok.t.option.vlen));
                     break;
                 default:
                     break;

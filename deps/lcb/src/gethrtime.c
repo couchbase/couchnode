@@ -18,11 +18,10 @@
 #include "config.h"
 #include "settings.h"
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/utils.h>
 
 #ifndef HAVE_GETHRTIME
 
-#include <stdlib.h>
-#include <time.h>
 #if defined(__MACH__) && defined(__APPLE__)
 #include <mach/mach_time.h>
 #endif

@@ -192,7 +192,8 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
 
 void Confmon::provider_failed(Provider *provider, lcb_STATUS reason)
 {
-    lcb_log(LOGARGS(this, INFO), "Provider '%s' failed", provider_string(provider->type));
+    lcb_log(LOGARGS(this, INFO), "Provider '%s' failed: %s", provider_string(provider->type),
+            lcb_strerror_short(reason));
 
     if (provider != cur_provider) {
         lcb_log(LOGARGS(this, TRACE), "Ignoring failure. Current=%p (%s)", (void *)cur_provider,

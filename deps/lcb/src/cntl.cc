@@ -120,7 +120,7 @@ HANDLER(get_vbconfig) {
     RETURN_GET_ONLY(lcbvb_CONFIG*, LCBT_VBCONFIG(instance))
 }
 HANDLER(get_htype) {
-    RETURN_GET_ONLY(lcb_type_t, static_cast<lcb_type_t>(instance->settings->conntype))
+    RETURN_GET_ONLY(lcb_INSTANCE_TYPE, static_cast< lcb_INSTANCE_TYPE >(instance->settings->conntype))
 }
 HANDLER(get_iops) {
     RETURN_GET_ONLY(lcb_io_opt_t, instance->iotable->p)
@@ -190,9 +190,6 @@ HANDLER(wait_for_config_handler) {
 }
 HANDLER(fetch_mutation_tokens_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, fetch_mutation_tokens))
-}
-HANDLER(dur_mutation_tokens_handler) {
-    RETURN_GET_SET(int, LCBT_SETTING(instance, dur_mutation_tokens))
 }
 HANDLER(nmv_imm_retry_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, nmv_retry_imm));
@@ -337,15 +334,15 @@ HANDLER(max_redirects) {
 
 HANDLER(logprocs_handler) {
     if (mode == LCB_CNTL_GET) {
-        *(lcb_logprocs**)arg = LCBT_SETTING(instance, logger);
+        *(const lcb_LOGGER **)arg = LCBT_SETTING(instance, logger);
     } else if (mode == LCB_CNTL_SET) {
-        LCBT_SETTING(instance, logger) = (lcb_logprocs *)arg;
+        LCBT_SETTING(instance, logger) = (const lcb_LOGGER *)arg;
     }
     (void)cmd; return LCB_SUCCESS;
 }
 
 HANDLER(config_transport) {
-    lcb_config_transport_t *val = reinterpret_cast<lcb_config_transport_t*>(arg);
+    lcb_BOOTSTRAP_TRANSPORT *val = reinterpret_cast< lcb_BOOTSTRAP_TRANSPORT * >(arg);
     if (mode == LCB_CNTL_SET) { return LCB_ECTL_UNSUPPMODE; }
     if (!instance->cur_configinfo) { return LCB_CLIENT_ETMPFAIL; }
 
@@ -384,13 +381,6 @@ HANDLER(config_nodes) {
     target->configure_nodes(hostlist);
 
     return LCB_SUCCESS;
-}
-
-
-HANDLER(init_providers) {
-    lcb_create_st2 *opts = reinterpret_cast<lcb_create_st2*>(arg);
-    if (mode != LCB_CNTL_SET) { return LCB_ECTL_UNSUPPMODE; }
-    (void)cmd; return lcb_init_providers2(instance, opts);
 }
 
 HANDLER(config_cache_handler) {
@@ -443,7 +433,7 @@ HANDLER(allocfactory_handler) {
 HANDLER(console_log_handler) {
     lcb_U32 level;
     struct lcb_CONSOLELOGGER *logger;
-    lcb_logprocs *procs;
+    const lcb_LOGGER *procs;
 
     level = *(lcb_U32*)arg;
     if (mode != LCB_CNTL_SET) {
@@ -459,16 +449,15 @@ HANDLER(console_log_handler) {
         return LCB_SUCCESS;
     }
 
-    logger = (struct lcb_CONSOLELOGGER* ) lcb_console_logprocs;
+    logger = (struct lcb_CONSOLELOGGER *)lcb_console_logger;
     level = LCB_LOG_ERROR - level;
-    logger->minlevel = level;
+    logger->minlevel = (lcb_LOG_SEVERITY)level;
     LCBT_SETTING(instance, logger) = &logger->base;
     (void)cmd; return LCB_SUCCESS;
 }
 
 HANDLER(console_fp_handler) {
-    struct lcb_CONSOLELOGGER *logger =
-            (struct lcb_CONSOLELOGGER*)lcb_console_logprocs;
+    struct lcb_CONSOLELOGGER *logger = (struct lcb_CONSOLELOGGER *)lcb_console_logger;
     if (mode == LCB_CNTL_GET) {
         *(FILE **)arg = logger->fp;
     } else if (mode == LCB_CNTL_SET) {
@@ -487,7 +476,8 @@ HANDLER(console_fp_handler) {
 
 HANDLER(reinit_spec_handler) {
     if (mode == LCB_CNTL_GET) { return LCB_ECTL_UNSUPPMODE; }
-    (void)cmd; return lcb_reinit3(instance, reinterpret_cast<const char*>(arg));
+    (void)cmd;
+    return lcb_reinit(instance, reinterpret_cast< const char * >(arg));
 }
 
 HANDLER(client_string_handler) {
@@ -661,6 +651,7 @@ HANDLER(durable_write_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, enable_durable_write));
 }
 
+/* clang-format off */
 static ctl_handler handlers[] = {
     timeout_common,                       /* LCB_CNTL_OP_TIMEOUT */
     timeout_common,                       /* LCB_CNTL_VIEW_TIMEOUT */
@@ -694,7 +685,7 @@ static ctl_handler handlers[] = {
     config_nodes,                         /* LCB_CNTL_CONFIG_HTTP_NODES */
     config_nodes,                         /* LCB_CNTL_CONFIG_CCCP_NODES */
     get_changeset,                        /* LCB_CNTL_CHANGESET */
-    init_providers,                       /* LCB_CNTL_CONFIG_ALL_NODES */
+    NULL,                                 /* LCB_CNTL_CONFIG_ALL_NODES */
     config_cache_handler,                 /* LCB_CNTL_CONFIGCACHE */
     ssl_mode_handler,                     /* LCB_CNTL_SSL_MODE */
     ssl_certpath_handler,                 /* LCB_CNTL_SSL_CERT */
@@ -714,8 +705,8 @@ static ctl_handler handlers[] = {
     schedflush_handler,                   /* LCB_CNTL_SCHED_IMPLICIT_FLUSH */
     vbguess_handler,                      /* LCB_CNTL_VBGUESS_PERSIST */
     unsafe_optimize,                      /* LCB_CNTL_UNSAFE_OPTIMIZE */
-    fetch_mutation_tokens_handler,        /* LCB_CNTL_FETCH_MUTATION_TOKENS */
-    dur_mutation_tokens_handler,          /* LCB_CNTL_DURABILITY_MUTATION_TOKENS */
+    fetch_mutation_tokens_handler,        /* LCB_CNTL_ENABLE_MUTATION_TOKENS */
+    NULL,                                 /* LCB_CNTL_DURABILITY_MUTATION_TOKENS */
     config_cache_handler,                 /* LCB_CNTL_CONFIGCACHE_READONLY */
     nmv_imm_retry_handler,                /* LCB_CNTL_RETRY_NMV_IMM */
     mutation_tokens_supported_handler,    /* LCB_CNTL_MUTATION_TOKENS_SUPPORTED */
@@ -761,6 +752,7 @@ static ctl_handler handlers[] = {
     allow_static_config_handler,          /* LCB_CNTL_ALLOW_STATIC_CONFIG */
     NULL
 };
+/* clang-format on */
 
 /* Union used for conversion to/from string functions */
 typedef union {
@@ -918,8 +910,8 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"http_poolsize", LCB_CNTL_HTTP_POOLSIZE, convert_SIZE},
     {"vbguess_persist", LCB_CNTL_VBGUESS_PERSIST, convert_intbool},
     {"unsafe_optimize", LCB_CNTL_UNSAFE_OPTIMIZE, convert_intbool},
-    {"fetch_mutation_tokens", LCB_CNTL_FETCH_MUTATION_TOKENS, convert_intbool},
-    {"dur_mutation_tokens", LCB_CNTL_DURABILITY_MUTATION_TOKENS, convert_intbool},
+    {"enable_mutation_tokens", LCB_CNTL_ENABLE_MUTATION_TOKENS, convert_intbool},
+    {"", -1, NULL}, /* removed dur_mutation_tokens */
     {"retry_nmv_imm", LCB_CNTL_RETRY_NMV_IMM, convert_intbool},
     {"tcp_nodelay", LCB_CNTL_TCP_NODELAY, convert_intbool},
     {"readj_ts_wait", LCB_CNTL_RESET_TIMEOUT_ON_WAIT, convert_intbool},

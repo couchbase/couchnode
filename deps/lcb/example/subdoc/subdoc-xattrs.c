@@ -89,17 +89,17 @@ static void n1qlrow_callback(lcb_INSTANCE *instance, int type, const lcb_RESPN1Q
     {
         char *path = "discounts.jsmith123";
 
-        lcb_SUBDOCOPS *specs;
-        lcb_subdocops_create(&specs, 2);
-        lcb_subdocops_exists(specs, 0, LCB_SUBDOCOPS_F_XATTRPATH, path, strlen(path));
-        lcb_subdocops_exists(specs, 1, LCB_SUBDOCOPS_F_XATTRPATH, path, strlen(path));
+        lcb_SUBDOCSPECS *specs;
+        lcb_subdocspecs_create(&specs, 2);
+        lcb_subdocspecs_exists(specs, 0, LCB_SUBDOCSPECS_F_XATTRPATH, path, strlen(path));
+        lcb_subdocspecs_exists(specs, 1, LCB_SUBDOCSPECS_F_XATTRPATH, path, strlen(path));
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key, strlen(key));
-        lcb_cmdsubdoc_operations(cmd, specs);
+        lcb_cmdsubdoc_specs(cmd, specs);
         rc = lcb_subdoc(instance, NULL, cmd);
-        lcb_subdocops_destroy(specs);
+        lcb_subdocspecs_destroy(specs);
         lcb_cmdsubdoc_destroy(cmd);
         assert(rc == LCB_SUCCESS);
     }
@@ -110,16 +110,17 @@ static void n1qlrow_callback(lcb_INSTANCE *instance, int type, const lcb_RESPN1Q
 
 static lcb_INSTANCE *connect_as(char *username, char *password)
 {
-    struct lcb_create_st crst = {.version = 3};
+    lcb_CREATEOPTS *crst = NULL;
 
-    crst.v.v3.connstr = DEFAULT_CONNSTR;
-    crst.v.v3.username = username;
-    crst.v.v3.passwd = password;
+    lcb_createopts_create(&crst, LCB_TYPE_BUCKET);
+    lcb_createopts_connstr(crst, DEFAULT_CONNSTR, strlen(DEFAULT_CONNSTR));
+    lcb_createopts_credentials(crst, username, strlen(username), password, strlen(password));
 
     lcb_INSTANCE *instance;
     lcb_STATUS rc;
 
-    rc = lcb_create(&instance, &crst);
+    rc = lcb_create(&instance, crst);
+    lcb_createopts_destroy(crst);
     assert(rc == LCB_SUCCESS);
     rc = lcb_connect(instance);
     assert(rc == LCB_SUCCESS);
@@ -127,8 +128,8 @@ static lcb_INSTANCE *connect_as(char *username, char *password)
     rc = lcb_get_bootstrap_status(instance);
     assert(rc == LCB_SUCCESS);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdoc_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdoc_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdoc_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdoc_callback);
 
     return instance;
 }
@@ -142,32 +143,32 @@ int main()
 
     // Add key-value pairs to hotel_10138, representing traveller-Ids and associated discount percentages
     {
-        lcb_SUBDOCOPS *specs;
-        lcb_subdocops_create(&specs, 4);
+        lcb_SUBDOCSPECS *specs;
+        lcb_subdocspecs_create(&specs, 4);
 
         {
             char *path = "discounts.jsmith123";
             char *val = "20";
-            lcb_subdocops_dict_upsert(specs, 0, LCB_SUBDOCOPS_F_MKINTERMEDIATES | LCB_SUBDOCOPS_F_XATTRPATH, path,
-                                      strlen(path), val, strlen(val));
+            lcb_subdocspecs_dict_upsert(specs, 0, LCB_SUBDOCSPECS_F_MKINTERMEDIATES | LCB_SUBDOCSPECS_F_XATTRPATH, path,
+                                        strlen(path), val, strlen(val));
         }
         {
             char *path = "discounts.pjones356";
             char *val = "30";
-            lcb_subdocops_dict_upsert(specs, 1, LCB_SUBDOCOPS_F_MKINTERMEDIATES | LCB_SUBDOCOPS_F_XATTRPATH, path,
-                                      strlen(path), val, strlen(val));
+            lcb_subdocspecs_dict_upsert(specs, 1, LCB_SUBDOCSPECS_F_MKINTERMEDIATES | LCB_SUBDOCSPECS_F_XATTRPATH, path,
+                                        strlen(path), val, strlen(val));
         }
         // The following lines, "insert" and "remove", simply demonstrate insertion and
         // removal of the same path and value
         {
             char *path = "discounts.jbrown789";
             char *val = "25";
-            lcb_subdocops_dict_add(specs, 2, LCB_SUBDOCOPS_F_MKINTERMEDIATES | LCB_SUBDOCOPS_F_XATTRPATH, path,
-                                   strlen(path), val, strlen(val));
+            lcb_subdocspecs_dict_add(specs, 2, LCB_SUBDOCSPECS_F_MKINTERMEDIATES | LCB_SUBDOCSPECS_F_XATTRPATH, path,
+                                     strlen(path), val, strlen(val));
         }
         {
             char *path = "discounts.jbrown789";
-            lcb_subdocops_remove(specs, 3, LCB_SUBDOCOPS_F_XATTRPATH, path, strlen(path));
+            lcb_subdocspecs_remove(specs, 3, LCB_SUBDOCSPECS_F_XATTRPATH, path, strlen(path));
         }
 
         char *key = "hotel_10138";
@@ -175,28 +176,28 @@ int main()
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key, strlen(key));
-        lcb_cmdsubdoc_operations(cmd, specs);
+        lcb_cmdsubdoc_specs(cmd, specs);
         rc = lcb_subdoc(instance, NULL, cmd);
-        lcb_subdocops_destroy(specs);
+        lcb_subdocspecs_destroy(specs);
         lcb_cmdsubdoc_destroy(cmd);
         assert(rc == LCB_SUCCESS);
     }
 
     // Add key - value pairs to hotel_10142, again representing traveller - Ids and associated discount percentages
     {
-        lcb_SUBDOCOPS *specs;
-        lcb_subdocops_create(&specs, 2);
+        lcb_SUBDOCSPECS *specs;
+        lcb_subdocspecs_create(&specs, 2);
         {
             char *path = "discounts.jsmith123";
             char *val = "15";
-            lcb_subdocops_dict_upsert(specs, 0, LCB_SUBDOCOPS_F_MKINTERMEDIATES | LCB_SUBDOCOPS_F_XATTRPATH, path,
-                                      strlen(path), val, strlen(val));
+            lcb_subdocspecs_dict_upsert(specs, 0, LCB_SUBDOCSPECS_F_MKINTERMEDIATES | LCB_SUBDOCSPECS_F_XATTRPATH, path,
+                                        strlen(path), val, strlen(val));
         }
         {
             char *path = "discounts.pjones356";
             char *val = "10";
-            lcb_subdocops_dict_upsert(specs, 1, LCB_SUBDOCOPS_F_MKINTERMEDIATES | LCB_SUBDOCOPS_F_XATTRPATH, path,
-                                      strlen(path), val, strlen(val));
+            lcb_subdocspecs_dict_upsert(specs, 1, LCB_SUBDOCSPECS_F_MKINTERMEDIATES | LCB_SUBDOCSPECS_F_XATTRPATH, path,
+                                        strlen(path), val, strlen(val));
         }
 
         char *key = "hotel_10142";
@@ -204,9 +205,9 @@ int main()
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key, strlen(key));
-        lcb_cmdsubdoc_operations(cmd, specs);
+        lcb_cmdsubdoc_specs(cmd, specs);
         rc = lcb_subdoc(instance, NULL, cmd);
-        lcb_subdocops_destroy(specs);
+        lcb_subdocspecs_destroy(specs);
         lcb_cmdsubdoc_destroy(cmd);
         assert(rc == LCB_SUCCESS);
     }

@@ -34,34 +34,32 @@ class ServerParams
         loadParam(pass, p);
     }
 
-    void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io)
+    void makeConnectParams(lcb_CREATEOPTS *&crst, lcb_io_opt_t io, lcb_INSTANCE_TYPE type = LCB_TYPE_BUCKET)
     {
-        memset(&crst, 0, sizeof(crst));
-        if (mcNodes.empty()) {
-            crst.version = 3;
-            crst.v.v3.connstr = host.c_str();
-            crst.v.v3.username = user.c_str();
-            crst.v.v3.passwd = pass.c_str();
-            crst.v.v3.io = io;
+        lcb_createopts_create(&crst, type);
+        if (mcNodes.empty() || type == LCB_TYPE_CLUSTER) {
+            connstr = "couchbase://" + host + "=http";
         } else {
-            crst.version = 2;
-            crst.v.v2.host = host.c_str();
-            crst.v.v2.bucket = bucket.c_str();
-            crst.v.v2.user = user.c_str();
-            crst.v.v2.passwd = pass.c_str();
-            crst.v.v2.io = io;
-            crst.v.v2.mchosts = mcNodes.c_str();
+            connstr = "couchbase+explicit://" + host + "=http;" + mcNodes;
         }
+        lcb_createopts_connstr(crst, connstr.c_str(), connstr.size());
+        lcb_createopts_credentials(crst, user.c_str(), user.size(), pass.c_str(), pass.size());
+        lcb_createopts_io(crst, io);
+    }
+
+    const std::string &getMcPorts() const
+    {
+        return mcNodes;
     }
 
     void setMcPorts(const std::vector< int > &portlist)
     {
         std::stringstream ss;
-        std::vector< int >::const_iterator ii = portlist.begin();
-        for (; ii != portlist.end(); ii++) {
+        for (std::vector< int >::const_iterator ii = portlist.begin(); ii != portlist.end(); ii++) {
             ss << "localhost";
             ss << ":";
             ss << std::dec << *ii;
+            ss << "=mcd";
             ss << ";";
         }
         mcNodes = ss.str();
@@ -73,6 +71,7 @@ class ServerParams
     std::string pass;
     std::string bucket;
     std::string mcNodes;
+    std::string connstr;
 
   private:
     void loadParam(std::string &d, const char *s)

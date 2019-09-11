@@ -23,12 +23,6 @@
  * Main header file for Couchbase
  */
 
-#define LCB_CONFIG_MCD_PORT 11210
-#define LCB_CONFIG_MCD_SSL_PORT 11207
-#define LCB_CONFIG_HTTP_PORT 8091
-#define LCB_CONFIG_HTTP_SSL_PORT 18091
-#define LCB_CONFIG_MCCOMPAT_PORT 11211
-
 struct lcb_st;
 
 /**
@@ -54,14 +48,12 @@ typedef struct lcb_HTTP_HANDLE_ lcb_HTTP_HANDLE;
 #include <libcouchbase/kvbuf.h>
 #include <libcouchbase/auth.h>
 #include <libcouchbase/tracing.h>
+#include <libcouchbase/logger.h>
 #include <libcouchbase/cntl.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef lcb_U8 lcb_datatype_t;
-typedef lcb_U32 lcb_USECS;
 
 /******************************************************************************
  ******************************************************************************
@@ -239,12 +231,6 @@ typedef lcb_U32 lcb_USECS;
  * @{
  */
 
-/** @brief Handle types @see lcb_create_st3::type */
-typedef enum {
-    LCB_TYPE_BUCKET = 0x00, /**< Handle for data access (default) */
-    LCB_TYPE_CLUSTER = 0x01 /**< Handle for administrative access */
-} lcb_type_t;
-
 /**
  * @brief Type of the bucket
  *
@@ -257,101 +243,30 @@ typedef enum {
     LCB_BTYPE_MEMCACHED = 0x03  /**< Data not persisted and not replicated */
 } lcb_BTYPE;
 
-#ifndef __LCB_DOXYGEN__
-/* These are definitions for some of the older fields of the `lcb_create_st`
- * structure. They are here for backwards compatibility and should not be
- * used by new code */
 typedef enum {
     LCB_CONFIG_TRANSPORT_LIST_END = 0,
     LCB_CONFIG_TRANSPORT_HTTP = 1,
     LCB_CONFIG_TRANSPORT_CCCP,
     LCB_CONFIG_TRANSPORT_MAX
-} lcb_config_transport_t;
-#define LCB_CREATE_V0_FIELDS                                                                                           \
-    const char *host;                                                                                                  \
-    const char *user;                                                                                                  \
-    const char *passwd;                                                                                                \
-    const char *bucket;                                                                                                \
-    struct lcb_io_opt_st *io;
-#define LCB_CREATE_V1_FIELDS LCB_CREATE_V0_FIELDS lcb_type_t type;
-#define LCB_CREATE_V2_FIELDS                                                                                           \
-    LCB_CREATE_V1_FIELDS const char *mchosts;                                                                          \
-    const lcb_config_transport_t *transports;
-struct lcb_create_st0 {
-    LCB_CREATE_V0_FIELDS
-};
-struct lcb_create_st1 {
-    LCB_CREATE_V1_FIELDS
-};
-struct lcb_create_st2 {
-    LCB_CREATE_V2_FIELDS
-};
-#endif
+} lcb_BOOTSTRAP_TRANSPORT;
 
-/**
- * @brief Inner structure V3 for lcb_create().
- */
-struct lcb_create_st3 {
-    const char *connstr; /**< Connection string */
+/** @brief Handle types @see lcb_create_st3::type */
+typedef enum {
+    LCB_TYPE_BUCKET = 0x00, /**< Handle for data access (default) */
+    LCB_TYPE_CLUSTER = 0x01 /**< Handle for administrative access */
+} lcb_INSTANCE_TYPE;
 
-    /**
-     * Username to use for authentication. This should only be set when
-     * connecting to a server 5.0 or greater.
-     */
-    const char *username;
+typedef struct lcb_CREATEOPTS_ lcb_CREATEOPTS;
 
-    /**
-     * Password for bucket. Can also be password for username on servers >= 5.0
-     */
-    const char *passwd;
-
-    void *_pad_bucket;        /**< @private */
-    struct lcb_io_opt_st *io; /**< IO Options */
-    lcb_type_t type;
-};
-
-/**
- * @brief Inner structure V4 for lcb_create().
- *
- * Same as V3, but allows to supply logger (@see LCB_CNTL_LOGGER).
- */
-struct lcb_create_st4 {
-    const char *connstr; /**< Connection string */
-
-    /**
-     * Username to use for authentication. This should only be set when
-     * connecting to a server 5.0 or greater.
-     */
-    const char *username;
-
-    /**
-     * Password for bucket. Can also be password for username on servers >= 5.0
-     */
-    const char *passwd;
-
-    lcb_logprocs *logger;     /**< Logger */
-    struct lcb_io_opt_st *io; /**< IO Options */
-    lcb_type_t type;
-};
-
-/**
- * @brief Wrapper structure for lcb_create()
- * @see lcb_create_st3
- */
-struct lcb_create_st {
-    /** Indicates which field in the @ref lcb_CRST_u union should be used. Set this to `3` */
-    int version;
-
-    /**This union contains the set of current and historical options. The
-     * The #v3 field should be used. */
-    union lcb_CRST_u {
-        struct lcb_create_st0 v0;
-        struct lcb_create_st1 v1;
-        struct lcb_create_st2 v2;
-        struct lcb_create_st3 v3; /**< Use this field */
-        struct lcb_create_st4 v4;
-    } v;
-};
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_create(lcb_CREATEOPTS **options, lcb_INSTANCE_TYPE type);
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_destroy(lcb_CREATEOPTS *options);
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_connstr(lcb_CREATEOPTS *options, const char *connstr, size_t connstr_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_bucket(lcb_CREATEOPTS *options, const char *bucket, size_t bucket_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_logger(lcb_CREATEOPTS *options, const lcb_LOGGER *logger);
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_credentials(lcb_CREATEOPTS *options, const char *username,
+                                                       size_t username_len, const char *password, size_t password_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_authenticator(lcb_CREATEOPTS *options, lcb_AUTHENTICATOR *auth);
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_io(lcb_CREATEOPTS *options, struct lcb_io_opt_st *io);
 
 /**
  * @brief Create an instance of lcb.
@@ -397,7 +312,7 @@ struct lcb_create_st {
  * @see lcb_create_st3
  */
 LIBCOUCHBASE_API
-lcb_STATUS lcb_create(lcb_INSTANCE **instance, const struct lcb_create_st *options);
+lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options);
 
 /**
  * @brief Schedule the initial connection
@@ -573,7 +488,7 @@ typedef enum {
     LCB_CALLBACK__MAX                      /* Number of callbacks */
 } lcb_CALLBACK_TYPE;
 
-/* The following callback types cannot be set using lcb_install_callback3(),
+/* The following callback types cannot be set using lcb_install_callback(),
  * however, their value is passed along as the second argument of their
  * respective callbacks. This allows you to still use the same callback,
  * differentiating their meaning by the type. */
@@ -650,7 +565,7 @@ typedef void (*lcb_RESPCALLBACK)(lcb_INSTANCE *instance, int cbtype, const lcb_R
  * to set the default callback to `NULL`.
  */
 LIBCOUCHBASE_API
-lcb_RESPCALLBACK lcb_install_callback3(lcb_INSTANCE *instance, int cbtype, lcb_RESPCALLBACK cb);
+lcb_RESPCALLBACK lcb_install_callback(lcb_INSTANCE *instance, int cbtype, lcb_RESPCALLBACK cb);
 
 /**
  * @committed
@@ -665,7 +580,7 @@ lcb_RESPCALLBACK lcb_install_callback3(lcb_INSTANCE *instance, int cbtype, lcb_R
  * @return the installed callback for the type.
  */
 LIBCOUCHBASE_API
-lcb_RESPCALLBACK lcb_get_callback3(lcb_INSTANCE *instance, int cbtype);
+lcb_RESPCALLBACK lcb_get_callback(lcb_INSTANCE *instance, int cbtype);
 
 /**
  * Returns the type of the callback as a string.
@@ -916,7 +831,7 @@ typedef enum {
      * The default storage mode. This constant was added in version 2.6.2 for
      * the sake of maintaining a default storage mode, eliminating the need
      * for simple storage operations to explicitly define
-     * lcb_CMDSTORE::operation. Behaviorally it is identical to @ref LCB_STORE_SET
+     * lcb_CMDSTORE::operation. Behaviorally it is identical to @ref LCB_STORE_UPSERT
      * in that it will make the server unconditionally store the item, whether
      * it exists or not.
      */
@@ -926,16 +841,13 @@ typedef enum {
      * Will cause the operation to fail if the key already exists in the
      * cluster.
      */
-    LCB_STORE_ADD = 0x01,
+    LCB_STORE_INSERT = 0x01,
 
     /**
      * Will cause the operation to fail _unless_ the key already exists in the
      * cluster.
      */
     LCB_STORE_REPLACE = 0x02,
-
-    /** Unconditionally store the item in the cluster */
-    LCB_STORE_SET = 0x03,
 
     /**
      * Rather than setting the contents of the entire document, take the value
@@ -2108,158 +2020,6 @@ typedef enum { LCB_VALUE_RAW = 0x00, LCB_VALUE_F_JSON = 0x01, LCB_VALUE_F_SNAPPY
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-cluster-status Cluster Information
- * @brief These functions return status information about the handle, the current
- * connection, and the number of nodes found within the cluster.
- *
- * @see lcb_cntl() for more functions to retrieve status info
- *
- * @addtogroup lcb-cluster-status
- * @{
- */
-
-/**@brief
- * Type of node to retrieve for the lcb_get_node() function
- */
-typedef enum {
-    /** Get an HTTP configuration (Rest API) node */
-    LCB_NODE_HTCONFIG = 0x01,
-    /** Get a data (memcached) node */
-    LCB_NODE_DATA = 0x02,
-    /** Get a view (CAPI) node */
-    LCB_NODE_VIEWS = 0x04,
-    /** Only return a node which is connected, or a node which is known to be up */
-    LCB_NODE_CONNECTED = 0x08,
-
-    /** Specifying this flag adds additional semantics which instruct the library
-     * to search additional resources to return a host, and finally,
-     * if no host can be found, return the string
-     * constant @ref LCB_GETNODE_UNAVAILABLE. */
-    LCB_NODE_NEVERNULL = 0x10,
-
-    /** Equivalent to `LCB_NODE_HTCONFIG|LCB_NODE_CONNECTED` */
-    LCB_NODE_HTCONFIG_CONNECTED = 0x09,
-
-    /**Equivalent to `LCB_NODE_HTCONFIG|LCB_NODE_NEVERNULL`.
-     * When this is passed, some additional attempts may be made by the library
-     * to return any kind of host, including searching the initial list of hosts
-     * passed to the lcb_create() function. */
-    LCB_NODE_HTCONFIG_ANY = 0x11
-} lcb_GETNODETYPE;
-
-/** String constant returned by lcb_get_node() when the @ref LCB_NODE_NEVERNULL
- * flag is specified, and no node can be returned */
-#define LCB_GETNODE_UNAVAILABLE "invalid_host:0"
-
-/**
- * @brief Return a string of `host:port` for a node of the given type.
- *
- * @param instance the instance from which to retrieve the node
- * @param type the type of node to return
- * @param index the node number if index is out of bounds it will be wrapped
- * around, thus there is never an invalid value for this parameter
- *
- * @return a string in the form of `host:port`. If LCB_NODE_NEVERNULL was specified
- * as an option in `type` then the string constant LCB_GETNODE_UNAVAILABLE is
- * returned. Otherwise `NULL` is returned if the type is unrecognized or the
- * LCB_NODE_CONNECTED option was specified and no connected node could be found
- * or a memory allocation failed.
- *
- * @note The index parameter is _ignored_ if `type` is
- * LCB_NODE_HTCONFIG|LCB_NODE_CONNECTED as there will always be only a single
- * HTTP bootstrap node.
- *
- * @code{.c}
- * const char *viewnode = lcb_get_node(instance, LCB_NODE_VIEWS, 0);
- * // Get the connected REST endpoint:
- * const char *restnode = lcb_get_node(instance, LCB_NODE_HTCONFIG|LCB_NODE_CONNECTED, 0);
- * if (!restnode) {
- *   printf("Instance not connected via HTTP!\n");
- * }
- * @endcode
- *
- * Iterate over all the data nodes:
- * @code{.c}
- * unsigned ii;
- * for (ii = 0; ii < lcb_get_num_servers(instance); ii++) {
- *   const char *kvnode = lcb_get_node(instance, LCB_NODE_DATA, ii);
- *   if (kvnode) {
- *     printf("KV node %s exists at index %u\n", kvnode, ii);
- *   } else {
- *     printf("No node for index %u\n", ii);
- *   }
- * }
- * @endcode
- *
- * @committed
- */
-LIBCOUCHBASE_API
-const char *lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned index);
-
-/**
- * @committed
- *
- * @brief Get the target server for a given key.
- *
- * This is a convenience function wrapping around the vBucket API which allows
- * you to retrieve the target node (the node which will be contacted) when
- * performing KV operations involving the key.
- *
- * @param instance the instance
- * @param key the key to use
- * @param nkey the length of the key
- * @return a string containing the hostname, or NULL on error.
- *
- * Since this is a convenience function, error details are not contained here
- * in favor of brevity. Use the full vBucket API for more powerful functions.
- */
-LIBCOUCHBASE_API
-const char *lcb_get_keynode(lcb_INSTANCE *instance, const void *key, size_t nkey);
-
-/**
- * @brief Get the number of the replicas in the cluster
- *
- * @param instance The handle to lcb
- * @return -1 if the cluster wasn't configured yet, and number of replicas
- * otherwise. This may be `0` if there are no replicas.
- * @committed
- */
-LIBCOUCHBASE_API
-lcb_S32 lcb_get_num_replicas(lcb_INSTANCE *instance);
-
-/**
- * @brief Get the number of the nodes in the cluster
- * @param instance The handle to lcb
- * @return -1 if the cluster wasn't configured yet, and number of nodes otherwise.
- * @committed
- */
-LIBCOUCHBASE_API
-lcb_S32 lcb_get_num_nodes(lcb_INSTANCE *instance);
-
-/**
- * @brief Get a list of nodes in the cluster
- *
- * @return a NULL-terminated list of 0-terminated strings consisting of
- * node hostnames:admin_ports for the entire cluster.
- * The storage duration of this list is only valid until the
- * next call to a libcouchbase function and/or when returning control to
- * libcouchbase' event loop.
- *
- * @code{.c}
- * const char * const * curp = lcb_get_server_list(instance);
- * for (; *curp; curp++) {
- *   printf("Have node %s\n", *curp);
- * }
- * @endcode
- * @committed
- */
-LIBCOUCHBASE_API
-const char *const *lcb_get_server_list(lcb_INSTANCE *instance);
-
-/**@} (Group: Cluster Info) */
-
-/**
- * @ingroup lcb-public-api
  * @defgroup lcb-cntl Settings
  * @brief Get/Set Library Options
  *
@@ -2366,7 +2126,7 @@ lcb_STATUS lcb_cntl(lcb_INSTANCE *instance, int mode, int cmd, void *arg);
  * |@ref LCB_CNTL_HTTP_POOLSIZE              | `"http_poolsize"`         | Number            |
  * |@ref LCB_CNTL_VBGUESS_PERSIST            | `"vbguess_persist"`       | Boolean           |
  * |@ref LCB_CNTL_CONLOGGER_LEVEL            | `"console_log_level"`     | Number (enum #lcb_log_severity_t) |
- * |@ref LCB_CNTL_FETCH_MUTATION_TOKENS      | `"fetch_mutation_tokens"` | Boolean           |
+ * |@ref LCB_CNTL_ENABLE_MUTATION_TOKENS     | `"enable_mutation_tokens"`| Boolean           |
  * |@ref LCB_CNTL_DURABILITY_MUTATION_TOKENS | `"dur_mutation_tokens"`   | Boolean           |
  * |@ref LCB_CNTL_TCP_NODELAY                | `"tcp_nodelay"`           | Boolean           |
  * |@ref LCB_CNTL_CONLOGGER_FP               | `"console_log_file"`      | FILE*, Path       |
@@ -2494,39 +2254,6 @@ LIBCOUCHBASE_API
 int lcb_supports_feature(int n);
 
 /**@} (Group: Build Info) */
-
-/**
- * Functions to allocate and free memory related to libcouchbase. This is
- * mainly for use on Windows where it is possible that the DLL and EXE
- * are using two different CRTs
- */
-LIBCOUCHBASE_API
-void *lcb_mem_alloc(lcb_SIZE size);
-
-/** Use this to free memory allocated with lcb_mem_alloc */
-LIBCOUCHBASE_API
-void lcb_mem_free(void *ptr);
-
-/**
- * @internal
- *
- * These two functions unconditionally start and stop the event loop. These
- * should be used _only_ when necessary. Use lcb_wait and lcb_breakout
- * for safer variants.
- *
- * Internally these proxy to the run_event_loop/stop_event_loop calls
- */
-LCB_INTERNAL_API
-void lcb_run_loop(lcb_INSTANCE *instance);
-
-/** @internal */
-LCB_INTERNAL_API
-void lcb_stop_loop(lcb_INSTANCE *instance);
-
-/** @internal */
-/* This returns the library's idea of time */
-LCB_INTERNAL_API
-lcb_U64 lcb_nstime(void);
 
 /**
  * @volatile
@@ -2754,7 +2481,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_named_param(lcb_CMDN1QL *cmd, const char
                                                     const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_positional_param(lcb_CMDN1QL *cmd, const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_adhoc(lcb_CMDN1QL *cmd, int adhoc);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_client_context_id(lcb_CMDN1QL *cmd, const char* value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_client_context_id(lcb_CMDN1QL *cmd, const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pretty(lcb_CMDN1QL *cmd, int pretty);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_readonly(lcb_CMDN1QL *cmd, int readonly);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_scan_cap(lcb_CMDN1QL *cmd, int value);
@@ -2857,61 +2584,61 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_result_status(const lcb_RESPSUBDOC *r
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_result_value(const lcb_RESPSUBDOC *resp, size_t index, const char **value,
                                                         size_t *value_len);
 
-typedef struct lcb_SUBDOCOPS_ lcb_SUBDOCOPS;
+typedef struct lcb_SUBDOCSPECS_ lcb_SUBDOCSPECS;
 
 /** Create intermediate paths */
-#define LCB_SUBDOCOPS_F_MKINTERMEDIATES (1 << 16)
+#define LCB_SUBDOCSPECS_F_MKINTERMEDIATES (1u << 16u)
 
 /** Access document XATTR path */
-#define LCB_SUBDOCOPS_F_XATTRPATH (1 << 18)
+#define LCB_SUBDOCSPECS_F_XATTRPATH (1u << 18u)
 
 /** Access document virtual/materialized path. Implies F_XATTRPATH */
-#define LCB_SUBDOCOPS_F_XATTR_MACROVALUES (1 << 19)
+#define LCB_SUBDOCSPECS_F_XATTR_MACROVALUES (1u << 19u)
 
 /** Access Xattrs of deleted documents */
-#define LCB_SUBDOCOPS_F_XATTR_DELETED_OK (1 << 20)
+#define LCB_SUBDOCSPECS_F_XATTR_DELETED_OK (1u << 20u)
 
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_create(lcb_SUBDOCOPS **operations, size_t capacity);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_destroy(lcb_SUBDOCOPS *operations);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_get(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags, const char *path,
-                                              size_t path_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_exists(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                 const char *path, size_t path_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_replace(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                  const char *path, size_t path_len, const char *value,
-                                                  size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_dict_add(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                   const char *path, size_t path_len, const char *value,
-                                                   size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_dict_upsert(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                      const char *path, size_t path_len, const char *value,
-                                                      size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_add_first(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                          const char *path, size_t path_len, const char *value,
-                                                          size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_add_last(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                         const char *path, size_t path_len, const char *value,
-                                                         size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_add_unique(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_create(lcb_SUBDOCSPECS **operations, size_t capacity);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_destroy(lcb_SUBDOCSPECS *operations);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_get(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_exists(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                   const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_replace(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                    const char *path, size_t path_len, const char *value,
+                                                    size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_dict_add(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                     const char *path, size_t path_len, const char *value,
+                                                     size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_dict_upsert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                        const char *path, size_t path_len, const char *value,
+                                                        size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_add_first(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                            const char *path, size_t path_len, const char *value,
+                                                            size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_add_last(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                            const char *path, size_t path_len, const char *value,
                                                            size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_array_insert(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                       const char *path, size_t path_len, const char *value,
-                                                       size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_counter(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                  const char *path, size_t path_len, int64_t delta);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_remove(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                 const char *path, size_t path_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_get_count(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                    const char *path, size_t path_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_get(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_add(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                      const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_upsert(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                         const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_replace(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags,
-                                                          const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocops_fulldoc_remove(lcb_SUBDOCOPS *operations, size_t index, uint32_t flags);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_add_unique(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                             const char *path, size_t path_len, const char *value,
+                                                             size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_insert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                         const char *path, size_t path_len, const char *value,
+                                                         size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_counter(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                    const char *path, size_t path_len, int64_t delta);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_remove(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                   const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_get_count(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                      const char *path, size_t path_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_get(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_insert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                           const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_upsert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                           const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_replace(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
+                                                            const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_remove(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags);
 
 typedef struct lcb_CMDSUBDOC_ lcb_CMDSUBDOC;
 
@@ -2922,7 +2649,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_collection(lcb_CMDSUBDOC *cmd, const c
                                                      const char *collection, size_t collection_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_key(lcb_CMDSUBDOC *cmd, const char *key, size_t key_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_cas(lcb_CMDSUBDOC *cmd, uint64_t cas);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_operations(lcb_CMDSUBDOC *cmd, const lcb_SUBDOCOPS *operations);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_specs(lcb_CMDSUBDOC *cmd, const lcb_SUBDOCSPECS *operations);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_expiration(lcb_CMDSUBDOC *cmd, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_durability(lcb_CMDSUBDOC *cmd, lcb_DURABILITY_LEVEL level);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create_if_missing(lcb_CMDSUBDOC *cmd, int flag);

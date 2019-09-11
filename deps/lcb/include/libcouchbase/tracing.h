@@ -204,7 +204,7 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_OP_DISPATCH_TO_SERVER "dispatch_to_server"
 #define LCBTRACE_OP_RESPONSE_DECODING "response_decoding"
 
-#define LCBTRACE_OP_ADD "add"
+#define LCBTRACE_OP_INSERT "insert"
 #define LCBTRACE_OP_APPEND "append"
 #define LCBTRACE_OP_COUNTER "counter"
 #define LCBTRACE_OP_GET "get"
@@ -222,8 +222,8 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_OP_EXISTS "exists"
 
 #define LCBTRACE_OP_STORE2NAME(code)                                                                                   \
-    (code == LCB_STORE_ADD)                                                                                            \
-        ? LCBTRACE_OP_ADD                                                                                              \
+    (code == LCB_STORE_INSERT)                                                                                         \
+        ? LCBTRACE_OP_INSERT                                                                                           \
         : (code == LCB_STORE_PREPEND) ? LCBTRACE_OP_PREPEND                                                            \
                                       : (code == LCB_STORE_APPEND) ? LCBTRACE_OP_APPEND : LCBTRACE_OP_UPSERT
 

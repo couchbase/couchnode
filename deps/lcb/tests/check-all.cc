@@ -36,6 +36,8 @@
 #include <sstream>
 
 #include "config.h"
+#include "check_config.h"
+
 #include "mocksupport/procutil.h"
 #define CLIOPTS_ENABLE_CXX
 #include "contrib/cliopts/cliopts.h"
@@ -299,7 +301,7 @@ class TestConfiguration
     // Evaluated *before*
     std::string getDefaultSrcroot()
     {
-        return ".";
+        return TEST_SRC_DIR;
     }
 
     std::string getDefaultTestdir()

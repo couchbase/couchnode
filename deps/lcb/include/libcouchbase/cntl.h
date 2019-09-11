@@ -399,57 +399,7 @@ typedef enum {
  */
 
 /**
- * @brief Logging Levels
- * @committed
- */
-typedef enum {
-    LCB_LOG_TRACE = 0, /**< the most verbose level */
-    LCB_LOG_DEBUG,     /**< diagnostic information, required to investigate problems */
-    LCB_LOG_INFO,      /**< useful notices, not often */
-    LCB_LOG_WARN,      /**< error notifications */
-    LCB_LOG_ERROR,     /**< error messages, usually the library have to re-initialize connection instance */
-    LCB_LOG_FATAL,     /**< fatal errors, the library cannot proceed */
-    LCB_LOG_MAX        /**< internal value for total number of levels */
-} lcb_log_severity_t;
-
-struct lcb_logprocs_st;
-
-/**
- * @brief Logger callback
- *
- *
- * This callback is invoked for each logging message emitted
- * @param procs the logging structure provided
- * @param iid instance id
- * @param subsys a string describing the module which emitted the message
- * @param severity one of the LCB_LOG_* severity constants.
- * @param srcfile the source file which emitted this message
- * @param srcline the line of the file for the message
- * @param fmt a printf format string
- * @param ap a va_list for vprintf
- */
-typedef void (*lcb_logging_callback)(struct lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity,
-                                     const char *srcfile, int srcline, const char *fmt, va_list ap);
-
-/**
- * @brief Logging context
- * @volatile
- *
- * This structure defines the logging handlers. Currently there is only
- * a single field defined which is the default callback for the loggers.
- * This API may change.
- */
-typedef struct lcb_logprocs_st {
-    int version;
-    union {
-        struct {
-            lcb_logging_callback callback;
-        } v0;
-    } v;
-} lcb_logprocs;
-
-/**
- * @brief Access the lcb_logprocs structure
+ * @brief Access the lcb_LOGGER structure
  * @uncommitted
  *
  * The lcb_logoprocs structure passed must not be freed until the instance
@@ -459,59 +409,6 @@ typedef struct lcb_logprocs_st {
  * @cntl_arg_get_and_set{lcb_logprocs**,lcb_logprocs*}*/
 #define LCB_CNTL_LOGGER 0x18
 
-/**
- * Helper to express printf spec for sensitive data. Usage:
- *
- *   printf("Logged as " LCB_LOG_SPEC("%s") " user", LCB_LOG_UD(instance, doc->username));
- */
-#define LCB_LOG_SPEC(fmt) "%s" fmt "%s"
-
-#define LCB_LOG_UD_OTAG "<ud>"
-#define LCB_LOG_UD_CTAG "</ud>"
-/**
- * User data is data that is stored into Couchbase by the application user account.
- *
- * - Key and value pairs in JSON documents, or the key exclusively
- * - Application/Admin usernames that identify the human person
- * - Names and email addresses asked during product registration and alerting
- * - Usernames
- * - Document xattrs
- * - Query statements included in the log file collected by support that leak
- *   the document fields (Select floor_price from stock).
- */
-#define LCB_LOG_UD(instance, val)                                                                                      \
-    lcb_is_redacting_logs(instance) ? LCB_LOG_UD_OTAG : "", val, lcb_is_redacting_logs(instance) ? LCB_LOG_UD_CTAG : ""
-
-#define LCB_LOG_MD_OTAG "<md>"
-#define LCB_LOG_MD_CTAG "</md>"
-/**
- * Metadata is logical data needed by Couchbase to store and process user data.
- *
- * - Cluster name
- * - Bucket names
- * - DDoc/view names
- * - View code
- * - Index names
- * - Mapreduce Design Doc Name and Definition (IP)
- * - XDCR Replication Stream Names
- * - And other couchbase resource specific meta data
- */
-#define LCB_LOG_MD(instance, val)                                                                                      \
-    lcb_is_redacting_logs(instance) ? LCB_LOG_MD_OTAG : "", val, lcb_is_redacting_logs(instance) ? LCB_LOG_MD_CTAG : ""
-
-#define LCB_LOG_SD_OTAG "<sd>"
-#define LCB_LOG_SD_CTAG "</sd>"
-/**
- * System data is data from other parts of the system Couchbase interacts with over the network.
- *
- * - IP addresses
- * - IP tables
- * - Hosts names
- * - Ports
- * - DNS topology
- */
-#define LCB_LOG_SD(instance, val)                                                                                      \
-    lcb_is_redacting_logs(instance) ? LCB_LOG_SD_OTAG : "", val, lcb_is_redacting_logs(instance) ? LCB_LOG_SD_CTAG : ""
 /**@}*/
 
 /**
@@ -949,27 +846,7 @@ typedef enum {
  *
  * @cntl_arg_both{int (as boolean)}
  */
-#define LCB_CNTL_FETCH_MUTATION_TOKENS 0x34
-
-/**
- * This setting determines whether the lcb_durability_poll() function will
- * transparently attempt to use mutation token functionality (rather than checking
- * the CAS). This option is most useful for older code which does
- * explicitly use mutation tokens but would like to use its benefits when
- * ensuring durability constraints are satisfied.
- *
- * This option is enabled by default. Users may wish to disable this if they
- * are performing durability operations against items stored from different
- * client instances, as this will make use of a client-global state which is
- * derived on a per-vBucket basis. This means that the last mutation performed
- * on a given vBucket for the client will be used, which in some cases may be
- * older or newer than the mutations passed to the lcb_durability_poll()
- * function.
- *
- * @cntl_arg_both{int (as boolean)}
- * @volatile
- */
-#define LCB_CNTL_DURABILITY_MUTATION_TOKENS 0x35
+#define LCB_CNTL_ENABLE_MUTATION_TOKENS 0x34
 
 /**
  * This read-only property determines if the mutation token mechanism is supported

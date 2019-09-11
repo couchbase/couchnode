@@ -364,7 +364,7 @@ static int build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
         server->ftspath = strdup("/");
     }
     if (server->cbaspath == NULL && server->svc.cbas) {
-        server->cbaspath = strdup("/query/service");
+        server->cbaspath = strdup("");
     }
     return 1;
 }
@@ -1451,7 +1451,7 @@ const char *lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE svc,
     } else if (svc == LCBVB_SVCTYPE_FTS) {
         path = srv->ftspath;
         strp = &svcs->fts_base_;
-    } else if (svc == LCBVB_SVCTYPE_CBAS) {
+    } else if (svc == LCBVB_SVCTYPE_ANALYTICS) {
         path = srv->cbaspath;
         strp = &svcs->cbas_base_;
     } else {

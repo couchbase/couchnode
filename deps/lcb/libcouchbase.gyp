@@ -214,7 +214,6 @@
         'src/netbuf/netbuf.c',
         'src/operations/cbflush.cc',
         'src/operations/counter.cc',
-        'src/operations/durability-cas.cc',
         'src/operations/durability-seqno.cc',
         'src/operations/durability.cc',
         'src/operations/exists.cc',

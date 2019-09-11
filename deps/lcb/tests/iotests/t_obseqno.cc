@@ -16,7 +16,7 @@
  */
 
 #include "iotests.h"
-#include <libcouchbase/utils.h>
+#include "internalstructs.h"
 
 using namespace std;
 class ObseqnoTest : public MockUnitTest
@@ -35,12 +35,12 @@ static void storeCb_getstok(lcb_INSTANCE *, int cbtype, const lcb_RESPSTORE *res
 
 static void storeGetStok(lcb_INSTANCE *instance, const string &k, const string &v, lcb_MUTATION_TOKEN *res)
 {
-    lcb_RESPCALLBACK oldcb = lcb_get_callback3(instance, LCB_CALLBACK_STORE);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeCb_getstok);
+    lcb_RESPCALLBACK oldcb = lcb_get_callback(instance, LCB_CALLBACK_STORE);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeCb_getstok);
     lcb_sched_enter(instance);
 
     lcb_CMDSTORE *cmd;
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, k.c_str(), k.size());
     lcb_cmdstore_value(cmd, v.c_str(), v.size());
 
@@ -49,7 +49,7 @@ static void storeGetStok(lcb_INSTANCE *instance, const string &k, const string &
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
     lcb_wait(instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, oldcb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, oldcb);
 }
 
 TEST_F(ObseqnoTest, testFetchImplicit)
@@ -61,9 +61,6 @@ TEST_F(ObseqnoTest, testFetchImplicit)
     createConnection(hw, &instance);
     const char *key = "obseqBasic";
     const char *value = "value";
-
-    rc = lcb_cntl_string(instance, "dur_mutation_tokens", "true");
-    ASSERT_EQ(LCB_SUCCESS, rc);
 
     lcb_MUTATION_TOKEN st_fetched = {0};
     storeGetStok(instance, key, value, &st_fetched);
@@ -102,11 +99,11 @@ static void doObserveSeqno(lcb_INSTANCE *instance, lcb_MUTATION_TOKEN *ss, int s
         return;
     }
 
-    lcb_RESPCALLBACK oldcb = lcb_get_callback3(instance, LCB_CALLBACK_OBSEQNO);
-    lcb_install_callback3(instance, LCB_CALLBACK_OBSEQNO, (lcb_RESPCALLBACK)obseqCallback);
+    lcb_RESPCALLBACK oldcb = lcb_get_callback(instance, LCB_CALLBACK_OBSEQNO);
+    lcb_install_callback(instance, LCB_CALLBACK_OBSEQNO, (lcb_RESPCALLBACK)obseqCallback);
     lcb_sched_leave(instance);
     lcb_wait(instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_OBSEQNO, oldcb);
+    lcb_install_callback(instance, LCB_CALLBACK_OBSEQNO, oldcb);
 }
 
 TEST_F(ObseqnoTest, testObserve)

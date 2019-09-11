@@ -395,33 +395,6 @@ void lcbdurctx_set_durstore(lcb_MULTICMD_CTX *mctx, int enabled)
     static_cast< Durset * >(mctx)->is_durstore = enabled;
 }
 
-static lcb_U8 get_poll_meth(lcb_INSTANCE *instance, const lcb_durability_opts_t *options)
-{
-    /* Need to call this first, so we can actually allocate the appropriate
-     * data for this.. */
-    uint8_t meth;
-    if (options->version > 0) {
-        meth = options->v.v0.pollopts;
-    } else {
-        meth = LCB_DURABILITY_MODE_DEFAULT;
-    }
-
-    if (meth == LCB_DURABILITY_MODE_DEFAULT) {
-        meth = LCB_DURABILITY_MODE_CAS;
-
-        if (LCBT_SETTING(instance, fetch_mutation_tokens) && LCBT_SETTING(instance, dur_mutation_tokens)) {
-            for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
-                if (instance->get_server(ii)->supports_mutation_tokens()) {
-                    meth = LCB_DURABILITY_MODE_SEQNO;
-                    break;
-                }
-            }
-        }
-    }
-
-    return meth;
-}
-
 Durset::Durset(lcb_INSTANCE *instance_, const lcb_durability_opts_t *options)
     : MultiCmdContext(), nremaining(0), waiting(0), refcnt(0), next_state(STATE_OBSPOLL), lasterr(LCB_SUCCESS),
       is_durstore(false), cookie(NULL), ns_timeout(0), timer(NULL), instance(instance_), span(NULL)
@@ -468,18 +441,22 @@ lcb_MULTICMD_CTX *lcb_endure3_ctxnew(lcb_INSTANCE *instance, const lcb_durabilit
         return NULL;
     }
 
-    Durset *dset = NULL;
-    uint8_t pollmeth = get_poll_meth(instance, options);
-    if (pollmeth == LCB_DURABILITY_MODE_CAS) {
-        dset = Durset::createCasDurset(instance, options);
-    } else if (pollmeth == LCB_DURABILITY_MODE_SEQNO) {
-        dset = Durset::createSeqnoDurset(instance, options);
+    if (LCBT_SETTING(instance, fetch_mutation_tokens)) {
+        for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
+            lcb::Server *srv = instance->get_server(ii);
+            if (srv->is_connected() && !srv->supports_mutation_tokens()) {
+                *errp = LCB_EINVAL;
+                return NULL;
+            }
+        }
     } else {
         *errp = LCB_EINVAL;
         return NULL;
     }
 
-    if ((*errp = dset->lasterr) != LCB_SUCCESS) {
+    Durset *dset = Durset::createSeqnoDurset(instance, options);
+    *errp = dset->lasterr;
+    if (*errp != LCB_SUCCESS) {
         delete dset;
         dset = NULL;
     }

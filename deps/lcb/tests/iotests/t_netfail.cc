@@ -82,9 +82,9 @@ class NumNodeRetryer : public Retryer
     }
     virtual void trigger()
     {
-        lcb_RESPCALLBACK oldCb = lcb_install_callback3(instance, LCB_CALLBACK_STORE, nopStoreCb);
+        lcb_RESPCALLBACK oldCb = lcb_install_callback(instance, LCB_CALLBACK_STORE, nopStoreCb);
         lcb_CMDSTORE *scmd;
-        lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
         lcb_sched_enter(instance);
 
         size_t nSubmit = 0;
@@ -103,7 +103,7 @@ class NumNodeRetryer : public Retryer
             lcb_wait(instance);
         }
 
-        lcb_install_callback3(instance, LCB_CALLBACK_STORE, oldCb);
+        lcb_install_callback(instance, LCB_CALLBACK_STORE, oldCb);
     }
 
   private:
@@ -150,7 +150,7 @@ static void opFromCallback_statsCB(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, co
         snprintf(statkey, nstatkey, "%s-%.*s", server_endpoint, (int)nkey, (const char *)key);
 
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, statkey, nstatkey);
         lcb_cmdstore_value(cmd, (const char *)bytes, nbytes);
         ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, NULL, cmd));
@@ -167,8 +167,8 @@ TEST_F(MockUnitTest, testOpFromCallback)
     HandleWrap hw;
     createConnection(hw, &instance);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)opFromCallback_statsCB);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opFromCallback_storeCB);
+    lcb_install_callback(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)opFromCallback_statsCB);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opFromCallback_storeCB);
 
     lcb_CMDSTATS stat = {0};
     ASSERT_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "operation_timeout", "5.0"));
@@ -226,7 +226,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStale)
     // Set the timeout
     lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmoval);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)set_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)set_callback);
 
     const char *key = "i'm a key";
     const char *value = "a value";
@@ -237,7 +237,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStale)
     mock->hiccupNodes(1500, 1);
 
     lcb_CMDSTORE *cmd;
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key, strlen(key));
     lcb_cmdstore_value(cmd, value, strlen(value));
 
@@ -275,7 +275,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
     struct timeout_test_cookie cookies[2];
     MockEnvironment *mock = MockEnvironment::getInstance();
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)set_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)set_callback);
 
     const char *key = "testTimeoutOnlyStaleWithPerOperationProperty";
     const char *value = "a value";
@@ -286,7 +286,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
     mock->hiccupNodes(1500, 1);
 
     lcb_CMDSTORE *cmd;
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key, strlen(key));
     lcb_cmdstore_value(cmd, value, strlen(value));
     lcb_cmdstore_timeout(cmd, tmoval);
@@ -422,7 +422,7 @@ TEST_F(MockUnitTest, testReconfigurationOnNodeFailover)
     mock->failoverNode(0);
     SYNC_WITH_NODECOUNT(instance, numNodes - 1);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)ctx_store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)ctx_store_callback);
     for (int i = 0; i < cmds.size(); i++) {
         ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmds[i]));
     }
@@ -484,15 +484,15 @@ TEST_F(MockUnitTest, testBufferRelocationOnNodeFailover)
     lcb_uint32_t tmoval = 15000000;
     lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmoval);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
 
     // Initialize the nodes first..
     removeKey(instance, key);
 
     /* Schedule SET operation */
     lcb_CMDSTORE *storecmd;
-    lcb_cmdstore_create(&storecmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&storecmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(storecmd, key.c_str(), key.size());
     lcb_cmdstore_value(storecmd, val.c_str(), val.size());
 
@@ -547,15 +547,18 @@ TEST_F(MockUnitTest, testSaslMechs)
 
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    struct lcb_create_st crParams;
+    lcb_CREATEOPTS *crParams = NULL;
     MockEnvironment mock_o(argv, "protected"), *protectedEnv = &mock_o;
     protectedEnv->makeConnectParams(crParams, NULL);
     protectedEnv->setCCCP(false);
 
-    crParams.v.v0.user = "protected";
-    crParams.v.v0.passwd = "secret";
-    crParams.v.v0.bucket = "protected";
-    doLcbCreate(&instance, &crParams, protectedEnv);
+    std::string username("protected");
+    std::string password("secret");
+    std::string bucket("protected");
+    lcb_createopts_credentials(crParams, username.c_str(), username.size(), password.c_str(), password.size());
+    lcb_createopts_bucket(crParams, bucket.c_str(), bucket.size());
+    doLcbCreate(&instance, crParams, protectedEnv);
+    lcb_createopts_destroy(crParams);
 
     // Make the socket pool disallow idle connections
     instance->memd_sockpool->get_options().maxidle = 0;
@@ -595,18 +598,20 @@ TEST_F(MockUnitTest, testSaslSHA)
 
     lcb_INSTANCE *instance = NULL;
     lcb_STATUS err;
-    struct lcb_create_st crParams;
+    lcb_CREATEOPTS *crParams = NULL;
     MockEnvironment mock_o(argv, "protected"), *protectedEnv = &mock_o;
-    protectedEnv->makeConnectParams(crParams, NULL);
+    protectedEnv->makeConnectParams(crParams, NULL, LCB_TYPE_CLUSTER);
+    crParams->type = LCB_TYPE_BUCKET;
     protectedEnv->setCCCP(false);
 
-    crParams.v.v2.user = "protected";
-    crParams.v.v2.passwd = "secret";
-    crParams.v.v2.bucket = "protected";
-    crParams.v.v2.mchosts = NULL;
+    std::string username("protected");
+    std::string password("secret");
+    std::string bucket("protected");
+    lcb_createopts_credentials(crParams, username.c_str(), username.size(), password.c_str(), password.size());
+    lcb_createopts_bucket(crParams, bucket.c_str(), bucket.size());
 
     {
-        doLcbCreate(&instance, &crParams, protectedEnv);
+        doLcbCreate(&instance, crParams, protectedEnv);
 
         // Make the socket pool disallow idle connections
         instance->memd_sockpool->get_options().maxidle = 0;
@@ -635,7 +640,7 @@ TEST_F(MockUnitTest, testSaslSHA)
 
     {
         instance = NULL;
-        doLcbCreate(&instance, &crParams, protectedEnv);
+        doLcbCreate(&instance, crParams, protectedEnv);
 
         // Make the socket pool disallow idle connections
         instance->memd_sockpool->get_options().maxidle = 0;
@@ -660,6 +665,8 @@ TEST_F(MockUnitTest, testSaslSHA)
 
         lcb_destroy(instance);
     }
+
+    lcb_createopts_destroy(crParams);
 }
 
 extern "C" {
@@ -683,13 +690,14 @@ TEST_F(MockUnitTest, testDynamicAuth)
 
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    struct lcb_create_st crParams;
+    lcb_CREATEOPTS *crParams = NULL;
     MockEnvironment mock_o(argv, "protected"), *mock = &mock_o;
     mock->makeConnectParams(crParams, NULL);
     mock->setCCCP(false);
 
-    crParams.v.v0.bucket = "protected";
-    doLcbCreate(&instance, &crParams, mock);
+    std::string bucket("protected");
+    lcb_createopts_bucket(crParams, bucket.c_str(), bucket.size());
+    doLcbCreate(&instance, crParams, mock);
 
     std::map< std::string, std::string > credentials;
     credentials["protected"] = "secret";
@@ -707,12 +715,13 @@ TEST_F(MockUnitTest, testDynamicAuth)
     kvo.store(instance);
     lcb_destroy(instance);
     lcbauth_unref(auth);
+    lcb_createopts_destroy(crParams);
 }
 
 static void doManyItems(lcb_INSTANCE *instance, std::vector< std::string > keys)
 {
     lcb_CMDSTORE *cmd;
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_sched_enter(instance);
     for (size_t ii = 0; ii < keys.size(); ii++) {
         lcb_cmdstore_key(cmd, keys[ii].c_str(), keys[ii].size());
@@ -736,19 +745,20 @@ TEST_F(MockUnitTest, DISABLED_testMemcachedFailover)
     SKIP_UNLESS_MOCK();
     const char *argv[] = {"--buckets", "cache::memcache", NULL};
     lcb_INSTANCE *instance;
-    struct lcb_create_st crParams;
+    lcb_CREATEOPTS *crParams = NULL;
     lcb_RESPCALLBACK oldCb;
 
     MockEnvironment mock_o(argv, "cache"), *mock = &mock_o;
     mock->makeConnectParams(crParams, NULL);
-    doLcbCreate(&instance, &crParams, mock);
+    doLcbCreate(&instance, crParams, mock);
+    lcb_createopts_destroy(crParams);
 
     // Check internal setting here
     lcb_connect(instance);
     lcb_wait(instance);
     size_t numNodes = mock->getNumNodes();
 
-    oldCb = lcb_install_callback3(instance, LCB_CALLBACK_STORE, mcdFoVerifyCb);
+    oldCb = lcb_install_callback(instance, LCB_CALLBACK_STORE, mcdFoVerifyCb);
 
     // Get the command list:
     std::vector< std::string > distKeys;
@@ -761,7 +771,7 @@ TEST_F(MockUnitTest, DISABLED_testMemcachedFailover)
     SYNC_WITH_NODECOUNT(instance, numNodes - 1);
 
     // Set the callback to the previous one. We expect failures here
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, oldCb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, oldCb);
     doManyItems(instance, distKeys);
 
     mock->respawnNode(1, "cache");
@@ -769,7 +779,7 @@ TEST_F(MockUnitTest, DISABLED_testMemcachedFailover)
     ASSERT_EQ(numNodes, lcb_get_num_nodes(instance));
 
     // Restore the verify callback
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, mcdFoVerifyCb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, mcdFoVerifyCb);
     doManyItems(instance, distKeys);
 
     lcb_destroy(instance);
@@ -803,7 +813,7 @@ TEST_F(MockUnitTest, testNegativeIndex)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback3);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback3);
     std::string key("ni_key");
     // Get the config
     lcbvb_CONFIG *vbc = instance->cur_configinfo->vbc;

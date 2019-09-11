@@ -348,28 +348,25 @@ int main(int argc, char *argv[])
 {
     lcb_STATUS err;
     lcb_INSTANCE *instance;
-    struct lcb_create_st create_options = {0};
+    lcb_CREATEOPTS *create_options = NULL;
     lcbtrace_SPAN *span = NULL;
     lcbtrace_TRACER *tracer = NULL;
-
-    create_options.version = 3;
 
     if (argc < 2) {
         fprintf(stderr, "Usage: %s couchbase://host/bucket [ password [ username ] ]\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    create_options.v.v3.connstr = argv[1];
-    if (argc > 2) {
-        create_options.v.v3.passwd = argv[2];
-    }
+    lcb_createopts_create(&create_options, LCB_TYPE_BUCKET);
+    lcb_createopts_connstr(create_options, argv[1], strlen(argv[1]));
     if (argc > 3) {
-        create_options.v.v3.username = argv[3];
+        lcb_createopts_credentials(create_options, argv[3], strlen(argv[3]), argv[2], strlen(argv[2]));
     }
 
     srand(time(NULL));
 
-    err = lcb_create(&instance, &create_options);
+    err = lcb_create(&instance, create_options);
+    lcb_createopts_destroy(create_options);
     if (err != LCB_SUCCESS) {
         die(NULL, "Couldn't create couchbase handle", err);
     }
@@ -387,8 +384,8 @@ int main(int argc, char *argv[])
     }
 
     /* Assign the handlers to be called for the operation types */
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     tracer = zipkin_new();
 

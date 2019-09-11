@@ -41,11 +41,11 @@ void checkConnectCommon(lcb_INSTANCE *instance)
 
 void MockUnitTest::createClusterConnection(HandleWrap &handle, lcb_INSTANCE **instance)
 {
-    lcb_create_st options = {};
-    MockEnvironment::getInstance()->makeConnectParams(options, NULL);
-    options.v.v3.type = LCB_TYPE_CLUSTER;
+    lcb_CREATEOPTS *options = NULL;
+    MockEnvironment::getInstance()->makeConnectParams(options, NULL, LCB_TYPE_CLUSTER);
     MockEnvironment::getInstance()->createConnection(handle, instance, options);
     checkConnectCommon(handle.getLcb());
+    lcb_createopts_destroy(options);
 }
 
 void MockUnitTest::createConnection(HandleWrap &handle, lcb_INSTANCE **instance)
@@ -66,7 +66,7 @@ void MockUnitTest::createConnection(HandleWrap &handle)
     createConnection(handle, &instance);
 }
 
-lcb_STATUS MockUnitTest::tryCreateConnection(HandleWrap &hw, lcb_INSTANCE **instance, lcb_create_st &crparams)
+lcb_STATUS MockUnitTest::tryCreateConnection(HandleWrap &hw, lcb_INSTANCE **instance, lcb_CREATEOPTS *&crparams)
 {
     MockEnvironment::getInstance()->createConnection(hw, instance, crparams);
     EXPECT_EQ(LCB_SUCCESS, lcb_connect(*instance));

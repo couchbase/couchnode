@@ -103,7 +103,7 @@ TEST_F(EerrsUnitTest, testInCallbackWhenEnabled)
 
     enableEnhancedErrors();
     createEerrConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_DEFAULT, opcb);
+    lcb_install_callback(instance, LCB_CALLBACK_DEFAULT, opcb);
 
     EerrsCookie cookie;
 
@@ -131,7 +131,7 @@ TEST_F(EerrsUnitTest, testInCallbackWhenDisabled)
 
     disableEnhancedErrors();
     createEerrConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_DEFAULT, opcb);
+    lcb_install_callback(instance, LCB_CALLBACK_DEFAULT, opcb);
 
     EerrsCookie cookie;
 

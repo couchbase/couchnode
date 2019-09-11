@@ -297,7 +297,7 @@ handle_mutation_token(lcb_INSTANCE *instance, const MemcachedResponse *mc_resp,
         return; /* No extras */
     }
 
-    if (!instance->dcpinfo && LCBT_SETTING(instance, dur_mutation_tokens)) {
+    if (!instance->dcpinfo) {
         size_t nvb = LCBT_VBCONFIG(instance)->nvb;
         if (nvb) {
             instance->dcpinfo = new lcb_MUTATION_TOKEN[nvb];
@@ -485,6 +485,7 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
     switch (response->opcode()) {
     case PROTOCOL_BINARY_CMD_SUBDOC_GET:
     case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
+    case PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT:
     case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
         cbtype = LCB_CALLBACK_SDLOOKUP;
         break;
@@ -817,7 +818,7 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
         opcode = hdr.request.opcode;
     }
     if (opcode == PROTOCOL_BINARY_CMD_ADD) {
-        w.resp.op = LCB_STORE_ADD;
+        w.resp.op = LCB_STORE_INSERT;
     } else if (opcode == PROTOCOL_BINARY_CMD_REPLACE) {
         w.resp.op = LCB_STORE_REPLACE;
     } else if (opcode == PROTOCOL_BINARY_CMD_APPEND) {
@@ -825,7 +826,7 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     } else if (opcode == PROTOCOL_BINARY_CMD_PREPEND) {
         w.resp.op = LCB_STORE_PREPEND;
     } else if (opcode == PROTOCOL_BINARY_CMD_SET) {
-        w.resp.op = LCB_STORE_SET;
+        w.resp.op = LCB_STORE_UPSERT;
     }
     w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     handle_mutation_token(root, response, request, &w.mt);

@@ -109,7 +109,7 @@ struct Item {
     std::string val;
     lcb_uint32_t flags;
     lcb_cas_t cas;
-    lcb_datatype_t datatype;
+    uint8_t datatype;
     lcb_STATUS err;
     lcb_time_t exp;
 };

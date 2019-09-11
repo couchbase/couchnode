@@ -189,20 +189,19 @@ NAN_METHOD(Connection::fnNew)
         return Nan::ThrowError(Error::create(err));
     }
 
-    lcb_create_st createOptions;
-    memset(&createOptions, 0, sizeof(createOptions));
-    createOptions.version = 4;
-
-    lcb_type_t connType = LCB_TYPE_BUCKET;
+    lcb_INSTANCE_TYPE connType = LCB_TYPE_BUCKET;
     if (!info[0]->IsUndefined() && !info[0]->IsNull()) {
         if (!info[0]->IsNumber()) {
             return Nan::ThrowError(
                 Error::create("must pass enum integer for connType"));
         }
 
-        connType =
-            static_cast<lcb_type_t>(Nan::To<uint32_t>(info[0]).ToChecked());
+        connType = static_cast<lcb_INSTANCE_TYPE>(
+            Nan::To<uint32_t>(info[0]).ToChecked());
     }
+
+    lcb_CREATEOPTS *createOpts = nullptr;
+    lcb_createopts_create(&createOpts, LCB_TYPE_BUCKET);
 
     Nan::Utf8String *utfConnStr = NULL;
     if (!info[1]->IsUndefined() && !info[1]->IsNull()) {
@@ -212,7 +211,7 @@ NAN_METHOD(Connection::fnNew)
         }
         utfConnStr = new Nan::Utf8String(info[1]);
 
-        createOptions.v.v4.connstr = **utfConnStr;
+        lcb_createopts_connstr(createOpts, **utfConnStr, utfConnStr->length());
     }
 
     Nan::Utf8String *utfUsername = NULL;
@@ -222,7 +221,6 @@ NAN_METHOD(Connection::fnNew)
                 Error::create("must pass string for username"));
         }
         utfUsername = new Nan::Utf8String(info[2]);
-        createOptions.v.v4.username = **utfUsername;
     }
 
     Nan::Utf8String *utfPassword = NULL;
@@ -232,7 +230,18 @@ NAN_METHOD(Connection::fnNew)
                 Error::create("must pass string for password"));
         }
         utfPassword = new Nan::Utf8String(info[3]);
-        createOptions.v.v4.passwd = **utfPassword;
+    }
+
+    if (utfUsername && utfPassword) {
+        lcb_createopts_credentials(createOpts, **utfUsername,
+                                   utfUsername->length(), **utfPassword,
+                                   utfPassword->length());
+    } else if (utfUsername) {
+        lcb_createopts_credentials(createOpts, **utfUsername,
+                                   utfUsername->length(), nullptr, 0);
+    } else if (utfPassword) {
+        lcb_createopts_credentials(createOpts, nullptr, 0, **utfPassword,
+                                   utfPassword->length());
     }
 
     Logger *logger = nullptr;
@@ -247,16 +256,16 @@ NAN_METHOD(Connection::fnNew)
 
             // We secretly remove the constness of the lcbprocs here due to the
             // create options taking a non-const in error.
-            createOptions.v.v4.logger =
-                const_cast<lcb_logprocs_st *>(logger->lcbProcs());
+            lcb_createopts_logger(createOpts, logger->lcbProcs());
         }
     }
 
-    createOptions.v.v4.type = connType;
-    createOptions.v.v4.io = iops;
+    lcb_createopts_io(createOpts, iops);
 
     lcb_INSTANCE *instance;
-    err = lcb_create(&instance, &createOptions);
+    err = lcb_create(&instance, createOpts);
+
+    lcb_createopts_destroy(createOpts);
 
     if (utfConnStr) {
         delete utfConnStr;
@@ -282,43 +291,43 @@ NAN_METHOD(Connection::fnNew)
     lcb_set_cookie(instance, reinterpret_cast<void *>(obj));
     lcb_set_bootstrap_callback(instance, &lcbBootstapHandler);
     lcb_set_open_callback(instance, &lcbOpenHandler);
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_GET,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbGetRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_EXISTS,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbExistsRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_GETREPLICA,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbGetReplicaRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_STORE,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbStoreRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_COUNTER,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbCounterRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_REMOVE,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbRemoveRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_TOUCH,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbTouchRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_UNLOCK,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbUnlockRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_SDLOOKUP,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbLookupRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_SDMUTATE,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbMutateRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_PING,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbPingRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_DIAG,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbDiagRespHandler));
-    lcb_install_callback3(
+    lcb_install_callback(
         instance, LCB_CALLBACK_HTTP,
         reinterpret_cast<lcb_RESPCALLBACK>(&lcbHttpDataHandler));
 

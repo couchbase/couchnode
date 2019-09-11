@@ -165,7 +165,7 @@ public:
         return SetFn(_cmd, bytesa, nbytesa, bytesb, nbytesb) == LCB_SUCCESS;
     }
 
-    template <lcb_STATUS (*SetFn)(lcb_SUBDOCOPS *, size_t, uint32_t,
+    template <lcb_STATUS (*SetFn)(lcb_SUBDOCSPECS *, size_t, uint32_t,
                                   const char *, size_t)>
     bool parseOption(size_t index, Local<Value> flags, Local<Value> value)
     {
@@ -184,7 +184,7 @@ public:
                LCB_SUCCESS;
     }
 
-    template <lcb_STATUS (*SetFn)(lcb_SUBDOCOPS *, size_t, uint32_t,
+    template <lcb_STATUS (*SetFn)(lcb_SUBDOCSPECS *, size_t, uint32_t,
                                   const char *, size_t, const char *, size_t)>
     bool parseOption(size_t index, Local<Value> flags, Local<Value> path,
                      Local<Value> value)
@@ -210,7 +210,7 @@ public:
                      parsedValue, parsedNValue) == LCB_SUCCESS;
     }
 
-    template <lcb_STATUS (*SetFn)(lcb_SUBDOCOPS *, size_t, uint32_t,
+    template <lcb_STATUS (*SetFn)(lcb_SUBDOCSPECS *, size_t, uint32_t,
                                   const char *, size_t, int64_t)>
     bool parseOption(size_t index, Local<Value> flags, Local<Value> path,
                      Local<Value> value)

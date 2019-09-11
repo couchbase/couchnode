@@ -135,27 +135,25 @@ int main(int argc, char *argv[])
     }
 
     {
-        struct lcb_create_st create_options = {0};
-        create_options.version = 3;
-        create_options.v.v3.connstr = argv[1];
-        if (argc > 2) {
-            create_options.v.v3.passwd = argv[2];
-        }
+        lcb_CREATEOPTS *options = NULL;
+        lcb_createopts_create(&options, LCB_TYPE_BUCKET);
+        lcb_createopts_connstr(options, argv[1], strlen(argv[1]));
         if (argc > 3) {
-            create_options.v.v3.username = argv[3];
+            lcb_createopts_credentials(options, argv[3], strlen(argv[3]), argv[2], strlen(argv[2]));
         }
-        check(lcb_create(&instance, &create_options), "create couchbase handle");
+        check(lcb_create(&instance, options), "create couchbase handle");
+        lcb_createopts_destroy(options);
         check(lcb_connect(instance), "schedule connection");
         lcb_wait(instance);
         check(lcb_get_bootstrap_status(instance), "bootstrap from cluster");
         check(lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETNAME, &bucket), "get bucket name");
-        lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-        lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
     }
 
     {
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, key, strlen(key));
         lcb_cmdstore_value(cmd, val, strlen(val));
         check(lcb_store(instance, NULL, cmd), "schedule STORE operation");

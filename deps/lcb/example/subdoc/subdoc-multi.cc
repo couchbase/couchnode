@@ -77,26 +77,31 @@ static void subdoc_callback(lcb_INSTANCE *, int type, const lcb_RESPSUBDOC *resp
 
 int main(int argc, char **argv)
 {
-    lcb_create_st crst = {0};
-    crst.version = 3;
+    lcb_CREATEOPTS *crst = NULL;
+    const char *connstr, *username, *password;
     if (argc > 1) {
-        crst.v.v3.connstr = argv[1];
+        connstr = argv[1];
     } else {
-        crst.v.v3.connstr = DEFAULT_CONNSTR;
+        connstr = DEFAULT_CONNSTR;
     }
     if (argc > 2) {
-        crst.v.v3.username = argv[2];
+        username = argv[2];
     } else {
-        crst.v.v3.username = "Administrator";
+        username = "Administrator";
     }
     if (argc > 3) {
-        crst.v.v3.passwd = argv[3];
+        password = argv[3];
     } else {
-        crst.v.v3.passwd = "password";
+        password = "password";
     }
 
+    lcb_createopts_create(&crst, LCB_TYPE_BUCKET);
+    lcb_createopts_connstr(crst, connstr, strlen(connstr));
+    lcb_createopts_credentials(crst, username, strlen(username), password, strlen(password));
+
     lcb_INSTANCE *instance;
-    lcb_STATUS rc = lcb_create(&instance, &crst);
+    lcb_STATUS rc = lcb_create(&instance, crst);
+    lcb_createopts_destroy(crst);
     assert(rc == LCB_SUCCESS);
 
     rc = lcb_connect(instance);
@@ -106,14 +111,14 @@ int main(int argc, char **argv)
     assert(rc == LCB_SUCCESS);
 
     // Install generic callback
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdoc_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdoc_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdoc_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdoc_callback);
 
     // Store an item
     lcb_CMDSTORE *scmd;
-    lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(scmd, "key", 3);
     const char *initval = "{\"hello\":\"world\"}";
     lcb_cmdstore_value(scmd, initval, strlen(initval));
@@ -121,9 +126,9 @@ int main(int argc, char **argv)
     lcb_cmdstore_destroy(scmd);
     assert(rc == LCB_SUCCESS);
 
-    lcb_SUBDOCOPS *specs;
+    lcb_SUBDOCSPECS *specs;
 
-    lcb_subdocops_create(&specs, 5);
+    lcb_subdocspecs_create(&specs, 5);
     std::string bufs[10];
     // Add some mutations
     for (int ii = 0; ii < 5; ii++) {
@@ -136,32 +141,32 @@ int main(int argc, char **argv)
         path = pbuf;
         val = vbuf;
 
-        lcb_subdocops_dict_upsert(specs, ii, 0, path.c_str(), path.size(), val.c_str(), val.size());
+        lcb_subdocspecs_dict_upsert(specs, ii, 0, path.c_str(), path.size(), val.c_str(), val.size());
     }
 
     lcb_CMDSUBDOC *mcmd;
     lcb_cmdsubdoc_create(&mcmd);
     lcb_cmdsubdoc_key(mcmd, "key", 3);
-    lcb_cmdsubdoc_operations(mcmd, specs);
+    lcb_cmdsubdoc_specs(mcmd, specs);
     rc = lcb_subdoc(instance, NULL, mcmd);
-    lcb_subdocops_destroy(specs);
+    lcb_subdocspecs_destroy(specs);
     assert(rc == LCB_SUCCESS);
 
     // Reset the specs
-    lcb_subdocops_create(&specs, 5);
+    lcb_subdocspecs_create(&specs, 5);
     for (int ii = 0; ii < 5; ii++) {
         char pbuf[24];
         std::string &path = bufs[ii];
         sprintf(pbuf, "pth%d", ii);
         path = pbuf;
 
-        lcb_subdocops_get(specs, ii, 0, path.c_str(), path.size());
+        lcb_subdocspecs_get(specs, ii, 0, path.c_str(), path.size());
     }
 
-    lcb_subdocops_get(specs, 5, 0, "dummy", 5);
-    lcb_cmdsubdoc_operations(mcmd, specs);
+    lcb_subdocspecs_get(specs, 5, 0, "dummy", 5);
+    lcb_cmdsubdoc_specs(mcmd, specs);
     rc = lcb_subdoc(instance, NULL, mcmd);
-    lcb_subdocops_destroy(specs);
+    lcb_subdocspecs_destroy(specs);
     lcb_cmdsubdoc_destroy(mcmd);
     assert(rc == LCB_SUCCESS);
 

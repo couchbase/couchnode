@@ -101,7 +101,7 @@ class ConnParams
 {
   public:
     ConnParams();
-    void fillCropts(lcb_create_st &);
+    void fillCropts(lcb_CREATEOPTS *&);
     void addToParser(cliopts::Parser &parser);
     lcb_STATUS doCtls(lcb_INSTANCE *instance);
     bool useTimings()

@@ -28,12 +28,12 @@ class CredsTest : public ::testing::Test
 
 static lcb_INSTANCE *create(const char *connstr = NULL)
 {
-    lcb_create_st crst;
-    memset(&crst, 0, sizeof crst);
-    crst.version = 3;
-    crst.v.v3.connstr = connstr;
+    lcb_CREATEOPTS *crst = NULL;
+    lcb_createopts_create(&crst, LCB_TYPE_BUCKET);
+    lcb_createopts_connstr(crst, connstr, strlen(connstr));
     lcb_INSTANCE *ret;
-    lcb_STATUS rc = lcb_create(&ret, &crst);
+    lcb_STATUS rc = lcb_create(&ret, crst);
+    lcb_createopts_destroy(crst);
     EXPECT_EQ(LCB_SUCCESS, rc);
     return ret;
 }

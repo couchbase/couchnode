@@ -261,9 +261,9 @@ class MockEnvironment : public ::testing::Environment
      * @param io the io ops to use (pass NULL if you don't have a
      *           special io ops you want to use
      */
-    void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io = NULL)
+    void makeConnectParams(lcb_CREATEOPTS *&crst, lcb_io_opt_t io = NULL, lcb_INSTANCE_TYPE type = LCB_TYPE_BUCKET)
     {
-        serverParams.makeConnectParams(crst, io);
+        serverParams.makeConnectParams(crst, io, type);
     }
 
     /**
@@ -380,7 +380,7 @@ class MockEnvironment : public ::testing::Environment
     void createConnection(lcb_INSTANCE **instance);
 
     void createConnection(HandleWrap &handle, lcb_INSTANCE **instance);
-    void createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const lcb_create_st &options);
+    void createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const lcb_CREATEOPTS *options);
 
     /**
      * Setup mock to split response in two parts: send first "offset" bytes

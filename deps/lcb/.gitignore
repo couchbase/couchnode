@@ -80,6 +80,7 @@ filelist.mk
 /tests/*.log
 /tests/*.trs
 /tests/CouchbaseMock.jar
+/tests/start_mock.sh
 /tests/check-all
 /tests/htparse-tests
 /tests/nonio-tests

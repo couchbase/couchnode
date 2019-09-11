@@ -118,7 +118,6 @@
 extern "C" {
 #endif
 
-struct lcb_logprocs_st;
 struct lcbio_SSLCTX;
 struct rdb_ALLOCATOR;
 struct lcb_METRICS_st;
@@ -173,7 +172,6 @@ typedef struct lcb_settings_st {
     unsigned nmv_retry_imm : 1;
     unsigned keep_guess_vbs : 1;
     unsigned fetch_mutation_tokens : 1;
-    unsigned dur_mutation_tokens : 1;
     unsigned sslopts : 3;
     unsigned ipv6 : 2;
     unsigned tcp_nodelay : 1;
@@ -206,7 +204,7 @@ typedef struct lcb_settings_st {
     lcb_AUTHENTICATOR *auth;
     struct rdb_ALLOCATOR *(*allocator_factory)(void);
     struct lcbio_SSLCTX *ssl_ctx;
-    struct lcb_logprocs_st *logger;
+    const lcb_LOGGER *logger;
     void (*dtorcb)(const void *);
     void *dtorarg;
     char *client_string;

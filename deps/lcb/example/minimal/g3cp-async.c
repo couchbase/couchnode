@@ -74,7 +74,7 @@ static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTO
     fflush(stdout);
     {
         lcb_CMDGET *cmd;
-        lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
         lcb_cmdget_create(&cmd);
         lcb_cmdget_key(cmd, "key", strlen("key"));
         check(lcb_get(instance, NULL, cmd), "schedule retrieval operation");
@@ -89,7 +89,7 @@ static void open_callback(lcb_INSTANCE *instance, lcb_STATUS rc)
 
     {
         lcb_CMDSTORE *cmd;
-        lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, "key", strlen("key"));
         lcb_cmdstore_value(cmd, "value", strlen("value"));
@@ -125,23 +125,22 @@ void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
 int main(int argc, char *argv[])
 {
     lcb_INSTANCE *instance;
-    struct lcb_create_st create_options = {0};
 
     if (argc < 4) {
         fprintf(stderr, "Usage: %s couchbase://127.0.0.1 Administrator password [bucket]\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    create_options.version = 3;
-    create_options.v.v3.type = LCB_TYPE_CLUSTER;
-    create_options.v.v3.connstr = argv[1];
-    create_options.v.v3.username = argv[2];
-    create_options.v.v3.passwd = argv[3];
+    lcb_CREATEOPTS *options = NULL;
+    lcb_createopts_create(&options, LCB_TYPE_CLUSTER);
+    lcb_createopts_connstr(options, argv[1], strlen(argv[1]));
+    lcb_createopts_credentials(options, argv[3], strlen(argv[3]), argv[2], strlen(argv[2]));
     if (argc >= 4) {
         bucket = argv[4];
     }
 
-    check(lcb_create(&instance, &create_options), "create couchbase handle");
+    check(lcb_create(&instance, options), "create couchbase handle");
+    lcb_createopts_destroy(options);
     lcb_set_bootstrap_callback(instance, bootstrap_callback);
     check(lcb_connect(instance), "schedule connection");
     lcb_wait(instance);

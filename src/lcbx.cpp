@@ -45,9 +45,9 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDSUBDOC **cmd)
     return lcb_cmdsubdoc_create(cmd);
 }
 
-lcb_STATUS lcbx_cmd_create(lcb_SUBDOCOPS **ops, size_t capacity)
+lcb_STATUS lcbx_cmd_create(lcb_SUBDOCSPECS **ops, size_t capacity)
 {
-    return lcb_subdocops_create(ops, capacity);
+    return lcb_subdocspecs_create(ops, capacity);
 }
 
 lcb_STATUS lcbx_cmd_create(lcb_CMDVIEW **cmd)
@@ -120,9 +120,9 @@ lcb_STATUS lcbx_cmd_destroy(lcb_CMDSUBDOC *cmd)
     return lcb_cmdsubdoc_destroy(cmd);
 }
 
-lcb_STATUS lcbx_cmd_destroy(lcb_SUBDOCOPS *ops)
+lcb_STATUS lcbx_cmd_destroy(lcb_SUBDOCSPECS *ops)
 {
-    return lcb_subdocops_destroy(ops);
+    return lcb_subdocspecs_destroy(ops);
 }
 
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDVIEW *cmd)

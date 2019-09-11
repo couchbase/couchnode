@@ -76,7 +76,6 @@ SET(LCB_CORE_CXXSRC
     src/operations/cbflush.cc
     src/operations/counter.cc
     src/operations/durability.cc
-    src/operations/durability-cas.cc
     src/operations/durability-seqno.cc
     src/operations/get.cc
     src/operations/observe.cc

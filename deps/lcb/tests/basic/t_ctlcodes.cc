@@ -38,6 +38,8 @@ TEST_F(CtlTest, testExists)
         switch (ii) {
             case 0x0a: /* LCB_CNTL_SYNCMODE */
             case 0x2d: /* LCB_CNTL_RETRY_BACKOFF */
+            case 0x20: /* LCB_CNTL_CONFIG_ALL_NODES */
+            case 0x35: /* LCB_CNTL_DURABILITY_MUTATION_TOKENS */
                 ASSERT_FALSE(lcb_cntl_exists(ii));
                 break;
             default:

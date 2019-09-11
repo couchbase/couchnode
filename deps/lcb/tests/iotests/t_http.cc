@@ -119,7 +119,7 @@ TEST_F(HttpUnitTest, testPut)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)httpSimpleCallback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)httpSimpleCallback);
 
     std::string design_doc_path("/_design/" DESIGN_DOC_NAME);
     lcb_CMDHTTP *cmd;
@@ -158,7 +158,7 @@ TEST_F(HttpUnitTest, testGet)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)httpSimpleCallback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)httpSimpleCallback);
 
     std::string view_path("/_design/" DESIGN_DOC_NAME "/_view/" VIEW_NAME);
     lcb_CMDHTTP *cmd;
@@ -215,7 +215,7 @@ TEST_F(HttpUnitTest, testRefused)
     lcb_INSTANCE *instance;
     HandleWrap hw;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)httpSimpleCallback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)httpSimpleCallback);
 
     std::string path("non-exist-path");
     lcb_CMDHTTP *cmd;
@@ -306,7 +306,7 @@ TEST_F(HttpUnitTest, testAdminApi)
     HandleWrap hw;
     std::string pth;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
 
     // Make the request; this time we make it to the 'management' API
     lcb_CMDHTTP *cmd = NULL;
@@ -381,7 +381,7 @@ TEST_F(HttpUnitTest, testDoubleCancel)
     lcb_INSTANCE *instance;
     HandleWrap hw;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)doubleCancel_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)doubleCancel_callback);
 
     // Make the request; this time we make it to the 'management' API
     lcb_CMDHTTP *cmd = NULL;
@@ -416,7 +416,7 @@ TEST_F(HttpUnitTest, testCancelWorks)
     lcb_INSTANCE *instance;
     HandleWrap hw;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)cancelVerify_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)cancelVerify_callback);
     lcb_CMDHTTP *cmd = NULL;
     std::string ss;
     makeAdminReq(&cmd, ss);
@@ -448,7 +448,7 @@ TEST_F(HttpUnitTest, testDestroyWithActiveRequest)
     std::string ss;
     makeAdminReq(&cmd, ss);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_HTTP, noInvoke_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, noInvoke_callback);
     lcb_sched_enter(instance);
     ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, NULL, cmd));
     lcb_cmdhttp_destroy(cmd);

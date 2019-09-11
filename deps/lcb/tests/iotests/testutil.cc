@@ -32,7 +32,7 @@ static void storeKvoCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPST
     kvo->result.assign(resp);
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
-    ASSERT_EQ(LCB_STORE_SET, op);
+    ASSERT_EQ(LCB_STORE_UPSERT, op);
 }
 
 static void getKvoCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
@@ -61,18 +61,18 @@ void KVOperation::handleInstanceError(lcb_INSTANCE *instance, lcb_STATUS err, co
 
 void KVOperation::enter(lcb_INSTANCE *instance)
 {
-    callbacks.get = lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getKvoCallback);
-    callbacks.rm = lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)removeKvoCallback);
-    callbacks.store = lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeKvoCallback);
+    callbacks.get = lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getKvoCallback);
+    callbacks.rm = lcb_install_callback(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)removeKvoCallback);
+    callbacks.store = lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeKvoCallback);
     oldCookie = lcb_get_cookie(instance);
     lcb_set_cookie(instance, this);
 }
 
 void KVOperation::leave(lcb_INSTANCE *instance)
 {
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, callbacks.get);
-    lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, callbacks.rm);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, callbacks.store);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, callbacks.get);
+    lcb_install_callback(instance, LCB_CALLBACK_REMOVE, callbacks.rm);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, callbacks.store);
     lcb_set_cookie(instance, oldCookie);
 }
 
@@ -93,7 +93,7 @@ void KVOperation::assertOk(lcb_STATUS err)
 void KVOperation::store(lcb_INSTANCE *instance)
 {
     lcb_CMDSTORE *cmd;
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, request->key.data(), request->key.length());
     lcb_cmdstore_value(cmd, request->val.data(), request->val.length());
     lcb_cmdstore_flags(cmd, request->flags);
@@ -197,7 +197,7 @@ void genStoreCommands(const std::vector< std::string > &keys, std::vector< lcb_C
 {
     for (unsigned int ii = 0; ii < keys.size(); ii++) {
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, keys[ii].c_str(), keys[ii].size());
         lcb_cmdstore_value(cmd, keys[ii].c_str(), keys[ii].size());
         cmds.push_back(cmd);

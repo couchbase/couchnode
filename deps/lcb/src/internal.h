@@ -238,8 +238,7 @@ const char *lcb_get_tmpdir(void);
 LCB_INTERNAL_API
 lcb_STATUS lcb_initialize_socket_subsystem(void);
 
-lcb_STATUS lcb_init_providers2(lcb_INSTANCE *obj, const struct lcb_create_st2 *e_options);
-lcb_STATUS lcb_reinit3(lcb_INSTANCE *obj, const char *connstr);
+lcb_STATUS lcb_reinit(lcb_INSTANCE *obj, const char *connstr);
 
 int lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_STATUS err);
 

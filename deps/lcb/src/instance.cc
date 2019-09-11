@@ -28,6 +28,61 @@
 
 using namespace lcb;
 
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_create(lcb_CREATEOPTS **options, lcb_INSTANCE_TYPE type)
+{
+    *options = (lcb_CREATEOPTS *)calloc(1, sizeof(lcb_CREATEOPTS));
+    (*options)->type = type;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_destroy(lcb_CREATEOPTS *options)
+{
+    free(options);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_connstr(lcb_CREATEOPTS *options, const char *connstr, size_t connstr_len)
+{
+    options->connstr = connstr;
+    options->connstr_len = connstr_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_bucket(lcb_CREATEOPTS *options, const char *bucket, size_t bucket_len)
+{
+    options->bucket = bucket;
+    options->bucket_len = bucket_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_logger(lcb_CREATEOPTS *options, const lcb_LOGGER *logger)
+{
+    options->logger = logger;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_credentials(lcb_CREATEOPTS *options, const char *username, size_t username_len,
+                                                    const char *password, size_t password_len)
+{
+    options->username = username;
+    options->username_len = username_len;
+    options->password = password;
+    options->password_len = password_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_authenticator(lcb_CREATEOPTS *options, lcb_AUTHENTICATOR *auth)
+{
+    options->auth = auth;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_io(lcb_CREATEOPTS *options, struct lcb_io_opt_st *io)
+{
+    options->io = io;
+    return LCB_SUCCESS;
+}
+
 LIBCOUCHBASE_API
 const char *lcb_get_version(lcb_uint32_t *version)
 {
@@ -338,34 +393,18 @@ apply_env_options(lcb_INSTANCE *obj)
 
     std::string tmp("couchbase://?");
     tmp.append(options);
-    if (tmpspec.parse(tmp.c_str()) != LCB_SUCCESS) {
+    if (tmpspec.parse(tmp.c_str(), tmp.size()) != LCB_SUCCESS) {
         return LCB_BAD_ENVIRONMENT;
     }
     return apply_spec_options(obj, tmpspec);
 }
 
-lcb_STATUS
-lcb_init_providers2(lcb_INSTANCE *obj, const struct lcb_create_st2 *options)
-{
-    Connspec params;
-    lcb_STATUS err;
-    struct lcb_create_st cropts;
-    cropts.version = 2;
-    cropts.v.v2 = *options;
-    err = params.load(cropts);
-    if (err == LCB_SUCCESS) {
-        err = init_providers(obj, params);
-    }
-    return err;
-}
-
-lcb_STATUS
-lcb_reinit3(lcb_INSTANCE *obj, const char *connstr)
+lcb_STATUS lcb_reinit(lcb_INSTANCE *obj, const char *connstr)
 {
     Connspec params;
     lcb_STATUS err;
     const char *errmsg = NULL;
-    err = params.parse(connstr, &errmsg);
+    err = params.parse(connstr, strlen(connstr), &errmsg);
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS(obj, ERROR), "Couldn't reinit: %s", errmsg);
@@ -392,12 +431,11 @@ lcb_reinit3(lcb_INSTANCE *obj, const char *connstr)
 }
 
 LIBCOUCHBASE_API
-lcb_STATUS lcb_create(lcb_INSTANCE **instance,
-                       const struct lcb_create_st *options)
+lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
 {
     Connspec spec;
     struct lcb_io_opt_st *io_priv = NULL;
-    lcb_type_t type = LCB_TYPE_BUCKET;
+    lcb_INSTANCE_TYPE type = LCB_TYPE_BUCKET;
     lcb_INSTANCE *obj = NULL;
     lcb_STATUS err;
     lcb_settings *settings;
@@ -407,14 +445,13 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance,
 #endif
 
     if (options) {
-        io_priv = options->v.v0.io;
-        if (options->version > 0) {
-            type = options->v.v1.type;
-        }
+        io_priv = options->io;
+        type = options->type;
         err = spec.load(*options);
     } else {
         const char *errmsg;
-        err = spec.parse("couchbase://", &errmsg);
+        const char *default_connstr = "couchbase://";
+        err = spec.parse(default_connstr, strlen(default_connstr), &errmsg);
     }
     if (err != LCB_SUCCESS) {
         goto GT_DONE;

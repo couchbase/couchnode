@@ -54,8 +54,8 @@ TEST_F(RegressionUnitTest, CCBC_150)
     createConnection(hw, &instance);
 
     callbackInvoked = false;
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)stats_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)stats_callback);
     lcb_uint32_t tmoval = 15000000;
     lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmoval);
 
@@ -117,16 +117,19 @@ TEST_F(RegressionUnitTest, CCBC_275)
     SKIP_UNLESS_MOCK();
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    struct lcb_create_st crOpts;
+    lcb_CREATEOPTS *crOpts = NULL;
     const char *argv[] = {"--buckets", "protected:secret:couchbase", NULL};
     MockEnvironment mock_o(argv, "protected"), *mock = &mock_o;
     struct ccbc_275_info_st info = {0, LCB_SUCCESS};
 
+    std::string user("protected");
+    std::string password("secret");
+    std::string bucket("protected");
     mock->makeConnectParams(crOpts, NULL);
-    crOpts.v.v0.user = "protected";
-    crOpts.v.v0.passwd = "secret";
-    crOpts.v.v0.bucket = "protected";
-    doLcbCreate(&instance, &crOpts, mock);
+    lcb_createopts_credentials(crOpts, user.c_str(), user.size(), password.c_str(), password.size());
+    lcb_createopts_bucket(crOpts, bucket.c_str(), bucket.size());
+    doLcbCreate(&instance, crOpts, mock);
+    lcb_createopts_destroy(crOpts);
 
     err = lcb_connect(instance);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -149,7 +152,7 @@ TEST_F(RegressionUnitTest, CCBC_275)
     // (3) the subsequent lcb_wait would return immediately.
     // So far I've managed to reproduce (1), not clear on (2) and (3)
     mock->hiccupNodes(1000, 1);
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback_275);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback_275);
 
     ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &info, cmd));
     lcb_wait(instance);
@@ -244,7 +247,7 @@ static void df_get_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb
     lcb_size_t nvalue = strlen(value);
 
     lcb_CMDSTORE *storecmd;
-    lcb_cmdstore_create(&storecmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&storecmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(storecmd, key, nkey);
     lcb_cmdstore_value(storecmd, value, nvalue);
     lcb_cmdstore_cas(storecmd, rv->cas1);
@@ -264,10 +267,10 @@ TEST_F(MockUnitTest, testDoubleFreeError)
     createConnection(hw, &instance);
 
     /* prefill the bucket */
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)df_store_callback1);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)df_store_callback1);
 
     lcb_CMDSTORE *storecmd;
-    lcb_cmdstore_create(&storecmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&storecmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(storecmd, key, nkey);
     lcb_cmdstore_value(storecmd, value, nvalue);
 
@@ -281,8 +284,8 @@ TEST_F(MockUnitTest, testDoubleFreeError)
      * 1. get the valueue and its cas
      * 2. atomic set new valueue using old cas
      */
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)df_store_callback2);
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)df_get_callback);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)df_store_callback2);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)df_get_callback);
 
     lcb_CMDGET *getcmd;
     lcb_cmdget_create(&getcmd);
@@ -298,18 +301,21 @@ TEST_F(MockUnitTest, testDoubleFreeError)
     lcb_cmdget_destroy(getcmd);
 }
 
+#include "internalstructs.h"
+
 TEST_F(MockUnitTest, testBrokenFirstNodeInList)
 {
     SKIP_UNLESS_MOCK();
     MockEnvironment *mock = MockEnvironment::getInstance();
-    lcb_create_st options;
+    lcb_CREATEOPTS *options = NULL;
     mock->makeConnectParams(options, NULL);
-    std::string nodes = options.v.v0.host;
-    nodes = "1.2.3.4:4321;" + nodes;
-    options.v.v0.host = nodes.c_str();
+    std::string nodes(options->connstr, options->connstr_len);
+    nodes.replace(nodes.find("://"), 3, "://1.2.3.4:4321=http;1.2.3.4:7890=mcd;");
+    lcb_createopts_connstr(options, nodes.c_str(), nodes.size());
 
     lcb_INSTANCE *instance;
-    doLcbCreate(&instance, &options, mock);
+    doLcbCreate(&instance, options, mock);
+    lcb_createopts_destroy(options);
     lcb_cntl_setu32(instance, LCB_CNTL_OP_TIMEOUT, LCB_MS2US(200));
     ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
     lcb_destroy(instance);

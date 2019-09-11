@@ -40,7 +40,7 @@ loop:
         opt    = ochar+;
         word   = ochar* | str;
 
-        [-]{1,2} @k opt @ke eq? @v word @ve {
+        [-]{1,2} @k opt @ke wsp eq? wsp @v word @ve {
             tok->type = BM_TOKEN_OPTION;
             tok->t.option.key = k;
             tok->t.option.klen = (int)(ke - k);

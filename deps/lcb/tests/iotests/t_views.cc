@@ -18,7 +18,7 @@
 #include "config.h"
 #include "iotests.h"
 #include <map>
-#include <libcouchbase/pktfwd.h>
+#include <src/internal.h>
 #include "contrib/cJSON/cJSON.h"
 
 namespace
@@ -49,23 +49,22 @@ static const char *content_type = "application/json";
 
 void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, bool first)
 {
-    lcb_create_st crparams;
-    lcb_create_st crparamsAdmin;
-    lcb_config_transport_t transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
-    MockEnvironment::getInstance()->makeConnectParams(crparams, NULL);
-    crparamsAdmin = crparams;
+    lcb_CREATEOPTS *crparams = NULL;
+    MockEnvironment::getInstance()->makeConnectParams(crparams, NULL, LCB_TYPE_CLUSTER);
 
-    crparams.v.v2.bucket = "beer-sample";
+    std::string bucket("beer-sample");
+    std::string username("beer-sample");
+    lcb_createopts_bucket(crparams, bucket.c_str(), bucket.size());
     if (!CLUSTER_VERSION_IS_HIGHER_THAN(MockEnvironment::VERSION_50)) {
         // We could do CCCP if we really cared.. but it's simpler and makes
         // the logs cleaner.
-        crparams.v.v2.user = "beer-sample";
-        crparams.v.v2.mchosts = NULL;
-        crparams.v.v2.transports = transports;
+        lcb_createopts_credentials(crparams, username.c_str(), username.size(), NULL, 0);
     }
 
     // See if we can connect:
+    crparams->type = LCB_TYPE_BUCKET;
     lcb_STATUS rv = tryCreateConnection(hw, instance, crparams);
+    lcb_createopts_destroy(crparams);
     if (rv == LCB_SUCCESS) {
         return;
     } else if (!first) {
@@ -76,13 +75,14 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
     hw.destroy(); // Should really be called clear(), since that's what it does
 
     // Use the management API to load the beer-sample database
-    crparamsAdmin.v.v2.type = LCB_TYPE_CLUSTER;
-    crparamsAdmin.v.v2.user = "Administrator";
-    crparamsAdmin.v.v2.passwd = "password";
-    crparamsAdmin.v.v2.bucket = NULL;
-    crparamsAdmin.v.v2.transports = transports;
+    lcb_CREATEOPTS *crparamsAdmin = NULL;
+    MockEnvironment::getInstance()->makeConnectParams(crparamsAdmin, NULL, LCB_TYPE_CLUSTER);
+    username = "Administrator";
+    std::string password("password");
+    lcb_createopts_credentials(crparamsAdmin, username.c_str(), username.size(), password.c_str(), password.size());
 
     rv = tryCreateConnection(hw, instance, crparamsAdmin);
+    lcb_createopts_destroy(crparamsAdmin);
     ASSERT_EQ(LCB_SUCCESS, rv);
 
     const char *path = "/sampleBuckets/install";
@@ -95,7 +95,7 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
     lcb_cmdhttp_content_type(htcmd, content_type, strlen(content_type));
     lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_POST);
 
-    lcb_install_callback3(*instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)bktCreateCb);
+    lcb_install_callback(*instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)bktCreateCb);
     lcb_sched_enter(*instance);
     rv = lcb_http(*instance, NULL, htcmd);
     lcb_cmdhttp_destroy(htcmd);

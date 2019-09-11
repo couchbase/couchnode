@@ -30,25 +30,10 @@ extern "C" {
  * @{
  */
 
-/**
- * Called from the OBSERVE codebase to update an item's status for CAS-based
- * observe
- */
-void lcbdur_cas_update(lcb_INSTANCE *, void *dset, lcb_STATUS, const lcb_RESPOBSERVE *);
-
-/**
- * Called from the OBSERVE codebase to update an item's status for seqno-based
- * observe
- */
-void lcbdur_update_seqno(lcb_INSTANCE *, void *dset, const lcb_RESPOBSEQNO *);
-
 /** Indicate that this durability command context is for an original storage op */
 void lcbdurctx_set_durstore(lcb_MULTICMD_CTX *ctx, int enabled);
 
 void lcbdur_destroy(void *dset);
-
-/** Called from durability-cas to request an OBSERVE with a special callback */
-lcb_MULTICMD_CTX *lcb_observe_ctx_dur_new(lcb_INSTANCE *instance);
 
 /**@}
  *
@@ -278,7 +263,6 @@ struct Durset : public MultiCmdContext {
     /** Called after timeouts and intervals. */
     inline void tick();
 
-    static Durset *createCasDurset(lcb_INSTANCE *, const lcb_durability_opts_t *);
     static Durset *createSeqnoDurset(lcb_INSTANCE *, const lcb_durability_opts_t *);
 
     lcb_DURABILITYOPTSv0 opts; /**< Sanitized user options */

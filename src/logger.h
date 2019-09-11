@@ -11,22 +11,23 @@ namespace couchnode
 
 using namespace v8;
 
-class Logger : public lcb_logprocs_st, public Nan::AsyncResource
+class Logger : public Nan::AsyncResource
 {
 public:
     Logger(Local<Function> callback);
+    ~Logger();
 
-    const lcb_logprocs_st *lcbProcs() const;
+    const lcb_LOGGER *lcbProcs() const;
 
 private:
     void handler(unsigned int iid, const char *subsys, int severity,
                  const char *srcfile, int srcline, const char *fmt, va_list ap);
 
-    static void lcbHandler(struct lcb_logprocs_st *procs, unsigned int iid,
-                           const char *subsys, int severity,
-                           const char *srcfile, int srcline, const char *fmt,
-                           va_list ap);
+    static void lcbHandler(lcb_LOGGER *procs, uint64_t iid, const char *subsys,
+                           lcb_LOG_SEVERITY severity, const char *srcfile,
+                           int srcline, const char *fmt, va_list ap);
 
+    lcb_LOGGER *_lcbLogger;
     Nan::Callback _callback;
     char *_logBuffer;
     int _logBufferLen;

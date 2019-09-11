@@ -131,6 +131,7 @@ static int atexit_registered = 0; /* Register atexit just 1 time. */
 static int history_max_len = LINENOISE_DEFAULT_HISTORY_MAX_LEN;
 static int history_len = 0;
 static char **history = NULL;
+static FILE *input_stream = NULL;
 
 /* The linenoiseState structure represents the state during line editing.
  * We pass this state to functions implementing specific editing
@@ -194,6 +195,11 @@ FILE *lndebug_fp = NULL;
 #define lndebug(...)
 #endif
 
+void linenoiseSetInputStream(FILE *stream)
+{
+    input_stream = stream;
+}
+
 /* ======================= Low level terminal handling ====================== */
 
 /* Set if to use or not the multi line mode. */
@@ -217,7 +223,8 @@ static int isUnsupportedTerm(void) {
 static int enableRawMode(int fd) {
     struct termios raw;
 
-    if (!isatty(STDIN_FILENO)) goto fatal;
+    if (!isatty(fileno(input_stream)))
+        goto fatal;
     if (!atexit_registered) {
         atexit(linenoiseAtExit);
         atexit_registered = 1;
@@ -959,13 +966,14 @@ void linenoisePrintKeyCodes(void) {
 
     printf("Linenoise key codes debugging mode.\n"
             "Press keys to see scan codes. Type 'quit' at any time to exit.\n");
-    if (enableRawMode(STDIN_FILENO) == -1) return;
+    if (enableRawMode(fileno(input_stream)) == -1)
+        return;
     memset(quit,' ',4);
     while(1) {
         char c;
         int nread;
 
-        nread = read(STDIN_FILENO,&c,1);
+        nread = read(fileno(input_stream), &c, 1);
         if (nread <= 0) continue;
         memmove(quit,quit+1,sizeof(quit)-1); /* shift string to left. */
         quit[sizeof(quit)-1] = c; /* Insert current char on the right. */
@@ -976,7 +984,7 @@ void linenoisePrintKeyCodes(void) {
         printf("\r"); /* Go left edge manually, we are in raw mode. */
         fflush(stdout);
     }
-    disableRawMode(STDIN_FILENO);
+    disableRawMode(fileno(input_stream));
 }
 
 /* This function calls the line editing function linenoiseEdit() using
@@ -989,9 +997,10 @@ static int linenoiseRaw(char *buf, size_t buflen, const char *prompt) {
         return -1;
     }
 
-    if (enableRawMode(STDIN_FILENO) == -1) return -1;
-    count = linenoiseEdit(STDIN_FILENO, STDOUT_FILENO, buf, buflen, prompt);
-    disableRawMode(STDIN_FILENO);
+    if (enableRawMode(fileno(input_stream)) == -1)
+        return -1;
+    count = linenoiseEdit(fileno(input_stream), STDOUT_FILENO, buf, buflen, prompt);
+    disableRawMode(fileno(input_stream));
     printf("\n");
     return count;
 }
@@ -1016,7 +1025,7 @@ static char *linenoiseNoTTY(void) {
                 return NULL;
             }
         }
-        int c = fgetc(stdin);
+        int c = fgetc(input_stream);
         if (c == EOF || c == '\n') {
             if (c == EOF && len == 0) {
                 free(line);
@@ -1041,7 +1050,11 @@ char *linenoise(const char *prompt) {
     char buf[LINENOISE_MAX_LINE];
     int count;
 
-    if (!isatty(STDIN_FILENO)) {
+    if (input_stream == NULL) {
+        input_stream = stdin;
+    }
+
+    if (!isatty(fileno(input_stream))) {
         /* Not a tty: read from file / pipe. In this mode we don't want any
          * limit to the line size, so we call a function to handle that. */
         return linenoiseNoTTY();
@@ -1050,7 +1063,8 @@ char *linenoise(const char *prompt) {
 
         printf("%s",prompt);
         fflush(stdout);
-        if (fgets(buf,LINENOISE_MAX_LINE,stdin) == NULL) return NULL;
+        if (fgets(buf, LINENOISE_MAX_LINE, input_stream) == NULL)
+            return NULL;
         len = strlen(buf);
         while(len && (buf[len-1] == '\n' || buf[len-1] == '\r')) {
             len--;
@@ -1088,7 +1102,7 @@ static void freeHistory(void) {
 
 /* At exit we'll try to fix the terminal to the initial conditions. */
 static void linenoiseAtExit(void) {
-    disableRawMode(STDIN_FILENO);
+    disableRawMode(fileno(input_stream));
     freeHistory();
 }
 

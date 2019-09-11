@@ -106,7 +106,7 @@ CALLBACK_ACCESSOR(lcb_set_pktflushed_callback, lcb_pktflushed_callback, pktflush
 CALLBACK_ACCESSOR(lcb_set_open_callback, lcb_open_callback, open)
 
 LIBCOUCHBASE_API
-lcb_RESPCALLBACK lcb_install_callback3(lcb_INSTANCE *instance, int cbtype, lcb_RESPCALLBACK cb)
+lcb_RESPCALLBACK lcb_install_callback(lcb_INSTANCE *instance, int cbtype, lcb_RESPCALLBACK cb)
 {
     lcb_RESPCALLBACK ret;
     if (cbtype >= LCB_CALLBACK__MAX) {
@@ -119,7 +119,7 @@ lcb_RESPCALLBACK lcb_install_callback3(lcb_INSTANCE *instance, int cbtype, lcb_R
 }
 
 LIBCOUCHBASE_API
-lcb_RESPCALLBACK lcb_get_callback3(lcb_INSTANCE *instance, int cbtype)
+lcb_RESPCALLBACK lcb_get_callback(lcb_INSTANCE *instance, int cbtype)
 {
     if (cbtype >= LCB_CALLBACK__MAX) {
         return NULL;

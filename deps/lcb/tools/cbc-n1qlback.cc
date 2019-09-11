@@ -260,7 +260,7 @@ class Configuration
         }
     }
 
-    void set_cropts(lcb_create_st &opts)
+    void set_cropts(lcb_CREATEOPTS *opts)
     {
         m_params.fillCropts(opts);
     }
@@ -496,13 +496,13 @@ static void real_main(int argc, char **argv)
     vector< ThreadContext * > threads;
     vector< lcb_INSTANCE * > instances;
 
-    lcb_create_st cropts = {0};
+    lcb_CREATEOPTS *cropts = NULL;
     config.set_cropts(cropts);
     config.processOptions();
 
     for (size_t ii = 0; ii < config.nthreads(); ii++) {
         lcb_INSTANCE *instance;
-        do_or_die(lcb_create(&instance, &cropts));
+        do_or_die(lcb_create(&instance, cropts));
         do_or_die(lcb_connect(instance));
         lcb_wait(instance);
         do_or_die(lcb_get_bootstrap_status(instance));
@@ -515,6 +515,7 @@ static void real_main(int argc, char **argv)
         threads.push_back(cx);
         instances.push_back(instance);
     }
+    lcb_createopts_destroy(cropts);
 
     GlobalMetrics.prepare_screen();
 

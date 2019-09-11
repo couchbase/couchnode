@@ -15,6 +15,7 @@
  *   limitations under the License.
  */
 #include "config.h"
+#include "check_config.h"
 #include "server.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -264,7 +265,7 @@ static int start_mock_server(struct test_server_info *info, char **cmdline)
     const char *srcdir = getenv("srcdir");
 
     if (srcdir == NULL) {
-        srcdir = ".";
+        srcdir = TEST_SRC_DIR;
     }
 
     snprintf(wrapper, sizeof(wrapper), "%s" DIRSEP "tests" DIRSEP WRAPPER_BASE, srcdir);

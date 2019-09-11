@@ -39,7 +39,7 @@ int main(int argc, char **argv)
     lcb_INSTANCE *instance;
     lcb_STATUS rc;
     int ii;
-    struct lcb_create_st options = {0};
+    lcb_CREATEOPTS *options = NULL;
     lcb_CMDSTORE *cmd;
 
     if (argc != 2) {
@@ -47,10 +47,11 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    options.version = 3;
-    options.v.v3.connstr = argv[1];
+    lcb_createopts_create(&options, LCB_TYPE_BUCKET);
+    lcb_createopts_connstr(options, argv[1], strlen(argv[1]));
 
-    rc = lcb_create(&instance, &options);
+    rc = lcb_create(&instance, options);
+    lcb_createopts_destroy(options);
     assert(rc == LCB_SUCCESS);
 
     rc = lcb_cntl_string(instance, "operation_timeout", "120");
@@ -63,14 +64,14 @@ int main(int argc, char **argv)
     rc = lcb_get_bootstrap_status(instance);
     assert(rc == LCB_SUCCESS);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_cb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_cb);
 
     // fill the value so valgrind doesn't warn about unitialized buffers
     for (ii = 0; ii < VALUE_SIZE; ii++) {
         value[ii] = '*';
     }
 
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key, strlen(key));
     lcb_cmdstore_value(cmd, value, VALUE_SIZE);
 

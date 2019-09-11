@@ -75,15 +75,12 @@ static long ret_thr_self(void)
 
 static hrtime_t start_time = 0;
 
-static void console_log(struct lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity,
+static void console_log(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
                         const char *srcfile, int srcline, const char *fmt, va_list ap);
 
-static struct lcb_CONSOLELOGGER console_logprocs = {{0 /* version */, {{console_log} /* v1 */} /*v*/},
-                                                    NULL,
-                                                    /** Minimum severity */
-                                                    LCB_LOG_INFO};
+static struct lcb_CONSOLELOGGER console_logprocs = {{console_log, NULL}, NULL, LCB_LOG_INFO /* Minimum severity */};
 
-struct lcb_logprocs_st *lcb_console_logprocs = &console_logprocs.base;
+lcb_LOGGER *lcb_console_logger = &console_logprocs.base;
 
 /**
  * Return a string representation of the severity level
@@ -111,14 +108,14 @@ static const char *level_to_string(int severity)
 /**
  * Default logging callback for the verbose logger.
  */
-static void console_log(struct lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity,
+static void console_log(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
                         const char *srcfile, int srcline, const char *fmt, va_list ap)
 {
     FILE *fp;
     hrtime_t now;
     struct lcb_CONSOLELOGGER *vprocs = (struct lcb_CONSOLELOGGER *)procs;
 
-    if (severity < vprocs->minlevel) {
+    if ((int)severity < vprocs->minlevel) {
         return;
     }
 
@@ -136,8 +133,8 @@ static void console_log(struct lcb_logprocs_st *procs, unsigned int iid, const c
     flockfile(fp);
     fprintf(fp, "%lums ", (unsigned long)(now - start_time) / 1000000);
 
-    fprintf(fp, "[I%08x] {%" THREAD_ID_FMT "} [%s] (%s - L:%d) ", iid, GET_THREAD_ID(), level_to_string(severity),
-            subsys, srcline);
+    fprintf(fp, "[I%" PRIx64 "] {%" THREAD_ID_FMT "} [%s] (%s - L:%d) ", iid, GET_THREAD_ID(),
+            level_to_string(severity), subsys, srcline);
     vfprintf(fp, fmt, ap);
     fprintf(fp, "\n");
     funlockfile(fp);
@@ -151,19 +148,16 @@ void lcb_log(const struct lcb_settings_st *settings, const char *subsys, int sev
              const char *fmt, ...)
 {
     va_list ap;
-    lcb_logging_callback callback;
+    lcb_LOGGER_CALLBACK callback;
 
     if (!settings->logger) {
         return;
     }
 
-    if (settings->logger->version != 0) {
+    callback = settings->logger->callback;
+
+    if (!callback)
         return;
-    }
-
-    callback = settings->logger->v.v0.callback;
-
-    if (!callback) return;
 
     va_start(ap, fmt);
     callback(settings->logger, settings->iid, subsys, severity, srcfile, srcline, fmt, ap);
@@ -187,7 +181,7 @@ void lcb_log_badconfig(const struct lcb_settings_st *settings, const char *subsy
     lcb_log(settings, subsys, LCB_LOG_DEBUG, srcfile, srcline, "%s", origin_txt);
 }
 
-lcb_logprocs *lcb_init_console_logger(void)
+lcb_LOGGER *lcb_init_console_logger(void)
 {
     char vbuf[1024];
     char namebuf[PATH_MAX] = {0};
@@ -220,5 +214,30 @@ lcb_logprocs *lcb_init_console_logger(void)
     /** The "lowest" level we can expose is WARN, e.g. ERROR-1 */
     lvl = LCB_LOG_ERROR - lvl;
     console_logprocs.minlevel = lvl;
-    return lcb_console_logprocs;
+    return lcb_console_logger;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_logger_create(lcb_LOGGER **logger, void *cookie)
+{
+    *logger = (lcb_LOGGER *)calloc(1, sizeof(lcb_LOGGER));
+    (*logger)->cookie = cookie;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_logger_destroy(lcb_LOGGER *logger)
+{
+    free(logger);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_logger_callback(lcb_LOGGER *logger, lcb_LOGGER_CALLBACK callback)
+{
+    logger->callback = callback;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_logger_cookie(lcb_LOGGER *logger, void **cookie)
+{
+    *cookie = logger->cookie;
+    return LCB_SUCCESS;
 }

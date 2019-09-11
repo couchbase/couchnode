@@ -98,7 +98,6 @@ static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPFTS *re
 
 int main(int argc, char *argv[])
 {
-    lcb_STATUS err;
     lcb_INSTANCE *instance;
     char *bucket = NULL;
     size_t ii;
@@ -109,16 +108,14 @@ int main(int argc, char *argv[])
     }
 
     {
-        struct lcb_create_st create_options = {0};
-        create_options.version = 3;
-        create_options.v.v3.connstr = argv[1];
-        if (argc > 2) {
-            create_options.v.v3.passwd = argv[2];
-        }
+        lcb_CREATEOPTS *create_options = NULL;
+        lcb_createopts_create(&create_options, LCB_TYPE_BUCKET);
+        lcb_createopts_connstr(create_options, argv[1], strlen(argv[1]));
         if (argc > 3) {
-            create_options.v.v3.username = argv[3];
+            lcb_createopts_credentials(create_options, argv[3], strlen(argv[3]), argv[2], strlen(argv[2]));
         }
-        check(lcb_create(&instance, &create_options), "create couchbase handle");
+        check(lcb_create(&instance, create_options), "create couchbase handle");
+        lcb_createopts_destroy(create_options);
         check(lcb_connect(instance), "schedule connection");
         lcb_wait(instance);
         check(lcb_get_bootstrap_status(instance), "bootstrap from cluster");

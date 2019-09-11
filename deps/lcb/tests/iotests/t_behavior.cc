@@ -16,6 +16,7 @@
  */
 
 #include "config.h"
+#include "check_config.h"
 #include <gtest/gtest.h>
 #include <libcouchbase/couchbase.h>
 #include <map>

@@ -9,13 +9,19 @@ Logger::Logger(Local<Function> callback)
     , _logBuffer(nullptr)
     , _logBufferLen(0)
 {
-    this->version = 0;
-    this->v.v0.callback = &lcbHandler;
+    lcb_logger_create(&_lcbLogger, this);
+    lcb_logger_callback(_lcbLogger, &lcbHandler);
 }
 
-const lcb_logprocs_st *Logger::lcbProcs() const
+Logger::~Logger()
 {
-    return this;
+    lcb_logger_destroy(_lcbLogger);
+    _lcbLogger = nullptr;
+}
+
+const lcb_LOGGER *Logger::lcbProcs() const
+{
+    return _lcbLogger;
 }
 
 void Logger::handler(unsigned int iid, const char *subsys, int severity,
@@ -53,11 +59,12 @@ void Logger::handler(unsigned int iid, const char *subsys, int severity,
     _callback.Call(Nan::New<Object>(), 1, args, this);
 }
 
-void Logger::lcbHandler(struct lcb_logprocs_st *procs, unsigned int iid,
-                        const char *subsys, int severity, const char *srcfile,
+void Logger::lcbHandler(lcb_LOGGER *procs, uint64_t iid, const char *subsys,
+                        lcb_LOG_SEVERITY severity, const char *srcfile,
                         int srcline, const char *fmt, va_list ap)
 {
-    Logger *logger = static_cast<Logger *>(procs);
+    Logger *logger;
+    lcb_logger_cookie(procs, reinterpret_cast<void **>(&logger));
     logger->handler(iid, subsys, severity, srcfile, srcline, fmt, ap);
 }
 

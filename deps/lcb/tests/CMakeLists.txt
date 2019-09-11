@@ -1,3 +1,27 @@
+SET(CMAKE_TEST_SHARED_OBJECT "libm.so")
+IF (WIN32)
+    SET(CMAKE_TEST_SHARED_OBJECT "kernel32.dll.")
+ELSEIF (APPLE)
+    SET(CMAKE_TEST_SHARED_OBJECT "libm.dylib")
+ELSEIF (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    EXECUTE_PROCESS(COMMAND ${CMAKE_LINKER} -lm -t
+            OUTPUT_VARIABLE LIBM_SO_TRACE
+            ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+    STRING(REGEX MATCH [-_a-z0-9/]+libm.so[.0-9]+ LIBM_SO_PATH ${LIBM_SO_TRACE})
+    IF (EXISTS "${LIBM_SO_PATH}")
+        GET_FILENAME_COMPONENT(CMAKE_TEST_SHARED_OBJECT ${LIBM_SO_PATH} NAME)
+    ENDIF()
+ENDIF()
+
+CONFIGURE_FILE(
+        ${PROJECT_SOURCE_DIR}/cmake/check_config.h.in
+        ${LCB_GENSRCDIR}/check_config.h)
+
+CONFIGURE_FILE(
+        ${PROJECT_SOURCE_DIR}/tests/start_mock.sh.in
+        ${PROJECT_SOURCE_DIR}/tests/start_mock.sh)
+
 # For Windows+GCC we need to link statically
 IF (NOT (WIN32 AND CMAKE_COMPILER_IS_GNUCC))
     SET(gtest_force_shared_crt ON CACHE BOOL "" )

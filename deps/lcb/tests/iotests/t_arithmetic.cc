@@ -98,7 +98,7 @@ TEST_F(ArithmeticUnitTest, testIncr)
     lcb_INSTANCE *instance;
     HandleWrap hw;
     createConnection(hw, &instance);
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_COUNTER, (lcb_RESPCALLBACK)arithmetic_incr_callback);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_COUNTER, (lcb_RESPCALLBACK)arithmetic_incr_callback);
 
     initArithmeticKey(instance, "counter", 0);
 
@@ -125,7 +125,7 @@ TEST_F(ArithmeticUnitTest, testDecr)
     lcb_INSTANCE *instance;
     HandleWrap hw;
     createConnection(hw, &instance);
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_COUNTER, (lcb_RESPCALLBACK)arithmetic_decr_callback);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_COUNTER, (lcb_RESPCALLBACK)arithmetic_decr_callback);
 
     initArithmeticKey(instance, "counter", 100);
 
@@ -154,7 +154,7 @@ TEST_F(ArithmeticUnitTest, testArithmeticCreate)
     createConnection(hw, &instance);
 
     removeKey(instance, "mycounter");
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_COUNTER, (lcb_RESPCALLBACK)arithmetic_create_callback);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_COUNTER, (lcb_RESPCALLBACK)arithmetic_create_callback);
     lcb_CMDCOUNTER *cmd;
     lcb_cmdcounter_create(&cmd);
     lcb_cmdcounter_key(cmd, "mycounter", 9);

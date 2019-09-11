@@ -24,7 +24,7 @@ unset UMEM_DEBUG
 # We could have started it directly from the C code, but by using
 # a script it's a bit easier to test it manually ;)
 if [ -z "$srcdir" ]; then
-    srcdir="."
+    srcdir="${CMAKE_SOURCE_DIR}"
 fi
 
 for p in "$srcdir/tests" "$srcdir" "tests" "."; do

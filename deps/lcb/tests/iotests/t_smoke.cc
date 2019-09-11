@@ -23,7 +23,7 @@ using std::vector;
 
 // This file contains the 'migrated' tests from smoke-test.c
 
-static lcb_config_transport_t transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
+static lcb_BOOTSTRAP_TRANSPORT transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
 struct rvbuf {
     lcb_STATUS error;
     lcb_STORE_OPERATION operation;
@@ -96,7 +96,7 @@ struct rvbuf {
     void reset()
     {
         error = LCB_SUCCESS;
-        operation = LCB_STORE_SET;
+        operation = LCB_STORE_UPSERT;
         cas = 0;
         flags = 0;
         counter = 0;
@@ -177,10 +177,10 @@ static void version_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPMC
 } // extern "C"
 static void setupCallbacks(lcb_INSTANCE *instance)
 {
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, (lcb_RESPCALLBACK)touch_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)version_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_TOUCH, (lcb_RESPCALLBACK)touch_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)version_callback);
 }
 
 class SmokeTest : public ::testing::Test
@@ -228,7 +228,7 @@ class SmokeTest : public ::testing::Test
     lcb_STATUS testMissingBucket();
 
     // Call to connect instance
-    void connectCommon(const char *password = NULL, lcb_STATUS expected = LCB_SUCCESS);
+    void connectCommon(const char *bucket = NULL, const char *password = NULL, lcb_STATUS expected = LCB_SUCCESS);
 };
 
 void SmokeTest::testSet1()
@@ -239,7 +239,7 @@ void SmokeTest::testSet1()
     string key("foo");
     string value("bar");
 
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key.c_str(), key.size());
     lcb_cmdstore_value(cmd, value.c_str(), value.size());
     EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
@@ -247,7 +247,7 @@ void SmokeTest::testSet1()
     rv.incRemaining();
     lcb_wait(session);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
-    EXPECT_EQ(LCB_STORE_SET, rv.operation);
+    EXPECT_EQ(LCB_STORE_UPSERT, rv.operation);
     EXPECT_EQ(key, rv.getKeyString());
 }
 
@@ -258,7 +258,7 @@ void SmokeTest::testSet2()
     lcb_CMDSTORE *cmd;
     string key("foo"), value("bar");
 
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key.c_str(), key.size());
     lcb_cmdstore_value(cmd, value.c_str(), value.size());
 
@@ -279,7 +279,7 @@ void SmokeTest::testGet1()
     string key("foo"), value("bar");
 
     lcb_CMDSTORE *storecmd;
-    lcb_cmdstore_create(&storecmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&storecmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(storecmd, key.c_str(), key.size());
     lcb_cmdstore_value(storecmd, value.c_str(), value.size());
 
@@ -325,7 +325,7 @@ void SmokeTest::testGet2()
         const string &curKey = coll[ii];
 
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, curKey.c_str(), curKey.size());
         lcb_cmdstore_value(cmd, value.c_str(), value.size());
 
@@ -366,7 +366,7 @@ void SmokeTest::testTouch1()
         const string &curKey = coll[ii];
 
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, curKey.c_str(), curKey.size());
         lcb_cmdstore_value(cmd, value.c_str(), value.size());
 
@@ -411,13 +411,15 @@ lcb_STATUS SmokeTest::testMissingBucket()
 {
     destroySession();
     // create a new session
-    lcb_create_st cropts;
+    lcb_CREATEOPTS *cropts = NULL;
     mock->makeConnectParams(cropts);
-    cropts.v.v2.transports = transports;
-    cropts.v.v2.bucket = "nonexist";
-    cropts.v.v2.user = "nonexist";
+    std::string bucket("nonexist");
+    std::string username("nonexist");
+    lcb_createopts_bucket(cropts, bucket.c_str(), bucket.size());
+    lcb_createopts_credentials(cropts, username.c_str(), username.size(), NULL, 0);
     lcb_STATUS err;
-    err = lcb_create(&session, &cropts);
+    err = lcb_create(&session, cropts);
+    lcb_createopts_destroy(cropts);
     EXPECT_EQ(LCB_SUCCESS, err);
     mock->postCreate(session);
 
@@ -442,7 +444,7 @@ void SmokeTest::testSpuriousSaslError()
         rvs[i].counter = 999;
 
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, key.c_str(), key.size());
         lcb_cmdstore_value(cmd, key.c_str(), key.size());
         EXPECT_EQ(LCB_SUCCESS, lcb_store(session, rvs + i, cmd));
@@ -465,16 +467,19 @@ void SmokeTest::testSpuriousSaslError()
     }
 }
 
-void SmokeTest::connectCommon(const char *password, lcb_STATUS expected)
+void SmokeTest::connectCommon(const char *bucket, const char *password, lcb_STATUS expected)
 {
-    lcb_create_st cropts;
+    lcb_CREATEOPTS *cropts = NULL;
     mock->makeConnectParams(cropts, NULL);
 
-    if (password != NULL) {
-        cropts.v.v2.passwd = password;
+    if (bucket) {
+        lcb_createopts_bucket(cropts, bucket, strlen(bucket));
+        if (password) {
+            lcb_createopts_credentials(cropts, bucket, strlen(bucket), password, strlen(password));
+        }
     }
-    cropts.v.v2.transports = transports;
-    lcb_STATUS err = lcb_create(&session, &cropts);
+    lcb_STATUS err = lcb_create(&session, cropts);
+    lcb_createopts_destroy(cropts);
     EXPECT_EQ(LCB_SUCCESS, err);
 
     mock->postCreate(session);
@@ -548,10 +553,10 @@ TEST_F(SmokeTest, testSaslBucket)
 
     testMissingBucket();
 
-    connectCommon("secret");
+    connectCommon("protected", "secret");
     testSpuriousSaslError();
 
     destroySession();
-    connectCommon("incorrect", LCB_AUTH_ERROR);
+    connectCommon("protected", "incorrect", LCB_AUTH_ERROR);
     destroySession();
 }

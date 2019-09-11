@@ -21,13 +21,13 @@ using namespace lcb;
 using std::queue;
 using std::vector;
 
-Pool::Pool(const lcb_create_st &options, size_t nitems) : initial_size(0)
+Pool::Pool(const lcb_CREATEOPTS *options, size_t nitems) : initial_size(0)
 {
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
     for (size_t ii = 0; ii < nitems; ii++) {
         lcb_INSTANCE *cur;
-        lcb_STATUS err = lcb_create(&cur, &options);
+        lcb_STATUS err = lcb_create(&cur, options);
         if (err != LCB_SUCCESS) {
             throw err;
         }

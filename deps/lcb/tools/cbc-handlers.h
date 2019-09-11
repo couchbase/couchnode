@@ -390,9 +390,12 @@ class PingHandler : public Handler
   public:
     HANDLER_DESCRIPTION("Reach all services on every node and measure response time")
     HANDLER_USAGE("[OPTIONS ...]")
-    PingHandler() : Handler("ping"), o_details("details")
+    PingHandler() : Handler("ping"), o_details("details"), o_minify("minify"), o_count("count"), o_interval("interval")
     {
         o_details.description("Render extra details about status of the services");
+        o_minify.description("Reformat result JSON").setDefault(false);
+        o_count.abbrev('c').description("Stop after sending COUNT number of request (otherwise run indefinitely)");
+        o_interval.abbrev('i').description("Wait INTERVAL seconds before sending requests").setDefault(1);
     }
 
   protected:
@@ -401,10 +404,16 @@ class PingHandler : public Handler
     {
         Handler::addOptions();
         parser.addOption(o_details);
+        parser.addOption(o_minify);
+        parser.addOption(o_count);
+        parser.addOption(o_interval);
     }
 
   private:
     cliopts::BoolOption o_details;
+    cliopts::BoolOption o_minify;
+    cliopts::UIntOption o_count;
+    cliopts::UIntOption o_interval;
 };
 
 class ArithmeticHandler : public Handler

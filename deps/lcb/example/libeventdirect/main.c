@@ -49,7 +49,7 @@ static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
     printf("successfully bootstrapped\n");
     fflush(stdout);
     /* Since we've got our configuration, let's go ahead and store a value */
-    lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key, nkey);
     lcb_cmdstore_value(cmd, val, nval);
     err = lcb_store(instance, NULL, cmd);
@@ -159,24 +159,19 @@ static lcb_INSTANCE *create_libcouchbase_handle(lcb_io_opt_t ioops, int argc, ch
 {
     lcb_INSTANCE *instance;
     lcb_STATUS error;
-    struct lcb_create_st copts;
+    lcb_CREATEOPTS *options = NULL;
 
-    memset(&copts, 0, sizeof(copts));
-
+    lcb_createopts_create(&options, LCB_TYPE_BUCKET);
     /* If NULL, will default to localhost */
-    copts.version = 3;
     if (argc > 1) {
-        copts.v.v3.connstr = argv[1];
-    }
-    if (argc > 2) {
-        copts.v.v3.passwd = argv[2];
+        lcb_createopts_connstr(options, argv[1], strlen(argv[1]));
     }
     if (argc > 3) {
-        copts.v.v3.username = argv[3];
+        lcb_createopts_credentials(options, argv[3], strlen(argv[3]), argv[2], strlen(argv[2]));
     }
-    copts.v.v3.io = ioops;
-    error = lcb_create(&instance, &copts);
-
+    lcb_createopts_io(options, ioops);
+    error = lcb_create(&instance, options);
+    lcb_createopts_destroy(options);
     if (error != LCB_SUCCESS) {
         fprintf(stderr, "Failed to create a libcouchbase instance: %s\n", lcb_strerror(NULL, error));
         exit(EXIT_FAILURE);
@@ -184,8 +179,8 @@ static lcb_INSTANCE *create_libcouchbase_handle(lcb_io_opt_t ioops, int argc, ch
 
     /* Set up the callbacks */
     lcb_set_bootstrap_callback(instance, bootstrap_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     if ((error = lcb_connect(instance)) != LCB_SUCCESS) {
         fprintf(stderr, "Failed to connect libcouchbase instance: %s\n", lcb_strerror(NULL, error));

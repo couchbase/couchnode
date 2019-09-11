@@ -66,6 +66,7 @@ TEST_F(ConfmonTest, testBasic)
     listener.io = instance->iotable;
     mon->add_listener(&listener);
     mon->start();
+
     IOT_START(instance->iotable);
     ASSERT_NE(0, listener.called);
     delete mon;
@@ -118,7 +119,7 @@ TEST_F(ConfmonTest, testCycle)
 {
     HandleWrap hw;
     lcb_INSTANCE *instance;
-    lcb_create_st cropts;
+    lcb_CREATEOPTS *cropts = NULL;
     MockEnvironment *mock = MockEnvironment::getInstance();
 
     if (mock->isRealCluster()) {
@@ -141,7 +142,10 @@ TEST_F(ConfmonTest, testCycle)
     Provider *http = mon->get_provider(CLCONFIG_HTTP);
 
     lcb::Hostlist hl;
-    hl.add(cropts.v.v2.mchosts, 11210);
+    std::vector<int> ports = mock->getMcPorts();
+    for (std::vector<int>::const_iterator it = ports.begin(); it != ports.end(); it++) {
+        hl.add("localhost", *it);
+    }
     cccp->enable(instance);
     cccp->configure_nodes(hl);
 

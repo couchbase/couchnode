@@ -97,7 +97,7 @@ TEST_F(ErrmapUnitTest, closesOnUnrecognizedError)
     lcb_cmdstore_value(scmd, "val", 3);
 
     ResultCookie cookie;
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opcb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opcb);
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, scmd));
     lcb_wait(instance);
     ASSERT_EQ(LCB_SUCCESS, cookie.rc);
@@ -137,7 +137,7 @@ void ErrmapUnitTest::checkRetryVerify(uint16_t errcode)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createErrmapConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opcb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opcb);
 
     ResultCookie cookie;
 

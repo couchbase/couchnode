@@ -91,14 +91,11 @@ int main(int argc, char *argv[])
 {
     lcb_STATUS err;
     lcb_INSTANCE *instance;
-    struct lcb_create_st create_options;
+    lcb_CREATEOPTS *create_options;
     const char *key = "foo";
     size_t nkey = strlen(key);
     void *bytes;
     long nbytes = 6; /* the size of the value */
-
-    memset(&create_options, 0, sizeof(create_options));
-    create_options.version = 3;
 
     if (argc > 1) {
         key = argv[1];
@@ -107,19 +104,21 @@ int main(int argc, char *argv[])
     if (argc > 2) {
         nbytes = atol(argv[2]);
     }
+    lcb_createopts_create(&create_options, LCB_TYPE_BUCKET);
     if (argc > 3) {
-        create_options.v.v3.connstr = argv[3];
-    }
-    if (argc > 4) {
-        create_options.v.v3.passwd = argv[4];
+        fprintf(stderr, "connection string: %s\n", argv[3]);
+        lcb_createopts_connstr(create_options, argv[3], strlen(argv[3]));
     }
     if (argc > 5) {
-        create_options.v.v3.username = argv[5];
+        fprintf(stderr, "username: %s\n", argv[5]);
+        fprintf(stderr, "password: %s\n", argv[4]);
+        lcb_createopts_credentials(create_options, argv[5], strlen(argv[5]), argv[4], strlen(argv[4]));
     }
 
     INSTALL_SIGINT_HANDLER();
 
-    err = lcb_create(&instance, &create_options);
+    err = lcb_create(&instance, create_options);
+    lcb_createopts_destroy(create_options);
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "Failed to create libcouchbase instance: %s\n", lcb_strerror(NULL, err));
         exit(EXIT_FAILURE);
@@ -138,19 +137,17 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     fprintf(stderr, "key: \"%s\"\n", key);
     fprintf(stderr, "value size: %ld\n", nbytes);
-    fprintf(stderr, "connection string: %s\n", create_options.v.v3.connstr ? create_options.v.v3.connstr : "");
-    fprintf(stderr, "password: %s\n", create_options.v.v0.passwd ? create_options.v.v3.passwd : "");
 
     bytes = malloc(nbytes);
 
     {
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, key, nkey);
         lcb_cmdstore_value(cmd, bytes, nbytes);
         err = lcb_store(instance, NULL, cmd);

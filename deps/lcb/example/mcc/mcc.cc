@@ -19,6 +19,7 @@
 #include <list>
 #include <iostream>
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/utils.h>
 #include <getopt.h>
 #include <cstdlib>
 
@@ -100,18 +101,19 @@ class MultiClusterClient
         for (std::list< std::string >::iterator iter = clusters.begin(); iter != clusters.end(); ++iter) {
             std::cout << "Creating instance for cluster " << *iter;
             std::cout.flush();
-            lcb_create_st options = {0};
-            options.version = 3;
-            options.v.v3.connstr = iter->c_str();
-            options.v.v3.io = iops;
+            lcb_CREATEOPTS *options = NULL;
+            lcb_createopts_create(&options, LCB_TYPE_BUCKET);
+            lcb_createopts_connstr(options, iter->c_str(), iter->size());
+            lcb_createopts_io(options, iops);
 
             lcb_INSTANCE *instance;
-            if ((err = lcb_create(&instance, &options)) != LCB_SUCCESS) {
+            if ((err = lcb_create(&instance, options)) != LCB_SUCCESS) {
                 std::cerr << "Failed to create instance: " << lcb_strerror(NULL, err) << std::endl;
                 exit(1);
             }
-            lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
-            lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+            lcb_createopts_destroy(options);
+            lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+            lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
             lcb_connect(instance);
             lcb_wait(instance);
@@ -128,7 +130,7 @@ class MultiClusterClient
     lcb_STATUS store(const std::string &key, const std::string &value)
     {
         lcb_CMDSTORE *scmd;
-        lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(scmd, key.c_str(), key.size());
         lcb_cmdstore_value(scmd, value.c_str(), value.size());
         Operation *oper = new Operation(this);

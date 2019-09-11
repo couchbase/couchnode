@@ -794,7 +794,7 @@ class ThreadContext
                 opinfo = retryq.front();
                 retryq.pop();
                 lcb_CMDSTORE *scmd;
-                lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+                lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
                 lcb_cmdstore_expiration(scmd, exptime);
                 if (config.writeJson()) {
                     lcb_cmdstore_datatype(scmd, LCB_VALUE_F_JSON);
@@ -835,7 +835,7 @@ class ThreadContext
                     lcb_cmdget_destroy(gcmd);
                 } else {
                     lcb_CMDSTORE *scmd;
-                    lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+                    lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
                     lcb_cmdstore_expiration(scmd, exptime);
                     if (config.writeJson()) {
                         lcb_cmdstore_datatype(scmd, LCB_VALUE_F_JSON);
@@ -863,17 +863,17 @@ class ThreadContext
             }
             case NextOp::SDSTORE:
             case NextOp::SDGET: {
-                lcb_SUBDOCOPS *specs;
+                lcb_SUBDOCSPECS *specs;
                 bool mutate = false;
-                lcb_subdocops_create(&specs, opinfo.m_specs.size());
+                lcb_subdocspecs_create(&specs, opinfo.m_specs.size());
                 for (size_t ii = 0; ii < opinfo.m_specs.size(); ii++) {
                     SubdocSpec &spec = opinfo.m_specs[ii];
                     if (spec.mutate) {
                         mutate = true;
-                        lcb_subdocops_dict_upsert(specs, ii, 0, spec.path.c_str(), spec.path.size(), spec.value.c_str(),
-                                                  spec.value.size());
+                        lcb_subdocspecs_dict_upsert(specs, ii, 0, spec.path.c_str(), spec.path.size(),
+                                                    spec.value.c_str(), spec.value.size());
                     } else {
-                        lcb_subdocops_get(specs, ii, 0, spec.path.c_str(), spec.path.size());
+                        lcb_subdocspecs_get(specs, ii, 0, spec.path.c_str(), spec.path.size());
                     }
                 }
                 lcb_CMDSUBDOC *sdcmd;
@@ -886,7 +886,7 @@ class ThreadContext
                     lcb_cmdsubdoc_durability(sdcmd, config.durabilityLevel);
                 }
                 error = lcb_subdoc(instance, NULL, sdcmd);
-                lcb_subdocops_destroy(specs);
+                lcb_subdocspecs_destroy(specs);
                 lcb_cmdsubdoc_destroy(sdcmd);
                 break;
             }
@@ -1079,7 +1079,7 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
             tc->populateIov(seqno, valuefrags);
 
             lcb_CMDSTORE *scmd;
-            lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+            lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
             lcb_cmdstore_expiration(scmd, config.getExptime());
             uint64_t cas;
             lcb_respget_cas(resp, &cas);
@@ -1315,26 +1315,27 @@ int main(int argc, char **argv)
     }
 #endif
 
-    struct lcb_create_st options;
+    lcb_CREATEOPTS *options = NULL;
     ConnParams &cp = config.params;
     lcb_STATUS error;
 
     for (uint32_t ii = 0; ii < nthreads; ++ii) {
         cp.fillCropts(options);
         lcb_INSTANCE *instance = NULL;
-        error = lcb_create(&instance, &options);
+        error = lcb_create(&instance, options);
+        lcb_createopts_destroy(options);
         if (error != LCB_SUCCESS) {
             log("Failed to create instance: %s", lcb_strerror_short(error));
             exit(EXIT_FAILURE);
         }
-        lcb_install_callback3(instance, LCB_CALLBACK_STOREDUR, (lcb_RESPCALLBACK)storeCallback);
-        lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeCallback);
-        lcb_install_callback3(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getCallback);
-        lcb_install_callback3(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdocCallback);
-        lcb_install_callback3(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdocCallback);
-        lcb_install_callback3(instance, LCB_CALLBACK_NOOP, (lcb_RESPCALLBACK)noopCallback);
+        lcb_install_callback(instance, LCB_CALLBACK_STOREDUR, (lcb_RESPCALLBACK)storeCallback);
+        lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeCallback);
+        lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getCallback);
+        lcb_install_callback(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdocCallback);
+        lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdocCallback);
+        lcb_install_callback(instance, LCB_CALLBACK_NOOP, (lcb_RESPCALLBACK)noopCallback);
 #ifndef WIN32
-        lcb_install_callback3(instance, LCB_CALLBACK_DIAG, (lcb_RESPCALLBACK)diag_callback);
+        lcb_install_callback(instance, LCB_CALLBACK_DIAG, (lcb_RESPCALLBACK)diag_callback);
         {
             int activate = 1;
             lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_METRICS, &activate);

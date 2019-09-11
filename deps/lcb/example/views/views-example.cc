@@ -60,23 +60,26 @@ static void viewCallback(lcb_INSTANCE *, int, const lcb_RESPVIEW *rv)
 int main(int argc, const char **argv)
 {
     lcb_INSTANCE *instance;
-    lcb_create_st cropts;
-    memset(&cropts, 0, sizeof cropts);
+    lcb_CREATEOPTS *create_options = NULL;
     const char *connstr = "couchbase://localhost/beer-sample";
 
     if (argc > 1) {
         if (strcmp(argv[1], "--help") == 0) {
-            fprintf(stderr, "Usage: %s CONNSTR\n", argv[0]);
+            fprintf(stderr, "Usage: %s CONNSTR [USERNAME PASSWORD]\n", argv[0]);
             exit(EXIT_SUCCESS);
         } else {
             connstr = argv[1];
         }
     }
 
-    cropts.version = 3;
-    cropts.v.v3.connstr = connstr;
+    lcb_createopts_create(&create_options, LCB_TYPE_BUCKET);
+    lcb_createopts_connstr(create_options, connstr, strlen(connstr));
+    if (argc > 3) {
+        lcb_createopts_credentials(create_options, argv[2], strlen(argv[2]), argv[3], strlen(argv[3]));
+    }
     lcb_STATUS rc;
-    rc = lcb_create(&instance, &cropts);
+    rc = lcb_create(&instance, create_options);
+    lcb_createopts_destroy(create_options);
     assert(rc == LCB_SUCCESS);
     rc = lcb_connect(instance);
     assert(rc == LCB_SUCCESS);

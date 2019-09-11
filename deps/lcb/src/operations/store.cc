@@ -360,10 +360,10 @@ static lcb_size_t get_value_size(mc_PACKET *packet)
 
 static lcb_STATUS get_esize_and_opcode(lcb_STORE_OPERATION ucmd, lcb_uint8_t *opcode, lcb_uint8_t *esize)
 {
-    if (ucmd == LCB_STORE_SET || ucmd == LCB_STORE_UPSERT) {
+    if (ucmd == LCB_STORE_UPSERT) {
         *opcode = PROTOCOL_BINARY_CMD_SET;
         *esize = 8;
-    } else if (ucmd == LCB_STORE_ADD) {
+    } else if (ucmd == LCB_STORE_INSERT) {
         *opcode = PROTOCOL_BINARY_CMD_ADD;
         *esize = 8;
     } else if (ucmd == LCB_STORE_REPLACE) {
@@ -381,7 +381,7 @@ static lcb_STATUS get_esize_and_opcode(lcb_STORE_OPERATION ucmd, lcb_uint8_t *op
     return LCB_SUCCESS;
 }
 
-static int can_compress(lcb_INSTANCE *instance, const mc_PIPELINE *pipeline, lcb_datatype_t datatype)
+static int can_compress(lcb_INSTANCE *instance, const mc_PIPELINE *pipeline, uint8_t datatype)
 {
     const lcb::Server *server = static_cast< const lcb::Server * >(pipeline);
     int compressopts = LCBT_SETTING(instance, compressopts);
@@ -534,7 +534,7 @@ static lcb_STATUS store_validate(lcb_INSTANCE *instance, const lcb_CMDSTORE *cmd
                 return LCB_OPTIONS_CONFLICT;
             }
             break;
-        case LCB_STORE_ADD:
+        case LCB_STORE_INSERT:
             if (cmd->cas) {
                 return LCB_OPTIONS_CONFLICT;
             }

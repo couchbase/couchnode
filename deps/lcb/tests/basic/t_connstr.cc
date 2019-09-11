@@ -365,14 +365,18 @@ TEST_F(ConnstrTest, testTransportOptions)
 TEST_F(ConnstrTest, testCompatConversion)
 {
     lcb_STATUS err;
-    struct lcb_create_st cropts;
-    memset(&cropts, 0, sizeof cropts);
-    cropts.version = 0;
-    cropts.v.v0.bucket = "users";
-    cropts.v.v0.host = "foo.com;bar.com;baz.com";
-    cropts.v.v0.passwd = "secret";
+    lcb_CREATEOPTS *cropts = NULL;
 
-    err = params.load(cropts);
+    std::string bucket("users");
+    std::string host("foo.com;bar.com;baz.com");
+    std::string password("secret");
+    lcb_createopts_create(&cropts, LCB_TYPE_BUCKET);
+    lcb_createopts_bucket(cropts, bucket.c_str(), bucket.size());
+    lcb_createopts_credentials(cropts, NULL, 0, password.c_str(), password.size());
+    lcb_createopts_connstr(cropts, host.c_str(), host.size());
+
+    err = params.load(*cropts);
+    lcb_createopts_destroy(cropts);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_FALSE(NULL == findHost(&params, "foo.com"));
     ASSERT_FALSE(NULL == findHost(&params, "bar.com"));
@@ -381,28 +385,17 @@ TEST_F(ConnstrTest, testCompatConversion)
     ASSERT_EQ("users", params.bucket());
     ASSERT_EQ("secret", params.password());
 
-    // Ensure old-style port specifications are parsed and don't throw an
-    // error. We'd also like to verify that these actually land within
-    // the htport field, that's a TODO
-    reinit();
-    memset(&cropts, 0, sizeof cropts);
-    cropts.version = 2;
-    cropts.v.v2.host = "foo.com:9030;bar.com:9040;baz.com:9050";
-    cropts.v.v2.mchosts = "foo.com:7030;bar.com:7040;baz.com:7050";
-    err = params.load(cropts);
-    ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(6, countHosts(&params));
-
     // Ensure struct fields override the URI string
     reinit();
-    memset(&cropts, 0, sizeof cropts);
-    cropts.version = 3;
-    cropts.v.v3.passwd = "secret";
-    cropts.v.v3.connstr = "couchbase:///fluffle?password=bleh";
-    err = params.load(cropts);
+    std::string connstr("couchbase:///fluffle?password=bleh");
+    lcb_createopts_create(&cropts, LCB_TYPE_BUCKET);
+    lcb_createopts_connstr(cropts, connstr.c_str(), connstr.size());
+    lcb_createopts_credentials(cropts, NULL, 0, password.c_str(), password.size());
+    err = params.load(*cropts);
+    lcb_createopts_destroy(cropts);
     ASSERT_EQ(LCB_SUCCESS, err);
     ASSERT_EQ("fluffle", params.bucket());
-    ASSERT_EQ(cropts.v.v3.passwd, params.password());
+    ASSERT_EQ(password, params.password());
 }
 
 TEST_F(ConnstrTest, testCertificateWithoutSSL)

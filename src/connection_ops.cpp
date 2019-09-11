@@ -114,10 +114,10 @@ NAN_METHOD(Connection::fnStore)
     lcb_STORE_OPERATION opType =
         static_cast<lcb_STORE_OPERATION>(ValueParser::asUint(info[10]));
     switch (opType) {
-    case LCB_STORE_SET:
+    case LCB_STORE_UPSERT:
         opName = "upsert";
         break;
-    case LCB_STORE_ADD:
+    case LCB_STORE_INSERT:
         opName = "insert";
         break;
     case LCB_STORE_REPLACE:
@@ -388,8 +388,8 @@ NAN_METHOD(Connection::fnLookupIn)
     }
 
     size_t numCmds = (info.Length() - 4 - 2) / 3;
-    CmdBuilder<lcb_SUBDOCOPS> cmdsEnc =
-        enc.makeSubCmdBuilder<lcb_SUBDOCOPS>(numCmds);
+    CmdBuilder<lcb_SUBDOCSPECS> cmdsEnc =
+        enc.makeSubCmdBuilder<lcb_SUBDOCSPECS>(numCmds);
 
     for (size_t i = 0, arg = 4; i < numCmds; ++i, arg += 3) {
         lcbx_SDCMD sdcmd =
@@ -397,23 +397,23 @@ NAN_METHOD(Connection::fnLookupIn)
 
         switch (sdcmd) {
         case LCBX_SDCMD_GET:
-            cmdsEnc.parseOption<&lcb_subdocops_get>(i, info[arg + 1],
-                                                    info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_get>(i, info[arg + 1],
+                                                      info[arg + 2]);
             break;
         case LCBX_SDCMD_GET_COUNT:
-            cmdsEnc.parseOption<&lcb_subdocops_get_count>(i, info[arg + 1],
-                                                          info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_get_count>(i, info[arg + 1],
+                                                            info[arg + 2]);
             break;
         case LCBX_SDCMD_EXISTS:
-            cmdsEnc.parseOption<&lcb_subdocops_exists>(i, info[arg + 1],
-                                                       info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_exists>(i, info[arg + 1],
+                                                         info[arg + 2]);
             break;
         default:
             return Nan::ThrowError(Error::create("unexpected optype"));
         }
     }
 
-    lcb_cmdsubdoc_operations(enc.cmd(), cmdsEnc.cmd());
+    lcb_cmdsubdoc_specs(enc.cmd(), cmdsEnc.cmd());
 
     lcb_STATUS err = enc.execute<&lcb_subdoc>();
     if (err) {
@@ -472,8 +472,8 @@ NAN_METHOD(Connection::fnMutateIn)
     }
 
     size_t numCmds = (info.Length() - 6 - 5) / 4;
-    CmdBuilder<lcb_SUBDOCOPS> cmdsEnc =
-        enc.makeSubCmdBuilder<lcb_SUBDOCOPS>(numCmds);
+    CmdBuilder<lcb_SUBDOCSPECS> cmdsEnc =
+        enc.makeSubCmdBuilder<lcb_SUBDOCSPECS>(numCmds);
 
     for (size_t i = 0, arg = 6; i < numCmds; ++i, arg += 4) {
         lcbx_SDCMD sdcmd =
@@ -481,39 +481,39 @@ NAN_METHOD(Connection::fnMutateIn)
 
         switch (sdcmd) {
         case LCBX_SDCMD_REMOVE:
-            cmdsEnc.parseOption<&lcb_subdocops_remove>(i, info[arg + 1],
-                                                       info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_remove>(i, info[arg + 1],
+                                                         info[arg + 2]);
             break;
         case LCBX_SDCMD_REPLACE:
-            cmdsEnc.parseOption<&lcb_subdocops_replace>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_replace>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         case LCBX_SDCMD_DICT_ADD:
-            cmdsEnc.parseOption<&lcb_subdocops_dict_add>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_dict_add>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         case LCBX_SDCMD_DICT_UPSERT:
-            cmdsEnc.parseOption<&lcb_subdocops_dict_upsert>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_dict_upsert>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         case LCBX_SDCMD_ARRAY_ADD_UNIQUE:
-            cmdsEnc.parseOption<&lcb_subdocops_array_add_unique>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_unique>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         case LCBX_SDCMD_COUNTER:
-            cmdsEnc.parseOption<&lcb_subdocops_counter>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_counter>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         case LCBX_SDCMD_ARRAY_INSERT:
-            cmdsEnc.parseOption<&lcb_subdocops_array_insert>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_insert>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         case LCBX_SDCMD_ARRAY_ADD_FIRST:
-            cmdsEnc.parseOption<&lcb_subdocops_array_add_first>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_first>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         case LCBX_SDCMD_ARRAY_ADD_LAST:
-            cmdsEnc.parseOption<&lcb_subdocops_array_add_last>(
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_last>(
                 i, info[arg + 1], info[arg + 2], info[arg + 3]);
             break;
         default:
@@ -521,7 +521,7 @@ NAN_METHOD(Connection::fnMutateIn)
         }
     }
 
-    lcb_cmdsubdoc_operations(enc.cmd(), cmdsEnc.cmd());
+    lcb_cmdsubdoc_specs(enc.cmd(), cmdsEnc.cmd());
 
     lcb_STATUS err = enc.execute<&lcb_subdoc>();
     if (err) {

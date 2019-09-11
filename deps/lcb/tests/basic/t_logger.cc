@@ -28,18 +28,21 @@ class Logger : public ::testing::Test
 {
 };
 
-struct MyLogprocs : lcb_logprocs {
+struct MyLogprocs {
+    MyLogprocs() : base(NULL) {}
+    lcb_LOGGER *base;
     set< string > messages;
 };
 
 extern "C" {
-static void fallback_logger(lcb_logprocs *procs, unsigned int, const char *, int, const char *, int, const char *fmt,
-                            va_list ap)
+static void fallback_logger(lcb_LOGGER *logger, uint64_t, const char *, lcb_LOG_SEVERITY, const char *, int,
+                            const char *fmt, va_list ap)
 {
     char buf[2048];
     vsprintf(buf, fmt, ap);
-    EXPECT_FALSE(procs == NULL);
-    MyLogprocs *myprocs = static_cast< MyLogprocs * >(procs);
+    EXPECT_FALSE(logger == NULL);
+    MyLogprocs *myprocs;
+    lcb_logger_cookie(logger, reinterpret_cast< void ** >(&myprocs));
     myprocs->messages.insert(buf);
 }
 }
@@ -49,16 +52,14 @@ TEST_F(Logger, testLogger)
     lcb_INSTANCE *instance;
     lcb_STATUS err;
 
-    lcb_create(&instance, NULL);
     MyLogprocs procs;
-    lcb_logprocs *ptrprocs = static_cast< lcb_logprocs * >(&procs);
-    ptrprocs->version = 0;
-    memset(ptrprocs, 0, sizeof(*ptrprocs));
+    lcb_logger_create(&procs.base, &procs);
+    lcb_logger_callback(procs.base, fallback_logger);
 
-    err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, ptrprocs);
+    lcb_create(&instance, NULL);
+
+    err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, procs.base);
     ASSERT_EQ(LCB_SUCCESS, err);
-
-    procs.v.v0.callback = fallback_logger;
 
     LCB_LOG_BASIC(instance->getSettings(), "foo");
     LCB_LOG_BASIC(instance->getSettings(), "bar");
@@ -77,4 +78,6 @@ TEST_F(Logger, testLogger)
     ASSERT_TRUE(msgs.empty());
 
     lcb_destroy(instance);
+
+    lcb_logger_destroy(procs.base);
 }

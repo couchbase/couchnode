@@ -37,15 +37,14 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
 {
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    lcb_create_st cropts;
+    lcb_CREATEOPTS *cropts = NULL;
 
     // Get the filename:
     char filename[L_tmpnam + 0];
     ASSERT_TRUE(NULL != tmpnam(filename));
-    memset(&cropts, 0, sizeof(cropts));
-
     MockEnvironment::getInstance()->makeConnectParams(cropts, NULL);
-    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+
+    doLcbCreate(&instance, cropts, MockEnvironment::getInstance());
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, (void *)filename);
     ASSERT_EQ(LCB_SUCCESS, err);
 
@@ -63,7 +62,7 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
 
     // now try another one
     lcb_destroy(instance);
-    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    doLcbCreate(&instance, cropts, MockEnvironment::getInstance());
     ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, (void *)filename);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -86,7 +85,7 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
 
     lcb_destroy(instance);
 
-    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    doLcbCreate(&instance, cropts, MockEnvironment::getInstance());
     ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_cntl_string(instance, "config_cache", filename);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -98,7 +97,7 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
     ASSERT_NE(0, is_loaded);
     lcb_destroy(instance);
 
-    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    doLcbCreate(&instance, cropts, MockEnvironment::getInstance());
     ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE_RO, (void *)filename);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -107,7 +106,7 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
     // Try one more time, with a directory (name with trailing slash)
     std::string dirname(filename);
     dirname += '/';
-    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    doLcbCreate(&instance, cropts, MockEnvironment::getInstance());
     ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, (void *)dirname.c_str());
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -124,9 +123,11 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
     remove(filename);
 
     // Try one more time, with a file that does not exist..
-    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    doLcbCreate(&instance, cropts, MockEnvironment::getInstance());
     ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE_RO, (void *)filename);
     ASSERT_NE(LCB_SUCCESS, err);
     lcb_destroy(instance);
+
+    lcb_createopts_destroy(cropts);
 }

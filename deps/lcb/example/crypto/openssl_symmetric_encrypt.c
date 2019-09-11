@@ -76,7 +76,8 @@ static void store_encrypted(lcb_INSTANCE *instance, const char *key, const char 
 
     LCB_CMD_SET_KEY(&cmd, key, strlen(key));
     LCB_CMD_SET_VALUE(&cmd, ecmd.out, ecmd.nout);
-    cmd.operation = LCB_STORE_SET cmd.datatype = LCB_DATATYPE_JSON;
+    cmd.operation = LCB_STORE_UPSERT;
+    cmd.datatype = LCB_DATATYPE_JSON;
 
     err = lcb_store3(instance, NULL, &cmd);
     free(ecmd.out); // NOTE: it should be compatible with what providers use to allocate memory

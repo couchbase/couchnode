@@ -280,9 +280,8 @@ void ConnParams::writeConfig(const string &s)
     f.close();
 }
 
-void ConnParams::fillCropts(lcb_create_st &cropts)
+void ConnParams::fillCropts(lcb_CREATEOPTS *&cropts)
 {
-    memset(&cropts, 0, sizeof(lcb_create_st));
     passwd = o_passwd.result();
     if (passwd == "-") {
         passwd = promptPassword("Bucket password: ");
@@ -391,16 +390,10 @@ void ConnParams::fillCropts(lcb_create_st &cropts)
         connstr += '&';
     }
 
-    cropts.version = 3;
-    cropts.v.v3.io = NULL;
-    cropts.v.v3.username = NULL;
-    cropts.v.v3.passwd = passwd.c_str();
-    cropts.v.v3.connstr = connstr.c_str();
-    if (isAdmin) {
-        cropts.v.v3.type = LCB_TYPE_CLUSTER;
-    } else {
-        cropts.v.v3.type = LCB_TYPE_BUCKET;
-    }
+    lcb_createopts_create(&cropts, isAdmin ? LCB_TYPE_CLUSTER : LCB_TYPE_BUCKET);
+    lcb_createopts_io(cropts, NULL);
+    lcb_createopts_connstr(cropts, connstr.c_str(), connstr.size());
+    lcb_createopts_credentials(cropts, NULL, 0, passwd.c_str(), passwd.size());
 }
 
 template < typename T > void doPctl(lcb_INSTANCE *instance, int cmd, T arg)

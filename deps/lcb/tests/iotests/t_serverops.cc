@@ -57,7 +57,7 @@ TEST_F(ServeropsUnitTest, testServerStats)
     HandleWrap hw;
     createConnection(hw, &instance);
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)testServerStatsCallback);
+    lcb_install_callback(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)testServerStatsCallback);
     int numcallbacks = 0;
     lcb_CMDSTATS cmd = {0};
     EXPECT_EQ(LCB_SUCCESS, lcb_stats3(instance, &numcallbacks, &cmd));
@@ -71,7 +71,7 @@ TEST_F(ServeropsUnitTest, testKeyStats)
     lcb_INSTANCE *instance;
     HandleWrap hw;
     createConnection(hw, &instance);
-    lcb_install_callback3(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)statKey_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)statKey_callback);
     lcb_CMDSTATS cmd = {0};
 
     std::string key = "keystats_test";
@@ -116,7 +116,7 @@ TEST_F(ServeropsUnitTest, testServerVersion)
     HandleWrap hw;
     createConnection(hw, &instance);
 
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)testServerVersionsCallback);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)testServerVersionsCallback);
     int numcallbacks = 0;
     lcb_CMDVERSIONS cmd = {0};
     EXPECT_EQ(LCB_SUCCESS, lcb_server_versions3(instance, &numcallbacks, &cmd));
@@ -161,7 +161,7 @@ TEST_F(ServeropsUnitTest, testVerbosity)
     HandleWrap hw;
     createConnection(hw, &instance);
 
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)verbosity_all_callback);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)verbosity_all_callback);
 
     int counter = 0;
 
@@ -173,7 +173,7 @@ TEST_F(ServeropsUnitTest, testVerbosity)
     EXPECT_EQ(MockEnvironment::getInstance()->getNumNodes(), counter);
     EXPECT_NE((char *)NULL, verbosity_endpoint);
 
-    (void)lcb_install_callback3(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)verbosity_single_callback);
+    (void)lcb_install_callback(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)verbosity_single_callback);
 
     cmd.server = verbosity_endpoint;
     cmd.level = LCB_VERBOSITY_DEBUG;

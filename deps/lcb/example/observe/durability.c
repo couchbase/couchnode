@@ -70,24 +70,22 @@ int main(int argc, char *argv[])
     lcb_INSTANCE *instance;
     lcb_STATUS err;
     lcb_CMDSTORE *cmd;
-    struct lcb_create_st create_options = {0};
+    lcb_CREATEOPTS *options = NULL;
     const char *key = "foo";
     const char *value = "{\"val\":42}";
 
-    create_options.version = 3;
+    lcb_createopts_create(&options, LCB_TYPE_BUCKET);
     if (argc > 1) {
-        create_options.v.v3.connstr = argv[1];
-    }
-    if (argc > 2) {
-        create_options.v.v3.passwd = argv[2];
+        lcb_createopts_connstr(options, argv[1], strlen(argv[1]));
     }
     if (argc > 3) {
-        create_options.v.v3.username = argv[3];
+        lcb_createopts_credentials(options, argv[3], strlen(argv[3]), argv[2], strlen(argv[2]));
     }
 
-    if ((err = lcb_create(&instance, &create_options)) != LCB_SUCCESS) {
+    if ((err = lcb_create(&instance, options)) != LCB_SUCCESS) {
         fail2("cannot create connection instance", err);
     }
+    lcb_createopts_destroy(options);
     if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
         fail2("Couldn't schedule connection", err);
     }
@@ -95,7 +93,7 @@ int main(int argc, char *argv[])
     if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
         fail2("Couldn't get initial cluster configuration", err);
     }
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key, strlen(key));

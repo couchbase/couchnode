@@ -84,7 +84,7 @@ class Configuration
 
     void processOptions() {}
 
-    void fillCropts(lcb_create_st &opts)
+    void fillCropts(lcb_CREATEOPTS *opts)
     {
         m_params.fillCropts(opts);
     }
@@ -463,24 +463,25 @@ static void real_main(int argc, char **argv)
     parser.parse(argc, argv);
     config.processOptions();
 
-    lcb_create_st cropts;
-    memset(&cropts, 0, sizeof cropts);
+    lcb_CREATEOPTS *cropts = NULL;
     config.fillCropts(cropts);
 
     /* bind to external libevent loop */
     evbase = event_base_new();
     struct lcb_create_io_ops_st ciops;
-    memset(&ciops, 0, sizeof(ciops));
     ciops.v.v0.type = LCB_IO_OPS_LIBEVENT;
     ciops.v.v0.cookie = evbase;
-    good_or_die(lcb_create_io_ops(&cropts.v.v3.io, &ciops), "Failed to create and IO ops strucutre for libevent");
+    lcb_io_opt_t ioops = NULL;
+    good_or_die(lcb_create_io_ops(&ioops, &ciops), "Failed to create and IO ops strucutre for libevent");
+    lcb_createopts_io(cropts, ioops);
 
-    good_or_die(lcb_create(&instance, &cropts), "Failed to create connection");
+    good_or_die(lcb_create(&instance, cropts), "Failed to create connection");
+    lcb_createopts_destroy(cropts);
     config.doCtls();
     lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CLIENT_STRING, app_client_string);
     lcb_set_bootstrap_callback(instance, bootstrap_callback);
     lcb_set_pktfwd_callback(instance, pktfwd_callback);
-    lcb_install_callback3(instance, LCB_CALLBACK_DIAG, diag_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_DIAG, diag_callback);
 
     good_or_die(lcb_connect(instance), "Failed to connect to cluster");
     if (config.useTimings()) {

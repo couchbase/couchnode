@@ -18,6 +18,7 @@
 #ifndef LCB_LOGGING_H
 #define LCB_LOGGING_H
 #include <stdarg.h>
+#include <libcouchbase/logger.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,13 +29,26 @@ struct lcb_st;
 struct lcbvb_CONFIG_st;
 
 /**
+ * @brief Logging context
+ * @volatile
+ *
+ * This structure defines the logging handlers. Currently there is only
+ * a single field defined which is the default callback for the loggers.
+ * This API may change.
+ */
+struct lcb_LOGGER_ {
+    lcb_LOGGER_CALLBACK callback;
+    void *cookie;
+};
+
+/**
  * Default printf logger which is enabled via LCB_LOGLEVEL in the
  * environment
  */
-extern struct lcb_logprocs_st *lcb_console_logprocs;
+extern lcb_LOGGER *lcb_console_logger;
 
 struct lcb_CONSOLELOGGER {
-    struct lcb_logprocs_st base;
+    struct lcb_LOGGER_ base;
     FILE *fp;
     int minlevel;
 };
@@ -59,7 +73,7 @@ LCB_INTERNAL_API
 void lcb_log_badconfig(const struct lcb_settings_st *settings, const char *subsys, int severity, const char *srcfile,
                        int srcline, const struct lcbvb_CONFIG_st *vbc, const char *origin_txt);
 
-lcb_logprocs *lcb_init_console_logger(void);
+lcb_LOGGER *lcb_init_console_logger(void);
 
 #define LCB_LOGS(settings, subsys, severity, msg) lcb_log(settings, subsys, severity, __FILE__, __LINE__, msg)
 

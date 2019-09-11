@@ -186,24 +186,6 @@ struct lcb_cntl_iops_info_st {
 #define LCB_CNTL_CONFIG_CCCP_NODES 0x1E
 
 /**
- * @internal
- *
- * @brief Set the config nodes for the relevant providers.
- *
- * This is passed an lcb_create_st2 structure which is used to initialize
- * the providers. Useful if you wish to reinitialize or modify the
- * provider settings _after_ the instance itself has already been
- * constructed.
- *
- * Note that the username, password, bucket, and io fields are
- * ignored.
- *
- * @cntl_arg_setonly{lcb_create_st2*}
- * @uncommitted
- */
-#define LCB_CNTL_CONFIG_ALL_NODES 0x20
-
-/**
  * Reinitialize the instance using a connection string. Only options and
  * the hostlists are used from this string. The bucket in the string (if specified)
  * and any SSL options (i.e. `couchbases://` or `ssl=no_verify`) are ignored.

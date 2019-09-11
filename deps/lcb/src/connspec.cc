@@ -18,6 +18,7 @@
 #include "connspec.h"
 #include "hostlist.h"
 #include "strcodecs/strcodecs.h"
+#include "internalstructs.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -26,13 +27,13 @@
     *errmsg = msg; \
     return LCB_EINVAL;
 
-#define F_HASBUCKET (1<<0)
-#define F_HASPASSWD (1<<1)
-#define F_HASUSER (1<<2)
-#define F_SSLSCHEME (1<<3)
-#define F_FILEONLY (1<<4)
-#define F_DNSSRV (1<<5)
-#define F_DNSSRV_EXPLICIT ( (1<<6) |F_DNSSRV)
+#define F_HASBUCKET (1u << 0u)
+#define F_HASPASSWD (1u << 1u)
+#define F_HASUSER (1u << 2u)
+#define F_SSLSCHEME (1u << 3u)
+#define F_FILEONLY (1u << 4u)
+#define F_DNSSRV (1u << 5u)
+#define F_DNSSRV_EXPLICIT ((1u << 6u) | F_DNSSRV)
 
 using namespace lcb;
 
@@ -317,8 +318,7 @@ Connspec::parse_options(
     return LCB_SUCCESS;
 }
 
-lcb_STATUS
-Connspec::parse(const char *connstr_, const char **errmsg)
+lcb_STATUS Connspec::parse(const char *connstr, size_t connstr_len, const char **errmsg)
 {
     lcb_STATUS err = LCB_SUCCESS;
     const char *errmsg_s; /* stack based error message pointer */
@@ -333,46 +333,45 @@ Connspec::parse(const char *connstr_, const char **errmsg)
         errmsg = &errmsg_s;
     }
 
-    if (!connstr_) {
-        connstr_ = "couchbase://";
+    if (!connstr || connstr_len == 0) {
+        connstr = "couchbase://";
+        connstr_len = strlen(connstr);
     }
-
-    m_connstr = connstr_;
-
-#define SCHEME_MATCHES(scheme_const) \
-    strncmp(connstr_, scheme_const, sizeof(scheme_const)-1) == 0 && \
-    (found_scheme = scheme_const)
-
-    if (SCHEME_MATCHES(LCB_SPECSCHEME_MCD_SSL)) {
+    m_connstr = std::string(connstr, connstr_len);
+    if (m_connstr.find(LCB_SPECSCHEME_MCD_SSL) == 0) {
         m_implicit_port = LCB_CONFIG_MCD_SSL_PORT;
         m_sslopts |= LCB_SSL_ENABLED;
         m_flags |= F_SSLSCHEME;
-
-    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_HTTP_SSL)) {
+        found_scheme = LCB_SPECSCHEME_MCD_SSL;
+    } else if (m_connstr.find(LCB_SPECSCHEME_HTTP_SSL) == 0) {
         m_implicit_port = LCB_CONFIG_HTTP_SSL_PORT;
         m_sslopts |= LCB_SSL_ENABLED;
         m_flags |= F_SSLSCHEME;
-
-    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_HTTP)) {
+        found_scheme = LCB_SPECSCHEME_HTTP_SSL;
+    } else if (m_connstr.find(LCB_SPECSCHEME_HTTP) == 0) {
         m_implicit_port = LCB_CONFIG_HTTP_PORT;
-
-    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_MCD)) {
+        found_scheme = LCB_SPECSCHEME_HTTP;
+    } else if (m_connstr.find(LCB_SPECSCHEME_MCD) == 0) {
         m_implicit_port = LCB_CONFIG_MCD_PORT;
-
-    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_RAW)) {
+        found_scheme = LCB_SPECSCHEME_MCD;
+    } else if (m_connstr.find(LCB_SPECSCHEME_RAW) == 0) {
         m_implicit_port = 0;
-    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_MCCOMPAT)) {
+        found_scheme = LCB_SPECSCHEME_RAW;
+    } else if (m_connstr.find(LCB_SPECSCHEME_MCCOMPAT) == 0) {
         m_implicit_port = LCB_CONFIG_MCCOMPAT_PORT;
-    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_SRV)) {
+        found_scheme = LCB_SPECSCHEME_MCCOMPAT;
+    } else if (m_connstr.find(LCB_SPECSCHEME_SRV) == 0) {
         m_implicit_port = LCB_CONFIG_MCD_PORT;
         m_flags |= F_DNSSRV_EXPLICIT;
-    } else if (SCHEME_MATCHES(LCB_SPECSCHEME_SRV_SSL)) {
+        found_scheme = LCB_SPECSCHEME_SRV;
+    } else if (m_connstr.find(LCB_SPECSCHEME_SRV_SSL) == 0) {
         m_implicit_port = LCB_CONFIG_MCD_SSL_PORT;
         m_sslopts |= LCB_SSL_ENABLED;
         m_flags |= F_SSLSCHEME | F_DNSSRV_EXPLICIT;
+        found_scheme = LCB_SPECSCHEME_SRV_SSL;
     } else {
         /* If we don't have a scheme at all: */
-        if (strstr(connstr_, "://")) {
+        if (m_connstr.find("://") != std::string::npos) {
             SET_ERROR("String must begin with 'couchbase://, 'couchbases://', or 'http://'");
         } else {
             found_scheme = "";
@@ -380,12 +379,12 @@ Connspec::parse(const char *connstr_, const char **errmsg)
         }
     }
 
-    connstr_ += strlen(found_scheme);
-    speclen = strlen(connstr_);
-    specend = connstr_ + speclen;
+    connstr += strlen(found_scheme);
+    speclen = strlen(connstr);
+    specend = connstr + speclen;
 
     /* Hosts end where either options or the bucket itself begin */
-    if ((hlend = strpbrk(connstr_, "?/"))) {
+    if ((hlend = strpbrk(connstr, "?/"))) {
         if (*hlend == '?') {
             /* Options first */
             options_ = hlend + 1;
@@ -417,10 +416,12 @@ Connspec::parse(const char *connstr_, const char **errmsg)
             SET_ERROR("Bucket name is set to empty");
         }
     } else {
-        m_bucket = "default";
+        if (!(m_flags & F_HASBUCKET)) {
+            m_bucket = "default";
+        }
     }
 
-    if ((err = parse_hosts(connstr_, hlend, errmsg)) != LCB_SUCCESS) {
+    if ((err = parse_hosts(connstr, hlend, errmsg)) != LCB_SUCCESS) {
         goto GT_DONE;
     }
 
@@ -440,108 +441,25 @@ Connspec::parse(const char *connstr_, const char **errmsg)
     return err;
 }
 
-#define MAYBEDUP(s) ((s) && (*s)) ? strdup(s) : NULL
-
-static lcb_STATUS
-convert_hosts(std::string& outstr, const char *instr, int deflport)
-{
-    Hostlist hl;
-    lcb_STATUS rc = hl.add(instr, -1, deflport);
-    if (rc != LCB_SUCCESS) {
-        return rc;
-    }
-
-    for (size_t ii = 0; ii < hl.size(); ii++) {
-        const lcb_host_t& src = hl[ii];
-        int port, rv;
-        outstr.append(src.host);
-        rv = sscanf(src.port, "%d", &port);
-        if (rv && port != deflport) {
-            const char *proto;
-            char tmpbuf[256];
-            if (deflport == LCB_CONFIG_MCD_PORT) {
-                proto = "mcd";
-            } else {
-                proto = "http";
-            }
-            sprintf(tmpbuf, ":%d=%s", port, proto);
-            outstr.append(tmpbuf);
-        }
-        outstr.append(",");
-    }
-    return LCB_SUCCESS;
-}
-
 #define TRYDUP(s) (s) ? strdup(s) : NULL
-lcb_STATUS
-Connspec::load(const lcb_create_st& cropts)
+lcb_STATUS Connspec::load(const lcb_CREATEOPTS &opts)
 {
-    const char *errmsg;
-    const struct lcb_create_st2 *cr2 = &cropts.v.v2;
-    lcb_STATUS err = LCB_SUCCESS;
-
-    /* handle overrides */
-    if (cr2->bucket && *cr2->bucket) {
+    if (opts.bucket && opts.bucket_len) {
         m_flags |= F_HASBUCKET;
-        m_bucket = cr2->bucket;
+        m_bucket = std::string(opts.bucket, opts.bucket_len);
     }
-
-    if (cr2->user && *cr2->user) {
+    if (opts.username && opts.username_len) {
         m_flags |= F_HASUSER;
-        m_username = cr2->user;
+        m_username = std::string(opts.username, opts.username_len);
     }
-
-    if (cr2->passwd && *cr2->passwd) {
+    if (opts.password && opts.password_len) {
         m_flags |= F_HASPASSWD;
-        m_password = cr2->passwd;
+        m_password = std::string(opts.password, opts.password_len);
     }
-
-    if (cropts.version == 4) {
-        m_logger = cropts.v.v4.logger;
+    if (opts.logger) {
+        m_logger = opts.logger;
     }
-
-    if (cropts.version == 3 || cropts.version == 4) {
-        return parse(cropts.v.v3.connstr, &errmsg);
-    }
-
-    if (cropts.version > 2 || cropts.version < 0) {
-        return LCB_NOT_SUPPORTED;
-    }
-
-    m_connstr = LCB_SPECSCHEME_RAW;
-    if (cr2->host) {
-        err = convert_hosts(m_connstr, cr2->host, LCB_CONFIG_HTTP_PORT);
-        if (err != LCB_SUCCESS) {
-            goto GT_DONE;
-        }
-    }
-
-    if (cropts.version == 2 && cr2->mchosts) {
-        err = convert_hosts(m_connstr, cr2->mchosts, LCB_CONFIG_MCD_PORT);
-        if (err != LCB_SUCCESS) {
-            goto GT_DONE;
-        }
-    }
-
-    if (cropts.version < 3 && cr2->bucket) {
-        m_connstr += "/";
-        m_connstr += cr2->bucket;
-    }
-
-    m_connstr += '?';
-    err = parse(m_connstr.c_str(), &errmsg);
-    if (err == LCB_SUCCESS && cropts.version == 2 && cr2->transports) {
-        /* copy over bootstrap list */
-        for (size_t ii = 0; ii < LCB_CONFIG_TRANSPORT_MAX; ii++) {
-            if (cr2->transports[ii] == LCB_CONFIG_TRANSPORT_LIST_END) {
-                break;
-            }
-            m_transports.insert(cr2->transports[ii]);
-        }
-    }
-
-    GT_DONE:
-    return err;
+    return parse(opts.connstr, opts.connstr_len, NULL);
 }
 
 bool

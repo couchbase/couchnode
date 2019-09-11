@@ -34,7 +34,7 @@ class Pool
      * @param options The options used to initialize the instance
      * @param items How many items should be in the pool
      */
-    Pool(const lcb_create_st &options, size_t items = 10);
+    Pool(const lcb_CREATEOPTS *options, size_t items = 10);
     virtual ~Pool();
 
     /**Get an instance from the pool. You should call #push() when you are

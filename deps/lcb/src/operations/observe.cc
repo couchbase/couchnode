@@ -107,8 +107,6 @@ static void handle_observe_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_STATUS 
     }
     if (oc->oflags & F_DURABILITY) {
         resp->ttp = pl ? pl->index : -1;
-        lcbdur_cas_update(instance, (void *)MCREQ_PKT_COOKIE(pkt), err, resp);
-
     } else if ((oc->oflags & F_SCHEDFAILED) == 0) {
         lcb_RESPCALLBACK callback = lcb_find_callback(instance, LCB_CALLBACK_OBSERVE);
         callback(instance, LCB_CALLBACK_OBSERVE, (lcb_RESPBASE *)resp);
@@ -320,9 +318,3 @@ lcb_MULTICMD_CTX *lcb_observe3_ctxnew(lcb_INSTANCE *instance)
     return new ObserveCtx(instance);
 }
 
-lcb_MULTICMD_CTX *lcb_observe_ctx_dur_new(lcb_INSTANCE *instance)
-{
-    ObserveCtx *ctx = new ObserveCtx(instance);
-    ctx->oflags |= F_DURABILITY;
-    return ctx;
-}

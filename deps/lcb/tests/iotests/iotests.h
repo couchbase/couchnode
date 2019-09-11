@@ -22,7 +22,7 @@
 #include "mock-unit-test.h"
 #include "mock-environment.h"
 
-static inline void doLcbCreate(lcb_INSTANCE **instance, const lcb_create_st *options, MockEnvironment *env)
+static inline void doLcbCreate(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options, MockEnvironment *env)
 {
     lcb_STATUS err = lcb_create(instance, options);
     ASSERT_EQ(LCB_SUCCESS, err);
