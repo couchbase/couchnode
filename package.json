@@ -21,6 +21,7 @@
   "name": "couchbase",
   "dependencies": {
     "bindings": "^1.5.0",
+    "debug": "^4.1.1",
     "nan": "^2.14.0",
     "prebuild-install": "^5.3.0",
     "qs": "^6.7.0",
