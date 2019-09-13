@@ -83,7 +83,6 @@
       'src/logger.cpp',
       'src/mutationtoken.cpp',
       'src/opbuilder.cpp',
-      'src/transcoder.cpp',
       'src/uv-plugin-all.cpp'
     ],
     'include_dirs': [

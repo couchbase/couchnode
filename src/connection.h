@@ -35,10 +35,6 @@ public:
     const char *bucketName();
     const char *clientString();
 
-    Local<Value> decodeDoc(const char *bytes, size_t nbytes, uint32_t flags);
-    bool encodeDoc(ValueParser &enc, const char **, size_t *nbytes,
-                   uint32_t *flags, Local<Value> value);
-
     static inline Connection *fromInstance(lcb_INSTANCE *instance)
     {
         void *cookie = const_cast<void *>(lcb_get_cookie(instance));
@@ -121,8 +117,6 @@ private:
 
     Cookie *_bootstrapCookie;
     Cookie *_openCookie;
-    Nan::Callback *_transEncodeFunc;
-    Nan::Callback *_transDecodeFunc;
 };
 
 } // namespace couchnode

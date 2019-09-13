@@ -280,34 +280,28 @@ public:
     {
     }
 
-    template <lcb_STATUS (*ValueFn)(CmdType *, const char *, size_t),
-              lcb_STATUS (*FlagsFn)(CmdType *, uint32_t),
-              lcb_STATUS (*DatatypeFn)(CmdType *, uint8_t)>
-    bool parseValue(Local<Value> value)
+    bool parseEncoder(Local<Value> callback)
     {
-        ScopedTraceSpan encSpan =
-            TraceSpan::beginEncodeTrace(_impl, _traceSpan);
-
-        const char *bytes;
-        size_t nbytes;
-        uint32_t flags;
-        if (!_impl->encodeDoc(_valueParser, &bytes, &nbytes, &flags, value)) {
-            return false;
+        if (callback->IsUndefined() || callback->IsNull()) {
+            return true;
         }
-
-        uint8_t datatype = 0;
-
-        if (DatatypeFn(this->cmd(), datatype) != LCB_SUCCESS) {
-            return false;
+        if (callback->IsFunction()) {
+            _encoder.Reset(callback.As<v8::Function>());
+            return true;
         }
-        if (FlagsFn(this->cmd(), flags) != LCB_SUCCESS) {
-            return false;
-        }
-        if (ValueFn(this->cmd(), bytes, nbytes) != LCB_SUCCESS) {
-            return false;
-        }
+        return false;
+    }
 
-        return true;
+    bool parseDecoder(Local<Value> callback)
+    {
+        if (callback->IsUndefined() || callback->IsNull()) {
+            return true;
+        }
+        if (callback->IsFunction()) {
+            _decoder.Reset(callback.As<v8::Function>());
+            return true;
+        }
+        return false;
     }
 
     bool parseCallback(Local<Value> callback)
@@ -357,6 +351,8 @@ protected:
     ValueParser _valueParser;
     std::vector<Nan::Utf8String *> _strings;
     Nan::Callback _callback;
+    Nan::Callback _encoder;
+    Nan::Callback _decoder;
     TraceSpan _traceSpan;
 };
 

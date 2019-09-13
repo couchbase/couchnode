@@ -18,19 +18,18 @@ void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     Local<Value> errVal =
         rdr.decodeError<lcb_respget_error_context, lcb_respget_error_ref>(rc);
-    Local<Value> resVal;
+    Local<Value> casVal, bytesVal, flagsVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_respget_cas>());
-        resObj->Set(Nan::New("value").ToLocalChecked(),
-                    rdr.decodeValue<&lcb_respget_value, &lcb_respget_flags>());
-        resVal = resObj;
+        casVal = rdr.decodeCas<&lcb_respget_cas>();
+        bytesVal = rdr.parseValue<&lcb_respget_value>();
+        flagsVal = rdr.parseValue<&lcb_respget_flags>();
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
+        bytesVal = Nan::Null();
+        flagsVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, casVal, bytesVal, flagsVal);
 }
 
 void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -44,26 +43,22 @@ void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal =
         rdr.decodeError<lcb_respexists_error_context, lcb_respexists_error_ref>(
             rc);
-    Local<Value> resVal;
 
+    Local<Value> casVal, existsVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_respexists_cas>());
+        casVal = rdr.decodeCas<&lcb_respexists_cas>();
 
         if (rdr.getValue<&lcb_respexists_is_found>() != 0) {
-            resObj->Set(Nan::New("exists").ToLocalChecked(), Nan::True());
+            existsVal = Nan::True();
         } else {
-            resObj->Set(Nan::New("exists").ToLocalChecked(), Nan::False());
+            existsVal = Nan::False();
         }
-
-        resVal = resObj;
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
+        existsVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, casVal, existsVal);
 }
 
 void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -77,20 +72,19 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     Local<Value> errVal = rdr.decodeError<lcb_respgetreplica_error_context,
                                           lcb_respgetreplica_error_ref>(rc);
-    Local<Value> resVal;
+
+    Local<Value> casVal, bytesVal, flagsVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_respgetreplica_cas>());
-        resObj->Set(Nan::New("value").ToLocalChecked(),
-                    rdr.decodeValue<&lcb_respgetreplica_value,
-                                    &lcb_respgetreplica_flags>());
-        resVal = resObj;
+        casVal = rdr.decodeCas<&lcb_respgetreplica_cas>();
+        bytesVal = rdr.parseValue<&lcb_respgetreplica_value>();
+        flagsVal = rdr.parseValue<&lcb_respgetreplica_flags>();
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
+        bytesVal = Nan::Null();
+        flagsVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, casVal, bytesVal, flagsVal);
 }
 
 void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -104,17 +98,15 @@ void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal =
         rdr.decodeError<lcb_respunlock_error_context, lcb_respunlock_error_ref>(
             rc);
-    Local<Value> resVal;
+
+    Local<Value> casVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_respunlock_cas>());
-        resVal = resObj;
+        casVal = rdr.decodeCas<&lcb_respunlock_cas>();
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, casVal);
 }
 
 void Connection::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -128,17 +120,15 @@ void Connection::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal =
         rdr.decodeError<lcb_respremove_error_context, lcb_respremove_error_ref>(
             rc);
-    Local<Value> resVal;
+
+    Local<Value> casVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_respremove_cas>());
-        resVal = resObj;
+        casVal = rdr.decodeCas<&lcb_respremove_cas>();
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, casVal);
 }
 
 void Connection::lcbTouchRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -152,17 +142,15 @@ void Connection::lcbTouchRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal =
         rdr.decodeError<lcb_resptouch_error_context, lcb_resptouch_error_ref>(
             rc);
-    Local<Value> resVal;
+
+    Local<Value> casVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_resptouch_cas>());
-        resVal = resObj;
+        casVal = rdr.decodeCas<&lcb_resptouch_cas>();
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, casVal);
 }
 
 void Connection::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -176,19 +164,17 @@ void Connection::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal =
         rdr.decodeError<lcb_respstore_error_context, lcb_respstore_error_ref>(
             rc);
-    Local<Value> resVal;
+
+    Local<Value> casVal, tokenVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_respstore_cas>());
-        resObj->Set(Nan::New("token").ToLocalChecked(),
-                    rdr.decodeMutationToken<&lcb_respstore_mutation_token>());
-        resVal = resObj;
+        casVal = rdr.decodeCas<&lcb_respstore_cas>();
+        tokenVal = rdr.decodeMutationToken<&lcb_respstore_mutation_token>();
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
+        tokenVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, tokenVal);
 }
 
 void Connection::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
@@ -201,21 +187,19 @@ void Connection::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     Local<Value> errVal = rdr.decodeError<lcb_respcounter_error_context,
                                           lcb_respcounter_error_ref>(rc);
-    Local<Value> resVal;
+
+    Local<Value> casVal, tokenVal, valueVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
-                    rdr.decodeCas<&lcb_respcounter_cas>());
-        resObj->Set(Nan::New("token").ToLocalChecked(),
-                    rdr.decodeMutationToken<&lcb_respcounter_mutation_token>());
-        resObj->Set(Nan::New("value").ToLocalChecked(),
-                    rdr.parseValue<&lcb_respcounter_value>());
-        resVal = resObj;
+        casVal = rdr.decodeCas<&lcb_respcounter_cas>();
+        tokenVal = rdr.decodeMutationToken<&lcb_respcounter_mutation_token>();
+        valueVal = rdr.parseValue<&lcb_respcounter_value>();
     } else {
-        resVal = Nan::Null();
+        casVal = Nan::Null();
+        tokenVal = Nan::Null();
+        valueVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, resVal);
+    rdr.invokeCallback(errVal, casVal, tokenVal, valueVal);
 }
 
 void Connection::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,

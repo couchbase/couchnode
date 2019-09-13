@@ -112,7 +112,7 @@ NAN_METHOD(Connection::fnStore)
 
     const char *opName = "store";
     lcb_STORE_OPERATION opType =
-        static_cast<lcb_STORE_OPERATION>(ValueParser::asUint(info[10]));
+        static_cast<lcb_STORE_OPERATION>(ValueParser::asUint(info[11]));
     switch (opType) {
     case LCB_STORE_UPSERT:
         opName = "upsert";
@@ -143,29 +143,31 @@ NAN_METHOD(Connection::fnStore)
     if (!enc.parseOption<&lcb_cmdstore_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseValue<&lcb_cmdstore_value, &lcb_cmdstore_flags,
-                        &lcb_cmdstore_datatype>(info[3])) {
-        return Nan::ThrowError(Error::create("bad doc passed"));
+    if (!enc.parseOption<&lcb_cmdstore_value>(info[3])) {
+        return Nan::ThrowError(Error::create("bad bytes passed"));
+    };
+    if (!enc.parseOption<&lcb_cmdstore_flags>(info[4])) {
+        return Nan::ThrowError(Error::create("bad flags passed"));
     }
-    if (!enc.parseOption<&lcb_cmdstore_expiration>(info[4])) {
+    if (!enc.parseOption<&lcb_cmdstore_expiration>(info[5])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!enc.parseOption<&lcb_cmdstore_cas>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdstore_cas>(info[6])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
     lcb_DURABILITY_LEVEL durabilityLevel =
-        static_cast<lcb_DURABILITY_LEVEL>(ValueParser::asUint(info[6]));
-    int persistTo = ValueParser::asInt(info[7]);
-    int replicateTo = ValueParser::asInt(info[8]);
+        static_cast<lcb_DURABILITY_LEVEL>(ValueParser::asUint(info[7]));
+    int persistTo = ValueParser::asInt(info[8]);
+    int replicateTo = ValueParser::asInt(info[9]);
     if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
         lcb_cmdstore_durability(enc.cmd(), durabilityLevel);
     } else if (persistTo > 0 || replicateTo > 0) {
         lcb_cmdstore_durability_observe(enc.cmd(), persistTo, replicateTo);
     }
-    if (!enc.parseOption<&lcb_cmdstore_timeout>(info[9])) {
+    if (!enc.parseOption<&lcb_cmdstore_timeout>(info[10])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[11])) {
+    if (!enc.parseCallback(info[12])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 

@@ -69,6 +69,19 @@ public:
         return Nan::New<Number>(value);
     }
 
+    template <lcb_STATUS (*GetFn)(const RespType *, uint32_t *)>
+    Local<Value> parseValue() const
+    {
+        uint32_t value;
+
+        lcb_STATUS rc = GetFn(_resp, &value);
+        if (rc != LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        return Nan::New<Number>(value);
+    }
+
     template <lcb_STATUS (*GetFn)(const RespType *, uint64_t *)>
     Local<Value> parseValue() const
     {
@@ -151,26 +164,6 @@ public:
         }
 
         return Nan::CopyBuffer(value, nvalue).ToLocalChecked();
-    }
-
-    template <lcb_STATUS (*ValFn)(const RespType *, const char **, size_t *),
-              lcb_STATUS (*FlagsFn)(const RespType *, uint32_t *)>
-    Local<Value> decodeValue() const
-    {
-        ScopedTraceSpan decSpan = cookie()->startDecodeTrace();
-
-        const char *value = NULL;
-        size_t nvalue = 0;
-        if (ValFn(_resp, &value, &nvalue) != LCB_SUCCESS) {
-            return Nan::Null();
-        }
-
-        uint32_t flags = 0;
-        if (FlagsFn(_resp, &flags) != LCB_SUCCESS) {
-            return Nan::Null();
-        }
-
-        return connection()->decodeDoc(value, nvalue, flags);
     }
 
     template <typename... Ts>

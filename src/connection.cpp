@@ -2,7 +2,6 @@
 
 #include "error.h"
 #include "logger.h"
-#include "transcoder.h"
 
 namespace couchnode
 {
@@ -13,8 +12,6 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
     , _clientStringCache(nullptr)
     , _bootstrapCookie(nullptr)
     , _openCookie(nullptr)
-    , _transEncodeFunc(nullptr)
-    , _transDecodeFunc(nullptr)
 {
 }
 
@@ -35,14 +32,6 @@ Connection::~Connection()
     if (_openCookie) {
         delete _openCookie;
         _openCookie = nullptr;
-    }
-    if (_transEncodeFunc) {
-        delete _transEncodeFunc;
-        _transEncodeFunc = nullptr;
-    }
-    if (_transDecodeFunc) {
-        delete _transDecodeFunc;
-        _transDecodeFunc = nullptr;
     }
 }
 
@@ -69,70 +58,6 @@ const char *Connection::clientString()
 
     // Backup string in case something goes wrong
     return "couchbase-nodejs-sdk";
-}
-
-Local<Value> Connection::decodeDoc(const char *bytes, size_t nbytes,
-                                   uint32_t flags)
-{
-    if (_transDecodeFunc) {
-        Local<Object> decObj = Nan::New<Object>();
-        Nan::Set(decObj, Nan::New("value").ToLocalChecked(),
-                 Nan::CopyBuffer((char *)bytes, nbytes).ToLocalChecked());
-        Nan::Set(decObj, Nan::New("flags").ToLocalChecked(),
-                 Nan::New<Integer>(flags));
-        Local<Value> args[] = {decObj};
-
-        return Nan::CallAsFunction(_transDecodeFunc->GetFunction(),
-                                   Nan::GetCurrentContext()->Global(), 1, args)
-            .ToLocalChecked();
-    }
-
-    return DefaultTranscoder::decode(bytes, nbytes, flags);
-}
-
-bool Connection::encodeDoc(ValueParser &venc, const char **bytes,
-                           size_t *nbytes, uint32_t *flags, Local<Value> value)
-{
-    // There must never be a Nan::Scope here, the system relies on the fact
-    //   that the scope will exist until the lcb_cmd_XXX_t object has been
-    //   passed to LCB already.
-
-    if (_transEncodeFunc) {
-        Local<Value> args[] = {value};
-        Nan::TryCatch tryCatch;
-        Nan::MaybeLocal<Value> mres =
-            Nan::CallAsFunction(_transEncodeFunc->GetFunction(),
-                                Nan::GetCurrentContext()->Global(), 1, args);
-        if (tryCatch.HasCaught()) {
-            tryCatch.ReThrow();
-            return false;
-        }
-        if (!mres.IsEmpty()) {
-            Local<Value> res = mres.ToLocalChecked();
-            if (res->IsObject()) {
-                Local<Object> encObj = res.As<Object>();
-                MaybeLocal<Value> flagsObjM =
-                    Nan::Get(encObj, Nan::New("flags").ToLocalChecked());
-                MaybeLocal<Value> valueObjM =
-                    Nan::Get(encObj, Nan::New("value").ToLocalChecked());
-
-                if (!flagsObjM.IsEmpty() && !valueObjM.IsEmpty()) {
-                    Local<Value> valueObj = valueObjM.ToLocalChecked();
-                    Local<Value> flagsObj = flagsObjM.ToLocalChecked();
-
-                    if (node::Buffer::HasInstance(valueObj)) {
-                        *nbytes = node::Buffer::Length(valueObj);
-                        *bytes = node::Buffer::Data(valueObj);
-                        *flags = Nan::To<uint32_t>(flagsObj).FromMaybe(0);
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-
-    DefaultTranscoder::encode(venc, bytes, nbytes, flags, value);
-    return true;
 }
 
 NAN_MODULE_INIT(Connection::Init)
