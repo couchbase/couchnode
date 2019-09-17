@@ -128,7 +128,7 @@ NAN_METHOD(Connection::fnNew)
     }
 
     lcb_CREATEOPTS *createOpts = nullptr;
-    lcb_createopts_create(&createOpts, LCB_TYPE_BUCKET);
+    lcb_createopts_create(&createOpts, connType);
 
     Nan::Utf8String *utfConnStr = NULL;
     if (!info[1]->IsUndefined() && !info[1]->IsNull()) {
