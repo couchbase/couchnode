@@ -14,6 +14,7 @@ const ServerFeatures = {
   Fts: 'fts',
   Analytics: 'analytics',
   Collections: 'collections',
+  BucketManagement: 'bucket_management',
 };
 
 class ServerVersion {
@@ -218,6 +219,7 @@ class Harness {
       case ServerFeatures.Fts:
       case ServerFeatures.N1ql:
       case ServerFeatures.Analytics:
+      case ServerFeatures.BucketManagement:
         // supported on all versions except the mock
         return !this._version.isMock;
       case ServerFeatures.Collections:
