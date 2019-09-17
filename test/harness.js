@@ -155,11 +155,7 @@ class Harness {
         `http://localhost:${mockEntryPort}`;
     }
 
-    var cluster = new couchbase.Cluster(
-      this._connstr, {
-        username: this._user,
-        password: this._pass,
-      });
+    var cluster = await this.newCluster();
     var bucket = cluster.bucket(this._bucket);
     var scope = bucket.defaultScope();
     var coll = bucket.collection(this._coll);
@@ -170,6 +166,24 @@ class Harness {
     this._testScope = scope;
     this._testColl = coll;
     this._testDColl = dcoll;
+  }
+
+  async newCluster(options) {
+    if (!options) {
+      options = {};
+    }
+
+    if (!options.connstr) {
+      options.connstr = this._connstr;
+    }
+    if (!options.username) {
+      options.username = this._user;
+    }
+    if (!options.password) {
+      options.password = this._pass;
+    }
+
+    return couchbase.Cluster.connect(options.connstr, options);
   }
 
   async cleanup() {
