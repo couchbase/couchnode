@@ -46,9 +46,31 @@ describe('#collectionmanager', () => {
       await cmgr.dropCollection(testColl, testScope);
     });
 
+    it('should fail to drop a collection from a missing scope', async () => {
+      var cmgr = H.b.collections();
+      await H.throwsHelper(async () => {
+        await cmgr.createCollection(testColl, 'invalid-scope');
+      }, H.lib.ScopeNotFoundError);
+    });
+
+    it('should fail to drop a missing collection', async () => {
+      var cmgr = H.b.collections();
+      await H.throwsHelper(async () => {
+        await cmgr.dropCollection(testColl, testScope);
+      }, H.lib.CollectionNotFoundError);
+    });
+
     it('should successfully drop a scope', async () => {
       var cmgr = H.b.collections();
       await cmgr.dropScope(testScope);
+    });
+
+    it('should fail to drop a missing scope', async () => {
+      var cmgr = H.b.collections();
+      await H.throwsHelper(async () => {
+        await cmgr.dropScope(testScope);
+      }, H.lib.ScopeNotFoundError);
+
     });
 
   });
