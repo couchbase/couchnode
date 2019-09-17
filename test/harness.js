@@ -14,6 +14,7 @@ const ServerFeatures = {
   Fts: 'fts',
   Analytics: 'analytics',
   Collections: 'collections',
+  Replicas: 'replicas',
   BucketManagement: 'bucket_management',
 };
 
@@ -135,7 +136,9 @@ class Harness {
 
   async _createMock() {
     return new Promise((resolve, reject) => {
-      jcbmock.create({}, function(err, mock) {
+      jcbmock.create({
+        replicas: 1,
+      }, function(err, mock) {
         if (err) {
           reject(err);
           return;
@@ -217,6 +220,7 @@ class Harness {
       case ServerFeatures.SpatialViews:
       case ServerFeatures.Subdoc:
       case ServerFeatures.Views:
+      case ServerFeatures.Replicas:
         return true;
       case ServerFeatures.Fts:
       case ServerFeatures.N1ql:

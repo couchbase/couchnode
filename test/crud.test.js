@@ -57,17 +57,34 @@ function genericTests(collFn) {
       });
     });
 
-    describe('#getFromReplica', () => {
-      it.skip('should perform basic gets from replicas',
-        async () => {
-          var res = await collFn().getFromReplica(testKeyA, H
-            .lib
-            .ReplicaMode.Any);
+    H.requireFeature(H.Features.Replicas, () => {
+      describe('#getAllReplicas', () => {
+        it('should perform basic get all replicas', async () => {
+          var res = await collFn().getAllReplicas(testKeyA);
+
+          assert.isArray(res);
+          assert.isAtLeast(res.length, 1);
+          assert.isBoolean(res[0].isReplica);
+          assert.isNotEmpty(res[0].cas);
+          assert.deepStrictEqual(res[0].value, {
+            foo: 'bar',
+            baz: 19
+          });
+        });
+      });
+
+      describe('#getAnyReplica', () => {
+        it('should perform basic get any replica', async () => {
+          var res = await collFn().getAnyReplica(testKeyA);
+
           assert.isObject(res);
           assert.isNotEmpty(res.cas);
-          assert.deepStrictEqual(res
-            .value, { foo: 'bar' });
+          assert.deepStrictEqual(res.value, {
+            foo: 'bar',
+            baz: 19
+          });
         });
+      });
     });
 
     describe('#replace', () => {

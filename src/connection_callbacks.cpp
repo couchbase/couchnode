@@ -73,6 +73,11 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal = rdr.decodeError<lcb_respgetreplica_error_context,
                                           lcb_respgetreplica_error_ref>(rc);
 
+    uint32_t rflags = 0;
+    if (rdr.getValue<&lcb_respreplica_is_final>()) {
+        rflags |= LCB_RESP_F_FINAL;
+    }
+
     Local<Value> casVal, bytesVal, flagsVal;
     if (rc == LCB_SUCCESS) {
         casVal = rdr.decodeCas<&lcb_respgetreplica_cas>();
@@ -84,7 +89,14 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
         flagsVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, casVal, bytesVal, flagsVal);
+    Local<Value> rflagsVal = Nan::New<Number>(rflags);
+
+    if (!(rflags & LCB_RESP_F_FINAL)) {
+        rdr.invokeNonFinalCallback(errVal, rflagsVal, casVal, bytesVal,
+                                   flagsVal);
+    } else {
+        rdr.invokeCallback(errVal, rflagsVal, casVal, bytesVal, flagsVal);
+    }
 }
 
 void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
