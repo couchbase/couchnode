@@ -79,8 +79,9 @@ describe('#analytics', () => {
     });
 
     it('should successfully connect a link', async () => {
-      await H.c.analyticsIndexes().connectLink('Local');
-    });
+      var targetName = '`' + dvName + '`.Local';
+      await H.c.analyticsIndexes().connectLink(targetName);
+    }).timeout(10000);
 
     it('should successfully list all datasets', async () => {
       var res = await H.c.analyticsIndexes().getAllDatasets();
@@ -92,11 +93,11 @@ describe('#analytics', () => {
       assert.isAtLeast(res.length, 1);
     });
 
-    it.skip('should successfully get pending mutations', async () => {
+    it('should successfully get pending mutations', async () => {
       H.c.analyticsIndexes().getPendingMutations();
     });
 
-    it.skip('should see test data correctly', async () => {
+    it('should see test data correctly', async () => {
       while (true) {
         var res = null;
 
@@ -104,7 +105,7 @@ describe('#analytics', () => {
         // view won't be available to the query engine yet...
         try {
           var targetName = '`' + dvName + '`.`' + dsName + '`';
-          res = await H.c.queryAnalytics(`SELECT * FROM ${targetName}`);
+          res = await H.c.analyticsQuery(`SELECT * FROM ${targetName} WHERE testUid='${testUid}'`);
         } catch (err) {}
 
         if (!res || res.rows.length !== testdata.docCount()) {
@@ -120,8 +121,38 @@ describe('#analytics', () => {
       }
     }).timeout(20000);
 
+    it('should work with lots of options specified', async () => {
+      while (true) {
+        var res = null;
+        try {
+          var targetName = '`' + dvName + '`.`' + dsName + '`';
+          res = await H.c.analyticsQuery(`SELECT * FROM ${targetName} WHERE testUid='${testUid}'`, {
+            clientContextId: 'hello-world',
+            readOnly: true,
+          });
+        } catch (err) {}
+
+        if (!res || res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+        assert.isString(res.meta.requestId);
+        assert.equal(res.meta.clientContextId, 'hello-world');
+        assert.equal(res.meta.status, H.lib.AnalyticsStatus.Success);
+        assert.isObject(res.meta.signature);
+        assert.isObject(res.meta.metrics);
+
+        break;
+      }
+    }).timeout(20000);
+
     it('should successfully disconnect a link', async () => {
-      await H.c.analyticsIndexes().disconnectLink('Local');
+      var targetName = '`' + dvName + '`.Local';
+      await H.c.analyticsIndexes().disconnectLink(targetName);
     });
 
     it('should successfully drop an index', async () => {
