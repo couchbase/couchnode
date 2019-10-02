@@ -75,6 +75,16 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type)
     return lcb_cmdhttp_create(cmd, type);
 }
 
+lcb_STATUS lcbx_cmd_create(lcb_CMDPING **cmd)
+{
+    return lcb_cmdping_create(cmd);
+}
+
+lcb_STATUS lcbx_cmd_create(lcb_CMDDIAG **cmd)
+{
+    return lcb_cmddiag_create(cmd);
+}
+
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDGET *cmd)
 {
     return lcb_cmdget_destroy(cmd);
@@ -148,4 +158,14 @@ lcb_STATUS lcbx_cmd_destroy(lcb_CMDFTS *cmd)
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDHTTP *cmd)
 {
     return lcb_cmdhttp_destroy(cmd);
+}
+
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDPING *cmd)
+{
+    return lcb_cmdping_destroy(cmd);
+}
+
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDDIAG *cmd)
+{
+    return lcb_cmddiag_destroy(cmd);
 }

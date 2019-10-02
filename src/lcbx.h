@@ -49,6 +49,8 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDN1QL **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDANALYTICS **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDFTS **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type);
+lcb_STATUS lcbx_cmd_create(lcb_CMDPING **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDDIAG **cmd);
 
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDGET *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDEXISTS *cmd);
@@ -65,5 +67,7 @@ lcb_STATUS lcbx_cmd_destroy(lcb_CMDN1QL *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDANALYTICS *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDFTS *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDHTTP *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDPING *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDDIAG *cmd);
 
 #endif // LCBX_H

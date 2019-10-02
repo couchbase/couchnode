@@ -85,6 +85,8 @@ NAN_MODULE_INIT(Connection::Init)
     Nan::SetPrototypeMethod(tpl, "analyticsQuery", fnAnalyticsQuery);
     Nan::SetPrototypeMethod(tpl, "ftsQuery", fnFtsQuery);
     Nan::SetPrototypeMethod(tpl, "httpRequest", fnHttpRequest);
+    Nan::SetPrototypeMethod(tpl, "ping", fnPing);
+    Nan::SetPrototypeMethod(tpl, "diag", fnDiag);
 
     constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
 

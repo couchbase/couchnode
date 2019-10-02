@@ -292,16 +292,6 @@ void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, resVal);
 }
 
-void Connection::lcbPingRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPPING *resp)
-{
-}
-
-void Connection::lcbDiagRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPDIAG *resp)
-{
-}
-
 void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
                                     const lcb_RESPVIEW *resp)
 {
@@ -441,6 +431,44 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
     } else {
         rdr.invokeCallback(errVal, flagsVal, dataVal);
     }
+}
+
+void Connection::lcbPingRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPPING *resp)
+{
+    Nan::HandleScope scope;
+    RespReader<lcb_RESPPING, &lcb_respping_cookie> rdr(instance, resp);
+
+    lcb_STATUS rc = rdr.getValue<&lcb_respping_status>();
+    Local<Value> errVal = Error::create(rc);
+
+    Local<Value> dataVal;
+    if (rc == LCB_SUCCESS) {
+        dataVal = rdr.parseValue<&lcb_respping_value>();
+    } else {
+        dataVal = Nan::Null();
+    }
+
+    rdr.invokeCallback(errVal, dataVal);
+}
+
+void Connection::lcbDiagRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPDIAG *resp)
+{
+    Nan::HandleScope scope;
+    RespReader<lcb_RESPDIAG, &lcb_respdiag_cookie> rdr(instance, resp);
+
+    lcb_STATUS rc = rdr.getValue<&lcb_respdiag_status>();
+    Local<Value> errVal = Error::create(rc);
+
+    Local<Value> dataVal;
+    if (rc == LCB_SUCCESS) {
+        dataVal = rdr.parseValue<&lcb_respdiag_value>();
+    } else {
+        dataVal = Nan::Null();
+    }
+
+    rdr.invokeCallback(errVal, dataVal);
 }
 
 } // namespace couchnode

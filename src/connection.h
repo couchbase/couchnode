@@ -67,9 +67,9 @@ private:
     static NAN_METHOD(fnN1qlQuery);
     static NAN_METHOD(fnFtsQuery);
     static NAN_METHOD(fnAnalyticsQuery);
-    // static NAN_METHOD(fnPing);
-    // static NAN_METHOD(fnDiag);
     static NAN_METHOD(fnHttpRequest);
+    static NAN_METHOD(fnPing);
+    static NAN_METHOD(fnDiag);
 
     static void uvFlushHandler(uv_prepare_t *handle);
     static void lcbRegisterCallbacks(lcb_INSTANCE *instance);

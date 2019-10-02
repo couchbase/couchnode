@@ -714,4 +714,54 @@ NAN_METHOD(Connection::fnHttpRequest)
     return info.GetReturnValue().Set(true);
 }
 
+NAN_METHOD(Connection::fnPing)
+{
+    Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Nan::HandleScope scope;
+
+    OpBuilder<lcb_CMDPING> enc(me);
+
+    enc.beginTrace("ping");
+
+    lcb_cmdping_all(enc.cmd());
+
+    if (!enc.parseOption<&lcb_cmdping_report_id>(info[0])) {
+        return Nan::ThrowError(Error::create("bad report id passed"));
+    }
+    if (!enc.parseCallback(info[1])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_STATUS err = enc.execute<&lcb_ping>();
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}
+
+NAN_METHOD(Connection::fnDiag)
+{
+    Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Nan::HandleScope scope;
+
+    OpBuilder<lcb_CMDDIAG> enc(me);
+
+    enc.beginTrace("diagnostics");
+
+    if (!enc.parseOption<&lcb_cmddiag_report_id>(info[0])) {
+        return Nan::ThrowError(Error::create("bad report id passed"));
+    }
+    if (!enc.parseCallback(info[1])) {
+        return Nan::ThrowError(Error::create("bad callback passed"));
+    }
+
+    lcb_STATUS err = enc.execute<&lcb_diag>();
+    if (err) {
+        return Nan::ThrowError(Error::create(err));
+    }
+
+    return info.GetReturnValue().Set(true);
+}
+
 } // namespace couchnode
