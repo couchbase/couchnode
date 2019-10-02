@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -36,11 +36,11 @@
 
 #include "common/options.h"
 #include "common/histogram.h"
-#include "bench/lexer.h"
+#include "gen/lexer.h"
 
 #include "linenoise/linenoise.h"
 
-#define CBCBENCH_HISTORY_FILENAME ".cbcbench_history"
+#define CBCGEN_HISTORY_FILENAME ".cbcgen_history"
 
 using namespace cbc;
 using namespace cliopts;
@@ -620,14 +620,14 @@ struct bm_COMMAND {
     bm_COMMAND() : name(""), args(), options() {}
 };
 
-namespace bench
+namespace gen
 {
 class Handler;
 }
 
-static std::map< std::string, bench::Handler * > handlers;
+static std::map< std::string, gen::Handler * > handlers;
 
-namespace bench
+namespace gen
 {
 #define HANDLER_DESCRIPTION(s)                                                                                         \
     const char *description() const override                                                                           \
@@ -982,24 +982,24 @@ class DurabilityLevelHandler : public Handler
   private:
 };
 
-} // namespace bench
+} // namespace gen
 
 static void setupHandlers()
 {
-    handlers["help"] = new bench::HelpHandler();
-    handlers["dump"] = new bench::DumpHandler();
-    handlers["create"] = new bench::CreateHandler();
-    handlers["destroy"] = new bench::DestroyHandler();
-    handlers["start"] = new bench::StartHandler();
-    handlers["stop"] = new bench::StopHandler();
-    handlers["list"] = new bench::ListHandler();
-    handlers["wait"] = new bench::WaitHandler();
-    handlers["durability-level"] = new bench::DurabilityLevelHandler();
-    handlers["batch-size"] = new bench::BatchSizeHandler();
-    handlers["value-pool-size"] = new bench::ValuePoolSizeHandler();
-    handlers["value-size-min"] = new bench::ValueSizeMinHandler();
-    handlers["value-size-max"] = new bench::ValueSizeMaxHandler();
-    handlers["workload"] = new bench::WorkloadHandler();
+    handlers["help"] = new gen::HelpHandler();
+    handlers["dump"] = new gen::DumpHandler();
+    handlers["create"] = new gen::CreateHandler();
+    handlers["destroy"] = new gen::DestroyHandler();
+    handlers["start"] = new gen::StartHandler();
+    handlers["stop"] = new gen::StopHandler();
+    handlers["list"] = new gen::ListHandler();
+    handlers["wait"] = new gen::WaitHandler();
+    handlers["durability-level"] = new gen::DurabilityLevelHandler();
+    handlers["batch-size"] = new gen::BatchSizeHandler();
+    handlers["value-pool-size"] = new gen::ValuePoolSizeHandler();
+    handlers["value-size-min"] = new gen::ValueSizeMinHandler();
+    handlers["value-size-max"] = new gen::ValueSizeMaxHandler();
+    handlers["workload"] = new gen::WorkloadHandler();
 }
 
 bool cleaning = false;
@@ -1041,7 +1041,7 @@ static void setup_sigint_handler()
 
 static void real_main(int argc, char **argv)
 {
-    std::string history_path = ConnParams::getUserHome() + CBCBENCH_HISTORY_FILENAME;
+    std::string history_path = ConnParams::getUserHome() + CBCGEN_HISTORY_FILENAME;
     Parser parser;
 
     config.addToParser(parser);
@@ -1077,12 +1077,12 @@ static void real_main(int argc, char **argv)
         std::cerr << "# value-size-max = " << value_size_max << std::endl;
         std::cerr << "# value-size-min = " << value_size_min << std::endl;
         std::cerr << "# batch-size = " << batch_size << std::endl;
-        std::cerr << "# durability-level = " << bench::durability_level_to_string(durability_level) << std::endl;
+        std::cerr << "# durability-level = " << gen::durability_level_to_string(durability_level) << std::endl;
         std::cout << "# current_workload = " << current_workload << std::endl;
     }
 
     do {
-        char *line = linenoise("bench> ");
+        char *line = linenoise("gen> ");
         const char *ptr;
         if (line == nullptr) {
             break;
@@ -1127,7 +1127,7 @@ static void real_main(int argc, char **argv)
             }
         } while (ptr);
         if (!cmd.name.empty()) {
-            bench::Handler *handler = handlers[cmd.name];
+            gen::Handler *handler = handlers[cmd.name];
             if (handler == nullptr) {
                 fprintf(stderr, "Unknown command %s\n", cmd.name.c_str());
                 handlers["help"]->execute(cmd);

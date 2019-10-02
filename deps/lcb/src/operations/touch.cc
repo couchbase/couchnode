@@ -123,7 +123,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_key(lcb_CMDTOUCH *cmd, const char *key,
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_expiration(lcb_CMDTOUCH *cmd, uint32_t expiration)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_expiry(lcb_CMDTOUCH *cmd, uint32_t expiration)
 {
     cmd->exptime = expiration;
     return LCB_SUCCESS;

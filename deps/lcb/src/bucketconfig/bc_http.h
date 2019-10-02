@@ -30,6 +30,7 @@
 
 #define REQBUCKET_COMPAT_PREFIX "/pools/default/bucketsStreaming/"
 #define REQBUCKET_TERSE_PREFIX "/pools/default/bs/"
+#define REQBUCKET_BUCKETLESS_PREFIX "/poolsStreaming/default/"
 
 #define REQPOOLS_URI "/pools/"
 #define HOSTHDR_FMT "Host: %s:%s\r\n"

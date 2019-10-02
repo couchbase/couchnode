@@ -16,8 +16,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
-# Currently this file is only used for Windows
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 
 ### BEGIN CONFIGURABLES ###
 # These variables can be modified as needed

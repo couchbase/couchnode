@@ -133,7 +133,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_key(lcb_CMDGET *cmd, const char *key, siz
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_expiration(lcb_CMDGET *cmd, uint32_t expiration)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_expiry(lcb_CMDGET *cmd, uint32_t expiration)
 {
     cmd->exptime = expiration;
     return LCB_SUCCESS;
@@ -493,6 +493,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_value(const lcb_RESPGETREPLICA *r
     return LCB_SUCCESS;
 }
 
+LIBCOUCHBASE_API int lcb_respreplica_is_final(const lcb_RESPGETREPLICA *resp)
+{
+    return resp->rflags & LCB_RESP_F_FINAL;
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_create(lcb_CMDGETREPLICA **cmd, lcb_REPLICA_MODE mode)
 {
     lcb_CMDGETREPLICA *res = (lcb_CMDGETREPLICA *)calloc(1, sizeof(lcb_CMDGETREPLICA));
@@ -718,8 +723,6 @@ static lcb_STATUS getreplica_impl(uint32_t cid, lcb_INSTANCE *instance, void *co
     req.request.vbucket = htons((lcb_uint16_t)vbid);
     req.request.cas = 0;
     req.request.extlen = 0;
-    req.request.keylen = htons((lcb_uint16_t)cmd->key.contig.nbytes);
-    req.request.bodylen = htonl((lcb_uint32_t)cmd->key.contig.nbytes);
 
     rck->r_cur = r0;
     do {
@@ -742,7 +745,9 @@ static lcb_STATUS getreplica_impl(uint32_t cid, lcb_INSTANCE *instance, void *co
         pkt->flags |= MCREQ_F_REQEXT;
 
         mcreq_reserve_key(pl, pkt, sizeof(req.bytes), &cmd->key, cmd->cid);
-
+        size_t nkey = pkt->kh_span.size - MCREQ_PKT_BASESIZE + pkt->extlen;
+        req.request.keylen = htons((uint16_t)nkey);
+        req.request.bodylen = htonl((uint32_t)nkey);
         req.request.opaque = pkt->opaque;
         rck->remaining++;
         mcreq_write_hdr(pkt, &req);

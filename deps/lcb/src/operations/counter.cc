@@ -130,7 +130,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_key(lcb_CMDCOUNTER *cmd, const char *
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_expiration(lcb_CMDCOUNTER *cmd, uint32_t expiration)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_expiry(lcb_CMDCOUNTER *cmd, uint32_t expiration)
 {
     cmd->exptime = expiration;
     return LCB_SUCCESS;

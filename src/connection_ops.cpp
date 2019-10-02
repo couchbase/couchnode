@@ -20,7 +20,7 @@ NAN_METHOD(Connection::fnGet)
     if (!enc.parseOption<&lcb_cmdget_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdget_expiration>(info[3])) {
+    if (!enc.parseOption<&lcb_cmdget_expiry>(info[3])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
     if (ValueParser::asUint(info[4]) > 0) {
@@ -149,7 +149,7 @@ NAN_METHOD(Connection::fnStore)
     if (!enc.parseOption<&lcb_cmdstore_flags>(info[4])) {
         return Nan::ThrowError(Error::create("bad flags passed"));
     }
-    if (!enc.parseOption<&lcb_cmdstore_expiration>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdstore_expiry>(info[5])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
     if (!enc.parseOption<&lcb_cmdstore_cas>(info[6])) {
@@ -248,7 +248,7 @@ NAN_METHOD(Connection::fnTouch)
     if (!enc.parseOption<&lcb_cmdtouch_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdtouch_expiration>(info[3])) {
+    if (!enc.parseOption<&lcb_cmdtouch_expiry>(info[3])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
     lcb_DURABILITY_LEVEL durabilityLevel =
@@ -329,7 +329,7 @@ NAN_METHOD(Connection::fnCounter)
     if (!enc.parseOption<&lcb_cmdcounter_initial>(info[4])) {
         return Nan::ThrowError(Error::create("bad initial passed"));
     }
-    if (!enc.parseOption<&lcb_cmdcounter_expiration>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdcounter_expiry>(info[5])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
     lcb_DURABILITY_LEVEL durabilityLevel =
@@ -373,14 +373,8 @@ NAN_METHOD(Connection::fnLookupIn)
         return Nan::ThrowError(Error::create("bad key passed"));
     }
     uint32_t flags = ValueParser::asUint(info[3]);
-    if (flags & LCBX_SDFLAG_UPSERT_DOC) {
-        lcb_cmdsubdoc_create_if_missing(enc.cmd(), 1);
-    }
-    if (flags & LCBX_SDFLAG_INSERT_DOC) {
-        // TODO(brett19): Implement lookupIn's INSERT_DOC flag
-    }
     if (flags & LCBX_SDFLAG_ACCESS_DELETED) {
-        // TODO(brett19): Implement lookupIn's ACCESS_DELETED flag
+        lcb_cmdsubdoc_access_deleted(enc.cmd(), 1);
     }
     if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[info.Length() - 2])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
@@ -439,7 +433,7 @@ NAN_METHOD(Connection::fnMutateIn)
     if (!enc.parseOption<&lcb_cmdsubdoc_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdsubdoc_expiration>(info[3])) {
+    if (!enc.parseOption<&lcb_cmdsubdoc_expiry>(info[3])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
     if (!enc.parseOption<&lcb_cmdsubdoc_cas>(info[4])) {
@@ -447,13 +441,13 @@ NAN_METHOD(Connection::fnMutateIn)
     }
     uint32_t flags = ValueParser::asUint(info[5]);
     if (flags & LCBX_SDFLAG_UPSERT_DOC) {
-        lcb_cmdsubdoc_create_if_missing(enc.cmd(), 1);
+        lcb_cmdsubdoc_store_semantics(enc.cmd(), LCB_SUBDOC_STORE_UPSERT);
     }
     if (flags & LCBX_SDFLAG_INSERT_DOC) {
-        // TODO(brett19): Implement mutateIn's INSERT_DOC flag
+        lcb_cmdsubdoc_store_semantics(enc.cmd(), LCB_SUBDOC_STORE_INSERT);
     }
     if (flags & LCBX_SDFLAG_ACCESS_DELETED) {
-        // TODO(brett19): Implement mutateIn's ACCESS_DELETED flag
+        lcb_cmdsubdoc_access_deleted(enc.cmd(), 1);
     }
     lcb_DURABILITY_LEVEL durabilityLevel = static_cast<lcb_DURABILITY_LEVEL>(
         ValueParser::asUint(info[info.Length() - 5]));
@@ -649,7 +643,7 @@ NAN_METHOD(Connection::fnFtsQuery)
 
     lcb_cmdfts_callback(enc.cmd(), &lcbFtsDataHandler);
 
-    if (!enc.parseOption<&lcb_cmdfts_query>(info[0])) {
+    if (!enc.parseOption<&lcb_cmdfts_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
     }
     // uint32_t flags = ValueParser::asUint(info[1]);

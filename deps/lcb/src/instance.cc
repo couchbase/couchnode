@@ -440,10 +440,6 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
     lcb_STATUS err;
     lcb_settings *settings;
 
-#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600)
-    lcb_rnd_global_init();
-#endif
-
     if (options) {
         io_priv = options->io;
         type = options->type;
@@ -472,7 +468,13 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
     obj->settings->conntype = type;
     obj->settings->ipv6 = spec.ipv6_policy();
 
-    settings->bucket = strdup(spec.bucket().c_str());
+    if (spec.bucket().empty()) {
+        if (type == LCB_TYPE_BUCKET) {
+            settings->bucket = strdup("default");
+        }
+    } else {
+        settings->bucket = strdup(spec.bucket().c_str());
+    }
 
     if (!spec.username().empty()) {
         settings->auth->set_mode(LCBAUTH_MODE_RBAC);
@@ -480,8 +482,7 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
                                   LCBAUTH_F_CLUSTER);
     } else {
         settings->auth->set_mode(LCBAUTH_MODE_CLASSIC);
-        err = settings->auth->add(spec.bucket(), spec.password(),
-                                  LCBAUTH_F_BUCKET);
+        err = settings->auth->add(settings->bucket, spec.password(), LCBAUTH_F_BUCKET);
     }
     if (err != LCB_SUCCESS) {
         goto GT_DONE;
@@ -739,11 +740,18 @@ lcb_STATUS lcb_connect(lcb_INSTANCE *instance)
 LIBCOUCHBASE_API
 lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_len)
 {
+    if (bucket == NULL) {
+        lcb_log(LOGARGS(instance, ERR), "Bucket name cannot be a NULL, sorry");
+        return LCB_EINVAL;
+    }
     lcbvb_CONFIG *cfg = LCBT_VBCONFIG(instance);
     if (cfg == NULL) {
+        lcb_log(LOGARGS(instance, ERR),
+                "The instance wasn't not bootstrapped, unable to associate it with bucket, sorry");
         return LCB_EINVAL;
     }
     if (LCBVB_BUCKET_NAME(cfg)) {
+        lcb_log(LOGARGS(instance, ERR), "The instance has been associated with the bucket already, sorry");
         return LCB_EINVAL;
     }
     instance->settings->conntype = LCB_TYPE_BUCKET;

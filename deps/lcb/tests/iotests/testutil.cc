@@ -97,7 +97,7 @@ void KVOperation::store(lcb_INSTANCE *instance)
     lcb_cmdstore_key(cmd, request->key.data(), request->key.length());
     lcb_cmdstore_value(cmd, request->val.data(), request->val.length());
     lcb_cmdstore_flags(cmd, request->flags);
-    lcb_cmdstore_expiration(cmd, request->exp);
+    lcb_cmdstore_expiry(cmd, request->exp);
     lcb_cmdstore_cas(cmd, request->cas);
     lcb_cmdstore_datatype(cmd, request->datatype);
 
@@ -130,7 +130,7 @@ void KVOperation::get(lcb_INSTANCE *instance)
     lcb_CMDGET *cmd;
     lcb_cmdget_create(&cmd);
     lcb_cmdget_key(cmd, request->key.data(), request->key.length());
-    lcb_cmdget_expiration(cmd, request->exp);
+    lcb_cmdget_expiry(cmd, request->exp);
 
     enter(instance);
     EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, this, cmd));

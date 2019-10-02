@@ -77,9 +77,12 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
     // Use the management API to load the beer-sample database
     lcb_CREATEOPTS *crparamsAdmin = NULL;
     MockEnvironment::getInstance()->makeConnectParams(crparamsAdmin, NULL, LCB_TYPE_CLUSTER);
+    std::string connstr(crparamsAdmin->connstr, crparamsAdmin->connstr_len);
+    connstr += "?allow_static_config=true";
     username = "Administrator";
     std::string password("password");
     lcb_createopts_credentials(crparamsAdmin, username.c_str(), username.size(), password.c_str(), password.size());
+    lcb_createopts_connstr(crparamsAdmin, connstr.c_str(), connstr.size());
 
     rv = tryCreateConnection(hw, instance, crparamsAdmin);
     lcb_createopts_destroy(crparamsAdmin);

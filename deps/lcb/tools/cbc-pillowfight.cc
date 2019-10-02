@@ -795,7 +795,7 @@ class ThreadContext
                 retryq.pop();
                 lcb_CMDSTORE *scmd;
                 lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
-                lcb_cmdstore_expiration(scmd, exptime);
+                lcb_cmdstore_expiry(scmd, exptime);
                 if (config.writeJson()) {
                     lcb_cmdstore_datatype(scmd, LCB_VALUE_F_JSON);
                 }
@@ -836,7 +836,7 @@ class ThreadContext
                 } else {
                     lcb_CMDSTORE *scmd;
                     lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
-                    lcb_cmdstore_expiration(scmd, exptime);
+                    lcb_cmdstore_expiry(scmd, exptime);
                     if (config.writeJson()) {
                         lcb_cmdstore_datatype(scmd, LCB_VALUE_F_JSON);
                     }
@@ -856,7 +856,7 @@ class ThreadContext
                 lcb_CMDGET *gcmd;
                 lcb_cmdget_create(&gcmd);
                 lcb_cmdget_key(gcmd, opinfo.m_key.c_str(), opinfo.m_key.size());
-                lcb_cmdget_expiration(gcmd, exptime);
+                lcb_cmdget_expiry(gcmd, exptime);
                 error = lcb_get(instance, this, gcmd);
                 lcb_cmdget_destroy(gcmd);
                 break;
@@ -879,7 +879,7 @@ class ThreadContext
                 lcb_CMDSUBDOC *sdcmd;
                 lcb_cmdsubdoc_create(&sdcmd);
                 if (opinfo.m_mode == NextOp::SDSTORE) {
-                    lcb_cmdsubdoc_expiration(sdcmd, exptime);
+                    lcb_cmdsubdoc_expiry(sdcmd, exptime);
                 }
                 lcb_cmdsubdoc_key(sdcmd, opinfo.m_key.c_str(), opinfo.m_key.size());
                 if (mutate && config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
@@ -1080,7 +1080,7 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
 
             lcb_CMDSTORE *scmd;
             lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
-            lcb_cmdstore_expiration(scmd, config.getExptime());
+            lcb_cmdstore_expiry(scmd, config.getExptime());
             uint64_t cas;
             lcb_respget_cas(resp, &cas);
             lcb_cmdstore_cas(scmd, cas);

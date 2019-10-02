@@ -207,7 +207,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_value_iov(lcb_CMDSTORE *cmd, const lcb_
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_expiration(lcb_CMDSTORE *cmd, uint32_t expiration)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_expiry(lcb_CMDSTORE *cmd, uint32_t expiration)
 {
     cmd->exptime = expiration;
     return LCB_SUCCESS;

@@ -276,7 +276,7 @@ static void endpointToJSON(hrtime_t now, Json::Value &node, const PoolHost *host
     snprintf(id, sizeof(id), "%p", (void *)info->sock);
     endpoint["id"] = id;
     endpoint["remote"] = get_hehost(host);
-    endpoint["local"] = lcbio__inet_ntop(&info->sock->info->sa_local);
+    endpoint["local"] = info->sock->info->ep_local;
     endpoint["last_activity_us"] = (Json::Value::UInt64)(now - info->sock->atime);
     endpoint["status"] = "connected";
     node[lcbio_svcstr(info->sock->service)].append(endpoint);

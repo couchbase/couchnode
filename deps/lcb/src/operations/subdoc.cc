@@ -142,7 +142,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_cas(lcb_CMDSUBDOC *cmd, uint64_t cas)
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_get(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                 const char *path, size_t path_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_GET;
+    if (path == NULL || path_len == 0) {
+        operations->specs[index].sdcmd = LCB_SDCMD_GET_FULLDOC;
+    } else {
+        operations->specs[index].sdcmd = LCB_SDCMD_GET;
+    }
     operations->specs[index].options = flags;
     LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
     return LCB_SUCCESS;
@@ -161,9 +165,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_replace(lcb_SUBDOCSPECS *operations,
                                                     const char *path, size_t path_len, const char *value,
                                                     size_t value_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_REPLACE;
+    if (path == NULL || path_len == 0) {
+        operations->specs[index].sdcmd = LCB_SDCMD_SET_FULLDOC;
+    } else {
+        operations->specs[index].sdcmd = LCB_SDCMD_REPLACE;
+        LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
+    }
     operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
     LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
     return LCB_SUCCESS;
 }
@@ -249,7 +257,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_counter(lcb_SUBDOCSPECS *operations,
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_remove(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                    const char *path, size_t path_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_REMOVE;
+    if (path == NULL || path_len == 0) {
+        operations->specs[index].sdcmd = LCB_SDCMD_REMOVE_FULLDOC;
+    } else {
+        operations->specs[index].sdcmd = LCB_SDCMD_REMOVE;
+    }
     operations->specs[index].options = flags;
     LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
     return LCB_SUCCESS;
@@ -261,50 +273,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_get_count(lcb_SUBDOCSPECS *operation
     operations->specs[index].sdcmd = LCB_SDCMD_GET_COUNT;
     operations->specs[index].options = flags;
     LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_get(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags)
-{
-    operations->specs[index].sdcmd = LCB_SDCMD_GET_FULLDOC;
-    operations->specs[index].options = flags;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_insert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
-                                                           const char *value, size_t value_len)
-{
-    operations->options |= LCB_CMDSUBDOC_F_INSERT_DOC;
-    operations->specs[index].sdcmd = LCB_SDCMD_SET_FULLDOC;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_upsert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
-                                                           const char *value, size_t value_len)
-{
-    operations->options |= LCB_CMDSUBDOC_F_UPSERT_DOC;
-    operations->specs[index].sdcmd = LCB_SDCMD_SET_FULLDOC;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_replace(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
-                                                            const char *value, size_t value_len)
-{
-    operations->options &= ~(LCB_CMDSUBDOC_F_INSERT_DOC | LCB_CMDSUBDOC_F_UPSERT_DOC);
-    operations->specs[index].sdcmd = LCB_SDCMD_SET_FULLDOC;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_remove(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags)
-{
-    operations->specs[index].sdcmd = LCB_SDCMD_REMOVE_FULLDOC;
-    operations->specs[index].options = flags;
     return LCB_SUCCESS;
 }
 
@@ -393,7 +361,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_specs(lcb_CMDSUBDOC *cmd, const lcb_SU
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_expiration(lcb_CMDSUBDOC *cmd, uint32_t expiration)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_expiry(lcb_CMDSUBDOC *cmd, uint32_t expiration)
 {
     cmd->exptime = expiration;
     return LCB_SUCCESS;
@@ -405,12 +373,29 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_durability(lcb_CMDSUBDOC *cmd, lcb_DUR
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create_if_missing(lcb_CMDSUBDOC *cmd, int flag)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_store_semantics(lcb_CMDSUBDOC *cmd, lcb_SUBDOC_STORE_SEMANTICS mode)
+{
+    cmd->cmdflags &= ~(LCB_CMDSUBDOC_F_UPSERT_DOC | LCB_CMDSUBDOC_F_INSERT_DOC);
+    switch (mode) {
+        case LCB_SUBDOC_STORE_REPLACE:
+            /* replace is default, does not require setting the flags */
+            break;
+        case LCB_SUBDOC_STORE_UPSERT:
+            cmd->cmdflags |= LCB_CMDSUBDOC_F_UPSERT_DOC;
+            break;
+        case LCB_SUBDOC_STORE_INSERT:
+            cmd->cmdflags |= LCB_CMDSUBDOC_F_INSERT_DOC;
+            break;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_access_deleted(lcb_CMDSUBDOC *cmd, int flag)
 {
     if (flag) {
-        cmd->cmdflags |= LCB_CMDSUBDOC_F_UPSERT_DOC;
+        cmd->cmdflags |= LCB_CMDSUBDOC_F_ACCESS_DELETED;
     } else {
-        cmd->cmdflags &= ~LCB_CMDSUBDOC_F_UPSERT_DOC;
+        cmd->cmdflags &= ~LCB_CMDSUBDOC_F_ACCESS_DELETED;
     }
     return LCB_SUCCESS;
 }

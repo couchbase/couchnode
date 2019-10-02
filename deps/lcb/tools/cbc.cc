@@ -693,7 +693,7 @@ void GetHandler::run()
                 if (isLock()) {
                     lcb_cmdget_locktime(cmd, o_exptime.result());
                 } else {
-                    lcb_cmdget_expiration(cmd, o_exptime.result());
+                    lcb_cmdget_expiry(cmd, o_exptime.result());
                 }
             }
             err = lcb_get(instance, this, cmd);
@@ -726,7 +726,7 @@ void TouchHandler::run()
         lcb_CMDTOUCH *cmd;
         lcb_cmdtouch_create(&cmd);
         lcb_cmdtouch_key(cmd, key.c_str(), key.size());
-        lcb_cmdtouch_expiration(cmd, o_exptime.result());
+        lcb_cmdtouch_expiry(cmd, o_exptime.result());
         err = lcb_touch(instance, this, cmd);
         lcb_cmdtouch_destroy(cmd);
         if (err != LCB_SUCCESS) {
@@ -797,7 +797,7 @@ void SetHandler::storeItem(const string &key, const char *value, size_t nvalue)
         lcb_cmdstore_datatype(cmd, LCB_VALUE_F_JSON);
     }
     if (o_exp.passed()) {
-        lcb_cmdstore_expiration(cmd, o_exp.result());
+        lcb_cmdstore_expiry(cmd, o_exp.result());
     }
     if (o_flags.passed()) {
         lcb_cmdstore_flags(cmd, o_flags.result());
@@ -1480,7 +1480,7 @@ void ArithmeticHandler::run()
             delta *= -1;
         }
         lcb_cmdcounter_delta(cmd, delta);
-        lcb_cmdcounter_expiration(cmd, o_expiry.result());
+        lcb_cmdcounter_expiry(cmd, o_expiry.result());
         lcb_STATUS err = lcb_counter(instance, NULL, cmd);
         lcb_cmdcounter_destroy(cmd);
         if (err != LCB_SUCCESS) {

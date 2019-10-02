@@ -93,10 +93,10 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_callback(lcb_CMDFTS *cmd, lcb_FTS_CALLBAC
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_query(lcb_CMDFTS *cmd, const char *query, size_t query_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_payload(lcb_CMDFTS *cmd, const char *payload, size_t payload_len)
 {
-    cmd->query = query;
-    cmd->nquery = query_len;
+    cmd->query = payload;
+    cmd->nquery = payload_len;
     return LCB_SUCCESS;
 }
 
@@ -275,15 +275,8 @@ lcb_FTS_HANDLE_::~lcb_FTS_HANDLE_()
         if (htreq) {
             lcbio_CTX *ctx = htreq->ioctx;
             if (ctx) {
-                std::string remote;
-                if (htreq->ipv6) {
-                    remote = "[" + std::string(htreq->host) + "]:" + std::string(htreq->port);
-                } else {
-                    remote = std::string(htreq->host) + ":" + std::string(htreq->port);
-                }
-                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, remote.c_str());
-                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS,
-                                          lcbio__inet_ntop(&ctx->sock->info->sa_local).c_str());
+                lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_PEER_ADDRESS, htreq->peer.c_str());
+                lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, ctx->sock->info->ep_local);
             }
         }
         lcbtrace_span_finish(span, LCBTRACE_NOW);

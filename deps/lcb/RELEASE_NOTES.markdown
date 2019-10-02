@@ -1,5 +1,40 @@
 # Release Notes
 
+## 3.0.0-beta.1 (2019-10-01)
+
+* Renamed FTS function `lcb_cmdfts_query` to `lcb_cmdfts_payload`. This is done because in next beta release, the first
+  function will modify only query part of the payload.
+* Updated full document commands implicit in subdocument API. Instead of exposing fulldoc GET,REMOVE,UPSERT,INSERT,REPLACE sniff the path argument to GET,REMOVE and REPLACE (with store semantics) and fall back to fulldocument operations if the path is empty.
+* Implemented accessors to control subdocument store symantics: `lcb_cmdsubdoc_store_semantics`
+* Add accessor to access deleted for subdoc: `lcb_cmdsubdoc_access_deleted`
+* Updated build scripts to require compiler to support at least C++11.
+* Renamed KV command accessors from `*_expiration()` to `*_expiry()`.
+* CCBC-939: Performance improvement in tracing subsystem by avoiding copies for network addresses and system tags
+* Report reasons of `lcb_open` failures in the logs.
+* Do not fallback to "default" bucket in the cluster mode.
+* Implemented function to test for end of stream of replica responses: `lcb_respreplica_is_final`
+* Fixed key size calculation for `lcb_getreplica`.
+* Made ciphers and minimum TLS version tunable. New environment variables could be defined to control openssl
+  initialization:
+  - `LCB_SSL_CIPHER_LIST` to pass to `SSL_CTX_set_cipher_list`
+  - `LCB_SSL_CIPHERSUITES` to pass to `SSL_CTX_set_ciphersuites`
+  - `LCB_SSL_MINIMUM_TLS` with supported values (`"tlsv1.1"`, `"tlsv1.2"` and `"tlsv1.3"`) to configure flags for `SSL_CTX_set_options`
+* Removed multi-ctx from public API. The feature will re-appear in future releases in the shape, that is more consistent
+  with other APIs.
+* CCBC-1090: Handle `GET_COUNT` as lookup subdoc operation
+* CCBC-1088: Renamed `lcb_cmdsubdoc_operations` to `lcb_cmdsubdoc_specs` (also renamed `lcb_SUBDOCOPS` to `lcb_SUBDOCSPECS`)
+* CCBC-1092: add count/interval options for cbc-ping
+* Remove CAS durability polling. New server-side durability means must be used instead, or polling using mutation-token.
+* Encapsulate create options into `lcb_CREATEOPTS *`. See `lcb_createopts_create` function.
+* Refactored logger. See `example/minimal/logger.c` example
+* CCBC-1086: Renamed `LCB_STORE_ADD` and remove `LCB_STORE_SET`
+* CCBC-1079: Renamed instance option from `fetch_mutation_tokens` to `enable_mutation_tokens`. Enable mutation tokens by
+  default.
+* CCBC-1091: Set `HAVE__FTIME64_S` when not running tests
+* CCBC-1069: Don't hardcode path prefix for analytics
+* Renamed `cbc-bench` to `cbc-gen`, and implemented workload type selector and batch support (see `tools/bench-script.txt`).
+* Various API fixes and cleanup
+
 ## 3.0.0-alpha.5 (2019-08-09)
 
 * Do not fallback to static config automatically. Now when we have G3CP mechanism, we can make static config fallback optional. In case of older server, connection string option `allow_static_config=true` or `LCB_CNTL_ALLOW_STATIC_CONFIG` to use previous behaviour.

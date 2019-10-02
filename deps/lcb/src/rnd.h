@@ -28,10 +28,6 @@ extern "C" {
 LCB_INTERNAL_API lcb_U32 lcb_next_rand32(void);
 LCB_INTERNAL_API lcb_U64 lcb_next_rand64(void);
 
-#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600)
-LCB_INTERNAL_API void lcb_rnd_global_init(void);
-#endif
-
 #ifdef __cplusplus
 }
 #endif

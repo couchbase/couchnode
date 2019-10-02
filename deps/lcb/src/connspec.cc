@@ -415,10 +415,6 @@ lcb_STATUS Connspec::parse(const char *connstr, size_t connstr_len, const char *
         if (m_bucket.empty()) {
             SET_ERROR("Bucket name is set to empty");
         }
-    } else {
-        if (!(m_flags & F_HASBUCKET)) {
-            m_bucket = "default";
-        }
     }
 
     if ((err = parse_hosts(connstr, hlend, errmsg)) != LCB_SUCCESS) {

@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    lcb_createopts_create(&options, LCB_TYPE_BUCKET);
+    lcb_createopts_create(&options, LCB_TYPE_CLUSTER);
     lcb_createopts_connstr(options, argv[1], strlen(argv[1]));
     lcb_createopts_credentials(options, argv[2], strlen(argv[2]), argv[3], strlen(argv[3]));
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
         lcb_wait(instance);
     }
 
-    if (argc >= 4) {
+    if (argc > 4) {
         const char *bucket = argv[4];
 
         {

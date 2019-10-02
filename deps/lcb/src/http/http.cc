@@ -491,6 +491,11 @@ GT_REPARSE:
     assign_from_urlfield(UF_HOST, host);
     assign_from_urlfield(UF_PORT, port);
     ipv6 = host.find(':') != std::string::npos;
+    if (ipv6) {
+        peer = "[" + host + "]:" + port;
+    } else {
+        peer = host + ":" + port;
+    }
     return LCB_SUCCESS;
 }
 

@@ -505,9 +505,11 @@ bool SessionRequestImpl::maybe_select_bucket()
     // send the SELECT_BUCKET command:
     lcb_log(LOGARGS(this, DEBUG), LOGFMT "Sending SELECT_BUCKET", LOGID(this));
     lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SELECT_BUCKET);
-    req.sizes(0, strlen(settings->bucket), 0);
+    req.sizes(0, settings->bucket ? strlen(settings->bucket) : 0, 0);
     lcbio_ctx_put(ctx, req.data(), req.size());
-    lcbio_ctx_put(ctx, settings->bucket, strlen(settings->bucket));
+    if (settings->bucket) {
+        lcbio_ctx_put(ctx, settings->bucket, strlen(settings->bucket));
+    }
     LCBIO_CTX_RSCHEDULE(ctx, 24);
     return true;
 }

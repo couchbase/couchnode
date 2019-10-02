@@ -1,7 +1,7 @@
 #
-# use this script with cbc-bench like this
+# use this script with cbc-gen like this
 #
-#  $ cbc-bench -s tools/bench-script.txt
+#  $ cbc-gen -s tools/gen-script.txt
 #
 
 # change defaults

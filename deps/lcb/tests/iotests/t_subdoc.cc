@@ -462,15 +462,17 @@ TEST_F(SubdocUnitTest, testSdStore)
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, cmd, lcb_subdoc));
     ASSERT_SD_ERR(res, LCB_SUBDOC_PATH_ENOENT);
 
-    // Try replacing root element. Invalid path for operation
-    lcb_subdocspecs_replace(spec, 0, 0, "", 0, "123", strlen("123"));
-    ASSERT_EQ(LCB_EMPTY_PATH, schedwait(instance, &res, cmd, lcb_subdoc));
-
     // Try replacing array element
     lcb_subdocspecs_replace(spec, 0, 0, "array[1]", strlen("array[1]"), "true", strlen("true"));
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, cmd, lcb_subdoc));
     ASSERT_SD_OK(res);
     ASSERT_PATHVAL_EQ("true", instance, key, "array[1]");
+
+    // Try replacing root element. Invalid path for operation
+    lcb_subdocspecs_replace(spec, 0, 0, "", 0, "{\"foo\":42}", strlen("{\"foo\":42}"));
+    ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, cmd, lcb_subdoc));
+    // See if our value actually matches
+    ASSERT_PATHVAL_EQ("42", instance, key, "foo");
 }
 
 TEST_F(SubdocUnitTest, testMkdoc)
@@ -488,7 +490,7 @@ TEST_F(SubdocUnitTest, testMkdoc)
     lcb_CMDSUBDOC *cmd;
     lcb_cmdsubdoc_create(&cmd);
     lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
-    lcb_cmdsubdoc_create_if_missing(cmd, true);
+    lcb_cmdsubdoc_store_semantics(cmd, LCB_SUBDOC_STORE_UPSERT);
 
     lcb_SUBDOCSPECS *spec;
 
@@ -762,7 +764,7 @@ TEST_F(SubdocUnitTest, testMultiMutations)
     /* check if lcb_subdoc3 can detect mutation, and allow setting exptime */
     lcb_subdocspecs_create(&specs, 1);
     lcb_cmdsubdoc_specs(mcmd, specs);
-    lcb_cmdsubdoc_expiration(mcmd, 42);
+    lcb_cmdsubdoc_expiry(mcmd, 42);
     lcb_subdocspecs_dict_upsert(specs, 0, 0, "tmpPath", strlen("tmpPath"), "null", 4);
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mr, mcmd, lcb_subdoc));
     ASSERT_EQ(LCB_SUCCESS, mr.rc);

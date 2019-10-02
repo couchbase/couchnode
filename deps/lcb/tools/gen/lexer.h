@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018 Couchbase, Inc.
+ *     Copyright 2018-2019 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  *   limitations under the License.
  */
 
-#ifndef __BENCH_LEXER_H
-#define __BENCH_LEXER_H
+#ifndef GEN_LEXER_H_
+#define GEN_LEXER_H_
 
 #ifdef __cplusplus
 extern "C" {

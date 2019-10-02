@@ -238,12 +238,16 @@ lcb_STATUS HttpProvider::setup_request_header(const lcb_host_t &host)
 {
     request_buf.assign("GET ");
     if (settings().conntype == LCB_TYPE_BUCKET || settings().conntype == LCB_TYPE_CLUSTER) {
-        if (uritype == LCB_HTCONFIG_URLTYPE_25PLUS) {
-            request_buf.append(REQBUCKET_TERSE_PREFIX);
+        if (settings().bucket) {
+            if (uritype == LCB_HTCONFIG_URLTYPE_25PLUS) {
+                request_buf.append(REQBUCKET_TERSE_PREFIX);
+            } else {
+                request_buf.append(REQBUCKET_COMPAT_PREFIX);
+            }
+            request_buf.append(settings().bucket);
         } else {
-            request_buf.append(REQBUCKET_COMPAT_PREFIX);
+            request_buf.append(REQBUCKET_BUCKETLESS_PREFIX);
         }
-        request_buf.append(settings().bucket);
     } else {
         return LCB_EINVAL;
     }

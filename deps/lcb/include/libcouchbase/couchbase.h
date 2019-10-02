@@ -687,7 +687,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_parent_span(lcb_CMDGET *cmd, lcbtrace_SPA
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_collection(lcb_CMDGET *cmd, const char *scope, size_t scope_len,
                                                   const char *collection, size_t collection_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_key(lcb_CMDGET *cmd, const char *key, size_t key_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_expiration(lcb_CMDGET *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_expiry(lcb_CMDGET *cmd, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_locktime(lcb_CMDGET *cmd, uint32_t duration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_durability(lcb_CMDGET *cmd, lcb_DURABILITY_LEVEL level);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_timeout(lcb_CMDGET *cmd, uint32_t timeout);
@@ -775,6 +775,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_flags(const lcb_RESPGETREPLICA *r
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_key(const lcb_RESPGETREPLICA *resp, const char **key, size_t *key_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_value(const lcb_RESPGETREPLICA *resp, const char **value,
                                                      size_t *value_len);
+LIBCOUCHBASE_API int lcb_respreplica_is_final(const lcb_RESPGETREPLICA *resp);
 
 typedef struct lcb_CMDGETREPLICA_ lcb_CMDGETREPLICA;
 
@@ -942,7 +943,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_collection(lcb_CMDSTORE *cmd, const cha
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_key(lcb_CMDSTORE *cmd, const char *key, size_t key_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_value(lcb_CMDSTORE *cmd, const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_value_iov(lcb_CMDSTORE *cmd, const lcb_IOV *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_expiration(lcb_CMDSTORE *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_expiry(lcb_CMDSTORE *cmd, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_cas(lcb_CMDSTORE *cmd, uint64_t cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_flags(lcb_CMDSTORE *cmd, uint32_t flags);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_datatype(lcb_CMDSTORE *cmd, uint8_t datatype);
@@ -1107,7 +1108,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_parent_span(lcb_CMDCOUNTER *cmd, lcbt
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_collection(lcb_CMDCOUNTER *cmd, const char *scope, size_t scope_len,
                                                       const char *collection, size_t collection_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_key(lcb_CMDCOUNTER *cmd, const char *key, size_t key_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_expiration(lcb_CMDCOUNTER *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_expiry(lcb_CMDCOUNTER *cmd, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_delta(lcb_CMDCOUNTER *cmd, int64_t number);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_initial(lcb_CMDCOUNTER *cmd, uint64_t number);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_durability(lcb_CMDCOUNTER *cmd, lcb_DURABILITY_LEVEL level);
@@ -1240,7 +1241,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_parent_span(lcb_CMDTOUCH *cmd, lcbtrace
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_collection(lcb_CMDTOUCH *cmd, const char *scope, size_t scope_len,
                                                     const char *collection, size_t collection_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_key(lcb_CMDTOUCH *cmd, const char *key, size_t key_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_expiration(lcb_CMDTOUCH *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_expiry(lcb_CMDTOUCH *cmd, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_durability(lcb_CMDTOUCH *cmd, lcb_DURABILITY_LEVEL level);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_timeout(lcb_CMDTOUCH *cmd, uint32_t timeout);
 LIBCOUCHBASE_API lcb_STATUS lcb_touch(lcb_INSTANCE *instance, void *cookie, const lcb_CMDTOUCH *cmd);
@@ -2308,7 +2309,7 @@ typedef lcb_INGEST_STATUS (*lcb_INGEST_DATACONVERTER_CALLBACK)(lcb_INSTANCE *ins
 LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_create(lcb_INGEST_OPTIONS **options);
 LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_destroy(lcb_INGEST_OPTIONS *options);
 LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_method(lcb_INGEST_OPTIONS *options, lcb_INGEST_METHOD method);
-LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_expiration(lcb_INGEST_OPTIONS *options, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_expiry(lcb_INGEST_OPTIONS *options, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_ignore_error(lcb_INGEST_OPTIONS *options, int flag);
 LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_data_converter(lcb_INGEST_OPTIONS *options,
                                                               lcb_INGEST_DATACONVERTER_CALLBACK callback);
@@ -2372,7 +2373,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_create(lcb_CMDFTS **cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_destroy(lcb_CMDFTS *cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_parent_span(lcb_CMDFTS *cmd, lcbtrace_SPAN *span);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_callback(lcb_CMDFTS *cmd, lcb_FTS_CALLBACK callback);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_query(lcb_CMDFTS *cmd, const char *query, size_t query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_payload(lcb_CMDFTS *cmd, const char *payload, size_t payload_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_handle(lcb_CMDFTS *cmd, lcb_FTS_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_timeout(lcb_CMDFTS *cmd, uint32_t timeout);
 LIBCOUCHBASE_API lcb_STATUS lcb_fts(lcb_INSTANCE *instance, void *cookie, const lcb_CMDFTS *cmd);
@@ -2631,14 +2632,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_remove(lcb_SUBDOCSPECS *operations, 
                                                    const char *path, size_t path_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_get_count(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                       const char *path, size_t path_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_get(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_insert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
-                                                           const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_upsert(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
-                                                           const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_replace(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
-                                                            const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_fulldoc_remove(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags);
 
 typedef struct lcb_CMDSUBDOC_ lcb_CMDSUBDOC;
 
@@ -2650,9 +2643,15 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_collection(lcb_CMDSUBDOC *cmd, const c
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_key(lcb_CMDSUBDOC *cmd, const char *key, size_t key_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_cas(lcb_CMDSUBDOC *cmd, uint64_t cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_specs(lcb_CMDSUBDOC *cmd, const lcb_SUBDOCSPECS *operations);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_expiration(lcb_CMDSUBDOC *cmd, uint32_t expiration);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_expiry(lcb_CMDSUBDOC *cmd, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_durability(lcb_CMDSUBDOC *cmd, lcb_DURABILITY_LEVEL level);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create_if_missing(lcb_CMDSUBDOC *cmd, int flag);
+typedef enum {
+    LCB_SUBDOC_STORE_REPLACE = 0,
+    LCB_SUBDOC_STORE_UPSERT,
+    LCB_SUBDOC_STORE_INSERT
+} lcb_SUBDOC_STORE_SEMANTICS;
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_store_semantics(lcb_CMDSUBDOC *cmd, lcb_SUBDOC_STORE_SEMANTICS mode);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_access_deleted(lcb_CMDSUBDOC *cmd, int flag);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_timeout(lcb_CMDSUBDOC *cmd, uint32_t timeout);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC *cmd);

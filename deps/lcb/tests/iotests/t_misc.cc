@@ -557,19 +557,19 @@ TEST_F(MockUnitTest, testConflictingOptions)
 
     lcb_CMDSTORE *scmd;
     lcb_cmdstore_create(&scmd, LCB_STORE_APPEND);
-    lcb_cmdstore_expiration(scmd, 1);
+    lcb_cmdstore_expiry(scmd, 1);
     lcb_cmdstore_key(scmd, key, nkey);
     lcb_cmdstore_value(scmd, value, nvalue);
 
     lcb_STATUS err;
     err = lcb_store(instance, NULL, scmd);
     ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
-    lcb_cmdstore_expiration(scmd, 0);
+    lcb_cmdstore_expiry(scmd, 0);
     lcb_cmdstore_flags(scmd, 99);
     err = lcb_store(instance, NULL, scmd);
     ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
 
-    lcb_cmdstore_expiration(scmd, 0);
+    lcb_cmdstore_expiry(scmd, 0);
     lcb_cmdstore_flags(scmd, 0);
     err = lcb_store(instance, NULL, scmd);
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -590,7 +590,7 @@ TEST_F(MockUnitTest, testConflictingOptions)
 
     lcb_cmdcounter_key(ccmd, key, nkey);
 
-    lcb_cmdcounter_expiration(ccmd, 10);
+    lcb_cmdcounter_expiry(ccmd, 10);
     err = lcb_counter(instance, NULL, ccmd);
     ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
 

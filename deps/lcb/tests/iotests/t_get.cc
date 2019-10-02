@@ -157,7 +157,7 @@ TEST_F(GetUnitTest, testTouchMiss)
     lcb_CMDTOUCH *cmd;
     lcb_cmdtouch_create(&cmd);
     lcb_cmdtouch_key(cmd, key.c_str(), key.size());
-    lcb_cmdtouch_expiration(cmd, 666);
+    lcb_cmdtouch_expiry(cmd, 666);
     lcb_touch(instance, &numcallbacks, cmd);
     lcb_cmdtouch_destroy(cmd);
     lcb_wait(instance);
@@ -193,7 +193,7 @@ TEST_F(GetUnitTest, testTouchHit)
     lcb_CMDTOUCH *cmd;
     lcb_cmdtouch_create(&cmd);
     lcb_cmdtouch_key(cmd, key.c_str(), key.size());
-    lcb_cmdtouch_expiration(cmd, 666);
+    lcb_cmdtouch_expiry(cmd, 666);
     lcb_touch(instance, &numcallbacks, cmd);
     lcb_cmdtouch_destroy(cmd);
 

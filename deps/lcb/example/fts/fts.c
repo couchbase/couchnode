@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
         lcb_CMDFTS *cmd;
         lcb_cmdfts_create(&cmd);
         lcb_cmdfts_callback(cmd, row_callback);
-        lcb_cmdfts_query(cmd, queries[ii].query, queries[ii].query_len);
+        lcb_cmdfts_payload(cmd, queries[ii].query, queries[ii].query_len);
         check(lcb_fts(instance, NULL, cmd), "schedule FTS index creation operation");
         lcb_cmdfts_destroy(cmd);
         printf("----> \x1b[1m%s\x1b[0m\n", queries[ii].comment);

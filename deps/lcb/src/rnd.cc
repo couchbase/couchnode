@@ -18,29 +18,6 @@
 #include "rnd.h"
 #include "internal.h"
 
-#if !defined(COMPILER_SUPPORTS_CXX11) || (defined(_MSC_VER) && _MSC_VER < 1600) || defined(__APPLE__)
-LCB_INTERNAL_API
-void lcb_rnd_global_init(void)
-{
-    if (lcb_getenv_boolean("LCB_NO_SRAND")) {
-        return;
-    }
-    srand(time(NULL));
-}
-
-LCB_INTERNAL_API
-lcb_U32 lcb_next_rand32(void)
-{
-    return (lcb_U32)rand();
-}
-
-LCB_INTERNAL_API
-lcb_U64 lcb_next_rand64(void)
-{
-    return (lcb_U64)rand();
-}
-#else
-
 #include <random>
 
 LCB_INTERNAL_API
@@ -58,4 +35,3 @@ lcb_U64 lcb_next_rand64(void)
     std::uniform_int_distribution< lcb_U64 > dis;
     return dis(gen);
 }
-#endif

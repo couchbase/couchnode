@@ -118,7 +118,7 @@ class Configuration
 
     void processOptions() {}
 
-    void fillCropts(lcb_CREATEOPTS *opts)
+    void fillCropts(lcb_CREATEOPTS *&opts)
     {
         m_params.fillCropts(opts);
     }
@@ -378,7 +378,7 @@ class LookupHandler : public Handler
                 }
             }
             if (paths.empty() && m_opcode == SUBDOC_GET) {
-                lcb_subdocspecs_fulldoc_get(specs, idx++, 0);
+                lcb_subdocspecs_get(specs, idx++, 0, NULL, 0);
             }
 
             const std::string &key = keys[ii];
@@ -444,7 +444,7 @@ class RemoveHandler : public Handler
         lcb_sched_enter(instance);
         for (size_t ii = 0; ii < keys.size(); ++ii) {
             lcb_SUBDOCSPECS *specs;
-            size_t idx = 0, total = xattrs.size() + paths.size();
+            size_t idx = 0, total = xattrs.size() + (paths.empty() ? 1 : paths.size());
 
             lcb_subdocspecs_create(&specs, total);
             for (std::vector< std::string >::const_iterator it = xattrs.begin(); it != xattrs.end(); ++it) {
@@ -454,7 +454,7 @@ class RemoveHandler : public Handler
                 lcb_subdocspecs_remove(specs, idx++, 0, it->c_str(), it->size());
             }
             if (paths.empty()) {
-                lcb_subdocspecs_fulldoc_remove(specs, idx++, 0);
+                lcb_subdocspecs_remove(specs, idx++, 0, NULL, 0);
             }
 
             const std::string &key = keys[ii];
@@ -537,14 +537,15 @@ class UpsertHandler : public Handler
             lcb_subdocspecs_dict_upsert(specs, idx++, LCB_SUBDOCSPECS_F_XATTRPATH | LCB_SUBDOCSPECS_F_MKINTERMEDIATES,
                                         path.c_str(), path.size(), ver.c_str(), ver.size());
         }
-        lcb_subdocspecs_fulldoc_upsert(specs, idx++, 0, value.c_str(), value.size());
+        lcb_subdocspecs_replace(specs, idx++, 0, NULL, 0, value.c_str(), value.size());
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
         lcb_cmdsubdoc_specs(cmd, specs);
+        lcb_cmdsubdoc_store_semantics(cmd, LCB_SUBDOC_STORE_UPSERT);
         if (o_expiry.passed()) {
-            lcb_cmdsubdoc_expiration(cmd, o_expiry.result());
+            lcb_cmdsubdoc_expiry(cmd, o_expiry.result());
         }
 
         lcb_sched_enter(instance);
@@ -717,10 +718,10 @@ class MutationHandler : public Handler
             lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
             lcb_cmdsubdoc_specs(cmd, specs);
             if (o_upsert.passed()) {
-                lcb_cmdsubdoc_create_if_missing(cmd, true);
+                lcb_cmdsubdoc_store_semantics(cmd, LCB_SUBDOC_STORE_UPSERT);
             }
             if (o_expiry.passed()) {
-                lcb_cmdsubdoc_expiration(cmd, o_expiry.result());
+                lcb_cmdsubdoc_expiry(cmd, o_expiry.result());
             }
             err = lcb_subdoc(instance, this, cmd);
             lcb_subdocspecs_destroy(specs);

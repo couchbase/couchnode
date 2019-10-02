@@ -104,6 +104,9 @@ void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
 {
     lcb_STATUS rc = lcb_get_bootstrap_status(instance);
     printf("[\x1b[%dmBOOTSTRAP\x1b[0m] %s\n", rc == LCB_SUCCESS ? 32 : 31, lcb_strerror_short(rc));
+    if (rc != LCB_SUCCESS) {
+        return;
+    }
     fflush(stdout);
     {
         lcb_CMDN1QL *cmd;
@@ -134,8 +137,8 @@ int main(int argc, char *argv[])
     lcb_CREATEOPTS *options = NULL;
     lcb_createopts_create(&options, LCB_TYPE_CLUSTER);
     lcb_createopts_connstr(options, argv[1], strlen(argv[1]));
-    lcb_createopts_credentials(options, argv[3], strlen(argv[3]), argv[2], strlen(argv[2]));
-    if (argc >= 4) {
+    lcb_createopts_credentials(options, argv[2], strlen(argv[2]), argv[3], strlen(argv[3]));
+    if (argc > 4) {
         bucket = argv[4];
     }
 

@@ -344,7 +344,7 @@ static void conn_readcb(struct bufferevent *bev, void *cookie)
         } else if (memcmp(key, "fts ", 4) == 0) {
             lcb_CMDFTS *cmd;
             lcb_cmdfts_create(&cmd);
-            lcb_cmdfts_query(cmd, key + 4, keylen - 4);
+            lcb_cmdfts_payload(cmd, key + 4, keylen - 4);
             lcb_cmdfts_callback(cmd, fts_callback);
             rc = lcb_fts(instance, cl, cmd);
             lcb_cmdfts_destroy(cmd);

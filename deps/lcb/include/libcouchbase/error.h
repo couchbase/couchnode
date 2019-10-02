@@ -558,7 +558,11 @@ typedef enum {
     /** The SyncWrite request has not completed in the specified time and has ambiguous result - it may Succeed or     \
      * Fail; but the final value is not yet known */                                                                   \
     X(LCB_DURABILITY_SYNC_WRITE_AMBIGUOUS, 0x66, LCB_ERRTYPE_DURABILITY | LCB_ERRTYPE_SRVGEN,                          \
-      "Synchronous mutation has not completed in the specified time and has ambiguous result")
+      "Synchronous mutation has not completed in the specified time and has ambiguous result")                         \
+    X(LCB_SSL_INVALID_CIPHERSUITES, 0x67, LCB_ERRTYPE_FATAL,                                                           \
+      "OpenSSL encountered an error in the provided ciphersuites (TLS >= 1.3)")                                        \
+    X(LCB_SSL_NO_CIPHERS, 0x68, LCB_ERRTYPE_FATAL,                                                                     \
+      "OpenSSL does not support any of the ciphers provided (TLS < 1.3)")
 
 /** Error codes returned by the library. */
 typedef enum {

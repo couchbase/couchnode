@@ -154,6 +154,8 @@ class Harness {
       this._mockInst = mockInst;
       this._connstr =
         `http://localhost:${mockEntryPort}`;
+      this._user = 'default';
+      this._password = '';
     }
 
     var cluster = await this.newCluster();

@@ -124,6 +124,11 @@ FileProvider::Status FileProvider::load_cache()
         goto GT_DONE;
     }
 
+    if (settings().bucket == NULL) {
+        lcb_log(LOGARGS(this, ERROR), LOGFMT "Bucket name is NULL", LOGID(this));
+        goto GT_DONE;
+    }
+
     if (strcmp(vbc->bname, settings().bucket) != 0) {
         lcb_log(LOGARGS(this, ERROR), LOGFMT "Bucket name in file is different from the one requested", LOGID(this));
         goto GT_DONE;
@@ -248,6 +253,9 @@ static std::string mkcachefile(const char *name, const char *bucket)
         is_dir = true;
     }
     if (is_dir) {
+        if (bucket == NULL) {
+            return "";
+        }
         // append bucket name only if we know that
         // cachefile is directory
         buffer += bucket;
@@ -261,6 +269,9 @@ bool lcb::clconfig::file_set_filename(Provider *p, const char *f, bool ro)
     FileProvider *provider = static_cast< FileProvider * >(p);
     provider->enabled = 1;
     provider->filename = mkcachefile(f, p->parent->settings->bucket);
+    if (provider->filename.empty()) {
+        return false;
+    }
     provider->is_readonly = bool(ro);
 
     if (ro) {
