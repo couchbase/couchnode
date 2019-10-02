@@ -5,7 +5,7 @@ const testdata = require('./testdata');
 
 const H = require('./harness');
 
-describe.skip('#n1ql', () => {
+describe('#n1ql', () => {
   H.requireFeature(H.Features.N1ql, () => {
     const testUid = H.genTestKey();
     const idxName = H.genTestKey();
@@ -45,11 +45,14 @@ describe.skip('#n1ql', () => {
 
     it('should see test data correctly', async () => {
       while (true) {
-        var qs = 'SELECT * FROM ' + H.b.name +
-          ' WHERE testUid="' + testUid + '"';
-        var res = await H.b.query(qs);
+        var res = null;
+        try {
+          var qs = 'SELECT * FROM ' + H.b.name +
+            ' WHERE testUid="' + testUid + '"';
+          res = await H.c.query(qs);
+        } catch (e) {}
 
-        if (res.rows.length !== testdata.docCount()) {
+        if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
           continue;
         }
@@ -64,9 +67,12 @@ describe.skip('#n1ql', () => {
 
     it('should work with parameters correctly', async () => {
       while (true) {
-        var qs = 'SELECT * FROM ' + H.b.name +
-          ' WHERE testUid=$1';
-        var res = await H.b.query(qs, [testUid]);
+        var res = null;
+        try {
+          var qs = 'SELECT * FROM ' + H.b.name +
+            ' WHERE testUid=$1';
+          res = await H.c.query(qs, { parameters: [testUid] });
+        } catch (e) {}
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -76,6 +82,44 @@ describe.skip('#n1ql', () => {
         assert.isArray(res.rows);
         assert.lengthOf(res.rows, testdata.docCount());
         assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(10000);
+
+    it('should work with lots of options specified', async () => {
+      while (true) {
+        var res = null;
+        try {
+          var qs = 'SELECT * FROM ' + H.b.name +
+            ' WHERE testUid="' + testUid + '"';
+          res = await H.c.query(qs, {
+            adhoc: true,
+            clientContextId: 'hello-world',
+            maxParallelism: 10,
+            pipelineBatch: 10,
+            pipelineCap: 10,
+            scanCap: 10,
+            readOnly: true,
+            profile: H.lib.QueryProfile.Timings,
+            metrics: true,
+          });
+        } catch (e) {}
+
+        if (res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+        assert.isString(res.meta.requestId);
+        assert.equal(res.meta.clientContextId, 'hello-world');
+        assert.equal(res.meta.status, H.lib.QueryStatus.Success);
+        assert.isObject(res.meta.signature);
+        assert.isObject(res.meta.metrics);
+        assert.isObject(res.meta.profile);
 
         break;
       }
