@@ -94,7 +94,8 @@ describe('#analytics', () => {
     });
 
     it('should successfully get pending mutations', async () => {
-      H.c.analyticsIndexes().getPendingMutations();
+      var numPending = await H.c.analyticsIndexes().getPendingMutations();
+      assert.isNumber(numPending);
     });
 
     it('should see test data correctly', async () => {
