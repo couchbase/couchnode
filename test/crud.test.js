@@ -7,12 +7,30 @@ function genericTests(collFn) {
   describe('#basic', () => {
     const testKeyA = H.genTestKey();
 
+    var testObjVal = {
+      foo: 'bar',
+      baz: 19,
+      c: 1,
+      d: 'str',
+      e: true,
+      f: false,
+      g: 5,
+      h: 6,
+      i: 7,
+      j: 8,
+      k: 9,
+      l: 10,
+      m: 11,
+      n: 12,
+      o: 13,
+      p: 14,
+      q: 15,
+      r: 16,
+    };
+
     describe('#upsert', () => {
       it('should perform basic upserts', async () => {
-        var res = await collFn().upsert(testKeyA, {
-          foo: 'bar',
-          baz: 19
-        });
+        var res = await collFn().upsert(testKeyA, testObjVal);
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
       });
@@ -23,10 +41,7 @@ function genericTests(collFn) {
         var res = await collFn().get(testKeyA);
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
-        assert.deepStrictEqual(res.value, {
-          foo: 'bar',
-          baz: 19
-        });
+        assert.deepStrictEqual(res.value, testObjVal);
       });
 
       it('should perform projected gets', async () => {
@@ -38,6 +53,39 @@ function genericTests(collFn) {
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
         assert.deepStrictEqual(res.value, { baz: 19 });
+      });
+
+      H.requireFeature(H.Features.Xattr, () => {
+        it('should fall back to full get projection', async () => {
+          var res = await collFn().get(testKeyA, {
+            project: [
+              'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+              'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'
+            ],
+            withExpiry: true,
+          });
+          assert.isObject(res);
+          assert.isNotEmpty(res.cas);
+          assert.isNumber(res.expiry);
+          assert.deepStrictEqual(res.value, {
+            c: 1,
+            d: 'str',
+            e: true,
+            f: false,
+            g: 5,
+            h: 6,
+            i: 7,
+            j: 8,
+            k: 9,
+            l: 10,
+            m: 11,
+            n: 12,
+            o: 13,
+            p: 14,
+            q: 15,
+            r: 16,
+          });
+        });
       });
     });
 
@@ -66,10 +114,7 @@ function genericTests(collFn) {
           assert.isAtLeast(res.length, 1);
           assert.isBoolean(res[0].isReplica);
           assert.isNotEmpty(res[0].cas);
-          assert.deepStrictEqual(res[0].value, {
-            foo: 'bar',
-            baz: 19
-          });
+          assert.deepStrictEqual(res[0].value, testObjVal);
         });
       });
 
@@ -79,10 +124,7 @@ function genericTests(collFn) {
 
           assert.isObject(res);
           assert.isNotEmpty(res.cas);
-          assert.deepStrictEqual(res.value, {
-            foo: 'bar',
-            baz: 19
-          });
+          assert.deepStrictEqual(res.value, testObjVal);
         });
       });
     });

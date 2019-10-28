@@ -11,6 +11,7 @@ const ServerFeatures = {
   SpatialViews: 'spatial_views',
   N1ql: 'n1ql',
   Subdoc: 'subdoc',
+  Xattr: 'xattr',
   Fts: 'fts',
   Analytics: 'analytics',
   Collections: 'collections',
@@ -226,6 +227,7 @@ class Harness {
       case ServerFeatures.N1ql:
       case ServerFeatures.Analytics:
       case ServerFeatures.BucketManagement:
+      case ServerFeatures.Xattr:
         // supported on all versions except the mock
         return !this._version.isMock;
       case ServerFeatures.Collections:
