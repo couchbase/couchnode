@@ -43,6 +43,11 @@ describe('#n1ql', () => {
       }, H.lib.QueryIndexAlreadyExistsError);
     });
 
+    it('should successfully get all indexes', async () => {
+      var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name);
+      assert.isAtLeast(idxs.length, 1);
+    });
+
     it('should see test data correctly', async () => {
       while (true) {
         var res = null;
