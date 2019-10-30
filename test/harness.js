@@ -16,6 +16,7 @@ const ServerFeatures = {
   Analytics: 'analytics',
   Collections: 'collections',
   Replicas: 'replicas',
+  UserManagement: 'user_management',
   BucketManagement: 'bucket_management',
 };
 
@@ -226,6 +227,7 @@ class Harness {
       case ServerFeatures.Fts:
       case ServerFeatures.N1ql:
       case ServerFeatures.Analytics:
+      case ServerFeatures.UserManagement:
       case ServerFeatures.BucketManagement:
       case ServerFeatures.Xattr:
         // supported on all versions except the mock
