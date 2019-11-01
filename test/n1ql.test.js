@@ -130,6 +130,16 @@ describe('#n1ql', () => {
       }
     }).timeout(10000);
 
+    it('should wait till all indexes are online', async () => {
+      await H.c.queryIndexes().watchIndexes(H.b.name, [idxName, sidxName], 2000);
+    }).timeout(3000);
+
+    it('should fail watching when some indexes are missing', async () => {
+      await H.throwsHelper(async () => {
+        await H.c.queryIndexes().watchIndexes(H.b.name, ['invalid-index'], 2000);
+      }, H.lib.CouchbaseError);
+    }).timeout(3000);
+
     it('should successfully drop a secondary index', async () => {
       await H.c.queryIndexes().dropIndex(H.b.name, sidxName);
     });
