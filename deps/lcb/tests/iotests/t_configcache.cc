@@ -106,6 +106,23 @@ TEST_F(ConfigCacheUnitTest, testConfigCache)
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_destroy(instance);
 
+    // Try one more time, with a directory (name with trailing slash)
+    std::string dirname(filename);
+    dirname += '/';
+    doLcbCreate(&instance, &cropts, MockEnvironment::getInstance());
+    ASSERT_EQ(LCB_SUCCESS, err);
+    err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, (void *)dirname.c_str());
+    ASSERT_EQ(LCB_SUCCESS, err);
+    char *bucketname = NULL;
+    err = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETNAME, &bucketname);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    char *cachefile = NULL;
+    err = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_CONFIGCACHE, &cachefile);
+    ASSERT_EQ(LCB_SUCCESS, err);
+    std::string expected(dirname + bucketname);
+    ASSERT_STREQ(expected.c_str(), cachefile);
+    lcb_destroy(instance);
+
     remove(filename);
 
     // Try one more time, with a file that does not exist..

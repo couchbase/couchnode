@@ -23,6 +23,11 @@
 #include "settings.h"
 #include "logging.h"
 #include <openssl/err.h>
+#include <openssl/opensslv.h>
+
+#if OPENSSL_VERSION_NUMBER >= 0x1010100fL
+#define HAVE_CIPERSUITES 1
+#endif
 
 #define LOGARGS(ssl, lvl) \
     ((lcbio_SOCKET*)SSL_get_app_data(ssl))->settings, "SSL", lvl, __FILE__, __LINE__
@@ -192,7 +197,7 @@ log_global_errors(lcb_settings *settings)
 int
 iotssl_maybe_error(lcbio_XSSL *xs, int rv)
 {
-    assert(rv < 1);
+    lcb_assert(rv < 1);
     if (rv == -1) {
         int err = SSL_get_error(xs->ssl, rv);
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
@@ -257,11 +262,46 @@ struct lcbio_SSLCTX {
 
 #define LOGARGS_S(settings, lvl) settings, "SSL", lvl, __FILE__, __LINE__
 
+static long decode_ssl_protocol(const char *protocol)
+{
+    long disallow = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3;
+    if (!protocol) {
+        // The caller didn't care.. allow all from TLS 1
+        return disallow;
+    }
+    if (strcasecmp(protocol, "tlsv1.1") == 0) {
+        disallow |= SSL_OP_NO_TLSv1;
+    } else if (strcasecmp(protocol, "tlsv1.2") == 0) {
+        disallow |= SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1;
+#if HAVE_CIPERSUITES
+    } else if (strcasecmp(protocol, "tlsv1.3") == 0) {
+        disallow |= SSL_OP_NO_TLSv1_2 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1;
+#endif
+    }
+    return disallow;
+}
+
 lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *keyfile, int noverify,
                             lcb_error_t *errp, lcb_settings *settings)
 {
     lcb_error_t err_s;
     lcbio_pSSLCTX ret;
+
+    static const char *default_ssl_cipher_list =
+        "DHE-RSA-AES256-SHA:DHE-DSS-AES256-SHA:AES256-SHA:EDH-RSA-DES-CBC3-SHA:EDH-DSS-DES-CBC3-SHA:DES-CBC3-SHA:DES-"
+        "CBC3-MD5:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA:AES128-SHA:DHE-RSA-SEED-SHA:DHE-DSS-SEED-SHA:SEED-SHA:RC2-CBC-"
+        "MD5:RC4-SHA:RC4-MD5:RC4-MD5:EDH-RSA-DES-CBC-SHA:EDH-DSS-DES-CBC-SHA:DES-CBC-SHA:DES-CBC-MD5:EXP-EDH-RSA-DES-"
+        "CBC-SHA:EXP-EDH-DSS-DES-CBC-SHA:EXP-DES-CBC-SHA:EXP-RC2-CBC-MD5:EXP-RC2-CBC-MD5:EXP-RC4-MD5:EXP-RC4-MD5";
+
+    const char* cipher_list = getenv("LCB_SSL_CIPHER_LIST");
+#if HAVE_CIPERSUITES
+    const char* ciphersuites = getenv("LCB_SSL_CIPHERSUITES");
+#endif
+    const char* minimum_tls = getenv("LCB_SSL_MINIMUM_TLS");
+
+    if (!cipher_list) {
+        cipher_list = default_ssl_cipher_list;
+    }
 
     if (!errp) {
         errp = &err_s;
@@ -278,16 +318,30 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
         goto GT_ERR;
 
     }
-    SSL_CTX_set_cipher_list(ret->ctx, "DHE-RSA-AES256-SHA:DHE-DSS-AES256-SHA:AES256-SHA:EDH-RSA-DES-CBC3-SHA:EDH-DSS-DES-CBC3-SHA:DES-CBC3-SHA:DES-CBC3-MD5:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA:AES128-SHA:DHE-RSA-SEED-SHA:DHE-DSS-SEED-SHA:SEED-SHA:RC2-CBC-MD5:RC4-SHA:RC4-MD5:RC4-MD5:EDH-RSA-DES-CBC-SHA:EDH-DSS-DES-CBC-SHA:DES-CBC-SHA:DES-CBC-MD5:EXP-EDH-RSA-DES-CBC-SHA:EXP-EDH-DSS-DES-CBC-SHA:EXP-DES-CBC-SHA:EXP-RC2-CBC-MD5:EXP-RC2-CBC-MD5:EXP-RC4-MD5:EXP-RC4-MD5");
-//    SSL_CTX_set_cipher_list(ret->ctx, "!NULL");
 
-    if (cafile) {
-        lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Load verify locations from \"%s\"", tsfile ? tsfile : keyfile);
+    if (SSL_CTX_set_cipher_list(ret->ctx, cipher_list) == 0 && strlen(cipher_list) > 0) {
+        /*
+         * The client requested a list of ciphers, but openssl don't support
+         * any of them.
+         */
+        *errp = LCB_SSL_NO_CIPHERS;
+        goto GT_ERR;
+    }
+
+#if HAVE_CIPERSUITES
+    if (ciphersuites && SSL_CTX_set_ciphersuites(ret->ctx, ciphersuites) == 0 && strlen(ciphersuites) > 0) {
+        *errp = LCB_SSL_INVALID_CIPHERSUITES;
+        goto GT_ERR;
+    }
+#endif
+
+    if (cafile || tsfile) {
+        lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Load verify locations from \"%s\"", tsfile ? tsfile : cafile);
         if (!SSL_CTX_load_verify_locations(ret->ctx, tsfile ? tsfile : cafile, NULL)) {
             *errp = LCB_SSL_ERROR;
             goto GT_ERR;
         }
-        if (keyfile) {
+        if (cafile && keyfile) {
             lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Authenticate with key \"%s\", cert \"%s\"", keyfile, cafile);
             if (!SSL_CTX_use_certificate_file(ret->ctx, cafile, SSL_FILETYPE_PEM)) {
                 *errp = LCB_SSL_ERROR;
@@ -325,7 +379,7 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
      * be using the same buffer.
      */
     SSL_CTX_set_mode(ret->ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
-    SSL_CTX_set_options(ret->ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
+    SSL_CTX_set_options(ret->ctx, decode_ssl_protocol(minimum_tls));
     return ret;
 
     GT_ERR:

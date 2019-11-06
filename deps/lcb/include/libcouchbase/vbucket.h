@@ -396,6 +396,14 @@ unsigned
 lcbvb_get_nreplicas(const lcbvb_CONFIG *cfg);
 
 /**@committed
+ * @brief Get the number of vbuckets the bucket is configured with.
+ * @return the number of vbuckets, or zero if not applicable
+ */
+LIBCOUCHBASE_API
+unsigned
+lcbvb_get_nvbuckets(const lcbvb_CONFIG *cfg);
+
+/**@committed
  * @brief Get the distribution mode (AKA bucket type) of the bucket
  * @param cfg the configuration
  * @return the distribution mode

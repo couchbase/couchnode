@@ -39,7 +39,7 @@ static const char *method_strings[] = {
 void
 Request::decref()
 {
-    assert(refcount > 0);
+    lcb_assert(refcount > 0);
     if (--refcount) {
         return;
     }
@@ -352,6 +352,11 @@ Request::assign_url(const char *base, size_t nbase, const char *path, size_t npa
     assign_from_urlfield(UF_HOST, host);
     assign_from_urlfield(UF_PORT, port);
     ipv6 = host.find(':') != std::string::npos;
+    if (ipv6) {
+        peer = "[" + host + "]:" + port;
+    } else {
+        peer = host + ":" + port;
+    }
     return LCB_SUCCESS;
 }
 
@@ -359,7 +364,7 @@ void
 Request::redirect()
 {
     lcb_error_t rc;
-    assert(!pending_redirect.empty());
+    lcb_assert(!pending_redirect.empty());
     if (LCBT_SETTING(instance, max_redir) > -1) {
         if (LCBT_SETTING(instance, max_redir) < ++redircount) {
             finish(LCB_TOO_MANY_REDIRECTS);
@@ -456,7 +461,7 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
         }
     } else {
         if (cmd->host) {
-            if (reqtype == LCB_HTTP_TYPE_CBAS) {
+            if (reqtype == LCB_HTTP_TYPE_CBAS || reqtype == LCB_HTTP_TYPE_PING) {
                 /* might be a deferred URL */
                 base = cmd->host;
             } else {
@@ -480,7 +485,7 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
             username.clear();
             password.clear();
         } else if (username.empty() && password.empty()) {
-            const Authenticator& auth = *LCBT_SETTING(instance, auth);
+            Authenticator& auth = *LCBT_SETTING(instance, auth);
             if (reqtype == LCB_HTTP_TYPE_MANAGEMENT) {
                 username = auth.username();
                 password = auth.password();

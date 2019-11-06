@@ -210,10 +210,16 @@ flush_ssl_data(lcbio_ESSL *es)
      * calls. While we could have done this inline with the send() call this
      * would make future optimization more difficult. */
     GT_WRITE_DONE:
+#if !LCB_CAN_OPTIMIZE_SSL_BIO
+    BIO_get_mem_ptr(es->wbio, &wmb);
+#endif
     while (wmb->length > (size_t)tmp_len) {
         char dummy[4096];
         unsigned to_read = MINIMUM(wmb->length-tmp_len, sizeof dummy);
         BIO_read(es->wbio, dummy, to_read);
+#if !LCB_CAN_OPTIMIZE_SSL_BIO
+        BIO_get_mem_ptr(es->wbio, &wmb);
+#endif
     }
     BIO_clear_retry_flags(es->wbio);
     return 0;

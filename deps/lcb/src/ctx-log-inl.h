@@ -28,7 +28,7 @@ static const lcb_host_t *get_ctx_host(const lcbio_CTX *ctx)
     if (!ctx->sock->info) {
         return &host;
     }
-    return &ctx->sock->info->ep;
+    return &ctx->sock->info->ep_remote;
 }
 
 #define CTX_LOGFMT_PRE "<" LCB_LOG_SPEC("%s%s%s:%s") "> (CTX=%p,%s"

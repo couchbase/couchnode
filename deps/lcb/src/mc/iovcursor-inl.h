@@ -116,7 +116,7 @@ iovcursor_peek_ex(const mc_IOVCURSOR *cursor,
         }
     }
 
-    assert(!size);
+    lcb_assert(!size);
     *contigref = NULL;
     return IOVCURSOR_STATUS_FRAGMENTED;
 }
@@ -201,7 +201,7 @@ iovcursor_adv_copy(mc_IOVCURSOR *cursor, char *tgt, unsigned size)
 
         if (to_copy != iov->iov_len) {
             cursor->offset = to_copy;
-            assert(!size);
+            lcb_assert(!size);
             break;
         }
 

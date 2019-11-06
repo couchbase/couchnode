@@ -420,7 +420,7 @@ cbsasl_error_t compute_client_proof(cbsasl_auth_mechanism_t auth_mech, const uns
     // final step:
     // ClientProof     := ClientKey XOR ClientSignature
     char clientproof[EVP_MAX_MD_SIZE]; // binary client proof
-    unsigned int i = 0;
+    unsigned int i;
     for (i = 0; i < clientsignlen; ++i) {
         clientproof[i] = clientkeyhmac[i] ^ clientsign[i];
     }

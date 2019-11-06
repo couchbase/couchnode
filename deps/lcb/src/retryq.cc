@@ -21,6 +21,7 @@
 #include "logging.h"
 #include "internal.h"
 #include "bucketconfig/clconfig.h"
+#include "sllist-inl.h"
 
 #define LOGARGS(rq, lvl) (rq)->settings, "retryq", LCB_LOG_##lvl, __FILE__, __LINE__
 #define RETRY_PKT_KEY "retry_queue"
@@ -331,6 +332,35 @@ RetryQueue::add(mc_EXPACKET *pkt, const lcb_error_t err,
             }
         }
         mcreq_epkt_insert(pkt, op);
+    }
+
+    if (op->pkt) {
+        /* if there is an old packet associated, we make sure that none
+         * of the pipelines use it in the pending/flush queues
+         */
+        for (size_t ii = 0; ii < cq->npipelines; ii++) {
+            sllist_iterator iter;
+            lcb::Server *server = static_cast<lcb::Server*>(cq->pipelines[ii]);
+            if (server == NULL) {
+                continue;
+            }
+            /* check pending queue */
+            SLLIST_ITERFOR(&server->nbmgr.sendq.pending, &iter) {
+                nb_SNDQELEM *el = SLLIST_ITEM(iter.cur, nb_SNDQELEM, slnode);
+                if (el->parent == op->pkt) {
+                    sllist_iter_remove(&server->nbmgr.sendq.pending, &iter);
+                }
+            }
+            /* check flush queue */
+            SLLIST_ITERFOR(&server->nbmgr.sendq.pdus, &iter) {
+                mc_PACKET *el = SLLIST_ITEM(iter.cur, mc_PACKET, sl_flushq);
+                if (el == op->pkt) {
+                    sllist_iter_remove(&server->nbmgr.sendq.pdus, &iter);
+                }
+            }
+        }
+        /* by setting this flag we allow the caller to release the packet */
+        op->pkt->flags |= MCREQ_F_FLUSHED;
     }
 
     op->pkt = &pkt->base;

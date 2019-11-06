@@ -36,7 +36,7 @@ static const lcb_host_t *get_loghost(lcbio_SOCKET *s) {
     static lcb_host_t host = {"NOHOST", "NOPORT", 0};
     if (!s) { return &host; }
     if (!s->info) { return &host; }
-    return &s->info->ep;
+    return &s->info->ep_remote;
 }
 
 /** Format string arguments for %p%s:%s */
@@ -460,7 +460,7 @@ Connstart::Connstart(lcbio_TABLE* iot_, lcb_settings* settings_,
     sock->refcount = 1;
     sock->id = lcb_next_rand64();
     sock->info = reinterpret_cast<lcbio_CONNINFO*>(calloc(1, sizeof(*sock->info)));
-    sock->info->ep = *dest;
+    sock->info->ep_remote = *dest;
     lcbio_table_ref(sock->io);
     lcb_settings_ref(sock->settings);
     lcb_list_init(&sock->protos);
@@ -532,7 +532,7 @@ lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd)
         return NULL;
     }
 
-    assert(iot->model = LCB_IOMODEL_EVENT);
+    lcb_assert(iot->model = LCB_IOMODEL_EVENT);
 
     lcb_list_init(&ret->protos);
     ret->settings = settings;

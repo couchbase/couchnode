@@ -53,7 +53,7 @@ static void die(const char *msg)
 static void good_or_die(lcb_error_t rc, const char *msg = "")
 {
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "%s\n0x%02x: %s\n", msg, rc, lcb_strerror(NULL, rc));
+        fprintf(stderr, "%s: %s\n", msg, lcb_strerror_short(rc));
         exit(EXIT_FAILURE);
     }
 }
@@ -457,7 +457,7 @@ static void diag_callback(lcb_t, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
     if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "failed: %s\n", lcb_strerror(NULL, resp->rc));
+        fprintf(stderr, "failed: %s\n", lcb_strerror_short(resp->rc));
     } else {
         if (resp->njson) {
             fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);

@@ -246,12 +246,12 @@ static void negotiate_mock_connection(struct test_server_info *info)
         }
     }
 
-    assert(info->client != -1);
+    lcb_assert(info->client != -1);
     /* Get the port number of the http server */
     offset = snprintf(buffer, sizeof(buffer), "localhost:");
     nr = recv(info->client, buffer + offset,
               sizeof(buffer) - (size_t)offset - 1, 0);
-    assert(nr > 0);
+    lcb_assert(nr > 0);
     buffer[nr + offset] = '\0';
     info->http = strdup(buffer);
     wait_for_server(buffer + offset);

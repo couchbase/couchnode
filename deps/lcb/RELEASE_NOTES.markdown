@@ -1,5 +1,65 @@
 # Release Notes
 
+## 2.10.5 (October 17 2019)
+
+* [CCBC-1106](https://issues.couchbase.com/browse/CCBC-1106): Move log messages from IO manager to DEBUG level to reduce noise.
+
+* [CCBC-1100](https://issues.couchbase.com/browse/CCBC-1100): Allow to ping operation to use direct URL
+
+* [CCBC-939](https://issues.couchbase.com/browse/CCBC-939): Improve performance with tracing enabled by caching expensive calculations
+
+* Made ciphers and minimum TLS version tunable. New environment variables could be defined to control openssl initialization:
+  - `LCB_SSL_CIPHER_LIST` to pass to `SSL_CTX_set_cipher_list`
+  - `LCB_SSL_CIPHERSUITES` to pass to `SSL_CTX_set_ciphersuites`
+  - `LCB_SSL_MINIMUM_TLS` with supported values (`"tlsv1.1"`, `"tlsv1.2"` and `"tlsv1.3"`) to configure flags for `SSL_CTX_set_options`
+
+* Do not log when logging callback is not defined
+
+* Retry query on authentication error
+
+* Add bucket to the config cache file path. Prevents crashing if want to open multiple buckets
+
+* [CCBC-1059](https://issues.couchbase.com/browse/CCBC-1059): Fixed hostname truncation when using alternative network addresses.
+
+* Fixes SSL sockets with openssl 1.1.1c+. `BIO_get_mem_ptr` does not give direct access to internal buffer, so we have to invalidate our copy before using buffer values.
+
+* Fix resolution of test shared object.
+
+* [CCBC-1109](https://issues.couchbase.com/browse/CCBC-1109): Fix retrying N1QL query on auth error. The library was trying to dereference NULL pointer when using dynamic authenticator with N1QL queries.
+
+* [CCBC-1063](https://issues.couchbase.com/browse/CCBC-1063): Cache credentials provided by dynamic auth callback.
+
+## 2.10.4 (June 19 2019)
+
+* [CCBC-600](https://issues.couchbase.com/browse/CCBC-600): Use special error when authentication is successful, but the
+  bucket is not found: `LCB_BUCKET_ENOENT`.
+
+* [CCBC-1055](https://issues.couchbase.com/browse/CCBC-1055): Do not include assert.h if NDEBUG defined.  The library
+  will use its own assert implementation.
+
+* [CCBC-866](https://issues.couchbase.com/browse/CCBC-866): Fix invalid memory access during iteration of bootstrap
+  provides.
+
+* More usage examples (analytics, XATTRs)
+
+## 2.10.3 (December 20 2018)
+
+* [CCBC-1008](https://issues.couchbase.com/browse/CCBC-1008): jsoncpp: use
+  `unique_ptr` instead of `auto_ptr`.
+
+* [CCBC-1011](https://issues.couchbase.com/browse/CCBC-1011): Port
+  vbucketkeygen tool to cbc-keygen. The tool generates list of keys, that
+  distributed over all vBuckets in the bucket.
+
+* [CCBC-1006](https://issues.couchbase.com/browse/CCBC-1006): Cleanup pending
+  queue of pipeline on retry
+
+* [CCBC-1007](https://issues.couchbase.com/browse/CCBC-1007): allow using
+  trusted store path without key file
+
+* [MB-31875](https://issues.couchbase.com/browse/MB-31875): cliopts: grow list
+  only if needed
+
 ## 2.10.2 (November 23 2018)
 
 * Fixed incorrect header-guard for analytics.h, which might affect API

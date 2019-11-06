@@ -33,6 +33,18 @@ public:
         loadParam(pass, p);
     }
 
+    std::string getUsername() {
+        return user;
+    }
+
+    std::string getPassword() {
+        return pass;
+    }
+
+    std::string getBucket() {
+        return bucket;
+    }
+
     void makeConnectParams(lcb_create_st &crst, lcb_io_opt_t io) {
         memset(&crst, 0, sizeof(crst));
         if (mcNodes.empty()) {

@@ -205,7 +205,7 @@ mcreq_enqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet)
 {
     nb_SPAN *vspan = &packet->u_value.single;
     sllist_append(&pipeline->requests, &packet->slnode);
-    netbuf_enqueue_span(&pipeline->nbmgr, &packet->kh_span);
+    netbuf_enqueue_span(&pipeline->nbmgr, &packet->kh_span, packet);
     MC_INCR_METRIC(pipeline, bytes_queued, packet->kh_span.size);
 
     if (!(packet->flags & MCREQ_F_HASVALUE)) {
@@ -216,13 +216,13 @@ mcreq_enqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet)
         unsigned int ii;
         lcb_FRAGBUF *multi = &packet->u_value.multi;
         for (ii = 0; ii < multi->niov; ii++) {
-            netbuf_enqueue(&pipeline->nbmgr, (nb_IOV *)multi->iov + ii);
+            netbuf_enqueue(&pipeline->nbmgr, (nb_IOV *)multi->iov + ii, packet);
             MC_INCR_METRIC(pipeline, bytes_queued, multi->iov[ii].iov_len);
         }
 
     } else if (vspan->size) {
         MC_INCR_METRIC(pipeline, bytes_queued, vspan->size);
-        netbuf_enqueue_span(&pipeline->nbmgr, vspan);
+        netbuf_enqueue_span(&pipeline->nbmgr, vspan, packet);
     }
 
     GT_ENQUEUE_PDU:
@@ -366,7 +366,7 @@ mcreq_renew_packet(const mc_PACKET *src)
                 rv = mcreq_inflate_value(SPAN_BUFFER(origspan), origspan->size,
                     &inflated, &n_inflated, (void**)&vdata);
 
-                assert(vdata == inflated);
+                lcb_assert(vdata == inflated);
 
                 if (rv != 0) {
                     /* TODO: log error details when snappy will be enabled */
@@ -410,7 +410,7 @@ mcreq_epkt_insert(mc_EXPACKET *ep, mc_EPKTDATUM *datum)
     if (!(ep->base.flags & MCREQ_F_DETACHED)) {
         return -1;
     }
-    assert(!sllist_contains(&ep->data, &datum->slnode));
+    lcb_assert(!sllist_contains(&ep->data, &datum->slnode));
     sllist_append(&ep->data, &datum->slnode);
     return 0;
 }
@@ -753,8 +753,8 @@ mcreq_pipeline_remove(mc_PIPELINE *pipeline, lcb_uint32_t opaque)
 void
 mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt)
 {
-    assert(pkt->flags & MCREQ_F_FLUSHED);
-    assert(pkt->flags & MCREQ_F_INVOKED);
+    lcb_assert(pkt->flags & MCREQ_F_FLUSHED);
+    lcb_assert(pkt->flags & MCREQ_F_INVOKED);
     if (pkt->flags & MCREQ_UBUF_FLAGS) {
         void *kbuf, *vbuf;
         const void *cookie;
@@ -877,7 +877,7 @@ void
 mcreq_set_fallback_handler(mc_CMDQUEUE *cq, mcreq_fallback_cb handler)
 {
     mc_FALLBACKPL *fallback;
-    assert(!cq->fallback);
+    lcb_assert(!cq->fallback);
     fallback = calloc(1, sizeof (mc_FALLBACKPL));
     cq->fallback = (mc_PIPELINE *)fallback;
     mcreq_pipeline_init(cq->fallback);

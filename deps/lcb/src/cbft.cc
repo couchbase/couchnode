@@ -199,15 +199,8 @@ lcb_FTSREQ::~lcb_FTSREQ()
         if (htreq) {
             lcbio_CTX *ctx = htreq->ioctx;
             if (ctx) {
-                std::string remote;
-                if (htreq->ipv6) {
-                    remote = "[" + std::string(htreq->host) + "]:" + std::string(htreq->port);
-                } else {
-                    remote = std::string(htreq->host) + ":" + std::string(htreq->port);
-                }
-                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, remote.c_str());
-                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS,
-                                          lcbio__inet_ntop(&ctx->sock->info->sa_local).c_str());
+                lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_PEER_ADDRESS, htreq->peer.c_str());
+                lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, ctx->sock->info->ep_local);
             }
         }
         lcbtrace_span_finish(span, LCBTRACE_NOW);

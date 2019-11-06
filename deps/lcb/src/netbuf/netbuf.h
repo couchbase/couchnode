@@ -94,6 +94,7 @@ typedef struct {
     char *base;
     nb_SIZE len;
     /* Extra 4 bytes here. WHAT WE DO!!! */
+    const void *parent; /* mc_PACKET */
 } nb_SNDQELEM;
 
 /** @private */
@@ -208,10 +209,10 @@ netbuf_mblock_release(nb_MGR *mgr, nb_SPAN *span);
  * @endcode
  */
 void
-netbuf_enqueue(nb_MGR *mgr, const nb_IOV *bufinfo);
+netbuf_enqueue(nb_MGR *mgr, const nb_IOV *bufinfo, const void *parent);
 
 void
-netbuf_enqueue_span(nb_MGR *mgr, nb_SPAN *span);
+netbuf_enqueue_span(nb_MGR *mgr, nb_SPAN *span, const void *parent);
 
 /**
  * Gets the number of IOV structures required to flush the entire contents of

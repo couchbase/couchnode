@@ -185,7 +185,7 @@ verifySingleError(const char *, const char *, const MultiResult& mr, lcb_error_t
         return AssertionFailure() << "Expected single result. Got " << mr.size();
     }
     if (mr[0].rc != exp) {
-        return AssertionFailure() << "Expected sub-error " << exp << ". Got << " << mr.rc;
+        return AssertionFailure() << "Expected sub-error " << exp << ". Got << " << mr[0].rc;
     }
     return AssertionSuccess();
 }

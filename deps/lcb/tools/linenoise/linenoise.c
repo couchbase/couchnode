@@ -317,7 +317,7 @@ failed:
 
 /* Clear the screen. Used to handle ctrl+l */
 void linenoiseClearScreen(void) {
-    if (write(STDOUT_FILENO,"\x1b[H\x1b[2J",7) <= 0) {
+    if (write(STDOUT_FILENO,"\x1b\x63\x1b[H\x1b[2J",9) <= 0) {
         /* nothing to do, just to avoid warning. */
     }
 }

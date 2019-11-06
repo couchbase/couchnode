@@ -185,7 +185,7 @@ lcb_histogram_record(lcb_HISTOGRAM *hg, lcb_U64 delta)
     } else if (delta < LCB_US2NS(10000)) {
         /* 1-10ms */
         delta /= LCB_US2NS(1);
-        assert(delta <= 10000);
+        lcb_assert(delta <= 10000);
         if ((num = ++hg->lt10msec[delta/100]) > hg->max) {
             hg->max = num;
         }

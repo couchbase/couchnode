@@ -109,7 +109,7 @@ appdata_encode(lcbio_CSSL *cs)
         for (; ctx->niov && cs->error == 0; ctx->niov--, ctx->iov++) {
             int rv;
 
-            assert(ctx->iov->iov_len);
+            lcb_assert(ctx->iov->iov_len);
             rv = SSL_write(cs->ssl, ctx->iov->iov_base, ctx->iov->iov_len);
             if (rv > 0) {
                 continue;
@@ -171,7 +171,7 @@ appdata_read(lcbio_CSSL *cs)
     if (!cb) {
         return;
     }
-    assert(!cs->rdactive);
+    lcb_assert(!cs->rdactive);
     nr = SSL_read(cs->ssl, cs->urd_iov.iov_base, cs->urd_iov.iov_len);
     if (nr > 0) {
         /* nothing */
@@ -416,7 +416,7 @@ static void
 Cssl_dtor(void *arg)
 {
     lcbio_CSSL *cs = arg;
-    assert(SLLIST_IS_EMPTY(&cs->writes));
+    lcb_assert(SLLIST_IS_EMPTY(&cs->writes));
     lcbio_timer_destroy(cs->as_read);
     lcbio_timer_destroy(cs->as_write);
     iotssl_destroy_common((lcbio_XSSL *)cs);

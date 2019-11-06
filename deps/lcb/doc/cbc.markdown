@@ -33,6 +33,7 @@
 `cbc strerror` _HEX-OR-DECIMAL-CODE_<br>
 `cbc ping` [_OPTIONS_ ...]<br>
 `cbc watch` [_KEYS_ ...] [_OPTIONS_ ...]<br>
+`cbc keygen` [_KEYS_ ...] [_OPTIONS_ ...]<br>
 
 
 ## DESCRIPTION
@@ -250,6 +251,14 @@ the previous values. If the list of stat sub-keys not specified, the command wil
 In addition to the options in the [OPTIONS](#OPTIONS) section, the following options are supported:
 * `-n`, `--interval`=_VALUE_:
   Update interval in seconds (default `1` second).
+
+### keygen
+
+Output list of keys that equally distribute amongst every vbucket.
+
+In addition to the options in the [OPTIONS](#OPTIONS) section, the following options are supported:
+* `--keys-per-vbucket`=_VALUE_:
+  Number of keys to generate per vBucket (default `1`).
 
 ### write-config
 

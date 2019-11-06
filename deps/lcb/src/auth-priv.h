@@ -34,8 +34,10 @@ public:
     const std::string& password() const { return m_password; }
 
     // Get the username and password for a specific bucket
-    const std::string username_for(const char *host, const char *port, const char *bucket) const;
-    const std::string password_for(const char *host, const char *port, const char *bucket) const;
+    const std::string username_for(const char *host, const char *port, const char *bucket);
+    const std::string password_for(const char *host, const char *port, const char *bucket);
+    void invalidate_cache_for(const char *host, const char *port, const char *bucket);
+    void reset_cache();
 
     const Map& buckets() const { return m_buckets; }
     Authenticator() : m_refcount(1), m_mode(LCBAUTH_MODE_CLASSIC), m_usercb(NULL), m_passcb(NULL), m_cookie(NULL)
@@ -79,6 +81,8 @@ public:
     lcb_AUTHCALLBACK m_usercb;
     lcb_AUTHCALLBACK m_passcb;
     void *m_cookie;
+    std::map<std::string, std::string> user_cache_;
+    std::map<std::string, std::string> pass_cache_;
 };
 }
 #endif

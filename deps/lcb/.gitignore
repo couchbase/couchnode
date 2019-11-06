@@ -130,3 +130,5 @@ packaging/distinfo/MANIFEST
 *.suo
 tests/LOCAL
 inst
+/.idea
+/cmake-build-*

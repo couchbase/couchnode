@@ -136,7 +136,7 @@ handle_single_overlapped(iocp_t *io, OVERLAPPED *lpOverlapped,
 
     default:
         fprintf(stderr, "COUCHBASE-IOCP: Unrecognized OVERLAPPED action %d\n", (int)action);
-        assert(0);
+        lcb_assert(0);
         return;
     }
 
@@ -261,7 +261,7 @@ void iocp_run(lcb_io_opt_t iobase)
         /** TODO: Use reference counting */
         if (tmo == INFINITE) {
             if (HAS_QUEUED_IO(io)) {
-                assert(0 && "Found I/O without any timers");
+                lcb_assert(0 && "Found I/O without any timers");
             }
             break;
         }

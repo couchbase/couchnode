@@ -89,7 +89,7 @@ struct BufList {
         WriteBuffer *wb = new WriteBuffer(s);
         nb_SPAN span;
         CREATE_STANDALONE_SPAN(&span, wb->buf, wb->length);
-        netbuf_enqueue_span(&mgr, &span);
+        netbuf_enqueue_span(&mgr, &span, NULL);
         netbuf_pdu_enqueue(&mgr, wb, 0);
         bufs.push_back(wb);
     }

@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
-#include <assert.h>
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/vbucket.h>
 #include "config.h"
@@ -989,7 +988,7 @@ map_ketama(lcbvb_CONFIG *cfg, const void *key, size_t nkey)
 {
     uint32_t digest, mid, prev;
     lcbvb_CONTINUUM *beginp, *endp, *midp, *highp, *lowp;
-    assert(cfg->continuum);
+    lcb_assert(cfg->continuum);
     digest = vb__hash_ketama(key, nkey);
     beginp = lowp = cfg->continuum;
     endp = highp = cfg->continuum + cfg->ncontinuum;
@@ -1179,7 +1178,7 @@ compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **out)
         }
         if (!found) {
             char *infostr = malloc(strlen(newsrv->authority) + 128);
-            assert(infostr);
+            lcb_assert(infostr);
             sprintf(infostr, "%s(Data=%d, Index=%d, Query=%d)",
                 newsrv->authority,
                 newsrv->svc.data, newsrv->svc.n1ql, newsrv->svc.ixquery);
@@ -1239,7 +1238,7 @@ free_array_helper(char **l)
 
 void
 lcbvb_free_diff(lcbvb_CONFIGDIFF *diff) {
-    assert(diff);
+    lcb_assert(diff);
     free_array_helper(diff->servers_added);
     free_array_helper(diff->servers_removed);
     free(diff);
@@ -1350,9 +1349,10 @@ lcbvb_get_hostport(lcbvb_CONFIG *cfg,
 
     strp = &svc->hoststrs[type];
     if (*strp == NULL) {
-        size_t strn = strlen(srv->hostname) + 20;
+        const char *hostname = get_hostname(srv);
+        size_t strn = strlen(hostname) + 20;
         *strp = calloc(strn, sizeof(char));
-        copy_address(*strp, strn, get_hostname(srv), port);
+        copy_address(*strp, strn, hostname, port);
     }
     return *strp;
 }
@@ -1498,6 +1498,9 @@ LIBCOUCHBASE_API unsigned lcbvb_get_nservers(const lcbvb_CONFIG *cfg) {
 LIBCOUCHBASE_API unsigned lcbvb_get_nreplicas(const lcbvb_CONFIG *cfg) {
     return cfg->nrepl;
 }
+LIBCOUCHBASE_API unsigned lcbvb_get_nvbuckets(const lcbvb_CONFIG *cfg) {
+    return cfg->nvb;
+}
 LIBCOUCHBASE_API lcbvb_DISTMODE lcbvb_get_distmode(const lcbvb_CONFIG *cfg) {
     return cfg->dtype;
 }
@@ -1543,7 +1546,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     unsigned ii, jj;
     int srvix = 0, in_nondata = 0;
 
-    assert(nservers);
+    lcb_assert(nservers);
 
     if (!name) {
         name = "default";
@@ -1668,7 +1671,7 @@ void
 lcbvb_genffmap(lcbvb_CONFIG *cfg)
 {
     size_t ii;
-    assert(cfg->nrepl);
+    lcb_assert(cfg->nrepl);
     if (cfg->ffvbuckets) {
         free(cfg->ffvbuckets);
     }

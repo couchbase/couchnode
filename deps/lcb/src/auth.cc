@@ -17,6 +17,7 @@
 
 #include <libcouchbase/couchbase.h>
 #include "auth-priv.h"
+#include <sstream>
 
 using namespace lcb;
 
@@ -70,14 +71,29 @@ Authenticator::add(const char *u, const char *p, int flags)
 
 static const std::string EmptyString;
 
-const std::string Authenticator::username_for(const char *host, const char *port, const char *bucket) const
+std::string cache_key(const char *host, const char *port, const char *bucket) {
+    std::stringstream key;
+    key << ":" << (host ? host : "?nullhost?");
+    key << ":" << (port ? port : "?nullport?");
+    key << ":" << (bucket ? bucket : "?nullbucket?");
+    return key.str();
+}
+
+const std::string Authenticator::username_for(const char *host, const char *port, const char *bucket)
 {
     switch (m_mode) {
         case LCBAUTH_MODE_RBAC:
             return m_username;
         case LCBAUTH_MODE_DYNAMIC:
             if (m_usercb != NULL) {
-                return m_usercb(m_cookie, host, port, bucket);
+                std::string key = cache_key(host, port, bucket);
+                if (user_cache_.find(key) == user_cache_.end()) {
+                    std::string username = m_usercb(m_cookie, host, port, bucket);
+                    user_cache_[key] = username;
+                    return username;
+                } else {
+                    return user_cache_[key];
+                }
             }
             break;
         case LCBAUTH_MODE_CLASSIC:
@@ -91,14 +107,21 @@ const std::string Authenticator::username_for(const char *host, const char *port
     return EmptyString;
 }
 
-const std::string Authenticator::password_for(const char *host, const char *port, const char *bucket) const
+const std::string Authenticator::password_for(const char *host, const char *port, const char *bucket)
 {
     switch (m_mode) {
         case LCBAUTH_MODE_RBAC:
             return m_password;
         case LCBAUTH_MODE_DYNAMIC:
             if (m_passcb != NULL) {
-                return m_passcb(m_cookie, host, port, bucket);
+                std::string key = cache_key(host, port, bucket);
+                if (pass_cache_.find(key) == pass_cache_.end()) {
+                    std::string password = m_passcb(m_cookie, host, port, bucket);
+                    pass_cache_[key] = password;
+                    return password;
+                } else {
+                    return pass_cache_[key];
+                }
             }
             break;
         case LCBAUTH_MODE_CLASSIC:
@@ -109,6 +132,21 @@ const std::string Authenticator::password_for(const char *host, const char *port
             break;
     }
     return EmptyString;
+}
+
+void Authenticator::invalidate_cache_for(const char *host, const char *port, const char *bucket)
+{
+    if (m_mode == LCBAUTH_MODE_DYNAMIC) {
+        std::string key = cache_key(host, port, bucket);
+        pass_cache_.erase(key);
+        user_cache_.erase(key);
+    }
+}
+
+void Authenticator::reset_cache()
+{
+    pass_cache_.clear();
+    user_cache_.clear();
 }
 
 void
@@ -125,7 +163,8 @@ lcbauth_unref(lcb_AUTHENTICATOR *auth)
 
 Authenticator::Authenticator(const Authenticator &other)
     : m_buckets(other.m_buckets), m_username(other.m_username), m_password(other.m_password), m_refcount(1),
-      m_mode(other.m_mode), m_usercb(other.m_usercb), m_passcb(other.m_passcb), m_cookie(other.m_cookie)
+      m_mode(other.m_mode), m_usercb(other.m_usercb), m_passcb(other.m_passcb), m_cookie(other.m_cookie),
+      user_cache_(), pass_cache_()
 {
 }
 

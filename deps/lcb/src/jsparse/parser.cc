@@ -24,7 +24,6 @@
 #include "contrib/jsonsl/jsonsl.c"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 #include "parser.h"
-#include <assert.h>
 
 #define DECLARE_JSONSL_CALLBACK(name) \
 static void name(jsonsl_t,jsonsl_action_t,struct jsonsl_state_st*,const char*)
@@ -65,7 +64,7 @@ const char * Parser::get_buffer_region(size_t pos, size_t desired, size_t *actua
         return NULL;
     }
 
-    assert(ret < end);
+    lcb_assert(ret < end);
     if (desired < *actual) {
         *actual = desired;
     }
@@ -83,7 +82,7 @@ void Parser::combine_meta() {
         return;
     }
 
-    assert(header_len <= meta_buf.size());
+    lcb_assert(header_len <= meta_buf.size());
 
     /* Adjust the length for the first portion */
     meta_buf.resize(header_len);
@@ -378,7 +377,7 @@ parse_json_docid(lcb_IOV* iov, Parser *parent)
     s = NULL;
     s_end = NULL;
 
-    assert(jvp.isString());
+    lcb_assert(jvp.isString());
 
     // Re-use s and s_end values for the string value itself
     if (!jvp.getString(&s, &s_end)) {

@@ -755,7 +755,7 @@ public:
             lcb_sched_leave(instance);
             lcb_wait(instance);
             if (error != LCB_SUCCESS) {
-                log("Operation(s) failed: [0x%x] %s", error, lcb_strerror(instance, error));
+                log("Operation(s) failed: %s", lcb_strerror_long(error));
             }
         }
     }
@@ -819,7 +819,7 @@ public:
         }
 
         if (error != LCB_SUCCESS) {
-            log("Failed to schedule operation: [0x%x] %s", error, lcb_strerror(instance, error));
+            log("Failed to schedule operation: %s", lcb_strerror_long(error));
             return false;
         } else {
             return true;
@@ -1040,7 +1040,7 @@ static void diag_callback(lcb_t instance, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
     if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "%p, diag failed: %s\n", (void *)instance, lcb_strerror(NULL, resp->rc));
+        fprintf(stderr, "%p, diag failed: %s\n", (void *)instance, lcb_strerror_short(resp->rc));
     } else {
         if (resp->njson) {
             fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);
@@ -1194,7 +1194,7 @@ int main(int argc, char **argv)
         lcb_t instance = NULL;
         error = lcb_create(&instance, &options);
         if (error != LCB_SUCCESS) {
-            log("Failed to create instance: %s", lcb_strerror(NULL, error));
+            log("Failed to create instance: %s", lcb_strerror_short(error));
             exit(EXIT_FAILURE);
         }
         lcb_install_callback3(instance, LCB_CALLBACK_STOREDUR, storeCallback);
@@ -1224,7 +1224,7 @@ int main(int argc, char **argv)
 
         if (error != LCB_SUCCESS) {
             std::cout << std::endl;
-            log("Failed to connect: %s", lcb_strerror(instance, error));
+            log("Failed to connect: %s", lcb_strerror_long(error));
             exit(EXIT_FAILURE);
         }
 

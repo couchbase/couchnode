@@ -72,7 +72,8 @@ typedef struct {
     unsigned naddr;
     struct sockaddr_storage sa_remote;
     struct sockaddr_storage sa_local;
-    lcb_host_t ep;
+    lcb_host_t ep_remote;
+    char ep_local[NI_MAXHOST + NI_MAXSERV + 2];
 } lcbio_CONNINFO;
 
 struct lcb_IOMETRICS_st;
@@ -327,7 +328,7 @@ lcbio__protoctx_delall(lcbio_SOCKET *s);
  * @param sock The socket
  * @return a pointer to the host.
  */
-#define lcbio_get_host(sock) (&(sock)->info->ep)
+#define lcbio_get_host(sock) (&(sock)->info->ep_remote)
 
 /**
  * @private

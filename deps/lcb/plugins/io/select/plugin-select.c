@@ -354,12 +354,12 @@ sel_destroy_iops(struct lcb_io_opt_st *iops)
         ev = LCB_LIST_ITEM(ii, sel_EVENT, list);
         sel_event_free(iops, ev);
     }
-    assert(LCB_LIST_IS_EMPTY(&io->events.list));
+    lcb_assert(LCB_LIST_IS_EMPTY(&io->events.list));
     LCB_LIST_SAFE_FOR(ii, nn, &io->timers) {
         tm = LCB_LIST_ITEM(ii, sel_TIMER, list);
         sel_timer_free(iops, tm);
     }
-    assert(LCB_LIST_IS_EMPTY(&io->timers));
+    lcb_assert(LCB_LIST_IS_EMPTY(&io->timers));
     free(io);
     free(iops);
 }

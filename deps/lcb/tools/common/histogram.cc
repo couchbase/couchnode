@@ -10,8 +10,8 @@ Histogram::install(lcb_t inst, FILE *out)
     output = out;
     lcb_enable_timings(inst);
     rc = lcb_cntl(inst, LCB_CNTL_GET, LCB_CNTL_KVTIMINGS, &hg);
-    assert(rc == LCB_SUCCESS);
-    assert(hg != NULL);
+    lcb_assert(rc == LCB_SUCCESS);
+    lcb_assert(hg != NULL);
     (void)rc;
 }
 

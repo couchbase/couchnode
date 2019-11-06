@@ -188,6 +188,8 @@ typedef struct lcb_N1QLREQ : lcb::jsparse::Parser::Actions {
     /** Is this query to Analytics for N1QL service */
     bool is_cbas;
 
+    bool invalidate_credentials;
+
 #ifdef LCB_TRACING
     lcbtrace_SPAN *span;
 #endif
@@ -274,6 +276,15 @@ typedef struct lcb_N1QLREQ : lcb::jsparse::Parser::Actions {
         // Nothing
     }
 
+    void on_timeout() {
+        if (lasterr == LCB_SUCCESS) {
+            lasterr = LCB_ETIMEDOUT;
+        }
+        delete this;
+    }
+    lcb::io::Timer<lcb_N1QLREQ, &lcb_N1QLREQ::on_timeout> timer;
+    std::string last_host;
+    std::string last_port;
 } N1QLREQ;
 
 static bool
@@ -343,14 +354,25 @@ N1QLREQ::has_retriable_error(const Json::Value& root)
             code = jcode.asUInt();
             switch (code) {
                 /* n1ql */
-            case 4050:
-            case 4070:
+            case 4050:  // plan.build_prepared.unrecognized_prepared
+            case 4070:  // plan.build_prepared.decoding
+            case 12009: // datastore.couchbase.DML_error
                 /* analytics */
             case 23000:
             case 23003:
             case 23007:
                 lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. code: %d", LOGID(this), code);
                 return true;
+            case 13014: // datastore.couchbase.insufficient_credentials
+                if (LCBT_SETTING(instance, auth)->mode() == LCBAUTH_MODE_DYNAMIC) {
+                    invalidate_credentials = true;
+                    if (!last_host.empty() && !last_port.empty()) {
+                        LCBT_SETTING(instance, auth)->invalidate_cache_for(last_host.c_str(), last_port.c_str(),
+                            LCBT_SETTING(instance, bucket));
+                    }
+                    return true;
+                }
+                break;
             default:
                 break;
             }
@@ -385,16 +407,6 @@ N1QLREQ::maybe_retry()
         return false;
     }
 
-    if (was_retried) {
-        return false;
-    }
-
-    if (!use_prepcache()) {
-        // Didn't use our built-in caching (maybe using it from elsewhere?)
-        return false;
-    }
-
-    was_retried = true;
     parser->get_postmortem(meta);
     if (!parse_json(static_cast<const char*>(meta.iov_base), meta.iov_len, root)) {
         return false; // Not JSON
@@ -402,14 +414,25 @@ N1QLREQ::maybe_retry()
     if (!has_retriable_error(root)) {
         return false;
     }
+    if (was_retried && !invalidate_credentials) {
+        // preserve old behaviour where we only retry once
+        return false;
+    }
 
-    lcb_log(LOGARGS(this, ERROR), LOGFMT "Repreparing statement. Index or version mismatch.", LOGID(this));
+    was_retried = true;
+    if (use_prepcache()) {
+        lcb_log(LOGARGS(this, ERROR), LOGFMT "Repreparing statement. Index or version mismatch.", LOGID(this));
 
-    // Let's see if we can actually retry. First remove the existing prepared
-    // entry:
-    cache().remove_entry(statement);
+        // Let's see if we can actually retry. First remove the existing prepared
+        // entry:
+        cache().remove_entry(statement);
+        lasterr = request_plan();
+    } else {
+        // re-issue original request body
+        lasterr = issue_htreq();
+    }
 
-    if ((lasterr = request_plan()) == LCB_SUCCESS) {
+    if (lasterr == LCB_SUCCESS) {
         // We'll be parsing more rows later on..
         delete parser;
         parser = new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_N1QL, this);
@@ -459,15 +482,8 @@ lcb_N1QLREQ::~lcb_N1QLREQ()
         if (htreq) {
             lcbio_CTX *ctx = htreq->ioctx;
             if (ctx) {
-                std::string remote;
-                if (htreq->ipv6) {
-                    remote = "[" + std::string(htreq->host) + "]:" + std::string(htreq->port);
-                } else {
-                    remote = std::string(htreq->host) + ":" + std::string(htreq->port);
-                }
-                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, remote.c_str());
-                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS,
-                                          lcbio__inet_ntop(&ctx->sock->info->sa_local).c_str());
+                lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_PEER_ADDRESS, htreq->peer.c_str());
+                lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, ctx->sock->info->ep_local);
             }
         }
         lcbtrace_span_finish(span, LCBTRACE_NOW);
@@ -481,6 +497,7 @@ lcb_N1QLREQ::~lcb_N1QLREQ()
     if (prepare_req) {
         lcb_n1ql_cancel(instance, prepare_req);
     }
+    timer.release();
 }
 
 static void
@@ -499,6 +516,8 @@ chunk_callback(lcb_t instance, int ign, const lcb_RESPBASE *rb)
     }
 
     if (rh->rflags & LCB_RESP_F_FINAL) {
+        req->last_host = req->htreq->host;
+        req->last_port = req->htreq->port;
         req->htreq = NULL;
         if (!req->maybe_retry()) {
             delete req;
@@ -659,10 +678,11 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
       parser(new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_N1QL, this)),
       cookie(user_cookie), callback(cmd->callback), instance(obj),
       lasterr(LCB_SUCCESS), flags(cmd->cmdflags), timeout(0),
-      nrows(0), prepare_req(NULL), was_retried(false), is_cbas(false)
+      nrows(0), prepare_req(NULL), was_retried(false), is_cbas(false), invalidate_credentials(false),
 #ifdef LCB_TRACING
-    , span(NULL)
+      span(NULL),
 #endif
+      timer(instance->iotable, this), last_host(), last_port()
 {
     if (cmd->handle) {
         *cmd->handle = this;
@@ -706,6 +726,7 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
         lasterr = LCB_EINVAL;
         return;
     }
+    timer.rearm(timeout);
 
     // Determine if we need to add more credentials.
     // Because N1QL multi-bucket auth will not work on server versions < 4.5

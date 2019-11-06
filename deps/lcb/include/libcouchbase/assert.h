@@ -17,8 +17,6 @@
 #ifndef LIBCOUCHBASE_ASSERT_H
 #define LIBCOUCHBASE_ASSERT_H 1
 
-#include <assert.h>
-
 #ifdef NDEBUG
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +36,7 @@
                 __LINE__); \
     }
 #else
+#include <assert.h>
 #define lcb_assert(a) assert(a)
 #endif
 

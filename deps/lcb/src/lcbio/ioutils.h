@@ -116,8 +116,6 @@ lcbio__load_socknames(lcbio_SOCKET *sock);
 #ifdef __cplusplus
 }
 
-std::string lcbio__inet_ntop(sockaddr_storage *ss);
-
 namespace lcb {
 namespace io {
 

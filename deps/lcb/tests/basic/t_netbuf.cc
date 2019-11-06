@@ -39,7 +39,7 @@ TEST_F(NetbufTest, testCleanCheck)
     nb_IOV iov;
     iov.iov_base = (void *)0x01;
     iov.iov_len = 500;
-    netbuf_enqueue(&mgr, &iov);
+    netbuf_enqueue(&mgr, &iov, NULL);
     ASSERT_EQ(0, netbuf_is_clean(&mgr));
 
     unsigned toFlush = netbuf_start_flush(&mgr, &iov, 1, NULL);
@@ -129,7 +129,7 @@ TEST_F(NetbufTest, testFlush)
     rv = netbuf_mblock_reserve(&mgr, &span);
     ASSERT_EQ(rv, 0);
 
-    netbuf_enqueue_span(&mgr, &span);
+    netbuf_enqueue_span(&mgr, &span, NULL);
     sz = netbuf_start_flush(&mgr, iov, 1, NULL);
     ASSERT_EQ(32, sz);
     ASSERT_EQ(32, iov[0].iov_len);
@@ -146,7 +146,7 @@ TEST_F(NetbufTest, testFlush)
     }
 
     for (ii = 0; ii < 3; ii++) {
-        netbuf_enqueue_span(&mgr, spans + ii);
+        netbuf_enqueue_span(&mgr, spans + ii, NULL);
     }
 
     sz = netbuf_start_flush(&mgr, iov, 10, NULL);
@@ -263,8 +263,8 @@ TEST_F(NetbufTest, testMultipleFlush)
     rv = netbuf_mblock_reserve(&mgr, &span3);
     ASSERT_EQ(0, rv);
 
-    netbuf_enqueue_span(&mgr, &span1);
-    netbuf_enqueue_span(&mgr, &span2);
+    netbuf_enqueue_span(&mgr, &span1, NULL);
+    netbuf_enqueue_span(&mgr, &span2, NULL);
 
     sz = netbuf_start_flush(&mgr, iov, 10, NULL);
     ASSERT_EQ(100, sz);
@@ -278,7 +278,7 @@ TEST_F(NetbufTest, testMultipleFlush)
     assert_iov_eq(iov, 0, 'A');
     assert_iov_eq(iov, 50, 'B');
 
-    netbuf_enqueue_span(&mgr, &span3);
+    netbuf_enqueue_span(&mgr, &span3, NULL);
     sz = netbuf_start_flush(&mgr, &iov[1], 0, NULL);
     ASSERT_EQ(sz, 50);
     assert_iov_eq(&iov[1], 0, 'C');
@@ -325,7 +325,7 @@ TEST_F(NetbufTest, testCyclicFlush)
         spans[ii].size = 10;
         netbuf_mblock_reserve(&mgr, &spans[ii]);
         memset(SPAN_BUFFER(&spans[ii]), ii, 10);
-        netbuf_enqueue_span(&mgr, &spans[ii]);
+        netbuf_enqueue_span(&mgr, &spans[ii], NULL);
         nb = netbuf_start_flush(&mgr, iov, 1, &niov);
 
         ASSERT_EQ(10, nb);
@@ -338,7 +338,7 @@ TEST_F(NetbufTest, testCyclicFlush)
     for (size_t ii = 5; ii < 7; ii++) {
         spans[ii].size = 10;
         netbuf_mblock_reserve(&mgr, &spans[ii]);
-        netbuf_enqueue_span(&mgr, &spans[ii]);
+        netbuf_enqueue_span(&mgr, &spans[ii], NULL);
         memset(SPAN_BUFFER(&spans[ii]), ii, 10);
     }
 
@@ -394,7 +394,7 @@ TEST_F(NetbufTest, testPduEnqueue)
     }
 
     for (ii = 0; ii < 3; ii++) {
-        netbuf_enqueue_span(&mgr, pdu.spans + ii);
+        netbuf_enqueue_span(&mgr, pdu.spans + ii, NULL);
     }
 
     netbuf_pdu_enqueue(&mgr, &pdu, offsetof(my_PDU, slnode));

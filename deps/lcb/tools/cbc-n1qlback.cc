@@ -55,9 +55,7 @@ static bool use_ansi_codes = false;
 static void do_or_die(lcb_error_t rc)
 {
     if (rc != LCB_SUCCESS) {
-        std::stringstream ss;
-        ss << "[" << std::hex << rc << "] " << lcb_strerror(NULL, rc);
-        throw std::runtime_error(ss.str());
+        throw std::runtime_error(lcb_strerror_long(rc));
     }
 }
 
@@ -361,8 +359,7 @@ private:
 
         if (m_errlog != NULL) {
             std::stringstream ss;
-            ss << "[" << erridx << "] 0x" << std::hex << err << ", "
-               << lcb_strerror(NULL, err) << endl;
+            ss << "[" << erridx << "] " << lcb_strerror_short(err) << endl;
             if (ninfo) {
                 ss.write(info, ninfo);
                 ss << endl;

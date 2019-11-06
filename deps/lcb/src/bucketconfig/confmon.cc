@@ -57,16 +57,9 @@ provider_string(Method type) {
 }
 
 Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_t instance_)
-    : cur_provider(NULL),
-      config(NULL),
-      settings(settings_),
-      last_error(LCB_SUCCESS),
-      iot(iot_),
-      as_start(iot_, this),
-      as_stop(iot_, this),
-      state(0),
-      last_stop_us(0),
-      instance(instance_) {
+    : cur_provider(NULL), config(NULL), settings(settings_), last_error(LCB_SUCCESS), iot(iot_), as_start(iot_, this),
+      as_stop(iot_, this), state(0), last_stop_us(0), instance(instance_), active_provider_list_id(0)
+{
 
     lcbio_table_ref(iot);
     lcb_settings_ref(settings);
@@ -83,6 +76,7 @@ Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_t instance_)
 }
 
 void Confmon::prepare() {
+    ++this->active_provider_list_id;
     active_providers.clear();
     lcb_log(LOGARGS(this, DEBUG), "Preparing providers (this may be called multiple times)");
 
@@ -245,9 +239,16 @@ void Confmon::provider_got_config(Provider *, ConfigInfo *config_) {
 void Confmon::do_next_provider()
 {
     state &= ~CONFMON_S_ITERGRACE;
-    for (ProviderList::const_iterator ii = active_providers.begin();
-            ii != active_providers.end(); ++ii) {
-        Provider* cached_provider = *ii;
+    size_t previous_active_provider_list_id = this->active_provider_list_id;
+    ProviderList::const_iterator ii = active_providers.begin();
+    while (ii != active_providers.end()) {
+        if (previous_active_provider_list_id != this->active_provider_list_id) {
+            ii = active_providers.begin();
+            previous_active_provider_list_id = this->active_provider_list_id;
+        }
+
+        Provider *cached_provider = *ii;
+        ++ii;
         if (!cached_provider) {
             continue;
         }

@@ -574,7 +574,11 @@ typedef enum {
     /** According to the spec all xattr commands should come first, followed by the commands for the document body */ \
     X(LCB_SUBDOC_INVALID_XATTR_ORDER, 0x5e,                    \
       LCB_ERRTYPE_INPUT|LCB_ERRTYPE_SRVGEN|LCB_ERRTYPE_SUBDOC, \
-      "According to the spec all xattr commands should come first, followed by the commands for the document body")
+      "According to the spec all xattr commands should come first, followed by the commands for the document body")    \
+    X(LCB_SSL_INVALID_CIPHERSUITES, 0x5f, LCB_ERRTYPE_FATAL,                                                           \
+      "OpenSSL encountered an error in the provided ciphersuites (TLS >= 1.3)")                                        \
+    X(LCB_SSL_NO_CIPHERS, 0x60, LCB_ERRTYPE_FATAL,                                                                     \
+      "OpenSSL does not support any of the ciphers provided (TLS < 1.3)")
 
 /** Error codes returned by the library. */
 typedef enum {

@@ -221,6 +221,19 @@ TEST_F(ConfigTest, testEmptyMap)
     lcbvb_destroy(cfg);
 }
 
+TEST_F(ConfigTest, testLongHostNames)
+{
+    string emptyTxt = getConfigFile("terse_long_hostname.json");
+    lcbvb_CONFIG *cfg = lcbvb_create();
+    char *network = strdup("external");
+    int rc = lcbvb_load_json_ex(cfg, emptyTxt.c_str(), NULL, &network);
+    ASSERT_EQ(0, rc);
+    const char *hostport = lcbvb_get_hostport(cfg, 0, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN);
+    ASSERT_STREQ("ec2-35-165-248-26.us-west-2-long.long-long-name.compute.amazonaws.com:11210", hostport);
+    free(network);
+    lcbvb_destroy(cfg);
+}
+
 TEST_F(ConfigTest, testNondataNodes)
 {
     // Tests the handling of nodes which don't have any data in them

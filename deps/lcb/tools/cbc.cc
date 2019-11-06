@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2011-2018 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #define NOMINMAX
 #include <map>
 #include <sstream>
@@ -41,7 +58,7 @@ string getRespKey(const lcb_RESPBASE* resp)
 static void
 printKeyError(string& key, int cbtype, const lcb_RESPBASE *resp, const char *additional = NULL)
 {
-    fprintf(stderr, "%-20s %s (0x%x)\n", key.c_str(), lcb_strerror(NULL, resp->rc), resp->rc);
+    fprintf(stderr, "%-20s %s\n", key.c_str(), lcb_strerror_short(resp->rc));
     const char *ctx = lcb_resp_get_error_context(cbtype, resp);
     if (ctx != NULL) {
         fprintf(stderr, "%-20s %s\n", "", ctx);
@@ -182,7 +199,7 @@ obseqno_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPOBSEQNO *resp)
     int ix = resp->server_index;
     if (resp->rc != LCB_SUCCESS) {
         fprintf(stderr,
-            "[%d] ERROR 0x%X (%s)\n", ix, resp->rc, lcb_strerror(NULL, resp->rc));
+            "[%d] ERROR %s\n", ix, lcb_strerror_long(resp->rc));
         return;
     }
     lcb_U64 uuid, seq_disk, seq_mem;
@@ -208,7 +225,7 @@ static void
 stats_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
 {
     if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "ERROR 0x%02X (%s)\n", resp->rc, lcb_strerror(NULL, resp->rc));
+        fprintf(stderr, "ERROR %s\n", lcb_strerror_long(resp->rc));
         return;
     }
     if (resp->server == NULL || resp->key == NULL) {
@@ -241,7 +258,7 @@ static void
 watch_callback(lcb_t, lcb_CALLBACKTYPE, const lcb_RESPSTATS *resp)
 {
     if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "ERROR 0x%02X (%s)\n", resp->rc, lcb_strerror(NULL, resp->rc));
+        fprintf(stderr, "ERROR %s\n", lcb_strerror_long(resp->rc));
         return;
     }
     if (resp->server == NULL || resp->key == NULL) {
@@ -284,7 +301,7 @@ common_server_callback(lcb_t, int cbtype, const lcb_RESPSERVERBASE *sbase)
     }
     if (sbase->rc != LCB_SUCCESS) {
         fprintf(stderr, "%s failed for server %s: %s\n", msg.c_str(), sbase->server,
-            lcb_strerror(NULL, sbase->rc));
+            lcb_strerror_short(sbase->rc));
     } else {
         fprintf(stderr, "%s: %s\n", msg.c_str(), sbase->server);
     }
@@ -294,7 +311,7 @@ static void
 ping_callback(lcb_t, int, const lcb_RESPPING *resp)
 {
     if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "failed: %s\n", lcb_strerror(NULL, resp->rc));
+        fprintf(stderr, "failed: %s\n", lcb_strerror_short(resp->rc));
     } else {
         if (resp->njson) {
             printf("%.*s", (int)resp->njson, resp->json);
@@ -336,8 +353,8 @@ view_callback(lcb_t, int, const lcb_RESPVIEWQUERY *resp)
     }
 
     if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "View query failed: 0x%x (%s)\n",
-            resp->rc, lcb_strerror(NULL, resp->rc));
+        fprintf(stderr, "View query failed: %s\n",
+            lcb_strerror_short(resp->rc));
 
         if (resp->rc == LCB_HTTP_ERROR) {
             if (resp->htresp != NULL) {
@@ -1061,6 +1078,50 @@ McVersionHandler::run()
 }
 
 void
+KeygenHandler::run()
+{
+    Handler::run();
+
+    lcbvb_CONFIG *vbc;
+    lcb_error_t err;
+    err = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+    if (err != LCB_SUCCESS) {
+        throw LcbError(err);
+    }
+
+    unsigned num_vbuckets = lcbvb_get_nvbuckets(vbc);
+    if (num_vbuckets == 0) {
+        throw LcbError(LCB_EINVAL, "the configuration does not contain any vBuckets");
+    }
+    unsigned num_keys_per_vbucket = o_keys_per_vbucket.result();
+    vector < vector < string > > keys(num_vbuckets);
+#define MAX_KEY_SIZE 16
+    char buf[MAX_KEY_SIZE] = {0};
+    unsigned i = 0;
+    int left = num_keys_per_vbucket * num_vbuckets;
+    while (left > 0 && i < UINT_MAX) {
+        int nbuf = snprintf(buf, MAX_KEY_SIZE, "key_%010u", i++);
+        if (nbuf <= 0) {
+            throw LcbError(LCB_ERROR, "unable to render new key into buffer");
+        }
+        int vbid, srvix;
+        lcbvb_map_key(vbc, buf, nbuf, &vbid, &srvix);
+        if (keys[vbid].size() < num_keys_per_vbucket) {
+            keys[vbid].push_back(buf);
+            left--;
+        }
+    }
+    for (i = 0; i < num_vbuckets; i++) {
+        for (vector<string>::iterator it = keys[i].begin(); it != keys[i].end(); ++it) {
+            printf("%s %u\n", it->c_str(), i);
+        }
+    }
+    if (left > 0) {
+        fprintf(stderr, "some vBuckets don't have enough keys\n");
+    }
+}
+
+void
 PingHandler::run()
 {
     Handler::run();
@@ -1106,8 +1167,7 @@ static void cbFlushCb(lcb_t, int, const lcb_RESPBASE *resp)
     if (resp->rc == LCB_SUCCESS) {
         fprintf(stderr, "Flush OK\n");
     } else {
-        fprintf(stderr, "Flush failed: %s (0x%x)\n",
-            lcb_strerror(NULL, resp->rc), resp->rc);
+        fprintf(stderr, "Flush failed: %s\n", lcb_strerror_short(resp->rc));
     }
 }
 }
@@ -1211,10 +1271,10 @@ static void n1qlCallback(lcb_t, int, const lcb_RESPN1QL *resp)
     if (resp->rflags & LCB_RESP_F_FINAL) {
         fprintf(stderr, "---> Query response finished\n");
         if (resp->rc != LCB_SUCCESS) {
-            fprintf(stderr, "---> Query failed with library code 0x%x (%s)\n", resp->rc, lcb_strerror(NULL, resp->rc));
+            fprintf(stderr, "---> Query failed with library code %s\n", lcb_strerror_short(resp->rc));
             if (resp->htresp) {
-                fprintf(stderr, "---> Inner HTTP request failed with library code 0x%x and HTTP status %d\n",
-                    resp->htresp->rc, resp->htresp->htstatus);
+                fprintf(stderr, "---> Inner HTTP request failed with library code %s and HTTP status %d\n",
+                    lcb_strerror_short(resp->htresp->rc), resp->htresp->htstatus);
             }
         }
         if (resp->row) {
@@ -1382,7 +1442,7 @@ void
 HttpBaseHandler::handleStatus(lcb_error_t err, int code)
 {
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "ERROR=0x%x (%s) ", err, lcb_strerror(NULL, err));
+        fprintf(stderr, "ERROR: %s ", lcb_strerror_short(err));
     }
     fprintf(stderr, "%d\n", code);
     map<string,string>::const_iterator ii = headers.begin();
@@ -1703,6 +1763,7 @@ static const char* optionsOrder[] = {
         "strerror",
         "ping",
         "watch",
+        "keygen",
         NULL
 };
 
@@ -1753,7 +1814,7 @@ protected:
         #undef X
 
         fprintf(stderr, "-- Error code not found in header. Trying runtime..\n");
-        fprintf(stderr, "0x%x: %s\n", errcode, lcb_strerror(NULL, (lcb_error_t)errcode));
+        fprintf(stderr, "%s\n", lcb_strerror_long((lcb_error_t)errcode));
     }
 };
 
@@ -1793,6 +1854,7 @@ setupHandlers()
     handlers_s["user-upsert"] = new UserUpsertHandler();
     handlers_s["user-delete"] = new UserDeleteHandler();
     handlers_s["mcversion"] = new McVersionHandler();
+    handlers_s["keygen"] = new KeygenHandler();
 
     map<string,Handler*>::iterator ii;
     for (ii = handlers_s.begin(); ii != handlers_s.end(); ++ii) {

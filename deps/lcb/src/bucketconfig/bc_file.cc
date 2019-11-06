@@ -227,17 +227,28 @@ FileProvider::FileProvider(Confmon *parent_)
 
 static std::string mkcachefile(const char *name, const char *bucket)
 {
+    std::string buffer;
+    bool is_dir = false;
     if (name != NULL) {
-        return std::string(name);
+        buffer = std::string(name);
+        if (buffer.size() > 0 && buffer[buffer.size() - 1] == '/') {
+            is_dir = true;
+        }
     } else {
-        std::string buffer(lcb_get_tmpdir());
+        buffer = lcb_get_tmpdir();
         if (buffer.empty()) {
             buffer += ".";
         }
         buffer += "/";
-        buffer += bucket;
-        return buffer;
+        is_dir = true;
     }
+    if (is_dir) {
+        // append bucket name only if we know that
+        // cachefile is directory
+        buffer += bucket;
+    }
+
+    return buffer;
 }
 
 bool lcb::clconfig::file_set_filename(Provider *p, const char *f, bool ro)

@@ -42,8 +42,7 @@ private:
         if (!msg.empty()) {
             ss << msg << ". ";
         }
-        ss << "libcouchbase error: " << lcb_strerror(NULL, err);
-        ss << " (0x" << std::hex << err << ")";
+        ss << "libcouchbase error: " << lcb_strerror_long(err);
         return ss.str();
     }
 

@@ -16,8 +16,8 @@
  */
 
 #include "sllist.h"
+#include <libcouchbase/assert.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #ifndef INLINE
 #ifdef _MSC_VER
@@ -56,7 +56,7 @@ sllist_get_size(sllist_root *list)
 /* #define SLLIST_DEBUG */
 
 #ifdef SLLIST_DEBUG
-#define slist_sanity_insert(l, n) assert(!slist_contains(l, n))
+#define slist_sanity_insert(l, n) lcb_assert(!slist_contains(l, n))
 #else
 #define slist_sanity_insert(l, n)
 #endif
@@ -96,7 +96,7 @@ slist_iter_incr(sllist_root *list, sllist_iterator *iter)
         iter->next = NULL;
     }
 
-    assert(iter->cur != iter->prev);
+    lcb_assert(iter->cur != iter->prev);
 
     (void)list;
 }
@@ -141,7 +141,7 @@ sllist_remove(sllist_root *list, sllist_node *item)
         }
     }
     fprintf(stderr, "SLLIST: Requested to remove item %p which is not in %p\n", (void*)list, (void*)item);
-    assert(0);
+    lcb_assert(0);
 }
 
 static INLINE void

@@ -252,6 +252,18 @@ public:
         serverParams.makeConnectParams(crst, io);
     }
 
+    std::string getUsername() {
+        return serverParams.getUsername();
+    }
+
+    std::string getPassword() {
+        return serverParams.getPassword();
+    }
+
+    std::string getBucket() {
+        return serverParams.getBucket();
+    }
+
     /**
      * Get the number of nodes used in the backend
      */

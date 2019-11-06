@@ -247,7 +247,7 @@ replace_config(lcb_t instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
     mc_PIPELINE **ppold, **ppnew;
     unsigned ii, nold, nnew;
 
-    assert(LCBT_VBCONFIG(instance) == newconfig);
+    lcb_assert(LCBT_VBCONFIG(instance) == newconfig);
 
     nnew = LCBVB_NSERVERS(newconfig);
     ppnew = reinterpret_cast<mc_PIPELINE**>(calloc(nnew, sizeof(*ppnew)));

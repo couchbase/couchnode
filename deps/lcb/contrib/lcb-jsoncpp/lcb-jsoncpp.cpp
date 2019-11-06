@@ -219,7 +219,11 @@ static int       stackDepth_g = 0;  // see readValue()
 
 namespace Json {
 
-typedef std::auto_ptr<CharReader>   CharReaderPtr;
+#if __cplusplus >= 201103L || (defined(_CPPLIB_VER) && _CPPLIB_VER >= 520)
+typedef std::unique_ptr<CharReader> CharReaderPtr;
+#else
+typedef std::auto_ptr<CharReader> CharReaderPtr;
+#endif
 
 // Implementation of class Features
 // ////////////////////////////////
@@ -3764,7 +3768,11 @@ Value& Path::make(Value& root) const {
 
 namespace Json {
 
-typedef std::auto_ptr<StreamWriter>   StreamWriterPtr;
+#if __cplusplus >= 201103L || (defined(_CPPLIB_VER) && _CPPLIB_VER >= 520)
+typedef std::unique_ptr<StreamWriter> StreamWriterPtr;
+#else
+typedef std::auto_ptr<StreamWriter> StreamWriterPtr;
+#endif
 
 static bool containsControlCharacter(const char* str) {
   while (*str) {

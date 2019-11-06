@@ -33,6 +33,7 @@ typedef struct tag_value {
         struct {
             char *p;
             size_t l;
+            int need_free;
         } s;
         lcb_U64 u64;
         double d;
@@ -72,12 +73,21 @@ void lcbtrace_span_finish(lcbtrace_SPAN *span, uint64_t now)
 }
 
 LIBCOUCHBASE_API
+void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, const char *value)
+{
+    if (!span || name == NULL || value == NULL) {
+        return;
+    }
+    span->add_tag(name, 0, value, 0);
+}
+
+LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_str(lcbtrace_SPAN *span, const char *name, const char *value)
 {
     if (!span || name == NULL || value == NULL) {
         return;
     }
-    span->add_tag(name, 1, value);
+    span->add_tag(name, 1, value, 1);
 }
 
 LIBCOUCHBASE_API
@@ -113,15 +123,15 @@ void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, 
     if (!span) {
         return;
     }
-    span->add_tag(LCBTRACE_TAG_SERVICE, 0, service);
+    span->add_tag(LCBTRACE_TAG_SERVICE, 0, service, 0);
     std::string client_string(LCB_CLIENT_ID);
     if (settings->client_string) {
         client_string += " ";
         client_string += settings->client_string;
     }
-    span->add_tag(LCBTRACE_TAG_COMPONENT, 0, client_string.c_str(), client_string.size());
+    span->add_tag(LCBTRACE_TAG_COMPONENT, 0, client_string.c_str(), client_string.size(), 1);
     if (settings->bucket) {
-        span->add_tag(LCBTRACE_TAG_DB_INSTANCE, 0, settings->bucket);
+        span->add_tag(LCBTRACE_TAG_DB_INSTANCE, 0, settings->bucket, 0);
     }
 }
 
@@ -322,8 +332,8 @@ Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace
     m_span_id = lcb_next_rand64();
     m_orphaned = false;
     memset(&m_tags, 0, sizeof(m_tags));
-    add_tag(LCBTRACE_TAG_DB_TYPE, 0, "couchbase");
-    add_tag(LCBTRACE_TAG_SPAN_KIND, 0, "client");
+    add_tag(LCBTRACE_TAG_DB_TYPE, 0, "couchbase", 0);
+    add_tag(LCBTRACE_TAG_SPAN_KIND, 0, "client", 0);
 
     if (other != NULL && ref == LCBTRACE_REF_CHILD_OF) {
         m_parent = other;
@@ -342,7 +352,7 @@ Span::~Span()
         if (val->key.need_free) {
             free(val->key.p);
         }
-        if (val->t == TAGVAL_STRING) {
+        if (val->t == TAGVAL_STRING && val->v.s.need_free) {
             free(val->v.s.p);
         }
         free(val);
@@ -357,24 +367,29 @@ void Span::finish(uint64_t now)
     }
 }
 
-void Span::add_tag(const char *name, int copy, const char *value)
+void Span::add_tag(const char *name, int copy_key, const char *value, int copy_value)
 {
-    add_tag(name, copy, value, strlen(value));
+    add_tag(name, copy_key, value, strlen(value), copy_value);
 }
 
-void Span::add_tag(const char *name, int copy, const char *value, size_t value_len)
+void Span::add_tag(const char *name, int copy_key, const char *value, size_t value_len, int copy_value)
 {
     tag_value *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_STRING;
-    val->key.need_free = copy;
-    if (copy) {
+    val->key.need_free = copy_key;
+    if (copy_key) {
         val->key.p = strdup(name);
     } else {
         val->key.p = (char *)name;
     }
-    val->v.s.p = (char *)calloc(value_len, sizeof(char));
+    val->v.s.need_free = copy_value;
     val->v.s.l = value_len;
-    memcpy(val->v.s.p, value, value_len);
+    if (copy_value) {
+        val->v.s.p = (char *)calloc(value_len, sizeof(char));
+        memcpy(val->v.s.p, value, value_len);
+    } else {
+        val->v.s.p = (char *)value;
+    }
     sllist_append(&m_tags, &val->slnode);
 }
 
