@@ -169,6 +169,7 @@ Local<Object> CouchbaseImpl::createConstants()
     X(PINGSVC_F_N1QL)
     X(PINGSVC_F_VIEWS)
     X(PINGSVC_F_FTS)
+    X(PINGSVC_F_ANALYTICS)
 
     X(LOG_TRACE)
     X(LOG_DEBUG)
