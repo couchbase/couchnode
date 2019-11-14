@@ -44,15 +44,15 @@ void Logger::handler(unsigned int iid, const char *subsys, int severity,
     }
 
     Local<Object> infoObj = Nan::New<Object>();
-    infoObj->Set(Nan::New<String>("severity").ToLocalChecked(),
+    Nan::Set(infoObj, Nan::New<String>("severity").ToLocalChecked(),
                  Nan::New(severity));
-    infoObj->Set(Nan::New<String>("srcFile").ToLocalChecked(),
+    Nan::Set(infoObj, Nan::New<String>("srcFile").ToLocalChecked(),
                  Nan::New(srcfile).ToLocalChecked());
-    infoObj->Set(Nan::New<String>("srcLine").ToLocalChecked(),
+    Nan::Set(infoObj, Nan::New<String>("srcLine").ToLocalChecked(),
                  Nan::New(srcline));
-    infoObj->Set(Nan::New<String>("subsys").ToLocalChecked(),
+    Nan::Set(infoObj, Nan::New<String>("subsys").ToLocalChecked(),
                  Nan::New(subsys).ToLocalChecked());
-    infoObj->Set(Nan::New<String>("message").ToLocalChecked(),
+    Nan::Set(infoObj, Nan::New<String>("message").ToLocalChecked(),
                  Nan::New(_logBuffer).ToLocalChecked());
 
     Local<Value> args[] = {infoObj};

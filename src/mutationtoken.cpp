@@ -66,7 +66,7 @@ v8::Local<v8::Value> MutationToken::create(lcb_MUTATION_TOKEN token,
         Nan::CopyBuffer(reinterpret_cast<const char *>(&tokenData),
                         sizeof(TokenData))
             .ToLocalChecked();
-    ret->Set(0, tokenBuf);
+    Nan::Set(ret, 0, tokenBuf);
 
     return ret;
 }
@@ -85,7 +85,7 @@ bool _StrToToken(Local<Value> obj, lcb_MUTATION_TOKEN *token, char *bucketName)
 bool _ObjToToken(Local<Value> obj, lcb_MUTATION_TOKEN *token, char *bucketName)
 {
     Local<Object> realObj = obj.As<Object>();
-    Local<Value> tokenBuf = realObj->Get(0);
+    Local<Value> tokenBuf = Nan::Get(realObj, 0).ToLocalChecked();
 
     if (!node::Buffer::HasInstance(tokenBuf)) {
         return false;

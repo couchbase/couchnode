@@ -240,23 +240,23 @@ void Connection::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,
 
             lcb_STATUS itemstatus =
                 rdr.getValue<&lcb_respsubdoc_result_status>(i);
-            resObj->Set(Nan::New("error").ToLocalChecked(),
+            Nan::Set(resObj, Nan::New("error").ToLocalChecked(),
                         Error::create(itemstatus));
 
             if (itemstatus == LCB_SUCCESS) {
-                resObj->Set(Nan::New("value").ToLocalChecked(),
+                Nan::Set(resObj, Nan::New("value").ToLocalChecked(),
                             rdr.parseValue<&lcb_respsubdoc_result_value>(i));
             } else {
-                resObj->Set(Nan::New("value").ToLocalChecked(), Nan::Null());
+                Nan::Set(resObj, Nan::New("value").ToLocalChecked(), Nan::Null());
             }
 
-            resArr->Set(i, resObj);
+            Nan::Set(resArr, i, resObj);
         }
 
         Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
+        Nan::Set(resObj, Nan::New("cas").ToLocalChecked(),
                     rdr.decodeCas<&lcb_respsubdoc_cas>());
-        resObj->Set(Nan::New("results").ToLocalChecked(), resArr);
+        Nan::Set(resObj, Nan::New("results").ToLocalChecked(), resArr);
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -284,7 +284,7 @@ void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
 
             // Include the specific index that failed.
             Local<Object> errObj = errVal.As<Object>();
-            errObj->Set(Nan::New("index").ToLocalChecked(),
+            Nan::Set(errObj, Nan::New("index").ToLocalChecked(),
                         Nan::New(static_cast<int>(i)));
         }
     }
@@ -293,7 +293,7 @@ void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
     if (rc == LCB_SUCCESS) {
         Local<Object> resObj = Nan::New<Object>();
 
-        resObj->Set(Nan::New("cas").ToLocalChecked(),
+        Nan::Set(resObj, Nan::New("cas").ToLocalChecked(),
                     rdr.decodeCas<&lcb_respsubdoc_cas>());
 
         resVal = resObj;
@@ -425,12 +425,12 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
         for (int headerIdx = 0; *headers; headerIdx++, headers++) {
             Local<String> headerVal =
                 Nan::New<String>(*headers).ToLocalChecked();
-            headersRes->Set(headerIdx, headerVal);
+            Nan::Set(headersRes, headerIdx, headerVal);
         }
 
         Local<Object> dataObj = Nan::New<Object>();
-        dataObj->Set(Nan::New("statusCode").ToLocalChecked(), httpStatusRes);
-        dataObj->Set(Nan::New("headers").ToLocalChecked(), headersRes);
+        Nan::Set(dataObj, Nan::New("statusCode").ToLocalChecked(), httpStatusRes);
+        Nan::Set(dataObj, Nan::New("headers").ToLocalChecked(), headersRes);
         dataVal = dataObj;
     } else {
         dataVal = rdr.parseValue<&lcb_resphttp_body>();
