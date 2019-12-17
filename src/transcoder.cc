@@ -39,11 +39,12 @@ enum Flags {
 
 };
 
-Local<Value> DefaultTranscoder::decodeJson(const void *bytes, size_t nbytes)
+MaybeLocal<Value> DefaultTranscoder::decodeJson(const void *bytes,
+                                                size_t nbytes)
 {
     Local<String> stringVal =
         Nan::New<String>((const char *)bytes, nbytes).ToLocalChecked();
-    return Nan::JSON{}.Parse(stringVal).ToLocalChecked();
+    return Nan::JSON{}.Parse(stringVal);
 }
 
 void DefaultTranscoder::encodeJson(ValueParser &venc, const void **bytes,
@@ -90,10 +91,9 @@ Local<Value> DefaultTranscoder::decode(const void *bytes, size_t nbytes,
         return Nan::CopyBuffer((char *)bytes, nbytes).ToLocalChecked();
     } else if (format == NF_JSON) {
         // JSON decodes to an Object
-        Nan::TryCatch tryCatch;
-        Local<Value> ret = decodeJson(bytes, nbytes);
-        if (!tryCatch.HasCaught()) {
-            return ret;
+        MaybeLocal<Value> ret = decodeJson(bytes, nbytes);
+        if (!ret.IsEmpty()) {
+            return ret.ToLocalChecked();
         }
 
         // If there was an exception inside JSON.parse, we fall through

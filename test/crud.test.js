@@ -147,6 +147,26 @@ describe('#crud', function() {
         testBadBasic(function(key, options, callback) {
           H.b.get(key, options, callback);
         });
+
+        it('should work with non-JSON documents', function() {
+          var testBytes = Buffer.from([1, 2, 3, 4, 5, 0, 9, 8, 7, 6]);
+          var key = H.key();
+
+          // Set a passthru transcoder to insert with 0 flags
+          H.b.setTranscoder(function(val) { return { value: val, flags: 0 }; }, null);
+
+          // Upsert the test bytes
+          H.b.upsert(key, testBytes, H.okCallback(function() {
+
+            // Reset the transcoder
+            H.b.setTranscoder(null, null);
+
+            H.b.get(key, function(err, res) {
+              assert(!err);
+              assert.deepEqual(res.value, testBytes);
+            });
+          }));
+        });
       });
       describe('getMulti', function() {
         it('should fail with a non-array keys', function() {

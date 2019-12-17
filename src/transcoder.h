@@ -28,7 +28,7 @@ using namespace v8;
 class DefaultTranscoder
 {
 public:
-    static Local<Value> decodeJson(const void *bytes, size_t nbytes);
+    static MaybeLocal<Value> decodeJson(const void *bytes, size_t nbytes);
     static void encodeJson(ValueParser &venc, const void **bytes,
                            lcb_SIZE *nbytes, Local<Value> value);
 
