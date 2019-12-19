@@ -20,18 +20,21 @@ NAN_METHOD(Connection::fnGet)
     if (!enc.parseOption<&lcb_cmdget_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdget_expiry>(info[3])) {
+    if (!enc.parseTranscoder(info[3])) {
+        return Nan::ThrowError(Error::create("bad transcoder passed"));
+    }
+    if (!enc.parseOption<&lcb_cmdget_expiry>(info[4])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (ValueParser::asUint(info[4]) > 0) {
-        if (!enc.parseOption<&lcb_cmdget_locktime>(info[4])) {
+    if (ValueParser::asUint(info[5]) > 0) {
+        if (!enc.parseOption<&lcb_cmdget_locktime>(info[5])) {
             return Nan::ThrowError(Error::create("bad locked passed"));
         }
     }
-    if (!enc.parseOption<&lcb_cmdget_timeout>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdget_timeout>(info[6])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[6])) {
+    if (!enc.parseCallback(info[7])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -143,11 +146,11 @@ NAN_METHOD(Connection::fnStore)
     if (!enc.parseOption<&lcb_cmdstore_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdstore_value>(info[3])) {
-        return Nan::ThrowError(Error::create("bad bytes passed"));
-    };
-    if (!enc.parseOption<&lcb_cmdstore_flags>(info[4])) {
-        return Nan::ThrowError(Error::create("bad flags passed"));
+    if (!enc.parseTranscoder(info[3])) {
+        return Nan::ThrowError(Error::create("bad transcoder passed"));
+    }
+    if (!enc.parseDocValue<&lcb_cmdstore_value, &lcb_cmdstore_flags>(info[4])) {
+        return Nan::ThrowError(Error::create("bad value passed"));
     }
     if (!enc.parseOption<&lcb_cmdstore_expiry>(info[5])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));

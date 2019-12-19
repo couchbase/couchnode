@@ -166,6 +166,41 @@ public:
         return Nan::CopyBuffer(value, nvalue).ToLocalChecked();
     }
 
+    template <lcb_STATUS (*BytesFn)(const RespType *, const char **, size_t *),
+              lcb_STATUS (*FlagsFn)(const RespType *, uint32_t *)>
+    Local<Value> parseDocValue() const
+    {
+        ScopedTraceSpan decodeTrace = this->_cookie->startDecodeTrace();
+
+        Local<Object> transcoderObj = Nan::New(this->_cookie->_transcoder);
+
+        Nan::MaybeLocal<Value> decodeFnValM =
+            Nan::Get(transcoderObj, Nan::New("decode").ToLocalChecked());
+        if (decodeFnValM.IsEmpty()) {
+            return Nan::Undefined();
+        }
+
+        Nan::MaybeLocal<Function> decodeFnM =
+            Nan::To<Function>(decodeFnValM.ToLocalChecked());
+        if (decodeFnM.IsEmpty()) {
+            return Nan::Undefined();
+        }
+
+        Local<Function> decodeFn = decodeFnM.ToLocalChecked();
+
+        Local<Value> valueVal = parseValue<BytesFn>();
+        Local<Value> flagsVal = parseValue<FlagsFn>();
+
+        Local<Value> argsArr[] = {valueVal, flagsVal};
+        Nan::MaybeLocal<Value> resValM =
+            Nan::CallAsFunction(decodeFn, transcoderObj, 2, argsArr);
+        if (resValM.IsEmpty()) {
+            return Nan::Undefined();
+        }
+
+        return resValM.ToLocalChecked();
+    }
+
     template <typename... Ts>
     void invokeNonFinalCallback(Ts... args) const
     {

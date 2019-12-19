@@ -16,12 +16,14 @@ using namespace v8;
 class OpCookie : public Nan::AsyncResource
 {
 public:
-    OpCookie(Connection *impl, const Nan::Callback &callback, TraceSpan span)
+    OpCookie(Connection *impl, const Nan::Callback &callback,
+             const Nan::Persistent<Object> &transcoder, TraceSpan span)
         : Nan::AsyncResource("couchbase::op")
         , _impl(impl)
         , _traceSpan(span)
     {
         _callback.Reset(callback.GetFunction());
+        _transcoder.Reset(transcoder);
     }
 
     ~OpCookie()
@@ -54,6 +56,7 @@ public:
 
     Connection *_impl;
     Nan::Callback _callback;
+    Nan::Persistent<Object> _transcoder;
     TraceSpan _traceSpan;
 };
 
@@ -280,37 +283,96 @@ public:
     {
     }
 
-    bool parseEncoder(Local<Value> callback)
+    TraceSpan startEncodeTrace()
     {
-        if (callback->IsUndefined() || callback->IsNull()) {
-            return true;
-        }
-        if (callback->IsFunction()) {
-            _encoder.Reset(callback.As<v8::Function>());
-            return true;
-        }
-        return false;
+        return TraceSpan::beginEncodeTrace(_impl, _traceSpan);
     }
 
-    bool parseDecoder(Local<Value> callback)
+    bool parseTranscoder(Local<Value> transcoder)
     {
-        if (callback->IsUndefined() || callback->IsNull()) {
+        if (transcoder->IsUndefined() || transcoder->IsNull()) {
             return true;
         }
-        if (callback->IsFunction()) {
-            _decoder.Reset(callback.As<v8::Function>());
-            return true;
+
+        Nan::MaybeLocal<Object> transcoderObjM = Nan::To<Object>(transcoder);
+        if (transcoderObjM.IsEmpty()) {
+            return false;
         }
-        return false;
+
+        _transcoder.Reset(transcoderObjM.ToLocalChecked());
+
+        return true;
     }
 
     bool parseCallback(Local<Value> callback)
     {
-        if (callback->IsFunction()) {
-            _callback.Reset(callback.As<v8::Function>());
-            return true;
+        Nan::MaybeLocal<Function> callbackFnM = Nan::To<Function>(callback);
+        if (callbackFnM.IsEmpty()) {
+            return false;
         }
-        return false;
+
+        _callback.Reset(callbackFnM.ToLocalChecked());
+        return true;
+    }
+
+    template <lcb_STATUS (*BytesFn)(CmdType *, const char *, size_t),
+              lcb_STATUS (*FlagsFn)(CmdType *, uint32_t)>
+    bool parseDocValue(Local<Value> value)
+    {
+        ScopedTraceSpan encSpan = this->startEncodeTrace();
+
+        Local<Object> transcoderObj = Nan::New(this->_transcoder);
+
+        Nan::MaybeLocal<Value> encodeFnValM =
+            Nan::Get(transcoderObj, Nan::New("encode").ToLocalChecked());
+        if (encodeFnValM.IsEmpty()) {
+            return false;
+        }
+
+        Nan::MaybeLocal<Function> encodeFnM =
+            Nan::To<Function>(encodeFnValM.ToLocalChecked());
+        if (encodeFnM.IsEmpty()) {
+            return false;
+        }
+
+        Local<Function> encodeFn = encodeFnM.ToLocalChecked();
+
+        this->startEncodeTrace();
+
+        Local<Value> argsArr[] = {value};
+        Nan::MaybeLocal<Value> resValM =
+            Nan::CallAsFunction(encodeFn, transcoderObj, 1, argsArr);
+        if (resValM.IsEmpty()) {
+            return false;
+        }
+
+        Nan::MaybeLocal<Object> resArrM =
+            Nan::To<Object>(resValM.ToLocalChecked());
+        if (resArrM.IsEmpty()) {
+            return false;
+        }
+
+        Local<Object> resArr = resArrM.ToLocalChecked();
+
+        Nan::MaybeLocal<Value> valueValM = Nan::Get(resArr, 0);
+        if (valueValM.IsEmpty()) {
+            return false;
+        }
+        Local<Value> valueVal = valueValM.ToLocalChecked();
+
+        Nan::MaybeLocal<Value> flagsValM = Nan::Get(resArr, 1);
+        if (flagsValM.IsEmpty()) {
+            return false;
+        }
+        Local<Value> flagsVal = flagsValM.ToLocalChecked();
+
+        if (!this->template parseOption<BytesFn>(valueVal)) {
+            return false;
+        }
+        if (!this->template parseOption<FlagsFn>(flagsVal)) {
+            return false;
+        }
+        return true;
     }
 
     template <typename SubCmdType, typename... Ts>
@@ -333,8 +395,8 @@ public:
     template <lcb_STATUS (*ExecFn)(lcb_INSTANCE *, void *, const CmdType *)>
     lcb_STATUS execute()
     {
-        OpCookie *cookie =
-            new OpCookie(this->_impl, this->_callback, this->_traceSpan);
+        OpCookie *cookie = new OpCookie(this->_impl, this->_callback,
+                                        this->_transcoder, this->_traceSpan);
 
         lcb_STATUS err = ExecFn(this->_impl->lcbHandle(), cookie, this->cmd());
         if (err != LCB_SUCCESS) {
@@ -351,8 +413,7 @@ protected:
     ValueParser _valueParser;
     std::vector<Nan::Utf8String *> _strings;
     Nan::Callback _callback;
-    Nan::Callback _encoder;
-    Nan::Callback _decoder;
+    Nan::Persistent<Object> _transcoder;
     TraceSpan _traceSpan;
 };
 

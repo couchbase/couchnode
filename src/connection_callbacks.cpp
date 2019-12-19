@@ -18,18 +18,16 @@ void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     Local<Value> errVal =
         rdr.decodeError<lcb_respget_error_context, lcb_respget_error_ref>(rc);
-    Local<Value> casVal, bytesVal, flagsVal;
+    Local<Value> casVal, valueVal;
     if (rc == LCB_SUCCESS) {
         casVal = rdr.decodeCas<&lcb_respget_cas>();
-        bytesVal = rdr.parseValue<&lcb_respget_value>();
-        flagsVal = rdr.parseValue<&lcb_respget_flags>();
+        valueVal = rdr.parseDocValue<&lcb_respget_value, lcb_respget_flags>();
     } else {
         casVal = Nan::Null();
-        bytesVal = Nan::Null();
-        flagsVal = Nan::Null();
+        valueVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, casVal, bytesVal, flagsVal);
+    rdr.invokeCallback(errVal, casVal, valueVal);
 }
 
 void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
