@@ -34,7 +34,7 @@
     "jsdoc-stability-tag": "~1.0.0",
     "jshint": "^2.10.2",
     "mocha": "^6.2.0",
-    "npm-check": "^5.9.0",
+    "npm-check-updates": "^4.0.1",
     "nyc": "^14.1.1",
     "prebuild": "^9.0.1",
     "semver": "^6.3.0",

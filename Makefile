@@ -25,7 +25,7 @@ node_modules:
 	@npm install
 
 checkdeps:
-	node ./node_modules/npm-check/lib/cli.js -s
+	node ./node_modules/npm-check-updates/bin/ncu -s
 
 checkaudit:
 	npm audit
