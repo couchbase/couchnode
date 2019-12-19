@@ -516,7 +516,7 @@ static void ossl_init_locks(void)
         ossl_lock_init(ossl_locks + ii);
     }
     /* TODO: locking API has been removed in OpenSSL 1.1 */
-    CRYPTO_set_locking_callback(ossl_lockfn);
+    CRYPTO_set_locking_callback(&ossl_lockfn);
 }
 
 static volatile int ossl_initialized = 0;

@@ -160,7 +160,7 @@ void lcb_log(const struct lcb_settings_st *settings, const char *subsys, int sev
         return;
 
     va_start(ap, fmt);
-    callback(settings->logger, settings->iid, subsys, severity, srcfile, srcline, fmt, ap);
+    callback((lcb_LOGGER*)settings->logger, settings->iid, subsys, severity, srcfile, srcline, fmt, ap);
     va_end(ap);
 }
 

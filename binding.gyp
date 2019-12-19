@@ -59,8 +59,6 @@
           '-fPIC',
           '-Wall',
           '-Wextra',
-          '-Wno-unused-variable',
-          '-Wno-unused-function',
           '$(EXTRA_CFLAGS)',
           '$(EXTRA_CPPFLAGS)',
           '$(EXTRA_CXXFLAGS)',

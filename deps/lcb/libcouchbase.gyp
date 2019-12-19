@@ -174,6 +174,8 @@
       ],
       'cflags': [
         '-fno-strict-aliasing',
+        '-Wno-unused-function',
+        '-Wno-missing-braces',
         '-Wno-missing-field-initializers'
       ],
       'cflags!': [
@@ -185,6 +187,8 @@
       'xcode_settings': {
         'WARNING_CFLAGS': [
           '-fno-strict-aliasing',
+          '-Wno-unused-function',
+          '-Wno-missing-braces',
           '-Wno-missing-field-initializers'
         ],
         'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
