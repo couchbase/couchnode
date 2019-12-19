@@ -162,14 +162,14 @@ const char *CouchbaseImpl::getClientString()
 };
 
 Local<Value> CouchbaseImpl::decodeDoc(const void *bytes, size_t nbytes,
-                                       lcb_U32 flags,
-                                       Nan::AsyncResource *asyncContext)
+                                      lcb_U32 flags,
+                                      Nan::AsyncResource *asyncContext)
 {
     if (transDecodeFunc) {
         Local<Object> decObj = Nan::New<Object>();
-        decObj->Set(Nan::New(valueKey),
-                    Nan::CopyBuffer((char *)bytes, nbytes).ToLocalChecked());
-        decObj->Set(Nan::New(flagsKey), Nan::New<Integer>(flags));
+        Nan::Set(decObj, Nan::New(valueKey),
+                 Nan::CopyBuffer((char *)bytes, nbytes).ToLocalChecked());
+        Nan::Set(decObj, Nan::New(flagsKey), Nan::New<Integer>(flags));
         Local<Value> args[] = {decObj};
         return transDecodeFunc->Call(1, args, asyncContext).ToLocalChecked();
     }
@@ -198,8 +198,10 @@ bool CouchbaseImpl::encodeDoc(ValueParser &venc, const void **bytes,
             Local<Value> res = mres.ToLocalChecked();
             if (res->IsObject()) {
                 Local<Object> encObj = res.As<Object>();
-                Local<Value> flagsObj = encObj->Get(Nan::New(flagsKey));
-                Local<Value> valueObj = encObj->Get(Nan::New(valueKey));
+                Local<Value> flagsObj =
+                    Nan::Get(encObj, Nan::New(flagsKey)).ToLocalChecked();
+                Local<Value> valueObj =
+                    Nan::Get(encObj, Nan::New(valueKey)).ToLocalChecked();
                 if (!flagsObj.IsEmpty() && !valueObj.IsEmpty()) {
                     if (node::Buffer::HasInstance(valueObj)) {
                         *nbytes = node::Buffer::Length(valueObj);
@@ -236,8 +238,8 @@ void _DispatchValueCallback(lcb_t instance, int cbtype,
         }
 
         Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
-        resObj->Set(Nan::New(me->valueKey), resData);
+        Nan::Set(resObj, Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        Nan::Set(resObj, Nan::New(me->valueKey), resData);
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -263,10 +265,10 @@ void _DispatchArithCallback(lcb_t instance, int cbtype,
     Local<Value> resVal;
     if (!resp->rc) {
         Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
-        resObj->Set(Nan::New(me->tokenKey),
-                    MutationToken::CreateToken(instance, cbtype, respbase));
-        resObj->Set(Nan::New(me->valueKey), Nan::New<Number>(resp->value));
+        Nan::Set(resObj, Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        Nan::Set(resObj, Nan::New(me->tokenKey),
+                 MutationToken::CreateToken(instance, cbtype, respbase));
+        Nan::Set(resObj, Nan::New(me->valueKey), Nan::New<Number>(resp->value));
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -291,7 +293,7 @@ void _DispatchBasicCallback(lcb_t instance, int cbtype,
     Local<Value> resVal;
     if (!resp->rc) {
         Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        Nan::Set(resObj, Nan::New(me->casKey), Cas::CreateCas(resp->cas));
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -316,9 +318,9 @@ void _DispatchStoreCallback(lcb_t instance, int cbtype,
     Local<Value> resVal;
     if (!resp->rc) {
         Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
-        resObj->Set(Nan::New(me->tokenKey),
-                    MutationToken::CreateToken(instance, cbtype, resp));
+        Nan::Set(resObj, Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+        Nan::Set(resObj, Nan::New(me->tokenKey),
+                 MutationToken::CreateToken(instance, cbtype, resp));
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -426,24 +428,24 @@ void viewrow_callback(lcb_t instance, int ignoreme,
     }
 
     Local<Object> rowObj = Nan::New<Object>();
-    rowObj->Set(Nan::New(CouchbaseImpl::keyKey),
-                lcbNanParseJson(resp->key, resp->nkey));
+    Nan::Set(rowObj, Nan::New(CouchbaseImpl::keyKey),
+             lcbNanParseJson(resp->key, resp->nkey));
 
     if (resp->value) {
-        rowObj->Set(Nan::New(CouchbaseImpl::valueKey),
-                    lcbNanParseJson(resp->value, resp->nvalue));
+        Nan::Set(rowObj, Nan::New(CouchbaseImpl::valueKey),
+                 lcbNanParseJson(resp->value, resp->nvalue));
     } else {
-        rowObj->Set(Nan::New(CouchbaseImpl::valueKey), Nan::Null());
+        Nan::Set(rowObj, Nan::New(CouchbaseImpl::valueKey), Nan::Null());
     }
 
     if (resp->geometry) {
-        rowObj->Set(Nan::New(CouchbaseImpl::geometryKey),
-                    lcbNanParseJson(resp->geometry, resp->ngeometry));
+        Nan::Set(rowObj, Nan::New(CouchbaseImpl::geometryKey),
+                 lcbNanParseJson(resp->geometry, resp->ngeometry));
     }
 
     if (resp->docid) {
-        rowObj->Set(Nan::New(CouchbaseImpl::idKey),
-                    lcbNanToString(resp->docid, resp->ndocid));
+        Nan::Set(rowObj, Nan::New(CouchbaseImpl::idKey),
+                 lcbNanToString(resp->docid, resp->ndocid));
 
         if (resp->docresp) {
             const lcb_RESPGET *rg = resp->docresp;
@@ -451,13 +453,13 @@ void viewrow_callback(lcb_t instance, int ignoreme,
                 Local<Value> rowVal =
                     me->decodeDoc(rg->value, rg->nvalue, rg->itmflags,
                                   cookie->asyncContext());
-                rowObj->Set(Nan::New(CouchbaseImpl::docKey), rowVal);
+                Nan::Set(rowObj, Nan::New(CouchbaseImpl::docKey), rowVal);
             } else {
-                rowObj->Set(Nan::New(CouchbaseImpl::docKey), Nan::Null());
+                Nan::Set(rowObj, Nan::New(CouchbaseImpl::docKey), Nan::Null());
             }
         }
     } else {
-        rowObj->Set(Nan::New(CouchbaseImpl::idKey), Nan::Null());
+        Nan::Set(rowObj, Nan::New(CouchbaseImpl::idKey), Nan::Null());
     }
 
     Local<Value> args[] = {Nan::New<Number>(-1), rowObj};
@@ -567,38 +569,38 @@ static void subdoc_callback(lcb_t instance, int cbtype,
     }
 
     outObj = Nan::New<Object>();
-    outObj->Set(Nan::New(me->casKey), Cas::CreateCas(resp->cas));
+    Nan::Set(outObj, Nan::New(me->casKey), Cas::CreateCas(resp->cas));
 
     // Create an array of the correct size
     outArr = Nan::New<Array>(results.size());
-    outObj->Set(Nan::New(me->resultsKey), outArr);
+    Nan::Set(outObj, Nan::New(me->resultsKey), outArr);
 
     for (size_t i = 0; i < results.size(); ++i) {
         lcb_SDENTRY respitem = results[i];
         Local<Object> resObj = Nan::New<Object>();
 
         if (cbtype == LCB_CALLBACK_SDMUTATE) {
-            resObj->Set(Nan::New(me->idKey), Nan::New(respitem.index));
+            Nan::Set(resObj, Nan::New(me->idKey), Nan::New(respitem.index));
         } else {
-            resObj->Set(Nan::New(me->idKey), Nan::New((uint8_t)i));
+            Nan::Set(resObj, Nan::New(me->idKey), Nan::New((uint8_t)i));
         }
 
         if (respitem.status != LCB_SUCCESS) {
             errorCount++;
 
             Local<Value> errObj = Error::create(respitem.status);
-            resObj->Set(Nan::New(me->errorKey), errObj);
+            Nan::Set(resObj, Nan::New(me->errorKey), errObj);
         } else {
             if (respitem.nvalue > 0) {
                 Local<Value> valueObj =
                     lcbNanParseJson(respitem.value, respitem.nvalue);
-                resObj->Set(Nan::New(me->valueKey), valueObj);
+                Nan::Set(resObj, Nan::New(me->valueKey), valueObj);
             } else {
-                resObj->Set(Nan::New(me->valueKey), Nan::Null());
+                Nan::Set(resObj, Nan::New(me->valueKey), Nan::Null());
             }
         }
 
-        outArr->Set(i, resObj);
+        Nan::Set(outArr, i, resObj);
     }
 
     cookie->endTrace();
@@ -621,9 +623,9 @@ static void ping_callback(lcb_t instance, int cbtype,
     Local<Value> resVal;
     if (!resp->rc) {
         Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->valueKey),
-                    Nan::New<String>((const char *)resp->json, (int)resp->njson)
-                        .ToLocalChecked());
+        Nan::Set(resObj, Nan::New(me->valueKey),
+                 Nan::New<String>((const char *)resp->json, (int)resp->njson)
+                     .ToLocalChecked());
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -649,9 +651,9 @@ static void diag_callback(lcb_t instance, int cbtype,
     Local<Value> resVal;
     if (!resp->rc) {
         Local<Object> resObj = Nan::New<Object>();
-        resObj->Set(Nan::New(me->valueKey),
-                    Nan::New<String>((const char *)resp->json, (int)resp->njson)
-                        .ToLocalChecked());
+        Nan::Set(resObj, Nan::New(me->valueKey),
+                 Nan::New<String>((const char *)resp->json, (int)resp->njson)
+                     .ToLocalChecked());
         resVal = resObj;
     } else {
         resVal = Nan::Null();
@@ -675,8 +677,8 @@ static void httpdata_callback(lcb_t instance, int ignoreme,
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
         Local<Object> metaObj = Nan::New<Object>();
-        metaObj->Set(Nan::New(me->statusCodeKey),
-                     Nan::New<Number>(resp->htstatus));
+        Nan::Set(metaObj, Nan::New(me->statusCodeKey),
+                 Nan::New<Number>(resp->htstatus));
 
         cookie->endTrace();
 

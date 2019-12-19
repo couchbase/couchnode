@@ -48,14 +48,14 @@ static void log_handler(struct lcb_logprocs_st *procs, unsigned int iid,
     }
 
     Local<Object> infoObj = Nan::New<Object>();
-    infoObj->Set(Nan::New(CouchbaseImpl::severityKey), Nan::New(severity));
-    infoObj->Set(Nan::New(CouchbaseImpl::srcFileKey),
-                 Nan::New(srcfile).ToLocalChecked());
-    infoObj->Set(Nan::New(CouchbaseImpl::srcLineKey), Nan::New(srcline));
-    infoObj->Set(Nan::New(CouchbaseImpl::subsysKey),
-                 Nan::New(subsys).ToLocalChecked());
-    infoObj->Set(Nan::New(CouchbaseImpl::messageKey),
-                 Nan::New(logBuffer).ToLocalChecked());
+    Nan::Set(infoObj, Nan::New(CouchbaseImpl::severityKey), Nan::New(severity));
+    Nan::Set(infoObj, Nan::New(CouchbaseImpl::srcFileKey),
+             Nan::New(srcfile).ToLocalChecked());
+    Nan::Set(infoObj, Nan::New(CouchbaseImpl::srcLineKey), Nan::New(srcline));
+    Nan::Set(infoObj, Nan::New(CouchbaseImpl::subsysKey),
+             Nan::New(subsys).ToLocalChecked());
+    Nan::Set(infoObj, Nan::New(CouchbaseImpl::messageKey),
+             Nan::New(logBuffer).ToLocalChecked());
 
     Nan::AsyncResource asyncContext("libcouchbaseAsync");
     Local<Value> args[] = {infoObj};

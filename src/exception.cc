@@ -32,7 +32,7 @@ Local<Value> Error::create(const std::string &msg, int err)
     Local<Object> errObj =
         Nan::NewInstance(getErrorClass(), 1, args).ToLocalChecked();
     if (err > 0) {
-        errObj->Set(Nan::New(codeKey), Nan::New<Integer>(err));
+        Nan::Set(errObj, Nan::New(codeKey), Nan::New<Integer>(err));
     }
     return errObj;
 }
@@ -47,7 +47,7 @@ Local<Value> Error::create(lcb_error_t err)
         Nan::New<String>(lcb_strerror(NULL, err)).ToLocalChecked()};
     Local<Object> errObj =
         Nan::NewInstance(getErrorClass(), 1, args).ToLocalChecked();
-    errObj->Set(Nan::New(codeKey), Nan::New<Integer>(err));
+    Nan::Set(errObj, Nan::New(codeKey), Nan::New<Integer>(err));
     return errObj;
 }
 
