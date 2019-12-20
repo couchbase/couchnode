@@ -87,13 +87,13 @@ void generate_nonce(char *buffer, int buffer_length)
 #endif
     {
         int aRandom = 0;
-        unsigned int aMaxRandBits = 0,
-                     aMaxRand = RAND_MAX;           // we have to compute how many bits the rand() function can return
-        unsigned int aRandRange = aMaxRandBits / 8; // number of bytes we can extract from a rand() value.
+        unsigned int aMaxRandBits = 0, aRandRange,
+                     aMaxRand = RAND_MAX; // we have to compute how many bits the rand() function can return
         int i;
         while (aMaxRand >>= 1) {
             aMaxRandBits++;
         }
+        aRandRange = aMaxRandBits / 8; // number of bytes we can extract from a rand() value.
         // To avoid generating a new random number for each character, we call rand() only once every 5 characters.
         // A 32-bits integer can give 5 values of 6 bits.
         for (i = 0; i < buffer_length; ++i) {

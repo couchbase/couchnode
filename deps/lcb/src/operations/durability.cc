@@ -93,8 +93,8 @@ size_t Item::prepare(uint16_t ixarray[4])
     res().exists_master = 0;
     res().npersisted = 0;
     res().nreplicated = 0;
-    res().cas = 0;
-    res().rc = LCB_SUCCESS;
+    res().ctx.cas = 0;
+    res().ctx.rc = LCB_SUCCESS;
 
     if (parent->opts.persist_to == 1 && parent->opts.replicate_to == 0) {
         maxix = 1; /* Only master! */
@@ -213,11 +213,11 @@ void Item::finish()
     instance = parent->instance;
 
     if (parent->is_durstore) {
-        lcb_RESPSTORE resp = {0};
-        resp.key = result.key;
-        resp.nkey = result.nkey;
-        resp.rc = result.rc;
-        resp.cas = reqcas;
+        lcb_RESPSTORE resp{};
+        resp.ctx.key = result.ctx.key;
+        resp.ctx.key_len = result.ctx.key_len;
+        resp.ctx.rc = result.ctx.rc;
+        resp.ctx.cas = reqcas;
         resp.cookie = result.cookie;
         resp.store_ok = 1;
         resp.dur_resp = &result;
@@ -283,14 +283,14 @@ LIBCOUCHBASE_API
 lcb_STATUS lcb_durability_validate(lcb_INSTANCE *instance, lcb_U16 *persist_to, lcb_U16 *replicate_to, int options)
 {
     if (!LCBT_VBCONFIG(instance)) {
-        return LCB_CLIENT_ENOCONF;
+        return LCB_ERR_NO_CONFIGURATION;
     }
     int replica_max = std::min(LCBT_NREPLICAS(instance), LCBT_NDATASERVERS(instance) - 1);
     int persist_max = replica_max + 1;
 
     if (*persist_to == 0 && *replicate_to == 0) {
         /* Empty values! */
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     /* persist_max is always one more than replica_max */
@@ -298,7 +298,7 @@ lcb_STATUS lcb_durability_validate(lcb_INSTANCE *instance, lcb_U16 *persist_to, 
         if (options & LCB_DURABILITY_VALIDATE_CAPMAX) {
             *persist_to = persist_max;
         } else {
-            return LCB_DURABILITY_ETOOMANY;
+            return LCB_ERR_DURABILITY_TOO_MANY;
         }
     }
 
@@ -315,7 +315,7 @@ lcb_STATUS lcb_durability_validate(lcb_INSTANCE *instance, lcb_U16 *persist_to, 
         if (options & LCB_DURABILITY_VALIDATE_CAPMAX) {
             *replicate_to = replica_max;
         } else {
-            return LCB_DURABILITY_ETOOMANY;
+            return LCB_ERR_DURABILITY_TOO_MANY;
         }
     }
     return LCB_SUCCESS;
@@ -329,7 +329,7 @@ void Durset::MCTX_setspan(lcbtrace_SPAN *span_)
 lcb_STATUS Durset::MCTX_addcmd(const lcb_CMDBASE *cmd)
 {
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
-        return LCB_EMPTY_KEY;
+        return LCB_ERR_EMPTY_KEY;
     }
 
     entries.resize(entries.size() + 1);
@@ -339,7 +339,7 @@ lcb_STATUS Durset::MCTX_addcmd(const lcb_CMDBASE *cmd)
     mcreq_map_key(&instance->cmdq, &cmd->key, MCREQ_PKT_BASESIZE, &vbid, &srvix);
 
     /* ok. now let's initialize the entry..*/
-    ent.res().nkey = cmd->key.contig.nbytes;
+    ent.res().ctx.key_len = cmd->key.contig.nbytes;
     ent.reqcas = cmd->cas;
     ent.parent = this;
     ent.vbid = vbid;
@@ -356,13 +356,13 @@ lcb_STATUS Durset::MCTX_done(const void *cookie_)
 
     if (entries.empty()) {
         delete this;
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     for (size_t ii = 0; ii < entries.size(); ii++) {
         Item *ent = &entries[ii];
-        ent->res().key = kptr;
-        kptr += ent->res().nkey;
+        ent->res().ctx.key = kptr;
+        kptr += ent->res().ctx.key_len;
     }
 
     if ((err = prepare_schedule()) != LCB_SUCCESS) {
@@ -437,7 +437,7 @@ lcb_MULTICMD_CTX *lcb_endure3_ctxnew(lcb_INSTANCE *instance, const lcb_durabilit
     *errp = LCB_SUCCESS;
 
     if (!LCBT_VBCONFIG(instance)) {
-        *errp = LCB_CLIENT_ETMPFAIL;
+        *errp = LCB_ERR_NO_CONFIGURATION;
         return NULL;
     }
 
@@ -445,12 +445,12 @@ lcb_MULTICMD_CTX *lcb_endure3_ctxnew(lcb_INSTANCE *instance, const lcb_durabilit
         for (size_t ii = 0; ii < LCBT_NSERVERS(instance); ii++) {
             lcb::Server *srv = instance->get_server(ii);
             if (srv->is_connected() && !srv->supports_mutation_tokens()) {
-                *errp = LCB_EINVAL;
+                *errp = LCB_ERR_INVALID_ARGUMENT;
                 return NULL;
             }
         }
     } else {
-        *errp = LCB_EINVAL;
+        *errp = LCB_ERR_INVALID_ARGUMENT;
         return NULL;
     }
 
@@ -509,7 +509,7 @@ void Durset::tick()
             break;
 
         case STATE_TIMEOUT: {
-            lcb_STATUS err = lasterr ? lasterr : LCB_ETIMEDOUT;
+            lcb_STATUS err = lasterr ? lasterr : LCB_ERR_TIMEOUT;
             ns_timeout = 0;
             next_state = STATE_IGNORE;
 
@@ -522,8 +522,8 @@ void Durset::tick()
                 if (ent->done) {
                     continue;
                 }
-                if (ent->res().rc == LCB_SUCCESS) {
-                    ent->res().rc = err;
+                if (ent->res().ctx.rc == LCB_SUCCESS) {
+                    ent->res().ctx.rc = err;
                 }
                 ent->finish();
             }

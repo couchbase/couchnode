@@ -299,7 +299,7 @@ lcbtrace_TRACER *zipkin_new()
 
 static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
-    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
+    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror_short(err));
     exit(EXIT_FAILURE);
 }
 
@@ -328,7 +328,7 @@ static void view_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPVIEW
         rc = lcb_respget_status(doc);
         uint64_t cas;
         lcb_respget_cas(doc, &cas);
-        printf("   Document for response. RC=0x%X. CAS=0x%llx\n", rc, cas);
+        printf("   Document for response. RC=0x%X. CAS=0x%llx\n", rc, (long long)cas);
     }
 }
 

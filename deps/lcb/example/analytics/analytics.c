@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
         int idx = 0;
         lcb_cmdanalytics_create(&cmd);
         lcb_cmdanalytics_callback(cmd, row_callback);
-        lcb_cmdanalytics_query(cmd, queries[ii].query, queries[ii].query_len);
+        lcb_cmdanalytics_payload(cmd, queries[ii].query, queries[ii].query_len);
         check(lcb_analytics(instance, &idx, cmd), "schedule analytics query");
         printf("----> \x1b[1m%s\x1b[0m\n", queries[ii].comment);
         printf("----> \x1b[36m%.*s\x1b[0m\n", (int)queries[ii].query_len, queries[ii].query);

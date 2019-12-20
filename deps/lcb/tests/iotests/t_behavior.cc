@@ -204,15 +204,15 @@ TEST_F(Behavior, BadPluginEnvironment)
     ASSERT_EQ(0, info.v.v0.effective);
 
     lcb_INSTANCE *instance2;
-    ASSERT_EQ(LCB_DLOPEN_FAILED, lcb_create(&instance2, NULL));
+    ASSERT_EQ(LCB_ERR_DLOPEN_FAILED, lcb_create(&instance2, NULL));
 
     setPluginEnv("foobarbaz", "");
-    ASSERT_EQ(LCB_BAD_ENVIRONMENT, lcb_create(&instance2, NULL));
+    ASSERT_EQ(LCB_ERR_BAD_ENVIRONMENT, lcb_create(&instance2, NULL));
 
     // Find a DLL that we know can be loaded, but doesn't have the symbols
     // we need. For windows, we use the unqualified name,
     const char *dllname = TEST_SHARED_OBJECT;
 
     setPluginEnv(dllname, "nonexist-symbol");
-    ASSERT_EQ(LCB_DLSYM_FAILED, lcb_create(&instance2, NULL));
+    ASSERT_EQ(LCB_ERR_DLSYM_FAILED, lcb_create(&instance2, NULL));
 }

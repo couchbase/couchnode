@@ -67,7 +67,7 @@ static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTO
         lcb_respstore_cas(resp, &cas);
         fprintf(stderr, "STORED \"%.*s\" CAS: %" PRIu64 "\n", (int)nkey, key, cas);
     } else {
-        fprintf(stderr, "STORE ERROR: %s (0x%x)\n", lcb_strerror(instance, rc), rc);
+        fprintf(stderr, "STORE ERROR: %s (0x%x)\n", lcb_strerror_short(rc), rc);
         exit(EXIT_FAILURE);
     }
     (void)cbtype;
@@ -115,7 +115,7 @@ static void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP
     fprintf(stderr, "%.*s... %d\n", (int)npath, path, status);
     rc = lcb_resphttp_status(resp);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Couldn't issue HTTP request: %s\n", lcb_strerror(NULL, rc));
+        fprintf(stderr, "Couldn't issue HTTP request: %s\n", lcb_strerror_short(rc));
         exit(EXIT_FAILURE);
     } else if (status != 201) {
         const char *body;
@@ -179,18 +179,18 @@ int main(int argc, char *argv[])
     err = lcb_create(&instance, create_options);
     lcb_createopts_destroy(create_options);
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to create libcouchbase instance: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to create libcouchbase instance: %s\n", lcb_strerror_short(err));
         exit(EXIT_FAILURE);
     }
     /* Initiate the connect sequence in libcouchbase */
     if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to initiate connect: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to initiate connect: %s\n", lcb_strerror_short(err));
         lcb_destroy(instance);
         exit(EXIT_FAILURE);
     }
     lcb_wait(instance);
     if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to establish connection to cluster: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to establish connection to cluster: %s\n", lcb_strerror_short(err));
         exit(EXIT_FAILURE);
     }
     lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
         lcb_cmdstore_value(cmd, bytes, nbytes);
         err = lcb_store(instance, NULL, cmd);
         if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to store: %s\n", lcb_strerror(NULL, err));
+            fprintf(stderr, "Failed to store: %s\n", lcb_strerror_short(err));
             exit(EXIT_FAILURE);
         }
         lcb_cmdstore_destroy(cmd);
@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
         err = lcb_http(instance, NULL, cmd);
         lcb_cmdhttp_destroy(cmd);
         if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to create design document: %s (0x%02x)\n", lcb_strerror(NULL, err), err);
+            fprintf(stderr, "Failed to create design document: %s (0x%02x)\n", lcb_strerror_short(err), err);
             exit(EXIT_FAILURE);
         }
     }

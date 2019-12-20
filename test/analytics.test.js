@@ -33,7 +33,7 @@ describe('#analytics', () => {
     it('should fail to overwrite an existing dataverse', async () => {
       await H.throwsHelper(async () => {
         await H.c.analyticsIndexes().createDataverse(dvName);
-      }, H.lib.DataverseAlreadyExistsError);
+      }, H.lib.DataverseExistsError);
     });
 
     it('should successfully create a dataset', async () => {
@@ -54,7 +54,7 @@ describe('#analytics', () => {
         await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
           dataverseName: dvName
         });
-      }, H.lib.DatasetAlreadyExistsError);
+      }, H.lib.DatasetExistsError);
     });
 
     it('should successfully create an index', async () => {
@@ -75,7 +75,7 @@ describe('#analytics', () => {
         await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
           dataverseName: dvName
         });
-      }, H.lib.AnalyticsIndexAlreadyExistsError);
+      }, H.lib.IndexExistsError);
     });
 
     it('should successfully connect a link', async () => {
@@ -95,7 +95,7 @@ describe('#analytics', () => {
 
     it('should successfully get pending mutations', async () => {
       var numPending = await H.c.analyticsIndexes().getPendingMutations();
-      assert.isNumber(numPending);
+      assert.isObject(numPending);
     });
 
     it('should see test data correctly', async () => {

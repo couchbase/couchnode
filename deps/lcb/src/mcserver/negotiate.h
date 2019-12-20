@@ -114,6 +114,7 @@ class SessionInfo : public lcbio_PROTOCTX
      * @return true if supported, false otherwise
      */
     bool has_feature(uint16_t feature) const;
+    bool selected_bucket() const;
 
   private:
     SessionInfo();
@@ -121,6 +122,7 @@ class SessionInfo : public lcbio_PROTOCTX
 
     std::string mech;
     std::vector< uint16_t > server_features;
+    bool selected;
 };
 
 } // namespace lcb

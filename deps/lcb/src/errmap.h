@@ -284,6 +284,13 @@ extern "C" {
 lcb_pERRMAP lcb_errmap_new(void);
 void lcb_errmap_free(lcb_pERRMAP);
 
+struct lcb_RETRY_REQUEST_ {
+    int is_idempotent;
+    int retry_attempts;
+};
+
+lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason);
+
 #ifdef __cplusplus
 }
 #endif

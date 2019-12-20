@@ -171,7 +171,7 @@ TEST_F(QueryUnitTest, testInvalidJson)
     lcb_cmdn1ql_create(&cmd);
 
     const char *bad_query = "blahblah";
-    ASSERT_NE(LCB_SUCCESS, lcb_cmdn1ql_query(cmd, bad_query, strlen(bad_query)));
+    ASSERT_NE(LCB_SUCCESS, lcb_cmdn1ql_payload(cmd, bad_query, strlen(bad_query)));
     lcb_cmdn1ql_destroy(cmd);
 }
 
@@ -252,7 +252,7 @@ TEST_F(QueryUnitTest, testPrepareStale)
 
     lcb_cmdn1ql_reset(cmd);
     lcb_cmdn1ql_callback(cmd, rowcb);
-    ASSERT_EQ(LCB_SUCCESS, lcb_cmdn1ql_query(cmd, raw.c_str(), raw.size()));
+    ASSERT_EQ(LCB_SUCCESS, lcb_cmdn1ql_payload(cmd, raw.c_str(), raw.size()));
 
     res.reset();
     rc = lcb_n1ql(instance, &res, cmd);

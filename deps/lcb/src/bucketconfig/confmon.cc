@@ -207,13 +207,13 @@ void Confmon::provider_failed(Provider *provider, lcb_STATUS reason)
     if (reason != LCB_SUCCESS) {
         if (settings->detailed_neterr && last_error != LCB_SUCCESS) {
             /* Filter out any artificial 'connect error' or 'network error' codes */
-            if (reason != LCB_CONNECT_ERROR && reason != LCB_NETWORK_ERROR) {
+            if (reason != LCB_ERR_CONNECT_ERROR && reason != LCB_ERR_NETWORK) {
                 last_error = reason;
             }
         } else {
             last_error = reason;
         }
-        if (reason == LCB_AUTH_ERROR) {
+        if (reason == LCB_ERR_AUTHENTICATION_FAILURE) {
             goto GT_ERROR;
         }
     }

@@ -75,7 +75,7 @@ static long ret_thr_self(void)
 
 static hrtime_t start_time = 0;
 
-static void console_log(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
+static void console_log(const lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
                         const char *srcfile, int srcline, const char *fmt, va_list ap);
 
 static struct lcb_CONSOLELOGGER console_logprocs = {{console_log, NULL}, NULL, LCB_LOG_INFO /* Minimum severity */};
@@ -108,7 +108,7 @@ static const char *level_to_string(int severity)
 /**
  * Default logging callback for the verbose logger.
  */
-static void console_log(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
+static void console_log(const lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
                         const char *srcfile, int srcline, const char *fmt, va_list ap)
 {
     FILE *fp;
@@ -160,7 +160,7 @@ void lcb_log(const struct lcb_settings_st *settings, const char *subsys, int sev
         return;
 
     va_start(ap, fmt);
-    callback((lcb_LOGGER*)settings->logger, settings->iid, subsys, severity, srcfile, srcline, fmt, ap);
+    callback(settings->logger, settings->iid, subsys, severity, srcfile, srcline, fmt, ap);
     va_end(ap);
 }
 
@@ -236,7 +236,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_logger_callback(lcb_LOGGER *logger, lcb_LOGGER_C
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_logger_cookie(lcb_LOGGER *logger, void **cookie)
+LIBCOUCHBASE_API lcb_STATUS lcb_logger_cookie(const lcb_LOGGER *logger, void **cookie)
 {
     *cookie = logger->cookie;
     return LCB_SUCCESS;

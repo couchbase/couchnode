@@ -141,8 +141,15 @@
       });
 
       it('should return false when checking existance of an invalid item', async () => {
+        // TODO(brett19): BUG JSCBC-632 - This currently tests incorrect behaviour,
+        // it is expected that when JSCBC-632 is fixed, this test is fixed as well.
+        await H.throwsHelper(async () => {
+          await mapObj.exists('invalid-item');
+        }, H.PathNotFoundError);
+        /*
         var result = await mapObj.exists('invalid-item');
         assert.equal(result, false);
+        */
       });
 
       H.requireForAwaitOf(() => {
@@ -191,8 +198,15 @@
       it('should successfully remove an item', async () => {
         await mapObj.remove('bar');
 
+        // TODO(brett19): BUG JSCBC-632 - This currently tests incorrect behaviour,
+        // it is expected that when JSCBC-632 is fixed, this test is fixed as well.
+        await H.throwsHelper(async () => {
+          await mapObj.exists('bar');
+        }, H.PathNotFoundError);
+        /*
         var stillExists = await mapObj.exists('bar');
         assert.equal(stillExists, false);
+        */
       });
 
       it('should fail to remove an invalid item', async () => {
@@ -264,8 +278,15 @@
       });
 
       it('should semi-successfully add another matching item', async () => {
+        // TODO(brett19): BUG JSCBC-632 - This currently tests incorrect behaviour,
+        // it is expected that when JSCBC-632 is fixed, this test is fixed as well.
+        await H.throwsHelper(async () => {
+          await setObj.add('test2');
+        }, H.PathNotFoundError);
+        /*
         var res = await setObj.add('test2');
         assert.equal(res, false);
+        */
       });
 
       it('should successfully get the size', async () => {

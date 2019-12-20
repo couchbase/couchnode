@@ -30,7 +30,7 @@
 
 static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
-    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
+    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror_short(err));
     exit(EXIT_FAILURE);
 }
 
@@ -58,7 +58,7 @@ static void op_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *
             die(instance, "Couldn't decrypt field 'message'", err);
         }
         if (dcmd.out == NULL) {
-            die(instance, "Crypto provider returned success, but document is NULL", LCB_EINVAL);
+            die(instance, "Crypto provider returned success, but document is NULL", LCB_ERR_INVALID_ARGUMENT);
         }
         /* chop trailing LF for nicer look */
         if (dcmd.out[dcmd.nout - 1] == '\n') {

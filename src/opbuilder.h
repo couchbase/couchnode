@@ -121,10 +121,10 @@ public:
         return _parseUintOption<uint32_t, SetFn>(value);
     }
 
-    template <lcb_STATUS (*SetFn)(CmdType *, lcb_CAS)>
+    template <lcb_STATUS (*SetFn)(CmdType *, uint64_t)>
     bool parseOption(Local<Value> value)
     {
-        lcb_CAS cas;
+        uint64_t cas;
 
         if (!Cas::parse(value, &cas)) {
             return false;

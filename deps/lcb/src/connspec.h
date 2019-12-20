@@ -90,9 +90,9 @@ class LCB_CLASS_EXPORT Connspec
     {
     }
 
-    lcb_STATUS parse(const std::string &connstr, const char **errmsg = NULL)
+    lcb_STATUS parse(const std::string &connstr_, const char **errmsg = NULL)
     {
-        return parse(connstr.c_str(), connstr.size(), errmsg);
+        return parse(connstr_.c_str(), connstr_.size(), errmsg);
     }
     lcb_STATUS parse(const char *connstr, size_t connstr_len, const char **errmsg = NULL);
     lcb_STATUS load(const lcb_CREATEOPTS &);

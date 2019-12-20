@@ -73,8 +73,9 @@ class DurabilityOperation
     void assign(const lcb_RESPENDURE *resp)
     {
         this->resp = *resp;
-        key.assign((const char *)resp->key, resp->nkey);
-        this->resp.key = NULL;
+        key.assign((const char *)resp->ctx.key, resp->ctx.key_len);
+        this->resp.ctx.key = NULL;
+        this->resp.ctx.key_len = 0;
     }
 
     void wait(lcb_INSTANCE *instance)
@@ -117,7 +118,7 @@ class DurabilityOperation
 
     void assertCriteriaMatch(const lcb_durability_opts_st &opts)
     {
-        ASSERT_EQ(LCB_SUCCESS, resp.rc);
+        ASSERT_EQ(LCB_SUCCESS, resp.ctx.rc);
         ASSERT_TRUE(resp.persisted_master != 0);
         ASSERT_TRUE(opts.v.v0.persist_to <= resp.npersisted);
         ASSERT_TRUE(opts.v.v0.replicate_to <= resp.nreplicated);
@@ -131,10 +132,10 @@ class DurabilityOperation
         }
         std::stringstream ss;
         ss << "Key: " << key << std::endl
-           << "Error: " << resp.rc << std::endl
+           << "Error: " << resp.ctx.rc << std::endl
            << "Persisted (master?): " << resp.npersisted << " (" << resp.persisted_master << ")" << std::endl
            << "Replicated: " << resp.nreplicated << std::endl
-           << "CAS: 0x" << std::hex << resp.cas << std::endl;
+           << "CAS: 0x" << std::hex << resp.ctx.cas << std::endl;
         str += ss.str();
     }
 
@@ -181,11 +182,11 @@ class DurabilityMultiOperation
 
     void assign(const lcb_RESPENDURE *resp)
     {
-        ASSERT_GT(resp->nkey, 0U);
+        ASSERT_GT(resp->ctx.key_len, 0U);
         counter++;
 
         string key;
-        key.assign((const char *)resp->key, resp->nkey);
+        key.assign((const char *)resp->ctx.key, resp->ctx.key_len);
         ASSERT_TRUE(kmap.find(key) != kmap.end());
         kmap[key].assign(resp);
     }
@@ -203,7 +204,7 @@ class DurabilityMultiOperation
 
     template < typename T >
     void assertAllMatch(const lcb_durability_opts_t &opts, const T &items_ok, const T &items_missing,
-                        lcb_STATUS missing_err = LCB_KEY_ENOENT)
+                        lcb_STATUS missing_err = LCB_ERR_DOCUMENT_NOT_FOUND)
     {
 
         for (map< string, DurabilityOperation >::iterator iter = kmap.begin(); iter != kmap.end(); iter++) {
@@ -214,7 +215,7 @@ class DurabilityMultiOperation
                 iter->second.assertCriteriaMatch(opts);
 
             } else if (_findItem(iter->second.key, items_missing, itm_tmp)) {
-                ASSERT_EQ(missing_err, iter->second.resp.rc);
+                ASSERT_EQ(missing_err, iter->second.resp.ctx.rc);
 
             } else {
                 ASSERT_STREQ("", "Key not in missing or OK list");
@@ -266,7 +267,7 @@ TEST_F(DurabilityUnitTest, testInvalidCriteria)
     lcb_MULTICMD_CTX *mctx;
     lcb_STATUS err = LCB_SUCCESS;
     mctx = lcb_endure3_ctxnew(instance, &opts, &err);
-    ASSERT_EQ(err, LCB_DURABILITY_ETOOMANY);
+    ASSERT_EQ(err, LCB_ERR_DURABILITY_TOO_MANY);
     ASSERT_EQ((lcb_MULTICMD_CTX *)NULL, mctx);
 }
 
@@ -292,7 +293,7 @@ TEST_F(DurabilityUnitTest, testDurabilityCriteria)
     lcb_MULTICMD_CTX *mctx;
     lcb_STATUS err = LCB_SUCCESS;
     mctx = lcb_endure3_ctxnew(instance, &opts, &err);
-    ASSERT_EQ(err, LCB_EINVAL);
+    ASSERT_EQ(err, LCB_ERR_INVALID_ARGUMENT);
     ASSERT_EQ((lcb_MULTICMD_CTX *)NULL, mctx);
 }
 
@@ -368,7 +369,7 @@ TEST_F(DurabilityUnitTest, testSimpleDurability)
 /**
  * @test Durability checks against non-existent keys
  * @pre Remove a key, and perform a durability check against it
- * @post Operation fails with @c LCB_KEY_ENOENT
+ * @post Operation fails with @c LCB_ERR_DOCUMENT_NOT_FOUND
  */
 TEST_F(DurabilityUnitTest, testNonExist)
 {
@@ -396,7 +397,7 @@ TEST_F(DurabilityUnitTest, testNonExist)
     opts.version = 1;
     opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
 
-    dop.run(instance, &opts, itm, LCB_DURABILITY_NO_MUTATION_TOKENS);
+    dop.run(instance, &opts, itm, LCB_ERR_DURABILITY_NO_MUTATION_TOKENS);
 }
 
 /**
@@ -410,7 +411,7 @@ TEST_F(DurabilityUnitTest, testNonExist)
  * @pre Store the key, but don't remove it. Perform a durability check against
  * the key using the delete flag
  *
- * @post Operation is returned with @c LCB_ETIMEDOUT
+ * @post Operation is returned with @c LCB_ERR_TIMEOUT
  */
 TEST_F(DurabilityUnitTest, testDelete)
 {
@@ -452,7 +453,7 @@ TEST_F(DurabilityUnitTest, testDelete)
     opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
     dop = DurabilityOperation();
     dop.run(instance, &opts, itm);
-    ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+    ASSERT_EQ(LCB_SUCCESS, dop.resp.ctx.rc);
 }
 
 /**
@@ -462,7 +463,7 @@ TEST_F(DurabilityUnitTest, testDelete)
  * stale CAS. Keep the current CAS as well.
  *
  * @pre Perform a durability check against the stale CAS
- * @post Operation fails with @c LCB_KEY_EEXISTS
+ * @post Operation fails with @c LCB_ERR_DOCUMENT_EXISTS
  *
  * @pre Perform a durability check against the new CAS
  * @post Operation succeeds
@@ -492,7 +493,7 @@ TEST_F(DurabilityUnitTest, testModified)
     opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
     DurabilityOperation dop;
     dop.run(instance, &opts, kvo_stale.result);
-    ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+    ASSERT_EQ(LCB_SUCCESS, dop.resp.ctx.rc);
 }
 
 /**
@@ -500,7 +501,7 @@ TEST_F(DurabilityUnitTest, testModified)
  * @pre Schedule an operation with an interval of 2 usec and a timeout of
  * 5 usec
  *
- * @post Operation returns with LCB_ETIMEDOUT
+ * @post Operation returns with LCB_ERR_TIMEOUT
  */
 TEST_F(DurabilityUnitTest, testQuickTimeout)
 {
@@ -525,7 +526,7 @@ TEST_F(DurabilityUnitTest, testQuickTimeout)
     for (unsigned ii = 0; ii < 10; ii++) {
         DurabilityOperation dop;
         dop.run(instance, &opts, itm);
-        ASSERT_EQ(LCB_ETIMEDOUT, dop.resp.rc);
+        ASSERT_EQ(LCB_ERR_TIMEOUT, dop.resp.ctx.rc);
     }
 }
 
@@ -782,7 +783,7 @@ TEST_F(DurabilityUnitTest, testMissingSynctoken)
     LCB_CMD_SET_KEY(&cmd, "foo", 3);
 
     rc = mctx->addcmd(mctx, (lcb_CMDBASE *)&cmd);
-    ASSERT_EQ(LCB_DURABILITY_NO_MUTATION_TOKENS, rc);
+    ASSERT_EQ(LCB_ERR_DURABILITY_NO_MUTATION_TOKENS, rc);
 
     mctx->fail(mctx);
 }
@@ -825,7 +826,7 @@ TEST_F(DurabilityUnitTest, testExternalSynctoken)
     DurabilityOperation dop;
     dop.run(instance2, &options, cmd);
     // TODO: How to actually run this?
-    ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+    ASSERT_EQ(LCB_SUCCESS, dop.resp.ctx.rc);
 }
 
 TEST_F(DurabilityUnitTest, testOptionValidation)
@@ -858,12 +859,12 @@ TEST_F(DurabilityUnitTest, testOptionValidation)
     persist = 0;
     replicate = 0;
     rc = lcb_durability_validate(instance, &persist, &replicate, 0);
-    ASSERT_EQ(LCB_EINVAL, rc);
+    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, rc);
 
     persist = -1;
     replicate = -1;
     rc = lcb_durability_validate(instance, &persist, &replicate, 0);
-    ASSERT_EQ(LCB_DURABILITY_ETOOMANY, rc);
+    ASSERT_EQ(LCB_ERR_DURABILITY_TOO_MANY, rc);
 
     persist = persist_max;
     replicate = replica_max;
@@ -922,7 +923,7 @@ TEST_F(DurabilityUnitTest, testDurStore)
     defaultOptions(instance, options);
     lcb_cmdstore_durability_observe(cmd, options.v.v0.persist_to, options.v.v0.replicate_to);
     lcb_sched_enter(instance);
-    res.rc = LCB_ERROR;
+    res.rc = LCB_ERR_GENERIC;
     rc = lcb_store(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
@@ -937,12 +938,12 @@ TEST_F(DurabilityUnitTest, testDurStore)
     // Try with bad criteria..
     lcb_cmdstore_durability_observe(cmd, 100, 100);
     rc = lcb_store(instance, &res, cmd);
-    ASSERT_EQ(LCB_DURABILITY_ETOOMANY, rc);
+    ASSERT_EQ(LCB_ERR_DURABILITY_TOO_MANY, rc);
 
     // Try with no persist/replicate options
     lcb_cmdstore_durability_observe(cmd, 0, 0);
     rc = lcb_store(instance, &res, cmd);
-    ASSERT_EQ(LCB_EINVAL, rc);
+    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, rc);
     lcb_sched_fail(instance);
 
     // CAP_MAX should be applied here
@@ -963,7 +964,7 @@ TEST_F(DurabilityUnitTest, testDurStore)
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
     lcb_wait(instance);
-    ASSERT_EQ(LCB_KEY_EEXISTS, res.rc);
+    ASSERT_EQ(LCB_ERR_DOCUMENT_EXISTS, res.rc);
     ASSERT_EQ(0, res.store_ok);
 
     // Make storage succeed, but let durability fail.
@@ -979,7 +980,7 @@ TEST_F(DurabilityUnitTest, testDurStore)
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
     lcb_wait(instance);
-    if (res.rc == LCB_ETIMEDOUT) {
+    if (res.rc == LCB_ERR_TIMEOUT) {
         ASSERT_NE(0, res.store_ok);
     } else {
         lcb_log(LOGARGS(instance, WARN), "Test skipped because mock is too fast(!)");
@@ -1015,7 +1016,7 @@ TEST_F(DurabilityUnitTest, testFailoverAndSeqno)
     opts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
     dop = DurabilityOperation();
     dop.run(instance, &opts, kvo.result);
-    ASSERT_EQ(LCB_SUCCESS, dop.resp.rc);
+    ASSERT_EQ(LCB_SUCCESS, dop.resp.ctx.rc);
 
     /* failover all nodes but master */
     lcbvb_CONFIG *vbc;
@@ -1034,5 +1035,5 @@ TEST_F(DurabilityUnitTest, testFailoverAndSeqno)
 
     dop = DurabilityOperation();
     dop.run(instance, &opts, kvo.result);
-    ASSERT_EQ(LCB_DURABILITY_ETOOMANY, dop.resp.rc);
+    ASSERT_EQ(LCB_ERR_DURABILITY_TOO_MANY, dop.resp.ctx.rc);
 }

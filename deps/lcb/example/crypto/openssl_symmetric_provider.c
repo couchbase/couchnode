@@ -69,23 +69,23 @@ static lcb_STATUS osp_sign(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_
 
     md = EVP_get_digestbyname("SHA256");
     if (md == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, common_hmac_sha256_key, key_len);
     if (key == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     ctx = EVP_MD_CTX_new();
     if (ctx == NULL) {
         EVP_PKEY_free(key);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     rc = EVP_DigestSignInit(ctx, NULL, md, NULL, key);
     if (rc != 1) {
         EVP_PKEY_free(key);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     for (ii = 0; ii < inputs_num; ii++) {
@@ -93,14 +93,14 @@ static lcb_STATUS osp_sign(struct lcbcrypto_PROVIDER *provider, const lcbcrypto_
         if (rc != 1) {
             EVP_PKEY_free(key);
             EVP_MD_CTX_destroy(ctx);
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
     }
     rc = EVP_DigestSignFinal(ctx, out, &out_len);
     if (rc != 1 || out_len == 0) {
         EVP_PKEY_free(key);
         EVP_MD_CTX_destroy(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     *sig = malloc(out_len);
     memcpy(*sig, out, out_len);
@@ -122,22 +122,22 @@ static lcb_STATUS osp_verify_signature(struct lcbcrypto_PROVIDER *provider, cons
 
     md = EVP_get_digestbyname("SHA256");
     if (md == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, common_hmac_sha256_key, key_len);
     if (key == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     ctx = EVP_MD_CTX_new();
     if (ctx == NULL) {
         EVP_PKEY_free(key);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     rc = EVP_DigestSignInit(ctx, NULL, md, NULL, key);
     if (rc != 1) {
         EVP_PKEY_free(key);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     for (ii = 0; ii < inputs_num; ii++) {
@@ -145,20 +145,20 @@ static lcb_STATUS osp_verify_signature(struct lcbcrypto_PROVIDER *provider, cons
         if (rc != 1) {
             EVP_PKEY_free(key);
             EVP_MD_CTX_destroy(ctx);
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
     }
     rc = EVP_DigestSignFinal(ctx, actual, &actual_len);
     if (rc != 1 || actual_len == 0) {
         EVP_PKEY_free(key);
         EVP_MD_CTX_destroy(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if (memcmp(actual, sig, sig_len < actual_len ? sig_len : actual_len) == 0) {
         return LCB_SUCCESS;
     }
-    return LCB_EINVAL;
+    return LCB_ERR_INVALID_ARGUMENT;
 }
 
 static lcb_STATUS osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t *input, size_t input_len,
@@ -170,18 +170,18 @@ static lcb_STATUS osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t
     uint8_t *out;
 
     if (iv_len != 16) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     cipher = EVP_aes_256_cbc();
     rc = EVP_EncryptInit_ex(ctx, cipher, NULL, common_aes256_key, iv);
     if (rc != 1) {
         EVP_CIPHER_CTX_free(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     block_len = EVP_CIPHER_block_size(cipher);
     out = calloc(input_len + block_len - 1, sizeof(uint8_t));
@@ -189,14 +189,14 @@ static lcb_STATUS osp_encrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t
     if (rc != 1) {
         free(out);
         EVP_CIPHER_CTX_free(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     out_len = len;
     rc = EVP_EncryptFinal_ex(ctx, out + len, &len);
     if (rc != 1) {
         free(out);
         EVP_CIPHER_CTX_free(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     out_len += len;
     EVP_CIPHER_CTX_free(ctx);
@@ -214,32 +214,32 @@ static lcb_STATUS osp_decrypt(struct lcbcrypto_PROVIDER *provider, const uint8_t
     uint8_t *out;
 
     if (iv_len != 16) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     cipher = EVP_aes_256_cbc();
     rc = EVP_DecryptInit_ex(ctx, cipher, NULL, common_aes256_key, iv);
     if (rc != 1) {
         EVP_CIPHER_CTX_free(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     out = calloc(input_len, sizeof(uint8_t));
     rc = EVP_DecryptUpdate(ctx, out, &len, input, input_len);
     if (rc != 1) {
         free(out);
         EVP_CIPHER_CTX_free(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     out_len = len;
     rc = EVP_DecryptFinal_ex(ctx, out + len, &len);
     if (rc != 1) {
         free(out);
         EVP_CIPHER_CTX_free(ctx);
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     out_len += len;
     EVP_CIPHER_CTX_free(ctx);

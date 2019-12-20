@@ -157,6 +157,7 @@ typedef struct lcbvb_CONFIG_st {
     int revid;                  /* revision ID from the config (-1 if not present) */
     char *buuid;                /* bucket UUID */
     char *bname;                /* bucket name */
+    size_t bname_len;           /* bucket name */
     const char *errstr;         /* last error */
     lcbvb_SERVER *servers;      /* nodes */
     lcbvb_VBUCKET *vbuckets;    /* vbucket map */

@@ -155,7 +155,9 @@ typedef struct {
  * Response structure for index management operations
  */
 typedef struct lcb_RESPN1XMGMT_st {
-    LCB_RESP_BASE
+    lcb_STATUS rc;
+    void *cookie;
+    lcb_U16 rflags;
 
     /**
      * A list of pointers to specs. This isn't a simple array of specs because

@@ -24,7 +24,7 @@
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_status(const lcb_RESPHTTP *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_cookie(const lcb_RESPHTTP *resp, void **cookie)
@@ -35,21 +35,21 @@ LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_cookie(const lcb_RESPHTTP *resp, void *
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_http_status(const lcb_RESPHTTP *resp, uint16_t *status)
 {
-    *status = resp->htstatus;
+    *status = resp->ctx.response_code;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_path(const lcb_RESPHTTP *resp, const char **path, size_t *path_len)
 {
-    *path = (const char *)resp->key;
-    *path_len = resp->nkey;
+    *path = (const char *)resp->ctx.path;
+    *path_len = resp->ctx.path_len;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_body(const lcb_RESPHTTP *resp, const char **body, size_t *body_len)
 {
-    *body = (const char *)resp->body;
-    *body_len = resp->nbody;
+    *body = (const char *)resp->ctx.body;
+    *body_len = resp->ctx.body_len;
     return LCB_SUCCESS;
 }
 
@@ -207,7 +207,7 @@ void Request::decref()
 
 void Request::finish_or_retry(lcb_STATUS rc)
 {
-    if (rc == LCB_ETIMEDOUT) {
+    if (rc == LCB_ERR_TIMEOUT) {
         // No point on trying (or even logging) a timeout
         finish(rc);
         return;
@@ -235,13 +235,13 @@ void Request::finish_or_retry(lcb_STATUS rc)
     struct http_parser_url next_info;
     if (_lcb_http_parser_parse_url(nextnode, strlen(nextnode), 0, &next_info)) {
         lcb_log(LOGARGS(this, WARN), LOGFMT "Not retrying. Invalid API endpoint", LOGID(this));
-        finish(LCB_EINVAL);
+        finish(LCB_ERR_INVALID_ARGUMENT);
         return;
     }
 
     // Reassemble URL:
     lcb_log(LOGARGS(this, DEBUG), LOGFMT "Retrying request on new node %s. Reason: 0x%02x (%s)", LOGID(this), nextnode,
-            rc, lcb_strerror(NULL, rc));
+            rc, lcb_strerror_short(rc));
 
     url.replace(url_info.field_data[UF_PORT].off, url_info.field_data[UF_PORT].len,
                 nextnode + next_info.field_data[UF_PORT].off, next_info.field_data[UF_PORT].len);
@@ -252,7 +252,7 @@ void Request::finish_or_retry(lcb_STATUS rc)
     newrc = assign_url(NULL, 0, NULL, 0);
     if (newrc != LCB_SUCCESS) {
         lcb_log(LOGARGS(this, ERR), LOGFMT "Failed to assign URL for retry request on next endpoint (%s): 0x%02x (%s)",
-                LOGID(this), nextnode, newrc, lcb_strerror(NULL, newrc));
+                LOGID(this), nextnode, newrc, lcb_strerror_short(newrc));
         finish(rc);
         return;
     }
@@ -260,7 +260,7 @@ void Request::finish_or_retry(lcb_STATUS rc)
     newrc = submit();
     if (newrc != LCB_SUCCESS) {
         lcb_log(LOGARGS(this, WARN), LOGFMT "Failed to retry request on next endpoint (%s): 0x%02x (%s)", LOGID(this),
-                nextnode, newrc, lcb_strerror(NULL, newrc));
+                nextnode, newrc, lcb_strerror_short(newrc));
         finish(rc);
     }
 }
@@ -279,7 +279,7 @@ void Request::maybe_refresh_config(lcb_STATUS err)
     const lcb::htparse::Response &resp = parser->get_cur_response();
     htstatus_ok = resp.status >= 200 && resp.status < 299;
 
-    if (err != LCB_SUCCESS && (err == LCB_ESOCKSHUTDOWN && htstatus_ok) == 0) {
+    if (err != LCB_SUCCESS && (err == LCB_ERR_SOCKET_SHUTDOWN && htstatus_ok) == 0) {
         /* ignore graceful close */
         instance->bootstrap(BS_REFRESH_ALWAYS);
         return;
@@ -296,13 +296,13 @@ void Request::init_resp(lcb_RESPHTTP *res)
     const lcb::htparse::Response &htres = parser->get_cur_response();
 
     res->cookie = const_cast< void * >(command_cookie);
-    res->key = url.c_str() + url_info.field_data[UF_PATH].off;
-    res->nkey = url_info.field_data[UF_PATH].len;
+    res->ctx.path = url.c_str() + url_info.field_data[UF_PATH].off;
+    res->ctx.path_len = url_info.field_data[UF_PATH].len;
     res->_htreq = static_cast< lcb_HTTP_HANDLE * >(this);
     if (!response_headers.empty()) {
         res->headers = &response_headers_clist[0];
     }
-    res->htstatus = htres.status;
+    res->ctx.response_code = htres.status;
 }
 
 void Request::finish(lcb_STATUS error)
@@ -314,10 +314,10 @@ void Request::finish(lcb_STATUS error)
 
     /* And this one too */
     if ((status & CBINVOKED) == 0) {
-        lcb_RESPHTTP resp = {0};
+        lcb_RESPHTTP resp{};
         init_resp(&resp);
         resp.rflags = LCB_RESP_F_FINAL;
-        resp.rc = error;
+        resp.ctx.rc = error;
 
         status |= CBINVOKED;
         callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPBASE *)&resp);
@@ -371,7 +371,7 @@ lcb_STATUS Request::submit()
 
     if (host.size() > sizeof reqhost.host || port.size() > sizeof reqhost.port) {
         decref();
-        return LCB_E2BIG;
+        return LCB_ERR_VALUE_TOO_LARGE;
     }
 
     preamble.clear();
@@ -462,7 +462,7 @@ lcb_STATUS Request::assign_url(const char *base, size_t nbase, const char *path,
             }
 
             if (!lcb::strcodecs::urlencode(path, path + npath, url)) {
-                return LCB_INVALID_CHAR;
+                return LCB_ERR_INVALID_CHAR;
             }
         }
     }
@@ -472,7 +472,7 @@ lcb_STATUS Request::assign_url(const char *base, size_t nbase, const char *path,
 
 GT_REPARSE:
     if (_lcb_http_parser_parse_url(url.c_str(), url.size(), 0, &url_info)) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if ((url_info.field_set & required_fields) != required_fields) {
@@ -485,7 +485,7 @@ GT_REPARSE:
             url = first_part + url;
             goto GT_REPARSE;
         }
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     assign_from_urlfield(UF_HOST, host);
@@ -505,7 +505,7 @@ void Request::redirect()
     lcb_assert(!pending_redirect.empty());
     if (LCBT_SETTING(instance, max_redir) > -1) {
         if (LCBT_SETTING(instance, max_redir) < ++redircount) {
-            finish(LCB_TOO_MANY_REDIRECTS);
+            finish(LCB_ERR_TOO_MANY_REDIRECTS);
             return;
         }
     }
@@ -548,7 +548,7 @@ const char *Request::get_api_node(lcb_STATUS &rc)
     }
 
     if (!LCBT_VBCONFIG(instance)) {
-        rc = LCB_CLIENT_ETMPFAIL;
+        rc = LCB_ERR_NO_CONFIGURATION;
         return NULL;
     }
 
@@ -565,7 +565,7 @@ const char *Request::get_api_node(lcb_STATUS &rc)
 
     int ix = lcbvb_get_randhost_ex(vbc, svc, mode, &used_nodes[0]);
     if (ix < 0) {
-        rc = LCB_NOT_SUPPORTED;
+        rc = LCB_ERR_UNSUPPORTED_OPERATION;
         return NULL;
     }
     used_nodes[ix] = 1;
@@ -580,7 +580,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
     lcb_STATUS rc = LCB_SUCCESS;
 
     if (method > LCB_HTTP_METHOD_MAX) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if (cmd->username) {
@@ -592,7 +592,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
 
     if (reqtype == LCB_HTTP_TYPE_RAW) {
         if ((base = cmd->host) == NULL) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
     } else {
         if (cmd->host) {
@@ -600,7 +600,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
                 /* might be a deferred CBAS URL or PING */
                 base = cmd->host;
             } else {
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
         }
         if (base == NULL) {
@@ -608,7 +608,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
         }
         if (base == NULL || *base == '\0') {
             if (rc == LCB_SUCCESS) {
-                return LCB_EINTERNAL;
+                return LCB_ERR_SDK_INTERNAL;
             } else {
                 return rc;
             }
@@ -629,7 +629,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
                     struct http_parser_url info = {};
                     if (_lcb_http_parser_parse_url(base, strlen(base), 0, &info)) {
                         lcb_log(LOGARGS(this, WARN), LOGFMT "Failed to parse API endpoint", LOGID(this));
-                        return LCB_EINTERNAL;
+                        return LCB_ERR_SDK_INTERNAL;
                     }
                     std::string hh(base + info.field_data[UF_HOST].off, info.field_data[UF_HOST].len);
                     std::string pp(base + info.field_data[UF_PORT].off, info.field_data[UF_PORT].len);
@@ -668,7 +668,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
         std::string upassbuf;
         upassbuf.append(username).append(":").append(password);
         if (lcb_base64_encode(upassbuf.c_str(), upassbuf.size(), auth, sizeof(auth)) == -1) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         add_header("Authorization", std::string("Basic ") + auth);
     }
@@ -715,7 +715,7 @@ Request *Request::create(lcb_INSTANCE *instance, const void *cookie, const lcb_C
 {
     Request *req = new Request(instance, cookie, cmd);
     if (!req) {
-        *rc = LCB_CLIENT_ENOMEM;
+        *rc = LCB_ERR_NO_MEMORY;
         return NULL;
     }
     req->start = gethrtime();

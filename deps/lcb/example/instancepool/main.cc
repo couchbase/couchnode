@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 
     err = pool->connect();
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Couldn't connect all instances: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Couldn't connect all instances: %s\n", lcb_strerror_short(err));
         exit(EXIT_FAILURE);
     }
 

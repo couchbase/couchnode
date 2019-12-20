@@ -8,6 +8,86 @@
 namespace couchnode
 {
 
+template <typename RespType, typename CtxType,
+          lcb_STATUS (*CtxFn)(const RespType *, const CtxType **)>
+class CtxReader
+{
+public:
+    CtxReader(const RespType *resp)
+    {
+        lcb_STATUS rc = CtxFn(resp, &_ctx);
+        if (rc != LCB_SUCCESS) {
+            _ctx = nullptr;
+        }
+    }
+
+    template <lcb_STATUS (*GetFn)(const CtxType *, uint16_t *)>
+    Local<Value> parseValue()
+    {
+        return _parseValueNumber<uint16_t, GetFn>();
+    }
+
+    template <lcb_STATUS (*GetFn)(const CtxType *, uint32_t *)>
+    Local<Value> parseValue()
+    {
+        return _parseValueNumber<uint32_t, GetFn>();
+    }
+
+    template <lcb_STATUS (*GetFn)(const CtxType *, uint64_t *)>
+    Local<Value> decodeCas()
+    {
+        return _parseValueCas<GetFn>();
+    }
+
+    template <lcb_STATUS (*GetFn)(const CtxType *, const char **, size_t *)>
+    Local<Value> parseValue()
+    {
+        return _parseValueString<GetFn>();
+    }
+
+private:
+    template <typename ValueType,
+              lcb_STATUS (*GetFn)(const CtxType *, ValueType *)>
+    Local<Value> _parseValueNumber()
+    {
+        ValueType value;
+
+        lcb_STATUS rc = GetFn(_ctx, &value);
+        if (rc != LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        return Nan::New<Number>(value);
+    }
+
+    template <lcb_STATUS (*GetFn)(const CtxType *, uint64_t *)>
+    Local<Value> _parseValueCas()
+    {
+        uint64_t value;
+
+        lcb_STATUS rc = GetFn(_ctx, &value);
+        if (rc != LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        return Cas::create(value);
+    }
+
+    template <lcb_STATUS (*GetFn)(const CtxType *, const char **, size_t *)>
+    Local<Value> _parseValueString() const
+    {
+        const char *value = NULL;
+        size_t nvalue = 0;
+        if (GetFn(_ctx, &value, &nvalue) != LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        return Nan::New<String>(value, nvalue).ToLocalChecked();
+    }
+
+    const CtxType *_ctx;
+};
+
 template <typename RespType, lcb_STATUS (*CookieFn)(const RespType *, void **)>
 class RespReader
 {
@@ -95,8 +175,8 @@ public:
         return Nan::New<Number>(value);
     }
 
-    template <lcb_STATUS (*CtxFn)(const RespType *, const char **, size_t *),
-              lcb_STATUS (*RefFn)(const RespType *, const char **, size_t *)>
+    template <lcb_STATUS (*CtxFn)(const RespType *,
+                                  const lcb_KEY_VALUE_ERROR_CONTEXT **)>
     Local<Value> decodeError(lcb_STATUS rc) const
     {
         if (rc == LCB_SUCCESS) {
@@ -106,19 +186,181 @@ public:
         Local<Value> errVal = Error::create(rc);
         Local<Object> errValObj = errVal.As<Object>();
 
+        CtxReader<RespType, lcb_KEY_VALUE_ERROR_CONTEXT, CtxFn> ctxRdr(_resp);
+        Nan::Set(errValObj, Nan::New<String>("ctxtype").ToLocalChecked(),
+                 Nan::New<String>("kv").ToLocalChecked());
+        Nan::Set(errValObj, Nan::New<String>("status_code").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_kv_status_code>());
+        Nan::Set(errValObj, Nan::New<String>("opaque").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_kv_opaque>());
+        Nan::Set(errValObj, Nan::New<String>("cas").ToLocalChecked(),
+                 ctxRdr.template decodeCas<&lcb_errctx_kv_cas>());
+        Nan::Set(errValObj, Nan::New<String>("key").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_kv_key>());
+        Nan::Set(errValObj, Nan::New<String>("bucket").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_kv_bucket>());
+        Nan::Set(errValObj, Nan::New<String>("collection").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_kv_collection>());
+        Nan::Set(errValObj, Nan::New<String>("scope").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_kv_scope>());
         Nan::Set(errValObj, Nan::New<String>("context").ToLocalChecked(),
-                 parseValue<CtxFn>());
-
+                 ctxRdr.template parseValue<&lcb_errctx_kv_context>());
         Nan::Set(errValObj, Nan::New<String>("ref").ToLocalChecked(),
-                 parseValue<RefFn>());
+                 ctxRdr.template parseValue<&lcb_errctx_kv_ref>());
 
         return errVal;
     }
 
-    template <lcb_STATUS (*GetFn)(const RespType *, lcb_CAS *)>
+    template <lcb_STATUS (*CtxFn)(const RespType *,
+                                  const lcb_VIEW_ERROR_CONTEXT **)>
+    Local<Value> decodeError(lcb_STATUS rc) const
+    {
+        if (rc == LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        Local<Value> errVal = Error::create(rc);
+        Local<Object> errValObj = errVal.As<Object>();
+
+        CtxReader<RespType, lcb_VIEW_ERROR_CONTEXT, CtxFn> ctxRdr(_resp);
+        Nan::Set(errValObj, Nan::New<String>("ctxtype").ToLocalChecked(),
+                 Nan::New<String>("views").ToLocalChecked());
+        Nan::Set(
+            errValObj, Nan::New<String>("first_error_code").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_view_first_error_code>());
+        Nan::Set(
+            errValObj, Nan::New<String>("first_error_message").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_view_first_error_message>());
+        Nan::Set(
+            errValObj, Nan::New<String>("design_document").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_view_design_document>());
+        Nan::Set(errValObj, Nan::New<String>("view").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_view_view>());
+        Nan::Set(errValObj, Nan::New<String>("parameters").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_view_query_params>());
+        Nan::Set(
+            errValObj, Nan::New<String>("http_response_code").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_view_http_response_code>());
+        Nan::Set(
+            errValObj, Nan::New<String>("http_response_body").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_view_http_response_body>());
+
+        return errVal;
+    }
+
+    template <lcb_STATUS (*CtxFn)(const RespType *,
+                                  const lcb_N1QL_ERROR_CONTEXT **)>
+    Local<Value> decodeError(lcb_STATUS rc) const
+    {
+        if (rc == LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        Local<Value> errVal = Error::create(rc);
+        Local<Object> errValObj = errVal.As<Object>();
+
+        CtxReader<RespType, lcb_N1QL_ERROR_CONTEXT, CtxFn> ctxRdr(_resp);
+        Nan::Set(errValObj, Nan::New<String>("ctxtype").ToLocalChecked(),
+                 Nan::New<String>("n1ql").ToLocalChecked());
+        Nan::Set(
+            errValObj, Nan::New<String>("first_error_code").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_n1ql_first_error_code>());
+        Nan::Set(
+            errValObj, Nan::New<String>("first_error_message").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_n1ql_first_error_message>());
+        Nan::Set(errValObj, Nan::New<String>("statement").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_n1ql_statement>());
+        Nan::Set(
+            errValObj, Nan::New<String>("client_context_id").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_n1ql_client_context_id>());
+        Nan::Set(errValObj, Nan::New<String>("parameters").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_n1ql_query_params>());
+        Nan::Set(
+            errValObj, Nan::New<String>("http_response_code").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_n1ql_http_response_code>());
+        Nan::Set(
+            errValObj, Nan::New<String>("http_response_body").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_n1ql_http_response_body>());
+
+        return errVal;
+    }
+
+    template <lcb_STATUS (*CtxFn)(const RespType *,
+                                  const lcb_FTS_ERROR_CONTEXT **)>
+    Local<Value> decodeError(lcb_STATUS rc) const
+    {
+        if (rc == LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        Local<Value> errVal = Error::create(rc);
+        Local<Object> errValObj = errVal.As<Object>();
+
+        CtxReader<RespType, lcb_FTS_ERROR_CONTEXT, CtxFn> ctxRdr(_resp);
+        Nan::Set(errValObj, Nan::New<String>("ctxtype").ToLocalChecked(),
+                 Nan::New<String>("fts").ToLocalChecked());
+        Nan::Set(errValObj, Nan::New<String>("error_message").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_fts_error_message>());
+        Nan::Set(errValObj, Nan::New<String>("index_name").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_fts_index_name>());
+        Nan::Set(errValObj, Nan::New<String>("query").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_fts_search_query>());
+        Nan::Set(errValObj, Nan::New<String>("parameters").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_fts_search_params>());
+        Nan::Set(
+            errValObj, Nan::New<String>("http_response_code").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_fts_http_response_code>());
+        Nan::Set(
+            errValObj, Nan::New<String>("http_response_body").ToLocalChecked(),
+            ctxRdr.template parseValue<&lcb_errctx_fts_http_response_body>());
+
+        return errVal;
+    }
+
+    template <lcb_STATUS (*CtxFn)(const RespType *,
+                                  const lcb_ANALYTICS_ERROR_CONTEXT **)>
+    Local<Value> decodeError(lcb_STATUS rc) const
+    {
+        if (rc == LCB_SUCCESS) {
+            return Nan::Null();
+        }
+
+        Local<Value> errVal = Error::create(rc);
+        Local<Object> errValObj = errVal.As<Object>();
+
+        CtxReader<RespType, lcb_ANALYTICS_ERROR_CONTEXT, CtxFn> ctxRdr(_resp);
+        Nan::Set(errValObj, Nan::New<String>("ctxtype").ToLocalChecked(),
+                 Nan::New<String>("analytics").ToLocalChecked());
+        Nan::Set(
+            errValObj, Nan::New<String>("first_error_code").ToLocalChecked(),
+            ctxRdr
+                .template parseValue<&lcb_errctx_analytics_first_error_code>());
+        Nan::Set(errValObj,
+                 Nan::New<String>("first_error_message").ToLocalChecked(),
+                 ctxRdr.template parseValue<
+                     &lcb_errctx_analytics_first_error_message>());
+        Nan::Set(errValObj, Nan::New<String>("statement").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_analytics_statement>());
+        Nan::Set(errValObj,
+                 Nan::New<String>("client_context_id").ToLocalChecked(),
+                 ctxRdr.template parseValue<
+                     &lcb_errctx_analytics_client_context_id>());
+        Nan::Set(errValObj,
+                 Nan::New<String>("http_response_code").ToLocalChecked(),
+                 ctxRdr.template parseValue<
+                     &lcb_errctx_analytics_http_response_code>());
+        Nan::Set(errValObj,
+                 Nan::New<String>("http_response_body").ToLocalChecked(),
+                 ctxRdr.template parseValue<
+                     &lcb_errctx_analytics_http_response_body>());
+
+        return errVal;
+    }
+
+    template <lcb_STATUS (*GetFn)(const RespType *, uint64_t *)>
     Local<Value> decodeCas() const
     {
-        lcb_CAS value;
+        uint64_t value;
 
         lcb_STATUS rc = GetFn(_resp, &value);
         if (rc != LCB_SUCCESS) {

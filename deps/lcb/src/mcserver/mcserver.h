@@ -225,6 +225,9 @@ class Server : public mc_PIPELINE
     /** Whether new durability is supported */
     short new_durability;
 
+    /** Whether bucket has been selected */
+    short selected_bucket;
+
     lcbio_CTX *connctx;
     lcb::io::ConnectionRequest *connreq;
 

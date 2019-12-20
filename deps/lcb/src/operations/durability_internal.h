@@ -157,7 +157,7 @@ struct Item : public CallbackCookie {
 
     void finish(lcb_STATUS err)
     {
-        result.rc = err;
+        result.ctx.rc = err;
         finish();
     }
 

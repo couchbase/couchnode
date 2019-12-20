@@ -46,19 +46,19 @@ TEST_F(Hostlist, testParseBasic)
     ASSERT_TRUE(hostEquals(curhost, "1.2.3.4", "900"));
 
     err = lcb_host_parsez(&curhost, "", 1000);
-    ASSERT_EQ(LCB_INVALID_HOST_FORMAT, err);
+    ASSERT_EQ(LCB_ERR_INVALID_HOST_FORMAT, err);
 
     err = lcb_host_parsez(&curhost, "foo.com", -1);
-    ASSERT_EQ(LCB_INVALID_HOST_FORMAT, err);
+    ASSERT_EQ(LCB_ERR_INVALID_HOST_FORMAT, err);
 
     err = lcb_host_parsez(&curhost, "foo.com:", 100);
-    ASSERT_EQ(LCB_INVALID_HOST_FORMAT, err);
+    ASSERT_EQ(LCB_ERR_INVALID_HOST_FORMAT, err);
 
     err = lcb_host_parsez(&curhost, "localhost/foo", 100);
     ASSERT_EQ(LCB_SUCCESS, err);
 
     err = lcb_host_parsez(&curhost, "localhost:1111111111111111111111111111", 100);
-    ASSERT_EQ(LCB_INVALID_HOST_FORMAT, err);
+    ASSERT_EQ(LCB_ERR_INVALID_HOST_FORMAT, err);
 
     err = lcb_host_parsez(&curhost, "[::a15:f2df:4854:9ac6:8ceb:30a5]:9000", 8091);
     ASSERT_EQ(LCB_SUCCESS, err);

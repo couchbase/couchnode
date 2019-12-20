@@ -103,14 +103,14 @@ static void docreq_handler(void *arg)
         q->n_awaiting_schedule--;
 
         if (q->cancelled) {
-            cont->docresp.rc = LCB_EINTERNAL;
+            cont->docresp.ctx.rc = LCB_ERR_SDK_INTERNAL;
             cont->ready = 1;
 
         } else {
             lcb_STATUS rc;
             rc = q->cb_schedule(q, cont);
             if (rc != LCB_SUCCESS) {
-                cont->docresp.rc = rc;
+                cont->docresp.ctx.rc = rc;
                 cont->ready = 1;
             } else {
                 q->n_awaiting_response++;
@@ -149,7 +149,7 @@ static void invoke_pending(Queue *q)
             break;
         }
 
-        if (dreq->docresp.rc == LCB_SUCCESS && dreq->docresp.bufh) {
+        if (dreq->docresp.ctx.rc == LCB_SUCCESS && dreq->docresp.bufh) {
             bufh = dreq->docresp.bufh;
         }
 

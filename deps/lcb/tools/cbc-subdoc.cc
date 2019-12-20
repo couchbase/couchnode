@@ -50,22 +50,20 @@ void subdoc_callback(lcb_INSTANCE *, int, const lcb_RESPSUBDOC *resp)
     std::string key = get_resp_key(resp);
 
     rc = lcb_respsubdoc_status(resp);
-    if (rc == LCB_SUCCESS || rc == LCB_SUBDOC_MULTI_FAILURE) {
+    if (rc == LCB_SUCCESS) {
         uint64_t cas;
         lcb_respsubdoc_cas(resp, &cas);
         fprintf(stderr, "%-20s CAS=0x%" PRIx64 "\n", key.c_str(), cas);
     } else {
         fprintf(stderr, "%-20s %s\n", key.c_str(), lcb_strerror_short(rc));
-        const char *p;
-        size_t n;
-        lcb_respsubdoc_error_context(resp, &p, &n);
-        if (p != NULL) {
-            fprintf(stderr, "%-20s %.*s\n", "", (int)n, p);
-        }
-        lcb_respsubdoc_error_ref(resp, &p, &n);
-        if (p != NULL) {
-            fprintf(stderr, "%-20s Ref: %.*s\n", "", (int)n, p);
-        }
+        const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
+        lcb_respsubdoc_error_context(resp, &ctx);
+        const char *context, *ref;
+        size_t context_len, ref_len;
+        lcb_errctx_kv_context(ctx, &context, &context_len);
+        fprintf(stderr, "%-20s %.*s\n", "", (int)context_len, context);
+        lcb_errctx_kv_ref(ctx, &ref, &ref_len);
+        fprintf(stderr, "%-20s Ref: %.*s\n", "", (int)ref_len, ref);
     }
     size_t total = lcb_respsubdoc_result_size(resp);
     for (size_t ii = 0; ii < total; ii++) {
@@ -914,7 +912,7 @@ static void real_main(int argc, char **argv)
             if (rv) {
                 fprintf(stderr, "Invalid input: unterminated single quote\n");
             } else {
-                if (rv == 0 && cmd_argc > 0) {
+                if (cmd_argc > 0) {
                     char *cmd_name = cmd_argv[0];
                     subdoc::Handler *handler = handlers[cmd_name];
                     if (handler == NULL) {

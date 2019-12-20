@@ -30,7 +30,7 @@
 
 static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
-    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
+    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror_short(err));
     exit(EXIT_FAILURE);
 }
 

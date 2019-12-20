@@ -63,7 +63,7 @@ static void storecb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
     SnappyCookie *cookie = reinterpret_cast< SnappyCookie * >(rb->cookie);
     cookie->called = true;
-    cookie->rc = rb->rc;
+    cookie->rc = rb->ctx.rc;
 }
 static void getcb(lcb_INSTANCE *, int, const lcb_RESPGET *resp)
 {
@@ -136,6 +136,7 @@ TEST_F(SnappyUnitTest, testSpec)
     lcb_cmdget_destroy(gcmd);
 
     setCompression("off");
+    hw.destroy();
     createConnection(hw, &instance);
     lcb_cntl_setu32(instance, LCB_CNTL_COMPRESSION_OPTS, LCB_COMPRESS_INOUT);
     lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getcb);

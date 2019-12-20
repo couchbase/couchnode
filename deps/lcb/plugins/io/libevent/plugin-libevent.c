@@ -215,7 +215,7 @@ lcb_STATUS lcb_create_libevent_io_opts(int version, lcb_io_opt_t *io, void *arg)
     struct lcb_io_opt_st *ret;
     struct libevent_cookie *cookie;
     if (version != 0) {
-        return LCB_PLUGIN_VERSION_MISMATCH;
+        return LCB_ERR_PLUGIN_VERSION_MISMATCH;
     }
 
     ret = calloc(1, sizeof(*ret));
@@ -223,7 +223,7 @@ lcb_STATUS lcb_create_libevent_io_opts(int version, lcb_io_opt_t *io, void *arg)
     if (ret == NULL || cookie == NULL) {
         free(ret);
         free(cookie);
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
 
     /* setup io iops! */
@@ -238,7 +238,7 @@ lcb_STATUS lcb_create_libevent_io_opts(int version, lcb_io_opt_t *io, void *arg)
         if ((cookie->base = event_base_new()) == NULL) {
             free(ret);
             free(cookie);
-            return LCB_CLIENT_ENOMEM;
+            return LCB_ERR_NO_MEMORY;
         }
         cookie->allocated = 1;
     } else {

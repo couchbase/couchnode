@@ -168,7 +168,7 @@ typedef enum {
  * flags are combined then the credential will be used for both bucket-level
  * and cluster-level administrative operations
  * (using @ref LCB_HTTP_TYPE_MANAGEMENT).
- * @return LCB_OPTIONS_CONFLICT if @ref LCBAUTH_F_BUCKET is used in conjunction
+ * @return LCB_ERR_OPTIONS_CONFLICT if @ref LCBAUTH_F_BUCKET is used in conjunction
  * with @ref LCBAUTH_MODE_RBAC.
  *
  * @note

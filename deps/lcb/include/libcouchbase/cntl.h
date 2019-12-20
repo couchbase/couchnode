@@ -759,7 +759,7 @@ typedef enum {
 
 /**
  * Sets the behavior for reporting network errors. By default network errors
- * are returned as `LCB_NETWORK_ERROR` return codes for compatibility reasons.
+ * are returned as `LCB_ERR_NETWORK` return codes for compatibility reasons.
  * More detailed error codes may be available by enabling this option which will
  * return appropriate error codes which have a category of
  * @ref LCB_ERRTYPE_NETWORK

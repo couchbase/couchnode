@@ -36,15 +36,15 @@ lcb_STATUS
 Authenticator::add(const char *u, const char *p, int flags)
 {
     if (!u) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if (!(flags & (LCBAUTH_F_BUCKET|LCBAUTH_F_CLUSTER))) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if (m_mode == LCBAUTH_MODE_RBAC && (flags & LCBAUTH_F_BUCKET)) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
 
     if (flags & LCBAUTH_F_CLUSTER) {

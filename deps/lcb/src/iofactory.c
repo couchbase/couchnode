@@ -210,7 +210,7 @@ static lcb_STATUS get_create_func(const char *image, const char *symbol, struct 
         if (do_warn) {
             fprintf(stderr, "[libcouchbase] dlopen of %s failed with '%s'\n", image, dlerror());
         }
-        return LCB_DLOPEN_FAILED;
+        return LCB_ERR_DLOPEN_FAILED;
     }
 
     memset(plugin, 0, sizeof(*plugin));
@@ -223,7 +223,7 @@ static lcb_STATUS get_create_func(const char *image, const char *symbol, struct 
         }
         dlclose(dlhandle);
         dlhandle = NULL;
-        return LCB_DLSYM_FAILED;
+        return LCB_ERR_DLSYM_FAILED;
 
     } else {
         plugin->dlhandle = dlhandle;
@@ -247,7 +247,7 @@ static lcb_STATUS get_create_func(const char *image, const char *symbol, struct 
         if (do_warn) {
             fprintf(stderr, "LoadLibrary of %s failed with code %d\n", image, (int)GetLastError());
         }
-        return LCB_DLOPEN_FAILED;
+        return LCB_ERR_DLOPEN_FAILED;
     }
 
     hFunction = GetProcAddress(hLibrary, symbol);
@@ -256,7 +256,7 @@ static lcb_STATUS get_create_func(const char *image, const char *symbol, struct 
             fprintf(stderr, "GetProcAddress (%s) -> (%s) failed with code %d\n", image, symbol, (int)GetLastError());
         }
         FreeLibrary(hLibrary);
-        return LCB_DLSYM_FAILED;
+        return LCB_ERR_DLSYM_FAILED;
     }
 
     plugin->func.create = (create_func_t)hFunction;
@@ -326,7 +326,7 @@ static lcb_STATUS generate_options(plugin_info *pi, const struct lcb_create_io_o
             }
 
         } else if (rv < 0) {
-            return LCB_BAD_ENVIRONMENT;
+            return LCB_ERR_BAD_ENVIRONMENT;
 
         } else {
             plugin_info *pip = find_plugin_info(LCB_IO_OPS_DEFAULT);
@@ -374,7 +374,7 @@ static lcb_STATUS generate_options(plugin_info *pi, const struct lcb_create_io_o
         /** Not default, ignore environment */
         plugin_info *pip = find_plugin_info(ours->v.v0.type);
         if (!pip) {
-            return LCB_NOT_SUPPORTED;
+            return LCB_ERR_UNSUPPORTED_OPERATION;
         }
         options_from_info(ours, pip);
         if (type) {
@@ -408,7 +408,7 @@ lcb_STATUS lcb_create_io_ops(lcb_io_opt_t *io, const struct lcb_create_io_ops_st
     } else if (options.version == 2) {
         err = create_v2(io, &options);
     } else {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
 
     if (err != LCB_SUCCESS) {
@@ -469,14 +469,14 @@ static lcb_STATUS create_v1(lcb_io_opt_t *io, const struct lcb_create_io_ops_st 
         if (options->v.v1.sofile != NULL) {
             close_dlhandle(plugin.dlhandle);
         }
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     } else {
         lcb_io_opt_t iop = *io;
         iop->dlhandle = plugin.dlhandle;
         /* check if plugin selected compatible version */
         if (iop->version < 0 || iop->version > 3) {
             lcb_destroy_io_ops(iop);
-            return LCB_PLUGIN_VERSION_MISMATCH;
+            return LCB_ERR_PLUGIN_VERSION_MISMATCH;
         }
     }
 
@@ -495,7 +495,7 @@ static lcb_STATUS create_v2(lcb_io_opt_t *io, const struct lcb_create_io_ops_st 
         /* check if plugin selected compatible version */
         if (iop->version < 0 || iop->version > 3) {
             lcb_destroy_io_ops(iop);
-            return LCB_PLUGIN_VERSION_MISMATCH;
+            return LCB_ERR_PLUGIN_VERSION_MISMATCH;
         }
     }
 
@@ -510,27 +510,20 @@ lcb_STATUS lcb_iops_cntl_handler(int mode, lcb_INSTANCE *instance, int cmd, void
         case LCB_CNTL_IOPS_DEFAULT_TYPES: {
             struct lcb_create_io_ops_st options;
             struct lcb_cntl_iops_info_st *info = arg;
-            lcb_STATUS err;
             plugin_info pi;
 
             memset(&options, 0, sizeof(options));
             if (mode != LCB_CNTL_GET) {
-                return LCB_NOT_SUPPORTED;
+                return LCB_ERR_UNSUPPORTED_OPERATION;
             }
 
             if (info->version != 0) {
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
 
             info->v.v0.os_default = DEFAULT_IOPS;
 
-            err = generate_options(&pi, info->v.v0.options, &options, &info->v.v0.effective);
-
-            if (err != LCB_SUCCESS) {
-                return LCB_ERROR;
-            }
-
-            return LCB_SUCCESS;
+            return generate_options(&pi, info->v.v0.options, &options, &info->v.v0.effective);
         }
 
         case LCB_CNTL_IOPS_DLOPEN_DEBUG: {
@@ -544,7 +537,7 @@ lcb_STATUS lcb_iops_cntl_handler(int mode, lcb_INSTANCE *instance, int cmd, void
         }
 
         default:
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
     }
 }
 

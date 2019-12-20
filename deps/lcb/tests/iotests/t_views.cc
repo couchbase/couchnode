@@ -71,7 +71,7 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
         ASSERT_EQ(LCB_SUCCESS, rv);
     }
 
-    ASSERT_TRUE(rv == LCB_BUCKET_ENOENT || rv == LCB_AUTH_ERROR);
+    ASSERT_TRUE(rv == LCB_ERR_BUCKET_NOT_FOUND || rv == LCB_ERR_AUTHENTICATION_FAILURE);
     hw.destroy(); // Should really be called clear(), since that's what it does
 
     // Use the management API to load the beer-sample database
@@ -434,7 +434,7 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
-    ASSERT_EQ(LCB_HTTP_ERROR, vi.err);
+    ASSERT_EQ(LCB_ERR_HTTP, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
     vi.clear();
@@ -448,7 +448,7 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
-    ASSERT_EQ(LCB_HTTP_ERROR, vi.err);
+    ASSERT_EQ(LCB_ERR_HTTP, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
     vi.clear();
@@ -464,7 +464,7 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance);
-    ASSERT_EQ(LCB_HTTP_ERROR, vi.err);
+    ASSERT_EQ(LCB_ERR_HTTP, vi.err);
     ASSERT_EQ(400, vi.http_status);
 }
 
@@ -476,19 +476,19 @@ TEST_F(ViewsUnitTest, testOptionValidation)
 
     lcb_CMDVIEW *cmd;
     lcb_cmdview_create(&cmd);
-    ASSERT_EQ(LCB_EINVAL, lcb_view(instance, NULL, cmd));
+    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, NULL, cmd));
     lcb_cmdview_destroy(cmd);
 
     lcb_cmdview_create(&cmd);
     lcb_cmdview_callback(cmd, viewCallback);
-    ASSERT_EQ(LCB_EINVAL, lcb_view(instance, NULL, cmd));
+    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, NULL, cmd));
     lcb_cmdview_destroy(cmd);
 
     const char *view = "view";
     lcb_cmdview_create(&cmd);
     lcb_cmdview_callback(cmd, viewCallback);
     lcb_cmdview_view_name(cmd, view, strlen(view));
-    ASSERT_EQ(LCB_EINVAL, lcb_view(instance, NULL, cmd));
+    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, NULL, cmd));
     lcb_cmdview_destroy(cmd);
 
     const char *ddoc = "design";
@@ -499,7 +499,7 @@ TEST_F(ViewsUnitTest, testOptionValidation)
     // Expect it to fail with flags
     lcb_cmdview_include_docs(cmd, true);
     lcb_cmdview_no_row_parse(cmd, true);
-    ASSERT_EQ(LCB_OPTIONS_CONFLICT, lcb_view(instance, NULL, cmd));
+    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, lcb_view(instance, NULL, cmd));
     lcb_cmdview_destroy(cmd);
 }
 

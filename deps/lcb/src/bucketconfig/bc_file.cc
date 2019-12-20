@@ -180,7 +180,7 @@ void FileProvider::reload_cache()
     if (load_cache() == UPDATED) {
         parent->provider_got_config(this, config);
     } else {
-        parent->provider_failed(this, LCB_ERROR);
+        parent->provider_failed(this, LCB_ERR_GENERIC);
     }
 }
 

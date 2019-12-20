@@ -24,7 +24,7 @@
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_status(const lcb_RESPVIEW *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_cookie(const lcb_RESPVIEW *resp, void **cookie)
@@ -63,6 +63,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respview_http_response(const lcb_RESPVIEW *resp,
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_document(const lcb_RESPVIEW *resp, const lcb_RESPGET **doc)
 {
     *doc = resp->docresp;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_error_context(const lcb_RESPVIEW *resp, const lcb_VIEW_ERROR_CONTEXT **ctx)
+{
+    *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
 
@@ -182,7 +188,7 @@ void IOV2PTRLEN(const lcb_IOV *iov, value_type *&ptr, size_type &len)
 
 void lcb_VIEW_HANDLE_::invoke_last(lcb_STATUS err)
 {
-    lcb_RESPVIEW resp = {0};
+    lcb_RESPVIEW resp{};
     if (callback == NULL) {
         return;
     }
@@ -190,17 +196,62 @@ void lcb_VIEW_HANDLE_::invoke_last(lcb_STATUS err)
         return;
     }
 
-    resp.rc = err;
-    resp.htresp = cur_htresp;
+    resp.ctx.rc = err;
     resp.cookie = const_cast< void * >(cookie);
     resp.rflags = LCB_RESP_F_FINAL;
     resp.handle = this;
+    resp.htresp = cur_htresp;
+    if (cur_htresp) {
+        resp.ctx.http_response_code = cur_htresp->ctx.response_code;
+    }
+    resp.ctx.design_document = design_document.c_str();
+    resp.ctx.design_document_len = design_document.size();
+    resp.ctx.view = view.c_str();
+    resp.ctx.view_len = view.size();
+    resp.ctx.query_params = query_params.c_str();
+    resp.ctx.query_params_len = query_params.size();
     if (parser && parser->meta_complete) {
         resp.value = parser->meta_buf.c_str();
         resp.nvalue = parser->meta_buf.size();
+        Json::Value meta;
+        if (Json::Reader().parse(resp.value, resp.value + resp.nvalue, meta)) {
+            Json::Value &errors = meta["errors"];
+            if (errors.isArray() && !errors.empty()) {
+                Json::Value &error = errors[0];
+                Json::Value &message = error["reason"];
+                if (message.isString()) {
+                    first_error_message = message.asString();
+                    resp.ctx.first_error_message = first_error_message.c_str();
+                    resp.ctx.first_error_message_len = first_error_message.size();
+                }
+            }
+        }
     } else {
         resp.rflags |= LCB_RESP_F_CLIENTGEN;
+        if (cur_htresp && cur_htresp->ctx.response_code != 200 && cur_htresp->ctx.body_len) {
+            // chances that were not able to parse response
+            Json::Value meta;
+            if (Json::Reader().parse((const char *)cur_htresp->ctx.body,
+                                     (const char *)cur_htresp->ctx.body + cur_htresp->ctx.body_len, meta)) {
+                Json::Value &error = meta["error"];
+                if (error.isString()) {
+                    first_error_code = error.asString();
+                    resp.ctx.first_error_code = first_error_code.c_str();
+                    resp.ctx.first_error_code_len = first_error_code.size();
+                }
+                Json::Value &message = meta["reason"];
+                if (message.isString()) {
+                    first_error_message = message.asString();
+                    resp.ctx.first_error_message = first_error_message.c_str();
+                    resp.ctx.first_error_message_len = first_error_message.size();
+                }
+            }
+        }
     }
+    if (first_error_code == "not_found") {
+        resp.ctx.http_response_code = LCB_ERR_VIEW_NOT_FOUND;
+    }
+
     callback(instance, LCB_CALLBACK_VIEWQUERY, &resp);
     cancel();
 }
@@ -210,8 +261,17 @@ void lcb_VIEW_HANDLE_::invoke_row(lcb_RESPVIEW *resp)
     if (callback == NULL) {
         return;
     }
-    resp->htresp = cur_htresp;
     resp->cookie = const_cast< void * >(cookie);
+    resp->htresp = cur_htresp;
+    if (cur_htresp) {
+        resp->ctx.http_response_code = cur_htresp->ctx.response_code;
+    }
+    resp->ctx.design_document = design_document.c_str();
+    resp->ctx.design_document_len = design_document.size();
+    resp->ctx.view = view.c_str();
+    resp->ctx.view_len = view.size();
+    resp->ctx.query_params = query_params.c_str();
+    resp->ctx.query_params_len = query_params.size();
     callback(instance, LCB_CALLBACK_VIEWQUERY, resp);
 }
 
@@ -222,13 +282,13 @@ static void chunk_callback(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
 
     req->cur_htresp = rh;
 
-    if (rh->rc != LCB_SUCCESS || rh->htstatus != 200 || (rh->rflags & LCB_RESP_F_FINAL)) {
-        if (req->lasterr == LCB_SUCCESS && rh->htstatus != 200) {
-            if (rh->rc != LCB_SUCCESS) {
-                req->lasterr = rh->rc;
+    if (rh->ctx.rc != LCB_SUCCESS || rh->ctx.response_code != 200 || (rh->rflags & LCB_RESP_F_FINAL)) {
+        if (req->lasterr == LCB_SUCCESS && rh->ctx.response_code != 200) {
+            if (rh->ctx.rc != LCB_SUCCESS) {
+                req->lasterr = rh->ctx.rc;
             } else {
-                lcb_log(LOGARGS(instance, DEBUG), "Got not ok http status %d", rh->htstatus);
-                req->lasterr = LCB_HTTP_ERROR;
+                lcb_log(LOGARGS(instance, DEBUG), "Got not ok http status %d", rh->ctx.response_code);
+                req->lasterr = LCB_ERR_HTTP;
             }
         }
         req->ref();
@@ -247,7 +307,7 @@ static void chunk_callback(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
     }
 
     req->refcount++;
-    req->parser->feed(reinterpret_cast< const char * >(rh->body), rh->nbody);
+    req->parser->feed(reinterpret_cast< const char * >(rh->ctx.body), rh->ctx.body_len);
     req->cur_htresp = NULL;
     req->unref();
 }
@@ -288,7 +348,7 @@ void lcb_VIEW_HANDLE_::JSPARSE_on_row(const lcb::jsparse::Row &datum)
         ref();
 
     } else {
-        lcb_RESPVIEW resp = {0};
+        lcb_RESPVIEW resp{};
         if (is_no_rowparse()) {
             IOV2PTRLEN(&datum.row, resp.value, resp.nvalue);
         } else {
@@ -304,7 +364,7 @@ void lcb_VIEW_HANDLE_::JSPARSE_on_row(const lcb::jsparse::Row &datum)
 
 void lcb_VIEW_HANDLE_::JSPARSE_on_error(const std::string &)
 {
-    invoke_last(LCB_PROTOCOL_ERROR);
+    invoke_last(LCB_ERR_PROTOCOL_ERROR);
 }
 
 void lcb_VIEW_HANDLE_::JSPARSE_on_complete(const std::string &)
@@ -323,12 +383,12 @@ static void doc_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
     q->n_awaiting_response--;
     dreq->docresp = *rg;
     dreq->ready = 1;
-    dreq->docresp.key = dreq->docid.iov_base;
-    dreq->docresp.nkey = dreq->docid.iov_len;
+    dreq->docresp.ctx.key = (const char *)dreq->docid.iov_base;
+    dreq->docresp.ctx.key_len = dreq->docid.iov_len;
 
     /* Reference the response data, since we might not be invoking this right
      * away */
-    if (rg->rc == LCB_SUCCESS) {
+    if (rg->ctx.rc == LCB_SUCCESS) {
         lcb_backbuf_ref(reinterpret_cast< lcb_BACKBUF >(dreq->docresp.bufh));
     }
     q->check();
@@ -354,7 +414,7 @@ static lcb_STATUS cb_op_schedule(lcb::docreq::Queue *q, lcb::docreq::DocRequest 
 
 static void cb_doc_ready(lcb::docreq::Queue *q, lcb::docreq::DocRequest *req_base)
 {
-    lcb_RESPVIEW resp = {0};
+    lcb_RESPVIEW resp{};
     VRDocRequest *dreq = (VRDocRequest *)req_base;
     resp.docresp = &dreq->docresp;
     IOV2PTRLEN(&dreq->key, resp.key, resp.nkey);
@@ -422,20 +482,24 @@ lcb_STATUS lcb_VIEW_HANDLE_::request_http(const lcb_CMDVIEW *cmd)
     lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_GET);
     lcb_cmdhttp_streaming(htcmd, true);
 
+    design_document.assign(cmd->ddoc, cmd->nddoc);
+    view.assign(cmd->view, cmd->nview);
+
     std::string path;
     path.append("_design/");
     path.append(cmd->ddoc, cmd->nddoc);
     path.append(is_spatial() ? "/_spatial/" : "/_view/");
     path.append(cmd->view, cmd->nview);
     if (cmd->noptstr) {
+        query_params.assign(cmd->optstr, cmd->noptstr);
         path.append("?").append(cmd->optstr, cmd->noptstr);
     }
 
     lcb_cmdhttp_path(htcmd, path.c_str(), path.size());
     lcb_cmdhttp_handle(htcmd, &htreq);
 
+    std::string content_type("application/json");
     if (cmd->npostdata) {
-        std::string content_type("application/json");
         lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_POST);
         lcb_cmdhttp_body(htcmd, cmd->postdata, cmd->npostdata);
         lcb_cmdhttp_content_type(htcmd, content_type.c_str(), content_type.size());
@@ -458,11 +522,11 @@ lcb_VIEW_HANDLE_::lcb_VIEW_HANDLE_(lcb_INSTANCE *instance_, const void *cookie_,
 
     // Validate:
     if (cmd->nddoc == 0 || cmd->nview == 0 || callback == NULL) {
-        lasterr = LCB_EINVAL;
+        lasterr = LCB_ERR_INVALID_ARGUMENT;
     } else if (is_include_docs() && is_no_rowparse()) {
-        lasterr = LCB_OPTIONS_CONFLICT;
+        lasterr = LCB_ERR_OPTIONS_CONFLICT;
     } else if (cmd->noptstr > MAX_GET_URI_LENGTH) {
-        lasterr = LCB_E2BIG;
+        lasterr = LCB_ERR_VALUE_TOO_LARGE;
     }
     if (lasterr != LCB_SUCCESS) {
         return;

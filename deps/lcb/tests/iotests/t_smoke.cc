@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include "iotests.h"
 #include <libcouchbase/utils.h>
+#include "internalstructs.h"
 
 using std::string;
 using std::vector;
@@ -29,7 +30,7 @@ struct rvbuf {
     lcb_STORE_OPERATION operation;
     vector< char > bytes;
     vector< char > key;
-    lcb_cas_t cas;
+    uint64_t cas;
     lcb_uint32_t flags;
     lcb_int32_t counter;
     lcb_uint32_t errorCount;
@@ -159,14 +160,14 @@ static void version_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPMC
     lcb_size_t nvstring = resp->nversion;
     rvbuf *rv = (rvbuf *)resp->cookie;
     char *str;
-    EXPECT_EQ(LCB_SUCCESS, resp->rc);
+    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
 
     if (server_endpoint == NULL) {
         assert(rv->counter == 0);
         return;
     }
 
-    rv->setError(resp->rc);
+    rv->setError(resp->ctx.rc);
     /*copy the key to an allocated buffer and ensure the key read from vstring
      * will not segfault
      */
@@ -428,7 +429,7 @@ lcb_STATUS SmokeTest::testMissingBucket()
     lcb_wait(session);
     err = lcb_get_bootstrap_status(session);
     EXPECT_NE(LCB_SUCCESS, err);
-    EXPECT_TRUE(err == LCB_BUCKET_ENOENT || err == LCB_AUTH_ERROR);
+    EXPECT_TRUE(err == LCB_ERR_BUCKET_NOT_FOUND || err == LCB_ERR_AUTHENTICATION_FAILURE);
     destroySession();
     return err;
 }
@@ -511,19 +512,19 @@ TEST_F(SmokeTest, testMemcachedBucket)
     lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ANY);
     lcb_cmdgetreplica_key(cmd, "key", 3);
     rc = lcb_getreplica(session, NULL, cmd);
-    ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+    ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, rc);
     lcb_cmdgetreplica_destroy(cmd);
 
     lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ALL);
     lcb_cmdgetreplica_key(cmd, "key", 3);
     rc = lcb_getreplica(session, NULL, cmd);
-    ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+    ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, rc);
     lcb_cmdgetreplica_destroy(cmd);
 
     lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_IDX0);
     lcb_cmdgetreplica_key(cmd, "key", 3);
     rc = lcb_getreplica(session, NULL, cmd);
-    ASSERT_EQ(LCB_NO_MATCHING_SERVER, rc);
+    ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, rc);
     lcb_cmdgetreplica_destroy(cmd);
 
     testMissingBucket();
@@ -557,6 +558,6 @@ TEST_F(SmokeTest, testSaslBucket)
     testSpuriousSaslError();
 
     destroySession();
-    connectCommon("protected", "incorrect", LCB_AUTH_ERROR);
+    connectCommon("protected", "incorrect", LCB_ERR_AUTHENTICATION_FAILURE);
     destroySession();
 }

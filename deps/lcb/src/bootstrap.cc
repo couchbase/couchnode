@@ -38,7 +38,7 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
     if (event != CLCONFIG_EVENT_GOT_NEW_CONFIG) {
         if (event == CLCONFIG_EVENT_PROVIDERS_CYCLED) {
             if (!LCBT_VBCONFIG(instance)) {
-                initial_error(LCB_ERROR, "No more bootstrap providers remain");
+                initial_error(LCB_ERR_NO_MATCHING_SERVER, "No more bootstrap providers remain");
             }
         }
         return;
@@ -180,7 +180,7 @@ void Bootstrap::timer_dispatch() {
             parent->confmon->get_config());
     } else {
         // Not yet bootstrapped!
-        initial_error(LCB_ETIMEDOUT, "Failed to bootstrap in time");
+        initial_error(LCB_ERR_TIMEOUT, "Failed to bootstrap in time");
     }
 }
 
@@ -270,6 +270,7 @@ lcb_STATUS Bootstrap::bootstrap(unsigned options) {
 
 Bootstrap::~Bootstrap() {
     tm.release();
+    tmpoll.release();
     parent->confmon->remove_listener(this);
 }
 
@@ -287,7 +288,7 @@ lcb_get_bootstrap_status(lcb_INSTANCE *instance)
                 }
                 /* fall through */
             default:
-                return LCB_ERROR;
+                return LCB_ERR_SDK_INTERNAL;
         }
     }
     if (instance->last_error != LCB_SUCCESS) {
@@ -298,7 +299,7 @@ lcb_get_bootstrap_status(lcb_INSTANCE *instance)
             return LCB_SUCCESS;
         }
     }
-    return LCB_ERROR;
+    return LCB_ERR_GENERIC;
 }
 
 LIBCOUCHBASE_API

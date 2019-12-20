@@ -48,18 +48,18 @@
 
 #define TRACE_END_COMMON(TGT, instance, pkt, mcresp, resp, ...)                                                        \
     TGT(instance, mcresp->opaque(), mcresp->opcode(),                                                                  \
-        (MCREQ_PKT_RDATA(pkt)->dispatch) - (MCREQ_PKT_RDATA(pkt)->start), (resp)->rc, (const char *)(resp)->key,       \
-        (resp)->nkey, ##__VA_ARGS__)
+        (MCREQ_PKT_RDATA(pkt)->dispatch) - (MCREQ_PKT_RDATA(pkt)->start), (resp)->ctx.rc,                              \
+        (const char *)(resp)->ctx.key, (resp)->ctx.key_len, ##__VA_ARGS__)
 
 #define TRACE_END_SIMPLE(TGT, instance, pkt, mcresp, resp)                                                             \
     TGT(instance, mcresp->opaque(), mcresp->opcode(), MCREQ_PKT_RDATA(pkt)->dispatch - MCREQ_PKT_RDATA(pkt)->start,    \
-        (resp)->rc, (const char *)(resp)->key, (resp)->nkey)
+        (resp)->ctx.rc, (const char *)(resp)->ctx.key, (resp)->ctx.key_len)
 
 #define TRACE_GET_BEGIN(instance, req, cmd)                                                                            \
     TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_GET_BEGIN, instance, req, cmd, (cmd)->exptime))
 #define TRACE_GET_END(instance, pkt, mcresp, resp)                                                                     \
     TRACE(TRACE_END_COMMON(LIBCOUCHBASE_GET_END, instance, pkt, mcresp, resp, (const char *)(resp)->value,             \
-                           (resp)->nvalue, (resp)->itmflags, (resp)->cas, mcresp->datatype()))
+                           (resp)->nvalue, (resp)->itmflags, (resp)->ctx.cas, mcresp->datatype()))
 
 #define TRACE_UNLOCK_BEGIN(instance, req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_UNLOCK_BEGIN, instance, req, cmd))
 #define TRACE_UNLOCK_END(instance, pkt, mcresp, resp)                                                                  \
@@ -67,7 +67,7 @@
 
 #define TRACE_EXISTS_BEGIN(instance, req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_EXISTS_BEGIN, instance, req, cmd))
 #define TRACE_EXISTS_END(instance, pkt, mcresp, resp)                                                                  \
-    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_EXISTS_END, instance, pkt, mcresp, resp, (resp)->cas))
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_EXISTS_END, instance, pkt, mcresp, resp, (resp)->ctx.cas))
 
 #define TRACE_STORE_BEGIN(instance, req, cmd)                                                                          \
     TRACE(                                                                                                             \
@@ -77,29 +77,29 @@
                            (cmd)->cas, (req)->request.datatype, (cmd)->exptime))
 
 #define TRACE_STORE_END(instance, pkt, mcresp, resp)                                                                   \
-    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_STORE_END, instance, pkt, mcresp, resp, (resp)->cas))
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_STORE_END, instance, pkt, mcresp, resp, (resp)->ctx.cas))
 
 #define TRACE_ARITHMETIC_BEGIN(instance, req, cmd)                                                                     \
     TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_ARITHMETIC_BEGIN, instance, req, cmd, (cmd)->delta, (cmd)->initial,          \
                              (cmd)->exptime))
 #define TRACE_ARITHMETIC_END(instance, pkt, mcresp, resp)                                                              \
-    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_ARITHMETIC_END, instance, pkt, mcresp, resp, (resp)->value, (resp)->cas))
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_ARITHMETIC_END, instance, pkt, mcresp, resp, (resp)->value, (resp)->ctx.cas))
 
 #define TRACE_TOUCH_BEGIN(instance, req, cmd)                                                                          \
     TRACE(TRACE_BEGIN_COMMON(LIBCOUCHBASE_TOUCH_BEGIN, instance, req, cmd, (cmd)->exptime))
 #define TRACE_TOUCH_END(instance, pkt, mcresp, resp)                                                                   \
-    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_TOUCH_END, instance, pkt, mcresp, resp, (resp)->cas))
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_TOUCH_END, instance, pkt, mcresp, resp, (resp)->ctx.cas))
 
 #define TRACE_REMOVE_BEGIN(instance, req, cmd) TRACE(TRACE_BEGIN_SIMPLE(LIBCOUCHBASE_REMOVE_BEGIN, instance, req, cmd))
 #define TRACE_REMOVE_END(instance, pkt, mcresp, resp)                                                                  \
-    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_REMOVE_END, instance, pkt, mcresp, resp, (resp)->cas))
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_REMOVE_END, instance, pkt, mcresp, resp, (resp)->ctx.cas))
 
 #define TRACE_OBSERVE_BEGIN(instance, req, body)                                                                       \
     TRACE(LIBCOUCHBASE_OBSERVE_BEGIN(instance, (req)->request.opaque, (req)->request.opcode, body,                     \
                                      ntohl((req)->request.bodylen)))
 #define TRACE_OBSERVE_PROGRESS(instance, pkt, mcresp, resp)                                                            \
-    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_OBSERVE_PROGRESS, instance, pkt, mcresp, resp, (resp)->cas, (resp)->status,    \
-                           (resp)->ismaster, (resp)->ttp, (resp)->ttr))
+    TRACE(TRACE_END_COMMON(LIBCOUCHBASE_OBSERVE_PROGRESS, instance, pkt, mcresp, resp, (resp)->ctx.cas,                \
+                           (resp)->status, (resp)->ismaster, (resp)->ttp, (resp)->ttr))
 #define TRACE_OBSERVE_END(instance, pkt)                                                                               \
     TRACE(LIBCOUCHBASE_OBSERVE_END(instance, pkt->opaque, PROTOCOL_BINARY_CMD_OBSERVE,                                 \
                                    MCREQ_PKT_RDATA(pkt)->dispatch - MCREQ_PKT_RDATA(pkt)->start, LCB_SUCCESS))

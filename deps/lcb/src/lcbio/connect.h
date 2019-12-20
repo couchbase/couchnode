@@ -137,7 +137,7 @@ typedef void (*lcbio_CONNDONE_cb)(lcbio_SOCKET *s, void *arg, lcb_STATUS err, lc
  * @param settings Settings structure. Used for logging
  * @param dest the endpoint to connect to
  * @param timeout number of time to wait for connection. The handler will be
- *        invoked with an error of `LCB_ETIMEDOUT` if a successful connection
+ *        invoked with an error of `LCB_ERR_TIMEOUT` if a successful connection
  *        cannot be established in time.
  * @param handler a handler to invoke with the result. The handler will always
  *        be invoked unless the request has been cancelled. You should inspect
@@ -232,8 +232,10 @@ void lcbio_shutdown(lcbio_SOCKET *);
  * zero, lcbio_shutdown() will be called.
  */
 #define lcbio_unref(s)                                                                                                 \
-    if (!--(s)->refcount) {                                                                                            \
-        lcbio__destroy(s);                                                                                             \
+    if ((s) && !--(s)->refcount) {                                                                                     \
+        lcbio_SOCKET *t__ = (s);                                                                                       \
+        (s) = NULL;                                                                                                    \
+        lcbio__destroy(t__);                                                                                           \
     }
 
 /** @} */

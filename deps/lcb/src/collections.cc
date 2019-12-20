@@ -21,7 +21,7 @@
 #include <string>
 #include <sstream>
 
-#define LOGARGS(instance, lvl) ()->m_instance->settings, "c9smgmt", LCB_LOG_##lvl, __FILE__, __LINE__
+#define LOGARGS(instance, lvl) (instance)->settings, "c9smgmt", LCB_LOG_##lvl, __FILE__, __LINE__
 
 namespace lcb {
     CollectionCache::CollectionCache(): cache_n2i(), cache_i2n()
@@ -91,7 +91,7 @@ struct GetCidCtx : mc_REQDATAEX {
     }
 };
 
-static void handle_collcache_proc(mc_PIPELINE *, mc_PACKET *pkt, lcb_STATUS err, const void *rb)
+static void handle_collcache_proc(mc_PIPELINE *, mc_PACKET *pkt, lcb_STATUS /* err */, const void *rb)
 {
     GetCidCtx *ctx = static_cast< GetCidCtx * >(pkt->u_rdata.exdata);
     const lcb_RESPGETCID *resp = (const lcb_RESPGETCID *)rb;
@@ -99,7 +99,7 @@ static void handle_collcache_proc(mc_PIPELINE *, mc_PACKET *pkt, lcb_STATUS err,
     ctx->instance->collcache->put(ctx->path, cid);
     lcb_STATUS rc = ctx->cb(cid, ctx->instance, (void *)ctx->cookie, ctx->arg);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "failed to schedule command\n");
+        lcb_log(LOGARGS(ctx->instance, WARN), "failed to schedule command, rc: %s", lcb_strerror_short(rc));
     }
     delete ctx;
 }
@@ -116,7 +116,7 @@ lcb_STATUS collcache_exec_str(std::string collection, lcb_INSTANCE *instance, vo
 {
     if (!LCBT_SETTING(instance, use_collections)) {
         if (!collection.empty()) {
-            return LCB_NOT_SUPPORTED;
+            return LCB_ERR_UNSUPPORTED_OPERATION;
         }
         return cb(0, instance, cookie, arg);
     }
@@ -128,24 +128,24 @@ lcb_STATUS collcache_exec_str(std::string collection, lcb_INSTANCE *instance, vo
 
     mc_CMDQUEUE *cq = &instance->cmdq;
     if (cq->config == NULL) {
-        return LCB_CLIENT_ETMPFAIL;
+        return LCB_ERR_NO_CONFIGURATION;
     }
 
     /* TODO: rotate pipelines */
     if (cq->npipelines < 1) {
-        return LCB_NO_MATCHING_SERVER;
+        return LCB_ERR_NO_MATCHING_SERVER;
     }
     mc_PIPELINE *pl = cq->pipelines[0];
     mc_PACKET *pkt = mcreq_allocate_packet(pl);
     if (!pkt) {
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
     mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
     lcb_KEYBUF key = {};
     LCB_KREQ_SIMPLE(&key, collection.c_str(), collection.size());
     pkt->flags |= MCREQ_F_NOCID;
     mcreq_reserve_key(pl, pkt, MCREQ_PKT_BASESIZE, &key, 0);
-    protocol_binary_request_header hdr = {0};
+    protocol_binary_request_header hdr{};
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
@@ -167,11 +167,11 @@ lcb_STATUS collcache_exec(const char *scope, size_t nscope, const char *collecti
         lcb_COLLCACHE_ARG_CLONE clone, lcb_COLLCACHE_ARG_DTOR dtor, const void *arg)
 {
     if (LCBT_SETTING(instance, conntype) != LCB_TYPE_BUCKET) {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
     if (!LCBT_SETTING(instance, use_collections)) {
         if (scope != NULL || collection != NULL) {
-            return LCB_NOT_SUPPORTED;
+            return LCB_ERR_UNSUPPORTED_OPERATION;
         }
         return cb(0, instance, cookie, arg);
     }
@@ -184,7 +184,7 @@ lcb_STATUS collcache_exec(const char *scope, size_t nscope, const char *collecti
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetmanifest_status(const lcb_RESPGETMANIFEST *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetmanifest_cookie(const lcb_RESPGETMANIFEST *resp, void **cookie)
@@ -215,6 +215,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetmanifest_destroy(lcb_CMDGETMANIFEST *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetmanifest_timeout(lcb_CMDGETMANIFEST *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -223,23 +224,23 @@ lcb_STATUS lcb_getmanifest(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGE
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     if (cq->config == NULL) {
-        return LCB_CLIENT_ETMPFAIL;
+        return LCB_ERR_NO_CONFIGURATION;
     }
     if (!LCBT_SETTING(instance, use_collections)) {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
     if (cq->npipelines < 1) {
-        return LCB_NO_MATCHING_SERVER;
+        return LCB_ERR_NO_MATCHING_SERVER;
     }
     mc_PIPELINE *pl = cq->pipelines[0];
 
     mc_PACKET *pkt = mcreq_allocate_packet(pl);
     if (!pkt) {
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
     mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
 
-    protocol_binary_request_header hdr = {0};
+    protocol_binary_request_header hdr{};
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_COLLECTIONS_GET_MANIFEST;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
@@ -257,13 +258,13 @@ lcb_STATUS lcb_getmanifest(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGE
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetcid_status(const lcb_RESPGETCID *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetcid_scoped_collection(const lcb_RESPGETCID *resp, const char **name, size_t *name_len)
 {
-    *name = (const char *)resp->key;
-    *name_len = resp->nkey;
+    *name = (const char *)resp->ctx.key;
+    *name_len = resp->ctx.key_len;
     return LCB_SUCCESS;
 }
 
@@ -300,6 +301,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetcid_destroy(lcb_CMDGETCID *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetcid_timeout(lcb_CMDGETCID *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -323,22 +325,22 @@ lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID 
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     if (cq->config == NULL) {
-        return LCB_CLIENT_ETMPFAIL;
+        return LCB_ERR_NO_CONFIGURATION;
     }
     if (!LCBT_SETTING(instance, use_collections)) {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
     if (cmd->nscope == 0 || cmd->scope == NULL || cmd->ncollection == 0 || cmd->collection == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     if (cq->npipelines < 1) {
-        return LCB_NO_MATCHING_SERVER;
+        return LCB_ERR_NO_MATCHING_SERVER;
     }
     mc_PIPELINE *pl = cq->pipelines[0];
 
     mc_PACKET *pkt = mcreq_allocate_packet(pl);
     if (!pkt) {
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
     mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
 
@@ -352,7 +354,7 @@ lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID 
     pkt->flags |= MCREQ_F_NOCID;
     mcreq_reserve_key(pl, pkt, MCREQ_PKT_BASESIZE, &key, 0);
 
-    protocol_binary_request_header hdr = {0};
+    protocol_binary_request_header hdr{};
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;

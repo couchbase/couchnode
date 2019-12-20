@@ -132,7 +132,7 @@ void lcb_sched_flush(lcb_INSTANCE *instance)
 bool Server::handle_nmv(MemcachedResponse &resinfo, mc_PACKET *oldpkt)
 {
     protocol_binary_request_header hdr;
-    lcb_STATUS err = LCB_ERROR;
+    lcb_STATUS err = LCB_ERR_GENERIC;
     lcb_U16 vbid;
     lcb::clconfig::Provider *cccp = instance->confmon->get_provider(lcb::clconfig::CLCONFIG_CCCP);
 
@@ -168,8 +168,8 @@ bool Server::handle_nmv(MemcachedResponse &resinfo, mc_PACKET *oldpkt)
         }
         instance->bootstrap(bs_options);
     }
-
-    if (!lcb_should_retry(settings, oldpkt, LCB_NOT_MY_VBUCKET)) {
+    lcb_RETRY_ACTION retry = lcb_kv_should_retry(settings, oldpkt, LCB_ERR_NOT_MY_VBUCKET);
+    if (!retry.should_retry) {
         return false;
     }
 
@@ -191,7 +191,7 @@ static lcb_STATUS reschedule_destroy(void *)
     return LCB_SUCCESS;
 }
 
-static lcb_STATUS reschedule_with_collection(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
+static lcb_STATUS reschedule_with_collection(uint32_t cid, lcb_INSTANCE *instance, void * /* cookie */, const void *arg)
 {
     /** Reschedule the packet again .. */
     mc_PACKET *newpkt = (mc_PACKET *)arg;
@@ -300,7 +300,7 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
     if (!err.isValid() || err.hasAttribute(errmap::SPECIAL_HANDLING)) {
         lcb_log(LOGARGS_T(ERR), LOGFMT "Received error not in error map or requires special handling! " PKTFMT,
                 LOGID_T(), PKTARGS(mcresp));
-        lcbio_ctx_senderr(connctx, LCB_PROTOCOL_ERROR);
+        lcbio_ctx_senderr(connctx, LCB_ERR_PROTOCOL_ERROR);
         return ERRMAP_HANDLE_DISCONN;
     } else {
         lcb_log(LOGARGS_T(WARN), LOGFMT "Received server error %s (0x%x) on packet: " PKTFMT, LOGID_T(),
@@ -312,19 +312,15 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
     }
 
     if (err.hasAttribute(errmap::TEMPORARY)) {
-        newerr = LCB_GENERIC_TMPERR;
+        newerr = LCB_ERR_TEMPORARY_FAILURE;
     }
 
     if (err.hasAttribute(errmap::CONSTRAINT_FAILURE)) {
-        newerr = LCB_GENERIC_CONSTRAINT_ERR;
+        newerr = LCB_ERR_CAS_MISMATCH;
     }
 
     if (err.hasAttribute(errmap::AUTH)) {
-        newerr = LCB_AUTH_ERROR;
-    }
-
-    if (err.hasAttribute(errmap::SUBDOC) && newerr == LCB_SUCCESS) {
-        newerr = LCB_GENERIC_SUBDOCERR;
+        newerr = LCB_ERR_AUTHENTICATION_FAILURE;
     }
 
     /* TODO: remove masking LOCKED in 3.0 release */
@@ -333,10 +329,10 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
             case PROTOCOL_BINARY_CMD_SET:
             case PROTOCOL_BINARY_CMD_REPLACE:
             case PROTOCOL_BINARY_CMD_DELETE:
-                newerr = LCB_KEY_EEXISTS;
+                newerr = LCB_ERR_DOCUMENT_EXISTS;
                 break;
             default:
-                newerr = LCB_ETMPFAIL;
+                newerr = LCB_ERR_TEMPORARY_FAILURE;
         }
     }
 
@@ -347,13 +343,13 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
 
         mc_PACKET *newpkt = mcreq_renew_packet(request);
         newpkt->flags &= ~MCREQ_STATE_FLAGS;
-        instance->retryq->add((mc_EXPACKET *)newpkt, newerr ? newerr : LCB_ERROR, spec);
+        instance->retryq->add((mc_EXPACKET *)newpkt, newerr ? newerr : LCB_ERR_GENERIC, spec);
         rv |= ERRMAP_HANDLE_RETRY;
     }
 
     if (err.hasAttribute(errmap::CONN_STATE_INVALIDATED)) {
         if (newerr != LCB_SUCCESS) {
-            newerr = LCB_ERROR;
+            newerr = LCB_ERR_GENERIC;
         }
         lcbio_ctx_senderr(connctx, newerr);
         rv |= ERRMAP_HANDLE_DISCONN;
@@ -439,7 +435,7 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
         if (!handle_nmv(mcresp, request)) {
-            mcreq_dispatch_response(this, request, &mcresp, LCB_NOT_MY_VBUCKET);
+            mcreq_dispatch_response(this, request, &mcresp, LCB_ERR_NOT_MY_VBUCKET);
         }
         DO_SWALLOW_PAYLOAD()
         goto GT_DONE;
@@ -528,7 +524,8 @@ bool Server::maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err)
         /** memcached bucket */
         return false;
     }
-    if (!lcb_should_retry(settings, pkt, err)) {
+    lcb_RETRY_ACTION retry = lcb_kv_should_retry(settings, pkt, err);
+    if (!retry.should_retry) {
         return false;
     }
 
@@ -644,13 +641,13 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
         return;
     }
 
-    if (err == LCB_AUTH_ERROR) {
+    if (err == LCB_ERR_AUTHENTICATION_FAILURE) {
         /* In-situ auth errors are actually dead servers. Let's provide this
          * as the actual error code. */
-        err = LCB_MAP_CHANGED;
+        err = LCB_ERR_MAP_CHANGED;
     }
 
-    if (err == LCB_ETIMEDOUT) {
+    if (err == LCB_ERR_TIMEOUT) {
         lcb_STATUS tmperr = lcb::RetryQueue::error_for(pkt);
         if (tmperr != LCB_SUCCESS) {
             err = tmperr;
@@ -663,7 +660,7 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
                            PROTOCOL_BINARY_RESPONSE_EINVAL);
 
     lcbtrace_span_set_orphaned(MCREQ_PKT_RDATA(pkt)->span, true);
-    if (err == LCB_ETIMEDOUT && settings->use_tracing) {
+    if (err == LCB_ERR_TIMEOUT && settings->use_tracing) {
         Json::Value info;
 
         char opid[30] = {};
@@ -787,7 +784,7 @@ void Server::io_timeout()
 {
     hrtime_t now = gethrtime();
 
-    int npurged = purge(LCB_ETIMEDOUT, now, Server::REFRESH_ONFAILED);
+    int npurged = purge(LCB_ERR_TIMEOUT, now, Server::REFRESH_ONFAILED);
     if (npurged) {
         MC_INCR_METRIC(this, packets_timeout, npurged);
         lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server timed out. Some commands have failed", LOGID_T());
@@ -802,7 +799,7 @@ void Server::io_timeout()
 
 bool Server::maybe_reconnect_on_fake_timeout(lcb_STATUS err)
 {
-    if (err != LCB_ETIMEDOUT) {
+    if (err != LCB_ERR_TIMEOUT) {
         return false; /* not a timeout */
     }
     if (!settings->readj_ts_wait) {
@@ -868,6 +865,7 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
         mutation_tokens = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO);
         new_durability = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_SYNC_REPLICATION) &&
                          sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_ALT_REQUEST_SUPPORT);
+        selected_bucket = sessinfo->selected_bucket();
     }
 
     lcbio_CTXPROCS procs;
@@ -901,7 +899,7 @@ static void buf_done_cb(mc_PIPELINE *pl, const void *cookie, void *, void *)
 Server::Server(lcb_INSTANCE *instance_, int ix)
     : mc_PIPELINE(), state(S_CLEAN), io_timer(lcbio_timer_new(instance_->iotable, this, timeout_server)),
       instance(instance_), settings(lcb_settings_ref2(instance_->settings)), compsupport(0), jsonsupport(0),
-      mutation_tokens(0), new_durability(-1), connctx(NULL), curhost(new lcb_host_t())
+      mutation_tokens(0), new_durability(-1), selected_bucket(0), connctx(NULL), curhost(new lcb_host_t())
 {
     mcreq_pipeline_init(this);
     flush_start = (mcreq_flushstart_fn)server_connect;
@@ -926,7 +924,7 @@ Server::Server(lcb_INSTANCE *instance_, int ix)
 
 Server::Server()
     : state(S_TEMPORARY), io_timer(NULL), instance(NULL), settings(NULL), compsupport(0), jsonsupport(0),
-      mutation_tokens(0), connctx(NULL), connreq(NULL), curhost(NULL)
+      mutation_tokens(0), new_durability(0), connctx(NULL), connreq(NULL), curhost(NULL)
 {
 }
 

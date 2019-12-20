@@ -202,7 +202,8 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
 
     mcreq_read_hdr(oldpkt, &hdr);
 
-    if (!lcb_should_retry(srv->get_settings(), oldpkt, LCB_MAX_ERROR)) {
+    lcb_RETRY_ACTION retry = lcb_kv_should_retry(srv->get_settings(), oldpkt, LCB_ERR_TOPOLOGY_CHANGE);
+    if (!retry.should_retry) {
         return MCREQ_KEEP_PACKET;
     }
 
@@ -210,8 +211,8 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
         newix = lcbvb_vbmaster(cq->config, ntohs(hdr.request.vbucket));
 
     } else {
-        const void *key = NULL;
-        lcb_SIZE nkey = 0;
+        const char *key = NULL;
+        size_t nkey = 0;
         int tmpid;
 
         /* XXX: We ignore hashkey. This is going away soon, and is probably
@@ -300,7 +301,7 @@ replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *ne
         }
 
         mcreq_iterwipe(cq, ppold[ii], iterwipe_cb, NULL);
-        static_cast<lcb::Server*>(ppold[ii])->purge(LCB_MAP_CHANGED);
+        static_cast< lcb::Server * >(ppold[ii])->purge(LCB_ERR_MAP_CHANGED);
         static_cast<lcb::Server*>(ppold[ii])->close();
     }
 

@@ -105,7 +105,7 @@ TEST_F(McIOFlush, testIOCPFlush)
     }
 
     for (unsigned ii = 0; ii < cq.npipelines; ii++) {
-        mcreq_pipeline_fail(cq.pipelines[ii], LCB_ERROR, failcb, NULL);
+        mcreq_pipeline_fail(cq.pipelines[ii], LCB_ERR_GENERIC, failcb, NULL);
     }
 
     ASSERT_EQ(count, flushes.size());

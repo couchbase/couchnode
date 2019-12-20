@@ -47,7 +47,6 @@ typedef unsigned __int8 lcb_uint8_t;
 typedef unsigned __int16 lcb_vbucket_t;
 typedef unsigned __int16 lcb_uint16_t;
 typedef unsigned __int32 lcb_uint32_t;
-typedef unsigned __int64 lcb_cas_t;
 typedef unsigned __int64 lcb_uint64_t;
 
 /** FIXME: This should be a native type, but it's already defined here.. */
@@ -69,7 +68,6 @@ typedef uint16_t lcb_vbucket_t;
 typedef uint8_t lcb_uint8_t;
 typedef uint16_t lcb_uint16_t;
 typedef uint32_t lcb_uint32_t;
-typedef uint64_t lcb_cas_t;
 typedef uint64_t lcb_uint64_t;
 typedef time_t lcb_time_t;
 #endif
@@ -83,7 +81,6 @@ typedef lcb_uint8_t lcb_U8;    /**< @brief unsigned 8 bit type */
 typedef lcb_size_t lcb_SIZE;   /**< @brief Unsigned size type */
 typedef lcb_ssize_t lcb_SSIZE; /**<@brief Signed size type */
 typedef lcb_time_t lcb_SECS;   /**< @brief Unsigned 'seconds time' type */
-typedef lcb_cas_t lcb_CAS;
 
 #ifdef __GNUC__
 #define LCB_DEPRECATED(X) X __attribute__((deprecated))

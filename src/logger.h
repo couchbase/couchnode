@@ -23,9 +23,10 @@ private:
     void handler(unsigned int iid, const char *subsys, int severity,
                  const char *srcfile, int srcline, const char *fmt, va_list ap);
 
-    static void lcbHandler(lcb_LOGGER *procs, uint64_t iid, const char *subsys,
-                           lcb_LOG_SEVERITY severity, const char *srcfile,
-                           int srcline, const char *fmt, va_list ap);
+    static void lcbHandler(const lcb_LOGGER *procs, uint64_t iid,
+                           const char *subsys, lcb_LOG_SEVERITY severity,
+                           const char *srcfile, int srcline, const char *fmt,
+                           va_list ap);
 
     lcb_LOGGER *_lcbLogger;
     Nan::Callback _callback;

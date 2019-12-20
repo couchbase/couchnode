@@ -19,7 +19,7 @@ describe('#collectionmanager', () => {
       var cmgr = H.b.collections();
       await H.throwsHelper(async () => {
         await cmgr.createScope(testScope);
-      }, H.lib.ScopeAlreadyExistsError);
+      }, H.lib.ScopeExistsError);
     });
 
     it('should successfully create a collection', async () => {
@@ -31,7 +31,7 @@ describe('#collectionmanager', () => {
       var cmgr = H.b.collections();
       await H.throwsHelper(async () => {
         await cmgr.createCollection(testColl, testScope);
-      }, H.lib.CollectionAlreadyExistsError);
+      }, H.lib.CollectionExistsError);
     });
 
     it('should emit the correct error on missing scopes', async () => {

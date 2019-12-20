@@ -23,7 +23,7 @@ lcb_STATUS lcb_observe_seqno3(lcb_INSTANCE *instance, const void *cookie, const 
     lcb_U64 uuid;
 
     if (cmd->server_index > LCBT_NSERVERS(instance)) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     lcb::Server *server = instance->get_server(cmd->server_index);
@@ -66,27 +66,27 @@ const lcb_MUTATION_TOKEN *lcb_get_mutation_token(lcb_INSTANCE *instance, const l
     }
 
     if (!LCBT_VBCONFIG(instance)) {
-        *errp = LCB_CLIENT_ETMPFAIL;
+        *errp = LCB_ERR_NO_CONFIGURATION;
         return NULL;
     }
     if (LCBT_VBCONFIG(instance)->dtype != LCBVB_DIST_VBUCKET) {
-        *errp = LCB_NOT_SUPPORTED;
+        *errp = LCB_ERR_UNSUPPORTED_OPERATION;
         return NULL;
     }
     if (!LCBT_SETTING(instance, fetch_mutation_tokens)) {
-        *errp = LCB_NOT_SUPPORTED;
+        *errp = LCB_ERR_UNSUPPORTED_OPERATION;
         return NULL;
     }
 
     if (!instance->dcpinfo) {
-        *errp = LCB_DURABILITY_NO_MUTATION_TOKENS;
+        *errp = LCB_ERR_DURABILITY_NO_MUTATION_TOKENS;
         return NULL;
     }
 
     mcreq_map_key(&instance->cmdq, kb, 0, &vbix, &srvix);
     existing = instance->dcpinfo + vbix;
     if (existing->uuid_ == 0 && existing->seqno_ == 0) {
-        *errp = LCB_DURABILITY_NO_MUTATION_TOKENS;
+        *errp = LCB_ERR_DURABILITY_NO_MUTATION_TOKENS;
         return NULL;
     }
     *errp = LCB_SUCCESS;

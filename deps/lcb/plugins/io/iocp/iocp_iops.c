@@ -415,7 +415,7 @@ lcb_STATUS lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg)
 
     io = calloc(1, sizeof(*io));
     if (!io) {
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
 
     /** These functions check if they were called more than once using atomic ops */
@@ -432,7 +432,7 @@ lcb_STATUS lcb_iocp_new_iops(int version, lcb_io_opt_t *ioret, void *arg)
     io->hCompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
 
     if (!io->hCompletionPort) {
-        return LCB_EINTERNAL;
+        return LCB_ERR_SDK_INTERNAL;
     }
 
     tbl->destructor = iops_dtor;

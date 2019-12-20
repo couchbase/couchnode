@@ -24,7 +24,7 @@ H.requireFeature(H.Features.BucketManagement, () => {
           name: testBucket,
           ramQuotaMB: 100,
         });
-      }, H.lib.BucketAlreadyExistsError);
+      }, H.lib.BucketExistsError);
     });
 
     it('should successfully get a bucket', async () => {

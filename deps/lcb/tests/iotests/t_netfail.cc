@@ -129,7 +129,7 @@ static bool syncWithNodeCount_(lcb_INSTANCE *instance, size_t expCount)
 extern "C" {
 static void opFromCallback_storeCB(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
-    ASSERT_EQ(LCB_SUCCESS, resp->rc);
+    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
 }
 
 static void opFromCallback_statsCB(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
@@ -138,12 +138,12 @@ static void opFromCallback_statsCB(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, co
     lcb_size_t nstatkey;
 
     const char *server_endpoint = resp->server;
-    const void *key = resp->key;
-    lcb_size_t nkey = resp->nkey;
+    const void *key = resp->ctx.key;
+    lcb_size_t nkey = resp->ctx.key_len;
     const void *bytes = resp->value;
     lcb_size_t nbytes = resp->nvalue;
 
-    ASSERT_EQ(LCB_SUCCESS, resp->rc);
+    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
     if (server_endpoint != NULL) {
         nstatkey = strlen(server_endpoint) + nkey + 2;
         statkey = new char[nstatkey];
@@ -187,7 +187,7 @@ static void set_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RE
 
     lcb_respstore_cookie(resp, (void **)&tc);
     EXPECT_EQ(tc->expected, lcb_respstore_status(resp));
-    if (resp->rc == LCB_ETIMEDOUT) {
+    if (resp->ctx.rc == LCB_ERR_TIMEOUT) {
         // Remove the hiccup at the first timeout failure
         MockEnvironment::getInstance()->hiccupNodes(0, 0);
     }
@@ -242,7 +242,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStale)
     lcb_cmdstore_value(cmd, value, strlen(value));
 
     cookies[0].counter = &nremaining;
-    cookies[0].expected = LCB_ETIMEDOUT;
+    cookies[0].expected = LCB_ERR_TIMEOUT;
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, cookies, cmd));
 
     cookies[1].counter = &nremaining;
@@ -292,7 +292,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
     lcb_cmdstore_timeout(cmd, tmoval);
 
     cookies[0].counter = &nremaining;
-    cookies[0].expected = LCB_ETIMEDOUT;
+    cookies[0].expected = LCB_ERR_TIMEOUT;
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, cookies, cmd));
 
     cookies[1].counter = &nremaining;
@@ -317,8 +317,8 @@ TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
 extern "C" {
 struct rvbuf {
     lcb_STATUS error;
-    lcb_cas_t cas1;
-    lcb_cas_t cas2;
+    uint64_t cas1;
+    uint64_t cas2;
     char *bytes;
     lcb_size_t nbytes;
     lcb_int32_t counter;
@@ -336,9 +336,9 @@ static void store_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_
 {
     struct rvbuf *rv = (struct rvbuf *)resp->cookie;
     lcb_log(LOGARGS(instance, INFO), "Got storage callback for cookie %p with err=0x%x", (void *)resp->cookie,
-            (int)resp->rc);
+            (int)resp->ctx.rc);
 
-    rv->error = resp->rc;
+    rv->error = resp->ctx.rc;
     store_cnt++;
     if (!instance->wait) { /* do not touch IO if we are using lcb_wait() */
         lcb_stop_loop(instance);
@@ -574,11 +574,11 @@ TEST_F(MockUnitTest, testSaslMechs)
     Item itm("key", "value");
     KVOperation kvo(&itm);
 
-    kvo.allowableErrors.insert(LCB_SASLMECH_UNAVAILABLE);
-    kvo.allowableErrors.insert(LCB_ETIMEDOUT);
+    kvo.allowableErrors.insert(LCB_ERR_SASLMECH_UNAVAILABLE);
+    kvo.allowableErrors.insert(LCB_ERR_TIMEOUT);
     kvo.store(instance);
 
-    ASSERT_FALSE(kvo.globalErrors.find(LCB_SASLMECH_UNAVAILABLE) == kvo.globalErrors.end());
+    ASSERT_FALSE(kvo.globalErrors.find(LCB_ERR_SASLMECH_UNAVAILABLE) == kvo.globalErrors.end());
 
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"PLAIN");
     ASSERT_EQ(LCB_SUCCESS, err);
@@ -625,11 +625,11 @@ TEST_F(MockUnitTest, testSaslSHA)
         Item itm("key", "value");
         KVOperation kvo(&itm);
 
-        kvo.allowableErrors.insert(LCB_SASLMECH_UNAVAILABLE);
-        kvo.allowableErrors.insert(LCB_ETIMEDOUT);
+        kvo.allowableErrors.insert(LCB_ERR_SASLMECH_UNAVAILABLE);
+        kvo.allowableErrors.insert(LCB_ERR_TIMEOUT);
         kvo.store(instance);
 
-        ASSERT_FALSE(kvo.globalErrors.find(LCB_SASLMECH_UNAVAILABLE) == kvo.globalErrors.end());
+        ASSERT_FALSE(kvo.globalErrors.find(LCB_ERR_SASLMECH_UNAVAILABLE) == kvo.globalErrors.end());
 
         lcb_destroy(instance);
     }
@@ -651,8 +651,8 @@ TEST_F(MockUnitTest, testSaslSHA)
         Item itm("key", "value");
         KVOperation kvo(&itm);
 
-        kvo.allowableErrors.insert(LCB_SASLMECH_UNAVAILABLE);
-        kvo.allowableErrors.insert(LCB_ETIMEDOUT);
+        kvo.allowableErrors.insert(LCB_ERR_SASLMECH_UNAVAILABLE);
+        kvo.allowableErrors.insert(LCB_ERR_TIMEOUT);
         kvo.store(instance);
 
 #ifndef LCB_NO_SSL
@@ -736,7 +736,7 @@ static void doManyItems(lcb_INSTANCE *instance, std::vector< std::string > keys)
 extern "C" {
 static void mcdFoVerifyCb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
-    EXPECT_EQ(LCB_SUCCESS, rb->rc);
+    EXPECT_EQ(LCB_SUCCESS, rb->ctx.rc);
 }
 }
 
@@ -802,7 +802,7 @@ static void get_callback3(lcb_INSTANCE *, int, const lcb_RESPGET *resp)
 /**
  * This tests the case where a negative index appears for a vbucket ID for the
  * mapped key. In this case we'd expect that the command would be retried
- * at least once, and not receive an LCB_NO_MATCHING_SERVER.
+ * at least once, and not receive an LCB_ERR_NO_MATCHING_SERVER.
  *
  * Unfortunately this test is a bit hacky since we need to modify the vbucket
  * information, and hopefully get a new config afterwards. Additionally we'd
@@ -834,7 +834,7 @@ TEST_F(MockUnitTest, testNegativeIndex)
     lcb_sched_leave(instance);
     lcb_wait(instance);
     ASSERT_EQ(1, ni.callCount);
-    ASSERT_EQ(LCB_NO_MATCHING_SERVER, ni.err);
+    ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, ni.err);
     lcb_cmdget_destroy(gcmd);
     // That's it
 }

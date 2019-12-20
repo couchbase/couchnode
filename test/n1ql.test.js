@@ -30,7 +30,7 @@ describe('#n1ql', () => {
         await H.c.queryIndexes().createPrimaryIndex(H.b.name, {
           name: idxName
         });
-      }, H.lib.QueryIndexAlreadyExistsError);
+      }, H.lib.IndexExistsError);
     });
 
     it('should successfully create a secondary index', async () => {
@@ -40,7 +40,7 @@ describe('#n1ql', () => {
     it('should fail to create a duplicate secondary index', async () => {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().createIndex(H.b.name, sidxName, ['name']);
-      }, H.lib.QueryIndexAlreadyExistsError);
+      }, H.lib.IndexExistsError);
     });
 
     it('should successfully get all indexes', async () => {

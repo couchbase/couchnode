@@ -220,7 +220,7 @@ LIBCOUCHBASE_API
 lcb_STATUS lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char **value, size_t *nvalue)
 {
     if (!span || name == NULL || nvalue == NULL || value == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     sllist_iterator iter;
@@ -229,7 +229,7 @@ lcb_STATUS lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char
         tag_value *val = SLLIST_ITEM(iter.cur, tag_value, slnode);
         if (strcmp(name, val->key.p) == 0) {
             if (val->t != TAGVAL_STRING) {
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
             *value = val->v.s.p;
             *nvalue = val->v.s.l;
@@ -237,13 +237,13 @@ lcb_STATUS lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char
         }
     }
 
-    return LCB_KEY_ENOENT;
+    return LCB_ERR_DOCUMENT_NOT_FOUND;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, const char *name, uint64_t *value)
 {
     if (!span || name == NULL || value == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     sllist_iterator iter;
@@ -252,20 +252,20 @@ LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, co
         tag_value *val = SLLIST_ITEM(iter.cur, tag_value, slnode);
         if (strcmp(name, val->key.p) == 0) {
             if (val->t != TAGVAL_UINT64) {
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
             *value = val->v.u64;
             return LCB_SUCCESS;
         }
     }
 
-    return LCB_KEY_ENOENT;
+    return LCB_ERR_DOCUMENT_NOT_FOUND;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, const char *name, double *value)
 {
     if (!span || name == NULL || value == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     sllist_iterator iter;
@@ -274,20 +274,20 @@ LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, co
         tag_value *val = SLLIST_ITEM(iter.cur, tag_value, slnode);
         if (strcmp(name, val->key.p) == 0) {
             if (val->t != TAGVAL_DOUBLE) {
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
             *value = val->v.d;
             return LCB_SUCCESS;
         }
     }
 
-    return LCB_KEY_ENOENT;
+    return LCB_ERR_DOCUMENT_NOT_FOUND;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, const char *name, int *value)
 {
     if (!span || name == NULL || value == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     sllist_iterator iter;
@@ -296,14 +296,14 @@ LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, cons
         tag_value *val = SLLIST_ITEM(iter.cur, tag_value, slnode);
         if (strcmp(name, val->key.p) == 0) {
             if (val->t != TAGVAL_BOOL) {
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
             *value = val->v.b;
             return LCB_SUCCESS;
         }
     }
 
-    return LCB_KEY_ENOENT;
+    return LCB_ERR_DOCUMENT_NOT_FOUND;
 }
 
 LIBCOUCHBASE_API int lcbtrace_span_has_tag(lcbtrace_SPAN *span, const char *name)
@@ -326,7 +326,7 @@ LIBCOUCHBASE_API int lcbtrace_span_has_tag(lcbtrace_SPAN *span, const char *name
 using namespace lcb::trace;
 
 Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF_TYPE ref, lcbtrace_SPAN *other)
-    : m_tracer(tracer), m_opname(opname)
+    : m_tracer(tracer), m_opname(opname), m_finish(0)
 {
     m_start = start ? start : lcbtrace_now();
     m_span_id = lcb_next_rand64();

@@ -127,12 +127,12 @@ void Connstart::handler()
 
     if (state == CS_PENDING) {
         /* state was not changed since initial scheduling */
-        err = LCB_ETIMEDOUT;
+        err = LCB_ERR_TIMEOUT;
     } else if (state == CS_CONNECTED) {
         /* clear pending error */
         err = LCB_SUCCESS;
     } else {
-        if (sock != NULL && last_error == LCB_CONNECT_ERROR) {
+        if (sock != NULL && last_error == LCB_ERR_CONNECT_ERROR) {
             err = lcbio_mklcberr(syserr, sock->settings);
         } else {
             err = last_error;
@@ -141,6 +141,11 @@ void Connstart::handler()
 
     if (state == CS_CANCELLED) {
         /* ignore everything. Clean up resources */
+        if (sock->io->is_C() && sock->u.sd) {
+            sock->u.sd->lcbconn = NULL; /* we don't need IO backend to invoke any callbacks now */
+            lcb_assert(sock->refcount > 1);
+            sock->refcount--; /* dereference because of unsuccessful attempt */
+        }
         goto GT_DTOR;
     }
 
@@ -305,7 +310,7 @@ static void E_conncb(lcb_socket_t, short events, void *arg)
 
 GT_NEXTSOCK:
     if (!cs->ensure_sock()) {
-        cs->notify_error(LCB_CONNECT_ERROR);
+        cs->notify_error(LCB_ERR_CONNECT_ERROR);
         return;
     }
 
@@ -369,6 +374,9 @@ GT_NEXTSOCK:
 
 static void C_conncb(lcb_sockdata_t *sock, int status)
 {
+    if (sock->lcbconn == NULL) {
+        return;
+    }
     lcbio_SOCKET *s = reinterpret_cast< lcbio_SOCKET * >(sock->lcbconn);
     Connstart *cs = reinterpret_cast< Connstart * >(s->ctx);
 
@@ -402,7 +410,7 @@ void Connstart::C_connect()
 GT_NEXTSOCK:
     if (!ensure_sock()) {
         lcbio_mksyserr(IOT_ERRNO(io), &syserr);
-        notify_error(LCB_CONNECT_ERROR);
+        notify_error(LCB_ERR_CONNECT_ERROR);
         return;
     }
 
@@ -493,7 +501,7 @@ Connstart::Connstart(lcbio_TABLE *iot_, lcb_settings *settings_, const lcb_host_
     if ((rv = getaddrinfo(dest->host, dest->port, &hints, &ai_root))) {
         const char *errstr = rv != EAI_SYSTEM ? gai_strerror(rv) : "";
         lcb_log(LOGARGS_T(ERR), CSLOGFMT "Couldn't look up %s (%s) [EAI=%d]", CSLOGID_T(), dest->host, errstr, rv);
-        notify_error(LCB_UNKNOWN_HOST);
+        notify_error(LCB_ERR_UNKNOWN_HOST);
     } else {
         ai = ai_root;
 
@@ -533,7 +541,7 @@ lcbio_SOCKET *lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket
         return NULL;
     }
 
-    lcb_assert(iot->model = LCB_IOMODEL_EVENT);
+    lcb_assert(iot->model == LCB_IOMODEL_EVENT);
 
     lcb_list_init(&ret->protos);
     ret->settings = settings;

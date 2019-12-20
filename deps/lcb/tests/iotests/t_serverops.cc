@@ -18,6 +18,7 @@
 #include "iotests.h"
 #include <map>
 #include <libcouchbase/utils.h>
+#include "internalstructs.h"
 
 class ServeropsUnitTest : public MockUnitTest
 {
@@ -27,7 +28,7 @@ extern "C" {
 static void testServerStatsCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
 {
     int *counter = (int *)resp->cookie;
-    EXPECT_EQ(LCB_SUCCESS, resp->rc);
+    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
     ++(*counter);
 }
 
@@ -37,7 +38,7 @@ static void statKey_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *resp_base)
     if (!resp->server) {
         return;
     }
-    EXPECT_EQ(LCB_SUCCESS, resp->rc);
+    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
     std::map< std::string, bool > &mm = *(std::map< std::string, bool > *)resp->cookie;
     mm[resp->server] = true;
 }
@@ -99,7 +100,7 @@ extern "C" {
 static void testServerVersionsCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPMCVERSION *resp)
 {
     int *counter = (int *)resp->cookie;
-    EXPECT_EQ(LCB_SUCCESS, resp->rc);
+    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
     ++(*counter);
 }
 }
@@ -130,7 +131,7 @@ static char *verbosity_endpoint;
 static void verbosity_all_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPVERBOSITY *resp)
 {
     int *counter = (int *)resp->cookie;
-    ASSERT_EQ(LCB_SUCCESS, resp->rc);
+    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
     if (resp->server == NULL) {
         EXPECT_EQ(MockEnvironment::getInstance()->getNumNodes(), *counter);
         return;
@@ -142,7 +143,7 @@ static void verbosity_all_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, co
 
 static void verbosity_single_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPVERBOSITY *resp)
 {
-    ASSERT_EQ(LCB_SUCCESS, resp->rc);
+    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
     if (resp->server == NULL) {
         return;
     } else {

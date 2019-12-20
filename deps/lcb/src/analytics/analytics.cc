@@ -97,7 +97,9 @@ static lcb_INGEST_STATUS default_data_converter(lcb_INSTANCE *, lcb_INGEST_PARAM
 }
 
 struct lcb_RESPANALYTICS_ {
-    LCB_RESP_BASE
+    lcb_ANALYTICS_ERROR_CONTEXT ctx;
+    void *cookie;
+    lcb_U16 rflags;
     const char *row;
     size_t nrow;
     const lcb_RESPHTTP *htresp;
@@ -106,7 +108,7 @@ struct lcb_RESPANALYTICS_ {
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_status(const lcb_RESPANALYTICS *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_cookie(const lcb_RESPANALYTICS *resp, void **cookie)
@@ -131,6 +133,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_row(const lcb_RESPANALYTICS *resp,
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_handle(const lcb_RESPANALYTICS *resp, lcb_ANALYTICS_HANDLE **handle)
 {
     *handle = resp->handle;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_error_context(const lcb_RESPANALYTICS *resp,
+                                                            const lcb_ANALYTICS_ERROR_CONTEXT **ctx)
+{
+    *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
 
@@ -160,11 +169,13 @@ struct lcb_CMDANALYTICS_ {
     LCB_CMD_BASE;
 
     Json::Value root;
+    std::string query;
     lcb_ANALYTICS_CALLBACK callback;
     lcb_ANALYTICS_HANDLE **handle;
     lcb_INGEST_OPTIONS *ingest;
+    int priority;
 
-    lcb_CMDANALYTICS_() : root(Json::objectValue), callback(NULL), handle(NULL), ingest(NULL) {}
+    lcb_CMDANALYTICS_() : root(Json::objectValue), callback(NULL), handle(NULL), ingest(NULL), priority(-1) {}
 };
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_create(lcb_CMDANALYTICS **cmd)
@@ -181,6 +192,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_destroy(lcb_CMDANALYTICS *cmd)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_timeout(lcb_CMDANALYTICS *cmd, uint32_t timeout)
 {
+    cmd->timeout = timeout;
     return LCB_SUCCESS;
 }
 
@@ -208,7 +220,16 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_callback(lcb_CMDANALYTICS *cmd, lcb
         cmd->callback = callback;
         return LCB_SUCCESS;
     }
-    return LCB_EINVAL;
+    return LCB_ERR_INVALID_ARGUMENT;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_encoded_payload(lcb_CMDANALYTICS *cmd, const char **payload,
+                                                             size_t *payload_len)
+{
+    cmd->query = Json::FastWriter().write(cmd->root);
+    *payload = cmd->query.c_str();
+    *payload_len = cmd->query.size();
+    return LCB_SUCCESS;
 }
 
 #define fix_strlen(s, n)                                                                                               \
@@ -216,14 +237,48 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_callback(lcb_CMDANALYTICS *cmd, lcb
         n = strlen(s);                                                                                                 \
     }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_query(lcb_CMDANALYTICS *cmd, const char *qstr, size_t nqstr)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_payload(lcb_CMDANALYTICS *cmd, const char *query, size_t query_len)
 {
-    fix_strlen(qstr, nqstr);
+    fix_strlen(query, query_len);
     Json::Value value;
-    if (!Json::Reader().parse(qstr, qstr + nqstr, value)) {
-        return LCB_EINVAL;
+    if (!Json::Reader().parse(query, query + query_len, value)) {
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     cmd->root = value;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_client_context_id(lcb_CMDANALYTICS *cmd, const char *value,
+                                                               size_t value_len)
+{
+    cmd->root["client_context_id"] = std::string(value, value_len);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_readonly(lcb_CMDANALYTICS *cmd, int readonly)
+{
+    cmd->root["readonly"] = (bool)readonly;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_priority(lcb_CMDANALYTICS *cmd, int priority)
+{
+    cmd->priority = (bool)priority;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_consistency(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_CONSISTENCY level)
+{
+    switch (level) {
+        case LCB_ANALYTICS_CONSISTENCY_NOT_BOUNDED:
+            cmd->root["scan_consistency"] = "not_bounded";
+            break;
+        case LCB_ANALYTICS_CONSISTENCY_REQUEST_PLUS:
+            cmd->root["scan_consistency"] = "request_plus";
+            break;
+        default:
+            return LCB_ERR_INVALID_ARGUMENT;
+    }
     return LCB_SUCCESS;
 }
 
@@ -234,7 +289,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_option(lcb_CMDANALYTICS *cmd, const
     fix_strlen(name, name_len);
     Json::Value jsonVal;
     if (!Json::Reader().parse(value, value + value_len, jsonVal)) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     cmd->root[std::string(name, name_len)] = jsonVal;
     return LCB_SUCCESS;
@@ -260,7 +315,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_positional_param(lcb_CMDANALYTICS *
     fix_strlen(value, value_len);
     Json::Value jval;
     if (!Json::Reader().parse(value, value + value_len, jval)) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     cmd->root["args"].append(jval);
     return LCB_SUCCESS;
@@ -324,22 +379,22 @@ struct lcb_DEFERRED_HANDLE_ {
     std::string handle;
     lcb_ANALYTICS_CALLBACK callback;
 
-    lcb_DEFERRED_HANDLE_(std::string status_, std::string handle_) : status(status_), handle(handle_) {}
+    lcb_DEFERRED_HANDLE_(std::string status_, std::string handle_) : status(status_), handle(handle_), callback(NULL) {}
 };
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_deferred_handle_extract(const lcb_RESPANALYTICS *resp,
                                                                       lcb_DEFERRED_HANDLE **handle)
 {
-    if (resp == NULL || resp->rc != LCB_SUCCESS || ((resp->rflags & (LCB_RESP_F_FINAL | LCB_RESP_F_EXTDATA)) == 0) ||
-        resp->nrow == 0 || resp->row == NULL) {
-        return LCB_EINVAL;
+    if (resp == NULL || resp->ctx.rc != LCB_SUCCESS ||
+        ((resp->rflags & (LCB_RESP_F_FINAL | LCB_RESP_F_EXTDATA)) == 0) || resp->nrow == 0 || resp->row == NULL) {
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     Json::Value payload;
     if (!Json::Reader().parse(resp->row, resp->row + resp->nrow, payload)) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     if (!payload.isObject()) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     Json::Value status = payload["status"];
     Json::Value value = payload["handle"];
@@ -347,13 +402,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_deferred_handle_extract(const lcb_
         *handle = new lcb_DEFERRED_HANDLE_(status.asString(), value.asString());
         return LCB_SUCCESS;
     }
-    return LCB_EINVAL;
+    return LCB_ERR_INVALID_ARGUMENT;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_destroy(lcb_DEFERRED_HANDLE *handle)
 {
     if (handle == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     delete handle;
     return LCB_SUCCESS;
@@ -363,7 +418,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_status(lcb_DEFERRED_HANDLE *hand
                                                        size_t *status_len)
 {
     if (handle == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     *status = handle->status.c_str();
     *status_len = handle->status.size();
@@ -376,7 +431,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_callback(lcb_DEFERRED_HANDLE *ha
         handle->callback = callback;
         return LCB_SUCCESS;
     }
-    return LCB_EINVAL;
+    return LCB_ERR_INVALID_ARGUMENT;
 }
 
 typedef struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
@@ -400,6 +455,10 @@ typedef struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
 
     /** String of the original statement. Cached here to avoid jsoncpp lookups */
     std::string statement;
+    std::string query_params;
+    std::string client_context_id;
+    std::string first_error_message;
+    uint32_t first_error_code;
 
     /** Whether we're retrying this */
     bool was_retried;
@@ -467,7 +526,7 @@ typedef struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
     // Parser overrides:
     void JSPARSE_on_row(const lcb::jsparse::Row &row)
     {
-        lcb_RESPANALYTICS resp = {0};
+        lcb_RESPANALYTICS resp{};
         resp.handle = this;
         resp.row = static_cast< const char * >(row.row.iov_base);
         resp.nrow = row.row.iov_len;
@@ -483,7 +542,7 @@ typedef struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
     }
     void JSPARSE_on_error(const std::string &)
     {
-        lasterr = LCB_PROTOCOL_ERROR;
+        lasterr = LCB_ERR_PROTOCOL_ERROR;
     }
     void JSPARSE_on_complete(const std::string &)
     {
@@ -567,16 +626,86 @@ void ANALYTICSREQ::invoke_row(lcb_RESPANALYTICS *resp, bool is_last)
     resp->cookie = const_cast< void * >(cookie);
     resp->htresp = cur_htresp;
 
+    resp->ctx.http_response_code = cur_htresp->ctx.response_code;
+    resp->ctx.client_context_id = client_context_id.c_str();
+    resp->ctx.client_context_id_len = client_context_id.size();
+    resp->ctx.statement = statement.c_str();
+    resp->ctx.statement_len = statement.size();
+    resp->ctx.query_params = query_params.c_str();
+    resp->ctx.query_params_len = query_params.size();
+
     if (is_last) {
-        lcb_IOV meta;
+        lcb_IOV meta_buf;
         resp->rflags |= LCB_RESP_F_FINAL;
-        resp->rc = lasterr;
-        parser->get_postmortem(meta);
-        resp->row = static_cast< const char * >(meta.iov_base);
-        resp->nrow = meta.iov_len;
+        resp->ctx.rc = lasterr;
+        parser->get_postmortem(meta_buf);
+        resp->row = static_cast< const char * >(meta_buf.iov_base);
+        resp->nrow = meta_buf.iov_len;
         if (!deferred_handle.empty()) {
             /* signal that response might have deferred handle */
             resp->rflags |= LCB_RESP_F_EXTDATA;
+        }
+        Json::Value meta;
+        if (parse_json(resp->row, resp->nrow, meta)) {
+            const Json::Value &errors = meta["errors"];
+            if (errors.isArray() && !errors.empty()) {
+                const Json::Value &err = errors[0];
+                const Json::Value &msg = err["msg"];
+                if (msg.isString()) {
+                    first_error_message = msg.asString();
+                    resp->ctx.first_error_message = first_error_message.c_str();
+                    resp->ctx.first_error_message_len = first_error_message.size();
+                }
+                const Json::Value &code = err["code"];
+                if (code.isNumeric()) {
+                    first_error_code = code.asUInt();
+                    resp->ctx.first_error_code = first_error_code;
+                    switch (first_error_code) {
+                        case 23000:
+                        case 23003:
+                            resp->ctx.rc = LCB_ERR_TEMPORARY_FAILURE;
+                            break;
+                        case 24000:
+                            resp->ctx.rc = LCB_ERR_PARSING_FAILURE;
+                            break;
+                        case 23007:
+                            resp->ctx.rc = LCB_ERR_JOB_QUEUE_FULL;
+                            break;
+                        case 24025:
+                        case 24044:
+                        case 24045:
+                            resp->ctx.rc = LCB_ERR_DATASET_NOT_FOUND;
+                            break;
+                        case 24040:
+                            resp->ctx.rc = LCB_ERR_DATASET_EXISTS;
+                            break;
+                        case 24034:
+                            resp->ctx.rc = LCB_ERR_DATAVERSE_NOT_FOUND;
+                            break;
+                        case 24039:
+                            resp->ctx.rc = LCB_ERR_DATAVERSE_EXISTS;
+                            break;
+                        case 24047:
+                            resp->ctx.rc = LCB_ERR_INDEX_NOT_FOUND;
+                            break;
+                        case 24048:
+                            resp->ctx.rc = LCB_ERR_INDEX_EXISTS;
+                            break;
+                        case 24006:
+                            resp->ctx.rc = LCB_ERR_ANALYTICS_LINK_NOT_FOUND;
+                            break;
+                        default:
+                            if (first_error_code >= 24000 && first_error_code < 25000) {
+                                resp->ctx.rc = LCB_ERR_COMPILATION_FAILED;
+                            } else if (first_error_code >= 25000 && first_error_code < 26000) {
+                                resp->ctx.rc = LCB_ERR_INTERNAL_SERVER_FAILURE;
+                            } else if (first_error_code >= 20000 && first_error_code < 21000) {
+                                resp->ctx.rc = LCB_ERR_AUTHENTICATION_FAILURE;
+                            }
+                            break;
+                    }
+                }
+            }
         }
     }
 
@@ -596,7 +725,7 @@ lcb_ANALYTICS_HANDLE_::~lcb_ANALYTICS_HANDLE_()
     }
 
     if (callback) {
-        lcb_RESPANALYTICS resp = {0};
+        lcb_RESPANALYTICS resp{};
         invoke_row(&resp, 1);
     }
 
@@ -632,9 +761,9 @@ static void chunk_callback(lcb_INSTANCE *instance, int ign, const lcb_RESPBASE *
     (void)instance;
 
     req->cur_htresp = rh;
-    if (rh->rc != LCB_SUCCESS || rh->htstatus != 200) {
-        if (req->lasterr == LCB_SUCCESS || rh->htstatus != 200) {
-            req->lasterr = rh->rc ? rh->rc : LCB_HTTP_ERROR;
+    if (rh->ctx.rc != LCB_SUCCESS || rh->ctx.response_code != 200) {
+        if (req->lasterr == LCB_SUCCESS || rh->ctx.response_code != 200) {
+            req->lasterr = rh->ctx.rc ? rh->ctx.rc : LCB_ERR_HTTP;
         }
     }
 
@@ -650,7 +779,7 @@ static void chunk_callback(lcb_INSTANCE *instance, int ign, const lcb_RESPBASE *
         req->unref();
         return;
     }
-    req->parser->feed(static_cast< const char * >(rh->body), rh->nbody);
+    req->parser->feed(static_cast< const char * >(rh->ctx.body), rh->ctx.body_len);
 }
 
 lcb_STATUS ANALYTICSREQ::issue_htreq(const std::string &body)
@@ -733,7 +862,7 @@ static lcb_STATUS cb_op_schedule(lcb::docreq::Queue *q, lcb::docreq::DocRequest 
     lcb_ANALYTICS_HANDLE_ *areq = req->parent;
 
     if (areq->ingest == NULL) {
-        return LCB_EINTERNAL;
+        return LCB_ERR_SDK_INTERNAL;
     }
 
     lcb_STORE_OPERATION op;
@@ -764,7 +893,7 @@ static lcb_STATUS cb_op_schedule(lcb::docreq::Queue *q, lcb::docreq::DocRequest 
             return LCB_SUCCESS;
             break;
         default:
-            return LCB_EINTERNAL;
+            return LCB_ERR_SDK_INTERNAL;
             break;
     }
     lcb_CMDSTORE *cmd;
@@ -826,7 +955,7 @@ lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cooki
 
     std::string encoded = Json::FastWriter().write(cmd->root);
     if (!parse_json(encoded.c_str(), encoded.size(), json)) {
-        lasterr = LCB_EINVAL;
+        lasterr = LCB_ERR_INVALID_ARGUMENT;
         return;
     }
 
@@ -834,7 +963,7 @@ lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cooki
     if (j_statement.isString()) {
         statement = j_statement.asString();
     } else if (!j_statement.isNull()) {
-        lasterr = LCB_EINVAL;
+        lasterr = LCB_ERR_INVALID_ARGUMENT;
         return;
     }
 
@@ -851,9 +980,22 @@ lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cooki
         timeout = lcb_analyticsreq_parsetmo(tmoval.asString());
     } else {
         // Timeout is not a string!
-        lasterr = LCB_EINVAL;
+        lasterr = LCB_ERR_INVALID_ARGUMENT;
         return;
     }
+    Json::Value &ccid = json["client_context_id"];
+    if (ccid.isNull()) {
+        char buf[32];
+        size_t nbuf = snprintf(buf, sizeof(buf), "%016" PRIx64, lcb_next_rand64());
+        client_context_id.assign(buf, nbuf);
+        json["client_context_id"] = client_context_id;
+    } else {
+        client_context_id = ccid.asString();
+    }
+
+    Json::Value tmp = json;
+    tmp.removeMember("statement");
+    query_params = Json::FastWriter().write(cmd->root);
 
     if (instance->settings->tracer) {
         char id[20] = {0};
@@ -899,12 +1041,12 @@ lcb_STATUS lcb_analytics(lcb_INSTANCE *instance, void *cookie, const lcb_CMDANAL
     ANALYTICSREQ *req = NULL;
 
     if (cmd->callback == NULL) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     req = new lcb_ANALYTICS_HANDLE_(instance, cookie, cmd);
     if (!req) {
-        err = LCB_CLIENT_ENOMEM;
+        err = LCB_ERR_NO_MEMORY;
         goto GT_DESTROY;
     }
     if ((err = req->lasterr) != LCB_SUCCESS) {
@@ -913,6 +1055,9 @@ lcb_STATUS lcb_analytics(lcb_INSTANCE *instance, void *cookie, const lcb_CMDANAL
 
     if ((err = req->issue_htreq()) != LCB_SUCCESS) {
         goto GT_DESTROY;
+    }
+    if (cmd->priority > 0) {
+        req->htreq->add_header("Analytics-Priority", "-1");
     }
 
     return LCB_SUCCESS;
@@ -935,12 +1080,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_deferred_handle_poll(lcb_INSTANCE *instance, voi
     ANALYTICSREQ *req = NULL;
 
     if (handle->callback == NULL || handle->handle.empty()) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     req = new lcb_ANALYTICS_HANDLE_(instance, cookie, handle);
     if (!req) {
-        err = LCB_CLIENT_ENOMEM;
+        err = LCB_ERR_NO_MEMORY;
         goto GT_DESTROY;
     }
     if ((err = req->lasterr) != LCB_SUCCESS) {
@@ -961,7 +1106,7 @@ GT_DESTROY:
     return err;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_cancel(lcb_INSTANCE *, lcb_ANALYTICS_HANDLE *handle)
+LIBCOUCHBASE_API lcb_STATUS lcb_analytics_cancel(lcb_INSTANCE *, lcb_ANALYTICS_HANDLE *handle)
 {
     if (handle->callback) {
         handle->callback = NULL;

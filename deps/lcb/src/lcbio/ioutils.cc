@@ -79,27 +79,27 @@ static lcb_STATUS ioerr2lcberr(lcbio_OSERR in, const lcb_settings *settings)
 {
     switch (in) {
         case 0:
-            return LCB_ESOCKSHUTDOWN;
+            return LCB_ERR_SOCKET_SHUTDOWN;
         case ECONNREFUSED:
-            return LCB_ECONNREFUSED;
+            return LCB_ERR_CONNECTION_REFUSED;
         case ENETUNREACH:
         case EHOSTUNREACH:
         case EHOSTDOWN:
-            return LCB_ENETUNREACH;
+            return LCB_ERR_NODE_UNREACHABLE;
         case EMFILE:
         case ENFILE:
-            return LCB_EFDLIMITREACHED;
+            return LCB_ERR_FD_LIMIT_REACHED;
         case EADDRINUSE:
         case EADDRNOTAVAIL:
-            return LCB_ECANTGETPORT;
+            return LCB_ERR_CANNOT_GET_PORT;
         case ECONNRESET:
         case ECONNABORTED:
-            return LCB_ECONNRESET;
+            return LCB_ERR_CONNECTION_RESET;
         default:
             lcb_log(settings, "lcbio", LCB_LOG_WARN, __FILE__, __LINE__,
                     "OS errno %d (%s) does not have a direct client error code equivalent. Using NETWORK_ERROR", in,
                     strerror(in));
-            return LCB_NETWORK_ERROR;
+            return LCB_ERR_NETWORK;
     }
 }
 
@@ -108,7 +108,7 @@ lcb_STATUS lcbio_mklcberr(lcbio_OSERR in, const lcb_settings *settings)
     if (settings->detailed_neterr == 0) {
         lcb_log(settings, "lcbio", LCB_LOG_WARN, __FILE__, __LINE__, "Translating errno=%d, lcb=0x%x to NETWORK_ERROR",
                 in, ioerr2lcberr(in, settings));
-        return LCB_NETWORK_ERROR;
+        return LCB_ERR_NETWORK;
     }
 
     return ioerr2lcberr(in, settings);
@@ -272,7 +272,7 @@ lcb_STATUS lcbio_enable_sockopt(lcbio_SOCKET *s, int cntl)
     int value = 1;
 
     if (!iot->has_cntl()) {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
     if (iot->is_E()) {
         rv = iot->E_cntl(s->u.fd, LCB_IO_CNTL_SET, cntl, &value);
@@ -310,7 +310,7 @@ int lcbio_ssl_supported(void)
 lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, const char *, int, lcb_STATUS *errp, lcb_settings *)
 {
     if (errp) {
-        *errp = LCB_CLIENT_FEATURE_UNAVAILABLE;
+        *errp = LCB_ERR_SDK_FEATURE_UNAVAILABLE;
     }
     return NULL;
 }
@@ -319,7 +319,7 @@ lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, const char *, 
 void lcbio_ssl_free(lcbio_pSSLCTX) {}
 lcb_STATUS lcbio_ssl_apply(lcbio_SOCKET *, lcbio_pSSLCTX)
 {
-    return LCB_CLIENT_FEATURE_UNAVAILABLE;
+    return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
 }
 int lcbio_ssl_check(lcbio_SOCKET *)
 {

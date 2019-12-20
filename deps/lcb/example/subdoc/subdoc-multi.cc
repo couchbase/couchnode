@@ -17,19 +17,20 @@
 #undef NDEBUG
 
 #include <libcouchbase/couchbase.h>
-#include <assert.h>
-#include <string.h>
-#include <cstdlib>
+#include <cassert>
+#include <cstring>
 #include <string>
-#include <vector>
 
 static void get_callback(lcb_INSTANCE *, int cbtype, const lcb_RESPGET *resp)
 {
-    fprintf(stderr, "Got callback for %s.. ", lcb_strcbtype(cbtype));
 
     lcb_STATUS rc = lcb_respget_status(resp);
+    const char *key;
+    size_t key_len;
+    lcb_respget_key(resp, &key, &key_len);
+    fprintf(stderr, "Got callback for %s (%.*s)..\n", lcb_strcbtype(cbtype), (int)key_len, key);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Operation failed (%s)\n", lcb_strerror(NULL, rc));
+        fprintf(stderr, "Operation failed (%s)\n", lcb_strerror_short(rc));
         return;
     }
 
@@ -41,11 +42,14 @@ static void get_callback(lcb_INSTANCE *, int cbtype, const lcb_RESPGET *resp)
 
 static void store_callback(lcb_INSTANCE *, int cbtype, const lcb_RESPSTORE *resp)
 {
-    fprintf(stderr, "Got callback for %s.. ", lcb_strcbtype(cbtype));
 
     lcb_STATUS rc = lcb_respstore_status(resp);
+    const char *key;
+    size_t key_len;
+    lcb_respstore_key(resp, &key, &key_len);
+    fprintf(stderr, "Got callback for %s (%.*s)..\n", lcb_strcbtype(cbtype), (int)key_len, key);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Operation failed (%s)\n", lcb_strerror(NULL, rc));
+        fprintf(stderr, "Operation failed (%s)\n", lcb_strerror_short(rc));
         return;
     }
 
@@ -55,9 +59,12 @@ static void store_callback(lcb_INSTANCE *, int cbtype, const lcb_RESPSTORE *resp
 static void subdoc_callback(lcb_INSTANCE *, int type, const lcb_RESPSUBDOC *resp)
 {
     lcb_STATUS rc = lcb_respsubdoc_status(resp);
+    const char *key;
+    size_t key_len;
+    lcb_respsubdoc_key(resp, &key, &key_len);
 
-    fprintf(stderr, "Got callback for %s.. ", lcb_strcbtype(type));
-    if (rc != LCB_SUCCESS && rc != LCB_SUBDOC_MULTI_FAILURE) {
+    fprintf(stderr, "Got callback for %s (%.*s)..\n", lcb_strcbtype(type), (int)key_len, key);
+    if (rc != LCB_SUCCESS) {
         fprintf(stderr, "Operation failed (%s)\n", lcb_strerror_short(rc));
         return;
     }
@@ -125,6 +132,7 @@ int main(int argc, char **argv)
     rc = lcb_store(instance, NULL, scmd);
     lcb_cmdstore_destroy(scmd);
     assert(rc == LCB_SUCCESS);
+    lcb_wait(instance);
 
     lcb_SUBDOCSPECS *specs;
 
@@ -151,9 +159,10 @@ int main(int argc, char **argv)
     rc = lcb_subdoc(instance, NULL, mcmd);
     lcb_subdocspecs_destroy(specs);
     assert(rc == LCB_SUCCESS);
+    lcb_wait(instance);
 
     // Reset the specs
-    lcb_subdocspecs_create(&specs, 5);
+    lcb_subdocspecs_create(&specs, 6);
     for (int ii = 0; ii < 5; ii++) {
         char pbuf[24];
         std::string &path = bufs[ii];
@@ -169,6 +178,7 @@ int main(int argc, char **argv)
     lcb_subdocspecs_destroy(specs);
     lcb_cmdsubdoc_destroy(mcmd);
     assert(rc == LCB_SUCCESS);
+    lcb_wait(instance);
 
     lcb_CMDGET *gcmd;
     lcb_cmdget_create(&gcmd);

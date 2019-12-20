@@ -61,7 +61,7 @@ struct Hostlist {
      * @param len the length of the string
      * @param deflport If `s` does not contain an explicit port, use this
      *        port instead.
-     * @return LCB_EINVAL if the host string is not valid
+     * @return LCB_ERR_INVALID_ARGUMENT if the host string is not valid
      */
     lcb_STATUS add(const char *s, long len, int deflport);
     lcb_STATUS add(const char *s, int deflport)
@@ -151,7 +151,7 @@ extern "C" {
  * @param deflport If a port is not found in the spec, then this port will
  * be used
  *
- * @return LCB_EINVAL if the host format is invalid
+ * @return LCB_ERR_INVALID_ARGUMENT if the host format is invalid
  */
 lcb_STATUS lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport);
 

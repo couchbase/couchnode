@@ -191,6 +191,7 @@ typedef struct lcb_settings_st {
     unsigned wait_for_config : 1;
     unsigned enable_durable_write : 1;
 
+    lcb_RETRY_STRATEGY retry_strategy;
     short max_redir;
     unsigned refcount;
 

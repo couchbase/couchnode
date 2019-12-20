@@ -442,7 +442,7 @@ class Worker
 
         lcb_sched_enter(instance);
         for (auto &entry : list_) {
-            lcb_STATUS rc;
+            lcb_STATUS rc = LCB_SUCCESS;
             switch (entry.first) {
                 case Workload::op_write: {
                     auto *cmd = reinterpret_cast< lcb_CMDSTORE * >(entry.second);
@@ -1125,7 +1125,7 @@ static void real_main(int argc, char **argv)
                 default:
                     break;
             }
-        } while (ptr);
+        } while (true);
         if (!cmd.name.empty()) {
             gen::Handler *handler = handlers[cmd.name];
             if (handler == nullptr) {

@@ -164,7 +164,7 @@ void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, con
             if (ctx) {                                                                                                 \
                 char local_id[34] = {};                                                                                \
                 snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64,                                     \
-                         (lcb_U64)server->get_settings()->iid, ctx->sock->id);                                         \
+                         (uint64_t)server->get_settings()->iid, (uint64_t)ctx->sock->id);                              \
                 lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ID, local_id);                                      \
                 lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, ctx->sock->info->ep_local);         \
             }                                                                                                          \
@@ -173,9 +173,9 @@ void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, con
 
 #define LCBTRACE_KV_CLOSE(request)                                                                                     \
     do {                                                                                                               \
-        lcbtrace_SPAN *span = MCREQ_PKT_RDATA(request)->span;                                                          \
-        if (span) {                                                                                                    \
-            lcbtrace_span_finish(span, LCBTRACE_NOW);                                                                  \
+        lcbtrace_SPAN *span__ = MCREQ_PKT_RDATA(request)->span;                                                        \
+        if (span__) {                                                                                                  \
+            lcbtrace_span_finish(span__, LCBTRACE_NOW);                                                                \
             MCREQ_PKT_RDATA(request)->span = NULL;                                                                     \
         }                                                                                                              \
     } while (0);

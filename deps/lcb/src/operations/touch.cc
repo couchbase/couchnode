@@ -20,26 +20,27 @@
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_status(const lcb_RESPTOUCH *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_context(const lcb_RESPTOUCH *resp, const char **ctx, size_t *ctx_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_context(const lcb_RESPTOUCH *resp,
+                                                        const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
-    if ((resp->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return LCB_KEY_ENOENT;
+    if (resp->rflags & LCB_RESP_F_ERRINFO) {
+        lcb_RESPTOUCH *mut = const_cast< lcb_RESPTOUCH * >(resp);
+        mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_TOUCH, (const lcb_RESPBASE *)resp);
+        mut->ctx.context_len = strlen(resp->ctx.context);
+        mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_TOUCH, (const lcb_RESPBASE *)resp);
+        mut->ctx.ref_len = strlen(resp->ctx.ref);
     }
-    const char *val = lcb_resp_get_error_context(LCB_CALLBACK_TOUCH, (const lcb_RESPBASE *)resp);
-    if (val) {
-        *ctx = val;
-        *ctx_len = strlen(*ctx);
-    }
+    *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_ref(const lcb_RESPTOUCH *resp, const char **ref, size_t *ref_len)
 {
     if ((resp->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return LCB_KEY_ENOENT;
+        return LCB_ERR_DOCUMENT_NOT_FOUND;
     }
     const char *val = lcb_resp_get_error_ref(LCB_CALLBACK_TOUCH, (const lcb_RESPBASE *)resp);
     if (val) {
@@ -57,14 +58,14 @@ LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_cookie(const lcb_RESPTOUCH *resp, void
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_cas(const lcb_RESPTOUCH *resp, uint64_t *cas)
 {
-    *cas = resp->cas;
+    *cas = resp->ctx.cas;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_key(const lcb_RESPTOUCH *resp, const char **key, size_t *key_len)
 {
-    *key = (const char *)resp->key;
-    *key_len = resp->nkey;
+    *key = (const char *)resp->ctx.key;
+    *key_len = resp->ctx.key_len;
     return LCB_SUCCESS;
 }
 
@@ -138,10 +139,10 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_durability(lcb_CMDTOUCH *cmd, lcb_DURAB
 static lcb_STATUS touch_validate(lcb_INSTANCE *instance, const lcb_CMDTOUCH *cmd)
 {
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
-        return LCB_EMPTY_KEY;
+        return LCB_ERR_EMPTY_KEY;
     }
     if (cmd->dur_level && !LCBT_SUPPORT_SYNCREPLICATION(instance)) {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
     return LCB_SUCCESS;
 }
@@ -184,7 +185,7 @@ static lcb_STATUS touch_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie,
     if (cmd->dur_level && new_durability_supported) {
         tcmd.message.body.alt.meta = (1 << 4) | 3;
         tcmd.message.body.alt.level = cmd->dur_level;
-        tcmd.message.body.alt.timeout = lcb_durability_timeout(instance);
+        tcmd.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
         tcmd.message.body.alt.expiration = htonl(cmd->exptime);
     } else {
         tcmd.message.body.norm.expiration = htonl(cmd->exptime);

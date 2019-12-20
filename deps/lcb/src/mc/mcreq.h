@@ -225,42 +225,42 @@ typedef void (*mcreq_bufdone_fn)(struct mc_pipeline_st *pl, const void *ucookie,
  */
 typedef enum {
     /** The key is user-allocated. Do not release to MBLOCK */
-    MCREQ_F_KEY_NOCOPY = 1 << 0,
+    MCREQ_F_KEY_NOCOPY = 1u << 0u,
 
     /** The value is user-allocated. Do not release to MBLOCK */
-    MCREQ_F_VALUE_NOCOPY = 1 << 1,
+    MCREQ_F_VALUE_NOCOPY = 1u << 1u,
 
     /**
      * The value is user allocated and in the form of an IOV.
      * Use mc_VALUE#multi
      */
-    MCREQ_F_VALUE_IOV = 1 << 2,
+    MCREQ_F_VALUE_IOV = 1u << 2u,
 
     /** The request has a value. Use mc_VALUE#single unless otherwise noted */
-    MCREQ_F_HASVALUE = 1 << 3,
+    MCREQ_F_HASVALUE = 1u << 3u,
 
     /**
      * The request is tied to an 'extended' user data structure.
      * Use mc_USER#exdata
      */
-    MCREQ_F_REQEXT = 1 << 4,
+    MCREQ_F_REQEXT = 1u << 4u,
 
     /** The request is a one-to-one user forwarded packet */
-    MCREQ_F_UFWD = 1 << 5,
+    MCREQ_F_UFWD = 1u << 5u,
 
     /**
      * Indicates that the entire packet has been flushed. Specifically this
      * also indicates that the packet's underlying buffers are no longer needed
      * by libcouchbase.
      */
-    MCREQ_F_FLUSHED = 1 << 6,
+    MCREQ_F_FLUSHED = 1u << 6u,
 
     /**
      * Indicates that the callback should NOT be invoked for the request. This
      * is typically because the request is just present in the queue for buffer
      * management purposes and has expired or otherwise been invalidated.
      */
-    MCREQ_F_INVOKED = 1 << 7,
+    MCREQ_F_INVOKED = 1u << 7u,
 
     /**
      * Indicates that this packet and its constituent data members are not
@@ -268,7 +268,7 @@ typedef enum {
      * also indicates that the packet is actually an mc_EXPACKET extended
      * type. This is set by mcreq_renew_packet()
      */
-    MCREQ_F_DETACHED = 1 << 8,
+    MCREQ_F_DETACHED = 1u << 8u,
 
     /**
      * Another way of signalling that the callback has an 'internal' variant.
@@ -281,12 +281,12 @@ typedef enum {
      * };
      * @endcode
      */
-    MCREQ_F_PRIVCALLBACK = 1 << 9,
+    MCREQ_F_PRIVCALLBACK = 1u << 9u,
 
     /**
      * Do not encode collection ID for this packet
      */
-    MCREQ_F_NOCID = 1 << 10
+    MCREQ_F_NOCID = 1u << 10u
 } mcreq_flags;
 
 /** @brief mask of flags indicating user-allocated buffers */
@@ -563,7 +563,7 @@ lcb_STATUS mcreq_reserve_header(mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_
  *        the header size (i.e. 24 bytes) PLUS any extras therein.
  * @param kreq the user-provided key structure
  * @param cid the user-provided collection ID
- * @return LCB_SUCCESS on success, LCB_CLIENT_ENOMEM on allocation failure
+ * @return LCB_SUCCESS on success, LCB_ERR_NO_MEMORY on allocation failure
  */
 lcb_STATUS mcreq_reserve_key(mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_t hdrsize, const lcb_KEYBUF *kreq,
                              uint32_t cid);
@@ -574,7 +574,7 @@ lcb_STATUS mcreq_reserve_key(mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_t h
  * @param pipeline the pipeline used to allocate the packet
  * @param packet the packet whose value field should be initialized
  * @param vreq the user-provided structure containing the value parameters
- * @return LCB_SUCCESS on success, LCB_CLIENT_ENOMEM on allocation failure
+ * @return LCB_SUCCESS on success, LCB_ERR_NO_MEMORY on allocation failure
  */
 lcb_STATUS mcreq_reserve_value(mc_PIPELINE *pipeline, mc_PACKET *packet, const lcb_VALBUF *vreq);
 
@@ -666,7 +666,7 @@ lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protoc
  * @param[out] key
  * @param[out] nkey
  */
-void mcreq_get_key(lcb_INSTANCE *instance, const mc_PACKET *packet, const void **key, lcb_size_t *nkey);
+void mcreq_get_key(lcb_INSTANCE *instance, const mc_PACKET *packet, const char **key, size_t *nkey);
 
 /** @brief Returns the size of the entire packet, in bytes */
 uint32_t mcreq_get_bodysize(const mc_PACKET *packet);
@@ -877,7 +877,7 @@ unsigned mcreq_pipeline_fail(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfai
  * which are newer than the threshold are still kept
  *
  * @param pipeline the pipeline to fail out
- * @param err the error to provide to the handlers (usually LCB_ETIMEDOUT)
+ * @param err the error to provide to the handlers (usually LCB_ERR_TIMEOUT)
  * @param failcb the callback to invoke
  * @param cbarg the last argument to the callback
  * @param now the current wall clock time

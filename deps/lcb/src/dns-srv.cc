@@ -32,21 +32,21 @@ lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
     std::vector<unsigned char> pkt(NS_PACKETSZ);
     nresp = res_search(name, ns_c_in, ns_t_srv, &pkt[0], NS_PACKETSZ);
     if (nresp < 0) {
-        return LCB_UNKNOWN_HOST;
+        return LCB_ERR_UNKNOWN_HOST;
     }
 
     rv = ns_initparse(&pkt[0], nresp, &msg);
     if (rv != 0) {
-        return LCB_PROTOCOL_ERROR;
+        return LCB_ERR_PROTOCOL_ERROR;
     }
 
     dns_rv = ns_msg_getflag(msg, ns_f_rcode);
     if (dns_rv != ns_r_noerror) {
-        return LCB_UNKNOWN_HOST;
+        return LCB_ERR_UNKNOWN_HOST;
     }
 
     if (!ns_msg_count(msg, ns_s_an)) {
-        return LCB_UNKNOWN_HOST;
+        return LCB_ERR_UNKNOWN_HOST;
     }
 
     for (ii = 0; ii < ns_msg_count(msg, ns_s_an); ii++) {
@@ -101,7 +101,7 @@ lcb::dnssrv_query(const char *addr, Hostlist& hs)
     status = DnsQuery_A(
         addr, DNS_TYPE_SRV, DNS_QUERY_STANDARD, NULL, (PDNS_RECORD*)&root, NULL);
     if (status != 0) {
-        return LCB_UNKNOWN_HOST;
+        return LCB_ERR_UNKNOWN_HOST;
     }
 
     for (cur = root; cur; cur = cur->pNext) {
@@ -118,7 +118,7 @@ lcb::dnssrv_query(const char *addr, Hostlist& hs)
 
 #ifndef CAN_SRV_LOOKUP
 lcb_STATUS lcb::dnssrv_query(const char *, Hostlist&) {
-    return LCB_CLIENT_FEATURE_UNAVAILABLE;
+    return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
 }
 #endif
 
@@ -139,7 +139,7 @@ lcb::dnssrv_getbslist(const char *addr, bool is_ssl, lcb_STATUS& errp) {
     }
     if (ret->empty()) {
         delete ret;
-        errp = LCB_NAMESERVER_ERROR;
+        errp = LCB_ERR_NAMESERVER;
         return NULL;
     }
     return ret;

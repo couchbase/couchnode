@@ -96,7 +96,7 @@ TEST_F(MutateUnitTest, testStoreZeroLengthKey)
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, NULL, 0);
     lcb_cmdstore_value(cmd, "bar", 3);
-    EXPECT_EQ(LCB_EMPTY_KEY, lcb_store(instance, NULL, cmd));
+    EXPECT_EQ(LCB_ERR_EMPTY_KEY, lcb_store(instance, NULL, cmd));
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
 }
@@ -192,7 +192,7 @@ static void testRemoveMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_
 {
     int *counter;
     lcb_respremove_cookie(resp, (void **)&counter);
-    EXPECT_EQ(LCB_KEY_ENOENT, lcb_respremove_status(resp));
+    EXPECT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, lcb_respremove_status(resp));
     ++(*counter);
 }
 }
@@ -251,7 +251,7 @@ static void testSimpleAddStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const 
         lcb_respstore_cas(resp, &cas);
         EXPECT_NE(0, cas);
     } else {
-        EXPECT_EQ(LCB_KEY_EEXISTS, rc);
+        EXPECT_EQ(LCB_ERR_DOCUMENT_EXISTS, rc);
     }
     ++(*counter);
 }
@@ -344,7 +344,7 @@ static void testAppendNonExistingKeyCallback(lcb_INSTANCE *, int, const lcb_RESP
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_APPEND, op);
-    EXPECT_EQ(LCB_NOT_STORED, lcb_respstore_status(resp));
+    EXPECT_EQ(LCB_ERR_NOT_STORED, lcb_respstore_status(resp));
     ++(*counter);
 }
 }
@@ -432,7 +432,7 @@ static void testPrependNonExistingKeyCallback(lcb_INSTANCE *, int, const lcb_RES
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_PREPEND, op);
-    EXPECT_EQ(LCB_NOT_STORED, lcb_respstore_status(resp));
+    EXPECT_EQ(LCB_ERR_NOT_STORED, lcb_respstore_status(resp));
     ++(*counter);
 }
 }
@@ -471,7 +471,7 @@ static void testSimpleReplaceNonexistingStoreCallback(lcb_INSTANCE *, lcb_CALLBA
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_REPLACE, op);
-    EXPECT_EQ(LCB_KEY_ENOENT, lcb_respstore_status(resp));
+    EXPECT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, lcb_respstore_status(resp));
     ++(*counter);
 }
 }
@@ -558,7 +558,7 @@ static void testIncorrectCasReplaceStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TY
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_REPLACE, op);
-    EXPECT_EQ(LCB_KEY_EEXISTS, lcb_respstore_status(resp));
+    EXPECT_EQ(LCB_ERR_DOCUMENT_EXISTS, lcb_respstore_status(resp));
     ++(*counter);
 }
 }

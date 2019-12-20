@@ -68,7 +68,7 @@ TEST_F(McContext, testBasicContext)
         mc_PIPELINE *pl = cq.pipelines[ii];
         cookie.plLength = 0;
 
-        nFail = mcreq_pipeline_fail(pl, LCB_ERROR, failcb, NULL);
+        nFail = mcreq_pipeline_fail(pl, LCB_ERR_GENERIC, failcb, NULL);
         if (!nFail) {
             continue;
         }

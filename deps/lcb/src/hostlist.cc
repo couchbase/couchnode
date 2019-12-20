@@ -54,11 +54,11 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     if (speclen < 0) {
         speclen = strlen(spec);
     } else if (speclen == 0) {
-        return LCB_INVALID_HOST_FORMAT;
+        return LCB_ERR_INVALID_HOST_FORMAT;
     }
 
     if (deflport < 1) {
-        return LCB_INVALID_HOST_FORMAT;
+        return LCB_ERR_INVALID_HOST_FORMAT;
     }
 
     zspec.assign(spec, spec + speclen);
@@ -81,7 +81,7 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
             host_s++;
             char *hostend = strstr(host_s, "]");
             if (hostend == NULL) {
-                return LCB_INVALID_HOST_FORMAT;
+                return LCB_ERR_INVALID_HOST_FORMAT;
             }
             port_s = hostend + 1;
             if (*port_s != ':' || (size_t)(port_s - host_s) >= strlen(host_s)) {
@@ -100,16 +100,16 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
         port_s++;
 
         if (! *port_s) {
-            return LCB_INVALID_HOST_FORMAT;
+            return LCB_ERR_INVALID_HOST_FORMAT;
         }
 
         ll = strtol(port_s, &endp, 10);
         if (ll == LONG_MIN || ll == LONG_MAX) {
-            return LCB_INVALID_HOST_FORMAT;
+            return LCB_ERR_INVALID_HOST_FORMAT;
         }
 
         if (*endp) {
-            return LCB_INVALID_HOST_FORMAT;
+            return LCB_ERR_INVALID_HOST_FORMAT;
         }
 
     } else {
@@ -120,7 +120,7 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     if (strlen(host_s) > sizeof(host->host)-1 ||
             strlen(port_s) > sizeof(host->port)-1 ||
             *host_s == '\0') {
-        return LCB_INVALID_HOST_FORMAT;
+        return LCB_ERR_INVALID_HOST_FORMAT;
     }
 
     size_t ii, hostlen = strlen(host_s);
@@ -141,7 +141,7 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
             }
         /* fallthrough */
         default:
-            return LCB_INVALID_HOST_FORMAT;
+            return LCB_ERR_INVALID_HOST_FORMAT;
         }
     }
 

@@ -17,7 +17,7 @@ public:
     static NAN_MODULE_INIT(Init);
 
     static Local<Value> create(const std::string &msg,
-                               lcb_STATUS err = LCB_ERROR);
+                               lcb_STATUS err = LCB_ERR_GENERIC);
     static Local<Value> create(lcb_STATUS err);
 };
 

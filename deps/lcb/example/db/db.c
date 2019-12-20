@@ -58,7 +58,7 @@ static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTO
 {
     lcb_STATUS rc = lcb_respstore_status(resp);
     if (rc != LCB_SUCCESS) {
-        fprintf(stderr, "Couldn't perform initial storage: %s\n", lcb_strerror(NULL, rc));
+        fprintf(stderr, "Couldn't perform initial storage: %s\n", lcb_strerror_short(rc));
         exit(EXIT_FAILURE);
     }
     (void)cbtype; /* unused argument */
@@ -79,11 +79,11 @@ static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *
         rc = lcb_get(instance, NULL, gcmd);
         lcb_cmdget_destroy(gcmd);
         if (rc != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror(NULL, rc));
+            fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror_short(rc));
             exit(EXIT_FAILURE);
         }
     } else {
-        fprintf(stderr, "Failed to retrieve key: %s\n", lcb_strerror(NULL, rc));
+        fprintf(stderr, "Failed to retrieve key: %s\n", lcb_strerror_short(rc));
     }
 }
 
@@ -120,19 +120,19 @@ int main(int argc, char *argv[])
     err = lcb_create(&instance, create_options);
     lcb_createopts_destroy(create_options);
     if (err != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to create libcouchbase instance: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to create libcouchbase instance: %s\n", lcb_strerror_short(err));
         exit(EXIT_FAILURE);
     }
 
     /* Initiate the connect sequence in libcouchbase */
     if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
-        fprintf(stderr, "Failed to initiate connect: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Failed to initiate connect: %s\n", lcb_strerror_short(err));
         lcb_destroy(instance);
         exit(EXIT_FAILURE);
     }
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
     if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
-        fprintf(stderr, "Couldn't establish connection to cluster: %s\n", lcb_strerror(NULL, err));
+        fprintf(stderr, "Couldn't establish connection to cluster: %s\n", lcb_strerror_short(err));
         lcb_destroy(instance);
         exit(EXIT_FAILURE);
     }
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
         err = lcb_store(instance, NULL, cmd);
         lcb_cmdstore_destroy(cmd);
         if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to store: %s\n", lcb_strerror(NULL, err));
+            fprintf(stderr, "Failed to store: %s\n", lcb_strerror_short(err));
             exit(EXIT_FAILURE);
         }
     }
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
         err = lcb_get(instance, NULL, cmd);
         lcb_cmdget_destroy(cmd);
         if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror(NULL, err));
+            fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror_short(err));
             exit(EXIT_FAILURE);
         }
         lcb_wait3(instance, LCB_WAIT_NOCHECK);

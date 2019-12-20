@@ -19,34 +19,20 @@
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_status(const lcb_RESPCOUNTER *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_context(const lcb_RESPCOUNTER *resp, const char **ctx,
-                                                          size_t *ctx_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_context(const lcb_RESPCOUNTER *resp,
+                                                          const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
-    if ((resp->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return LCB_KEY_ENOENT;
+    if (resp->rflags & LCB_RESP_F_ERRINFO) {
+        lcb_RESPCOUNTER *mut = const_cast< lcb_RESPCOUNTER * >(resp);
+        mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_COUNTER, (const lcb_RESPBASE *)resp);
+        mut->ctx.context_len = strlen(resp->ctx.context);
+        mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_COUNTER, (const lcb_RESPBASE *)resp);
+        mut->ctx.ref_len = strlen(resp->ctx.ref);
     }
-    const char *val = lcb_resp_get_error_context(LCB_CALLBACK_COUNTER, (const lcb_RESPBASE *)resp);
-    if (val) {
-        *ctx = val;
-        *ctx_len = strlen(*ctx);
-    }
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_ref(const lcb_RESPCOUNTER *resp, const char **ref, size_t *ref_len)
-{
-    return LCB_SUCCESS;
-    if ((resp->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return LCB_KEY_ENOENT;
-    }
-    const char *val = lcb_resp_get_error_ref(LCB_CALLBACK_COUNTER, (const lcb_RESPBASE *)resp);
-    if (val) {
-        *ref = val;
-        *ref_len = strlen(val);
-    }
+    *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
 
@@ -58,14 +44,14 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_cookie(const lcb_RESPCOUNTER *resp, 
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_cas(const lcb_RESPCOUNTER *resp, uint64_t *cas)
 {
-    *cas = resp->cas;
+    *cas = resp->ctx.cas;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_key(const lcb_RESPCOUNTER *resp, const char **key, size_t *key_len)
 {
-    *key = (const char *)resp->key;
-    *key_len = resp->nkey;
+    *key = (const char *)resp->ctx.key;
+    *key_len = resp->ctx.key_len;
     return LCB_SUCCESS;
 }
 
@@ -99,6 +85,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_clone(const lcb_CMDCOUNTER *cmd, lcb_
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_destroy(lcb_CMDCOUNTER *cmd)
 {
     LCB_CMD_DESTROY_CLONE(cmd);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_cas(lcb_CMDSTORE *cmd, uint64_t cas)
+{
+    cmd->cas = cas;
     return LCB_SUCCESS;
 }
 
@@ -158,13 +150,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_durability(lcb_CMDCOUNTER *cmd, lcb_D
 static lcb_STATUS counter_validate(lcb_INSTANCE *instance, const lcb_CMDCOUNTER *cmd)
 {
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
-        return LCB_EMPTY_KEY;
+        return LCB_ERR_EMPTY_KEY;
     }
     if (cmd->cas || (cmd->create == 0 && cmd->exptime != 0)) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
     if (cmd->dur_level && !LCBT_SUPPORT_SYNCREPLICATION(instance)) {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
 
     return LCB_SUCCESS;
@@ -208,7 +200,7 @@ static lcb_STATUS counter_impl(uint32_t cid, lcb_INSTANCE *instance, void *cooki
     rdata->deadline = rdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
     hdr->request.magic = PROTOCOL_BINARY_REQ;
     hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr->request.cas = 0;
+    hdr->request.cas = cmd->cas;
     hdr->request.opaque = packet->opaque;
     hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + ntohs(hdr->request.keylen));
 
@@ -217,7 +209,7 @@ static lcb_STATUS counter_impl(uint32_t cid, lcb_INSTANCE *instance, void *cooki
     if (cmd->dur_level && new_durability_supported) {
         acmd.message.body.alt.meta = (1 << 4) | 3;
         acmd.message.body.alt.level = cmd->dur_level;
-        acmd.message.body.alt.timeout = lcb_durability_timeout(instance);
+        acmd.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
         acmd.message.body.alt.initial = lcb_htonll(cmd->initial);
         exp = &acmd.message.body.alt.expiration;
         delta = &acmd.message.body.alt.delta;

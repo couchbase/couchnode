@@ -318,17 +318,18 @@ extern "C" {
 static void statsCallback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
 {
     MockEnvironment *me = (MockEnvironment *)resp->cookie;
-    ASSERT_EQ(LCB_SUCCESS, resp->rc);
+    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
 
     if (resp->server == NULL) {
         return;
     }
 
-    if (!resp->nkey) {
+    if (!resp->ctx.key_len) {
         return;
     }
 
-    if (resp->nkey != sizeof(STAT_VERSION) - 1 || memcmp(resp->key, STAT_VERSION, sizeof(STAT_VERSION) - 1) != 0) {
+    if (resp->ctx.key_len != sizeof(STAT_VERSION) - 1 ||
+        memcmp(resp->ctx.key, STAT_VERSION, sizeof(STAT_VERSION) - 1) != 0) {
         return;
     }
     MockEnvironment::ServerVersion version = MockEnvironment::VERSION_UNKNOWN;
@@ -409,7 +410,7 @@ void MockEnvironment::bootstrapRealCluster()
 extern "C" {
 static void mock_flush_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *resp)
 {
-    ASSERT_EQ(LCB_SUCCESS, resp->rc);
+    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
 }
 }
 
@@ -438,7 +439,7 @@ void MockEnvironment::clearAndReset()
         lcb_STATUS err = lcb_create(&innerClient, crParams);
         lcb_createopts_destroy(crParams);
         if (err != LCB_SUCCESS) {
-            printf("Error on create: 0x%x\n", err);
+            printf("Error on create: %s\n", lcb_strerror_short(err));
         }
         EXPECT_FALSE(NULL == innerClient);
         postCreate(innerClient);

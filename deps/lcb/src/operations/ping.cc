@@ -21,7 +21,7 @@
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_status(const lcb_RESPPING *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_cookie(const lcb_RESPPING *resp, void **cookie)
@@ -54,7 +54,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_id(const lcb_RESPPING *resp, siz
                                                    size_t *endpoint_id_len)
 {
     if (index >= resp->nservices) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
     *endpoint_id = resp->services[index].id;
     *endpoint_id_len = strlen(*endpoint_id);
@@ -64,7 +64,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_id(const lcb_RESPPING *resp, siz
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_service(const lcb_RESPPING *resp, size_t index, lcb_PING_SERVICE *type)
 {
     if (index >= resp->nservices) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
     *type = resp->services[index].type;
     return LCB_SUCCESS;
@@ -74,7 +74,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_remote(const lcb_RESPPING *resp,
                                                        size_t *address_len)
 {
     if (index >= resp->nservices) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
     *address = resp->services[index].server;
     *address_len = strlen(*address);
@@ -85,7 +85,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_local(const lcb_RESPPING *resp, 
                                                       size_t *address_len)
 {
     if (index >= resp->nservices) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
     *address = resp->services[index].local;
     *address_len = strlen(*address);
@@ -95,7 +95,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_local(const lcb_RESPPING *resp, 
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_latency(const lcb_RESPPING *resp, size_t index, uint64_t *latency)
 {
     if (index >= resp->nservices) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
     *latency = resp->services[index].latency;
     return LCB_SUCCESS;
@@ -105,7 +105,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_scope(const lcb_RESPPING *resp, 
                                                       size_t *name_len)
 {
     if (index >= resp->nservices) {
-        return LCB_OPTIONS_CONFLICT;
+        return LCB_ERR_OPTIONS_CONFLICT;
     }
     *name = resp->services[index].scope;
     *name_len = strlen(*name);
@@ -403,7 +403,7 @@ static void handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, c
         svc.latency = gethrtime() - MCREQ_PKT_RDATA(req)->start;
         svc.rc = err;
         switch (err) {
-            case LCB_ETIMEDOUT:
+            case LCB_ERR_TIMEOUT:
                 svc.status = LCB_PING_STATUS_TIMEOUT;
                 break;
             case LCB_SUCCESS:
@@ -450,9 +450,9 @@ static void handle_http(lcb_INSTANCE *instance, lcb_PING_SERVICE type, const lcb
         }
         svc.server = strdup(hh.c_str());
         svc.latency = gethrtime() - htreq->start;
-        svc.rc = resp->rc;
-        switch (resp->rc) {
-            case LCB_ETIMEDOUT:
+        svc.rc = resp->ctx.rc;
+        switch (resp->ctx.rc) {
+            case LCB_ERR_TIMEOUT:
                 svc.status = LCB_PING_STATUS_TIMEOUT;
                 break;
             case LCB_SUCCESS:
@@ -499,7 +499,7 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
     unsigned ii;
 
     if (!cq->config) {
-        return LCB_CLIENT_ETMPFAIL;
+        return LCB_ERR_NO_CONFIGURATION;
     }
 
     PingCookie *ckwrap = new PingCookie(cookie, cmd->options);
@@ -527,7 +527,7 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
             memset(&hdr, 0, sizeof(hdr));
 
             if (!pkt) {
-                return LCB_CLIENT_ENOMEM;
+                return LCB_ERR_NO_MEMORY;
             }
 
             pkt->u_rdata.exdata = ckwrap;
@@ -592,7 +592,7 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
 
     if (ckwrap->remaining == 0) {
         delete ckwrap;
-        return LCB_NO_MATCHING_SERVER;
+        return LCB_ERR_NO_MATCHING_SERVER;
     }
     MAYBE_SCHEDLEAVE(instance);
     return LCB_SUCCESS;
@@ -600,7 +600,7 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_status(const lcb_RESPDIAG *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_cookie(const lcb_RESPDIAG *resp, void **cookie)
@@ -729,7 +729,7 @@ lcb_STATUS lcb_diag(lcb_INSTANCE *instance, void *cookie, const lcb_CMDDIAG *cmd
     std::string json = w->write(root);
     delete w;
 
-    lcb_RESPDIAG resp = {0};
+    lcb_RESPDIAG resp{};
     lcb_RESPCALLBACK callback;
 
     resp.njson = json.size();

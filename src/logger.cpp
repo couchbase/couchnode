@@ -59,9 +59,10 @@ void Logger::handler(unsigned int iid, const char *subsys, int severity,
     _callback.Call(Nan::New<Object>(), 1, args, this);
 }
 
-void Logger::lcbHandler(lcb_LOGGER *procs, uint64_t iid, const char *subsys,
-                        lcb_LOG_SEVERITY severity, const char *srcfile,
-                        int srcline, const char *fmt, va_list ap)
+void Logger::lcbHandler(const lcb_LOGGER *procs, uint64_t iid,
+                        const char *subsys, lcb_LOG_SEVERITY severity,
+                        const char *srcfile, int srcline, const char *fmt,
+                        va_list ap)
 {
     Logger *logger;
     lcb_logger_cookie(procs, reinterpret_cast<void **>(&logger));

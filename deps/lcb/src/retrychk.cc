@@ -15,99 +15,75 @@
  *   limitations under the License.
  */
 
+#include <include/memcached/protocol_binary.h>
 #include "internal.h"
 
-int
-lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_STATUS err)
+static lcb_RETRY_REASON mc_code_to_reason(lcb_STATUS status)
 {
-    unsigned policy;
-    unsigned mode;
+    switch (status) {
+        case LCB_ERR_TOPOLOGY_CHANGE:
+        case LCB_ERR_NOT_MY_VBUCKET:
+            return LCB_RETRY_REASON_KV_NOT_MY_VBUCKET;
+        case LCB_ERR_COLLECTION_NOT_FOUND:
+            return LCB_RETRY_REASON_KV_COLLECTION_OUTDATED;
+        case LCB_ERR_DOCUMENT_LOCKED:
+            return LCB_RETRY_REASON_KV_LOCKED;
+        case LCB_ERR_TEMPORARY_FAILURE:
+            return LCB_RETRY_REASON_KV_TEMPORARY_FAILURE;
+        case LCB_ERR_DURABLE_WRITE_IN_PROGRESS:
+            return LCB_RETRY_REASON_KV_SYNC_WRITE_IN_PROGRESS;
+        case LCB_ERR_DURABLE_WRITE_RE_COMMIT_IN_PROGRESS:
+            return LCB_RETRY_REASON_KV_SYNC_WRITE_RE_COMMIT_IN_PROGRESS;
+        default:
+            return LCB_RETRY_REASON_UNKNOWN;
+    }
+}
+
+static int mc_is_idempotent(uint8_t opcode)
+{
+    switch (opcode) {
+        case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
+        case PROTOCOL_BINARY_CMD_GET:
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
+        case PROTOCOL_BINARY_CMD_GET_REPLICA:
+        case PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID:
+        case PROTOCOL_BINARY_CMD_COLLECTIONS_GET_MANIFEST:
+        case PROTOCOL_BINARY_CMD_NOOP:
+        case PROTOCOL_BINARY_CMD_OBSERVE:
+        case PROTOCOL_BINARY_CMD_OBSERVE_SEQNO:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+lcb_RETRY_ACTION lcb_kv_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_STATUS err)
+{
     protocol_binary_request_header hdr;
 
     mcreq_read_hdr(pkt, &hdr);
 
-    switch (hdr.request.opcode) {
-    /* None of these commands can be 'redistributed' to other servers */
-    case PROTOCOL_BINARY_CMD_GET_REPLICA:
-    case PROTOCOL_BINARY_CMD_FLUSH:
-    case PROTOCOL_BINARY_CMD_OBSERVE:
-    case PROTOCOL_BINARY_CMD_OBSERVE_SEQNO:
-    case PROTOCOL_BINARY_CMD_STAT:
-    case PROTOCOL_BINARY_CMD_VERBOSITY:
-    case PROTOCOL_BINARY_CMD_VERSION:
-    case PROTOCOL_BINARY_CMD_NOOP:
-        return 0;
-    }
+    lcb_RETRY_REASON retry_reason = mc_code_to_reason(err);
+    lcb_RETRY_REQUEST retry_req;
+    retry_req.is_idempotent = mc_is_idempotent(hdr.request.opcode);
+    retry_req.retry_attempts = pkt->retries;
+    lcb_RETRY_ACTION retry_action{};
 
-    if (err == LCB_ETIMEDOUT || err == LCB_MAP_CHANGED) {
+    if (err == LCB_ERR_AUTHENTICATION_FAILURE || err == LCB_ERR_TOPOLOGY_CHANGE) {
+        /* spurious auth error */
+        /* special, topology change */
+        retry_action.should_retry = 1;
+    } else if (err == LCB_ERR_TIMEOUT || err == LCB_ERR_MAP_CHANGED) {
         /* We can't exceed a timeout for ETIMEDOUT */
         /* MAP_CHANGED is sent after we've already called this function on the
          * packet once before */
-        return 0;
-    } else if (err == LCB_AUTH_ERROR) {
-        /* spurious auth error */
-        return 1;
-    } else if (err == LCB_NOT_MY_VBUCKET) {
-        mode = LCB_RETRY_ON_VBMAPERR;
-    } else if (err == LCB_MAX_ERROR) {
-        /* special, topology change */
-        mode = LCB_RETRY_ON_TOPOCHANGE;
-    } else if (LCB_EIFNET(err)) {
-        mode = LCB_RETRY_ON_SOCKERR;
+        retry_action.should_retry = 0;
+    } else if (LCB_ERROR_IS_NETWORK(err) || !retry_req.is_idempotent) {
+        retry_action.should_retry = 0;
+    } else if (lcb_retry_reason_is_always_retry(retry_reason)) {
+        retry_action.should_retry = 1;
     } else {
-        /* invalid mode */
-        return 0;
+        retry_action = settings->retry_strategy(&retry_req, retry_reason);
     }
-    policy = settings->retry[mode];
-
-    if (policy == LCB_RETRY_CMDS_ALL) {
-        return 1;
-    } else if (policy == LCB_RETRY_CMDS_NONE) {
-        return 0;
-    }
-
-    /** read the header */
-    switch (hdr.request.opcode) {
-
-    /* get is a safe operation which may be retried */
-    case PROTOCOL_BINARY_CMD_GET:
-    case PROTOCOL_BINARY_CMD_SUBDOC_GET:
-    case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
-    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
-        return policy & LCB_RETRY_CMDS_GET;
-
-    case PROTOCOL_BINARY_CMD_ADD:
-        return policy & LCB_RETRY_CMDS_SAFE;
-
-    /* mutation operations are retriable so long as they provide a CAS */
-    case PROTOCOL_BINARY_CMD_SET:
-    case PROTOCOL_BINARY_CMD_REPLACE:
-    case PROTOCOL_BINARY_CMD_APPEND:
-    case PROTOCOL_BINARY_CMD_PREPEND:
-    case PROTOCOL_BINARY_CMD_DELETE:
-    case PROTOCOL_BINARY_CMD_UNLOCK_KEY:
-    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_ADD_UNIQUE:
-    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_FIRST:
-    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_LAST:
-    case PROTOCOL_BINARY_CMD_SUBDOC_COUNTER:
-    case PROTOCOL_BINARY_CMD_SUBDOC_DELETE:
-    case PROTOCOL_BINARY_CMD_SUBDOC_DICT_UPSERT:
-    case PROTOCOL_BINARY_CMD_SUBDOC_REPLACE:
-    case PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD:
-    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
-        if (hdr.request.cas) {
-            return policy & LCB_RETRY_CMDS_SAFE;
-        } else {
-            return 0;
-        }
-
-    /* none of these commands accept a CAS, so they are not safe */
-    case PROTOCOL_BINARY_CMD_INCREMENT:
-    case PROTOCOL_BINARY_CMD_DECREMENT:
-    case PROTOCOL_BINARY_CMD_TOUCH:
-    case PROTOCOL_BINARY_CMD_GAT:
-    case PROTOCOL_BINARY_CMD_GET_LOCKED:
-    default:
-        return 0;
-    }
+    return retry_action;
 }

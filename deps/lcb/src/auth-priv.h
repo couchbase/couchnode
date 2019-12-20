@@ -69,10 +69,10 @@ class Authenticator
     lcb_STATUS set_mode(lcbauth_MODE mode_)
     {
         if (mode_ == LCBAUTH_MODE_DYNAMIC && (m_usercb == NULL || m_passcb == NULL)) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         if (m_buckets.size() || m_username.size() || m_password.size()) {
-            return LCB_ERROR;
+            return LCB_ERR_INVALID_ARGUMENT;
         } else {
             m_mode = mode_;
             return LCB_SUCCESS;

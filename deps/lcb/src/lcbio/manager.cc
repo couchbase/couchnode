@@ -198,6 +198,7 @@ static const char *get_hehost(const PoolHost *h)
 
 PoolConnInfo::~PoolConnInfo()
 {
+    idle_timer.release();
     parent->n_total--;
     if (state == IDLE) {
         lcb_clist_delete(&parent->ll_idle, this);
@@ -413,7 +414,7 @@ void PoolRequest::timer_handler()
         invoke();
     } else {
         lcb_clist_delete(&host->requests, this);
-        invoke(LCB_ETIMEDOUT);
+        invoke(LCB_ERR_TIMEOUT);
     }
 }
 
@@ -468,7 +469,7 @@ GT_POPAGAIN:
         }
 
         req->set_ready(info);
-        lcb_log(LOGARGS(this, INFO),
+        lcb_log(LOGARGS(this, DEBUG),
                 HE_LOGFMT "Found ready connection in pool. Reusing socket and not creating new connection",
                 HE_LOGID(he));
 
@@ -532,7 +533,7 @@ void Pool::put(lcbio_SOCKET *sock)
         return;
     }
 
-    lcb_log(LOGARGS(mgr, INFO), HE_LOGFMT "Placing socket back into the pool. I=%p,C=%p", HE_LOGID(he), (void *)info,
+    lcb_log(LOGARGS(mgr, DEBUG), HE_LOGFMT "Placing socket back into the pool. I=%p,C=%p", HE_LOGID(he), (void *)info,
             (void *)sock);
     info->idle_timer.rearm(mgr->options.tmoidle);
     lcb_clist_append(&he->ll_idle, info);

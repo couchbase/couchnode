@@ -63,7 +63,7 @@ template < typename T > lcb_STATUS extract_n1ql_errors(const char *s, size_t n, 
 {
     Json::Value jresp;
     if (!Json::Reader().parse(s, s + n, jresp)) {
-        return LCB_PROTOCOL_ERROR;
+        return LCB_ERR_PROTOCOL_ERROR;
     }
     if (jresp["status"].asString() == "success") {
         return LCB_SUCCESS;
@@ -73,7 +73,7 @@ template < typename T > lcb_STATUS extract_n1ql_errors(const char *s, size_t n, 
     if (errors.isNull()) {
         return LCB_SUCCESS;
     } else if (!errors.isArray()) {
-        return LCB_PROTOCOL_ERROR;
+        return LCB_ERR_PROTOCOL_ERROR;
     }
 
     if (errors.empty()) {
@@ -90,7 +90,7 @@ template < typename T > lcb_STATUS extract_n1ql_errors(const char *s, size_t n, 
         spec.code = err["code"].asUInt();
         err_out.insert(err_out.end(), spec);
     }
-    return LCB_ERROR;
+    return LCB_ERR_GENERIC;
 }
 
 static lcb_STATUS get_n1ql_error(const char *s, size_t n)
@@ -108,24 +108,24 @@ static void cb_generic(lcb_INSTANCE *instance, int, const lcb_RESPN1QL *resp)
     }
 
     IndexOpCtx *ctx = reinterpret_cast< IndexOpCtx * >(resp->cookie);
-    lcb_RESPN1XMGMT w_resp = {0};
+    lcb_RESPN1XMGMT w_resp{};
     w_resp.cookie = ctx->cookie;
 
-    if ((w_resp.rc = resp->rc) == LCB_SUCCESS || resp->rc == LCB_HTTP_ERROR) {
+    if ((w_resp.rc = resp->ctx.rc) == LCB_SUCCESS || resp->ctx.rc == LCB_ERR_HTTP) {
         // Check if the top-level N1QL response succeeded, and then
         // descend to determine additional errors. This is primarily
         // required to support EEXIST for GSI primary indexes
 
         vector< ErrorSpec > errors;
         lcb_STATUS rc = extract_n1ql_errors(resp->row, resp->nrow, errors);
-        if (rc == LCB_ERROR) {
-            w_resp.rc = LCB_QUERY_ERROR;
+        if (rc == LCB_ERR_GENERIC) {
+            w_resp.rc = LCB_ERR_QUERY;
             for (size_t ii = 0; ii < errors.size(); ++ii) {
                 const std::string &msg = errors[ii].msg;
                 if (msg.find("already exist") != string::npos) {
-                    w_resp.rc = LCB_KEY_EEXISTS; // Index entry already exists
+                    w_resp.rc = LCB_ERR_DOCUMENT_EXISTS; // Index entry already exists
                 } else if (msg.find("not found") != string::npos) {
-                    w_resp.rc = LCB_KEY_ENOENT;
+                    w_resp.rc = LCB_ERR_DOCUMENT_NOT_FOUND;
                 }
             }
         } else {
@@ -170,7 +170,7 @@ lcb_STATUS dispatch_common(lcb_INSTANCE *instance, const void *cookie, lcb_N1XMG
     }
 
     if (!(obj->callback = u_callback)) {
-        rc = LCB_EINVAL;
+        rc = LCB_ERR_INVALID_ARGUMENT;
         goto GT_ERROR;
     }
 
@@ -178,7 +178,7 @@ lcb_STATUS dispatch_common(lcb_INSTANCE *instance, const void *cookie, lcb_N1XMG
 
     lcb_CMDN1QL *cmd;
     lcb_cmdn1ql_create(&cmd);
-    lcb_cmdn1ql_query(cmd, s, n);
+    lcb_cmdn1ql_payload(cmd, s, n);
     lcb_cmdn1ql_callback(cmd, i_callback);
     lcb_log(LOGARGS(&ixwrap, DEBUG), LOGFMT "Issuing query %.*s", LOGID(obj), (int)n, s);
     rc = lcb_n1ql(instance, obj, cmd);
@@ -272,7 +272,7 @@ lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie, const lcb_
     if (spec.is_primary()) {
         ss += " PRIMARY";
     } else if (!spec.nname) {
-        return LCB_EMPTY_KEY;
+        return LCB_ERR_EMPTY_KEY;
     }
     ss.append(" INDEX");
     if (spec.nname) {
@@ -282,7 +282,7 @@ lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie, const lcb_
 
     if (!spec.is_primary()) {
         if (!spec.nfields) {
-            return LCB_EMPTY_KEY;
+            return LCB_ERR_EMPTY_KEY;
         }
 
         // See if we can parse 'fields' properly. First, try to parse as
@@ -291,19 +291,19 @@ lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie, const lcb_
         Json::Reader r;
         if (!r.parse(spec.fields, spec.fields + spec.nfields, fields_arr)) {
             // Invalid JSON!
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
 
         ss.append(" (");
         if (fields_arr.isArray()) {
             if (!fields_arr.size()) {
-                return LCB_EMPTY_KEY;
+                return LCB_ERR_EMPTY_KEY;
             }
             for (size_t ii = 0; ii < fields_arr.size(); ++ii) {
                 static Json::Value empty;
                 const Json::Value &field = fields_arr.get(ii, empty);
                 if (!field.isString()) {
-                    return LCB_EINVAL;
+                    return LCB_ERR_INVALID_ARGUMENT;
                 }
                 ss.append(field.asString());
                 if (ii != fields_arr.size() - 1) {
@@ -313,18 +313,18 @@ lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie, const lcb_
         } else if (fields_arr.isString()) {
             std::string field_list = fields_arr.asString();
             if (field_list.empty()) {
-                return LCB_EMPTY_KEY;
+                return LCB_ERR_EMPTY_KEY;
             }
             ss.append(field_list);
         } else {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         ss.append(") ");
     }
 
     if (spec.ncond) {
         if (spec.is_primary()) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         ss.append(" WHERE ").append(spec.cond, spec.ncond).append(" ");
     }
@@ -332,7 +332,7 @@ lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie, const lcb_
     if (spec.ixtype) {
         const char *ixtype = ixtype_2_str(spec.ixtype);
         if (!ixtype) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         ss.append(" USING ").append(ixtype);
     }
@@ -356,7 +356,7 @@ class ListIndexCtx : public IndexOpCtx
 
     void finish(lcb_INSTANCE *instance, lcb_RESPN1XMGMT *resp = NULL)
     {
-        lcb_RESPN1XMGMT w_resp = {0};
+        lcb_RESPN1XMGMT w_resp{};
         if (resp == NULL) {
             resp = &w_resp;
             resp->rc = LCB_SUCCESS;
@@ -386,8 +386,8 @@ static void cb_index_list(lcb_INSTANCE *instance, int, const lcb_RESPN1QL *resp)
         return;
     }
 
-    lcb_RESPN1XMGMT w_resp = {0};
-    if ((w_resp.rc = resp->rc) == LCB_SUCCESS) {
+    lcb_RESPN1XMGMT w_resp{};
+    if ((w_resp.rc = resp->ctx.rc) == LCB_SUCCESS) {
         w_resp.rc = get_n1ql_error(resp->row, resp->nrow);
     }
     w_resp.inner = resp;
@@ -413,7 +413,7 @@ static lcb_STATUS do_index_list(lcb_INSTANCE *instance, const void *cookie, cons
     if (spec.ixtype) {
         const char *s_ixtype = ixtype_2_str(spec.ixtype);
         if (s_ixtype == NULL) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         ss.append(" using=\"").append(s_ixtype).append("\" AND");
     }
@@ -449,13 +449,13 @@ lcb_STATUS lcb_n1x_drop(lcb_INSTANCE *instance, const void *cookie, const lcb_CM
         ss = "DROP PRIMARY INDEX ON";
         ss.append(" `").append(spec.keyspace, spec.nkeyspace).append("`");
     } else {
-        return LCB_EMPTY_KEY;
+        return LCB_ERR_EMPTY_KEY;
     }
 
     if (spec.ixtype) {
         const char *stype = ixtype_2_str(spec.ixtype);
         if (!stype) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         ss.append(" USING ").append(stype);
     }
@@ -475,8 +475,8 @@ static void cb_build_submitted(lcb_INSTANCE *instance, int, const lcb_RESPN1QL *
     ListIndexCtx *ctx = reinterpret_cast< ListIndexCtx * >(resp->cookie);
 
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        lcb_RESPN1XMGMT w_resp = {0};
-        if ((w_resp.rc = resp->rc) == LCB_SUCCESS) {
+        lcb_RESPN1XMGMT w_resp{};
+        if ((w_resp.rc = resp->ctx.rc) == LCB_SUCCESS) {
             w_resp.rc = get_n1ql_error(resp->row, resp->nrow);
         }
         ctx->finish(instance, &w_resp);
@@ -494,7 +494,7 @@ lcb_STATUS ListIndexCtx_BuildIndex::try_build(lcb_INSTANCE *instance)
     }
 
     if (pending.empty()) {
-        return LCB_KEY_ENOENT;
+        return LCB_ERR_DOCUMENT_NOT_FOUND;
     }
 
     string ss;
@@ -570,7 +570,7 @@ static void cb_watchix_tm(void *arg)
     WatchIndexCtx *ctx = reinterpret_cast< WatchIndexCtx * >(arg);
     uint64_t now = lcb_nstime();
     if (now >= ctx->m_tsend) {
-        ctx->finish(LCB_ETIMEDOUT, NULL);
+        ctx->finish(LCB_ERR_TIMEOUT, NULL);
     } else {
         ctx->do_poll();
     }
@@ -650,7 +650,7 @@ void WatchIndexCtx::read_state(const lcb_RESPN1XMGMT *resp)
         if (res == in_specs.end()) {
             lcb_log(LOGARGS(this, INFO), LOGFMT "Index [%s] not in cluster", LOGID(this), it_remain->first.c_str());
             // We can't find our own index. Someone else deleted it. Bail!
-            finish(LCB_KEY_ENOENT, resp);
+            finish(LCB_ERR_DOCUMENT_NOT_FOUND, resp);
             return;
         }
 
@@ -680,14 +680,14 @@ lcb_STATUS WatchIndexCtx::load_defs(const lcb_CMDN1XWATCH *cmd)
         m_defspend[key] = extspec;
     }
     if (m_defspend.empty()) {
-        return LCB_ENO_COMMANDS;
+        return LCB_ERR_NO_COMMANDS;
     }
     return LCB_SUCCESS;
 }
 
 void WatchIndexCtx::finish(lcb_STATUS rc, const lcb_RESPN1XMGMT *resp)
 {
-    lcb_RESPN1XMGMT my_resp = {0};
+    lcb_RESPN1XMGMT my_resp{};
     my_resp.cookie = cookie;
     my_resp.rc = rc;
 
@@ -707,7 +707,7 @@ void WatchIndexCtx::reschedule()
     // Next interval!
     uint64_t now = lcb_nstime();
     if (now + LCB_US2NS(m_interval) >= m_tsend) {
-        finish(LCB_ETIMEDOUT, NULL);
+        finish(LCB_ERR_TIMEOUT, NULL);
     } else {
         lcbio_timer_rearm(m_timer, m_interval);
     }

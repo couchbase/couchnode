@@ -240,7 +240,7 @@ lcb_STATUS lcb_initialize_socket_subsystem(void);
 
 lcb_STATUS lcb_reinit(lcb_INSTANCE *obj, const char *connstr);
 
-int lcb_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_STATUS err);
+lcb_RETRY_ACTION lcb_kv_should_retry(const lcb_settings *settings, const mc_PACKET *pkt, lcb_STATUS err);
 
 lcb_RESPCALLBACK lcb_find_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE cbtype);
 
@@ -263,7 +263,7 @@ void lcb_vbguess_newconfig(lcb_INSTANCE *instance, lcbvb_CONFIG *cfg, struct lcb
 int lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad);
 #define lcb_vbguess_destroy(p) free(p)
 
-LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance);
+LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance, uint32_t tmo_us);
 
 #ifdef __cplusplus
 }

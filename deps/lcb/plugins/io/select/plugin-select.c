@@ -404,14 +404,14 @@ lcb_STATUS lcb_create_select_io_opts(int version, lcb_io_opt_t *io, void *arg)
     sel_LOOP *cookie;
 
     if (version != 0) {
-        return LCB_PLUGIN_VERSION_MISMATCH;
+        return LCB_ERR_PLUGIN_VERSION_MISMATCH;
     }
     ret = calloc(1, sizeof(*ret));
     cookie = calloc(1, sizeof(*cookie));
     if (ret == NULL || cookie == NULL) {
         free(ret);
         free(cookie);
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
     lcb_list_init(&cookie->events.list);
     lcb_list_init(&cookie->timers);

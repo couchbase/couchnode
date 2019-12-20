@@ -27,7 +27,7 @@
 #define CTX_IOT(ctx) (ctx)->io
 #define CTX_INCR_METRIC(ctx, metric, n)                                                                                \
     do {                                                                                                               \
-        if (ctx->sock->metrics) {                                                                                      \
+        if (ctx->sock && ctx->sock->metrics) {                                                                         \
             ctx->sock->metrics->metric += n;                                                                           \
         }                                                                                                              \
     } while (0)
@@ -61,7 +61,7 @@ static lcb_STATUS convert_lcberr(const lcbio_CTX *ctx, lcbio_IOSTATUS status)
     } else if (oserr != 0) {
         return lcbio_mklcberr(oserr, settings);
     } else {
-        return LCB_NETWORK_ERROR;
+        return LCB_ERR_NETWORK;
     }
 }
 
@@ -151,7 +151,7 @@ void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg, lcbio_C
 
     ctx->sock->ctx = NULL;
     if (oldrc == ctx->sock->refcount) {
-        lcbio_shutdown(ctx->sock);
+        lcbio_unref(ctx->sock);
     }
 
     if (ctx->output) {
@@ -189,20 +189,20 @@ void lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf)
         ctx->output = erb = calloc(1, sizeof(*ctx->output));
 
         if (!erb) {
-            lcbio_ctx_senderr(ctx, LCB_CLIENT_ENOMEM);
+            lcbio_ctx_senderr(ctx, LCB_ERR_NO_MEMORY);
             return;
         }
 
         erb->parent = ctx;
 
         if (!ringbuffer_initialize(&erb->rb, nbuf)) {
-            lcbio_ctx_senderr(ctx, LCB_CLIENT_ENOMEM);
+            lcbio_ctx_senderr(ctx, LCB_ERR_NO_MEMORY);
             return;
         }
     }
 
     if (!ringbuffer_ensure_capacity(&erb->rb, nbuf)) {
-        lcbio_ctx_senderr(ctx, LCB_CLIENT_ENOMEM);
+        lcbio_ctx_senderr(ctx, LCB_ERR_NO_MEMORY);
         return;
     }
 

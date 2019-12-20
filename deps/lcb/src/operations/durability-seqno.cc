@@ -52,8 +52,8 @@ static void seqno_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
     Item *ent = static_cast< Item * >(reinterpret_cast< CallbackCookie * >(resp->cookie));
 
     /* Now, process the response */
-    if (resp->rc != LCB_SUCCESS) {
-        ent->res().rc = resp->rc;
+    if (resp->ctx.rc != LCB_SUCCESS) {
+        ent->res().ctx.rc = resp->ctx.rc;
         goto GT_TALLY;
     }
 
@@ -62,7 +62,7 @@ static void seqno_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
         /* Failover! */
         seqno_mem = seqno_disk = resp->old_seqno;
         if (seqno_mem < ENT_SEQNO(ent)) {
-            ent->finish(LCB_MUTATION_LOST);
+            ent->finish(LCB_ERR_MUTATION_LOST);
             goto GT_TALLY;
         }
     } else {
@@ -91,7 +91,7 @@ GT_TALLY:
 
 lcb_STATUS SeqnoDurset::poll_impl()
 {
-    lcb_STATUS ret_err = LCB_EINTERNAL; /* This should never be returned */
+    lcb_STATUS ret_err = LCB_ERR_SDK_INTERNAL; /* This should never be returned */
     bool has_ops = false;
 
     lcb_sched_enter(instance);
@@ -111,7 +111,7 @@ lcb_STATUS SeqnoDurset::poll_impl()
 
         size_t nservers = ent.prepare(servers);
         if (nservers == 0) {
-            ret_err = LCB_DURABILITY_ETOOMANY;
+            ret_err = LCB_ERR_DURABILITY_TOO_MANY;
             continue;
         }
         for (size_t jj = 0; jj < nservers; jj++) {
@@ -123,7 +123,7 @@ lcb_STATUS SeqnoDurset::poll_impl()
                 waiting++;
                 has_ops = true;
             } else {
-                ent.res().rc = ret_err = err;
+                ent.res().ctx.rc = ret_err = err;
             }
         }
     }
@@ -145,14 +145,14 @@ lcb_STATUS SeqnoDurset::after_add(Item &item, const lcb_CMDENDURE *cmd)
 
     if (stok == NULL) {
         if (!instance->dcpinfo) {
-            return LCB_DURABILITY_NO_MUTATION_TOKENS;
+            return LCB_ERR_DURABILITY_NO_MUTATION_TOKENS;
         }
         if (item.vbid >= LCBT_VBCONFIG(instance)->nvb) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         stok = instance->dcpinfo + item.vbid;
         if (LCB_MUTATION_TOKEN_ID(stok) == 0) {
-            return LCB_DURABILITY_NO_MUTATION_TOKENS;
+            return LCB_ERR_DURABILITY_NO_MUTATION_TOKENS;
         }
     }
 

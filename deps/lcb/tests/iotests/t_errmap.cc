@@ -173,7 +173,7 @@ void ErrmapUnitTest::checkRetryVerify(uint16_t errcode)
     lcb_wait(instance);
 
     ASSERT_TRUE(cookie.called);
-    ASSERT_EQ(LCB_GENERIC_TMPERR, cookie.rc);
+    ASSERT_EQ(LCB_ERR_TEMPORARY_FAILURE, cookie.rc);
 
     // Check that we executed correctly:
     MockBucketCommand verifyCmd(MockCommand::CHECK_RETRY_VERIFY, srvix, instance->get_bucketname());

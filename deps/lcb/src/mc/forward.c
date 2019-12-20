@@ -74,7 +74,7 @@ lcb_STATUS mc_forward_packet(mc_CMDQUEUE *cq, mc_IOVINFO *info, mc_PACKET **pkt_
     /* not enough bytes */
     if (info->total < 24) {
         info->wanted = 24;
-        return LCB_INCOMPLETE_PACKET;
+        return LCB_ERR_INCOMPLETE_PACKET;
     }
 
     iovcursor_peek(mincur, (char *)hdr.bytes, sizeof hdr.bytes, 0);
@@ -88,7 +88,7 @@ lcb_STATUS mc_forward_packet(mc_CMDQUEUE *cq, mc_IOVINFO *info, mc_PACKET **pkt_
 
     if (n_packet > info->total) {
         info->wanted = n_packet;
-        return LCB_INCOMPLETE_PACKET;
+        return LCB_ERR_INCOMPLETE_PACKET;
     }
 
     info->total -= n_packet;
@@ -106,7 +106,7 @@ lcb_STATUS mc_forward_packet(mc_CMDQUEUE *cq, mc_IOVINFO *info, mc_PACKET **pkt_
     if ((options & MC_FWD_OPT_NOMAP) == 0) {
         lcbvb_map_key(cq->config, kptr, n_body_key, &vbid, &srvix);
         if (srvix < 0 || (unsigned)srvix >= cq->npipelines) {
-            return LCB_NO_MATCHING_SERVER;
+            return LCB_ERR_NO_MATCHING_SERVER;
         }
         pl = cq->pipelines[srvix];
         hdr.request.vbucket = htons(vbid);
@@ -114,7 +114,7 @@ lcb_STATUS mc_forward_packet(mc_CMDQUEUE *cq, mc_IOVINFO *info, mc_PACKET **pkt_
     } else {
         pl = *pl_p;
         if (!pl) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         srvix = pl->index;
     }
@@ -122,7 +122,7 @@ lcb_STATUS mc_forward_packet(mc_CMDQUEUE *cq, mc_IOVINFO *info, mc_PACKET **pkt_
     pkt = mcreq_allocate_packet(pl);
 
     if (pkt == NULL) {
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
 
     hdr.request.opaque = pkt->opaque;

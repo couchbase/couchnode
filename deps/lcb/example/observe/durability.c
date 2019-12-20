@@ -40,7 +40,7 @@
 
 #define fail2(msg, err)                                                                                                \
     fprintf(stderr, "%s\n", msg);                                                                                      \
-    fprintf(stderr, "Error was 0x%x (%s)\n", err, lcb_strerror(NULL, err));                                            \
+    fprintf(stderr, "Error was 0x%x (%s)\n", err, lcb_strerror_short(err));                                            \
     exit(EXIT_FAILURE)
 
 static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)

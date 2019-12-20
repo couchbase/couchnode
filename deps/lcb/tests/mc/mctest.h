@@ -50,7 +50,7 @@ struct CQWrap : mc_CMDQUEUE {
             EXPECT_NE(0, netbuf_is_clean(&pipeline->nbmgr));
             EXPECT_NE(0, netbuf_is_clean(&pipeline->reqpool));
             mcreq_pipeline_cleanup(pipeline);
-            free(pipeline);
+            delete pipeline;
         }
         mcreq_queue_cleanup(this);
         lcbvb_destroy(config);

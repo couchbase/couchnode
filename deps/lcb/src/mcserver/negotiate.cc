@@ -211,7 +211,7 @@ static int sasl_get_password(cbsasl_conn_t *conn, void *context, int id, cbsasl_
     return SASL_OK;
 }
 
-SessionInfo::SessionInfo()
+SessionInfo::SessionInfo() : selected(false)
 {
     lcbio_PROTOCTX::id = LCBIO_PROTOCTX_SESSINFO;
     lcbio_PROTOCTX::dtor = (void (*)(lcbio_PROTOCTX *))cleanup_negotiated;
@@ -247,7 +247,7 @@ bool SessionRequestImpl::setup(const lcbio_NAMEINFO &nistrs, const lcb_host_t &h
 static void timeout_handler(void *arg)
 {
     SessionRequestImpl *sreq = SessionRequestImpl::get(arg);
-    sreq->fail(LCB_ETIMEDOUT, "Negotiation timed out");
+    sreq->fail(LCB_ERR_TIMEOUT, "Negotiation timed out");
 }
 
 /**
@@ -270,7 +270,7 @@ SessionRequestImpl::MechStatus SessionRequestImpl::set_chosen_mech(std::string &
         char *forcemech = settings->sasl_mech_force;
         if (mechlist.find(forcemech) == std::string::npos) {
             /** Requested mechanism not found */
-            set_error(LCB_SASLMECH_UNAVAILABLE, mechlist.c_str());
+            set_error(LCB_ERR_SASLMECH_UNAVAILABLE, mechlist.c_str());
             return MECH_UNAVAILABLE;
         }
         mechlist.assign(forcemech);
@@ -290,7 +290,7 @@ SessionRequestImpl::MechStatus SessionRequestImpl::set_chosen_mech(std::string &
             return MECH_UNAVAILABLE;
         default:
             lcb_log(LOGARGS(this, ERROR), LOGFMT "cbsasl_client_start returned %d", LOGID(this), saslerr);
-            set_error(LCB_EINTERNAL, "Couldn't start SASL client");
+            set_error(LCB_ERR_SDK_INTERNAL, "Couldn't start SASL client");
             return MECH_UNAVAILABLE;
     }
 }
@@ -318,7 +318,7 @@ bool SessionRequestImpl::send_step(const lcb::MemcachedResponse &packet)
     saslerr = cbsasl_client_step(sasl_client, packet.value(), packet.vallen(), NULL, &step_data, &ndata);
 
     if (saslerr != SASL_CONTINUE) {
-        set_error(LCB_EINTERNAL, "Unable to perform SASL STEP");
+        set_error(LCB_ERR_SDK_INTERNAL, "Unable to perform SASL STEP");
         return false;
     }
 
@@ -367,7 +367,7 @@ bool SessionRequestImpl::check_auth(const lcb::MemcachedResponse &packet)
     saslerr = cbsasl_client_check(sasl_client, packet.value(), packet.vallen());
 
     if (saslerr != SASL_OK) {
-        set_error(LCB_AUTH_ERROR, "Invalid SASL check");
+        set_error(LCB_ERR_AUTHENTICATION_FAILURE, "Invalid SASL check");
         return false;
     }
     return true;
@@ -479,7 +479,7 @@ bool SessionRequestImpl::update_errmap(const lcb::MemcachedResponse &resp)
 
     if (status != ErrorMap::UPDATED && status != ErrorMap::NOT_UPDATED) {
         errmsg = "Couldn't update error map: " + errmsg;
-        set_error(LCB_PROTOCOL_ERROR, errmsg.c_str());
+        set_error(LCB_ERR_PROTOCOL_ERROR, errmsg.c_str());
         return false;
     }
 
@@ -562,7 +562,7 @@ GT_NEXT_PACKET:
             } else if (status == PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE) {
                 send_step(resp);
             } else {
-                set_error(LCB_AUTH_ERROR, "SASL AUTH failed", &resp);
+                set_error(LCB_ERR_AUTHENTICATION_FAILURE, "SASL AUTH failed", &resp);
                 break;
             }
             break;
@@ -573,7 +573,7 @@ GT_NEXT_PACKET:
                 completed = !maybe_select_bucket();
             } else {
                 lcb_log(LOGARGS(this, WARN), LOGFMT "SASL auth failed with STATUS=0x%x", LOGID(this), status);
-                set_error(LCB_AUTH_ERROR, "SASL Step failed", &resp);
+                set_error(LCB_ERR_AUTHENTICATION_FAILURE, "SASL Step failed", &resp);
             }
             break;
         }
@@ -581,14 +581,14 @@ GT_NEXT_PACKET:
         case PROTOCOL_BINARY_CMD_HELLO: {
             if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
                 if (!read_hello(resp)) {
-                    set_error(LCB_PROTOCOL_ERROR, "Couldn't parse HELLO");
+                    set_error(LCB_ERR_PROTOCOL_ERROR, "Couldn't parse HELLO");
                     break;
                 }
             } else if (isUnsupported(status)) {
                 lcb_log(LOGARGS(this, DEBUG), LOGFMT "Server does not support HELLO", LOGID(this));
             } else {
                 lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for HELLO", LOGID(this), status);
-                set_error(LCB_PROTOCOL_ERROR, "Hello response unexpected", &resp);
+                set_error(LCB_ERR_PROTOCOL_ERROR, "Hello response unexpected", &resp);
                 break;
             }
 
@@ -616,7 +616,7 @@ GT_NEXT_PACKET:
             } else {
                 lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for GET_ERRMAP", LOGID(this),
                         status);
-                set_error(LCB_PROTOCOL_ERROR, "GET_ERRMAP response unexpected", &resp);
+                set_error(LCB_ERR_PROTOCOL_ERROR, "GET_ERRMAP response unexpected", &resp);
             }
             // Note, there is no explicit state transition here. LIST_MECHS is
             // pipelined after this request.
@@ -626,13 +626,14 @@ GT_NEXT_PACKET:
         case PROTOCOL_BINARY_CMD_SELECT_BUCKET: {
             if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
                 completed = true;
+                info->selected = true;
             } else if (status == PROTOCOL_BINARY_RESPONSE_EACCESS) {
-                set_error(LCB_BUCKET_ENOENT, "Provided credentials not allowed for bucket or bucket does not exist",
-                          &resp);
+                set_error(LCB_ERR_BUCKET_NOT_FOUND,
+                          "Provided credentials not allowed for bucket or bucket does not exist", &resp);
             } else {
                 lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", LOGID(this),
                         status);
-                set_error(LCB_PROTOCOL_ERROR, "Other auth error", &resp);
+                set_error(LCB_ERR_PROTOCOL_ERROR, "Other auth error", &resp);
             }
             break;
         }
@@ -640,7 +641,7 @@ GT_NEXT_PACKET:
         default: {
             lcb_log(LOGARGS(this, ERROR), LOGFMT "Received unknown response. OP=0x%x. RC=0x%x", LOGID(this),
                     resp.opcode(), resp.status());
-            set_error(LCB_NOT_SUPPORTED, "Received unknown response", &resp);
+            set_error(LCB_ERR_UNSUPPORTED_OPERATION, "Received unknown response", &resp);
             break;
         }
     }
@@ -693,7 +694,7 @@ void SessionRequestImpl::start(lcbio_SOCKET *sock)
     lcbio_get_nameinfo(sock, &nistrs);
 
     if (!setup(nistrs, *curhost, *settings->auth)) {
-        set_error(LCB_EINTERNAL, "Couldn't start SASL client");
+        set_error(LCB_ERR_SDK_INTERNAL, "Couldn't start SASL client");
         lcbio_async_signal(timer);
         return;
     }
@@ -734,6 +735,11 @@ SessionRequest *SessionRequest::start(lcbio_SOCKET *sock, lcb_settings_st *setti
 SessionInfo *SessionInfo::get(lcbio_SOCKET *sock)
 {
     return static_cast< SessionInfo * >(lcbio_protoctx_get(sock, LCBIO_PROTOCTX_SESSINFO));
+}
+
+bool SessionInfo::selected_bucket() const
+{
+    return selected;
 }
 
 bool SessionInfo::has_feature(uint16_t feature) const

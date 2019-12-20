@@ -36,7 +36,7 @@ lcb_STATUS lcb_pktfwd3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMD
     if (cmd->nomap) {
         fwdopts |= MC_FWD_OPT_NOMAP;
         if (cmd->server_index >= LCBT_NSERVERS(instance)) {
-            return LCB_NO_MATCHING_SERVER;
+            return LCB_ERR_NO_MATCHING_SERVER;
         } else {
             pl = (mc_PIPELINE *)LCBT_GET_SERVER(instance, cmd->server_index);
         }

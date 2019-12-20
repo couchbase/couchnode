@@ -218,7 +218,7 @@ NAN_METHOD(Connection::fnRemove)
     if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
         lcb_cmdremove_durability(enc.cmd(), durabilityLevel);
     } else if (persistTo > 0 || replicateTo > 0) {
-        // TODO(brett19): Implement this when LCB adds support
+        // TODO(brett19): BUG JSCBC-637 - Implement this when LCB adds support
         // lcb_cmdremove_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
@@ -261,7 +261,7 @@ NAN_METHOD(Connection::fnTouch)
     if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
         lcb_cmdtouch_durability(enc.cmd(), durabilityLevel);
     } else if (persistTo > 0 || replicateTo > 0) {
-        // TODO(brett19): Implement this when LCB adds support
+        // TODO(brett19): BUG JSCBC-637 - Implement this when LCB adds support
         // lcb_cmdtouch_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
@@ -342,7 +342,7 @@ NAN_METHOD(Connection::fnCounter)
     if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
         lcb_cmdcounter_durability(enc.cmd(), durabilityLevel);
     } else if (persistTo > 0 || replicateTo > 0) {
-        // TODO(brett19): Implement this when LCB adds support
+        // TODO(brett19): BUG JSCBC-637 - Implement this when LCB adds support
         // lcb_cmdcounter_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
@@ -459,7 +459,7 @@ NAN_METHOD(Connection::fnMutateIn)
     if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
         lcb_cmdsubdoc_durability(enc.cmd(), durabilityLevel);
     } else if (persistTo > 0 || replicateTo > 0) {
-        // TODO(brett19): Implement this when LCB adds support
+        // TODO(brett19): BUG JSCBC-637 -  Implement this when LCB adds support
         // lcb_cmdsubdoc_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
@@ -583,7 +583,7 @@ NAN_METHOD(Connection::fnN1qlQuery)
 
     lcb_cmdn1ql_callback(enc.cmd(), &lcbN1qlDataHandler);
 
-    if (!enc.parseOption<&lcb_cmdn1ql_query>(info[0])) {
+    if (!enc.parseOption<&lcb_cmdn1ql_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
     }
     uint32_t flags = ValueParser::asUint(info[1]);
@@ -617,7 +617,7 @@ NAN_METHOD(Connection::fnAnalyticsQuery)
 
     lcb_cmdanalytics_callback(enc.cmd(), &lcbCbasDataHandler);
 
-    if (!enc.parseOption<&lcb_cmdanalytics_query>(info[0])) {
+    if (!enc.parseOption<&lcb_cmdanalytics_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
     }
     // uint32_t flags = ValueParser::asUint(info[1]);

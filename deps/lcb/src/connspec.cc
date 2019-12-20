@@ -23,9 +23,9 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-#define SET_ERROR(msg) \
-    *errmsg = msg; \
-    return LCB_EINVAL;
+#define SET_ERROR(msg)                                                                                                 \
+    *errmsg = msg;                                                                                                     \
+    return LCB_ERR_INVALID_ARGUMENT;
 
 #define F_HASBUCKET (1u << 0u)
 #define F_HASPASSWD (1u << 1u)

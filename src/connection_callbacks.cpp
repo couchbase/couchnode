@@ -15,9 +15,8 @@ void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPGET, &lcb_respget_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respget_status>();
+    Local<Value> errVal = rdr.decodeError<lcb_respget_error_context>(rc);
 
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respget_error_context, lcb_respget_error_ref>(rc);
     Local<Value> casVal, valueVal;
     if (rc == LCB_SUCCESS) {
         casVal = rdr.decodeCas<&lcb_respget_cas>();
@@ -38,9 +37,13 @@ void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     lcb_STATUS rc = rdr.getValue<&lcb_respexists_status>();
 
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respexists_error_context, lcb_respexists_error_ref>(
-            rc);
+    // TODO(brett19): BUG JSCBC-639 - This should be removed once libcouchbase
+    // correctly handles these errors and hides them from the wrapper.
+    if (rc == LCB_ERR_DOCUMENT_NOT_FOUND) {
+        rc = LCB_SUCCESS;
+    }
+
+    Local<Value> errVal = rdr.decodeError<lcb_respexists_error_context>(rc);
 
     Local<Value> casVal, existsVal;
     if (rc == LCB_SUCCESS) {
@@ -67,12 +70,10 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
                                                                    resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respgetreplica_status>();
-
-    Local<Value> errVal = rdr.decodeError<lcb_respgetreplica_error_context,
-                                          lcb_respgetreplica_error_ref>(rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respgetreplica_error_context>(rc);
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respreplica_is_final>()) {
+    if (rdr.getValue<&lcb_respgetreplica_is_final>()) {
         rflags |= LCB_RESP_F_FINAL;
     }
 
@@ -104,10 +105,7 @@ void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPUNLOCK, &lcb_respunlock_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respunlock_status>();
-
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respunlock_error_context, lcb_respunlock_error_ref>(
-            rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respunlock_error_context>(rc);
 
     Local<Value> casVal;
     if (rc == LCB_SUCCESS) {
@@ -126,10 +124,7 @@ void Connection::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPREMOVE, &lcb_respremove_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respremove_status>();
-
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respremove_error_context, lcb_respremove_error_ref>(
-            rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respremove_error_context>(rc);
 
     Local<Value> casVal;
     if (rc == LCB_SUCCESS) {
@@ -148,10 +143,7 @@ void Connection::lcbTouchRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPTOUCH, &lcb_resptouch_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_resptouch_status>();
-
-    Local<Value> errVal =
-        rdr.decodeError<lcb_resptouch_error_context, lcb_resptouch_error_ref>(
-            rc);
+    Local<Value> errVal = rdr.decodeError<lcb_resptouch_error_context>(rc);
 
     Local<Value> casVal;
     if (rc == LCB_SUCCESS) {
@@ -170,10 +162,7 @@ void Connection::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPSTORE, &lcb_respstore_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respstore_status>();
-
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respstore_error_context, lcb_respstore_error_ref>(
-            rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respstore_error_context>(rc);
 
     Local<Value> casVal, tokenVal;
     if (rc == LCB_SUCCESS) {
@@ -194,9 +183,7 @@ void Connection::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPCOUNTER, &lcb_respcounter_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respcounter_status>();
-
-    Local<Value> errVal = rdr.decodeError<lcb_respcounter_error_context,
-                                          lcb_respcounter_error_ref>(rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respcounter_error_context>(rc);
 
     Local<Value> casVal, tokenVal, valueVal;
     if (rc == LCB_SUCCESS) {
@@ -219,17 +206,10 @@ void Connection::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPSUBDOC, &lcb_respsubdoc_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respsubdoc_status>();
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respsubdoc_error_context, lcb_respsubdoc_error_ref>(
-            rc);
-
-    // Special handling for multi failures
-    if (rc == LCB_SUBDOC_MULTI_FAILURE) {
-        errVal = Nan::Null();
-    }
+    Local<Value> errVal = rdr.decodeError<lcb_respsubdoc_error_context>(rc);
 
     Local<Value> resVal;
-    if (rc == LCB_SUCCESS || rc == LCB_SUBDOC_MULTI_FAILURE) {
+    if (rc == LCB_SUCCESS) {
         size_t numResults = rdr.getValue<&lcb_respsubdoc_result_size>();
 
         Local<Array> resArr = Nan::New<Array>(numResults);
@@ -271,9 +251,7 @@ void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPSUBDOC, &lcb_respsubdoc_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respsubdoc_status>();
-    Local<Value> errVal =
-        rdr.decodeError<lcb_respsubdoc_error_context, lcb_respsubdoc_error_ref>(
-            rc);
+    Local<Value> errVal = rdr.decodeError<lcb_respsubdoc_error_context>(rc);
 
     size_t numResults = rdr.getValue<&lcb_respsubdoc_result_size>();
     for (size_t i = 0; i < numResults; ++i) {
@@ -310,8 +288,8 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPVIEW, &lcb_respview_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respview_status>();
+    Local<Value> errVal = rdr.decodeError<lcb_respview_error_context>(rc);
 
-    Local<Value> errVal = Error::create(rc);
     Local<Value> dataRes = rdr.parseValue<&lcb_respview_row>();
 
     uint32_t rflags = 0;
@@ -334,8 +312,8 @@ void Connection::lcbN1qlDataHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPN1QL, &lcb_respn1ql_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respn1ql_status>();
+    Local<Value> errVal = rdr.decodeError<lcb_respn1ql_error_context>(rc);
 
-    Local<Value> errVal = Error::create(rc);
     Local<Value> dataRes = rdr.parseValue<&lcb_respn1ql_row>();
 
     uint32_t rflags = 0;
@@ -359,8 +337,8 @@ void Connection::lcbCbasDataHandler(lcb_INSTANCE *instance, int cbtype,
                                                                  resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respanalytics_status>();
+    Local<Value> errVal = rdr.decodeError<lcb_respanalytics_error_context>(rc);
 
-    Local<Value> errVal = Error::create(rc);
     Local<Value> dataRes = rdr.parseValue<&lcb_respanalytics_row>();
 
     uint32_t rflags = 0;
@@ -383,8 +361,8 @@ void Connection::lcbFtsDataHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPFTS, &lcb_respfts_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_respfts_status>();
+    Local<Value> errVal = rdr.decodeError<lcb_respfts_error_context>(rc);
 
-    Local<Value> errVal = Error::create(rc);
     Local<Value> dataRes = rdr.parseValue<&lcb_respfts_row>();
 
     uint32_t rflags = 0;
@@ -407,8 +385,8 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
     RespReader<lcb_RESPHTTP, &lcb_resphttp_cookie> rdr(instance, resp);
 
     lcb_STATUS rc = rdr.getValue<&lcb_resphttp_status>();
-
     Local<Value> errVal = Error::create(rc);
+
     Local<Value> dataVal;
 
     uint32_t rflags = 0;
@@ -450,8 +428,8 @@ void Connection::lcbPingRespHandler(lcb_INSTANCE *instance, int cbtype,
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPPING, &lcb_respping_cookie> rdr(instance, resp);
-
     lcb_STATUS rc = rdr.getValue<&lcb_respping_status>();
+
     Local<Value> errVal = Error::create(rc);
 
     Local<Value> dataVal;

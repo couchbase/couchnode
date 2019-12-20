@@ -22,7 +22,7 @@ Local<Value> Error::create(lcb_STATUS err)
         return Nan::Null();
     }
 
-    Local<Object> errObj = Nan::Error(lcb_strerror(NULL, err)).As<Object>();
+    Local<Object> errObj = Nan::Error(lcb_strerror_long(err)).As<Object>();
     Nan::Set(errObj, Nan::New<String>("code").ToLocalChecked(),
              Nan::New<Integer>(err));
 

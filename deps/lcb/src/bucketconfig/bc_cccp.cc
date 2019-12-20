@@ -55,7 +55,7 @@ struct CccpProvider : public Provider {
     lcb_STATUS mcio_error(lcb_STATUS why);
     void on_timeout()
     {
-        mcio_error(LCB_ETIMEDOUT);
+        mcio_error(LCB_ERR_TIMEOUT);
     }
     lcb_STATUS update(const char *host, const char *data);
     void request_config();
@@ -150,7 +150,7 @@ lcb_STATUS CccpProvider::schedule_next_request(lcb_STATUS err, bool can_rollover
         lcb_log(LOGARGS(this, TRACE), "Re-Issuing CCCP Command on server struct %p (" LCB_HOST_FMT ")", (void *)server,
                 LCB_HOST_ARG(this->parent->settings, next_host));
         timer.rearm(settings().config_node_timeout);
-        if (settings().bucket && settings().bucket[0] != '\0' && config && config->vbc->bname == NULL) {
+        if (settings().bucket && settings().bucket[0] != '\0' && !server->selected_bucket) {
             instance->select_bucket(cmdcookie, server);
         }
         instance->request_config(cmdcookie, server);
@@ -167,11 +167,11 @@ lcb_STATUS CccpProvider::schedule_next_request(lcb_STATUS err, bool can_rollover
 
 lcb_STATUS CccpProvider::mcio_error(lcb_STATUS err)
 {
-    if (err != LCB_NOT_SUPPORTED && err != LCB_UNKNOWN_COMMAND) {
+    if (err != LCB_ERR_UNSUPPORTED_OPERATION) {
         lcb_log(LOGARGS(this, ERR), LOGFMT "Could not get configuration: %s", LOGID(this), lcb_strerror_short(err));
     }
 
-    stop_current_request(err == LCB_NOT_SUPPORTED);
+    stop_current_request(err == LCB_ERR_UNSUPPORTED_OPERATION);
     return schedule_next_request(err, false);
 }
 
@@ -189,7 +189,7 @@ lcb_STATUS CccpProvider::update(const char *host, const char *data)
     vbc = lcbvb_create();
 
     if (!vbc) {
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
     rv = lcbvb_load_json_ex(vbc, data, host, &LCBT_SETTING(this->parent, network));
 
@@ -197,7 +197,7 @@ lcb_STATUS CccpProvider::update(const char *host, const char *data)
         lcb_log(LOGARGS(this, ERROR), LOGFMT "Failed to parse config", LOGID(this));
         lcb_log_badconfig(LOGARGS(this, ERROR), vbc, data);
         lcbvb_destroy(vbc);
-        return LCB_PROTOCOL_ERROR;
+        return LCB_ERR_PROTOCOL_ERROR;
     }
 
     lcbvb_replace_host(vbc, host);
@@ -205,7 +205,7 @@ lcb_STATUS CccpProvider::update(const char *host, const char *data)
 
     if (!new_config) {
         lcbvb_destroy(vbc);
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
 
     if (config) {
@@ -285,7 +285,7 @@ static void on_connected(lcbio_SOCKET *sock, void *data, lcb_STATUS err, lcbio_O
 lcb_STATUS CccpProvider::refresh()
 {
     if (has_pending_request()) {
-        return LCB_BUSY;
+        return LCB_ERR_BUSY;
     }
 
     return schedule_next_request(LCB_SUCCESS, true);
@@ -379,16 +379,16 @@ void CccpProvider::on_io_read()
         switch (resp.status()) {
             case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
             case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
-                return_error(LCB_NOT_SUPPORTED);
+                return_error(LCB_ERR_UNSUPPORTED_OPERATION);
             default:
-                return_error(LCB_PROTOCOL_ERROR);
+                return_error(LCB_ERR_PROTOCOL_ERROR);
         }
 
         return;
     }
 
     if (!resp.bodylen()) {
-        return_error(LCB_PROTOCOL_ERROR);
+        return_error(LCB_ERR_PROTOCOL_ERROR);
     }
 
     std::string jsonstr(resp.value(), resp.vallen());
@@ -402,7 +402,7 @@ void CccpProvider::on_io_read()
     if (err == LCB_SUCCESS) {
         timer.cancel();
     } else {
-        schedule_next_request(LCB_PROTOCOL_ERROR, 0);
+        schedule_next_request(LCB_ERR_PROTOCOL_ERROR, 0);
     }
 
 #undef return_error

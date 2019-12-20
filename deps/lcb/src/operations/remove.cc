@@ -20,32 +20,20 @@
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_status(const lcb_RESPREMOVE *resp)
 {
-    return resp->rc;
+    return resp->ctx.rc;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_context(const lcb_RESPREMOVE *resp, const char **ctx, size_t *ctx_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_context(const lcb_RESPREMOVE *resp,
+                                                         const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
-    if ((resp->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return LCB_KEY_ENOENT;
+    if (resp->rflags & LCB_RESP_F_ERRINFO) {
+        lcb_RESPREMOVE *mut = const_cast< lcb_RESPREMOVE * >(resp);
+        mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
+        mut->ctx.context_len = strlen(resp->ctx.context);
+        mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
+        mut->ctx.ref_len = strlen(resp->ctx.ref);
     }
-    const char *val = lcb_resp_get_error_context(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
-    if (val) {
-        *ctx = val;
-        *ctx_len = strlen(val);
-    }
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_ref(const lcb_RESPREMOVE *resp, const char **ref, size_t *ref_len)
-{
-    if ((resp->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return LCB_KEY_ENOENT;
-    }
-    const char *val = lcb_resp_get_error_ref(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
-    if (val) {
-        *ref = val;
-        *ref_len = strlen(val);
-    }
+    *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
 
@@ -57,14 +45,14 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respremove_cookie(const lcb_RESPREMOVE *resp, vo
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_cas(const lcb_RESPREMOVE *resp, uint64_t *cas)
 {
-    *cas = resp->cas;
+    *cas = resp->ctx.cas;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_key(const lcb_RESPREMOVE *resp, const char **key, size_t *key_len)
 {
-    *key = (const char *)resp->key;
-    *key_len = resp->nkey;
+    *key = (const char *)resp->ctx.key;
+    *key_len = resp->ctx.key_len;
     return LCB_SUCCESS;
 }
 
@@ -138,10 +126,10 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_durability(lcb_CMDREMOVE *cmd, lcb_DUR
 static lcb_STATUS remove_validate(lcb_INSTANCE *instance, const lcb_CMDREMOVE *cmd)
 {
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
-        return LCB_EMPTY_KEY;
+        return LCB_ERR_EMPTY_KEY;
     }
     if (cmd->dur_level && !LCBT_SUPPORT_SYNCREPLICATION(instance)) {
-        return LCB_NOT_SUPPORTED;
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
     return LCB_SUCCESS;
 }
@@ -157,7 +145,7 @@ static lcb_STATUS remove_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie
     mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PIPELINE *pl;
     mc_PACKET *pkt;
-    protocol_binary_request_delete req = {0};
+    protocol_binary_request_delete req{};
     protocol_binary_request_header *hdr = &req.message.header;
     int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
     lcb_U8 ffextlen = 0;
@@ -184,7 +172,7 @@ static lcb_STATUS remove_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie
     if (cmd->dur_level && new_durability_supported) {
         req.message.body.alt.meta = (1 << 4) | 3;
         req.message.body.alt.level = cmd->dur_level;
-        req.message.body.alt.timeout = lcb_durability_timeout(instance);
+        req.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
     }
 
     pkt->u_rdata.reqdata.cookie = cookie;

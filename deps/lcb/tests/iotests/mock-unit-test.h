@@ -36,8 +36,6 @@ class HandleWrap;
         return;                                                                                                        \
     }
 
-#define ASSERT_ERRISA(err, et) ASSERT_EQ(et, (int)lcb_get_errtype(err) & (int)et)
-
 class MockUnitTest : public ::testing::Test
 {
   protected:

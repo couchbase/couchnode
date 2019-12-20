@@ -4,39 +4,44 @@
 
 using namespace lcb::errmap;
 
-ErrorMap::ErrorMap() : revision(0), version(0) {
-}
+ErrorMap::ErrorMap() : revision(0), version(0) {}
 
-static ErrorAttribute getAttribute(const std::string& s) {
-    #define X(c, s_) if (s == s_) { return c; }
+static ErrorAttribute getAttribute(const std::string &s)
+{
+#define X(c, s_)                                                                                                       \
+    if (s == s_) {                                                                                                     \
+        return c;                                                                                                      \
+    }
     LCB_XERRMAP_ATTRIBUTES(X)
-    #undef X
+#undef X
     return INVALID_ATTRIBUTE;
 }
 
-RetrySpec *Error::getRetrySpec() const {
+RetrySpec *Error::getRetrySpec() const
+{
     return retry.specptr;
 }
 
-RetrySpec* RetrySpec::parse(const Json::Value& retryJson, std::string& emsg) {
+RetrySpec *RetrySpec::parse(const Json::Value &retryJson, std::string &emsg)
+{
 
     RetrySpec *spec = new RetrySpec();
     spec->refcount = 1;
 
-#define FAIL_RETRY(s) \
-    emsg = s; \
-    delete spec; \
+#define FAIL_RETRY(s)                                                                                                  \
+    emsg = s;                                                                                                          \
+    delete spec;                                                                                                       \
     return NULL;
 
     if (!retryJson.isObject()) {
         FAIL_RETRY("Missing retry specification");
     }
 
-    const Json::Value& strategyJson = retryJson["strategy"];
+    const Json::Value &strategyJson = retryJson["strategy"];
     if (!strategyJson.isString()) {
         FAIL_RETRY("Missing `strategy`");
     }
-    const char* strategy = strategyJson.asCString();
+    const char *strategy = strategyJson.asCString();
     if (!strcasecmp(strategy, "constant")) {
         spec->strategy = CONSTANT;
     } else if (!strcasecmp(strategy, "linear")) {
@@ -47,16 +52,17 @@ RetrySpec* RetrySpec::parse(const Json::Value& retryJson, std::string& emsg) {
         FAIL_RETRY("Unknown strategy");
     }
 
-#define GET_TIMEFLD(srcname, dstname, required) { \
-    Json::Value dstname##Json = retryJson[srcname]; \
-    if (dstname##Json.isNumeric()) { \
-        spec->dstname = (dstname##Json).asUInt() * 1000; \
-    } else if (required) { \
-        FAIL_RETRY("Missing " # srcname); \
-    } else { \
-        spec->dstname = 0; \
-    } \
-}
+#define GET_TIMEFLD(srcname, dstname, required)                                                                        \
+    {                                                                                                                  \
+        Json::Value dstname##Json = retryJson[srcname];                                                                \
+        if (dstname##Json.isNumeric()) {                                                                               \
+            spec->dstname = (dstname##Json).asUInt() * 1000;                                                           \
+        } else if (required) {                                                                                         \
+            FAIL_RETRY("Missing " #srcname);                                                                           \
+        } else {                                                                                                       \
+            spec->dstname = 0;                                                                                         \
+        }                                                                                                              \
+    }
 
     GET_TIMEFLD("interval", interval, true);
     GET_TIMEFLD("after", after, true);
@@ -67,13 +73,12 @@ RetrySpec* RetrySpec::parse(const Json::Value& retryJson, std::string& emsg) {
 
 #undef FAIL_RETRY
 #undef GET_TIMEFLD
-
 }
 
 const uint32_t ErrorMap::MAX_VERSION = 1;
 
-ErrorMap::ParseStatus
-ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
+ErrorMap::ParseStatus ErrorMap::parse(const char *s, size_t n, std::string &errmsg)
+{
     Json::Value root_nonconst;
     Json::Reader reader;
     if (!reader.parse(s, s + n, root_nonconst)) {
@@ -81,8 +86,8 @@ ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
         return PARSE_ERROR;
     }
 
-    const Json::Value& root = root_nonconst;
-    const Json::Value& verJson = root["version"];
+    const Json::Value &root = root_nonconst;
+    const Json::Value &verJson = root["version"];
     if (!verJson.isNumeric()) {
         errmsg = "'version' is not a number";
         return PARSE_ERROR;
@@ -93,7 +98,7 @@ ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
         return UNKNOWN_VERSION;
     }
 
-    const Json::Value& revJson = root["revision"];
+    const Json::Value &revJson = root["revision"];
     if (!revJson.isNumeric()) {
         errmsg = "'revision' is not a number";
         return PARSE_ERROR;
@@ -103,7 +108,7 @@ ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
         return NOT_UPDATED;
     }
 
-    const Json::Value& errsJson = root["errors"];
+    const Json::Value &errsJson = root["errors"];
     if (!errsJson.isObject()) {
         errmsg = "'errors' is not an object";
         return PARSE_ERROR;
@@ -118,16 +123,16 @@ ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
             return PARSE_ERROR;
         }
 
-        const Json::Value& errorJson = *ii;
+        const Json::Value &errorJson = *ii;
 
         // Descend into the error attributes
         Error error;
-        error.code = static_cast<uint16_t>(ec);
+        error.code = static_cast< uint16_t >(ec);
 
         error.shortname = errorJson["name"].asString();
         error.description = errorJson["desc"].asString();
 
-        const Json::Value& attrs = errorJson["attrs"];
+        const Json::Value &attrs = errorJson["attrs"];
         if (!attrs.isArray()) {
             errmsg = "'attrs' is not an array";
             return PARSE_ERROR;
@@ -143,7 +148,7 @@ ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
             error.attributes.insert(attr);
         }
         if (error.hasAttribute(AUTO_RETRY)) {
-            const Json::Value& retryJson = errorJson["retry"];
+            const Json::Value &retryJson = errorJson["retry"];
             if (!retryJson.isObject()) {
                 errmsg = "Need `retry` specification for `auto-retry` attribute";
                 return PARSE_ERROR;
@@ -158,7 +163,8 @@ ErrorMap::parse(const char *s, size_t n, std::string& errmsg) {
     return UPDATED;
 }
 
-const Error& ErrorMap::getError(uint16_t code) const {
+const Error &ErrorMap::getError(uint16_t code) const
+{
     static const Error invalid;
     MapType::const_iterator it = errors.find(code);
 
@@ -169,5 +175,383 @@ const Error& ErrorMap::getError(uint16_t code) const {
     }
 }
 
-ErrorMap *lcb_errmap_new() { return new ErrorMap(); }
-void lcb_errmap_free(ErrorMap* m) { delete m; }
+ErrorMap *lcb_errmap_new()
+{
+    return new ErrorMap();
+}
+
+void lcb_errmap_free(ErrorMap *m)
+{
+    delete m;
+}
+
+LIBCOUCHBASE_API int lcb_retry_reason_allows_non_idempotent_retry(lcb_RETRY_REASON code)
+{
+#define X(n, c, nir, ar)                                                                                               \
+    if (code == c) {                                                                                                   \
+        return nir;                                                                                                    \
+    }
+    LCB_XRETRY_REASON(X)
+#undef X
+    return 0;
+}
+
+LIBCOUCHBASE_API int lcb_retry_reason_is_always_retry(lcb_RETRY_REASON code)
+{
+#define X(n, c, nir, ar)                                                                                               \
+    if (code == c) {                                                                                                   \
+        return ar;                                                                                                     \
+    }
+    LCB_XRETRY_REASON(X)
+#undef X
+    return 0;
+}
+
+LIBCOUCHBASE_API int lcb_retry_request_is_idempotent(lcb_RETRY_REQUEST *req)
+{
+    return req->is_idempotent;
+}
+
+LIBCOUCHBASE_API int lcb_retry_request_retry_attempts(lcb_RETRY_REQUEST *req)
+{
+    return req->retry_attempts;
+}
+
+lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason)
+{
+    lcb_RETRY_ACTION res{0, 0};
+    if (lcb_retry_request_is_idempotent(req) || lcb_retry_reason_allows_non_idempotent_retry(reason)) {
+        res.should_retry = 1;
+        res.retry_after_ms = 0;
+    }
+    return res;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_retry_strategy(lcb_INSTANCE *instance, lcb_RETRY_STRATEGY strategy)
+{
+    if (strategy == NULL || instance == NULL) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    instance->settings->retry_strategy = strategy;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_rc(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx)
+{
+    return ctx->rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_status_code(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, uint16_t *status_code)
+{
+    *status_code = ctx->status_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_opaque(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, uint32_t *opaque)
+{
+    *opaque = ctx->opaque;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_cas(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, uint64_t *cas)
+{
+    *cas = ctx->cas;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_key(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **key, size_t *key_len)
+{
+    *key = ctx->key;
+    *key_len = ctx->key_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_bucket(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **bucket,
+                                                 size_t *bucket_len)
+{
+    *bucket = ctx->bucket;
+    *bucket_len = ctx->bucket_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_collection(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **collection,
+                                                     size_t *collection_len)
+{
+    *collection = ctx->collection;
+    *collection_len = ctx->collection_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_scope(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **scope,
+                                                size_t *scope_len)
+{
+    *scope = ctx->scope;
+    *scope_len = ctx->scope_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_context(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **context,
+                                                  size_t *context_len)
+{
+    *context = ctx->context;
+    *context_len = ctx->context_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_ref(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **ref, size_t *ref_len)
+{
+    *ref = ctx->ref;
+    *ref_len = ctx->ref_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_rc(const lcb_N1QL_ERROR_CONTEXT *ctx)
+{
+    return ctx->rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_first_error_code(const lcb_N1QL_ERROR_CONTEXT *ctx, uint32_t *code)
+{
+    *code = ctx->first_error_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_first_error_message(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **message,
+                                                                size_t *message_len)
+{
+    *message = ctx->first_error_message;
+    *message_len = ctx->first_error_message_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_statement(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **statement,
+                                                      size_t *statement_len)
+{
+    *statement = ctx->statement;
+    *statement_len = ctx->statement_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_client_context_id(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **id,
+                                                              size_t *id_len)
+{
+    *id = ctx->client_context_id;
+    *id_len = ctx->client_context_id_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_query_params(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **params,
+                                                         size_t *params_len)
+{
+    *params = ctx->query_params;
+    *params_len = ctx->query_params_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_http_response_code(const lcb_N1QL_ERROR_CONTEXT *ctx, uint32_t *code)
+{
+    *code = ctx->http_response_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_http_response_body(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **body,
+                                                               size_t *body_len)
+{
+    *body = ctx->http_response_message;
+    *body_len = ctx->http_response_message_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_rc(const lcb_ANALYTICS_ERROR_CONTEXT *ctx)
+{
+    return ctx->rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_first_error_code(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
+                                                                  uint32_t *code)
+{
+    *code = ctx->first_error_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_first_error_message(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
+                                                                     const char **message, size_t *message_len)
+{
+    *message = ctx->first_error_message;
+    *message_len = ctx->first_error_message_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_statement(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
+                                                           const char **statement, size_t *statement_len)
+{
+    *statement = ctx->statement;
+    *statement_len = ctx->statement_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_query_params(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
+                                                              const char **query_params, size_t *query_params_len)
+{
+    *query_params = ctx->query_params;
+    *query_params_len = ctx->query_params_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_client_context_id(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
+                                                                   const char **id, size_t *id_len)
+{
+    *id = ctx->client_context_id;
+    *id_len = ctx->client_context_id_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_http_response_code(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
+                                                                    uint32_t *code)
+{
+    *code = ctx->http_response_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_http_response_body(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
+                                                                    const char **body, size_t *body_len)
+{
+    *body = ctx->http_response_body;
+    *body_len = ctx->http_response_body_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_rc(const lcb_VIEW_ERROR_CONTEXT *ctx)
+{
+    return ctx->rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_first_error_code(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **code,
+                                                             size_t *code_len)
+{
+    *code = ctx->first_error_code;
+    *code_len = ctx->first_error_code_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_first_error_message(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **message,
+                                                                size_t *message_len)
+{
+    *message = ctx->first_error_message;
+    *message_len = ctx->first_error_message_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_design_document(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **name,
+                                                            size_t *name_len)
+{
+    *name = ctx->design_document;
+    *name_len = ctx->design_document_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_view(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **name, size_t *name_len)
+{
+    *name = ctx->view;
+    *name_len = ctx->view_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_query_params(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **params,
+                                                         size_t *params_len)
+{
+    *params = ctx->query_params;
+    *params_len = ctx->query_params_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_http_response_code(const lcb_VIEW_ERROR_CONTEXT *ctx, uint32_t *code)
+{
+    *code = ctx->http_response_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_http_response_body(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **body,
+                                                               size_t *body_len)
+{
+    *body = ctx->http_response_body;
+    *body_len = ctx->http_response_body_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_rc(const lcb_FTS_ERROR_CONTEXT *ctx)
+{
+    return ctx->rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_error_message(const lcb_FTS_ERROR_CONTEXT *ctx, const char **message,
+                                                         size_t *message_len)
+{
+    *message = ctx->error_message;
+    *message_len = ctx->error_message_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_index_name(const lcb_FTS_ERROR_CONTEXT *ctx, const char **name,
+                                                      size_t *name_len)
+{
+    *name = ctx->index;
+    *name_len = ctx->index_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_search_query(const lcb_FTS_ERROR_CONTEXT *ctx, const char **query,
+                                                        size_t *query_len)
+{
+    *query = ctx->search_query;
+    *query_len = ctx->search_query_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_search_params(const lcb_FTS_ERROR_CONTEXT *ctx, const char **params,
+                                                         size_t *params_len)
+{
+    *params = ctx->search_params;
+    *params_len = ctx->search_params_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_http_response_code(const lcb_FTS_ERROR_CONTEXT *ctx, uint32_t *code)
+{
+    *code = ctx->http_response_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_http_response_body(const lcb_FTS_ERROR_CONTEXT *ctx, const char **body,
+                                                              size_t *body_len)
+{
+    *body = ctx->http_response_body;
+    *body_len = ctx->http_response_body_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_rc(const lcb_HTTP_ERROR_CONTEXT *ctx)
+{
+    return ctx->rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_path(const lcb_HTTP_ERROR_CONTEXT *ctx, const char **path, size_t *path_len)
+{
+    *path = ctx->path;
+    *path_len = ctx->path_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_response_code(const lcb_HTTP_ERROR_CONTEXT *ctx, uint32_t *code)
+{
+    *code = ctx->response_code;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_response_body(const lcb_HTTP_ERROR_CONTEXT *ctx, const char **body,
+                                                          size_t *body_len)
+{
+    *body = ctx->body;
+    *body_len = ctx->body_len;
+    return LCB_SUCCESS;
+}

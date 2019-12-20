@@ -68,7 +68,7 @@ struct Item {
     {
         key.assign((const char *)resp->key, resp->nkey);
         cas = resp->cas;
-        err = resp->rc;
+        err = resp->ctx.rc;
     }
 
     Item()
@@ -83,7 +83,7 @@ struct Item {
         exp = 0;
     }
 
-    Item(const std::string &key, const std::string &value = "", lcb_cas_t cas = 0)
+    Item(const std::string &key, const std::string &value = "", uint64_t cas = 0)
     {
 
         this->key = key;
@@ -108,7 +108,7 @@ struct Item {
     std::string key;
     std::string val;
     lcb_uint32_t flags;
-    lcb_cas_t cas;
+    uint64_t cas;
     uint8_t datatype;
     lcb_STATUS err;
     lcb_time_t exp;

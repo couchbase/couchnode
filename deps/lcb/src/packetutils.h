@@ -302,18 +302,18 @@ class MemcachedResponse
     static lcb_STATUS parse_enhanced_error(const char *value, lcb_SIZE nvalue, char **err_ref, char **err_ctx)
     {
         if (value == NULL || nvalue == 0) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         Json::Value jval;
         if (!Json::Reader().parse(value, value + nvalue, jval)) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         if (jval.empty()) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         Json::Value jerr = jval["error"];
         if (jerr.empty()) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         std::string emsg;
         if (!jerr["ref"].empty()) {

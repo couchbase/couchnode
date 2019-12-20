@@ -155,7 +155,7 @@ void removeKey(lcb_INSTANCE *instance, const std::string &key)
     req.key = key;
     KVOperation kvo = KVOperation(&req);
     kvo.allowableErrors.insert(LCB_SUCCESS);
-    kvo.allowableErrors.insert(LCB_KEY_ENOENT);
+    kvo.allowableErrors.insert(LCB_ERR_DOCUMENT_NOT_FOUND);
     kvo.remove(instance);
 }
 

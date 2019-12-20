@@ -45,7 +45,7 @@ static int err2color(lcb_STATUS err)
     switch (err) {
         case LCB_SUCCESS:
             return 32;
-        case LCB_KEY_EEXISTS:
+        case LCB_ERR_DOCUMENT_EXISTS:
             return 33;
         default:
             return 31;

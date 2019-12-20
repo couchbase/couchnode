@@ -59,7 +59,7 @@ IF(NOT WIN32)
         SET(CBC_GEN_LEXER_GEN "${PROJECT_SOURCE_DIR}/tools/gen/lexer.c")
         ADD_CUSTOM_COMMAND(OUTPUT ${CBC_GEN_LEXER_GEN} DEPENDS ${CBC_GEN_LEXER_SRC}
                 COMMENT "RE2C tools/gen/lexer.re"
-                COMMAND ${RE2C} --tags --no-debug-info --output ${CBC_GEN_LEXER_GEN} ${CBC_GEN_LEXER_SRC})
+                COMMAND ${RE2C} --tags --no-debug-info --no-generation-date --output ${CBC_GEN_LEXER_GEN} ${CBC_GEN_LEXER_SRC})
     ENDIF()
 
     ADD_EXECUTABLE(cbc-gen cbc-gen.cc gen/lexer.c $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts> $<TARGET_OBJECTS:linenoise>)

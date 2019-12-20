@@ -106,7 +106,7 @@ static lcb_STATUS process_chunk(HttpProvider *http, const void *buf, unsigned nb
     diff = state ^ oldstate;
 
     if (state & htp::Parser::S_ERROR) {
-        return LCB_PROTOCOL_ERROR;
+        return LCB_ERR_PROTOCOL_ERROR;
     }
 
     if (diff & htp::Parser::S_HEADER) {
@@ -115,7 +115,7 @@ static lcb_STATUS process_chunk(HttpProvider *http, const void *buf, unsigned nb
             /* nothing */
         } else if (resp.status == 404) {
             const int urlmode = http->settings().bc_http_urltype;
-            err = LCB_BUCKET_ENOENT;
+            err = LCB_ERR_BUCKET_NOT_FOUND;
 
             if (++http->uritype > LCB_HTCONFIG_URLTYPE_COMPAT) {
                 lcb_log(LOGARGS(http, ERR),
@@ -136,9 +136,9 @@ static lcb_STATUS process_chunk(HttpProvider *http, const void *buf, unsigned nb
                 goto GT_CHECKDONE;
             }
         } else if (resp.status == 401) {
-            err = LCB_AUTH_ERROR;
+            err = LCB_ERR_AUTHENTICATION_FAILURE;
         } else {
-            err = LCB_ERROR;
+            err = LCB_ERR_GENERIC;
         }
 
     GT_HT_ERROR:
@@ -178,7 +178,7 @@ GT_CHECKDONE:
     resp.body[termpos] = '\0';
     cfgh = lcbvb_create();
     if (!cfgh) {
-        return LCB_CLIENT_ENOMEM;
+        return LCB_ERR_NO_MEMORY;
     }
     host = lcbio_get_host(lcbio_ctx_sock(http->ioctx));
     rv = lcbvb_load_json_ex(cfgh, resp.body.c_str(), host->host, &LCBT_SETTING(http->parent, network));
@@ -186,7 +186,7 @@ GT_CHECKDONE:
         lcb_log(LOGARGS(http, ERR), LOGFMT "Failed to parse a valid config from HTTP stream", LOGID(http));
         lcb_log_badconfig(LOGARGS(http, ERR), cfgh, resp.body.c_str());
         lcbvb_destroy(cfgh);
-        return LCB_PROTOCOL_ERROR;
+        return LCB_ERR_PROTOCOL_ERROR;
     }
     if (http->last_parsed) {
         http->last_parsed->decref();
@@ -249,7 +249,7 @@ lcb_STATUS HttpProvider::setup_request_header(const lcb_host_t &host)
             request_buf.append(REQBUCKET_BUCKETLESS_PREFIX);
         }
     } else {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     request_buf.append(" HTTP/1.1\r\n");
@@ -266,7 +266,7 @@ lcb_STATUS HttpProvider::setup_request_header(const lcb_host_t &host)
             cred.append(username).append(":").append(password);
             char b64[256] = {0};
             if (lcb_base64_encode(cred.c_str(), cred.size(), b64, sizeof(b64)) == -1) {
-                return LCB_EINTERNAL;
+                return LCB_ERR_SDK_INTERNAL;
             }
             request_buf.append("Authorization: Basic ").append(b64).append("\r\n");
         }
@@ -352,7 +352,7 @@ void HttpProvider::on_timeout()
         return;
     }
 
-    on_io_error(LCB_ETIMEDOUT);
+    on_io_error(LCB_ERR_TIMEOUT);
 }
 
 lcb_STATUS HttpProvider::connect_next()
@@ -364,7 +364,7 @@ lcb_STATUS HttpProvider::connect_next()
     if (nodes->empty()) {
         lcb_log(LOGARGS(this, ERROR),
                 "Not scheduling HTTP provider since no nodes have been configured for HTTP bootstrap");
-        return LCB_CONNECT_ERROR;
+        return LCB_ERR_CONNECT_ERROR;
     }
 
     creq = lcbio_connect_hl(parent->iot, &settings(), nodes, 1, settings().config_node_timeout, on_connected, this);
@@ -372,7 +372,7 @@ lcb_STATUS HttpProvider::connect_next()
         return LCB_SUCCESS;
     }
     lcb_log(LOGARGS(this, ERROR), "%p: Couldn't schedule connection", (void *)this);
-    return LCB_CONNECT_ERROR;
+    return LCB_ERR_CONNECT_ERROR;
 }
 
 void HttpProvider::delayed_disconn()

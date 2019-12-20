@@ -90,18 +90,21 @@ function genericTests(collFn) {
     });
 
     describe('#exists', () => {
-      it('should successfully perform exists -> true', async () => {
-        var res = await collFn().exists(testKeyA);
-        assert.isObject(res);
-        assert.isNotEmpty(res.cas);
-        assert.deepStrictEqual(res.exists, true);
-      });
+      H.requireFeature(H.Features.GetMeta, () => {
+        it('should successfully perform exists -> true', async () => {
+          var res = await collFn().exists(testKeyA);
 
-      it('should successfully perform exists -> false', async () => {
-        var res = await collFn().exists('a-missing-key');
-        assert.isObject(res);
-        assert.isNotEmpty(res.cas);
-        assert.deepStrictEqual(res.exists, false);
+          assert.isObject(res);
+          assert.isNotEmpty(res.cas);
+          assert.deepStrictEqual(res.exists, true);
+        });
+
+        it('should successfully perform exists -> false', async () => {
+          var res = await collFn().exists('a-missing-key');
+          assert.isObject(res);
+          assert.isNotEmpty(res.cas);
+          assert.deepStrictEqual(res.exists, false);
+        });
       });
     });
 
@@ -391,16 +394,22 @@ function genericTests(collFn) {
     it('should lookupIn successfully', async () => {
       var res = await collFn().lookupIn(testKeySd, [
         H.lib.LookupInSpec.get('baz'),
-        H.lib.LookupInSpec.get('bar')
+        H.lib.LookupInSpec.get('bar'),
+        H.lib.LookupInSpec.exists('not-exists'),
       ]);
       assert.isObject(res);
       assert.isNotEmpty(res.cas);
       assert.isArray(res.results);
-      assert.strictEqual(res.results.length, 2);
+      assert.strictEqual(res.results.length, 3);
       assert.isNotOk(res.results[0].error);
       assert.deepStrictEqual(res.results[0].value, 'hello');
       assert.isNotOk(res.results[1].error);
       assert.deepStrictEqual(res.results[1].value, 2);
+
+      // TODO(brett19): BUG JSCBC-632 - This currently tests incorrect behaviour,
+      // it is expected that when JSCBC-632 is fixed, this test is fixed as well.
+      assert.isOk(res.results[2].error);
+      assert.deepStrictEqual(res.results[2].value, null);
     });
 
     it('should mutateIn successfully', async () => {

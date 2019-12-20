@@ -103,7 +103,7 @@ lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT
 
     Json::Value jdoc;
     if (!Json::Reader().parse(cmd->doc, cmd->doc + cmd->ndoc, jdoc)) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     bool changed = false;
     std::string prefix = (cmd->prefix == NULL) ? LCBCRYPTO_DEFAULT_FIELD_PREFIX : cmd->prefix;
@@ -113,13 +113,13 @@ lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT
 
         if (field->name == NULL) {
             lcb_log(LOGARGS(instance, WARN), "field name cannot be NULL");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
 
         lcbcrypto_PROVIDER *provider = lcb_get_provider(instance, field->alg);
         if (!lcbcrypto_is_valid(provider)) {
             lcb_log(LOGARGS(instance, WARN), "Invalid crypto provider");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
 
         if (jdoc.isMember(field->name)) {
@@ -142,7 +142,7 @@ lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT
                     free(biv);
                     PROVIDER_RELEASE_BYTES(provider, iv);
                     lcb_log(LOGARGS(instance, WARN), "Unable to encode IV as Base64 string");
-                    return LCB_EINVAL;
+                    return LCB_ERR_INVALID_ARGUMENT;
                 }
                 encrypted["iv"] = biv;
             }
@@ -165,7 +165,7 @@ lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT
             if (ret < 0) {
                 free(btext);
                 lcb_log(LOGARGS(instance, WARN), "Unable to encode encrypted field as Base64 string");
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
             encrypted["ciphertext"] = btext;
             std::string kid = PROVIDER_GET_KEY_ID(provider);
@@ -205,7 +205,7 @@ lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT
                 if (ret < 0) {
                     free(bsig);
                     lcb_log(LOGARGS(instance, WARN), "Unable to encode signature as Base64 string");
-                    return LCB_EINVAL;
+                    return LCB_ERR_INVALID_ARGUMENT;
                 }
                 encrypted["sig"] = bsig;
                 free(bsig);
@@ -233,11 +233,11 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
 
     Json::Value jdoc;
     if (!Json::Reader().parse(cmd->doc, cmd->doc + cmd->ndoc, jdoc)) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if (!jdoc.isObject()) {
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     bool changed = false;
@@ -248,12 +248,12 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
 
         if (field->name == NULL) {
             lcb_log(LOGARGS(instance, WARN), "field name cannot be NULL");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         lcbcrypto_PROVIDER *provider = lcb_get_provider(instance, field->alg);
         if (!lcbcrypto_is_valid(provider)) {
             lcb_log(LOGARGS(instance, WARN), "Invalid crypto provider");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
 
         std::string name = prefix + field->name;
@@ -263,20 +263,20 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
         Json::Value &encrypted = jdoc[name];
         if (!encrypted.isObject()) {
             lcb_log(LOGARGS(instance, WARN), "Expected encrypted field to be an JSON object");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
 
         Json::Value &jkid = encrypted["kid"];
         if (!jkid.isString()) {
             lcb_log(LOGARGS(instance, WARN), "Expected \"kid\" to be a JSON string");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         const std::string &kid = jkid.asString();
 
         Json::Value &jalg = encrypted["alg"];
         if (!jalg.isString()) {
             lcb_log(LOGARGS(instance, WARN), "Expected provider alias \"alg\" to be a JSON string");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         const std::string &alg = jalg.asString();
 
@@ -294,7 +294,7 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
         Json::Value &jctext = encrypted["ciphertext"];
         if (!jctext.isString()) {
             lcb_log(LOGARGS(instance, WARN), "Expected encrypted field \"ciphertext\" to be a JSON string");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         const std::string &btext = jctext.asString();
 
@@ -302,7 +302,7 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
             Json::Value &jsig = encrypted["sig"];
             if (!jsig.isString()) {
                 lcb_log(LOGARGS(instance, WARN), "Expected signature field \"sig\" to be a JSON string");
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
             uint8_t *sig = NULL;
             lcb_SIZE nsig = 0;
@@ -311,7 +311,7 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
             if (ret < 0) {
                 PROVIDER_RELEASE_BYTES(provider, sig);
                 lcb_log(LOGARGS(instance, WARN), "Unable to decode signature as Base64 string");
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
 
             lcbcrypto_SIGV parts[4] = {};
@@ -345,7 +345,7 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
         ret = lcb_base64_decode2(btext.c_str(), btext.size(), reinterpret_cast< char ** >(&ctext), &nctext);
         if (ret < 0) {
             lcb_log(LOGARGS(instance, WARN), "Unable to decode encrypted field \"ciphertext\" as Base64 string");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
 
         uint8_t *iv = NULL;
@@ -355,7 +355,7 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
             if (ret < 0) {
                 free(ctext);
                 lcb_log(LOGARGS(instance, WARN), "Unable to decode IV field \"iv\" as Base64 string");
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
         }
 
@@ -374,7 +374,7 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
         PROVIDER_RELEASE_BYTES(provider, ptext);
         if (!valid_json) {
             lcb_log(LOGARGS(instance, WARN), "Result of decryption is not valid JSON");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         jdoc[name.substr(prefix.size())] = frag;
         jdoc.removeMember(name);
@@ -390,10 +390,10 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
 
 lcb_STATUS lcbcrypto_encrypt_document(lcb_INSTANCE *, lcbcrypto_CMDENCRYPT *)
 {
-    return LCB_NOT_SUPPORTED;
+    return LCB_ERR_UNSUPPORTED_OPERATION;
 }
 
 lcb_STATUS lcbcrypto_decrypt_document(lcb_INSTANCE *, lcbcrypto_CMDDECRYPT *)
 {
-    return LCB_NOT_SUPPORTED;
+    return LCB_ERR_UNSUPPORTED_OPERATION;
 }

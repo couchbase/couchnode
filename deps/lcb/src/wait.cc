@@ -115,7 +115,7 @@ lcb_STATUS lcb_tick_nowait(lcb_INSTANCE *instance)
 {
     lcb_io_tick_fn tick = instance->iotable->loop.tick;
     if (!tick) {
-        return LCB_CLIENT_FEATURE_UNAVAILABLE;
+        return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
     } else {
         maybe_reset_timeouts(instance);
         tick(IOT_ARG(instance->iotable));

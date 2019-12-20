@@ -46,7 +46,7 @@
 
 static void die(lcb_INSTANCE *instance, const char *msg, lcb_STATUS err)
 {
-    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror(instance, err));
+    fprintf(stderr, "%s. Received code 0x%X (%s)\n", msg, err, lcb_strerror_short(err));
     exit(EXIT_FAILURE);
 }
 
@@ -55,7 +55,7 @@ typedef struct {
     lcb_LOG_SEVERITY min_level;
 } my_json_logger;
 
-static void log_callback(lcb_LOGGER *logger, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
+static void log_callback(const lcb_LOGGER *logger, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity,
                          const char *srcfile, int srcline, const char *fmt, va_list ap)
 {
     my_json_logger *wrapper = NULL;

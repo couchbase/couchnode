@@ -18,7 +18,7 @@ NAN_MODULE_INIT(Cas::Init)
 NAN_METHOD(Cas::fnToString)
 {
     Nan::HandleScope scope;
-    lcb_CAS casVal = 0;
+    uint64_t casVal = 0;
     char casStr[24 + 1] = "";
 
     Cas::parse(info.This(), &casVal);
@@ -30,7 +30,7 @@ NAN_METHOD(Cas::fnToString)
 NAN_METHOD(Cas::fnInspect)
 {
     Nan::HandleScope scope;
-    lcb_CAS casVal = 0;
+    uint64_t casVal = 0;
     char casStr[7 + 24 + 1] = "";
 
     Cas::parse(info.This(), &casVal);
@@ -51,7 +51,7 @@ Local<Value> Cas::create(uint64_t cas)
     return ret;
 }
 
-bool _StrToCas(Local<Value> obj, lcb_CAS *p)
+bool _StrToCas(Local<Value> obj, uint64_t *p)
 {
     if (sscanf(*Nan::Utf8String(
                    obj->ToString(Nan::GetCurrentContext()).ToLocalChecked()),
@@ -61,7 +61,7 @@ bool _StrToCas(Local<Value> obj, lcb_CAS *p)
     return true;
 }
 
-bool _ObjToCas(Local<Value> obj, lcb_CAS *p)
+bool _ObjToCas(Local<Value> obj, uint64_t *p)
 {
     Local<Object> realObj = obj.As<Object>();
     Local<Value> casData = Nan::Get(realObj, 0).ToLocalChecked();
@@ -79,7 +79,7 @@ bool _ObjToCas(Local<Value> obj, lcb_CAS *p)
     return true;
 }
 
-bool Cas::parse(Local<Value> obj, lcb_CAS *p)
+bool Cas::parse(Local<Value> obj, uint64_t *p)
 {
     Nan::HandleScope scope;
 

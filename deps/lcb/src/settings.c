@@ -79,6 +79,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->tracer_threshold[LCBTRACE_THRESHOLD_ANALYTICS] = LCBTRACE_DEFAULT_THRESHOLD_ANALYTICS;
     settings->wait_for_config = 0;
     settings->enable_durable_write = 0;
+    settings->retry_strategy = lcb_retry_strategy_best_effort;
 }
 
 LCB_INTERNAL_API

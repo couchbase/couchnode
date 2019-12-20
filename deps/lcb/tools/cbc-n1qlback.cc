@@ -340,6 +340,7 @@ class ThreadContext
             delete m_thr;
             m_thr = NULL;
         }
+        lcb_cmdn1ql_destroy(m_cmd);
     }
 #else
     void start()
@@ -367,7 +368,7 @@ class ThreadContext
                     const char *p;
                     size_t n;
 
-                    lcb_cmdn1ql_payload(m_cmd, &p, &n);
+                    lcb_cmdn1ql_encoded_payload(m_cmd, &p, &n);
                     std::stringstream ss;
                     ss.write(p, n);
                     ss << endl;
@@ -384,10 +385,10 @@ class ThreadContext
     }
 
     ThreadContext(lcb_INSTANCE *instance, const vector< string > &initial_queries, std::ofstream *errlog)
-        : m_instance(instance), last_nerr(0), last_nrow(0), m_metrics(&GlobalMetrics), m_cancelled(false), m_thr(NULL),
-          m_errlog(errlog)
+        : m_instance(instance), last_nerr(0), last_nrow(0), m_cmd(NULL), m_metrics(&GlobalMetrics), m_cancelled(false),
+          m_thr(NULL), m_errlog(errlog)
     {
-        lcb_cmdn1ql_reset(m_cmd);
+        lcb_cmdn1ql_create(&m_cmd);
         lcb_cmdn1ql_callback(m_cmd, n1qlcb);
 
         // Shuffle the list
@@ -422,7 +423,7 @@ class ThreadContext
         last_nrow = 0;
         last_nerr = 0;
 
-        lcb_cmdn1ql_query(m_cmd, txt.c_str(), txt.size());
+        lcb_cmdn1ql_payload(m_cmd, txt.c_str(), txt.size());
 
         // Set up our context
         QueryContext qctx(this);

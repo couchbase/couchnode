@@ -75,11 +75,11 @@ int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 
         if (nbody) {
             if (chunked) {
-                lcb_RESPHTTP htresp = {0};
+                lcb_RESPHTTP htresp{};
                 init_resp(&htresp);
-                htresp.body = rbody;
-                htresp.nbody = nbody;
-                htresp.rc = LCB_SUCCESS;
+                htresp.ctx.body = rbody;
+                htresp.ctx.body_len = nbody;
+                htresp.ctx.rc = LCB_SUCCESS;
                 passed_data = true;
                 callback(instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE *)&htresp);
 
@@ -93,7 +93,7 @@ int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
     } while ((parse_state & Parser::S_DONE) == 0 && is_ongoing() && nbuf);
 
     if ((parse_state & Parser::S_DONE) && is_ongoing()) {
-        lcb_RESPHTTP resp = {0};
+        lcb_RESPHTTP resp{};
         if (chunked) {
             buf = NULL;
             nbuf = 0;
@@ -104,9 +104,9 @@ int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 
         init_resp(&resp);
         resp.rflags = LCB_RESP_F_FINAL;
-        resp.rc = LCB_SUCCESS;
-        resp.body = buf;
-        resp.nbody = nbuf;
+        resp.ctx.rc = LCB_SUCCESS;
+        resp.ctx.body = buf;
+        resp.ctx.body_len = nbuf;
         passed_data = true;
         callback(instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE *)&resp);
         status |= Request::CBINVOKED;
@@ -154,7 +154,7 @@ static void io_read(lcbio_CTX *ctx, unsigned nr)
             lcb_log(LOGARGS(req, DEBUG), LOGFMT "Attempting redirect to %s", LOGID(req), req->pending_redirect.c_str());
             req->redirect();
         } else {
-            err = LCB_PROTOCOL_ERROR;
+            err = LCB_ERR_PROTOCOL_ERROR;
             lcb_log(LOGARGS(req, ERR), LOGFMT "Got parser error while parsing HTTP stream", LOGID(req));
             req->finish_or_retry(err);
         }
@@ -204,7 +204,7 @@ static void io_error(lcbio_CTX *ctx, lcb_STATUS err)
 
 static void request_timed_out(void *arg)
 {
-    (reinterpret_cast< Request * >(arg))->finish(LCB_ETIMEDOUT);
+    (reinterpret_cast< Request * >(arg))->finish(LCB_ERR_TIMEOUT);
 }
 
 static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OSERR syserr)
@@ -258,7 +258,7 @@ lcb_STATUS Request::start_io(lcb_host_t &dest)
 
     creq = pool->get(dest, timeout(), on_connected, this);
     if (!creq) {
-        return LCB_CONNECT_ERROR;
+        return LCB_ERR_CONNECT_ERROR;
     }
 
     if (!timer) {

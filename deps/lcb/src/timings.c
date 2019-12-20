@@ -128,16 +128,22 @@ static void default_timings_callback(const void *cookie, lcb_timeunit_t timeunit
     int num_hash;
 
     fprintf(stream, "[%-4u - %-4u]", min_val, max_val);
-    if (timeunit == LCB_TIMEUNIT_NSEC) {
-        unit = "ns";
-    } else if (timeunit == LCB_TIMEUNIT_USEC) {
-        unit = "us";
-    } else if (timeunit == LCB_TIMEUNIT_MSEC) {
-        unit = "ms";
-    } else if (timeunit == LCB_TIMEUNIT_SEC) {
-        unit = "s";
-    } else {
-        unit = "?";
+    switch (timeunit) {
+        case LCB_TIMEUNIT_NSEC:
+            unit = "ns";
+            break;
+        case LCB_TIMEUNIT_USEC:
+            unit = "us";
+            break;
+        case LCB_TIMEUNIT_MSEC:
+            unit = "ms";
+            break;
+        case LCB_TIMEUNIT_SEC:
+            unit = "s";
+            break;
+        default:
+            unit = "?";
+            break;
     }
     fprintf(stream, "%s |", unit);
 

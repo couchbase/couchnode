@@ -35,7 +35,7 @@ struct MyLogprocs {
 };
 
 extern "C" {
-static void fallback_logger(lcb_LOGGER *logger, uint64_t, const char *, lcb_LOG_SEVERITY, const char *, int,
+static void fallback_logger(const lcb_LOGGER *logger, uint64_t, const char *, lcb_LOG_SEVERITY, const char *, int,
                             const char *fmt, va_list ap)
 {
     char buf[2048];

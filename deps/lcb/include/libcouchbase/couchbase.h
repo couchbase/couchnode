@@ -282,7 +282,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_createopts_io(lcb_CREATEOPTS *options, struct lc
  * lcb_INSTANCE *instance;
  * lcb_STATUS err = lcb_create(&instance, NULL);
  * if (err != LCB_SUCCESS) {
- *    fprintf(stderr, "Failed to create instance: %s\n", lcb_strerror(NULL, err));
+ *    fprintf(stderr, "Failed to create instance: %s\n", lcb_strerror_short(err));
  *    exit(EXIT_FAILURE);
  * }
  * @endcode
@@ -505,7 +505,10 @@ typedef enum {
 /** Callback type for Analytics (cannot be used for lcb_install_callback3()) */
 #define LCB_CALLBACK_ANALYTICS -4
 
-#define LCB_CALLBACK_OPEN -5
+/** Callback type for Search (cannot be used for lcb_install_callback3()) */
+#define LCB_CALLBACK_FTS -5
+
+#define LCB_CALLBACK_OPEN -6
 
 /**
  * @uncommitted
@@ -607,7 +610,7 @@ const char *lcb_strcbtype(int cbtype);
  * @see lcb_RESPGET
  *
  * @note The #cas member should be set to 0 for this operation. If the #cas is
- * not 0, lcb_get3() will fail with ::LCB_OPTIONS_CONFLICT.
+ * not 0, lcb_get3() will fail with ::LCB_ERR_OPTIONS_CONFLICT.
  *
  * ### Use of the `exptime` field
  *
@@ -649,8 +652,8 @@ const char *lcb_strcbtype(int cbtype);
  *     const lcb_RESPGET *resp = (const lcb_RESPGET*)rb;
  *     printf("Got response for key: %.*s\n", (int)resp->key, resp->nkey);
  *
- *     if (resp->rc != LCB_SUCCESS) {
- *         printf("Couldn't get item: %s\n", lcb_strerror(NULL, resp->rc));
+ *     if (resp->ctx.rc != LCB_SUCCESS) {
+ *         printf("Couldn't get item: %s\n", lcb_strerror_short(resp->ctx.rc));
  *     } else {
  *         printf("Got value: %.*s\n", (int)resp->nvalue, resp->value);
  *         printf("Got CAS: 0x%llx\n", resp->cas);
@@ -661,8 +664,8 @@ const char *lcb_strcbtype(int cbtype);
  * @endcode
  *
  * @par Errors
- * @cb_err ::LCB_KEY_ENOENT if the item does not exist in the cluster
- * @cb_err ::LCB_ETMPFAIL if the lcb_CMDGET::lock option was set but the item
+ * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if the item does not exist in the cluster
+ * @cb_err ::LCB_ERR_TEMPORARY_FAILURE if the lcb_CMDGET::lock option was set but the item
  * was already locked. Note that this error may also be returned (as a generic
  * error) if there is a resource constraint within the server itself.
  */
@@ -670,8 +673,7 @@ const char *lcb_strcbtype(int cbtype);
 typedef struct lcb_RESPGET_ lcb_RESPGET;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respget_status(const lcb_RESPGET *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respget_error_context(const lcb_RESPGET *resp, const char **ctx, size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respget_error_ref(const lcb_RESPGET *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respget_error_context(const lcb_RESPGET *resp, const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respget_cookie(const lcb_RESPGET *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respget_cas(const lcb_RESPGET *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respget_datatype(const lcb_RESPGET *resp, uint8_t *datatype);
@@ -689,7 +691,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_collection(lcb_CMDGET *cmd, const char *s
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_key(lcb_CMDGET *cmd, const char *key, size_t key_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_expiry(lcb_CMDGET *cmd, uint32_t expiration);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_locktime(lcb_CMDGET *cmd, uint32_t duration);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_durability(lcb_CMDGET *cmd, lcb_DURABILITY_LEVEL level);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_timeout(lcb_CMDGET *cmd, uint32_t timeout);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_get(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGET *cmd);
@@ -729,10 +730,10 @@ LIBCOUCHBASE_API lcb_STATUS lcb_get(lcb_INSTANCE *instance, void *cookie, const 
  * {
  *     const lcb_RESPGET *resp = (const lcb_RESPGET *)rb;
  *     printf("Got Get-From-Replica response for %.*s\n", (int)resp->key, resp->nkey);
- *     if (resp->rc == LCB_SUCCESS) {
+ *     if (resp->ctx.rc == LCB_SUCCESS) {
  *         printf("Got response: %.*s\n", (int)resp->value, resp->nvalue);
  *     else {
- *         printf("Couldn't retrieve: %s\n", lcb_strerror(NULL, resp->rc));
+ *         printf("Couldn't retrieve: %s\n", lcb_strerror_short(resp->ctx.rc));
  *     }
  * }
  * @endcode
@@ -745,8 +746,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_get(lcb_INSTANCE *instance, void *cookie, const 
  * function may query more than a single replica it may cause additional network
  * and server-side CPU load. Use sparingly and only when necessary.
  *
- * @cb_err ::LCB_KEY_ENOENT if the key is not found on the replica(s),
- * ::LCB_NO_MATCHING_SERVER if there are no replicas (either configured or online),
+ * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if the key is not found on the replica(s),
+ * ::LCB_ERR_NO_MATCHING_SERVER if there are no replicas (either configured or online),
  * or if the given replica
  * (if lcb_CMDGETREPLICA::strategy is ::LCB_REPLICA_SELECT) is not available or
  * is offline.
@@ -764,10 +765,8 @@ typedef enum {
 typedef struct lcb_RESPGETREPLICA_ lcb_RESPGETREPLICA;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_status(const lcb_RESPGETREPLICA *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_error_context(const lcb_RESPGETREPLICA *resp, const char **ctx,
-                                                             size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_error_ref(const lcb_RESPGETREPLICA *resp, const char **ref,
-                                                         size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_error_context(const lcb_RESPGETREPLICA *resp,
+                                                             const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_cookie(const lcb_RESPGETREPLICA *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_cas(const lcb_RESPGETREPLICA *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_datatype(const lcb_RESPGETREPLICA *resp, uint8_t *datatype);
@@ -775,7 +774,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_flags(const lcb_RESPGETREPLICA *r
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_key(const lcb_RESPGETREPLICA *resp, const char **key, size_t *key_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_value(const lcb_RESPGETREPLICA *resp, const char **value,
                                                      size_t *value_len);
-LIBCOUCHBASE_API int lcb_respreplica_is_final(const lcb_RESPGETREPLICA *resp);
+LIBCOUCHBASE_API int lcb_respgetreplica_is_final(const lcb_RESPGETREPLICA *resp);
+LCB_DEPRECATED2(LIBCOUCHBASE_API int lcb_respreplica_is_final(const lcb_RESPGETREPLICA *resp),
+                "Use lcb_respgetreplica_is_final() instead");
 
 typedef struct lcb_CMDGETREPLICA_ lcb_CMDGETREPLICA;
 
@@ -793,10 +794,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_getreplica(lcb_INSTANCE *instance, void *cookie,
 typedef struct lcb_RESPEXISTS_ lcb_RESPEXISTS;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_status(const lcb_RESPEXISTS *resp);
-LIBCOUCHBASE_API int lcb_respexists_is_persisted(const lcb_RESPEXISTS *resp);
+LCB_DEPRECATED2(LIBCOUCHBASE_API int lcb_respexists_is_persisted(const lcb_RESPEXISTS *resp),
+                "This function will be removed in GA");
 LIBCOUCHBASE_API int lcb_respexists_is_found(const lcb_RESPEXISTS *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_context(const lcb_RESPEXISTS *resp, const char **ctx, size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_ref(const lcb_RESPEXISTS *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_context(const lcb_RESPEXISTS *resp,
+                                                         const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_cookie(const lcb_RESPEXISTS *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_cas(const lcb_RESPEXISTS *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_key(const lcb_RESPEXISTS *resp, const char **key, size_t *key_len);
@@ -891,22 +893,22 @@ typedef enum {
  *     if (rb->rc == LCB_SUCCESS) {
  *         printf("Store success: CAS=%llx\n", rb->cas);
  *     } else {
- *         printf("Store failed: %s\n", lcb_strerror(NULL, rb->rc);
+ *         printf("Store failed: %s\n", lcb_strerror_short(rb->rc);
  *     }
  * }
  * @endcode
  *
  * Operation-specific error codes include:
- * @cb_err ::LCB_KEY_ENOENT if ::LCB_REPLACE was used and the key does not exist
- * @cb_err ::LCB_KEY_EEXISTS if ::LCB_ADD was used and the key already exists
- * @cb_err ::LCB_KEY_EEXISTS if the CAS was specified (for an operation other
+ * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if ::LCB_REPLACE was used and the key does not exist
+ * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if ::LCB_ADD was used and the key already exists
+ * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if the CAS was specified (for an operation other
  *          than ::LCB_ADD) and the item exists on the server with a different
  *          CAS
- * @cb_err ::LCB_KEY_EEXISTS if the item was locked and the CAS supplied did
+ * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if the item was locked and the CAS supplied did
  * not match the locked item's CAS (or if no CAS was supplied)
- * @cb_err ::LCB_NOT_STORED if an ::LCB_APPEND or ::LCB_PREPEND operation was
+ * @cb_err ::LCB_ERR_NOT_STORED if an ::LCB_APPEND or ::LCB_PREPEND operation was
  * performed and the item did not exist on the server.
- * @cb_err ::LCB_E2BIG if the size of the value exceeds the cluster per-item
+ * @cb_err ::LCB_ERR_VALUE_TOO_LARGE if the size of the value exceeds the cluster per-item
  *         value limit (currently 20MB).
  *
  *
@@ -917,8 +919,8 @@ typedef enum {
 typedef struct lcb_RESPSTORE_ lcb_RESPSTORE;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respstore_status(const lcb_RESPSTORE *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respstore_error_context(const lcb_RESPSTORE *resp, const char **ctx, size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respstore_error_ref(const lcb_RESPSTORE *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstore_error_context(const lcb_RESPSTORE *resp,
+                                                        const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respstore_cookie(const lcb_RESPSTORE *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respstore_cas(const lcb_RESPSTORE *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respstore_key(const lcb_RESPSTORE *resp, const char **key, size_t *key_len);
@@ -994,7 +996,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket,
  * {
  *     printf("Key: %.*s...", (int)resp->nkey, resp->key);
  *     if (rb->rc != LCB_SUCCESS) {
- *         printf("Failed to remove item!: %s\n", lcb_strerror(NULL, rb->rc));
+ *         printf("Failed to remove item!: %s\n", lcb_strerror_short(rb->rc));
  *     } else {
  *         printf("Removed item!\n");
  *     }
@@ -1002,10 +1004,10 @@ LIBCOUCHBASE_API lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket,
  * @endcode
  *
  * The following operation-specific error codes are returned in the callback
- * @cb_err ::LCB_KEY_ENOENT if the key does not exist
- * @cb_err ::LCB_KEY_EEXISTS if the CAS was specified and it does not match the
+ * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if the key does not exist
+ * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if the CAS was specified and it does not match the
  *         CAS on the server
- * @cb_err ::LCB_KEY_EEXISTS if the item was locked and no CAS (or an incorrect
+ * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if the item was locked and no CAS (or an incorrect
  *         CAS) was specified.
  *
  */
@@ -1013,8 +1015,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket,
 typedef struct lcb_RESPREMOVE_ lcb_RESPREMOVE;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_status(const lcb_RESPREMOVE *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_context(const lcb_RESPREMOVE *resp, const char **ctx, size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_ref(const lcb_RESPREMOVE *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_context(const lcb_RESPREMOVE *resp,
+                                                         const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_cookie(const lcb_RESPREMOVE *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_cas(const lcb_RESPREMOVE *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_key(const lcb_RESPREMOVE *resp, const char **key, size_t *key_len);
@@ -1071,7 +1073,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, con
  * void counter_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPCOUNTER *resp = (const lcb_RESPCOUNTER *)rb;
- *     if (resp->rc == LCB_SUCCESS) {
+ *     if (resp->ctx.rc == LCB_SUCCESS) {
  *         printf("Incremented counter for %.*s. Current value %llu\n",
  *                (int)resp->nkey, resp->key, resp->value);
  *     }
@@ -1082,18 +1084,17 @@ LIBCOUCHBASE_API lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, con
  * In addition to generic errors, the following errors may be returned in the
  * callback (via lcb_RESPBASE::rc):
  *
- * @cb_err ::LCB_KEY_ENOENT if the counter doesn't exist
+ * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if the counter doesn't exist
  * (and lcb_CMDCOUNTER::create was not set)
- * @cb_err ::LCB_DELTA_BADVAL if the existing document's content could not
+ * @cb_err ::LCB_ERR_INVALID_DELTA if the existing document's content could not
  * be parsed as a number by the server.
  */
 
 typedef struct lcb_RESPCOUNTER_ lcb_RESPCOUNTER;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_status(const lcb_RESPCOUNTER *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_context(const lcb_RESPCOUNTER *resp, const char **ctx,
-                                                          size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_ref(const lcb_RESPCOUNTER *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_context(const lcb_RESPCOUNTER *resp,
+                                                          const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_cookie(const lcb_RESPCOUNTER *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_cas(const lcb_RESPCOUNTER *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_key(const lcb_RESPCOUNTER *resp, const char **key, size_t *key_len);
@@ -1112,6 +1113,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_expiry(lcb_CMDCOUNTER *cmd, uint32_t 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_delta(lcb_CMDCOUNTER *cmd, int64_t number);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_initial(lcb_CMDCOUNTER *cmd, uint64_t number);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_durability(lcb_CMDCOUNTER *cmd, lcb_DURABILITY_LEVEL level);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_cas(lcb_CMDCOUNTER *cmd, uint64_t cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_timeout(lcb_CMDCOUNTER *cmd, uint32_t timeout);
 LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCOUNTER *cmd);
 
@@ -1164,8 +1166,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, co
 typedef struct lcb_RESPUNLOCK_ lcb_RESPUNLOCK;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_status(const lcb_RESPUNLOCK *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_error_context(const lcb_RESPUNLOCK *resp, const char **ctx, size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_error_ref(const lcb_RESPUNLOCK *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_error_context(const lcb_RESPUNLOCK *resp,
+                                                         const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_cookie(const lcb_RESPUNLOCK *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_cas(const lcb_RESPUNLOCK *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respunlock_key(const lcb_RESPUNLOCK *resp, const char **key, size_t *key_len);
@@ -1226,8 +1228,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_unlock(lcb_INSTANCE *instance, void *cookie, con
 typedef struct lcb_RESPTOUCH_ lcb_RESPTOUCH;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_status(const lcb_RESPTOUCH *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_context(const lcb_RESPTOUCH *resp, const char **ctx, size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_ref(const lcb_RESPTOUCH *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_context(const lcb_RESPTOUCH *resp,
+                                                        const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_cookie(const lcb_RESPTOUCH *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_cas(const lcb_RESPTOUCH *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_key(const lcb_RESPTOUCH *resp, const char **key, size_t *key_len);
@@ -1337,8 +1339,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const
  * void diag_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
- *     if (resp->rc != LCB_SUCCESS) {
- *         fprintf(stderr, "failed: %s\n", lcb_strerror(NULL, resp->rc));
+ *     if (resp->ctx.rc != LCB_SUCCESS) {
+ *         fprintf(stderr, "failed: %s\n", lcb_strerror_short(resp->ctx.rc));
  *     } else {
  *         if (resp->njson) {
  *             fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);
@@ -1452,8 +1454,8 @@ typedef enum {
  * void http_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)rb;
- *     if (resp->rc != LCB_SUCCESS) {
- *         printf("I/O Error for HTTP: %s\n", lcb_strerror(NULL, resp->rc));
+ *     if (resp->ctx.rc != LCB_SUCCESS) {
+ *         printf("I/O Error for HTTP: %s\n", lcb_strerror_short(resp->ctx.rc));
  *         return;
  *     }
  *     printf("Got HTTP Status: %d\n", resp->htstatus);
@@ -1474,7 +1476,7 @@ typedef enum {
  * {
  *     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)resp;
  *     if (resp->rflags & LCB_RESP_F_FINAL) {
- *         if (resp->rc != LCB_SUCCESS) {
+ *         if (resp->ctx.rc != LCB_SUCCESS) {
  *             // ....
  *         }
  *         const char **hdrp = resp->headers;
@@ -1686,7 +1688,7 @@ lcb_STATUS lcb_wait(lcb_INSTANCE *instance);
  * You must call lcb_wait() at least one after any batch of operations to ensure
  * they have been completed. This function is provided as an optimization only.
  *
- * @return LCB_CLIENT_FEATURE_UNAVAILABLE if the event loop does not support
+ * @return LCB_ERR_SDK_FEATURE_UNAVAILABLE if the event loop does not support
  * the "tick" mode.
  */
 LIBCOUCHBASE_API
@@ -1753,7 +1755,7 @@ int lcb_is_waiting(lcb_INSTANCE *instance);
  * * If a specific node has been failed
  *   over and the library has received a configuration in which there is no
  *   master node for a given key, the library will immediately return the error
- *   `LCB_NO_MATCHING_SERVER` for the given item and will not request a new
+ *   `LCB_ERR_NO_MATCHING_SERVER` for the given item and will not request a new
  *   configuration. In this state, the client will not perform any network I/O
  *   until a request has been made to it using a key that is mapped to a known
  *   active node.
@@ -1782,7 +1784,7 @@ int lcb_is_waiting(lcb_INSTANCE *instance);
  * do {
  *   retries--;
  *   err = lcb_get(instance, cookie, ncmds, cmds);
- *   if (err == LCB_NO_MATCHING_SERVER) {
+ *   if (err == LCB_ERR_NO_MATCHING_SERVER) {
  *     lcb_refresh_config(instance);
  *     usleep(100000);
  *     lcb_wait3(instance, LCB_WAIT_NO_CHECK);
@@ -2062,8 +2064,8 @@ typedef enum { LCB_VALUE_RAW = 0x00, LCB_VALUE_F_JSON = 0x01, LCB_VALUE_F_SNAPPY
  *      and for SET operations, the current configuration is
  *      updated with the contents of *arg.
  *
- * @return ::LCB_NOT_SUPPORTED if the code is unrecognized
- * @return ::LCB_EINVAL if there was a problem with the argument
+ * @return ::LCB_ERR_UNSUPPORTED_OPERATION if the code is unrecognized
+ * @return ::LCB_ERR_INVALID_ARGUMENT if there was a problem with the argument
  *         (typically for LCB_CNTL_SET) other error codes depending on the command.
  *
  * The following error codes are returned if the ::LCB_CNTL_DETAILED_ERRCODES
@@ -2071,7 +2073,7 @@ typedef enum { LCB_VALUE_RAW = 0x00, LCB_VALUE_F_JSON = 0x01, LCB_VALUE_F_SNAPPY
  *
  * @return ::LCB_ECTL_UNKNOWN if the code is unrecognized
  * @return ::LCB_ECTL_UNSUPPMODE An invalid _mode_ was passed
- * @return ::LCB_ECTL_BADARG if the value was invalid
+ * @return ::LCB_ERR_CONTROL_INVALID_ARGUMENT if the value was invalid
  *
  * @committed
  *
@@ -2280,6 +2282,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_cookie(const lcb_RESPANALYTICS *re
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_row(const lcb_RESPANALYTICS *resp, const char **row, size_t *row_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_http_response(const lcb_RESPANALYTICS *resp, const lcb_RESPHTTP **http);
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_handle(const lcb_RESPANALYTICS *resp, lcb_ANALYTICS_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_error_context(const lcb_RESPANALYTICS *resp,
+                                                            const lcb_ANALYTICS_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API int lcb_respanalytics_is_final(const lcb_RESPANALYTICS *resp);
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_deferred_handle_extract(const lcb_RESPANALYTICS *resp,
                                                                       lcb_DEFERRED_HANDLE **handle);
@@ -2299,6 +2303,11 @@ typedef enum {
     LCB_INGEST_METHOD_REPLACE,
     LCB_INGEST_METHOD__MAX
 } lcb_INGEST_METHOD;
+
+typedef enum {
+    LCB_ANALYTICS_CONSISTENCY_NOT_BOUNDED = 0,
+    LCB_ANALYTICS_CONSISTENCY_REQUEST_PLUS = 1
+} lcb_ANALYTICS_CONSISTENCY;
 
 typedef enum { LCB_INGEST_STATUS_OK = 0, LCB_INGEST_STATUS_IGNORE, LCB_INGEST_STATUS__MAX } lcb_INGEST_STATUS;
 
@@ -2328,7 +2337,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_destroy(lcb_CMDANALYTICS *cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_reset(lcb_CMDANALYTICS *cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_parent_span(lcb_CMDANALYTICS *cmd, lcbtrace_SPAN *span);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_callback(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_CALLBACK callback);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_query(lcb_CMDANALYTICS *cmd, const char *query, size_t query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_encoded_payload(lcb_CMDANALYTICS *cmd, const char **query,
+                                                             size_t *query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_payload(lcb_CMDANALYTICS *cmd, const char *query, size_t query_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_statement(lcb_CMDANALYTICS *cmd, const char *statement,
                                                        size_t statement_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_named_param(lcb_CMDANALYTICS *cmd, const char *name, size_t name_len,
@@ -2337,6 +2348,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_positional_param(lcb_CMDANALYTICS *
                                                               size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_ingest_options(lcb_CMDANALYTICS *cmd, lcb_INGEST_OPTIONS *options);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_deferred(lcb_CMDANALYTICS *cmd, int deferred);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_client_context_id(lcb_CMDANALYTICS *cmd, const char *value,
+                                                               size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_readonly(lcb_CMDANALYTICS *cmd, int readonly);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_priority(lcb_CMDANALYTICS *cmd, int priority);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_consistency(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_CONSISTENCY level);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_option(lcb_CMDANALYTICS *cmd, const char *name, size_t name_len,
                                                     const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_handle(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_HANDLE **handle);
@@ -2364,6 +2380,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respfts_cookie(const lcb_RESPFTS *resp, void **c
 LIBCOUCHBASE_API lcb_STATUS lcb_respfts_row(const lcb_RESPFTS *resp, const char **row, size_t *row_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respfts_http_response(const lcb_RESPFTS *resp, const lcb_RESPHTTP **http);
 LIBCOUCHBASE_API lcb_STATUS lcb_respfts_handle(const lcb_RESPFTS *resp, lcb_FTS_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_respfts_error_context(const lcb_RESPFTS *resp, const lcb_FTS_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API int lcb_respfts_is_final(const lcb_RESPFTS *resp);
 
 typedef struct lcb_CMDFTS_ lcb_CMDFTS;
@@ -2408,8 +2425,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_fts_cancel(lcb_INSTANCE *instance, lcb_FTS_HANDL
  * static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPN1QL *resp)
  * {
  *     int *idx = (int *)resp->cookie;
- *     if (resp->rc != LCB_SUCCESS) {
- *         printf("failed to execute query: %s\n", lcb_strerror_short(resp->rc));
+ *     if (resp->ctx.rc != LCB_SUCCESS) {
+ *         printf("failed to execute query: %s\n", lcb_strerror_short(resp->ctx.rc));
  *         exit(EXIT_FAILURE);
  *     }
  *     if (resp->rflags & LCB_RESP_F_FINAL) {
@@ -2468,15 +2485,16 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_cookie(const lcb_RESPN1QL *resp, void *
 LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_row(const lcb_RESPN1QL *resp, const char **row, size_t *row_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_http_response(const lcb_RESPN1QL *resp, const lcb_RESPHTTP **http);
 LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_handle(const lcb_RESPN1QL *resp, lcb_N1QL_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_error_context(const lcb_RESPN1QL *resp, const lcb_N1QL_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API int lcb_respn1ql_is_final(const lcb_RESPN1QL *resp);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_create(lcb_CMDN1QL **cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_destroy(lcb_CMDN1QL *cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_reset(lcb_CMDN1QL *cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_payload(lcb_CMDN1QL *cmd, const char **payload, size_t *payload_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_encoded_payload(lcb_CMDN1QL *cmd, const char **payload, size_t *payload_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_parent_span(lcb_CMDN1QL *cmd, lcbtrace_SPAN *span);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_callback(lcb_CMDN1QL *cmd, lcb_N1QL_CALLBACK callback);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_query(lcb_CMDN1QL *cmd, const char *query, size_t query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_payload(lcb_CMDN1QL *cmd, const char *query, size_t query_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_statement(lcb_CMDN1QL *cmd, const char *statement, size_t statement_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_named_param(lcb_CMDN1QL *cmd, const char *name, size_t name_len,
                                                     const char *value, size_t value_len);
@@ -2540,6 +2558,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respview_row(const lcb_RESPVIEW *resp, const cha
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_document(const lcb_RESPVIEW *resp, const lcb_RESPGET **doc);
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_http_response(const lcb_RESPVIEW *resp, const lcb_RESPHTTP **http);
 LIBCOUCHBASE_API lcb_STATUS lcb_respview_handle(const lcb_RESPVIEW *resp, lcb_VIEW_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_respview_error_context(const lcb_RESPVIEW *resp, const lcb_VIEW_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API int lcb_respview_is_final(const lcb_RESPVIEW *resp);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_create(lcb_CMDVIEW **cmd);
@@ -2573,8 +2592,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_view_cancel(lcb_INSTANCE *instance, lcb_VIEW_HAN
 typedef struct lcb_RESPSUBDOC_ lcb_RESPSUBDOC;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_status(const lcb_RESPSUBDOC *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_error_context(const lcb_RESPSUBDOC *resp, const char **ctx, size_t *ctx_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_error_ref(const lcb_RESPSUBDOC *resp, const char **ref, size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_error_context(const lcb_RESPSUBDOC *resp,
+                                                         const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_cookie(const lcb_RESPSUBDOC *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_cas(const lcb_RESPSUBDOC *resp, uint64_t *cas);
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_key(const lcb_RESPSUBDOC *resp, const char **key, size_t *key_len);

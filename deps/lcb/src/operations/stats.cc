@@ -55,13 +55,13 @@ static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS err, const
     callback = lcb_find_callback(instance, LCB_CALLBACK_STATS);
 
     if (!arg) {
-        lcb_RESPSTATS s_resp = {0};
+        lcb_RESPSTATS s_resp{};
         if (--ck->remaining) {
             /* still have other servers which must reply. */
             return;
         }
 
-        s_resp.rc = err;
+        s_resp.ctx.rc = err;
         s_resp.cookie = const_cast< void * >(ck->cookie);
         s_resp.rflags = LCB_RESP_F_CLIENTGEN | LCB_RESP_F_FINAL;
         callback(instance, LCB_CALLBACK_STATS, (lcb_RESPBASE *)&s_resp);
@@ -93,21 +93,21 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
 
     if (cmd->cmdflags & LCB_CMDSTATS_F_KV) {
         if (kbuf_in->nbytes == 0 || kbuf_in->nbytes > sizeof(ksbuf) - 30) {
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         if (vbc == NULL) {
-            return LCB_CLIENT_ETMPFAIL;
+            return LCB_ERR_NO_CONFIGURATION;
         }
         if (lcbvb_get_distmode(vbc) != LCBVB_DIST_VBUCKET) {
-            return LCB_NOT_SUPPORTED;
+            return LCB_ERR_UNSUPPORTED_OPERATION;
         }
         vbid = lcbvb_k2vb(vbc, kbuf_in->bytes, kbuf_in->nbytes);
         if (vbid < 0) {
-            return LCB_CLIENT_ETMPFAIL;
+            return LCB_ERR_NO_CONFIGURATION;
         }
         for (ii = 0; ii < kbuf_in->nbytes; ii++) {
             if (isspace(((char *)kbuf_in->bytes)[ii])) {
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
         }
         sprintf(ksbuf, "key %.*s %d", (int)kbuf_in->nbytes, (const char *)kbuf_in->bytes, vbid);
@@ -131,7 +131,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
 
         pkt = mcreq_allocate_packet(pl);
         if (!pkt) {
-            return LCB_CLIENT_ENOMEM;
+            return LCB_ERR_NO_MEMORY;
         }
 
         hdr.request.opcode = PROTOCOL_BINARY_CMD_STAT;
@@ -157,7 +157,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
 
     if (!ii) {
         delete ckwrap;
-        return LCB_NO_MATCHING_SERVER;
+        return LCB_ERR_NO_MATCHING_SERVER;
     }
 
     MAYBE_SCHEDLEAVE(instance);
@@ -193,7 +193,7 @@ static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, 
         u_resp.base->rflags = LCB_RESP_F_CLIENTGEN;
     }
 
-    u_resp.base->rc = err;
+    u_resp.base->ctx.rc = err;
     u_resp.base->cookie = const_cast< void * >(ck->cookie);
 
     std::string epbuf;
@@ -206,7 +206,7 @@ static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, 
     }
 
     u_empty.base.server = NULL;
-    u_empty.base.rc = err;
+    u_empty.base.ctx.rc = err;
     u_empty.base.rflags = LCB_RESP_F_CLIENTGEN | LCB_RESP_F_FINAL;
     u_empty.base.cookie = const_cast< void * >(ck->cookie);
     callback(server->get_instance(), ck->type, (lcb_RESPBASE *)&u_empty.base);
@@ -221,7 +221,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
     unsigned ii;
 
     if (!cq->config) {
-        return LCB_CLIENT_ETMPFAIL;
+        return LCB_ERR_NO_CONFIGURATION;
     }
 
     BcastCookie *ckwrap = new BcastCookie(type, &bcast_procs, cookie);
@@ -234,7 +234,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
         memset(&hdr, 0, sizeof(hdr));
 
         if (!pkt) {
-            return LCB_CLIENT_ENOMEM;
+            return LCB_ERR_NO_MEMORY;
         }
 
         pkt->u_rdata.exdata = ckwrap;
@@ -259,7 +259,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
 
     if (ii == 0) {
         delete ckwrap;
-        return LCB_NO_MATCHING_SERVER;
+        return LCB_ERR_NO_MATCHING_SERVER;
     }
     MAYBE_SCHEDLEAVE(instance);
     return LCB_SUCCESS;
@@ -284,7 +284,7 @@ lcb_STATUS lcb_server_verbosity3(lcb_INSTANCE *instance, const void *cookie, con
     unsigned ii;
 
     if (!cq->config) {
-        return LCB_CLIENT_ETMPFAIL;
+        return LCB_ERR_NO_CONFIGURATION;
     }
 
     BcastCookie *ckwrap = new BcastCookie(LCB_CALLBACK_VERBOSITY, &bcast_procs, cookie);
@@ -315,7 +315,7 @@ lcb_STATUS lcb_server_verbosity3(lcb_INSTANCE *instance, const void *cookie, con
 
         pkt = mcreq_allocate_packet(server);
         if (!pkt) {
-            return LCB_CLIENT_ENOMEM;
+            return LCB_ERR_NO_MEMORY;
         }
 
         pkt->u_rdata.exdata = ckwrap;
@@ -340,7 +340,7 @@ lcb_STATUS lcb_server_verbosity3(lcb_INSTANCE *instance, const void *cookie, con
 
     if (!ckwrap->remaining) {
         delete ckwrap;
-        return LCB_NO_MATCHING_SERVER;
+        return LCB_ERR_NO_MATCHING_SERVER;
     }
     MAYBE_SCHEDLEAVE(instance);
     return LCB_SUCCESS;

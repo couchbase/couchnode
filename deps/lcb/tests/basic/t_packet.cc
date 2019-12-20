@@ -19,7 +19,7 @@ class Pkt
   public:
     Pkt() : pkt(NULL), len(0) {}
 
-    void getq(const std::string &value, lcb_uint32_t opaque, lcb_uint16_t status = 0, lcb_cas_t cas = 0,
+    void getq(const std::string &value, lcb_uint32_t opaque, lcb_uint16_t status = 0, uint64_t cas = 0,
               lcb_uint32_t flags = 0)
     {
         protocol_binary_response_getq msg;
@@ -48,7 +48,7 @@ class Pkt
     }
 
     void get(const std::string &key, const std::string &value, lcb_uint32_t opaque, lcb_uint16_t status = 0,
-             lcb_cas_t cas = 0, lcb_uint32_t flags = 0)
+             uint64_t cas = 0, lcb_uint32_t flags = 0)
     {
         protocol_binary_response_getq msg;
         protocol_binary_response_header *hdr = &msg.message.header;

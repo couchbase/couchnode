@@ -237,7 +237,7 @@ TEST_F(HttpUnitTest, testRefused)
     lcb_wait(instance);
 
     ASSERT_EQ(true, ctx.received);
-    ASSERT_NE(0, LCB_EIFNET(ctx.err));
+    ASSERT_NE(0, LCB_ERROR_IS_NETWORK(ctx.err));
 }
 
 struct HtResult {

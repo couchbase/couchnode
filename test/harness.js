@@ -18,6 +18,7 @@ const ServerFeatures = {
   Replicas: 'replicas',
   UserManagement: 'user_management',
   BucketManagement: 'bucket_management',
+  GetMeta: 'get_meta',
 };
 
 class ServerVersion {
@@ -263,6 +264,7 @@ class Harness {
       case ServerFeatures.UserManagement:
       case ServerFeatures.BucketManagement:
       case ServerFeatures.Xattr:
+      case ServerFeatures.GetMeta:
         // supported on all versions except the mock
         return !this._version.isMock;
       case ServerFeatures.Collections:

@@ -137,7 +137,6 @@ TEST_F(ConfmonTest, testCycle)
     lsn.reset();
     mon->add_listener(&lsn);
 
-    mock->makeConnectParams(cropts, NULL);
     Provider *cccp = mon->get_provider(CLCONFIG_CCCP);
     Provider *http = mon->get_provider(CLCONFIG_HTTP);
 

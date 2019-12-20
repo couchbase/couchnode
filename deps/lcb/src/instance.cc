@@ -190,15 +190,15 @@ lcb_st::process_dns_srv(Connspec& spec)
     }
     if (spec.hosts().empty()) {
         lcb_log(LOGARGS(this, ERR), "Cannot use DNS SRV without a hostname");
-        return spec.is_explicit_dnssrv() ? LCB_EINVAL : LCB_SUCCESS;
+        return spec.is_explicit_dnssrv() ? LCB_ERR_INVALID_ARGUMENT : LCB_SUCCESS;
     }
 
     const Spechost& host = spec.hosts().front();
-    lcb_STATUS rc = LCB_ERROR;
+    lcb_STATUS rc = LCB_ERR_SDK_INTERNAL;
     Hostlist* hl = dnssrv_getbslist(host.hostname.c_str(), spec.sslopts() & LCB_SSL_ENABLED, rc);
 
     if (hl == NULL) {
-        lcb_log(LOGARGS(this, INFO), "DNS SRV lookup failed: %s. Ignore this if not relying on DNS SRV records", lcb_strerror(this, rc));
+        lcb_log(LOGARGS(this, INFO), "DNS SRV lookup failed: %s. Ignore this if not relying on DNS SRV records", lcb_strerror_short(rc));
         if (spec.is_explicit_dnssrv()) {
             return rc;
         } else {
@@ -275,7 +275,7 @@ init_providers(lcb_INSTANCE *obj, const Connspec &spec)
             cladmin->enable();
             cladmin->configure_nodes(*obj->ht_nodes);
         } else {
-            return LCB_BAD_ENVIRONMENT;
+            return LCB_ERR_BAD_ENVIRONMENT;
         }
     }
 
@@ -316,7 +316,7 @@ setup_ssl(lcb_INSTANCE *obj, const Connspec& params)
     if (lcb_getenv_nonempty("LCB_SSL_MODE", optbuf, sizeof optbuf)) {
         if (sscanf(optbuf, "%d", &env_policy) != 1) {
             lcb_log(LOGARGS(obj, ERR), "Invalid value for environment LCB_SSL. (%s)", optbuf);
-            return LCB_BAD_ENVIRONMENT;
+            return LCB_ERR_BAD_ENVIRONMENT;
         } else {
             lcb_log(LOGARGS(obj, INFO), "SSL modified from environment. Policy is 0x%x", env_policy);
             settings->sslopts = env_policy;
@@ -347,7 +347,7 @@ setup_ssl(lcb_INSTANCE *obj, const Connspec& params)
         }
         if (settings->keypath && !settings->certpath) {
             lcb_log(LOGARGS(obj, ERR), "SSL key have to be specified with certificate");
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         settings->ssl_ctx =
             lcbio_ssl_new(settings->truststorepath, settings->certpath, settings->keypath,
@@ -394,7 +394,7 @@ apply_env_options(lcb_INSTANCE *obj)
     std::string tmp("couchbase://?");
     tmp.append(options);
     if (tmpspec.parse(tmp.c_str(), tmp.size()) != LCB_SUCCESS) {
-        return LCB_BAD_ENVIRONMENT;
+        return LCB_ERR_BAD_ENVIRONMENT;
     }
     return apply_spec_options(obj, tmpspec);
 }
@@ -454,12 +454,12 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
     }
 
     if ((obj = (lcb_INSTANCE *)calloc(1, sizeof(*obj))) == NULL) {
-        err = LCB_CLIENT_ENOMEM;
+        err = LCB_ERR_NO_MEMORY;
         goto GT_DONE;
     }
     obj->crypto = new std::map<std::string, lcbcrypto_PROVIDER*>();
     if (!(settings = lcb_settings_new())) {
-        err = LCB_CLIENT_ENOMEM;
+        err = LCB_ERR_NO_MEMORY;
         goto GT_DONE;
     }
 
@@ -481,8 +481,10 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
         err = settings->auth->add(spec.username(), spec.password(),
                                   LCBAUTH_F_CLUSTER);
     } else {
-        settings->auth->set_mode(LCBAUTH_MODE_CLASSIC);
-        err = settings->auth->add(settings->bucket, spec.password(), LCBAUTH_F_BUCKET);
+        if (type == LCB_TYPE_BUCKET) {
+            settings->auth->set_mode(LCBAUTH_MODE_CLASSIC);
+            err = settings->auth->add(settings->bucket, spec.password(), LCBAUTH_F_BUCKET);
+        }
     }
     if (err != LCB_SUCCESS) {
         goto GT_DONE;
@@ -638,7 +640,7 @@ void lcb_destroy(lcb_INSTANCE *instance)
         for (it = pendq->begin(); it != pendq->end(); ++it) {
             http::Request *htreq = reinterpret_cast<http::Request*>(*it);
             htreq->block_callback();
-            htreq->finish(LCB_ERROR);
+            htreq->finish(LCB_ERR_GENERIC);
         }
     }
 
@@ -742,17 +744,17 @@ lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_le
 {
     if (bucket == NULL) {
         lcb_log(LOGARGS(instance, ERR), "Bucket name cannot be a NULL, sorry");
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     lcbvb_CONFIG *cfg = LCBT_VBCONFIG(instance);
     if (cfg == NULL) {
         lcb_log(LOGARGS(instance, ERR),
                 "The instance wasn't not bootstrapped, unable to associate it with bucket, sorry");
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     if (LCBVB_BUCKET_NAME(cfg)) {
         lcb_log(LOGARGS(instance, ERR), "The instance has been associated with the bucket already, sorry");
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
     instance->settings->conntype = LCB_TYPE_BUCKET;
     instance->settings->bucket = (char *)calloc(bucket_len + 1, sizeof(char));
@@ -870,9 +872,11 @@ LCB_INTERNAL_API void lcb_loop_unref(lcb_INSTANCE *instance) {
     lcb_maybe_breakout(instance);
 }
 
-LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance)
+LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance, uint32_t tmo_us)
 {
-    uint32_t tmo_us = instance->settings->operation_timeout;
+    if (tmo_us == 0) {
+        tmo_us = instance->settings->operation_timeout;
+    }
     if (tmo_us < instance->settings->persistence_timeout_floor) {
         lcb_log(LOGARGS(instance, WARN), "Durability timeout is too low (%uus), using %uus instead", tmo_us,
                 instance->settings->persistence_timeout_floor);
@@ -885,17 +889,17 @@ LIBCOUCHBASE_API
 lcb_STATUS lcb_enable_timings(lcb_INSTANCE *instance)
 {
     if (instance->kv_timings != NULL) {
-        return LCB_KEY_EEXISTS;
+        return LCB_ERR_DOCUMENT_EXISTS;
     }
     instance->kv_timings = lcb_histogram_create();
-    return instance->kv_timings == NULL ? LCB_CLIENT_ENOMEM : LCB_SUCCESS;
+    return instance->kv_timings == NULL ? LCB_ERR_NO_MEMORY : LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API
 lcb_STATUS lcb_disable_timings(lcb_INSTANCE *instance)
 {
     if (instance->kv_timings == NULL) {
-        return LCB_KEY_ENOENT;
+        return LCB_ERR_DOCUMENT_NOT_FOUND;
     }
     lcb_histogram_destroy(instance->kv_timings);
     instance->kv_timings = NULL;
@@ -926,28 +930,20 @@ lcb_get_timings(lcb_INSTANCE *instance, const void *cookie, lcb_timings_callback
     wrap.real_cb = cb;
 
     if (!instance->kv_timings) {
-        return LCB_KEY_ENOENT;
+        return LCB_ERR_DOCUMENT_NOT_FOUND;
     }
     lcb_histogram_read(instance->kv_timings, &wrap, timings_wrapper_callback);
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API
-const char *lcb_strerror(lcb_INSTANCE *instance, lcb_STATUS error)
-{
-    #define X(c, v, t, s) if (error == c) { return s; }
-    LCB_XERR(X)
-    #undef X
-
-    (void)instance;
-    return "Unknown error";
-}
-
 LCB_INTERNAL_API
 const char *lcb_strerror_short(lcb_STATUS error)
 {
-#define X(c, v, t, s) if (error == c) { return #c " (" #v ")"; }
-    LCB_XERR(X)
+#define X(c, v, t, f, s)                                                                                               \
+    if (error == c) {                                                                                                  \
+        return #c " (" #v ")";                                                                                         \
+    }
+    LCB_XERROR(X)
 #undef X
     return "<FIXME: Not an LCB error>";
 }
@@ -955,17 +951,23 @@ const char *lcb_strerror_short(lcb_STATUS error)
 LCB_INTERNAL_API
 const char *lcb_strerror_long(lcb_STATUS error)
 {
-#define X(c, v, t, s) if (error == c) { return #c " (" #v "): " s; }
-    LCB_XERR(X)
+#define X(c, v, t, f, s)                                                                                               \
+    if (error == c) {                                                                                                  \
+        return #c " (" #v "): " s;                                                                                     \
+    }
+    LCB_XERROR(X)
 #undef X
     return "<FIXME: Not an LCB error>";
 }
 
 LIBCOUCHBASE_API
-int lcb_get_errtype(lcb_STATUS err)
+uint32_t lcb_error_flags(lcb_STATUS err)
 {
-    #define X(c, v, t, s) if (err == c) { return t; }
-    LCB_XERR(X)
-    #undef X
-    return -1;
+#define X(c, v, t, f, s)                                                                                               \
+    if (err == c) {                                                                                                    \
+        return (uint32_t)f;                                                                                            \
+    }
+    LCB_XERROR(X)
+#undef X
+    return 0;
 }

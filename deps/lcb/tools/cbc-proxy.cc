@@ -311,6 +311,10 @@ static void conn_readcb(struct bufferevent *bev, void *cookie)
         return;
     }
     void *pkt = malloc(pktlen);
+    if (pkt == NULL) {
+        lcb_log(LOGARGS(ERROR), CL_LOGFMT "unable allocate buffer for the packet", CL_LOGID(cl));
+        return;
+    }
     evbuffer_remove(input, pkt, pktlen);
 
     lcb_sched_enter(instance);
@@ -438,8 +442,8 @@ static void sigint_handler(int)
 static void diag_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
-    if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "failed: %s\n", lcb_strerror_short(resp->rc));
+    if (resp->ctx.rc != LCB_SUCCESS) {
+        fprintf(stderr, "failed: %s\n", lcb_strerror_short(resp->ctx.rc));
     } else {
         if (resp->njson) {
             fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);

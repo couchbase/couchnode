@@ -88,7 +88,7 @@ class LcbError : public std::runtime_error
 
   public:
     lcb_STATUS rc;
-    LcbError(lcb_STATUS code, std::string msg = "") : std::runtime_error(format_err(code, msg)) {}
+    LcbError(lcb_STATUS code, std::string msg = "") : std::runtime_error(format_err(code, msg)), rc(LCB_SUCCESS) {}
 };
 
 class BadArg : public std::runtime_error

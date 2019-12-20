@@ -84,17 +84,17 @@ struct TimingInfo {
 
 static lcb_U64 intervalToNsec(lcb_U64 interval, lcb_timeunit_t unit)
 {
-    if (unit == LCB_TIMEUNIT_NSEC) {
-        return interval;
-    } else if (unit == LCB_TIMEUNIT_USEC) {
-        return interval * 1000;
-    } else if (unit == LCB_TIMEUNIT_MSEC) {
-        return interval * 1000000;
-    } else if (unit == LCB_TIMEUNIT_SEC) {
-        return interval * 1000000000;
-    } else {
-        return -1;
+    switch (unit) {
+        case LCB_TIMEUNIT_NSEC:
+            return interval;
+        case LCB_TIMEUNIT_USEC:
+            return interval * 1000;
+        case LCB_TIMEUNIT_MSEC:
+            return interval * 1000000;
+        case LCB_TIMEUNIT_SEC:
+            return interval * 1000000000;
     }
+    return 0;
 }
 
 struct LcbTimings {
@@ -151,13 +151,13 @@ void LcbTimings::dump() const
     std::vector< TimingInfo >::const_iterator ii = m_info.begin();
     for (; ii != m_info.end(); ii++) {
         if (ii->ns_end < 1000) {
-            printf("[%llu-%llu ns] %lu\n", (unsigned long long)ii->ns_start, (unsigned long long)ii->ns_end,
+            printf("[%llu-%llu ns] %llu\n", (unsigned long long)ii->ns_start, (unsigned long long)ii->ns_end,
                    (unsigned long long)ii->count);
         } else if (ii->ns_end < 10000000) {
-            printf("[%llu-%llu us] %lu\n", (unsigned long long)(ii->ns_start / 1000),
+            printf("[%llu-%llu us] %llu\n", (unsigned long long)(ii->ns_start / 1000),
                    (unsigned long long)ii->ns_end / 1000, (unsigned long long)ii->count);
         } else {
-            printf("[%llu-%llu ms] %lu\n", (unsigned long long)(ii->ns_start / 1000000),
+            printf("[%llu-%llu ms] %llu\n", (unsigned long long)(ii->ns_start / 1000000),
                    (unsigned long long)(ii->ns_end / 1000000), (unsigned long long)ii->count);
         }
     }
@@ -333,37 +333,37 @@ TEST_F(MockUnitTest, testEmptyKeys)
 
     lcb_CMDGET *get;
     lcb_cmdget_create(&get);
-    ASSERT_EQ(LCB_EMPTY_KEY, lcb_get(instance, NULL, get));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, lcb_get(instance, NULL, get));
     lcb_cmdget_destroy(get);
 
     lcb_CMDGETREPLICA *rget;
     lcb_cmdgetreplica_create(&rget, LCB_REPLICA_MODE_ANY);
-    ASSERT_EQ(LCB_EMPTY_KEY, lcb_getreplica(instance, NULL, rget));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, lcb_getreplica(instance, NULL, rget));
     lcb_cmdgetreplica_destroy(rget);
 
     lcb_CMDSTORE *store;
     lcb_cmdstore_create(&store, LCB_STORE_UPSERT);
-    ASSERT_EQ(LCB_EMPTY_KEY, lcb_store(instance, NULL, store));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, lcb_store(instance, NULL, store));
     lcb_cmdstore_destroy(store);
 
     lcb_CMDTOUCH *touch;
     lcb_cmdtouch_create(&touch);
-    ASSERT_EQ(LCB_EMPTY_KEY, lcb_touch(instance, NULL, touch));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, lcb_touch(instance, NULL, touch));
     lcb_cmdtouch_destroy(touch);
 
     lcb_CMDUNLOCK *unlock;
     lcb_cmdunlock_create(&unlock);
-    ASSERT_EQ(LCB_EMPTY_KEY, lcb_unlock(instance, NULL, unlock));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, lcb_unlock(instance, NULL, unlock));
     lcb_cmdunlock_destroy(unlock);
 
     lcb_CMDCOUNTER *counter;
     lcb_cmdcounter_create(&counter);
-    ASSERT_EQ(LCB_EMPTY_KEY, lcb_counter(instance, NULL, counter));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, lcb_counter(instance, NULL, counter));
     lcb_cmdcounter_destroy(counter);
 
     // Observe and such
     lcb_MULTICMD_CTX *ctx = lcb_observe3_ctxnew(instance);
-    ASSERT_EQ(LCB_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE *)&u.observe));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE *)&u.observe));
     ctx->fail(ctx);
 
     lcb_durability_opts_t dopts;
@@ -372,7 +372,7 @@ TEST_F(MockUnitTest, testEmptyKeys)
 
     ctx = lcb_endure3_ctxnew(instance, &dopts, NULL);
     ASSERT_TRUE(ctx != NULL);
-    ASSERT_EQ(LCB_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE *)&u.endure));
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE *)&u.endure));
     ctx->fail(ctx);
 
     ASSERT_EQ(LCB_SUCCESS, lcb_stats3(instance, NULL, &u.stats));
@@ -563,11 +563,11 @@ TEST_F(MockUnitTest, testConflictingOptions)
 
     lcb_STATUS err;
     err = lcb_store(instance, NULL, scmd);
-    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
     lcb_cmdstore_expiry(scmd, 0);
     lcb_cmdstore_flags(scmd, 99);
     err = lcb_store(instance, NULL, scmd);
-    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
 
     lcb_cmdstore_expiry(scmd, 0);
     lcb_cmdstore_flags(scmd, 0);
@@ -579,10 +579,11 @@ TEST_F(MockUnitTest, testConflictingOptions)
     lcb_cmdstore_key(scmd, key, nkey);
     lcb_cmdstore_cas(scmd, 0xdeadbeef);
     err = lcb_store(instance, NULL, scmd);
-    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
 
     lcb_cmdstore_cas(scmd, 0);
     err = lcb_store(instance, NULL, scmd);
+    lcb_cmdstore_destroy(scmd);
     ASSERT_EQ(LCB_SUCCESS, err);
 
     lcb_CMDCOUNTER *ccmd;
@@ -592,7 +593,7 @@ TEST_F(MockUnitTest, testConflictingOptions)
 
     lcb_cmdcounter_expiry(ccmd, 10);
     err = lcb_counter(instance, NULL, ccmd);
-    ASSERT_EQ(LCB_OPTIONS_CONFLICT, err);
+    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
 
     lcb_cmdcounter_initial(ccmd, 0);
     err = lcb_counter(instance, NULL, ccmd);
@@ -643,7 +644,7 @@ static void tickOpCb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
     int *p = (int *)rb->cookie;
     *p -= 1;
-    EXPECT_EQ(LCB_SUCCESS, rb->rc);
+    EXPECT_EQ(LCB_SUCCESS, rb->ctx.rc);
 }
 }
 
@@ -664,7 +665,7 @@ TEST_F(MockUnitTest, testTickLoop)
     lcb_cmdstore_value(cmd, value, strlen(value));
 
     err = lcb_tick_nowait(instance);
-    if (err == LCB_CLIENT_FEATURE_UNAVAILABLE) {
+    if (err == LCB_ERR_SDK_FEATURE_UNAVAILABLE) {
         fprintf(stderr, "Current event loop does not support tick!");
         return;
     }
@@ -731,7 +732,7 @@ extern "C" {
 static void appendE2BIGcb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
     lcb_STATUS *e = (lcb_STATUS *)rb->cookie;
-    *e = rb->rc;
+    *e = rb->ctx.rc;
 }
 }
 
@@ -768,7 +769,7 @@ TEST_F(MockUnitTest, testAppendE2BIG)
     err = lcb_store(instance, &res, acmd);
     lcb_cmdstore_destroy(acmd);
     lcb_wait(instance);
-    ASSERT_EQ(LCB_E2BIG, res);
+    ASSERT_EQ(LCB_ERR_VALUE_TOO_LARGE, res);
     free(value2);
 }
 
@@ -784,6 +785,7 @@ static void existsCb(lcb_INSTANCE *, int, const lcb_RESPEXISTS *rb)
 
 TEST_F(MockUnitTest, testExists)
 {
+    SKIP_IF_MOCK();
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);

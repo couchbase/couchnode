@@ -114,20 +114,20 @@ static int cmpfn_retry(lcb_list_t *ll_a, lcb_list_t *ll_b) {
 static void
 assign_error(RetryOp *op, lcb_STATUS err)
 {
-    if (err == LCB_NOT_MY_VBUCKET) {
-        err = LCB_ETIMEDOUT; /* :( */
+    if (err == LCB_ERR_NOT_MY_VBUCKET) {
+        err = LCB_ERR_TIMEOUT; /* :( */
     }
 
     if (op->origerr == LCB_SUCCESS) {
         op->origerr = err;
     }
 
-    if (err == LCB_ETIMEDOUT) {
+    if (err == LCB_ERR_TIMEOUT) {
         return; /* Ignore timeout errors */
     }
 
-    if (LCB_EIFNET(op->origerr) && op->origerr != LCB_ETIMEDOUT &&
-            (err == LCB_NETWORK_ERROR || err == LCB_CONNECT_ERROR)) {
+    if (LCB_ERROR_IS_NETWORK(op->origerr) && op->origerr != LCB_ERR_TIMEOUT &&
+        (err == LCB_ERR_NETWORK || err == LCB_ERR_CONNECT_ERROR)) {
         return;
     }
 
@@ -217,7 +217,7 @@ RetryQueue::flush(bool throttle)
         hrtime_t curtmo = op->start + LCB_US2NS(settings->operation_timeout);
 
         if (curtmo <= now) {
-            fail(op, LCB_ETIMEDOUT);
+            fail(op, LCB_ERR_TIMEOUT);
         } else {
             break;
         }
@@ -242,7 +242,7 @@ RetryQueue::flush(bool throttle)
 
         if (srvix < 0 || (unsigned)srvix >= cq->npipelines) {
             /* No server found to map to */
-            assign_error(op, LCB_NO_MATCHING_SERVER);
+            assign_error(op, LCB_ERR_NO_MATCHING_SERVER);
 
             /* Request a new configuration. If it's time to request a new
              * configuration (i.e. the attempt has not been throttled) then
@@ -258,7 +258,7 @@ RetryQueue::flush(bool throttle)
                 op->pkt->retries++;
                 update_trytime(op, now);
             } else {
-                fail(op, LCB_NO_MATCHING_SERVER);
+                fail(op, LCB_ERR_NO_MATCHING_SERVER);
             }
         } else {
             mc_PIPELINE *newpl = cq->pipelines[srvix];
@@ -364,7 +364,7 @@ RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err,
     assign_error(op, err);
     if (options & RETRY_SCHED_IMM) {
         op->trytime = gethrtime(); /* now */
-    } else if (err == LCB_NOT_MY_VBUCKET) {
+    } else if (err == LCB_ERR_NOT_MY_VBUCKET) {
         op->trytime = gethrtime() + LCB_US2NS(settings->retry_nmv_interval);
     } else {
         update_trytime(op);
@@ -410,13 +410,13 @@ RetryQueue::nmvadd(mc_EXPACKET *detchpkt)
     if (settings->nmv_retry_imm) {
         flags = RETRY_SCHED_IMM;
     }
-    add(detchpkt, LCB_NOT_MY_VBUCKET, NULL, flags);
+    add(detchpkt, LCB_ERR_NOT_MY_VBUCKET, NULL, flags);
 }
 
 void
 RetryQueue::ucadd(mc_EXPACKET *pkt)
 {
-    add(pkt, LCB_COLLECTION_UNKNOWN, NULL, RETRY_SCHED_IMM);
+    add(pkt, LCB_ERR_COLLECTION_NOT_FOUND, NULL, RETRY_SCHED_IMM);
 }
 
 static void
@@ -428,7 +428,7 @@ fallback_handler(mc_CMDQUEUE *cq, mc_PACKET *pkt)
 
 void RetryQueue::add_fallback(mc_PACKET *pkt) {
     mc_PACKET *copy = mcreq_renew_packet(pkt);
-    add((mc_EXPACKET*)copy, LCB_NO_MATCHING_SERVER, NULL, RETRY_SCHED_IMM);
+    add((mc_EXPACKET *)copy, LCB_ERR_NO_MATCHING_SERVER, NULL, RETRY_SCHED_IMM);
 }
 
 void
@@ -458,7 +458,7 @@ RetryQueue::~RetryQueue() {
 
     LCB_LIST_SAFE_FOR(llcur, llnext, &schedops) {
         RetryOp *op = from_schednode(llcur);
-        fail(op, LCB_ERROR);
+        fail(op, LCB_ERR_GENERIC);
     }
 
     lcbio_timer_destroy(timer);

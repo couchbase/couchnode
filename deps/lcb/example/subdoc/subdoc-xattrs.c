@@ -26,8 +26,8 @@ static void subdoc_callback(lcb_INSTANCE *instance, int type, const lcb_RESPSUBD
 {
     lcb_STATUS rc = lcb_respsubdoc_status(resp);
     size_t idx, total;
-    if (rc != LCB_SUCCESS && rc != LCB_SUBDOC_MULTI_FAILURE) {
-        printf("Failure: 0x%x, %s\n", lcb_strerror_short(rc));
+    if (rc != LCB_SUCCESS) {
+        printf("Failure: %s\n", lcb_strerror_short(rc));
         return;
     }
 
@@ -53,7 +53,7 @@ static void n1qlrow_callback(lcb_INSTANCE *instance, int type, const lcb_RESPN1Q
         uint16_t status;
 
         lcb_respn1ql_http_response(resp, &http);
-        printf("Failure: 0x%x, %s\n", rc, lcb_strerror(instance, rc));
+        printf("Failure: 0x%x, %s\n", rc, lcb_strerror_short(rc));
         lcb_resphttp_http_status(http, &status);
         printf("HTTP status: %d\n", (int)status);
         {

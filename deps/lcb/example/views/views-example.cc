@@ -50,7 +50,7 @@ static void viewCallback(lcb_INSTANCE *, int, const lcb_RESPVIEW *rv)
         rc = lcb_respget_status(doc);
         uint64_t cas;
         lcb_respget_cas(doc, &cas);
-        printf("   Document for response. RC=0x%X. CAS=0x%llx\n", rc, cas);
+        printf("   Document for response. RC=0x%X. CAS=0x%llx\n", rc, (long long)cas);
     }
 
     cbCounter++;

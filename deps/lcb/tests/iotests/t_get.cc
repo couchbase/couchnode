@@ -29,7 +29,7 @@ static void testGetMissGetCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_
 {
     int *counter;
     lcb_respget_cookie(resp, (void **)&counter);
-    EXPECT_EQ(LCB_KEY_ENOENT, lcb_respget_status(resp));
+    EXPECT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, lcb_respget_status(resp));
     const char *key;
     size_t nkey;
     lcb_respget_key(resp, &key, &nkey);
@@ -132,7 +132,7 @@ static void testTouchMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_R
 {
     int *counter;
     lcb_resptouch_cookie(resp, (void **)&counter);
-    EXPECT_EQ(LCB_KEY_ENOENT, lcb_resptouch_status(resp));
+    EXPECT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, lcb_resptouch_status(resp));
     ++(*counter);
 }
 }
@@ -430,7 +430,7 @@ TEST_F(GetUnitTest, testGetReplica)
 
     // Test with an invalid index
     rcmd = NULL;
-    ASSERT_EQ(LCB_EINVAL, lcb_cmdgetreplica_create(&rcmd, (lcb_REPLICA_MODE)42));
+    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_cmdgetreplica_create(&rcmd, (lcb_REPLICA_MODE)42));
     ASSERT_EQ((lcb_CMDGETREPLICA *)NULL, rcmd);
 
     // If no crash, it's good.
@@ -447,7 +447,7 @@ TEST_F(GetUnitTest, testGetReplica)
         oldix = vb->servers[2];
         vb->servers[2] = -1;
 
-        rck.expectrc = LCB_KEY_ENOENT;
+        rck.expectrc = LCB_ERR_DOCUMENT_NOT_FOUND;
         rck.remaining = 1;
         lcb_sched_enter(instance);
         lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_ANY);
@@ -465,7 +465,7 @@ TEST_F(GetUnitTest, testGetReplica)
         lcb_sched_enter(instance);
         err = lcb_getreplica(instance, NULL, rcmd);
         lcb_cmdgetreplica_destroy(rcmd);
-        ASSERT_EQ(LCB_NO_MATCHING_SERVER, err);
+        ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, err);
         lcb_sched_leave(instance);
 
         vb->servers[2] = oldix;

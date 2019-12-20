@@ -83,6 +83,12 @@ struct lcb_VIEW_HANDLE_ : lcb::jsparse::Parser::Actions {
     lcb_VIEW_CALLBACK callback;
     lcb_INSTANCE *instance;
 
+    std::string design_document;
+    std::string view;
+    std::string query_params;
+    std::string first_error_code;
+    std::string first_error_message;
+
     unsigned refcount;
     uint32_t cmdflags;
     lcb_STATUS lasterr;

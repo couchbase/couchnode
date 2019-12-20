@@ -24,12 +24,12 @@ static void flush_cb(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
     lcb_RESPCALLBACK callback = lcb_find_callback(instance, LCB_CALLBACK_CBFLUSH);
 
     const lcb_RESPCBFLUSH *iresp = (const lcb_RESPCBFLUSH *)rb;
-    lcb_RESPCBFLUSH fresp = {0};
+    lcb_RESPCBFLUSH fresp{};
     fresp = *iresp;
     fresp.rflags |= LCB_RESP_F_FINAL;
-    if (resp->rc == LCB_SUCCESS) {
-        if (resp->htstatus < 200 || resp->htstatus > 299) {
-            fresp.rc = LCB_HTTP_ERROR;
+    if (resp->ctx.rc == LCB_SUCCESS) {
+        if (resp->ctx.response_code < 200 || resp->ctx.response_code > 299) {
+            fresp.rc = LCB_ERR_HTTP;
         }
     }
     if (callback) {
