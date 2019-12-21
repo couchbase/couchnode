@@ -34,6 +34,10 @@ enum lcbx_N1QLFLAG {
     LCBX_N1QLFLAG_PREPCACHE = 1 << 1,
 };
 
+enum lcbx_ANALYTICSFLAG {
+    LCBX_ANALYTICSFLAG_PRIORITY = 1 << 1,
+};
+
 lcb_STATUS lcbx_cmd_create(lcb_CMDGET **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDEXISTS **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDGETREPLICA **cmd, lcb_REPLICA_MODE mode);

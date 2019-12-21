@@ -620,7 +620,12 @@ NAN_METHOD(Connection::fnAnalyticsQuery)
     if (!enc.parseOption<&lcb_cmdanalytics_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
     }
-    // uint32_t flags = ValueParser::asUint(info[1]);
+    uint32_t flags = ValueParser::asUint(info[1]);
+    if (flags & LCBX_ANALYTICSFLAG_PRIORITY) {
+        lcb_cmdanalytics_priority(enc.cmd(), 1);
+    } else {
+        lcb_cmdanalytics_priority(enc.cmd(), 0);
+    }
     if (!enc.parseOption<&lcb_cmdanalytics_timeout>(info[2])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
