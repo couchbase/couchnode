@@ -234,7 +234,7 @@ class Harness {
         return !this._version.isMock;
       case ServerFeatures.Collections:
         return !this._version.isMock &&
-          this._version.isAtLeast(6, 0, 0);
+          this._version.isAtLeast(7, 0, 0);
     }
 
     throw new Error('invalid code for feature checking');
