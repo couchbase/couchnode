@@ -57,6 +57,7 @@ var TEST_CONFIG = {
   coll: 'test',
   user: undefined,
   pass: undefined,
+  features: [],
 };
 
 if (process.env.CNCSTR !== undefined) {
@@ -81,6 +82,24 @@ if (process.env.CNUSER !== undefined) {
 }
 if (process.env.CNPASS !== undefined) {
   TEST_CONFIG.pass = process.env.CNPASS;
+}
+if (process.env.CNFEAT !== undefined) {
+  var featureStrs = process.env.CNFEAT.split(',');
+  featureStrs.forEach((featureStr) => {
+    var featureName = featureStr.substr(1);
+
+    var featureEnabled = undefined;
+    if (featureStr[0] === '+') {
+      featureEnabled = true;
+    } else if (featureStr[0] === '-') {
+      featureEnabled = false;
+    }
+
+    TEST_CONFIG.features.push({
+      feature: featureName,
+      enabled: featureEnabled,
+    });
+  })
 }
 
 class Harness {
@@ -216,6 +235,20 @@ class Harness {
   }
 
   supportsFeature(feature) {
+    var featureEnabled = undefined;
+
+    TEST_CONFIG.features.forEach((cfgFeature) => {
+      if (cfgFeature.feature === '*' || cfgFeature.feature === feature) {
+        featureEnabled = cfgFeature.enabled;
+      }
+    });
+
+    if (featureEnabled === true) {
+      return true;
+    } else if (featureEnabled === false) {
+      return false;
+    }
+
     switch (feature) {
       case ServerFeatures.KeyValue:
       case ServerFeatures.Ssl:
