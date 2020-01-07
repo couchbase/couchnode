@@ -62,7 +62,7 @@ H.requireFeature(H.Features.BucketManagement, () => {
 
     it('should successfully update a bucket', async () => {
       var bmgr = H.c.buckets();
-      bmgr.updateBucket({
+      await bmgr.updateBucket({
         name: testBucket,
         flushEnabled: false,
       });
