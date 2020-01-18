@@ -37,12 +37,6 @@ void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     lcb_STATUS rc = rdr.getValue<&lcb_respexists_status>();
 
-    // TODO(brett19): BUG JSCBC-639 - This should be removed once libcouchbase
-    // correctly handles these errors and hides them from the wrapper.
-    if (rc == LCB_ERR_DOCUMENT_NOT_FOUND) {
-        rc = LCB_SUCCESS;
-    }
-
     Local<Value> errVal = rdr.decodeError<lcb_respexists_error_context>(rc);
 
     Local<Value> casVal, existsVal;

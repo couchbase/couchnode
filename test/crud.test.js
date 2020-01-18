@@ -405,11 +405,8 @@ function genericTests(collFn) {
       assert.deepStrictEqual(res.results[0].value, 'hello');
       assert.isNotOk(res.results[1].error);
       assert.deepStrictEqual(res.results[1].value, 2);
-
-      // TODO(brett19): BUG JSCBC-632 - This currently tests incorrect behaviour,
-      // it is expected that when JSCBC-632 is fixed, this test is fixed as well.
-      assert.isOk(res.results[2].error);
-      assert.deepStrictEqual(res.results[2].value, null);
+      assert.isNotOk(res.results[2].error);
+      assert.deepStrictEqual(res.results[2].value, false);
     });
 
     it('should mutateIn successfully', async () => {
