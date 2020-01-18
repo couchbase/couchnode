@@ -106,7 +106,7 @@ describe('#query', () => {
             pipelineCap: 10,
             scanCap: 10,
             readOnly: true,
-            profile: H.lib.QueryProfile.Timings,
+            profile: H.lib.QueryProfileMode.Timings,
             metrics: true,
           });
         } catch (e) {}
