@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ TEST_F(ArithmeticUnitTest, testIncr)
         lcb_cmdcounter_delta(cmd, 1);
         lcb_counter(instance, NULL, cmd);
         lcb_cmdcounter_destroy(cmd);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
     }
 }
 
@@ -136,7 +136,7 @@ TEST_F(ArithmeticUnitTest, testDecr)
         lcb_cmdcounter_delta(cmd, -1);
         lcb_counter(instance, NULL, cmd);
         lcb_cmdcounter_destroy(cmd);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
     }
 }
 
@@ -162,5 +162,5 @@ TEST_F(ArithmeticUnitTest, testArithmeticCreate)
     lcb_cmdcounter_delta(cmd, 0x77);
     lcb_counter(instance, NULL, cmd);
     lcb_cmdcounter_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 }

@@ -64,8 +64,8 @@ private:
     static NAN_METHOD(fnLookupIn);
     static NAN_METHOD(fnMutateIn);
     static NAN_METHOD(fnViewQuery);
-    static NAN_METHOD(fnN1qlQuery);
-    static NAN_METHOD(fnFtsQuery);
+    static NAN_METHOD(fnQuery);
+    static NAN_METHOD(fnSearchQuery);
     static NAN_METHOD(fnAnalyticsQuery);
     static NAN_METHOD(fnHttpRequest);
     static NAN_METHOD(fnPing);
@@ -97,12 +97,12 @@ private:
                                      const lcb_RESPSUBDOC *resp);
     static void lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
                                    const lcb_RESPVIEW *resp);
-    static void lcbN1qlDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                   const lcb_RESPN1QL *resp);
-    static void lcbCbasDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                   const lcb_RESPANALYTICS *resp);
-    static void lcbFtsDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                  const lcb_RESPFTS *resp);
+    static void lcbQueryDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPQUERY *resp);
+    static void lcbAnalyticsDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                        const lcb_RESPANALYTICS *resp);
+    static void lcbSearchDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                     const lcb_RESPSEARCH *resp);
     static void lcbPingRespHandler(lcb_INSTANCE *instance, int cbtype,
                                    const lcb_RESPPING *resp);
     static void lcbDiagRespHandler(lcb_INSTANCE *instance, int cbtype,

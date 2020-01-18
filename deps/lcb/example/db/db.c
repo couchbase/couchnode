@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
         lcb_destroy(instance);
         exit(EXIT_FAILURE);
     }
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
         fprintf(stderr, "Couldn't establish connection to cluster: %s\n", lcb_strerror_short(err));
         lcb_destroy(instance);
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
     }
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     fprintf(stderr, "Benchmarking... CTRL-C to stop\n");
     while (1) {
         lcb_CMDGET *cmd;
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Failed to schedule get operation: %s\n", lcb_strerror_short(err));
             exit(EXIT_FAILURE);
         }
-        lcb_wait3(instance, LCB_WAIT_NOCHECK);
+        lcb_wait(instance, LCB_WAIT_NOCHECK);
         fprintf(stderr, "retry\n");
     }
     lcb_destroy(instance);

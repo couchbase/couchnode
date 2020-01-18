@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2019 Couchbase, Inc.
+ *     Copyright 2014-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -612,7 +612,7 @@ void lcbio_ctx_dump(lcbio_CTX *ctx, FILE *fp)
     fprintf(fp, "  SOCKET=%p\n", (void *)ctx->sock);
     fprintf(fp, "    Model=%s\n", ctx->io->model == LCB_IOMODEL_EVENT ? "Event" : "Completion");
     if (IOT_IS_EVENT(ctx->io)) {
-        fprintf(fp, "    FD=%d\n", ctx->sock->u.fd);
+        fprintf(fp, "    FD=%d\n", (int)ctx->sock->u.fd);
         fprintf(fp, "    Watcher Active=%d\n", ctx->evactive);
     } else {
         fprintf(fp, "    SD=%p\n", (void *)ctx->sock->u.sd);

@@ -573,33 +573,33 @@ NAN_METHOD(Connection::fnViewQuery)
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(Connection::fnN1qlQuery)
+NAN_METHOD(Connection::fnQuery)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDN1QL> enc(me);
+    OpBuilder<lcb_CMDQUERY> enc(me);
 
-    enc.beginTrace("query::n1ql");
+    enc.beginTrace("query");
 
-    lcb_cmdn1ql_callback(enc.cmd(), &lcbN1qlDataHandler);
+    lcb_cmdquery_callback(enc.cmd(), &lcbQueryDataHandler);
 
-    if (!enc.parseOption<&lcb_cmdn1ql_payload>(info[0])) {
+    if (!enc.parseOption<&lcb_cmdquery_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
     }
     uint32_t flags = ValueParser::asUint(info[1]);
-    if (flags & LCBX_N1QLFLAG_PREPCACHE) {
-        lcb_cmdn1ql_adhoc(enc.cmd(), 0);
+    if (flags & LCBX_QUERYFLAG_PREPCACHE) {
+        lcb_cmdquery_adhoc(enc.cmd(), 0);
     } else {
-        lcb_cmdn1ql_adhoc(enc.cmd(), 1);
+        lcb_cmdquery_adhoc(enc.cmd(), 1);
     }
-    if (!enc.parseOption<&lcb_cmdn1ql_timeout>(info[2])) {
+    if (!enc.parseOption<&lcb_cmdquery_timeout>(info[2])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
     if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_STATUS err = enc.execute<&lcb_n1ql>();
+    lcb_STATUS err = enc.execute<&lcb_query>();
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }
@@ -613,9 +613,9 @@ NAN_METHOD(Connection::fnAnalyticsQuery)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDANALYTICS> enc(me);
 
-    enc.beginTrace("query::analytics");
+    enc.beginTrace("analyticsQuery");
 
-    lcb_cmdanalytics_callback(enc.cmd(), &lcbCbasDataHandler);
+    lcb_cmdanalytics_callback(enc.cmd(), &lcbAnalyticsDataHandler);
 
     if (!enc.parseOption<&lcb_cmdanalytics_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
@@ -641,28 +641,28 @@ NAN_METHOD(Connection::fnAnalyticsQuery)
     return info.GetReturnValue().Set(true);
 }
 
-NAN_METHOD(Connection::fnFtsQuery)
+NAN_METHOD(Connection::fnSearchQuery)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDFTS> enc(me);
+    OpBuilder<lcb_CMDSEARCH> enc(me);
 
-    enc.beginTrace("query::search");
+    enc.beginTrace("searchQuery");
 
-    lcb_cmdfts_callback(enc.cmd(), &lcbFtsDataHandler);
+    lcb_cmdsearch_callback(enc.cmd(), &lcbSearchDataHandler);
 
-    if (!enc.parseOption<&lcb_cmdfts_payload>(info[0])) {
+    if (!enc.parseOption<&lcb_cmdsearch_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
     }
     // uint32_t flags = ValueParser::asUint(info[1]);
-    if (!enc.parseOption<&lcb_cmdfts_timeout>(info[2])) {
+    if (!enc.parseOption<&lcb_cmdsearch_timeout>(info[2])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
     if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    lcb_STATUS err = enc.execute<&lcb_fts>();
+    lcb_STATUS err = enc.execute<&lcb_search>();
     if (err) {
         return Nan::ThrowError(Error::create(err));
     }

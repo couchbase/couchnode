@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ TEST_F(MockUnitTest, testTimings)
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, NULL, storecmd));
     lcb_cmdstore_destroy(storecmd);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     lcb_get_timings(instance, &called, timings_callback);
     lcb_disable_timings(instance);
     ASSERT_TRUE(called);
@@ -636,7 +636,7 @@ TEST_F(MockUnitTest, testRefreshConfig)
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
     lcb_refresh_config(instance);
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
 }
 
 extern "C" {
@@ -756,7 +756,7 @@ TEST_F(MockUnitTest, testAppendE2BIG)
     lcb_cmdstore_value(scmd, (const char *)value1, nvalue1);
     err = lcb_store(instance, &res, scmd);
     lcb_cmdstore_destroy(scmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, res);
     free(value1);
 
@@ -768,7 +768,7 @@ TEST_F(MockUnitTest, testAppendE2BIG)
     lcb_cmdstore_value(acmd, (const char *)value2, nvalue2);
     err = lcb_store(instance, &res, acmd);
     lcb_cmdstore_destroy(acmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_ERR_VALUE_TOO_LARGE, res);
     free(value2);
 }
@@ -806,7 +806,7 @@ TEST_F(MockUnitTest, testExists)
     err = lcb_exists(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_cmdexists_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(0, res);
 
     storeKey(instance, key, "value");
@@ -817,6 +817,6 @@ TEST_F(MockUnitTest, testExists)
     err = lcb_exists(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_cmdexists_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, res);
 }

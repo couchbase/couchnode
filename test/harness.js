@@ -9,10 +9,10 @@ const ServerFeatures = {
   Ssl: 'ssl',
   Views: 'views',
   SpatialViews: 'spatial_views',
-  N1ql: 'n1ql',
+  Query: 'query',
   Subdoc: 'subdoc',
   Xattr: 'xattr',
-  Fts: 'fts',
+  Search: 'search',
   Analytics: 'analytics',
   Collections: 'collections',
   Replicas: 'replicas',
@@ -276,8 +276,8 @@ class Harness {
       case ServerFeatures.Views:
       case ServerFeatures.Replicas:
         return true;
-      case ServerFeatures.Fts:
-      case ServerFeatures.N1ql:
+      case ServerFeatures.Search:
+      case ServerFeatures.Query:
       case ServerFeatures.Analytics:
       case ServerFeatures.UserManagement:
       case ServerFeatures.BucketManagement:

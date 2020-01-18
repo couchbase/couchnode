@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2019 Couchbase, Inc.
+ *     Copyright 2011-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <cstring>
 
 #include "internal.h"
+#include "collections.h"
 #include "logging.h"
 #include "vbucket/aliases.h"
 #include "settings.h"
@@ -25,6 +26,7 @@
 #include "bucketconfig/clconfig.h"
 #include "mc/mcreq-flush-inl.h"
 #include <lcbio/ssl.h>
+#include <include/memcached/protocol_binary.h>
 #include "ctx-log-inl.h"
 
 #include "sllist.h"
@@ -180,41 +182,113 @@ bool Server::handle_nmv(MemcachedResponse &resinfo, mc_PACKET *oldpkt)
     return true;
 }
 
-static lcb_STATUS reschedule_clone(const void *src, void **dst)
+struct packet_wrapper {
+    lcb_KEYBUF key;
+    const char *scope = nullptr;
+    size_t nscope = 0;
+    const char *collection = nullptr;
+    size_t ncollection = 0;
+    uint32_t cid = 0;
+    uint32_t timeout = 0;
+    mc_PACKET *pkt = nullptr;
+    lcb_INSTANCE *instance = nullptr;
+
+    std::string scope_;
+    std::string collection_;
+
+    packet_wrapper()
+    {
+        key.type = LCB_KV_COPY;
+        key.contig.bytes = nullptr;
+        key.contig.nbytes = 0;
+        key.vbid = 0;
+    }
+
+    packet_wrapper(const packet_wrapper &other)
+    {
+        key = other.key;
+        cid = other.cid;
+        timeout = other.timeout;
+        pkt = other.pkt;
+        instance = other.instance;
+        scope_ = other.scope_;
+        collection_ = other.collection_;
+        update_pointers();
+    }
+
+    void assign_name(const std::string &name)
+    {
+        size_t dot = name.find('.');
+        scope_ = name.substr(0, dot);
+        collection_ = name.substr(dot + 1);
+        update_pointers();
+    }
+
+  private:
+    void update_pointers()
+    {
+        scope = scope_.c_str();
+        nscope = scope_.size();
+        collection = collection_.c_str();
+        ncollection = collection_.size();
+    }
+};
+
+static lcb_STATUS reschedule_clone(const packet_wrapper *src, packet_wrapper **dst)
 {
-    *dst = (void *)src;
+    *dst = new packet_wrapper(*src);
     return LCB_SUCCESS;
 }
 
-static lcb_STATUS reschedule_destroy(void *)
+static lcb_STATUS reschedule_destroy(packet_wrapper *wrapper)
 {
-    return LCB_SUCCESS;
-}
-
-static lcb_STATUS reschedule_with_collection(uint32_t cid, lcb_INSTANCE *instance, void * /* cookie */, const void *arg)
-{
-    /** Reschedule the packet again .. */
-    mc_PACKET *newpkt = (mc_PACKET *)arg;
-    newpkt->flags &= ~MCREQ_STATE_FLAGS;
-    mcreq_set_cid(newpkt, cid);
-    instance->retryq->ucadd((mc_EXPACKET *)newpkt);
+    delete wrapper;
     return LCB_SUCCESS;
 }
 
 bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
 {
     uint32_t cid = mcreq_get_cid(instance, oldpkt);
-    lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (S=%u), CID=%u", LOGID_T(), (void *)oldpkt,
-            oldpkt->opaque, (unsigned)cid);
     std::string name = instance->collcache->id_to_name(cid);
+
+    packet_wrapper wrapper;
+    protocol_binary_request_header req;
+    memcpy(&req, SPAN_BUFFER(&oldpkt->kh_span), sizeof(req));
+    mcreq_get_key(instance, oldpkt, (const char **)&wrapper.key.contig.bytes, &wrapper.key.contig.nbytes);
+    if (req.request.opcode == PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID) {
+        name = std::string(static_cast<const char *>(wrapper.key.contig.bytes), wrapper.key.contig.nbytes);
+        wrapper.assign_name(name);
+    }
+
+    lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (S=%u), CID=%u, CNAME=%s", LOGID_T(), (void *)oldpkt,
+            oldpkt->opaque, (unsigned)cid, name.c_str());
     if (name.empty()) {
         return false;
     }
     instance->collcache->erase(cid);
+    lcb_RETRY_ACTION retry = lcb_kv_should_retry(settings, oldpkt, LCB_ERR_COLLECTION_NOT_FOUND);
+    if (!retry.should_retry) {
+        return false;
+    }
 
-    mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
-    lcb_STATUS rc = collcache_exec_str(name, instance, NULL, reschedule_with_collection, reschedule_clone,
-                                       reschedule_destroy, newpkt);
+    hrtime_t now = gethrtime();
+    if (now > MCREQ_PKT_RDATA(oldpkt)->deadline) {
+        return false;
+    }
+    wrapper.pkt = mcreq_renew_packet(oldpkt);
+    wrapper.instance = instance;
+    wrapper.timeout = LCB_NS2US(MCREQ_PKT_RDATA(wrapper.pkt)->deadline - now);
+    auto operation = [](const lcb_RESPGETCID *, packet_wrapper *wrp) {
+        if ((wrp->pkt->flags & MCREQ_F_NOCID) == 0) {
+            mcreq_set_cid(wrp->pkt, wrp->cid);
+        }
+        /** Reschedule the packet again .. */
+        wrp->pkt->flags &= ~MCREQ_STATE_FLAGS;
+        wrp->instance->retryq->ucadd((mc_EXPACKET *)wrp->pkt);
+        return LCB_SUCCESS;
+    };
+
+    lcb_STATUS rc = collcache_resolve(instance, &wrapper, operation, reschedule_clone, reschedule_destroy);
     return rc == LCB_SUCCESS;
 }
 
@@ -442,7 +516,9 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION) {
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
-        handle_unknown_collection(mcresp, request);
+        if (!handle_unknown_collection(mcresp, request)) {
+            mcreq_dispatch_response(this, request, &mcresp, LCB_ERR_TIMEOUT);
+        }
         DO_SWALLOW_PAYLOAD()
         goto GT_DONE;
     } else if ((unknown_err_rv = handle_unknown_error(request, mcresp, err_override)) != ERRMAP_HANDLE_CONTINUE) {
@@ -538,7 +614,7 @@ bool Server::maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err)
 
 static void fail_callback(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_STATUS err, void *)
 {
-    static_cast< Server * >(pipeline)->purge_single(pkt, err);
+    static_cast<Server *>(pipeline)->purge_single(pkt, err);
 }
 
 static const char *opcode_name(uint8_t code)
@@ -777,7 +853,7 @@ void mcreq_rearm_timeout(mc_PIPELINE *pipeline)
 
 static void timeout_server(void *arg)
 {
-    reinterpret_cast< Server * >(arg)->io_timeout();
+    reinterpret_cast<Server *>(arg)->io_timeout();
 }
 
 void Server::io_timeout()
@@ -823,7 +899,7 @@ bool Server::maybe_reconnect_on_fake_timeout(lcb_STATUS err)
 
 static void on_connected(lcbio_SOCKET *sock, void *data, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    Server *server = reinterpret_cast< Server * >(data);
+    Server *server = reinterpret_cast<Server *>(data);
     server->handle_connected(sock, err, syserr);
 }
 
@@ -892,7 +968,7 @@ void Server::connect()
 
 static void buf_done_cb(mc_PIPELINE *pl, const void *cookie, void *, void *)
 {
-    Server *server = static_cast< Server * >(pl);
+    Server *server = static_cast<Server *>(pl);
     server->instance->callbacks.pktflushed(server->instance, cookie);
 }
 
@@ -938,7 +1014,7 @@ Server::~Server()
         unsigned ii;
         mc_CMDQUEUE *cmdq = &this->instance->cmdq;
         for (ii = 0; ii < cmdq->npipelines; ii++) {
-            lcb::Server *server = static_cast< lcb::Server * >(cmdq->pipelines[ii]);
+            lcb::Server *server = static_cast<lcb::Server *>(cmdq->pipelines[ii]);
             if (server == this) {
                 cmdq->pipelines[ii] = NULL;
                 break;

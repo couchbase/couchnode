@@ -5,8 +5,8 @@ const testdata = require('./testdata');
 
 const H = require('./harness');
 
-describe('#n1ql', () => {
-  H.requireFeature(H.Features.N1ql, () => {
+describe('#query', () => {
+  H.requireFeature(H.Features.Query, () => {
     const testUid = H.genTestKey();
     const idxName = H.genTestKey();
     const sidxName = H.genTestKey();

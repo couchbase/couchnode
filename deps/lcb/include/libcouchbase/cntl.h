@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017-2019 Couchbase, Inc.
+ *     Copyright 2017-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ extern "C" {
  * @cntl_arg_both{lcb_U32*}
  * @committed
  */
-#define LCB_CNTL_N1QL_TIMEOUT 0x3D
+#define LCB_CNTL_QUERY_TIMEOUT 0x3D
 
 /**
  * @brief Get the name of the bucket
@@ -860,7 +860,7 @@ typedef enum {
 #define LCB_CNTL_MUTATION_TOKENS_SUPPORTED 0x38
 
 /**
- * This setting determines if calls to lcb_wait() and lcb_wait3() will reset
+ * This setting determines if calls to lcb_wait() and lcb_wait() will reset
  * the timeout of pending operations to the time that lcb_wait() was called,
  * rather than having the operation maintain the time of the call which
  * scheduled it. If the time between lcb_store3() and family and the lcb_wait()
@@ -880,7 +880,7 @@ typedef enum {
  * This does not take any arguments, and is valid only on @ref LCB_CNTL_SET
  * @uncommitted
  */
-#define LCB_CNTL_N1QL_CLEARACHE 0x3E
+#define LCB_CNTL_QUERY_CLEARACHE 0x3E
 
 /**
  * Sets additional text for negotiation. This allows wrappers or applications
@@ -1031,9 +1031,9 @@ typedef const char *lcb_BUCKETCRED[2];
 
 typedef enum {
     LCBTRACE_THRESHOLD_KV = 0,
-    LCBTRACE_THRESHOLD_N1QL,
+    LCBTRACE_THRESHOLD_QUERY,
     LCBTRACE_THRESHOLD_VIEW,
-    LCBTRACE_THRESHOLD_FTS,
+    LCBTRACE_THRESHOLD_SEARCH,
     LCBTRACE_THRESHOLD_ANALYTICS,
     LCBTRACE_THRESHOLD__MAX
 } lcbtrace_THRESHOLDOPTS;
@@ -1126,7 +1126,7 @@ typedef enum {
  * @cntl_arg_both{lcb_U32*}
  * @committed
  */
-#define LCB_CNTL_TRACING_THRESHOLD_N1QL 0x54
+#define LCB_CNTL_TRACING_THRESHOLD_QUERY 0x54
 
 /**
  * Minimum time for the tracing span of VIEW service to be considered by threshold tracer.
@@ -1146,7 +1146,7 @@ typedef enum {
  * @cntl_arg_both{lcb_U32*}
  * @committed
  */
-#define LCB_CNTL_TRACING_THRESHOLD_FTS 0x56
+#define LCB_CNTL_TRACING_THRESHOLD_SEARCH 0x56
 
 /**
  * Minimum time for the tracing span of ANALYTICS service to be considered by threshold tracer.

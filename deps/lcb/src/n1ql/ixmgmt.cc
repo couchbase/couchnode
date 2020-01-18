@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016-2019 Couchbase, Inc.
+ *     Copyright 2016-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ static lcb_STATUS get_n1ql_error(const char *s, size_t n)
 }
 
 // Called for generic operations and establishes existence or lack thereof
-static void cb_generic(lcb_INSTANCE *instance, int, const lcb_RESPN1QL *resp)
+static void cb_generic(lcb_INSTANCE *instance, int, const lcb_RESPQUERY *resp)
 {
     // Get the real cookie..
     if (!(resp->rflags & LCB_RESP_F_FINAL)) {
@@ -154,9 +154,9 @@ static void cb_generic(lcb_INSTANCE *instance, int, const lcb_RESPN1QL *resp)
  *
  * See other overload for passing just the query string w/o extra parameters
  */
-template < typename T >
+template <typename T>
 lcb_STATUS dispatch_common(lcb_INSTANCE *instance, const void *cookie, lcb_N1XMGMTCALLBACK u_callback,
-                           lcb_N1QL_CALLBACK i_callback, const char *s, size_t n, T *obj)
+                           lcb_QUERY_CALLBACK i_callback, const char *s, size_t n, T *obj)
 {
     lcb_STATUS rc = LCB_SUCCESS;
     bool our_alloc = false;
@@ -176,13 +176,13 @@ lcb_STATUS dispatch_common(lcb_INSTANCE *instance, const void *cookie, lcb_N1XMG
 
     obj->cookie = const_cast< void * >(cookie);
 
-    lcb_CMDN1QL *cmd;
-    lcb_cmdn1ql_create(&cmd);
-    lcb_cmdn1ql_payload(cmd, s, n);
-    lcb_cmdn1ql_callback(cmd, i_callback);
+    lcb_CMDQUERY *cmd;
+    lcb_cmdquery_create(&cmd);
+    lcb_cmdquery_payload(cmd, s, n);
+    lcb_cmdquery_callback(cmd, i_callback);
     lcb_log(LOGARGS(&ixwrap, DEBUG), LOGFMT "Issuing query %.*s", LOGID(obj), (int)n, s);
-    rc = lcb_n1ql(instance, obj, cmd);
-    lcb_cmdn1ql_destroy(cmd);
+    rc = lcb_query(instance, obj, cmd);
+    lcb_cmdquery_destroy(cmd);
 
 GT_ERROR:
     if (rc != LCB_SUCCESS && our_alloc) {
@@ -191,9 +191,9 @@ GT_ERROR:
     return rc;
 }
 
-template < typename T >
+template <typename T>
 lcb_STATUS dispatch_common(lcb_INSTANCE *instance, const void *cookie, lcb_N1XMGMTCALLBACK u_callback,
-                           lcb_N1QL_CALLBACK i_callback, const string &ss, T *obj = NULL)
+                           lcb_QUERY_CALLBACK i_callback, const string &ss, T *obj = NULL)
 {
     Json::Value root;
     root["statement"] = ss;
@@ -378,7 +378,7 @@ class ListIndexCtx : public IndexOpCtx
     }
 };
 
-static void cb_index_list(lcb_INSTANCE *instance, int, const lcb_RESPN1QL *resp)
+static void cb_index_list(lcb_INSTANCE *instance, int, const lcb_RESPQUERY *resp)
 {
     ListIndexCtx *ctx = reinterpret_cast< ListIndexCtx * >(resp->cookie);
     if (!(resp->rflags & LCB_RESP_F_FINAL)) {
@@ -470,7 +470,7 @@ class ListIndexCtx_BuildIndex : public ListIndexCtx
     inline lcb_STATUS try_build(lcb_INSTANCE *instance);
 };
 
-static void cb_build_submitted(lcb_INSTANCE *instance, int, const lcb_RESPN1QL *resp)
+static void cb_build_submitted(lcb_INSTANCE *instance, int, const lcb_RESPQUERY *resp)
 {
     ListIndexCtx *ctx = reinterpret_cast< ListIndexCtx * >(resp->cookie);
 

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ TEST_F(RegressionUnitTest, CCBC_150)
     callbackCounter++;
     EXPECT_EQ(LCB_SUCCESS, lcb_stats3(instance, ptr, &statCmd));
 
-    EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
+    EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
     ASSERT_TRUE(callbackInvoked);
     ASSERT_EQ(0, callbackCounter);
 }
@@ -134,7 +134,7 @@ TEST_F(RegressionUnitTest, CCBC_275)
     err = lcb_connect(instance);
     ASSERT_EQ(LCB_SUCCESS, err);
 
-    err = lcb_wait(instance);
+    err = lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, err);
 
     std::string key = "key_CCBC_275";
@@ -155,7 +155,7 @@ TEST_F(RegressionUnitTest, CCBC_275)
     lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback_275);
 
     ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &info, cmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, info.call_count);
 
     ASSERT_NE(0, LCB_ERROR_IS_NETWORK(info.last_err));
@@ -178,7 +178,7 @@ TEST_F(RegressionUnitTest, CCBC_275)
     mock->hiccupNodes(0, 0);
     info.call_count = 0;
     ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &info, cmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, info.call_count);
 
     ASSERT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, info.last_err);
@@ -194,14 +194,14 @@ TEST_F(MockUnitTest, testIssue59)
     HandleWrap hw;
     createConnection(hw, &instance);
 
-    lcb_wait(instance);
-    lcb_wait(instance);
-    lcb_wait(instance);
-    lcb_wait(instance);
-    lcb_wait(instance);
-    lcb_wait(instance);
-    lcb_wait(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
 extern "C" {

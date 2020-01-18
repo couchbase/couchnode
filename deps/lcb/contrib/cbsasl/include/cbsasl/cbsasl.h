@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013-2019 Couchbase, Inc.
+ *     Copyright 2013-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -236,13 +236,8 @@ extern "C" {
                                      cbsasl_conn_t **pconn);
 
     CBSASL_PUBLIC_API
-    cbsasl_error_t cbsasl_client_start(cbsasl_conn_t *conn,
-                                       const char *mechlist,
-                                       void **prompt_need,
-                                       const char **clientout,
-                                       unsigned int *clientoutlen,
-                                       const char **mech,
-                                       int allow_scram_sha);
+    cbsasl_error_t cbsasl_client_start(cbsasl_conn_t *conn, const char *mechlist, void **prompt_need,
+                                       const char **clientout, unsigned int *clientoutlen, const char **mech);
 
     CBSASL_PUBLIC_API
     cbsasl_error_t cbsasl_client_step(cbsasl_conn_t *conn,

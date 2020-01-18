@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2019 Couchbase, Inc.
+ *     Copyright 2011-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -775,7 +775,7 @@ class ThreadContext
         if (hasItems) {
             error = LCB_SUCCESS;
             lcb_sched_leave(instance);
-            lcb_wait(instance);
+            lcb_wait(instance, LCB_WAIT_DEFAULT);
         } else {
             lcb_sched_fail(instance);
         }
@@ -811,7 +811,7 @@ class ThreadContext
                 cookie->stats.retried++;
             }
             lcb_sched_leave(instance);
-            lcb_wait(instance);
+            lcb_wait(instance, LCB_WAIT_DEFAULT);
             if (error != LCB_SUCCESS) {
                 log("Operation(s) failed: %s", lcb_strerror_long(error));
             }
@@ -1350,7 +1350,7 @@ int main(int argc, char **argv)
         InstanceCookie *cookie = new InstanceCookie(instance);
 
         lcb_connect(instance);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
         error = lcb_get_bootstrap_status(instance);
 
         if (error != LCB_SUCCESS) {

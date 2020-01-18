@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2019 Couchbase, Inc.
+ *     Copyright 2011-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ static void storeGetStok(lcb_INSTANCE *instance, const string &k, const string &
     EXPECT_EQ(LCB_SUCCESS, rc);
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     lcb_install_callback(instance, LCB_CALLBACK_STORE, oldcb);
 }
 
@@ -102,7 +102,7 @@ static void doObserveSeqno(lcb_INSTANCE *instance, lcb_MUTATION_TOKEN *ss, int s
     lcb_RESPCALLBACK oldcb = lcb_get_callback(instance, LCB_CALLBACK_OBSEQNO);
     lcb_install_callback(instance, LCB_CALLBACK_OBSEQNO, (lcb_RESPCALLBACK)obseqCallback);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     lcb_install_callback(instance, LCB_CALLBACK_OBSEQNO, oldcb);
 }
 

@@ -1,5 +1,23 @@
 # Release Notes
 
+## 3.0.0 (2020-01-17)
+
+* CCBC-1152: Enable `SCRAM-SHA*` SASL by default.
+* CCBC-1153: Renamed `lcb_wait3` to `lcb_wait`.
+* CCBC-1147: Return `LCB_SUCCESS` for `lcb_exists` when the document is missing. `lcb_respexists_is_found` should be used on its response object to check the presense of the document.
+* CCBC-1152: Do not allow to use SASL PLAIN on non-TLS connections. Compiling libcouchbase with OpenSSL is strongly recommended.
+* CCBC-1032: Use operation node to resolve collection and return timeout when collection cannot be resolved
+* Added shortcut for query options to request metrics
+* Do not fallback to single subdocument API when only one specification passed to `lcb_subdoc`.
+* CCBC-1137: Allow to retrieve error context for HTTP response (`lcb_http` API)
+* CCBC-1145: Expose endpoints in error context.
+* CCBC-1146: Expose user-cookie in retry handler.
+* CCBC-1148: Added NULL checks for enhanced error info.
+* CCBC-1075: Renamed "FTS" to "SEARCH" in the APIs.
+* CCBC-1073: Renamed "N1QL" to "QUERY" in the APIs.
+* Fixed bucketless bootstrap for Server 6.0.
+* Fixed various memory leaks. Improved build, testing and packaging systems.
+
 ## 3.0.0-beta.2 (2019-12-23)
 
 * CCBC-1066: Update retry framework to retry handling RFC

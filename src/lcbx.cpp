@@ -55,9 +55,9 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDVIEW **cmd)
     return lcb_cmdview_create(cmd);
 }
 
-lcb_STATUS lcbx_cmd_create(lcb_CMDN1QL **cmd)
+lcb_STATUS lcbx_cmd_create(lcb_CMDQUERY **cmd)
 {
-    return lcb_cmdn1ql_create(cmd);
+    return lcb_cmdquery_create(cmd);
 }
 
 lcb_STATUS lcbx_cmd_create(lcb_CMDANALYTICS **cmd)
@@ -65,9 +65,9 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDANALYTICS **cmd)
     return lcb_cmdanalytics_create(cmd);
 }
 
-lcb_STATUS lcbx_cmd_create(lcb_CMDFTS **cmd)
+lcb_STATUS lcbx_cmd_create(lcb_CMDSEARCH **cmd)
 {
-    return lcb_cmdfts_create(cmd);
+    return lcb_cmdsearch_create(cmd);
 }
 
 lcb_STATUS lcbx_cmd_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type)
@@ -140,9 +140,9 @@ lcb_STATUS lcbx_cmd_destroy(lcb_CMDVIEW *cmd)
     return lcb_cmdview_destroy(cmd);
 }
 
-lcb_STATUS lcbx_cmd_destroy(lcb_CMDN1QL *cmd)
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDQUERY *cmd)
 {
-    return lcb_cmdn1ql_destroy(cmd);
+    return lcb_cmdquery_destroy(cmd);
 }
 
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDANALYTICS *cmd)
@@ -150,9 +150,9 @@ lcb_STATUS lcbx_cmd_destroy(lcb_CMDANALYTICS *cmd)
     return lcb_cmdanalytics_destroy(cmd);
 }
 
-lcb_STATUS lcbx_cmd_destroy(lcb_CMDFTS *cmd)
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDSEARCH *cmd)
 {
-    return lcb_cmdfts_destroy(cmd);
+    return lcb_cmdsearch_destroy(cmd);
 }
 
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDHTTP *cmd)

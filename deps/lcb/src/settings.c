@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2019 Couchbase, Inc.
+ *     Copyright 2014-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->bc_http_urltype = LCB_DEFAULT_HTCONFIG_URLTYPE;
     settings->compressopts = LCB_DEFAULT_COMPRESSOPTS;
     settings->compress_min_size = LCB_DEFAULT_COMPRESS_MIN_SIZE;
-    settings->compress_min_ratio = LCB_DEFAULT_COMPRESS_MIN_RATIO;
+    settings->compress_min_ratio = (float)LCB_DEFAULT_COMPRESS_MIN_RATIO;
     settings->allocator_factory = rdb_bigalloc_new;
     settings->detailed_neterr = 0;
     settings->refresh_on_hterr = 1;
@@ -73,9 +73,9 @@ void lcb_default_settings(lcb_settings *settings)
     settings->tracer_threshold_queue_flush_interval = LCBTRACE_DEFAULT_THRESHOLD_QUEUE_FLUSH_INTERVAL;
     settings->tracer_threshold_queue_size = LCBTRACE_DEFAULT_THRESHOLD_QUEUE_SIZE;
     settings->tracer_threshold[LCBTRACE_THRESHOLD_KV] = LCBTRACE_DEFAULT_THRESHOLD_KV;
-    settings->tracer_threshold[LCBTRACE_THRESHOLD_N1QL] = LCBTRACE_DEFAULT_THRESHOLD_N1QL;
+    settings->tracer_threshold[LCBTRACE_THRESHOLD_QUERY] = LCBTRACE_DEFAULT_THRESHOLD_N1QL;
     settings->tracer_threshold[LCBTRACE_THRESHOLD_VIEW] = LCBTRACE_DEFAULT_THRESHOLD_VIEW;
-    settings->tracer_threshold[LCBTRACE_THRESHOLD_FTS] = LCBTRACE_DEFAULT_THRESHOLD_FTS;
+    settings->tracer_threshold[LCBTRACE_THRESHOLD_SEARCH] = LCBTRACE_DEFAULT_THRESHOLD_FTS;
     settings->tracer_threshold[LCBTRACE_THRESHOLD_ANALYTICS] = LCBTRACE_DEFAULT_THRESHOLD_ANALYTICS;
     settings->wait_for_config = 0;
     settings->enable_durable_write = 0;

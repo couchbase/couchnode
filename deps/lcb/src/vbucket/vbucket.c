@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2019 Couchbase, Inc.
+ *     Copyright 2014-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -574,17 +574,23 @@ static void guess_network(cJSON *jnodes, int nsrv, const char *source, char **ne
 
 int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char **network)
 {
-    cJSON *cj = NULL, *jnodes_ext = NULL, *jnodes = NULL;
+    cJSON *cj = NULL, *jnodes_ext = NULL, *jnodes = NULL, *buckets = NULL;
     char *tmp = NULL;
     unsigned ii, jnodes_size = 0;
     int jnodes_defined = 0;
+    int is_cluster_cfg = 0;
 
     if ((cj = cJSON_Parse(data)) == NULL) {
         SET_ERRSTR(cfg, "Couldn't parse JSON");
         goto GT_ERROR;
     }
 
-    if (get_jstr(cj, "name", &tmp)) {
+    buckets = cJSON_GetObjectItem(cj, "buckets");
+    if (buckets != NULL && buckets->type != cJSON_Array) {
+        is_cluster_cfg = 1;
+    }
+
+    if (!is_cluster_cfg && get_jstr(cj, "name", &tmp)) {
         cfg->bname = strdup(tmp);
         cfg->bname_len = strlen(cfg->bname);
     }
@@ -1057,6 +1063,9 @@ int lcbvb_k2vb(lcbvb_CONFIG *cfg, const void *k, lcb_SIZE n)
 
 int lcbvb_vbmaster(lcbvb_CONFIG *cfg, int vbid)
 {
+    if (cfg->dtype != LCBVB_DIST_VBUCKET) {
+        return -1;
+    }
     return cfg->vbuckets[vbid].servers[0];
 }
 
@@ -1151,11 +1160,16 @@ int lcbvb_map_key(lcbvb_CONFIG *cfg, const void *key, lcb_SIZE nkey, int *vbid, 
             *vbid = 0;
         }
         return 0;
-    } else {
+    } else if (cfg->dtype == LCBVB_DIST_VBUCKET) {
         int vb = lcbvb_k2vb(cfg, key, nkey);
         *srvix = lcbvb_vbmaster(cfg, vb);
         if (vbid) {
             *vbid = vb;
+        }
+    } else {
+        *srvix = -1;
+        if (vbid) {
+            *vbid = 0;
         }
     }
     return 0;
@@ -1325,9 +1339,9 @@ unsigned lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbv
             return svc->ixadmin;
         case LCBVB_SVCTYPE_IXQUERY:
             return svc->ixquery;
-        case LCBVB_SVCTYPE_N1QL:
+        case LCBVB_SVCTYPE_QUERY:
             return svc->n1ql;
-        case LCBVB_SVCTYPE_FTS:
+        case LCBVB_SVCTYPE_SEARCH:
             return svc->fts;
         case LCBVB_SVCTYPE_CBAS:
             return svc->cbas;
@@ -1398,7 +1412,7 @@ int lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVC
 
         has_svc = (type == LCBVB_SVCTYPE_DATA && svcs->data) || (type == LCBVB_SVCTYPE_IXADMIN && svcs->ixadmin) ||
                   (type == LCBVB_SVCTYPE_IXQUERY && svcs->ixquery) || (type == LCBVB_SVCTYPE_MGMT && svcs->mgmt) ||
-                  (type == LCBVB_SVCTYPE_N1QL && svcs->n1ql) || (type == LCBVB_SVCTYPE_FTS && svcs->fts) ||
+                  (type == LCBVB_SVCTYPE_QUERY && svcs->n1ql) || (type == LCBVB_SVCTYPE_SEARCH && svcs->fts) ||
                   (type == LCBVB_SVCTYPE_VIEWS && svcs->views) || (type == LCBVB_SVCTYPE_CBAS && svcs->cbas);
 
         if (has_svc) {
@@ -1448,10 +1462,10 @@ const char *lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE svc,
     if (svc == LCBVB_SVCTYPE_VIEWS) {
         path = srv->viewpath;
         strp = &svcs->views_base_;
-    } else if (svc == LCBVB_SVCTYPE_N1QL) {
+    } else if (svc == LCBVB_SVCTYPE_QUERY) {
         path = srv->querypath;
         strp = &svcs->query_base_;
-    } else if (svc == LCBVB_SVCTYPE_FTS) {
+    } else if (svc == LCBVB_SVCTYPE_SEARCH) {
         path = srv->ftspath;
         strp = &svcs->fts_base_;
     } else if (svc == LCBVB_SVCTYPE_ANALYTICS) {

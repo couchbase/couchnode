@@ -81,9 +81,9 @@ NAN_MODULE_INIT(Connection::Init)
     Nan::SetPrototypeMethod(tpl, "lookupIn", fnLookupIn);
     Nan::SetPrototypeMethod(tpl, "mutateIn", fnMutateIn);
     Nan::SetPrototypeMethod(tpl, "viewQuery", fnViewQuery);
-    Nan::SetPrototypeMethod(tpl, "n1qlQuery", fnN1qlQuery);
+    Nan::SetPrototypeMethod(tpl, "query", fnQuery);
     Nan::SetPrototypeMethod(tpl, "analyticsQuery", fnAnalyticsQuery);
-    Nan::SetPrototypeMethod(tpl, "ftsQuery", fnFtsQuery);
+    Nan::SetPrototypeMethod(tpl, "searchQuery", fnSearchQuery);
     Nan::SetPrototypeMethod(tpl, "httpRequest", fnHttpRequest);
     Nan::SetPrototypeMethod(tpl, "ping", fnPing);
     Nan::SetPrototypeMethod(tpl, "diag", fnDiag);
@@ -384,7 +384,7 @@ CntlFormat getCntlFormat(int option)
     switch (option) {
     case LCB_CNTL_CONFIGURATION_TIMEOUT:
     case LCB_CNTL_VIEW_TIMEOUT:
-    case LCB_CNTL_N1QL_TIMEOUT:
+    case LCB_CNTL_QUERY_TIMEOUT:
     case LCB_CNTL_HTTP_TIMEOUT:
     case LCB_CNTL_DURABILITY_INTERVAL:
     case LCB_CNTL_DURABILITY_TIMEOUT:

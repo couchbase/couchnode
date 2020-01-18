@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -229,21 +229,25 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_context(const lcb_KEY_VALUE_ERROR_CONT
                                                   size_t *context_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_ref(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **ref,
                                               size_t *ref_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_endpoint(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                   size_t *endpoint_len);
 
-typedef struct lcb_N1QL_ERROR_CONTEXT_ lcb_N1QL_ERROR_CONTEXT;
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_rc(const lcb_N1QL_ERROR_CONTEXT *ctx);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_first_error_code(const lcb_N1QL_ERROR_CONTEXT *ctx, uint32_t *code);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_first_error_message(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **message,
-                                                                size_t *message_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_statement(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **statement,
-                                                      size_t *statement_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_client_context_id(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **id,
-                                                              size_t *id_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_query_params(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **params,
-                                                         size_t *params_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_http_response_code(const lcb_N1QL_ERROR_CONTEXT *ctx, uint32_t *code);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_http_response_body(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **body,
-                                                               size_t *body_len);
+typedef struct lcb_QUERY_ERROR_CONTEXT_ lcb_QUERY_ERROR_CONTEXT;
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_rc(const lcb_QUERY_ERROR_CONTEXT *ctx);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_first_error_code(const lcb_QUERY_ERROR_CONTEXT *ctx, uint32_t *code);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_first_error_message(const lcb_QUERY_ERROR_CONTEXT *ctx,
+                                                                 const char **message, size_t *message_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_statement(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **statement,
+                                                       size_t *statement_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_client_context_id(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **id,
+                                                               size_t *id_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_query_params(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **params,
+                                                          size_t *params_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_http_response_code(const lcb_QUERY_ERROR_CONTEXT *ctx, uint32_t *code);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_http_response_body(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **body,
+                                                                size_t *body_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_endpoint(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                      size_t *endpoint_len);
 
 typedef struct lcb_ANALYTICS_ERROR_CONTEXT_ lcb_ANALYTICS_ERROR_CONTEXT;
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_rc(const lcb_ANALYTICS_ERROR_CONTEXT *ctx);
@@ -261,6 +265,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_http_response_code(const lcb_AN
                                                                     uint32_t *code);
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_http_response_body(const lcb_ANALYTICS_ERROR_CONTEXT *ctx,
                                                                     const char **body, size_t *body_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_endpoint(const lcb_ANALYTICS_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                          size_t *endpoint_len);
 
 typedef struct lcb_VIEW_ERROR_CONTEXT_ lcb_VIEW_ERROR_CONTEXT;
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_rc(const lcb_VIEW_ERROR_CONTEXT *ctx);
@@ -277,20 +283,24 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_query_params(const lcb_VIEW_ERROR_CO
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_http_response_code(const lcb_VIEW_ERROR_CONTEXT *ctx, uint32_t *code);
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_http_response_body(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **body,
                                                                size_t *body_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_endpoint(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                     size_t *endpoint_len);
 
-typedef struct lcb_FTS_ERROR_CONTEXT_ lcb_FTS_ERROR_CONTEXT;
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_rc(const lcb_FTS_ERROR_CONTEXT *ctx);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_error_message(const lcb_FTS_ERROR_CONTEXT *ctx, const char **message,
-                                                         size_t *message_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_index_name(const lcb_FTS_ERROR_CONTEXT *ctx, const char **name,
-                                                      size_t *name_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_search_query(const lcb_FTS_ERROR_CONTEXT *ctx, const char **query,
-                                                        size_t *query_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_search_params(const lcb_FTS_ERROR_CONTEXT *ctx, const char **params,
-                                                         size_t *params_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_http_response_code(const lcb_FTS_ERROR_CONTEXT *ctx, uint32_t *code);
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_http_response_body(const lcb_FTS_ERROR_CONTEXT *ctx, const char **body,
-                                                              size_t *body_len);
+typedef struct lcb_SEARCH_ERROR_CONTEXT_ lcb_SEARCH_ERROR_CONTEXT;
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_rc(const lcb_SEARCH_ERROR_CONTEXT *ctx);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_error_message(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **message,
+                                                            size_t *message_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_index_name(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **name,
+                                                         size_t *name_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_query(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **query,
+                                                    size_t *query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_params(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **params,
+                                                     size_t *params_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_http_response_code(const lcb_SEARCH_ERROR_CONTEXT *ctx, uint32_t *code);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_http_response_body(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **body,
+                                                                 size_t *body_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_endpoint(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                       size_t *endpoint_len);
 
 typedef struct lcb_HTTP_ERROR_CONTEXT_ lcb_HTTP_ERROR_CONTEXT;
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_rc(const lcb_HTTP_ERROR_CONTEXT *ctx);
@@ -299,6 +309,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_path(const lcb_HTTP_ERROR_CONTEXT *c
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_response_code(const lcb_HTTP_ERROR_CONTEXT *ctx, uint32_t *code);
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_response_body(const lcb_HTTP_ERROR_CONTEXT *ctx, const char **body,
                                                           size_t *body_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_endpoint(const lcb_HTTP_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                     size_t *endpoint_len);
+
 /**
  * @brief Get error categories for a specific code
  * @param err the error received
@@ -378,6 +391,7 @@ LIBCOUCHBASE_API int lcb_retry_reason_is_always_retry(lcb_RETRY_REASON code);
 
 LIBCOUCHBASE_API int lcb_retry_request_is_idempotent(lcb_RETRY_REQUEST *req);
 LIBCOUCHBASE_API int lcb_retry_request_retry_attempts(lcb_RETRY_REQUEST *req);
+LIBCOUCHBASE_API void *lcb_retry_request_operation_cookie(lcb_RETRY_REQUEST *req);
 
 typedef struct {
     uint32_t should_retry;

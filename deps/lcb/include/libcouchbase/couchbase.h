@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2019 Couchbase, Inc.
+ *     Copyright 2010-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -328,7 +328,7 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options);
  * if (rc != LCB_SUCCESS) {
  *    your_error_handling(rc);
  * }
- * lcb_wait(instance);
+ * lcb_wait(instance, LCB_WAIT_DEFAULT);
  * rc = lcb_get_bootstrap_status(instance);
  * if (rc != LCB_SUCCESS) {
  *    your_error_handler(rc);
@@ -497,7 +497,7 @@ typedef enum {
 #define LCB_CALLBACK_VIEWQUERY -1
 
 /** Callback type for N1QL (cannot be used for lcb_install_callback3()) */
-#define LCB_CALLBACK_N1QL -2
+#define LCB_CALLBACK_QUERY -2
 
 /** Callback type for N1QL index management (cannot be used for lcb_install_callback3()) */
 #define LCB_CALLBACK_IXMGMT -3
@@ -506,7 +506,7 @@ typedef enum {
 #define LCB_CALLBACK_ANALYTICS -4
 
 /** Callback type for Search (cannot be used for lcb_install_callback3()) */
-#define LCB_CALLBACK_FTS -5
+#define LCB_CALLBACK_SEARCH -5
 
 #define LCB_CALLBACK_OPEN -6
 
@@ -525,7 +525,7 @@ typedef enum {
     /**
      * As majority, but additionally persisted to the active node.
      */
-    LCB_DURABILITYLEVEL_MAJORITY_AND_PERSIST_ON_MASTER = 0x02,
+    LCB_DURABILITYLEVEL_MAJORITY_AND_PERSIST_TO_ACTIVE = 0x02,
     /**
      * Mutation must be persisted to (i.e. written and fsync'd to disk) a
      * majority of the configured nodes of the bucket.
@@ -775,8 +775,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_key(const lcb_RESPGETREPLICA *res
 LIBCOUCHBASE_API lcb_STATUS lcb_respgetreplica_value(const lcb_RESPGETREPLICA *resp, const char **value,
                                                      size_t *value_len);
 LIBCOUCHBASE_API int lcb_respgetreplica_is_final(const lcb_RESPGETREPLICA *resp);
-LCB_DEPRECATED2(LIBCOUCHBASE_API int lcb_respreplica_is_final(const lcb_RESPGETREPLICA *resp),
-                "Use lcb_respgetreplica_is_final() instead");
 
 typedef struct lcb_CMDGETREPLICA_ lcb_CMDGETREPLICA;
 
@@ -794,8 +792,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_getreplica(lcb_INSTANCE *instance, void *cookie,
 typedef struct lcb_RESPEXISTS_ lcb_RESPEXISTS;
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_status(const lcb_RESPEXISTS *resp);
-LCB_DEPRECATED2(LIBCOUCHBASE_API int lcb_respexists_is_persisted(const lcb_RESPEXISTS *resp),
-                "This function will be removed in GA");
 LIBCOUCHBASE_API int lcb_respexists_is_found(const lcb_RESPEXISTS *resp);
 LIBCOUCHBASE_API lcb_STATUS lcb_respexists_error_context(const lcb_RESPEXISTS *resp,
                                                          const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
@@ -882,7 +878,7 @@ typedef enum {
  * cmd.operation = LCB_ADD; // Only create if it does not exist
  * cmd.exptime = 60; // expire in a minute
  * lcb_store3(instance, cookie, &cmd);
- * lcb_wait3(instance, LCB_WAIT_NOCHECK);
+ * lcb_wait(instance, LCB_WAIT_NOCHECK);
  * @endcode
  *
  * ### Response
@@ -1064,7 +1060,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, con
  * cmd.initial = 42; // Default value is 42 if it does not exist
  * cmd.exptime = 300; // Expire in 5 minutes
  * lcb_counter3(instance, NULL, &cmd);
- * lcb_wait3(instance, LCB_WAIT_NOCHECK);
+ * lcb_wait(instance, LCB_WAIT_NOCHECK);
  * @endcode
  *
  * @par Response
@@ -1281,8 +1277,8 @@ typedef enum {
 typedef enum {
     LCB_PING_SERVICE_KV = 0,
     LCB_PING_SERVICE_VIEWS,
-    LCB_PING_SERVICE_N1QL,
-    LCB_PING_SERVICE_FTS,
+    LCB_PING_SERVICE_QUERY,
+    LCB_PING_SERVICE_SEARCH,
     LCB_PING_SERVICE_ANALYTICS,
     LCB_PING_SERVICE__MAX
 } lcb_PING_SERVICE;
@@ -1313,9 +1309,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_parent_span(lcb_CMDPING *cmd, lcbtrace_S
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_report_id(lcb_CMDPING *cmd, const char *report_id, size_t report_id_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_all(lcb_CMDPING *cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_kv(lcb_CMDPING *cmd, int enable);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_n1ql(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_query(lcb_CMDPING *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_views(lcb_CMDPING *cmd, int enable);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_fts(lcb_CMDPING *cmd, int enable);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_search(lcb_CMDPING *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_analytics(lcb_CMDPING *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_no_metrics(lcb_CMDPING *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_encode_json(lcb_CMDPING *cmd, int enable, int pretty, int with_details);
@@ -1330,7 +1326,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const
  * @code{.c}
  * lcb_CMDDIAG cmd = { 0 };
  * lcb_diag(instance, fp, &cmd);
- * lcb_wait(instance);
+ * lcb_wait(instance, LCB_WAIT_DEFAULT);
  * @endcode
  *
  * @par Response
@@ -1408,10 +1404,10 @@ typedef enum {
     LCB_HTTP_TYPE_RAW = 2,
 
     /** Execute an N1QL Query */
-    LCB_HTTP_TYPE_N1QL = 3,
+    LCB_HTTP_TYPE_QUERY = 3,
 
     /** Search a fulltext index */
-    LCB_HTTP_TYPE_FTS = 4,
+    LCB_HTTP_TYPE_SEARCH = 4,
 
     /** Execute an Analytics Query */
     LCB_HTTP_TYPE_CBAS = 5,
@@ -1503,6 +1499,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_http_status(const lcb_RESPHTTP *resp, u
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_path(const lcb_RESPHTTP *resp, const char **path, size_t *path_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_body(const lcb_RESPHTTP *resp, const char **body, size_t *body_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_handle(const lcb_RESPHTTP *resp, lcb_HTTP_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_error_context(const lcb_RESPHTTP *resp, const lcb_HTTP_ERROR_CONTEXT **ctx);
+
 LIBCOUCHBASE_API int lcb_resphttp_is_final(const lcb_RESPHTTP *resp);
 /**
  * List of key-value headers. This field itself may be `NULL`. The list
@@ -1614,7 +1612,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_http_cancel(lcb_INSTANCE *instance, lcb_HTTP_HAN
  *   lcb_set_cookie(instance, info);
  *   lcb_set_bootstrap_callback(instance, bootstrap_callback);
  *   lcb_connect(instance);
- *   lcb_wait(instance);
+ *   lcb_wait(instance, LCB_WAIT_DEFAULT);
  *   printf("Status of instance is %s\n", info->status);
  * }
  * @endcode
@@ -1646,26 +1644,6 @@ const void *lcb_get_cookie(lcb_INSTANCE *instance);
  */
 
 /**
- * @brief Wait for the execution of all batched requests
- *
- * A batched request is any request which requires network I/O.
- * This includes most of the APIs. You should _not_ use this API if you are
- * integrating with an asynchronous event loop (i.e. one where your application
- * code is invoked asynchronously via event loops).
- *
- * This function will block the calling thread until either
- *
- * * All operations have been completed
- * * lcb_breakout() is explicitly called
- *
- * @param instance the instance containing the requests
- * @return whether the wait operation failed, or LCB_SUCCESS
- * @committed
- */
-LIBCOUCHBASE_API
-lcb_STATUS lcb_wait(lcb_INSTANCE *instance);
-
-/**
  * @volatile
  * This function will cause a single "tick" in the underlying event loop,
  * causing operations whose I/O can be executed immediately to be sent to
@@ -1694,7 +1672,7 @@ lcb_STATUS lcb_wait(lcb_INSTANCE *instance);
 LIBCOUCHBASE_API
 lcb_STATUS lcb_tick_nowait(lcb_INSTANCE *instance);
 
-/**@brief Flags for lcb_wait3()*/
+/**@brief Flags for lcb_wait()*/
 typedef enum {
     /**Behave like the old lcb_wait()*/
     LCB_WAIT_DEFAULT = 0x00,
@@ -1717,7 +1695,7 @@ typedef enum {
  * behavior identical to lcb_wait().
  */
 LIBCOUCHBASE_API
-void lcb_wait3(lcb_INSTANCE *instance, lcb_WAITFLAGS flags);
+lcb_STATUS lcb_wait(lcb_INSTANCE *instance, lcb_WAITFLAGS flags);
 
 /**
  * @brief Forcefully break from the event loop.
@@ -1769,7 +1747,7 @@ int lcb_is_waiting(lcb_INSTANCE *instance);
  * This function is provided as an aid to assist in such situations
  *
  * If you wish for your application to block until a new configuration is
- * received, you _must_ call lcb_wait3() with the LCB_WAIT_NO_CHECK flag as
+ * received, you _must_ call lcb_wait() with the LCB_WAIT_NO_CHECK flag as
  * this function call is not bound to a specific operation. Additionally there
  * is no status notification as to whether this operation succeeded or failed
  * (the configuration callback via lcb_set_configuration_callback() may
@@ -1787,13 +1765,13 @@ int lcb_is_waiting(lcb_INSTANCE *instance);
  *   if (err == LCB_ERR_NO_MATCHING_SERVER) {
  *     lcb_refresh_config(instance);
  *     usleep(100000);
- *     lcb_wait3(instance, LCB_WAIT_NO_CHECK);
+ *     lcb_wait(instance, LCB_WAIT_NO_CHECK);
  *   } else {
  *     break;
  *   }
  * } while (retries);
  * if (err == LCB_SUCCESS) {
- *   lcb_wait3(instance, 0); // equivalent to lcb_wait(instance);
+ *   lcb_wait(instance, 0); // equivalent to lcb_wait(instance, LCB_WAIT_DEFAULT);
  * } else {
  *   printf("Tried multiple times to fetch the key, but its node is down\n");
  * }
@@ -1873,7 +1851,7 @@ void lcb_refresh_config(lcb_INSTANCE *instance);
  * lcb_store3(...);
  * lcb_counter3(...);
  * lcb_sched_leave(instance);
- * lcb_wait3(instance, LCB_WAIT_NOCHECK);
+ * lcb_wait(instance, LCB_WAIT_NOCHECK);
  * @endcode
  */
 LIBCOUCHBASE_API
@@ -2112,7 +2090,7 @@ lcb_STATUS lcb_cntl(lcb_INSTANCE *instance, int mode, int cmd, void *arg);
  * |-----------------------------------------|---------------------------|-------------------|
  * |@ref LCB_CNTL_OP_TIMEOUT                 | `"operation_timeout"`     | Timeval           |
  * |@ref LCB_CNTL_VIEW_TIMEOUT               | `"view_timeout"`          | Timeval           |
- * |@ref LCB_CNTL_N1QL_TIMEOUT               | `"n1ql_timeout"`          | Timeval           |
+ * |@ref LCB_CNTL_QUERY_TIMEOUT               | `"n1ql_timeout"`          | Timeval           |
  * |@ref LCB_CNTL_HTTP_TIMEOUT               | `"http_timeout"`          | Timeval           |
  * |@ref LCB_CNTL_CONFIG_POLL_INTERVAL       | `"config_poll_interval"`  | Timeval           |
  * |@ref LCB_CNTL_CONFERRTHRESH              | `"error_thresh_count"`    | Number (Positive) |
@@ -2372,29 +2350,30 @@ LIBCOUCHBASE_API lcb_STATUS lcb_analytics_cancel(lcb_INSTANCE *instance, lcb_ANA
  * @addtogroup lcb-cbft-api
  * @{
  */
-typedef struct lcb_FTS_HANDLE_ lcb_FTS_HANDLE;
-typedef struct lcb_RESPFTS_ lcb_RESPFTS;
+typedef struct lcb_SEARCH_HANDLE_ lcb_SEARCH_HANDLE;
+typedef struct lcb_RESPSEARCH_ lcb_RESPSEARCH;
 
-LIBCOUCHBASE_API lcb_STATUS lcb_respfts_status(const lcb_RESPFTS *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respfts_cookie(const lcb_RESPFTS *resp, void **cookie);
-LIBCOUCHBASE_API lcb_STATUS lcb_respfts_row(const lcb_RESPFTS *resp, const char **row, size_t *row_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respfts_http_response(const lcb_RESPFTS *resp, const lcb_RESPHTTP **http);
-LIBCOUCHBASE_API lcb_STATUS lcb_respfts_handle(const lcb_RESPFTS *resp, lcb_FTS_HANDLE **handle);
-LIBCOUCHBASE_API lcb_STATUS lcb_respfts_error_context(const lcb_RESPFTS *resp, const lcb_FTS_ERROR_CONTEXT **ctx);
-LIBCOUCHBASE_API int lcb_respfts_is_final(const lcb_RESPFTS *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_status(const lcb_RESPSEARCH *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_cookie(const lcb_RESPSEARCH *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_row(const lcb_RESPSEARCH *resp, const char **row, size_t *row_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_http_response(const lcb_RESPSEARCH *resp, const lcb_RESPHTTP **http);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_handle(const lcb_RESPSEARCH *resp, lcb_SEARCH_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_error_context(const lcb_RESPSEARCH *resp,
+                                                         const lcb_SEARCH_ERROR_CONTEXT **ctx);
+LIBCOUCHBASE_API int lcb_respsearch_is_final(const lcb_RESPSEARCH *resp);
 
-typedef struct lcb_CMDFTS_ lcb_CMDFTS;
-typedef void (*lcb_FTS_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPFTS *);
+typedef struct lcb_CMDSEARCH_ lcb_CMDSEARCH;
+typedef void (*lcb_SEARCH_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPSEARCH *);
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_create(lcb_CMDFTS **cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_destroy(lcb_CMDFTS *cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_parent_span(lcb_CMDFTS *cmd, lcbtrace_SPAN *span);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_callback(lcb_CMDFTS *cmd, lcb_FTS_CALLBACK callback);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_payload(lcb_CMDFTS *cmd, const char *payload, size_t payload_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_handle(lcb_CMDFTS *cmd, lcb_FTS_HANDLE **handle);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdfts_timeout(lcb_CMDFTS *cmd, uint32_t timeout);
-LIBCOUCHBASE_API lcb_STATUS lcb_fts(lcb_INSTANCE *instance, void *cookie, const lcb_CMDFTS *cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_fts_cancel(lcb_INSTANCE *instance, lcb_FTS_HANDLE *handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_create(lcb_CMDSEARCH **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_destroy(lcb_CMDSEARCH *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_parent_span(lcb_CMDSEARCH *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_callback(lcb_CMDSEARCH *cmd, lcb_SEARCH_CALLBACK callback);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_payload(lcb_CMDSEARCH *cmd, const char *payload, size_t payload_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_handle(lcb_CMDSEARCH *cmd, lcb_SEARCH_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_timeout(lcb_CMDSEARCH *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_search(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSEARCH *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_search_cancel(lcb_INSTANCE *instance, lcb_SEARCH_HANDLE *handle);
 /** @} */
 
 /**
@@ -2408,7 +2387,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_fts_cancel(lcb_INSTANCE *instance, lcb_FTS_HANDL
  *
  * @code{.c}
  * const char *query = "{\"statement\":\"SELECT * FROM breweries LIMIT 10\"}";
- * lcb_CMDN1QL cmd = {0};
+ * lcb_CMDQUERY cmd = {0};
  * int idx = 0;
  * // NOTE: with this flag, the request will be issued to Analytics service
  * cmd.cmdflags = LCB_CMDN1QL_F_ANALYTICSQUERY;
@@ -2416,13 +2395,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_fts_cancel(lcb_INSTANCE *instance, lcb_FTS_HANDL
  * cmd.query = query;
  * cmd.nquery = strlen(query);
  * lcb_n1ql_query(instance, &idx, &cmd);
- * lcb_wait(instance);
+ * lcb_wait(instance, LCB_WAIT_DEFAULT);
  * @endcode
  *
  * Where row_callback might be implemented like this:
  *
  * @code{.c}
- * static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPN1QL *resp)
+ * static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPQUERY *resp)
  * {
  *     int *idx = (int *)resp->cookie;
  *     if (resp->ctx.rc != LCB_SUCCESS) {
@@ -2438,7 +2417,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_fts_cancel(lcb_INSTANCE *instance, lcb_FTS_HANDL
  * }
  * @endcode
  *
- * @see more details on @ref lcb_n1ql_query and @ref lcb_CMDN1QL.
+ * @see more details on @ref lcb_n1ql_query and @ref lcb_CMDQUERY.
  *
  * Also there is a query builder available for N1QL queries: @ref lcb_n1p_new/@ref lcb_n1p_mkcmd.
  */
@@ -2447,75 +2426,76 @@ LIBCOUCHBASE_API lcb_STATUS lcb_fts_cancel(lcb_INSTANCE *instance, lcb_FTS_HANDL
  * @addtogroup lcb-n1ql-api
  * @{
  */
-typedef struct lcb_RESPN1QL_ lcb_RESPN1QL;
-typedef struct lcb_CMDN1QL_ lcb_CMDN1QL;
+typedef struct lcb_RESPQUERY_ lcb_RESPQUERY;
+typedef struct lcb_CMDQUERY_ lcb_CMDQUERY;
 /**
  * Pointer for request instance
  */
-typedef struct lcb_N1QL_HANDLE_ lcb_N1QL_HANDLE;
+typedef struct lcb_QUERY_HANDLE_ lcb_QUERY_HANDLE;
 
 /**
  * Callback to be invoked for each row
  * @param The instance
- * @param Callback type. This is set to @ref LCB_CALLBACK_N1QL
+ * @param Callback type. This is set to @ref LCB_CALLBACK_QUERY
  * @param The response.
  */
-typedef void (*lcb_N1QL_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPN1QL *);
+typedef void (*lcb_QUERY_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPQUERY *);
 
 typedef enum {
     /** No consistency constraints */
-    LCB_N1QL_CONSISTENCY_NONE = 0,
+    LCB_QUERY_CONSISTENCY_NONE = 0,
 
     /**
      * This is implicitly set by the lcb_n1p_synctok() family of functions. This
      * will ensure that mutations up to the vector indicated by the mutation token
      * passed to lcb_n1p_synctok() are used.
      */
-    LCB_N1QL_CONSISTENCY_RYOW = 1,
+    LCB_QUERY_CONSISTENCY_RYOW = 1,
 
     /** Refresh the snapshot for each request */
-    LCB_N1QL_CONSISTENCY_REQUEST = 2,
+    LCB_QUERY_CONSISTENCY_REQUEST = 2,
 
     /** Refresh the snapshot for each statement */
-    LCB_N1QL_CONSISTENCY_STATEMENT = 3
-} lcb_N1QL_CONSISTENCY;
+    LCB_QUERY_CONSISTENCY_STATEMENT = 3
+} lcb_QUERY_CONSISTENCY;
 
-LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_status(const lcb_RESPN1QL *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_cookie(const lcb_RESPN1QL *resp, void **cookie);
-LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_row(const lcb_RESPN1QL *resp, const char **row, size_t *row_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_http_response(const lcb_RESPN1QL *resp, const lcb_RESPHTTP **http);
-LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_handle(const lcb_RESPN1QL *resp, lcb_N1QL_HANDLE **handle);
-LIBCOUCHBASE_API lcb_STATUS lcb_respn1ql_error_context(const lcb_RESPN1QL *resp, const lcb_N1QL_ERROR_CONTEXT **ctx);
-LIBCOUCHBASE_API int lcb_respn1ql_is_final(const lcb_RESPN1QL *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respquery_status(const lcb_RESPQUERY *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respquery_cookie(const lcb_RESPQUERY *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respquery_row(const lcb_RESPQUERY *resp, const char **row, size_t *row_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respquery_http_response(const lcb_RESPQUERY *resp, const lcb_RESPHTTP **http);
+LIBCOUCHBASE_API lcb_STATUS lcb_respquery_handle(const lcb_RESPQUERY *resp, lcb_QUERY_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_respquery_error_context(const lcb_RESPQUERY *resp, const lcb_QUERY_ERROR_CONTEXT **ctx);
+LIBCOUCHBASE_API int lcb_respquery_is_final(const lcb_RESPQUERY *resp);
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_create(lcb_CMDN1QL **cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_destroy(lcb_CMDN1QL *cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_reset(lcb_CMDN1QL *cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_encoded_payload(lcb_CMDN1QL *cmd, const char **payload, size_t *payload_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_parent_span(lcb_CMDN1QL *cmd, lcbtrace_SPAN *span);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_callback(lcb_CMDN1QL *cmd, lcb_N1QL_CALLBACK callback);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_payload(lcb_CMDN1QL *cmd, const char *query, size_t query_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_statement(lcb_CMDN1QL *cmd, const char *statement, size_t statement_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_named_param(lcb_CMDN1QL *cmd, const char *name, size_t name_len,
-                                                    const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_positional_param(lcb_CMDN1QL *cmd, const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_adhoc(lcb_CMDN1QL *cmd, int adhoc);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_client_context_id(lcb_CMDN1QL *cmd, const char *value, size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pretty(lcb_CMDN1QL *cmd, int pretty);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_readonly(lcb_CMDN1QL *cmd, int readonly);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_scan_cap(lcb_CMDN1QL *cmd, int value);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pipeline_cap(lcb_CMDN1QL *cmd, int value);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_pipeline_batch(lcb_CMDN1QL *cmd, int value);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_consistency(lcb_CMDN1QL *cmd, lcb_N1QL_CONSISTENCY mode);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_consistency_token_for_keyspace(lcb_CMDN1QL *cmd, const char *keyspace,
-                                                                       size_t keyspace_len, lcb_MUTATION_TOKEN *token);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_consistency_tokens(lcb_CMDN1QL *cmd, lcb_INSTANCE *instance);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_option(lcb_CMDN1QL *cmd, const char *name, size_t name_len, const char *value,
-                                               size_t value_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_handle(lcb_CMDN1QL *cmd, lcb_N1QL_HANDLE **handle);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_timeout(lcb_CMDN1QL *cmd, uint32_t timeout);
-LIBCOUCHBASE_API lcb_STATUS lcb_n1ql(lcb_INSTANCE *instance, void *cookie, const lcb_CMDN1QL *cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_n1ql_cancel(lcb_INSTANCE *instance, lcb_N1QL_HANDLE *handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_create(lcb_CMDQUERY **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_destroy(lcb_CMDQUERY *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_reset(lcb_CMDQUERY *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_encoded_payload(lcb_CMDQUERY *cmd, const char **payload, size_t *payload_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_parent_span(lcb_CMDQUERY *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_callback(lcb_CMDQUERY *cmd, lcb_QUERY_CALLBACK callback);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_payload(lcb_CMDQUERY *cmd, const char *query, size_t query_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_statement(lcb_CMDQUERY *cmd, const char *statement, size_t statement_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_named_param(lcb_CMDQUERY *cmd, const char *name, size_t name_len,
+                                                     const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_positional_param(lcb_CMDQUERY *cmd, const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_adhoc(lcb_CMDQUERY *cmd, int adhoc);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_client_context_id(lcb_CMDQUERY *cmd, const char *value, size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pretty(lcb_CMDQUERY *cmd, int pretty);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_readonly(lcb_CMDQUERY *cmd, int readonly);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_metrics(lcb_CMDQUERY *cmd, int metrics);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scan_cap(lcb_CMDQUERY *cmd, int value);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_cap(lcb_CMDQUERY *cmd, int value);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_batch(lcb_CMDQUERY *cmd, int value);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency(lcb_CMDQUERY *cmd, lcb_QUERY_CONSISTENCY mode);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency_token_for_keyspace(lcb_CMDQUERY *cmd, const char *keyspace,
+                                                                        size_t keyspace_len, lcb_MUTATION_TOKEN *token);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency_tokens(lcb_CMDQUERY *cmd, lcb_INSTANCE *instance);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_option(lcb_CMDQUERY *cmd, const char *name, size_t name_len, const char *value,
+                                                size_t value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_handle(lcb_CMDQUERY *cmd, lcb_QUERY_HANDLE **handle);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_timeout(lcb_CMDQUERY *cmd, uint32_t timeout);
+LIBCOUCHBASE_API lcb_STATUS lcb_query(lcb_INSTANCE *instance, void *cookie, const lcb_CMDQUERY *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_query_cancel(lcb_INSTANCE *instance, lcb_QUERY_HANDLE *handle);
 /** @} */
 
 /**

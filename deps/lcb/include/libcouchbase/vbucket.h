@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2019 Couchbase, Inc.
+ *     Copyright 2014-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -50,8 +50,8 @@ typedef enum {
     LCBVB_SVCTYPE_MGMT,      /**< Administrative/'REST' UI */
     LCBVB_SVCTYPE_IXQUERY,   /**< Index query */
     LCBVB_SVCTYPE_IXADMIN,   /**< Index administration */
-    LCBVB_SVCTYPE_N1QL,      /**< N1QL Query */
-    LCBVB_SVCTYPE_FTS,       /**< Fulltext */
+    LCBVB_SVCTYPE_QUERY,     /**< N1QL Query */
+    LCBVB_SVCTYPE_SEARCH,    /**< Fulltext */
     LCBVB_SVCTYPE_ANALYTICS, /**< Analytics Query */
 /* for backward compatiblity */
 #define LCBVB_SVCTYPE_CBAS LCBVB_SVCTYPE_ANALYTICS
@@ -466,7 +466,7 @@ const char *lcbvb_get_hostname(const lcbvb_CONFIG *cfg, unsigned ix);
  * Function to return the URL prefix for a REST service.
  *
  * Returns a string suitable for being passed as a URL. This is only valid
- * for ::LCBVB_SVCTYPE_VIEWS and ::LCBVB_SVCTYPE_N1QL.
+ * for ::LCBVB_SVCTYPE_VIEWS and ::LCBVB_SVCTYPE_QUERY.
  *
  * This function is different from lcbvb_get_hostport() -- it is mainly a
  * convenience, but does cache the string. Also, theoretically the cluster

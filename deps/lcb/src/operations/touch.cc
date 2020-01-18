@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2019 Couchbase, Inc.
+ *     Copyright 2010-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 
 #include "internal.h"
+#include "collections.h"
 #include "trace.h"
 
 LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_status(const lcb_RESPTOUCH *resp)
@@ -27,11 +28,15 @@ LIBCOUCHBASE_API lcb_STATUS lcb_resptouch_error_context(const lcb_RESPTOUCH *res
                                                         const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
     if (resp->rflags & LCB_RESP_F_ERRINFO) {
-        lcb_RESPTOUCH *mut = const_cast< lcb_RESPTOUCH * >(resp);
+        lcb_RESPTOUCH *mut = const_cast<lcb_RESPTOUCH *>(resp);
         mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_TOUCH, (const lcb_RESPBASE *)resp);
-        mut->ctx.context_len = strlen(resp->ctx.context);
+        if (mut->ctx.context) {
+            mut->ctx.context_len = strlen(resp->ctx.context);
+        }
         mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_TOUCH, (const lcb_RESPBASE *)resp);
-        mut->ctx.ref_len = strlen(resp->ctx.ref);
+        if (mut->ctx.ref) {
+            mut->ctx.ref_len = strlen(resp->ctx.ref);
+        }
     }
     *ctx = &resp->ctx;
     return LCB_SUCCESS;
@@ -147,71 +152,85 @@ static lcb_STATUS touch_validate(lcb_INSTANCE *instance, const lcb_CMDTOUCH *cmd
     return LCB_SUCCESS;
 }
 
-static lcb_STATUS touch_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
-{
-    const lcb_CMDTOUCH *cmd = (const lcb_CMDTOUCH *)arg;
-    if (LCBT_SETTING(instance, use_collections)) {
-        lcb_CMDTOUCH *mut = const_cast< lcb_CMDTOUCH * >(cmd);
-        mut->cid = cid;
-    }
-
-    protocol_binary_request_touch tcmd;
-    protocol_binary_request_header *hdr = &tcmd.message.header;
-    int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
-    mc_PIPELINE *pl;
-    mc_PACKET *pkt;
-    lcb_STATUS err;
-    lcb_U8 ffextlen = 0;
-    size_t hsize;
-
-    if (cmd->dur_level && new_durability_supported) {
-        hdr->request.magic = PROTOCOL_BINARY_AREQ;
-        ffextlen = 4;
-    }
-
-    err = mcreq_basic_packet(&instance->cmdq, (const lcb_CMDBASE *)cmd, hdr, 4, ffextlen, &pkt, &pl,
-                             MCREQ_BASICPACKET_F_FALLBACKOK);
-    if (err != LCB_SUCCESS) {
-        return err;
-    }
-    hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
-
-    hdr->request.magic = PROTOCOL_BINARY_REQ;
-    hdr->request.opcode = PROTOCOL_BINARY_CMD_TOUCH;
-    hdr->request.cas = 0;
-    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr->request.opaque = pkt->opaque;
-    hdr->request.bodylen = htonl(4 + ffextlen + ntohs(hdr->request.keylen));
-    if (cmd->dur_level && new_durability_supported) {
-        tcmd.message.body.alt.meta = (1 << 4) | 3;
-        tcmd.message.body.alt.level = cmd->dur_level;
-        tcmd.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
-        tcmd.message.body.alt.expiration = htonl(cmd->exptime);
-    } else {
-        tcmd.message.body.norm.expiration = htonl(cmd->exptime);
-    }
-
-    memcpy(SPAN_BUFFER(&pkt->kh_span), tcmd.bytes, hsize);
-    pkt->u_rdata.reqdata.cookie = cookie;
-    pkt->u_rdata.reqdata.start = gethrtime();
-    pkt->u_rdata.reqdata.deadline = pkt->u_rdata.reqdata.start - (cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
-    LCB_SCHED_ADD(instance, pl, pkt);
-    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_TOUCH, pkt->opaque, pkt->u_rdata.reqdata.span);
-    TRACE_TOUCH_BEGIN(instance, hdr, cmd);
-    return LCB_SUCCESS;
-}
-
 LIBCOUCHBASE_API
-lcb_STATUS lcb_touch(lcb_INSTANCE *instance, void *cookie, const lcb_CMDTOUCH *cmd)
+lcb_STATUS lcb_touch(lcb_INSTANCE *instance, void *cookie, const lcb_CMDTOUCH *command)
 {
-    lcb_STATUS err;
-
-    err = touch_validate(instance, cmd);
-    if (err != LCB_SUCCESS) {
-        return err;
+    lcb_STATUS rc = touch_validate(instance, command);
+    if (rc != LCB_SUCCESS) {
+        return rc;
     }
 
-    return collcache_exec(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection, instance, cookie, touch_impl,
-                          (lcb_COLLCACHE_ARG_CLONE)lcb_cmdtouch_clone, (lcb_COLLCACHE_ARG_DTOR)lcb_cmdtouch_destroy,
-                          cmd);
+    auto operation = [instance, cookie](const lcb_RESPGETCID *resp, const lcb_CMDTOUCH *cmd) {
+        if (resp && resp->ctx.rc != LCB_SUCCESS) {
+            lcb_RESPCALLBACK cb = lcb_find_callback(instance, LCB_CALLBACK_TOUCH);
+            lcb_RESPTOUCH touch{};
+            touch.ctx = resp->ctx;
+            touch.ctx.key = static_cast<const char *>(cmd->key.contig.bytes);
+            touch.ctx.key_len = cmd->key.contig.nbytes;
+            touch.cookie = cookie;
+            cb(instance, LCB_CALLBACK_TOUCH, reinterpret_cast<const lcb_RESPBASE *>(&touch));
+            return resp->ctx.rc;
+        }
+
+        protocol_binary_request_touch tcmd;
+        protocol_binary_request_header *hdr = &tcmd.message.header;
+        int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
+        mc_PIPELINE *pl;
+        mc_PACKET *pkt;
+        lcb_STATUS err;
+        lcb_U8 ffextlen = 0;
+        size_t hsize;
+
+        if (cmd->dur_level && new_durability_supported) {
+            hdr->request.magic = PROTOCOL_BINARY_AREQ;
+            ffextlen = 4;
+        }
+
+        err = mcreq_basic_packet(&instance->cmdq, (const lcb_CMDBASE *)cmd, hdr, 4, ffextlen, &pkt, &pl,
+                                 MCREQ_BASICPACKET_F_FALLBACKOK);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+        hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
+
+        hdr->request.magic = PROTOCOL_BINARY_REQ;
+        hdr->request.opcode = PROTOCOL_BINARY_CMD_TOUCH;
+        hdr->request.cas = 0;
+        hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+        hdr->request.opaque = pkt->opaque;
+        hdr->request.bodylen = htonl(4 + ffextlen + ntohs(hdr->request.keylen));
+        if (cmd->dur_level && new_durability_supported) {
+            tcmd.message.body.alt.meta = (1u << 4u) | 3u;
+            tcmd.message.body.alt.level = cmd->dur_level;
+            tcmd.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
+            tcmd.message.body.alt.expiration = htonl(cmd->exptime);
+        } else {
+            tcmd.message.body.norm.expiration = htonl(cmd->exptime);
+        }
+
+        memcpy(SPAN_BUFFER(&pkt->kh_span), tcmd.bytes, hsize);
+        pkt->u_rdata.reqdata.cookie = cookie;
+        pkt->u_rdata.reqdata.start = gethrtime();
+        pkt->u_rdata.reqdata.deadline =
+            pkt->u_rdata.reqdata.start - (cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+        LCB_SCHED_ADD(instance, pl, pkt);
+        LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_TOUCH, pkt->opaque, pkt->u_rdata.reqdata.span);
+        TRACE_TOUCH_BEGIN(instance, hdr, cmd);
+        return LCB_SUCCESS;
+    };
+
+    if (!LCBT_SETTING(instance, use_collections)) {
+        /* fast path if collections are not enabled */
+        return operation(nullptr, command);
+    }
+
+    uint32_t cid = 0;
+    if (collcache_get(instance, command->scope, command->nscope, command->collection, command->ncollection, &cid) ==
+        LCB_SUCCESS) {
+        lcb_CMDTOUCH clone = *command; /* shallow clone */
+        clone.cid = cid;
+        return operation(nullptr, &clone);
+    } else {
+        return collcache_resolve(instance, command, operation, lcb_cmdtouch_clone, lcb_cmdtouch_destroy);
+    }
 }

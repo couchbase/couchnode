@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2019 Couchbase, Inc.
+ *     Copyright 2014-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ lcb_RETRY_ACTION lcb_kv_should_retry(const lcb_settings *settings, const mc_PACK
 
     lcb_RETRY_REASON retry_reason = mc_code_to_reason(err);
     lcb_RETRY_REQUEST retry_req;
+    retry_req.operation_cookie = const_cast< void * >(MCREQ_PKT_COOKIE(pkt));
     retry_req.is_idempotent = mc_is_idempotent(hdr.request.opcode);
     retry_req.retry_attempts = pkt->retries;
     lcb_RETRY_ACTION retry_action{};

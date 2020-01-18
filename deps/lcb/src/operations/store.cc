@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2019 Couchbase, Inc.
+ *     Copyright 2010-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *   limitations under the License.
  */
 #include "internal.h"
+#include "collections.h"
 #include "mc/compress.h"
 #include "trace.h"
 #include "durability_internal.h"
@@ -33,11 +34,15 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respstore_error_context(const lcb_RESPSTORE *res
                                                         const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
     if (resp->rflags & LCB_RESP_F_ERRINFO) {
-        lcb_RESPSTORE *mut = const_cast< lcb_RESPSTORE * >(resp);
+        lcb_RESPSTORE *mut = const_cast<lcb_RESPSTORE *>(resp);
         mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_STORE, (const lcb_RESPBASE *)resp);
-        mut->ctx.context_len = strlen(resp->ctx.context);
+        if (mut->ctx.context) {
+            mut->ctx.context_len = strlen(resp->ctx.context);
+        }
         mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_STORE, (const lcb_RESPBASE *)resp);
-        mut->ctx.ref_len = strlen(resp->ctx.ref);
+        if (mut->ctx.ref) {
+            mut->ctx.ref_len = strlen(resp->ctx.ref);
+        }
     }
     *ctx = &resp->ctx;
     return LCB_SUCCESS;
@@ -242,8 +247,7 @@ struct DurStoreCtx : mc_REQDATAEX {
     static mc_REQDATAPROCS proctable;
 
     DurStoreCtx(lcb_INSTANCE *instance_, lcb_U16 persist_, lcb_U16 replicate_, const void *cookie_)
-        : mc_REQDATAEX(cookie_, proctable, 0), instance(instance_), persist_to(persist_),
-          replicate_to(replicate_)
+        : mc_REQDATAEX(cookie_, proctable, 0), instance(instance_), persist_to(persist_), replicate_to(replicate_)
     {
     }
 };
@@ -255,7 +259,7 @@ static void handle_dur_storecb(mc_PIPELINE *, mc_PACKET *pkt, lcb_STATUS err, co
     lcb_RESPSTORE resp{};
     lcb_CMDENDURE dcmd = {0};
     const lcb_MUTATION_TOKEN *mt;
-    DurStoreCtx *dctx = static_cast< DurStoreCtx * >(pkt->u_rdata.exdata);
+    DurStoreCtx *dctx = static_cast<DurStoreCtx *>(pkt->u_rdata.exdata);
     lcb_MULTICMD_CTX *mctx;
     lcb_durability_opts_t opts = {0};
     const lcb_RESPSTORE *sresp = (const lcb_RESPSTORE *)arg;
@@ -323,7 +327,7 @@ GT_BAIL : {
 
 static void handle_dur_schedfail(mc_PACKET *pkt)
 {
-    delete static_cast< DurStoreCtx * >(pkt->u_rdata.exdata);
+    delete static_cast<DurStoreCtx *>(pkt->u_rdata.exdata);
 }
 
 mc_REQDATAPROCS DurStoreCtx::proctable = {handle_dur_storecb, handle_dur_schedfail};
@@ -371,8 +375,8 @@ static lcb_STATUS get_esize_and_opcode(lcb_STORE_OPERATION ucmd, lcb_uint8_t *op
 
 static int can_compress(lcb_INSTANCE *instance, const mc_PIPELINE *pipeline, uint8_t datatype)
 {
-    const lcb::Server *server = static_cast< const lcb::Server * >(pipeline);
-    int compressopts = LCBT_SETTING(instance, compressopts);
+    const lcb::Server *server = static_cast<const lcb::Server *>(pipeline);
+    uint8_t compressopts = LCBT_SETTING(instance, compressopts);
 
     if ((compressopts & LCB_COMPRESS_OUT) == 0) {
         return 0;
@@ -384,122 +388,6 @@ static int can_compress(lcb_INSTANCE *instance, const mc_PIPELINE *pipeline, uin
         return 0;
     }
     return 1;
-}
-
-static lcb_STATUS store_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
-{
-    const lcb_CMDSTORE *cmd = (const lcb_CMDSTORE *)arg;
-    lcb_STATUS err;
-
-    mc_PIPELINE *pipeline;
-    mc_PACKET *packet;
-    mc_CMDQUEUE *cq = &instance->cmdq;
-    protocol_binary_request_set scmd{};
-    protocol_binary_request_header *hdr = &scmd.message.header;
-    int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
-
-    int hsize;
-    int should_compress = 0;
-    if (LCBT_SETTING(instance, use_collections)) {
-        lcb_CMDSTORE *mut = const_cast< lcb_CMDSTORE * >(cmd);
-        mut->cid = cid;
-    }
-    hdr->request.magic = PROTOCOL_BINARY_REQ;
-
-    lcb_U8 ffextlen = 0;
-    if (cmd->durability_mode == LCB_DURABILITY_SYNC && cmd->durability.sync.dur_level && new_durability_supported) {
-        hdr->request.magic = PROTOCOL_BINARY_AREQ;
-        /* 1 byte for id and size
-         * 1 byte for level
-         * 2 bytes for timeout
-         */
-        ffextlen = 4;
-    }
-
-    err = get_esize_and_opcode(cmd->operation, &hdr->request.opcode, &hdr->request.extlen);
-    if (err != LCB_SUCCESS) {
-        return err;
-    }
-    hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
-    err = mcreq_basic_packet(cq, (const lcb_CMDBASE *)cmd, hdr, hdr->request.extlen, ffextlen, &packet, &pipeline,
-                             MCREQ_BASICPACKET_F_FALLBACKOK);
-    if (err != LCB_SUCCESS) {
-        return err;
-    }
-
-    should_compress = can_compress(instance, pipeline, cmd->datatype);
-    if (should_compress) {
-        int rv = mcreq_compress_value(pipeline, packet, &cmd->value, instance->settings, &should_compress);
-        if (rv != 0) {
-            mcreq_release_packet(pipeline, packet);
-            return LCB_ERR_NO_MEMORY;
-        }
-    } else {
-        mcreq_reserve_value(pipeline, packet, &cmd->value);
-    }
-
-    if (cmd->durability_mode == LCB_DURABILITY_POLL) {
-        int duropts = 0;
-        lcb_U16 persist_u, replicate_u;
-        persist_u = cmd->durability.poll.persist_to;
-        replicate_u = cmd->durability.poll.replicate_to;
-        if (cmd->durability.poll.replicate_to == (char)-1 || cmd->durability.poll.persist_to == (char)-1) {
-            duropts = LCB_DURABILITY_VALIDATE_CAPMAX;
-        }
-
-        err = lcb_durability_validate(instance, &persist_u, &replicate_u, duropts);
-        if (err != LCB_SUCCESS) {
-            mcreq_wipe_packet(pipeline, packet);
-            mcreq_release_packet(pipeline, packet);
-            return err;
-        }
-
-        DurStoreCtx *dctx = new DurStoreCtx(instance, persist_u, replicate_u, cookie);
-        dctx->start = gethrtime();
-        dctx->deadline = dctx->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
-        packet->u_rdata.exdata = dctx;
-        packet->flags |= MCREQ_F_REQEXT;
-    } else {
-        mc_REQDATA *rdata = MCREQ_PKT_RDATA(packet);
-        rdata->cookie = cookie;
-        rdata->start = gethrtime();
-        rdata->deadline = rdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
-        if (cmd->durability.sync.dur_level && new_durability_supported) {
-            scmd.message.body.alt.expiration = htonl(cmd->exptime);
-            scmd.message.body.alt.flags = htonl(cmd->flags);
-            scmd.message.body.alt.meta = (1 << 4) | 3;
-            scmd.message.body.alt.level = cmd->durability.sync.dur_level;
-            scmd.message.body.alt.timeout = htons(lcb_durability_timeout(instance, cmd->timeout));
-        } else {
-            scmd.message.body.norm.expiration = htonl(cmd->exptime);
-            scmd.message.body.norm.flags = htonl(cmd->flags);
-        }
-    }
-
-    hdr->request.cas = lcb_htonll(cmd->cas);
-    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-
-    if (should_compress || (cmd->datatype & LCB_VALUE_F_SNAPPYCOMP)) {
-        hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_COMPRESSED;
-    }
-
-    if ((cmd->datatype & LCB_VALUE_F_JSON) && static_cast< const lcb::Server * >(pipeline)->supports_json()) {
-        hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_JSON;
-    }
-
-    hdr->request.opaque = packet->opaque;
-    hdr->request.bodylen = htonl(hdr->request.extlen + ffextlen + get_key_size(hdr) + get_value_size(packet));
-
-    if (cmd->cmdflags & LCB_CMD_F_INTERNAL_CALLBACK) {
-        packet->flags |= MCREQ_F_PRIVCALLBACK;
-    }
-    memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
-    LCB_SCHED_ADD(instance, pipeline, packet);
-    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_STORE2NAME(cmd->operation), packet->opaque,
-                      MCREQ_PKT_RDATA(packet)->span);
-    TRACE_STORE_BEGIN(instance, hdr, (lcb_CMDSTORE *)cmd);
-
-    return LCB_SUCCESS;
 }
 
 static lcb_STATUS store_validate(lcb_INSTANCE *instance, const lcb_CMDSTORE *cmd)
@@ -534,16 +422,150 @@ static lcb_STATUS store_validate(lcb_INSTANCE *instance, const lcb_CMDSTORE *cmd
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_store(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSTORE *cmd)
+LIBCOUCHBASE_API lcb_STATUS lcb_store(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSTORE *command)
 {
-    lcb_STATUS err;
+    lcb_STATUS rc;
 
-    err = store_validate(instance, cmd);
-    if (err != LCB_SUCCESS) {
-        return err;
+    rc = store_validate(instance, command);
+    if (rc != LCB_SUCCESS) {
+        return rc;
     }
 
-    return collcache_exec(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection, instance, cookie, store_impl,
-                          (lcb_COLLCACHE_ARG_CLONE)lcb_cmdstore_clone, (lcb_COLLCACHE_ARG_DTOR)lcb_cmdstore_destroy,
-                          cmd);
+    auto operation = [instance, cookie](const lcb_RESPGETCID *resp, const lcb_CMDSTORE *cmd) {
+        if (resp && resp->ctx.rc != LCB_SUCCESS) {
+            lcb_RESPCALLBACK cb = lcb_find_callback(instance, LCB_CALLBACK_STORE);
+            lcb_RESPSTORE store{};
+            store.ctx = resp->ctx;
+            store.ctx.key = static_cast<const char *>(cmd->key.contig.bytes);
+            store.ctx.key_len = cmd->key.contig.nbytes;
+            store.cookie = cookie;
+            cb(instance, LCB_CALLBACK_STORE, reinterpret_cast<const lcb_RESPBASE *>(&store));
+            return resp->ctx.rc;
+        }
+
+        lcb_STATUS err;
+
+        mc_PIPELINE *pipeline;
+        mc_PACKET *packet;
+        mc_CMDQUEUE *cq = &instance->cmdq;
+        protocol_binary_request_set scmd{};
+        protocol_binary_request_header *hdr = &scmd.message.header;
+        int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
+
+        int hsize;
+        int should_compress = 0;
+        hdr->request.magic = PROTOCOL_BINARY_REQ;
+
+        lcb_U8 ffextlen = 0;
+        if (cmd->durability_mode == LCB_DURABILITY_SYNC && cmd->durability.sync.dur_level && new_durability_supported) {
+            hdr->request.magic = PROTOCOL_BINARY_AREQ;
+            /* 1 byte for id and size
+             * 1 byte for level
+             * 2 bytes for timeout
+             */
+            ffextlen = 4;
+        }
+
+        err = get_esize_and_opcode(cmd->operation, &hdr->request.opcode, &hdr->request.extlen);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+        hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
+        err = mcreq_basic_packet(cq, (const lcb_CMDBASE *)cmd, hdr, hdr->request.extlen, ffextlen, &packet, &pipeline,
+                                 MCREQ_BASICPACKET_F_FALLBACKOK);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+
+        should_compress = can_compress(instance, pipeline, cmd->datatype);
+        if (should_compress) {
+            int rv = mcreq_compress_value(pipeline, packet, &cmd->value, instance->settings, &should_compress);
+            if (rv != 0) {
+                mcreq_release_packet(pipeline, packet);
+                return LCB_ERR_NO_MEMORY;
+            }
+        } else {
+            mcreq_reserve_value(pipeline, packet, &cmd->value);
+        }
+
+        if (cmd->durability_mode == LCB_DURABILITY_POLL) {
+            int duropts = 0;
+            lcb_U16 persist_u, replicate_u;
+            persist_u = cmd->durability.poll.persist_to;
+            replicate_u = cmd->durability.poll.replicate_to;
+            if (cmd->durability.poll.replicate_to == (char)-1 || cmd->durability.poll.persist_to == (char)-1) {
+                duropts = LCB_DURABILITY_VALIDATE_CAPMAX;
+            }
+
+            err = lcb_durability_validate(instance, &persist_u, &replicate_u, duropts);
+            if (err != LCB_SUCCESS) {
+                mcreq_wipe_packet(pipeline, packet);
+                mcreq_release_packet(pipeline, packet);
+                return err;
+            }
+
+            DurStoreCtx *dctx = new DurStoreCtx(instance, persist_u, replicate_u, cookie);
+            dctx->start = gethrtime();
+            dctx->deadline =
+                dctx->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+            packet->u_rdata.exdata = dctx;
+            packet->flags |= MCREQ_F_REQEXT;
+        } else {
+            mc_REQDATA *rdata = MCREQ_PKT_RDATA(packet);
+            rdata->cookie = cookie;
+            rdata->start = gethrtime();
+            rdata->deadline =
+                rdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+            if (cmd->durability.sync.dur_level && new_durability_supported) {
+                scmd.message.body.alt.expiration = htonl(cmd->exptime);
+                scmd.message.body.alt.flags = htonl(cmd->flags);
+                scmd.message.body.alt.meta = (1 << 4) | 3;
+                scmd.message.body.alt.level = cmd->durability.sync.dur_level;
+                scmd.message.body.alt.timeout = htons(lcb_durability_timeout(instance, cmd->timeout));
+            } else {
+                scmd.message.body.norm.expiration = htonl(cmd->exptime);
+                scmd.message.body.norm.flags = htonl(cmd->flags);
+            }
+        }
+
+        hdr->request.cas = lcb_htonll(cmd->cas);
+        hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+
+        if (should_compress || (cmd->datatype & LCB_VALUE_F_SNAPPYCOMP)) {
+            hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_COMPRESSED;
+        }
+
+        if ((cmd->datatype & LCB_VALUE_F_JSON) && static_cast<const lcb::Server *>(pipeline)->supports_json()) {
+            hdr->request.datatype |= PROTOCOL_BINARY_DATATYPE_JSON;
+        }
+
+        hdr->request.opaque = packet->opaque;
+        hdr->request.bodylen = htonl(hdr->request.extlen + ffextlen + get_key_size(hdr) + get_value_size(packet));
+
+        if (cmd->cmdflags & LCB_CMD_F_INTERNAL_CALLBACK) {
+            packet->flags |= MCREQ_F_PRIVCALLBACK;
+        }
+        memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
+        LCB_SCHED_ADD(instance, pipeline, packet);
+        LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_STORE2NAME(cmd->operation), packet->opaque,
+                          MCREQ_PKT_RDATA(packet)->span);
+        TRACE_STORE_BEGIN(instance, hdr, (lcb_CMDSTORE *)cmd);
+
+        return LCB_SUCCESS;
+    };
+
+    if (!LCBT_SETTING(instance, use_collections)) {
+        /* fast path if collections are not enabled */
+        return operation(nullptr, command);
+    }
+
+    uint32_t cid = 0;
+    if (collcache_get(instance, command->scope, command->nscope, command->collection, command->ncollection, &cid) ==
+        LCB_SUCCESS) {
+        lcb_CMDSTORE clone = *command; /* shallow clone */
+        clone.cid = cid;
+        return operation(nullptr, &clone);
+    } else {
+        return collcache_resolve(instance, command, operation, lcb_cmdstore_clone, lcb_cmdstore_destroy);
+    }
 }

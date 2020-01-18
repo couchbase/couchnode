@@ -1,5 +1,5 @@
 /*
- *     Copyright 2013-2019 Couchbase, Inc.
+ *     Copyright 2013-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -66,29 +66,26 @@ cbsasl_error_t cbsasl_client_new(const char *service, const char *serverFQDN, co
 
 CBSASL_PUBLIC_API
 cbsasl_error_t cbsasl_client_start(cbsasl_conn_t *conn, const char *mechlist, void **prompt_need,
-                                   const char **clientout, unsigned int *clientoutlen, const char **mech,
-                                   int allow_scram_sha)
+                                   const char **clientout, unsigned int *clientoutlen, const char **mech)
 {
     if (conn->client == 0) {
         return SASL_BADPARAM;
     }
 
     *mech = NULL;
-    if (allow_scram_sha) {
 #if !defined(LCB_NO_SSL) && defined(HAVE_PKCS5_PBKDF2_HMAC)
-        // we use SCRAM-SHA only if OpenSSL is linked and has support for PBKDF2_HMAC functions
-        if (strstr(mechlist, MECH_SCRAM_SHA512) != NULL) {
-            *mech = MECH_SCRAM_SHA512;
-            conn->c.client.auth_mech = SASL_AUTH_MECH_SCRAM_SHA512;
-        } else if (strstr(mechlist, MECH_SCRAM_SHA256) != NULL) {
-            *mech = MECH_SCRAM_SHA256;
-            conn->c.client.auth_mech = SASL_AUTH_MECH_SCRAM_SHA256;
-        } else if (strstr(mechlist, MECH_SCRAM_SHA1) != NULL) {
-            *mech = MECH_SCRAM_SHA1;
-            conn->c.client.auth_mech = SASL_AUTH_MECH_SCRAM_SHA1;
-        }
-#endif
+    // we use SCRAM-SHA only if OpenSSL is linked and has support for PBKDF2_HMAC functions
+    if (strstr(mechlist, MECH_SCRAM_SHA512) != NULL) {
+        *mech = MECH_SCRAM_SHA512;
+        conn->c.client.auth_mech = SASL_AUTH_MECH_SCRAM_SHA512;
+    } else if (strstr(mechlist, MECH_SCRAM_SHA256) != NULL) {
+        *mech = MECH_SCRAM_SHA256;
+        conn->c.client.auth_mech = SASL_AUTH_MECH_SCRAM_SHA256;
+    } else if (strstr(mechlist, MECH_SCRAM_SHA1) != NULL) {
+        *mech = MECH_SCRAM_SHA1;
+        conn->c.client.auth_mech = SASL_AUTH_MECH_SCRAM_SHA1;
     }
+#endif
     if (*mech == NULL) {
         if (strstr(mechlist, MECH_CRAM_MD5) != NULL) {
             *mech = MECH_CRAM_MD5;

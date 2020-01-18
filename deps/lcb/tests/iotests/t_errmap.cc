@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2019 Couchbase, Inc.
+ *     Copyright 2011-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ class ErrmapUnitTest : public MockUnitTest
         MockEnvironment::getInstance()->createConnection(hw, instance);
         ASSERT_EQ(LCB_SUCCESS, lcb_cntl_string(*instance, "enable_errmap", "true"));
         ASSERT_EQ(LCB_SUCCESS, lcb_connect(*instance));
-        lcb_wait(*instance);
+        lcb_wait(*instance, LCB_WAIT_DEFAULT);
         ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(*instance));
     }
 
@@ -99,7 +99,7 @@ TEST_F(ErrmapUnitTest, closesOnUnrecognizedError)
     ResultCookie cookie;
     lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opcb);
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, scmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, cookie.rc);
 
     MockCommand cmd(MockCommand::OPFAIL);
@@ -114,14 +114,14 @@ TEST_F(ErrmapUnitTest, closesOnUnrecognizedError)
 
     cookie.reset();
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, scmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_TRUE(cookie.called);
     ASSERT_NE(LCB_SUCCESS, cookie.rc);
 
     cookie.reset();
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, scmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(cookie.called);
 
     // Note, we can't determine what the actual error here is. It would be nice
@@ -150,7 +150,7 @@ void ErrmapUnitTest::checkRetryVerify(uint16_t errcode)
     // Store the item once to ensure the server is actually connected
     // (we don't want opfail to be active during negotiation).
     lcb_store(instance, &cookie, scmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(cookie.called);
     ASSERT_EQ(LCB_SUCCESS, cookie.rc);
 
@@ -170,7 +170,7 @@ void ErrmapUnitTest::checkRetryVerify(uint16_t errcode)
     cookie.reset();
     lcb_STATUS rc = lcb_store(instance, &cookie, scmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_TRUE(cookie.called);
     ASSERT_EQ(LCB_ERR_TEMPORARY_FAILURE, cookie.rc);

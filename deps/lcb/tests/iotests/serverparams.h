@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2019 Couchbase, Inc.
+ *     Copyright 2010-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -44,6 +44,9 @@ class ServerParams
         }
         lcb_createopts_connstr(crst, connstr.c_str(), connstr.size());
         lcb_createopts_credentials(crst, user.c_str(), user.size(), pass.c_str(), pass.size());
+        if (type == LCB_TYPE_BUCKET) {
+            lcb_createopts_bucket(crst, bucket.c_str(), bucket.size());
+        }
         lcb_createopts_io(crst, io);
     }
 

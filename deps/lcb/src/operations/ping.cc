@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017-2019 Couchbase, Inc.
+ *     Copyright 2017-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_kv(lcb_CMDPING *cmd, int enable)
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_n1ql(lcb_CMDPING *cmd, int enable)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_query(lcb_CMDPING *cmd, int enable)
 {
     if (enable) {
         cmd->services |= LCB_PINGSVC_F_N1QL;
@@ -174,7 +174,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_views(lcb_CMDPING *cmd, int enable)
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_fts(lcb_CMDPING *cmd, int enable)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_search(lcb_CMDPING *cmd, int enable)
 {
     if (enable) {
         cmd->services |= LCB_PINGSVC_F_FTS;
@@ -287,9 +287,9 @@ static const char *svc_to_string(const lcb_PING_SERVICE type)
             return "kv";
         case LCB_PING_SERVICE_VIEWS:
             return "views";
-        case LCB_PING_SERVICE_N1QL:
+        case LCB_PING_SERVICE_QUERY:
             return "n1ql";
-        case LCB_PING_SERVICE_FTS:
+        case LCB_PING_SERVICE_SEARCH:
             return "fts";
         default:
             return "unknown";
@@ -479,7 +479,7 @@ static void handle_http(lcb_INSTANCE *instance, lcb_PING_SERVICE type, const lcb
 
 static void handle_n1ql(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
-    handle_http(instance, LCB_PING_SERVICE_N1QL, (const lcb_RESPHTTP *)resp);
+    handle_http(instance, LCB_PING_SERVICE_QUERY, (const lcb_RESPHTTP *)resp);
 }
 
 static void handle_views(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
@@ -489,7 +489,7 @@ static void handle_views(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 
 static void handle_fts(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
-    handle_http(instance, LCB_PING_SERVICE_FTS, (const lcb_RESPHTTP *)resp);
+    handle_http(instance, LCB_PING_SERVICE_SEARCH, (const lcb_RESPHTTP *)resp);
 }
 
 LIBCOUCHBASE_API
@@ -576,13 +576,13 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
     }
 
         if (cmd->services & LCB_PINGSVC_F_N1QL) {
-            PING_HTTP(LCBVB_SVCTYPE_N1QL, "/admin/ping", n1ql_timeout, handle_n1ql);
+            PING_HTTP(LCBVB_SVCTYPE_QUERY, "/admin/ping", n1ql_timeout, handle_n1ql);
         }
         if (cmd->services & LCB_PINGSVC_F_VIEWS) {
             PING_HTTP(LCBVB_SVCTYPE_VIEWS, "/", views_timeout, handle_views);
         }
         if (cmd->services & LCB_PINGSVC_F_FTS) {
-            PING_HTTP(LCBVB_SVCTYPE_FTS, "/api/ping", http_timeout, handle_fts);
+            PING_HTTP(LCBVB_SVCTYPE_SEARCH, "/api/ping", http_timeout, handle_fts);
         }
         if (cmd->services & LCB_PINGSVC_F_ANALYTICS) {
             PING_HTTP(LCBVB_SVCTYPE_ANALYTICS, "/admin/ping", n1ql_timeout, handle_n1ql);

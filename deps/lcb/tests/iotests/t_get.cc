@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ TEST_F(GetUnitTest, testGetMiss)
     EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmd));
     lcb_cmdget_destroy(cmd);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 }
 
@@ -123,7 +123,7 @@ TEST_F(GetUnitTest, testGetHit)
     EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmd));
     lcb_cmdget_destroy(cmd);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 }
 
@@ -160,7 +160,7 @@ TEST_F(GetUnitTest, testTouchMiss)
     lcb_cmdtouch_expiry(cmd, 666);
     lcb_touch(instance, &numcallbacks, cmd);
     lcb_cmdtouch_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
 }
 
@@ -197,7 +197,7 @@ TEST_F(GetUnitTest, testTouchHit)
     lcb_touch(instance, &numcallbacks, cmd);
     lcb_cmdtouch_destroy(cmd);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
 }
 
@@ -267,7 +267,7 @@ TEST_F(GetUnitTest, testFlags)
     lcb_cmdstore_destroy(scmd);
 
     // Wait for it to be persisted
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     lcb_CMDGET *gcmd;
     lcb_cmdget_create(&gcmd);
@@ -276,7 +276,7 @@ TEST_F(GetUnitTest, testFlags)
     lcb_cmdget_destroy(gcmd);
 
     /* Wait for it to be received */
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 }
 
@@ -367,7 +367,7 @@ TEST_F(GetUnitTest, testGetReplica)
         lcb_cmdgetreplica_destroy(rcmd);
 
         lcb_sched_leave(instance);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
         ASSERT_EQ(0, rck.remaining);
     }
 
@@ -391,7 +391,7 @@ TEST_F(GetUnitTest, testGetReplica)
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(0, rck.remaining);
 
     MockMutationCommand purgeCmd(MockCommand::PURGE, key);
@@ -425,7 +425,7 @@ TEST_F(GetUnitTest, testGetReplica)
     lcb_cmdgetreplica_destroy(rcmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(0, rck.remaining);
 
     // Test with an invalid index
@@ -456,7 +456,7 @@ TEST_F(GetUnitTest, testGetReplica)
         lcb_cmdgetreplica_destroy(rcmd);
         ASSERT_EQ(LCB_SUCCESS, err);
         lcb_sched_leave(instance);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
         ASSERT_EQ(0, rck.remaining);
 
         // Try with ALL again (should give an error)
@@ -482,5 +482,5 @@ TEST_F(GetUnitTest, testGetReplica)
     err = lcb_getreplica(instance, NULL, rcmd);
     lcb_cmdgetreplica_destroy(rcmd);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 }

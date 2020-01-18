@@ -1,5 +1,5 @@
 /*
- *     Copyright 2015-2019 Couchbase, Inc.
+ *     Copyright 2015-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ int main(int argc, char **argv)
     rc = lcb_connect(instance);
     assert(rc == LCB_SUCCESS);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     rc = lcb_get_bootstrap_status(instance);
     assert(rc == LCB_SUCCESS);
 
@@ -106,7 +106,7 @@ int main(int argc, char **argv)
     lcb_cmdstore_destroy(cmd);
 
     printf("\nCalling lcb_wait()\n");
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     printf("\n");
     lcb_destroy(instance);
 }

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2019 Couchbase, Inc.
+ *     Copyright 2010-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -79,7 +79,8 @@ static lcb_uint32_t *get_timeout_field(lcb_INSTANCE *instance, int cmd)
     switch (cmd) {
     case LCB_CNTL_OP_TIMEOUT: return &settings->operation_timeout;
     case LCB_CNTL_VIEW_TIMEOUT: return &settings->views_timeout;
-    case LCB_CNTL_N1QL_TIMEOUT: return &settings->n1ql_timeout;
+    case LCB_CNTL_QUERY_TIMEOUT:
+        return &settings->n1ql_timeout;
     case LCB_CNTL_DURABILITY_INTERVAL: return &settings->durability_interval;
     case LCB_CNTL_DURABILITY_TIMEOUT: return &settings->durability_timeout;
     case LCB_CNTL_HTTP_TIMEOUT: return &settings->http_timeout;
@@ -93,9 +94,11 @@ static lcb_uint32_t *get_timeout_field(lcb_INSTANCE *instance, int cmd)
     case LCB_CNTL_TRACING_ORPHANED_QUEUE_FLUSH_INTERVAL: return &settings->tracer_orphaned_queue_flush_interval;
     case LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL: return &settings->tracer_threshold_queue_flush_interval;
     case LCB_CNTL_TRACING_THRESHOLD_KV: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_KV];
-    case LCB_CNTL_TRACING_THRESHOLD_N1QL: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_N1QL];
+    case LCB_CNTL_TRACING_THRESHOLD_QUERY:
+        return &settings->tracer_threshold[LCBTRACE_THRESHOLD_QUERY];
     case LCB_CNTL_TRACING_THRESHOLD_VIEW: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_VIEW];
-    case LCB_CNTL_TRACING_THRESHOLD_FTS: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_FTS];
+    case LCB_CNTL_TRACING_THRESHOLD_SEARCH:
+        return &settings->tracer_threshold[LCBTRACE_THRESHOLD_SEARCH];
     case LCB_CNTL_TRACING_THRESHOLD_ANALYTICS: return &settings->tracer_threshold[LCBTRACE_THRESHOLD_ANALYTICS];
     case LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR: return &settings->persistence_timeout_floor;
     default: return NULL;
@@ -744,7 +747,7 @@ static ctl_handler handlers[] = {
     readj_ts_wait_handler,                /* LCB_CNTL_RESET_TIMEOUT_ON_WAIT */
     console_fp_handler,                   /* LCB_CNTL_CONLOGGER_FP */
     kv_hg_handler,                        /* LCB_CNTL_KVTIMINGS */
-    timeout_common,                       /* LCB_CNTL_N1QL_TIMEOUT */
+    timeout_common,                       /* LCB_CNTL_QUERY_TIMEOUT */
     n1ql_cache_clear_handler,             /* LCB_CNTL_N1QL_CLEARCACHE */
     client_string_handler,                /* LCB_CNTL_CLIENT_STRING */
     bucket_auth_handler,                  /* LCB_CNTL_BUCKET_CRED */
@@ -767,9 +770,9 @@ static ctl_handler handlers[] = {
     timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL */
     tracing_threshold_queue_size_handler, /* LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE */
     timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_KV */
-    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_N1QL */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_QUERY */
     timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_VIEW */
-    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_FTS */
+    timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_SEARCH */
     timeout_common,                       /* LCB_CNTL_TRACING_THRESHOLD_ANALYTICS */
     comp_min_size_handler,                /* LCB_CNTL_COMPRESSION_MIN_SIZE */
     comp_min_ratio_handler,               /* LCB_CNTL_COMPRESSION_MIN_RATIO */
@@ -924,7 +927,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"operation_timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
     {"timeout", LCB_CNTL_OP_TIMEOUT, convert_timevalue},
     {"views_timeout", LCB_CNTL_VIEW_TIMEOUT, convert_timevalue},
-    {"n1ql_timeout", LCB_CNTL_N1QL_TIMEOUT, convert_timevalue},
+    {"query_timeout", LCB_CNTL_QUERY_TIMEOUT, convert_timevalue},
     {"durability_timeout", LCB_CNTL_DURABILITY_TIMEOUT, convert_timevalue},
     {"durability_interval", LCB_CNTL_DURABILITY_INTERVAL, convert_timevalue},
     {"http_timeout", LCB_CNTL_HTTP_TIMEOUT, convert_timevalue},
@@ -972,9 +975,9 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"tracing_threshold_queue_flush_interval", LCB_CNTL_TRACING_THRESHOLD_QUEUE_FLUSH_INTERVAL, convert_timevalue},
     {"tracing_threshold_queue_size", LCB_CNTL_TRACING_THRESHOLD_QUEUE_SIZE, convert_u32},
     {"tracing_threshold_kv", LCB_CNTL_TRACING_THRESHOLD_KV, convert_timevalue},
-    {"tracing_threshold_n1ql", LCB_CNTL_TRACING_THRESHOLD_N1QL, convert_timevalue},
+    {"tracing_threshold_search", LCB_CNTL_TRACING_THRESHOLD_QUERY, convert_timevalue},
     {"tracing_threshold_view", LCB_CNTL_TRACING_THRESHOLD_VIEW, convert_timevalue},
-    {"tracing_threshold_fts", LCB_CNTL_TRACING_THRESHOLD_FTS, convert_timevalue},
+    {"tracing_threshold_search", LCB_CNTL_TRACING_THRESHOLD_SEARCH, convert_timevalue},
     {"tracing_threshold_analytics", LCB_CNTL_TRACING_THRESHOLD_ANALYTICS, convert_timevalue},
     {"compression_min_size", LCB_CNTL_COMPRESSION_MIN_SIZE, convert_u32},
     {"compression_min_ratio", LCB_CNTL_COMPRESSION_MIN_RATIO, convert_float},

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013-2019 Couchbase, Inc.
+ *     Copyright 2013-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -226,13 +226,13 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
     procs.cb_read = io_read;
     req->ioctx = lcbio_ctx_new(sock, arg, &procs);
     switch (req->reqtype) {
-        case LCB_HTTP_TYPE_N1QL:
+        case LCB_HTTP_TYPE_QUERY:
             sock->service = LCBIO_SERVICE_N1QL;
             break;
         case LCB_HTTP_TYPE_VIEW:
             sock->service = LCBIO_SERVICE_VIEW;
             break;
-        case LCB_HTTP_TYPE_FTS:
+        case LCB_HTTP_TYPE_SEARCH:
             sock->service = LCBIO_SERVICE_FTS;
             break;
         case LCB_HTTP_TYPE_CBAS:

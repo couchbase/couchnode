@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
         lcb_destroy(instance);
         exit(EXIT_FAILURE);
     }
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
         fprintf(stderr, "Failed to establish connection to cluster: %s\n", lcb_strerror_short(err));
         exit(EXIT_FAILURE);
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
         }
         lcb_cmdstore_destroy(cmd);
     }
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     /* Set view and design name: */
     view = "all";
@@ -238,10 +238,10 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
     }
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     do_query_view(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     lcb_destroy(instance);
 
     exit(EXIT_SUCCESS);

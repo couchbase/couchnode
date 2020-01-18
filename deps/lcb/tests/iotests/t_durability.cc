@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ class DurabilityOperation
     void wait(lcb_INSTANCE *instance)
     {
         lcb_install_callback(instance, LCB_CALLBACK_ENDURE, (lcb_RESPCALLBACK)defaultDurabilityCallback);
-        EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance));
+        EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
     }
 
     void wait(lcb_INSTANCE *instance, const lcb_durability_opts_t *opts, const lcb_CMDENDURE *cmd, lcb_STATUS expected = LCB_SUCCESS)
@@ -176,7 +176,7 @@ class DurabilityMultiOperation
 
         rc = mctx->done(mctx, this);
         ASSERT_EQ(LCB_SUCCESS, rc);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
         ASSERT_EQ(items.size(), counter);
     }
 
@@ -650,7 +650,7 @@ TEST_F(DurabilityUnitTest, testObserveSanity)
         ASSERT_EQ(LCB_SUCCESS, mctx->done(mctx, &d_cookie));
     }
 
-    ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance));
+    ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
 
     ASSERT_GT(o_cookie.count, 0);
     ASSERT_GT(d_cookie.count, 0);
@@ -675,7 +675,7 @@ TEST_F(DurabilityUnitTest, testMasterObserve)
     LCB_CMD_SET_KEY(&cmd, "key", 3);
     ASSERT_EQ(LCB_SUCCESS, mctx->addcmd(mctx, (lcb_CMDBASE *)&cmd));
     ASSERT_EQ(LCB_SUCCESS, mctx->done(mctx, &o_cookie));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     // 2 == one for the callback, one for the NULL
     ASSERT_EQ(2, o_cookie.count);
@@ -754,7 +754,7 @@ TEST_F(DurabilityUnitTest, testDurabilityRelocation)
     struct cb_cookie cookie = {0, 0};
     ASSERT_EQ(LCB_SUCCESS, mctx->done(mctx, &cookie));
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     lcbio_timer_destroy(tm);
     ASSERT_EQ(1, cookie.count);
 }
@@ -927,7 +927,7 @@ TEST_F(DurabilityUnitTest, testDurStore)
     rc = lcb_store(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_EQ(LCB_SUCCESS, res.rc);
     ASSERT_NE(0, res.store_ok);
@@ -952,7 +952,7 @@ TEST_F(DurabilityUnitTest, testDurStore)
     rc = lcb_store(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, res.rc);
     ASSERT_TRUE(options.v.v0.persist_to <= res.npersisted);
     ASSERT_TRUE(options.v.v0.replicate_to <= res.nreplicated);
@@ -963,7 +963,7 @@ TEST_F(DurabilityUnitTest, testDurStore)
     rc = lcb_store(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_ERR_DOCUMENT_EXISTS, res.rc);
     ASSERT_EQ(0, res.store_ok);
 
@@ -979,7 +979,7 @@ TEST_F(DurabilityUnitTest, testDurStore)
     rc = lcb_store(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     if (res.rc == LCB_ERR_TIMEOUT) {
         ASSERT_NE(0, res.store_ok);
     } else {

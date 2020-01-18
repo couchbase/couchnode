@@ -35,6 +35,7 @@
 
 #include <string.h>
 
+#define HAVE_PKCS5_PBKDF2_HMAC 1
 #define HAVE_WINSOCK2_H 1
 #define HAVE_WS2TCPIP_H 1
 #define HAVE_QUERYPERFORMANCECOUNTER 1

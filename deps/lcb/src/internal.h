@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2019 Couchbase, Inc.
+ *     Copyright 2010-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -44,7 +44,6 @@
 #include "contrib/genhash/genhash.h"
 
 #include "internalstructs.h"
-#include "collections.h"
 
 /* lcb_INSTANCE-specific includes */
 #include "retryq.h"
@@ -65,6 +64,7 @@ class Connspec;
 struct Spechost;
 class RetryQueue;
 class Bootstrap;
+class CollectionCache;
 namespace clconfig
 {
 struct Confmon;
@@ -72,6 +72,12 @@ class ConfigInfo;
 } // namespace clconfig
 } // namespace lcb
 extern "C" {
+#endif
+
+#ifdef __cplusplus
+typedef lcb::CollectionCache lcb_COLLCACHE;
+#else
+typedef struct lcb_CollectionCache_st lcb_COLLCACHE;
 #endif
 
 struct lcb_callback_st {

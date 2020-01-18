@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013-2019 Couchbase, Inc.
+ *     Copyright 2013-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ static void *pthr_func(void *arg)
     lcb_cmdget_destroy(gcmd);
 
     // Wait for the command to complete
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     // Release back to pool
     pool->push(instance);

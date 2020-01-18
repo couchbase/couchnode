@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2015-2019 Couchbase, Inc.
+ *     Copyright 2015-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ struct Request {
     uint32_t timeout() const;
     bool is_data_request() const
     {
-        return reqtype == LCB_HTTP_TYPE_N1QL || reqtype == LCB_HTTP_TYPE_VIEW || reqtype == LCB_HTTP_TYPE_FTS ||
+        return reqtype == LCB_HTTP_TYPE_QUERY || reqtype == LCB_HTTP_TYPE_VIEW || reqtype == LCB_HTTP_TYPE_SEARCH ||
                reqtype == LCB_HTTP_TYPE_PING || reqtype == LCB_HTTP_TYPE_CBAS;
     }
 

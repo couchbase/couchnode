@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018-2019 Couchbase, Inc.
+ *     Copyright 2018-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -44,12 +44,14 @@ struct lcb_KEY_VALUE_ERROR_CONTEXT_ {
     size_t ref_len;
     const char *context;
     size_t context_len;
+    char endpoint[NI_MAXHOST + NI_MAXSERV + 4];
+    size_t endpoint_len;
 };
 
 /**
  * @private
  */
-struct lcb_N1QL_ERROR_CONTEXT_ {
+struct lcb_QUERY_ERROR_CONTEXT_ {
     lcb_STATUS rc;
     uint32_t first_error_code;
     const char *first_error_message;
@@ -63,6 +65,8 @@ struct lcb_N1QL_ERROR_CONTEXT_ {
     uint32_t http_response_code;
     const char *http_response_message;
     size_t http_response_message_len;
+    const char *endpoint;
+    size_t endpoint_len;
 };
 
 /**
@@ -82,6 +86,8 @@ struct lcb_ANALYTICS_ERROR_CONTEXT_ {
     uint32_t http_response_code;
     const char *http_response_body;
     size_t http_response_body_len;
+    const char *endpoint;
+    size_t endpoint_len;
 };
 
 /**
@@ -102,12 +108,14 @@ struct lcb_VIEW_ERROR_CONTEXT_ {
     uint32_t http_response_code;
     const char *http_response_body;
     size_t http_response_body_len;
+    const char *endpoint;
+    size_t endpoint_len;
 };
 
 /**
  * @private
  */
-struct lcb_FTS_ERROR_CONTEXT_ {
+struct lcb_SEARCH_ERROR_CONTEXT_ {
     lcb_STATUS rc;
     int has_top_level_error;
     const char *error_message;
@@ -121,6 +129,8 @@ struct lcb_FTS_ERROR_CONTEXT_ {
     uint32_t http_response_code;
     const char *http_response_body;
     size_t http_response_body_len;
+    const char *endpoint;
+    size_t endpoint_len;
 };
 
 /**
@@ -133,6 +143,8 @@ struct lcb_HTTP_ERROR_CONTEXT_ {
     size_t path_len;
     const char *body;
     size_t body_len;
+    const char *endpoint;
+    size_t endpoint_len;
 };
 
 struct lcb_CREATEOPTS_ {
@@ -432,7 +444,7 @@ struct lcb_CMDGETREPLICA_ {
  * ctx->addcmd(ctx, &cmd);
  *
  * ctx->done(ctx);
- * lcb_wait(instance);
+ * lcb_wait(instance, LCB_WAIT_DEFAULT);
  * @endcode
  */
 typedef struct lcb_MULTICMD_CTX_st {
@@ -1228,8 +1240,8 @@ struct lcb_RESPHTTP_ {
 /**
  * Response structure for full-text searches.
  */
-struct lcb_RESPFTS_ {
-    lcb_FTS_ERROR_CONTEXT ctx;
+struct lcb_RESPSEARCH_ {
+    lcb_SEARCH_ERROR_CONTEXT ctx;
     void *cookie;
     lcb_U16 rflags;
     /**
@@ -1242,25 +1254,25 @@ struct lcb_RESPFTS_ {
     size_t nrow;
     /** Original HTTP response obejct */
     const lcb_RESPHTTP *htresp;
-    lcb_FTS_HANDLE *handle;
+    lcb_SEARCH_HANDLE *handle;
 };
 
 /**
  * @brief Search Command
  */
-struct lcb_CMDFTS_ {
+struct lcb_CMDSEARCH_ {
     LCB_CMD_BASE;
     /** Encoded JSON query */
     const char *query;
     /** Length of JSON query */
     size_t nquery;
     /** Callback to be invoked. This must be supplied */
-    lcb_FTS_CALLBACK callback;
+    lcb_SEARCH_CALLBACK callback;
     /**
      * Optional pointer to store the handle. The handle may then be
-     * used for query cancellation via lcb_fts_cancel()
+     * used for query cancellation via lcb_search_cancel()
      */
-    lcb_FTS_HANDLE **handle;
+    lcb_SEARCH_HANDLE **handle;
 };
 
 /**
@@ -1269,7 +1281,7 @@ struct lcb_CMDFTS_ {
  */
 #define LCB_CMDN1QL_F_PREPCACHE (1u << 16u)
 
-/** The lcb_CMDN1QL::query member is an internal JSON structure. @internal */
+/** The lcb_CMDQUERY::query member is an internal JSON structure. @internal */
 #define LCB_CMDN1QL_F_JSONQUERY (1u << 17u)
 
 /**
@@ -1284,8 +1296,8 @@ struct lcb_CMDFTS_ {
  * callback function for each result row received. The callback is also called
  * one last time when all
  */
-struct lcb_RESPN1QL_ {
-    lcb_N1QL_ERROR_CONTEXT ctx;
+struct lcb_RESPQUERY_ {
+    lcb_QUERY_ERROR_CONTEXT ctx;
     void *cookie;
     lcb_U16 rflags;
 
@@ -1299,7 +1311,7 @@ struct lcb_RESPN1QL_ {
     size_t nrow;
     /** Raw HTTP response, if applicable */
     const lcb_RESPHTTP *htresp;
-    lcb_N1QL_HANDLE *handle;
+    lcb_QUERY_HANDLE *handle;
 };
 
 /** Set this flag to execute an actual get with each response */
@@ -1870,7 +1882,7 @@ typedef struct {
  * lcb_CMDSTATS cmd = { 0 };
  * // Using default stats, no further initialization
  * lcb_stats3(instance, fp, &cmd);
- * lcb_wait(instance);
+ * lcb_wait(instance, LCB_WAIT_DEFAULT);
  * @endcode
  *
  * @par Response
@@ -2144,7 +2156,7 @@ struct lcb_RESPGETCID_ {
 #define LCB_CMD_DESTROY_CLONE(cmd)                                                                                     \
     do {                                                                                                               \
         if (cmd->cmdflags & LCB_CMD_F_CLONE) {                                                                         \
-            if (cmd->key.contig.bytes && cmd->key.type == LCB_KV_CONTIG) {                                             \
+            if (cmd->key.contig.bytes && cmd->key.type == LCB_KV_COPY) {                                               \
                 free((void *)cmd->key.contig.bytes);                                                                   \
             }                                                                                                          \
         }                                                                                                              \

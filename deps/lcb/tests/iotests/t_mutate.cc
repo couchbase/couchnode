@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ TEST_F(MutateUnitTest, testSimpleSet)
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 }
 
@@ -135,7 +135,7 @@ TEST_F(MutateUnitTest, testStoreZeroLengthValue)
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     EXPECT_EQ(1, numcallbacks);
 
     Item itm;
@@ -183,7 +183,7 @@ TEST_F(MutateUnitTest, testRemove)
 
     lcb_cmdremove_destroy(cmd);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 }
 
@@ -224,7 +224,7 @@ TEST_F(MutateUnitTest, testRemoveMiss)
     EXPECT_EQ(LCB_SUCCESS, lcb_remove(instance, &numcallbacks, cmd));
 
     lcb_cmdremove_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 }
 
@@ -282,7 +282,7 @@ TEST_F(MutateUnitTest, testSimpleAdd)
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
     lcb_cmdstore_destroy(cmd);
 }
@@ -328,7 +328,7 @@ TEST_F(MutateUnitTest, testSimpleAppend)
     lcb_cmdstore_value(cmd, val.c_str(), val.size());
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
 
     Item itm;
@@ -371,7 +371,7 @@ TEST_F(MutateUnitTest, testAppendNonExistingKey)
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     EXPECT_EQ(1, numcallbacks);
 }
 
@@ -416,7 +416,7 @@ TEST_F(MutateUnitTest, testSimplePrepend)
     lcb_cmdstore_value(cmd, "bar", 3);
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
 
     Item itm;
@@ -459,7 +459,7 @@ TEST_F(MutateUnitTest, testPrependNonExistingKey)
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     EXPECT_EQ(1, numcallbacks);
 }
 
@@ -499,7 +499,7 @@ TEST_F(MutateUnitTest, testSimpleReplaceNonexisting)
     lcb_cmdstore_value(cmd, "bar", 3);
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
 }
 
@@ -543,7 +543,7 @@ TEST_F(MutateUnitTest, testSimpleReplace)
     lcb_cmdstore_value(cmd, "bar", 3);
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
     Item itm;
     getKey(instance, key, itm);
@@ -592,7 +592,7 @@ TEST_F(MutateUnitTest, testIncorrectCasReplace)
 
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
 }
 
@@ -637,7 +637,7 @@ TEST_F(MutateUnitTest, testCasReplace)
     lcb_cmdstore_cas(cmd, itm.cas);
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(1, numcallbacks);
     getKey(instance, key, itm);
     EXPECT_STREQ("bar", itm.val.c_str());
@@ -668,5 +668,5 @@ TEST_F(MutateUnitTest, testSetDefault)
     bool cookie = false;
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 }

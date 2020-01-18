@@ -7,4 +7,5 @@ ColumnLimit: 120
 AllowShortFunctionsOnASingleLine: Empty
 SortIncludes: false
 IndentCaseLabels: true
-SpacesInAngles: true
+SpacesInAngles: false
+AlwaysBreakTemplateDeclarations: Yes

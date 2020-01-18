@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018-2019 Couchbase, Inc.
+ *     Copyright 2018-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
         check(lcb_create(&instance, create_options), "create couchbase handle");
         lcb_createopts_destroy(create_options);
         check(lcb_connect(instance), "schedule connection");
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
         check(lcb_get_bootstrap_status(instance), "bootstrap from cluster");
     }
 
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
         printf("----> \x1b[36m%s\x1b[0m\n", stmt);
         lcb_ingest_options_destroy(opts);
         lcb_cmdanalytics_destroy(cmd);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
     }
 
     /* Now that we're all done, close down the connection handle */

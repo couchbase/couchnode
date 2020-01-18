@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017-2019 Couchbase, Inc.
+ *     Copyright 2017-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -41,18 +41,18 @@ static void subdoc_callback(lcb_INSTANCE *instance, int type, const lcb_RESPSUBD
     }
 }
 
-static void n1qlrow_callback(lcb_INSTANCE *instance, int type, const lcb_RESPN1QL *resp)
+static void n1qlrow_callback(lcb_INSTANCE *instance, int type, const lcb_RESPQUERY *resp)
 {
-    lcb_STATUS rc = lcb_respn1ql_status(resp);
+    lcb_STATUS rc = lcb_respquery_status(resp);
     const char *row;
     size_t nrow;
 
-    lcb_respn1ql_row(resp, &row, &nrow);
+    lcb_respquery_row(resp, &row, &nrow);
     if (rc != LCB_SUCCESS) {
         const lcb_RESPHTTP *http;
         uint16_t status;
 
-        lcb_respn1ql_http_response(resp, &http);
+        lcb_respquery_http_response(resp, &http);
         printf("Failure: 0x%x, %s\n", rc, lcb_strerror_short(rc));
         lcb_resphttp_http_status(http, &status);
         printf("HTTP status: %d\n", (int)status);
@@ -124,7 +124,7 @@ static lcb_INSTANCE *connect_as(char *username, char *password)
     assert(rc == LCB_SUCCESS);
     rc = lcb_connect(instance);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     rc = lcb_get_bootstrap_status(instance);
     assert(rc == LCB_SUCCESS);
 
@@ -212,7 +212,7 @@ int main()
         assert(rc == LCB_SUCCESS);
     }
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     // Create a user and assign roles. This user will search for their available discounts.
     {
@@ -229,7 +229,7 @@ int main()
         lcb_cmdhttp_content_type(cmd, content_type, strlen(content_type));
         lcb_http(instance, NULL, cmd);
         lcb_cmdhttp_destroy(cmd);
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
     }
 
     lcb_destroy(instance);
@@ -242,16 +242,16 @@ int main()
     // corresponding to discounts.
     {
         char *query = "SELECT id, meta(`travel-sample`).id AS docID FROM `travel-sample`";
-        lcb_CMDN1QL *cmd;
+        lcb_CMDQUERY *cmd;
 
-        lcb_cmdn1ql_create(&cmd);
-        lcb_cmdn1ql_statement(cmd, query, strlen(query));
-        lcb_cmdn1ql_callback(cmd, n1qlrow_callback);
+        lcb_cmdquery_create(&cmd);
+        lcb_cmdquery_statement(cmd, query, strlen(query));
+        lcb_cmdquery_callback(cmd, n1qlrow_callback);
 
         printf("User \"jsmith123\" has discounts in the hotels below:\n");
-        lcb_n1ql(instance, NULL, cmd);
-        lcb_cmdn1ql_destroy(cmd);
-        lcb_wait(instance);
+        lcb_query(instance, NULL, cmd);
+        lcb_cmdquery_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
     }
 
     lcb_destroy(instance);

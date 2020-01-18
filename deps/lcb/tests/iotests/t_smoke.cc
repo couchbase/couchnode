@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -246,7 +246,7 @@ void SmokeTest::testSet1()
     EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
     lcb_cmdstore_destroy(cmd);
     rv.incRemaining();
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
     EXPECT_EQ(LCB_STORE_UPSERT, rv.operation);
     EXPECT_EQ(key, rv.getKeyString());
@@ -269,7 +269,7 @@ void SmokeTest::testSet2()
         EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
     }
     lcb_cmdstore_destroy(cmd);
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     EXPECT_EQ(0, rv.errorCount);
 }
 
@@ -288,7 +288,7 @@ void SmokeTest::testGet1()
     lcb_cmdstore_destroy(storecmd);
     rv.incRemaining();
 
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
 
     rv.reset();
@@ -298,7 +298,7 @@ void SmokeTest::testGet1()
     lcb_cmdget_key(getcmd, key.c_str(), key.size());
     EXPECT_EQ(LCB_SUCCESS, lcb_get(session, &rv, getcmd));
     rv.incRemaining();
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     lcb_cmdget_destroy(getcmd);
 
     EXPECT_EQ(rv.error, LCB_SUCCESS);
@@ -333,7 +333,7 @@ void SmokeTest::testGet2()
         EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
         lcb_cmdstore_destroy(cmd);
         rv.incRemaining();
-        lcb_wait(session);
+        lcb_wait(session, LCB_WAIT_DEFAULT);
         EXPECT_EQ(LCB_SUCCESS, rv.error);
 
         rv.reset();
@@ -351,7 +351,7 @@ void SmokeTest::testGet2()
         rv.incRemaining();
         lcb_cmdget_destroy(cmd);
     }
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
     EXPECT_EQ(value, rv.getValueString());
 }
@@ -374,7 +374,7 @@ void SmokeTest::testTouch1()
         EXPECT_EQ(LCB_SUCCESS, lcb_store(session, &rv, cmd));
         lcb_cmdstore_destroy(cmd);
         rv.incRemaining();
-        lcb_wait(session);
+        lcb_wait(session, LCB_WAIT_DEFAULT);
         EXPECT_EQ(LCB_SUCCESS, rv.error);
 
         rv.reset();
@@ -392,7 +392,7 @@ void SmokeTest::testTouch1()
         rv.incRemaining();
     }
 
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
 }
 
@@ -403,7 +403,7 @@ void SmokeTest::testVersion1()
 
     EXPECT_EQ(LCB_SUCCESS, lcb_server_versions3(session, &rv, &cmd));
     rv.counter = mock->getNumNodes();
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     EXPECT_EQ(LCB_SUCCESS, rv.error);
     EXPECT_EQ(0, rv.counter);
 }
@@ -426,7 +426,7 @@ lcb_STATUS SmokeTest::testMissingBucket()
 
     err = lcb_connect(session);
     EXPECT_EQ(LCB_SUCCESS, err);
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     err = lcb_get_bootstrap_status(session);
     EXPECT_NE(LCB_SUCCESS, err);
     EXPECT_TRUE(err == LCB_ERR_BUCKET_NOT_FOUND || err == LCB_ERR_AUTHENTICATION_FAILURE);
@@ -451,7 +451,7 @@ void SmokeTest::testSpuriousSaslError()
         EXPECT_EQ(LCB_SUCCESS, lcb_store(session, rvs + i, cmd));
         lcb_cmdstore_destroy(cmd);
     }
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
 
     for (i = 0; i < iterations; i++) {
         const char *errinfo = NULL;
@@ -486,7 +486,7 @@ void SmokeTest::connectCommon(const char *bucket, const char *password, lcb_STAT
     mock->postCreate(session);
     err = lcb_connect(session);
     EXPECT_EQ(LCB_SUCCESS, err);
-    lcb_wait(session);
+    lcb_wait(session, LCB_WAIT_DEFAULT);
     EXPECT_EQ(expected, lcb_get_bootstrap_status(session));
     setupCallbacks(session);
 }

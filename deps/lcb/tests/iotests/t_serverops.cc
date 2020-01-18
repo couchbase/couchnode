@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ TEST_F(ServeropsUnitTest, testServerStats)
     int numcallbacks = 0;
     lcb_CMDSTATS cmd = {0};
     EXPECT_EQ(LCB_SUCCESS, lcb_stats3(instance, &numcallbacks, &cmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_LT(1, numcallbacks);
 }
 
@@ -86,7 +86,7 @@ TEST_F(ServeropsUnitTest, testKeyStats)
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(lcb_get_num_replicas(instance) + 1, mm.size());
 
     // Ensure that a key with an embedded space fails
@@ -121,7 +121,7 @@ TEST_F(ServeropsUnitTest, testServerVersion)
     int numcallbacks = 0;
     lcb_CMDVERSIONS cmd = {0};
     EXPECT_EQ(LCB_SUCCESS, lcb_server_versions3(instance, &numcallbacks, &cmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_LT(1, numcallbacks);
 }
 
@@ -169,7 +169,7 @@ TEST_F(ServeropsUnitTest, testVerbosity)
     lcb_CMDVERBOSITY cmd = {0};
     cmd.level = LCB_VERBOSITY_DEBUG;
     EXPECT_EQ(LCB_SUCCESS, lcb_server_verbosity3(instance, &counter, &cmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     EXPECT_EQ(MockEnvironment::getInstance()->getNumNodes(), counter);
     EXPECT_NE((char *)NULL, verbosity_endpoint);
@@ -179,7 +179,7 @@ TEST_F(ServeropsUnitTest, testVerbosity)
     cmd.server = verbosity_endpoint;
     cmd.level = LCB_VERBOSITY_DEBUG;
     EXPECT_EQ(LCB_SUCCESS, lcb_server_verbosity3(instance, &counter, &cmd));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     free((void *)verbosity_endpoint);
     verbosity_endpoint = NULL;
 }

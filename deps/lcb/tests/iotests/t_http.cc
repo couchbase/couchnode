@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2019 Couchbase, Inc.
+ *     Copyright 2011-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ TEST_F(HttpUnitTest, testPut)
 
     ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, &ctx, cmd));
     lcb_cmdhttp_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_EQ(true, ctx.received);
     ASSERT_EQ(LCB_SUCCESS, ctx.err);
@@ -175,7 +175,7 @@ TEST_F(HttpUnitTest, testGet)
 
     ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, &ctx, cmd));
     lcb_cmdhttp_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_EQ(true, ctx.received);
     ASSERT_EQ(200, ctx.status);
@@ -234,7 +234,7 @@ TEST_F(HttpUnitTest, testRefused)
 
     ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, &ctx, cmd));
     lcb_cmdhttp_destroy(cmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_EQ(true, ctx.received);
     ASSERT_NE(0, LCB_ERROR_IS_NETWORK(ctx.err));
@@ -289,9 +289,14 @@ static void http_callback(lcb_INSTANCE *, int, const lcb_RESPHTTP *resp)
 }
 }
 
-static void makeAdminReq(lcb_CMDHTTP **cmd, std::string &bkbuf)
+static void makeAdminReq(lcb_CMDHTTP **cmd, std::string &bkbuf, lcb_INSTANCE *instance)
 {
-    bkbuf.assign("/pools/default/buckets/default");
+    char *bucketname = NULL;
+    lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETNAME, &bucketname);
+    ASSERT_NE((const char *)NULL, bucketname);
+
+    bkbuf.assign("/pools/default/buckets/");
+    bkbuf.append(bucketname);
 
     lcb_cmdhttp_create(cmd, LCB_HTTP_TYPE_MANAGEMENT);
     lcb_cmdhttp_method(*cmd, LCB_HTTP_METHOD_GET);
@@ -310,8 +315,7 @@ TEST_F(HttpUnitTest, testAdminApi)
 
     // Make the request; this time we make it to the 'management' API
     lcb_CMDHTTP *cmd = NULL;
-
-    makeAdminReq(&cmd, pth);
+    makeAdminReq(&cmd, pth, instance);
     HtResult htr;
     htr.reset();
 
@@ -320,7 +324,7 @@ TEST_F(HttpUnitTest, testAdminApi)
     err = lcb_http(instance, &htr, cmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_TRUE(htr.gotComplete);
     ASSERT_EQ(LCB_SUCCESS, htr.rc);
@@ -334,7 +338,7 @@ TEST_F(HttpUnitTest, testAdminApi)
     err = lcb_http(instance, &htr, cmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_TRUE(htr.gotComplete);
     ASSERT_TRUE(htr.gotChunked);
@@ -386,12 +390,12 @@ TEST_F(HttpUnitTest, testDoubleCancel)
     // Make the request; this time we make it to the 'management' API
     lcb_CMDHTTP *cmd = NULL;
     std::string bk;
-    makeAdminReq(&cmd, bk);
+    makeAdminReq(&cmd, bk, instance);
     lcb_sched_enter(instance);
     ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, NULL, cmd));
     lcb_cmdhttp_destroy(cmd);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     // No crashes or errors here means we've done OK
 }
 
@@ -419,7 +423,7 @@ TEST_F(HttpUnitTest, testCancelWorks)
     lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)cancelVerify_callback);
     lcb_CMDHTTP *cmd = NULL;
     std::string ss;
-    makeAdminReq(&cmd, ss);
+    makeAdminReq(&cmd, ss, instance);
     // Make it chunked
     lcb_cmdhttp_streaming(cmd, true);
     bool cookie = false;
@@ -427,7 +431,7 @@ TEST_F(HttpUnitTest, testCancelWorks)
     ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, &cookie, cmd));
     lcb_cmdhttp_destroy(cmd);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
 extern "C" {
@@ -446,7 +450,7 @@ TEST_F(HttpUnitTest, testDestroyWithActiveRequest)
 
     lcb_CMDHTTP *cmd;
     std::string ss;
-    makeAdminReq(&cmd, ss);
+    makeAdminReq(&cmd, ss, instance);
 
     lcb_install_callback(instance, LCB_CALLBACK_HTTP, noInvoke_callback);
     lcb_sched_enter(instance);

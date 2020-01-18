@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2018-2019 Couchbase, Inc.
+ *     Copyright 2018-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
         die(instance, "Couldn't schedule connection", err);
     }
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     err = lcb_get_bootstrap_status(instance);
     if (err != LCB_SUCCESS) {
@@ -421,7 +421,7 @@ int main(int argc, char *argv[])
 
     /* The store_callback is invoked from lcb_wait() */
     fprintf(stderr, "Will wait for storage operation to complete..\n");
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     /* Now fetch the item back */
     lcb_CMDGET *gcmd;
@@ -436,7 +436,7 @@ int main(int argc, char *argv[])
 
     /* Likewise, the get_callback is invoked from here */
     fprintf(stderr, "Will wait to retrieve item..\n");
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     {
         int decoding_time_us = rand() % 1000;

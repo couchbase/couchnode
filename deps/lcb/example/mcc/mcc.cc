@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2013-2019 Couchbase, Inc.
+ *     Copyright 2013-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ class MultiClusterClient
             lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
             lcb_connect(instance);
-            lcb_wait(instance);
+            lcb_wait(instance, LCB_WAIT_DEFAULT);
             if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
                 std::cerr << "Failed to bootstrap: " << lcb_strerror_short(err) << std::endl;
                 exit(1);

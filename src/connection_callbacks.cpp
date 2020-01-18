@@ -305,19 +305,19 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbN1qlDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPN1QL *resp)
+void Connection::lcbQueryDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                     const lcb_RESPQUERY *resp)
 {
     Nan::HandleScope scope;
-    RespReader<lcb_RESPN1QL, &lcb_respn1ql_cookie> rdr(instance, resp);
+    RespReader<lcb_RESPQUERY, &lcb_respquery_cookie> rdr(instance, resp);
 
-    lcb_STATUS rc = rdr.getValue<&lcb_respn1ql_status>();
-    Local<Value> errVal = rdr.decodeError<lcb_respn1ql_error_context>(rc);
+    lcb_STATUS rc = rdr.getValue<&lcb_respquery_status>();
+    Local<Value> errVal = rdr.decodeError<lcb_respquery_error_context>(rc);
 
-    Local<Value> dataRes = rdr.parseValue<&lcb_respn1ql_row>();
+    Local<Value> dataRes = rdr.parseValue<&lcb_respquery_row>();
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respn1ql_is_final>()) {
+    if (rdr.getValue<&lcb_respquery_is_final>()) {
         rflags |= LCB_RESP_F_FINAL;
     }
     Local<Value> flagsVal = Nan::New<Number>(rflags);
@@ -329,8 +329,8 @@ void Connection::lcbN1qlDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbCbasDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPANALYTICS *resp)
+void Connection::lcbAnalyticsDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                         const lcb_RESPANALYTICS *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPANALYTICS, &lcb_respanalytics_cookie> rdr(instance,
@@ -354,19 +354,19 @@ void Connection::lcbCbasDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbFtsDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                   const lcb_RESPFTS *resp)
+void Connection::lcbSearchDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                      const lcb_RESPSEARCH *resp)
 {
     Nan::HandleScope scope;
-    RespReader<lcb_RESPFTS, &lcb_respfts_cookie> rdr(instance, resp);
+    RespReader<lcb_RESPSEARCH, &lcb_respsearch_cookie> rdr(instance, resp);
 
-    lcb_STATUS rc = rdr.getValue<&lcb_respfts_status>();
-    Local<Value> errVal = rdr.decodeError<lcb_respfts_error_context>(rc);
+    lcb_STATUS rc = rdr.getValue<&lcb_respsearch_status>();
+    Local<Value> errVal = rdr.decodeError<lcb_respsearch_error_context>(rc);
 
-    Local<Value> dataRes = rdr.parseValue<&lcb_respfts_row>();
+    Local<Value> dataRes = rdr.parseValue<&lcb_respsearch_row>();
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respfts_is_final>()) {
+    if (rdr.getValue<&lcb_respsearch_is_final>()) {
         rflags |= LCB_RESP_F_FINAL;
     }
     Local<Value> flagsVal = Nan::New<Number>(rflags);

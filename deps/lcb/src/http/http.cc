@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -62,6 +62,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_headers(const lcb_RESPHTTP *resp, const
 LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_handle(const lcb_RESPHTTP *resp, lcb_HTTP_HANDLE **handle)
 {
     *handle = resp->_htreq;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_resphttp_error_context(const lcb_RESPHTTP *resp, const lcb_HTTP_ERROR_CONTEXT **ctx)
+{
+    *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
 
@@ -303,6 +309,8 @@ void Request::init_resp(lcb_RESPHTTP *res)
         res->headers = &response_headers_clist[0];
     }
     res->ctx.response_code = htres.status;
+    res->ctx.endpoint = peer.c_str();
+    res->ctx.endpoint_len = peer.size();
 }
 
 void Request::finish(lcb_STATUS error)
@@ -530,10 +538,10 @@ static lcbvb_SVCTYPE httype2svctype(unsigned httype)
     switch (httype) {
         case LCB_HTTP_TYPE_VIEW:
             return LCBVB_SVCTYPE_VIEWS;
-        case LCB_HTTP_TYPE_N1QL:
-            return LCBVB_SVCTYPE_N1QL;
-        case LCB_HTTP_TYPE_FTS:
-            return LCBVB_SVCTYPE_FTS;
+        case LCB_HTTP_TYPE_QUERY:
+            return LCBVB_SVCTYPE_QUERY;
+        case LCB_HTTP_TYPE_SEARCH:
+            return LCBVB_SVCTYPE_SEARCH;
         case LCB_HTTP_TYPE_CBAS:
             return LCBVB_SVCTYPE_CBAS;
         default:
@@ -701,8 +709,8 @@ uint32_t Request::timeout() const
         return user_timeout;
     }
     switch (reqtype) {
-        case LCB_HTTP_TYPE_N1QL:
-        case LCB_HTTP_TYPE_FTS:
+        case LCB_HTTP_TYPE_QUERY:
+        case LCB_HTTP_TYPE_SEARCH:
             return LCBT_SETTING(instance, n1ql_timeout);
         case LCB_HTTP_TYPE_VIEW:
             return LCBT_SETTING(instance, views_timeout);

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017-2019 Couchbase, Inc.
+ *     Copyright 2017-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -392,7 +392,7 @@ class LookupHandler : public Handler
             }
         }
         lcb_sched_leave(instance);
-        err = lcb_wait(instance);
+        err = lcb_wait(instance, LCB_WAIT_DEFAULT);
         if (err != LCB_SUCCESS) {
             throw LcbError(err, "Failed to execute " + cmdname + " command");
         }
@@ -468,7 +468,7 @@ class RemoveHandler : public Handler
             }
         }
         lcb_sched_leave(instance);
-        err = lcb_wait(instance);
+        err = lcb_wait(instance, LCB_WAIT_DEFAULT);
         if (err != LCB_SUCCESS) {
             throw LcbError(err, "Failed to execute remove");
         }
@@ -555,7 +555,7 @@ class UpsertHandler : public Handler
         }
         lcb_sched_leave(instance);
 
-        err = lcb_wait(instance);
+        err = lcb_wait(instance, LCB_WAIT_DEFAULT);
         if (err != LCB_SUCCESS) {
             throw LcbError(err, "Failed to execute upsert");
         }
@@ -730,7 +730,7 @@ class MutationHandler : public Handler
         }
         lcb_sched_leave(instance);
 
-        err = lcb_wait(instance);
+        err = lcb_wait(instance, LCB_WAIT_DEFAULT);
         if (err != LCB_SUCCESS) {
             throw LcbError(err, "Failed to execute " + cmdname + " command");
         }
@@ -879,7 +879,7 @@ static void real_main(int argc, char **argv)
     lcb_createopts_destroy(cropts);
     config.doCtls();
     do_or_die(lcb_connect(instance), "Failed to connect to cluster");
-    do_or_die(lcb_wait(instance), "Failed to wait for connection bootstrap");
+    do_or_die(lcb_wait(instance, LCB_WAIT_DEFAULT), "Failed to wait for connection bootstrap");
     do_or_die(lcb_get_bootstrap_status(instance), "Failed to bootstrap");
     if (config.useTimings()) {
         hg.install(instance, stdout);

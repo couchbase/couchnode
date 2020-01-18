@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016-2019 Couchbase, Inc.
+ *     Copyright 2016-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ TEST_F(SchedUnitTests, testSched)
     rc = lcb_store(instance, &counter, scmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     ASSERT_TRUE(hasPendingOps(instance));
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     ASSERT_FALSE(hasPendingOps(instance));
 
     lcb_sched_enter(instance);
@@ -68,7 +68,7 @@ TEST_F(SchedUnitTests, testSched)
     ASSERT_FALSE(hasPendingOps(instance));
     lcb_sched_leave(instance);
     ASSERT_TRUE(hasPendingOps(instance));
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     ASSERT_FALSE(hasPendingOps(instance));
 
     // Try with multiple operations..
@@ -81,7 +81,7 @@ TEST_F(SchedUnitTests, testSched)
     lcb_sched_enter(instance);
     rc = lcb_store(instance, &counter, scmd);
     lcb_sched_fail(instance);
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
     ASSERT_EQ(5, counter);
 
     lcb_cmdstore_destroy(scmd);

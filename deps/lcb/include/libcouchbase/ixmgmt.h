@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2016-2019 Couchbase, Inc.
+ *     Copyright 2016-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -168,7 +168,7 @@ typedef struct lcb_RESPN1XMGMT_st {
     size_t nspecs;
 
     /** Inner N1QL response. Examine on error */
-    const lcb_RESPN1QL *inner;
+    const lcb_RESPQUERY *inner;
 } lcb_RESPN1XMGMT;
 
 /**

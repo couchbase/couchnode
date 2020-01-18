@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -383,13 +383,13 @@ void MockEnvironment::bootstrapRealCluster()
     lcb_createopts_destroy(options);
     postCreate(tmphandle);
     ASSERT_EQ(LCB_SUCCESS, lcb_connect(tmphandle));
-    lcb_wait(tmphandle);
+    lcb_wait(tmphandle, LCB_WAIT_DEFAULT);
 
     lcb_install_callback(tmphandle, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)statsCallback);
     lcb_CMDSTATS scmd = {0};
     err = lcb_stats3(tmphandle, this, &scmd);
     ASSERT_EQ(LCB_SUCCESS, err);
-    lcb_wait(tmphandle);
+    lcb_wait(tmphandle, LCB_WAIT_DEFAULT);
 
     const char *const *servers = lcb_get_server_list(tmphandle);
     int ii;
@@ -445,7 +445,7 @@ void MockEnvironment::clearAndReset()
         postCreate(innerClient);
         err = lcb_connect(innerClient);
         EXPECT_EQ(LCB_SUCCESS, err);
-        lcb_wait(innerClient);
+        lcb_wait(innerClient, LCB_WAIT_DEFAULT);
         EXPECT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(innerClient));
         lcb_install_callback(innerClient, LCB_CALLBACK_CBFLUSH, mock_flush_callback);
     }
@@ -455,7 +455,7 @@ void MockEnvironment::clearAndReset()
 
     err = lcb_cbflush3(innerClient, NULL, &fcmd);
     ASSERT_EQ(LCB_SUCCESS, err);
-    lcb_wait(innerClient);
+    lcb_wait(innerClient, LCB_WAIT_DEFAULT);
 }
 
 void MockEnvironment::SetUp()

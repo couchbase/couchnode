@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2019 Couchbase, Inc.
+ *     Copyright 2014-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -203,6 +203,8 @@ void lcb_VIEW_HANDLE_::invoke_last(lcb_STATUS err)
     resp.htresp = cur_htresp;
     if (cur_htresp) {
         resp.ctx.http_response_code = cur_htresp->ctx.response_code;
+        resp.ctx.endpoint = cur_htresp->ctx.endpoint;
+        resp.ctx.endpoint_len = cur_htresp->ctx.endpoint_len;
     }
     resp.ctx.design_document = design_document.c_str();
     resp.ctx.design_document_len = design_document.size();
@@ -265,6 +267,8 @@ void lcb_VIEW_HANDLE_::invoke_row(lcb_RESPVIEW *resp)
     resp->htresp = cur_htresp;
     if (cur_htresp) {
         resp->ctx.http_response_code = cur_htresp->ctx.response_code;
+        resp->ctx.endpoint = cur_htresp->ctx.endpoint;
+        resp->ctx.endpoint_len = cur_htresp->ctx.endpoint_len;
     }
     resp->ctx.design_document = design_document.c_str();
     resp->ctx.design_document_len = design_document.size();

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2014-2019 Couchbase, Inc.
+ *     Copyright 2014-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -182,6 +182,8 @@ map_error(lcb_INSTANCE *instance, int in)
         return LCB_ERR_AUTHENTICATION_FAILURE;
     case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION:
         return LCB_ERR_COLLECTION_NOT_FOUND;
+    case PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE:
+        return LCB_ERR_SCOPE_NOT_FOUND;
     case PROTOCOL_BINARY_RESPONSE_NO_COLLECTIONS_MANIFEST:
         return LCB_ERR_COLLECTION_NO_MANIFEST;
     case PROTOCOL_BINARY_RESPONSE_CANNOT_APPLY_COLLECTIONS_MANIFEST:
@@ -271,17 +273,41 @@ void handle_error_info(const MemcachedResponse* mc_resp, ResponsePack<T>* rp)
     }
 }
 
-template <typename T>
-void init_resp(lcb_INSTANCE *instance, const MemcachedResponse* mc_resp,
-               const mc_PACKET *req, lcb_STATUS immerr, T *resp) {
+template < typename T >
+void init_resp(lcb_INSTANCE *instance, mc_PIPELINE *pipeline, const MemcachedResponse *mc_resp, const mc_PACKET *req,
+               lcb_STATUS immerr, T *resp)
+{
     make_error(instance, resp, mc_resp, immerr);
-    resp->ctx.cas = mc_resp->cas();
     resp->ctx.status_code = mc_resp->status();
+    resp->ctx.cas = mc_resp->cas();
     resp->ctx.opaque = mc_resp->opaque();
     resp->ctx.bucket = LCBT_VBCONFIG(instance)->bname;
     resp->ctx.bucket_len = LCBT_VBCONFIG(instance)->bname_len;
     resp->cookie = const_cast<void*>(MCREQ_PKT_COOKIE(req));
     mcreq_get_key(instance, req, &resp->ctx.key, &resp->ctx.key_len);
+
+    lcb::Server *server = static_cast< lcb::Server * >(pipeline);
+    const lcb_host_t *remote = server->curhost;
+    if (remote) {
+        char *ptr = resp->ctx.endpoint;
+        if (remote->ipv6) {
+            *ptr = '[';
+            ptr++;
+        }
+        strcpy(ptr, remote->host);
+        ptr += strlen(remote->host);
+        if (remote->ipv6) {
+            *ptr = ']';
+            ptr++;
+        }
+        *ptr = ':';
+        ptr++;
+        strcpy(ptr, remote->port);
+        ptr += strlen(remote->port);
+        *ptr = '\0';
+        ptr++;
+        resp->ctx.endpoint_len = ptr - resp->ctx.endpoint;
+    }
 }
 
 /**
@@ -394,7 +420,7 @@ H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse* response,
     lcb_RESPGET& resp = w.resp;
 
     lcb_INSTANCE *o = get_instance(pipeline);
-    init_resp(o, response, request, immerr, &resp);
+    init_resp(o, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
 
@@ -411,7 +437,7 @@ H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse* response,
 
     void *freeptr = NULL;
     maybe_decompress(o, response, &resp, &freeptr);
-    LCBTRACE_KV_FINISH(pipeline, request, response);
+    LCBTRACE_KV_FINISH(pipeline, request, resp, response);
     TRACE_GET_END(o, request, response, &resp);
     invoke_callback(request, o, &resp, LCB_CALLBACK_GET);
     free(freeptr);
@@ -421,7 +447,7 @@ static void H_exists(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
 {
     lcb_INSTANCE *root = get_instance(pipeline);
     lcb_RESPEXISTS resp{};
-    init_resp(root, response, request, immerr, &resp);
+    init_resp(root, pipeline, response, request, immerr, &resp);
     resp.cookie = const_cast< void * >(MCREQ_PKT_COOKIE(request));
     resp.rflags |= LCB_RESP_F_FINAL;
     if (resp.ctx.rc == LCB_SUCCESS) {
@@ -441,7 +467,7 @@ static void H_exists(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
         }
     }
     invoke_callback(request, root, &resp, LCB_CALLBACK_EXISTS);
-    LCBTRACE_KV_FINISH(pipeline, request, response);
+    LCBTRACE_KV_FINISH(pipeline, request, resp, response);
     TRACE_EXISTS_END(root, request, response, &resp);
 }
 
@@ -455,7 +481,7 @@ H_getreplica(mc_PIPELINE *pipeline, mc_PACKET *request,
     void *freeptr = NULL;
     mc_REQDATAEX *rd = request->u_rdata.exdata;
 
-    init_resp(instance, response, request, immerr, &resp);
+    init_resp(instance, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
 
     if (resp.ctx.rc == LCB_SUCCESS) {
@@ -483,16 +509,15 @@ lcb_sdresult_parse(lcb_RESPSUBDOC *resp, lcb_CALLBACK_TYPE type)
     std::vector<lcb_SDENTRY> results;
     size_t iter = 0, oix = 0;
     lcb_SDENTRY ent;
+    results.resize(resp->nres);
 
     while (lcb_sdresult_next(resp, &ent, &iter)) {
         size_t index = oix++;
         if (type == LCB_CALLBACK_SDMUTATE) {
             index = ent.index;
         }
-        results.resize(index + 1);
         results[index] = ent;
     }
-    resp->nres = results.size();
     if (resp->nres) {
         resp->res = (lcb_SDENTRY *)calloc(resp->nres, sizeof(lcb_SDENTRY));
         for (size_t ii = 0; ii < resp->nres; ii++) {
@@ -508,7 +533,7 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
     lcb_INSTANCE *o = get_instance(pipeline);
     ResponsePack< lcb_RESPSUBDOC > w{};
     lcb_CALLBACK_TYPE cbtype;
-    init_resp(o, response, request, immerr, &w.resp);
+    init_resp(o, pipeline, response, request, immerr, &w.resp);
     w.resp.rflags |= LCB_RESP_F_FINAL;
     w.resp.res = NULL;
 
@@ -532,6 +557,7 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
             response->opcode() == PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION) {
         if (w.resp.ctx.rc == LCB_SUCCESS) {
             w.resp.responses = response;
+            w.resp.nres = MCREQ_PKT_RDATA(request)->nsubreq;
             lcb_sdresult_parse(&w.resp, cbtype);
         } else {
             handle_error_info(response, &w);
@@ -679,10 +705,10 @@ H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse *response,
     lcb_INSTANCE *root = get_instance(pipeline);
     ResponsePack< lcb_RESPREMOVE > w{};
     w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
-    init_resp(root, response, packet, immerr, &w.resp);
+    init_resp(root, pipeline, response, packet, immerr, &w.resp);
     handle_error_info(response, &w);
     handle_mutation_token(root, response, packet, &w.mt);
-    LCBTRACE_KV_FINISH(pipeline, packet, response);
+    LCBTRACE_KV_FINISH(pipeline, packet, w.resp, response);
     TRACE_REMOVE_END(root, packet, response, &w.resp);
     invoke_callback(packet, root, &w.resp, LCB_CALLBACK_REMOVE);
 }
@@ -755,7 +781,7 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
         resp.ttp = ttp;
         resp.ttr = ttr;
         TRACE_OBSERVE_PROGRESS(root, request, response, &resp);
-        LCBTRACE_KV_FINISH(pipeline, request, response);
+        LCBTRACE_KV_FINISH(pipeline, request, resp, response);
         if (! (request->flags & MCREQ_F_INVOKED)) {
             rd->procs->handler(pipeline, request, resp.ctx.rc, &resp);
         }
@@ -767,7 +793,7 @@ H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
                 MemcachedResponse *response, lcb_STATUS immerr) {
     lcb_INSTANCE *root = get_instance(pipeline);
     lcb_RESPOBSEQNO resp{};
-    init_resp(root, response, request, immerr, &resp);
+    init_resp(root, pipeline, response, request, immerr, &resp);
 
     resp.server_index = pipeline->index;
 
@@ -794,7 +820,7 @@ H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
         /* Get the server for this command. Note that since this is a successful
          * operation, the server is never a dummy */
     }
-    LCBTRACE_KV_FINISH(pipeline, request, response);
+    LCBTRACE_KV_FINISH(pipeline, request, resp, response);
     invoke_callback(request, root, &resp, LCB_CALLBACK_OBSEQNO);
 }
 
@@ -805,7 +831,7 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     lcb_INSTANCE *root = get_instance(pipeline);
     ResponsePack< lcb_RESPSTORE > w{};
     uint8_t opcode;
-    init_resp(root, response, request, immerr, &w.resp);
+    init_resp(root, pipeline, response, request, immerr, &w.resp);
     handle_error_info(response, &w);
     if (!immerr) {
         opcode = response->opcode();
@@ -829,10 +855,10 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     handle_mutation_token(root, response, request, &w.mt);
     TRACE_STORE_END(root, request, response, &w.resp);
     if (request->flags & MCREQ_F_REQEXT) {
-        LCBTRACE_KV_COMPLETE(pipeline, request, response);
+        LCBTRACE_KV_COMPLETE(pipeline, request, w.resp, response);
         request->u_rdata.exdata->procs->handler(pipeline, request, immerr, &w.resp);
     } else {
-        LCBTRACE_KV_FINISH(pipeline, request, response);
+        LCBTRACE_KV_FINISH(pipeline, request, w.resp, response);
         invoke_callback(request, root, &w.resp, LCB_CALLBACK_STORE);
     }
 }
@@ -843,7 +869,7 @@ H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request,
 {
     lcb_INSTANCE *root = get_instance(pipeline);
     ResponsePack< lcb_RESPCOUNTER > w{};
-    init_resp(root, response, request, immerr, &w.resp);
+    init_resp(root, pipeline, response, request, immerr, &w.resp);
 
     if (w.resp.ctx.rc == LCB_SUCCESS) {
         memcpy(&w.resp.value, response->value(), sizeof(w.resp.value));
@@ -855,7 +881,7 @@ H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request,
     }
     w.resp.rflags |= LCB_RESP_F_FINAL;
     w.resp.ctx.cas = response->cas();
-    LCBTRACE_KV_FINISH(pipeline, request, response);
+    LCBTRACE_KV_FINISH(pipeline, request, w.resp, response);
     TRACE_ARITHMETIC_END(root, request, response, &w.resp);
     invoke_callback(request, root, &w.resp, LCB_CALLBACK_COUNTER);
 }
@@ -895,7 +921,7 @@ H_collections_get_manifest(mc_PIPELINE *pipeline, mc_PACKET *request,
     lcb_INSTANCE *root = get_instance(pipeline);
     ResponsePack< lcb_RESPGETMANIFEST > w{};
     lcb_RESPGETMANIFEST& resp = w.resp;
-    init_resp(root, response, request, immerr, &resp);
+    init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
     resp.value = response->value();
@@ -910,25 +936,27 @@ H_collections_get_cid(mc_PIPELINE *pipeline, mc_PACKET *request,
     lcb_INSTANCE *root = get_instance(pipeline);
     ResponsePack< lcb_RESPGETCID > w{};
     lcb_RESPGETCID& resp = w.resp;
-    init_resp(root, response, request, immerr, &resp);
+    init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
 
-    const char *ptr = response->ext();
-    if (ptr) {
-        memcpy(&resp.manifest_id, ptr, sizeof(uint64_t));
-        resp.manifest_id = lcb_ntohll(resp.manifest_id);
-        ptr += sizeof(uint64_t);
-        memcpy(&resp.collection_id, ptr, sizeof(uint32_t));
-        resp.collection_id = ntohl(resp.collection_id);
-    } else {
-        resp.manifest_id = 0;
-        resp.collection_id = 0;
-        resp.ctx.rc = LCB_ERR_UNSUPPORTED_OPERATION;
+    if (resp.ctx.rc == LCB_SUCCESS) {
+        const char *ptr = response->ext();
+        if (ptr) {
+            memcpy(&resp.manifest_id, ptr, sizeof(uint64_t));
+            resp.manifest_id = lcb_ntohll(resp.manifest_id);
+            ptr += sizeof(uint64_t);
+            memcpy(&resp.collection_id, ptr, sizeof(uint32_t));
+            resp.collection_id = ntohl(resp.collection_id);
+        } else {
+            resp.manifest_id = 0;
+            resp.collection_id = 0;
+            resp.ctx.rc = LCB_ERR_UNSUPPORTED_OPERATION;
+        }
     }
 
     if (request->flags & MCREQ_F_REQEXT) {
-        request->u_rdata.exdata->procs->handler(pipeline, request, immerr, &resp);
+        request->u_rdata.exdata->procs->handler(pipeline, request, resp.ctx.rc, &resp);
     } else {
         invoke_callback(request, root, &resp, LCB_CALLBACK_GETCID);
     }
@@ -984,10 +1012,10 @@ H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     lcb_INSTANCE *root = get_instance(pipeline);
     ResponsePack< lcb_RESPTOUCH > w{};
     lcb_RESPTOUCH& resp = w.resp;
-    init_resp(root, response, request, immerr, &resp);
+    init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
-    LCBTRACE_KV_FINISH(pipeline, request, response);
+    LCBTRACE_KV_FINISH(pipeline, request, resp, response);
     TRACE_TOUCH_END(root, request, response, &resp);
     invoke_callback(request, root, &resp, LCB_CALLBACK_TOUCH);
 }
@@ -999,10 +1027,10 @@ H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     lcb_INSTANCE *root = get_instance(pipeline);
     ResponsePack< lcb_RESPUNLOCK > w{};
     lcb_RESPUNLOCK& resp = w.resp;
-    init_resp(root, response, request, immerr, &resp);
+    init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
-    LCBTRACE_KV_FINISH(pipeline, request, response);
+    LCBTRACE_KV_FINISH(pipeline, request, resp, response);
     TRACE_UNLOCK_END(root, request, response, &resp);
     invoke_callback(request, root, &resp, LCB_CALLBACK_UNLOCK);
 }

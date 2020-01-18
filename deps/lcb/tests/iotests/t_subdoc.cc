@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2015-2019 Couchbase, Inc.
+ *     Copyright 2015-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ static ::testing::AssertionResult verifySingleOk(const char *, const char *, con
 static ::testing::AssertionResult verifySingleError(const char *, const char *, const MultiResult &mr, lcb_STATUS exp)
 {
     using namespace ::testing;
-    if (mr.rc != exp) {
+    if (mr.rc != LCB_SUCCESS) {
         return AssertionFailure() << "Top-level error code is not SUCCESS. Got" << mr.rc;
     }
     if (mr.size() != 1) {
@@ -229,7 +229,7 @@ bool SubdocUnitTest::createSubdocConnection(HandleWrap &hw, lcb_INSTANCE **insta
     if (rc != LCB_SUCCESS) {
         return false;
     }
-    lcb_wait(*instance);
+    lcb_wait(*instance, LCB_WAIT_DEFAULT);
 
     if (res.rc == LCB_ERR_UNSUPPORTED_OPERATION || res.rc == LCB_ERR_UNSUPPORTED_OPERATION) {
         return false;
@@ -256,7 +256,7 @@ lcb_STATUS schedwait(lcb_INSTANCE *instance, MultiResult *res, const T *cmd,
     res->clear();
     lcb_STATUS rc = fn(instance, res, cmd);
     if (rc == LCB_SUCCESS) {
-        lcb_wait(instance);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
     }
     return rc;
 }
@@ -344,10 +344,18 @@ TEST_F(SubdocUnitTest, testSdGetExists)
 
     lcb_subdocspecs_get(specs, 0, 0, "non-exist", strlen("non-exist"));
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, cmd, lcb_subdoc));
-    ASSERT_SD_ERR(res, LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON);
+    if (MockEnvironment::getInstance()->isRealCluster()) {
+        ASSERT_SD_ERR(res, LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON);
+    } else {
+        ASSERT_EQ(LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON, res.rc);
+    }
     lcb_subdocspecs_exists(specs, 0, 0, "non-exist", strlen("non-exist"));
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, cmd, lcb_subdoc));
-    ASSERT_SD_ERR(res, LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON);
+    if (MockEnvironment::getInstance()->isRealCluster()) {
+        ASSERT_SD_ERR(res, LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON);
+    } else {
+        ASSERT_EQ(LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON, res.rc);
+    }
 
     // Restore the key back to the document..
     lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
@@ -684,7 +692,7 @@ TEST_F(SubdocUnitTest, testMultiLookup)
     lcb_subdocspecs_get(specs, 3, 0, "array[1]", strlen("array[1]"));
     rc = lcb_subdoc(instance, &mr, mcmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     ASSERT_EQ(LCB_SUCCESS, mr.rc);
     ASSERT_EQ(4, mr.results.size());
@@ -717,7 +725,7 @@ TEST_F(SubdocUnitTest, testMultiLookup)
     lcb_cmdsubdoc_key(mcmd, missing_key.c_str(), missing_key.size());
     rc = lcb_subdoc(instance, &mr, mcmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, mr.rc);
     ASSERT_TRUE(mr.results.empty());
 
@@ -772,7 +780,7 @@ TEST_F(SubdocUnitTest, testMultiMutations)
 
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mr, mcmd, lcb_subdoc));
     ASSERT_EQ(LCB_SUCCESS, mr.rc);
-    ASSERT_EQ(2, mr.size());
+    ASSERT_EQ(3, mr.size());
     ASSERT_EQ(LCB_ERR_SUBDOC_PATH_NOT_FOUND, mr.results[1].rc);
     lcb_subdocspecs_destroy(specs);
 

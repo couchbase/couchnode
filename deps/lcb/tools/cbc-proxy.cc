@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2017-2019 Couchbase, Inc.
+ *     Copyright 2017-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -283,8 +283,8 @@ extern "C" {
         }                                                                                                              \
     }
 
-DEFINE_ROW_CALLBACK(n1ql_callback, lcb_RESPN1QL)
-DEFINE_ROW_CALLBACK(fts_callback, lcb_RESPFTS)
+DEFINE_ROW_CALLBACK(n1ql_callback, lcb_RESPQUERY)
+DEFINE_ROW_CALLBACK(fts_callback, lcb_RESPSEARCH)
 }
 
 static void conn_readcb(struct bufferevent *bev, void *cookie)
@@ -328,30 +328,30 @@ static void conn_readcb(struct bufferevent *bev, void *cookie)
         char *key = (char *)pkt + sizeof(header) + extlen;
         lcb_STATUS rc;
         if (memcmp(key, "n1ql ", 5) == 0) {
-            lcb_CMDN1QL *cmd;
-            lcb_cmdn1ql_create(&cmd);
+            lcb_CMDQUERY *cmd;
+            lcb_cmdquery_create(&cmd);
 
-            rc = lcb_cmdn1ql_statement(cmd, key + 5, keylen - 5);
+            rc = lcb_cmdquery_statement(cmd, key + 5, keylen - 5);
             if (rc != LCB_SUCCESS) {
                 lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to set query for N1QL", CL_LOGID(cl));
                 goto FWD;
             }
-            lcb_cmdn1ql_callback(cmd, n1ql_callback);
+            lcb_cmdquery_callback(cmd, n1ql_callback);
             cl->cnt = 0;
-            rc = lcb_n1ql(instance, cl, cmd);
-            lcb_cmdn1ql_destroy(cmd);
+            rc = lcb_query(instance, cl, cmd);
+            lcb_cmdquery_destroy(cmd);
             if (rc != LCB_SUCCESS) {
                 lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to schedule N1QL command", CL_LOGID(cl));
                 goto FWD;
             }
             goto DONE;
         } else if (memcmp(key, "fts ", 4) == 0) {
-            lcb_CMDFTS *cmd;
-            lcb_cmdfts_create(&cmd);
-            lcb_cmdfts_payload(cmd, key + 4, keylen - 4);
-            lcb_cmdfts_callback(cmd, fts_callback);
-            rc = lcb_fts(instance, cl, cmd);
-            lcb_cmdfts_destroy(cmd);
+            lcb_CMDSEARCH *cmd;
+            lcb_cmdsearch_create(&cmd);
+            lcb_cmdsearch_payload(cmd, key + 4, keylen - 4);
+            lcb_cmdsearch_callback(cmd, fts_callback);
+            rc = lcb_search(instance, cl, cmd);
+            lcb_cmdsearch_destroy(cmd);
             cl->cnt = 0;
             if (rc != LCB_SUCCESS) {
                 lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to schedule FTS command", CL_LOGID(cl));

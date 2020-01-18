@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2015-2019 Couchbase, Inc.
+ *     Copyright 2015-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ static void demoKey(lcb_INSTANCE *instance, const char *key)
     lcb_STATUS rc = lcb_get(instance, NULL, gcmd);
     assert(rc == LCB_SUCCESS);
     lcb_cmdget_destroy(gcmd);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     printf("====\n\n");
 }
 
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     rc = lcb_connect(instance);
     assert(rc == LCB_SUCCESS);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     rc = lcb_get_bootstrap_status(instance);
     assert(rc == LCB_SUCCESS);
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     rc = lcb_store(instance, NULL, scmd);
     lcb_cmdstore_destroy(scmd);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     lcb_CMDSUBDOC *cmd;
     lcb_SUBDOCSPECS *ops;
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
     rc = lcb_subdoc(instance, NULL, cmd);
     lcb_subdocspecs_destroy(ops);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     /**
      * Set a dictionary/object field
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
     rc = lcb_subdoc(instance, NULL, cmd);
     lcb_subdocspecs_destroy(ops);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     demoKey(instance, "key");
 
     /**
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
     rc = lcb_subdoc(instance, NULL, cmd);
     lcb_subdocspecs_destroy(ops);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     demoKey(instance, "key");
 
     /**
@@ -200,7 +200,7 @@ int main(int argc, char **argv)
     rc = lcb_subdoc(instance, NULL, cmd);
     lcb_subdocspecs_destroy(ops);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     demoKey(instance, "key");
 
     /**
@@ -213,7 +213,7 @@ int main(int argc, char **argv)
     rc = lcb_subdoc(instance, NULL, cmd);
     lcb_subdocspecs_destroy(ops);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     lcb_destroy(instance);
     return 0;

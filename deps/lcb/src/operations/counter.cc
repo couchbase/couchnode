@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2019 Couchbase, Inc.
+ *     Copyright 2010-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *   limitations under the License.
  */
 #include "internal.h"
+#include "collections.h"
 #include "trace.h"
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_status(const lcb_RESPCOUNTER *resp)
@@ -26,11 +27,15 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respcounter_error_context(const lcb_RESPCOUNTER 
                                                           const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
     if (resp->rflags & LCB_RESP_F_ERRINFO) {
-        lcb_RESPCOUNTER *mut = const_cast< lcb_RESPCOUNTER * >(resp);
+        lcb_RESPCOUNTER *mut = const_cast<lcb_RESPCOUNTER *>(resp);
         mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_COUNTER, (const lcb_RESPBASE *)resp);
-        mut->ctx.context_len = strlen(resp->ctx.context);
+        if (mut->ctx.context) {
+            mut->ctx.context_len = strlen(resp->ctx.context);
+        }
         mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_COUNTER, (const lcb_RESPBASE *)resp);
-        mut->ctx.ref_len = strlen(resp->ctx.ref);
+        if (mut->ctx.ref) {
+            mut->ctx.ref_len = strlen(resp->ctx.ref);
+        }
     }
     *ctx = &resp->ctx;
     return LCB_SUCCESS;
@@ -88,7 +93,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_destroy(lcb_CMDCOUNTER *cmd)
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_cas(lcb_CMDSTORE *cmd, uint64_t cas)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_cas(lcb_CMDCOUNTER *cmd, uint64_t cas)
 {
     cmd->cas = cas;
     return LCB_SUCCESS;
@@ -162,94 +167,110 @@ static lcb_STATUS counter_validate(lcb_INSTANCE *instance, const lcb_CMDCOUNTER 
     return LCB_SUCCESS;
 }
 
-static lcb_STATUS counter_impl(uint32_t cid, lcb_INSTANCE *instance, void *cookie, const void *arg)
-{
-    const lcb_CMDCOUNTER *cmd = (const lcb_CMDCOUNTER *)arg;
-    if (LCBT_SETTING(instance, use_collections)) {
-        lcb_CMDCOUNTER *mut = const_cast< lcb_CMDCOUNTER * >(cmd);
-        mut->cid = cid;
-    }
-
-    mc_CMDQUEUE *q = &instance->cmdq;
-    mc_PIPELINE *pipeline;
-    mc_PACKET *packet;
-    mc_REQDATA *rdata;
-    lcb_STATUS err;
-    int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
-    lcb_U8 ffextlen = 0;
-    size_t hsize;
-
-    protocol_binary_request_incr acmd;
-    protocol_binary_request_header *hdr = &acmd.message.header;
-
-    if (cmd->dur_level && new_durability_supported) {
-        hdr->request.magic = PROTOCOL_BINARY_AREQ;
-        ffextlen = 4;
-    }
-
-    err = mcreq_basic_packet(q, (const lcb_CMDBASE *)cmd, hdr, 20, ffextlen, &packet, &pipeline,
-                             MCREQ_BASICPACKET_F_FALLBACKOK);
-    if (err != LCB_SUCCESS) {
-        return err;
-    }
-    hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
-
-    rdata = &packet->u_rdata.reqdata;
-    rdata->cookie = cookie;
-    rdata->start = gethrtime();
-    rdata->deadline = rdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
-    hdr->request.magic = PROTOCOL_BINARY_REQ;
-    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr->request.cas = cmd->cas;
-    hdr->request.opaque = packet->opaque;
-    hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + ntohs(hdr->request.keylen));
-
-    uint32_t *exp;
-    uint64_t *delta;
-    if (cmd->dur_level && new_durability_supported) {
-        acmd.message.body.alt.meta = (1 << 4) | 3;
-        acmd.message.body.alt.level = cmd->dur_level;
-        acmd.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
-        acmd.message.body.alt.initial = lcb_htonll(cmd->initial);
-        exp = &acmd.message.body.alt.expiration;
-        delta = &acmd.message.body.alt.delta;
-    } else {
-        acmd.message.body.norm.initial = lcb_htonll(cmd->initial);
-        exp = &acmd.message.body.norm.expiration;
-        delta = &acmd.message.body.norm.delta;
-    }
-    if (!cmd->create) {
-        memset(exp, 0xff, sizeof(*exp));
-    } else {
-        *exp = htonl(cmd->exptime);
-    }
-
-    if (cmd->delta < 0) {
-        hdr->request.opcode = PROTOCOL_BINARY_CMD_DECREMENT;
-        *delta = lcb_htonll((lcb_uint64_t)(cmd->delta * -1));
-    } else {
-        hdr->request.opcode = PROTOCOL_BINARY_CMD_INCREMENT;
-        *delta = lcb_htonll(cmd->delta);
-    }
-
-    memcpy(SPAN_BUFFER(&packet->kh_span), acmd.bytes, hsize);
-    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_COUNTER, packet->opaque, rdata->span);
-    TRACE_ARITHMETIC_BEGIN(instance, hdr, cmd);
-    LCB_SCHED_ADD(instance, pipeline, packet);
-    return LCB_SUCCESS;
-}
-
 LIBCOUCHBASE_API
-lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCOUNTER *cmd)
+lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCOUNTER *command)
 {
-    lcb_STATUS err;
+    lcb_STATUS rc;
 
-    err = counter_validate(instance, cmd);
-    if (err != LCB_SUCCESS) {
-        return err;
+    rc = counter_validate(instance, command);
+    if (rc != LCB_SUCCESS) {
+        return rc;
     }
 
-    return collcache_exec(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection, instance, cookie, counter_impl,
-                          (lcb_COLLCACHE_ARG_CLONE)lcb_cmdcounter_clone, (lcb_COLLCACHE_ARG_DTOR)lcb_cmdcounter_destroy,
-                          cmd);
+    auto operation = [instance, cookie](const lcb_RESPGETCID *resp, const lcb_CMDCOUNTER *cmd) {
+        if (resp && resp->ctx.rc != LCB_SUCCESS) {
+            lcb_RESPCALLBACK cb = lcb_find_callback(instance, LCB_CALLBACK_COUNTER);
+            lcb_RESPCOUNTER cnt{};
+            cnt.ctx = resp->ctx;
+            cnt.ctx.key = static_cast<const char *>(cmd->key.contig.bytes);
+            cnt.ctx.key_len = cmd->key.contig.nbytes;
+            cnt.cookie = cookie;
+            cb(instance, LCB_CALLBACK_COUNTER, reinterpret_cast<const lcb_RESPBASE *>(&cnt));
+            return resp->ctx.rc;
+        }
+
+        mc_CMDQUEUE *q = &instance->cmdq;
+        mc_PIPELINE *pipeline;
+        mc_PACKET *packet;
+        mc_REQDATA *rdata;
+        lcb_STATUS err;
+        int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
+        lcb_U8 ffextlen = 0;
+        size_t hsize;
+
+        protocol_binary_request_incr acmd;
+        protocol_binary_request_header *hdr = &acmd.message.header;
+
+        if (cmd->dur_level && new_durability_supported) {
+            hdr->request.magic = PROTOCOL_BINARY_AREQ;
+            ffextlen = 4;
+        }
+
+        err = mcreq_basic_packet(q, (const lcb_CMDBASE *)cmd, hdr, 20, ffextlen, &packet, &pipeline,
+                                 MCREQ_BASICPACKET_F_FALLBACKOK);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+        hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
+
+        rdata = &packet->u_rdata.reqdata;
+        rdata->cookie = cookie;
+        rdata->start = gethrtime();
+        rdata->deadline =
+            rdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+        hdr->request.magic = PROTOCOL_BINARY_REQ;
+        hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+        hdr->request.cas = cmd->cas;
+        hdr->request.opaque = packet->opaque;
+        hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + ntohs(hdr->request.keylen));
+
+        uint32_t *exp;
+        uint64_t *delta;
+        if (cmd->dur_level && new_durability_supported) {
+            acmd.message.body.alt.meta = (1u << 4u) | 3u;
+            acmd.message.body.alt.level = cmd->dur_level;
+            acmd.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
+            acmd.message.body.alt.initial = lcb_htonll(cmd->initial);
+            exp = &acmd.message.body.alt.expiration;
+            delta = &acmd.message.body.alt.delta;
+        } else {
+            acmd.message.body.norm.initial = lcb_htonll(cmd->initial);
+            exp = &acmd.message.body.norm.expiration;
+            delta = &acmd.message.body.norm.delta;
+        }
+        if (!cmd->create) {
+            memset(exp, 0xff, sizeof(*exp));
+        } else {
+            *exp = htonl(cmd->exptime);
+        }
+
+        if (cmd->delta < 0) {
+            hdr->request.opcode = PROTOCOL_BINARY_CMD_DECREMENT;
+            *delta = lcb_htonll((lcb_uint64_t)(cmd->delta * -1));
+        } else {
+            hdr->request.opcode = PROTOCOL_BINARY_CMD_INCREMENT;
+            *delta = lcb_htonll(cmd->delta);
+        }
+
+        memcpy(SPAN_BUFFER(&packet->kh_span), acmd.bytes, hsize);
+        LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_COUNTER, packet->opaque, rdata->span);
+        TRACE_ARITHMETIC_BEGIN(instance, hdr, cmd);
+        LCB_SCHED_ADD(instance, pipeline, packet);
+        return LCB_SUCCESS;
+    };
+
+    if (!LCBT_SETTING(instance, use_collections)) {
+        /* fast path if collections are not enabled */
+        return operation(nullptr, command);
+    }
+
+    uint32_t cid = 0;
+    if (collcache_get(instance, command->scope, command->nscope, command->collection, command->ncollection, &cid) ==
+        LCB_SUCCESS) {
+        lcb_CMDCOUNTER clone = *command; /* shallow clone */
+        clone.cid = cid;
+        return operation(nullptr, &clone);
+    } else {
+        return collcache_resolve(instance, command, operation, lcb_cmdcounter_clone, lcb_cmdcounter_destroy);
+    }
 }

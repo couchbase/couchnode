@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2016-2020 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #ifndef LCB_ERRMAP_H
 #define LCB_ERRMAP_H
 
@@ -287,6 +304,7 @@ void lcb_errmap_free(lcb_pERRMAP);
 struct lcb_RETRY_REQUEST_ {
     int is_idempotent;
     int retry_attempts;
+    void *operation_cookie;
 };
 
 lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason);

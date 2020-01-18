@@ -4,6 +4,8 @@
 
 #include <libcouchbase/couchbase.h>
 
+const lcb_HTTP_TYPE LCB_HTTP_TYPE_ANALYTICS = LCB_HTTP_TYPE_CBAS;
+
 enum lcbx_SDCMD {
     LCBX_SDCMD_UNKNOWN = 0x00,
     LCBX_SDCMD_GET = 0x01,
@@ -30,8 +32,8 @@ enum lcbx_VIEWFLAG {
     LCBX_VIEWFLAG_INCLUDEDOCS = 1 << 1,
 };
 
-enum lcbx_N1QLFLAG {
-    LCBX_N1QLFLAG_PREPCACHE = 1 << 1,
+enum lcbx_QUERYFLAG {
+    LCBX_QUERYFLAG_PREPCACHE = 1 << 1,
 };
 
 enum lcbx_ANALYTICSFLAG {
@@ -49,9 +51,9 @@ lcb_STATUS lcbx_cmd_create(lcb_CMDCOUNTER **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDSUBDOC **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_SUBDOCSPECS **ops, size_t capacity);
 lcb_STATUS lcbx_cmd_create(lcb_CMDVIEW **cmd);
-lcb_STATUS lcbx_cmd_create(lcb_CMDN1QL **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDQUERY **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDANALYTICS **cmd);
-lcb_STATUS lcbx_cmd_create(lcb_CMDFTS **cmd);
+lcb_STATUS lcbx_cmd_create(lcb_CMDSEARCH **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type);
 lcb_STATUS lcbx_cmd_create(lcb_CMDPING **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDDIAG **cmd);
@@ -67,9 +69,9 @@ lcb_STATUS lcbx_cmd_destroy(lcb_CMDCOUNTER *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDSUBDOC *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_SUBDOCSPECS *ops);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDVIEW *cmd);
-lcb_STATUS lcbx_cmd_destroy(lcb_CMDN1QL *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDQUERY *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDANALYTICS *cmd);
-lcb_STATUS lcbx_cmd_destroy(lcb_CMDFTS *cmd);
+lcb_STATUS lcbx_cmd_destroy(lcb_CMDSEARCH *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDHTTP *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDPING *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDDIAG *cmd);

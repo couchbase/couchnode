@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2019 Couchbase, Inc.
+ *     Copyright 2011-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
     lcb_cmdhttp_destroy(htcmd);
     ASSERT_EQ(LCB_SUCCESS, rv);
     lcb_sched_leave(*instance);
-    lcb_wait(*instance);
+    lcb_wait(*instance, LCB_WAIT_DEFAULT);
     hw.destroy();
 
     // Now it should all be good, so we can call recursively..
@@ -261,7 +261,7 @@ TEST_F(ViewsUnitTest, testSimpleView)
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, vi.err);
     ASSERT_GT(vi.rows.size(), 0U);
     ASSERT_EQ(7303, vi.totalRows);
@@ -283,7 +283,7 @@ TEST_F(ViewsUnitTest, testSimpleView)
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, vi.err);
     ASSERT_EQ(10, vi.rows.size());
     ASSERT_EQ(7303, vi.totalRows);
@@ -299,7 +299,7 @@ TEST_F(ViewsUnitTest, testSimpleView)
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(0, vi.rows.size());
     ASSERT_EQ(7303, vi.totalRows);
 }
@@ -323,7 +323,7 @@ TEST_F(ViewsUnitTest, testIncludeDocs)
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     // Again, ensure everything is OK
     ASSERT_EQ(7303, vi.totalRows);
@@ -356,7 +356,7 @@ TEST_F(ViewsUnitTest, testReduce)
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, vi.rows.size());
     ASSERT_STREQ("1411", vi.rows[0].value.c_str());
 
@@ -370,7 +370,7 @@ TEST_F(ViewsUnitTest, testReduce)
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, vi.rows.size());
 
     vi.clear();
@@ -385,7 +385,7 @@ TEST_F(ViewsUnitTest, testReduce)
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(10, vi.rows.size());
     ASSERT_EQ(1411, vi.totalRows);
 
@@ -406,7 +406,7 @@ TEST_F(ViewsUnitTest, testReduce)
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     firstRow = &vi.rows[0];
     ASSERT_EQ("[\"Argentina\"]", firstRow->key);
@@ -433,7 +433,7 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     rc = lcb_view(instance, &vi, cmd);
     lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_ERR_HTTP, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
@@ -447,7 +447,7 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     rc = lcb_view(instance, &vi, cmd);
     lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_ERR_HTTP, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
@@ -463,7 +463,7 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     rc = lcb_view(instance, &vi, cmd);
     lcb_cmdview_destroy(cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_ERR_HTTP, vi.err);
     ASSERT_EQ(400, vi.http_status);
 }
@@ -527,7 +527,7 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     lcb_cmdview_option_string(cmd, optstr, strlen(optstr));
     rc = lcb_view(instance, &vi, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, vi.err);
     ASSERT_EQ(1, vi.rows.size());
     ASSERT_EQ(key, vi.rows[0].docid);
@@ -536,7 +536,7 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     lcb_cmdview_include_docs(cmd, true);
     rc = lcb_view(instance, &vi, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, vi.rows.size());
     ASSERT_EQ(doc.size(), vi.rows[0].docContents.nvalue);
 
@@ -544,7 +544,7 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     vi.clear();
     rc = lcb_view(instance, &vi, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(0, vi.rows.size());
     lcb_cmdview_destroy(cmd);
 }

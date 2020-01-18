@@ -1,3 +1,20 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2016-2020 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include "internal.h"
 #include "errmap.h"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
@@ -217,6 +234,11 @@ LIBCOUCHBASE_API int lcb_retry_request_retry_attempts(lcb_RETRY_REQUEST *req)
     return req->retry_attempts;
 }
 
+LIBCOUCHBASE_API void *lcb_retry_request_operation_cookie(lcb_RETRY_REQUEST *req)
+{
+    return req->operation_cookie;
+}
+
 lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason)
 {
     lcb_RETRY_ACTION res{0, 0};
@@ -305,60 +327,76 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_ref(const lcb_KEY_VALUE_ERROR_CONTEXT 
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_rc(const lcb_N1QL_ERROR_CONTEXT *ctx)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_endpoint(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                   size_t *endpoint_len)
+{
+    *endpoint = ctx->endpoint;
+    *endpoint_len = ctx->endpoint_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_rc(const lcb_QUERY_ERROR_CONTEXT *ctx)
 {
     return ctx->rc;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_first_error_code(const lcb_N1QL_ERROR_CONTEXT *ctx, uint32_t *code)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_first_error_code(const lcb_QUERY_ERROR_CONTEXT *ctx, uint32_t *code)
 {
     *code = ctx->first_error_code;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_first_error_message(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **message,
-                                                                size_t *message_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_first_error_message(const lcb_QUERY_ERROR_CONTEXT *ctx,
+                                                                 const char **message, size_t *message_len)
 {
     *message = ctx->first_error_message;
     *message_len = ctx->first_error_message_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_statement(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **statement,
-                                                      size_t *statement_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_statement(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **statement,
+                                                       size_t *statement_len)
 {
     *statement = ctx->statement;
     *statement_len = ctx->statement_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_client_context_id(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **id,
-                                                              size_t *id_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_client_context_id(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **id,
+                                                               size_t *id_len)
 {
     *id = ctx->client_context_id;
     *id_len = ctx->client_context_id_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_query_params(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **params,
-                                                         size_t *params_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_query_params(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **params,
+                                                          size_t *params_len)
 {
     *params = ctx->query_params;
     *params_len = ctx->query_params_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_http_response_code(const lcb_N1QL_ERROR_CONTEXT *ctx, uint32_t *code)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_http_response_code(const lcb_QUERY_ERROR_CONTEXT *ctx, uint32_t *code)
 {
     *code = ctx->http_response_code;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_n1ql_http_response_body(const lcb_N1QL_ERROR_CONTEXT *ctx, const char **body,
-                                                               size_t *body_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_http_response_body(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **body,
+                                                                size_t *body_len)
 {
     *body = ctx->http_response_message;
     *body_len = ctx->http_response_message_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_endpoint(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                      size_t *endpoint_len)
+{
+    *endpoint = ctx->endpoint;
+    *endpoint_len = ctx->endpoint_len;
     return LCB_SUCCESS;
 }
 
@@ -421,6 +459,14 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_http_response_body(const lcb_AN
     return LCB_SUCCESS;
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_analytics_endpoint(const lcb_ANALYTICS_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                          size_t *endpoint_len)
+{
+    *endpoint = ctx->endpoint;
+    *endpoint_len = ctx->endpoint_len;
+    return LCB_SUCCESS;
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_rc(const lcb_VIEW_ERROR_CONTEXT *ctx)
 {
     return ctx->rc;
@@ -479,54 +525,70 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_http_response_body(const lcb_VIEW_ER
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_rc(const lcb_FTS_ERROR_CONTEXT *ctx)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_view_endpoint(const lcb_VIEW_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                     size_t *endpoint_len)
+{
+    *endpoint = ctx->endpoint;
+    *endpoint_len = ctx->endpoint_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_rc(const lcb_SEARCH_ERROR_CONTEXT *ctx)
 {
     return ctx->rc;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_error_message(const lcb_FTS_ERROR_CONTEXT *ctx, const char **message,
-                                                         size_t *message_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_error_message(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **message,
+                                                            size_t *message_len)
 {
     *message = ctx->error_message;
     *message_len = ctx->error_message_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_index_name(const lcb_FTS_ERROR_CONTEXT *ctx, const char **name,
-                                                      size_t *name_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_index_name(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **name,
+                                                         size_t *name_len)
 {
     *name = ctx->index;
     *name_len = ctx->index_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_search_query(const lcb_FTS_ERROR_CONTEXT *ctx, const char **query,
-                                                        size_t *query_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_query(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **query,
+                                                    size_t *query_len)
 {
     *query = ctx->search_query;
     *query_len = ctx->search_query_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_search_params(const lcb_FTS_ERROR_CONTEXT *ctx, const char **params,
-                                                         size_t *params_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_params(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **params,
+                                                     size_t *params_len)
 {
     *params = ctx->search_params;
     *params_len = ctx->search_params_len;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_http_response_code(const lcb_FTS_ERROR_CONTEXT *ctx, uint32_t *code)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_http_response_code(const lcb_SEARCH_ERROR_CONTEXT *ctx, uint32_t *code)
 {
     *code = ctx->http_response_code;
     return LCB_SUCCESS;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_errctx_fts_http_response_body(const lcb_FTS_ERROR_CONTEXT *ctx, const char **body,
-                                                              size_t *body_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_http_response_body(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **body,
+                                                                 size_t *body_len)
 {
     *body = ctx->http_response_body;
     *body_len = ctx->http_response_body_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_endpoint(const lcb_SEARCH_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                       size_t *endpoint_len)
+{
+    *endpoint = ctx->endpoint;
+    *endpoint_len = ctx->endpoint_len;
     return LCB_SUCCESS;
 }
 
@@ -553,5 +615,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_response_body(const lcb_HTTP_ERROR_C
 {
     *body = ctx->body;
     *body_len = ctx->body_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_http_endpoint(const lcb_HTTP_ERROR_CONTEXT *ctx, const char **endpoint,
+                                                     size_t *endpoint_len)
+{
+    *endpoint = ctx->endpoint;
+    *endpoint_len = ctx->endpoint_len;
     return LCB_SUCCESS;
 }

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2015-2019 Couchbase, Inc.
+ *     Copyright 2015-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 
     rc = lcb_connect(instance);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     rc = lcb_get_bootstrap_status(instance);
     assert(rc == LCB_SUCCESS);
 
@@ -132,7 +132,7 @@ int main(int argc, char **argv)
     rc = lcb_store(instance, NULL, scmd);
     lcb_cmdstore_destroy(scmd);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     lcb_SUBDOCSPECS *specs;
 
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
     rc = lcb_subdoc(instance, NULL, mcmd);
     lcb_subdocspecs_destroy(specs);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     // Reset the specs
     lcb_subdocspecs_create(&specs, 6);
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
     lcb_subdocspecs_destroy(specs);
     lcb_cmdsubdoc_destroy(mcmd);
     assert(rc == LCB_SUCCESS);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     lcb_CMDGET *gcmd;
     lcb_cmdget_create(&gcmd);
@@ -187,6 +187,6 @@ int main(int argc, char **argv)
     assert(rc == LCB_SUCCESS);
     lcb_cmdget_destroy(gcmd);
 
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     lcb_destroy(instance);
 }

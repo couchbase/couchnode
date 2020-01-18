@@ -2,8 +2,8 @@
 
 In addition to filing bugs, you may contribute by submitting patches to fix bugs in the library. Contributions may be
 submitting to <http://review.couchbase.com>.  We use Gerrit as our code review system - and thus submitting a change
-would require an account there. Note that pull requests will not be ignored but will be responded to much quicker once
-they are converted into Gerrit.
+requires an account there. Note that pull requests will not be ignored
+but will be responded to more quickly and with more detail in Gerrit.
 
 For something to be accepted into the codebase, it must be formatted properly and have undergone proper testing. While
 there are no formatting guidelines per se, the code should look similar to the existing code within the library.
@@ -48,17 +48,18 @@ version. Please read the release notes as well as the issue tracker to see a lis
 #### Signing up on Gerrit
 
 Everything that is merged into the library goes through a code review process.  The code review process is done via
-[Gerrit](http://review.couchbase.org) (Unfortunately we cannot merge pull requests, though it is fairly simple to
-convert a pull request to gerrit, as seen later. If you know a way to integrate pull requests with Gerrit, please let us
-know).
+[Gerrit](http://review.couchbase.org).
 
 To sign up for a gerrit account, go to http://review.couchbase.org and click on the _Register_ link at the top
-right. Once you've signed in you will need to sign the CLA (Contributor License Agreement) by going you your gerrit
-account page and selecting the _Agreements_ link on the left. When you've done that, be sure to notify us in IRC (at
-_#libcouchbase_) and/or send an email to **matt**AT**couchbase**DOTCOM as you will require manual approval before being
-able to submit a request for change.
+right. Once you've signed in you will need to agree to the CLA (Contributor License Agreement) by going you your gerrit
+account page and selecting the _Agreements_ link on the left. When
+you've done that, everything should flow through just fine.  Be sure
+that you have registered your email address at
+http://review.couchbase.org/#/settings/contact as many sign-up methods
+won't pass emails along.  Note that your email address in your code
+commit and in the gerrit settings must match.
 
-Once approved, you should add your public SSH key to gerrit.
+Add your public SSH key to gerrit before submitting.
 
 #### Setting up your fork with Gerrit
 
@@ -91,7 +92,9 @@ $ git push gerrit HEAD:refs/for/master
 Where `gerrit` is the name of the _remote_ added earlier. You may encounter some errors when pushing. The most common
 are:
 
-* "You are not authorized to push to this repository". You will get this if your account has not yet been approved.
+* "You are not authorized to push to this repository". You will get
+  this if your account has not yet been approved.  Feel free to ask
+  about in gitter.im/couchbase or in the forums for help if blocked.
 * "Missing Change-Id". You need to install the `commit-msg` hook as described above.  Note that even once you do this,
   you will need to ensure that any prior commits already have this header - this may be done by doing an interactive
   rebase (e.g.  `git rebase -i origin/master` and selecting `reword` for all the commits; which will automatically fill

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2012-2019 Couchbase, Inc.
+ *     Copyright 2012-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ void MockUnitTest::SetUp()
 void checkConnectCommon(lcb_INSTANCE *instance)
 {
     ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(instance));
 }
 
@@ -70,6 +70,6 @@ lcb_STATUS MockUnitTest::tryCreateConnection(HandleWrap &hw, lcb_INSTANCE **inst
 {
     MockEnvironment::getInstance()->createConnection(hw, instance, crparams);
     EXPECT_EQ(LCB_SUCCESS, lcb_connect(*instance));
-    lcb_wait(*instance);
+    lcb_wait(*instance, LCB_WAIT_DEFAULT);
     return lcb_get_bootstrap_status(*instance);
 }

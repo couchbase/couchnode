@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2011-2019 Couchbase, Inc.
+ *     Copyright 2011-2020 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ class ForwardTests : public MockUnitTest
         MockEnvironment::getInstance()->createConnection(hw, instance);
         lcb_cntl_string(*instance, "enable_tracing", "off");
         ASSERT_EQ(LCB_SUCCESS, lcb_connect(*instance));
-        lcb_wait(*instance);
+        lcb_wait(*instance, LCB_WAIT_DEFAULT);
         ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(*instance));
     }
 };
@@ -117,7 +117,7 @@ TEST_F(ForwardTests, testBasic)
     rc = lcb_pktfwd3(instance, &fc, &cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(fc.called);
     ASSERT_EQ(LCB_SUCCESS, fc.err_received);
     for (unsigned ii = 0; ii < fc.bkbuf.size(); ++ii) {
