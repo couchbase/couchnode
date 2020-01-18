@@ -81,7 +81,7 @@ NAN_METHOD(Connection::fnGetReplica)
     Nan::HandleScope scope;
 
     lcb_REPLICA_MODE mode =
-        static_cast<lcb_REPLICA_MODE>(ValueParser::asUint(info[3]));
+        static_cast<lcb_REPLICA_MODE>(ValueParser::asUint(info[4]));
 
     OpBuilder<lcb_CMDGETREPLICA> enc(me, mode);
 
@@ -93,10 +93,13 @@ NAN_METHOD(Connection::fnGetReplica)
     if (!enc.parseOption<&lcb_cmdgetreplica_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdgetreplica_timeout>(info[4])) {
+    if (!enc.parseTranscoder(info[3])) {
+        return Nan::ThrowError(Error::create("bad transcoder passed"));
+    }
+    if (!enc.parseOption<&lcb_cmdgetreplica_timeout>(info[5])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[5])) {
+    if (!enc.parseCallback(info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
