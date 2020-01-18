@@ -7,7 +7,7 @@ var http = require('http');
 var net = require('net');
 var child_process = require('child_process');
 
-var defaultMockVersion = [1, 5, 15];
+var defaultMockVersion = [1, 5, 25];
 var defaultMockVersionStr =
   defaultMockVersion[0] + '.' +
   defaultMockVersion[1] + '.' +
@@ -212,6 +212,7 @@ function _startMock(mockpath, options, callback) {
 
     var javaOpts = [
       '-jar', mockpath,
+      '--cccp',
       '--harakiri-monitor', 'localhost:' + ctlPort,
       '--port', '0',
       '--replicas', options.replicas.toString(),

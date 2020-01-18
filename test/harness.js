@@ -171,14 +171,32 @@ class Harness {
     });
   }
 
+  async _sendMockCmd(mock, cmd, payload) {
+    return new Promise((resolve, reject) => {
+      mock.command(cmd, payload, (err, res) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        resolve(res);
+      })
+    });
+  }
+
   async prepare() {
     if (this._usingMock) {
       var mockInst = await this._createMock();
-      var mockEntryPort = mockInst.entryPort;
+
+      var ports = await this._sendMockCmd(mockInst, "get_mcports");
+
+      var serverList = [];
+      for (var portIdx = 0; portIdx < ports.length; ++portIdx) {
+        serverList.push('localhost:' + ports[portIdx]);
+      }
 
       this._mockInst = mockInst;
-      this._connstr =
-        `http://localhost:${mockEntryPort}`;
+      this._connstr = 'couchbase://' + serverList.join(',');
       this._user = 'default';
       this._password = '';
     }
