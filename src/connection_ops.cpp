@@ -158,7 +158,7 @@ NAN_METHOD(Connection::fnStore)
     if (!enc.parseOption<&lcb_cmdstore_expiry>(info[5])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!enc.parseOption<&lcb_cmdstore_cas>(info[6])) {
+    if (!enc.parseCasOption<&lcb_cmdstore_cas>(info[6])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
     lcb_DURABILITY_LEVEL durabilityLevel =
@@ -211,7 +211,7 @@ NAN_METHOD(Connection::fnRemove)
     if (!enc.parseOption<&lcb_cmdremove_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdremove_cas>(info[3])) {
+    if (!enc.parseCasOption<&lcb_cmdremove_cas>(info[3])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
     lcb_DURABILITY_LEVEL durabilityLevel =
@@ -297,7 +297,7 @@ NAN_METHOD(Connection::fnUnlock)
     if (!enc.parseOption<&lcb_cmdunlock_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdunlock_cas>(info[3])) {
+    if (!enc.parseCasOption<&lcb_cmdunlock_cas>(info[3])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
     if (!enc.parseOption<&lcb_cmdunlock_timeout>(info[4])) {
@@ -442,7 +442,7 @@ NAN_METHOD(Connection::fnMutateIn)
     if (!enc.parseOption<&lcb_cmdsubdoc_expiry>(info[3])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));
     }
-    if (!enc.parseOption<&lcb_cmdsubdoc_cas>(info[4])) {
+    if (!enc.parseCasOption<&lcb_cmdsubdoc_cas>(info[4])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
     uint32_t flags = ValueParser::asUint(info[5]);
