@@ -165,7 +165,7 @@ void Connection::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
         tokenVal = Nan::Null();
     }
 
-    rdr.invokeCallback(errVal, tokenVal);
+    rdr.invokeCallback(errVal, casVal, tokenVal);
 }
 
 void Connection::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
