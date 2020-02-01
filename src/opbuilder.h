@@ -122,7 +122,7 @@ public:
     }
 
     template <lcb_STATUS (*SetFn)(CmdType *, uint64_t)>
-    bool parseOption(Local<Value> value)
+    bool parseCasOption(Local<Value> value)
     {
         uint64_t cas;
 
@@ -131,6 +131,12 @@ public:
         }
 
         return SetFn(_cmd, cas) == LCB_SUCCESS;
+    }
+
+    template <lcb_STATUS (*SetFn)(CmdType *, uint64_t)>
+    bool parseOption(Local<Value> value)
+    {
+        return _parseUintOption<uint64_t, SetFn>(value);
     }
 
     template <lcb_STATUS (*SetFn)(CmdType *, int, int)>
