@@ -291,7 +291,10 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> flagsVal = Nan::New<Number>(rflags);
 
     if (!(rflags & LCB_RESP_F_FINAL)) {
-        rdr.invokeNonFinalCallback(errVal, flagsVal, dataRes);
+        Local<Value> resKey = rdr.parseValue<&lcb_respview_key>();
+        Local<Value> resDocId = rdr.parseValue<&lcb_respview_doc_id>();
+
+        rdr.invokeNonFinalCallback(errVal, flagsVal, dataRes, resKey, resDocId);
     } else {
         rdr.invokeCallback(errVal, flagsVal, dataRes);
     }
