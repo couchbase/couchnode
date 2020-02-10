@@ -44,6 +44,22 @@ function genericTests(collFn) {
         assert.deepStrictEqual(res.value, testObjVal);
       });
 
+      it('should perform basic gets with callback', (callback) => {
+        collFn().get(testKeyA, (err, res) => {
+          assert.isObject(res);
+          assert.isNotEmpty(res.cas);
+          assert.deepStrictEqual(res.value, testObjVal);
+          callback(err);
+        });
+      });
+
+      it('should perform errored gets with callback', (callback) => {
+        collFn().get('invalid-key', (err, res) => {
+          assert.isOk(err);
+          callback(null);
+        });
+      });
+
       it('should perform projected gets', async () => {
         var res = await collFn().get(testKeyA, {
           project: ['baz'],
