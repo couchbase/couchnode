@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert
+const assert = require('chai').assert;
 const H = require('./harness');
 
 function genericTests(collFn) {

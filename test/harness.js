@@ -100,11 +100,13 @@ if (process.env.CNFEAT !== undefined) {
       feature: featureName,
       enabled: featureEnabled,
     });
-  })
+  });
 }
 
 class Harness {
-  get Features() { return ServerFeatures; }
+  get Features() {
+    return ServerFeatures;
+  }
 
   constructor() {
     this._connstr = TEST_CONFIG.connstr;
@@ -119,8 +121,12 @@ class Harness {
       var mockVer = jcbmock.version();
 
       this._connstr = 'pending-mock-connect';
-      this._version =
-        new ServerVersion(mockVer[0], mockVer[1], mockVer[2], true);
+      this._version = new ServerVersion(
+        mockVer[0],
+        mockVer[1],
+        mockVer[2],
+        true
+      );
       this._usingMock = true;
     }
 
@@ -158,16 +164,19 @@ class Harness {
 
   async _createMock() {
     return new Promise((resolve, reject) => {
-      jcbmock.create({
-        replicas: 1,
-      }, function(err, mock) {
-        if (err) {
-          reject(err);
-          return;
-        }
+      jcbmock.create(
+        {
+          replicas: 1,
+        },
+        function(err, mock) {
+          if (err) {
+            reject(err);
+            return;
+          }
 
-        resolve(mock);
-      });
+          resolve(mock);
+        }
+      );
     });
   }
 
@@ -180,7 +189,7 @@ class Harness {
         }
 
         resolve(res);
-      })
+      });
     });
   }
 
@@ -188,7 +197,7 @@ class Harness {
     if (this._usingMock) {
       var mockInst = await this._createMock();
 
-      var ports = await this._sendMockCmd(mockInst, "get_mcports");
+      var ports = await this._sendMockCmd(mockInst, 'get_mcports');
 
       var serverList = [];
       for (var portIdx = 0; portIdx < ports.length; ++portIdx) {
@@ -250,7 +259,7 @@ class Harness {
   }
 
   sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   supportsFeature(feature) {
@@ -286,8 +295,7 @@ class Harness {
         // supported on all versions except the mock
         return !this._version.isMock;
       case ServerFeatures.Collections:
-        return !this._version.isMock &&
-          this._version.isAtLeast(7, 0, 0);
+        return !this._version.isMock && this._version.isAtLeast(7, 0, 0);
     }
 
     throw new Error('invalid code for feature checking');
@@ -301,7 +309,7 @@ class Harness {
 
   supportsForAwaitOf() {
     try {
-      eval("(async function() { var y = []; for await (var x of y) {} })()");
+      eval('(async function() { var y = []; for await (var x of y) {} })()');
       return true;
     } catch (e) {
       return !(e instanceof SyntaxError);
@@ -333,7 +341,6 @@ class Harness {
   get dco() {
     return this._testDColl;
   }
-
 }
 
 var harness = new Harness();
@@ -343,11 +350,17 @@ var harness = new Harness();
 // yet supported on before/after methods yet.
 before(function(done) {
   this.timeout(10000);
-  harness.prepare().then(done).catch(done);
+  harness
+    .prepare()
+    .then(done)
+    .catch(done);
 });
 after(function(done) {
   this.timeout(2000);
-  harness.cleanup().then(done).catch(done);
+  harness
+    .cleanup()
+    .then(done)
+    .catch(done);
 });
 
 module.exports = harness;

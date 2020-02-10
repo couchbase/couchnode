@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert
+const assert = require('chai').assert;
 const testdata = require('./testdata');
 
 const H = require('./harness');
@@ -26,7 +26,7 @@ describe('#analytics', () => {
 
     it('should successfully upsert a dataverse', async () => {
       await H.c.analyticsIndexes().createDataverse(dvName, {
-        ignoreIfExists: true
+        ignoreIfExists: true,
       });
     });
 
@@ -38,43 +38,58 @@ describe('#analytics', () => {
 
     it('should successfully create a dataset', async () => {
       await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
-        dataverseName: dvName
+        dataverseName: dvName,
       });
     });
 
     it('should successfully upsert a dataset', async () => {
       await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
         dataverseName: dvName,
-        ignoreIfExists: true
+        ignoreIfExists: true,
       });
     });
 
     it('should fail to overwrite an existing dataset', async () => {
       await H.throwsHelper(async () => {
         await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
-          dataverseName: dvName
+          dataverseName: dvName,
         });
       }, H.lib.DatasetExistsError);
     });
 
     it('should successfully create an index', async () => {
-      await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
-        dataverseName: dvName
-      });
+      await H.c.analyticsIndexes().createIndex(
+        dsName,
+        idxName,
+        { name: 'string' },
+        {
+          dataverseName: dvName,
+        }
+      );
     });
 
     it('should successfully upsert an index', async () => {
-      await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
-        dataverseName: dvName,
-        ignoreIfExists: true
-      });
+      await H.c.analyticsIndexes().createIndex(
+        dsName,
+        idxName,
+        { name: 'string' },
+        {
+          dataverseName: dvName,
+          ignoreIfExists: true,
+        }
+      );
     });
 
     it('should fail to overwrite an existing index', async () => {
       await H.throwsHelper(async () => {
-        await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
-          dataverseName: dvName
-        });
+        await H.c.analyticsIndexes().createIndex(
+          dsName,
+          idxName,
+          { name: 'string' },
+          {
+            dataverseName: dvName,
+          }
+        );
       }, H.lib.IndexExistsError);
     });
 
@@ -106,7 +121,9 @@ describe('#analytics', () => {
         // view won't be available to the query engine yet...
         try {
           var targetName = '`' + dvName + '`.`' + dsName + '`';
-          res = await H.c.analyticsQuery(`SELECT * FROM ${targetName} WHERE testUid='${testUid}'`);
+          res = await H.c.analyticsQuery(
+            `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`
+          );
         } catch (err) {}
 
         if (!res || res.rows.length !== testdata.docCount()) {
@@ -127,10 +144,13 @@ describe('#analytics', () => {
         var res = null;
         try {
           var targetName = '`' + dvName + '`.`' + dsName + '`';
-          res = await H.c.analyticsQuery(`SELECT * FROM ${targetName} WHERE testUid='${testUid}'`, {
-            clientContextId: 'hello-world',
-            readOnly: true,
-          });
+          res = await H.c.analyticsQuery(
+            `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`,
+            {
+              clientContextId: 'hello-world',
+              readOnly: true,
+            }
+          );
         } catch (err) {}
 
         if (!res || res.rows.length !== testdata.docCount()) {
@@ -165,7 +185,7 @@ describe('#analytics', () => {
     it('should successfully ignore a missing index when dropping', async () => {
       await H.c.analyticsIndexes().dropIndex(dsName, idxName, {
         dataverseName: dvName,
-        ignoreIfNotExists: true
+        ignoreIfNotExists: true,
       });
     });
 
@@ -186,7 +206,7 @@ describe('#analytics', () => {
     it('should successfully ignore a missing dataset when dropping', async () => {
       await H.c.analyticsIndexes().dropDataset(dsName, {
         dataverseName: dvName,
-        ignoreIfNotExists: true
+        ignoreIfNotExists: true,
       });
     });
 
@@ -204,7 +224,7 @@ describe('#analytics', () => {
 
     it('should successfully ignore a missing dataverse when dropping', async () => {
       await H.c.analyticsIndexes().dropDataverse(dvName, {
-        ignoreIfNotExists: true
+        ignoreIfNotExists: true,
       });
     });
 
@@ -213,6 +233,5 @@ describe('#analytics', () => {
         await H.c.analyticsIndexes().dropDataverse(dvName);
       }, H.lib.DataverseNotFoundError);
     });
-
   });
 });

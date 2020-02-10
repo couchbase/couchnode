@@ -9,8 +9,10 @@ var child_process = require('child_process');
 
 var defaultMockVersion = [1, 5, 25];
 var defaultMockVersionStr =
-  defaultMockVersion[0] + '.' +
-  defaultMockVersion[1] + '.' +
+  defaultMockVersion[0] +
+  '.' +
+  defaultMockVersion[1] +
+  '.' +
   defaultMockVersion[2];
 var defaultMockFile = 'CouchbaseMock-' + defaultMockVersionStr + '.jar';
 var defaultMockUrlBase = 'http://packages.couchbase.com/clients/c/mock/';
@@ -52,13 +54,15 @@ function _getMockJar(callback) {
           return;
         }
 
-        res.on('data', function(data) {
-          file.write(data);
-        }).on('end', function() {
-          file.end(function() {
-            callback(null, mockpath);
+        res
+          .on('data', function(data) {
+            file.write(data);
+          })
+          .on('end', function() {
+            file.end(function() {
+              callback(null, mockpath);
+            });
           });
-        });
       });
     });
   });
@@ -102,10 +106,10 @@ function _startMock(mockpath, options, callback) {
   }
   if (!options.buckets) {
     options.buckets = {
-      'default': {
+      default: {
         password: '',
-        type: 'couchbase'
-      }
+        type: 'couchbase',
+      },
     };
   }
   for (var bname in options.buckets) {
@@ -180,10 +184,11 @@ function _startMock(mockpath, options, callback) {
       }
 
       msgHandlers.push(callback);
-      var dataOut = JSON.stringify({
-        command: cmdName,
-        payload: payload
-      }) + '\n';
+      var dataOut =
+        JSON.stringify({
+          command: cmdName,
+          payload: payload,
+        }) + '\n';
       socket.write(dataOut);
     };
     socket.close = function() {
@@ -204,21 +209,31 @@ function _startMock(mockpath, options, callback) {
         if (bucketInfo !== '') {
           bucketInfo += ',';
         }
-        bucketInfo += bname +
-          ':' + (binfo.password ? binfo.password : '') +
-          ':' + (binfo.type ? binfo.type : '');
+        bucketInfo +=
+          bname +
+          ':' +
+          (binfo.password ? binfo.password : '') +
+          ':' +
+          (binfo.type ? binfo.type : '');
       }
     }
 
     var javaOpts = [
-      '-jar', mockpath,
+      '-jar',
+      mockpath,
       '--cccp',
-      '--harakiri-monitor', 'localhost:' + ctlPort,
-      '--port', '0',
-      '--replicas', options.replicas.toString(),
-      '--vbuckets', options.vbuckets.toString(),
-      '--nodes', options.nodes.toString(),
-      '--buckets', bucketInfo
+      '--harakiri-monitor',
+      'localhost:' + ctlPort,
+      '--port',
+      '0',
+      '--replicas',
+      options.replicas.toString(),
+      '--vbuckets',
+      options.vbuckets.toString(),
+      '--nodes',
+      options.nodes.toString(),
+      '--buckets',
+      bucketInfo,
     ];
     console.log('launching mock:', javaOpts);
 

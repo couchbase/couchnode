@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert
+const assert = require('chai').assert;
 const H = require('./harness');
 
 describe('#diagnostics', () => {
@@ -40,5 +40,4 @@ describe('#diagnostics', () => {
       assert.isArray(res.services);
     });
   });
-
 });
