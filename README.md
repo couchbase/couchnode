@@ -1,7 +1,7 @@
 # Couchbase Node.js Client
 
-The Node.js SDK library allows you to connect to a Couchbase cluster from 
-Node.js. It is a native Node.js module and uses the very fast libcouchbase 
+The Node.js SDK library allows you to connect to a Couchbase cluster from
+Node.js. It is a native Node.js module and uses the very fast libcouchbase
 library to handle communicating to the cluster over the Couchbase binary
 protocol.
 
@@ -12,9 +12,9 @@ Source - [http://github.com/couchbase/couchnode](http://github.com/couchbase/cou
 
 Bug Tracker - [http://www.couchbase.com/issues/browse/JSCBC](http://www.couchbase.com/issues/browse/JSCBC)
 
-Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/2.6/start-using-sdk.html)
+Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html)
 
-Release Notes - [https://docs.couchbase.com/nodejs-sdk/2.6/relnotes-nodejs-sdk.html](https://docs.couchbase.com/nodejs-sdk/2.6/relnotes-nodejs-sdk.html)
+Release Notes - [https://docs.couchbase.com/nodejs-sdk/3.0/project-docs/sdk-release-notes.html](https://docs.couchbase.com/nodejs-sdk/3.0/project-docs/sdk-release-notes.html)
 
 ## Installing
 
@@ -31,7 +31,7 @@ npm install "git+https://github.com/couchbase/couchnode.git#master"
 
 ## Introduction
 
-Connecting to a Couchbase bucket is as simple as creating a new `Cluster` 
+Connecting to a Couchbase bucket is as simple as creating a new `Cluster`
 instance to represent the `Cluster` you are using, and then using the
 `bucket` and `collection` commands against this to open a connection to
 open your specific bucket and collection.  You are able to execute most
@@ -65,10 +65,11 @@ coll.upsert('testdoc', {name:'Frank'}, (err, res) => {
 
 ## Documentation
 
-An extensive documentation is available on the Couchbase website.  Visit our
-[Node.js Community](http://couchbase.com/communities/nodejs) on
-the [Couchbase](http://couchbase.com) website for the documentation as well as
-numerous examples and samples.
+An extensive documentation is available on the Couchbase website - [https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html) -
+including numerous examples and code samples.
+
+Visit our [Couchbase Node.js SDK forum](https://forums.couchbase.com/c/node-js-sdk) for help.
+Or get involved in the [Couchbase Community](http://couchbase.com/community) on the [Couchbase](http://couchbase.com) website.
 
 
 ## Source Control
