@@ -12,9 +12,9 @@ Source - [http://github.com/couchbase/couchnode](http://github.com/couchbase/cou
 
 Bug Tracker - [http://www.couchbase.com/issues/browse/JSCBC](http://www.couchbase.com/issues/browse/JSCBC)
 
-Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/2.6/start-using-sdk.html)
+Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html)
 
-Release Notes - [https://docs.couchbase.com/nodejs-sdk/2.6/relnotes-nodejs-sdk.html](https://docs.couchbase.com/nodejs-sdk/2.6/relnotes-nodejs-sdk.html)
+Release Notes - [https://docs.couchbase.com/nodejs-sdk/3.0/project-docs/sdk-release-notes.html](https://docs.couchbase.com/nodejs-sdk/3.0/project-docs/sdk-release-notes.html)
 
 ## Installing
 
@@ -66,7 +66,7 @@ coll.upsert('testdoc', {name:'Frank'}, (err, res) => {
 ## Documentation
 
 An extensive documentation is available on the Couchbase website.  Visit our
-[Node.js Community](http://couchbase.com/communities/nodejs) on
+[Node.js Community](http://couchbase.com/community) on
 the [Couchbase](http://couchbase.com) website for the documentation as well as
 numerous examples and samples.
 
