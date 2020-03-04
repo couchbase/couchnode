@@ -114,6 +114,7 @@ describe('#analytics', () => {
     });
 
     it('should see test data correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
 
@@ -124,7 +125,7 @@ describe('#analytics', () => {
           res = await H.c.analyticsQuery(
             `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`
           );
-        } catch (err) {}
+        } catch (err) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -140,6 +141,7 @@ describe('#analytics', () => {
     }).timeout(20000);
 
     it('should work with lots of options specified', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
@@ -151,7 +153,7 @@ describe('#analytics', () => {
               readOnly: true,
             }
           );
-        } catch (err) {}
+        } catch (err) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);

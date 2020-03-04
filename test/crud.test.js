@@ -55,6 +55,7 @@ function genericTests(collFn) {
 
       it('should perform errored gets with callback', (callback) => {
         collFn().get('invalid-key', (err, res) => {
+          res;
           assert.isOk(err);
           callback(null);
         });
@@ -226,9 +227,9 @@ function genericTests(collFn) {
         await collFn().get(testKeyTch);
 
         // Touch the document
-        var res = await collFn().touch(testKeyTch, 4);
-        assert.isObject(res);
-        assert.isNotEmpty(res.cas);
+        var tres = await collFn().touch(testKeyTch, 4);
+        assert.isObject(tres);
+        assert.isNotEmpty(tres.cas);
 
         // Wait for the first expiry
         await H.sleep(3000);
@@ -259,10 +260,10 @@ function genericTests(collFn) {
         await collFn().get(testKeyGat);
 
         // Touch the document
-        var res = await collFn().getAndTouch(testKeyGat, 4);
-        assert.isObject(res);
-        assert.isNotEmpty(res.cas);
-        assert.deepStrictEqual(res.value, { foo: 14 });
+        var tres = await collFn().getAndTouch(testKeyGat, 4);
+        assert.isObject(tres);
+        assert.isNotEmpty(tres.cas);
+        assert.deepStrictEqual(tres.value, { foo: 14 });
 
         // Wait for the first expiry
         await H.sleep(3000);
@@ -383,9 +384,9 @@ function genericTests(collFn) {
       var prevCas = res.cas;
 
       // Manually unlock the key
-      var res = await collFn().unlock(testKeyLck, prevCas);
-      assert.isObject(res);
-      assert.isNotEmpty(res.cas);
+      var ures = await collFn().unlock(testKeyLck, prevCas);
+      assert.isObject(ures);
+      assert.isNotEmpty(ures.cas);
 
       // Make sure our get works now
       await collFn().upsert(testKeyLck, { foo: 14 });

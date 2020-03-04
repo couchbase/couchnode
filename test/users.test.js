@@ -1,7 +1,6 @@
 'use strict';
 
 const assert = require('chai').assert;
-const util = require('util');
 
 const H = require('./harness');
 

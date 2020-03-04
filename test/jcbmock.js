@@ -48,7 +48,7 @@ function _getMockJar(callback) {
       console.log('downloading ' + mockurl + ' to ' + mockpath);
 
       var file = fs.createWriteStream(mockpath);
-      var request = http.get(mockurl, function(res) {
+      http.get(mockurl, function(res) {
         if (res.statusCode !== 200) {
           callback(new Error('failed to get mock from server'));
           return;
@@ -113,7 +113,7 @@ function _startMock(mockpath, options, callback) {
     };
   }
   for (var bname in options.buckets) {
-    if (options.buckets.hasOwnProperty(bname)) {
+    if (Object.prototype.hasOwnProperty.call(options.buckets, bname)) {
       if (!options.buckets[bname].type) {
         options.buckets[bname] = 'couchbase';
       }
@@ -175,7 +175,7 @@ function _startMock(mockpath, options, callback) {
       }
     });
     socket.on('error', function(err) {
-      // console.log('mocksock err', err);
+      console.error('mocksock err', err);
     });
     socket.command = function(cmdName, payload, callback) {
       if (callback === undefined) {
@@ -204,7 +204,7 @@ function _startMock(mockpath, options, callback) {
 
     var bucketInfo = '';
     for (var bname in options.buckets) {
-      if (options.buckets.hasOwnProperty(bname)) {
+      if (Object.prototype.hasOwnProperty.call(options.buckets, bname)) {
         var binfo = options.buckets[bname];
         if (bucketInfo !== '') {
           bucketInfo += ',';
@@ -245,7 +245,7 @@ function _startMock(mockpath, options, callback) {
       return;
     });
     mockproc.stderr.on('data', function(data) {
-      //console.log('mockproc err: ' + data.toString());
+      console.error('mockproc err: ' + data.toString());
     });
     mockproc.on('close', function(code) {
       if (code !== 0 && code !== 1) {

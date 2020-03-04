@@ -1,8 +1,5 @@
 'use strict';
 
-const assert = require('chai').assert;
-const testdata = require('./testdata');
-
 const H = require('./harness');
 
 describe('#collectionmanager', () => {

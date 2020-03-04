@@ -42,6 +42,7 @@ describe('#views', () => {
     });
 
     it('should see test data correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
 
@@ -49,7 +50,7 @@ describe('#views', () => {
         // view won't be available to the query engine yet...
         try {
           res = await H.b.viewQuery(ddocKey, 'simple');
-        } catch (err) {}
+        } catch (err) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);

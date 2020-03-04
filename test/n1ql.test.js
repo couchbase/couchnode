@@ -49,13 +49,14 @@ describe('#query', () => {
     });
 
     it('should see test data correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
           var qs =
             'SELECT * FROM ' + H.b.name + ' WHERE testUid="' + testUid + '"';
           res = await H.c.query(qs);
-        } catch (e) {}
+        } catch (e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -71,12 +72,15 @@ describe('#query', () => {
     }).timeout(10000);
 
     it('should work with parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
           var qs = 'SELECT * FROM ' + H.b.name + ' WHERE testUid=$1';
-          res = await H.c.query(qs, { parameters: [testUid] });
-        } catch (e) {}
+          res = await H.c.query(qs, {
+            parameters: [testUid],
+          });
+        } catch (e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -92,6 +96,7 @@ describe('#query', () => {
     }).timeout(10000);
 
     it('should work with lots of options specified', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
@@ -108,7 +113,7 @@ describe('#query', () => {
             profile: H.lib.QueryProfileMode.Timings,
             metrics: true,
           });
-        } catch (e) {}
+        } catch (e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
