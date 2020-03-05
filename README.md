@@ -65,10 +65,11 @@ coll.upsert('testdoc', {name:'Frank'}, (err, res) => {
 
 ## Documentation
 
-An extensive documentation is available on the Couchbase website.  Visit our
-[Node.js Community](http://couchbase.com/community) on
-the [Couchbase](http://couchbase.com) website for the documentation as well as
-numerous examples and samples.
+An extensive documentation is available on the Couchbase website - [https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html) -
+including numerous examples and code samples.
+
+Visit our [Couchbase Node.js SDK forum](https://forums.couchbase.com/c/node-js-sdk) for help.  
+Or get involved in the [Couchbase Community](http://couchbase.com/community) on the [Couchbase](http://couchbase.com) website.
 
 
 ## Source Control
