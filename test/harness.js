@@ -289,13 +289,14 @@ class Harness {
         return true;
       case ServerFeatures.Search:
       case ServerFeatures.Query:
-      case ServerFeatures.Analytics:
       case ServerFeatures.UserManagement:
       case ServerFeatures.BucketManagement:
       case ServerFeatures.Xattr:
       case ServerFeatures.GetMeta:
         // supported on all versions except the mock
         return !this._version.isMock;
+      case ServerFeatures.Analytics:
+        return !this._version.isMock && this._version.isAtLeast(6, 0, 0);
       case ServerFeatures.Collections:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0);
     }
