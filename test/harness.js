@@ -143,6 +143,21 @@ class Harness {
     this._testDColl = null;
   }
 
+  get connStr() {
+    return this._connstr;
+  }
+
+  get bucketName() {
+    return this._bucket;
+  }
+
+  get connOpts() {
+    return {
+      username: this._user,
+      password: this._pass,
+    };
+  }
+
   async throwsHelper(fn) {
     var assertArgs = Array.from(arguments).slice(1);
 
