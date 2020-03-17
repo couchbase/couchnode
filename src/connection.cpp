@@ -13,6 +13,8 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
     , _bootstrapCookie(nullptr)
     , _openCookie(nullptr)
 {
+    uv_prepare_init(uv_default_loop(), &_flushWatch);
+    _flushWatch.data = this;
 }
 
 Connection::~Connection()
@@ -275,8 +277,6 @@ void Connection::lcbBootstapHandler(lcb_INSTANCE *instance, lcb_STATUS err)
         lcb_set_bootstrap_callback(instance, [](lcb_INSTANCE *, lcb_STATUS) {});
         lcb_destroy_async(instance, NULL);
     } else {
-        uv_prepare_init(uv_default_loop(), &me->_flushWatch);
-        me->_flushWatch.data = me;
         uv_prepare_start(&me->_flushWatch, &uvFlushHandler);
 
         int flushMode = 0;
