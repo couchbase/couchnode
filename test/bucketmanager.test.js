@@ -15,7 +15,7 @@ H.requireFeature(H.Features.BucketManagement, () => {
         flushEnabled: true,
         ramQuotaMB: 100,
       });
-    });
+    }).timeout(10 * 1000);
 
     it('should emit the correct error on duplicate buckets', async () => {
       var bmgr = H.c.buckets();
@@ -51,7 +51,7 @@ H.requireFeature(H.Features.BucketManagement, () => {
     it('should successfully flush a bucket', async () => {
       var bmgr = H.c.buckets();
       await bmgr.flushBucket(testBucket);
-    });
+    }).timeout(10 * 1000);
 
     it('should error when trying to flush a missing bucket', async () => {
       var bmgr = H.c.buckets();
