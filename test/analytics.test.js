@@ -108,9 +108,11 @@ describe('#analytics', () => {
       assert.isAtLeast(res.length, 1);
     });
 
-    it('should successfully get pending mutations', async () => {
-      var numPending = await H.c.analyticsIndexes().getPendingMutations();
-      assert.isObject(numPending);
+    H.requireFeature(H.Features.AnalyticsPendingMutations, () => {
+      it('should successfully get pending mutations', async () => {
+        var numPending = await H.c.analyticsIndexes().getPendingMutations();
+        assert.isObject(numPending);
+      });
     });
 
     it('should see test data correctly', async () => {
