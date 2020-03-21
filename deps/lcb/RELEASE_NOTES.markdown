@@ -1,5 +1,31 @@
 # Release Notes
 
+## 2.10.6 (February 26 2020)
+
+* CCBC-1129: fix algorithm to match retry marker strings
+
+* CCBC-1129: update timeout with grace period. The timeout property must be updated, because it is propagated down to HTTP subsystem.
+
+* CCBC-1133: render ping result for analytics separately
+
+* CCBC-1130: Fix leaking sockets and timers
+
+* CCBC-1130: Remove usage of `"buuid"` of vbucket config
+
+* CCBC-1118: Avoid calling read callback after close
+
+* CCBC-1120: Use credentials cache only for N1QL queries
+
+* CCBC-1122: expose setting for N1QL grace period. For example, to add extra 100ms to each N1QL query: `lcb_cntl_setu32(instance, LCB_CNTL_N1QL_GRACE_PERIOD, 100000);`
+
+* CCBC-1183: Re-prepare N1QL query on error 4040
+
+* Remove use of deprecated function `std::random_shuffle`. `std::random_shuffle` is deprecated in C++14, removed in C++17. Replace with `std::shuffle`.
+
+* `lcb_ping3`: Do not use `c_str()` of temporary object, which might lead to possible crash.
+
+* Fix rand range selection in SCRAM-SHA routines
+
 ## 2.10.5 (October 17 2019)
 
 * [CCBC-1106](https://issues.couchbase.com/browse/CCBC-1106): Move log messages from IO manager to DEBUG level to reduce noise.

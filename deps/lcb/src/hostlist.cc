@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <algorithm>
+#include <random>
 #include <string>
 
 using namespace lcb;
@@ -256,7 +257,9 @@ Hostlist::next(bool wrap)
 void
 Hostlist::randomize()
 {
-    std::random_shuffle(hosts.begin(), hosts.end());
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(hosts.begin(), hosts.end(), g);
     reset_strlist();
 }
 

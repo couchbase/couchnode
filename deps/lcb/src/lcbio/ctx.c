@@ -26,7 +26,7 @@
 #define CTX_SD(ctx) (ctx)->sd
 #define CTX_IOT(ctx) (ctx)->io
 #define CTX_INCR_METRIC(ctx, metric, n) do { \
-    if (ctx->sock->metrics) { \
+    if (ctx->sock && ctx->sock->metrics) { \
         ctx->sock->metrics->metric += n; \
     } \
 } while (0)
@@ -162,7 +162,7 @@ lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg,
 
     ctx->sock->ctx = NULL;
     if (oldrc == ctx->sock->refcount) {
-        lcbio_shutdown(ctx->sock);
+        lcbio_unref(ctx->sock);
     }
 
     if (ctx->output) {
@@ -181,6 +181,7 @@ lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg,
     } else {
         ctx->procs.cb_flush_ready = NULL;
     }
+    ctx->procs.cb_read = NULL;
 
     if (ctx->npending == 0 && ctx->entered == 0) {
         free_ctx(ctx);
@@ -270,6 +271,9 @@ static void
 invoke_read_cb(lcbio_CTX *ctx, unsigned nb)
 {
     ctx->rdwant = 0;
+    if (ctx->procs.cb_read == NULL) {
+        return;
+    }
     ctx->entered++;
     ctx->procs.cb_read(ctx, nb);
     ctx->entered--;

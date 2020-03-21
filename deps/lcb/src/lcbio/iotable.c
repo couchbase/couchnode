@@ -276,7 +276,7 @@ lcbio_table_unref(lcbio_TABLE *table)
         return;
     }
 
-    if (table->p && table->p->v.v0.need_cleanup) {
+    if (table->p && table->p->v.base.need_cleanup) {
         lcb_destroy_io_ops(table->p);
     }
 

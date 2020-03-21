@@ -142,6 +142,7 @@ typedef struct lcb_settings_st {
     lcb_U32 views_timeout;
     lcb_U32 http_timeout;
     lcb_U32 n1ql_timeout;
+    lcb_U32 n1ql_grace_period; /** grace period added to query timeout, in microseconds */
     lcb_U32 durability_timeout;
     lcb_U32 durability_interval;
     lcb_U32 config_timeout;

@@ -148,7 +148,7 @@ typedef struct lcbvb_CONFIG_st {
     unsigned ncontinuum; /* number of continuum points */
     unsigned is3x; /* whether server 3.0 config semantics are in place */
     int revid; /* revision ID from the config (-1 if not present) */
-    char *buuid; /* bucket UUID */
+    char *buuid; /* bucket UUID. not used at the moment */
     char *bname; /* bucket name */
     const char *errstr; /* last error */
     lcbvb_SERVER *servers; /* nodes */

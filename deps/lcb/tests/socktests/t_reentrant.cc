@@ -74,8 +74,10 @@ public:
     void onRead(ESocket *s, size_t) {
         EXPECT_FALSE(wasCalled);
         wasCalled = true;
+        lcbio_CTX *ctx = s->ctx;
         s->parent->stop();
         s->close();
+        ASSERT_TRUE(ctx->procs.cb_read == NULL);
     }
     void onError(ESocket *) {}
     bool wasCalled;

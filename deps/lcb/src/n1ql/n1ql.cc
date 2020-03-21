@@ -354,6 +354,7 @@ N1QLREQ::has_retriable_error(const Json::Value& root)
             code = jcode.asUInt();
             switch (code) {
                 /* n1ql */
+            case 4040:  // plan.build_prepared.no_such_name
             case 4050:  // plan.build_prepared.unrecognized_prepared
             case 4070:  // plan.build_prepared.decoding
             case 12009: // datastore.couchbase.DML_error
@@ -378,10 +379,10 @@ N1QLREQ::has_retriable_error(const Json::Value& root)
             }
         }
         if (jmsg.isString()) {
-            const char *jmstr = jmsg.asCString();
+            std::string jmstr = jmsg.asString();
             for (const char **curs = wtf_magic_strings; *curs; curs++) {
-                if (!strstr(jmstr, *curs)) {
-                    lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. code: %d, msg: %s", LOGID(this), code, jmstr);
+                if (jmstr.find(*curs) != std::string::npos) {
+                    lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. code: %d, msg: %s", LOGID(this), code, jmstr.c_str());
                     return true;
                 }
             }
@@ -726,6 +727,7 @@ lcb_N1QLREQ::lcb_N1QLREQ(lcb_t obj,
         lasterr = LCB_EINVAL;
         return;
     }
+    timeout += LCBT_SETTING(obj, n1ql_grace_period);
     timer.rearm(timeout);
 
     // Determine if we need to add more credentials.

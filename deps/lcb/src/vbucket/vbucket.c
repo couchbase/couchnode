@@ -618,10 +618,6 @@ lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char
         cfg->dtype = LCBVB_DIST_VBUCKET;
     }
 
-    if (get_jstr(cj, "uuid", &tmp)) {
-        cfg->buuid = strdup(tmp);
-    }
-
     if (!get_jint(cj, "rev", &cfg->revid)) {
         cfg->revid = -1;
     }
@@ -850,7 +846,6 @@ lcbvb_destroy(lcbvb_CONFIG *conf)
     }
     free(conf->servers);
     free(conf->continuum);
-    free(conf->buuid);
     free(conf->bname);
     free(conf->vbuckets);
     free(conf->ffvbuckets);
@@ -898,10 +893,6 @@ lcbvb_save_json(lcbvb_CONFIG *cfg)
     }
     cJSON_AddItemToObject(root, "nodeLocator", tmp);
 
-    if (cfg->buuid) {
-        tmp = cJSON_CreateString(cfg->buuid);
-        cJSON_AddItemToObject(root, "uuid", tmp);
-    }
     if (cfg->revid > -1) {
         tmp = cJSON_CreateNumber(cfg->revid);
         cJSON_AddItemToObject(root, "rev", tmp);
@@ -1558,9 +1549,7 @@ lcbvb_genconfig_ex(lcbvb_CONFIG *vb,
     vb->nrepl = nreplica;
     vb->nsrv = nservers;
     vb->bname = strdup(name);
-    if (uuid) {
-        vb->buuid = strdup(uuid);
-    }
+    (void)uuid;
 
     if (nreplica >= nservers) {
         vb->errstr = "nservers must be > nreplicas";

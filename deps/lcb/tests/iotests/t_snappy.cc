@@ -115,6 +115,7 @@ TEST_F(SnappyUnitTest, testSpec)
     ASSERT_STREQ(compressed.c_str(), cookie.value.c_str());
 
     setCompression("off");
+    hw.destroy();
     createConnection(hw, instance);
     lcb_cntl_setu32(instance, LCB_CNTL_COMPRESSION_OPTS, LCB_COMPRESS_INOUT);
     lcb_install_callback3(instance, LCB_CALLBACK_GET, getcb);

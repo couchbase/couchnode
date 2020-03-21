@@ -234,6 +234,7 @@ lcb_error_t Bootstrap::bootstrap(unsigned options) {
 
 Bootstrap::~Bootstrap() {
     tm.release();
+    tmpoll.release();
     parent->confmon->remove_listener(this);
 }
 

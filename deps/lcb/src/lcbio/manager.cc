@@ -174,6 +174,7 @@ static const char *get_hehost(const PoolHost *h) {
 
 
 PoolConnInfo::~PoolConnInfo() {
+    idle_timer.release();
     parent->n_total--;
     if (state == IDLE) {
         lcb_clist_delete(&parent->ll_idle, this);

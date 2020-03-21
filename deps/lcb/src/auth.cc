@@ -79,13 +79,16 @@ std::string cache_key(const char *host, const char *port, const char *bucket) {
     return key.str();
 }
 
-const std::string Authenticator::username_for(const char *host, const char *port, const char *bucket)
+const std::string Authenticator::username_for(const char *host, const char *port, const char *bucket, bool use_cache)
 {
     switch (m_mode) {
         case LCBAUTH_MODE_RBAC:
             return m_username;
         case LCBAUTH_MODE_DYNAMIC:
             if (m_usercb != NULL) {
+                if (!use_cache) {
+                    return m_usercb(m_cookie, host, port, bucket);
+                }
                 std::string key = cache_key(host, port, bucket);
                 if (user_cache_.find(key) == user_cache_.end()) {
                     std::string username = m_usercb(m_cookie, host, port, bucket);
@@ -107,13 +110,16 @@ const std::string Authenticator::username_for(const char *host, const char *port
     return EmptyString;
 }
 
-const std::string Authenticator::password_for(const char *host, const char *port, const char *bucket)
+const std::string Authenticator::password_for(const char *host, const char *port, const char *bucket, bool use_cache)
 {
     switch (m_mode) {
         case LCBAUTH_MODE_RBAC:
             return m_password;
         case LCBAUTH_MODE_DYNAMIC:
             if (m_passcb != NULL) {
+                if (!use_cache) {
+                    return m_passcb(m_cookie, host, port, bucket);
+                }
                 std::string key = cache_key(host, port, bucket);
                 if (pass_cache_.find(key) == pass_cache_.end()) {
                     std::string password = m_passcb(m_cookie, host, port, bucket);

@@ -498,8 +498,9 @@ Request::setup_inputs(const lcb_CMDHTTP *cmd)
                     }
                     std::string hh(base + info.field_data[UF_HOST].off, info.field_data[UF_HOST].len);
                     std::string pp(base + info.field_data[UF_PORT].off, info.field_data[UF_PORT].len);
-                    username = auth.username_for(hh.c_str(), pp.c_str(), LCBT_SETTING(instance, bucket));
-                    password = auth.password_for(hh.c_str(), pp.c_str(), LCBT_SETTING(instance, bucket));
+                    bool use_cache = reqtype == LCB_HTTP_TYPE_N1QL;
+                    username = auth.username_for(hh.c_str(), pp.c_str(), LCBT_SETTING(instance, bucket), use_cache);
+                    password = auth.password_for(hh.c_str(), pp.c_str(), LCBT_SETTING(instance, bucket), use_cache);
                 } else {
                     username = auth.username_for(NULL, NULL, LCBT_SETTING(instance, bucket));
                     password = auth.password_for(NULL, NULL, LCBT_SETTING(instance, bucket));

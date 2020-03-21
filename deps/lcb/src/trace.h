@@ -108,7 +108,7 @@
                                 (req)->host.c_str(), (req)->port.c_str(), rc, htstatus, (gethrtime() - (req)->start)))
 
 #define TRACE_NEW_CONFIG(instance, config)                                                                             \
-    TRACE(LIBCOUCHBASE_NEW_CONFIG(instance, (config)->vbc->revid, (config)->vbc->bname, (config)->vbc->buuid, (config)))
+    TRACE(LIBCOUCHBASE_NEW_CONFIG(instance, (config)->vbc->revid, (config)->vbc->bname, NULL, (config)))
 
 #ifdef __clang__
 #pragma GCC diagnostic pop

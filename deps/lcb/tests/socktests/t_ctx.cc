@@ -67,7 +67,6 @@ TEST_F(SockCtxTest, testReleasable)
     sock.schedule();
     ri.reset();
     lcbio_ctx_close(sock.ctx, release_cb, &ri);
-    lcbio_unref(sock.sock);
     sock.clear();
     ASSERT_FALSE(ri.reusable);
 }

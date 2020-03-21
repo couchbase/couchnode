@@ -72,6 +72,7 @@ static lcb_uint32_t *get_timeout_field(lcb_t instance, int cmd)
     case LCB_CNTL_OP_TIMEOUT: return &settings->operation_timeout;
     case LCB_CNTL_VIEW_TIMEOUT: return &settings->views_timeout;
     case LCB_CNTL_N1QL_TIMEOUT: return &settings->n1ql_timeout;
+    case LCB_CNTL_N1QL_GRACE_PERIOD: return &settings->n1ql_grace_period;
     case LCB_CNTL_DURABILITY_INTERVAL: return &settings->durability_interval;
     case LCB_CNTL_DURABILITY_TIMEOUT: return &settings->durability_timeout;
     case LCB_CNTL_HTTP_TIMEOUT: return &settings->http_timeout;
@@ -757,7 +758,8 @@ static ctl_handler handlers[] = {
     vb_noremap_handler,                   /* LCB_CNTL_VB_NOREMAP */
     network_handler,                      /* LCB_CNTL_NETWORK */
     wait_for_config_handler,              /* LCB_CNTL_WAIT_FOR_CONFIG */
-    http_pooltmo_handler                  /* LCB_CNTL_HTTP_POOL_TIMEOUT */
+    http_pooltmo_handler,                 /* LCB_CNTL_HTTP_POOL_TIMEOUT */
+    timeout_common                        /* LCB_CNTL_N1QL_GRACE_PERIOD */
 };
 
 /* Union used for conversion to/from string functions */
@@ -949,6 +951,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"network", LCB_CNTL_NETWORK, convert_passthru},
     {"wait_for_config", LCB_CNTL_WAIT_FOR_CONFIG, convert_intbool},
     {"http_pool_timeout", LCB_CNTL_HTTP_POOL_TIMEOUT, convert_timevalue},
+    {"n1ql_grace_period", LCB_CNTL_N1QL_GRACE_PERIOD, convert_timevalue},
     {NULL, -1}};
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))

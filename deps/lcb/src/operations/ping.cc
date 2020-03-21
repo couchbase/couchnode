@@ -87,6 +87,8 @@ static const char* svc_to_string(lcb_PINGSVCTYPE type)
         return "views";
     case LCB_PINGSVC_N1QL:
         return "n1ql";
+    case LCB_PINGSVC_ANALYTICS:
+        return "analytics";
     case LCB_PINGSVC_FTS:
         return "fts";
     default:
@@ -283,6 +285,11 @@ static void handle_n1ql(lcb_t instance, int, const lcb_RESPBASE *resp)
     handle_http(instance, LCB_PINGSVC_N1QL, (const lcb_RESPHTTP *)resp);
 }
 
+static void handle_analytics(lcb_t instance, int, const lcb_RESPBASE *resp)
+{
+  handle_http(instance, LCB_PINGSVC_ANALYTICS, (const lcb_RESPHTTP *)resp);
+}
+
 static void handle_views(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
     handle_http(instance, LCB_PINGSVC_VIEWS, (const lcb_RESPHTTP *)resp);
@@ -355,6 +362,9 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
             unsigned port; \
             port = lcbvb_get_port(cfg, idx, SVC, mode); \
             if (port) { \
+                lcb::Authenticator& auth = *instance->settings->auth; \
+                std::string username = auth.username_for(NULL, NULL, LCBT_SETTING(instance, bucket)); \
+                std::string password = auth.password_for(NULL, NULL, LCBT_SETTING(instance, bucket)); \
                 lcbvb_SERVER *srv = LCBVB_GET_SERVER(cfg, idx); \
                 bool ipv6 = strchr(srv->hostname, ':'); \
                 snprintf(buf, sizeof(buf), "%s://%s%s%s:%d%s", (mode == LCBVB_SVCMODE_PLAIN) ? "http" : "https", \
@@ -363,9 +373,8 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
                 htcmd.method = LCB_HTTP_METHOD_GET; \
                 htcmd.type = LCB_HTTP_TYPE_PING; \
                 htcmd.reqhandle = &htreq; \
-                lcb::Authenticator& auth = *instance->settings->auth; \
-                htcmd.username = auth.username_for(NULL, NULL, LCBT_SETTING(instance, bucket)).c_str(); \
-                htcmd.password = auth.password_for(NULL, NULL, LCBT_SETTING(instance, bucket)).c_str(); \
+                htcmd.username = username.c_str(); \
+                htcmd.password = password.c_str(); \
                 htcmd.cmdflags = LCB_CMDHTTP_F_CASTMO; \
                 htcmd.cas = LCBT_SETTING(instance, TMO); \
                 rc = lcb_http3(instance, ckwrap, &htcmd); \
@@ -385,7 +394,7 @@ lcb_ping3(lcb_t instance, const void *cookie, const lcb_CMDPING *cmd)
             PING_HTTP(LCBVB_SVCTYPE_FTS, "/api/ping", http_timeout, handle_fts);
         }
         if (cmd->services & LCB_PINGSVC_F_ANALYTICS) {
-            PING_HTTP(LCBVB_SVCTYPE_ANALYTICS, "/admin/ping", n1ql_timeout, handle_n1ql);
+            PING_HTTP(LCBVB_SVCTYPE_ANALYTICS, "/admin/ping", n1ql_timeout, handle_analytics);
         }
 #undef PING_HTTP
     }

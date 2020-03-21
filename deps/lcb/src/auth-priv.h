@@ -34,8 +34,8 @@ public:
     const std::string& password() const { return m_password; }
 
     // Get the username and password for a specific bucket
-    const std::string username_for(const char *host, const char *port, const char *bucket);
-    const std::string password_for(const char *host, const char *port, const char *bucket);
+    const std::string username_for(const char *host, const char *port, const char *bucket, bool use_cache = false);
+    const std::string password_for(const char *host, const char *port, const char *bucket, bool use_cache = false);
     void invalidate_cache_for(const char *host, const char *port, const char *bucket);
     void reset_cache();
 

@@ -211,7 +211,8 @@ io_error(lcbio_CTX *ctx, lcb_error_t err)
 static void
 request_timed_out(void *arg)
 {
-    (reinterpret_cast<Request*>(arg))->finish(LCB_ETIMEDOUT);
+    Request *req = reinterpret_cast<Request*>(arg);
+    (req)->finish(LCB_ETIMEDOUT);
 }
 
 static void
