@@ -135,7 +135,7 @@ describe('#views', function() {
       it('should set custom options properly', function() {
         var q = Vq.from('d', 'v').custom({
           x: 4,
-          y: 'hi'
+          y: 'hi',
         });
         assert.equal(q.options.x, 4);
         assert.equal(q.options.y, 'hi');
@@ -151,47 +151,61 @@ describe('#views', function() {
       before(function(done) {
         var bm = H.b.manager();
         this.timeout(8000);
-        bm.insertDesignDocument(ddKey, {
-          views: {
-            simple: {
-              map: 'function(doc, meta){emit(meta.id);}'
-            }
-          }
-        }, function(err, res) {
-          assert(!err);
-          assert(res);
-          H.b.insert(key, 'foo', H.okCallback(function() {
-            function _tryQuery() {
-              H.b.query(
-                Vq.from(ddKey, 'simple').stale(Vq.Update
-                  .BEFORE).limit(1),
-                function(err) {
-                  if (err) {
-                    setTimeout(_tryQuery, 100);
-                    return;
-                  }
+        bm.insertDesignDocument(
+          ddKey,
+          {
+            views: {
+              simple: {
+                map: 'function(doc, meta){emit(meta.id);}',
+              },
+            },
+          },
+          function(err, res) {
+            assert(!err);
+            assert(res);
+            H.b.insert(
+              key,
+              'foo',
+              H.okCallback(function() {
+                function _tryQuery() {
+                  H.b.query(
+                    Vq.from(ddKey, 'simple')
+                      .stale(Vq.Update.BEFORE)
+                      .limit(1),
+                    function(err) {
+                      if (err) {
+                        setTimeout(_tryQuery, 100);
+                        return;
+                      }
 
-                  done();
-                });
-            };
-            _tryQuery();
-          }));
-        });
+                      done();
+                    }
+                  );
+                }
+                _tryQuery();
+              })
+            );
+          }
+        );
       });
       after(function(done) {
         var bm = H.b.manager();
-        H.b.remove(key, H.okCallback(function() {
-          bm.removeDesignDocument(ddKey, function(err, res) {
-            assert.ifError(err);
-            assert(res);
-            done();
-          });
-        }));
+        H.b.remove(
+          key,
+          H.okCallback(function() {
+            bm.removeDesignDocument(ddKey, function(err, res) {
+              assert.ifError(err);
+              assert(res);
+              done();
+            });
+          })
+        );
       });
 
       it('should fail for invalid query objects', function() {
         assert.throws(function() {
-          H.b.query({}, H.noCallback())
+          H.b
+            .query({}, H.noCallback())
             .on('row', H.noCallback())
             .on('rows', H.noCallback())
             .on('end', H.noCallback())
@@ -199,94 +213,102 @@ describe('#views', function() {
         }, TypeError);
       });
       it('view queries should callback', function(done) {
-        H.b.query(Vq.from(ddKey, 'simple').limit(1),
-          function(err, res, meta) {
-            assert(!err);
-            assert(res);
-            assert(meta);
-            assert(meta.total_rows > 0);
-            done();
-          });
+        H.b.query(Vq.from(ddKey, 'simple').limit(1), function(err, res, meta) {
+          assert(!err);
+          assert(res);
+          assert(meta);
+          assert(meta.total_rows > 0);
+          done();
+        });
       });
 
       it('view queries should callback on error', function(done) {
-        H.b.query(Vq.from(ddKey, 'no_exist_view').limit(1),
-          function(err, res) {
-            assert(err);
-            assert(!res);
-            done();
-          });
+        H.b.query(Vq.from(ddKey, 'no_exist_view').limit(1), function(err, res) {
+          assert(err);
+          assert(!res);
+          done();
+        });
       });
 
       it('view queries should emit individual rows', function(done) {
         var rowCount = 0;
-        H.b.query(Vq.from(ddKey, 'simple').limit(1))
+        H.b
+          .query(Vq.from(ddKey, 'simple').limit(1))
           .on('row', function(row) {
             assert(row);
             rowCount++;
-          }).on('end', function() {
+          })
+          .on('end', function() {
             assert(rowCount > 0);
             done();
-          }).on('error', function() {
+          })
+          .on('error', function() {
             assert();
           });
       });
 
       it('view queries should emit a rows events', function(done) {
-        H.b.query(Vq.from(ddKey, 'simple').limit(1))
+        H.b
+          .query(Vq.from(ddKey, 'simple').limit(1))
           .on('rows', function(rows, meta) {
             assert(rows);
             assert(meta);
             assert(meta.total_rows > 0);
             done();
-          }).on('error', function() {
+          })
+          .on('error', function() {
             assert();
           });
       });
 
-      it('view queries should be able to emit all events', function(
-        done) {
+      it('view queries should be able to emit all events', function(done) {
         var rowCount = 0;
         var rowsMeta = null;
-        H.b.query(Vq.from(ddKey, 'simple').limit(1))
+        H.b
+          .query(Vq.from(ddKey, 'simple').limit(1))
           .on('row', function(row) {
             assert(row);
             rowCount++;
-          }).on('rows', function(rows, meta) {
+          })
+          .on('rows', function(rows, meta) {
             assert(rows);
             assert(meta);
             assert(meta.total_rows > 0);
             rowsMeta = meta;
-          }).on('end', function(meta) {
+          })
+          .on('end', function(meta) {
             assert(rowCount > 0);
             assert(meta, rowsMeta);
             done();
-          }).on('error', function() {
+          })
+          .on('error', function() {
             assert();
           });
       });
 
-      it('view queries should emit an error event with a row handler',
-        function(done) {
-          H.b.query(Vq.from(ddKey, 'no_exist_view').limit(1))
-            .on('row', function(rows) {
-              // Do Nothing
-            }).on('error', function(err) {
-              assert(err);
-              done();
-            });
-        });
+      it('view queries should emit an error event with a row handler', function(done) {
+        H.b
+          .query(Vq.from(ddKey, 'no_exist_view').limit(1))
+          .on('row', function() {
+            // Do Nothing
+          })
+          .on('error', function(err) {
+            assert(err);
+            done();
+          });
+      });
 
-      it('view queries should emit an error event with a rows handler',
-        function(done) {
-          H.b.query(Vq.from(ddKey, 'no_exist_view').limit(1))
-            .on('rows', function(rows) {
-              // Do Nothing
-            }).on('error', function(err) {
-              assert(err);
-              done();
-            });
-        });
+      it('view queries should emit an error event with a rows handler', function(done) {
+        H.b
+          .query(Vq.from(ddKey, 'no_exist_view').limit(1))
+          .on('rows', function() {
+            // Do Nothing
+          })
+          .on('error', function(err) {
+            assert(err);
+            done();
+          });
+      });
     });
   }
 

@@ -16,9 +16,13 @@ describe('#search', function() {
         H.lib.SearchSort.score().descending(true),
         H.lib.SearchSort.id().descending(true),
         H.lib.SearchSort.field('f1')
-        .type('a').mode('b').missing('c').descending(true),
+          .type('a')
+          .mode('b')
+          .missing('c')
+          .descending(true),
         H.lib.SearchSort.geoDistance('f2', 2, 3)
-        .unit('km').descending(true)
+          .unit('km')
+          .descending(true),
       ]);
       var qd = JSON.parse(JSON.stringify(q));
       assert(qd.sort[0].by === 'score');
@@ -52,12 +56,12 @@ describe('#search', function() {
         testdata.upsertData(H.b, testUid, done);
       });
 
-      it('should successfully create an index to test with',
-        function(done) {
-          this.timeout(10000);
+      it('should successfully create an index to test with', function(done) {
+        this.timeout(10000);
 
-          var searchIdxMgr = H.c.manager().searchIndexManager();
-          searchIdxMgr.createIndex({
+        var searchIdxMgr = H.c.manager().searchIndexManager();
+        searchIdxMgr.createIndex(
+          {
             name: testIdxName,
             type: 'fulltext-index',
             sourceType: 'couchbase',
@@ -66,7 +70,7 @@ describe('#search', function() {
               default_mapping: {
                 enabled: true,
                 dynamic: true,
-                default_analyzer: ''
+                default_analyzer: '',
               },
               type_field: '_type',
               default_type: '_default',
@@ -74,10 +78,12 @@ describe('#search', function() {
               default_datetime_parser: 'dateTimeOptional',
               default_field: '_all',
               byte_array_converter: 'json',
-              analysis: {}
+              analysis: {},
             },
-          }, done);
-        });
+          },
+          done
+        );
+      });
 
       it('should see test data correctly', function(done) {
         this.timeout(10000);

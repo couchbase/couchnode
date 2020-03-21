@@ -36,7 +36,7 @@ fasttest: node_modules
 	./node_modules/mocha/bin/mocha test/*.test.js -ig "(slow)"
 
 lint: node_modules
-	./node_modules/jshint/bin/jshint lib/*.js
+	node ./node_modules/eslint/bin/eslint.js lib/*.js test/*.js
 
 cover: node_modules
 	node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/_mocha test/*.test.js

@@ -12,20 +12,16 @@ describe('#ConnStr', function() {
 
     it('should break apart string hosts', function() {
       var x = connstr._normalize({
-        hosts: 'localhost'
+        hosts: 'localhost',
       });
-      assert.deepEqual(x.hosts, [
-        ['localhost', 0]
-      ]);
+      assert.deepEqual(x.hosts, [['localhost', 0]]);
     });
 
     it('should break apart string hosts with a port', function() {
       var x = connstr._normalize({
-        hosts: 'localhost:8091'
+        hosts: 'localhost:8091',
       });
-      assert.deepEqual(x.hosts, [
-        ['localhost', 8091]
-      ]);
+      assert.deepEqual(x.hosts, [['localhost', 8091]]);
     });
 
     it('should normalize strings', function() {
@@ -45,69 +41,58 @@ describe('#ConnStr', function() {
         scheme: 'https',
         hosts: [
           ['1.1.1.1', 8094],
-          ['2.2.2.2', 8099]
+          ['2.2.2.2', 8099],
         ],
         bucket: 'frank',
         options: {
           joe: 'bob',
-          jane: 'drew'
-        }
+          jane: 'drew',
+        },
       });
-      assert.equal(x,
+      assert.equal(
+        x,
         'https://1.1.1.1:8094,2.2.2.2:8099/frank?joe=bob&jane=drew'
       );
     });
 
     it('should stringify a connstr spec without a scheme', function() {
       var x = connstr._stringify({
-        hosts: [
-          ['1.1.1.1', 8094]
-        ],
+        hosts: [['1.1.1.1', 8094]],
         bucket: 'frank',
         options: {
-          x: 'y'
-        }
+          x: 'y',
+        },
       });
-      assert.equal(x,
-        '1.1.1.1:8094/frank?x=y');
+      assert.equal(x, '1.1.1.1:8094/frank?x=y');
     });
 
     it('should stringify a connstr spec without a bucket', function() {
       var x = connstr._stringify({
         scheme: 'http',
-        hosts: [
-          ['1.1.1.1', 8094]
-        ],
+        hosts: [['1.1.1.1', 8094]],
         options: {
-          x: 'y'
-        }
+          x: 'y',
+        },
       });
-      assert.equal(x,
-        'http://1.1.1.1:8094/?x=y');
+      assert.equal(x, 'http://1.1.1.1:8094/?x=y');
     });
 
     it('should stringify a connstr spec without options', function() {
       var x = connstr._stringify({
         scheme: 'http',
-        hosts: [
-          ['1.1.1.1', 8094]
-        ],
-        bucket: 'joe'
+        hosts: [['1.1.1.1', 8094]],
+        bucket: 'joe',
       });
-      assert.equal(x,
-        'http://1.1.1.1:8094/joe');
+      assert.equal(x, 'http://1.1.1.1:8094/joe');
     });
 
     it('should stringify a connstr spec with ipv6 addresses', function() {
       var x = connstr._stringify({
         scheme: 'couchbase',
-        hosts: [
-          ['[2001:4860:4860::8888]', 8094]
-        ],
-        bucket: 'joe'
+        hosts: [['[2001:4860:4860::8888]', 8094]],
+        bucket: 'joe',
       });
-      assert.equal(x,
-        'couchbase://[2001:4860:4860::8888]:8094/joe');
+      assert.equal(x, 'couchbase://[2001:4860:4860::8888]:8094/joe');
     });
   });
 
@@ -118,7 +103,7 @@ describe('#ConnStr', function() {
         scheme: 'http',
         hosts: [],
         bucket: 'default',
-        options: {}
+        options: {},
       });
     });
 
@@ -128,7 +113,7 @@ describe('#ConnStr', function() {
         scheme: 'https',
         hosts: [],
         bucket: 'shirley',
-        options: {}
+        options: {},
       });
     });
 
@@ -140,21 +125,18 @@ describe('#ConnStr', function() {
         bucket: 'b',
         options: {
           c: 'd',
-          e: 'f'
-        }
+          e: 'f',
+        },
       });
     });
 
     it('should parse a string with ipv6', function() {
-      var x = connstr.parse(
-        'couchbase://[2001:4860:4860::8888]:9011/b');
+      var x = connstr.parse('couchbase://[2001:4860:4860::8888]:9011/b');
       assert.deepEqual(x, {
         scheme: 'couchbase',
-        hosts: [
-          ['[2001:4860:4860::8888]', 9011]
-        ],
+        hosts: [['[2001:4860:4860::8888]', 9011]],
         bucket: 'b',
-        options: {}
+        options: {},
       });
     });
   });

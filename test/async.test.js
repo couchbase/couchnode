@@ -11,16 +11,14 @@ describe('#async', function() {
   function allTests(H) {
     if (async_hooks.supported) {
       it('should properly handle async contexts', function(done) {
-        asyncns.run(function(ctx) {
+        asyncns.run(function() {
           asyncns.set('value', 'ctxisworking');
 
-          H.b.get('test', function(err, res) {
-            assert.equal(asyncns.get('value'),
-              'ctxisworking');
+          H.b.get('test', function() {
+            assert.equal(asyncns.get('value'), 'ctxisworking');
 
-            H.b.get('test', function(err, res) {
-              assert.equal(asyncns.get('value'),
-                'ctxisworking');
+            H.b.get('test', function() {
+              assert.equal(asyncns.get('value'), 'ctxisworking');
               done();
             });
           });

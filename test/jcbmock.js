@@ -10,8 +10,10 @@ var child_process = require('child_process');
 var enableDebugLogging = false;
 var defaultMockVersion = [1, 5, 15];
 var defaultMockVersionStr =
-  defaultMockVersion[0] + '.' +
-  defaultMockVersion[1] + '.' +
+  defaultMockVersion[0] +
+  '.' +
+  defaultMockVersion[1] +
+  '.' +
   defaultMockVersion[2];
 var defaultMockFile = 'CouchbaseMock-' + defaultMockVersionStr + '.jar';
 var defaultMockUrlBase = 'http://packages.couchbase.com/clients/c/mock/';
@@ -47,19 +49,21 @@ function _getMockJar(callback) {
       console.log('downloading ' + mockurl + ' to ' + mockpath);
 
       var file = fs.createWriteStream(mockpath);
-      var request = http.get(mockurl, function(res) {
+      http.get(mockurl, function(res) {
         if (res.statusCode !== 200) {
           callback(new Error('failed to get mock from server'));
           return;
         }
 
-        res.on('data', function(data) {
-          file.write(data);
-        }).on('end', function() {
-          file.end(function() {
-            callback(null, mockpath);
+        res
+          .on('data', function(data) {
+            file.write(data);
+          })
+          .on('end', function() {
+            file.end(function() {
+              callback(null, mockpath);
+            });
           });
-        });
       });
     });
   });
@@ -103,14 +107,14 @@ function _startMock(mockpath, options, callback) {
   }
   if (!options.buckets) {
     options.buckets = {
-      'default': {
+      default: {
         password: '',
-        type: 'couchbase'
-      }
+        type: 'couchbase',
+      },
     };
   }
   for (var bname in options.buckets) {
-    if (options.buckets.hasOwnProperty(bname)) {
+    if (Object.prototype.hasOwnProperty.call(options.buckets, bname)) {
       if (!options.buckets[bname].type) {
         options.buckets[bname] = 'couchbase';
       }
@@ -183,10 +187,11 @@ function _startMock(mockpath, options, callback) {
       }
 
       msgHandlers.push(callback);
-      var dataOut = JSON.stringify({
-        command: cmdName,
-        payload: payload
-      }) + '\n';
+      var dataOut =
+        JSON.stringify({
+          command: cmdName,
+          payload: payload,
+        }) + '\n';
       socket.write(dataOut);
     };
     socket.close = function() {
@@ -202,25 +207,35 @@ function _startMock(mockpath, options, callback) {
 
     var bucketInfo = '';
     for (var bname in options.buckets) {
-      if (options.buckets.hasOwnProperty(bname)) {
+      if (Object.prototype.hasOwnProperty.call(options.buckets, bname)) {
         var binfo = options.buckets[bname];
         if (bucketInfo !== '') {
           bucketInfo += ',';
         }
-        bucketInfo += bname +
-          ':' + (binfo.password ? binfo.password : '') +
-          ':' + (binfo.type ? binfo.type : '');
+        bucketInfo +=
+          bname +
+          ':' +
+          (binfo.password ? binfo.password : '') +
+          ':' +
+          (binfo.type ? binfo.type : '');
       }
     }
 
     var javaOpts = [
-      '-jar', mockpath,
-      '--harakiri-monitor', 'localhost:' + ctlPort,
-      '--port', '0',
-      '--replicas', options.replicas.toString(),
-      '--vbuckets', options.vbuckets.toString(),
-      '--nodes', options.nodes.toString(),
-      '--buckets', bucketInfo
+      '-jar',
+      mockpath,
+      '--harakiri-monitor',
+      'localhost:' + ctlPort,
+      '--port',
+      '0',
+      '--replicas',
+      options.replicas.toString(),
+      '--vbuckets',
+      options.vbuckets.toString(),
+      '--nodes',
+      options.nodes.toString(),
+      '--buckets',
+      bucketInfo,
     ];
     console.log('launching mock:', javaOpts);
 

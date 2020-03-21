@@ -10,10 +10,10 @@ describe('#bucket management', function() {
 
       var ddoc = {
         views: {
-          'test': {
-            map: 'function (doc,meta) {}'
-          }
-        }
+          test: {
+            map: 'function (doc,meta) {}',
+          },
+        },
       };
       bMgr.upsertDesignDocument('dev_test', ddoc, function(err) {
         assert(!err);

@@ -2,7 +2,6 @@
 
 var couchbase = require('./../lib/couchbase');
 var jcbmock = require('./jcbmock');
-var fs = require('fs');
 var util = require('util');
 var assert = require('assert');
 var semver = require('semver');
@@ -29,7 +28,7 @@ var ServerFeatures = {
 // but we explicitly disable all output sources to avoid spamming anything.
 couchbase.logging.enableLogging({
   console: false,
-  filename: false
+  filename: false,
 });
 
 var config = {
@@ -41,7 +40,7 @@ var config = {
   muser: undefined,
   mpass: undefined,
   qhosts: undefined,
-  version: new ServerVersion(0, 0, 0, false)
+  version: new ServerVersion(0, 0, 0, false),
 };
 
 if (process.env.CNCSTR !== undefined) {
@@ -103,8 +102,7 @@ function _waitForConfig(callback) {
   }
 
   var mockVer = jcbmock.version();
-  config.version =
-    new ServerVersion(mockVer[0], mockVer[1], mockVer[2], true);
+  config.version = new ServerVersion(mockVer[0], mockVer[1], mockVer[2], true);
 
   before(function(done) {
     this.timeout(60000);
@@ -148,14 +146,14 @@ function _supportsFeature(feature) {
 }
 
 function Harness() {
-  this.keyPrefix = (new Date()).getTime();
+  this.keyPrefix = new Date().getTime();
   this.keySerial = 0;
 }
 
 Harness.prototype.requireFeature = function(feature, callback) {
   if (!_supportsFeature(feature)) {
     var oldIt = global.it;
-    global.it = function(title, callback) {
+    global.it = function(title) {
       return oldIt(title);
     };
     callback();
@@ -163,7 +161,7 @@ Harness.prototype.requireFeature = function(feature, callback) {
   } else {
     callback();
   }
-}
+};
 
 Harness.prototype.key = function() {
   return 'tk-' + this.keyPrefix + '-' + this.keySerial++;
@@ -176,7 +174,7 @@ Harness.prototype.noCallback = function() {
 };
 
 Harness.prototype.okCallback = function(target) {
-  var stack = (new Error()).stack;
+  var stack = new Error().stack;
   return function(err, res) {
     if (err) {
       console.log(stack);
@@ -226,32 +224,36 @@ function RealHarness() {
   this.lib = couchbase;
   this.e = this.lib.errors;
 
-  _waitForConfig(function() {
-    this.mockInst = config.mockInst;
-    this.connstr = config.connstr;
-    this.bucket = config.bucket;
-    this.user = config.user;
-    this.pass = config.pass;
-    this.qhosts = config.qhosts;
-    this.bpass = config.bpass;
-    this.muser = config.muser;
-    this.mpass = config.mpass;
+  _waitForConfig(
+    function() {
+      this.mockInst = config.mockInst;
+      this.connstr = config.connstr;
+      this.bucket = config.bucket;
+      this.user = config.user;
+      this.pass = config.pass;
+      this.qhosts = config.qhosts;
+      this.bpass = config.bpass;
+      this.muser = config.muser;
+      this.mpass = config.mpass;
 
-    this.c = new this.lib.Cluster(this.connstr);
-    if (this.user || this.pass) {
-      this.c.authenticate(this.user, this.pass);
-    }
-    this.b = this.c.openBucket(this.bucket);
-    if (this.qhosts) {
-      this.b.enableN1ql(this.qhosts);
-    }
-  }.bind(this));
+      this.c = new this.lib.Cluster(this.connstr);
+      if (this.user || this.pass) {
+        this.c.authenticate(this.user, this.pass);
+      }
+      this.b = this.c.openBucket(this.bucket);
+      if (this.qhosts) {
+        this.b.enableN1ql(this.qhosts);
+      }
+    }.bind(this)
+  );
 
-  after(function() {
-    if (this.b) {
-      this.b.disconnect();
-    }
-  }.bind(this));
+  after(
+    function() {
+      if (this.b) {
+        this.b.disconnect();
+      }
+    }.bind(this)
+  );
 }
 util.inherits(RealHarness, Harness);
 
@@ -260,15 +262,19 @@ RealHarness.prototype.timeTravel = function(callback, period) {
     Harness.prototype.timeTravel.apply(this, arguments);
   } else {
     var periodSecs = Math.ceil(period / 1000);
-    this.mockInst.command('TIME_TRAVEL', {
-      Offset: periodSecs
-    }, function(err) {
-      if (err) {
-        console.error('time travel error:', err);
-      }
+    this.mockInst.command(
+      'TIME_TRAVEL',
+      {
+        Offset: periodSecs,
+      },
+      function(err) {
+        if (err) {
+          console.error('time travel error:', err);
+        }
 
-      callback();
-    });
+        callback();
+      }
+    );
   }
 };
 

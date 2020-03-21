@@ -23,29 +23,29 @@ describe('#analytics', function() {
     });
 
     it('should set query pretty correctly', function() {
-      var q1 = Aq.fromString('SELECT * FROM default')
-        .pretty(true);
+      var q1 = Aq.fromString('SELECT * FROM default').pretty(true);
       checkQueryOpts(q1, null, {
         statement: 'SELECT * FROM default',
-        pretty: true
+        pretty: true,
       });
     });
 
     it('should set query priority correctly', function() {
-      var q1 = Aq.fromString('SELECT * FROM default')
-        .priority(true);
+      var q1 = Aq.fromString('SELECT * FROM default').priority(true);
       checkQueryOpts(q1, null, {
         statement: 'SELECT * FROM default',
-        priority: true
+        priority: true,
       });
     });
 
     it('should set query raw parameters correctly', function() {
-      var q1 = Aq.fromString('SELECT * FROM default')
-        .rawParam('test', ['this-is-a-test', 2]);
+      var q1 = Aq.fromString('SELECT * FROM default').rawParam('test', [
+        'this-is-a-test',
+        2,
+      ]);
       checkQueryOpts(q1, null, {
         statement: 'SELECT * FROM default',
-        test: ['this-is-a-test', 2]
+        test: ['this-is-a-test', 2],
       });
     });
   });
@@ -55,10 +55,9 @@ describe('#analytics', function() {
       var testUid = uuid.v4();
       var dsName = ('ds-' + testUid).replace(/-/g, '_');
 
-      it('should set up some test data successfully',
-        function(done) {
-          testdata.upsertData(H.b, testUid, done);
-        });
+      it('should set up some test data successfully', function(done) {
+        testdata.upsertData(H.b, testUid, done);
+      });
 
       it('should disconnect the dataverse', function(done) {
         this.timeout(5000);
@@ -73,9 +72,13 @@ describe('#analytics', function() {
         this.timeout(5000);
 
         var q = Aq.fromString(
-          'CREATE DATASET ' + dsName +
-          ' ON ' + H.b.name +
-          ' WHERE testUid="' + testUid + '";'
+          'CREATE DATASET ' +
+            dsName +
+            ' ON ' +
+            H.b.name +
+            ' WHERE testUid="' +
+            testUid +
+            '";'
         );
         H.b.query(q, done);
       });
@@ -108,13 +111,15 @@ describe('#analytics', function() {
       });
 
       it('should work with parameters', function(done) {
-        var q = Aq.fromString(
-          'SELECT * FROM ' + dsName +
-          ' WHERE x=?');
-        H.b.query(q, [1], H.okCallback(function(rows) {
-          assert.equal(rows.length, 3);
-          done();
-        }));
+        var q = Aq.fromString('SELECT * FROM ' + dsName + ' WHERE x=?');
+        H.b.query(
+          q,
+          [1],
+          H.okCallback(function(rows) {
+            assert.equal(rows.length, 3);
+            done();
+          })
+        );
       });
 
       it('should ingest successfully', function(done) {
@@ -127,36 +132,42 @@ describe('#analytics', function() {
         };
         var dataConv = function(data) {
           return {
-            shortName: data.x + ':' + data.y
+            shortName: data.x + ':' + data.y,
           };
         };
-        var q = Aq.fromString(
-          'SELECT x, y FROM ' + dsName);
-        H.b.analyticsIngest(q, {
-          dataConverter: dataConv,
-          idGenerator: idGen
-        }, H.okCallback(function(meta) {
-          assert(!!meta);
+        var q = Aq.fromString('SELECT x, y FROM ' + dsName);
+        H.b.analyticsIngest(
+          q,
+          {
+            dataConverter: dataConv,
+            idGenerator: idGen,
+          },
+          H.okCallback(function(meta) {
+            assert(!!meta);
 
-          H.b.getMulti([
-            ingestUid + '-0:0',
-            ingestUid + '-0:1',
-            ingestUid + '-0:2',
-            ingestUid + '-1:0',
-            ingestUid + '-1:1',
-            ingestUid + '-1:2',
-            ingestUid + '-2:0',
-            ingestUid + '-2:1',
-            ingestUid + '-2:2',
-          ], H.okCallback(function(res) {
-            assert.equal(Object.keys(res).length, 9);
-            for (var key in res) {
-              var value = res[key].value;
-              assert(value.shortName.match(/.:./));
-            }
-            done();
-          }));
-        }));
+            H.b.getMulti(
+              [
+                ingestUid + '-0:0',
+                ingestUid + '-0:1',
+                ingestUid + '-0:2',
+                ingestUid + '-1:0',
+                ingestUid + '-1:1',
+                ingestUid + '-1:2',
+                ingestUid + '-2:0',
+                ingestUid + '-2:1',
+                ingestUid + '-2:2',
+              ],
+              H.okCallback(function(res) {
+                assert.equal(Object.keys(res).length, 9);
+                for (var key in res) {
+                  var value = res[key].value;
+                  assert(value.shortName.match(/.:./));
+                }
+                done();
+              })
+            );
+          })
+        );
       });
 
       it('should ingest with defaults succesfully', function(done) {
@@ -164,8 +175,8 @@ describe('#analytics', function() {
 
         var ingestUid = uuid.v4();
         var q = Aq.fromString(
-          'SELECT x, y, "' + ingestUid + '" AS testUid' +
-          ' FROM ' + dsName);
+          'SELECT x, y, "' + ingestUid + '" AS testUid' + ' FROM ' + dsName
+        );
         H.b.analyticsIngest(q, {}, done);
 
         // TODO(brett19): Should probably validate the inserted data

@@ -7,10 +7,14 @@ describe('#Bucket', function() {
   function allTests(H) {
     it('should queue operations until connected', function(done) {
       var bucket = H.c.openBucket(H.bucket);
-      bucket.insert(H.key(), 'bar', H.okCallback(function() {
-        bucket.disconnect();
-        done();
-      }));
+      bucket.insert(
+        H.key(),
+        'bar',
+        H.okCallback(function() {
+          bucket.disconnect();
+          done();
+        })
+      );
     });
 
     it('should cancel queued options on connection failure', function(done) {

@@ -35,18 +35,18 @@ describe('#cluster', function() {
     var cluster = new H.lib.Cluster(H.connstr);
     cluster.authenticate('username', 'password');
     assert.throws(function() {
-      cluster.openBucket('bucket', 'password', function(err) {});
+      cluster.openBucket('bucket', 'password', function() {});
     });
     done();
   });
 
-  it('should fail when using keypath with no cert authenticator', function(
-    done) {
+  it('should fail when using keypath with no cert authenticator', function(done) {
     var cluster = new H.lib.Cluster(
-      'couchbase://test?certpath=./cert&keypath=./key');
+      'couchbase://test?certpath=./cert&keypath=./key'
+    );
     cluster.authenticate('username', 'password');
     assert.throws(function() {
-      cluster.openBucket('bucket', '', function(err) {});
+      cluster.openBucket('bucket', '', function() {});
     });
     done();
   });

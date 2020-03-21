@@ -22,9 +22,9 @@ describe('#cluster management', function() {
   describe('#RealBucket', function() {
     allTests.call(this, harness);
 
+    /* DISABLED: There is a bug in CouchbaseMock which stops this from working.
     var H = harness;
 
-    /* DISABLED: There is a bug in CouchbaseMock which stops this from working.
     it('should not be able to list buckets with wrong password',
       function(done) {
         var cluster = new H.lib.Cluster(H.connstr);
