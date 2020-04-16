@@ -8,9 +8,9 @@ protocol.
 
 ## Useful Links
 
-Source - [http://github.com/couchbase/couchnode](http://github.com/couchbase/couchnode)
+Source - [https://github.com/couchbase/couchnode](https://github.com/couchbase/couchnode)
 
-Bug Tracker - [http://www.couchbase.com/issues/browse/JSCBC](http://www.couchbase.com/issues/browse/JSCBC)
+Bug Tracker - [https://www.couchbase.com/issues/browse/JSCBC](https://www.couchbase.com/issues/browse/JSCBC)
 
 Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html)
 
@@ -69,7 +69,7 @@ An extensive documentation is available on the Couchbase website - [https://docs
 including numerous examples and code samples.
 
 Visit our [Couchbase Node.js SDK forum](https://forums.couchbase.com/c/node-js-sdk) for help.
-Or get involved in the [Couchbase Community](http://couchbase.com/community) on the [Couchbase](http://couchbase.com) website.
+Or get involved in the [Couchbase Community](https://couchbase.com/community) on the [Couchbase](https://couchbase.com) website.
 
 
 ## Source Control
