@@ -282,7 +282,9 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     lcb_STATUS rc = rdr.getValue<&lcb_respview_status>();
     Local<Value> errVal = rdr.decodeError<lcb_respview_error_context>(rc);
 
-    Local<Value> dataRes = rdr.parseValue<&lcb_respview_row>();
+    Local<Value> idRes = rdr.parseValue<&lcb_respview_doc_id>();
+    Local<Value> keyRes = rdr.parseValue<&lcb_respview_key>();
+    Local<Value> valueRes = rdr.parseValue<&lcb_respview_row>();
 
     uint32_t rflags = 0;
     if (rdr.getValue<&lcb_respview_is_final>()) {
@@ -291,9 +293,9 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> flagsVal = Nan::New<Number>(rflags);
 
     if (!(rflags & LCB_RESP_F_FINAL)) {
-        rdr.invokeNonFinalCallback(errVal, flagsVal, dataRes);
+        rdr.invokeNonFinalCallback(errVal, flagsVal, valueRes, idRes, keyRes);
     } else {
-        rdr.invokeCallback(errVal, flagsVal, dataRes);
+        rdr.invokeCallback(errVal, flagsVal, valueRes, idRes, keyRes);
     }
 }
 

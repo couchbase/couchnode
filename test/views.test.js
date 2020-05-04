@@ -61,6 +61,12 @@ describe('#views', () => {
         assert.lengthOf(res.rows, testdata.docCount());
         assert.isObject(res.meta);
 
+        res.rows.forEach((row) => {
+          assert.isDefined(row.id);
+          assert.isDefined(row.key);
+          assert.isDefined(row.value);
+        });
+
         break;
       }
     }).timeout(20000);
