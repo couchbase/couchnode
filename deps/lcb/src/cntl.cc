@@ -594,6 +594,7 @@ HANDLER(n1ql_cache_clear_handler) {
 
 HANDLER(bucket_auth_handler) {
     const lcb_BUCKETCRED *cred;
+    (void)cmd;
     if (mode == LCB_CNTL_SET) {
         if (LCBT_SETTING(instance, keypath)) {
             return LCB_ERR_CONTROL_UNSUPPORTED_MODE;
@@ -601,7 +602,6 @@ HANDLER(bucket_auth_handler) {
         /* Parse the bucket string... */
         cred = (const lcb_BUCKETCRED *)arg;
         return lcbauth_add_pass(instance->settings->auth, (*cred)[0], (*cred)[1], LCBAUTH_F_BUCKET);
-        (void)cmd; (void)arg;
     } else if (mode == CNTL__MODE_SETSTRING) {
         const char *ss = reinterpret_cast<const char *>(arg);
         size_t sslen = strlen(ss);
@@ -622,6 +622,7 @@ HANDLER(bucket_auth_handler) {
 }
 
 HANDLER(metrics_handler) {
+    (void)cmd;
     if (mode == LCB_CNTL_SET) {
         int val = *(int *)arg;
         if (!val) {
@@ -637,7 +638,6 @@ HANDLER(metrics_handler) {
     } else {
         return LCB_ERR_CONTROL_UNSUPPORTED_MODE;
     }
-    (void)cmd;
 }
 
 HANDLER(collections_handler) {

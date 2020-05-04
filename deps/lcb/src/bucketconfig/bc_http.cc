@@ -302,7 +302,7 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
 {
     HttpProvider *http = reinterpret_cast< HttpProvider * >(arg);
     lcb_host_t *host;
-    lcbio_CTXPROCS procs;
+    lcbio_CTXPROCS procs{};
     http->creq = NULL;
 
     if (err != LCB_SUCCESS) {
@@ -324,7 +324,6 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
         return;
     }
 
-    memset(&procs, 0, sizeof(procs));
     procs.cb_err = io_error_handler;
     procs.cb_read = read_common;
     http->ioctx = lcbio_ctx_new(sock, http, &procs);

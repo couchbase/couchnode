@@ -210,7 +210,7 @@ static void request_timed_out(void *arg)
 static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OSERR syserr)
 {
     Request *req = reinterpret_cast< Request * >(arg);
-    lcbio_CTXPROCS procs;
+    lcbio_CTXPROCS procs{};
     lcb_settings *settings = req->instance->settings;
     req->creq = NULL;
 

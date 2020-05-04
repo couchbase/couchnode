@@ -133,11 +133,11 @@ X(LCB_ERR_VIEW_NOT_FOUND,               701, LCB_ERROR_TYPE_VIEW, 0, "View is no
 X(LCB_ERR_DESIGN_DOCUMENT_NOT_FOUND,    702, LCB_ERROR_TYPE_VIEW, 0, "Design document is not found") \
 \
 /* Management API Error Definitions */ \
-X(LCB_ERR_COLLECTION_ALREADY_EXISTS,    701, LCB_ERROR_TYPE_MANAGEMENT, 0, "Collection already exists") \
-X(LCB_ERR_SCOPE_EXISTS,                 702, LCB_ERROR_TYPE_MANAGEMENT, 0, "Scope already exists") \
-X(LCB_ERR_USER_NOT_FOUND,               702, LCB_ERROR_TYPE_MANAGEMENT, 0, "User is not found") \
-X(LCB_ERR_GROUP_NOT_FOUND,              702, LCB_ERROR_TYPE_MANAGEMENT, 0, "Group is not found") \
-X(LCB_ERR_BUCKET_ALREADY_EXISTS,        702, LCB_ERROR_TYPE_MANAGEMENT, 0, "Bucket already exists") \
+X(LCB_ERR_COLLECTION_ALREADY_EXISTS,    801, LCB_ERROR_TYPE_MANAGEMENT, 0, "Collection already exists") \
+X(LCB_ERR_SCOPE_EXISTS,                 802, LCB_ERROR_TYPE_MANAGEMENT, 0, "Scope already exists") \
+X(LCB_ERR_USER_NOT_FOUND,               803, LCB_ERROR_TYPE_MANAGEMENT, 0, "User is not found") \
+X(LCB_ERR_GROUP_NOT_FOUND,              804, LCB_ERROR_TYPE_MANAGEMENT, 0, "Group is not found") \
+X(LCB_ERR_BUCKET_ALREADY_EXISTS,        805, LCB_ERROR_TYPE_MANAGEMENT, 0, "Bucket already exists") \
 \
 /* SDK-specific Error Definitions */ \
 X(LCB_ERR_SSL_INVALID_CIPHERSUITES,         1000, LCB_ERROR_TYPE_SDK, 0, "OpenSSL encountered an error in the provided ciphersuites (TLS >= 1.3)") \
@@ -400,6 +400,32 @@ typedef struct {
 
 typedef lcb_RETRY_ACTION (*lcb_RETRY_STRATEGY)(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason);
 
+/**
+ * Set the global retry strategy.  A strategy is a function pointer (see typedef above) which
+ * takes a lcb_RETRY_REQUEST and an lcb_RETRY_REASON, and returns a lcb_RETRY_ACTION.  There are
+ * a number of lcb_retry_reason_*** and lcb_retry_request_*** functions one can use to formulate
+ * a stragegy.  The simplest possible strategy:
+ * @code{.c}
+ * lcb_RETRY_ACTION lcb_retry_strategy_fail_fast(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason) {
+ *    lcb_RETRY_ACTION res{0, 0};
+ *    return res;
+ * }
+ * @endcode
+ * This sets should_retry to false for all requests.  Below, we use the functions mentioned above to
+ * formulate a more nuanced strategy:
+ * @code{.c}
+ * lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason) {
+ *     lcb_RETRY_ACTION res{0, 0};
+ *     if (lcb_retry_request_is_idempotent(req) || lcb_retry_reason_allows_non_idempotent_retry(reason)) {
+ *          res.should_retry = 1;
+ *          res.retry_after_ms = 0;
+ *     }
+ *     return res;
+ * }
+ * @endcode
+ *
+ * These 2 strategies are pre-defined for you to use, or you can formulate your own.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_retry_strategy(lcb_INSTANCE *instance, lcb_RETRY_STRATEGY strategy);
 
 #ifdef __cplusplus

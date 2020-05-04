@@ -248,7 +248,7 @@ class Workload
         unsigned int num = dist(rnd);
         op_type res = weights_.back().first;
         auto margin = std::find_if(weights_.begin(), weights_.end(), [num](op x) { return num < x.second; });
-        if (margin != std::end(weights_)) {
+        if (margin != weights_.end()) {
             res = margin->first;
         }
         return res;

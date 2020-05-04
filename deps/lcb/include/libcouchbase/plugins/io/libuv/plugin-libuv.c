@@ -25,9 +25,8 @@ static void socket_closed_callback(uv_handle_t *handle);
 static void wire_iops2(int version, lcb_loop_procs *loop, lcb_timer_procs *timer, lcb_bsd_procs *bsd, lcb_ev_procs *ev,
                        lcb_completion_procs *iocp, lcb_iomodel_t *model);
 
-static void decref_iops(lcb_io_opt_t iobase)
+static void decref_iops(my_iops_t *io)
 {
-    my_iops_t *io = (my_iops_t *)iobase;
     lcb_assert(io->iops_refcount);
     if (--io->iops_refcount) {
         return;
@@ -41,7 +40,7 @@ static void iops_lcb_dtor(lcb_io_opt_t iobase)
 {
     my_iops_t *io = (my_iops_t *)iobase;
     if (io->startstop_noop) {
-        decref_iops(iobase);
+        decref_iops(io);
         return;
     }
 
@@ -53,7 +52,7 @@ static void iops_lcb_dtor(lcb_io_opt_t iobase)
         uv_loop_delete(io->loop);
     }
 
-    decref_iops(iobase);
+    decref_iops(io);
 }
 
 /******************************************************************************
@@ -249,7 +248,7 @@ static void socket_closed_callback(uv_handle_t *handle)
     memset(sock, 0xEE, sizeof(*sock));
     free(sock);
 
-    decref_iops(&io->base);
+    decref_iops(io);
 }
 
 static unsigned int close_socket(lcb_io_opt_t iobase, lcb_sockdata_t *sockbase)
@@ -554,7 +553,7 @@ static void delete_timer(lcb_io_opt_t iobase, void *timer_opaque)
 static void timer_close_cb(uv_handle_t *handle)
 {
     my_timer_t *timer = (my_timer_t *)handle;
-    decref_iops(&timer->parent->base);
+    decref_iops(timer->parent);
     memset(timer, 0xff, sizeof(*timer));
     free(timer);
 }

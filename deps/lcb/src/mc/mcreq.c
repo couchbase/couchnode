@@ -527,7 +527,7 @@ lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protoc
     return LCB_SUCCESS;
 }
 
-void mcreq_set_cid(mc_PACKET *packet, uint32_t cid)
+void mcreq_set_cid(mc_PIPELINE *pipeline, mc_PACKET *packet, uint32_t cid)
 {
     uint8_t ffext = 0;
     uint16_t nk = 0;
@@ -567,8 +567,13 @@ void mcreq_set_cid(mc_PACKET *packet, uint32_t cid)
     ptr += nhdr + nold;
     memcpy(kdata + nhdr, buf, nbuf);
     memcpy(kdata + nhdr + nbuf, ptr, new_size - nbuf - nhdr);
+    if (packet->kh_span.offset == NETBUF_INVALID_OFFSET) {
+        /* standalone buffer */
+        free(SPAN_BUFFER(&packet->kh_span));
+    } else {
+        netbuf_mblock_release(&pipeline->nbmgr, &packet->kh_span);
+    }
     CREATE_STANDALONE_SPAN(&packet->kh_span, kdata, new_size);
-    free(kh);
 }
 
 uint32_t mcreq_get_cid(lcb_INSTANCE *instance, const mc_PACKET *packet)

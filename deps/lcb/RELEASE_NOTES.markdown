@@ -1,5 +1,19 @@
 # Release Notes
 
+## 3.0.1 (2020-04-07)
+
+* CCBC-1188: cbc-pillowfight: fixed `--collection` switch.
+* CCBC-1173: Fix exporting `lcb_cmdquery_consistency_token_for_keyspace`
+* CCBC-1168: expose `max_parallelism` for query
+* CCBC-1171: expose `profile` option for query
+* CCBC-1170: expose `scan_wait` option for query
+* CCBC-1159: Fix error codes for Management API
+* MB-37768: Don't override `CMAKE_INSTALL_RPATH`.
+* CCBC-1208: Add a fail-fast retry strategy.
+* CCBC-1209: Rename functions of embedded `http_parser` to avoid name clash.
+* Remove use of deprecated function `std::random_shuffle`. `std::random_shuffle` is deprecated in C++14, removed in C++17. Replace with `std::shuffle`.
+* Fixed several issues reported by coverity
+
 ## 3.0.0 (2020-01-17)
 
 * CCBC-1152: Enable `SCRAM-SHA*` SASL by default.

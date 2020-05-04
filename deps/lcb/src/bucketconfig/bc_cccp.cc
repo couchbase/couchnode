@@ -263,7 +263,7 @@ void lcb::clconfig::cccp_update(const void *cookie_, lcb_STATUS err, const void 
 
 static void on_connected(lcbio_SOCKET *sock, void *data, lcb_STATUS err, lcbio_OSERR)
 {
-    lcbio_CTXPROCS ioprocs;
+    lcbio_CTXPROCS ioprocs{};
     CccpProvider *cccp = reinterpret_cast< CccpProvider * >(data);
     lcb_settings *settings = cccp->parent->settings;
     cccp->creq = NULL;

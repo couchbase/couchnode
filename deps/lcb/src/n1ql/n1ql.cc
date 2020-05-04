@@ -240,6 +240,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scan_cap(lcb_CMDQUERY *cmd, int value)
     return LCB_SUCCESS;
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scan_wait(lcb_CMDQUERY *cmd, uint32_t us)
+{
+    cmd->root["scan_wait"] = Json::valueToString(us) + "us";
+    return LCB_SUCCESS;
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_cap(lcb_CMDQUERY *cmd, int value)
 {
     cmd->root["pipeline_cap"] = Json::valueToString(value);
@@ -249,6 +255,24 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_cap(lcb_CMDQUERY *cmd, int val
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_batch(lcb_CMDQUERY *cmd, int value)
 {
     cmd->root["pipeline_batch"] = Json::valueToString(value);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_profile(lcb_CMDQUERY *cmd, lcb_QUERY_PROFILE mode)
+{
+    switch (mode) {
+        case LCB_QUERY_PROFILE_OFF:
+            cmd->root["profile"] = "off";
+            break;
+        case LCB_QUERY_PROFILE_PHASES:
+            cmd->root["profile"] = "phases";
+            break;
+        case LCB_QUERY_PROFILE_TIMINGS:
+            cmd->root["profile"] = "timings";
+            break;
+        default:
+            return LCB_ERR_INVALID_ARGUMENT;
+    }
     return LCB_SUCCESS;
 }
 
@@ -275,9 +299,9 @@ static void encode_mutation_token(Json::Value &sparse, const lcb_MUTATION_TOKEN 
     cur_sv[1] = buf;
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdn1ql_consistency_token_for_keyspace(lcb_CMDQUERY *cmd, const char *keyspace,
-                                                                       size_t keyspace_len,
-                                                                       const lcb_MUTATION_TOKEN *token)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency_token_for_keyspace(lcb_CMDQUERY *cmd, const char *keyspace,
+                                                                        size_t keyspace_len,
+                                                                        const lcb_MUTATION_TOKEN *token)
 {
     if (!LCB_MUTATION_TOKEN_ISVALID(token)) {
         return LCB_ERR_INVALID_ARGUMENT;
@@ -323,6 +347,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency_tokens(lcb_CMDQUERY *cmd, l
         return LCB_ERR_DOCUMENT_NOT_FOUND;
     }
 
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_max_parallelism(lcb_CMDQUERY *cmd, int value)
+{
+    cmd->root["max_parallelism"] = std::to_string(value);
     return LCB_SUCCESS;
 }
 

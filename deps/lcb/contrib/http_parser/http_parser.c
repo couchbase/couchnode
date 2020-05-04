@@ -403,7 +403,7 @@ static struct {
 };
 #undef HTTP_STRERROR_GEN
 
-int http_message_needs_eof(http_parser *parser);
+int _lcb_http_message_needs_eof(http_parser *parser);
 
 /* Our URL parser.
  *
@@ -1649,7 +1649,7 @@ size_t _lcb_http_parser_execute (http_parser *parser,
             parser->state = s_body_identity;
           } else {
             if (parser->type == HTTP_REQUEST ||
-                !http_message_needs_eof(parser)) {
+                !_lcb_http_message_needs_eof(parser)) {
               /* Assume content-length 0 - read the next */
               parser->state = NEW_MESSAGE();
               CALLBACK_NOTIFY(message_complete);
@@ -1869,7 +1869,7 @@ error:
 
 /* Does the parser need to see an EOF to find the end of the message? */
 int
-http_message_needs_eof (http_parser *parser)
+_lcb_http_message_needs_eof (http_parser *parser)
 {
   if (parser->type == HTTP_REQUEST) {
     return 0;
@@ -1906,7 +1906,7 @@ _lcb_http_should_keep_alive (http_parser *parser)
     }
   }
 
-  return !http_message_needs_eof(parser);
+  return !_lcb_http_message_needs_eof(parser);
 }
 
 

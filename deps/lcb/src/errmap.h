@@ -308,6 +308,7 @@ struct lcb_RETRY_REQUEST_ {
 };
 
 lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason);
+lcb_RETRY_ACTION lcb_retry_strategy_fail_fast(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason);
 
 #ifdef __cplusplus
 }

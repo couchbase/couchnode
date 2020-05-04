@@ -20,6 +20,7 @@
 #include "mc/mcreq.h"
 #include "mc/compress.h"
 #include "trace.h"
+#include "collections.h"
 
 #define LOGARGS(obj, lvl) (obj)->settings, "handler", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -356,6 +357,16 @@ template <typename T>
 void invoke_callback(const mc_PACKET *pkt,
     lcb_INSTANCE *instance, T* resp, lcb_CALLBACK_TYPE cbtype)
 {
+    std::string collection_path = instance->collcache->id_to_name(mcreq_get_cid(instance, pkt));
+    if (!collection_path.empty()) {
+        size_t dot = collection_path.find('.');
+        if (dot != std::string::npos) {
+            resp->ctx.scope = collection_path.c_str();
+            resp->ctx.scope_len = dot;
+            resp->ctx.collection = collection_path.c_str() + dot + 1;
+            resp->ctx.collection_len = collection_path.size() - (dot + 1);
+        }
+    }
     if (!(pkt->flags & MCREQ_F_INVOKED)) {
         resp->cookie = const_cast<void*>(MCREQ_PKT_COOKIE(pkt));
         const lcb_RESPBASE *base = reinterpret_cast<const lcb_RESPBASE*>(resp);
@@ -956,6 +967,15 @@ H_collections_get_cid(mc_PIPELINE *pipeline, mc_PACKET *request,
     }
 
     if (request->flags & MCREQ_F_REQEXT) {
+        if (resp.ctx.key && resp.ctx.key_len) {
+            const char *dot = strchr(resp.ctx.key, '.');
+            if (dot) {
+                resp.ctx.scope = resp.ctx.key;
+                resp.ctx.scope_len = dot - resp.ctx.key;
+                resp.ctx.collection = dot + 1;
+                resp.ctx.collection_len = resp.ctx.key_len - (dot - resp.ctx.key + 1);
+            }
+        }
         request->u_rdata.exdata->procs->handler(pipeline, request, resp.ctx.rc, &resp);
     } else {
         invoke_callback(request, root, &resp, LCB_CALLBACK_GETCID);

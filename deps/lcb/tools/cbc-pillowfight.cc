@@ -95,30 +95,6 @@ static TemplateSpec parseTemplateSpec(const string &input)
     return spec;
 }
 
-// Given a string representing a uint32_t (base16) return a string storing the
-// leb128 encoded representation of that value.
-static string leb128_encode(string in)
-{
-    unsigned long int value = strtoul(in.c_str(), NULL, 16);
-
-    // 00000000 maps to [0]
-    if (value == 0) {
-        return string(1, 0);
-    }
-
-    string rv;
-    while (value > 0) {
-        char byte = static_cast< char >(value & 0x7full);
-        value >>= 7;
-        // value has more data?
-        if (value > 0) {
-            byte |= 0x80;
-        }
-        rv.push_back(byte);
-    }
-    return rv;
-}
-
 class Configuration
 {
   public:
@@ -158,7 +134,7 @@ class Configuration
         o_sdPathCount.description("Number of subdoc paths per command").setDefault(1);
         o_populateOnly.description("Exit after documents have been populated");
         o_exptime.description("Set TTL for items").abbrev('e');
-        o_collection.description("Allowed collection ID in base16 (could be specified multiple times)").hide();
+        o_collection.description("Allowed collection full path including scope (could be specified multiple times)");
         o_durability.abbrev('d').description("Durability level").setDefault("none");
         o_persist.description("Wait until item is persisted to this number of nodes (-1 for master+replicas)")
             .setDefault(0);
@@ -188,9 +164,6 @@ class Configuration
             exit(EXIT_FAILURE);
         }
 
-        if (o_keyPrefix.passed() && o_collection.passed()) {
-            throw std::runtime_error("The --collection is not compatible with --key-prefix");
-        }
         if (depr.loop.passed()) {
             fprintf(stderr, "The --loop/-l option is deprecated. Use --num-cycles\n");
             maxCycles = -1;
@@ -276,10 +249,7 @@ class Configuration
         }
 
         if (o_collection.passed()) {
-            vector< string > ids = o_collection.result();
-            for (vector< string >::iterator it = ids.begin(); it != ids.end(); ++it) {
-                collections.push_back(leb128_encode(*it));
-            }
+            collections = o_collection.result();
         }
     }
 
@@ -535,6 +505,8 @@ struct NextOp {
     NextOp() : m_seqno(0), m_mode(GET), m_cas(0) {}
 
     string m_key;
+    string m_scope;
+    string m_collection;
     uint32_t m_seqno;
     vector< lcb_IOV > m_valuefrags;
     vector< SubdocSpec > m_specs;
@@ -715,9 +687,15 @@ class KeyGenerator : public OpGenerator
         uint32_t seqno = op.m_seqno;
         char buffer[21];
         snprintf(buffer, sizeof(buffer), "%020d", seqno);
-        string &prefix =
-            config.useCollections() ? config.collections[seqno % config.collections.size()] : config.getKeyPrefix();
-        op.m_key.assign(prefix + buffer);
+        op.m_key.assign(config.getKeyPrefix() + buffer);
+        if (config.useCollections()) {
+            std::string &path = config.collections[seqno % config.collections.size()];
+            size_t dot = path.find('.');
+            if (dot != std::string::npos) {
+                op.m_scope = path.substr(0, dot);
+                op.m_collection = path.substr(dot + 1);
+            }
+        }
     }
 
     SeqGenerator *m_genrandom;
@@ -800,6 +778,13 @@ class ThreadContext
                     lcb_cmdstore_datatype(scmd, LCB_VALUE_F_JSON);
                 }
                 lcb_cmdstore_key(scmd, opinfo.m_key.c_str(), opinfo.m_key.size());
+                if (config.useCollections()) {
+                    if (!opinfo.m_collection.empty() || !opinfo.m_scope.empty()) {
+                        lcb_cmdstore_collection(scmd, opinfo.m_scope.c_str(), opinfo.m_scope.size(),
+                                                opinfo.m_collection.c_str(), opinfo.m_collection.size());
+                    }
+                }
+
                 lcb_cmdstore_value_iov(scmd, &opinfo.m_valuefrags[0], opinfo.m_valuefrags.size());
                 if (config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
                     lcb_cmdstore_durability(scmd, config.durabilityLevel);
@@ -841,6 +826,12 @@ class ThreadContext
                         lcb_cmdstore_datatype(scmd, LCB_VALUE_F_JSON);
                     }
                     lcb_cmdstore_key(scmd, opinfo.m_key.c_str(), opinfo.m_key.size());
+                    if (config.useCollections()) {
+                        if (!opinfo.m_collection.empty() || !opinfo.m_scope.empty()) {
+                            lcb_cmdstore_collection(scmd, opinfo.m_scope.c_str(), opinfo.m_scope.size(),
+                                                    opinfo.m_collection.c_str(), opinfo.m_collection.size());
+                        }
+                    }
                     lcb_cmdstore_value_iov(scmd, &opinfo.m_valuefrags[0], opinfo.m_valuefrags.size());
                     if (config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
                         lcb_cmdstore_durability(scmd, config.durabilityLevel);
@@ -856,6 +847,12 @@ class ThreadContext
                 lcb_CMDGET *gcmd;
                 lcb_cmdget_create(&gcmd);
                 lcb_cmdget_key(gcmd, opinfo.m_key.c_str(), opinfo.m_key.size());
+                if (config.useCollections()) {
+                    if (!opinfo.m_collection.empty() || !opinfo.m_scope.empty()) {
+                        lcb_cmdget_collection(gcmd, opinfo.m_scope.c_str(), opinfo.m_scope.size(),
+                                              opinfo.m_collection.c_str(), opinfo.m_collection.size());
+                    }
+                }
                 lcb_cmdget_expiry(gcmd, exptime);
                 error = lcb_get(instance, this, gcmd);
                 lcb_cmdget_destroy(gcmd);
@@ -882,6 +879,12 @@ class ThreadContext
                     lcb_cmdsubdoc_expiry(sdcmd, exptime);
                 }
                 lcb_cmdsubdoc_key(sdcmd, opinfo.m_key.c_str(), opinfo.m_key.size());
+                if (config.useCollections()) {
+                    if (!opinfo.m_collection.empty() || !opinfo.m_scope.empty()) {
+                        lcb_cmdsubdoc_collection(sdcmd, opinfo.m_scope.c_str(), opinfo.m_scope.size(),
+                                                 opinfo.m_collection.c_str(), opinfo.m_collection.size());
+                    }
+                }
                 if (mutate && config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
                     lcb_cmdsubdoc_durability(sdcmd, config.durabilityLevel);
                 }
@@ -1070,6 +1073,20 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
     size_t n;
     lcb_respget_key(resp, &p, &n);
     string key(p, n);
+
+    const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
+    lcb_respget_error_context(resp, &ctx);
+    string scope;
+    lcb_errctx_kv_scope(ctx, &p, &n);
+    if (p && n) {
+        scope.assign(p, n);
+    }
+    string collection;
+    lcb_errctx_kv_collection(ctx, &p, &n);
+    if (p && n) {
+        collection.assign(p, n);
+    }
+
     uint32_t seqno = atoi(key.c_str());
     uintptr_t flags = 0;
     lcb_respget_cookie(resp, (void **)&flags);
@@ -1088,6 +1105,11 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
                 lcb_cmdstore_datatype(scmd, LCB_VALUE_F_JSON);
             }
             lcb_cmdstore_key(scmd, key.c_str(), key.size());
+            if (config.useCollections()) {
+                if (!collection.empty() || !scope.empty()) {
+                    lcb_cmdstore_collection(scmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
+                }
+            }
             lcb_cmdstore_value_iov(scmd, &valuefrags[0], valuefrags.size());
             if (config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
                 lcb_cmdstore_durability(scmd, config.durabilityLevel);
@@ -1103,6 +1125,8 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
             op.m_mode = NextOp::STORE;
             op.m_key = key;
             op.m_seqno = seqno;
+            op.m_scope = scope;
+            op.m_collection = collection;
             tc->retry(op);
             done = false;
         }
@@ -1132,6 +1156,20 @@ static void storeCallback(lcb_INSTANCE *instance, int, const lcb_RESPSTORE *resp
         op.m_mode = NextOp::STORE;
         op.m_key = key;
         op.m_seqno = seqno;
+
+        const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
+        lcb_respstore_error_context(resp, &ctx);
+        string scope;
+        lcb_errctx_kv_scope(ctx, &p, &n);
+        if (p && n) {
+            op.m_scope.assign(p, n);
+        }
+        string collection;
+        lcb_errctx_kv_collection(ctx, &p, &n);
+        if (p && n) {
+            op.m_collection.assign(p, n);
+        }
+
         tc->retry(op);
     } else {
         tc->checkin(seqno);

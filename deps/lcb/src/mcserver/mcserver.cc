@@ -278,9 +278,9 @@ bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
     wrapper.pkt = mcreq_renew_packet(oldpkt);
     wrapper.instance = instance;
     wrapper.timeout = LCB_NS2US(MCREQ_PKT_RDATA(wrapper.pkt)->deadline - now);
-    auto operation = [](const lcb_RESPGETCID *, packet_wrapper *wrp) {
+    auto operation = [this](const lcb_RESPGETCID *, packet_wrapper *wrp) {
         if ((wrp->pkt->flags & MCREQ_F_NOCID) == 0) {
-            mcreq_set_cid(wrp->pkt, wrp->cid);
+            mcreq_set_cid(this, wrp->pkt, wrp->cid);
         }
         /** Reschedule the packet again .. */
         wrp->pkt->flags &= ~MCREQ_STATE_FLAGS;
@@ -944,7 +944,7 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
         selected_bucket = sessinfo->selected_bucket();
     }
 
-    lcbio_CTXPROCS procs;
+    lcbio_CTXPROCS procs{};
     procs.cb_err = on_error;
     procs.cb_read = on_read;
     procs.cb_flush_done = on_flush_done;

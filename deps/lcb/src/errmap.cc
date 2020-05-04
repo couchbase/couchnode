@@ -249,6 +249,12 @@ lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETR
     return res;
 }
 
+lcb_RETRY_ACTION lcb_retry_strategy_fail_fast(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason) {
+    lcb_RETRY_ACTION res{0, 0};
+    return res;
+}
+
+
 LIBCOUCHBASE_API lcb_STATUS lcb_retry_strategy(lcb_INSTANCE *instance, lcb_RETRY_STRATEGY strategy)
 {
     if (strategy == NULL || instance == NULL) {

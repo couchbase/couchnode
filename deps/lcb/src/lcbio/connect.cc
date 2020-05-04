@@ -141,7 +141,7 @@ void Connstart::handler()
 
     if (state == CS_CANCELLED) {
         /* ignore everything. Clean up resources */
-        if (sock->io->is_C() && sock->u.sd) {
+        if (sock != NULL && sock->io->is_C() && sock->u.sd) {
             sock->u.sd->lcbconn = NULL; /* we don't need IO backend to invoke any callbacks now */
             lcb_assert(sock->refcount > 1);
             sock->refcount--; /* dereference because of unsuccessful attempt */

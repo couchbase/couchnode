@@ -633,7 +633,7 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
             unsigned ncaps = cJSON_GetArraySize(jcaps);
             for (ii = 0; ii < ncaps; ii++) {
                 cJSON *jcap = cJSON_GetArrayItem(jcaps, ii);
-                if (jcap || jcap->type == cJSON_String) {
+                if (jcap && jcap->type == cJSON_String) {
                     if (strcmp(jcap->valuestring, "xattr") == 0) {
                         cfg->caps |= LCBVB_CAP_XATTR;
                     } else if (strcmp(jcap->valuestring, "dcp") == 0) {
@@ -668,7 +668,7 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
                 unsigned ncaps = cJSON_GetArraySize(jn1ql);
                 for (ii = 0; ii < ncaps; ii++) {
                     cJSON *jcap = cJSON_GetArrayItem(jn1ql, ii);
-                    if (jcap || jcap->type == cJSON_String) {
+                    if (jcap && jcap->type == cJSON_String) {
                         if (strcmp(jcap->valuestring, "enhancedPreparedStatements") == 0) {
                             cfg->ccaps |= LCBVB_CCAP_N1QL_ENHANCED_PREPARED_STATEMENTS;
                         }
@@ -763,7 +763,7 @@ static void replace_hoststr(char **orig, const char *replacement)
         return;
     }
 
-    newbuf = malloc(strlen(*orig) + strlen(replacement));
+    newbuf = malloc(strlen(*orig) + strlen(replacement) + 1);
     *match = '\0';
 
     /* copy until the placeholder */
@@ -1343,9 +1343,9 @@ unsigned lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbv
             return svc->n1ql;
         case LCBVB_SVCTYPE_SEARCH:
             return svc->fts;
-        case LCBVB_SVCTYPE_CBAS:
+        case LCBVB_SVCTYPE_ANALYTICS:
             return svc->cbas;
-        case LCBVB_SVCTYPE__MAX:
+        default:
             break;
     }
     return 0;

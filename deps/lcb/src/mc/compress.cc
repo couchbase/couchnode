@@ -109,7 +109,7 @@ int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf
                     origsize += vbuf->u_buf.multi.iov[ii].iov_len;
                 }
             }
-            if (origsize < settings->compress_min_size) {
+            if (origsize == 0 || origsize < settings->compress_min_size) {
                 *should_compress = 0;
                 mcreq_reserve_value(pl, pkt, vbuf);
                 return 0;

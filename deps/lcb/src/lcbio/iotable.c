@@ -65,6 +65,9 @@ static int W_1to3_write(lcb_io_opt_t iops, lcb_sockdata_t *sd, struct lcb_iovec_
     lcb_ioC_write_fn start_write;
     lcb_ioC_wballoc_fn wballoc;
 
+    if (niov == 0) {
+        return -1;
+    }
     /** Schedule IOV writes, two at a time... */
     ott = malloc(sizeof(*ott));
     ott->callback = cb;

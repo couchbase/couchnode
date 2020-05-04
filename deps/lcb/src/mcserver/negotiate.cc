@@ -693,7 +693,7 @@ void SessionRequestImpl::start(lcbio_SOCKET *sock)
         return;
     }
 
-    lcbio_CTXPROCS procs;
+    lcbio_CTXPROCS procs{};
     procs.cb_err = ::handle_ioerr;
     procs.cb_read = ::handle_read;
     ctx = lcbio_ctx_new(sock, this, &procs);
