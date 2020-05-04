@@ -555,12 +555,7 @@ NAN_METHOD(Connection::fnViewQuery)
     if (!enc.parseOption<&lcb_cmdview_post_data>(info[3])) {
         return Nan::ThrowError(Error::create("bad post data passed"));
     }
-    uint32_t flags = ValueParser::asUint(info[4]);
-    if (flags & LCBX_VIEWFLAG_INCLUDEDOCS) {
-        lcb_cmdview_include_docs(enc.cmd(), 1);
-    } else {
-        lcb_cmdview_include_docs(enc.cmd(), 0);
-    }
+    // uint32_t flags = ValueParser::asUint(info[4]);
     if (!enc.parseOption<&lcb_cmdview_timeout>(info[5])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
