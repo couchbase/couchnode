@@ -22,6 +22,7 @@ const ServerFeatures = {
   BucketManagement: 'bucket_management',
   GetMeta: 'get_meta',
   AnalyticsPendingMutations: 'analytics_pending_mutations',
+  UserGroupManagement: 'user_group_management',
 };
 
 class ServerVersion {
@@ -311,8 +312,9 @@ class Harness {
         // supported on all versions except the mock
         return !this._version.isMock;
       case ServerFeatures.Analytics:
-        return !this._version.isMock && this._version.isAtLeast(6, 0, 0);
       case ServerFeatures.UserManagement:
+        return !this._version.isMock && this._version.isAtLeast(6, 0, 0);
+      case ServerFeatures.UserGroupManagement:
       case ServerFeatures.AnalyticsPendingMutations:
         return !this._version.isMock && this._version.isAtLeast(6, 5, 0);
       case ServerFeatures.Collections:
