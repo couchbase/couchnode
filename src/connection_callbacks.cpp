@@ -260,11 +260,29 @@ void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     Local<Value> resVal;
     if (rc == LCB_SUCCESS) {
-        Local<Object> resObj = Nan::New<Object>();
+        size_t numResults = rdr.getValue<&lcb_respsubdoc_result_size>();
 
+        Local<Array> resArr = Nan::New<Array>(numResults);
+        for (size_t i = 0; i < numResults; ++i) {
+            Local<Object> resObj = Nan::New<Object>();
+
+            lcb_STATUS itemstatus =
+                rdr.getValue<&lcb_respsubdoc_result_status>(i);
+            if (itemstatus == LCB_SUCCESS) {
+                Nan::Set(resObj, Nan::New("value").ToLocalChecked(),
+                         rdr.parseValue<&lcb_respsubdoc_result_value>(i));
+            } else {
+                Nan::Set(resObj, Nan::New("value").ToLocalChecked(),
+                         Nan::Null());
+            }
+
+            Nan::Set(resArr, i, resObj);
+        }
+
+        Local<Object> resObj = Nan::New<Object>();
         Nan::Set(resObj, Nan::New("cas").ToLocalChecked(),
                  rdr.decodeCas<&lcb_respsubdoc_cas>());
-
+        Nan::Set(resObj, Nan::New("content").ToLocalChecked(), resArr);
         resVal = resObj;
     } else {
         resVal = Nan::Null();

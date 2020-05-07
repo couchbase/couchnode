@@ -433,13 +433,18 @@ function genericTests(collFn) {
     it('should mutateIn successfully', async () => {
       var res = await collFn().mutateIn(testKeySd, [
         H.lib.MutateInSpec.increment('bar', 3),
+        H.lib.MutateInSpec.upsert('baz', 'world'),
       ]);
       assert.isObject(res);
       assert.isNotEmpty(res.cas);
 
+      assert.isUndefined(res.content[0].error);
+      assert.strictEqual(res.content[0].value, 5);
+
       var gres = await collFn().get(testKeySd);
       assert.isOk(gres.value);
-      assert.deepStrictEqual(gres.value.bar, 5);
+      assert.strictEqual(gres.value.bar, 5);
+      assert.strictEqual(gres.value.baz, 'world');
     });
   });
 }
