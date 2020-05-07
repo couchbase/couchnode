@@ -53,8 +53,7 @@ describe('#query', () => {
       while (true) {
         var res = null;
         try {
-          var qs =
-            'SELECT * FROM ' + H.b.name + ' WHERE testUid="' + testUid + '"';
+          var qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`;
           res = await H.c.query(qs);
         } catch (e) {} // eslint-disable-line no-empty
 
@@ -76,9 +75,35 @@ describe('#query', () => {
       while (true) {
         var res = null;
         try {
-          var qs = 'SELECT * FROM ' + H.b.name + ' WHERE testUid=$1';
+          var qs = `SELECT * FROM ${H.b.name} WHERE testUid=$1`;
           res = await H.c.query(qs, {
             parameters: [testUid],
+          });
+        } catch (e) {} // eslint-disable-line no-empty
+
+        if (res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(10000);
+
+    it('should work with named parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
+      while (true) {
+        var res = null;
+        try {
+          var qs = `SELECT * FROM ${H.b.name} WHERE testUid=$tuid`;
+          res = await H.c.query(qs, {
+            parameters: {
+              tuid: testUid,
+            },
           });
         } catch (e) {} // eslint-disable-line no-empty
 

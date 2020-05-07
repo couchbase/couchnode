@@ -124,9 +124,8 @@ describe('#analytics', () => {
         // view won't be available to the query engine yet...
         try {
           var targetName = '`' + dvName + '`.`' + dsName + '`';
-          res = await H.c.analyticsQuery(
-            `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`
-          );
+          var qs = `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`;
+          res = await H.c.analyticsQuery(qs);
         } catch (err) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
@@ -141,6 +140,58 @@ describe('#analytics', () => {
         break;
       }
     }).timeout(20000);
+
+    it('should work with parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
+      while (true) {
+        var res = null;
+        try {
+          var targetName = '`' + dvName + '`.`' + dsName + '`';
+          var qs = `SELECT * FROM ${targetName} WHERE testUid=$1`;
+          res = await H.c.analyticsQuery(qs, {
+            parameters: [testUid],
+          });
+        } catch (e) {} // eslint-disable-line no-empty
+
+        if (res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(10000);
+
+    it('should work with named parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
+      while (true) {
+        var res = null;
+        try {
+          var targetName = '`' + dvName + '`.`' + dsName + '`';
+          var qs = `SELECT * FROM ${targetName} WHERE testUid=$tuid`;
+          res = await H.c.analyticsQuery(qs, {
+            parameters: {
+              tuid: testUid,
+            },
+          });
+        } catch (e) {} // eslint-disable-line no-empty
+
+        if (res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(10000);
 
     it('should work with lots of options specified', async () => {
       /* eslint-disable-next-line no-constant-condition */
