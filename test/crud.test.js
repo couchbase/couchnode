@@ -416,14 +416,18 @@ function genericTests(collFn) {
       ]);
       assert.isObject(res);
       assert.isNotEmpty(res.cas);
-      assert.isArray(res.results);
-      assert.strictEqual(res.results.length, 3);
-      assert.isNotOk(res.results[0].error);
-      assert.deepStrictEqual(res.results[0].value, 'hello');
-      assert.isNotOk(res.results[1].error);
-      assert.deepStrictEqual(res.results[1].value, 2);
-      assert.isNotOk(res.results[2].error);
-      assert.deepStrictEqual(res.results[2].value, false);
+      assert.isArray(res.content);
+      assert.strictEqual(res.content.length, 3);
+      assert.isNotOk(res.content[0].error);
+      assert.deepStrictEqual(res.content[0].value, 'hello');
+      assert.isNotOk(res.content[1].error);
+      assert.deepStrictEqual(res.content[1].value, 2);
+      assert.isNotOk(res.content[2].error);
+      assert.deepStrictEqual(res.content[2].value, false);
+
+      // BUG JSCBC-730: Check to make sure that the results property
+      // returns the same as the content property.
+      assert.strictEqual(res.results, res.content);
     });
 
     it('should mutateIn successfully', async () => {

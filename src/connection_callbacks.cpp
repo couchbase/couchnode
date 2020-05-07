@@ -227,7 +227,7 @@ void Connection::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,
         Local<Object> resObj = Nan::New<Object>();
         Nan::Set(resObj, Nan::New("cas").ToLocalChecked(),
                  rdr.decodeCas<&lcb_respsubdoc_cas>());
-        Nan::Set(resObj, Nan::New("results").ToLocalChecked(), resArr);
+        Nan::Set(resObj, Nan::New("content").ToLocalChecked(), resArr);
         resVal = resObj;
     } else {
         resVal = Nan::Null();
