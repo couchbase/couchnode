@@ -26,12 +26,12 @@ describe('#ConnStr', function() {
 
     it('should normalize strings', function() {
       var x = connstr.normalize('localhost');
-      assert.equal(x, 'http://localhost/default');
+      assert.equal(x, 'http://localhost');
     });
 
     it('should work with array options', function() {
       var x = connstr.normalize('http://test?opt=1&opt=2');
-      assert.equal(x, 'http://test/default?opt=1&opt=2');
+      assert.equal(x, 'http://test?opt=1&opt=2');
     });
   });
 
@@ -74,7 +74,7 @@ describe('#ConnStr', function() {
           x: 'y',
         },
       });
-      assert.equal(x, 'http://1.1.1.1:8094/?x=y');
+      assert.equal(x, 'http://1.1.1.1:8094?x=y');
     });
 
     it('should stringify a connstr spec without options', function() {
@@ -102,7 +102,7 @@ describe('#ConnStr', function() {
       assert.deepEqual(x, {
         scheme: 'http',
         hosts: [],
-        bucket: 'default',
+        bucket: '',
         options: {},
       });
     });
