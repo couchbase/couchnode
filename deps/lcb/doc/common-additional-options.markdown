@@ -67,7 +67,7 @@
   service to be considered by threshold tracer.
   Default value is 0.5 seconds.
 
-* `tracing_threshold_n1ql=SECONDS`: Minimum time for the tracing span of N1QL
+* `tracing_threshold_query=SECONDS`: Minimum time for the tracing span of QUERY
   service to be considered by threshold tracer.
   Default value is 1 second.
 
@@ -75,7 +75,7 @@
   service to be considered by threshold tracer.
   Default value is 1 second.
 
-* `tracing_threshold_fts=SECONDS`: Minimum time for the tracing span of FTS
+* `tracing_threshold_search=SECONDS`: Minimum time for the tracing span of SEARCH
   service to be considered by threshold tracer.
   Default value is 1 second.
 

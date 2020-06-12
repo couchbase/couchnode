@@ -789,7 +789,7 @@ lcb_STATUS ANALYTICSREQ::issue_htreq(const std::string &body)
     lcb_CMDHTTP *htcmd;
     std::string content_type("application/json");
 
-    lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_CBAS);
+    lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_ANALYTICS);
     lcb_cmdhttp_body(htcmd, body.c_str(), body.size());
     lcb_cmdhttp_content_type(htcmd, content_type.c_str(), content_type.size());
 
@@ -974,10 +974,9 @@ lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cooki
         // Set the default timeout as the server-side query timeout if no
         // other timeout is used.
         char buf[64] = {0};
-        sprintf(buf, "%uus", LCBT_SETTING(obj, n1ql_timeout));
+        sprintf(buf, "%uus", LCBT_SETTING(obj, analytics_timeout));
         tmoval = buf;
-        /* FIXME: use separate timeout for analytics */
-        timeout = LCBT_SETTING(obj, n1ql_timeout);
+        timeout = LCBT_SETTING(obj, analytics_timeout);
     } else if (tmoval.isString()) {
         timeout = lcb_analyticsreq_parsetmo(tmoval.asString());
     } else {
@@ -1024,8 +1023,7 @@ lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cooki
       callback(handle->callback), instance(obj), lasterr(LCB_SUCCESS), timeout(0), nrows(0), was_retried(false),
       deferred_handle(handle->handle), ingest(NULL), docq(NULL), refcount(1), span(NULL)
 {
-    /* FIXME: use separate timeout for analytics */
-    timeout = LCBT_SETTING(obj, n1ql_timeout);
+    timeout = LCBT_SETTING(obj, analytics_timeout);
 
     if (instance->settings->tracer) {
         char id[20] = {0};

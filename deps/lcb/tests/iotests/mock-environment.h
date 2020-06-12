@@ -244,7 +244,12 @@ class MockEnvironment : public ::testing::Environment
         VERSION_41 = 5,
         VERSION_45 = 6,
         VERSION_46 = 7,
-        VERSION_50 = 8
+        VERSION_50 = 8,
+        VERSION_55 = 9,
+        VERSION_60 = 10,
+        VERSION_65 = 11,
+        VERSION_66 = 12,
+        VERSION_70 = 13
     };
 
     virtual void SetUp();

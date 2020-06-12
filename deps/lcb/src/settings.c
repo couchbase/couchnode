@@ -28,6 +28,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->config_node_timeout = LCB_DEFAULT_NODECONFIG_TIMEOUT;
     settings->views_timeout = LCB_DEFAULT_VIEW_TIMEOUT;
     settings->n1ql_timeout = LCB_DEFAULT_N1QL_TIMEOUT;
+    settings->analytics_timeout = LCB_DEFAULT_ANALYTICS_TIMEOUT;
     settings->durability_timeout = LCB_DEFAULT_DURABILITY_TIMEOUT;
     settings->durability_interval = LCB_DEFAULT_DURABILITY_INTERVAL;
     settings->persistence_timeout_floor = LCB_DEFAULT_PERSISTENCE_TIMEOUT_FLOOR;

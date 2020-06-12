@@ -245,11 +245,6 @@ void Durset::on_poll_done()
 
     if (nremaining > 0) {
         switch_state(STATE_OBSPOLL);
-    } else {
-        if (span) {
-            lcbtrace_span_finish(span, LCBTRACE_NOW);
-            span = NULL;
-        }
     }
     decref();
 }

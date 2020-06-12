@@ -1005,7 +1005,7 @@ lcb_STATUS N1QLREQ::issue_htreq(const std::string &body)
 
     lcb_CMDHTTP *htcmd;
     if (is_cbas) {
-        lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_CBAS);
+        lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_ANALYTICS);
     } else {
         lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_QUERY);
     }

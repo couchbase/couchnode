@@ -928,12 +928,16 @@ TEST_F(DurabilityUnitTest, testDurStore)
     ASSERT_EQ(LCB_SUCCESS, rc);
     lcb_sched_leave(instance);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
+    lcb_cmdstore_destroy(cmd);
 
     ASSERT_EQ(LCB_SUCCESS, res.rc);
     ASSERT_NE(0, res.store_ok);
     ASSERT_TRUE(options.v.v0.persist_to <= res.npersisted);
     ASSERT_TRUE(options.v.v0.replicate_to <= res.nreplicated);
 
+    lcb_cmdstore_create(&cmd, LCB_STORE_REPLACE);
+    lcb_cmdstore_key(cmd, key.c_str(), key.size());
+    lcb_cmdstore_value(cmd, value.c_str(), value.size());
     lcb_sched_enter(instance);
     // Try with bad criteria..
     lcb_cmdstore_durability_observe(cmd, 100, 100);

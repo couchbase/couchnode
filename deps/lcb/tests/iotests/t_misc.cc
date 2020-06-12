@@ -577,9 +577,7 @@ TEST_F(MockUnitTest, testConflictingOptions)
 
     lcb_cmdstore_create(&scmd, LCB_STORE_INSERT);
     lcb_cmdstore_key(scmd, key, nkey);
-    lcb_cmdstore_cas(scmd, 0xdeadbeef);
-    err = lcb_store(instance, NULL, scmd);
-    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
+    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_cmdstore_cas(scmd, 0xdeadbeef));
 
     lcb_cmdstore_cas(scmd, 0);
     err = lcb_store(instance, NULL, scmd);

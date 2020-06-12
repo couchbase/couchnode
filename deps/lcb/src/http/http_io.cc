@@ -34,7 +34,7 @@ void Request::assign_response_headers(const lcb::htparse::Response &resp)
     response_headers.assign(resp.headers.begin(), resp.headers.end());
     response_headers_clist.clear();
 
-    std::vector< lcb::htparse::MimeHeader >::const_iterator ii;
+    std::vector<lcb::htparse::MimeHeader>::const_iterator ii;
     for (ii = response_headers.begin(); ii != response_headers.end(); ++ii) {
         response_headers_clist.push_back(ii->key.c_str());
         response_headers_clist.push_back(ii->value.c_str());
@@ -116,7 +116,7 @@ int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 
 static void io_read(lcbio_CTX *ctx, unsigned nr)
 {
-    Request *req = reinterpret_cast< Request * >(lcbio_ctx_data(ctx));
+    Request *req = reinterpret_cast<Request *>(lcbio_ctx_data(ctx));
     lcb_INSTANCE *instance = req->instance;
     /** this variable set to 0 (in progress), -1 (error), 1 (done) */
     int rv = 0;
@@ -132,7 +132,7 @@ static void io_read(lcbio_CTX *ctx, unsigned nr)
         unsigned nbuf;
         int parse_state;
 
-        buf = reinterpret_cast< char * >(lcbio_ctx_ribuf(&iter));
+        buf = reinterpret_cast<char *>(lcbio_ctx_ribuf(&iter));
         nbuf = lcbio_ctx_risize(&iter);
         parse_state = req->handle_parse_chunked(buf, nbuf);
 
@@ -197,19 +197,19 @@ void Request::resume()
 
 static void io_error(lcbio_CTX *ctx, lcb_STATUS err)
 {
-    Request *req = reinterpret_cast< Request * >(lcbio_ctx_data(ctx));
+    Request *req = reinterpret_cast<Request *>(lcbio_ctx_data(ctx));
     lcb_log(LOGARGS(req, ERR), LOGFMT "Got error while performing I/O on HTTP stream. Err=0x%x", LOGID(req), err);
     req->finish_or_retry(err);
 }
 
 static void request_timed_out(void *arg)
 {
-    (reinterpret_cast< Request * >(arg))->finish(LCB_ERR_TIMEOUT);
+    (reinterpret_cast<Request *>(arg))->finish(LCB_ERR_TIMEOUT);
 }
 
 static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    Request *req = reinterpret_cast< Request * >(arg);
+    Request *req = reinterpret_cast<Request *>(arg);
     lcbio_CTXPROCS procs{};
     lcb_settings *settings = req->instance->settings;
     req->creq = NULL;
@@ -235,8 +235,8 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
         case LCB_HTTP_TYPE_SEARCH:
             sock->service = LCBIO_SERVICE_FTS;
             break;
-        case LCB_HTTP_TYPE_CBAS:
-            sock->service = LCBIO_SERVICE_CBAS;
+        case LCB_HTTP_TYPE_ANALYTICS:
+            sock->service = LCBIO_SERVICE_ANALYTICS;
             break;
         default:
             sock->service = LCBIO_SERVICE_MGMT;

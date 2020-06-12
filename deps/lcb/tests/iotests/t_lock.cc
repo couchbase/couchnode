@@ -200,8 +200,12 @@ TEST_F(LockUnitTest, testStorageLockContention)
     Item ritem;
     getKey(instance, key, ritem);
     ASSERT_EQ(ritem.val, value);
+    lcb_cmdstore_destroy(scmd);
 
     /* now try to set it with the correct cas, implicitly unlocking the key */
+    lcb_cmdstore_create(&scmd, LCB_STORE_REPLACE);
+    lcb_cmdstore_key(scmd, key.c_str(), key.size());
+    lcb_cmdstore_value(scmd, newvalue.c_str(), newvalue.size());
     lcb_cmdstore_cas(scmd, itm.cas);
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &s_itm, scmd));
     lcb_wait(instance, LCB_WAIT_DEFAULT);

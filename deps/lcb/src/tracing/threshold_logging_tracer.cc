@@ -91,8 +91,9 @@ QueueEntry ThresholdLoggingTracer::convert(lcbtrace_SPAN *span)
     char *value;
     size_t nvalue;
 
+    entry["operation_name"] = std::string(span->m_opname);
     if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_OPERATION_ID, &value, &nvalue) == LCB_SUCCESS) {
-        entry["last_operation_id"] = std::string(span->m_opname) + ":" + std::string(value, value + nvalue);
+        entry["last_operation_id"] = std::string(value, value + nvalue);
     }
     if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ID, &value, &nvalue) == LCB_SUCCESS) {
         entry["last_local_id"] = std::string(value, value + nvalue);

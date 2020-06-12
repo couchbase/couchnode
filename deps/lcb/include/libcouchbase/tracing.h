@@ -19,7 +19,6 @@
 #define LCB_TRACING_H
 
 /**
- * @file
  * End to end tracing
  *
  * @ingroup lcb-public-api

@@ -418,7 +418,11 @@ LIBCOUCHBASE_API int lcb_mutation_token_is_valid(const lcb_MUTATION_TOKEN *token
 /**
  * @brief Response flags.
  * These provide additional 'meta' information about the response
- * One of more of these values can be set in @ref lcb_RESPBASE::rflags
+ * They can be read from the response object with a call like
+ * `lcb_respXXX_flags`, where the `XXX` is the operation -- like
+ * get, exists, store, etc...  There is also a `lcb_respXXX_is_final`
+ * method which reads the LCB_RESP_F_FINAL flag for those operations
+ * that execute the callback multiple times.
  */
 typedef enum {
     /** No more responses are to be received for this request */
@@ -461,19 +465,19 @@ typedef enum {
  */
 typedef enum {
     LCB_CALLBACK_DEFAULT = 0, /**< Default callback invoked as a fallback */
-    LCB_CALLBACK_GET,         /**< lcb_get3() */
-    LCB_CALLBACK_STORE,       /**< lcb_store3() */
-    LCB_CALLBACK_COUNTER,     /**< lcb_counter3() */
-    LCB_CALLBACK_TOUCH,       /**< lcb_touch3() */
-    LCB_CALLBACK_REMOVE,      /**< lcb_remove3() */
-    LCB_CALLBACK_UNLOCK,      /**< lcb_unlock3() */
+    LCB_CALLBACK_GET,         /**< lcb_get() */
+    LCB_CALLBACK_STORE,       /**< lcb_store() */
+    LCB_CALLBACK_COUNTER,     /**< lcb_counter() */
+    LCB_CALLBACK_TOUCH,       /**< lcb_touch() */
+    LCB_CALLBACK_REMOVE,      /**< lcb_remove() */
+    LCB_CALLBACK_UNLOCK,      /**< lcb_unlock() */
     LCB_CALLBACK_STATS,       /**< lcb_stats3() */
-    LCB_CALLBACK_VERSIONS,    /**< lcb_server_versions3() */
-    LCB_CALLBACK_VERBOSITY,   /**< lcb_server_verbosity3() */
+    LCB_CALLBACK_VERSIONS,    /**< lcb_server_versions() */
+    LCB_CALLBACK_VERBOSITY,   /**< lcb_server_verbosity() */
     LCB_CALLBACK_OBSERVE,     /**< lcb_observe3_ctxnew() */
-    LCB_CALLBACK_GETREPLICA,  /**< lcb_rget3() */
+    LCB_CALLBACK_GETREPLICA,  /**< lcb_getreplica() */
     LCB_CALLBACK_ENDURE,      /**< lcb_endure3_ctxnew() */
-    LCB_CALLBACK_HTTP,        /**< lcb_http3() */
+    LCB_CALLBACK_HTTP,        /**< lcb_http() */
     LCB_CALLBACK_CBFLUSH,     /**< lcb_cbflush3() */
     LCB_CALLBACK_OBSEQNO,     /**< For lcb_observe_seqno3() */
     LCB_CALLBACK_STOREDUR,    /** <for lcb_storedur3() */
@@ -594,7 +598,6 @@ lcb_RESPCALLBACK lcb_get_callback(lcb_INSTANCE *instance, int cbtype);
 LIBCOUCHBASE_API
 const char *lcb_strcbtype(int cbtype);
 
-/**@}*/
 
 /**
  * @ingroup lcb-kv-api
@@ -606,11 +609,8 @@ const char *lcb_strcbtype(int cbtype);
 
 /**@brief Command for retrieving a single item
  *
- * @see lcb_get3()
+ * @see lcb_get()
  * @see lcb_RESPGET
- *
- * @note The #cas member should be set to 0 for this operation. If the #cas is
- * not 0, lcb_get3() will fail with ::LCB_ERR_OPTIONS_CONFLICT.
  *
  * ### Use of the `exptime` field
  *
@@ -618,13 +618,12 @@ const char *lcb_strcbtype(int cbtype);
  * <li>Get And Touch:
  *
  * It is possible to retrieve an item and concurrently modify its expiration
- * time (thus keeping it "alive"). The item's expiry time can be set using
- * the #exptime field.
+ * time (thus keeping it "alive"). The item's expiry time can be set by
+ * calling #lcb_cmdget_expiry.
  * </li>
  *
  * <li>Lock
- * If the #lock field is set to non-zero, the #exptime field indicates the amount
- * of time the lock should be held for
+ * Calling #lcb_cmdget_locktime will set the time the lock should be held for
  * </li>
  * </ul>
  */
@@ -640,24 +639,37 @@ const char *lcb_strcbtype(int cbtype);
  *
  * @par Request
  * @code{.c}
- * lcb_CMDGET cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "Hello", 5);
- * lcb_get3(instance, cookie, &cmd);
+ * lcb_CMDGET* cmd;
+ * lcb_cmdget_create(&cmd);
+ * lcb_cmdget_key(cmd, "Hello", 5);
+ * lcb_get(instance, cookie, cmd);
  * @endcode
  *
  * @par Response
  * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_GET, get_callback);
+ * lcb_install_callback(instance, LCB_CALLBACK_GET, get_callback);
  * static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb) {
  *     const lcb_RESPGET *resp = (const lcb_RESPGET*)rb;
- *     printf("Got response for key: %.*s\n", (int)resp->key, resp->nkey);
+ *     char* key;
+ *     char* value;
+ *     size_t key_len;
+ *     size_t value_len;
+ *     uint64_t cas;
+ *     uint32_t flags;
+ *     lcb_respget_key(resp, &key, &key_len);
+ *     printf("Got response for key: %.*s\n", key_len, key);
  *
- *     if (resp->ctx.rc != LCB_SUCCESS) {
- *         printf("Couldn't get item: %s\n", lcb_strerror_short(resp->ctx.rc));
+ *
+ *     lcb_STATUS rc = lcb_respget_status(resp);
+ *     if (rc != LCB_SUCCESS) {
+ *         printf("Couldn't get item: %s\n", lcb_strerror_short(rc));
  *     } else {
- *         printf("Got value: %.*s\n", (int)resp->nvalue, resp->value);
- *         printf("Got CAS: 0x%llx\n", resp->cas);
- *         printf("Got item/formatting flags: 0x%x\n", resp->itmflags);
+ *         lcb_respget_cas(resp, &cas);
+ *         lcb_respget_value(resp, &value, &value_len);
+ *         lcb_respget_flags(resp, &flags);
+ *         printf("Got value: %.*s\n", value_len, value);
+ *         printf("Got CAS: 0x%llx\n", cas);
+ *         printf("Got item/formatting flags: 0x%x\n", flags);
  *     }
  * }
  *
@@ -665,7 +677,7 @@ const char *lcb_strcbtype(int cbtype);
  *
  * @par Errors
  * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if the item does not exist in the cluster
- * @cb_err ::LCB_ERR_TEMPORARY_FAILURE if the lcb_CMDGET::lock option was set but the item
+ * @cb_err ::LCB_ERR_TEMPORARY_FAILURE if the lcb_cmdget_locktime was set but the item
  * was already locked. Note that this error may also be returned (as a generic
  * error) if there is a resource constraint within the server itself.
  */
@@ -718,22 +730,30 @@ LIBCOUCHBASE_API lcb_STATUS lcb_get(lcb_INSTANCE *instance, void *cookie, const 
  *
  * ### Request
  * @code{.c}
- * lcb_CMDGETREPLICA cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "key", 3);
- * lcb_rget3(instance, cookie, &cmd);
+ * lcb_CMDGETREPLICA* cmd;
+ * lcb_cmdgetreplica_create(&cmd);
+ * lcb_cmdgetreplica_key(cmd, "key", 3);
+ * lcb_cmdgetreplica(instance, cookie, &cmd);
  * @endcode
  *
  * ### Response
  * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_GETREPLICA, rget_callback);
+ * lcb_install_callback(instance, LCB_CALLBACK_GETREPLICA, rget_callback);
  * static void rget_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPGET *resp = (const lcb_RESPGET *)rb;
- *     printf("Got Get-From-Replica response for %.*s\n", (int)resp->key, resp->nkey);
- *     if (resp->ctx.rc == LCB_SUCCESS) {
- *         printf("Got response: %.*s\n", (int)resp->value, resp->nvalue);
+ *     char* key;
+ *     char* value;
+ *     size_t key_len;
+ *     size_t value_len;
+ *     lcb_STATUS rc = lcb_respgetreplica_status(resp);
+ *     lcb_respgetreplica_key(resp, &key, &key_len);
+ *     printf("Got Get-From-Replica response for %.*s\n", key_len, key);
+ *     if (rc == LCB_SUCCESS) {
+ *         lcb_respgetreplica_value(resp, &value, &value_len);
+ *         printf("Got response: %.*s\n", value_len, value);
  *     else {
- *         printf("Couldn't retrieve: %s\n", lcb_strerror_short(resp->ctx.rc));
+ *         printf("Couldn't retrieve: %s\n", lcb_strerror_short(rc));
  *     }
  * }
  * @endcode
@@ -872,33 +892,38 @@ typedef enum {
  * ### Request
  *
  * @code{.c}
- * lcb_CMDSTORE cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "Key", 3);
- * LCB_CMD_SET_VALUE(&cmd, "value", 5);
- * cmd.operation = LCB_ADD; // Only create if it does not exist
- * cmd.exptime = 60; // expire in a minute
- * lcb_store3(instance, cookie, &cmd);
+ * lcb_CMDSTORE* cmd;
+ * // insert only if key doesn't already exist
+ * lcb_cmdstore_create(&cmd, LCB_STORE_INSERT);
+ * lcb_cmdstore_key(cmd, "Key", 3);
+ * lcb_cmdstore_value(cmd, "value", 5);
+ * lcb_cmdstore_expiry(cmd, 60); // expire in a minute
+ * lcb_store(instance, cookie, &cmd);
  * lcb_wait(instance, LCB_WAIT_NOCHECK);
  * @endcode
  *
  * ### Response
  * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_STORE, store_callback);
+ * lcb_install_callback(instance, LCB_CALLBACK_STORE, store_callback);
  * void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
- *     if (rb->rc == LCB_SUCCESS) {
- *         printf("Store success: CAS=%llx\n", rb->cas);
+ *     uint64_t cas;
+ *     const lcb_RESPSTORE resp = (const lcb_RESPSTORE*)rb;
+ *     lcb_STATUS rc = lcb_respstore_status(resp);
+ *     if (rc == LCB_SUCCESS) {
+ *         lcb_respstore_cas(resp, &cas)
+ *         printf("Store success: CAS=%llx\n", cas);
  *     } else {
- *         printf("Store failed: %s\n", lcb_strerror_short(rb->rc);
+ *         printf("Store failed: %s\n", lcb_strerror_short(rc);
  *     }
  * }
  * @endcode
  *
  * Operation-specific error codes include:
  * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if ::LCB_REPLACE was used and the key does not exist
- * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if ::LCB_ADD was used and the key already exists
+ * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if ::LCB_INSERT was used and the key already exists
  * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if the CAS was specified (for an operation other
- *          than ::LCB_ADD) and the item exists on the server with a different
+ *          than ::LCB_INSERT) and the item exists on the server with a different
  *          CAS
  * @cb_err ::LCB_ERR_DOCUMENT_EXISTS if the item was locked and the CAS supplied did
  * not match the locked item's CAS (or if no CAS was supplied)
@@ -908,8 +933,9 @@ typedef enum {
  *         value limit (currently 20MB).
  *
  *
- * @note After a successful store operation you can use lcb_endure3_ctxnew()
- * to wait for the item to be persisted and/or replicated to other nodes.
+ * For a 6.5 or later cluster, you should use the lcb_cmdstore_durability to make the lcb_store
+ * not return until the requested durabilty is met.  If the cluster is an older version, you can
+ * use lcb_cmdstore_durability_observe.
  */
 
 typedef struct lcb_RESPSTORE_ lcb_RESPSTORE;
@@ -949,27 +975,46 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_durability(lcb_CMDSTORE *cmd, lcb_DURAB
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_durability_observe(lcb_CMDSTORE *cmd, int persist_to, int replicate_to);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_timeout(lcb_CMDSTORE *cmd, uint32_t timeout);
 LIBCOUCHBASE_API lcb_STATUS lcb_store(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSTORE *cmd);
+/**@}*/
+
+/**
+ * @ingroup lcb-kv-api
+ * @defgroup lcb-open Open Bucket
+ * @brief Open bucket in cluster
+ * @addtogroup lcb-open
+ * @{
+ */
 
 typedef void (*lcb_open_callback)(lcb_INSTANCE *instance, lcb_STATUS err);
+/** @brief Callback to be called when bucket is opened
+ *
+ * @param instance
+ * @param callback pointer to callback
+ * @return LCB_SUCCESS on success, other code on failure.
+ */
 LIBCOUCHBASE_API lcb_open_callback lcb_set_open_callback(lcb_INSTANCE *instance, lcb_open_callback callback);
 
 /**
  * Opens bucket.
  *
  * @param instance
- * @return
+ * @param bucket name of bucket to open
+ * @param bucket_len length of bucket string
+ * @return LCB_SUCCESS on success, other code on failure
  */
-LIBCOUCHBASE_API lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_len);
 
+LIBCOUCHBASE_API lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_len);
 /**@}*/
 
 /**
  * @ingroup lcb-kv-api
- * @defgroup lcb-remove Delete
- * @brief Remove documents from the cluster
+ * @defgroup lcb-remove Remove
+ * @brief Remove documents
+ *
  * @addtogroup lcb-remove
  * @{
  */
+
 
 /**@committed
  * @brief Spool a removal of an item
@@ -980,19 +1025,25 @@ LIBCOUCHBASE_API lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket,
  *
  * ### Request
  * @code{.c}
- * lcb_CMDREMOVE cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "deleteme", strlen("deleteme"));
- * lcb_remove3(instance, cookie, &cmd);
+ * lcb_CMDREMOVE* cmd;
+ * lcb_cmdremove_create(&cmd);
+ * lcb_cmdremove_key(cmd, "deleteme", strlen("deleteme"));
+ * lcb_remove(instance, cookie, &cmd);
  * @endcode
  *
  * ### Response
  * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_REMOVE, rm_callback);
+ * lcb_install_callback(instance, LCB_CALLBACK_REMOVE, rm_callback);
  * void rm_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
- *     printf("Key: %.*s...", (int)resp->nkey, resp->key);
- *     if (rb->rc != LCB_SUCCESS) {
- *         printf("Failed to remove item!: %s\n", lcb_strerror_short(rb->rc));
+ *     const lcb_RESPREMOVE* resp = (const lcb_RESPREMOVE*)rb;
+ *     char* key;
+ *     size_t key_len;
+ *     lcb_STATUS rc = lcb_respremove_status(resp);
+ *     lcb_respremove_key(resp, &key, &key_len);
+ *     printf("Key: %.*s...", key_len, key);
+ *     if (rc != LCB_SUCCESS) {
+ *         printf("Failed to remove item!: %s\n", lcb_strerror_short(rc));
  *     } else {
  *         printf("Removed item!\n");
  *     }
@@ -1054,34 +1105,40 @@ LIBCOUCHBASE_API lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, con
  *
  * @par Request
  * @code{.c}
- * lcb_CMDCOUNTER cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "counter", strlen("counter"));
- * cmd.delta = 1; // Increment by one
- * cmd.initial = 42; // Default value is 42 if it does not exist
- * cmd.exptime = 300; // Expire in 5 minutes
- * lcb_counter3(instance, NULL, &cmd);
+ * lcb_CMDCOUNTER* cmd;
+ * lcb_cmdcounter_create(&cmd);
+ * lcb_cmdcounter_key(cmd, "counter", strlen("counter"));
+ * lcb_cmdcounter_delta(cmd, 1); // Increment by one
+ * lcb_cmdcounter_value(cmd, 42); // Default value is 42 if it does not exist
+ * lcb_cmdcounter_expiry(cmd, 300); // Expire in 5 minutes
+ * lcb_counter(instance, NULL, cmd);
  * lcb_wait(instance, LCB_WAIT_NOCHECK);
  * @endcode
  *
  * @par Response
  * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACKTYPE_COUNTER, counter_cb);
+ * lcb_install_callback(instance, LCB_CALLBACKTYPE_COUNTER, counter_cb);
  * void counter_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPCOUNTER *resp = (const lcb_RESPCOUNTER *)rb;
- *     if (resp->ctx.rc == LCB_SUCCESS) {
+ *     lcb_STATUS = lcb_respcounter_status(resp);
+ *     if (rc == LCB_SUCCESS) {
+ *         char* key;
+ *         size_t key_len;
+ *         uint64_t value;
+ *         lcb_respcounter_value(resp, &value);
+ *         lcb_respcounter_key(resp, &key, &key_len);
  *         printf("Incremented counter for %.*s. Current value %llu\n",
- *                (int)resp->nkey, resp->key, resp->value);
+ *                key_len, key, value);
  *     }
  * }
  * @endcode
  *
  * @par Callback Errors
  * In addition to generic errors, the following errors may be returned in the
- * callback (via lcb_RESPBASE::rc):
+ * callback (via lcb_respcounter_status):
  *
  * @cb_err ::LCB_ERR_DOCUMENT_NOT_FOUND if the counter doesn't exist
- * (and lcb_CMDCOUNTER::create was not set)
  * @cb_err ::LCB_ERR_INVALID_DELTA if the existing document's content could not
  * be parsed as a number by the server.
  */
@@ -1115,7 +1172,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, co
 
 /**@} (Group: Counter) */
 
-/**@ingroup lcb-kv-api
+/* @ingroup lcb-kv-api
  * @defgroup lcb-lock Lock/Unlock
  * @details Documents may be locked and unlocked on the server. While a document
  * is locked, any attempt to modify it (or lock it again) will fail.
@@ -1123,13 +1180,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, co
  * @note Locks are not persistent across nodes (if a node fails over, the lock
  * is not transferred to a replica).
  * @note The recommended way to manage access and concurrency control for
- * documents in Couchbase is through the CAS (See lcb_CMDBASE::cas and
- * lcb_RESPBASE::cas), which can also be considered a form of opportunistic
- * locking.
+ * documents in Couchbase is through the CAS, which can also be considered
+ * a form of opportunistic locking.
  *
  * @par Locking an item
  * There is no exclusive function to lock an item. Locking an item is done
- * using @ref lcb_get3(), by setting the lcb_CMDGET::lock option to true.
+ * using @ref lcb_get(), by setting the lcb_cmdget_locktime.
  *
  * @addtogroup lcb-lock
  * @{
@@ -1138,22 +1194,33 @@ LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, co
 /**
  * @committed
  * @brief
- * Unlock a previously locked item using lcb_CMDGET::lock
+ * Unlock a previously locked item using lcb_cmdunlock
  *
  * @param instance the instance
  * @param cookie the context pointer to associate with the command
  * @param cmd the command containing the information about the locked key
  * @return LCB_SUCCESS if successful, an error code otherwise
- * @see lcb_get3()
+ * Note that you must specify the cas of the item to unlock it, and the only
+ * way to get that cas is in the callback of the lock call.  Outside that, the
+ * server will respond with a dummy cas if, for instance, you do a lcb_get.
  *
- * @par Request
+ * @see lcb_get()
+ *
+ * @par
  *
  * @code{.c}
- * void locked_callback(lcb_INSTANCE, lcb_CALLBACK_TYPE, const lcb_RESPBASE *resp) {
- *   lcb_CMDUNLOCK cmd = { 0 };
- *   LCB_CMD_SET_KEY(&cmd, resp->key, resp->nkey);
- *   cmd.cas = resp->cas;
- *   lcb_unlock3(instance, cookie, &cmd);
+ * void locked_callback(lcb_INSTANCE, lcb_CALLBACK_TYPE, const lcb_RESPBASE *rb) {
+ *   const lcb_RESPGET* resp = (const lcb_RESPLOCK*)rb;
+ *   lcb_CMDUNLOCK* cmd;
+ *   char* key;
+ *   size_t key_len;
+ *   unit64_t cas;
+ *   lcb_respget_cas(resp, &cas);
+ *   lcb_respget_key(resp, &key, &key_len);
+ *   lcb_cmdunlock_create(&cmd);
+ *   lcb_cmdunlock_key(cmd, key, key_len);
+ *   lcb_cmdunlock_cas(cmd, cas);
+ *   lcb_unlock(instance, cookie, cmd);
  * }
  *
  * @endcode
@@ -1182,7 +1249,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_unlock(lcb_INSTANCE *instance, void *cookie, con
 
 /**@} (Group: Unlock) */
 
-/**@ingroup lcb-kv-api
+/* @ingroup lcb-kv-api
  * @defgroup lcb-touch Touch/Expiry
  * @brief Modify or clear a document's expiration time
  * @details Couchbase allows documents to contain expiration times
@@ -1203,18 +1270,21 @@ LIBCOUCHBASE_API lcb_STATUS lcb_unlock(lcb_INSTANCE *instance, void *cookie, con
  *
  * @par Request
  * @code{.c}
- * lcb_CMDTOUCH cmd = { 0 };
- * LCB_CMD_SET_KEY(&cmd, "keep_me", strlen("keep_me"));
- * cmd.exptime = 0; // Clear the expiration
- * lcb_touch3(instance, cookie, &cmd);
+ * lcb_CMDTOUCH* cmd;
+ * lcb_cmdtouch_create(&cmd);
+ * lcb_cmdtouch_key(cmd, "keep_me", strlen("keep_me"));
+ * lcb_cmdtouch_expiry(cmd, 0); // Clear the expiration
+ * lcb_touch(instance, cookie, cmd);
  * @endcode
  *
  * @par Response
  * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_TOUCH, touch_callback);
+ * lcb_install_callback(instance, LCB_CALLBACK_TOUCH, touch_callback);
  * void touch_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPBASE *rb)
  * {
- *     if (rb->rc == LCB_SUCCESS) {
+ *     const lcb_RESPTOUCH* resp = (const lcb_RESPTOUCH*)rb;
+ *     lcb_STATUS = lcb_resptouch_status(resp);
+ *     if (rc == LCB_SUCCESS) {
  *         printf("Touch succeeded\n");
  *     }
  * }
@@ -1317,6 +1387,18 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_no_metrics(lcb_CMDPING *cmd, int enable)
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_encode_json(lcb_CMDPING *cmd, int enable, int pretty, int with_details);
 LIBCOUCHBASE_API lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd);
 
+typedef struct lcb_RESPDIAG_ lcb_RESPDIAG;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_status(const lcb_RESPDIAG *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_cookie(const lcb_RESPDIAG *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_value(const lcb_RESPDIAG *resp, const char **json, size_t *json_len);
+
+typedef struct lcb_CMDDIAG_ lcb_CMDDIAG;
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_create(lcb_CMDDIAG **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_destroy(lcb_CMDDIAG *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_report_id(lcb_CMDDIAG *cmd, const char *report_id, size_t report_id_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_prettify(lcb_CMDDIAG *cmd, int enable);
 /**
  * @brief Returns diagnostics report about network connections.
  *
@@ -1331,15 +1413,19 @@ LIBCOUCHBASE_API lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const
  *
  * @par Response
  * @code{.c}
- * lcb_install_callback3(instance, LCB_CALLBACK_DIAG, diag_callback);
+ * lcb_install_callback(instance, LCB_CALLBACK_DIAG, diag_callback);
  * void diag_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPDIAG *resp = (const lcb_RESPDIAG *)rb;
- *     if (resp->ctx.rc != LCB_SUCCESS) {
- *         fprintf(stderr, "failed: %s\n", lcb_strerror_short(resp->ctx.rc));
+ *     char* json;
+ *     size_t json_len;
+ *     lcb_STATUS rc = lcb_respdiag_status(resp);
+ *     if (rc != LCB_SUCCESS) {
+ *         fprintf(stderr, "failed: %s\n", lcb_strerror_short(rc));
  *     } else {
- *         if (resp->njson) {
- *             fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);
+           lcb_respdiag_value(resp, &json, &json_len);
+ *         if (json) {
+ *             fprintf(stderr, "\n%.*s", json_len, json);
  *         }
  *     }
  * }
@@ -1350,24 +1436,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const
  * @param cmd command structure.
  * @return status code for scheduling.
  */
-
-typedef struct lcb_RESPDIAG_ lcb_RESPDIAG;
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_status(const lcb_RESPDIAG *resp);
-LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_cookie(const lcb_RESPDIAG *resp, void **cookie);
-LIBCOUCHBASE_API lcb_STATUS lcb_respdiag_value(const lcb_RESPDIAG *resp, const char **json, size_t *json_len);
-
-typedef struct lcb_CMDDIAG_ lcb_CMDDIAG;
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_create(lcb_CMDDIAG **cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_destroy(lcb_CMDDIAG *cmd);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_report_id(lcb_CMDDIAG *cmd, const char *report_id, size_t report_id_len);
-LIBCOUCHBASE_API lcb_STATUS lcb_cmddiag_prettify(lcb_CMDDIAG *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_diag(lcb_INSTANCE *instance, void *cookie, const lcb_CMDDIAG *cmd);
 
 /**@} (Group: PING) */
 
-/**@ingroup lcb-public-api
+/* @ingroup lcb-public-api
  * @defgroup lcb-http HTTP Client
  * @brief Access Couchbase HTTP APIs
  * @details The low-level HTTP client may be used to access various HTTP-based
@@ -1410,7 +1483,7 @@ typedef enum {
     LCB_HTTP_TYPE_SEARCH = 4,
 
     /** Execute an Analytics Query */
-    LCB_HTTP_TYPE_CBAS = 5,
+    LCB_HTTP_TYPE_ANALYTICS = 5,
 
     /**
      * Special pseudo-type, for ping endpoints in various services.
@@ -1450,16 +1523,24 @@ typedef enum {
  * void http_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)rb;
- *     if (resp->ctx.rc != LCB_SUCCESS) {
- *         printf("I/O Error for HTTP: %s\n", lcb_strerror_short(resp->ctx.rc));
+ *     lcb_STATUS rc = lcb_resphttp_status(resp);
+ *     uint16_t http_status;
+ *     char* body;
+ *     size_t body_len;
+ *     const char* const* headers;
+ *     lcb_resphttp_http_status(resp, &http_status);
+ *     lcb_resphttp_body(resp, &body, &body_len);
+ *     if (rc != LCB_SUCCESS) {
+ *         printf("I/O Error for HTTP: %s\n", lcb_strerror_short(rc));
  *         return;
  *     }
- *     printf("Got HTTP Status: %d\n", resp->htstatus);
- *     printf("Got paylod: %.*s\n", (int)resp->nbody, resp->body);
- *     const char **hdrp = resp->headers;
- *     while (*hdrp != NULL) {
- *         printf("%s: %s\n", hdrp[0], hdrp[1]);
- *         hdrp += 2;
+ *     printf("Got HTTP Status: %d\n", http_status);
+ *     printf("Got paylod: %.*s\n", body_len, body);
+ *     lcb_resphttp_headers(resp, &headers);
+ *     if (headers) {
+ *         for(const char* const* cur = headers; *cur; cur+=2) {
+ *             printf("%s: %s\n", cur[0], cur[1]);
+ *         }
  *     }
  * }
  * @endcode
@@ -1471,14 +1552,20 @@ typedef enum {
  * void http_strm_callback(lcb_INSTANCE, int, const lcb_RESPBASE *rb)
  * {
  *     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)resp;
- *     if (resp->rflags & LCB_RESP_F_FINAL) {
- *         if (resp->ctx.rc != LCB_SUCCESS) {
+ *     char* body;
+ *     size_t body_len;
+ *     const char* const* headers;
+ *     if (lcb_resphttp_is_final(resp)) {
+ *         if (lcb_resphttp_status(resp) != LCB_SUCCESS) {
  *             // ....
  *         }
- *         const char **hdrp = resp->headers;
+ *         lcb_resphttp_headers(resp, &headers);
+ *         if (headers) {
  *         // ...
+ *         }
  *     } else {
- *         handle_body(resp->body, resp->nbody);
+           lcb_resphttp_body(resp, &body, &body_len);
+ *         handle_body(body, body_len);
  *     }
  * }
  * @endcode
@@ -1535,19 +1622,21 @@ LIBCOUCHBASE_API lcb_STATUS lcb_http(lcb_INSTANCE *instance, void *cookie, const
  * request which is no longer needed
  *
  * @param instance The handle to lcb
- * @param request The request handle
+ * @param handle The request handle
  *
  * @committed
  *
  * @par Example
  * @code{.c}
- * lcb_CMDHTTP htcmd = { 0 };
- * populate_htcmd(&htcmd); // dummy function
- * lcb_http_request_t reqhandle;
- * htcmd.reqhandle = &reqhandle;
- * lcb_http3(instance, cookie, &htcmd);
+ * lcb_CMDHTTP* cmd;
+ * lcb_HTTP_HANDLE* handle;
+ * lcb_cmdhttp_create(&cmd);
+ * // flesh out the actual request...
+ *
+ * lcb_http(instance, cookie, cmd);
+ * lcb_cmdhttp_handle(cmd, &handle);
  * do_stuff();
- * lcb_cancel_http_request(instance, reqhandle);
+ * lcb_cancel_http_request(instance, handle);
  * @endcode
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_http_cancel(lcb_INSTANCE *instance, lcb_HTTP_HANDLE *handle);
@@ -1632,6 +1721,7 @@ const void *lcb_get_cookie(lcb_INSTANCE *instance);
 /**@} (Group: Cookies) */
 
 /**
+ * @ingroup lcb-public-api
  * @defgroup lcb-wait Waiting
  * @brief Functions for synchronous I/O execution
  * @details The lcb_wait() family of functions allow to control when the
@@ -1722,65 +1812,6 @@ int lcb_is_waiting(lcb_INSTANCE *instance);
 /**@} (Group: Wait) */
 
 /**
- * @uncommitted
- *
- * @brief Force the library to refetch the cluster configuration
- *
- * The library by default employs various heuristics to determine if a new
- * configuration is needed from the cluster. However there are some situations
- * in which an application may wish to force a refresh of the configuration:
- *
- * * If a specific node has been failed
- *   over and the library has received a configuration in which there is no
- *   master node for a given key, the library will immediately return the error
- *   `LCB_ERR_NO_MATCHING_SERVER` for the given item and will not request a new
- *   configuration. In this state, the client will not perform any network I/O
- *   until a request has been made to it using a key that is mapped to a known
- *   active node.
- *
- * * The library's heuristics may have failed to detect an error warranting
- *   a configuration change, but the application either through its own
- *   heuristics, or through an out-of-band channel knows that the configuration
- *   has changed.
- *
- *
- * This function is provided as an aid to assist in such situations
- *
- * If you wish for your application to block until a new configuration is
- * received, you _must_ call lcb_wait() with the LCB_WAIT_NO_CHECK flag as
- * this function call is not bound to a specific operation. Additionally there
- * is no status notification as to whether this operation succeeded or failed
- * (the configuration callback via lcb_set_configuration_callback() may
- * provide hints as to whether a configuration was received or not, but by no
- * means should be considered to be part of this function's control flow).
- *
- * In general the use pattern of this function is like so:
- *
- * @code{.c}
- * unsigned retries = 5;
- * lcb_STATUS err;
- * do {
- *   retries--;
- *   err = lcb_get(instance, cookie, ncmds, cmds);
- *   if (err == LCB_ERR_NO_MATCHING_SERVER) {
- *     lcb_refresh_config(instance);
- *     usleep(100000);
- *     lcb_wait(instance, LCB_WAIT_NO_CHECK);
- *   } else {
- *     break;
- *   }
- * } while (retries);
- * if (err == LCB_SUCCESS) {
- *   lcb_wait(instance, 0); // equivalent to lcb_wait(instance, LCB_WAIT_DEFAULT);
- * } else {
- *   printf("Tried multiple times to fetch the key, but its node is down\n");
- * }
- * @endcode
- */
-LIBCOUCHBASE_API
-void lcb_refresh_config(lcb_INSTANCE *instance);
-
-/**
  * @ingroup lcb-public-api
  * @defgroup lcb-sched Advanced Scheduling
  * @brief Additional functions for scheduling operations
@@ -1847,9 +1878,9 @@ void lcb_refresh_config(lcb_INSTANCE *instance);
  *
  * @code{.c}
  * lcb_sched_enter(instance);
- * lcb_get3(...);
- * lcb_store3(...);
- * lcb_counter3(...);
+ * lcb_get(...);
+ * lcb_store(...);
+ * lcb_counter(...);
  * lcb_sched_leave(instance);
  * lcb_wait(instance, LCB_WAIT_NOCHECK);
  * @endcode
@@ -1890,16 +1921,13 @@ void lcb_sched_leave(lcb_INSTANCE *instance);
  * This function only affects commands which have a direct correspondence
  * to memcached packets. Currently these are commands scheduled by:
  *
- * * lcb_get3()
- * * lcb_rget3()
- * * lcb_unlock3()
- * * lcb_touch3()
- * * lcb_store3()
- * * lcb_counter3()
- * * lcb_remove3()
- * * lcb_stats3()
- * * lcb_observe3_ctxnew()
- * * lcb_observe_seqno3()
+ * * lcb_get()
+ * * lcb_getreplica()
+ * * lcb_unlock()
+ * * lcb_touch()
+ * * lcb_store()
+ * * lcb_counter()
+ * * lcb_remove()
  *
  * Other commands are _compound_ commands and thus should be in their own
  * scheduling context.
@@ -1929,7 +1957,7 @@ void lcb_sched_flush(lcb_INSTANCE *instance);
 
 /**@} (Group: Adanced Scheduling) */
 
-/**@ingroup lcb-public-api
+/* @ingroup lcb-public-api
  * @defgroup lcb-destroy Destroying
  * @brief Library destruction routines
  * @addtogroup lcb-destroy
@@ -1990,8 +2018,6 @@ lcb_destroy_callback lcb_set_destroy_callback(lcb_INSTANCE *instance, lcb_destro
 LIBCOUCHBASE_API
 void lcb_destroy_async(lcb_INSTANCE *instance, const void *arg);
 /**@} (Group: Destroy) */
-
-/**@}*/
 
 /** @internal */
 #define LCB_DATATYPE_JSON 0x01
@@ -2158,7 +2184,68 @@ lcb_U32 lcb_cntl_getu32(lcb_INSTANCE *instance, int cmd);
  */
 LIBCOUCHBASE_API
 int lcb_cntl_exists(int ctl);
-/**@}*/ /* settings */
+
+/**
+ * @uncommitted
+ *
+ * @brief Force the library to refetch the cluster configuration
+ *
+ * The library by default employs various heuristics to determine if a new
+ * configuration is needed from the cluster. However there are some situations
+ * in which an application may wish to force a refresh of the configuration:
+ *
+ * * If a specific node has been failed
+ *   over and the library has received a configuration in which there is no
+ *   master node for a given key, the library will immediately return the error
+ *   `LCB_ERR_NO_MATCHING_SERVER` for the given item and will not request a new
+ *   configuration. In this state, the client will not perform any network I/O
+ *   until a request has been made to it using a key that is mapped to a known
+ *   active node.
+ *
+ * * The library's heuristics may have failed to detect an error warranting
+ *   a configuration change, but the application either through its own
+ *   heuristics, or through an out-of-band channel knows that the configuration
+ *   has changed.
+ *
+ *
+ * This function is provided as an aid to assist in such situations
+ *
+ * If you wish for your application to block until a new configuration is
+ * received, you _must_ call lcb_wait() with the LCB_WAIT_NO_CHECK flag as
+ * this function call is not bound to a specific operation. Additionally there
+ * is no status notification as to whether this operation succeeded or failed
+ * (the configuration callback via lcb_set_configuration_callback() may
+ * provide hints as to whether a configuration was received or not, but by no
+ * means should be considered to be part of this function's control flow).
+ *
+ * In general the use pattern of this function is like so:
+ *
+ * @code{.c}
+ * unsigned retries = 5;
+ * lcb_STATUS err;
+ * do {
+ *   retries--;
+ *   err = lcb_get(instance, cookie, ncmds, cmds);
+ *   if (err == LCB_ERR_NO_MATCHING_SERVER) {
+ *     lcb_refresh_config(instance);
+ *     usleep(100000);
+ *     lcb_wait(instance, LCB_WAIT_NO_CHECK);
+ *   } else {
+ *     break;
+ *   }
+ * } while (retries);
+ * if (err == LCB_SUCCESS) {
+ *   lcb_wait(instance, 0); // equivalent to lcb_wait(instance, LCB_WAIT_DEFAULT);
+ * } else {
+ *   printf("Tried multiple times to fetch the key, but its node is down\n");
+ * }
+ * @endcode
+ */
+
+LIBCOUCHBASE_API
+void lcb_refresh_config(lcb_INSTANCE *instance);
+
+/**@}*/
 
 /**
  * @ingroup lcb-public-api
@@ -2237,28 +2324,60 @@ int lcb_supports_feature(int n);
 /**@} (Group: Build Info) */
 
 /**
- * @volatile
+ * @ingroup lcb-public-api
+ * @defgroup lcb-logging-api Logging
+ * @brief Various logging functions
+ * @addtogroup lcb-logging-api
+ * @{
+ */
+/**
  * Returns whether the library redacting logs for this connection instance.
- *
+ * @param instance the instance
  * @return non-zero if the logs are being redacted for this instance.
  */
 LIBCOUCHBASE_API
 int lcb_is_redacting_logs(lcb_INSTANCE *instance);
 
+
+/** @} */
+
 /**
+ * @ingroup lcb-public-api
+ * @defgroup lcb-analytics-api Analytics Queries
+ * @brief Execute Analytics N1QL Queries
  * @addtogroup lcb-analytics-api
  * @{
  */
 
 typedef struct lcb_ANALYTICS_HANDLE_ lcb_ANALYTICS_HANDLE;
 typedef struct lcb_DEFERRED_HANDLE_ lcb_DEFERRED_HANDLE;
+
+/**
+ * Response for a Analytics query. This is delivered in the @ref lcb_ANALYTICSCALLBACK
+ * callback function for each result row received. The callback is also called
+ * one last time when all
+ */
 typedef struct lcb_RESPANALYTICS_ lcb_RESPANALYTICS;
+
+/**
+ * Callback to be invoked for each row
+ * @param The instance
+ * @param Callback type. This is set to @ref LCB_CALLBACK_ANALYTICS
+ * @param The response.
+ */
 typedef void (*lcb_ANALYTICS_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPANALYTICS *);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_status(const lcb_RESPANALYTICS *resp);
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_cookie(const lcb_RESPANALYTICS *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_row(const lcb_RESPANALYTICS *resp, const char **row, size_t *row_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_http_response(const lcb_RESPANALYTICS *resp, const lcb_RESPHTTP **http);
+/**
+ * Get handle to analytics query.  Used when canceling analytics request.  See @ref lcb_cmdanalytics_handle also
+ *
+ * @param resp the analytics response
+ * @param handle pointer to handle pointer
+ * @return LCB_SUCCESS if successful, otherwise an error code
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_handle(const lcb_RESPANALYTICS *resp, lcb_ANALYTICS_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_respanalytics_error_context(const lcb_RESPANALYTICS *resp,
                                                             const lcb_ANALYTICS_ERROR_CONTEXT **ctx);
@@ -2283,7 +2402,16 @@ typedef enum {
 } lcb_INGEST_METHOD;
 
 typedef enum {
+
+    /** @brief No consistency constraints
+     *  @details
+     *  The default.  When you are not concerned about the consistency of this query with regards to other queries.
+     */
     LCB_ANALYTICS_CONSISTENCY_NOT_BOUNDED = 0,
+    /**  @brief Strong consistency
+     *   @details
+     *   Ensures that the query won't execute until any pending indexing at the time of the request has completed.
+     */
     LCB_ANALYTICS_CONSISTENCY_REQUEST_PLUS = 1
 } lcb_ANALYTICS_CONSISTENCY;
 
@@ -2313,7 +2441,36 @@ LIBCOUCHBASE_API lcb_STATUS lcb_ingest_dataconverter_param_set_out(lcb_INGEST_PA
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_create(lcb_CMDANALYTICS **cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_destroy(lcb_CMDANALYTICS *cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_reset(lcb_CMDANALYTICS *cmd);
+/**@}*/
+/**
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-tracing-api
+ * @{
+ */
+/**
+ * Associate parent tracing span with the Analytics request.
+ *
+ * @param cmd the command
+ * @param span parent span
+ *
+ * @par Attach parent tracing span to request object.
+ * @code{.c}
+ * lcb_CMDANALYTICS* cmd;
+ * lcb_cmdanalytics_create(&cmd);
+ *
+ * lcb_analytics_parentspan(instance, span);
+ *
+ * lcb_error_t err = lcb_analytics_query(instance, cookie, cmd);
+ * @endcode
+ *
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_parent_span(lcb_CMDANALYTICS *cmd, lcbtrace_SPAN *span);
+/**@}*/
+/**
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-analytics-api
+ * @{
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_callback(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_CALLBACK callback);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_encoded_payload(lcb_CMDANALYTICS *cmd, const char **query,
                                                              size_t *query_len);
@@ -2333,9 +2490,61 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_priority(lcb_CMDANALYTICS *cmd, int
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_consistency(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_CONSISTENCY level);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_option(lcb_CMDANALYTICS *cmd, const char *name, size_t name_len,
                                                     const char *value, size_t value_len);
+/**
+ * Get handle to analytics query.  Used when canceling a request.  See @ref lcb_respanalytics_handle as well
+ *
+ * @param cmd the command
+ * @param handle pointer to handle pointer
+ * @return LCB_SUCCESS if successful, otherwise an error code
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_handle(lcb_CMDANALYTICS *cmd, lcb_ANALYTICS_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_timeout(lcb_CMDANALYTICS *cmd, uint32_t timeout);
+/**
+ * Execute a Analytics query.
+ *
+ * This function will send the query to a query server in the cluster
+ * and will invoke the callback (lcb_CMDANALYTICS::callback) for each result returned.
+ *
+ * @param instance The instance
+ * @param cookie Pointer to application data
+ * @param cmd the command
+ * @return LCB_SUCCESS if successfully scheduled otherwise a failure.
+ */
+
 LIBCOUCHBASE_API lcb_STATUS lcb_analytics(lcb_INSTANCE *instance, void *cookie, const lcb_CMDANALYTICS *cmd);
+/**
+ * Cancels an in-progress request. This will ensure that further callbacks
+ * for the given request are not delivered.
+ *
+ * @param instance the instance
+ * @param handle the handle for the request. This can be obtained from the command (see @ref lcb_cmdanalytics_handle),
+ *      or from the response (see @ref lcb_respanalytics_handle)
+ *
+ * To obtain the `handle` parameter, do something like this:
+ *
+ * @code{.c}
+ * lcb_CMDANALYTICS *cmd;
+ * // (Initialize command...)
+ * lcb_analytics(instance, cookie, &cmd);
+ * lcb_ANALYTICS_HANDLE* handle;
+ * lcb_cmdanalytics_gethandle(cmd, &handle);
+ * @endcode
+ *
+ * If you happen to only have the lcb_RESPANALYTICS handy, say you are in the
+ * callback:
+ * @code{.c}
+ * lcb_ANALYTICS_HANDLE* handle;
+ * lcb_respanalytics_handle(resp, &handle);
+ * @endcode
+ *
+ * If the lcb_analytics_query() function returns `LCB_SUCCESS` then the `handle`
+ * above is populated with the opaque handle. You can then use this handle
+ * to cancel the query at a later point, such as within the callback.
+ *
+ * @code{.c}
+ * lcb_analytics_cancel(instance, handle);
+ * @endcode
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_analytics_cancel(lcb_INSTANCE *instance, lcb_ANALYTICS_HANDLE *handle);
 
 /** @} */
@@ -2357,6 +2566,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_status(const lcb_RESPSEARCH *resp);
 LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_cookie(const lcb_RESPSEARCH *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_row(const lcb_RESPSEARCH *resp, const char **row, size_t *row_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_http_response(const lcb_RESPSEARCH *resp, const lcb_RESPHTTP **http);
+/**
+ * Get search handle from search response.  Used to cancel a request.  See @ref lcb_cmdsearch_handle as well
+ *
+ * @param resp the search response
+ * @param handle pointer to handle pointer
+ * @return LCB_SUCCESS if successful, otherwise an error code
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_handle(const lcb_RESPSEARCH *resp, lcb_SEARCH_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_error_context(const lcb_RESPSEARCH *resp,
                                                          const lcb_SEARCH_ERROR_CONTEXT **ctx);
@@ -2367,19 +2583,76 @@ typedef void (*lcb_SEARCH_CALLBACK)(lcb_INSTANCE *, int, const lcb_RESPSEARCH *)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_create(lcb_CMDSEARCH **cmd);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_destroy(lcb_CMDSEARCH *cmd);
+/**@}*/
+
+/**
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-tracing-api
+ * @{
+ */
+/**
+ * Associate parent tracing span with the FTS request.
+ *
+ * @param cmd the command
+ * @param span parent span
+ *
+ * @par Attach parent tracing span to request object.
+ * @code{.c}
+ * lcb_CMDSEARCH cmd;
+ * lcb_cmdsearch_create(&cmd);
+ * // create a search query...
+
+ * lcb_error_t err = lcb_search(instance, cookie, cmd);
+ * if (err == LCB_SUCCESS) {
+ *     lcb_cmdsearch_parent_span(instance, span);
+ * }
+ * @endcode
+ *
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_parent_span(lcb_CMDSEARCH *cmd, lcbtrace_SPAN *span);
+/**@}*/
+/**
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-cbft-api
+ * @{
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_callback(lcb_CMDSEARCH *cmd, lcb_SEARCH_CALLBACK callback);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_payload(lcb_CMDSEARCH *cmd, const char *payload, size_t payload_len);
+/**
+ * Obtain handle to search.  Used to cancel a query.  See @ref lcb_respsearch_handle as well
+ * @param cmd the command
+ * @param handle pointer to handle pointer
+ * @return LCB_SUCCESS upon success, otherwise an error code
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_handle(lcb_CMDSEARCH *cmd, lcb_SEARCH_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_timeout(lcb_CMDSEARCH *cmd, uint32_t timeout);
+
+/**
+ * Issue a full-text query. The callback (lcb_SEARCH_CALLBACK) will be invoked
+ * for each hit. It will then be invoked one last time with the result
+ * metadata (including any facets) and the lcb_resp_is_final will return
+ * true.
+ *
+ * @param instance the instance
+ * @param cookie opaque user cookie to be set in the response object
+ * @param cmd command containing the query and callback
+ * @return LCB_SUCCESS if successfully scheduled, otherwise an error.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_search(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSEARCH *cmd);
+/**
+ * Cancel a full-text query in progress. The handle is usually obtained via the
+ * lcb_cmdsearch_handle call
+ * @param instance the instance
+ * @param handle the handle to the search.  See @ref lcb_cmdsearch_handle.
+ * @return LCB_SUCCESS if successful, otherwise an error.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_search_cancel(lcb_INSTANCE *instance, lcb_SEARCH_HANDLE *handle);
 /** @} */
 
 /**
  * @ingroup lcb-public-api
- * @defgroup lcb-n1ql-api N1QL/Analytics
- * @brief Execute N1QL/Analytics queries.
+ * @defgroup lcb-n1ql-api N1QL Queries
+ * @brief Execute N1QL queries.
  *
  * Query language based on SQL, but designed for structured and flexible JSON
  * documents. Querying can solve typical programming tasks such as finding a
@@ -2387,14 +2660,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_search_cancel(lcb_INSTANCE *instance, lcb_SEARCH
  *
  * @code{.c}
  * const char *query = "{\"statement\":\"SELECT * FROM breweries LIMIT 10\"}";
- * lcb_CMDQUERY cmd = {0};
- * int idx = 0;
- * // NOTE: with this flag, the request will be issued to Analytics service
- * cmd.cmdflags = LCB_CMDN1QL_F_ANALYTICSQUERY;
- * cmd.callback = row_callback;
- * cmd.query = query;
- * cmd.nquery = strlen(query);
- * lcb_n1ql_query(instance, &idx, &cmd);
+ * lcb_CMDQUERY* cmd = NULL;
+ * int cookie = 0;
+ * lcb_cmdquery_create(&cmd);
+ * lcb_cmdquery_callback(cmd, row_callback)
+ * lcb_n1ql_query(instance, &cookie, cmd);
  * lcb_wait(instance, LCB_WAIT_DEFAULT);
  * @endcode
  *
@@ -2403,30 +2673,43 @@ LIBCOUCHBASE_API lcb_STATUS lcb_search_cancel(lcb_INSTANCE *instance, lcb_SEARCH
  * @code{.c}
  * static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPQUERY *resp)
  * {
- *     int *idx = (int *)resp->cookie;
- *     if (resp->ctx.rc != LCB_SUCCESS) {
- *         printf("failed to execute query: %s\n", lcb_strerror_short(resp->ctx.rc));
+ *     int* idx = NULL;
+ *     int row_len = 0;
+ *     char* row = NULL;
+ *
+ *     int rc = lcb_respquery_status(resp);
+ *     if (rc != LCB_SUCCESS) {
+ *         printf("failed to execute query: %s\n", lcb_strerror_short(rc));
  *         exit(EXIT_FAILURE);
  *     }
- *     if (resp->rflags & LCB_RESP_F_FINAL) {
+ *     lcb_respquery_cookie(resp, (void**)(&idx))
+ *     if (lcb_respquery_is_final(resp)) {
  *         printf("META: ");
  *     } else {
  *         printf("ROW #%d: ", (*idx)++);
  *     }
- *     printf("%.*s\n", (int)resp->nrow, (char *)resp->row);
+ *     lcb_respquery_row(resp, &row_len, &row);
+ *     printf("%.*s\n", row_len, row);
  * }
  * @endcode
  *
- * @see more details on @ref lcb_n1ql_query and @ref lcb_CMDQUERY.
+ * @see more details on @ref lcb_query and @ref lcb_CMDQUERY.
  *
- * Also there is a query builder available for N1QL queries: @ref lcb_n1p_new/@ref lcb_n1p_mkcmd.
  */
 
 /**
  * @addtogroup lcb-n1ql-api
  * @{
  */
+
+/**
+ * Opaque query response structure
+ */
 typedef struct lcb_RESPQUERY_ lcb_RESPQUERY;
+
+/**
+ * Opaque query command structure
+ */
 typedef struct lcb_CMDQUERY_ lcb_CMDQUERY;
 /**
  * Pointer for request instance
@@ -2446,9 +2729,9 @@ typedef enum {
     LCB_QUERY_CONSISTENCY_NONE = 0,
 
     /**
-     * This is implicitly set by the lcb_n1p_synctok() family of functions. This
+     * This is implicitly set by @ref lcb_cmdquery_consistency_token_for_keyspace. This
      * will ensure that mutations up to the vector indicated by the mutation token
-     * passed to lcb_n1p_synctok() are used.
+     * passed to @ref lcb_cmdquery_consistency_token_for_keyspace are used.
      */
     LCB_QUERY_CONSISTENCY_RYOW = 1,
 
@@ -2472,39 +2755,235 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respquery_http_response(const lcb_RESPQUERY *res
 LIBCOUCHBASE_API lcb_STATUS lcb_respquery_handle(const lcb_RESPQUERY *resp, lcb_QUERY_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_respquery_error_context(const lcb_RESPQUERY *resp, const lcb_QUERY_ERROR_CONTEXT **ctx);
 LIBCOUCHBASE_API int lcb_respquery_is_final(const lcb_RESPQUERY *resp);
+/**
+ * Create a new lcb_CMDQUERY object. The returned object is an opaque
+ * pointer which may be used to set various properties on a N1QL query.
+ *
+ * @param cmd pointer to an @ref lcb_CMDQUERY* which will be allocated
+ * @return LCB_SUCCESS when successful, otherwise an error code
+ */
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_create(lcb_CMDQUERY **cmd);
+/**
+ * Free the command structure. This should be done when it is no longer
+ * needed
+ * @param cmd the command to destroy
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_destroy(lcb_CMDQUERY *cmd);
+/**
+ * Reset the @ref lcb_CMDQUERY structure so that it may be reused for a subsequent
+ * query.  Results in less memory allocator overhead that creating a cmd each time
+ * you need one.
+ *
+ * @param cmd the command
+ * @return LCB_SUCCESS when successful, otherwise an error code.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_reset(lcb_CMDQUERY *cmd);
+/**
+ * Get the JSON-encoded query payload.
+ *
+ * Helpful for re-issuing a query using @ref lcb_cmdquery_payload.
+ * @param cmd the command
+ * @param payload pointer to a string which will contain the payload
+ * @param payload_len length of the payload string.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_encoded_payload(lcb_CMDQUERY *cmd, const char **payload, size_t *payload_len);
+/**@}*/
+
+/**
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-tracing-api
+ * @{
+ */
+/**
+ * Associate parent tracing span with the N1QL request.
+ *
+ * @param cmd the command
+ * @param span parent span
+ *
+ * @par Attach parent tracing span to request object.
+ * @code{.c}
+ * lcb_CMDQUERY* cmd;
+ * lcb_cmdquery_create(&cmd);
+ *
+ * lcb_error_t err = lcb_query(instance, cookie, cmd);
+ * if (err == LCB_SUCCESS) {
+ *     lcb_cmdquery_parent_span(cmd, span);
+ * }
+ * @endcode
+ *
+  *
+  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_parent_span(lcb_CMDQUERY *cmd, lcbtrace_SPAN *span);
+/**@}*/
+
+/**
+ * @ingroup lcb-public-api
+ * @addtogroup lcb-n1ql-api
+ * @{
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_callback(lcb_CMDQUERY *cmd, lcb_QUERY_CALLBACK callback);
+/**
+ * Sets the JSON-encodes query payload to be executed
+ * @param cmd the command
+ * @param query the query payload, as a JSON-encoded string.
+ * @param query_len length of the query payload string.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_payload(lcb_CMDQUERY *cmd, const char *query, size_t query_len);
+/**
+ * Sets the actual statement to be executed
+ * @param cmd the command
+ * @param statement the query string.  Note it can contain placeholders for positional or named parameters.
+ * @param statement_len length of the statement string.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_statement(lcb_CMDQUERY *cmd, const char *statement, size_t statement_len);
+/**
+ * Sets a named argument for the query
+ * @param cmd the command
+ * @param name The argument name (e.g. `$age`)
+ * @param name_len length of the name
+ * @param value The argument value (e.g. `42`)
+ * @param value_len length of the value
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_named_param(lcb_CMDQUERY *cmd, const char *name, size_t name_len,
                                                      const char *value, size_t value_len);
+/**
+ * Adds a _positional_ argument for the query
+ *
+ * The position is assumed to be the order they are set.
+ * @param cmd the command
+ * @param value the argument
+ * @param value_len the length of the argument.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_positional_param(lcb_CMDQUERY *cmd, const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_adhoc(lcb_CMDQUERY *cmd, int adhoc);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_client_context_id(lcb_CMDQUERY *cmd, const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pretty(lcb_CMDQUERY *cmd, int pretty);
+/**
+ * Marks query as read-only.
+ *
+ * If the user knows the request is only ever a select, for security
+ * reasons it can make sense to tell the server this thing is readonly
+ * and it will prevent mutations from happening.
+ *
+ * If readonly is set, then the following statements are not allowed:
+ *   * CREATE INDEX
+ *   * DROP INDEX
+ *   * INSERT
+ *   * MERGE
+ *   * UPDATE
+ *   * UPSERT
+ *   * DELETE
+ *
+ * @param cmd the command
+ * @param readonly if non-zero, the query will be read-only
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_readonly(lcb_CMDQUERY *cmd, int readonly);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_metrics(lcb_CMDQUERY *cmd, int metrics);
+/**
+ * Sets maximum buffered channel size between the indexer client
+ * and the query service for index scans.
+ *
+ * This parameter controls when to use scan backfill. Use 0 or
+ * a negative number to disable.
+ *
+ * @param cmd the command
+ * @param value channel size
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scan_cap(lcb_CMDQUERY *cmd, int value);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scan_wait(lcb_CMDQUERY *cmd, uint32_t us);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_profile(lcb_CMDQUERY *cmd, lcb_QUERY_PROFILE mode);
+/**
+ * Sets maximum number of items each execution operator can buffer
+ * between various operators.
+ *
+ * @param cmd the command
+ * @param value number of items
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_cap(lcb_CMDQUERY *cmd, int value);
+/**
+ * Sets the number of items execution operators can batch for
+ * fetch from the KV.
+ *
+ * @param cmd the command
+ * @param value number of items
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_batch(lcb_CMDQUERY *cmd, int value);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_max_parallelism(lcb_CMDQUERY *cmd, int value);
+/**
+ * Sets the consistency mode for the request.
+ * By default results are read from a potentially stale snapshot of the data.
+ * This may be good for most cases; however at times you want the absolutely
+ * most recent data.
+ * @param cmd the command
+ * @param mode one of the @ref lcb_QUERY_CONSISTENCY values
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency(lcb_CMDQUERY *cmd, lcb_QUERY_CONSISTENCY mode);
+/**
+ * Indicate that the query should synchronize its internal snapshot to reflect
+ * the changes indicated by the given mutation token (`ss`).
+ * @param cmd the command
+ * @param keyspace the keyspace (or bucket name) which this mutation token
+ *        pertains to
+ * @param keyspace_len length of the keyspace string
+ * @param token the mutation token
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency_token_for_keyspace(lcb_CMDQUERY *cmd, const char *keyspace,
                                                                         size_t keyspace_len,
                                                                         const lcb_MUTATION_TOKEN *token);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_consistency_tokens(lcb_CMDQUERY *cmd, lcb_INSTANCE *instance);
+/**
+ * Set a query option
+ * @param cmd the command
+ * @param name the name of the option
+ * @param name_len length of the name
+ * @param value the value of the option
+ * @param value_len length of the value
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_option(lcb_CMDQUERY *cmd, const char *name, size_t name_len, const char *value,
                                                 size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_handle(lcb_CMDQUERY *cmd, lcb_QUERY_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_timeout(lcb_CMDQUERY *cmd, uint32_t timeout);
+/**
+ * Execute a N1QL query.
+ *
+ * This function will send the query to a query server in the cluster
+ * and will invoke the callback (lcb_QUERY_CALLBACK*) for each result returned.
+ *
+ * @param instance The instance
+ * @param cookie Pointer to application data
+ * @param cmd the command
+ * @return LCB_SUCCESS if successfully scheduled, or a failure code.
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_query(lcb_INSTANCE *instance, void *cookie, const lcb_CMDQUERY *cmd);
+/**
+ * Cancels an in-progress request. This will ensure that further callbacks
+ * for the given request are not delivered.
+ *
+ * @param instance the instance
+ * @param handle the handle for the request. This is obtained during the
+ *  request as an 'out' parameter (see lcb_CMDN1QL::handle)
+ *
+ * To obtain the `handle` parameter, do something like this:
+ *
+ * @code{.c}
+ * lcb_QUERYHANDLE* handle;
+ * lcb_CMDQUERY* cmd;
+ * lcb_cmdquery_create(&cmd);
+ * // (Initialize command...)
+ * lcb_cmdquery_handle(cmd, &handle);
+ * lcb_query(instance, cookie, &cmd);
+ * @endcode.
+ *
+ * If the lcb_query() function returns `LCB_SUCCESS` then the `handle`
+ * above is populated with the opaque handle. You can then use this handle
+ * to cancel the query at a later point, such as within the callback. You
+ * can also get the handle from the response object using `lcb_respquery_handle`
+ *
+ * @code{.c}
+ * lcb_query_cancel(instance, handle);
+ * @endcode
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_query_cancel(lcb_INSTANCE *instance, lcb_QUERY_HANDLE *handle);
 /** @} */
 
@@ -2568,7 +3047,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_view(lcb_INSTANCE *instance, void *cookie, const
 LIBCOUCHBASE_API lcb_STATUS lcb_view_cancel(lcb_INSTANCE *instance, lcb_VIEW_HANDLE *handle);
 /** @} */
 
-/**@ingroup lcb-public-api
+/* @ingroup lcb-public-api
  * @defgroup lcb-subdoc Sub-Document API
  * @brief Experimental in-document API access
  * @details The sub-document API uses features from the upcoming Couchbase

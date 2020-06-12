@@ -1,0 +1,15 @@
+#
+# Specify components here that we wish to appear in our Black Duck
+# third-party software reports, but that cannot be (or are not)
+# detected via source-code scan
+#
+
+# Components with "" for version are those which we depend on but do not
+# ship ourselves, hence will pick up from the installation target OS
+components:
+    libev: [ "" ]
+    libevent:
+        bd-name: libevent - an event notification library
+        versions: [ "" ]
+    libuv: [ "" ]
+    openssl: [ "" ]

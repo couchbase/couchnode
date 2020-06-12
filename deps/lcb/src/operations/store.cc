@@ -208,6 +208,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_expiry(lcb_CMDSTORE *cmd, uint32_t expi
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_cas(lcb_CMDSTORE *cmd, uint64_t cas)
 {
+    if (cmd->operation == LCB_STORE_UPSERT || cmd->operation == LCB_STORE_INSERT) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     cmd->cas = cas;
     return LCB_SUCCESS;
 }

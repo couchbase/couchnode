@@ -21,6 +21,8 @@
 #include <netinet/in.h>
 #include <resolv.h>
 
+#define LCB_NSRESSZ 4096
+
 lcb_STATUS
 lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
 {
@@ -29,8 +31,8 @@ lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
     int rv = 0, nresp, ii;
     lcb_U16 dns_rv;
 
-    std::vector<unsigned char> pkt(NS_PACKETSZ);
-    nresp = res_search(name, ns_c_in, ns_t_srv, &pkt[0], NS_PACKETSZ);
+    std::vector<unsigned char> pkt(LCB_NSRESSZ);
+    nresp = res_search(name, ns_c_in, ns_t_srv, &pkt[0], pkt.size());
     if (nresp < 0) {
         return LCB_ERR_UNKNOWN_HOST;
     }

@@ -600,7 +600,7 @@ const char *lcbio_svcstr(lcbio_SERVICE service)
             return "n1ql";
         case LCBIO_SERVICE_FTS:
             return "fts";
-        case LCBIO_SERVICE_CBAS:
+        case LCBIO_SERVICE_ANALYTICS:
             return "cbas";
         case LCBIO_SERVICE_UNSPEC:
             /* fallthrough */

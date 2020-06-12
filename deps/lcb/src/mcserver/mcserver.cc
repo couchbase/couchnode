@@ -248,24 +248,9 @@ static lcb_STATUS reschedule_destroy(packet_wrapper *wrapper)
 
 bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
 {
-    uint32_t cid = mcreq_get_cid(instance, oldpkt);
-    std::string name = instance->collcache->id_to_name(cid);
-
-    packet_wrapper wrapper;
     protocol_binary_request_header req;
     memcpy(&req, SPAN_BUFFER(&oldpkt->kh_span), sizeof(req));
-    mcreq_get_key(instance, oldpkt, (const char **)&wrapper.key.contig.bytes, &wrapper.key.contig.nbytes);
-    if (req.request.opcode == PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID) {
-        name = std::string(static_cast<const char *>(wrapper.key.contig.bytes), wrapper.key.contig.nbytes);
-        wrapper.assign_name(name);
-    }
 
-    lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (S=%u), CID=%u, CNAME=%s", LOGID_T(), (void *)oldpkt,
-            oldpkt->opaque, (unsigned)cid, name.c_str());
-    if (name.empty()) {
-        return false;
-    }
-    instance->collcache->erase(cid);
     lcb_RETRY_ACTION retry = lcb_kv_should_retry(settings, oldpkt, LCB_ERR_COLLECTION_NOT_FOUND);
     if (!retry.should_retry) {
         return false;
@@ -275,6 +260,26 @@ bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
     if (now > MCREQ_PKT_RDATA(oldpkt)->deadline) {
         return false;
     }
+
+    if (req.request.opcode == PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID) {
+        mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
+        newpkt->flags &= ~MCREQ_STATE_FLAGS;
+        instance->retryq->ucadd((mc_EXPACKET *)newpkt);
+        return true;
+    }
+
+    uint32_t cid = mcreq_get_cid(instance, oldpkt);
+    std::string name = instance->collcache->id_to_name(cid);
+
+    packet_wrapper wrapper;
+    mcreq_get_key(instance, oldpkt, (const char **)&wrapper.key.contig.bytes, &wrapper.key.contig.nbytes);
+
+    lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (S=%u), CID=%u, CNAME=%s", LOGID_T(), (void *)oldpkt,
+            oldpkt->opaque, (unsigned)cid, name.c_str());
+    if (name.empty()) {
+        return false;
+    }
+    instance->collcache->erase(cid);
     wrapper.pkt = mcreq_renew_packet(oldpkt);
     wrapper.instance = instance;
     wrapper.timeout = LCB_NS2US(MCREQ_PKT_RDATA(wrapper.pkt)->deadline - now);
@@ -432,6 +437,8 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
     return rv;
 }
 
+lcb_STATUS lcb_map_error(lcb_INSTANCE *instance, int in);
+
 /* This function is called within a loop to process a single packet.
  *
  * If a full packet is available, it will process the packet and return
@@ -504,7 +511,10 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     /* Check if the status code is one which must be handled carefully by the
      * client */
     if (is_fastpath_error(mcresp.status())) {
-        // Nothing here!
+        lcb_STATUS err = lcb_map_error(instance, mcresp.status());
+        if (err != LCB_SUCCESS && maybe_retry_packet(request, err)) {
+            goto GT_DONE;
+        }
     } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET) {
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
@@ -742,7 +752,9 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
         char opid[30] = {};
         snprintf(opid, sizeof(opid), "kv:%s", opcode_name(hdr.request.opcode));
         info["s"] = opid;
-        info["b"] = settings->bucket;
+        if (settings->bucket) {
+            info["b"] = settings->bucket;
+        }
         info["t"] = (Json::UInt64)LCB_NS2US(MCREQ_PKT_RDATA(pkt)->deadline - MCREQ_PKT_RDATA(pkt)->start);
 
         const lcb_host_t &remote = get_host();

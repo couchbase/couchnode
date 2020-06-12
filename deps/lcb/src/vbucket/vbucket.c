@@ -1413,7 +1413,7 @@ int lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVC
         has_svc = (type == LCBVB_SVCTYPE_DATA && svcs->data) || (type == LCBVB_SVCTYPE_IXADMIN && svcs->ixadmin) ||
                   (type == LCBVB_SVCTYPE_IXQUERY && svcs->ixquery) || (type == LCBVB_SVCTYPE_MGMT && svcs->mgmt) ||
                   (type == LCBVB_SVCTYPE_QUERY && svcs->n1ql) || (type == LCBVB_SVCTYPE_SEARCH && svcs->fts) ||
-                  (type == LCBVB_SVCTYPE_VIEWS && svcs->views) || (type == LCBVB_SVCTYPE_CBAS && svcs->cbas);
+                  (type == LCBVB_SVCTYPE_VIEWS && svcs->views) || (type == LCBVB_SVCTYPE_ANALYTICS && svcs->cbas);
 
         if (has_svc) {
             cfg->randbuf[oix++] = (int)nn;

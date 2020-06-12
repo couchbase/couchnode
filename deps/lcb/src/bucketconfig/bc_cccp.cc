@@ -383,6 +383,13 @@ void CccpProvider::on_io_read()
         lcb_log(LOGARGS(this, WARN), LOGFMT "CCCP Packet responded with 0x%x; nkey=%d, nbytes=%lu, cmd=0x%x, seq=0x%x",
                 LOGID(this), resp.status(), resp.keylen(), (unsigned long)resp.bodylen(), resp.opcode(), resp.opaque());
 
+        if (settings().bucket == nullptr) {
+            switch (resp.status()) {
+                case PROTOCOL_BINARY_RESPONSE_NO_BUCKET:
+                    return_error(LCB_ERR_UNSUPPORTED_OPERATION);
+            }
+        }
+
         switch (resp.status()) {
             case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:
             case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:

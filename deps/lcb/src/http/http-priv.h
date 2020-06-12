@@ -80,7 +80,7 @@ struct Request {
     bool is_data_request() const
     {
         return reqtype == LCB_HTTP_TYPE_QUERY || reqtype == LCB_HTTP_TYPE_VIEW || reqtype == LCB_HTTP_TYPE_SEARCH ||
-               reqtype == LCB_HTTP_TYPE_PING || reqtype == LCB_HTTP_TYPE_CBAS;
+               reqtype == LCB_HTTP_TYPE_PING || reqtype == LCB_HTTP_TYPE_ANALYTICS;
     }
 
     /**

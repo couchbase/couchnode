@@ -61,7 +61,7 @@ X(LCB_SUCCESS,                   0,   LCB_ERROR_TYPE_SUCCESS, 0, "Success (Not a
 X(LCB_ERR_GENERIC,               100, LCB_ERROR_TYPE_BASE,    0, "Generic error code") \
 \
 /* Shared Error Definitions */ \
-X(LCB_ERR_TIMEOUT,                  201, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_NETWORK, "A request cannot be completed until the user-defined timeout fired") \
+X(LCB_ERR_TIMEOUT,                  201, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_NETWORK, "The request was not completed by the user-defined timeout") \
 X(LCB_ERR_REQUEST_CANCELED,         202, LCB_ERROR_TYPE_SHARED, 0, "A request is cancelled and cannot be resolved in a non-ambiguous way. Most likely the request is in-flight on the socket and the socket gets closed.") \
 X(LCB_ERR_INVALID_ARGUMENT,         203, LCB_ERROR_TYPE_SHARED, 0, "It is unambiguously determined that the error was caused because of invalid arguments from the user") \
 X(LCB_ERR_SERVICE_NOT_AVAILABLE,    204, LCB_ERROR_TYPE_SHARED, 0, "It was determined from the config unambiguously that the service is not available") \

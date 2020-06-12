@@ -4,8 +4,6 @@
 
 #include <libcouchbase/couchbase.h>
 
-const lcb_HTTP_TYPE LCB_HTTP_TYPE_ANALYTICS = LCB_HTTP_TYPE_CBAS;
-
 enum lcbx_SDCMD {
     LCBX_SDCMD_UNKNOWN = 0x00,
     LCBX_SDCMD_GET = 0x01,

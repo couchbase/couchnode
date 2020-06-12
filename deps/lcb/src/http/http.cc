@@ -542,8 +542,8 @@ static lcbvb_SVCTYPE httype2svctype(unsigned httype)
             return LCBVB_SVCTYPE_QUERY;
         case LCB_HTTP_TYPE_SEARCH:
             return LCBVB_SVCTYPE_SEARCH;
-        case LCB_HTTP_TYPE_CBAS:
-            return LCBVB_SVCTYPE_CBAS;
+        case LCB_HTTP_TYPE_ANALYTICS:
+            return LCBVB_SVCTYPE_ANALYTICS;
         default:
             return LCBVB_SVCTYPE__MAX;
     }
@@ -604,7 +604,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
         }
     } else {
         if (cmd->host) {
-            if (reqtype == LCB_HTTP_TYPE_CBAS || reqtype == LCB_HTTP_TYPE_PING) {
+            if (reqtype == LCB_HTTP_TYPE_ANALYTICS || reqtype == LCB_HTTP_TYPE_PING) {
                 /* might be a deferred CBAS URL or PING */
                 base = cmd->host;
             } else {
