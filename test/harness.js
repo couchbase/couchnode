@@ -187,7 +187,7 @@ class Harness {
         {
           replicas: 1,
         },
-        function(err, mock) {
+        function (err, mock) {
           if (err) {
             reject(err);
             return;
@@ -371,19 +371,13 @@ var harness = new Harness();
 // These are written as normal functions, not async lambdas
 // due to our need to specify custom timeouts, which are not
 // yet supported on before/after methods yet.
-before(function(done) {
+before(function (done) {
   this.timeout(10000);
-  harness
-    .prepare()
-    .then(done)
-    .catch(done);
+  harness.prepare().then(done).catch(done);
 });
-after(function(done) {
+after(function (done) {
   this.timeout(2000);
-  harness
-    .cleanup()
-    .then(done)
-    .catch(done);
+  harness.cleanup().then(done).catch(done);
 });
 
 module.exports = harness;

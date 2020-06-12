@@ -307,9 +307,8 @@ public:
                  ctxRdr.template parseValue<&lcb_errctx_search_index_name>());
         Nan::Set(errValObj, Nan::New<String>("query").ToLocalChecked(),
                  ctxRdr.template parseValue<&lcb_errctx_search_query>());
-        Nan::Set(
-            errValObj, Nan::New<String>("parameters").ToLocalChecked(),
-            ctxRdr.template parseValue<&lcb_errctx_search_params>());
+        Nan::Set(errValObj, Nan::New<String>("parameters").ToLocalChecked(),
+                 ctxRdr.template parseValue<&lcb_errctx_search_params>());
         Nan::Set(
             errValObj, Nan::New<String>("http_response_code").ToLocalChecked(),
             ctxRdr

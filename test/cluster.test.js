@@ -5,7 +5,7 @@ const harness = require('./harness');
 
 const H = harness;
 
-describe('#Cluster', function() {
+describe('#Cluster', function () {
   it.skip('should queue operations until connected', async () => {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts);
     var bucket = cluster.bucket(H.bucketName);
@@ -62,7 +62,7 @@ describe('#Cluster', function() {
     cluster.close();
   });
 
-  it('lcbVersion property should work', function() {
+  it('lcbVersion property should work', function () {
     assert(typeof H.lib.lcbVersion === 'string');
   });
 });

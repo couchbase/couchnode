@@ -35,31 +35,31 @@ function _getMockJar(callback) {
   }
 
   // Check if the file already exists
-  fs.stat(mockpath, function(err, stats) {
+  fs.stat(mockpath, function (err, stats) {
     if (!err && stats.isFile() && stats.size > 0) {
       callback(null, mockpath);
       return;
     }
 
     // Remove whatever was there
-    fs.unlink(mockpath, function() {
+    fs.unlink(mockpath, function () {
       // we ignore any errors here...
 
       console.log('downloading ' + mockurl + ' to ' + mockpath);
 
       var file = fs.createWriteStream(mockpath);
-      http.get(mockurl, function(res) {
+      http.get(mockurl, function (res) {
         if (res.statusCode !== 200) {
           callback(new Error('failed to get mock from server'));
           return;
         }
 
         res
-          .on('data', function(data) {
+          .on('data', function (data) {
             file.write(data);
           })
-          .on('end', function() {
-            file.end(function() {
+          .on('end', function () {
+            file.end(function () {
               callback(null, mockpath);
             });
           });
@@ -120,14 +120,14 @@ function _startMock(mockpath, options, callback) {
     }
   }
 
-  var server = net.createServer(function(socket) {
+  var server = net.createServer(function (socket) {
     // Close the socket immediately
     server.close();
 
     var readBuf = null;
     var mockPort = -1;
     var msgHandlers = [];
-    socket.on('data', function(data) {
+    socket.on('data', function (data) {
       if (readBuf) {
         readBuf = Buffer.concat([readBuf, data]);
       } else {
@@ -174,10 +174,10 @@ function _startMock(mockpath, options, callback) {
         break;
       }
     });
-    socket.on('error', function(err) {
+    socket.on('error', function (err) {
       console.error('mocksock err', err);
     });
-    socket.command = function(cmdName, payload, callback) {
+    socket.command = function (cmdName, payload, callback) {
       if (callback === undefined) {
         callback = payload;
         payload = undefined;
@@ -191,15 +191,15 @@ function _startMock(mockpath, options, callback) {
         }) + '\n';
       socket.write(dataOut);
     };
-    socket.close = function() {
+    socket.close = function () {
       socket.end();
     };
     console.log('got mock server connection');
   });
-  server.on('error', function(err) {
+  server.on('error', function (err) {
     callback(err);
   });
-  server.on('listening', function() {
+  server.on('listening', function () {
     var ctlPort = server.address().port;
 
     var bucketInfo = '';
@@ -239,22 +239,22 @@ function _startMock(mockpath, options, callback) {
 
     // Start Java Mock Here...
     var mockproc = child_process.spawn('java', javaOpts);
-    mockproc.on('error', function(err) {
+    mockproc.on('error', function (err) {
       server.close();
       callback(err);
       return;
     });
-    mockproc.stderr.on('data', function(data) {
+    mockproc.stderr.on('data', function (data) {
       console.error('mockproc err: ' + data.toString());
     });
-    mockproc.on('close', function(code) {
+    mockproc.on('close', function (code) {
       if (code !== 0 && code !== 1) {
         console.log('mock closed with non-zero exit code: ' + code);
       }
       server.close();
     });
 
-    mockproc.stdout.on('data', function(data) {
+    mockproc.stdout.on('data', function (data) {
       console.log(data);
     });
   });
@@ -262,7 +262,7 @@ function _startMock(mockpath, options, callback) {
 }
 
 function _createMock(options, callback) {
-  _getMockJar(function(err, mockpath) {
+  _getMockJar(function (err, mockpath) {
     if (err) {
       callback(err);
       return;
