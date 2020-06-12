@@ -375,7 +375,7 @@ function genericTests(collFn) {
       });
 
       // Ensure we can upsert with the cas
-      await collFn().upsert(testKeyLck, { foo: 9 }, { cas: prevCas });
+      await collFn().replace(testKeyLck, { foo: 9 }, { cas: prevCas });
     });
 
     it('should unlock successfully', async () => {

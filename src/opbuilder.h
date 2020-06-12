@@ -130,6 +130,10 @@ public:
             return false;
         }
 
+        if (cas == 0) {
+            return true;
+        }
+
         return SetFn(_cmd, cas) == LCB_SUCCESS;
     }
 
