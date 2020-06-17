@@ -37,6 +37,17 @@ public:
             return true;
         }
 
+        if (node::Buffer::HasInstance(str)) {
+            if (val) {
+                *val = node::Buffer::Data(str);
+            }
+            if (nval) {
+                *nval = node::Buffer::Length(str);
+            }
+
+            return true;
+        }
+
         Nan::Utf8String *utfStr = new Nan::Utf8String(str);
 
         if (utfStr->length() == 0) {

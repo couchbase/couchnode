@@ -284,6 +284,7 @@ function genericTests(collFn) {
 
   describe('#binary', () => {
     var testKeyBin = H.genTestKey();
+    var testKeyBinVal = H.genTestKey();
 
     before(async () => {
       await collFn().insert(testKeyBin, 14);
@@ -346,6 +347,23 @@ function genericTests(collFn) {
         var gres = await collFn().get(testKeyBin);
         assert.isTrue(Buffer.isBuffer(gres.value));
         assert.deepStrictEqual(gres.value.toString(), 'hello13world');
+      });
+    });
+
+    describe('#upsert', () => {
+      it('should upsert successfully', async () => {
+        const valueBytes = Buffer.from(
+          '092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+          'hex'
+        );
+
+        var res = await collFn().upsert(testKeyBinVal, valueBytes);
+        assert.isObject(res);
+        assert.isNotEmpty(res.cas);
+
+        var gres = await collFn().get(testKeyBinVal);
+        assert.isTrue(Buffer.isBuffer(gres.value));
+        assert.deepStrictEqual(gres.value, valueBytes);
       });
     });
   });
