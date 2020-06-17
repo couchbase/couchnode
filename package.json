@@ -1,7 +1,6 @@
 {
   "bugs": {
-    "url": "http://www.couchbase.com/issues/browse/JSCBC",
-    "email": "support@couchbase.com"
+    "url": "http://www.couchbase.com/issues/browse/JSCBC"
   },
   "description": "The official Couchbase Node.js Client Library.",
   "engines": {
