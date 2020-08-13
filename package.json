@@ -16,6 +16,7 @@
     "document"
   ],
   "main": "./lib/couchbase",
+  "types": "./types.d.ts",
   "license": "Apache-2.0",
   "name": "couchbase",
   "dependencies": {
@@ -37,6 +38,7 @@
     "nyc": "^15.1.0",
     "prebuild": "^10.0.0",
     "semver": "^7.3.2",
+    "tsd-jsdoc": "^2.5.0",
     "uuid": "^8.3.0"
   },
   "repository": {

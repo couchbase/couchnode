@@ -39,6 +39,9 @@ check: checkdeps checkaudit test lint cover
 docs: node_modules
 	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
 
+types: node_modules
+	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc -t node_modules/tsd-jsdoc/dist
+
 prebuilds:
 	node ./node_modules/prebuild/bin.js
 
