@@ -42,6 +42,10 @@ function genericTests(collFn) {
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
         assert.deepStrictEqual(res.value, testObjVal);
+
+        // BUG JSCBC-784: Check to make sure that the value property
+        // returns the same as the content property.
+        assert.strictEqual(res.value, res.content);
       });
 
       it('should perform basic gets with callback', (callback) => {
@@ -67,7 +71,11 @@ function genericTests(collFn) {
         });
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
-        assert.deepStrictEqual(res.value, { baz: 19 });
+        assert.deepStrictEqual(res.content, { baz: 19 });
+
+        // BUG JSCBC-784: Check to make sure that the value property
+        // returns the same as the content property.
+        assert.strictEqual(res.value, res.content);
       });
 
       H.requireFeature(H.Features.Xattr, () => {
@@ -96,7 +104,7 @@ function genericTests(collFn) {
           assert.isObject(res);
           assert.isNotEmpty(res.cas);
           assert.isNumber(res.expiry);
-          assert.deepStrictEqual(res.value, {
+          assert.deepStrictEqual(res.content, {
             c: 1,
             d: 'str',
             e: true,
@@ -114,6 +122,10 @@ function genericTests(collFn) {
             q: 15,
             r: 16,
           });
+
+          // BUG JSCBC-784: Check to make sure that the value property
+          // returns the same as the content property.
+          assert.strictEqual(res.value, res.content);
         });
       });
     });
@@ -146,7 +158,11 @@ function genericTests(collFn) {
           assert.isAtLeast(res.length, 1);
           assert.isBoolean(res[0].isReplica);
           assert.isNotEmpty(res[0].cas);
-          assert.deepStrictEqual(res[0].value, testObjVal);
+          assert.deepStrictEqual(res[0].content, testObjVal);
+
+          // BUG JSCBC-784: Check to make sure that the value property
+          // returns the same as the content property.
+          assert.strictEqual(res[0].value, res[0].content);
         });
       });
 
@@ -156,7 +172,11 @@ function genericTests(collFn) {
 
           assert.isObject(res);
           assert.isNotEmpty(res.cas);
-          assert.deepStrictEqual(res.value, testObjVal);
+          assert.deepStrictEqual(res.content, testObjVal);
+
+          // BUG JSCBC-784: Check to make sure that the value property
+          // returns the same as the content property.
+          assert.strictEqual(res.value, res.content);
         });
       });
     });
@@ -265,6 +285,10 @@ function genericTests(collFn) {
         assert.isNotEmpty(tres.cas);
         assert.deepStrictEqual(tres.value, { foo: 14 });
 
+        // BUG JSCBC-784: Check to make sure that the value property
+        // returns the same as the content property.
+        assert.strictEqual(tres.value, tres.content);
+
         // Wait for the first expiry
         await H.sleep(3000);
 
@@ -296,9 +320,7 @@ function genericTests(collFn) {
 
     describe('#increment', () => {
       it('should increment successfully', async () => {
-        var res = await collFn()
-          .binary()
-          .increment(testKeyBin, 3);
+        var res = await collFn().binary().increment(testKeyBin, 3);
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
         assert.deepStrictEqual(res.value, 17);
@@ -310,9 +332,7 @@ function genericTests(collFn) {
 
     describe('#decrement', () => {
       it('should decrement successfully', async () => {
-        var res = await collFn()
-          .binary()
-          .decrement(testKeyBin, 4);
+        var res = await collFn().binary().decrement(testKeyBin, 4);
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
         assert.deepStrictEqual(res.value, 13);
@@ -324,9 +344,7 @@ function genericTests(collFn) {
 
     describe('#append', () => {
       it('should append successfuly', async () => {
-        var res = await collFn()
-          .binary()
-          .append(testKeyBin, 'world');
+        var res = await collFn().binary().append(testKeyBin, 'world');
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
 
@@ -338,9 +356,7 @@ function genericTests(collFn) {
 
     describe('#prepend', () => {
       it('should prepend successfuly', async () => {
-        var res = await collFn()
-          .binary()
-          .prepend(testKeyBin, 'hello');
+        var res = await collFn().binary().prepend(testKeyBin, 'hello');
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
 
