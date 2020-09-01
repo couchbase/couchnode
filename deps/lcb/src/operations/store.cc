@@ -335,15 +335,6 @@ static void handle_dur_schedfail(mc_PACKET *pkt)
 
 mc_REQDATAPROCS DurStoreCtx::proctable = {handle_dur_storecb, handle_dur_schedfail};
 
-static lcb_size_t get_key_size(protocol_binary_request_header *hdr)
-{
-    if (hdr->request.magic == PROTOCOL_BINARY_AREQ) {
-        return (hdr->request.keylen >> 8) & 0xff;
-    } else {
-        return ntohs(hdr->request.keylen);
-    }
-}
-
 static lcb_size_t get_value_size(mc_PACKET *packet)
 {
     if (packet->flags & MCREQ_F_VALUE_IOV) {
@@ -395,6 +386,9 @@ static int can_compress(lcb_INSTANCE *instance, const mc_PIPELINE *pipeline, uin
 
 static lcb_STATUS store_validate(lcb_INSTANCE *instance, const lcb_CMDSTORE *cmd)
 {
+    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
 
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
@@ -543,7 +537,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_store(lcb_INSTANCE *instance, void *cookie, cons
         }
 
         hdr->request.opaque = packet->opaque;
-        hdr->request.bodylen = htonl(hdr->request.extlen + ffextlen + get_key_size(hdr) + get_value_size(packet));
+        hdr->request.bodylen = htonl(hdr->request.extlen + ffextlen + mcreq_get_key_size(hdr) + get_value_size(packet));
 
         if (cmd->cmdflags & LCB_CMD_F_INTERNAL_CALLBACK) {
             packet->flags |= MCREQ_F_PRIVCALLBACK;

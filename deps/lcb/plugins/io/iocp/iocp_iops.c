@@ -390,6 +390,7 @@ static void get_procs(int version, lcb_loop_procs *loop, lcb_timer_procs *timer,
 
     loop->start = iocp_run;
     loop->stop = iocp_stop;
+    loop->tick = iocp_tick;
 
     iocp->connect = start_connect;
     iocp->read2 = start_read;

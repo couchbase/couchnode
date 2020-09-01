@@ -26,7 +26,6 @@ class ErrmapUnitTest : public MockUnitTest
     virtual void createErrmapConnection(HandleWrap &hw, lcb_INSTANCE **instance)
     {
         MockEnvironment::getInstance()->createConnection(hw, instance);
-        ASSERT_EQ(LCB_SUCCESS, lcb_cntl_string(*instance, "enable_errmap", "true"));
         ASSERT_EQ(LCB_SUCCESS, lcb_connect(*instance));
         lcb_wait(*instance, LCB_WAIT_DEFAULT);
         ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(*instance));

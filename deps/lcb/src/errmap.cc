@@ -249,7 +249,7 @@ lcb_RETRY_ACTION lcb_retry_strategy_best_effort(lcb_RETRY_REQUEST *req, lcb_RETR
     return res;
 }
 
-lcb_RETRY_ACTION lcb_retry_strategy_fail_fast(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason) {
+lcb_RETRY_ACTION lcb_retry_strategy_fail_fast(lcb_RETRY_REQUEST *, lcb_RETRY_REASON) {
     lcb_RETRY_ACTION res{0, 0};
     return res;
 }

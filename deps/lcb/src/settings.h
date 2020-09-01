@@ -178,10 +178,8 @@ typedef struct lcb_settings_st {
     unsigned ipv6 : 2;
     unsigned tcp_nodelay : 1;
     unsigned readj_ts_wait : 1;
-    unsigned use_errmap : 1;
     unsigned select_bucket : 1;
     unsigned tcp_keepalive : 1;
-    unsigned send_hello : 1;
     unsigned use_collections : 1;
     unsigned log_redaction : 1;
     unsigned use_tracing : 1;
@@ -192,6 +190,7 @@ typedef struct lcb_settings_st {
      * when it is the only request in retry queue */
     unsigned wait_for_config : 1;
     unsigned enable_durable_write : 1;
+    unsigned enable_unordered_execution : 1;
 
     lcb_RETRY_STRATEGY retry_strategy;
     short max_redir;

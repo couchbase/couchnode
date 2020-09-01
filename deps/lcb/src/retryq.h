@@ -87,7 +87,7 @@ class RetryQueue
      * @param detchpkt The new packet
      */
     void nmvadd(mc_EXPACKET *detchpkt);
-    void ucadd(mc_EXPACKET *pkt);
+    void ucadd(mc_EXPACKET *pkt, lcb_STATUS orig_err);
 
     /**
      * @brief Retry all queued operations

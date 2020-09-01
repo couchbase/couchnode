@@ -222,7 +222,7 @@ static int should_yield(lcb_U32 start)
  * 2) We shall not handle the case where the user accidentally calls lcb_wait()
  *    while not having anything pending. That's just too bad.
  */
-void iocp_run(lcb_io_opt_t iobase)
+static void iocp_run_loop(lcb_io_opt_t iobase, int is_tick)
 {
     iocp_t *io = (iocp_t *)iobase;
     lcb_U64 now = 0;
@@ -280,10 +280,20 @@ void iocp_run(lcb_io_opt_t iobase)
             deque_expired_timers(io, now);
             tmo = (DWORD)iocp_tmq_next_timeout(&io->timer_queue.list, now);
         }
-    } while (LOOP_CAN_CONTINUE(io) && (HAS_QUEUED_IO(io) || tmo != INFINITE));
+    } while (!is_tick && LOOP_CAN_CONTINUE(io) && (HAS_QUEUED_IO(io) || tmo != INFINITE));
 
     IOCP_LOG(IOCP_INFO, "do-loop END");
     io->breakout = TRUE;
+}
+
+void iocp_run(lcb_io_opt_t iobase)
+{
+    return iocp_run_loop(iobase, 0);
+}
+
+void iocp_tick(lcb_io_opt_t iobase)
+{
+    return iocp_run_loop(iobase, 1);
 }
 
 void iocp_stop(lcb_io_opt_t iobase)

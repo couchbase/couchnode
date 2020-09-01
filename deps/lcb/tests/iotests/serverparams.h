@@ -37,10 +37,14 @@ class ServerParams
     void makeConnectParams(lcb_CREATEOPTS *&crst, lcb_io_opt_t io, lcb_INSTANCE_TYPE type = LCB_TYPE_BUCKET)
     {
         lcb_createopts_create(&crst, type);
-        if (mcNodes.empty() || type == LCB_TYPE_CLUSTER) {
-            connstr = "couchbase://" + host + "=http";
+        if (host.find("couchbase://") == 0) {
+            connstr = host;
         } else {
-            connstr = "couchbase+explicit://" + host + "=http;" + mcNodes;
+            if (mcNodes.empty() || type == LCB_TYPE_CLUSTER) {
+                connstr = "couchbase://" + host + "=http";
+            } else {
+                connstr = "couchbase+explicit://" + host + "=http;" + mcNodes;
+            }
         }
         lcb_createopts_connstr(crst, connstr.c_str(), connstr.size());
         lcb_createopts_credentials(crst, user.c_str(), user.size(), pass.c_str(), pass.size());

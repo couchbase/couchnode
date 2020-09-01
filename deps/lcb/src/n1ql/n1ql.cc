@@ -54,6 +54,8 @@ struct lcb_CMDQUERY_ {
      * `application/x-www-form-urlencoded`)
      */
     std::string query;
+    std::string scope_qualifier{};
+    std::string scope_name{};
 
     /** Callback to be invoked for each row */
     lcb_QUERY_CALLBACK callback;
@@ -129,10 +131,28 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_timeout(lcb_CMDQUERY *cmd, uint32_t tim
     return LCB_SUCCESS;
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_name(lcb_CMDQUERY *cmd, const char *scope, size_t scope_len)
+{
+    if (scope == NULL || scope_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    cmd->scope_name.assign(scope, scope_len);
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_qualifier(lcb_CMDQUERY *cmd, const char *qualifier, size_t qualifier_len)
+{
+    if (qualifier == NULL || qualifier_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    cmd->scope_qualifier.assign(qualifier, qualifier_len);
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_reset(lcb_CMDQUERY *cmd)
 {
     RESET_CMD_BASE(cmd);
     cmd->root = Json::Value();
+    cmd->scope_name.clear();
+    cmd->scope_qualifier.clear();
     cmd->query = "";
     cmd->callback = NULL;
     cmd->handle = NULL;
@@ -1098,6 +1118,21 @@ lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie,
             lasterr = LCB_ERR_INVALID_ARGUMENT;
             return;
         }
+    }
+    if (!cmd->scope_qualifier.empty()) {
+        json["query_context"] = cmd->scope_qualifier;
+    } else if (!cmd->scope_name.empty()) {
+        if (obj->settings->conntype != LCB_TYPE_BUCKET || obj->settings->bucket == NULL) {
+            lcb_log(LOGARGS(this, ERROR),
+                    LOGFMT
+                    "The instance must be associated with a bucket name to use query with query context qualifier",
+                    LOGID(this));
+            lasterr = LCB_ERR_INVALID_ARGUMENT;
+            return;
+        }
+        std::string scope_qualifier(obj->settings->bucket);
+        scope_qualifier += "." + cmd->scope_name;
+        json["query_context"] = scope_qualifier;
     }
 
     if (flags & LCB_CMDN1QL_F_ANALYTICSQUERY) {

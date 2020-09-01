@@ -1,5 +1,25 @@
 # Release Notes
 
+## 3.0.4 (2020-08-26)
+
+* CCBC-1281: Implement scope qualifier for queries
+* CCBC-1301: expose cmake option to help dissecting TLS traffic
+* Detect configuration change when replica indexes changed.
+
+## 3.0.3 (2020-07-27)
+
+* CCBC-1265: enable out of order execution by default
+* CCBC-1189: Validate collection and scope names early. The library will return error if the collection name is not valid without sending command to the server.
+* CCBC-1278: Fix stripping payload over TLS connection. The library might propagate zero return code from recv() even when previous calls of recv() successfully transferred bytes to SSL context.  In this case we might lose these trailing bytes and just close the socket.
+* CCBC-1264: Fix calculating key size when durability level specified
+* CCBC-1258: fix port order in vbucket diff info message
+* CCBC-1274: Fix pointer casting in HTTP callback of cbc tool.
+* CCBC-1167: Fix tests build on MacOS
+* CCBC-1248: Always request error map feature and send HELLO message to speedup bootstrap
+* Implement tick for IOCP plugin on Windows
+* Improved build on Windows (fixed static build, and PDB installation)
+* Fix collections issues for future server release
+
 ## 3.0.2 (2020-06-10)
 
 * CCBC-1200: Retry bootstrap on missing bucket until timeout. Bootstrap timeout controlled by "`config_total_timeout`" in connection string or `LCB_CNTL_CONFIGURATION_TIMEOUT`

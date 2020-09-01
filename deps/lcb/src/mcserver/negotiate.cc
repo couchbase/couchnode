@@ -392,9 +392,7 @@ bool SessionRequestImpl::send_hello()
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XATTR;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_JSON;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_SELECT_BUCKET;
-    if (settings->use_errmap) {
-        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XERROR;
-    }
+    features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XERROR;
     if (settings->tcp_nodelay) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TCPNODELAY;
     }
@@ -413,6 +411,9 @@ bool SessionRequestImpl::send_hello()
     if (settings->enable_durable_write) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_ALT_REQUEST_SUPPORT;
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_SYNC_REPLICATION;
+    }
+    if (settings->enable_unordered_execution) {
+        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_UNORDERED_EXECUTION;
     }
 
     std::string agent = generate_agent_json();
@@ -499,7 +500,7 @@ bool SessionRequestImpl::update_errmap(const lcb::MemcachedResponse &resp)
 // Returns true if sending the SELECT_BUCKET command, false otherwise.
 bool SessionRequestImpl::maybe_select_bucket()
 {
-    if (settings->conntype != LCB_TYPE_BUCKET) {
+    if (settings->conntype != LCB_TYPE_BUCKET || settings->bucket == NULL) {
         return false;
     }
     // Only send a SELECT_BUCKET if we have the SELECT_BUCKET bit enabled.
@@ -513,13 +514,11 @@ bool SessionRequestImpl::maybe_select_bucket()
     }
 
     // send the SELECT_BUCKET command:
-    lcb_log(LOGARGS(this, DEBUG), LOGFMT "Sending SELECT_BUCKET", LOGID(this));
+    lcb_log(LOGARGS(this, DEBUG), LOGFMT "Sending SELECT_BUCKET \"%s\"", LOGID(this), settings->bucket);
     lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SELECT_BUCKET);
-    req.sizes(0, settings->bucket ? strlen(settings->bucket) : 0, 0);
+    req.sizes(0, strlen(settings->bucket), 0);
     lcbio_ctx_put(ctx, req.data(), req.size());
-    if (settings->bucket) {
-        lcbio_ctx_put(ctx, settings->bucket, strlen(settings->bucket));
-    }
+    lcbio_ctx_put(ctx, settings->bucket, strlen(settings->bucket));
     LCBIO_CTX_RSCHEDULE(ctx, 24);
     return true;
 }
@@ -602,17 +601,12 @@ GT_NEXT_PACKET:
                 break;
             }
 
-            if (info->has_feature(PROTOCOL_BINARY_FEATURE_XERROR)) {
-                request_errmap();
-            } else {
+            if (!info->has_feature(PROTOCOL_BINARY_FEATURE_XERROR)) {
                 lcb_log(LOGARGS(this, TRACE), LOGFMT "GET_ERRORMAP unsupported/disabled", LOGID(this));
             }
 
             if (settings->keypath) {
                 completed = !maybe_select_bucket();
-            } else {
-                // In any event, it's also time to send the LIST_MECHS request
-                send_list_mechs();
             }
             break;
         }
@@ -709,10 +703,9 @@ void SessionRequestImpl::start(lcbio_SOCKET *sock)
         return;
     }
 
-    if (settings->send_hello) {
-        send_hello();
-    } else {
-        lcb_log(LOGARGS(this, WARN), LOGFMT "HELLO negotiation disabled by user", LOGID(this));
+    send_hello();
+    request_errmap();
+    if (!settings->keypath) {
         send_list_mechs();
     }
     LCBIO_CTX_RSCHEDULE(ctx, 24);

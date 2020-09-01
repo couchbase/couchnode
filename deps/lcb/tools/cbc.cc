@@ -489,7 +489,7 @@ static void arithmetic_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RES
 
 static void http_callback(lcb_INSTANCE *, int, const lcb_RESPHTTP *resp)
 {
-    HttpReceiver *ctx;
+    HttpBaseHandler *ctx = NULL;
     lcb_resphttp_cookie(resp, (void **)&ctx);
     ctx->maybeInvokeStatus(resp);
 

@@ -130,6 +130,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_durability(lcb_CMDREMOVE *cmd, lcb_DUR
 
 static lcb_STATUS remove_validate(lcb_INSTANCE *instance, const lcb_CMDREMOVE *cmd)
 {
+    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
     }
@@ -188,7 +191,7 @@ lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, const lcb_CMDREMOVE 
         hdr->request.opcode = PROTOCOL_BINARY_CMD_DELETE;
         hdr->request.cas = lcb_htonll(cmd->cas);
         hdr->request.opaque = pkt->opaque;
-        hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + (lcb_uint32_t)ntohs(hdr->request.keylen));
+        hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + mcreq_get_key_size(hdr));
         if (cmd->dur_level && new_durability_supported) {
             req.message.body.alt.meta = (1u << 4u) | 3u;
             req.message.body.alt.level = cmd->dur_level;

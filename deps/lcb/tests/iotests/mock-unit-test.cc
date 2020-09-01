@@ -29,6 +29,7 @@
  */
 void MockUnitTest::SetUp()
 {
+    srand(time(NULL));
     MockEnvironment::Reset();
 }
 

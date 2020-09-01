@@ -424,9 +424,9 @@ void RetryQueue::nmvadd(mc_EXPACKET *detchpkt)
     add(detchpkt, LCB_ERR_NOT_MY_VBUCKET, NULL, flags);
 }
 
-void RetryQueue::ucadd(mc_EXPACKET *pkt)
+void RetryQueue::ucadd(mc_EXPACKET *pkt, lcb_STATUS orig_err)
 {
-    add(pkt, LCB_ERR_COLLECTION_NOT_FOUND, NULL, 0);
+    add(pkt, orig_err, NULL, 0);
 }
 
 static void fallback_handler(mc_CMDQUEUE *cq, mc_PACKET *pkt)

@@ -732,6 +732,9 @@ lcb_STATUS MultiBuilder::add_spec(const lcb_SDSPEC *spec)
 
 static lcb_STATUS subdoc_validate(lcb_INSTANCE *, const lcb_CMDSUBDOC *cmd)
 {
+    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     // First validate the command
     if (cmd->nspecs == 0) {
         return LCB_ERR_NO_COMMANDS;
@@ -802,7 +805,7 @@ lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC 
         lcb_U8 ffextlen = 0;
 
         hdr.request.magic = PROTOCOL_BINARY_REQ;
-        if (cmd->dur_level) {
+        if (ctx.is_mutate() && cmd->dur_level) {
             if (new_durability_supported) {
                 hdr.request.magic = PROTOCOL_BINARY_AREQ;
                 ffextlen = 4;
@@ -844,12 +847,12 @@ lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC 
         hdr.request.extlen = extlen;
         hdr.request.opaque = pkt->opaque;
         hdr.request.cas = lcb_htonll(cmd->cas);
-        hdr.request.bodylen = htonl(hdr.request.extlen + ffextlen + ntohs(hdr.request.keylen) + ctx.payload_size);
+        hdr.request.bodylen = htonl(hdr.request.extlen + ffextlen + mcreq_get_key_size(&hdr) + ctx.payload_size);
         memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
-        if (cmd->dur_level && new_durability_supported) {
+        if (ctx.is_mutate() && cmd->dur_level && new_durability_supported) {
             uint8_t meta = (1u << 4u) | 3u;
             uint8_t level = cmd->dur_level;
-            uint16_t timeout = 0;
+            uint16_t timeout = htons(lcb_durability_timeout(instance, cmd->timeout));
             memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE, &meta, sizeof(meta));
             memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE + 1, &level, sizeof(level));
             memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE + 2, &timeout, sizeof(timeout));

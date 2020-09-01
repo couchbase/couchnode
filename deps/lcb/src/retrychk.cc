@@ -25,6 +25,7 @@ static lcb_RETRY_REASON mc_code_to_reason(lcb_STATUS status)
         case LCB_ERR_NOT_MY_VBUCKET:
             return LCB_RETRY_REASON_KV_NOT_MY_VBUCKET;
         case LCB_ERR_COLLECTION_NOT_FOUND:
+        case LCB_ERR_SCOPE_NOT_FOUND:
             return LCB_RETRY_REASON_KV_COLLECTION_OUTDATED;
         case LCB_ERR_DOCUMENT_LOCKED:
             return LCB_RETRY_REASON_KV_LOCKED;

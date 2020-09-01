@@ -248,6 +248,21 @@ static void log_callback(const SSL *ssl, int where, int ret)
     }
 }
 
+#ifdef LCB_TLS_LOG_KEYS
+static void log_keys_callback(const SSL *ssl, const char *line)
+{
+    const char *log_file_path = getenv("LCB_TLS_KEY_LOG_FILE");
+    if (log_file_path) {
+        FILE *log_file = fopen(log_file_path, "a+");
+        if (log_file) {
+            fprintf(log_file, "%s\n", line);
+            fclose(log_file);
+        }
+    }
+    (void)ssl;
+}
+#endif
+
 #if 0
 static void
 msg_callback(int write_p, int version, int ctype, const void *buf, size_t n,
@@ -369,6 +384,19 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
     }
 
     SSL_CTX_set_info_callback(ret->ctx, log_callback);
+#ifdef LCB_TLS_LOG_KEYS
+    {
+        const char *log_file_path = getenv("LCB_TLS_KEY_LOG_FILE");
+        if (log_file_path) {
+            SSL_CTX_set_keylog_callback(ret->ctx, log_keys_callback);
+            lcb_log(
+                LOGARGS_S(settings, LCB_LOG_FATAL),
+                "LCB_TLS_LOG_KEYS was enabled during build, all TLS keys will be logged for network analysis to \"%s\" "
+                "(https://wiki.wireshark.org/TLS). DO NOT USE THIS BUILD IN PRODUCTION",
+                log_file_path);
+        }
+    }
+#endif
 #if 0
     SSL_CTX_set_msg_callback(ret->ctx, msg_callback);
 #endif

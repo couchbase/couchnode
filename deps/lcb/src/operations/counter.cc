@@ -154,6 +154,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_durability(lcb_CMDCOUNTER *cmd, lcb_D
 
 static lcb_STATUS counter_validate(lcb_INSTANCE *instance, const lcb_CMDCOUNTER *cmd)
 {
+    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
     }
@@ -222,7 +225,7 @@ lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCOUNTE
         hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
         hdr->request.cas = cmd->cas;
         hdr->request.opaque = packet->opaque;
-        hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + ntohs(hdr->request.keylen));
+        hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + mcreq_get_key_size(hdr));
 
         uint32_t *exp;
         uint64_t *delta;

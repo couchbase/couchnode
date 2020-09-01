@@ -318,7 +318,7 @@ extern "C" {
 static void statsCallback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
 {
     MockEnvironment *me = (MockEnvironment *)resp->cookie;
-    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
+    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc) << lcb_strerror_short(resp->ctx.rc);
 
     if (resp->server == NULL) {
         return;
@@ -401,16 +401,18 @@ void MockEnvironment::bootstrapRealCluster()
     lcb_CREATEOPTS *options = NULL;
     serverParams.makeConnectParams(options, NULL);
 
-    ASSERT_EQ(LCB_SUCCESS, lcb_create(&tmphandle, options));
+    err = lcb_create(&tmphandle, options);
+    ASSERT_EQ(LCB_SUCCESS, err) << lcb_strerror_short(err);
     lcb_createopts_destroy(options);
     postCreate(tmphandle);
-    ASSERT_EQ(LCB_SUCCESS, lcb_connect(tmphandle));
+    err = lcb_connect(tmphandle);
+    ASSERT_EQ(LCB_SUCCESS, err) << lcb_strerror_short(err);
     lcb_wait(tmphandle, LCB_WAIT_DEFAULT);
 
     lcb_install_callback(tmphandle, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)statsCallback);
     lcb_CMDSTATS scmd = {0};
     err = lcb_stats3(tmphandle, this, &scmd);
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_EQ(LCB_SUCCESS, err) << lcb_strerror_short(err);;
     lcb_wait(tmphandle, LCB_WAIT_DEFAULT);
 
     const char *const *servers = lcb_get_server_list(tmphandle);

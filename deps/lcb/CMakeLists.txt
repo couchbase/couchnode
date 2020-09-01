@@ -54,6 +54,8 @@ OPTION(LCB_INSTALL_PKGCONFIG "Install pkgconfig/libcouchbase.pc" ON)
 OPTION(LCB_DUMP_PACKETS "Enable dumping network packets on TRACE log level" OFF)
 OPTION(LCB_USE_PROFILER "Build with profiler support (from gperftools)" OFF)
 OPTION(LCB_SKIP_GIT_VERSION "Skip version detection using git" OFF)
+# Read more at https://wiki.wireshark.org/TLS
+option(LCB_TLS_LOG_KEYS "Write per-session secrets to log file specified by env TLS_KEY_LOG_FILE. (Useful for Wireshark SSL/TLS dissection)" OFF)
 
 STRING(TIMESTAMP LCB_BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S" UTC)
 
@@ -93,9 +95,6 @@ IF (LCB_BUILD_LIBUV)
 ENDIF()
 INCLUDE(cmake/Modules/GetPlatformCCInfo.cmake)
 INCLUDE(cmake/Modules/GetVersionInfo.cmake)
-IF (MSVC)
-    INCLUDE(cmake/Modules/CopyPDB.cmake)
-ENDIF ()
 INCLUDE(cmake/Modules/DownloadLcbDep.cmake)
 INCLUDE(CheckIncludeFiles)
 INCLUDE(cmake/source_files.cmake)
@@ -426,7 +425,10 @@ INSTALL(DIRECTORY doc/man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 FILES_MATCHI
 INSTALL(DIRECTORY doc/man/ DESTINATION ${CMAKE_INSTALL_MANDIR}/man4  FILES_MATCHING PATTERN *.4)
 
 IF(MSVC)
-    INSTALL_PDBS(couchbase)
+    IF(NOT LCB_BUILD_STATIC)
+        INSTALL(FILES $<TARGET_PDB_FILE:couchbase> DESTINATION ${CMAKE_INSTALL_BINDIR} OPTIONAL)
+    ENDIF()
+    INSTALL(DIRECTORY $<TARGET_LINKER_FILE_DIR:couchbase>/ DESTINATION ${CMAKE_INSTALL_LIBDIR} OPTIONAL FILES_MATCHING PATTERN "*.exp")
 ENDIF()
 
 SET(_lcb_tarname "libcouchbase-${LCB_VERSION}")

@@ -246,12 +246,13 @@ static lcb_STATUS reschedule_destroy(packet_wrapper *wrapper)
     return LCB_SUCCESS;
 }
 
-bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
+bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpkt)
 {
+    lcb_STATUS orig_err = resp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE ? LCB_ERR_SCOPE_NOT_FOUND : LCB_ERR_COLLECTION_NOT_FOUND;
     protocol_binary_request_header req;
     memcpy(&req, SPAN_BUFFER(&oldpkt->kh_span), sizeof(req));
 
-    lcb_RETRY_ACTION retry = lcb_kv_should_retry(settings, oldpkt, LCB_ERR_COLLECTION_NOT_FOUND);
+    lcb_RETRY_ACTION retry = lcb_kv_should_retry(settings, oldpkt, orig_err);
     if (!retry.should_retry) {
         return false;
     }
@@ -264,7 +265,7 @@ bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
     if (req.request.opcode == PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID) {
         mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
         newpkt->flags &= ~MCREQ_STATE_FLAGS;
-        instance->retryq->ucadd((mc_EXPACKET *)newpkt);
+        instance->retryq->ucadd((mc_EXPACKET *)newpkt, orig_err);
         return true;
     }
 
@@ -276,20 +277,16 @@ bool Server::handle_unknown_collection(MemcachedResponse &, mc_PACKET *oldpkt)
 
     lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (S=%u), CID=%u, CNAME=%s", LOGID_T(), (void *)oldpkt,
             oldpkt->opaque, (unsigned)cid, name.c_str());
-    if (name.empty()) {
-        return false;
-    }
-    instance->collcache->erase(cid);
     wrapper.pkt = mcreq_renew_packet(oldpkt);
     wrapper.instance = instance;
     wrapper.timeout = LCB_NS2US(MCREQ_PKT_RDATA(wrapper.pkt)->deadline - now);
-    auto operation = [this](const lcb_RESPGETCID *, packet_wrapper *wrp) {
+    auto operation = [this, orig_err](const lcb_RESPGETCID *, packet_wrapper *wrp) {
         if ((wrp->pkt->flags & MCREQ_F_NOCID) == 0) {
             mcreq_set_cid(this, wrp->pkt, wrp->cid);
         }
         /** Reschedule the packet again .. */
         wrp->pkt->flags &= ~MCREQ_STATE_FLAGS;
-        wrp->instance->retryq->ucadd((mc_EXPACKET *)wrp->pkt);
+        wrp->instance->retryq->ucadd((mc_EXPACKET *)wrp->pkt, orig_err);
         return LCB_SUCCESS;
     };
 
@@ -368,7 +365,7 @@ static bool is_fastpath_error(uint16_t rc)
 int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedResponse &mcresp, lcb_STATUS &newerr)
 {
 
-    if (!settings->errmap->isLoaded() || !settings->use_errmap) {
+    if (!settings->errmap->isLoaded()) {
         // If there's no error map, just return false
         return ERRMAP_HANDLE_CONTINUE;
     }
@@ -523,7 +520,7 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         }
         DO_SWALLOW_PAYLOAD()
         goto GT_DONE;
-    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION) {
+    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION || mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE) {
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
         if (!handle_unknown_collection(mcresp, request)) {

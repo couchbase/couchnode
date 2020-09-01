@@ -46,11 +46,11 @@ struct N1QLResult {
 };
 
 #define SKIP_QUERY_TEST()                                                                                              \
-    fprintf(stderr, "Requires recent mock with query support");                                                        \
+    fprintf(stderr, "Requires recent mock with query support\n");                                                      \
     return
 
 #define SKIP_CLUSTER_QUERY_TEST()                                                                                      \
-    fprintf(stderr, "Requires recent server with query support");                                                      \
+    fprintf(stderr, "Requires recent server with query support\n");                                                    \
     return
 
 extern "C" {

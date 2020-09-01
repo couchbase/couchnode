@@ -138,7 +138,6 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
         return 0;
     }
     if (config) {
-        lcbvb_CHANGETYPE chstatus = LCBVB_NO_CHANGES;
         lcbvb_CONFIGDIFF *diff = lcbvb_compare(config->vbc, new_config->vbc);
 
         if (!diff) {
@@ -146,10 +145,10 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
             return 0;
         }
 
-        chstatus = lcbvb_get_changetype(diff);
+        lcbvb_CHANGETYPE chstatus = lcbvb_get_changetype(diff);
         lcbvb_free_diff(diff);
 
-        if (chstatus == 0 || config->compare(*new_config) >= 0) {
+        if (chstatus == LCBVB_NO_CHANGES || config->compare(*new_config) >= 0) {
             const lcbvb_CONFIG *ca, *cb;
 
             ca = config->vbc;

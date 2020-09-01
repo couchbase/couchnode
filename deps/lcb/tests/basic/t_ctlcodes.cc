@@ -40,6 +40,8 @@ TEST_F(CtlTest, testExists)
             case 0x2d: /* LCB_CNTL_RETRY_BACKOFF */
             case 0x20: /* LCB_CNTL_CONFIG_ALL_NODES */
             case 0x35: /* LCB_CNTL_DURABILITY_MUTATION_TOKENS */
+            case 0x43: /* LCB_CNTL_ENABLE_ERRMAP */
+            case 0x47: /* LCB_CNTL_SEND_HELLO */
                 ASSERT_FALSE(lcb_cntl_exists(ii));
                 break;
             default:

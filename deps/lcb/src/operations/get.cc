@@ -143,6 +143,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_locktime(lcb_CMDGET *cmd, uint32_t durati
 
 static lcb_STATUS get_validate(lcb_INSTANCE * /* instance */, const lcb_CMDGET *cmd)
 {
+    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
     }
@@ -338,6 +341,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_cas(lcb_CMDUNLOCK *cmd, uint64_t cas)
 
 static lcb_STATUS unlock_validate(lcb_INSTANCE *, const lcb_CMDUNLOCK *cmd)
 {
+    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
     }
@@ -626,6 +632,9 @@ RGetCookie::RGetCookie(const void *cookie_, lcb_INSTANCE *instance_, lcb_replica
 
 static lcb_STATUS getreplica_validate(lcb_INSTANCE *instance, const lcb_CMDGETREPLICA *cmd)
 {
+    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
     }

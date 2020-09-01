@@ -55,10 +55,10 @@ int leb128_encode(uint32_t value, uint8_t *buf)
 int leb128_decode(uint8_t *buf, size_t nbuf, uint32_t *result)
 {
     uint32_t value = buf[0] & 0x7f;
-    size_t idx = 1;
+    size_t idx = 0;
     if (buf[0] & 0x80) {
         int shift = 7;
-        for (; idx < nbuf; idx++) {
+        for (idx = 1; idx < nbuf; idx++) {
             value |= (buf[idx] & 0x7f) << shift;
             if ((buf[idx] & 0x80) == 0) {
                 break;
@@ -71,7 +71,7 @@ int leb128_decode(uint8_t *buf, size_t nbuf, uint32_t *result)
         }
     }
     *result = value;
-    return (int)idx;
+    return (int)idx + 1;
 }
 
 lcb_STATUS mcreq_reserve_key(mc_PIPELINE *pipeline, mc_PACKET *packet, uint8_t hdrsize, const lcb_KEYBUF *kreq,
@@ -478,6 +478,15 @@ void mcreq_map_key(mc_CMDQUEUE *queue, const lcb_KEYBUF *key, unsigned nhdr, int
             break;
     }
     lcbvb_map_key(queue->config, hk, nhk, vbid, srvix);
+}
+
+uint16_t mcreq_get_key_size(protocol_binary_request_header *hdr)
+{
+    if (hdr->request.magic == PROTOCOL_BINARY_AREQ) {
+        return (hdr->request.keylen >> 8) & 0xff;
+    } else {
+        return ntohs(hdr->request.keylen);
+    }
 }
 
 lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protocol_binary_request_header *req,

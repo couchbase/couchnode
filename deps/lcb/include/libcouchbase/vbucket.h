@@ -510,13 +510,16 @@ typedef struct {
     int n_vb_changes;
     /** Whether the ordering of the nodes has changed as well */
     int sequence_changed;
+    /** Whether the number of the replicas has changed */
+    int n_repl_changed;
 } lcbvb_CONFIGDIFF, VBUCKET_CONFIG_DIFF;
 
 /** @brief Convenience enum to determine the mode of change */
 typedef enum {
-    LCBVB_NO_CHANGES = 0,            /**< No changes between configs */
-    LCBVB_SERVERS_MODIFIED = 1 << 0, /**< Servers have been added or removed */
-    LCBVB_MAP_MODIFIED = 1 << 1      /**< vBuckets have been transferred */
+    LCBVB_NO_CHANGES = 0,              /**< No changes between configs */
+    LCBVB_SERVERS_MODIFIED = 1u << 0u, /**< Servers have been added or removed */
+    LCBVB_MAP_MODIFIED = 1u << 1u,     /**< vBuckets have been transferred */
+    LCBVB_REPLICAS_MODIFIED = 1u << 2u /**< number of replicas has been modified */
 } lcbvb_CHANGETYPE,
     VBUCKET_CHANGE_STATUS;
 

@@ -670,6 +670,9 @@ lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protoc
  */
 void mcreq_get_key(lcb_INSTANCE *instance, const mc_PACKET *packet, const char **key, size_t *nkey);
 
+/** @brief Returns the size of the key, in bytes */
+uint16_t mcreq_get_key_size(protocol_binary_request_header *hdr);
+
 /** @brief Returns the size of the entire packet, in bytes */
 uint32_t mcreq_get_bodysize(const mc_PACKET *packet);
 

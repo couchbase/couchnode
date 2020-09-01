@@ -222,14 +222,8 @@ HANDLER(kv_hg_handler) {
 HANDLER(read_chunk_size_handler) {
     RETURN_GET_SET(lcb_U32, LCBT_SETTING(instance, read_chunk_size));
 }
-HANDLER(enable_errmap_handler) {
-    RETURN_GET_SET(int, LCBT_SETTING(instance, use_errmap));
-}
 HANDLER(select_bucket_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, select_bucket));
-}
-HANDLER(send_hello_handler) {
-    RETURN_GET_SET(int, LCBT_SETTING(instance, send_hello));
 }
 HANDLER(log_redaction_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, log_redaction));
@@ -686,6 +680,10 @@ HANDLER(durable_write_handler) {
     RETURN_GET_SET(int, LCBT_SETTING(instance, enable_durable_write));
 }
 
+HANDLER(unordered_execution_handler) {
+    RETURN_GET_SET(int, LCBT_SETTING(instance, enable_unordered_execution));
+}
+
 /* clang-format off */
 static ctl_handler handlers[] = {
     timeout_common,                       /* LCB_CNTL_OP_TIMEOUT */
@@ -720,7 +718,7 @@ static ctl_handler handlers[] = {
     config_nodes,                         /* LCB_CNTL_CONFIG_HTTP_NODES */
     config_nodes,                         /* LCB_CNTL_CONFIG_CCCP_NODES */
     get_changeset,                        /* LCB_CNTL_CHANGESET */
-    NULL,                                 /* LCB_CNTL_CONFIG_ALL_NODES */
+    NULL,                                 /* deprecated LCB_CNTL_CONFIG_ALL_NODES (0x20) */
     config_cache_handler,                 /* LCB_CNTL_CONFIGCACHE */
     ssl_mode_handler,                     /* LCB_CNTL_SSL_MODE */
     ssl_certpath_handler,                 /* LCB_CNTL_SSL_CERT */
@@ -741,7 +739,7 @@ static ctl_handler handlers[] = {
     vbguess_handler,                      /* LCB_CNTL_VBGUESS_PERSIST */
     unsafe_optimize,                      /* LCB_CNTL_UNSAFE_OPTIMIZE */
     fetch_mutation_tokens_handler,        /* LCB_CNTL_ENABLE_MUTATION_TOKENS */
-    NULL,                                 /* LCB_CNTL_DURABILITY_MUTATION_TOKENS */
+    NULL,                                 /* deprecated LCB_CNTL_DURABILITY_MUTATION_TOKENS (0x35) */
     config_cache_handler,                 /* LCB_CNTL_CONFIGCACHE_READONLY */
     nmv_imm_retry_handler,                /* LCB_CNTL_RETRY_NMV_IMM */
     mutation_tokens_supported_handler,    /* LCB_CNTL_MUTATION_TOKENS_SUPPORTED */
@@ -755,11 +753,11 @@ static ctl_handler handlers[] = {
     bucket_auth_handler,                  /* LCB_CNTL_BUCKET_CRED */
     timeout_common,                       /* LCB_CNTL_RETRY_NMV_DELAY */
     read_chunk_size_handler,              /* LCB_CNTL_READ_CHUNKSIZE */
-    enable_errmap_handler,                /* LCB_CNTL_ENABLE_ERRMAP */
+    NULL,                                 /* deprecated LCB_CNTL_ENABLE_ERRMAP (0x43) */
     select_bucket_handler,                /* LCB_CNTL_SELECT_BUCKET */
     tcp_keepalive_handler,                /* LCB_CNTL_TCP_KEEPALIVE */
     config_poll_interval_handler,         /* LCB_CNTL_CONFIG_POLL_INTERVAL */
-    send_hello_handler,                   /* LCB_CNTL_SEND_HELLO */
+    NULL,                                 /* deprecated LCB_CNTL_SEND_HELLO (0x47) */
     buckettype_handler,                   /* LCB_CNTL_BUCKETTYPE */
     metrics_handler,                      /* LCB_CNTL_METRICS */
     collections_handler,                  /* LCB_CNTL_ENABLE_COLLECTIONS */
@@ -786,6 +784,7 @@ static ctl_handler handlers[] = {
     timeout_common,                       /* LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR */
     allow_static_config_handler,          /* LCB_CNTL_ALLOW_STATIC_CONFIG */
     timeout_common,                       /* LCB_CNTL_ANALYTICS_TIMEOUT */
+    unordered_execution_handler,          /* LCB_CNTL_ENABLE_UNORDERED_EXECUTION */
     NULL
 };
 /* clang-format on */
@@ -964,11 +963,9 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"retry_nmv_delay", LCB_CNTL_RETRY_NMV_INTERVAL, convert_timevalue},
     {"bucket_cred", LCB_CNTL_BUCKET_CRED, NULL},
     {"read_chunk_size", LCB_CNTL_READ_CHUNKSIZE, convert_u32},
-    {"enable_errmap", LCB_CNTL_ENABLE_ERRMAP, convert_intbool},
     {"select_bucket", LCB_CNTL_SELECT_BUCKET, convert_intbool},
     {"tcp_keepalive", LCB_CNTL_TCP_KEEPALIVE, convert_intbool},
     {"config_poll_interval", LCB_CNTL_CONFIG_POLL_INTERVAL, convert_timevalue},
-    {"send_hello", LCB_CNTL_SEND_HELLO, convert_intbool},
     {"ipv6", LCB_CNTL_IP6POLICY, convert_ipv6},
     {"metrics", LCB_CNTL_METRICS, convert_intbool},
     {"log_redaction", LCB_CNTL_LOG_REDACTION, convert_intbool},
@@ -993,6 +990,7 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"persistence_timeout_floor", LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR, convert_timevalue},
     {"allow_static_config", LCB_CNTL_ALLOW_STATIC_CONFIG, convert_intbool},
     {"analytics_timeout", LCB_CNTL_ANALYTICS_TIMEOUT, convert_timevalue},
+    {"enable_unordered_execution", LCB_CNTL_ENABLE_UNORDERED_EXECUTION, convert_intbool},
     {NULL, -1}};
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))

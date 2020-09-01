@@ -129,7 +129,7 @@ TEST_F(ObseqnoTest, testObserve)
 
     for (size_t ii = 0; ii < lcbvb_get_nreplicas(vbc) + 1; ii++) {
         int ix = lcbvb_vbserver(vbc, st_fetched.vbid_, ii);
-        lcb_RESPOBSEQNO resp{};
+        lcb_RESPOBSEQNO resp; /* initialized in the callback */
         doObserveSeqno(instance, &st_fetched, ix, resp);
         ASSERT_EQ(LCB_SUCCESS, resp.ctx.rc);
         ASSERT_EQ(st_fetched.uuid_, resp.cur_uuid);

@@ -2116,7 +2116,7 @@ lcb_STATUS lcb_cntl(lcb_INSTANCE *instance, int mode, int cmd, void *arg);
  * |-----------------------------------------|---------------------------|-------------------|
  * |@ref LCB_CNTL_OP_TIMEOUT                 | `"operation_timeout"`     | Timeval           |
  * |@ref LCB_CNTL_VIEW_TIMEOUT               | `"view_timeout"`          | Timeval           |
- * |@ref LCB_CNTL_QUERY_TIMEOUT               | `"n1ql_timeout"`          | Timeval           |
+ * |@ref LCB_CNTL_QUERY_TIMEOUT              | `"n1ql_timeout"`          | Timeval           |
  * |@ref LCB_CNTL_HTTP_TIMEOUT               | `"http_timeout"`          | Timeval           |
  * |@ref LCB_CNTL_CONFIG_POLL_INTERVAL       | `"config_poll_interval"`  | Timeval           |
  * |@ref LCB_CNTL_CONFERRTHRESH              | `"error_thresh_count"`    | Number (Positive) |
@@ -2134,7 +2134,6 @@ lcb_STATUS lcb_cntl(lcb_INSTANCE *instance, int mode, int cmd, void *arg);
  * |@ref LCB_CNTL_VBGUESS_PERSIST            | `"vbguess_persist"`       | Boolean           |
  * |@ref LCB_CNTL_CONLOGGER_LEVEL            | `"console_log_level"`     | Number (enum #lcb_log_severity_t) |
  * |@ref LCB_CNTL_ENABLE_MUTATION_TOKENS     | `"enable_mutation_tokens"`| Boolean           |
- * |@ref LCB_CNTL_DURABILITY_MUTATION_TOKENS | `"dur_mutation_tokens"`   | Boolean           |
  * |@ref LCB_CNTL_TCP_NODELAY                | `"tcp_nodelay"`           | Boolean           |
  * |@ref LCB_CNTL_CONLOGGER_FP               | `"console_log_file"`      | FILE*, Path       |
  * |@ref LCB_CNTL_CLIENT_STRING              | `"client_string"`         | String            |
@@ -2837,6 +2836,25 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_payload(lcb_CMDQUERY *cmd, const char *
  * @param statement_len length of the statement string.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_statement(lcb_CMDQUERY *cmd, const char *statement, size_t statement_len);
+/**
+ * Associate scope name with the query
+ * @param cmd the command
+ * @param scope the name of the scope
+ * @param scope_len length of the scope name string.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_name(lcb_CMDQUERY *cmd, const char *scope, size_t scope_len);
+/**
+ * @uncommitted
+ *
+ * Associate scope_qualifier (also known as `query_context`) with the query.
+ *
+ * The qualifier must be in form `${bucket_name}.${scope_name}` or `default:${bucket_name}.${scope_name}`.
+ *
+ * @param cmd the command
+ * @param qualifier the string containing qualifier
+ * @param qualifier_len length of the qualifier
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_qualifier(lcb_CMDQUERY *cmd, const char *qualifier, size_t qualifier_len);
 /**
  * Sets a named argument for the query
  * @param cmd the command

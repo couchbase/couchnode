@@ -114,7 +114,7 @@ static void schedule_pending(lcbio_ESSL *es)
 /* Reads encrypted data from the socket into SSL */
 static int read_ssl_data(lcbio_ESSL *es)
 {
-    int nr;
+    int nr, total = 0;
     lcbio_pTABLE iot = es->orig;
 
 #if LCB_CAN_OPTIMIZE_SSL_BIO
@@ -145,9 +145,10 @@ static int read_ssl_data(lcbio_ESSL *es)
 #else
             BIO_write(es->rbio, buf, nr);
 #endif
+            total += nr;
         } else if (nr == 0) {
             es->closed = 1;
-            return -1;
+            return total ? 0 : -1;
         } else {
             switch (IOT_ERRNO(iot)) {
                 case C_EAGAIN:
@@ -269,6 +270,10 @@ static void event_handler(lcb_socket_t fd, short which, void *arg)
     /* socket closed. Don't reschedule */
     if (es->fd == -1) {
         es->entered--;
+        if (es->entered == 0) {
+            /* everything else has been deallocated already in Essl_dtor() */
+            free(es);
+        }
         return;
     }
 
@@ -392,6 +397,10 @@ static void Essl_dtor(void *arg)
     IOT_V0EV(es->orig).destroy(IOT_ARG(es->orig), es->event);
     lcbio_timer_destroy(es->as_fake);
     iotssl_destroy_common((lcbio_XSSL *)es);
+    if (es->entered) {
+        /* defer free while inside the handler */
+        return;
+    }
     free(es);
 }
 

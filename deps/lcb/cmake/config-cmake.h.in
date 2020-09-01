@@ -75,3 +75,5 @@
 
 #cmakedefine HAVE_PKCS5_PBKDF2_HMAC
 #cmakedefine LCB_DUMP_PACKETS
+
+#cmakedefine LCB_TLS_LOG_KEYS

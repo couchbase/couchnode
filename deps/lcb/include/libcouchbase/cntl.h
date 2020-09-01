@@ -929,16 +929,6 @@ typedef const char *lcb_BUCKETCRED[2];
 #define LCB_CNTL_READ_CHUNKSIZE 0x42
 
 /**
- * Enable/Disable the Error Map feature. This is disabled by default.
- * Works only on servers which support error map
- *
- * Use `enable_errmap` in the connection string
- *
- * @cntl_arg_both{int* (as boolean)}
- */
-#define LCB_CNTL_ENABLE_ERRMAP 0x43
-
-/**
  * Enable/Disable sending the SELECT_BUCKET command after authentication.
  * This is useful to test auth, and should not be set by end-users.
  *
@@ -988,22 +978,6 @@ typedef const char *lcb_BUCKETCRED[2];
  * be unable to do any kind of background polling.
  */
 #define LCB_CNTL_CONFIG_POLL_INTERVAL 0x46
-
-/**
- * From version 2.7.4, the C library sends a HELLO command before
- * authentication. This works on all modern server versions, but may cause
- * disconnects on more ancient variants (Couchbase 2.x for example).
- *
- * This setting will disable the sending of the HELLO command (which older
- * servers don't understand anyway). To disable the sending of hello, set this
- * value to false.
- *
- * @cntl_arg_both{int* (as boolean)}
- * @committed
- *
- * You can also use `send_hello=false` in the connection string.
- */
-#define LCB_CNTL_SEND_HELLO 0x47
 
 /**
  * Once redaction is enabled, anything at ERROR, WARN and INFO will wrap
@@ -1297,10 +1271,17 @@ typedef enum {
 #define LCB_CNTL_ANALYTICS_TIMEOUT 0x61
 
 /**
+ * Tell the server that the library supports reordering the execution of the commands
+ * @cntl_arg_both{int (as boolean)}
+ * @volatile
+ */
+#define LCB_CNTL_ENABLE_UNORDERED_EXECUTION 0x62
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX 0x62
+#define LCB_CNTL__MAX 0x63
 /**@}*/
 
 #ifdef __cplusplus

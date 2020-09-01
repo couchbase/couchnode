@@ -815,7 +815,8 @@ TEST_F(MockUnitTest, testNegativeIndex)
     lcb_cmdstore_key(scmd, key.c_str(), key.size());
     std::string value("{}");
     lcb_cmdstore_value(scmd, value.c_str(), value.size());
-    ni = {LCB_SUCCESS, 0};
+    ni.err = LCB_SUCCESS;
+    ni.callCount = 0;
     err = lcb_store(instance, &ni, scmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -826,7 +827,8 @@ TEST_F(MockUnitTest, testNegativeIndex)
     lcb_CMDGET *gcmd;
     lcb_cmdget_create(&gcmd);
     lcb_cmdget_key(gcmd, key.c_str(), key.size());
-    ni = {LCB_SUCCESS, 0};
+    ni.err = LCB_SUCCESS;
+    ni.callCount = 0;
     // Set the index to -1
     vbc->vbuckets[vb].servers[0] = -1;
     err = lcb_get(instance, &ni, gcmd);

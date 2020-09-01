@@ -179,6 +179,7 @@ int iocp_overlapped_status(OVERLAPPED *lpOverlapped);
 
 void iocp_run(lcb_io_opt_t iobase);
 void iocp_stop(lcb_io_opt_t iobase);
+void iocp_tick(lcb_io_opt_t iobase);
 
 /** Timer Functions*/
 void iocp_tmq_add(lcb_list_t *list, iocp_timer_t *timer);

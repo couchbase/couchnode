@@ -270,6 +270,8 @@ int lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad);
 #define lcb_vbguess_destroy(p) free(p)
 
 LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance, uint32_t tmo_us);
+LCB_INTERNAL_API int lcb_is_collection_valid(const char *scope, size_t scope_len, const char *collection,
+                                             size_t collection_len);
 
 #ifdef __cplusplus
 }
