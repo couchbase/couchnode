@@ -1250,7 +1250,8 @@ lcbvb_CONFIGDIFF *lcbvb_compare(lcbvb_CONFIG *from, lcbvb_CONFIG *to)
                 ret->n_vb_changes++;
             }
             if (!ret->n_repl_changed) {
-                for (unsigned jj = 1; jj < from->nrepl + 1 /* skip master */; jj++) {
+                unsigned jj;
+                for (jj = 1; jj < from->nrepl + 1 /* skip master */; jj++) {
                     if (vba->servers[jj] != vbb->servers[jj]) {
                         ret->n_vb_changes++;
                     }
