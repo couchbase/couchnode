@@ -901,6 +901,23 @@ declare const enum SearchScanConsistency {
     NotBounded = ""
 }
 
+declare const enum LookupInMacro {
+    Document = "{}",
+    Expiry = "{}",
+    Cas = "{}",
+    SeqNo = "{}",
+    LastModified = "{}",
+    IsDeleted = "{}",
+    ValueSizeBytes = "{}",
+    RevId = "{}"
+}
+
+declare const enum MutateInMacro {
+    Cas = "{}",
+    SeqNo = "{}",
+    ValueCrc32c = "{}"
+}
+
 declare class CouchbaseError {
 }
 
@@ -1109,7 +1126,6 @@ declare class AnalyticsErrorContext {
 }
 
 declare class LookupInSpec {
-    static Expiry: any;
     static get(path: string, options?: any): LookupInSpec;
     static exists(path: string, options?: any): LookupInSpec;
     static count(path: string, options?: any): LookupInSpec;
