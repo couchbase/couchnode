@@ -470,6 +470,7 @@ function genericTests(collFn) {
         foo: 14,
         bar: 2,
         baz: 'hello',
+        arr: [1, 2, 3],
       });
     });
 
@@ -503,6 +504,8 @@ function genericTests(collFn) {
       var res = await collFn().mutateIn(testKeySd, [
         H.lib.MutateInSpec.increment('bar', 3),
         H.lib.MutateInSpec.upsert('baz', 'world'),
+        H.lib.MutateInSpec.arrayAppend('arr', 4),
+        H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
       ]);
       assert.isObject(res);
       assert.isNotEmpty(res.cas);
@@ -514,6 +517,7 @@ function genericTests(collFn) {
       assert.isOk(gres.value);
       assert.strictEqual(gres.value.bar, 5);
       assert.strictEqual(gres.value.baz, 'world');
+      assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6]);
     });
   });
 }
