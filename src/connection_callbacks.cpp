@@ -20,7 +20,15 @@ void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> casVal, valueVal;
     if (rc == LCB_SUCCESS) {
         casVal = rdr.decodeCas<&lcb_respget_cas>();
-        valueVal = rdr.parseDocValue<&lcb_respget_value, lcb_respget_flags>();
+
+        {
+            Nan::TryCatch tryCatch;
+            valueVal =
+                rdr.parseDocValue<&lcb_respget_value, lcb_respget_flags>();
+            if (tryCatch.HasCaught()) {
+                errVal = tryCatch.Exception();
+            }
+        }
     } else {
         casVal = Nan::Null();
         valueVal = Nan::Null();
@@ -74,8 +82,16 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> casVal, valueVal;
     if (rc == LCB_SUCCESS) {
         casVal = rdr.decodeCas<&lcb_respgetreplica_cas>();
-        valueVal = rdr.parseDocValue<&lcb_respgetreplica_value,
-                                     &lcb_respgetreplica_flags>();
+
+        {
+            Nan::TryCatch tryCatch;
+            valueVal = rdr.parseDocValue<&lcb_respgetreplica_value,
+                                         &lcb_respgetreplica_flags>();
+            if (tryCatch.HasCaught()) {
+                errVal = tryCatch.Exception();
+                tryCatch.Reset();
+            }
+        }
     } else {
         casVal = Nan::Null();
         valueVal = Nan::Null();

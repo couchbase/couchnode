@@ -152,8 +152,25 @@ NAN_METHOD(Connection::fnStore)
     if (!enc.parseTranscoder(info[3])) {
         return Nan::ThrowError(Error::create("bad transcoder passed"));
     }
-    if (!enc.parseDocValue<&lcb_cmdstore_value, &lcb_cmdstore_flags>(info[4])) {
-        return Nan::ThrowError(Error::create("bad value passed"));
+    {
+        Local<Value> errVal;
+        bool parseRes;
+        {
+            Nan::TryCatch tryCatch;
+            parseRes =
+                enc.parseDocValue<&lcb_cmdstore_value, &lcb_cmdstore_flags>(
+                    info[4]);
+            if (tryCatch.HasCaught()) {
+                errVal = tryCatch.Exception();
+            }
+        }
+        if (!parseRes) {
+            if (!errVal.IsEmpty()) {
+                return Nan::ThrowError(errVal);
+            }
+
+            return Nan::ThrowError(Error::create("bad value passed"));
+        }
     }
     if (!enc.parseOption<&lcb_cmdstore_expiry>(info[5])) {
         return Nan::ThrowError(Error::create("bad expiry passed"));

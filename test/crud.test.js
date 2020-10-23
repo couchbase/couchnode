@@ -3,6 +3,15 @@
 const assert = require('chai').assert;
 const H = require('./harness');
 
+const errorTranscoder = {
+  encode: () => {
+    throw new Error('encode error');
+  },
+  decode: () => {
+    throw new Error('decode error');
+  },
+};
+
 function genericTests(collFn) {
   describe('#basic', () => {
     const testKeyA = H.genTestKey();
@@ -34,6 +43,18 @@ function genericTests(collFn) {
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
       });
+
+      it('should not crash on transcoder errors', async () => {
+        await H.throwsHelper(
+          async () => {
+            await collFn().upsert(testKeyA, testObjVal, {
+              transcoder: errorTranscoder,
+            });
+          },
+          Error,
+          'encode error'
+        );
+      });
     });
 
     describe('#get', () => {
@@ -46,6 +67,20 @@ function genericTests(collFn) {
         // BUG JSCBC-784: Check to make sure that the value property
         // returns the same as the content property.
         assert.strictEqual(res.value, res.content);
+      });
+
+      it('should not crash on transcoder errors', async () => {
+        await collFn().upsert(testKeyA, testObjVal);
+
+        await H.throwsHelper(
+          async () => {
+            await collFn().get(testKeyA, {
+              transcoder: errorTranscoder,
+            });
+          },
+          Error,
+          'decode error'
+        );
       });
 
       it('should perform basic gets with callback', (callback) => {
