@@ -105,6 +105,10 @@ class Server : public mc_PIPELINE
     {
         mc_PIPELINE::index = new_index;
     }
+    bool has_valid_host() const
+    {
+        return curhost != NULL;
+    }
 
     const lcb_host_t &get_host() const
     {

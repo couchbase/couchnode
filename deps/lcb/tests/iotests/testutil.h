@@ -190,4 +190,9 @@ void genStoreCommands(const std::vector< std::string > &keys, std::vector< lcb_C
  */
 void doDummyOp(lcb_INSTANCE *instance);
 
+lcb_STATUS create_scope(lcb_INSTANCE *instance, const std::string &scope);
+
+lcb_STATUS create_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection);
+
+std::string unique_name(std::string);
 #endif

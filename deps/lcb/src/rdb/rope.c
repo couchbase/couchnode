@@ -291,7 +291,11 @@ char *rdb_get_consolidated(rdb_IOROPE *ior, unsigned n)
 {
     lcb_assert(ior->recvd.nused >= n);
     rdb_consolidate(ior, n);
-    return RDB_SEG_RBUF(RDB_SEG_FIRST(&ior->recvd));
+    rdb_ROPESEG *seg = RDB_SEG_FIRST(&ior->recvd);
+    if (!seg) {
+        return NULL;
+    }
+    return RDB_SEG_RBUF(seg);
 }
 
 void rdb_seg_ref(rdb_ROPESEG *seg)

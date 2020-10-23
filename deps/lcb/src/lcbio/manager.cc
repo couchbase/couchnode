@@ -79,7 +79,7 @@ struct PoolHost {
     lcb_clist_t requests;   /* pending requests */
     const std::string key;  /* host:port */
     Pool *parent;
-    lcb::io::Timer< PoolHost, &PoolHost::connection_available > async;
+    lcb::io::Timer<PoolHost, &PoolHost::connection_available> async;
     unsigned n_total; /* number of total connections */
     unsigned refcount;
 };
@@ -108,19 +108,19 @@ struct PoolConnInfo : lcbio_PROTOCTX, CinfoNode {
 
     static PoolConnInfo *from_llnode(lcb_list_t *node)
     {
-        return static_cast< PoolConnInfo * >(static_cast< CinfoNode * >(node));
+        return static_cast<PoolConnInfo *>(static_cast<CinfoNode *>(node));
     }
 
     static PoolConnInfo *from_sock(lcbio_SOCKET *sock)
     {
         lcbio_PROTOCTX *ctx = lcbio_protoctx_get(sock, LCBIO_PROTOCTX_POOL);
-        return static_cast< PoolConnInfo * >(ctx);
+        return static_cast<PoolConnInfo *>(ctx);
     }
 
     PoolHost *parent;
     lcbio_SOCKET *sock;
     lcbio_pCONNSTART cs;
-    lcb::io::Timer< PoolConnInfo, &PoolConnInfo::on_idle_timeout > idle_timer;
+    lcb::io::Timer<PoolConnInfo, &PoolConnInfo::on_idle_timeout> idle_timer;
 
     enum State { PENDING, IDLE, LEASED };
     State state;
@@ -166,13 +166,13 @@ struct PoolRequest : ReqNode, ConnectionRequest {
 
     static PoolRequest *from_llnode(lcb_list_t *node)
     {
-        return static_cast< PoolRequest * >(static_cast< ReqNode * >(node));
+        return static_cast<PoolRequest *>(static_cast<ReqNode *>(node));
     }
 
     PoolHost *host;
     lcbio_CONNDONE_cb callback;
     void *arg;
-    Timer< PoolRequest, &PoolRequest::timer_handler > timer;
+    Timer<PoolRequest, &PoolRequest::timer_handler> timer;
 
     enum State { ASSIGNED, PENDING };
     State state;
@@ -218,14 +218,14 @@ PoolConnInfo::~PoolConnInfo()
 
 static void cinfo_protoctx_dtor(lcbio_PROTOCTX *ctx)
 {
-    PoolConnInfo *info = reinterpret_cast< PoolConnInfo * >(ctx);
+    PoolConnInfo *info = reinterpret_cast<PoolConnInfo *>(ctx);
     info->sock = NULL;
     delete info;
 }
 
 Pool::Pool(lcb_settings *settings_, lcbio_pTABLE io_) : settings(settings_), io(io_), refcount(1) {}
 
-typedef std::vector< PoolHost * > HeList;
+typedef std::vector<PoolHost *> HeList;
 
 void Pool::ref()
 {
@@ -272,14 +272,27 @@ void Pool::shutdown()
 
 static void endpointToJSON(hrtime_t now, Json::Value &node, const PoolHost *host, const PoolConnInfo *info)
 {
+    if (!info || !info->sock) {
+        return;
+    }
     Json::Value endpoint;
     char id[20] = {0};
     snprintf(id, sizeof(id), "%p", (void *)info->sock);
     endpoint["id"] = id;
     endpoint["remote"] = get_hehost(host);
-    endpoint["local"] = info->sock->info->ep_local;
-    endpoint["last_activity_us"] = (Json::Value::UInt64)(now - info->sock->atime);
-    endpoint["status"] = "connected";
+    if (info->sock->info) {
+        endpoint["local"] = info->sock->info->ep_local;
+        endpoint["last_activity_us"] = (Json::Value::UInt64)(now - info->sock->atime);
+    }
+    switch (info->state) {
+        case PoolConnInfo::PENDING:
+            endpoint["status"] = "connecting";
+            break;
+        case PoolConnInfo::IDLE:
+        case PoolConnInfo::LEASED:
+            endpoint["status"] = "connected";
+            break;
+    }
     node[lcbio_svcstr(info->sock->service)].append(endpoint);
 }
 
@@ -338,7 +351,7 @@ void PoolHost::connection_available()
  */
 static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OSERR)
 {
-    reinterpret_cast< PoolConnInfo * >(arg)->on_connected(sock, err);
+    reinterpret_cast<PoolConnInfo *>(arg)->on_connected(sock, err);
 }
 
 void PoolConnInfo::on_connected(lcbio_SOCKET *sock_, lcb_STATUS err)

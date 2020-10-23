@@ -779,6 +779,7 @@ lcb_STATUS lcb_getreplica(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGET
             pl = cq->pipelines[curix];
             pkt = mcreq_allocate_packet(pl);
             if (!pkt) {
+                delete rck;
                 return LCB_ERR_NO_MEMORY;
             }
 

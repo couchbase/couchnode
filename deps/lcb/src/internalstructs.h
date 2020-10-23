@@ -340,7 +340,7 @@ struct lcb_RESPGET_ {
     lcb_SIZE nvalue;   /**< Length of value */
     void *bufh;
     uint8_t datatype; /**< @internal */
-    lcb_U32 itmflags;        /**< User-defined flags for the item */
+    lcb_U32 itmflags; /**< User-defined flags for the item */
 };
 
 struct lcb_RESPGETREPLICA_ {
@@ -349,7 +349,7 @@ struct lcb_RESPGETREPLICA_ {
     lcb_SIZE nvalue;   /**< Length of value */
     void *bufh;
     uint8_t datatype; /**< @internal */
-    lcb_U32 itmflags;        /**< User-defined flags for the item */
+    lcb_U32 itmflags; /**< User-defined flags for the item */
 };
 
 /**@brief Select get-replica mode
@@ -1657,6 +1657,8 @@ typedef struct {
  */
 #define LCB_CMDSUBDOC_F_ACCESS_DELETED (1u << 18u)
 
+#define LCB_CMDSUBDOC_F_CREATE_AS_DELETED (1u << 19u)
+
 struct lcb_SUBDOCSPECS_ {
     uint32_t options;
 
@@ -2096,6 +2098,9 @@ struct lcb_RESPPING_ {
     lcb_PINGSVC *services; /**< the nodes, replied to ping, if any */
     lcb_SIZE njson;        /**< length of JSON string (when #LCB_PINGOPT_F_JSON was specified) */
     const char *json;      /**< pointer to JSON string */
+#ifdef __cplusplus
+    std::string id;
+#endif
 };
 
 struct lcb_CMDDIAG_ {

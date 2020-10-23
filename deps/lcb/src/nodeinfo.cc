@@ -104,6 +104,7 @@ lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
 
         /* otherwise, return the actual host:port of the server */
         if (type & LCB_NODE_DATA) {
+            lcb_assert(server->has_valid_host());
             return mk_scratch_host(instance, &server->get_host());
         } else {
             return lcbvb_get_hostport(vbc, ix, LCBVB_SVCTYPE_VIEWS, mode);

@@ -29,7 +29,7 @@ struct BcastCookie : mc_REQDATAEX {
 
 static void refcnt_dtor_common(mc_PACKET *pkt)
 {
-    BcastCookie *ck = static_cast< BcastCookie * >(pkt->u_rdata.exdata);
+    BcastCookie *ck = static_cast<BcastCookie *>(pkt->u_rdata.exdata);
     if (!--ck->remaining) {
         delete ck;
     }
@@ -37,6 +37,7 @@ static void refcnt_dtor_common(mc_PACKET *pkt)
 
 static const char *make_hp_string(const lcb::Server &server, std::string &out)
 {
+    lcb_assert(server.has_valid_host());
     out.assign(server.get_host().host);
     out.append(":");
     out.append(server.get_host().port);
@@ -45,9 +46,9 @@ static const char *make_hp_string(const lcb::Server &server, std::string &out)
 
 static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS err, const void *arg)
 {
-    BcastCookie *ck = static_cast< BcastCookie * >(req->u_rdata.exdata);
-    lcb::Server *server = static_cast< lcb::Server * >(pl);
-    lcb_RESPSTATS *resp = reinterpret_cast< lcb_RESPSTATS * >(const_cast< void * >(arg));
+    BcastCookie *ck = static_cast<BcastCookie *>(req->u_rdata.exdata);
+    lcb::Server *server = static_cast<lcb::Server *>(pl);
+    lcb_RESPSTATS *resp = reinterpret_cast<lcb_RESPSTATS *>(const_cast<void *>(arg));
 
     lcb_RESPCALLBACK callback;
     lcb_INSTANCE *instance = server->get_instance();
@@ -62,7 +63,7 @@ static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS err, const
         }
 
         s_resp.ctx.rc = err;
-        s_resp.cookie = const_cast< void * >(ck->cookie);
+        s_resp.cookie = const_cast<void *>(ck->cookie);
         s_resp.rflags = LCB_RESP_F_CLIENTGEN | LCB_RESP_F_FINAL;
         callback(instance, LCB_CALLBACK_STATS, (lcb_RESPBASE *)&s_resp);
         delete ck;
@@ -70,7 +71,7 @@ static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS err, const
     } else {
         std::string epbuf;
         resp->server = make_hp_string(*server, epbuf);
-        resp->cookie = const_cast< void * >(ck->cookie);
+        resp->cookie = const_cast<void *>(ck->cookie);
         callback(instance, LCB_CALLBACK_STATS, (lcb_RESPBASE *)resp);
         return;
     }
@@ -118,7 +119,8 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
     }
 
     BcastCookie *ckwrap = new BcastCookie(LCB_CALLBACK_STATS, &stats_procs, cookie);
-    ckwrap->deadline = ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+    ckwrap->deadline =
+        ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     for (ii = 0; ii < cq->npipelines; ii++) {
         mc_PACKET *pkt;
@@ -131,6 +133,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
 
         pkt = mcreq_allocate_packet(pl);
         if (!pkt) {
+            delete ckwrap;
             return LCB_ERR_NO_MEMORY;
         }
 
@@ -155,7 +158,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
         mcreq_sched_add(pl, pkt);
     }
 
-    if (!ii) {
+    if (!ii || ckwrap->remaining == 0) {
         delete ckwrap;
         return LCB_ERR_NO_MATCHING_SERVER;
     }
@@ -166,7 +169,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
 
 static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, const void *arg)
 {
-    lcb::Server *server = static_cast< lcb::Server * >(pipeline);
+    lcb::Server *server = static_cast<lcb::Server *>(pipeline);
     BcastCookie *ck = (BcastCookie *)req->u_rdata.exdata;
     lcb_RESPCALLBACK callback;
 
@@ -194,7 +197,7 @@ static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, 
     }
 
     u_resp.base->ctx.rc = err;
-    u_resp.base->cookie = const_cast< void * >(ck->cookie);
+    u_resp.base->cookie = const_cast<void *>(ck->cookie);
 
     std::string epbuf;
     u_resp.base->server = make_hp_string(*server, epbuf);
@@ -208,14 +211,15 @@ static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, 
     u_empty.base.server = NULL;
     u_empty.base.ctx.rc = err;
     u_empty.base.rflags = LCB_RESP_F_CLIENTGEN | LCB_RESP_F_FINAL;
-    u_empty.base.cookie = const_cast< void * >(ck->cookie);
+    u_empty.base.cookie = const_cast<void *>(ck->cookie);
     callback(server->get_instance(), ck->type, (lcb_RESPBASE *)&u_empty.base);
     delete ck;
 }
 
 static mc_REQDATAPROCS bcast_procs = {handle_bcast, refcnt_dtor_common};
 
-static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, lcb_CALLBACK_TYPE type, const lcb_CMDBASE *cmd)
+static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, lcb_CALLBACK_TYPE type,
+                                   const lcb_CMDBASE *cmd)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
@@ -225,7 +229,8 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
     }
 
     BcastCookie *ckwrap = new BcastCookie(type, &bcast_procs, cookie);
-    ckwrap->deadline = ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+    ckwrap->deadline =
+        ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     for (ii = 0; ii < cq->npipelines; ii++) {
         mc_PIPELINE *pl = cq->pipelines[ii];
@@ -234,6 +239,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
         memset(&hdr, 0, sizeof(hdr));
 
         if (!pkt) {
+            delete ckwrap;
             return LCB_ERR_NO_MEMORY;
         }
 
@@ -288,11 +294,12 @@ lcb_STATUS lcb_server_verbosity3(lcb_INSTANCE *instance, const void *cookie, con
     }
 
     BcastCookie *ckwrap = new BcastCookie(LCB_CALLBACK_VERBOSITY, &bcast_procs, cookie);
-    ckwrap->deadline = ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+    ckwrap->deadline =
+        ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
     for (ii = 0; ii < cq->npipelines; ii++) {
         mc_PACKET *pkt;
-        lcb::Server *server = static_cast< lcb::Server * >(cq->pipelines[ii]);
+        lcb::Server *server = static_cast<lcb::Server *>(cq->pipelines[ii]);
         protocol_binary_request_verbosity vcmd;
         protocol_binary_request_header *hdr = &vcmd.message.header;
         uint32_t level;
@@ -315,6 +322,7 @@ lcb_STATUS lcb_server_verbosity3(lcb_INSTANCE *instance, const void *cookie, con
 
         pkt = mcreq_allocate_packet(server);
         if (!pkt) {
+            delete ckwrap;
             return LCB_ERR_NO_MEMORY;
         }
 

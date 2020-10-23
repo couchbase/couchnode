@@ -654,6 +654,8 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
                         cfg->caps |= LCBVB_CAP_COLLECTIONS;
                     } else if (strcmp(jcap->valuestring, "durableWrite") == 0) {
                         cfg->caps |= LCBVB_CAP_DURABLE_WRITE;
+                    } else if (strcmp(jcap->valuestring, "tombstonedUserXAttrs") == 0) {
+                        cfg->caps |= LCBVB_CAP_TOMBSTONED_USER_XATTRS;
                     }
                 }
             }
@@ -986,6 +988,9 @@ char *lcbvb_save_json(lcbvb_CONFIG *cfg)
         }
         if (cfg->caps & LCBVB_CAP_DURABLE_WRITE) {
             cJSON_AddItemToArray(jcaps, cJSON_CreateString("durableWrite"));
+        }
+        if (cfg->caps & LCBVB_CAP_TOMBSTONED_USER_XATTRS) {
+            cJSON_AddItemToArray(jcaps, cJSON_CreateString("tombstonedUserXAttrs"));
         }
         cJSON_AddItemToObject(root, "bucketCapabilities", jcaps);
     }

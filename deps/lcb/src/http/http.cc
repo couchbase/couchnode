@@ -197,17 +197,6 @@ void Request::decref()
         return;
     }
 
-    close_io();
-
-    if (parser) {
-        delete parser;
-    }
-
-    if (timer) {
-        lcbio_timer_destroy(timer);
-        timer = NULL;
-    }
-
     delete this;
 }
 
@@ -301,10 +290,10 @@ void Request::init_resp(lcb_RESPHTTP *res)
 {
     const lcb::htparse::Response &htres = parser->get_cur_response();
 
-    res->cookie = const_cast< void * >(command_cookie);
+    res->cookie = const_cast<void *>(command_cookie);
     res->ctx.path = url.c_str() + url_info.field_data[UF_PATH].off;
     res->ctx.path_len = url_info.field_data[UF_PATH].len;
-    res->_htreq = static_cast< lcb_HTTP_HANDLE * >(this);
+    res->_htreq = static_cast<lcb_HTTP_HANDLE *>(this);
     if (!response_headers.empty()) {
         res->headers = &response_headers_clist[0];
     }
@@ -413,7 +402,7 @@ lcb_STATUS Request::submit()
     add_to_preamble("\r\n");
 
     // Add the rest of the headers
-    std::vector< Header >::const_iterator ii = request_headers.begin();
+    std::vector<Header>::const_iterator ii = request_headers.begin();
     for (; ii != request_headers.end(); ++ii) {
         add_to_preamble(*ii);
     }
@@ -655,7 +644,7 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
         nbase = strlen(base);
     }
 
-    rc = assign_url(base, nbase, reinterpret_cast< const char * >(cmd->key.contig.bytes), cmd->key.contig.nbytes);
+    rc = assign_url(base, nbase, reinterpret_cast<const char *>(cmd->key.contig.bytes), cmd->key.contig.nbytes);
     if (rc != LCB_SUCCESS) {
         return rc;
     }
@@ -703,6 +692,20 @@ Request::Request(lcb_INSTANCE *instance_, const void *cookie, const lcb_CMDHTTP 
     memset(&creq, 0, sizeof creq);
 }
 
+Request::~Request()
+{
+    close_io();
+
+    if (parser) {
+        delete parser;
+    }
+
+    if (timer) {
+        lcbio_timer_destroy(timer);
+        timer = NULL;
+    }
+}
+
 uint32_t Request::timeout() const
 {
     if (user_timeout) {
@@ -722,22 +725,18 @@ uint32_t Request::timeout() const
 Request *Request::create(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDHTTP *cmd, lcb_STATUS *rc)
 {
     Request *req = new Request(instance, cookie, cmd);
-    if (!req) {
-        *rc = LCB_ERR_NO_MEMORY;
-        return NULL;
-    }
     req->start = gethrtime();
 
     *rc = req->setup_inputs(cmd);
     if (*rc != LCB_SUCCESS) {
-        req->decref();
+        delete req;
         return NULL;
     }
 
     *rc = req->submit();
     if (*rc == LCB_SUCCESS) {
         if (cmd->reqhandle) {
-            *cmd->reqhandle = static_cast< lcb_HTTP_HANDLE * >(req);
+            *cmd->reqhandle = static_cast<lcb_HTTP_HANDLE *>(req);
         }
         lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_HTTP, req);
         return req;

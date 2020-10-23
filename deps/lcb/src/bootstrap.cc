@@ -18,11 +18,10 @@
 #define LCB_BOOTSTRAP_DEFINE_STRUCT 1
 #include "internal.h"
 
-
 #define LOGARGS(instance, lvl) instance->settings, "bootstrap", LCB_LOG_##lvl, __FILE__, __LINE__
 
-using lcb::clconfig::EventType;
 using lcb::clconfig::ConfigInfo;
+using lcb::clconfig::EventType;
 using namespace lcb;
 
 /**
@@ -31,7 +30,8 @@ using namespace lcb;
  * loop stack frame (or one of the small mini functions here) so that we
  * don't accidentally end up destroying resources underneath us.
  */
-void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
+void Bootstrap::config_callback(EventType event, ConfigInfo *info)
+{
     using namespace lcb::clconfig;
     lcb_INSTANCE *instance = parent;
 
@@ -53,7 +53,6 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
 
     tm.cancel();
 
-
     if (info->get_origin() != CLCONFIG_FILE) {
         /* Set the timestamp for the current config to control throttling,
          * but only if it's not an initial file-based config. See CCBC-482 */
@@ -64,8 +63,7 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
     if (info->get_origin() == CLCONFIG_CCCP) {
         /* Disable HTTP provider if we've received something via CCCP */
 
-        if (instance->cur_configinfo == NULL ||
-                instance->cur_configinfo->get_origin() != CLCONFIG_HTTP) {
+        if (instance->cur_configinfo == NULL || instance->cur_configinfo->get_origin() != CLCONFIG_HTTP) {
             /* Never disable HTTP if it's still being used */
             instance->confmon->set_active(CLCONFIG_HTTP, false);
         }
@@ -73,8 +71,7 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
 
     if (instance->settings->conntype == LCB_TYPE_CLUSTER && info->get_origin() == CLCONFIG_CLADMIN) {
         /* Disable HTTP provider for management operations, and fallback to static */
-        if (instance->cur_configinfo == NULL ||
-                instance->cur_configinfo->get_origin() != CLCONFIG_HTTP) {
+        if (instance->cur_configinfo == NULL || instance->cur_configinfo->get_origin() != CLCONFIG_HTTP) {
             instance->confmon->set_active(CLCONFIG_HTTP, false);
         }
     }
@@ -113,19 +110,19 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
 
             /* infer bucket type using distribution and capabilities set */
             switch (LCBVB_DISTTYPE(LCBT_VBCONFIG(instance))) {
-            case LCBVB_DIST_VBUCKET:
-                if (LCBVB_CAPS(LCBT_VBCONFIG(instance)) & LCBVB_CAP_COUCHAPI) {
-                    instance->btype = LCB_BTYPE_COUCHBASE;
-                } else {
-                    instance->btype = LCB_BTYPE_EPHEMERAL;
-                }
-                break;
-            case LCBVB_DIST_KETAMA:
-                instance->btype = LCB_BTYPE_MEMCACHED;
-                break;
-            case LCBVB_DIST_UNKNOWN:
-                instance->btype = LCB_BTYPE_UNSPEC;
-                break;
+                case LCBVB_DIST_VBUCKET:
+                    if (LCBVB_CAPS(LCBT_VBCONFIG(instance)) & LCBVB_CAP_COUCHAPI) {
+                        instance->btype = LCB_BTYPE_COUCHBASE;
+                    } else {
+                        instance->btype = LCB_BTYPE_EPHEMERAL;
+                    }
+                    break;
+                case LCBVB_DIST_KETAMA:
+                    instance->btype = LCB_BTYPE_MEMCACHED;
+                    break;
+                case LCBVB_DIST_UNKNOWN:
+                    instance->btype = LCB_BTYPE_UNSPEC;
+                    break;
             }
         }
         if (instance->callbacks.bootstrap) {
@@ -146,7 +143,8 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info) {
 
 const char *provider_string(clconfig::Method type);
 
-void Bootstrap::clconfig_lsn(EventType e, ConfigInfo *i) {
+void Bootstrap::clconfig_lsn(EventType e, ConfigInfo *i)
+{
     if (state == S_INITIAL_PRE) {
         config_callback(e, i);
     } else if (e == clconfig::CLCONFIG_EVENT_GOT_NEW_CONFIG) {
@@ -156,17 +154,18 @@ void Bootstrap::clconfig_lsn(EventType e, ConfigInfo *i) {
     }
 }
 
-void Bootstrap::check_bgpoll() {
-    if (parent->cur_configinfo == NULL ||
-            parent->cur_configinfo->get_origin() != lcb::clconfig::CLCONFIG_CCCP ||
-            LCBT_SETTING(parent, config_poll_interval) == 0) {
+void Bootstrap::check_bgpoll()
+{
+    if (parent->cur_configinfo == NULL || parent->cur_configinfo->get_origin() != lcb::clconfig::CLCONFIG_CCCP ||
+        LCBT_SETTING(parent, config_poll_interval) == 0) {
         tmpoll.cancel();
     } else {
         tmpoll.rearm(LCBT_SETTING(parent, config_poll_interval));
     }
 }
 
-void Bootstrap::bgpoll() {
+void Bootstrap::bgpoll()
+{
     lcb_log(LOGARGS(parent, TRACE), "Background-polling for new configuration");
     bootstrap(BS_REFRESH_ALWAYS);
     check_bgpoll();
@@ -177,18 +176,18 @@ void Bootstrap::bgpoll() {
  * instance. It is only scheduled during the initial bootstrap and is only
  * triggered if the initial bootstrap fails to configure in time.
  */
-void Bootstrap::timer_dispatch() {
+void Bootstrap::timer_dispatch()
+{
     if (state > S_INITIAL_PRE) {
-        config_callback(clconfig::CLCONFIG_EVENT_GOT_NEW_CONFIG,
-            parent->confmon->get_config());
+        config_callback(clconfig::CLCONFIG_EVENT_GOT_NEW_CONFIG, parent->confmon->get_config());
     } else {
         // Not yet bootstrapped!
         initial_error(LCB_ERR_TIMEOUT, "Failed to bootstrap in time");
     }
 }
 
-
-void Bootstrap::initial_error(lcb_STATUS err, const char *errinfo) {
+void Bootstrap::initial_error(lcb_STATUS err, const char *errinfo)
+{
     parent->last_error = parent->confmon->get_last_error();
     if (parent->last_error == LCB_SUCCESS) {
         parent->last_error = err;
@@ -211,22 +210,26 @@ void Bootstrap::initial_error(lcb_STATUS err, const char *errinfo) {
 }
 
 Bootstrap::Bootstrap(lcb_INSTANCE *instance)
-    : parent(instance),
-      tm(parent->iotable, this),
-      tmpoll(parent->iotable, this),
-      last_refresh(0),
-      errcounter(0),
-      state(S_INITIAL_PRE) {
+    : parent(instance), tm(parent->iotable, this), tmpoll(parent->iotable, this), last_refresh(0), errcounter(0),
+      state(S_INITIAL_PRE)
+{
     parent->confmon->add_listener(this);
 }
 
-lcb_STATUS Bootstrap::bootstrap(unsigned options) {
+lcb_STATUS Bootstrap::bootstrap(unsigned options)
+{
     hrtime_t now = gethrtime();
     if (parent->confmon->is_refreshing()) {
         return LCB_SUCCESS;
     }
 
     if (options == BS_REFRESH_OPEN_BUCKET) {
+        clconfig::Provider *http = parent->confmon->get_provider(clconfig::CLCONFIG_HTTP);
+        if (http) {
+            lcb_log(LOGARGS(parent, INFO), "Re-enable HTTP config provider to bootstrap \"%s\"",
+                    parent->settings->bucket);
+            http->enable();
+        }
         parent->confmon->active_provider_list_id = 0;
         parent->confmon->prepare();
         state = S_INITIAL_PRE;
@@ -245,10 +248,12 @@ lcb_STATUS Bootstrap::bootstrap(unsigned options) {
         next_ts = last_refresh;
         next_ts += LCB_US2NS(LCBT_SETTING(parent, weird_things_delay));
         if (now < next_ts && errcounter < errthresh) {
-            lcb_log(LOGARGS(parent, INFO),
-                "Not requesting a config refresh because of throttling parameters. Next refresh possible in %" PRIu64 "ms or %u errors. "
+            lcb_log(
+                LOGARGS(parent, INFO),
+                "Not requesting a config refresh because of throttling parameters. Next refresh possible in %" PRIu64
+                "ms or %u errors. "
                 "See LCB_CNTL_CONFDELAY_THRESH and LCB_CNTL_CONFERRTHRESH to modify the throttling settings",
-                LCB_NS2US(next_ts-now)/1000, (unsigned)errthresh-errcounter);
+                LCB_NS2US(next_ts - now) / 1000, (unsigned)errthresh - errcounter);
             return LCB_SUCCESS;
         }
     }
@@ -277,15 +282,15 @@ lcb_STATUS Bootstrap::bootstrap(unsigned options) {
     return LCB_SUCCESS;
 }
 
-Bootstrap::~Bootstrap() {
+Bootstrap::~Bootstrap()
+{
     tm.release();
     tmpoll.release();
     parent->confmon->remove_listener(this);
 }
 
 LIBCOUCHBASE_API
-lcb_STATUS
-lcb_get_bootstrap_status(lcb_INSTANCE *instance)
+lcb_STATUS lcb_get_bootstrap_status(lcb_INSTANCE *instance)
 {
     if (instance->cur_configinfo) {
         switch (LCBT_SETTING(instance, conntype)) {
@@ -312,8 +317,7 @@ lcb_get_bootstrap_status(lcb_INSTANCE *instance)
 }
 
 LIBCOUCHBASE_API
-void
-lcb_refresh_config(lcb_INSTANCE *instance)
+void lcb_refresh_config(lcb_INSTANCE *instance)
 {
     instance->bootstrap(BS_REFRESH_ALWAYS);
 }

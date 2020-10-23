@@ -35,7 +35,7 @@ class FragBufSource : public snappy::Source
             }
         }
         idx = 0;
-        ptr = static_cast< const char * >(buf->iov[idx].iov_base);
+        ptr = static_cast<const char *>(buf->iov[idx].iov_base);
     }
 
     virtual ~FragBufSource() {}
@@ -47,15 +47,14 @@ class FragBufSource : public snappy::Source
 
     virtual const char *Peek(size_t *len)
     {
-        *len =
-            buf->iov[idx].iov_len - static_cast< size_t >((ptr - static_cast< const char * >(buf->iov[idx].iov_base)));
+        *len = buf->iov[idx].iov_len - static_cast<size_t>((ptr - static_cast<const char *>(buf->iov[idx].iov_base)));
         return ptr;
     }
 
     virtual void Skip(size_t n)
     {
         do {
-            size_t spanleft = buf->iov[idx].iov_len - (ptr - static_cast< const char * >(buf->iov[idx].iov_base));
+            size_t spanleft = buf->iov[idx].iov_len - (ptr - static_cast<const char *>(buf->iov[idx].iov_base));
             if (n < spanleft) {
                 ptr += n;
                 left -= n;
@@ -68,7 +67,7 @@ class FragBufSource : public snappy::Source
             }
             left -= spanleft;
             n -= spanleft;
-            ptr = static_cast< const char * >(buf->iov[++idx].iov_base);
+            ptr = static_cast<const char *>(buf->iov[++idx].iov_base);
         } while (n > 0);
         if (left == 0 || idx >= buf->niov) {
             ptr = NULL;
@@ -98,7 +97,7 @@ int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf
                 mcreq_reserve_value(pl, pkt, vbuf);
                 return 0;
             }
-            source = new snappy::ByteArraySource(static_cast< const char * >(vbuf->u_buf.contig.bytes),
+            source = new snappy::ByteArraySource(static_cast<const char *>(vbuf->u_buf.contig.bytes),
                                                  vbuf->u_buf.contig.nbytes);
             break;
 
@@ -123,6 +122,9 @@ int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf
 
     maxsize = snappy::MaxCompressedLength(source->Available());
     if (mcreq_reserve_value2(pl, pkt, maxsize) != LCB_SUCCESS) {
+        if (source != NULL) {
+            delete source;
+        }
         return -1;
     }
     nb_SPAN *outspan = &pkt->u_value.single;
@@ -155,11 +157,11 @@ int mcreq_inflate_value(const void *compressed, lcb_SIZE ncompressed, const void
 {
     size_t compsize = 0;
 
-    if (!snappy::GetUncompressedLength(static_cast< const char * >(compressed), (size_t)ncompressed, &compsize)) {
+    if (!snappy::GetUncompressedLength(static_cast<const char *>(compressed), (size_t)ncompressed, &compsize)) {
         return -1;
     }
     *freeptr = malloc(compsize);
-    if (!snappy::RawUncompress(static_cast< const char * >(compressed), ncompressed, static_cast< char * >(*freeptr))) {
+    if (!snappy::RawUncompress(static_cast<const char *>(compressed), ncompressed, static_cast<char *>(*freeptr))) {
         free(*freeptr);
         *freeptr = NULL;
         return -1;

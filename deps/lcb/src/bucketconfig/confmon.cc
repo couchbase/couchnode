@@ -148,7 +148,7 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
         lcbvb_CHANGETYPE chstatus = lcbvb_get_changetype(diff);
         lcbvb_free_diff(diff);
 
-        if (chstatus == LCBVB_NO_CHANGES || config->compare(*new_config) >= 0) {
+        if (chstatus == LCBVB_NO_CHANGES && config->compare(*new_config) >= 0) {
             const lcbvb_CONFIG *ca, *cb;
 
             ca = config->vbc;
@@ -218,8 +218,8 @@ void Confmon::provider_failed(Provider *provider, lcb_STATUS reason)
         }
     }
 
-    if (settings->conntype == LCB_TYPE_CLUSTER && provider->type == CLCONFIG_HTTP
-                                                  && LCBT_SETTING(instance, allow_static_config)) {
+    if (settings->conntype == LCB_TYPE_CLUSTER && provider->type == CLCONFIG_HTTP &&
+        LCBT_SETTING(instance, allow_static_config)) {
         Provider *cladmin = get_provider(CLCONFIG_CLADMIN);
         if (!cladmin->enabled) {
             cladmin->enable();

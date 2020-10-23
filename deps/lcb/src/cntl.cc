@@ -338,6 +338,11 @@ HANDLER(force_sasl_mech_handler) {
         if (arg) {
             const char *s = reinterpret_cast<const char*>(arg);
             instance->settings->sasl_mech_force = strdup(s);
+            for (char *p = instance->settings->sasl_mech_force; *p != '\0'; p++) {
+                if (*p == ',') {
+                    *p = ' ';
+                }
+            }
         }
     } else {
         *(char**)arg = instance->settings->sasl_mech_force;

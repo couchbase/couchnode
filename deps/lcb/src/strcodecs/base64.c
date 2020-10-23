@@ -177,6 +177,7 @@ void lcb_base64_encode_iov(lcb_IOV *iov, unsigned niov, unsigned nb, char **dst,
         }
 
         if (rest > 0) {
+            memset(triplet, 0, sizeof(triplet));
             for (ii = 0; ii < rest; ii++) {
                 if (iop >= iov[io].iov_len) {
                     io++;
@@ -253,11 +254,19 @@ lcb_SSIZE lcb_base64_decode(const char *src, lcb_SIZE nsrc, char *dst, lcb_SIZE 
         if (src[2] == '=') {
             ins = 1;
         } else {
-            value |= code2val(src[2]) << 6;
+            val = code2val(src[2]);
+            if (val < 0) {
+                return -1;
+            }
+            value |= val << 6;
             if (src[3] == '=') {
                 ins = 2;
             } else {
-                value |= code2val(src[3]);
+                val = code2val(src[3]);
+                if (val < 0) {
+                    return -1;
+                }
+                value |= val;
             }
         }
 

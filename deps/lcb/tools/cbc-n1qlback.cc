@@ -26,7 +26,8 @@
 #include <cstdlib>
 #include <cerrno>
 #include <fstream>
-#include <algorithm> // random_shuffle
+#include <random>
+#include <algorithm>
 #include <stdexcept>
 #include <sstream>
 #ifndef WIN32
@@ -393,7 +394,9 @@ class ThreadContext
 
         // Shuffle the list
         m_queries = initial_queries;
-        std::random_shuffle(m_queries.begin(), m_queries.end());
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(m_queries.begin(), m_queries.end(), g);
     }
 
   private:

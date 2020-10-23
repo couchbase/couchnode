@@ -54,7 +54,7 @@ static void removeKvoCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPR
 
 void KVOperation::handleInstanceError(lcb_INSTANCE *instance, lcb_STATUS err, const char *)
 {
-    KVOperation *kvo = reinterpret_cast< KVOperation * >(const_cast< void * >(lcb_get_cookie(instance)));
+    KVOperation *kvo = reinterpret_cast<KVOperation *>(const_cast<void *>(lcb_get_cookie(instance)));
     kvo->assertOk(err);
     kvo->globalErrors.insert(err);
 }
@@ -171,11 +171,11 @@ void getKey(lcb_INSTANCE *instance, const std::string &key, Item &item)
     item = kvo.result;
 }
 
-void genDistKeys(lcbvb_CONFIG *vbc, std::vector< std::string > &out)
+void genDistKeys(lcbvb_CONFIG *vbc, std::vector<std::string> &out)
 {
     char buf[1024] = {'\0'};
     int servers_max = lcbvb_get_nservers(vbc);
-    std::map< int, bool > found_servers;
+    std::map<int, bool> found_servers;
     EXPECT_TRUE(servers_max > 0);
 
     for (int cur_num = 0; found_servers.size() != servers_max; cur_num++) {
@@ -193,7 +193,7 @@ void genDistKeys(lcbvb_CONFIG *vbc, std::vector< std::string > &out)
     EXPECT_EQ(servers_max, out.size());
 }
 
-void genStoreCommands(const std::vector< std::string > &keys, std::vector< lcb_CMDSTORE * > &cmds)
+void genStoreCommands(const std::vector<std::string> &keys, std::vector<lcb_CMDSTORE *> &cmds)
 {
     for (unsigned int ii = 0; ii < keys.size(); ii++) {
         lcb_CMDSTORE *cmd;
@@ -237,4 +237,70 @@ std::ostream &operator<<(std::ostream &out, const Item &item)
     }
 
     return out;
+}
+
+extern "C" {
+static void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP *resp)
+{
+    const char *body = NULL;
+    size_t nbody = 0;
+    lcb_resphttp_body(resp, &body, &nbody);
+    uint16_t status;
+    lcb_resphttp_http_status(resp, &status);
+    EXPECT_EQ(200, status) << std::string(body, nbody);
+    const char *const *headers;
+    EXPECT_EQ(LCB_SUCCESS, lcb_resphttp_headers(resp, &headers));
+    EXPECT_EQ(LCB_SUCCESS, lcb_resphttp_status(resp));
+}
+}
+
+lcb_STATUS create_scope(lcb_INSTANCE *instance, const std::string &scope)
+{
+    (void)lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
+
+    lcb_CMDHTTP *cmd;
+    lcb_STATUS err;
+    std::string path = "/pools/default/buckets/default/collections";
+    std::string body = "name=" + scope;
+    std::string content_type = "application/x-www-form-urlencoded";
+
+    lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
+    lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_POST);
+    lcb_cmdhttp_content_type(cmd, content_type.c_str(), content_type.size());
+    lcb_cmdhttp_path(cmd, path.c_str(), path.size());
+    lcb_cmdhttp_body(cmd, body.c_str(), body.size());
+
+    err = lcb_http(instance, NULL, cmd);
+    lcb_cmdhttp_destroy(cmd);
+    EXPECT_EQ(LCB_SUCCESS, err);
+    return lcb_wait(instance, LCB_WAIT_DEFAULT);
+}
+
+lcb_STATUS create_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection)
+{
+    (void)lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
+
+    lcb_CMDHTTP *cmd;
+    lcb_STATUS err;
+    std::string path = "/pools/default/buckets/default/collections/" + scope + "/";
+    std::string body = "name=" + collection;
+    std::string content_type = "application/x-www-form-urlencoded";
+
+    lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
+    lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_POST);
+    lcb_cmdhttp_content_type(cmd, content_type.c_str(), content_type.size());
+    lcb_cmdhttp_path(cmd, path.c_str(), path.size());
+    lcb_cmdhttp_body(cmd, body.c_str(), body.size());
+
+    err = lcb_http(instance, NULL, cmd);
+    lcb_cmdhttp_destroy(cmd);
+    EXPECT_EQ(LCB_SUCCESS, err);
+    return lcb_wait(instance, LCB_WAIT_DEFAULT);
+}
+
+std::string unique_name(std::string prefix)
+{
+    std::stringstream ss;
+    ss << prefix << rand();
+    return ss.str();
 }

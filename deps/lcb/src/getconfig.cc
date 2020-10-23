@@ -21,8 +21,8 @@
 
 static void ext_callback_proxy(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS rc, const void *resdata)
 {
-    lcb::Server *server = static_cast< lcb::Server * >(pl);
-    const lcb::MemcachedResponse *res = reinterpret_cast< const lcb::MemcachedResponse * >(resdata);
+    lcb::Server *server = static_cast<lcb::Server *>(pl);
+    const lcb::MemcachedResponse *res = reinterpret_cast<const lcb::MemcachedResponse *>(resdata);
 
     mc_REQDATAEX *rd = req->u_rdata.exdata;
     switch (res->opcode()) {
@@ -33,7 +33,8 @@ static void ext_callback_proxy(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS rc, c
             }
             break;
         case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
-            lcb::clconfig::cccp_update(rd->cookie, rc, res->value(), res->vallen(), &server->get_host());
+            lcb::clconfig::cccp_update(rd->cookie, rc, res->value(), res->vallen(),
+                                       server->has_valid_host() ? &server->get_host() : NULL);
             break;
     }
     free(rd);
@@ -66,11 +67,12 @@ lcb_STATUS lcb_st::request_config(const void *cookie_, lcb::Server *server)
         return err;
     }
 
-    rd = reinterpret_cast< mc_REQDATAEX * >(calloc(1, sizeof(*rd)));
+    rd = reinterpret_cast<mc_REQDATAEX *>(calloc(1, sizeof(*rd)));
     rd->procs = &procs;
     rd->cookie = cookie_;
     rd->start = gethrtime();
-    rd->deadline = rd->start + LCB_US2NS(LCBT_SETTING(reinterpret_cast<lcb_INSTANCE *>(cmdq.cqdata), config_node_timeout));
+    rd->deadline =
+        rd->start + LCB_US2NS(LCBT_SETTING(reinterpret_cast<lcb_INSTANCE *>(cmdq.cqdata), config_node_timeout));
     packet->u_rdata.exdata = rd;
     packet->flags |= MCREQ_F_REQEXT;
 
@@ -101,11 +103,12 @@ lcb_STATUS lcb_st::select_bucket(const void *cookie_, lcb::Server *server)
         return err;
     }
 
-    rd = reinterpret_cast< mc_REQDATAEX * >(calloc(1, sizeof(*rd)));
+    rd = reinterpret_cast<mc_REQDATAEX *>(calloc(1, sizeof(*rd)));
     rd->procs = &procs;
     rd->cookie = cookie_;
     rd->start = gethrtime();
-    rd->deadline = rd->start + LCB_US2NS(LCBT_SETTING(reinterpret_cast<lcb_INSTANCE *>(cmdq.cqdata), config_node_timeout));
+    rd->deadline =
+        rd->start + LCB_US2NS(LCBT_SETTING(reinterpret_cast<lcb_INSTANCE *>(cmdq.cqdata), config_node_timeout));
     packet->u_rdata.exdata = rd;
     packet->flags |= MCREQ_F_REQEXT;
 

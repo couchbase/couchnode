@@ -49,6 +49,8 @@ struct Request {
      */
     inline Request(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDHTTP *cmd);
 
+    ~Request();
+
     /** Creates a new request object and verifies the input (setup_inputs()) */
     static Request *create(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDHTTP *cmd, lcb_STATUS *rc);
 
@@ -238,10 +240,10 @@ struct Request {
 
     std::string pending_redirect; /**< New redirected URL */
 
-    const std::vector< char > body; /**< Input body (for POST/PUT) */
+    const std::vector<char> body; /**< Input body (for POST/PUT) */
 
     /** Request buffer (excluding body). Reassembled from inputs */
-    std::vector< char > preamble;
+    std::vector<char> preamble;
 
     struct http_parser_url url_info;  /**< Parser info for the URL */
     const lcb_HTTP_METHOD method;     /**< Request method constant */
@@ -259,7 +261,7 @@ struct Request {
     bool passed_data;
 
     /** Sparse map indicating which nodes the request was already sent to */
-    std::vector< int > used_nodes;
+    std::vector<int> used_nodes;
 
     /**
      * Last revision ID of vBucket config. If the current revision does not
@@ -298,17 +300,17 @@ struct Request {
          */
         NOLCB = 1 << 2
     };
-    int status;                            /**< OR'd flags of ::State */
-    std::vector< Header > request_headers; /**< List of request headers */
+    int status;                          /**< OR'd flags of ::State */
+    std::vector<Header> request_headers; /**< List of request headers */
 
     /**
      * Response headers for callback (array of char*). Buffers are mapped to
      * ::response_headers
      */
-    std::vector< const char * > response_headers_clist;
+    std::vector<const char *> response_headers_clist;
 
     /** Backing buffers for response headers */
-    std::vector< lcb::htparse::MimeHeader > response_headers;
+    std::vector<lcb::htparse::MimeHeader> response_headers;
 
     /** Callback to invoke */
     lcb_RESPCALLBACK callback;

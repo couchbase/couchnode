@@ -248,7 +248,8 @@ static lcb_STATUS reschedule_destroy(packet_wrapper *wrapper)
 
 bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpkt)
 {
-    lcb_STATUS orig_err = resp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE ? LCB_ERR_SCOPE_NOT_FOUND : LCB_ERR_COLLECTION_NOT_FOUND;
+    lcb_STATUS orig_err = resp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE ? LCB_ERR_SCOPE_NOT_FOUND
+                                                                                  : LCB_ERR_COLLECTION_NOT_FOUND;
     protocol_binary_request_header req;
     memcpy(&req, SPAN_BUFFER(&oldpkt->kh_span), sizeof(req));
 
@@ -520,7 +521,8 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         }
         DO_SWALLOW_PAYLOAD()
         goto GT_DONE;
-    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION || mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE) {
+    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION ||
+               mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE) {
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
         if (!handle_unknown_collection(mcresp, request)) {
@@ -582,8 +584,7 @@ static void on_read(lcbio_CTX *ctx, unsigned)
         return;
     }
 
-    Server::ReadState rv;
-    while ((rv = server->try_read(ctx, ior)) == Server::PKT_READ_COMPLETE)
+    while (server->try_read(ctx, ior) == Server::PKT_READ_COMPLETE)
         ;
     lcbio_ctx_schedule(ctx);
     lcb_maybe_breakout(server->instance);
@@ -753,16 +754,16 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
             info["b"] = settings->bucket;
         }
         info["t"] = (Json::UInt64)LCB_NS2US(MCREQ_PKT_RDATA(pkt)->deadline - MCREQ_PKT_RDATA(pkt)->start);
-
-        const lcb_host_t &remote = get_host();
-        std::string rhost;
-        if (remote.ipv6) {
-            rhost.append("[").append(remote.host).append("]:").append(remote.port);
-        } else {
-            rhost.append(remote.host).append(":").append(remote.port);
+        if (this->has_valid_host()) {
+            const lcb_host_t &remote = get_host();
+            std::string rhost;
+            if (remote.ipv6) {
+                rhost.append("[").append(remote.host).append("]:").append(remote.port);
+            } else {
+                rhost.append(remote.host).append(":").append(remote.port);
+            }
+            info["r"] = rhost.c_str();
         }
-        info["r"] = rhost.c_str();
-
         if (connctx) {
             char local_id[54] = {};
             snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64 "/%x", settings->iid, connctx->sock->id,

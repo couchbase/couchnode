@@ -147,7 +147,7 @@ lcb_STATUS collcache_resolve(lcb_INSTANCE *instance, Command cmd, Operation op, 
     hdr.request.bodylen = htonl(spec.size());
     mcreq_write_hdr(pkt, &hdr);
 
-    MutableCommand clone;
+    MutableCommand clone{};
     dup(cmd, &clone);
     pkt->u_rdata.exdata = make_cid_ctx(spec, op, clone, dtor);
     pkt->u_rdata.exdata->deadline =

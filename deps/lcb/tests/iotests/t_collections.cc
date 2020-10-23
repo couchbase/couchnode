@@ -17,13 +17,16 @@
 #include "config.h"
 #include "iotests.h"
 
+using std::string;
+using std::vector;
+
 class CollectionUnitTest : public MockUnitTest
 {
 };
 
 // --- Utility create/drop scope/collection functions ----
 
-extern "C"{
+extern "C" {
 static void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP *resp)
 {
     const char *body = NULL;
@@ -36,57 +39,6 @@ static void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP
     EXPECT_EQ(LCB_SUCCESS, lcb_resphttp_headers(resp, &headers));
     EXPECT_EQ(LCB_SUCCESS, lcb_resphttp_status(resp));
 }
-}
-
-std::string unique_name(std::string prefix)
-{
-    std::stringstream ss;
-    ss << prefix << rand();
-    return ss.str();
-}
-
-lcb_STATUS create_scope(lcb_INSTANCE *instance, const std::string &scope)
-{
-    (void)lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
-
-    lcb_CMDHTTP *cmd;
-    lcb_STATUS err;
-    std::string path = "/pools/default/buckets/default/collections";
-    std::string body = "name=" + scope;
-    std::string content_type = "application/x-www-form-urlencoded";
-
-    lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
-    lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_POST);
-    lcb_cmdhttp_content_type(cmd, content_type.c_str(), content_type.size());
-    lcb_cmdhttp_path(cmd, path.c_str(), path.size());
-    lcb_cmdhttp_body(cmd, body.c_str(), body.size());
-
-    err = lcb_http(instance, NULL, cmd);
-    lcb_cmdhttp_destroy(cmd);
-    EXPECT_EQ(LCB_SUCCESS, err);
-    return lcb_wait(instance, LCB_WAIT_DEFAULT);
-}
-
-lcb_STATUS create_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection)
-{
-    (void)lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
-
-    lcb_CMDHTTP *cmd;
-    lcb_STATUS err;
-    std::string path = "/pools/default/buckets/default/collections/" + scope + "/";
-    std::string body = "name=" + collection;
-    std::string content_type = "application/x-www-form-urlencoded";
-
-    lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
-    lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_POST);
-    lcb_cmdhttp_content_type(cmd, content_type.c_str(), content_type.size());
-    lcb_cmdhttp_path(cmd, path.c_str(), path.size());
-    lcb_cmdhttp_body(cmd, body.c_str(), body.size());
-
-    err = lcb_http(instance, NULL, cmd);
-    lcb_cmdhttp_destroy(cmd);
-    EXPECT_EQ(LCB_SUCCESS, err);
-    return lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
 lcb_STATUS drop_scope(lcb_INSTANCE *instance, const std::string &scope)
@@ -201,12 +153,11 @@ TEST_F(CollectionUnitTest, testScopeMiss)
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSetScopeMissCallback);
     (void)lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetScopeMissCallback);
 
-
     std::string key1("testScopeMiss1"), key2("testScopeMiss2");
     std::string val1("val1"), val2("val2");
     std::string scope("scopeScopeMiss"), collection("collectionScopeMiss");
 
-    //Dont create scope/collection
+    // Dont create scope/collection
 
     int numcallbacks = 0;
     lcb_CMDSTORE *cmd;
@@ -224,7 +175,6 @@ TEST_F(CollectionUnitTest, testScopeMiss)
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 
-
     lcb_CMDGET *cmdget;
 
     lcb_cmdget_create(&cmdget);
@@ -239,9 +189,6 @@ TEST_F(CollectionUnitTest, testScopeMiss)
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(4, numcallbacks);
 }
-
-
-
 
 extern "C" {
 static void testSetCollectionMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
@@ -278,7 +225,6 @@ static void testGetCollectionMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, con
 }
 }
 
-
 /**
  * @test
  * Set/Get to non-existing collection
@@ -302,12 +248,11 @@ TEST_F(CollectionUnitTest, testCollectionMiss)
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSetCollectionMissCallback);
     (void)lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetCollectionMissCallback);
 
-
     std::string key1("testCollectionMiss1"), key2("testCollectionMiss2");
     std::string val1("val1"), val2("val2");
     std::string scope(unique_name("sCollectionMiss")), collection(unique_name("cCollectionMiss"));
 
-    //Create scope, no collection
+    // Create scope, no collection
     EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
 
     int numcallbacks = 0;
@@ -328,7 +273,6 @@ TEST_F(CollectionUnitTest, testCollectionMiss)
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 
-
     lcb_CMDGET *cmdget;
 
     lcb_cmdget_create(&cmdget);
@@ -345,8 +289,6 @@ TEST_F(CollectionUnitTest, testCollectionMiss)
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(4, numcallbacks);
 }
-
-
 
 extern "C" {
 static void testSetHitCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
@@ -380,7 +322,6 @@ static void testGetHitCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESP
     ++(*counter);
 }
 }
-
 
 /**
  * @test
@@ -441,7 +382,6 @@ TEST_F(CollectionUnitTest, testCollectionSet)
     EXPECT_EQ(4, numcallbacks);
 }
 
-
 /**
  * @test
  * Set/get doc to collection that has been dropped
@@ -464,12 +404,11 @@ TEST_F(CollectionUnitTest, testDroppedCollection)
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSetCollectionMissCallback);
     (void)lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetCollectionMissCallback);
 
-
     std::string key1("testCollectionMiss1"), key2("testCollectionMiss2");
     std::string val1("val1"), val2("val2");
     std::string scope(unique_name("sCollectionDropMiss")), collection(unique_name("cCollectionDropMiss"));
 
-    //Create scope + collection, then drop collection
+    // Create scope + collection, then drop collection
     EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
     EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
 
@@ -491,7 +430,6 @@ TEST_F(CollectionUnitTest, testDroppedCollection)
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
-
 
     lcb_CMDGET *cmdget;
 
@@ -533,12 +471,11 @@ TEST_F(CollectionUnitTest, testFlushCollection)
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSetHitCallback);
     (void)lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetHitCallback);
 
-
     std::string key1("testStoreKey1"), key2("testStoreKey2");
     std::string val1("val1"), val2("val2");
     std::string scope(unique_name("sCollectionFlush")), collection(unique_name("cCollectionFlush"));
 
-    //Create scope + collection, then drop collection
+    // Create scope + collection, then drop collection
     EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
     EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
 
@@ -571,7 +508,6 @@ TEST_F(CollectionUnitTest, testFlushCollection)
     EXPECT_EQ(2, numcallbacks);
 
     lcb_cmdstore_destroy(cmd);
-
 
     lcb_CMDGET *cmdget;
 
@@ -610,12 +546,11 @@ TEST_F(CollectionUnitTest, testDroppedScope)
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSetScopeMissCallback);
     (void)lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetScopeMissCallback);
 
-
     std::string key1("testScopeMiss1"), key2("testScopeMiss2");
     std::string val1("val1"), val2("val2");
     std::string scope(unique_name("sScopeDropMiss")), collection(unique_name("cScopeDropMiss"));
 
-    //Create scope + collection, then drop scope
+    // Create scope + collection, then drop scope
     EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
     EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
 
@@ -637,7 +572,6 @@ TEST_F(CollectionUnitTest, testDroppedScope)
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
-
 
     lcb_CMDGET *cmdget;
 
@@ -683,10 +617,8 @@ TEST_F(CollectionUnitTest, testMaxCollectionsPerScope)
         std::stringstream ss;
         ss << i;
         rc = create_collection(instance, scope, ss.str());
-            if (rc != LCB_SUCCESS) {
-                fprintf(stderr, "Failed creating collection %d . Got error: %s\n", i, lcb_strerror_short(rc));
-            }
+        if (rc != LCB_SUCCESS) {
+            fprintf(stderr, "Failed creating collection %d . Got error: %s\n", i, lcb_strerror_short(rc));
+        }
     }
 }
-
-

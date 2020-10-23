@@ -598,7 +598,6 @@ lcb_RESPCALLBACK lcb_get_callback(lcb_INSTANCE *instance, int cbtype);
 LIBCOUCHBASE_API
 const char *lcb_strcbtype(int cbtype);
 
-
 /**
  * @ingroup lcb-kv-api
  * @defgroup lcb-get Read
@@ -1015,7 +1014,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket,
  * @{
  */
 
-
 /**@committed
  * @brief Spool a removal of an item
  * @param instance the handle
@@ -1358,6 +1356,8 @@ typedef struct lcb_RESPPING_ lcb_RESPPING;
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_status(const lcb_RESPPING *resp);
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_cookie(const lcb_RESPPING *resp, void **cookie);
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_value(const lcb_RESPPING *resp, const char **json, size_t *json_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_report_id(const lcb_RESPPING *resp, const char **report_id,
+                                                   size_t *report_id_len);
 LIBCOUCHBASE_API size_t lcb_respping_result_size(const lcb_RESPPING *resp);
 LIBCOUCHBASE_API lcb_PING_STATUS lcb_respping_result_status(const lcb_RESPPING *resp, size_t index);
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_id(const lcb_RESPPING *resp, size_t index, const char **endpoint_id,
@@ -1368,8 +1368,13 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_remote(const lcb_RESPPING *resp,
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_local(const lcb_RESPPING *resp, size_t index, const char **address,
                                                       size_t *address_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_latency(const lcb_RESPPING *resp, size_t index, uint64_t *latency);
-LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_scope(const lcb_RESPPING *resp, size_t index, const char **name,
-                                                      size_t *name_len);
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_namespace(const lcb_RESPPING *resp, size_t index, const char **name,
+                                                          size_t *name_len);
+
+LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_scope(const lcb_RESPPING *resp, size_t index,
+                                                                      const char **name, size_t *name_len),
+                "Use lcb_respping_result_namespace");
 
 typedef struct lcb_CMDPING_ lcb_CMDPING;
 
@@ -1385,6 +1390,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_search(lcb_CMDPING *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_analytics(lcb_CMDPING *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_no_metrics(lcb_CMDPING *cmd, int enable);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_encode_json(lcb_CMDPING *cmd, int enable, int pretty, int with_details);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_timeout(lcb_CMDPING *cmd, uint32_t timeout);
 LIBCOUCHBASE_API lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd);
 
 typedef struct lcb_RESPDIAG_ lcb_RESPDIAG;
@@ -2337,7 +2343,6 @@ int lcb_supports_feature(int n);
 LIBCOUCHBASE_API
 int lcb_is_redacting_logs(lcb_INSTANCE *instance);
 
-
 /** @} */
 
 /**
@@ -2811,8 +2816,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_encoded_payload(lcb_CMDQUERY *cmd, cons
  * }
  * @endcode
  *
-  *
-  */
+ *
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_parent_span(lcb_CMDQUERY *cmd, lcbtrace_SPAN *span);
 /**@}*/
 
@@ -2854,7 +2859,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_name(lcb_CMDQUERY *cmd, const cha
  * @param qualifier the string containing qualifier
  * @param qualifier_len length of the qualifier
  */
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_qualifier(lcb_CMDQUERY *cmd, const char *qualifier, size_t qualifier_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_qualifier(lcb_CMDQUERY *cmd, const char *qualifier,
+                                                         size_t qualifier_len);
 /**
  * Sets a named argument for the query
  * @param cmd the command
@@ -2910,6 +2916,15 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_metrics(lcb_CMDQUERY *cmd, int metrics)
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scan_cap(lcb_CMDQUERY *cmd, int value);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scan_wait(lcb_CMDQUERY *cmd, uint32_t us);
+/**
+ * @uncommitted
+ *
+ * Tells the query engine to use a flex index (utilizing the search service).
+ *
+ * @param cmd the command
+ * @param value non-zero if a flex index should be used, zero is the default
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_flex_index(lcb_CMDQUERY *cmd, int value);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_profile(lcb_CMDQUERY *cmd, lcb_QUERY_PROFILE mode);
 /**
  * Sets maximum number of items each execution operator can buffer
@@ -3091,6 +3106,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_result_status(const lcb_RESPSUBDOC *r
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_result_value(const lcb_RESPSUBDOC *resp, size_t index, const char **value,
                                                         size_t *value_len);
 
+/**
+ * @private
+ * @return non-zero if if the fetched document is a tombstone.
+ */
+LIBCOUCHBASE_API int lcb_respsubdoc_is_deleted(const lcb_RESPSUBDOC *resp);
+
 typedef struct lcb_SUBDOCSPECS_ lcb_SUBDOCSPECS;
 
 /** Create intermediate paths */
@@ -3158,6 +3179,12 @@ typedef enum {
 } lcb_SUBDOC_STORE_SEMANTICS;
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_store_semantics(lcb_CMDSUBDOC *cmd, lcb_SUBDOC_STORE_SEMANTICS mode);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_access_deleted(lcb_CMDSUBDOC *cmd, int flag);
+
+/**
+ * If new document created, the server will create it as a tombstone.
+ * Any system or user XATTRs will be stored, but a document body will not be.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create_as_deleted(lcb_CMDSUBDOC *cmd, int flag);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_timeout(lcb_CMDSUBDOC *cmd, uint32_t timeout);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC *cmd);

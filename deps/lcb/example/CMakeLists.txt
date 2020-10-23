@@ -34,9 +34,11 @@ ADD_EXECUTABLE(tracing-views tracing/views.c tracing/cJSON.c)
 TARGET_LINK_LIBRARIES(tracing-views couchbase)
 
 ADD_EXECUTABLE(subdoc-simple subdoc/subdoc-simple.cc)
+ADD_EXECUTABLE(subdoc-tombstone subdoc/subdoc-tombstone.cc)
 ADD_EXECUTABLE(subdoc-multi subdoc/subdoc-multi.cc)
 ADD_EXECUTABLE(subdoc-xattrs subdoc/subdoc-xattrs.c)
 TARGET_LINK_LIBRARIES(subdoc-simple couchbase)
+TARGET_LINK_LIBRARIES(subdoc-tombstone couchbase)
 TARGET_LINK_LIBRARIES(subdoc-multi couchbase)
 TARGET_LINK_LIBRARIES(subdoc-xattrs couchbase)
 

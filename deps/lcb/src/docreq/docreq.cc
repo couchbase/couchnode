@@ -46,9 +46,10 @@ Queue::~Queue()
 
 void Queue::unref()
 {
-    if (!--refcount) {
-        delete this;
+    if (--refcount) {
+        return;
     }
+    delete this;
 }
 
 void Queue::cancel()
@@ -85,7 +86,7 @@ void Queue::add(DocRequest *req)
 
 static void docreq_handler(void *arg)
 {
-    Queue *q = reinterpret_cast< Queue * >(arg);
+    Queue *q = reinterpret_cast<Queue *>(arg);
     sllist_iterator iter;
     lcb_INSTANCE *instance = q->instance;
 
@@ -157,10 +158,12 @@ static void invoke_pending(Queue *q)
 
         q->cb_ready(q, dreq);
         if (bufh) {
-            lcb_backbuf_unref(reinterpret_cast< lcb_BACKBUF >(bufh));
+            lcb_backbuf_unref(reinterpret_cast<lcb_BACKBUF>(bufh));
         }
+        lcb_assert(q->refcount > 2);
         q->unref();
     }
+    lcb_assert(q->refcount > 1);
     q->unref();
 }
 
@@ -168,5 +171,6 @@ void Queue::check()
 {
     /* Ensure the invoke_pending doesn't destroy us */
     invoke_pending(this);
+    lcb_assert(refcount > 0);
     docq_poke(this);
 }

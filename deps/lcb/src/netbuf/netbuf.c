@@ -244,6 +244,7 @@ static void ooo_queue_dealoc(nb_MGR *mgr, nb_MBLOCK *block, nb_SPAN *span)
     nb_QDEALLOC *qd;
     nb_DEALLOC_QUEUE *queue;
     nb_SPAN qespan;
+    int rv;
 
     if (!block->deallocs) {
         queue = calloc(1, sizeof(*queue));
@@ -261,7 +262,8 @@ static void ooo_queue_dealoc(nb_MGR *mgr, nb_MBLOCK *block, nb_SPAN *span)
     }
 
     qespan.size = sizeof(*qd);
-    mblock_reserve_data(&queue->qpool, &qespan);
+    rv = mblock_reserve_data(&queue->qpool, &qespan);
+    lcb_assert(rv == 0);
 
     qd = (nb_QDEALLOC *)(void *)SPAN_MBUFFER_NC(&qespan);
     qd->offset = span->offset;
@@ -514,9 +516,11 @@ unsigned int netbuf_get_niov(nb_MGR *mgr)
 static nb_SNDQELEM *get_sendqe(nb_SENDQ *sq, const nb_IOV *bufinfo)
 {
     nb_SNDQELEM *sndqe;
-    nb_SPAN span;
+    nb_SPAN span = {NULL, 0, 0};
+    int rv;
     span.size = sizeof(*sndqe);
-    mblock_reserve_data(&sq->elempool, &span);
+    rv = mblock_reserve_data(&sq->elempool, &span);
+    lcb_assert(rv == 0);
     sndqe = (nb_SNDQELEM *)(void *)SPAN_MBUFFER_NC(&span);
 
     sndqe->base = bufinfo->iov_base;

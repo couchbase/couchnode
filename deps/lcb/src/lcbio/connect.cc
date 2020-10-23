@@ -87,7 +87,7 @@ struct Connstart : ConnectionRequest {
     addrinfo *ai;
     State state;
     lcb_STATUS last_error;
-    Timer< Connstart, &Connstart::handler > timer;
+    Timer<Connstart, &Connstart::handler> timer;
 };
 } // namespace io
 } // namespace lcb
@@ -261,7 +261,7 @@ bool Connstart::ensure_sock()
         while (sock->u.sd == NULL && ai != NULL) {
             sock->u.sd = lcbio_C_ai2sock(io, &ai, &errtmp);
             if (sock->u.sd) {
-                sock->u.sd->lcbconn = const_cast< lcbio_SOCKET * >(sock);
+                sock->u.sd->lcbconn = const_cast<lcbio_SOCKET *>(sock);
                 sock->u.sd->parent = IOT_ARG(io);
                 return true;
             }
@@ -300,7 +300,7 @@ void Connstart::clear_sock()
 
 static void E_conncb(lcb_socket_t, short events, void *arg)
 {
-    Connstart *cs = reinterpret_cast< Connstart * >(arg);
+    Connstart *cs = reinterpret_cast<Connstart *>(arg);
     lcbio_SOCKET *s = cs->sock;
     lcbio_TABLE *io = s->io;
     int retry_once = 0;
@@ -377,8 +377,8 @@ static void C_conncb(lcb_sockdata_t *sock, int status)
     if (sock->lcbconn == NULL) {
         return;
     }
-    lcbio_SOCKET *s = reinterpret_cast< lcbio_SOCKET * >(sock->lcbconn);
-    Connstart *cs = reinterpret_cast< Connstart * >(s->ctx);
+    lcbio_SOCKET *s = reinterpret_cast<lcbio_SOCKET *>(sock->lcbconn);
+    Connstart *cs = reinterpret_cast<Connstart *>(s->ctx);
 
     lcb_log(LOGARGS(s, TRACE), CSLOGFMT "Received completion handler. Status=%d. errno=%d [%s]", CSLOGID(s), status,
             IOT_ERRNO(s->io), strerror(IOT_ERRNO(s->io)));
@@ -464,7 +464,7 @@ Connstart::Connstart(lcbio_TABLE *iot_, lcb_settings *settings_, const lcb_host_
     addrinfo hints;
     int rv;
 
-    sock = reinterpret_cast< lcbio_SOCKET * >(calloc(1, sizeof(*sock)));
+    sock = reinterpret_cast<lcbio_SOCKET *>(calloc(1, sizeof(*sock)));
 
     /** Initialize the socket first */
     sock->io = iot_;
@@ -472,7 +472,7 @@ Connstart::Connstart(lcbio_TABLE *iot_, lcb_settings *settings_, const lcb_host_
     sock->ctx = this;
     sock->refcount = 1;
     sock->id = lcb_next_rand64();
-    sock->info = reinterpret_cast< lcbio_CONNINFO * >(calloc(1, sizeof(*sock->info)));
+    sock->info = reinterpret_cast<lcbio_CONNINFO *>(calloc(1, sizeof(*sock->info)));
     sock->info->ep_remote = *dest;
     lcbio_table_ref(sock->io);
     lcb_settings_ref(sock->settings);
@@ -528,32 +528,6 @@ ConnectionRequest *lcbio_connect_hl(lcbio_TABLE *iot, lcb_settings *settings, lc
     }
 
     return NULL;
-}
-
-lcbio_SOCKET *lcbio_wrap_fd(lcbio_pTABLE iot, lcb_settings *settings, lcb_socket_t fd)
-{
-    lcbio_SOCKET *ret = reinterpret_cast< lcbio_SOCKET * >(calloc(1, sizeof(*ret)));
-    lcbio_CONNDONE_cb *ci = reinterpret_cast< lcbio_CONNDONE_cb * >(calloc(1, sizeof(*ci)));
-
-    if (ret == NULL || ci == NULL) {
-        free(ret);
-        free(ci);
-        return NULL;
-    }
-
-    lcb_assert(iot->model == LCB_IOMODEL_EVENT);
-
-    lcb_list_init(&ret->protos);
-    ret->settings = settings;
-    ret->io = iot;
-    ret->refcount = 1;
-    ret->u.fd = fd;
-    ret->id = lcb_next_rand64();
-
-    lcbio_table_ref(ret->io);
-    lcb_settings_ref(ret->settings);
-    lcbio__load_socknames(ret);
-    return ret;
 }
 
 void lcbio_shutdown(lcbio_SOCKET *s)

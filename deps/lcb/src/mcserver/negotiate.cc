@@ -60,7 +60,7 @@ class lcb::SessionRequestImpl : public SessionRequest
   public:
     static SessionRequestImpl *get(void *arg)
     {
-        return reinterpret_cast< SessionRequestImpl * >(arg);
+        return reinterpret_cast<SessionRequestImpl *>(arg);
     }
 
     bool setup(const lcbio_NAMEINFO &nistrs, const lcb_host_t &host, const lcb::Authenticator &auth);
@@ -265,21 +265,41 @@ SessionRequestImpl::MechStatus SessionRequestImpl::set_chosen_mech(std::string &
         return MECH_NOT_NEEDED;
     }
 
+    bool tls = settings->ssl_ctx != nullptr;
+    bool user_specified = false;
     if (settings->sasl_mech_force) {
-        char *forcemech = settings->sasl_mech_force;
-        if (mechlist.find(forcemech) == std::string::npos) {
+        bool supported_mech_found = false;
+        std::string forced_list(settings->sasl_mech_force);
+        std::size_t sep = forced_list.find(' ');
+        std::string forcemech = forced_list.substr(0, sep);
+        do {
+            if (!forcemech.empty() && mechlist.find(forcemech) != std::string::npos) {
+                supported_mech_found = true;
+                break;
+            }
+            if (sep == std::string::npos || sep + 1 == forced_list.size()) {
+                break;
+            }
+            std::size_t prev_sep = sep + 1;
+            sep = forced_list.find(prev_sep, ' ');
+            forcemech = forced_list.substr(prev_sep, sep);
+        } while (true);
+        if (!supported_mech_found) {
             /** Requested mechanism not found */
             set_error(LCB_ERR_SASLMECH_UNAVAILABLE, mechlist.c_str());
             return MECH_UNAVAILABLE;
         }
-        mechlist.assign(forcemech);
+        mechlist.assign(forced_list);
+        user_specified = true;
     }
 
     const char *chosenmech;
     saslerr = cbsasl_client_start(sasl_client, mechlist.c_str(), NULL, data, ndata, &chosenmech);
     switch (saslerr) {
         case SASL_OK:
-            if (!settings->ssl_ctx && strncmp(chosenmech, MECH_PLAIN, sizeof(MECH_PLAIN)) == 0) {
+            /* do not allow to downgrade SASL mechanism to PLAIN on non-TLS connections,
+             * unless user explicitly asks for it */
+            if (!tls && !user_specified && strncmp(chosenmech, MECH_PLAIN, sizeof(MECH_PLAIN)) == 0) {
 #ifdef LCB_NO_SSL
                 lcb_log(LOGARGS(this, ERROR),
                         LOGFMT
@@ -415,6 +435,7 @@ bool SessionRequestImpl::send_hello()
     if (settings->enable_unordered_execution) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_UNORDERED_EXECUTION;
     }
+    features[nfeatures++] = PROTOCOL_BINARY_FEATURE_CREATE_AS_DELETED;
 
     std::string agent = generate_agent_json();
     lcb::MemcachedRequest hdr(PROTOCOL_BINARY_CMD_HELLO);
@@ -471,7 +492,7 @@ bool SessionRequestImpl::request_errmap()
     lcb::MemcachedRequest hdr(PROTOCOL_BINARY_CMD_GET_ERROR_MAP);
     uint16_t version = htons(1);
     hdr.sizes(0, 0, 2);
-    const char *p = reinterpret_cast< const char * >(&version);
+    const char *p = reinterpret_cast<const char *>(&version);
 
     lcbio_ctx_put(ctx, hdr.data(), hdr.size());
     lcbio_ctx_put(ctx, p, 2);
@@ -737,7 +758,7 @@ SessionRequest *SessionRequest::start(lcbio_SOCKET *sock, lcb_settings_st *setti
 
 SessionInfo *SessionInfo::get(lcbio_SOCKET *sock)
 {
-    return static_cast< SessionInfo * >(lcbio_protoctx_get(sock, LCBIO_PROTOCTX_SESSINFO));
+    return static_cast<SessionInfo *>(lcbio_protoctx_get(sock, LCBIO_PROTOCTX_SESSINFO));
 }
 
 bool SessionInfo::selected_bucket() const

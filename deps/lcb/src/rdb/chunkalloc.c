@@ -85,6 +85,8 @@ static rdb_ROPESEG *chunked_alloc(my_CHUNKALLOC *alloc)
     rdb_ROPESEG *chunk = NULL;
     lcb_list_t *llcur, *llnext;
 
+#ifndef __clang_analyzer__
+    // FIXME: analyzer from clang version 7.0.1 complains here, while current -- does not
     LCB_LIST_SAFE_FOR(llcur, llnext, (lcb_list_t *)&alloc->chunks)
     {
         rdb_ROPESEG *cur = LCB_LIST_ITEM(llcur, rdb_ROPESEG, llnode);
@@ -97,6 +99,7 @@ static rdb_ROPESEG *chunked_alloc(my_CHUNKALLOC *alloc)
             break;
         }
     }
+#endif
 
     if (chunk) {
         alloc->refcount++;

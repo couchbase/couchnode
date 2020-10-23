@@ -137,6 +137,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_name(lcb_CMDQUERY *cmd, const cha
         return LCB_ERR_INVALID_ARGUMENT;
     }
     cmd->scope_name.assign(scope, scope_len);
+    return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_qualifier(lcb_CMDQUERY *cmd, const char *qualifier, size_t qualifier_len)
@@ -145,6 +146,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_qualifier(lcb_CMDQUERY *cmd, cons
         return LCB_ERR_INVALID_ARGUMENT;
     }
     cmd->scope_qualifier.assign(qualifier, qualifier_len);
+    return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_reset(lcb_CMDQUERY *cmd)
@@ -275,6 +277,16 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_cap(lcb_CMDQUERY *cmd, int val
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_pipeline_batch(lcb_CMDQUERY *cmd, int value)
 {
     cmd->root["pipeline_batch"] = Json::valueToString(value);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_flex_index(lcb_CMDQUERY *cmd, int value)
+{
+    if (value) {
+        cmd->root["use_fts"] = true;
+    } else {
+        cmd->root.removeMember("use_fts");
+    }
     return LCB_SUCCESS;
 }
 
