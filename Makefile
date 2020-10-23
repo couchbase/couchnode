@@ -34,7 +34,7 @@ cover: node_modules
 fastcover: node_modules
 	node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/_mocha -ig "(slow)" test/*.test.js
 
-check: checkdeps checkaudit test lint cover
+check: checkdeps checkaudit docs types lint test cover
 
 docs: node_modules
 	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
