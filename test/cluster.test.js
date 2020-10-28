@@ -22,6 +22,10 @@ describe('#Cluster', function () {
     var coll = bucket.defaultCollection();
 
     await H.throwsHelper(async () => {
+      await coll.query('SELECT * FROM default');
+    }, Error);
+
+    await H.throwsHelper(async () => {
       await coll.insert(H.genTestKey(), 'bar');
     }, Error);
 
