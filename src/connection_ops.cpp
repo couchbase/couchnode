@@ -740,12 +740,35 @@ NAN_METHOD(Connection::fnPing)
 
     enc.beginTrace("ping");
 
-    lcb_cmdping_all(enc.cmd());
+    lcb_cmdping_encode_json(enc.cmd(), 1, 0, 1);
 
     if (!enc.parseOption<&lcb_cmdping_report_id>(info[0])) {
         return Nan::ThrowError(Error::create("bad report id passed"));
     }
-    if (!enc.parseCallback(info[1])) {
+    uint32_t flags = ValueParser::asUint(info[1]);
+    if (flags == 0) {
+        lcb_cmdping_all(enc.cmd());
+    } else {
+        if (flags & LCBX_SERVICETYPE_KEYVALUE) {
+            lcb_cmdping_kv(enc.cmd(), 1);
+        }
+        if (flags & LCBX_SERVICETYPE_VIEWS) {
+            lcb_cmdping_views(enc.cmd(), 1);
+        }
+        if (flags & LCBX_SERVICETYPE_QUERY) {
+            lcb_cmdping_query(enc.cmd(), 1);
+        }
+        if (flags & LCBX_SERVICETYPE_SEARCH) {
+            lcb_cmdping_search(enc.cmd(), 1);
+        }
+        if (flags & LCBX_SERVICETYPE_ANALYTICS) {
+            lcb_cmdping_analytics(enc.cmd(), 1);
+        }
+    }
+    if (!enc.parseOption<&lcb_cmdping_timeout>(info[2])) {
+        return Nan::ThrowError(Error::create("bad timeout passed"));
+    }
+    if (!enc.parseCallback(info[3])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 

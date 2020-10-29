@@ -38,6 +38,15 @@ enum lcbx_ANALYTICSFLAG {
     LCBX_ANALYTICSFLAG_PRIORITY = 1 << 1,
 };
 
+enum lcbx_SERVICETYPE {
+    LCBX_SERVICETYPE_KEYVALUE = 1 << 1,
+    LCBX_SERVICETYPE_MANAGEMENT = 1 << 2,
+    LCBX_SERVICETYPE_VIEWS = 1 << 3,
+    LCBX_SERVICETYPE_QUERY = 1 << 4,
+    LCBX_SERVICETYPE_SEARCH = 1 << 5,
+    LCBX_SERVICETYPE_ANALYTICS = 1 << 6,
+};
+
 lcb_STATUS lcbx_cmd_create(lcb_CMDGET **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDEXISTS **cmd);
 lcb_STATUS lcbx_cmd_create(lcb_CMDGETREPLICA **cmd, lcb_REPLICA_MODE mode);

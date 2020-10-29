@@ -39,5 +39,27 @@ describe('#diagnostics', () => {
       assert.isString(res.sdk);
       assert.isArray(res.services);
     });
+
+    it('should ping a cluster successfully', async () => {
+      var res = await H.c.ping({
+        serviceTypes: [H.lib.ServiceType.KeyValue],
+      });
+      assert.isObject(res);
+      assert.isString(res.id);
+      assert.equal(res.version, 1);
+      assert.isString(res.sdk);
+      assert.isObject(res.services);
+    });
+
+    it('should ping a bucket successfully', async () => {
+      var res = await H.b.ping({
+        serviceTypes: [H.lib.ServiceType.KeyValue],
+      });
+      assert.isObject(res);
+      assert.isString(res.id);
+      assert.equal(res.version, 1);
+      assert.isString(res.sdk);
+      assert.isObject(res.services);
+    });
   });
 });
