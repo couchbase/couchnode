@@ -70,6 +70,30 @@ describe('#query', () => {
       }
     }).timeout(10000);
 
+    H.requireFeature(H.Features.Collections, () => {
+      it('should see test data correctly at scope level', async () => {
+        /* eslint-disable-next-line no-constant-condition */
+        while (true) {
+          var res = null;
+          try {
+            var qs = `SELECT * FROM _default WHERE testUid='${testUid}'`;
+            res = await H.s.query(qs);
+          } catch (e) {} // eslint-disable-line no-empty
+
+          if (!res || res.rows.length !== testdata.docCount()) {
+            await H.sleep(100);
+            continue;
+          }
+
+          assert.isArray(res.rows);
+          assert.lengthOf(res.rows, testdata.docCount());
+          assert.isObject(res.meta);
+
+          break;
+        }
+      }).timeout(10000);
+    });
+
     it('should work with parameters correctly', async () => {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
