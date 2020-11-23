@@ -256,6 +256,7 @@ declare type BucketSettings = {
     ejectionMethod: EvictionPolicy;
     maxTTL: number;
     compressionMode: CompressionMode;
+    minimumDurabilityLevel: DurabilityLevel;
 };
 
 /**
