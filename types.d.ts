@@ -407,6 +407,7 @@ declare class Cluster {
         fields?: string[];
         facets?: SearchFacet[];
         sort?: SearchSort;
+        disableScoring?: boolean;
         consistency?: SearchScanConsistency;
         consistentWith?: MutationState;
         timeout?: number;
