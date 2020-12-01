@@ -19,6 +19,7 @@
     "../../node_modules/jsdoc-stability-tag"
   ],
   "templates": {
+    "search": true,
     "systemName": "Couchbase Node.js SDK",
     "copyright": "Copyright 2010-2013 Couchbase, Inc.",
     "theme": "lumen"
