@@ -147,6 +147,14 @@ declare type MutationToken = any;
  */
 declare class Bucket {
     /**
+     * <p>Ping returns information from pinging the connections for this bucket.</p>
+     */
+    ping(options?: {
+        reportId?: string;
+        serviceTypes?: ServiceType[];
+        timeout?: number;
+    }, callback?: PingCallback): Promise<PingResult>;
+    /**
      * @param designDoc - <p>The design document containing the view to query</p>
      * @param viewName - <p>The name of the view to query</p>
      */
@@ -307,6 +315,14 @@ declare class Cluster {
         reportId?: string;
     }, callback?: DiagnosticsCallback): Promise<DiagnosticsResult>;
     /**
+     * <p>Ping returns information from pinging the connections for this cluster.</p>
+     */
+    ping(options?: {
+        reportId?: string;
+        serviceTypes?: ServiceType[];
+        timeout?: number;
+    }, callback?: PingCallback): Promise<PingResult>;
+    /**
      * @param query - <p>The query string to execute.</p>
      * @param [options.parameters] - <p>parameters specifies a list of values to substitute within the query
      * statement during execution.</p>
@@ -426,6 +442,8 @@ declare class Cluster {
     searchIndexes(): SearchIndexManager;
 }
 
+declare type ConnectCallback = (err: Error, cluster: Cluster) => void;
+
 /**
  * <p>Contains the results from a previously executed Diagnostics operation.</p>
  */
@@ -437,6 +455,18 @@ declare type DiagnosticsResult = {
 };
 
 declare type DiagnosticsCallback = (err: Error, res: DiagnosticsResult) => void;
+
+/**
+ * <p>Contains the results from a previously executed Diagnostics operation.</p>
+ */
+declare type PingResult = {
+    id: string;
+    version: number;
+    sdk: string;
+    services: any;
+};
+
+declare type PingCallback = (err: Error, res: PingResult) => void;
 
 declare type QueryResult = {
     rows: object[];
@@ -688,30 +718,29 @@ declare type LoggingEntry = {
 
 declare type LoggingCallback = (entry: LoggingEntry) => void;
 
-declare type ConnectCallback = (err: Error, cluster: Cluster) => void;
-
-/**
- * <p>Creates a new Cluster object for interacting with a Couchbase
- * cluster and performing operations.</p>
- * @param connStr - <p>The connection string of your cluster</p>
- * @param [options.username] - <p>The RBAC username to use when connecting to the cluster.</p>
- * @param [options.password] - <p>The RBAC password to use when connecting to the cluster</p>
- * @param [options.clientCertificate] - <p>A client certificate to use for authentication with the server.  Specifying
- * this certificate along with any other authentication method (such as username
- * and password) is an error.</p>
- * @param [options.certificateChain] - <p>A certificate chain to use for validating the clusters certificates.</p>
- */
-declare function connect(connStr: string, options?: {
-    username?: number;
-    password?: string;
-    clientCertificate?: string;
-    certificateChain?: string;
-}, callback?: ConnectCallback): Promise<Cluster>;
-
-/**
- * <p>Expose the LCB version that is in use.</p>
- */
-declare var lcbVersion: string;
+declare module "couchbase" {
+    /**
+     * <p>Creates a new Cluster object for interacting with a Couchbase
+     * cluster and performing operations.</p>
+     * @param connStr - <p>The connection string of your cluster</p>
+     * @param [options.username] - <p>The RBAC username to use when connecting to the cluster.</p>
+     * @param [options.password] - <p>The RBAC password to use when connecting to the cluster</p>
+     * @param [options.clientCertificate] - <p>A client certificate to use for authentication with the server.  Specifying
+     * this certificate along with any other authentication method (such as username
+     * and password) is an error.</p>
+     * @param [options.certificateChain] - <p>A certificate chain to use for validating the clusters certificates.</p>
+     */
+    function connect(connStr: string, options?: {
+        username?: string;
+        password?: string;
+        clientCertificate?: string;
+        certificateChain?: string;
+    }, callback?: ConnectCallback): Promise<Cluster>;
+    /**
+     * <p>Expose the LCB version that is in use.</p>
+     */
+    var lcbVersion: string;
+}
 
 /**
  * <p>CouchbaseList provides a simplified interface
@@ -916,6 +945,15 @@ declare const enum MutateInMacro {
     Cas = "{}",
     SeqNo = "{}",
     ValueCrc32c = "{}"
+}
+
+declare const enum ServiceType {
+    KeyValue = "kv",
+    Management = "mgmt",
+    Views = "views",
+    Query = "query",
+    Search = "search",
+    Analytics = "analytics"
 }
 
 declare class CouchbaseError {
@@ -1144,12 +1182,15 @@ declare class MutateInSpec {
     static remove(path: string, options?: any): MutateInSpec;
     static arrayAppend(path: string, value: any, options?: {
         createPath?: boolean;
+        multi?: boolean;
     }): MutateInSpec;
     static arrayPrepend(path: string, value: any, options?: {
         createPath?: boolean;
+        multi?: boolean;
     }): MutateInSpec;
     static arrayInsert(path: string, value: any, options?: {
         createPath?: boolean;
+        multi?: boolean;
     }): MutateInSpec;
     static arrayAddUnique(path: string, value: any, options?: {
         createPath?: boolean;
@@ -1245,6 +1286,75 @@ declare class Scope {
      * <p>Gets a reference to a specific collection.</p>
      */
     collection(collectionName: string): Collection;
+    /**
+     * @param query - <p>The query string to execute.</p>
+     * @param [options.parameters] - <p>parameters specifies a list of values to substitute within the query
+     * statement during execution.</p>
+     * @param [options.scanConsistency] - <p>scanConsistency specifies the level of consistency that is required for
+     * the results of the query.</p>
+     * @param [options.consistentWith] - <p>consistentWith specifies a MutationState object to use when determining
+     * the level of consistency needed for the results of the query.</p>
+     * @param [options.adhoc] - <p>adhoc specifies that the query is an adhoc query and should not be
+     * prepared and cached within the SDK.</p>
+     * @param [options.flexIndex] - <p>flexIndex specifies to enable the use of FTS indexes when selecting
+     * indexes to use for the query.</p>
+     * @param [options.clientContextId] - <p>clientContextId specifies a unique identifier for the execution of this
+     * query to enable various tools to correlate the query.</p>
+     * @param [options.readOnly] - <p>readOnly specifies that query should not be permitted to mutate any data.
+     * This option also enables a few minor performance improvements and the
+     * ability to automatically retry the query on failure.</p>
+     * @param [options.profile] - <p>profile enables the return of profiling data from the server.</p>
+     * @param [options.metrics] - <p>metrics enables the return of metrics data from the server</p>
+     * @param [options.raw] - <p>raw specifies an object represent raw key value pairs that should be
+     * included with the query.</p>
+     * @param [options.timeout] - <p>timeout specifies the number of ms to wait for completion before
+     * cancelling the operation and returning control to the application.</p>
+     */
+    query(query: string, options?: {
+        parameters?: any | any[];
+        scanConsistency?: QueryScanConsistency;
+        consistentWith?: MutationState;
+        adhoc?: boolean;
+        flexIndex?: boolean;
+        clientContextId?: string;
+        maxParallelism?: number;
+        pipelineBatch?: number;
+        pipelineCap?: number;
+        scanWait?: number;
+        scanCap?: number;
+        readOnly?: boolean;
+        profile?: QueryProfileMode;
+        metrics?: boolean;
+        raw?: any;
+        timeout?: number;
+    }, callback?: QueryCallback): Promise<QueryResult>;
+    /**
+     * @param query - <p>The query string to execute.</p>
+     * @param [options.parameters] - <p>parameters specifies a list of values to substitute within the query
+     * statement during execution.</p>
+     * @param [options.scanConsistency] - <p>scanConsistency specifies the level of consistency that is required for
+     * the results of the query.</p>
+     * @param [options.clientContextId] - <p>clientContextId specifies a unique identifier for the execution of this
+     * query to enable various tools to correlate the query.</p>
+     * @param [options.priority] - <p>priority specifies that this query should be executed with a higher
+     * priority than others, causing it to receive extra resources.</p>
+     * @param [options.readOnly] - <p>readOnly specifies that query should not be permitted to mutate any data.
+     * This option also enables a few minor performance improvements and the
+     * ability to automatically retry the query on failure.</p>
+     * @param [options.raw] - <p>raw specifies an object represent raw key value pairs that should be
+     * included with the query.</p>
+     * @param [options.timeout] - <p>timeout specifies the number of ms to wait for completion before
+     * cancelling the operation and returning control to the application.</p>
+     */
+    analyticsQuery(query: string, options?: {
+        parameters?: any | any[];
+        scanConsistency?: AnalyticsScanConsistency;
+        clientContextId?: string;
+        priority?: boolean;
+        readOnly?: boolean;
+        raw?: any;
+        timeout?: number;
+    }, callback?: AnalyticsQueryCallback): Promise<AnalyticsResult>;
 }
 
 declare class TermFacet {
@@ -1507,6 +1617,9 @@ declare class SearchSort {
     static geoDistance(): GeoDistanceSort;
 }
 
+/**
+ * <p>Origin represents a server-side origin information</p>
+ */
 declare class Origin {
     /**
      * <p>The type of this origin.</p>
@@ -1518,6 +1631,9 @@ declare class Origin {
     name: string;
 }
 
+/**
+ * <p>Role represents a server-side role object</p>
+ */
 declare class Role {
     /**
      * <p>The name of the role (eg. data_access).</p>
@@ -1537,6 +1653,10 @@ declare class Role {
     collection: string;
 }
 
+/**
+ * <p>RoleAndDescription represents a server-side role object
+ * along with description information.</p>
+ */
 declare class RoleAndDescription {
     /**
      * <p>The displayed name for this role.</p>
@@ -1548,6 +1668,10 @@ declare class RoleAndDescription {
     description: string;
 }
 
+/**
+ * <p>RoleAndOrigin represents a server-side role object along
+ * with the origin information which goes with the role.</p>
+ */
 declare class RoleAndOrigin {
     /**
      * <p>The list of the origins associated with this role.</p>
@@ -1555,6 +1679,9 @@ declare class RoleAndOrigin {
     origins: Origin[];
 }
 
+/**
+ * <p>User represents a server-side user object.</p>
+ */
 declare class User {
     /**
      * <p>The username of the user.</p>
@@ -1578,6 +1705,10 @@ declare class User {
     password: string;
 }
 
+/**
+ * <p>UserAndMetadata represents a server-side user object with its
+ * metadata information included.</p>
+ */
 declare class UserAndMetadata {
     /**
      * <p>The domain this user is within.</p>
@@ -1601,6 +1732,9 @@ declare class UserAndMetadata {
     externalGroups: string[];
 }
 
+/**
+ * <p>Group represents a server Group object.</p>
+ */
 declare class Group {
     /**
      * <p>The name of the group.</p>
