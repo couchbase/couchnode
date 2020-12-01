@@ -1227,6 +1227,20 @@ declare class PasswordAuthenticator {
 }
 
 /**
+ * <p>QueryIndex represents a single query index.</p>
+ */
+declare class QueryIndex {
+    name: string;
+    isPrimary: boolean;
+    type: string;
+    state: string;
+    keyspace: string;
+    indexKey: string[];
+    condition: string;
+    partition: string;
+}
+
+/**
  * <p>QueryIndexManager provides an interface for managing the
  * query indexes on the cluster.</p>
  */
@@ -1267,15 +1281,6 @@ declare type CreatePrimaryIndexCallback = (err: Error, res: boolean) => void;
 declare type DropQueryIndexCallback = (err: Error, res: boolean) => void;
 
 declare type DropPrimaryIndexCallback = (err: Error, res: boolean) => void;
-
-declare type QueryIndex = {
-    name: string;
-    isPrimary: boolean;
-    type: string;
-    state: string;
-    keyspace: string;
-    indexKey: string;
-};
 
 declare type GetAllQueryIndexesCallback = (err: Error, res: QueryIndex[]) => void;
 
