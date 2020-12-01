@@ -75,8 +75,8 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> errVal = rdr.decodeError<lcb_respgetreplica_error_context>(rc);
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respgetreplica_is_final>()) {
-        rflags |= LCB_RESP_F_FINAL;
+    if (!rdr.getValue<&lcb_respgetreplica_is_final>()) {
+        rflags |= LCBX_RESP_F_NONFINAL;
     }
 
     Local<Value> casVal, valueVal;
@@ -99,7 +99,7 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
 
     Local<Value> rflagsVal = Nan::New<Number>(rflags);
 
-    if (!(rflags & LCB_RESP_F_FINAL)) {
+    if (rflags & LCBX_RESP_F_NONFINAL) {
         rdr.invokeNonFinalCallback(errVal, rflagsVal, casVal, valueVal);
     } else {
         rdr.invokeCallback(errVal, rflagsVal, casVal, valueVal);
@@ -321,12 +321,12 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> valueRes = rdr.parseValue<&lcb_respview_row>();
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respview_is_final>()) {
-        rflags |= LCB_RESP_F_FINAL;
+    if (!rdr.getValue<&lcb_respview_is_final>()) {
+        rflags |= LCBX_RESP_F_NONFINAL;
     }
     Local<Value> flagsVal = Nan::New<Number>(rflags);
 
-    if (!(rflags & LCB_RESP_F_FINAL)) {
+    if (rflags & LCBX_RESP_F_NONFINAL) {
         rdr.invokeNonFinalCallback(errVal, flagsVal, valueRes, idRes, keyRes);
     } else {
         rdr.invokeCallback(errVal, flagsVal, valueRes, idRes, keyRes);
@@ -345,12 +345,12 @@ void Connection::lcbQueryDataHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> dataRes = rdr.parseValue<&lcb_respquery_row>();
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respquery_is_final>()) {
-        rflags |= LCB_RESP_F_FINAL;
+    if (!rdr.getValue<&lcb_respquery_is_final>()) {
+        rflags |= LCBX_RESP_F_NONFINAL;
     }
     Local<Value> flagsVal = Nan::New<Number>(rflags);
 
-    if (!(rflags & LCB_RESP_F_FINAL)) {
+    if (rflags & LCBX_RESP_F_NONFINAL) {
         rdr.invokeNonFinalCallback(errVal, flagsVal, dataRes);
     } else {
         rdr.invokeCallback(errVal, flagsVal, dataRes);
@@ -370,12 +370,12 @@ void Connection::lcbAnalyticsDataHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> dataRes = rdr.parseValue<&lcb_respanalytics_row>();
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respanalytics_is_final>()) {
-        rflags |= LCB_RESP_F_FINAL;
+    if (!rdr.getValue<&lcb_respanalytics_is_final>()) {
+        rflags |= LCBX_RESP_F_NONFINAL;
     }
     Local<Value> flagsVal = Nan::New<Number>(rflags);
 
-    if (!(rflags & LCB_RESP_F_FINAL)) {
+    if (rflags & LCBX_RESP_F_NONFINAL) {
         rdr.invokeNonFinalCallback(errVal, flagsVal, dataRes);
     } else {
         rdr.invokeCallback(errVal, flagsVal, dataRes);
@@ -394,12 +394,12 @@ void Connection::lcbSearchDataHandler(lcb_INSTANCE *instance, int cbtype,
     Local<Value> dataRes = rdr.parseValue<&lcb_respsearch_row>();
 
     uint32_t rflags = 0;
-    if (rdr.getValue<&lcb_respsearch_is_final>()) {
-        rflags |= LCB_RESP_F_FINAL;
+    if (!rdr.getValue<&lcb_respsearch_is_final>()) {
+        rflags |= LCBX_RESP_F_NONFINAL;
     }
     Local<Value> flagsVal = Nan::New<Number>(rflags);
 
-    if (!(rflags & LCB_RESP_F_FINAL)) {
+    if (rflags & LCBX_RESP_F_NONFINAL) {
         rdr.invokeNonFinalCallback(errVal, flagsVal, dataRes);
     } else {
         rdr.invokeCallback(errVal, flagsVal, dataRes);
@@ -419,8 +419,6 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
 
     uint32_t rflags = 0;
     if (rdr.getValue<&lcb_resphttp_is_final>()) {
-        rflags |= LCB_RESP_F_FINAL;
-
         Local<Value> httpStatusRes =
             rdr.parseValue<&lcb_resphttp_http_status>();
 
@@ -439,12 +437,13 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
         Nan::Set(dataObj, Nan::New("headers").ToLocalChecked(), headersRes);
         dataVal = dataObj;
     } else {
+        rflags |= LCBX_RESP_F_NONFINAL;
         dataVal = rdr.parseValue<&lcb_resphttp_body>();
     }
 
     Local<Value> flagsVal = Nan::New<Number>(rflags);
 
-    if (!(rflags & LCB_RESP_F_FINAL)) {
+    if (rflags & LCBX_RESP_F_NONFINAL) {
         rdr.invokeNonFinalCallback(errVal, flagsVal, dataVal);
     } else {
         rdr.invokeCallback(errVal, flagsVal, dataVal);

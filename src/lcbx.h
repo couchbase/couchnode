@@ -4,6 +4,10 @@
 
 #include <libcouchbase/couchbase.h>
 
+enum lcbx_RESP_F {
+    LCBX_RESP_F_NONFINAL = 0x01,
+};
+
 enum lcbx_SDCMD {
     LCBX_SDCMD_UNKNOWN = 0x00,
     LCBX_SDCMD_GET = 0x01,
