@@ -3,7 +3,6 @@
 #include "config.h"
 #include "hostlist.h"
 #include "connspec.h"
-#include "hostlist.h"
 
 #ifndef _WIN32
 #include <string>
@@ -23,8 +22,7 @@
 
 #define LCB_NSRESSZ 4096
 
-lcb_STATUS
-lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
+lcb_STATUS lcb::dnssrv_query(const char *name, lcb::Hostlist &hostlist)
 {
     ns_msg msg;
 
@@ -73,17 +71,19 @@ lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
             continue;
         }
 
-        #define do_get16(t) t = ns_get16(rdata); rdata += 2; rdlen -=2
+#define do_get16(t)                                                                                                    \
+    t = ns_get16(rdata);                                                                                               \
+    rdata += 2;                                                                                                        \
+    rdlen -= 2
         do_get16(srv_prio);
         do_get16(srv_weight);
         do_get16(srv_port);
-        #undef do_get_16
+#undef do_get_16
 
-        (void)srv_prio; (void)srv_weight; /* Handle these in the future */
+        (void)srv_prio;
+        (void)srv_weight; /* Handle these in the future */
         std::vector<char> dname(NS_MAXDNAME + 1);
-        ns_name_uncompress(
-            ns_msg_base(msg), ns_msg_end(msg),
-            rdata, &dname[0], NS_MAXDNAME);
+        ns_name_uncompress(ns_msg_base(msg), ns_msg_end(msg), rdata, &dname[0], NS_MAXDNAME);
         hostlist.add(&dname[0], srv_port);
     }
     return LCB_SUCCESS;
@@ -94,14 +94,12 @@ lcb::dnssrv_query(const char* name, lcb::Hostlist& hostlist)
 #include <windns.h>
 #define CAN_SRV_LOOKUP
 /* Implement via DnsQuery() */
-lcb_STATUS
-lcb::dnssrv_query(const char *addr, Hostlist& hs)
+lcb_STATUS lcb::dnssrv_query(const char *addr, Hostlist &hs)
 {
     DNS_STATUS status;
     PDNS_RECORDA root, cur;
 
-    status = DnsQuery_A(
-        addr, DNS_TYPE_SRV, DNS_QUERY_STANDARD, NULL, (PDNS_RECORD*)&root, NULL);
+    status = DnsQuery_A(addr, DNS_TYPE_SRV, DNS_QUERY_STANDARD, nullptr, (PDNS_RECORD *)&root, nullptr);
     if (status != 0) {
         return LCB_ERR_UNKNOWN_HOST;
     }
@@ -117,9 +115,9 @@ lcb::dnssrv_query(const char *addr, Hostlist& hs)
 
 #endif /* !WIN32 */
 
-
 #ifndef CAN_SRV_LOOKUP
-lcb_STATUS lcb::dnssrv_query(const char *, Hostlist&) {
+lcb_STATUS lcb::dnssrv_query(const char *, Hostlist &)
+{
     return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
 }
 #endif
@@ -127,22 +125,22 @@ lcb_STATUS lcb::dnssrv_query(const char *, Hostlist&) {
 #define SVCNAME_PLAIN "_couchbase._tcp."
 #define SVCNAME_SSL "_couchbases._tcp."
 
-lcb::Hostlist*
-lcb::dnssrv_getbslist(const char *addr, bool is_ssl, lcb_STATUS& errp) {
+lcb::Hostlist *lcb::dnssrv_getbslist(const char *addr, bool is_ssl, lcb_STATUS &errp)
+{
     std::string ss;
-    Hostlist *ret = new Hostlist();
+    auto *ret = new Hostlist();
     ss.append(is_ssl ? SVCNAME_SSL : SVCNAME_PLAIN);
     ss.append(addr);
 
     errp = dnssrv_query(ss.c_str(), *ret);
     if (errp != LCB_SUCCESS) {
         delete ret;
-        return NULL;
+        return nullptr;
     }
     if (ret->empty()) {
         delete ret;
         errp = LCB_ERR_NAMESERVER;
-        return NULL;
+        return nullptr;
     }
     return ret;
 }

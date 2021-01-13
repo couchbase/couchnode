@@ -22,157 +22,6 @@
 
 #define MAX_GET_URI_LENGTH 2048
 
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_status(const lcb_RESPVIEW *resp)
-{
-    return resp->ctx.rc;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_cookie(const lcb_RESPVIEW *resp, void **cookie)
-{
-    *cookie = resp->cookie;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_key(const lcb_RESPVIEW *resp, const char **key, size_t *key_len)
-{
-    *key = (const char *)resp->key;
-    *key_len = resp->nkey;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_doc_id(const lcb_RESPVIEW *resp, const char **doc_id, size_t *doc_id_len)
-{
-    *doc_id = resp->docid;
-    *doc_id_len = resp->ndocid;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_row(const lcb_RESPVIEW *resp, const char **row, size_t *row_len)
-{
-    *row = resp->value;
-    *row_len = resp->nvalue;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_http_response(const lcb_RESPVIEW *resp, const lcb_RESPHTTP **http)
-{
-    *http = resp->htresp;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_document(const lcb_RESPVIEW *resp, const lcb_RESPGET **doc)
-{
-    *doc = resp->docresp;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_error_context(const lcb_RESPVIEW *resp, const lcb_VIEW_ERROR_CONTEXT **ctx)
-{
-    *ctx = &resp->ctx;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respview_handle(const lcb_RESPVIEW *resp, lcb_VIEW_HANDLE **handle)
-{
-    *handle = resp->handle;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API int lcb_respview_is_final(const lcb_RESPVIEW *resp)
-{
-    return resp->rflags & LCB_RESP_F_FINAL;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_create(lcb_CMDVIEW **cmd)
-{
-    *cmd = (lcb_CMDVIEW *)calloc(1, sizeof(lcb_CMDVIEW));
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_destroy(lcb_CMDVIEW *cmd)
-{
-    free(cmd);
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_timeout(lcb_CMDVIEW *cmd, uint32_t timeout)
-{
-    cmd->timeout = timeout;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_parent_span(lcb_CMDVIEW *cmd, lcbtrace_SPAN *span)
-{
-    cmd->pspan = span;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_callback(lcb_CMDVIEW *cmd, lcb_VIEW_CALLBACK callback)
-{
-    cmd->callback = callback;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_design_document(lcb_CMDVIEW *cmd, const char *ddoc, size_t ddoc_len)
-{
-    cmd->ddoc = ddoc;
-    cmd->nddoc = ddoc_len;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_view_name(lcb_CMDVIEW *cmd, const char *view, size_t view_len)
-{
-    cmd->view = view;
-    cmd->nview = view_len;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_option_string(lcb_CMDVIEW *cmd, const char *optstr, size_t optstr_len)
-{
-    cmd->optstr = optstr;
-    cmd->noptstr = optstr_len;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_post_data(lcb_CMDVIEW *cmd, const char *data, size_t data_len)
-{
-    cmd->postdata = data;
-    cmd->npostdata = data_len;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_include_docs(lcb_CMDVIEW *cmd, int include_docs)
-{
-    if (include_docs) {
-        cmd->cmdflags |= LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    } else {
-        cmd->cmdflags &= ~LCB_CMDVIEWQUERY_F_INCLUDE_DOCS;
-    }
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_max_concurrent_docs(lcb_CMDVIEW *cmd, uint32_t num)
-{
-    cmd->docs_concurrent_max = num;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_no_row_parse(lcb_CMDVIEW *cmd, int flag)
-{
-    if (flag) {
-        cmd->cmdflags |= LCB_CMDVIEWQUERY_F_NOROWPARSE;
-    } else {
-        cmd->cmdflags &= ~LCB_CMDVIEWQUERY_F_NOROWPARSE;
-    }
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdview_handle(lcb_CMDVIEW *cmd, lcb_VIEW_HANDLE **handle)
-{
-    cmd->handle = handle;
-    return LCB_SUCCESS;
-}
-
 static void chunk_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *);
 
 template <typename value_type, typename size_type>
@@ -183,13 +32,13 @@ void IOV2PTRLEN(const lcb_IOV *iov, value_type *&ptr, size_type &len)
 }
 
 /* Whether the request (from the user side) is still ongoing */
-#define CAN_CONTINUE(req) ((req)->callback != NULL)
+#define CAN_CONTINUE(req) ((req)->callback != nullptr)
 #define LOGARGS(instance, lvl) instance->settings, "views", LCB_LOG_##lvl, __FILE__, __LINE__
 
 void lcb_VIEW_HANDLE_::invoke_last(lcb_STATUS err)
 {
     lcb_RESPVIEW resp{};
-    if (callback == NULL) {
+    if (callback == nullptr) {
         return;
     }
     if (docq && docq->has_pending()) {
@@ -260,7 +109,7 @@ void lcb_VIEW_HANDLE_::invoke_last(lcb_STATUS err)
 
 void lcb_VIEW_HANDLE_::invoke_row(lcb_RESPVIEW *resp)
 {
-    if (callback == NULL) {
+    if (callback == nullptr) {
         return;
     }
     resp->cookie = const_cast<void *>(cookie);
@@ -281,8 +130,8 @@ void lcb_VIEW_HANDLE_::invoke_row(lcb_RESPVIEW *resp)
 
 static void chunk_callback(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
 {
-    const lcb_RESPHTTP *rh = (const lcb_RESPHTTP *)rb;
-    lcb_VIEW_HANDLE_ *req = reinterpret_cast<lcb_VIEW_HANDLE_ *>(rh->cookie);
+    const auto *rh = (const lcb_RESPHTTP *)rb;
+    auto *req = reinterpret_cast<lcb_VIEW_HANDLE_ *>(rh->cookie);
 
     req->cur_htresp = rh;
 
@@ -298,11 +147,11 @@ static void chunk_callback(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
         req->ref();
         req->invoke_last();
         if (rh->rflags & LCB_RESP_F_FINAL) {
-            req->htreq = NULL;
+            req->htreq = nullptr;
             lcb_assert(req->refcount > 1);
             req->unref();
         }
-        req->cur_htresp = NULL;
+        req->cur_htresp = nullptr;
         lcb_assert(req->refcount > 0);
         req->unref();
         return;
@@ -314,7 +163,7 @@ static void chunk_callback(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
 
     req->refcount++;
     req->parser->feed(reinterpret_cast<const char *>(rh->ctx.body), rh->ctx.body_len);
-    req->cur_htresp = NULL;
+    req->cur_htresp = nullptr;
     req->unref();
 }
 
@@ -327,9 +176,8 @@ static void do_copy_iov(std::string &dstbuf, lcb_IOV *dstiov, const lcb_IOV *src
 
 static VRDocRequest *mk_docreq(const lcb::jsparse::Row *datum)
 {
-    size_t extra_alloc = 0;
     VRDocRequest *dreq;
-    extra_alloc = datum->key.iov_len + datum->value.iov_len + datum->geo.iov_len + datum->docid.iov_len;
+    size_t extra_alloc = datum->key.iov_len + datum->value.iov_len + datum->geo.iov_len + datum->docid.iov_len;
 
     dreq = new VRDocRequest();
     dreq->rowbuf.reserve(extra_alloc);
@@ -380,8 +228,8 @@ void lcb_VIEW_HANDLE_::JSPARSE_on_complete(const std::string &)
 
 static void doc_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
-    const lcb_RESPGET *rg = (const lcb_RESPGET *)rb;
-    lcb::docreq::DocRequest *dreq = reinterpret_cast<lcb::docreq::DocRequest *>(rb->cookie);
+    const auto *rg = (const lcb_RESPGET *)rb;
+    auto *dreq = reinterpret_cast<lcb::docreq::DocRequest *>(rb->cookie);
     lcb::docreq::Queue *q = dreq->parent;
 
     q->ref();
@@ -408,7 +256,7 @@ static lcb_STATUS cb_op_schedule(lcb::docreq::Queue *q, lcb::docreq::DocRequest 
 
     LCB_CMD_SET_KEY(&gcmd, dreq->docid.iov_base, dreq->docid.iov_len);
     if (dreq->parent->parent) {
-        lcb_VIEW_HANDLE_ *req = reinterpret_cast<lcb_VIEW_HANDLE_ *>(dreq->parent->parent);
+        auto *req = reinterpret_cast<lcb_VIEW_HANDLE_ *>(dreq->parent->parent);
         if (req->span) {
             LCB_CMD_SET_TRACESPAN(&gcmd, req->span);
         }
@@ -421,7 +269,7 @@ static lcb_STATUS cb_op_schedule(lcb::docreq::Queue *q, lcb::docreq::DocRequest 
 static void cb_doc_ready(lcb::docreq::Queue *q, lcb::docreq::DocRequest *req_base)
 {
     lcb_RESPVIEW resp{};
-    VRDocRequest *dreq = (VRDocRequest *)req_base;
+    auto *dreq = (VRDocRequest *)req_base;
     resp.docresp = &dreq->docresp;
     IOV2PTRLEN(&dreq->key, resp.key, resp.nkey);
     IOV2PTRLEN(&dreq->value, resp.value, resp.nvalue);
@@ -441,8 +289,8 @@ static void cb_doc_ready(lcb::docreq::Queue *q, lcb::docreq::DocRequest *req_bas
 
 static void cb_docq_throttle(lcb::docreq::Queue *q, int enabled)
 {
-    lcb_VIEW_HANDLE_ *req = reinterpret_cast<lcb_VIEW_HANDLE_ *>(q->parent);
-    if (req == NULL || req->htreq == NULL) {
+    auto *req = reinterpret_cast<lcb_VIEW_HANDLE_ *>(q->parent);
+    if (req == nullptr || req->htreq == nullptr) {
         return;
     }
     if (enabled) {
@@ -465,17 +313,16 @@ lcb_VIEW_HANDLE_::~lcb_VIEW_HANDLE_()
             }
         }
         lcbtrace_span_finish(span, LCBTRACE_NOW);
-        span = NULL;
+        span = nullptr;
     }
 
-    if (parser != NULL) {
-        delete parser;
-    }
-    if (htreq != NULL) {
+    delete parser;
+
+    if (htreq != nullptr) {
         lcb_http_cancel(instance, htreq);
     }
-    if (docq != NULL) {
-        docq->parent = NULL;
+    if (docq != nullptr) {
+        docq->parent = nullptr;
         docq->unref();
     }
 }
@@ -521,13 +368,13 @@ lcb_STATUS lcb_VIEW_HANDLE_::request_http(const lcb_CMDVIEW *cmd)
 }
 
 lcb_VIEW_HANDLE_::lcb_VIEW_HANDLE_(lcb_INSTANCE *instance_, const void *cookie_, const lcb_CMDVIEW *cmd)
-    : cur_htresp(NULL), htreq(NULL), parser(new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_VIEWS, this)),
-      cookie(cookie_), docq(NULL), callback(cmd->callback), instance(instance_), refcount(1), cmdflags(cmd->cmdflags),
-      lasterr(LCB_SUCCESS), span(NULL)
+    : cur_htresp(nullptr), htreq(nullptr), parser(new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_VIEWS, this)),
+      cookie(cookie_), docq(nullptr), callback(cmd->callback), instance(instance_), refcount(1),
+      cmdflags(cmd->cmdflags), lasterr(LCB_SUCCESS), span(nullptr)
 {
 
     // Validate:
-    if (cmd->nddoc == 0 || cmd->nview == 0 || callback == NULL) {
+    if (cmd->nddoc == 0 || cmd->nview == 0 || callback == nullptr) {
         lasterr = LCB_ERR_INVALID_ARGUMENT;
     } else if (is_include_docs() && is_no_rowparse()) {
         lasterr = LCB_ERR_OPTIONS_CONFLICT;
@@ -553,13 +400,13 @@ lcb_VIEW_HANDLE_::lcb_VIEW_HANDLE_(lcb_INSTANCE *instance_, const void *cookie_,
         *cmd->handle = this;
     }
 
-    lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
+    lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_COUNTER, nullptr);
 
     lasterr = request_http(cmd);
     if (lasterr == LCB_SUCCESS && instance->settings->tracer) {
         char id[20] = {0};
         snprintf(id, sizeof(id), "%p", (void *)this);
-        span = lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, NULL);
+        span = lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, nullptr);
         lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_OPERATION_ID, id);
         lcbtrace_span_add_system_tags(span, instance->settings, LCBTRACE_TAG_SERVICE_VIEW);
     }
@@ -568,7 +415,7 @@ lcb_VIEW_HANDLE_::lcb_VIEW_HANDLE_(lcb_INSTANCE *instance_, const void *cookie_,
 LIBCOUCHBASE_API
 lcb_STATUS lcb_view(lcb_INSTANCE *instance, void *cookie, const lcb_CMDVIEW *cmd)
 {
-    lcb_VIEW_HANDLE_ *req = new lcb_VIEW_HANDLE_(instance, cookie, cmd);
+    auto *req = new lcb_VIEW_HANDLE_(instance, cookie, cmd);
     lcb_STATUS err = req->lasterr;
     if (err != LCB_SUCCESS) {
         req->cancel();
@@ -587,8 +434,8 @@ lcb_STATUS lcb_view_cancel(lcb_INSTANCE *, lcb_VIEW_HANDLE *handle)
 void lcb_VIEW_HANDLE_::cancel()
 {
     if (callback) {
-        callback = NULL;
-        lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
+        callback = nullptr;
+        lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, nullptr);
         if (docq) {
             docq->cancel();
         }

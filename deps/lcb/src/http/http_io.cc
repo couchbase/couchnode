@@ -20,7 +20,6 @@
 #include "http-priv.h"
 #include "http.h"
 #include "ctx-log-inl.h"
-#include "sllist.h"
 #include <lcbio/ssl.h>
 
 #define LOGFMT CTX_LOGFMT
@@ -39,19 +38,19 @@ void Request::assign_response_headers(const lcb::htparse::Response &resp)
         response_headers_clist.push_back(ii->key.c_str());
         response_headers_clist.push_back(ii->value.c_str());
     }
-    response_headers_clist.push_back(NULL);
+    response_headers_clist.push_back(nullptr);
 }
 
-int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
+unsigned Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 {
-    int parse_state, oldstate, diff;
+    unsigned parse_state, diff;
     using lcb::htparse::Parser;
     lcb::htparse::Response &res = parser->get_cur_response();
 
     do {
         const char *rbody;
         unsigned nused = -1, nbody = -1;
-        oldstate = res.state;
+        unsigned oldstate = res.state;
 
         parse_state = parser->parse_ex(buf, nbuf, &nused, &nbody, &rbody);
         diff = oldstate ^ parse_state;
@@ -61,7 +60,7 @@ int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
             assign_response_headers(res);
             if (res.status >= 300 && res.status <= 400) {
                 const char *redir = res.get_header_value("Location");
-                if (redir != NULL) {
+                if (redir != nullptr) {
                     pending_redirect.assign(redir);
                     return Parser::S_DONE;
                 }
@@ -95,7 +94,7 @@ int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
     if ((parse_state & Parser::S_DONE) && is_ongoing()) {
         lcb_RESPHTTP resp{};
         if (chunked) {
-            buf = NULL;
+            buf = nullptr;
             nbuf = 0;
         } else {
             buf = res.body.c_str();
@@ -116,7 +115,7 @@ int Request::handle_parse_chunked(const char *buf, unsigned nbuf)
 
 static void io_read(lcbio_CTX *ctx, unsigned nr)
 {
-    Request *req = reinterpret_cast<Request *>(lcbio_ctx_data(ctx));
+    auto *req = reinterpret_cast<Request *>(lcbio_ctx_data(ctx));
     lcb_INSTANCE *instance = req->instance;
     /** this variable set to 0 (in progress), -1 (error), 1 (done) */
     int rv = 0;
@@ -130,7 +129,7 @@ static void io_read(lcbio_CTX *ctx, unsigned nr)
     {
         char *buf;
         unsigned nbuf;
-        int parse_state;
+        unsigned parse_state;
 
         buf = reinterpret_cast<char *>(lcbio_ctx_ribuf(&iter));
         nbuf = lcbio_ctx_risize(&iter);
@@ -187,7 +186,7 @@ void Request::resume()
         return;
     }
 
-    if (ioctx == NULL) {
+    if (ioctx == nullptr) {
         return;
     }
     paused = false;
@@ -197,7 +196,7 @@ void Request::resume()
 
 static void io_error(lcbio_CTX *ctx, lcb_STATUS err)
 {
-    Request *req = reinterpret_cast<Request *>(lcbio_ctx_data(ctx));
+    auto *req = reinterpret_cast<Request *>(lcbio_ctx_data(ctx));
     lcb_log(LOGARGS(req, ERR), LOGFMT "Got error while performing I/O on HTTP stream. Err=0x%x", LOGID(req), err);
     req->finish_or_retry(err);
 }
@@ -209,10 +208,10 @@ static void request_timed_out(void *arg)
 
 static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    Request *req = reinterpret_cast<Request *>(arg);
+    auto *req = reinterpret_cast<Request *>(arg);
     lcbio_CTXPROCS procs{};
     lcb_settings *settings = req->instance->settings;
-    req->creq = NULL;
+    req->creq = nullptr;
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS(req, ERR), "Connection to failed with Err=0x%x", err);
@@ -237,6 +236,9 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
             break;
         case LCB_HTTP_TYPE_ANALYTICS:
             sock->service = LCBIO_SERVICE_ANALYTICS;
+            break;
+        case LCB_HTTP_TYPE_EVENTING:
+            sock->service = LCBIO_SERVICE_EVENTING;
             break;
         default:
             sock->service = LCBIO_SERVICE_MGMT;
@@ -301,5 +303,5 @@ void Request::close_io()
     }
 
     lcbio_ctx_close(ioctx, pool_close_cb, &can_ka);
-    ioctx = NULL;
+    ioctx = nullptr;
 }

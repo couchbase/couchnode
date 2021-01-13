@@ -41,11 +41,12 @@ struct lcb::RetryOp : mc_EPKTDATUM, SchedNode, TmoNode {
     hrtime_t trytime; /**< Next retry time */
     mc_PACKET *pkt;
     lcb_STATUS origerr;
+    protocol_binary_response_status origstatus;
     errmap::RetrySpec *spec;
-    RetryOp(errmap::RetrySpec *spec);
+    explicit RetryOp(errmap::RetrySpec *spec);
     ~RetryOp()
     {
-        if (spec != NULL) {
+        if (spec != nullptr) {
             spec->unref();
         }
     }
@@ -147,7 +148,7 @@ void RetryQueue::erase(RetryOp *op)
     lcb_list_delete(static_cast<TmoNode *>(op));
 }
 
-void RetryQueue::fail(RetryOp *op, lcb_STATUS err)
+void RetryQueue::fail(RetryOp *op, lcb_STATUS err, hrtime_t now)
 {
     protocol_binary_request_header hdr;
 
@@ -156,11 +157,12 @@ void RetryQueue::fail(RetryOp *op, lcb_STATUS err)
     tmpsrv.parent = cq;
 
     mcreq_read_hdr(op->pkt, &hdr);
-    MemcachedResponse resp(protocol_binary_command(hdr.request.opcode), hdr.request.opaque,
-                           PROTOCOL_BINARY_RESPONSE_EINVAL);
+    MemcachedResponse resp(protocol_binary_command(hdr.request.opcode), hdr.request.opaque, op->origstatus);
 
     assign_error(op, err);
-    lcb_log(LOGARGS(this, WARN), "Failing command (seq=%u) from retry queue: %s", op->pkt->opaque,
+    lcb_log(LOGARGS(this, WARN),
+            "Failing command (pkt=%p, opaque=%u, retries=%d, time=%" PRIu64 "us, status=0x%02x) from retry queue: %s",
+            (void *)op->pkt, op->pkt->opaque, (int)op->pkt->retries, LCB_NS2US(now - op->start), (int)op->origstatus,
             lcb_strerror_short(op->origerr));
 
     mcreq_dispatch_response(&tmpsrv, op->pkt, &resp, op->origerr);
@@ -221,7 +223,7 @@ void RetryQueue::flush(bool throttle)
         hrtime_t curtmo = op->deadline;
 
         if (curtmo <= now) {
-            fail(op, LCB_ERR_TIMEOUT);
+            fail(op, LCB_ERR_TIMEOUT, now);
         } else {
             break;
         }
@@ -262,9 +264,11 @@ void RetryQueue::flush(bool throttle)
                 op->pkt->retries++;
                 update_trytime(op, now);
             } else {
-                fail(op, LCB_ERR_NO_MATCHING_SERVER);
+                fail(op, LCB_ERR_NO_MATCHING_SERVER, now);
             }
         } else {
+            lcb_log(LOGARGS(this, TRACE), "Flush PKT=%p to network. retries=%u, opaque=%u, IX=%d, time=%" PRIu64 "us",
+                    (void *)op->pkt, op->pkt->retries, op->pkt->opaque, srvix, LCB_NS2US(now - op->start));
             mc_PIPELINE *newpl = cq->pipelines[srvix];
             mcreq_enqueue_packet(newpl, op->pkt);
             newpl->flush_start(newpl);
@@ -303,24 +307,26 @@ static void op_dtorfn(mc_EPKTDATUM *d)
 }
 
 RetryOp::RetryOp(errmap::RetrySpec *spec_)
-    : mc_EPKTDATUM(), start(0), deadline(0), trytime(0), pkt(NULL), origerr(LCB_SUCCESS), spec(spec_)
+    : mc_EPKTDATUM(), start(0), deadline(0), trytime(0), pkt(nullptr), origerr(LCB_SUCCESS),
+      origstatus(PROTOCOL_BINARY_RESPONSE_SUCCESS), spec(spec_)
 {
     mc_EPKTDATUM::dtorfn = op_dtorfn;
     mc_EPKTDATUM::key = RETRY_PKT_KEY;
 
-    if (spec != NULL) {
+    if (spec != nullptr) {
         spec->ref();
     }
 }
 
-void RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err, errmap::RetrySpec *spec, int options)
+void RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err, protocol_binary_response_status status,
+                     errmap::RetrySpec *spec, int options)
 {
     RetryOp *op;
     mc_EPKTDATUM *d = mcreq_epkt_find(pkt, RETRY_PKT_KEY);
     if (d) {
         op = static_cast<RetryOp *>(d);
     } else {
-        op = new RetryOp(NULL);
+        op = new RetryOp(nullptr);
         op->start = MCREQ_PKT_RDATA(&pkt->base)->start;
         op->deadline = MCREQ_PKT_RDATA(&pkt->base)->deadline;
         if (spec) {
@@ -346,8 +352,8 @@ void RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err, errmap::RetrySpec *
          */
         for (size_t ii = 0; ii < cq->npipelines; ii++) {
             sllist_iterator iter;
-            lcb::Server *server = static_cast<lcb::Server *>(cq->pipelines[ii]);
-            if (server == NULL) {
+            auto *server = static_cast<lcb::Server *>(cq->pipelines[ii]);
+            if (server == nullptr) {
                 continue;
             }
             /* check pending queue */
@@ -371,13 +377,15 @@ void RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err, errmap::RetrySpec *
         op->pkt->flags |= MCREQ_F_FLUSHED;
     }
 
+    op->origstatus = status;
     op->pkt = &pkt->base;
     pkt->base.retries++;
     assign_error(op, err);
+    hrtime_t now = gethrtime();
     if (options & RETRY_SCHED_IMM) {
-        op->trytime = gethrtime(); /* now */
+        op->trytime = now;
     } else if (err == LCB_ERR_NOT_MY_VBUCKET) {
-        op->trytime = gethrtime() + LCB_US2NS(settings->retry_nmv_interval);
+        op->trytime = now + LCB_US2NS(settings->retry_nmv_interval);
     } else {
         update_trytime(op);
     }
@@ -385,7 +393,10 @@ void RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err, errmap::RetrySpec *
     lcb_list_add_sorted(&schedops, static_cast<SchedNode *>(op), cmpfn_retry);
     lcb_list_add_sorted(&tmoops, static_cast<TmoNode *>(op), cmpfn_tmo);
 
-    lcb_log(LOGARGS(this, DEBUG), "Adding PKT=%p to retry queue. Try count=%u", (void *)pkt, pkt->base.retries);
+    lcb_log(LOGARGS(this, DEBUG),
+            "Adding PKT=%p to retry queue. retries=%u, opaque=%u, time=%" PRIu64 "us, status=0x%02x, rc=%s",
+            (void *)pkt, pkt->base.retries, pkt->base.opaque, LCB_NS2US(now - op->start), status,
+            lcb_strerror_short(err));
     schedule();
 
     if (settings->metrics) {
@@ -421,24 +432,24 @@ void RetryQueue::nmvadd(mc_EXPACKET *detchpkt)
     if (settings->nmv_retry_imm) {
         flags = RETRY_SCHED_IMM;
     }
-    add(detchpkt, LCB_ERR_NOT_MY_VBUCKET, NULL, flags);
+    add(detchpkt, LCB_ERR_NOT_MY_VBUCKET, PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET, nullptr, flags);
 }
 
-void RetryQueue::ucadd(mc_EXPACKET *pkt, lcb_STATUS orig_err)
+void RetryQueue::ucadd(mc_EXPACKET *pkt, lcb_STATUS orig_err, protocol_binary_response_status status)
 {
-    add(pkt, orig_err, NULL, 0);
+    add(pkt, orig_err, status, nullptr, 0);
 }
 
 static void fallback_handler(mc_CMDQUEUE *cq, mc_PACKET *pkt)
 {
-    lcb_INSTANCE *instance = reinterpret_cast<lcb_INSTANCE *>(cq->cqdata);
+    auto *instance = reinterpret_cast<lcb_INSTANCE *>(cq->cqdata);
     instance->retryq->add_fallback(pkt);
 }
 
 void RetryQueue::add_fallback(mc_PACKET *pkt)
 {
     mc_PACKET *copy = mcreq_renew_packet(pkt);
-    add((mc_EXPACKET *)copy, LCB_ERR_NO_MATCHING_SERVER, NULL, RETRY_SCHED_IMM);
+    add((mc_EXPACKET *)copy, LCB_ERR_NO_MATCHING_SERVER, PROTOCOL_BINARY_RESPONSE_EINTERNAL, nullptr, RETRY_SCHED_IMM);
 }
 
 void RetryQueue::reset_timeouts(lcb_U64 now)
@@ -467,11 +478,12 @@ RetryQueue::RetryQueue(mc_CMDQUEUE *cq_, lcbio_pTABLE table, lcb_settings *setti
 RetryQueue::~RetryQueue()
 {
     lcb_list_t *llcur, *llnext;
+    hrtime_t now = gethrtime();
 
     LCB_LIST_SAFE_FOR(llcur, llnext, &schedops)
     {
         RetryOp *op = from_schednode(llcur);
-        fail(op, LCB_ERR_GENERIC);
+        fail(op, LCB_ERR_GENERIC, now);
     }
 
     lcbio_timer_destroy(timer);

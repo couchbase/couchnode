@@ -386,9 +386,11 @@ static int can_compress(lcb_INSTANCE *instance, const mc_PIPELINE *pipeline, uin
 
 static lcb_STATUS store_validate(lcb_INSTANCE *instance, const lcb_CMDSTORE *cmd)
 {
-    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
-        return LCB_ERR_INVALID_ARGUMENT;
+    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
+    if (err != LCB_SUCCESS) {
+        return err;
     }
+
     int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
 
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {

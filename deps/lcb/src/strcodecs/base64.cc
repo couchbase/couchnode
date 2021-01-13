@@ -15,9 +15,11 @@
  *   limitations under the License.
  */
 
+#include <string>
+#include <cstring>
+#include <cstdlib>
+
 #include "strcodecs.h"
-#include <string.h>
-#include <stdlib.h>
 
 /*
  * Function to base64 encode a text string as described in RFC 4648
@@ -28,7 +30,7 @@
 /**
  * An array of the legal charracters used for direct lookup
  */
-static const lcb_uint8_t code[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const std::uint8_t code[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /**
  * Encode up to 3 characters to 4 output character.
@@ -38,16 +40,16 @@ static const lcb_uint8_t code[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrs
  * @param num the number of characters from s to encode
  * @return 0 upon success, -1 otherwise.
  */
-static int encode_rest(const lcb_uint8_t *s, lcb_uint8_t *d, lcb_SIZE num)
+static int encode_rest(const std::uint8_t *s, std::uint8_t *d, std::size_t num)
 {
-    lcb_uint32_t val = 0;
+    std::uint32_t val;
 
     switch (num) {
         case 2:
-            val = (lcb_uint32_t)((*s << 16) | (*(s + 1) << 8));
+            val = (std::uint32_t)((*s << 16) | (*(s + 1) << 8));
             break;
         case 1:
-            val = (lcb_uint32_t)((*s << 16));
+            val = (std::uint32_t)((*s << 16));
             break;
         default:
             return -1;
@@ -73,9 +75,9 @@ static int encode_rest(const lcb_uint8_t *s, lcb_uint8_t *d, lcb_SIZE num)
  * @param s pointer to the input stream
  * @param d pointer to the output stream
  */
-static int encode_triplet(const lcb_uint8_t *s, lcb_uint8_t *d)
+static int encode_triplet(const std::uint8_t *s, std::uint8_t *d)
 {
-    lcb_uint32_t val = (lcb_uint32_t)((*s << 16) | (*(s + 1) << 8) | (*(s + 2)));
+    auto val = static_cast<std::uint32_t>((*s << 16) | (*(s + 1) << 8) | (*(s + 2)));
     d[3] = code[val & 63];
     d[2] = code[(val >> 6) & 63];
     d[1] = code[(val >> 12) & 63];
@@ -91,15 +93,15 @@ static int encode_triplet(const lcb_uint8_t *s, lcb_uint8_t *d)
  * @param sz size of destination buffer
  * @return 0 if success, -1 if the destination buffer isn't big enough
  */
-int lcb_base64_encode(const char *src, lcb_SIZE len, char *dst, lcb_SIZE sz)
+int lcb_base64_encode(const char *src, std::size_t len, char *dst, std::size_t sz)
 {
-    lcb_SIZE triplets = len / 3;
-    lcb_SIZE rest = len % 3;
-    lcb_SIZE ii;
-    const lcb_uint8_t *in = (const lcb_uint8_t *)src;
-    lcb_uint8_t *out = (lcb_uint8_t *)dst;
+    std::size_t triplets = len / 3;
+    std::size_t rest = len % 3;
+    std::size_t ii;
+    const auto *in = (const std::uint8_t *)src;
+    auto *out = (std::uint8_t *)dst;
 
-    if (sz < (lcb_SIZE)((triplets + 1) * 4)) {
+    if (sz < (std::size_t)((triplets + 1) * 4)) {
         return -1;
     }
 
@@ -122,10 +124,10 @@ int lcb_base64_encode(const char *src, lcb_SIZE len, char *dst, lcb_SIZE sz)
     return 0;
 }
 
-int lcb_base64_encode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *ndst)
+int lcb_base64_encode2(const char *src, std::size_t nsrc, char **dst, std::size_t *ndst)
 {
-    lcb_SIZE len = (nsrc / 3 + 1) * 4 + 1;
-    char *ptr = calloc(len, sizeof(char));
+    std::size_t len = (nsrc / 3 + 1) * 4 + 1;
+    char *ptr = static_cast<char *>(calloc(len, sizeof(char)));
     int rc = lcb_base64_encode(src, nsrc, ptr, len);
     if (rc == 0) {
         *ndst = strlen(ptr);
@@ -138,10 +140,10 @@ int lcb_base64_encode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *nds
 
 void lcb_base64_encode_iov(lcb_IOV *iov, unsigned niov, unsigned nb, char **dst, int *ndst)
 {
-    lcb_SIZE nsrc = 0;
-    lcb_SIZE len;
+    std::size_t nsrc = 0;
+    std::size_t len;
     char *ptr;
-    lcb_SIZE io;
+    std::size_t io;
 
     for (io = 0; io < niov; io++) {
         nsrc += iov[io].iov_len;
@@ -150,14 +152,14 @@ void lcb_base64_encode_iov(lcb_IOV *iov, unsigned niov, unsigned nb, char **dst,
         nsrc = nb;
     }
     len = (nsrc / 3 + 1) * 4 + 1;
-    ptr = calloc(len, sizeof(char));
+    ptr = static_cast<char *>(calloc(len, sizeof(char)));
 
     {
-        lcb_SIZE triplets = nsrc / 3;
-        lcb_SIZE rest = nsrc % 3;
-        lcb_uint8_t *out = (lcb_uint8_t *)ptr;
-        lcb_SIZE iop, ii;
-        lcb_uint8_t triplet[3];
+        std::size_t triplets = nsrc / 3;
+        std::size_t rest = nsrc % 3;
+        auto *out = (std::uint8_t *)ptr;
+        std::size_t iop, ii;
+        std::uint8_t triplet[3];
 
         io = 0;
         iop = 0;
@@ -170,20 +172,20 @@ void lcb_base64_encode_iov(lcb_IOV *iov, unsigned niov, unsigned nb, char **dst,
                     io++;
                     iop = 0;
                 }
-                triplet[tt] = ((const lcb_uint8_t *)iov[io].iov_base)[iop++];
+                triplet[tt] = ((const std::uint8_t *)iov[io].iov_base)[iop++];
             }
             encode_triplet(triplet, out);
             out += 4;
         }
 
         if (rest > 0) {
-            memset(triplet, 0, sizeof(triplet));
+            std::memset(triplet, 0, sizeof(triplet));
             for (ii = 0; ii < rest; ii++) {
                 if (iop >= iov[io].iov_len) {
                     io++;
                     iop = 0;
                 }
-                triplet[ii] = ((const lcb_uint8_t *)iov[io].iov_base)[iop++];
+                triplet[ii] = ((const std::uint8_t *)iov[io].iov_base)[iop++];
             }
             encode_rest(triplet, out, rest);
         }
@@ -214,10 +216,10 @@ static int code2val(char c)
     return -1;
 }
 
-lcb_SSIZE lcb_base64_decode(const char *src, lcb_SIZE nsrc, char *dst, lcb_SIZE ndst)
+std::ptrdiff_t lcb_base64_decode(const char *src, std::size_t nsrc, char *dst, std::size_t ndst)
 {
-    lcb_SIZE offset = 0;
-    lcb_SSIZE idx = 0;
+    std::size_t offset = 0;
+    std::ptrdiff_t idx = 0;
 
     if (nsrc == 0) {
         *dst = '\0';
@@ -270,17 +272,17 @@ lcb_SSIZE lcb_base64_decode(const char *src, lcb_SIZE nsrc, char *dst, lcb_SIZE 
             }
         }
 
-        if ((lcb_SIZE)idx >= ndst) {
+        if ((std::size_t)idx >= ndst) {
             return -1;
         }
         dst[idx++] = (char)(value >> 16);
         if (ins > 1) {
-            if ((lcb_SIZE)idx >= ndst) {
+            if ((std::size_t)idx >= ndst) {
                 return -1;
             }
             dst[idx++] = (char)(value >> 8);
             if (ins > 2) {
-                if ((lcb_SIZE)idx >= ndst) {
+                if ((std::size_t)idx >= ndst) {
                     return -1;
                 }
                 dst[idx++] = (char)(value);
@@ -295,15 +297,15 @@ lcb_SSIZE lcb_base64_decode(const char *src, lcb_SIZE nsrc, char *dst, lcb_SIZE 
     return idx;
 }
 
-lcb_SSIZE lcb_base64_decode2(const char *src, lcb_SIZE nsrc, char **dst, lcb_SIZE *ndst)
+std::ptrdiff_t lcb_base64_decode2(const char *src, std::size_t nsrc, char **dst, std::size_t *ndst)
 {
     // To reduce the number of reallocations, start by reserving an
     // output buffer of 75% of the input size (and add 3 to avoid dealing
     // with zero)
-    lcb_SIZE len = nsrc * 3 / 4 + 3;
-    char *ptr = calloc(len, sizeof(char));
+    std::size_t len = nsrc * 3 / 4 + 3;
+    char *ptr = static_cast<char *>(calloc(len, sizeof(char)));
 
-    lcb_SSIZE rc = lcb_base64_decode(src, nsrc, ptr, len);
+    std::ptrdiff_t rc = lcb_base64_decode(src, nsrc, ptr, len);
     if (rc < 0) {
         free(ptr);
     } else {

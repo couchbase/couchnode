@@ -21,6 +21,8 @@
 #include "auth-priv.h"
 #include <lcbio/ssl.h>
 #include "ctx-log-inl.h"
+#include "strcodecs/strcodecs.h"
+
 #define LOGARGS(ht, lvlbase) ht->parent->settings, "htconfig", LCB_LOG_##lvlbase, __FILE__, __LINE__
 
 #define LOGFMT CTX_LOGFMT
@@ -48,12 +50,12 @@ void HttpProvider::close_current()
 {
     disconn_timer.cancel();
     if (ioctx) {
-        lcbio_ctx_close(ioctx, NULL, NULL);
+        lcbio_ctx_close(ioctx, nullptr, nullptr);
     } else if (creq) {
         lcbio_connect_cancel(creq);
     }
-    creq = NULL;
-    ioctx = NULL;
+    creq = nullptr;
+    ioctx = nullptr;
 }
 
 /**
@@ -70,7 +72,7 @@ lcb_STATUS HttpProvider::on_io_error(lcb_STATUS origerr)
     }
     parent->provider_failed(this, origerr);
     io_timer.cancel();
-    if (is_v220_compat() && parent->config != NULL) {
+    if (is_v220_compat() && parent->config != nullptr) {
         lcb_log(LOGARGS(this, INFO), "HTTP node list finished. Trying to obtain connection from first node in list");
         as_reconnect.arm_if_disarmed(settings().grace_next_cycle);
     }
@@ -114,7 +116,7 @@ static lcb_STATUS process_chunk(HttpProvider *http, const void *buf, unsigned nb
         if (resp.status == 200) {
             /* nothing */
         } else if (resp.status == 404) {
-            const int urlmode = http->settings().bc_http_urltype;
+            const unsigned urlmode = http->settings().bc_http_urltype;
             err = LCB_ERR_BUCKET_NOT_FOUND;
 
             if (++http->uritype > LCB_HTCONFIG_URLTYPE_COMPAT) {
@@ -132,7 +134,7 @@ static lcb_STATUS process_chunk(HttpProvider *http, const void *buf, unsigned nb
                 /* reissue the request; but wait for it to drain */
                 lcb_log(LOGARGS(http, WARN),
                         LOGFMT "Got 404 on config stream. Assuming terse URI not supported on cluster", LOGID(http));
-                http->try_nexturi = 1;
+                http->try_nexturi = true;
                 goto GT_CHECKDONE;
             }
         } else if (resp.status == 401) {
@@ -154,7 +156,7 @@ GT_CHECKDONE:
             return LCB_SUCCESS;
         }
         host = lcbio_get_host(lcbio_ctx_sock(http->ioctx));
-        http->try_nexturi = 0;
+        http->try_nexturi = false;
         if ((err = http->setup_request_header(*host)) != LCB_SUCCESS) {
             return err;
         }
@@ -191,7 +193,7 @@ GT_CHECKDONE:
     if (http->last_parsed) {
         http->last_parsed->decref();
     }
-    http->last_parsed = ConfigInfo::create(cfgh, CLCONFIG_HTTP);
+    http->last_parsed = ConfigInfo::create(cfgh, CLCONFIG_HTTP, host->host);
     http->generation++;
 
     /** Relocate the stream */
@@ -206,7 +208,7 @@ GT_CHECKDONE:
 static void read_common(lcbio_CTX *ctx, unsigned nr)
 {
     lcbio_CTXRDITER riter;
-    HttpProvider *http = reinterpret_cast< HttpProvider * >(lcbio_ctx_data(ctx));
+    auto *http = reinterpret_cast<HttpProvider *>(lcbio_ctx_data(ctx));
     int old_generation = http->generation;
 
     lcb_log(LOGARGS(http, TRACE), LOGFMT "Received %d bytes on HTTP stream", LOGID(http), nr);
@@ -287,7 +289,7 @@ void HttpProvider::reset_stream_state()
     const int urlmode = settings().bc_http_urltype;
     if (last_parsed) {
         last_parsed->decref();
-        last_parsed = NULL;
+        last_parsed = nullptr;
     }
     if (urlmode & LCB_HTCONFIG_URLTYPE_25PLUS) {
         uritype = LCB_HTCONFIG_URLTYPE_25PLUS;
@@ -300,10 +302,10 @@ void HttpProvider::reset_stream_state()
 
 static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    HttpProvider *http = reinterpret_cast< HttpProvider * >(arg);
+    auto *http = reinterpret_cast<HttpProvider *>(arg);
     lcb_host_t *host;
     lcbio_CTXPROCS procs{};
-    http->creq = NULL;
+    http->creq = nullptr;
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS(http, ERR), "Connection to REST API failed with %s (os errno = %d)", lcb_strerror_short(err),
@@ -414,7 +416,7 @@ lcb_STATUS HttpProvider::refresh()
      */
 
     /** If we need a new socket, we do connect_next. */
-    if (ioctx == NULL && creq == NULL) {
+    if (ioctx == nullptr && creq == nullptr) {
         as_reconnect.signal();
     }
     disconn_timer.cancel();
@@ -479,9 +481,7 @@ HttpProvider::~HttpProvider()
     if (current_config) {
         current_config->decref();
     }
-    if (nodes) {
-        delete nodes;
-    }
+    delete nodes;
 }
 
 void HttpProvider::dump(FILE *fp) const
@@ -501,24 +501,23 @@ void HttpProvider::dump(FILE *fp) const
 }
 
 HttpProvider::HttpProvider(Confmon *parent_)
-    : Provider(parent_, CLCONFIG_HTTP), ioctx(NULL), htp(new lcb::htparse::Parser(parent->settings)),
+    : Provider(parent_, CLCONFIG_HTTP), ioctx(nullptr), htp(new lcb::htparse::Parser(parent->settings)),
       disconn_timer(parent->iot, this), io_timer(parent->iot, this), as_reconnect(parent->iot, this),
-      nodes(new Hostlist()), current_config(NULL), last_parsed(NULL), generation(0), try_nexturi(false), uritype(0)
+      nodes(new Hostlist()), current_config(nullptr), last_parsed(nullptr), generation(0), try_nexturi(false),
+      uritype(0)
 {
-
-    memset(&creq, 0, sizeof creq);
 }
 
 static void io_error_handler(lcbio_CTX *ctx, lcb_STATUS err)
 {
-    reinterpret_cast< HttpProvider * >(lcbio_ctx_data(ctx))->on_io_error(err);
+    reinterpret_cast<HttpProvider *>(lcbio_ctx_data(ctx))->on_io_error(err);
 }
 
 const lcbio_SOCKET *lcb::clconfig::http_get_conn(const Provider *p)
 {
-    const HttpProvider *http = static_cast< const HttpProvider * >(p);
+    const auto *http = static_cast<const HttpProvider *>(p);
     if (!http->ioctx) {
-        return NULL;
+        return nullptr;
     }
     return lcbio_ctx_sock(http->ioctx);
 }
@@ -529,7 +528,7 @@ const lcb_host_t *lcb::clconfig::http_get_host(const Provider *p)
     if (sock) {
         return lcbio_get_host(sock);
     }
-    return NULL;
+    return nullptr;
 }
 
 Provider *lcb::clconfig::new_http_provider(Confmon *mon)

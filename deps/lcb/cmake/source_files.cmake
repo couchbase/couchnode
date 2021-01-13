@@ -4,20 +4,17 @@
 
 # couchbase_utils
 SET(LCB_UTILS_SRC
-    contrib/genhash/genhash.c
-    src/strcodecs/base64.c
     src/gethrtime.c
-    src/hashtable.c
     src/list.c
     src/logging.c
     src/ringbuffer.c)
 
+SET(LCB_UTILS_CXXSRC
+    src/strcodecs/base64.cc)
+
 # lcbio
 FILE(GLOB LCB_IO_SRC src/lcbio/*.c)
 FILE(GLOB LCB_IO_CXXSRC src/lcbio/*.cc)
-
-# common memcached operations
-FILE(GLOB LCB_OP_SRC src/operations/*.c)
 
 # memcached packets
 FILE(GLOB LCB_MC_SRC src/mc/*.c)
@@ -32,22 +29,17 @@ FILE(GLOB LCB_NETBUF_SRC src/netbuf/*.c)
 # HTTP protocol management
 LIST(APPEND LCB_HT_SRC "contrib/http_parser/http_parser.c")
 
-# bucket config ("confmon")
-FILE(GLOB LCB_BCONF_SRC src/bucketconfig/*.c)
-
 SET(LCB_CORE_SRC
-    ${LCB_OP_SRC}
-    ${LCB_BCONF_SRC}
-    ${LCB_N1QL_SRC}
     src/callbacks.c
-    src/iofactory.c
-    src/settings.c
-    src/utilities.c)
+    src/iofactory.c)
 
 FILE(GLOB LCB_TRACING_SRC src/tracing/*.cc)
 
+FILE(GLOB LCB_CAPI_SRC src/capi/*.cc)
+
 SET(LCB_CORE_CXXSRC
     src/instance.cc
+    src/settings.cc
     src/analytics/analytics.cc
     src/auth.cc
     src/bootstrap.cc
@@ -56,6 +48,7 @@ SET(LCB_CORE_CXXSRC
     src/bucketconfig/bc_file.cc
     src/bucketconfig/bc_static.cc
     src/bucketconfig/confmon.cc
+    src/utilities.cc
     src/collections.cc
     src/connspec.cc
     src/crypto.cc
@@ -99,4 +92,5 @@ SET(LCB_CORE_CXXSRC
     src/cntl.cc
     src/wait.cc
     ${LCB_TRACING_SRC}
+    ${LCB_CAPI_SRC}
     )

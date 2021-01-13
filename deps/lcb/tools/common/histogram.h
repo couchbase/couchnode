@@ -19,7 +19,7 @@
 #define CBC_HISTOGRAM_H
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/utils.h>
-#include <stdio.h>
+#include <cstdio>
 
 namespace cbc
 {
@@ -29,8 +29,8 @@ class Histogram
   public:
     Histogram()
     {
-        hg = NULL;
-        output = NULL;
+        hg = nullptr;
+        output = nullptr;
     }
     void install(lcb_INSTANCE *, FILE *out = stderr);
     void installStandalone(FILE *out = stderr);

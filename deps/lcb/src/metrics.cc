@@ -18,89 +18,88 @@
 #include "internal.h"
 #include <libcouchbase/metrics.h>
 #include <string>
+#include <utility>
 #include <vector>
-#include <map>
 
-namespace lcbmetrics {
+namespace lcbmetrics
+{
 
-class MetricsEntry : public lcb_SERVERMETRICS {
-public:
+class MetricsEntry : public lcb_SERVERMETRICS
+{
+  public:
     std::string m_hostport;
-    MetricsEntry(const std::string key) : m_hostport(key) {
-        memset(static_cast<lcb_SERVERMETRICS*>(this), 0, sizeof (lcb_SERVERMETRICS));
+    explicit MetricsEntry(std::string key) : lcb_SERVERMETRICS_st(), m_hostport(std::move(key))
+    {
         iometrics.hostport = m_hostport.c_str();
     }
 
-private:
-    MetricsEntry();
-    MetricsEntry(const MetricsEntry&);
+    MetricsEntry() = delete;
+    MetricsEntry(const MetricsEntry &) = delete;
 };
 
-class Metrics : public lcb_METRICS {
-public:
+class Metrics : public lcb_METRICS
+{
+  public:
     std::vector<MetricsEntry *> entries;
     std::vector<lcb_SERVERMETRICS *> raw_entries;
 
-    Metrics() {
-        memset(static_cast<lcb_METRICS*>(this), 0, sizeof (lcb_METRICS));
-    }
+    Metrics() : lcb_METRICS_st() {}
 
-    ~Metrics() {
-        for (size_t ii = 0; ii < entries.size(); ++ii) {
-            delete entries[ii];
+    ~Metrics()
+    {
+        for (auto &entry : entries) {
+            delete entry;
         }
     }
 
-    MetricsEntry *get(const char *host, const char *port, int create) {
+    MetricsEntry *get(const char *host, const char *port, int create)
+    {
         std::string key;
         key.append(host).append(":").append(port);
-        for (size_t ii = 0; ii < entries.size(); ++ii) {
-            if (entries[ii]->m_hostport == key) {
-                return entries[ii];
+        for (auto &entry : entries) {
+            if (entry->m_hostport == key) {
+                return entry;
             }
         }
 
         if (!create) {
-            return NULL;
+            return nullptr;
         }
 
-        MetricsEntry *ent = new MetricsEntry(key);
+        auto *ent = new MetricsEntry(key);
         entries.push_back(ent);
         raw_entries.push_back(ent);
         nservers = entries.size();
-        servers = (const lcb_SERVERMETRICS**) &raw_entries[0];
+        servers = (const lcb_SERVERMETRICS **)&raw_entries[0];
         return ent;
     }
 
-    static Metrics *from(lcb_METRICS *metrics) {
-        return static_cast<Metrics*>(metrics);
+    static Metrics *from(lcb_METRICS *metrics)
+    {
+        return static_cast<Metrics *>(metrics);
     }
 };
-}
+} // namespace lcbmetrics
 
 using namespace lcbmetrics;
 
 extern "C" {
-lcb_METRICS *
-lcb_metrics_new(void)
+lcb_METRICS *lcb_metrics_new(void)
 {
     return new Metrics();
 }
 
-void
-lcb_metrics_destroy(lcb_METRICS *metrics)
+void lcb_metrics_destroy(lcb_METRICS *metrics)
 {
     delete Metrics::from(metrics);
 }
 
-lcb_SERVERMETRICS *
-lcb_metrics_getserver(lcb_METRICS *metrics, const char *h, const char *p, int c)
+lcb_SERVERMETRICS *lcb_metrics_getserver(lcb_METRICS *metrics, const char *h, const char *p, int c)
 {
     return Metrics::from(metrics)->get(h, p, c);
 }
 
-void
-lcb_metrics_dumpio(const lcb_IOMETRICS *metrics, FILE *fp)
+void lcb_metrics_dumpio(const lcb_IOMETRICS *metrics, FILE *fp)
 {
     fprintf(fp, "Bytes sent: %lu\n", (unsigned long int)metrics->bytes_sent);
     fprintf(fp, "Bytes received: %lu\n", (unsigned long int)metrics->bytes_received);
@@ -108,8 +107,7 @@ lcb_metrics_dumpio(const lcb_IOMETRICS *metrics, FILE *fp)
     fprintf(fp, "IO Error: %lu\n", (unsigned long int)metrics->io_error);
 }
 
-void
-lcb_metrics_dumpserver(const lcb_SERVERMETRICS *metrics, FILE *fp)
+void lcb_metrics_dumpserver(const lcb_SERVERMETRICS *metrics, FILE *fp)
 {
     lcb_metrics_dumpio(&metrics->iometrics, fp);
     fprintf(fp, "Packets queued: %lu\n", (unsigned long int)metrics->packets_queued);
@@ -122,11 +120,9 @@ lcb_metrics_dumpserver(const lcb_SERVERMETRICS *metrics, FILE *fp)
     fprintf(fp, "Packets orphaned: %lu", (unsigned long int)metrics->packets_ownerless);
 }
 
-void
-lcb_metrics_reset_pipeline_gauges(lcb_SERVERMETRICS *metrics)
+void lcb_metrics_reset_pipeline_gauges(lcb_SERVERMETRICS *metrics)
 {
     metrics->packets_queued = 0;
     metrics->bytes_queued = 0;
 }
-
 }

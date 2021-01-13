@@ -28,16 +28,16 @@ static void destroy_timer(lcbio_TIMER *timer)
         timer->io->timer.destroy(timer->io->p, timer->event);
     }
     lcbio_table_unref(timer->io);
-    free(timer);
+    delete timer;
 }
 
 static void timer_callback(lcb_socket_t sock, short which, void *arg)
 {
-    lcbio_TIMER *timer = arg;
+    auto *timer = static_cast<lcbio_TIMER *>(arg);
 
     lcb_assert(TMR_IS_ARMED(timer));
     lcb_assert(!TMR_IS_DESTROYED(timer));
-    timer->state |= LCBIO_TIMER_S_ENTERED;
+    timer->state = static_cast<lcbio_TIMERSTATE>(timer->state | LCBIO_TIMER_S_ENTERED);
 
     lcbio_timer_disarm(timer);
     timer->callback(timer->data);
@@ -45,7 +45,7 @@ static void timer_callback(lcb_socket_t sock, short which, void *arg)
     if (TMR_IS_DESTROYED(timer)) {
         destroy_timer(timer);
     } else {
-        timer->state &= ~LCBIO_TIMER_S_ENTERED;
+        timer->state = static_cast<lcbio_TIMERSTATE>(timer->state & ~LCBIO_TIMER_S_ENTERED);
     }
 
     (void)sock;
@@ -54,11 +54,7 @@ static void timer_callback(lcb_socket_t sock, short which, void *arg)
 
 lcbio_TIMER *lcbio_timer_new(lcbio_TABLE *io, void *data, lcbio_TIMER_cb callback)
 {
-    lcbio_TIMER *ret = calloc(1, sizeof(*ret));
-
-    if (!ret) {
-        return NULL;
-    }
+    auto *ret = new lcbio_TIMER{};
 
     ret->callback = callback;
     ret->data = data;
@@ -72,7 +68,7 @@ void lcbio_timer_destroy(lcbio_TIMER *timer)
 {
     lcbio_timer_disarm(timer);
     if (timer->state & LCBIO_TIMER_S_ENTERED) {
-        timer->state |= LCBIO_TIMER_S_DESTROYED;
+        timer->state = static_cast<lcbio_TIMERSTATE>(timer->state | LCBIO_TIMER_S_DESTROYED);
     } else {
         destroy_timer(timer);
     }
@@ -84,7 +80,7 @@ void lcbio_timer_disarm(lcbio_TIMER *timer)
         return;
     }
 
-    timer->state &= ~LCBIO_TIMER_S_ARMED;
+    timer->state = static_cast<lcbio_TIMERSTATE>(timer->state & ~LCBIO_TIMER_S_ARMED);
     timer->io->timer.cancel(timer->io->p, timer->event);
 }
 
@@ -96,7 +92,7 @@ void lcbio_timer_rearm(lcbio_TIMER *timer, uint32_t usec)
 
     timer->usec_ = usec;
     timer->io->timer.schedule(timer->io->p, timer->event, usec, timer, timer_callback);
-    timer->state |= LCBIO_TIMER_S_ARMED;
+    timer->state = static_cast<lcbio_TIMERSTATE>(timer->state | LCBIO_TIMER_S_ARMED);
 }
 
 void lcbio_async_signal(lcbio_TIMER *timer)

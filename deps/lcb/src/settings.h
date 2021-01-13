@@ -52,6 +52,7 @@
 #define LCB_DEFAULT_VIEW_TIMEOUT LCB_MS2US(75000)
 #define LCB_DEFAULT_N1QL_TIMEOUT LCB_MS2US(75000)
 #define LCB_DEFAULT_ANALYTICS_TIMEOUT LCB_MS2US(75000)
+#define LCB_DEFAULT_SEARCH_TIMEOUT LCB_MS2US(75000)
 #define LCB_DEFAULT_DURABILITY_TIMEOUT LCB_MS2US(5000)
 #define LCB_DEFAULT_DURABILITY_INTERVAL LCB_MS2US(100)
 #define LCB_DEFAULT_HTTP_TIMEOUT LCB_MS2US(75000)
@@ -84,7 +85,7 @@
 /* compressed_bytes / original_bytes */
 #define LCB_DEFAULT_COMPRESS_MIN_RATIO 0.83
 
-#define LCB_DEFAULT_NVM_RETRY_IMM 1
+#define LCB_DEFAULT_NVM_RETRY_IMM 0
 #define LCB_DEFAULT_RETRY_NMV_INTERVAL LCB_MS2US(100)
 #define LCB_DEFAULT_VB_NOGUESS 1
 #define LCB_DEFAULT_VB_NOREMAP 0
@@ -137,6 +138,7 @@ typedef struct lcb_settings_st {
     lcb_U32 http_timeout;
     lcb_U32 n1ql_timeout;
     lcb_U32 analytics_timeout;
+    lcb_U32 search_timeout;
     lcb_U32 durability_timeout;
     lcb_U32 durability_interval;
     lcb_U32 persistence_timeout_floor;

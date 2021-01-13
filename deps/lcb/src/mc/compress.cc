@@ -38,20 +38,20 @@ class FragBufSource : public snappy::Source
         ptr = static_cast<const char *>(buf->iov[idx].iov_base);
     }
 
-    virtual ~FragBufSource() {}
+    ~FragBufSource() override = default;
 
-    virtual size_t Available() const
+    size_t Available() const override
     {
         return left;
     }
 
-    virtual const char *Peek(size_t *len)
+    const char *Peek(size_t *len) override
     {
         *len = buf->iov[idx].iov_len - static_cast<size_t>((ptr - static_cast<const char *>(buf->iov[idx].iov_base)));
         return ptr;
     }
 
-    virtual void Skip(size_t n)
+    void Skip(size_t n) override
     {
         do {
             size_t spanleft = buf->iov[idx].iov_len - (ptr - static_cast<const char *>(buf->iov[idx].iov_base));
@@ -62,7 +62,7 @@ class FragBufSource : public snappy::Source
             }
             if (idx + 1 >= buf->niov) {
                 left = 0;
-                ptr = NULL;
+                ptr = nullptr;
                 break;
             }
             left -= spanleft;
@@ -70,7 +70,7 @@ class FragBufSource : public snappy::Source
             ptr = static_cast<const char *>(buf->iov[++idx].iov_base);
         } while (n > 0);
         if (left == 0 || idx >= buf->niov) {
-            ptr = NULL;
+            ptr = nullptr;
             left = 0;
         }
     }
@@ -85,9 +85,8 @@ class FragBufSource : public snappy::Source
 int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf, lcb_settings *settings,
                          int *should_compress)
 {
-    size_t maxsize, compsize = 0, origsize = 0;
-
-    snappy::Source *source = NULL;
+    std::size_t origsize = 0;
+    snappy::Source *source;
     switch (vbuf->vtype) {
         case LCB_KV_COPY:
         case LCB_KV_CONTIG:
@@ -120,18 +119,16 @@ int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf
             return -1;
     }
 
-    maxsize = snappy::MaxCompressedLength(source->Available());
+    std::size_t maxsize = snappy::MaxCompressedLength(source->Available());
     if (mcreq_reserve_value2(pl, pkt, maxsize) != LCB_SUCCESS) {
-        if (source != NULL) {
-            delete source;
-        }
+        delete source;
         return -1;
     }
     nb_SPAN *outspan = &pkt->u_value.single;
     snappy::UncheckedByteArraySink sink(SPAN_BUFFER(outspan));
 
     Compress(source, &sink);
-    compsize = sink.CurrentDestination() - SPAN_BUFFER(outspan);
+    std::size_t compsize = sink.CurrentDestination() - SPAN_BUFFER(outspan);
     delete source;
 
     if (compsize == 0 || (((float)compsize / origsize) > settings->compress_min_ratio)) {
@@ -163,7 +160,7 @@ int mcreq_inflate_value(const void *compressed, lcb_SIZE ncompressed, const void
     *freeptr = malloc(compsize);
     if (!snappy::RawUncompress(static_cast<const char *>(compressed), ncompressed, static_cast<char *>(*freeptr))) {
         free(*freeptr);
-        *freeptr = NULL;
+        *freeptr = nullptr;
         return -1;
     }
 

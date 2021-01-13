@@ -1,5 +1,29 @@
 # Release Notes
 
+## 3.0.7 (2020-12-15)
+
+* CCBC-1350: Implement an option for cbc-n1ql to control prepared/adhoc switch
+* CCBC-1345: Ensure all KV sockets select bucket on lcb_open
+* CCBC-1348: Include bucket name into diag report
+* CCBC-1308: Define FATAL and TRANSIENT classes for errors. Also defines corresponding macros for easy access `LCB_ERROR_IS_TRANSIENT` and `LCB_ERROR_IS_FATAL`
+* CCBC-1342: Check if collections supported by server before using them.
+* CCBC-1334: Preserve status of KV protocol response for retry queue
+* CCBC-1339: Do not relocate get with replica on failover. The library should not relocate replica reads when new configuration applied.
+* CCBC-1344: Consume response after retried command to avoid logging the command as "timed out"
+* CCBC-1343: Do not schedule NMV immediately by default and use retry strategy instead.
+* CCBC-1335: Fix next timeout computation on requesting config using `operation_timeout` instead of `config_node_timeout`
+* CCBC-1337: Expose setting for to control default search timeout
+* CCBC-1331: Fix error at bootstrap callback, now it returns original error code, that caused the bootstrap failure.
+* CCBC-1333: Allow setting `lcb_cmdget_locktime` to zero to use server default time.
+* CCBC-1324: define HTTP type for Eventing management
+* Retry operations when the node is not ready
+* Report LCB_ERR_BUCKET_NOT_FOUND if Key/Value service is not configured
+* Update error codes for Query. Translate code 4300 to `LCB_ERR_PLANNING_FAILURE` and 5000 to `LCB_ERR_INTERNAL_SERVER_FAILURE` by default.
+* Fix collection validation, it should pass empty string as valid collection specification element.
+* Remove verbosity and mcversions commands. These parts of API are non-standard and volatile
+* Bundle HdrHistogram_c v0.11.2 and allow to fall back to it
+* Build and stability improvements
+
 ## 3.0.6 (2020-10-21)
 
 * CCBC-1311: Implement `create_as_deleted` subdoc feature.

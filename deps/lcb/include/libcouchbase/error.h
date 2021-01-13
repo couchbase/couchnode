@@ -52,7 +52,12 @@ typedef enum {
     LCB_ERROR_TYPE_SDK = 10
 } lcb_ERROR_TYPE;
 
-typedef enum { LCB_ERROR_FLAG_NETWORK = 1u << 0u, LCB_ERROR_FLAG_SUBDOC = 1u << 1u } lcb_ERROR_FLAGS;
+typedef enum {
+    LCB_ERROR_FLAG_NETWORK = 1u << 0u,
+    LCB_ERROR_FLAG_SUBDOC = 1u << 1u,
+    LCB_ERROR_FLAG_TRANSIENT = 1u << 2u,
+    LCB_ERROR_FLAG_FATAL = 1u << 3u,
+} lcb_ERROR_FLAGS;
 
 /* clang-format off */
 #define LCB_XERROR(X)                                                                                                    \
@@ -61,13 +66,13 @@ X(LCB_SUCCESS,                   0,   LCB_ERROR_TYPE_SUCCESS, 0, "Success (Not a
 X(LCB_ERR_GENERIC,               100, LCB_ERROR_TYPE_BASE,    0, "Generic error code") \
 \
 /* Shared Error Definitions */ \
-X(LCB_ERR_TIMEOUT,                  201, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_NETWORK, "The request was not completed by the user-defined timeout") \
+X(LCB_ERR_TIMEOUT,                  201, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The request was not completed by the user-defined timeout") \
 X(LCB_ERR_REQUEST_CANCELED,         202, LCB_ERROR_TYPE_SHARED, 0, "A request is cancelled and cannot be resolved in a non-ambiguous way. Most likely the request is in-flight on the socket and the socket gets closed.") \
 X(LCB_ERR_INVALID_ARGUMENT,         203, LCB_ERROR_TYPE_SHARED, 0, "It is unambiguously determined that the error was caused because of invalid arguments from the user") \
 X(LCB_ERR_SERVICE_NOT_AVAILABLE,    204, LCB_ERROR_TYPE_SHARED, 0, "It was determined from the config unambiguously that the service is not available") \
 X(LCB_ERR_INTERNAL_SERVER_FAILURE,  205, LCB_ERROR_TYPE_SHARED, 0, "Internal server error") \
 X(LCB_ERR_AUTHENTICATION_FAILURE,   206, LCB_ERROR_TYPE_SHARED, 0, "Authentication error") \
-X(LCB_ERR_TEMPORARY_FAILURE,        207, LCB_ERROR_TYPE_SHARED, 0, "Temporary failure") \
+X(LCB_ERR_TEMPORARY_FAILURE,        207, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_TRANSIENT, "Temporary failure") \
 X(LCB_ERR_PARSING_FAILURE,          208, LCB_ERROR_TYPE_SHARED, 0, "Parsing failed") \
 X(LCB_ERR_CAS_MISMATCH,             209, LCB_ERROR_TYPE_SHARED, 0, "CAS mismatch") \
 X(LCB_ERR_BUCKET_NOT_FOUND,         210, LCB_ERROR_TYPE_SHARED, 0, "A request is made but the current bucket is not found") \
@@ -140,45 +145,45 @@ X(LCB_ERR_GROUP_NOT_FOUND,              804, LCB_ERROR_TYPE_MANAGEMENT, 0, "Grou
 X(LCB_ERR_BUCKET_ALREADY_EXISTS,        805, LCB_ERROR_TYPE_MANAGEMENT, 0, "Bucket already exists") \
 \
 /* SDK-specific Error Definitions */ \
-X(LCB_ERR_SSL_INVALID_CIPHERSUITES,         1000, LCB_ERROR_TYPE_SDK, 0, "OpenSSL encountered an error in the provided ciphersuites (TLS >= 1.3)") \
-X(LCB_ERR_SSL_NO_CIPHERS,                   1001, LCB_ERROR_TYPE_SDK, 0, "OpenSSL does not support any of the ciphers provided (TLS < 1.3)") \
-X(LCB_ERR_SSL_ERROR,                        1002, LCB_ERROR_TYPE_SDK, 0, "A generic error related to the SSL subsystem was encountered. Enable logging to see more details") \
-X(LCB_ERR_SSL_CANTVERIFY,                   1003, LCB_ERROR_TYPE_SDK, 0, "Client could not verify server's certificate") \
-X(LCB_ERR_FD_LIMIT_REACHED,                 1004, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "The system or process has reached its maximum number of file descriptors") \
-X(LCB_ERR_NODE_UNREACHABLE,                 1005, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "The remote host is not reachable")  \
+X(LCB_ERR_SSL_INVALID_CIPHERSUITES,         1000, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "OpenSSL encountered an error in the provided ciphersuites (TLS >= 1.3)") \
+X(LCB_ERR_SSL_NO_CIPHERS,                   1001, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "OpenSSL does not support any of the ciphers provided (TLS < 1.3)") \
+X(LCB_ERR_SSL_ERROR,                        1002, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "A generic error related to the SSL subsystem was encountered. Enable logging to see more details") \
+X(LCB_ERR_SSL_CANTVERIFY,                   1003, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "Client could not verify server's certificate") \
+X(LCB_ERR_FD_LIMIT_REACHED,                 1004, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_FATAL, "The system or process has reached its maximum number of file descriptors") \
+X(LCB_ERR_NODE_UNREACHABLE,                 1005, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The remote host is not reachable")  \
 X(LCB_ERR_CONTROL_UNKNOWN_CODE,             1006, LCB_ERROR_TYPE_SDK, 0, "Control code passed was unrecognized") \
 X(LCB_ERR_CONTROL_UNSUPPORTED_MODE,         1007, LCB_ERROR_TYPE_SDK, 0, "Invalid modifier for cntl operation (e.g. tried to read a write-only value") \
 X(LCB_ERR_CONTROL_INVALID_ARGUMENT,         1008, LCB_ERROR_TYPE_SDK, 0, "Argument passed to cntl was badly formatted")                         \
 X(LCB_ERR_DUPLICATE_COMMANDS,               1009, LCB_ERROR_TYPE_SDK, 0, "The same key was specified more than once in the command list") \
-X(LCB_ERR_NO_MATCHING_SERVER,               1010, LCB_ERROR_TYPE_SDK, 0, "The node the request was mapped to does not exist in the current cluster map. This may be the result of a failover") \
-X(LCB_ERR_PLUGIN_VERSION_MISMATCH,          1011, LCB_ERROR_TYPE_SDK, 0, "This version of libcouchbase cannot load the specified plugin") \
+X(LCB_ERR_NO_MATCHING_SERVER,               1010, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "The node the request was mapped to does not exist in the current cluster map. This may be the result of a failover") \
+X(LCB_ERR_PLUGIN_VERSION_MISMATCH,          1011, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "This version of libcouchbase cannot load the specified plugin") \
 X(LCB_ERR_INVALID_HOST_FORMAT,              1012, LCB_ERROR_TYPE_SDK, 0, "Hostname specified for URI is in an invalid format") \
 X(LCB_ERR_INVALID_CHAR,                     1013, LCB_ERROR_TYPE_SDK, 0, "Illegal character") \
-X(LCB_ERR_BAD_ENVIRONMENT,                  1014, LCB_ERROR_TYPE_SDK, 0, "The value for an environment variable recognized by libcouchbase was specified in an incorrect format. Check your environment for entries starting with 'LCB_' or 'LIBCOUCHBASE_'") \
-X(LCB_ERR_NO_MEMORY,                        1015, LCB_ERROR_TYPE_SDK, 0, "Memory allocation for libcouchbase failed. Severe problems ahead")  \
-X(LCB_ERR_NO_CONFIGURATION,                 1016, LCB_ERROR_TYPE_SDK, 0, "Client not bootstrapped. Ensure bootstrap/connect was attempted and was successful") \
-X(LCB_ERR_DLOPEN_FAILED,                    1017, LCB_ERROR_TYPE_SDK, 0, "Could not locate plugin library") \
-X(LCB_ERR_DLSYM_FAILED,                     1018, LCB_ERROR_TYPE_SDK, 0, "Required plugin initializer not found") \
+X(LCB_ERR_BAD_ENVIRONMENT,                  1014, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "The value for an environment variable recognized by libcouchbase was specified in an incorrect format. Check your environment for entries starting with 'LCB_' or 'LIBCOUCHBASE_'") \
+X(LCB_ERR_NO_MEMORY,                        1015, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "Memory allocation for libcouchbase failed. Severe problems ahead")  \
+X(LCB_ERR_NO_CONFIGURATION,                 1016, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "Client not bootstrapped. Ensure bootstrap/connect was attempted and was successful") \
+X(LCB_ERR_DLOPEN_FAILED,                    1017, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "Could not locate plugin library") \
+X(LCB_ERR_DLSYM_FAILED,                     1018, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "Required plugin initializer not found") \
 X(LCB_ERR_CONFIG_CACHE_INVALID,             1019, LCB_ERROR_TYPE_SDK, 0, "The contents of the configuration cache file were invalid. Configuration will be fetched from the network") \
 X(LCB_ERR_COLLECTION_MANIFEST_IS_AHEAD,     1020, LCB_ERROR_TYPE_SDK, 0, "Collections manifest of SDK is ahead of Server's") \
 X(LCB_ERR_COLLECTION_NO_MANIFEST,           1021, LCB_ERROR_TYPE_SDK, 0, "No Collections Manifest") \
 X(LCB_ERR_COLLECTION_CANNOT_APPLY_MANIFEST, 1022, LCB_ERROR_TYPE_SDK, 0, "Cannot apply collections manifest") \
-X(LCB_ERR_AUTH_CONTINUE,                    1023, LCB_ERROR_TYPE_SDK, 0, "Error code used internally within libcouchbase for SASL auth. Should not be visible from the API") \
-X(LCB_ERR_CONNECTION_REFUSED,               1024, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "The remote host refused the connection") \
-X(LCB_ERR_SOCKET_SHUTDOWN,                  1025, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "The remote host closed the connection") \
-X(LCB_ERR_CONNECTION_RESET,                 1026, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "The connection was forcibly reset by the remote host") \
-X(LCB_ERR_CANNOT_GET_PORT,                  1027, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Could not assign a local port for this socket. For client sockets this means there are too many TCP sockets open") \
-X(LCB_ERR_INCOMPLETE_PACKET,                1028, LCB_ERROR_TYPE_SDK, 0, "Incomplete packet was passed to forward function") \
+X(LCB_ERR_AUTH_CONTINUE,                    1023, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "Error code used internally within libcouchbase for SASL auth. Should not be visible from the API") \
+X(LCB_ERR_CONNECTION_REFUSED,               1024, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The remote host refused the connection") \
+X(LCB_ERR_SOCKET_SHUTDOWN,                  1025, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The remote host closed the connection") \
+X(LCB_ERR_CONNECTION_RESET,                 1026, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The connection was forcibly reset by the remote host") \
+X(LCB_ERR_CANNOT_GET_PORT,                  1027, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_FATAL, "Could not assign a local port for this socket. For client sockets this means there are too many TCP sockets open") \
+X(LCB_ERR_INCOMPLETE_PACKET,                1028, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "Incomplete packet was passed to forward function") \
 X(LCB_ERR_SDK_FEATURE_UNAVAILABLE,          1029, LCB_ERROR_TYPE_SDK, 0, "The requested feature is not supported by the client, either because of settings in the configured instance, or because of options disabled at the time the library was compiled") \
 X(LCB_ERR_OPTIONS_CONFLICT,                 1030, LCB_ERROR_TYPE_SDK, 0, "The operation structure contains conflicting options") \
 X(LCB_ERR_KVENGINE_INVALID_PACKET,          1031, LCB_ERROR_TYPE_SDK, 0, "A badly formatted packet was sent to the server. Please report this in a bug") \
 X(LCB_ERR_DURABILITY_TOO_MANY,              1032, LCB_ERROR_TYPE_SDK, 0, "Durability constraints requires more nodes/replicas than the cluster configuration allows. Durability constraints will never be satisfied") \
 X(LCB_ERR_SHEDULE_FAILURE,                  1033, LCB_ERROR_TYPE_SDK, 0, "Internal error used for destroying unscheduled command data") \
 X(LCB_ERR_DURABILITY_NO_MUTATION_TOKENS,    1034, LCB_ERROR_TYPE_SDK, 0, "The given item does not have a mutation token associated with it. this is either because fetching mutation tokens was not enabled, or you are trying to check on something not stored by this instance") \
-X(LCB_ERR_SASLMECH_UNAVAILABLE,             1035, LCB_ERROR_TYPE_SDK, 0, "The requested SASL mechanism was not supported by the server. Either upgrade the server or change the mechanism requirements") \
+X(LCB_ERR_SASLMECH_UNAVAILABLE,             1035, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "The requested SASL mechanism was not supported by the server. Either upgrade the server or change the mechanism requirements") \
 X(LCB_ERR_TOO_MANY_REDIRECTS,               1036, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Maximum allowed number of redirects reached. See lcb_cntl and the LCB_CNTL_MAX_REDIRECTS option to modify this limit") \
-X(LCB_ERR_MAP_CHANGED,                      1037, LCB_ERROR_TYPE_SDK, 0, "The cluster map has changed and this operation could not be completed or retried internally. Try this operation again") \
-X(LCB_ERR_NOT_MY_VBUCKET,                   1038, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "The server which received this command claims it is not hosting this key") \
+X(LCB_ERR_MAP_CHANGED,                      1037, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "The cluster map has changed and this operation could not be completed or retried internally. Try this operation again") \
+X(LCB_ERR_NOT_MY_VBUCKET,                   1038, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The server which received this command claims it is not hosting this key") \
 X(LCB_ERR_UNKNOWN_SUBDOC_COMMAND,           1039, LCB_ERROR_TYPE_SDK, 0, "Unknown subdocument command") \
 X(LCB_ERR_KVENGINE_UNKNOWN_ERROR,           1040, LCB_ERROR_TYPE_SDK, 0, "The server replied with an unrecognized status code. A newer version of this library may be able to decode it") \
 X(LCB_ERR_NAMESERVER,                       1041, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Invalid reply received from nameserver") \
@@ -211,6 +216,8 @@ typedef enum {
 /** @brief if the error is a result of a network condition */
 #define LCB_ERROR_IS_NETWORK(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_NETWORK) == LCB_ERROR_FLAG_NETWORK)
 #define LCB_ERROR_IS_SUBDOC(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_SUBDOC) == LCB_ERROR_FLAG_SUBDOC)
+#define LCB_ERROR_IS_TRANSIENT(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_TRANSIENT) == LCB_ERROR_FLAG_TRANSIENT)
+#define LCB_ERROR_IS_FATAL(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_FATAL) == LCB_ERROR_FLAG_FATAL)
 
 typedef struct lcb_KEY_VALUE_ERROR_CONTEXT_ lcb_KEY_VALUE_ERROR_CONTEXT;
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_rc(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx);

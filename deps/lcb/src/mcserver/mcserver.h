@@ -107,7 +107,7 @@ class Server : public mc_PIPELINE
     }
     bool has_valid_host() const
     {
-        return curhost != NULL;
+        return curhost != nullptr;
     }
 
     const lcb_host_t &get_host() const
@@ -137,7 +137,7 @@ class Server : public mc_PIPELINE
 
     bool is_connected() const
     {
-        return connctx != NULL;
+        return connctx != nullptr;
     }
 
     /** "Temporary" constructor. Only for use in retry queue */
@@ -170,7 +170,7 @@ class Server : public mc_PIPELINE
 
     static Server *get(lcbio_CTX *ctx)
     {
-        return reinterpret_cast< Server * >(lcbio_ctx_data(ctx));
+        return reinterpret_cast<Server *>(lcbio_ctx_data(ctx));
     }
 
     uint32_t default_timeout() const
@@ -201,7 +201,7 @@ class Server : public mc_PIPELINE
     bool handle_nmv(MemcachedResponse &resinfo, mc_PACKET *oldpkt);
     bool handle_unknown_collection(MemcachedResponse &resinfo, mc_PACKET *oldpkt);
 
-    bool maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err);
+    bool maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err, protocol_binary_response_status status);
     bool maybe_reconnect_on_fake_timeout(lcb_STATUS received_error);
 
     /** Disable */
@@ -230,13 +230,14 @@ class Server : public mc_PIPELINE
     short new_durability;
 
     /** Whether bucket has been selected */
-    short selected_bucket;
+    short selected_bucket{};
 
     lcbio_CTX *connctx;
-    lcb::io::ConnectionRequest *connreq;
+    lcb::io::ConnectionRequest *connreq{};
 
     /** Request for current connection */
     lcb_host_t *curhost;
+    std::string bucket{}; /** non-empty if bucket has been selected */
 };
 } // namespace lcb
 #endif /* __cplusplus */

@@ -18,10 +18,9 @@
 /**
  * Inline routines for reading and writing socket buffers
  */
-#include <errno.h>
-#include <limits.h> /* For IOV_MAX */
+#include <cerrno>
+#include <climits> /* For IOV_MAX */
 #include "ctx-log-inl.h"
-#include "strcodecs/strcodecs.h"
 
 #ifndef INLINE
 #ifdef _MSC_VER
@@ -51,8 +50,8 @@ static INLINE lcbio_IOSTATUS lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
     lcb_IOV iov[RWINL_IOVSIZE];
     unsigned niov;
     lcbio_TABLE *iot = ctx->io;
-    const lcb_U32 rdsize = ctx->sock->settings->read_chunk_size;
-    lcb_U32 total_nr = 0;
+    const std::uint32_t rdsize = ctx->sock->settings->read_chunk_size;
+    std::uint32_t total_nr = 0;
 
     do {
         niov = rdb_rdstart(ior, (nb_IOV *)iov, RWINL_IOVSIZE);
@@ -93,7 +92,7 @@ static INLINE lcbio_IOSTATUS lcbio_E_rdb_slurp(lcbio_CTX *ctx, rdb_IOROPE *ior)
 
 static INLINE lcbio_IOSTATUS lcbio_E_rb_write(lcbio_CTX *ctx, ringbuffer_t *buf)
 {
-    lcb_IOV iov[2] = {0};
+    lcb_IOV iov[2] = {};
     lcb_ssize_t nw;
     lcbio_TABLE *iot = ctx->io;
     while (buf->nbytes) {

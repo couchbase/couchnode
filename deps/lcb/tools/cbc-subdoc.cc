@@ -16,15 +16,11 @@
  */
 
 #include "config.h"
-#include <sys/types.h>
 #include <libcouchbase/couchbase.h>
 #include <iostream>
 #include <map>
-#include <cassert>
 #include <cstdio>
-#include <cerrno>
 #include <stdexcept>
-#include <sstream>
 #include "common/options.h"
 #include "common/histogram.h"
 #include <libcouchbase/metrics.h>
@@ -87,7 +83,7 @@ void subdoc_callback(lcb_INSTANCE *, int, const lcb_RESPSUBDOC *resp)
 using namespace cbc;
 using namespace cliopts;
 
-static void do_or_die(lcb_STATUS rc, std::string msg = "")
+static void do_or_die(lcb_STATUS rc, const std::string &msg = "")
 {
     if (rc != LCB_SUCCESS) {
         std::stringstream ss;
@@ -99,15 +95,15 @@ static void do_or_die(lcb_STATUS rc, std::string msg = "")
     }
 }
 
-static lcb_INSTANCE *instance = NULL;
+static lcb_INSTANCE *instance = nullptr;
 static Histogram hg;
 
 class Configuration
 {
   public:
-    Configuration() {}
+    Configuration() = default;
 
-    ~Configuration() {}
+    ~Configuration() = default;
 
     void addToParser(Parser &parser)
     {
@@ -154,7 +150,7 @@ static const char *handlers_sorted[] = {"help",
                                         "dict-upsert",
                                         "counter",
                                         "size",
-                                        NULL};
+                                        nullptr};
 
 typedef enum {
     SUBDOC_GET = 1,
@@ -189,17 +185,17 @@ namespace subdoc
 class Handler;
 }
 
-static std::map< std::string, subdoc::Handler * > handlers;
+static std::map<std::string, subdoc::Handler *> handlers;
 
 namespace subdoc
 {
 #define HANDLER_DESCRIPTION(s)                                                                                         \
-    const char *description() const                                                                                    \
+    const char *description() const override                                                                           \
     {                                                                                                                  \
         return s;                                                                                                      \
     }
 #define HANDLER_USAGE(s)                                                                                               \
-    const char *usagestr() const                                                                                       \
+    const char *usagestr() const override                                                                              \
     {                                                                                                                  \
         return s;                                                                                                      \
     }
@@ -207,23 +203,23 @@ namespace subdoc
 class Handler
 {
   public:
-    Handler(const char *name) : parser(name)
+    explicit Handler(const char *name) : parser(name)
     {
-        if (name != NULL) {
+        if (name != nullptr) {
             cmdname = name;
         }
         parser.default_settings.error_noexit = 1;
         parser.default_settings.help_noexit = 1;
     }
 
-    virtual ~Handler() {}
+    virtual ~Handler() = default;
     virtual const char *description() const
     {
-        return NULL;
+        return nullptr;
     }
     virtual const char *usagestr() const
     {
-        return NULL;
+        return nullptr;
     }
     void execute(int argc, char **argv)
     {
@@ -237,11 +233,11 @@ class Handler
     }
 
   protected:
-    virtual const std::string &getLoneArg(bool required = false)
+    virtual const std::string &getLoneArg(bool required)
     {
-        static std::string empty("");
+        static std::string empty;
 
-        const std::vector< std::string > &args = parser.getRestArgs();
+        const std::vector<std::string> &args = parser.getRestArgs();
         if (args.empty() || args.size() != 1) {
             if (required) {
                 throw BadArg("Command requires single argument");
@@ -259,30 +255,6 @@ class Handler
     virtual void addOptions() {}
 
     virtual void run() = 0;
-
-    void splitNameValue(std::string &arg, const char **name, size_t *nname, const char **value, size_t *nvalue)
-    {
-        size_t sep = arg.find("=");
-        if (sep == std::string::npos) {
-            throw BadArg("Name and value have to be separated with '='");
-        }
-
-        const char *k = arg.c_str();
-        size_t nk = sep;
-        for (size_t j = nk - 1; j > 0; j--, nk--) {
-            if (k[j] != ' ' && k[j] != '\t') {
-                break;
-            }
-        }
-        if (nk == 0) {
-            throw BadArg("Name cannot be empty");
-        }
-
-        *name = k;
-        *nname = nk;
-        *value = arg.c_str() + sep + 1;
-        *nvalue = arg.size() - sep - 1;
-    }
 
     cliopts::Parser parser;
     std::string cmdname;
@@ -302,13 +274,13 @@ class LookupHandler : public Handler
         o_deleted.abbrev('d').description("Access XATTR attributes of deleted documents");
     }
 
-    const char *description() const
+    const char *description() const override
     {
         return m_description;
     }
 
   protected:
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_paths.reset());
@@ -316,16 +288,16 @@ class LookupHandler : public Handler
         parser.addOption(o_deleted.reset());
     }
 
-    void run()
+    void run() override
     {
         lcb_STATUS err;
 
-        const std::vector< std::string > &keys = parser.getRestArgs();
+        const std::vector<std::string> &keys = parser.getRestArgs();
         if (keys.empty()) {
             throw BadArg("At least one key has to be specified");
         }
-        std::vector< std::string > paths = o_paths.result();
-        std::vector< std::string > xattrs = o_xattrs.result();
+        std::vector<std::string> paths = o_paths.result();
+        std::vector<std::string> xattrs = o_xattrs.result();
 
         if (m_opcode != SUBDOC_GET) {
             if (paths.empty() && xattrs.empty()) {
@@ -334,52 +306,51 @@ class LookupHandler : public Handler
         }
 
         lcb_sched_enter(instance);
-        for (size_t ii = 0; ii < keys.size(); ++ii) {
+        for (const auto &key : keys) {
             lcb_SUBDOCSPECS *specs;
             size_t idx = 0, total = xattrs.size() + paths.size();
             if (paths.empty() && m_opcode == SUBDOC_GET) {
                 total += 1; /* for fulldoc get */
             }
             lcb_subdocspecs_create(&specs, total);
-            for (std::vector< std::string >::const_iterator it = xattrs.begin(); it != xattrs.end(); ++it) {
+            for (const auto &xattr : xattrs) {
                 uint32_t flags = LCB_SUBDOCSPECS_F_XATTRPATH;
                 if (o_deleted.passed()) {
                     flags |= LCB_SUBDOCSPECS_F_XATTR_DELETED_OK;
                 }
                 switch (m_opcode) {
                     case SUBDOC_GET:
-                        lcb_subdocspecs_get(specs, idx++, flags, it->c_str(), it->size());
+                        lcb_subdocspecs_get(specs, idx++, flags, xattr.c_str(), xattr.size());
                         break;
                     case SUBDOC_EXISTS:
-                        lcb_subdocspecs_exists(specs, idx++, flags, it->c_str(), it->size());
+                        lcb_subdocspecs_exists(specs, idx++, flags, xattr.c_str(), xattr.size());
                         break;
                     case SUBDOC_GET_COUNT:
-                        lcb_subdocspecs_get_count(specs, idx++, flags, it->c_str(), it->size());
+                        lcb_subdocspecs_get_count(specs, idx++, flags, xattr.c_str(), xattr.size());
                         break;
                     default:
                         break;
                 }
             }
-            for (std::vector< std::string >::const_iterator it = paths.begin(); it != paths.end(); ++it) {
+            for (const auto &path : paths) {
                 switch (m_opcode) {
                     case SUBDOC_GET:
-                        lcb_subdocspecs_get(specs, idx++, 0, it->c_str(), it->size());
+                        lcb_subdocspecs_get(specs, idx++, 0, path.c_str(), path.size());
                         break;
                     case SUBDOC_EXISTS:
-                        lcb_subdocspecs_exists(specs, idx++, 0, it->c_str(), it->size());
+                        lcb_subdocspecs_exists(specs, idx++, 0, path.c_str(), path.size());
                         break;
                     case SUBDOC_GET_COUNT:
-                        lcb_subdocspecs_get_count(specs, idx++, 0, it->c_str(), it->size());
+                        lcb_subdocspecs_get_count(specs, idx++, 0, path.c_str(), path.size());
                         break;
                     default:
                         break;
                 }
             }
             if (paths.empty() && m_opcode == SUBDOC_GET) {
-                lcb_subdocspecs_get(specs, idx++, 0, NULL, 0);
+                lcb_subdocspecs_get(specs, idx, 0, nullptr, 0);
             }
 
-            const std::string &key = keys[ii];
             lcb_CMDSUBDOC *cmd;
             lcb_cmdsubdoc_create(&cmd);
             lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
@@ -413,7 +384,7 @@ class RemoveHandler : public Handler
     HANDLER_DESCRIPTION("Remove path in the item on the server")
     HANDLER_USAGE("[OPTIONS...] KEY...")
 
-    RemoveHandler(const char *name = "remove") : Handler(name), o_paths("path"), o_xattrs("xattr")
+    explicit RemoveHandler(const char *name = "remove") : Handler(name), o_paths("path"), o_xattrs("xattr")
     {
         o_paths.abbrev('p').argdesc("PATH").description(
             "JSON path in the document. When skipped, the operation applied to full document.");
@@ -421,41 +392,40 @@ class RemoveHandler : public Handler
     }
 
   protected:
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_paths.reset());
         parser.addOption(o_xattrs.reset());
     }
 
-    void run()
+    void run() override
     {
         lcb_STATUS err;
 
-        const std::vector< std::string > &keys = parser.getRestArgs();
+        const std::vector<std::string> &keys = parser.getRestArgs();
         if (keys.empty()) {
             throw BadArg("At least one key has to be specified");
         }
-        std::vector< std::string > paths = o_paths.result();
-        std::vector< std::string > xattrs = o_xattrs.result();
+        std::vector<std::string> paths = o_paths.result();
+        std::vector<std::string> xattrs = o_xattrs.result();
 
         lcb_sched_enter(instance);
-        for (size_t ii = 0; ii < keys.size(); ++ii) {
+        for (const auto &key : keys) {
             lcb_SUBDOCSPECS *specs;
             size_t idx = 0, total = xattrs.size() + (paths.empty() ? 1 : paths.size());
 
             lcb_subdocspecs_create(&specs, total);
-            for (std::vector< std::string >::const_iterator it = xattrs.begin(); it != xattrs.end(); ++it) {
-                lcb_subdocspecs_remove(specs, idx++, LCB_SUBDOCSPECS_F_XATTRPATH, it->c_str(), it->size());
+            for (const auto &xattr : xattrs) {
+                lcb_subdocspecs_remove(specs, idx++, LCB_SUBDOCSPECS_F_XATTRPATH, xattr.c_str(), xattr.size());
             }
-            for (std::vector< std::string >::const_iterator it = paths.begin(); it != paths.end(); ++it) {
-                lcb_subdocspecs_remove(specs, idx++, 0, it->c_str(), it->size());
+            for (const auto &path : paths) {
+                lcb_subdocspecs_remove(specs, idx++, 0, path.c_str(), path.size());
             }
             if (paths.empty()) {
-                lcb_subdocspecs_remove(specs, idx++, 0, NULL, 0);
+                lcb_subdocspecs_remove(specs, idx, 0, nullptr, 0);
             }
 
-            const std::string &key = keys[ii];
             lcb_CMDSUBDOC *cmd;
             lcb_cmdsubdoc_create(&cmd);
             lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
@@ -485,7 +455,7 @@ class UpsertHandler : public Handler
     HANDLER_DESCRIPTION("Store document on the server")
     HANDLER_USAGE("[OPTIONS...] KEY VALUE")
 
-    UpsertHandler(const char *name = "upsert") : Handler(name), o_xattrs("xattr"), o_expiry("expiry")
+    explicit UpsertHandler(const char *name = "upsert") : Handler(name), o_xattrs("xattr"), o_expiry("expiry")
     {
         o_xattrs.abbrev('x').argdesc("PATH=VALUE").description("Store XATTR path (exentnded attributes)");
         o_expiry.abbrev('e').argdesc("TIME").description(
@@ -493,27 +463,27 @@ class UpsertHandler : public Handler
     }
 
   protected:
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_xattrs.reset());
         parser.addOption(o_expiry.reset());
     }
 
-    void run()
+    void run() override
     {
         lcb_STATUS err;
 
-        const std::vector< std::string > &args = parser.getRestArgs();
+        const std::vector<std::string> &args = parser.getRestArgs();
         if (args.size() != 2) {
             throw BadArg("Exactly two arguments required: KEY and VALUE");
         }
         std::string key = args[0];
         std::string value = args[1];
-        std::vector< std::pair< std::string, std::string > > xattrs = o_xattrs.result();
+        std::vector<std::pair<std::string, std::string>> xattrs = o_xattrs.result();
 
         size_t idx = 0, total = xattrs.size() + 1;
-        if (xattrs.size() == 0) {
+        if (xattrs.empty()) {
             total += 1;
         }
         lcb_SUBDOCSPECS *specs;
@@ -523,11 +493,10 @@ class UpsertHandler : public Handler
         std::string path = "_cbc.version";
 
         if (o_xattrs.passed()) {
-            for (std::vector< std::pair< std::string, std::string > >::const_iterator it = xattrs.begin();
-                 it != xattrs.end(); ++it) {
-                lcb_subdocspecs_dict_upsert(specs, idx++,
-                                            LCB_SUBDOCSPECS_F_XATTRPATH | LCB_SUBDOCSPECS_F_MKINTERMEDIATES,
-                                            it->first.c_str(), it->first.size(), it->second.c_str(), it->second.size());
+            for (const auto &xattr : xattrs) {
+                lcb_subdocspecs_dict_upsert(
+                    specs, idx++, LCB_SUBDOCSPECS_F_XATTRPATH | LCB_SUBDOCSPECS_F_MKINTERMEDIATES, xattr.first.c_str(),
+                    xattr.first.size(), xattr.second.c_str(), xattr.second.size());
             }
         } else {
             // currently it is not possible to upsert document without XATTRs
@@ -535,7 +504,7 @@ class UpsertHandler : public Handler
             lcb_subdocspecs_dict_upsert(specs, idx++, LCB_SUBDOCSPECS_F_XATTRPATH | LCB_SUBDOCSPECS_F_MKINTERMEDIATES,
                                         path.c_str(), path.size(), ver.c_str(), ver.size());
         }
-        lcb_subdocspecs_replace(specs, idx++, 0, NULL, 0, value.c_str(), value.size());
+        lcb_subdocspecs_replace(specs, idx, 0, nullptr, 0, value.c_str(), value.size());
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
@@ -585,13 +554,13 @@ class MutationHandler : public Handler
         o_upsert.abbrev('u').description("Create document if it doesn't exist");
     }
 
-    const char *description() const
+    const char *description() const override
     {
         return m_description;
     }
 
   protected:
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_xattrs.reset());
@@ -603,16 +572,16 @@ class MutationHandler : public Handler
         }
     }
 
-    void run()
+    void run() override
     {
         lcb_STATUS err;
 
-        const std::vector< std::string > &keys = parser.getRestArgs();
+        const std::vector<std::string> &keys = parser.getRestArgs();
         if (keys.empty()) {
             throw BadArg("At least one key has to be specified");
         }
-        std::vector< std::pair< std::string, std::string > > paths = o_paths.result();
-        std::vector< std::pair< std::string, std::string > > xattrs = o_xattrs.result();
+        std::vector<std::pair<std::string, std::string>> paths = o_paths.result();
+        std::vector<std::pair<std::string, std::string>> xattrs = o_xattrs.result();
 
         if (xattrs.empty() && paths.empty()) {
             throw BadArg("At least one path has to be specified");
@@ -620,97 +589,94 @@ class MutationHandler : public Handler
 
         lcb_sched_enter(instance);
 
-        for (size_t ii = 0; ii < keys.size(); ++ii) {
+        for (const auto &key : keys) {
             size_t idx = 0, total = xattrs.size() + paths.size();
             lcb_SUBDOCSPECS *specs;
             lcb_subdocspecs_create(&specs, total);
-            for (std::vector< std::pair< std::string, std::string > >::const_iterator it = xattrs.begin();
-                 it != xattrs.end(); ++it) {
+            for (const auto &xattr : xattrs) {
                 uint32_t flags = LCB_SUBDOCSPECS_F_XATTRPATH;
                 if (o_intermediates.passed()) {
                     flags |= LCB_SUBDOCSPECS_F_MKINTERMEDIATES;
                 }
                 switch (m_opcode) {
                     case SUBDOC_DICT_UPSERT:
-                        lcb_subdocspecs_dict_upsert(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                    it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_dict_upsert(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                    xattr.second.c_str(), xattr.second.size());
                         break;
                     case SUBDOC_DICT_ADD:
-                        lcb_subdocspecs_dict_add(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                 it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_dict_add(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                 xattr.second.c_str(), xattr.second.size());
                         break;
                     case SUBDOC_REPLACE:
-                        lcb_subdocspecs_replace(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_replace(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                xattr.second.c_str(), xattr.second.size());
                         break;
                     case SUBDOC_ARRAY_ADD_FIRST:
-                        lcb_subdocspecs_array_add_first(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                        it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_add_first(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                        xattr.second.c_str(), xattr.second.size());
                         break;
                     case SUBDOC_ARRAY_ADD_LAST:
-                        lcb_subdocspecs_array_add_last(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                       it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_add_last(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                       xattr.second.c_str(), xattr.second.size());
                         break;
                     case SUBDOC_ARRAY_ADD_UNIQUE:
-                        lcb_subdocspecs_array_add_unique(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                         it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_add_unique(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                         xattr.second.c_str(), xattr.second.size());
                         break;
                     case SUBDOC_ARRAY_INSERT:
-                        lcb_subdocspecs_array_insert(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                     it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_insert(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                     xattr.second.c_str(), xattr.second.size());
                         break;
                     case SUBDOC_COUNTER:
-                        lcb_subdocspecs_counter(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                atoll(it->second.c_str()));
+                        lcb_subdocspecs_counter(specs, idx++, flags, xattr.first.c_str(), xattr.first.size(),
+                                                atoll(xattr.second.c_str()));
                         break;
                     default:
                         break;
                 }
             }
-            for (std::vector< std::pair< std::string, std::string > >::const_iterator it = paths.begin();
-                 it != paths.end(); ++it) {
+            for (const auto &path : paths) {
                 uint32_t flags = 0;
                 if (o_intermediates.passed()) {
                     flags |= LCB_SUBDOCSPECS_F_MKINTERMEDIATES;
                 }
                 switch (m_opcode) {
                     case SUBDOC_DICT_UPSERT:
-                        lcb_subdocspecs_dict_upsert(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                    it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_dict_upsert(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                    path.second.c_str(), path.second.size());
                         break;
                     case SUBDOC_DICT_ADD:
-                        lcb_subdocspecs_dict_add(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                 it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_dict_add(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                 path.second.c_str(), path.second.size());
                         break;
                     case SUBDOC_REPLACE:
-                        lcb_subdocspecs_replace(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_replace(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                path.second.c_str(), path.second.size());
                         break;
                     case SUBDOC_ARRAY_ADD_FIRST:
-                        lcb_subdocspecs_array_add_first(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                        it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_add_first(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                        path.second.c_str(), path.second.size());
                         break;
                     case SUBDOC_ARRAY_ADD_LAST:
-                        lcb_subdocspecs_array_add_last(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                       it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_add_last(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                       path.second.c_str(), path.second.size());
                         break;
                     case SUBDOC_ARRAY_ADD_UNIQUE:
-                        lcb_subdocspecs_array_add_unique(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                         it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_add_unique(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                         path.second.c_str(), path.second.size());
                         break;
                     case SUBDOC_ARRAY_INSERT:
-                        lcb_subdocspecs_array_insert(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                     it->second.c_str(), it->second.size());
+                        lcb_subdocspecs_array_insert(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                     path.second.c_str(), path.second.size());
                         break;
                     case SUBDOC_COUNTER:
-                        lcb_subdocspecs_counter(specs, idx++, flags, it->first.c_str(), it->first.size(),
-                                                atoll(it->second.c_str()));
+                        lcb_subdocspecs_counter(specs, idx++, flags, path.first.c_str(), path.first.size(),
+                                                atoll(path.second.c_str()));
                         break;
                     default:
                         break;
                 }
             }
-            const std::string &key = keys[ii];
             lcb_CMDSUBDOC *cmd;
             lcb_cmdsubdoc_create(&cmd);
             lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
@@ -756,7 +722,7 @@ class HelpHandler : public Handler
     HelpHandler() : Handler("help") {}
 
   protected:
-    void run()
+    void run() override
     {
         fprintf(stderr, "Usage: <command> [options]\n");
         fprintf(stderr, "command may be:\n");
@@ -775,9 +741,9 @@ class DumpHandler : public Handler
     DumpHandler() : Handler("dump") {}
 
   protected:
-    void run()
+    void run() override
     {
-        lcb_METRICS *metrics = NULL;
+        lcb_METRICS *metrics = nullptr;
         size_t ii;
 
         lcb_dump(instance, stderr, LCB_DUMP_ALL);
@@ -838,17 +804,13 @@ static void setupHandlers()
 
 static void cleanup()
 {
-    std::map< std::string, subdoc::Handler * >::iterator iter = handlers.begin();
+    handlers["exists"] = nullptr;
+    handlers["delete"] = nullptr;
+    handlers["set"] = nullptr;
+    handlers["get-count"] = nullptr;
 
-    handlers["exists"] = NULL;
-    handlers["delete"] = NULL;
-    handlers["set"] = NULL;
-    handlers["get-count"] = NULL;
-
-    for (; iter != handlers.end(); iter++) {
-        if (iter->second) {
-            delete iter->second;
-        }
+    for (auto &handler : handlers) {
+        delete handler.second;
     }
 
     if (instance) {
@@ -873,7 +835,7 @@ static void real_main(int argc, char **argv)
     parser.parse(argc, argv);
     config.processOptions();
 
-    lcb_CREATEOPTS *cropts = NULL;
+    lcb_CREATEOPTS *cropts = nullptr;
     config.fillCropts(cropts);
     do_or_die(lcb_create(&instance, cropts), "Failed to create connection");
     lcb_createopts_destroy(cropts);
@@ -899,7 +861,7 @@ static void real_main(int argc, char **argv)
 
     do {
         char *line = linenoise("subdoc> ");
-        if (line == NULL) {
+        if (line == nullptr) {
             break;
         }
         if (line[0] != '\0') {
@@ -907,7 +869,7 @@ static void real_main(int argc, char **argv)
             linenoiseHistorySave(history_path.c_str());
 
             int cmd_argc = 0;
-            char **cmd_argv = NULL;
+            char **cmd_argv = nullptr;
             int rv = cliopts_split_args(line, &cmd_argc, &cmd_argv);
             if (rv) {
                 fprintf(stderr, "Invalid input: unterminated single quote\n");
@@ -915,7 +877,7 @@ static void real_main(int argc, char **argv)
                 if (cmd_argc > 0) {
                     char *cmd_name = cmd_argv[0];
                     subdoc::Handler *handler = handlers[cmd_name];
-                    if (handler == NULL) {
+                    if (handler == nullptr) {
                         fprintf(stderr, "Unknown command %s\n", cmd_name);
                         subdoc::HelpHandler().execute(cmd_argc, cmd_argv);
                     } else {

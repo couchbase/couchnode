@@ -30,14 +30,14 @@ using namespace lcb::jsparse;
 
 static std::string iov2s(const lcb_IOV &iov)
 {
-    return std::string(reinterpret_cast< const char * >(iov.iov_base), iov.iov_len);
+    return std::string(reinterpret_cast<const char *>(iov.iov_base), iov.iov_len);
 }
 
 struct Context : Parser::Actions {
     lcb_STATUS rc;
     bool received_done;
     std::string meta;
-    std::vector< std::string > rows;
+    std::vector<std::string> rows;
     Context()
     {
         reset();
@@ -104,9 +104,4 @@ TEST_F(JsonParseTest, testN1QL)
     ASSERT_TRUE(validateJsonRows(JSON_n1ql_nonempty, sizeof(JSON_n1ql_nonempty), Parser::MODE_N1QL));
     ASSERT_TRUE(validateJsonRows(JSON_n1ql_empty, sizeof(JSON_n1ql_empty), Parser::MODE_N1QL));
     ASSERT_TRUE(validateBadParse(JSON_n1ql_bad, sizeof(JSON_n1ql_bad), Parser::MODE_N1QL));
-}
-
-TEST_F(JsonParseTest, testAnalyticsDeferred)
-{
-    ASSERT_TRUE(validateJsonRows(JSON_ad_nonempty, sizeof(JSON_ad_nonempty), Parser::MODE_ANALYTICS_DEFERRED));
 }

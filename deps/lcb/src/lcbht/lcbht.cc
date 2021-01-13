@@ -22,7 +22,8 @@
 using namespace lcb::htparse;
 
 Parser::Parser(lcb_settings_st *settings_)
-    : http_parser(), settings(settings_), lastcall(CB_NONE), last_body(0), last_bodylen(0), paused(false), is_ex(false)
+    : http_parser(), settings(settings_), lastcall(CB_NONE), last_body(nullptr), last_bodylen(0), paused(false),
+      is_ex(false)
 {
     lcb_settings_ref(settings);
     reset();
@@ -107,15 +108,15 @@ int Parser::on_msg_done()
     return 0;
 }
 
-static struct http_parser_settings Parser_Settings = {NULL, /* msg_begin */
-                                                      NULL, /* on_url */
+static struct http_parser_settings Parser_Settings = {nullptr, /* msg_begin */
+                                                      nullptr, /* on_url */
                                                       ::on_hdr_key, ::on_hdr_value, ::on_hdr_done,
                                                       ::on_body,    ::on_msg_done};
 
 unsigned Parser::parse(const void *data_, size_t ndata)
 {
     is_ex = false;
-    size_t nb = _lcb_http_parser_execute(this, &Parser_Settings, reinterpret_cast< const char * >(data_), ndata);
+    size_t nb = _lcb_http_parser_execute(this, &Parser_Settings, reinterpret_cast<const char *>(data_), ndata);
 
     if (nb != ndata) {
         resp.state |= S_ERROR;
@@ -127,7 +128,7 @@ unsigned Parser::parse(const void *data_, size_t ndata)
 unsigned Parser::parse_ex(const void *data_, unsigned ndata, unsigned *nused, unsigned *nbody, const char **pbody)
 {
     is_ex = true;
-    size_t nb = _lcb_http_parser_execute(this, &Parser_Settings, reinterpret_cast< const char * >(data_), ndata);
+    size_t nb = _lcb_http_parser_execute(this, &Parser_Settings, reinterpret_cast<const char *>(data_), ndata);
     if (nb != ndata) {
         if (paused) {
             _lcb_http_parser_pause(this, 0);
@@ -142,7 +143,7 @@ unsigned Parser::parse_ex(const void *data_, unsigned ndata, unsigned *nused, un
     *nbody = last_bodylen;
     *pbody = last_body;
 
-    last_body = NULL;
+    last_body = nullptr;
     last_bodylen = 0;
     return resp.state;
 }
@@ -150,14 +151,14 @@ unsigned Parser::parse_ex(const void *data_, unsigned ndata, unsigned *nused, un
 bool Parser::can_keepalive() const
 {
     if (!(resp.state & S_DONE)) {
-        return 0;
+        return false;
     }
 
     if (resp.state & S_ERROR) {
-        return 0;
+        return false;
     }
 
-    return _lcb_http_should_keep_alive(const_cast< http_parser * >(static_cast< const http_parser * >(this)));
+    return _lcb_http_should_keep_alive(const_cast<http_parser *>(static_cast<const http_parser *>(this)));
 }
 
 void Parser::reset()
@@ -168,11 +169,11 @@ void Parser::reset()
 
 const MimeHeader *Response::get_header(const std::string &key) const
 {
-    std::list< MimeHeader >::const_iterator it;
+    std::list<MimeHeader>::const_iterator it;
     for (it = headers.begin(); it != headers.end(); ++it) {
         if (it->key == key) {
             return &*it;
         }
     }
-    return NULL;
+    return nullptr;
 }

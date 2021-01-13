@@ -20,7 +20,6 @@
 #include "internal.h"
 #include "collections.h"
 #include "logging.h"
-#include "vbucket/aliases.h"
 #include "settings.h"
 #include "negotiate.h"
 #include "bucketconfig/clconfig.h"
@@ -64,7 +63,7 @@ static void on_flush_ready(lcbio_CTX *ctx)
         }
 #ifdef LCB_DUMP_PACKETS
         {
-            char *b64 = NULL;
+            char *b64 = nullptr;
             int nb64 = 0;
             lcb_base64_encode_iov((lcb_IOV *)iov, niov, nb, &b64, &nb64);
             lcb_log(LOGARGS(server, TRACE), LOGFMT "pkt,snd,fill: size=%d, %.*s", LOGID(server), nb64, nb64, b64);
@@ -183,7 +182,7 @@ bool Server::handle_nmv(MemcachedResponse &resinfo, mc_PACKET *oldpkt)
 }
 
 struct packet_wrapper {
-    lcb_KEYBUF key;
+    lcb_KEYBUF key{};
     const char *scope = nullptr;
     size_t nscope = 0;
     const char *collection = nullptr;
@@ -248,6 +247,7 @@ static lcb_STATUS reschedule_destroy(packet_wrapper *wrapper)
 
 bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpkt)
 {
+    auto orig_status = static_cast<protocol_binary_response_status>(resp.status());
     lcb_STATUS orig_err = resp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE ? LCB_ERR_SCOPE_NOT_FOUND
                                                                                   : LCB_ERR_COLLECTION_NOT_FOUND;
     protocol_binary_request_header req;
@@ -266,7 +266,7 @@ bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpk
     if (req.request.opcode == PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID) {
         mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
         newpkt->flags &= ~MCREQ_STATE_FLAGS;
-        instance->retryq->ucadd((mc_EXPACKET *)newpkt, orig_err);
+        instance->retryq->ucadd((mc_EXPACKET *)newpkt, orig_err, orig_status);
         return true;
     }
 
@@ -281,13 +281,13 @@ bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpk
     wrapper.pkt = mcreq_renew_packet(oldpkt);
     wrapper.instance = instance;
     wrapper.timeout = LCB_NS2US(MCREQ_PKT_RDATA(wrapper.pkt)->deadline - now);
-    auto operation = [this, orig_err](const lcb_RESPGETCID *, packet_wrapper *wrp) {
+    auto operation = [this, orig_err, orig_status](const lcb_RESPGETCID *, packet_wrapper *wrp) {
         if ((wrp->pkt->flags & MCREQ_F_NOCID) == 0) {
             mcreq_set_cid(this, wrp->pkt, wrp->cid);
         }
         /** Reschedule the packet again .. */
         wrp->pkt->flags &= ~MCREQ_STATE_FLAGS;
-        wrp->instance->retryq->ucadd((mc_EXPACKET *)wrp->pkt, orig_err);
+        wrp->instance->retryq->ucadd((mc_EXPACKET *)wrp->pkt, orig_err, orig_status);
         return LCB_SUCCESS;
     };
 
@@ -420,7 +420,8 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
 
         mc_PACKET *newpkt = mcreq_renew_packet(request);
         newpkt->flags &= ~MCREQ_STATE_FLAGS;
-        instance->retryq->add((mc_EXPACKET *)newpkt, newerr ? newerr : LCB_ERR_GENERIC, spec);
+        instance->retryq->add((mc_EXPACKET *)newpkt, newerr ? newerr : LCB_ERR_GENERIC,
+                              static_cast<protocol_binary_response_status>(mcresp.status()), spec);
         rv |= ERRMAP_HANDLE_RETRY;
     }
 
@@ -436,6 +437,11 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
 }
 
 lcb_STATUS lcb_map_error(lcb_INSTANCE *instance, int in);
+
+static bool is_warmup_issue(uint16_t status)
+{
+    return status == PROTOCOL_BINARY_RESPONSE_NO_BUCKET || status == PROTOCOL_BINARY_RESPONSE_NOT_INITIALIZED;
+}
 
 /* This function is called within a loop to process a single packet.
  *
@@ -456,7 +462,7 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     if (has_pending()) {                                                                                               \
         lcbio_ctx_rwant(ctx, n);                                                                                       \
     }                                                                                                                  \
-    return PKT_READ_PARTIAL;
+    return PKT_READ_PARTIAL
 
 #define DO_ASSIGN_PAYLOAD()                                                                                            \
     rdb_consumed(ior, mcresp.hdrsize());                                                                               \
@@ -472,7 +478,7 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     }
 
     if (rdb_get_nused(ior) < pktsize) {
-        RETURN_NEED_MORE(pktsize)
+        RETURN_NEED_MORE(pktsize);
     }
 
     MC_INCR_METRIC(this, packets_read, 1);
@@ -495,6 +501,27 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     }
 
     if (!request) {
+        if (mcresp.opcode() == PROTOCOL_BINARY_CMD_SELECT_BUCKET) {
+            rdb_consumed(ior, pktsize);
+            switch (mcresp.status()) {
+                case PROTOCOL_BINARY_RESPONSE_SUCCESS:
+                    lcb_log(LOGARGS_T(TRACE), R"(<%s:%s> (SRV=%p) Selected bucket "%.*s" (SEQ=0x%02x))", curhost->host,
+                            curhost->port, (void *)this, (int)bucket.size(), bucket.c_str(), mcresp.opaque());
+                    return PKT_READ_COMPLETE;
+                case PROTOCOL_BINARY_RESPONSE_EACCESS:
+                case PROTOCOL_BINARY_RESPONSE_KEY_ENOENT:
+                    lcb_log(LOGARGS_T(WARN),
+                            LOGFMT "unable to select bucket with SELECT_BUCKET (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(),
+                            mcresp.opcode(), mcresp.status(), mcresp.opaque());
+                    return PKT_READ_ABORT;
+                default:
+                    lcb_log(LOGARGS_T(DEBUG),
+                            LOGFMT "unexpected status received for SELECT_BUCKET (OP=0x%x, RC=0x%x, SEQ=%u)", LOGID_T(),
+                            mcresp.opcode(), mcresp.status(), mcresp.opaque());
+                    return PKT_READ_COMPLETE;
+            }
+        }
+
         MC_INCR_METRIC(this, packets_ownerless, 1);
         lcb_log(LOGARGS_T(DEBUG), LOGFMT "Server sent us reply for a timed-out command. (OP=0x%x, RC=0x%x, SEQ=%u)",
                 LOGID_T(), mcresp.opcode(), mcresp.status(), mcresp.opaque());
@@ -506,14 +533,24 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
     ReadState rdstate = PKT_READ_COMPLETE;
     int unknown_err_rv;
 
-    /* Check if the status code is one which must be handled carefully by the
-     * client */
-    if (is_fastpath_error(mcresp.status())) {
-        lcb_STATUS err = lcb_map_error(instance, mcresp.status());
-        if (err != LCB_SUCCESS && maybe_retry_packet(request, err)) {
+    auto status = static_cast<protocol_binary_response_status>(mcresp.status());
+    if (is_warmup_issue(status)) {
+        DO_ASSIGN_PAYLOAD()
+        mc_PACKET *newpkt = mcreq_renew_packet(request);
+        newpkt->flags &= ~MCREQ_STATE_FLAGS;
+        instance->retryq->add((mc_EXPACKET *)newpkt, lcb_map_error(instance, status), status, nullptr);
+        DO_SWALLOW_PAYLOAD()
+        rdstate = PKT_READ_ABORT;
+        goto GT_DONE;
+    } else if (is_fastpath_error(status)) {
+        /* Check if the status code is one which must be handled carefully by the client */
+        lcb_STATUS err = lcb_map_error(instance, status);
+        if (err != LCB_SUCCESS && maybe_retry_packet(request, err, status)) {
+            DO_ASSIGN_PAYLOAD()
+            DO_SWALLOW_PAYLOAD()
             goto GT_DONE;
         }
-    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET) {
+    } else if (status == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET) {
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
         if (!handle_nmv(mcresp, request)) {
@@ -521,8 +558,8 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
         }
         DO_SWALLOW_PAYLOAD()
         goto GT_DONE;
-    } else if (mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION ||
-               mcresp.status() == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE) {
+    } else if (status == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION ||
+               status == PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE) {
         /* consume the header */
         DO_ASSIGN_PAYLOAD()
         if (!handle_unknown_collection(mcresp, request)) {
@@ -544,7 +581,7 @@ Server::ReadState Server::try_read(lcbio_CTX *ctx, rdb_IOROPE *ior)
 
     /* Figure out if the request is 'ufwd' or not */
     if (!(request->flags & MCREQ_F_UFWD)) {
-        DO_ASSIGN_PAYLOAD();
+        DO_ASSIGN_PAYLOAD()
         mcresp.bufh = rdb_get_first_segment(ior);
         mcreq_dispatch_response(this, request, &mcresp, err_override);
         DO_SWALLOW_PAYLOAD()
@@ -600,7 +637,7 @@ static void server_connect(Server *server)
     server->connect();
 }
 
-bool Server::maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err)
+bool Server::maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err, protocol_binary_response_status status)
 {
     lcbvb_DISTMODE dist_t = lcbvb_get_distmode(parent->config);
 
@@ -616,7 +653,7 @@ bool Server::maybe_retry_packet(mc_PACKET *pkt, lcb_STATUS err)
     mc_PACKET *newpkt = mcreq_renew_packet(pkt);
     newpkt->flags &= ~MCREQ_STATE_FLAGS;
     // TODO: Load the 4th argument from the error map
-    instance->retryq->add((mc_EXPACKET *)newpkt, err, NULL);
+    instance->retryq->add((mc_EXPACKET *)newpkt, err, status, nullptr);
     return true;
 }
 
@@ -721,7 +758,7 @@ static const char *opcode_name(uint8_t code)
 
 void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
 {
-    if (maybe_retry_packet(pkt, err)) {
+    if (maybe_retry_packet(pkt, err, PROTOCOL_BINARY_RESPONSE_EINTERNAL)) {
         return;
     }
 
@@ -786,13 +823,13 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
 
 int Server::purge(lcb_STATUS error, hrtime_t now, RefreshPolicy policy)
 {
-    unsigned affected;
+    int affected;
 
     if (now) {
-        affected = mcreq_pipeline_timeout(this, error, fail_callback, NULL, now);
+        affected = (int)mcreq_pipeline_timeout(this, error, fail_callback, nullptr, now);
 
     } else {
-        mcreq_pipeline_fail(this, error, fail_callback, NULL);
+        mcreq_pipeline_fail(this, error, fail_callback, nullptr);
         affected = -1;
     }
 
@@ -810,7 +847,7 @@ int Server::purge(lcb_STATUS error, hrtime_t now, RefreshPolicy policy)
 static void flush_errdrain(mc_PIPELINE *pipeline)
 {
     /* Called when we are draining errors. */
-    Server *server = (Server *)pipeline;
+    auto *server = (Server *)pipeline;
     if (!lcbio_timer_armed(server->io_timer)) {
         lcbio_timer_rearm(server->io_timer, server->default_timeout());
     }
@@ -819,17 +856,14 @@ static void flush_errdrain(mc_PIPELINE *pipeline)
 uint32_t Server::next_timeout() const
 {
     hrtime_t now, expiry, diff, min = 0;
-    mc_PACKET *pkt = NULL;
+    mc_PACKET *pkt = nullptr;
 
     sllist_iterator iter;
     SLLIST_ITERFOR(const_cast<sllist_root *>(&requests), &iter)
     {
         mc_PACKET *p = SLLIST_ITEM(iter.cur, mc_PACKET, slnode);
         hrtime_t deadline = MCREQ_PKT_RDATA(p)->deadline;
-        if (pkt == NULL) {
-            min = deadline;
-            pkt = p;
-        } else if (deadline < min) {
+        if (pkt == nullptr || deadline < min) {
             min = deadline;
             pkt = p;
         }
@@ -855,7 +889,7 @@ void mcreq_rearm_timeout(mc_PIPELINE *pipeline)
     if ((unsigned)pipeline->index == pipeline->parent->npipelines) {
         return; /* this is fallback pipeline, skip it */
     }
-    Server *server = reinterpret_cast<Server *>(pipeline);
+    auto *server = reinterpret_cast<Server *>(pipeline);
     if (server->io_timer) {
         lcbio_timer_rearm(server->io_timer, server->next_timeout());
     }
@@ -909,7 +943,7 @@ bool Server::maybe_reconnect_on_fake_timeout(lcb_STATUS err)
 
 static void on_connected(lcbio_SOCKET *sock, void *data, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    Server *server = reinterpret_cast<Server *>(data);
+    auto *server = reinterpret_cast<Server *>(data);
     server->handle_connected(sock, err, syserr);
 }
 
@@ -920,7 +954,7 @@ static void mcserver_flush(Server *s)
 
 void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR syserr)
 {
-    connreq = NULL;
+    connreq = nullptr;
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS_T(ERR),
@@ -937,10 +971,11 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
     if (metrics) {
         lcbio_set_metrics(sock, &metrics->iometrics);
     }
+    bool try_to_select_bucket = false;
 
     /** Do we need sasl? */
     SessionInfo *sessinfo = SessionInfo::get(sock);
-    if (sessinfo == NULL) {
+    if (sessinfo == nullptr) {
         lcb_log(LOGARGS_T(TRACE), "<%s:%s> (SRV=%p) Session not yet negotiated. Negotiating", curhost->host,
                 curhost->port, (void *)this);
         connreq = SessionRequest::start(sock, settings, settings->config_node_timeout, on_connected, this);
@@ -952,6 +987,18 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
         new_durability = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_SYNC_REPLICATION) &&
                          sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_ALT_REQUEST_SUPPORT);
         selected_bucket = sessinfo->selected_bucket();
+        if (selected_bucket) {
+            bucket = sessinfo->bucket_name();
+        } else if (settings->conntype == LCB_TYPE_BUCKET && settings->bucket) {
+            try_to_select_bucket = true;
+        }
+        lcb_log(
+            LOGARGS_T(TRACE),
+            R"(<%s:%s> (SRV=%p) Got new KV connection (json=%s, snappy=%s, mt=%s, durability=%s, bucket=%s "%s"%s%s))",
+            curhost->host, curhost->port, (void *)this, jsonsupport ? "yes" : "no", compsupport ? "yes" : "no",
+            mutation_tokens ? "yes" : "no", new_durability ? "yes" : "no", selected_bucket ? "yes" : "no",
+            selected_bucket ? bucket.c_str() : "-", try_to_select_bucket ? " selecting " : "",
+            try_to_select_bucket ? settings->bucket : "");
     }
 
     lcbio_CTXPROCS procs{};
@@ -963,7 +1010,14 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
     connctx->subsys = "memcached";
     sock->service = LCBIO_SERVICE_KV;
     flush_start = (mcreq_flushstart_fn)mcserver_flush;
-
+    if (try_to_select_bucket) {
+        bucket.assign(settings->bucket, strlen(settings->bucket));
+        lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SELECT_BUCKET);
+        req.opaque(0xbebe);
+        req.sizes(0, bucket.size(), 0);
+        lcbio_ctx_put(connctx, req.data(), req.size());
+        lcbio_ctx_put(connctx, bucket.c_str(), bucket.size());
+    }
     uint32_t tmo = next_timeout();
     lcbio_timer_rearm(io_timer, tmo);
     flush();
@@ -978,21 +1032,20 @@ void Server::connect()
 
 static void buf_done_cb(mc_PIPELINE *pl, const void *cookie, void *, void *)
 {
-    Server *server = static_cast<Server *>(pl);
+    auto *server = static_cast<Server *>(pl);
     server->instance->callbacks.pktflushed(server->instance, cookie);
 }
 
 Server::Server(lcb_INSTANCE *instance_, int ix)
     : mc_PIPELINE(), state(S_CLEAN), io_timer(lcbio_timer_new(instance_->iotable, this, timeout_server)),
       instance(instance_), settings(lcb_settings_ref2(instance_->settings)), compsupport(0), jsonsupport(0),
-      mutation_tokens(0), new_durability(-1), selected_bucket(0), connctx(NULL), curhost(new lcb_host_t())
+      mutation_tokens(0), new_durability(-1), selected_bucket(0), connctx(nullptr), curhost(new lcb_host_t())
 {
     mcreq_pipeline_init(this);
     flush_start = (mcreq_flushstart_fn)server_connect;
     buf_done_callback = buf_done_cb;
     index = ix;
 
-    std::memset(&connreq, 0, sizeof connreq);
     std::memset(curhost, 0, sizeof *curhost);
 
     const char *datahost =
@@ -1009,8 +1062,8 @@ Server::Server(lcb_INSTANCE *instance_, int ix)
 }
 
 Server::Server()
-    : state(S_TEMPORARY), io_timer(NULL), instance(NULL), settings(NULL), compsupport(0), jsonsupport(0),
-      mutation_tokens(0), new_durability(0), connctx(NULL), connreq(NULL), curhost(NULL)
+    : mc_pipeline_st(), state(S_TEMPORARY), io_timer(nullptr), instance(nullptr), settings(nullptr), compsupport(0),
+      jsonsupport(0), mutation_tokens(0), new_durability(0), connctx(nullptr), connreq(nullptr), curhost(nullptr)
 {
 }
 
@@ -1024,14 +1077,14 @@ Server::~Server()
         unsigned ii;
         mc_CMDQUEUE *cmdq = &this->instance->cmdq;
         for (ii = 0; ii < cmdq->npipelines; ii++) {
-            lcb::Server *server = static_cast<lcb::Server *>(cmdq->pipelines[ii]);
+            auto *server = static_cast<lcb::Server *>(cmdq->pipelines[ii]);
             if (server == this) {
-                cmdq->pipelines[ii] = NULL;
+                cmdq->pipelines[ii] = nullptr;
                 break;
             }
         }
     }
-    this->instance = NULL;
+    this->instance = nullptr;
     mcreq_pipeline_cleanup(this);
 
     if (io_timer) {
@@ -1093,12 +1146,12 @@ void Server::start_errored_ctx(State next_state)
     lcb::io::ConnectionRequest::cancel(&connreq);
 
     /* If the server is being destroyed, silence the timer */
-    if (next_state == Server::S_CLOSED && io_timer != NULL) {
+    if (next_state == Server::S_CLOSED && io_timer != nullptr) {
         lcbio_timer_destroy(io_timer);
-        io_timer = NULL;
+        io_timer = nullptr;
     }
 
-    if (ctx == NULL) {
+    if (ctx == nullptr) {
         if (next_state == Server::S_CLOSED) {
             delete this;
             return;
@@ -1150,8 +1203,8 @@ void Server::finalize_errored_ctx()
     lcb_log(LOGARGS_T(DEBUG), LOGFMT "Finalizing context", LOGID_T());
 
     /* Always close the existing context. */
-    lcbio_ctx_close(connctx, close_cb, NULL);
-    connctx = NULL;
+    lcbio_ctx_close(connctx, close_cb, nullptr);
+    connctx = nullptr;
 
     /**Marks any unflushed data inside this server as being already flushed. This
      * should be done within error handling. If subsequent data is flushed on this
@@ -1159,7 +1212,7 @@ void Server::finalize_errored_ctx()
 
     unsigned toflush;
     nb_IOV iov;
-    while ((toflush = mcreq_flush_iov_fill(this, &iov, 1, NULL))) {
+    while ((toflush = mcreq_flush_iov_fill(this, &iov, 1, nullptr))) {
         mcreq_flush_done(this, toflush, toflush);
     }
 
@@ -1189,5 +1242,5 @@ bool Server::check_closed()
     lcb_log(LOGARGS_T(INFO), LOGFMT "Got handler after close. Checking pending calls (pending=%u)", LOGID_T(),
             connctx->npending);
     finalize_errored_ctx();
-    return 1;
+    return true;
 }

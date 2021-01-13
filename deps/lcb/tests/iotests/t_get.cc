@@ -19,6 +19,10 @@
 #include <libcouchbase/utils.h>
 #include <map>
 #include "iotests.h"
+#include "logging.h"
+#include "internal.h"
+
+#define LOGARGS(instance, lvl) instance->settings, "tests-GET", LCB_LOG_##lvl, __FILE__, __LINE__
 
 class GetUnitTest : public MockUnitTest
 {
@@ -483,4 +487,284 @@ TEST_F(GetUnitTest, testGetReplica)
     lcb_cmdgetreplica_destroy(rcmd);
     lcb_sched_leave(instance);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
+}
+
+extern "C" {
+static void store_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    size_t *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STATUS rc = lcb_respstore_status(resp);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ++(*counter);
+}
+
+static void get_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
+{
+    size_t *counter;
+    lcb_respget_cookie(resp, (void **)&counter);
+    lcb_STATUS rc = lcb_respget_status(resp);
+    const char *key;
+    size_t nkey;
+    lcb_respget_key(resp, &key, &nkey);
+    std::string keystr(key, nkey);
+    ++(*counter);
+    lcb_log(LOGARGS(instance, DEBUG), "receive '%s' on get callback %lu, status: %s", keystr.c_str(), size_t(*counter),
+            lcb_strerror_short(rc));
+}
+
+struct ReplicaGetCookie {
+    unsigned remaining;
+    std::set<lcb_STATUS> expectrc;
+};
+
+static void replicaget_callback(lcb_INSTANCE *instance, int, const lcb_RESPGETREPLICA *resp)
+{
+    ReplicaGetCookie *rck;
+    lcb_respgetreplica_cookie(resp, (void **)&rck);
+
+    lcb_STATUS rc = lcb_respgetreplica_status(resp);
+    EXPECT_EQ(1, rck->expectrc.count(rc));
+    EXPECT_NE(0, rck->remaining);
+    rck->remaining--;
+}
+}
+
+TEST_F(GetUnitTest, testFailoverAndGetReplica)
+{
+    SKIP_UNLESS_MOCK();
+    const char *argv[] = {"--replicas", "3", "--nodes", "4", NULL};
+    MockEnvironment mock_o(argv), *mock = &mock_o;
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+    mock->createConnection(hw, &instance);
+    lcb_connect(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    ASSERT_EQ(3, lcb_get_num_replicas(instance));
+    ASSERT_EQ(4, lcb_get_num_nodes(instance));
+
+    // Set the timeout for 100 ms
+    lcb_uint32_t tmoval = 100000;
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmoval);
+    // Reduce configuration poll interval to get new configuration sooner
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIG_POLL_INTERVAL, &tmoval);
+
+    // store keys
+    size_t counter = 0;
+    lcb_CMDSTORE *scmd;
+    lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
+    std::string key("key");
+    lcb_cmdstore_key(scmd, key.c_str(), strlen(key.c_str()));
+    lcb_cmdstore_value(scmd, "val", 3);
+    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &counter, scmd));
+    lcb_cmdstore_destroy(scmd);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+    ASSERT_EQ(1U, counter);
+
+    // check server index
+    int nodeFirstReplica = mock->getKeyIndex(instance, key, "default", 1);
+    // failover node first replica
+    mock->failoverNode(nodeFirstReplica, "default", false);
+    lcb_log(LOGARGS(instance, INFO), "Failover node %d (1st replica)...", nodeFirstReplica);
+
+    counter = 0;
+    {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, key.c_str(), strlen(key.c_str()));
+        ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+        lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+        lcb_log(LOGARGS(instance, INFO), "get master");
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_EQ(1U, counter);
+    }
+
+    // check server second replica
+    int nodeSecondReplica = mock->getKeyIndex(instance, key, "default", 2);
+    // failover node second replica
+    mock->failoverNode(nodeSecondReplica, "default", false);
+    lcb_log(LOGARGS(instance, INFO), "Failover node %d (2nd replica)...", nodeSecondReplica);
+
+    // check server third replica
+    int nodeThirdReplica = mock->getKeyIndex(instance, key, "default", 3);
+    // failover node third replica
+    mock->failoverNode(nodeThirdReplica, "default", false);
+    lcb_log(LOGARGS(instance, INFO), "Failover node %d (3rd replica)...", nodeThirdReplica);
+
+    usleep(LCB_MS2US(300));
+    {
+        lcb_CMDGETREPLICA *rcmd;
+        lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_IDX2); // third replica
+        lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
+        ReplicaGetCookie rck;
+        rck.remaining = 1;
+        rck.expectrc.insert(LCB_ERR_MAP_CHANGED);
+        rck.expectrc.insert(LCB_ERR_TIMEOUT);
+        EXPECT_EQ(LCB_SUCCESS, lcb_getreplica(instance, &rck, rcmd));
+        lcb_cmdgetreplica_destroy(rcmd);
+        lcb_install_callback(instance, LCB_CALLBACK_GETREPLICA, (lcb_RESPCALLBACK)replicaget_callback);
+        lcb_log(LOGARGS(instance, INFO), "get third replica");
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        EXPECT_EQ(0, rck.remaining);
+    }
+    {
+        lcb_CMDGETREPLICA *rcmd;
+        lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_IDX1); // second replica
+        lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
+        ReplicaGetCookie rck;
+        rck.remaining = 1;
+        rck.expectrc.insert(LCB_ERR_MAP_CHANGED);
+        rck.expectrc.insert(LCB_ERR_TIMEOUT);
+        lcb_STATUS rc = lcb_getreplica(instance, &rck, rcmd);
+        EXPECT_TRUE(rc == LCB_SUCCESS || rc == LCB_ERR_NO_MATCHING_SERVER);
+        lcb_cmdgetreplica_destroy(rcmd);
+        if (rc == LCB_SUCCESS) {
+            lcb_install_callback(instance, LCB_CALLBACK_GETREPLICA, (lcb_RESPCALLBACK)replicaget_callback);
+            lcb_log(LOGARGS(instance, INFO), "get second replica");
+            lcb_wait(instance, LCB_WAIT_DEFAULT);
+            EXPECT_EQ(0, rck.remaining);
+        }
+    }
+    lcb_tick_nowait(instance);
+    {
+        lcb_CMDGETREPLICA *rcmd;
+        lcb_cmdgetreplica_create(&rcmd, LCB_REPLICA_MODE_IDX0); // first replica
+        lcb_cmdgetreplica_key(rcmd, key.c_str(), key.size());
+        /* here we definitely have new configuration already and the library will reject get_with_replica request */
+        EXPECT_EQ(LCB_ERR_NO_MATCHING_SERVER, lcb_getreplica(instance, nullptr, rcmd));
+        lcb_cmdgetreplica_destroy(rcmd);
+    }
+
+    counter = 0;
+    {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, key.c_str(), strlen(key.c_str()));
+        EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+        lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+        lcb_log(LOGARGS(instance, INFO), "get master");
+        lcb_wait(instance, LCB_WAIT_NOCHECK);
+        EXPECT_EQ(1U, counter);
+    }
+}
+
+TEST_F(GetUnitTest, testFailoverAndMultiGet)
+{
+    SKIP_UNLESS_MOCK();
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
+    size_t nbCallbacks = 50;
+    std::vector<std::string> keys;
+    keys.resize(nbCallbacks);
+
+    // Set the timeout for 100 ms
+    lcb_uint32_t tmoval = 100000;
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmoval);
+
+    // store keys
+    lcb_sched_enter(instance);
+
+    size_t counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        lcb_CMDSTORE *scmd;
+        lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
+        char key[6];
+        sprintf(key, "key%lu", ii);
+        keys[ii] = std::string(key);
+        lcb_cmdstore_key(scmd, key, strlen(key));
+        lcb_cmdstore_value(scmd, "val", 3);
+        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &counter, scmd));
+        lcb_cmdstore_destroy(scmd);
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+    ASSERT_EQ(nbCallbacks, counter);
+
+    // check server index
+    size_t nbKeyinNode0 = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        if (mock->getKeyIndex(instance, keys[ii]) == 0) { // master copy of key in node 0
+            ++nbKeyinNode0;
+        }
+    }
+    EXPECT_GE(nbKeyinNode0, 2); // at least 2 keys with master in node 0
+
+    // multiget OK
+    lcb_sched_enter(instance);
+
+    counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, keys[ii].c_str(), strlen(keys[ii].c_str()));
+        ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+    ASSERT_EQ(nbCallbacks, counter);
+
+    // failover index 0
+    mock->failoverNode(0, "default", false);
+    lcb_log(LOGARGS(instance, INFO), "Failover node 0 ...");
+
+    // multiget KO
+    lcb_sched_enter(instance);
+
+    counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, keys[ii].c_str(), strlen(keys[ii].c_str()));
+        ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+    ASSERT_EQ(nbCallbacks, counter);
+
+    // multiget KO
+    lcb_sched_enter(instance);
+
+    counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, keys[ii].c_str(), strlen(keys[ii].c_str()));
+        ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+    ASSERT_EQ(nbCallbacks, counter);
+
+    // multiget KO
+    lcb_sched_enter(instance);
+
+    counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, keys[ii].c_str(), strlen(keys[ii].c_str()));
+        ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+    ASSERT_EQ(nbCallbacks, counter);
 }

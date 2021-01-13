@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "CBC\-N1QLBACK" "1" "April 2019" "" ""
+.TH "CBC\-N1QLBACK" "1" "December 2020" "" ""
 .
 .SH "NAME"
 \fBcbc\-n1qlback\fR \- Stress Test for Couchbase Query (N1QL)
@@ -28,6 +28,32 @@
 .
 .P
 For more complex queries (for example, placeholders, custom options), you may refer to the N1QL REST API reference\.
+.
+.P
+For example, the following line shows how to use named parameter
+.
+.IP "" 4
+.
+.nf
+
+{"statement":"SELECT RAW meta()\.id FROM `travel\-sample` WHERE type=$type LIMIT 1", "$type":"airline"}
+.
+.fi
+.
+.IP "" 0
+.
+.P
+There is also special query option, \fB"n1qlback"\fR, which is stripped before sending the payload\. Currently it allows to tell if the particular query must be prepared before execution:
+.
+.IP "" 4
+.
+.nf
+
+{"statement":"SELECT * FROM `travel\-sample` WHERE type=$type LIMIT 10", "$type":"airline", "n1qlback": {"prepare": true}}
+.
+.fi
+.
+.IP "" 0
 .
 .P
 \fBn1qlback\fR requires that any resources (data items, indexes) are already defined\.
@@ -176,16 +202,37 @@ The following will create a file with 3 queries and 5 threads alternating betwee
 .
 .nf
 
-cbc n1ql \-U couchbase://192\.168\.72\.101/a_bucket \'CREATE INDEX ix_name ON `travel\-sample`(name)\'
-cbc n1ql \-U couchbase://192\.168\.72\.101/a_bucket \'CREATE INDEX ix_country ON `travel\-sample`(country)\'
+cbc n1ql \'CREATE INDEX ix_name ON `travel\-sample`(name)\'
+cbc n1ql \'CREATE INDEX ix_country ON `travel\-sample`(country)\'
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Crete text file \fBqueries\.txt\fR with the following content (note that fourth query has parameter)
+.
+.IP "" 4
+.
+.nf
 
-cat queries\.txt <<EOF
 {"statement":"SELECT country FROM `travel\-sample` WHERE `travel\-sample`\.country = \e"United States\e""}
 {"statement":"SELECT name FROM `travel\-sample` LIMIT 10"}
 {"statement":"SELECT country, COUNT(country) FROM `travel\-sample` GROUP BY country"}
-EOF
+{"statement":"SELECT RAW meta()\.id FROM `travel\-sample` WHERE type=$type LIMIT 1", "$type":"airline", "n1qlback": {"prepare": true}}
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Run the test load
+.
+.IP "" 4
+.
+.nf
 
-cbc\-n1qlback \-U couchbase://192\.168\.72\.101/a_bucket \-t 5 \-f queries\.txt
+cbc\-n1qlback \-\-num\-threads 5 \-\-queryfile queries\.txt
 .
 .fi
 .

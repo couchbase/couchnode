@@ -29,6 +29,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->views_timeout = LCB_DEFAULT_VIEW_TIMEOUT;
     settings->n1ql_timeout = LCB_DEFAULT_N1QL_TIMEOUT;
     settings->analytics_timeout = LCB_DEFAULT_ANALYTICS_TIMEOUT;
+    settings->search_timeout = LCB_DEFAULT_SEARCH_TIMEOUT;
     settings->durability_timeout = LCB_DEFAULT_DURABILITY_TIMEOUT;
     settings->durability_interval = LCB_DEFAULT_DURABILITY_INTERVAL;
     settings->persistence_timeout_floor = LCB_DEFAULT_PERSISTENCE_TIMEOUT_FLOOR;
@@ -65,7 +66,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->use_collections = 1;
     settings->log_redaction = 0;
     settings->use_tracing = 1;
-    settings->network = NULL;
+    settings->network = nullptr;
     settings->allow_static_config = 0;
     settings->tracer_orphaned_queue_flush_interval = LCBTRACE_DEFAULT_ORPHANED_QUEUE_FLUSH_INTERVAL;
     settings->tracer_orphaned_queue_size = LCBTRACE_DEFAULT_ORPHANED_QUEUE_SIZE;
@@ -85,7 +86,7 @@ void lcb_default_settings(lcb_settings *settings)
 LCB_INTERNAL_API
 lcb_settings *lcb_settings_new(void)
 {
-    lcb_settings *settings = calloc(1, sizeof(*settings));
+    auto *settings = new lcb_settings{};
     lcb_default_settings(settings);
     settings->refcount = 1;
     settings->auth = lcbauth_new();
@@ -118,5 +119,5 @@ void lcb_settings_unref(lcb_settings *settings)
     if (settings->dtorcb) {
         settings->dtorcb(settings->dtorarg);
     }
-    free(settings);
+    delete settings;
 }

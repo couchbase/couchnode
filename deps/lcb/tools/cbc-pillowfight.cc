@@ -18,18 +18,15 @@
 #include "config.h"
 #include <sys/types.h>
 #include <libcouchbase/couchbase.h>
-#include <errno.h>
+#include <cerrno>
 #include <iostream>
-#include <map>
-#include <sstream>
 #include <queue>
 #include <list>
 #include <cstring>
-#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
-#include <signal.h>
+#include <csignal>
 #ifndef WIN32
 #include <pthread.h>
 #include <libcouchbase/metrics.h>
@@ -101,11 +98,11 @@ class Configuration
     Configuration()
         : o_multiSize("batch-size"), o_numItems("num-items"), o_keyPrefix("key-prefix"), o_numThreads("num-threads"),
           o_randSeed("random-seed"), o_randomBody("random-body"), o_setPercent("set-pct"), o_minSize("min-size"),
-          o_maxSize("max-size"), o_noPopulate("no-population"), o_pauseAtEnd("pause-at-end"), o_numCycles("num-cycles"),
-          o_sequential("sequential"), o_startAt("start-at"), o_rateLimit("rate-limit"), o_userdocs("docs"),
-          o_writeJson("json"), o_templatePairs("template"), o_subdoc("subdoc"), o_noop("noop"),
-          o_sdPathCount("pathcount"), o_populateOnly("populate-only"), o_exptime("expiry"), o_collection("collection"),
-          o_durability("durability"), o_persist("persist-to"), o_replicate("replicate-to"), o_lock("lock")
+          o_maxSize("max-size"), o_noPopulate("no-population"), o_numCycles("num-cycles"), o_sequential("sequential"),
+          o_startAt("start-at"), o_rateLimit("rate-limit"), o_userdocs("docs"), o_writeJson("json"),
+          o_templatePairs("template"), o_subdoc("subdoc"), o_noop("noop"), o_sdPathCount("pathcount"),
+          o_populateOnly("populate-only"), o_exptime("expiry"), o_collection("collection"), o_durability("durability"),
+          o_persist("persist-to"), o_replicate("replicate-to"), o_lock("lock")
     {
         o_multiSize.setDefault(100).abbrev('B').description("Number of operations to batch");
         o_numItems.setDefault(1000).abbrev('I').description("Number of items to operate on");
@@ -118,8 +115,6 @@ class Configuration
         o_minSize.setDefault(50).abbrev('m').description("Set minimum payload size");
         o_maxSize.setDefault(5120).abbrev('M').description("Set maximum payload size");
         o_noPopulate.setDefault(false).abbrev('n').description("Skip population");
-        o_pauseAtEnd.setDefault(false).abbrev('E').description(
-            "Pause at end of run (holding connections open) until user input");
         o_numCycles.setDefault(-1).abbrev('c').description(
             "Number of cycles to be run until exiting. Set to -1 to loop infinitely");
         o_sequential.setDefault(false).description("Use sequential access (instead of random)");
@@ -130,7 +125,7 @@ class Configuration
         o_templatePairs.description("Values for templates to be inserted into user documents");
         o_templatePairs.argdesc("FIELD,MIN,MAX[,SEQUENTIAL]").hide();
         o_subdoc.description("Use subdoc instead of fulldoc operations");
-        o_noop.description("Use NOOP instead of document operations").setDefault(0);
+        o_noop.description("Use NOOP instead of document operations").setDefault(false);
         o_sdPathCount.description("Number of subdoc paths per command").setDefault(1);
         o_populateOnly.description("Exit after documents have been populated");
         o_exptime.description("Set TTL for items").abbrev('e');
@@ -190,13 +185,13 @@ class Configuration
             opsPerCycle = depr.iterations.result();
         }
 
-        vector< TemplateSpec > specs;
-        vector< string > userdocs;
+        vector<TemplateSpec> specs;
+        vector<string> userdocs;
 
         if (o_templatePairs.passed()) {
-            vector< string > specs_str = o_templatePairs.result();
-            for (size_t ii = 0; ii < specs_str.size(); ii++) {
-                specs.push_back(parseTemplateSpec(specs_str[ii]));
+            vector<string> specs_str = o_templatePairs.result();
+            for (auto &ii : specs_str) {
+                specs.push_back(parseTemplateSpec(ii));
             }
         }
 
@@ -206,12 +201,12 @@ class Configuration
                 fprintf(stderr, "--min-size/--max-size invalid with userdocs\n");
             }
 
-            vector< string > filenames = o_userdocs.result();
-            for (size_t ii = 0; ii < filenames.size(); ii++) {
+            vector<string> filenames = o_userdocs.result();
+            for (auto &filename : filenames) {
                 std::stringstream ss;
-                std::ifstream ifs(filenames[ii].c_str());
+                std::ifstream ifs(filename.c_str());
                 if (!ifs.is_open()) {
-                    perror(filenames[ii].c_str());
+                    perror(filename.c_str());
                     exit(EXIT_FAILURE);
                 }
                 ss << ifs.rdbuf();
@@ -265,7 +260,6 @@ class Configuration
         parser.addOption(o_noPopulate);
         parser.addOption(o_minSize);
         parser.addOption(o_maxSize);
-        parser.addOption(o_pauseAtEnd);
         parser.addOption(o_numCycles);
         parser.addOption(o_sequential);
         parser.addOption(o_startAt);
@@ -287,12 +281,12 @@ class Configuration
         depr.addOptions(parser);
     }
 
-    int numTimings(void)
+    int numTimings()
     {
         return params.numTimings();
     }
 
-    bool isLoopDone(size_t niter)
+    bool isLoopDone(size_t niter) const
     {
         if (maxCycles == -1) {
             return false;
@@ -311,10 +305,6 @@ class Configuration
     string &getKeyPrefix()
     {
         return prefix;
-    }
-    bool shouldPauseAtEnd()
-    {
-        return o_pauseAtEnd;
     }
     bool sequentialAccess()
     {
@@ -353,20 +343,19 @@ class Configuration
         return o_exptime;
     }
 
-    uint32_t opsPerCycle;
-    uint32_t sdOpsPerCmd;
-    unsigned setprc;
+    uint32_t opsPerCycle{};
+    uint32_t sdOpsPerCmd{};
+    unsigned setprc{};
     string prefix;
-    volatile int maxCycles;
-    bool shouldPopulate;
-    bool hasTemplates;
+    volatile int maxCycles{};
+    bool shouldPopulate{};
     ConnParams params;
-    const DocGeneratorBase *docgen;
-    vector< string > collections;
-    lcb_DURABILITY_LEVEL durabilityLevel;
-    int replicateTo;
-    int persistTo;
-    int lockTime;
+    const DocGeneratorBase *docgen{};
+    vector<string> collections{};
+    lcb_DURABILITY_LEVEL durabilityLevel{LCB_DURABILITYLEVEL_NONE};
+    int replicateTo{};
+    int persistTo{};
+    int lockTime{};
 
   private:
     UIntOption o_multiSize;
@@ -379,8 +368,6 @@ class Configuration
     UIntOption o_minSize;
     UIntOption o_maxSize;
     BoolOption o_noPopulate;
-    BoolOption o_pauseAtEnd; // Should pillowfight pause execution (with
-                             // connections open) before exiting?
     IntOption o_numCycles;
     BoolOption o_sequential;
     UIntOption o_startAt;
@@ -438,7 +425,7 @@ class ThreadContext;
 class InstanceCookie
 {
   public:
-    InstanceCookie(lcb_INSTANCE *instance)
+    explicit InstanceCookie(lcb_INSTANCE *instance)
     {
         lcb_set_cookie(instance, this);
         lastPrint = 0;
@@ -457,9 +444,9 @@ class InstanceCookie
         return (InstanceCookie *)lcb_get_cookie(instance);
     }
 
-    static void dumpTimings(lcb_INSTANCE *instance, const char *header = NULL, bool force = false)
+    static void dumpTimings(lcb_INSTANCE *instance, const char *header = nullptr, bool force = false)
     {
-        time_t now = time(NULL);
+        time_t now = time(nullptr);
         InstanceCookie *ic = get(instance);
 
         if (now - ic->lastPrint > 0) {
@@ -493,12 +480,12 @@ class InstanceCookie
         size_t etmpfail;
         size_t eexist;
         size_t etimeout;
-    } stats;
+    } stats{};
 
   private:
     time_t lastPrint;
     Histogram hg;
-    ThreadContext *m_context;
+    ThreadContext *m_context{};
 };
 
 struct NextOp {
@@ -508,8 +495,8 @@ struct NextOp {
     string m_scope;
     string m_collection;
     uint32_t m_seqno;
-    vector< lcb_IOV > m_valuefrags;
-    vector< SubdocSpec > m_specs;
+    vector<lcb_IOV> m_valuefrags;
+    vector<SubdocSpec> m_specs;
     // The mode here is for future use with subdoc
     enum Mode { STORE, GET, SDSTORE, SDGET, NOOP };
     Mode m_mode;
@@ -519,12 +506,13 @@ struct NextOp {
 class OpGenerator
 {
   public:
-    OpGenerator(int id) : m_id(id) {}
+    explicit OpGenerator(int id) : m_id(id) {}
 
-    virtual ~OpGenerator(){};
+    virtual ~OpGenerator() = default;
+
     virtual void setNextOp(NextOp &op) = 0;
     virtual void setValue(NextOp &op) = 0;
-    virtual void populateIov(uint32_t, vector< lcb_IOV > &) = 0;
+    virtual void populateIov(uint32_t, vector<lcb_IOV> &) = 0;
     virtual bool inPopulation() const = 0;
     virtual void checkin(uint32_t) = 0;
     virtual const char *getStageString() const = 0;
@@ -536,24 +524,24 @@ class OpGenerator
 class NoopGenerator : public OpGenerator
 {
   public:
-    NoopGenerator(int ix) : OpGenerator(ix) {}
+    explicit NoopGenerator(int ix) : OpGenerator(ix) {}
 
-    void setNextOp(NextOp &op)
+    void setNextOp(NextOp &op) override
     {
         op.m_mode = NextOp::NOOP;
     }
 
-    void setValue(NextOp &) {}
-    void populateIov(uint32_t, vector< lcb_IOV > &) {}
+    void setValue(NextOp &) override {}
+    void populateIov(uint32_t, vector<lcb_IOV> &) override {}
 
-    bool inPopulation() const
+    bool inPopulation() const override
     {
         return false;
     }
 
-    void checkin(uint32_t) {}
+    void checkin(uint32_t) override {}
 
-    const char *getStageString() const
+    const char *getStageString() const override
     {
         return "Run";
     }
@@ -563,7 +551,7 @@ class NoopGenerator : public OpGenerator
 class KeyGenerator : public OpGenerator
 {
   public:
-    KeyGenerator(int ix)
+    explicit KeyGenerator(int ix)
         : OpGenerator(ix), m_gencount(0), m_force_sequential(false), m_in_population(config.shouldPopulate)
     {
         srand(config.getRandomSeed());
@@ -594,17 +582,17 @@ class KeyGenerator : public OpGenerator
         }
     }
 
-    void setValue(NextOp &op)
+    void setValue(NextOp &op) override
     {
         m_local_genstate->populateIov(op.m_seqno, op.m_valuefrags);
     }
 
-    void populateIov(uint32_t seq, vector< lcb_IOV > &iov_out)
+    void populateIov(uint32_t seq, vector<lcb_IOV> &iov_out) override
     {
         m_local_genstate->populateIov(seq, iov_out);
     }
 
-    void setNextOp(NextOp &op)
+    void setNextOp(NextOp &op) override
     {
         bool store_override = false;
 
@@ -651,17 +639,17 @@ class KeyGenerator : public OpGenerator
         generateKey(op);
     }
 
-    bool inPopulation() const
+    bool inPopulation() const override
     {
         return m_in_population;
     }
 
-    void checkin(uint32_t seqno)
+    void checkin(uint32_t seqno) override
     {
         (m_force_sequential ? m_gensequence : m_genrandom)->checkin(seqno);
     }
 
-    const char *getStageString() const
+    const char *getStageString() const override
     {
         if (m_in_population) {
             return "Populate";
@@ -671,7 +659,7 @@ class KeyGenerator : public OpGenerator
     }
 
   private:
-    bool shouldStore(uint32_t seqno)
+    static bool shouldStore(uint32_t seqno)
     {
         if (config.setprc == 0) {
             return false;
@@ -682,7 +670,7 @@ class KeyGenerator : public OpGenerator
         return pct_f < 1;
     }
 
-    void generateKey(NextOp &op)
+    static void generateKey(NextOp &op)
     {
         uint32_t seqno = op.m_seqno;
         char buffer[21];
@@ -727,7 +715,7 @@ class ThreadContext
     ~ThreadContext()
     {
         delete gen;
-        gen = NULL;
+        gen = nullptr;
     }
 
     bool inPopulation()
@@ -791,7 +779,7 @@ class ThreadContext
                 } else if (config.persistTo > 0 || config.replicateTo > 0) {
                     lcb_cmdstore_durability_observe(scmd, config.persistTo, config.replicateTo);
                 }
-                error = lcb_store(instance, NULL, scmd);
+                error = lcb_store(instance, nullptr, scmd);
                 lcb_cmdstore_destroy(scmd);
                 cookie->stats.retried++;
             }
@@ -838,7 +826,7 @@ class ThreadContext
                     } else if (config.persistTo > 0 || config.replicateTo > 0) {
                         lcb_cmdstore_durability_observe(scmd, config.persistTo, config.replicateTo);
                     }
-                    error = lcb_store(instance, NULL, scmd);
+                    error = lcb_store(instance, nullptr, scmd);
                     lcb_cmdstore_destroy(scmd);
                 }
                 break;
@@ -888,14 +876,14 @@ class ThreadContext
                 if (mutate && config.durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
                     lcb_cmdsubdoc_durability(sdcmd, config.durabilityLevel);
                 }
-                error = lcb_subdoc(instance, NULL, sdcmd);
+                error = lcb_subdoc(instance, nullptr, sdcmd);
                 lcb_subdocspecs_destroy(specs);
                 lcb_cmdsubdoc_destroy(sdcmd);
                 break;
             }
             case NextOp::NOOP: {
                 lcb_CMDNOOP ncmd = {0};
-                error = lcb_noop3(instance, NULL, &ncmd);
+                error = lcb_noop3(instance, nullptr, &ncmd);
                 break;
             }
         }
@@ -939,13 +927,13 @@ class ThreadContext
         retryq.push(op);
     }
 
-    void populateIov(uint32_t seq, vector< lcb_IOV > &iov_out)
+    void populateIov(uint32_t seq, vector<lcb_IOV> &iov_out)
     {
         gen->populateIov(seq, iov_out);
     }
 
 #ifndef WIN32
-    pthread_t thr;
+    pthread_t thr{};
 #endif
 
     lcb_INSTANCE *getInstance()
@@ -968,7 +956,7 @@ class ThreadContext
     }
 
   private:
-    void rateLimitThrottle()
+    static void rateLimitThrottle()
     {
         lcb_U64 now = lcb_nstime();
         static lcb_U64 previous_time = now;
@@ -990,15 +978,15 @@ class ThreadContext
 
     OpGenerator *gen;
     size_t niter;
-    lcb_STATUS error;
-    lcb_INSTANCE *instance;
-    std::queue< NextOp > retryq;
+    lcb_STATUS error{LCB_SUCCESS};
+    lcb_INSTANCE *instance{nullptr};
+    std::queue<NextOp> retryq{};
 };
 
 static void updateOpsPerSecDisplay()
 {
 
-    static time_t start_time = time(NULL);
+    static time_t start_time = time(nullptr);
     static int is_tty =
 #ifdef WIN32
         0;
@@ -1006,7 +994,7 @@ static void updateOpsPerSecDisplay()
         isatty(STDERR_FILENO);
 #endif
     static volatile unsigned long nops = 0;
-    time_t now = time(NULL);
+    time_t now = time(nullptr);
     time_t nsecs = now - start_time;
     if (!nsecs) {
         nsecs = 1;
@@ -1056,7 +1044,7 @@ static void subdocCallback(lcb_INSTANCE *instance, int, const lcb_RESPSUBDOC *re
     size_t n;
     lcb_respsubdoc_key(resp, &p, &n);
     (void)n;
-    tc->checkin(atoi(p));
+    tc->checkin(std::strtol(p, nullptr, 10));
     updateOpsPerSecDisplay();
 }
 
@@ -1087,12 +1075,12 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
         collection.assign(p, n);
     }
 
-    uint32_t seqno = atoi(key.c_str());
+    uint32_t seqno = std::stol(key);
     uintptr_t flags = 0;
     lcb_respget_cookie(resp, (void **)&flags);
     if (flags & OPFLAGS_LOCKED) {
         if (rc == LCB_SUCCESS) {
-            vector< lcb_IOV > valuefrags;
+            vector<lcb_IOV> valuefrags;
             tc->populateIov(seqno, valuefrags);
 
             lcb_CMDSTORE *scmd;
@@ -1116,7 +1104,7 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
             } else if (config.persistTo > 0 || config.replicateTo > 0) {
                 lcb_cmdstore_durability_observe(scmd, config.persistTo, config.replicateTo);
             }
-            lcb_store(instance, NULL, scmd);
+            lcb_store(instance, nullptr, scmd);
             lcb_cmdstore_destroy(scmd);
 
             done = false;
@@ -1150,7 +1138,7 @@ static void storeCallback(lcb_INSTANCE *instance, int, const lcb_RESPSTORE *resp
     size_t n;
     lcb_respstore_key(resp, &p, &n);
     string key(p, n);
-    uint32_t seqno = atoi(key.c_str());
+    uint32_t seqno = std::stol(key);
     if (rc != LCB_SUCCESS && tc->inPopulation()) {
         NextOp op;
         op.m_mode = NextOp::STORE;
@@ -1178,20 +1166,20 @@ static void storeCallback(lcb_INSTANCE *instance, int, const lcb_RESPSTORE *resp
     updateOpsPerSecDisplay();
 }
 
-std::list< ThreadContext * > contexts;
+std::list<ThreadContext *> contexts;
 
 extern "C" {
 typedef void (*handler_t)(int);
 
-static void dump_metrics(void)
+static void dump_metrics()
 {
-    std::list< ThreadContext * >::iterator it;
+    std::list<ThreadContext *>::iterator it;
     for (it = contexts.begin(); it != contexts.end(); ++it) {
         lcb_INSTANCE *instance = (*it)->getInstance();
         lcb_CMDDIAG *req;
         lcb_cmddiag_create(&req);
         lcb_cmddiag_prettify(req, true);
-        lcb_diag(instance, NULL, req);
+        lcb_diag(instance, nullptr, req);
         lcb_cmddiag_destroy(req);
         if (config.numTimings() > 0) {
             InstanceCookie::dumpTimings(instance);
@@ -1245,11 +1233,12 @@ static void sigquit_handler(int)
 
 static void setup_sigquit_handler()
 {
-    struct sigaction action;
+    struct sigaction action {
+    };
     sigemptyset(&action.sa_mask);
     action.sa_handler = sigquit_handler;
     action.sa_flags = 0;
-    sigaction(SIGQUIT, &action, NULL);
+    sigaction(SIGQUIT, &action, nullptr);
 }
 
 static void sigint_handler(int)
@@ -1264,7 +1253,7 @@ static void sigint_handler(int)
         return;
     }
 
-    std::list< ThreadContext * >::iterator it;
+    std::list<ThreadContext *>::iterator it;
     for (it = contexts.begin(); it != contexts.end(); ++it) {
         delete *it;
     }
@@ -1274,11 +1263,12 @@ static void sigint_handler(int)
 
 static void setup_sigint_handler()
 {
-    struct sigaction action;
+    struct sigaction action {
+    };
     sigemptyset(&action.sa_mask);
     action.sa_handler = sigint_handler;
     action.sa_flags = 0;
-    sigaction(SIGINT, &action, NULL);
+    sigaction(SIGINT, &action, nullptr);
 }
 
 static void *thread_worker(void *);
@@ -1296,7 +1286,7 @@ static void start_worker(ThreadContext *ctx)
 }
 static void join_worker(ThreadContext *ctx)
 {
-    void *arg = NULL;
+    void *arg = nullptr;
     int rc = pthread_join(ctx->thr, &arg);
     if (rc != 0) {
         log("Couldn't join thread (%d)", errno);
@@ -1319,9 +1309,9 @@ static void join_worker(ThreadContext *ctx)
 
 static void *thread_worker(void *arg)
 {
-    ThreadContext *ctx = static_cast< ThreadContext * >(arg);
+    auto *ctx = static_cast<ThreadContext *>(arg);
     ctx->run();
-    return NULL;
+    return nullptr;
 }
 }
 
@@ -1353,13 +1343,13 @@ int main(int argc, char **argv)
     }
 #endif
 
-    lcb_CREATEOPTS *options = NULL;
+    lcb_CREATEOPTS *options = nullptr;
     ConnParams &cp = config.params;
     lcb_STATUS error;
 
     for (uint32_t ii = 0; ii < nthreads; ++ii) {
         cp.fillCropts(options);
-        lcb_INSTANCE *instance = NULL;
+        lcb_INSTANCE *instance = nullptr;
         error = lcb_create(&instance, options);
         lcb_createopts_destroy(options);
         if (error != LCB_SUCCESS) {
@@ -1385,7 +1375,7 @@ int main(int argc, char **argv)
             lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_ENABLE_COLLECTIONS, &use);
         }
 
-        InstanceCookie *cookie = new InstanceCookie(instance);
+        auto *cookie = new InstanceCookie(instance);
 
         lcb_connect(instance);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -1397,14 +1387,14 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
 
-        ThreadContext *ctx = new ThreadContext(instance, ii);
+        auto *ctx = new ThreadContext(instance, ii);
         cookie->setContext(ctx);
         contexts.push_back(ctx);
         start_worker(ctx);
     }
 
-    for (std::list< ThreadContext * >::iterator it = contexts.begin(); it != contexts.end(); ++it) {
-        join_worker(*it);
+    for (auto &context : contexts) {
+        join_worker(context);
     }
     if (config.numTimings() > 0) {
         dump_metrics();

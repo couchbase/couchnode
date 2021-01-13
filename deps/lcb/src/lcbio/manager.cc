@@ -16,10 +16,12 @@
  */
 
 #include "manager.h"
+
+#include <utility>
 #include "hostlist.h"
 #include "iotable.h"
-#include "timer-ng.h"
 #include "internal.h"
+#include "mcserver/negotiate.h"
 
 #define LOGARGS(mgr, lvl) mgr->settings, "lcbio_mgr", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -31,7 +33,7 @@ namespace io
 {
 
 struct PoolHost {
-    inline PoolHost(Pool *, const std::string &);
+    inline PoolHost(Pool *, std::string);
     inline void connection_available();
     inline void start_new_connection(uint32_t timeout);
 
@@ -51,11 +53,11 @@ struct PoolHost {
     {
         if (parent) {
             parent->unref();
-            parent = NULL;
+            parent = nullptr;
         }
     }
 
-    inline void dump(FILE *fp) const;
+    inline void dump(FILE *out) const;
 
     size_t num_pending() const
     {
@@ -74,10 +76,10 @@ struct PoolHost {
         return n_total - (num_idle() + num_pending());
     }
 
-    lcb_clist_t ll_idle;    /* idle connections */
-    lcb_clist_t ll_pending; /* pending cinfo */
-    lcb_clist_t requests;   /* pending requests */
-    const std::string key;  /* host:port */
+    lcb_clist_t ll_idle{};    /* idle connections */
+    lcb_clist_t ll_pending{}; /* pending cinfo */
+    lcb_clist_t requests{};   /* pending requests */
+    const std::string key;    /* host:port */
     Pool *parent;
     lcb::io::Timer<PoolHost, &PoolHost::connection_available> async;
     unsigned n_total; /* number of total connections */
@@ -94,7 +96,7 @@ namespace lcb
 namespace io
 {
 struct PoolConnInfo : lcbio_PROTOCTX, CinfoNode {
-    inline PoolConnInfo(PoolHost *parent, uint32_t timeout);
+    inline PoolConnInfo(PoolHost *he, uint32_t timeout);
     inline ~PoolConnInfo();
     inline void on_idle_timeout();
     inline void on_connected(lcbio_SOCKET *sock, lcb_STATUS err);
@@ -136,13 +138,13 @@ namespace io
 {
 struct PoolRequest : ReqNode, ConnectionRequest {
     PoolRequest(PoolHost *host_, lcbio_CONNDONE_cb cb, void *cbarg)
-        : host(host_), callback(cb), arg(cbarg), timer(host->parent->io, this), state(PENDING), sock(NULL),
+        : host(host_), callback(cb), arg(cbarg), timer(host->parent->io, this), state(PENDING), sock(nullptr),
           err(LCB_SUCCESS)
     {
     }
 
-    virtual ~PoolRequest() {}
-    virtual void cancel();
+    ~PoolRequest() override = default;
+    void cancel() override;
     inline void invoke();
     void invoke(lcb_STATUS err_)
     {
@@ -209,17 +211,17 @@ PoolConnInfo::~PoolConnInfo()
 
     if (sock) {
         // Ensure destructor is not called!
-        dtor = NULL;
+        dtor = nullptr;
         lcbio_protoctx_delptr(sock, this, 0);
-        lcbio_unref(sock);
+        lcbio_unref(sock)
     }
     parent->unref();
 }
 
 static void cinfo_protoctx_dtor(lcbio_PROTOCTX *ctx)
 {
-    PoolConnInfo *info = reinterpret_cast<PoolConnInfo *>(ctx);
-    info->sock = NULL;
+    auto *info = reinterpret_cast<PoolConnInfo *>(ctx);
+    info->sock = nullptr;
     delete info;
 }
 
@@ -260,8 +262,7 @@ void Pool::shutdown()
         hes.push_back(he);
     }
 
-    for (HeList::iterator it = hes.begin(); it != hes.end(); ++it) {
-        PoolHost *he = *it;
+    for (auto he : hes) {
         ht.erase(he->key);
         he->async.release();
         he->unref();
@@ -277,12 +278,18 @@ static void endpointToJSON(hrtime_t now, Json::Value &node, const PoolHost *host
     }
     Json::Value endpoint;
     char id[20] = {0};
-    snprintf(id, sizeof(id), "%p", (void *)info->sock);
+    snprintf(id, sizeof(id), "%016" PRIx64, info->sock ? info->sock->id : (lcb_U64)0);
     endpoint["id"] = id;
     endpoint["remote"] = get_hehost(host);
     if (info->sock->info) {
         endpoint["local"] = info->sock->info->ep_local;
         endpoint["last_activity_us"] = (Json::Value::UInt64)(now - info->sock->atime);
+    }
+    auto *session = lcb::SessionInfo::get(info->sock);
+    if (session) {
+        if (session->selected_bucket() && !session->bucket_name().empty()) {
+            endpoint["namespace"] = session->bucket_name();
+        }
     }
     switch (info->state) {
         case PoolConnInfo::PENDING:
@@ -325,7 +332,7 @@ void PoolRequest::invoke()
 
     callback(sock, arg, err, 0);
     if (sock) {
-        lcbio_unref(sock);
+        lcbio_unref(sock)
     }
     delete this;
 }
@@ -357,7 +364,7 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
 void PoolConnInfo::on_connected(lcbio_SOCKET *sock_, lcb_STATUS err)
 {
     lcb_assert(state == PENDING);
-    cs = NULL;
+    cs = nullptr;
 
     lcb_log(LOGARGS(parent->parent, DEBUG), HE_LOGFMT "Received result for I=%p,C=%p; E=0x%x", HE_LOGID(parent),
             (void *)this, (void *)sock, err);
@@ -370,7 +377,7 @@ void PoolConnInfo::on_connected(lcbio_SOCKET *sock_, lcb_STATUS err)
         {
             PoolRequest *req = PoolRequest::from_llnode(cur);
             lcb_clist_delete(&parent->requests, req);
-            req->sock = NULL;
+            req->sock = nullptr;
             req->invoke(err);
         }
         delete this;
@@ -388,7 +395,7 @@ void PoolConnInfo::on_connected(lcbio_SOCKET *sock_, lcb_STATUS err)
 }
 
 PoolConnInfo::PoolConnInfo(PoolHost *he, uint32_t timeout)
-    : parent(he), sock(NULL), cs(NULL), idle_timer(he->parent->io, this), state(PENDING)
+    : lcbio_PROTOCTX(), parent(he), sock(nullptr), cs(nullptr), idle_timer(he->parent->io, this), state(PENDING)
 {
 
     // protoctx fields
@@ -408,9 +415,9 @@ PoolConnInfo::PoolConnInfo(PoolHost *he, uint32_t timeout)
     cs = lcbio_connect(he->parent->io, he->parent->settings, &tmphost, timeout, ::on_connected, this);
 }
 
-void PoolHost::start_new_connection(uint32_t tmo)
+void PoolHost::start_new_connection(uint32_t timeout)
 {
-    PoolConnInfo *info = new PoolConnInfo(this, tmo);
+    auto *info = new PoolConnInfo(this, timeout);
     lcb_clist_append(&ll_pending, info);
     n_total++;
     refcount++;
@@ -431,8 +438,8 @@ void PoolRequest::timer_handler()
     }
 }
 
-PoolHost::PoolHost(Pool *parent_, const std::string &key_)
-    : key(key_), parent(parent_), async(parent->io, this), n_total(0), refcount(1)
+PoolHost::PoolHost(Pool *parent_, std::string key_)
+    : key(std::move(key_)), parent(parent_), async(parent->io, this), n_total(0), refcount(1)
 {
 
     lcb_clist_init(&ll_idle);
@@ -453,7 +460,7 @@ ConnectionRequest *Pool::get(const lcb_host_t &dest, uint32_t timeout, lcbio_CON
         key.append(dest.host).append(":").append(dest.port);
     }
 
-    HostMap::iterator m = ht.find(key);
+    auto m = ht.find(key);
     if (m == ht.end()) {
         he = new PoolHost(this, key);
         ht.insert(std::make_pair(key, he));
@@ -461,7 +468,7 @@ ConnectionRequest *Pool::get(const lcb_host_t &dest, uint32_t timeout, lcbio_CON
         he = m->second;
     }
 
-    PoolRequest *req = new PoolRequest(he, cb, cbarg);
+    auto *req = new PoolRequest(he, cb, cbarg);
 
 GT_POPAGAIN:
 
@@ -522,7 +529,7 @@ void PoolRequest::cancel()
 void PoolConnInfo::on_idle_timeout()
 {
     lcb_log(LOGARGS(parent->parent, DEBUG), HE_LOGFMT "Idle connection expired", HE_LOGID(parent));
-    lcbio_unref(sock);
+    lcbio_unref(sock)
 }
 
 void Pool::put(lcbio_SOCKET *sock)
@@ -533,8 +540,7 @@ void Pool::put(lcbio_SOCKET *sock)
 
     if (!info) {
         fprintf(stderr, "Requested put() for non-pooled (or detached) socket=%p\n", (void *)sock);
-        lcbio_unref(sock);
-        return;
+        lcbio_unref(sock) return;
     }
 
     he = info->parent;
@@ -542,8 +548,7 @@ void Pool::put(lcbio_SOCKET *sock)
 
     if (he->num_idle() >= mgr->options.maxidle) {
         lcb_log(LOGARGS(mgr, INFO), HE_LOGFMT "Closing idle connection. Too many in quota", HE_LOGID(he));
-        lcbio_unref(info->sock);
-        return;
+        lcbio_unref(info->sock) return;
     }
 
     lcb_log(LOGARGS(mgr, DEBUG), HE_LOGFMT "Placing socket back into the pool. I=%p,C=%p", HE_LOGID(he), (void *)info,
@@ -555,7 +560,7 @@ void Pool::put(lcbio_SOCKET *sock)
 
 void Pool::discard(lcbio_SOCKET *sock)
 {
-    lcbio_unref(sock);
+    lcbio_unref(sock)
 }
 
 void Pool::detach(lcbio_SOCKET *sock)
@@ -565,7 +570,7 @@ void Pool::detach(lcbio_SOCKET *sock)
 
 bool Pool::is_from_pool(const lcbio_SOCKET *sock)
 {
-    return lcbio_protoctx_get(sock, LCBIO_PROTOCTX_POOL) != NULL;
+    return lcbio_protoctx_get(sock, LCBIO_PROTOCTX_POOL) != nullptr;
 }
 
 #define CONN_INDENT "    "
@@ -607,7 +612,7 @@ void PoolHost::dump(FILE *out) const
         union {
             lcbio_CONNDONE_cb cb;
             void *ptr;
-        } u_cb;
+        } u_cb{};
 
         u_cb.cb = req->callback;
 
@@ -620,7 +625,7 @@ void PoolHost::dump(FILE *out) const
 
 void Pool::dump(FILE *out) const
 {
-    if (out == NULL) {
+    if (out == nullptr) {
         out = stderr;
     }
     HostMap::const_iterator ii;

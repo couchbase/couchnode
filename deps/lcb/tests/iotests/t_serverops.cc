@@ -39,7 +39,7 @@ static void statKey_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *resp_base)
         return;
     }
     EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
-    std::map< std::string, bool > &mm = *(std::map< std::string, bool > *)resp->cookie;
+    std::map<std::string, bool> &mm = *(std::map<std::string, bool> *)resp->cookie;
     mm[resp->server] = true;
 }
 }
@@ -79,7 +79,7 @@ TEST_F(ServeropsUnitTest, testKeyStats)
     storeKey(instance, key, "blah blah");
     LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
     cmd.cmdflags = LCB_CMDSTATS_F_KV;
-    std::map< std::string, bool > mm;
+    std::map<std::string, bool> mm;
 
     lcb_sched_enter(instance);
     lcb_STATUS err = lcb_stats3(instance, &mm, &cmd);
@@ -92,94 +92,6 @@ TEST_F(ServeropsUnitTest, testKeyStats)
     // Ensure that a key with an embedded space fails
     key = "key with space";
     LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-    err = lcb_stats3(instance, NULL, &cmd);
+    err = lcb_stats3(instance, nullptr, &cmd);
     ASSERT_NE(LCB_SUCCESS, err);
-}
-
-extern "C" {
-static void testServerVersionsCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPMCVERSION *resp)
-{
-    int *counter = (int *)resp->cookie;
-    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
-    ++(*counter);
-}
-}
-
-/**
- * @test Server Versions
- * @pre Request the server versions
- * @post Response is successful, and the version callback is invoked more than
- * once.
- */
-TEST_F(ServeropsUnitTest, testServerVersion)
-{
-    lcb_INSTANCE *instance;
-    HandleWrap hw;
-    createConnection(hw, &instance);
-
-    (void)lcb_install_callback(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)testServerVersionsCallback);
-    int numcallbacks = 0;
-    lcb_CMDVERSIONS cmd = {0};
-    EXPECT_EQ(LCB_SUCCESS, lcb_server_versions3(instance, &numcallbacks, &cmd));
-    lcb_wait(instance, LCB_WAIT_DEFAULT);
-    EXPECT_LT(1, numcallbacks);
-}
-
-extern "C" {
-static char *verbosity_endpoint;
-
-static void verbosity_all_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPVERBOSITY *resp)
-{
-    int *counter = (int *)resp->cookie;
-    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
-    if (resp->server == NULL) {
-        EXPECT_EQ(MockEnvironment::getInstance()->getNumNodes(), *counter);
-        return;
-    } else if (verbosity_endpoint == NULL) {
-        verbosity_endpoint = strdup(resp->server);
-    }
-    ++(*counter);
-}
-
-static void verbosity_single_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPVERBOSITY *resp)
-{
-    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
-    if (resp->server == NULL) {
-        return;
-    } else {
-        EXPECT_STREQ(verbosity_endpoint, resp->server);
-    }
-}
-}
-
-/**
- * @test Server Verbosity
- * @todo (document this..)
- */
-TEST_F(ServeropsUnitTest, testVerbosity)
-{
-    lcb_INSTANCE *instance;
-    HandleWrap hw;
-    createConnection(hw, &instance);
-
-    (void)lcb_install_callback(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)verbosity_all_callback);
-
-    int counter = 0;
-
-    lcb_CMDVERBOSITY cmd = {0};
-    cmd.level = LCB_VERBOSITY_DEBUG;
-    EXPECT_EQ(LCB_SUCCESS, lcb_server_verbosity3(instance, &counter, &cmd));
-    lcb_wait(instance, LCB_WAIT_DEFAULT);
-
-    EXPECT_EQ(MockEnvironment::getInstance()->getNumNodes(), counter);
-    EXPECT_NE((char *)NULL, verbosity_endpoint);
-
-    (void)lcb_install_callback(instance, LCB_CALLBACK_VERBOSITY, (lcb_RESPCALLBACK)verbosity_single_callback);
-
-    cmd.server = verbosity_endpoint;
-    cmd.level = LCB_VERBOSITY_DEBUG;
-    EXPECT_EQ(LCB_SUCCESS, lcb_server_verbosity3(instance, &counter, &cmd));
-    lcb_wait(instance, LCB_WAIT_DEFAULT);
-    free((void *)verbosity_endpoint);
-    verbosity_endpoint = NULL;
 }

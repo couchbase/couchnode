@@ -25,25 +25,22 @@
 #define LOG(instance, lvlbase, msg) lcb_log(instance->settings, "newconfig", LCB_LOG_##lvlbase, __FILE__, __LINE__, msg)
 
 #define SERVER_FMT LCB_LOG_SPEC("%s:%s") " (%p)"
-#define SERVER_ARGS(s)                                          \
-    (s)->settings->log_redaction ? LCB_LOG_SD_OTAG : "",       \
-        (s)->get_host().host, (s)->get_host().port,             \
-        (s)->settings->log_redaction ? LCB_LOG_SD_CTAG : "",   \
-        (void *)s
+#define SERVER_ARGS(s)                                                                                                 \
+    (s)->settings->log_redaction ? LCB_LOG_SD_OTAG : "", (s)->get_host().host, (s)->get_host().port,                   \
+        (s)->settings->log_redaction ? LCB_LOG_SD_CTAG : "", (void *)s
 
 typedef struct lcb_GUESSVB_st {
     time_t last_update; /**< Last time this vBucket was heuristically set */
-    char newix; /**< New index, heuristically determined */
-    char oldix; /**< Original index, according to map */
-    char used; /**< Flag indicating whether or not this entry has been used */
+    char newix;         /**< New index, heuristically determined */
+    char oldix;         /**< Original index, according to map */
+    char used;          /**< Flag indicating whether or not this entry has been used */
 } lcb_GUESSVB;
 
 /* Ignore configuration updates for heuristically guessed vBuckets for a
  * maximum amount of [n] seconds */
 #define MAX_KEEP_GUESS 20
 
-static int
-should_keep_guess(lcb_GUESSVB *guess, lcbvb_VBUCKET *vb)
+static int should_keep_guess(lcb_GUESSVB *guess, lcbvb_VBUCKET *vb)
 {
     if (guess->newix == guess->oldix) {
         /* Heuristic position is the same as starting position */
@@ -54,7 +51,7 @@ should_keep_guess(lcb_GUESSVB *guess, lcbvb_VBUCKET *vb)
         return 0;
     }
 
-    if (time(NULL) - guess->last_update > MAX_KEEP_GUESS) {
+    if (time(nullptr) - guess->last_update > MAX_KEEP_GUESS) {
         /* Last usage too old */
         return 0;
     }
@@ -62,8 +59,7 @@ should_keep_guess(lcb_GUESSVB *guess, lcbvb_VBUCKET *vb)
     return 1;
 }
 
-void
-lcb_vbguess_newconfig(lcb_INSTANCE *instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
+void lcb_vbguess_newconfig(lcb_INSTANCE *instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *guesses)
 {
     unsigned ii;
 
@@ -82,20 +78,22 @@ lcb_vbguess_newconfig(lcb_INSTANCE *instance, lcbvb_CONFIG *cfg, lcb_GUESSVB *gu
         /* IF: Heuristically learned a new index, _and_ the old index (which is
          * known to be bad) is the same index stated by the new config */
         if (should_keep_guess(guess, vb)) {
-            lcb_log(LOGARGS(instance, TRACE), "Keeping heuristically guessed index. VBID=%d. Current=%d. Old=%d.", ii, guess->newix, guess->oldix);
+            lcb_log(LOGARGS(instance, TRACE), "Keeping heuristically guessed index. VBID=%d. Current=%d. Old=%d.", ii,
+                    guess->newix, guess->oldix);
             vb->servers[0] = guess->newix;
         } else {
             /* We don't reassign to the guess structure here. The idea is that
              * we will simply use the new config. If this gives us problems, the
              * config will re-learn again. */
-            lcb_log(LOGARGS(instance, TRACE), "Ignoring heuristically guessed index. VBID=%d. Current=%d. Old=%d. New=%d", ii, guess->newix, guess->oldix, vb->servers[0]);
+            lcb_log(LOGARGS(instance, TRACE),
+                    "Ignoring heuristically guessed index. VBID=%d. Current=%d. Old=%d. New=%d", ii, guess->newix,
+                    guess->oldix, vb->servers[0]);
             guess->used = 0;
         }
     }
 }
 
-int
-lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad)
+int lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad)
 {
     if (LCBT_SETTING(instance, vb_noremap)) {
         return -1;
@@ -112,15 +110,15 @@ lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad)
         lcb_GUESSVB *guesses = instance->vbguess;
         if (!guesses) {
             guesses = instance->vbguess =
-                reinterpret_cast< lcb_GUESSVB * >(calloc(LCBT_VBCONFIG(instance)->nvb, sizeof(lcb_GUESSVB)));
+                reinterpret_cast<lcb_GUESSVB *>(calloc(LCBT_VBCONFIG(instance)->nvb, sizeof(lcb_GUESSVB)));
         }
         lcb_GUESSVB *guess = guesses + vbid;
         int newix = lcbvb_nmv_remap_ex(LCBT_VBCONFIG(instance), vbid, bad, 1);
         if (newix > -1 && newix != bad) {
-            guess->newix = newix;
-            guess->oldix = bad;
+            guess->newix = static_cast<char>(newix);
+            guess->oldix = static_cast<char>(bad);
             guess->used = 1;
-            guess->last_update = time(NULL);
+            guess->last_update = time(nullptr);
             lcb_log(LOGARGS(instance, TRACE), "Guessed new heuristic index VBID=%d. Old=%d. New=%d", vbid, bad, newix);
         }
         return newix;
@@ -141,13 +139,10 @@ lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad)
  * @return The new index, or -1 if the current server is not present in the new
  * config.
  */
-static int
-find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
-    lcb::Server *server)
+static int find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig, lcb::Server *server)
 {
     lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(server->get_instance());
-    const char *old_datahost = lcbvb_get_hostport(oldconfig,
-        server->get_index(), LCBVB_SVCTYPE_DATA, mode);
+    const char *old_datahost = lcbvb_get_hostport(oldconfig, server->get_index(), LCBVB_SVCTYPE_DATA, mode);
 
     if (!old_datahost) {
         /* Old server had no data service */
@@ -155,8 +150,7 @@ find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
     }
 
     for (size_t ii = 0; ii < LCBVB_NSERVERS(newconfig); ii++) {
-        const char *new_datahost = lcbvb_get_hostport(newconfig, ii,
-            LCBVB_SVCTYPE_DATA, mode);
+        const char *new_datahost = lcbvb_get_hostport(newconfig, ii, LCBVB_SVCTYPE_DATA, mode);
         if (new_datahost && strcmp(new_datahost, old_datahost) == 0) {
             return ii;
         }
@@ -164,10 +158,10 @@ find_new_data_index(lcbvb_CONFIG *oldconfig, lcbvb_CONFIG* newconfig,
     return -1;
 }
 
-static void
-log_vbdiff(lcb_INSTANCE *instance, lcbvb_CONFIGDIFF *diff)
+static void log_vbdiff(lcb_INSTANCE *instance, lcbvb_CONFIGDIFF *diff)
 {
-    lcb_log(LOGARGS(instance, INFO), "Config Diff: [ vBuckets Modified=%d ], [Sequence Changed=%d]", diff->n_vb_changes, diff->sequence_changed);
+    lcb_log(LOGARGS(instance, INFO), "Config Diff: [ vBuckets Modified=%d ], [Sequence Changed=%d]", diff->n_vb_changes,
+            diff->sequence_changed);
     if (diff->servers_added) {
         for (char **curserver = diff->servers_added; *curserver; curserver++) {
             lcb_log(LOGARGS(instance, INFO), "Detected server %s added", *curserver);
@@ -192,15 +186,18 @@ log_vbdiff(lcb_INSTANCE *instance, lcbvb_CONFIGDIFF *diff)
  * being removed, the command will fail); rather than being relocated to
  * another server.
  */
-static int
-iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
+static int iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
 {
     protocol_binary_request_header hdr;
-    lcb::Server *srv = static_cast<lcb::Server *>(oldpl);
+    auto *srv = static_cast<lcb::Server *>(oldpl);
     int newix;
-    lcb_INSTANCE *instance = (lcb_INSTANCE *)cq->cqdata;
+    auto *instance = (lcb_INSTANCE *)cq->cqdata;
 
     mcreq_read_hdr(oldpkt, &hdr);
+    /* we should not relocate GET_WITH_REPLICA packets */
+    if (hdr.request.opcode == PROTOCOL_BINARY_CMD_GET_REPLICA) {
+        return MCREQ_KEEP_PACKET;
+    }
 
     lcb_RETRY_ACTION retry = lcb_kv_should_retry(srv->get_settings(), oldpkt, LCB_ERR_TOPOLOGY_CHANGE);
     if (!retry.should_retry) {
@@ -211,7 +208,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
         newix = lcbvb_vbmaster(cq->config, ntohs(hdr.request.vbucket));
 
     } else {
-        const char *key = NULL;
+        const char *key = nullptr;
         size_t nkey = 0;
         int tmpid;
 
@@ -221,18 +218,17 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
         lcbvb_map_key(cq->config, key, nkey, &tmpid, &newix);
     }
 
-    if (newix < 0 || newix > (int)cq->npipelines-1) {
+    if (newix < 0 || newix > (int)cq->npipelines - 1) {
         return MCREQ_KEEP_PACKET;
     }
-
 
     mc_PIPELINE *newpl = cq->pipelines[newix];
-    if (newpl == oldpl || newpl == NULL) {
+    if (newpl == oldpl || newpl == nullptr) {
         return MCREQ_KEEP_PACKET;
     }
 
-    lcb_log(LOGARGS(instance, DEBUG), "Remapped packet %p (SEQ=%u) from " SERVER_FMT " to " SERVER_FMT,
-        (void*)oldpkt, oldpkt->opaque, SERVER_ARGS((lcb::Server*)oldpl), SERVER_ARGS((lcb::Server*)newpl));
+    lcb_log(LOGARGS(instance, DEBUG), "Remapped packet %p (SEQ=%u) from " SERVER_FMT " to " SERVER_FMT, (void *)oldpkt,
+            oldpkt->opaque, SERVER_ARGS((lcb::Server *)oldpl), SERVER_ARGS((lcb::Server *)newpl));
 
     /** Otherwise, copy over the packet and find the new vBucket to map to */
     mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
@@ -242,8 +238,7 @@ iterwipe_cb(mc_CMDQUEUE *cq, mc_PIPELINE *oldpl, mc_PACKET *oldpkt, void *)
     return MCREQ_REMOVE_PACKET;
 }
 
-static void
-replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
+static void replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *newconfig)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PIPELINE **ppold, **ppnew;
@@ -252,7 +247,7 @@ replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *ne
     lcb_assert(LCBT_VBCONFIG(instance) == newconfig);
 
     nnew = LCBVB_NSERVERS(newconfig);
-    ppnew = reinterpret_cast<mc_PIPELINE**>(calloc(nnew, sizeof(*ppnew)));
+    ppnew = reinterpret_cast<mc_PIPELINE **>(calloc(nnew, sizeof(*ppnew)));
     ppold = mcreq_queue_take_pipelines(cq, &nold);
 
     /**
@@ -260,13 +255,14 @@ replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *ne
      * and place it inside the new list.
      */
     for (ii = 0; ii < nold; ii++) {
-        lcb::Server *cur = static_cast<lcb::Server *>(ppold[ii]);
+        auto *cur = static_cast<lcb::Server *>(ppold[ii]);
         int newix = find_new_data_index(oldconfig, newconfig, cur);
         if (newix > -1) {
             cur->set_new_index(newix);
             ppnew[newix] = cur;
-            ppold[ii] = NULL;
-            lcb_log(LOGARGS(instance, INFO), "Reusing server " SERVER_FMT ". OldIndex=%d. NewIndex=%d", SERVER_ARGS(cur), ii, newix);
+            ppold[ii] = nullptr;
+            lcb_log(LOGARGS(instance, INFO), "Reusing server " SERVER_FMT ". OldIndex=%d. NewIndex=%d",
+                    SERVER_ARGS(cur), ii, newix);
         }
     }
 
@@ -278,7 +274,7 @@ replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *ne
      */
     for (ii = 0; ii < nnew; ii++) {
         if (!ppnew[ii]) {
-            ppnew[ii] = new lcb::Server(instance, ii);
+            ppnew[ii] = new lcb::Server(instance, static_cast<int>(ii));
         }
     }
 
@@ -287,9 +283,6 @@ replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *ne
      * transfer the new config along with the new list over to the CQ structure.
      */
     mcreq_queue_add_pipelines(cq, ppnew, nnew, newconfig);
-    for (ii = 0; ii < nnew; ii++) {
-        mcreq_iterwipe(cq, ppnew[ii], iterwipe_cb, NULL);
-    }
 
     /**
      * Go through all the servers that are to be removed and relocate commands
@@ -300,13 +293,13 @@ replace_config(lcb_INSTANCE *instance, lcbvb_CONFIG *oldconfig, lcbvb_CONFIG *ne
             continue;
         }
 
-        mcreq_iterwipe(cq, ppold[ii], iterwipe_cb, NULL);
-        static_cast< lcb::Server * >(ppold[ii])->purge(LCB_ERR_MAP_CHANGED);
-        static_cast<lcb::Server*>(ppold[ii])->close();
+        mcreq_iterwipe(cq, ppold[ii], iterwipe_cb, nullptr);
+        static_cast<lcb::Server *>(ppold[ii])->purge(LCB_ERR_MAP_CHANGED);
+        static_cast<lcb::Server *>(ppold[ii])->close();
     }
 
     for (ii = 0; ii < nnew; ii++) {
-        if (static_cast<lcb::Server*>(ppnew[ii])->has_pending()) {
+        if (static_cast<lcb::Server *>(ppnew[ii])->has_pending()) {
             ppnew[ii]->flush_start(ppnew[ii]);
         }
     }
@@ -340,7 +333,7 @@ void lcb_update_vbconfig(lcb_INSTANCE *instance, lcb_pCONFIGINFO config)
         old_config->decref();
     } else {
         size_t nservers = VB_NSERVERS(config->vbc);
-        std::vector<mc_PIPELINE*> servers;
+        std::vector<mc_PIPELINE *> servers;
 
         for (size_t ii = 0; ii < nservers; ii++) {
             servers.push_back(new lcb::Server(instance, ii));
@@ -352,8 +345,7 @@ void lcb_update_vbconfig(lcb_INSTANCE *instance, lcb_pCONFIGINFO config)
     /* Update the list of nodes here for server list */
     instance->ht_nodes->clear();
     for (size_t ii = 0; ii < LCBVB_NSERVERS(config->vbc); ++ii) {
-        const char *hp = lcbvb_get_hostport(config->vbc, ii,
-            LCBVB_SVCTYPE_MGMT, LCBT_SETTING_SVCMODE(instance));
+        const char *hp = lcbvb_get_hostport(config->vbc, ii, LCBVB_SVCTYPE_MGMT, LCBT_SETTING_SVCMODE(instance));
         if (hp) {
             instance->ht_nodes->add(hp, LCB_CONFIG_HTTP_PORT);
         }

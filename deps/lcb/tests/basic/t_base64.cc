@@ -16,14 +16,7 @@
  */
 #include "config.h"
 #include <gtest/gtest.h>
-
-extern "C" {
-extern int lcb_base64_encode(const char *src, size_t nsrc, char *dst, size_t ndst);
-extern int lcb_base64_decode(const char *src, size_t nsrc, char *dst, size_t ndst);
-
-extern int lcb_base64_encode2(const char *src, size_t nsrc, char **dst, size_t *ndst);
-extern int lcb_base64_decode2(const char *src, size_t nsrc, char **dst, size_t *ndst);
-}
+#include "strcodecs/strcodecs.h"
 
 class Base64 : public ::testing::Test
 {

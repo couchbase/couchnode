@@ -42,8 +42,8 @@ namespace lcb
 namespace clconfig
 {
 struct HttpProvider : Provider {
-    HttpProvider(Confmon *);
-    ~HttpProvider();
+    explicit HttpProvider(Confmon *);
+    ~HttpProvider() override;
 
     void reset_stream_state();
 
@@ -62,18 +62,18 @@ struct HttpProvider : Provider {
     lcb_STATUS connect_next();
 
     /* Overrides */
-    bool pause();
-    lcb_STATUS refresh();
-    ConfigInfo *get_cached();
-    void config_updated(lcbvb_CONFIG *);
-    void configure_nodes(const lcb::Hostlist &);
-    const lcb::Hostlist *get_nodes() const;
-    void dump(FILE *) const;
+    bool pause() override;
+    lcb_STATUS refresh() override;
+    ConfigInfo *get_cached() override;
+    void config_updated(lcbvb_CONFIG *) override;
+    void configure_nodes(const lcb::Hostlist &) override;
+    const lcb::Hostlist *get_nodes() const override;
+    void dump(FILE *) const override;
     lcb_STATUS setup_request_header(const lcb_host_t &host);
     /* END Overrides */
 
     /** Base configuration structure */
-    lcbio_pCONNSTART creq;
+    lcbio_pCONNSTART creq{};
     lcbio_CTX *ioctx;
     lcb::htparse::Parser *htp;
 
@@ -88,9 +88,9 @@ struct HttpProvider : Provider {
      * timer waits until the current stream times out and then proceeds to the
      * next connection.
      */
-    lcb::io::Timer< HttpProvider, &HttpProvider::delayed_disconn > disconn_timer;
-    lcb::io::Timer< HttpProvider, &HttpProvider::on_timeout > io_timer;
-    lcb::io::Timer< HttpProvider, &HttpProvider::delayed_reconnect > as_reconnect;
+    lcb::io::Timer<HttpProvider, &HttpProvider::delayed_disconn> disconn_timer;
+    lcb::io::Timer<HttpProvider, &HttpProvider::on_timeout> io_timer;
+    lcb::io::Timer<HttpProvider, &HttpProvider::delayed_reconnect> as_reconnect;
 
     /** List of hosts to try */
     lcb::Hostlist *nodes;

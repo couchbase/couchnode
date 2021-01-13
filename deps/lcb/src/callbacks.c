@@ -17,15 +17,6 @@
 
 #include "internal.h"
 
-#define DEFINE_DUMMY_CALLBACK(name, resptype)                                                                          \
-    static void name(lcb_INSTANCE *i, const void *c, lcb_STATUS e, const resptype *r)                                  \
-    {                                                                                                                  \
-        (void)i;                                                                                                       \
-        (void)e;                                                                                                       \
-        (void)c;                                                                                                       \
-        (void)r;                                                                                                       \
-    }
-
 static void dummy_bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
 {
     (void)instance;
@@ -55,8 +46,6 @@ typedef union {
     lcb_RESPENDURE endure;
     lcb_RESPUNLOCK unl;
     lcb_RESPSTATS stats;
-    lcb_RESPMCVERSION mcversion;
-    lcb_RESPVERBOSITY verbosity;
     lcb_RESPOBSERVE observe;
     lcb_RESPHTTP http;
     lcb_RESPGETCID getcid;

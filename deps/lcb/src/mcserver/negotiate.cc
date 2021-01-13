@@ -65,25 +65,25 @@ class lcb::SessionRequestImpl : public SessionRequest
 
     bool setup(const lcbio_NAMEINFO &nistrs, const lcb_host_t &host, const lcb::Authenticator &auth);
     void start(lcbio_SOCKET *sock);
-    void send_list_mechs();
-    std::string generate_agent_json();
+    void send_list_mechs() const;
+    std::string generate_agent_json() const;
     bool send_hello();
     bool send_step(const lcb::MemcachedResponse &packet);
     bool check_auth(const lcb::MemcachedResponse &packet);
     bool read_hello(const lcb::MemcachedResponse &packet);
-    void send_auth(const char *sasl_data, unsigned ndata);
+    void send_auth(const char *sasl_data, unsigned ndata) const;
     void handle_read(lcbio_CTX *ioctx);
     bool maybe_select_bucket();
 
     enum MechStatus { MECH_UNAVAILABLE, MECH_NOT_NEEDED, MECH_OK };
     MechStatus set_chosen_mech(std::string &mechlist, const char **data, unsigned int *ndata);
-    bool request_errmap();
+    bool request_errmap() const;
     bool update_errmap(const lcb::MemcachedResponse &packet);
 
     SessionRequestImpl(lcbio_CONNDONE_cb callback, void *data, uint32_t timeout, lcbio_TABLE *iot,
                        lcb_settings *settings_)
-        : ctx(NULL), cb(callback), cbdata(data), timer(lcbio_timer_new(iot, this, timeout_handler)),
-          last_err(LCB_SUCCESS), info(NULL), settings(settings_)
+        : ctx(nullptr), cb(callback), cbdata(data), timer(lcbio_timer_new(iot, this, timeout_handler)),
+          last_err(LCB_SUCCESS), info(nullptr), settings(settings_)
     {
 
         if (timeout) {
@@ -92,19 +92,19 @@ class lcb::SessionRequestImpl : public SessionRequest
         memset(&u_auth, 0, sizeof(u_auth));
     }
 
-    virtual ~SessionRequestImpl();
+    ~SessionRequestImpl() override;
 
-    void cancel()
+    void cancel() override
     {
-        cb = NULL;
+        cb = nullptr;
         delete this;
     }
 
     void fail()
     {
-        if (cb != NULL) {
-            cb(NULL, cbdata, last_err, 0);
-            cb = NULL;
+        if (cb != nullptr) {
+            cb(nullptr, cbdata, last_err, 0);
+            cb = nullptr;
         }
         delete this;
     }
@@ -121,21 +121,21 @@ class lcb::SessionRequestImpl : public SessionRequest
         lcbio_SOCKET *s;
 
         lcbio_ctx_close(ctx, close_cb, &s);
-        ctx = NULL;
+        ctx = nullptr;
 
         lcbio_protoctx_add(s, info);
-        info = NULL;
+        info = nullptr;
 
         /** Invoke the callback, marking it a success */
         cb(s, cbdata, LCB_SUCCESS, 0);
-        lcbio_unref(s);
+        lcbio_unref(s)
 
-        delete this;
+            delete this;
     }
 
-    void set_error(lcb_STATUS error, const char *msg, const lcb::MemcachedResponse *packet = NULL)
+    void set_error(lcb_STATUS error, const char *msg, const lcb::MemcachedResponse *packet = nullptr)
     {
-        char *err_ref = NULL, *err_ctx = NULL;
+        char *err_ref = nullptr, *err_ctx = nullptr;
         if (packet) {
             MemcachedResponse::parse_enhanced_error(packet->value(), packet->vallen(), &err_ref, &err_ctx);
         }
@@ -169,7 +169,7 @@ class lcb::SessionRequestImpl : public SessionRequest
     union {
         cbsasl_secret_t secret;
         char buffer[256];
-    } u_auth;
+    } u_auth{};
     std::string username;
 
     lcbio_CTX *ctx;
@@ -177,7 +177,7 @@ class lcb::SessionRequestImpl : public SessionRequest
     void *cbdata;
     lcbio_pTIMER timer;
     lcb_STATUS last_err;
-    cbsasl_conn_t *sasl_client;
+    cbsasl_conn_t *sasl_client{};
     SessionInfo *info;
     lcb_settings *settings;
 };
@@ -203,7 +203,7 @@ static int sasl_get_username(void *context, int id, const char **result, unsigne
 static int sasl_get_password(cbsasl_conn_t *conn, void *context, int id, cbsasl_secret_t **psecret)
 {
     SessionRequestImpl *ctx = SessionRequestImpl::get(context);
-    if (!conn || !psecret || id != CBSASL_CB_PASS || ctx == NULL) {
+    if (!conn || !psecret || id != CBSASL_CB_PASS || ctx == nullptr) {
         return SASL_BADPARAM;
     }
 
@@ -211,7 +211,7 @@ static int sasl_get_password(cbsasl_conn_t *conn, void *context, int id, cbsasl_
     return SASL_OK;
 }
 
-SessionInfo::SessionInfo() : selected(false)
+SessionInfo::SessionInfo() : lcbio_PROTOCTX(), selected(false)
 {
     lcbio_PROTOCTX::id = LCBIO_PROTOCTX_SESSINFO;
     lcbio_PROTOCTX::dtor = (void (*)(lcbio_PROTOCTX *))cleanup_negotiated;
@@ -294,13 +294,13 @@ SessionRequestImpl::MechStatus SessionRequestImpl::set_chosen_mech(std::string &
     }
 
     const char *chosenmech;
-    saslerr = cbsasl_client_start(sasl_client, mechlist.c_str(), NULL, data, ndata, &chosenmech);
+    saslerr = cbsasl_client_start(sasl_client, mechlist.c_str(), nullptr, data, ndata, &chosenmech);
     switch (saslerr) {
         case SASL_OK:
             /* do not allow to downgrade SASL mechanism to PLAIN on non-TLS connections,
              * unless user explicitly asks for it */
             if (!tls && !user_specified && strncmp(chosenmech, MECH_PLAIN, sizeof(MECH_PLAIN)) == 0) {
-#ifdef LCB_NO_SSL
+#if defined(LCB_NO_SSL) || !defined(HAVE_PKCS5_PBKDF2_HMAC)
                 lcb_log(LOGARGS(this, ERROR),
                         LOGFMT
                         "SASL PLAIN authentication is not allowed on non-TLS connections. But this libcouchbase "
@@ -313,6 +313,7 @@ SessionRequestImpl::MechStatus SessionRequestImpl::set_chosen_mech(std::string &
                 return MECH_UNAVAILABLE;
 #endif
             }
+            lcb_log(LOGARGS(this, DEBUG), LOGFMT "Using %s SASL mechanism", LOGID(this), chosenmech);
             info->mech.assign(chosenmech);
             return MECH_OK;
         case SASL_NOMECH:
@@ -328,7 +329,7 @@ SessionRequestImpl::MechStatus SessionRequestImpl::set_chosen_mech(std::string &
 /**
  * Given the specific mechanisms, send the auth packet to the server.
  */
-void SessionRequestImpl::send_auth(const char *sasl_data, unsigned ndata)
+void SessionRequestImpl::send_auth(const char *sasl_data, unsigned ndata) const
 {
     lcb::MemcachedRequest hdr(PROTOCOL_BINARY_CMD_SASL_AUTH);
     hdr.sizes(0, info->mech.size(), ndata);
@@ -345,7 +346,7 @@ bool SessionRequestImpl::send_step(const lcb::MemcachedResponse &packet)
     const char *step_data;
     unsigned int ndata;
 
-    saslerr = cbsasl_client_step(sasl_client, packet.value(), packet.vallen(), NULL, &step_data, &ndata);
+    saslerr = cbsasl_client_step(sasl_client, packet.value(), packet.vallen(), nullptr, &step_data, &ndata);
 
     if (saslerr != SASL_CONTINUE) {
         set_error(LCB_ERR_SDK_INTERNAL, "Unable to perform SASL STEP");
@@ -361,7 +362,7 @@ bool SessionRequestImpl::send_step(const lcb::MemcachedResponse &packet)
     return true;
 }
 
-std::string SessionRequestImpl::generate_agent_json()
+std::string SessionRequestImpl::generate_agent_json() const
 {
     std::string client_string(LCB_CLIENT_ID);
     if (settings->client_string) {
@@ -459,19 +460,19 @@ bool SessionRequestImpl::send_hello()
     return true;
 }
 
-void SessionRequestImpl::send_list_mechs()
+void SessionRequestImpl::send_list_mechs() const
 {
     lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SASL_LIST_MECHS);
     lcbio_ctx_put(ctx, req.data(), req.size());
     LCBIO_CTX_RSCHEDULE(ctx, 24);
 }
 
-bool SessionRequestImpl::read_hello(const lcb::MemcachedResponse &resp)
+bool SessionRequestImpl::read_hello(const lcb::MemcachedResponse &packet)
 {
     /* some caps */
     const char *cur;
-    const char *payload = resp.value();
-    const char *limit = payload + resp.vallen();
+    const char *payload = packet.value();
+    const char *limit = payload + packet.vallen();
     size_t ii;
     std::string fstr;
     for (ii = 0, cur = payload; cur < limit; cur += 2, ii++) {
@@ -487,7 +488,7 @@ bool SessionRequestImpl::read_hello(const lcb::MemcachedResponse &resp)
     return true;
 }
 
-bool SessionRequestImpl::request_errmap()
+bool SessionRequestImpl::request_errmap() const
 {
     lcb::MemcachedRequest hdr(PROTOCOL_BINARY_CMD_GET_ERROR_MAP);
     uint16_t version = htons(1);
@@ -500,14 +501,14 @@ bool SessionRequestImpl::request_errmap()
     return true;
 }
 
-bool SessionRequestImpl::update_errmap(const lcb::MemcachedResponse &resp)
+bool SessionRequestImpl::update_errmap(const lcb::MemcachedResponse &packet)
 {
     // Get the error map object
     using lcb::errmap::ErrorMap;
 
     std::string errmsg;
     ErrorMap &mm = *settings->errmap;
-    ErrorMap::ParseStatus status = mm.parse(resp.value(), resp.vallen(), errmsg);
+    ErrorMap::ParseStatus status = mm.parse(packet.value(), packet.vallen(), errmsg);
 
     if (status != ErrorMap::UPDATED && status != ErrorMap::NOT_UPDATED) {
         errmsg = "Couldn't update error map: " + errmsg;
@@ -521,7 +522,7 @@ bool SessionRequestImpl::update_errmap(const lcb::MemcachedResponse &resp)
 // Returns true if sending the SELECT_BUCKET command, false otherwise.
 bool SessionRequestImpl::maybe_select_bucket()
 {
-    if (settings->conntype != LCB_TYPE_BUCKET || settings->bucket == NULL) {
+    if (settings->conntype != LCB_TYPE_BUCKET || settings->bucket == nullptr) {
         return false;
     }
     // Only send a SELECT_BUCKET if we have the SELECT_BUCKET bit enabled.
@@ -539,7 +540,8 @@ bool SessionRequestImpl::maybe_select_bucket()
     lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SELECT_BUCKET);
     req.sizes(0, strlen(settings->bucket), 0);
     lcbio_ctx_put(ctx, req.data(), req.size());
-    lcbio_ctx_put(ctx, settings->bucket, strlen(settings->bucket));
+    info->bucket_name_.assign(settings->bucket);
+    lcbio_ctx_put(ctx, info->bucket_name_.data(), info->bucket_name_.size());
     LCBIO_CTX_RSCHEDULE(ctx, 24);
     return true;
 }
@@ -655,6 +657,8 @@ GT_NEXT_PACKET:
             } else if (status == PROTOCOL_BINARY_RESPONSE_EACCESS) {
                 set_error(LCB_ERR_BUCKET_NOT_FOUND,
                           "Provided credentials not allowed for bucket or bucket does not exist", &resp);
+            } else if (status == PROTOCOL_BINARY_RESPONSE_KEY_ENOENT) {
+                set_error(LCB_ERR_BUCKET_NOT_FOUND, "Key/Value service is not configured for given node", &resp);
             } else {
                 lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", LOGID(this),
                         status);
@@ -692,9 +696,9 @@ static void handle_ioerr(lcbio_CTX *ctx, lcb_STATUS err)
     sreq->fail(err, "IO Error");
 }
 
-static void cleanup_negotiated(SessionInfo *ctx)
+static void cleanup_negotiated(SessionInfo *info)
 {
-    delete ctx;
+    delete info;
 }
 
 void SessionRequestImpl::start(lcbio_SOCKET *sock)
@@ -715,7 +719,7 @@ void SessionRequestImpl::start(lcbio_SOCKET *sock)
     ctx->subsys = "sasl";
 
     const lcb_host_t *curhost = lcbio_get_host(sock);
-    lcbio_NAMEINFO nistrs;
+    lcbio_NAMEINFO nistrs{};
     lcbio_get_nameinfo(sock, &nistrs);
 
     if (!setup(nistrs, *curhost, *settings->auth)) {
@@ -734,14 +738,13 @@ void SessionRequestImpl::start(lcbio_SOCKET *sock)
 
 SessionRequestImpl::~SessionRequestImpl()
 {
-    if (info) {
-        delete info;
-    }
+    delete info;
+
     if (timer) {
         lcbio_timer_destroy(timer);
     }
     if (ctx) {
-        lcbio_ctx_close(ctx, NULL, NULL);
+        lcbio_ctx_close(ctx, nullptr, nullptr);
     }
     if (sasl_client) {
         cbsasl_dispose(&sasl_client);
@@ -751,7 +754,7 @@ SessionRequestImpl::~SessionRequestImpl()
 SessionRequest *SessionRequest::start(lcbio_SOCKET *sock, lcb_settings_st *settings, uint32_t tmo,
                                       lcbio_CONNDONE_cb callback, void *data)
 {
-    SessionRequestImpl *sreq = new SessionRequestImpl(callback, data, tmo, sock->io, settings);
+    auto *sreq = new SessionRequestImpl(callback, data, tmo, sock->io, settings);
     sreq->start(sock);
     return sreq;
 }
@@ -764,6 +767,11 @@ SessionInfo *SessionInfo::get(lcbio_SOCKET *sock)
 bool SessionInfo::selected_bucket() const
 {
     return selected;
+}
+
+const std::string &SessionInfo::bucket_name() const
+{
+    return bucket_name_;
 }
 
 bool SessionInfo::has_feature(uint16_t feature) const

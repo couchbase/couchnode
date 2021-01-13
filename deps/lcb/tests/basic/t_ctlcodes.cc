@@ -45,7 +45,7 @@ TEST_F(CtlTest, testExists)
                 ASSERT_FALSE(lcb_cntl_exists(ii));
                 break;
             default:
-                ASSERT_TRUE(lcb_cntl_exists(ii));
+                ASSERT_TRUE(lcb_cntl_exists(ii)) << "expected 0x" << std::hex << ii << " to exist";
         }
     }
     ASSERT_EQ(0, lcb_cntl_exists(-1));
@@ -78,7 +78,7 @@ TEST_F(CtlTest, testStringCtls)
 
     for (PairMap *cur = ctlMap; cur->key; cur++) {
         err = lcb_cntl_string(instance, cur->key, "50");
-        ASSERT_EQ(LCB_SUCCESS, err);
+        ASSERT_EQ(LCB_SUCCESS, err) << "key: " << cur->key << ", error: " << lcb_strerror_short(err);
         ASSERT_EQ(50000000, lcb_cntl_getu32(instance, cur->opval));
     }
 

@@ -26,8 +26,8 @@ using namespace lcb::trace;
 
 LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_INSTANCE *instance, uint64_t flags)
 {
-    if (instance == NULL || (flags & LCBTRACE_F_THRESHOLD) == 0) {
-        return NULL;
+    if (instance == nullptr || (flags & LCBTRACE_F_THRESHOLD) == 0) {
+        return nullptr;
     }
     return (new ThresholdLoggingTracer(instance))->wrap();
 }
@@ -35,27 +35,27 @@ LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_INSTANCE *instance, uint64_t 
 extern "C" {
 static void tlt_destructor(lcbtrace_TRACER *wrapper)
 {
-    if (wrapper == NULL) {
+    if (wrapper == nullptr) {
         return;
     }
     if (wrapper->cookie) {
-        ThresholdLoggingTracer *tracer = reinterpret_cast< ThresholdLoggingTracer * >(wrapper->cookie);
+        auto *tracer = reinterpret_cast<ThresholdLoggingTracer *>(wrapper->cookie);
         tracer->do_flush_orphans();
         tracer->do_flush_threshold();
         delete tracer;
-        wrapper->cookie = NULL;
+        wrapper->cookie = nullptr;
     }
     delete wrapper;
 }
 
 static void tlt_report(lcbtrace_TRACER *wrapper, lcbtrace_SPAN *span)
 {
-    if (wrapper == NULL || wrapper->cookie == NULL) {
+    if (wrapper == nullptr || wrapper->cookie == nullptr) {
         return;
     }
 
-    ThresholdLoggingTracer *tracer = reinterpret_cast< ThresholdLoggingTracer * >(wrapper->cookie);
-    char *value = NULL;
+    auto *tracer = reinterpret_cast<ThresholdLoggingTracer *>(wrapper->cookie);
+    char *value = nullptr;
     size_t nvalue;
     if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_SERVICE, &value, &nvalue) == LCB_SUCCESS) {
         if (strncmp(value, LCBTRACE_TAG_SERVICE_KV, nvalue) == 0) {
@@ -140,7 +140,7 @@ void ThresholdLoggingTracer::flush_queue(FixedSpanQueue &queue, const char *mess
     }
     entries["top"] = top;
     std::string doc = Json::FastWriter().write(entries);
-    if (doc.size() > 0 && doc[doc.size() - 1] == '\n') {
+    if (!doc.empty() && doc[doc.size() - 1] == '\n') {
         doc[doc.size() - 1] = '\0';
     }
     if (warn) {
@@ -189,7 +189,7 @@ void ThresholdLoggingTracer::flush_threshold()
 }
 
 ThresholdLoggingTracer::ThresholdLoggingTracer(lcb_INSTANCE *instance)
-    : m_wrapper(NULL), m_settings(instance->settings), m_orphans(LCBT_SETTING(instance, tracer_orphaned_queue_size)),
+    : m_wrapper(nullptr), m_settings(instance->settings), m_orphans(LCBT_SETTING(instance, tracer_orphaned_queue_size)),
       m_threshold(LCBT_SETTING(instance, tracer_threshold_queue_size)), m_oflush(instance->iotable, this),
       m_tflush(instance->iotable, this)
 {

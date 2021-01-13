@@ -838,7 +838,7 @@ void mcreq_packet_done(mc_PIPELINE *pipeline, mc_PACKET *pkt);
         if ((pkt)->flags & MCREQ_F_FLUSHED) {                                                                          \
             mcreq_packet_done(pipeline, pkt);                                                                          \
         }                                                                                                              \
-    } while (0);
+    } while (0)
 
 /**
  * Reset the timeout (or rather, the start time) on all pending packets

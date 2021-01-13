@@ -27,30 +27,37 @@ void Histogram::install(lcb_INSTANCE *inst, FILE *out)
     lcb_enable_timings(inst);
     rc = lcb_cntl(inst, LCB_CNTL_GET, LCB_CNTL_KVTIMINGS, &hg);
     lcb_assert(rc == LCB_SUCCESS);
-    lcb_assert(hg != NULL);
+    lcb_assert(hg != nullptr);
     (void)rc;
 }
 
 void Histogram::installStandalone(FILE *out)
 {
-    if (hg != NULL) {
+    if (hg != nullptr) {
         return;
     }
     hg = lcb_histogram_create();
     output = out;
 }
 
+#ifdef _WIN32
+#define flockfile(x) (void)0
+#define funlockfile(x) (void)0
+#endif
+
 void Histogram::write()
 {
-    if (hg == NULL) {
+    if (hg == nullptr) {
         return;
     }
+    flockfile(output);
     lcb_histogram_print(hg, output);
+    funlockfile(output);
 }
 
 void Histogram::record(lcb_U64 duration)
 {
-    if (hg == NULL) {
+    if (hg == nullptr) {
         return;
     }
     lcb_histogram_record(hg, duration);

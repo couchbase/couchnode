@@ -60,6 +60,9 @@ TARGET_LINK_LIBRARIES(g3cp-async couchbase)
 ADD_EXECUTABLE(durability observe/durability.c)
 TARGET_LINK_LIBRARIES(durability couchbase)
 
+ADD_EXECUTABLE(management-eventing management/eventing.cc)
+TARGET_LINK_LIBRARIES(management-eventing couchbase)
+
 IF(NOT WIN32)
     ADD_EXAMPLE(instancepool instancepool pthread "")
 ENDIF()

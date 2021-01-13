@@ -16,15 +16,13 @@
  */
 
 #ifndef _WIN32
-#include <errno.h>
+#include <cerrno>
 #endif
 
 #include "connect.h"
 #include "ioutils.h"
 #include "hostlist.h"
-#include "manager.h"
 #include "iotable.h"
-#include <stdio.h>
 #include "ssl.h"
 
 lcbio_CSERR lcbio_mkcserr(int syserr)
@@ -134,7 +132,7 @@ lcb_socket_t lcbio_E_ai2sock(lcbio_TABLE *io, struct addrinfo **ai, int *connerr
 
 lcb_sockdata_t *lcbio_C_ai2sock(lcbio_TABLE *io, struct addrinfo **ai, int *connerr)
 {
-    lcb_sockdata_t *ret = NULL;
+    lcb_sockdata_t *ret = nullptr;
     for (; *ai; *ai = (*ai)->ai_next) {
         ret = io->C_socket(*ai);
         if (ret) {
@@ -145,11 +143,6 @@ lcb_sockdata_t *lcbio_C_ai2sock(lcbio_TABLE *io, struct addrinfo **ai, int *conn
     }
     return ret;
 }
-
-struct nameinfo_common {
-    char remote[NI_MAXHOST + NI_MAXSERV + 2];
-    char local[NI_MAXHOST + NI_MAXSERV + 2];
-};
 
 static int saddr_to_string(struct sockaddr *saddr, int len, char *buf, lcb_size_t nbuf)
 {
@@ -169,18 +162,18 @@ static int saddr_to_string(struct sockaddr *saddr, int len, char *buf, lcb_size_
     return 1;
 }
 
-static void lcbio__cache_local_name(lcbio_CONNINFO *sock)
+static void lcbio_cache_local_name(lcbio_CONNINFO *sock)
 {
     switch (sock->sa_local.ss_family) {
         case AF_INET: {
-            struct sockaddr_in *addr = (struct sockaddr_in *)&sock->sa_local;
+            auto *addr = (struct sockaddr_in *)&sock->sa_local;
             inet_ntop(AF_INET, &(addr->sin_addr), sock->ep_local, sizeof(sock->ep_local));
             size_t len = strlen(sock->ep_local);
             snprintf(sock->ep_local + len, sizeof(sock->ep_local) - len, ":%d", (int)ntohs(addr->sin_port));
         } break;
 
         case AF_INET6: {
-            struct sockaddr_in6 *addr = (struct sockaddr_in6 *)&sock->sa_local;
+            auto *addr = (struct sockaddr_in6 *)&sock->sa_local;
             inet_ntop(AF_INET6, &(addr->sin6_addr), sock->ep_local, sizeof(sock->ep_local));
             size_t len = strlen(sock->ep_local);
             snprintf(sock->ep_local + len, sizeof(sock->ep_local) - len, ":%d", (int)ntohs(addr->sin6_port));
@@ -191,7 +184,8 @@ static void lcbio__cache_local_name(lcbio_CONNINFO *sock)
 void lcbio__load_socknames(lcbio_SOCKET *sock)
 {
     int n_salocal, n_saremote, rv;
-    struct lcb_nameinfo_st ni;
+    struct lcb_nameinfo_st ni {
+    };
     lcbio_CONNINFO *info = sock->info;
 
     n_salocal = sizeof(info->sa_local);
@@ -208,7 +202,7 @@ void lcbio__load_socknames(lcbio_SOCKET *sock)
 
         rv = IOT_V1(sock->io).nameinfo(IOT_ARG(sock->io), sock->u.sd, &ni);
 
-        if (ni.local.len == 0 || ni.remote.len == 0 || rv < 0) {
+        if (ni.local.len == nullptr || ni.remote.len == nullptr || rv < 0) {
             return;
         }
 
@@ -230,7 +224,7 @@ void lcbio__load_socknames(lcbio_SOCKET *sock)
         }
     }
     info->naddr = n_salocal;
-    lcbio__cache_local_name(info);
+    lcbio_cache_local_name(info);
 }
 
 int lcbio_get_nameinfo(lcbio_SOCKET *sock, struct lcbio_NAMEINFO *nistrs)
@@ -312,7 +306,7 @@ lcbio_pSSLCTX lcbio_ssl_new__fallback(const char *, const char *, const char *, 
     if (errp) {
         *errp = LCB_ERR_SDK_FEATURE_UNAVAILABLE;
     }
-    return NULL;
+    return nullptr;
 }
 
 #ifdef LCB_NO_SSL

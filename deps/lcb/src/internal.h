@@ -37,11 +37,9 @@
 
 /* Internal dependencies */
 #include <lcbio/lcbio.h>
-#include <strcodecs/strcodecs.h>
 #include "mcserver/mcserver.h"
 #include "mc/mcreq.h"
 #include "settings.h"
-#include "contrib/genhash/genhash.h"
 
 #include "internalstructs.h"
 
@@ -133,7 +131,7 @@ struct lcb_st {
     lcb_COLLCACHE *collcache;    /**< Collection cache */
 
 #ifdef __cplusplus
-    typedef std::map< std::string, lcbcrypto_PROVIDER * > lcb_ProviderMap;
+    typedef std::map<std::string, lcbcrypto_PROVIDER *> lcb_ProviderMap;
     lcb_ProviderMap *crypto;
     lcb_settings *getSettings()
     {
@@ -149,7 +147,7 @@ struct lcb_st {
     inline void populate_nodes(const lcb::Connspec &);
     lcb::Server *get_server(size_t index) const
     {
-        return static_cast< lcb::Server * >(cmdq.pipelines[index]);
+        return static_cast<lcb::Server *>(cmdq.pipelines[index]);
     }
     lcb::Server *find_server(const lcb_host_t &host) const;
     lcb_STATUS request_config(const void *cookie, lcb::Server *server);
@@ -213,11 +211,6 @@ LCB_INTERNAL_API
 void lcb_maybe_breakout(lcb_INSTANCE *instance);
 
 void lcb_update_vbconfig(lcb_INSTANCE *instance, lcb_pCONFIGINFO config);
-/**
- * Hashtable wrappers
- */
-genhash_t *lcb_hashtable_nc_new(lcb_size_t est);
-genhash_t *lcb_hashtable_szt_new(lcb_size_t est);
 
 lcb_STATUS lcb_iops_cntl_handler(int mode, lcb_INSTANCE *instance, int cmd, void *arg);
 
@@ -270,8 +263,8 @@ int lcb_vbguess_remap(lcb_INSTANCE *instance, int vbid, int bad);
 #define lcb_vbguess_destroy(p) free(p)
 
 LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance, uint32_t tmo_us);
-LCB_INTERNAL_API int lcb_is_collection_valid(const char *scope, size_t scope_len, const char *collection,
-                                             size_t collection_len);
+LCB_INTERNAL_API lcb_STATUS lcb_is_collection_valid(lcb_INSTANCE *instance, const char *scope, size_t scope_len,
+                                                    const char *collection, size_t collection_len);
 
 #ifdef __cplusplus
 }

@@ -18,18 +18,17 @@
 #include "internal.h"
 
 struct BcastCookie : mc_REQDATAEX {
-    lcb_CALLBACK_TYPE type;
     int remaining;
 
-    BcastCookie(lcb_CALLBACK_TYPE type_, const mc_REQDATAPROCS *procs_, const void *cookie_)
-        : mc_REQDATAEX(cookie_, *procs_, gethrtime()), type(type_), remaining(0)
+    BcastCookie(const mc_REQDATAPROCS *procs_, const void *cookie_)
+        : mc_REQDATAEX(cookie_, *procs_, gethrtime()), remaining(0)
     {
     }
 };
 
 static void refcnt_dtor_common(mc_PACKET *pkt)
 {
-    BcastCookie *ck = static_cast<BcastCookie *>(pkt->u_rdata.exdata);
+    auto *ck = static_cast<BcastCookie *>(pkt->u_rdata.exdata);
     if (!--ck->remaining) {
         delete ck;
     }
@@ -46,9 +45,9 @@ static const char *make_hp_string(const lcb::Server &server, std::string &out)
 
 static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS err, const void *arg)
 {
-    BcastCookie *ck = static_cast<BcastCookie *>(req->u_rdata.exdata);
-    lcb::Server *server = static_cast<lcb::Server *>(pl);
-    lcb_RESPSTATS *resp = reinterpret_cast<lcb_RESPSTATS *>(const_cast<void *>(arg));
+    auto *ck = static_cast<BcastCookie *>(req->u_rdata.exdata);
+    auto *server = static_cast<lcb::Server *>(pl);
+    auto *resp = reinterpret_cast<lcb_RESPSTATS *>(const_cast<void *>(arg));
 
     lcb_RESPCALLBACK callback;
     lcb_INSTANCE *instance = server->get_instance();
@@ -96,7 +95,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
         if (kbuf_in->nbytes == 0 || kbuf_in->nbytes > sizeof(ksbuf) - 30) {
             return LCB_ERR_INVALID_ARGUMENT;
         }
-        if (vbc == NULL) {
+        if (vbc == nullptr) {
             return LCB_ERR_NO_CONFIGURATION;
         }
         if (lcbvb_get_distmode(vbc) != LCBVB_DIST_VBUCKET) {
@@ -118,7 +117,7 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
         kbuf_out.contig = *kbuf_in;
     }
 
-    BcastCookie *ckwrap = new BcastCookie(LCB_CALLBACK_STATS, &stats_procs, cookie);
+    auto *ckwrap = new BcastCookie(&stats_procs, cookie);
     ckwrap->deadline =
         ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
@@ -163,63 +162,46 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
         return LCB_ERR_NO_MATCHING_SERVER;
     }
 
-    MAYBE_SCHEDLEAVE(instance);
+    MAYBE_SCHEDLEAVE(instance)
     return LCB_SUCCESS;
 }
 
 static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, const void *arg)
 {
-    lcb::Server *server = static_cast<lcb::Server *>(pipeline);
-    BcastCookie *ck = (BcastCookie *)req->u_rdata.exdata;
-    lcb_RESPCALLBACK callback;
+    auto *server = static_cast<lcb::Server *>(pipeline);
+    auto *ck = (BcastCookie *)req->u_rdata.exdata;
 
-    union {
-        lcb_RESPSERVERBASE *base;
-        lcb_RESPVERBOSITY *verbosity;
-        lcb_RESPMCVERSION *version;
-        lcb_RESPNOOP *noop;
-    } u_resp;
-
-    union {
-        lcb_RESPSERVERBASE base;
-        lcb_RESPVERBOSITY verbosity;
-        lcb_RESPMCVERSION version;
-        lcb_RESPNOOP noop;
-    } u_empty;
-
-    memset(&u_empty, 0, sizeof(u_empty));
-
-    if (arg) {
-        u_resp.base = (lcb_RESPSERVERBASE *)arg;
-    } else {
-        u_resp.base = &u_empty.base;
-        u_resp.base->rflags = LCB_RESP_F_CLIENTGEN;
+    lcb_RESPNOOP noop{};
+    if (arg != nullptr) {
+        noop = *static_cast<const lcb_RESPNOOP *>(arg);
+        noop.rflags = LCB_RESP_F_CLIENTGEN;
     }
 
-    u_resp.base->ctx.rc = err;
-    u_resp.base->cookie = const_cast<void *>(ck->cookie);
+    noop.ctx.rc = err;
+    noop.cookie = const_cast<void *>(ck->cookie);
 
     std::string epbuf;
-    u_resp.base->server = make_hp_string(*server, epbuf);
+    noop.server = make_hp_string(*server, epbuf);
 
-    callback = lcb_find_callback(server->get_instance(), ck->type);
-    callback(server->get_instance(), ck->type, (lcb_RESPBASE *)u_resp.base);
+    lcb_RESPCALLBACK callback = lcb_find_callback(server->get_instance(), LCB_CALLBACK_NOOP);
+    callback(server->get_instance(), LCB_CALLBACK_NOOP, (lcb_RESPBASE *)&noop);
     if (--ck->remaining) {
         return;
     }
 
-    u_empty.base.server = NULL;
-    u_empty.base.ctx.rc = err;
-    u_empty.base.rflags = LCB_RESP_F_CLIENTGEN | LCB_RESP_F_FINAL;
-    u_empty.base.cookie = const_cast<void *>(ck->cookie);
-    callback(server->get_instance(), ck->type, (lcb_RESPBASE *)&u_empty.base);
+    lcb_RESPNOOP empty{};
+    empty.server = nullptr;
+    empty.ctx.rc = err;
+    empty.rflags = LCB_RESP_F_CLIENTGEN | LCB_RESP_F_FINAL;
+    empty.cookie = const_cast<void *>(ck->cookie);
+    callback(server->get_instance(), LCB_CALLBACK_NOOP, (lcb_RESPBASE *)&empty);
     delete ck;
 }
 
 static mc_REQDATAPROCS bcast_procs = {handle_bcast, refcnt_dtor_common};
 
-static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, lcb_CALLBACK_TYPE type,
-                                   const lcb_CMDBASE *cmd)
+LIBCOUCHBASE_API
+lcb_STATUS lcb_noop3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDNOOP *cmd)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;
@@ -228,7 +210,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
         return LCB_ERR_NO_CONFIGURATION;
     }
 
-    BcastCookie *ckwrap = new BcastCookie(type, &bcast_procs, cookie);
+    auto *ckwrap = new BcastCookie(&bcast_procs, cookie);
     ckwrap->deadline =
         ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
@@ -248,14 +230,7 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
 
         hdr.request.magic = PROTOCOL_BINARY_REQ;
         hdr.request.opaque = pkt->opaque;
-        if (type == LCB_CALLBACK_VERSIONS) {
-            hdr.request.opcode = PROTOCOL_BINARY_CMD_VERSION;
-        } else if (type == LCB_CALLBACK_NOOP) {
-            hdr.request.opcode = PROTOCOL_BINARY_CMD_NOOP;
-        } else {
-            fprintf(stderr, "pkt_bcast_simple passed unknown type %u\n", type);
-            lcb_assert(0);
-        }
+        hdr.request.opcode = PROTOCOL_BINARY_CMD_NOOP;
 
         mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
         memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
@@ -267,89 +242,6 @@ static lcb_STATUS pkt_bcast_simple(lcb_INSTANCE *instance, const void *cookie, l
         delete ckwrap;
         return LCB_ERR_NO_MATCHING_SERVER;
     }
-    MAYBE_SCHEDLEAVE(instance);
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API
-lcb_STATUS lcb_server_versions3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDVERSIONS *cmd)
-{
-    return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_VERSIONS, (const lcb_CMDBASE *)cmd);
-}
-
-LIBCOUCHBASE_API
-lcb_STATUS lcb_noop3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDNOOP *cmd)
-{
-    return pkt_bcast_simple(instance, cookie, LCB_CALLBACK_NOOP, (const lcb_CMDBASE *)cmd);
-}
-
-LIBCOUCHBASE_API
-lcb_STATUS lcb_server_verbosity3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDVERBOSITY *cmd)
-{
-    mc_CMDQUEUE *cq = &instance->cmdq;
-    unsigned ii;
-
-    if (!cq->config) {
-        return LCB_ERR_NO_CONFIGURATION;
-    }
-
-    BcastCookie *ckwrap = new BcastCookie(LCB_CALLBACK_VERBOSITY, &bcast_procs, cookie);
-    ckwrap->deadline =
-        ckwrap->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
-
-    for (ii = 0; ii < cq->npipelines; ii++) {
-        mc_PACKET *pkt;
-        lcb::Server *server = static_cast<lcb::Server *>(cq->pipelines[ii]);
-        protocol_binary_request_verbosity vcmd;
-        protocol_binary_request_header *hdr = &vcmd.message.header;
-        uint32_t level;
-
-        std::string cmpbuf;
-        make_hp_string(*server, cmpbuf);
-        if (cmd->server && cmpbuf != cmd->server) {
-            continue;
-        }
-
-        if (cmd->level == LCB_VERBOSITY_DETAIL) {
-            level = 3;
-        } else if (cmd->level == LCB_VERBOSITY_DEBUG) {
-            level = 2;
-        } else if (cmd->level == LCB_VERBOSITY_INFO) {
-            level = 1;
-        } else {
-            level = 0;
-        }
-
-        pkt = mcreq_allocate_packet(server);
-        if (!pkt) {
-            delete ckwrap;
-            return LCB_ERR_NO_MEMORY;
-        }
-
-        pkt->u_rdata.exdata = ckwrap;
-        pkt->flags |= MCREQ_F_REQEXT;
-
-        mcreq_reserve_header(server, pkt, MCREQ_PKT_BASESIZE + 4);
-        hdr->request.magic = PROTOCOL_BINARY_REQ;
-        hdr->request.opcode = PROTOCOL_BINARY_CMD_VERBOSITY;
-        hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        hdr->request.cas = 0;
-        hdr->request.vbucket = 0;
-        hdr->request.opaque = pkt->opaque;
-        hdr->request.extlen = 4;
-        hdr->request.keylen = 0;
-        hdr->request.bodylen = htonl((uint32_t)hdr->request.extlen);
-        vcmd.message.body.level = htonl((uint32_t)level);
-
-        memcpy(SPAN_BUFFER(&pkt->kh_span), vcmd.bytes, sizeof(vcmd.bytes));
-        mcreq_sched_add(server, pkt);
-        ckwrap->remaining++;
-    }
-
-    if (!ckwrap->remaining) {
-        delete ckwrap;
-        return LCB_ERR_NO_MATCHING_SERVER;
-    }
-    MAYBE_SCHEDLEAVE(instance);
+    MAYBE_SCHEDLEAVE(instance)
     return LCB_SUCCESS;
 }

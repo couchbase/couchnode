@@ -16,7 +16,6 @@
  */
 #include "internal.h"
 #include <lcbio/iotable.h>
-#include <lcbio/timer-ng.h>
 
 static bool
 has_pending(lcb_INSTANCE *instance)

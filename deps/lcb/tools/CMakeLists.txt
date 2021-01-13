@@ -13,7 +13,7 @@ ADD_EXECUTABLE(cbc-pillowfight cbc-pillowfight.cc
 TARGET_LINK_LIBRARIES(cbc-pillowfight couchbase)
 
 ADD_EXECUTABLE(cbc-n1qlback cbc-n1qlback.cc
-    $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts>)
+    $<TARGET_OBJECTS:lcbtools> $<TARGET_OBJECTS:cliopts> $<TARGET_OBJECTS:lcb_jsoncpp>)
 TARGET_LINK_LIBRARIES(cbc-n1qlback couchbase)
 
 INSTALL(TARGETS cbc cbc-pillowfight cbc-n1qlback

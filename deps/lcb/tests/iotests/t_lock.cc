@@ -93,6 +93,59 @@ TEST_F(LockUnitTest, testSimpleLockAndUnlock)
 }
 
 /**
+ * @test
+ * Lock (lock and unlock)
+ *
+ * @pre
+ * Set a key, and get the value specifying the lock option without any duration (@c 0).
+ *
+ * @post
+ * Lock operation succeeds.
+ *
+ * @pre Unlock the key using the CAS from the previous get result.
+ * @post Unlock succeeds
+ */
+TEST_F(LockUnitTest, testSimpleLockAndUnlockWithoutLockTime)
+{
+    LCB_TEST_REQUIRE_FEATURE("lock")
+
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    createConnection(hw, &instance);
+
+    std::string key = "lockKey";
+    std::string value = "lockValue";
+
+    removeKey(instance, key);
+    storeKey(instance, key, value);
+
+    lcb_CMDGET *cmd;
+    lcb_cmdget_create(&cmd);
+    lcb_cmdget_key(cmd, key.c_str(), key.size());
+    lcb_cmdget_locktime(cmd, 0);
+    Item itm;
+
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getLockedCallback);
+
+    ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &itm, cmd));
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    ASSERT_EQ(LCB_SUCCESS, itm.err);
+    lcb_cmdget_destroy(cmd);
+
+    lcb_CMDUNLOCK *ucmd;
+    lcb_cmdunlock_create(&ucmd);
+    lcb_cmdunlock_key(ucmd, key.c_str(), key.size());
+    lcb_cmdunlock_cas(ucmd, itm.cas);
+
+    lcb_STATUS reserr = LCB_ERR_GENERIC;
+    lcb_install_callback(instance, LCB_CALLBACK_UNLOCK, (lcb_RESPCALLBACK)unlockCallback);
+    ASSERT_EQ(LCB_SUCCESS, lcb_unlock(instance, &reserr, ucmd));
+    lcb_cmdunlock_destroy(ucmd);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    ASSERT_EQ(LCB_SUCCESS, reserr);
+}
+
+/**
  * @test Lock (Missing CAS)
  *
  * @pre

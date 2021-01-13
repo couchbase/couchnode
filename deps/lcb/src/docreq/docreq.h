@@ -36,7 +36,7 @@ struct Queue;
 struct DocRequest;
 
 struct Queue {
-    Queue(lcb_INSTANCE *);
+    explicit Queue(lcb_INSTANCE *);
     ~Queue();
     void add(DocRequest *);
     void unref();
@@ -58,7 +58,7 @@ struct Queue {
     /**Called when a operation is ready to be scheduled
      * @param The queue
      * @param The document */
-    lcb_STATUS (*cb_schedule)(struct Queue *, lcb::docreq::DocRequest *dreq);
+    lcb_STATUS (*cb_schedule)(struct Queue *, lcb::docreq::DocRequest *dreq){};
 
     /**Called when a document is ready
      * @param The queue
@@ -74,11 +74,11 @@ struct Queue {
     /**This queue holds requests which were not yet issued to the library
      * via lcb_get3(). This list is aggregated after each chunk callback and
      * sent as a batch*/
-    sllist_root pending_gets;
+    sllist_root pending_gets{};
 
     /**This queue holds the requests which were already passed to lcb_get3().
      * It is popped when the callback arrives (and is popped in order!) */
-    sllist_root cb_queue;
+    sllist_root cb_queue{};
 
     unsigned n_awaiting_schedule;
     unsigned n_awaiting_response;

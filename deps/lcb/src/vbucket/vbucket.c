@@ -336,6 +336,14 @@ static int extract_services(lcbvb_CONFIG *cfg, cJSON *jsvc, lcbvb_SERVICES *svc,
 
 #undef EXTRACT_SERVICE
 
+    key = is_ssl ? "eventingSSL" : "eventingAdminPort";
+    rv = get_jint(jsvc, key, &itmp);
+    if (rv) {
+        svc->eventing = itmp;
+    } else {
+        svc->eventing = 0;
+    }
+
     (void)cfg;
     return 1;
 }
@@ -365,6 +373,9 @@ static int build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
     }
     if (server->cbaspath == NULL && server->svc.cbas) {
         server->cbaspath = strdup("");
+    }
+    if (server->eventingpath == NULL && server->svc.eventing) {
+        server->eventingpath = strdup("");
     }
     return 1;
 }
@@ -434,7 +445,9 @@ static int build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, c
     if ((dst)->ixquery == 0)                                                                                           \
         (dst)->ixquery = (src)->ixquery;                                                                               \
     if ((dst)->cbas == 0)                                                                                              \
-        (dst)->cbas = (src)->cbas;
+        (dst)->cbas = (src)->cbas;                                                                                     \
+    if ((dst)->eventing == 0)                                                                                          \
+        (dst)->eventing = (src)->eventing;
 
                 COPY_SERVICE(&server->svc, &server->alt_svc);
                 COPY_SERVICE(&server->svc_ssl, &server->alt_svc_ssl);
@@ -821,7 +834,7 @@ void lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
 lcbvb_CONFIG *lcbvb_parse_json(const char *js)
 {
     int rv;
-    lcbvb_CONFIG *cfg = calloc(1, sizeof(*cfg));
+    lcbvb_CONFIG *cfg = lcbvb_create();
     rv = lcbvb_load_json(cfg, js);
     if (rv) {
         lcbvb_destroy(cfg);
@@ -833,7 +846,8 @@ lcbvb_CONFIG *lcbvb_parse_json(const char *js)
 LIBCOUCHBASE_API
 lcbvb_CONFIG *lcbvb_create(void)
 {
-    return calloc(1, sizeof(lcbvb_CONFIG));
+    lcbvb_CONFIG *ptr = calloc(1, sizeof(lcbvb_CONFIG));
+    return ptr;
 }
 
 static void free_service_strs(lcbvb_SERVICES *svc)
@@ -846,6 +860,7 @@ static void free_service_strs(lcbvb_SERVICES *svc)
     free(svc->query_base_);
     free(svc->fts_base_);
     free(svc->cbas_base_);
+    free(svc->eventing_base_);
 }
 
 void lcbvb_destroy(lcbvb_CONFIG *conf)
@@ -858,6 +873,7 @@ void lcbvb_destroy(lcbvb_CONFIG *conf)
         free(srv->querypath);
         free(srv->ftspath);
         free(srv->cbaspath);
+        free(srv->eventingpath);
         free_service_strs(&srv->svc);
         free_service_strs(&srv->svc_ssl);
         free(srv->authority);
@@ -896,6 +912,12 @@ static void svcs_to_json(lcbvb_SERVICES *svc, cJSON *jsvc, int is_ssl)
     EXTRACT_SERVICE("cbas", cbas);
 
 #undef EXTRACT_SERVICE
+
+    if (svc->eventing) {
+        key = is_ssl ? "eventingSSL" : "eventingAdminPort";
+        tmp = cJSON_CreateNumber(svc->eventing);
+        cJSON_AddItemToObject(jsvc, key, tmp);
+    }
 }
 
 LIBCOUCHBASE_API
@@ -1205,8 +1227,10 @@ static void compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **ou
     for (ii = 0; ii < to->nsrv; ii++) {
         int found = 0;
         lcbvb_SERVER *newsrv = to->servers + ii;
+        lcb_assert(newsrv != NULL);
         for (jj = 0; !found && jj < from->nsrv; jj++) {
             lcbvb_SERVER *oldsrv = from->servers + jj;
+            lcb_assert(oldsrv != NULL);
             found |= (strcmp(newsrv->authority, oldsrv->authority) == 0);
         }
         if (!found) {
@@ -1222,7 +1246,7 @@ static void compute_vb_list_diff(lcbvb_CONFIG *from, lcbvb_CONFIG *to, char **ou
 
 lcbvb_CONFIGDIFF *lcbvb_compare(lcbvb_CONFIG *from, lcbvb_CONFIG *to)
 {
-    int nservers;
+    unsigned nservers;
     lcbvb_CONFIGDIFF *ret;
     unsigned ii;
 
@@ -1365,6 +1389,8 @@ unsigned lcbvb_get_port(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE type, lcbv
             return svc->fts;
         case LCBVB_SVCTYPE_ANALYTICS:
             return svc->cbas;
+        case LCBVB_SVCTYPE_EVENTING:
+            return svc->eventing;
         default:
             break;
     }
@@ -1423,17 +1449,44 @@ int lcbvb_get_randhost_ex(const lcbvb_CONFIG *cfg, lcbvb_SVCTYPE type, lcbvb_SVC
     for (nn = 0; nn < cfg->nsrv; nn++) {
         const lcbvb_SERVER *server = cfg->servers + nn;
         const lcbvb_SERVICES *svcs = get_svc(server, mode);
-        int has_svc = 0;
 
         // Check if this node is in the exclude list
         if (used && used[nn]) {
             continue;
         }
 
-        has_svc = (type == LCBVB_SVCTYPE_DATA && svcs->data) || (type == LCBVB_SVCTYPE_IXADMIN && svcs->ixadmin) ||
-                  (type == LCBVB_SVCTYPE_IXQUERY && svcs->ixquery) || (type == LCBVB_SVCTYPE_MGMT && svcs->mgmt) ||
-                  (type == LCBVB_SVCTYPE_QUERY && svcs->n1ql) || (type == LCBVB_SVCTYPE_SEARCH && svcs->fts) ||
-                  (type == LCBVB_SVCTYPE_VIEWS && svcs->views) || (type == LCBVB_SVCTYPE_ANALYTICS && svcs->cbas);
+        int has_svc = 0;
+        switch (type) {
+            case LCBVB_SVCTYPE_DATA:
+                has_svc = svcs->data != 0;
+                break;
+            case LCBVB_SVCTYPE_VIEWS:
+                has_svc = svcs->views != 0;
+                break;
+            case LCBVB_SVCTYPE_MGMT:
+                has_svc = svcs->mgmt != 0;
+                break;
+            case LCBVB_SVCTYPE_IXQUERY:
+                has_svc = svcs->ixquery != 0;
+                break;
+            case LCBVB_SVCTYPE_IXADMIN:
+                has_svc = svcs->ixadmin != 0;
+                break;
+            case LCBVB_SVCTYPE_QUERY:
+                has_svc = svcs->n1ql != 0;
+                break;
+            case LCBVB_SVCTYPE_SEARCH:
+                has_svc = svcs->fts != 0;
+                break;
+            case LCBVB_SVCTYPE_ANALYTICS:
+                has_svc = svcs->cbas != 0;
+                break;
+            case LCBVB_SVCTYPE_EVENTING:
+                has_svc = svcs->eventing != 0;
+                break;
+            default:
+                break;
+        }
 
         if (has_svc) {
             cfg->randbuf[oix++] = (int)nn;
@@ -1491,6 +1544,9 @@ const char *lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE svc,
     } else if (svc == LCBVB_SVCTYPE_ANALYTICS) {
         path = srv->cbaspath;
         strp = &svcs->cbas_base_;
+    } else if (svc == LCBVB_SVCTYPE_EVENTING) {
+        path = srv->eventingpath;
+        strp = &svcs->eventing_base_;
     } else {
         /* Unknown service! */
         return NULL;
@@ -1564,6 +1620,9 @@ static void copy_service(const char *hostname, const lcbvb_SERVICES *src, lcbvb_
     }
     if (src->cbas_base_) {
         dst->cbas_base_ = strdup(src->cbas_base_);
+    }
+    if (src->eventing_base_) {
+        dst->eventing_base_ = strdup(src->eventing_base_);
     }
     if (dst->data) {
         char buf[4096];
@@ -1659,6 +1718,9 @@ int lcbvb_genconfig_ex(lcbvb_CONFIG *vb, const char *name, const char *uuid, con
         }
         if (src->cbaspath) {
             dst->cbaspath = strdup(src->cbaspath);
+        }
+        if (src->eventingpath) {
+            dst->eventingpath = strdup(src->eventingpath);
         }
 
         copy_service(src->hostname, &src->svc, &dst->svc);

@@ -188,7 +188,7 @@ class Loc
     // of the buffer
     void rtrim_to(const Loc &loc)
     {
-        assert(loc.at > at);
+        lcb_assert(loc.at > at);
         size_t diff = loc.at - at;
         length = diff;
     }

@@ -123,8 +123,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_key(lcb_CMDEXISTS *cmd, const char *ke
 
 static lcb_STATUS exists_validate(lcb_INSTANCE *instance, const lcb_CMDEXISTS *cmd)
 {
-    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
-        return LCB_ERR_INVALID_ARGUMENT;
+    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
+    if (err != LCB_SUCCESS) {
+        return err;
     }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;

@@ -25,8 +25,7 @@
 /* We're gonna try to be extra careful in this function since many SDKs use
  * this to display node and/or host-port information.*/
 
-static std::string&
-ensure_scratch(lcb_INSTANCE *instance)
+static std::string &ensure_scratch(lcb_INSTANCE *instance)
 {
     if (!instance->scratch) {
         instance->scratch = new std::string;
@@ -35,29 +34,26 @@ ensure_scratch(lcb_INSTANCE *instance)
     return *instance->scratch;
 }
 
-static const char *
-mk_scratch_host(lcb_INSTANCE *instance, const lcb_host_t *host)
+static const char *mk_scratch_host(lcb_INSTANCE *instance, const lcb_host_t *host)
 {
-    std::string& s = ensure_scratch(instance);
+    std::string &s = ensure_scratch(instance);
     s.append(host->host);
     s.append(":");
     s.append(host->port);
     return s.c_str();
 }
 
-static const char *
-return_badhost(lcb_GETNODETYPE type)
+static const char *return_badhost(lcb_GETNODETYPE type)
 {
     if (type & LCB_NODE_NEVERNULL) {
         return LCB_GETNODE_UNAVAILABLE;
     } else {
-        return NULL;
+        return nullptr;
     }
 }
 
 LIBCOUCHBASE_API
-const char *
-lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
+const char *lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
 {
     lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(instance);
     lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
@@ -73,7 +69,7 @@ lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
 
         } else {
             /* Retrieve one from the vbucket configuration */
-            const char *hp = NULL;
+            const char *hp = nullptr;
 
             if (instance->settings->conntype == LCB_TYPE_BUCKET) {
                 if (vbc) {
@@ -81,10 +77,10 @@ lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
                     hp = lcbvb_get_hostport(vbc, ix, LCBVB_SVCTYPE_MGMT, mode);
 
                 } else if ((type & LCB_NODE_NEVERNULL) == 0) {
-                    return NULL;
+                    return nullptr;
                 }
             }
-            if (hp == NULL && instance->ht_nodes && !instance->ht_nodes->empty()) {
+            if (hp == nullptr && instance->ht_nodes && !instance->ht_nodes->empty()) {
                 ix %= instance->ht_nodes->size();
                 instance->ht_nodes->ensure_strlist();
                 hp = instance->ht_nodes->hoststrs[ix];
@@ -94,7 +90,7 @@ lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
             }
             return ensure_scratch(instance).append(hp).c_str();
         }
-    } else if (type & (LCB_NODE_DATA|LCB_NODE_VIEWS)) {
+    } else if (type & (LCB_NODE_DATA | LCB_NODE_VIEWS)) {
         ix %= LCBT_NSERVERS(instance);
         const lcb::Server *server = instance->get_server(ix);
 
@@ -110,7 +106,7 @@ lcb_get_node(lcb_INSTANCE *instance, lcb_GETNODETYPE type, unsigned ix)
             return lcbvb_get_hostport(vbc, ix, LCBVB_SVCTYPE_VIEWS, mode);
         }
     } else {
-        return NULL; /* don't know the type */
+        return nullptr; /* don't know the type */
     }
 }
 
@@ -141,19 +137,18 @@ const char *const *lcb_get_server_list(lcb_INSTANCE *instance)
 }
 
 LIBCOUCHBASE_API
-const char *
-lcb_get_keynode(lcb_INSTANCE *instance, const void *key, size_t nkey)
+const char *lcb_get_keynode(lcb_INSTANCE *instance, const void *key, size_t nkey)
 {
     lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
     int srvix, vbid;
 
     if (!vbc) {
-        return NULL;
+        return nullptr;
     }
 
     lcbvb_map_key(vbc, key, nkey, &vbid, &srvix);
     if (srvix < 0) {
-        return NULL;
+        return nullptr;
     }
 
     return lcbvb_get_hostname(vbc, srvix);

@@ -27,8 +27,9 @@
 using lcb::MemcachedResponse;
 
 template <typename T>
-class ResponsePack {
-public:
+class ResponsePack
+{
+  public:
     T resp;
     lcb_MUTATION_TOKEN mt;
     const char *value;
@@ -36,20 +37,21 @@ public:
     char *err_ref;
     char *err_ctx;
 
-    ~ResponsePack() {
+    ~ResponsePack()
+    {
         free(err_ref);
         free(err_ctx);
     }
 
-    static const lcb_MUTATION_TOKEN*
-    get_mt(const lcb_RESPBASE *rb) {
-        const ResponsePack *rp = reinterpret_cast<const ResponsePack*>(rb);
+    static const lcb_MUTATION_TOKEN *get_mt(const lcb_RESPBASE *rb)
+    {
+        const auto *rp = reinterpret_cast<const ResponsePack *>(rb);
         return &rp->mt;
     }
 
-    static const char*
-    get_err_ctx(const lcb_RESPBASE *rb) {
-        const ResponsePack *rp = reinterpret_cast<const ResponsePack*>(rb);
+    static const char *get_err_ctx(const lcb_RESPBASE *rb)
+    {
+        const auto *rp = reinterpret_cast<const ResponsePack *>(rb);
         if (rp->resp.rflags & LCB_RESP_F_ERRINFO) {
             if (rp->err_ctx) {
                 return rp->err_ctx;
@@ -58,12 +60,12 @@ public:
                 return rp->err_ctx;
             }
         }
-        return NULL;
+        return nullptr;
     }
 
-    static const char*
-    get_err_ref(const lcb_RESPBASE *rb) {
-        const ResponsePack *rp = reinterpret_cast<const ResponsePack*>(rb);
+    static const char *get_err_ref(const lcb_RESPBASE *rb)
+    {
+        const auto *rp = reinterpret_cast<const ResponsePack *>(rb);
         if (rp->resp.rflags & LCB_RESP_F_ERRINFO) {
             if (rp->err_ref) {
                 return rp->err_ref;
@@ -72,14 +74,13 @@ public:
                 return rp->err_ref;
             }
         }
-        return NULL;
+        return nullptr;
     }
 
- private:
-
-    static void
-    parse_enhanced_error(const ResponsePack *rp) {
-        ResponsePack *mrp = const_cast<ResponsePack *>(rp);
+  private:
+    static void parse_enhanced_error(const ResponsePack *rp)
+    {
+        auto *mrp = const_cast<ResponsePack *>(rp);
         lcb_STATUS rc = MemcachedResponse::parse_enhanced_error(mrp->value, mrp->nvalue, &mrp->err_ref, &mrp->err_ctx);
         if (rc != LCB_SUCCESS) {
             mrp->resp.rflags &= ~LCB_RESP_F_ERRINFO;
@@ -88,129 +89,129 @@ public:
 };
 
 LIBCOUCHBASE_API
-lcb_STATUS
-lcb_errmap_default(lcb_INSTANCE *instance, lcb_uint16_t in)
+lcb_STATUS lcb_errmap_default(lcb_INSTANCE *instance, lcb_uint16_t in)
 {
     switch (in) {
-    case PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET:
-        return LCB_ERR_TIMEOUT;
-    case PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE:
-        return LCB_ERR_AUTH_CONTINUE;
-    case PROTOCOL_BINARY_RESPONSE_EBUSY:
-        return LCB_ERR_TEMPORARY_FAILURE;
-    case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
-        return LCB_ERR_TEMPORARY_FAILURE;
+        case PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET:
+            return LCB_ERR_TIMEOUT;
+        case PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE:
+            return LCB_ERR_AUTH_CONTINUE;
+        case PROTOCOL_BINARY_RESPONSE_EBUSY:
+        case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
+            return LCB_ERR_TEMPORARY_FAILURE;
 
-    case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
-    default:
-        if (instance) {
-            lcb_log(LOGARGS(instance, ERROR), "Got unhandled memcached error 0x%X", in);
-        } else {
-            fprintf(stderr, "COUCHBASE: Unhandled memcached status=0x%x\n", in);
-        }
-        return LCB_ERR_KVENGINE_UNKNOWN_ERROR;
+        case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
+        default:
+            if (instance) {
+                lcb_log(LOGARGS(instance, ERROR), "Got unhandled memcached error 0x%X", in);
+            } else {
+                fprintf(stderr, "COUCHBASE: Unhandled memcached status=0x%x\n", in);
+            }
+            return LCB_ERR_KVENGINE_UNKNOWN_ERROR;
     }
 }
 
 lcb_STATUS lcb_map_error(lcb_INSTANCE *instance, int in)
 {
     switch (in) {
-    case PROTOCOL_BINARY_RESPONSE_SUCCESS:
-        return LCB_SUCCESS;
-    case PROTOCOL_BINARY_RESPONSE_KEY_ENOENT:
-        return LCB_ERR_DOCUMENT_NOT_FOUND;
-    case PROTOCOL_BINARY_RESPONSE_E2BIG:
-        return LCB_ERR_VALUE_TOO_LARGE;
-    case PROTOCOL_BINARY_RESPONSE_ENOMEM:
-        return LCB_ERR_TEMPORARY_FAILURE;
-    case PROTOCOL_BINARY_RESPONSE_KEY_EEXISTS:
-        return LCB_ERR_DOCUMENT_EXISTS;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT:
-        return LCB_ERR_SUBDOC_PATH_NOT_FOUND;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH:
-        return LCB_ERR_SUBDOC_PATH_MISMATCH;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL:
-        return LCB_ERR_SUBDOC_PATH_INVALID;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_E2BIG:
-        return LCB_ERR_SUBDOC_PATH_TOO_BIG;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_E2DEEP:
-        return LCB_ERR_SUBDOC_PATH_TOO_DEEP;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_ETOODEEP:
-        return LCB_ERR_SUBDOC_VALUE_TOO_DEEP;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_CANTINSERT:
-        return LCB_ERR_SUBDOC_VALUE_INVALID;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_NOTJSON:
-        return LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_NUM_ERANGE:
-        return LCB_ERR_SUBDOC_NUMBER_TOO_BIG;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_DELTA_ERANGE:
-        return LCB_ERR_SUBDOC_DELTA_INVALID;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EEXISTS:
-        return LCB_ERR_SUBDOC_PATH_EXISTS;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED:
-        return LCB_SUCCESS; /* the real codes must be discovered on sub-result level */
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO:
-        return LCB_ERR_INVALID_ARGUMENT;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED:
-        return LCB_SUCCESS;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO:
-        return LCB_ERR_SUBDOC_XATTR_INVALID_FLAG_COMBO;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO:
-        return LCB_ERR_SUBDOC_XATTR_INVALID_KEY_COMBO;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO:
-        return LCB_ERR_SUBDOC_XATTR_UNKNOWN_MACRO;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR:
-        return LCB_ERR_SUBDOC_XATTR_UNKNOWN_VIRTUAL_ATTRIBUTE;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR:
-        return LCB_ERR_SUBDOC_XATTR_CANNOT_MODIFY_VIRTUAL_ATTRIBUTE;
-    case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER:
-        return LCB_ERR_SUBDOC_XATTR_INVALID_ORDER;
-    case PROTOCOL_BINARY_RESPONSE_EINVAL:
-        return LCB_ERR_KVENGINE_INVALID_PACKET;
-    case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
-        return LCB_ERR_NOT_STORED;
-    case PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL:
-        return LCB_ERR_INVALID_DELTA;
-    case PROTOCOL_BINARY_RESPONSE_ERANGE:
-        return LCB_ERR_INVALID_RANGE;
-    case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
-        return LCB_ERR_UNSUPPORTED_OPERATION;
-    case PROTOCOL_BINARY_RESPONSE_EACCESS:
-    case PROTOCOL_BINARY_RESPONSE_AUTH_ERROR:
-    case PROTOCOL_BINARY_RESPONSE_AUTH_STALE:
-        return LCB_ERR_AUTHENTICATION_FAILURE;
-    case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION:
-        return LCB_ERR_COLLECTION_NOT_FOUND;
-    case PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE:
-        return LCB_ERR_SCOPE_NOT_FOUND;
-    case PROTOCOL_BINARY_RESPONSE_NO_COLLECTIONS_MANIFEST:
-        return LCB_ERR_COLLECTION_NO_MANIFEST;
-    case PROTOCOL_BINARY_RESPONSE_CANNOT_APPLY_COLLECTIONS_MANIFEST:
-        return LCB_ERR_COLLECTION_CANNOT_APPLY_MANIFEST;
-    case PROTOCOL_BINARY_RESPONSE_COLLECTIONS_MANIFEST_IS_AHEAD:
-        return LCB_ERR_COLLECTION_MANIFEST_IS_AHEAD;
-    case PROTOCOL_BINARY_RESPONSE_DURABILITY_INVALID_LEVEL:
-        return LCB_ERR_DURABILITY_LEVEL_NOT_AVAILABLE;
-    case PROTOCOL_BINARY_RESPONSE_DURABILITY_IMPOSSIBLE:
-        return LCB_ERR_DURABILITY_IMPOSSIBLE;
-    case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_IN_PROGRESS:
-        return LCB_ERR_DURABLE_WRITE_IN_PROGRESS;
-    case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_RE_COMMIT_IN_PROGRESS:
-        return LCB_ERR_DURABLE_WRITE_RE_COMMIT_IN_PROGRESS;
-    case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS:
-        return LCB_ERR_DURABILITY_AMBIGUOUS;
-    default:
-        if (instance != NULL) {
-            return instance->callbacks.errmap(instance, in);
-        } else {
-            return lcb_errmap_default(NULL, in);
-        }
+        case PROTOCOL_BINARY_RESPONSE_SUCCESS:
+            return LCB_SUCCESS;
+        case PROTOCOL_BINARY_RESPONSE_KEY_ENOENT:
+            return LCB_ERR_DOCUMENT_NOT_FOUND;
+        case PROTOCOL_BINARY_RESPONSE_E2BIG:
+            return LCB_ERR_VALUE_TOO_LARGE;
+        case PROTOCOL_BINARY_RESPONSE_ENOMEM:
+            return LCB_ERR_TEMPORARY_FAILURE;
+        case PROTOCOL_BINARY_RESPONSE_KEY_EEXISTS:
+            return LCB_ERR_DOCUMENT_EXISTS;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT:
+            return LCB_ERR_SUBDOC_PATH_NOT_FOUND;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH:
+            return LCB_ERR_SUBDOC_PATH_MISMATCH;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL:
+            return LCB_ERR_SUBDOC_PATH_INVALID;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_E2BIG:
+            return LCB_ERR_SUBDOC_PATH_TOO_BIG;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_E2DEEP:
+            return LCB_ERR_SUBDOC_PATH_TOO_DEEP;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_ETOODEEP:
+            return LCB_ERR_SUBDOC_VALUE_TOO_DEEP;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_CANTINSERT:
+            return LCB_ERR_SUBDOC_VALUE_INVALID;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_DOC_NOTJSON:
+            return LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_NUM_ERANGE:
+            return LCB_ERR_SUBDOC_NUMBER_TOO_BIG;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_DELTA_ERANGE:
+            return LCB_ERR_SUBDOC_DELTA_INVALID;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EEXISTS:
+            return LCB_ERR_SUBDOC_PATH_EXISTS;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE:
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED:
+            return LCB_SUCCESS; /* the real codes must be discovered on sub-result level */
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO:
+            return LCB_ERR_INVALID_ARGUMENT;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED:
+            return LCB_SUCCESS;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO:
+            return LCB_ERR_SUBDOC_XATTR_INVALID_FLAG_COMBO;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO:
+            return LCB_ERR_SUBDOC_XATTR_INVALID_KEY_COMBO;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO:
+            return LCB_ERR_SUBDOC_XATTR_UNKNOWN_MACRO;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR:
+            return LCB_ERR_SUBDOC_XATTR_UNKNOWN_VIRTUAL_ATTRIBUTE;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR:
+            return LCB_ERR_SUBDOC_XATTR_CANNOT_MODIFY_VIRTUAL_ATTRIBUTE;
+        case PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER:
+            return LCB_ERR_SUBDOC_XATTR_INVALID_ORDER;
+        case PROTOCOL_BINARY_RESPONSE_EINVAL:
+            return LCB_ERR_KVENGINE_INVALID_PACKET;
+        case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
+            return LCB_ERR_NOT_STORED;
+        case PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL:
+            return LCB_ERR_INVALID_DELTA;
+        case PROTOCOL_BINARY_RESPONSE_ERANGE:
+            return LCB_ERR_INVALID_RANGE;
+        case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND:
+            return LCB_ERR_UNSUPPORTED_OPERATION;
+        case PROTOCOL_BINARY_RESPONSE_EACCESS:
+        case PROTOCOL_BINARY_RESPONSE_AUTH_ERROR:
+        case PROTOCOL_BINARY_RESPONSE_AUTH_STALE:
+            return LCB_ERR_AUTHENTICATION_FAILURE;
+        case PROTOCOL_BINARY_RESPONSE_NO_BUCKET:
+        case PROTOCOL_BINARY_RESPONSE_NOT_INITIALIZED:
+            return LCB_ERR_BUCKET_NOT_FOUND;
+        case PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION:
+            return LCB_ERR_COLLECTION_NOT_FOUND;
+        case PROTOCOL_BINARY_RESPONSE_UNKNOWN_SCOPE:
+            return LCB_ERR_SCOPE_NOT_FOUND;
+        case PROTOCOL_BINARY_RESPONSE_NO_COLLECTIONS_MANIFEST:
+            return LCB_ERR_COLLECTION_NO_MANIFEST;
+        case PROTOCOL_BINARY_RESPONSE_CANNOT_APPLY_COLLECTIONS_MANIFEST:
+            return LCB_ERR_COLLECTION_CANNOT_APPLY_MANIFEST;
+        case PROTOCOL_BINARY_RESPONSE_COLLECTIONS_MANIFEST_IS_AHEAD:
+            return LCB_ERR_COLLECTION_MANIFEST_IS_AHEAD;
+        case PROTOCOL_BINARY_RESPONSE_DURABILITY_INVALID_LEVEL:
+            return LCB_ERR_DURABILITY_LEVEL_NOT_AVAILABLE;
+        case PROTOCOL_BINARY_RESPONSE_DURABILITY_IMPOSSIBLE:
+            return LCB_ERR_DURABILITY_IMPOSSIBLE;
+        case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_IN_PROGRESS:
+            return LCB_ERR_DURABLE_WRITE_IN_PROGRESS;
+        case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_RE_COMMIT_IN_PROGRESS:
+            return LCB_ERR_DURABLE_WRITE_RE_COMMIT_IN_PROGRESS;
+        case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS:
+            return LCB_ERR_DURABILITY_AMBIGUOUS;
+        default:
+            if (instance != nullptr) {
+                return instance->callbacks.errmap(instance, in);
+            } else {
+                return lcb_errmap_default(nullptr, in);
+            }
     }
 }
 
-static lcb_RESPCALLBACK
-find_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE type)
+static lcb_RESPCALLBACK find_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE type)
 {
     lcb_RESPCALLBACK cb = instance->callbacks.v3callbacks[type];
     if (!cb) {
@@ -218,7 +219,6 @@ find_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE type)
     }
     return cb;
 }
-
 
 /**
  * This file contains the mapping of various protocol response codes for
@@ -249,8 +249,8 @@ find_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE type)
  */
 
 template <typename T>
-void make_error(lcb_INSTANCE *instance, T* resp,
-                const MemcachedResponse *response, lcb_STATUS imm) {
+void make_error(lcb_INSTANCE *instance, T *resp, const MemcachedResponse *response, lcb_STATUS imm)
+{
     if (imm) {
         resp->ctx.rc = imm;
         resp->rflags |= LCB_RESP_F_CLIENTGEN;
@@ -262,18 +262,17 @@ void make_error(lcb_INSTANCE *instance, T* resp,
 }
 
 template <typename T>
-void handle_error_info(const MemcachedResponse* mc_resp, ResponsePack<T>* rp)
+void handle_error_info(const MemcachedResponse *mc_resp, ResponsePack<T> *rp)
 {
-    if (mc_resp->status() != PROTOCOL_BINARY_RESPONSE_SUCCESS
-        && mc_resp->datatype() & PROTOCOL_BINARY_DATATYPE_JSON
-        && mc_resp->vallen() > 0) {
+    if (mc_resp->status() != PROTOCOL_BINARY_RESPONSE_SUCCESS && mc_resp->datatype() & PROTOCOL_BINARY_DATATYPE_JSON &&
+        mc_resp->vallen() > 0) {
         rp->resp.rflags |= LCB_RESP_F_ERRINFO;
         rp->value = mc_resp->value();
         rp->nvalue = mc_resp->vallen();
     }
 }
 
-template < typename T >
+template <typename T>
 void init_resp(lcb_INSTANCE *instance, mc_PIPELINE *pipeline, const MemcachedResponse *mc_resp, const mc_PACKET *req,
                lcb_STATUS immerr, T *resp)
 {
@@ -283,10 +282,10 @@ void init_resp(lcb_INSTANCE *instance, mc_PIPELINE *pipeline, const MemcachedRes
     resp->ctx.opaque = mc_resp->opaque();
     resp->ctx.bucket = LCBT_VBCONFIG(instance)->bname;
     resp->ctx.bucket_len = LCBT_VBCONFIG(instance)->bname_len;
-    resp->cookie = const_cast<void*>(MCREQ_PKT_COOKIE(req));
+    resp->cookie = const_cast<void *>(MCREQ_PKT_COOKIE(req));
     mcreq_get_key(instance, req, &resp->ctx.key, &resp->ctx.key_len);
 
-    lcb::Server *server = static_cast< lcb::Server * >(pipeline);
+    auto *server = static_cast<lcb::Server *>(pipeline);
     const lcb_host_t *remote = server->curhost;
     if (remote) {
         char *ptr = resp->ctx.endpoint;
@@ -316,9 +315,8 @@ void init_resp(lcb_INSTANCE *instance, mc_PIPELINE *pipeline, const MemcachedRes
  * @param req The request packet (used to get the vBucket)
  * @param tgt Pointer to mutation token which should be populated.
  */
-static void
-handle_mutation_token(lcb_INSTANCE *instance, const MemcachedResponse *mc_resp,
-    const mc_PACKET *req, lcb_MUTATION_TOKEN *stok)
+static void handle_mutation_token(lcb_INSTANCE *instance, const MemcachedResponse *mc_resp, const mc_PACKET *req,
+                                  lcb_MUTATION_TOKEN *stok)
 {
     const char *sbuf;
     uint16_t vbid;
@@ -348,13 +346,13 @@ handle_mutation_token(lcb_INSTANCE *instance, const MemcachedResponse *mc_resp,
     }
 }
 
-static lcb_INSTANCE *get_instance(mc_PIPELINE *pipeline) {
+static lcb_INSTANCE *get_instance(mc_PIPELINE *pipeline)
+{
     return reinterpret_cast<lcb_INSTANCE *>(pipeline->parent->cqdata);
 }
 
 template <typename T>
-void invoke_callback(const mc_PACKET *pkt,
-    lcb_INSTANCE *instance, T* resp, lcb_CALLBACK_TYPE cbtype)
+void invoke_callback(const mc_PACKET *pkt, lcb_INSTANCE *instance, T *resp, lcb_CALLBACK_TYPE cbtype)
 {
     std::string collection_path = instance->collcache->id_to_name(mcreq_get_cid(instance, pkt));
     if (!collection_path.empty()) {
@@ -367,19 +365,18 @@ void invoke_callback(const mc_PACKET *pkt,
         }
     }
     if (!(pkt->flags & MCREQ_F_INVOKED)) {
-        resp->cookie = const_cast<void*>(MCREQ_PKT_COOKIE(pkt));
-        const lcb_RESPBASE *base = reinterpret_cast<const lcb_RESPBASE*>(resp);
+        resp->cookie = const_cast<void *>(MCREQ_PKT_COOKIE(pkt));
+        const auto *base = reinterpret_cast<const lcb_RESPBASE *>(resp);
         if ((pkt->flags & MCREQ_F_PRIVCALLBACK) == 0) {
             find_callback(instance, cbtype)(instance, cbtype, base);
         } else {
-            (*(lcb_RESPCALLBACK*)resp->cookie)(instance, cbtype, base);
+            (*(lcb_RESPCALLBACK *)resp->cookie)(instance, cbtype, base);
         }
     }
 }
 
 template <typename T>
-void invoke_callback(const mc_PACKET *pkt, mc_PIPELINE *pipeline, T *resp,
-    lcb_CALLBACK_TYPE cbtype)
+void invoke_callback(const mc_PACKET *pkt, mc_PIPELINE *pipeline, T *resp, lcb_CALLBACK_TYPE cbtype)
 {
     invoke_callback(pkt, get_instance(pipeline), cbtype, resp);
 }
@@ -390,13 +387,11 @@ void invoke_callback(const mc_PACKET *pkt, mc_PIPELINE *pipeline, T *resp,
  * @param resp The response received
  * @param[out] bytes pointer to the final payload
  * @param[out] nbytes pointer to the size of the final payload
- * @param[out] freeptr pointer to free. This should be initialized to `NULL`.
+ * @param[out] freeptr pointer to free. This should be initialized to `nullptr`.
  * If temporary dynamic storage is required this will be set to the allocated
- * pointer upon return. Otherwise it will be set to NULL. In any case it must
+ * pointer upon return. Otherwise it will be set to nullptr. In any case it must
  */
-static void
-maybe_decompress(lcb_INSTANCE *o,
-    const MemcachedResponse* respkt, lcb_RESPGET *rescmd, void **freeptr)
+static void maybe_decompress(lcb_INSTANCE *o, const MemcachedResponse *respkt, lcb_RESPGET *rescmd, void **freeptr)
 {
     lcb_U8 dtype = 0;
     if (!respkt->vallen()) {
@@ -410,9 +405,7 @@ maybe_decompress(lcb_INSTANCE *o,
     if (respkt->datatype() & PROTOCOL_BINARY_DATATYPE_COMPRESSED) {
         if (LCBT_SETTING(o, compressopts) & LCB_COMPRESS_IN) {
             /* if we inflate, we don't set the flag */
-            mcreq_inflate_value(
-                respkt->value(), respkt->vallen(),
-                &rescmd->value, &rescmd->nvalue, freeptr);
+            mcreq_inflate_value(respkt->value(), respkt->vallen(), &rescmd->value, &rescmd->nvalue, freeptr);
 
         } else {
             /* user doesn't want inflation. signal it's compressed */
@@ -422,12 +415,10 @@ maybe_decompress(lcb_INSTANCE *o,
     rescmd->datatype = dtype;
 }
 
-static void
-H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse* response,
-      lcb_STATUS immerr)
+static void H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
-    ResponsePack< lcb_RESPGET > w{};
-    lcb_RESPGET& resp = w.resp;
+    ResponsePack<lcb_RESPGET> w{};
+    lcb_RESPGET &resp = w.resp;
 
     lcb_INSTANCE *o = get_instance(pipeline);
     init_resp(o, pipeline, response, request, immerr, &resp);
@@ -445,7 +436,7 @@ H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse* response,
         }
     }
 
-    void *freeptr = NULL;
+    void *freeptr = nullptr;
     maybe_decompress(o, response, &resp, &freeptr);
     LCBTRACE_KV_FINISH(pipeline, request, resp, response);
     TRACE_GET_END(o, request, response, &resp);
@@ -458,7 +449,7 @@ static void H_exists(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
     lcb_INSTANCE *root = get_instance(pipeline);
     lcb_RESPEXISTS resp{};
     init_resp(root, pipeline, response, request, immerr, &resp);
-    resp.cookie = const_cast< void * >(MCREQ_PKT_COOKIE(request));
+    resp.cookie = const_cast<void *>(MCREQ_PKT_COOKIE(request));
     resp.rflags |= LCB_RESP_F_FINAL;
     if (resp.ctx.rc == LCB_SUCCESS) {
         if (response->extlen() == (sizeof(uint32_t) * 3 + sizeof(uint64_t))) {
@@ -481,14 +472,12 @@ static void H_exists(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
     invoke_callback(request, root, &resp, LCB_CALLBACK_EXISTS);
 }
 
-static void
-H_getreplica(mc_PIPELINE *pipeline, mc_PACKET *request,
-             MemcachedResponse *response, lcb_STATUS immerr)
+static void H_getreplica(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
-    ResponsePack< lcb_RESPGET > w{};
-    lcb_RESPGET& resp = w.resp;
+    ResponsePack<lcb_RESPGET> w{};
+    lcb_RESPGET &resp = w.resp;
     lcb_INSTANCE *instance = get_instance(pipeline);
-    void *freeptr = NULL;
+    void *freeptr = nullptr;
     mc_REQDATAEX *rd = request->u_rdata.exdata;
 
     init_resp(instance, pipeline, response, request, immerr, &resp);
@@ -512,9 +501,7 @@ H_getreplica(mc_PIPELINE *pipeline, mc_PACKET *request,
 
 static int lcb_sdresult_next(const lcb_RESPSUBDOC *resp, lcb_SDENTRY *ent, size_t *iter);
 
-static
-void
-lcb_sdresult_parse(lcb_RESPSUBDOC *resp, lcb_CALLBACK_TYPE type)
+static void lcb_sdresult_parse(lcb_RESPSUBDOC *resp, lcb_CALLBACK_TYPE type)
 {
     std::vector<lcb_SDENTRY> results;
     size_t iter = 0, oix = 0;
@@ -536,35 +523,33 @@ lcb_sdresult_parse(lcb_RESPSUBDOC *resp, lcb_CALLBACK_TYPE type)
     }
 }
 
-static void
-H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
-         MemcachedResponse *response, lcb_STATUS immerr)
+static void H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *o = get_instance(pipeline);
-    ResponsePack< lcb_RESPSUBDOC > w{};
+    ResponsePack<lcb_RESPSUBDOC> w{};
     lcb_CALLBACK_TYPE cbtype;
     init_resp(o, pipeline, response, request, immerr, &w.resp);
     w.resp.rflags |= LCB_RESP_F_FINAL;
-    w.resp.res = NULL;
+    w.resp.res = nullptr;
 
     /* For mutations, add the mutation token */
     switch (response->opcode()) {
-    case PROTOCOL_BINARY_CMD_SUBDOC_GET:
-    case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
-    case PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT:
-    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
-        cbtype = LCB_CALLBACK_SDLOOKUP;
-        break;
+        case PROTOCOL_BINARY_CMD_SUBDOC_GET:
+        case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
+        case PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT:
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
+            cbtype = LCB_CALLBACK_SDLOOKUP;
+            break;
 
-    default:
-        handle_mutation_token(o, response, request, &w.mt);
-        w.resp.rflags |= LCB_RESP_F_EXTDATA;
-        cbtype = LCB_CALLBACK_SDMUTATE;
-        break;
+        default:
+            handle_mutation_token(o, response, request, &w.mt);
+            w.resp.rflags |= LCB_RESP_F_EXTDATA;
+            cbtype = LCB_CALLBACK_SDMUTATE;
+            break;
     }
 
     if (response->opcode() == PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP ||
-            response->opcode() == PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION) {
+        response->opcode() == PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION) {
         if (w.resp.ctx.rc == LCB_SUCCESS) {
             w.resp.responses = response;
             w.resp.nres = MCREQ_PKT_RDATA(request)->nsubreq;
@@ -575,10 +560,7 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
     } else {
         /* Single response */
         w.resp.rflags |= LCB_RESP_F_SDSINGLE;
-        if (w.resp.ctx.rc == LCB_SUCCESS) {
-            w.resp.responses = response;
-            lcb_sdresult_parse(&w.resp, cbtype);
-        } else if (LCB_ERROR_IS_SUBDOC(w.resp.ctx.rc)) {
+        if (w.resp.ctx.rc == LCB_SUCCESS || LCB_ERROR_IS_SUBDOC(w.resp.ctx.rc)) {
             w.resp.responses = response;
             lcb_sdresult_parse(&w.resp, cbtype);
         } else {
@@ -589,8 +571,7 @@ H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request,
     free(w.resp.res);
 }
 
-static int
-sdlookup_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
+static int sdlookup_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
 {
     const char *buf;
     uint16_t rc;
@@ -609,13 +590,13 @@ sdlookup_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
     rc = ntohs(rc);
     vlen = ntohl(vlen);
 
-    ent->status = lcb_map_error(NULL, rc);
+    ent->status = lcb_map_error(nullptr, rc);
     ent->nvalue = vlen;
 
     if (ent->status == LCB_SUCCESS) {
         ent->value = buf + 6;
     } else {
-        ent->value = NULL;
+        ent->value = nullptr;
         ent->nvalue = 0;
     }
 
@@ -623,8 +604,7 @@ sdlookup_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
     return 1;
 }
 
-static int
-sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
+static int sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
 {
     const char *buf, *buf_end;
     uint16_t rc;
@@ -637,13 +617,13 @@ sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
     buf_end = (const char *)response->value() + response->vallen();
     buf = ((const char *)(response->value())) + *iter;
 
-    #define ADVANCE_BUF(sz) \
-        buf += sz; \
-        *iter += sz; \
-        lcb_assert(buf <= buf_end); \
+#define ADVANCE_BUF(sz)                                                                                                \
+    buf += sz;                                                                                                         \
+    *iter += sz;                                                                                                       \
+    lcb_assert(buf <= buf_end)
 
     /* Index */
-    ent->index = *(lcb_U8*)buf;
+    ent->index = *(lcb_U8 *)buf;
     ADVANCE_BUF(1);
 
     /* Status */
@@ -651,7 +631,7 @@ sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
     ADVANCE_BUF(2);
 
     rc = ntohs(rc);
-    ent->status = lcb_map_error(NULL, rc);
+    ent->status = lcb_map_error(nullptr, rc);
 
     if (rc == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
         memcpy(&vlen, buf, 4);
@@ -663,23 +643,20 @@ sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
         ADVANCE_BUF(vlen);
 
     } else {
-        ent->value = NULL;
+        ent->value = nullptr;
         ent->nvalue = 0;
     }
 
     (void)buf_end;
     return 1;
-    #undef ADVANCE_BUF
+#undef ADVANCE_BUF
 }
 
-static
-int
-lcb_sdresult_next(const lcb_RESPSUBDOC *resp, lcb_SDENTRY *ent, size_t *iter)
+static int lcb_sdresult_next(const lcb_RESPSUBDOC *resp, lcb_SDENTRY *ent, size_t *iter)
 
 {
     size_t iter_s = 0;
-    const MemcachedResponse *response =
-                reinterpret_cast<const MemcachedResponse*>(resp->responses);
+    const auto *response = reinterpret_cast<const MemcachedResponse *>(resp->responses);
     if (!response) {
         fprintf(stderr, "no response set\n");
         return 0;
@@ -690,30 +667,28 @@ lcb_sdresult_next(const lcb_RESPSUBDOC *resp, lcb_SDENTRY *ent, size_t *iter)
     }
 
     switch (response->opcode()) {
-    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
-        return sdlookup_next(response, ent, iter);
-    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
-        return sdmutate_next(response, ent, iter);
-    default:
-        if (*iter) {
-            return 0;
-        }
-        *iter = 1;
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
+            return sdlookup_next(response, ent, iter);
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
+            return sdmutate_next(response, ent, iter);
+        default:
+            if (*iter) {
+                return 0;
+            }
+            *iter = 1;
 
-        ent->status = lcb_map_error(NULL, response->status());
-        ent->value = response->value();
-        ent->nvalue = response->vallen();
-        ent->index = 0;
-        return 1;
+            ent->status = lcb_map_error(nullptr, response->status());
+            ent->value = response->value();
+            ent->nvalue = response->vallen();
+            ent->index = 0;
+            return 1;
     }
 }
 
-static void
-H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse *response,
-         lcb_STATUS immerr)
+static void H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
-    ResponsePack< lcb_RESPREMOVE > w{};
+    ResponsePack<lcb_RESPREMOVE> w{};
     w.resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     init_resp(root, pipeline, response, packet, immerr, &w.resp);
     handle_error_info(response, &w);
@@ -723,15 +698,13 @@ H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse *response,
     invoke_callback(packet, root, &w.resp, LCB_CALLBACK_REMOVE);
 }
 
-static void
-H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
-          lcb_STATUS immerr)
+static void H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
     uint32_t ttp;
     uint32_t ttr;
     size_t pos;
-    lcbvb_CONFIG* config;
+    lcbvb_CONFIG *config;
     const char *end, *ptr;
     mc_REQDATAEX *rd = request->u_rdata.exdata;
 
@@ -739,15 +712,15 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
     make_error(root, &resp, response, immerr);
 
     if (resp.ctx.rc != LCB_SUCCESS) {
-        if (! (request->flags & MCREQ_F_INVOKED)) {
-            rd->procs->handler(pipeline, request, resp.ctx.rc, NULL);
+        if (!(request->flags & MCREQ_F_INVOKED)) {
+            rd->procs->handler(pipeline, request, resp.ctx.rc, nullptr);
         }
         return;
     }
 
     /** The CAS field is split into TTP/TTR values */
     uint64_t tmpcas = lcb_htonll(response->cas());
-    ptr = reinterpret_cast<char*>(&tmpcas);
+    ptr = reinterpret_cast<char *>(&tmpcas);
     memcpy(&ttp, ptr, sizeof(ttp));
     memcpy(&ttr, ptr + sizeof(ttp), sizeof(ttp));
 
@@ -792,15 +765,14 @@ H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response
         resp.ttr = ttr;
         TRACE_OBSERVE_PROGRESS(root, request, response, &resp);
         LCBTRACE_KV_FINISH(pipeline, request, resp, response);
-        if (! (request->flags & MCREQ_F_INVOKED)) {
+        if (!(request->flags & MCREQ_F_INVOKED)) {
             rd->procs->handler(pipeline, request, resp.ctx.rc, &resp);
         }
     }
 }
 
-static void
-H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
-                MemcachedResponse *response, lcb_STATUS immerr) {
+static void H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
+{
     lcb_INSTANCE *root = get_instance(pipeline);
     lcb_RESPOBSEQNO resp{};
     init_resp(root, pipeline, response, request, immerr, &resp);
@@ -808,14 +780,14 @@ H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
     resp.server_index = pipeline->index;
 
     if (resp.ctx.rc == LCB_SUCCESS) {
-        const uint8_t *data = reinterpret_cast<const uint8_t *>(response->value());
+        const auto *data = reinterpret_cast<const uint8_t *>(response->value());
         bool is_failover = *data != 0;
 
         data++;
-        #define COPY_ADV(dstfld, n, conv_fn) \
-                memcpy(&resp.dstfld, data, n); \
-                data += n; \
-                resp.dstfld = conv_fn(resp.dstfld);
+#define COPY_ADV(dstfld, n, conv_fn)                                                                                   \
+    memcpy(&resp.dstfld, data, n);                                                                                     \
+    data += n;                                                                                                         \
+    resp.dstfld = conv_fn(resp.dstfld)
 
         COPY_ADV(vbid, 2, ntohs);
         COPY_ADV(cur_uuid, 8, lcb_ntohll);
@@ -825,7 +797,7 @@ H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
             COPY_ADV(old_uuid, 8, lcb_ntohll);
             COPY_ADV(old_seqno, 8, lcb_ntohll);
         }
-        #undef COPY_ADV
+#undef COPY_ADV
 
         /* Get the server for this command. Note that since this is a successful
          * operation, the server is never a dummy */
@@ -834,12 +806,10 @@ H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request,
     invoke_callback(request, root, &resp, LCB_CALLBACK_OBSEQNO);
 }
 
-static void
-H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
-        lcb_STATUS immerr)
+static void H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
-    ResponsePack< lcb_RESPSTORE > w{};
+    ResponsePack<lcb_RESPSTORE> w{};
     uint8_t opcode;
     init_resp(root, pipeline, response, request, immerr, &w.resp);
     handle_error_info(response, &w);
@@ -873,12 +843,10 @@ H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     }
 }
 
-static void
-H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request,
-             MemcachedResponse *response, lcb_STATUS immerr)
+static void H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
-    ResponsePack< lcb_RESPCOUNTER > w{};
+    ResponsePack<lcb_RESPCOUNTER> w{};
     init_resp(root, pipeline, response, request, immerr, &w.resp);
 
     if (w.resp.ctx.rc == LCB_SUCCESS) {
@@ -896,9 +864,7 @@ H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request,
     invoke_callback(request, root, &w.resp, LCB_CALLBACK_COUNTER);
 }
 
-static void
-H_stats(mc_PIPELINE *pipeline, mc_PACKET *request,
-        MemcachedResponse *response, lcb_STATUS immerr)
+static void H_stats(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
     lcb_RESPSTATS resp{};
@@ -910,7 +876,7 @@ H_stats(mc_PIPELINE *pipeline, mc_PACKET *request,
     if (resp.ctx.rc != LCB_SUCCESS || response->keylen() == 0) {
         /* Call the handler without a response, this indicates that this server
          * has finished responding */
-        exdata->procs->handler(pipeline, request, resp.ctx.rc, NULL);
+        exdata->procs->handler(pipeline, request, resp.ctx.rc, nullptr);
         return;
     }
 
@@ -924,13 +890,12 @@ H_stats(mc_PIPELINE *pipeline, mc_PACKET *request,
     exdata->procs->handler(pipeline, request, resp.ctx.rc, &resp);
 }
 
-static void
-H_collections_get_manifest(mc_PIPELINE *pipeline, mc_PACKET *request,
-        MemcachedResponse *response, lcb_STATUS immerr)
+static void H_collections_get_manifest(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
+                                       lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
-    ResponsePack< lcb_RESPGETMANIFEST > w{};
-    lcb_RESPGETMANIFEST& resp = w.resp;
+    ResponsePack<lcb_RESPGETMANIFEST> w{};
+    lcb_RESPGETMANIFEST &resp = w.resp;
     init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
@@ -939,13 +904,12 @@ H_collections_get_manifest(mc_PIPELINE *pipeline, mc_PACKET *request,
     invoke_callback(request, root, &resp, LCB_CALLBACK_COLLECTIONS_GET_MANIFEST);
 }
 
-static void
-H_collections_get_cid(mc_PIPELINE *pipeline, mc_PACKET *request,
-        MemcachedResponse *response, lcb_STATUS immerr)
+static void H_collections_get_cid(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
+                                  lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
-    ResponsePack< lcb_RESPGETCID > w{};
-    lcb_RESPGETCID& resp = w.resp;
+    ResponsePack<lcb_RESPGETCID> w{};
+    lcb_RESPGETCID &resp = w.resp;
     init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
@@ -981,39 +945,7 @@ H_collections_get_cid(mc_PIPELINE *pipeline, mc_PACKET *request,
     }
 }
 
-static void
-H_verbosity(mc_PIPELINE *pipeline, mc_PACKET *request,
-            MemcachedResponse *response, lcb_STATUS immerr)
-{
-    lcb_INSTANCE *root = get_instance(pipeline);
-    lcb_RESPBASE dummy{};
-    mc_REQDATAEX *exdata = request->u_rdata.exdata;
-    make_error(root, &dummy, response, immerr);
-
-    exdata->procs->handler(pipeline, request, dummy.ctx.rc, NULL);
-}
-
-static void
-H_version(mc_PIPELINE *pipeline, mc_PACKET *request,
-          MemcachedResponse *response, lcb_STATUS immerr)
-{
-    lcb_INSTANCE *root = get_instance(pipeline);
-    lcb_RESPMCVERSION resp{};
-    mc_REQDATAEX *exdata = request->u_rdata.exdata;
-
-    make_error(root, &resp, response, immerr);
-
-    if (response->vallen()) {
-        resp.mcversion = response->value();
-        resp.nversion = response->vallen();
-    }
-
-    exdata->procs->handler(pipeline, request, resp.ctx.rc, &resp);
-}
-
-static void
-H_noop(mc_PIPELINE *pipeline, mc_PACKET *request,
-       MemcachedResponse *response, lcb_STATUS immerr)
+static void H_noop(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
     lcb_RESPNOOP resp{};
@@ -1024,13 +956,11 @@ H_noop(mc_PIPELINE *pipeline, mc_PACKET *request,
     exdata->procs->handler(pipeline, request, resp.ctx.rc, &resp);
 }
 
-static void
-H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
-        lcb_STATUS immerr)
+static void H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
-    ResponsePack< lcb_RESPTOUCH > w{};
-    lcb_RESPTOUCH& resp = w.resp;
+    ResponsePack<lcb_RESPTOUCH> w{};
+    lcb_RESPTOUCH &resp = w.resp;
     init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
@@ -1039,13 +969,11 @@ H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     invoke_callback(request, root, &resp, LCB_CALLBACK_TOUCH);
 }
 
-static void
-H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
-         lcb_STATUS immerr)
+static void H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_INSTANCE *root = get_instance(pipeline);
-    ResponsePack< lcb_RESPUNLOCK > w{};
-    lcb_RESPUNLOCK& resp = w.resp;
+    ResponsePack<lcb_RESPUNLOCK> w{};
+    lcb_RESPUNLOCK &resp = w.resp;
     init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, &w);
     resp.rflags |= LCB_RESP_F_FINAL;
@@ -1054,9 +982,7 @@ H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     invoke_callback(request, root, &resp, LCB_CALLBACK_UNLOCK);
 }
 
-static void
-H_config(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
-         lcb_STATUS immerr)
+static void H_config(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     /** We just jump to the normal config handler */
     lcb_RESPBASE dummy{};
@@ -1066,18 +992,17 @@ H_config(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
     exdata->procs->handler(pipeline, request, dummy.ctx.rc, response);
 }
 
-static void
-H_select_bucket(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response,
-         lcb_STATUS immerr)
+static void H_select_bucket(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *response, lcb_STATUS immerr)
 {
     lcb_RESPBASE dummy{};
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
-    make_error(get_instance(pipeline), &dummy, response, immerr);
-    exdata->procs->handler(pipeline, request, dummy.ctx.rc, response);
+    if (exdata) {
+        make_error(get_instance(pipeline), &dummy, response, immerr);
+        exdata->procs->handler(pipeline, request, dummy.ctx.rc, response);
+    }
 }
 
-static void
-record_metrics(mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *)
+static void record_metrics(mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *)
 {
     lcb_INSTANCE *instance = get_instance(pipeline);
     if (
@@ -1086,7 +1011,7 @@ record_metrics(mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *)
 #else
         instance->kv_timings
 #endif
-        ) {
+    ) {
         MCREQ_PKT_RDATA(req)->dispatch = gethrtime();
     }
     if (instance->kv_timings) {
@@ -1094,20 +1019,16 @@ record_metrics(mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *)
     }
 }
 
-static void
-dispatch_ufwd_error(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS immerr)
+static void dispatch_ufwd_error(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS immerr)
 {
-    lcb_PKTFWDRESP resp = { 0 };
-    lcb_INSTANCE *instance = static_cast<lcb::Server*>(pipeline)->get_instance();
+    lcb_PKTFWDRESP resp = {0};
+    lcb_INSTANCE *instance = static_cast<lcb::Server *>(pipeline)->get_instance();
     lcb_assert(immerr != LCB_SUCCESS);
     resp.version = 0;
     instance->callbacks.pktfwd(instance, MCREQ_PKT_COOKIE(req), immerr, &resp);
 }
 
-int
-mcreq_dispatch_response(
-        mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *res,
-        lcb_STATUS immerr)
+int mcreq_dispatch_response(mc_PIPELINE *pipeline, mc_PACKET *req, MemcachedResponse *res, lcb_STATUS immerr)
 {
     record_metrics(pipeline, req, res);
 
@@ -1122,159 +1043,155 @@ mcreq_dispatch_response(
     break
 
     switch (res->opcode()) {
-    case PROTOCOL_BINARY_CMD_GET:
-    case PROTOCOL_BINARY_CMD_GAT:
-    case PROTOCOL_BINARY_CMD_GET_LOCKED:
-        INVOKE_OP(H_get);
+        case PROTOCOL_BINARY_CMD_GET:
+        case PROTOCOL_BINARY_CMD_GAT:
+        case PROTOCOL_BINARY_CMD_GET_LOCKED:
+            INVOKE_OP(H_get);
 
-    case PROTOCOL_BINARY_CMD_ADD:
-    case PROTOCOL_BINARY_CMD_REPLACE:
-    case PROTOCOL_BINARY_CMD_SET:
-    case PROTOCOL_BINARY_CMD_APPEND:
-    case PROTOCOL_BINARY_CMD_PREPEND:
-        INVOKE_OP(H_store);
+        case PROTOCOL_BINARY_CMD_ADD:
+        case PROTOCOL_BINARY_CMD_REPLACE:
+        case PROTOCOL_BINARY_CMD_SET:
+        case PROTOCOL_BINARY_CMD_APPEND:
+        case PROTOCOL_BINARY_CMD_PREPEND:
+            INVOKE_OP(H_store);
 
-    case PROTOCOL_BINARY_CMD_INCREMENT:
-    case PROTOCOL_BINARY_CMD_DECREMENT:
-        INVOKE_OP(H_arithmetic);
+        case PROTOCOL_BINARY_CMD_INCREMENT:
+        case PROTOCOL_BINARY_CMD_DECREMENT:
+            INVOKE_OP(H_arithmetic);
 
-    case PROTOCOL_BINARY_CMD_SUBDOC_GET:
-    case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
-    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_ADD_UNIQUE:
-    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_FIRST:
-    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_LAST:
-    case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_INSERT:
-    case PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD:
-    case PROTOCOL_BINARY_CMD_SUBDOC_DICT_UPSERT:
-    case PROTOCOL_BINARY_CMD_SUBDOC_REPLACE:
-    case PROTOCOL_BINARY_CMD_SUBDOC_DELETE:
-    case PROTOCOL_BINARY_CMD_SUBDOC_COUNTER:
-    case PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT:
-    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
-    case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
-        INVOKE_OP(H_subdoc);
+        case PROTOCOL_BINARY_CMD_SUBDOC_GET:
+        case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_ADD_UNIQUE:
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_FIRST:
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_PUSH_LAST:
+        case PROTOCOL_BINARY_CMD_SUBDOC_ARRAY_INSERT:
+        case PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD:
+        case PROTOCOL_BINARY_CMD_SUBDOC_DICT_UPSERT:
+        case PROTOCOL_BINARY_CMD_SUBDOC_REPLACE:
+        case PROTOCOL_BINARY_CMD_SUBDOC_DELETE:
+        case PROTOCOL_BINARY_CMD_SUBDOC_COUNTER:
+        case PROTOCOL_BINARY_CMD_SUBDOC_GET_COUNT:
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
+        case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
+            INVOKE_OP(H_subdoc);
 
-    case PROTOCOL_BINARY_CMD_OBSERVE:
-        INVOKE_OP(H_observe);
+        case PROTOCOL_BINARY_CMD_OBSERVE:
+            INVOKE_OP(H_observe);
 
-    case PROTOCOL_BINARY_CMD_GET_REPLICA:
-        INVOKE_OP(H_getreplica);
+        case PROTOCOL_BINARY_CMD_GET_REPLICA:
+            INVOKE_OP(H_getreplica);
 
-    case PROTOCOL_BINARY_CMD_UNLOCK_KEY:
-        INVOKE_OP(H_unlock);
+        case PROTOCOL_BINARY_CMD_UNLOCK_KEY:
+            INVOKE_OP(H_unlock);
 
-    case PROTOCOL_BINARY_CMD_DELETE:
-        INVOKE_OP(H_delete);
+        case PROTOCOL_BINARY_CMD_DELETE:
+            INVOKE_OP(H_delete);
 
-    case PROTOCOL_BINARY_CMD_TOUCH:
-        INVOKE_OP(H_touch);
+        case PROTOCOL_BINARY_CMD_TOUCH:
+            INVOKE_OP(H_touch);
 
-    case PROTOCOL_BINARY_CMD_OBSERVE_SEQNO:
-        INVOKE_OP(H_observe_seqno);
+        case PROTOCOL_BINARY_CMD_OBSERVE_SEQNO:
+            INVOKE_OP(H_observe_seqno);
 
-    case PROTOCOL_BINARY_CMD_STAT:
-        INVOKE_OP(H_stats);
+        case PROTOCOL_BINARY_CMD_STAT:
+            INVOKE_OP(H_stats);
 
-    case PROTOCOL_BINARY_CMD_VERSION:
-        INVOKE_OP(H_version);
+        case PROTOCOL_BINARY_CMD_NOOP:
+            INVOKE_OP(H_noop);
 
-    case PROTOCOL_BINARY_CMD_VERBOSITY:
-        INVOKE_OP(H_verbosity);
+        case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
+            INVOKE_OP(H_config);
 
-    case PROTOCOL_BINARY_CMD_NOOP:
-        INVOKE_OP(H_noop);
+        case PROTOCOL_BINARY_CMD_SELECT_BUCKET:
+            INVOKE_OP(H_select_bucket);
 
-    case PROTOCOL_BINARY_CMD_GET_CLUSTER_CONFIG:
-        INVOKE_OP(H_config);
+        case PROTOCOL_BINARY_CMD_COLLECTIONS_GET_MANIFEST:
+            INVOKE_OP(H_collections_get_manifest);
 
-    case PROTOCOL_BINARY_CMD_SELECT_BUCKET:
-        INVOKE_OP(H_select_bucket);
+        case PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID:
+            INVOKE_OP(H_collections_get_cid);
 
-    case PROTOCOL_BINARY_CMD_COLLECTIONS_GET_MANIFEST:
-        INVOKE_OP(H_collections_get_manifest);
+        case PROTOCOL_BINARY_CMD_GET_META:
+            INVOKE_OP(H_exists);
 
-    case PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID:
-        INVOKE_OP(H_collections_get_cid);
-
-    case PROTOCOL_BINARY_CMD_GET_META:
-        INVOKE_OP(H_exists);
-
-    default:
-        fprintf(stderr, "COUCHBASE: Received unknown opcode=0x%x\n", res->opcode());
-        return -1;
+        default:
+            fprintf(stderr, "COUCHBASE: Received unknown opcode=0x%x\n", res->opcode());
+            return -1;
     }
 }
 
-const lcb_MUTATION_TOKEN *
-lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb)
+const lcb_MUTATION_TOKEN *lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb)
 {
-    const lcb_MUTATION_TOKEN *ss = NULL;
+    const lcb_MUTATION_TOKEN *ss = nullptr;
     if ((rb->rflags & LCB_RESP_F_EXTDATA) == 0) {
-        return NULL;
+        return nullptr;
     }
 
     switch (cbtype) {
-    case LCB_CALLBACK_STORE:
-        ss = ResponsePack<lcb_RESPSTORE>::get_mt(rb);
-        break;
+        case LCB_CALLBACK_STORE:
+            ss = ResponsePack<lcb_RESPSTORE>::get_mt(rb);
+            break;
 
-    case LCB_CALLBACK_COUNTER:
-        ss = ResponsePack<lcb_RESPCOUNTER>::get_mt(rb);
-        break;
+        case LCB_CALLBACK_COUNTER:
+            ss = ResponsePack<lcb_RESPCOUNTER>::get_mt(rb);
+            break;
 
-    case LCB_CALLBACK_REMOVE:
-        ss = ResponsePack<lcb_RESPREMOVE>::get_mt(rb);
-        break;
+        case LCB_CALLBACK_REMOVE:
+            ss = ResponsePack<lcb_RESPREMOVE>::get_mt(rb);
+            break;
 
-    case LCB_CALLBACK_SDMUTATE:
-        ss = ResponsePack<lcb_RESPSUBDOC>::get_mt(rb);
-        break;
+        case LCB_CALLBACK_SDMUTATE:
+            ss = ResponsePack<lcb_RESPSUBDOC>::get_mt(rb);
+            break;
 
-    default:
-        return NULL;
+        default:
+            return nullptr;
     }
 
     if (ss->uuid_ == 0 && ss->seqno_ == 0) {
-        return NULL;
+        return nullptr;
     }
     return ss;
 }
 
-#define ERRINFO_CALLBACKS(X)                    \
-    X(LCB_CALLBACK_GET, lcb_RESPGET)            \
-    X(LCB_CALLBACK_STORE, lcb_RESPSTORE)        \
-    X(LCB_CALLBACK_COUNTER, lcb_RESPCOUNTER)    \
-    X(LCB_CALLBACK_TOUCH, lcb_RESPTOUCH)        \
-    X(LCB_CALLBACK_REMOVE, lcb_RESPREMOVE)      \
-    X(LCB_CALLBACK_UNLOCK, lcb_RESPUNLOCK)      \
-    X(LCB_CALLBACK_SDLOOKUP, lcb_RESPSUBDOC)    \
-    X(LCB_CALLBACK_SDMUTATE, lcb_RESPSUBDOC)    \
-
+#define ERRINFO_CALLBACKS(X)                                                                                           \
+    X(LCB_CALLBACK_GET, lcb_RESPGET)                                                                                   \
+    X(LCB_CALLBACK_STORE, lcb_RESPSTORE)                                                                               \
+    X(LCB_CALLBACK_COUNTER, lcb_RESPCOUNTER)                                                                           \
+    X(LCB_CALLBACK_TOUCH, lcb_RESPTOUCH)                                                                               \
+    X(LCB_CALLBACK_REMOVE, lcb_RESPREMOVE)                                                                             \
+    X(LCB_CALLBACK_UNLOCK, lcb_RESPUNLOCK)                                                                             \
+    X(LCB_CALLBACK_SDLOOKUP, lcb_RESPSUBDOC)                                                                           \
+    X(LCB_CALLBACK_SDMUTATE, lcb_RESPSUBDOC)
 
 LIBCOUCHBASE_API
-const char *
-lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb)
+const char *lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb)
 {
     if ((rb->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return NULL;
+        return nullptr;
     }
 
-#define X(CBTYPE, RESP) if (cbtype == CBTYPE) { return ResponsePack<RESP>::get_err_ctx(rb); }
-    ERRINFO_CALLBACKS(X);
+#define X(CBTYPE, RESP)                                                                                                \
+    if (cbtype == CBTYPE) {                                                                                            \
+        return ResponsePack<RESP>::get_err_ctx(rb);                                                                    \
+    }
+    ERRINFO_CALLBACKS(X)
 #undef X
-    return NULL;
+    return nullptr;
 }
 
 LIBCOUCHBASE_API
-const char *
-lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb)
+const char *lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb)
 {
     if ((rb->rflags & LCB_RESP_F_ERRINFO) == 0) {
-        return NULL;
+        return nullptr;
     }
 
-#define X(CBTYPE, RESP) if (cbtype == CBTYPE) { return ResponsePack<RESP>::get_err_ref(rb); }
-    ERRINFO_CALLBACKS(X);
+#define X(CBTYPE, RESP)                                                                                                \
+    if (cbtype == CBTYPE) {                                                                                            \
+        return ResponsePack<RESP>::get_err_ref(rb);                                                                    \
+    }
+    ERRINFO_CALLBACKS(X)
 #undef X
-    return NULL;
+    return nullptr;
 }

@@ -53,6 +53,7 @@ typedef enum {
     LCBVB_SVCTYPE_QUERY,     /**< N1QL Query */
     LCBVB_SVCTYPE_SEARCH,    /**< Fulltext */
     LCBVB_SVCTYPE_ANALYTICS, /**< Analytics Query */
+    LCBVB_SVCTYPE_EVENTING,  /**< Eventing Management */
 /* for backward compatiblity */
 #define LCBVB_SVCTYPE_CBAS LCBVB_SVCTYPE_ANALYTICS
     LCBVB_SVCTYPE__MAX
@@ -79,10 +80,12 @@ typedef struct {
     lcb_U16 n1ql;      /**< Query port */
     lcb_U16 fts;       /**< CBFT */
     lcb_U16 cbas;      /**< CBAS (Analytics) */
+    lcb_U16 eventing;  /**< Eventing Management */
     char *views_base_; /**< Views base URL */
     char *query_base_; /**< N1QL base URL */
     char *fts_base_;
     char *cbas_base_;
+    char *eventing_base_;
     char *hoststrs[LCBVB_SVCTYPE__MAX];
 } lcbvb_SERVICES;
 
@@ -102,6 +105,7 @@ typedef struct {
     char *querypath;            /**< Path prefix for n1ql queries */
     char *ftspath;              /**< Path prefix for fulltext queries */
     char *cbaspath;             /**< Path prefix for analytics queries */
+    char *eventingpath;         /**< Path prefix for eventing service */
     unsigned nvbs;              /**< Total number of vbuckets the server has assigned */
     char *alt_hostname;         /**< selected alternative hostname for the node */
     lcbvb_SERVICES alt_svc;     /**< selected alternative plain services */

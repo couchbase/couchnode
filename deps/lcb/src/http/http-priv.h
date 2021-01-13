@@ -81,8 +81,17 @@ struct Request {
     uint32_t timeout() const;
     bool is_data_request() const
     {
-        return reqtype == LCB_HTTP_TYPE_QUERY || reqtype == LCB_HTTP_TYPE_VIEW || reqtype == LCB_HTTP_TYPE_SEARCH ||
-               reqtype == LCB_HTTP_TYPE_PING || reqtype == LCB_HTTP_TYPE_ANALYTICS;
+        switch (reqtype) {
+            case LCB_HTTP_TYPE_QUERY:
+            case LCB_HTTP_TYPE_VIEW:
+            case LCB_HTTP_TYPE_SEARCH:
+            case LCB_HTTP_TYPE_PING:
+            case LCB_HTTP_TYPE_ANALYTICS:
+            case LCB_HTTP_TYPE_EVENTING:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**
@@ -167,7 +176,7 @@ struct Request {
     void close_io();
 
     // Helper functions for parsing response data from network
-    inline int handle_parse_chunked(const char *buf, unsigned nbuf);
+    inline unsigned handle_parse_chunked(const char *buf, unsigned nbuf);
     inline void assign_response_headers(const lcb::htparse::Response &);
 
     /**

@@ -16,34 +16,29 @@
  */
 
 #include "hostlist.h"
-#include <stdio.h>
-#include <ctype.h>
-#include <limits.h>
+#include <cstdio>
+#include <cctype>
+#include <climits>
 #include <algorithm>
 #include <random>
 #include <string>
 
 using namespace lcb;
 
-
 Hostlist::~Hostlist()
 {
     reset_strlist();
 }
 
-void
-Hostlist::reset_strlist()
+void Hostlist::reset_strlist()
 {
-    for (size_t ii = 0; ii < hoststrs.size(); ++ii) {
-        if (hoststrs[ii] != NULL) {
-            delete[] hoststrs[ii];
-        }
+    for (auto &hoststr : hoststrs) {
+        delete[] hoststr;
     }
     hoststrs.clear();
 }
 
-lcb_STATUS
-lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
+lcb_STATUS lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
 {
     std::vector<char> zspec;
     char *host_s;
@@ -66,7 +61,7 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     zspec.push_back('\0');
     host_s = &zspec[0];
 
-    if ( (delim = strstr(host_s, "://"))) {
+    if ((delim = strstr(host_s, "://"))) {
         host_s = delim + 3;
     }
 
@@ -75,32 +70,32 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
     }
 
     port_s = strstr(host_s, ":");
-    if (port_s != NULL && strstr(port_s + 1, ":") != NULL) {
+    if (port_s != nullptr && strstr(port_s + 1, ":") != nullptr) {
         ipv6 = true;
         // treat as IPv6 address
         if (host_s[0] == '[') {
             host_s++;
             char *hostend = strstr(host_s, "]");
-            if (hostend == NULL) {
+            if (hostend == nullptr) {
                 return LCB_ERR_INVALID_HOST_FORMAT;
             }
             port_s = hostend + 1;
             if (*port_s != ':' || (size_t)(port_s - host_s) >= strlen(host_s)) {
-                port_s = NULL;
+                port_s = nullptr;
             }
             *hostend = '\0';
         } else {
-            port_s = NULL;
+            port_s = nullptr;
         }
     }
-    if (port_s != NULL) {
+    if (port_s != nullptr) {
         char *endp;
         long ll;
 
         *port_s = '\0';
         port_s++;
 
-        if (! *port_s) {
+        if (!*port_s) {
             return LCB_ERR_INVALID_HOST_FORMAT;
         }
 
@@ -114,13 +109,10 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
         }
 
     } else {
-        port_s = const_cast<char*>("");
+        port_s = const_cast<char *>("");
     }
 
-
-    if (strlen(host_s) > sizeof(host->host)-1 ||
-            strlen(port_s) > sizeof(host->port)-1 ||
-            *host_s == '\0') {
+    if (strlen(host_s) > sizeof(host->host) - 1 || strlen(port_s) > sizeof(host->port) - 1 || *host_s == '\0') {
         return LCB_ERR_INVALID_HOST_FORMAT;
     }
 
@@ -130,19 +122,19 @@ lcb_host_parse(lcb_host_t *host, const char *spec, int speclen, int deflport)
             continue;
         }
         switch (host_s[ii]) {
-        case '.':
-        case '-':
-        case '_':
-            break;
-        case ':':
-        case '[':
-        case ']':
-            if (ipv6) {
+            case '.':
+            case '-':
+            case '_':
                 break;
-            }
-        /* fallthrough */
-        default:
-            return LCB_ERR_INVALID_HOST_FORMAT;
+            case ':':
+            case '[':
+            case ']':
+                if (ipv6) {
+                    break;
+                }
+            /* fallthrough */
+            default:
+                return LCB_ERR_INVALID_HOST_FORMAT;
         }
     }
 
@@ -162,19 +154,17 @@ int lcb_host_equals(const lcb_host_t *a, const lcb_host_t *b)
     return strcmp(a->host, b->host) == 0 && strcmp(a->port, b->port) == 0;
 }
 
-bool
-Hostlist::exists(const lcb_host_t& host) const
+bool Hostlist::exists(const lcb_host_t &host) const
 {
-    for (size_t ii = 0; ii < hosts.size(); ++ii) {
-        if (lcb_host_equals(&host, &hosts[ii])) {
+    for (const auto &ii : hosts) {
+        if (lcb_host_equals(&host, &ii)) {
             return true;
         }
     }
     return false;
 }
 
-bool
-Hostlist::exists(const char *s) const
+bool Hostlist::exists(const char *s) const
 {
     lcb_host_t tmp = {"", "", 0};
     if (lcb_host_parse(&tmp, s, -1, 1) != LCB_SUCCESS) {
@@ -183,8 +173,7 @@ Hostlist::exists(const char *s) const
     return exists(tmp);
 }
 
-void
-Hostlist::add(const lcb_host_t& host)
+void Hostlist::add(const lcb_host_t &host)
 {
     if (exists(host)) {
         return;
@@ -193,11 +182,8 @@ Hostlist::add(const lcb_host_t& host)
     reset_strlist();
 }
 
-lcb_STATUS
-Hostlist::add(const char *hostport, long len, int deflport)
+lcb_STATUS Hostlist::add(const char *hostport, long len, int deflport)
 {
-    lcb_STATUS err = LCB_SUCCESS;
-
     if (len < 0) {
         len = strlen(hostport);
     }
@@ -206,13 +192,13 @@ Hostlist::add(const char *hostport, long len, int deflport)
     if (ss.empty()) {
         return LCB_SUCCESS;
     }
-    if (ss[ss.length()-1] != ';') {
+    if (ss[ss.length() - 1] != ';') {
         ss += ';';
     }
 
     const char *curstart = ss.c_str();
     const char *delim;
-    while ( (delim = strstr(curstart, ";"))) {
+    while ((delim = strstr(curstart, ";"))) {
         lcb_host_t curhost = {"", "", 0};
         size_t curlen;
 
@@ -224,7 +210,7 @@ Hostlist::add(const char *hostport, long len, int deflport)
         /** { 'f', 'o', 'o', ';' } */
         curlen = delim - curstart;
 
-        err = lcb_host_parse(&curhost, curstart, curlen, deflport);
+        lcb_STATUS err = lcb_host_parse(&curhost, curstart, curlen, deflport);
         if (err != LCB_SUCCESS) {
             return err;
         }
@@ -234,18 +220,17 @@ Hostlist::add(const char *hostport, long len, int deflport)
     return LCB_SUCCESS;
 }
 
-lcb_host_t *
-Hostlist::next(bool wrap)
+lcb_host_t *Hostlist::next(bool wrap)
 {
     lcb_host_t *ret;
     if (empty()) {
-        return NULL;
+        return nullptr;
     }
     if (ix == size()) {
         if (wrap) {
             ix = 0;
         } else {
-            return NULL;
+            return nullptr;
         }
     }
 
@@ -254,8 +239,7 @@ Hostlist::next(bool wrap)
     return ret;
 }
 
-void
-Hostlist::randomize()
+void Hostlist::randomize()
 {
     std::random_device rd;
     std::mt19937 g(rd());
@@ -263,12 +247,12 @@ Hostlist::randomize()
     reset_strlist();
 }
 
-void Hostlist::ensure_strlist() {
-    if (hoststrs.size()) {
+void Hostlist::ensure_strlist()
+{
+    if (!hoststrs.empty()) {
         return;
     }
-    for (size_t ii = 0; ii < hosts.size(); ii++) {
-        const lcb_host_t& host = hosts[ii];
+    for (auto &host : hosts) {
         std::string ss;
         if (host.ipv6) {
             ss.append("[").append(host.host).append("]");
@@ -281,11 +265,10 @@ void Hostlist::ensure_strlist() {
         memcpy(newstr, ss.c_str(), ss.size());
         hoststrs.push_back(newstr);
     }
-    hoststrs.push_back(NULL);
+    hoststrs.push_back(nullptr);
 }
 
-Hostlist&
-Hostlist::assign(const Hostlist& src)
+Hostlist &Hostlist::assign(const Hostlist &src)
 {
     clear();
     reset_strlist();

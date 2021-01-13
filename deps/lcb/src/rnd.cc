@@ -23,15 +23,15 @@
 LCB_INTERNAL_API
 lcb_U32 lcb_next_rand32(void)
 {
-    static thread_local std::mt19937 gen { std::random_device { } () };
-    std::uniform_int_distribution< lcb_U32 > dis;
+    static thread_local std::mt19937 gen{std::random_device{}()};
+    std::uniform_int_distribution<lcb_U32> dis;
     return dis(gen);
 }
 
 LCB_INTERNAL_API
 lcb_U64 lcb_next_rand64(void)
 {
-    static thread_local std::mt19937 gen { std::random_device { } () };
-    std::uniform_int_distribution< lcb_U64 > dis;
+    static thread_local std::mt19937 gen{std::random_device{}()};
+    std::uniform_int_distribution<lcb_U64> dis;
     return dis(gen);
 }

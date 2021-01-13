@@ -30,7 +30,7 @@ LIBCOUCHBASE_API
 lcbtrace_SPAN *lcbtrace_span_start(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF *ref)
 {
     lcbtrace_REF_TYPE type = LCBTRACE_REF_NONE;
-    lcbtrace_SPAN *other = NULL;
+    lcbtrace_SPAN *other = nullptr;
     if (ref) {
         type = ref->type;
         other = ref->span;
@@ -41,7 +41,7 @@ lcbtrace_SPAN *lcbtrace_span_start(lcbtrace_TRACER *tracer, const char *opname, 
 LIBCOUCHBASE_API
 lcbtrace_TRACER *lcb_get_tracer(lcb_INSTANCE *instance)
 {
-    return (instance && instance->settings) ? instance->settings->tracer : NULL;
+    return (instance && instance->settings) ? instance->settings->tracer : nullptr;
 }
 
 LIBCOUCHBASE_API

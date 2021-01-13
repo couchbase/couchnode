@@ -20,26 +20,23 @@
 
 using namespace lcb;
 
-lcb_AUTHENTICATOR *
-lcbauth_new()
+lcb_AUTHENTICATOR *lcbauth_new()
 {
     return new Authenticator();
 }
 
-lcb_STATUS
-lcbauth_add_pass(lcb_AUTHENTICATOR *auth, const char *u, const char *p, int flags)
+lcb_STATUS lcbauth_add_pass(lcb_AUTHENTICATOR *auth, const char *u, const char *p, int flags)
 {
     return auth->add(u, p, flags);
 }
 
-lcb_STATUS
-Authenticator::add(const char *u, const char *p, int flags)
+lcb_STATUS Authenticator::add(const char *u, const char *p, int flags)
 {
     if (!u) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
-    if (!(flags & (LCBAUTH_F_BUCKET|LCBAUTH_F_CLUSTER))) {
+    if (!(flags & (LCBAUTH_F_BUCKET | LCBAUTH_F_CLUSTER))) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
@@ -70,13 +67,13 @@ Authenticator::add(const char *u, const char *p, int flags)
 
 static const std::string EmptyString;
 
-const std::string Authenticator::username_for(const char *host, const char *port, const char *bucket) const
+std::string Authenticator::username_for(const char *host, const char *port, const char *bucket) const
 {
     switch (m_mode) {
         case LCBAUTH_MODE_RBAC:
             return m_username;
         case LCBAUTH_MODE_DYNAMIC:
-            if (m_usercb != NULL) {
+            if (m_usercb != nullptr) {
                 return m_usercb(m_cookie, host, port, bucket);
             }
             break;
@@ -91,13 +88,13 @@ const std::string Authenticator::username_for(const char *host, const char *port
     return EmptyString;
 }
 
-const std::string Authenticator::password_for(const char *host, const char *port, const char *bucket) const
+std::string Authenticator::password_for(const char *host, const char *port, const char *bucket) const
 {
     switch (m_mode) {
         case LCBAUTH_MODE_RBAC:
             return m_password;
         case LCBAUTH_MODE_DYNAMIC:
-            if (m_passcb != NULL) {
+            if (m_passcb != nullptr) {
                 return m_passcb(m_cookie, host, port, bucket);
             }
             break;
@@ -111,14 +108,12 @@ const std::string Authenticator::password_for(const char *host, const char *port
     return EmptyString;
 }
 
-void
-lcbauth_ref(lcb_AUTHENTICATOR *auth)
+void lcbauth_ref(lcb_AUTHENTICATOR *auth)
 {
     auth->incref();
 }
 
-void
-lcbauth_unref(lcb_AUTHENTICATOR *auth)
+void lcbauth_unref(lcb_AUTHENTICATOR *auth)
 {
     auth->decref();
 }
@@ -129,18 +124,18 @@ Authenticator::Authenticator(const Authenticator &other)
 {
 }
 
-lcb_AUTHENTICATOR *
-lcbauth_clone(const lcb_AUTHENTICATOR *src) {
+lcb_AUTHENTICATOR *lcbauth_clone(const lcb_AUTHENTICATOR *src)
+{
     return new Authenticator(*src);
 }
 
-lcb_STATUS
-lcbauth_set_mode(lcb_AUTHENTICATOR *src, lcbauth_MODE mode) {
+lcb_STATUS lcbauth_set_mode(lcb_AUTHENTICATOR *src, lcbauth_MODE mode)
+{
     return src->set_mode(mode);
 }
 
 lcb_STATUS lcbauth_set_callbacks(lcb_AUTHENTICATOR *auth, void *cookie, lcb_AUTHCALLBACK usercb,
-                                  lcb_AUTHCALLBACK passcb)
+                                 lcb_AUTHCALLBACK passcb)
 {
     return auth->set_callbacks(cookie, usercb, passcb);
 }

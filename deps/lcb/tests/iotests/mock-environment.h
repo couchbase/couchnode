@@ -369,6 +369,8 @@ class MockEnvironment : public ::testing::Environment
 
     const Json::Value getKeyInfo(std::string key, std::string bucket = "");
 
+    const int getKeyIndex(lcb_INSTANCE *instance, std::string &key, std::string bucket = "", int level = 0);
+
     /**
      * Create a connection to the mock/real server.
      *

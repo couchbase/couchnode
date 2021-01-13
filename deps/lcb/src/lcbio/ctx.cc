@@ -19,7 +19,6 @@
 #include "iotable.h"
 #include "timer-ng.h"
 #include "ioutils.h"
-#include <stdio.h>
 #include <lcbio/ssl.h>
 
 #define CTX_FD(ctx) (ctx)->fd
@@ -40,7 +39,7 @@ typedef enum { ES_ACTIVE = 0, ES_DETACHED } easy_state;
 
 static void err_handler(void *cookie)
 {
-    lcbio_CTX *ctx = (void *)cookie;
+    auto *ctx = static_cast<lcbio_CTX *>(cookie);
     ctx->procs.cb_err(ctx, ctx->err);
 }
 
@@ -67,7 +66,7 @@ static lcb_STATUS convert_lcberr(const lcbio_CTX *ctx, lcbio_IOSTATUS status)
 
 lcbio_CTX *lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *procs)
 {
-    lcbio_CTX *ctx = calloc(1, sizeof(*ctx));
+    auto *ctx = new lcbio_CTX{};
     ctx->sock = sock;
     sock->ctx = ctx;
     ctx->io = sock->io;
@@ -99,16 +98,16 @@ lcbio_CTX *lcbio_ctx_new(lcbio_SOCKET *sock, void *data, const lcbio_CTXPROCS *p
 static void free_ctx(lcbio_CTX *ctx)
 {
     rdb_cleanup(&ctx->ior);
-    lcbio_unref(ctx->sock);
-    if (ctx->output) {
+    lcbio_unref(ctx->sock) if (ctx->output)
+    {
         ringbuffer_destruct(&ctx->output->rb);
-        free(ctx->output);
+        delete ctx->output;
     }
     if (ctx->procs.cb_flush_ready) {
         /* dtor */
         ctx->procs.cb_flush_ready(ctx);
     }
-    free(ctx);
+    delete ctx;
 }
 
 static void deactivate_watcher(lcbio_CTX *ctx)
@@ -128,12 +127,12 @@ void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg, lcbio_C
     if (ctx->event) {
         deactivate_watcher(ctx);
         IOT_V0EV(CTX_IOT(ctx)).destroy(IOT_ARG(CTX_IOT(ctx)), ctx->event);
-        ctx->event = NULL;
+        ctx->event = nullptr;
     }
 
     if (ctx->as_err) {
         lcbio_timer_destroy(ctx->as_err);
-        ctx->as_err = NULL;
+        ctx->as_err = nullptr;
     }
 
     oldrc = ctx->sock->refcount;
@@ -145,30 +144,30 @@ void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg, lcbio_C
                        ctx->err == LCB_SUCCESS && /* no socket errors */
                        ctx->rdwant == 0 &&        /* no expected input */
                        ctx->wwant == 0 &&         /* no expected output */
-                       (ctx->output == NULL || ctx->output->rb.nbytes == 0);
+                       (ctx->output == nullptr || ctx->output->rb.nbytes == 0);
         cb(ctx->sock, reusable, arg);
     }
 
-    ctx->sock->ctx = NULL;
+    ctx->sock->ctx = nullptr;
     if (oldrc == ctx->sock->refcount) {
-        lcbio_unref(ctx->sock);
+        lcbio_unref(ctx->sock)
     }
 
     if (ctx->output) {
         ringbuffer_destruct(&ctx->output->rb);
-        free(ctx->output);
-        ctx->output = NULL;
+        delete ctx->output;
+        ctx->output = nullptr;
     }
 
     ctx->fd = INVALID_SOCKET;
-    ctx->sd = NULL;
+    ctx->sd = nullptr;
 
     if (dtor) {
         ctx->data = dtor_arg;
         ctx->procs.cb_flush_ready = dtor;
 
     } else {
-        ctx->procs.cb_flush_ready = NULL;
+        ctx->procs.cb_flush_ready = nullptr;
     }
 
     if (ctx->npending == 0 && ctx->entered == 0) {
@@ -178,7 +177,7 @@ void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg, lcbio_C
 
 void lcbio_ctx_close(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg)
 {
-    lcbio_ctx_close_ex(ctx, cb, arg, NULL, NULL);
+    lcbio_ctx_close_ex(ctx, cb, arg, nullptr, nullptr);
 }
 
 void lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf)
@@ -186,13 +185,8 @@ void lcbio_ctx_put(lcbio_CTX *ctx, const void *buf, unsigned nbuf)
     lcbio__EASYRB *erb = ctx->output;
 
     if (!erb) {
-        ctx->output = erb = calloc(1, sizeof(*ctx->output));
-
-        if (!erb) {
-            lcbio_ctx_senderr(ctx, LCB_ERR_NO_MEMORY);
-            return;
-        }
-
+        erb = new lcbio__EASYRB{};
+        ctx->output = erb;
         erb->parent = ctx;
 
         if (!ringbuffer_initialize(&erb->rb, nbuf)) {
@@ -222,7 +216,7 @@ static void set_iterbuf(lcbio_CTX *ctx, lcbio_CTXRDITER *iter)
         }
         iter->buf = rdb_get_consolidated(&ctx->ior, iter->nbuf);
     } else {
-        iter->buf = NULL;
+        iter->buf = nullptr;
     }
 }
 
@@ -268,7 +262,7 @@ static void send_io_error(lcbio_CTX *ctx, lcbio_IOSTATUS status)
 
 static void E_handler(lcb_socket_t sock, short which, void *arg)
 {
-    lcbio_CTX *ctx = arg;
+    auto *ctx = static_cast<lcbio_CTX *>(arg);
     lcbio_IOSTATUS status;
     (void)sock;
 
@@ -321,7 +315,7 @@ static void invoke_entered_errcb(lcbio_CTX *ctx, lcb_STATUS err)
 
 static void Cw_handler(lcb_sockdata_t *sd, int status, void *arg)
 {
-    lcbio__EASYRB *erb = arg;
+    auto *erb = static_cast<lcbio__EASYRB *>(arg);
     lcbio_CTX *ctx = erb->parent;
     (void)sd;
 
@@ -350,7 +344,7 @@ static void C_schedule(lcbio_CTX *ctx);
 
 static void Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
 {
-    lcbio_CTX *ctx = arg;
+    auto *ctx = static_cast<lcbio_CTX *>(arg);
     sd->is_reading = 0;
     ctx->npending--;
 
@@ -363,7 +357,7 @@ static void Cr_handler(lcb_sockdata_t *sd, lcb_ssize_t nr, void *arg)
             if (total >= ctx->rdwant) {
 #ifdef LCB_DUMP_PACKETS
                 {
-                    char *b64 = NULL;
+                    char *b64 = nullptr;
                     lcb_SIZE nb64 = 0;
                     char *buf = calloc(total, sizeof(char));
                     rdb_copyread(&ctx->ior, buf, total);
@@ -409,7 +403,7 @@ static void C_schedule(lcbio_CTX *ctx)
 
     if (ctx->output && ctx->output->rb.nbytes) {
         /** Schedule a write */
-        lcb_IOV iov[2] = {0};
+        lcb_IOV iov[2] = {};
         unsigned niov;
 
         ringbuffer_get_iov(&ctx->output->rb, RINGBUFFER_READ, iov);
@@ -419,11 +413,11 @@ static void C_schedule(lcbio_CTX *ctx)
             send_io_error(ctx, LCBIO_IOERR);
             return;
         } else {
-            ctx->output = NULL;
+            ctx->output = nullptr;
             ctx->npending++;
 #ifdef LCB_DUMP_PACKETS
             {
-                char *b64 = NULL;
+                char *b64 = nullptr;
                 int nb64 = 0;
                 lcb_base64_encode_iov((lcb_IOV *)iov, niov, iov[0].iov_len + iov[1].iov_len, &b64, &nb64);
                 lcb_log(LOGARGS(ctx, TRACE), CTX_LOGFMT "pkt,snd: size=%d, %.*s", CTX_LOGID(ctx), nb64, nb64, b64);
@@ -538,7 +532,7 @@ GT_WRITE0:
 
 static void Cw_ex_handler(lcb_sockdata_t *sd, int status, void *wdata)
 {
-    lcbio_CTX *ctx = ((lcbio_SOCKET *)sd->lcbconn)->ctx;
+    auto *ctx = static_cast<lcbio_CTX *>(((lcbio_SOCKET *)sd->lcbconn)->ctx);
     unsigned nflushed = (uintptr_t)wdata;
     ctx->npending--;
 

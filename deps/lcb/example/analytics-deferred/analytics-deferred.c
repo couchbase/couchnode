@@ -114,7 +114,7 @@ static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPANALYTI
         printf("\n");
     }
 
-    lcb_DEFERRED_HANDLE *handle;
+    lcb_DEFERRED_HANDLE *handle = NULL;
     lcb_respanalytics_deferred_handle_extract(resp, &handle);
     if (handle) {
         const char *status;

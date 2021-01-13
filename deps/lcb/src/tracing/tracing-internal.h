@@ -37,7 +37,7 @@ class Span
     ~Span();
 
     void finish(uint64_t finish);
-    uint64_t duration()
+    uint64_t duration() const
     {
         return m_finish - m_start;
     }
@@ -55,7 +55,7 @@ class Span
     uint64_t m_finish;
     bool m_orphaned;
     Span *m_parent;
-    sllist_root m_tags;
+    sllist_root m_tags{};
 };
 
 struct ReportedSpan {
@@ -68,29 +68,30 @@ struct ReportedSpan {
     }
 };
 
-template < typename T > class FixedQueue : private std::priority_queue< T >
+template <typename T>
+class FixedQueue : private std::priority_queue<T>
 {
   public:
     explicit FixedQueue(size_t capacity) : m_capacity(capacity) {}
 
     void push(const T &item)
     {
-        std::priority_queue< T >::push(item);
+        std::priority_queue<T>::push(item);
         if (this->size() > m_capacity) {
             this->c.pop_back();
         }
     }
-    using std::priority_queue< T >::empty;
-    using std::priority_queue< T >::top;
-    using std::priority_queue< T >::pop;
-    using std::priority_queue< T >::size;
+    using std::priority_queue<T>::empty;
+    using std::priority_queue<T>::top;
+    using std::priority_queue<T>::pop;
+    using std::priority_queue<T>::size;
 
   private:
     size_t m_capacity;
 };
 
 typedef ReportedSpan QueueEntry;
-typedef FixedQueue< QueueEntry > FixedSpanQueue;
+typedef FixedQueue<QueueEntry> FixedSpanQueue;
 class ThresholdLoggingTracer
 {
     lcbtrace_TRACER *m_wrapper;
@@ -114,8 +115,8 @@ class ThresholdLoggingTracer
     void do_flush_orphans();
     void do_flush_threshold();
 
-    lcb::io::Timer< ThresholdLoggingTracer, &ThresholdLoggingTracer::flush_orphans > m_oflush;
-    lcb::io::Timer< ThresholdLoggingTracer, &ThresholdLoggingTracer::flush_threshold > m_tflush;
+    lcb::io::Timer<ThresholdLoggingTracer, &ThresholdLoggingTracer::flush_orphans> m_oflush;
+    lcb::io::Timer<ThresholdLoggingTracer, &ThresholdLoggingTracer::flush_threshold> m_tflush;
 };
 
 } // namespace trace
@@ -149,7 +150,7 @@ void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, con
         lcbtrace_SPAN *span = MCREQ_PKT_RDATA(request)->span;                                                          \
         if (span) {                                                                                                    \
             lcbtrace_span_add_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, (response)->duration());                     \
-            lcb::Server *server = static_cast< lcb::Server * >(pipeline);                                              \
+            lcb::Server *server = static_cast<lcb::Server *>(pipeline);                                                \
             lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_PEER_ADDRESS, resp.ctx.endpoint);                      \
             lcbio_CTX *ctx = server->connctx;                                                                          \
             if (ctx) {                                                                                                 \
@@ -160,7 +161,7 @@ void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, con
                 lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, ctx->sock->info->ep_local);         \
             }                                                                                                          \
         }                                                                                                              \
-    } while (0);
+    } while (0)
 
 #define LCBTRACE_KV_CLOSE(request)                                                                                     \
     do {                                                                                                               \
@@ -169,10 +170,10 @@ void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, con
             lcbtrace_span_finish(span__, LCBTRACE_NOW);                                                                \
             MCREQ_PKT_RDATA(request)->span = NULL;                                                                     \
         }                                                                                                              \
-    } while (0);
+    } while (0)
 
 #define LCBTRACE_KV_FINISH(pipeline, request, resp, response)                                                          \
-    LCBTRACE_KV_COMPLETE(pipeline, request, resp, response)                                                            \
+    LCBTRACE_KV_COMPLETE(pipeline, request, resp, response);                                                           \
     LCBTRACE_KV_CLOSE(request)
 
 #ifdef __cplusplus

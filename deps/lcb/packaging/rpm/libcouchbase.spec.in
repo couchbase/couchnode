@@ -6,7 +6,7 @@ Vendor: Couchbase, Inc.
 Packager: Couchbase SDK Team <support@couchbase.com>
 License: ASL 2.0
 BuildRequires: gcc, gcc-c++
-BuildRequires: cmake >= 2.8.9
+BuildRequires: cmake3 >= 3.5.1
 BuildRequires: pkgconfig(libevent) >= 2
 BuildRequires: libev-devel >= 3
 BuildRequires: openssl-devel
@@ -59,7 +59,7 @@ Development files for the Couchbase Client & Protocol Library
 
 %prep
 %autosetup -p1 -n@TARREDAS@
-%cmake -DLCB_NO_MOCK=1 -DLCB_BUILD_LIBUV=OFF
+%cmake3 -DLCB_NO_MOCK=1 -DLCB_BUILD_LIBUV=OFF -DLCB_USE_HDR_HISTOGRAM=OFF -B . -S .
 
 %build
 %make_build
@@ -68,6 +68,7 @@ Development files for the Couchbase Client & Protocol Library
 %make_install
 
 %check
+export CTEST_OUTPUT_ON_FAILURE=1
 make %{_smp_mflags} alltests && make test
 
 %clean

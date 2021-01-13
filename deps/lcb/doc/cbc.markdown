@@ -124,7 +124,7 @@ In addition to the options in the [OPTIONS](#OPTIONS) section, the following opt
 
 * `d`, `--durability`=_LEVEL_:
   Specify durability level for mutation operations. Known values are: "none",
-  "majority", "majority\_and\_persist\_on\_master", "persist\_to\_majority".
+  "majority", "majority\_and\_persist\_to\_active", "persist\_to\_majority".
 
 * `p`, `--persist-to`=_NUMNODES_:
   Wait until the item has been persisted to at least `NUMNODES` nodes' disk. If

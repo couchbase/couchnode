@@ -25,6 +25,7 @@
 #include "bucketconfig/clconfig.h"
 #include <lcbio/iotable.h>
 #include <lcbio/ssl.h>
+
 #define LOGARGS(obj, lvl) (obj)->settings, "instance", LCB_LOG_##lvl, __FILE__, __LINE__
 
 using namespace lcb;
@@ -87,7 +88,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_createopts_io(lcb_CREATEOPTS *options, struct lc
 LIBCOUCHBASE_API
 const char *lcb_get_version(lcb_uint32_t *version)
 {
-    if (version != NULL) {
+    if (version != nullptr) {
         *version = (lcb_uint32_t)LCB_VERSION;
     }
 
@@ -124,7 +125,7 @@ void lcb_set_auth(lcb_INSTANCE *instance, lcb_AUTHENTICATOR *auth)
 
 void lcb_st::add_bs_host(const char *host, int port, unsigned bstype)
 {
-    const char *tname = NULL;
+    const char *tname = nullptr;
     lcb::Hostlist *target;
     if (bstype == LCB_CONFIG_TRANSPORT_CCCP) {
         tname = "CCCP";
@@ -133,7 +134,7 @@ void lcb_st::add_bs_host(const char *host, int port, unsigned bstype)
         tname = "HTTP";
         target = ht_nodes;
     }
-    bool ipv6 = strchr(host, ':') != NULL;
+    bool ipv6 = strchr(host, ':') != nullptr;
     lcb_log(LOGARGS(this, DEBUG), "Adding host " LCB_LOG_SPEC("%s%s%s:%d") " to initial %s bootstrap list",
             this->settings->log_redaction ? LCB_LOG_SD_OTAG : "", ipv6 ? "[" : "", host, ipv6 ? "]" : "", port,
             this->settings->log_redaction ? LCB_LOG_SD_CTAG : "", tname);
@@ -169,8 +170,7 @@ void lcb_st::populate_nodes(const Connspec &spec)
         defl_cccp = LCB_CONFIG_MCD_PORT;
     }
 
-    for (size_t ii = 0; ii < spec.hosts().size(); ++ii) {
-        const Spechost &dh = spec.hosts()[ii];
+    for (const auto &dh : spec.hosts()) {
         add_bs_host(dh, defl_http, defl_cccp);
     }
     lcb_log(LOGARGS(this, TRACE), "Bootstrap hosts loaded (cccp:%d, http:%d)", (int)mc_nodes->size(),
@@ -191,7 +191,7 @@ lcb_STATUS lcb_st::process_dns_srv(Connspec &spec)
     lcb_STATUS rc = LCB_ERR_SDK_INTERNAL;
     Hostlist *hl = dnssrv_getbslist(host.hostname.c_str(), spec.sslopts() & LCB_SSL_ENABLED, rc);
 
-    if (hl == NULL) {
+    if (hl == nullptr) {
         lcb_log(LOGARGS(this, INFO), "DNS SRV lookup failed: %s. Ignore this if not relying on DNS SRV records",
                 lcb_strerror_short(rc));
         if (spec.is_explicit_dnssrv()) {
@@ -206,7 +206,14 @@ lcb_STATUS lcb_st::process_dns_srv(Connspec &spec)
         const lcb_host_t &src = (*hl)[ii];
         Spechost sh;
         sh.hostname = src.host;
-        sh.port = std::atoi(src.port);
+        char *end = nullptr;
+        errno = 0;
+        long val = std::strtol(src.port, &end, 10);
+        if (errno == ERANGE || end == src.port) {
+            sh.port = 0;
+        } else {
+            sh.port = static_cast<std::uint16_t>(val);
+        }
         sh.type = spec.default_port();
         spec.add_host(sh);
         bool ipv6 = sh.hostname.find(':') != std::string::npos;
@@ -292,7 +299,7 @@ static lcb_STATUS init_providers(lcb_INSTANCE *obj, const Connspec &spec)
 static lcb_STATUS setup_ssl(lcb_INSTANCE *obj, const Connspec &params)
 {
     char optbuf[4096];
-    int env_policy = -1;
+    long env_policy = -1;
     lcb_settings *settings = obj->settings;
     lcb_STATUS err = LCB_SUCCESS;
 
@@ -307,24 +314,26 @@ static lcb_STATUS setup_ssl(lcb_INSTANCE *obj, const Connspec &params)
     }
 
     if (lcb_getenv_nonempty("LCB_SSL_MODE", optbuf, sizeof optbuf)) {
-        if (sscanf(optbuf, "%d", &env_policy) != 1) {
+        char *end = nullptr;
+        errno = 0;
+        env_policy = std::strtol(optbuf, &end, 10);
+        if (errno == ERANGE || optbuf == end) {
             lcb_log(LOGARGS(obj, ERR), "Invalid value for environment LCB_SSL. (%s)", optbuf);
             return LCB_ERR_BAD_ENVIRONMENT;
-        } else {
-            lcb_log(LOGARGS(obj, INFO), "SSL modified from environment. Policy is 0x%x", env_policy);
-            settings->sslopts = env_policy;
         }
+        lcb_log(LOGARGS(obj, INFO), "SSL modified from environment. Policy is 0x%lx", env_policy);
+        settings->sslopts = env_policy;
     }
 
-    if (settings->truststorepath == NULL && !params.truststorepath().empty()) {
+    if (settings->truststorepath == nullptr && !params.truststorepath().empty()) {
         settings->truststorepath = strdup(params.truststorepath().c_str());
     }
 
-    if (settings->certpath == NULL && !params.certpath().empty()) {
+    if (settings->certpath == nullptr && !params.certpath().empty()) {
         settings->certpath = strdup(params.certpath().c_str());
     }
 
-    if (settings->keypath == NULL && !params.keypath().empty()) {
+    if (settings->keypath == nullptr && !params.keypath().empty()) {
         settings->keypath = strdup(params.keypath().c_str());
     }
 
@@ -351,7 +360,7 @@ static lcb_STATUS setup_ssl(lcb_INSTANCE *obj, const Connspec &params)
         // keypath might be used to flag, that library is using SSL authentication
         // To avoid skipping other authentication mechanisms, cleanup the keypath.
         free(settings->keypath);
-        settings->keypath = NULL;
+        settings->keypath = nullptr;
     }
     return LCB_SUCCESS;
 }
@@ -359,11 +368,10 @@ static lcb_STATUS setup_ssl(lcb_INSTANCE *obj, const Connspec &params)
 static lcb_STATUS apply_spec_options(lcb_INSTANCE *obj, const Connspec &params)
 {
     lcb_STATUS err;
-    Connspec::Options::const_iterator ii = params.options().begin();
-    for (; ii != params.options().end(); ++ii) {
-        lcb_log(LOGARGS(obj, DEBUG), "Applying initial cntl %s=%s", ii->first.c_str(), ii->second.c_str());
+    for (const auto &ii : params.options()) {
+        lcb_log(LOGARGS(obj, DEBUG), "Applying initial cntl %s=%s", ii.first.c_str(), ii.second.c_str());
 
-        err = lcb_cntl_string(obj, ii->first.c_str(), ii->second.c_str());
+        err = lcb_cntl_string(obj, ii.first.c_str(), ii.second.c_str());
         if (err != LCB_SUCCESS) {
             return err;
         }
@@ -392,7 +400,7 @@ lcb_STATUS lcb_reinit(lcb_INSTANCE *obj, const char *connstr)
 {
     Connspec params;
     lcb_STATUS err;
-    const char *errmsg = NULL;
+    const char *errmsg = nullptr;
     err = params.parse(connstr, strlen(connstr), &errmsg);
 
     if (err != LCB_SUCCESS) {
@@ -422,9 +430,9 @@ LIBCOUCHBASE_API
 lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
 {
     Connspec spec;
-    struct lcb_io_opt_st *io_priv = NULL;
+    struct lcb_io_opt_st *io_priv = nullptr;
     lcb_INSTANCE_TYPE type = LCB_TYPE_BUCKET;
-    lcb_INSTANCE *obj = NULL;
+    lcb_INSTANCE *obj = nullptr;
     lcb_STATUS err;
     lcb_settings *settings;
 
@@ -441,7 +449,7 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
         goto GT_DONE;
     }
 
-    if ((obj = (lcb_INSTANCE *)calloc(1, sizeof(*obj))) == NULL) {
+    if ((obj = (lcb_INSTANCE *)calloc(1, sizeof(*obj))) == nullptr) {
         err = LCB_ERR_NO_MEMORY;
         goto GT_DONE;
     }
@@ -478,7 +486,7 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
     }
 
     settings->logger = spec.logger();
-    if (settings->logger == NULL) {
+    if (settings->logger == nullptr) {
         settings->logger = lcb_init_console_logger();
     }
     settings->iid = lcb_next_rand64();
@@ -492,15 +500,15 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
                                     "and support of issues may be challenging or not possible in this configuration");
     }
 
-    lcb_log(LOGARGS(obj, INFO), "Version=%s, Changeset=%s", lcb_get_version(NULL), LCB_VERSION_CHANGESET);
+    lcb_log(LOGARGS(obj, INFO), "Version=%s, Changeset=%s", lcb_get_version(nullptr), LCB_VERSION_CHANGESET);
     lcb_log(LOGARGS(obj, INFO), "Effective connection string: " LCB_LOG_SPEC("%s") ". Bucket=" LCB_LOG_SPEC("%s"),
             settings->log_redaction ? LCB_LOG_SD_OTAG : "", spec.connstr().c_str(),
             settings->log_redaction ? LCB_LOG_SD_CTAG : "", settings->log_redaction ? LCB_LOG_MD_OTAG : "",
             settings->bucket, settings->log_redaction ? LCB_LOG_MD_CTAG : "");
 
-    if (io_priv == NULL) {
+    if (io_priv == nullptr) {
         lcb_io_opt_t ops;
-        if ((err = lcb_create_io_ops(&ops, NULL)) != LCB_SUCCESS) {
+        if ((err = lcb_create_io_ops(&ops, nullptr)) != LCB_SUCCESS) {
             goto GT_DONE;
         }
         io_priv = ops;
@@ -557,7 +565,7 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
 GT_DONE:
     if (err != LCB_SUCCESS && obj) {
         lcb_destroy(obj);
-        *instance = NULL;
+        *instance = nullptr;
     } else {
         *instance = obj;
     }
@@ -578,7 +586,7 @@ typedef struct {
 
 static void sync_dtor_cb(void *arg)
 {
-    SYNCDTOR *sd = (SYNCDTOR *)arg;
+    auto *sd = (SYNCDTOR *)arg;
     if (sd->table->refcount == 2) {
         lcbio_timer_destroy(sd->timer);
         IOT_STOP(sd->table);
@@ -601,7 +609,7 @@ void lcb_destroy(lcb_INSTANCE *instance)
 #define DESTROY(fn, fld)                                                                                               \
     if (instance->fld) {                                                                                               \
         fn(instance->fld);                                                                                             \
-        instance->fld = NULL;                                                                                          \
+        instance->fld = nullptr;                                                                                       \
     }
 
     lcb_ASPEND *po = &instance->pendops;
@@ -610,18 +618,18 @@ void lcb_destroy(lcb_INSTANCE *instance)
 
     if (instance->cur_configinfo) {
         instance->cur_configinfo->decref();
-        instance->cur_configinfo = NULL;
+        instance->cur_configinfo = nullptr;
     }
-    instance->cmdq.config = NULL;
-    DESTROY(delete, bs_state);
-    DESTROY(delete, ht_nodes);
-    DESTROY(delete, mc_nodes);
-    DESTROY(delete, collcache);
+    instance->cmdq.config = nullptr;
+    DESTROY(delete, bs_state)
+    DESTROY(delete, ht_nodes)
+    DESTROY(delete, mc_nodes)
+    DESTROY(delete, collcache)
 
     if ((pendq = po->items[LCB_PENDTYPE_DURABILITY])) {
         std::vector<void *> dsets(pendq->begin(), pendq->end());
-        for (size_t ii = 0; ii < dsets.size(); ++ii) {
-            lcbdur_destroy(dsets[ii]);
+        for (auto &dset : dsets) {
+            lcbdur_destroy(dset);
         }
         pendq->clear();
     }
@@ -632,25 +640,25 @@ void lcb_destroy(lcb_INSTANCE *instance)
 
     if ((pendq = po->items[LCB_PENDTYPE_HTTP])) {
         for (it = pendq->begin(); it != pendq->end(); ++it) {
-            http::Request *htreq = reinterpret_cast<http::Request *>(*it);
+            auto *htreq = reinterpret_cast<http::Request *>(*it);
             htreq->block_callback();
             htreq->finish(LCB_ERR_GENERIC);
         }
     }
 
-    DESTROY(delete, retryq);
-    DESTROY(delete, confmon);
-    DESTROY(do_pool_shutdown, memd_sockpool);
-    DESTROY(do_pool_shutdown, http_sockpool);
-    DESTROY(lcb_vbguess_destroy, vbguess);
-    DESTROY(lcb_n1qlcache_destroy, n1ql_cache);
+    DESTROY(delete, retryq)
+    DESTROY(delete, confmon)
+    DESTROY(do_pool_shutdown, memd_sockpool)
+    DESTROY(do_pool_shutdown, http_sockpool)
+    DESTROY(lcb_vbguess_destroy, vbguess)
+    DESTROY(lcb_n1qlcache_destroy, n1ql_cache)
 
     if (instance->cmdq.pipelines) {
         unsigned ii;
         for (ii = 0; ii < instance->cmdq.npipelines; ii++) {
-            lcb::Server *server = static_cast<lcb::Server *>(instance->cmdq.pipelines[ii]);
+            auto *server = static_cast<lcb::Server *>(instance->cmdq.pipelines[ii]);
             if (server) {
-                server->instance = NULL;
+                server->instance = nullptr;
             }
         }
     }
@@ -659,7 +667,7 @@ void lcb_destroy(lcb_INSTANCE *instance)
 
     if (instance->settings && instance->settings->tracer) {
         lcbtrace_destroy(instance->settings->tracer);
-        instance->settings->tracer = NULL;
+        instance->settings->tracer = nullptr;
     }
 
     if (instance->iotable && instance->iotable->refcount > 1 && instance->settings && instance->settings->syncdtor) {
@@ -675,20 +683,19 @@ void lcb_destroy(lcb_INSTANCE *instance)
         } while (!sd.stopped);
     }
 
-    DESTROY(lcbio_table_unref, iotable);
-    DESTROY(lcb_settings_unref, settings);
-    DESTROY(lcb_histogram_destroy, kv_timings);
+    DESTROY(lcbio_table_unref, iotable)
+    DESTROY(lcb_settings_unref, settings)
+    DESTROY(lcb_histogram_destroy, kv_timings)
     if (instance->scratch) {
         delete instance->scratch;
-        instance->scratch = NULL;
+        instance->scratch = nullptr;
     }
 
-    for (std::map<std::string, lcbcrypto_PROVIDER *>::iterator ii = instance->crypto->begin();
-         ii != instance->crypto->end(); ++ii) {
-        lcbcrypto_unref(ii->second);
+    for (auto &ii : *instance->crypto) {
+        lcbcrypto_unref(ii.second);
     }
     delete instance->crypto;
-    instance->crypto = NULL;
+    instance->crypto = nullptr;
 
     delete[] instance->dcpinfo;
     memset(instance, 0xff, sizeof(*instance));
@@ -698,7 +705,7 @@ void lcb_destroy(lcb_INSTANCE *instance)
 
 static void destroy_cb(void *arg)
 {
-    lcb_INSTANCE *instance = (lcb_INSTANCE *)arg;
+    auto *instance = static_cast<lcb_INSTANCE *>(arg);
     lcbio_timer_destroy(instance->dtor_timer);
     lcb_destroy(instance);
 }
@@ -715,12 +722,12 @@ lcb::Server *lcb_st::find_server(const lcb_host_t &host) const
 {
     unsigned ii;
     for (ii = 0; ii < cmdq.npipelines; ii++) {
-        lcb::Server *server = static_cast<lcb::Server *>(cmdq.pipelines[ii]);
+        auto *server = static_cast<lcb::Server *>(cmdq.pipelines[ii]);
         if (server && server->has_valid_host() && lcb_host_equals(&server->get_host(), &host)) {
             return server;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 LIBCOUCHBASE_API
@@ -732,12 +739,12 @@ lcb_STATUS lcb_connect(lcb_INSTANCE *instance)
 LIBCOUCHBASE_API
 lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_len)
 {
-    if (bucket == NULL) {
-        lcb_log(LOGARGS(instance, ERR), "Bucket name cannot be a NULL, sorry");
+    if (bucket == nullptr) {
+        lcb_log(LOGARGS(instance, ERR), "Bucket name cannot be a nullptr, sorry");
         return LCB_ERR_INVALID_ARGUMENT;
     }
     lcbvb_CONFIG *cfg = LCBT_VBCONFIG(instance);
-    if (cfg == NULL) {
+    if (cfg == nullptr) {
         lcb_log(LOGARGS(instance, ERR),
                 "The instance wasn't not bootstrapped, unable to associate it with bucket, sorry");
         return LCB_ERR_INVALID_ARGUMENT;
@@ -749,6 +756,19 @@ lcb_STATUS lcb_open(lcb_INSTANCE *instance, const char *bucket, size_t bucket_le
     instance->settings->conntype = LCB_TYPE_BUCKET;
     instance->settings->bucket = (char *)calloc(bucket_len + 1, sizeof(char));
     memcpy(instance->settings->bucket, bucket, bucket_len);
+    for (unsigned ii = 0; ii < instance->cmdq.npipelines; ii++) {
+        auto *server = static_cast<lcb::Server *>(instance->cmdq.pipelines[ii]);
+        if (!server->selected_bucket && server->connctx) {
+            lcb::MemcachedRequest req(PROTOCOL_BINARY_CMD_SELECT_BUCKET);
+            req.opaque(0xcafe);
+            req.sizes(0, bucket_len, 0);
+            lcbio_ctx_put(server->connctx, req.data(), req.size());
+            server->bucket.assign(bucket, bucket_len);
+            lcbio_ctx_put(server->connctx, bucket, bucket_len);
+            server->flush();
+        }
+    }
+
     return instance->bootstrap(BS_REFRESH_OPEN_BUCKET);
 }
 
@@ -847,11 +867,11 @@ int lcb_supports_feature(int n)
 
 LCB_INTERNAL_API void lcb_loop_ref(lcb_INSTANCE *instance)
 {
-    lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
+    lcb_aspend_add(&instance->pendops, LCB_PENDTYPE_COUNTER, nullptr);
 }
 LCB_INTERNAL_API void lcb_loop_unref(lcb_INSTANCE *instance)
 {
-    lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, NULL);
+    lcb_aspend_del(&instance->pendops, LCB_PENDTYPE_COUNTER, nullptr);
     lcb_maybe_breakout(instance);
 }
 
@@ -891,11 +911,11 @@ static bool is_valid_collection_char(char ch)
 
 static bool is_valid_collection_element(const char *element, size_t element_len)
 {
-    if (element_len == 0 && element == NULL) {
-        /* NULL/0 for collection is mapped to default collection */
+    if (element_len == 0 || element == nullptr) {
+        /* nullptr/0 for collection is mapped to default collection */
         return true;
     }
-    if (element_len < 1 || element_len > 30 || element == NULL) {
+    if (element_len < 1 || element_len > 30 || element == nullptr) {
         return false;
     }
     for (size_t i = 0; i < element_len; ++i) {
@@ -906,30 +926,36 @@ static bool is_valid_collection_element(const char *element, size_t element_len)
     return true;
 }
 
-LCB_INTERNAL_API int lcb_is_collection_valid(const char *scope, size_t scope_len, const char *collection,
-                                             size_t collection_len)
+LCB_INTERNAL_API lcb_STATUS lcb_is_collection_valid(lcb_INSTANCE *instance, const char *scope, size_t scope_len,
+                                                    const char *collection, size_t collection_len)
 {
-    return is_valid_collection_element(scope, scope_len) && is_valid_collection_element(collection, collection_len);
+    if (!LCBT_SETTING(instance, use_collections) && (scope_len || collection_len)) {
+        return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
+    }
+    if (is_valid_collection_element(scope, scope_len) && is_valid_collection_element(collection, collection_len)) {
+        return LCB_SUCCESS;
+    }
+    return LCB_ERR_INVALID_ARGUMENT;
 }
 
 LIBCOUCHBASE_API
 lcb_STATUS lcb_enable_timings(lcb_INSTANCE *instance)
 {
-    if (instance->kv_timings != NULL) {
+    if (instance->kv_timings != nullptr) {
         return LCB_ERR_DOCUMENT_EXISTS;
     }
     instance->kv_timings = lcb_histogram_create();
-    return instance->kv_timings == NULL ? LCB_ERR_NO_MEMORY : LCB_SUCCESS;
+    return instance->kv_timings == nullptr ? LCB_ERR_NO_MEMORY : LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API
 lcb_STATUS lcb_disable_timings(lcb_INSTANCE *instance)
 {
-    if (instance->kv_timings == NULL) {
+    if (instance->kv_timings == nullptr) {
         return LCB_ERR_DOCUMENT_NOT_FOUND;
     }
     lcb_histogram_destroy(instance->kv_timings);
-    instance->kv_timings = NULL;
+    instance->kv_timings = nullptr;
     return LCB_SUCCESS;
 }
 
@@ -942,7 +968,7 @@ typedef struct {
 static void timings_wrapper_callback(const void *cookie, lcb_timeunit_t unit, lcb_U32 start, lcb_U32 end, lcb_U32 val,
                                      lcb_U32 max)
 {
-    const timings_wrapper *wrap = (const timings_wrapper *)cookie;
+    const auto *wrap = (const timings_wrapper *)cookie;
     wrap->real_cb(wrap->instance, wrap->real_cookie, unit, start, end, val, max);
 }
 

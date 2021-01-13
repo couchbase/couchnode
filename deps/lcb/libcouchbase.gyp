@@ -86,7 +86,7 @@
          'contrib/cbsasl/src/hash.c',
          'contrib/cbsasl/src/cram-md5/hmac.c',
          'contrib/cbsasl/src/cram-md5/md5.c',
-         'contrib/cbsasl/src/scram-sha/scram_utils.c'
+         'contrib/cbsasl/src/scram-sha/scram_utils.cc'
       ],
       'conditions': [
         ['OS=="win" and node_major_version<6', {
@@ -105,19 +105,6 @@
       'sources': [
         'contrib/cJSON/cJSON.c'
       ]
-    },
-
-    #libgenhash
-    {
-      'target_name': 'genhash',
-      'product_prefix': 'lib',
-      'type': 'static_library',
-      'include_dirs': [
-        './'
-      ],
-      'sources': [
-        'contrib/genhash/genhash.c'
-       ]
     },
 
     #libhttpparser
@@ -197,24 +184,28 @@
         './'
       ],
       'sources': [
-        'src/analytics/analytics.cc',
+        'src/analytics/analyticscore.cc',
         'src/bucketconfig/bc_cccp.cc',
         'src/bucketconfig/bc_file.cc',
         'src/bucketconfig/bc_http.cc',
         'src/bucketconfig/bc_static.cc',
         'src/bucketconfig/confmon.cc',
+        'src/capi/analytics.cc',
+        'src/capi/query.cc',
+        'src/capi/search.cc',
+        'src/capi/views.cc',
         'src/docreq/docreq.cc',
         'src/http/http.cc',
         'src/http/http_io.cc',
         'src/jsparse/parser.cc',
         'src/lcbht/lcbht.cc',
         'src/lcbio/connect.cc',
-        'src/lcbio/ctx.c',
+        'src/lcbio/ctx.cc',
         'src/lcbio/iotable.c',
         'src/lcbio/ioutils.cc',
         'src/lcbio/manager.cc',
-        'src/lcbio/protoctx.c',
-        'src/lcbio/timer.c',
+        'src/lcbio/protoctx.cc',
+        'src/lcbio/timer.cc',
         'src/mc/compress.cc',
         'src/mc/forward.c',
         'src/mc/mcreq.c',
@@ -242,7 +233,7 @@
         'src/rdb/chunkalloc.c',
         'src/rdb/libcalloc.c',
         'src/rdb/rope.c',
-        'src/strcodecs/base64.c',
+        'src/strcodecs/base64.cc',
         'src/tracing/span.cc',
         'src/tracing/threshold_logging_tracer.cc',
         'src/tracing/tracer.cc',
@@ -263,7 +254,6 @@
         'src/getconfig.cc',
         'src/gethrtime.c',
         'src/handler.cc',
-        'src/hashtable.c',
         # 'src/hdr_timings.c', we use timings.c
         'src/hostlist.cc',
         'src/instance.cc',
@@ -277,16 +267,15 @@
         'src/retryq.cc',
         'src/ringbuffer.c',
         'src/rnd.cc',
-        'src/settings.c',
+        'src/settings.cc',
         'src/timings.c',
-        'src/utilities.c',
+        'src/utilities.cc',
         'src/wait.cc',
 
         'plugins/io/select/plugin-select.c'
       ],
       'dependencies': [
         'httpparser',
-        'genhash',
         'cjson',
         'cbsasl',
         'snappy',

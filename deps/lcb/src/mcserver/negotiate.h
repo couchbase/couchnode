@@ -115,14 +115,16 @@ class SessionInfo : public lcbio_PROTOCTX
      */
     bool has_feature(uint16_t feature) const;
     bool selected_bucket() const;
+    const std::string &bucket_name() const;
 
   private:
     SessionInfo();
     friend class lcb::SessionRequestImpl;
 
     std::string mech;
-    std::vector< uint16_t > server_features;
+    std::vector<uint16_t> server_features;
     bool selected;
+    std::string bucket_name_{};
 };
 
 } // namespace lcb

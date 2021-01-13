@@ -750,10 +750,11 @@ lcb_STATUS MultiBuilder::add_spec(const lcb_SDSPEC *spec)
     return LCB_SUCCESS;
 }
 
-static lcb_STATUS subdoc_validate(lcb_INSTANCE *, const lcb_CMDSUBDOC *cmd)
+static lcb_STATUS subdoc_validate(lcb_INSTANCE *instance, const lcb_CMDSUBDOC *cmd)
 {
-    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
-        return LCB_ERR_INVALID_ARGUMENT;
+    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
+    if (err != LCB_SUCCESS) {
+        return err;
     }
     // First validate the command
     if (cmd->nspecs == 0) {

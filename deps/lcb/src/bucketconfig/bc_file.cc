@@ -18,48 +18,46 @@
 #include "internal.h"
 #include "clconfig.h"
 #include <lcbio/lcbio.h>
-#include <lcbio/timer-ng.h>
 #include <lcbio/timer-cxx.h>
 #include <fstream>
-#include <iostream>
 #include <istream>
 #include <cstring>
 
 #define CONFIG_CACHE_MAGIC "{{{fb85b563d0a8f65fa8d3d58f1b3a0708}}}"
 
-#define LOGARGS(pb, lvl) static_cast< Provider * >(pb)->parent->settings, "bc_file", LCB_LOG_##lvl, __FILE__, __LINE__
+#define LOGARGS(pb, lvl) static_cast<Provider *>(pb)->parent->settings, "bc_file", LCB_LOG_##lvl, __FILE__, __LINE__
 #define LOGFMT "(cache=%s) "
 #define LOGID(fb) fb->filename.c_str()
 
 using namespace lcb::clconfig;
 
 struct FileProvider : Provider, Listener {
-    FileProvider(Confmon *confmon);
-    ~FileProvider();
+    explicit FileProvider(Confmon *parent_);
+    ~FileProvider() override;
 
     enum Status { CACHE_ERROR, NO_CHANGES, UPDATED };
     Status load_cache();
     void reload_cache();
-    void maybe_remove_file()
+    void maybe_remove_file() const
     {
         if (!is_readonly && !filename.empty()) {
             remove(filename.c_str());
         }
     }
-    void write_cache(lcbvb_CONFIG *vbc);
+    void write_cache(lcbvb_CONFIG *cfg);
 
     /* Overrides */
-    ConfigInfo *get_cached();
-    lcb_STATUS refresh();
-    void dump(FILE *) const;
-    void clconfig_lsn(EventType, ConfigInfo *);
+    ConfigInfo *get_cached() override;
+    lcb_STATUS refresh() override;
+    void dump(FILE *) const override;
+    void clconfig_lsn(EventType, ConfigInfo *) override;
 
     std::string filename;
     ConfigInfo *config;
     time_t last_mtime;
     int last_errno;
     bool is_readonly; /* Whether the config cache should _not_ overwrite the file */
-    lcb::io::Timer< FileProvider, &FileProvider::reload_cache > timer;
+    lcb::io::Timer<FileProvider, &FileProvider::reload_cache> timer;
 };
 
 FileProvider::Status FileProvider::load_cache()
@@ -76,7 +74,8 @@ FileProvider::Status FileProvider::load_cache()
         return CACHE_ERROR;
     }
 
-    struct stat st;
+    struct stat st {
+    };
     if (stat(filename.c_str(), &st)) {
         last_errno = errno;
         return CACHE_ERROR;
@@ -93,12 +92,12 @@ FileProvider::Status FileProvider::load_cache()
         return CACHE_ERROR;
     }
     ifs.seekg(0, std::ios::beg);
-    std::vector< char > buf(fsize);
+    std::vector<char> buf(fsize);
     ifs.read(&buf[0], fsize);
     buf.push_back(0); // NUL termination
 
     char *end = std::strstr(&buf[0], CONFIG_CACHE_MAGIC);
-    if (end == NULL) {
+    if (end == nullptr) {
         lcb_log(LOGARGS(this, ERROR), LOGFMT "Couldn't find magic", LOGID(this));
         maybe_remove_file();
         return CACHE_ERROR;
@@ -106,7 +105,7 @@ FileProvider::Status FileProvider::load_cache()
     *end = '\0'; // Stop parsing at MAGIC
 
     lcbvb_CONFIG *vbc = lcbvb_create();
-    if (vbc == NULL) {
+    if (vbc == nullptr) {
         return CACHE_ERROR;
     }
 
@@ -124,8 +123,8 @@ FileProvider::Status FileProvider::load_cache()
         goto GT_DONE;
     }
 
-    if (settings().bucket == NULL) {
-        lcb_log(LOGARGS(this, ERROR), LOGFMT "Bucket name is NULL", LOGID(this));
+    if (settings().bucket == nullptr) {
+        lcb_log(LOGARGS(this, ERROR), LOGFMT "Bucket name is nullptr", LOGID(this));
         goto GT_DONE;
     }
 
@@ -138,14 +137,14 @@ FileProvider::Status FileProvider::load_cache()
         config->decref();
     }
 
-    config = ConfigInfo::create(vbc, CLCONFIG_FILE);
+    config = ConfigInfo::create(vbc, CLCONFIG_FILE, filename);
     last_mtime = st.st_mtime;
 
     status = UPDATED;
-    vbc = NULL;
+    vbc = nullptr;
 
 GT_DONE:
-    if (vbc != NULL) {
+    if (vbc != nullptr) {
         lcbvb_destroy(vbc);
     }
     return status;
@@ -172,7 +171,7 @@ void FileProvider::write_cache(lcbvb_CONFIG *cfg)
 
 ConfigInfo *FileProvider::get_cached()
 {
-    return filename.empty() ? NULL : config;
+    return filename.empty() ? nullptr : config;
 }
 
 void FileProvider::reload_cache()
@@ -229,7 +228,7 @@ void FileProvider::dump(FILE *fp) const
 }
 
 FileProvider::FileProvider(Confmon *parent_)
-    : Provider(parent_, CLCONFIG_FILE), config(NULL), last_mtime(0), last_errno(0), is_readonly(false),
+    : Provider(parent_, CLCONFIG_FILE), config(nullptr), last_mtime(0), last_errno(0), is_readonly(false),
       timer(parent_->iot, this)
 {
     parent->add_listener(this);
@@ -239,9 +238,9 @@ static std::string mkcachefile(const char *name, const char *bucket)
 {
     std::string buffer;
     bool is_dir = false;
-    if (name != NULL) {
+    if (name != nullptr) {
         buffer = std::string(name);
-        if (buffer.size() > 0 && buffer[buffer.size() - 1] == '/') {
+        if (!buffer.empty() && buffer[buffer.size() - 1] == '/') {
             is_dir = true;
         }
     } else {
@@ -253,7 +252,7 @@ static std::string mkcachefile(const char *name, const char *bucket)
         is_dir = true;
     }
     if (is_dir) {
-        if (bucket == NULL) {
+        if (bucket == nullptr) {
             return "";
         }
         // append bucket name only if we know that
@@ -266,8 +265,8 @@ static std::string mkcachefile(const char *name, const char *bucket)
 
 bool lcb::clconfig::file_set_filename(Provider *p, const char *f, bool ro)
 {
-    FileProvider *provider = static_cast< FileProvider * >(p);
-    provider->enabled = 1;
+    auto *provider = static_cast<FileProvider *>(p);
+    provider->enabled = true;
     provider->filename = mkcachefile(f, p->parent->settings->bucket);
     if (provider->filename.empty()) {
         return false;
@@ -288,9 +287,9 @@ bool lcb::clconfig::file_set_filename(Provider *p, const char *f, bool ro)
 
 const char *lcb::clconfig::file_get_filename(Provider *p)
 {
-    FileProvider *fp = static_cast< FileProvider * >(p);
+    auto *fp = static_cast<FileProvider *>(p);
     if (fp->filename.empty()) {
-        return NULL;
+        return nullptr;
     } else {
         return fp->filename.c_str();
     }
@@ -298,7 +297,7 @@ const char *lcb::clconfig::file_get_filename(Provider *p)
 
 void lcb::clconfig::file_set_readonly(Provider *p, bool val)
 {
-    static_cast< FileProvider * >(p)->is_readonly = val;
+    static_cast<FileProvider *>(p)->is_readonly = val;
 }
 
 Provider *lcb::clconfig::new_file_provider(Confmon *mon)

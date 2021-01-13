@@ -42,8 +42,8 @@ class Authenticator
     }
 
     // Get the username and password for a specific bucket
-    const std::string username_for(const char *host, const char *port, const char *bucket) const;
-    const std::string password_for(const char *host, const char *port, const char *bucket) const;
+    std::string username_for(const char *host, const char *port, const char *bucket) const;
+    std::string password_for(const char *host, const char *port, const char *bucket) const;
 
     const Map &buckets() const
     {

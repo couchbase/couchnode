@@ -61,7 +61,7 @@
 #include "config_static.h"
 #endif
 
-#define LCB_LIBDIR "${CMAKE_INSTALL_LIBDIR}/libcouchbase"
+#define LCB_LIBDIR "${CMAKE_INSTALL_FULL_LIBDIR}/${LCB_PLUGINS_DIR}"
 
 #define LCB_SYSTEM "${CMAKE_SYSTEM}"
 #define LCB_SYSTEM_PROCESSOR "${CMAKE_SYSTEM_PROCESSOR}"
@@ -77,3 +77,5 @@
 #cmakedefine LCB_DUMP_PACKETS
 
 #cmakedefine LCB_TLS_LOG_KEYS
+
+#cmakedefine LCB_USE_ASAN

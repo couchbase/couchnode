@@ -16,7 +16,13 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
+# centos-7:      2.8.12
+# amazonlinux-2: 2.8.12.2
+# ubuntu-16.04:  3.5.1
+# debian-9:      3.7.2
+# amazonlinux-2: 3.13.1 (cmake3 package)
+# centos-7:      3.17.3 (cmake3 package from epel-release)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 
 ### BEGIN CONFIGURABLES ###
 # These variables can be modified as needed
@@ -24,7 +30,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 # Couchbase mock path to download
 SET(COUCHBASE_MOCK_VERSION 1.5.25)
 SET(COUCHBASE_MOCK_URL "https://github.com/couchbase/CouchbaseMock/releases/download/${COUCHBASE_MOCK_VERSION}/CouchbaseMock-${COUCHBASE_MOCK_VERSION}.jar")
-project(libcouchbase)
+project(libcouchbase VERSION 3.0.7 LANGUAGES C CXX)
 
 if (NOT CMAKE_VERSION VERSION_LESS "3.13")
     # CMP0077: option() honors normal variables
@@ -35,6 +41,7 @@ endif()
 OPTION(LCB_NO_TESTS "Disable building of tests" OFF)
 OPTION(LCB_NO_TOOLS "Disable building of additional tools" OFF)
 OPTION(LCB_NO_PLUGINS "Disable the building of IO plugins for external libs" OFF)
+SET(LCB_PLUGINS_DIR "libcouchbase" CACHE STRING "Directory for IO plugins")
 OPTION(LCB_BUILD_LIBEVENT "Build the libevent plugin" ON)
 OPTION(LCB_BUILD_LIBEV "Build the libev plugin (if available)" ON)
 OPTION(LCB_BUILD_LIBUV "Build the libuv plugin (if available)" ON)
@@ -48,7 +55,7 @@ OPTION(LCB_NO_MOCK "Don't run tests which depend on the mock" OFF)
 OPTION(LCB_BUILD_DTRACE "Build DTrace instrumentation, if available on platform" ON)
 OPTION(LCB_EMBED_PLUGIN_LIBEVENT "Embed the libevent plugin" OFF)
 OPTION(LCB_STATIC_LIBEVENT "Link static libevent (only applicable if EMBED_PLUGIN_LIBEVENT is ON" OFF)
-OPTION(LCB_USE_HDR_HISTOGRAM "Use HdrHistogram for statistics recording" OFF)
+OPTION(LCB_USE_HDR_HISTOGRAM "Use HdrHistogram for statistics recording" ON)
 OPTION(LCB_INSTALL_HEADERS "Install header files" ON)
 OPTION(LCB_INSTALL_LIBRARY "Install library files" ON)
 OPTION(LCB_INSTALL_PKGCONFIG "Install pkgconfig/libcouchbase.pc" ON)
@@ -104,11 +111,14 @@ IF(LCB_USE_PROFILER)
     INCLUDE(cmake/Modules/FindProfiler.cmake)
 ENDIF()
 IF(LCB_USE_HDR_HISTOGRAM)
-    INCLUDE(cmake/Modules/FindCouchbaseHdrHistogram.cmake)
-ENDIF()
-IF(HDR_HISTOGRAM_FOUND)
-    INCLUDE_DIRECTORIES(${HDR_HISTOGRAM_INCLUDES})
-    SET(LCB_HDR_HISTOGRAM_LINK "${HDR_HISTOGRAM_LIBRARIES}")
+    ADD_SUBDIRECTORY(contrib/HdrHistogram_c)
+    # Given we are linking hdr_histogram_static into libcouchbase.so, need
+    # -fPIC set also on hdr_histogram_static.
+    SET_TARGET_PROPERTIES(hdr_histogram_static
+            PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
+    INCLUDE_DIRECTORIES(contrib/HdrHistogram_c/src)
+    SET(LCB_HDR_HISTOGRAM_LINK hdr_histogram_static)
     LIST(APPEND LCB_CORE_SRC "src/hdr_timings.c")
 ELSE()
     SET(LCB_HDR_HISTOGRAM_LINK "")
@@ -207,6 +217,7 @@ INCLUDE_DIRECTORIES(BEFORE ${SOURCE_ROOT}/include
 # be considered as 'static'
 
 ADD_LIBRARY(couchbase_utils OBJECT ${LCB_UTILS_SRC})
+ADD_LIBRARY(couchbase_utils-cxx OBJECT ${LCB_UTILS_CXXSRC})
 
 MACRO(LCB_UTIL tgt)
     SET_TARGET_PROPERTIES(${tgt}
@@ -239,6 +250,7 @@ LCB_UTIL(netbuf)
 LCB_UTIL(rdb)
 LCB_UTIL(lcbio)
 LCB_CXXUTIL(lcbio-cxx)
+LCB_CXXUTIL(couchbase_utils-cxx)
 LCB_UTIL(couchbase_utils)
 LCB_UTIL(mcreq)
 LCB_CXXUTIL(mcreq-cxx)
@@ -302,11 +314,13 @@ INCLUDE_DIRECTORIES(contrib/snappy)
 SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:couchbase_select>
     $<TARGET_OBJECTS:couchbase_utils>
+    $<TARGET_OBJECTS:couchbase_utils-cxx>
     $<TARGET_OBJECTS:vbucket-lcb>
     $<TARGET_OBJECTS:mcreq>
     $<TARGET_OBJECTS:mcreq-cxx>
     $<TARGET_OBJECTS:netbuf>
     $<TARGET_OBJECTS:cbsasl-lcb>
+    $<TARGET_OBJECTS:cbsasl-lcb-cxx>
     $<TARGET_OBJECTS:lcbio>
     $<TARGET_OBJECTS:lcbio-cxx>
     $<TARGET_OBJECTS:rdb>

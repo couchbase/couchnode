@@ -180,7 +180,7 @@ struct Item : public CallbackCookie {
     lcb_U8 done;  /**< Whether we have a conclusive result for this entry */
 
     /** Array of servers which have satisfied constraints */
-    ServerInfo sinfo[4];
+    ServerInfo sinfo[4]{};
 };
 
 /**

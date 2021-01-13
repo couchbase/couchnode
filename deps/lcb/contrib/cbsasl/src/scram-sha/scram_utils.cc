@@ -18,7 +18,6 @@
 #include "config.h"
 #include <time.h>
 #include <ctype.h>
-
 #include "strcodecs/strcodecs.h"
 
 #ifndef LCB_NO_SSL
@@ -186,7 +185,7 @@ cbsasl_error_t parse_server_challenge(const char *serverin, unsigned int serveri
     // the server challenge is normally composed of 3 attributes, separated by commas
     do {
         unsigned int attrlen; // attribute length
-        ptr = memchr(ptr, ',', remainlen);
+        ptr = static_cast<const char *>(memchr(ptr, ',', remainlen));
         if (ptr != NULL) {
             // oldptr points to the beginning of the attribute
             // Ex: "r=xxxxx,s=zzzzzz,i=10"
@@ -396,7 +395,7 @@ cbsasl_error_t compute_client_proof(cbsasl_auth_mechanism_t auth_mech, const uns
     //                   server-first-message + "," +
     //                   client-final-message-without-proof
     unsigned int authmesslen = cfblen + 1 + sfmlen + 1 + cfwplen;
-    char *authmess = calloc(authmesslen + 1, 1); // +1 for the binary zero
+    char *authmess = static_cast<char *>(calloc(authmesslen + 1, 1)); // +1 for the binary zero
     if (NULL == authmess) {
         return SASL_NOMEM;
     }

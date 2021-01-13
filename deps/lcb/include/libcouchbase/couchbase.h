@@ -1498,6 +1498,8 @@ typedef enum {
      */
     LCB_HTTP_TYPE_PING = 6,
 
+    LCB_HTTP_TYPE_EVENTING = 7,
+
     LCB_HTTP_TYPE_MAX
 } lcb_HTTP_TYPE;
 

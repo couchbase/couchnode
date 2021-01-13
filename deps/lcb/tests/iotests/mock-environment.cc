@@ -233,6 +233,28 @@ const Json::Value MockEnvironment::getKeyInfo(std::string key, std::string bucke
     return resp.constResp()["payload"];
 }
 
+const int MockEnvironment::getKeyIndex(lcb_INSTANCE *instance, std::string &key, std::string bucket, int level)
+{
+    std::vector<int> indexes;
+    indexes.resize(getNumNodes());
+    const Json::Value info = getKeyInfo(key, bucket);
+    int serverIndex = 0;
+    for (Json::Value::const_iterator ii = info.begin(); ii != info.end(); ii++, serverIndex++) {
+        const Json::Value &node = *ii;
+        if (node.isNull()) {
+            continue;
+        }
+        int index = node["Conf"]["Index"].asInt();
+        std::string type = node["Conf"]["Type"].asString();
+        lcb_log(LOGARGS(instance, DEBUG), "Key '%s' found at index %d with type '%s' (node %d)", key.c_str(), index,
+                type.c_str(), serverIndex);
+        indexes[index] = serverIndex;
+    }
+
+    // Level is 0 for master, 1 for first replica copy, ...
+    return indexes[level];
+}
+
 void MockEnvironment::sendCommand(MockCommand &cmd)
 {
     std::string s = cmd.encode();

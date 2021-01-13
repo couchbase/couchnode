@@ -157,7 +157,6 @@ lcb_STATUS SeqnoDurset::after_add(Item &item, const lcb_CMDENDURE *cmd)
     }
 
     /* Set the fields */
-    memset(item.sinfo, 0, sizeof(item.sinfo[0]) * 4);
     item.uuid = LCB_MUTATION_TOKEN_ID(stok);
     ENT_SEQNO(&item) = LCB_MUTATION_TOKEN_SEQ(stok);
     return LCB_SUCCESS;

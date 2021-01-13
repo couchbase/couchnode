@@ -133,18 +133,16 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_expiry(lcb_CMDGET *cmd, uint32_t expirati
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_locktime(lcb_CMDGET *cmd, uint32_t duration)
 {
-    if (duration == 0) {
-        return LCB_ERR_INVALID_ARGUMENT;
-    }
     cmd->exptime = duration;
     cmd->lock = 1;
     return LCB_SUCCESS;
 }
 
-static lcb_STATUS get_validate(lcb_INSTANCE * /* instance */, const lcb_CMDGET *cmd)
+static lcb_STATUS get_validate(lcb_INSTANCE *instance, const lcb_CMDGET *cmd)
 {
-    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
-        return LCB_ERR_INVALID_ARGUMENT;
+    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
+    if (err != LCB_SUCCESS) {
+        return err;
     }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
@@ -339,10 +337,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_cas(lcb_CMDUNLOCK *cmd, uint64_t cas)
     return LCB_SUCCESS;
 }
 
-static lcb_STATUS unlock_validate(lcb_INSTANCE *, const lcb_CMDUNLOCK *cmd)
+static lcb_STATUS unlock_validate(lcb_INSTANCE *instance, const lcb_CMDUNLOCK *cmd)
 {
-    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
-        return LCB_ERR_INVALID_ARGUMENT;
+    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
+    if (err != LCB_SUCCESS) {
+        return err;
     }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
@@ -632,8 +631,9 @@ RGetCookie::RGetCookie(const void *cookie_, lcb_INSTANCE *instance_, lcb_replica
 
 static lcb_STATUS getreplica_validate(lcb_INSTANCE *instance, const lcb_CMDGETREPLICA *cmd)
 {
-    if (!lcb_is_collection_valid(cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection)) {
-        return LCB_ERR_INVALID_ARGUMENT;
+    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
+    if (err != LCB_SUCCESS) {
+        return err;
     }
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
@@ -652,7 +652,8 @@ static lcb_STATUS getreplica_validate(lcb_INSTANCE *instance, const lcb_CMDGETRE
     mcreq_map_key(cq, &cmd->key, MCREQ_PKT_BASESIZE, &vbid, &ixtmp);
     if (cmd->strategy == LCB_REPLICA_SELECT) {
         r0 = r1 = cmd->index;
-        if (lcbvb_vbreplica(cq->config, vbid, r0) < 0) {
+        int idx = lcbvb_vbreplica(cq->config, vbid, r0);
+        if (idx < 0) {
             return LCB_ERR_NO_MATCHING_SERVER;
         }
 

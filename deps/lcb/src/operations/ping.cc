@@ -116,7 +116,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_namespace(const lcb_RESPPING *re
         return LCB_ERR_OPTIONS_CONFLICT;
     }
     *name = resp->services[index].scope;
-    *name_len = (*name == NULL) ? 0 : strlen(*name);
+    *name_len = (*name == nullptr) ? 0 : strlen(*name);
     return LCB_SUCCESS;
 }
 
@@ -259,34 +259,34 @@ struct PingCookie : mc_REQDATAEX {
 
     ~PingCookie()
     {
-        for (std::list<lcb_PINGSVC>::iterator it = responses.begin(); it != responses.end(); it++) {
-            if (it->server) {
-                free((void *)it->server);
-                it->server = NULL;
-                free((void *)it->local);
-                it->local = NULL;
-                free((void *)it->id);
-                it->id = NULL;
+        for (auto &response : responses) {
+            if (response.server) {
+                free((void *)response.server);
+                response.server = nullptr;
+                free((void *)response.local);
+                response.local = nullptr;
+                free((void *)response.id);
+                response.id = nullptr;
             }
         }
     }
 
-    bool needMetrics()
+    bool needMetrics() const
     {
         return (options & LCB_PINGOPT_F_NOMETRICS) == 0;
     }
 
-    bool needJSON()
+    bool needJSON() const
     {
         return options & LCB_PINGOPT_F_JSON;
     }
 
-    bool needDetails()
+    bool needDetails() const
     {
         return options & LCB_PINGOPT_F_JSONDETAILS;
     }
 
-    bool needPretty()
+    bool needPretty() const
     {
         return options & LCB_PINGOPT_F_JSONPRETTY;
     }
@@ -294,7 +294,7 @@ struct PingCookie : mc_REQDATAEX {
 
 static void refcnt_dtor_ping(mc_PACKET *pkt)
 {
-    PingCookie *ck = static_cast<PingCookie *>(pkt->u_rdata.exdata);
+    auto *ck = static_cast<PingCookie *>(pkt->u_rdata.exdata);
     if (!--ck->remaining) {
         delete ck;
     }
@@ -402,16 +402,14 @@ static void invoke_ping_callback(lcb_INSTANCE *instance, PingCookie *ck)
     callback = lcb_find_callback(instance, LCB_CALLBACK_PING);
     ping.cookie = const_cast<void *>(ck->cookie);
     callback(instance, LCB_CALLBACK_PING, (lcb_RESPBASE *)&ping);
-    if (ping.services != NULL) {
-        delete[] ping.services;
-    }
+    delete[] ping.services;
     delete ck;
 }
 
 static void handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, const void *)
 {
-    lcb::Server *server = static_cast<lcb::Server *>(pipeline);
-    PingCookie *ck = (PingCookie *)req->u_rdata.exdata;
+    auto *server = static_cast<lcb::Server *>(pipeline);
+    auto *ck = (PingCookie *)req->u_rdata.exdata;
 
     if (ck->needMetrics()) {
         lcb_PINGSVC svc = {};
@@ -462,8 +460,8 @@ static void handle_http(lcb_INSTANCE *instance, lcb_PING_SERVICE type, const lcb
     if ((resp->rflags & LCB_RESP_F_FINAL) == 0) {
         return;
     }
-    PingCookie *ck = (PingCookie *)resp->cookie;
-    lcb::http::Request *htreq = reinterpret_cast<lcb::http::Request *>(resp->_htreq);
+    auto *ck = (PingCookie *)resp->cookie;
+    auto *htreq = reinterpret_cast<lcb::http::Request *>(resp->_htreq);
 
     if (ck->needMetrics()) {
         lcb_PINGSVC svc = {};
@@ -533,7 +531,7 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
         return LCB_ERR_NO_CONFIGURATION;
     }
 
-    PingCookie *ckwrap = new PingCookie(cookie, cmd->options);
+    auto *ckwrap = new PingCookie(cookie, cmd->options);
     {
         char id[20] = {0};
         snprintf(id, sizeof(id), "%p", (void *)instance);
@@ -598,9 +596,9 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
         lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_GET);                                                                \
         lcb_cmdhttp_handle(htcmd, &htreq);                                                                             \
         const lcb::Authenticator &auth = *instance->settings->auth;                                                    \
-        std::string username = auth.username_for(NULL, NULL, LCBT_SETTING(instance, bucket));                          \
+        std::string username = auth.username_for(nullptr, nullptr, LCBT_SETTING(instance, bucket));                    \
         lcb_cmdhttp_username(htcmd, username.c_str(), username.size());                                                \
-        std::string password = auth.password_for(NULL, NULL, LCBT_SETTING(instance, bucket));                          \
+        std::string password = auth.password_for(nullptr, nullptr, LCBT_SETTING(instance, bucket));                    \
         lcb_cmdhttp_password(htcmd, password.c_str(), password.size());                                                \
         lcb_cmdhttp_timeout(htcmd, LCB_NS2US(timeout));                                                                \
         rc = lcb_http(instance, ckwrap, htcmd);                                                                        \
@@ -618,7 +616,7 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
             PING_HTTP(LCBVB_SVCTYPE_VIEWS, "/", views_timeout, handle_views);
         }
         if (cmd->services & LCB_PINGSVC_F_FTS) {
-            PING_HTTP(LCBVB_SVCTYPE_SEARCH, "/api/ping", http_timeout, handle_fts);
+            PING_HTTP(LCBVB_SVCTYPE_SEARCH, "/api/ping", search_timeout, handle_fts);
         }
         if (cmd->services & LCB_PINGSVC_F_ANALYTICS) {
             PING_HTTP(LCBVB_SVCTYPE_ANALYTICS, "/admin/ping", analytics_timeout, handle_analytics);
@@ -707,7 +705,7 @@ lcb_STATUS lcb_diag(lcb_INSTANCE *instance, void *cookie, const lcb_CMDDIAG *cmd
     size_t ii;
     Json::Value kv;
     for (ii = 0; ii < instance->cmdq.npipelines; ii++) {
-        lcb::Server *server = static_cast<lcb::Server *>(instance->cmdq.pipelines[ii]);
+        auto *server = static_cast<lcb::Server *>(instance->cmdq.pipelines[ii]);
         lcbio_CTX *ctx = server->connctx;
         if (ctx) {
             Json::Value endpoint;
@@ -719,6 +717,9 @@ lcb_STATUS lcb_diag(lcb_INSTANCE *instance, void *cookie, const lcb_CMDDIAG *cmd
                     "[" + std::string(server->curhost->host) + "]:" + std::string(server->curhost->port);
             } else {
                 endpoint["remote"] = std::string(server->curhost->host) + ":" + std::string(server->curhost->port);
+            }
+            if (!server->bucket.empty()) {
+                endpoint["namespace"] = server->bucket;
             }
             if (ctx->sock) {
                 if (ctx->sock->info) {

@@ -1,7 +1,7 @@
 Source: libcouchbase
 Priority: optional
 Maintainer: Couchbase SDK Team <support@couchbase.com>
-Build-Depends: debhelper (>= 7.0.50~), cmake (>= 2.8.9), libevent-dev (>= 1.4), libev-dev (>= 3), libssl-dev
+Build-Depends: debhelper (>= 7.0.50~), cmake (>= 3.5.1), libevent-dev (>= 1.4), libev-dev (>= 3), libssl-dev
 Standards-Version: 3.9.2
 Section: libs
 Homepage: http://www.couchbase.com/develop/c/current

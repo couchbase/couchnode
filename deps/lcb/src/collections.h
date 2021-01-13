@@ -30,11 +30,11 @@ class CollectionCache
   public:
     CollectionCache();
 
-    ~CollectionCache();
+    ~CollectionCache() = default;
 
-    bool get(std::string path, uint32_t *cid);
+    bool get(const std::string &path, uint32_t *cid);
 
-    void put(std::string path, uint32_t cid);
+    void put(const std::string &path, uint32_t cid);
 
     std::string id_to_name(uint32_t cid);
 
@@ -79,9 +79,9 @@ GetCidCtx<Command, Operation, Destructor> *make_cid_ctx(std::string path, Operat
 template <typename Command, typename Operation, typename Destructor>
 static void handle_collcache_proc(mc_PIPELINE *pipeline, mc_PACKET *pkt, lcb_STATUS /* err */, const void *rb)
 {
-    lcb_INSTANCE *instance = reinterpret_cast<lcb_INSTANCE *>(pipeline->parent->cqdata);
+    auto *instance = reinterpret_cast<lcb_INSTANCE *>(pipeline->parent->cqdata);
     auto *ctx = static_cast<GetCidCtx<Command, Operation, Destructor> *>(pkt->u_rdata.exdata);
-    const lcb_RESPGETCID *resp = (const lcb_RESPGETCID *)rb;
+    const auto *resp = (const lcb_RESPGETCID *)rb;
     uint32_t cid = resp->collection_id;
     if (resp->ctx.rc == LCB_SUCCESS) {
         instance->collcache->put(ctx->path_, cid);
@@ -154,7 +154,7 @@ lcb_STATUS collcache_resolve(lcb_INSTANCE *instance, Command cmd, Operation op, 
         pkt->u_rdata.exdata->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
     pkt->flags |= MCREQ_F_REQEXT;
 
-    LCB_SCHED_ADD(instance, pl, pkt);
+    LCB_SCHED_ADD(instance, pl, pkt)
     return LCB_SUCCESS;
 }
 #else

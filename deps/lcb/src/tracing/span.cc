@@ -51,8 +51,9 @@ uint64_t lcbtrace_now()
     ret = (uint64_t)tb.time * 1000000; /* sec */
     ret += (uint64_t)tb.millitm * 1000;
 #else
-    struct timeval tv;
-    if (gettimeofday(&tv, NULL) == -1) {
+    struct timeval tv {
+    };
+    if (gettimeofday(&tv, nullptr) == -1) {
         return -1;
     }
     ret = (uint64_t)tv.tv_sec * 1000000;
@@ -75,7 +76,7 @@ void lcbtrace_span_finish(lcbtrace_SPAN *span, uint64_t now)
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, const char *value)
 {
-    if (!span || name == NULL || value == NULL) {
+    if (!span || name == nullptr || value == nullptr) {
         return;
     }
     span->add_tag(name, 0, value, 0);
@@ -84,7 +85,7 @@ void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, con
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_str(lcbtrace_SPAN *span, const char *name, const char *value)
 {
-    if (!span || name == NULL || value == NULL) {
+    if (!span || name == nullptr || value == nullptr) {
         return;
     }
     span->add_tag(name, 1, value, 1);
@@ -93,7 +94,7 @@ void lcbtrace_span_add_tag_str(lcbtrace_SPAN *span, const char *name, const char
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_uint64(lcbtrace_SPAN *span, const char *name, uint64_t value)
 {
-    if (!span || name == NULL) {
+    if (!span || name == nullptr) {
         return;
     }
     span->add_tag(name, 1, value);
@@ -102,7 +103,7 @@ void lcbtrace_span_add_tag_uint64(lcbtrace_SPAN *span, const char *name, uint64_
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_double(lcbtrace_SPAN *span, const char *name, double value)
 {
-    if (!span || name == NULL) {
+    if (!span || name == nullptr) {
         return;
     }
     span->add_tag(name, 1, value);
@@ -111,7 +112,7 @@ void lcbtrace_span_add_tag_double(lcbtrace_SPAN *span, const char *name, double 
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value)
 {
-    if (!span || name == NULL) {
+    if (!span || name == nullptr) {
         return;
     }
     span->add_tag(name, 1, (bool)value);
@@ -139,7 +140,7 @@ LIBCOUCHBASE_API
 lcbtrace_SPAN *lcbtrace_span_get_parent(lcbtrace_SPAN *span)
 {
     if (!span) {
-        return NULL;
+        return nullptr;
     }
     return span->m_parent;
 }
@@ -199,7 +200,7 @@ LIBCOUCHBASE_API
 const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span)
 {
     if (!span) {
-        return NULL;
+        return nullptr;
     }
     return span->m_opname.c_str();
 }
@@ -219,7 +220,7 @@ uint64_t lcbtrace_span_get_trace_id(lcbtrace_SPAN *span)
 LIBCOUCHBASE_API
 lcb_STATUS lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char **value, size_t *nvalue)
 {
-    if (!span || name == NULL || nvalue == NULL || value == NULL) {
+    if (!span || name == nullptr || nvalue == nullptr || value == nullptr) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
@@ -242,7 +243,7 @@ lcb_STATUS lcbtrace_span_get_tag_str(lcbtrace_SPAN *span, const char *name, char
 
 LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, const char *name, uint64_t *value)
 {
-    if (!span || name == NULL || value == NULL) {
+    if (!span || name == nullptr || value == nullptr) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
@@ -264,7 +265,7 @@ LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_uint64(lcbtrace_SPAN *span, co
 
 LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, const char *name, double *value)
 {
-    if (!span || name == NULL || value == NULL) {
+    if (!span || name == nullptr || value == nullptr) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
@@ -286,7 +287,7 @@ LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_double(lcbtrace_SPAN *span, co
 
 LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, const char *name, int *value)
 {
-    if (!span || name == NULL || value == NULL) {
+    if (!span || name == nullptr || value == nullptr) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
@@ -308,7 +309,7 @@ LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_tag_bool(lcbtrace_SPAN *span, cons
 
 LIBCOUCHBASE_API int lcbtrace_span_has_tag(lcbtrace_SPAN *span, const char *name)
 {
-    if (!span || name == NULL) {
+    if (!span || name == nullptr) {
         return 0;
     }
 
@@ -335,10 +336,10 @@ Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace
     add_tag(LCBTRACE_TAG_DB_TYPE, 0, "couchbase", 0);
     add_tag(LCBTRACE_TAG_SPAN_KIND, 0, "client", 0);
 
-    if (other != NULL && ref == LCBTRACE_REF_CHILD_OF) {
+    if (other != nullptr && ref == LCBTRACE_REF_CHILD_OF) {
         m_parent = other;
     } else {
-        m_parent = NULL;
+        m_parent = nullptr;
     }
 }
 
@@ -376,7 +377,7 @@ void Span::add_tag(const char *name, int copy_key, const char *value, int copy_v
 
 void Span::add_tag(const char *name, int copy_key, const char *value, size_t value_len, int copy_value)
 {
-    tag_value *val = (tag_value *)calloc(1, sizeof(tag_value));
+    auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_STRING;
     val->key.need_free = copy_key;
     if (copy_key) {
@@ -397,7 +398,7 @@ void Span::add_tag(const char *name, int copy_key, const char *value, size_t val
 
 void Span::add_tag(const char *name, int copy, uint64_t value)
 {
-    tag_value *val = (tag_value *)calloc(1, sizeof(tag_value));
+    auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_UINT64;
     val->key.need_free = copy;
     if (copy) {
@@ -411,7 +412,7 @@ void Span::add_tag(const char *name, int copy, uint64_t value)
 
 void Span::add_tag(const char *name, int copy, double value)
 {
-    tag_value *val = (tag_value *)calloc(1, sizeof(tag_value));
+    auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_DOUBLE;
     val->key.need_free = copy;
     if (copy) {
@@ -425,7 +426,7 @@ void Span::add_tag(const char *name, int copy, double value)
 
 void Span::add_tag(const char *name, int copy, bool value)
 {
-    tag_value *val = (tag_value *)calloc(1, sizeof(tag_value));
+    auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_BOOL;
     val->key.need_free = copy;
     if (copy) {

@@ -32,7 +32,7 @@ lcbio_PROTOCTX *lcbio_protoctx_get(const lcbio_SOCKET *sock, lcbio_PROTOID id)
             return cur;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 #define DEL_BY_ID 1
@@ -43,9 +43,7 @@ static lcbio_PROTOCTX *del_common(lcbio_SOCKET *sock, int mode, lcbio_PROTOID id
     LCB_LIST_SAFE_FOR(ll, next, &sock->protos)
     {
         lcbio_PROTOCTX *cur = LCB_LIST_ITEM(ll, lcbio_PROTOCTX, ll);
-        if (mode == DEL_BY_ID && cur->id != id) {
-            continue;
-        } else if (cur != ctx) {
+        if ((mode == DEL_BY_ID && cur->id != id) || cur != ctx) {
             continue;
         }
         lcb_list_delete(&cur->ll);
@@ -54,17 +52,17 @@ static lcbio_PROTOCTX *del_common(lcbio_SOCKET *sock, int mode, lcbio_PROTOID id
         }
         return cur;
     }
-    return NULL;
+    return nullptr;
 }
 
 lcbio_PROTOCTX *lcbio_protoctx_delid(lcbio_SOCKET *s, lcbio_PROTOID id, int dtor)
 {
-    return del_common(s, DEL_BY_ID, id, NULL, dtor);
+    return del_common(s, DEL_BY_ID, id, nullptr, dtor);
 }
 
 void lcbio_protoctx_delptr(lcbio_SOCKET *s, lcbio_PROTOCTX *ctx, int dtor)
 {
-    del_common(s, DEL_BY_PTR, 0, ctx, dtor);
+    del_common(s, DEL_BY_PTR, LCBIO_PROTOCTX_UNSPECIFIED, ctx, dtor);
 }
 
 void lcbio__protoctx_delall(lcbio_SOCKET *s)

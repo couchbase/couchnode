@@ -21,6 +21,8 @@
 #include <string>
 #include "docreq/docreq.h"
 
+#include "capi/views.hh"
+
 struct VRDocRequest : lcb::docreq::DocRequest {
     lcb_VIEW_HANDLE *parent;
     lcb_IOV key;

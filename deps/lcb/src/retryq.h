@@ -74,9 +74,9 @@ class RetryQueue
      * it may _not_ be used for memcached buckets (which is typically OK, as we only
      * map things here as a response for a not-my-vbucket).
      */
-    void add(mc_EXPACKET *detchpkt, lcb_STATUS err, errmap::RetrySpec *spec)
+    void add(mc_EXPACKET *detchpkt, lcb_STATUS err, protocol_binary_response_status status, errmap::RetrySpec *spec)
     {
-        add(detchpkt, err, spec, 0);
+        add(detchpkt, err, status, spec, 0);
     }
 
     /**
@@ -87,7 +87,7 @@ class RetryQueue
      * @param detchpkt The new packet
      */
     void nmvadd(mc_EXPACKET *detchpkt);
-    void ucadd(mc_EXPACKET *pkt, lcb_STATUS orig_err);
+    void ucadd(mc_EXPACKET *pkt, lcb_STATUS orig_err, protocol_binary_response_status status);
 
     /**
      * @brief Retry all queued operations
@@ -143,24 +143,24 @@ class RetryQueue
     inline void add_fallback(mc_PACKET *pkt);
 
   private:
-    void erase(RetryOp *);
-    void fail(RetryOp *, lcb_STATUS);
+    static void erase(RetryOp *);
+    void fail(RetryOp *, lcb_STATUS, hrtime_t);
     void schedule(hrtime_t now = 0);
     void flush(bool throttle);
     void update_trytime(RetryOp *op, hrtime_t now = 0);
     hrtime_t get_retry_interval() const;
     lcb_INSTANCE *get_instance() const
     {
-        return reinterpret_cast< lcb_INSTANCE * >(cq->cqdata);
+        return reinterpret_cast<lcb_INSTANCE *>(cq->cqdata);
     }
 
     enum AddOptions { RETRY_SCHED_IMM = 0x01 };
-    void add(mc_EXPACKET *pkt, lcb_STATUS, errmap::RetrySpec *, int options);
+    void add(mc_EXPACKET *pkt, lcb_STATUS, protocol_binary_response_status, errmap::RetrySpec *, int options);
 
     /** List of operations in retry ordering. Sorted by 'crtime' */
-    lcb_list_t schedops;
+    lcb_list_t schedops{};
     /** List of operations in timeout ordering. Ordered by 'start_time' */
-    lcb_list_t tmoops;
+    lcb_list_t tmoops{};
     /** Parent command queue */
     mc_CMDQUEUE *cq;
     lcb_settings *settings;

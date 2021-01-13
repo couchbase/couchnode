@@ -316,6 +316,7 @@ mc_PACKET *mcreq_allocate_packet(mc_PIPELINE *pipeline)
     ret->retries = 0;
     ret->opaque = pipeline->parent->seq++;
     ret->u_rdata.reqdata.span = NULL;
+    ret->u_rdata.reqdata.deadline = 0;
     return ret;
 }
 
@@ -720,7 +721,7 @@ void mcreq_queue_add_pipelines(mc_CMDQUEUE *queue, mc_PIPELINE *const *pipelines
     memcpy(queue->pipelines, pipelines, sizeof(*pipelines) * npipelines);
 
     free(queue->scheds);
-    queue->scheds = calloc(npipelines + 1, 1);
+    queue->scheds = calloc(npipelines + 1, sizeof(char));
 
     for (ii = 0; ii < npipelines; ii++) {
         pipelines[ii]->parent = queue;
@@ -835,6 +836,7 @@ void mcreq_sched_add(mc_PIPELINE *pipeline, mc_PACKET *pkt)
         lcb_INSTANCE *instance = (lcb_INSTANCE *)pipeline->parent->cqdata;
         MCREQ_PKT_RDATA(pkt)->deadline = instance ? LCBT_SETTING(instance, operation_timeout) : LCB_DEFAULT_TIMEOUT;
     }
+    lcb_assert(pipeline->index >= 0 && pipeline->index < (int)cq->_npipelines_ex);
     if (!cq->scheds[pipeline->index]) {
         cq->scheds[pipeline->index] = 1;
     }

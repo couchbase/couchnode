@@ -19,6 +19,7 @@
 #include "clconfig.h"
 #include <list>
 #include <algorithm>
+#include <utility>
 #include "trace.h"
 
 #define LOGARGS(mon, lvlbase) mon->settings, "confmon", LCB_LOG_##lvlbase, __FILE__, __LINE__
@@ -28,10 +29,10 @@ using namespace lcb::clconfig;
 
 Provider *Confmon::next_active(Provider *cur)
 {
-    ProviderList::iterator ii = std::find(active_providers.begin(), active_providers.end(), cur);
+    auto ii = std::find(active_providers.begin(), active_providers.end(), cur);
 
     if (ii == active_providers.end() || (++ii) == active_providers.end()) {
-        return NULL;
+        return nullptr;
     } else {
         return *ii;
     }
@@ -40,7 +41,7 @@ Provider *Confmon::next_active(Provider *cur)
 Provider *Confmon::first_active()
 {
     if (active_providers.empty()) {
-        return NULL;
+        return nullptr;
     } else {
         return active_providers.front();
     }
@@ -67,8 +68,9 @@ const char *provider_string(Method type)
 }
 
 Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_INSTANCE *instance_)
-    : cur_provider(NULL), config(NULL), settings(settings_), last_error(LCB_SUCCESS), iot(iot_), as_start(iot_, this),
-      as_stop(iot_, this), state(0), last_stop_us(0), instance(instance_), active_provider_list_id(0)
+    : cur_provider(nullptr), config(nullptr), settings(settings_), last_error(LCB_SUCCESS), iot(iot_),
+      as_start(iot_, this), as_stop(iot_, this), state(0), last_stop_us(0), instance(instance_),
+      active_provider_list_id(0)
 {
 
     lcbio_table_ref(iot);
@@ -80,8 +82,8 @@ Confmon::Confmon(lcb_settings *settings_, lcbio_pTABLE iot_, lcb_INSTANCE *insta
     all_providers[CLCONFIG_MCRAW] = new_mcraw_provider(this);
     all_providers[CLCONFIG_CLADMIN] = new_cladmin_provider(this);
 
-    for (size_t ii = 0; ii < CLCONFIG_MAX; ii++) {
-        all_providers[ii]->parent = this;
+    for (auto &provider : all_providers) {
+        provider->parent = this;
     }
 }
 
@@ -91,8 +93,7 @@ void Confmon::prepare()
     active_providers.clear();
     lcb_log(LOGARGS(this, DEBUG), "Preparing providers (this may be called multiple times)");
 
-    for (size_t ii = 0; ii < CLCONFIG_MAX; ii++) {
-        Provider *cur = all_providers[ii];
+    for (auto cur : all_providers) {
         if (cur) {
             if (cur->enabled) {
                 active_providers.push_back(cur);
@@ -114,16 +115,15 @@ Confmon::~Confmon()
 
     if (config) {
         config->decref();
-        config = NULL;
+        config = nullptr;
     }
 
-    for (size_t ii = 0; ii < CLCONFIG_MAX; ii++) {
-        Provider *provider = all_providers[ii];
-        if (provider == NULL) {
+    for (auto &provider : all_providers) {
+        if (provider == nullptr) {
             continue;
         }
         delete provider;
-        all_providers[ii] = NULL;
+        provider = nullptr;
     }
 
     lcbio_table_unref(iot);
@@ -148,30 +148,46 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
         lcbvb_CHANGETYPE chstatus = lcbvb_get_changetype(diff);
         lcbvb_free_diff(diff);
 
-        if (chstatus == LCBVB_NO_CHANGES && config->compare(*new_config) >= 0) {
+        if (config->compare(*new_config, chstatus) >= 0) {
             const lcbvb_CONFIG *ca, *cb;
 
             ca = config->vbc;
             cb = new_config->vbc;
 
             lcb_log(LOGARGS(this, TRACE),
-                    "Not applying configuration received via %s (bucket=%.*s). No changes detected. A.rev=%d, B.rev=%d",
+                    "Not applying configuration received via %s (bucket=\"%.*s\", source=%s, address=\"%s\"). No "
+                    "changes detected. A.rev=%d, B.rev=%d. Changes: servers=%s, map=%s, replicas=%s",
                     provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
-                    ca->revid, cb->revid);
+                    provider_string(new_config->get_origin()), new_config->get_address().c_str(), ca->revid, cb->revid,
+                    (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no", (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
+                    (chstatus & LCBVB_REPLICAS_MODIFIED) ? "yes" : "no");
             if (notify_miss) {
                 invoke_listeners(CLCONFIG_EVENT_GOT_ANY_CONFIG, new_config);
             }
             return 0;
         }
+
+        lcb_log(
+            LOGARGS(this, INFO),
+            R"(Setting new configuration. Received via %s (bucket="%.*s", rev=%d, address="%s"). Old config was from %s (bucket="%.*s", rev=%d, address="%s"). Changes: servers=%s, map=%s, replicas=%s)",
+            provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
+            new_config->vbc->revid, new_config->get_address().c_str(), provider_string(config->get_origin()),
+            (int)config->vbc->bname_len, config->vbc->bname, config->vbc->revid, config->get_address().c_str(),
+            (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no", (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
+            (chstatus & LCBVB_REPLICAS_MODIFIED) ? "yes" : "no");
+    } else {
+        lcb_log(LOGARGS(this, INFO),
+                R"(Setting initial configuration. Received via %s (bucket="%.*s", rev=%d, address="%s"))",
+                provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
+                new_config->vbc->revid, new_config->get_address().c_str());
     }
 
-    lcb_log(LOGARGS(this, INFO), "Setting new configuration. Received via %s",
-            provider_string(new_config->get_origin()));
     TRACE_NEW_CONFIG(instance, new_config);
 
     if (config) {
         /** DECREF the old one */
         config->decref();
+        config = nullptr;
     }
 
     for (ii = 0; ii < CLCONFIG_MAX; ii++) {
@@ -185,7 +201,7 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
     config = new_config;
     stop();
 
-    invoke_listeners(CLCONFIG_EVENT_GOT_NEW_CONFIG, new_config);
+    invoke_listeners(CLCONFIG_EVENT_GOT_NEW_CONFIG, config);
 
     return 1;
 }
@@ -244,7 +260,7 @@ void Confmon::provider_failed(Provider *provider, lcb_STATUS reason)
         LOG(this, TRACE, "Maximum provider reached. Resetting index");
     }
 
-    invoke_listeners(CLCONFIG_EVENT_PROVIDERS_CYCLED, NULL);
+    invoke_listeners(CLCONFIG_EVENT_PROVIDERS_CYCLED, nullptr);
     cur_provider = first_active();
     stop();
 }
@@ -320,7 +336,7 @@ void Confmon::stop_real()
     }
 
     last_stop_us = LCB_NS2US(gethrtime());
-    invoke_listeners(CLCONFIG_EVENT_MONITOR_STOPPED, NULL);
+    invoke_listeners(CLCONFIG_EVENT_MONITOR_STOPPED, nullptr);
 }
 
 void Confmon::stop()
@@ -337,7 +353,7 @@ Provider::Provider(Confmon *parent_, Method type_) : type(type_), enabled(false)
 
 Provider::~Provider()
 {
-    parent = NULL;
+    parent = nullptr;
 }
 
 ConfigInfo::~ConfigInfo()
@@ -347,23 +363,29 @@ ConfigInfo::~ConfigInfo()
     }
 }
 
-int ConfigInfo::compare(const ConfigInfo &other)
+/**
+ * < 0  : swap configuration
+ * >= 0 : do not swap configuration
+ */
+int ConfigInfo::compare(const ConfigInfo &other, lcbvb_CHANGETYPE chstatus) const
 {
     /** First check if new config has bucket name */
-    if (vbc->bname == NULL && other.vbc->bname != NULL) {
+    if (vbc->bname == nullptr && other.vbc->bname != nullptr) {
         return -1; /* we want to upgrade config after opening bucket */
     }
     /** Then check if both have revisions */
     int rev_a, rev_b;
     rev_a = lcbvb_get_revision(this->vbc);
     rev_b = lcbvb_get_revision(other.vbc);
+    if (rev_a >= 0 && rev_b < 0) {
+        return 1; /* do not apply config without revision */
+    }
     if (rev_a >= 0 && rev_b >= 0) {
         return rev_a - rev_b;
     }
 
     if (this->cmpclock == other.cmpclock) {
-        return 0;
-
+        return (chstatus == LCBVB_NO_CHANGES) ? 0 : -1;
     } else if (this->cmpclock < other.cmpclock) {
         return -1;
     }
@@ -371,8 +393,8 @@ int ConfigInfo::compare(const ConfigInfo &other)
     return 1;
 }
 
-ConfigInfo::ConfigInfo(lcbvb_CONFIG *config_, Method origin_)
-    : vbc(config_), cmpclock(gethrtime()), refcount(1), origin(origin_)
+ConfigInfo::ConfigInfo(lcbvb_CONFIG *config_, Method origin_, std::string address_)
+    : vbc(config_), cmpclock(gethrtime()), refcount(1), origin(origin_), address(std::move(address_))
 {
 }
 
@@ -388,9 +410,9 @@ void Confmon::remove_listener(Listener *lsn)
 
 void Confmon::invoke_listeners(EventType event, ConfigInfo *info)
 {
-    ListenerList::iterator ii = listeners.begin();
+    auto ii = listeners.begin();
     while (ii != listeners.end()) {
-        ListenerList::iterator cur = ii++;
+        auto cur = ii++;
         (*cur)->clconfig_lsn(event, info);
     }
 }
@@ -422,8 +444,7 @@ void Confmon::dump(FILE *fp)
     fprintf(fp, "\n");
     fprintf(fp, "LAST ERROR: 0x%x\n", last_error);
 
-    for (size_t ii = 0; ii < CLCONFIG_MAX; ii++) {
-        Provider *cur = all_providers[ii];
+    for (auto cur : all_providers) {
         if (!cur) {
             continue;
         }

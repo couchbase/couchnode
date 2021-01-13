@@ -24,12 +24,12 @@
 namespace cbc
 {
 #define HANDLER_DESCRIPTION(s)                                                                                         \
-    const char *description() const                                                                                    \
+    const char *description() const override                                                                           \
     {                                                                                                                  \
         return s;                                                                                                      \
     }
 #define HANDLER_USAGE(s)                                                                                               \
-    const char *usagestr() const                                                                                       \
+    const char *usagestr() const override                                                                              \
     {                                                                                                                  \
         return s;                                                                                                      \
     }
@@ -37,17 +37,17 @@ namespace cbc
 class Handler
 {
   public:
-    Handler(const char *name);
+    explicit Handler(const char *name);
     virtual ~Handler();
     virtual const char *description() const = 0;
     virtual const char *usagestr() const
     {
-        return NULL;
+        return nullptr;
     }
     void execute(int argc, char **argv);
 
   protected:
-    virtual const std::string &getLoneArg(bool required = false);
+    virtual const std::string &getLoneArg(bool required);
     virtual const std::string &getRequiredArg()
     {
         return getLoneArg(true);
@@ -64,7 +64,7 @@ class Handler
 class GetHandler : public Handler
 {
   public:
-    GetHandler(const char *name = "get")
+    explicit GetHandler(const char *name = "get")
         : Handler(name), o_replica("replica"), o_exptime("expiry"), o_durability("durability"), o_scope("scope"),
           o_collection("collection")
     {
@@ -74,7 +74,7 @@ class GetHandler : public Handler
         o_durability.abbrev('d').description("Durability level").setDefault("none");
     }
 
-    const char *description() const
+    const char *description() const override
     {
         if (isLock()) {
             return "Lock keys and retrieve them from the cluster";
@@ -86,8 +86,8 @@ class GetHandler : public Handler
     DURABILITY_GETTER()
 
   protected:
-    void addOptions();
-    void run();
+    void addOptions() override;
+    void run() override;
 
   private:
     cliopts::StringOption o_replica;
@@ -104,7 +104,7 @@ class GetHandler : public Handler
 class TouchHandler : public Handler
 {
   public:
-    TouchHandler(const char *name = "touch") : Handler(name), o_exptime("expiry"), o_durability("durability")
+    explicit TouchHandler(const char *name = "touch") : Handler(name), o_exptime("expiry"), o_durability("durability")
     {
         o_exptime.abbrev('e').mandatory(true);
         o_durability.abbrev('d').description("Durability level").setDefault("none");
@@ -114,8 +114,8 @@ class TouchHandler : public Handler
     DURABILITY_GETTER()
 
   protected:
-    void addOptions();
-    void run();
+    void addOptions() override;
+    void run() override;
 
   private:
     cliopts::UIntOption o_exptime;
@@ -125,7 +125,7 @@ class TouchHandler : public Handler
 class SetHandler : public Handler
 {
   public:
-    SetHandler(const char *name = "create")
+    explicit SetHandler(const char *name = "create")
         : Handler(name), o_flags("flags"), o_exp("expiry"), o_add("add"), o_persist("persist-to"),
           o_replicate("replicate-to"), o_durability("durability"), o_value("value"), o_json("json"), o_mode("mode"),
           o_scope("scope"), o_collection("collection")
@@ -146,7 +146,7 @@ class SetHandler : public Handler
         o_collection.description("Name of the collection");
     }
 
-    const char *description() const
+    const char *description() const override
     {
         if (hasFileList()) {
             return "Store files to the server";
@@ -155,7 +155,7 @@ class SetHandler : public Handler
         }
     }
 
-    const char *usagestr() const
+    const char *usagestr() const override
     {
         if (hasFileList()) {
             return "[OPTIONS...] FILE ...";
@@ -174,8 +174,8 @@ class SetHandler : public Handler
     DURABILITY_GETTER()
 
   protected:
-    void run();
-    void addOptions();
+    void run() override;
+    void addOptions() override;
     void storeItem(const std::string &key, const char *value, size_t nvalue);
     void storeItem(const std::string &key, FILE *input);
 
@@ -191,7 +191,7 @@ class SetHandler : public Handler
     cliopts::StringOption o_mode;
     cliopts::StringOption o_scope;
     cliopts::StringOption o_collection;
-    std::map< std::string, uint64_t > items;
+    std::map<std::string, uint64_t> items;
 };
 
 class HashHandler : public Handler
@@ -202,7 +202,7 @@ class HashHandler : public Handler
     HashHandler() : Handler("hash") {}
 
   protected:
-    void run();
+    void run() override;
 };
 
 class ObserveHandler : public Handler
@@ -212,7 +212,7 @@ class ObserveHandler : public Handler
     HANDLER_DESCRIPTION("Obtain persistence and replication status for keys")
     HANDLER_USAGE("KEY ... ")
   protected:
-    void run();
+    void run() override;
 };
 
 class ObserveSeqnoHandler : public Handler
@@ -224,7 +224,7 @@ class ObserveSeqnoHandler : public Handler
     HANDLER_USAGE("UUID")
 
   protected:
-    void run();
+    void run() override;
 };
 
 class ExistsHandler : public Handler
@@ -240,9 +240,9 @@ class ExistsHandler : public Handler
     }
 
   protected:
-    void run();
+    void run() override;
 
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_scope);
@@ -262,7 +262,7 @@ class UnlockHandler : public Handler
     UnlockHandler() : Handler("unlock") {}
 
   protected:
-    void run();
+    void run() override;
 };
 
 class VersionHandler : public Handler
@@ -270,8 +270,8 @@ class VersionHandler : public Handler
   public:
     HANDLER_DESCRIPTION("Display information about libcouchbase")
     VersionHandler() : Handler("version") {}
-    void run();
-    void addOptions() {}
+    void run() override;
+    void addOptions() override {}
 };
 
 class RemoveHandler : public Handler
@@ -284,7 +284,7 @@ class RemoveHandler : public Handler
         o_durability.abbrev('d').description("Durability level").setDefault("none");
     }
 
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_durability);
@@ -292,7 +292,7 @@ class RemoveHandler : public Handler
 
     DURABILITY_GETTER()
   protected:
-    void run();
+    void run() override;
 
     cliopts::StringOption o_durability;
 };
@@ -308,8 +308,8 @@ class StatsHandler : public Handler
     }
 
   protected:
-    void run();
-    void addOptions()
+    void run() override;
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_keystats);
@@ -330,8 +330,8 @@ class WatchHandler : public Handler
     }
 
   protected:
-    void run();
-    void addOptions()
+    void run() override;
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_interval);
@@ -339,28 +339,6 @@ class WatchHandler : public Handler
 
   private:
     cliopts::UIntOption o_interval;
-};
-
-class VerbosityHandler : public Handler
-{
-  public:
-    HANDLER_DESCRIPTION("Modify the memcached logging level")
-    HANDLER_USAGE("<detail|debug|info|warning> [OPTIONS ...]")
-    VerbosityHandler() : Handler("verbosity") {}
-
-  protected:
-    void run();
-};
-
-class McVersionHandler : public Handler
-{
-  public:
-    HANDLER_DESCRIPTION("Query server versions using the memcached command")
-    HANDLER_USAGE("[OPTIONS ...]")
-    McVersionHandler() : Handler("mcversion") {}
-
-  protected:
-    void run();
 };
 
 class KeygenHandler : public Handler
@@ -374,8 +352,8 @@ class KeygenHandler : public Handler
     }
 
   protected:
-    void run();
-    void addOptions()
+    void run() override;
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_keys_per_vbucket);
@@ -399,8 +377,8 @@ class PingHandler : public Handler
     }
 
   protected:
-    void run();
-    void addOptions()
+    void run() override;
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_details);
@@ -421,7 +399,7 @@ class ArithmeticHandler : public Handler
   public:
     HANDLER_USAGE("KEY ... [OPTIONS ...]")
 
-    ArithmeticHandler(const char *name)
+    explicit ArithmeticHandler(const char *name)
         : Handler(name), o_initial("initial"), o_delta("delta"), o_expiry("expiry"), o_durability("durability")
     {
 
@@ -438,9 +416,9 @@ class ArithmeticHandler : public Handler
     cliopts::ULongLongOption o_delta;
     cliopts::UIntOption o_expiry;
     cliopts::StringOption o_durability;
-    void run();
+    void run() override;
     virtual bool shouldInvert() const = 0;
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_initial);
@@ -460,7 +438,7 @@ class IncrHandler : public ArithmeticHandler
     }
 
   protected:
-    bool shouldInvert() const
+    bool shouldInvert() const override
     {
         return false;
     }
@@ -476,7 +454,7 @@ class DecrHandler : public ArithmeticHandler
     }
 
   protected:
-    bool shouldInvert() const
+    bool shouldInvert() const override
     {
         return true;
     }
@@ -491,8 +469,8 @@ class ViewsHandler : public Handler
     HANDLER_USAGE("DESIGN/VIEW")
 
   protected:
-    void run();
-    void addOptions()
+    void run() override;
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_incdocs);
@@ -512,9 +490,9 @@ class N1qlHandler : public Handler
     HANDLER_USAGE("QUERY [--qarg PARAM1=VALUE1 --qopt PARAM2=VALUE2]")
 
   protected:
-    void run();
+    void run() override;
 
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         o_args.description("Specify values for placeholders (can be specified multiple times");
@@ -545,9 +523,9 @@ class AnalyticsHandler : public Handler
     HANDLER_USAGE("QUERY [--qarg PARAM1=VALUE1 --qopt PARAM2=VALUE2]")
 
   protected:
-    void run();
+    void run() override;
 
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         o_args.description("Specify values for placeholders (can be specified multiple times");
@@ -574,9 +552,9 @@ class SearchHandler : public Handler
     HANDLER_USAGE("--index INDEX_NAME QUERY [--qopt PARAM2=VALUE2]")
 
   protected:
-    void run();
+    void run() override;
 
-    void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         o_index.description("Name of the search index");
@@ -598,9 +576,9 @@ class HttpReceiver
 {
   public:
     HttpReceiver() : statusInvoked(false) {}
-    virtual ~HttpReceiver() {}
+    virtual ~HttpReceiver() = default;
     void maybeInvokeStatus(const lcb_RESPHTTP *);
-    void install(lcb_INSTANCE *);
+    static void install(lcb_INSTANCE *);
     virtual void handleStatus(lcb_STATUS, int) {}
     virtual void onDone() {}
     virtual void onChunk(const char *data, size_t size)
@@ -609,20 +587,19 @@ class HttpReceiver
     }
     bool statusInvoked;
     std::string resbuf;
-    std::map< std::string, std::string > headers;
+    std::map<std::string, std::string> headers;
 };
 
 class HttpBaseHandler : public Handler, public HttpReceiver
 {
   public:
-    HttpBaseHandler(const char *name) : Handler(name), o_method("method")
+    explicit HttpBaseHandler(const char *name) : Handler(name), o_method("method")
     {
-
         o_method.setDefault("GET").abbrev('X').description("HTTP Method to use");
     }
 
   protected:
-    void run();
+    void run() override;
     virtual std::string getURI() = 0;
     virtual const std::string &getBody();
     virtual std::string getContentType()
@@ -634,8 +611,8 @@ class HttpBaseHandler : public Handler, public HttpReceiver
         return false;
     }
     virtual lcb_HTTP_METHOD getMethod();
-    virtual void handleStatus(lcb_STATUS err, int code);
-    virtual void addOptions()
+    void handleStatus(lcb_STATUS err, int code) override;
+    void addOptions() override
     {
         if (isAdmin()) {
             params.setAdminMode();
@@ -654,12 +631,12 @@ class AdminHandler : public HttpBaseHandler
   public:
     HANDLER_DESCRIPTION("Invoke an administrative REST API")
     HANDLER_USAGE("PATH ... [OPTIONS ...]")
-    AdminHandler(const char *name = "admin") : HttpBaseHandler(name) {}
+    explicit AdminHandler(const char *name = "admin") : HttpBaseHandler(name) {}
 
   protected:
-    virtual void run();
-    virtual std::string getURI();
-    virtual bool isAdmin() const
+    void run() override;
+    std::string getURI() override;
+    bool isAdmin() const override
     {
         return true;
     }
@@ -669,15 +646,15 @@ class RbacHandler : public AdminHandler
 {
   public:
     HANDLER_USAGE("[OPTIONS ...]")
-    RbacHandler(const char *name) : AdminHandler(name), o_raw('r', "raw")
+    explicit RbacHandler(const char *name) : AdminHandler(name), o_raw('r', "raw")
     {
         o_raw.description("Do not reformat output from server (display JSON response)");
     }
 
   protected:
-    virtual void run();
+    void run() override;
     virtual void format() = 0;
-    virtual void addOptions()
+    void addOptions() override
     {
         AdminHandler::addOptions();
         parser.addOption(o_raw);
@@ -694,21 +671,21 @@ class RoleListHandler : public RbacHandler
     RoleListHandler() : RbacHandler("role-list") {}
 
   protected:
-    virtual void format();
-    virtual void addOptions()
+    void format() override;
+    void addOptions() override
     {
         RbacHandler::addOptions();
     }
-    std::string getURI()
+    std::string getURI() override
     {
         return "/settings/rbac/roles";
     }
-    const std::string &getBody()
+    const std::string &getBody() override
     {
         static std::string e;
         return e;
     }
-    lcb_HTTP_METHOD getMethod()
+    lcb_HTTP_METHOD getMethod() override
     {
         return LCB_HTTP_METHOD_GET;
     }
@@ -721,21 +698,21 @@ class UserListHandler : public RbacHandler
     UserListHandler() : RbacHandler("user-list") {}
 
   protected:
-    virtual void format();
-    virtual void addOptions()
+    void format() override;
+    void addOptions() override
     {
         RbacHandler::addOptions();
     }
-    std::string getURI()
+    std::string getURI() override
     {
         return "/settings/rbac/users";
     }
-    const std::string &getBody()
+    const std::string &getBody() override
     {
         static std::string e;
         return e;
     }
-    lcb_HTTP_METHOD getMethod()
+    lcb_HTTP_METHOD getMethod() override
     {
         return LCB_HTTP_METHOD_GET;
     }
@@ -752,12 +729,12 @@ class UserDeleteHandler : public AdminHandler
     }
 
   protected:
-    virtual void addOptions()
+    void addOptions() override
     {
         AdminHandler::addOptions();
         parser.addOption(o_domain);
     }
-    void run()
+    void run() override
     {
         name = getRequiredArg();
         domain = o_domain.result();
@@ -766,16 +743,16 @@ class UserDeleteHandler : public AdminHandler
         }
         AdminHandler::run();
     }
-    std::string getURI()
+    std::string getURI() override
     {
         return std::string("/settings/rbac/users/") + domain + "/" + name;
     }
-    const std::string &getBody()
+    const std::string &getBody() override
     {
         static std::string e;
         return e;
     }
-    lcb_HTTP_METHOD getMethod()
+    lcb_HTTP_METHOD getMethod() override
     {
         return LCB_HTTP_METHOD_DELETE;
     }
@@ -802,7 +779,7 @@ class UserUpsertHandler : public AdminHandler
     }
 
   protected:
-    virtual void addOptions()
+    void addOptions() override
     {
         AdminHandler::addOptions();
         parser.addOption(o_domain);
@@ -810,20 +787,20 @@ class UserUpsertHandler : public AdminHandler
         parser.addOption(o_roles);
         parser.addOption(o_password);
     }
-    virtual void run();
-    std::string getURI()
+    void run() override;
+    std::string getURI() override
     {
         return std::string("/settings/rbac/users/") + domain + "/" + name;
     }
-    const std::string &getBody()
+    const std::string &getBody() override
     {
         return body;
     }
-    std::string getContentType()
+    std::string getContentType() override
     {
         return "application/x-www-form-urlencoded";
     }
-    lcb_HTTP_METHOD getMethod()
+    lcb_HTTP_METHOD getMethod() override
     {
         return LCB_HTTP_METHOD_PUT;
     }
@@ -845,7 +822,7 @@ class BucketCreateHandler : public AdminHandler
     HANDLER_USAGE("NAME [OPTIONS ...]")
     BucketCreateHandler()
         : AdminHandler("bucket-create"), o_btype("bucket-type"), o_ramquota("ram-quota"), o_bpass("bucket-password"),
-          o_replicas("num-replicas"), o_proxyport("moxi-port"), isMemcached(false)
+          o_replicas("num-replicas"), o_proxyport("moxi-port")
     {
         o_btype.description("Bucket type {couchbase,memcached}").setDefault("couchbase");
         o_ramquota.description("RAM Quota for bucket (MB)").setDefault(100);
@@ -855,8 +832,8 @@ class BucketCreateHandler : public AdminHandler
     }
 
   protected:
-    virtual void run();
-    virtual void addOptions()
+    void run() override;
+    void addOptions() override
     {
         AdminHandler::addOptions();
         parser.addOption(o_btype);
@@ -866,19 +843,19 @@ class BucketCreateHandler : public AdminHandler
         parser.addOption(o_proxyport);
     }
 
-    std::string getURI()
+    std::string getURI() override
     {
         return "/pools/default/buckets";
     }
-    const std::string &getBody()
+    const std::string &getBody() override
     {
         return body_s;
     }
-    std::string getContentType()
+    std::string getContentType() override
     {
         return "application/x-www-form-urlencoded";
     }
-    lcb_HTTP_METHOD getMethod()
+    lcb_HTTP_METHOD getMethod() override
     {
         return LCB_HTTP_METHOD_POST;
     }
@@ -890,7 +867,6 @@ class BucketCreateHandler : public AdminHandler
     cliopts::UIntOption o_replicas;
     cliopts::UIntOption o_proxyport;
     std::string body_s;
-    bool isMemcached;
 };
 
 class BucketDeleteHandler : public AdminHandler
@@ -901,20 +877,20 @@ class BucketDeleteHandler : public AdminHandler
     BucketDeleteHandler() : AdminHandler("bucket-delete") {}
 
   protected:
-    void run()
+    void run() override
     {
         bname = getRequiredArg();
         AdminHandler::run();
     }
-    std::string getURI()
+    std::string getURI() override
     {
         return std::string("/pools/default/buckets/") + bname;
     }
-    lcb_HTTP_METHOD getMethod()
+    lcb_HTTP_METHOD getMethod() override
     {
         return LCB_HTTP_METHOD_DELETE;
     }
-    const std::string &getBody()
+    const std::string &getBody() override
     {
         static std::string e;
         return e;
@@ -932,7 +908,7 @@ class BucketFlushHandler : public Handler
     BucketFlushHandler() : Handler("bucket-flush") {}
 
   protected:
-    void run();
+    void run() override;
 };
 
 class ConnstrHandler : public Handler
@@ -943,8 +919,7 @@ class ConnstrHandler : public Handler
     ConnstrHandler() : Handler("connstr") {}
 
   protected:
-    void handleOptions() {}
-    void run();
+    void run() override;
 };
 
 class WriteConfigHandler : public Handler
@@ -954,7 +929,7 @@ class WriteConfigHandler : public Handler
     WriteConfigHandler() : Handler("write-config") {}
 
   protected:
-    void run();
+    void run() override;
 };
 
 class CollectionGetManifestHandler : public Handler
@@ -965,7 +940,7 @@ class CollectionGetManifestHandler : public Handler
     CollectionGetManifestHandler() : Handler("collection-manifest") {}
 
   protected:
-    void run();
+    void run() override;
 };
 
 class CollectionGetCIDHandler : public Handler
@@ -979,12 +954,12 @@ class CollectionGetCIDHandler : public Handler
     }
 
   protected:
-    virtual void addOptions()
+    void addOptions() override
     {
         Handler::addOptions();
         parser.addOption(o_scope);
     }
-    void run();
+    void run() override;
 
   private:
     cliopts::StringOption o_scope;

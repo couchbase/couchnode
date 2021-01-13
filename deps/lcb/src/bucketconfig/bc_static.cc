@@ -16,10 +16,10 @@
  */
 
 #include <lcbio/lcbio.h>
-#include <lcbio/timer-ng.h>
 #include <lcbio/timer-cxx.h>
 #include <libcouchbase/vbucket.h>
 #include "clconfig.h"
+#include <cerrno>
 
 #define LOGARGS(mcr, lvlbase) mcr->parent->settings, "bc_static", LCB_LOG_##lvlbase, __FILE__, __LINE__
 #define LOGFMT "(STATIC=%p)> "
@@ -32,9 +32,9 @@ using lcb::Hostlist;
 class StaticProvider : public Provider
 {
   public:
-    StaticProvider(Confmon *parent_, Method m) : Provider(parent_, m), async(parent_->iot, this), config(NULL) {}
+    StaticProvider(Confmon *parent_, Method m) : Provider(parent_, m), async(parent_->iot, this), config(nullptr) {}
 
-    virtual ~StaticProvider()
+    ~StaticProvider() override
     {
         if (config) {
             config->decref();
@@ -42,18 +42,18 @@ class StaticProvider : public Provider
         async.release();
     }
 
-    ConfigInfo *get_cached()
+    ConfigInfo *get_cached() override
     {
         return config;
     }
 
-    lcb_STATUS refresh()
+    lcb_STATUS refresh() override
     {
         async.signal();
         return LCB_SUCCESS;
     }
 
-    void configure_nodes(const Hostlist &hl)
+    void configure_nodes(const Hostlist &hl) override
     {
         if (hl.empty()) {
             lcb_log(LOGARGS(this, FATAL), "No nodes provided");
@@ -61,12 +61,12 @@ class StaticProvider : public Provider
         }
 
         lcbvb_CONFIG *vbc = gen_config(hl);
-        if (vbc != NULL) {
-            if (config != NULL) {
+        if (vbc != nullptr) {
+            if (config != nullptr) {
                 config->decref();
-                config = NULL;
+                config = nullptr;
             }
-            config = ConfigInfo::create(vbc, type);
+            config = ConfigInfo::create(vbc, type, "<static>");
         }
     }
 
@@ -75,25 +75,25 @@ class StaticProvider : public Provider
   private:
     void async_update()
     {
-        if (config != NULL) {
+        if (config != nullptr) {
             parent->provider_got_config(this, config);
         }
     }
 
-    lcb::io::Timer< StaticProvider, &StaticProvider::async_update > async;
+    lcb::io::Timer<StaticProvider, &StaticProvider::async_update> async;
     ConfigInfo *config;
 };
 
 /* Raw memcached provider */
 
 struct McRawProvider : public StaticProvider {
-    McRawProvider(Confmon *parent_) : StaticProvider(parent_, CLCONFIG_MCRAW) {}
-    lcbvb_CONFIG *gen_config(const lcb::Hostlist &l);
+    explicit McRawProvider(Confmon *parent_) : StaticProvider(parent_, CLCONFIG_MCRAW) {}
+    lcbvb_CONFIG *gen_config(const lcb::Hostlist &l) override;
 };
 
 lcbvb_CONFIG *McRawProvider::gen_config(const lcb::Hostlist &hl)
 {
-    std::vector< lcbvb_SERVER > servers;
+    std::vector<lcbvb_SERVER> servers;
     servers.reserve(hl.size());
 
     for (size_t ii = 0; ii < hl.size(); ii++) {
@@ -105,9 +105,14 @@ lcbvb_CONFIG *McRawProvider::gen_config(const lcb::Hostlist &hl)
 
         /* just set the memcached port and hostname */
         srv.hostname = (char *)curhost.host;
-        srv.svc.data = std::atoi(curhost.port);
-        if (parent->settings->sslopts) {
-            srv.svc_ssl.data = srv.svc.data;
+        char *end = nullptr;
+        long val = strtol(curhost.port, &end, 10);
+        if (errno != ERANGE && end != curhost.port) {
+            if (parent->settings->sslopts) {
+                srv.svc_ssl.data = static_cast<std::uint16_t>(val);
+            } else {
+                srv.svc.data = static_cast<std::uint16_t>(val);
+            }
         }
     }
 
@@ -124,21 +129,25 @@ Provider *lcb::clconfig::new_mcraw_provider(Confmon *parent)
 }
 
 struct ClusterAdminProvider : public StaticProvider {
-    ClusterAdminProvider(Confmon *parent_) : StaticProvider(parent_, CLCONFIG_CLADMIN) {}
+    explicit ClusterAdminProvider(Confmon *parent_) : StaticProvider(parent_, CLCONFIG_CLADMIN) {}
 
-    lcbvb_CONFIG *gen_config(const lcb::Hostlist &hl)
+    lcbvb_CONFIG *gen_config(const lcb::Hostlist &hl) override
     {
-        std::vector< lcbvb_SERVER > servers;
+        std::vector<lcbvb_SERVER> servers;
         servers.reserve(hl.size());
         for (size_t ii = 0; ii < hl.size(); ++ii) {
             servers.resize(servers.size() + 1);
             lcbvb_SERVER &srv = servers[ii];
             const lcb_host_t &curhost = hl[ii];
-            srv.hostname = const_cast< char * >(curhost.host);
-            if (parent->settings->sslopts) {
-                srv.svc_ssl.mgmt = std::atoi(curhost.port);
-            } else {
-                srv.svc.mgmt = std::atoi(curhost.port);
+            srv.hostname = const_cast<char *>(curhost.host);
+            char *end = nullptr;
+            long val = strtol(curhost.port, &end, 10);
+            if (errno != ERANGE && end != curhost.port) {
+                if (parent->settings->sslopts) {
+                    srv.svc_ssl.mgmt = static_cast<std::uint16_t>(val);
+                } else {
+                    srv.svc.mgmt = static_cast<std::uint16_t>(val);
+                }
             }
         }
         lcbvb_CONFIG *vbc = lcbvb_create();

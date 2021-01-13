@@ -22,24 +22,23 @@
 #include "retryq.h"
 
 LIBCOUCHBASE_API
-void
-lcb_dump(lcb_INSTANCE *instance, FILE *fp, lcb_U32 flags)
+void lcb_dump(lcb_INSTANCE *instance, FILE *fp, lcb_U32 flags)
 {
     unsigned ii;
 
     if (!fp) {
         fp = stderr;
     }
-    fprintf(fp, "Dumping state for lcb_INSTANCE=%p\n", (void*)instance);
-    if (instance == NULL) {
+    fprintf(fp, "Dumping state for lcb_INSTANCE=%p\n", (void *)instance);
+    if (instance == nullptr) {
         return;
     }
-    fprintf(fp, "Settings=%p\n", (void*)instance->settings);
+    fprintf(fp, "Settings=%p\n", (void *)instance->settings);
     fprintf(fp, "BucketType=%d\n", instance->btype);
 
     if (instance->cur_configinfo) {
         lcb::clconfig::ConfigInfo *cfg = instance->cur_configinfo;
-        fprintf(fp, "Current VBC=%p\n", (void*)cfg->vbc);
+        fprintf(fp, "Current VBC=%p\n", (void *)cfg->vbc);
         fprintf(fp, "Config RevID=%d\n", cfg->vbc->revid);
         if (flags & LCB_DUMP_VBCONFIG) {
             char *cfgdump = lcbvb_save_json(cfg->vbc);
@@ -54,10 +53,10 @@ lcb_dump(lcb_INSTANCE *instance, FILE *fp, lcb_U32 flags)
     } else {
         fprintf(fp, "NO CLUSTER CONFIG\n");
     }
-    fprintf(fp,"Retry queue has items: %s\n", instance->retryq->empty() ? "No" : "Yes");
+    fprintf(fp, "Retry queue has items: %s\n", instance->retryq->empty() ? "No" : "Yes");
     if (flags & LCB_DUMP_PKTINFO) {
         fprintf(fp, "=== BEGIN RETRY QUEUE DUMP ===\n");
-        instance->retryq->dump(fp, NULL);
+        instance->retryq->dump(fp, nullptr);
         fprintf(fp, "=== END RETRY QUEUE DUMP ===\n");
     } else {
         fprintf(fp, "=== NOT DUMPING PACKET INFO. LCB_DUMP_PKTINFO not passed\n");
@@ -65,7 +64,7 @@ lcb_dump(lcb_INSTANCE *instance, FILE *fp, lcb_U32 flags)
 
     fprintf(fp, "=== BEGIN PIPELINE DUMP ===\n");
     for (ii = 0; ii < instance->cmdq.npipelines; ii++) {
-        lcb::Server *server = static_cast<lcb::Server*>(instance->cmdq.pipelines[ii]);
+        auto *server = static_cast<lcb::Server *>(instance->cmdq.pipelines[ii]);
         fprintf(fp, "** [%u] SERVER %s:%s\n", ii, server->curhost->host, server->curhost->port);
         if (server->connctx) {
             fprintf(fp, "** == BEGIN SOCKET INFO\n");
@@ -85,7 +84,7 @@ lcb_dump(lcb_INSTANCE *instance, FILE *fp, lcb_U32 flags)
             fprintf(fp, "** == NOT DUMPING NETBUF INFO. LCB_DUMP_BUFINFO not passed\n");
         }
         if (flags & LCB_DUMP_PKTINFO) {
-            mcreq_dump_chain(server, fp, NULL);
+            mcreq_dump_chain(server, fp, nullptr);
         } else {
             fprintf(fp, "** == NOT DUMPING PACKETS. LCB_DUMP_PKTINFO not passed\n");
         }

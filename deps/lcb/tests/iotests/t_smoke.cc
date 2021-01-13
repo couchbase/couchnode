@@ -122,6 +122,13 @@ struct rvbuf {
 };
 
 extern "C" {
+
+static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
+{
+    EXPECT_TRUE(err == LCB_SUCCESS || err == LCB_ERR_BUCKET_NOT_FOUND || err == LCB_ERR_AUTHENTICATION_FAILURE);
+    EXPECT_NE(err, LCB_ERR_NO_MATCHING_SERVER);
+}
+
 static void store_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
     rvbuf *rv;
@@ -153,35 +160,12 @@ static void touch_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPTOUC
     EXPECT_EQ(LCB_SUCCESS, rc);
 }
 
-static void version_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPMCVERSION *resp)
-{
-    const char *server_endpoint = (const char *)resp->server;
-    const char *vstring = (const char *)resp->mcversion;
-    lcb_size_t nvstring = resp->nversion;
-    rvbuf *rv = (rvbuf *)resp->cookie;
-    char *str;
-    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
-
-    if (server_endpoint == NULL) {
-        assert(rv->counter == 0);
-        return;
-    }
-
-    rv->setError(resp->ctx.rc);
-    /*copy the key to an allocated buffer and ensure the key read from vstring
-     * will not segfault
-     */
-    str = (char *)malloc(nvstring);
-    memcpy(str, vstring, nvstring);
-    free(str);
-}
 } // extern "C"
 static void setupCallbacks(lcb_INSTANCE *instance)
 {
     lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
     lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
     lcb_install_callback(instance, LCB_CALLBACK_TOUCH, (lcb_RESPCALLBACK)touch_callback);
-    lcb_install_callback(instance, LCB_CALLBACK_VERSIONS, (lcb_RESPCALLBACK)version_callback);
 }
 
 class SmokeTest : public ::testing::Test
@@ -224,7 +208,6 @@ class SmokeTest : public ::testing::Test
     void testGet1();
     void testGet2();
     void testTouch1();
-    void testVersion1();
     void testSpuriousSaslError();
     lcb_STATUS testMissingBucket();
 
@@ -396,18 +379,6 @@ void SmokeTest::testTouch1()
     EXPECT_EQ(LCB_SUCCESS, rv.error);
 }
 
-void SmokeTest::testVersion1()
-{
-    struct rvbuf rv;
-    lcb_CMDVERSIONS cmd = {0};
-
-    EXPECT_EQ(LCB_SUCCESS, lcb_server_versions3(session, &rv, &cmd));
-    rv.counter = mock->getNumNodes();
-    lcb_wait(session, LCB_WAIT_DEFAULT);
-    EXPECT_EQ(LCB_SUCCESS, rv.error);
-    EXPECT_EQ(0, rv.counter);
-}
-
 lcb_STATUS SmokeTest::testMissingBucket()
 {
     destroySession();
@@ -423,7 +394,7 @@ lcb_STATUS SmokeTest::testMissingBucket()
     lcb_createopts_destroy(cropts);
     EXPECT_EQ(LCB_SUCCESS, err);
     mock->postCreate(session);
-
+    lcb_set_bootstrap_callback(session, bootstrap_callback);
     err = lcb_connect(session);
     EXPECT_EQ(LCB_SUCCESS, err);
     lcb_wait(session, LCB_WAIT_DEFAULT);
@@ -484,6 +455,7 @@ void SmokeTest::connectCommon(const char *bucket, const char *password, lcb_STAT
     EXPECT_EQ(LCB_SUCCESS, err);
 
     mock->postCreate(session);
+    lcb_set_bootstrap_callback(session, bootstrap_callback);
     err = lcb_connect(session);
     EXPECT_EQ(LCB_SUCCESS, err);
     lcb_wait(session, LCB_WAIT_DEFAULT);
@@ -502,7 +474,6 @@ TEST_F(SmokeTest, testMemcachedBucket)
     testSet2();
     testGet1();
     testGet2();
-    testVersion1();
 
     // A bit out of place, but check that replica commands fail at schedule-time
     lcb_sched_enter(session);
@@ -541,7 +512,6 @@ TEST_F(SmokeTest, testCouchbaseBucket)
     testSet2();
     testGet1();
     testGet2();
-    testVersion1();
     testMissingBucket();
 }
 

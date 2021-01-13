@@ -19,13 +19,13 @@
 #include "hostlist.h"
 #include "strcodecs/strcodecs.h"
 #include "internalstructs.h"
-#include <stdio.h>
-#include <ctype.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cctype>
+#include <cerrno>
 
 #define SET_ERROR(msg)                                                                                                 \
     *errmsg = msg;                                                                                                     \
-    return LCB_ERR_INVALID_ARGUMENT;
+    return LCB_ERR_INVALID_ARGUMENT
 
 #define F_HASBUCKET (1u << 0u)
 #define F_HASPASSWD (1u << 1u)
@@ -37,7 +37,8 @@
 
 using namespace lcb;
 
-static int string_to_porttype(const char *s) {
+static int string_to_porttype(const char *s)
+{
     if (!strcmp(s, "HTTP")) {
         return LCB_CONFIG_HTTP_PORT;
     } else if (!strcmp(s, "MCD")) {
@@ -53,9 +54,7 @@ static int string_to_porttype(const char *s) {
     }
 }
 
-lcb_STATUS
-Connspec::parse_hosts(const char *hostbegin,
-    const char *hostend, const char **errmsg)
+lcb_STATUS Connspec::parse_hosts(const char *hostbegin, const char *hostend, const char **errmsg)
 {
     std::string decoded(hostbegin, hostend);
     if (!strcodecs::urldecode(decoded)) {
@@ -72,7 +71,7 @@ Connspec::parse_hosts(const char *hostbegin,
 
         /* Seek ahead, chopping off any ',' */
         while (*c == ',' || *c == ';') {
-            if (*(++c) ==  '\0') {
+            if (*(++c) == '\0') {
                 return LCB_SUCCESS;
             }
         }
@@ -95,8 +94,8 @@ Connspec::parse_hosts(const char *hostbegin,
             SET_ERROR("Detected '://' inside hostname");
         }
 
-        size_t colonpos = scratch.find(":");
-        size_t rcolonpos = scratch.rfind(":");
+        size_t colonpos = scratch.find(':');
+        size_t rcolonpos = scratch.rfind(':');
         std::string port;
 
         hoststart = 0;
@@ -138,7 +137,7 @@ Connspec::parse_hosts(const char *hostbegin,
             continue;
         }
 
-        char hpdummy[256] = { 0 };
+        char hpdummy[256] = {0};
         int itmp;
         if (port.size() > sizeof hpdummy) {
             SET_ERROR("Port spec too big!");
@@ -153,7 +152,7 @@ Connspec::parse_hosts(const char *hostbegin,
             // Both host and port. Not ambiguous
             if (-1 == (dh->type = string_to_porttype(hpdummy))) {
                 SET_ERROR("Unrecognized protocol specified. Recognized are "
-                    "HTTP, HTTPS, MCD, MCDS");
+                          "HTTP, HTTPS, MCD, MCDS");
             }
         } else if (rv == 1 && m_implicit_port) {
             // Port only, but we have a scheme. No need to set this implicitly
@@ -163,8 +162,7 @@ Connspec::parse_hosts(const char *hostbegin,
             }
 
             // couchbase scheme with :8091 specification. Just ignore
-            if (itmp == LCB_CONFIG_HTTP_PORT &&
-                    m_implicit_port == LCB_CONFIG_MCD_PORT) {
+            if (itmp == LCB_CONFIG_HTTP_PORT && m_implicit_port == LCB_CONFIG_MCD_PORT) {
                 /* Honest 'couchbase://host:8091' mistake */
                 continue;
             }
@@ -177,11 +175,9 @@ Connspec::parse_hosts(const char *hostbegin,
     return LCB_SUCCESS;
 }
 
-lcb_STATUS
-Connspec::parse_options(
-    const char *options_, const char *specend, const char **errmsg)
+lcb_STATUS Connspec::parse_options(const char *options_, const char *specend, const char **errmsg)
 {
-    while (options_ != NULL && options_ < specend) {
+    while (options_ != nullptr && options_ < specend) {
         unsigned curlen;
         const char *curend;
 
@@ -199,7 +195,7 @@ Connspec::parse_options(
         std::vector<char> optpair(options_, options_ + curlen);
         optpair.push_back('\0');
 
-        options_ = curend+1;
+        options_ = curend + 1;
 
         char *key = &optpair[0];
         char *value = strchr(key, '=');
@@ -211,7 +207,7 @@ Connspec::parse_options(
         if (!*value) {
             SET_ERROR("Value cannot be empty");
         }
-        if (! (strcodecs::urldecode(value) && strcodecs::urldecode(key))) {
+        if (!(strcodecs::urldecode(value) && strcodecs::urldecode(key))) {
             SET_ERROR("Couldn't decode key or value!");
         }
         if (!strcmp(key, "bootstrap_on")) {
@@ -229,11 +225,11 @@ Connspec::parse_options(
                 SET_ERROR("Value for bootstrap_on must be 'cccp', 'http', or 'all'");
             }
         } else if (!strcmp(key, "username") || !strcmp(key, "user")) {
-            if (! (m_flags & F_HASUSER)) {
+            if (!(m_flags & F_HASUSER)) {
                 m_username = value;
             }
         } else if (!strcmp(key, "password") || !strcmp(key, "pass")) {
-            if (! (m_flags & F_HASPASSWD)) {
+            if (!(m_flags & F_HASPASSWD)) {
                 m_password = value;
             }
         } else if (!strcmp(key, "ssl")) {
@@ -245,52 +241,66 @@ Connspec::parse_options(
             } else if (!strcmp(value, "on")) {
                 m_sslopts |= LCB_SSL_ENABLED;
             } else if (!strcmp(value, "no_verify")) {
-                m_sslopts |= LCB_SSL_ENABLED|LCB_SSL_NOVERIFY;
+                m_sslopts |= LCB_SSL_ENABLED | LCB_SSL_NOVERIFY;
             } else if (!strcmp(value, "no_global_init")) {
                 m_sslopts |= LCB_SSL_NOGLOBALINIT;
             } else {
                 SET_ERROR("Invalid value for 'ssl'. Choices are on, off, and no_verify");
             }
         } else if (!strcmp(key, "truststorepath")) {
-            if (! (m_flags & F_SSLSCHEME)) {
+            if (!(m_flags & F_SSLSCHEME)) {
                 SET_ERROR("Trust store path must be specified with SSL host or scheme");
             }
             m_truststorepath = value;
         } else if (!strcmp(key, "certpath")) {
-            if (! (m_flags & F_SSLSCHEME)) {
+            if (!(m_flags & F_SSLSCHEME)) {
                 SET_ERROR("Certificate path must be specified with SSL host or scheme");
             }
             m_certpath = value;
         } else if (!strcmp(key, "keypath")) {
-            if (! (m_flags & F_SSLSCHEME)) {
+            if (!(m_flags & F_SSLSCHEME)) {
                 SET_ERROR("Private key path must be specified with SSL host or scheme");
             }
             m_keypath = value;
         } else if (!strcmp(key, "console_log_level")) {
-            if (sscanf(value, "%d", &m_loglevel) != 1) {
+            char *end = nullptr;
+            errno = 0;
+            long val = std::strtol(value, &end, 10);
+            if (errno == ERANGE || end == value) {
                 SET_ERROR("console_log_level must be a numeric value");
             }
+            m_loglevel = static_cast<int>(val);
         } else if (!strcmp(key, "log_redaction")) {
-            int btmp = 0;
+            int btmp;
             if (!strcmp(value, "on") || !strcmp(value, "true")) {
                 btmp = 1;
             } else if (!strcmp(value, "off") || !strcmp(value, "false")) {
                 btmp = 0;
-            } else if (sscanf(value, "%d", &btmp) != 1) {
-                SET_ERROR("log_redaction must have numeric (boolean) value");
+            } else {
+                char *end = nullptr;
+                errno = 0;
+                btmp = static_cast<int>(std::strtol(value, &end, 10));
+                if (errno == ERANGE || end == value) {
+                    SET_ERROR("log_redaction must have numeric (boolean) value");
+                }
             }
             m_logredact = btmp != 0;
         } else if (!strcmp(key, "dnssrv")) {
             if ((m_flags & F_DNSSRV_EXPLICIT) == F_DNSSRV_EXPLICIT) {
                 SET_ERROR("Cannot use dnssrv scheme with dnssrv option");
             }
-            int btmp = 0;
+            int btmp;
             if (!strcmp(value, "on") || !strcmp(value, "true")) {
                 btmp = 1;
             } else if (!strcmp(value, "off") || !strcmp(value, "false")) {
                 btmp = 0;
-            } else if (sscanf(value, "%d", &btmp) != 1) {
-                SET_ERROR("dnssrv must have numeric (boolean) value");
+            } else {
+                char *end = nullptr;
+                errno = 0;
+                btmp = static_cast<int>(std::strtol(value, &end, 10));
+                if (errno == ERANGE || end == value) {
+                    SET_ERROR("dnssrv must have numeric (boolean) value");
+                }
             }
             if (btmp) {
                 m_flags |= F_DNSSRV;
@@ -318,26 +328,22 @@ Connspec::parse_options(
     return LCB_SUCCESS;
 }
 
-lcb_STATUS Connspec::parse(const char *connstr, size_t connstr_len, const char **errmsg)
+lcb_STATUS Connspec::parse(const char *connstr_ptr, size_t connstr_len, const char **errmsg)
 {
-    lcb_STATUS err = LCB_SUCCESS;
-    const char *errmsg_s; /* stack based error message pointer */
-    const char *hlend; /* end of hosts list */
-    const char *bucket_s = NULL; /* beginning of bucket (path) string */
-    const char *options_ = NULL; /* beginning of options (query) string */
-    const char *specend = NULL; /* end of spec */
-    unsigned speclen; /* length of spec string */
-    const char *found_scheme = NULL;
+    const char *errmsg_s;           /* stack based error message pointer */
+    const char *bucket_s = nullptr; /* beginning of bucket (path) string */
+    const char *options_ = nullptr; /* beginning of options (query) string */
 
     if (!errmsg) {
         errmsg = &errmsg_s;
     }
 
-    if (!connstr || connstr_len == 0) {
-        connstr = "couchbase://";
-        connstr_len = strlen(connstr);
+    if (!connstr_ptr || connstr_len == 0) {
+        connstr_ptr = "couchbase://";
+        connstr_len = strlen(connstr_ptr);
     }
-    m_connstr = std::string(connstr, connstr_len);
+    m_connstr = std::string(connstr_ptr, connstr_len);
+    const char *found_scheme;
     if (m_connstr.find(LCB_SPECSCHEME_MCD_SSL) == 0) {
         m_implicit_port = LCB_CONFIG_MCD_SSL_PORT;
         m_sslopts |= LCB_SSL_ENABLED;
@@ -379,12 +385,13 @@ lcb_STATUS Connspec::parse(const char *connstr, size_t connstr_len, const char *
         }
     }
 
-    connstr += strlen(found_scheme);
-    speclen = strlen(connstr);
-    specend = connstr + speclen;
+    connstr_ptr += strlen(found_scheme);
+    unsigned speclen = strlen(connstr_ptr);
+    const char *specend = connstr_ptr + speclen;
 
     /* Hosts end where either options or the bucket itself begin */
-    if ((hlend = strpbrk(connstr, "?/"))) {
+    const char *hlend = strpbrk(connstr_ptr, "?/"); /* end of hosts list */
+    if (hlend != nullptr) {
         if (*hlend == '?') {
             /* Options first */
             options_ = hlend + 1;
@@ -400,9 +407,9 @@ lcb_STATUS Connspec::parse(const char *connstr, size_t connstr_len, const char *
         hlend = specend;
     }
 
-    if (bucket_s != NULL) {
+    if (bucket_s != nullptr) {
         unsigned blen;
-        const char *b_end = options_ ? options_-1 : specend;
+        const char *b_end = options_ ? options_ - 1 : specend;
         /* scan each of the options */
         blen = b_end - bucket_s;
 
@@ -417,27 +424,27 @@ lcb_STATUS Connspec::parse(const char *connstr, size_t connstr_len, const char *
         }
     }
 
-    if ((err = parse_hosts(connstr, hlend, errmsg)) != LCB_SUCCESS) {
+    lcb_STATUS err = parse_hosts(connstr_ptr, hlend, errmsg);
+    if (err != LCB_SUCCESS) {
         goto GT_DONE;
     }
 
     if (m_hosts.empty()) {
-        m_hosts.resize(m_hosts.size()+1);
+        m_hosts.resize(m_hosts.size() + 1);
         m_hosts.back().hostname = "localhost";
     } else if (m_hosts.size() == 1 && m_hosts[0].isTypeless()) {
         m_flags |= F_DNSSRV;
     }
 
-    if (options_ != NULL) {
+    if (options_ != nullptr) {
         if ((err = parse_options(options_, specend, errmsg)) != LCB_SUCCESS) {
             goto GT_DONE;
         }
     }
-    GT_DONE:
+GT_DONE:
     return err;
 }
 
-#define TRYDUP(s) (s) ? strdup(s) : NULL
 lcb_STATUS Connspec::load(const lcb_CREATEOPTS &opts)
 {
     if (opts.bucket && opts.bucket_len) {
@@ -455,15 +462,15 @@ lcb_STATUS Connspec::load(const lcb_CREATEOPTS &opts)
     if (opts.logger) {
         m_logger = opts.logger;
     }
-    return parse(opts.connstr, opts.connstr_len, NULL);
+    return parse(opts.connstr, opts.connstr_len, nullptr);
 }
 
-bool
-Connspec::can_dnssrv() const {
+bool Connspec::can_dnssrv() const
+{
     return m_flags & F_DNSSRV;
 }
 
-bool
-Connspec::is_explicit_dnssrv() const {
+bool Connspec::is_explicit_dnssrv() const
+{
     return (m_flags & F_DNSSRV_EXPLICIT) == F_DNSSRV_EXPLICIT;
 }

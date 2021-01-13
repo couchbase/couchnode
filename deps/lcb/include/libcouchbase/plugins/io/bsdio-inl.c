@@ -27,12 +27,11 @@
 #include <netinet/tcp.h>
 #endif
 
-static void wire_lcb_bsd_impl2(lcb_bsd_procs*,int);
+static void wire_lcb_bsd_impl2(lcb_bsd_procs *, int);
 
 #ifdef _WIN32
 #include "wsaerr-inl.c"
-static int
-get_wserr(lcb_socket_t sock)
+static int get_wserr(lcb_socket_t sock)
 {
     DWORD error = WSAGetLastError();
     int ext = 0;
@@ -43,9 +42,7 @@ get_wserr(lcb_socket_t sock)
     return wsaerr_map_impl(error);
 }
 
-static lcb_ssize_t
-recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock,
-           struct lcb_iovec_st *iov, lcb_size_t niov)
+static lcb_ssize_t recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov, lcb_size_t niov)
 {
     DWORD flags = 0, nr;
     WSABUF *bufptr = (WSABUF *)iov;
@@ -62,9 +59,7 @@ recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock,
     return (lcb_ssize_t)nr;
 }
 
-static lcb_ssize_t
-recv_impl(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf,
-          int fl_unused)
+static lcb_ssize_t recv_impl(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf, int fl_unused)
 {
     WSABUF iov;
     iov.len = nbuf;
@@ -73,9 +68,7 @@ recv_impl(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf,
     return recvv_impl(iops, sock, (struct lcb_iovec_st *)&iov, 1);
 }
 
-static lcb_ssize_t
-sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
-           lcb_size_t niov)
+static lcb_ssize_t sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov, lcb_size_t niov)
 {
     DWORD nw, fl = 0;
     WSABUF *bufptr = (WSABUF *)iov;
@@ -86,9 +79,7 @@ sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
     return (lcb_ssize_t)nw;
 }
 
-static lcb_ssize_t
-send_impl(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf,
-          int flags)
+static lcb_ssize_t send_impl(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf, int flags)
 {
     WSABUF iov;
     iov.buf = (CHAR *)buf;
@@ -98,9 +89,7 @@ send_impl(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf
 }
 
 #else
-static lcb_ssize_t
-recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
-           lcb_size_t niov)
+static lcb_ssize_t recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov, lcb_size_t niov)
 {
     struct msghdr mh;
     lcb_ssize_t ret;
@@ -115,9 +104,7 @@ recvv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
     return ret;
 }
 
-static lcb_ssize_t
-recv_impl(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf,
-          int flags)
+static lcb_ssize_t recv_impl(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf, int flags)
 {
     lcb_ssize_t ret = recv(sock, buf, nbuf, flags);
     if (ret < 0) {
@@ -126,9 +113,7 @@ recv_impl(lcb_io_opt_t iops, lcb_socket_t sock, void *buf, lcb_size_t nbuf,
     return ret;
 }
 
-static lcb_ssize_t
-sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
-           lcb_size_t niov)
+static lcb_ssize_t sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov, lcb_size_t niov)
 {
     struct msghdr mh;
     lcb_ssize_t ret;
@@ -143,9 +128,7 @@ sendv_impl(lcb_io_opt_t iops, lcb_socket_t sock, struct lcb_iovec_st *iov,
     return ret;
 }
 
-static lcb_ssize_t
-send_impl(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf,
-          int flags)
+static lcb_ssize_t send_impl(lcb_io_opt_t iops, lcb_socket_t sock, const void *buf, lcb_size_t nbuf, int flags)
 {
     lcb_ssize_t ret = send(sock, buf, nbuf, flags);
     if (ret < 0) {
@@ -176,10 +159,9 @@ static int make_socket_nonblocking(lcb_socket_t sock)
 }
 
 /* Declare */
-static void close_impl(lcb_io_opt_t,lcb_socket_t);
+static void close_impl(lcb_io_opt_t, lcb_socket_t);
 
-static lcb_socket_t
-socket_impl(lcb_io_opt_t iops, int domain, int type, int protocol)
+static lcb_socket_t socket_impl(lcb_io_opt_t iops, int domain, int type, int protocol)
 {
     lcb_socket_t sock;
 #ifdef _WIN32
@@ -203,8 +185,7 @@ socket_impl(lcb_io_opt_t iops, int domain, int type, int protocol)
     return sock;
 }
 
-static void
-close_impl(lcb_io_opt_t iops, lcb_socket_t sock)
+static void close_impl(lcb_io_opt_t iops, lcb_socket_t sock)
 {
     (void)iops;
 #ifdef _WIN32
@@ -214,9 +195,7 @@ close_impl(lcb_io_opt_t iops, lcb_socket_t sock)
 #endif
 }
 
-static int
-connect_impl(lcb_io_opt_t iops, lcb_socket_t sock, const struct sockaddr *name,
-             unsigned int namelen)
+static int connect_impl(lcb_io_opt_t iops, lcb_socket_t sock, const struct sockaddr *name, unsigned int namelen)
 {
     int ret;
 
@@ -236,15 +215,14 @@ connect_impl(lcb_io_opt_t iops, lcb_socket_t sock, const struct sockaddr *name,
 
 #if LCB_IOPROCS_VERSION >= 3
 
-static int
-chkclosed_impl(lcb_io_opt_t iops, lcb_socket_t sock, int flags)
+static int chkclosed_impl(lcb_io_opt_t iops, lcb_socket_t sock, int flags)
 {
     char buf = 0;
     int rv = 0;
 
     (void)iops;
 
-    GT_RETRY:
+GT_RETRY:
     /* We can ignore flags for now, since both Windows and POSIX support MSG_PEEK */
     rv = recv(sock, &buf, 1, MSG_PEEK);
     if (rv == 1) {
@@ -258,15 +236,19 @@ chkclosed_impl(lcb_io_opt_t iops, lcb_socket_t sock, int flags)
         return LCB_IO_SOCKCHECK_STATUS_CLOSED;
     } else {
         int last_err;
-        #ifdef _WIN32
+#ifdef _WIN32
         last_err = get_wserr(sock);
-        #else
+#else
         last_err = errno;
-        #endif
+#endif
 
         if (last_err == EINTR) {
             goto GT_RETRY;
-        } else if (last_err == EWOULDBLOCK || last_err == EAGAIN) {
+        } else if (last_err == EWOULDBLOCK
+#if EWOULDBLOCK != EAGAIN
+                   || last_err == EAGAIN
+#endif
+        ) {
             return LCB_IO_SOCKCHECK_STATUS_OK; /* Nothing to report. So we're good */
         } else {
             return LCB_IO_SOCKCHECK_STATUS_CLOSED;
@@ -276,16 +258,15 @@ chkclosed_impl(lcb_io_opt_t iops, lcb_socket_t sock, int flags)
 #endif /* LCB_IOPROCS_VERSION >= 3 */
 
 #if LCB_IOPROCS_VERSION >= 4
-static int
-cntl_getset_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int oslevel,
-    int osopt, int optsize, void *optval)
+static int cntl_getset_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int oslevel, int osopt, int optsize,
+                            void *optval)
 {
     int rv;
-    #ifndef _WIN32
+#ifndef _WIN32
     socklen_t dummy = optsize;
-    #else
+#else
     char dummy = optsize;
-    #endif
+#endif
 
     if (mode == LCB_IO_CNTL_GET) {
         rv = getsockopt(sock, oslevel, osopt, &dummy, (socklen_t *)optval);
@@ -296,36 +277,32 @@ cntl_getset_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int oslevel,
         return 0;
     } else {
         int lasterr;
-        #ifdef _WIN32
+#ifdef _WIN32
         lasterr = get_wserr(sock);
-        #else
+#else
         lasterr = errno;
-        #endif
+#endif
         LCB_IOPS_ERRNO(io) = lasterr;
         return -1;
     }
 }
 
-static int
-cntl_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int option, void *arg)
+static int cntl_impl(lcb_io_opt_t io, lcb_socket_t sock, int mode, int option, void *arg)
 {
     switch (option) {
-    case LCB_IO_CNTL_TCP_NODELAY:
-        return cntl_getset_impl(io,
-            sock, mode, IPPROTO_TCP, TCP_NODELAY, sizeof(int), arg);
-    case LCB_IO_CNTL_TCP_KEEPALIVE:
-        return cntl_getset_impl(io,
-            sock, mode, SOL_SOCKET, SO_KEEPALIVE, sizeof(int), arg);
-    default:
-        LCB_IOPS_ERRNO(io) = ENOTSUP;
-        return -1;
+        case LCB_IO_CNTL_TCP_NODELAY:
+            return cntl_getset_impl(io, sock, mode, IPPROTO_TCP, TCP_NODELAY, sizeof(int), arg);
+        case LCB_IO_CNTL_TCP_KEEPALIVE:
+            return cntl_getset_impl(io, sock, mode, SOL_SOCKET, SO_KEEPALIVE, sizeof(int), arg);
+        default:
+            LCB_IOPS_ERRNO(io) = ENOTSUP;
+            return -1;
     }
 }
 #endif
 
 #if !defined(LIBCOUCHBASE_INTERNAL) || defined(LCB_IOPS_V12_NO_DEPRECATE)
-static void
-wire_lcb_bsd_impl(lcb_io_opt_t io)
+static void wire_lcb_bsd_impl(lcb_io_opt_t io)
 {
     io->v.v0.recv = recv_impl;
     io->v.v0.recvv = recvv_impl;
@@ -336,16 +313,20 @@ wire_lcb_bsd_impl(lcb_io_opt_t io)
     io->v.v0.close = close_impl;
 
     /* Avoid annoying 'unused' warnings */
-    if (0) { wire_lcb_bsd_impl2(NULL,0); }
+    if (0) {
+        wire_lcb_bsd_impl2(NULL, 0);
+    }
 }
-#define lcb__wire0_nowarn() if (0) { wire_lcb_bsd_impl(NULL); }
+#define lcb__wire0_nowarn()                                                                                            \
+    if (0) {                                                                                                           \
+        wire_lcb_bsd_impl(NULL);                                                                                       \
+    }
 #else
 #define lcb__wire0_nowarn()
 #endif
 
 /** For plugins which use v2 or higher */
-static void
-wire_lcb_bsd_impl2(lcb_bsd_procs *procs, int version)
+static void wire_lcb_bsd_impl2(lcb_bsd_procs *procs, int version)
 {
     procs->recv = recv_impl;
     procs->recvv = recvv_impl;
@@ -355,16 +336,16 @@ wire_lcb_bsd_impl2(lcb_bsd_procs *procs, int version)
     procs->connect0 = connect_impl;
     procs->close = close_impl;
 
-    /* Check that this field exists at compile-time */
-    #if LCB_IOPROCS_VERSION >= 3
+/* Check that this field exists at compile-time */
+#if LCB_IOPROCS_VERSION >= 3
     if (version >= 3) {
         procs->is_closed = chkclosed_impl;
     }
-    #endif
-    #if LCB_IOPROCS_VERSION >= 4
+#endif
+#if LCB_IOPROCS_VERSION >= 4
     if (version >= 4) {
         procs->cntl = cntl_impl;
     }
-    #endif
+#endif
     lcb__wire0_nowarn();
 }

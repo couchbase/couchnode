@@ -2,7 +2,7 @@
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
-DH_AC_FLAGS=--buildsystem=cmake -- -DLCB_NO_MOCK=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo
+DH_AC_FLAGS=--buildsystem=cmake -- -DLCB_NO_MOCK=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLCB_USE_HDR_HISTOGRAM=OFF
 DH_AT_CMD = dh_auto_build --verbose --parallel -- alltests
 ifdef DEB_HOST_MULTIARCH
 	DH_AC_FLAGS += -DCMAKE_INSTALL_LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)

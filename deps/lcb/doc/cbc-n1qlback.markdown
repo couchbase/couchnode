@@ -21,6 +21,15 @@ For simple queries, only the `statement` field needs to be set:
 For more complex queries (for example, placeholders, custom options), you may
 refer to the N1QL REST API reference.
 
+For example, the following line shows how to use named parameter
+
+    {"statement":"SELECT RAW meta().id FROM `travel-sample` WHERE type=$type LIMIT 1", "$type":"airline"}
+
+There is also special query option, `"n1qlback"`, which is stripped before sending the payload.
+Currently it allows to tell if the particular query must be prepared before execution:
+
+    {"statement":"SELECT * FROM `travel-sample` WHERE type=$type LIMIT 10", "$type":"airline", "n1qlback": {"prepare": true}}
+
 `n1qlback` requires that any resources (data items, indexes) are already
 defined.
 
@@ -64,16 +73,19 @@ command-line
 The following will create a file with 3 queries and 5 threads alternating
 between them. It also creates indexes on the `travel-sample` bucket
 
-    cbc n1ql -U couchbase://192.168.72.101/a_bucket 'CREATE INDEX ix_name ON `travel-sample`(name)'
-    cbc n1ql -U couchbase://192.168.72.101/a_bucket 'CREATE INDEX ix_country ON `travel-sample`(country)'
+    cbc n1ql 'CREATE INDEX ix_name ON `travel-sample`(name)'
+    cbc n1ql 'CREATE INDEX ix_country ON `travel-sample`(country)'
 
-    cat queries.txt <<EOF
+Crete text file `queries.txt` with the following content (note that fourth query has parameter)
+
     {"statement":"SELECT country FROM `travel-sample` WHERE `travel-sample`.country = \"United States\""}
     {"statement":"SELECT name FROM `travel-sample` LIMIT 10"}
     {"statement":"SELECT country, COUNT(country) FROM `travel-sample` GROUP BY country"}
-    EOF
+    {"statement":"SELECT RAW meta().id FROM `travel-sample` WHERE type=$type LIMIT 1", "$type":"airline", "n1qlback": {"prepare": true}}
 
-    cbc-n1qlback -U couchbase://192.168.72.101/a_bucket -t 5 -f queries.txt
+Run the test load
+
+    cbc-n1qlback --num-threads 5 --queryfile queries.txt
 
 ## BUGS
 

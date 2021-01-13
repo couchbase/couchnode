@@ -119,12 +119,12 @@ class ConnectionRequest
 {
   public:
     virtual void cancel() = 0;
-    virtual ~ConnectionRequest() {}
+    virtual ~ConnectionRequest() = default;
     static void cancel(ConnectionRequest **pp)
     {
         if (*pp) {
             (*pp)->cancel();
-            *pp = NULL;
+            *pp = nullptr;
         }
     }
 };

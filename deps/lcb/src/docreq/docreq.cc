@@ -29,8 +29,8 @@ static void invoke_pending(Queue *);
 #define DOCQ_DELAY_US 200000
 
 Queue::Queue(lcb_INSTANCE *instance_)
-    : instance(instance_), parent(NULL), timer(lcbio_timer_new(instance->iotable, this, docreq_handler)),
-      cb_ready(NULL), cb_throttle(NULL), n_awaiting_schedule(0), n_awaiting_response(0),
+    : instance(instance_), parent(nullptr), timer(lcbio_timer_new(instance->iotable, this, docreq_handler)),
+      cb_ready(nullptr), cb_throttle(nullptr), n_awaiting_schedule(0), n_awaiting_response(0),
       max_pending_response(MAX_PENDING_DOCREQ), min_batch_size(MIN_SCHED_SIZE), cancelled(false), refcount(1)
 {
 
@@ -86,7 +86,7 @@ void Queue::add(DocRequest *req)
 
 static void docreq_handler(void *arg)
 {
-    Queue *q = reinterpret_cast<Queue *>(arg);
+    auto *q = reinterpret_cast<Queue *>(arg);
     sllist_iterator iter;
     lcb_INSTANCE *instance = q->instance;
 
@@ -139,12 +139,12 @@ static void docreq_handler(void *arg)
  * is not yet ready is reached. */
 static void invoke_pending(Queue *q)
 {
-    sllist_iterator iter = {NULL};
+    sllist_iterator iter = {nullptr};
     q->ref();
     SLLIST_ITERFOR(&q->cb_queue, &iter)
     {
         DocRequest *dreq = SLLIST_ITEM(iter.cur, DocRequest, slnode);
-        void *bufh = NULL;
+        void *bufh = nullptr;
 
         if (dreq->ready == 0) {
             break;

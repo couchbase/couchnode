@@ -303,9 +303,9 @@ void ConnParams::fillCropts(lcb_CREATEOPTS *&cropts)
         string host = o_host.result();
         string bucket = o_bucket.result();
 
-        for (size_t ii = 0; ii < host.size(); ++ii) {
-            if (host[ii] == ';') {
-                host[ii] = ',';
+        for (char &ii : host) {
+            if (ii == ';') {
+                ii = ',';
             }
         }
 
@@ -374,9 +374,9 @@ void ConnParams::fillCropts(lcb_CREATEOPTS *&cropts)
         connstr += '&';
     }
 
-    const std::vector< std::string > &extras = o_cparams.const_result();
-    for (size_t ii = 0; ii < extras.size(); ii++) {
-        connstr += extras[ii];
+    const std::vector<std::string> &extras = o_cparams.const_result();
+    for (const auto &extra : extras) {
+        connstr += extra;
         connstr += '&';
     }
 
@@ -396,7 +396,8 @@ void ConnParams::fillCropts(lcb_CREATEOPTS *&cropts)
     lcb_createopts_credentials(cropts, NULL, 0, passwd.c_str(), passwd.size());
 }
 
-template < typename T > void doPctl(lcb_INSTANCE *instance, int cmd, T arg)
+template <typename T>
+void doPctl(lcb_INSTANCE *instance, int cmd, T arg)
 {
     lcb_STATUS err;
     err = lcb_cntl(instance, LCB_CNTL_SET, cmd, (void *)arg);
@@ -405,9 +406,10 @@ template < typename T > void doPctl(lcb_INSTANCE *instance, int cmd, T arg)
     }
 }
 
-template < typename T > void doSctl(lcb_INSTANCE *instance, int cmd, T arg)
+template <typename T>
+void doSctl(lcb_INSTANCE *instance, int cmd, T arg)
 {
-    doPctl< T * >(instance, cmd, &arg);
+    doPctl<T *>(instance, cmd, &arg);
 }
 
 void doStringCtl(lcb_INSTANCE *instance, const char *s, const char *val)
@@ -423,11 +425,11 @@ lcb_STATUS ConnParams::doCtls(lcb_INSTANCE *instance)
 {
     try {
         if (o_saslmech.passed()) {
-            doPctl< const char * >(instance, LCB_CNTL_FORCE_SASL_MECH, o_saslmech.result().c_str());
+            doPctl<const char *>(instance, LCB_CNTL_FORCE_SASL_MECH, o_saslmech.result().c_str());
         }
 
         // Set the detailed error codes option
-        doSctl< int >(instance, LCB_CNTL_DETAILED_ERRCODES, 1);
+        doSctl<int>(instance, LCB_CNTL_DETAILED_ERRCODES, 1);
 
         if (!o_connstr.passed() || o_connstr.result().find("compression=") == std::string::npos) {
             int opts = LCB_COMPRESS_IN;

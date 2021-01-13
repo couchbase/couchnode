@@ -30,15 +30,15 @@ namespace jsparse
 struct Parser;
 
 struct Row {
-    lcb_IOV docid;
-    lcb_IOV key;
-    lcb_IOV value;
-    lcb_IOV row;
-    lcb_IOV geo;
+    lcb_IOV docid{};
+    lcb_IOV key{};
+    lcb_IOV value{};
+    lcb_IOV row{};
+    lcb_IOV geo{};
 };
 
 struct Parser {
-    enum Mode { MODE_VIEWS, MODE_N1QL, MODE_FTS, MODE_ANALYTICS, MODE_ANALYTICS_DEFERRED };
+    enum Mode { MODE_VIEWS, MODE_N1QL, MODE_FTS, MODE_ANALYTICS };
 
     struct Actions {
         /**
@@ -63,7 +63,7 @@ struct Parser {
          */
         virtual void JSPARSE_on_complete(const std::string &meta) = 0;
 
-        virtual ~Actions() {}
+        virtual ~Actions() = default;
     };
 
     /**
@@ -106,7 +106,7 @@ struct Parser {
      */
     void get_postmortem(lcb_IOV &out) const;
 
-    inline const char *get_buffer_region(size_t pos, size_t desired, size_t *actual);
+    inline const char *get_buffer_region(size_t pos, size_t desired, size_t *actual) const;
     inline void combine_meta();
     inline static const char *jprstr_for_mode(Mode);
 

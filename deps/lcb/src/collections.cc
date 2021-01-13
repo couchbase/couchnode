@@ -20,15 +20,12 @@
 #include "mcserver/negotiate.h"
 
 #include <string>
-#include <sstream>
 
 #define LOGARGS(instance, lvl) (instance)->settings, "c9smgmt", LCB_LOG_##lvl, __FILE__, __LINE__
 
 namespace lcb
 {
 CollectionCache::CollectionCache() : cache_n2i(), cache_i2n() {}
-
-CollectionCache::~CollectionCache() {}
 
 std::string CollectionCache::id_to_name(uint32_t cid)
 {
@@ -39,7 +36,7 @@ std::string CollectionCache::id_to_name(uint32_t cid)
     return "";
 }
 
-bool CollectionCache::get(std::string path, uint32_t *cid)
+bool CollectionCache::get(const std::string &path, uint32_t *cid)
 {
     std::map<std::string, uint32_t>::const_iterator pos = cache_n2i.find(path);
     if (pos != cache_n2i.end()) {
@@ -49,7 +46,7 @@ bool CollectionCache::get(std::string path, uint32_t *cid)
     return false;
 }
 
-void CollectionCache::put(std::string path, uint32_t cid)
+void CollectionCache::put(const std::string &path, uint32_t cid)
 {
     cache_n2i[path] = cid;
     cache_i2n[cid] = path;
@@ -57,7 +54,7 @@ void CollectionCache::put(std::string path, uint32_t cid)
 
 void CollectionCache::erase(uint32_t cid)
 {
-    std::map<uint32_t, std::string>::iterator pos = cache_i2n.find(cid);
+    auto pos = cache_i2n.find(cid);
     if (pos != cache_i2n.end()) {
         cache_n2i.erase(pos->second);
         cache_i2n.erase(pos);
@@ -140,7 +137,7 @@ LIBCOUCHBASE_API
 lcb_STATUS lcb_getmanifest(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETMANIFEST *cmd)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
-    if (cq->config == NULL) {
+    if (cq->config == nullptr) {
         return LCB_ERR_NO_CONFIGURATION;
     }
     if (!LCBT_SETTING(instance, use_collections)) {
@@ -169,7 +166,7 @@ lcb_STATUS lcb_getmanifest(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGE
     pkt->u_rdata.reqdata.deadline =
         pkt->u_rdata.reqdata.start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
-    LCB_SCHED_ADD(instance, pl, pkt);
+    LCB_SCHED_ADD(instance, pl, pkt)
     (void)cmd;
     return LCB_SUCCESS;
 }
@@ -241,13 +238,13 @@ LIBCOUCHBASE_API
 lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID *cmd)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
-    if (cq->config == NULL) {
+    if (cq->config == nullptr) {
         return LCB_ERR_NO_CONFIGURATION;
     }
     if (!LCBT_SETTING(instance, use_collections)) {
         return LCB_ERR_UNSUPPORTED_OPERATION;
     }
-    if (cmd->nscope == 0 || cmd->scope == NULL || cmd->ncollection == 0 || cmd->collection == NULL) {
+    if (cmd->nscope == 0 || cmd->scope == nullptr || cmd->ncollection == 0 || cmd->collection == nullptr) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
     if (cq->npipelines < 1) {
@@ -261,7 +258,7 @@ lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID 
     }
     mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
 
-    std::string path("");
+    std::string path;
     path.append(cmd->scope, cmd->nscope);
     path.append(".");
     path.append(cmd->collection, cmd->ncollection);
@@ -285,6 +282,6 @@ lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID 
     pkt->u_rdata.reqdata.deadline =
         pkt->u_rdata.reqdata.start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
 
-    LCB_SCHED_ADD(instance, pl, pkt);
+    LCB_SCHED_ADD(instance, pl, pkt)
     return LCB_SUCCESS;
 }

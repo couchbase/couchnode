@@ -13,7 +13,7 @@
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- **/
+ */
 
 #include <libcouchbase/couchbase.h>
 #include <jsparse/parser.h>
@@ -23,94 +23,11 @@
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 #include <string>
 
+#include "capi/search.hh"
+
 #define LOGFMT "(FTR=%p) "
-#define LOGID(req) static_cast< const void * >(req)
+#define LOGID(req) static_cast<const void *>(req)
 #define LOGARGS(req, lvl) req->instance->settings, "n1ql", LCB_LOG_##lvl, __FILE__, __LINE__
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_status(const lcb_RESPSEARCH *resp)
-{
-    return resp->ctx.rc;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_cookie(const lcb_RESPSEARCH *resp, void **cookie)
-{
-    *cookie = resp->cookie;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_row(const lcb_RESPSEARCH *resp, const char **row, size_t *row_len)
-{
-    *row = resp->row;
-    *row_len = resp->nrow;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_http_response(const lcb_RESPSEARCH *resp, const lcb_RESPHTTP **http)
-{
-    *http = resp->htresp;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_handle(const lcb_RESPSEARCH *resp, lcb_SEARCH_HANDLE **handle)
-{
-    *handle = resp->handle;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_respsearch_error_context(const lcb_RESPSEARCH *resp,
-                                                         const lcb_SEARCH_ERROR_CONTEXT **ctx)
-{
-    *ctx = &resp->ctx;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API int lcb_respsearch_is_final(const lcb_RESPSEARCH *resp)
-{
-    return resp->rflags & LCB_RESP_F_FINAL;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_create(lcb_CMDSEARCH **cmd)
-{
-    *cmd = (lcb_CMDSEARCH *)calloc(1, sizeof(lcb_CMDSEARCH));
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_destroy(lcb_CMDSEARCH *cmd)
-{
-    free(cmd);
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_timeout(lcb_CMDSEARCH *cmd, uint32_t timeout)
-{
-    cmd->timeout = timeout;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_parent_span(lcb_CMDSEARCH *cmd, lcbtrace_SPAN *span)
-{
-    cmd->pspan = span;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_callback(lcb_CMDSEARCH *cmd, lcb_SEARCH_CALLBACK callback)
-{
-    cmd->callback = callback;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_payload(lcb_CMDSEARCH *cmd, const char *payload, size_t payload_len)
-{
-    cmd->query = payload;
-    cmd->nquery = payload_len;
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_handle(lcb_CMDSEARCH *cmd, lcb_SEARCH_HANDLE **handle)
-{
-    cmd->handle = handle;
-    return LCB_SUCCESS;
-}
 
 struct lcb_SEARCH_HANDLE_ : lcb::jsparse::Parser::Actions {
     const lcb_RESPHTTP *cur_htresp;
@@ -129,20 +46,20 @@ struct lcb_SEARCH_HANDLE_ : lcb::jsparse::Parser::Actions {
     void invoke_last();
 
     lcb_SEARCH_HANDLE_(lcb_INSTANCE *, const void *, const lcb_CMDSEARCH *);
-    ~lcb_SEARCH_HANDLE_();
-    void JSPARSE_on_row(const lcb::jsparse::Row &datum)
+    ~lcb_SEARCH_HANDLE_() override;
+    void JSPARSE_on_row(const lcb::jsparse::Row &datum) override
     {
         lcb_RESPSEARCH resp{};
-        resp.row = static_cast< const char * >(datum.row.iov_base);
+        resp.row = static_cast<const char *>(datum.row.iov_base);
         resp.nrow = datum.row.iov_len;
         nrows++;
         invoke_row(&resp);
     }
-    void JSPARSE_on_error(const std::string &)
+    void JSPARSE_on_error(const std::string &) override
     {
         lasterr = LCB_ERR_PROTOCOL_ERROR;
     }
-    void JSPARSE_on_complete(const std::string &)
+    void JSPARSE_on_complete(const std::string &) override
     {
         // Nothing
     }
@@ -150,8 +67,8 @@ struct lcb_SEARCH_HANDLE_ : lcb::jsparse::Parser::Actions {
 
 static void chunk_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
-    const lcb_RESPHTTP *rh = (const lcb_RESPHTTP *)rb;
-    lcb_SEARCH_HANDLE_ *req = static_cast<lcb_SEARCH_HANDLE_ *>(rh->cookie);
+    const auto *rh = (const lcb_RESPHTTP *)rb;
+    auto *req = static_cast<lcb_SEARCH_HANDLE_ *>(rh->cookie);
 
     req->cur_htresp = rh;
     if (rh->ctx.rc != LCB_SUCCESS || rh->ctx.response_code != 200) {
@@ -164,18 +81,18 @@ static void chunk_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
         req->invoke_last();
         delete req;
 
-    } else if (req->callback == NULL) {
+    } else if (req->callback == nullptr) {
         /* Cancelled. Similar to the block above, except the http request
          * should remain alive (so we can cancel it later on) */
         delete req;
     } else {
-        req->parser->feed(static_cast< const char * >(rh->ctx.body), rh->ctx.body_len);
+        req->parser->feed(static_cast<const char *>(rh->ctx.body), rh->ctx.body_len);
     }
 }
 
 void lcb_SEARCH_HANDLE_::invoke_row(lcb_RESPSEARCH *resp)
 {
-    resp->cookie = const_cast< void * >(cookie);
+    resp->cookie = const_cast<void *>(cookie);
     resp->htresp = cur_htresp;
     resp->handle = this;
     resp->ctx.http_response_code = cur_htresp->ctx.response_code;
@@ -236,17 +153,17 @@ void lcb_SEARCH_HANDLE_::invoke_last()
     if (parser) {
         lcb_IOV meta;
         parser->get_postmortem(meta);
-        resp.row = static_cast< const char * >(meta.iov_base);
+        resp.row = static_cast<const char *>(meta.iov_base);
         resp.nrow = meta.iov_len;
     }
     invoke_row(&resp);
-    callback = NULL;
+    callback = nullptr;
 }
 
 lcb_SEARCH_HANDLE_::lcb_SEARCH_HANDLE_(lcb_INSTANCE *instance_, const void *cookie_, const lcb_CMDSEARCH *cmd)
-    : lcb::jsparse::Parser::Actions(), cur_htresp(NULL), htreq(NULL),
+    : lcb::jsparse::Parser::Actions(), cur_htresp(nullptr), htreq(nullptr),
       parser(new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_FTS, this)), cookie(cookie_), callback(cmd->callback),
-      instance(instance_), nrows(0), lasterr(LCB_SUCCESS), span(NULL)
+      instance(instance_), nrows(0), lasterr(LCB_SUCCESS), span(nullptr)
 {
     if (!callback) {
         lasterr = LCB_ERR_INVALID_ARGUMENT;
@@ -284,7 +201,7 @@ lcb_SEARCH_HANDLE_::lcb_SEARCH_HANDLE_(lcb_INSTANCE *instance_, const void *cook
     // Making a copy here to ensure that we don't accidentally create a new
     // 'ctl' field.
     const Json::Value &ctl = constRoot["value"];
-    uint32_t timeout = cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, n1ql_timeout);
+    uint32_t timeout = cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, search_timeout);
     if (ctl.isObject()) {
         const Json::Value &tmo = ctl["timeout"];
         if (tmo.isNumeric()) {
@@ -308,7 +225,8 @@ lcb_SEARCH_HANDLE_::lcb_SEARCH_HANDLE_(lcb_INSTANCE *instance_, const void *cook
         if (instance->settings->tracer) {
             char id[20] = {0};
             snprintf(id, sizeof(id), "%p", (void *)this);
-            span = lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, NULL);
+            span =
+                lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, nullptr);
             lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_OPERATION_ID, id);
             lcbtrace_span_add_system_tags(span, instance->settings, LCBTRACE_TAG_SERVICE_SEARCH);
         }
@@ -326,21 +244,21 @@ lcb_SEARCH_HANDLE_::~lcb_SEARCH_HANDLE_()
             }
         }
         lcbtrace_span_finish(span, LCBTRACE_NOW);
-        span = NULL;
+        span = nullptr;
     }
-    if (htreq != NULL) {
+    if (htreq != nullptr) {
         lcb_http_cancel(instance, htreq);
-        htreq = NULL;
+        htreq = nullptr;
     }
     if (parser) {
         delete parser;
-        parser = NULL;
+        parser = nullptr;
     }
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_search(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSEARCH *cmd)
 {
-    lcb_SEARCH_HANDLE_ *req = new lcb_SEARCH_HANDLE_(instance, cookie, cmd);
+    auto *req = new lcb_SEARCH_HANDLE_(instance, cookie, cmd);
     if (req->lasterr) {
         lcb_STATUS rc = req->lasterr;
         delete req;
@@ -351,6 +269,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_search(lcb_INSTANCE *instance, void *cookie, con
 
 LIBCOUCHBASE_API lcb_STATUS lcb_search_cancel(lcb_INSTANCE * /* instance */, lcb_SEARCH_HANDLE *handle)
 {
-    handle->callback = NULL;
+    handle->callback = nullptr;
     return LCB_SUCCESS;
 }
