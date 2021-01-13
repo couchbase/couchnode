@@ -30,7 +30,7 @@
   "devDependencies": {
     "better-docs": "^2.3.2",
     "chai": "^4.2.0",
-    "eslint": "^7.14.0",
+    "eslint": "^7.17.0",
     "jsdoc": "^3.6.6",
     "jsdoc-stability-tag": "~1.0.0",
     "mocha": "^8.2.1",
@@ -39,7 +39,7 @@
     "prebuild": "^10.0.1",
     "semver": "^7.3.4",
     "tsd-jsdoc": "^2.5.0",
-    "uuid": "^8.3.1"
+    "uuid": "^8.3.2"
   },
   "repository": {
     "type": "git",
