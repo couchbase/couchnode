@@ -2497,6 +2497,26 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_consistency(lcb_CMDANALYTICS *cmd, 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_option(lcb_CMDANALYTICS *cmd, const char *name, size_t name_len,
                                                     const char *value, size_t value_len);
 /**
+ * Associate scope name with the query
+ * @param cmd the command
+ * @param scope the name of the scope
+ * @param scope_len length of the scope name string.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_scope_name(lcb_CMDANALYTICS *cmd, const char *scope, size_t scope_len);
+/**
+ * @uncommitted
+ *
+ * Associate scope_qualifier (also known as `query_context`) with the query.
+ *
+ * The qualifier must be in form `${bucket_name}.${scope_name}` or `default:${bucket_name}.${scope_name}`.
+ *
+ * @param cmd the command
+ * @param qualifier the string containing qualifier
+ * @param qualifier_len length of the qualifier
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_scope_qualifier(lcb_CMDANALYTICS *cmd, const char *qualifier,
+                                                             size_t qualifier_len);
+/**
  * Get handle to analytics query.  Used when canceling a request.  See @ref lcb_respanalytics_handle as well
  *
  * @param cmd the command

@@ -1,5 +1,20 @@
 # Release Notes
 
+## 3.1.0 (2021-03-03)
+
+* CCBC-1376: propagate scope qualifier to prepare statements
+* CCBC-1283: add analytics support for scopes
+* CCBC-1374: reintroduce input error classification macro
+* CCBC-1375: translate query errors when scope/collection missing
+* CCBC-1368: fix project links in README
+* CCBC-1366: do not cache bucket-less configurations
+* CCBC-1363: allow using parent project's `hdr_histogram_static` target
+* CCBC-1361: allow `"_default._default"` collection for pre-collections servers
+* MB-42884: correctly define `FILEVERSION` for libcouchbase.dll
+* CCBC-1351: option to render cbc-ping output as a table
+* CCBC-1323: return `LCB_ERR_DOCUMENT_EXISTS` only for insert operation
+* CCBC-1346: return `LCB_ERR_DOCUMENT_LOCKED` for locked documents
+
 ## 3.0.7 (2020-12-15)
 
 * CCBC-1350: Implement an option for cbc-n1ql to control prepared/adhoc switch

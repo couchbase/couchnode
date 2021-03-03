@@ -338,6 +338,7 @@ static bool is_fastpath_error(uint16_t rc)
         case PROTOCOL_BINARY_RESPONSE_DURABILITY_IMPOSSIBLE:
         case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_IN_PROGRESS:
         case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS:
+        case PROTOCOL_BINARY_RESPONSE_LOCKED:
             return true;
         default:
             if (rc >= 0xc0 && rc <= 0xcc) {

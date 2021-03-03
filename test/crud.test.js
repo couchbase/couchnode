@@ -432,7 +432,7 @@ function genericTests(collFn) {
 
     it('should lock successfully', async () => {
       // Try and lock the key
-      var res = await collFn().getAndLock(testKeyLck, 1);
+      var res = await collFn().getAndLock(testKeyLck, 2);
       assert.isObject(res);
       assert.isNotEmpty(res.cas);
       assert.deepStrictEqual(res.value, { foo: 14 });
@@ -440,7 +440,7 @@ function genericTests(collFn) {
 
       // Make sure its actually locked
       await H.throwsHelper(async () => {
-        await collFn().upsert(testKeyLck, { foo: 9 });
+        await collFn().upsert(testKeyLck, { foo: 9 }, { timeout: 1000 });
       });
 
       // Ensure we can upsert with the cas

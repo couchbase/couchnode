@@ -26,9 +26,9 @@ using std::vector;
 struct N1QLResult {
     vector<string> rows;
     string meta;
-    uint16_t htcode;
-    lcb_STATUS rc;
-    bool called;
+    uint16_t htcode{};
+    lcb_STATUS rc{};
+    bool called{};
 
     N1QLResult()
     {
@@ -68,13 +68,13 @@ static void rowcb(lcb_INSTANCE *, int, const lcb_RESPQUERY *resp)
         if (row) {
             res->meta.assign(row, nrow);
         }
-        const lcb_RESPHTTP *http = NULL;
+        const lcb_RESPHTTP *http = nullptr;
         lcb_respquery_http_response(resp, &http);
         if (http) {
             lcb_resphttp_http_status(http, &res->htcode);
         }
     } else {
-        res->rows.push_back(string(row, nrow));
+        res->rows.emplace_back(row, nrow);
     }
     res->called = true;
 }
@@ -83,12 +83,12 @@ static void rowcb(lcb_INSTANCE *, int, const lcb_RESPQUERY *resp)
 class QueryUnitTest : public MockUnitTest
 {
   protected:
-    lcb_CMDQUERY *cmd;
-    void SetUp()
+    lcb_CMDQUERY *cmd{};
+    void SetUp() override
     {
         lcb_cmdquery_create(&cmd);
     }
-    void TearDown()
+    void TearDown() override
     {
         lcb_cmdquery_destroy(cmd);
     }
@@ -112,10 +112,10 @@ class QueryUnitTest : public MockUnitTest
             return false;
         }
         createClusterConnection(hw, instance);
-        const lcbvb_CONFIG *vbc = NULL;
+        const lcbvb_CONFIG *vbc = nullptr;
         lcb_STATUS rc;
         rc = lcb_cntl(*instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
-        EXPECT_TRUE(vbc != NULL);
+        EXPECT_TRUE(vbc != nullptr);
         EXPECT_EQ(LCB_SUCCESS, rc);
         int ix = lcbvb_get_randhost(vbc, LCBVB_SVCTYPE_QUERY, LCBVB_SVCMODE_PLAIN);
         return ix > -1;
@@ -298,11 +298,11 @@ TEST_F(QueryUnitTest, testCancellation)
     }
     N1QLResult res;
     makeCommand("SELECT mockrow");
-    lcb_QUERY_HANDLE *handle = NULL;
+    lcb_QUERY_HANDLE *handle = nullptr;
     lcb_cmdquery_handle(cmd, &handle);
     lcb_STATUS rc = lcb_query(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    ASSERT_TRUE(handle != NULL);
+    ASSERT_TRUE(handle != nullptr);
     lcb_query_cancel(instance, handle);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_FALSE(res.called);
@@ -317,11 +317,11 @@ TEST_F(QueryUnitTest, testClusterwide)
     }
     N1QLResult res;
     makeCommand("SELECT 1");
-    lcb_QUERY_HANDLE *handle = NULL;
+    lcb_QUERY_HANDLE *handle = nullptr;
     lcb_cmdquery_handle(cmd, &handle);
     lcb_STATUS rc = lcb_query(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    ASSERT_TRUE(handle != NULL);
+    ASSERT_TRUE(handle != nullptr);
     lcb_query_cancel(instance, handle);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_FALSE(res.called);
@@ -340,7 +340,7 @@ static void setCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *
 }
 }
 
-string insert_doc(lcb_INSTANCE *instance, string scope, string collection)
+string insert_doc(lcb_INSTANCE *instance, const string &scope, const string &collection)
 {
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)setCallback);
 
@@ -359,7 +359,7 @@ string insert_doc(lcb_INSTANCE *instance, string scope, string collection)
     return key;
 }
 
-void create_index(lcb_INSTANCE *instance, string index, string scope, string collection)
+void create_index(lcb_INSTANCE *instance, const string &index, const string &scope, const string &collection)
 {
     string keyspace = "`default`:`default`.`" + scope + "`.`" + collection + "`";
     string statement = "CREATE PRIMARY INDEX ";
@@ -371,11 +371,11 @@ void create_index(lcb_INSTANCE *instance, string index, string scope, string col
     lcb_cmdquery_statement(cmd, statement.c_str(), statement.size());
     lcb_cmdquery_callback(cmd, rowcb);
 
-    lcb_QUERY_HANDLE *handle = NULL;
+    lcb_QUERY_HANDLE *handle = nullptr;
     lcb_cmdquery_handle(cmd, &handle);
     lcb_STATUS rc = lcb_query(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    ASSERT_TRUE(handle != NULL);
+    ASSERT_TRUE(handle != nullptr);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
@@ -395,8 +395,8 @@ void create_index(lcb_INSTANCE *instance, string index, string scope, string col
  */
 TEST_F(QueryUnitTest, testCollectionQuery)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -425,12 +425,128 @@ TEST_F(QueryUnitTest, testCollectionQuery)
     lcb_cmdquery_callback(cmd, rowcb);
     lcb_cmdquery_scope_name(cmd, scope.c_str(), scope.size());
 
-    lcb_QUERY_HANDLE *handle = NULL;
+    lcb_QUERY_HANDLE *handle = nullptr;
     lcb_cmdquery_handle(cmd, &handle);
     lcb_STATUS rc = lcb_query(instance, &res, cmd);
     ASSERT_EQ(LCB_SUCCESS, rc);
-    ASSERT_TRUE(handle != NULL);
+    ASSERT_TRUE(handle != nullptr);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(res.called);
+    ASSERT_EQ(1, res.rows.size());
+}
+
+TEST_F(QueryUnitTest, testQueryWithUnknownCollection)
+{
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
+
+    string scope = unique_name("scope1");
+    string collection = unique_name("collection1");
+    string unknown_scope = unique_name("scope2");
+    string unknown_collection = unique_name("collection2");
+
+    string index = "test-index";
+
+    // Create a scope and collection
+    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
+    EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
+    sleep(5);
+
+    // Create an index on the collection
+    create_index(instance, index, scope, collection);
+    sleep(10); /* Wait for index to be available. Should replace with poll.*/
+
+    // Insert a doc
+    string id = insert_doc(instance, scope, collection);
+
+    {
+        // Query with unknown scope
+        N1QLResult res;
+        lcb_CMDQUERY *cmd;
+        lcb_cmdquery_create(&cmd);
+        string query = "SELECT * FROM `" + collection + "` where meta().id=\"" + id + "\"";
+        lcb_cmdquery_statement(cmd, query.c_str(), query.size());
+        lcb_cmdquery_callback(cmd, rowcb);
+        lcb_cmdquery_scope_name(cmd, unknown_scope.c_str(), unknown_scope.size());
+
+        lcb_QUERY_HANDLE *handle = nullptr;
+        lcb_cmdquery_handle(cmd, &handle);
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        lcb_cmdquery_destroy(cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        ASSERT_TRUE(handle != nullptr);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(0, res.rows.size());
+        ASSERT_EQ(LCB_ERR_SCOPE_NOT_FOUND, res.rc) << lcb_strerror_short(res.rc);
+    }
+
+    {
+        // Query with unknown collection
+        N1QLResult res;
+        lcb_CMDQUERY *cmd;
+        lcb_cmdquery_create(&cmd);
+        string query = "SELECT * FROM `" + unknown_collection + "` where meta().id=\"" + id + "\"";
+        lcb_cmdquery_statement(cmd, query.c_str(), query.size());
+        lcb_cmdquery_callback(cmd, rowcb);
+        lcb_cmdquery_scope_name(cmd, scope.c_str(), scope.size());
+
+        lcb_QUERY_HANDLE *handle = nullptr;
+        lcb_cmdquery_handle(cmd, &handle);
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        lcb_cmdquery_destroy(cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        ASSERT_TRUE(handle != nullptr);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(0, res.rows.size());
+        ASSERT_EQ(LCB_ERR_KEYSPACE_NOT_FOUND, res.rc) << lcb_strerror_short(res.rc);
+    }
+}
+
+TEST_F(QueryUnitTest, testCollectionPreparedQuery)
+{
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
+
+    string scope = unique_name("scope");
+    string collection = unique_name("collection");
+    string index = "test-index";
+
+    // Create a scope and collection
+    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
+    EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
+    sleep(5);
+
+    // Create an index on the collection
+    create_index(instance, index, scope, collection);
+    sleep(10); /* Wait for index to be available. Should replace with poll.*/
+
+    // Insert a doc
+    string id = insert_doc(instance, scope, collection);
+
+    N1QLResult res;
+    lcb_CMDQUERY *cmd;
+    lcb_cmdquery_create(&cmd);
+    string query = "SELECT * FROM `" + collection + "` where meta().id=\"" + id + "\"";
+    lcb_cmdquery_statement(cmd, query.c_str(), query.size());
+    lcb_cmdquery_callback(cmd, rowcb);
+    lcb_cmdquery_scope_name(cmd, scope.c_str(), scope.size());
+    lcb_cmdquery_adhoc(cmd, false);
+
+    lcb_QUERY_HANDLE *handle = nullptr;
+    lcb_cmdquery_handle(cmd, &handle);
+    lcb_STATUS rc = lcb_query(instance, &res, cmd);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_TRUE(handle != nullptr);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    ASSERT_TRUE(res.called);
+    ASSERT_EQ(LCB_SUCCESS, res.rc) << lcb_strerror_short(res.rc);
     ASSERT_EQ(1, res.rows.size());
 }

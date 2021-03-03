@@ -16,7 +16,6 @@
  */
 #include <gtest/gtest.h>
 #include "iotests.h"
-#include <libcouchbase/utils.h>
 #include "internalstructs.h"
 
 using std::string;
@@ -26,16 +25,17 @@ using std::vector;
 
 static lcb_BOOTSTRAP_TRANSPORT transports[] = {LCB_CONFIG_TRANSPORT_HTTP, LCB_CONFIG_TRANSPORT_LIST_END};
 struct rvbuf {
-    lcb_STATUS error;
-    lcb_STORE_OPERATION operation;
-    vector< char > bytes;
-    vector< char > key;
-    uint64_t cas;
-    lcb_uint32_t flags;
-    lcb_int32_t counter;
-    lcb_uint32_t errorCount;
+    lcb_STATUS error{};
+    lcb_STORE_OPERATION operation{};
+    vector<char> bytes;
+    vector<char> key;
+    uint64_t cas{};
+    uint32_t flags{};
+    int32_t counter{};
+    uint32_t errorCount{};
 
-    template < typename T > void setKey(const T *resp)
+    template <typename T>
+    void setKey(const T *resp)
     {
         const char *ktmp, *kend;
         ktmp = (const char *)resp->key;
@@ -123,7 +123,7 @@ struct rvbuf {
 
 extern "C" {
 
-static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
+static void bootstrap_callback(lcb_INSTANCE * /* instance */, lcb_STATUS err)
 {
     EXPECT_TRUE(err == LCB_SUCCESS || err == LCB_ERR_BUCKET_NOT_FOUND || err == LCB_ERR_AUTHENTICATION_FAILURE);
     EXPECT_NE(err, LCB_ERR_NO_MATCHING_SERVER);
@@ -157,7 +157,10 @@ static void touch_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPTOUC
     lcb_STATUS rc = lcb_resptouch_status(resp);
     rv->setError(rc);
     rv->setKey(resp);
-    EXPECT_EQ(LCB_SUCCESS, rc);
+    if (rc == LCB_ERR_TIMEOUT) {
+        fprintf(stderr, "caught timeout\n");
+    }
+    EXPECT_EQ(LCB_SUCCESS, rc) << std::string(rv->key.begin(), rv->key.end()) << ": " << lcb_strerror_short(rc);
 }
 
 } // extern "C"
@@ -173,34 +176,32 @@ class SmokeTest : public ::testing::Test
   protected:
     MockEnvironment *mock;
     lcb_INSTANCE *session;
-    void SetUp()
+    void SetUp() override
     {
-        assert(session == NULL);
-        session = NULL;
-        mock = NULL;
+        assert(session == nullptr);
+        session = nullptr;
+        mock = nullptr;
     }
 
-    void TearDown()
+    void TearDown() override
     {
-        if (session != NULL) {
+        if (session != nullptr) {
             lcb_destroy(session);
         }
-        if (mock != NULL) {
-            delete mock;
-        }
+        delete mock;
 
-        session = NULL;
-        mock = NULL;
+        session = nullptr;
+        mock = nullptr;
     }
     void destroySession()
     {
-        if (session != NULL) {
+        if (session != nullptr) {
             lcb_destroy(session);
-            session = NULL;
+            session = nullptr;
         }
     }
 
-    SmokeTest() : mock(NULL), session(NULL) {}
+    SmokeTest() : mock(nullptr), session(nullptr) {}
 
   public:
     void testSet1();
@@ -212,7 +213,7 @@ class SmokeTest : public ::testing::Test
     lcb_STATUS testMissingBucket();
 
     // Call to connect instance
-    void connectCommon(const char *bucket = NULL, const char *password = NULL, lcb_STATUS expected = LCB_SUCCESS);
+    void connectCommon(const char *bucket = nullptr, const char *password = nullptr, lcb_STATUS expected = LCB_SUCCESS);
 };
 
 void SmokeTest::testSet1()
@@ -258,7 +259,6 @@ void SmokeTest::testSet2()
 
 void SmokeTest::testGet1()
 {
-    lcb_STATUS err;
     struct rvbuf rv;
     string key("foo"), value("bar");
 
@@ -289,12 +289,12 @@ void SmokeTest::testGet1()
     EXPECT_EQ(value, rv.getValueString());
 }
 
-static void genAZString(vector< string > &coll)
+static void genAZString(vector<string> &coll)
 {
     string base("foo");
     for (size_t ii = 0; ii < 26; ++ii) {
         coll.push_back(base);
-        coll.back() += ('a' + ii);
+        coll.back() += std::to_string('a' + ii);
     }
 }
 
@@ -302,12 +302,10 @@ void SmokeTest::testGet2()
 {
     struct rvbuf rv;
     string value("bar");
-    vector< string > coll;
+    vector<string> coll;
     genAZString(coll);
 
-    for (size_t ii = 0; ii < coll.size(); ii++) {
-        const string &curKey = coll[ii];
-
+    for (auto &curKey : coll) {
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, curKey.c_str(), curKey.size());
@@ -324,9 +322,7 @@ void SmokeTest::testGet2()
 
     rv.counter = coll.size();
 
-    for (size_t ii = 0; ii < coll.size(); ii++) {
-        const string &curKey = coll[ii];
-
+    for (auto &curKey : coll) {
         lcb_CMDGET *cmd;
         lcb_cmdget_create(&cmd);
         lcb_cmdget_key(cmd, curKey.c_str(), curKey.size());
@@ -342,13 +338,11 @@ void SmokeTest::testGet2()
 void SmokeTest::testTouch1()
 {
     struct rvbuf rv;
-    vector< string > coll;
+    vector<string> coll;
     string value("bar");
     genAZString(coll);
 
-    for (size_t ii = 0; ii < coll.size(); ii++) {
-        const string &curKey = coll[ii];
-
+    for (auto &curKey : coll) {
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, curKey.c_str(), curKey.size());
@@ -364,12 +358,11 @@ void SmokeTest::testTouch1()
     }
 
     rv.counter = coll.size();
-    for (size_t ii = 0; ii < coll.size(); ii++) {
-        const string &curKey = coll[ii];
-
+    for (auto &curKey : coll) {
         lcb_CMDTOUCH *cmd;
         lcb_cmdtouch_create(&cmd);
         lcb_cmdtouch_key(cmd, curKey.c_str(), curKey.size());
+        lcb_cmdtouch_expiry(cmd, 10);
         EXPECT_EQ(LCB_SUCCESS, lcb_touch(session, &rv, cmd));
         lcb_cmdtouch_destroy(cmd);
         rv.incRemaining();
@@ -383,12 +376,12 @@ lcb_STATUS SmokeTest::testMissingBucket()
 {
     destroySession();
     // create a new session
-    lcb_CREATEOPTS *cropts = NULL;
+    lcb_CREATEOPTS *cropts = nullptr;
     mock->makeConnectParams(cropts);
     std::string bucket("nonexist");
     std::string username("nonexist");
     lcb_createopts_bucket(cropts, bucket.c_str(), bucket.size());
-    lcb_createopts_credentials(cropts, username.c_str(), username.size(), NULL, 0);
+    lcb_createopts_credentials(cropts, username.c_str(), username.size(), nullptr, 0);
     lcb_STATUS err;
     err = lcb_create(&session, cropts);
     lcb_createopts_destroy(cropts);
@@ -425,7 +418,7 @@ void SmokeTest::testSpuriousSaslError()
     lcb_wait(session, LCB_WAIT_DEFAULT);
 
     for (i = 0; i < iterations; i++) {
-        const char *errinfo = NULL;
+        const char *errinfo = nullptr;
         if (rvs[i].errorCount != LCB_SUCCESS) {
             errinfo = "Did not get success response";
         } else if (rvs[i].key.size() != 3) {
@@ -441,8 +434,8 @@ void SmokeTest::testSpuriousSaslError()
 
 void SmokeTest::connectCommon(const char *bucket, const char *password, lcb_STATUS expected)
 {
-    lcb_CREATEOPTS *cropts = NULL;
-    mock->makeConnectParams(cropts, NULL);
+    lcb_CREATEOPTS *cropts = nullptr;
+    mock->makeConnectParams(cropts, nullptr);
 
     if (bucket) {
         lcb_createopts_bucket(cropts, bucket, strlen(bucket));
@@ -465,8 +458,8 @@ void SmokeTest::connectCommon(const char *bucket, const char *password, lcb_STAT
 
 TEST_F(SmokeTest, testMemcachedBucket)
 {
-    SKIP_UNLESS_MOCK();
-    const char *args[] = {"--buckets", "default::memcache", NULL};
+    SKIP_UNLESS_MOCK()
+    const char *args[] = {"--buckets", "default::memcache", nullptr};
     mock = new MockEnvironment(args);
     mock->setCCCP(false);
     connectCommon();
@@ -482,19 +475,19 @@ TEST_F(SmokeTest, testMemcachedBucket)
 
     lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ANY);
     lcb_cmdgetreplica_key(cmd, "key", 3);
-    rc = lcb_getreplica(session, NULL, cmd);
+    rc = lcb_getreplica(session, nullptr, cmd);
     ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, rc);
     lcb_cmdgetreplica_destroy(cmd);
 
     lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ALL);
     lcb_cmdgetreplica_key(cmd, "key", 3);
-    rc = lcb_getreplica(session, NULL, cmd);
+    rc = lcb_getreplica(session, nullptr, cmd);
     ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, rc);
     lcb_cmdgetreplica_destroy(cmd);
 
     lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_IDX0);
     lcb_cmdgetreplica_key(cmd, "key", 3);
-    rc = lcb_getreplica(session, NULL, cmd);
+    rc = lcb_getreplica(session, nullptr, cmd);
     ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, rc);
     lcb_cmdgetreplica_destroy(cmd);
 
@@ -503,8 +496,8 @@ TEST_F(SmokeTest, testMemcachedBucket)
 
 TEST_F(SmokeTest, testCouchbaseBucket)
 {
-    SKIP_UNLESS_MOCK();
-    const char *args[] = {"--buckets", "default::couchbase", "--debug", NULL};
+    SKIP_UNLESS_MOCK()
+    const char *args[] = {"--buckets", "default::couchbase", "--debug", nullptr};
     mock = new MockEnvironment(args);
     mock->setCCCP(false);
     connectCommon();
@@ -517,8 +510,8 @@ TEST_F(SmokeTest, testCouchbaseBucket)
 
 TEST_F(SmokeTest, testSaslBucket)
 {
-    SKIP_UNLESS_MOCK();
-    const char *args[] = {"--buckets", "protected:secret:couchbase", NULL};
+    SKIP_UNLESS_MOCK()
+    const char *args[] = {"--buckets", "protected:secret:couchbase", nullptr};
     mock = new MockEnvironment(args, "protected");
     mock->setCCCP(false);
 

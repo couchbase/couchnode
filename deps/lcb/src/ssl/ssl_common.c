@@ -219,7 +219,7 @@ int iotssl_maybe_error(lcbio_XSSL *xs, int rv)
  ******************************************************************************/
 static void log_callback(const SSL *ssl, int where, int ret)
 {
-    const char *retstr = "";
+    const char *retstr;
     int should_log = 0;
     lcbio_SOCKET *sock = SSL_get_app_data(ssl);
     /* Ignore low-level SSL stuff */
@@ -545,6 +545,7 @@ static void ossl_init_locks(void)
     }
     /* TODO: locking API has been removed in OpenSSL 1.1 */
     CRYPTO_set_locking_callback(ossl_lockfn);
+    (void)ossl_lockfn;
 }
 
 static volatile int ossl_initialized = 0;

@@ -424,7 +424,7 @@ TEST_F(SubdocUnitTest, testSdStore)
     // Try with a bad CAS
     lcb_cmdsubdoc_cas(cmd, res.cas + 1);
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, cmd, lcb_subdoc));
-    ASSERT_EQ(LCB_ERR_DOCUMENT_EXISTS, res.rc);
+    ASSERT_EQ(LCB_ERR_CAS_MISMATCH, res.rc);
     lcb_cmdsubdoc_cas(cmd, 0); // Reset CAS
 
     // Try to add a compound value

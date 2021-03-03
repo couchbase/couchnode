@@ -28,12 +28,12 @@ class ConnstrTest : public ::testing::Test
 {
   protected:
     Connspec params;
-    const char *errmsg;
+    const char *errmsg{};
     void reinit()
     {
         params = Connspec();
     }
-    void SetUp()
+    void SetUp() override
     {
         params = Connspec();
     }
@@ -41,13 +41,12 @@ class ConnstrTest : public ::testing::Test
 
 const Spechost *findHost(const Connspec &params, const char *srch)
 {
-    for (size_t ii = 0; ii < params.hosts().size(); ++ii) {
-        const Spechost *cur = &params.hosts()[ii];
-        if (srch == cur->hostname) {
-            return cur;
+    for (const auto &ii : params.hosts()) {
+        if (srch == ii.hostname) {
+            return &ii;
         }
     }
-    return NULL;
+    return nullptr;
 }
 const Spechost *findHost(const Connspec *params, const char *srch)
 {
@@ -61,12 +60,10 @@ struct OptionPair {
 
 bool findOption(const Connspec &params, const char *srch, OptionPair &op)
 {
-    int iter = 0;
-    Connspec::Options::const_iterator ii = params.options().begin();
-    for (; ii != params.options().end(); ++ii) {
-        if (ii->first == srch) {
-            op.key = ii->first;
-            op.value = ii->second;
+    for (const auto &ii : params.options()) {
+        if (ii.first == srch) {
+            op.key = ii.first;
+            op.value = ii.second;
             return true;
         }
     }
@@ -92,7 +89,7 @@ TEST_F(ConnstrTest, testParseBasic)
     const Spechost *tmphost;
     tmphost = findHost(params, "1.2.3.4");
     ASSERT_EQ(1, countHosts(params));
-    ASSERT_FALSE(NULL == tmphost);
+    ASSERT_FALSE(nullptr == tmphost);
     ASSERT_EQ(0, tmphost->port);
     ASSERT_EQ(0, tmphost->type); // Nothing
 
@@ -120,9 +117,10 @@ TEST_F(ConnstrTest, testParseBasic)
 
     reinit();
     err = params.parse("1.2.3.4:999", &errmsg);
+    ASSERT_EQ(LCB_SUCCESS, err) << "Ok with port and without scheme";
     ASSERT_EQ(1, countHosts(&params));
     tmphost = findHost(&params, "1.2.3.4");
-    ASSERT_FALSE(tmphost == NULL);
+    ASSERT_FALSE(tmphost == nullptr);
     ASSERT_EQ(999, tmphost->port);
     ASSERT_TRUE(tmphost->isHTTP());
 }
@@ -131,17 +129,18 @@ TEST_F(ConnstrTest, testParseHosts)
 {
     lcb_STATUS err;
     err = params.parse("couchbase://foo.com,bar.com,baz.com", &errmsg);
+    ASSERT_EQ(LCB_SUCCESS, err) << "Ok with three host names";
     ASSERT_EQ(3, countHosts(&params));
-    ASSERT_FALSE(NULL == findHost(&params, "foo.com"));
-    ASSERT_FALSE(NULL == findHost(&params, "bar.com"));
-    ASSERT_FALSE(NULL == findHost(&params, "baz.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "foo.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "bar.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "baz.com"));
 
     // Parse with 'legacy' format
     reinit();
     err = params.parse("couchbase://foo.com:8091", &errmsg);
     ASSERT_EQ(LCB_SUCCESS, err);
     const Spechost *dh = findHost(&params, "foo.com");
-    ASSERT_FALSE(NULL == dh);
+    ASSERT_FALSE(nullptr == dh);
     ASSERT_EQ("foo.com", dh->hostname);
     // CCBC-599
     ASSERT_EQ(0, dh->port);
@@ -178,13 +177,13 @@ TEST_F(ConnstrTest, testParseHosts)
     ASSERT_EQ(LCB_SUCCESS, err);
 
     dh = findHost(&params, "foo.com");
-    ASSERT_FALSE(dh == NULL);
+    ASSERT_FALSE(dh == nullptr);
     ASSERT_EQ("foo.com", dh->hostname);
     ASSERT_EQ(4444, dh->port);
     ASSERT_TRUE(dh->isMCD());
 
     dh = findHost(&params, "bar.com");
-    ASSERT_FALSE(dh == NULL);
+    ASSERT_FALSE(dh == nullptr);
     ASSERT_EQ("bar.com", dh->hostname);
     ASSERT_EQ(5555, dh->port);
     ASSERT_TRUE(dh->isMCD());
@@ -202,9 +201,9 @@ TEST_F(ConnstrTest, testParseHosts)
     err = params.parse("couchbase://foo.com;bar.com;baz.com", &errmsg);
     ASSERT_EQ(LCB_SUCCESS, err) << "Can parse old-style semicolons";
     ASSERT_EQ(3, countHosts(&params));
-    ASSERT_FALSE(NULL == findHost(&params, "foo.com"));
-    ASSERT_FALSE(NULL == findHost(&params, "bar.com"));
-    ASSERT_FALSE(NULL == findHost(&params, "baz.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "foo.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "bar.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "baz.com"));
 
     reinit();
     err = params.parse("couchbase://"
@@ -213,10 +212,10 @@ TEST_F(ConnstrTest, testParseHosts)
                        &errmsg);
     ASSERT_EQ(LCB_SUCCESS, err) << "Cannot parse IPv6";
     ASSERT_EQ(3, countHosts(&params));
-    ASSERT_FALSE(NULL == findHost(&params, "::a15:f2df:3fef:51bb:212a:8cec"));
-    ASSERT_FALSE(NULL == findHost(&params, "::a15:f2df:3fef:51bb:212a:8ced"));
+    ASSERT_FALSE(nullptr == findHost(&params, "::a15:f2df:3fef:51bb:212a:8cec"));
+    ASSERT_FALSE(nullptr == findHost(&params, "::a15:f2df:3fef:51bb:212a:8ced"));
     dh = findHost(&params, "::a15:f2df:3fef:51bb:212a:8cee");
-    ASSERT_FALSE(dh == NULL);
+    ASSERT_FALSE(dh == nullptr);
     ASSERT_EQ("::a15:f2df:3fef:51bb:212a:8cee", dh->hostname);
     ASSERT_EQ(9001, dh->port);
 }
@@ -285,7 +284,7 @@ TEST_F(ConnstrTest, testOptionsPassthrough)
     err = params.parse("couchbase:///protected?ssl=on&compression=off", &errmsg);
     ASSERT_EQ(LCB_SUCCESS, err) << "Ok with bucket and no hosts";
     ASSERT_EQ(1, countHosts(&params));
-    ASSERT_FALSE(NULL == findHost(&params, "localhost"));
+    ASSERT_FALSE(nullptr == findHost(&params, "localhost"));
     ASSERT_TRUE(findOption(&params, "compression", op));
 
     reinit();
@@ -365,22 +364,22 @@ TEST_F(ConnstrTest, testTransportOptions)
 TEST_F(ConnstrTest, testCompatConversion)
 {
     lcb_STATUS err;
-    lcb_CREATEOPTS *cropts = NULL;
+    lcb_CREATEOPTS *cropts = nullptr;
 
     std::string bucket("users");
     std::string host("foo.com;bar.com;baz.com");
     std::string password("secret");
     lcb_createopts_create(&cropts, LCB_TYPE_BUCKET);
     lcb_createopts_bucket(cropts, bucket.c_str(), bucket.size());
-    lcb_createopts_credentials(cropts, NULL, 0, password.c_str(), password.size());
+    lcb_createopts_credentials(cropts, nullptr, 0, password.c_str(), password.size());
     lcb_createopts_connstr(cropts, host.c_str(), host.size());
 
     err = params.load(*cropts);
     lcb_createopts_destroy(cropts);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_FALSE(NULL == findHost(&params, "foo.com"));
-    ASSERT_FALSE(NULL == findHost(&params, "bar.com"));
-    ASSERT_FALSE(NULL == findHost(&params, "baz.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "foo.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "bar.com"));
+    ASSERT_FALSE(nullptr == findHost(&params, "baz.com"));
     ASSERT_EQ(3, countHosts(&params));
     ASSERT_EQ("users", params.bucket());
     ASSERT_EQ("secret", params.password());
@@ -390,7 +389,7 @@ TEST_F(ConnstrTest, testCompatConversion)
     std::string connstr("couchbase:///fluffle?password=bleh");
     lcb_createopts_create(&cropts, LCB_TYPE_BUCKET);
     lcb_createopts_connstr(cropts, connstr.c_str(), connstr.size());
-    lcb_createopts_credentials(cropts, NULL, 0, password.c_str(), password.size());
+    lcb_createopts_credentials(cropts, nullptr, 0, password.c_str(), password.size());
     err = params.load(*cropts);
     lcb_createopts_destroy(cropts);
     ASSERT_EQ(LCB_SUCCESS, err);

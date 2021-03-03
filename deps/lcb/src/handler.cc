@@ -202,6 +202,8 @@ lcb_STATUS lcb_map_error(lcb_INSTANCE *instance, int in)
             return LCB_ERR_DURABLE_WRITE_RE_COMMIT_IN_PROGRESS;
         case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS:
             return LCB_ERR_DURABILITY_AMBIGUOUS;
+        case PROTOCOL_BINARY_RESPONSE_LOCKED:
+            return LCB_ERR_DOCUMENT_LOCKED;
         default:
             if (instance != nullptr) {
                 return instance->callbacks.errmap(instance, in);
@@ -258,6 +260,9 @@ void make_error(lcb_INSTANCE *instance, T *resp, const MemcachedResponse *respon
         resp->ctx.rc = LCB_SUCCESS;
     } else {
         resp->ctx.rc = lcb_map_error(instance, response->status());
+    }
+    if (resp->ctx.rc == LCB_ERR_DOCUMENT_EXISTS && response->opcode() != PROTOCOL_BINARY_CMD_ADD) {
+        resp->ctx.rc = LCB_ERR_CAS_MISMATCH;
     }
 }
 

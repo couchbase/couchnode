@@ -558,7 +558,7 @@ static void testIncorrectCasReplaceStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TY
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_REPLACE, op);
-    EXPECT_EQ(LCB_ERR_DOCUMENT_EXISTS, lcb_respstore_status(resp));
+    EXPECT_EQ(LCB_ERR_CAS_MISMATCH, lcb_respstore_status(resp));
     ++(*counter);
 }
 }

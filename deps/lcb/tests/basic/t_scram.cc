@@ -29,9 +29,9 @@ class ScramTest : public ::testing::Test
 TEST_F(ScramTest, ParseValidServerChallenge)
 {
     const char *serverin = "r=CCCCSSSS,s=xxxx,i=4096";
-    const char *nonce = NULL;
+    const char *nonce = nullptr;
     unsigned int noncelength = 0;
-    const char *salt = NULL;
+    const char *salt = nullptr;
     unsigned int saltlength = 0;
     unsigned int itcount = 0;
 
@@ -49,9 +49,9 @@ TEST_F(ScramTest, ParseValidServerChallenge)
 TEST_F(ScramTest, ParseInvalidServerChallenge_WithWrongAttribute)
 {
     const char *serverin = "r=CCCCSSSS,t=xxxx,i=4096"; // 't' is not a valid attribute
-    const char *nonce = NULL;
+    const char *nonce = nullptr;
     unsigned int noncelength = 0;
-    const char *salt = NULL;
+    const char *salt = nullptr;
     unsigned int saltlength = 0;
     unsigned int itcount = 0;
 
@@ -64,9 +64,9 @@ TEST_F(ScramTest, ParseInvalidServerChallenge_WithWrongAttribute)
 TEST_F(ScramTest, ParseInvalidServerChallenge_WithMissingAttributeType)
 {
     const char *serverin = "r=CCCCSSSS,xxxx,i=4096"; // no "s="
-    const char *nonce = NULL;
+    const char *nonce = nullptr;
     unsigned int noncelength = 0;
-    const char *salt = NULL;
+    const char *salt = nullptr;
     unsigned int saltlength = 0;
     unsigned int itcount = 0;
 
@@ -79,9 +79,9 @@ TEST_F(ScramTest, ParseInvalidServerChallenge_WithMissingAttributeType)
 TEST_F(ScramTest, ParseInvalidServerChallenge_WithVoidField)
 {
     const char *serverin = ",s=xxxx,i=4096";
-    const char *nonce = NULL;
+    const char *nonce = nullptr;
     unsigned int noncelength = 0;
-    const char *salt = NULL;
+    const char *salt = nullptr;
     unsigned int saltlength = 0;
     unsigned int itcount = 0;
 
@@ -94,9 +94,9 @@ TEST_F(ScramTest, ParseInvalidServerChallenge_WithVoidField)
 TEST_F(ScramTest, ParseInvalidServerChallenge_WithInvalidIterationCount)
 {
     const char *serverin = "r=CCCCSSSS,s=xxxx,i=123456789012345"; // value too big for an integer
-    const char *nonce = NULL;
+    const char *nonce = nullptr;
     unsigned int noncelength = 0;
-    const char *salt = NULL;
+    const char *salt = nullptr;
     unsigned int saltlength = 0;
     unsigned int itcount = 0;
 
@@ -109,9 +109,9 @@ TEST_F(ScramTest, ParseInvalidServerChallenge_WithInvalidIterationCount)
 TEST_F(ScramTest, ParseInvalidServerChallenge_WithDuplicateAttribute)
 {
     const char *serverin = "r=CCCCSSSS,r=CCCCSSSS,s=xxxx,i=4096"; // "r" field appearing twice
-    const char *nonce = NULL;
+    const char *nonce = nullptr;
     unsigned int noncelength = 0;
-    const char *salt = NULL;
+    const char *salt = nullptr;
     unsigned int saltlength = 0;
     unsigned int itcount = 0;
 
@@ -224,7 +224,7 @@ TEST_F(ScramTest, ComputeClientProof_SHA512)
     const char *clientfirstbare = "n=foo,r=001122334455667788";
     const char *serverfirstmess = "r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000";
     const char *clientfinalwithoutproof = "c=biws,r=00112233445566778899aabbccddeeff";
-    char *authmessage = NULL;
+    char *authmessage = nullptr;
     char outclientproof[(CBSASL_SHA512_DIGEST_SIZE / 3 + 1) * 4 + 1];
 
     cbsasl_error_t ret =
@@ -239,15 +239,15 @@ TEST_F(ScramTest, ComputeClientProof_SHA512)
                                "r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000,"
                                "c=biws,r=00112233445566778899aabbccddeeff";
 
-    EXPECT_TRUE(authmessage != NULL);
+    EXPECT_TRUE(authmessage != nullptr);
     EXPECT_STREQ(expectedauth, authmessage);
 
     // expected client proof
     // Here is how to generate the same value in Python 2.7:
     // import hmac, hashlib, base64
-    // saltedpassword = '\xaf\xe6\xc5\x53\x07\x85\xb6\xcc\x6b\x1c\x64\x53\x38\x47\x31\xbd\x5e\xe4\x32\xee'\
-    //                  '\x54\x9f\xd4\x2f\xb6\x69\x57\x79\xad\x8a\x1c\x5b\xf5\x9d\xe6\x9c\x48\xf7\x74\xef'\
-    //                   '\xc4\x00\x7d\x52\x98\xf9\x03\x3c\x02\x41\xd5\xab\x69\x30\x5e\x7b\x64\xec\xee\xb8\xd8\x34\xcf\xec'
+    // saltedpassword = '\xaf\xe6\xc5\x53\x07\x85\xb6\xcc\x6b\x1c\x64\x53\x38\x47\x31\xbd\x5e\xe4\x32\xee'
+    //                  '\x54\x9f\xd4\x2f\xb6\x69\x57\x79\xad\x8a\x1c\x5b\xf5\x9d\xe6\x9c\x48\xf7\x74\xef'
+    //                  '\xc4\x00\x7d\x52\x98\xf9\x03\x3c\x02\x41\xd5\xab\x69\x30\x5e\x7b\x64\xec\xee\xb8\xd8\x34\xcf\xec'
     // clientkey = hmac.new(saltedpassword, 'Client Key', hashlib.sha512).digest()
     // storedkey = hashlib.sha512(clientkey).digest()
     // authmess='n=foo,r=001122334455667788,r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000,c=biws,r=00112233445566778899aabbccddeeff'
@@ -270,7 +270,7 @@ TEST_F(ScramTest, ComputeClientProof_SHA256)
     const char *clientfirstbare = "n=foo,r=001122334455667788";
     const char *serverfirstmess = "r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000";
     const char *clientfinalwithoutproof = "c=biws,r=00112233445566778899aabbccddeeff";
-    char *authmessage = NULL;
+    char *authmessage = nullptr;
     char outclientproof[(CBSASL_SHA256_DIGEST_SIZE / 3 + 1) * 4 + 1];
 
     cbsasl_error_t ret =
@@ -285,14 +285,14 @@ TEST_F(ScramTest, ComputeClientProof_SHA256)
                                "r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000,"
                                "c=biws,r=00112233445566778899aabbccddeeff";
 
-    EXPECT_TRUE(authmessage != NULL);
+    EXPECT_TRUE(authmessage != nullptr);
     EXPECT_STREQ(expectedauth, authmessage);
 
     // expected client proof
     // Here is how to generate the same value in Python 2.7:
     // import hmac, hashlib, base64
-    // saltedpassword = '\x63\x2c\x28\x12\xe4\x6d\x46\x04\x10\x2b\xa7\x61\x8e\x9d\x6d'\
-    //                  '\x7d\x2f\x81\x28\xf6\x26\x6b\x4a\x03\x26\x4d\x2a\x04\x60\xb7'\
+    // saltedpassword = '\x63\x2c\x28\x12\xe4\x6d\x46\x04\x10\x2b\xa7\x61\x8e\x9d\x6d'
+    //                  '\x7d\x2f\x81\x28\xf6\x26\x6b\x4a\x03\x26\x4d\x2a\x04\x60\xb7'
     //                  '\xdc\xb3'
     // clientkey = hmac.new(saltedpassword, 'Client Key', hashlib.sha256).digest()
     // storedkey = hashlib.sha256(clientkey).digest()
@@ -314,7 +314,7 @@ TEST_F(ScramTest, ComputeClientProof_SHA1)
     const char *clientfirstbare = "n=foo,r=001122334455667788";
     const char *serverfirstmess = "r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000";
     const char *clientfinalwithoutproof = "c=biws,r=00112233445566778899aabbccddeeff";
-    char *authmessage = NULL;
+    char *authmessage = nullptr;
     char outclientproof[(CBSASL_SHA1_DIGEST_SIZE / 3 + 1) * 4 + 1];
 
     cbsasl_error_t ret =
@@ -329,13 +329,13 @@ TEST_F(ScramTest, ComputeClientProof_SHA1)
                                "r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000,"
                                "c=biws,r=00112233445566778899aabbccddeeff";
 
-    EXPECT_TRUE(authmessage != NULL);
+    EXPECT_TRUE(authmessage != nullptr);
     EXPECT_STREQ(expectedauth, authmessage);
 
     // expected client proof
     // Here is how to generate the same value in Python 2.7:
     // import hmac, hashlib, base64
-    // saltedpassword = '\x6e\x88\xbe\x8b\xad\x7e\xae\x9d\x9e\x10\xaa\x06\x12\x24\x03'\
+    // saltedpassword = '\x6e\x88\xbe\x8b\xad\x7e\xae\x9d\x9e\x10\xaa\x06\x12\x24\x03'
     //                  '\x4f\xed\x48\xd0\x3f'
     // clientkey = hmac.new(saltedpassword, 'Client Key', hashlib.sha1).digest()
     // storedkey = hashlib.sha1(clientkey).digest()
@@ -370,8 +370,8 @@ TEST_F(ScramTest, ComputeServerSignature_SHA512)
     // expected client proof
     // Here is how to generate the same value in Python 2.7:
     // import hmac, hashlib, base64
-    // saltedpassword = '\xaf\xe6\xc5\x53\x07\x85\xb6\xcc\x6b\x1c\x64\x53\x38\x47\x31\xbd\x5e\xe4\x32\xee'\
-    //                 '\x54\x9f\xd4\x2f\xb6\x69\x57\x79\xad\x8a\x1c\x5b\xf5\x9d\xe6\x9c\x48\xf7\x74\xef'\
+    // saltedpassword = '\xaf\xe6\xc5\x53\x07\x85\xb6\xcc\x6b\x1c\x64\x53\x38\x47\x31\xbd\x5e\xe4\x32\xee'
+    //                 '\x54\x9f\xd4\x2f\xb6\x69\x57\x79\xad\x8a\x1c\x5b\xf5\x9d\xe6\x9c\x48\xf7\x74\xef'
     //                  '\xc4\x00\x7d\x52\x98\xf9\x03\x3c\x02\x41\xd5\xab\x69\x30\x5e\x7b\x64\xec\xee\xb8\xd8\x34\xcf\xec'
     // serverkey = hmac.new(saltedpassword, 'Server Key', hashlib.sha512).digest()
     // authmess='n=foo,r=001122334455667788,r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000,c=biws,r=00112233445566778899aabbccddeeff'
@@ -401,8 +401,8 @@ TEST_F(ScramTest, ComputeServerSignature_SHA256)
     // expected client proof
     // Here is how to generate the same value in Python 2.7:
     // import hmac, hashlib, base64
-    // saltedpassword = '\x63\x2c\x28\x12\xe4\x6d\x46\x04\x10\x2b\xa7\x61\x8e\x9d\x6d'\
-    //                  '\x7d\x2f\x81\x28\xf6\x26\x6b\x4a\x03\x26\x4d\x2a\x04\x60\xb7'\
+    // saltedpassword = '\x63\x2c\x28\x12\xe4\x6d\x46\x04\x10\x2b\xa7\x61\x8e\x9d\x6d'
+    //                  '\x7d\x2f\x81\x28\xf6\x26\x6b\x4a\x03\x26\x4d\x2a\x04\x60\xb7'
     //                  '\xdc\xb3'
     // serverkey = hmac.new(saltedpassword, 'Server Key', hashlib.sha256).digest()
     // authmess='n=foo,r=001122334455667788,r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000,c=biws,r=00112233445566778899aabbccddeeff'
@@ -429,7 +429,7 @@ TEST_F(ScramTest, ComputeServerSignature_SHA1)
     // expected client proof
     // Here is how to generate the same value in Python 2.7:
     // import hmac, hashlib, base64
-    // saltedpassword = '\x6e\x88\xbe\x8b\xad\x7e\xae\x9d\x9e\x10\xaa\x06\x12\x24\x03'\
+    // saltedpassword = '\x6e\x88\xbe\x8b\xad\x7e\xae\x9d\x9e\x10\xaa\x06\x12\x24\x03'
     //                  '\x4f\xed\x48\xd0\x3f'
     // serverkey = hmac.new(saltedpassword, 'Server Key', hashlib.sha1).digest()
     // authmess='n=foo,r=001122334455667788,r=00112233445566778899aabbccddeeff,s=c2FsdA==,i=1000,c=biws,r=00112233445566778899aabbccddeeff'

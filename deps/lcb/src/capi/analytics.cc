@@ -135,9 +135,30 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_timeout(lcb_CMDANALYTICS *cmd, uint
     return LCB_SUCCESS;
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_scope_name(lcb_CMDANALYTICS *cmd, const char *scope, size_t scope_len)
+{
+    if (scope == nullptr || scope_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    cmd->scope_name.assign(scope, scope_len);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_scope_qualifier(lcb_CMDANALYTICS *cmd, const char *qualifier,
+                                                             size_t qualifier_len)
+{
+    if (qualifier == nullptr || qualifier_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    cmd->scope_qualifier.assign(qualifier, qualifier_len);
+    return LCB_SUCCESS;
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_reset(lcb_CMDANALYTICS *cmd)
 {
     cmd->root.clear();
+    cmd->scope_name.clear();
+    cmd->scope_qualifier.clear();
     return LCB_SUCCESS;
 }
 

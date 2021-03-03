@@ -30,7 +30,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 # Couchbase mock path to download
 SET(COUCHBASE_MOCK_VERSION 1.5.25)
 SET(COUCHBASE_MOCK_URL "https://github.com/couchbase/CouchbaseMock/releases/download/${COUCHBASE_MOCK_VERSION}/CouchbaseMock-${COUCHBASE_MOCK_VERSION}.jar")
-project(libcouchbase VERSION 3.0.7 LANGUAGES C CXX)
+project(libcouchbase VERSION 3.1.0 LANGUAGES C CXX)
 
 if (NOT CMAKE_VERSION VERSION_LESS "3.13")
     # CMP0077: option() honors normal variables
@@ -111,13 +111,20 @@ IF(LCB_USE_PROFILER)
     INCLUDE(cmake/Modules/FindProfiler.cmake)
 ENDIF()
 IF(LCB_USE_HDR_HISTOGRAM)
-    ADD_SUBDIRECTORY(contrib/HdrHistogram_c)
+    # Allow for building libcouchbase inside a larger CMake project that
+    # already includes HdrHistogram_c
+    IF (NOT TARGET hdr_histogram_static)
+        ADD_SUBDIRECTORY(contrib/HdrHistogram_c)
+    ENDIF ()
+
+    # Use #include files from wherever the hdr_histogram project was loaded
+    INCLUDE_DIRECTORIES(BEFORE SYSTEM "${hdr_histogram_SOURCE_DIR}/src")
+
     # Given we are linking hdr_histogram_static into libcouchbase.so, need
     # -fPIC set also on hdr_histogram_static.
     SET_TARGET_PROPERTIES(hdr_histogram_static
             PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
-    INCLUDE_DIRECTORIES(contrib/HdrHistogram_c/src)
     SET(LCB_HDR_HISTOGRAM_LINK hdr_histogram_static)
     LIST(APPEND LCB_CORE_SRC "src/hdr_timings.c")
 ELSE()

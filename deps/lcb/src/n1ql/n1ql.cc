@@ -517,6 +517,12 @@ void N1QLREQ::invoke_row(lcb_RESPQUERY *resp, bool is_last)
                         case 12016:
                             resp->ctx.rc = LCB_ERR_INDEX_NOT_FOUND;
                             break;
+                        case 12003:
+                            resp->ctx.rc = LCB_ERR_KEYSPACE_NOT_FOUND;
+                            break;
+                        case 12021:
+                            resp->ctx.rc = LCB_ERR_SCOPE_NOT_FOUND;
+                            break;
                         default:
                             if (first_error_code >= 4000 && first_error_code < 5000) {
                                 resp->ctx.rc = LCB_ERR_PLANNING_FAILURE;
@@ -688,6 +694,9 @@ lcb_STATUS N1QLREQ::request_plan()
 {
     Json::Value newbody(Json::objectValue);
     newbody["statement"] = "PREPARE " + statement;
+    if (json["query_context"].isString()) {
+        newbody["query_context"] = json["query_context"];
+    }
     lcb_CMDQUERY newcmd;
     newcmd.callback = prepare_rowcb;
     newcmd.cmdflags = LCB_CMDN1QL_F_JSONQUERY;

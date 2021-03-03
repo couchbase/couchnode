@@ -25,13 +25,13 @@ class McFlush : public ::testing::Test
 struct MyCookie {
     int ncalled;
     void *exp_kbuf;
-    MyCookie() : ncalled(0), exp_kbuf(NULL) {}
+    MyCookie() : ncalled(0), exp_kbuf(nullptr) {}
 };
 
 extern "C" {
-static void buf_free_callback(mc_PIPELINE *, const void *cookie, void *kbuf, void *vbuf)
+static void buf_free_callback(mc_PIPELINE *, const void *cookie, void *kbuf, void * /* vbuf */)
 {
-    MyCookie *ck = (MyCookie *)cookie;
+    auto *ck = (MyCookie *)cookie;
     EXPECT_TRUE(kbuf == ck->exp_kbuf);
     ck->ncalled++;
 }
@@ -57,15 +57,15 @@ TEST_F(McFlush, testBasicFlush)
 
     nb_IOV iovs[10];
 
-    unsigned toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, NULL);
+    unsigned toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, nullptr);
     EXPECT_EQ(28, toFlush);
     mcreq_flush_done(pw.pipeline, 8, toFlush);
 
-    toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, NULL);
+    toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, nullptr);
     EXPECT_EQ(20, toFlush);
     mcreq_flush_done(pw.pipeline, toFlush, toFlush);
 
-    toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, NULL);
+    toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, nullptr);
     ASSERT_EQ(0, toFlush);
     ASSERT_EQ(1, cookie.ncalled);
 }
@@ -88,7 +88,7 @@ TEST_F(McFlush, testFlushedUnhandled)
     mcreq_enqueue_packet(pw.pipeline, pw.pkt);
 
     nb_IOV iovs[10];
-    unsigned toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, NULL);
+    unsigned toFlush = mcreq_flush_iov_fill(pw.pipeline, iovs, 10, nullptr);
     ASSERT_EQ(28, toFlush);
     mcreq_flush_done(pw.pipeline, toFlush, toFlush);
 
@@ -115,7 +115,7 @@ TEST_F(McFlush, testFlushCopy)
     mcreq_enqueue_packet(pw.pipeline, pw.pkt);
 
     nb_IOV iov[10];
-    unsigned int toFlush = mcreq_flush_iov_fill(pw.pipeline, iov, 10, NULL);
+    unsigned int toFlush = mcreq_flush_iov_fill(pw.pipeline, iov, 10, nullptr);
     mcreq_flush_done(pw.pipeline, toFlush, toFlush);
     mcreq_pipeline_remove(pw.pipeline, pw.pkt->opaque);
     mcreq_packet_handled(pw.pipeline, pw.pkt);
@@ -125,16 +125,15 @@ TEST_F(McFlush, testFlushCopy)
 TEST_F(McFlush, testMultiFlush)
 {
     CQWrap cq;
-    int counter = 0;
     const int nitems = 10;
     MyCookie **cookies;
 
     cookies = new MyCookie *[nitems];
-    PacketWrap **pws = new PacketWrap *[nitems];
+    auto **pws = new PacketWrap *[nitems];
     cq.setBufFreeCallback(buf_free_callback);
 
     for (int ii = 0; ii < nitems; ii++) {
-        PacketWrap *pw = new PacketWrap;
+        auto *pw = new PacketWrap;
         pws[ii] = pw;
         char curkey[128];
         sprintf(curkey, "Key_%d", ii);
@@ -156,7 +155,7 @@ TEST_F(McFlush, testMultiFlush)
     for (unsigned ii = 0; ii < cq.npipelines; ii++) {
         mc_PIPELINE *pipeline = cq.pipelines[ii];
         nb_IOV iov[10];
-        unsigned toFlush = mcreq_flush_iov_fill(pipeline, iov, 10, NULL);
+        unsigned toFlush = mcreq_flush_iov_fill(pipeline, iov, 10, nullptr);
         if (toFlush) {
             mcreq_flush_done(pipeline, toFlush, toFlush);
         }
@@ -187,9 +186,9 @@ TEST_F(McFlush, testPartialFlush)
     mcreq_enqueue_packet(pw.pipeline, pw.pkt);
 
     nb_IOV iov[1];
-    unsigned int toFlush = 0;
+    unsigned int toFlush;
     do {
-        toFlush = mcreq_flush_iov_fill(pw.pipeline, iov, 1, NULL);
+        toFlush = mcreq_flush_iov_fill(pw.pipeline, iov, 1, nullptr);
         if (toFlush) {
             mcreq_flush_done(pw.pipeline, 1, toFlush);
         }

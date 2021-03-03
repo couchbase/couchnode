@@ -19,7 +19,8 @@
 
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/vbucket.h>
-#include <string.h>
+#include <string>
+
 struct Item {
     void assign(const lcb_RESPGET *resp)
     {
@@ -64,7 +65,8 @@ struct Item {
     /**
      * Extract the key and CAS from a response.
      */
-    template < typename T > void assignKC(const T *resp)
+    template <typename T>
+    void assignKC(const T *resp)
     {
         key.assign((const char *)resp->key, resp->nkey);
         cas = resp->cas;
@@ -83,7 +85,7 @@ struct Item {
         exp = 0;
     }
 
-    Item(const std::string &key, const std::string &value = "", uint64_t cas = 0)
+    explicit Item(const std::string &key, const std::string &value = "", uint64_t cas = 0)
     {
 
         this->key = key;
@@ -100,7 +102,7 @@ struct Item {
     /**
      * Dump the string representation of the item to standard output
      */
-    void dump()
+    void dump() const
     {
         std::cout << *this;
     }
@@ -110,7 +112,7 @@ struct Item {
     lcb_uint32_t flags;
     uint64_t cas;
     uint8_t datatype;
-    lcb_STATUS err;
+    lcb_STATUS err{};
     lcb_time_t exp;
 };
 
@@ -125,14 +127,14 @@ struct KVOperation {
     unsigned callCount;
 
     /** Acceptable errors during callback */
-    std::set< lcb_STATUS > allowableErrors;
+    std::set<lcb_STATUS> allowableErrors;
 
     /** Errors received from error handler */
-    std::set< lcb_STATUS > globalErrors;
+    std::set<lcb_STATUS> globalErrors;
 
     void assertOk(lcb_STATUS err);
 
-    KVOperation(const Item *request)
+    explicit KVOperation(const Item *request)
     {
         this->request = request;
         this->ignoreErrors = false;
@@ -166,13 +168,13 @@ struct KVOperation {
   private:
     void enter(lcb_INSTANCE *);
     void leave(lcb_INSTANCE *);
-    const void *oldCookie;
+    const void *oldCookie{};
 
     struct {
         lcb_RESPCALLBACK get;
         lcb_RESPCALLBACK store;
         lcb_RESPCALLBACK rm;
-    } callbacks;
+    } callbacks{};
 };
 
 void storeKey(lcb_INSTANCE *instance, const std::string &key, const std::string &value);
@@ -182,8 +184,8 @@ void getKey(lcb_INSTANCE *instance, const std::string &key, Item &item);
 /**
  * Generate keys which will trigger all the servers in the map.
  */
-void genDistKeys(lcbvb_CONFIG *vbc, std::vector< std::string > &out);
-void genStoreCommands(const std::vector< std::string > &keys, std::vector< lcb_CMDSTORE * > &cmds);
+void genDistKeys(lcbvb_CONFIG *vbc, std::vector<std::string> &out);
+void genStoreCommands(const std::vector<std::string> &keys, std::vector<lcb_CMDSTORE *> &cmds);
 /**
  * This doesn't _actually_ attempt to make sense of an operation. It simply
  * will try to keep the event loop alive.
@@ -194,5 +196,5 @@ lcb_STATUS create_scope(lcb_INSTANCE *instance, const std::string &scope);
 
 lcb_STATUS create_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection);
 
-std::string unique_name(std::string);
+std::string unique_name(const std::string &);
 #endif

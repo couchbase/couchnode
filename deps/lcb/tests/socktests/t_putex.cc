@@ -46,7 +46,7 @@ struct BufList {
     nb_MGR mgr;
     BufList()
     {
-        netbuf_init(&mgr, NULL);
+        netbuf_init(&mgr, nullptr);
     }
 
     ~BufList()
@@ -54,10 +54,10 @@ struct BufList {
         netbuf_cleanup(&mgr);
     }
 
-    vector< lcb_IOV > getIOV(size_t *nbytes)
+    vector<lcb_IOV> getIOV(size_t *nbytes)
     {
         nb_IOV iovs[32];
-        vector< lcb_IOV > ret;
+        vector<lcb_IOV> ret;
         int niov = 0;
         *nbytes = netbuf_start_flush(&mgr, iovs, 32, &niov);
         for (int ii = 0; ii < niov; ii++) {
@@ -95,12 +95,12 @@ struct BufList {
         WriteBuffer *wb = new WriteBuffer(s);
         nb_SPAN span;
         CREATE_STANDALONE_SPAN(&span, wb->buf, wb->length);
-        netbuf_enqueue_span(&mgr, &span, NULL);
+        netbuf_enqueue_span(&mgr, &span, nullptr);
         netbuf_pdu_enqueue(&mgr, wb, 0);
         bufs.push_back(wb);
     }
 
-    list< WriteBuffer * > bufs;
+    list<WriteBuffer *> bufs;
 };
 
 class BufActions : public IOActions
@@ -118,7 +118,7 @@ class BufActions : public IOActions
         size_t nbytes;
 
         do {
-            vector< lcb_IOV > iovs = buflist.getIOV(&nbytes);
+            vector<lcb_IOV> iovs = buflist.getIOV(&nbytes);
             if (!nbytes) {
                 break; // nothing left to flush
             }
@@ -200,12 +200,11 @@ TEST_F(SockPutexTest, testBig)
     const size_t rchunk = 1000, niters = 1000, expected = rchunk * niters;
 
     // fill up the write buffers
-    for (int ii = 0; ii < niters; ii++) {
+    for (size_t ii = 0; ii < niters; ii++) {
         buflist->append(string(rchunk, '#'));
     }
 
     size_t nconsumed = 0;
-    size_t nbufsOrig = buflist->bufs.size();
 
     /**
      * Iterate until all the buffers have been flushed and returned to the
@@ -232,7 +231,7 @@ TEST_F(SockPutexTest, testBig)
         if (nconsumed != expected) {
             rf.wait();
             ASSERT_TRUE(rf.isOk());
-            loop->setBreakCondition(NULL);
+            loop->setBreakCondition(nullptr);
             nconsumed += rf.getBuf().size();
         }
         if (bufActions.totalFlushed == expected) {

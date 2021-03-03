@@ -1,4 +1,20 @@
-#include <cassert>
+/* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+ *     Copyright 2013-2021 Couchbase, Inc.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+
 #include <sys/types.h>
 #include "ioserver.h"
 using namespace LCBTest;
@@ -7,7 +23,7 @@ using std::list;
 extern "C" {
 static void server_runfunc(void *arg)
 {
-    TestServer *server = (TestServer *)arg;
+    auto *server = (TestServer *)arg;
     server->run();
 }
 }
@@ -25,17 +41,18 @@ void TestServer::run()
     FD_SET(*lsn, &fds);
 
     while (!closed) {
-        struct sockaddr_in newaddr;
+        struct sockaddr_in newaddr {
+        };
         socklen_t naddr = sizeof(newaddr);
 
-        if (select(*lsn + 1, &fds, NULL, NULL, &tmout) == 1) {
+        if (select(*lsn + 1, &fds, nullptr, nullptr, &tmout) == 1) {
             int newsock = accept(*lsn, (struct sockaddr *)&newaddr, &naddr);
 
             if (newsock == -1) {
                 break;
             }
 
-            TestConnection *newconn = new TestConnection(this, factory(newsock));
+            auto *newconn = new TestConnection(this, factory(newsock));
             startConnection(newconn);
         }
     }
@@ -67,10 +84,9 @@ TestServer::~TestServer()
 {
     close();
     mutex.lock();
-    std::list< TestConnection * >::iterator iter = conns.begin();
-    for (; iter != conns.end(); ++iter) {
-        (*iter)->close();
-        delete *iter;
+    for (auto &conn : conns) {
+        conn->close();
+        delete conn;
     }
     mutex.unlock();
     // We don't want to explicitly call join() here since that
@@ -91,22 +107,19 @@ std::string TestServer::getPortString()
 
 TestConnection *TestServer::findConnection(uint16_t port)
 {
-    TestConnection *ret = NULL;
-    list< TestConnection * >::iterator iter;
+    TestConnection *ret = nullptr;
 
-    while (ret == NULL) {
+    while (ret == nullptr) {
         sched_yield();
         mutex.lock();
-        iter = conns.begin();
-
-        for (; iter != conns.end(); ++iter) {
-            if ((*iter)->getPeerPort() == port) {
-                ret = *iter;
+        for (auto &conn : conns) {
+            if (conn->getPeerPort() == port) {
+                ret = conn;
                 break;
             }
         }
         mutex.unlock();
-    };
+    }
 
     return ret;
 }

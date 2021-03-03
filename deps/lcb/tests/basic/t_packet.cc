@@ -17,7 +17,7 @@ class Packet : public ::testing::Test
 class Pkt
 {
   public:
-    Pkt() : pkt(NULL), len(0) {}
+    Pkt() : pkt(nullptr), len(0) {}
 
     void getq(const std::string &value, lcb_uint32_t opaque, lcb_uint16_t status = 0, uint64_t cas = 0,
               lcb_uint32_t flags = 0)
@@ -40,7 +40,7 @@ class Pkt
         len = sizeof(msg.bytes) + value.size();
         pkt = new char[len];
 
-        EXPECT_TRUE(pkt != NULL);
+        EXPECT_TRUE(pkt != nullptr);
 
         memcpy(pkt, msg.bytes, sizeof(msg.bytes));
 
@@ -105,14 +105,12 @@ class Pkt
 
     void clear()
     {
-        if (pkt != NULL) {
-            delete[] pkt;
-        }
-        pkt = NULL;
+        delete[] pkt;
+        pkt = nullptr;
         len = 0;
     }
 
-    size_t size()
+    size_t size() const
     {
         return len;
     }
@@ -120,7 +118,7 @@ class Pkt
   private:
     char *pkt;
     size_t len;
-    Pkt(Pkt &);
+    Pkt(Pkt &) = delete;
 };
 
 TEST_F(Packet, testParseBasic)
@@ -134,7 +132,6 @@ TEST_F(Packet, testParseBasic)
     pkt.rbWrite(&ior);
 
     lcb::MemcachedResponse pi;
-    memset(&pi, 0, sizeof(pi));
     unsigned wanted;
     ASSERT_TRUE(pi.load(&ior, &wanted));
 
@@ -204,8 +201,8 @@ TEST_F(Packet, testKeys)
     ASSERT_EQ(PROTOCOL_BINARY_CMD_GET, pi.opcode());
     ASSERT_EQ(4, pi.extlen());
     ASSERT_EQ(4 + key.size() + value.size(), pi.bodylen());
-    ASSERT_NE(pi.body< const char * >(), pi.value());
-    ASSERT_EQ(4 + key.size(), pi.value() - pi.body< const char * >());
+    ASSERT_NE(pi.body<const char *>(), pi.value());
+    ASSERT_EQ(4 + key.size(), pi.value() - pi.body<const char *>());
 
     pi.release(&ior);
     rdb_cleanup(&ior);

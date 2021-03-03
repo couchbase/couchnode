@@ -27,7 +27,7 @@ using std::vector;
 class SSLTest : public SockTest
 {
   protected:
-    void SetUp()
+    void SetUp() override
     {
         lcbio_ssl_global_init();
         lcb_STATUS errp = LCB_SUCCESS;
@@ -35,15 +35,15 @@ class SSLTest : public SockTest
 
         SockTest::SetUp();
         loop->settings->sslopts = LCB_SSL_ENABLED | LCB_SSL_NOVERIFY;
-        loop->settings->ssl_ctx = lcbio_ssl_new(NULL, NULL, NULL, 1, &errp, loop->settings);
+        loop->settings->ssl_ctx = lcbio_ssl_new(nullptr, nullptr, nullptr, 1, &errp, loop->settings);
         loop->server->factory = TestServer::sslSocketFactory;
-        EXPECT_FALSE(loop->settings->ssl_ctx == NULL) << lcb_strerror_short(errp);
+        EXPECT_FALSE(loop->settings->ssl_ctx == nullptr) << lcb_strerror_short(errp);
     }
 
-    void TearDown()
+    void TearDown() override
     {
         lcbio_ssl_free(loop->settings->ssl_ctx);
-        loop->settings->ssl_ctx = NULL;
+        loop->settings->ssl_ctx = nullptr;
         SockTest::TearDown();
     }
 };
@@ -56,8 +56,8 @@ TEST_F(SSLTest, testBasic)
 
     // We can connect
     loop->connect(&sock);
-    ASSERT_FALSE(sock.sock == NULL);
-    ASSERT_TRUE(sock.creq == NULL);
+    ASSERT_FALSE(sock.sock == nullptr);
+    ASSERT_TRUE(sock.creq == nullptr);
     ASSERT_EQ(1, sock.sock->refcount);
 
     // We can send data

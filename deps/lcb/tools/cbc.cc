@@ -17,6 +17,8 @@
 
 #define NOMINMAX
 #include <map>
+#include <vector>
+#include <array>
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
@@ -436,6 +438,131 @@ static void ping_callback(lcb_INSTANCE *, int, const lcb_RESPPING *resp)
         }
         if (njson) {
             printf("%.*s", (int)njson, json);
+        }
+    }
+}
+
+struct PingServiceRow {
+    std::string type{};
+    std::string id{};
+    std::string status{};
+    std::int64_t latency_us{};
+    std::string remote{};
+    std::string local{};
+};
+
+bool by_id(const PingServiceRow &lhs, const PingServiceRow &rhs)
+{
+    return lhs.id < rhs.id;
+}
+
+bool by_type(const PingServiceRow &lhs, const PingServiceRow &rhs)
+{
+    return lhs.type < rhs.type;
+}
+
+static void ping_table_callback(lcb_INSTANCE *, int, const lcb_RESPPING *resp)
+{
+    lcb_STATUS rc = lcb_respping_status(resp);
+    if (rc != LCB_SUCCESS) {
+        fprintf(stderr, "failed: %s\n", lcb_strerror_short(rc));
+    } else {
+        const char *json;
+        size_t njson = 0;
+        lcb_respping_value(resp, &json, &njson);
+        if (njson == 0) {
+            return;
+        }
+        std::string report_json(json, njson);
+        Json::Value report;
+        if (!Json::Reader().parse(report_json, report)) {
+            return;
+        }
+        Json::Value services = report.get("services", Json::nullValue);
+        if (services.isObject() && !services.empty()) {
+            std::array<std::string, 6> column_headers{{"type", "id", "status", "latency, us", "remote", "local"}};
+            std::array<std::size_t, 6> column_widths{};
+            std::size_t col_idx = 0;
+            for (const auto &header : column_headers) {
+                column_widths[col_idx++] = header.size();
+            }
+            std::vector<PingServiceRow> rows;
+            auto service_types = services.getMemberNames();
+            for (const auto &type : service_types) {
+                Json::Value service_entries = services.get(type, Json::nullValue);
+                if (service_entries.isNull()) {
+                    continue;
+                }
+                column_widths[0] = std::max(column_widths[0], type.size());
+                for (const auto &service : service_entries) {
+                    PingServiceRow row;
+                    row.type = type;
+                    Json::Value field = service.get("id", Json::nullValue);
+                    if (field.isString()) {
+                        row.id = field.asString();
+                        column_widths[1] = std::max(column_widths[1], row.id.size());
+                    }
+                    field = service.get("status", Json::nullValue);
+                    if (field.isString()) {
+                        row.status = field.asString();
+                        column_widths[2] = std::max(column_widths[2], row.status.size());
+                    }
+                    field = service.get("latency_us", Json::nullValue);
+                    if (field.isNumeric()) {
+                        row.latency_us = field.asInt64();
+                        column_widths[3] = std::max(column_widths[3], std::to_string(row.latency_us).size());
+                    }
+                    field = service.get("remote", Json::nullValue);
+                    if (field.isString()) {
+                        row.remote = field.asString();
+                        column_widths[4] = std::max(column_widths[4], row.remote.size());
+                    }
+                    field = service.get("local", Json::nullValue);
+                    if (field.isString()) {
+                        row.local = field.asString();
+                        column_widths[5] = std::max(column_widths[5], row.local.size());
+                    }
+                    rows.emplace_back(row);
+                }
+            }
+            std::stable_sort(rows.begin(), rows.end(), by_id);
+            std::stable_sort(rows.begin(), rows.end(), by_type);
+            size_t total_width = 1;
+            for (col_idx = 0; col_idx < column_widths.size(); ++col_idx) {
+                total_width += column_widths[col_idx] + 3;
+            }
+
+            std::stringstream out;
+            for (size_t i = 0; i < total_width; ++i) {
+                out << "-";
+            }
+            out << "\n";
+            out << "|";
+            col_idx = 0;
+            for (const auto &header : column_headers) {
+                out << " " << std::left << std::setw(column_widths[col_idx++]) << header << " |";
+            }
+            out << "\n";
+            for (size_t i = 0; i < total_width; ++i) {
+                out << "-";
+            }
+            out << "\n";
+            for (const auto &row : rows) {
+                out << "|";
+                out << " " << std::left << std::setw(column_widths[0]) << row.type << " |";
+                out << " " << std::left << std::setw(column_widths[1]) << row.id << " |";
+                out << " " << std::left << std::setw(column_widths[2]) << row.status << " |";
+                out << " " << std::right << std::setw(column_widths[3]) << row.latency_us << " |";
+                out << " " << std::left << std::setw(column_widths[4]) << row.remote << " |";
+                out << " " << std::left << std::setw(column_widths[5]) << row.local << " |";
+                out << "\n";
+            }
+            for (size_t i = 0; i < total_width; ++i) {
+                out << "-";
+            }
+            out << "\n";
+            std::string table = out.str();
+            fprintf(stderr, "%s\n", table.c_str());
         }
     }
 }
@@ -1355,7 +1482,11 @@ void PingHandler::run()
 {
     Handler::run();
 
-    lcb_install_callback(instance, LCB_CALLBACK_PING, (lcb_RESPCALLBACK)ping_callback);
+    if (o_table.result()) {
+        lcb_install_callback(instance, LCB_CALLBACK_PING, (lcb_RESPCALLBACK)ping_table_callback);
+    } else {
+        lcb_install_callback(instance, LCB_CALLBACK_PING, (lcb_RESPCALLBACK)ping_callback);
+    }
     lcb_STATUS err;
     lcb_CMDPING *cmd;
     lcb_cmdping_create(&cmd);
@@ -1385,7 +1516,9 @@ void PingHandler::run()
                 throw LcbError(err);
             }
             lcb_wait(instance, LCB_WAIT_DEFAULT);
-            printf("\n");
+            if (!o_table.result()) {
+                printf("\n");
+            }
             sleep(interval);
         }
     }

@@ -30,7 +30,7 @@ static void get_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *r
     EXPECT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, lcb_respget_status(resp));
     int *counter_p;
     lcb_respget_cookie(resp, (void **)&counter_p);
-    EXPECT_TRUE(counter_p != NULL);
+    EXPECT_TRUE(counter_p != nullptr);
     EXPECT_GT(*counter_p, 0);
     *counter_p -= 1;
     callbackInvoked = true;
@@ -40,7 +40,7 @@ static void stats_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTAT
 {
     EXPECT_EQ(resp->ctx.rc, LCB_SUCCESS);
     if (resp->ctx.key_len == 0) {
-        int *counter_p = reinterpret_cast< int * >(const_cast< void * >(resp->cookie));
+        int *counter_p = reinterpret_cast<int *>(const_cast<void *>(resp->cookie));
         *counter_p -= 1;
     }
     callbackInvoked = true;
@@ -114,18 +114,18 @@ static void get_callback_275(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lc
 
 TEST_F(RegressionUnitTest, CCBC_275)
 {
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    lcb_CREATEOPTS *crOpts = NULL;
-    const char *argv[] = {"--buckets", "protected:secret:couchbase", NULL};
+    lcb_CREATEOPTS *crOpts = nullptr;
+    const char *argv[] = {"--buckets", "protected:secret:couchbase", nullptr};
     MockEnvironment mock_o(argv, "protected"), *mock = &mock_o;
     struct ccbc_275_info_st info = {0, LCB_SUCCESS};
 
     std::string user("protected");
     std::string password("secret");
     std::string bucket("protected");
-    mock->makeConnectParams(crOpts, NULL);
+    mock->makeConnectParams(crOpts, nullptr);
     lcb_createopts_credentials(crOpts, user.c_str(), user.size(), password.c_str(), password.size());
     lcb_createopts_bucket(crOpts, bucket.c_str(), bucket.size());
     doLcbCreate(&instance, crOpts, mock);
@@ -138,7 +138,7 @@ TEST_F(RegressionUnitTest, CCBC_275)
     ASSERT_EQ(LCB_SUCCESS, err);
 
     std::string key = "key_CCBC_275";
-    lcb_CMDGET *cmd = NULL;
+    lcb_CMDGET *cmd = nullptr;
     lcb_cmdget_create(&cmd);
     lcb_cmdget_key(cmd, key.c_str(), key.size());
 
@@ -161,7 +161,8 @@ TEST_F(RegressionUnitTest, CCBC_275)
     ASSERT_NE(0, LCB_ERROR_IS_NETWORK(info.last_err));
 
     // Make sure we've fully purged and disconnected the server
-    struct lcb_cntl_vbinfo_st vbi;
+    struct lcb_cntl_vbinfo_st vbi {
+    };
     memset(&vbi, 0, sizeof(vbi));
     vbi.v.v0.key = key.c_str();
     vbi.v.v0.nkey = key.size();
@@ -243,7 +244,7 @@ static void df_get_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb
     size_t nkey;
     lcb_respget_key(resp, &key, &nkey);
 
-    const char *value = "{\"bar\"=>1, \"baz\"=>2}";
+    const char *value = R"({"bar"=>1, "baz"=>2})";
     lcb_size_t nvalue = strlen(value);
 
     lcb_CMDSTORE *storecmd;
@@ -258,8 +259,8 @@ static void df_get_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb
 
 TEST_F(MockUnitTest, testDoubleFreeError)
 {
-    lcb_STATUS err;
-    struct rvbuf rv;
+    struct rvbuf rv {
+    };
     const char *key = "test_compare_and_swap_async_", *value = "{\"bar\" => 1}";
     lcb_size_t nkey = strlen(key), nvalue = strlen(value);
     lcb_INSTANCE *instance;
@@ -305,10 +306,10 @@ TEST_F(MockUnitTest, testDoubleFreeError)
 
 TEST_F(MockUnitTest, testBrokenFirstNodeInList)
 {
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
     MockEnvironment *mock = MockEnvironment::getInstance();
-    lcb_CREATEOPTS *options = NULL;
-    mock->makeConnectParams(options, NULL);
+    lcb_CREATEOPTS *options = nullptr;
+    mock->makeConnectParams(options, nullptr);
     std::string nodes(options->connstr, options->connstr_len);
     nodes.replace(nodes.find("://"), 3, "://1.2.3.4:4321=http;1.2.3.4:7890=mcd;");
     lcb_createopts_connstr(options, nodes.c_str(), nodes.size());

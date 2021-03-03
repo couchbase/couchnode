@@ -57,6 +57,7 @@ typedef enum {
     LCB_ERROR_FLAG_SUBDOC = 1u << 1u,
     LCB_ERROR_FLAG_TRANSIENT = 1u << 2u,
     LCB_ERROR_FLAG_FATAL = 1u << 3u,
+    LCB_ERROR_FLAG_INPUT = 1u << 4u,
 } lcb_ERROR_FLAGS;
 
 /* clang-format off */
@@ -68,14 +69,14 @@ X(LCB_ERR_GENERIC,               100, LCB_ERROR_TYPE_BASE,    0, "Generic error 
 /* Shared Error Definitions */ \
 X(LCB_ERR_TIMEOUT,                  201, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The request was not completed by the user-defined timeout") \
 X(LCB_ERR_REQUEST_CANCELED,         202, LCB_ERROR_TYPE_SHARED, 0, "A request is cancelled and cannot be resolved in a non-ambiguous way. Most likely the request is in-flight on the socket and the socket gets closed.") \
-X(LCB_ERR_INVALID_ARGUMENT,         203, LCB_ERROR_TYPE_SHARED, 0, "It is unambiguously determined that the error was caused because of invalid arguments from the user") \
+X(LCB_ERR_INVALID_ARGUMENT,         203, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "It is unambiguously determined that the error was caused because of invalid arguments from the user") \
 X(LCB_ERR_SERVICE_NOT_AVAILABLE,    204, LCB_ERROR_TYPE_SHARED, 0, "It was determined from the config unambiguously that the service is not available") \
 X(LCB_ERR_INTERNAL_SERVER_FAILURE,  205, LCB_ERROR_TYPE_SHARED, 0, "Internal server error") \
-X(LCB_ERR_AUTHENTICATION_FAILURE,   206, LCB_ERROR_TYPE_SHARED, 0, "Authentication error") \
+X(LCB_ERR_AUTHENTICATION_FAILURE,   206, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "Authentication error") \
 X(LCB_ERR_TEMPORARY_FAILURE,        207, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_TRANSIENT, "Temporary failure") \
 X(LCB_ERR_PARSING_FAILURE,          208, LCB_ERROR_TYPE_SHARED, 0, "Parsing failed") \
-X(LCB_ERR_CAS_MISMATCH,             209, LCB_ERROR_TYPE_SHARED, 0, "CAS mismatch") \
-X(LCB_ERR_BUCKET_NOT_FOUND,         210, LCB_ERROR_TYPE_SHARED, 0, "A request is made but the current bucket is not found") \
+X(LCB_ERR_CAS_MISMATCH,             209, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "CAS mismatch") \
+X(LCB_ERR_BUCKET_NOT_FOUND,         210, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "A request is made but the current bucket is not found") \
 X(LCB_ERR_COLLECTION_NOT_FOUND,     211, LCB_ERROR_TYPE_SHARED, 0, "A request is made but the current collection (including scope) is not found") \
 X(LCB_ERR_ENCODING_FAILURE,         212, LCB_ERROR_TYPE_SHARED, 0, "Encoding of user object failed while trying to write it to the cluster") \
 X(LCB_ERR_DECODING_FAILURE,         213, LCB_ERROR_TYPE_SHARED, 0, "Decoding of the data into the user object failed") \
@@ -90,37 +91,38 @@ X(LCB_ERR_INDEX_EXISTS,             219, LCB_ERROR_TYPE_SHARED, 0, "Index is exi
 X(LCB_ERR_DOCUMENT_NOT_FOUND,                           301, LCB_ERROR_TYPE_KEYVALUE, 0, "Document is not found") \
 X(LCB_ERR_DOCUMENT_UNRETRIEVABLE,                       302, LCB_ERROR_TYPE_KEYVALUE, 0, "Document is unretrievable") \
 X(LCB_ERR_DOCUMENT_LOCKED,                              303, LCB_ERROR_TYPE_KEYVALUE, 0, "Document locked") \
-X(LCB_ERR_VALUE_TOO_LARGE,                              304, LCB_ERROR_TYPE_KEYVALUE, 0, "Value too large") \
+X(LCB_ERR_VALUE_TOO_LARGE,                              304, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_INPUT, "Value too large") \
 X(LCB_ERR_DOCUMENT_EXISTS,                              305, LCB_ERROR_TYPE_KEYVALUE, 0, "Document already exists") \
 X(LCB_ERR_VALUE_NOT_JSON,                               306, LCB_ERROR_TYPE_KEYVALUE, 0, "Value is not a JSON") \
-X(LCB_ERR_DURABILITY_LEVEL_NOT_AVAILABLE,               307, LCB_ERROR_TYPE_KEYVALUE, 0, "Durability level is not available") \
-X(LCB_ERR_DURABILITY_IMPOSSIBLE,                        308, LCB_ERROR_TYPE_KEYVALUE, 0, "Durability impossible") \
-X(LCB_ERR_DURABILITY_AMBIGUOUS,                         309, LCB_ERROR_TYPE_KEYVALUE, 0, "Durability ambiguous") \
+X(LCB_ERR_DURABILITY_LEVEL_NOT_AVAILABLE,               307, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_INPUT, "Durability level is not available") \
+X(LCB_ERR_DURABILITY_IMPOSSIBLE,                        308, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_INPUT, "Durability impossible") \
+X(LCB_ERR_DURABILITY_AMBIGUOUS,                         309, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_INPUT, "Durability ambiguous") \
 X(LCB_ERR_DURABLE_WRITE_IN_PROGRESS,                    310, LCB_ERROR_TYPE_KEYVALUE, 0, "Durable write in progress") \
 X(LCB_ERR_DURABLE_WRITE_RE_COMMIT_IN_PROGRESS,          311, LCB_ERROR_TYPE_KEYVALUE, 0, "Durable write re-commit in progress") \
 X(LCB_ERR_MUTATION_LOST,                                312, LCB_ERROR_TYPE_KEYVALUE, 0, "Mutation lost") \
 X(LCB_ERR_SUBDOC_PATH_NOT_FOUND,                        313, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: path not found") \
 X(LCB_ERR_SUBDOC_PATH_MISMATCH,                         314, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: path mismatch") \
-X(LCB_ERR_SUBDOC_PATH_INVALID,                          315, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: path invalid") \
-X(LCB_ERR_SUBDOC_PATH_TOO_BIG,                          316, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: path too big") \
-X(LCB_ERR_SUBDOC_PATH_TOO_DEEP,                         317, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: document too deep") \
-X(LCB_ERR_SUBDOC_VALUE_TOO_DEEP,                        318, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: value too deep") \
-X(LCB_ERR_SUBDOC_VALUE_INVALID,                         319, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: cannot insert value") \
+X(LCB_ERR_SUBDOC_PATH_INVALID,                          315, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: path invalid") \
+X(LCB_ERR_SUBDOC_PATH_TOO_BIG,                          316, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: path too big") \
+X(LCB_ERR_SUBDOC_PATH_TOO_DEEP,                         317, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: document too deep") \
+X(LCB_ERR_SUBDOC_VALUE_TOO_DEEP,                        318, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: value too deep") \
+X(LCB_ERR_SUBDOC_VALUE_INVALID,                         319, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: cannot insert value") \
 X(LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON,                     320, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: document is not a JSON") \
-X(LCB_ERR_SUBDOC_NUMBER_TOO_BIG,                        321, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: number is too big") \
-X(LCB_ERR_SUBDOC_DELTA_INVALID,                         322, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: invalid delta range") \
+X(LCB_ERR_SUBDOC_NUMBER_TOO_BIG,                        321, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: number is too big") \
+X(LCB_ERR_SUBDOC_DELTA_INVALID,                         322, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: invalid delta range") \
 X(LCB_ERR_SUBDOC_PATH_EXISTS,                           323, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: path already exists") \
-X(LCB_ERR_SUBDOC_XATTR_UNKNOWN_MACRO,                   324, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: XATTR unknown macro") \
-X(LCB_ERR_SUBDOC_XATTR_INVALID_FLAG_COMBO,              325, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: XATTR invalid flag combination") \
-X(LCB_ERR_SUBDOC_XATTR_INVALID_KEY_COMBO,               326, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: XATTR invalid key combination") \
-X(LCB_ERR_SUBDOC_XATTR_UNKNOWN_VIRTUAL_ATTRIBUTE,       327, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: XATTR unknown virtual attribute") \
-X(LCB_ERR_SUBDOC_XATTR_CANNOT_MODIFY_VIRTUAL_ATTRIBUTE, 328, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: XATTR cannot modify virtual attribute") \
-X(LCB_ERR_SUBDOC_XATTR_INVALID_ORDER,                   329, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC, "Subdoc: XATTR invalid order") \
+X(LCB_ERR_SUBDOC_XATTR_UNKNOWN_MACRO,                   324, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: XATTR unknown macro") \
+X(LCB_ERR_SUBDOC_XATTR_INVALID_FLAG_COMBO,              325, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: XATTR invalid flag combination") \
+X(LCB_ERR_SUBDOC_XATTR_INVALID_KEY_COMBO,               326, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: XATTR invalid key combination") \
+X(LCB_ERR_SUBDOC_XATTR_UNKNOWN_VIRTUAL_ATTRIBUTE,       327, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: XATTR unknown virtual attribute") \
+X(LCB_ERR_SUBDOC_XATTR_CANNOT_MODIFY_VIRTUAL_ATTRIBUTE, 328, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: XATTR cannot modify virtual attribute") \
+X(LCB_ERR_SUBDOC_XATTR_INVALID_ORDER,                   329, LCB_ERROR_TYPE_KEYVALUE, LCB_ERROR_FLAG_SUBDOC | LCB_ERROR_FLAG_INPUT, "Subdoc: XATTR invalid order") \
 \
 /* Query Error Definitions */ \
 X(LCB_ERR_PLANNING_FAILURE,             401, LCB_ERROR_TYPE_QUERY, 0, "Planning failed") \
 X(LCB_ERR_INDEX_FAILURE,                402, LCB_ERROR_TYPE_QUERY, 0, "Query index failure") \
 X(LCB_ERR_PREPARED_STATEMENT_FAILURE,   403, LCB_ERROR_TYPE_QUERY, 0, "Prepared statement failure") \
+X(LCB_ERR_KEYSPACE_NOT_FOUND,           404, LCB_ERROR_TYPE_QUERY, 0, "Keyspace is not found (collection or bucket does not exist)") \
 \
 /* Analytics Error Definitions */ \
 X(LCB_ERR_COMPILATION_FAILED,           501, LCB_ERROR_TYPE_ANALYTICS, 0, "Compilation failed") \
@@ -151,20 +153,20 @@ X(LCB_ERR_SSL_ERROR,                        1002, LCB_ERROR_TYPE_SDK, LCB_ERROR_
 X(LCB_ERR_SSL_CANTVERIFY,                   1003, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "Client could not verify server's certificate") \
 X(LCB_ERR_FD_LIMIT_REACHED,                 1004, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_FATAL, "The system or process has reached its maximum number of file descriptors") \
 X(LCB_ERR_NODE_UNREACHABLE,                 1005, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The remote host is not reachable")  \
-X(LCB_ERR_CONTROL_UNKNOWN_CODE,             1006, LCB_ERROR_TYPE_SDK, 0, "Control code passed was unrecognized") \
-X(LCB_ERR_CONTROL_UNSUPPORTED_MODE,         1007, LCB_ERROR_TYPE_SDK, 0, "Invalid modifier for cntl operation (e.g. tried to read a write-only value") \
-X(LCB_ERR_CONTROL_INVALID_ARGUMENT,         1008, LCB_ERROR_TYPE_SDK, 0, "Argument passed to cntl was badly formatted")                         \
-X(LCB_ERR_DUPLICATE_COMMANDS,               1009, LCB_ERROR_TYPE_SDK, 0, "The same key was specified more than once in the command list") \
+X(LCB_ERR_CONTROL_UNKNOWN_CODE,             1006, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Control code passed was unrecognized") \
+X(LCB_ERR_CONTROL_UNSUPPORTED_MODE,         1007, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Invalid modifier for cntl operation (e.g. tried to read a write-only value") \
+X(LCB_ERR_CONTROL_INVALID_ARGUMENT,         1008, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Argument passed to cntl was badly formatted")                         \
+X(LCB_ERR_DUPLICATE_COMMANDS,               1009, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "The same key was specified more than once in the command list") \
 X(LCB_ERR_NO_MATCHING_SERVER,               1010, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "The node the request was mapped to does not exist in the current cluster map. This may be the result of a failover") \
-X(LCB_ERR_PLUGIN_VERSION_MISMATCH,          1011, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "This version of libcouchbase cannot load the specified plugin") \
-X(LCB_ERR_INVALID_HOST_FORMAT,              1012, LCB_ERROR_TYPE_SDK, 0, "Hostname specified for URI is in an invalid format") \
-X(LCB_ERR_INVALID_CHAR,                     1013, LCB_ERROR_TYPE_SDK, 0, "Illegal character") \
-X(LCB_ERR_BAD_ENVIRONMENT,                  1014, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "The value for an environment variable recognized by libcouchbase was specified in an incorrect format. Check your environment for entries starting with 'LCB_' or 'LIBCOUCHBASE_'") \
+X(LCB_ERR_PLUGIN_VERSION_MISMATCH,          1011, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT | LCB_ERROR_FLAG_FATAL, "This version of libcouchbase cannot load the specified plugin") \
+X(LCB_ERR_INVALID_HOST_FORMAT,              1012, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Hostname specified for URI is in an invalid format") \
+X(LCB_ERR_INVALID_CHAR,                     1013, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Illegal character") \
+X(LCB_ERR_BAD_ENVIRONMENT,                  1014, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT | LCB_ERROR_FLAG_FATAL, "The value for an environment variable recognized by libcouchbase was specified in an incorrect format. Check your environment for entries starting with 'LCB_' or 'LIBCOUCHBASE_'") \
 X(LCB_ERR_NO_MEMORY,                        1015, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "Memory allocation for libcouchbase failed. Severe problems ahead")  \
 X(LCB_ERR_NO_CONFIGURATION,                 1016, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "Client not bootstrapped. Ensure bootstrap/connect was attempted and was successful") \
-X(LCB_ERR_DLOPEN_FAILED,                    1017, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "Could not locate plugin library") \
-X(LCB_ERR_DLSYM_FAILED,                     1018, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "Required plugin initializer not found") \
-X(LCB_ERR_CONFIG_CACHE_INVALID,             1019, LCB_ERROR_TYPE_SDK, 0, "The contents of the configuration cache file were invalid. Configuration will be fetched from the network") \
+X(LCB_ERR_DLOPEN_FAILED,                    1017, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT | LCB_ERROR_FLAG_FATAL, "Could not locate plugin library") \
+X(LCB_ERR_DLSYM_FAILED,                     1018, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT | LCB_ERROR_FLAG_FATAL, "Required plugin initializer not found") \
+X(LCB_ERR_CONFIG_CACHE_INVALID,             1019, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "The contents of the configuration cache file were invalid. Configuration will be fetched from the network") \
 X(LCB_ERR_COLLECTION_MANIFEST_IS_AHEAD,     1020, LCB_ERROR_TYPE_SDK, 0, "Collections manifest of SDK is ahead of Server's") \
 X(LCB_ERR_COLLECTION_NO_MANIFEST,           1021, LCB_ERROR_TYPE_SDK, 0, "No Collections Manifest") \
 X(LCB_ERR_COLLECTION_CANNOT_APPLY_MANIFEST, 1022, LCB_ERROR_TYPE_SDK, 0, "Cannot apply collections manifest") \
@@ -173,31 +175,31 @@ X(LCB_ERR_CONNECTION_REFUSED,               1024, LCB_ERROR_TYPE_SDK, LCB_ERROR_
 X(LCB_ERR_SOCKET_SHUTDOWN,                  1025, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The remote host closed the connection") \
 X(LCB_ERR_CONNECTION_RESET,                 1026, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The connection was forcibly reset by the remote host") \
 X(LCB_ERR_CANNOT_GET_PORT,                  1027, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_FATAL, "Could not assign a local port for this socket. For client sockets this means there are too many TCP sockets open") \
-X(LCB_ERR_INCOMPLETE_PACKET,                1028, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "Incomplete packet was passed to forward function") \
-X(LCB_ERR_SDK_FEATURE_UNAVAILABLE,          1029, LCB_ERROR_TYPE_SDK, 0, "The requested feature is not supported by the client, either because of settings in the configured instance, or because of options disabled at the time the library was compiled") \
-X(LCB_ERR_OPTIONS_CONFLICT,                 1030, LCB_ERROR_TYPE_SDK, 0, "The operation structure contains conflicting options") \
+X(LCB_ERR_INCOMPLETE_PACKET,                1028, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT | LCB_ERROR_FLAG_TRANSIENT, "Incomplete packet was passed to forward function") \
+X(LCB_ERR_SDK_FEATURE_UNAVAILABLE,          1029, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "The requested feature is not supported by the client, either because of settings in the configured instance, or because of options disabled at the time the library was compiled") \
+X(LCB_ERR_OPTIONS_CONFLICT,                 1030, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "The operation structure contains conflicting options") \
 X(LCB_ERR_KVENGINE_INVALID_PACKET,          1031, LCB_ERROR_TYPE_SDK, 0, "A badly formatted packet was sent to the server. Please report this in a bug") \
-X(LCB_ERR_DURABILITY_TOO_MANY,              1032, LCB_ERROR_TYPE_SDK, 0, "Durability constraints requires more nodes/replicas than the cluster configuration allows. Durability constraints will never be satisfied") \
+X(LCB_ERR_DURABILITY_TOO_MANY,              1032, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Durability constraints requires more nodes/replicas than the cluster configuration allows. Durability constraints will never be satisfied") \
 X(LCB_ERR_SHEDULE_FAILURE,                  1033, LCB_ERROR_TYPE_SDK, 0, "Internal error used for destroying unscheduled command data") \
-X(LCB_ERR_DURABILITY_NO_MUTATION_TOKENS,    1034, LCB_ERROR_TYPE_SDK, 0, "The given item does not have a mutation token associated with it. this is either because fetching mutation tokens was not enabled, or you are trying to check on something not stored by this instance") \
-X(LCB_ERR_SASLMECH_UNAVAILABLE,             1035, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_FATAL, "The requested SASL mechanism was not supported by the server. Either upgrade the server or change the mechanism requirements") \
+X(LCB_ERR_DURABILITY_NO_MUTATION_TOKENS,    1034, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "The given item does not have a mutation token associated with it. this is either because fetching mutation tokens was not enabled, or you are trying to check on something not stored by this instance") \
+X(LCB_ERR_SASLMECH_UNAVAILABLE,             1035, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT | LCB_ERROR_FLAG_FATAL, "The requested SASL mechanism was not supported by the server. Either upgrade the server or change the mechanism requirements") \
 X(LCB_ERR_TOO_MANY_REDIRECTS,               1036, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Maximum allowed number of redirects reached. See lcb_cntl and the LCB_CNTL_MAX_REDIRECTS option to modify this limit") \
 X(LCB_ERR_MAP_CHANGED,                      1037, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_TRANSIENT, "The cluster map has changed and this operation could not be completed or retried internally. Try this operation again") \
 X(LCB_ERR_NOT_MY_VBUCKET,                   1038, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK | LCB_ERROR_FLAG_TRANSIENT, "The server which received this command claims it is not hosting this key") \
-X(LCB_ERR_UNKNOWN_SUBDOC_COMMAND,           1039, LCB_ERROR_TYPE_SDK, 0, "Unknown subdocument command") \
+X(LCB_ERR_UNKNOWN_SUBDOC_COMMAND,           1039, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Unknown subdocument command") \
 X(LCB_ERR_KVENGINE_UNKNOWN_ERROR,           1040, LCB_ERROR_TYPE_SDK, 0, "The server replied with an unrecognized status code. A newer version of this library may be able to decode it") \
 X(LCB_ERR_NAMESERVER,                       1041, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Invalid reply received from nameserver") \
-X(LCB_ERR_INVALID_RANGE,                    1042, LCB_ERROR_TYPE_SDK, 0, "Invalid range") \
+X(LCB_ERR_INVALID_RANGE,                    1042, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "Invalid range") \
 X(LCB_ERR_NOT_STORED,                       1043, LCB_ERROR_TYPE_SDK, 0, "Item not stored (did you try to append/prepend to a missing key?)") \
 X(LCB_ERR_BUSY,                             1044, LCB_ERROR_TYPE_SDK, 0, "Busy. This is an internal error") \
 X(LCB_ERR_SDK_INTERNAL,                     1045, LCB_ERROR_TYPE_SDK, 0, "Internal libcouchbase error") \
-X(LCB_ERR_INVALID_DELTA,                    1046, LCB_ERROR_TYPE_SDK, 0, "The value requested to be incremented is not stored as a number") \
-X(LCB_ERR_NO_COMMANDS,                      1047, LCB_ERROR_TYPE_SDK, 0, "No commands specified") \
+X(LCB_ERR_INVALID_DELTA,                    1046, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "The value requested to be incremented is not stored as a number") \
+X(LCB_ERR_NO_COMMANDS,                      1047, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "No commands specified") \
 X(LCB_ERR_NETWORK,                          1048, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Generic network failure") \
-X(LCB_ERR_UNKNOWN_HOST,                     1049, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "DNS/Hostname lookup failed") \
+X(LCB_ERR_UNKNOWN_HOST,                     1049, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT | LCB_ERROR_FLAG_NETWORK, "DNS/Hostname lookup failed") \
 X(LCB_ERR_PROTOCOL_ERROR,                   1050, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Data received on socket was not in the expected format") \
 X(LCB_ERR_CONNECT_ERROR,                    1051, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_NETWORK, "Error while establishing TCP connection") \
-X(LCB_ERR_EMPTY_KEY,                        1052, LCB_ERROR_TYPE_SDK, 0, "An empty key was passed to an operation") \
+X(LCB_ERR_EMPTY_KEY,                        1052, LCB_ERROR_TYPE_SDK, LCB_ERROR_FLAG_INPUT, "An empty key was passed to an operation") \
 X(LCB_ERR_HTTP,                             1053, LCB_ERROR_TYPE_SDK, 0, "HTTP Operation failed. Inspect status code for details") \
 X(LCB_ERR_QUERY,                            1054, LCB_ERROR_TYPE_SDK, 0, "Query execution failed. Inspect raw response object for information") \
 X(LCB_ERR_TOPOLOGY_CHANGE,                  1055, LCB_ERROR_TYPE_SDK, 0, "Topology Change (internal)")
@@ -218,6 +220,7 @@ typedef enum {
 #define LCB_ERROR_IS_SUBDOC(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_SUBDOC) == LCB_ERROR_FLAG_SUBDOC)
 #define LCB_ERROR_IS_TRANSIENT(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_TRANSIENT) == LCB_ERROR_FLAG_TRANSIENT)
 #define LCB_ERROR_IS_FATAL(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_FATAL) == LCB_ERROR_FLAG_FATAL)
+#define LCB_ERROR_IS_INPUT(e) ((lcb_error_flags(e) & LCB_ERROR_FLAG_INPUT) == LCB_ERROR_FLAG_INPUT)
 
 typedef struct lcb_KEY_VALUE_ERROR_CONTEXT_ lcb_KEY_VALUE_ERROR_CONTEXT;
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_rc(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx);

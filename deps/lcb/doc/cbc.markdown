@@ -291,6 +291,9 @@ Sends NOOP-like request to every service on each cluster node, and report time i
 * `--details`:
   Provide more details about status of the service.
 
+* `-t`, `--table`:
+  Render results as a table.
+
 ### view
 
 Execute an HTTP request against the server's view (CAPI) interface.

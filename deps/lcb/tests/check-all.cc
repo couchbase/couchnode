@@ -23,10 +23,8 @@
 
 #include <libcouchbase/couchbase.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <cassert>
+#include <cstdlib>
+#include <cstdio>
 
 #include <iostream>
 #include <fstream>
@@ -41,7 +39,6 @@
 #include "mocksupport/procutil.h"
 #define CLIOPTS_ENABLE_CXX
 #include "contrib/cliopts/cliopts.h"
-#include <libcouchbase/couchbase.h>
 
 #define TESTS_BASE "sock-tests;nonio-tests;rdb-tests;mc-tests;"
 #define PLUGIN_ENV_VAR "LCB_IOPS_NAME"
@@ -54,7 +51,7 @@ const char default_plugins_string[] = "select;iocp;libuv";
 #define usleep(n) Sleep((n) / 1000)
 #define setenv(key, value, ignored) SetEnvironmentVariable(key, value)
 #else
-#include <signal.h>
+#include <csignal>
 #include <unistd.h> /* usleep */
 const char default_plugins_string[] = "select"
 #if defined(HAVE_LIBEV3) || defined(HAVE_LIBEV4)
@@ -70,7 +67,7 @@ const char default_plugins_string[] = "select"
 #define PATHSEP "/"
 #endif
 
-typedef std::vector< std::string > strlist;
+typedef std::vector<std::string> strlist;
 
 class TestConfiguration
 {
@@ -111,7 +108,7 @@ class TestConfiguration
         opt_verbose.abbrev('v');
     }
 
-    ~TestConfiguration() {}
+    ~TestConfiguration() = default;
 
     static void splitSemicolonString(const std::string &s, strlist &l)
     {
@@ -158,9 +155,9 @@ class TestConfiguration
         using std::string;
         using std::vector;
 
-        const vector< string > &args = parser.getRestArgs();
-        for (size_t ii = 0; ii < args.size(); ii++) {
-            ss << args[ii] << " ";
+        const vector<string> &args = parser.getRestArgs();
+        for (const auto &arg : args) {
+            ss << arg << " ";
         }
 
         if (!opt_gtest_filter.result().empty()) {
@@ -208,7 +205,7 @@ class TestConfiguration
     }
 
     // Sets up the command line, appending any debugger info and paths
-    std::string setupCommandline(std::string &name)
+    std::string setupCommandline(const std::string &name) const
     {
         std::stringstream ss;
         std::string ret;
@@ -237,10 +234,10 @@ class TestConfiguration
     strlist plugins;
     strlist testnames;
 
-    bool isVerbose;
-    bool isInteractive;
-    int maxJobs;
-    int maxCycles;
+    bool isVerbose{};
+    bool isInteractive{};
+    int maxJobs{};
+    int maxCycles{};
     int getVerbosityLevel()
     {
         return opt_verbose.numSpecified();
@@ -266,7 +263,7 @@ class TestConfiguration
     {
         char *tmp = getenv("MAKEFLAGS");
 
-        if (tmp == NULL || *tmp == '\0') {
+        if (tmp == nullptr || *tmp == '\0') {
             return;
         }
 
@@ -278,7 +275,7 @@ class TestConfiguration
         }
     }
 
-    std::string getEffectiveSrcroot()
+    static std::string getEffectiveSrcroot()
     {
         const char *tmp = getenv(LCB_SRCROOT_ENV_VAR);
         if (tmp && *tmp) {
@@ -299,22 +296,17 @@ class TestConfiguration
 
 #ifndef _WIN32
     // Evaluated *before*
-    std::string getDefaultSrcroot()
+    static std::string getDefaultSrcroot()
     {
         return TEST_SRC_DIR;
     }
 
-    std::string getDefaultTestdir()
-    {
-        return (srcroot + PATHSEP) + "tests";
-    }
-
 #else
-    std::string getSelfDirname()
+    static std::string getSelfDirname()
     {
         DWORD result;
         char pathbuf[4096] = {0};
-        result = GetModuleFileName(NULL, pathbuf, sizeof(pathbuf));
+        result = GetModuleFileName(nullptr, pathbuf, sizeof(pathbuf));
         assert(result > 0);
         assert(result < sizeof(pathbuf));
 
@@ -326,8 +318,9 @@ class TestConfiguration
         }
         return pathbuf;
     }
+
     // For windows, we reside in the same directory as the binaries
-    std::string getDefaultSrcroot()
+    static std::string getDefaultSrcroot()
     {
         std::string dir = getSelfDirname();
         std::stringstream ss;
@@ -352,17 +345,17 @@ class TestConfiguration
 
         return ss.str();
     }
-
-    std::string getDefaultTestdir()
-    {
-        return getSelfDirname();
-    }
 #endif
+
+    std::string getDefaultTestdir() const
+    {
+        return (srcroot + PATHSEP) + "tests";
+    }
 };
 
 static void setPluginEnvironment(std::string &name)
 {
-    const char *v = NULL;
+    const char *v = nullptr;
     if (name != "default") {
         v = name.c_str();
     }
@@ -370,10 +363,10 @@ static void setPluginEnvironment(std::string &name)
     setenv(PLUGIN_ENV_VAR, v, 1);
 
     fprintf(stderr, "%s=%s ... ", PLUGIN_ENV_VAR, name.c_str());
-    struct lcb_cntl_iops_info_st ioi;
-    memset(&ioi, 0, sizeof(ioi));
+    struct lcb_cntl_iops_info_st ioi {
+    };
 
-    lcb_STATUS err = lcb_cntl(NULL, LCB_CNTL_GET, LCB_CNTL_IOPS_DEFAULT_TYPES, &ioi);
+    lcb_STATUS err = lcb_cntl(nullptr, LCB_CNTL_GET, LCB_CNTL_IOPS_DEFAULT_TYPES, &ioi);
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "LCB Error 0x%x\n", err);
     } else {
@@ -410,15 +403,15 @@ static void setLinkerEnvironment(std::string &path)
 }
 
 struct Process {
-    child_process_t proc_;
+    child_process_t proc_{};
     std::string commandline;
     std::string logfileName;
     std::string pluginName;
     std::string testName;
-    bool exitedOk;
+    bool exitedOk{};
     bool verbose;
 
-    Process(std::string &plugin, std::string &name, std::string &cmd, TestConfiguration &config)
+    Process(const std::string &plugin, const std::string &name, const std::string &cmd, TestConfiguration &config)
     {
         this->pluginName = plugin;
         this->testName = name;
@@ -428,7 +421,7 @@ struct Process {
         this->logfileName = "check-all-" + pluginName + "-" + testName + ".log";
     }
 
-    void writeLog(const char *msg)
+    void writeLog(const char *msg) const
     {
         std::ofstream out(logfileName.c_str(), std::ios::app);
         out << msg << std::endl;
@@ -450,10 +443,10 @@ struct Process {
 class TestScheduler
 {
   public:
-    TestScheduler(unsigned int lim) : limit(lim) {}
+    explicit TestScheduler(unsigned int lim) : limit(lim) {}
 
-    typedef std::list< Process * > proclist;
-    std::vector< Process > _all;
+    typedef std::list<Process *> proclist;
+    std::vector<Process> _all;
 
     proclist executing;
     proclist scheduled;
@@ -461,7 +454,7 @@ class TestScheduler
 
     unsigned int limit;
 
-    void schedule(Process proc)
+    void schedule(const Process &proc)
     {
         _all.push_back(proc);
     }
@@ -516,9 +509,8 @@ class TestScheduler
   private:
     void scheduleAll()
     {
-        for (unsigned int ii = 0; ii < _all.size(); ii++) {
-            Process *p = &_all[ii];
-            scheduled.push_back(p);
+        for (auto &ii : _all) {
+            scheduled.push_back(&ii);
         }
     }
     void invokeScheduled(Process *proc)
@@ -548,22 +540,25 @@ static bool runSingleCycle(TestConfiguration &config)
 {
     TestScheduler scheduler(config.maxJobs);
     setLinkerEnvironment(config.libDir);
-    for (strlist::iterator iter = config.plugins.begin(); iter != config.plugins.end(); iter++) {
+    for (const auto &plugin : config.plugins) {
 
-        fprintf(stderr, "Testing with plugin '%s'\n", iter->c_str());
+        fprintf(stderr, "Testing with plugin '%s'\n", plugin.c_str());
 #ifdef __linux__
         {
             char buf[1024] = {0};
-            sprintf(buf, "ldd %s/libcouchbase_%s.so", config.libDir.c_str(), iter->c_str());
+            sprintf(buf, "ldd %s/libcouchbase_%s.so", config.libDir.c_str(), plugin.c_str());
             fprintf(stderr, "%s\n", buf);
-            system(buf);
+            int rc = system(buf);
+            if (rc != 0) {
+                fprintf(stderr, "FAIL '%s'\n", buf);
+            }
         }
 #endif
-        for (strlist::iterator iterbins = config.testnames.begin(); iterbins != config.testnames.end(); iterbins++) {
+        for (const auto &test : config.testnames) {
 
-            std::string cmdline = config.setupCommandline(*iterbins);
+            std::string cmdline = config.setupCommandline(test);
             fprintf(stderr, "Command line '%s'\n", cmdline.c_str());
-            scheduler.schedule(Process(*iter, *iterbins, cmdline, config));
+            scheduler.schedule(Process(plugin, test, cmdline, config));
         }
     }
 

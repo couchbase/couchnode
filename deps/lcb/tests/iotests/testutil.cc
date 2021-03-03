@@ -19,6 +19,7 @@
 #include "mock-unit-test.h"
 #include "testutil.h"
 #include <map>
+#include "rnd.h"
 
 /*
  * Helper functions
@@ -54,7 +55,7 @@ static void removeKvoCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPR
 
 void KVOperation::handleInstanceError(lcb_INSTANCE *instance, lcb_STATUS err, const char *)
 {
-    KVOperation *kvo = reinterpret_cast<KVOperation *>(const_cast<void *>(lcb_get_cookie(instance)));
+    auto *kvo = reinterpret_cast<KVOperation *>(const_cast<void *>(lcb_get_cookie(instance)));
     kvo->assertOk(err);
     kvo->globalErrors.insert(err);
 }
@@ -185,7 +186,7 @@ void genDistKeys(lcbvb_CONFIG *vbc, std::vector<std::string> &out)
         lcbvb_map_key(vbc, buf, ksize, &vbid, &srvix);
 
         if (!found_servers[srvix]) {
-            out.push_back(std::string(buf));
+            out.emplace_back(buf);
             found_servers[srvix] = true;
         }
     }
@@ -195,11 +196,11 @@ void genDistKeys(lcbvb_CONFIG *vbc, std::vector<std::string> &out)
 
 void genStoreCommands(const std::vector<std::string> &keys, std::vector<lcb_CMDSTORE *> &cmds)
 {
-    for (unsigned int ii = 0; ii < keys.size(); ii++) {
+    for (const auto &key : keys) {
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-        lcb_cmdstore_key(cmd, keys[ii].c_str(), keys[ii].size());
-        lcb_cmdstore_value(cmd, keys[ii].c_str(), keys[ii].size());
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, key.c_str(), key.size());
         cmds.push_back(cmd);
     }
 }
@@ -240,9 +241,9 @@ std::ostream &operator<<(std::ostream &out, const Item &item)
 }
 
 extern "C" {
-static void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP *resp)
+static void http_callback(lcb_INSTANCE * /* instance */, int /* cbtype */, const lcb_RESPHTTP *resp)
 {
-    const char *body = NULL;
+    const char *body = nullptr;
     size_t nbody = 0;
     lcb_resphttp_body(resp, &body, &nbody);
     uint16_t status;
@@ -270,7 +271,7 @@ lcb_STATUS create_scope(lcb_INSTANCE *instance, const std::string &scope)
     lcb_cmdhttp_path(cmd, path.c_str(), path.size());
     lcb_cmdhttp_body(cmd, body.c_str(), body.size());
 
-    err = lcb_http(instance, NULL, cmd);
+    err = lcb_http(instance, nullptr, cmd);
     lcb_cmdhttp_destroy(cmd);
     EXPECT_EQ(LCB_SUCCESS, err);
     return lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -292,15 +293,15 @@ lcb_STATUS create_collection(lcb_INSTANCE *instance, const std::string &scope, c
     lcb_cmdhttp_path(cmd, path.c_str(), path.size());
     lcb_cmdhttp_body(cmd, body.c_str(), body.size());
 
-    err = lcb_http(instance, NULL, cmd);
+    err = lcb_http(instance, nullptr, cmd);
     lcb_cmdhttp_destroy(cmd);
     EXPECT_EQ(LCB_SUCCESS, err);
     return lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
-std::string unique_name(std::string prefix)
+std::string unique_name(const std::string &prefix)
 {
     std::stringstream ss;
-    ss << prefix << rand();
+    ss << prefix << lcb_next_rand32();
     return ss.str();
 }

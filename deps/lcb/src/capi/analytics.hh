@@ -105,6 +105,9 @@ struct lcb_CMDANALYTICS_ {
     lcb_ANALYTICS_HANDLE **handle{nullptr};
     lcb_INGEST_OPTIONS *ingest{nullptr};
     int priority{-1};
+
+    std::string scope_qualifier{};
+    std::string scope_name{};
 };
 
 #endif // LIBCOUCHBASE_CAPI_ANALYTICS_HH

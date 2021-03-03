@@ -87,7 +87,8 @@ class SockFD
         return getHostCommon(&sa_remote);
     }
 
-    template < typename T > bool setOption(int level, int option, T val)
+    template <typename T>
+    bool setOption(int level, int option, T val)
     {
         int rv = setsockopt(fd, level, option, (char *)&val, sizeof val);
         return rv == 0;
@@ -96,7 +97,7 @@ class SockFD
     bool setNodelay(bool enabled = true)
     {
         int isEnabled = enabled ? 1 : 0;
-        return setOption< int >(IPPROTO_TCP, TCP_NODELAY, isEnabled);
+        return setOption<int>(IPPROTO_TCP, TCP_NODELAY, isEnabled);
     }
 
     SockFD *acceptClient();
@@ -249,7 +250,7 @@ class SendFuture : public Future
     }
 
     volatile unsigned nsent;
-    std::vector< char > buf;
+    std::vector<char> buf;
 };
 
 /**
@@ -277,7 +278,7 @@ class RecvFuture : public Future
 
     /** Get the contents the server received as a `vector`
      * @return The received data */
-    std::vector< char > getBuf()
+    std::vector<char> getBuf()
     {
         return buf;
     }
@@ -313,7 +314,7 @@ class RecvFuture : public Future
         buf.insert(buf.end(), cbuf, cbuf + nbuf);
     }
     volatile size_t required;
-    std::vector< char > buf;
+    std::vector<char> buf;
 };
 
 /**
@@ -443,7 +444,7 @@ class TestConnection
 
   protected:
     TestConnection(TestServer *server, SockFD *newsock);
-    ~TestConnection();
+    virtual ~TestConnection();
     virtual void run();
     friend class TestServer;
 
@@ -537,7 +538,7 @@ class TestServer
     SockFD *lsn;
     Thread *thr;
     Mutex mutex;
-    std::list< TestConnection * > conns;
+    std::list<TestConnection *> conns;
     void startConnection(TestConnection *conn);
 };
 

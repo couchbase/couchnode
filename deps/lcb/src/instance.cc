@@ -926,10 +926,21 @@ static bool is_valid_collection_element(const char *element, size_t element_len)
     return true;
 }
 
+static bool is_default_collection_element(const char *element, size_t element_len)
+{
+    static const std::string default_name("_default");
+    if (element_len == 0 || element == nullptr || default_name.compare(0, element_len, element) != 0) {
+        return true;
+    }
+    return false;
+}
+
 LCB_INTERNAL_API lcb_STATUS lcb_is_collection_valid(lcb_INSTANCE *instance, const char *scope, size_t scope_len,
                                                     const char *collection, size_t collection_len)
 {
-    if (!LCBT_SETTING(instance, use_collections) && (scope_len || collection_len)) {
+    if (!LCBT_SETTING(instance, use_collections) && !(is_default_collection_element(scope, scope_len) &&
+                                                      is_default_collection_element(collection, collection_len))) {
+        /* only allow default collection when collections disabled for the instance */
         return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
     }
     if (is_valid_collection_element(scope, scope_len) && is_valid_collection_element(collection, collection_len)) {

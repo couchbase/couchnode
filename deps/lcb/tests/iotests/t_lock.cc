@@ -181,7 +181,11 @@ TEST_F(LockUnitTest, testUnlockMissingCas)
     if (CLUSTER_VERSION_IS_HIGHER_THAN(MockEnvironment::VERSION_50)) {
         ASSERT_EQ(LCB_ERR_KVENGINE_INVALID_PACKET, reserr);
     } else {
-        ASSERT_EQ(LCB_ERR_TEMPORARY_FAILURE, reserr);
+        if (MockEnvironment::getInstance()->isRealCluster()) {
+            ASSERT_EQ(LCB_ERR_DOCUMENT_LOCKED, reserr);
+        } else {
+            ASSERT_EQ(LCB_ERR_TEMPORARY_FAILURE, reserr);
+        }
     }
 }
 
@@ -214,7 +218,6 @@ TEST_F(LockUnitTest, testStorageLockContention)
 
     lcb_INSTANCE *instance;
     HandleWrap hw;
-    lcb_STATUS err;
 
     createConnection(hw, &instance);
     Item itm;
@@ -247,7 +250,7 @@ TEST_F(LockUnitTest, testStorageLockContention)
     Item s_itm;
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &s_itm, scmd));
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_ERR_DOCUMENT_EXISTS, s_itm.err);
+    ASSERT_EQ(LCB_ERR_DOCUMENT_LOCKED, s_itm.err);
 
     /* verify the value is still the old value */
     Item ritem;
@@ -293,7 +296,7 @@ TEST_F(LockUnitTest, testUnlLockContention)
 
     lcb_INSTANCE *instance;
     HandleWrap hw;
-    lcb_STATUS err, reserr = LCB_ERR_GENERIC;
+    lcb_STATUS reserr = LCB_ERR_GENERIC;
     createConnection(hw, &instance);
 
     std::string key = "lockedKey2", value = "lockedValue2";
@@ -316,7 +319,11 @@ TEST_F(LockUnitTest, testUnlLockContention)
     uint64_t validCas = gitm.cas;
     ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &gitm, gcmd));
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_ERR_TEMPORARY_FAILURE, gitm.err);
+    if (MockEnvironment::getInstance()->isRealCluster()) {
+        ASSERT_EQ(LCB_ERR_DOCUMENT_LOCKED, gitm.err);
+    } else {
+        ASSERT_EQ(LCB_ERR_TEMPORARY_FAILURE, gitm.err);
+    }
     lcb_cmdget_destroy(gcmd);
 
     lcb_CMDUNLOCK *ucmd;

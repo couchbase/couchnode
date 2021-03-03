@@ -9,21 +9,21 @@ using std::vector;
 class SslSocket : public SockFD
 {
   public:
-    SslSocket(SockFD *innner);
+    explicit SslSocket(SockFD *inner);
 
-    ~SslSocket();
+    ~SslSocket() override;
 
     // Receive data via SSL
-    size_t send(const void *, size_t, int);
+    size_t send(const void *, size_t, int) override;
 
     // Send data via SSL
-    ssize_t recv(void *, size_t, int);
+    ssize_t recv(void *, size_t, int) override;
 
     // Close the SSL context first
-    void close();
+    void close() override;
 
     // Return the real FD
-    int getFD() const
+    int getFD() const override
     {
         return sfd->getFD();
     }
@@ -32,7 +32,7 @@ class SslSocket : public SockFD
     SSL *ssl;
     SSL_CTX *ctx;
     SockFD *sfd;
-    bool ok;
+    bool ok{};
 };
 
 SockFD *TestServer::sslSocketFactory(int fd)
@@ -43,7 +43,7 @@ SockFD *TestServer::sslSocketFactory(int fd)
 extern "C" {
 static void log_callback(const SSL *ssl, int where, int ret)
 {
-    const char *retstr = "";
+    const char *retstr;
     int should_log = 0;
 
     if (where & SSL_CB_ALERT) {
@@ -69,7 +69,7 @@ static void log_callback(const SSL *ssl, int where, int ret)
 }
 }
 
-// http://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
+// http://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openss l
 // http://www.opensource.apple.com/source/OpenSSL/OpenSSL-22/openssl/demos/x509/mkcert.c
 // Note we deviate from the examples by directly setting the certificate.
 
@@ -77,7 +77,11 @@ static void genCertificate(SSL_CTX *ctx)
 {
     EVP_PKEY *pkey = EVP_PKEY_new();
     X509 *x509 = X509_new();
-    RSA *rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
+    RSA *rsa = RSA_new();
+    BIGNUM *exponent = BN_new();
+    BN_set_word(exponent, RSA_F4);
+    RSA_generate_key_ex(rsa, 2048, exponent, nullptr);
+    BN_free(exponent);
 
     EVP_PKEY_assign_RSA(pkey, rsa);
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
@@ -102,17 +106,17 @@ SslSocket::SslSocket(SockFD *inner) : SockFD(inner->getFD())
 {
     sfd = inner;
     ctx = SSL_CTX_new(SSLv23_server_method());
-    assert(ctx != NULL);
+    assert(ctx != nullptr);
 
     SSL_CTX_set_info_callback(ctx, log_callback);
     genCertificate(ctx);
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
-    SSL_CTX_load_verify_locations(ctx, NULL, NULL);
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
+    SSL_CTX_load_verify_locations(ctx, nullptr, nullptr);
 
     ssl = SSL_new(ctx);
-    assert(ssl != NULL);
+    assert(ssl != nullptr);
     SSL_set_accept_state(ssl);
     SSL_set_fd(ssl, sfd->getFD());
 }

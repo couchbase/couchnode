@@ -33,16 +33,16 @@ namespace
 class Retryer
 {
   public:
-    Retryer(time_t maxDuration) : maxDuration(maxDuration) {}
+    explicit Retryer(time_t maxDuration) : maxDuration(maxDuration) {}
     bool run()
     {
-        time_t maxTime = time(NULL) + maxDuration;
+        time_t maxTime = time(nullptr) + maxDuration;
         while (!checkCondition()) {
             trigger();
             if (checkCondition()) {
                 break;
             }
-            if (time(NULL) > maxTime) {
+            if (time(nullptr) > maxTime) {
                 printf("Time expired and condition still false!\n");
                 break;
             } else {
@@ -73,14 +73,14 @@ class NumNodeRetryer : public Retryer
     {
         genDistKeys(LCBT_VBCONFIG(instance), distKeys);
     }
-    virtual ~NumNodeRetryer() {}
+    virtual ~NumNodeRetryer() = default;
 
   protected:
-    virtual bool checkCondition()
+    bool checkCondition() override
     {
         return lcb_get_num_nodes(instance) == expCount;
     }
-    virtual void trigger()
+    void trigger() override
     {
         lcb_RESPCALLBACK oldCb = lcb_install_callback(instance, LCB_CALLBACK_STORE, nopStoreCb);
         lcb_CMDSTORE *scmd;
@@ -88,10 +88,10 @@ class NumNodeRetryer : public Retryer
         lcb_sched_enter(instance);
 
         size_t nSubmit = 0;
-        for (size_t ii = 0; ii < distKeys.size(); ii++) {
-            lcb_cmdstore_key(scmd, distKeys[ii].c_str(), distKeys[ii].size());
-            lcb_cmdstore_value(scmd, distKeys[ii].c_str(), distKeys[ii].size());
-            lcb_STATUS rc = lcb_store(instance, NULL, scmd);
+        for (auto &distKey : distKeys) {
+            lcb_cmdstore_key(scmd, distKey.c_str(), distKey.size());
+            lcb_cmdstore_value(scmd, distKey.c_str(), distKey.size());
+            lcb_STATUS rc = lcb_store(instance, nullptr, scmd);
             if (rc != LCB_SUCCESS) {
                 continue;
             }
@@ -144,7 +144,7 @@ static void opFromCallback_statsCB(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, co
     lcb_size_t nbytes = resp->nvalue;
 
     ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
-    if (server_endpoint != NULL) {
+    if (server_endpoint != nullptr) {
         nstatkey = strlen(server_endpoint) + nkey + 2;
         statkey = new char[nstatkey];
         snprintf(statkey, nstatkey, "%s-%.*s", server_endpoint, (int)nkey, (const char *)key);
@@ -153,7 +153,7 @@ static void opFromCallback_statsCB(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, co
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, statkey, nstatkey);
         lcb_cmdstore_value(cmd, (const char *)bytes, nbytes);
-        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, NULL, cmd));
+        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, nullptr, cmd));
         lcb_cmdstore_destroy(cmd);
         delete[] statkey;
     }
@@ -172,7 +172,7 @@ TEST_F(MockUnitTest, testOpFromCallback)
 
     lcb_CMDSTATS stat = {0};
     ASSERT_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "operation_timeout", "5.0"));
-    ASSERT_EQ(LCB_SUCCESS, lcb_stats3(instance, NULL, &stat));
+    ASSERT_EQ(LCB_SUCCESS, lcb_stats3(instance, nullptr, &stat));
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
@@ -181,7 +181,7 @@ struct timeout_test_cookie {
     lcb_STATUS expected;
 };
 extern "C" {
-static void set_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+static void set_callback(lcb_INSTANCE * /* instance */, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
     timeout_test_cookie *tc;
 
@@ -203,7 +203,7 @@ struct next_store_st {
 static void reschedule_callback(void *cookie)
 {
     lcb_STATUS err;
-    struct next_store_st *ns = (struct next_store_st *)cookie;
+    auto *ns = (struct next_store_st *)cookie;
     lcb_log(LOGARGS(ns->instance, INFO), "Rescheduling operation..");
     err = lcb_store(ns->instance, ns->tc, ns->cmdp);
     lcb_loop_unref(ns->instance);
@@ -213,7 +213,7 @@ static void reschedule_callback(void *cookie)
 
 TEST_F(MockUnitTest, testTimeoutOnlyStale)
 {
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
 
     HandleWrap hw;
     createConnection(hw);
@@ -247,7 +247,8 @@ TEST_F(MockUnitTest, testTimeoutOnlyStale)
 
     cookies[1].counter = &nremaining;
     cookies[1].expected = LCB_SUCCESS;
-    struct next_store_st ns;
+    struct next_store_st ns {
+    };
     ns.cmdp = cmd;
     ns.tc = cookies + 1;
     ns.instance = instance;
@@ -265,7 +266,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStale)
 
 TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
 {
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
 
     HandleWrap hw;
     createConnection(hw);
@@ -297,7 +298,8 @@ TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
 
     cookies[1].counter = &nremaining;
     cookies[1].expected = LCB_SUCCESS;
-    struct next_store_st ns;
+    struct next_store_st ns {
+    };
     lcb_cmdstore_key(cmd, key, strlen(key));
     ns.cmdp = cmd;
     ns.tc = cookies + 1;
@@ -334,7 +336,7 @@ static void io_close_wrap(lcb_io_opt_t, lcb_socket_t)
 
 static void store_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
-    struct rvbuf *rv = (struct rvbuf *)resp->cookie;
+    auto *rv = (struct rvbuf *)resp->cookie;
     lcb_log(LOGARGS(instance, INFO), "Got storage callback for cookie %p with err=0x%x", (void *)resp->cookie,
             (int)resp->ctx.rc);
 
@@ -364,14 +366,13 @@ static void get_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RE
 
 struct StoreContext {
     std::map<std::string, lcb_STATUS> mm;
-    typedef std::map<std::string, lcb_STATUS>::iterator MyIter;
 
-    void check(int expected)
+    void check(int expected) const
     {
         EXPECT_EQ(expected, mm.size());
 
-        for (MyIter iter = mm.begin(); iter != mm.end(); iter++) {
-            EXPECT_EQ(LCB_SUCCESS, iter->second);
+        for (const auto &entry : mm) {
+            EXPECT_EQ(LCB_SUCCESS, entry.second);
         }
     }
 
@@ -396,11 +397,10 @@ static void ctx_store_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESP
 
 TEST_F(MockUnitTest, testReconfigurationOnNodeFailover)
 {
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
     lcb_INSTANCE *instance;
     HandleWrap hw;
-    lcb_STATUS err;
-    const char *argv[] = {"--replicas", "0", "--nodes", "4", NULL};
+    const char *argv[] = {"--replicas", "0", "--nodes", "4", nullptr};
 
     MockEnvironment mock_o(argv), *mock = &mock_o;
 
@@ -420,26 +420,26 @@ TEST_F(MockUnitTest, testReconfigurationOnNodeFailover)
     StoreContext ctx;
 
     mock->failoverNode(0);
-    SYNC_WITH_NODECOUNT(instance, numNodes - 1);
+    SYNC_WITH_NODECOUNT(instance, numNodes - 1)
 
     lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)ctx_store_callback);
-    for (int i = 0; i < cmds.size(); i++) {
-        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmds[i]));
+    for (auto &cmd : cmds) {
+        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmd));
     }
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ctx.check((int)cmds.size());
 
     mock->respawnNode(0);
-    SYNC_WITH_NODECOUNT(instance, numNodes);
+    SYNC_WITH_NODECOUNT(instance, numNodes)
 
     ctx.clear();
-    for (int i = 0; i < cmds.size(); i++) {
-        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmds[i]));
+    for (auto &cmd : cmds) {
+        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmd));
     }
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ctx.check((int)cmds.size());
-    for (int i = 0; i < cmds.size(); i++) {
-        lcb_cmdstore_destroy(cmds[i]);
+    for (auto &cmd : cmds) {
+        lcb_cmdstore_destroy(cmd);
     }
 }
 
@@ -452,7 +452,7 @@ struct fo_context_st {
 extern "C" {
 static void fo_callback(void *cookie)
 {
-    fo_context_st *ctx = (fo_context_st *)cookie;
+    auto *ctx = (fo_context_st *)cookie;
     ctx->env->failoverNode(ctx->index);
     ctx->env->hiccupNodes(0, 0);
     lcb_loop_unref(ctx->instance);
@@ -461,15 +461,15 @@ static void fo_callback(void *cookie)
 
 TEST_F(MockUnitTest, testBufferRelocationOnNodeFailover)
 {
-    SKIP_UNLESS_MOCK();
-    lcb_STATUS err;
-    struct rvbuf rv;
+    SKIP_UNLESS_MOCK()
+    struct rvbuf rv {
+    };
     lcb_INSTANCE *instance;
     HandleWrap hw;
     std::string key = "testBufferRelocationOnNodeFailover";
     std::string val = "foo";
 
-    const char *argv[] = {"--replicas", "0", "--nodes", "4", NULL};
+    const char *argv[] = {"--replicas", "0", "--nodes", "4", nullptr};
     MockEnvironment mock_o(argv), *mock = &mock_o;
 
     // We need to disable CCCP for this test to receive "Push" style
@@ -541,15 +541,15 @@ TEST_F(MockUnitTest, testBufferRelocationOnNodeFailover)
 TEST_F(MockUnitTest, testSaslMechs)
 {
     // Ensure our SASL mech listing works.
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
 
-    const char *argv[] = {"--buckets", "protected:secret:couchbase", NULL};
+    const char *argv[] = {"--buckets", "protected:secret:couchbase", nullptr};
 
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    lcb_CREATEOPTS *crParams = NULL;
+    lcb_CREATEOPTS *crParams = nullptr;
     MockEnvironment mock_o(argv, "protected"), *protectedEnv = &mock_o;
-    protectedEnv->makeConnectParams(crParams, NULL);
+    protectedEnv->makeConnectParams(crParams, nullptr);
     protectedEnv->setCCCP(false);
 
     std::string username("protected");
@@ -616,15 +616,14 @@ TEST_F(MockUnitTest, testSaslMechs)
 TEST_F(MockUnitTest, testSaslSHA)
 {
     // Ensure our SASL mech listing works.
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
 
-    const char *argv[] = {"--buckets", "protected:secret:couchbase", NULL};
+    const char *argv[] = {"--buckets", "protected:secret:couchbase", nullptr};
 
-    lcb_INSTANCE *instance = NULL;
-    lcb_STATUS err;
-    lcb_CREATEOPTS *crParams = NULL;
+    lcb_INSTANCE *instance = nullptr;
+    lcb_CREATEOPTS *crParams = nullptr;
     MockEnvironment mock_o(argv, "protected"), *protectedEnv = &mock_o;
-    protectedEnv->makeConnectParams(crParams, NULL, LCB_TYPE_CLUSTER);
+    protectedEnv->makeConnectParams(crParams, nullptr, LCB_TYPE_CLUSTER);
     crParams->type = LCB_TYPE_BUCKET;
     protectedEnv->setCCCP(false);
 
@@ -636,7 +635,7 @@ TEST_F(MockUnitTest, testSaslSHA)
 
     std::vector<std::string> mechs;
 
-    mechs.push_back("SCRAM-SHA512");
+    mechs.emplace_back("SCRAM-SHA512");
     protectedEnv->setSaslMechs(mechs);
 
     {
@@ -661,29 +660,30 @@ TEST_F(MockUnitTest, testSaslSHA)
 #endif
 
 extern "C" {
-static const char *get_username(void *cookie, const char *host, const char *port, const char *bucket)
+static const char *get_username(void * /* cookie */, const char * /* host */, const char * /* port */,
+                                const char *bucket)
 {
     return bucket;
 }
 
-static const char *get_password(void *cookie, const char *host, const char *port, const char *bucket)
+static const char *get_password(void *cookie, const char * /* host */, const char * /* port */, const char *bucket)
 {
-    std::map<std::string, std::string> *credentials = static_cast<std::map<std::string, std::string> *>(cookie);
+    auto *credentials = static_cast<std::map<std::string, std::string> *>(cookie);
     return (*credentials)[bucket].c_str();
 }
 }
 
 TEST_F(MockUnitTest, testDynamicAuth)
 {
-    SKIP_UNLESS_MOCK();
+    SKIP_UNLESS_MOCK()
 
-    const char *argv[] = {"--buckets", "protected:secret:couchbase", NULL};
+    const char *argv[] = {"--buckets", "protected:secret:couchbase", nullptr};
 
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    lcb_CREATEOPTS *crParams = NULL;
+    lcb_CREATEOPTS *crParams = nullptr;
     MockEnvironment mock_o(argv, "protected"), *mock = &mock_o;
-    mock->makeConnectParams(crParams, NULL);
+    mock->makeConnectParams(crParams, nullptr);
     mock->setCCCP(false);
 
     std::string bucket("protected");
@@ -709,15 +709,15 @@ TEST_F(MockUnitTest, testDynamicAuth)
     lcb_createopts_destroy(crParams);
 }
 
-static void doManyItems(lcb_INSTANCE *instance, std::vector<std::string> keys)
+static void doManyItems(lcb_INSTANCE *instance, const std::vector<std::string> &keys)
 {
     lcb_CMDSTORE *cmd;
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_sched_enter(instance);
-    for (size_t ii = 0; ii < keys.size(); ii++) {
-        lcb_cmdstore_key(cmd, keys[ii].c_str(), keys[ii].size());
-        lcb_cmdstore_value(cmd, keys[ii].c_str(), keys[ii].size());
-        EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, NULL, cmd));
+    for (auto &key : keys) {
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, key.c_str(), key.size());
+        EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, nullptr, cmd));
     }
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
@@ -733,14 +733,14 @@ static void mcdFoVerifyCb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 
 TEST_F(MockUnitTest, DISABLED_testMemcachedFailover)
 {
-    SKIP_UNLESS_MOCK();
-    const char *argv[] = {"--buckets", "cache::memcache", NULL};
+    SKIP_UNLESS_MOCK()
+    const char *argv[] = {"--buckets", "cache::memcache", nullptr};
     lcb_INSTANCE *instance;
-    lcb_CREATEOPTS *crParams = NULL;
+    lcb_CREATEOPTS *crParams = nullptr;
     lcb_RESPCALLBACK oldCb;
 
     MockEnvironment mock_o(argv, "cache"), *mock = &mock_o;
-    mock->makeConnectParams(crParams, NULL);
+    mock->makeConnectParams(crParams, nullptr);
     doLcbCreate(&instance, crParams, mock);
     lcb_createopts_destroy(crParams);
 
@@ -759,14 +759,14 @@ TEST_F(MockUnitTest, DISABLED_testMemcachedFailover)
 
     // Fail over the first node..
     mock->failoverNode(1, "cache");
-    SYNC_WITH_NODECOUNT(instance, numNodes - 1);
+    SYNC_WITH_NODECOUNT(instance, numNodes - 1)
 
     // Set the callback to the previous one. We expect failures here
     lcb_install_callback(instance, LCB_CALLBACK_STORE, oldCb);
     doManyItems(instance, distKeys);
 
     mock->respawnNode(1, "cache");
-    SYNC_WITH_NODECOUNT(instance, numNodes);
+    SYNC_WITH_NODECOUNT(instance, numNodes)
     ASSERT_EQ(numNodes, lcb_get_num_nodes(instance));
 
     // Restore the verify callback
@@ -825,7 +825,7 @@ TEST_F(MockUnitTest, testNegativeIndex)
     // Set the timeout to something a bit shorter
     lcb_cntl_setu32(instance, LCB_CNTL_OP_TIMEOUT, 500000);
 
-    NegativeIx ni;
+    NegativeIx ni{};
     lcb_STATUS err;
 
     /* warm up the collection cache */
@@ -853,7 +853,6 @@ TEST_F(MockUnitTest, testNegativeIndex)
     err = lcb_get(instance, &ni, gcmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    vbc = instance->cur_configinfo->vbc;
     ASSERT_EQ(1, ni.callCount);
     ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, ni.err);
     lcb_cmdget_destroy(gcmd);

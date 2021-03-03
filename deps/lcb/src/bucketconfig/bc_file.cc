@@ -152,7 +152,7 @@ GT_DONE:
 
 void FileProvider::write_cache(lcbvb_CONFIG *cfg)
 {
-    if (filename.empty() || is_readonly) {
+    if (filename.empty() || is_readonly || cfg->bname == nullptr || cfg->bname_len == 0) {
         return;
     }
 

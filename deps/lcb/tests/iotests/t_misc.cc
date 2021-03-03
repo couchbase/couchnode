@@ -316,6 +316,123 @@ TEST_F(MockUnitTest, testGetHostInfo)
     lcb_destroy(instance);
 }
 
+extern "C" {
+static void store_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    size_t *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    lcb_STATUS rc = lcb_respstore_status(resp);
+    ASSERT_EQ(LCB_SUCCESS, rc);
+    ++(*counter);
+}
+
+static void get_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
+{
+    size_t *counter;
+    lcb_respget_cookie(resp, (void **)&counter);
+    lcb_STATUS rc = lcb_respget_status(resp);
+    const char *key;
+    size_t nkey;
+    lcb_respget_key(resp, &key, &nkey);
+    std::string keystr(key, nkey);
+    ++(*counter);
+    lcb_log(LOGARGS(instance, DEBUG), "receive '%s' on get callback %lu, status: %s", keystr.c_str(), size_t(*counter),
+            lcb_strerror_short(rc));
+    EXPECT_TRUE(rc == LCB_ERR_KVENGINE_INVALID_PACKET || rc == LCB_ERR_DOCUMENT_NOT_FOUND || rc == LCB_SUCCESS);
+}
+
+lcb_RETRY_ACTION retry_strategy_fail_fast_but_not_quite(lcb_RETRY_REQUEST *req, lcb_RETRY_REASON reason)
+{
+    if (reason == LCB_RETRY_REASON_SOCKET_NOT_AVAILABLE || reason == LCB_RETRY_REASON_SOCKET_CLOSED_WHILE_IN_FLIGHT) {
+        return lcb_retry_strategy_best_effort(req, reason);
+    }
+    lcb_RETRY_ACTION res{0, 0};
+    return res;
+}
+}
+
+TEST_F(MockUnitTest, testKeyTooLong)
+{
+    SKIP_IF_MOCK();
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    createConnection(hw, &instance);
+
+    size_t nbCallbacks = 20;
+    std::vector<std::string> keys;
+    keys.resize(nbCallbacks);
+
+    lcb_retry_strategy(instance, retry_strategy_fail_fast_but_not_quite); // lcb_retry_strategy_best_effort by default
+
+    std::string tooLongKey(
+        "JfGnEbifrrqPuVo6H8S26W5KJmxCf963zt49bKMBjUCDCzjpw_P8T1FACNykylGmMIHN1hzPa0MsM.2bp4zjy4CJCNJHxVEVqV1_"
+        "g85GMvd74hFo36j47eaHRdpTQDBlHq_qcz95xkpIh6g3Y5y4sESPZk4.lwqmgekh4GpREt413Hpn8q_"
+        "N0let0A409uwj8MZkDr4D7op3uJsbNouPC1y3Y4qEb7zOTrpm1Ivu2tpPCw6Qv_3EfDA.M2u");
+
+    // store keys
+    lcb_sched_enter(instance);
+
+    size_t counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        char key[6];
+        sprintf(key, "key%lu", ii);
+        keys[ii] = std::string(key);
+        lcb_CMDSTORE *scmd;
+        lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_key(scmd, key, strlen(key));
+        lcb_cmdstore_value(scmd, "val", 3);
+        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &counter, scmd));
+        lcb_cmdstore_destroy(scmd);
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+
+    // multiget OK
+    lcb_sched_enter(instance);
+
+    counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, keys[ii].c_str(), strlen(keys[ii].c_str()));
+        ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+
+        if (ii == nbCallbacks / 2) {
+            lcb_CMDGET *cmd1;
+            lcb_cmdget_create(&cmd1);
+            lcb_cmdget_key(cmd1, tooLongKey.c_str(), strlen(tooLongKey.c_str()));
+            ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, cmd1));
+            lcb_cmdget_destroy(cmd1);
+        }
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+
+    ASSERT_EQ(nbCallbacks + 1, counter);
+
+    // multiget OK
+    lcb_sched_enter(instance);
+    counter = 0;
+    for (size_t ii = 0; ii < nbCallbacks; ++ii) {
+        lcb_CMDGET *gcmd;
+        lcb_cmdget_create(&gcmd);
+        lcb_cmdget_key(gcmd, keys[ii].c_str(), strlen(keys[ii].c_str()));
+        ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &counter, gcmd));
+        lcb_cmdget_destroy(gcmd);
+    }
+
+    lcb_sched_leave(instance);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
+
+    ASSERT_EQ(nbCallbacks, counter);
+}
+
 TEST_F(MockUnitTest, testEmptyKeys)
 {
     lcb_INSTANCE *instance;

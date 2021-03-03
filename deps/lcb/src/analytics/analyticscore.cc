@@ -580,6 +580,22 @@ lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cooki
         lasterr = LCB_ERR_INVALID_ARGUMENT;
         return;
     }
+    if (!cmd->scope_qualifier.empty()) {
+        json["query_context"] = cmd->scope_qualifier;
+    } else if (!cmd->scope_name.empty()) {
+        if (obj->settings->conntype != LCB_TYPE_BUCKET || obj->settings->bucket == nullptr) {
+            lcb_log(LOGARGS(this, ERROR),
+                    LOGFMT
+                    "The instance must be associated with a bucket name to use query with query context qualifier",
+                    LOGID(this));
+            lasterr = LCB_ERR_INVALID_ARGUMENT;
+            return;
+        }
+        std::string scope_qualifier("default:`");
+        scope_qualifier += obj->settings->bucket;
+        scope_qualifier += "`.`" + cmd->scope_name + "`";
+        json["query_context"] = scope_qualifier;
+    }
 
     Json::Value &tmoval = json["timeout"];
     if (tmoval.isNull()) {

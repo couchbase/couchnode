@@ -1,7 +1,6 @@
 # Couchbase C Client
 
 [![license](https://img.shields.io/github/license/couchbase/libcouchbase?color=brightgreen)](https://opensource.org/licenses/Apache-2.0)
-[![jenkins](https://img.shields.io/jenkins/build?jobUrl=http%3A%2F%2Fsdk.jenkins.couchbase.com%2Fjob%2Fc-cpp%2Fjob%2Flcb%2Fjob%2Flibcouchbase-nightly%2F)](http://sdk.jenkins.couchbase.com/job/c-cpp/job/lcb/job/libcouchbase-nightly/)
 
 This is the C client library for [Couchbase](http://www.couchbase.com)
 It communicates with the cluster and speaks the relevant protocols
@@ -24,7 +23,7 @@ necessary to connect to the cluster and execute data operations.
 ## Building
 
 Before you build from this repository, please check the
-[installation page](https://developer.couchbase.com/server/other-products/release-notes-archives/c-sdk)
+[installation page](https://docs.couchbase.com/c-sdk/current/hello-world/start-using-sdk.html)
 to see if there is a binary or release tarball available for your needs. Since the code here is
 not part of an official release it has therefore not gone through our
 release testing process.
@@ -112,7 +111,7 @@ Also tests expecting `beer-sample` bucket loaded. It comes with the server. Look
 Console.
 
 ## Bugs, Support, Issues
-You may report issues in the library in our issue tracked at
+You may report issues in the library in our issue tracker at
 <https://issues.couchbase.com>. Sign up for an account and file an issue
 against the _Couchbase C Client Library_ project.
 

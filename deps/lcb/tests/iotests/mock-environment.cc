@@ -24,51 +24,32 @@
 
 #define LOGARGS(instance, lvl) instance->settings, "tests-ENV", LCB_LOG_##lvl, __FILE__, __LINE__
 
-MockEnvironment *MockEnvironment::instance;
+MockEnvironment *MockEnvironment::instance_;
 
-MockEnvironment *MockEnvironment::getInstance(void)
+MockEnvironment *MockEnvironment::getInstance()
 {
-    if (instance == NULL) {
-        instance = new MockEnvironment;
+    if (instance_ == nullptr) {
+        instance_ = new MockEnvironment;
     }
-    return instance;
+    return instance_;
 }
 
 void MockEnvironment::Reset()
 {
-    if (instance != NULL) {
-        instance->TearDown();
-        instance->SetUp();
+    if (instance_ != nullptr) {
+        instance_->TearDown();
+        instance_->SetUp();
     }
 }
 
-void MockEnvironment::init()
+MockEnvironment::MockEnvironment(const char **args, const std::string &bucketname)
 {
-    mock = NULL;
-    http = NULL;
-    innerClient = NULL;
-    argv = NULL;
-    iops = NULL;
-
-    numNodes = 4;
-    realCluster = false;
-    serverVersion = VERSION_UNKNOWN;
-}
-
-MockEnvironment::MockEnvironment()
-{
-    init();
-}
-
-MockEnvironment::MockEnvironment(const char **args, std::string bucketname)
-{
-    init();
-    this->argv = args;
-    this->bucketName = bucketname;
+    argv_ = args;
+    bucket_name_ = bucketname;
     SetUp();
 }
 
-void MockEnvironment::failoverNode(int index, std::string bucket, bool rebalance)
+void MockEnvironment::failoverNode(int index, const std::string &bucket, bool rebalance)
 {
     MockBucketCommand bCmd(MockCommand::FAILOVER, index, bucket);
     bCmd.set("rebalance", rebalance);
@@ -76,7 +57,7 @@ void MockEnvironment::failoverNode(int index, std::string bucket, bool rebalance
     getResponse();
 }
 
-void MockEnvironment::respawnNode(int index, std::string bucket)
+void MockEnvironment::respawnNode(int index, const std::string &bucket)
 {
     MockBucketCommand bCmd(MockCommand::RESPAWN, index, bucket);
     sendCommand(bCmd);
@@ -92,7 +73,7 @@ void MockEnvironment::hiccupNodes(int msecs, int offset)
     getResponse();
 }
 
-void MockEnvironment::regenVbCoords(std::string bucket)
+void MockEnvironment::regenVbCoords(const std::string &bucket)
 {
     MockBucketCommand bCmd(MockCommand::REGEN_VBCOORDS, 0, bucket);
     MockResponse r;
@@ -101,7 +82,7 @@ void MockEnvironment::regenVbCoords(std::string bucket)
     EXPECT_TRUE(r.isOk());
 }
 
-std::vector< int > MockEnvironment::getMcPorts(std::string bucket)
+std::vector<int> MockEnvironment::getMcPorts(const std::string &bucket)
 {
     MockCommand cmd(MockCommand::GET_MCPORTS);
     if (!bucket.empty()) {
@@ -114,21 +95,21 @@ std::vector< int > MockEnvironment::getMcPorts(std::string bucket)
     EXPECT_TRUE(resp.isOk());
     const Json::Value &payload = resp.constResp()["payload"];
 
-    std::vector< int > ret;
+    std::vector<int> ret;
 
-    for (int ii = 0; ii < (int)payload.size(); ii++) {
-        ret.push_back(payload[ii].asInt());
+    for (const auto &ii : payload) {
+        ret.push_back(ii.asInt());
     }
     return ret;
 }
 
-void MockEnvironment::setSaslMechs(std::vector< std::string > &mechanisms, std::string bucket,
-                                   const std::vector< int > *nodes)
+void MockEnvironment::setSaslMechs(std::vector<std::string> &mechanisms, const std::string &bucket,
+                                   const std::vector<int> *nodes)
 {
     MockCommand cmd(MockCommand::SET_SASL_MECHANISMS);
     Json::Value mechs(Json::arrayValue);
-    for (std::vector< std::string >::const_iterator ii = mechanisms.begin(); ii != mechanisms.end(); ii++) {
-        mechs.append(*ii);
+    for (const auto &mechanism : mechanisms) {
+        mechs.append(mechanism);
     }
     cmd.set("mechs", mechs);
 
@@ -136,12 +117,12 @@ void MockEnvironment::setSaslMechs(std::vector< std::string > &mechanisms, std::
         cmd.set("bucket", bucket);
     }
 
-    if (nodes != NULL) {
-        const std::vector< int > &v = *nodes;
+    if (nodes != nullptr) {
+        const std::vector<int> &v = *nodes;
         Json::Value array(Json::arrayValue);
 
-        for (std::vector< int >::const_iterator ii = v.begin(); ii != v.end(); ii++) {
-            array.append(*ii);
+        for (int ii : v) {
+            array.append(ii);
         }
 
         cmd.set("servers", array);
@@ -151,7 +132,7 @@ void MockEnvironment::setSaslMechs(std::vector< std::string > &mechanisms, std::
     getResponse();
 }
 
-void MockEnvironment::setCCCP(bool enabled, std::string bucket, const std::vector< int > *nodes)
+void MockEnvironment::setCCCP(bool enabled, const std::string &bucket, const std::vector<int> *nodes)
 {
     MockCommand cmd(MockCommand::SET_CCCP);
     cmd.set("enabled", enabled);
@@ -160,12 +141,12 @@ void MockEnvironment::setCCCP(bool enabled, std::string bucket, const std::vecto
         cmd.set("bucket", bucket);
     }
 
-    if (nodes != NULL) {
-        const std::vector< int > &v = *nodes;
+    if (nodes != nullptr) {
+        const std::vector<int> &v = *nodes;
         Json::Value array(Json::arrayValue);
 
-        for (std::vector< int >::const_iterator ii = v.begin(); ii != v.end(); ii++) {
-            array.append(*ii);
+        for (int ii : v) {
+            array.append(ii);
         }
 
         cmd.set("servers", array);
@@ -175,7 +156,7 @@ void MockEnvironment::setCCCP(bool enabled, std::string bucket, const std::vecto
     getResponse();
 }
 
-void MockEnvironment::setEnhancedErrors(bool enabled, std::string bucket, const std::vector< int > *nodes)
+void MockEnvironment::setEnhancedErrors(bool enabled, const std::string &bucket, const std::vector<int> *nodes)
 {
     MockCommand cmd(MockCommand::SET_ENHANCED_ERRORS);
     cmd.set("enabled", enabled);
@@ -184,12 +165,12 @@ void MockEnvironment::setEnhancedErrors(bool enabled, std::string bucket, const 
         cmd.set("bucket", bucket);
     }
 
-    if (nodes != NULL) {
-        const std::vector< int > &v = *nodes;
+    if (nodes != nullptr) {
+        const std::vector<int> &v = *nodes;
         Json::Value array(Json::arrayValue);
 
-        for (std::vector< int >::const_iterator ii = v.begin(); ii != v.end(); ii++) {
-            array.append(*ii);
+        for (int ii : v) {
+            array.append(ii);
         }
 
         cmd.set("servers", array);
@@ -199,7 +180,7 @@ void MockEnvironment::setEnhancedErrors(bool enabled, std::string bucket, const 
     getResponse();
 }
 
-void MockEnvironment::setCompression(std::string mode, std::string bucket, const std::vector< int > *nodes)
+void MockEnvironment::setCompression(const std::string &mode, const std::string &bucket, const std::vector<int> *nodes)
 {
     MockCommand cmd(MockCommand::SET_COMPRESSION);
     cmd.set("mode", mode);
@@ -208,12 +189,12 @@ void MockEnvironment::setCompression(std::string mode, std::string bucket, const
         cmd.set("bucket", bucket);
     }
 
-    if (nodes != NULL) {
-        const std::vector< int > &v = *nodes;
+    if (nodes != nullptr) {
+        const std::vector<int> &v = *nodes;
         Json::Value array(Json::arrayValue);
 
-        for (std::vector< int >::const_iterator ii = v.begin(); ii != v.end(); ii++) {
-            array.append(*ii);
+        for (int ii : v) {
+            array.append(ii);
         }
 
         cmd.set("servers", array);
@@ -223,7 +204,7 @@ void MockEnvironment::setCompression(std::string mode, std::string bucket, const
     getResponse();
 }
 
-const Json::Value MockEnvironment::getKeyInfo(std::string key, std::string bucket)
+Json::Value MockEnvironment::getKeyInfo(std::string key, const std::string &bucket)
 {
     MockKeyCommand cmd(MockCommand::KEYINFO, key);
     cmd.bucket = bucket;
@@ -233,7 +214,7 @@ const Json::Value MockEnvironment::getKeyInfo(std::string key, std::string bucke
     return resp.constResp()["payload"];
 }
 
-const int MockEnvironment::getKeyIndex(lcb_INSTANCE *instance, std::string &key, std::string bucket, int level)
+int MockEnvironment::getKeyIndex(lcb_INSTANCE *instance, std::string &key, const std::string &bucket, int level)
 {
     std::vector<int> indexes;
     indexes.resize(getNumNodes());
@@ -283,7 +264,7 @@ void MockEnvironment::getResponse(MockResponse &ret)
     }
 }
 
-void MockEnvironment::postCreate(lcb_INSTANCE *instance)
+void MockEnvironment::postCreate(lcb_INSTANCE *instance) const
 {
     lcb_STATUS err;
     if (!isRealCluster()) {
@@ -295,12 +276,13 @@ void MockEnvironment::postCreate(lcb_INSTANCE *instance)
     ASSERT_EQ(LCB_SUCCESS, err);
 }
 
-void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const lcb_CREATEOPTS *user_options)
+void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instance,
+                                       const lcb_CREATEOPTS *user_options) const
 {
     lcb_io_opt_t io;
     lcb_CREATEOPTS options = *user_options;
 
-    if (lcb_create_io_ops(&io, NULL) != LCB_SUCCESS) {
+    if (lcb_create_io_ops(&io, nullptr) != LCB_SUCCESS) {
         fprintf(stderr, "Failed to create IO instance\n");
         exit(1);
     }
@@ -318,8 +300,8 @@ void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instan
 
 void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instance)
 {
-    lcb_CREATEOPTS *options = NULL;
-    makeConnectParams(options, NULL);
+    lcb_CREATEOPTS *options = nullptr;
+    makeConnectParams(options, nullptr);
     createConnection(handle, instance, options);
     lcb_createopts_destroy(options);
 }
@@ -330,8 +312,8 @@ void MockEnvironment::createConnection(lcb_INSTANCE **instance)
     createConnection(handle, instance);
 
     handle.iops->v.base.need_cleanup = 1;
-    handle.instance = NULL;
-    handle.iops = NULL;
+    handle.instance = nullptr;
+    handle.iops = nullptr;
 }
 
 #define STAT_VERSION "version"
@@ -339,10 +321,10 @@ void MockEnvironment::createConnection(lcb_INSTANCE **instance)
 extern "C" {
 static void statsCallback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
 {
-    MockEnvironment *me = (MockEnvironment *)resp->cookie;
+    auto *me = (MockEnvironment *)resp->cookie;
     ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc) << lcb_strerror_short(resp->ctx.rc);
 
-    if (resp->server == NULL) {
+    if (resp->server == nullptr) {
         return;
     }
 
@@ -373,20 +355,24 @@ static void statsCallback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_R
                     case 6:
                         version = MockEnvironment::VERSION_46;
                         break;
+                    default:
+                        break;
                 }
                 break;
             case 5:
-                switch(minor) {
+                switch (minor) {
                     case 0:
                         version = MockEnvironment::VERSION_50;
                         break;
                     case 5:
                         version = MockEnvironment::VERSION_55;
                         break;
+                    default:
+                        break;
                 }
                 break;
             case 6:
-                switch(minor){
+                switch (minor) {
                     case 0:
                         version = MockEnvironment::VERSION_60;
                         break;
@@ -394,12 +380,16 @@ static void statsCallback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_R
                         version = MockEnvironment::VERSION_65;
                         break;
                     case 6:
-                        version = MockEnvironment::VERSION_65;
+                        version = MockEnvironment::VERSION_66;
+                        break;
+                    default:
                         break;
                 }
-                    break;
+                break;
             case 7:
                 version = MockEnvironment::VERSION_70;
+                break;
+            default:
                 break;
         }
     }
@@ -420,8 +410,8 @@ void MockEnvironment::bootstrapRealCluster()
 
     lcb_INSTANCE *tmphandle;
     lcb_STATUS err;
-    lcb_CREATEOPTS *options = NULL;
-    serverParams.makeConnectParams(options, NULL);
+    lcb_CREATEOPTS *options = nullptr;
+    serverParams.makeConnectParams(options, nullptr);
 
     err = lcb_create(&tmphandle, options);
     ASSERT_EQ(LCB_SUCCESS, err) << lcb_strerror_short(err);
@@ -434,12 +424,13 @@ void MockEnvironment::bootstrapRealCluster()
     lcb_install_callback(tmphandle, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)statsCallback);
     lcb_CMDSTATS scmd = {0};
     err = lcb_stats3(tmphandle, this, &scmd);
-    ASSERT_EQ(LCB_SUCCESS, err) << lcb_strerror_short(err);;
+    ASSERT_EQ(LCB_SUCCESS, err) << lcb_strerror_short(err);
+
     lcb_wait(tmphandle, LCB_WAIT_DEFAULT);
 
     const char *const *servers = lcb_get_server_list(tmphandle);
     int ii;
-    for (ii = 0; servers[ii] != NULL; ii++) {
+    for (ii = 0; servers[ii] != nullptr; ii++) {
         // no body
     }
 
@@ -467,27 +458,27 @@ void MockEnvironment::clearAndReset()
     }
 
     for (int ii = 0; ii < getNumNodes(); ii++) {
-        respawnNode(ii, bucketName);
+        respawnNode(ii, bucket_name_);
     }
 
-    std::vector< int > mcPorts = getMcPorts(bucketName);
+    std::vector<int> mcPorts = getMcPorts(bucket_name_);
     serverParams.setMcPorts(mcPorts);
-    setCCCP(true, bucketName);
+    setCCCP(true, bucket_name_);
 
     if (this != getInstance()) {
         return;
     }
 
     if (!innerClient) {
-        lcb_CREATEOPTS *crParams = NULL;
+        lcb_CREATEOPTS *crParams = nullptr;
         // Use default I/O here..
-        serverParams.makeConnectParams(crParams, NULL);
+        serverParams.makeConnectParams(crParams, nullptr);
         lcb_STATUS err = lcb_create(&innerClient, crParams);
         lcb_createopts_destroy(crParams);
         if (err != LCB_SUCCESS) {
             printf("Error on create: %s\n", lcb_strerror_short(err));
         }
-        EXPECT_FALSE(NULL == innerClient);
+        EXPECT_FALSE(nullptr == innerClient);
         postCreate(innerClient);
         err = lcb_connect(innerClient);
         EXPECT_EQ(LCB_SUCCESS, err);
@@ -499,7 +490,7 @@ void MockEnvironment::clearAndReset()
     lcb_CMDCBFLUSH fcmd = {0};
     lcb_STATUS err;
 
-    err = lcb_cbflush3(innerClient, NULL, &fcmd);
+    err = lcb_cbflush3(innerClient, nullptr, &fcmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_wait(innerClient, LCB_WAIT_DEFAULT);
 }
@@ -508,28 +499,28 @@ void MockEnvironment::SetUp()
 {
     numNodes = 4;
     if (!mock) {
-        mock = (struct test_server_info *)start_test_server((char **)argv);
+        mock = (struct test_server_info *)start_test_server((char **)argv_);
     }
 
     realCluster = is_using_real_cluster() != 0;
-    ASSERT_NE((const void *)(NULL), mock);
+    ASSERT_NE((const void *)(nullptr), mock);
     http = get_mock_http_server(mock);
-    ASSERT_NE((const char *)(NULL), http);
+    ASSERT_NE((const char *)(nullptr), http);
 
     if (realCluster) {
         bootstrapRealCluster();
         return;
     }
 
-    if (bucketName.empty()) {
+    if (bucket_name_.empty()) {
         const char *name = getenv("LCB_TEST_BUCKET");
-        if (name != NULL) {
-            bucketName = name;
+        if (name != nullptr) {
+            bucket_name_ = name;
         } else {
-            bucketName = "default";
+            bucket_name_ = "default";
         }
     }
-    serverParams = ServerParams(http, bucketName.c_str(), userName.c_str(), NULL);
+    serverParams = ServerParams(http, bucket_name_.c_str(), userName.c_str(), nullptr);
 
     // Mock 0.6
     featureRegistry.insert("observe");
@@ -545,10 +536,10 @@ void MockEnvironment::TearDown() {}
 MockEnvironment::~MockEnvironment()
 {
     shutdown_mock_server(mock);
-    mock = NULL;
-    if (innerClient != NULL) {
+    mock = nullptr;
+    if (innerClient != nullptr) {
         lcb_destroy(innerClient);
-        innerClient = NULL;
+        innerClient = nullptr;
     }
 }
 
@@ -561,8 +552,8 @@ void HandleWrap::destroy()
         lcb_destroy_io_ops(iops);
     }
 
-    instance = NULL;
-    iops = NULL;
+    instance = nullptr;
+    iops = nullptr;
 }
 
 HandleWrap::~HandleWrap()
@@ -577,8 +568,6 @@ MockCommand::MockCommand(Code code)
     command["command"] = name;
     payload = &(command["payload"] = Json::Value(Json::objectValue));
 }
-
-MockCommand::~MockCommand() {}
 
 std::string MockCommand::encode()
 {
@@ -607,8 +596,8 @@ void MockMutationCommand::finalizePayload()
     if (!replicaList.empty()) {
         Json::Value arr(Json::arrayValue);
         Json::Value &arrval = (*payload)["OnReplicas"] = Json::Value(Json::arrayValue);
-        for (std::vector< int >::iterator ii = replicaList.begin(); ii != replicaList.end(); ii++) {
-            arrval.append(*ii);
+        for (int &ii : replicaList) {
+            arrval.append(ii);
         }
     } else {
         set("OnReplicas", replicaCount);
@@ -619,7 +608,7 @@ void MockMutationCommand::finalizePayload()
             fprintf(stderr, "Detected incompatible > 31 bit integer\n");
             abort();
         }
-        set("CAS", static_cast< Json::UInt64 >(cas));
+        set("CAS", static_cast<Json::UInt64>(cas));
     }
 
     if (!value.empty()) {
@@ -640,8 +629,6 @@ void MockResponse::assign(const std::string &resp)
     assert(rv);
 }
 
-MockResponse::~MockResponse() {}
-
 std::ostream &operator<<(std::ostream &os, const MockResponse &resp)
 {
     os << Json::FastWriter().write(resp.jresp) << std::endl;
@@ -650,7 +637,7 @@ std::ostream &operator<<(std::ostream &os, const MockResponse &resp)
 
 bool MockResponse::isOk()
 {
-    const Json::Value &status = static_cast< const Json::Value & >(jresp)["status"];
+    const Json::Value &status = static_cast<const Json::Value &>(jresp)["status"];
     if (!status.isString()) {
         return false;
     }

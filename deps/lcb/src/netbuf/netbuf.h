@@ -297,7 +297,7 @@ void netbuf_end_flush(nb_MGR *mgr, nb_SIZE nflushed);
     do {                                                                                                               \
         (mgr)->sendq.last_requested = NULL;                                                                            \
         (mgr)->sendq.last_offset = 0;                                                                                  \
-    } while (0);
+    } while (0)
 
 /**
  * Informational function to get the total size of all data in the
