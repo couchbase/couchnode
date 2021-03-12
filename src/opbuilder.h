@@ -347,8 +347,6 @@ public:
 
         Local<Function> encodeFn = encodeFnM.ToLocalChecked();
 
-        this->startEncodeTrace();
-
         Local<Value> argsArr[] = {value};
         Nan::MaybeLocal<Value> resValM =
             Nan::CallAsFunction(encodeFn, transcoderObj, 1, argsArr);
