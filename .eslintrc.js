@@ -62,6 +62,12 @@ module.exports = {
         tryExtensions: ['.js', '.ts'],
       },
     ],
+    'node/no-missing-require': [
+      'error',
+      {
+        tryExtensions: ['.js', '.ts'],
+      },
+    ],
 
     // Add the category and internal tags that we use.
     'jsdoc/check-tag-names': [

@@ -13,8 +13,12 @@ const errorTranscoder = {
 }
 
 function genericTests(collFn) {
-  describe('#basic', () => {
-    const testKeyA = H.genTestKey()
+  describe('#basic', function () {
+    let testKeyA
+
+    before(function () {
+      testKeyA = H.genTestKey()
+    })
 
     var testObjVal = {
       foo: 'bar',
@@ -37,14 +41,14 @@ function genericTests(collFn) {
       r: 16,
     }
 
-    describe('#upsert', () => {
-      it('should perform basic upserts', async () => {
+    describe('#upsert', function () {
+      it('should perform basic upserts', async function () {
         var res = await collFn().upsert(testKeyA, testObjVal)
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
       })
 
-      it('should not crash on transcoder errors', async () => {
+      it('should not crash on transcoder errors', async function () {
         await H.throwsHelper(
           async () => {
             await collFn().upsert(testKeyA, testObjVal, {
@@ -57,8 +61,8 @@ function genericTests(collFn) {
       })
     })
 
-    describe('#get', () => {
-      it('should perform basic gets', async () => {
+    describe('#get', function () {
+      it('should perform basic gets', async function () {
         var res = await collFn().get(testKeyA)
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
@@ -69,7 +73,7 @@ function genericTests(collFn) {
         assert.strictEqual(res.value, res.content)
       })
 
-      it('should not crash on transcoder errors', async () => {
+      it('should not crash on transcoder errors', async function () {
         await collFn().upsert(testKeyA, testObjVal)
 
         await H.throwsHelper(
@@ -83,7 +87,7 @@ function genericTests(collFn) {
         )
       })
 
-      it('should perform basic gets with callback', (callback) => {
+      it('should perform basic gets with callback', function (callback) {
         collFn().get(testKeyA, (err, res) => {
           assert.isObject(res)
           assert.isNotEmpty(res.cas)
@@ -92,7 +96,7 @@ function genericTests(collFn) {
         })
       })
 
-      it('should perform errored gets with callback', (callback) => {
+      it('should perform errored gets with callback', function (callback) {
         collFn().get('invalid-key', (err, res) => {
           res
           assert.isOk(err)
@@ -100,7 +104,7 @@ function genericTests(collFn) {
         })
       })
 
-      it('should perform projected gets', async () => {
+      it('should perform projected gets', async function () {
         var res = await collFn().get(testKeyA, {
           project: ['baz'],
         })
@@ -113,111 +117,113 @@ function genericTests(collFn) {
         assert.strictEqual(res.value, res.content)
       })
 
-      H.requireFeature(H.Features.Xattr, () => {
-        it('should fall back to full get projection', async () => {
-          var res = await collFn().get(testKeyA, {
-            project: [
-              'c',
-              'd',
-              'e',
-              'f',
-              'g',
-              'h',
-              'i',
-              'j',
-              'k',
-              'l',
-              'm',
-              'n',
-              'o',
-              'p',
-              'q',
-              'r',
-            ],
-            withExpiry: true,
-          })
-          assert.isObject(res)
-          assert.isNotEmpty(res.cas)
-          assert.isNumber(res.expiry)
-          assert.deepStrictEqual(res.content, {
-            c: 1,
-            d: 'str',
-            e: true,
-            f: false,
-            g: 5,
-            h: 6,
-            i: 7,
-            j: 8,
-            k: 9,
-            l: 10,
-            m: 11,
-            n: 12,
-            o: 13,
-            p: 14,
-            q: 15,
-            r: 16,
-          })
+      it('should fall back to full get projection', async function () {
+        H.skipIfMissingFeature(this, H.Features.Xattr)
 
-          // BUG JSCBC-784: Check to make sure that the value property
-          // returns the same as the content property.
-          assert.strictEqual(res.value, res.content)
+        var res = await collFn().get(testKeyA, {
+          project: [
+            'c',
+            'd',
+            'e',
+            'f',
+            'g',
+            'h',
+            'i',
+            'j',
+            'k',
+            'l',
+            'm',
+            'n',
+            'o',
+            'p',
+            'q',
+            'r',
+          ],
+          withExpiry: true,
         })
+        assert.isObject(res)
+        assert.isNotEmpty(res.cas)
+        assert.isNumber(res.expiry)
+        assert.deepStrictEqual(res.content, {
+          c: 1,
+          d: 'str',
+          e: true,
+          f: false,
+          g: 5,
+          h: 6,
+          i: 7,
+          j: 8,
+          k: 9,
+          l: 10,
+          m: 11,
+          n: 12,
+          o: 13,
+          p: 14,
+          q: 15,
+          r: 16,
+        })
+
+        // BUG JSCBC-784: Check to make sure that the value property
+        // returns the same as the content property.
+        assert.strictEqual(res.value, res.content)
       })
     })
 
-    describe('#exists', () => {
-      H.requireFeature(H.Features.GetMeta, () => {
-        it('should successfully perform exists -> true', async () => {
-          var res = await collFn().exists(testKeyA)
+    describe('#exists', function () {
+      before(function () {
+        H.skipIfMissingFeature(this, H.Features.GetMeta)
+      })
 
-          assert.isObject(res)
-          assert.isNotEmpty(res.cas)
-          assert.deepStrictEqual(res.exists, true)
-        })
+      it('should successfully perform exists -> true', async function () {
+        var res = await collFn().exists(testKeyA)
 
-        it('should successfully perform exists -> false', async () => {
-          var res = await collFn().exists('a-missing-key')
-          assert.isObject(res)
-          assert.isNotEmpty(res.cas)
-          assert.deepStrictEqual(res.exists, false)
-        })
+        assert.isObject(res)
+        assert.isNotEmpty(res.cas)
+        assert.deepStrictEqual(res.exists, true)
+      })
+
+      it('should successfully perform exists -> false', async function () {
+        var res = await collFn().exists('a-missing-key')
+        assert.isObject(res)
+        assert.isNotEmpty(res.cas)
+        assert.deepStrictEqual(res.exists, false)
       })
     })
 
-    H.requireFeature(H.Features.Replicas, () => {
-      describe('#getAllReplicas', () => {
-        it('should perform basic get all replicas', async () => {
-          var res = await collFn().getAllReplicas(testKeyA)
-
-          assert.isArray(res)
-          assert.isAtLeast(res.length, 1)
-          assert.isBoolean(res[0].isReplica)
-          assert.isNotEmpty(res[0].cas)
-          assert.deepStrictEqual(res[0].content, testObjVal)
-
-          // BUG JSCBC-784: Check to make sure that the value property
-          // returns the same as the content property.
-          assert.strictEqual(res[0].value, res[0].content)
-        })
+    describe('#getReplicas', function () {
+      before(function () {
+        H.skipIfMissingFeature(this, H.Features.Replicas)
       })
 
-      describe('#getAnyReplica', () => {
-        it('should perform basic get any replica', async () => {
-          var res = await collFn().getAnyReplica(testKeyA)
+      it('should perform basic get all replicas', async function () {
+        var res = await collFn().getAllReplicas(testKeyA)
 
-          assert.isObject(res)
-          assert.isNotEmpty(res.cas)
-          assert.deepStrictEqual(res.content, testObjVal)
+        assert.isArray(res)
+        assert.isAtLeast(res.length, 1)
+        assert.isBoolean(res[0].isReplica)
+        assert.isNotEmpty(res[0].cas)
+        assert.deepStrictEqual(res[0].content, testObjVal)
 
-          // BUG JSCBC-784: Check to make sure that the value property
-          // returns the same as the content property.
-          assert.strictEqual(res.value, res.content)
-        })
+        // BUG JSCBC-784: Check to make sure that the value property
+        // returns the same as the content property.
+        assert.strictEqual(res[0].value, res[0].content)
+      })
+
+      it('should perform basic get any replica', async function () {
+        var res = await collFn().getAnyReplica(testKeyA)
+
+        assert.isObject(res)
+        assert.isNotEmpty(res.cas)
+        assert.deepStrictEqual(res.content, testObjVal)
+
+        // BUG JSCBC-784: Check to make sure that the value property
+        // returns the same as the content property.
+        assert.strictEqual(res.value, res.content)
       })
     })
 
-    describe('#replace', () => {
-      it('should replace data correctly', async () => {
+    describe('#replace', function () {
+      it('should replace data correctly', async function () {
         var res = await collFn().replace(testKeyA, { foo: 'baz' })
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
@@ -227,34 +233,38 @@ function genericTests(collFn) {
       })
     })
 
-    describe('#remove', () => {
-      it('should perform basic removes', async () => {
+    describe('#remove', function () {
+      it('should perform basic removes', async function () {
         var res = await collFn().remove(testKeyA)
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
       })
     })
 
-    describe('#insert', () => {
-      const testKeyIns = H.genTestKey()
+    describe('#insert', function () {
+      let testKeyIns
 
-      it('should perform inserts correctly', async () => {
+      before(function () {
+        testKeyIns = H.genTestKey()
+      })
+
+      it('should perform inserts correctly', async function () {
         var res = await collFn().insert(testKeyIns, { foo: 'bar' })
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
       })
 
-      it('should fail to insert a second time', async () => {
+      it('should fail to insert a second time', async function () {
         await H.throwsHelper(async () => {
           await collFn().insert(testKeyIns, { foo: 'bar' })
         })
       })
 
-      it('should remove the insert test key', async () => {
+      it('should remove the insert test key', async function () {
         await collFn().remove(testKeyIns)
       })
 
-      it('should insert w/ expiry successfully', async () => {
+      it('should insert w/ expiry successfully', async function () {
         const testKeyExp = H.genTestKey()
 
         var res = await collFn().insert(testKeyExp, { foo: 14 }, { expiry: 1 })
@@ -269,8 +279,8 @@ function genericTests(collFn) {
       }).timeout(4000)
     })
 
-    describe('#touch', () => {
-      it('should touch a document successfully', async () => {
+    describe('#touch', function () {
+      it('should touch a document successfully', async function () {
         const testKeyTch = H.genTestKey()
 
         // Insert a test document
@@ -302,8 +312,8 @@ function genericTests(collFn) {
       }).timeout(6500)
     })
 
-    describe('#getAndTouch', () => {
-      it('should touch a document successfully', async () => {
+    describe('#getAndTouch', function () {
+      it('should touch a document successfully', async function () {
         const testKeyGat = H.genTestKey()
 
         // Insert a test document
@@ -341,20 +351,22 @@ function genericTests(collFn) {
     })
   })
 
-  describe('#binary', () => {
-    var testKeyBin = H.genTestKey()
-    var testKeyBinVal = H.genTestKey()
+  describe('#binary', function () {
+    let testKeyBin, testKeyBinVal
 
-    before(async () => {
+    before(async function () {
+      testKeyBin = H.genTestKey()
+      testKeyBinVal = H.genTestKey()
+
       await collFn().insert(testKeyBin, 14)
     })
 
-    after(async () => {
+    after(async function () {
       await collFn().remove(testKeyBin)
     })
 
-    describe('#increment', () => {
-      it('should increment successfully', async () => {
+    describe('#increment', function () {
+      it('should increment successfully', async function () {
         var res = await collFn().binary().increment(testKeyBin, 3)
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
@@ -365,8 +377,8 @@ function genericTests(collFn) {
       })
     })
 
-    describe('#decrement', () => {
-      it('should decrement successfully', async () => {
+    describe('#decrement', function () {
+      it('should decrement successfully', async function () {
         var res = await collFn().binary().decrement(testKeyBin, 4)
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
@@ -377,8 +389,8 @@ function genericTests(collFn) {
       })
     })
 
-    describe('#append', () => {
-      it('should append successfuly', async () => {
+    describe('#append', function () {
+      it('should append successfuly', async function () {
         var res = await collFn().binary().append(testKeyBin, 'world')
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
@@ -389,8 +401,8 @@ function genericTests(collFn) {
       })
     })
 
-    describe('#prepend', () => {
-      it('should prepend successfuly', async () => {
+    describe('#prepend', function () {
+      it('should prepend successfuly', async function () {
         var res = await collFn().binary().prepend(testKeyBin, 'hello')
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
@@ -401,8 +413,8 @@ function genericTests(collFn) {
       })
     })
 
-    describe('#upsert', () => {
-      it('should upsert successfully', async () => {
+    describe('#upsert', function () {
+      it('should upsert successfully', async function () {
         const valueBytes = Buffer.from(
           '092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
           'hex'
@@ -419,18 +431,20 @@ function genericTests(collFn) {
     })
   })
 
-  describe('#locks', () => {
-    const testKeyLck = H.genTestKey()
+  describe('#locks', function () {
+    let testKeyLck
 
-    before(async () => {
+    before(async function () {
+      testKeyLck = H.genTestKey()
+
       await collFn().insert(testKeyLck, { foo: 14 })
     })
 
-    after(async () => {
+    after(async function () {
       await collFn().remove(testKeyLck)
     })
 
-    it('should lock successfully', async () => {
+    it('should lock successfully', async function () {
       // Try and lock the key
       var res = await collFn().getAndLock(testKeyLck, 2)
       assert.isObject(res)
@@ -439,7 +453,7 @@ function genericTests(collFn) {
       var prevCas = res.cas
 
       // Make sure its actually locked
-      await H.throwsHelper(async () => {
+      await H.throwsHelper(async function () {
         await collFn().upsert(testKeyLck, { foo: 9 }, { timeout: 1000 })
       })
 
@@ -447,7 +461,7 @@ function genericTests(collFn) {
       await collFn().replace(testKeyLck, { foo: 9 }, { cas: prevCas })
     })
 
-    it('should unlock successfully', async () => {
+    it('should unlock successfully', async function () {
       // Lock the key for testing
       var res = await collFn().getAndLock(testKeyLck, 1)
       var prevCas = res.cas
@@ -462,10 +476,12 @@ function genericTests(collFn) {
     })
   })
 
-  describe('subdoc', () => {
-    const testKeySd = H.genTestKey()
+  describe('subdoc', function () {
+    let testKeySd
 
-    before(async () => {
+    before(async function () {
+      testKeySd = H.genTestKey()
+
       await collFn().insert(testKeySd, {
         foo: 14,
         bar: 2,
@@ -474,11 +490,11 @@ function genericTests(collFn) {
       })
     })
 
-    after(async () => {
+    after(async function () {
       await collFn().remove(testKeySd)
     })
 
-    it('should lookupIn successfully', async () => {
+    it('should lookupIn successfully', async function () {
       var res = await collFn().lookupIn(testKeySd, [
         H.lib.LookupInSpec.get('baz'),
         H.lib.LookupInSpec.get('bar'),
@@ -500,7 +516,7 @@ function genericTests(collFn) {
       assert.strictEqual(res.results, res.content)
     })
 
-    it('should mutateIn successfully', async () => {
+    it('should mutateIn successfully', async function () {
       var res = await collFn().mutateIn(testKeySd, [
         H.lib.MutateInSpec.increment('bar', 3),
         H.lib.MutateInSpec.upsert('baz', 'world'),
@@ -522,12 +538,17 @@ function genericTests(collFn) {
   })
 }
 
-describe('#crud', () => {
+describe('#crud', function () {
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 
-describe('#collections-crud', () => {
-  H.requireFeature(H.Features.Collections, () => {
-    genericTests(() => H.co)
+describe('#collections-crud', function () {
+  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
+  before(function () {
+    H.skipIfMissingFeature(this, H.Features.Collections)
   })
+
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
+  genericTests(() => H.co)
 })

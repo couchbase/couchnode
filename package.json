@@ -70,7 +70,7 @@
     "test-fast": "ts-mocha test/*.test.* -ig '(slow)'",
     "cover": "nyc ts-mocha test/*.test.*",
     "cover-fast": "nyc ts-mocha test/*.test.* -ig '(slow)'",
-    "lint": "eslint ./lib/",
+    "lint": "eslint ./lib/ ./test/",
     "check-deps": "ncu"
   }
 }

@@ -16,27 +16,29 @@ async function upsertTestData(target, testUid) {
   var promises = []
 
   for (var i = 0; i < TEST_DOCS.length; ++i) {
-    var testDocKey = testUid + '::' + i
-    var testDoc = TEST_DOCS[i]
-    testDoc.testUid = testUid
+    promises.push(
+      (async () => {
+        var testDocKey = testUid + '::' + i
+        var testDoc = TEST_DOCS[i]
+        testDoc.testUid = testUid
 
-    promises.push(target.upsert(testDocKey, testDoc))
+        await target.upsert(testDocKey, testDoc)
+        return testDocKey
+      })()
+    )
   }
 
-  return Promise.all(promises)
+  return await Promise.all(promises)
 }
 
 module.exports.upsertData = upsertTestData
 
-async function removeTestData(target, testUid) {
-  var promises = []
-
-  for (var i = 0; i < TEST_DOCS.length; ++i) {
-    var testDocKey = testUid + '::' + i
-    promises.push(target.remove(testDocKey))
+async function removeTestData(target, testDocs) {
+  if (!testDocs) {
+    return
   }
 
-  return Promise.all(promises)
+  await Promise.all(testDocs.map((docId) => target.remove(docId)))
 }
 
 module.exports.removeTestData = removeTestData

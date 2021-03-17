@@ -4,7 +4,7 @@ const assert = require('chai').assert
 const H = require('./harness')
 
 function genericTests(collFn) {
-  it('should should return a context with crud operations', async () => {
+  it('should should return a context with crud operations', async function () {
     try {
       await collFn().get('some-missing-key')
     } catch (err) {
@@ -16,12 +16,17 @@ function genericTests(collFn) {
   })
 }
 
-describe('#crud', () => {
+describe('#errors', function () {
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 
-describe('#collections-crud', () => {
-  H.requireFeature(H.Features.Collections, () => {
-    genericTests(() => H.co)
+describe('#collections-errors', function () {
+  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
+  before(function () {
+    H.skipIfMissingFeature(this, H.Features.Collections)
   })
+
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
+  genericTests(() => H.co)
 })

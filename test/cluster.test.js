@@ -7,7 +7,7 @@ const harness = require('./harness')
 const H = harness
 
 describe('#Cluster', function () {
-  it.skip('should queue operations until connected', async () => {
+  it('should queue operations until connected', async function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
@@ -17,7 +17,7 @@ describe('#Cluster', function () {
     cluster.close()
   })
 
-  it('should successfully gc connections', async () => {
+  it('should successfully gc connections', async function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
@@ -27,7 +27,7 @@ describe('#Cluster', function () {
     gc()
   })
 
-  it('should error queued operations after failed connected', async () => {
+  it('should error queued operations after failed connected', async function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket('invalid-bucket')
     var coll = bucket.defaultCollection()
@@ -43,7 +43,7 @@ describe('#Cluster', function () {
     cluster.close()
   })
 
-  it.skip('should successfully close an unconnected cluster and error ops', async () => {
+  it('should successfully close an unconnected cluster and error ops', async function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
@@ -57,7 +57,7 @@ describe('#Cluster', function () {
     }, Error)
   })
 
-  it.skip('should error ops after close and ignore superfluous closes', async () => {
+  it('should error ops after close and ignore superfluous closes', async function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()

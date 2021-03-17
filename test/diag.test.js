@@ -3,9 +3,9 @@
 const assert = require('chai').assert
 const H = require('./harness')
 
-describe('#diagnostics', () => {
-  describe('#info', () => {
-    it('should fetch diagnostics data on a cluster successfully', async () => {
+describe('#diagnostics', function () {
+  describe('#info', function () {
+    it('should fetch diagnostics data on a cluster successfully', async function () {
       var testCluster = await H.newCluster()
 
       // We put this in a try-catch block to enable us to capture the case
@@ -31,7 +31,7 @@ describe('#diagnostics', () => {
       await testCluster.close()
     })
 
-    it('should fetch diagnostics data with a bucket open successfully', async () => {
+    it('should fetch diagnostics data with a bucket open successfully', async function () {
       var res = await H.c.diagnostics()
       assert.isObject(res)
       assert.isString(res.id)
@@ -40,7 +40,7 @@ describe('#diagnostics', () => {
       assert.isArray(res.services)
     })
 
-    it('should ping a cluster successfully', async () => {
+    it('should ping a cluster successfully', async function () {
       var res = await H.c.ping({
         serviceTypes: [H.lib.ServiceType.KeyValue],
       })
@@ -51,7 +51,7 @@ describe('#diagnostics', () => {
       assert.isObject(res.services)
     })
 
-    it('should ping a bucket successfully', async () => {
+    it('should ping a bucket successfully', async function () {
       var res = await H.b.ping({
         serviceTypes: [H.lib.ServiceType.KeyValue],
       })
