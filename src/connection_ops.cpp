@@ -399,33 +399,35 @@ NAN_METHOD(Connection::fnLookupIn)
     if (flags & LCBX_SDFLAG_ACCESS_DELETED) {
         lcb_cmdsubdoc_access_deleted(enc.cmd(), 1);
     }
-    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[info.Length() - 2])) {
+    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[5])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[info.Length() - 1])) {
+    if (!enc.parseCallback(info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    size_t numCmds = (info.Length() - 4 - 2) / 3;
+    Local<Array> cmds = info[4].As<v8::Array>();
+
+    size_t numCmds = cmds->Length() / 3;
     CmdBuilder<lcb_SUBDOCSPECS> cmdsEnc =
         enc.makeSubCmdBuilder<lcb_SUBDOCSPECS>(numCmds);
 
-    for (size_t i = 0, arg = 4; i < numCmds; ++i, arg += 3) {
-        lcbx_SDCMD sdcmd =
-            static_cast<lcbx_SDCMD>(ValueParser::asUint(info[arg + 0]));
+    for (size_t i = 0, idx = 0; i < numCmds; ++i, idx += 3) {
+        Local<Value> arg0 = Nan::Get(cmds, idx + 0).ToLocalChecked();
+        Local<Value> arg1 = Nan::Get(cmds, idx + 1).ToLocalChecked();
+        Local<Value> arg2 = Nan::Get(cmds, idx + 2).ToLocalChecked();
+
+        lcbx_SDCMD sdcmd = static_cast<lcbx_SDCMD>(ValueParser::asUint(arg0));
 
         switch (sdcmd) {
         case LCBX_SDCMD_GET:
-            cmdsEnc.parseOption<&lcb_subdocspecs_get>(i, info[arg + 1],
-                                                      info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_get>(i, arg1, arg2);
             break;
         case LCBX_SDCMD_GET_COUNT:
-            cmdsEnc.parseOption<&lcb_subdocspecs_get_count>(i, info[arg + 1],
-                                                            info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_get_count>(i, arg1, arg2);
             break;
         case LCBX_SDCMD_EXISTS:
-            cmdsEnc.parseOption<&lcb_subdocspecs_exists>(i, info[arg + 1],
-                                                         info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_exists>(i, arg1, arg2);
             break;
         default:
             return Nan::ThrowError(Error::create("unexpected optype"));
@@ -472,10 +474,10 @@ NAN_METHOD(Connection::fnMutateIn)
     if (flags & LCBX_SDFLAG_ACCESS_DELETED) {
         lcb_cmdsubdoc_access_deleted(enc.cmd(), 1);
     }
-    lcb_DURABILITY_LEVEL durabilityLevel = static_cast<lcb_DURABILITY_LEVEL>(
-        ValueParser::asUint(info[info.Length() - 5]));
-    int persistTo = ValueParser::asInt(info[info.Length() - 4]);
-    int replicateTo = ValueParser::asInt(info[info.Length() - 3]);
+    lcb_DURABILITY_LEVEL durabilityLevel =
+        static_cast<lcb_DURABILITY_LEVEL>(ValueParser::asUint(info[7]));
+    int persistTo = ValueParser::asInt(info[8]);
+    int replicateTo = ValueParser::asInt(info[9]);
     if (durabilityLevel != LCB_DURABILITYLEVEL_NONE) {
         lcb_cmdsubdoc_durability(enc.cmd(), durabilityLevel);
     } else if (persistTo > 0 || replicateTo > 0) {
@@ -483,57 +485,59 @@ NAN_METHOD(Connection::fnMutateIn)
         // lcb_cmdsubdoc_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
-    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[info.Length() - 2])) {
+    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[10])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[info.Length() - 1])) {
+    if (!enc.parseCallback(info[11])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
-    size_t numCmds = (info.Length() - 6 - 5) / 4;
+    Local<Array> cmds = info[6].As<v8::Array>();
+
+    size_t numCmds = cmds->Length() / 4;
     CmdBuilder<lcb_SUBDOCSPECS> cmdsEnc =
         enc.makeSubCmdBuilder<lcb_SUBDOCSPECS>(numCmds);
 
-    for (size_t i = 0, arg = 6; i < numCmds; ++i, arg += 4) {
-        lcbx_SDCMD sdcmd =
-            static_cast<lcbx_SDCMD>(ValueParser::asUint(info[arg + 0]));
+    for (size_t i = 0, idx = 0; i < numCmds; ++i, idx += 4) {
+        Local<Value> arg0 = Nan::Get(cmds, idx + 0).ToLocalChecked();
+        Local<Value> arg1 = Nan::Get(cmds, idx + 1).ToLocalChecked();
+        Local<Value> arg2 = Nan::Get(cmds, idx + 2).ToLocalChecked();
+        Local<Value> arg3 = Nan::Get(cmds, idx + 3).ToLocalChecked();
+
+        lcbx_SDCMD sdcmd = static_cast<lcbx_SDCMD>(ValueParser::asUint(arg0));
 
         switch (sdcmd) {
         case LCBX_SDCMD_REMOVE:
-            cmdsEnc.parseOption<&lcb_subdocspecs_remove>(i, info[arg + 1],
-                                                         info[arg + 2]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_remove>(i, arg1, arg2);
             break;
         case LCBX_SDCMD_REPLACE:
-            cmdsEnc.parseOption<&lcb_subdocspecs_replace>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_replace>(i, arg1, arg2, arg3);
             break;
         case LCBX_SDCMD_DICT_ADD:
-            cmdsEnc.parseOption<&lcb_subdocspecs_dict_add>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_dict_add>(i, arg1, arg2, arg3);
             break;
         case LCBX_SDCMD_DICT_UPSERT:
-            cmdsEnc.parseOption<&lcb_subdocspecs_dict_upsert>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_dict_upsert>(i, arg1, arg2,
+                                                              arg3);
             break;
         case LCBX_SDCMD_ARRAY_ADD_UNIQUE:
-            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_unique>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_unique>(i, arg1,
+                                                                   arg2, arg3);
             break;
         case LCBX_SDCMD_COUNTER:
-            cmdsEnc.parseOption<&lcb_subdocspecs_counter>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_counter>(i, arg1, arg2, arg3);
             break;
         case LCBX_SDCMD_ARRAY_INSERT:
-            cmdsEnc.parseOption<&lcb_subdocspecs_array_insert>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_insert>(i, arg1, arg2,
+                                                               arg3);
             break;
         case LCBX_SDCMD_ARRAY_ADD_FIRST:
-            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_first>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_first>(i, arg1, arg2,
+                                                                  arg3);
             break;
         case LCBX_SDCMD_ARRAY_ADD_LAST:
-            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_last>(
-                i, info[arg + 1], info[arg + 2], info[arg + 3]);
+            cmdsEnc.parseOption<&lcb_subdocspecs_array_add_last>(i, arg1, arg2,
+                                                                 arg3);
             break;
         default:
             return Nan::ThrowError(Error::create("unexpected optype"));

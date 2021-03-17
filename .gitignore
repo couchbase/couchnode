@@ -17,14 +17,26 @@ config.json
 # The original file after running astyle:
 *.orig
 
+# Ignore some IDE-specific folder
+/.idea
+/.vscode
+
+# User folders
 *~
 
+# Build stuff
 /.lock-wscript
 /build/
 /node_modules/
 /docs/
 /test/CouchbaseMock.jar
-builderror.log
-configcache.txt
+/builderror.log
+/configcache.txt
 /coverage/
+/benchmarks/
 /.nyc_output/
+/prebuilds/
+*.tar.gz
+
+# Extra stuff
+/dist/

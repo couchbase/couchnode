@@ -6,8 +6,6 @@ binding: binding.gyp
 
 clean:
 	@node-gyp clean
-	rm -rf jsdoc
-	rm -f cbmock.js
 
 install:
 	@npm install
@@ -16,34 +14,30 @@ node_modules:
 	@npm install
 
 checkdeps:
-	node ./node_modules/npm-check/lib/cli.js -s
+	npm run check-deps
 
 checkaudit:
 	npm audit
 
 test: node_modules
-	./node_modules/mocha/bin/mocha test/*.test.js
+	npm run test
 fasttest: node_modules
-	./node_modules/mocha/bin/mocha test/*.test.js -ig "(slow)"
+	npm run test-fast
 
 lint: node_modules
-	node ./node_modules/eslint/bin/eslint.js lib/*.js test/*.js
+	npm run lint
 
 cover: node_modules
-	node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/_mocha test/*.test.js
+	npm run cover
 fastcover: node_modules
-	node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/_mocha -ig "(slow)" test/*.test.js
+	npm run cover-fast
 
-check: checkdeps checkaudit docs types lint test cover
+check: checkdeps checkaudit docs lint test cover
 
 docs: node_modules
-	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc
-
-types: node_modules
-	node ./node_modules/jsdoc/jsdoc.js -c .jsdoc -t node_modules/tsd-jsdoc/dist -d ./
-	tsc types.d.ts
+	npm run build-docs
 
 prebuilds:
-	node ./node_modules/prebuild/bin.js
+	npm run prebuild
 
 .PHONY: all test clean docs browser prebuilds

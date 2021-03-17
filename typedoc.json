@@ -1,0 +1,23 @@
+{
+  "entryPoints": ["./lib/couchbase.ts"],
+  "out": "docs",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "categorizeByGroup": false,
+  "listInvalidSymbolLinks": true,
+  "categoryOrder": [
+    "Core",
+    "Key-Value",
+    "Query",
+    "Views",
+    "Full Text Search",
+    "Analytics",
+    "Datastructures",
+    "Management",
+    "Diagnostics",
+    "Authentication",
+    "Error Handling",
+    "Logging"
+  ],
+  "toc": ["connect"]
+}

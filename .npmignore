@@ -1,16 +1,54 @@
+# Local test configuration
+config.json
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# The original file after running astyle:
+*.orig
+
+# Ignore some IDE-specific folder
+/.idea
+/.vscode
+
+# User folders
+*~
+
+# Build stuff
+/.lock-wscript
+/build/
+/node_modules/
+/docs/
+/test/CouchbaseMock.jar
+/builderror.log
+/configcache.txt
+/coverage/
+/benchmarks/
+/.nyc_output/
+/prebuilds/
 *.tar.gz
-build/
-build-pre-gyp/
-coverage/
-benchmarks/
-docs/
-test/
-builderror.log
-README.md
-CONTRIBUTING.md
-AUTHORS
+
+# Extra stuff
+/.git
+/lib/
+/test/
+.clang-format
+.editorconfig
+.eslintrc.js
+.gitignore
+.istanbul.yml
+.prettierrc
 Makefile
-prebuilds/
-test.js
-.vscode/
-.idea/
+README.md
+tsconfig.json
+typedoc.json
