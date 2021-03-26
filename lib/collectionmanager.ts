@@ -179,7 +179,7 @@ export class CollectionManager {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Post,
-        path: `/pools/default/buckets/${bucketName}/collections/${collectionSpec.scopeName}`,
+        path: `/pools/default/buckets/${bucketName}/scopes/${collectionSpec.scopeName}/collections`,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify(collectionData),
         timeout: timeout,
@@ -242,7 +242,7 @@ export class CollectionManager {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Delete,
-        path: `/pools/default/buckets/${bucketName}/collections/${scopeName}/${collectionName}`,
+        path: `/pools/default/buckets/${bucketName}/scopes/${scopeName}/collections/${collectionName}`,
         timeout: timeout,
       })
 
@@ -291,7 +291,7 @@ export class CollectionManager {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Post,
-        path: `/pools/default/buckets/${bucketName}/collections`,
+        path: `/pools/default/buckets/${bucketName}/scopes`,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify({
           name: scopeName,
@@ -344,7 +344,7 @@ export class CollectionManager {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Delete,
-        path: `/pools/default/buckets/${bucketName}/collections/${scopeName}`,
+        path: `/pools/default/buckets/${bucketName}/scopes/${scopeName}`,
         timeout: timeout,
       })
 
