@@ -35,11 +35,48 @@ export interface ICollectionSpec {
 }
 
 /**
- * This is intentionally unexported as we don't return it to the user.
+ * Contains information about a collection.
  *
- * @internal
+ * @category Management
  */
-class CollectionSpec {
+export class CollectionSpec {
+  /**
+   * The name of the collection.
+   */
+  name: string
+
+  /**
+   * The name of the scope this collection exists in.
+   */
+  scopeName: string
+
+  /**
+   * The maximum expiry for documents in this collection.
+   *
+   * @see {@link IBucketSettings.maxExpiry}
+   */
+  maxExpiry: number
+
+  /**
+   * @internal
+   */
+  constructor(data: CollectionSpec) {
+    this.name = data.name
+    this.scopeName = data.scopeName
+    this.maxExpiry = data.maxExpiry
+  }
+
+  /**
+   * @internal
+   */
+  static _fromNsData(scopeName: string, data: any): CollectionSpec {
+    return new CollectionSpec({
+      name: data.name,
+      scopeName: scopeName,
+      maxExpiry: data.maxTTL,
+    })
+  }
+
   /**
    * @internal
    */
@@ -48,6 +85,51 @@ class CollectionSpec {
       name: data.name,
       maxTTL: data.maxExpiry,
     }
+  }
+}
+
+/**
+ * Contains information about a scope.
+ *
+ * @category Management
+ */
+export class ScopeSpec {
+  /**
+   * The name of the scope.
+   */
+  name: string
+
+  /**
+   * The collections which exist in this scope.
+   */
+  collections: CollectionSpec[]
+
+  /**
+   * @internal
+   */
+  constructor(data: ScopeSpec) {
+    this.name = data.name
+    this.collections = data.collections
+  }
+
+  /**
+   * @internal
+   */
+  static _fromNsData(data: any): ScopeSpec {
+    let collections: CollectionSpec[]
+    if (data.collections) {
+      const scopeName = data.name
+      collections = data.collections.map((collectionData: any) =>
+        CollectionSpec._fromNsData(scopeName, collectionData)
+      )
+    } else {
+      collections = []
+    }
+
+    return new ScopeSpec({
+      name: data.name,
+      collections: collections,
+    })
   }
 }
 
@@ -118,6 +200,56 @@ export class CollectionManager {
 
   private get _http() {
     return new HttpExecutor(this._bucket.conn)
+  }
+
+  /**
+   * Returns all configured scopes along with their collections.
+   *
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async getAllScopes(
+    options?: GetAllScopesOptions,
+    callback?: NodeCallback<ScopeSpec[]>
+  ): Promise<ScopeSpec[]> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const bucketName = this._bucket.name
+    const timeout = options.timeout
+    return PromiseHelper.wrapAsync(async () => {
+      const res = await this._http.request({
+        type: HttpServiceType.Management,
+        method: HttpMethod.Post,
+        path: `/pools/default/buckets/${bucketName}/scopes`,
+        timeout: timeout,
+      })
+
+      if (res.statusCode !== 200) {
+        const errCtx = HttpExecutor.errorContextFromResponse(res)
+
+        const errText = res.body.toString().toLowerCase()
+        if (
+          errText.includes('not allowed on this version of cluster') ||
+          res.statusCode === 404
+        ) {
+          throw new FeatureNotAvailableError(undefined, errCtx)
+        }
+
+        throw new CouchbaseError('failed to get scopes', undefined, errCtx)
+      }
+
+      const scopesData = JSON.parse(res.body.toString())
+      const scopes = scopesData.map((scopeData: any) =>
+        ScopeSpec._fromNsData(scopeData)
+      )
+      return scopes
+    }, callback)
   }
 
   /**
