@@ -1,4 +1,4 @@
-'use strict';
+'use strict'
 
 var TEST_DOCS = [
   { x: 0, y: 0, name: 'x0,y0' },
@@ -10,39 +10,39 @@ var TEST_DOCS = [
   { x: 0, y: 2, name: 'x0,y2' },
   { x: 1, y: 2, name: 'x1,y2' },
   { x: 2, y: 2, name: 'x2,y2' },
-];
+]
 
 async function upsertTestData(target, testUid) {
-  var promises = [];
+  var promises = []
 
   for (var i = 0; i < TEST_DOCS.length; ++i) {
-    var testDocKey = testUid + '::' + i;
-    var testDoc = TEST_DOCS[i];
-    testDoc.testUid = testUid;
+    var testDocKey = testUid + '::' + i
+    var testDoc = TEST_DOCS[i]
+    testDoc.testUid = testUid
 
-    promises.push(target.upsert(testDocKey, testDoc));
+    promises.push(target.upsert(testDocKey, testDoc))
   }
 
-  return Promise.all(promises);
+  return Promise.all(promises)
 }
 
-module.exports.upsertData = upsertTestData;
+module.exports.upsertData = upsertTestData
 
 async function removeTestData(target, testUid) {
-  var promises = [];
+  var promises = []
 
   for (var i = 0; i < TEST_DOCS.length; ++i) {
-    var testDocKey = testUid + '::' + i;
-    promises.push(target.remove(testDocKey));
+    var testDocKey = testUid + '::' + i
+    promises.push(target.remove(testDocKey))
   }
 
-  return Promise.all(promises);
+  return Promise.all(promises)
 }
 
-module.exports.removeTestData = removeTestData;
+module.exports.removeTestData = removeTestData
 
 function testDocCount() {
-  return TEST_DOCS.length;
+  return TEST_DOCS.length
 }
 
-module.exports.docCount = testDocCount;
+module.exports.docCount = testDocCount
