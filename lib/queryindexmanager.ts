@@ -628,4 +628,3 @@ export class QueryIndexManager {
     }, callback)
   }
 }
-module.exports = QueryIndexManager
