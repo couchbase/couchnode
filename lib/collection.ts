@@ -1013,11 +1013,7 @@ export class Collection {
         cmdData,
         cppTimeout,
         (err, res) => {
-          if (!res) {
-            res = {}
-          }
-
-          if (res.content) {
+          if (res && res.content) {
             for (let i = 0; i < res.content.length; ++i) {
               const itemRes = res.content[i]
               itemRes.error = translateCppError(itemRes.error)
@@ -1038,15 +1034,18 @@ export class Collection {
                 }
               }
             }
+
+            wrapCallback(
+              err,
+              new LookupInResult({
+                content: res.content,
+                cas: res.cas,
+              })
+            )
+            return
           }
 
-          wrapCallback(
-            err,
-            new LookupInResult({
-              content: res.content,
-              cas: res.cas,
-            })
-          )
+          wrapCallback(err, null)
         }
       )
     }, callback)
@@ -1122,15 +1121,18 @@ export class Collection {
                 res.content[i] = null
               }
             }
+
+            wrapCallback(
+              err,
+              new MutateInResult({
+                content: res.content,
+                cas: res.cas,
+              })
+            )
+            return
           }
 
-          wrapCallback(
-            err,
-            new MutateInResult({
-              content: res.content,
-              cas: res.cas,
-            })
-          )
+          wrapCallback(err, null)
         }
       )
     }, callback)
