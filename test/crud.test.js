@@ -231,6 +231,22 @@ function genericTests(collFn) {
         var gres = await collFn().get(testKeyA)
         assert.deepStrictEqual(gres.value, { foo: 'baz' })
       })
+
+      it('should cas mismatch when replacing with wrong cas', async function () {
+        var getRes = await collFn().get(testKeyA)
+
+        await collFn().replace(testKeyA, { foo: 'boz' })
+
+        await H.throwsHelper(async () => {
+          await collFn().replace(
+            testKeyA,
+            { foo: 'bla' },
+            {
+              cas: getRes.cas,
+            }
+          )
+        }, H.lib.CasMismatchError)
+      })
     })
 
     describe('#remove', function () {
@@ -516,6 +532,14 @@ function genericTests(collFn) {
       assert.strictEqual(res.results, res.content)
     })
 
+    it('should doc-not-found for missing lookupIn', async function () {
+      await H.throwsHelper(async () => {
+        await collFn().lookupIn('some-document-which-does-not-exist', [
+          H.lib.LookupInSpec.get('baz'),
+        ])
+      }, H.lib.DocumentNotFoundError)
+    })
+
     it('should mutateIn successfully', async function () {
       var res = await collFn().mutateIn(testKeySd, [
         H.lib.MutateInSpec.increment('bar', 3),
@@ -534,6 +558,22 @@ function genericTests(collFn) {
       assert.strictEqual(gres.value.bar, 5)
       assert.strictEqual(gres.value.baz, 'world')
       assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
+    })
+
+    it('should cas mismatch when mutatein with wrong cas', async function () {
+      var getRes = await collFn().get(testKeySd)
+
+      await collFn().replace(testKeySd, { bar: 1 })
+
+      await H.throwsHelper(async () => {
+        await collFn().mutateIn(
+          testKeySd,
+          [H.lib.MutateInSpec.increment('bar', 3)],
+          {
+            cas: getRes.cas,
+          }
+        )
+      }, H.lib.CasMismatchError)
     })
   })
 }
