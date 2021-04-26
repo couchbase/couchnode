@@ -18,17 +18,19 @@ export class GetResult {
   cas: Cas
 
   /**
-   * The expiry of the document.
+   * The expiry of the document, if it was requested.
+   *
+   * @see {@link GetOptions.withExpiry}
    */
-  expiry?: number
+  expiryTime?: number
 
   /**
    * @internal
    */
-  constructor(data: { content: any; cas: Cas; expiry?: number }) {
+  constructor(data: { content: any; cas: Cas; expiryTime?: number }) {
     this.content = data.content
     this.cas = data.cas
-    this.expiry = data.expiry
+    this.expiryTime = data.expiryTime
   }
 
   /**
@@ -41,6 +43,15 @@ export class GetResult {
   }
   set value(v: any) {
     this.content = v
+  }
+
+  /**
+   * BUG(JSCBC-873): This was incorrectly named at release.
+   *
+   * @deprecated Use {@link GetResult.expiryTime} instead.
+   */
+  get expiry(): number | undefined {
+    return this.expiryTime
   }
 }
 

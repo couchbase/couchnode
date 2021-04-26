@@ -578,7 +578,7 @@ export class Collection {
       return new GetResult({
         content: content,
         cas: res.cas,
-        expiry: expiry,
+        expiryTime: expiry,
       })
     }, callback)
   }
