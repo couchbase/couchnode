@@ -453,7 +453,7 @@ export class CouchbaseQueue {
             LookupInSpec.get('[-1]'),
           ])
 
-          const value = res.results[0].value
+          const value = res.content[0].value
 
           await this._coll.mutateIn(this._key, [MutateInSpec.remove('[-1]')], {
             cas: res.cas,
@@ -562,9 +562,12 @@ export class CouchbaseSet {
     return PromiseHelper.wrapAsync(async () => {
       for (let i = 0; i < 16; ++i) {
         try {
-          const res = await this._get()
+          const res = await this._coll.get(this._key)
+          if (!(res.content instanceof Array)) {
+            throw new CouchbaseError('expected document of array type')
+          }
 
-          const itemIdx = res.indexOf(item)
+          const itemIdx = res.content.indexOf(item)
           if (itemIdx === -1) {
             throw new Error('item was not found in set')
           }
@@ -573,7 +576,7 @@ export class CouchbaseSet {
             this._key,
             [MutateInSpec.remove('[' + itemIdx + ']')],
             {
-              cas: (res as any).cas,
+              cas: res.cas,
             }
           )
 
