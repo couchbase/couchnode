@@ -483,9 +483,7 @@ function genericTests(collFn) {
       var prevCas = res.cas
 
       // Manually unlock the key
-      var ures = await collFn().unlock(testKeyLck, prevCas)
-      assert.isObject(ures)
-      assert.isNotEmpty(ures.cas)
+      await collFn().unlock(testKeyLck, prevCas)
 
       // Make sure our get works now
       await collFn().upsert(testKeyLck, { foo: 14 })

@@ -939,8 +939,8 @@ export class Collection {
     key: string,
     cas: Cas,
     options?: UnlockOptions,
-    callback?: NodeCallback<MutationResult>
-  ): Promise<MutationResult> {
+    callback?: NodeCallback<void>
+  ): Promise<void> {
     if (options instanceof Function) {
       callback = arguments[2]
       options = undefined
@@ -952,24 +952,13 @@ export class Collection {
     const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.unlock(
-        ...this._lcbScopeColl,
-        key,
-        cas,
-        cppTimeout,
-        (err, cas) => {
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(
-            null,
-            new MutationResult({
-              cas: cas,
-            })
-          )
+      this._conn.unlock(...this._lcbScopeColl, key, cas, cppTimeout, (err) => {
+        if (err) {
+          return wrapCallback(err)
         }
-      )
+
+        wrapCallback(null)
+      })
     }, callback)
   }
 

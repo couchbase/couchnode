@@ -211,7 +211,7 @@ export interface CppConnection {
     key: CppBytes,
     cas: CppCas,
     timeoutMs: number | undefined,
-    callback: (err: CppError | null, cas: CppCas) => void
+    callback: (err: CppError | null) => void
   ): void
 
   counter(

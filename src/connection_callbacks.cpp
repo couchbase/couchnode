@@ -115,14 +115,7 @@ void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
     lcb_STATUS rc = rdr.getValue<&lcb_respunlock_status>();
     Local<Value> errVal = rdr.decodeError<lcb_respunlock_error_context>(rc);
 
-    Local<Value> casVal;
-    if (rc == LCB_SUCCESS) {
-        casVal = rdr.decodeCas<&lcb_respunlock_cas>();
-    } else {
-        casVal = Nan::Null();
-    }
-
-    rdr.invokeCallback(errVal, casVal);
+    rdr.invokeCallback(errVal);
 }
 
 void Connection::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
