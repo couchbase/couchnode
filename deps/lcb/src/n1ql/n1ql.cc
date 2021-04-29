@@ -375,10 +375,14 @@ lcb_STATUS N1QLREQ::request_address()
     if (ix < 0) {
         return LCB_ERR_UNSUPPORTED_OPERATION;
     }
+    const char *rest_url = lcbvb_get_resturl(vbc, ix, LCBVB_SVCTYPE_QUERY, mode);
+    if (rest_url == nullptr) {
+        return LCB_ERR_SERVICE_NOT_AVAILABLE;
+    }
     used_nodes[ix] = 1;
+    endpoint = rest_url;
     hostname = lcbvb_get_hostname(vbc, ix);
     port = std::to_string(lcbvb_get_port(vbc, ix, LCBVB_SVCTYPE_QUERY, mode));
-    endpoint = lcbvb_get_resturl(vbc, ix, LCBVB_SVCTYPE_QUERY, mode);
     return LCB_SUCCESS;
 }
 

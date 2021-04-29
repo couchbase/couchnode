@@ -94,7 +94,7 @@ static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPANALYTI
                             if (code && code->type == cJSON_Number && msg && msg->type == cJSON_String) {
                                 printf(
                                     "\x1b[1mcode\x1b[0m: \x1b[31m%d\x1b[0m, \x1b[1mmessage\x1b[0m: \x1b[31m%s\x1b[0m\n",
-                                    code->valueint, msg->valuestring);
+                                    (int)code->valueint, msg->valuestring);
                             }
                         }
                     }

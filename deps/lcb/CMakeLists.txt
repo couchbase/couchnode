@@ -30,7 +30,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 # Couchbase mock path to download
 SET(COUCHBASE_MOCK_VERSION 1.5.25)
 SET(COUCHBASE_MOCK_URL "https://github.com/couchbase/CouchbaseMock/releases/download/${COUCHBASE_MOCK_VERSION}/CouchbaseMock-${COUCHBASE_MOCK_VERSION}.jar")
-project(libcouchbase VERSION 3.1.1 LANGUAGES C CXX)
+project(libcouchbase VERSION 3.1.2 LANGUAGES C CXX)
 
 if (NOT CMAKE_VERSION VERSION_LESS "3.13")
     # CMP0077: option() honors normal variables
@@ -296,7 +296,14 @@ ADD_SUBDIRECTORY(contrib/cbsasl)
 ADD_SUBDIRECTORY(contrib/cliopts)
 ADD_SUBDIRECTORY(src/ssl)
 ADD_SUBDIRECTORY(contrib/lcb-jsoncpp)
-ADD_SUBDIRECTORY(contrib/snappy)
+IF(NOT LCB_SNAPPY_LIB)
+    ADD_SUBDIRECTORY(contrib/snappy)
+ENDIF()
+IF(NOT LCB_SNAPPY_INCLUDE_DIR)
+    INCLUDE_DIRECTORIES(contrib/snappy)
+ELSE()
+    INCLUDE_DIRECTORIES(${LCB_SNAPPY_INCLUDE_DIR})
+ENDIF()
 IF(LCB_BUILD_EXAMPLES)
     ADD_SUBDIRECTORY(example)
 ENDIF()
@@ -316,8 +323,6 @@ FILE(GLOB LCB_JSPARSE_SRC src/jsparse/*.cc)
 ADD_LIBRARY(lcb_jsparse OBJECT ${LCB_JSPARSE_SRC})
 LCB_CXXUTIL(lcb_jsparse)
 
-INCLUDE_DIRECTORIES(contrib/snappy)
-
 SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:couchbase_select>
     $<TARGET_OBJECTS:couchbase_utils>
@@ -336,14 +341,16 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:lcbcore-cxx>
     $<TARGET_OBJECTS:lcb_jsparse>
     $<TARGET_OBJECTS:lcb_jsoncpp>
-    $<TARGET_OBJECTS:lcb_snappy>
     ${LCB_DTRACE_OBJECT}
     ${lcb_plat_objs}
     ${lcb_ssl_objs})
 
+IF(NOT LCB_SNAPPY_LIB)
+    LIST (APPEND LCB_CORE_OBJS $<TARGET_OBJECTS:lcb_snappy>)
+ENDIF()
+
 ADD_LIBRARY(couchbaseS STATIC ${LCB_CORE_OBJS})
 ADD_LIBRARY(couchbase ${_lcb_linkspec} ${LCB_CORE_OBJS} ${PROJECT_BINARY_DIR}/dllversion.rc)
-
 # For DTrace implementations which need to gain access to all the *.o files first
 # we need to hook the linker command to a custom perl script which will intercept
 # the object files passed to the linker, run dtrace on them, and inject the generated
@@ -388,6 +395,9 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 ENDIF()
 IF(LIBPROFILER)
     SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} ${LIBPROFILER})
+ENDIF()
+IF(LCB_SNAPPY_LIB)
+    SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} ${LCB_SNAPPY_LIB})
 ENDIF()
 
 TARGET_LINK_LIBRARIES(couchbase ${LCB_LINK_DEPS})

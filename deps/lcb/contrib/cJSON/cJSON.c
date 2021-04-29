@@ -31,6 +31,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <assert.h>
+#include <inttypes.h>
 #include "cJSON.h"
 
 static int cJSON_strcasecmp(const char *s1, const char *s2)
@@ -224,6 +225,7 @@ static const char *parse_number(cJSON *item, const char *num)
 {
     double n = 0, sign = 1, scale = 0;
     int subscale = 0, signsubscale = 1;
+    int64_t i = 0;
 
     /* Could use sscanf for this? */
     if (*num == '-')
@@ -231,9 +233,11 @@ static const char *parse_number(cJSON *item, const char *num)
     if (*num == '0')
         num++; /* is zero */
     if (*num >= '1' && *num <= '9')
-        do
-            n = (n * 10.0) + (*num++ - '0');
-        while (*num >= '0' && *num <= '9'); /* Number? */
+        do {
+            int d = (*num++ - '0');
+            n = (n * 10.0) + d;
+            i = (i * 10) + d;
+        } while (*num >= '0' && *num <= '9'); /* Number? */
     if (*num == '.') {
         num++;
         do
@@ -254,7 +258,7 @@ static const char *parse_number(cJSON *item, const char *num)
     n = sign * n * pow(10.0, (scale + subscale * signsubscale)); /* number = +/- number.fraction * 10^+/- exponent */
 
     item->valuedouble = n;
-    item->valueint = (int)n;
+    item->valueint = (scale || subscale) ? (int64_t)n : ((int)sign * i);
     item->type = cJSON_Number;
     return num;
 }
@@ -266,7 +270,7 @@ static char *print_number(cJSON *item)
     double d = item->valuedouble;
     if (fabs(((double)item->valueint) - d) <= DBL_EPSILON && d <= INT_MAX && d >= INT_MIN) {
         str = (char *)cJSON_malloc(21); /* 2^64+1 can be represented in 21 chars. */
-        sprintf(str, "%d", item->valueint);
+        sprintf(str, "%" PRId64, item->valueint);
     } else {
         str = (char *)cJSON_malloc(64); /* This is a nice tradeoff. */
         if (fabs(floor(d) - d) <= DBL_EPSILON)

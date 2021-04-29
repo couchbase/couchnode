@@ -134,10 +134,7 @@ lcb_STATUS collcache_resolve(lcb_INSTANCE *instance, Command cmd, Operation op, 
         return LCB_ERR_NO_MEMORY;
     }
     mcreq_reserve_header(pl, pkt, MCREQ_PKT_BASESIZE);
-    lcb_KEYBUF key = {};
-    LCB_KREQ_SIMPLE(&key, spec.c_str(), spec.size());
     pkt->flags |= MCREQ_F_NOCID;
-    mcreq_reserve_key(pl, pkt, MCREQ_PKT_BASESIZE, &key, 0);
     protocol_binary_request_header hdr{};
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID;

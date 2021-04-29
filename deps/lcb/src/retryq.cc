@@ -166,7 +166,8 @@ void RetryQueue::fail(RetryOp *op, lcb_STATUS err, hrtime_t now)
             (void *)op->pkt, op->pkt->opaque, (int)op->pkt->retries, LCB_NS2US(now - op->start), (int)op->origstatus,
             lcb_strerror_short(err), lcb_strerror_short(op->origerr));
     lcb_STATUS immerr = op->origerr;
-    if (op->origstatus == PROTOCOL_BINARY_RESPONSE_UNSPECIFIED && op->origerr == LCB_ERR_NETWORK) {
+    if ((op->origstatus == PROTOCOL_BINARY_RESPONSE_UNSPECIFIED && LCB_ERROR_IS_NETWORK(op->origerr)) ||
+        op->origerr == LCB_ERR_BUCKET_NOT_FOUND) {
         immerr = err;
     }
     mcreq_dispatch_response(&tmpsrv, op->pkt, &resp, immerr);

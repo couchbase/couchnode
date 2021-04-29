@@ -39,7 +39,7 @@ void lcb_dump(lcb_INSTANCE *instance, FILE *fp, lcb_U32 flags)
     if (instance->cur_configinfo) {
         lcb::clconfig::ConfigInfo *cfg = instance->cur_configinfo;
         fprintf(fp, "Current VBC=%p\n", (void *)cfg->vbc);
-        fprintf(fp, "Config RevID=%d\n", cfg->vbc->revid);
+        fprintf(fp, "Config RevID=%" PRId64 "\n", cfg->vbc->revid);
         if (flags & LCB_DUMP_VBCONFIG) {
             char *cfgdump = lcbvb_save_json(cfg->vbc);
             fprintf(fp, "=== CLUSTER CONFIG BEGIN ===\n");

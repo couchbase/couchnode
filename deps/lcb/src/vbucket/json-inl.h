@@ -63,7 +63,7 @@ static int get_jobj(cJSON *parent, const char *key, cJSON **value)
  * @param[out] value
  * @return nonzero on success, zero if not found or not a number
  */
-static int get_jint(cJSON *parent, const char *key, int *value)
+static int get_jint64(cJSON *parent, const char *key, int64_t *value)
 {
     cJSON *res = cJSON_GetObjectItem(parent, key);
     if (res == NULL || res->type != cJSON_Number) {
@@ -72,6 +72,17 @@ static int get_jint(cJSON *parent, const char *key, int *value)
     }
 
     *value = res->valueint;
+    return 1;
+}
+
+static int get_jint(cJSON *parent, const char *key, int *value)
+{
+    int64_t tmp = 0;
+    if (!get_jint64(parent, key, &tmp)) {
+        *value = 0;
+        return 0;
+    }
+    *value = (int)tmp;
     return 1;
 }
 
@@ -86,12 +97,12 @@ static int get_jint(cJSON *parent, const char *key, int *value)
  */
 static int get_juint(cJSON *parent, const char *key, unsigned *value)
 {
-    int tmp = 0;
-    if (!get_jint(parent, key, &tmp)) {
+    int64_t tmp = 0;
+    if (!get_jint64(parent, key, &tmp)) {
         *value = 0;
         return 0;
     }
-    *value = tmp;
+    *value = (unsigned)tmp;
     return 1;
 }
 

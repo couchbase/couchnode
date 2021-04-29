@@ -36,6 +36,7 @@
 #include <cstdarg>
 #include <exception>
 #include <stdexcept>
+#include <memcached/protocol_binary.h>
 #include "common/options.h"
 #include "common/histogram.h"
 
@@ -1140,13 +1141,26 @@ static void storeCallback(lcb_INSTANCE *instance, int, const lcb_RESPSTORE *resp
     string key(p, n);
     uint32_t seqno = std::stol(key);
     if (rc != LCB_SUCCESS && tc->inPopulation()) {
+        const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
+        lcb_respstore_error_context(resp, &ctx);
+        uint16_t status = 0;
+        lcb_errctx_kv_status_code(ctx, &status);
+
+        if (rc == LCB_ERR_TIMEOUT) {
+            std::uint32_t tmo = lcb_cntl_getu32(instance, LCB_CNTL_OP_TIMEOUT);
+            std::cerr << "Timeout during population phase, adjust operation timeout, effective \"operation_timeout="
+                      << double(tmo) / 1000000 << "\" (in seconds).\n";
+            if (status == PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION) {
+                std::cerr << "In this case it seems like unknown collection was specified. Check cluster configuration "
+                             "and retry.\n ";
+                exit(EXIT_FAILURE);
+            }
+        }
         NextOp op;
         op.m_mode = NextOp::STORE;
         op.m_key = key;
         op.m_seqno = seqno;
 
-        const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
-        lcb_respstore_error_context(resp, &ctx);
         string scope;
         lcb_errctx_kv_scope(ctx, &p, &n);
         if (p && n) {

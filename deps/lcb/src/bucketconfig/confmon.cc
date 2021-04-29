@@ -156,7 +156,7 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
 
             lcb_log(LOGARGS(this, TRACE),
                     "Not applying configuration received via %s (bucket=\"%.*s\", source=%s, address=\"%s\"). No "
-                    "changes detected. A.rev=%d, B.rev=%d. Changes: servers=%s, map=%s, replicas=%s",
+                    "changes detected. A.rev=%" PRId64 ", B.rev=%" PRId64 ". Changes: servers=%s, map=%s, replicas=%s",
                     provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
                     provider_string(new_config->get_origin()), new_config->get_address().c_str(), ca->revid, cb->revid,
                     (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no", (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
@@ -167,17 +167,18 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
             return 0;
         }
 
-        lcb_log(
-            LOGARGS(this, INFO),
-            R"(Setting new configuration. Received via %s (bucket="%.*s", rev=%d, address="%s"). Old config was from %s (bucket="%.*s", rev=%d, address="%s"). Changes: servers=%s, map=%s, replicas=%s)",
-            provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
-            new_config->vbc->revid, new_config->get_address().c_str(), provider_string(config->get_origin()),
-            (int)config->vbc->bname_len, config->vbc->bname, config->vbc->revid, config->get_address().c_str(),
-            (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no", (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
-            (chstatus & LCBVB_REPLICAS_MODIFIED) ? "yes" : "no");
+        lcb_log(LOGARGS(this, INFO),
+                R"(Setting new configuration. Received via %s (bucket="%.*s", rev=%)" PRId64
+                R"(, address="%s"). Old config was from %s (bucket="%.*s", rev=%)" PRId64
+                R"(, address="%s"). Changes: servers=%s, map=%s, replicas=%s)",
+                provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
+                new_config->vbc->revid, new_config->get_address().c_str(), provider_string(config->get_origin()),
+                (int)config->vbc->bname_len, config->vbc->bname, config->vbc->revid, config->get_address().c_str(),
+                (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no", (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
+                (chstatus & LCBVB_REPLICAS_MODIFIED) ? "yes" : "no");
     } else {
         lcb_log(LOGARGS(this, INFO),
-                R"(Setting initial configuration. Received via %s (bucket="%.*s", rev=%d, address="%s"))",
+                R"(Setting initial configuration. Received via %s (bucket="%.*s", rev=%)" PRId64 R"(, address="%s"))",
                 provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
                 new_config->vbc->revid, new_config->get_address().c_str());
     }

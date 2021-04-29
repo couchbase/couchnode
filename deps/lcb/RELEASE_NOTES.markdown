@@ -1,5 +1,15 @@
 # Release Notes
 
+## 3.1.2 (2021-04-26)
+
+* CCBC-1396: Fix recalculaton of key length for alt packets.
+* CCBC-1395: Parse configuration revision as `int64_t`.
+* MB-45759: Allow building libcouchbase with external Snappy
+* CCBC-1386: remove legacy options for `cbc-bucket-create`
+* CCBC-1394: Do not expose `LCB_ERR_BUCKET_NOT_FOUND` in operation callbacks. Instead retry operation automatically until timeout.
+* CCBC-1330: cbc. detect unknown collection during "populate" phase
+* CCBC-1373: Do not send collection in the key. Sending collection specification in both key and body breaks protocol, and the server will close the socket
+
 ## 3.1.1 (2021-04-07)
 
 * CCBC-1382: Return `LCB_ERR_CAS_MISMATCH` for operations with with REPLACE semantics instead of `LCB_ERR_DOCUMENT_EXISTS`.

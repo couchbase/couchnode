@@ -83,7 +83,7 @@ lcb_RETRY_ACTION lcb_kv_should_retry(const lcb_settings *settings, const mc_PACK
     retry_req.retry_attempts = pkt->retries;
     lcb_RETRY_ACTION retry_action{};
 
-    if (err == LCB_ERR_AUTHENTICATION_FAILURE || err == LCB_ERR_TOPOLOGY_CHANGE) {
+    if (err == LCB_ERR_AUTHENTICATION_FAILURE || err == LCB_ERR_TOPOLOGY_CHANGE || err == LCB_ERR_BUCKET_NOT_FOUND) {
         /* spurious auth error */
         /* special, topology change */
         retry_action.should_retry = 1;

@@ -18,6 +18,9 @@ ADD_EXECUTABLE(vb db/vb.c)
 TARGET_LINK_LIBRARIES(db couchbase)
 TARGET_LINK_LIBRARIES(vb couchbase)
 
+ADD_EXECUTABLE(dbx db/dbx.cc)
+TARGET_LINK_LIBRARIES(dbx couchbase)
+
 ADD_EXAMPLE(mcc mcc "" "")
 ADD_EXAMPLE(views-example views "" "")
 ADD_EXAMPLE(tick tick "" "")

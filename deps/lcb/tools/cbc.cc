@@ -1986,19 +1986,10 @@ void BucketCreateHandler::run()
     if (btype != "couchbase" && btype != "membase" && btype != "memcached") {
         throw BadArg("Unrecognized bucket type: " + btype);
     }
-    if (o_proxyport.passed() && o_bpass.passed()) {
-        throw BadArg("Custom ASCII port is only available for auth-less buckets");
-    }
 
     ss << "name=" << name;
     ss << "&bucketType=" << btype;
     ss << "&ramQuotaMB=" << o_ramquota.result();
-    if (o_proxyport.passed()) {
-        ss << "&authType=none&proxyPort=" << o_proxyport.result();
-    } else {
-        ss << "&authType=sasl&saslPassword=" << o_bpass.result();
-    }
-
     ss << "&replicaNumber=" << o_replicas.result();
     body_s = ss.str();
 

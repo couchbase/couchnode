@@ -827,13 +827,12 @@ class BucketCreateHandler : public AdminHandler
     HANDLER_USAGE("NAME [OPTIONS ...]")
     BucketCreateHandler()
         : AdminHandler("bucket-create"), o_btype("bucket-type"), o_ramquota("ram-quota"), o_bpass("bucket-password"),
-          o_replicas("num-replicas"), o_proxyport("moxi-port")
+          o_replicas("num-replicas")
     {
         o_btype.description("Bucket type {couchbase,memcached}").setDefault("couchbase");
         o_ramquota.description("RAM Quota for bucket (MB)").setDefault(100);
         o_bpass.description("Bucket password");
         o_replicas.description("Number of replicas for bucket").setDefault(1);
-        o_proxyport.description("[Compatibility] memcached listening port");
     }
 
   protected:
@@ -845,7 +844,6 @@ class BucketCreateHandler : public AdminHandler
         parser.addOption(o_ramquota);
         parser.addOption(o_bpass);
         parser.addOption(o_replicas);
-        parser.addOption(o_proxyport);
     }
 
     std::string getURI() override
@@ -870,7 +868,6 @@ class BucketCreateHandler : public AdminHandler
     cliopts::UIntOption o_ramquota;
     cliopts::StringOption o_bpass;
     cliopts::UIntOption o_replicas;
-    cliopts::UIntOption o_proxyport;
     std::string body_s;
 };
 

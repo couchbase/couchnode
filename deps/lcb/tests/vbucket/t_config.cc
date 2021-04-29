@@ -23,6 +23,7 @@
 #include <map>
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 #include "check_config.h"
+#include "contrib/cJSON/cJSON.h"
 
 using std::map;
 using std::string;
@@ -254,7 +255,7 @@ TEST_F(ConfigTest, testNondataNodes)
     const size_t ndatasrv = 3;
     const size_t nreplica = ndatasrv - 1;
 
-    vector< lcbvb_SERVER > servers;
+    vector<lcbvb_SERVER> servers;
     servers.resize(nservers);
 
     size_t ii;
@@ -263,14 +264,14 @@ TEST_F(ConfigTest, testNondataNodes)
         memset(&server, 0, sizeof server);
         server.svc.data = 1000 + ii;
         server.svc.views = 2000 + ii;
-        server.hostname = const_cast< char * >("dummy.host.ru");
+        server.hostname = const_cast<char *>("dummy.host.ru");
     }
 
     for (; ii < nservers; ii++) {
         lcbvb_SERVER &server = servers[ii];
         memset(&server, 0, sizeof server);
         server.svc.n1ql = 3000 + ii;
-        server.hostname = const_cast< char * >("query.host.biz");
+        server.hostname = const_cast<char *>("query.host.biz");
     }
 
     lcbvb_CONFIG *cfg_ex = lcbvb_create();
@@ -292,7 +293,7 @@ TEST_F(ConfigTest, testNondataNodes)
     ASSERT_EQ(ndatasrv, cfg_old->nsrv);
 
     // So far, so good.
-    vector< string > keys;
+    vector<string> keys;
     for (ii = 0; ii < 1024; ii++) {
         std::stringstream ss;
         ss << "Key_" << ii;
@@ -379,7 +380,7 @@ TEST_F(ConfigTest, testKetamaCompliance)
 
     // Iterate over the continuum in the vbuckets
     for (size_t ii = 0; ii < json.size(); ++ii) {
-        const Json::Value &cur = json[static_cast< int >(ii)];
+        const Json::Value &cur = json[static_cast<int>(ii)];
         unsigned exp_hash = cur["hash"].asUInt();
         string exp_server = cur["hostname"].asString();
         unsigned got_hash = vbc->continuum[ii].point;
@@ -406,4 +407,52 @@ TEST_F(ConfigTest, testPresentNodesextMissingNodesKetama)
     ASSERT_NE((const char *)NULL, lcbvb_get_hostport(vbc, 2, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN));
     ASSERT_EQ((const char *)NULL, lcbvb_get_hostport(vbc, 3, LCBVB_SVCTYPE_DATA, LCBVB_SVCMODE_PLAIN));
     lcbvb_destroy(vbc);
+}
+
+TEST_F(ConfigTest, testLargeRevision)
+{
+    std::string config_txt = "{"
+                             "\"max_int64\":9223372036854775807,"
+                             "\"min_int64\":-9223372036854775807,"
+                             "\"max_uint64\":18446744073709551615"
+                             "}";
+
+    {
+        cJSON *json = cJSON_Parse(config_txt.c_str());
+        cJSON *val;
+
+        val = cJSON_GetObjectItem(json, "max_int64");
+        ASSERT_TRUE(val != nullptr);
+        ASSERT_TRUE(val->type == cJSON_Number);
+        ASSERT_EQ(9223372036854775807, val->valueint);
+        ASSERT_DOUBLE_EQ(9.2233720368547779e+18, val->valuedouble);
+
+        val = cJSON_GetObjectItem(json, "min_int64");
+        ASSERT_TRUE(val != nullptr);
+        ASSERT_TRUE(val->type == cJSON_Number);
+        ASSERT_EQ(-9223372036854775807, val->valueint);
+        ASSERT_DOUBLE_EQ(-9.2233720368547779e+18, val->valuedouble);
+
+        val = cJSON_GetObjectItem(json, "max_uint64");
+        ASSERT_TRUE(val != nullptr);
+        ASSERT_TRUE(val->type == cJSON_Number);
+        ASSERT_EQ(18446744073709551615UL, val->valueint);
+        ASSERT_DOUBLE_EQ(1.8446744073709552e+19, val->valuedouble);
+
+        cJSON_Delete(json);
+    }
+
+    {
+        Json::Value json;
+        ASSERT_TRUE(Json::Reader().parse(config_txt, json));
+
+        ASSERT_TRUE(json.isMember("max_int64"));
+        ASSERT_EQ(9223372036854775807, json["max_int64"].asInt64());
+
+        ASSERT_TRUE(json.isMember("min_int64"));
+        ASSERT_EQ(-9223372036854775807, json["min_int64"].asInt64());
+
+        ASSERT_TRUE(json.isMember("max_uint64"));
+        ASSERT_EQ(18446744073709551615UL, json["max_uint64"].asUInt64());
+    }
 }

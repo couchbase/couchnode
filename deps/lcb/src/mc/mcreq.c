@@ -409,7 +409,15 @@ mc_PACKET *mcreq_renew_packet(const mc_PACKET *src)
                 }
                 nvdata = n_inflated;
                 hdr.request.datatype &= ~PROTOCOL_BINARY_DATATYPE_COMPRESSED;
-                hdr.request.bodylen = htonl(ntohs(hdr.request.keylen) + hdr.request.extlen + n_inflated);
+                uint16_t keylen;
+                uint8_t ffext = 0;
+                if (hdr.request.magic == PROTOCOL_BINARY_AREQ) {
+                    ffext = hdr.request.keylen & 0xff;
+                    keylen = (hdr.request.keylen >> 8) & 0xff;
+                } else {
+                    keylen = ntohs(hdr.request.keylen);
+                }
+                hdr.request.bodylen = htonl(keylen + hdr.request.extlen + ffext + n_inflated);
                 mcreq_write_hdr(dst, &hdr);
 
             } else {

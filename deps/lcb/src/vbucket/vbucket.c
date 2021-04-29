@@ -621,7 +621,7 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
         cfg->buuid = strdup(tmp);
     }
 
-    if (!get_jint(cj, "rev", &cfg->revid)) {
+    if (!get_jint64(cj, "rev", &cfg->revid)) {
         cfg->revid = -1;
     }
 

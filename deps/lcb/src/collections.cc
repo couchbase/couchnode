@@ -263,11 +263,7 @@ lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID 
     path.append(".");
     path.append(cmd->collection, cmd->ncollection);
 
-    lcb_KEYBUF key = {};
-    LCB_KREQ_SIMPLE(&key, path.c_str(), path.size());
     pkt->flags |= MCREQ_F_NOCID;
-    mcreq_reserve_key(pl, pkt, MCREQ_PKT_BASESIZE, &key, 0);
-
     protocol_binary_request_header hdr{};
     hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID;
