@@ -19,6 +19,11 @@ public:
     {
     }
 
+    ~Cookie()
+    {
+        _callback.Reset();
+    }
+
     Nan::MaybeLocal<Value> Call(int argc, Local<Value> *argv)
     {
         Local<Function> callback = Nan::New<Function>(_callback);

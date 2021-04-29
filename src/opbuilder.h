@@ -32,6 +32,7 @@ public:
         // ending the trace at the appropriate point in time.
 
         _callback.Reset();
+        _transcoder.Reset();
     }
 
     TraceSpan startDecodeTrace()
@@ -291,6 +292,8 @@ public:
 
     ~OpBuilder()
     {
+        _callback.Reset();
+        _transcoder.Reset();
     }
 
     TraceSpan startEncodeTrace()
