@@ -1041,3 +1041,47 @@ TEST_F(DurabilityUnitTest, testFailoverAndSeqno)
     dop.run(instance, &opts, kvo.result);
     ASSERT_EQ(LCB_ERR_DURABILITY_TOO_MANY, dop.resp_.ctx.rc);
 }
+
+extern "C" {
+struct RemoveResult {
+    lcb_STATUS rc{LCB_SUCCESS};
+    bool invoked{false};
+};
+static void removeCallback(lcb_INSTANCE *, int, const lcb_RESPREMOVE *resp)
+{
+    RemoveResult *res = nullptr;
+    lcb_respremove_cookie(resp, (void **)&res);
+    res->invoked = true;
+    res->rc = lcb_respremove_status(resp);
+}
+}
+
+TEST_F(DurabilityUnitTest, testRemoveWithDurability)
+{
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
+
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
+
+    string key = "key-remove";
+    Item itm = Item(key, key);
+    KVOperation kvo(&itm);
+    kvo.store(instance);
+
+    {
+        lcb_install_callback(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)removeCallback);
+
+        lcb_CMDREMOVE *cmd;
+        lcb_cmdremove_create(&cmd);
+        lcb_cmdremove_key(cmd, key.data(), key.size());
+        lcb_cmdremove_durability(cmd, LCB_DURABILITYLEVEL_MAJORITY);
+        RemoveResult res;
+        ASSERT_EQ(LCB_SUCCESS, lcb_remove(instance, &res, cmd));
+        lcb_cmdremove_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.invoked);
+        ASSERT_EQ(LCB_SUCCESS, res.rc);
+    }
+}

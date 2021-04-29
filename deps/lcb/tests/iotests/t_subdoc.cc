@@ -24,7 +24,7 @@ namespace std
 inline ostream &operator<<(ostream &os, const lcb_STATUS &rc)
 {
     os << "LcbError <0x";
-    os << std::hex << static_cast< unsigned >(rc);
+    os << std::hex << static_cast<unsigned>(rc);
     os << " (";
     os << lcb_strerror_short(rc);
     os << ")>";
@@ -56,10 +56,10 @@ class SubdocUnitTest : public MockUnitTest
 };
 
 struct Result {
-    lcb_STATUS rc;
-    uint64_t cas;
-    std::string value;
-    int index;
+    lcb_STATUS rc{LCB_ERR_AUTH_CONTINUE}; /* code, that unlikely returned by the library */
+    uint64_t cas{0};
+    std::string value{};
+    int index{-1};
 
     Result()
     {
@@ -74,7 +74,7 @@ struct Result {
 
     void clear()
     {
-        rc = LCB_ERR_GENERIC;
+        rc = LCB_ERR_AUTH_CONTINUE;
         cas = 0;
         index = -1;
         value.clear();
@@ -94,11 +94,12 @@ struct Result {
 };
 
 struct MultiResult {
-    std::vector< Result > results;
-    uint64_t cas;
-    lcb_STATUS rc;
-    unsigned cbtype;
-    bool is_single;
+    std::vector<Result> results{};
+    uint64_t cas{0};
+    /* this error code has been chosen because it is unlikely the library will ever expose it */
+    lcb_STATUS rc{LCB_ERR_AUTH_CONTINUE};
+    unsigned cbtype{0};
+    bool is_single{false};
 
     void clear()
     {
@@ -117,14 +118,12 @@ struct MultiResult {
     const Result &operator[](size_t ix) const
     {
         if (cbtype == LCB_CALLBACK_SDMUTATE) {
-            for (size_t ii = 0; ii < results.size(); ++ii) {
-                if (results[ix].index == ix) {
-                    return results[ix];
-                }
-
-                // Force bad index behavior
-                return results[results.size()];
+            if (results[ix].index == ix) {
+                return results[ix];
             }
+
+            // Force bad index behavior
+            return results[results.size()];
         }
         return results[ix];
     }
@@ -140,7 +139,7 @@ struct MultiResult {
     }
 };
 
-static ::testing::AssertionResult verifySingleOk(const char *, const MultiResult &mr, const char *value = NULL)
+static ::testing::AssertionResult verifySingleOk(const char *, const MultiResult &mr, const char *value = nullptr)
 {
     using namespace ::testing;
     if (mr.rc != LCB_SUCCESS) {
@@ -156,7 +155,7 @@ static ::testing::AssertionResult verifySingleOk(const char *, const MultiResult
     if (!mr.cas) {
         return AssertionFailure() << "Got zero CAS for successful op";
     }
-    if (value != NULL) {
+    if (value != nullptr) {
         if (value != mr.single_value()) {
             return AssertionFailure() << "Expected match: '" << value << "' Got '" << mr.single_value() << "'";
         }
@@ -169,7 +168,7 @@ static ::testing::AssertionResult verifySingleOk(const char *, const MultiResult
 
 static ::testing::AssertionResult verifySingleOk(const char *, const char *, const MultiResult &mr, const char *value)
 {
-    return verifySingleOk(NULL, mr, value);
+    return verifySingleOk(nullptr, mr, value);
 }
 
 static ::testing::AssertionResult verifySingleError(const char *, const char *, const MultiResult &mr, lcb_STATUS exp)
@@ -192,7 +191,7 @@ static ::testing::AssertionResult verifySingleError(const char *, const char *, 
 #define ASSERT_SD_ERR(res, err) ASSERT_PRED_FORMAT2(verifySingleError, res, err)
 
 extern "C" {
-static void subdocCallback(lcb_INSTANCE *, int cbtype, const lcb_RESPSUBDOC *resp)
+static void subdocCallback(lcb_INSTANCE *, int /* cbtype */, const lcb_RESPSUBDOC *resp)
 {
     MultiResult *mr;
     lcb_respsubdoc_cookie(resp, (void **)&mr);
@@ -202,7 +201,7 @@ static void subdocCallback(lcb_INSTANCE *, int cbtype, const lcb_RESPSUBDOC *res
     }
     size_t total = lcb_respsubdoc_result_size(resp);
     for (size_t idx = 0; idx < total; idx++) {
-        mr->results.push_back(Result(resp, idx));
+        mr->results.emplace_back(resp, idx);
     }
 }
 }
@@ -231,7 +230,7 @@ bool SubdocUnitTest::createSubdocConnection(HandleWrap &hw, lcb_INSTANCE **insta
     }
     lcb_wait(*instance, LCB_WAIT_DEFAULT);
 
-    if (res.rc == LCB_ERR_UNSUPPORTED_OPERATION || res.rc == LCB_ERR_UNSUPPORTED_OPERATION) {
+    if (res.rc == LCB_ERR_UNSUPPORTED_OPERATION) {
         return false;
     }
 
@@ -249,7 +248,7 @@ bool SubdocUnitTest::createSubdocConnection(HandleWrap &hw, lcb_INSTANCE **insta
         }                                                                                                              \
     } while (0);
 
-template < typename T >
+template <typename T>
 lcb_STATUS schedwait(lcb_INSTANCE *instance, MultiResult *res, const T *cmd,
                      lcb_STATUS (*fn)(lcb_INSTANCE *, void *, const T *))
 {
@@ -280,17 +279,17 @@ static ::testing::AssertionResult verifyPathValue(const char *, const char *, co
     if (rc != LCB_SUCCESS) {
         return AssertionFailure() << "Couldn't schedule operation: " << rc;
     }
-    return verifySingleOk(NULL, NULL, mr, exp);
+    return verifySingleOk(nullptr, nullptr, mr, exp);
 }
 
 #define ASSERT_PATHVAL_EQ(exp, instance, docid, path) ASSERT_PRED_FORMAT4(verifyPathValue, instance, docid, path, exp)
 
 TEST_F(SubdocUnitTest, testSdGetExists)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45)
     HandleWrap hw;
     lcb_INSTANCE *instance;
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     lcb_CMDSUBDOC *cmd;
     lcb_cmdsubdoc_create(&cmd);
@@ -391,10 +390,10 @@ TEST_F(SubdocUnitTest, testSdGetExists)
 
 TEST_F(SubdocUnitTest, testSdStore)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45)
     HandleWrap hw;
     lcb_INSTANCE *instance;
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     lcb_SUBDOCSPECS *spec;
     lcb_subdocspecs_create(&spec, 1);
@@ -428,7 +427,7 @@ TEST_F(SubdocUnitTest, testSdStore)
     lcb_cmdsubdoc_cas(cmd, 0); // Reset CAS
 
     // Try to add a compound value
-    const char *v = "{\"key\":\"value\"}";
+    const char *v = R"({"key":"value"})";
     lcb_subdocspecs_dict_upsert(spec, 0, 0, "dict", strlen("dict"), v, strlen(v));
     ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &res, cmd, lcb_subdoc));
     ASSERT_SD_OK(res);
@@ -481,12 +480,12 @@ TEST_F(SubdocUnitTest, testSdStore)
 
 TEST_F(SubdocUnitTest, testMkdoc)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_50);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_50)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     MultiResult res;
 
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     // Remove the item first
     removeKey(instance, key);
@@ -521,12 +520,12 @@ TEST_F(SubdocUnitTest, testMkdoc)
 
 TEST_F(SubdocUnitTest, testUnique)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     MultiResult res;
 
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     lcb_CMDSUBDOC *cmd;
 
@@ -573,12 +572,12 @@ TEST_F(SubdocUnitTest, testUnique)
 
 TEST_F(SubdocUnitTest, testCounter)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     MultiResult res;
 
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     lcb_CMDSUBDOC *cmd;
     lcb_cmdsubdoc_create(&cmd);
@@ -670,10 +669,10 @@ TEST_F(SubdocUnitTest, testCounter)
 
 TEST_F(SubdocUnitTest, testMultiLookup)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45)
     HandleWrap hw;
     lcb_INSTANCE *instance;
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     MultiResult mr;
     lcb_STATUS rc;
@@ -712,7 +711,7 @@ TEST_F(SubdocUnitTest, testMultiLookup)
 
     // Test multi lookups with bad command types
     lcb_subdocspecs_remove(specs, 1, 0, "array[0]", strlen("array[0]"));
-    rc = lcb_subdoc(instance, NULL, mcmd);
+    rc = lcb_subdoc(instance, nullptr, mcmd);
     ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, rc);
     // Reset it to its previous command
     lcb_subdocspecs_get(specs, 1, 0, "array[0]", strlen("array[0]"));
@@ -735,10 +734,10 @@ TEST_F(SubdocUnitTest, testMultiLookup)
 
 TEST_F(SubdocUnitTest, testMultiMutations)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_45)
     HandleWrap hw;
     lcb_INSTANCE *instance;
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     lcb_CMDSUBDOC *mcmd;
     lcb_cmdsubdoc_create(&mcmd);
@@ -768,7 +767,7 @@ TEST_F(SubdocUnitTest, testMultiMutations)
 
     // New context. Try with mismatched commands
     lcb_subdocspecs_get(specs, 0, 0, "p", 1);
-    rc = lcb_subdoc(instance, NULL, mcmd);
+    rc = lcb_subdoc(instance, nullptr, mcmd);
     ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, rc);
     lcb_subdocspecs_destroy(specs);
 
@@ -800,12 +799,12 @@ TEST_F(SubdocUnitTest, testMultiMutations)
 
 TEST_F(SubdocUnitTest, testGetCount)
 {
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_50);
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_50)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     MultiResult mres;
 
-    CREATE_SUBDOC_CONNECTION(hw, &instance);
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
 
     lcb_CMDSUBDOC *cmd;
 
@@ -833,4 +832,143 @@ TEST_F(SubdocUnitTest, testGetCount)
     lcb_subdocspecs_destroy(spec);
 
     lcb_cmdsubdoc_destroy(cmd);
+}
+
+extern "C" {
+static void storeCallback(lcb_INSTANCE *, int /* cbtype */, const lcb_RESPSTORE *resp)
+{
+    MultiResult *mr = nullptr;
+    lcb_respstore_cookie(resp, (void **)&mr);
+    mr->rc = lcb_respstore_status(resp);
+    if (mr->rc == LCB_SUCCESS) {
+        lcb_respstore_cas(resp, &mr->cas);
+    }
+}
+
+static void removeCallback(lcb_INSTANCE *, int /* cbtype */, const lcb_RESPREMOVE *resp)
+{
+    MultiResult *mr = nullptr;
+    lcb_respremove_cookie(resp, (void **)&mr);
+    mr->rc = lcb_respremove_status(resp);
+    if (mr->rc == LCB_SUCCESS) {
+        lcb_respremove_cas(resp, &mr->cas);
+    }
+}
+}
+
+TEST_F(SubdocUnitTest, testInsertErrorConsistency)
+{
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+
+    CREATE_SUBDOC_CONNECTION(hw, &instance)
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storeCallback);
+    lcb_install_callback(instance, LCB_CALLBACK_REMOVE, (lcb_RESPCALLBACK)removeCallback);
+
+    key = unique_name("sd_err");
+
+    std::uint64_t cas{0};
+
+    // ensure the document exists
+    {
+        MultiResult mres;
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_INSERT);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, "{}", 2);
+        ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, cmd, lcb_store));
+        ASSERT_EQ(LCB_SUCCESS, mres.rc) << lcb_strerror_short(mres.rc);
+        cas = mres.cas;
+        lcb_cmdstore_destroy(cmd);
+    }
+
+    // try to insert with zero CAS, expected code is DOCUMENT_EXISTS
+    {
+        MultiResult mres;
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_INSERT);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, "{}", 2);
+        ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, cmd, lcb_store));
+        ASSERT_EQ(LCB_ERR_DOCUMENT_EXISTS, mres.rc) << lcb_strerror_short(mres.rc);
+        lcb_cmdstore_destroy(cmd);
+    }
+
+    // upsert rejects CAS values earlier
+    {
+        MultiResult mres;
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_INSERT);
+        ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_cmdstore_cas(cmd, cas + 1));
+        lcb_cmdstore_destroy(cmd);
+    }
+
+    // try to replace with invalid CAS, expected code is CAS_MISMATCH
+    {
+        MultiResult mres;
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_REPLACE);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, "{}", 2);
+        lcb_cmdstore_cas(cmd, cas + 1);
+        ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, cmd, lcb_store));
+        ASSERT_EQ(LCB_ERR_CAS_MISMATCH, mres.rc) << lcb_strerror_short(mres.rc);
+        lcb_cmdstore_destroy(cmd);
+    }
+
+    // try to remove with invalid CAS, expected code is CAS_MISMATCH
+    {
+        MultiResult mres;
+        lcb_CMDREMOVE *cmd;
+        lcb_cmdremove_create(&cmd);
+        lcb_cmdremove_key(cmd, key.c_str(), key.size());
+        lcb_cmdremove_cas(cmd, cas + 1);
+        ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, cmd, lcb_remove));
+        ASSERT_EQ(LCB_ERR_CAS_MISMATCH, mres.rc) << lcb_strerror_short(mres.rc);
+        lcb_cmdremove_destroy(cmd);
+    }
+
+    // try to upsert path "foo"=42 with INSERT semantics and zero CAS, expected code is DOCUMENT_EXISTS
+    {
+        MultiResult mres;
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
+        lcb_cmdsubdoc_store_semantics(cmd, LCB_SUBDOC_STORE_INSERT);
+        lcb_SUBDOCSPECS *spec;
+        lcb_subdocspecs_create(&spec, 1);
+        lcb_subdocspecs_dict_upsert(spec, 0, 0, "foo", 3, "42", 2);
+        lcb_cmdsubdoc_specs(cmd, spec);
+        ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, cmd, lcb_subdoc));
+        ASSERT_EQ(LCB_ERR_DOCUMENT_EXISTS, mres.rc) << lcb_strerror_short(mres.rc);
+        lcb_subdocspecs_destroy(spec);
+        lcb_cmdsubdoc_destroy(cmd);
+    }
+
+    // subdocument operation with UPSERT semantics rejects CAS earlier
+    {
+        MultiResult mres;
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_store_semantics(cmd, LCB_SUBDOC_STORE_UPSERT);
+        ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_cmdsubdoc_cas(cmd, cas + 1));
+        lcb_cmdsubdoc_destroy(cmd);
+    }
+
+    // try to upsert path "foo"=42 with default (REPLACE) semantics and invalid CAS, expected code is CAS_MISMATCH
+    {
+        MultiResult mres;
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
+        lcb_cmdsubdoc_cas(cmd, cas + 1);
+        lcb_SUBDOCSPECS *spec;
+        lcb_subdocspecs_create(&spec, 1);
+        lcb_subdocspecs_dict_upsert(spec, 0, 0, "foo", 3, "42", 2);
+        lcb_cmdsubdoc_specs(cmd, spec);
+        ASSERT_EQ(LCB_SUCCESS, schedwait(instance, &mres, cmd, lcb_subdoc));
+        ASSERT_EQ(LCB_ERR_CAS_MISMATCH, mres.rc) << lcb_strerror_short(mres.rc);
+        lcb_subdocspecs_destroy(spec);
+        lcb_cmdsubdoc_destroy(cmd);
+    }
 }

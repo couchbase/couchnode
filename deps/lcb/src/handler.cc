@@ -251,7 +251,8 @@ static lcb_RESPCALLBACK find_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE 
  */
 
 template <typename T>
-void make_error(lcb_INSTANCE *instance, T *resp, const MemcachedResponse *response, lcb_STATUS imm)
+void make_error(lcb_INSTANCE *instance, T *resp, const MemcachedResponse *response, lcb_STATUS imm,
+                const mc_PACKET *req)
 {
     if (imm) {
         resp->ctx.rc = imm;
@@ -261,7 +262,7 @@ void make_error(lcb_INSTANCE *instance, T *resp, const MemcachedResponse *respon
     } else {
         resp->ctx.rc = lcb_map_error(instance, response->status());
     }
-    if (resp->ctx.rc == LCB_ERR_DOCUMENT_EXISTS && response->opcode() != PROTOCOL_BINARY_CMD_ADD) {
+    if (resp->ctx.rc == LCB_ERR_DOCUMENT_EXISTS && (req->flags & MCREQ_F_REPLACE_SEMANTICS) != 0) {
         resp->ctx.rc = LCB_ERR_CAS_MISMATCH;
     }
 }
@@ -281,7 +282,7 @@ template <typename T>
 void init_resp(lcb_INSTANCE *instance, mc_PIPELINE *pipeline, const MemcachedResponse *mc_resp, const mc_PACKET *req,
                lcb_STATUS immerr, T *resp)
 {
-    make_error(instance, resp, mc_resp, immerr);
+    make_error(instance, resp, mc_resp, immerr, req);
     resp->ctx.status_code = mc_resp->status();
     resp->ctx.cas = mc_resp->cas();
     resp->ctx.opaque = mc_resp->opaque();
@@ -714,7 +715,7 @@ static void H_observe(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespon
     mc_REQDATAEX *rd = request->u_rdata.exdata;
 
     lcb_RESPOBSERVE resp{};
-    make_error(root, &resp, response, immerr);
+    make_error(root, &resp, response, immerr, request);
 
     if (resp.ctx.rc != LCB_SUCCESS) {
         if (!(request->flags & MCREQ_F_INVOKED)) {
@@ -875,7 +876,7 @@ static void H_stats(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse
     lcb_RESPSTATS resp{};
     mc_REQDATAEX *exdata;
 
-    make_error(root, &resp, response, immerr);
+    make_error(root, &resp, response, immerr, request);
 
     exdata = request->u_rdata.exdata;
     if (resp.ctx.rc != LCB_SUCCESS || response->keylen() == 0) {
@@ -956,7 +957,7 @@ static void H_noop(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse 
     lcb_RESPNOOP resp{};
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
 
-    make_error(root, &resp, response, immerr);
+    make_error(root, &resp, response, immerr, request);
 
     exdata->procs->handler(pipeline, request, resp.ctx.rc, &resp);
 }
@@ -992,7 +993,7 @@ static void H_config(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
     /** We just jump to the normal config handler */
     lcb_RESPBASE dummy{};
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
-    make_error(get_instance(pipeline), &dummy, response, immerr);
+    make_error(get_instance(pipeline), &dummy, response, immerr, request);
 
     exdata->procs->handler(pipeline, request, dummy.ctx.rc, response);
 }
@@ -1002,7 +1003,7 @@ static void H_select_bucket(mc_PIPELINE *pipeline, mc_PACKET *request, Memcached
     lcb_RESPBASE dummy{};
     mc_REQDATAEX *exdata = request->u_rdata.exdata;
     if (exdata) {
-        make_error(get_instance(pipeline), &dummy, response, immerr);
+        make_error(get_instance(pipeline), &dummy, response, immerr, request);
         exdata->procs->handler(pipeline, request, dummy.ctx.rc, response);
     }
 }

@@ -104,7 +104,7 @@ static void testSetScopeMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lc
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_UPSERT, op);
-    ASSERT_EQ(LCB_ERR_SCOPE_NOT_FOUND, lcb_respstore_status(resp)) << lcb_strerror_short(lcb_respstore_status(resp));
+    ASSERT_EQ(LCB_ERR_TIMEOUT, lcb_respstore_status(resp)) << lcb_strerror_short(lcb_respstore_status(resp));
     const char *key;
     size_t nkey;
     lcb_respstore_key(resp, &key, &nkey);
@@ -120,7 +120,7 @@ static void testGetScopeMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lc
     int *counter;
     lcb_respget_cookie(resp, (void **)&counter);
     lcb_STATUS rc = lcb_respget_status(resp);
-    ASSERT_EQ(LCB_ERR_SCOPE_NOT_FOUND, rc) << lcb_strerror_short(rc);
+    ASSERT_EQ(LCB_ERR_TIMEOUT, rc) << lcb_strerror_short(rc);
     const char *key;
     size_t nkey;
     lcb_respget_key(resp, &key, &nkey);
@@ -199,7 +199,7 @@ static void testSetCollectionMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, con
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_UPSERT, op);
     lcb_STATUS rc = lcb_respstore_status(resp);
-    ASSERT_EQ(LCB_ERR_COLLECTION_NOT_FOUND, rc) << lcb_strerror_short(rc);
+    ASSERT_EQ(LCB_ERR_TIMEOUT, rc) << lcb_strerror_short(rc);
     const char *key;
     size_t nkey;
     lcb_respstore_key(resp, &key, &nkey);
@@ -215,7 +215,7 @@ static void testGetCollectionMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, con
     int *counter;
     lcb_respget_cookie(resp, (void **)&counter);
     lcb_STATUS rc = lcb_respget_status(resp);
-    ASSERT_EQ(LCB_ERR_COLLECTION_NOT_FOUND, rc) << lcb_strerror_short(rc);
+    ASSERT_EQ(LCB_ERR_TIMEOUT, rc) << lcb_strerror_short(rc);
     const char *key;
     size_t nkey;
     lcb_respget_key(resp, &key, &nkey);

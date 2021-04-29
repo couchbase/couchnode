@@ -178,7 +178,7 @@ typedef struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
     const lcb_RESPHTTP *cur_htresp;
     lcb_HTTP_HANDLE *htreq;
     lcb::jsparse::Parser *parser;
-    const void *cookie;
+    void *cookie;
     lcb_QUERY_CALLBACK callback;
     lcb_INSTANCE *instance;
     lcb_STATUS lasterr;
@@ -204,10 +204,16 @@ typedef struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
     uint32_t first_error_code{};
 
     /** Whether we're retrying this */
-    bool was_retried;
+    int retries{0};
 
-    /** Is this query to Analytics for N1QL service */
-    bool is_cbas;
+    std::string username{};
+    std::string password{};
+    std::string hostname{};
+    std::string port{};
+    std::string endpoint{};
+    std::vector<int> used_nodes{};
+    int last_vbcrev{0};
+    bool idempotent{false};
 
     lcbtrace_SPAN *span;
 
@@ -255,7 +261,10 @@ typedef struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
     /**
      * Returns true if payload matches retry conditions.
      */
-    inline bool has_retriable_error(const Json::Value &root);
+    inline bool has_retriable_error(lcb_STATUS rc);
+
+    void request_credentials();
+    lcb_STATUS request_address();
 
     /**
      * Did the application request this query to use prepared statements
@@ -275,6 +284,8 @@ typedef struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
      */
     inline void invoke_row(lcb_RESPQUERY *resp, bool is_last);
 
+    bool parse_meta(const char *row, size_t row_len, lcb_STATUS &rc);
+
     /**
      * Fail an application-level query because the prepared statement failed
      * @param orig The response from the PREPARE request
@@ -282,7 +293,7 @@ typedef struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
      */
     inline void fail_prepared(const lcb_RESPQUERY *orig, lcb_STATUS err);
 
-    inline lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie, const lcb_CMDQUERY *cmd);
+    inline lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, void *user_cookie, const lcb_CMDQUERY *cmd);
     inline ~lcb_QUERY_HANDLE_() override;
 
     // Parser overrides:
@@ -303,6 +314,14 @@ typedef struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
         // Nothing
     }
 
+    void on_timeout()
+    {
+        if (lasterr == LCB_SUCCESS) {
+            lasterr = LCB_ERR_TIMEOUT;
+        }
+        delete this;
+    }
+    lcb::io::Timer<lcb_QUERY_HANDLE_, &lcb_QUERY_HANDLE_::on_timeout> timer;
 } N1QLREQ;
 
 static bool parse_json(const char *s, size_t n, Json::Value &res)
@@ -336,63 +355,75 @@ void lcb_n1qlcache_getplan(lcb_N1QLCACHE *cache, const std::string &key, std::st
     }
 }
 
+lcb_STATUS N1QLREQ::request_address()
+{
+    if (!LCBT_VBCONFIG(instance)) {
+        return LCB_ERR_NO_CONFIGURATION;
+    }
+
+    const lcbvb_SVCMODE mode = LCBT_SETTING_SVCMODE(instance);
+
+    lcbvb_CONFIG *vbc = LCBT_VBCONFIG(instance);
+
+    if (last_vbcrev != vbc->revid) {
+        used_nodes.clear();
+        last_vbcrev = vbc->revid;
+    }
+    used_nodes.resize(LCBVB_NSERVERS(vbc));
+
+    int ix = lcbvb_get_randhost_ex(vbc, LCBVB_SVCTYPE_QUERY, mode, &used_nodes[0]);
+    if (ix < 0) {
+        return LCB_ERR_UNSUPPORTED_OPERATION;
+    }
+    used_nodes[ix] = 1;
+    hostname = lcbvb_get_hostname(vbc, ix);
+    port = std::to_string(lcbvb_get_port(vbc, ix, LCBVB_SVCTYPE_QUERY, mode));
+    endpoint = lcbvb_get_resturl(vbc, ix, LCBVB_SVCTYPE_QUERY, mode);
+    return LCB_SUCCESS;
+}
+
+void N1QLREQ::request_credentials()
+{
+    auto *auth = LCBT_SETTING(instance, auth);
+    username = auth->username_for(hostname.c_str(), port.c_str(), LCBT_SETTING(instance, bucket));
+    password = auth->password_for(hostname.c_str(), port.c_str(), LCBT_SETTING(instance, bucket));
+}
+
 static const char *wtf_magic_strings[] = {
     "index deleted or node hosting the index is down - cause: queryport.indexNotFound",
     "Index Not Found - cause: queryport.indexNotFound", nullptr};
 
-bool N1QLREQ::has_retriable_error(const Json::Value &root)
+bool N1QLREQ::has_retriable_error(lcb_STATUS rc)
 {
-    if (!root.isObject()) {
-        return false;
+    if (rc == LCB_ERR_PREPARED_STATEMENT_FAILURE) {
+        lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. rc: %s, code: %d, msg: %s", LOGID(this),
+                lcb_strerror_short(rc), first_error_code, first_error_message.c_str());
+        return true;
     }
-    const Json::Value &errors = root["errors"];
-    if (!errors.isArray()) {
-        return false;
+    if (first_error_code == 13014 &&
+        LCBT_SETTING(instance, auth)->mode() == LCBAUTH_MODE_DYNAMIC) { // datastore.couchbase.insufficient_credentials
+        request_credentials();
+        lcb_log(LOGARGS(this, TRACE), LOGFMT "Invalidate credentials and retry request. rc: %s, code: %d, msg: %s",
+                LOGID(this), lcb_strerror_short(rc), first_error_code, first_error_message.c_str());
+        return true;
     }
-    Json::Value::const_iterator ii;
-    for (ii = errors.begin(); ii != errors.end(); ++ii) {
-        const Json::Value &cur = *ii;
-        if (!cur.isObject()) {
-            continue; // eh?
-        }
-        const Json::Value &jmsg = cur["msg"];
-        const Json::Value &jcode = cur["code"];
-        unsigned code = 0;
-        if (jcode.isNumeric()) {
-            code = jcode.asUInt();
-            switch (code) {
-                    /* n1ql */
-                case 4040: /* statement not found */
-                case 4050:
-                case 4070:
-                    /* analytics */
-                case 23000:
-                case 23003:
-                case 23007:
-                    lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. code: %d", LOGID(this), code);
-                    return true;
-                default:
-                    break;
-            }
-        }
-        if (jmsg.isString()) {
-            const char *jmstr = jmsg.asCString();
-            for (const char **curs = wtf_magic_strings; *curs; curs++) {
-                if (!strstr(jmstr, *curs)) {
-                    lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. code: %d, msg: %s", LOGID(this), code,
-                            jmstr);
-                    return true;
-                }
+    if (!first_error_message.empty()) {
+        for (const char **curs = wtf_magic_strings; *curs; curs++) {
+            if (first_error_message.find(*curs)) {
+                lcb_log(LOGARGS(this, TRACE),
+                        LOGFMT "Special error message detected. Will retry request. rc: %s, code: %d, msg: %s",
+                        LOGID(this), lcb_strerror_short(rc), first_error_code, first_error_message.c_str());
+                return true;
             }
         }
     }
-    return false;
+    lcb_RETRY_ACTION retry = lcb_query_should_retry(instance->settings, this, rc);
+    return retry.should_retry;
 }
 
 bool N1QLREQ::maybe_retry()
 {
     // Examines the buffer to determine the type of error
-    Json::Value root;
     lcb_IOV meta;
 
     if (callback == nullptr) {
@@ -405,31 +436,30 @@ bool N1QLREQ::maybe_retry()
         return false;
     }
 
-    if (was_retried) {
-        return false;
-    }
-
-    if (!use_prepcache()) {
-        // Didn't use our built-in caching (maybe using it from elsewhere?)
-        return false;
-    }
-
-    was_retried = true;
+    lcb_STATUS rc = lasterr;
     parser->get_postmortem(meta);
-    if (!parse_json(static_cast<const char *>(meta.iov_base), meta.iov_len, root)) {
+    if (!parse_meta(static_cast<const char *>(meta.iov_base), meta.iov_len, rc)) {
         return false; // Not JSON
     }
-    if (!has_retriable_error(root)) {
+
+    if (!has_retriable_error(rc)) {
         return false;
     }
+    retries++;
 
-    lcb_log(LOGARGS(this, ERROR), LOGFMT "Repreparing statement. Index or version mismatch.", LOGID(this));
+    if (use_prepcache() && rc == LCB_ERR_PREPARED_STATEMENT_FAILURE) {
+        lcb_log(LOGARGS(this, ERROR), LOGFMT "Repreparing statement. Index or version mismatch.", LOGID(this));
 
-    // Let's see if we can actually retry. First remove the existing prepared
-    // entry:
-    cache().remove_entry(statement);
+        // Let's see if we can actually retry. First remove the existing prepared
+        // entry:
+        cache().remove_entry(statement);
+        lasterr = request_plan();
+    } else {
+        // re-issue original request body
+        lasterr = issue_htreq();
+    }
 
-    if ((lasterr = request_plan()) == LCB_SUCCESS) {
+    if (lasterr == LCB_SUCCESS) {
         // We'll be parsing more rows later on..
         delete parser;
         parser = new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_N1QL, this);
@@ -437,6 +467,133 @@ bool N1QLREQ::maybe_retry()
     }
 
     return false;
+}
+
+static lcb_RETRY_REASON query_code_to_reason(lcb_STATUS err)
+{
+    switch (err) {
+        case LCB_ERR_PREPARED_STATEMENT_FAILURE:
+            return LCB_RETRY_REASON_QUERY_PREPARED_STATEMENT_FAILURE;
+        case LCB_ERR_CANNOT_GET_PORT:
+        case LCB_ERR_SOCKET_SHUTDOWN:
+        case LCB_ERR_NETWORK:
+        case LCB_ERR_CONNECTION_REFUSED:
+        case LCB_ERR_CONNECTION_RESET:
+        case LCB_ERR_FD_LIMIT_REACHED:
+            return LCB_RETRY_REASON_SOCKET_NOT_AVAILABLE;
+        case LCB_ERR_NAMESERVER:
+        case LCB_ERR_NODE_UNREACHABLE:
+        case LCB_ERR_CONNECT_ERROR:
+        case LCB_ERR_UNKNOWN_HOST:
+            return LCB_RETRY_REASON_NODE_NOT_AVAILABLE;
+        default:
+            return LCB_RETRY_REASON_UNKNOWN;
+    }
+}
+lcb_RETRY_ACTION lcb_query_should_retry(const lcb_settings *settings, lcb_QUERY_HANDLE *query, lcb_STATUS err)
+{
+    lcb_RETRY_ACTION retry_action{};
+    lcb_RETRY_REASON retry_reason = query_code_to_reason(err);
+    if (err == LCB_ERR_TIMEOUT) {
+        /* We can't exceed a timeout for ETIMEDOUT */
+        retry_action.should_retry = 0;
+    } else if (err == LCB_ERR_AUTHENTICATION_FAILURE || lcb_retry_reason_is_always_retry(retry_reason)) {
+        retry_action.should_retry = 1;
+    } else {
+        lcb_RETRY_REQUEST retry_req;
+        retry_req.operation_cookie = query->cookie;
+        retry_req.is_idempotent = query->idempotent;
+        retry_req.retry_attempts = query->retries;
+        retry_action = settings->retry_strategy(&retry_req, retry_reason);
+    }
+    return retry_action;
+}
+
+bool N1QLREQ::parse_meta(const char *row, size_t row_len, lcb_STATUS &rc)
+{
+    Json::Value meta;
+    if (!parse_json(row, row_len, meta)) {
+        return false;
+    }
+    const Json::Value &errors = meta["errors"];
+    if (errors.isArray() && !errors.empty()) {
+        const Json::Value &err = errors[0];
+        const Json::Value &msg = err["msg"];
+        if (msg.isString()) {
+            first_error_message = msg.asString();
+        }
+        const Json::Value &code = err["code"];
+        if (code.isNumeric()) {
+            first_error_code = code.asUInt();
+            switch (first_error_code) {
+                case 3000:
+                    rc = LCB_ERR_PARSING_FAILURE;
+                    break;
+                case 12009:
+                    rc = LCB_ERR_DML_FAILURE;
+                    if (!first_error_message.empty()) {
+                        if (first_error_message.find("CAS mismatch") != std::string::npos) {
+                            rc = LCB_ERR_CAS_MISMATCH;
+                        }
+                    }
+                    break;
+                case 4040:
+                case 4050:
+                case 4060:
+                case 4070:
+                case 4080:
+                case 4090:
+                    rc = LCB_ERR_PREPARED_STATEMENT_FAILURE;
+                    break;
+                case 4300:
+                    rc = LCB_ERR_PLANNING_FAILURE;
+                    if (!first_error_message.empty()) {
+                        std::regex already_exists("index.+already exists");
+                        if (std::regex_search(first_error_message, already_exists)) {
+                            rc = LCB_ERR_INDEX_EXISTS;
+                        }
+                    }
+                    break;
+                case 5000:
+                    rc = LCB_ERR_INTERNAL_SERVER_FAILURE;
+                    if (!first_error_message.empty()) {
+                        std::regex already_exists("Index.+already exists"); /* NOTE: case sensitive */
+                        if (std::regex_search(first_error_message, already_exists)) {
+                            rc = LCB_ERR_INDEX_EXISTS;
+                        } else {
+                            std::regex not_found("index.+not found");
+                            if (std::regex_search(first_error_message, not_found)) {
+                                rc = LCB_ERR_INDEX_NOT_FOUND;
+                            }
+                        }
+                    }
+                    break;
+                case 12004:
+                case 12016:
+                    rc = LCB_ERR_INDEX_NOT_FOUND;
+                    break;
+                case 12003:
+                    rc = LCB_ERR_KEYSPACE_NOT_FOUND;
+                    break;
+                case 12021:
+                    rc = LCB_ERR_SCOPE_NOT_FOUND;
+                    break;
+                default:
+                    if (first_error_code >= 4000 && first_error_code < 5000) {
+                        rc = LCB_ERR_PLANNING_FAILURE;
+                    } else if (first_error_code >= 5000 && first_error_code < 6000) {
+                        rc = LCB_ERR_INTERNAL_SERVER_FAILURE;
+                    } else if (first_error_code >= 10000 && first_error_code < 11000) {
+                        rc = LCB_ERR_AUTHENTICATION_FAILURE;
+                    } else if ((first_error_code >= 12000 && first_error_code < 13000) ||
+                               (first_error_code >= 14000 && first_error_code < 15000)) {
+                        rc = LCB_ERR_INDEX_FAILURE;
+                    }
+                    break;
+            }
+        }
+    }
+    return true;
 }
 
 void N1QLREQ::invoke_row(lcb_RESPQUERY *resp, bool is_last)
@@ -460,85 +617,12 @@ void N1QLREQ::invoke_row(lcb_RESPQUERY *resp, bool is_last)
         parser->get_postmortem(meta_buf);
         resp->row = static_cast<const char *>(meta_buf.iov_base);
         resp->nrow = meta_buf.iov_len;
-        Json::Value meta;
-        if (parse_json(resp->row, resp->nrow, meta)) {
-            const Json::Value &errors = meta["errors"];
-            if (errors.isArray() && !errors.empty()) {
-                const Json::Value &err = errors[0];
-                const Json::Value &msg = err["msg"];
-                if (msg.isString()) {
-                    first_error_message = msg.asString();
-                    resp->ctx.first_error_message = first_error_message.c_str();
-                    resp->ctx.first_error_message_len = first_error_message.size();
-                }
-                const Json::Value &code = err["code"];
-                if (code.isNumeric()) {
-                    first_error_code = code.asUInt();
-                    resp->ctx.first_error_code = first_error_code;
-                    switch (first_error_code) {
-                        case 3000:
-                            resp->ctx.rc = LCB_ERR_PARSING_FAILURE;
-                            break;
-                        case 12009:
-                            resp->ctx.rc = LCB_ERR_CAS_MISMATCH;
-                            break;
-                        case 4040:
-                        case 4050:
-                        case 4060:
-                        case 4070:
-                        case 4080:
-                        case 4090:
-                            resp->ctx.rc = LCB_ERR_PREPARED_STATEMENT_FAILURE;
-                            break;
-                        case 4300:
-                            resp->ctx.rc = LCB_ERR_PLANNING_FAILURE;
-                            if (!first_error_message.empty()) {
-                                std::regex already_exists("index.+already exists");
-                                if (std::regex_search(first_error_message, already_exists)) {
-                                    resp->ctx.rc = LCB_ERR_INDEX_EXISTS;
-                                }
-                            }
-                            break;
-                        case 5000:
-                            resp->ctx.rc = LCB_ERR_INTERNAL_SERVER_FAILURE;
-                            if (!first_error_message.empty()) {
-                                std::regex already_exists("Index.+already exists"); /* NOTE: case sensitive */
-                                if (std::regex_search(first_error_message, already_exists)) {
-                                    resp->ctx.rc = LCB_ERR_INDEX_EXISTS;
-                                } else {
-                                    std::regex not_found("index.+not found");
-                                    if (std::regex_search(first_error_message, not_found)) {
-                                        resp->ctx.rc = LCB_ERR_INDEX_NOT_FOUND;
-                                    }
-                                }
-                            }
-                            break;
-                        case 12004:
-                        case 12016:
-                            resp->ctx.rc = LCB_ERR_INDEX_NOT_FOUND;
-                            break;
-                        case 12003:
-                            resp->ctx.rc = LCB_ERR_KEYSPACE_NOT_FOUND;
-                            break;
-                        case 12021:
-                            resp->ctx.rc = LCB_ERR_SCOPE_NOT_FOUND;
-                            break;
-                        default:
-                            if (first_error_code >= 4000 && first_error_code < 5000) {
-                                resp->ctx.rc = LCB_ERR_PLANNING_FAILURE;
-                            } else if (first_error_code >= 5000 && first_error_code < 6000) {
-                                resp->ctx.rc = LCB_ERR_INTERNAL_SERVER_FAILURE;
-                            } else if (first_error_code >= 10000 && first_error_code < 11000) {
-                                resp->ctx.rc = LCB_ERR_AUTHENTICATION_FAILURE;
-                            } else if ((first_error_code >= 12000 && first_error_code < 13000) ||
-                                       (first_error_code >= 14000 && first_error_code < 15000)) {
-                                resp->ctx.rc = LCB_ERR_INDEX_FAILURE;
-                            }
-                            break;
-                    }
-                }
-            }
+        parse_meta(resp->row, resp->nrow, resp->ctx.rc);
+        if (!first_error_message.empty()) {
+            resp->ctx.first_error_message = first_error_message.c_str();
+            resp->ctx.first_error_message_len = first_error_message.size();
         }
+        resp->ctx.first_error_code = first_error_code;
     }
 
     if (callback) {
@@ -578,6 +662,7 @@ lcb_QUERY_HANDLE_::~lcb_QUERY_HANDLE_()
     if (prepare_req) {
         lcb_query_cancel(instance, prepare_req);
     }
+    timer.release();
 }
 
 static void chunk_callback(lcb_INSTANCE *instance, int ign, const lcb_RESPBASE *rb)
@@ -664,25 +749,33 @@ static void prepare_rowcb(lcb_INSTANCE *instance, int, const lcb_RESPQUERY *row)
 
 lcb_STATUS N1QLREQ::issue_htreq(const std::string &body)
 {
+    lcb_STATUS rc = request_address();
+    if (rc != LCB_SUCCESS) {
+        return rc;
+    }
+
     std::string content_type("application/json");
 
     lcb_CMDHTTP *htcmd;
-    if (is_cbas) {
-        lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_ANALYTICS);
-    } else {
-        lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_QUERY);
-    }
+    lcb_cmdhttp_create(&htcmd, LCB_HTTP_TYPE_QUERY);
     lcb_cmdhttp_body(htcmd, body.c_str(), body.size());
     lcb_cmdhttp_content_type(htcmd, content_type.c_str(), content_type.size());
     lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_POST);
     lcb_cmdhttp_streaming(htcmd, true);
     lcb_cmdhttp_timeout(htcmd, timeout);
     lcb_cmdhttp_handle(htcmd, &htreq);
+    lcb_cmdhttp_host(htcmd, endpoint.data(), endpoint.size());
     if (flags & F_CMDN1QL_CREDSAUTH) {
         lcb_cmdhttp_skip_auth_header(htcmd, true);
+    } else {
+        if (username.empty() && password.empty()) {
+            request_credentials();
+        }
+        lcb_cmdhttp_username(htcmd, username.c_str(), username.size());
+        lcb_cmdhttp_password(htcmd, password.c_str(), password.size());
     }
 
-    lcb_STATUS rc = lcb_http(instance, this, htcmd);
+    rc = lcb_http(instance, this, htcmd);
     lcb_cmdhttp_destroy(htcmd);
     if (rc == LCB_SUCCESS) {
         htreq->set_callback(chunk_callback);
@@ -694,7 +787,7 @@ lcb_STATUS N1QLREQ::request_plan()
 {
     Json::Value newbody(Json::objectValue);
     newbody["statement"] = "PREPARE " + statement;
-    if (json["query_context"].isString()) {
+    if (json.isMember("query_context") && json["query_context"].isString()) {
         newbody["query_context"] = json["query_context"];
     }
     lcb_CMDQUERY newcmd;
@@ -747,10 +840,10 @@ lcb_U32 lcb_n1qlreq_parsetmo(const std::string &s)
     }
 }
 
-lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie, const lcb_CMDQUERY *cmd)
+lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, void *user_cookie, const lcb_CMDQUERY *cmd)
     : cur_htresp(nullptr), htreq(nullptr), parser(new lcb::jsparse::Parser(lcb::jsparse::Parser::MODE_N1QL, this)),
       cookie(user_cookie), callback(cmd->callback), instance(obj), lasterr(LCB_SUCCESS), flags(cmd->cmdflags),
-      timeout(0), nrows(0), prepare_req(nullptr), was_retried(false), is_cbas(false), span(nullptr)
+      timeout(0), nrows(0), prepare_req(nullptr), span(nullptr), timer(instance->iotable, this)
 {
     if (cmd->handle) {
         *cmd->handle = this;
@@ -782,10 +875,7 @@ lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie,
     }
 
     if (flags & LCB_CMDN1QL_F_ANALYTICSQUERY) {
-        is_cbas = true;
-    }
-    if (is_cbas && (flags & LCB_CMDN1QL_F_PREPCACHE)) {
-        lasterr = LCB_ERR_OPTIONS_CONFLICT;
+        lasterr = LCB_ERR_INVALID_ARGUMENT;
         return;
     }
 
@@ -806,6 +896,7 @@ lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie,
         char buf[64] = {0};
         sprintf(buf, "%uus", timeout);
         tmoval = buf;
+        json["timeout"] = buf;
     } else if (tmoval.isString()) {
         timeout = lcb_n1qlreq_parsetmo(tmoval.asString());
     } else {
@@ -822,6 +913,10 @@ lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie,
     } else {
         client_context_id = ccid.asString();
     }
+    if (json.isMember("readonly") && json["readonly"].asBool()) {
+        idempotent = true;
+    }
+    timer.rearm(timeout + LCBT_SETTING(obj, n1ql_grace_period));
 
     // Determine if we need to add more credentials.
     // Because N1QL multi-bucket auth will not work on server versions < 4.5
@@ -850,8 +945,7 @@ lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, const void *user_cookie,
         snprintf(id, sizeof(id), "%p", (void *)this);
         span = lcbtrace_span_start(instance->settings->tracer, LCBTRACE_OP_DISPATCH_TO_SERVER, LCBTRACE_NOW, nullptr);
         lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_OPERATION_ID, id);
-        lcbtrace_span_add_system_tags(span, instance->settings,
-                                      is_cbas ? LCBTRACE_TAG_SERVICE_ANALYTICS : LCBTRACE_TAG_SERVICE_N1QL);
+        lcbtrace_span_add_system_tags(span, instance->settings, LCBTRACE_TAG_SERVICE_N1QL);
     }
 }
 

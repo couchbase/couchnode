@@ -266,6 +266,21 @@ class MockEnvironment : public ::testing::Environment
         serverParams.makeConnectParams(crst, io, type);
     }
 
+    std::string getUsername()
+    {
+        return serverParams.getUsername();
+    }
+
+    std::string getPassword()
+    {
+        return serverParams.getPassword();
+    }
+
+    std::string getBucket()
+    {
+        return serverParams.getBucket();
+    }
+
     /**
      * Get the number of nodes used in the backend
      */

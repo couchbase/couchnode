@@ -54,15 +54,30 @@ class ServerParams
         lcb_createopts_io(crst, io);
     }
 
+    std::string getUsername()
+    {
+        return user;
+    }
+
+    std::string getPassword()
+    {
+        return pass;
+    }
+
+    std::string getBucket()
+    {
+        return bucket;
+    }
+
     const std::string &getMcPorts() const
     {
         return mcNodes;
     }
 
-    void setMcPorts(const std::vector< int > &portlist)
+    void setMcPorts(const std::vector<int> &portlist)
     {
         std::stringstream ss;
-        for (std::vector< int >::const_iterator ii = portlist.begin(); ii != portlist.end(); ii++) {
+        for (std::vector<int>::const_iterator ii = portlist.begin(); ii != portlist.end(); ii++) {
             ss << "localhost";
             ss << ":";
             ss << std::dec << *ii;

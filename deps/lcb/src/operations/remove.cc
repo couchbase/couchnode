@@ -28,7 +28,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_context(const lcb_RESPREMOVE *r
                                                          const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
     if (resp->rflags & LCB_RESP_F_ERRINFO) {
-        lcb_RESPREMOVE *mut = const_cast<lcb_RESPREMOVE *>(resp);
+        auto *mut = const_cast<lcb_RESPREMOVE *>(resp);
         mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
         if (mut->ctx.context) {
             mut->ctx.context_len = strlen(resp->ctx.context);
@@ -175,6 +175,7 @@ lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, const lcb_CMDREMOVE 
         size_t hsize;
         lcb_STATUS err;
 
+        hdr->request.magic = PROTOCOL_BINARY_REQ;
         if (cmd->dur_level && new_durability_supported) {
             hdr->request.magic = PROTOCOL_BINARY_AREQ;
             ffextlen = 4;
@@ -188,7 +189,6 @@ lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, const lcb_CMDREMOVE 
         hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
 
         hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        hdr->request.magic = PROTOCOL_BINARY_REQ;
         hdr->request.opcode = PROTOCOL_BINARY_CMD_DELETE;
         hdr->request.cas = lcb_htonll(cmd->cas);
         hdr->request.opaque = pkt->opaque;
@@ -199,6 +199,7 @@ lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, const lcb_CMDREMOVE 
             req.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
         }
 
+        pkt->flags |= MCREQ_F_REPLACE_SEMANTICS;
         pkt->u_rdata.reqdata.cookie = cookie;
         pkt->u_rdata.reqdata.start = gethrtime();
         pkt->u_rdata.reqdata.deadline =

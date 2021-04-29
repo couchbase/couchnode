@@ -288,4 +288,14 @@ struct lcb_cntl_rdballocfactory {
  */
 #define LCB_CNTL_WAIT_FOR_CONFIG 0x5c
 
+/**
+ * @brief N1QL grace period
+ * This is time interval that will be added to I/O timeout of N1QL queries to amortize time spent on LCB time during
+ * request handing
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_QUERY_GRACE_PERIOD 0x64
+
 /**@}*/

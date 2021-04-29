@@ -288,7 +288,13 @@ typedef enum {
     /**
      * Do not encode collection ID for this packet
      */
-    MCREQ_F_NOCID = 1u << 10u
+    MCREQ_F_NOCID = 1u << 10u,
+
+    /**
+     * The request has "replace" store semantics.
+     * Utilized during error translation to map DOCUMENT_EXISTS to CAS_MISMATCH (see make_error() in handler.cc)
+     */
+    MCREQ_F_REPLACE_SEMANTICS = 1u << 11u
 } mcreq_flags;
 
 /** @brief mask of flags indicating user-allocated buffers */

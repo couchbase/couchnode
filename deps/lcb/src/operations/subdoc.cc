@@ -134,6 +134,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_timeout(lcb_CMDSUBDOC *cmd, uint32_t t
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_cas(lcb_CMDSUBDOC *cmd, uint64_t cas)
 {
+    if ((cmd->cmdflags & (LCB_CMDSUBDOC_F_UPSERT_DOC | LCB_CMDSUBDOC_F_INSERT_DOC)) != 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     cmd->cas = cas;
     return LCB_SUCCESS;
 }
@@ -374,6 +377,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_durability(lcb_CMDSUBDOC *cmd, lcb_DUR
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_store_semantics(lcb_CMDSUBDOC *cmd, lcb_SUBDOC_STORE_SEMANTICS mode)
 {
+    if (cmd->cas != 0 && (mode == LCB_SUBDOC_STORE_UPSERT || mode == LCB_SUBDOC_STORE_INSERT)) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
     cmd->cmdflags &= ~(LCB_CMDSUBDOC_F_UPSERT_DOC | LCB_CMDSUBDOC_F_INSERT_DOC);
     switch (mode) {
         case LCB_SUBDOC_STORE_REPLACE:
@@ -890,6 +896,9 @@ lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC 
         }
         if (docflags) {
             memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE + ffextlen + (extlen - 1), &docflags, 1);
+        }
+        if (ctx.is_mutate() && (cmd->cmdflags & LCB_CMDSUBDOC_F_INSERT_DOC) == 0) {
+            pkt->flags |= MCREQ_F_REPLACE_SEMANTICS;
         }
 
         MCREQ_PKT_RDATA(pkt)->cookie = cookie;

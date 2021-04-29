@@ -18,6 +18,8 @@
 #include "config.h"
 #include "iotests.h"
 #include <libcouchbase/couchbase.h>
+
+#include <utility>
 #include "internal.h"
 
 using std::string;
@@ -29,6 +31,8 @@ struct N1QLResult {
     uint16_t htcode{};
     lcb_STATUS rc{};
     bool called{};
+    string status;
+    vector<std::pair<unsigned int, string>> errors;
 
     N1QLResult()
     {
@@ -41,6 +45,8 @@ struct N1QLResult {
         rc = LCB_SUCCESS;
         meta.clear();
         rows.clear();
+        status.clear();
+        errors.clear();
         htcode = 0;
     }
 };
@@ -67,6 +73,19 @@ static void rowcb(lcb_INSTANCE *, int, const lcb_RESPQUERY *resp)
         res->rc = lcb_respquery_status(resp);
         if (row) {
             res->meta.assign(row, nrow);
+            Json::Value meta;
+            if (Json::Reader().parse(res->meta.data(), res->meta.data() + res->meta.size(), meta)) {
+                res->status = meta["status"].asString();
+
+                Json::Value &errors = meta["errors"];
+                if (errors.isArray()) {
+                    for (auto &err : errors) {
+                        if (err.isObject()) {
+                            res->errors.emplace_back(err["code"].asUInt(), err["msg"].asString());
+                        }
+                    }
+                }
+            }
         }
         const lcb_RESPHTTP *http = nullptr;
         lcb_respquery_http_response(resp, &http);
@@ -549,4 +568,207 @@ TEST_F(QueryUnitTest, testCollectionPreparedQuery)
     ASSERT_TRUE(res.called);
     ASSERT_EQ(LCB_SUCCESS, res.rc) << lcb_strerror_short(res.rc);
     ASSERT_EQ(1, res.rows.size());
+}
+
+using credentials = std::pair<string, string>;
+
+struct cycled_auth {
+  private:
+    vector<credentials> store_;
+    size_t cur_;
+    credentials fallback_;
+    string port_;
+
+  public:
+    cycled_auth(string port, credentials fallback)
+        : store_(), cur_(0), fallback_(std::move(fallback)), port_(std::move(port))
+    {
+    }
+
+    void add(const string &username, const string &password)
+    {
+        store_.emplace_back(username, password);
+    }
+
+    void clear()
+    {
+        cur_ = 0;
+        store_.clear();
+    }
+
+    const credentials &get(const string &port)
+    {
+        if (port == port_) {
+            return store_[cur_];
+        }
+        return fallback_;
+    }
+
+    void advance(const string &port)
+    {
+        if (port == port_) {
+            cur_ = (cur_ + 1) % store_.size();
+        }
+    }
+};
+
+extern "C" {
+static const char *get_username(void *cookie, const char * /* host */, const char *port, const char * /* bucket */)
+{
+    auto *auth = static_cast<cycled_auth *>(cookie);
+    return auth->get(port).first.c_str();
+}
+
+static const char *get_password(void *cookie, const char * /* host */, const char *port, const char * /* bucket */)
+{
+    auto *auth = static_cast<cycled_auth *>(cookie);
+    const char *value = auth->get(port).second.c_str();
+    auth->advance(port);
+    return value;
+}
+}
+
+string get_n1ql_port(lcb_INSTANCE *instance)
+{
+
+    lcbvb_CONFIG *vbc;
+    lcb_STATUS rc;
+    rc = lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_VBCONFIG, &vbc);
+    EXPECT_EQ(LCB_SUCCESS, rc);
+    std::stringstream buf;
+    unsigned int port = lcbvb_get_port(vbc, 0, LCBVB_SVCTYPE_QUERY, LCBVB_SVCMODE_PLAIN);
+    buf << port;
+    return buf.str();
+}
+
+TEST_F(QueryUnitTest, testRetryOnAuthenticationFailure)
+{
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_50)
+    createConnection(hw, &instance);
+    lcb_cntl_setu32(instance, LCB_CNTL_QUERY_TIMEOUT, LCB_MS2US(100)); // 100ms before timeout
+
+    string valid_username = MockEnvironment::getInstance()->getUsername();
+    string valid_password = MockEnvironment::getInstance()->getPassword();
+    string invalid_password = valid_password + "_garbage";
+
+    credentials fallback_credentials(valid_username, valid_password);
+    cycled_auth ca(get_n1ql_port(instance), fallback_credentials);
+
+    lcb_AUTHENTICATOR *auth = lcbauth_new();
+    lcbauth_set_callbacks(auth, &ca, get_username, get_password);
+    lcbauth_set_mode(auth, LCBAUTH_MODE_DYNAMIC);
+    lcb_set_auth(instance, auth);
+
+    N1QLResult res;
+    string query;
+
+    query = string("CREATE PRIMARY INDEX ON `") + MockEnvironment::getInstance()->getBucket() + "`";
+    makeCommand(query.c_str(), false);
+
+    // make sure the index exists
+    {
+        res.reset();
+        ca.clear();
+        ca.add(valid_username, valid_password);
+
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+    }
+
+    query = string("SELECT * FROM `") + MockEnvironment::getInstance()->getBucket() + "`";
+    makeCommand(query.c_str(), false);
+
+    // send query with valid password
+    {
+        res.reset();
+        ca.clear();
+        ca.add(valid_username, valid_password);
+
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_TRUE(res.errors.empty());
+    }
+
+    // send query with invalid password
+    {
+        res.reset();
+        ca.clear();
+        ca.add(valid_username, invalid_password);
+
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_ERR_TIMEOUT, res.rc); // timeout because of retrying
+    }
+
+    // send query with valid password
+    {
+        res.reset();
+        ca.clear();
+        ca.add(valid_username, invalid_password); // first request
+        ca.add(valid_username, valid_password);   // second request
+
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_TRUE(res.errors.empty());
+    }
+
+    // the same as above, but for prepared statement
+    query = string("SELECT * FROM `") + MockEnvironment::getInstance()->getBucket() + "`";
+    makeCommand(query.c_str(), true);
+
+    // send query with valid password
+    {
+        res.reset();
+        ca.clear();
+        ca.add(valid_username, valid_password);
+
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_TRUE(res.errors.empty());
+    }
+
+    // send query with invalid password
+    {
+        res.reset();
+        ca.clear();
+        ca.add(valid_username, invalid_password);
+
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_ERR_TIMEOUT, res.rc); // timeout because of retrying
+    }
+
+    // send query with valid password
+    {
+        res.reset();
+        ca.clear();
+        ca.add(valid_username, invalid_password); // first request
+        ca.add(valid_username, valid_password);   // second request
+        ca.add(valid_username, valid_password);   // third request
+
+        lcb_STATUS rc = lcb_query(instance, &res, cmd);
+        ASSERT_EQ(LCB_SUCCESS, rc);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_TRUE(res.errors.empty());
+    }
 }

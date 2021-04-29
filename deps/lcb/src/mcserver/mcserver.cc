@@ -266,7 +266,7 @@ bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpk
     if (req.request.opcode == PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID) {
         mc_PACKET *newpkt = mcreq_renew_packet(oldpkt);
         newpkt->flags &= ~MCREQ_STATE_FLAGS;
-        instance->retryq->ucadd((mc_EXPACKET *)newpkt, orig_err, orig_status);
+        instance->retryq->ucadd((mc_EXPACKET *)newpkt, LCB_ERR_TIMEOUT, orig_status);
         return true;
     }
 
@@ -281,13 +281,13 @@ bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpk
     wrapper.pkt = mcreq_renew_packet(oldpkt);
     wrapper.instance = instance;
     wrapper.timeout = LCB_NS2US(MCREQ_PKT_RDATA(wrapper.pkt)->deadline - now);
-    auto operation = [this, orig_err, orig_status](const lcb_RESPGETCID *, packet_wrapper *wrp) {
+    auto operation = [this, orig_status](const lcb_RESPGETCID *, packet_wrapper *wrp) {
         if ((wrp->pkt->flags & MCREQ_F_NOCID) == 0) {
             mcreq_set_cid(this, wrp->pkt, wrp->cid);
         }
         /** Reschedule the packet again .. */
         wrp->pkt->flags &= ~MCREQ_STATE_FLAGS;
-        wrp->instance->retryq->ucadd((mc_EXPACKET *)wrp->pkt, orig_err, orig_status);
+        wrp->instance->retryq->ucadd((mc_EXPACKET *)wrp->pkt, LCB_ERR_TIMEOUT, orig_status);
         return LCB_SUCCESS;
     };
 
@@ -367,7 +367,7 @@ static bool is_fastpath_error(uint16_t rc)
 int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedResponse &mcresp, lcb_STATUS &newerr)
 {
 
-    if (!settings->errmap->isLoaded()) {
+    if (!settings->use_errmap || !settings->errmap->isLoaded()) {
         // If there's no error map, just return false
         return ERRMAP_HANDLE_CONTINUE;
     }
@@ -759,7 +759,7 @@ static const char *opcode_name(uint8_t code)
 
 void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
 {
-    if (maybe_retry_packet(pkt, err, PROTOCOL_BINARY_RESPONSE_EINTERNAL)) {
+    if (maybe_retry_packet(pkt, err, PROTOCOL_BINARY_RESPONSE_UNSPECIFIED)) {
         return;
     }
 

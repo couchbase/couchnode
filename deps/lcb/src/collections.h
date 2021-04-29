@@ -143,9 +143,11 @@ lcb_STATUS collcache_resolve(lcb_INSTANCE *instance, Command cmd, Operation op, 
     hdr.request.opcode = PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.opaque = pkt->opaque;
-    hdr.request.keylen = ntohs(spec.size());
+    hdr.request.keylen = 0;
     hdr.request.bodylen = htonl(spec.size());
     mcreq_write_hdr(pkt, &hdr);
+    mcreq_reserve_value2(pl, pkt, spec.size());
+    memcpy(SPAN_BUFFER(&pkt->u_value.single), spec.data(), spec.size());
 
     MutableCommand clone{};
     dup(cmd, &clone);

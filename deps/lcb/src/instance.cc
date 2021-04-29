@@ -929,7 +929,7 @@ static bool is_valid_collection_element(const char *element, size_t element_len)
 static bool is_default_collection_element(const char *element, size_t element_len)
 {
     static const std::string default_name("_default");
-    if (element_len == 0 || element == nullptr || default_name.compare(0, element_len, element) != 0) {
+    if (element_len == 0 || element == nullptr || default_name.compare(0, element_len, element) == 0) {
         return true;
     }
     return false;

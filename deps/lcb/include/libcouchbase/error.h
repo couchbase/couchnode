@@ -123,6 +123,7 @@ X(LCB_ERR_PLANNING_FAILURE,             401, LCB_ERROR_TYPE_QUERY, 0, "Planning 
 X(LCB_ERR_INDEX_FAILURE,                402, LCB_ERROR_TYPE_QUERY, 0, "Query index failure") \
 X(LCB_ERR_PREPARED_STATEMENT_FAILURE,   403, LCB_ERROR_TYPE_QUERY, 0, "Prepared statement failure") \
 X(LCB_ERR_KEYSPACE_NOT_FOUND,           404, LCB_ERROR_TYPE_QUERY, 0, "Keyspace is not found (collection or bucket does not exist)") \
+X(LCB_ERR_DML_FAILURE,                  405, LCB_ERROR_TYPE_QUERY, 0, "Data service returned an error during execution of DML statement") \
 \
 /* Analytics Error Definitions */ \
 X(LCB_ERR_COMPILATION_FAILED,           501, LCB_ERROR_TYPE_ANALYTICS, 0, "Compilation failed") \

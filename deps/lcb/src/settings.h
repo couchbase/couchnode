@@ -139,6 +139,7 @@ typedef struct lcb_settings_st {
     lcb_U32 n1ql_timeout;
     lcb_U32 analytics_timeout;
     lcb_U32 search_timeout;
+    lcb_U32 n1ql_grace_period; /** grace period added to query timeout, in microseconds */
     lcb_U32 durability_timeout;
     lcb_U32 durability_interval;
     lcb_U32 persistence_timeout_floor;
@@ -185,6 +186,7 @@ typedef struct lcb_settings_st {
     unsigned use_collections : 1;
     unsigned log_redaction : 1;
     unsigned use_tracing : 1;
+    unsigned use_errmap : 1;
     unsigned allow_static_config : 1;
     /** Do not use remap vbuckets (do not use fast forward map, or any other heuristics) */
     unsigned vb_noremap : 1;

@@ -90,6 +90,8 @@ static std::uint32_t *get_timeout_field(lcb_INSTANCE *instance, int cmd)
             return &settings->views_timeout;
         case LCB_CNTL_QUERY_TIMEOUT:
             return &settings->n1ql_timeout;
+        case LCB_CNTL_QUERY_GRACE_PERIOD:
+            return &settings->n1ql_grace_period;
         case LCB_CNTL_ANALYTICS_TIMEOUT:
             return &settings->analytics_timeout;
         case LCB_CNTL_SEARCH_TIMEOUT:
@@ -235,6 +237,8 @@ HANDLER(select_bucket_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, select
 HANDLER(log_redaction_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, log_redaction))}
 
 HANDLER(enable_tracing_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, use_tracing))}
+
+HANDLER(enable_errmap_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, use_errmap))}
 
 HANDLER(tracing_orphaned_queue_size_handler){
     RETURN_GET_SET(std::uint32_t, LCBT_SETTING(instance, tracer_orphaned_queue_size))}
@@ -819,6 +823,8 @@ static ctl_handler handlers[] = {
     timeout_common,                       /* LCB_CNTL_ANALYTICS_TIMEOUT */
     unordered_execution_handler,          /* LCB_CNTL_ENABLE_UNORDERED_EXECUTION */
     timeout_common,                       /* LCB_CNTL_SEARCH_TIMEOUT */
+    timeout_common,                       /* LCB_CNTL_QUERY_GRACE_PERIOD */
+    enable_errmap_handler,                /* LCB_CNTL_ENABLE_ERRMAP */
     nullptr
 };
 /* clang-format on */
@@ -1051,6 +1057,8 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"analytics_timeout", LCB_CNTL_ANALYTICS_TIMEOUT, convert_timevalue},
     {"enable_unordered_execution", LCB_CNTL_ENABLE_UNORDERED_EXECUTION, convert_intbool},
     {"search_timeout", LCB_CNTL_SEARCH_TIMEOUT, convert_timevalue},
+    {"query_grace_period", LCB_CNTL_QUERY_GRACE_PERIOD, convert_timevalue},
+    {"enable_errmap", LCB_CNTL_ENABLE_ERRMAP, convert_intbool},
     {nullptr, -1}};
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))

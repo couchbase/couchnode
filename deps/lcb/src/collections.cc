@@ -273,9 +273,11 @@ lcb_STATUS lcb_getcid(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETCID 
     hdr.request.opcode = PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.opaque = pkt->opaque;
-    hdr.request.keylen = ntohs(path.size());
+    hdr.request.keylen = 0;
     hdr.request.bodylen = htonl(path.size());
     mcreq_write_hdr(pkt, &hdr);
+    mcreq_reserve_value2(pl, pkt, path.size());
+    memcpy(SPAN_BUFFER(&pkt->u_value.single), path.data(), path.size());
 
     pkt->u_rdata.reqdata.cookie = cookie;
     pkt->u_rdata.reqdata.start = gethrtime();

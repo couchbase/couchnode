@@ -290,7 +290,10 @@ typedef enum {
      * According to the spec all xattr commands should come first,
      * followed by the commands for the document body
      */
-    PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER = 0xd4
+    PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER = 0xd4,
+
+    /** UNSPECIFIED, the server does not use this status code */
+    PROTOCOL_BINARY_RESPONSE_UNSPECIFIED = 0xff
 } protocol_binary_response_status;
 
 /**

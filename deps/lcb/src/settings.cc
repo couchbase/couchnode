@@ -30,6 +30,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->n1ql_timeout = LCB_DEFAULT_N1QL_TIMEOUT;
     settings->analytics_timeout = LCB_DEFAULT_ANALYTICS_TIMEOUT;
     settings->search_timeout = LCB_DEFAULT_SEARCH_TIMEOUT;
+    settings->n1ql_grace_period = 0;
     settings->durability_timeout = LCB_DEFAULT_DURABILITY_TIMEOUT;
     settings->durability_interval = LCB_DEFAULT_DURABILITY_INTERVAL;
     settings->persistence_timeout_floor = LCB_DEFAULT_PERSISTENCE_TIMEOUT_FLOOR;
@@ -81,6 +82,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->enable_durable_write = 0;
     settings->retry_strategy = lcb_retry_strategy_best_effort;
     settings->enable_unordered_execution = 1;
+    settings->use_errmap = 1;
 }
 
 LCB_INTERNAL_API

@@ -94,9 +94,9 @@ TEST_F(MutateUnitTest, testStoreZeroLengthKey)
     lcb_sched_enter(instance);
     lcb_CMDSTORE *cmd;
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-    lcb_cmdstore_key(cmd, NULL, 0);
+    lcb_cmdstore_key(cmd, nullptr, 0);
     lcb_cmdstore_value(cmd, "bar", 3);
-    EXPECT_EQ(LCB_ERR_EMPTY_KEY, lcb_store(instance, NULL, cmd));
+    EXPECT_EQ(LCB_ERR_EMPTY_KEY, lcb_store(instance, nullptr, cmd));
     lcb_cmdstore_destroy(cmd);
     lcb_sched_leave(instance);
 }
@@ -130,7 +130,7 @@ TEST_F(MutateUnitTest, testStoreZeroLengthValue)
     lcb_CMDSTORE *cmd;
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key.data(), key.length());
-    lcb_cmdstore_value(cmd, NULL, 0);
+    lcb_cmdstore_value(cmd, nullptr, 0);
     int numcallbacks = 0;
     EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);

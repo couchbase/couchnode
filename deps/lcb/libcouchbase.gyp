@@ -184,7 +184,6 @@
         './'
       ],
       'sources': [
-        'src/analytics/analyticscore.cc',
         'src/bucketconfig/bc_cccp.cc',
         'src/bucketconfig/bc_file.cc',
         'src/bucketconfig/bc_http.cc',
@@ -194,6 +193,7 @@
         'src/capi/query.cc',
         'src/capi/search.cc',
         'src/capi/views.cc',
+        'src/cbas/cbas.cc',
         'src/docreq/docreq.cc',
         'src/http/http.cc',
         'src/http/http_io.cc',

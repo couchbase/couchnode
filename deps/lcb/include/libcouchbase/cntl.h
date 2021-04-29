@@ -1287,10 +1287,21 @@ typedef enum {
 #define LCB_CNTL_SEARCH_TIMEOUT 0x63
 
 /**
+ * Enable/Disable the Error Map feature. This is disabled by default.
+ * Works only on servers which support error map
+ *
+ * Use `enable_errmap` in the connection string
+ *
+ * @cntl_arg_both{int* (as boolean)}
+ */
+
+#define LCB_CNTL_ENABLE_ERRMAP 0x65
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX 0x64
+#define LCB_CNTL__MAX 0x66
 /**@}*/
 
 #ifdef __cplusplus

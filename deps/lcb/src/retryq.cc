@@ -161,11 +161,15 @@ void RetryQueue::fail(RetryOp *op, lcb_STATUS err, hrtime_t now)
 
     assign_error(op, err);
     lcb_log(LOGARGS(this, WARN),
-            "Failing command (pkt=%p, opaque=%u, retries=%d, time=%" PRIu64 "us, status=0x%02x) from retry queue: %s",
+            "Failing command (pkt=%p, opaque=%u, retries=%d, time=%" PRIu64
+            "us, status=0x%02x) requested error: %s, from retry queue: %s",
             (void *)op->pkt, op->pkt->opaque, (int)op->pkt->retries, LCB_NS2US(now - op->start), (int)op->origstatus,
-            lcb_strerror_short(op->origerr));
-
-    mcreq_dispatch_response(&tmpsrv, op->pkt, &resp, op->origerr);
+            lcb_strerror_short(err), lcb_strerror_short(op->origerr));
+    lcb_STATUS immerr = op->origerr;
+    if (op->origstatus == PROTOCOL_BINARY_RESPONSE_UNSPECIFIED && op->origerr == LCB_ERR_NETWORK) {
+        immerr = err;
+    }
+    mcreq_dispatch_response(&tmpsrv, op->pkt, &resp, immerr);
     op->pkt->flags |= MCREQ_F_FLUSHED | MCREQ_F_INVOKED;
     erase(op);
     mcreq_packet_done(&tmpsrv, op->pkt);
@@ -449,7 +453,8 @@ static void fallback_handler(mc_CMDQUEUE *cq, mc_PACKET *pkt)
 void RetryQueue::add_fallback(mc_PACKET *pkt)
 {
     mc_PACKET *copy = mcreq_renew_packet(pkt);
-    add((mc_EXPACKET *)copy, LCB_ERR_NO_MATCHING_SERVER, PROTOCOL_BINARY_RESPONSE_EINTERNAL, nullptr, RETRY_SCHED_IMM);
+    add((mc_EXPACKET *)copy, LCB_ERR_NO_MATCHING_SERVER, PROTOCOL_BINARY_RESPONSE_UNSPECIFIED, nullptr,
+        RETRY_SCHED_IMM);
 }
 
 void RetryQueue::reset_timeouts(lcb_U64 now)

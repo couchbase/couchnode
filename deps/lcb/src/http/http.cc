@@ -597,11 +597,14 @@ lcb_STATUS Request::setup_inputs(const lcb_CMDHTTP *cmd)
         }
     } else {
         if (cmd->host) {
-            if (reqtype == LCB_HTTP_TYPE_ANALYTICS || reqtype == LCB_HTTP_TYPE_PING) {
-                /* might be a deferred CBAS URL or PING */
-                base = cmd->host;
-            } else {
-                return LCB_ERR_INVALID_ARGUMENT;
+            switch (reqtype) {
+                case LCB_HTTP_TYPE_QUERY:
+                case LCB_HTTP_TYPE_ANALYTICS:
+                case LCB_HTTP_TYPE_PING:
+                    base = cmd->host;
+                    break;
+                default:
+                    return LCB_ERR_INVALID_ARGUMENT;
             }
         }
         if (base == nullptr) {

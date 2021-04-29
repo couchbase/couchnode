@@ -545,7 +545,17 @@ LIBCOUCHBASE_API lcb_STATUS lcb_store(lcb_INSTANCE *instance, void *cookie, cons
             packet->flags |= MCREQ_F_PRIVCALLBACK;
         }
         memcpy(SPAN_BUFFER(&packet->kh_span), scmd.bytes, hsize);
-        LCB_SCHED_ADD(instance, pipeline, packet);
+        switch (cmd->operation) {
+            case LCB_STORE_UPSERT:
+            case LCB_STORE_REPLACE:
+            case LCB_STORE_APPEND:
+            case LCB_STORE_PREPEND:
+                packet->flags |= MCREQ_F_REPLACE_SEMANTICS;
+                break;
+            default:
+                break;
+        }
+        LCB_SCHED_ADD(instance, pipeline, packet)
         LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_STORE2NAME(cmd->operation), packet->opaque,
                           MCREQ_PKT_RDATA(packet)->span);
         TRACE_STORE_BEGIN(instance, hdr, (lcb_CMDSTORE *)cmd);

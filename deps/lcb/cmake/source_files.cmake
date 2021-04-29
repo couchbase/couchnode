@@ -40,7 +40,7 @@ FILE(GLOB LCB_CAPI_SRC src/capi/*.cc)
 SET(LCB_CORE_CXXSRC
     src/instance.cc
     src/settings.cc
-    src/analytics/analytics.cc
+    src/cbas/cbas.cc
     src/auth.cc
     src/bootstrap.cc
     src/bucketconfig/bc_cccp.cc

@@ -1,5 +1,20 @@
 # Release Notes
 
+## 3.1.1 (2021-04-07)
+
+* CCBC-1382: Return `LCB_ERR_CAS_MISMATCH` for operations with with REPLACE semantics instead of `LCB_ERR_DOCUMENT_EXISTS`.
+* CCBC-1389: Fixed default collection parsing.
+* CCBC-1383: Fixed protocol magic for durable remove. When durability level provided, the remove command should use "alternative request" as protocol magic byte.
+* CCBC-1381: Protocol changes for `PROTOCOL_BINARY_CMD_COLLECTIONS_GET_CID` (`0xbb`). The server now expects collection specification passed as a command value during collection ID resolution.
+* CCBC-1385: Restrict cases when Query error code `12009` is converted to `LCB_ERR_CAS_MISMATCH`. Now it returned only in cases where concurrency problem detected by query engine. Otherwise `LCB_ERR_DML_FAILURE` will be used.
+* CCBC-1373: Return `LCB_ERR_TIMEOUT` if the library is not able to resolve collection identifier. Previously either `LCB_ERR_COLLECTION_NOT_FOUND` or `LCB_ERR_SCOPE_NOT_FOUND` might be returned.
+* CCBC-1109: When dynamic authenticator is being used, the library will retry Query on error code `13014` (`datastore.couchbase.insufficient_credentials`).
+* CCBC-1392: Query commands now invoke retry strategy hook to make decision about retrying.
+* CCBC-1379: Error map could be disabled now using `LCB_CNTL_ENABLE_ERRMAP` or in the connection string with `enable_errmap=false`.
+* CCBC-1269: Expose setting for N1QL grace period. This is a port of CCBC-1122 (71b77007be9d0304aaf61c7da5768175cc6d91f4). The example below will add extra 100ms to each N1QL query:
+
+      lcb_cntl_setu32(instance, LCB_CNTL_N1QL_GRACE_PERIOD, 100000);
+
 ## 3.1.0 (2021-03-03)
 
 * CCBC-1376: propagate scope qualifier to prepare statements
