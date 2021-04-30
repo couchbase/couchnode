@@ -112,7 +112,7 @@ private:
 
     lcb_INSTANCE *_instance;
     Logger *_logger;
-    uv_prepare_t _flushWatch;
+    uv_prepare_t *_flushWatch;
     const char *_clientStringCache;
 
     Cookie *_bootstrapCookie;

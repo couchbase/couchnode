@@ -22,6 +22,7 @@ public:
         , _impl(impl)
         , _traceSpan(span)
     {
+        _implRef.Reset(_impl->persistent());
         _callback.Reset(callback.GetFunction());
         _transcoder.Reset(transcoder);
     }
@@ -31,6 +32,7 @@ public:
         // We do not end the trace here, as the callback is responsible for
         // ending the trace at the appropriate point in time.
 
+        _implRef.Reset();
         _callback.Reset();
         _transcoder.Reset();
     }
@@ -58,6 +60,7 @@ public:
     Connection *_impl;
     Nan::Callback _callback;
     Nan::Persistent<Object> _transcoder;
+    Nan::Persistent<Object> _implRef;
     TraceSpan _traceSpan;
 };
 

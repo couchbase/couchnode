@@ -11,7 +11,7 @@ namespace couchnode
 
 using namespace v8;
 
-class Logger : public Nan::AsyncResource
+class Logger
 {
 public:
     Logger(Local<Function> callback);

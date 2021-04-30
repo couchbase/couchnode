@@ -13,18 +13,29 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
     , _bootstrapCookie(nullptr)
     , _openCookie(nullptr)
 {
-    uv_prepare_init(uv_default_loop(), &_flushWatch);
-    _flushWatch.data = this;
+    _flushWatch = new uv_prepare_t();
+    uv_prepare_init(uv_default_loop(), _flushWatch);
+    _flushWatch->data = this;
 }
 
 Connection::~Connection()
 {
+    if (_flushWatch) {
+        uv_prepare_stop(_flushWatch);
+        uv_close(reinterpret_cast<uv_handle_t *>(_flushWatch),
+                 [](uv_handle_t *handle) { delete handle; });
+        _flushWatch = nullptr;
+    }
+    if (_instance) {
+        lcb_destroy(_instance);
+        _instance = nullptr;
+    }
     if (_logger) {
         delete _logger;
         _logger = nullptr;
     }
     if (_clientStringCache) {
-        delete _clientStringCache;
+        delete[] _clientStringCache;
         _clientStringCache = nullptr;
     }
     if (_bootstrapCookie) {
@@ -51,15 +62,26 @@ const char *Connection::clientString()
         return _clientStringCache;
     }
 
-    // Fetch from libcouchbase if we are not populated
-    lcb_cntl(_instance, LCB_CNTL_GET, LCB_CNTL_CLIENT_STRING,
-             &_clientStringCache);
-    if (_clientStringCache) {
-        return _clientStringCache;
+    // Fetch from libcouchbase if we have not done that yet.
+    const char *lcbClientString;
+    lcb_cntl(_instance, LCB_CNTL_GET, LCB_CNTL_CLIENT_STRING, &lcbClientString);
+    if (!lcbClientString) {
+        // Backup string in case something goes wrong
+        lcbClientString = "couchbase-nodejs-sdk";
     }
 
-    // Backup string in case something goes wrong
-    return "couchbase-nodejs-sdk";
+    // Copy it to memory we own.
+    int lcbClientStringLen = strlen(lcbClientString);
+    char *allocString = new char[lcbClientStringLen + 1];
+    memcpy(allocString, lcbClientString, lcbClientStringLen + 1);
+
+    if (_clientStringCache) {
+        delete[] _clientStringCache;
+        _clientStringCache = nullptr;
+    }
+    _clientStringCache = allocString;
+
+    return _clientStringCache;
 }
 
 NAN_MODULE_INIT(Connection::Init)
@@ -276,8 +298,9 @@ void Connection::lcbBootstapHandler(lcb_INSTANCE *instance, lcb_STATUS err)
     if (err != 0) {
         lcb_set_bootstrap_callback(instance, [](lcb_INSTANCE *, lcb_STATUS) {});
         lcb_destroy_async(instance, NULL);
+        me->_instance = nullptr;
     } else {
-        uv_prepare_start(&me->_flushWatch, &uvFlushHandler);
+        uv_prepare_start(me->_flushWatch, &uvFlushHandler);
 
         int flushMode = 0;
         lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_SCHED_IMPLICIT_FLUSH,
@@ -368,8 +391,12 @@ NAN_METHOD(Connection::fnShutdown)
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
     Nan::HandleScope scope;
 
-    uv_prepare_stop(&me->_flushWatch);
-    lcb_destroy_async(me->_instance, NULL);
+    uv_prepare_stop(me->_flushWatch);
+
+    if (me->_instance) {
+        lcb_destroy_async(me->_instance, NULL);
+        me->_instance = nullptr;
+    }
 
     info.GetReturnValue().Set(true);
 }

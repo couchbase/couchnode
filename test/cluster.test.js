@@ -1,6 +1,7 @@
 'use strict'
 
 const assert = require('assert')
+const gc = require('expose-gc/function')
 const harness = require('./harness')
 
 const H = harness
@@ -14,6 +15,16 @@ describe('#Cluster', function () {
     await coll.insert(H.genTestKey(), 'bar')
 
     cluster.close()
+  })
+
+  it('should successfully gc connections', async () => {
+    var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
+    var bucket = cluster.bucket(H.bucketName)
+    var coll = bucket.defaultCollection()
+    await coll.insert(H.genTestKey(), 'bar')
+    cluster.close()
+
+    gc()
   })
 
   it('should error queued operations after failed connected', async () => {

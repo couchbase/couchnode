@@ -4,8 +4,7 @@ namespace couchnode
 {
 
 Logger::Logger(Local<Function> callback)
-    : Nan::AsyncResource("lcbLogger")
-    , _callback(callback)
+    : _callback(callback)
     , _logBuffer(nullptr)
     , _logBufferLen(0)
 {
@@ -65,7 +64,7 @@ void Logger::handler(unsigned int iid, const char *subsys, int severity,
              Nan::New(_logBuffer).ToLocalChecked());
 
     Local<Value> args[] = {infoObj};
-    _callback.Call(Nan::New<Object>(), 1, args, this);
+    _callback.Call(Nan::New<Object>(), 1, args);
 }
 
 void Logger::lcbHandler(const lcb_LOGGER *procs, uint64_t iid,
