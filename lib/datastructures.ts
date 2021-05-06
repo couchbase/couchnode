@@ -1,5 +1,6 @@
 import { Collection } from './collection'
 import { CouchbaseError, PathExistsError, PathInvalidError } from './errors'
+import { StoreSemantics } from './generaltypes'
 import { LookupInSpec, MutateInSpec } from './sdspecs'
 import { NodeCallback, PromiseHelper } from './utilities'
 
@@ -163,7 +164,7 @@ export class CouchbaseList {
         this._key,
         [MutateInSpec.arrayAppend('', value)],
         {
-          upsertDocument: true,
+          storeSemantics: StoreSemantics.Upsert,
         }
       )
     }, callback)
@@ -181,7 +182,7 @@ export class CouchbaseList {
         this._key,
         [MutateInSpec.arrayPrepend('', value)],
         {
-          upsertDocument: true,
+          storeSemantics: StoreSemantics.Upsert,
         }
       )
     }, callback)
@@ -289,7 +290,7 @@ export class CouchbaseMap {
   ): Promise<void> {
     return PromiseHelper.wrapAsync(async () => {
       await this._coll.mutateIn(this._key, [MutateInSpec.upsert(item, value)], {
-        upsertDocument: true,
+        storeSemantics: StoreSemantics.Upsert,
       })
     }, callback)
   }
@@ -434,7 +435,7 @@ export class CouchbaseQueue {
         this._key,
         [MutateInSpec.arrayPrepend('', value)],
         {
-          upsertDocument: true,
+          storeSemantics: StoreSemantics.Upsert,
         }
       )
     }, callback)
@@ -516,7 +517,7 @@ export class CouchbaseSet {
           this._key,
           [MutateInSpec.arrayAddUnique('', item)],
           {
-            upsertDocument: true,
+            storeSemantics: StoreSemantics.Upsert,
           }
         )
       } catch (e) {

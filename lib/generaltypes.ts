@@ -61,3 +61,28 @@ export enum DurabilityLevel {
    */
   PersistToMajority = 3,
 }
+
+/**
+ * Represents the storage semantics to use for some types of operations.
+ */
+export enum StoreSemantics {
+  /**
+   * Indicates that replace semantics should be used.  This will replace
+   * the document if it exists, and the operation will fail if the
+   * document does not exist.
+   */
+  Replace = 0,
+
+  /**
+   * Indicates that upsert semantics should be used.  This will replace
+   * the document if it exists, and create it if it does not.
+   */
+  Upsert = 1,
+
+  /**
+   * Indicates that insert semantics should be used.  This will insert
+   * the document if it does not exist, and fail the operation if the
+   * document already exists.
+   */
+  Insert = 2,
+}

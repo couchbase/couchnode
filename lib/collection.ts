@@ -25,7 +25,7 @@ import {
   CouchbaseSet,
 } from './datastructures'
 import { PathNotFoundError } from './errors'
-import { DurabilityLevel } from './generaltypes'
+import { DurabilityLevel, StoreSemantics } from './generaltypes'
 import { Scope } from './scope'
 import { LookupInMacro, LookupInSpec, MutateInSpec } from './sdspecs'
 import { SdUtils } from './sdutils'
@@ -373,15 +373,22 @@ export interface MutateInOptions {
   durabilityReplicateTo?: number
 
   /**
-   * Specifies whether the operation should be performed with upsert semantics,
-   * creating the document if it does not already exist.
+   * Specifies the store semantics to use for this operation.
    */
-  upsertDocument?: boolean
+  storeSemantics?: StoreSemantics
 
   /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies whether the operation should be performed with upsert semantics,
+   * creating the document if it does not already exist.
+   *
+   * @deprecated Use {@link MutateInOptions.storeSemantics} instead.
+   */
+  upsertDocument?: boolean
 }
 
 /**
@@ -1064,7 +1071,13 @@ export class Collection {
     }
 
     let flags: CppSdOpFlag = 0
-    if (options.upsertDocument) {
+    if (options.storeSemantics === StoreSemantics.Upsert) {
+      flags |= binding.LCBX_SDFLAG_UPSERT_DOC
+    } else if (options.storeSemantics === StoreSemantics.Replace) {
+      // This is the default behaviour
+    } else if (options.storeSemantics === StoreSemantics.Insert) {
+      flags |= binding.LCBX_SDFLAG_INSERT_DOC
+    } else if (options.upsertDocument) {
       flags |= binding.LCBX_SDFLAG_UPSERT_DOC
     }
 
