@@ -150,6 +150,12 @@ export interface SearchQueryOptions {
   consistentWith?: MutationState
 
   /**
+   * Specifies any additional parameters which should be passed to the query engine
+   * when executing the query.
+   */
+  raw?: { [key: string]: any }
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number

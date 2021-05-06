@@ -81,6 +81,12 @@ export class SearchExecutor {
       queryObjCtl.timeout = options.timeout
     }
 
+    if (options.raw) {
+      for (const i in options.raw) {
+        queryObj[i] = options.raw[i]
+      }
+    }
+
     // Only inject the `ctl` component if there are ctl's.
     if (Object.keys(queryObjCtl).length > 0) {
       queryObj.ctl = queryObjCtl
