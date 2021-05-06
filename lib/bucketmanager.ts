@@ -308,7 +308,7 @@ export class BucketSettings implements IBucketSettings {
   static _fromNsData(data: any): BucketSettings {
     return new BucketSettings({
       name: data.name,
-      flushEnabled: data.flushEnabled,
+      flushEnabled: data.controllers && data.controllers.flush,
       ramQuotaMB: data.ramQuotaMB,
       numReplicas: data.replicaNumber,
       replicaIndexes: data.replicaIndexes,
