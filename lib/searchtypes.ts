@@ -122,7 +122,7 @@ export interface SearchQueryOptions {
   /**
    * Specifies any facets that should be included in the query.
    */
-  facets?: SearchFacet[]
+  facets?: { [name: string]: SearchFacet }
 
   /**
    * Specifies a list of fields or SearchSort's to use when sorting the result sets.
