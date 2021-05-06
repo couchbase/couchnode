@@ -418,10 +418,12 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
         Local<Array> headersRes = Nan::New<Array>();
         const char *const *headers;
         lcb_resphttp_headers(resp, &headers);
-        for (int headerIdx = 0; *headers; headerIdx++, headers++) {
-            Local<String> headerVal =
-                Nan::New<String>(*headers).ToLocalChecked();
-            Nan::Set(headersRes, headerIdx, headerVal);
+        if (headers) {
+            for (int headerIdx = 0; *headers; headerIdx++, headers++) {
+                Local<String> headerVal =
+                    Nan::New<String>(*headers).ToLocalChecked();
+                Nan::Set(headersRes, headerIdx, headerVal);
+            }
         }
 
         Local<Object> dataObj = Nan::New<Object>();
