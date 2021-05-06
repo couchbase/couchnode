@@ -150,7 +150,7 @@ export interface IBucketSettings {
   /**
    * Specifies the ejection method that should be used.
    */
-  ejectionMethod: EvictionPolicy | string
+  evictionPolicy: EvictionPolicy | string
 
   /**
    * Specifies the maximum expiry time that any document should be permitted
@@ -184,6 +184,14 @@ export interface IBucketSettings {
    * @deprecated Use {@link IBucketSettings.minimumDurabilityLevel} instead.
    */
   durabilityMinLevel: string
+
+  /**
+   * Same as {@link IBucketSettings.evictionPolicy}, but represented as
+   * the raw server-side configuration string.
+   *
+   * @deprecated Use {@link IBucketSettings.evictionPolicy} instead.
+   */
+  ejectionMethod?: EvictionPolicy | string
 }
 
 /**
@@ -227,7 +235,7 @@ export class BucketSettings implements IBucketSettings {
   /**
    * Specifies the ejection method that should be used.
    */
-  ejectionMethod: EvictionPolicy
+  evictionPolicy: EvictionPolicy
 
   /**
    * Specifies the maximum expiry time that any document should be permitted
@@ -257,7 +265,7 @@ export class BucketSettings implements IBucketSettings {
     this.numReplicas = data.numReplicas
     this.replicaIndexes = data.replicaIndexes
     this.bucketType = data.bucketType
-    this.ejectionMethod = data.ejectionMethod
+    this.evictionPolicy = data.evictionPolicy
     this.maxExpiry = data.maxExpiry
     this.compressionMode = data.compressionMode
     this.minimumDurabilityLevel = data.minimumDurabilityLevel
@@ -270,6 +278,21 @@ export class BucketSettings implements IBucketSettings {
    */
   get maxTTL(): number {
     return this.maxExpiry
+  }
+  set maxTTL(val: number) {
+    this.maxExpiry = val
+  }
+
+  /**
+   * Same as {@link IBucketSettings.evictionPolicy}.
+   *
+   * @deprecated Use {@link IBucketSettings.evictionPolicy} instead.
+   */
+  get ejectionMethod(): EvictionPolicy | string {
+    return this.evictionPolicy
+  }
+  set ejectionMethod(val: EvictionPolicy | string) {
+    this.evictionPolicy = val as EvictionPolicy
   }
 
   /**
@@ -293,7 +316,7 @@ export class BucketSettings implements IBucketSettings {
       replicaNumber: data.numReplicas,
       replicaIndexes: data.replicaIndexes,
       bucketType: data.bucketType,
-      ejectionMethod: data.ejectionMethod,
+      evictionPolicy: data.evictionPolicy,
       maxTTL: data.maxTTL || data.maxExpiry,
       compressionMode: data.compressionMode,
       durabilityMinLevel:
@@ -313,12 +336,13 @@ export class BucketSettings implements IBucketSettings {
       numReplicas: data.replicaNumber,
       replicaIndexes: data.replicaIndexes,
       bucketType: data.bucketType,
-      ejectionMethod: data.ejectionMethod,
+      evictionPolicy: data.evictionPolicy,
       maxExpiry: data.maxTTL,
       compressionMode: data.compressionMode,
       minimumDurabilityLevel: nsServerStrToDuraLevel(data.durabilityMinLevel),
       maxTTL: 0,
       durabilityMinLevel: '',
+      ejectionMethod: '',
     })
   }
 }
