@@ -52,23 +52,23 @@ export class PromiseHelper {
     fn: (callback: NodeCallback<T>) => void,
     callback?: NodeCallback<T> | null
   ): Promise<T> {
-    return new Promise((resolve, reject) => {
+    const prom: Promise<T> = new Promise((resolve, reject) => {
       fn((err, res) => {
         if (err) {
-          if (callback) {
-            callback(err, null)
-          }
-
           reject(err as Error)
         } else {
-          if (callback) {
-            callback(null, res)
-          }
-
           resolve(res as T)
         }
       })
     })
+
+    if (callback) {
+      prom
+        .then((res) => callback(null, res))
+        .catch((err) => callback(err, null))
+    }
+
+    return prom
   }
 }
 
