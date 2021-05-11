@@ -48,6 +48,9 @@ export class SearchExecutor {
     if (options.highlight) {
       queryObj.highlight = options.highlight
     }
+    if (options.collections) {
+      queryObj.collections = options.collections
+    }
     if (options.fields) {
       queryObj.fields = options.fields
     }

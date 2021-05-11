@@ -115,6 +115,11 @@ export interface SearchQueryOptions {
   }
 
   /**
+   * Specifies the collections which should be searched as part of the query.
+   */
+  collections?: string[]
+
+  /**
    * Specifies the list of fields which should be searched.
    */
   fields?: string[]
