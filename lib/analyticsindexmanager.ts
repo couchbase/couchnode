@@ -5,9 +5,54 @@ import {
   DatasetNotFoundError,
   DataverseExistsError,
   DataverseNotFoundError,
+  LinkExistsError,
 } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
+
+/**
+ * Represents the type of an analytics link.
+ *
+ * @category Analytics
+ */
+export enum AnalyticsLinkType {
+  /**
+   * Indicates that the link is for S3.
+   */
+  S3External = 's3',
+
+  /**
+   * Indicates that the link is for Azure.
+   */
+  AzureBlobExternal = 'azureblob',
+
+  /**
+   * Indicates that the link is for a remote Couchbase cluster.
+   */
+  CouchbaseRemote = 'couchbase',
+}
+
+/**
+ * Represents what level of encryption to use for analytics remote links.
+ *
+ * @category Analytics
+ */
+export enum AnalyticsEncryptionLevel {
+  /**
+   * Indicates that no encryption should be used.
+   */
+  None = 'none',
+
+  /**
+   * Indicates that half encryption should be used.
+   */
+  Half = 'half',
+
+  /**
+   * Indicates that full encryption should be used.
+   */
+  Full = 'full',
+}
 
 /**
  * Contains a specific dataset configuration for the analytics service.
@@ -80,6 +125,630 @@ export class AnalyticsIndex {
     this.datasetName = data.datasetName
     this.dataverseName = data.dataverseName
     this.isPrimary = data.isPrimary
+  }
+}
+
+/**
+ * Specifies encryption options for an analytics remote link.
+ */
+export interface ICouchbaseAnalyticsEncryptionSettings {
+  /**
+   * Specifies what level of encryption should be used.
+   */
+  encryptionLevel: AnalyticsEncryptionLevel
+
+  /**
+   * Provides a certificate to use for connecting when encryption level is set
+   * to full.  Required when encryptionLevel is set to Full.
+   */
+  certificate?: Buffer
+
+  /**
+   * Provides a client certificate to use for connecting when encryption level
+   * is set to full.  Cannot be set if a username/password are used.
+   */
+  clientCertificate?: Buffer
+
+  /**
+   * Provides a client key to use for connecting when encryption level is set
+   * to full.  Cannot be set if a username/password are used.
+   */
+  clientKey?: Buffer
+}
+
+/**
+ * Includes information about an analytics remote links encryption.
+ */
+export class CouchbaseAnalyticsEncryptionSettings
+  implements ICouchbaseAnalyticsEncryptionSettings {
+  /**
+   * Specifies what level of encryption should be used.
+   */
+  encryptionLevel: AnalyticsEncryptionLevel
+
+  /**
+   * Provides a certificate to use for connecting when encryption level is set
+   * to full.  Required when encryptionLevel is set to Full.
+   */
+  certificate?: Buffer
+
+  /**
+   * Provides a client certificate to use for connecting when encryption level
+   * is set to full.  Cannot be set if a username/password are used.
+   */
+  clientCertificate?: Buffer
+
+  /**
+   * Provides a client key to use for connecting when encryption level is set
+   * to full.  Cannot be set if a username/password are used.
+   */
+  clientKey?: Buffer
+
+  /**
+   * @internal
+   */
+  constructor(data: CouchbaseAnalyticsEncryptionSettings) {
+    this.encryptionLevel = data.encryptionLevel
+    this.certificate = data.certificate
+    this.clientCertificate = data.clientCertificate
+    this.clientKey = data.clientKey
+  }
+}
+
+/**
+ * Provides a base class for specifying options for an analytics link.
+ *
+ * @category Management
+ */
+export interface IAnalyticsLink {
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType
+}
+
+/**
+ * This is a base class for specific link configurations for the analytics service.
+ */
+export abstract class AnalyticsLink implements IAnalyticsLink {
+  /**
+   * @internal
+   */
+  constructor() {
+    this.linkType = '' as AnalyticsLinkType
+  }
+
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType
+
+  /**
+   * @internal
+   */
+  static _toHttpData(data: IAnalyticsLink): any {
+    if (data.linkType === AnalyticsLinkType.CouchbaseRemote) {
+      return CouchbaseRemoteAnalyticsLink._toHttpData(
+        data as ICouchbaseRemoteAnalyticsLink
+      )
+    } else if (data.linkType === AnalyticsLinkType.S3External) {
+      return S3ExternalAnalyticsLink._toHttpData(
+        data as IS3ExternalAnalyticsLink
+      )
+    } else if (data.linkType === AnalyticsLinkType.AzureBlobExternal) {
+      return AzureExternalAnalyticsLink._toHttpData(
+        data as IAzureExternalAnalyticsLink
+      )
+    } else {
+      throw new Error('invalid link type')
+    }
+  }
+
+  /**
+   * @internal
+   */
+  static _fromHttpData(data: any): AnalyticsLink {
+    if (data.type === 'couchbase') {
+      return CouchbaseRemoteAnalyticsLink._fromHttpData(data)
+    } else if (data.type === 's3') {
+      return S3ExternalAnalyticsLink._fromHttpData(data)
+    } else if (data.type === 'azure') {
+      return AzureExternalAnalyticsLink._fromHttpData(data)
+    } else {
+      throw new Error('invalid link type')
+    }
+  }
+}
+
+/**
+ * Provides options for configuring an analytics remote couchbase cluster link.
+ */
+export interface ICouchbaseRemoteAnalyticsLink extends IAnalyticsLink {
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType.CouchbaseRemote
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
+
+  /**
+   * The hostname of the target Couchbase cluster.
+   */
+  hostname: string
+
+  /**
+   * The encryption settings to be used for the link.
+   */
+  encryption?: ICouchbaseAnalyticsEncryptionSettings
+
+  /**
+   * The username to use for authentication with the remote cluster.  Optional
+   * if client-certificate authentication
+   * (@see ICouchbaseAnalyticsEncryptionSettings.clientCertificate) is being used.
+   */
+  username?: string
+
+  /**
+   * The password to use for authentication with the remote cluster.  Optional
+   * if client-certificate authentication
+   * (@see ICouchbaseAnalyticsEncryptionSettings.clientCertificate) is being used.
+   */
+  password?: string
+}
+
+/**
+ * Provides information about a analytics remote Couchbase link.
+ */
+export class CouchbaseRemoteAnalyticsLink
+  extends AnalyticsLink
+  implements ICouchbaseRemoteAnalyticsLink {
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType.CouchbaseRemote
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
+
+  /**
+   * The hostname of the target Couchbase cluster.
+   */
+  hostname: string
+
+  /**
+   * The encryption settings to be used for the link.
+   */
+  encryption?: CouchbaseAnalyticsEncryptionSettings
+
+  /**
+   * The username to use for authentication with the remote cluster.  Optional
+   * if client-certificate authentication
+   * (@see ICouchbaseAnalyticsEncryptionSettings.clientCertificate) is being used.
+   */
+  username?: string
+
+  /**
+   * The password to use for authentication with the remote cluster.  Optional
+   * if client-certificate authentication
+   * (@see ICouchbaseAnalyticsEncryptionSettings.clientCertificate) is being used.
+   */
+  password?: string
+
+  /**
+   * @internal
+   */
+  constructor(data: CouchbaseRemoteAnalyticsLink) {
+    super()
+    this.linkType = AnalyticsLinkType.CouchbaseRemote
+
+    this.dataverse = data.dataverse
+    this.name = data.name
+    this.hostname = data.hostname
+    this.encryption = data.encryption
+    this.username = data.username
+    this.password = data.password
+  }
+
+  /**
+   * @internal
+   */
+  static _toHttpData(data: ICouchbaseRemoteAnalyticsLink): any {
+    let dvSpecific
+    if (data.dataverse.indexOf('/') !== -1) {
+      const encDataverse = encodeURIComponent(data.dataverse)
+      const encName = encodeURIComponent(data.name)
+      dvSpecific = {
+        httpPath: `/analytics/link/${encDataverse}/${encName}`,
+      }
+    } else {
+      dvSpecific = {
+        httpPath: `/analytics/link`,
+        dataverse: data.dataverse,
+        name: data.name,
+      }
+    }
+
+    return {
+      type: 'couchbase',
+      ...dvSpecific,
+      hostname: data.hostname,
+      username: data.username,
+      password: data.password,
+      encryption: data.encryption ? data.encryption.encryptionLevel : undefined,
+      certificate: data.encryption
+        ? data.encryption.certificate
+          ? data.encryption.certificate.toString()
+          : undefined
+        : undefined,
+      clientCertificate: data.encryption
+        ? data.encryption.clientCertificate
+          ? data.encryption.clientCertificate.toString()
+          : undefined
+        : undefined,
+      clientKey: data.encryption
+        ? data.encryption.clientKey
+          ? data.encryption.clientKey.toString()
+          : undefined
+        : undefined,
+    }
+  }
+
+  /**
+   * @internal
+   */
+  static _fromHttpData(data: any): CouchbaseRemoteAnalyticsLink {
+    return new CouchbaseRemoteAnalyticsLink({
+      linkType: AnalyticsLinkType.CouchbaseRemote,
+      dataverse: data.dataverse || data.scope,
+      name: data.name,
+      hostname: data.activeHostname,
+      encryption: new CouchbaseAnalyticsEncryptionSettings({
+        encryptionLevel: data.encryption,
+        certificate: Buffer.from(data.certificate),
+        clientCertificate: Buffer.from(data.clientCertificate),
+        clientKey: Buffer.from(data.clientKey),
+      }),
+      username: data.username,
+      password: undefined,
+    })
+  }
+}
+
+/**
+ * Provides options for configuring an analytics remote S3 link.
+ */
+export interface IS3ExternalAnalyticsLink extends IAnalyticsLink {
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType.S3External
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
+
+  /**
+   * The AWS S3 access key.
+   */
+  accessKeyId: string
+
+  /**
+   * The AWS S3 secret key.
+   */
+  secretAccessKey?: string
+
+  /**
+   * The AWS S3 token if temporary credentials are provided.  Only available
+   * in Couchbase Server 7.0 and above.
+   */
+  sessionToken?: string
+
+  /**
+   * The AWS S3 region.
+   */
+  region: string
+
+  /**
+   * The AWS S3 service endpoint.
+   */
+  serviceEndpoint?: string
+}
+
+/**
+ * Provides information about a analytics remote S3 link.
+ */
+export class S3ExternalAnalyticsLink
+  extends AnalyticsLink
+  implements IS3ExternalAnalyticsLink {
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType.S3External
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
+
+  /**
+   * The AWS S3 access key.
+   */
+  accessKeyId: string
+
+  /**
+   * The AWS S3 secret key.
+   */
+  secretAccessKey?: string
+
+  /**
+   * The AWS S3 token if temporary credentials are provided.  Only available
+   * in Couchbase Server 7.0 and above.
+   */
+  sessionToken?: string
+
+  /**
+   * The AWS S3 region.
+   */
+  region: string
+
+  /**
+   * The AWS S3 service endpoint.
+   */
+  serviceEndpoint?: string
+
+  /**
+   * @internal
+   */
+  constructor(data: S3ExternalAnalyticsLink) {
+    super()
+    this.linkType = AnalyticsLinkType.S3External
+
+    this.dataverse = data.dataverse
+    this.name = data.name
+    this.accessKeyId = data.accessKeyId
+    this.secretAccessKey = data.secretAccessKey
+    this.sessionToken = data.sessionToken
+    this.region = data.region
+    this.serviceEndpoint = data.serviceEndpoint
+  }
+
+  /**
+   * @internal
+   */
+  static _toHttpData(data: IS3ExternalAnalyticsLink): any {
+    let dvSpecific
+    if (data.dataverse.indexOf('/') !== -1) {
+      const encDataverse = encodeURIComponent(data.dataverse)
+      const encName = encodeURIComponent(data.name)
+      dvSpecific = {
+        httpPath: `/analytics/link/${encDataverse}/${encName}`,
+      }
+    } else {
+      dvSpecific = {
+        httpPath: `/analytics/link`,
+        dataverse: data.dataverse,
+        name: data.name,
+      }
+    }
+
+    return {
+      type: 's3',
+      ...dvSpecific,
+      accessKeyId: data.accessKeyId,
+      secretAccessKey: data.secretAccessKey,
+      region: data.region,
+      sessionToken: data.sessionToken,
+      serviceEndpoint: data.serviceEndpoint,
+    }
+  }
+
+  /**
+   * @internal
+   */
+  static _fromHttpData(data: any): S3ExternalAnalyticsLink {
+    return new S3ExternalAnalyticsLink({
+      linkType: AnalyticsLinkType.S3External,
+      dataverse: data.dataverse || data.scope,
+      name: data.name,
+      accessKeyId: data.accessKeyId,
+      secretAccessKey: undefined,
+      region: data.region,
+      sessionToken: undefined,
+      serviceEndpoint: data.serviceEndpoint,
+    })
+  }
+}
+
+/**
+ * Provides options for configuring an analytics remote Azure link.
+ */
+export interface IAzureExternalAnalyticsLink extends IAnalyticsLink {
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType.AzureBlobExternal
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
+
+  /**
+   * The connection string to use to connect to the external Azure store.
+   */
+  connectionString?: string
+
+  /**
+   * The Azure blob storage account name.
+   */
+  accountName?: string
+
+  /**
+   * The Azure blob storage account key.
+   */
+  accountKey?: string
+
+  /**
+   * The shared access signature to use for authentication.
+   */
+  sharedAccessSignature?: string
+
+  /**
+   * The Azure blob storage endpoint.
+   */
+  blobEndpoint?: string
+
+  /**
+   * The Azure blob endpoint suffix.
+   */
+  endpointSuffix?: string
+}
+
+/**
+ * Provides information about a analytics remote S3 link.
+ */
+export class AzureExternalAnalyticsLink
+  extends AnalyticsLink
+  implements IAzureExternalAnalyticsLink {
+  /**
+   * Specifies what type of analytics link this represents.
+   */
+  linkType: AnalyticsLinkType.AzureBlobExternal
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
+
+  /**
+   * The connection string to use to connect to the external Azure store.
+   */
+  connectionString?: string
+
+  /**
+   * The Azure blob storage account name.
+   */
+  accountName?: string
+
+  /**
+   * The Azure blob storage account key.
+   */
+  accountKey?: string
+
+  /**
+   * The shared access signature to use for authentication.
+   */
+  sharedAccessSignature?: string
+
+  /**
+   * The Azure blob storage endpoint.
+   */
+  blobEndpoint?: string
+
+  /**
+   * The Azure blob endpoint suffix.
+   */
+  endpointSuffix?: string
+
+  /**
+   * @internal
+   */
+  constructor(data: AzureExternalAnalyticsLink) {
+    super()
+    this.linkType = AnalyticsLinkType.AzureBlobExternal
+
+    this.dataverse = data.dataverse
+    this.name = data.name
+    this.connectionString = data.connectionString
+    this.accountName = data.accountName
+    this.accountKey = data.accountKey
+    this.sharedAccessSignature = data.sharedAccessSignature
+    this.blobEndpoint = data.blobEndpoint
+    this.endpointSuffix = data.endpointSuffix
+  }
+
+  /**
+   * @internal
+   */
+  static _toHttpData(data: IAzureExternalAnalyticsLink): any {
+    let dvSpecific
+    if (data.dataverse.indexOf('/') !== -1) {
+      const encDataverse = encodeURIComponent(data.dataverse)
+      const encName = encodeURIComponent(data.name)
+      dvSpecific = {
+        httpPath: `/analytics/link/${encDataverse}/${encName}`,
+      }
+    } else {
+      dvSpecific = {
+        httpPath: `/analytics/link`,
+        dataverse: data.dataverse,
+        name: data.name,
+      }
+    }
+
+    return {
+      type: 'azure',
+      ...dvSpecific,
+      connectionString: data.connectionString,
+      accountName: data.accountName,
+      accountKey: data.accountKey,
+      sharedAccessSignature: data.sharedAccessSignature,
+      blobEndpoint: data.blobEndpoint,
+      endpointSuffix: data.endpointSuffix,
+    }
+  }
+
+  /**
+   * @internal
+   */
+  static _fromHttpData(data: any): AzureExternalAnalyticsLink {
+    return new AzureExternalAnalyticsLink({
+      linkType: AnalyticsLinkType.AzureBlobExternal,
+      dataverse: data.dataverse || data.scope,
+      name: data.name,
+      connectionString: undefined,
+      accountName: data.accountName,
+      accountKey: undefined,
+      sharedAccessSignature: undefined,
+      blobEndpoint: data.blobEndpoint,
+      endpointSuffix: data.endpointSuffix,
+    })
   }
 }
 
@@ -248,6 +917,61 @@ export interface DisconnectAnalyticsLinkOptions {
  * @category Management
  */
 export interface GetPendingAnalyticsMutationsOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Management
+ */
+export interface CreateAnalyticsLinkOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Management
+ */
+export interface ReplaceAnalyticsLinkOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Management
+ */
+export interface DropAnalyticsLinkOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Management
+ */
+export interface GetAllAnalyticsLinksOptions {
+  /**
+   * The name of a dataverse to filter the links list to.
+   */
+  dataverse?: string
+
+  /**
+   * The name of a specific link to fetch.
+   */
+  name?: string
+
+  /**
+   * The type of link to filter the links list to.
+   */
+  linkType?: AnalyticsLinkType
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -786,6 +1510,255 @@ export class AnalyticsIndexManager {
       }
 
       return JSON.parse(res.body.toString())
+    }, callback)
+  }
+
+  /**
+   * Creates a new analytics remote link.
+   *
+   * @param link The settings for the link to create.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async createLink(
+    link: IAnalyticsLink,
+    options?: CreateAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const timeout = options.timeout
+
+    return PromiseHelper.wrapAsync(async () => {
+      const linkData = AnalyticsLink._toHttpData(link)
+
+      const res = await this._http.request({
+        type: HttpServiceType.Analytics,
+        method: HttpMethod.Post,
+        path: linkData.httpPath,
+        contentType: 'application/x-www-form-urlencoded',
+        body: cbQsStringify({
+          linkData,
+          httpPath: undefined,
+        }),
+        timeout: timeout,
+      })
+
+      if (res.statusCode !== 200) {
+        const errCtx = HttpExecutor.errorContextFromResponse(res)
+
+        const errText = res.body.toString().toLowerCase()
+        if (errText.includes('24055')) {
+          throw new LinkExistsError(undefined, errCtx)
+        } else if (errText.includes('24034')) {
+          throw new DataverseNotFoundError(undefined, errCtx)
+        }
+
+        throw new CouchbaseError('failed to create link', undefined, errCtx)
+      }
+    }, callback)
+  }
+
+  /**
+   * Replaces an existing analytics remote link.
+   *
+   * @param link The settings for the updated link.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async replaceLink(
+    link: IAnalyticsLink,
+    options?: ReplaceAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const timeout = options.timeout
+
+    return PromiseHelper.wrapAsync(async () => {
+      const linkData = AnalyticsLink._toHttpData(link)
+
+      const res = await this._http.request({
+        type: HttpServiceType.Analytics,
+        method: HttpMethod.Put,
+        path: linkData.httpPath,
+        contentType: 'application/x-www-form-urlencoded',
+        body: cbQsStringify({
+          linkData,
+          httpPath: undefined,
+        }),
+        timeout: timeout,
+      })
+
+      if (res.statusCode !== 200) {
+        const errCtx = HttpExecutor.errorContextFromResponse(res)
+
+        const errText = res.body.toString().toLowerCase()
+        if (errText.includes('24055')) {
+          throw new LinkExistsError(undefined, errCtx)
+        } else if (errText.includes('24034')) {
+          throw new DataverseNotFoundError(undefined, errCtx)
+        }
+
+        throw new CouchbaseError('failed to replace link', undefined, errCtx)
+      }
+    }, callback)
+  }
+
+  /**
+   * Drops an existing analytics remote link.
+   *
+   * @param linkName The name of the link to drop.
+   * @param dataverseName The dataverse containing the link to drop.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async dropLink(
+    linkName: string,
+    dataverseName: string,
+    options?: DropAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const timeout = options.timeout
+
+    return PromiseHelper.wrapAsync(async () => {
+      let httpPath
+      let httpParams
+      if (dataverseName.indexOf('/') !== -1) {
+        const encDataverse = encodeURIComponent(dataverseName)
+        const encName = encodeURIComponent(linkName)
+        httpPath = `/analytics/link/${encDataverse}/${encName}`
+        httpParams = {}
+      } else {
+        httpPath = `/analytics/link`
+        httpParams = {
+          dataverse: dataverseName,
+          name: linkName,
+        }
+      }
+      const res = await this._http.request({
+        type: HttpServiceType.Analytics,
+        method: HttpMethod.Delete,
+        path: httpPath,
+        contentType: 'application/x-www-form-urlencoded',
+        body: cbQsStringify(httpParams),
+        timeout: timeout,
+      })
+
+      if (res.statusCode !== 200) {
+        const errCtx = HttpExecutor.errorContextFromResponse(res)
+
+        const errText = res.body.toString().toLowerCase()
+        if (errText.includes('24055')) {
+          throw new LinkExistsError(undefined, errCtx)
+        } else if (errText.includes('24034')) {
+          throw new DataverseNotFoundError(undefined, errCtx)
+        }
+
+        throw new CouchbaseError('failed to delete link', undefined, errCtx)
+      }
+    }, callback)
+  }
+
+  /**
+   * Returns a list of existing analytics remote links.
+   *
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async getAllLinks(
+    options?: GetAllAnalyticsLinksOptions,
+    callback?: NodeCallback<AnalyticsLink[]>
+  ): Promise<AnalyticsLink[]> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const dataverseName = options.dataverse
+    const linkName = options.name
+    const linkType = options.linkType
+    const timeout = options.timeout
+
+    return PromiseHelper.wrapAsync(async () => {
+      let httpPath
+      if (dataverseName && dataverseName.indexOf('/') !== -1) {
+        const encDataverse = encodeURIComponent(dataverseName)
+        httpPath = `/analytics/link/${encDataverse}`
+
+        if (linkName) {
+          const encName = encodeURIComponent(linkName)
+          httpPath += `/${encName}`
+        }
+
+        httpPath += '?'
+
+        if (linkType) {
+          httpPath += `type=${linkType}&`
+        }
+      } else {
+        httpPath = `/analytics/link?`
+
+        if (dataverseName) {
+          httpPath += `dataverse=${dataverseName}&`
+
+          if (linkName) {
+            httpPath += `dataverse=${linkName}&`
+          }
+        }
+
+        if (linkType) {
+          httpPath += `type=${linkType}&`
+        }
+      }
+
+      const res = await this._http.request({
+        type: HttpServiceType.Analytics,
+        method: HttpMethod.Get,
+        path: httpPath,
+        timeout: timeout,
+      })
+
+      if (res.statusCode !== 200) {
+        const errCtx = HttpExecutor.errorContextFromResponse(res)
+
+        const errText = res.body.toString().toLowerCase()
+        if (errText.includes('24034')) {
+          throw new DataverseNotFoundError(undefined, errCtx)
+        }
+
+        throw new CouchbaseError('failed to get links', undefined, errCtx)
+      }
+
+      const linksData = JSON.parse(res.body.toString())
+      const links = linksData.map((linkData: any) =>
+        AnalyticsLink._fromHttpData(linkData)
+      )
+
+      return links
     }, callback)
   }
 }

@@ -705,6 +705,17 @@ export class LinkNotFoundError extends CouchbaseError {
 }
 
 /**
+ * Indicates that the link already exists.
+ *
+ * @category Error Handling
+ */
+export class LinkExistsError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('link already exists', cause, context)
+  }
+}
+
+/**
  * Indicates that the referenced view does not exist.
  *
  * @category Error Handling
