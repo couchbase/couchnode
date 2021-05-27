@@ -298,7 +298,7 @@ export class AnalyticsIndexManager {
 
     qs += 'CREATE DATAVERSE'
 
-    qs += ' `' + dataverseName + '`'
+    qs += ' `' + dataverseName.split('/').join('`.`') + '`'
 
     if (options.ignoreIfExists) {
       qs += ' IF NOT EXISTS'
@@ -345,7 +345,7 @@ export class AnalyticsIndexManager {
 
     qs += 'DROP DATAVERSE'
 
-    qs += ' `' + dataverseName + '`'
+    qs += ' `' + dataverseName.split('/').join('`.`') + '`'
 
     if (options.ignoreIfNotExists) {
       qs += ' IF EXISTS'
@@ -399,7 +399,12 @@ export class AnalyticsIndexManager {
     }
 
     if (options.dataverseName) {
-      qs += ' `' + options.dataverseName + '`.`' + datasetName + '`'
+      qs +=
+        ' `' +
+        options.dataverseName.split('/').join('`.`') +
+        '`.`' +
+        datasetName +
+        '`'
     } else {
       qs += ' `' + datasetName + '`'
     }
@@ -452,7 +457,12 @@ export class AnalyticsIndexManager {
     qs += 'DROP DATASET'
 
     if (options.dataverseName) {
-      qs += ' `' + options.dataverseName + '`.`' + datasetName + '`'
+      qs +=
+        ' `' +
+        options.dataverseName.split('/').join('`.`') +
+        '`.`' +
+        datasetName +
+        '`'
     } else {
       qs += ' `' + datasetName + '`'
     }
@@ -555,7 +565,12 @@ export class AnalyticsIndexManager {
     }
 
     if (options.dataverseName) {
-      qs += ' ON `' + options.dataverseName + '`.`' + datasetName + '`'
+      qs +=
+        ' ON `' +
+        options.dataverseName.split('/').join('`.`') +
+        '`.`' +
+        datasetName +
+        '`'
     } else {
       qs += ' ON `' + datasetName + '`'
     }
@@ -604,7 +619,12 @@ export class AnalyticsIndexManager {
     qs += 'DROP INDEX'
 
     if (options.dataverseName) {
-      qs += ' `' + options.dataverseName + '`.`' + datasetName + '`'
+      qs +=
+        ' `' +
+        options.dataverseName.split('/').join('`.`') +
+        '`.`' +
+        datasetName +
+        '`'
     } else {
       qs += ' `' + datasetName + '`'
     }
