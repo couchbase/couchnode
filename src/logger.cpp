@@ -64,7 +64,7 @@ void Logger::handler(unsigned int iid, const char *subsys, int severity,
              Nan::New(_logBuffer).ToLocalChecked());
 
     Local<Value> args[] = {infoObj};
-    _callback.Call(Nan::New<Object>(), 1, args);
+    Nan::Call(_callback, 1, args);
 }
 
 void Logger::lcbHandler(const lcb_LOGGER *procs, uint64_t iid,
