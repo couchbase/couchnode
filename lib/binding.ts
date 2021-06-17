@@ -252,8 +252,8 @@ export interface CppConnection {
     scopeName: string,
     collectionName: string,
     key: CppBytes,
-    expirySecs: number,
-    cas: CppCas,
+    expirySecs: number | undefined,
+    cas: CppCas | undefined,
     flags: number,
     cmds: [
       optype: number,

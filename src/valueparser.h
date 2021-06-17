@@ -134,6 +134,13 @@ public:
         return parsedValue;
     }
 
+    static int64_t asInt64(Local<Value> value)
+    {
+        int64_t parsedValue = 0;
+        parseInt(&parsedValue, value);
+        return parsedValue;
+    }
+
 private:
     std::vector<Nan::Utf8String *> _strings;
 };

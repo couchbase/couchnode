@@ -59,6 +59,31 @@ function genericTests(collFn) {
           'encode error'
         )
       })
+
+      it('should preserve expiry successfully', async function () {
+        H.skipIfMissingFeature(this, H.Features.PreserveExpiry)
+
+        const testKeyPe = H.genTestKey()
+
+        // Insert a test document
+        var res = await collFn().insert(testKeyPe, { foo: 14 }, { expiry: 1 })
+        assert.isObject(res)
+
+        await collFn().upsert(
+          testKeyPe,
+          { foo: 13 },
+          {
+            preserveExpiry: true,
+          }
+        )
+
+        await H.sleep(2000)
+
+        // Ensure the key is gone
+        await H.throwsHelper(async () => {
+          await collFn().get(testKeyPe)
+        })
+      }).timeout(3500)
     })
 
     describe('#get', function () {

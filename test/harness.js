@@ -23,6 +23,7 @@ const ServerFeatures = {
   GetMeta: 'get_meta',
   AnalyticsPendingMutations: 'analytics_pending_mutations',
   UserGroupManagement: 'user_group_management',
+  PreserveExpiry: 'preserve_expiry',
 }
 
 class ServerVersion {
@@ -318,6 +319,8 @@ class Harness {
       case ServerFeatures.AnalyticsPendingMutations:
         return !this._version.isMock && this._version.isAtLeast(6, 5, 0)
       case ServerFeatures.Collections:
+        return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
+      case ServerFeatures.PreserveExpiry:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
     }
 

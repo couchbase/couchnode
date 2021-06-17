@@ -96,7 +96,7 @@ export class SearchExecutor {
     }
 
     const queryData = JSON.stringify(queryObj)
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     const emitter = new StreamableRowPromise<
       SearchResult,
@@ -112,7 +112,7 @@ export class SearchExecutor {
     this._conn.searchQuery(
       queryData,
       queryFlags,
-      cppTimeout,
+      lcbTimeout,
       (err, flags, data) => {
         if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
           if (err) {

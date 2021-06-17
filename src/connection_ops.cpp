@@ -176,8 +176,12 @@ NAN_METHOD(Connection::fnStore)
             return Nan::ThrowError(Error::create("bad adjoin value passed"));
         }
     }
-    if (!enc.parseOption<&lcb_cmdstore_expiry>(info[5])) {
-        return Nan::ThrowError(Error::create("bad expiry passed"));
+    if (ValueParser::asInt64(info[5]) < 0) {
+        lcb_cmdstore_preserve_expiry(enc.cmd(), 1);
+    } else {
+        if (!enc.parseOption<&lcb_cmdstore_expiry>(info[5])) {
+            return Nan::ThrowError(Error::create("bad expiry passed"));
+        }
     }
     if (!enc.parseCasOption<&lcb_cmdstore_cas>(info[6])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
@@ -462,8 +466,12 @@ NAN_METHOD(Connection::fnMutateIn)
     if (!enc.parseOption<&lcb_cmdsubdoc_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdsubdoc_expiry>(info[3])) {
-        return Nan::ThrowError(Error::create("bad expiry passed"));
+    if (ValueParser::asInt64(info[3]) < 0) {
+        lcb_cmdsubdoc_preserve_expiry(enc.cmd(), 1);
+    } else {
+        if (!enc.parseOption<&lcb_cmdsubdoc_expiry>(info[3])) {
+            return Nan::ThrowError(Error::create("bad expiry passed"));
+        }
     }
     if (!enc.parseCasOption<&lcb_cmdsubdoc_cas>(info[4])) {
         return Nan::ThrowError(Error::create("bad cas passed"));

@@ -116,7 +116,7 @@ export class ViewExecutor {
     }
 
     const queryData = cbQsStringify(queryOpts)
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     const emitter = new StreamableRowPromise<
       ViewResult<TValue, TKey>,
@@ -135,7 +135,7 @@ export class ViewExecutor {
       queryData,
       undefined,
       queryFlags,
-      cppTimeout,
+      lcbTimeout,
       (err, flags, data, docId, key) => {
         if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
           if (err) {

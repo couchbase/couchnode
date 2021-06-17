@@ -101,7 +101,7 @@ export class QueryExecutor {
     }
 
     const queryData = JSON.stringify(queryObj)
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     const emitter = new StreamableRowPromise<
       QueryResult<TRow>,
@@ -114,7 +114,7 @@ export class QueryExecutor {
       })
     })
 
-    this._conn.query(queryData, queryFlags, cppTimeout, (err, flags, data) => {
+    this._conn.query(queryData, queryFlags, lcbTimeout, (err, flags, data) => {
       if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
         if (err) {
           emitter.emit('error', err)

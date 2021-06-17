@@ -120,6 +120,11 @@ export interface UpsertOptions {
   expiry?: number
 
   /**
+   * Specifies that any existing expiry on the document should be preserved.
+   */
+  preserveExpiry?: boolean
+
+  /**
    * Specifies the level of synchronous durability for this operation.
    */
   durabilityLevel?: DurabilityLevel
@@ -157,6 +162,11 @@ export interface ReplaceOptions {
    * Specifies the expiry time for this document, specified in seconds.
    */
   expiry?: number
+
+  /**
+   * Specifies that any existing expiry on the document should be preserved.
+   */
+  preserveExpiry?: boolean
 
   /**
    * If specified, indicates that operation should be failed if the CAS
@@ -346,6 +356,11 @@ export interface MutateInOptions {
    * Specifies the expiry time for this document, specified in seconds.
    */
   expiry?: number
+
+  /**
+   * Specifies that any existing expiry on the document should be preserved.
+   */
+  preserveExpiry?: boolean
 
   /**
    * If specified, indicates that operation should be failed if the CAS
@@ -754,7 +769,7 @@ export class Collection {
     const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.remove(
@@ -764,7 +779,7 @@ export class Collection {
         cppDuraMode,
         persistTo,
         replicateTo,
-        cppTimeout,
+        lcbTimeout,
         (err, cas) => {
           if (err) {
             return wrapCallback(err, null)
@@ -857,7 +872,7 @@ export class Collection {
     const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.touch(
@@ -867,7 +882,7 @@ export class Collection {
         cppDuraMode,
         persistTo,
         replicateTo,
-        cppTimeout,
+        lcbTimeout,
         (err, cas) => {
           if (err) {
             return wrapCallback(err, null)
@@ -907,7 +922,7 @@ export class Collection {
     }
 
     const transcoder = options.transcoder || this.transcoder
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.get(
@@ -916,7 +931,7 @@ export class Collection {
         transcoder,
         undefined,
         lockTime,
-        cppTimeout,
+        lcbTimeout,
         (err, cas, value) => {
           if (err) {
             return wrapCallback(err, null)
@@ -956,10 +971,10 @@ export class Collection {
       options = {}
     }
 
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.unlock(...this._lcbScopeColl, key, cas, cppTimeout, (err) => {
+      this._conn.unlock(...this._lcbScopeColl, key, cas, lcbTimeout, (err) => {
         if (err) {
           return wrapCallback(err)
         }
@@ -999,7 +1014,7 @@ export class Collection {
       cmdData = [...cmdData, specs[i]._op, specs[i]._flags, specs[i]._path]
     }
 
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.lookupIn(
@@ -1007,7 +1022,7 @@ export class Collection {
         key,
         flags,
         cmdData,
-        cppTimeout,
+        lcbTimeout,
         (err, res) => {
           if (res && res.content) {
             for (let i = 0; i < res.content.length; ++i) {
@@ -1092,12 +1107,12 @@ export class Collection {
       ]
     }
 
-    const expiry = options.expiry || 0
+    const expiry = options.preserveExpiry ? -1 : options.expiry
     const cas = options.cas
     const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.mutateIn(
@@ -1110,7 +1125,7 @@ export class Collection {
         cppDuraMode,
         persistTo,
         replicateTo,
-        cppTimeout,
+        lcbTimeout,
         (err, res) => {
           if (res && res.content) {
             for (let i = 0; i < res.content.length; ++i) {
@@ -1207,14 +1222,14 @@ export class Collection {
     >((replicas) => replicas)
 
     const transcoder = options.transcoder || this.transcoder
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     this._conn.getReplica(
       ...this._lcbScopeColl,
       key,
       transcoder,
       mode,
-      cppTimeout,
+      lcbTimeout,
       (err, rflags, cas, value) => {
         if (!err) {
           emitter.emit(
@@ -1242,6 +1257,7 @@ export class Collection {
     value: any,
     options?: {
       expiry?: number
+      preserveExpiry?: boolean
       cas?: Cas
       durabilityLevel?: DurabilityLevel
       durabilityPersistTo?: number
@@ -1259,13 +1275,13 @@ export class Collection {
       options = {}
     }
 
-    const expiry = options.expiry
+    const expiry = options.preserveExpiry ? -1 : options.expiry
     const cas = options.cas
     const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
     const transcoder = options.transcoder || this.transcoder
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.store(
@@ -1278,7 +1294,7 @@ export class Collection {
         cppDuraMode,
         persistTo,
         replicateTo,
-        cppTimeout,
+        lcbTimeout,
         opType,
         (err, cas, token) => {
           if (err) {
@@ -1323,7 +1339,7 @@ export class Collection {
     const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
-    const cppTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.counter(
@@ -1335,7 +1351,7 @@ export class Collection {
         cppDuraMode,
         persistTo,
         replicateTo,
-        cppTimeout,
+        lcbTimeout,
         (err, cas, token, value) => {
           if (err) {
             return wrapCallback(err, null)
