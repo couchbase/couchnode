@@ -19,6 +19,8 @@
 #include "iotests.h"
 #include "internal.h"
 
+#include <capi/key_value_error_context.hh>
+
 class EerrsUnitTest : public MockUnitTest
 {
   protected:
@@ -53,44 +55,43 @@ class EerrsUnitTest : public MockUnitTest
 };
 
 struct EerrsCookie {
-    lcb_STATUS rc;
-    bool called;
-    char *err_ref;
-    char *err_ctx;
+    lcb_STATUS rc{LCB_SUCCESS};
+    bool called{false};
+    std::string err_ref{};
+    std::string err_ctx{};
 
     void reset()
     {
         rc = LCB_SUCCESS;
         called = false;
-        free(err_ref);
-        err_ref = NULL;
-        free(err_ctx);
-        err_ctx = NULL;
-    }
-    EerrsCookie() : rc(LCB_SUCCESS), called(false), err_ref(NULL), err_ctx(NULL) {}
-
-    ~EerrsCookie()
-    {
-        free(err_ref);
-        free(err_ctx);
+        err_ref.clear();
+        err_ctx.clear();
     }
 };
 
 extern "C" {
-static void opcb(lcb_INSTANCE *, int cbtype, const lcb_RESPBASE *rb)
+static void opcb(lcb_INSTANCE *, int /* cbtype */, const lcb_RESPGET *resp)
 {
-    EerrsCookie *cookie = reinterpret_cast< EerrsCookie * >(rb->cookie);
+    EerrsCookie *cookie;
+    lcb_respget_cookie(resp, (void **)&cookie);
     cookie->called = true;
-    cookie->rc = rb->ctx.rc;
+    cookie->rc = lcb_respget_status(resp);
 
-    const char *ref = lcb_resp_get_error_ref(cbtype, rb);
-    if (ref != NULL) {
-        cookie->err_ref = strdup(ref);
+    const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
+    lcb_respget_error_context(resp, &ctx);
+
+    const char *ref;
+    size_t ref_len;
+    lcb_errctx_kv_ref(ctx, &ref, &ref_len);
+    if (ref_len > 0) {
+        cookie->err_ref.assign(ref, ref_len);
     }
 
-    const char *ctx = lcb_resp_get_error_context(cbtype, rb);
-    if (ctx != NULL) {
-        cookie->err_ctx = strdup(ctx);
+    const char *context;
+    size_t context_len;
+    lcb_errctx_kv_context(ctx, &context, &context_len);
+    if (context_len > 0) {
+        cookie->err_ctx.assign(context, context_len);
     }
 }
 }
@@ -103,7 +104,7 @@ TEST_F(EerrsUnitTest, testInCallbackWhenEnabled)
 
     enableEnhancedErrors();
     createEerrConnection(hw, &instance);
-    lcb_install_callback(instance, LCB_CALLBACK_DEFAULT, opcb);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)opcb);
 
     EerrsCookie cookie;
 
@@ -118,9 +119,7 @@ TEST_F(EerrsUnitTest, testInCallbackWhenEnabled)
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(cookie.called);
     ASSERT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, cookie.rc);
-    ASSERT_NE((char *)NULL, cookie.err_ref);
-    ASSERT_EQ(36, strlen(cookie.err_ref)); // java.util.UUID generates 36-bytes long strings
-    ASSERT_STREQ("Failed to lookup item", cookie.err_ctx);
+    ASSERT_EQ("Failed to lookup item", cookie.err_ctx);
 }
 
 TEST_F(EerrsUnitTest, testInCallbackWhenDisabled)
@@ -131,7 +130,7 @@ TEST_F(EerrsUnitTest, testInCallbackWhenDisabled)
 
     disableEnhancedErrors();
     createEerrConnection(hw, &instance);
-    lcb_install_callback(instance, LCB_CALLBACK_DEFAULT, opcb);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)opcb);
 
     EerrsCookie cookie;
 
@@ -145,6 +144,6 @@ TEST_F(EerrsUnitTest, testInCallbackWhenDisabled)
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(cookie.called);
-    ASSERT_EQ((char *)NULL, cookie.err_ref);
-    ASSERT_EQ((char *)NULL, cookie.err_ctx);
+    ASSERT_TRUE(cookie.err_ref.empty());
+    ASSERT_TRUE(cookie.err_ctx.empty());
 }

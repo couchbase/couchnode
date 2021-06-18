@@ -87,11 +87,21 @@ public:
     template <lcb_STATUS (*SetFn)(CmdType *, const char *, size_t)>
     bool parseOption(Local<Value> value)
     {
+        if (value.IsEmpty() || value->IsUndefined()) {
+            return true;
+        }
+
         const char *bytes;
         size_t nbytes;
         if (!_valueParser.parseString(&bytes, &nbytes, value)) {
             return false;
         }
+
+        // Don't call the LCB function if the string is blank.
+        if (bytes == nullptr || nbytes == 0) {
+            return true;
+        }
+
         return SetFn(_cmd, bytes, nbytes) == LCB_SUCCESS;
     }
 
@@ -261,6 +271,10 @@ protected:
     template <typename T, lcb_STATUS (*SetFn)(CmdType *, T)>
     bool _parseIntOption(Local<Value> value)
     {
+        if (value.IsEmpty() || value->IsUndefined()) {
+            return true;
+        }
+
         T parsedValue;
         if (!_valueParser.parseInt(&parsedValue, value)) {
             return false;
@@ -271,6 +285,10 @@ protected:
     template <typename T, lcb_STATUS (*SetFn)(CmdType *, T)>
     bool _parseUintOption(Local<Value> value)
     {
+        if (value.IsEmpty() || value->IsUndefined()) {
+            return true;
+        }
+
         T parsedValue;
         if (!_valueParser.parseUint(&parsedValue, value)) {
             return false;

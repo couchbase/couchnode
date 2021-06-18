@@ -43,6 +43,7 @@
 #include "docgen/seqgen.h"
 #include "docgen/docgen.h"
 #include "internalstructs.h"
+#include "internal.h"
 
 using namespace std;
 using namespace cbc;
@@ -303,10 +304,23 @@ class Configuration
     {
         return o_numThreads;
     }
+
     string &getKeyPrefix()
     {
         return prefix;
     }
+
+    std::string strip_key_prefix(const std::string &text)
+    {
+        if (prefix.empty()) {
+            return text;
+        }
+        if (text.find(prefix) == 0) {
+            return text.substr(prefix.size());
+        }
+        return text;
+    }
+
     bool sequentialAccess()
     {
         return o_sequential;
@@ -883,8 +897,10 @@ class ThreadContext
                 break;
             }
             case NextOp::NOOP: {
-                lcb_CMDNOOP ncmd = {0};
-                error = lcb_noop3(instance, nullptr, &ncmd);
+                lcb_CMDNOOP *ncmd;
+                lcb_cmdnoop_create(&ncmd);
+                error = lcb_noop(instance, nullptr, ncmd);
+                lcb_cmdnoop_destroy(ncmd);
                 break;
             }
         }
@@ -1028,8 +1044,9 @@ static void noopCallback(lcb_INSTANCE *instance, int, const lcb_RESPNOOP *resp)
 {
     InstanceCookie *cookie = InstanceCookie::get(instance);
     ThreadContext *tc = cookie->getContext();
-    tc->setError(resp->ctx.rc);
-    updateStats(cookie, resp->ctx.rc);
+    lcb_STATUS rc = lcb_respnoop_status(resp);
+    tc->setError(rc);
+    updateStats(cookie, rc);
     updateOpsPerSecDisplay();
 }
 
@@ -1076,7 +1093,8 @@ static void getCallback(lcb_INSTANCE *instance, int, const lcb_RESPGET *resp)
         collection.assign(p, n);
     }
 
-    uint32_t seqno = std::stol(key);
+    auto stripped_key = config.strip_key_prefix(key);
+    uint32_t seqno = std::stoul(stripped_key);
     uintptr_t flags = 0;
     lcb_respget_cookie(resp, (void **)&flags);
     if (flags & OPFLAGS_LOCKED) {
@@ -1139,7 +1157,8 @@ static void storeCallback(lcb_INSTANCE *instance, int, const lcb_RESPSTORE *resp
     size_t n;
     lcb_respstore_key(resp, &p, &n);
     string key(p, n);
-    uint32_t seqno = std::stol(key);
+    auto stripped_key = config.strip_key_prefix(key);
+    uint32_t seqno = std::stoul(stripped_key);
     if (rc != LCB_SUCCESS && tc->inPopulation()) {
         const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
         lcb_respstore_error_context(resp, &ctx);
@@ -1161,12 +1180,10 @@ static void storeCallback(lcb_INSTANCE *instance, int, const lcb_RESPSTORE *resp
         op.m_key = key;
         op.m_seqno = seqno;
 
-        string scope;
         lcb_errctx_kv_scope(ctx, &p, &n);
         if (p && n) {
             op.m_scope.assign(p, n);
         }
-        string collection;
         lcb_errctx_kv_collection(ctx, &p, &n);
         if (p && n) {
             op.m_collection.assign(p, n);

@@ -43,6 +43,7 @@
       'contrib',
       'contrib/cbsasl/include',
       'contrib/snappy',
+      'contrib/HdrHistogram_c/src',
       'gyp_config/common',
       'gyp_config/<(OS)/<(target_arch)'
     ],
@@ -53,7 +54,7 @@
           "libraries": [
             "-lresolv"
           ]
-        }
+        },
       }],
       ['OS=="win"', {
         'include_dirs': [
@@ -151,6 +152,23 @@
       }
     },
 
+        #HdrHistogram_c
+    {
+      'target_name': 'HdrHistogram_c',
+      'product_prefix': 'lib',
+      'type': 'static_library',
+      'sources': [
+        'contrib/HdrHistogram_c/src/hdr_encoding.c',
+        'contrib/HdrHistogram_c/src/hdr_histogram_log_no_op.c',
+        'contrib/HdrHistogram_c/src/hdr_histogram_log.c',
+        'contrib/HdrHistogram_c/src/hdr_histogram.c',
+        'contrib/HdrHistogram_c/src/hdr_interval_recorder.c',
+        'contrib/HdrHistogram_c/src/hdr_thread.c',
+        'contrib/HdrHistogram_c/src/hdr_time.c',
+        'contrib/HdrHistogram_c/src/hdr_writer_reader_phaser.c',
+       ],
+    },
+
     #libcouchbase
     {
       'target_name': 'couchbase',
@@ -164,6 +182,9 @@
         '-Wno-unused-function',
         '-Wno-missing-braces',
         '-Wno-missing-field-initializers'
+      ],
+      'cflags_c': [
+        '-std=c99'
       ],
       'cflags!': [
         '-fno-exceptions'
@@ -184,16 +205,17 @@
         './'
       ],
       'sources': [
+        'src/analytics/analytics_handle.cc',
+        'src/analytics/analytics.cc',
         'src/bucketconfig/bc_cccp.cc',
         'src/bucketconfig/bc_file.cc',
         'src/bucketconfig/bc_http.cc',
         'src/bucketconfig/bc_static.cc',
         'src/bucketconfig/confmon.cc',
-        'src/capi/analytics.cc',
-        'src/capi/query.cc',
-        'src/capi/search.cc',
-        'src/capi/views.cc',
-        'src/cbas/cbas.cc',
+        'src/capi/cmd_analytics.cc',
+        'src/capi/cmd_query.cc',
+        'src/capi/cmd_search.cc',
+        'src/capi/cmd_view.cc',
         'src/docreq/docreq.cc',
         'src/http/http.cc',
         'src/http/http_io.cc',
@@ -206,19 +228,27 @@
         'src/lcbio/manager.cc',
         'src/lcbio/protoctx.cc',
         'src/lcbio/timer.cc',
+        'src/metrics/caching_meter.cc',
+        'src/metrics/logging_meter.cc',
+        'src/metrics/metrics-internal.cc',
+        'src/metrics/metrics.cc',
         'src/mc/compress.cc',
         'src/mc/forward.c',
         'src/mc/mcreq.c',
         'src/mcserver/mcserver.cc',
         'src/mcserver/negotiate.cc',
         'src/n1ql/ixmgmt.cc',
+        'src/n1ql/n1ql-internal.cc',
         'src/n1ql/n1ql.cc',
+        'src/n1ql/query_handle.cc',
+        'src/n1ql/query_utils.cc',
         'src/netbuf/netbuf.c',
         'src/operations/cbflush.cc',
         'src/operations/counter.cc',
         'src/operations/durability-seqno.cc',
         'src/operations/durability.cc',
         'src/operations/exists.cc',
+        'src/operations/get_replica.cc',
         'src/operations/get.cc',
         'src/operations/observe-seqno.cc',
         'src/operations/observe.cc',
@@ -229,32 +259,36 @@
         'src/operations/store.cc',
         'src/operations/subdoc.cc',
         'src/operations/touch.cc',
+        'src/operations/unlock.cc',
         'src/rdb/bigalloc.c',
         'src/rdb/chunkalloc.c',
         'src/rdb/libcalloc.c',
         'src/rdb/rope.c',
+        'src/search/search_handle.cc',
+        'src/search/search.cc',
         'src/strcodecs/base64.cc',
         'src/tracing/span.cc',
         'src/tracing/threshold_logging_tracer.cc',
         'src/tracing/tracer.cc',
         'src/vbucket/ketama.c',
         'src/vbucket/vbucket.c',
-        'src/views/viewreq.cc',
+        'src/views/view_handle.cc',
+        'src/views/view.cc',
         'src/auth.cc',
         'src/bootstrap.cc',
         'src/callbacks.c',
-        'src/cbft.cc',
         'src/cntl.cc',
         'src/collections.cc',
         'src/connspec.cc',
         'src/crypto.cc',
+        'src/defer.cc',
         'src/dns-srv.cc',
         'src/dump.cc',
         'src/errmap.cc',
         'src/getconfig.cc',
         'src/gethrtime.c',
         'src/handler.cc',
-        # 'src/hdr_timings.c', we use timings.c
+        'src/hdr_timings.c',
         'src/hostlist.cc',
         'src/instance.cc',
         'src/iofactory.c',
@@ -262,13 +296,13 @@
         'src/logging.c',
         'src/newconfig.cc',
         'src/nodeinfo.cc',
-        'src/metrics.cc',
+        'src/iometrics.cc',
         'src/retrychk.cc',
         'src/retryq.cc',
         'src/ringbuffer.c',
         'src/rnd.cc',
         'src/settings.cc',
-        'src/timings.c',
+        # 'src/timings.c',  we use hdr_timings.c
         'src/utilities.cc',
         'src/wait.cc',
 
@@ -279,7 +313,8 @@
         'cjson',
         'cbsasl',
         'snappy',
-        'jsoncpp'
+        'jsoncpp',
+        'HdrHistogram_c'
       ],
       'copies': [{
         'files': [ 'plugins/io/libuv/libuv_io_opts.h' ],

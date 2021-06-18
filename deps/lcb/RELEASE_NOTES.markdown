@@ -1,5 +1,73 @@
 # Release Notes
 
+## 3.2.0 (2021-07-19)
+
+* Various improvements and fixes in test and build infrastruture
+
+* CBCC-1280 Support for OpenTelemetry tracing.
+    
+  Tracing updated to allow for an external tracer that creates and finishes spans, adds tags, destroys spans.  Also,
+  spans now have the notion of being the 'outer' span.  That is the span that has all the outer span tags, and is the
+  one whose duration is used to determine whether or not the operation has exceeded the threshold if the
+  ThresholdLoggingTracer is used.
+    
+  If you pass in a parent that is an outer span, you must call `lcbtrace_span_finish` yourself. When an operation
+  begins, if there is no parent span passed in, or if there is but it isn't an 'outer' span, then the operation creates
+  the outer span itself.
+  See `/examples/tracing/otel_tracing.cc` for an example.
+    
+* CCBC-1362: Support for metrics.
+    
+   When enabled, by default will output a histogram of latencies for various kv operations plus query, search, analytics
+   and view queries.
+    
+  If desired, an external metrics collector can be passed in when the instance is created, which will then be called
+  with latencies for each operation.  This can be used to call into an opentelemetry meter for aggregation and export.
+  See `/examples/metrics/otel_metrics.cc` for an example.
+
+* CCBC-1421: Allow empty path for subdocument array methods.
+    
+* CCBC-1417: Depecate CAS usage with counter operation.
+
+* CCBC-1418: Map query error 13014 to `LCB_ERR_AUTHENTICATION_FAILURE`.
+    
+* CCBC-1357: Allow to preserve expiration with Replace, Upsert and MutateIn operations.
+
+* CCBC-1384: Allow the operations to be deferred until the instance will be connected to cluster.
+
+* CCBC-1410: Refactor dynamic authenticator. NOTE: this API still volatile and might be changed in future.
+    
+  In order to improve UX and allow caller to implement credential caching the API for authenticator was revised:
+    
+    * instead of separate callbacks for username/password, now it uses single callback
+    
+    * in the callback, the caller can figure out the reason of credentials request using `lcbauth_credentials_reason()`
+    
+    * the caller can signal that it failed to retrieve credentials from external provider, and set result with
+      `lcbauth_credentials_result()`. In this case the SDK will not retry the operation.
+    
+
+* CCBC-1413: Skip `SELECT_BUCKET` packets waiting retry queue.
+
+* CCBC-1169: Request copy from active vbucket for `get_all_replicas` operation.
+
+* CCBC-1406: Fill in prepared statement handle on retry.
+    
+* CCBC-1405: Remove const from command cookie.
+    
+* CCBC-1402: Fix parsing JSON primitives as query rows.
+
+## 3.1.3 (2021-05-10)
+
+* CCBC-1398: Parse and use `revEpoch` from configuration in order to allow the server to handle special cases of failover scenarious.
+* CCBC-1399: Implement retry backoff for query requests. Instead of retrying requests immediately, use backoff period returned by retry strategy.
+* CCBC-1400: Fill collection name when retrying collection resolution to avoid misrouting requests to default collection.
+* CCBC-1397: Reset list of "used" nodes when retrying query to allow reusing endpoints.
+* CCBC-1401: Fix special error message detection for Query requests. In addition to reacting on the error codes from query service, the library also scans error messages for particular sub-strings to decide whether retry is necessary.
+* CCBC-861: Purge pipelines on `lcb_destroy`. In order to avoid resource leaks, the library purges all pending (or waiting) commands from the pipelines upon destruction.
+* Fix `cbc-proxy` tool.
+* Upgrade snappy to 1.1.8
+
 ## 3.1.2 (2021-04-26)
 
 * CCBC-1396: Fix recalculaton of key length for alt packets.

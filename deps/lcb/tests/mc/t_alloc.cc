@@ -41,12 +41,12 @@ TEST_F(McAlloc, testPipelineFreeAlloc)
 TEST_F(McAlloc, testPacketFreeAlloc)
 {
     mc_PIPELINE pipeline;
-    mc_PACKET *copied = NULL;
+    mc_PACKET *copied = nullptr;
     memset(&pipeline, 0, sizeof(pipeline));
     setupPipeline(&pipeline);
 
     mc_PACKET *packet = mcreq_allocate_packet(&pipeline);
-    ASSERT_TRUE(packet != NULL);
+    ASSERT_TRUE(packet != nullptr);
 
     mcreq_reserve_header(&pipeline, packet, 24);
 
@@ -60,8 +60,8 @@ TEST_F(McAlloc, testPacketFreeAlloc)
 
     // Write to the detached packet. Ensure we don't crash
     memset(SPAN_BUFFER(&copied->kh_span), 0xff, copied->kh_span.size);
-    mcreq_wipe_packet(NULL, copied);
-    mcreq_release_packet(NULL, copied);
+    mcreq_wipe_packet(nullptr, copied);
+    mcreq_release_packet(nullptr, copied);
 }
 
 struct dummy_datum {
@@ -94,21 +94,21 @@ TEST_F(McAlloc, testExdataAlloc)
     mcreq_epkt_insert((mc_EXPACKET *)copy1, &dd.base);
     // Find it back
     mc_EPKTDATUM *epd = mcreq_epkt_find((mc_EXPACKET *)copy1, "Dummy");
-    ASSERT_FALSE(epd == NULL);
+    ASSERT_FALSE(epd == nullptr);
     ASSERT_TRUE(epd == &dd.base);
 
     copy2 = mcreq_renew_packet(copy1);
     epd = mcreq_epkt_find((mc_EXPACKET *)copy1, "Dummy");
-    ASSERT_TRUE(epd == NULL);
+    ASSERT_TRUE(epd == nullptr);
     epd = mcreq_epkt_find((mc_EXPACKET *)copy2, "Dummy");
-    ASSERT_FALSE(epd == NULL);
+    ASSERT_FALSE(epd == nullptr);
 
     mcreq_wipe_packet(&pipeline, packet);
     mcreq_release_packet(&pipeline, packet);
-    mcreq_wipe_packet(NULL, copy1);
-    mcreq_release_packet(NULL, copy1);
-    mcreq_wipe_packet(NULL, copy2);
-    mcreq_release_packet(NULL, copy2);
+    mcreq_wipe_packet(nullptr, copy1);
+    mcreq_release_packet(nullptr, copy1);
+    mcreq_wipe_packet(nullptr, copy2);
+    mcreq_release_packet(nullptr, copy2);
     ASSERT_EQ(0, dd.refcount);
     mcreq_pipeline_cleanup(&pipeline);
 }
@@ -118,20 +118,18 @@ TEST_F(McAlloc, testKeyAlloc)
     CQWrap q;
     mc_PACKET *packet;
     mc_PIPELINE *pipeline;
-    lcb_CMDBASE cmd;
+    lcb_CMDGET cmd{};
 
-    protocol_binary_request_header hdr;
-    memset(&cmd, 0, sizeof(cmd));
-    memset(&hdr, 0, sizeof(hdr));
+    protocol_binary_request_header hdr{};
 
-    cmd.key.contig.bytes = const_cast< char * >("Hello");
-    cmd.key.contig.nbytes = 5;
+    cmd.key("Hello");
 
     lcb_STATUS ret;
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, 0, &packet, &pipeline, 0);
+    lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd.key().c_str(), cmd.key().size()}};
+    ret = mcreq_basic_packet(&q, &keybuf, cmd.collection().collection_id(), &hdr, 0, 0, &packet, &pipeline, 0);
     ASSERT_EQ(LCB_SUCCESS, ret);
-    ASSERT_TRUE(packet != NULL);
-    ASSERT_TRUE(pipeline != NULL);
+    ASSERT_TRUE(packet != nullptr);
+    ASSERT_TRUE(pipeline != nullptr);
     ASSERT_EQ(5, ntohs(hdr.request.keylen));
 
     int vb = lcbvb_k2vb(q.config, "Hello", 5);
@@ -146,7 +144,7 @@ TEST_F(McAlloc, testKeyAlloc)
     const char *key;
     size_t nkey;
     // Get back the key we just placed inside the header
-    mcreq_get_key(NULL, packet, &key, &nkey);
+    mcreq_get_key(nullptr, packet, &key, &nkey);
     ASSERT_EQ(5, nkey);
     ASSERT_EQ(0, memcmp(key, "Hello", 5));
 
@@ -159,11 +157,10 @@ TEST_F(McAlloc, testValueAlloc)
     CQWrap q;
     mc_PACKET *packet;
     mc_PIPELINE *pipeline;
-    lcb_CMDBASE cmd;
+    lcb_CMDGET cmd{};
     protocol_binary_request_header hdr;
     lcb_VALBUF vreq;
 
-    memset(&cmd, 0, sizeof(cmd));
     memset(&hdr, 0, sizeof(hdr));
     memset(&vreq, 0, sizeof(vreq));
 
@@ -171,12 +168,12 @@ TEST_F(McAlloc, testValueAlloc)
     const char *value = "World";
 
     lcb_STATUS ret;
-    cmd.key.contig.bytes = const_cast< char * >(key);
-    cmd.key.contig.nbytes = 5;
-    vreq.u_buf.contig.bytes = const_cast< char * >(value);
+    cmd.key(std::string(key));
+    vreq.u_buf.contig.bytes = const_cast<char *>(value);
     vreq.u_buf.contig.nbytes = 5;
 
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, 0, &packet, &pipeline, 0);
+    lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd.key().c_str(), cmd.key().size()}};
+    ret = mcreq_basic_packet(&q, &keybuf, cmd.collection().collection_id(), &hdr, 0, 0, &packet, &pipeline, 0);
     ASSERT_EQ(LCB_SUCCESS, ret);
     ret = mcreq_reserve_value(pipeline, packet, &vreq);
     ASSERT_EQ(ret, LCB_SUCCESS);
@@ -188,7 +185,7 @@ TEST_F(McAlloc, testValueAlloc)
     mcreq_release_packet(pipeline, packet);
 
     // Allocate another packet, but this time, use our own reserved value
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, 0, &packet, &pipeline, 0);
+    ret = mcreq_basic_packet(&q, &keybuf, cmd.collection().collection_id(), &hdr, 0, 0, &packet, &pipeline, 0);
     ASSERT_EQ(ret, LCB_SUCCESS);
     vreq.vtype = LCB_KV_CONTIG;
     ret = mcreq_reserve_value(pipeline, packet, &vreq);
@@ -206,7 +203,7 @@ TEST_F(McAlloc, testValueAlloc)
     vreq.u_buf.multi.iov = (lcb_IOV *)iov;
     vreq.u_buf.multi.niov = 2;
     vreq.vtype = LCB_KV_IOV;
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, 0, &packet, &pipeline, 0);
+    ret = mcreq_basic_packet(&q, &keybuf, cmd.collection().collection_id(), &hdr, 0, 0, &packet, &pipeline, 0);
     ASSERT_EQ(LCB_SUCCESS, ret);
     ret = mcreq_reserve_value(pipeline, packet, &vreq);
     ASSERT_EQ(LCB_SUCCESS, ret);
@@ -226,7 +223,7 @@ TEST_F(McAlloc, testValueAlloc)
     vreq.u_buf.multi.total_length = 0;
 
     vreq.vtype = LCB_KV_IOVCOPY;
-    ret = mcreq_basic_packet(&q, &cmd, &hdr, 0, 0, &packet, &pipeline, 0);
+    ret = mcreq_basic_packet(&q, &keybuf, cmd.collection().collection_id(), &hdr, 0, 0, &packet, &pipeline, 0);
     ASSERT_EQ(LCB_SUCCESS, ret);
 
     ret = mcreq_reserve_value(pipeline, packet, &vreq);
@@ -240,13 +237,13 @@ TEST_F(McAlloc, testValueAlloc)
 
 struct ExtraCookie : mc_REQDATAEX {
     int remaining;
-    ExtraCookie(const mc_REQDATAPROCS &procs_) : mc_REQDATAEX(NULL, procs_, 0), remaining(0) {}
+    ExtraCookie(const mc_REQDATAPROCS &procs_) : mc_REQDATAEX(nullptr, procs_, 0), remaining(0) {}
 };
 
 extern "C" {
 static void pkt_dtor(mc_PACKET *pkt)
 {
-    ExtraCookie *ec = static_cast< ExtraCookie * >(pkt->u_rdata.exdata);
+    ExtraCookie *ec = static_cast<ExtraCookie *>(pkt->u_rdata.exdata);
     ec->remaining--;
 }
 }
@@ -254,15 +251,13 @@ static void pkt_dtor(mc_PACKET *pkt)
 TEST_F(McAlloc, testRdataExDtor)
 {
     CQWrap q;
-    lcb_CMDBASE basecmd;
-    const static mc_REQDATAPROCS procs = {NULL, pkt_dtor};
+    lcb_CMDGET cmd{};
+    const static mc_REQDATAPROCS procs = {nullptr, pkt_dtor};
     protocol_binary_request_header hdr;
 
     memset(&hdr, 0, sizeof hdr);
-    memset(&basecmd, 0, sizeof basecmd);
 
-    basecmd.key.contig.bytes = "foo";
-    basecmd.key.contig.nbytes = 3;
+    cmd.key(std::string("foo"));
 
     ExtraCookie ec(procs);
 
@@ -271,7 +266,8 @@ TEST_F(McAlloc, testRdataExDtor)
         lcb_STATUS err;
         mc_PIPELINE *pl;
         mc_PACKET *pkt;
-        err = mcreq_basic_packet(&q, &basecmd, &hdr, 0, 0, &pkt, &pl, 0);
+        lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd.key().c_str(), cmd.key().size()}};
+        err = mcreq_basic_packet(&q, &keybuf, cmd.collection().collection_id(), &hdr, 0, 0, &pkt, &pl, 0);
         ASSERT_EQ(LCB_SUCCESS, err);
         pkt->flags |= MCREQ_F_REQEXT;
         pkt->u_rdata.exdata = &ec;

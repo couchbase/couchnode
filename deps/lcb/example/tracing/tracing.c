@@ -121,7 +121,7 @@ void zipkin_report(lcbtrace_TRACER *tracer, lcbtrace_SPAN *span)
             cJSON *endpoint = cJSON_CreateObject();
 
             nbuf = BUFSZ;
-            if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_DB_TYPE, &buf, &nbuf) == LCB_SUCCESS) {
+            if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_SYSTEM, &buf, &nbuf) == LCB_SUCCESS) {
                 buf[nbuf] = '\0';
                 cJSON_AddItemToObject(endpoint, "serviceName", cJSON_CreateString(buf));
             }

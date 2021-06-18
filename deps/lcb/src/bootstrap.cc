@@ -17,6 +17,7 @@
 
 #define LCB_BOOTSTRAP_DEFINE_STRUCT 1
 #include "internal.h"
+#include "defer.h"
 
 #define LOGARGS(instance, lvl) instance->settings, "bootstrap", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -133,6 +134,7 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info)
             instance->callbacks.open(instance, LCB_SUCCESS);
             instance->callbacks.open = nullptr;
         }
+        lcb::execute_deferred_operations(instance);
 
         // See if we can enable background polling.
         check_bgpoll();
@@ -148,9 +150,10 @@ void Bootstrap::clconfig_lsn(EventType e, ConfigInfo *i)
     if (state == S_INITIAL_PRE) {
         config_callback(e, i);
     } else if (e == clconfig::CLCONFIG_EVENT_GOT_NEW_CONFIG) {
-        lcb_log(LOGARGS(parent, INFO),
-                "Got new config (source=%s, bucket=%.*s, rev=%" PRId64 "). Will refresh asynchronously",
-                provider_string(i->get_origin()), (int)i->vbc->bname_len, i->vbc->bname, i->vbc->revid);
+        lcb_log(
+            LOGARGS(parent, INFO),
+            "Got new config (source=%s, bucket=%.*s, epoch=%" PRId64 ", rev=%" PRId64 "). Will refresh asynchronously",
+            provider_string(i->get_origin()), (int)i->vbc->bname_len, i->vbc->bname, i->vbc->revepoch, i->vbc->revid);
         tm.signal();
     }
 }

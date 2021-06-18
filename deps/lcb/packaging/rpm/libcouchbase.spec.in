@@ -6,7 +6,13 @@ Vendor: Couchbase, Inc.
 Packager: Couchbase SDK Team <support@couchbase.com>
 License: ASL 2.0
 BuildRequires: gcc, gcc-c++
+
+%if %{?rhel}%{!?rhel:0} < 8
 BuildRequires: cmake3 >= 3.5.1
+%else
+BuildRequires: cmake >= 3.5.1
+%endif
+
 BuildRequires: pkgconfig(libevent) >= 2
 BuildRequires: libev-devel >= 3
 BuildRequires: openssl-devel

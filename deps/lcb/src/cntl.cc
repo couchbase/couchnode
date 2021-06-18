@@ -132,6 +132,8 @@ static std::uint32_t *get_timeout_field(lcb_INSTANCE *instance, int cmd)
             return &settings->tracer_threshold[LCBTRACE_THRESHOLD_ANALYTICS];
         case LCB_CNTL_PERSISTENCE_TIMEOUT_FLOOR:
             return &settings->persistence_timeout_floor;
+        case LCB_CNTL_OP_METRICS_FLUSH_INTERVAL:
+            return &settings->op_metrics_flush_interval;
         default:
             return nullptr;
     }
@@ -239,6 +241,8 @@ HANDLER(log_redaction_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, log_re
 HANDLER(enable_tracing_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, use_tracing))}
 
 HANDLER(enable_errmap_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, use_errmap))}
+
+HANDLER(enable_op_metrics_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, op_metrics_enabled))}
 
 HANDLER(tracing_orphaned_queue_size_handler){
     RETURN_GET_SET(std::uint32_t, LCBT_SETTING(instance, tracer_orphaned_queue_size))}
@@ -825,6 +829,8 @@ static ctl_handler handlers[] = {
     timeout_common,                       /* LCB_CNTL_SEARCH_TIMEOUT */
     timeout_common,                       /* LCB_CNTL_QUERY_GRACE_PERIOD */
     enable_errmap_handler,                /* LCB_CNTL_ENABLE_ERRMAP */
+    timeout_common,                       /* LCB_CNTL_OP_METRICS_FLUSH_INTERVAL */
+    enable_op_metrics_handler,            /* LCB_CNTL_ENABLE_OP_METRICS */
     nullptr
 };
 /* clang-format on */
@@ -1059,6 +1065,8 @@ static cntl_OPCODESTRS stropcode_map[] = {
     {"search_timeout", LCB_CNTL_SEARCH_TIMEOUT, convert_timevalue},
     {"query_grace_period", LCB_CNTL_QUERY_GRACE_PERIOD, convert_timevalue},
     {"enable_errmap", LCB_CNTL_ENABLE_ERRMAP, convert_intbool},
+    {"operation_metrics_flush_interval", LCB_CNTL_OP_METRICS_FLUSH_INTERVAL, convert_timevalue},
+    {"enable_operation_metrics", LCB_CNTL_ENABLE_OP_METRICS, convert_intbool},
     {nullptr, -1}};
 
 #define CNTL_NUM_HANDLERS (sizeof(handlers) / sizeof(handlers[0]))

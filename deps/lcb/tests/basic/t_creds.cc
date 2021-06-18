@@ -26,9 +26,9 @@ class CredsTest : public ::testing::Test
 {
 };
 
-static lcb_INSTANCE *create(const char *connstr = NULL)
+static lcb_INSTANCE *create(const char *connstr = nullptr)
 {
-    lcb_CREATEOPTS *crst = NULL;
+    lcb_CREATEOPTS *crst = nullptr;
     lcb_createopts_create(&crst, LCB_TYPE_BUCKET);
     lcb_createopts_connstr(crst, connstr, strlen(connstr));
     lcb_INSTANCE *ret;
@@ -41,23 +41,27 @@ static lcb_INSTANCE *create(const char *connstr = NULL)
 TEST_F(CredsTest, testLegacyCreds)
 {
     lcb_INSTANCE *instance;
-    ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance, NULL));
+    ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance, nullptr));
     lcb::Authenticator &auth = *instance->settings->auth;
     ASSERT_TRUE(auth.username().empty());
     ASSERT_EQ(LCBAUTH_MODE_CLASSIC, auth.mode());
 
     ASSERT_EQ(1, auth.buckets().size());
     ASSERT_TRUE(auth.buckets().find("default")->second.empty());
-    ASSERT_EQ("", auth.password_for(NULL, NULL, "default"));
-    ASSERT_EQ("default", auth.username_for(NULL, NULL, "default"));
+    auto credentials =
+        auth.credentials_for(LCBAUTH_SERVICE_KEY_VALUE, LCBAUTH_REASON_NEW_OPERATION, nullptr, nullptr, "default");
+    ASSERT_EQ("", credentials.password());
+    ASSERT_EQ("default", credentials.username());
 
     // Try to add another user/password:
     lcb_BUCKETCRED creds = {"user2", "pass2"};
     ASSERT_EQ(LCB_SUCCESS, lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_BUCKET_CRED, creds));
     ASSERT_EQ(2, auth.buckets().size());
     ASSERT_EQ("pass2", auth.buckets().find("user2")->second);
-    ASSERT_EQ("user2", auth.username_for(NULL, NULL, "user2"));
-    ASSERT_EQ("pass2", auth.password_for(NULL, NULL, "user2"));
+    credentials =
+        auth.credentials_for(LCBAUTH_SERVICE_KEY_VALUE, LCBAUTH_REASON_NEW_OPERATION, nullptr, nullptr, "user2");
+    ASSERT_EQ("user2", credentials.username());
+    ASSERT_EQ("pass2", credentials.password());
 
     ASSERT_TRUE(auth.username().empty());
     ASSERT_TRUE(auth.password().empty());
@@ -71,10 +75,14 @@ TEST_F(CredsTest, testRbacCreds)
     ASSERT_EQ("mark", auth.username());
     ASSERT_EQ(LCBAUTH_MODE_RBAC, auth.mode());
     ASSERT_TRUE(auth.buckets().empty());
-    ASSERT_EQ("mark", auth.username_for(NULL, NULL, "default"));
-    ASSERT_EQ("", auth.password_for(NULL, NULL, "default"));
-    ASSERT_EQ("mark", auth.username_for(NULL, NULL, "jane"));
-    ASSERT_EQ("", auth.password_for(NULL, NULL, "jane"));
+    auto credentials =
+        auth.credentials_for(LCBAUTH_SERVICE_KEY_VALUE, LCBAUTH_REASON_NEW_OPERATION, nullptr, nullptr, "default");
+    ASSERT_EQ("mark", credentials.username());
+    ASSERT_EQ("", credentials.password());
+    credentials =
+        auth.credentials_for(LCBAUTH_SERVICE_KEY_VALUE, LCBAUTH_REASON_NEW_OPERATION, nullptr, nullptr, "jane");
+    ASSERT_EQ("mark", credentials.username());
+    ASSERT_EQ("", credentials.password());
 
     // Try adding a new bucket, it should fail
     ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, auth.add("users", "secret", LCBAUTH_F_BUCKET));
@@ -87,16 +95,18 @@ TEST_F(CredsTest, testRbacCreds)
 
     // Try *changing* the credentials
     ASSERT_EQ(LCB_SUCCESS, auth.add("jane", "seekrit", LCBAUTH_F_CLUSTER));
-    ASSERT_EQ("jane", auth.username_for(NULL, NULL, "default"));
-    ASSERT_EQ("seekrit", auth.password_for(NULL, NULL, "default"));
+    credentials =
+        auth.credentials_for(LCBAUTH_SERVICE_KEY_VALUE, LCBAUTH_REASON_NEW_OPERATION, nullptr, nullptr, "default");
+    ASSERT_EQ("jane", credentials.username());
+    ASSERT_EQ("seekrit", credentials.password());
     lcb_destroy(instance);
 }
 
 TEST_F(CredsTest, testSharedAuth)
 {
     lcb_INSTANCE *instance1, *instance2;
-    ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance1, NULL));
-    ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance2, NULL));
+    ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance1, nullptr));
+    ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance2, nullptr));
 
     lcb_AUTHENTICATOR *auth = lcbauth_new();
     ASSERT_EQ(1, auth->refcount());

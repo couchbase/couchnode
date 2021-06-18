@@ -74,6 +74,16 @@ void lcbtrace_span_finish(lcbtrace_SPAN *span, uint64_t now)
 }
 
 LIBCOUCHBASE_API
+int lcbtrace_span_should_finish(lcbtrace_SPAN *span)
+{
+    if (!span) {
+        return false;
+    }
+
+    return span->should_finish();
+}
+
+LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, const char *value)
 {
     if (!span || name == nullptr || value == nullptr) {
@@ -119,12 +129,15 @@ void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value
 }
 
 LCB_INTERNAL_API
-void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, const char *service)
+void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, lcbtrace_THRESHOLDOPTS svc)
 {
     if (!span) {
         return;
     }
-    span->add_tag(LCBTRACE_TAG_SERVICE, 0, service, 0);
+    if (svc != LCBTRACE_THRESHOLD__MAX) {
+        span->service(svc);
+    }
+    span->add_tag(LCBTRACE_TAG_SYSTEM, 0, "couchbase", 0);
     std::string client_string(LCB_CLIENT_ID);
     if (settings->client_string) {
         client_string += " ";
@@ -185,6 +198,9 @@ void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val)
         return;
     }
     span->m_orphaned = (val != 0);
+    if (val != 0 && span->m_parent && span->m_parent->is_outer()) {
+        span->m_parent->m_orphaned = true;
+    }
 }
 
 LIBCOUCHBASE_API
@@ -324,47 +340,257 @@ LIBCOUCHBASE_API int lcbtrace_span_has_tag(lcbtrace_SPAN *span, const char *name
     return 0;
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_service(lcbtrace_SPAN *span, lcbtrace_SERVICE *svc)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    *svc = static_cast<lcbtrace_SERVICE>(span->service());
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_set_service(lcbtrace_SPAN *span, lcbtrace_SERVICE svc)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    span->service(static_cast<lcbtrace_THRESHOLDOPTS>(svc));
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_set_is_dispatch(lcbtrace_SPAN *span, int dispatch)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    span->is_dispatch((bool)dispatch);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_set_is_outer(lcbtrace_SPAN *span, int outer)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    span->is_outer((bool)outer);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_set_is_encode(lcbtrace_SPAN *span, int encode)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    span->is_encode((bool)encode);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_is_dispatch(lcbtrace_SPAN *span, int *dispatch)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    *dispatch = span->is_dispatch() ? 1 : 0;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_is_outer(lcbtrace_SPAN *span, int *outer)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    *outer = span->is_outer() ? 1 : 0;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_is_encode(lcbtrace_SPAN *span, int *encode)
+{
+    if (nullptr == span) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    *encode = span->is_encode() ? 1 : 0;
+    return LCB_SUCCESS;
+}
+
 using namespace lcb::trace;
 
-Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF_TYPE ref, lcbtrace_SPAN *other)
-    : m_tracer(tracer), m_opname(opname), m_finish(0)
+Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF_TYPE ref, lcbtrace_SPAN *other,
+           void *external_span)
+    : m_tracer(tracer), m_opname(opname), m_extspan(external_span)
 {
-    m_start = start ? start : lcbtrace_now();
-    m_span_id = lcb_next_rand64();
-    m_orphaned = false;
-    memset(&m_tags, 0, sizeof(m_tags));
-    add_tag(LCBTRACE_TAG_DB_TYPE, 0, "couchbase", 0);
-    add_tag(LCBTRACE_TAG_SPAN_KIND, 0, "client", 0);
-
     if (other != nullptr && ref == LCBTRACE_REF_CHILD_OF) {
         m_parent = other;
     } else {
         m_parent = nullptr;
     }
+    if (nullptr == m_extspan && nullptr != tracer && tracer->version == 1 && nullptr != tracer->v.v1.start_span) {
+        void *parent = other == nullptr ? nullptr : other->external_span();
+        m_extspan = tracer->v.v1.start_span(tracer, opname, parent);
+    } else {
+        m_start = start ? start : lcbtrace_now();
+        m_span_id = lcb_next_rand64();
+        m_orphaned = false;
+        memset(&m_tags, 0, sizeof(m_tags));
+        if (nullptr == m_extspan) {
+            add_tag(LCBTRACE_TAG_SYSTEM, 0, "couchbase", 0);
+            add_tag(LCBTRACE_TAG_SPAN_KIND, 0, "client", 0);
+        }
+    }
 }
 
 Span::~Span()
 {
-    sllist_iterator iter;
-    SLLIST_ITERFOR(&m_tags, &iter)
-    {
-        tag_value *val = SLLIST_ITEM(iter.cur, tag_value, slnode);
-        sllist_iter_remove(&m_tags, &iter);
-        if (val->key.need_free) {
-            free(val->key.p);
+    if (nullptr != m_extspan) {
+        // call external span destructor fn
+        if (nullptr != m_tracer && m_tracer->version == 1 && nullptr != m_tracer->v.v1.destroy_span) {
+            m_tracer->v.v1.destroy_span(m_extspan);
+            m_extspan = nullptr;
         }
-        if (val->t == TAGVAL_STRING && val->v.s.need_free) {
-            free(val->v.s.p);
+    } else {
+        sllist_iterator iter;
+        SLLIST_ITERFOR(&m_tags, &iter)
+        {
+            tag_value *val = SLLIST_ITEM(iter.cur, tag_value, slnode);
+            sllist_iter_remove(&m_tags, &iter);
+            if (val->key.need_free) {
+                free(val->key.p);
+            }
+            if (val->t == TAGVAL_STRING && val->v.s.need_free) {
+                free(val->v.s.p);
+            }
+            free(val);
         }
-        free(val);
     }
+}
+
+void Span::service(lcbtrace_THRESHOLDOPTS svc)
+{
+    m_svc = svc;
+    switch (svc) {
+        case LCBTRACE_THRESHOLD_KV:
+            m_svc_string = LCBTRACE_TAG_SERVICE_KV;
+            break;
+        case LCBTRACE_THRESHOLD_QUERY:
+            m_svc_string = LCBTRACE_TAG_SERVICE_N1QL;
+            break;
+        case LCBTRACE_THRESHOLD_VIEW:
+            m_svc_string = LCBTRACE_TAG_SERVICE_VIEW;
+            break;
+        case LCBTRACE_THRESHOLD_SEARCH:
+            m_svc_string = LCBTRACE_TAG_SERVICE_SEARCH;
+            break;
+        case LCBTRACE_THRESHOLD_ANALYTICS:
+            m_svc_string = LCBTRACE_TAG_SERVICE_ANALYTICS;
+            break;
+        default:
+            m_svc_string = nullptr;
+    }
+    if (m_tracer && m_tracer->version != 0 && m_svc_string) {
+        add_tag(LCBTRACE_TAG_SERVICE, 0, m_svc_string, 0);
+    }
+}
+
+lcbtrace_THRESHOLDOPTS Span::service() const
+{
+    return m_svc;
+}
+
+const char *Span::service_str() const
+{
+    return m_svc_string;
+}
+
+void *Span::external_span() const
+{
+    return m_extspan;
+}
+
+void Span::increment_dispatch(uint64_t dispatch)
+{
+    // outer span needs this for threshold logging only
+    Span *outer = find_outer_or_this();
+    outer->m_total_dispatch += dispatch;
+    outer->m_last_dispatch = dispatch;
+}
+
+void Span::increment_server(uint64_t server)
+{
+    // outer span needs this for threshold logging only
+    Span *outer = find_outer_or_this();
+    outer->m_total_server += server;
+    outer->m_last_server = server;
+    // but this span needs the tag always
+    add_tag(LCBTRACE_TAG_PEER_LATENCY, 0, server);
+}
+
+lcbtrace_SPAN *Span::find_outer_or_this()
+{
+    lcbtrace_SPAN *outer = this;
+    while (outer->m_parent != nullptr && !outer->is_outer()) {
+        outer = outer->m_parent;
+    }
+    return outer;
+}
+
+void Span::external_span(void *extspan)
+{
+    m_extspan = extspan;
+}
+
+bool Span::is_dispatch() const
+{
+    return m_is_dispatch;
+}
+
+void Span::is_dispatch(bool dispatch)
+{
+    m_is_dispatch = dispatch;
+}
+
+bool Span::is_encode() const
+{
+    return m_is_encode;
+}
+
+void Span::is_encode(bool encode)
+{
+    m_is_encode = encode;
+}
+
+bool Span::is_outer() const
+{
+    return m_is_outer;
+}
+
+void Span::is_outer(bool outer)
+{
+    m_is_outer = outer;
+}
+
+void Span::should_finish(bool finish)
+{
+    m_should_finish = finish;
+}
+
+bool Span::should_finish() const
+{
+    // don't call finish on outer spans if external tracer is being used.
+    return m_should_finish;
 }
 
 void Span::finish(uint64_t now)
 {
+    if (m_tracer && m_tracer->version == 1) {
+        if (m_extspan != nullptr && m_tracer->v.v1.end_span != nullptr) {
+            m_tracer->v.v1.end_span(m_extspan);
+            return;
+        }
+    }
     m_finish = now ? now : lcbtrace_now();
-    if (m_tracer && m_tracer->version == 0 && m_tracer->v.v0.report) {
-        m_tracer->v.v0.report(m_tracer, this);
+    if (m_tracer && m_tracer->version == 0) {
+        if (m_tracer->v.v0.report) {
+            m_tracer->v.v0.report(m_tracer, this);
+        }
     }
 }
 
@@ -377,6 +603,17 @@ void Span::add_tag(const char *name, int copy_key, const char *value, int copy_v
 
 void Span::add_tag(const char *name, int copy_key, const char *value, size_t value_len, int copy_value)
 {
+    if (nullptr != m_extspan && nullptr != m_tracer) {
+        if (1 == m_tracer->version && m_tracer->v.v1.add_tag_string) {
+            // this always copies the key and value
+            m_tracer->v.v1.add_tag_string(m_extspan, name, value, value_len);
+        }
+        return;
+    }
+    if (m_is_dispatch && m_parent && m_parent->is_outer()) {
+        m_parent->add_tag(name, copy_key, value, value_len, copy_value);
+        return;
+    }
     auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_STRING;
     val->key.need_free = copy_key;
@@ -398,6 +635,16 @@ void Span::add_tag(const char *name, int copy_key, const char *value, size_t val
 
 void Span::add_tag(const char *name, int copy, uint64_t value)
 {
+    if (nullptr != m_extspan && nullptr != m_tracer) {
+        if (1 == m_tracer->version && m_tracer->v.v1.add_tag_string) {
+            m_tracer->v.v1.add_tag_uint64(m_extspan, name, value);
+        }
+        return;
+    }
+    if (m_is_dispatch && m_parent && m_parent->is_outer()) {
+        m_parent->add_tag(name, copy, value);
+        return;
+    }
     auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_UINT64;
     val->key.need_free = copy;
@@ -412,6 +659,10 @@ void Span::add_tag(const char *name, int copy, uint64_t value)
 
 void Span::add_tag(const char *name, int copy, double value)
 {
+    if (m_is_dispatch && m_parent && m_parent->is_outer()) {
+        m_parent->add_tag(name, copy, value);
+        return;
+    }
     auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_DOUBLE;
     val->key.need_free = copy;
@@ -426,6 +677,10 @@ void Span::add_tag(const char *name, int copy, double value)
 
 void Span::add_tag(const char *name, int copy, bool value)
 {
+    if (m_is_dispatch && m_parent && m_parent->is_outer()) {
+        m_parent->add_tag(name, copy, value);
+        return;
+    }
     auto *val = (tag_value *)calloc(1, sizeof(tag_value));
     val->t = TAGVAL_BOOL;
     val->key.need_free = copy;

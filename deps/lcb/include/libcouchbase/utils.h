@@ -52,60 +52,6 @@ extern "C" {
 #define LCB_CMD_SET_KEY(cmd, keybuf, keylen) LCB_KREQ_SIMPLE(&(cmd)->key, keybuf, keylen)
 
 /**
- * @name Creating Commands
- * @details
- *
- * Issuing a command to the Cluster involves selecting the correct command
- * structure, populating it with the data relevant for the command, optionally
- * associating the command with your own application data, issuing the command
- * to a spooling function, and finally receiving the response.
- *
- * Command structures all derive from the common @ref lcb_CMDBASE structure. This
- * structure defines the common fields for all commands.
- *
- * Almost all commands need to contain a key, which should be assigned using
- * the LCB_CMD_SET_KEY() macro.
- *
- * @{*/
-
-#define LCB_CMD_BASE                                                                                                   \
-    /**Common flags for the command. These modify the command itself. Currently                                        \
-     the lower 16 bits of this field are reserved, and the higher 16 bits are                                          \
-     used for individual commands.*/                                                                                   \
-    lcb_U32 cmdflags;                                                                                                  \
-                                                                                                                       \
-    /**Specify the expiration time. This is either an absolute Unix time stamp                                         \
-     or a relative offset from now, in seconds. If the value of this number                                            \
-     is greater than the value of thirty days in seconds, then it is a Unix                                            \
-     timestamp.                                                                                                        \
-                                                                                                                       \
-     This field is used in mutation operations (lcb_store3()) to indicate                                              \
-     the lifetime of the item. It is used in lcb_get3() with the lcb_CMDGET::lock                                      \
-     option to indicate the lock expiration itself. */                                                                 \
-    lcb_U32 exptime;                                                                                                   \
-                                                                                                                       \
-    /**The known CAS of the item. This is passed to mutation to commands to                                            \
-     ensure the item is only changed if the server-side CAS value matches the                                          \
-     one specified here. For other operations (such as lcb_CMDENDURE) this                                             \
-     is used to ensure that the item has been persisted/replicated to a number                                         \
-     of servers with the value specified here. */                                                                      \
-    lcb_U64 cas;                                                                                                       \
-                                                                                                                       \
-    /**< Collection ID */                                                                                              \
-    lcb_U32 cid;                                                                                                       \
-    const char *scope;                                                                                                 \
-    size_t nscope;                                                                                                     \
-    const char *collection;                                                                                            \
-    size_t ncollection;                                                                                                \
-    /**The key for the document itself. This should be set via LCB_CMD_SET_KEY() */                                    \
-    lcb_KEYBUF key;                                                                                                    \
-                                                                                                                       \
-    /** Operation timeout (in microseconds). When zero, the library will use default value. */                         \
-    lcb_U32 timeout;                                                                                                   \
-    /** Parent tracing span */                                                                                         \
-    lcbtrace_SPAN *pspan
-
-/**
  * @ingroup lcb-public-api
  * @defgroup lcb-flush Flush
  * @brief Clear the contents of a bucket
@@ -117,7 +63,41 @@ extern "C" {
  * @{
  */
 typedef struct {
-    LCB_CMD_BASE;
+    /**Common flags for the command. These modify the command itself. Currently
+     the lower 16 bits of this field are reserved, and the higher 16 bits are
+     used for individual commands.*/
+    lcb_U32 cmdflags;
+
+    /**Specify the expiration time. This is either an absolute Unix time stamp
+     or a relative offset from now, in seconds. If the value of this number
+     is greater than the value of thirty days in seconds, then it is a Unix
+     timestamp.
+
+     This field is used in mutation operations (lcb_store3()) to indicate
+     the lifetime of the item. It is used in lcb_get3() with the lcb_CMDGET::lock
+     option to indicate the lock expiration itself. */
+    lcb_U32 exptime;
+
+    /**The known CAS of the item. This is passed to mutation to commands to
+     ensure the item is only changed if the server-side CAS value matches the
+     one specified here. For other operations (such as lcb_CMDENDURE) this
+     is used to ensure that the item has been persisted/replicated to a number
+     of servers with the value specified here. */
+    lcb_U64 cas;
+
+    /**< Collection ID */
+    lcb_U32 cid;
+    const char *scope;
+    size_t nscope;
+    const char *collection;
+    size_t ncollection;
+    /**The key for the document itself. This should be set via LCB_CMD_SET_KEY() */
+    lcb_KEYBUF key;
+
+    /** Operation timeout (in microseconds). When zero, the library will use default value. */
+    lcb_U32 timeout;
+    /** Parent tracing span */
+    lcbtrace_SPAN *pspan;
 } lcb_CMDCBFLUSH;
 
 typedef struct {
@@ -377,33 +357,6 @@ void lcb_histogram_read(const lcb_HISTOGRAM *hg, const void *cookie, lcb_HISTOGR
  */
 LIBCOUCHBASE_API
 void lcb_histogram_print(lcb_HISTOGRAM *hg, FILE *stream);
-
-/**
- * @volatile
- *
- * Retrieves the extra error context from the response structure.
- *
- * This context does not duplicate information described by status
- * code rendered by lcb_strerror() function, and should be logged
- * if available.
- *
- * @return the pointer to string or NULL if context wasn't specified.
- */
-LIBCOUCHBASE_API
-const char *lcb_resp_get_error_context(int cbtype, const lcb_RESPBASE *rb);
-
-/**
- * @uncommitted
- *
- * Retrieves the error reference id from the response structure.
- *
- * Error reference id (or event id) should be logged to allow
- * administrators match client-side events with cluster logs.
- *
- * @return the pointer to string or NULL if ref wasn't specified.
- */
-LIBCOUCHBASE_API
-const char *lcb_resp_get_error_ref(int cbtype, const lcb_RESPBASE *rb);
 
 /**
  * @defgroup lcb-collections-api Collections Management

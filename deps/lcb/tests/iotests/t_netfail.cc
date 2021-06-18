@@ -129,7 +129,7 @@ static bool syncWithNodeCount_(lcb_INSTANCE *instance, size_t expCount)
 extern "C" {
 static void opFromCallback_storeCB(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
-    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
 }
 
 static void opFromCallback_statsCB(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
@@ -137,23 +137,29 @@ static void opFromCallback_statsCB(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, co
     char *statkey;
     lcb_size_t nstatkey;
 
-    const char *server_endpoint = resp->server;
-    const void *key = resp->ctx.key;
-    lcb_size_t nkey = resp->ctx.key_len;
-    const void *bytes = resp->value;
-    lcb_size_t nbytes = resp->nvalue;
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respstats_status(resp));
 
-    ASSERT_EQ(LCB_SUCCESS, resp->ctx.rc);
-    if (server_endpoint != nullptr) {
-        nstatkey = strlen(server_endpoint) + nkey + 2;
+    const char *server;
+    size_t server_len;
+    lcb_respstats_server(resp, &server, &server_len);
+    if (server != nullptr) {
+        const char *key;
+        size_t nkey;
+        lcb_respstats_key(resp, &key, &nkey);
+
+        const char *bytes;
+        size_t nbytes;
+        lcb_respstats_value(resp, &bytes, &nbytes);
+
+        nstatkey = server_len + nkey + 2;
         statkey = new char[nstatkey];
-        snprintf(statkey, nstatkey, "%s-%.*s", server_endpoint, (int)nkey, (const char *)key);
+        snprintf(statkey, nstatkey, "%.*s-%.*s", (int)server_len, server, (int)nkey, key);
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, statkey, nstatkey);
-        lcb_cmdstore_value(cmd, (const char *)bytes, nbytes);
-        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, nullptr, cmd));
+        lcb_cmdstore_value(cmd, bytes, nbytes);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, nullptr, cmd));
         lcb_cmdstore_destroy(cmd);
         delete[] statkey;
     }
@@ -170,9 +176,11 @@ TEST_F(MockUnitTest, testOpFromCallback)
     lcb_install_callback(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)opFromCallback_statsCB);
     lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)opFromCallback_storeCB);
 
-    lcb_CMDSTATS stat = {0};
-    ASSERT_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "operation_timeout", "5.0"));
-    ASSERT_EQ(LCB_SUCCESS, lcb_stats3(instance, nullptr, &stat));
+    lcb_CMDSTATS *stat;
+    lcb_cmdstats_create(&stat);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "operation_timeout", "5.0"));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_stats(instance, nullptr, stat));
+    lcb_cmdstats_destroy(stat);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
@@ -187,7 +195,7 @@ static void set_callback(lcb_INSTANCE * /* instance */, lcb_CALLBACK_TYPE, const
 
     lcb_respstore_cookie(resp, (void **)&tc);
     EXPECT_EQ(tc->expected, lcb_respstore_status(resp));
-    if (resp->ctx.rc == LCB_ERR_TIMEOUT) {
+    if (lcb_respstore_status(resp) == LCB_ERR_TIMEOUT) {
         // Remove the hiccup at the first timeout failure
         MockEnvironment::getInstance()->hiccupNodes(0, 0);
     }
@@ -243,7 +251,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStale)
 
     cookies[0].counter = &nremaining;
     cookies[0].expected = LCB_ERR_TIMEOUT;
-    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, cookies, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, cookies, cmd));
 
     cookies[1].counter = &nremaining;
     cookies[1].expected = LCB_SUCCESS;
@@ -294,7 +302,7 @@ TEST_F(MockUnitTest, testTimeoutOnlyStaleWithPerOperationProperty)
 
     cookies[0].counter = &nremaining;
     cookies[0].expected = LCB_ERR_TIMEOUT;
-    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, cookies, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, cookies, cmd));
 
     cookies[1].counter = &nremaining;
     cookies[1].expected = LCB_SUCCESS;
@@ -336,11 +344,11 @@ static void io_close_wrap(lcb_io_opt_t, lcb_socket_t)
 
 static void store_callback(lcb_INSTANCE *instance, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
-    auto *rv = (struct rvbuf *)resp->cookie;
-    lcb_log(LOGARGS(instance, INFO), "Got storage callback for cookie %p with err=0x%x", (void *)resp->cookie,
-            (int)resp->ctx.rc);
+    struct rvbuf *rv = nullptr;
+    lcb_respstore_cookie(resp, (void **)(&rv));
+    rv->error = lcb_respstore_status(resp);
+    lcb_log(LOGARGS(instance, INFO), "Got storage callback for cookie %p with err=0x%x", (void *)rv, (int)rv->error);
 
-    rv->error = resp->ctx.rc;
     store_cnt++;
     if (!instance->wait) { /* do not touch IO if we are using lcb_wait() */
         lcb_stop_loop(instance);
@@ -424,7 +432,7 @@ TEST_F(MockUnitTest, testReconfigurationOnNodeFailover)
 
     lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)ctx_store_callback);
     for (auto &cmd : cmds) {
-        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmd));
     }
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ctx.check((int)cmds.size());
@@ -434,7 +442,7 @@ TEST_F(MockUnitTest, testReconfigurationOnNodeFailover)
 
     ctx.clear();
     for (auto &cmd : cmds) {
-        ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &ctx, cmd));
     }
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ctx.check((int)cmds.size());
@@ -507,15 +515,15 @@ TEST_F(MockUnitTest, testBufferRelocationOnNodeFailover)
     lcb_loop_ref(instance);
     lcbio_timer_rearm(timer, 500000);
 
-    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &rv, storecmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &rv, storecmd));
 
     store_cnt = 0;
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, store_cnt);
-    ASSERT_EQ(LCB_SUCCESS, rv.error);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rv.error);
 
     memset(&rv, 0, sizeof(rv));
-    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &rv, storecmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &rv, storecmd));
     store_cnt = 0;
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, store_cnt);
@@ -526,12 +534,12 @@ TEST_F(MockUnitTest, testBufferRelocationOnNodeFailover)
     lcb_CMDGET *getcmd;
     lcb_cmdget_create(&getcmd);
     lcb_cmdget_key(getcmd, key.c_str(), key.size());
-    ASSERT_EQ(LCB_SUCCESS, lcb_get(instance, &rv, getcmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &rv, getcmd));
     lcb_cmdget_destroy(getcmd);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     lcbio_timer_destroy(timer);
-    ASSERT_EQ(LCB_SUCCESS, rv.error);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rv.error);
     ASSERT_EQ(rv.nbytes, val.size());
     std::string bytes = std::string(rv.bytes, rv.nbytes);
     ASSERT_STREQ(bytes.c_str(), val.c_str());
@@ -564,12 +572,12 @@ TEST_F(MockUnitTest, testSaslMechs)
     instance->memd_sockpool->get_options().maxidle = 0;
 
     err = lcb_connect(instance);
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     // Force our SASL mech
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"blah");
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     Item itm("key", "value");
     KVOperation kvo(&itm);
     kvo.allowableErrors.insert(LCB_ERR_SASLMECH_UNAVAILABLE);
@@ -578,7 +586,7 @@ TEST_F(MockUnitTest, testSaslMechs)
     ASSERT_FALSE(kvo.globalErrors.find(LCB_ERR_SASLMECH_UNAVAILABLE) == kvo.globalErrors.end());
 
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"    ");
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     kvo.clear();
     kvo.allowableErrors.insert(LCB_ERR_SASLMECH_UNAVAILABLE);
     kvo.allowableErrors.insert(LCB_ERR_TIMEOUT);
@@ -586,25 +594,25 @@ TEST_F(MockUnitTest, testSaslMechs)
     ASSERT_FALSE(kvo.globalErrors.find(LCB_ERR_SASLMECH_UNAVAILABLE) == kvo.globalErrors.end());
 
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"PLAIN");
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     kvo.clear();
     kvo.store(instance);
     ASSERT_TRUE(kvo.globalErrors.find(LCB_ERR_TIMEOUT) == kvo.globalErrors.end());
 
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"blah PLAIN");
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     kvo.clear();
     kvo.store(instance);
     ASSERT_TRUE(kvo.globalErrors.find(LCB_ERR_TIMEOUT) == kvo.globalErrors.end());
 
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"  PLAIN    ");
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     kvo.clear();
     kvo.store(instance);
     ASSERT_TRUE(kvo.globalErrors.find(LCB_ERR_TIMEOUT) == kvo.globalErrors.end());
 
     err = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FORCE_SASL_MECH, (void *)"blah,PLAIN");
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     kvo.clear();
     kvo.store(instance);
     ASSERT_TRUE(kvo.globalErrors.find(LCB_ERR_TIMEOUT) == kvo.globalErrors.end());
@@ -644,8 +652,8 @@ TEST_F(MockUnitTest, testSaslSHA)
         // Make the socket pool disallow idle connections
         instance->memd_sockpool->get_options().maxidle = 0;
 
-        ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
-        ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_connect(instance));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
 
         Item itm("key", "value");
         KVOperation kvo(&itm);
@@ -660,16 +668,18 @@ TEST_F(MockUnitTest, testSaslSHA)
 #endif
 
 extern "C" {
-static const char *get_username(void * /* cookie */, const char * /* host */, const char * /* port */,
-                                const char *bucket)
+static void get_credentials(lcbauth_CREDENTIALS *credentials)
 {
-    return bucket;
-}
-
-static const char *get_password(void *cookie, const char * /* host */, const char * /* port */, const char *bucket)
-{
-    auto *credentials = static_cast<std::map<std::string, std::string> *>(cookie);
-    return (*credentials)[bucket].c_str();
+    std::map<std::string, std::string> *store = nullptr;
+    lcbauth_credentials_cookie(credentials, reinterpret_cast<void **>(&store));
+    const char *bucket = nullptr;
+    size_t bucket_len = 0;
+    lcbauth_credentials_bucket(credentials, &bucket, &bucket_len);
+    std::string bucket_name(bucket, bucket_len);
+    auto password = (*store)[bucket_name];
+    lcbauth_credentials_username(credentials, bucket_name.c_str(), bucket_name.size());
+    lcbauth_credentials_password(credentials, password.c_str(), password.size());
+    lcbauth_credentials_result(credentials, LCBAUTH_RESULT_OK);
 }
 }
 
@@ -693,13 +703,13 @@ TEST_F(MockUnitTest, testDynamicAuth)
     std::map<std::string, std::string> credentials;
     credentials["protected"] = "secret";
     lcb_AUTHENTICATOR *auth = lcbauth_new();
-    lcbauth_set_callbacks(auth, &credentials, get_username, get_password);
+    lcbauth_set_callback(auth, &credentials, get_credentials);
     lcbauth_set_mode(auth, LCBAUTH_MODE_DYNAMIC);
     lcb_set_auth(instance, auth);
 
     err = lcb_connect(instance);
-    ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
 
     Item itm("key", "value");
     KVOperation kvo(&itm);
@@ -725,9 +735,9 @@ static void doManyItems(lcb_INSTANCE *instance, const std::vector<std::string> &
 }
 
 extern "C" {
-static void mcdFoVerifyCb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
+static void mcdFoVerifyCb(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
 {
-    EXPECT_EQ(LCB_SUCCESS, rb->ctx.rc);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
 }
 }
 
@@ -749,7 +759,7 @@ TEST_F(MockUnitTest, DISABLED_testMemcachedFailover)
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     size_t numNodes = mock->getNumNodes();
 
-    oldCb = lcb_install_callback(instance, LCB_CALLBACK_STORE, mcdFoVerifyCb);
+    oldCb = lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)mcdFoVerifyCb);
 
     // Get the command list:
     std::vector<std::string> distKeys;
@@ -770,7 +780,7 @@ TEST_F(MockUnitTest, DISABLED_testMemcachedFailover)
     ASSERT_EQ(numNodes, lcb_get_num_nodes(instance));
 
     // Restore the verify callback
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, mcdFoVerifyCb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)mcdFoVerifyCb);
     doManyItems(instance, distKeys);
 
     lcb_destroy(instance);
@@ -837,10 +847,10 @@ TEST_F(MockUnitTest, testNegativeIndex)
     ni.err = LCB_SUCCESS;
     ni.callCount = 0;
     err = lcb_store(instance, &ni, scmd);
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, ni.callCount);
-    ASSERT_EQ(LCB_SUCCESS, ni.err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, ni.err);
     lcb_cmdstore_destroy(scmd);
 
     lcb_CMDGET *gcmd;
@@ -851,10 +861,10 @@ TEST_F(MockUnitTest, testNegativeIndex)
     // Set the index to -1
     vbc->vbuckets[vb].servers[0] = -1;
     err = lcb_get(instance, &ni, gcmd);
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, err);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, ni.callCount);
-    ASSERT_EQ(LCB_ERR_NO_MATCHING_SERVER, ni.err);
+    ASSERT_STATUS_EQ(LCB_ERR_NO_MATCHING_SERVER, ni.err);
     lcb_cmdget_destroy(gcmd);
     // That's it
 }

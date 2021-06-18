@@ -22,11 +22,15 @@
 #include "ctx-log-inl.h"
 #include <lcbio/ssl.h>
 
+#include "capi/cmd_http.hh"
+
 #define LOGFMT CTX_LOGFMT
 #define LOGID(req) CTX_LOGID(req->ioctx)
 using namespace lcb::http;
 
 #define LOGARGS(req, lvl) req->instance->settings, "http-io", LCB_LOG_##lvl, __FILE__, __LINE__
+#define HOST_FMT "<%s%s%s:%s>"
+#define HOST_VAL(req) ((req)->ipv6 ? "[" : ""), (req)->host.c_str(), ((req)->ipv6 ? "]" : ""), (req)->port.c_str()
 
 void Request::assign_response_headers(const lcb::htparse::Response &resp)
 {
@@ -107,6 +111,9 @@ unsigned Request::handle_parse_chunked(const char *buf, unsigned nbuf)
         resp.ctx.body = buf;
         resp.ctx.body_len = nbuf;
         passed_data = true;
+        if (nullptr != span && nullptr != ioctx) {
+            lcbtrace_span_add_host_and_port(span, ioctx->sock->info);
+        }
         callback(instance, LCB_CALLBACK_HTTP, (const lcb_RESPBASE *)&resp);
         status |= Request::CBINVOKED;
     }
@@ -194,10 +201,30 @@ void Request::resume()
     lcbio_ctx_schedule(ioctx);
 }
 
+static lcbio_SERVICE request_type_to_service(lcb_HTTP_TYPE reqtype)
+{
+    switch (reqtype) {
+        case LCB_HTTP_TYPE_QUERY:
+            return LCBIO_SERVICE_N1QL;
+        case LCB_HTTP_TYPE_VIEW:
+            return LCBIO_SERVICE_VIEW;
+        case LCB_HTTP_TYPE_SEARCH:
+            return LCBIO_SERVICE_FTS;
+        case LCB_HTTP_TYPE_ANALYTICS:
+            return LCBIO_SERVICE_ANALYTICS;
+        case LCB_HTTP_TYPE_EVENTING:
+            return LCBIO_SERVICE_EVENTING;
+        default:
+            return LCBIO_SERVICE_MGMT;
+    }
+}
+
 static void io_error(lcbio_CTX *ctx, lcb_STATUS err)
 {
     auto *req = reinterpret_cast<Request *>(lcbio_ctx_data(ctx));
-    lcb_log(LOGARGS(req, ERR), LOGFMT "Got error while performing I/O on HTTP stream. Err=0x%x", LOGID(req), err);
+
+    lcb_log(LOGARGS(req, ERR), LOGFMT "Got error while performing I/O on HTTP stream " HOST_FMT " (%s). Err=%s",
+            LOGID(req), HOST_VAL(req), lcbio_svcstr(request_type_to_service(req->reqtype)), lcb_strerror_short(err));
     req->finish_or_retry(err);
 }
 
@@ -213,8 +240,11 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
     lcb_settings *settings = req->instance->settings;
     req->creq = nullptr;
 
+    lcbio_SERVICE service = request_type_to_service(req->reqtype);
+
     if (err != LCB_SUCCESS) {
-        lcb_log(LOGARGS(req, ERR), "Connection to failed with Err=0x%x", err);
+        lcb_log(LOGARGS(req, ERR), "Connection to " HOST_FMT " (%s) failed with Err=%s", HOST_VAL(req),
+                lcbio_svcstr(service), lcb_strerror_short(err));
         req->finish_or_retry(err);
         return;
     }
@@ -224,26 +254,7 @@ static void on_connected(lcbio_SOCKET *sock, void *arg, lcb_STATUS err, lcbio_OS
     procs.cb_err = io_error;
     procs.cb_read = io_read;
     req->ioctx = lcbio_ctx_new(sock, arg, &procs);
-    switch (req->reqtype) {
-        case LCB_HTTP_TYPE_QUERY:
-            sock->service = LCBIO_SERVICE_N1QL;
-            break;
-        case LCB_HTTP_TYPE_VIEW:
-            sock->service = LCBIO_SERVICE_VIEW;
-            break;
-        case LCB_HTTP_TYPE_SEARCH:
-            sock->service = LCBIO_SERVICE_FTS;
-            break;
-        case LCB_HTTP_TYPE_ANALYTICS:
-            sock->service = LCBIO_SERVICE_ANALYTICS;
-            break;
-        case LCB_HTTP_TYPE_EVENTING:
-            sock->service = LCBIO_SERVICE_EVENTING;
-            break;
-        default:
-            sock->service = LCBIO_SERVICE_MGMT;
-            break;
-    }
+    sock->service = service;
     req->ioctx->subsys = "mgmt/capi";
     lcbio_ctx_put(req->ioctx, &req->preamble[0], req->preamble.size());
     if (!req->body.empty()) {

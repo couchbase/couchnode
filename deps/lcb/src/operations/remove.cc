@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2020 Couchbase, Inc.
+ *     Copyright 2010-2021 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@
 #include "internal.h"
 #include "collections.h"
 #include "trace.h"
+#include "defer.h"
+
+#include "capi/cmd_remove.hh"
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_status(const lcb_RESPREMOVE *resp)
 {
@@ -27,17 +30,6 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respremove_status(const lcb_RESPREMOVE *resp)
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_error_context(const lcb_RESPREMOVE *resp,
                                                          const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
-    if (resp->rflags & LCB_RESP_F_ERRINFO) {
-        auto *mut = const_cast<lcb_RESPREMOVE *>(resp);
-        mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
-        if (mut->ctx.context) {
-            mut->ctx.context_len = strlen(resp->ctx.context);
-        }
-        mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
-        if (mut->ctx.ref) {
-            mut->ctx.ref_len = strlen(resp->ctx.ref);
-        }
-    }
     *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
@@ -56,91 +48,173 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respremove_cas(const lcb_RESPREMOVE *resp, uint6
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_key(const lcb_RESPREMOVE *resp, const char **key, size_t *key_len)
 {
-    *key = (const char *)resp->ctx.key;
-    *key_len = resp->ctx.key_len;
+    *key = resp->ctx.key.c_str();
+    *key_len = resp->ctx.key.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respremove_mutation_token(const lcb_RESPREMOVE *resp, lcb_MUTATION_TOKEN *token)
 {
-    const lcb_MUTATION_TOKEN *mt = lcb_resp_get_mutation_token(LCB_CALLBACK_REMOVE, (const lcb_RESPBASE *)resp);
-    if (token && mt) {
-        *token = *mt;
+    if (token) {
+        *token = resp->mt;
     }
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_create(lcb_CMDREMOVE **cmd)
 {
-    *cmd = (lcb_CMDREMOVE *)calloc(1, sizeof(lcb_CMDREMOVE));
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_clone(const lcb_CMDREMOVE *cmd, lcb_CMDREMOVE **copy)
-{
-    LCB_CMD_CLONE(lcb_CMDREMOVE, cmd, copy);
+    *cmd = new lcb_CMDREMOVE{};
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_destroy(lcb_CMDREMOVE *cmd)
 {
-    LCB_CMD_DESTROY_CLONE(cmd);
+    delete cmd;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_timeout(lcb_CMDREMOVE *cmd, uint32_t timeout)
 {
-    cmd->timeout = timeout;
-    return LCB_SUCCESS;
+    return cmd->timeout_in_microseconds(timeout);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_parent_span(lcb_CMDREMOVE *cmd, lcbtrace_SPAN *span)
 {
-    cmd->pspan = span;
-    return LCB_SUCCESS;
+    return cmd->parent_span(span);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_collection(lcb_CMDREMOVE *cmd, const char *scope, size_t scope_len,
                                                      const char *collection, size_t collection_len)
 {
-    cmd->scope = scope;
-    cmd->nscope = scope_len;
-    cmd->collection = collection;
-    cmd->ncollection = collection_len;
-    return LCB_SUCCESS;
+    try {
+        lcb::collection_qualifier qualifier(scope, scope_len, collection, collection_len);
+        return cmd->collection(std::move(qualifier));
+    } catch (const std::invalid_argument &) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_key(lcb_CMDREMOVE *cmd, const char *key, size_t key_len)
 {
-    LCB_CMD_SET_KEY(cmd, key, key_len);
-    return LCB_SUCCESS;
+    if (key == nullptr || key_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    return cmd->key(std::string(key, key_len));
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_cas(lcb_CMDREMOVE *cmd, uint64_t cas)
 {
-    cmd->cas = cas;
-    return LCB_SUCCESS;
+    return cmd->cas(cas);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_durability(lcb_CMDREMOVE *cmd, lcb_DURABILITY_LEVEL level)
 {
-    cmd->dur_level = level;
-    return LCB_SUCCESS;
+    return cmd->durability_level(level);
 }
 
 static lcb_STATUS remove_validate(lcb_INSTANCE *instance, const lcb_CMDREMOVE *cmd)
 {
-    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
-    if (err != LCB_SUCCESS) {
-        return err;
-    }
-    if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
+    if (cmd->key().empty()) {
         return LCB_ERR_EMPTY_KEY;
     }
-    if (cmd->dur_level && !LCBT_SUPPORT_SYNCREPLICATION(instance)) {
+    if (!LCBT_SETTING(instance, use_collections) && !cmd->collection().is_default_collection()) {
+        /* only allow default collection when collections disabled for the instance */
+        return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
+    }
+    if (!LCBT_SETTING(instance, enable_durable_write) && cmd->has_durability_requirements()) {
         return LCB_ERR_UNSUPPORTED_OPERATION;
     }
     return LCB_SUCCESS;
+}
+
+static lcb_STATUS remove_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDREMOVE> cmd)
+{
+    mc_CMDQUEUE *cq = &instance->cmdq;
+    mc_PIPELINE *pl;
+    mc_PACKET *pkt;
+    protocol_binary_request_delete req{};
+    protocol_binary_request_header *hdr = &req.message.header;
+    int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
+    lcb_U8 ffextlen = 0;
+    size_t hsize;
+    lcb_STATUS err;
+
+    hdr->request.magic = PROTOCOL_BINARY_REQ;
+    if (new_durability_supported && cmd->has_durability_requirements()) {
+        hdr->request.magic = PROTOCOL_BINARY_AREQ;
+        ffextlen = 4;
+    }
+
+    lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
+    err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), hdr, 0, ffextlen, &pkt, &pl,
+                             MCREQ_BASICPACKET_F_FALLBACKOK);
+    if (err != LCB_SUCCESS) {
+        return err;
+    }
+    hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
+
+    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+    hdr->request.opcode = PROTOCOL_BINARY_CMD_DELETE;
+    hdr->request.cas = lcb_htonll(cmd->cas());
+    hdr->request.opaque = pkt->opaque;
+    hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + mcreq_get_key_size(hdr));
+    if (new_durability_supported && cmd->has_durability_requirements()) {
+        req.message.body.alt.meta = (1u << 4u) | 3u;
+        req.message.body.alt.level = cmd->durability_level();
+        req.message.body.alt.timeout = htons(lcb_durability_timeout(instance, cmd->timeout_in_microseconds()));
+    }
+
+    pkt->flags |= MCREQ_F_REPLACE_SEMANTICS;
+    pkt->u_rdata.reqdata.cookie = cmd->cookie();
+    pkt->u_rdata.reqdata.start = cmd->start_time_or_default_in_nanoseconds(gethrtime());
+    pkt->u_rdata.reqdata.deadline =
+        pkt->u_rdata.reqdata.start +
+        cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
+    memcpy(SPAN_BUFFER(&pkt->kh_span), hdr->bytes, hsize);
+    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_REMOVE, pkt->u_rdata.reqdata.span);
+    TRACE_REMOVE_BEGIN(instance, hdr, cmd);
+    LCB_SCHED_ADD(instance, pl, pkt)
+    return LCB_SUCCESS;
+}
+
+static lcb_STATUS remove_execute(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDREMOVE> cmd)
+{
+    if (!LCBT_SETTING(instance, use_collections)) {
+        /* fast path if collections are not enabled */
+        return remove_schedule(instance, cmd);
+    }
+
+    if (collcache_get(instance, cmd->collection()) == LCB_SUCCESS) {
+        return remove_schedule(instance, cmd);
+    }
+
+    return collcache_resolve(
+        instance, cmd,
+        [instance](lcb_STATUS status, const lcb_RESPGETCID *resp, std::shared_ptr<lcb_CMDREMOVE> operation) {
+            const auto callback_type = LCB_CALLBACK_REMOVE;
+            lcb_RESPCALLBACK operation_callback = lcb_find_callback(instance, callback_type);
+            lcb_RESPREMOVE response{};
+            if (resp != nullptr) {
+                response.ctx = resp->ctx;
+            }
+            response.ctx.key = operation->key();
+            response.ctx.scope = operation->collection().scope();
+            response.ctx.collection = operation->collection().collection();
+            response.cookie = operation->cookie();
+            if (status == LCB_ERR_SHEDULE_FAILURE || resp == nullptr) {
+                response.ctx.rc = LCB_ERR_TIMEOUT;
+                operation_callback(instance, callback_type, &response);
+                return;
+            }
+            if (resp->ctx.rc != LCB_SUCCESS) {
+                operation_callback(instance, callback_type, &response);
+                return;
+            }
+            response.ctx.rc = remove_schedule(instance, operation);
+            if (response.ctx.rc != LCB_SUCCESS) {
+                operation_callback(instance, callback_type, &response);
+            }
+        });
 }
 
 LIBCOUCHBASE_API
@@ -153,77 +227,27 @@ lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, const lcb_CMDREMOVE 
         return rc;
     }
 
-    auto operation = [instance, cookie](const lcb_RESPGETCID *resp, const lcb_CMDREMOVE *cmd) {
-        if (resp && resp->ctx.rc != LCB_SUCCESS) {
-            lcb_RESPCALLBACK cb = lcb_find_callback(instance, LCB_CALLBACK_REMOVE);
-            lcb_RESPREMOVE rem{};
-            rem.ctx = resp->ctx;
-            rem.ctx.key = static_cast<const char *>(cmd->key.contig.bytes);
-            rem.ctx.key_len = cmd->key.contig.nbytes;
-            rem.cookie = cookie;
-            cb(instance, LCB_CALLBACK_REMOVE, reinterpret_cast<const lcb_RESPBASE *>(&rem));
-            return resp->ctx.rc;
-        }
+    auto cmd = std::make_shared<lcb_CMDREMOVE>(*command);
+    cmd->cookie(cookie);
 
-        mc_CMDQUEUE *cq = &instance->cmdq;
-        mc_PIPELINE *pl;
-        mc_PACKET *pkt;
-        protocol_binary_request_delete req{};
-        protocol_binary_request_header *hdr = &req.message.header;
-        int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
-        lcb_U8 ffextlen = 0;
-        size_t hsize;
-        lcb_STATUS err;
-
-        hdr->request.magic = PROTOCOL_BINARY_REQ;
-        if (cmd->dur_level && new_durability_supported) {
-            hdr->request.magic = PROTOCOL_BINARY_AREQ;
-            ffextlen = 4;
-        }
-
-        err = mcreq_basic_packet(cq, (const lcb_CMDBASE *)cmd, hdr, 0, ffextlen, &pkt, &pl,
-                                 MCREQ_BASICPACKET_F_FALLBACKOK);
-        if (err != LCB_SUCCESS) {
-            return err;
-        }
-        hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
-
-        hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        hdr->request.opcode = PROTOCOL_BINARY_CMD_DELETE;
-        hdr->request.cas = lcb_htonll(cmd->cas);
-        hdr->request.opaque = pkt->opaque;
-        hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + mcreq_get_key_size(hdr));
-        if (cmd->dur_level && new_durability_supported) {
-            req.message.body.alt.meta = (1u << 4u) | 3u;
-            req.message.body.alt.level = cmd->dur_level;
-            req.message.body.alt.timeout = lcb_durability_timeout(instance, cmd->timeout);
-        }
-
-        pkt->flags |= MCREQ_F_REPLACE_SEMANTICS;
-        pkt->u_rdata.reqdata.cookie = cookie;
-        pkt->u_rdata.reqdata.start = gethrtime();
-        pkt->u_rdata.reqdata.deadline =
-            pkt->u_rdata.reqdata.start +
-            LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
-        memcpy(SPAN_BUFFER(&pkt->kh_span), hdr->bytes, hsize);
-        LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_REMOVE, pkt->opaque, pkt->u_rdata.reqdata.span);
-        TRACE_REMOVE_BEGIN(instance, hdr, cmd);
-        LCB_SCHED_ADD(instance, pl, pkt);
-        return LCB_SUCCESS;
-    };
-
-    if (!LCBT_SETTING(instance, use_collections)) {
-        /* fast path if collections are not enabled */
-        return operation(nullptr, command);
+    if (instance->cmdq.config == nullptr) {
+        cmd->start_time_in_nanoseconds(gethrtime());
+        return lcb::defer_operation(instance, [instance, cmd](lcb_STATUS status) {
+            const auto callback_type = LCB_CALLBACK_REMOVE;
+            lcb_RESPCALLBACK operation_callback = lcb_find_callback(instance, callback_type);
+            lcb_RESPREMOVE response{};
+            response.ctx.key = cmd->key();
+            response.cookie = cmd->cookie();
+            if (status == LCB_ERR_REQUEST_CANCELED) {
+                response.ctx.rc = status;
+                operation_callback(instance, callback_type, &response);
+                return;
+            }
+            response.ctx.rc = remove_execute(instance, cmd);
+            if (response.ctx.rc != LCB_SUCCESS) {
+                operation_callback(instance, callback_type, &response);
+            }
+        });
     }
-
-    uint32_t cid = 0;
-    if (collcache_get(instance, command->scope, command->nscope, command->collection, command->ncollection, &cid) ==
-        LCB_SUCCESS) {
-        lcb_CMDREMOVE clone = *command; /* shallow clone */
-        clone.cid = cid;
-        return operation(nullptr, &clone);
-    } else {
-        return collcache_resolve(instance, command, operation, lcb_cmdremove_clone, lcb_cmdremove_destroy);
-    }
+    return remove_execute(instance, cmd);
 }

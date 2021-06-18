@@ -167,7 +167,8 @@ typedef struct {
      * @param rc the error code for the response
      * @param arg opaque pointer for callback
      */
-    void (*handler)(struct mc_pipeline_st *pipeline, struct mc_packet_st *pkt, lcb_STATUS rc, const void *res);
+    void (*handler)(struct mc_pipeline_st *pipeline, struct mc_packet_st *pkt, lcb_CALLBACK_TYPE cbtype, lcb_STATUS rc,
+                    const void *res);
 
     /**
      * Destructor function called from within mcreq_sched_fail() for packets with
@@ -187,9 +188,9 @@ typedef struct {
  * on behalf of an API request.
  */
 typedef struct mc_REQDATAEX {
-    const void *cookie; /**< User data */
-    hrtime_t start;     /**< Start time */
-    hrtime_t deadline;  /**< When the request should be considered timed out */
+    void *cookie;      /**< User data */
+    hrtime_t start;    /**< Start time */
+    hrtime_t deadline; /**< When the request should be considered timed out */
     /**
      * Time when dispatching response has begun for the command.
      * Used for metrics/tracing. Might be zero, when tracing is not enabled.
@@ -200,7 +201,7 @@ typedef struct mc_REQDATAEX {
     const mc_REQDATAPROCS *procs; /**< Common routines for the packet */
 
 #ifdef __cplusplus
-    mc_REQDATAEX(const void *cookie_, const mc_REQDATAPROCS &procs_, hrtime_t start_)
+    mc_REQDATAEX(void *cookie_, const mc_REQDATAPROCS &procs_, hrtime_t start_)
         : cookie(cookie_), start(start_), dispatch(0), span(NULL), nsubreq(0), procs(&procs_)
     {
         deadline = start_ + LCB_DEFAULT_TIMEOUT;
@@ -664,9 +665,9 @@ void mcreq_map_key(mc_CMDQUEUE *queue, const lcb_KEYBUF *key, unsigned nhdr, int
  * MCREQ_BASICPACKET_F_FALLBACKOK
  */
 
-lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protocol_binary_request_header *req,
-                              uint8_t extlen, uint8_t ffextlen, mc_PACKET **packet, mc_PIPELINE **pipeline,
-                              int options);
+lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_KEYBUF *key, uint32_t collection_id,
+                              protocol_binary_request_header *req, lcb_uint8_t extlen, lcb_uint8_t ffextlen,
+                              mc_PACKET **packet, mc_PIPELINE **pipeline, int options);
 
 /**
  * @brief Get the key from a packet
@@ -895,7 +896,8 @@ unsigned mcreq_pipeline_fail(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfai
  *
  * @return the number of commands actually failed.
  */
-unsigned mcreq_pipeline_timeout(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfail_fn failcb, void *cbarg, hrtime_t now);
+unsigned mcreq_pipeline_timeout(mc_PIPELINE *pipeline, lcb_STATUS err, mcreq_pktfail_fn failcb, void *cbarg,
+                                hrtime_t now);
 
 /**
  * This function is called when a packet could not be properly mapped to a real
@@ -956,7 +958,7 @@ void mcreq_dump_chain(const mc_PIPELINE *pipeline, FILE *fp, mcreq_payload_dump_
     } while (0)
 
 int leb128_encode(uint32_t value, uint8_t *buf);
-int leb128_decode(uint8_t *buf, size_t nbuf, uint32_t *result);
+int leb128_decode(const uint8_t *buf, size_t nbuf, uint32_t *result);
 
 /**@}*/
 

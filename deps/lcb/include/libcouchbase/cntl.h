@@ -1298,10 +1298,39 @@ typedef enum {
 #define LCB_CNTL_ENABLE_ERRMAP 0x65
 
 /**
+ * @brief Flush interval for the per-operation metrics to be output to the logs.
+ *
+ * This is the time the metrics collector will wait between repeated attempts
+ * to flush the operation metrics.  Note this only applies to the default
+ * metrics collector.
+ *
+ * Use `operation_metrics_flush_interval` in the connection string.
+ *
+ * @cntl_arg_both{lcb_U32*}
+ * @committed
+ */
+#define LCB_CNTL_OP_METRICS_FLUSH_INTERVAL 0x66
+
+/**
+ * @brief Enable/disable per-operation metrics collection.
+ *
+ * This will enable or disable the operation metrics collection.  The default metrics
+ * collection will output histograms of the latency for each operation to stderr.  A custom
+ * metrics collector can be specified as well, which could be used to aggregate and output
+ * to a variety of different systems.
+ *
+ * Use `enable_operation_metrics` in the connection string.
+ *
+ * @committed
+ * @cntl_arg_both{int* (as boolean)}
+ */
+#define LCB_CNTL_ENABLE_OP_METRICS 0x67
+
+/**
  * This is not a command, but rather an indicator of the last item.
  * @internal
  */
-#define LCB_CNTL__MAX 0x66
+#define LCB_CNTL__MAX 0x68
 /**@}*/
 
 #ifdef __cplusplus

@@ -21,9 +21,7 @@
 
 using namespace lcb::htparse;
 
-Parser::Parser(lcb_settings_st *settings_)
-    : http_parser(), settings(settings_), lastcall(CB_NONE), last_body(nullptr), last_bodylen(0), paused(false),
-      is_ex(false)
+Parser::Parser(lcb_settings_st *settings_) : http_parser(), settings(settings_)
 {
     lcb_settings_ref(settings);
     reset();
@@ -42,7 +40,7 @@ int Parser::on_hdr_key(const char *s, size_t n)
 {
     if (lastcall != CB_HDR_KEY) {
         /* new key */
-        resp.headers.push_back(MimeHeader());
+        resp.headers.emplace_back(MimeHeader());
     }
 
     resp.headers.back().key.append(s, n);
@@ -108,10 +106,10 @@ int Parser::on_msg_done()
     return 0;
 }
 
-static struct http_parser_settings Parser_Settings = {nullptr, /* msg_begin */
-                                                      nullptr, /* on_url */
-                                                      ::on_hdr_key, ::on_hdr_value, ::on_hdr_done,
-                                                      ::on_body,    ::on_msg_done};
+static const struct http_parser_settings Parser_Settings = {nullptr, /* msg_begin */
+                                                            nullptr, /* on_url */
+                                                            ::on_hdr_key, ::on_hdr_value, ::on_hdr_done,
+                                                            ::on_body,    ::on_msg_done};
 
 unsigned Parser::parse(const void *data_, size_t ndata)
 {

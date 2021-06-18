@@ -36,6 +36,14 @@ class HandleWrap;
         return;                                                                                                        \
     }
 
+#define SKIP_UNLESS_SEARCH_INDEX()                                                                                     \
+    auto search_index = MockEnvironment::getInstance()->getSearchIndex();                                              \
+    if (search_index.empty()) {                                                                                        \
+        MockEnvironment::printSkipMessage(__FILE__, __LINE__,                                                          \
+                                          "needs search index specified using " LCB_TEST_SEARCH_INDEX_ENV);            \
+        return;                                                                                                        \
+    }
+
 class MockUnitTest : public ::testing::Test
 {
   protected:

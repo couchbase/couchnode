@@ -19,9 +19,9 @@
 #include "errmap.h"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 
-using namespace lcb::errmap;
+#include "capi/key_value_error_context.hh"
 
-ErrorMap::ErrorMap() : revision(0), version(0) {}
+using namespace lcb::errmap;
 
 static ErrorAttribute getAttribute(const std::string &s)
 {
@@ -289,55 +289,55 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_cas(const lcb_KEY_VALUE_ERROR_CONTEXT 
 
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_key(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **key, size_t *key_len)
 {
-    *key = ctx->key;
-    *key_len = ctx->key_len;
+    *key = ctx->key.c_str();
+    *key_len = ctx->key.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_bucket(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **bucket,
                                                  size_t *bucket_len)
 {
-    *bucket = ctx->bucket;
-    *bucket_len = ctx->bucket_len;
+    *bucket = ctx->bucket.c_str();
+    *bucket_len = ctx->bucket.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_collection(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **collection,
                                                      size_t *collection_len)
 {
-    *collection = ctx->collection;
-    *collection_len = ctx->collection_len;
+    *collection = ctx->collection.c_str();
+    *collection_len = ctx->collection.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_scope(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **scope,
                                                 size_t *scope_len)
 {
-    *scope = ctx->scope;
-    *scope_len = ctx->scope_len;
+    *scope = ctx->scope.c_str();
+    *scope_len = ctx->scope.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_context(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **context,
                                                   size_t *context_len)
 {
-    *context = ctx->context;
-    *context_len = ctx->context_len;
+    *context = ctx->context.c_str();
+    *context_len = ctx->context.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_ref(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **ref, size_t *ref_len)
 {
-    *ref = ctx->ref;
-    *ref_len = ctx->ref_len;
+    *ref = ctx->ref.c_str();
+    *ref_len = ctx->ref.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_kv_endpoint(const lcb_KEY_VALUE_ERROR_CONTEXT *ctx, const char **endpoint,
                                                    size_t *endpoint_len)
 {
-    *endpoint = ctx->endpoint;
-    *endpoint_len = ctx->endpoint_len;
+    *endpoint = ctx->endpoint.c_str();
+    *endpoint_len = ctx->endpoint.size();
     return LCB_SUCCESS;
 }
 

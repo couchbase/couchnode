@@ -33,6 +33,33 @@ ADD_EXAMPLE(analytics-ingest analytics-ingest "" "")
 ADD_EXECUTABLE(tracing-zipkin tracing/tracing.c tracing/cJSON.c)
 TARGET_LINK_LIBRARIES(tracing-zipkin couchbase)
 
+find_package(Threads)
+find_package(opentelemetry-cpp CONFIG)
+if(TARGET opentelemetry-cpp::trace)
+    ADD_EXECUTABLE(otel_tracing tracing/otel_tracing.cc)
+    TARGET_LINK_LIBRARIES(otel_tracing
+            ${CMAKE_THREAD_LIBS_INIT}
+            opentelemetry-cpp::ostream_span_exporter
+            opentelemetry-cpp::trace
+            couchbase)
+    TARGET_INCLUDE_DIRECTORIES(otel_tracing PUBLIC ${OPENTELEMETRY_CPP_INCLUDE_DIRS})
+else()
+    MESSAGE(STATUS "Not building otel_tracing as opentelemetry::trace target is not found")
+endif()
+
+if(TARGET opentelemetry-cpp::metrics)
+    ADD_EXECUTABLE(otel_metrics metrics/otel_metrics.cc)
+    TARGET_LINK_LIBRARIES(otel_metrics
+            ${CMAKE_THREAD_LIBS_INIT}
+            couchbase
+            opentelemetry-cpp::metrics
+            opentelemetry-cpp::ostream_metrics_exporter)
+    TARGET_INCLUDE_DIRECTORIES(otel_metrics PUBLIC ${OPENTELEMETRY_CPP_INCLUDE_DIRS})
+    TARGET_COMPILE_OPTIONS(otel_metrics PUBLIC -DENABLE_METRICS_PREVIEW)
+else()
+    MESSAGE(STATUS "Not building otel_metrics as opentelemetry::metrics target is not found")
+endif()
+
 ADD_EXECUTABLE(tracing-views tracing/views.c tracing/cJSON.c)
 TARGET_LINK_LIBRARIES(tracing-views couchbase)
 

@@ -52,8 +52,12 @@ int leb128_encode(uint32_t value, uint8_t *buf)
     return idx;
 }
 
-int leb128_decode(uint8_t *buf, size_t nbuf, uint32_t *result)
+int leb128_decode(const uint8_t *buf, size_t nbuf, uint32_t *result)
 {
+    if (nbuf == 0) {
+        *result = 0;
+        return 0;
+    }
     uint32_t value = buf[0] & 0x7f;
     size_t idx = 0;
     if (buf[0] & 0x80) {
@@ -169,7 +173,6 @@ lcb_STATUS mcreq_reserve_value(mc_PIPELINE *pipeline, mc_PACKET *packet, const l
 
     } else if (vreq->vtype == LCB_KV_IOV) {
         /** Multiple spans, no copy */
-        unsigned int ii;
         const lcb_FRAGBUF *msrc = &vreq->u_buf.multi;
         lcb_FRAGBUF *mdst = &packet->u_value.multi;
 
@@ -178,7 +181,7 @@ lcb_STATUS mcreq_reserve_value(mc_PIPELINE *pipeline, mc_PACKET *packet, const l
         mdst->iov = malloc(mdst->niov * sizeof(*mdst->iov));
         mdst->total_length = 0;
 
-        for (ii = 0; ii < mdst->niov; ii++) {
+        for (unsigned int ii = 0; ii < mdst->niov; ii++) {
             mdst->iov[ii] = msrc->iov[ii];
             mdst->total_length += mdst->iov[ii].iov_len;
         }
@@ -252,9 +255,8 @@ void mcreq_enqueue_packet(mc_PIPELINE *pipeline, mc_PACKET *packet)
     }
 
     if (packet->flags & MCREQ_F_VALUE_IOV) {
-        unsigned int ii;
         lcb_FRAGBUF *multi = &packet->u_value.multi;
-        for (ii = 0; ii < multi->niov; ii++) {
+        for (unsigned int ii = 0; ii < multi->niov; ii++) {
             netbuf_enqueue(&pipeline->nbmgr, (nb_IOV *)multi->iov + ii, packet);
             MC_INCR_METRIC(pipeline, bytes_queued, multi->iov[ii].iov_len);
         }
@@ -370,12 +372,11 @@ mc_PACKET *mcreq_renew_packet(const mc_PACKET *src)
     if (src->flags & MCREQ_F_HASVALUE) {
         /** Get the length */
         if (src->flags & MCREQ_F_VALUE_IOV) {
-            unsigned ii;
             unsigned offset = 0;
 
             nvdata = src->u_value.multi.total_length;
             vdata = malloc(nvdata);
-            for (ii = 0; ii < src->u_value.multi.niov; ii++) {
+            for (unsigned ii = 0; ii < src->u_value.multi.niov; ii++) {
                 const lcb_IOV *iov = src->u_value.multi.iov + ii;
 
                 memcpy(vdata + offset, iov->iov_base, iov->iov_len);
@@ -498,9 +499,9 @@ uint16_t mcreq_get_key_size(protocol_binary_request_header *hdr)
     }
 }
 
-lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protocol_binary_request_header *req,
-                              lcb_uint8_t extlen, lcb_uint8_t ffextlen, mc_PACKET **packet, mc_PIPELINE **pipeline,
-                              int options)
+lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_KEYBUF *key, uint32_t collection_id,
+                              protocol_binary_request_header *req, lcb_uint8_t extlen, lcb_uint8_t ffextlen,
+                              mc_PACKET **packet, mc_PIPELINE **pipeline, int options)
 {
     int vb, srvix;
     uint16_t nkey;
@@ -508,11 +509,11 @@ lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protoc
     if (!queue->config) {
         return LCB_ERR_NO_CONFIGURATION;
     }
-    if (!cmd) {
+    if (!key) {
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
-    mcreq_map_key(queue, &cmd->key, sizeof(*req) + extlen + ffextlen, &vb, &srvix);
+    mcreq_map_key(queue, key, sizeof(*req) + extlen + ffextlen, &vb, &srvix);
     if (srvix > -1 && srvix < (int)queue->npipelines) {
         *pipeline = queue->pipelines[srvix];
 
@@ -529,7 +530,7 @@ lcb_STATUS mcreq_basic_packet(mc_CMDQUEUE *queue, const lcb_CMDBASE *cmd, protoc
         return LCB_ERR_NO_MEMORY;
     }
 
-    mcreq_reserve_key(*pipeline, *packet, sizeof(*req) + extlen + ffextlen, &cmd->key, cmd->cid);
+    mcreq_reserve_key(*pipeline, *packet, sizeof(*req) + extlen + ffextlen, key, collection_id);
 
     nkey = (*packet)->kh_span.size - PKT_HDRSIZE(*packet);
 
@@ -710,7 +711,7 @@ int mcreq_pipeline_init(mc_PIPELINE *pipeline)
     /** Initialize request pool */
     settings.data_basealloc = sizeof(mc_PACKET) * 32;
     netbuf_init(&pipeline->reqpool, &settings);
-    ;
+
     pipeline->metrics = NULL;
     return 0;
 }
@@ -718,8 +719,6 @@ int mcreq_pipeline_init(mc_PIPELINE *pipeline)
 void mcreq_queue_add_pipelines(mc_CMDQUEUE *queue, mc_PIPELINE *const *pipelines, unsigned npipelines,
                                lcbvb_CONFIG *config)
 {
-    unsigned ii;
-
     lcb_assert(queue->pipelines == NULL);
     queue->npipelines = npipelines;
     queue->_npipelines_ex = queue->npipelines;
@@ -731,7 +730,7 @@ void mcreq_queue_add_pipelines(mc_CMDQUEUE *queue, mc_PIPELINE *const *pipelines
     free(queue->scheds);
     queue->scheds = calloc(npipelines + 1, sizeof(char));
 
-    for (ii = 0; ii < npipelines; ii++) {
+    for (unsigned ii = 0; ii < npipelines; ii++) {
         pipelines[ii]->parent = queue;
         pipelines[ii]->index = ii;
     }
@@ -783,13 +782,11 @@ void mcreq_sched_enter(mc_CMDQUEUE *queue)
 
 static void queuectx_leave(mc_CMDQUEUE *queue, int success, int flush)
 {
-    unsigned ii;
-
     if (queue->ctxenter) {
         queue->ctxenter = 0;
     }
 
-    for (ii = 0; ii < queue->_npipelines_ex; ii++) {
+    for (unsigned ii = 0; ii < queue->_npipelines_ex; ii++) {
         mc_PIPELINE *pipeline;
         sllist_node *ll_next, *ll;
 
@@ -807,6 +804,10 @@ static void queuectx_leave(mc_CMDQUEUE *queue, int success, int flush)
             if (success) {
                 mcreq_enqueue_packet(pipeline, pkt);
             } else {
+                if (lcbtrace_span_should_finish(MCREQ_PKT_RDATA(pkt)->span)) {
+                    lcbtrace_span_finish(MCREQ_PKT_RDATA(pkt)->span, LCBTRACE_NOW);
+                }
+
                 if (pkt->flags & MCREQ_F_REQEXT) {
                     mc_REQDATAEX *rd = pkt->u_rdata.exdata;
                     if (rd->procs->fail_dtor) {
@@ -1075,8 +1076,8 @@ void mcreq_dump_packet(const mc_PACKET *packet, FILE *fp, mcreq_payload_dump_fn 
     if (packet->flags & MCREQ_F_HASVALUE) {
         if (packet->flags & MCREQ_F_VALUE_IOV) {
             const lcb_IOV *iovs = packet->u_value.multi.iov;
-            unsigned ii, ixmax = packet->u_value.multi.niov;
-            for (ii = 0; ii < ixmax; ii++) {
+            unsigned ixmax = packet->u_value.multi.niov;
+            for (unsigned ii = 0; ii < ixmax; ii++) {
                 dumpfn(iovs[ii].iov_base, iovs[ii].iov_len, fp);
             }
         } else {

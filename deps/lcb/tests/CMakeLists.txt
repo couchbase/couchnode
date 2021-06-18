@@ -15,10 +15,6 @@ ELSEIF (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 ENDIF()
 
 CONFIGURE_FILE(
-        ${PROJECT_SOURCE_DIR}/cmake/check_config.h.in
-        ${LCB_GENSRCDIR}/check_config.h)
-
-CONFIGURE_FILE(
         ${PROJECT_SOURCE_DIR}/tests/start_mock.sh.in
         ${PROJECT_SOURCE_DIR}/tests/start_mock.sh)
 
@@ -120,6 +116,22 @@ IF(WIN32)
     TARGET_LINK_LIBRARIES(mc-tests ws2_32.lib)
     TARGET_LINK_LIBRARIES(mc-malloc-tests ws2_32.lib)
 ENDIF()
+
+FILE(GENERATE
+        OUTPUT ${LCB_GENSRCDIR}/$<CONFIG>/check_config.h
+        CONTENT
+        "
+#ifndef CHECK_CONFIG_H
+#define CHECK_CONFIG_H
+#define TEST_SHARED_OBJECT \"${CMAKE_TEST_SHARED_OBJECT}\"
+#define TEST_SRC_DIR \"${PROJECT_SOURCE_DIR}\"
+#define TEST_BUILD_DIR \"${PROJECT_BINARY_DIR}\"
+#define TEST_TEST_DIR \"$<TARGET_FILE_DIR:check-all>\"
+#define TEST_LIB_DIR \"$<TARGET_FILE_DIR:couchbase>\"
+#endif
+        "
+        )
+INCLUDE_DIRECTORIES(${LCB_GENSRCDIR}/$<CONFIG>)
 
 ADD_CUSTOM_TARGET(alltests DEPENDS check-all unit-tests nonio-tests
     rdb-tests sock-tests vbucket-tests mc-tests htparse-tests)

@@ -15,6 +15,7 @@
  *   limitations under the License.
  */
 #include "config.h"
+#include "settings.h"
 #include "iotests.h"
 
 using std::string;
@@ -27,72 +28,34 @@ class CollectionUnitTest : public MockUnitTest
 // --- Utility create/drop scope/collection functions ----
 
 extern "C" {
-static void http_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPHTTP *resp)
+static void http_callback(lcb_INSTANCE * /* instance */, int /* cbtype */, const lcb_RESPHTTP *resp)
 {
-    const char *body = NULL;
+    const char *body = nullptr;
     size_t nbody = 0;
     lcb_resphttp_body(resp, &body, &nbody);
     uint16_t status;
     lcb_resphttp_http_status(resp, &status);
     EXPECT_EQ(200, status) << std::string(body, nbody);
     const char *const *headers;
-    EXPECT_EQ(LCB_SUCCESS, lcb_resphttp_headers(resp, &headers));
-    EXPECT_EQ(LCB_SUCCESS, lcb_resphttp_status(resp));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_resphttp_headers(resp, &headers));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_resphttp_status(resp));
 }
 }
 
-lcb_STATUS drop_scope(lcb_INSTANCE *instance, const std::string &scope)
+void list_collections(lcb_INSTANCE *instance, const std::string &bucket)
 {
     (void)lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
 
     lcb_CMDHTTP *cmd;
-    lcb_STATUS err;
-    std::string path = "/pools/default/buckets/default/collections/" + scope;
-
-    lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
-    lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_DELETE);
-    lcb_cmdhttp_path(cmd, path.c_str(), path.size());
-
-    err = lcb_http(instance, NULL, cmd);
-    lcb_cmdhttp_destroy(cmd);
-    EXPECT_EQ(LCB_SUCCESS, err);
-    return lcb_wait(instance, LCB_WAIT_DEFAULT);
-}
-
-lcb_STATUS drop_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection)
-{
-    (void)lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
-
-    lcb_CMDHTTP *cmd;
-    lcb_STATUS err;
-    std::string path = "/pools/default/buckets/default/collections/" + scope + "/" + collection;
-
-    lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
-    lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_DELETE);
-    lcb_cmdhttp_path(cmd, path.c_str(), path.size());
-
-    err = lcb_http(instance, NULL, cmd);
-    lcb_cmdhttp_destroy(cmd);
-    EXPECT_EQ(LCB_SUCCESS, err);
-    return lcb_wait(instance, LCB_WAIT_DEFAULT);
-}
-
-lcb_STATUS list_collections(lcb_INSTANCE *instance, const std::string &bucket)
-{
-    (void)lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)http_callback);
-
-    lcb_CMDHTTP *cmd;
-    lcb_STATUS err;
-    std::string path = "/pools/default/buckets/" + bucket + "/collections";
+    std::string path = "/pools/default/buckets/" + bucket + "/scopes";
 
     lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
     lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_GET);
     lcb_cmdhttp_path(cmd, path.c_str(), path.size());
 
-    err = lcb_http(instance, NULL, cmd);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_http(instance, nullptr, cmd));
     lcb_cmdhttp_destroy(cmd);
-    EXPECT_EQ(LCB_SUCCESS, err);
-    return lcb_wait(instance, LCB_WAIT_DEFAULT);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
 }
 // ---- Tests ----
 
@@ -104,12 +67,12 @@ static void testSetScopeMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lc
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_UPSERT, op);
-    ASSERT_EQ(LCB_ERR_TIMEOUT, lcb_respstore_status(resp)) << lcb_strerror_short(lcb_respstore_status(resp));
+    ASSERT_STATUS_EQ(LCB_ERR_TIMEOUT, lcb_respstore_status(resp)) << lcb_strerror_short(lcb_respstore_status(resp));
     const char *key;
     size_t nkey;
     lcb_respstore_key(resp, &key, &nkey);
     std::string val(key, nkey);
-    ASSERT_TRUE(val == "testScopeMiss1" || val == "testScopeMiss2");
+    ASSERT_TRUE(val == "testScopeMiss1" || val == "testScopeMiss2") << "actual key is: " << val;
     ++(*counter);
 }
 }
@@ -144,8 +107,8 @@ static void testGetScopeMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lc
  */
 TEST_F(CollectionUnitTest, testScopeMiss)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -165,11 +128,11 @@ TEST_F(CollectionUnitTest, testScopeMiss)
     lcb_cmdstore_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
     lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
 
     lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -180,10 +143,10 @@ TEST_F(CollectionUnitTest, testScopeMiss)
     lcb_cmdget_create(&cmdget);
     lcb_cmdget_collection(cmdget, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdget_key(cmdget, key1.c_str(), key1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
 
     lcb_cmdget_key(cmdget, key2.c_str(), key2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
     lcb_cmdget_destroy(cmdget);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -239,8 +202,8 @@ static void testGetCollectionMissCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, con
  */
 TEST_F(CollectionUnitTest, testCollectionMiss)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -253,7 +216,7 @@ TEST_F(CollectionUnitTest, testCollectionMiss)
     std::string scope(unique_name("sCollectionMiss")), collection(unique_name("cCollectionMiss"));
 
     // Create scope, no collection
-    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
+    create_scope(instance, scope);
 
     int numcallbacks = 0;
     lcb_CMDSTORE *cmd;
@@ -262,12 +225,12 @@ TEST_F(CollectionUnitTest, testCollectionMiss)
     lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
     lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
     lcb_STATUS rc = lcb_store(instance, &numcallbacks, cmd);
-    EXPECT_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
 
     lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
     rc = lcb_store(instance, &numcallbacks, cmd);
-    EXPECT_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_cmdstore_destroy(cmd);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -279,15 +242,17 @@ TEST_F(CollectionUnitTest, testCollectionMiss)
     lcb_cmdget_collection(cmdget, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdget_key(cmdget, key1.c_str(), key1.size());
     rc = lcb_get(instance, &numcallbacks, cmdget);
-    EXPECT_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
 
     lcb_cmdget_key(cmdget, key2.c_str(), key2.size());
     rc = lcb_get(instance, &numcallbacks, cmdget);
-    EXPECT_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_cmdget_destroy(cmdget);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(4, numcallbacks);
+
+    drop_scope(instance, scope);
 }
 
 extern "C" {
@@ -299,7 +264,7 @@ static void testSetHitCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESP
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_UPSERT, op);
     lcb_STATUS rc = lcb_respstore_status(resp);
-    ASSERT_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
     const char *key;
     size_t nkey;
     lcb_respstore_key(resp, &key, &nkey);
@@ -318,7 +283,7 @@ static void testGetHitCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESP
     int *counter;
     lcb_respget_cookie(resp, (void **)&counter);
     lcb_STATUS rc = lcb_respget_status(resp);
-    EXPECT_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
     ++(*counter);
 }
 }
@@ -336,8 +301,8 @@ static void testGetHitCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESP
  */
 TEST_F(CollectionUnitTest, testCollectionSet)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -348,8 +313,8 @@ TEST_F(CollectionUnitTest, testCollectionSet)
     std::string key1("testStoreKey1"), val1("key1"), key2("testStoreKey2"), val2("key2");
     std::string scope(unique_name("sSuccess")), collection(unique_name("cSuccess"));
 
-    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
-    EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
+    create_scope(instance, scope);
+    create_collection(instance, scope, collection);
 
     int numcallbacks = 0;
     lcb_CMDSTORE *cmd;
@@ -357,11 +322,11 @@ TEST_F(CollectionUnitTest, testCollectionSet)
     lcb_cmdstore_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
     lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
 
     lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -372,14 +337,16 @@ TEST_F(CollectionUnitTest, testCollectionSet)
     lcb_cmdget_create(&cmdget);
     lcb_cmdget_collection(cmdget, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdget_key(cmdget, key1.c_str(), key1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
 
     lcb_cmdget_key(cmdget, key2.c_str(), key2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
     lcb_cmdget_destroy(cmdget);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(4, numcallbacks);
+
+    drop_scope(instance, scope);
 }
 
 /**
@@ -395,8 +362,8 @@ TEST_F(CollectionUnitTest, testCollectionSet)
  */
 TEST_F(CollectionUnitTest, testDroppedCollection)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -408,11 +375,13 @@ TEST_F(CollectionUnitTest, testDroppedCollection)
     std::string val1("val1"), val2("val2");
     std::string scope(unique_name("sCollectionDropMiss")), collection(unique_name("cCollectionDropMiss"));
 
-    // Create scope + collection, then drop collection
-    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
-    EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
+    std::uint64_t uid;
 
-    EXPECT_EQ(LCB_SUCCESS, drop_collection(instance, scope, collection));
+    // Create scope + collection, then drop collection
+    create_scope(instance, scope);
+    create_collection(instance, scope, collection);
+
+    drop_collection(instance, scope, collection);
     sleep(1); /* sleep for a second to make sure that collection has been dropped */
 
     int numcallbacks = 0;
@@ -421,11 +390,11 @@ TEST_F(CollectionUnitTest, testDroppedCollection)
     lcb_cmdstore_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
     lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
 
     lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -436,14 +405,16 @@ TEST_F(CollectionUnitTest, testDroppedCollection)
     lcb_cmdget_create(&cmdget);
     lcb_cmdget_collection(cmdget, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdget_key(cmdget, key1.c_str(), key1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
 
     lcb_cmdget_key(cmdget, key2.c_str(), key2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
     lcb_cmdget_destroy(cmdget);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(4, numcallbacks);
+
+    drop_scope(instance, scope);
 }
 
 /**
@@ -462,8 +433,8 @@ TEST_F(CollectionUnitTest, testDroppedCollection)
  */
 TEST_F(CollectionUnitTest, testFlushCollection)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -476,8 +447,8 @@ TEST_F(CollectionUnitTest, testFlushCollection)
     std::string scope(unique_name("sCollectionFlush")), collection(unique_name("cCollectionFlush"));
 
     // Create scope + collection, then drop collection
-    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
-    EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
+    create_scope(instance, scope);
+    create_collection(instance, scope, collection);
 
     int numcallbacks = 0;
     lcb_CMDSTORE *cmd;
@@ -486,24 +457,24 @@ TEST_F(CollectionUnitTest, testFlushCollection)
 
     lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
     lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 
-    EXPECT_EQ(LCB_SUCCESS, drop_collection(instance, scope, collection));
+    drop_collection(instance, scope, collection);
     sleep(1); /* sleep for a second to make sure that collection has been dropped */
-    EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
+    create_collection(instance, scope, collection);
 
     numcallbacks = 0;
     lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
     lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
 
@@ -514,14 +485,16 @@ TEST_F(CollectionUnitTest, testFlushCollection)
     lcb_cmdget_create(&cmdget);
     lcb_cmdget_collection(cmdget, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdget_key(cmdget, key1.c_str(), key1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
 
     lcb_cmdget_key(cmdget, key2.c_str(), key2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
     lcb_cmdget_destroy(cmdget);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(4, numcallbacks);
+
+    drop_scope(instance, scope);
 }
 
 /**
@@ -537,8 +510,8 @@ TEST_F(CollectionUnitTest, testFlushCollection)
  */
 TEST_F(CollectionUnitTest, testDroppedScope)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -551,10 +524,10 @@ TEST_F(CollectionUnitTest, testDroppedScope)
     std::string scope(unique_name("sScopeDropMiss")), collection(unique_name("cScopeDropMiss"));
 
     // Create scope + collection, then drop scope
-    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
-    EXPECT_EQ(LCB_SUCCESS, create_collection(instance, scope, collection));
+    create_scope(instance, scope);
+    create_collection(instance, scope, collection);
 
-    EXPECT_EQ(LCB_SUCCESS, drop_scope(instance, scope));
+    drop_scope(instance, scope);
     sleep(1);
 
     int numcallbacks = 0;
@@ -563,11 +536,11 @@ TEST_F(CollectionUnitTest, testDroppedScope)
     lcb_cmdstore_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdstore_key(cmd, key1.c_str(), key1.size());
     lcb_cmdstore_value(cmd, val1.c_str(), val1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
 
     lcb_cmdstore_key(cmd, key2.c_str(), key2.size());
     lcb_cmdstore_value(cmd, val2.c_str(), val2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
     lcb_cmdstore_destroy(cmd);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -578,10 +551,10 @@ TEST_F(CollectionUnitTest, testDroppedScope)
     lcb_cmdget_create(&cmdget);
     lcb_cmdget_collection(cmdget, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdget_key(cmdget, key1.c_str(), key1.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
 
     lcb_cmdget_key(cmdget, key2.c_str(), key2.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &numcallbacks, cmdget));
     lcb_cmdget_destroy(cmdget);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
@@ -601,24 +574,160 @@ TEST_F(CollectionUnitTest, testDroppedScope)
  */
 TEST_F(CollectionUnitTest, testMaxCollectionsPerScope)
 {
-    SKIP_IF_MOCK();
-    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70);
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
 
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)testSetScopeMissCallback);
     (void)lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)testGetScopeMissCallback);
-    lcb_STATUS rc;
 
     std::string scope(unique_name("sScope1"));
-    EXPECT_EQ(LCB_SUCCESS, create_scope(instance, scope));
+    create_scope(instance, scope);
     for (int i = 0; i < 1000; ++i) {
-        std::stringstream ss;
-        ss << i;
-        rc = create_collection(instance, scope, ss.str());
-        if (rc != LCB_SUCCESS) {
-            fprintf(stderr, "Failed creating collection %d . Got error: %s\n", i, lcb_strerror_short(rc));
-        }
+        create_collection(instance, scope, std::to_string(i), false);
+    }
+    drop_scope(instance, scope);
+}
+
+struct operation_result {
+    bool called{false};
+    lcb_STATUS rc{LCB_SUCCESS};
+    std::string key{};
+    std::string value{};
+};
+
+extern "C" {
+static void store_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    const char *ptr;
+    size_t len;
+
+    operation_result *res = nullptr;
+    lcb_respstore_cookie(resp, (void **)&res);
+
+    res->called = true;
+    res->rc = lcb_respstore_status(resp);
+    lcb_respstore_key(resp, &ptr, &len);
+    res->key = std::string(ptr, len);
+}
+
+static void get_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
+{
+    const char *ptr;
+    size_t len;
+
+    operation_result *res = nullptr;
+    lcb_respget_cookie(resp, (void **)&res);
+
+    res->called = true;
+    res->rc = lcb_respget_status(resp);
+    lcb_respget_key(resp, &ptr, &len);
+    res->key = std::string(ptr, len);
+    if (res->rc == LCB_SUCCESS) {
+        lcb_respget_value(resp, &ptr, &len);
+        res->value = std::string(ptr, len);
+    }
+}
+}
+
+TEST_F(CollectionUnitTest, testItDoesNotRouteKeysToDefaultCollectionOnScopeDrop)
+{
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
+    HandleWrap hw;
+    lcb_INSTANCE *instance;
+    createConnection(hw, &instance);
+
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
+
+    std::string key("ccbc1400");
+    std::string val("now_" + std::to_string(time(nullptr)));
+    std::string scope(unique_name("scope1400")), collection(unique_name("collection1400"));
+
+    // Create scope + collection, then drop scope
+    create_scope(instance, scope);
+    create_collection(instance, scope, collection);
+
+    {
+        // default scope does not have the key
+        operation_result res{};
+        lcb_CMDGET *cmd;
+        lcb_cmdget_create(&cmd);
+        lcb_cmdget_key(cmd, key.c_str(), key.size());
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &res, cmd));
+        lcb_cmdget_destroy(cmd);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, res.rc);
+        ASSERT_EQ(key, res.key);
+    }
+
+    {
+        // upsert new document to "scope1400.collection1400"
+        operation_result res{};
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, val.c_str(), val.size());
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &res, cmd));
+        lcb_cmdstore_destroy(cmd);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_EQ(key, res.key);
+    }
+
+    {
+        // "scope1400.collection1400" has the key
+        operation_result res{};
+        lcb_CMDGET *cmd;
+        lcb_cmdget_create(&cmd);
+        lcb_cmdget_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
+        lcb_cmdget_key(cmd, key.c_str(), key.size());
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &res, cmd));
+        lcb_cmdget_destroy(cmd);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_EQ(key, res.key);
+        ASSERT_EQ(val, res.value);
+    }
+
+    drop_scope(instance, scope);
+    sleep(1);
+
+    {
+        // try to upsert new document to "scope1400.collection1400", expected LCB_ERR_TIMEOUT
+        operation_result res{};
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_timeout(cmd, LCB_MS2US(500));
+        lcb_cmdstore_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, val.c_str(), val.size());
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &res, cmd));
+        lcb_cmdstore_destroy(cmd);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_ERR_TIMEOUT, res.rc);
+        ASSERT_EQ(key, res.key);
+    }
+
+    {
+        // default scope still does not have the key
+        operation_result res{};
+        lcb_CMDGET *cmd;
+        lcb_cmdget_create(&cmd);
+        lcb_cmdget_key(cmd, key.c_str(), key.size());
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_get(instance, &res, cmd));
+        lcb_cmdget_destroy(cmd);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
+        ASSERT_TRUE(res.called);
+        ASSERT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, res.rc);
+        ASSERT_EQ(key, res.key);
     }
 }

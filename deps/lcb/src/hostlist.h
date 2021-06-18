@@ -21,6 +21,13 @@
 #include "config.h"
 #include <libcouchbase/couchbase.h>
 
+#ifndef NI_MAXHOST
+#define NI_MAXHOST 1025
+#endif
+#ifndef NI_MAXSERV
+#define NI_MAXSERV 32
+#endif
+
 /**
  * Structure representing a host. This contains the string representation
  * of a host and a port.
@@ -127,8 +134,8 @@ struct Hostlist {
         return hosts[ix_];
     }
 
-    std::vector< lcb_host_t > hosts;
-    std::vector< const char * > hoststrs;
+    std::vector<lcb_host_t> hosts;
+    std::vector<const char *> hoststrs;
 };
 } // namespace lcb
 typedef lcb::Hostlist *hostlist_t;

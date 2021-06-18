@@ -17,10 +17,13 @@
 
 #include "internal.h"
 
+#include "capi/cmd_noop.hh"
+#include "capi/cmd_stats.hh"
+
 struct BcastCookie : mc_REQDATAEX {
     int remaining;
 
-    BcastCookie(const mc_REQDATAPROCS *procs_, const void *cookie_)
+    BcastCookie(const mc_REQDATAPROCS *procs_, void *cookie_)
         : mc_REQDATAEX(cookie_, *procs_, gethrtime()), remaining(0)
     {
     }
@@ -43,7 +46,8 @@ static const char *make_hp_string(const lcb::Server &server, std::string &out)
     return out.c_str();
 }
 
-static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS err, const void *arg)
+static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_CALLBACK_TYPE /* cbtype */, lcb_STATUS err,
+                          const void *arg)
 {
     auto *ck = static_cast<BcastCookie *>(req->u_rdata.exdata);
     auto *server = static_cast<lcb::Server *>(pl);
@@ -76,10 +80,83 @@ static void stats_handler(mc_PIPELINE *pl, mc_PACKET *req, lcb_STATUS err, const
     }
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_create(lcb_CMDSTATS **cmd)
+{
+    *cmd = (lcb_CMDSTATS *)calloc(1, sizeof(lcb_CMDSTATS));
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_destroy(lcb_CMDSTATS *cmd)
+{
+    free(cmd);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_parent_span(lcb_CMDSTATS *cmd, lcbtrace_SPAN *span)
+{
+    cmd->pspan = span;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_key(lcb_CMDSTATS *cmd, const char *key, size_t key_len)
+{
+    LCB_CMD_SET_KEY(cmd, key, key_len);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_is_keystats(lcb_CMDSTATS *cmd, int val)
+{
+    if (val) {
+        cmd->cmdflags |= LCB_CMDSTATS_F_KV;
+    } else {
+        cmd->cmdflags &= ~LCB_CMDSTATS_F_KV;
+    }
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_status(const lcb_RESPSTATS *resp)
+{
+    return resp->ctx.rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_error_context(const lcb_RESPSTATS *resp,
+                                                        const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
+{
+    *ctx = &resp->ctx;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_cookie(const lcb_RESPSTATS *resp, void **cookie)
+{
+    *cookie = resp->cookie;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_key(const lcb_RESPSTATS *resp, const char **key, size_t *key_len)
+{
+    *key = resp->ctx.key.c_str();
+    *key_len = resp->ctx.key.size();
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_value(const lcb_RESPSTATS *resp, const char **value, size_t *value_len)
+{
+    *value = resp->value;
+    *value_len = resp->nvalue;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_server(const lcb_RESPSTATS *resp, const char **server, size_t *server_len)
+{
+    *server = resp->server;
+    *server_len = (resp->server == nullptr) ? 0 : strlen(resp->server);
+    return LCB_SUCCESS;
+}
+
 static mc_REQDATAPROCS stats_procs = {stats_handler, refcnt_dtor_common};
 
 LIBCOUCHBASE_API
-lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDSTATS *cmd)
+lcb_STATUS lcb_stats(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSTATS *cmd)
 {
     unsigned ii;
     int vbid = -1;
@@ -166,7 +243,8 @@ lcb_STATUS lcb_stats3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDS
     return LCB_SUCCESS;
 }
 
-static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, const void *arg)
+static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_CALLBACK_TYPE /* cbtype */, lcb_STATUS err,
+                         const void *arg)
 {
     auto *server = static_cast<lcb::Server *>(pipeline);
     auto *ck = (BcastCookie *)req->u_rdata.exdata;
@@ -189,7 +267,7 @@ static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, 
         return;
     }
 
-    lcb_RESPNOOP empty{};
+    lcb_RESPNOOP_ empty{};
     empty.server = nullptr;
     empty.ctx.rc = err;
     empty.rflags = LCB_RESP_F_CLIENTGEN | LCB_RESP_F_FINAL;
@@ -200,8 +278,44 @@ static void handle_bcast(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, 
 
 static mc_REQDATAPROCS bcast_procs = {handle_bcast, refcnt_dtor_common};
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdnoop_create(lcb_CMDNOOP **cmd)
+{
+    *cmd = (lcb_CMDNOOP *)calloc(1, sizeof(lcb_CMDNOOP));
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdnoop_destroy(lcb_CMDNOOP *cmd)
+{
+    free(cmd);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdnoop_parent_span(lcb_CMDNOOP *cmd, lcbtrace_SPAN *span)
+{
+    cmd->pspan = span;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respnoop_status(const lcb_RESPNOOP *resp)
+{
+    return resp->ctx.rc;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respnoop_error_context(const lcb_RESPNOOP *resp,
+                                                       const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
+{
+    *ctx = &resp->ctx;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_respnoop_cookie(const lcb_RESPNOOP *resp, void **cookie)
+{
+    *cookie = resp->cookie;
+    return LCB_SUCCESS;
+}
+
 LIBCOUCHBASE_API
-lcb_STATUS lcb_noop3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDNOOP *cmd)
+lcb_STATUS lcb_noop(lcb_INSTANCE *instance, void *cookie, const lcb_CMDNOOP *cmd)
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
     unsigned ii;

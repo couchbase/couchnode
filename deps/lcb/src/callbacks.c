@@ -36,21 +36,6 @@ static void dummy_pktflushed_callback(lcb_INSTANCE *instance, const void *cookie
     (void)cookie;
 }
 
-typedef union {
-    lcb_RESPBASE base;
-    lcb_RESPGET get;
-    lcb_RESPSTORE store;
-    lcb_RESPUNLOCK unlock;
-    lcb_RESPCOUNTER arith;
-    lcb_RESPREMOVE del;
-    lcb_RESPENDURE endure;
-    lcb_RESPUNLOCK unl;
-    lcb_RESPSTATS stats;
-    lcb_RESPOBSERVE observe;
-    lcb_RESPHTTP http;
-    lcb_RESPGETCID getcid;
-} uRESP;
-
 static void nocb_fallback(lcb_INSTANCE *instance, int type, const lcb_RESPBASE *response)
 {
     (void)instance;
@@ -98,7 +83,7 @@ LIBCOUCHBASE_API
 lcb_RESPCALLBACK lcb_install_callback(lcb_INSTANCE *instance, int cbtype, lcb_RESPCALLBACK cb)
 {
     lcb_RESPCALLBACK ret;
-    if (cbtype >= LCB_CALLBACK__MAX) {
+    if (cbtype < 0 || cbtype >= LCB_CALLBACK__MAX) {
         return NULL;
     }
 

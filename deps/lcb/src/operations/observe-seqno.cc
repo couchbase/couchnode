@@ -16,6 +16,8 @@
  */
 #include "internal.h"
 
+#include "capi/cmd_observe_seqno.hh"
+
 lcb_STATUS lcb_observe_seqno3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDOBSEQNO *cmd)
 {
     mc_PACKET *pkt;
@@ -34,7 +36,8 @@ lcb_STATUS lcb_observe_seqno3(lcb_INSTANCE *instance, const void *cookie, const 
     /* Set the static fields */
     MCREQ_PKT_RDATA(pkt)->cookie = cookie;
     MCREQ_PKT_RDATA(pkt)->start = gethrtime();
-    MCREQ_PKT_RDATA(pkt)->deadline = MCREQ_PKT_RDATA(pkt)->start + LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
+    MCREQ_PKT_RDATA(pkt)->deadline = MCREQ_PKT_RDATA(pkt)->start +
+                                     LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
     if (cmd->cmdflags & LCB_CMD_F_INTERNAL_CALLBACK) {
         pkt->flags |= MCREQ_F_PRIVCALLBACK;
     }
@@ -50,8 +53,8 @@ lcb_STATUS lcb_observe_seqno3(lcb_INSTANCE *instance, const void *cookie, const 
 
     uuid = lcb_htonll(cmd->uuid);
     memcpy(SPAN_BUFFER(&pkt->u_value.single), &uuid, sizeof uuid);
+
     LCB_SCHED_ADD(instance, server, pkt);
-    LCBTRACE_KV_START(instance->settings, cmd, LCBTRACE_OP_OBSERVE_SEQNO, pkt->opaque, MCREQ_PKT_RDATA(pkt)->span);
     return LCB_SUCCESS;
 }
 

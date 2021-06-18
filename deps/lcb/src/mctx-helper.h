@@ -25,14 +25,16 @@ namespace lcb
 class MultiCmdContext : public lcb_MULTICMD_CTX
 {
   protected:
-    virtual lcb_STATUS MCTX_addcmd(const lcb_CMDBASE *cmd) = 0;
-    virtual lcb_STATUS MCTX_done(const void *cookie) = 0;
+    virtual lcb_STATUS MCTX_add_observe(const lcb_CMDOBSERVE *cmd) = 0;
+    virtual lcb_STATUS MCTX_add_endure(const lcb_CMDENDURE *cmd) = 0;
+    virtual lcb_STATUS MCTX_done(void *cookie) = 0;
     virtual void MCTX_fail() = 0;
     virtual void MCTX_setspan(lcbtrace_SPAN *span) = 0;
 
     MultiCmdContext()
     {
-        lcb_MULTICMD_CTX::addcmd = dispatch_mctx_addcmd;
+        lcb_MULTICMD_CTX::add_observe = dispatch_mctx_add_observe;
+        lcb_MULTICMD_CTX::add_endure = dispatch_mctx_add_endure;
         lcb_MULTICMD_CTX::done = dispatch_mctx_done;
         lcb_MULTICMD_CTX::fail = dispatch_mctx_fail;
         lcb_MULTICMD_CTX::setspan = dispatch_mctx_setspan;
@@ -41,21 +43,25 @@ class MultiCmdContext : public lcb_MULTICMD_CTX
     virtual ~MultiCmdContext() {}
 
   private:
-    static lcb_STATUS dispatch_mctx_addcmd(lcb_MULTICMD_CTX *ctx, const lcb_CMDBASE *cmd)
+    static lcb_STATUS dispatch_mctx_add_observe(lcb_MULTICMD_CTX *ctx, const lcb_CMDOBSERVE *cmd)
     {
-        return static_cast< MultiCmdContext * >(ctx)->MCTX_addcmd(cmd);
+        return static_cast<MultiCmdContext *>(ctx)->MCTX_add_observe(cmd);
     }
-    static lcb_STATUS dispatch_mctx_done(lcb_MULTICMD_CTX *ctx, const void *cookie)
+    static lcb_STATUS dispatch_mctx_add_endure(lcb_MULTICMD_CTX *ctx, const lcb_CMDENDURE *cmd)
     {
-        return static_cast< MultiCmdContext * >(ctx)->MCTX_done(cookie);
+        return static_cast<MultiCmdContext *>(ctx)->MCTX_add_endure(cmd);
+    }
+    static lcb_STATUS dispatch_mctx_done(lcb_MULTICMD_CTX *ctx, void *cookie)
+    {
+        return static_cast<MultiCmdContext *>(ctx)->MCTX_done(cookie);
     }
     static void dispatch_mctx_fail(lcb_MULTICMD_CTX *ctx)
     {
-        static_cast< MultiCmdContext * >(ctx)->MCTX_fail();
+        static_cast<MultiCmdContext *>(ctx)->MCTX_fail();
     }
     static void dispatch_mctx_setspan(lcb_MULTICMD_CTX *ctx, lcbtrace_SPAN *span)
     {
-        static_cast< MultiCmdContext * >(ctx)->MCTX_setspan(span);
+        static_cast<MultiCmdContext *>(ctx)->MCTX_setspan(span);
     }
 };
 

@@ -296,7 +296,7 @@ static void testSimpleAppendStoreCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, con
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_APPEND, op);
-    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
     uint64_t cas;
     lcb_respstore_cas(resp, &cas);
     EXPECT_NE(0, cas);
@@ -669,4 +669,279 @@ TEST_F(MutateUnitTest, testSetDefault)
     ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
     lcb_cmdstore_destroy(cmd);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
+}
+
+static void preserve_expiry_get_expiry(lcb_INSTANCE *, int, const lcb_RESPSUBDOC *resp)
+{
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respsubdoc_status(resp));
+    ASSERT_EQ(1, lcb_respsubdoc_result_size(resp));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respsubdoc_result_status(resp, 0));
+
+    const char *value = nullptr;
+    std::size_t value_len = 0;
+    lcb_respsubdoc_result_value(resp, 0, &value, &value_len);
+    ASSERT_GT(value_len, 0);
+
+    std::uint32_t *cookie = nullptr;
+    lcb_respsubdoc_cookie(resp, reinterpret_cast<void **>(&cookie));
+    *cookie = std::strtoul(value, nullptr, 10);
+}
+
+static void preserve_expiry_upsert(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
+{
+    lcb_STATUS *rc;
+    lcb_respstore_cookie(resp, (void **)&rc);
+    *rc = lcb_respstore_status(resp);
+}
+
+TEST_F(MutateUnitTest, testUpsertPreservesExpiry)
+{
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
+
+    std::string key("testUpsertPreservesExpiry");
+
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    createConnection(hw, &instance);
+    lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP,
+                         reinterpret_cast<lcb_RESPCALLBACK>(preserve_expiry_get_expiry));
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, reinterpret_cast<lcb_RESPCALLBACK>(preserve_expiry_upsert));
+
+    std::uint32_t birthday = 1878422400;
+
+    {
+        std::string value = R"({"foo": "bar"})";
+
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, value.c_str(), value.size());
+        lcb_cmdstore_expiry(cmd, birthday);
+        lcb_STATUS cookie = LCB_ERR_GENERIC;
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        lcb_cmdstore_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+    }
+
+    std::string expiry_path = "$document.exptime";
+
+    {
+        std::uint32_t expiry = 0;
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+        ASSERT_EQ(expiry, birthday);
+    }
+
+    {
+        std::string value = R"({"foo": "baz"})";
+
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, value.c_str(), value.size());
+        lcb_cmdstore_preserve_expiry(cmd, true);
+        lcb_STATUS cookie = LCB_ERR_GENERIC;
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        lcb_cmdstore_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+    }
+
+    {
+        std::uint32_t expiry = 0;
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+        ASSERT_EQ(expiry, birthday);
+    }
+
+    {
+        std::string value = R"({"foo": "bar"})";
+
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, value.c_str(), value.size());
+        lcb_STATUS cookie = LCB_ERR_GENERIC;
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        lcb_cmdstore_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+    }
+
+    {
+        std::uint32_t expiry = 0;
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+        ASSERT_EQ(expiry, 0);
+    }
+}
+
+static void preserve_expiry_subdoc(lcb_INSTANCE *, int, const lcb_RESPSUBDOC *resp)
+{
+    lcb_STATUS *rc;
+    lcb_respsubdoc_cookie(resp, (void **)&rc);
+    *rc = lcb_respsubdoc_status(resp);
+}
+
+TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
+{
+    SKIP_IF_MOCK()
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)
+
+    std::string key("testMutateInPreservesExpiry");
+
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    createConnection(hw, &instance);
+    lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP,
+                         reinterpret_cast<lcb_RESPCALLBACK>(preserve_expiry_get_expiry));
+    lcb_install_callback(instance, LCB_CALLBACK_SDMUTATE, reinterpret_cast<lcb_RESPCALLBACK>(preserve_expiry_subdoc));
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, reinterpret_cast<lcb_RESPCALLBACK>(preserve_expiry_upsert));
+
+    std::uint32_t birthday = 1878422400;
+
+    {
+        std::string value = R"({"foo": "bar"})";
+
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_key(cmd, key.c_str(), key.size());
+        lcb_cmdstore_value(cmd, value.c_str(), value.size());
+        lcb_cmdstore_expiry(cmd, birthday);
+        lcb_STATUS cookie = LCB_ERR_GENERIC;
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        lcb_cmdstore_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+    }
+
+    std::string expiry_path = "$document.exptime";
+
+    {
+        std::uint32_t expiry = 0;
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+        ASSERT_EQ(expiry, birthday);
+    }
+
+    {
+        std::string path = "foo";
+        std::string value = R"("baz")";
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_replace(ops, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        lcb_cmdsubdoc_preserve_expiry(cmd, true);
+        lcb_STATUS cookie = LCB_ERR_GENERIC;
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &cookie, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+    }
+
+    {
+        std::uint32_t expiry = 0;
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+        ASSERT_EQ(expiry, birthday);
+    }
+
+    {
+        std::string path = "foo";
+        std::string value = R"("bar")";
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_replace(ops, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        lcb_STATUS cookie = LCB_ERR_GENERIC;
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &cookie, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+    }
+
+    {
+        std::uint32_t expiry = 0;
+
+        lcb_CMDSUBDOC *cmd;
+        lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_key(cmd, key.data(), key.size());
+        lcb_SUBDOCSPECS *ops;
+        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_cmdsubdoc_specs(cmd, ops);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        lcb_subdocspecs_destroy(ops);
+        lcb_cmdsubdoc_destroy(cmd);
+        lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+        ASSERT_EQ(expiry, 0);
+    }
 }

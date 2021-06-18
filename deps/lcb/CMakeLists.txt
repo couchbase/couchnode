@@ -30,7 +30,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 # Couchbase mock path to download
 SET(COUCHBASE_MOCK_VERSION 1.5.25)
 SET(COUCHBASE_MOCK_URL "https://github.com/couchbase/CouchbaseMock/releases/download/${COUCHBASE_MOCK_VERSION}/CouchbaseMock-${COUCHBASE_MOCK_VERSION}.jar")
-project(libcouchbase VERSION 3.1.2 LANGUAGES C CXX)
+project(libcouchbase VERSION 3.2.0 LANGUAGES C CXX)
 
 if (NOT CMAKE_VERSION VERSION_LESS "3.13")
     # CMP0077: option() honors normal variables
@@ -115,6 +115,9 @@ IF(LCB_USE_HDR_HISTOGRAM)
     # already includes HdrHistogram_c
     IF (NOT TARGET hdr_histogram_static)
         ADD_SUBDIRECTORY(contrib/HdrHistogram_c)
+        MESSAGE(STATUS "Using embedded HdrHistogram_c")
+    ELSE ()
+        MESSAGE(STATUS "Using HdrHistogram_c from larger project (building inside Server)")
     ENDIF ()
 
     # Use #include files from wherever the hdr_histogram project was loaded
@@ -128,6 +131,7 @@ IF(LCB_USE_HDR_HISTOGRAM)
     SET(LCB_HDR_HISTOGRAM_LINK hdr_histogram_static)
     LIST(APPEND LCB_CORE_SRC "src/hdr_timings.c")
 ELSE()
+    MESSAGE(STATUS "HdrHistogram_c is not enabled")
     SET(LCB_HDR_HISTOGRAM_LINK "")
     LIST(APPEND LCB_CORE_SRC "src/timings.c")
 ENDIF()

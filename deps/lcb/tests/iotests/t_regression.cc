@@ -25,7 +25,7 @@ class RegressionUnitTest : public MockUnitTest
 static bool callbackInvoked = false;
 
 extern "C" {
-static void get_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
+static void get_callback(lcb_INSTANCE * /* instance */, lcb_CALLBACK_TYPE, const lcb_RESPGET *resp)
 {
     EXPECT_EQ(LCB_ERR_DOCUMENT_NOT_FOUND, lcb_respget_status(resp));
     int *counter_p;
@@ -36,11 +36,16 @@ static void get_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPGET *r
     callbackInvoked = true;
 }
 
-static void stats_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
+static void stats_callback(lcb_INSTANCE * /* instance */, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
 {
-    EXPECT_EQ(resp->ctx.rc, LCB_SUCCESS);
-    if (resp->ctx.key_len == 0) {
-        int *counter_p = reinterpret_cast<int *>(const_cast<void *>(resp->cookie));
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstats_status(resp));
+
+    const char *key;
+    size_t key_len;
+    lcb_respstats_key(resp, &key, &key_len);
+    if (key_len == 0) {
+        int *counter_p;
+        lcb_respstats_cookie(resp, (void **)&counter_p);
         *counter_p -= 1;
     }
     callbackInvoked = true;
@@ -64,7 +69,9 @@ TEST_F(RegressionUnitTest, CCBC_150)
     lcb_cmdget_create(&getCmd1);
     lcb_cmdget_key(getCmd1, key.c_str(), key.size());
 
-    lcb_CMDSTATS statCmd = {0};
+    lcb_CMDSTATS *statCmd;
+    lcb_cmdstats_create(&statCmd);
+
     int ii;
 
     // Lets spool up a lot of commands in one of the buffers so that we
@@ -77,7 +84,7 @@ TEST_F(RegressionUnitTest, CCBC_150)
     }
 
     callbackCounter++;
-    EXPECT_EQ(LCB_SUCCESS, lcb_stats3(instance, ptr, &statCmd));
+    EXPECT_EQ(LCB_SUCCESS, lcb_stats(instance, ptr, statCmd));
 
     callbackCounter += 1000;
     for (ii = 0; ii < 1000; ++ii) {
@@ -86,10 +93,12 @@ TEST_F(RegressionUnitTest, CCBC_150)
     lcb_cmdget_destroy(getCmd1);
 
     callbackCounter++;
-    EXPECT_EQ(LCB_SUCCESS, lcb_stats3(instance, ptr, &statCmd));
+    EXPECT_EQ(LCB_SUCCESS, lcb_stats(instance, ptr, statCmd));
 
     callbackCounter++;
-    EXPECT_EQ(LCB_SUCCESS, lcb_stats3(instance, ptr, &statCmd));
+    EXPECT_EQ(LCB_SUCCESS, lcb_stats(instance, ptr, statCmd));
+
+    lcb_cmdstats_destroy(statCmd);
 
     EXPECT_EQ(LCB_SUCCESS, lcb_wait(instance, LCB_WAIT_DEFAULT));
     ASSERT_TRUE(callbackInvoked);

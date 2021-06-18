@@ -25,6 +25,9 @@
 #include <algorithm>
 #include <lcbio/iotable.h>
 
+#include "capi/cmd_store.hh"
+#include "capi/cmd_observe.hh"
+
 using namespace lcb::durability;
 
 #define LOGARGS(c, lvl) (c)->instance->settings, "endure", LCB_LOG_##lvl, __FILE__, __LINE__
@@ -215,7 +218,6 @@ void Item::finish()
     if (parent->is_durstore) {
         lcb_RESPSTORE resp{};
         resp.ctx.key = result.ctx.key;
-        resp.ctx.key_len = result.ctx.key_len;
         resp.ctx.rc = result.ctx.rc;
         resp.ctx.cas = reqcas;
         resp.cookie = result.cookie;
@@ -289,7 +291,7 @@ lcb_STATUS lcb_durability_validate(lcb_INSTANCE *instance, lcb_U16 *persist_to, 
     }
 
     /* persist_max is always one more than replica_max */
-    if (static_cast< int >(*persist_to) > persist_max) {
+    if (static_cast<int>(*persist_to) > persist_max) {
         if (options & LCB_DURABILITY_VALIDATE_CAPMAX) {
             *persist_to = persist_max;
         } else {
@@ -306,7 +308,7 @@ lcb_STATUS lcb_durability_validate(lcb_INSTANCE *instance, lcb_U16 *persist_to, 
     }
 
     /* now, we need at least as many nodes as we have replicas */
-    if (static_cast< int >(*replicate_to) > replica_max) {
+    if (static_cast<int>(*replicate_to) > replica_max) {
         if (options & LCB_DURABILITY_VALIDATE_CAPMAX) {
             *replicate_to = replica_max;
         } else {
@@ -321,7 +323,12 @@ void Durset::MCTX_setspan(lcbtrace_SPAN *span_)
     span = span_;
 }
 
-lcb_STATUS Durset::MCTX_addcmd(const lcb_CMDBASE *cmd)
+lcb_STATUS Durset::MCTX_add_observe(const lcb_CMDOBSERVE *)
+{
+    return LCB_ERR_UNSUPPORTED_OPERATION;
+}
+
+lcb_STATUS Durset::MCTX_add_endure(const lcb_CMDENDURE *cmd)
 {
     if (LCB_KEYBUF_IS_EMPTY(&cmd->key)) {
         return LCB_ERR_EMPTY_KEY;
@@ -334,30 +341,23 @@ lcb_STATUS Durset::MCTX_addcmd(const lcb_CMDBASE *cmd)
     mcreq_map_key(&instance->cmdq, &cmd->key, MCREQ_PKT_BASESIZE, &vbid, &srvix);
 
     /* ok. now let's initialize the entry..*/
-    ent.res().ctx.key_len = cmd->key.contig.nbytes;
+    ent.res().ctx.key.assign(static_cast<const char *>(cmd->key.contig.bytes), cmd->key.contig.nbytes);
     ent.reqcas = cmd->cas;
     ent.parent = this;
     ent.vbid = vbid;
 
-    kvbufs.append(reinterpret_cast< const char * >(cmd->key.contig.bytes), cmd->key.contig.nbytes);
+    kvbufs.append(ent.res().ctx.key);
 
-    return after_add(ent, reinterpret_cast< const lcb_CMDENDURE * >(cmd));
+    return after_add(ent, cmd->mutation_token);
 }
 
-lcb_STATUS Durset::MCTX_done(const void *cookie_)
+lcb_STATUS Durset::MCTX_done(void *cookie_)
 {
     lcb_STATUS err;
-    const char *kptr = kvbufs.c_str();
 
     if (entries.empty()) {
         delete this;
         return LCB_ERR_INVALID_ARGUMENT;
-    }
-
-    for (size_t ii = 0; ii < entries.size(); ii++) {
-        Item *ent = &entries[ii];
-        ent->res().ctx.key = kptr;
-        kptr += ent->res().ctx.key_len;
     }
 
     if ((err = prepare_schedule()) != LCB_SUCCESS) {
@@ -387,7 +387,7 @@ void Durset::MCTX_fail()
 
 void lcbdurctx_set_durstore(lcb_MULTICMD_CTX *mctx, int enabled)
 {
-    static_cast< Durset * >(mctx)->is_durstore = enabled;
+    static_cast<Durset *>(mctx)->is_durstore = enabled;
 }
 
 Durset::Durset(lcb_INSTANCE *instance_, const lcb_durability_opts_t *options)
@@ -465,7 +465,7 @@ lcb_MULTICMD_CTX *lcb_endure3_ctxnew(lcb_INSTANCE *instance, const lcb_durabilit
  */
 void lcbdur_destroy(void *dset)
 {
-    delete reinterpret_cast< Durset * >(dset);
+    delete reinterpret_cast<Durset *>(dset);
 }
 
 Durset::~Durset()
@@ -486,7 +486,7 @@ Durset::~Durset()
  */
 static void timer_callback(lcb_socket_t, short, void *arg)
 {
-    reinterpret_cast< Durset * >(arg)->tick();
+    reinterpret_cast<Durset *>(arg)->tick();
 }
 
 void Durset::tick()

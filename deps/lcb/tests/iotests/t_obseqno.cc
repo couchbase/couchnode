@@ -18,6 +18,8 @@
 #include "iotests.h"
 #include "internalstructs.h"
 
+#include "capi/cmd_observe_seqno.hh"
+
 using namespace std;
 class ObseqnoTest : public MockUnitTest
 {

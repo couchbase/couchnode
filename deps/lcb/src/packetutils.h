@@ -42,13 +42,8 @@ class Server;
 class MemcachedResponse
 {
   public:
-    MemcachedResponse() : payload(NULL), bufh(NULL)
-    {
-        // Bodyless. Members are initialized via load!
-    }
-
+    MemcachedResponse() = default;
     MemcachedResponse(protocol_binary_command cmd, uint32_t opaque_, protocol_binary_response_status code)
-        : res(), payload(NULL), bufh(NULL)
     {
         res.response.opcode = cmd;
         res.response.opaque = opaque_;
@@ -91,7 +86,8 @@ class MemcachedResponse
         return true;
     }
 
-    template < typename T > bool load(T ctx, unsigned *required)
+    template <typename T>
+    bool load(T ctx, unsigned *required)
     {
         return load(&ctx->ior, required);
     }
@@ -104,7 +100,8 @@ class MemcachedResponse
         rdb_consumed(ior, bodylen());
     }
 
-    template < typename T > void release(T ctx)
+    template <typename T>
+    void release(T ctx)
     {
         release(&ctx->ior);
     }
@@ -173,7 +170,7 @@ class MemcachedResponse
      */
     const char *ffext() const
     {
-        return body< const char * >();
+        return body<const char *>();
     }
 
     /**
@@ -181,7 +178,7 @@ class MemcachedResponse
      */
     const char *ext() const
     {
-        return body< const char * >() + ffextlen();
+        return body<const char *>() + ffextlen();
     }
 
     /**
@@ -189,7 +186,7 @@ class MemcachedResponse
      */
     const char *key() const
     {
-        return body< const char * >() + extlen() + ffextlen();
+        return body<const char *>() + extlen() + ffextlen();
     }
 
     /**
@@ -197,7 +194,7 @@ class MemcachedResponse
      */
     const char *value() const
     {
-        return body< const char * >() + keylen() + extlen() + ffextlen();
+        return body<const char *>() + keylen() + extlen() + ffextlen();
     }
 
     /**
@@ -220,9 +217,10 @@ class MemcachedResponse
     /**
      * Gets the payload
      */
-    template < typename T > const T body() const
+    template <typename T>
+    const T body() const
     {
-        return reinterpret_cast< const T >(payload);
+        return reinterpret_cast<const T>(payload);
     }
 
     /**
@@ -232,7 +230,7 @@ class MemcachedResponse
      */
     const char *ephemeral_start() const
     {
-        return body< const char * >() - 24;
+        return body<const char *>() - 24;
     }
 
     /**
@@ -301,7 +299,7 @@ class MemcachedResponse
 
     static lcb_STATUS parse_enhanced_error(const char *value, lcb_SIZE nvalue, char **err_ref, char **err_ctx)
     {
-        if (value == NULL || nvalue == 0) {
+        if (value == nullptr || nvalue == 0) {
             return LCB_ERR_INVALID_ARGUMENT;
         }
         Json::Value jval;
@@ -317,21 +315,21 @@ class MemcachedResponse
         }
         std::string emsg;
         if (!jerr["ref"].empty()) {
-            *err_ref = strdup(jerr["ref"].asString().c_str());
+            *err_ref = strdup(jerr["ref"].asCString());
         }
         if (!jerr["context"].empty()) {
-            *err_ctx = strdup(jerr["context"].asString().c_str());
+            *err_ctx = strdup(jerr["context"].asCString());
         }
         return LCB_SUCCESS;
     }
 
   protected:
     /** The response header */
-    protocol_binary_response_header res;
+    protocol_binary_response_header res{};
     /** The payload of the response. This should only be used if there is a body */
-    void *payload;
+    void *payload{nullptr};
     /** Segment for payload */
-    void *bufh;
+    void *bufh{nullptr};
 
     friend class lcb::Server;
 };

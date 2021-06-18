@@ -57,10 +57,11 @@ static struct event_base *evbase = nullptr;
 static Histogram hg;
 
 static char app_client_string[] = "cbc-proxy";
+static char app_version[] = "cbc-proxy/" LCB_VERSION_STRING;
 
 #define LOGARGS(lvl) (instance)->settings, "proxy", LCB_LOG_##lvl, __FILE__, __LINE__
 #define CL_LOGFMT "<%s:%s> (cl=%p,fd=%d) "
-#define CL_LOGID(cl) cl->host, cl->port, (void *)cl, cl->fd
+#define CL_LOGID(cl) (cl)->host, (cl)->port, (void *)(cl), (cl)->fd
 
 class Configuration
 {
@@ -82,7 +83,7 @@ class Configuration
 
     void processOptions() {}
 
-    void fillCropts(lcb_CREATEOPTS *opts)
+    void fillCropts(lcb_CREATEOPTS *&opts)
     {
         m_params.fillCropts(opts);
     }
@@ -181,7 +182,7 @@ static void dump_bytes(const struct client *cl, const char *msg, const void *ptr
         // ascii
         i = row_start_index;
         while (i < row_end_index) {
-            char b = buf[i++];
+            char b = static_cast<char>(buf[i++]);
             if ((b <= 0x1f) || (b >= 0x7f)) {
                 ss << '.';
             } else {
@@ -210,7 +211,7 @@ static void dump_bytes(const struct client *cl, const char *msg, const void *ptr
         // ascii
         i = row_start_index;
         while (i < row_end_index) {
-            char b = buf[i++];
+            char b = static_cast<char>(buf[i++]);
             if ((b <= 0x1f) || (b >= 0x7f)) {
                 ss << '.';
             } else {
@@ -265,8 +266,9 @@ static void n1ql_callback(lcb_INSTANCE *, int, const lcb_RESPQUERY *resp)
     const char *row = nullptr;
     size_t nrow = 0;
     lcb_respquery_row(resp, &row, &nrow);
+    header.response.bodylen = htonl(nkey + nrow);
 
-    evbuffer_expand(output, nrow + sizeof(header.bytes));
+    evbuffer_expand(output, nkey + nrow + sizeof(header.bytes));
     dump_bytes(cl, "response", header.bytes, sizeof(header.bytes));
     evbuffer_add(output, header.bytes, sizeof(header.bytes));
     dump_bytes(cl, "response", key, nkey);
@@ -308,7 +310,7 @@ static void fts_callback(lcb_INSTANCE *, int, const lcb_RESPSEARCH *resp)
     header.response.keylen = htons(nkey);
     header.response.bodylen = htonl(nrow + nkey);
 
-    evbuffer_expand(output, nrow + sizeof(header.bytes));
+    evbuffer_expand(output, nkey + nrow + sizeof(header.bytes));
     dump_bytes(cl, "response", header.bytes, sizeof(header.bytes));
     evbuffer_add(output, header.bytes, sizeof(header.bytes));
     dump_bytes(cl, "response", key, nkey);
@@ -358,46 +360,65 @@ static void conn_readcb(struct bufferevent *bev, void *cookie)
 
     lcb_sched_enter(instance);
     dump_bytes(cl, "request", pkt, pktlen);
-    if (header.request.opcode == PROTOCOL_BINARY_CMD_STAT) {
-        lcb_U8 extlen = ntohs(header.request.extlen);
-        lcb_U16 keylen = ntohs(header.request.keylen);
-        if (keylen < 5) {
-            goto FWD;
-        }
-        char *key = (char *)pkt + sizeof(header) + extlen;
-        lcb_STATUS rc;
-        if (memcmp(key, "n1ql ", 5) == 0) {
-            lcb_CMDQUERY *cmd;
-            lcb_cmdquery_create(&cmd);
+    switch (header.request.opcode) {
+        case PROTOCOL_BINARY_CMD_VERSION: {
+            protocol_binary_response_header hdr{};
+            hdr.response.magic = PROTOCOL_BINARY_RES;
+            hdr.response.opcode = PROTOCOL_BINARY_CMD_VERSION;
+            hdr.response.bodylen = htonl(sizeof(app_version));
 
-            rc = lcb_cmdquery_statement(cmd, key + 5, keylen - 5);
-            if (rc != LCB_SUCCESS) {
-                lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to set query for N1QL", CL_LOGID(cl));
+            struct evbuffer *output = bufferevent_get_output(cl->bev);
+            evbuffer_expand(output, sizeof(hdr.bytes) + sizeof(app_version));
+            dump_bytes(cl, "response", hdr.bytes, sizeof(hdr.bytes));
+            evbuffer_add(output, hdr.bytes, sizeof(hdr.bytes));
+            dump_bytes(cl, "response", app_version, sizeof(app_version));
+            evbuffer_add(output, app_version, sizeof(app_version));
+            return;
+        } break;
+        case PROTOCOL_BINARY_CMD_STAT: {
+            lcb_U8 extlen = ntohs(header.request.extlen);
+            lcb_U16 keylen = ntohs(header.request.keylen);
+            if (keylen < 6) {
                 goto FWD;
             }
-            lcb_cmdquery_callback(cmd, n1ql_callback);
-            cl->cnt = 0;
-            rc = lcb_query(instance, cl, cmd);
-            lcb_cmdquery_destroy(cmd);
-            if (rc != LCB_SUCCESS) {
-                lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to schedule N1QL command", CL_LOGID(cl));
-                goto FWD;
+            char *key = (char *)pkt + sizeof(header) + extlen;
+            lcb_STATUS rc;
+            if (memcmp(key, "query ", 6) == 0) {
+                lcb_CMDQUERY *cmd;
+                lcb_cmdquery_create(&cmd);
+
+                rc = lcb_cmdquery_statement(cmd, key + 6, keylen - 6);
+                if (rc != LCB_SUCCESS) {
+                    lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to set statement for QUERY", CL_LOGID(cl));
+                    goto FWD;
+                }
+                lcb_cmdquery_timeout(cmd, LCB_MS2US(400));
+                lcb_cmdquery_pretty(cmd, false);
+                lcb_cmdquery_callback(cmd, n1ql_callback);
+                cl->cnt = 0;
+                rc = lcb_query(instance, cl, cmd);
+                lcb_cmdquery_destroy(cmd);
+                if (rc != LCB_SUCCESS) {
+                    lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to schedule QUERY command", CL_LOGID(cl));
+                    goto FWD;
+                }
+                goto DONE;
+            } else if (memcmp(key, "search ", 7) == 0) {
+                lcb_CMDSEARCH *cmd;
+                lcb_cmdsearch_create(&cmd);
+                lcb_cmdsearch_payload(cmd, key + 7, keylen - 7);
+                lcb_cmdsearch_callback(cmd, fts_callback);
+                lcb_cmdsearch_timeout(cmd, LCB_MS2US(400));
+                rc = lcb_search(instance, cl, cmd);
+                lcb_cmdsearch_destroy(cmd);
+                cl->cnt = 0;
+                if (rc != LCB_SUCCESS) {
+                    lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to schedule SEARCH command", CL_LOGID(cl));
+                    goto FWD;
+                }
+                goto DONE;
             }
-            goto DONE;
-        } else if (memcmp(key, "fts ", 4) == 0) {
-            lcb_CMDSEARCH *cmd;
-            lcb_cmdsearch_create(&cmd);
-            lcb_cmdsearch_payload(cmd, key + 4, keylen - 4);
-            lcb_cmdsearch_callback(cmd, fts_callback);
-            rc = lcb_search(instance, cl, cmd);
-            lcb_cmdsearch_destroy(cmd);
-            cl->cnt = 0;
-            if (rc != LCB_SUCCESS) {
-                lcb_log(LOGARGS(INFO), CL_LOGFMT "failed to schedule FTS command", CL_LOGID(cl));
-                goto FWD;
-            }
-            goto DONE;
-        }
+        } break;
     }
 FWD : {
     lcb_CMDPKTFWD cmd = {0};
@@ -479,24 +500,29 @@ static void sigint_handler(int)
     }
 }
 
-static void diag_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
+static void diag_callback(lcb_INSTANCE *, int, const lcb_RESPDIAG *resp)
 {
-    const auto *resp = (const lcb_RESPDIAG *)rb;
-    if (resp->ctx.rc != LCB_SUCCESS) {
-        fprintf(stderr, "failed: %s\n", lcb_strerror_short(resp->ctx.rc));
+    lcb_STATUS rc = lcb_respdiag_status(resp);
+    if (rc != LCB_SUCCESS) {
+        fprintf(stderr, "failed: %s\n", lcb_strerror_short(rc));
     } else {
-        if (resp->njson) {
-            fprintf(stderr, "\n%.*s", (int)resp->njson, resp->json);
+        const char *json;
+        size_t json_len;
+        lcb_respdiag_value(resp, &json, &json_len);
+        if (json && json_len > 0) {
+            fprintf(stderr, "\n%.*s", (int)json_len, json);
         }
     }
 }
 
 static void sigquit_handler(int)
 {
-    lcb_CMDDIAG req = {};
-    req.options = LCB_PINGOPT_F_JSONPRETTY;
-    req.id = app_client_string;
-    lcb_diag(instance, nullptr, &req);
+    lcb_CMDDIAG *req;
+    lcb_cmddiag_create(&req);
+    lcb_cmddiag_prettify(req, true);
+    lcb_cmddiag_report_id(req, app_client_string, strlen(app_client_string));
+    lcb_diag(instance, nullptr, req);
+    lcb_cmddiag_destroy(req);
 }
 
 static void real_main(int argc, char **argv)
@@ -517,16 +543,23 @@ static void real_main(int argc, char **argv)
     ciops.v.v0.type = LCB_IO_OPS_LIBEVENT;
     ciops.v.v0.cookie = evbase;
     lcb_io_opt_t ioops = nullptr;
-    good_or_die(lcb_create_io_ops(&ioops, &ciops), "Failed to create and IO ops strucutre for libevent");
+    good_or_die(lcb_create_io_ops(&ioops, &ciops), "Failed to create and IO ops structure for libevent");
     lcb_createopts_io(cropts, ioops);
 
     good_or_die(lcb_create(&instance, cropts), "Failed to create connection");
     lcb_createopts_destroy(cropts);
     config.doCtls();
     lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CLIENT_STRING, app_client_string);
+    lcb_cntl_string(instance, "select_bucket", "off");
+    lcb_cntl_string(instance, "compression", "off");
+    lcb_cntl_string(instance, "enable_tracing", "off");
+    lcb_cntl_string(instance, "enable_collections", "off");
+    lcb_cntl_string(instance, "enable_mutation_tokens", "off");
+    lcb_cntl_string(instance, "enable_durable_write", "off");
+    lcb_cntl_string(instance, "enable_unordered_execution", "off");
     lcb_set_bootstrap_callback(instance, bootstrap_callback);
     lcb_set_pktfwd_callback(instance, pktfwd_callback);
-    lcb_install_callback(instance, LCB_CALLBACK_DIAG, diag_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_DIAG, (lcb_RESPCALLBACK)diag_callback);
 
     good_or_die(lcb_connect(instance), "Failed to connect to cluster");
     if (config.useTimings()) {

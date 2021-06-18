@@ -27,6 +27,8 @@
 #include "sllist.h"
 #include "internalstructs.h"
 
+#include "capi/cmd_get.hh"
+
 namespace lcb
 {
 namespace docreq
@@ -52,24 +54,24 @@ struct Queue {
     }
 
     lcb_INSTANCE *instance;
-    void *parent;
+    void *parent{nullptr};
     lcbio_pTIMER timer;
 
     /**Called when a operation is ready to be scheduled
      * @param The queue
      * @param The document */
-    lcb_STATUS (*cb_schedule)(struct Queue *, lcb::docreq::DocRequest *dreq){};
+    lcb_STATUS (*cb_schedule)(struct Queue *, lcb::docreq::DocRequest *dreq){nullptr};
 
     /**Called when a document is ready
      * @param The queue
      * @param The document */
-    void (*cb_ready)(struct Queue *, struct DocRequest *);
+    void (*cb_ready)(struct Queue *, struct DocRequest *){nullptr};
 
     /**Called when throttle state changes. This may be used by higher layers
      * for appropriate flow control
      * @param The queue
      * @param enabled Whether throttling has been enabled or disabled */
-    void (*cb_throttle)(struct Queue *, int enabled);
+    void (*cb_throttle)(struct Queue *, int enabled){nullptr};
 
     /**This queue holds requests which were not yet issued to the library
      * via lcb_get3(). This list is aggregated after each chunk callback and
@@ -80,13 +82,16 @@ struct Queue {
      * It is popped when the callback arrives (and is popped in order!) */
     sllist_root cb_queue{};
 
-    unsigned n_awaiting_schedule;
-    unsigned n_awaiting_response;
+    unsigned n_awaiting_schedule{0};
+    unsigned n_awaiting_response{0};
 
-    unsigned max_pending_response;
-    unsigned min_batch_size;
-    unsigned cancelled;
-    unsigned refcount;
+    static const int default_max_pending_docreq{10};
+    unsigned max_pending_response{default_max_pending_docreq};
+
+    static const int default_min_sched_size{5};
+    unsigned min_batch_size{default_min_sched_size};
+    unsigned cancelled{false};
+    unsigned refcount{1};
 };
 
 struct DocRequest {

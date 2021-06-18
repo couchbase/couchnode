@@ -44,7 +44,9 @@
 
 #ifdef HAVE_INTTYPES_H
 #ifdef __cplusplus
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
+#endif
 #endif
 #include <inttypes.h>
 #elif defined(_WIN32)

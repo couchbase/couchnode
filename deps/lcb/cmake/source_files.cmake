@@ -35,62 +35,80 @@ SET(LCB_CORE_SRC
 
 FILE(GLOB LCB_TRACING_SRC src/tracing/*.cc)
 
+SET(LCB_METRICS_SRC
+    src/metrics/caching_meter.cc
+    src/metrics/metrics.cc
+    src/metrics/metrics-internal.cc)
+if (LCB_USE_HDR_HISTOGRAM)
+    LIST(APPEND LCB_METRICS_SRC src/metrics/logging_meter.cc)
+endif()
+
 FILE(GLOB LCB_CAPI_SRC src/capi/*.cc)
 
 SET(LCB_CORE_CXXSRC
-    src/instance.cc
-    src/settings.cc
-    src/cbas/cbas.cc
+    src/analytics/analytics.cc
+    src/analytics/analytics_handle.cc
     src/auth.cc
     src/bootstrap.cc
     src/bucketconfig/bc_cccp.cc
-    src/bucketconfig/bc_http.cc
     src/bucketconfig/bc_file.cc
+    src/bucketconfig/bc_http.cc
     src/bucketconfig/bc_static.cc
     src/bucketconfig/confmon.cc
-    src/utilities.cc
+    src/cntl.cc
     src/collections.cc
     src/connspec.cc
     src/crypto.cc
+    src/defer.cc
     src/dns-srv.cc
+    src/docreq/docreq.cc
     src/dump.cc
     src/errmap.cc
     src/getconfig.cc
-    src/nodeinfo.cc
     src/handler.cc
     src/hostlist.cc
     src/http/http.cc
     src/http/http_io.cc
+    src/instance.cc
+    src/iometrics.cc
     src/lcbht/lcbht.cc
-    src/newconfig.cc
-    src/n1ql/n1ql.cc
+    src/mcserver/mcserver.cc
+    src/mcserver/negotiate.cc
     src/n1ql/ixmgmt.cc
-    src/cbft.cc
+    src/n1ql/n1ql-internal.cc
+    src/n1ql/n1ql.cc
+    src/n1ql/query_handle.cc
+    src/n1ql/query_utils.cc
+    src/newconfig.cc
+    src/nodeinfo.cc
     src/operations/cbflush.cc
     src/operations/counter.cc
-    src/operations/durability.cc
     src/operations/durability-seqno.cc
+    src/operations/durability.cc
+    src/operations/exists.cc
     src/operations/get.cc
-    src/operations/observe.cc
+    src/operations/get_replica.cc
     src/operations/observe-seqno.cc
+    src/operations/observe.cc
+    src/operations/ping.cc
     src/operations/pktfwd.cc
     src/operations/remove.cc
     src/operations/stats.cc
     src/operations/store.cc
     src/operations/subdoc.cc
     src/operations/touch.cc
-    src/operations/ping.cc
-    src/operations/exists.cc
-    src/mcserver/mcserver.cc
-    src/mcserver/negotiate.cc
-    src/metrics.cc
+    src/operations/unlock.cc
     src/retrychk.cc
     src/retryq.cc
     src/rnd.cc
-    src/docreq/docreq.cc
-    src/views/viewreq.cc
-    src/cntl.cc
+    src/search/search.cc
+    src/search/search_handle.cc
+    src/settings.cc
+    src/utilities.cc
+    src/views/view.cc
+    src/views/view_handle.cc
     src/wait.cc
+    ${LCB_METRICS_SRC}
     ${LCB_TRACING_SRC}
     ${LCB_CAPI_SRC}
     )

@@ -144,7 +144,7 @@ static void row_pop_callback(jsonsl_t jsn, jsonsl_action_t, struct jsonsl_state_
     rowbuf = ctx->get_buffer_region(state->pos_begin, -1, &szdummy);
     Row dt{};
     dt.row.iov_base = (void *)rowbuf;
-    dt.row.iov_len = jsn->pos - state->pos_begin + 1;
+    dt.row.iov_len = jsn->pos - state->pos_begin + (state->type == JSONSL_T_SPECIAL ? 0 : 1);
     ctx->actions->JSPARSE_on_row(dt);
 }
 

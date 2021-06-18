@@ -156,10 +156,12 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
 
             lcb_log(LOGARGS(this, TRACE),
                     "Not applying configuration received via %s (bucket=\"%.*s\", source=%s, address=\"%s\"). No "
-                    "changes detected. A.rev=%" PRId64 ", B.rev=%" PRId64 ". Changes: servers=%s, map=%s, replicas=%s",
+                    "changes detected. A.rev=%" PRId64 ":%" PRId64 ", B.rev=%" PRId64 ":%" PRId64
+                    ". Changes: servers=%s, map=%s, replicas=%s",
                     provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
-                    provider_string(new_config->get_origin()), new_config->get_address().c_str(), ca->revid, cb->revid,
-                    (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no", (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
+                    provider_string(new_config->get_origin()), new_config->get_address().c_str(), ca->revepoch,
+                    ca->revid, ca->revepoch, cb->revid, (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no",
+                    (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
                     (chstatus & LCBVB_REPLICAS_MODIFIED) ? "yes" : "no");
             if (notify_miss) {
                 invoke_listeners(CLCONFIG_EVENT_GOT_ANY_CONFIG, new_config);
@@ -168,19 +170,21 @@ int Confmon::do_set_next(ConfigInfo *new_config, bool notify_miss)
         }
 
         lcb_log(LOGARGS(this, INFO),
-                R"(Setting new configuration. Received via %s (bucket="%.*s", rev=%)" PRId64
-                R"(, address="%s"). Old config was from %s (bucket="%.*s", rev=%)" PRId64
+                R"(Setting new configuration. Received via %s (bucket="%.*s", rev=%)" PRId64 ":%" PRId64
+                R"(, address="%s"). Old config was from %s (bucket="%.*s", rev=%)" PRId64 ":%" PRId64
                 R"(, address="%s"). Changes: servers=%s, map=%s, replicas=%s)",
                 provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
-                new_config->vbc->revid, new_config->get_address().c_str(), provider_string(config->get_origin()),
-                (int)config->vbc->bname_len, config->vbc->bname, config->vbc->revid, config->get_address().c_str(),
+                new_config->vbc->revepoch, new_config->vbc->revid, new_config->get_address().c_str(),
+                provider_string(config->get_origin()), (int)config->vbc->bname_len, config->vbc->bname,
+                config->vbc->revepoch, config->vbc->revid, config->get_address().c_str(),
                 (chstatus & LCBVB_SERVERS_MODIFIED) ? "yes" : "no", (chstatus & LCBVB_MAP_MODIFIED) ? "yes" : "no",
                 (chstatus & LCBVB_REPLICAS_MODIFIED) ? "yes" : "no");
     } else {
         lcb_log(LOGARGS(this, INFO),
-                R"(Setting initial configuration. Received via %s (bucket="%.*s", rev=%)" PRId64 R"(, address="%s"))",
+                R"(Setting initial configuration. Received via %s (bucket="%.*s", rev=%)" PRId64 ":%" PRId64
+                R"(, address="%s"))",
                 provider_string(new_config->get_origin()), (int)new_config->vbc->bname_len, new_config->vbc->bname,
-                new_config->vbc->revid, new_config->get_address().c_str());
+                new_config->vbc->revepoch, new_config->vbc->revid, new_config->get_address().c_str());
     }
 
     TRACE_NEW_CONFIG(instance, new_config);
@@ -374,10 +378,17 @@ int ConfigInfo::compare(const ConfigInfo &other, lcbvb_CHANGETYPE chstatus) cons
     if (vbc->bname == nullptr && other.vbc->bname != nullptr) {
         return -1; /* we want to upgrade config after opening bucket */
     }
+    int64_t epoch_a, epoch_b;
+    epoch_a = this->vbc->revepoch;
+    epoch_b = other.vbc->revepoch;
+    if (epoch_b > epoch_a) {
+        return -1; /* new configuration has higher epoch, apply it */
+    }
+
     /** Then check if both have revisions */
-    int rev_a, rev_b;
-    rev_a = lcbvb_get_revision(this->vbc);
-    rev_b = lcbvb_get_revision(other.vbc);
+    int64_t rev_a, rev_b;
+    rev_a = this->vbc->revid;
+    rev_b = other.vbc->revid;
     if (rev_a >= 0 && rev_b < 0) {
         return 1; /* do not apply config without revision */
     }

@@ -18,7 +18,8 @@
 #include "config.h"
 #include <gtest/gtest.h>
 #include <libcouchbase/couchbase.h>
-#include "n1ql/n1ql-internal.h"
+
+#include "n1ql/query_utils.hh"
 
 class N1qLStringTests : public ::testing::Test
 {
@@ -26,10 +27,11 @@ class N1qLStringTests : public ::testing::Test
 
 TEST_F(N1qLStringTests, testParseTimeout)
 {
-    ASSERT_EQ(1500000, lcb_n1qlreq_parsetmo("1.5s"));
-    ASSERT_EQ(1500000, lcb_n1qlreq_parsetmo("1500ms"));
-    ASSERT_EQ(1500000, lcb_n1qlreq_parsetmo("1500000us"));
-    ASSERT_EQ(0, lcb_n1qlreq_parsetmo("blahblah"));
-    ASSERT_EQ(0, lcb_n1qlreq_parsetmo("124"));
-    ASSERT_EQ(0, lcb_n1qlreq_parsetmo("99z"));
+    ASSERT_EQ(std::chrono::nanoseconds(5003000LLU), lcb_parse_golang_duration("5ms3us"));
+    ASSERT_EQ(std::chrono::nanoseconds(1500000000LLU), lcb_parse_golang_duration("1.5s"));
+    ASSERT_EQ(std::chrono::nanoseconds(1500000000LLU), lcb_parse_golang_duration("1500ms"));
+    ASSERT_EQ(std::chrono::nanoseconds(1500000000LLU), lcb_parse_golang_duration("1500000us"));
+    ASSERT_THROW(lcb_parse_golang_duration("blahblah"), lcb_duration_parse_error);
+    ASSERT_THROW(lcb_parse_golang_duration("124"), lcb_duration_parse_error);
+    ASSERT_THROW(lcb_parse_golang_duration("99z"), lcb_duration_parse_error);
 }

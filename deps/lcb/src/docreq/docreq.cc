@@ -24,16 +24,11 @@ using namespace lcb::docreq;
 static void docreq_handler(void *arg);
 static void invoke_pending(Queue *);
 
-#define MAX_PENDING_DOCREQ 10
-#define MIN_SCHED_SIZE 5
 #define DOCQ_DELAY_US 200000
 
 Queue::Queue(lcb_INSTANCE *instance_)
-    : instance(instance_), parent(nullptr), timer(lcbio_timer_new(instance->iotable, this, docreq_handler)),
-      cb_ready(nullptr), cb_throttle(nullptr), n_awaiting_schedule(0), n_awaiting_response(0),
-      max_pending_response(MAX_PENDING_DOCREQ), min_batch_size(MIN_SCHED_SIZE), cancelled(false), refcount(1)
+    : instance(instance_), timer(lcbio_timer_new(instance->iotable, this, docreq_handler))
 {
-
     memset(&pending_gets, 0, sizeof pending_gets);
     memset(&cb_queue, 0, sizeof cb_queue);
 }

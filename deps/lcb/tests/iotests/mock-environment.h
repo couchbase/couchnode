@@ -25,6 +25,8 @@
 #include "serverparams.h"
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 
+#define LCB_TEST_SEARCH_INDEX_ENV "LCB_TEST_SEARCH_INDEX"
+
 class HandleWrap
 {
 
@@ -40,12 +42,11 @@ class HandleWrap
 
     HandleWrap operator=(const HandleWrap &) = delete;
 
-    HandleWrap() : instance(nullptr), iops(nullptr) {}
     virtual ~HandleWrap();
 
   private:
-    lcb_INSTANCE *instance;
-    lcb_io_opt_t iops;
+    lcb_INSTANCE *instance{nullptr};
+    lcb_io_opt_t iops{nullptr};
 };
 
 class MockCommand
@@ -281,6 +282,14 @@ class MockEnvironment : public ::testing::Environment
         return serverParams.getBucket();
     }
 
+    std::string getSearchIndex()
+    {
+        auto *search_index_str = getenv(LCB_TEST_SEARCH_INDEX_ENV);
+        if (search_index_str != nullptr) {
+            return search_index_str;
+        }
+        return "";
+    }
     /**
      * Get the number of nodes used in the backend
      */

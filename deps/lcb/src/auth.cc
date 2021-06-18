@@ -22,7 +22,7 @@ using namespace lcb;
 
 lcb_AUTHENTICATOR *lcbauth_new()
 {
-    return new Authenticator();
+    return new Authenticator{};
 }
 
 lcb_STATUS lcbauth_add_pass(lcb_AUTHENTICATOR *auth, const char *u, const char *p, int flags)
@@ -40,72 +40,76 @@ lcb_STATUS Authenticator::add(const char *u, const char *p, int flags)
         return LCB_ERR_INVALID_ARGUMENT;
     }
 
-    if (m_mode == LCBAUTH_MODE_RBAC && (flags & LCBAUTH_F_BUCKET)) {
+    if (mode_ == LCBAUTH_MODE_RBAC && (flags & LCBAUTH_F_BUCKET)) {
         return LCB_ERR_OPTIONS_CONFLICT;
     }
 
     if (flags & LCBAUTH_F_CLUSTER) {
         if (p) {
-            m_username = u;
-            m_password = p;
+            username_ = u;
+            password_ = p;
         } else {
-            m_username.clear();
-            m_password.clear();
+            username_.clear();
+            password_.clear();
         }
     }
 
     if (flags & LCBAUTH_F_BUCKET) {
         if (p) {
-            m_buckets[u] = p;
+            buckets_[u] = p;
         } else {
-            m_buckets.erase(u);
+            buckets_.erase(u);
         }
     }
 
     return LCB_SUCCESS;
 }
 
-static const std::string EmptyString;
-
-std::string Authenticator::username_for(const char *host, const char *port, const char *bucket) const
+lcbauth_CREDENTIALS Authenticator::credentials_for(lcbauth_SERVICE service, lcbauth_REASON reason, const char *host,
+                                                   const char *port, const char *bucket) const
 {
-    switch (m_mode) {
+    lcbauth_CREDENTIALS creds{};
+    creds.reason(reason);
+    creds.service(service);
+
+    switch (mode_) {
         case LCBAUTH_MODE_RBAC:
-            return m_username;
+            creds.username(username_);
+            creds.password(password_);
+            break;
+
         case LCBAUTH_MODE_DYNAMIC:
-            if (m_usercb != nullptr) {
-                return m_usercb(m_cookie, host, port, bucket);
+            if (callback_ == nullptr) {
+                creds.result(LCBAUTH_RESULT_NOT_AVAILABLE);
+            } else {
+                if (host) {
+                    creds.hostname(host);
+                }
+                if (port) {
+                    creds.port(port);
+                }
+                if (bucket) {
+                    creds.bucket(bucket);
+                }
+                creds.cookie(cookie_);
+                callback_(&creds);
             }
             break;
+
         case LCBAUTH_MODE_CLASSIC:
-            // Find bucket specific credentials:
-            const Map::const_iterator it = m_buckets.find(bucket);
-            if (it != m_buckets.end()) {
-                return it->first;
+            if (bucket) {
+                const auto it = buckets_.find(bucket);
+                if (it != buckets_.end()) {
+                    creds.username(it->first);
+                    creds.password(it->second);
+                }
+            } else {
+                creds.result(LCBAUTH_RESULT_NOT_AVAILABLE);
             }
             break;
     }
-    return EmptyString;
-}
 
-std::string Authenticator::password_for(const char *host, const char *port, const char *bucket) const
-{
-    switch (m_mode) {
-        case LCBAUTH_MODE_RBAC:
-            return m_password;
-        case LCBAUTH_MODE_DYNAMIC:
-            if (m_passcb != nullptr) {
-                return m_passcb(m_cookie, host, port, bucket);
-            }
-            break;
-        case LCBAUTH_MODE_CLASSIC:
-            const Map::const_iterator it = m_buckets.find(bucket);
-            if (it != m_buckets.end()) {
-                return it->second;
-            }
-            break;
-    }
-    return EmptyString;
+    return creds;
 }
 
 void lcbauth_ref(lcb_AUTHENTICATOR *auth)
@@ -118,12 +122,6 @@ void lcbauth_unref(lcb_AUTHENTICATOR *auth)
     auth->decref();
 }
 
-Authenticator::Authenticator(const Authenticator &other)
-    : m_buckets(other.m_buckets), m_username(other.m_username), m_password(other.m_password), m_refcount(1),
-      m_mode(other.m_mode), m_usercb(other.m_usercb), m_passcb(other.m_passcb), m_cookie(other.m_cookie)
-{
-}
-
 lcb_AUTHENTICATOR *lcbauth_clone(const lcb_AUTHENTICATOR *src)
 {
     return new Authenticator(*src);
@@ -134,8 +132,68 @@ lcb_STATUS lcbauth_set_mode(lcb_AUTHENTICATOR *src, lcbauth_MODE mode)
     return src->set_mode(mode);
 }
 
-lcb_STATUS lcbauth_set_callbacks(lcb_AUTHENTICATOR *auth, void *cookie, lcb_AUTHCALLBACK usercb,
-                                 lcb_AUTHCALLBACK passcb)
+lcb_STATUS lcbauth_set_callback(lcb_AUTHENTICATOR *auth, void *cookie, void (*callback)(lcbauth_CREDENTIALS *))
 {
-    return auth->set_callbacks(cookie, usercb, passcb);
+    return auth->set_callback(cookie, callback);
+}
+
+lcb_STATUS lcbauth_credentials_username(lcbauth_CREDENTIALS *credentials, const char *username, size_t username_len)
+{
+    credentials->username(std::string(username, username_len));
+    return LCB_SUCCESS;
+}
+
+lcb_STATUS lcbauth_credentials_password(lcbauth_CREDENTIALS *credentials, const char *password, size_t password_len)
+{
+    credentials->password(std::string(password, password_len));
+    return LCB_SUCCESS;
+}
+
+lcb_STATUS lcbauth_credentials_result(lcbauth_CREDENTIALS *credentials, lcbauth_RESULT result)
+{
+    credentials->result(result);
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcbauth_SERVICE lcbauth_credentials_service(const lcbauth_CREDENTIALS *credentials)
+{
+    return credentials->service();
+}
+
+lcbauth_REASON lcbauth_credentials_reason(const lcbauth_CREDENTIALS *credentials)
+{
+    return credentials->reason();
+}
+
+lcb_STATUS lcbauth_credentials_hostname(const lcbauth_CREDENTIALS *credentials, const char **hostname,
+                                        size_t *hostname_len)
+{
+    *hostname = credentials->hostname().c_str();
+    *hostname_len = credentials->hostname().size();
+    return LCB_SUCCESS;
+}
+
+lcb_STATUS lcbauth_credentials_port(const lcbauth_CREDENTIALS *credentials, const char **port, size_t *port_len)
+{
+    *port = credentials->port().c_str();
+    *port_len = credentials->port().size();
+    return LCB_SUCCESS;
+}
+
+lcb_STATUS lcbauth_credentials_bucket(const lcbauth_CREDENTIALS *credentials, const char **bucket, size_t *bucket_len)
+{
+    *bucket = credentials->bucket().c_str();
+    *bucket_len = credentials->bucket().size();
+    return LCB_SUCCESS;
+}
+
+lcb_STATUS lcbauth_credentials_cookie(const lcbauth_CREDENTIALS *credentials, void **cookie)
+{
+    *cookie = credentials->cookie();
+    return LCB_SUCCESS;
+}
+
+lcb_STATUS lcbauth_set_callbacks(lcb_AUTHENTICATOR *, void *, lcb_AUTHCALLBACK, lcb_AUTHCALLBACK)
+{
+    return LCB_ERR_UNSUPPORTED_OPERATION;
 }

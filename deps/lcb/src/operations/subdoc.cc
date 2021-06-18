@@ -19,6 +19,10 @@
 #include <vector>
 #include <string>
 
+#include "defer.h"
+
+#include "capi/cmd_subdoc.hh"
+
 LIBCOUCHBASE_API size_t lcb_respsubdoc_result_size(const lcb_RESPSUBDOC *resp)
 {
     return resp->nres;
@@ -57,17 +61,6 @@ LIBCOUCHBASE_API int lcb_respsubdoc_is_deleted(const lcb_RESPSUBDOC *resp)
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_error_context(const lcb_RESPSUBDOC *resp,
                                                          const lcb_KEY_VALUE_ERROR_CONTEXT **ctx)
 {
-    if (resp->rflags & LCB_RESP_F_ERRINFO) {
-        lcb_RESPSUBDOC *mut = const_cast<lcb_RESPSUBDOC *>(resp);
-        mut->ctx.context = lcb_resp_get_error_context(LCB_CALLBACK_SDLOOKUP, (const lcb_RESPBASE *)resp);
-        if (mut->ctx.context) {
-            mut->ctx.context_len = strlen(resp->ctx.context);
-        }
-        mut->ctx.ref = lcb_resp_get_error_ref(LCB_CALLBACK_SDLOOKUP, (const lcb_RESPBASE *)resp);
-        if (mut->ctx.ref) {
-            mut->ctx.ref_len = strlen(resp->ctx.ref);
-        }
-    }
     *ctx = &resp->ctx;
     return LCB_SUCCESS;
 }
@@ -86,80 +79,73 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_cas(const lcb_RESPSUBDOC *resp, uint6
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_key(const lcb_RESPSUBDOC *resp, const char **key, size_t *key_len)
 {
-    *key = (const char *)resp->ctx.key;
-    *key_len = resp->ctx.key_len;
+    *key = resp->ctx.key.c_str();
+    *key_len = resp->ctx.key.size();
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_respsubdoc_mutation_token(const lcb_RESPSUBDOC *resp, lcb_MUTATION_TOKEN *token)
 {
-    const lcb_MUTATION_TOKEN *mt = lcb_resp_get_mutation_token(LCB_CALLBACK_SDMUTATE, (const lcb_RESPBASE *)resp);
-    if (token && mt) {
-        *token = *mt;
+    if (token) {
+        *token = resp->mt;
     }
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_create(lcb_SUBDOCSPECS **operations, size_t capacity)
 {
-    lcb_SUBDOCSPECS *res = (lcb_SUBDOCSPECS *)calloc(1, sizeof(lcb_SUBDOCSPECS));
-    res->nspecs = capacity;
-    res->specs = (lcb_SDSPEC *)calloc(res->nspecs, sizeof(lcb_SDSPEC));
-    *operations = res;
+    *operations = new lcb_SUBDOCSPECS{};
+    (*operations)->specs().resize(capacity);
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_destroy(lcb_SUBDOCSPECS *operations)
 {
-    if (operations) {
-        if (operations->specs) {
-            size_t ii;
-            for (ii = 0; ii < operations->nspecs; ii++) {
-                if (operations->specs[ii].sdcmd == LCB_SDCMD_COUNTER) {
-                    free((void *)operations->specs[ii].value.u_buf.contig.bytes);
-                }
-            }
-        }
-        free(operations->specs);
-    }
-    free(operations);
+    delete operations;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_timeout(lcb_CMDSUBDOC *cmd, uint32_t timeout)
 {
-    cmd->timeout = timeout;
-    return LCB_SUCCESS;
+    return cmd->timeout_in_microseconds(timeout);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_cas(lcb_CMDSUBDOC *cmd, uint64_t cas)
 {
-    if ((cmd->cmdflags & (LCB_CMDSUBDOC_F_UPSERT_DOC | LCB_CMDSUBDOC_F_INSERT_DOC)) != 0) {
-        return LCB_ERR_INVALID_ARGUMENT;
-    }
-    cmd->cas = cas;
-    return LCB_SUCCESS;
+    return cmd->cas(cas);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_get(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                 const char *path, size_t path_len)
 {
-    if (path == NULL || path_len == 0) {
-        operations->specs[index].sdcmd = LCB_SDCMD_GET_FULLDOC;
-    } else {
-        operations->specs[index].sdcmd = LCB_SDCMD_GET;
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
     }
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
+    auto &spec = operations->specs()[index];
+    if (path == nullptr || path_len == 0) {
+        spec.opcode(subdoc_opcode::get_fulldoc);
+        spec.clear_path();
+    } else {
+        spec.opcode(subdoc_opcode::get);
+        spec.path(std::string(path, path_len));
+    }
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_exists(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                    const char *path, size_t path_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_EXISTS;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (path == nullptr || path_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::exist);
+    spec.path(std::string(path, path_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
@@ -167,14 +153,22 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_replace(lcb_SUBDOCSPECS *operations,
                                                     const char *path, size_t path_len, const char *value,
                                                     size_t value_len)
 {
-    if (path == NULL || path_len == 0) {
-        operations->specs[index].sdcmd = LCB_SDCMD_SET_FULLDOC;
-    } else {
-        operations->specs[index].sdcmd = LCB_SDCMD_REPLACE;
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
     }
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (value == nullptr || value_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    if (path == nullptr || path_len == 0) {
+        spec.opcode(subdoc_opcode::set_fulldoc);
+        spec.clear_path();
+    } else {
+        spec.opcode(subdoc_opcode::replace);
+        spec.path(std::string(path, path_len));
+    }
+    spec.value(std::string(value, value_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
@@ -182,10 +176,20 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_dict_add(lcb_SUBDOCSPECS *operations
                                                      const char *path, size_t path_len, const char *value,
                                                      size_t value_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_DICT_ADD;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (path == nullptr || path_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (value == nullptr || value_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::dict_add);
+    spec.path(std::string(path, path_len));
+    spec.value(std::string(value, value_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
@@ -193,10 +197,20 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_dict_upsert(lcb_SUBDOCSPECS *operati
                                                         const char *path, size_t path_len, const char *value,
                                                         size_t value_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_DICT_UPSERT;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (path == nullptr || path_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (value == nullptr || value_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::dict_upsert);
+    spec.path(std::string(path, path_len));
+    spec.value(std::string(value, value_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
@@ -204,10 +218,17 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_add_first(lcb_SUBDOCSPECS *ope
                                                             const char *path, size_t path_len, const char *value,
                                                             size_t value_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_ARRAY_ADD_FIRST;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (value == nullptr || value_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::array_add_first);
+    spec.path(std::string(path, path_len));
+    spec.value(std::string(value, value_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
@@ -215,10 +236,17 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_add_last(lcb_SUBDOCSPECS *oper
                                                            const char *path, size_t path_len, const char *value,
                                                            size_t value_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_ARRAY_ADD_LAST;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (value == nullptr || value_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::array_add_last);
+    spec.path(std::string(path, path_len));
+    spec.value(std::string(value, value_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
@@ -226,10 +254,17 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_add_unique(lcb_SUBDOCSPECS *op
                                                              const char *path, size_t path_len, const char *value,
                                                              size_t value_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_ARRAY_ADD_UNIQUE;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (value == nullptr || value_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::array_add_unique);
+    spec.path(std::string(path, path_len));
+    spec.value(std::string(value, value_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
@@ -237,182 +272,136 @@ LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_array_insert(lcb_SUBDOCSPECS *operat
                                                          const char *path, size_t path_len, const char *value,
                                                          size_t value_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_ARRAY_INSERT;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    if (value == nullptr || value_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::array_insert);
+    spec.path(std::string(path, path_len));
+    spec.value(std::string(value, value_len));
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_counter(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                     const char *path, size_t path_len, int64_t delta)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_COUNTER;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
-    char *value = (char *)calloc(22, sizeof(char));
-    size_t value_len = snprintf(value, 21, "%" PRId64, delta);
-    LCB_SDSPEC_SET_VALUE(&operations->specs[index], value, value_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::counter);
+    spec.path(std::string(path, path_len));
+    spec.value(delta);
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_remove(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                    const char *path, size_t path_len)
 {
-    if (path == NULL || path_len == 0) {
-        operations->specs[index].sdcmd = LCB_SDCMD_REMOVE_FULLDOC;
-    } else {
-        operations->specs[index].sdcmd = LCB_SDCMD_REMOVE;
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
     }
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
+    auto &spec = operations->specs()[index];
+    if (path == nullptr || path_len == 0) {
+        spec.opcode(subdoc_opcode::remove_fulldoc);
+        spec.clear_path();
+    } else {
+        spec.opcode(subdoc_opcode::remove);
+        spec.path(std::string(path, path_len));
+    }
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdocspecs_get_count(lcb_SUBDOCSPECS *operations, size_t index, uint32_t flags,
                                                       const char *path, size_t path_len)
 {
-    operations->specs[index].sdcmd = LCB_SDCMD_GET_COUNT;
-    operations->specs[index].options = flags;
-    LCB_SDSPEC_SET_PATH(&operations->specs[index], path, path_len);
+    if (index >= operations->specs().size()) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    auto &spec = operations->specs()[index];
+    spec.opcode(subdoc_opcode::get_count);
+    if (path != nullptr && path_len > 0) {
+        spec.path(std::string(path, path_len));
+    }
+    spec.options(flags);
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create(lcb_CMDSUBDOC **cmd)
 {
-    *cmd = (lcb_CMDSUBDOC *)calloc(1, sizeof(lcb_CMDSUBDOC));
-    return LCB_SUCCESS;
-}
-
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_clone(const lcb_CMDSUBDOC *cmd, lcb_CMDSUBDOC **copy)
-{
-    LCB_CMD_CLONE(lcb_CMDSUBDOC, cmd, copy);
-    if (cmd->specs) {
-        lcb_CMDSUBDOC *ret = *copy;
-        ret->specs = (lcb_SDSPEC *)calloc(ret->nspecs, sizeof(lcb_SDSPEC));
-        memcpy((void *)ret->specs, cmd->specs, sizeof(lcb_SDSPEC) * ret->nspecs);
-        size_t ii;
-        for (ii = 0; ii < cmd->nspecs; ii++) {
-            lcb_SDSPEC *spec = (lcb_SDSPEC *)&ret->specs[ii];
-            size_t npath = spec->path.contig.nbytes;
-            if (npath) {
-                void *path = calloc(npath, sizeof(char));
-                memcpy(path, spec->path.contig.bytes, npath);
-                LCB_SDSPEC_SET_PATH(spec, path, npath);
-            }
-            size_t nval = spec->value.u_buf.contig.nbytes;
-            if (nval) {
-                void *val = calloc(nval, sizeof(char));
-                memcpy(val, spec->value.u_buf.contig.bytes, nval);
-                LCB_SDSPEC_SET_VALUE(spec, val, nval);
-            }
-        }
-    }
+    *cmd = new lcb_CMDSUBDOC{};
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_destroy(lcb_CMDSUBDOC *cmd)
 {
-    if (cmd->cmdflags & LCB_CMD_F_CLONE) {
-        if (cmd->specs) {
-            size_t ii;
-            for (ii = 0; ii < cmd->nspecs; ii++) {
-                size_t npath = cmd->specs[ii].path.contig.nbytes;
-                if (npath) {
-                    free((void *)cmd->specs[ii].path.contig.bytes);
-                }
-                size_t nvalue = cmd->specs[ii].value.u_buf.contig.nbytes;
-                if (nvalue) {
-                    free((void *)cmd->specs[ii].value.u_buf.contig.bytes);
-                }
-            }
-            free((void *)cmd->specs);
-        }
-    }
-    LCB_CMD_DESTROY_CLONE(cmd);
+    delete cmd;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_parent_span(lcb_CMDSUBDOC *cmd, lcbtrace_SPAN *span)
 {
-    cmd->pspan = span;
-    return LCB_SUCCESS;
+    return cmd->parent_span(span);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_collection(lcb_CMDSUBDOC *cmd, const char *scope, size_t scope_len,
                                                      const char *collection, size_t collection_len)
 {
-    cmd->scope = scope;
-    cmd->nscope = scope_len;
-    cmd->collection = collection;
-    cmd->ncollection = collection_len;
-    return LCB_SUCCESS;
+    try {
+        lcb::collection_qualifier qualifier(scope, scope_len, collection, collection_len);
+        return cmd->collection(std::move(qualifier));
+    } catch (const std::invalid_argument &) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_key(lcb_CMDSUBDOC *cmd, const char *key, size_t key_len)
 {
-    LCB_CMD_SET_KEY(cmd, key, key_len);
-    return LCB_SUCCESS;
+    if (key == nullptr || key_len == 0) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    return cmd->key(std::string(key, key_len));
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_specs(lcb_CMDSUBDOC *cmd, const lcb_SUBDOCSPECS *operations)
 {
-    cmd->cmdflags |= operations->options;
-    cmd->specs = operations->specs;
-    cmd->nspecs = operations->nspecs;
-    return LCB_SUCCESS;
+    return cmd->specs(operations);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_expiry(lcb_CMDSUBDOC *cmd, uint32_t expiration)
 {
-    cmd->exptime = expiration;
-    return LCB_SUCCESS;
+    return cmd->expiry(expiration);
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_preserve_expiry(lcb_CMDSUBDOC *cmd, int should_preserve)
+{
+    return cmd->preserve_expiry(should_preserve);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_durability(lcb_CMDSUBDOC *cmd, lcb_DURABILITY_LEVEL level)
 {
-    cmd->dur_level = level;
-    return LCB_SUCCESS;
+    return cmd->durability_level(level);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_store_semantics(lcb_CMDSUBDOC *cmd, lcb_SUBDOC_STORE_SEMANTICS mode)
 {
-    if (cmd->cas != 0 && (mode == LCB_SUBDOC_STORE_UPSERT || mode == LCB_SUBDOC_STORE_INSERT)) {
-        return LCB_ERR_INVALID_ARGUMENT;
-    }
-    cmd->cmdflags &= ~(LCB_CMDSUBDOC_F_UPSERT_DOC | LCB_CMDSUBDOC_F_INSERT_DOC);
-    switch (mode) {
-        case LCB_SUBDOC_STORE_REPLACE:
-            /* replace is default, does not require setting the flags */
-            break;
-        case LCB_SUBDOC_STORE_UPSERT:
-            cmd->cmdflags |= LCB_CMDSUBDOC_F_UPSERT_DOC;
-            break;
-        case LCB_SUBDOC_STORE_INSERT:
-            cmd->cmdflags |= LCB_CMDSUBDOC_F_INSERT_DOC;
-            break;
-    }
-    return LCB_SUCCESS;
+    return cmd->store_semantics(mode);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_access_deleted(lcb_CMDSUBDOC *cmd, int flag)
 {
-    if (flag) {
-        cmd->cmdflags |= LCB_CMDSUBDOC_F_ACCESS_DELETED;
-    } else {
-        cmd->cmdflags &= ~LCB_CMDSUBDOC_F_ACCESS_DELETED;
-    }
-    return LCB_SUCCESS;
+    return cmd->access_deleted(flag);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create_as_deleted(lcb_CMDSUBDOC *cmd, int flag)
 {
-    if (flag) {
-        cmd->cmdflags |= LCB_CMDSUBDOC_F_CREATE_AS_DELETED;
-    } else {
-        cmd->cmdflags &= ~LCB_CMDSUBDOC_F_CREATE_AS_DELETED;
-    }
-    return LCB_SUCCESS;
+    return cmd->create_as_deleted(flag);
 }
 
 namespace SubdocCmdTraits
@@ -445,7 +434,7 @@ struct Traits {
         return is_lookup ? LCB_SDMULTI_MODE_LOOKUP : LCB_SDMULTI_MODE_MUTATE;
     }
 
-    inline bool chk_allow_empty_path(uint32_t options) const
+    inline bool chk_allow_empty_path(const subdoc_spec_options &options) const
     {
         if (allow_empty_path) {
             return true;
@@ -454,10 +443,10 @@ struct Traits {
             return false;
         }
 
-        return (options & LCB_SUBDOCSPECS_F_XATTRPATH) != 0;
+        return !options.xattr;
     }
 
-    inline Traits(uint8_t op, unsigned options)
+    inline Traits(uint8_t op, unsigned options) noexcept
         : allow_empty_path(options & EMPTY_PATH), allow_expiry(options & ALLOW_EXPIRY), has_value(options & HAS_VALUE),
           allow_mkdir_p(options & ALLOW_MKDIRP), is_lookup(options & IS_LOOKUP), opcode(op)
     {
@@ -495,43 +484,43 @@ static const Traits GetDoc(PROTOCOL_BINARY_CMD_GET, IS_LOOKUP | EMPTY_PATH | NO_
 
 static const Traits SetDoc(PROTOCOL_BINARY_CMD_SET, EMPTY_PATH | NO_STANDALONE);
 
-static const Traits DeleteDoc(PROTOCOL_BINARY_CMD_DELETE, EMPTY_PATH | NO_STANDALONE);
+static const Traits RemoveDoc(PROTOCOL_BINARY_CMD_DELETE, EMPTY_PATH | NO_STANDALONE);
 
 static const Traits Invalid(PROTOCOL_BINARY_CMD_INVALID, 0);
 
-const Traits &find(unsigned mode)
+const Traits &find(subdoc_opcode mode)
 {
     switch (mode) {
-        case LCB_SDCMD_REPLACE:
-            return Replace;
-        case LCB_SDCMD_DICT_ADD:
-            return DictAdd;
-        case LCB_SDCMD_DICT_UPSERT:
-            return DictUpsert;
-        case LCB_SDCMD_ARRAY_ADD_FIRST:
-            return ArrayAddFirst;
-        case LCB_SDCMD_ARRAY_ADD_LAST:
-            return ArrayAddLast;
-        case LCB_SDCMD_ARRAY_ADD_UNIQUE:
-            return ArrayAddUnique;
-        case LCB_SDCMD_ARRAY_INSERT:
-            return ArrayInsert;
-        case LCB_SDCMD_GET:
+        case subdoc_opcode::get:
             return Get;
-        case LCB_SDCMD_EXISTS:
+        case subdoc_opcode::exist:
             return Exists;
-        case LCB_SDCMD_GET_COUNT:
-            return GetCount;
-        case LCB_SDCMD_REMOVE:
-            return Remove;
-        case LCB_SDCMD_COUNTER:
+        case subdoc_opcode::replace:
+            return Replace;
+        case subdoc_opcode::dict_add:
+            return DictAdd;
+        case subdoc_opcode::dict_upsert:
+            return DictUpsert;
+        case subdoc_opcode::array_add_first:
+            return ArrayAddFirst;
+        case subdoc_opcode::array_add_last:
+            return ArrayAddLast;
+        case subdoc_opcode::array_add_unique:
+            return ArrayAddUnique;
+        case subdoc_opcode::array_insert:
+            return ArrayInsert;
+        case subdoc_opcode::counter:
             return Counter;
-        case LCB_SDCMD_GET_FULLDOC:
+        case subdoc_opcode::remove:
+            return Remove;
+        case subdoc_opcode::get_count:
+            return GetCount;
+        case subdoc_opcode::get_fulldoc:
             return GetDoc;
-        case LCB_SDCMD_SET_FULLDOC:
+        case subdoc_opcode::set_fulldoc:
             return SetDoc;
-        case LCB_SDCMD_REMOVE_FULLDOC:
-            return DeleteDoc;
+        case subdoc_opcode::remove_fulldoc:
+            return RemoveDoc;
         default:
             return Invalid;
     }
@@ -553,111 +542,89 @@ static const uint8_t ACCESS_DELETED = 0x04;
 static const uint8_t CREATE_AS_DELETED = 0x08;
 } // namespace SubdocDocFlags
 
-static size_t get_valbuf_size(const lcb_VALBUF &vb)
-{
-    if (vb.vtype == LCB_KV_COPY || vb.vtype == LCB_KV_CONTIG) {
-        return vb.u_buf.contig.nbytes;
-    } else {
-        if (vb.u_buf.multi.total_length) {
-            return vb.u_buf.multi.total_length;
-        } else {
-            size_t tmp = 0;
-            for (size_t ii = 0; ii < vb.u_buf.multi.niov; ++ii) {
-                tmp += vb.u_buf.multi.iov[ii].iov_len;
-            }
-            return tmp;
-        }
-    }
-}
-
-static uint8_t make_path_flags(const uint32_t user)
+static uint8_t make_path_flags(const subdoc_spec_options &options)
 {
     uint8_t flags = 0;
-    if (user & LCB_SUBDOCSPECS_F_MKINTERMEDIATES) {
+    if (options.create_parents) {
         flags |= SubdocPathFlags::MKDIR_P;
     }
-    if (user & LCB_SUBDOCSPECS_F_XATTRPATH) {
+    if (options.xattr) {
         flags |= SubdocPathFlags::XATTR;
     }
-    if (user & LCB_SUBDOCSPECS_F_XATTR_MACROVALUES) {
+    if (options.expand_macros) {
         flags |= SubdocPathFlags::XATTR | SubdocPathFlags::EXPAND_MACROS;
     }
     return flags;
 }
 
-static uint8_t make_doc_flags(const uint32_t user)
+static uint8_t make_doc_flags(const subdoc_options &options)
 {
     uint8_t flags = 0;
-    if (user & LCB_CMDSUBDOC_F_INSERT_DOC) {
+    if (options.insert_document) {
         flags |= SubdocDocFlags::ADDDOC;
     }
-    if (user & LCB_CMDSUBDOC_F_UPSERT_DOC) {
+    if (options.upsert_document) {
         flags |= SubdocDocFlags::MKDOC;
     }
-    if (user & LCB_CMDSUBDOC_F_ACCESS_DELETED) {
+    if (options.access_deleted) {
         flags |= SubdocDocFlags::ACCESS_DELETED;
     }
-    if (user & LCB_CMDSUBDOC_F_CREATE_AS_DELETED) {
+    if (options.create_as_deleted) {
         flags |= SubdocDocFlags::CREATE_AS_DELETED;
     }
     return flags;
 }
 
-struct MultiBuilder {
-    static unsigned infer_mode(const lcb_CMDSUBDOC *cmd)
-    {
-        if (cmd->nspecs == 0) {
-            return 0;
-        }
-        const SubdocCmdTraits::Traits &trait = SubdocCmdTraits::find(cmd->specs[0].sdcmd);
-        if (!trait.valid()) {
-            return 0;
-        }
-        return trait.mode();
+static unsigned infer_mode(const lcb_SUBDOCSPECS &specs)
+{
+    if (specs.specs().empty()) {
+        return 0;
     }
+    const SubdocCmdTraits::Traits &trait = SubdocCmdTraits::find(specs.specs()[0].opcode());
+    if (!trait.valid()) {
+        return 0;
+    }
+    return trait.mode();
+}
 
-    MultiBuilder(const lcb_CMDSUBDOC *cmd_) : cmd(cmd_), payload_size(0)
+struct MultiBuilder {
+    explicit MultiBuilder(std::shared_ptr<lcb_CMDSUBDOC> cmd) : cmd_(cmd)
     {
-        mode = infer_mode(cmd_);
-        size_t ebufsz = is_lookup() ? cmd->nspecs * 4 : cmd->nspecs * 8;
-        extra_body = new char[ebufsz];
-        bodysz = 0;
+        mode_ = infer_mode(cmd_->specs());
+        size_t ebufsz = cmd->specs().specs().size() * (is_lookup() ? 4 : 8);
+        extra_body_ = new char[ebufsz];
     }
 
     ~MultiBuilder()
     {
-        if (extra_body != NULL) {
-            delete[] extra_body;
-        }
+        delete[] extra_body_;
     }
 
-    inline MultiBuilder(const MultiBuilder &);
-
     // IOVs which are fed into lcb_VALBUF for subsequent use
-    const lcb_CMDSUBDOC *cmd;
-    std::vector<lcb_IOV> iovs;
-    char *extra_body;
-    size_t bodysz;
+    std::shared_ptr<lcb_CMDSUBDOC> cmd_;
+    std::vector<lcb_IOV> iovs_;
+    char *extra_body_;
+    size_t bodysz_{0};
 
     // Total size of the payload itself
-    size_t payload_size;
+    size_t payload_size_{0};
 
-    unsigned mode;
+    unsigned mode_;
 
     bool is_lookup() const
     {
-        return mode == LCB_SDMULTI_MODE_LOOKUP;
+        return mode_ == LCB_SDMULTI_MODE_LOOKUP;
     }
 
     bool is_mutate() const
     {
-        return mode == LCB_SDMULTI_MODE_MUTATE;
+        return mode_ == LCB_SDMULTI_MODE_MUTATE;
     }
 
     void maybe_setmode(const SubdocCmdTraits::Traits &t)
     {
-        if (mode == 0) {
-            mode = t.mode();
+        if (mode_ == 0) {
+            mode_ = t.mode();
         }
     }
 
@@ -665,13 +632,13 @@ struct MultiBuilder {
     void add_field(T itm, size_t len)
     {
         const char *b = reinterpret_cast<const char *>(&itm);
-        memcpy(extra_body + bodysz, b, len);
-        bodysz += len;
+        memcpy(extra_body_ + bodysz_, b, len);
+        bodysz_ += len;
     }
 
     const char *extra_mark() const
     {
-        return extra_body + bodysz;
+        return extra_body_ + bodysz_;
     }
 
     void add_extras_iov(const char *last_begin)
@@ -689,85 +656,236 @@ struct MultiBuilder {
         lcb_IOV iov;
         iov.iov_base = const_cast<void *>(b);
         iov.iov_len = n;
-        iovs.push_back(iov);
-        payload_size += n;
+        iovs_.push_back(iov);
+        payload_size_ += n;
     }
 
-    void add_iov(const lcb_VALBUF &vb)
+    void add_iov(const std::string &value)
     {
-        if (vb.vtype == LCB_KV_CONTIG || vb.vtype == LCB_KV_COPY) {
-            add_iov(vb.u_buf.contig.bytes, vb.u_buf.contig.nbytes);
-        } else {
-            for (size_t ii = 0; ii < vb.u_buf.contig.nbytes; ++ii) {
-                const lcb_IOV &iov = vb.u_buf.multi.iov[ii];
-                if (!iov.iov_len) {
-                    continue; // Skip it
-                }
-                payload_size += iov.iov_len;
-                iovs.push_back(iov);
-            }
+        add_iov(value.data(), value.size());
+    }
+
+    lcb_STATUS add_spec(const subdoc_spec &spec)
+    {
+        const SubdocCmdTraits::Traits &trait = SubdocCmdTraits::find(spec.opcode());
+        if (!trait.valid()) {
+            return LCB_ERR_UNKNOWN_SUBDOC_COMMAND;
         }
-    }
+        maybe_setmode(trait);
 
-    inline lcb_STATUS add_spec(const lcb_SDSPEC *);
+        if (trait.mode() != mode_) {
+            return LCB_ERR_OPTIONS_CONFLICT;
+        }
+
+        const char *p_begin = extra_mark();
+        // opcode
+        add_field(trait.opcode, 1);
+        // flags
+        add_field(make_path_flags(spec.options()), 1);
+
+        if (!trait.chk_allow_empty_path(spec.options()) && spec.path().empty()) {
+            return LCB_ERR_SUBDOC_PATH_INVALID;
+        }
+
+        // Path length
+        add_field(htons(static_cast<uint16_t>(spec.path().size())), 2);
+
+        if (is_mutate()) {
+            // Mutation needs an additional 'value' spec.
+            add_field(htonl(static_cast<uint32_t>(spec.value().size())), 4);
+        }
+
+        // Finalize the header..
+        add_extras_iov(p_begin);
+
+        // Add the actual path
+        add_iov(spec.path().data(), spec.path().size());
+        if (!spec.value().empty()) {
+            add_iov(spec.value());
+        }
+        return LCB_SUCCESS;
+    }
 };
-
-lcb_STATUS MultiBuilder::add_spec(const lcb_SDSPEC *spec)
-{
-    const SubdocCmdTraits::Traits &trait = SubdocCmdTraits::find(spec->sdcmd);
-    if (!trait.valid()) {
-        return LCB_ERR_UNKNOWN_SUBDOC_COMMAND;
-    }
-    maybe_setmode(trait);
-
-    if (trait.mode() != mode) {
-        return LCB_ERR_OPTIONS_CONFLICT;
-    }
-
-    const char *p_begin = extra_mark();
-    // opcode
-    add_field(trait.opcode, 1);
-    // flags
-    add_field(make_path_flags(spec->options), 1);
-
-    uint16_t npath = static_cast<uint16_t>(spec->path.contig.nbytes);
-    if (!npath && !trait.chk_allow_empty_path(spec->options)) {
-        return LCB_ERR_SUBDOC_PATH_INVALID;
-    }
-
-    // Path length
-    add_field(static_cast<uint16_t>(htons(npath)), 2);
-
-    uint32_t vsize = 0;
-    if (is_mutate()) {
-        // Mutation needs an additional 'value' spec.
-        vsize = get_valbuf_size(spec->value);
-        add_field(static_cast<uint32_t>(htonl(vsize)), 4);
-    }
-
-    // Finalize the header..
-    add_extras_iov(p_begin);
-
-    // Add the actual path
-    add_iov(spec->path.contig.bytes, spec->path.contig.nbytes);
-    if (vsize) {
-        add_iov(spec->value);
-    }
-    return LCB_SUCCESS;
-}
 
 static lcb_STATUS subdoc_validate(lcb_INSTANCE *instance, const lcb_CMDSUBDOC *cmd)
 {
-    auto err = lcb_is_collection_valid(instance, cmd->scope, cmd->nscope, cmd->collection, cmd->ncollection);
-    if (err != LCB_SUCCESS) {
-        return err;
+    if (cmd->key().empty()) {
+        return LCB_ERR_EMPTY_KEY;
     }
-    // First validate the command
-    if (cmd->nspecs == 0) {
+    if (!LCBT_SETTING(instance, use_collections) && !cmd->collection().is_default_collection()) {
+        /* only allow default collection when collections disabled for the instance */
+        return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
+    }
+    if (cmd->specs().specs().empty()) {
         return LCB_ERR_NO_COMMANDS;
+    }
+    if (!LCBT_SETTING(instance, enable_durable_write) && cmd->has_durability_requirements()) {
+        return LCB_ERR_UNSUPPORTED_OPERATION;
     }
 
     return LCB_SUCCESS;
+}
+
+static lcb_STATUS subdoc_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDSUBDOC> cmd)
+{
+    uint8_t docflags = make_doc_flags(cmd->options());
+
+    if ((docflags & SubdocDocFlags::CREATE_AS_DELETED) != 0 &&
+        (LCBVB_CAPS(LCBT_VBCONFIG(instance)) & LCBVB_CAP_TOMBSTONED_USER_XATTRS) == 0) {
+        return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
+    }
+
+    MultiBuilder ctx(cmd);
+
+    if ((cmd->has_expiry() || cmd->should_preserve_expiry()) && !ctx.is_mutate()) {
+        return LCB_ERR_OPTIONS_CONFLICT;
+    }
+
+    lcb_STATUS rc = LCB_SUCCESS;
+
+    for (const auto &spec : cmd->specs().specs()) {
+        rc = ctx.add_spec(spec);
+        if (rc != LCB_SUCCESS) {
+            return rc;
+        }
+    }
+
+    mc_PIPELINE *pl;
+    mc_PACKET *pkt;
+    uint8_t extlen = 0;
+    if (cmd->has_expiry()) {
+        extlen += 4;
+    }
+    if (docflags != 0) {
+        extlen++;
+    }
+
+    protocol_binary_request_header hdr;
+    int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
+
+    std::vector<std::uint8_t> framing_extras;
+
+    // Set the header fields.
+    if (ctx.is_lookup()) {
+        hdr.request.opcode = PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP;
+    } else {
+        hdr.request.opcode = PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION;
+
+        if (new_durability_supported && cmd->has_durability_requirements()) {
+            std::uint8_t frame_id = 0x01;
+            std::uint8_t frame_size = 0x04;
+            framing_extras.emplace_back(frame_id << 4U | frame_size);
+            framing_extras.emplace_back(cmd->durability_level());
+            auto durability_timeout = htons(lcb_durability_timeout(instance, cmd->timeout_in_microseconds()));
+            framing_extras.emplace_back(durability_timeout >> 8U);
+            framing_extras.emplace_back(durability_timeout & 0xff);
+        }
+        if (cmd->should_preserve_expiry()) {
+            std::uint8_t frame_id = 0x05;
+            std::uint8_t frame_size = 0x00;
+            framing_extras.emplace_back(frame_id << 4U | frame_size);
+        }
+    }
+    hdr.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;
+    auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
+
+    lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
+    rc = mcreq_basic_packet(&instance->cmdq, &keybuf, cmd->collection().collection_id(), &hdr, extlen, ffextlen, &pkt,
+                            &pl, MCREQ_BASICPACKET_F_FALLBACKOK);
+
+    if (rc != LCB_SUCCESS) {
+        return rc;
+    }
+
+    lcb_VALBUF vb = {LCB_KV_IOVCOPY};
+    vb.u_buf.multi.iov = &ctx.iovs_[0];
+    vb.u_buf.multi.niov = ctx.iovs_.size();
+    vb.u_buf.multi.total_length = ctx.payload_size_;
+    rc = mcreq_reserve_value(pl, pkt, &vb);
+
+    if (rc != LCB_SUCCESS) {
+        mcreq_wipe_packet(pl, pkt);
+        mcreq_release_packet(pl, pkt);
+        return rc;
+    }
+
+    hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+    hdr.request.extlen = extlen;
+    hdr.request.opaque = pkt->opaque;
+    hdr.request.cas = lcb_htonll(cmd->cas());
+    hdr.request.bodylen = htonl(hdr.request.extlen + ffextlen + mcreq_get_key_size(&hdr) + ctx.payload_size_);
+    memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
+
+    std::size_t offset = sizeof(hdr);
+    if (!framing_extras.empty()) {
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
+        offset += framing_extras.size();
+    }
+
+    if (ctx.is_mutate() && cmd->has_expiry()) {
+        std::uint32_t expiry = htonl(cmd->expiry());
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, &expiry, sizeof(expiry));
+        offset += sizeof(expiry);
+    }
+    if (docflags) {
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, &docflags, sizeof(docflags));
+    }
+    if (ctx.is_mutate() && !cmd->options().insert_document) {
+        pkt->flags |= MCREQ_F_REPLACE_SEMANTICS;
+    }
+
+    MCREQ_PKT_RDATA(pkt)->cookie = cmd->cookie();
+    MCREQ_PKT_RDATA(pkt)->start = cmd->start_time_or_default_in_nanoseconds(gethrtime());
+    MCREQ_PKT_RDATA(pkt)->deadline =
+        MCREQ_PKT_RDATA(pkt)->start +
+        cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
+    MCREQ_PKT_RDATA(pkt)->nsubreq = cmd->specs().specs().size();
+    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd,
+                      ctx.is_mutate() ? LCBTRACE_OP_MUTATEIN : LCBTRACE_OP_LOOKUPIN, MCREQ_PKT_RDATA(pkt)->span);
+    LCB_SCHED_ADD(instance, pl, pkt)
+    return LCB_SUCCESS;
+}
+
+static lcb_STATUS subdoc_execute(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDSUBDOC> cmd)
+{
+    if (!LCBT_SETTING(instance, use_collections)) {
+        /* fast path if collections are not enabled */
+        return subdoc_schedule(instance, cmd);
+    }
+
+    if (collcache_get(instance, cmd->collection()) == LCB_SUCCESS) {
+        return subdoc_schedule(instance, cmd);
+    }
+
+    return collcache_resolve(
+        instance, cmd,
+        [instance](lcb_STATUS status, const lcb_RESPGETCID *resp, std::shared_ptr<lcb_CMDSUBDOC> operation) {
+            const auto callback_type = infer_mode(operation->specs()) == LCB_SDMULTI_MODE_LOOKUP
+                                           ? LCB_CALLBACK_SDLOOKUP
+                                           : LCB_CALLBACK_SDMUTATE;
+            lcb_RESPCALLBACK operation_callback = lcb_find_callback(instance, callback_type);
+            lcb_RESPSUBDOC response{};
+            if (resp != nullptr) {
+                response.ctx = resp->ctx;
+            }
+            response.ctx.key = operation->key();
+            response.ctx.scope = operation->collection().scope();
+            response.ctx.collection = operation->collection().collection();
+            response.cookie = operation->cookie();
+            if (status == LCB_ERR_SHEDULE_FAILURE || resp == nullptr) {
+                response.ctx.rc = LCB_ERR_TIMEOUT;
+                operation_callback(instance, callback_type, &response);
+                return;
+            }
+            if (resp->ctx.rc != LCB_SUCCESS) {
+                operation_callback(instance, callback_type, &response);
+                return;
+            }
+            response.ctx.rc = subdoc_schedule(instance, operation);
+            if (response.ctx.rc != LCB_SUCCESS) {
+                operation_callback(instance, callback_type, &response);
+            }
+        });
 }
 
 LIBCOUCHBASE_API
@@ -780,149 +898,28 @@ lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC 
         return err;
     }
 
-    auto operation = [instance, cookie](const lcb_RESPGETCID *resp, const lcb_CMDSUBDOC *cmd) {
-        MultiBuilder ctx(cmd);
+    auto cmd = std::make_shared<lcb_CMDSUBDOC>(*command);
+    cmd->cookie(cookie);
 
-        if (resp && resp->ctx.rc != LCB_SUCCESS) {
-            lcb_CALLBACK_TYPE cbtype = ctx.is_lookup() ? LCB_CALLBACK_SDLOOKUP : LCB_CALLBACK_SDMUTATE;
-            lcb_RESPCALLBACK cb = lcb_find_callback(instance, cbtype);
-            lcb_RESPSUBDOC sd{};
-            sd.ctx = resp->ctx;
-            sd.ctx.key = static_cast<const char *>(cmd->key.contig.bytes);
-            sd.ctx.key_len = cmd->key.contig.nbytes;
-            sd.cookie = cookie;
-            cb(instance, cbtype, reinterpret_cast<const lcb_RESPBASE *>(&sd));
-            return resp->ctx.rc;
-        }
-
-        uint32_t expiry = cmd->exptime;
-        uint8_t docflags = make_doc_flags(cmd->cmdflags);
-
-        if ((docflags & SubdocDocFlags::CREATE_AS_DELETED) != 0 &&
-            (LCBVB_CAPS(LCBT_VBCONFIG(instance)) & LCBVB_CAP_TOMBSTONED_USER_XATTRS) == 0) {
-            return LCB_ERR_SDK_FEATURE_UNAVAILABLE;
-        }
-
-        lcb_STATUS rc = LCB_SUCCESS;
-
-        if (cmd->error_index) {
-            *cmd->error_index = -1;
-        }
-
-        if (expiry && !ctx.is_mutate()) {
-            return LCB_ERR_OPTIONS_CONFLICT;
-        }
-
-        for (size_t ii = 0; ii < cmd->nspecs; ++ii) {
-            if (cmd->error_index) {
-                *cmd->error_index = ii;
+    if (instance->cmdq.config == nullptr) {
+        cmd->start_time_in_nanoseconds(gethrtime());
+        return lcb::defer_operation(instance, [instance, cmd](lcb_STATUS status) {
+            const auto callback_type =
+                infer_mode(cmd->specs()) == LCB_SDMULTI_MODE_LOOKUP ? LCB_CALLBACK_SDLOOKUP : LCB_CALLBACK_SDMUTATE;
+            lcb_RESPCALLBACK operation_callback = lcb_find_callback(instance, callback_type);
+            lcb_RESPSUBDOC response{};
+            response.ctx.key = cmd->key();
+            response.cookie = cmd->cookie();
+            if (status == LCB_ERR_REQUEST_CANCELED) {
+                response.ctx.rc = status;
+                operation_callback(instance, callback_type, &response);
+                return;
             }
-            rc = ctx.add_spec(cmd->specs + ii);
-            if (rc != LCB_SUCCESS) {
-                return rc;
+            response.ctx.rc = subdoc_execute(instance, cmd);
+            if (response.ctx.rc != LCB_SUCCESS) {
+                operation_callback(instance, callback_type, &response);
             }
-        }
-
-        mc_PIPELINE *pl;
-        mc_PACKET *pkt;
-        uint8_t extlen = 0;
-        if (expiry) {
-            extlen += 4;
-        }
-        if (docflags) {
-            extlen++;
-        }
-
-        protocol_binary_request_header hdr;
-        int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
-        lcb_U8 ffextlen = 0;
-
-        hdr.request.magic = PROTOCOL_BINARY_REQ;
-        if (ctx.is_mutate() && cmd->dur_level) {
-            if (new_durability_supported) {
-                hdr.request.magic = PROTOCOL_BINARY_AREQ;
-                ffextlen = 4;
-            } else {
-                return LCB_ERR_UNSUPPORTED_OPERATION;
-            }
-        }
-
-        if (cmd->error_index) {
-            *cmd->error_index = -1;
-        }
-
-        rc = mcreq_basic_packet(&instance->cmdq, reinterpret_cast<const lcb_CMDBASE *>(cmd), &hdr, extlen, ffextlen,
-                                &pkt, &pl, MCREQ_BASICPACKET_F_FALLBACKOK);
-
-        if (rc != LCB_SUCCESS) {
-            return rc;
-        }
-
-        lcb_VALBUF vb = {LCB_KV_IOVCOPY};
-        vb.u_buf.multi.iov = &ctx.iovs[0];
-        vb.u_buf.multi.niov = ctx.iovs.size();
-        vb.u_buf.multi.total_length = ctx.payload_size;
-        rc = mcreq_reserve_value(pl, pkt, &vb);
-
-        if (rc != LCB_SUCCESS) {
-            mcreq_wipe_packet(pl, pkt);
-            mcreq_release_packet(pl, pkt);
-            return rc;
-        }
-
-        // Set the header fields.
-        if (ctx.is_lookup()) {
-            hdr.request.opcode = PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP;
-        } else {
-            hdr.request.opcode = PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION;
-        }
-        hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-        hdr.request.extlen = extlen;
-        hdr.request.opaque = pkt->opaque;
-        hdr.request.cas = lcb_htonll(cmd->cas);
-        hdr.request.bodylen = htonl(hdr.request.extlen + ffextlen + mcreq_get_key_size(&hdr) + ctx.payload_size);
-        memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
-        if (ctx.is_mutate() && cmd->dur_level && new_durability_supported) {
-            uint8_t meta = (1u << 4u) | 3u;
-            uint8_t level = cmd->dur_level;
-            uint16_t timeout = htons(lcb_durability_timeout(instance, cmd->timeout));
-            memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE, &meta, sizeof(meta));
-            memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE + 1, &level, sizeof(level));
-            memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE + 2, &timeout, sizeof(timeout));
-        }
-        if (expiry) {
-            expiry = htonl(expiry);
-            memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE + ffextlen, &expiry, 4);
-        }
-        if (docflags) {
-            memcpy(SPAN_BUFFER(&pkt->kh_span) + MCREQ_PKT_BASESIZE + ffextlen + (extlen - 1), &docflags, 1);
-        }
-        if (ctx.is_mutate() && (cmd->cmdflags & LCB_CMDSUBDOC_F_INSERT_DOC) == 0) {
-            pkt->flags |= MCREQ_F_REPLACE_SEMANTICS;
-        }
-
-        MCREQ_PKT_RDATA(pkt)->cookie = cookie;
-        MCREQ_PKT_RDATA(pkt)->start = gethrtime();
-        MCREQ_PKT_RDATA(pkt)->deadline =
-            MCREQ_PKT_RDATA(pkt)->start +
-            LCB_US2NS(cmd->timeout ? cmd->timeout : LCBT_SETTING(instance, operation_timeout));
-        MCREQ_PKT_RDATA(pkt)->nsubreq = cmd->nspecs;
-        LCB_SCHED_ADD(instance, pl, pkt);
-        return LCB_SUCCESS;
-    };
-
-    if (!LCBT_SETTING(instance, use_collections)) {
-        /* fast path if collections are not enabled */
-        return operation(nullptr, command);
+        });
     }
-
-    uint32_t cid = 0;
-    if (collcache_get(instance, command->scope, command->nscope, command->collection, command->ncollection, &cid) ==
-        LCB_SUCCESS) {
-        lcb_CMDSUBDOC clone = *command; /* shallow clone */
-        clone.cid = cid;
-        return operation(nullptr, &clone);
-    } else {
-        return collcache_resolve(instance, command, operation, lcb_cmdsubdoc_clone, lcb_cmdsubdoc_destroy);
-    }
+    return subdoc_execute(instance, cmd);
 }

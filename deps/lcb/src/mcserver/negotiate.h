@@ -123,7 +123,7 @@ class SessionInfo : public lcbio_PROTOCTX
 
     std::string mech;
     std::vector<uint16_t> server_features;
-    bool selected;
+    bool selected{false};
     std::string bucket_name_{};
 };
 

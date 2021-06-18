@@ -38,7 +38,7 @@ PROJECT_NAME           = "Couchbase C Client"
 # could be handy for archiving the generated documentation or if some version
 # control system is used.
 
-PROJECT_NUMBER         = 3.1.2
+PROJECT_NUMBER         = 3.2.0
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer a
@@ -2091,13 +2091,7 @@ PREDEFINED             = LCB_CREATE_V2_FIELDS= \
 # definition found in the source code.
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
-EXPAND_AS_DEFINED      = LCB_XERR \
-                         X \
-                         LCB_CMD_BASE \
-                         LCB_OBSERVE_FIELDS_COMMON \
-                         LCB_RESP_BASE \
-                         LCB_CMD_BASE \
-                         LCB_RESP_SERVER_FIELDS
+EXPAND_AS_DEFINED      = LCB_XERR X
 
 # If the SKIP_FUNCTION_MACROS tag is set to YES then doxygen's preprocessor will
 # remove all references to function-like macros that are alone on a line, have

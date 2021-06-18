@@ -83,7 +83,7 @@ struct Response {
 
     unsigned short status; /**< HTTP Status code */
     unsigned state;
-    typedef std::list< MimeHeader > HeaderList;
+    typedef std::list<MimeHeader> HeaderList;
     HeaderList headers;
     std::string body; /**< Body */
 };
@@ -189,7 +189,7 @@ class Parser : private http_parser
 
     static Parser *from_htp(http_parser *p)
     {
-        return static_cast< Parser * >(p);
+        return static_cast<Parser *>(p);
     }
 
   private:
@@ -197,14 +197,14 @@ class Parser : private http_parser
     lcb_settings_st *settings;
 
     enum last_call_type { CB_NONE, CB_HDR_KEY, CB_HDR_VALUE, CB_HDR_DONE, CB_BODY, CB_MSG_DONE };
-    last_call_type lastcall;
+    last_call_type lastcall{CB_NONE};
 
     /* For parse_ex */
-    const char *last_body;
-    unsigned last_bodylen;
+    const char *last_body{nullptr};
+    unsigned last_bodylen{0};
 
-    bool paused;
-    bool is_ex;
+    bool paused{false};
+    bool is_ex{false};
 };
 
 } // namespace htparse

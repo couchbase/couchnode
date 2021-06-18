@@ -47,8 +47,7 @@ int mcreq_compress_value(mc_PIPELINE *pl, mc_PACKET *pkt, const lcb_VALBUF *vbuf
  * longer required.
  * @return 0 if successful, nonzero on error.
  */
-int mcreq_inflate_value(const void *compressed, lcb_SIZE ncompressed, const void **bytes, lcb_SIZE *nbytes,
-                        void **freeptr);
+int mcreq_inflate_value(const void *compressed, size_t ncompressed, const void **bytes, size_t *nbytes, void **freeptr);
 
 #ifdef __cplusplus
 }

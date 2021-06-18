@@ -17,9 +17,11 @@
 #include "internal.h"
 #include <lcbio/iotable.h>
 
-static bool
-has_pending(lcb_INSTANCE *instance)
+static bool has_pending(lcb_INSTANCE *instance)
 {
+    if (instance->has_deferred_operations()) {
+        return true;
+    }
 
     if (!instance->retryq->empty(!LCBT_SETTING(instance, wait_for_config))) {
         return true;
@@ -37,8 +39,7 @@ has_pending(lcb_INSTANCE *instance)
     return false;
 }
 
-static void
-maybe_reset_timeouts(lcb_INSTANCE *instance)
+static void maybe_reset_timeouts(lcb_INSTANCE *instance)
 {
 
     if (!LCBT_SETTING(instance, readj_ts_wait)) {
@@ -52,8 +53,7 @@ maybe_reset_timeouts(lcb_INSTANCE *instance)
     instance->retryq->reset_timeouts(now);
 }
 
-void
-lcb_maybe_breakout(lcb_INSTANCE *instance)
+void lcb_maybe_breakout(lcb_INSTANCE *instance)
 {
     if (!instance->wait) {
         return;

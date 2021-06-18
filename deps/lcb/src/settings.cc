@@ -83,6 +83,8 @@ void lcb_default_settings(lcb_settings *settings)
     settings->retry_strategy = lcb_retry_strategy_best_effort;
     settings->enable_unordered_execution = 1;
     settings->use_errmap = 1;
+    settings->op_metrics_flush_interval = LCB_DEFAULT_OP_METRICS_FLUSH_INTERVAL;
+    settings->op_metrics_enabled = 1;
 }
 
 LCB_INTERNAL_API
@@ -117,6 +119,9 @@ void lcb_settings_unref(lcb_settings *settings)
     }
     if (settings->metrics) {
         lcb_metrics_destroy(settings->metrics);
+    }
+    if (settings->meter) {
+        lcbmetrics_meter_destroy(settings->meter);
     }
     if (settings->dtorcb) {
         settings->dtorcb(settings->dtorarg);

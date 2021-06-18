@@ -276,8 +276,10 @@ bool Server::handle_unknown_collection(MemcachedResponse &resp, mc_PACKET *oldpk
     packet_wrapper wrapper;
     mcreq_get_key(instance, oldpkt, (const char **)&wrapper.key.contig.bytes, &wrapper.key.contig.nbytes);
 
-    lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (S=%u), CID=%u, CNAME=%s", LOGID_T(), (void *)oldpkt,
-            oldpkt->opaque, (unsigned)cid, name.c_str());
+    lcb_log(LOGARGS_T(WARN), LOGFMT "UNKNOWN_COLLECTION. Packet=%p (M=0x%x, S=%u, OP=0x%x), CID=%u, CNAME=%s",
+            LOGID_T(), (void *)oldpkt, (int)req.request.magic, oldpkt->opaque, (int)req.request.opcode, (unsigned)cid,
+            name.c_str());
+    wrapper.assign_name(name);
     wrapper.pkt = mcreq_renew_packet(oldpkt);
     wrapper.instance = instance;
     wrapper.timeout = LCB_NS2US(MCREQ_PKT_RDATA(wrapper.pkt)->deadline - now);
@@ -759,8 +761,10 @@ static const char *opcode_name(uint8_t code)
 
 void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
 {
-    if (maybe_retry_packet(pkt, err, PROTOCOL_BINARY_RESPONSE_UNSPECIFIED)) {
-        return;
+    if (err != LCB_ERR_REQUEST_CANCELED) {
+        if (maybe_retry_packet(pkt, err, PROTOCOL_BINARY_RESPONSE_UNSPECIFIED)) {
+            return;
+        }
     }
 
     if (err == LCB_ERR_AUTHENTICATION_FAILURE) {
@@ -959,8 +963,9 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
 
     if (err != LCB_SUCCESS) {
         lcb_log(LOGARGS_T(ERR),
-                LOGFMT "Connection attempt failed. Received %s from libcouchbase, received %d from operating system",
-                LOGID_T(), lcb_strerror_short(err), syserr);
+                LOGFMT
+                "Connection attempt failed. Received %s from libcouchbase, received %d (%s) from operating system",
+                LOGID_T(), lcb_strerror_short(err), syserr, strerror(syserr));
         MC_INCR_METRIC(this, iometrics.io_error, 1);
         if (!maybe_reconnect_on_fake_timeout(err)) {
             socket_failed(err);
@@ -1086,6 +1091,8 @@ Server::~Server()
         }
     }
     this->instance = nullptr;
+    purge(LCB_ERR_REQUEST_CANCELED, 0, Server::REFRESH_NEVER);
+
     mcreq_pipeline_cleanup(this);
 
     if (io_timer) {

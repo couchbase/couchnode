@@ -21,6 +21,8 @@
 #include <gtest/gtest.h>
 #include "internalstructs.h"
 
+#include "capi/cmd_get.hh"
+
 #define NUM_PIPELINES 4
 
 struct CQWrap : mc_CMDQUEUE {
@@ -36,7 +38,7 @@ struct CQWrap : mc_CMDQUEUE {
             pll[ii] = pipeline;
         }
         lcbvb_genconfig(config, NUM_PIPELINES, 3, 1024);
-        this->cqdata = NULL; /* instance pointer */
+        this->cqdata = nullptr; /* instance pointer */
         mcreq_queue_init(this);
         this->seq = 100;
         mcreq_queue_add_pipelines(this, pll, NUM_PIPELINES, config);
@@ -82,22 +84,13 @@ struct CQWrap : mc_CMDQUEUE {
 };
 
 struct PacketWrap {
-    mc_PACKET *pkt;
-    mc_PIPELINE *pipeline;
-    protocol_binary_request_header hdr;
-    lcb_CMDBASE cmd;
-    char *pktbuf;
-    char *kbuf;
-
-    PacketWrap()
-    {
-        pkt = NULL;
-        pipeline = NULL;
-        pktbuf = NULL;
-        kbuf = NULL;
-        memset(&hdr, 0, sizeof(hdr));
-        memset(&cmd, 0, sizeof(cmd));
-    }
+    mc_PACKET *pkt{nullptr};
+    mc_PIPELINE *pipeline{nullptr};
+    protocol_binary_request_header hdr{};
+    lcb_CMDGET cmd{};
+    char *pktbuf{nullptr};
+    char *kbuf{nullptr};
+    lcb_KEYBUF keybuf;
 
     void setKey(const char *key)
     {
@@ -111,15 +104,15 @@ struct PacketWrap {
     void setContigKey(const char *key)
     {
         setKey(key);
-        cmd.key.type = LCB_KV_HEADER_AND_KEY;
-        cmd.key.contig.bytes = pktbuf;
-        cmd.key.contig.nbytes = strlen(key) + 24;
+        cmd.key(kbuf);
+        keybuf = {LCB_KV_CONTIG, {pktbuf, cmd.key().size() + 24}};
     }
 
     void setCopyKey(const char *key)
     {
         setKey(key);
-        LCB_KREQ_SIMPLE(&cmd.key, kbuf, strlen(key));
+        cmd.key(kbuf);
+        keybuf = {LCB_KV_COPY, {cmd.key().c_str(), cmd.key().size()}};
     }
 
     void setHeaderSize()
@@ -140,14 +133,12 @@ struct PacketWrap {
     bool reservePacket(mc_CMDQUEUE *cq)
     {
         lcb_STATUS err;
-        err = mcreq_basic_packet(cq, &cmd, &hdr, 0, 0, &pkt, &pipeline, 0);
+        err = mcreq_basic_packet(cq, &keybuf, cmd.collection().collection_id(), &hdr, 0, 0, &pkt, &pipeline, 0);
         return err == LCB_SUCCESS;
     }
 
     ~PacketWrap()
     {
-        if (pktbuf != NULL) {
-            delete[] pktbuf;
-        }
+        delete[] pktbuf;
     }
 };

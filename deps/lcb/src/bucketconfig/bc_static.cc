@@ -119,6 +119,7 @@ lcbvb_CONFIG *McRawProvider::gen_config(const lcb::Hostlist &hl)
     lcbvb_CONFIG *newconfig = lcbvb_create();
     lcbvb_genconfig_ex(newconfig, "NOBUCKET", "deadbeef", &servers[0], servers.size(), 0, 2);
     lcbvb_make_ketama(newconfig);
+    newconfig->revepoch = -1;
     newconfig->revid = -1;
     return newconfig;
 }

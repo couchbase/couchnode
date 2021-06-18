@@ -20,6 +20,7 @@
 
 #ifdef __cplusplus
 #include "mctx-helper.h"
+#include "capi/cmd_endure.hh"
 
 extern "C" {
 #endif
@@ -234,7 +235,7 @@ struct Durset : public MultiCmdContext {
      * @param itm the newly added item
      * @param the original command, for more context
      */
-    virtual lcb_STATUS after_add(Item &, const lcb_CMDENDURE *)
+    virtual lcb_STATUS after_add(Item &, const lcb_MUTATION_TOKEN *)
     {
         return LCB_SUCCESS;
     }
@@ -249,10 +250,11 @@ struct Durset : public MultiCmdContext {
     Durset(lcb_INSTANCE *instance, const lcb_durability_opts_t *options);
 
     // Implementation for MULTICMD_CTX
-    lcb_STATUS MCTX_done(const void *cookie);
-    lcb_STATUS MCTX_addcmd(const lcb_CMDBASE *cmd);
-    void MCTX_fail();
-    void MCTX_setspan(lcbtrace_SPAN *span);
+    lcb_STATUS MCTX_done(void *cookie) override;
+    lcb_STATUS MCTX_add_observe(const lcb_CMDOBSERVE *cmd) override;
+    lcb_STATUS MCTX_add_endure(const lcb_CMDENDURE *cmd) override;
+    void MCTX_fail() override;
+    void MCTX_setspan(lcbtrace_SPAN *span) override;
 
     /**
      * This function calls poll_impl(). The implementation should then call
@@ -266,7 +268,7 @@ struct Durset : public MultiCmdContext {
     static Durset *createSeqnoDurset(lcb_INSTANCE *, const lcb_durability_opts_t *);
 
     lcb_DURABILITYOPTSv0 opts; /**< Sanitized user options */
-    std::vector< Item > entries;
+    std::vector<Item> entries;
     unsigned nremaining; /**< Number of entries remaining to poll for */
     int waiting;         /**< Set if currently awaiting an observe callback */
     unsigned refcnt;     /**< Reference count */

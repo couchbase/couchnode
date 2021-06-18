@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <utility>
 #include <vector>
 #include <cstring>
 #include <list>
@@ -74,10 +75,6 @@ class TestConfiguration
 
   public:
     TestConfiguration()
-        : opt_debugger("debugger"), opt_plugins("plugins"), opt_jobs("jobs"), opt_srcdir("srcdir"),
-          opt_bindir("testdir"), opt_interactive("interactive"), opt_verbose("verbose"), opt_cycles("repeat"),
-          opt_libdir("libdir"), opt_bins("tests"), opt_realcluster("cluster"), opt_gtest_filter("gtest_filter"),
-          opt_gtest_break_on_failure("gtest_break_on_failure"), opt_gtest_catch_exceptions("gtest_catch_exceptions")
     {
         opt_debugger.abbrev('d').description("Verbatim string to prepend to the binary command line");
 
@@ -101,7 +98,9 @@ class TestConfiguration
 
         opt_cycles.abbrev('n').description("Number of times to run the tests").setDefault(1);
 
-        opt_libdir.abbrev('L').description("Directory where plugins are located. Useful on OS X");
+        opt_libdir.abbrev('L')
+            .description("Directory where plugins are located. Useful on OS X")
+            .setDefault(TEST_LIB_DIR);
 
         opt_realcluster.abbrev('C').description("Path to real cluster");
 
@@ -204,17 +203,23 @@ class TestConfiguration
         return true;
     }
 
+    std::string setupExecutable(const std::string &name) const
+    {
+        std::stringstream ss;
+        ss << testdir << PATHSEP << name;
+        return ss.str();
+    }
+
     // Sets up the command line, appending any debugger info and paths
     std::string setupCommandline(const std::string &name) const
     {
         std::stringstream ss;
-        std::string ret;
 
         if (!debugger.empty()) {
             ss << debugger << " ";
         }
 
-        ss << testdir << PATHSEP << name;
+        ss << setupExecutable(name);
 
         if (!binOptions.empty()) {
             ss << " " << binOptions;
@@ -238,26 +243,26 @@ class TestConfiguration
     bool isInteractive{};
     int maxJobs{};
     int maxCycles{};
-    int getVerbosityLevel()
+    int getVerbosityLevel() const
     {
         return opt_verbose.numSpecified();
     }
 
   private:
-    cliopts::StringOption opt_debugger;
-    cliopts::StringOption opt_plugins;
-    cliopts::UIntOption opt_jobs;
-    cliopts::StringOption opt_srcdir;
-    cliopts::StringOption opt_bindir;
-    cliopts::BoolOption opt_interactive;
-    cliopts::BoolOption opt_verbose;
-    cliopts::IntOption opt_cycles;
-    cliopts::StringOption opt_libdir;
-    cliopts::StringOption opt_bins;
-    cliopts::StringOption opt_realcluster;
-    cliopts::StringOption opt_gtest_filter;
-    cliopts::BoolOption opt_gtest_break_on_failure;
-    cliopts::BoolOption opt_gtest_catch_exceptions;
+    cliopts::StringOption opt_debugger{"debugger"};
+    cliopts::StringOption opt_plugins{"plugins"};
+    cliopts::UIntOption opt_jobs{"jobs"};
+    cliopts::StringOption opt_srcdir{"srcdir"};
+    cliopts::StringOption opt_bindir{"testdir"};
+    cliopts::BoolOption opt_interactive{"interactive"};
+    cliopts::BoolOption opt_verbose{"verbose"};
+    cliopts::IntOption opt_cycles{"repeat"};
+    cliopts::StringOption opt_libdir{"libdir"};
+    cliopts::StringOption opt_bins{"tests"};
+    cliopts::StringOption opt_realcluster{"cluster"};
+    cliopts::StringOption opt_gtest_filter{"gtest_filter"};
+    cliopts::BoolOption opt_gtest_break_on_failure{"gtest_break_on_failure"};
+    cliopts::BoolOption opt_gtest_catch_exceptions{"gtest_catch_exceptions"};
 
     void setJobsFromEnvironment()
     {
@@ -285,7 +290,7 @@ class TestConfiguration
         return getDefaultSrcroot();
     }
 
-    std::string getEffectiveTestdir()
+    std::string getEffectiveTestdir() const
     {
         const char *tmp = getenv("outdir");
         if (tmp && *tmp) {
@@ -349,18 +354,17 @@ class TestConfiguration
 
     std::string getDefaultTestdir() const
     {
-        return (srcroot + PATHSEP) + "tests";
+        return TEST_TEST_DIR;
     }
 };
 
-static void setPluginEnvironment(std::string &name)
+static void setPluginEnvironment(const std::string &name)
 {
     const char *v = nullptr;
     if (name != "default") {
         v = name.c_str();
+        setenv(PLUGIN_ENV_VAR, v, 1);
     }
-
-    setenv(PLUGIN_ENV_VAR, v, 1);
 
     fprintf(stderr, "%s=%s ... ", PLUGIN_ENV_VAR, name.c_str());
     struct lcb_cntl_iops_info_st ioi {
@@ -374,7 +378,7 @@ static void setPluginEnvironment(std::string &name)
     }
 }
 
-static void setLinkerEnvironment(std::string &path)
+static void setLinkerEnvironment(const std::string &path)
 {
 #ifdef _WIN32
     if (false) {
@@ -404,6 +408,7 @@ static void setLinkerEnvironment(std::string &path)
 
 struct Process {
     child_process_t proc_{};
+    std::string executable;
     std::string commandline;
     std::string logfileName;
     std::string pluginName;
@@ -411,14 +416,12 @@ struct Process {
     bool exitedOk{};
     bool verbose;
 
-    Process(const std::string &plugin, const std::string &name, const std::string &cmd, TestConfiguration &config)
+    Process(std::string plugin, std::string name, std::string exe, std::string cmd, const TestConfiguration &config)
+        : executable(std::move(exe)), commandline(std::move(cmd)), pluginName(std::move(plugin)),
+          testName(std::move(name)), verbose(config.isVerbose)
     {
-        this->pluginName = plugin;
-        this->testName = name;
-        this->commandline = cmd;
-        this->verbose = config.isVerbose;
         proc_.interactive = config.isInteractive;
-        this->logfileName = "check-all-" + pluginName + "-" + testName + ".log";
+        logfileName = "check-all-" + pluginName + "-" + testName + ".log";
     }
 
     void writeLog(const char *msg) const
@@ -454,9 +457,9 @@ class TestScheduler
 
     unsigned int limit;
 
-    void schedule(const Process &proc)
+    void schedule(Process proc)
     {
-        _all.push_back(proc);
+        _all.emplace_back(std::move(proc));
     }
 
     bool runAll()
@@ -480,10 +483,44 @@ class TestScheduler
                 if (rv == 0) {
                     char msg[2048];
                     cur->exitedOk = cur->proc_.status == 0;
-                    snprintf(msg, 2048, "REAP [%s] '%s' .. %s", cur->pluginName.c_str(), cur->commandline.c_str(),
-                             cur->exitedOk ? "OK" : "FAIL");
+                    snprintf(msg, 2048, "REAP [%s] '%s' (rc=%d).. %s", cur->pluginName.c_str(),
+                             cur->commandline.c_str(), cur->proc_.status, cur->exitedOk ? "OK" : "FAIL");
                     cur->writeLog(msg);
                     fprintf(stderr, "%s\n", msg);
+#ifndef _WIN32
+                    if (!cur->exitedOk) {
+                        sleep(3); /* to ensure systemd has processed the dump */
+                        std::string cmd = "coredumpctl info " + std::to_string(cur->proc_.pid) + " 2>&1";
+                        FILE *stream = popen(cmd.c_str(), "r");
+                        if (stream != nullptr) {
+                            std::stringstream ss;
+                            ss << "# " << cmd << "\n";
+                            int ch;
+                            while ((ch = fgetc(stream)) != EOF) {
+                                ss << static_cast<char>(ch);
+                            }
+                            pclose(stream);
+                            auto info = ss.str();
+                            cur->writeLog(info.c_str());
+                            fprintf(stderr, "%s\n", info.c_str());
+                        }
+                        cmd = "gdb " + cur->executable + " /tmp/*." + std::to_string(cur->proc_.pid) +
+                              ".* --batch -ex 'thread apply all bt' 2>&1";
+                        stream = popen(cmd.c_str(), "r");
+                        if (stream != nullptr) {
+                            std::stringstream ss;
+                            ss << "# " << cmd << "\n";
+                            int ch;
+                            while ((ch = fgetc(stream)) != EOF) {
+                                ss << static_cast<char>(ch);
+                            }
+                            pclose(stream);
+                            auto info = ss.str();
+                            cur->writeLog(info.c_str());
+                            fprintf(stderr, "%s\n", info.c_str());
+                        }
+                    }
+#endif
                     cleanup_process(&cur->proc_);
                     to_remove_e.push_back(cur);
                 }
@@ -536,7 +573,7 @@ class TestScheduler
     }
 };
 
-static bool runSingleCycle(TestConfiguration &config)
+static bool runSingleCycle(const TestConfiguration &config)
 {
     TestScheduler scheduler(config.maxJobs);
     setLinkerEnvironment(config.libDir);
@@ -556,9 +593,10 @@ static bool runSingleCycle(TestConfiguration &config)
 #endif
         for (const auto &test : config.testnames) {
 
+            std::string executable = config.setupExecutable(test);
             std::string cmdline = config.setupCommandline(test);
             fprintf(stderr, "Command line '%s'\n", cmdline.c_str());
-            scheduler.schedule(Process(plugin, test, cmdline, config));
+            scheduler.schedule(Process(plugin, test, executable, cmdline, config));
         }
     }
 
@@ -583,11 +621,15 @@ int main(int argc, char **argv)
     fprintf(stderr, "export LCB_VERBOSE_TESTS=1\n");
     setenv("LCB_VERBOSE_TESTS", "1", 1);
 
-    char loglevel_s[4096] = {0};
-    if (config.getVerbosityLevel() > 0) {
-        sprintf(loglevel_s, "%d", config.getVerbosityLevel());
-        setenv("LCB_LOGLEVEL", loglevel_s, 0);
-        fprintf(stderr, "export LCB_LOGLEVEL=%s\n", loglevel_s);
+    const char *loglevel_p = getenv("LCB_LOGLEVEL");
+    if (loglevel_p == nullptr) {
+        if (config.getVerbosityLevel() > 0) {
+            auto loglevel_s = std::to_string(config.getVerbosityLevel());
+            setenv("LCB_LOGLEVEL", loglevel_s.c_str(), 1);
+            fprintf(stderr, "export LCB_LOGLEVEL=%s\n", loglevel_s.c_str());
+        }
+    } else {
+        fprintf(stderr, "use LCB_LOGLEVEL=%s\n", loglevel_p);
     }
 
     if (!config.realClusterEnv.empty()) {

@@ -24,6 +24,8 @@
 #ifdef __cplusplus
 
 #include <queue>
+#include <map>
+#include <string>
 
 namespace lcb
 {
@@ -33,7 +35,8 @@ namespace trace
 class Span
 {
   public:
-    Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF_TYPE ref, lcbtrace_SPAN *other);
+    Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF_TYPE ref, lcbtrace_SPAN *other,
+         void *external_span);
     ~Span();
 
     void finish(uint64_t finish);
@@ -48,14 +51,47 @@ class Span
     void add_tag(const char *name, int copy, double value);
     void add_tag(const char *name, int copy, bool value);
 
+    void service(lcbtrace_THRESHOLDOPTS svc);
+    lcbtrace_THRESHOLDOPTS service() const;
+
+    void increment_dispatch(uint64_t dispatch_time);
+    void increment_server(uint64_t server_time);
+    lcbtrace_SPAN *find_outer_or_this();
+
+    const char *service_str() const;
+
+    void *external_span() const;
+    void external_span(void *ext);
+
+    bool is_outer() const;
+    void is_outer(bool outer);
+    bool is_dispatch() const;
+    void is_dispatch(bool dispatch);
+    bool is_encode() const;
+    void is_encode(bool encode);
+    bool should_finish() const;
+    void should_finish(bool finish);
+
     lcbtrace_TRACER *m_tracer;
     std::string m_opname;
     uint64_t m_span_id;
     uint64_t m_start;
-    uint64_t m_finish;
+    uint64_t m_finish{0};
     bool m_orphaned;
     Span *m_parent;
+    void *m_extspan;
     sllist_root m_tags{};
+    bool m_is_outer{false};
+    bool m_is_dispatch{false};
+    bool m_is_encode{false};
+    bool m_should_finish{true};
+    lcbtrace_THRESHOLDOPTS m_svc{LCBTRACE_THRESHOLD__MAX};
+    const char *m_svc_string{nullptr};
+    uint64_t m_total_dispatch{0};
+    uint64_t m_last_dispatch{0};
+    uint64_t m_total_server{0};
+    uint64_t m_last_server{0};
+    uint64_t m_encode{0};
 };
 
 struct ReportedSpan {
@@ -96,11 +132,12 @@ class ThresholdLoggingTracer
 {
     lcbtrace_TRACER *m_wrapper;
     lcb_settings *m_settings;
+    size_t m_threshold_queue_size;
 
     FixedSpanQueue m_orphans;
-    FixedSpanQueue m_threshold;
+    std::map<std::string, FixedSpanQueue> m_queues;
 
-    void flush_queue(FixedSpanQueue &queue, const char *message, bool warn);
+    void flush_queue(FixedSpanQueue &queue, const char *message, const char *service, bool warn);
     QueueEntry convert(lcbtrace_SPAN *span);
 
   public:
@@ -123,9 +160,9 @@ class ThresholdLoggingTracer
 } // namespace lcb
 
 extern "C" {
-#endif
+#endif /* __cplusplus */
 LCB_INTERNAL_API
-void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, const char *service);
+void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, lcbtrace_THRESHOLDOPTS svc);
 LCB_INTERNAL_API
 void lcbtrace_span_set_parent(lcbtrace_SPAN *span, lcbtrace_SPAN *parent);
 LCB_INTERNAL_API
@@ -133,58 +170,94 @@ void lcbtrace_span_set_orphaned(lcbtrace_SPAN *span, int val);
 LIBCOUCHBASE_API
 void lcbtrace_span_add_tag_str_nocopy(lcbtrace_SPAN *span, const char *name, const char *value);
 
-#define LCBTRACE_KV_START(settings, cmd, operation_name, opaque, outspan)                                              \
-    if ((settings)->tracer) {                                                                                          \
-        lcbtrace_REF ref;                                                                                              \
-        char opid[20] = {};                                                                                            \
-        snprintf(opid, sizeof(opid), "0x%x", (int)opaque);                                                             \
-        ref.type = LCBTRACE_REF_CHILD_OF;                                                                              \
-        ref.span = cmd->pspan;                                                                                         \
-        outspan = lcbtrace_span_start((settings)->tracer, operation_name, LCBTRACE_NOW, &ref);                         \
-        lcbtrace_span_add_tag_str(outspan, LCBTRACE_TAG_OPERATION_ID, opid);                                           \
-        lcbtrace_span_add_system_tags(outspan, (settings), LCBTRACE_TAG_SERVICE_KV);                                   \
+const char *dur_level_to_string(lcb_DURABILITY_LEVEL dur_level);
+void lcbtrace_span_add_host_and_port(lcbtrace_SPAN *span, lcbio_CONNINFO *info);
+#ifdef __cplusplus
+#define LCBTRACE_ADD_RETRIES(span, retries)                                                                            \
+    if (span) {                                                                                                        \
+        span->find_outer_or_this()->add_tag(LCBTRACE_TAG_RETRIES, 0, (uint64_t)retries);                               \
     }
 
-#define LCBTRACE_KV_COMPLETE(pipeline, request, resp, response)                                                        \
+// called by lcb_query, etc...  The underlying lcb_http call will fill in the dispatch span tags
+#define LCBTRACE_HTTP_START(settings, opaque, pspan, operation_name, svc, outspan)                                     \
+    LCBTRACE_START(settings, opaque, pspan, operation_name, svc, outspan)
+
+#define LCBTRACE_KV_START(settings, opaque, cmd, operation_name, outspan)                                              \
+    if (nullptr != (settings)->tracer) {                                                                               \
+        lcbtrace_SPAN *pspan = cmd->parent_span();                                                                     \
+        char opid[20] = {};                                                                                            \
+        snprintf(opid, sizeof(opid), "%p", reinterpret_cast<void *>(opaque));                                          \
+        LCBTRACE_START(settings, opid, pspan, operation_name, LCBTRACE_THRESHOLD_KV, outspan)                          \
+    }
+
+// don't create a span if passed an outer parent, if we are the threshold logger,
+// and use its close to determine times, etc...
+#define LCBTRACE_START(settings, opaque, pspan, operation_name, svc, outspan)                                          \
+    if (nullptr != (settings)->tracer) {                                                                               \
+        if (nullptr != pspan && pspan->is_outer() && (settings)->tracer->flags & LCBTRACE_F_THRESHOLD) {               \
+            outspan = pspan;                                                                                           \
+            outspan->should_finish(false);                                                                             \
+        } else {                                                                                                       \
+            lcbtrace_REF ref;                                                                                          \
+            ref.type = LCBTRACE_REF_CHILD_OF;                                                                          \
+            ref.span = pspan;                                                                                          \
+            bool is_dispatch = (pspan && pspan->is_outer());                                                           \
+            outspan =                                                                                                  \
+                lcbtrace_span_start((settings)->tracer, is_dispatch ? LCBTRACE_OP_DISPATCH_TO_SERVER : operation_name, \
+                                    LCBTRACE_NOW, &ref);                                                               \
+            outspan->should_finish(true);                                                                              \
+            outspan->is_outer(!is_dispatch);                                                                           \
+        }                                                                                                              \
+        outspan->is_dispatch(true);                                                                                    \
+        if (opaque) {                                                                                                  \
+            lcbtrace_span_add_tag_str(outspan, LCBTRACE_TAG_OPERATION_ID, opaque);                                     \
+        }                                                                                                              \
+        lcbtrace_span_add_system_tags(outspan, settings, svc);                                                         \
+    } else {                                                                                                           \
+        outspan = nullptr;                                                                                             \
+    }
+
+#define LCBTRACE_KVSTORE_START(settings, opaque, cmd, operation_name, outspan)                                         \
+    LCBTRACE_KV_START(settings, opaque, cmd, operation_name, outspan)                                                  \
+    if ((settings)->tracer) {                                                                                          \
+        outspan->add_tag(LCBTRACE_TAG_DURABILITY, 0, dur_level_to_string(cmd->durability_level()), 0);                 \
+    }
+
+#define LCBTRACE_KV_FINISH(pipeline, request, resp, server_duration)                                                   \
     do {                                                                                                               \
-        lcbtrace_SPAN *span = MCREQ_PKT_RDATA(request)->span;                                                          \
-        if (span) {                                                                                                    \
-            lcbtrace_span_add_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, (response)->duration());                     \
+        lcbtrace_SPAN *dispatch_span__ = MCREQ_PKT_RDATA(request)->span;                                               \
+        if (dispatch_span__) {                                                                                         \
+            dispatch_span__->increment_server(server_duration);                                                        \
             lcb::Server *server = static_cast<lcb::Server *>(pipeline);                                                \
-            lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_PEER_ADDRESS, resp.ctx.endpoint);                      \
+            dispatch_span__->find_outer_or_this()->add_tag(LCBTRACE_TAG_RETRIES, 0, (uint64_t)request->retries);       \
+            lcbtrace_span_add_tag_str_nocopy(dispatch_span__, LCBTRACE_TAG_TRANSPORT, "IP.TCP");                       \
             lcbio_CTX *ctx = server->connctx;                                                                          \
             if (ctx) {                                                                                                 \
                 char local_id[34] = {};                                                                                \
                 snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64,                                     \
                          (uint64_t)server->get_settings()->iid, (uint64_t)ctx->sock->id);                              \
-                lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_LOCAL_ID, local_id);                                      \
-                lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, ctx->sock->info->ep_local);         \
+                lcbtrace_span_add_tag_str(dispatch_span__, LCBTRACE_TAG_LOCAL_ID, local_id);                           \
+                lcbtrace_span_add_host_and_port(dispatch_span__, ctx->sock->info);                                     \
+            }                                                                                                          \
+            if (dispatch_span__->should_finish()) {                                                                    \
+                lcbtrace_span_finish(dispatch_span__, LCBTRACE_NOW);                                                   \
             }                                                                                                          \
         }                                                                                                              \
     } while (0)
 
-#define LCBTRACE_KV_CLOSE(request)                                                                                     \
-    do {                                                                                                               \
-        lcbtrace_SPAN *span__ = MCREQ_PKT_RDATA(request)->span;                                                        \
-        if (span__) {                                                                                                  \
-            lcbtrace_span_finish(span__, LCBTRACE_NOW);                                                                \
-            MCREQ_PKT_RDATA(request)->span = NULL;                                                                     \
+#define LCBTRACE_HTTP_FINISH(span)                                                                                     \
+    if (nullptr != span) {                                                                                             \
+        lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_TRANSPORT, "IP.TCP");                                      \
+        if (span->should_finish()) {                                                                                   \
+            lcbtrace_span_finish(span, LCBTRACE_NOW);                                                                  \
         }                                                                                                              \
-    } while (0)
-
-#define LCBTRACE_KV_FINISH(pipeline, request, resp, response)                                                          \
-    LCBTRACE_KV_COMPLETE(pipeline, request, resp, response);                                                           \
-    LCBTRACE_KV_CLOSE(request)
-
-#ifdef __cplusplus
+        span = nullptr;                                                                                                \
+    }
 }
-#endif
-
 #else
-
-#define LCBTRACE_KV_START(settings, cmd, operation_name, opaque, outspan)
-#define LCBTRACE_KV_COMPLETE(pipeline, request, response)
-#define LCBTRACE_KV_CLOSE(request)
-#define LCBTRACE_KV_FINISH(pipeline, request, response)
-
+#define LCBTRACE_KVSTORE_START(settings, opaque, cmd, operation_name, outspan)
+#define LCBTRACE_HTTP_START(settings, opaque, pspan, operation_name, svc, outspan)
+#define LCBTRACE_KV_FINISH(pipeline, request, server_duration)
+#define LCBTRACE_HTTP_FINISH(span)
+#endif /* __cplusplus*/
 #endif /* LCB_TRACING_INTERNAL_H */

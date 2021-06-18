@@ -24,14 +24,6 @@
 
 using namespace lcb::trace;
 
-LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_INSTANCE *instance, uint64_t flags)
-{
-    if (instance == nullptr || (flags & LCBTRACE_F_THRESHOLD) == 0) {
-        return nullptr;
-    }
-    return (new ThresholdLoggingTracer(instance))->wrap();
-}
-
 extern "C" {
 static void tlt_destructor(lcbtrace_TRACER *wrapper)
 {
@@ -55,15 +47,17 @@ static void tlt_report(lcbtrace_TRACER *wrapper, lcbtrace_SPAN *span)
     }
 
     auto *tracer = reinterpret_cast<ThresholdLoggingTracer *>(wrapper->cookie);
-    char *value = nullptr;
-    size_t nvalue;
-    if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_SERVICE, &value, &nvalue) == LCB_SUCCESS) {
-        if (strncmp(value, LCBTRACE_TAG_SERVICE_KV, nvalue) == 0) {
-            if (lcbtrace_span_is_orphaned(span)) {
-                tracer->add_orphan(span);
-            } else {
-                tracer->check_threshold(span);
-            }
+    if (span->is_dispatch()) {
+        span->find_outer_or_this()->increment_dispatch(span->duration());
+    }
+    if (span->is_encode()) {
+        span->find_outer_or_this()->m_encode = span->duration();
+    }
+    if (span->is_outer()) {
+        if (span->m_orphaned) {
+            tracer->add_orphan(span);
+        } else {
+            tracer->check_threshold(span);
         }
     }
 }
@@ -76,7 +70,7 @@ lcbtrace_TRACER *ThresholdLoggingTracer::wrap()
     }
     m_wrapper = new lcbtrace_TRACER();
     m_wrapper->version = 0;
-    m_wrapper->flags = 0;
+    m_wrapper->flags = LCBTRACE_F_THRESHOLD;
     m_wrapper->cookie = this;
     m_wrapper->destructor = tlt_destructor;
     m_wrapper->v.v0.report = tlt_report;
@@ -88,8 +82,8 @@ QueueEntry ThresholdLoggingTracer::convert(lcbtrace_SPAN *span)
     QueueEntry orphan;
     orphan.duration = span->duration();
     Json::Value entry;
-    char *value;
-    size_t nvalue;
+    char *value, *value2;
+    size_t nvalue, nvalue2;
 
     entry["operation_name"] = std::string(span->m_opname);
     if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_OPERATION_ID, &value, &nvalue) == LCB_SUCCESS) {
@@ -99,16 +93,31 @@ QueueEntry ThresholdLoggingTracer::convert(lcbtrace_SPAN *span)
         entry["last_local_id"] = std::string(value, value + nvalue);
     }
     if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
-        entry["last_local_address"] = std::string(value, value + nvalue);
+        if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_LOCAL_PORT, &value2, &nvalue2) == LCB_SUCCESS) {
+            std::string address(value, value + nvalue);
+            address.append(":");
+            address.append(value2, nvalue2);
+            entry["last_local_socket"] = address;
+        }
     }
     if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_PEER_ADDRESS, &value, &nvalue) == LCB_SUCCESS) {
-        entry["last_remote_address"] = std::string(value, value + nvalue);
+        if (lcbtrace_span_get_tag_str(span, LCBTRACE_TAG_PEER_PORT, &value2, &nvalue2) == LCB_SUCCESS) {
+            std::string address(value, value + nvalue);
+            address.append(":");
+            address.append(value2, nvalue2);
+            entry["last_remote_socket"] = address;
+        }
     }
-    uint64_t num;
-    if (lcbtrace_span_get_tag_uint64(span, LCBTRACE_TAG_PEER_LATENCY, &num) == LCB_SUCCESS) {
-        entry["server_us"] = (Json::UInt64)num;
+    if (span->service() == LCBTRACE_THRESHOLD_KV) {
+        entry["last_server_duration_us"] = (Json::UInt64)span->m_last_server;
+        entry["total_server_duration_us"] = (Json::UInt64)span->m_total_server;
     }
-    entry["total_us"] = (Json::UInt64)orphan.duration;
+    if (span->m_encode > 0) {
+        entry["encode_duration_us"] = (Json::UInt64)span->m_encode;
+    }
+    entry["total_duration_us"] = (Json::UInt64)orphan.duration;
+    entry["last_dispatch_duration_us"] = (Json::UInt64)span->m_last_dispatch;
+    entry["total_dispatch_duration_us"] = (Json::UInt64)span->m_total_dispatch;
     orphan.payload = Json::FastWriter().write(entry);
     return orphan;
 }
@@ -120,15 +129,32 @@ void ThresholdLoggingTracer::add_orphan(lcbtrace_SPAN *span)
 
 void ThresholdLoggingTracer::check_threshold(lcbtrace_SPAN *span)
 {
-    if (span->duration() > m_settings->tracer_threshold[LCBTRACE_THRESHOLD_KV]) {
-        m_threshold.push(convert(span));
+    if (span->is_outer()) {
+        if (span->service() == LCBTRACE_THRESHOLD__MAX) {
+            return;
+        }
+        if (span->duration() > m_settings->tracer_threshold[span->service()]) {
+
+            auto it = m_queues.find(span->service_str());
+            if (it != m_queues.end()) {
+                // found the queue, so push this in.
+                it->second.push(convert(span));
+            } else {
+                // add a new queue, then push this in.
+                auto pr = m_queues.emplace(span->service_str(), FixedSpanQueue{m_threshold_queue_size});
+                pr.first->second.push(convert(span));
+            }
+        }
     }
 }
 
-void ThresholdLoggingTracer::flush_queue(FixedSpanQueue &queue, const char *message, bool warn = false)
+void ThresholdLoggingTracer::flush_queue(FixedSpanQueue &queue, const char *message, const char *service,
+                                         bool warn = false)
 {
     Json::Value entries;
-    entries["service"] = "kv";
+    if (nullptr != service) {
+        entries["service"] = service;
+    }
     entries["count"] = (Json::UInt)queue.size();
     Json::Value top;
     while (!queue.empty()) {
@@ -155,15 +181,16 @@ void ThresholdLoggingTracer::do_flush_orphans()
     if (m_orphans.empty()) {
         return;
     }
-    flush_queue(m_orphans, "Orphan responses observed", true);
+    flush_queue(m_orphans, "Orphan responses observed", nullptr, true);
 }
 
 void ThresholdLoggingTracer::do_flush_threshold()
 {
-    if (m_threshold.empty()) {
-        return;
+    for (auto &element : m_queues) {
+        if (!element.second.empty()) {
+            flush_queue(element.second, "Operations over threshold", element.first.c_str());
+        }
     }
-    flush_queue(m_threshold, "Operations over threshold");
 }
 
 void ThresholdLoggingTracer::flush_orphans()
@@ -189,8 +216,9 @@ void ThresholdLoggingTracer::flush_threshold()
 }
 
 ThresholdLoggingTracer::ThresholdLoggingTracer(lcb_INSTANCE *instance)
-    : m_wrapper(nullptr), m_settings(instance->settings), m_orphans(LCBT_SETTING(instance, tracer_orphaned_queue_size)),
-      m_threshold(LCBT_SETTING(instance, tracer_threshold_queue_size)), m_oflush(instance->iotable, this),
+    : m_wrapper(nullptr), m_settings(instance->settings),
+      m_threshold_queue_size(LCBT_SETTING(instance, tracer_threshold_queue_size)),
+      m_orphans(LCBT_SETTING(instance, tracer_orphaned_queue_size)), m_oflush(instance->iotable, this),
       m_tflush(instance->iotable, this)
 {
     lcb_U32 tv = m_settings->tracer_orphaned_queue_flush_interval;

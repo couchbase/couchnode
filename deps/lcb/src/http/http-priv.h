@@ -47,7 +47,7 @@ struct Request {
      * body and initializes instance members to their default values. The static
      * ::create() method should be used instead to construct a new object
      */
-    inline Request(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDHTTP *cmd);
+    Request(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDHTTP *cmd);
 
     ~Request();
 
@@ -245,7 +245,7 @@ struct Request {
     std::string host;       /**< Host, derived from URL */
     std::string port;       /**< Port, derived from URL */
     std::string peer;       /**< host:port */
-    bool ipv6;
+    bool ipv6{};
 
     std::string pending_redirect; /**< New redirected URL */
 
@@ -254,14 +254,15 @@ struct Request {
     /** Request buffer (excluding body). Reassembled from inputs */
     std::vector<char> preamble;
 
-    struct http_parser_url url_info;  /**< Parser info for the URL */
+    struct http_parser_url url_info {
+    };                                /**< Parser info for the URL */
     const lcb_HTTP_METHOD method;     /**< Request method constant */
     const bool chunked;               /**< Whether to invoke callback for each data chunk */
     bool paused;                      /**< See pause() and resume() */
     const void *const command_cookie; /** User context for callback */
     size_t refcount;                  /** Initialized to 1. See incref() and decref() */
     int redircount;                   /** Times this request was redirected */
-
+    lcbtrace_SPAN *span;              /** Dispatch span. */
     /**
      * Whether this request has delivered data to the user. This is relevant
      * in cases where a retry is requested. If any data has been passed at
@@ -276,7 +277,7 @@ struct Request {
      * Last revision ID of vBucket config. If the current revision does not
      * match this number, the ::used_nodes field is cleared
      */
-    int last_vbcrev;
+    int64_t last_vbcrev;
 
     const lcb_HTTP_TYPE reqtype; /**< HTTP API type */
 
@@ -328,7 +329,7 @@ struct Request {
     lcbio_pTABLE io;
     lcbio_pCTX ioctx;
     lcbio_pTIMER timer;
-    lcb::io::ConnectionRequest *creq;
+    lcb::io::ConnectionRequest *creq{};
 
     /** HTTP Protocol parser */
     lcb::htparse::Parser *parser;
@@ -336,14 +337,19 @@ struct Request {
     /** overrides default timeout if nonzero */
     const uint32_t user_timeout;
 
-    hrtime_t start; /**< Start time */
-    lcbio_SERVICE service;
+    hrtime_t start{}; /**< Start time */
+    lcbio_SERVICE service{LCBIO_SERVICE_UNSPEC};
 };
 
 } // namespace http
 } // namespace lcb
 
 struct lcb_HTTP_HANDLE_ : public lcb::http::Request {
+  public:
+    lcb_HTTP_HANDLE_(lcb_INSTANCE *instance_, const void *cookie, const lcb_CMDHTTP *cmd)
+        : lcb::http::Request(instance_, cookie, cmd)
+    {
+    }
 };
 
-#endif /* HEADER GUARD */
+#endif /* LCB_HTTPPRIV_H */

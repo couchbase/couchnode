@@ -26,7 +26,7 @@
 #include "settings.h"
 #include "internal.h"
 
-#include "capi/query.hh"
+#include "capi/cmd_query.hh"
 
 #define LOGFMT "(mgreq=%p) "
 #define LOGID(req) static_cast<const void *>(req)

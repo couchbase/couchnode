@@ -59,11 +59,12 @@ struct SnappyCookie {
 };
 
 extern "C" {
-static void storecb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
+static void storecb(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
 {
-    SnappyCookie *cookie = reinterpret_cast< SnappyCookie * >(rb->cookie);
+    SnappyCookie *cookie;
+    lcb_respstore_cookie(resp, (void **)&cookie);
     cookie->called = true;
-    cookie->rc = rb->ctx.rc;
+    cookie->rc = lcb_respstore_status(resp);
 }
 static void getcb(lcb_INSTANCE *, int, const lcb_RESPGET *resp)
 {
@@ -88,7 +89,7 @@ TEST_F(SnappyUnitTest, testSpec)
     createConnection(hw, &instance);
     lcb_cntl_setu32(instance, LCB_CNTL_COMPRESSION_OPTS, LCB_COMPRESS_INOUT);
     lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getcb);
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, storecb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storecb);
 
     std::string key("hello");
     std::string value("A big black bug bit a big black bear, made the big black bear bleed blood");
@@ -140,7 +141,7 @@ TEST_F(SnappyUnitTest, testSpec)
     createConnection(hw, &instance);
     lcb_cntl_setu32(instance, LCB_CNTL_COMPRESSION_OPTS, LCB_COMPRESS_INOUT);
     lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getcb);
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, storecb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storecb);
 
     cookie = SnappyCookie();
     lcb_cmdget_create(&gcmd);
@@ -172,7 +173,7 @@ TEST_F(SnappyUnitTest, testIOV)
     createConnection(hw, &instance);
     lcb_cntl_setu32(instance, LCB_CNTL_COMPRESSION_OPTS, LCB_COMPRESS_INOUT);
     lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getcb);
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, storecb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storecb);
 
     std::string key("hello");
     std::string value1("A big black bug bit ");
@@ -247,7 +248,7 @@ TEST_F(SnappyUnitTest, testSettings)
     createConnection(hw, &instance);
     lcb_cntl_string(instance, "compression", "deflate_only");
     lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)getcb);
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, storecb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)storecb);
 
     std::string key("hello");
     std::string value("A big black bug bit a big black bear, made the big black bear bleed blood");

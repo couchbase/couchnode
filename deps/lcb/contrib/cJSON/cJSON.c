@@ -939,12 +939,20 @@ cJSON *cJSON_CreateFalse()
     item->type = cJSON_False;
     return item;
 }
+cJSON *cJSON_CreateInt64(int64_t num)
+{
+    cJSON *item = cJSON_New_Item(0);
+    item->type = cJSON_Number;
+    item->valuedouble = (double)num;
+    item->valueint = num;
+    return item;
+}
 cJSON *cJSON_CreateNumber(double num)
 {
     cJSON *item = cJSON_New_Item(0);
     item->type = cJSON_Number;
     item->valuedouble = num;
-    item->valueint = (int)num;
+    item->valueint = (int64_t)num;
     return item;
 }
 cJSON *cJSON_CreateString(const char *string)

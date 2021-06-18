@@ -51,11 +51,14 @@
 /* n1ql cache */
 #include "n1ql/n1ql-internal.h"
 
+#include "metrics/metrics-internal.h"
 #include "tracing/tracing-internal.h"
 
 #include "hostlist.h"
 
 #ifdef __cplusplus
+#include <functional>
+
 namespace lcb
 {
 class Connspec;
@@ -124,7 +127,7 @@ struct lcb_st {
     lcb_RETRYQ *retryq;               /**< Retry queue for failed operations */
     lcb_pSCRATCHBUF scratch;          /**< Generic buffer space */
     struct lcb_GUESSVB_st *vbguess;   /**< Heuristic masters for vbuckets */
-    lcb_N1QLCACHE *n1ql_cache;
+    lcb_QUERY_CACHE *n1ql_cache;
     lcb_MUTATION_TOKEN *dcpinfo; /**< Mapping of known vbucket to {uuid,seqno} info */
     lcbio_pTIMER dtor_timer;     /**< Asynchronous destruction timer */
     lcb_BTYPE btype;             /**< Type of the bucket */
@@ -133,6 +136,9 @@ struct lcb_st {
 #ifdef __cplusplus
     typedef std::map<std::string, lcbcrypto_PROVIDER *> lcb_ProviderMap;
     lcb_ProviderMap *crypto;
+
+    std::list<std::function<void(lcb_STATUS)>> *deferred_operations;
+
     lcb_settings *getSettings()
     {
         return settings;
@@ -149,9 +155,13 @@ struct lcb_st {
     {
         return static_cast<lcb::Server *>(cmdq.pipelines[index]);
     }
+    bool has_deferred_operations() const
+    {
+        return deferred_operations != nullptr && !deferred_operations->empty();
+    }
     lcb::Server *find_server(const lcb_host_t &host) const;
-    lcb_STATUS request_config(const void *cookie, lcb::Server *server);
-    lcb_STATUS select_bucket(const void *cookie, lcb::Server *server);
+    lcb_STATUS request_config(void *cookie, lcb::Server *server);
+    lcb_STATUS select_bucket(void *cookie, lcb::Server *server);
 
     /**
      * @brief Request that the handle update its configuration.
@@ -267,8 +277,57 @@ LCB_INTERNAL_API uint32_t lcb_durability_timeout(lcb_INSTANCE *instance, uint32_
 LCB_INTERNAL_API lcb_STATUS lcb_is_collection_valid(lcb_INSTANCE *instance, const char *scope, size_t scope_len,
                                                     const char *collection, size_t collection_len);
 
+typedef struct lcb_CMDNOOP_ lcb_CMDNOOP;
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdnoop_create(lcb_CMDNOOP **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdnoop_destroy(lcb_CMDNOOP *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdnoop_parent_span(lcb_CMDNOOP *cmd, lcbtrace_SPAN *span);
+
+typedef struct lcb_RESPNOOP_ lcb_RESPNOOP;
+LIBCOUCHBASE_API lcb_STATUS lcb_respnoop_status(const lcb_RESPNOOP *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respnoop_error_context(const lcb_RESPNOOP *resp,
+                                                       const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
+LIBCOUCHBASE_API lcb_STATUS lcb_respnoop_cookie(const lcb_RESPNOOP *resp, void **cookie);
+
+/**
+ * @uncommitted
+ *
+ * Send NOOP to the node
+ *
+ * @param instance the library handle
+ * @param cookie the cookie passed in the callback
+ * @param cmd empty command structure.
+ * @return status code for scheduling.
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcb_noop(lcb_INSTANCE *instance, void *cookie, const lcb_CMDNOOP *cmd);
+
+typedef struct lcb_CMDSTATS_ lcb_CMDSTATS;
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_create(lcb_CMDSTATS **cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_destroy(lcb_CMDSTATS *cmd);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_parent_span(lcb_CMDSTATS *cmd, lcbtrace_SPAN *span);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_key(lcb_CMDSTATS *cmd, const char *key, size_t key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstats_is_keystats(lcb_CMDSTATS *cmd, int val);
+
+typedef struct lcb_RESPSTATS_ lcb_RESPSTATS;
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_status(const lcb_RESPSTATS *resp);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_error_context(const lcb_RESPSTATS *resp,
+                                                        const lcb_KEY_VALUE_ERROR_CONTEXT **ctx);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_cookie(const lcb_RESPSTATS *resp, void **cookie);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_key(const lcb_RESPSTATS *resp, const char **key, size_t *key_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_value(const lcb_RESPSTATS *resp, const char **value, size_t *value_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_respstats_server(const lcb_RESPSTATS *resp, const char **server, size_t *server_len);
+
+/**
+ * @uncommitted
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcb_stats(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSTATS *cmd);
+
 #ifdef __cplusplus
 }
+
+LCB_INTERNAL_API lcb_STATUS lcb_is_collection_valid(lcb_INSTANCE *instance, const std::string &scope,
+                                                    const std::string &collection);
 #endif
 
 #endif

@@ -49,6 +49,23 @@ typedef struct lcbtrace_SPAN_Cdummy lcbtrace_SPAN;
  */
 #define LCBTRACE_F_THRESHOLD 0x01
 
+/**
+ * Flag for @ref lcbtrace_new to request external tracer.
+ */
+#define LCBTRACE_F_EXTERNAL 0x02
+
+/**
+ * Service the span is associated with.  Used in threshold logging tracer
+ */
+typedef enum {
+    LCBTRACE_SERVICE_KV = 0,
+    LCBTRACE_SERVICE_QUERY,
+    LCBTRACE_SERVICE_VIEW,
+    LCBTRACE_SERVICE_SEARCH,
+    LCBTRACE_SERVICE_ANALYTICS,
+    LCBTRACE_SERVICE__MAX
+} lcbtrace_SERVICE;
+
 struct lcbtrace_TRACER;
 /**
  * Tracer interface.
@@ -62,6 +79,13 @@ typedef struct lcbtrace_TRACER {
         struct {
             void (*report)(struct lcbtrace_TRACER *tracer, lcbtrace_SPAN *span); /**< optional reporter function */
         } v0;
+        struct {
+            void *(*start_span)(struct lcbtrace_TRACER *tracer, const char *name, void *parent);
+            void (*end_span)(void *span);
+            void (*destroy_span)(void *span);
+            void (*add_tag_string)(void *span, const char *name, const char *value, size_t value_len);
+            void (*add_tag_uint64)(void *span, const char *name, uint64_t value);
+        } v1;
     } v;
 } lcbtrace_TRACER;
 
@@ -142,6 +166,25 @@ LIBCOUCHBASE_API
 lcbtrace_SPAN *lcbtrace_span_start(lcbtrace_TRACER *tracer, const char *operation, lcb_U64 now, lcbtrace_REF *ref);
 
 /**
+ * Wrap external span
+ *
+ * If using a custom tracer which has its own span representation, you can create an lcbtrace_SPAN that wraps
+ * it.  This is useful when setting parent spans.
+ *
+ * @param tracer tracer instance.
+ * @param operation operation code.
+ * @param start timestamp from the external_span.
+ * @param external_span pointer to the external span.
+ * @param lcbspan  pointer to a new lcbtrace_SPAN* which wraps external_span.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_wrap(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, void *external_span,
+                              lcbtrace_SPAN **lcbspan);
+
+/**
  * Mark the span as finished.
  *
  * @param span span instance
@@ -151,6 +194,12 @@ lcbtrace_SPAN *lcbtrace_span_start(lcbtrace_TRACER *tracer, const char *operatio
  */
 LIBCOUCHBASE_API
 void lcbtrace_span_finish(lcbtrace_SPAN *span, lcb_U64 now);
+
+/**
+ * @private
+ */
+LIBCOUCHBASE_API
+int lcbtrace_span_should_finish(lcbtrace_SPAN *span);
 
 /**
  * Get start timestamp of the span.
@@ -199,8 +248,135 @@ int lcbtrace_span_is_orphaned(lcbtrace_SPAN *span);
 LIBCOUCHBASE_API
 const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 
+/**
+ *  Set the service for the span.
+ *
+ *  Threshold logging uses this to determine which threshold to apply when
+ *  deciding whether or not a span has taken too long and should be logged.
+ *  This only applies to outer spans.  See lcbtrace_span_set_is_outer for
+ *  setting that.
+ *
+ * @param span the span to set the service on.
+ * @param svc the desired service.
+ * @return LCB_SUCCESS when successful
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_set_service(lcbtrace_SPAN *span, lcbtrace_SERVICE svc);
+
+/**
+ *  Get the service for the span.
+ *
+ *  Threshold logging uses this to determine which threshold to apply when
+ *  deciding whether or not a span has taken too long and should be logged.
+ *  This only applies to outer spans.  See lcbtrace_span_set_is_outer for
+ *  setting that.
+ *
+ * @param span the span.
+ * @param svc points to the the span's service, or to LCB_SERVICE__MAX if one is not set.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_get_service(lcbtrace_SPAN *span, lcbtrace_SERVICE *svc);
+
+/**
+ * @brief Get outer flag on span
+ *
+ * See @ref lcbtrace-span_get_is_outer for description of flag.
+ * @param span span instance
+ * @param outer pointer to the value of the flag.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_get_is_outer(lcbtrace_SPAN *span, int *outer);
+
+/**
+ * @brief Set outer flag on span
+ *
+ * When libcouchbase is passed a parent span with this flag set, it will
+ * use it as its outer span for the operation, adding the appropriate tags.
+ * However, it will _not_ finish the span when calling the callback, like
+ * it does when it creates its own outer span.  The finish is up to the
+ * caller, perhaps allowing for extra spans accounting for the processing
+ * within the callback, or elsewhere.
+ *
+ * @param span the span to modify.
+ * @param outer when set, span is considered an outer span, whose finish time
+ *              will be managed by the caller.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_set_is_outer(lcbtrace_SPAN *span, int outer);
+
+/**
+ * @brief Get encoding flag on span
+ *
+ * See @ref lcbtrace-span_get_is_encoding for description of flag.
+ * @param span span instance
+ * @param encoding pointer to the value of the flag.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_get_is_encoding(lcbtrace_SPAN *span, int *encoding);
+
+/**
+ * @brief Set encoding flag on span
+ *
+ * When libcouchbase sees an encoding span has finished, it propogates the
+ * duration up to the outer span.  This is output by the threshold logging tracer.
+ *
+ * @param span the span to modify.
+ * @param encode when set, span is considered an encode span, whose duration will
+ *               be output by the threshold logging tracer.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_set_is_encode(lcbtrace_SPAN *span, int encode);
+
+/**
+ * @brief Get dispatch flag on span
+ *
+ * See @ref lcbtrace-span_get_is_dispatch for description of flag.
+ * @param span span instance
+ * @param dispatch pointer to the value of the flag.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_get_is_dispatch(lcbtrace_SPAN *span, int *dispatch);
+
+/**
+ * @brief Set dispatch flag on span
+ *
+ * When a span is marked as being a dispatch span, libcouchbase will copy the
+ * tags into the parent span as well.  This is used internally, for threshold
+ * and orphan logging.  If an external external tracer is being used, where the
+ * callbacks in the lcbtrace_TRACER is using the v1 callbacks, this copying of
+ * the tags will not be done.
+ *
+ * @param span the span to modify.
+ * @param dispatch when set, span is considered a dispatch span.
+ * @return LCB_SUCCESS when successful.
+ *
+ * @volatile
+ */
+LIBCOUCHBASE_API
+lcb_STATUS lcbtrace_span_set_is_dispatch(lcbtrace_SPAN *span, int dispatch);
+
 #define LCBTRACE_OP_REQUEST_ENCODING "request_encoding"
-#define LCBTRACE_OP_DISPATCH_TO_SERVER "dispatch_to_server"
+#define LCBTRACE_OP_DISPATCH_TO_SERVER "dispatch"
 #define LCBTRACE_OP_RESPONSE_DECODING "response_decoding"
 
 #define LCBTRACE_OP_INSERT "insert"
@@ -219,14 +395,13 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
 #define LCBTRACE_OP_UNLOCK "unlock"
 #define LCBTRACE_OP_UPSERT "upsert"
 #define LCBTRACE_OP_EXISTS "exists"
+#define LCBTRACE_OP_LOOKUPIN "lookup_in"
+#define LCBTRACE_OP_MUTATEIN "mutate_in"
+#define LCBTRACE_OP_QUERY "query"
+#define LCBTRACE_OP_ANALYTICS "analytics"
+#define LCBTRACE_OP_SEARCH "search"
+#define LCBTRACE_OP_VIEW "views"
 
-#define LCBTRACE_OP_STORE2NAME(code)                                                                                   \
-    (code == LCB_STORE_INSERT)                                                                                         \
-        ? LCBTRACE_OP_INSERT                                                                                           \
-        : (code == LCB_STORE_PREPEND) ? LCBTRACE_OP_PREPEND                                                            \
-                                      : (code == LCB_STORE_APPEND) ? LCBTRACE_OP_APPEND : LCBTRACE_OP_UPSERT
-
-#define LCBTRACE_TAG_DB_TYPE "db.type"
 #define LCBTRACE_TAG_SPAN_KIND "span.kind"
 /**
  * Bucket name
@@ -236,41 +411,88 @@ const char *lcbtrace_span_get_operation(lcbtrace_SPAN *span);
  * The client's identifier string (the 'u' property in the updated HELLO request),
  * the same one that is shared with the server to identify the SDK.
  */
-#define LCBTRACE_TAG_COMPONENT "component"
+#define LCBTRACE_TAG_COMPONENT "db.couchbase.component"
 /**
  * The unique ID of the operation
  */
-#define LCBTRACE_TAG_OPERATION_ID "couchbase.operation_id"
+#define LCBTRACE_TAG_OPERATION_ID "db.couchbase.operation_id"
 /**
  * The service type, one of the following:
  * kv, view, n1ql, search, analytics
  */
-#define LCBTRACE_TAG_SERVICE "couchbase.service"
+#define LCBTRACE_TAG_SERVICE "db.couchbase.service"
 #define LCBTRACE_TAG_SERVICE_KV "kv"
-#define LCBTRACE_TAG_SERVICE_VIEW "view"
-#define LCBTRACE_TAG_SERVICE_N1QL "n1ql"
+#define LCBTRACE_TAG_SERVICE_VIEW "views"
+#define LCBTRACE_TAG_SERVICE_N1QL "query"
 #define LCBTRACE_TAG_SERVICE_SEARCH "search"
 #define LCBTRACE_TAG_SERVICE_ANALYTICS "analytics"
 
-#define LCBTRACE_TAG_LOCAL_ID "couchbase.local_id"
 /**
- * The local socket hostname / IP and port, in the format: {hostname}:{port}
- * To be added to dispatch spans when the local socket is available.
+ *  Connection id used when creating a connection against the cluster.
+ *  Note this is only used in KV spans.
  */
-#define LCBTRACE_TAG_LOCAL_ADDRESS "local.address"
-/**
- * The remote socket hostname / IP and port, in the format: {hostname}:{port}
- * To be added to dispatch spans when the local socket is available.
- */
-#define LCBTRACE_TAG_PEER_ADDRESS "peer.address"
-/**
- * The server duration with precision suffix. The suffix is required to indicate
- * precision because KV is recorded in microseconds and N1QL query metrics
- * use milliseconds.
- * For example: 123us, 32.12ms
- */
-#define LCBTRACE_TAG_PEER_LATENCY "peer.latency"
+#define LCBTRACE_TAG_LOCAL_ID "db.couchbase.local_id"
 
+/**
+ * The local socket ip address.
+ * To be added to dispatch spans when the local socket is available.
+ */
+#define LCBTRACE_TAG_LOCAL_ADDRESS "net.host.name"
+/**
+ * The local socket port.
+ * To be added to dispatch spans when the local socket is available.
+ */
+#define LCBTRACE_TAG_LOCAL_PORT "net.host.port"
+
+/**
+ * The remote socket ip address.
+ * To be added to dispatch spans when the local socket is available.
+ */
+#define LCBTRACE_TAG_PEER_ADDRESS "net.peer.name"
+/**
+ * The remote socket port.
+ * To be added to dispatch spans when the local socket is available.
+ */
+#define LCBTRACE_TAG_PEER_PORT "net.peer.port"
+/**
+ * The server duration, as reported in the server response.
+ */
+#define LCBTRACE_TAG_PEER_LATENCY "db.couchbase.server_duration"
+/**
+ * The scope used for this span.
+ */
+#define LCBTRACE_TAG_SCOPE "db.couchbase.scope"
+/**
+ * The collection used for this span.
+ */
+#define LCBTRACE_TAG_COLLECTION "db.couchbase.collection"
+/**
+ * The statement used in this span, when applicable.  This is set for
+ * Query and Analytics.
+ */
+#define LCBTRACE_TAG_STATEMENT "db.statement"
+/**
+ * The operation for the span.  Set unless the db.statement key has been set.
+ */
+#define LCBTRACE_TAG_OPERATION "db.operation"
+/**
+ * The durability of the operation in this span, when applicable.
+ */
+#define LCBTRACE_TAG_DURABILITY "db.couchbase.durability"
+/**
+ * The number of retries performed in the span.
+ */
+#define LCBTRACE_TAG_RETRIES "db.couchbase.retries"
+
+/**
+ *  The system we are tracing
+ */
+#define LCBTRACE_TAG_SYSTEM "db.system"
+
+/**
+ * Transport used in trace.
+ */
+#define LCBTRACE_TAG_TRANSPORT "db.net.transport"
 /**
  * Get ID of the span.
  *

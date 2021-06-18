@@ -19,6 +19,8 @@
 #include "internal.h"
 #include "durability_internal.h"
 
+#include "capi/cmd_observe_seqno.hh"
+
 using namespace lcb::durability;
 
 namespace
@@ -28,11 +30,9 @@ class SeqnoDurset : public Durset
   public:
     SeqnoDurset(lcb_INSTANCE *instance_, const lcb_durability_opts_t *options) : Durset(instance_, options) {}
 
-    // Override
-    lcb_STATUS poll_impl();
+    lcb_STATUS poll_impl() override;
 
-    // Override
-    lcb_STATUS after_add(Item &item, const lcb_CMDENDURE *cmd);
+    lcb_STATUS after_add(Item &item, const lcb_MUTATION_TOKEN *token) override;
 
     void update(const lcb_RESPOBSEQNO *resp);
 };
@@ -49,7 +49,7 @@ static void seqno_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPOBSEQNO *resp = (const lcb_RESPOBSEQNO *)rb;
     int flags = 0;
-    Item *ent = static_cast< Item * >(reinterpret_cast< CallbackCookie * >(resp->cookie));
+    Item *ent = static_cast<Item *>(reinterpret_cast<CallbackCookie *>(resp->cookie));
 
     /* Now, process the response */
     if (resp->ctx.rc != LCB_SUCCESS) {
@@ -135,15 +135,9 @@ lcb_STATUS SeqnoDurset::poll_impl()
     }
 }
 
-lcb_STATUS SeqnoDurset::after_add(Item &item, const lcb_CMDENDURE *cmd)
+lcb_STATUS SeqnoDurset::after_add(Item &item, const lcb_MUTATION_TOKEN *stok)
 {
-    const lcb_MUTATION_TOKEN *stok = NULL;
-
-    if (cmd->cmdflags & LCB_CMDENDURE_F_MUTATION_TOKEN) {
-        stok = cmd->mutation_token;
-    }
-
-    if (stok == NULL) {
+    if (stok == nullptr) {
         if (!instance->dcpinfo) {
             return LCB_ERR_DURABILITY_NO_MUTATION_TOKENS;
         }

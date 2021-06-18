@@ -56,7 +56,7 @@ class Handler
     virtual void run();
     cliopts::Parser parser;
     ConnParams params;
-    lcb_INSTANCE *instance;
+    lcb_INSTANCE *instance{nullptr};
     Histogram hg;
     std::string cmdname;
 };
@@ -405,13 +405,16 @@ class ArithmeticHandler : public Handler
     HANDLER_USAGE("KEY ... [OPTIONS ...]")
 
     explicit ArithmeticHandler(const char *name)
-        : Handler(name), o_initial("initial"), o_delta("delta"), o_expiry("expiry"), o_durability("durability")
+        : Handler(name), o_initial("initial"), o_delta("delta"), o_expiry("expiry"), o_durability("durability"),
+          o_scope("scope"), o_collection("collection")
     {
 
         o_initial.description("Initial value if item does not exist");
         o_delta.setDefault(1);
         o_expiry.abbrev('e').description("Expiration time for key");
         o_durability.abbrev('d').description("Durability level").setDefault("none");
+        o_scope.description("Name of the collection scope").setDefault("_default");
+        o_collection.description("Name of the collection");
     }
 
     DURABILITY_GETTER()
@@ -421,6 +424,8 @@ class ArithmeticHandler : public Handler
     cliopts::ULongLongOption o_delta;
     cliopts::UIntOption o_expiry;
     cliopts::StringOption o_durability;
+    cliopts::StringOption o_scope;
+    cliopts::StringOption o_collection;
     void run() override;
     virtual bool shouldInvert() const = 0;
     void addOptions() override
@@ -430,6 +435,8 @@ class ArithmeticHandler : public Handler
         parser.addOption(o_delta);
         parser.addOption(o_expiry);
         parser.addOption(o_durability);
+        parser.addOption(o_scope);
+        parser.addOption(o_collection);
     }
 };
 

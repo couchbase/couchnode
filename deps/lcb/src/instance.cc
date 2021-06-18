@@ -23,8 +23,13 @@
 #include "rnd.h"
 #include "http/http.h"
 #include "bucketconfig/clconfig.h"
+#include "metrics/caching_meter.hh"
+#ifdef LCB_USE_HDR_HISTOGRAM
+#include "metrics/logging_meter.hh"
+#endif
 #include <lcbio/iotable.h>
 #include <lcbio/ssl.h>
+#include "defer.h"
 
 #define LOGARGS(obj, lvl) (obj)->settings, "instance", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -82,6 +87,18 @@ LIBCOUCHBASE_API lcb_STATUS lcb_createopts_authenticator(lcb_CREATEOPTS *options
 LIBCOUCHBASE_API lcb_STATUS lcb_createopts_io(lcb_CREATEOPTS *options, struct lcb_io_opt_st *io)
 {
     options->io = io;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_tracer(lcb_CREATEOPTS *options, struct lcbtrace_TRACER *tracer)
+{
+    options->tracer = tracer;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_createopts_meter(lcb_CREATEOPTS *options, const lcbmetrics_METER *meter)
+{
+    options->meter = meter;
     return LCB_SUCCESS;
 }
 
@@ -454,6 +471,7 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
         goto GT_DONE;
     }
     obj->crypto = new std::map<std::string, lcbcrypto_PROVIDER *>();
+    obj->deferred_operations = new std::list<std::function<void(lcb_STATUS)>>();
     if (!(settings = lcb_settings_new())) {
         err = LCB_ERR_NO_MEMORY;
         goto GT_DONE;
@@ -558,7 +576,18 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
         goto GT_DONE;
     }
     if (settings->use_tracing) {
-        settings->tracer = lcbtrace_new(obj, LCBTRACE_F_THRESHOLD);
+        if (options && options->tracer) {
+            settings->tracer = options->tracer;
+        } else {
+            settings->tracer = lcbtrace_new(obj, LCBTRACE_F_THRESHOLD);
+        }
+    }
+    if (options && options->meter) {
+        settings->meter = (new lcb::metrics::CachingMeter(options->meter))->wrap();
+#ifdef LCB_USE_HDR_HISTOGRAM
+    } else {
+        settings->meter = (new lcb::metrics::LoggingMeter(obj))->wrap();
+#endif
     }
 
     obj->last_error = err;
@@ -616,15 +645,12 @@ void lcb_destroy(lcb_INSTANCE *instance)
     lcb_ASPEND_SETTYPE::iterator it;
     lcb_ASPEND_SETTYPE *pendq;
 
-    if (instance->cur_configinfo) {
-        instance->cur_configinfo->decref();
-        instance->cur_configinfo = nullptr;
-    }
-    instance->cmdq.config = nullptr;
     DESTROY(delete, bs_state)
     DESTROY(delete, ht_nodes)
     DESTROY(delete, mc_nodes)
-    DESTROY(delete, collcache)
+
+    lcb::cancel_deferred_operations(instance);
+    delete instance->deferred_operations;
 
     if ((pendq = po->items[LCB_PENDTYPE_DURABILITY])) {
         std::vector<void *> dsets(pendq->begin(), pendq->end());
@@ -659,10 +685,18 @@ void lcb_destroy(lcb_INSTANCE *instance)
             auto *server = static_cast<lcb::Server *>(instance->cmdq.pipelines[ii]);
             if (server) {
                 server->instance = nullptr;
+                server->parent = nullptr;
             }
         }
     }
     mcreq_queue_cleanup(&instance->cmdq);
+    DESTROY(delete, collcache)
+    if (instance->cur_configinfo) {
+        instance->cur_configinfo->decref();
+        instance->cur_configinfo = nullptr;
+    }
+    instance->cmdq.config = nullptr;
+    instance->cmdq.cqdata = nullptr;
     lcb_aspend_cleanup(po);
 
     if (instance->settings && instance->settings->tracer) {
@@ -947,6 +981,12 @@ LCB_INTERNAL_API lcb_STATUS lcb_is_collection_valid(lcb_INSTANCE *instance, cons
         return LCB_SUCCESS;
     }
     return LCB_ERR_INVALID_ARGUMENT;
+}
+
+LCB_INTERNAL_API lcb_STATUS lcb_is_collection_valid(lcb_INSTANCE *instance, const std::string &scope,
+                                                    const std::string &collection)
+{
+    return lcb_is_collection_valid(instance, scope.c_str(), scope.size(), collection.c_str(), collection.size());
 }
 
 LIBCOUCHBASE_API

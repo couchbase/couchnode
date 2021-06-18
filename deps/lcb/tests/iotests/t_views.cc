@@ -27,8 +27,8 @@ namespace
 class ViewsUnitTest : public MockUnitTest
 {
   protected:
-    void SetUp() {}
-    void TearDown() {}
+    void SetUp() override {}
+    void TearDown() override {}
     void connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, bool first = true);
 };
 
@@ -38,7 +38,7 @@ using std::vector;
 extern "C" {
 static void bktCreateCb(lcb_INSTANCE *, int, const lcb_RESPHTTP *resp)
 {
-    ASSERT_EQ(LCB_SUCCESS, lcb_resphttp_status(resp));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_resphttp_status(resp));
     uint16_t status;
     lcb_resphttp_http_status(resp, &status);
     ASSERT_TRUE(status > 199 && status < 300);
@@ -49,8 +49,8 @@ static const char *content_type = "application/json";
 
 void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, bool first)
 {
-    lcb_CREATEOPTS *crparams = NULL;
-    MockEnvironment::getInstance()->makeConnectParams(crparams, NULL, LCB_TYPE_CLUSTER);
+    lcb_CREATEOPTS *crparams = nullptr;
+    MockEnvironment::getInstance()->makeConnectParams(crparams, nullptr, LCB_TYPE_CLUSTER);
 
     std::string bucket("beer-sample");
     std::string username("beer-sample");
@@ -58,7 +58,7 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
     if (!CLUSTER_VERSION_IS_HIGHER_THAN(MockEnvironment::VERSION_50)) {
         // We could do CCCP if we really cared.. but it's simpler and makes
         // the logs cleaner.
-        lcb_createopts_credentials(crparams, username.c_str(), username.size(), NULL, 0);
+        lcb_createopts_credentials(crparams, username.c_str(), username.size(), nullptr, 0);
     }
 
     // See if we can connect:
@@ -68,15 +68,15 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
     if (rv == LCB_SUCCESS) {
         return;
     } else if (!first) {
-        ASSERT_EQ(LCB_SUCCESS, rv);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, rv);
     }
 
     ASSERT_TRUE(rv == LCB_ERR_BUCKET_NOT_FOUND || rv == LCB_ERR_AUTHENTICATION_FAILURE);
     hw.destroy(); // Should really be called clear(), since that's what it does
 
     // Use the management API to load the beer-sample database
-    lcb_CREATEOPTS *crparamsAdmin = NULL;
-    MockEnvironment::getInstance()->makeConnectParams(crparamsAdmin, NULL, LCB_TYPE_CLUSTER);
+    lcb_CREATEOPTS *crparamsAdmin = nullptr;
+    MockEnvironment::getInstance()->makeConnectParams(crparamsAdmin, nullptr, LCB_TYPE_CLUSTER);
     std::string connstr(crparamsAdmin->connstr, crparamsAdmin->connstr_len);
     connstr += "?allow_static_config=true";
     username = "Administrator";
@@ -86,7 +86,7 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
 
     rv = tryCreateConnection(hw, instance, crparamsAdmin);
     lcb_createopts_destroy(crparamsAdmin);
-    ASSERT_EQ(LCB_SUCCESS, rv);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rv);
 
     const char *path = "/sampleBuckets/install";
     const char *body = "[\"beer-sample\"]";
@@ -100,9 +100,9 @@ void ViewsUnitTest::connectBeerSample(HandleWrap &hw, lcb_INSTANCE **instance, b
 
     lcb_install_callback(*instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)bktCreateCb);
     lcb_sched_enter(*instance);
-    rv = lcb_http(*instance, NULL, htcmd);
+    rv = lcb_http(*instance, nullptr, htcmd);
     lcb_cmdhttp_destroy(htcmd);
-    ASSERT_EQ(LCB_SUCCESS, rv);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rv);
     lcb_sched_leave(*instance);
     lcb_wait(*instance, LCB_WAIT_DEFAULT);
     hw.destroy();
@@ -133,11 +133,11 @@ struct ViewRow {
         size_t n;
 
         lcb_respview_key(resp, &p, &n);
-        if (p != NULL) {
+        if (p != nullptr) {
             key.assign(p, n);
         }
         lcb_respview_row(resp, &p, &n);
-        if (p != NULL) {
+        if (p != nullptr) {
             value.assign(p, n);
         }
 
@@ -145,9 +145,9 @@ struct ViewRow {
         lcb_respview_document(resp, &rg);
 
         lcb_respview_doc_id(resp, &p, &n);
-        if (p != NULL) {
+        if (p != nullptr) {
             docid.assign(p, n);
-            if (rg != NULL) {
+            if (rg != nullptr) {
                 docContents.rc = lcb_respget_status(rg);
                 lcb_respget_cas(rg, &docContents.cas);
                 lcb_respget_key(rg, &docContents.key, &docContents.nkey);
@@ -159,17 +159,17 @@ struct ViewRow {
                 memset(&docContents, 0, sizeof docContents);
             }
         } else {
-            EXPECT_TRUE(rg == NULL);
+            EXPECT_TRUE(rg == nullptr);
             memset(&docContents, 0, sizeof docContents);
         }
     }
 };
 
 struct ViewInfo {
-    vector< ViewRow > rows;
-    size_t totalRows;
+    vector<ViewRow> rows;
+    size_t totalRows{};
     lcb_STATUS err;
-    uint16_t http_status;
+    uint16_t http_status{};
 
     void addRow(const lcb_RESPVIEW *resp)
     {
@@ -179,18 +179,18 @@ struct ViewInfo {
         }
 
         if (!lcb_respview_is_final(resp)) {
-            rows.push_back(ViewRow(resp));
+            rows.emplace_back(resp);
         } else {
             const char *row;
             size_t nrow;
             lcb_respview_row(resp, &row, &nrow);
-            if (row != NULL) {
+            if (row != nullptr) {
                 // See if we have a 'value' for the final response
                 string vBuf(row, nrow);
                 cJSON *cj = cJSON_Parse(row);
-                ASSERT_FALSE(cj == NULL);
+                ASSERT_FALSE(cj == nullptr);
                 cJSON *jTotal = cJSON_GetObjectItem(cj, "total_rows");
-                if (jTotal != NULL) {
+                if (jTotal != nullptr) {
                     totalRows = jTotal->valueint;
                 } else {
                     // Reduce responses might skip total_rows
@@ -198,7 +198,7 @@ struct ViewInfo {
                 }
                 cJSON_Delete(cj);
             }
-            const lcb_RESPHTTP *http = NULL;
+            const lcb_RESPHTTP *http = nullptr;
             lcb_respview_http_response(resp, &http);
             if (http) {
                 lcb_resphttp_http_status(http, &http_status);
@@ -208,8 +208,8 @@ struct ViewInfo {
 
     void clear()
     {
-        for (size_t ii = 0; ii < rows.size(); ii++) {
-            rows[ii].clear();
+        for (auto &row : rows) {
+            row.clear();
         }
         rows.clear();
         totalRows = 0;
@@ -259,10 +259,10 @@ TEST_F(ViewsUnitTest, testSimpleView)
 
     lcb_STATUS rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_SUCCESS, vi.err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, vi.err);
     ASSERT_GT(vi.rows.size(), 0U);
     ASSERT_EQ(7303, vi.totalRows);
     // Check the row parses correctly:
@@ -282,9 +282,9 @@ TEST_F(ViewsUnitTest, testSimpleView)
     lcb_cmdview_callback(vq, viewCallback);
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_SUCCESS, vi.err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, vi.err);
     ASSERT_EQ(10, vi.rows.size());
     ASSERT_EQ(7303, vi.totalRows);
     vi.clear();
@@ -298,7 +298,7 @@ TEST_F(ViewsUnitTest, testSimpleView)
     lcb_cmdview_callback(vq, viewCallback);
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(0, vi.rows.size());
     ASSERT_EQ(7303, vi.totalRows);
@@ -322,18 +322,17 @@ TEST_F(ViewsUnitTest, testIncludeDocs)
     lcb_cmdview_include_docs(vq, true);
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     // Again, ensure everything is OK
     ASSERT_EQ(7303, vi.totalRows);
     ASSERT_EQ(7303, vi.rows.size());
 
-    for (size_t ii = 0; ii < vi.rows.size(); ii++) {
-        const ViewRow &row = vi.rows[ii];
-        ASSERT_FALSE(row.docContents.key == NULL);
+    for (auto &row : vi.rows) {
+        ASSERT_FALSE(row.docContents.key == nullptr);
         ASSERT_EQ(row.docid.size(), row.docContents.nkey);
-        ASSERT_EQ(LCB_SUCCESS, row.docContents.rc);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, row.docContents.rc);
         ASSERT_NE(0, row.docContents.cas);
     }
 }
@@ -355,7 +354,7 @@ TEST_F(ViewsUnitTest, testReduce)
     lcb_cmdview_callback(vq, viewCallback);
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, vi.rows.size());
     ASSERT_STREQ("1411", vi.rows[0].value.c_str());
@@ -369,7 +368,7 @@ TEST_F(ViewsUnitTest, testReduce)
     lcb_cmdview_include_docs(vq, true);
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, vi.rows.size());
 
@@ -384,7 +383,7 @@ TEST_F(ViewsUnitTest, testReduce)
     lcb_cmdview_include_docs(vq, true);
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(10, vi.rows.size());
     ASSERT_EQ(1411, vi.totalRows);
@@ -405,7 +404,7 @@ TEST_F(ViewsUnitTest, testReduce)
     lcb_cmdview_include_docs(vq, true);
     rc = lcb_view(instance, &vi, vq);
     lcb_cmdview_destroy(vq);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     firstRow = &vi.rows[0];
@@ -432,9 +431,9 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     lcb_cmdview_callback(cmd, viewCallback);
     rc = lcb_view(instance, &vi, cmd);
     lcb_cmdview_destroy(cmd);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_ERR_HTTP, vi.err);
+    ASSERT_STATUS_EQ(LCB_ERR_VIEW_NOT_FOUND, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
     vi.clear();
@@ -446,9 +445,9 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     lcb_cmdview_callback(cmd, viewCallback);
     rc = lcb_view(instance, &vi, cmd);
     lcb_cmdview_destroy(cmd);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_ERR_HTTP, vi.err);
+    ASSERT_STATUS_EQ(LCB_ERR_VIEW_NOT_FOUND, vi.err);
     ASSERT_EQ(404, vi.http_status);
 
     vi.clear();
@@ -462,9 +461,9 @@ TEST_F(ViewsUnitTest, testEngineErrors)
     lcb_cmdview_callback(cmd, viewCallback);
     rc = lcb_view(instance, &vi, cmd);
     lcb_cmdview_destroy(cmd);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_ERR_HTTP, vi.err);
+    ASSERT_STATUS_EQ(LCB_ERR_HTTP, vi.err);
     ASSERT_EQ(400, vi.http_status);
 }
 
@@ -476,19 +475,19 @@ TEST_F(ViewsUnitTest, testOptionValidation)
 
     lcb_CMDVIEW *cmd;
     lcb_cmdview_create(&cmd);
-    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, NULL, cmd));
+    ASSERT_STATUS_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, nullptr, cmd));
     lcb_cmdview_destroy(cmd);
 
     lcb_cmdview_create(&cmd);
     lcb_cmdview_callback(cmd, viewCallback);
-    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, NULL, cmd));
+    ASSERT_STATUS_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, nullptr, cmd));
     lcb_cmdview_destroy(cmd);
 
     const char *view = "view";
     lcb_cmdview_create(&cmd);
     lcb_cmdview_callback(cmd, viewCallback);
     lcb_cmdview_view_name(cmd, view, strlen(view));
-    ASSERT_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, NULL, cmd));
+    ASSERT_STATUS_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_view(instance, nullptr, cmd));
     lcb_cmdview_destroy(cmd);
 
     const char *ddoc = "design";
@@ -499,7 +498,7 @@ TEST_F(ViewsUnitTest, testOptionValidation)
     // Expect it to fail with flags
     lcb_cmdview_include_docs(cmd, true);
     lcb_cmdview_no_row_parse(cmd, true);
-    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, lcb_view(instance, NULL, cmd));
+    ASSERT_STATUS_EQ(LCB_ERR_OPTIONS_CONFLICT, lcb_view(instance, nullptr, cmd));
     lcb_cmdview_destroy(cmd);
 }
 
@@ -512,10 +511,11 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     connectBeerSample(hw, &instance);
 
     string key("backslash\\docid");
-    string doc("{\"type\":\"brewery\", \"name\":\"Backslash IPA\"}");
+    string doc(R"({"type":"brewery", "name":"Backslash IPA"})");
     storeKey(instance, key, doc);
 
-    const char *ddoc = "beer", *view = "brewery_beers", *optstr = "stale=false&key=[\"backslash\\\\docid\"]";
+    const char *ddoc = "beer", *view = "brewery_beers";
+    const char *optstr = R"(stale=false&key=["backslash\\docid"])";
 
     ViewInfo vi;
     lcb_CMDVIEW *cmd;
@@ -526,16 +526,16 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     lcb_cmdview_view_name(cmd, view, strlen(view));
     lcb_cmdview_option_string(cmd, optstr, strlen(optstr));
     rc = lcb_view(instance, &vi, cmd);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
-    ASSERT_EQ(LCB_SUCCESS, vi.err);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, vi.err);
     ASSERT_EQ(1, vi.rows.size());
     ASSERT_EQ(key, vi.rows[0].docid);
 
     vi.clear();
     lcb_cmdview_include_docs(cmd, true);
     rc = lcb_view(instance, &vi, cmd);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(1, vi.rows.size());
     ASSERT_EQ(doc.size(), vi.rows[0].docContents.nvalue);
@@ -543,7 +543,7 @@ TEST_F(ViewsUnitTest, testBackslashDocid)
     removeKey(instance, key);
     vi.clear();
     rc = lcb_view(instance, &vi, cmd);
-    ASSERT_EQ(LCB_SUCCESS, rc);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(0, vi.rows.size());
     lcb_cmdview_destroy(cmd);

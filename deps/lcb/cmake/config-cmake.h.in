@@ -1,12 +1,10 @@
-#ifdef _WIN32
-#define CONFIG_H
-#cmakedefine HAVE__FTIME64_S
-#define HAVE_QUERYPERFORMANCECOUNTER
-#include "config_static.h"
-#endif
-
 #ifndef CONFIG_H
 #define CONFIG_H
+
+#ifdef _WIN32
+#cmakedefine HAVE__FTIME64_S
+#define HAVE_QUERYPERFORMANCECOUNTER
+#else
 
 /* This file checks for platform-specific includes which may or may
  * not be available during build time. The config_static.h file includes
@@ -56,10 +54,11 @@
 #cmakedefine HAVE_LIBUV
 #endif
 
+#endif
+
 #cmakedefine LCB_USE_HDR_HISTOGRAM
 
 #include "config_static.h"
-#endif
 
 #define LCB_LIBDIR "${CMAKE_INSTALL_FULL_LIBDIR}/${LCB_PLUGINS_DIR}"
 
@@ -71,7 +70,10 @@
 #define LCB_C_FLAGS "${CMAKE_C_FLAGS}"
 #define LCB_BUILD_TIMESTAMP "${LCB_BUILD_TIMESTAMP}"
 
-#define LCB_CLIENT_ID "libcouchbase/" LCB_VERSION_STRING " (" LCB_SYSTEM "; " LCB_SYSTEM_PROCESSOR "; " LCB_C_COMPILER ")"
+#define LCB_CLIENT_ID                                                                                                  \
+    "libcouchbase/" LCB_VERSION_STRING " (" LCB_SYSTEM "; " LCB_SYSTEM_PROCESSOR "; " LCB_C_COMPILER ")"
+
+#cmakedefine CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}"
 
 #cmakedefine HAVE_PKCS5_PBKDF2_HMAC
 #cmakedefine LCB_DUMP_PACKETS
@@ -79,3 +81,4 @@
 #cmakedefine LCB_TLS_LOG_KEYS
 
 #cmakedefine LCB_USE_ASAN
+#endif

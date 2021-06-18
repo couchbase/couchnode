@@ -19,18 +19,6 @@
 #define LIBCOUCHBASE_MUTATION_TOKEN_HH
 
 /**
- * Retrieves the mutation token from the response structure
- * @param cbtype the type of callback invoked
- * @param rb the pointer to the response
- * @return The embedded mutation token, or NULL if the response does not have a
- *         mutation token. This may be either because the command does not support
- *         mutation tokens, or because they have been disabled at the connection
- *         level.
- */
-LIBCOUCHBASE_API
-const lcb_MUTATION_TOKEN *lcb_resp_get_mutation_token(int cbtype, const lcb_RESPBASE *rb);
-
-/**
  * @volatile
  *
  * Retrieves the last mutation token for a given key.

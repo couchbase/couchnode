@@ -18,7 +18,7 @@
 #include "iotests.h"
 #include <map>
 #include <libcouchbase/utils.h>
-#include "internalstructs.h"
+#include "internal.h"
 
 class ServeropsUnitTest : public MockUnitTest
 {
@@ -27,20 +27,24 @@ class ServeropsUnitTest : public MockUnitTest
 extern "C" {
 static void testServerStatsCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTATS *resp)
 {
-    int *counter = (int *)resp->cookie;
-    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
+    int *counter;
+    lcb_respstats_cookie(resp, (void **)&counter);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstats_status(resp));
     ++(*counter);
 }
 
-static void statKey_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *resp_base)
+static void statKey_callback(lcb_INSTANCE *, int, const lcb_RESPSTATS *resp)
 {
-    const lcb_RESPSTATS *resp = (const lcb_RESPSTATS *)resp_base;
-    if (!resp->server) {
+    const char *server;
+    size_t server_len;
+    lcb_respstats_server(resp, &server, &server_len);
+    if (server == nullptr) {
         return;
     }
-    EXPECT_EQ(LCB_SUCCESS, resp->ctx.rc);
-    std::map<std::string, bool> &mm = *(std::map<std::string, bool> *)resp->cookie;
-    mm[resp->server] = true;
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstats_status(resp));
+    std::map<std::string, bool> *mm;
+    lcb_respstats_cookie(resp, (void **)&mm);
+    (*mm)[std::string(server, server_len)] = true;
 }
 }
 
@@ -60,8 +64,10 @@ TEST_F(ServeropsUnitTest, testServerStats)
 
     lcb_install_callback(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)testServerStatsCallback);
     int numcallbacks = 0;
-    lcb_CMDSTATS cmd = {0};
-    EXPECT_EQ(LCB_SUCCESS, lcb_stats3(instance, &numcallbacks, &cmd));
+    lcb_CMDSTATS *cmd;
+    lcb_cmdstats_create(&cmd);
+    EXPECT_EQ(LCB_SUCCESS, lcb_stats(instance, &numcallbacks, cmd));
+    lcb_cmdstats_destroy(cmd);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_LT(1, numcallbacks);
 }
@@ -73,16 +79,17 @@ TEST_F(ServeropsUnitTest, testKeyStats)
     HandleWrap hw;
     createConnection(hw, &instance);
     lcb_install_callback(instance, LCB_CALLBACK_STATS, (lcb_RESPCALLBACK)statKey_callback);
-    lcb_CMDSTATS cmd = {0};
+    lcb_CMDSTATS *cmd;
+    lcb_cmdstats_create(&cmd);
 
     std::string key = "keystats_test";
     storeKey(instance, key, "blah blah");
-    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-    cmd.cmdflags = LCB_CMDSTATS_F_KV;
+    lcb_cmdstats_key(cmd, key.c_str(), key.size());
+    lcb_cmdstats_is_keystats(cmd, true);
     std::map<std::string, bool> mm;
 
     lcb_sched_enter(instance);
-    lcb_STATUS err = lcb_stats3(instance, &mm, &cmd);
+    lcb_STATUS err = lcb_stats(instance, &mm, cmd);
     ASSERT_EQ(LCB_SUCCESS, err);
     lcb_sched_leave(instance);
 
@@ -91,7 +98,9 @@ TEST_F(ServeropsUnitTest, testKeyStats)
 
     // Ensure that a key with an embedded space fails
     key = "key with space";
-    LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-    err = lcb_stats3(instance, nullptr, &cmd);
+    lcb_cmdstats_key(cmd, key.c_str(), key.size());
+    lcb_cmdstats_is_keystats(cmd, true);
+    err = lcb_stats(instance, nullptr, cmd);
     ASSERT_NE(LCB_SUCCESS, err);
+    lcb_cmdstats_destroy(cmd);
 }

@@ -256,7 +256,7 @@ class ErrorMap
         UPDATED
     };
 
-    ErrorMap();
+    ErrorMap() = default;
     ParseStatus parse(const char *s, size_t n, std::string &errmsg);
     ParseStatus parse(const char *s, size_t n)
     {
@@ -282,8 +282,8 @@ class ErrorMap
     ErrorMap(const ErrorMap &);
     typedef std::map< uint16_t, Error > MapType;
     MapType errors;
-    uint32_t revision;
-    uint32_t version;
+    uint32_t revision{0};
+    uint32_t version{0};
 };
 
 } // namespace errmap

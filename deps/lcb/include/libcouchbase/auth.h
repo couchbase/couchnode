@@ -242,9 +242,149 @@ typedef const char *(*lcb_AUTHCALLBACK)(void *cookie, const char *host, const ch
  * @param usercb the callback, which should return user name
  * @param passcb the callback, which should return user name
  */
-LIBCOUCHBASE_API
-lcb_STATUS lcbauth_set_callbacks(lcb_AUTHENTICATOR *auth, void *cookie, lcb_AUTHCALLBACK usercb,
-                                 lcb_AUTHCALLBACK passcb);
+LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcbauth_set_callbacks(lcb_AUTHENTICATOR *auth, void *cookie,
+                                                                  lcb_AUTHCALLBACK usercb, lcb_AUTHCALLBACK passcb),
+                "Use lcbauth_set_callback");
+
+typedef struct lcbauth_CREDENTIALS_ lcbauth_CREDENTIALS;
+
+/**
+ * @private
+ * Sets username. The memory will be copied into the library.
+ *
+ * @param credentials
+ * @param username
+ * @param username_len
+ * @return LCB_SUCCESS if there is no errors
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_credentials_username(lcbauth_CREDENTIALS *credentials, const char *username,
+                                                         size_t username_len);
+/**
+ * @private
+ * Sets password. The memory will be copied into the library.
+ *
+ * @param credentials
+ * @param username
+ * @param username_len
+ * @return LCB_SUCCESS if there is no errors
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_credentials_password(lcbauth_CREDENTIALS *credentials, const char *password,
+                                                         size_t password_len);
+
+/**
+ * Result could be used to notify the library that credentials cannot be resolved (e.g. 3rd party provider is not
+ * available)
+ */
+typedef enum {
+    LCBAUTH_RESULT_OK = 0,
+    LCBAUTH_RESULT_NOT_AVAILABLE,
+} lcbauth_RESULT;
+
+/**
+ * @private
+ *
+ * Sets result of the operation. Default is LCBAUTH_RESULT_OK.
+ * @param credentials
+ * @return
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_credentials_result(lcbauth_CREDENTIALS *credentials, lcbauth_RESULT result);
+
+typedef enum {
+    LCBAUTH_SERVICE_UNSPECIFIED = 0,
+    LCBAUTH_SERVICE_KEY_VALUE,
+    LCBAUTH_SERVICE_QUERY,
+    LCBAUTH_SERVICE_SEARCH,
+    LCBAUTH_SERVICE_ANALYTICS,
+    LCBAUTH_SERVICE_MANAGEMENT,
+    LCBAUTH_SERVICE_EVENTING,
+    LCBAUTH_SERVICE_VIEWS,
+} lcbauth_SERVICE;
+
+/**
+ * @private
+ *
+ * Returns type of the service, that requested authentication.
+ * @param credentials
+ * @return
+ */
+LIBCOUCHBASE_API lcbauth_SERVICE lcbauth_credentials_service(const lcbauth_CREDENTIALS *credentials);
+
+/**
+ * Reason, why the library requests credentials.
+ */
+typedef enum {
+    LCBAUTH_REASON_NEW_OPERATION = 0,
+    LCBAUTH_REASON_AUTHENTICATION_FAILURE,
+} lcbauth_REASON;
+
+/**
+ * @private
+ *
+ * Returns reason of credentials request.
+ * @param credentials
+ * @return
+ */
+LIBCOUCHBASE_API lcbauth_REASON lcbauth_credentials_reason(const lcbauth_CREDENTIALS *credentials);
+
+/**
+ * @private
+ *
+ * Retrieves hostname associated with the credentials request.
+ *
+ * @param credentials
+ * @param hostname output pointer where pointer to the hostname will be written
+ * @param hostname_len output pointer where size of the hostname will be written
+ * @return LCB_SUCCESS if there is no errors
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_credentials_hostname(const lcbauth_CREDENTIALS *credentials, const char **hostname,
+                                                         size_t *hostname_len);
+
+/**
+ * @private
+ *
+ * Retrieves port associated with the credentials request.
+ *
+ * @param credentials
+ * @param port output pointer where pointer to the port will be written
+ * @param port_len output pointer where size of the port will be written
+ * @return LCB_SUCCESS if there is no errors
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_credentials_port(const lcbauth_CREDENTIALS *credentials, const char **port,
+                                                     size_t *port_len);
+
+/**
+ * @private
+ *
+ * Retrieves bucket associated with the credentials request.
+ *
+ * @param credentials
+ * @param bucket output pointer where pointer to the bucket will be written
+ * @param bucket_len output pointer where size of the bucket will be written
+ * @return LCB_SUCCESS if there is no errors
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_credentials_bucket(const lcbauth_CREDENTIALS *credentials, const char **bucket,
+                                                       size_t *bucket_len);
+/**
+ * @private
+ *
+ * Retrieves the cookie associated with the authentication callback.
+ *
+ * @param credentials
+ * @param cookie output pointer where pointer to the cookie will be written
+ * @return LCB_SUCCESS if there is no errors
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_credentials_cookie(const lcbauth_CREDENTIALS *credentials, void **cookie);
+
+/**
+ * @private
+ *
+ * @param auth authenticator instance
+ * @param cookie opaque pointer that accessible when the callback is invoked
+ * @param callback pointer to callback function
+ * @return LCB_SUCCESS if there is no errors
+ */
+LIBCOUCHBASE_API lcb_STATUS lcbauth_set_callback(lcb_AUTHENTICATOR *auth, void *cookie,
+                                                 void (*callback)(lcbauth_CREDENTIALS *));
 
 typedef enum {
     /**

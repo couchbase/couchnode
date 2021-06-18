@@ -18,12 +18,16 @@
 #include "iotests.h"
 #include <map>
 #include <climits>
+#include <cstring>
 #include <algorithm>
 #include "internal.h" /* vbucket_* things from lcb_INSTANCE * */
 #include "auth-priv.h"
 #include <lcbio/iotable.h>
 #include "bucketconfig/bc_http.h"
 #include "check_config.h"
+
+#include "capi/cmd_observe.hh"
+#include "capi/cmd_endure.hh"
 
 #define LOGARGS(instance, lvl) instance->settings, "tests-MUT", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -210,7 +214,7 @@ TEST_F(MockUnitTest, testTimingsEx)
     LcbTimings timings{};
     timings.load(instance);
 
-    // timings.dump();
+    timings.dump();
 
     // Measuring in < us
     ASSERT_EQ(2, timings.countAt(50, LCB_TIMEUNIT_NSEC));
@@ -228,6 +232,76 @@ TEST_F(MockUnitTest, testTimingsEx)
     ASSERT_EQ(1, timings.countAt(8, LCB_TIMEUNIT_SEC));
     ASSERT_EQ(1, timings.countAt(93, LCB_TIMEUNIT_SEC));
 #endif
+}
+
+extern "C" {
+static void record_callback(const lcbmetrics_VALUERECORDER *recorder, uint64_t value)
+{
+    return;
+}
+
+static const lcbmetrics_VALUERECORDER *new_recorder(const lcbmetrics_METER *meter, const char *name,
+                                                    const lcbmetrics_TAG *tags, size_t ntags)
+{
+    bool has_service, has_operation = false;
+    for (int i = 0; i < ntags; i++) {
+        if (strcmp("db.operation", tags[i].key) == 0) {
+            has_operation = true;
+            EXPECT_STREQ(tags[i].value, "upsert");
+        } else if (strcmp("db.couchbase.service", tags[i].key) == 0) {
+            has_service = true;
+            EXPECT_STREQ(tags[i].value, "kv");
+        } else {
+            ADD_FAILURE() << "unknown key " << tags[i].key;
+        }
+    }
+    EXPECT_TRUE(has_service && has_operation);
+
+    lcbmetrics_VALUERECORDER *recorder;
+    lcbmetrics_valuerecorder_create(&recorder, nullptr);
+    lcbmetrics_valuerecorder_record_value_callback(recorder, record_callback);
+    return recorder;
+}
+
+static void store_cb(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
+{
+    size_t *counter;
+    lcb_respstore_cookie(resp, (void **)&counter);
+    ++(*counter);
+    ASSERT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
+}
+} // extern "C"
+
+TEST_F(MockUnitTest, testOpMetrics)
+{
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    lcb_CMDSTORE *scmd;
+    size_t counter = 0;
+    lcbmetrics_METER *meter;
+
+    lcbmetrics_meter_create(&meter, nullptr);
+    lcbmetrics_meter_value_recorder_callback(meter, new_recorder);
+
+    lcb_CREATEOPTS *crparams = nullptr;
+    MockEnvironment::getInstance()->makeConnectParams(crparams, nullptr, LCB_TYPE_BUCKET);
+    lcb_createopts_meter(crparams, meter);
+
+    tryCreateConnection(hw, &instance, crparams);
+    lcb_createopts_destroy(crparams);
+
+    int enable = 1;
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_ENABLE_OP_METRICS, &enable);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_cb);
+
+    lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
+    lcb_cmdstore_key(scmd, "key", strlen("key"));
+    lcb_cmdstore_value(scmd, "value", strlen("value"));
+    ASSERT_EQ(LCB_SUCCESS, lcb_store(instance, &counter, scmd));
+    lcb_cmdstore_destroy(scmd);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    ASSERT_EQ(1, counter);
+    lcbmetrics_meter_destroy(meter);
 }
 
 struct async_ctx {
@@ -258,10 +332,8 @@ TEST_F(MockUnitTest, testAsyncDestroy)
     ctx.table = iot;
     lcb_set_destroy_callback(instance, dtor_callback);
     lcb_destroy_async(instance, &ctx);
-    lcb_settings_ref(settings);
     lcbio_table_ref(iot);
     lcb_run_loop(instance);
-    lcb_settings_unref(settings);
     lcbio_table_unref(iot);
     ASSERT_EQ(1, ctx.count);
 }
@@ -440,10 +512,6 @@ TEST_F(MockUnitTest, testEmptyKeys)
     createConnection(hw, &instance);
 
     union {
-        lcb_CMDENDURE endure;
-        lcb_CMDOBSERVE observe;
-        lcb_CMDBASE base;
-        lcb_CMDSTATS stats;
     } u{};
     memset(&u, 0, sizeof u);
 
@@ -481,7 +549,8 @@ TEST_F(MockUnitTest, testEmptyKeys)
 
     // Observe and such
     lcb_MULTICMD_CTX *ctx = lcb_observe3_ctxnew(instance);
-    ASSERT_EQ(LCB_ERR_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE *)&u.observe));
+    lcb_CMDOBSERVE observe{};
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, ctx->add_observe(ctx, &observe));
     ctx->fail(ctx);
 
     lcb_durability_opts_t dopts;
@@ -490,10 +559,14 @@ TEST_F(MockUnitTest, testEmptyKeys)
 
     ctx = lcb_endure3_ctxnew(instance, &dopts, nullptr);
     ASSERT_TRUE(ctx != nullptr);
-    ASSERT_EQ(LCB_ERR_EMPTY_KEY, ctx->addcmd(ctx, (lcb_CMDBASE *)&u.endure));
+    lcb_CMDENDURE endure{};
+    ASSERT_EQ(LCB_ERR_EMPTY_KEY, ctx->add_endure(ctx, &endure));
     ctx->fail(ctx);
 
-    ASSERT_EQ(LCB_SUCCESS, lcb_stats3(instance, nullptr, &u.stats));
+    lcb_CMDSTATS *stats;
+    lcb_cmdstats_create(&stats);
+    ASSERT_EQ(LCB_SUCCESS, lcb_stats(instance, nullptr, stats));
+    lcb_cmdstats_destroy(stats);
     lcb_sched_fail(instance);
 }
 
@@ -669,30 +742,16 @@ TEST_F(MockUnitTest, testConflictingOptions)
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
 
-    lcb_sched_enter(instance);
     const char *key = "key";
     size_t nkey = 3;
     const char *value = "value";
     size_t nvalue = 5;
+    lcb_STATUS err;
 
     lcb_CMDSTORE *scmd;
     lcb_cmdstore_create(&scmd, LCB_STORE_APPEND);
-    lcb_cmdstore_expiry(scmd, 1);
-    lcb_cmdstore_key(scmd, key, nkey);
-    lcb_cmdstore_value(scmd, value, nvalue);
-
-    lcb_STATUS err;
-    err = lcb_store(instance, nullptr, scmd);
-    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
-    lcb_cmdstore_expiry(scmd, 0);
-    lcb_cmdstore_flags(scmd, 99);
-    err = lcb_store(instance, nullptr, scmd);
-    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
-
-    lcb_cmdstore_expiry(scmd, 0);
-    lcb_cmdstore_flags(scmd, 0);
-    err = lcb_store(instance, nullptr, scmd);
-    ASSERT_EQ(LCB_SUCCESS, err);
+    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, lcb_cmdstore_expiry(scmd, 1));
+    ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, lcb_cmdstore_flags(scmd, 99));
     lcb_cmdstore_destroy(scmd);
 
     lcb_cmdstore_create(&scmd, LCB_STORE_INSERT);
@@ -709,15 +768,18 @@ TEST_F(MockUnitTest, testConflictingOptions)
 
     lcb_cmdcounter_key(ccmd, key, nkey);
 
-    lcb_cmdcounter_expiry(ccmd, 10);
-    err = lcb_counter(instance, nullptr, ccmd);
+    err = lcb_cmdcounter_expiry(ccmd, 10);
     ASSERT_EQ(LCB_ERR_OPTIONS_CONFLICT, err);
 
     lcb_cmdcounter_initial(ccmd, 0);
+    err = lcb_cmdcounter_expiry(ccmd, 10);
+    ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_counter(instance, nullptr, ccmd);
     ASSERT_EQ(LCB_SUCCESS, err);
 
     lcb_cmdcounter_destroy(ccmd);
+
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
 TEST_F(MockUnitTest, testDump)
@@ -758,11 +820,12 @@ TEST_F(MockUnitTest, testRefreshConfig)
 }
 
 extern "C" {
-static void tickOpCb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
+static void tickOpCb(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
 {
-    int *p = (int *)rb->cookie;
+    int *p;
+    lcb_respstore_cookie(resp, (void **)&p);
     *p -= 1;
-    EXPECT_EQ(LCB_SUCCESS, rb->ctx.rc);
+    EXPECT_EQ(LCB_SUCCESS, lcb_respstore_status(resp));
 }
 }
 
@@ -776,7 +839,7 @@ TEST_F(MockUnitTest, testTickLoop)
     const char *key = "tickKey";
     const char *value = "tickValue";
 
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, tickOpCb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)tickOpCb);
     lcb_CMDSTORE *cmd;
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(cmd, key, strlen(key));
@@ -847,10 +910,11 @@ TEST_F(MockUnitTest, testMultiCreds)
 }
 
 extern "C" {
-static void appendE2BIGcb(lcb_INSTANCE *, int, const lcb_RESPBASE *rb)
+static void appendE2BIGcb(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
 {
-    auto *e = (lcb_STATUS *)rb->cookie;
-    *e = rb->ctx.rc;
+    lcb_STATUS *e;
+    lcb_respstore_cookie(resp, (void **)&e);
+    *e = lcb_respstore_status(resp);
 }
 }
 
@@ -859,7 +923,7 @@ TEST_F(MockUnitTest, testAppendE2BIG)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, appendE2BIGcb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)appendE2BIGcb);
 
     lcb_STATUS err, res;
 

@@ -91,7 +91,7 @@ public:
     template <typename T>
     static bool parseUint(T *out, Local<Value> value)
     {
-        if (value.IsEmpty()) {
+        if (value.IsEmpty() || value->IsUndefined()) {
             return true;
         }
 
@@ -107,7 +107,7 @@ public:
     template <typename T>
     static bool parseInt(T *out, Local<Value> value)
     {
-        if (value.IsEmpty()) {
+        if (value.IsEmpty() || value->IsUndefined()) {
             return true;
         }
 

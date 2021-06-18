@@ -1212,7 +1212,7 @@ static int ExecDeathTestChildMain(void* child_arg) {
 static void StackLowerThanAddress(const void* ptr,
                                   bool* result) GTEST_NO_INLINE_;
 static void StackLowerThanAddress(const void* ptr, bool* result) {
-  int dummy;
+  int dummy = 0;
   *result = (&dummy < ptr);
 }
 

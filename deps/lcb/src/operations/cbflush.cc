@@ -18,6 +18,8 @@
 #include "internal.h"
 #include <http/http.h>
 
+#include "capi/cmd_http.hh"
+
 static void flush_cb(lcb_INSTANCE *instance, int, const lcb_RESPBASE *rb)
 {
     const lcb_RESPHTTP *resp = (const lcb_RESPHTTP *)rb;

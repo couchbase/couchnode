@@ -36,8 +36,8 @@ done
 exec java \
        -client \
        -jar "$COUCHBASEMOCK" \
-        --cccp \
-        --nodes=4 \
-        --host=localhost \
-        --port=0 \
-        "$@"
+       --cccp \
+       --nodes=4 \
+       --host=localhost \
+       --port=0 \
+       "$@"

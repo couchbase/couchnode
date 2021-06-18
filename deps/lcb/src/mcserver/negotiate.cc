@@ -112,6 +112,10 @@ class lcb::SessionRequestImpl : public SessionRequest
     void fail(lcb_STATUS error, const char *msg)
     {
         set_error(error, msg);
+        if (error == LCB_ERR_AUTHENTICATION_FAILURE) {
+            settings->auth->credentials_for(LCBAUTH_SERVICE_KEY_VALUE, LCBAUTH_REASON_AUTHENTICATION_FAILURE,
+                                            host_.host, host_.port, settings->bucket);
+        }
         fail();
     }
 
@@ -180,6 +184,7 @@ class lcb::SessionRequestImpl : public SessionRequest
     cbsasl_conn_t *sasl_client{};
     SessionInfo *info;
     lcb_settings *settings;
+    lcb_host_t host_{};
 };
 
 static void handle_read(lcbio_CTX *ioctx, unsigned)
@@ -211,7 +216,7 @@ static int sasl_get_password(cbsasl_conn_t *conn, void *context, int id, cbsasl_
     return SASL_OK;
 }
 
-SessionInfo::SessionInfo() : lcbio_PROTOCTX(), selected(false)
+SessionInfo::SessionInfo() : lcbio_PROTOCTX()
 {
     lcbio_PROTOCTX::id = LCBIO_PROTOCTX_SESSINFO;
     lcbio_PROTOCTX::dtor = (void (*)(lcbio_PROTOCTX *))cleanup_negotiated;
@@ -225,8 +230,11 @@ bool SessionRequestImpl::setup(const lcbio_NAMEINFO &nistrs, const lcb_host_t &h
     sasl_callbacks.password = sasl_get_password;
 
     // Get the credentials
-    username = auth.username_for(host.host, host.port, settings->bucket);
-    const std::string pass = auth.password_for(host.host, host.port, settings->bucket);
+    host_ = host;
+    auto creds = auth.credentials_for(LCBAUTH_SERVICE_KEY_VALUE, LCBAUTH_REASON_NEW_OPERATION, host_.host, host_.port,
+                                      settings->bucket);
+    username = creds.username();
+    const std::string &pass = creds.password();
 
     if (!pass.empty()) {
         size_t maxlen = sizeof(u_auth.buffer) - offsetof(cbsasl_secret_t, data);
@@ -412,7 +420,9 @@ bool SessionRequestImpl::send_hello()
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_TLS;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XATTR;
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_JSON;
-    features[nfeatures++] = PROTOCOL_BINARY_FEATURE_SELECT_BUCKET;
+    if (settings->select_bucket) {
+        features[nfeatures++] = PROTOCOL_BINARY_FEATURE_SELECT_BUCKET;
+    }
     if (settings->use_errmap) {
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_XERROR;
     }
@@ -439,6 +449,7 @@ bool SessionRequestImpl::send_hello()
         features[nfeatures++] = PROTOCOL_BINARY_FEATURE_UNORDERED_EXECUTION;
     }
     features[nfeatures++] = PROTOCOL_BINARY_FEATURE_CREATE_AS_DELETED;
+    features[nfeatures++] = PROTOCOL_BINARY_FEATURE_PRESERVE_TTL;
 
     std::string agent = generate_agent_json();
     lcb::MemcachedRequest hdr(PROTOCOL_BINARY_CMD_HELLO);

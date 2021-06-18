@@ -152,7 +152,7 @@ NAN_METHOD(Connection::fnStore)
     if (!enc.parseTranscoder(info[3])) {
         return Nan::ThrowError(Error::create("bad transcoder passed"));
     }
-    {
+    if (opType != LCB_STORE_APPEND && opType != LCB_STORE_PREPEND) {
         Local<Value> errVal;
         bool parseRes;
         {
@@ -170,6 +170,10 @@ NAN_METHOD(Connection::fnStore)
             }
 
             return Nan::ThrowError(Error::create("bad value passed"));
+        }
+    } else {
+        if (!enc.parseOption<lcb_cmdstore_value>(info[4])) {
+            return Nan::ThrowError(Error::create("bad adjoin value passed"));
         }
     }
     if (!enc.parseOption<&lcb_cmdstore_expiry>(info[5])) {

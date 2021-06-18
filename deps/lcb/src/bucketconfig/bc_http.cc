@@ -257,20 +257,18 @@ lcb_STATUS HttpProvider::setup_request_header(const lcb_host_t &host)
     request_buf.append(" HTTP/1.1\r\n");
     if (!settings().keypath) {
         // not using SSL client certificate to authenticate
-        const std::string password = (settings().conntype == LCB_TYPE_BUCKET)
-                                         ? settings().auth->password_for(host.host, host.port, settings().bucket)
-                                         : settings().auth->password();
-        if (!password.empty()) {
-            const std::string username = (settings().conntype == LCB_TYPE_BUCKET)
-                                             ? settings().auth->username_for(host.host, host.port, settings().bucket)
-                                             : settings().auth->username();
+        auto creds = settings().auth->credentials_for(LCBAUTH_SERVICE_MANAGEMENT, LCBAUTH_REASON_NEW_OPERATION,
+                                                      host.host, host.port, settings().bucket);
+        if (creds.result() == LCBAUTH_RESULT_OK) {
             std::string cred;
-            cred.append(username).append(":").append(password);
+            cred.append(creds.username()).append(":").append(creds.password());
             char b64[256] = {0};
             if (lcb_base64_encode(cred.c_str(), cred.size(), b64, sizeof(b64)) == -1) {
                 return LCB_ERR_SDK_INTERNAL;
             }
             request_buf.append("Authorization: Basic ").append(b64).append("\r\n");
+        } else {
+            return LCB_ERR_AUTHENTICATION_FAILURE;
         }
     }
 

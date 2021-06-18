@@ -19,6 +19,10 @@
 #include "http/http.h"
 #include "auth-priv.h"
 
+#include "capi/cmd_diag.hh"
+#include "capi/cmd_ping.hh"
+#include "capi/cmd_http.hh"
+
 LIBCOUCHBASE_API lcb_STATUS lcb_respping_status(const lcb_RESPPING *resp)
 {
     return resp->ctx.rc;
@@ -242,7 +246,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdping_encode_json(lcb_CMDPING *cmd, int enable
 }
 
 static void refcnt_dtor_ping(mc_PACKET *);
-static void handle_ping(mc_PIPELINE *, mc_PACKET *, lcb_STATUS, const void *);
+static void handle_ping(mc_PIPELINE *, mc_PACKET *, lcb_CALLBACK_TYPE /* cbtype */, lcb_STATUS, const void *);
 
 static mc_REQDATAPROCS ping_procs = {handle_ping, refcnt_dtor_ping};
 
@@ -252,7 +256,7 @@ struct PingCookie : mc_REQDATAEX {
     std::list<lcb_PINGSVC> responses;
     std::string id;
 
-    PingCookie(const void *cookie_, int _options)
+    PingCookie(void *cookie_, int _options)
         : mc_REQDATAEX(cookie_, ping_procs, gethrtime()), remaining(0), options(_options)
     {
     }
@@ -363,12 +367,12 @@ static void build_ping_json(lcb_INSTANCE *instance, lcb_RESPPING &ping, Json::Va
     root["sdk"] = sdk.c_str();
     root["id"] = ck->id;
 
-    int config_rev = -1;
+    int64_t config_rev = -1;
     if (instance->cur_configinfo) {
         lcb::clconfig::ConfigInfo *cfg = instance->cur_configinfo;
         config_rev = cfg->vbc->revid;
     }
-    root["config_rev"] = config_rev;
+    root["config_rev"] = (Json::Int64)config_rev;
 }
 
 static void invoke_ping_callback(lcb_INSTANCE *instance, PingCookie *ck)
@@ -400,13 +404,14 @@ static void invoke_ping_callback(lcb_INSTANCE *instance, PingCookie *ck)
     }
     lcb_RESPCALLBACK callback;
     callback = lcb_find_callback(instance, LCB_CALLBACK_PING);
-    ping.cookie = const_cast<void *>(ck->cookie);
+    ping.cookie = ck->cookie;
     callback(instance, LCB_CALLBACK_PING, (lcb_RESPBASE *)&ping);
     delete[] ping.services;
     delete ck;
 }
 
-static void handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_STATUS err, const void *)
+static void handle_ping(mc_PIPELINE *pipeline, mc_PACKET *req, lcb_CALLBACK_TYPE /* cbtype */, lcb_STATUS err,
+                        const void *)
 {
     auto *server = static_cast<lcb::Server *>(pipeline);
     auto *ck = (PingCookie *)req->u_rdata.exdata;
@@ -521,6 +526,37 @@ static void handle_analytics(lcb_INSTANCE *instance, int, const lcb_RESPBASE *re
     handle_http(instance, LCB_PING_SERVICE_ANALYTICS, (const lcb_RESPHTTP *)resp);
 }
 
+static lcbauth_SERVICE ping_type_to_service(lcbvb_SVCTYPE type)
+{
+    switch (type) {
+        case LCBVB_SVCTYPE_DATA:
+            return LCBAUTH_SERVICE_KEY_VALUE;
+
+        case LCBVB_SVCTYPE_VIEWS:
+            return LCBAUTH_SERVICE_VIEWS;
+
+        case LCBVB_SVCTYPE_MGMT:
+            return LCBAUTH_SERVICE_MANAGEMENT;
+
+        case LCBVB_SVCTYPE_IXQUERY:
+        case LCBVB_SVCTYPE_IXADMIN:
+        case LCBVB_SVCTYPE_QUERY:
+            return LCBAUTH_SERVICE_QUERY;
+
+        case LCBVB_SVCTYPE_SEARCH:
+            return LCBAUTH_SERVICE_SEARCH;
+
+        case LCBVB_SVCTYPE_ANALYTICS:
+            return LCBAUTH_SERVICE_ANALYTICS;
+
+        case LCBVB_SVCTYPE_EVENTING:
+            return LCBAUTH_SERVICE_EVENTING;
+
+        default:
+            return LCBAUTH_SERVICE_UNSPECIFIED;
+    }
+}
+
 LIBCOUCHBASE_API
 lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd)
 {
@@ -596,10 +632,10 @@ lcb_STATUS lcb_ping(lcb_INSTANCE *instance, void *cookie, const lcb_CMDPING *cmd
         lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_GET);                                                                \
         lcb_cmdhttp_handle(htcmd, &htreq);                                                                             \
         const lcb::Authenticator &auth = *instance->settings->auth;                                                    \
-        std::string username = auth.username_for(nullptr, nullptr, LCBT_SETTING(instance, bucket));                    \
-        lcb_cmdhttp_username(htcmd, username.c_str(), username.size());                                                \
-        std::string password = auth.password_for(nullptr, nullptr, LCBT_SETTING(instance, bucket));                    \
-        lcb_cmdhttp_password(htcmd, password.c_str(), password.size());                                                \
+        auto creds = auth.credentials_for(ping_type_to_service(SVC), LCBAUTH_REASON_NEW_OPERATION, nullptr, nullptr,   \
+                                          LCBT_SETTING(instance, bucket));                                             \
+        lcb_cmdhttp_username(htcmd, creds.username().c_str(), creds.username().size());                                \
+        lcb_cmdhttp_password(htcmd, creds.password().c_str(), creds.password().size());                                \
         lcb_cmdhttp_timeout(htcmd, LCB_NS2US(timeout));                                                                \
         rc = lcb_http(instance, ckwrap, htcmd);                                                                        \
         lcb_cmdhttp_destroy(htcmd);                                                                                    \

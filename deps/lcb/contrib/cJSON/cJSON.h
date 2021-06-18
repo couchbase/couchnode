@@ -117,6 +117,7 @@ extern cJSON *cJSON_GetObjectItem(cJSON *object,const char *string);
 extern cJSON *cJSON_CreateNull(void);
 extern cJSON *cJSON_CreateTrue(void);
 extern cJSON *cJSON_CreateFalse(void);
+extern cJSON *cJSON_CreateInt64(int64_t num);
 extern cJSON *cJSON_CreateNumber(double num);
 extern cJSON *cJSON_CreateString(const char *string);
 extern cJSON *cJSON_CreateArray(void);

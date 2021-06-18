@@ -39,6 +39,8 @@ class ServerParams
         lcb_createopts_create(&crst, type);
         if (host.find("couchbase://") == 0) {
             connstr = host;
+            // deactivate dnssrv and compression, use cccp bootstrap
+            connstr += "?dnssrv=off&bootstrap_on=cccp&compression=off";
         } else {
             if (mcNodes.empty() || type == LCB_TYPE_CLUSTER) {
                 connstr = "couchbase://" + host + "=http";
@@ -46,6 +48,7 @@ class ServerParams
                 connstr = "couchbase+explicit://" + host + "=http;" + mcNodes;
             }
         }
+
         lcb_createopts_connstr(crst, connstr.c_str(), connstr.size());
         lcb_createopts_credentials(crst, user.c_str(), user.size(), pass.c_str(), pass.size());
         if (type == LCB_TYPE_BUCKET) {

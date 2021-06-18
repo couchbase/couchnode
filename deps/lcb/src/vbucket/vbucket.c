@@ -621,6 +621,9 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
         cfg->buuid = strdup(tmp);
     }
 
+    if (!get_jint64(cj, "revEpoch", &cfg->revepoch)) {
+        cfg->revepoch = -1;
+    }
     if (!get_jint64(cj, "rev", &cfg->revid)) {
         cfg->revid = -1;
     }
@@ -939,8 +942,12 @@ char *lcbvb_save_json(lcbvb_CONFIG *cfg)
         tmp = cJSON_CreateString(cfg->buuid);
         cJSON_AddItemToObject(root, "uuid", tmp);
     }
+    if (cfg->revepoch > -1) {
+        tmp = cJSON_CreateInt64(cfg->revepoch);
+        cJSON_AddItemToObject(root, "revEpoch", tmp);
+    }
     if (cfg->revid > -1) {
-        tmp = cJSON_CreateNumber(cfg->revid);
+        tmp = cJSON_CreateInt64(cfg->revid);
         cJSON_AddItemToObject(root, "rev", tmp);
     }
     tmp = cJSON_CreateString(cfg->bname);
@@ -1577,7 +1584,7 @@ const char *lcbvb_get_capibase(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCMODE mod
 
 LIBCOUCHBASE_API int lcbvb_get_revision(const lcbvb_CONFIG *cfg)
 {
-    return cfg->revid;
+    return (int)cfg->revid;
 }
 LIBCOUCHBASE_API unsigned lcbvb_get_nservers(const lcbvb_CONFIG *cfg)
 {
