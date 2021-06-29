@@ -8,6 +8,7 @@ import {
   ScopeNotFoundError,
 } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
+import { RequestSpan } from './tracing'
 import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -138,6 +139,11 @@ export class ScopeSpec {
  */
 export interface CreateCollectionOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -147,6 +153,11 @@ export interface CreateCollectionOptions {
  * @category Management
  */
 export interface GetAllScopesOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -158,6 +169,11 @@ export interface GetAllScopesOptions {
  */
 export interface DropCollectionOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -168,6 +184,11 @@ export interface DropCollectionOptions {
  */
 export interface CreateScopeOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -177,6 +198,11 @@ export interface CreateScopeOptions {
  * @category Management
  */
 export interface DropScopeOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -221,12 +247,15 @@ export class CollectionManager {
     }
 
     const bucketName = this._bucket.name
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Post,
         path: `/pools/default/buckets/${bucketName}/scopes`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -304,7 +333,9 @@ export class CollectionManager {
     }
 
     const bucketName = this._bucket.name
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const collectionData = CollectionSpec._toNsData(collectionSpec)
 
@@ -314,6 +345,7 @@ export class CollectionManager {
         path: `/pools/default/buckets/${bucketName}/scopes/${collectionSpec.scopeName}/collections`,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify(collectionData),
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -369,12 +401,15 @@ export class CollectionManager {
     }
 
     const bucketName = this._bucket.name
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Delete,
         path: `/pools/default/buckets/${bucketName}/scopes/${scopeName}/collections/${collectionName}`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -418,7 +453,9 @@ export class CollectionManager {
     }
 
     const bucketName = this._bucket.name
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
@@ -428,6 +465,7 @@ export class CollectionManager {
         body: cbQsStringify({
           name: scopeName,
         }),
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -471,12 +509,15 @@ export class CollectionManager {
     }
 
     const bucketName = this._bucket.name
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Delete,
         path: `/pools/default/buckets/${bucketName}/scopes/${scopeName}`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 

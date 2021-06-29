@@ -1,5 +1,6 @@
 import { Collection } from './collection'
 import { CounterResult, MutationResult } from './crudoptypes'
+import { RequestSpan } from './tracing'
 import { NodeCallback } from './utilities'
 
 /**
@@ -17,6 +18,11 @@ export interface IncrementOptions {
    * The expiry time that should be set for the document, expressed in seconds.
    */
   expiry?: number
+
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -41,6 +47,11 @@ export interface DecrementOptions {
   expiry?: number
 
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -51,6 +62,11 @@ export interface DecrementOptions {
  */
 export interface AppendOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -60,6 +76,11 @@ export interface AppendOptions {
  * @category Key-Value
  */
 export interface PrependOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */

@@ -87,4 +87,21 @@ lcb_STATUS lcbx_cmd_destroy(lcb_CMDHTTP *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDPING *cmd);
 lcb_STATUS lcbx_cmd_destroy(lcb_CMDDIAG *cmd);
 
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDGET *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDEXISTS *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDGETREPLICA *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDSTORE *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDREMOVE *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDTOUCH *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDUNLOCK *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDCOUNTER *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDSUBDOC *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDVIEW *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDQUERY *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDANALYTICS *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDSEARCH *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDHTTP *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDPING *cmd, lcbtrace_SPAN *span);
+lcb_STATUS lcbx_cmd_parent_span(lcb_CMDDIAG *cmd, lcbtrace_SPAN *span);
+
 #endif // LCBX_H

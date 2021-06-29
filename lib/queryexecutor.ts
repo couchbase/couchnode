@@ -114,70 +114,76 @@ export class QueryExecutor {
       })
     })
 
-    this._conn.query(queryData, queryFlags, lcbTimeout, (err, flags, data) => {
-      if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
-        if (err) {
-          emitter.emit('error', err)
+    this._conn.query(
+      queryData,
+      queryFlags,
+      options.parentSpan,
+      lcbTimeout,
+      (err, flags, data) => {
+        if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
+          if (err) {
+            emitter.emit('error', err)
+            emitter.emit('end')
+            return
+          }
+
+          const metaData = JSON.parse(data)
+
+          let warnings: QueryWarning[]
+          if (metaData.warnings) {
+            warnings = metaData.warnings.map(
+              (warningData: any) =>
+                new QueryWarning({
+                  code: warningData.code,
+                  message: warningData.message,
+                })
+            )
+          } else {
+            warnings = []
+          }
+
+          let metrics: QueryMetrics | undefined
+          if (metaData.metrics) {
+            const metricsData = metaData.metrics
+
+            metrics = new QueryMetrics({
+              elapsedTime: goDurationStrToMs(metricsData.elapsedTime) || 0,
+              executionTime: goDurationStrToMs(metricsData.executionTime) || 0,
+              sortCount: metricsData.sortCount || 0,
+              resultCount: metricsData.resultCount || 0,
+              resultSize: metricsData.resultSize || 0,
+              mutationCount: metricsData.mutationCount || 0,
+              errorCount: metricsData.errorCount || 0,
+              warningCount: metricsData.warningCount || 0,
+            })
+          } else {
+            metrics = undefined
+          }
+
+          const meta = new QueryMetaData({
+            requestId: metaData.requestID,
+            clientContextId: metaData.clientContextID,
+            status: metaData.status,
+            signature: metaData.signature,
+            warnings: warnings,
+            metrics: metrics,
+            profile: metaData.profile,
+          })
+
+          emitter.emit('meta', meta)
           emitter.emit('end')
           return
         }
 
-        const metaData = JSON.parse(data)
-
-        let warnings: QueryWarning[]
-        if (metaData.warnings) {
-          warnings = metaData.warnings.map(
-            (warningData: any) =>
-              new QueryWarning({
-                code: warningData.code,
-                message: warningData.message,
-              })
-          )
-        } else {
-          warnings = []
+        if (err) {
+          emitter.emit('error', err)
+          return
         }
 
-        let metrics: QueryMetrics | undefined
-        if (metaData.metrics) {
-          const metricsData = metaData.metrics
-
-          metrics = new QueryMetrics({
-            elapsedTime: goDurationStrToMs(metricsData.elapsedTime) || 0,
-            executionTime: goDurationStrToMs(metricsData.executionTime) || 0,
-            sortCount: metricsData.sortCount || 0,
-            resultCount: metricsData.resultCount || 0,
-            resultSize: metricsData.resultSize || 0,
-            mutationCount: metricsData.mutationCount || 0,
-            errorCount: metricsData.errorCount || 0,
-            warningCount: metricsData.warningCount || 0,
-          })
-        } else {
-          metrics = undefined
-        }
-
-        const meta = new QueryMetaData({
-          requestId: metaData.requestID,
-          clientContextId: metaData.clientContextID,
-          status: metaData.status,
-          signature: metaData.signature,
-          warnings: warnings,
-          metrics: metrics,
-          profile: metaData.profile,
-        })
-
-        emitter.emit('meta', meta)
-        emitter.emit('end')
-        return
+        const row = JSON.parse(data)
+        emitter.emit('row', row)
       }
-
-      if (err) {
-        emitter.emit('error', err)
-        return
-      }
-
-      const row = JSON.parse(data)
-      emitter.emit('row', row)
-    })
+    )
 
     return emitter
   }

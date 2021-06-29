@@ -1,5 +1,4 @@
 #include "connection.h"
-
 #include "error.h"
 #include "opbuilder.h"
 
@@ -12,7 +11,10 @@ NAN_METHOD(Connection::fnGet)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDGET> enc(me);
 
-    enc.beginTrace("get");
+    if (!enc.parseParentSpan(info[6])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "get");
 
     if (!enc.parseOption<&lcb_cmdget_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -31,10 +33,10 @@ NAN_METHOD(Connection::fnGet)
             return Nan::ThrowError(Error::create("bad locked passed"));
         }
     }
-    if (!enc.parseOption<&lcb_cmdget_timeout>(info[6])) {
+    if (!enc.parseOption<&lcb_cmdget_timeout>(info[7])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[7])) {
+    if (!enc.parseCallback(info[8])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -52,7 +54,10 @@ NAN_METHOD(Connection::fnExists)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDEXISTS> enc(me);
 
-    enc.beginTrace("exists");
+    if (!enc.parseParentSpan(info[3])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "exists");
 
     if (!enc.parseOption<&lcb_cmdexists_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -60,10 +65,10 @@ NAN_METHOD(Connection::fnExists)
     if (!enc.parseOption<&lcb_cmdexists_key>(info[2])) {
         return Nan::ThrowError(Error::create("bad key passed"));
     }
-    if (!enc.parseOption<&lcb_cmdexists_timeout>(info[3])) {
+    if (!enc.parseOption<&lcb_cmdexists_timeout>(info[4])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[4])) {
+    if (!enc.parseCallback(info[5])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -85,7 +90,10 @@ NAN_METHOD(Connection::fnGetReplica)
 
     OpBuilder<lcb_CMDGETREPLICA> enc(me, mode);
 
-    enc.beginTrace("getReplica");
+    if (!enc.parseParentSpan(info[5])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "getReplica");
 
     if (!enc.parseOption<&lcb_cmdgetreplica_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -96,10 +104,10 @@ NAN_METHOD(Connection::fnGetReplica)
     if (!enc.parseTranscoder(info[3])) {
         return Nan::ThrowError(Error::create("bad transcoder passed"));
     }
-    if (!enc.parseOption<&lcb_cmdgetreplica_timeout>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdgetreplica_timeout>(info[6])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[6])) {
+    if (!enc.parseCallback(info[7])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -118,7 +126,7 @@ NAN_METHOD(Connection::fnStore)
 
     const char *opName = "store";
     lcb_STORE_OPERATION opType =
-        static_cast<lcb_STORE_OPERATION>(ValueParser::asUint(info[11]));
+        static_cast<lcb_STORE_OPERATION>(ValueParser::asUint(info[12]));
     switch (opType) {
     case LCB_STORE_UPSERT:
         opName = "upsert";
@@ -141,7 +149,10 @@ NAN_METHOD(Connection::fnStore)
 
     OpBuilder<lcb_CMDSTORE> enc(me, opType);
 
-    enc.beginTrace(opName);
+    if (!enc.parseParentSpan(info[10])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, opName);
 
     if (!enc.parseOption<&lcb_cmdstore_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -195,10 +206,10 @@ NAN_METHOD(Connection::fnStore)
     } else if (persistTo > 0 || replicateTo > 0) {
         lcb_cmdstore_durability_observe(enc.cmd(), persistTo, replicateTo);
     }
-    if (!enc.parseOption<&lcb_cmdstore_timeout>(info[10])) {
+    if (!enc.parseOption<&lcb_cmdstore_timeout>(info[11])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[12])) {
+    if (!enc.parseCallback(info[13])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -228,7 +239,10 @@ NAN_METHOD(Connection::fnRemove)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDREMOVE> enc(me);
 
-    enc.beginTrace("remove");
+    if (!enc.parseParentSpan(info[7])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "remove");
 
     if (!enc.parseOption<&lcb_cmdremove_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -250,10 +264,10 @@ NAN_METHOD(Connection::fnRemove)
         // lcb_cmdremove_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
-    if (!enc.parseOption<&lcb_cmdremove_timeout>(info[7])) {
+    if (!enc.parseOption<&lcb_cmdremove_timeout>(info[8])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[8])) {
+    if (!enc.parseCallback(info[9])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -271,7 +285,10 @@ NAN_METHOD(Connection::fnTouch)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDTOUCH> enc(me);
 
-    enc.beginTrace("touch");
+    if (!enc.parseParentSpan(info[7])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "touch");
 
     if (!enc.parseOption<&lcb_cmdtouch_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -293,10 +310,10 @@ NAN_METHOD(Connection::fnTouch)
         // lcb_cmdtouch_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
-    if (!enc.parseOption<&lcb_cmdtouch_timeout>(info[7])) {
+    if (!enc.parseOption<&lcb_cmdtouch_timeout>(info[8])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[8])) {
+    if (!enc.parseCallback(info[9])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -314,7 +331,10 @@ NAN_METHOD(Connection::fnUnlock)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDUNLOCK> enc(me);
 
-    enc.beginTrace("unlock");
+    if (!enc.parseParentSpan(info[4])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "unlock");
 
     if (!enc.parseOption<&lcb_cmdunlock_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -325,10 +345,10 @@ NAN_METHOD(Connection::fnUnlock)
     if (!enc.parseCasOption<&lcb_cmdunlock_cas>(info[3])) {
         return Nan::ThrowError(Error::create("bad cas passed"));
     }
-    if (!enc.parseOption<&lcb_cmdunlock_timeout>(info[4])) {
+    if (!enc.parseOption<&lcb_cmdunlock_timeout>(info[5])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[5])) {
+    if (!enc.parseCallback(info[6])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -346,7 +366,10 @@ NAN_METHOD(Connection::fnCounter)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDCOUNTER> enc(me);
 
-    enc.beginTrace("counter");
+    if (!enc.parseParentSpan(info[9])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "counter");
 
     if (!enc.parseOption<&lcb_cmdcounter_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -374,10 +397,10 @@ NAN_METHOD(Connection::fnCounter)
         // lcb_cmdcounter_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
-    if (!enc.parseOption<&lcb_cmdcounter_timeout>(info[9])) {
+    if (!enc.parseOption<&lcb_cmdcounter_timeout>(info[10])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[10])) {
+    if (!enc.parseCallback(info[11])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -395,7 +418,10 @@ NAN_METHOD(Connection::fnLookupIn)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDSUBDOC> enc(me);
 
-    enc.beginTrace("lookupIn");
+    if (!enc.parseParentSpan(info[5])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "lookupIn");
 
     if (!enc.parseOption<&lcb_cmdsubdoc_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -407,10 +433,10 @@ NAN_METHOD(Connection::fnLookupIn)
     if (flags & LCBX_SDFLAG_ACCESS_DELETED) {
         lcb_cmdsubdoc_access_deleted(enc.cmd(), 1);
     }
-    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[6])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[6])) {
+    if (!enc.parseCallback(info[7])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -458,7 +484,10 @@ NAN_METHOD(Connection::fnMutateIn)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDSUBDOC> enc(me);
 
-    enc.beginTrace("mutateIn");
+    if (!enc.parseParentSpan(info[10])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_KV, "mutateIn");
 
     if (!enc.parseOption<&lcb_cmdsubdoc_collection>(info[0], info[1])) {
         return Nan::ThrowError(Error::create("bad scope/collection passed"));
@@ -497,10 +526,10 @@ NAN_METHOD(Connection::fnMutateIn)
         // lcb_cmdsubdoc_durability_observe(enc.cmd(), persistTo, replicateTo);
         return Nan::ThrowError("unimplemented functionality");
     }
-    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[10])) {
+    if (!enc.parseOption<&lcb_cmdsubdoc_timeout>(info[11])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[11])) {
+    if (!enc.parseCallback(info[12])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -572,7 +601,10 @@ NAN_METHOD(Connection::fnViewQuery)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDVIEW> enc(me);
 
-    enc.beginTrace("query::view");
+    if (!enc.parseParentSpan(info[5])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_VIEW, "viewQuery");
 
     lcb_cmdview_callback(enc.cmd(), &lcbViewDataHandler);
 
@@ -589,10 +621,10 @@ NAN_METHOD(Connection::fnViewQuery)
         return Nan::ThrowError(Error::create("bad post data passed"));
     }
     // uint32_t flags = ValueParser::asUint(info[4]);
-    if (!enc.parseOption<&lcb_cmdview_timeout>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdview_timeout>(info[6])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[6])) {
+    if (!enc.parseCallback(info[7])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -610,7 +642,10 @@ NAN_METHOD(Connection::fnQuery)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDQUERY> enc(me);
 
-    enc.beginTrace("query");
+    if (!enc.parseParentSpan(info[2])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_QUERY, "query");
 
     lcb_cmdquery_callback(enc.cmd(), &lcbQueryDataHandler);
 
@@ -623,10 +658,10 @@ NAN_METHOD(Connection::fnQuery)
     } else {
         lcb_cmdquery_adhoc(enc.cmd(), 1);
     }
-    if (!enc.parseOption<&lcb_cmdquery_timeout>(info[2])) {
+    if (!enc.parseOption<&lcb_cmdquery_timeout>(info[3])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[3])) {
+    if (!enc.parseCallback(info[4])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -644,7 +679,10 @@ NAN_METHOD(Connection::fnAnalyticsQuery)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDANALYTICS> enc(me);
 
-    enc.beginTrace("analyticsQuery");
+    if (!enc.parseParentSpan(info[2])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_ANALYTICS, "analyticsQuery");
 
     lcb_cmdanalytics_callback(enc.cmd(), &lcbAnalyticsDataHandler);
 
@@ -657,10 +695,10 @@ NAN_METHOD(Connection::fnAnalyticsQuery)
     } else {
         lcb_cmdanalytics_priority(enc.cmd(), 0);
     }
-    if (!enc.parseOption<&lcb_cmdanalytics_timeout>(info[2])) {
+    if (!enc.parseOption<&lcb_cmdanalytics_timeout>(info[3])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[3])) {
+    if (!enc.parseCallback(info[4])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -678,7 +716,10 @@ NAN_METHOD(Connection::fnSearchQuery)
     Nan::HandleScope scope;
     OpBuilder<lcb_CMDSEARCH> enc(me);
 
-    enc.beginTrace("searchQuery");
+    if (!enc.parseParentSpan(info[2])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE_SEARCH, "searchQuery");
 
     lcb_cmdsearch_callback(enc.cmd(), &lcbSearchDataHandler);
 
@@ -686,10 +727,10 @@ NAN_METHOD(Connection::fnSearchQuery)
         return Nan::ThrowError(Error::create("bad query passed"));
     }
     // uint32_t flags = ValueParser::asUint(info[1]);
-    if (!enc.parseOption<&lcb_cmdsearch_timeout>(info[2])) {
+    if (!enc.parseOption<&lcb_cmdsearch_timeout>(info[3])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[3])) {
+    if (!enc.parseCallback(info[4])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -711,7 +752,10 @@ NAN_METHOD(Connection::fnHttpRequest)
 
     OpBuilder<lcb_CMDHTTP> enc(me, mode);
 
-    enc.beginTrace("http");
+    if (!enc.parseParentSpan(info[5])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE__MAX, "http");
 
     lcb_cmdhttp_streaming(enc.cmd(), 1);
 
@@ -732,10 +776,10 @@ NAN_METHOD(Connection::fnHttpRequest)
     if (!enc.parseOption<&lcb_cmdhttp_body>(info[4])) {
         return Nan::ThrowError(Error::create("bad body passed"));
     }
-    if (!enc.parseOption<&lcb_cmdhttp_timeout>(info[5])) {
+    if (!enc.parseOption<&lcb_cmdhttp_timeout>(info[6])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[6])) {
+    if (!enc.parseCallback(info[7])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -754,7 +798,10 @@ NAN_METHOD(Connection::fnPing)
 
     OpBuilder<lcb_CMDPING> enc(me);
 
-    enc.beginTrace("ping");
+    if (!enc.parseParentSpan(info[2])) {
+        return Nan::ThrowError(Error::create("bad parent span passed"));
+    }
+    enc.beginTrace(LCBTRACE_SERVICE__MAX, "ping");
 
     lcb_cmdping_encode_json(enc.cmd(), 1, 0, 1);
 
@@ -781,10 +828,10 @@ NAN_METHOD(Connection::fnPing)
             lcb_cmdping_analytics(enc.cmd(), 1);
         }
     }
-    if (!enc.parseOption<&lcb_cmdping_timeout>(info[2])) {
+    if (!enc.parseOption<&lcb_cmdping_timeout>(info[3])) {
         return Nan::ThrowError(Error::create("bad timeout passed"));
     }
-    if (!enc.parseCallback(info[3])) {
+    if (!enc.parseCallback(info[4])) {
         return Nan::ThrowError(Error::create("bad callback passed"));
     }
 
@@ -802,8 +849,6 @@ NAN_METHOD(Connection::fnDiag)
     Nan::HandleScope scope;
 
     OpBuilder<lcb_CMDDIAG> enc(me);
-
-    enc.beginTrace("diagnostics");
 
     if (!enc.parseOption<&lcb_cmddiag_report_id>(info[0])) {
         return Nan::ThrowError(Error::create("bad report id passed"));

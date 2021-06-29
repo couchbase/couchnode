@@ -1,6 +1,7 @@
 import { Bucket } from './bucket'
 import { CouchbaseError, DesignDocumentNotFoundError } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
+import { RequestSpan } from './tracing'
 import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -120,6 +121,11 @@ export class DesignDocument {
  */
 export interface GetAllDesignDocumentOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -129,6 +135,11 @@ export interface GetAllDesignDocumentOptions {
  * @category Management
  */
 export interface GetDesignDocumentOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -140,6 +151,11 @@ export interface GetDesignDocumentOptions {
  */
 export interface UpsertDesignDocumentOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -150,6 +166,11 @@ export interface UpsertDesignDocumentOptions {
  */
 export interface DropDesignDocumentOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -159,6 +180,11 @@ export interface DropDesignDocumentOptions {
  * @category Management
  */
 export interface PublishDesignDocumentOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -203,7 +229,9 @@ export class ViewIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const bucketName = this._bucket.name
 
@@ -211,6 +239,7 @@ export class ViewIndexManager {
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/pools/default/buckets/${bucketName}/ddocs`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -255,12 +284,15 @@ export class ViewIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Views,
         method: HttpMethod.Get,
         path: `/_design/${designDocName}`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -303,7 +335,9 @@ export class ViewIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const designDocData = {
         views: designDoc.views,
@@ -316,6 +350,7 @@ export class ViewIndexManager {
         path: `/_design/${designDoc.name}`,
         contentType: 'application/json',
         body: encodedData,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -351,12 +386,15 @@ export class ViewIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Views,
         method: HttpMethod.Delete,
         path: `/_design/${designDocName}`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -399,11 +437,13 @@ export class ViewIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
     const timer = new CompoundTimeout(timeout)
 
     return PromiseHelper.wrapAsync(async () => {
       const designDoc = await this.getDesignDocument(`dev_${designDocName}`, {
+        parentSpan: parentSpan,
         timeout: timer.left(),
       })
 

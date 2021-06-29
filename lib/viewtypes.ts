@@ -1,3 +1,5 @@
+import { RequestSpan } from './tracing'
+
 /**
  * Contains the results of a view query.
  *
@@ -277,6 +279,11 @@ export interface ViewQueryOptions {
    * Specifies the error-handling behaviour that should be used when an error occurs.
    */
   onError?: ViewErrorMode
+
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.

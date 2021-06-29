@@ -5,6 +5,7 @@
 #include "connection.h"
 #include "lcbx.h"
 #include "tracespan.h"
+#include "tracing.h"
 #include "valueparser.h"
 #include <libcouchbase/couchbase.h>
 
@@ -17,9 +18,11 @@ class OpCookie : public Nan::AsyncResource
 {
 public:
     OpCookie(Connection *impl, const Nan::Callback &callback,
-             const Nan::Persistent<Object> &transcoder, TraceSpan span)
+             const Nan::Persistent<Object> &transcoder, TraceSpan span,
+             WrappedRequestSpan *parentSpan)
         : Nan::AsyncResource("couchbase::op")
         , _impl(impl)
+        , _parentSpan(parentSpan)
         , _traceSpan(span)
     {
         _implRef.Reset(_impl->persistent());
@@ -35,6 +38,11 @@ public:
         _implRef.Reset();
         _callback.Reset();
         _transcoder.Reset();
+
+        if (_parentSpan) {
+            delete _parentSpan;
+            _parentSpan = nullptr;
+        }
     }
 
     TraceSpan startDecodeTrace()
@@ -61,6 +69,7 @@ public:
     Nan::Callback _callback;
     Nan::Persistent<Object> _transcoder;
     Nan::Persistent<Object> _implRef;
+    WrappedRequestSpan *_parentSpan;
     TraceSpan _traceSpan;
 };
 
@@ -308,6 +317,7 @@ public:
     OpBuilder(Connection *impl, Ts... args)
         : CmdBuilder<CmdType>(_valueParser, args...)
         , _impl(impl)
+        , _parentSpan(nullptr)
     {
     }
 
@@ -315,11 +325,31 @@ public:
     {
         _callback.Reset();
         _transcoder.Reset();
+
+        if (_parentSpan) {
+            delete _parentSpan;
+            _parentSpan = nullptr;
+        }
     }
 
     TraceSpan startEncodeTrace()
     {
         return TraceSpan::beginEncodeTrace(_impl, _traceSpan);
+    }
+
+    bool parseParentSpan(Local<Value> parentSpan)
+    {
+        if (_parentSpan) {
+            delete _parentSpan;
+            _parentSpan = nullptr;
+        }
+
+        if (!parentSpan.IsEmpty() && parentSpan->IsObject()) {
+            _parentSpan =
+                new WrappedRequestSpan(_impl, parentSpan.As<Object>());
+        }
+
+        return true;
     }
 
     bool parseTranscoder(Local<Value> transcoder)
@@ -413,9 +443,15 @@ public:
         return CmdBuilder<SubCmdType>(this->_valueParser, args...);
     }
 
-    void beginTrace(const char *opName)
+    void beginTrace(lcbtrace_SERVICE service, const char *opName)
     {
-        TraceSpan span = TraceSpan::beginOpTrace(_impl, opName);
+        TraceSpan parentSpan;
+        if (_parentSpan && *_parentSpan) {
+            parentSpan = TraceSpan::wrap(_parentSpan->span());
+        }
+
+        TraceSpan span =
+            TraceSpan::beginOpTrace(_impl, service, opName, parentSpan);
         _traceSpan = span;
     }
 
@@ -427,8 +463,20 @@ public:
     template <lcb_STATUS (*ExecFn)(lcb_INSTANCE *, void *, const CmdType *)>
     lcb_STATUS execute()
     {
-        OpCookie *cookie = new OpCookie(this->_impl, this->_callback,
-                                        this->_transcoder, this->_traceSpan);
+        if (_traceSpan) {
+            lcb_STATUS err =
+                lcbx_cmd_parent_span(this->cmd(), _traceSpan.span());
+            if (err != LCB_SUCCESS) {
+                return err;
+            }
+        }
+
+        OpCookie *cookie =
+            new OpCookie(this->_impl, this->_callback, this->_transcoder,
+                         this->_traceSpan, this->_parentSpan);
+
+        // ownership of the parent span wrapper transfers to the opcookie
+        _parentSpan = nullptr;
 
         lcb_STATUS err = ExecFn(this->_impl->lcbHandle(), cookie, this->cmd());
         if (err != LCB_SUCCESS) {
@@ -446,6 +494,7 @@ protected:
     std::vector<Nan::Utf8String *> _strings;
     Nan::Callback _callback;
     Nan::Persistent<Object> _transcoder;
+    WrappedRequestSpan *_parentSpan;
     TraceSpan _traceSpan;
 };
 

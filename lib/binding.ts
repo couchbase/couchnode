@@ -34,6 +34,26 @@ export interface CppLogFunc {
   (data: CppLogData): void
 }
 
+export interface CppValueRecorder {
+  recordValue(value: number): void
+}
+
+export interface CppMeter {
+  valueRecorder(
+    name: string,
+    tags: { [key: string]: string }
+  ): CppValueRecorder | null
+}
+
+export interface CppRequestSpan {
+  addTag(key: string, value: string | number | boolean): void
+  end(): void
+}
+
+export interface CppTracer {
+  requestSpan(name: string, parent: CppRequestSpan | undefined): CppRequestSpan
+}
+
 export type CppBytes = string | Buffer
 export type CppTranscoder = any
 export type CppCas = any
@@ -117,7 +137,9 @@ export interface CppConnection {
     connStr: string,
     username: string | undefined,
     password: string | undefined,
-    logFn: CppLogFunc
+    logFn: CppLogFunc,
+    tracer: CppTracer | undefined,
+    meter: CppMeter | undefined
   ): any
 
   connect(callback: (err: CppError | null) => void): void
@@ -134,6 +156,7 @@ export interface CppConnection {
     transcoder: CppTranscoder,
     expiryTime: number | undefined,
     lockTime: number | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, cas: CppCas, value: any) => void
   ): void
@@ -142,6 +165,7 @@ export interface CppConnection {
     scopeName: string,
     collectionName: string,
     key: CppBytes,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, cas: CppCas, exists: boolean) => void
   ): void
@@ -152,6 +176,7 @@ export interface CppConnection {
     key: CppBytes,
     transcoder: CppTranscoder,
     mode: CppReplicaMode,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (
       err: CppError | null,
@@ -172,6 +197,7 @@ export interface CppConnection {
     duraMode: CppDurabilityMode | undefined,
     persistTo: number | undefined,
     replicateTo: number | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     opType: CppStoreOpType,
     callback: (
@@ -189,6 +215,7 @@ export interface CppConnection {
     duraMode: CppDurabilityMode | undefined,
     persistTo: number | undefined,
     replicateTo: number | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, cas: CppCas) => void
   ): void
@@ -201,6 +228,7 @@ export interface CppConnection {
     duraMode: CppDurabilityMode | undefined,
     persistTo: number | undefined,
     replicateTo: number | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, cas: CppCas) => void
   ): void
@@ -210,6 +238,7 @@ export interface CppConnection {
     collectionName: string,
     key: CppBytes,
     cas: CppCas,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null) => void
   ): void
@@ -224,6 +253,7 @@ export interface CppConnection {
     duraMode: CppDurabilityMode | undefined,
     persistTo: number | undefined,
     replicateTo: number | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (
       err: CppError | null,
@@ -244,6 +274,7 @@ export interface CppConnection {
       path: string,
       ..._: any[] // More cmds
     ],
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, res: any) => void
   ): void
@@ -265,6 +296,7 @@ export interface CppConnection {
     duraMode: CppDurabilityMode | undefined,
     persistTo: number | undefined,
     replicateTo: number | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, res: any) => void
   ): void
@@ -275,6 +307,7 @@ export interface CppConnection {
     queryData: CppBytes,
     postData: CppBytes | undefined,
     flags: CppViewQueryFlags,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (
       err: CppError | null,
@@ -288,6 +321,7 @@ export interface CppConnection {
   query(
     queryData: CppBytes,
     flags: CppQueryFlags,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (
       err: CppError | null,
@@ -299,6 +333,7 @@ export interface CppConnection {
   analyticsQuery(
     queryData: CppBytes,
     flags: CppAnalyticsQueryFlags,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (
       err: CppError | null,
@@ -310,6 +345,7 @@ export interface CppConnection {
   searchQuery(
     queryData: CppBytes,
     flags: CppSearchQueryFlags,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (
       err: CppError | null,
@@ -324,6 +360,7 @@ export interface CppConnection {
     path: string,
     contentType: string | undefined,
     body: CppBytes | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, flags: number, data: any) => void
   ): void
@@ -331,6 +368,7 @@ export interface CppConnection {
   ping(
     reportId: string | undefined,
     services: CppServiceType | undefined,
+    parentSpan: CppRequestSpan | undefined,
     timeoutMs: number | undefined,
     callback: (err: CppError | null, data: string) => void
   ): void

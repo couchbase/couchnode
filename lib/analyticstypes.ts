@@ -1,3 +1,5 @@
+import { RequestSpan } from './tracing'
+
 /**
  * Represents the status of an analytics query.
  *
@@ -276,6 +278,11 @@ export interface AnalyticsQueryOptions {
    * when executing the query.
    */
   raw?: { [key: string]: any }
+
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.

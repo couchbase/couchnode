@@ -1,6 +1,7 @@
 import { MutationState } from './mutationstate'
 import { SearchFacet } from './searchfacet'
 import { SearchSort } from './searchsort'
+import { RequestSpan } from './tracing'
 
 /**
  * SearchMetaData represents the meta-data available from a search query.
@@ -159,6 +160,11 @@ export interface SearchQueryOptions {
    * when executing the query.
    */
   raw?: { [key: string]: any }
+
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.

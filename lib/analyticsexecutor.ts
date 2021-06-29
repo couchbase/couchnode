@@ -83,6 +83,7 @@ export class AnalyticsExecutor {
     this._conn.analyticsQuery(
       queryData,
       queryFlags,
+      options.parentSpan,
       lcbTimeout,
       (err, flags, data) => {
         if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {

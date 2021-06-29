@@ -2,6 +2,7 @@
 import binding from './binding'
 import { Connection } from './connection'
 import { HttpErrorContext } from './errorcontexts'
+import { RequestSpan } from './tracing'
 import * as events from 'events'
 
 /**
@@ -34,6 +35,7 @@ export interface HttpRequestOptions {
   path: string
   contentType?: string
   body?: string | Buffer
+  parentSpan?: RequestSpan
   timeout?: number
 }
 
@@ -98,6 +100,7 @@ export class HttpExecutor {
       options.path,
       options.contentType,
       options.body,
+      options.parentSpan,
       lcbTimeout,
       (err, flags, data) => {
         if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {

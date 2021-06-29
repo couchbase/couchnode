@@ -1,9 +1,47 @@
-import binding, { CppDurabilityMode } from './binding'
+import binding, {
+  CppDurabilityMode,
+  CppReplicaMode,
+  CppStoreOpType,
+} from './binding'
 import { CppError } from './binding'
 import { ErrorContext } from './errorcontexts'
 import * as errctxs from './errorcontexts'
 import * as errs from './errors'
 import { DurabilityLevel } from './generaltypes'
+
+/**
+ * @internal
+ */
+export function cppStoreOpTypeToOpName(opType: CppStoreOpType): string {
+  switch (opType) {
+    case binding.LCB_STORE_UPSERT:
+      return 'upsert'
+    case binding.LCB_STORE_REPLACE:
+      return 'replace'
+    case binding.LCB_STORE_INSERT:
+      return 'insert'
+    case binding.LCB_STORE_APPEND:
+      return 'append'
+    case binding.LCB_STORE_PREPEND:
+      return 'prepend'
+  }
+
+  throw new Error('invalid store op type')
+}
+
+/**
+ * @internal
+ */
+export function cppReplicaModeToOpName(replicaMode: CppReplicaMode): string {
+  switch (replicaMode) {
+    case binding.LCB_REPLICA_MODE_ANY:
+      return 'getAnyReplica'
+    case binding.LCB_REPLICA_MODE_ALL:
+      return 'getAllReplicas'
+  }
+
+  throw new Error('invalid store op type')
+}
 
 /**
  * @internal

@@ -111,16 +111,24 @@ export class PingExecutor {
     }
 
     const reportId = options.reportId
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
-    return new Promise((resolve, reject) => {
-      this._conn.ping(reportId, serviceFlags, timeout, (err, data) => {
-        if (err) {
-          return reject(err)
-        }
 
-        const parsedReport = JSON.parse(data)
-        resolve(parsedReport)
-      })
+    return new Promise((resolve, reject) => {
+      this._conn.ping(
+        reportId,
+        serviceFlags,
+        parentSpan,
+        timeout,
+        (err, data) => {
+          if (err) {
+            return reject(err)
+          }
+
+          const parsedReport = JSON.parse(data)
+          resolve(parsedReport)
+        }
+      )
     })
   }
 }

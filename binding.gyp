@@ -79,8 +79,10 @@
       'src/error.cpp',
       'src/lcbx.cpp',
       'src/logger.cpp',
+      'src/metrics.cpp',
       'src/mutationtoken.cpp',
       'src/opbuilder.cpp',
+      'src/tracing.cpp',
       'src/uv-plugin-all.cpp'
     ],
     'include_dirs': [

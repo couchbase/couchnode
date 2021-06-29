@@ -2,6 +2,8 @@
 
 #include "error.h"
 #include "logger.h"
+#include "metrics.h"
+#include "tracing.h"
 
 namespace couchnode
 {
@@ -122,8 +124,8 @@ NAN_METHOD(Connection::fnNew)
 {
     Nan::HandleScope scope;
 
-    if (info.Length() != 5) {
-        return Nan::ThrowError(Error::create("expected 4 parameters"));
+    if (info.Length() != 7) {
+        return Nan::ThrowError(Error::create("expected 7 parameters"));
     }
 
     lcb_STATUS err;
@@ -201,13 +203,38 @@ NAN_METHOD(Connection::fnNew)
             return Nan::ThrowError(
                 Error::create("must pass function for logger"));
         }
+
         Local<Function> logFn = info[4].As<Function>();
         if (!logFn.IsEmpty()) {
             logger = new Logger(logFn);
-
-            // We secretly remove the constness of the lcbprocs here due to the
-            // create options taking a non-const in error.
             lcb_createopts_logger(createOpts, logger->lcbProcs());
+        }
+    }
+
+    RequestTracer *tracer = nullptr;
+    if (!info[5]->IsUndefined() && !info[5]->IsNull()) {
+        if (!info[5]->IsObject()) {
+            return Nan::ThrowError(
+                Error::create("must pass object for tracer"));
+        }
+
+        Local<Object> tracerVal = info[5].As<Object>();
+        if (!tracerVal.IsEmpty()) {
+            tracer = new RequestTracer(tracerVal);
+            lcb_createopts_tracer(createOpts, tracer->lcbProcs());
+        }
+    }
+
+    Meter *meter = nullptr;
+    if (!info[6]->IsUndefined() && !info[6]->IsNull()) {
+        if (!info[6]->IsObject()) {
+            return Nan::ThrowError(Error::create("must pass object for meter"));
+        }
+
+        Local<Object> meterVal = info[6].As<Object>();
+        if (!meterVal.IsEmpty()) {
+            meter = new Meter(meterVal);
+            lcb_createopts_meter(createOpts, meter->lcbProcs());
         }
     }
 
@@ -231,6 +258,12 @@ NAN_METHOD(Connection::fnNew)
     if (err != LCB_SUCCESS) {
         if (logger) {
             delete logger;
+        }
+        if (tracer) {
+            delete tracer;
+        }
+        if (meter) {
+            delete meter;
         }
 
         return Nan::ThrowError(Error::create(err));

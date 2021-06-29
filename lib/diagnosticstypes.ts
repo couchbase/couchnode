@@ -1,4 +1,5 @@
 import { ServiceType } from './generaltypes'
+import { RequestSpan } from './tracing'
 
 /**
  * PingResult represents the output of a ping operation.  This class is
@@ -21,6 +22,11 @@ export interface PingOptions {
    * The services which should be pinged.
    */
   serviceTypes?: ServiceType
+
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.

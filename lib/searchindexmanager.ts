@@ -1,6 +1,7 @@
 import { Cluster } from './cluster'
 import { IndexNotFoundError } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
+import { RequestSpan } from './tracing'
 import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -41,6 +42,11 @@ export class SearchIndex {
  */
 export interface GetSearchIndexOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -50,6 +56,11 @@ export interface GetSearchIndexOptions {
  * @category Management
  */
 export interface GetAllSearchIndexesOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -61,6 +72,11 @@ export interface GetAllSearchIndexesOptions {
  */
 export interface UpsertSearchIndexOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -70,6 +86,11 @@ export interface UpsertSearchIndexOptions {
  * @category Management
  */
 export interface DropSearchIndexOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -81,6 +102,11 @@ export interface DropSearchIndexOptions {
  */
 export interface GetSearchIndexedDocumentsCountOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -90,6 +116,11 @@ export interface GetSearchIndexedDocumentsCountOptions {
  * @category Management
  */
 export interface PauseSearchIngestOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -101,6 +132,11 @@ export interface PauseSearchIngestOptions {
  */
 export interface ResumeSearchIngestOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -110,6 +146,11 @@ export interface ResumeSearchIngestOptions {
  * @category Management
  */
 export interface AllowSearchQueryingOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -121,6 +162,11 @@ export interface AllowSearchQueryingOptions {
  */
 export interface DisallowSearchQueryingOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -130,6 +176,11 @@ export interface DisallowSearchQueryingOptions {
  * @category Management
  */
 export interface FreezeSearchPlanOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -141,6 +192,11 @@ export interface FreezeSearchPlanOptions {
  */
 export interface UnfreezeSearchPlanOptions {
   /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -150,6 +206,11 @@ export interface UnfreezeSearchPlanOptions {
  * @category Management
  */
 export interface AnalyzeSearchDocumentOptions {
+  /**
+   * The parent tracing span that this operation will be part of.
+   */
+  parentSpan?: RequestSpan
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -196,12 +257,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Get,
         path: `/api/index/${indexName}`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -231,12 +295,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Get,
         path: `/api/index`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -269,7 +336,9 @@ export class SearchIndexManager {
     }
 
     const indexName = indexDefinition.name
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
@@ -277,6 +346,7 @@ export class SearchIndexManager {
         path: `/api/index/${indexName}`,
         contentType: 'application/json',
         body: JSON.stringify(indexDefinition),
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -306,12 +376,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Delete,
         path: `/api/index/${indexName}`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -343,12 +416,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Get,
         path: `/api/index/${indexName}/count`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -380,12 +456,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Post,
         path: `/api/index/${indexName}/ingestControl/pause`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -415,12 +494,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Post,
         path: `/api/index/${indexName}/ingestControl/resume`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -450,12 +532,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Post,
         path: `/api/index/${indexName}/queryControl/allow`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -485,12 +570,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Post,
         path: `/api/index/${indexName}/queryControl/disallow`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -520,12 +608,15 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Post,
         path: `/api/index/${indexName}/planFreezeControl/freeze`,
+        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -557,14 +648,17 @@ export class SearchIndexManager {
       options = {}
     }
 
+    const parentSpan = options.parentSpan
     const timeout = options.timeout
+
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Search,
         method: HttpMethod.Post,
         path: `/api/index/${indexName}/analyzeDoc`,
-        timeout: timeout,
         body: JSON.stringify(document),
+        parentSpan: parentSpan,
+        timeout: timeout,
       })
 
       if (res.statusCode !== 200) {

@@ -135,6 +135,7 @@ export class ViewExecutor {
       queryData,
       undefined,
       queryFlags,
+      options.parentSpan,
       lcbTimeout,
       (err, flags, data, docId, key) => {
         if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
@@ -149,9 +150,9 @@ export class ViewExecutor {
             totalRows: metaInfo.total_rows,
             debug: metaInfo.debug || undefined,
           })
+
           emitter.emit('meta', meta)
           emitter.emit('end')
-
           return
         }
 

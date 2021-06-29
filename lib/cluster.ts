@@ -23,6 +23,7 @@ import {
 import { ClusterClosedError, NeedOpenBucketError } from './errors'
 import { libLogger } from './logging'
 import { LogFunc, defaultLogger } from './logging'
+import { LoggingMeter, Meter } from './metrics'
 import { QueryExecutor } from './queryexecutor'
 import { QueryIndexManager } from './queryindexmanager'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
@@ -36,6 +37,7 @@ import {
   SearchRow,
 } from './searchtypes'
 import { StreamableRowPromise } from './streamablepromises'
+import { RequestTracer, ThresholdLoggingTracer } from './tracing'
 import { Transcoder, DefaultTranscoder } from './transcoders'
 import { UserManager } from './usermanager'
 import { PromiseHelper, NodeCallback } from './utilities'
@@ -112,6 +114,16 @@ export interface ConnectOptions {
   transcoder?: Transcoder
 
   /**
+   * Specifies the tracer to use for diagnostics tracing.
+   */
+  tracer?: RequestTracer
+
+  /**
+   * Specifies the meter to use for diagnostics metrics.
+   */
+  meter?: Meter
+
+  /**
    * Specifies a logging function to use when outputting logging.
    */
   logFunc?: LogFunc
@@ -139,6 +151,8 @@ export class Cluster {
   private _clusterConn: Connection | null
   private _conns: { [key: string]: Connection }
   private _transcoder: Transcoder
+  private _tracer: RequestTracer
+  private _meter: Meter
   private _logFunc: LogFunc
 
   /**
@@ -170,6 +184,18 @@ export class Cluster {
       this._transcoder = options.transcoder
     } else {
       this._transcoder = new DefaultTranscoder()
+    }
+
+    if (options.tracer) {
+      this._tracer = options.tracer
+    } else {
+      this._tracer = new ThresholdLoggingTracer({})
+    }
+
+    if (options.meter) {
+      this._meter = options.meter
+    } else {
+      this._meter = new LoggingMeter({})
     }
 
     if (options.logFunc) {
@@ -450,6 +476,8 @@ export class Cluster {
     const connOpts = {
       connStr: this._connStr,
       trustStorePath: this._trustStorePath,
+      tracer: this._tracer,
+      meter: this._meter,
       logFunc: this._logFunc,
       kvTimeout: this._kvTimeout,
       kvDurableTimeout: this._kvDurableTimeout,
