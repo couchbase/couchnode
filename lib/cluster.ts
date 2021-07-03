@@ -164,6 +164,7 @@ export class Cluster {
 
   /**
   @internal
+  @deprecated Use the static sdk-level {@link connect} method instead.
   */
   constructor(connStr: string, options?: ConnectOptions) {
     if (!options) {
