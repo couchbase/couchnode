@@ -73,16 +73,24 @@ type CppCbToNew<T extends (...fargs: any[]) => void> = T extends (
     ]
   : never
 
+// BUG(JSCBC-901): We cannot defer HTTP operations inside of libcouchbase and thus
+// need to perform that deferral at the binding level.
+type HttpWaitFunc = (err: Error | null) => void
+
 export class Connection {
   private _inst: CppConnection
   private _connected: boolean
   private _opened: boolean
   private _closed: boolean
 
+  // BUG(JSCBC-901)
+  private _httpWaiters: HttpWaitFunc[]
+
   constructor(options: ConnectionOptions) {
     this._closed = false
     this._connected = false
     this._opened = false
+    this._httpWaiters = []
 
     const lcbDsnObj = ConnSpec.parse(options.connStr)
 
@@ -233,6 +241,9 @@ export class Connection {
 
       this._connected = true
       callback(null)
+
+      this._httpWaiters.forEach((waitFn) => waitFn(err))
+      this._httpWaiters = []
     })
   }
 
@@ -348,7 +359,13 @@ export class Connection {
   httpRequest(
     ...args: CppCbToNew<CppConnection['httpRequest']>
   ): ReturnType<CppConnection['httpRequest']> {
-    return this._proxyToConn(this._inst, this._inst.httpRequest, ...args)
+    if (this._connected) {
+      return this._proxyToConn(this._inst, this._inst.httpRequest, ...args)
+    } else {
+      this._httpWaiters.push(() => {
+        return this._proxyToConn(this._inst, this._inst.httpRequest, ...args)
+      })
+    }
   }
 
   ping(
