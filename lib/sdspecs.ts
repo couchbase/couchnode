@@ -27,7 +27,7 @@ export class LookupInMacro {
    * A macro which references the expiry of a document.
    */
   static get Expiry(): LookupInMacro {
-    return new LookupInMacro('$document.expiry')
+    return new LookupInMacro('$document.exptime')
   }
 
   /**
