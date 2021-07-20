@@ -74,6 +74,52 @@ describe('#query', function () {
     }
   }).timeout(10000)
 
+  it('should stream test data correctly', async function () {
+    const streamQuery = (qs) => {
+      return new Promise((resolve, reject) => {
+        let rowsOut = []
+        let metaOut = null
+        H.c
+          .query(qs)
+          .on('row', (row) => {
+            rowsOut.push(row)
+          })
+          .on('meta', (meta) => {
+            metaOut = meta
+          })
+          .on('end', () => {
+            resolve({
+              rows: rowsOut,
+              meta: metaOut,
+            })
+          })
+          .on('error', (err) => {
+            reject(err)
+          })
+      })
+    }
+
+    /* eslint-disable-next-line no-constant-condition */
+    while (true) {
+      var res = null
+      try {
+        var qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`
+        res = await streamQuery(qs)
+      } catch (e) {} // eslint-disable-line no-empty
+
+      if (!res || res.rows.length !== testdata.docCount()) {
+        await H.sleep(100)
+        continue
+      }
+
+      assert.isArray(res.rows)
+      assert.lengthOf(res.rows, testdata.docCount())
+      assert.isObject(res.meta)
+
+      break
+    }
+  }).timeout(10000)
+
   it('should see test data correctly at scope level', async function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
 
