@@ -247,12 +247,12 @@ export class MatchSearchQuery extends SearchQuery {
   }
 
   fuzziness(fuzziness: number): MatchSearchQuery {
-    this._data._fuzziness = fuzziness
+    this._data.fuzziness = fuzziness
     return this
   }
 
   boost(boost: number): MatchSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -283,7 +283,7 @@ export class MatchPhraseSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): MatchPhraseSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -309,7 +309,7 @@ export class RegexpSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): RegexpSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -330,7 +330,7 @@ export class QueryStringSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): QueryStringSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -374,7 +374,7 @@ export class NumericRangeSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): NumericRangeSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -433,7 +433,7 @@ export class DateRangeSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): DateRangeSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -480,7 +480,7 @@ export class ConjunctionSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): ConjunctionSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -527,7 +527,7 @@ export class DisjunctionSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): DisjunctionSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -579,7 +579,7 @@ export class BooleanSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): BooleanSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 
@@ -623,7 +623,7 @@ export class WildcardSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): WildcardSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -675,7 +675,7 @@ export class DocIdSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): DocIdSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -701,7 +701,7 @@ export class BooleanFieldSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): BooleanFieldSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -732,12 +732,12 @@ export class TermSearchQuery extends SearchQuery {
   }
 
   fuzziness(fuzziness: number): TermSearchQuery {
-    this._data._fuzziness = fuzziness
+    this._data.fuzziness = fuzziness
     return this
   }
 
   boost(boost: number): TermSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -763,7 +763,7 @@ export class PhraseSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): PhraseSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -789,7 +789,7 @@ export class PrefixSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): PrefixSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -848,7 +848,7 @@ export class GeoDistanceSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): GeoDistanceSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -875,7 +875,7 @@ export class GeoBoundingBoxSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): GeoBoundingBoxSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
@@ -902,7 +902,7 @@ export class GeoPolygonSearchQuery extends SearchQuery {
   }
 
   boost(boost: number): GeoPolygonSearchQuery {
-    this._data._boost(boost)
+    this._data.boost = boost
     return this
   }
 }
