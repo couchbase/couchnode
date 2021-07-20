@@ -354,12 +354,6 @@ export class CollectionManager {
 
         const errText = res.body.toString().toLowerCase()
         if (
-          errText.includes('not allowed on this version of cluster') ||
-          res.statusCode === 404
-        ) {
-          throw new FeatureNotAvailableError(undefined, errCtx)
-        }
-        if (
           errText.includes('already exists') &&
           errText.includes('collection')
         ) {
@@ -367,6 +361,12 @@ export class CollectionManager {
         }
         if (errText.includes('not found') && errText.includes('scope')) {
           throw new ScopeNotFoundError(undefined, errCtx)
+        }
+        if (
+          errText.includes('not allowed on this version of cluster') ||
+          res.statusCode === 404
+        ) {
+          throw new FeatureNotAvailableError(undefined, errCtx)
         }
 
         throw new CouchbaseError(
@@ -417,14 +417,14 @@ export class CollectionManager {
         const errCtx = HttpExecutor.errorContextFromResponse(res)
 
         const errText = res.body.toString().toLowerCase()
+        if (errText.includes('not found') && errText.includes('collection')) {
+          throw new CollectionNotFoundError(undefined, errCtx)
+        }
         if (
           errText.includes('not allowed on this version of cluster') ||
           res.statusCode === 404
         ) {
           throw new FeatureNotAvailableError(undefined, errCtx)
-        }
-        if (errText.includes('not found') && errText.includes('collection')) {
-          throw new CollectionNotFoundError(undefined, errCtx)
         }
 
         throw new CouchbaseError('failed to drop collection', undefined, errCtx)
@@ -473,14 +473,14 @@ export class CollectionManager {
         const errCtx = HttpExecutor.errorContextFromResponse(res)
 
         const errText = res.body.toString().toLowerCase()
+        if (errText.includes('already exists') && errText.includes('scope')) {
+          throw new ScopeExistsError(undefined, errCtx)
+        }
         if (
           errText.includes('not allowed on this version of cluster') ||
           res.statusCode === 404
         ) {
           throw new FeatureNotAvailableError(undefined, errCtx)
-        }
-        if (errText.includes('already exists') && errText.includes('scope')) {
-          throw new ScopeExistsError(undefined, errCtx)
         }
 
         throw new CouchbaseError('failed to create scope', undefined, errCtx)
@@ -525,14 +525,14 @@ export class CollectionManager {
         const errCtx = HttpExecutor.errorContextFromResponse(res)
 
         const errText = res.body.toString().toLowerCase()
+        if (errText.includes('not found') && errText.includes('scope')) {
+          throw new ScopeNotFoundError(undefined, errCtx)
+        }
         if (
           errText.includes('not allowed on this version of cluster') ||
           res.statusCode === 404
         ) {
           throw new FeatureNotAvailableError(undefined, errCtx)
-        }
-        if (errText.includes('not found') && errText.includes('scope')) {
-          throw new ScopeNotFoundError(undefined, errCtx)
         }
 
         throw new CouchbaseError('failed to drop scope', undefined, errCtx)
