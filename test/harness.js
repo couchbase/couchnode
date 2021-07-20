@@ -262,15 +262,15 @@ class Harness {
   }
 
   async cleanup() {
-    var cluster = this._testCluster
-
-    this._testCluster = null
     this._testBucket = null
     this._testScope = null
     this._testColl = null
     this._testDColl = null
 
-    await cluster.close()
+    if (this._testCluster) {
+      await this._testCluster.close()
+      this._testCluster = null
+    }
 
     if (this._mockInst) {
       this._mockInst.close()
