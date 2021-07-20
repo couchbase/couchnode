@@ -18,7 +18,7 @@ describe('#bucketmanager', function () {
     await bmgr.createBucket({
       name: testBucket,
       flushEnabled: true,
-      ramQuotaMB: 100,
+      ramQuotaMB: 256,
     })
   }).timeout(10 * 1000)
 
@@ -27,7 +27,7 @@ describe('#bucketmanager', function () {
     await H.throwsHelper(async () => {
       await bmgr.createBucket({
         name: testBucket,
-        ramQuotaMB: 100,
+        ramQuotaMB: 256,
       })
     }, H.lib.BucketExistsError)
   })
