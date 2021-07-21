@@ -673,7 +673,9 @@ export class QueryIndexManager {
         }
 
         // Wait until curInterval expires
-        await new Promise((resolve) => setTimeout(resolve, curInterval))
+        await new Promise((resolve) =>
+          setTimeout(() => resolve(true), curInterval)
+        )
       }
     }, callback)
   }
