@@ -42,24 +42,30 @@ Here is a simple example of instantiating a connection, adding a new document
 into the bucket and then retrieving its contents:
 
 ```javascript
-var couchbase = require('couchbase');
-var cluster = new couchbase.Cluster('couchbase://127.0.0.1', {
-  username: 'username',
-  password: 'password',
-});
-var bucket = cluster.bucket('default');
-var coll = bucket.defaultCollection();
+var couchbase = require('couchbase')
 
-coll.upsert('testdoc', { name: 'Frank' }, (err, res) => {
-  if (err) throw err;
+couchbase.connect(
+  'couchbase://127.0.0.1',
+  {
+    username: 'username',
+    password: 'password',
+  },
+  (err, cluster) => {
+    var bucket = cluster.bucket('default')
+    var coll = bucket.defaultCollection()
 
-  coll.get('testdoc', (err, res) => {
-    if (err) throw err;
+    coll.upsert('testdoc', { name: 'Frank' }, (err, res) => {
+      if (err) throw err
 
-    console.log(res.value);
-    // {name: Frank}
-  });
-});
+      coll.get('testdoc', (err, res) => {
+        if (err) throw err
+
+        console.log(res.value)
+        // {name: Frank}
+      })
+    })
+  }
+)
 ```
 
 ## Documentation
