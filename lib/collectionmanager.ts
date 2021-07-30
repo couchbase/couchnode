@@ -420,6 +420,9 @@ export class CollectionManager {
         if (errText.includes('not found') && errText.includes('collection')) {
           throw new CollectionNotFoundError(undefined, errCtx)
         }
+        if (errText.includes('not found') && errText.includes('scope')) {
+          throw new ScopeNotFoundError(undefined, errCtx)
+        }
         if (
           errText.includes('not allowed on this version of cluster') ||
           res.statusCode === 404
