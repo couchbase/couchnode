@@ -19,6 +19,8 @@ public:
 
     const lcb_LOGGER *lcbProcs() const;
 
+    void disconnect();
+
 private:
     void handler(unsigned int iid, const char *subsys, int severity,
                  const char *srcfile, int srcline, const char *fmt, va_list ap);

@@ -23,10 +23,19 @@ const lcb_LOGGER *Logger::lcbProcs() const
     return _lcbLogger;
 }
 
+void Logger::disconnect()
+{
+    _callback.Reset();
+}
+
 void Logger::handler(unsigned int iid, const char *subsys, int severity,
                      const char *srcfile, int srcline, const char *fmt,
                      va_list ap)
 {
+    if (_callback.IsEmpty()) {
+        return;
+    }
+
     Nan::HandleScope scope;
     va_list apCopy;
 

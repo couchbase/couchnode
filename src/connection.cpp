@@ -22,6 +22,13 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
 
 Connection::~Connection()
 {
+    if (_logger) {
+        // If there is a custom logger registered, we need to deactivate it here
+        // since the GC might be the one invoking us, which will cause problems
+        // as we can't call into v8 during garbage collection.
+        _logger->disconnect();
+    }
+
     if (_flushWatch) {
         uv_prepare_stop(_flushWatch);
         uv_close(reinterpret_cast<uv_handle_t *>(_flushWatch),
