@@ -334,7 +334,7 @@ export class MutateInSpec {
   static insert(
     path: string,
     value: any,
-    options: { createPath?: boolean; xattr?: boolean }
+    options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
     return this._create(binding.LCBX_SDCMD_DICT_ADD, path, value, options)
   }
