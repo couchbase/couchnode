@@ -80,7 +80,7 @@ export class Role {
    */
   static _fromNsData(data: any): Role {
     return new Role({
-      name: data.name,
+      name: data.role,
       bucket: data.bucket_name,
       scope: data.scope_name,
       collection: data.collection_name,
