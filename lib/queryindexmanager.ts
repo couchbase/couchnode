@@ -658,7 +658,7 @@ export class QueryIndexManager {
         }
 
         // Add 500 to our interval to a max of 1000
-        curInterval = Math.min(curInterval, curInterval + 500)
+        curInterval = Math.min(1000, curInterval + 500)
 
         // Make sure we don't go past our user-specified duration
         const userTimeLeft = timer.left()
