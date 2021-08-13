@@ -21,6 +21,7 @@ import {
   PingResult,
 } from './diagnosticstypes'
 import { ClusterClosedError, NeedOpenBucketError } from './errors'
+import { EventingFunctionManager } from './eventingfunctionmanager'
 import { libLogger } from './logging'
 import { LogFunc, defaultLogger } from './logging'
 import { LoggingMeter, Meter } from './metrics'
@@ -292,6 +293,15 @@ export class Cluster {
    */
   searchIndexes(): SearchIndexManager {
     return new SearchIndexManager(this)
+  }
+
+  /**
+   * Returns a EventingFunctionManager which can be used to manage the eventing
+   * functions of this cluster.
+   * Volatile: This API is subject to change at any time.
+   */
+  eventingFunctions(): EventingFunctionManager {
+    return new EventingFunctionManager(this)
   }
 
   /**

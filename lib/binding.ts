@@ -521,6 +521,7 @@ export interface CppBinding {
   LCB_HTTP_TYPE_QUERY: CppHttpType
   LCB_HTTP_TYPE_SEARCH: CppHttpType
   LCB_HTTP_TYPE_ANALYTICS: CppHttpType
+  LCB_HTTP_TYPE_EVENTING: CppHttpType
   LCB_HTTP_METHOD_GET: CppHttpMethod
   LCB_HTTP_METHOD_POST: CppHttpMethod
   LCB_HTTP_METHOD_PUT: CppHttpMethod

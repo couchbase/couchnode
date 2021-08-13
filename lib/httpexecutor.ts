@@ -14,6 +14,7 @@ export enum HttpServiceType {
   Query = 'QUERY',
   Search = 'SEARCH',
   Analytics = 'ANALYTICS',
+  Eventing = 'EVENTING',
 }
 
 /**
@@ -76,6 +77,8 @@ export class HttpExecutor {
       lcbHttpType = binding.LCB_HTTP_TYPE_SEARCH
     } else if (options.type === HttpServiceType.Analytics) {
       lcbHttpType = binding.LCB_HTTP_TYPE_ANALYTICS
+    } else if (options.type === HttpServiceType.Eventing) {
+      lcbHttpType = binding.LCB_HTTP_TYPE_EVENTING
     } else {
       throw new Error('unexpected http request type')
     }

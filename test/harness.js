@@ -24,6 +24,7 @@ const ServerFeatures = {
   AnalyticsPendingMutations: 'analytics_pending_mutations',
   UserGroupManagement: 'user_group_management',
   PreserveExpiry: 'preserve_expiry',
+  Eventing: 'eventing',
 }
 
 class ServerVersion {
@@ -152,6 +153,14 @@ class Harness {
 
   get bucketName() {
     return this._bucket
+  }
+
+  get scopeName() {
+    return '_default'
+  }
+
+  get collectionName() {
+    return this._coll
   }
 
   get connOpts() {
@@ -328,6 +337,8 @@ class Harness {
       case ServerFeatures.Collections:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
       case ServerFeatures.PreserveExpiry:
+        return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
+      case ServerFeatures.Eventing:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
     }
 

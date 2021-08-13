@@ -818,3 +818,73 @@ export class BucketNotFlushableError extends CouchbaseError {
     super('bucket not flushable', cause, context)
   }
 }
+
+/**
+ * Indicates that the referenced eventing function does not exist.
+ *
+ * @category Error Handling
+ */
+export class EventingFunctionNotFoundError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('eventing function not found', cause, context)
+  }
+}
+
+/**
+ * Indicates that the referenced eventing function was not deployed but was
+ * expected to have been.
+ *
+ * @category Error Handling
+ */
+export class EventingFunctionNotDeployedError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('eventing function not deployed', cause, context)
+  }
+}
+
+/**
+ * Indicates that the eventing function was not able to be compiled.
+ *
+ * @category Error Handling
+ */
+export class EventingFunctionCompilationFailureError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('eventing function compilation failed', cause, context)
+  }
+}
+
+/**
+ * Indicates that the source and metadata keyspaces both referenced the same
+ * place for an eventing function.
+ *
+ * @category Error Handling
+ */
+export class EventingFunctionIdenticalKeyspaceError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('eventing function identical keyspace', cause, context)
+  }
+}
+
+/**
+ * Indicates that an eventing function was deployed but has not yet fully
+ * completed the bootstrapping process.
+ *
+ * @category Error Handling
+ */
+export class EventingFunctionNotBootstrappedError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('eventing function not bootstrapped', cause, context)
+  }
+}
+
+/**
+ * Indicates that an eventing function is deployed but the operation expected
+ * that it was not.
+ *
+ * @category Error Handling
+ */
+export class EventingFunctionDeployedError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('eventing function deployed', cause, context)
+  }
+}
