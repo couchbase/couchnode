@@ -189,12 +189,12 @@ int main(int argc, char *argv[])
     while (running) {
         lcb_CMDQUERY *cmd;
         char query[1024] = {0};
-        const char *param = "\"African Swallows\"";
+        const char *params = "[\"African Swallows\"]";
         lcb_cmdquery_create(&cmd);
 
         snprintf(query, sizeof(query), "SELECT * FROM `%s` WHERE $1 in interests LIMIT 1", bucket);
         check(lcb_cmdquery_statement(cmd, query, strlen(query)), "set QUERY statement");
-        check(lcb_cmdquery_positional_param(cmd, param, strlen(param)), "set QUERY positional parameter");
+        check(lcb_cmdquery_positional_params(cmd, params, strlen(params)), "set QUERY positional parameters");
         check(lcb_cmdquery_option(cmd, "pretty", strlen("pretty"), "false", strlen("false")),
               "set QUERY 'pretty' option");
         lcb_cmdquery_callback(cmd, row_callback);

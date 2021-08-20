@@ -55,6 +55,7 @@
 #include "tracing/tracing-internal.h"
 
 #include "hostlist.h"
+#include "utilities.h"
 
 #ifdef __cplusplus
 #include <functional>
@@ -132,6 +133,7 @@ struct lcb_st {
     lcbio_pTIMER dtor_timer;     /**< Asynchronous destruction timer */
     lcb_BTYPE btype;             /**< Type of the bucket */
     lcb_COLLCACHE *collcache;    /**< Collection cache */
+    int destroying;              /**< Are we in lcb_destroy() ?*/
 
 #ifdef __cplusplus
     typedef std::map<std::string, lcbcrypto_PROVIDER *> lcb_ProviderMap;
@@ -179,6 +181,9 @@ struct lcb_st {
      */
     inline lcb_STATUS bootstrap(unsigned options)
     {
+        if (destroying) {
+            return LCB_ERR_REQUEST_CANCELED;
+        }
         if (!bs_state) {
             bs_state = new lcb::Bootstrap(this);
         }

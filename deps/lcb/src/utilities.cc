@@ -171,3 +171,19 @@ const char *lcb_get_tmpdir(void)
     }
 #endif
 }
+
+LCB_INTERNAL_API
+char *lcb_strdup(const char *str)
+{
+    size_t len;
+    char *copy;
+
+    len = strlen(str) + 1;
+    copy = static_cast<char *>(malloc(len));
+    if (copy == nullptr) {
+        return nullptr;
+    }
+    memcpy(copy, str, len);
+
+    return copy;
+}

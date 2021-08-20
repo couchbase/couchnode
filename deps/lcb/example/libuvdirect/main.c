@@ -52,9 +52,17 @@ static void delete_timer()
     uv_close((uv_handle_t *)&timer, timer_close_cb);
 }
 
+static void query_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPQUERY *resp)
+{
+    printf("invoke query callback: %s, final: %s\n", lcb_strerror_short(lcb_respquery_status(resp)),
+           lcb_respquery_is_final(resp) ? "true" : "false");
+    (void)instance;
+    (void)cbtype;
+    (void)resp;
+}
+
 static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
 {
-    lcb_CMDSTORE *cmd;
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "bootstrap error: %s\n", lcb_strerror_short(err));
         lcb_destroy_async(instance, NULL);
@@ -62,16 +70,35 @@ static void bootstrap_callback(lcb_INSTANCE *instance, lcb_STATUS err)
     }
     printf("successfully bootstrapped\n");
     fflush(stdout);
-    /* Since we've got our configuration, let's go ahead and store a value */
-    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-    lcb_cmdstore_key(cmd, key, nkey);
-    lcb_cmdstore_value(cmd, val, nval);
-    err = lcb_store(instance, NULL, cmd);
-    lcb_cmdstore_destroy(cmd);
-    if (err != LCB_SUCCESS) {
-        fprintf(stderr, "failed to set up store request: %s\n", lcb_strerror_short(err));
-        lcb_destroy_async(instance, NULL);
-        return;
+    {
+        /* Since we've got our configuration, let's go ahead and store a value */
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_key(cmd, key, nkey);
+        lcb_cmdstore_value(cmd, val, nval);
+        err = lcb_store(instance, NULL, cmd);
+        lcb_cmdstore_destroy(cmd);
+        if (err != LCB_SUCCESS) {
+            fprintf(stderr, "failed to set up store request: %s\n", lcb_strerror_short(err));
+            lcb_destroy_async(instance, NULL);
+            return;
+        }
+    }
+
+    {
+        lcb_CMDQUERY *cmd;
+        lcb_cmdquery_create(&cmd);
+        const char *statement = "SELECT 'hello' AS greeting";
+        lcb_cmdquery_statement(cmd, statement, strlen(statement));
+        lcb_cmdquery_callback(cmd, query_callback);
+        err = lcb_query(instance, NULL, cmd);
+        lcb_cmdquery_destroy(cmd);
+        if (err != LCB_SUCCESS) {
+            fprintf(stderr, "failed to set up query request: %s\n", lcb_strerror_short(err));
+            lcb_destroy_async(instance, NULL);
+            return;
+        }
+        printf("scheduled query\n");
     }
 }
 
@@ -238,7 +265,7 @@ int main(int argc, char **argv)
         nreq = nresp = atoi(argv[4]);
     }
     if (argc > 5) {
-        interval = atoi(argv[4]);
+        interval = atoi(argv[5]);
     }
     /* Store the event base as the user cookie in our instance so that
      * we may terminate the program when we're done */

@@ -282,7 +282,7 @@ static void endpointToJSON(hrtime_t now, Json::Value &node, const PoolHost *host
     endpoint["id"] = id;
     endpoint["remote"] = get_hehost(host);
     if (info->sock->info) {
-        endpoint["local"] = info->sock->info->ep_local;
+        endpoint["local"] = info->sock->info->ep_local_host_and_port;
         endpoint["last_activity_us"] = (Json::Value::UInt64)(now - info->sock->atime);
     }
     auto *session = lcb::SessionInfo::get(info->sock);

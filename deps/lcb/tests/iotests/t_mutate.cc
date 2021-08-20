@@ -840,9 +840,9 @@ TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-        lcb_cmdstore_key(cmd, key.c_str(), key.size());
-        lcb_cmdstore_value(cmd, value.c_str(), value.size());
-        lcb_cmdstore_expiry(cmd, birthday);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdstore_key(cmd, key.c_str(), key.size()));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdstore_value(cmd, value.c_str(), value.size()));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdstore_expiry(cmd, birthday));
         lcb_STATUS cookie = LCB_ERR_GENERIC;
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
         lcb_cmdstore_destroy(cmd);
@@ -860,8 +860,9 @@ TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
         lcb_subdocspecs_create(&ops, 1);
-        lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
-        lcb_cmdsubdoc_specs(cmd, ops);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(),
+                                                          expiry_path.size()));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdsubdoc_specs(cmd, ops));
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
@@ -879,9 +880,10 @@ TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
         lcb_subdocspecs_create(&ops, 1);
-        lcb_subdocspecs_replace(ops, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
-        lcb_cmdsubdoc_specs(cmd, ops);
-        lcb_cmdsubdoc_preserve_expiry(cmd, true);
+        ASSERT_STATUS_EQ(LCB_SUCCESS,
+                         lcb_subdocspecs_replace(ops, 0, 0, path.c_str(), path.size(), value.c_str(), value.size()));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdsubdoc_specs(cmd, ops));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdsubdoc_preserve_expiry(cmd, true));
         lcb_STATUS cookie = LCB_ERR_GENERIC;
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &cookie, cmd));
         lcb_subdocspecs_destroy(ops);

@@ -464,9 +464,11 @@ TEST_F(HttpUnitTest, testCancelWorks)
 }
 
 extern "C" {
-static void noInvoke_callback(lcb_INSTANCE *, int, const lcb_RESPBASE *)
+static void noInvoke_callback(lcb_INSTANCE *, int, const lcb_RESPHTTP *resp)
 {
-    EXPECT_FALSE(true) << "This callback should not be invoked!";
+    bool *called;
+    lcb_resphttp_cookie(resp, (void **)&called);
+    *called = true;
 }
 }
 TEST_F(HttpUnitTest, testDestroyWithActiveRequest)
@@ -481,10 +483,13 @@ TEST_F(HttpUnitTest, testDestroyWithActiveRequest)
     std::string ss;
     makeAdminReq(&cmd, ss, instance);
 
-    lcb_install_callback(instance, LCB_CALLBACK_HTTP, noInvoke_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)noInvoke_callback);
     lcb_sched_enter(instance);
-    ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, nullptr, cmd));
+    bool called = false;
+    ASSERT_EQ(LCB_SUCCESS, lcb_http(instance, &called, cmd));
     lcb_cmdhttp_destroy(cmd);
     lcb_sched_leave(instance);
+    fprintf(stderr, "invoke lcb_destroy\n");
     lcb_destroy(instance);
+    ASSERT_TRUE(called) << "lcb_destroy should invoke HTTP callbacks";
 }

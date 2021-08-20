@@ -365,39 +365,286 @@ TEST_F(QueryUnitTest, testClusterwide)
     ASSERT_FALSE(res.called);
 }
 
+struct upsert_result {
+    bool invoked{false};
+    lcb_STATUS rc{LCB_ERR_GENERIC};
+    std::string id{};
+    std::uint64_t cas{0};
+};
+
 extern "C" {
 static void setCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPSTORE *resp)
 {
-    int *counter;
-    lcb_respstore_cookie(resp, (void **)&counter);
+    upsert_result *res = nullptr;
+    lcb_respstore_cookie(resp, (void **)&res);
+    res->invoked = true;
     lcb_STORE_OPERATION op;
     lcb_respstore_operation(resp, &op);
     ASSERT_EQ(LCB_STORE_UPSERT, op);
-    lcb_STATUS rc = lcb_respstore_status(resp);
-    ASSERT_STATUS_EQ(LCB_SUCCESS, rc) << lcb_strerror_short(rc);
+    res->rc = lcb_respstore_status(resp);
+    lcb_respstore_cas(resp, &res->cas);
+    const char *ptr = nullptr;
+    std::size_t len = 0;
+    lcb_respstore_key(resp, &ptr, &len);
+    res->id.assign(ptr, len);
 }
 }
 
-string insert_doc(lcb_INSTANCE *instance, const string &scope, const string &collection)
+upsert_result upsert_doc(lcb_INSTANCE *instance, const string &scope, const string &collection)
 {
     (void)lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)setCallback);
 
     string key = unique_name("id");
-    string val = unique_name("foo");
+    string val = R"({"key":")" + key + "\"}";
 
-    int numcallbacks = 0;
     lcb_CMDSTORE *cmd;
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
     lcb_cmdstore_collection(cmd, scope.c_str(), scope.size(), collection.c_str(), collection.size());
     lcb_cmdstore_key(cmd, key.c_str(), key.size());
     lcb_cmdstore_value(cmd, val.c_str(), val.size());
-    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &numcallbacks, cmd));
-    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    upsert_result res{};
+    EXPECT_EQ(LCB_SUCCESS, lcb_store(instance, &res, cmd));
     lcb_cmdstore_destroy(cmd);
-    return key;
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    EXPECT_TRUE(res.invoked);
+    EXPECT_STATUS_EQ(LCB_SUCCESS, res.rc);
+    return res;
 }
 
-void create_index(lcb_INSTANCE *instance, const string &index, const string &scope, const string &collection)
+struct query_index {
+    std::string id{};
+    std::string name{};
+    bool is_primary{false};
+    std::string keyspace_id{};
+    std::string namespace_id{};
+    std::string bucket_id{};
+    std::string state{};
+};
+
+struct query_index_list {
+    bool invoked{false};
+    lcb_STATUS rc{LCB_ERR_GENERIC};
+    std::uint16_t http_code{0};
+    std::string meta{};
+    std::string status{};
+    vector<std::pair<unsigned int, string>> errors{};
+    std::vector<query_index> indexes{};
+};
+
+extern "C" {
+static void list_indexes_callback(lcb_INSTANCE *, int, const lcb_RESPQUERY *resp)
+{
+    query_index_list *res;
+    lcb_respquery_cookie(resp, (void **)&res);
+
+    const char *row;
+    size_t nrow;
+    lcb_respquery_row(resp, &row, &nrow);
+
+    if (lcb_respquery_is_final(resp)) {
+        res->rc = lcb_respquery_status(resp);
+        if (row) {
+            res->meta.assign(row, nrow);
+            Json::Value meta;
+            if (Json::Reader().parse(res->meta, meta)) {
+                if (meta.isMember("status") && meta["status"].isString()) {
+                    res->status = meta["status"].asString();
+                }
+
+                if (meta.isMember("errors") && meta["errors"].isArray()) {
+                    for (auto &err : meta["errors"]) {
+                        if (err.isObject()) {
+                            res->errors.emplace_back(err["code"].asUInt(), err["msg"].asString());
+                        }
+                    }
+                }
+            }
+        }
+        const lcb_RESPHTTP *http = nullptr;
+        lcb_respquery_http_response(resp, &http);
+        if (http) {
+            lcb_resphttp_http_status(http, &res->http_code);
+        }
+    } else {
+        Json::Value index_json;
+        if (Json::Reader().parse(row, row + nrow, index_json)) {
+            query_index index{};
+            if (index_json.isMember("is_primary") && index_json["is_primary"].isBool()) {
+                index.is_primary = index_json["is_primary"].asBool();
+            }
+            if (index_json.isMember("id") && index_json["id"].isString()) {
+                index.id = index_json["id"].asString();
+            }
+            if (index_json.isMember("state") && index_json["state"].isString()) {
+                index.state = index_json["state"].asString();
+            }
+            if (index_json.isMember("name") && index_json["name"].isString()) {
+                index.name = index_json["name"].asString();
+            }
+            if (index_json.isMember("bucket_id") && index_json["bucket_id"].isString()) {
+                index.bucket_id = index_json["bucket_id"].asString();
+            }
+            if (index_json.isMember("keyspace_id") && index_json["keyspace_id"].isString()) {
+                index.keyspace_id = index_json["keyspace_id"].asString();
+            }
+            if (index_json.isMember("namespace_id") && index_json["namespace_id"].isString()) {
+                index.namespace_id = index_json["namespace_id"].asString();
+            }
+            res->indexes.emplace_back(index);
+        }
+    }
+    res->invoked = true;
+}
+}
+
+query_index_list list_indexes(lcb_INSTANCE *instance, const std::string &bucket_name = "default")
+{
+    const std::string param = "bucket_name";
+    const std::string encoded_bucket_name = Json::FastWriter().write(Json::Value(bucket_name));
+    std::string statement = R"(
+SELECT idx.* FROM system:indexes AS idx
+WHERE
+    (
+        (keyspace_id = $bucket_name AND bucket_id IS MISSING)
+    OR
+        (bucket_id = $bucket_name)
+    )
+AND `using`="gsi"
+ ORDER BY is_primary DESC, name ASC)";
+    lcb_CMDQUERY *cmd;
+    lcb_cmdquery_create(&cmd);
+    lcb_cmdquery_statement(cmd, statement.c_str(), statement.size());
+    lcb_cmdquery_callback(cmd, list_indexes_callback);
+    EXPECT_STATUS_EQ(LCB_SUCCESS, lcb_cmdquery_named_param(cmd, param.data(), param.size(), encoded_bucket_name.data(),
+                                                           encoded_bucket_name.size()));
+    query_index_list indexes{};
+    lcb_STATUS rc = lcb_query(instance, &indexes, cmd);
+    lcb_cmdquery_destroy(cmd);
+    EXPECT_STATUS_EQ(LCB_SUCCESS, rc);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    return indexes;
+}
+
+struct index_status_result {
+    bool invoked{false};
+    lcb_STATUS rc{LCB_ERR_GENERIC};
+    std::uint16_t status{};
+    std::string body{};
+};
+
+extern "C" {
+static void index_status_callback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_RESPHTTP *resp)
+{
+    index_status_result *res = nullptr;
+    lcb_resphttp_cookie(resp, (void **)&res);
+    res->invoked = true;
+    res->rc = lcb_resphttp_status(resp);
+    const char *ptr = nullptr;
+    std::size_t len = 0;
+    lcb_resphttp_body(resp, &ptr, &len);
+    res->body.assign(ptr, len);
+    lcb_resphttp_http_status(resp, &res->status);
+}
+}
+
+struct index_stats_point {
+    std::uint32_t timestamp{0};
+    std::uint32_t index_items_count{0};
+};
+
+std::vector<index_stats_point> index_status(lcb_INSTANCE *instance, const std::string &scope,
+                                            const std::string &collection, const std::string &index)
+{
+    const std::string path{"/pools/default/stats/range"};
+    auto old_callback = lcb_install_callback(instance, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)index_status_callback);
+
+    std::string payload =
+        R"(
+[
+    {
+        "step": 3,
+        "start": -3,
+        "metric": [
+            {"label": "name", "value": "index_items_count"},
+            {"label": "bucket", "value": "default"},
+            {"label": "scope", "value": ")" +
+        scope + R"("},
+            {"label": "collection", "value": ")" +
+        collection + R"("},
+            {"label": "index", "value": ")" +
+        index + R"("}
+        ],
+        "nodesAggregation": "sum"
+    }
+]
+)";
+
+    lcb_CMDHTTP *cmd;
+    lcb_cmdhttp_create(&cmd, LCB_HTTP_TYPE_MANAGEMENT);
+    lcb_cmdhttp_method(cmd, LCB_HTTP_METHOD_POST);
+    lcb_cmdhttp_path(cmd, path.data(), path.size());
+    lcb_cmdhttp_body(cmd, payload.data(), payload.size());
+
+    index_status_result res{};
+    lcb_STATUS rc = lcb_http(instance, &res, cmd);
+    lcb_cmdhttp_destroy(cmd);
+    EXPECT_STATUS_EQ(LCB_SUCCESS, rc);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+    EXPECT_TRUE(res.invoked);
+    EXPECT_STATUS_EQ(LCB_SUCCESS, res.rc) << "http=" << res.status;
+
+    std::vector<index_stats_point> stats{};
+    Json::Value stats_json;
+    if (Json::Reader().parse(res.body, stats_json)) {
+        if (stats_json.isArray() && !stats_json.empty()) {
+            const auto &entry_json = stats_json[0];
+            if (entry_json.isObject() && entry_json.isMember("data") && entry_json["data"].isArray() &&
+                !entry_json["data"].empty()) {
+                const auto &metric_json = entry_json["data"][0];
+                if (metric_json.isObject() && metric_json.isMember("values") && metric_json["values"].isArray()) {
+                    for (const auto &value : metric_json["values"]) {
+                        if (value.isArray() && value.size() == 2) {
+                            index_stats_point point{};
+                            point.timestamp = value[0].asUInt();
+                            point.index_items_count = std::stoul(value[1].asString());
+                            stats.emplace_back(point);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    std::sort(stats.begin(), stats.end(),
+              [](const index_stats_point &a, const index_stats_point &b) { return a.timestamp < b.timestamp; });
+
+    lcb_install_callback(instance, LCB_CALLBACK_HTTP, old_callback);
+    return stats;
+}
+
+/**
+ * Sergey(2021-08-11): For some reason scoped indexes are really slow on Jenkins, this function, checks number of
+ * indexed documents and return when it is greater or equals to requested. See CCBC-1443.
+ */
+void wait_for_num_items_in_index(lcb_INSTANCE *instance, const string &scope, const string &collection,
+                                 const string &index, std::uint32_t expected)
+{
+    std::uint32_t current = 0;
+    while (current < expected) {
+        auto stats = index_status(instance, scope, collection, index);
+        if (!stats.empty()) {
+            current = stats[stats.size() - 1].index_items_count;
+            if (current >= expected) {
+                return;
+            }
+        }
+        sleep(1);
+    };
+}
+
+void create_index(lcb_INSTANCE *instance, const string &index, const string &scope, const string &collection,
+                  bool wait_for_index = true)
 {
     string keyspace = "`default`:`default`.`" + scope + "`.`" + collection + "`";
     string statement = "CREATE PRIMARY INDEX ";
@@ -416,6 +663,17 @@ void create_index(lcb_INSTANCE *instance, const string &index, const string &sco
     ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     ASSERT_TRUE(handle != nullptr);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
+
+    while (wait_for_index) {
+        auto query_indexes = list_indexes(instance);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, query_indexes.rc) << "meta = " << query_indexes.meta;
+        if (std::any_of(query_indexes.indexes.begin(), query_indexes.indexes.end(), [&index](const query_index &entry) {
+                return entry.name == index && entry.state == "online";
+            })) {
+            return;
+        }
+        usleep(100000);
+    }
 }
 
 /**
@@ -440,28 +698,31 @@ TEST_F(QueryUnitTest, testCollectionQuery)
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
 
+    // to ensure timeout comes from the query engine, and not generate by SDK
+    lcb_cntl_string(instance, "query_grace_period", "3" /* seconds */);
+
     string scope = unique_name("scope");
     string collection = unique_name("collection");
-    string index = "test-index";
+    string index = unique_name("index");
 
     // Create a scope and collection
     create_scope(instance, scope);
     create_collection(instance, scope, collection);
-    sleep(5);
 
     // Create an index on the collection
     create_index(instance, index, scope, collection);
-    sleep(10); /* Wait for index to be available. Should replace with poll.*/
 
     // Insert a doc
-    string id = insert_doc(instance, scope, collection);
+    auto upsert_res = upsert_doc(instance, scope, collection);
+    wait_for_num_items_in_index(instance, scope, collection, index, 1);
 
     N1QLResult res;
     lcb_CMDQUERY *cmd;
     lcb_cmdquery_create(&cmd);
-    string query = "SELECT * FROM `" + collection + "` where meta().id=\"" + id + "\"";
+    string query = "SELECT * FROM `" + collection + "` WHERE meta().id=\"" + upsert_res.id + "\"";
     lcb_cmdquery_statement(cmd, query.c_str(), query.size());
     lcb_cmdquery_consistency(cmd, LCB_QUERY_CONSISTENCY_REQUEST);
+    lcb_cmdquery_metrics(cmd, true);
     lcb_cmdquery_callback(cmd, rowcb);
     lcb_cmdquery_scope_name(cmd, scope.c_str(), scope.size());
 
@@ -473,8 +734,8 @@ TEST_F(QueryUnitTest, testCollectionQuery)
     ASSERT_TRUE(handle != nullptr);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(res.called);
-    ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
-    ASSERT_EQ(1, res.rows.size());
+    ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc) << "http=" << res.htcode << ", meta=" << res.meta;
+    ASSERT_EQ(1, res.rows.size()) << "http=" << res.htcode << ", meta=" << res.meta;
     drop_scope(instance, scope);
 }
 
@@ -490,30 +751,29 @@ TEST_F(QueryUnitTest, testQueryWithUnknownCollection)
     string collection = unique_name("collection1");
     string unknown_scope = unique_name("scope2");
     string unknown_collection = unique_name("collection2");
-
-    string index = "test-index";
+    string index = unique_name("index");
 
     // Create a scope and collection
     create_scope(instance, scope);
     create_collection(instance, scope, collection);
-    sleep(5);
 
     // Create an index on the collection
     create_index(instance, index, scope, collection);
-    sleep(10); /* Wait for index to be available. Should replace with poll.*/
 
     // Insert a doc
-    string id = insert_doc(instance, scope, collection);
+    auto upsert_res = upsert_doc(instance, scope, collection);
+    wait_for_num_items_in_index(instance, scope, collection, index, 1);
 
     {
         // Query with unknown scope
         N1QLResult res;
         lcb_CMDQUERY *cmd;
         lcb_cmdquery_create(&cmd);
-        string query = "SELECT * FROM `" + collection + "` where meta().id=\"" + id + "\"";
+        string query = "SELECT * FROM `" + collection + "` where meta().id=\"" + upsert_res.id + "\"";
         lcb_cmdquery_statement(cmd, query.c_str(), query.size());
         lcb_cmdquery_callback(cmd, rowcb);
         lcb_cmdquery_scope_name(cmd, unknown_scope.c_str(), unknown_scope.size());
+        lcb_cmdquery_consistency(cmd, LCB_QUERY_CONSISTENCY_REQUEST);
 
         lcb_QUERY_HANDLE *handle = nullptr;
         lcb_cmdquery_handle(cmd, &handle);
@@ -532,7 +792,7 @@ TEST_F(QueryUnitTest, testQueryWithUnknownCollection)
         N1QLResult res;
         lcb_CMDQUERY *cmd;
         lcb_cmdquery_create(&cmd);
-        string query = "SELECT * FROM `" + unknown_collection + "` where meta().id=\"" + id + "\"";
+        string query = "SELECT * FROM `" + unknown_collection + "` where meta().id=\"" + upsert_res.id + "\"";
         lcb_cmdquery_statement(cmd, query.c_str(), query.size());
         lcb_cmdquery_callback(cmd, rowcb);
         lcb_cmdquery_scope_name(cmd, scope.c_str(), scope.size());
@@ -559,31 +819,32 @@ TEST_F(QueryUnitTest, testCollectionPreparedQuery)
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
+    lcb_cntl_string(instance, "query_grace_period", "3" /* seconds */);
 
     string scope = unique_name("scope");
     string collection = unique_name("collection");
-    string index = "test-index";
+    string index = unique_name("index");
 
     // Create a scope and collection
     create_scope(instance, scope);
     create_collection(instance, scope, collection);
-    sleep(5);
 
     // Create an index on the collection
     create_index(instance, index, scope, collection);
-    sleep(10); /* Wait for index to be available. Should replace with poll.*/
 
     // Insert a doc
-    string id = insert_doc(instance, scope, collection);
+    auto upsert_res = upsert_doc(instance, scope, collection);
+    wait_for_num_items_in_index(instance, scope, collection, index, 1);
 
     N1QLResult res;
     lcb_CMDQUERY *cmd;
     lcb_cmdquery_create(&cmd);
-    string query = "SELECT * FROM `" + collection + "` where meta().id=\"" + id + "\"";
+    string query = "SELECT * FROM `" + collection + "` where meta().id=\"" + upsert_res.id + "\"";
     lcb_cmdquery_statement(cmd, query.c_str(), query.size());
     lcb_cmdquery_callback(cmd, rowcb);
     lcb_cmdquery_scope_name(cmd, scope.c_str(), scope.size());
     lcb_cmdquery_adhoc(cmd, false);
+    lcb_cmdquery_consistency(cmd, LCB_QUERY_CONSISTENCY_REQUEST);
 
     lcb_QUERY_HANDLE *handle = nullptr;
     lcb_cmdquery_handle(cmd, &handle);
@@ -593,8 +854,8 @@ TEST_F(QueryUnitTest, testCollectionPreparedQuery)
     ASSERT_TRUE(handle != nullptr);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_TRUE(res.called);
-    ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc) << lcb_strerror_short(res.rc);
-    ASSERT_EQ(1, res.rows.size());
+    ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc) << "http=" << res.htcode << ", meta=" << res.meta;
+    ASSERT_EQ(1, res.rows.size()) << "http=" << res.htcode << ", meta=" << res.meta;
 
     drop_scope(instance, scope);
 }

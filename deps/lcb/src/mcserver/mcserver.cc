@@ -811,7 +811,7 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
             snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64 "/%x", settings->iid, connctx->sock->id,
                      (int)pkt->opaque);
             info["i"] = local_id;
-            info["l"] = connctx->sock->info->ep_local;
+            info["l"] = connctx->sock->info->ep_local_host_and_port;
         }
         std::string msg(Json::FastWriter().write(info));
         if (msg.size() > 1) {

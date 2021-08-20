@@ -142,9 +142,14 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_named_param(lcb_CMDQUERY *cmd, const ch
     return cmd->option("$" + std::string(name, name_len), value, value_len);
 }
 
-LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_positional_param(lcb_CMDQUERY *cmd, const char *value, size_t value_len)
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_positional_params(lcb_CMDQUERY *cmd, const char *value, size_t value_len)
 {
     return cmd->option_array("args", value, value_len);
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_positional_param(lcb_CMDQUERY *cmd, const char *value, size_t value_len)
+{
+    return cmd->option_array_append("args", value, value_len);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_adhoc(lcb_CMDQUERY *cmd, int adhoc)

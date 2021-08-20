@@ -43,6 +43,7 @@ static lcb_STATUS search_execute(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
     auto *req = new lcb_SEARCH_HANDLE_(instance, cmd->cookie(), cmd.get());
     if (req->has_error()) {
         lcb_STATUS rc = req->last_error();
+        req->clear_callback();
         delete req;
         return rc;
     }

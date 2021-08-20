@@ -4019,7 +4019,6 @@ void FastWriter::enableYAMLCompatibility() { yamlCompatiblityEnabled_ = true; }
 std::string FastWriter::write(const Value& root) {
   document_ = "";
   writeValue(root);
-  document_ += "\n";
   return document_;
 }
 

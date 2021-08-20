@@ -375,13 +375,15 @@ static lcb_STATUS store_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
 
     std::vector<std::uint8_t> framing_extras;
     if (new_durability_supported && cmd->has_sync_durability_requirements()) {
+        auto durability_timeout = htons(lcb_durability_timeout(instance, cmd->timeout_in_microseconds()));
         std::uint8_t frame_id = 0x01;
-        std::uint8_t frame_size = 0x04;
+        std::uint8_t frame_size = durability_timeout > 0 ? 3 : 1;
         framing_extras.emplace_back(frame_id << 4U | frame_size);
         framing_extras.emplace_back(cmd->durability_level());
-        auto durability_timeout = htons(lcb_durability_timeout(instance, cmd->timeout_in_microseconds()));
-        framing_extras.emplace_back(durability_timeout >> 8U);
-        framing_extras.emplace_back(durability_timeout & 0xff);
+        if (durability_timeout > 0) {
+            framing_extras.emplace_back(durability_timeout >> 8U);
+            framing_extras.emplace_back(durability_timeout & 0xff);
+        }
     }
     if (cmd->should_preserve_expiry()) {
         std::uint8_t frame_id = 0x05;

@@ -322,12 +322,12 @@ static lcb_STATUS setup_ssl(lcb_INSTANCE *obj, const Connspec &params)
 
     if (lcb_getenv_nonempty("LCB_SSL_CACERT", optbuf, sizeof optbuf)) {
         lcb_log(LOGARGS(obj, INFO), "SSL CA certificate %s specified on environment", optbuf);
-        settings->certpath = strdup(optbuf);
+        settings->certpath = lcb_strdup(optbuf);
     }
 
     if (lcb_getenv_nonempty("LCB_SSL_KEY", optbuf, sizeof optbuf)) {
         lcb_log(LOGARGS(obj, INFO), "SSL key %s specified on environment", optbuf);
-        settings->keypath = strdup(optbuf);
+        settings->keypath = lcb_strdup(optbuf);
     }
 
     if (lcb_getenv_nonempty("LCB_SSL_MODE", optbuf, sizeof optbuf)) {
@@ -343,15 +343,15 @@ static lcb_STATUS setup_ssl(lcb_INSTANCE *obj, const Connspec &params)
     }
 
     if (settings->truststorepath == nullptr && !params.truststorepath().empty()) {
-        settings->truststorepath = strdup(params.truststorepath().c_str());
+        settings->truststorepath = lcb_strdup(params.truststorepath().c_str());
     }
 
     if (settings->certpath == nullptr && !params.certpath().empty()) {
-        settings->certpath = strdup(params.certpath().c_str());
+        settings->certpath = lcb_strdup(params.certpath().c_str());
     }
 
     if (settings->keypath == nullptr && !params.keypath().empty()) {
-        settings->keypath = strdup(params.keypath().c_str());
+        settings->keypath = lcb_strdup(params.keypath().c_str());
     }
 
     if (env_policy == -1) {
@@ -484,10 +484,10 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
 
     if (spec.bucket().empty()) {
         if (type == LCB_TYPE_BUCKET) {
-            settings->bucket = strdup("default");
+            settings->bucket = lcb_strdup("default");
         }
     } else {
-        settings->bucket = strdup(spec.bucket().c_str());
+        settings->bucket = lcb_strdup(spec.bucket().c_str());
     }
 
     if (!spec.username().empty()) {
@@ -635,6 +635,7 @@ static void do_pool_shutdown(io::Pool *pool)
 LIBCOUCHBASE_API
 void lcb_destroy(lcb_INSTANCE *instance)
 {
+    instance->destroying = 1;
 #define DESTROY(fn, fld)                                                                                               \
     if (instance->fld) {                                                                                               \
         fn(instance->fld);                                                                                             \
@@ -665,10 +666,10 @@ void lcb_destroy(lcb_INSTANCE *instance)
     }
 
     if ((pendq = po->items[LCB_PENDTYPE_HTTP])) {
-        for (it = pendq->begin(); it != pendq->end(); ++it) {
-            auto *htreq = reinterpret_cast<http::Request *>(*it);
-            htreq->block_callback();
-            htreq->finish(LCB_ERR_GENERIC);
+        std::vector<void *> requests(pendq->begin(), pendq->end());
+        for (void *request : requests) {
+            auto *htreq = reinterpret_cast<http::Request *>(request);
+            htreq->finish(LCB_ERR_REQUEST_CANCELED);
         }
     }
 

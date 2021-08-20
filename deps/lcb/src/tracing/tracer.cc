@@ -86,8 +86,8 @@ void lcb_set_tracer(lcb_INSTANCE *instance, lcbtrace_TRACER *tracer)
 void lcbtrace_span_add_host_and_port(lcbtrace_SPAN *span, lcbio_CONNINFO *info)
 {
     if (span) {
-        lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, info->ep_local2.host);
-        lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_PORT, info->ep_local2.port);
+        lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_ADDRESS, info->ep_local.host);
+        lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_LOCAL_PORT, info->ep_local.port);
         lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_PEER_ADDRESS, info->ep_remote.host);
         lcbtrace_span_add_tag_str_nocopy(span, LCBTRACE_TAG_PEER_PORT, info->ep_remote.port);
     }

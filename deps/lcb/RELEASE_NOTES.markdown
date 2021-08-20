@@ -1,5 +1,35 @@
 # Release Notes
 
+## 3.2.1 (2021-08-20)
+
+* CCBC-1429: Fixed positional parameters for query/analtyics:
+    
+  * reverts behaviour `lcb_cmdquery_positional_param` and `lcb_cmdanalytics_positional_param` to append single
+    JSON-encoded value to arguments array.
+    
+  * introduces new functions `lcb_cmdquery_positional_params` and `lcb_cmdanalytics_positional_params` that accept all
+    positional arguments at once as JSON-encoded array.
+    
+  * document, that old functions will emit compiler warning since 3.3.0 release and will be removed later.
+
+* CCBC-1428: Clear callback upon error in `lcb_search`.
+
+* CCBC-1454: Fixed compiler warning in `lcb_getreplica`.
+
+* CCBC-1453: Refactored local name caching in `lcbio_cache_local_name` to simplify the code and eliminate compiler warnings.
+
+* CCBC-1451: Fixed strdup usage, in some cases the compiler might choose `strdup` to return `int` instead of `char *`
+  which might lead to memory issues.
+
+* CCBC-1448: Fixed cmake macro for examples. The macro `ADD_EXAMPLE` now correctly updates header directories for
+  generated target.
+
+* CCBC-1445: Always invoke callbacks for pending HTTP operations. When destroying `lcb_INSTANCE` make sure that all HTTP
+  requests (views, query, search, analytics) will have their callbacks invoked.
+
+* CCBC-1438: Fixed frame size for mutations with durability. Counter, Store and Subdoc mutations were sending incorrect
+  frame size of durability encoding, which led to rejection of the command by the server.
+
 ## 3.2.0 (2021-07-19)
 
 * Various improvements and fixes in test and build infrastruture

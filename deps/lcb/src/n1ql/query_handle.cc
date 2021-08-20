@@ -390,7 +390,7 @@ lcb_STATUS lcb_QUERY_HANDLE_::issue_htreq(const std::string &body)
     lcb_cmdhttp_content_type(htcmd, content_type.c_str(), content_type.size());
     lcb_cmdhttp_method(htcmd, LCB_HTTP_METHOD_POST);
     lcb_cmdhttp_streaming(htcmd, true);
-    lcb_cmdhttp_timeout(htcmd, timeout);
+    lcb_cmdhttp_timeout(htcmd, timeout + LCBT_SETTING(instance_, n1ql_grace_period));
     lcb_cmdhttp_handle(htcmd, &http_request_);
     lcb_cmdhttp_host(htcmd, endpoint.data(), endpoint.size());
     if (use_multi_bucket_authentication_) {
@@ -416,6 +416,10 @@ lcb_STATUS lcb_QUERY_HANDLE_::issue_htreq(const std::string &body)
     if (rc == LCB_SUCCESS) {
         http_request_->set_callback(reinterpret_cast<lcb_RESPCALLBACK>(chunk_callback));
     }
+    lcb_log(LOGARGS(this, TRACE),
+            LOGFMT "execute query: %.*s, idempotent=%s, timeout=%uus, grace_period=%uus, client_context_id=\"%s\"",
+            LOGID(this), (int)body.size(), body.c_str(), idempotent_ ? "true" : "false", timeout,
+            LCBT_SETTING(instance_, n1ql_grace_period), client_context_id.c_str());
     return rc;
 }
 
@@ -514,9 +518,6 @@ lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, void *user_cookie, const
     if (json.isMember("readonly") && json["readonly"].asBool()) {
         idempotent_ = true;
     }
-    lcb_log(LOGARGS(this, TRACE), LOGFMT "%.*s, idempotent=%s, timeout=%uus, grace_period=%uus", LOGID(this),
-            (int)statement_.size(), statement_.c_str(), idempotent_ ? "true" : "false", timeout,
-            LCBT_SETTING(obj, n1ql_grace_period));
     timeout_timer_.rearm(timeout + LCBT_SETTING(obj, n1ql_grace_period));
 
     // Determine if we need to add more credentials.

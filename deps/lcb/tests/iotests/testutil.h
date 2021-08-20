@@ -26,6 +26,11 @@
     ASSERT_EQ(expected, GTEST_CONCAT_TOKEN_(actual_code__, __LINE__))                                                  \
         << lcb_strerror_short(expected) << " != " << lcb_strerror_short(GTEST_CONCAT_TOKEN_(actual_code__, __LINE__))
 
+#define EXPECT_STATUS_EQ(expected, actual)                                                                             \
+    lcb_STATUS GTEST_CONCAT_TOKEN_(actual_code__, __LINE__) = (actual);                                                \
+    EXPECT_EQ(expected, GTEST_CONCAT_TOKEN_(actual_code__, __LINE__))                                                  \
+        << lcb_strerror_short(expected) << " != " << lcb_strerror_short(GTEST_CONCAT_TOKEN_(actual_code__, __LINE__))
+
 struct Item {
     void assign(const lcb_RESPGET *resp)
     {

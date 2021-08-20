@@ -25,6 +25,7 @@
 #include "json-inl.h"
 #include "hash.h"
 #include "crc32.h"
+#include "utilities.h"
 
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)
@@ -118,7 +119,7 @@ static int assign_dumy_server(lcbvb_CONFIG *cfg, lcbvb_SERVER *dst, const char *
 {
     int itmp;
     char *colon;
-    if (!(dst->authority = strdup(s))) {
+    if (!(dst->authority = lcb_strdup(s))) {
         SET_ERRSTR(cfg, "Couldn't allocate authority string");
         goto GT_ERR;
     }
@@ -354,28 +355,28 @@ static int build_server_strings(lcbvb_CONFIG *cfg, lcbvb_SERVER *server)
     char tmpbuf[4096];
 
     copy_address(tmpbuf, sizeof(tmpbuf), server->hostname, server->svc.data);
-    server->authority = strdup(tmpbuf);
+    server->authority = lcb_strdup(tmpbuf);
     if (!server->authority) {
         SET_ERRSTR(cfg, "Couldn't allocate authority");
         return 0;
     }
 
-    server->svc.hoststrs[LCBVB_SVCTYPE_DATA] = strdup(server->authority);
+    server->svc.hoststrs[LCBVB_SVCTYPE_DATA] = lcb_strdup(server->authority);
     if (server->viewpath == NULL && server->svc.views && cfg->bname) {
         server->viewpath = malloc(strlen(cfg->bname) + 2);
         sprintf(server->viewpath, "/%s", cfg->bname);
     }
     if (server->querypath == NULL && server->svc.n1ql) {
-        server->querypath = strdup("/query/service");
+        server->querypath = lcb_strdup("/query/service");
     }
     if (server->ftspath == NULL && server->svc.fts) {
-        server->ftspath = strdup("/");
+        server->ftspath = lcb_strdup("/");
     }
     if (server->cbaspath == NULL && server->svc.cbas) {
-        server->cbaspath = strdup("");
+        server->cbaspath = lcb_strdup("");
     }
     if (server->eventingpath == NULL && server->svc.eventing) {
-        server->eventingpath = strdup("");
+        server->eventingpath = lcb_strdup("");
     }
     return 1;
 }
@@ -395,7 +396,7 @@ static int build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, c
     if (!get_jstr(js, "hostname", &htmp)) {
         htmp = "$HOST";
     }
-    if (!(server->hostname = strdup(htmp))) {
+    if (!(server->hostname = lcb_strdup(htmp))) {
         SET_ERRSTR(cfg, "Couldn't allocate memory");
         goto GT_ERR;
     }
@@ -422,7 +423,7 @@ static int build_server_3x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js, c
             cJSON *jnetwork = cJSON_GetObjectItem(jaltaddr, *network);
             if (jnetwork && get_jstr(jnetwork, "hostname", &htmp)) {
                 cJSON *jports;
-                server->alt_hostname = strdup(htmp);
+                server->alt_hostname = lcb_strdup(htmp);
                 jports = cJSON_GetObjectItem(jnetwork, "ports");
                 if (jports && jports->type == cJSON_Object) {
                     extract_services(cfg, jports, &server->alt_svc, 0);
@@ -481,7 +482,7 @@ static int build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
     }
 
     /** Hostname is the _rest_ API host, e.g. '8091' */
-    if ((server->hostname = strdup(tmp)) == NULL) {
+    if ((server->hostname = lcb_strdup(tmp)) == NULL) {
         SET_ERRSTR(cfg, "Couldn't allocate hostname");
         goto GT_ERR;
     }
@@ -521,7 +522,7 @@ static int build_server_2x(lcbvb_CONFIG *cfg, lcbvb_SERVER *server, cJSON *js)
             SET_ERRSTR(cfg, "Expected path in couchApiBase");
             goto GT_ERR;
         }
-        server->viewpath = strdup(path_begin);
+        server->viewpath = lcb_strdup(path_begin);
     } else {
         server->svc.views = 0;
     }
@@ -559,7 +560,7 @@ static void guess_network(cJSON *jnodes, int nsrv, const char *source, char **ne
             cJSON *jhostname = cJSON_GetObjectItem(jsrv, "hostname");
             if (jhostname && jhostname->type == cJSON_String) {
                 if (strcmp(jhostname->valuestring, source) == 0) {
-                    *network = strdup("default");
+                    *network = lcb_strdup("default");
                     return;
                 }
             }
@@ -573,7 +574,7 @@ static void guess_network(cJSON *jnodes, int nsrv, const char *source, char **ne
                         cJSON *jhostname = cJSON_GetObjectItem(cur, "hostname");
                         if (jhostname && jhostname->type == cJSON_String) {
                             if (strcmp(jhostname->valuestring, source) == 0) {
-                                *network = strdup(cur->string);
+                                *network = lcb_strdup(cur->string);
                                 return;
                             }
                         }
@@ -582,7 +583,7 @@ static void guess_network(cJSON *jnodes, int nsrv, const char *source, char **ne
             }
         }
     }
-    *network = strdup("default");
+    *network = lcb_strdup("default");
 }
 
 int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, char **network)
@@ -604,7 +605,7 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
     }
 
     if (!is_cluster_cfg && get_jstr(cj, "name", &tmp)) {
-        cfg->bname = strdup(tmp);
+        cfg->bname = lcb_strdup(tmp);
         cfg->bname_len = strlen(cfg->bname);
     }
 
@@ -618,7 +619,7 @@ int lcbvb_load_json_ex(lcbvb_CONFIG *cfg, const char *data, const char *source, 
     }
 
     if (get_jstr(cj, "uuid", &tmp)) {
-        cfg->buuid = strdup(tmp);
+        cfg->buuid = lcb_strdup(tmp);
     }
 
     if (!get_jint64(cj, "revEpoch", &cfg->revepoch)) {
@@ -824,7 +825,7 @@ void lcbvb_replace_host(lcbvb_CONFIG *cfg, const char *hoststr)
         }
         /* reassign authority */
         free(srv->authority);
-        srv->authority = strdup(srv->svc.hoststrs[LCBVB_SVCTYPE_DATA]);
+        srv->authority = lcb_strdup(srv->svc.hoststrs[LCBVB_SVCTYPE_DATA]);
     }
     if (copy) {
         free(replacement);
@@ -1570,7 +1571,7 @@ const char *lcbvb_get_resturl(lcbvb_CONFIG *cfg, unsigned ix, lcbvb_SVCTYPE svc,
         } else {
             snprintf(buf, sizeof(buf), "%s://%s:%d%s", prefix, hostname, port, path);
         }
-        *strp = strdup(buf);
+        *strp = lcb_strdup(buf);
     }
 
     return *strp;
@@ -1617,24 +1618,24 @@ static void copy_service(const char *hostname, const lcbvb_SERVICES *src, lcbvb_
     *dst = *src;
     memset(&dst->hoststrs, 0, sizeof dst->hoststrs);
     if (src->views_base_) {
-        dst->views_base_ = strdup(src->views_base_);
+        dst->views_base_ = lcb_strdup(src->views_base_);
     }
     if (src->query_base_) {
-        dst->query_base_ = strdup(src->query_base_);
+        dst->query_base_ = lcb_strdup(src->query_base_);
     }
     if (src->fts_base_) {
-        dst->fts_base_ = strdup(src->fts_base_);
+        dst->fts_base_ = lcb_strdup(src->fts_base_);
     }
     if (src->cbas_base_) {
-        dst->cbas_base_ = strdup(src->cbas_base_);
+        dst->cbas_base_ = lcb_strdup(src->cbas_base_);
     }
     if (src->eventing_base_) {
-        dst->eventing_base_ = strdup(src->eventing_base_);
+        dst->eventing_base_ = lcb_strdup(src->eventing_base_);
     }
     if (dst->data) {
         char buf[4096];
         copy_address(buf, sizeof(buf), hostname, dst->data);
-        dst->hoststrs[LCBVB_SVCTYPE_DATA] = strdup(buf);
+        dst->hoststrs[LCBVB_SVCTYPE_DATA] = lcb_strdup(buf);
     }
 }
 
@@ -1656,12 +1657,12 @@ int lcbvb_genconfig_ex(lcbvb_CONFIG *vb, const char *name, const char *uuid, con
     vb->nvb = nvbuckets;
     vb->nrepl = nreplica;
     vb->nsrv = nservers;
-    vb->bname = strdup(name);
+    vb->bname = lcb_strdup(name);
     if (vb->bname) {
         vb->bname_len = strlen(vb->bname);
     }
     if (uuid) {
-        vb->buuid = strdup(uuid);
+        vb->buuid = lcb_strdup(uuid);
     }
 
     if (nreplica >= nservers) {
@@ -1713,21 +1714,21 @@ int lcbvb_genconfig_ex(lcbvb_CONFIG *vb, const char *name, const char *uuid, con
         const lcbvb_SERVER *src = servers + ii;
 
         *dst = *src;
-        dst->hostname = strdup(src->hostname);
+        dst->hostname = lcb_strdup(src->hostname);
         if (src->viewpath) {
-            dst->viewpath = strdup(src->viewpath);
+            dst->viewpath = lcb_strdup(src->viewpath);
         }
         if (src->querypath) {
-            dst->querypath = strdup(src->querypath);
+            dst->querypath = lcb_strdup(src->querypath);
         }
         if (src->ftspath) {
-            dst->ftspath = strdup(src->ftspath);
+            dst->ftspath = lcb_strdup(src->ftspath);
         }
         if (src->cbaspath) {
-            dst->cbaspath = strdup(src->cbaspath);
+            dst->cbaspath = lcb_strdup(src->cbaspath);
         }
         if (src->eventingpath) {
-            dst->eventingpath = strdup(src->eventingpath);
+            dst->eventingpath = lcb_strdup(src->eventingpath);
         }
 
         copy_service(src->hostname, &src->svc, &dst->svc);
@@ -1735,7 +1736,7 @@ int lcbvb_genconfig_ex(lcbvb_CONFIG *vb, const char *name, const char *uuid, con
         {
             char tmpbuf[MAX_AUTHORITY_SIZE] = {0};
             copy_address(tmpbuf, sizeof(tmpbuf), dst->hostname, dst->svc.data);
-            dst->authority = strdup(tmpbuf);
+            dst->authority = lcb_strdup(tmpbuf);
         }
     }
 

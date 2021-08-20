@@ -222,6 +222,19 @@ struct lcb_CMDANALYTICS_ {
         return LCB_SUCCESS;
     }
 
+    lcb_STATUS option_array_append(const std::string &name, const char *value, std::size_t value_len)
+    {
+        if (name.empty() || value == nullptr) {
+            return LCB_ERR_INVALID_ARGUMENT;
+        }
+        Json::Value json_value;
+        if (!Json::Reader().parse(value, value + value_len, json_value)) {
+            return LCB_ERR_INVALID_ARGUMENT;
+        }
+        root_[name].append(json_value);
+        return LCB_SUCCESS;
+    }
+
     lcb_STATUS option_string(const std::string &name, const char *value, std::size_t value_len)
     {
         if (name.empty() || value == nullptr || value_len == 0) {

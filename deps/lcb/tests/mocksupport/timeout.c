@@ -17,12 +17,12 @@
 #include "config.h"
 #include <stdio.h>
 /*
- * The current test suite should not take more than 5 minutes to run.
+ * The current test suite should not take more than 8 minutes to run.
  * If you're testing on a really slow system you may set the
  * environment variable LCB_MAX_TEST_DURATION to the maximum number of
  * seconds you'd like the tests to take.
  */
-const int max_duration = 300;
+const int max_duration = 480;
 
 #ifdef _WIN32
 static HANDLE hTimer;

@@ -169,25 +169,24 @@ static int saddr_to_string(struct sockaddr *saddr, int len, char *buf, lcb_size_
 
 static void lcbio_cache_local_name(lcbio_CONNINFO *sock)
 {
+    char addr_str[NI_MAXHOST + 1];
     switch (sock->sa_local.ss_family) {
         case AF_INET: {
             auto *addr = (struct sockaddr_in *)&sock->sa_local;
-            inet_ntop(AF_INET, &(addr->sin_addr), sock->ep_local, sizeof(sock->ep_local));
-            strncpy(sock->ep_local2.host, sock->ep_local, sizeof(sock->ep_local2.host));
-            snprintf(sock->ep_local2.port, sizeof(sock->ep_local2.port), "%d", (int)ntohs(addr->sin_port));
-            size_t len = strlen(sock->ep_local);
-            snprintf(sock->ep_local + len, sizeof(sock->ep_local) - len, ":%d", (int)ntohs(addr->sin_port));
+            inet_ntop(AF_INET, &(addr->sin_addr), addr_str, sizeof(addr_str));
+            strncpy(sock->ep_local.host, addr_str, sizeof(sock->ep_local.host));
+            snprintf(sock->ep_local.port, sizeof(sock->ep_local.port), "%d", (int)ntohs(addr->sin_port));
         } break;
 
         case AF_INET6: {
             auto *addr = (struct sockaddr_in6 *)&sock->sa_local;
-            inet_ntop(AF_INET6, &(addr->sin6_addr), sock->ep_local, sizeof(sock->ep_local));
-            strncpy(sock->ep_local2.host, sock->ep_local, sizeof(sock->ep_local2.host));
-            snprintf(sock->ep_local2.port, sizeof(sock->ep_local2.port), "%d", (int)ntohs(addr->sin6_port));
-            size_t len = strlen(sock->ep_local);
-            snprintf(sock->ep_local + len, sizeof(sock->ep_local) - len, ":%d", (int)ntohs(addr->sin6_port));
+            inet_ntop(AF_INET6, &(addr->sin6_addr), addr_str, sizeof(addr_str));
+            strncpy(sock->ep_local.host, addr_str, sizeof(sock->ep_local.host));
+            snprintf(sock->ep_local.port, sizeof(sock->ep_local.port), "%d", (int)ntohs(addr->sin6_port));
         } break;
     }
+    snprintf(sock->ep_local_host_and_port, sizeof(sock->ep_local_host_and_port), "%s:%s", sock->ep_local.host,
+             sock->ep_local.port);
 }
 
 void lcbio__load_socknames(lcbio_SOCKET *sock)

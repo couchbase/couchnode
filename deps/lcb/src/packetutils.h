@@ -23,6 +23,7 @@
 #include <libcouchbase/couchbase.h>
 #include <memcached/protocol_binary.h>
 #include "rdb/rope.h"
+#include "utilities.h"
 
 #ifndef __cplusplus
 typedef struct packet_info_st packet_info;
@@ -315,10 +316,10 @@ class MemcachedResponse
         }
         std::string emsg;
         if (!jerr["ref"].empty()) {
-            *err_ref = strdup(jerr["ref"].asCString());
+            *err_ref = lcb_strdup(jerr["ref"].asCString());
         }
         if (!jerr["context"].empty()) {
-            *err_ctx = strdup(jerr["context"].asCString());
+            *err_ctx = lcb_strdup(jerr["context"].asCString());
         }
         return LCB_SUCCESS;
     }

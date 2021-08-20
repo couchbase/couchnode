@@ -222,10 +222,16 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_named_param(lcb_CMDANALYTICS *cmd, 
     return cmd->option(name, name_len, value, value_len);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_positional_params(lcb_CMDANALYTICS *cmd, const char *value,
+                                                               size_t value_len)
+{
+    return cmd->option_array("args", value, value_len);
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_positional_param(lcb_CMDANALYTICS *cmd, const char *value,
                                                               size_t value_len)
 {
-    return cmd->option_array("args", value, value_len);
+    return cmd->option_array_append("args", value, value_len);
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_deferred(lcb_CMDANALYTICS *cmd, int deferred)

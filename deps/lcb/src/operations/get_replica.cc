@@ -248,7 +248,7 @@ static lcb_STATUS get_replica_validate(lcb_INSTANCE *instance, const lcb_CMDGETR
 
     mc_CMDQUEUE *cq = &instance->cmdq;
     int vbid, ixtmp;
-    unsigned r0, r1 = 0;
+    unsigned r0 = 0, r1 = 0;
 
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
     mcreq_map_key(cq, &keybuf, MCREQ_PKT_BASESIZE, &vbid, &ixtmp);
@@ -300,7 +300,7 @@ static lcb_STATUS get_replica_schedule(lcb_INSTANCE *instance, std::shared_ptr<l
     mc_CMDQUEUE *cq = &instance->cmdq;
     int vbid, ixtmp;
     protocol_binary_request_header req;
-    unsigned r0, r1 = 0;
+    unsigned r0 = 0, r1 = 0;
 
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
     mcreq_map_key(cq, &keybuf, MCREQ_PKT_BASESIZE, &vbid, &ixtmp);

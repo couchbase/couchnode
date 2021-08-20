@@ -1170,7 +1170,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_delta(lcb_CMDCOUNTER *cmd, int64_t nu
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_initial(lcb_CMDCOUNTER *cmd, uint64_t number);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_durability(lcb_CMDCOUNTER *cmd, lcb_DURABILITY_LEVEL level);
 LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_cas(lcb_CMDCOUNTER *cmd, uint64_t cas),
-"CAS is not applicable to arithmetic operations");
+                "CAS is not applicable to arithmetic operations");
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_timeout(lcb_CMDCOUNTER *cmd, uint32_t timeout);
 LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCOUNTER *cmd);
 
@@ -2491,6 +2491,22 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_statement(lcb_CMDANALYTICS *cmd, co
                                                        size_t statement_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_named_param(lcb_CMDANALYTICS *cmd, const char *name, size_t name_len,
                                                          const char *value, size_t value_len);
+/**
+ * Sets the _positional_ arguments for the query
+ *
+ * @param cmd the command
+ * @param value the arguments encoded as JSON array
+ * @param value_len the length of the argument.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_positional_params(lcb_CMDANALYTICS *cmd, const char *value,
+                                                               size_t value_len);
+/**
+ * @deprecated This function will be marked as deprecated in 3.3.0, and will start emitting compiler warning. Use
+ * lcb_cmdanalytics_positional_params instead.
+ * @param cmd the command
+ * @param value the argument value in JSON encoding
+ * @param value_len the length of the encoded value
+ */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_positional_param(lcb_CMDANALYTICS *cmd, const char *value,
                                                               size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_ingest_options(lcb_CMDANALYTICS *cmd, lcb_INGEST_OPTIONS *options);
@@ -2900,12 +2916,19 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_scope_qualifier(lcb_CMDQUERY *cmd, cons
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_named_param(lcb_CMDQUERY *cmd, const char *name, size_t name_len,
                                                      const char *value, size_t value_len);
 /**
- * Adds a _positional_ argument for the query
+ * Sets the _positional_ arguments for the query
  *
- * The position is assumed to be the order they are set.
  * @param cmd the command
- * @param value the argument
+ * @param value the arguments encoded as JSON array
  * @param value_len the length of the argument.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_positional_params(lcb_CMDQUERY *cmd, const char *value, size_t value_len);
+/**
+ * @deprecated This function will be marked as deprecated in 3.3.0, and will start emitting compiler warning. Use
+ * lcb_cmdquery_positional_params instead.
+ * @param cmd the command
+ * @param value the argument value in JSON encoding
+ * @param value_len the length of the encoded value
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_positional_param(lcb_CMDQUERY *cmd, const char *value, size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_adhoc(lcb_CMDQUERY *cmd, int adhoc);

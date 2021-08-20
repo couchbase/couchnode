@@ -618,7 +618,7 @@ void Span::add_tag(const char *name, int copy_key, const char *value, size_t val
     val->t = TAGVAL_STRING;
     val->key.need_free = copy_key;
     if (copy_key) {
-        val->key.p = strdup(name);
+        val->key.p = lcb_strdup(name);
     } else {
         val->key.p = (char *)name;
     }
@@ -649,7 +649,7 @@ void Span::add_tag(const char *name, int copy, uint64_t value)
     val->t = TAGVAL_UINT64;
     val->key.need_free = copy;
     if (copy) {
-        val->key.p = strdup(name);
+        val->key.p = lcb_strdup(name);
     } else {
         val->key.p = (char *)name;
     }
@@ -667,7 +667,7 @@ void Span::add_tag(const char *name, int copy, double value)
     val->t = TAGVAL_DOUBLE;
     val->key.need_free = copy;
     if (copy) {
-        val->key.p = strdup(name);
+        val->key.p = lcb_strdup(name);
     } else {
         val->key.p = (char *)name;
     }
@@ -685,7 +685,7 @@ void Span::add_tag(const char *name, int copy, bool value)
     val->t = TAGVAL_BOOL;
     val->key.need_free = copy;
     if (copy) {
-        val->key.p = strdup(name);
+        val->key.p = lcb_strdup(name);
     } else {
         val->key.p = (char *)name;
     }

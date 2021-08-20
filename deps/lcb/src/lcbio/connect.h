@@ -75,8 +75,8 @@ typedef struct {
     struct sockaddr_storage sa_remote;
     struct sockaddr_storage sa_local;
     lcb_host_t ep_remote;
-    lcb_host_t ep_local2;
-    char ep_local[NI_MAXHOST + NI_MAXSERV + 2];
+    lcb_host_t ep_local;
+    char ep_local_host_and_port[NI_MAXHOST + 1 + NI_MAXSERV + 1];
 } lcbio_CONNINFO;
 
 struct lcb_IOMETRICS_st;

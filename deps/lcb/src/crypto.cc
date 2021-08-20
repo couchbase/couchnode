@@ -221,7 +221,7 @@ lcb_STATUS lcbcrypto_encrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDENCRYPT
     }
     if (changed) {
         std::string doc = Json::FastWriter().write(jdoc);
-        cmd->out = strdup(doc.c_str());
+        cmd->out = lcb_strdup(doc.c_str());
         cmd->nout = strlen(cmd->out);
     }
     return LCB_SUCCESS;
@@ -383,7 +383,7 @@ lcb_STATUS lcbcrypto_decrypt_fields(lcb_INSTANCE *instance, lcbcrypto_CMDDECRYPT
     }
     if (changed) {
         std::string doc = Json::FastWriter().write(jdoc);
-        cmd->out = strdup(doc.c_str());
+        cmd->out = lcb_strdup(doc.c_str());
         cmd->nout = strlen(cmd->out);
     }
     return LCB_SUCCESS;

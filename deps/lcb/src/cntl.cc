@@ -354,7 +354,7 @@ HANDLER(force_sasl_mech_handler)
         free(instance->settings->sasl_mech_force);
         if (arg) {
             const char *s = reinterpret_cast<const char *>(arg);
-            instance->settings->sasl_mech_force = strdup(s);
+            instance->settings->sasl_mech_force = lcb_strdup(s);
             for (char *p = instance->settings->sasl_mech_force; *p != '\0'; p++) {
                 if (*p == ',') {
                     *p = ' ';
@@ -553,7 +553,7 @@ HANDLER(client_string_handler)
         free(LCBT_SETTING(instance, client_string));
         LCBT_SETTING(instance, client_string) = nullptr;
         if (val) {
-            char *p, *buf = strdup(val);
+            char *p, *buf = lcb_strdup(val);
             for (p = buf; *p != '\0'; p++) {
                 switch (*p) {
                     case '\n':
@@ -709,7 +709,7 @@ HANDLER(network_handler)
         free(LCBT_SETTING(instance, network));
         LCBT_SETTING(instance, network) = nullptr;
         if (val) {
-            LCBT_SETTING(instance, network) = strdup(val);
+            LCBT_SETTING(instance, network) = lcb_strdup(val);
         }
     } else {
         *(const char **)arg = LCBT_SETTING(instance, network);
