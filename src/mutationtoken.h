@@ -2,6 +2,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include "addondata.h"
 #include <libcouchbase/couchbase.h>
 #include <nan.h>
 #include <node.h>
@@ -24,8 +25,7 @@ public:
 
     static inline Nan::Persistent<Function> &constructor()
     {
-        static Nan::Persistent<Function> class_constructor;
-        return class_constructor;
+        return addondata::Get()->mutationtoken_constructor;
     }
 
 private:

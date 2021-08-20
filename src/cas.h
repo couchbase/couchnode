@@ -2,6 +2,7 @@
 #ifndef CAS_H
 #define CAS_H
 
+#include "addondata.h"
 #include <libcouchbase/sysdefs.h>
 #include <nan.h>
 #include <node.h>
@@ -22,8 +23,7 @@ public:
 
     static inline Nan::Persistent<Function> &constructor()
     {
-        static Nan::Persistent<Function> class_constructor;
-        return class_constructor;
+        return addondata::Get()->cas_constructor;
     }
 
 private:

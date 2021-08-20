@@ -1,6 +1,7 @@
 #include <nan.h>
 #include <node.h>
 
+#include "addondata.h"
 #include "cas.h"
 #include "connection.h"
 #include "constants.h"
@@ -12,6 +13,7 @@ namespace couchnode
 
 static NAN_MODULE_INIT(init)
 {
+    addondata::Init(target);
     constants::Init(target);
 
     Cas::Init(target);
@@ -23,6 +25,6 @@ static NAN_MODULE_INIT(init)
              Nan::New<String>(lcb_get_version(NULL)).ToLocalChecked());
 }
 
-NODE_MODULE(couchbase_impl, couchnode::init)
+NAN_MODULE_WORKER_ENABLED(couchbase_impl, couchnode::init)
 
 } // namespace couchnode

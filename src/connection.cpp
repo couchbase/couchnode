@@ -15,13 +15,17 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
     , _bootstrapCookie(nullptr)
     , _openCookie(nullptr)
 {
+    addondata::Get()->add_connection(this);
+
     _flushWatch = new uv_prepare_t();
-    uv_prepare_init(uv_default_loop(), _flushWatch);
+    uv_prepare_init(Nan::GetCurrentEventLoop(), _flushWatch);
     _flushWatch->data = this;
 }
 
 Connection::~Connection()
 {
+    addondata::Get()->remove_connection(this);
+
     if (_logger) {
         // If there is a custom logger registered, we need to deactivate it here
         // since the GC might be the one invoking us, which will cause problems
@@ -29,16 +33,8 @@ Connection::~Connection()
         _logger->disconnect();
     }
 
-    if (_flushWatch) {
-        uv_prepare_stop(_flushWatch);
-        uv_close(reinterpret_cast<uv_handle_t *>(_flushWatch),
-                 [](uv_handle_t *handle) { delete handle; });
-        _flushWatch = nullptr;
-    }
-    if (_instance) {
-        lcb_destroy(_instance);
-        _instance = nullptr;
-    }
+    shutdown(false);
+
     if (_logger) {
         delete _logger;
         _logger = nullptr;
@@ -54,6 +50,25 @@ Connection::~Connection()
     if (_openCookie) {
         delete _openCookie;
         _openCookie = nullptr;
+    }
+}
+
+void Connection::shutdown(bool async)
+{
+    if (_flushWatch) {
+        uv_prepare_stop(_flushWatch);
+        uv_close(reinterpret_cast<uv_handle_t *>(_flushWatch),
+                 [](uv_handle_t *handle) { delete handle; });
+        _flushWatch = nullptr;
+    }
+
+    if (_instance) {
+        if (async) {
+            lcb_destroy_async(_instance, NULL);
+        } else {
+            lcb_destroy(_instance);
+        }
+        _instance = nullptr;
     }
 }
 
@@ -141,7 +156,7 @@ NAN_METHOD(Connection::fnNew)
     lcbuv_options_t iopsOptions;
 
     iopsOptions.version = 0;
-    iopsOptions.v.v0.loop = uv_default_loop();
+    iopsOptions.v.v0.loop = Nan::GetCurrentEventLoop();
     iopsOptions.v.v0.startsop_noop = 1;
 
     err = lcb_create_libuv_io_opts(0, &iops, &iopsOptions);
@@ -431,12 +446,7 @@ NAN_METHOD(Connection::fnShutdown)
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
     Nan::HandleScope scope;
 
-    uv_prepare_stop(me->_flushWatch);
-
-    if (me->_instance) {
-        lcb_destroy_async(me->_instance, NULL);
-        me->_instance = nullptr;
-    }
+    me->shutdown(true);
 
     info.GetReturnValue().Set(true);
 }

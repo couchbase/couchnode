@@ -2,6 +2,7 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include "addondata.h"
 #include "cookie.h"
 #include "logger.h"
 #include "valueparser.h"
@@ -23,17 +24,8 @@ public:
 
     static inline Nan::Persistent<Function> &constructor()
     {
-        static Nan::Persistent<Function> class_constructor;
-        return class_constructor;
+        return addondata::Get()->connection_constructor;
     }
-
-    lcb_INSTANCE *lcbHandle() const
-    {
-        return _instance;
-    }
-
-    const char *bucketName();
-    const char *clientString();
 
     static inline Connection *fromInstance(lcb_INSTANCE *instance)
     {
@@ -41,6 +33,16 @@ public:
         Connection *conn = reinterpret_cast<Connection *>(cookie);
         return conn;
     }
+
+    lcb_INSTANCE *lcbHandle() const
+    {
+        return _instance;
+    }
+
+    void shutdown(bool async);
+
+    const char *bucketName();
+    const char *clientString();
 
 private:
     Connection(lcb_INSTANCE *instance, Logger *logger);
