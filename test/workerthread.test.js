@@ -5,7 +5,7 @@ const harness = require('./harness')
 
 const H = harness
 
-function startWorker(workerData) {
+async function startWorker(workerData) {
   /* eslint-disable-next-line node/no-unsupported-features/node-builtins */
   const worker = require('worker_threads')
 
@@ -26,7 +26,7 @@ function startWorker(workerData) {
 describe('#worker-threads', function () {
   it('should start a worker and complete an operation', async function () {
     if (semver.lt(process.version, '12.11.0')) {
-      this.skip()
+      return this.skip()
     }
 
     await startWorker({
@@ -35,5 +35,5 @@ describe('#worker-threads', function () {
       bucketName: H.bucketName,
       testKey: H.genTestKey(),
     })
-  }).timeout(10000)
+  }).timeout(30000)
 })
