@@ -215,19 +215,26 @@ class Harness {
 
   async prepare() {
     if (this._usingMock) {
-      var mockInst = await this._createMock()
+      for (let i = 0; i < 3; ++i) {
+        try {
+          var mockInst = await this._createMock()
 
-      var ports = await this._sendMockCmd(mockInst, 'get_mcports')
+          var ports = await this._sendMockCmd(mockInst, 'get_mcports')
 
-      var serverList = []
-      for (var portIdx = 0; portIdx < ports.length; ++portIdx) {
-        serverList.push('localhost:' + ports[portIdx])
+          var serverList = []
+          for (var portIdx = 0; portIdx < ports.length; ++portIdx) {
+            serverList.push('localhost:' + ports[portIdx])
+          }
+
+          this._mockInst = mockInst
+          this._connstr = 'couchbase://' + serverList.join(',')
+          this._user = 'default'
+          this._password = ''
+          break
+        } catch (e) {
+          console.error('mock startup failed:', e)
+        }
       }
-
-      this._mockInst = mockInst
-      this._connstr = 'couchbase://' + serverList.join(',')
-      this._user = 'default'
-      this._password = ''
     }
 
     var cluster = await this.newCluster()
