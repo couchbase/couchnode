@@ -8,6 +8,10 @@ Logger::Logger(Local<Function> callback)
     , _logBuffer(nullptr)
     , _logBufferLen(0)
 {
+    if (callback->IsNull() || callback->IsUndefined()) {
+        _callback.Reset();
+    }
+
     lcb_logger_create(&_lcbLogger, this);
     lcb_logger_callback(_lcbLogger, &lcbHandler);
 }
