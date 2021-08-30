@@ -62,6 +62,7 @@ RequestTracer::RequestTracer(Local<Object> impl)
 {
     _lcbTracer = lcbtrace_new(nullptr, LCBTRACE_F_EXTERNAL);
     _lcbTracer->version = 1;
+    _lcbTracer->destructor = nullptr;
     _lcbTracer->v.v1.start_span = lcbTracerStartSpan;
     _lcbTracer->v.v1.end_span = lcbSpanEnd;
     _lcbTracer->v.v1.destroy_span = lcbSpanDestroy;
