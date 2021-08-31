@@ -112,6 +112,7 @@ private:
     static void lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
                                    const lcb_RESPHTTP *resp);
 
+    AddonData *_parent;
     lcb_INSTANCE *_instance;
     Logger *_logger;
     uv_prepare_t *_flushWatch;

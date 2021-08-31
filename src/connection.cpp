@@ -15,7 +15,8 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
     , _bootstrapCookie(nullptr)
     , _openCookie(nullptr)
 {
-    addondata::Get()->add_connection(this);
+    _parent = addondata::Get();
+    _parent->add_connection(this);
 
     _flushWatch = new uv_prepare_t();
     uv_prepare_init(Nan::GetCurrentEventLoop(), _flushWatch);
@@ -24,7 +25,10 @@ Connection::Connection(lcb_INSTANCE *instance, Logger *logger)
 
 Connection::~Connection()
 {
-    addondata::Get()->remove_connection(this);
+    if (_parent) {
+        _parent->remove_connection(this);
+        _parent = nullptr;
+    }
 
     if (_logger) {
         // If there is a custom logger registered, we need to deactivate it here
