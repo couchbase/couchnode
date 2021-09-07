@@ -59,6 +59,7 @@ static void lcbSpanAddTagUint64(lcbxtrace_SPAN *procs, const char *name,
 }
 
 RequestTracer::RequestTracer(Local<Object> impl)
+    : _enabled(true)
 {
     _lcbTracer = lcbtrace_new(nullptr, LCBTRACE_F_EXTERNAL);
     _lcbTracer->version = 1;
@@ -90,9 +91,18 @@ lcbtrace_TRACER *RequestTracer::lcbProcs() const
     return _lcbTracer;
 }
 
+void RequestTracer::disconnect()
+{
+    _enabled = false;
+}
+
 lcbxtrace_SPAN *RequestTracer::requestSpan(const char *name,
                                            const lcbxtrace_SPAN *parent)
 {
+    if (!_enabled) {
+        return nullptr;
+    }
+
     Nan::HandleScope scope;
     Local<Object> impl = Nan::New(_impl);
     Local<Function> requestSpanImpl = Nan::New(_requestSpanImpl);

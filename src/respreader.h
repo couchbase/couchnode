@@ -2,7 +2,9 @@
 #ifndef RESPREADER_H
 #define RESPREADER_H
 
-#include "connection.h"
+#include "error.h"
+#include "instance.h"
+#include "mutationtoken.h"
 #include "opbuilder.h"
 
 namespace couchnode
@@ -102,9 +104,9 @@ public:
         }
     }
 
-    Connection *connection() const
+    Instance *instance() const
     {
-        return Connection::fromInstance(_instance);
+        return Instance::fromLcbInst(_instance);
     }
 
     OpCookie *cookie() const
@@ -384,7 +386,7 @@ public:
             return Nan::Null();
         }
 
-        return MutationToken::create(value, connection()->bucketName());
+        return MutationToken::create(value, instance()->bucketName());
     }
 
     template <lcb_STATUS (*ValFn)(const RespType *, const char **, size_t *)>

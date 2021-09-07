@@ -23,7 +23,10 @@ public:
 
     lcbxtrace_SPAN *requestSpan(const char *name, const lcbxtrace_SPAN *parent);
 
+    void disconnect();
+
 protected:
+    bool _enabled;
     lcbtrace_TRACER *_lcbTracer;
     Nan::Persistent<Object> _impl;
     Nan::Persistent<Function> _requestSpanImpl;

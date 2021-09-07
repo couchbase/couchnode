@@ -8,8 +8,8 @@
 namespace couchnode
 {
 
-void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                   const lcb_RESPGET *resp)
+void Instance::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                 const lcb_RESPGET *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPGET, &lcb_respget_cookie> rdr(instance, resp);
@@ -37,8 +37,8 @@ void Connection::lcbGetRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, casVal, valueVal);
 }
 
-void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                      const lcb_RESPEXISTS *resp)
+void Instance::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPEXISTS *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPEXISTS, &lcb_respexists_cookie> rdr(instance, resp);
@@ -64,8 +64,8 @@ void Connection::lcbExistsRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, casVal, existsVal);
 }
 
-void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                          const lcb_RESPGETREPLICA *resp)
+void Instance::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                        const lcb_RESPGETREPLICA *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPGETREPLICA, &lcb_respgetreplica_cookie> rdr(instance,
@@ -106,8 +106,8 @@ void Connection::lcbGetReplicaRespHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                      const lcb_RESPUNLOCK *resp)
+void Instance::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPUNLOCK *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPUNLOCK, &lcb_respunlock_cookie> rdr(instance, resp);
@@ -118,8 +118,8 @@ void Connection::lcbUnlockRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal);
 }
 
-void Connection::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                      const lcb_RESPREMOVE *resp)
+void Instance::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPREMOVE *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPREMOVE, &lcb_respremove_cookie> rdr(instance, resp);
@@ -137,8 +137,8 @@ void Connection::lcbRemoveRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, casVal);
 }
 
-void Connection::lcbTouchRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                     const lcb_RESPTOUCH *resp)
+void Instance::lcbTouchRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                   const lcb_RESPTOUCH *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPTOUCH, &lcb_resptouch_cookie> rdr(instance, resp);
@@ -156,8 +156,8 @@ void Connection::lcbTouchRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, casVal);
 }
 
-void Connection::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                     const lcb_RESPSTORE *resp)
+void Instance::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                   const lcb_RESPSTORE *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPSTORE, &lcb_respstore_cookie> rdr(instance, resp);
@@ -177,8 +177,8 @@ void Connection::lcbStoreRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, casVal, tokenVal);
 }
 
-void Connection::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                       const lcb_RESPCOUNTER *resp)
+void Instance::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                     const lcb_RESPCOUNTER *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPCOUNTER, &lcb_respcounter_cookie> rdr(instance, resp);
@@ -200,8 +200,8 @@ void Connection::lcbCounterRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, casVal, tokenVal, valueVal);
 }
 
-void Connection::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                      const lcb_RESPSUBDOC *resp)
+void Instance::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPSUBDOC *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPSUBDOC, &lcb_respsubdoc_cookie> rdr(instance, resp);
@@ -245,8 +245,8 @@ void Connection::lcbLookupRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, resVal);
 }
 
-void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                      const lcb_RESPSUBDOC *resp)
+void Instance::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPSUBDOC *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPSUBDOC, &lcb_respsubdoc_cookie> rdr(instance, resp);
@@ -300,8 +300,8 @@ void Connection::lcbMutateRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, resVal);
 }
 
-void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPVIEW *resp)
+void Instance::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                  const lcb_RESPVIEW *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPVIEW, &lcb_respview_cookie> rdr(instance, resp);
@@ -326,8 +326,8 @@ void Connection::lcbViewDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbQueryDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                     const lcb_RESPQUERY *resp)
+void Instance::lcbQueryDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                   const lcb_RESPQUERY *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPQUERY, &lcb_respquery_cookie> rdr(instance, resp);
@@ -350,8 +350,8 @@ void Connection::lcbQueryDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbAnalyticsDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                         const lcb_RESPANALYTICS *resp)
+void Instance::lcbAnalyticsDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                       const lcb_RESPANALYTICS *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPANALYTICS, &lcb_respanalytics_cookie> rdr(instance,
@@ -375,8 +375,8 @@ void Connection::lcbAnalyticsDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbSearchDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                      const lcb_RESPSEARCH *resp)
+void Instance::lcbSearchDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                    const lcb_RESPSEARCH *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPSEARCH, &lcb_respsearch_cookie> rdr(instance, resp);
@@ -399,8 +399,8 @@ void Connection::lcbSearchDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPHTTP *resp)
+void Instance::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
+                                  const lcb_RESPHTTP *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPHTTP, &lcb_resphttp_cookie> rdr(instance, resp);
@@ -445,8 +445,8 @@ void Connection::lcbHttpDataHandler(lcb_INSTANCE *instance, int cbtype,
     }
 }
 
-void Connection::lcbPingRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPPING *resp)
+void Instance::lcbPingRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                  const lcb_RESPPING *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPPING, &lcb_respping_cookie> rdr(instance, resp);
@@ -464,8 +464,8 @@ void Connection::lcbPingRespHandler(lcb_INSTANCE *instance, int cbtype,
     rdr.invokeCallback(errVal, dataVal);
 }
 
-void Connection::lcbDiagRespHandler(lcb_INSTANCE *instance, int cbtype,
-                                    const lcb_RESPDIAG *resp)
+void Instance::lcbDiagRespHandler(lcb_INSTANCE *instance, int cbtype,
+                                  const lcb_RESPDIAG *resp)
 {
     Nan::HandleScope scope;
     RespReader<lcb_RESPDIAG, &lcb_respdiag_cookie> rdr(instance, resp);

@@ -24,7 +24,10 @@ public:
                                                   const lcbmetrics_TAG *tags,
                                                   size_t ntags) const;
 
+    void disconnect();
+
 protected:
+    bool _enabled;
     lcbmetrics_METER *_lcbMeter;
     Nan::Persistent<Object> _impl;
     Nan::Persistent<Function> _valueRecorderImpl;

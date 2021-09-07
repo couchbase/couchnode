@@ -4,22 +4,27 @@
 namespace couchnode
 {
 
+AddonData::AddonData()
+{
+}
+
 AddonData::~AddonData()
 {
-    std::for_each(connections.begin(), connections.end(),
-                  [](Connection *conn) { conn->shutdown(false); });
+    auto instances = _instances;
+    std::for_each(instances.begin(), instances.end(),
+                  [](Instance *inst) { delete inst; });
 }
 
-void AddonData::add_connection(class Connection *conn)
+void AddonData::add_instance(class Instance *conn)
 {
-    connections.push_back(conn);
+    _instances.push_back(conn);
 }
 
-void AddonData::remove_connection(class Connection *conn)
+void AddonData::remove_instance(class Instance *conn)
 {
-    auto connIter = std::find(connections.begin(), connections.end(), conn);
-    if (connIter != connections.end()) {
-        connections.erase(connIter);
+    auto connIter = std::find(_instances.begin(), _instances.end(), conn);
+    if (connIter != _instances.end()) {
+        _instances.erase(connIter);
     }
 }
 

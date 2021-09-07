@@ -59,6 +59,7 @@ void lcbValueRecorderRecordValue(const lcbmetrics_VALUERECORDER *procs,
 }
 
 Meter::Meter(Local<Object> impl)
+    : _enabled(true)
 {
     lcbmetrics_meter_create(&_lcbMeter, this);
     lcbmetrics_meter_dtor_callback(_lcbMeter, &lcbMeterDtor);
@@ -84,6 +85,11 @@ const lcbmetrics_METER *Meter::lcbProcs() const
     return _lcbMeter;
 }
 
+void Meter::disconnect()
+{
+    _enabled = false;
+}
+
 void Meter::destroy(const Meter *meter)
 {
     delete meter;
@@ -93,6 +99,10 @@ const lcbmetrics_VALUERECORDER *Meter::valueRecorder(const char *name,
                                                      const lcbmetrics_TAG *tags,
                                                      size_t ntags) const
 {
+    if (!_enabled) {
+        return nullptr;
+    }
+
     // We don't perform any cacheing to avoid calls into v8 here as libcouchbase
     // already contractually provides cacheing to reduce the calls to this
     // method.

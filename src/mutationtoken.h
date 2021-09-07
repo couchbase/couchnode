@@ -25,7 +25,7 @@ public:
 
     static inline Nan::Persistent<Function> &constructor()
     {
-        return addondata::Get()->mutationtoken_constructor;
+        return addondata::Get()->_mutationtokenConstructor;
     }
 
 private:

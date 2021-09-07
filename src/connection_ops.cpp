@@ -8,8 +8,9 @@ namespace couchnode
 NAN_METHOD(Connection::fnGet)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDGET> enc(me);
+    OpBuilder<lcb_CMDGET> enc(inst);
 
     if (!enc.parseParentSpan(info[6])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -51,8 +52,9 @@ NAN_METHOD(Connection::fnGet)
 NAN_METHOD(Connection::fnExists)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDEXISTS> enc(me);
+    OpBuilder<lcb_CMDEXISTS> enc(inst);
 
     if (!enc.parseParentSpan(info[3])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -83,12 +85,13 @@ NAN_METHOD(Connection::fnExists)
 NAN_METHOD(Connection::fnGetReplica)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
 
     lcb_REPLICA_MODE mode =
         static_cast<lcb_REPLICA_MODE>(ValueParser::asUint(info[4]));
 
-    OpBuilder<lcb_CMDGETREPLICA> enc(me, mode);
+    OpBuilder<lcb_CMDGETREPLICA> enc(inst, mode);
 
     if (!enc.parseParentSpan(info[5])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -122,6 +125,7 @@ NAN_METHOD(Connection::fnGetReplica)
 NAN_METHOD(Connection::fnStore)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
 
     const char *opName = "store";
@@ -147,7 +151,7 @@ NAN_METHOD(Connection::fnStore)
         return Nan::ThrowError(Error::create("bad op type passed"));
     }
 
-    OpBuilder<lcb_CMDSTORE> enc(me, opType);
+    OpBuilder<lcb_CMDSTORE> enc(inst, opType);
 
     if (!enc.parseParentSpan(info[10])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -236,8 +240,9 @@ NAN_METHOD(Connection::fnStore)
 NAN_METHOD(Connection::fnRemove)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDREMOVE> enc(me);
+    OpBuilder<lcb_CMDREMOVE> enc(inst);
 
     if (!enc.parseParentSpan(info[7])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -282,8 +287,9 @@ NAN_METHOD(Connection::fnRemove)
 NAN_METHOD(Connection::fnTouch)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDTOUCH> enc(me);
+    OpBuilder<lcb_CMDTOUCH> enc(inst);
 
     if (!enc.parseParentSpan(info[7])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -328,8 +334,9 @@ NAN_METHOD(Connection::fnTouch)
 NAN_METHOD(Connection::fnUnlock)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDUNLOCK> enc(me);
+    OpBuilder<lcb_CMDUNLOCK> enc(inst);
 
     if (!enc.parseParentSpan(info[4])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -363,8 +370,9 @@ NAN_METHOD(Connection::fnUnlock)
 NAN_METHOD(Connection::fnCounter)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDCOUNTER> enc(me);
+    OpBuilder<lcb_CMDCOUNTER> enc(inst);
 
     if (!enc.parseParentSpan(info[9])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -415,8 +423,9 @@ NAN_METHOD(Connection::fnCounter)
 NAN_METHOD(Connection::fnLookupIn)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDSUBDOC> enc(me);
+    OpBuilder<lcb_CMDSUBDOC> enc(inst);
 
     if (!enc.parseParentSpan(info[5])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -481,8 +490,9 @@ NAN_METHOD(Connection::fnLookupIn)
 NAN_METHOD(Connection::fnMutateIn)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDSUBDOC> enc(me);
+    OpBuilder<lcb_CMDSUBDOC> enc(inst);
 
     if (!enc.parseParentSpan(info[10])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -598,15 +608,16 @@ NAN_METHOD(Connection::fnMutateIn)
 NAN_METHOD(Connection::fnViewQuery)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDVIEW> enc(me);
+    OpBuilder<lcb_CMDVIEW> enc(inst);
 
     if (!enc.parseParentSpan(info[5])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
     }
     enc.beginTrace(LCBTRACE_SERVICE_VIEW, "viewQuery");
 
-    lcb_cmdview_callback(enc.cmd(), &lcbViewDataHandler);
+    lcb_cmdview_callback(enc.cmd(), &Instance::lcbViewDataHandler);
 
     if (!enc.parseOption<&lcb_cmdview_design_document>(info[0])) {
         return Nan::ThrowError(Error::create("bad ddoc name passed"));
@@ -639,15 +650,16 @@ NAN_METHOD(Connection::fnViewQuery)
 NAN_METHOD(Connection::fnQuery)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDQUERY> enc(me);
+    OpBuilder<lcb_CMDQUERY> enc(inst);
 
     if (!enc.parseParentSpan(info[2])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
     }
     enc.beginTrace(LCBTRACE_SERVICE_QUERY, "query");
 
-    lcb_cmdquery_callback(enc.cmd(), &lcbQueryDataHandler);
+    lcb_cmdquery_callback(enc.cmd(), &Instance::lcbQueryDataHandler);
 
     if (!enc.parseOption<&lcb_cmdquery_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
@@ -676,15 +688,16 @@ NAN_METHOD(Connection::fnQuery)
 NAN_METHOD(Connection::fnAnalyticsQuery)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDANALYTICS> enc(me);
+    OpBuilder<lcb_CMDANALYTICS> enc(inst);
 
     if (!enc.parseParentSpan(info[2])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
     }
     enc.beginTrace(LCBTRACE_SERVICE_ANALYTICS, "analyticsQuery");
 
-    lcb_cmdanalytics_callback(enc.cmd(), &lcbAnalyticsDataHandler);
+    lcb_cmdanalytics_callback(enc.cmd(), &Instance::lcbAnalyticsDataHandler);
 
     if (!enc.parseOption<&lcb_cmdanalytics_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
@@ -713,15 +726,16 @@ NAN_METHOD(Connection::fnAnalyticsQuery)
 NAN_METHOD(Connection::fnSearchQuery)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
-    OpBuilder<lcb_CMDSEARCH> enc(me);
+    OpBuilder<lcb_CMDSEARCH> enc(inst);
 
     if (!enc.parseParentSpan(info[2])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
     }
     enc.beginTrace(LCBTRACE_SERVICE_SEARCH, "searchQuery");
 
-    lcb_cmdsearch_callback(enc.cmd(), &lcbSearchDataHandler);
+    lcb_cmdsearch_callback(enc.cmd(), &Instance::lcbSearchDataHandler);
 
     if (!enc.parseOption<&lcb_cmdsearch_payload>(info[0])) {
         return Nan::ThrowError(Error::create("bad query passed"));
@@ -745,12 +759,13 @@ NAN_METHOD(Connection::fnSearchQuery)
 NAN_METHOD(Connection::fnHttpRequest)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
 
     lcb_HTTP_TYPE mode =
         static_cast<lcb_HTTP_TYPE>(ValueParser::asUint(info[0]));
 
-    OpBuilder<lcb_CMDHTTP> enc(me, mode);
+    OpBuilder<lcb_CMDHTTP> enc(inst, mode);
 
     if (!enc.parseParentSpan(info[5])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -794,9 +809,10 @@ NAN_METHOD(Connection::fnHttpRequest)
 NAN_METHOD(Connection::fnPing)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
 
-    OpBuilder<lcb_CMDPING> enc(me);
+    OpBuilder<lcb_CMDPING> enc(inst);
 
     if (!enc.parseParentSpan(info[2])) {
         return Nan::ThrowError(Error::create("bad parent span passed"));
@@ -846,9 +862,10 @@ NAN_METHOD(Connection::fnPing)
 NAN_METHOD(Connection::fnDiag)
 {
     Connection *me = ObjectWrap::Unwrap<Connection>(info.This());
+    Instance *inst = me->_instance;
     Nan::HandleScope scope;
 
-    OpBuilder<lcb_CMDDIAG> enc(me);
+    OpBuilder<lcb_CMDDIAG> enc(inst);
 
     if (!enc.parseOption<&lcb_cmddiag_report_id>(info[0])) {
         return Nan::ThrowError(Error::create("bad report id passed"));

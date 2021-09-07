@@ -4,14 +4,11 @@ namespace couchnode
 {
 
 Logger::Logger(Local<Function> callback)
-    : _callback(callback)
+    : _enabled(true)
+    , _callback(callback)
     , _logBuffer(nullptr)
     , _logBufferLen(0)
 {
-    if (callback->IsNull() || callback->IsUndefined()) {
-        _callback.Reset();
-    }
-
     lcb_logger_create(&_lcbLogger, this);
     lcb_logger_callback(_lcbLogger, &lcbHandler);
 }
@@ -29,14 +26,14 @@ const lcb_LOGGER *Logger::lcbProcs() const
 
 void Logger::disconnect()
 {
-    _callback.Reset();
+    _enabled = false;
 }
 
 void Logger::handler(unsigned int iid, const char *subsys, int severity,
                      const char *srcfile, int srcline, const char *fmt,
                      va_list ap)
 {
-    if (_callback.IsEmpty()) {
+    if (!_enabled) {
         return;
     }
 

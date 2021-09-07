@@ -23,7 +23,7 @@ public:
 
     static inline Nan::Persistent<Function> &constructor()
     {
-        return addondata::Get()->cas_constructor;
+        return addondata::Get()->_casConstructor;
     }
 
 private:

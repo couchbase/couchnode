@@ -30,6 +30,7 @@ private:
                            const char *srcfile, int srcline, const char *fmt,
                            va_list ap);
 
+    bool _enabled;
     lcb_LOGGER *_lcbLogger;
     Nan::Callback _callback;
     char *_logBuffer;

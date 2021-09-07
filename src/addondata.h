@@ -14,15 +14,16 @@ using namespace v8;
 class AddonData
 {
 public:
+    AddonData();
     ~AddonData();
-    void add_connection(class Connection *conn);
-    void remove_connection(class Connection *conn);
 
-    std::list<class Connection *> connections;
+    void add_instance(class Instance *conn);
+    void remove_instance(class Instance *conn);
 
-    Nan::Persistent<Function> connection_constructor;
-    Nan::Persistent<Function> cas_constructor;
-    Nan::Persistent<Function> mutationtoken_constructor;
+    std::list<class Instance *> _instances;
+    Nan::Persistent<Function> _connectionConstructor;
+    Nan::Persistent<Function> _casConstructor;
+    Nan::Persistent<Function> _mutationtokenConstructor;
 };
 
 namespace addondata

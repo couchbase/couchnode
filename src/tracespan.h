@@ -45,10 +45,10 @@ public:
         return TraceSpan(span);
     }
 
-    static TraceSpan beginOpTrace(Connection *impl, lcbtrace_SERVICE service,
+    static TraceSpan beginOpTrace(Instance *inst, lcbtrace_SERVICE service,
                                   const char *opName, TraceSpan parent)
     {
-        lcbtrace_TRACER *tracer = lcb_get_tracer(impl->lcbHandle());
+        lcbtrace_TRACER *tracer = lcb_get_tracer(inst->lcbHandle());
         if (!tracer) {
             return TraceSpan();
         }
@@ -64,19 +64,19 @@ public:
         lcbtrace_SPAN *span = lcbtrace_span_start(tracer, opName, 0, refPtr);
         lcbtrace_span_set_is_outer(span, 1);
         lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_COMPONENT,
-                                  impl->clientString());
+                                  inst->clientString());
         lcbtrace_span_set_service(span, service);
 
         return TraceSpan(span);
     }
 
-    static TraceSpan beginEncodeTrace(Connection *impl, TraceSpan opSpan)
+    static TraceSpan beginEncodeTrace(Instance *inst, TraceSpan opSpan)
     {
         if (!opSpan) {
             return TraceSpan();
         }
 
-        lcbtrace_TRACER *tracer = lcb_get_tracer(impl->lcbHandle());
+        lcbtrace_TRACER *tracer = lcb_get_tracer(inst->lcbHandle());
         if (!tracer) {
             return TraceSpan();
         }
@@ -87,18 +87,18 @@ public:
         lcbtrace_SPAN *span = lcbtrace_span_start(
             tracer, LCBTRACE_OP_REQUEST_ENCODING, LCBTRACE_NOW, &ref);
         lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_COMPONENT,
-                                  impl->clientString());
+                                  inst->clientString());
 
         return TraceSpan(span);
     }
 
-    static TraceSpan beginDecodeTrace(Connection *impl, TraceSpan opSpan)
+    static TraceSpan beginDecodeTrace(Instance *inst, TraceSpan opSpan)
     {
         if (!opSpan) {
             return NULL;
         }
 
-        lcbtrace_TRACER *tracer = lcb_get_tracer(impl->lcbHandle());
+        lcbtrace_TRACER *tracer = lcb_get_tracer(inst->lcbHandle());
         if (!tracer) {
             return NULL;
         }
@@ -109,7 +109,7 @@ public:
         lcbtrace_SPAN *span = lcbtrace_span_start(
             tracer, LCBTRACE_OP_RESPONSE_DECODING, LCBTRACE_NOW, &ref);
         lcbtrace_span_add_tag_str(span, LCBTRACE_TAG_COMPONENT,
-                                  impl->clientString());
+                                  inst->clientString());
 
         return TraceSpan(span);
     }
@@ -126,11 +126,11 @@ private:
 class WrappedRequestSpan
 {
 public:
-    WrappedRequestSpan(Connection *conn, Local<Object> val)
+    WrappedRequestSpan(Instance *inst, Local<Object> val)
         : _reqSpan(val, true)
         , _span(nullptr)
     {
-        lcbtrace_TRACER *tracer = lcb_get_tracer(conn->lcbHandle());
+        lcbtrace_TRACER *tracer = lcb_get_tracer(inst->lcbHandle());
         if (!tracer) {
             _span = nullptr;
             return;
