@@ -9,7 +9,7 @@ async function startWorker(workerData) {
   /* eslint-disable-next-line node/no-unsupported-features/node-builtins */
   const worker = require('worker_threads')
 
-  await new Promise((resolve, reject) => {
+  return await new Promise((resolve, reject) => {
     const work = new worker.Worker('./test/workerthread.worker.js', {
       workerData,
     })
@@ -29,11 +29,14 @@ describe('#worker-threads', function () {
       return this.skip()
     }
 
-    await startWorker({
+    const res = await startWorker({
       connStr: H.connStr,
       connOpts: H.connOpts,
       bucketName: H.bucketName,
       testKey: H.genTestKey(),
     })
+    if (!res.success) {
+      throw res.error
+    }
   }).timeout(30000)
 })
