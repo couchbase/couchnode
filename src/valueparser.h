@@ -88,6 +88,11 @@ public:
         return true;
     }
 
+    static bool isSet(Local<Value> val)
+    {
+        return !val.IsEmpty() && !val->IsUndefined() && !val->IsNull();
+    }
+
     template <typename T>
     static bool parseUint(T *out, Local<Value> value)
     {
