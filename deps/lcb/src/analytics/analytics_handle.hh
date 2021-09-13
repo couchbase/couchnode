@@ -241,6 +241,7 @@ struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
     unsigned refcount{1};
 
     lcbtrace_SPAN *span_{nullptr};
+    std::string impostor_{};
 };
 
 #endif // LIBCOUCHBASE_ANALYTICS_HANDLE_HH

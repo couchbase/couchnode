@@ -29,7 +29,16 @@ LIBCOUCHBASE_API lcbtrace_TRACER *lcbtrace_new(lcb_INSTANCE *instance, uint64_t 
             return (new ThresholdLoggingTracer(instance))->wrap();
         case LCBTRACE_F_EXTERNAL: {
             lcbtrace_TRACER *retval = new lcbtrace_TRACER;
+            retval->version = 0;
             retval->flags = LCBTRACE_F_EXTERNAL;
+            retval->cookie = nullptr;
+            retval->destructor = nullptr;
+            retval->v.v0.report = nullptr;
+            retval->v.v1.start_span = nullptr;
+            retval->v.v1.end_span = nullptr;
+            retval->v.v1.destroy_span = nullptr;
+            retval->v.v1.add_tag_string = nullptr;
+            retval->v.v1.add_tag_uint64 = nullptr;
             return retval;
         }
         default:

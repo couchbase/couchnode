@@ -175,6 +175,22 @@ struct lcb_CMDGET_ {
         return cookie_is_callback_;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     lcb::collection_qualifier collection_{};
     std::chrono::microseconds timeout_{0};
@@ -186,6 +202,7 @@ struct lcb_CMDGET_ {
     std::string key_{};
     get_mode mode_{get_mode::normal};
     bool cookie_is_callback_{false};
+    std::string impostor_{};
 };
 
 /** @private */

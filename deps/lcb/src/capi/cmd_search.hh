@@ -168,6 +168,22 @@ struct lcb_CMDSEARCH_ {
         return LCB_SUCCESS;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     std::chrono::microseconds timeout_{0};
     std::chrono::nanoseconds start_time_{0};
@@ -176,6 +192,7 @@ struct lcb_CMDSEARCH_ {
     void *cookie_{nullptr};
     lcb_SEARCH_CALLBACK callback_{nullptr};
     lcb_SEARCH_HANDLE **handle_{nullptr};
+    std::string impostor_{};
 };
 
 #endif // LIBCOUCHBASE_CAPI_SEARCH_HH

@@ -175,6 +175,22 @@ struct lcb_CMDCOUNTER_ {
         return cookie_;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     lcb::collection_qualifier collection_{};
     std::uint32_t expiry_{0};
@@ -187,6 +203,7 @@ struct lcb_CMDCOUNTER_ {
     std::string key_{};
     bool initialize_if_does_not_exist_{false};
     lcb_DURABILITY_LEVEL durability_level_{LCB_DURABILITYLEVEL_NONE};
+    std::string impostor_{};
 };
 
 /**

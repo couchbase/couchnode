@@ -107,6 +107,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_key(lcb_CMDEXISTS *cmd, const char *ke
     return cmd->key(std::string(key, key_len));
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_on_behalf_of(lcb_CMDEXISTS *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 static lcb_STATUS exists_validate(lcb_INSTANCE *instance, const lcb_CMDEXISTS *cmd)
 {
     if (cmd->key().empty()) {
@@ -123,12 +128,24 @@ static lcb_STATUS exists_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
 {
     mc_CMDQUEUE *cq = &instance->cmdq;
 
-    protocol_binary_request_header hdr;
+    protocol_binary_request_header hdr{};
     mc_PIPELINE *pipeline;
     mc_PACKET *pkt;
     lcb_STATUS err;
+
+    std::vector<std::uint8_t> framing_extras;
+    if (cmd->want_impersonation()) {
+        err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+    }
+
+    hdr.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;
+    auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
+
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
-    err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), &hdr, 0, 0, &pkt, &pipeline,
+    err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), &hdr, 0, ffextlen, &pkt, &pipeline,
                              MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
@@ -146,6 +163,10 @@ static lcb_STATUS exists_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
         pkt->u_rdata.reqdata.start +
         cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, MCREQ_PKT_BASESIZE);
+    std::size_t offset = sizeof(hdr);
+    if (!framing_extras.empty()) {
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
+    }
 
     LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_EXISTS, pkt->u_rdata.reqdata.span);
     LCB_SCHED_ADD(instance, pipeline, pkt)

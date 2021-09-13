@@ -21,6 +21,17 @@
 #include "config.h"
 
 #ifdef __cplusplus
+#include <string>
+#include <vector>
+
+namespace lcb
+{
+namespace flexible_framing_extras
+{
+lcb_STATUS encode_impersonate_user(const std::string &username, std::vector<std::uint8_t> &flexible_framing_extras);
+} // namespace flexible_framing_extras
+} // namespace lcb
+
 extern "C" {
 #endif
 

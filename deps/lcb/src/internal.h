@@ -17,6 +17,10 @@
 #ifndef LIBCOUCHBASE_INTERNAL_H
 #define LIBCOUCHBASE_INTERNAL_H 1
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 /* System/Standard includes */
 #include "config.h"
 #include <errno.h>

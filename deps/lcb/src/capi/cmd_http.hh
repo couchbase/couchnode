@@ -50,6 +50,11 @@
  * Note that the key and nkey fields indicate the _path_ for the API
  */
 struct lcb_CMDHTTP_ {
+    void set_header(const std::string &name, const std::string &value)
+    {
+        headers_.emplace(name, value);
+    }
+
     /**Common flags for the command. These modify the command itself. Currently
      the lower 16 bits of this field are reserved, and the higher 16 bits are
      used for individual commands.*/
@@ -118,6 +123,8 @@ struct lcb_CMDHTTP_ {
     /** If set, this must be a string in the form of `http://host:port`. Should
      * only be used for raw requests. */
     const char *host;
+
+    std::map<std::string, std::string> headers_{};
 };
 
 /**

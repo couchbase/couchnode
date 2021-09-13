@@ -372,6 +372,10 @@ lcb_RETRY_ACTION lcb_QUERY_HANDLE_::has_retriable_error(lcb_STATUS &rc)
             }
         }
     }
+
+    if (rc == LCB_SUCCESS) {
+        return {0, 0};
+    }
     return lcb_query_should_retry(instance_->settings, this, rc);
 }
 
@@ -393,6 +397,9 @@ lcb_STATUS lcb_QUERY_HANDLE_::issue_htreq(const std::string &body)
     lcb_cmdhttp_timeout(htcmd, timeout + LCBT_SETTING(instance_, n1ql_grace_period));
     lcb_cmdhttp_handle(htcmd, &http_request_);
     lcb_cmdhttp_host(htcmd, endpoint.data(), endpoint.size());
+    if (!impostor_.empty()) {
+        htcmd->set_header("cb-on-behalf-of", impostor_);
+    }
     if (use_multi_bucket_authentication_) {
         lcb_cmdhttp_skip_auth_header(htcmd, true);
     } else {
@@ -541,6 +548,9 @@ lcb_QUERY_HANDLE_::lcb_QUERY_HANDLE_(lcb_INSTANCE *obj, void *user_cookie, const
             curCreds["user"] = ii->first;
             curCreds["pass"] = ii->second;
         }
+    }
+    if (cmd->want_impersonation()) {
+        impostor_ = cmd->impostor();
     }
     if (instance_->settings->tracer) {
         parent_span_ = cmd->parent_span();

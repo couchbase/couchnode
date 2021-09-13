@@ -101,6 +101,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_cas(lcb_CMDUNLOCK *cmd, uint64_t cas)
     return cmd->cas(cas);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_on_behalf_of(lcb_CMDUNLOCK *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 static lcb_STATUS unlock_validate(lcb_INSTANCE *instance, const lcb_CMDUNLOCK *cmd)
 {
     if (cmd->key().empty()) {
@@ -124,10 +129,21 @@ static lcb_STATUS unlock_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
     mc_PACKET *pkt;
     mc_REQDATA *rd;
     lcb_STATUS err;
-    protocol_binary_request_header hdr;
+    protocol_binary_request_header hdr{};
+
+    std::vector<std::uint8_t> framing_extras;
+    if (cmd->want_impersonation()) {
+        err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+    }
+
+    hdr.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;
+    auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
 
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
-    err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), &hdr, 0, 0, &pkt, &pl,
+    err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), &hdr, 0, ffextlen, &pkt, &pl,
                              MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
@@ -139,7 +155,6 @@ static lcb_STATUS unlock_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
     rd->deadline =
         rd->start + cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
 
-    hdr.request.magic = PROTOCOL_BINARY_REQ;
     hdr.request.opcode = PROTOCOL_BINARY_CMD_UNLOCK_KEY;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.bodylen = htonl((lcb_uint32_t)ntohs(hdr.request.keylen));
@@ -147,7 +162,11 @@ static lcb_STATUS unlock_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
     hdr.request.cas = lcb_htonll(cmd->cas());
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), hdr.bytes, sizeof(hdr.bytes));
-    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_TOUCH, rd->span);
+    std::size_t offset = sizeof(hdr);
+    if (!framing_extras.empty()) {
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
+    }
+    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_UNLOCK, rd->span);
     LCB_SCHED_ADD(instance, pl, pkt);
     TRACE_UNLOCK_BEGIN(instance, &hdr, cmd);
     return LCB_SUCCESS;

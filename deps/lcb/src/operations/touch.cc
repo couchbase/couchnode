@@ -112,6 +112,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_durability(lcb_CMDTOUCH * /* cmd */, lc
     return LCB_ERR_UNSUPPORTED_OPERATION;
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_on_behalf_of(lcb_CMDTOUCH *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 static lcb_STATUS touch_validate(lcb_INSTANCE *instance, const lcb_CMDTOUCH *cmd)
 {
     if (cmd->key().empty()) {
@@ -126,31 +131,44 @@ static lcb_STATUS touch_validate(lcb_INSTANCE *instance, const lcb_CMDTOUCH *cmd
 
 static lcb_STATUS touch_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDTOUCH> cmd)
 {
-    protocol_binary_request_touch tcmd;
-    protocol_binary_request_header *hdr = &tcmd.message.header;
+    protocol_binary_request_header hdr{};
     mc_PIPELINE *pl;
     mc_PACKET *pkt;
     lcb_STATUS err;
-    lcb_U8 ffextlen = 0;
-    size_t hsize;
+
+    std::vector<std::uint8_t> framing_extras;
+    if (cmd->want_impersonation()) {
+        err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+    }
+
+    hdr.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;
+    auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
 
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
-    err = mcreq_basic_packet(&instance->cmdq, &keybuf, cmd->collection().collection_id(), hdr, 4, ffextlen, &pkt, &pl,
+    err = mcreq_basic_packet(&instance->cmdq, &keybuf, cmd->collection().collection_id(), &hdr, 4, ffextlen, &pkt, &pl,
                              MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
     }
-    hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
 
-    hdr->request.magic = PROTOCOL_BINARY_REQ;
-    hdr->request.opcode = PROTOCOL_BINARY_CMD_TOUCH;
-    hdr->request.cas = 0;
-    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr->request.opaque = pkt->opaque;
-    hdr->request.bodylen = htonl(4 + ffextlen + ntohs(hdr->request.keylen));
-    tcmd.message.body.norm.expiration = htonl(cmd->expiry());
+    hdr.request.opcode = PROTOCOL_BINARY_CMD_TOUCH;
+    hdr.request.cas = 0;
+    hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+    hdr.request.opaque = pkt->opaque;
+    hdr.request.bodylen = htonl(hdr.request.extlen + ffextlen + ntohs(hdr.request.keylen));
 
-    memcpy(SPAN_BUFFER(&pkt->kh_span), tcmd.bytes, hsize);
+    memcpy(SPAN_BUFFER(&pkt->kh_span), &hdr, sizeof(hdr));
+    std::size_t offset = sizeof(hdr);
+    if (!framing_extras.empty()) {
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
+        offset += framing_extras.size();
+    }
+    std::uint32_t expiry = htonl(cmd->expiry());
+    memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, &expiry, sizeof(expiry));
+
     pkt->u_rdata.reqdata.cookie = cmd->cookie();
     pkt->u_rdata.reqdata.start = cmd->start_time_or_default_in_nanoseconds(gethrtime());
     pkt->u_rdata.reqdata.deadline =
@@ -158,7 +176,7 @@ static lcb_STATUS touch_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
         cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
     LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_TOUCH, pkt->u_rdata.reqdata.span);
     LCB_SCHED_ADD(instance, pl, pkt);
-    TRACE_TOUCH_BEGIN(instance, hdr, cmd);
+    TRACE_TOUCH_BEGIN(instance, &hdr, cmd);
     return LCB_SUCCESS;
 }
 

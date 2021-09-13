@@ -124,6 +124,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_locktime(lcb_CMDGET *cmd, uint32_t durati
     return cmd->with_lock(duration);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_on_behalf_of(lcb_CMDGET *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 static lcb_STATUS get_validate(lcb_INSTANCE *instance, const lcb_CMDGET *cmd)
 {
     if (cmd->key().empty()) {
@@ -145,11 +150,20 @@ static lcb_STATUS get_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDGE
     mc_CMDQUEUE *q = &instance->cmdq;
     lcb_uint8_t extlen = 0;
     lcb_uint8_t opcode = PROTOCOL_BINARY_CMD_GET;
-    protocol_binary_request_gat gcmd;
-    protocol_binary_request_header *hdr = &gcmd.message.header;
+    protocol_binary_request_header hdr{};
     lcb_STATUS err;
 
-    hdr->request.magic = PROTOCOL_BINARY_REQ;
+    std::vector<std::uint8_t> framing_extras;
+    if (cmd->want_impersonation()) {
+        err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+    }
+
+    hdr.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;
+    auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
+
     if (cmd->with_lock()) {
         extlen = 4;
         opcode = PROTOCOL_BINARY_CMD_GET_LOCKED;
@@ -159,7 +173,7 @@ static lcb_STATUS get_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDGE
     }
 
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
-    err = mcreq_basic_packet(q, &keybuf, cmd->collection().collection_id(), hdr, extlen, 0, &pkt, &pl,
+    err = mcreq_basic_packet(q, &keybuf, cmd->collection().collection_id(), &hdr, extlen, ffextlen, &pkt, &pl,
                              MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
@@ -171,27 +185,33 @@ static lcb_STATUS get_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDGE
     rdata->deadline =
         rdata->start + cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
 
-    hdr->request.opcode = opcode;
-    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr->request.bodylen = htonl(extlen + ntohs(hdr->request.keylen));
-    hdr->request.opaque = pkt->opaque;
-    hdr->request.cas = 0;
-
-    if (cmd->with_lock()) {
-        gcmd.message.body.norm.expiration = htonl(cmd->lock_time());
-    }
-    if (extlen) {
-        gcmd.message.body.norm.expiration = htonl(cmd->expiry());
-    }
+    hdr.request.opcode = opcode;
+    hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+    hdr.request.bodylen = htonl(extlen + ffextlen + ntohs(hdr.request.keylen));
+    hdr.request.opaque = pkt->opaque;
+    hdr.request.cas = 0;
 
     if (cmd->is_cookie_callback()) {
         pkt->flags |= MCREQ_F_PRIVCALLBACK;
     }
 
-    memcpy(SPAN_BUFFER(&pkt->kh_span), gcmd.bytes, MCREQ_PKT_BASESIZE + extlen);
+    memcpy(SPAN_BUFFER(&pkt->kh_span), &hdr, sizeof(hdr));
+    std::size_t offset = sizeof(hdr);
+    if (!framing_extras.empty()) {
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
+        offset += framing_extras.size();
+    }
+    if (cmd->with_lock()) {
+        std::uint32_t lock_expiry = htonl(cmd->lock_time());
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, &lock_expiry, sizeof(lock_expiry));
+    } else if (cmd->with_touch()) {
+        std::uint32_t expiry = htonl(cmd->expiry());
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, &expiry, sizeof(expiry));
+    }
+
     LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_GET, rdata->span);
     LCB_SCHED_ADD(instance, pl, pkt)
-    TRACE_GET_BEGIN(instance, hdr, cmd);
+    TRACE_GET_BEGIN(instance, &hdr, cmd);
     return LCB_SUCCESS;
 }
 

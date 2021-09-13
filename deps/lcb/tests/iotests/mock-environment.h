@@ -407,6 +407,8 @@ class MockEnvironment : public ::testing::Environment
     void createConnection(lcb_INSTANCE **instance);
 
     void createConnection(HandleWrap &handle, lcb_INSTANCE **instance);
+    void createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const std::string &username,
+                          const std::string &password);
     void createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const lcb_CREATEOPTS *options) const;
 
     /**

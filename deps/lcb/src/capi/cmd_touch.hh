@@ -126,6 +126,22 @@ struct lcb_CMDTOUCH_ {
         return cookie_;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     lcb::collection_qualifier collection_{};
     std::chrono::microseconds timeout_{0};
@@ -134,6 +150,7 @@ struct lcb_CMDTOUCH_ {
     lcbtrace_SPAN *parent_span_{nullptr};
     void *cookie_{nullptr};
     std::string key_{};
+    std::string impostor_{};
 };
 
 /**

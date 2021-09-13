@@ -66,7 +66,8 @@ lcb_STATUS lcb_pktfwd3(lcb_INSTANCE *instance, const void *cookie, const lcb_CMD
     /* set the cookie */
     packet->u_rdata.reqdata.cookie = cookie;
     packet->u_rdata.reqdata.start = gethrtime();
-    packet->u_rdata.reqdata.deadline = packet->u_rdata.reqdata.start + LCB_US2NS(LCBT_SETTING(instance, operation_timeout));
+    packet->u_rdata.reqdata.deadline =
+        packet->u_rdata.reqdata.start + LCB_US2NS(LCBT_SETTING(instance, operation_timeout));
     return err;
 }
 

@@ -430,6 +430,22 @@ struct lcb_CMDQUERY_ {
         cookie_ = cookie;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     std::string scope_{};
     std::string scope_qualifier_{};
@@ -463,6 +479,8 @@ struct lcb_CMDQUERY_ {
     /**Request handle. Will be set to the handle which may be passed to
      * lcb_query_cancel() */
     lcb_QUERY_HANDLE **handle_{nullptr};
+
+    std::string impostor_{};
 };
 
 /**

@@ -244,6 +244,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_ingest_options(lcb_CMDANALYTICS *cm
     return cmd->ingest_options(options);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_on_behalf_of(lcb_CMDANALYTICS *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_ingest_options_create(lcb_INGEST_OPTIONS **options)
 {
     *options = new lcb_INGEST_OPTIONS();

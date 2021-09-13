@@ -134,8 +134,8 @@ struct Hostlist {
         return hosts[ix_];
     }
 
-    std::vector<lcb_host_t> hosts;
-    std::vector<const char *> hoststrs;
+    std::vector< lcb_host_t > hosts;
+    std::vector< const char * > hoststrs;
 };
 } // namespace lcb
 typedef lcb::Hostlist *hostlist_t;

@@ -35,7 +35,7 @@ void MockUnitTest::SetUp()
 
 void checkConnectCommon(lcb_INSTANCE *instance)
 {
-    ASSERT_EQ(LCB_SUCCESS, lcb_connect(instance));
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_connect(instance));
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_EQ(LCB_SUCCESS, lcb_get_bootstrap_status(instance));
 }
@@ -52,6 +52,13 @@ void MockUnitTest::createClusterConnection(HandleWrap &handle, lcb_INSTANCE **in
 void MockUnitTest::createConnection(HandleWrap &handle, lcb_INSTANCE **instance)
 {
     MockEnvironment::getInstance()->createConnection(handle, instance);
+    checkConnectCommon(handle.getLcb());
+}
+
+void MockUnitTest::createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const std::string &username,
+                                    const std::string &password)
+{
+    MockEnvironment::getInstance()->createConnection(handle, instance, username, password);
     checkConnectCommon(handle.getLcb());
 }
 

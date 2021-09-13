@@ -229,6 +229,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_durability_observe(lcb_CMDSTORE *cmd, i
     return cmd->durability_poll(persist_to, replicate_to);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_on_behalf_of(lcb_CMDSTORE *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 struct DurStoreCtx : mc_REQDATAEX {
     lcb_INSTANCE *instance;
     lcb_U16 persist_to;
@@ -389,6 +394,12 @@ static lcb_STATUS store_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
         std::uint8_t frame_id = 0x05;
         std::uint8_t frame_size = 0x00;
         framing_extras.emplace_back(frame_id << 4U | frame_size);
+    }
+    if (cmd->want_impersonation()) {
+        err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
     }
     auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
     hdr.request.magic = (ffextlen == 0) ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;

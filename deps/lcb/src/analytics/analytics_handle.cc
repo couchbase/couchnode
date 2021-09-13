@@ -237,6 +237,9 @@ lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cooki
         // TODO: docq->max_pending_response;
         lcb_aspend_add(&instance_->pendops, LCB_PENDTYPE_COUNTER, nullptr);
     }
+    if (cmd->want_impersonation()) {
+        impostor_ = cmd->impostor();
+    }
 }
 
 lcb_ANALYTICS_HANDLE_::lcb_ANALYTICS_HANDLE_(lcb_INSTANCE *obj, void *user_cookie, lcb_DEFERRED_HANDLE *handle)
@@ -276,6 +279,9 @@ lcb_STATUS lcb_ANALYTICS_HANDLE_::issue_htreq(const std::string &body)
     lcb_cmdhttp_path(htcmd, url.c_str(), url.size());
     if (!hostname.empty()) {
         lcb_cmdhttp_host(htcmd, hostname.c_str(), hostname.size());
+    }
+    if (!impostor_.empty()) {
+        htcmd->set_header("cb-on-behalf-of", impostor_);
     }
 
     LCBTRACE_HTTP_START(instance_->settings, client_context_id_.c_str(), span_, LCBTRACE_TAG_SERVICE_ANALYTICS,

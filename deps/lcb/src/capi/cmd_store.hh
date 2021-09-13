@@ -370,6 +370,22 @@ struct lcb_CMDSTORE_ {
         return preserve_expiry_;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     lcb::collection_qualifier collection_{};
     std::chrono::microseconds timeout_{0};
@@ -390,6 +406,7 @@ struct lcb_CMDSTORE_ {
     bool compressed_{false};
     bool cookie_is_callback_{false};
     bool preserve_expiry_{false};
+    std::string impostor_{};
 };
 
 /**

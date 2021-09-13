@@ -51,6 +51,8 @@ class MockUnitTest : public ::testing::Test
     virtual void createConnection(lcb_INSTANCE **instance);
     virtual void createConnection(HandleWrap &handle);
     virtual void createConnection(HandleWrap &handle, lcb_INSTANCE **instance);
+    virtual void createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const std::string &username,
+                                  const std::string &password);
     virtual void createClusterConnection(HandleWrap &handle, lcb_INSTANCE **instance);
     virtual lcb_STATUS tryCreateConnection(HandleWrap &hw, lcb_INSTANCE **instance, lcb_CREATEOPTS *&crparams);
 

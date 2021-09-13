@@ -112,6 +112,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_durability(lcb_CMDREMOVE *cmd, lcb_DUR
     return cmd->durability_level(level);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_on_behalf_of(lcb_CMDREMOVE *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 static lcb_STATUS remove_validate(lcb_INSTANCE *instance, const lcb_CMDREMOVE *cmd)
 {
     if (cmd->key().empty()) {
@@ -132,37 +137,45 @@ static lcb_STATUS remove_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
     mc_CMDQUEUE *cq = &instance->cmdq;
     mc_PIPELINE *pl;
     mc_PACKET *pkt;
-    protocol_binary_request_delete req{};
-    protocol_binary_request_header *hdr = &req.message.header;
     int new_durability_supported = LCBT_SUPPORT_SYNCREPLICATION(instance);
-    lcb_U8 ffextlen = 0;
-    size_t hsize;
     lcb_STATUS err;
 
-    hdr->request.magic = PROTOCOL_BINARY_REQ;
+    protocol_binary_request_header hdr{};
+
+    std::vector<std::uint8_t> framing_extras;
     if (new_durability_supported && cmd->has_durability_requirements()) {
-        hdr->request.magic = PROTOCOL_BINARY_AREQ;
-        ffextlen = 4;
+        auto durability_timeout = htons(lcb_durability_timeout(instance, cmd->timeout_in_microseconds()));
+        std::uint8_t frame_id = 0x01;
+        std::uint8_t frame_size = durability_timeout > 0 ? 3 : 1;
+        framing_extras.emplace_back(frame_id << 4U | frame_size);
+        framing_extras.emplace_back(cmd->durability_level());
+        if (durability_timeout > 0) {
+            framing_extras.emplace_back(durability_timeout >> 8U);
+            framing_extras.emplace_back(durability_timeout & 0xff);
+        }
+    }
+    if (cmd->want_impersonation()) {
+        err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
     }
 
+    hdr.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;
+    auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
+
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
-    err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), hdr, 0, ffextlen, &pkt, &pl,
+    err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), &hdr, 0, ffextlen, &pkt, &pl,
                              MCREQ_BASICPACKET_F_FALLBACKOK);
     if (err != LCB_SUCCESS) {
         return err;
     }
-    hsize = hdr->request.extlen + sizeof(*hdr) + ffextlen;
 
-    hdr->request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr->request.opcode = PROTOCOL_BINARY_CMD_DELETE;
-    hdr->request.cas = lcb_htonll(cmd->cas());
-    hdr->request.opaque = pkt->opaque;
-    hdr->request.bodylen = htonl(ffextlen + hdr->request.extlen + mcreq_get_key_size(hdr));
-    if (new_durability_supported && cmd->has_durability_requirements()) {
-        req.message.body.alt.meta = (1u << 4u) | 3u;
-        req.message.body.alt.level = cmd->durability_level();
-        req.message.body.alt.timeout = htons(lcb_durability_timeout(instance, cmd->timeout_in_microseconds()));
-    }
+    hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
+    hdr.request.opcode = PROTOCOL_BINARY_CMD_DELETE;
+    hdr.request.cas = lcb_htonll(cmd->cas());
+    hdr.request.opaque = pkt->opaque;
+    hdr.request.bodylen = htonl(ffextlen + hdr.request.extlen + mcreq_get_key_size(&hdr));
 
     pkt->flags |= MCREQ_F_REPLACE_SEMANTICS;
     pkt->u_rdata.reqdata.cookie = cmd->cookie();
@@ -170,9 +183,13 @@ static lcb_STATUS remove_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
     pkt->u_rdata.reqdata.deadline =
         pkt->u_rdata.reqdata.start +
         cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
-    memcpy(SPAN_BUFFER(&pkt->kh_span), hdr->bytes, hsize);
+    memcpy(SPAN_BUFFER(&pkt->kh_span), &hdr, sizeof(hdr));
+    std::size_t offset = sizeof(hdr);
+    if (!framing_extras.empty()) {
+        memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
+    }
     LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_REMOVE, pkt->u_rdata.reqdata.span);
-    TRACE_REMOVE_BEGIN(instance, hdr, cmd);
+    TRACE_REMOVE_BEGIN(instance, &hdr, cmd);
     LCB_SCHED_ADD(instance, pl, pkt)
     return LCB_SUCCESS;
 }

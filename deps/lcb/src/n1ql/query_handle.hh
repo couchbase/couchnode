@@ -290,6 +290,7 @@ struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
 
     lcb::io::Timer<lcb_QUERY_HANDLE_, &lcb_QUERY_HANDLE_::on_timeout> timeout_timer_;
     lcb::io::Timer<lcb_QUERY_HANDLE_, &lcb_QUERY_HANDLE_::on_backoff> backoff_timer_;
+    std::string impostor_{};
 };
 
 #endif // LIBCOUCHBASE_N1QL_QUERY_HANDLE_HH

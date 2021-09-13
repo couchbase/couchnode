@@ -366,14 +366,33 @@ void RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err, protocol_binary_res
             if (server == nullptr) {
                 continue;
             }
+
             /* check pending queue */
-            SLLIST_ITERFOR(&server->nbmgr.sendq.pending, &iter)
             {
-                nb_SNDQELEM *el = SLLIST_ITEM(iter.cur, nb_SNDQELEM, slnode);
-                if (el->parent == op->pkt) {
-                    sllist_iter_remove(&server->nbmgr.sendq.pending, &iter);
+                nb_SENDQ *sq = &server->nbmgr.sendq;
+
+                /* in the case of completion IO, there is a chunk of the sendq which
+                 * has already been written to the network and cannot be cancelled,
+                 * we need to only scan to remove packets which have NOT been sent
+                 * yet.
+                 */
+                sllist_node *ll;
+                if (sq->last_requested) {
+                    ll = sq->last_requested->slnode.next;
+                } else {
+                    ll = SLLIST_FIRST(&sq->pending);
+                }
+                if (ll) {
+                    for (slist_iter_init_at(ll, &iter); !sllist_iter_end(&sq->pending, &iter);
+                         slist_iter_incr(&sq->pending, &iter)) {
+                        nb_SNDQELEM *el = SLLIST_ITEM(iter.cur, nb_SNDQELEM, slnode);
+                        if (el->parent == op->pkt) {
+                            sllist_iter_remove(&sq->pending, &iter);
+                        }
+                    }
                 }
             }
+
             /* check flush queue */
             SLLIST_ITERFOR(&server->nbmgr.sendq.pdus, &iter)
             {
@@ -406,7 +425,7 @@ void RetryQueue::add(mc_EXPACKET *pkt, const lcb_STATUS err, protocol_binary_res
     uint32_t cid = mcreq_get_cid(get_instance(), &pkt->base);
     lcb_log(LOGARGS(this, DEBUG),
             "Adding PKT=%p to retry queue. retries=%u, cid=%u, opaque=%u, now=%" PRIu64 "ms, spent=%" PRIu64
-            "us, deadline_in=%" PRIu64 "us, , status=0x%02x, rc=%s",
+            "us, deadline_in=%" PRIu64 "us, status=0x%02x, rc=%s",
             (void *)pkt, pkt->base.retries, cid, pkt->base.opaque, LCB_NS2MS(now), LCB_NS2US(now - op->start),
             LCB_NS2US(op->deadline - now), status, lcb_strerror_short(err));
     schedule();

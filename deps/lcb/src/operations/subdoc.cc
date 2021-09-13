@@ -404,6 +404,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_create_as_deleted(lcb_CMDSUBDOC *cmd, 
     return cmd->create_as_deleted(flag);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_on_behalf_of(lcb_CMDSUBDOC *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 namespace SubdocCmdTraits
 {
 enum Options {
@@ -786,6 +791,12 @@ static lcb_STATUS subdoc_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
             std::uint8_t frame_id = 0x05;
             std::uint8_t frame_size = 0x00;
             framing_extras.emplace_back(frame_id << 4U | frame_size);
+        }
+    }
+    if (cmd->want_impersonation()) {
+        rc = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (rc != LCB_SUCCESS) {
+            return rc;
         }
     }
     hdr.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;

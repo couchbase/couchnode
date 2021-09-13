@@ -347,3 +347,21 @@ TEST_F(LockUnitTest, testUnlLockContention)
     getKey(instance, key, gitm);
     ASSERT_EQ(gitm.val, newval);
 }
+
+TEST_F(LockUnitTest, testDoesNotAllowToSwitchModeFromLockToTouch)
+{
+    lcb_CMDGET *cmd;
+    lcb_cmdget_create(&cmd);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdget_locktime(cmd, 5));
+    ASSERT_STATUS_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_cmdget_expiry(cmd, 10));
+    lcb_cmdget_destroy(cmd);
+}
+
+TEST_F(LockUnitTest, testDoesNotAllowToSwitchModeFromTouchToLock)
+{
+    lcb_CMDGET *cmd;
+    lcb_cmdget_create(&cmd);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdget_expiry(cmd, 5));
+    ASSERT_STATUS_EQ(LCB_ERR_INVALID_ARGUMENT, lcb_cmdget_locktime(cmd, 10));
+    lcb_cmdget_destroy(cmd);
+}

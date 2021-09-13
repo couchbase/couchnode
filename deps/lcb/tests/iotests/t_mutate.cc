@@ -671,27 +671,54 @@ TEST_F(MutateUnitTest, testSetDefault)
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
+struct lookup_result {
+    bool called{false};
+    lcb_STATUS rc{LCB_ERR_GENERIC};
+
+    lcb_STATUS rc_expiry{LCB_ERR_GENERIC};
+    std::uint32_t expiry{0};
+
+    lcb_STATUS rc_cas{LCB_ERR_GENERIC};
+    std::uint64_t cas{0};
+};
+
 static void preserve_expiry_get_expiry(lcb_INSTANCE *, int, const lcb_RESPSUBDOC *resp)
 {
-    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respsubdoc_status(resp));
-    ASSERT_EQ(1, lcb_respsubdoc_result_size(resp));
-    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respsubdoc_result_status(resp, 0));
+    lookup_result *cookie = nullptr;
+    lcb_respsubdoc_cookie(resp, reinterpret_cast<void **>(&cookie));
+
+    cookie->called = true;
+    cookie->rc = lcb_respsubdoc_status(resp);
+    ASSERT_EQ(2, lcb_respsubdoc_result_size(resp));
 
     const char *value = nullptr;
     std::size_t value_len = 0;
-    lcb_respsubdoc_result_value(resp, 0, &value, &value_len);
-    ASSERT_GT(value_len, 0);
 
-    std::uint32_t *cookie = nullptr;
-    lcb_respsubdoc_cookie(resp, reinterpret_cast<void **>(&cookie));
-    *cookie = std::strtoul(value, nullptr, 10);
+    cookie->rc_expiry = lcb_respsubdoc_result_status(resp, 0);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respsubdoc_result_value(resp, 0, &value, &value_len));
+    ASSERT_GT(value_len, 0);
+    cookie->expiry = std::strtoul(value, nullptr, 10);
+
+    cookie->rc_cas = lcb_respsubdoc_result_status(resp, 1);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_respsubdoc_result_value(resp, 1, &value, &value_len));
+    // CAS is encoded as string of HEX number, so the length should be at least greater than strlen("\"0x\"")
+    ASSERT_GT(value_len, 4);
+    cookie->cas = std::strtoull(value + 1, nullptr, 16);
 }
+
+struct store_result {
+    bool called{false};
+    lcb_STATUS rc{LCB_ERR_GENERIC};
+    std::uint64_t cas{0};
+};
 
 static void preserve_expiry_upsert(lcb_INSTANCE *, int, const lcb_RESPSTORE *resp)
 {
-    lcb_STATUS *rc;
-    lcb_respstore_cookie(resp, (void **)&rc);
-    *rc = lcb_respstore_status(resp);
+    store_result *res = nullptr;
+    lcb_respstore_cookie(resp, (void **)&res);
+    res->called = true;
+    res->rc = lcb_respstore_status(resp);
+    lcb_respstore_cas(resp, &res->cas);
 }
 
 TEST_F(MutateUnitTest, testUpsertPreservesExpiry)
@@ -709,6 +736,7 @@ TEST_F(MutateUnitTest, testUpsertPreservesExpiry)
     lcb_install_callback(instance, LCB_CALLBACK_STORE, reinterpret_cast<lcb_RESPCALLBACK>(preserve_expiry_upsert));
 
     std::uint32_t birthday = 1878422400;
+    std::uint64_t cas = 0;
 
     {
         std::string value = R"({"foo": "bar"})";
@@ -718,64 +746,83 @@ TEST_F(MutateUnitTest, testUpsertPreservesExpiry)
         lcb_cmdstore_key(cmd, key.c_str(), key.size());
         lcb_cmdstore_value(cmd, value.c_str(), value.size());
         lcb_cmdstore_expiry(cmd, birthday);
-        lcb_STATUS cookie = LCB_ERR_GENERIC;
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        store_result res{};
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &res, cmd));
         lcb_cmdstore_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+        ASSERT_TRUE(res.called);
+        ASSERT_NE(0, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        cas = res.cas;
     }
 
     std::string expiry_path = "$document.exptime";
+    std::string cas_path = "$document.CAS";
 
     {
-        std::uint32_t expiry = 0;
+        lookup_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
-        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_create(&ops, 2);
         lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_subdocspecs_get(ops, 1, LCB_SUBDOCSPECS_F_XATTRPATH, cas_path.c_str(), cas_path.size());
         lcb_cmdsubdoc_specs(cmd, ops);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
 
-        ASSERT_EQ(expiry, birthday);
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_cas);
+        ASSERT_EQ(cas, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_expiry);
+        ASSERT_EQ(birthday, res.expiry);
     }
 
     {
         std::string value = R"({"foo": "baz"})";
+        store_result res{};
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, key.c_str(), key.size());
         lcb_cmdstore_value(cmd, value.c_str(), value.size());
         lcb_cmdstore_preserve_expiry(cmd, true);
-        lcb_STATUS cookie = LCB_ERR_GENERIC;
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &res, cmd));
         lcb_cmdstore_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+        ASSERT_TRUE(res.called);
+        ASSERT_NE(0, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        cas = res.cas;
     }
 
     {
-        std::uint32_t expiry = 0;
+        lookup_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
-        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_create(&ops, 2);
         lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_subdocspecs_get(ops, 1, LCB_SUBDOCSPECS_F_XATTRPATH, cas_path.c_str(), cas_path.size());
         lcb_cmdsubdoc_specs(cmd, ops);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
 
-        ASSERT_EQ(expiry, birthday);
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_cas);
+        ASSERT_EQ(cas, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_expiry);
+        ASSERT_EQ(birthday, res.expiry);
     }
 
     {
@@ -785,37 +832,50 @@ TEST_F(MutateUnitTest, testUpsertPreservesExpiry)
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, key.c_str(), key.size());
         lcb_cmdstore_value(cmd, value.c_str(), value.size());
-        lcb_STATUS cookie = LCB_ERR_GENERIC;
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        store_result res{};
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &res, cmd));
         lcb_cmdstore_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+
+        ASSERT_TRUE(res.called);
+        ASSERT_NE(0, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        cas = res.cas;
     }
 
     {
-        std::uint32_t expiry = 0;
+        lookup_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
-        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_create(&ops, 2);
         lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_subdocspecs_get(ops, 1, LCB_SUBDOCSPECS_F_XATTRPATH, cas_path.c_str(), cas_path.size());
         lcb_cmdsubdoc_specs(cmd, ops);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
 
-        ASSERT_EQ(expiry, 0);
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_cas);
+        ASSERT_EQ(cas, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_expiry);
+        ASSERT_EQ(0, res.expiry);
     }
 }
 
 static void preserve_expiry_subdoc(lcb_INSTANCE *, int, const lcb_RESPSUBDOC *resp)
 {
-    lcb_STATUS *rc;
-    lcb_respsubdoc_cookie(resp, (void **)&rc);
-    *rc = lcb_respsubdoc_status(resp);
+    store_result *res = nullptr;
+    lcb_respsubdoc_cookie(resp, (void **)&res);
+    res->called = true;
+    res->rc = lcb_respsubdoc_status(resp);
+    lcb_respsubdoc_cas(resp, &res->cas);
 }
 
 TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
@@ -834,8 +894,10 @@ TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
     lcb_install_callback(instance, LCB_CALLBACK_STORE, reinterpret_cast<lcb_RESPCALLBACK>(preserve_expiry_upsert));
 
     std::uint32_t birthday = 1878422400;
+    std::uint64_t cas = 0;
 
     {
+        store_result res{};
         std::string value = R"({"foo": "bar"})";
 
         lcb_CMDSTORE *cmd;
@@ -843,37 +905,48 @@ TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdstore_key(cmd, key.c_str(), key.size()));
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdstore_value(cmd, value.c_str(), value.size()));
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdstore_expiry(cmd, birthday));
-        lcb_STATUS cookie = LCB_ERR_GENERIC;
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &cookie, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_store(instance, &res, cmd));
         lcb_cmdstore_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+        ASSERT_TRUE(res.called);
+        ASSERT_NE(0, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        cas = res.cas;
     }
 
     std::string expiry_path = "$document.exptime";
+    std::string cas_path = "$document.CAS";
 
     {
-        std::uint32_t expiry = 0;
+        lookup_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
-        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_create(&ops, 2);
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(),
                                                           expiry_path.size()));
+        ASSERT_STATUS_EQ(LCB_SUCCESS,
+                         lcb_subdocspecs_get(ops, 1, LCB_SUBDOCSPECS_F_XATTRPATH, cas_path.c_str(), cas_path.size()));
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdsubdoc_specs(cmd, ops));
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
 
-        ASSERT_EQ(expiry, birthday);
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_cas);
+        ASSERT_EQ(cas, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_expiry);
+        ASSERT_EQ(birthday, res.expiry);
     }
 
     {
         std::string path = "foo";
         std::string value = R"("baz")";
+        store_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
@@ -884,35 +957,45 @@ TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
                          lcb_subdocspecs_replace(ops, 0, 0, path.c_str(), path.size(), value.c_str(), value.size()));
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdsubdoc_specs(cmd, ops));
         ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cmdsubdoc_preserve_expiry(cmd, true));
-        lcb_STATUS cookie = LCB_ERR_GENERIC;
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &cookie, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+
+        ASSERT_TRUE(res.called);
+        ASSERT_NE(0, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        cas = res.cas;
     }
 
     {
-        std::uint32_t expiry = 0;
+        lookup_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
-        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_create(&ops, 2);
         lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_subdocspecs_get(ops, 1, LCB_SUBDOCSPECS_F_XATTRPATH, cas_path.c_str(), cas_path.size());
         lcb_cmdsubdoc_specs(cmd, ops);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
 
-        ASSERT_EQ(expiry, birthday);
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_cas);
+        ASSERT_EQ(cas, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_expiry);
+        ASSERT_EQ(birthday, res.expiry);
     }
 
     {
         std::string path = "foo";
         std::string value = R"("bar")";
+        store_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
@@ -921,29 +1004,38 @@ TEST_F(MutateUnitTest, testMutateInPreservesExpiry)
         lcb_subdocspecs_create(&ops, 1);
         lcb_subdocspecs_replace(ops, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         lcb_cmdsubdoc_specs(cmd, ops);
-        lcb_STATUS cookie = LCB_ERR_GENERIC;
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &cookie, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, cookie);
+
+        ASSERT_TRUE(res.called);
+        ASSERT_NE(0, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        cas = res.cas;
     }
 
     {
-        std::uint32_t expiry = 0;
+        lookup_result res{};
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
         lcb_cmdsubdoc_key(cmd, key.data(), key.size());
         lcb_SUBDOCSPECS *ops;
-        lcb_subdocspecs_create(&ops, 1);
+        lcb_subdocspecs_create(&ops, 2);
         lcb_subdocspecs_get(ops, 0, LCB_SUBDOCSPECS_F_XATTRPATH, expiry_path.c_str(), expiry_path.size());
+        lcb_subdocspecs_get(ops, 1, LCB_SUBDOCSPECS_F_XATTRPATH, cas_path.c_str(), cas_path.size());
         lcb_cmdsubdoc_specs(cmd, ops);
-        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &expiry, cmd));
+        ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_subdoc(instance, &res, cmd));
         lcb_subdocspecs_destroy(ops);
         lcb_cmdsubdoc_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
 
-        ASSERT_EQ(expiry, 0);
+        ASSERT_TRUE(res.called);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_cas);
+        ASSERT_EQ(cas, res.cas);
+        ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc_expiry);
+        ASSERT_EQ(0, res.expiry);
     }
 }

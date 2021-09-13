@@ -65,7 +65,7 @@ struct Connstart : ConnectionRequest {
     void cancel() override;
     void C_connect();
 
-    enum State { CS_PENDING, CS_CANCELLED, CS_CONNECTED, CS_ERROR };
+    enum State { CS_PENDING, CS_CANCELLED, CS_CONNECTED, CS_ERROR, CS_ERROR_CANCELLED };
 
     void state_signal(State next_state, lcb_STATUS err);
     void notify_success();
@@ -143,6 +143,12 @@ void Connstart::handler()
             sock->u.sd->lcbconn = nullptr; /* we don't need IO backend to invoke any callbacks now */
             lcb_assert(sock->refcount > 1);
             sock->refcount--; /* dereference because of unsuccessful attempt */
+        }
+        goto GT_DTOR;
+    } else if (state == CS_ERROR_CANCELLED) {
+        /* same as above, except the refcount has already been decremented */
+        if (sock != nullptr && sock->io->is_C() && sock->u.sd) {
+            sock->u.sd->lcbconn = nullptr;
         }
         goto GT_DTOR;
     }
@@ -225,7 +231,13 @@ void Connstart::cancel()
         /* already inside user-defined handler */
         return;
     }
-    state = CS_CANCELLED;
+
+    if (state == CS_ERROR) {
+        state = CS_ERROR_CANCELLED;
+    } else {
+        state = CS_CANCELLED;
+    }
+
     handler();
 }
 

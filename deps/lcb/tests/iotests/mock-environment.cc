@@ -306,6 +306,16 @@ void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instan
     lcb_createopts_destroy(options);
 }
 
+void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instance, const std::string &username,
+                                       const std::string &password)
+{
+    lcb_CREATEOPTS *options = nullptr;
+    makeConnectParams(options, nullptr);
+    lcb_createopts_credentials(options, username.c_str(), username.size(), password.c_str(), password.size());
+    createConnection(handle, instance, options);
+    lcb_createopts_destroy(options);
+}
+
 void MockEnvironment::createConnection(lcb_INSTANCE **instance)
 {
     HandleWrap handle;

@@ -15,6 +15,12 @@
  *   limitations under the License.
  */
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <limits>
+
 #include "internal.h"
 
 /**
@@ -186,4 +192,25 @@ char *lcb_strdup(const char *str)
     memcpy(copy, str, len);
 
     return copy;
+}
+
+lcb_STATUS lcb::flexible_framing_extras::encode_impersonate_user(const std::string &username,
+                                                                 std::vector<std::uint8_t> &flexible_framing_extras)
+{
+    auto username_len = username.size();
+    if (username_len > std::numeric_limits<std::uint8_t>::max() + 0xfU) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    std::uint8_t frame_id = 0x04;
+    if (username_len < 15) {
+        auto frame_size = static_cast<std::uint8_t>(username_len);
+        flexible_framing_extras.emplace_back(frame_id << 4U | frame_size);
+    } else {
+        flexible_framing_extras.emplace_back(frame_id << 4U | 0xfU);
+        flexible_framing_extras.emplace_back(username_len - 0xfU);
+    }
+    for (const auto byte : username) {
+        flexible_framing_extras.emplace_back(byte);
+    }
+    return LCB_SUCCESS;
 }

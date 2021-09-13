@@ -1126,3 +1126,23 @@ TEST_F(QueryUnitTest, testRawQuery)
     ASSERT_EQ("\"foo\"", res.rows[3]);
     ASSERT_EQ("false", res.rows[4]);
 }
+
+TEST_F(QueryUnitTest, testReadOnlyWithNoResults)
+{
+    SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_65)
+    lcb_INSTANCE *instance;
+    HandleWrap hw;
+    if (!createClusterQueryConnection(hw, &instance)) {
+        SKIP_CLUSTER_QUERY_TEST();
+    }
+    N1QLResult res;
+    std::string query = "SELECT * FROM " + MockEnvironment::getInstance()->getBucket() + " LIMIT 0";
+    makeCommand(query.c_str());
+    lcb_cmdquery_readonly(cmd, 1);
+    lcb_cmdquery_timeout(cmd, LCB_MS2US(3000));
+    lcb_STATUS rc = lcb_query(instance, &res, cmd);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
+    ASSERT_EQ(0, res.rows.size());
+}

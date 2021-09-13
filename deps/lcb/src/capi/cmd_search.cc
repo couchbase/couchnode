@@ -97,6 +97,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_handle(lcb_CMDSEARCH *cmd, lcb_SEARCH_
 {
     return cmd->store_handle_refence_to(handle);
 }
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsearch_on_behalf_of(lcb_CMDSEARCH *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_search_rc(const lcb_SEARCH_ERROR_CONTEXT *ctx)
 {
     return ctx->rc;

@@ -421,6 +421,22 @@ struct lcb_CMDSUBDOC_ {
         return preserve_expiry_;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     lcb::collection_qualifier collection_{};
     std::chrono::microseconds timeout_{0};
@@ -434,6 +450,7 @@ struct lcb_CMDSUBDOC_ {
     subdoc_options options_{};
     lcb_SUBDOCSPECS_ specs_{};
     bool preserve_expiry_{false};
+    std::string impostor_{};
 };
 
 /**

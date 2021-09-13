@@ -81,14 +81,14 @@ LIBCOUCHBASE_API int lcb_resphttp_is_final(const lcb_RESPHTTP *resp)
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_create(lcb_CMDHTTP **cmd, lcb_HTTP_TYPE type)
 {
-    *cmd = (lcb_CMDHTTP *)calloc(1, sizeof(lcb_CMDHTTP));
+    *cmd = new lcb_CMDHTTP{};
     (*cmd)->type = type;
     return LCB_SUCCESS;
 }
 
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdhttp_destroy(lcb_CMDHTTP *cmd)
 {
-    free(cmd);
+    delete cmd;
     return LCB_SUCCESS;
 }
 
@@ -729,6 +729,9 @@ Request::Request(lcb_INSTANCE *instance_, const void *cookie, const lcb_CMDHTTP 
       callback(lcb_find_callback(instance, LCB_CALLBACK_HTTP)), io(instance->iotable), ioctx(nullptr), timer(nullptr),
       parser(nullptr), user_timeout(cmd->cmdflags & LCB_CMDHTTP_F_CASTMO ? cmd->cas : 0)
 {
+    for (const auto &pair : cmd->headers_) {
+        request_headers.emplace_back(Header(pair.first, pair.second));
+    }
 }
 
 Request::~Request()

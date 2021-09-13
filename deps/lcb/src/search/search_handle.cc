@@ -175,6 +175,9 @@ lcb_SEARCH_HANDLE_::lcb_SEARCH_HANDLE_(lcb_INSTANCE *instance, void *cookie, con
         root["ctl"]["timeout"] = timeout / 1000; /* us -> ms */
     }
     lcb_cmdhttp_timeout(htcmd, timeout);
+    if (cmd->want_impersonation()) {
+        htcmd->set_header("cb-on-behalf-of", cmd->impostor());
+    }
 
     std::string qbody(Json::FastWriter().write(root));
     lcb_cmdhttp_body(htcmd, qbody.c_str(), qbody.size());

@@ -359,6 +359,22 @@ struct lcb_CMDANALYTICS_ {
         return priority_;
     }
 
+    lcb_STATUS on_behalf_of(std::string user)
+    {
+        impostor_ = std::move(user);
+        return LCB_SUCCESS;
+    }
+
+    bool want_impersonation() const
+    {
+        return !impostor_.empty();
+    }
+
+    const std::string &impostor() const
+    {
+        return impostor_;
+    }
+
   private:
     std::chrono::microseconds timeout_{0};
     std::chrono::nanoseconds start_time_{0};
@@ -372,6 +388,7 @@ struct lcb_CMDANALYTICS_ {
     bool priority_{false};
     std::string scope_qualifier_{};
     std::string scope_name_{};
+    std::string impostor_{};
 };
 
 #endif // LIBCOUCHBASE_CAPI_ANALYTICS_HH

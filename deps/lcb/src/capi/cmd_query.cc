@@ -263,6 +263,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_handle(lcb_CMDQUERY *cmd, lcb_QUERY_HAN
     return cmd->store_handle_refence_to(handle);
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_on_behalf_of(lcb_CMDQUERY *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_rc(const lcb_QUERY_ERROR_CONTEXT *ctx)
 {
     return ctx->rc;

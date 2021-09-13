@@ -36,8 +36,8 @@ namespace http
 
 // Simple object for header key and value
 struct Header {
-    std::string key;
-    std::string value;
+    std::string key{};
+    std::string value{};
     Header(const std::string &key_, const std::string &value_) : key(key_), value(value_) {}
 };
 

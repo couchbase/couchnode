@@ -19,7 +19,6 @@
 
 #include "internal.h"
 #include "collections.h"
-#include "trace.h"
 #include "defer.h"
 
 #include "capi/cmd_get.hh"
@@ -138,6 +137,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_key(lcb_CMDGETREPLICA *cmd, const 
         return LCB_ERR_INVALID_ARGUMENT;
     }
     return cmd->key(std::string(key, key_len));
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_on_behalf_of(lcb_CMDGETREPLICA *cmd, const char *data, size_t data_len)
+{
+    return cmd->on_behalf_of(std::string(data, data_len));
 }
 
 struct RGetCookie : mc_REQDATAEX {
@@ -299,7 +303,7 @@ static lcb_STATUS get_replica_schedule(lcb_INSTANCE *instance, std::shared_ptr<l
      */
     mc_CMDQUEUE *cq = &instance->cmdq;
     int vbid, ixtmp;
-    protocol_binary_request_header req;
+    protocol_binary_request_header req{};
     unsigned r0 = 0, r1 = 0;
 
     lcb_KEYBUF keybuf{LCB_KV_COPY, {cmd->key().c_str(), cmd->key().size()}};
@@ -351,13 +355,23 @@ static lcb_STATUS get_replica_schedule(lcb_INSTANCE *instance, std::shared_ptr<l
     rck->deadline =
         rck->start + cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
 
+    std::vector<std::uint8_t> framing_extras;
+    if (cmd->want_impersonation()) {
+        lcb_STATUS err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
+        if (err != LCB_SUCCESS) {
+            return err;
+        }
+    }
+
     /* Initialize the packet */
-    req.request.magic = PROTOCOL_BINARY_REQ;
+    req.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;
     req.request.opcode = PROTOCOL_BINARY_CMD_GET_REPLICA;
     req.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     req.request.vbucket = htons(static_cast<std::uint16_t>(vbid));
     req.request.cas = 0;
     req.request.extlen = 0;
+
+    auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());
 
     rck->r_cur = r0;
     do {
@@ -380,13 +394,16 @@ static lcb_STATUS get_replica_schedule(lcb_INSTANCE *instance, std::shared_ptr<l
         pkt->u_rdata.exdata = rck;
         pkt->flags |= MCREQ_F_REQEXT;
 
-        mcreq_reserve_key(pl, pkt, sizeof(req.bytes), &keybuf, cmd->collection().collection_id());
+        mcreq_reserve_key(pl, pkt, sizeof(req.bytes) + ffextlen, &keybuf, cmd->collection().collection_id());
         size_t nkey = pkt->kh_span.size - MCREQ_PKT_BASESIZE + pkt->extlen;
         req.request.keylen = htons((uint16_t)nkey);
         req.request.bodylen = htonl((uint32_t)nkey);
         req.request.opaque = pkt->opaque;
         rck->remaining++;
         mcreq_write_hdr(pkt, &req);
+        if (!framing_extras.empty()) {
+            memcpy(SPAN_BUFFER(&pkt->kh_span) + sizeof(req.bytes), framing_extras.data(), framing_extras.size());
+        }
         mcreq_sched_add(pl, pkt);
     } while (++r0 < r1);
 
@@ -394,8 +411,8 @@ static lcb_STATUS get_replica_schedule(lcb_INSTANCE *instance, std::shared_ptr<l
         req.request.opcode = PROTOCOL_BINARY_CMD_GET;
         mc_PIPELINE *pl;
         mc_PACKET *pkt;
-        lcb_STATUS err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), &req, 0, 0, &pkt, &pl,
-                                            MCREQ_BASICPACKET_F_FALLBACKOK);
+        lcb_STATUS err = mcreq_basic_packet(cq, &keybuf, cmd->collection().collection_id(), &req, 0, ffextlen, &pkt,
+                                            &pl, MCREQ_BASICPACKET_F_FALLBACKOK);
         if (err != LCB_SUCCESS) {
             delete rck;
             return err;
@@ -405,6 +422,9 @@ static lcb_STATUS get_replica_schedule(lcb_INSTANCE *instance, std::shared_ptr<l
         pkt->flags |= MCREQ_F_REQEXT;
         rck->remaining++;
         mcreq_write_hdr(pkt, &req);
+        if (!framing_extras.empty()) {
+            memcpy(SPAN_BUFFER(&pkt->kh_span) + sizeof(req.bytes), framing_extras.data(), framing_extras.size());
+        }
         mcreq_sched_add(pl, pkt);
     }
 
