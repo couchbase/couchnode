@@ -136,7 +136,7 @@ export class Bucket {
     ViewMetaData
   > {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {

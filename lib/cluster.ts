@@ -317,7 +317,7 @@ export class Cluster {
     callback?: NodeCallback<QueryResult<TRow>>
   ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
@@ -347,7 +347,7 @@ export class Cluster {
     callback?: NodeCallback<AnalyticsResult<TRow>>
   ): StreamableRowPromise<AnalyticsResult<TRow>, TRow, AnalyticsMetaData> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
@@ -379,7 +379,7 @@ export class Cluster {
     callback?: NodeCallback<SearchResult>
   ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {

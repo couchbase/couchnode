@@ -90,7 +90,7 @@ export class Scope {
     callback?: NodeCallback<QueryResult<TRow>>
   ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
@@ -124,7 +124,7 @@ export class Scope {
     callback?: NodeCallback<AnalyticsResult<TRow>>
   ): StreamableRowPromise<AnalyticsResult<TRow>, TRow, AnalyticsMetaData> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
