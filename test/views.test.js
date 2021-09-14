@@ -75,6 +75,24 @@ describe('#views', function () {
     }
   }).timeout(20000)
 
+  it('should see test data correctly with a new connection', async function () {
+    var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
+    var bucket = cluster.bucket(H.bucketName)
+
+    const res = await bucket.viewQuery(ddocKey, 'simple')
+    assert.isArray(res.rows)
+    assert.lengthOf(res.rows, testdata.docCount())
+    assert.isObject(res.meta)
+
+    res.rows.forEach((row) => {
+      assert.isDefined(row.id)
+      assert.isDefined(row.key)
+      assert.isDefined(row.value)
+    })
+
+    cluster.close()
+  }).timeout(10000)
+
   it('should successfully drop an index', async function () {
     await H.b.viewIndexes().dropDesignDocument(ddocKey)
   })

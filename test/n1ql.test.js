@@ -37,8 +37,12 @@ describe('#query', function () {
     }, H.lib.IndexExistsError)
   })
 
-  it('should successfully create a secondary index', async function () {
-    await H.c.queryIndexes().createIndex(H.b.name, sidxName, ['name'])
+  it('should successfully create a secondary index (using a new connection)', async function () {
+    var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
+
+    await cluster.queryIndexes().createIndex(H.b.name, sidxName, ['name'])
+
+    cluster.close()
   }).timeout(20000)
 
   it('should fail to create a duplicate secondary index', async function () {
@@ -72,6 +76,19 @@ describe('#query', function () {
 
       break
     }
+  }).timeout(10000)
+
+  it('should see test data correctly with a new connection', async function () {
+    var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
+
+    const qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`
+    const res = await cluster.query(qs)
+
+    assert.isArray(res.rows)
+    assert.lengthOf(res.rows, testdata.docCount())
+    assert.isObject(res.meta)
+
+    cluster.close()
   }).timeout(10000)
 
   it('should stream test data correctly', async function () {

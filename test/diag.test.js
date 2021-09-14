@@ -61,5 +61,36 @@ describe('#diagnostics', function () {
       assert.isString(res.sdk)
       assert.isObject(res.services)
     })
+
+    it('should ping a new cluster successfully', async function () {
+      var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
+
+      var res = await cluster.ping({
+        serviceTypes: [H.lib.ServiceType.KeyValue],
+      })
+      assert.isObject(res)
+      assert.isString(res.id)
+      assert.equal(res.version, 1)
+      assert.isString(res.sdk)
+      assert.isObject(res.services)
+
+      cluster.close()
+    })
+
+    it('should ping a new bucket successfully', async function () {
+      var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
+      var bucket = cluster.bucket(H.bucketName)
+
+      var res = await bucket.ping({
+        serviceTypes: [H.lib.ServiceType.KeyValue],
+      })
+      assert.isObject(res)
+      assert.isString(res.id)
+      assert.equal(res.version, 1)
+      assert.isString(res.sdk)
+      assert.isObject(res.services)
+
+      cluster.close()
+    })
   })
 })

@@ -75,22 +75,24 @@ type CppCbToNew<T extends (...fargs: any[]) => void> = T extends (
 
 // BUG(JSCBC-901): We cannot defer HTTP operations inside of libcouchbase and thus
 // need to perform that deferral at the binding level.
-type HttpWaitFunc = (err: Error | null) => void
+type ConnectWaitFunc = () => void
 
 export class Connection {
   private _inst: CppConnection
   private _connected: boolean
   private _opened: boolean
   private _closed: boolean
+  private _closedErr: Error | null
 
   // BUG(JSCBC-901)
-  private _httpWaiters: HttpWaitFunc[]
+  private _connectWaiters: ConnectWaitFunc[]
 
   constructor(options: ConnectionOptions) {
     this._closed = false
+    this._closedErr = null
     this._connected = false
     this._opened = false
-    this._httpWaiters = []
+    this._connectWaiters = []
 
     const lcbDsnObj = ConnSpec.parse(options.connStr)
 
@@ -150,7 +152,8 @@ export class Connection {
           )
         }
         if (tracerOpts.sampleSize) {
-          lcbDsnObj.options.tracing_threshold_queue_size = tracerOpts.sampleSize.toString()
+          lcbDsnObj.options.tracing_threshold_queue_size =
+            tracerOpts.sampleSize.toString()
         }
         if (tracerOpts.kvThreshold) {
           lcbDsnObj.options.tracing_threshold_kv = fmtTmt(
@@ -212,7 +215,7 @@ export class Connection {
 
     // This conversion relies on the LogSeverity and CppLogSeverity enumerations
     // always being in sync.  There is a test that ensures this.
-    const lcbLogFunc = (options.logFunc as any) as CppLogFunc
+    const lcbLogFunc = options.logFunc as any as CppLogFunc
 
     this._inst = new binding.Connection(
       lcbConnType,
@@ -235,15 +238,20 @@ export class Connection {
     this._inst.connect((err) => {
       if (err) {
         this._closed = true
-        callback(translateCppError(err))
+        this._closedErr = translateCppError(err)
+        callback(this._closedErr)
+
+        this._connectWaiters.forEach((waitFn) => waitFn())
+        this._connectWaiters = []
+
         return
       }
 
       this._connected = true
       callback(null)
 
-      this._httpWaiters.forEach((waitFn) => waitFn(err))
-      this._httpWaiters = []
+      this._connectWaiters.forEach((waitFn) => waitFn())
+      this._connectWaiters = []
     })
   }
 
@@ -267,6 +275,7 @@ export class Connection {
     }
 
     this._closed = true
+    this._closedErr = new ConnectionClosedError()
     this._inst.shutdown()
 
     callback(null)
@@ -359,25 +368,38 @@ export class Connection {
   httpRequest(
     ...args: CppCbToNew<CppConnection['httpRequest']>
   ): ReturnType<CppConnection['httpRequest']> {
-    if (this._connected) {
-      return this._proxyToConn(this._inst, this._inst.httpRequest, ...args)
-    } else {
-      this._httpWaiters.push(() => {
-        return this._proxyToConn(this._inst, this._inst.httpRequest, ...args)
-      })
-    }
+    return this._proxyOnBootstrap(this._inst, this._inst.httpRequest, ...args)
   }
 
   ping(
     ...args: CppCbToNew<CppConnection['ping']>
   ): ReturnType<CppConnection['ping']> {
-    return this._proxyToConn(this._inst, this._inst.ping, ...args)
+    return this._proxyOnBootstrap(this._inst, this._inst.ping, ...args)
   }
 
   diag(
     ...args: CppCbToNew<CppConnection['diag']>
   ): ReturnType<CppConnection['diag']> {
     return this._proxyToConn(this._inst, this._inst.diag, ...args)
+  }
+
+  private _proxyOnBootstrap<FArgs extends any[], CbArgs extends any[]>(
+    thisArg: CppConnection,
+    fn: (
+      ...cppArgs: [
+        ...FArgs,
+        (...cppCbArgs: [CppError | null, ...CbArgs]) => void
+      ]
+    ) => void,
+    ...newArgs: [...FArgs, (...newCbArgs: [Error | null, ...CbArgs]) => void]
+  ) {
+    if (this._closed || this._connected) {
+      return this._proxyToConn(thisArg, fn, ...newArgs)
+    } else {
+      this._connectWaiters.push(() => {
+        return this._proxyToConn(thisArg, fn, ...newArgs)
+      })
+    }
   }
 
   private _proxyToConn<FArgs extends any[], CbArgs extends any[]>(
@@ -396,8 +418,7 @@ export class Connection {
     ) => void
 
     if (this._closed) {
-      const closeErr = new ConnectionClosedError()
-      return ((callback as any) as ErrCallback)(closeErr)
+      return (callback as any as ErrCallback)(this._closedErr)
     }
 
     wrappedArgs.push((err: CppError | null, ...cbArgs: CbArgs) => {
