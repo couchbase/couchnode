@@ -718,6 +718,14 @@ void lcb_destroy(lcb_INSTANCE *instance)
         } while (!sd.stopped);
     }
 
+    // Once we are done destroying the instance, we need to manually disconnect
+    // the logger from the settings since further work may proceed in the background
+    // with some forms of IO backend, but once lcb_destroy is invoked, the logger
+    // may no longer be valid from the application side.
+    if (instance->settings && instance->settings->logger) {
+        instance->settings->logger = nullptr;
+    }
+
     DESTROY(lcbio_table_unref, iotable)
     DESTROY(lcb_settings_unref, settings)
     DESTROY(lcb_histogram_destroy, kv_timings)

@@ -37,8 +37,11 @@ void Bootstrap::config_callback(EventType event, ConfigInfo *info)
     lcb_INSTANCE *instance = parent;
 
     if (event != CLCONFIG_EVENT_GOT_NEW_CONFIG) {
-        if (event == CLCONFIG_EVENT_PROVIDERS_CYCLED) {
-            if (!LCBT_VBCONFIG(instance)) {
+        if (event == CLCONFIG_EVENT_PROVIDERS_CYCLED && !LCBT_VBCONFIG(instance)) {
+            if (parent->confmon->get_last_error() == LCB_ERR_CONNECTION_REFUSED) {
+                initial_error(LCB_ERR_NO_MATCHING_SERVER,
+                              "Unable to bootstrap, check ports and cluster encryption setting");
+            } else {
                 initial_error(LCB_ERR_NO_MATCHING_SERVER, "No more bootstrap providers remain");
             }
         }
@@ -199,7 +202,7 @@ void Bootstrap::initial_error(lcb_STATUS err, const char *errinfo)
     if (parent->last_error == LCB_SUCCESS) {
         parent->last_error = err;
     }
-    lcb_log(LOGARGS(parent, ERR), "Failed to bootstrap client=%p. Error=%s (Last=%s), Message=%s", (void *)parent,
+    lcb_log(LOGARGS(parent, ERR), "Failed to bootstrap client=%p. Error=%s (Last=%s), Message=\"%s\"", (void *)parent,
             lcb_strerror_short(err), lcb_strerror_short(parent->last_error), errinfo);
     tm.cancel();
 

@@ -52,7 +52,7 @@ void lcb_default_settings(lcb_settings *settings)
     settings->compress_min_size = LCB_DEFAULT_COMPRESS_MIN_SIZE;
     settings->compress_min_ratio = (float)LCB_DEFAULT_COMPRESS_MIN_RATIO;
     settings->allocator_factory = rdb_bigalloc_new;
-    settings->detailed_neterr = 0;
+    settings->detailed_neterr = 1;
     settings->refresh_on_hterr = 1;
     settings->sched_implicit_flush = 1;
     settings->fetch_mutation_tokens = 1;
