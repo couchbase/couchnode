@@ -509,10 +509,11 @@ export class QueryIndexManager {
       options = {}
     }
 
-    let qs = ''
-    qs += 'SELECT idx.* FROM system:indexes AS idx'
-    qs += ' WHERE keyspace_id="' + bucketName + '"'
-    qs += ' AND `using`="gsi" ORDER BY is_primary DESC, name ASC'
+    const qs = `SELECT idx.* FROM system:indexes AS idx
+              WHERE (
+                (\`bucket_id\` IS MISSING AND \`keyspace_id\`="${bucketName}")
+                OR \`bucket_id\`="${bucketName}"
+              ) AND \`using\`="gsi" ORDER BY is_primary DESC, name ASC`
 
     const parentSpan = options.parentSpan
     const timeout = options.timeout
