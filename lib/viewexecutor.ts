@@ -115,7 +115,7 @@ export class ViewExecutor {
       queryOpts.endkey_docid = options.idRange.end
     }
 
-    const queryData = cbQsStringify(queryOpts)
+    const queryData = cbQsStringify(queryOpts, { boolAsString: true })
     const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
 
     const emitter = new StreamableRowPromise<

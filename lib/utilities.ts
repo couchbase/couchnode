@@ -192,13 +192,20 @@ export function nsServerStrToDuraLevel(level: string): DurabilityLevel {
 /**
  * @internal
  */
-export function cbQsStringify(values: { [key: string]: any }): string {
+export function cbQsStringify(
+  values: { [key: string]: any },
+  options?: { boolAsString?: boolean }
+): string {
   const cbValues: { [key: string]: any } = {}
   for (const i in values) {
     if (values[i] === undefined) {
       // skipped
     } else if (typeof values[i] === 'boolean') {
-      cbValues[i] = values[i] ? 1 : 0
+      if (options && options.boolAsString) {
+        cbValues[i] = values[i] ? 'true' : 'false'
+      } else {
+        cbValues[i] = values[i] ? 1 : 0
+      }
     } else {
       cbValues[i] = values[i]
     }
