@@ -1,17 +1,10 @@
 {
- "compilerOptions": {
-    "lib": ["es2015"],
-    "module": "commonjs",
-    "target": "es2015",
+  "extends": "@tsconfig/node10/tsconfig.json",
 
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-
+  "compilerOptions": {
     "outDir": "dist",
-    "declaration": true,
+    "declaration": true
   },
 
-  "include": ["lib"],
+  "include": ["lib"]
 }
