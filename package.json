@@ -56,7 +56,7 @@
     "type": "git",
     "url": "http://github.com/couchbase/couchnode.git"
   },
-  "version": "3.2.2-dev",
+  "version": "3.2.3-dev",
   "config": {
     "native": false
   },
