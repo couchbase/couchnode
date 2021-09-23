@@ -1,5 +1,6 @@
 'use strict'
 
+const { assert } = require('chai')
 const H = require('./harness')
 
 describe('#collectionmanager', function () {
@@ -41,6 +42,17 @@ describe('#collectionmanager', function () {
     await H.throwsHelper(async () => {
       await cmgr.createCollection('some-scope-for-testing', 'invalid-scope')
     }, H.lib.ScopeNotFoundError)
+  })
+
+  it('should successfully fetch all scopes', async function () {
+    var cmgr = H.b.collections()
+    const scopes = await cmgr.getAllScopes()
+
+    const foundScope = scopes.find((v) => v.name === testScope)
+    assert.isNotEmpty(foundScope)
+
+    const foundColl = foundScope.collections.find((v) => v.name === testColl)
+    assert.isNotEmpty(foundColl)
   })
 
   it('should successfully drop a collection', async function () {

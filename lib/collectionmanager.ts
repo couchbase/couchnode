@@ -253,7 +253,7 @@ export class CollectionManager {
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
-        method: HttpMethod.Post,
+        method: HttpMethod.Get,
         path: `/pools/default/buckets/${bucketName}/scopes`,
         parentSpan: parentSpan,
         timeout: timeout,
@@ -274,7 +274,7 @@ export class CollectionManager {
       }
 
       const scopesData = JSON.parse(res.body.toString())
-      const scopes = scopesData.map((scopeData: any) =>
+      const scopes = scopesData.scopes.map((scopeData: any) =>
         ScopeSpec._fromNsData(scopeData)
       )
       return scopes
