@@ -54,7 +54,11 @@ describe('#views', function () {
       // view won't be available to the query engine yet...
       try {
         res = await H.b.viewQuery(ddocKey, 'simple')
-      } catch (err) {} // eslint-disable-line no-empty
+      } catch (err) {
+        if (!(err instanceof H.lib.ViewNotFoundError)) {
+          throw err
+        }
+      }
 
       if (!res || res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
