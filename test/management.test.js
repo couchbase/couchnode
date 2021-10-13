@@ -8,5 +8,6 @@ describe('#management-apis', function () {
     await H.throwsHelper(async () => {
       await bmgr.flushBucket('default', { timeout: 1 })
     }, H.lib.TimeoutError)
-  }).timeout(1 * 1000)
+    await H.sleep(1000)
+  }).timeout(2000)
 })
