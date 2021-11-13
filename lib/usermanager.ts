@@ -850,7 +850,7 @@ export class UserManager {
     callback?: NodeCallback<Role[]>
   ): Promise<Role[]> {
     if (options instanceof Function) {
-      callback = arguments[1]
+      callback = arguments[0]
       options = undefined
     }
     if (!options) {

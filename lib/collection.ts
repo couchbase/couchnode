@@ -944,7 +944,7 @@ export class Collection {
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
     if (options instanceof Function) {
-      callback = arguments[1]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {
@@ -1308,7 +1308,7 @@ export class Collection {
     callback?: NodeCallback<GetReplicaResult[]>
   ): StreamableReplicasPromise<GetReplicaResult[], GetReplicaResult> {
     if (options instanceof Function) {
-      callback = arguments[1]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {

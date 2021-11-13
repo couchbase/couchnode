@@ -1622,7 +1622,7 @@ export class AnalyticsIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
@@ -1676,7 +1676,7 @@ export class AnalyticsIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
@@ -1732,7 +1732,7 @@ export class AnalyticsIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {

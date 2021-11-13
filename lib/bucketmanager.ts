@@ -705,7 +705,7 @@ export class BucketManager {
     callback?: NodeCallback<BucketSettings[]>
   ): Promise<BucketSettings[]> {
     if (options instanceof Function) {
-      callback = arguments[1]
+      callback = arguments[0]
       options = undefined
     }
     if (!options) {

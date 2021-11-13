@@ -332,7 +332,7 @@ export class QueryIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
-      callback = arguments[2]
+      callback = arguments[3]
       options = undefined
     }
     if (!options) {
@@ -367,7 +367,7 @@ export class QueryIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
@@ -470,7 +470,7 @@ export class QueryIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
-      callback = arguments[0]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {

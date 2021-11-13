@@ -328,7 +328,7 @@ export class ViewIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
-      callback = arguments[2]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
