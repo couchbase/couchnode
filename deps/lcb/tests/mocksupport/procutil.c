@@ -20,8 +20,6 @@
 #include <stdio.h>
 
 #ifndef _WIN32
-#define _XOPEN_SOURCE
-#include <stdlib.h>
 #include <string.h>
 #include <wordexp.h>
 #include <fcntl.h>  /* O_* */
@@ -51,6 +49,7 @@ static char **clisplit(const char *s)
         ret[ii] = strdup(p.we_wordv[ii]);
     }
     ret[ii] = NULL;
+    wordfree(&p);
     return ret;
 }
 
@@ -59,39 +58,44 @@ static int spawn_process_impl(child_process_t *proc)
     int rv;
     char **argv;
 
-    proc->pid = fork();
-    if (proc->pid < 0) {
+    argv = clisplit(proc->name);
+    if (argv == NULL) {
+        fprintf(stderr, "Couldn't split arguments: %s\n", proc->name);
         return -1;
     }
-    if (proc->pid > 0) {
-        return 0;
-    }
-
-    /** In Child */
-    argv = clisplit(proc->name);
-    if (!argv) {
-        fprintf(stderr, "Couldn't split arguments\n");
-        exit(EXIT_FAILURE);
-    }
-    if (proc->redirect) {
-        int fd = open(proc->redirect, O_RDWR | O_CREAT | O_APPEND, 0644);
-        if (fd < 0) {
-            perror(proc->redirect);
-            exit(EXIT_FAILURE);
+    proc->pid = vfork();
+    if (proc->pid < 0) {
+        for (int i = 0; argv[i] != NULL; ++i) {
+            free(argv[i]);
         }
-        if (dup2(fd, fileno(stderr)) < 0 || dup2(fd, fileno(stdout)) < 0) {
-            perror("dup2");
-            exit(EXIT_FAILURE);
+        free(argv);
+        return -1;
+    }
+    if (proc->pid == 0) {
+        /** In Child */
+        if (proc->redirect) {
+            int fd = open(proc->redirect, O_RDWR | O_CREAT | O_APPEND, 0644);
+            if (fd < 0) {
+                perror(proc->redirect);
+                exit(EXIT_FAILURE);
+            }
+            if (dup2(fd, fileno(stderr)) < 0 || dup2(fd, fileno(stdout)) < 0) {
+                perror("dup2");
+                exit(EXIT_FAILURE);
+            }
+            setvbuf(stderr, NULL, _IOLBF, 0);
         }
-        setvbuf(stderr, NULL, _IOLBF, 0);
+        rv = execvp(argv[0], argv);
+        if (rv < 0) {
+            perror(argv[0]);
+            return -1;
+        }
     }
-    rv = execvp(argv[0], argv);
-    if (rv < 0) {
-        perror(argv[0]);
-        exit(EXIT_FAILURE);
+    for (int i = 0; argv[i] != NULL; ++i) {
+        free(argv[i]);
     }
-    abort();
-    return 0; /* make things happy */
+    free(argv);
+    return 0;
 }
 
 void kill_process(child_process_t *process, int force)

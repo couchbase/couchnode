@@ -136,8 +136,10 @@ void lcbio_ctx_close_ex(lcbio_CTX *ctx, lcbio_CTXCLOSE_cb cb, void *arg, lcbio_C
     }
 
     oldrc = ctx->sock->refcount;
-    lcb_log(LOGARGS(ctx, DEBUG), CTX_LOGFMT "Destroying context. Pending Writes=%d, Entered=%s, Socket Refcount=%d",
-            CTX_LOGID(ctx), (int)ctx->npending, (int)ctx->entered ? "true" : "false", oldrc);
+
+    lcb_log(LOGARGS(ctx, DEBUG),
+            CTX_LOGFMT "Destroying context for SOCK=%016" PRIx64 ". Pending Writes=%d, Entered=%s, Socket Refcount=%d",
+            CTX_LOGID(ctx), ctx->sock->id, (int)ctx->npending, (int)ctx->entered ? "true" : "false", oldrc);
 
     if (cb) {
         int reusable = ctx->npending == 0 &&      /* no pending events */

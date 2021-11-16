@@ -2562,7 +2562,9 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdanalytics_scope_name(lcb_CMDANALYTICS *cmd, c
  *
  * Associate scope_qualifier (also known as `query_context`) with the query.
  *
- * The qualifier must be in form `${bucket_name}.${scope_name}` or `default:${bucket_name}.${scope_name}`.
+ * The qualifier must be in form `default:${bucket_name}.${scope_name}`.
+ *
+ * @see REST API definition at https://docs.couchbase.com/server/current/analytics/rest-service.html
  *
  * @param cmd the command
  * @param qualifier the string containing qualifier

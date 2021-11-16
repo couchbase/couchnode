@@ -118,6 +118,32 @@ struct lcb_VIEW_HANDLE_ : lcb::jsparse::Parser::Actions {
         return http_request_;
     }
 
+    static lcbtrace_THRESHOLDOPTS service()
+    {
+        return LCBTRACE_THRESHOLD_VIEW;
+    }
+
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_VIEW;
+        return name;
+    }
+
+    lcbtrace_SPAN *parent_span() const
+    {
+        return parent_span_;
+    }
+
+    const std::string &client_context_id() const
+    {
+        return client_context_id_;
+    }
+
+    int retries() const
+    {
+        return retries_;
+    }
+
   private:
     /** Current HTTP response to provide in callbacks */
     const lcb_RESPHTTP *http_response_{nullptr};
@@ -134,12 +160,15 @@ struct lcb_VIEW_HANDLE_ : lcb::jsparse::Parser::Actions {
     std::string query_params_{};
     std::string first_error_code_{};
     std::string first_error_message_{};
+    std::string client_context_id_{};
 
     unsigned refcount_{1};
     bool include_docs_{false};
     bool do_not_parse_rows_{false};
     bool spatial_{false};
+    int retries_{0};
 
     lcb_STATUS last_error_{LCB_SUCCESS};
+    lcbtrace_SPAN *parent_span_{nullptr};
     lcbtrace_SPAN *span_{nullptr};
 };

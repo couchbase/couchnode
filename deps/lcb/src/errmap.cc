@@ -131,8 +131,7 @@ ErrorMap::ParseStatus ErrorMap::parse(const char *s, size_t n, std::string &errm
         return PARSE_ERROR;
     }
 
-    Json::Value::const_iterator ii = errsJson.begin();
-    for (; ii != errsJson.end(); ++ii) {
+    for (Json::Value::const_iterator ii = errsJson.begin(); ii != errsJson.end(); ++ii) {
         // Key is the version in hex
         unsigned ec = 0;
         if (sscanf(ii.key().asCString(), "%x", &ec) != 1) {
@@ -155,14 +154,11 @@ ErrorMap::ParseStatus ErrorMap::parse(const char *s, size_t n, std::string &errm
             return PARSE_ERROR;
         }
 
-        Json::Value::const_iterator jj = attrs.begin();
-        for (; jj != attrs.end(); ++jj) {
-            ErrorAttribute attr = getAttribute(jj->asString());
-            if (attr == INVALID_ATTRIBUTE) {
-                errmsg = "unknown attribute received";
-                return UNKNOWN_VERSION;
+        for (const auto &jj : attrs) {
+            ErrorAttribute attr = getAttribute(jj.asString());
+            if (attr != INVALID_ATTRIBUTE) {
+                error.attributes.insert(attr);
             }
-            error.attributes.insert(attr);
         }
         if (error.hasAttribute(AUTO_RETRY)) {
             const Json::Value &retryJson = errorJson["retry"];

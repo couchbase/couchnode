@@ -135,8 +135,8 @@ struct collection_qualifier {
         return true;
     }
 
-    std::string scope_{};
-    std::string collection_{};
+    std::string scope_{"_default"};
+    std::string collection_{"_default"};
     std::string spec_{};
     std::uint32_t resolved_collection_id_{0};
     bool resolved_{false};

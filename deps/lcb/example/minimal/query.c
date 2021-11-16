@@ -71,7 +71,7 @@ static void row_callback(lcb_INSTANCE *instance, int type, const lcb_RESPQUERY *
 
     lcb_respquery_row(resp, &row, &nrow);
     ln2space(row, nrow);
-    fprintf(stderr, "[\x1b[%dmQUERY\x1b[0m] %s, (%d) %.*s\n", err2color(rc), lcb_strerror_short(rc), (int)nrow,
+    fprintf(stderr, "[\x1b[%dmQUERY\x1b[0m] %s, (size=%d) %.*s\n", err2color(rc), lcb_strerror_short(rc), (int)nrow,
             (int)nrow, row);
     if (lcb_respquery_is_final(resp)) {
         fprintf(stderr, "\n");
@@ -120,7 +120,6 @@ static void sigint_handler(int unused)
 
 int main(int argc, char *argv[])
 {
-    lcb_STATUS err;
     lcb_INSTANCE *instance;
     char *bucket = NULL;
     const char *key = "user:king_arthur";
@@ -171,11 +170,14 @@ int main(int argc, char *argv[])
     }
 
     {
-        lcb_CMDN1XMGMT cmd = {0};
-        cmd.callback = idx_callback;
-        cmd.spec.flags = LCB_N1XSPEC_F_PRIMARY;
-        cmd.spec.ixtype = LCB_N1XSPEC_T_GSI;
-        check(lcb_n1x_create(instance, NULL, &cmd), "schedule N1QL index creation operation");
+        lcb_CMDQUERY *cmd;
+        char query[1024] = {0};
+        lcb_cmdquery_create(&cmd);
+        snprintf(query, sizeof(query), "CREATE PRIMARY INDEX ON `%s` USING gsi", bucket);
+        check(lcb_cmdquery_statement(cmd, query, strlen(query)), "set QUERY statement");
+        lcb_cmdquery_callback(cmd, row_callback);
+        check(lcb_query(instance, NULL, cmd), "schedule QUERY INDEX create operation");
+        lcb_cmdquery_destroy(cmd);
         lcb_wait(instance, LCB_WAIT_DEFAULT);
     }
 

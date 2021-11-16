@@ -296,7 +296,6 @@ static int start_mock_server(struct test_server_info *info, char **cmdline)
 
     start_mock_process(info, argv);
     negotiate_mock_connection(info);
-    sleep(1); /* give it a bit time to initialize itself */
     return 1;
 }
 

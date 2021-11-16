@@ -21,6 +21,7 @@
 #include "iotests.h"
 #include "logging.h"
 #include "internal.h"
+#include "testutil.h"
 
 #define LOGARGS(instance, lvl) instance->settings, "tests-GET", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -106,6 +107,9 @@ static void testGetHitGetCallback(lcb_INSTANCE *, lcb_CALLBACK_TYPE, const lcb_R
  */
 TEST_F(GetUnitTest, testGetHit)
 {
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    tracing_guard use_tracing;
+    metrics_guard use_metrics;
     HandleWrap hw;
     lcb_INSTANCE *instance;
     createConnection(hw, &instance);
@@ -129,6 +133,16 @@ TEST_F(GetUnitTest, testGetHit)
 
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     EXPECT_EQ(2, numcallbacks);
+
+    auto spans = mock->getTracer().spans;
+    ASSERT_EQ(4, spans.size());
+    auto span = spans[0];
+    assert_kv_span(span, "upsert", {});
+    span = spans[2];
+    assert_kv_span(span, "get", {});
+
+    assert_kv_metrics(METRICS_OPS_METER_NAME, "get", 2, false);
+    assert_kv_metrics(METRICS_OPS_METER_NAME, "upsert", 2, false);
 }
 
 extern "C" {
@@ -1096,10 +1110,6 @@ TEST_F(GetUnitTest, testChangePassword)
     lcb_INSTANCE *instanceHttp;
     createConnection(hwHttp, &instanceHttp);
     (void)lcb_install_callback(instanceHttp, LCB_CALLBACK_HTTP, (lcb_RESPCALLBACK)change_password_http_callback);
-
-    // Set short timeout
-    lcb_uint32_t tmoval = 100000;
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &tmoval);
 
     // store keys
     // run one set to connect to only one node

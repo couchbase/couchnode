@@ -187,7 +187,7 @@ static lcb_STATUS get_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDGE
 
     hdr.request.opcode = opcode;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr.request.bodylen = htonl(extlen + ffextlen + ntohs(hdr.request.keylen));
+    hdr.request.bodylen = htonl(extlen + ffextlen + mcreq_get_key_size(&hdr));
     hdr.request.opaque = pkt->opaque;
     hdr.request.cas = 0;
 
@@ -209,7 +209,7 @@ static lcb_STATUS get_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMDGE
         memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, &expiry, sizeof(expiry));
     }
 
-    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_GET, rdata->span);
+    rdata->span = lcb::trace::start_kv_span(instance->settings, pkt, cmd);
     LCB_SCHED_ADD(instance, pl, pkt)
     TRACE_GET_BEGIN(instance, &hdr, cmd);
     return LCB_SUCCESS;

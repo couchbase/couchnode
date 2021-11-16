@@ -48,7 +48,7 @@ Provided is a convenience script called `cmake/configure`. It is a Perl
 script and functions like a normal `autotools` script.
 
 ```shell
-$ git clone git://github.com/couchbase/libcouchbase.git
+$ git clone https://github.com/couchbase/libcouchbase.git
 $ cd libcouchbase && mkdir build && cd build
 $ ../cmake/configure
 $ make
@@ -60,7 +60,7 @@ $ ctest
 Assuming `git` and Visual Studio 2010 are installed, from a `CMD` shell, do:
 
 ```
-C:\> git clone git://github.com/couchbase/libcouchbase.git
+C:\> git clone https://github.com/couchbase/libcouchbase.git
 C:\> mkdir lcb-build
 C:\> cd lcb-build
 C:\> cmake -G "Visual Studio 10" ..\libcouchbase

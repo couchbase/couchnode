@@ -1273,6 +1273,13 @@ void VersionHandler::run()
 #endif
         printf("  SSL Headers: %s\n", OPENSSL_VERSION_TEXT);
 #endif
+        printf("  HAVE_PKCS5_PBKDF2_HMAC: "
+#ifdef HAVE_PKCS5_PBKDF2_HMAC
+               "yes"
+#else
+               "no"
+#endif
+               "\n");
     } else {
         printf("  SSL: NOT SUPPORTED\n");
     }

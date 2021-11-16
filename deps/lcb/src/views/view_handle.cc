@@ -80,8 +80,8 @@ void lcb_VIEW_HANDLE_::invoke_last(lcb_STATUS err)
         if (http_response_ && http_response_->ctx.response_code != 200 && http_response_->ctx.body_len) {
             // chances that were not able to parse response
             Json::Value meta;
-            if (Json::Reader().parse(http_response_->ctx.body, http_response_->ctx.body + http_response_->ctx.body_len,
-                                     meta)) {
+            if (Json::Reader(Json::Features::strictMode())
+                    .parse(http_response_->ctx.body, http_response_->ctx.body + http_response_->ctx.body_len, meta)) {
                 const Json::Value &error = meta["error"];
                 if (error.isString()) {
                     first_error_code_ = error.asString();
@@ -101,7 +101,10 @@ void lcb_VIEW_HANDLE_::invoke_last(lcb_STATUS err)
         resp.ctx.rc = LCB_ERR_VIEW_NOT_FOUND;
     }
 
-    LCBTRACE_HTTP_FINISH(span_);
+    if (span_ != nullptr) {
+        lcb::trace::finish_http_span(span_, this);
+        span_ = nullptr;
+    }
     if (http_request_ != nullptr) {
         http_request_->span = nullptr;
     }
@@ -379,11 +382,16 @@ lcb_VIEW_HANDLE_::lcb_VIEW_HANDLE_(lcb_INSTANCE *instance, void *cookie, const l
             document_queue_->max_pending_response = cmd->max_concurrent_documents();
         }
     }
+    {
+        char buf[32];
+        size_t nbuf = snprintf(buf, sizeof(buf), "%016" PRIx64, lcb_next_rand64());
+        client_context_id_.assign(buf, nbuf);
+    }
 
     lcb_aspend_add(&instance_->pendops, LCB_PENDTYPE_COUNTER, nullptr);
     if (instance->settings->tracer) {
-        LCBTRACE_HTTP_START(instance_->settings, nullptr, cmd->parent_span(), LCBTRACE_TAG_SERVICE_VIEW,
-                            LCBTRACE_THRESHOLD_VIEW, span_);
+        parent_span_ = cmd->parent_span();
+        span_ = lcb::trace::start_http_span(instance_->settings, this);
     }
     last_error_ = request_http(cmd);
 }

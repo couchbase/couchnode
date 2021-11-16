@@ -86,6 +86,8 @@ X(LCB_ERR_UNAMBIGUOUS_TIMEOUT,      216, LCB_ERROR_TYPE_SHARED, 0, "Unambiguous 
 X(LCB_ERR_SCOPE_NOT_FOUND,          217, LCB_ERROR_TYPE_SHARED, 0, "Scope is not found") \
 X(LCB_ERR_INDEX_NOT_FOUND,          218, LCB_ERROR_TYPE_SHARED, 0, "Index is not found") \
 X(LCB_ERR_INDEX_EXISTS,             219, LCB_ERROR_TYPE_SHARED, 0, "Index is exist already") \
+X(LCB_ERR_RATE_LIMITED,             220, LCB_ERROR_TYPE_SHARED, 0, "The service decided that the caller must be rate limited due to exceeding a rate threshold") \
+X(LCB_ERR_QUOTA_LIMITED,            221, LCB_ERROR_TYPE_SHARED, 0, "The service decided that the caller must be limited due to exceeding a quota threshold") \
 \
 /* KeyValue Error Definitions */ \
 X(LCB_ERR_DOCUMENT_NOT_FOUND,                           301, LCB_ERROR_TYPE_KEYVALUE, 0, "Document is not found") \

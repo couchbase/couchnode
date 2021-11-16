@@ -177,8 +177,9 @@ typedef struct lcb_RESPN1XMGMT_st {
  * Retrieve a list of all indexes in the cluster. If lcb_CMDN1XMGMT::spec
  * contains entries then the search will be limited to the appropriate criteria.
  */
-LIBCOUCHBASE_API
-lcb_STATUS lcb_n1x_list(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcb_n1x_list(lcb_INSTANCE *instance, const void *cookie,
+                                                         const lcb_CMDN1XMGMT *cmd),
+                "lcb_http must be used directly");
 
 /**
  * @volatile
@@ -186,15 +187,17 @@ lcb_STATUS lcb_n1x_list(lcb_INSTANCE *instance, const void *cookie, const lcb_CM
  * Create an index. The index can either be a primary or secondary index, and
  * it may be created immediately or it may be deferred.
  */
-LIBCOUCHBASE_API
-lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcb_n1x_create(lcb_INSTANCE *instance, const void *cookie,
+                                                           const lcb_CMDN1XMGMT *cmd),
+                "lcb_http must be used directly");
 
 /**
  * @volatile
  * Remove an index.
  */
-LIBCOUCHBASE_API
-lcb_STATUS lcb_n1x_drop(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcb_n1x_drop(lcb_INSTANCE *instance, const void *cookie,
+                                                         const lcb_CMDN1XMGMT *cmd),
+                "lcb_http must be used directly");
 
 /**
  * @volatile
@@ -205,8 +208,9 @@ lcb_STATUS lcb_n1x_drop(lcb_INSTANCE *instance, const void *cookie, const lcb_CM
  *
  * lcb_n1x_watchbuild may be used to wait on the status of those indexes.
  */
-LIBCOUCHBASE_API
-lcb_STATUS lcb_n1x_startbuild(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XMGMT *cmd);
+LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcb_n1x_startbuild(lcb_INSTANCE *instance, const void *cookie,
+                                                               const lcb_CMDN1XMGMT *cmd),
+                "lcb_http must be used directly");
 
 /**
  * @volatile
@@ -250,8 +254,9 @@ typedef struct {
  * which are being built (using lcb_n1x_startbuild()) have been fully
  * created.
  */
-LIBCOUCHBASE_API
-lcb_STATUS lcb_n1x_watchbuild(lcb_INSTANCE *instance, const void *cookie, const lcb_CMDN1XWATCH *cmd);
+LCB_DEPRECATED2(LIBCOUCHBASE_API lcb_STATUS lcb_n1x_watchbuild(lcb_INSTANCE *instance, const void *cookie,
+                                                               const lcb_CMDN1XWATCH *cmd),
+                "lcb_http must be used directly");
 
 #ifdef __cplusplus
 }

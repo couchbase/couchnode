@@ -124,7 +124,11 @@ enum ErrorAttribute {
      * This attribute means that the error is related to operating on                                                  \
      * a soft-deleted document.                                                                                        \
      */                                                                                                                \
-    X(ITEM_DELETED, "item-deleted")
+    X(ITEM_DELETED, "item-deleted")                                                                                    \
+    /**                                                                                                                \
+     * The error is related to rate limitation for the client (version 2)                                              \
+     */                                                                                                                \
+    X(ITEM_RATE_LIMIT, "rate-limit")
 
 #define X(c, s) c,
     LCB_XERRMAP_ATTRIBUTES(X)
@@ -221,7 +225,7 @@ struct Error {
     uint16_t code;
     std::string shortname;
     std::string description;
-    std::set< ErrorAttribute > attributes;
+    std::set<ErrorAttribute> attributes;
     SpecWrapper retry;
 
     Error() : code(-1) {}
@@ -280,7 +284,7 @@ class ErrorMap
   private:
     static const uint32_t MAX_VERSION;
     ErrorMap(const ErrorMap &);
-    typedef std::map< uint16_t, Error > MapType;
+    typedef std::map<uint16_t, Error> MapType;
     MapType errors;
     uint32_t revision{0};
     uint32_t version{0};

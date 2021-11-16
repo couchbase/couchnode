@@ -485,7 +485,7 @@ static lcb_STATUS store_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
     if (cmd->is_replace_semantics()) {
         packet->flags |= MCREQ_F_REPLACE_SEMANTICS;
     }
-    LCBTRACE_KVSTORE_START(instance->settings, packet->opaque, cmd, cmd->operation_name(), rdata->span);
+    rdata->span = lcb::trace::start_kv_span_with_durability(instance->settings, packet, cmd);
     LCB_SCHED_ADD(instance, pipeline, packet)
 
     TRACE_STORE_BEGIN(instance, &hdr, cmd);

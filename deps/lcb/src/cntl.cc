@@ -21,6 +21,7 @@
 #include <lcbio/iotable.h>
 #include <mcserver/negotiate.h>
 #include <lcbio/ssl.h>
+#include "n1ql/query_utils.hh"
 
 #define LOGARGS(instance, lvl) instance->settings, "cntl", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -238,7 +239,35 @@ HANDLER(select_bucket_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, select
 
 HANDLER(log_redaction_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, log_redaction))}
 
-HANDLER(enable_tracing_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, use_tracing))}
+HANDLER(enable_tracing_handler)
+{
+    if (mode == LCB_CNTL_GET) {
+        RETURN_GET_ONLY(int, instance->settings->use_tracing)
+    } else if (mode == LCB_CNTL_SET) {
+        if (arg == nullptr) {
+            return LCB_ERR_INVALID_ARGUMENT;
+        }
+        int enabled = *(static_cast<int *>(arg));
+        if (enabled) {
+            if (instance->settings->use_tracing) {
+                /* do nothing */
+                return LCB_SUCCESS;
+            }
+            instance->settings->tracer = lcbtrace_new(instance, LCBTRACE_F_THRESHOLD);
+            instance->settings->use_tracing = true;
+            return LCB_SUCCESS;
+        } else {
+            if (instance->settings->use_tracing) {
+                lcbtrace_destroy(instance->settings->tracer);
+                instance->settings->tracer = nullptr;
+                instance->settings->use_tracing = false;
+            }
+            return LCB_SUCCESS;
+        }
+    } else {
+        return LCB_ERR_CONTROL_UNSUPPORTED_MODE;
+    }
+}
 
 HANDLER(enable_errmap_handler){RETURN_GET_SET(int, LCBT_SETTING(instance, use_errmap))}
 
@@ -858,14 +887,19 @@ typedef struct {
 
 static lcb_STATUS convert_timevalue(const char *arg, u_STRCONVERT *u)
 {
-    double dtmp;
-    char *end = nullptr;
-    errno = 0;
-    dtmp = std::strtod(arg, &end);
-    if (errno == ERANGE || end == arg) {
-        return LCB_ERR_CONTROL_INVALID_ARGUMENT;
+    try {
+        auto tmo_ns = lcb_parse_golang_duration(arg);
+        u->u32 = static_cast<std::uint32_t>(std::chrono::duration_cast<std::chrono::microseconds>(tmo_ns).count());
+    } catch (const lcb_duration_parse_error &) {
+        double dtmp;
+        char *end = nullptr;
+        errno = 0;
+        dtmp = std::strtod(arg, &end);
+        if (errno == ERANGE || end == arg) {
+            return LCB_ERR_CONTROL_INVALID_ARGUMENT;
+        }
+        u->u32 = static_cast<std::uint32_t>(dtmp * (double)1000000);
     }
-    u->u32 = static_cast<std::uint32_t>(dtmp * (double)1000000);
     return LCB_SUCCESS;
 }
 

@@ -18,6 +18,9 @@
 #include "config.h"
 #include <gtest/gtest.h>
 #include <libcouchbase/couchbase.h>
+#include <iotests/testutil.h>
+
+#include "internal.h"
 
 class CtlTest : public ::testing::Test
 {
@@ -61,9 +64,9 @@ TEST_F(CtlTest, testStringCtls)
 {
     lcb_INSTANCE *instance;
     lcb_STATUS err;
-    err = lcb_create(&instance, NULL);
+    err = lcb_create(&instance, nullptr);
     ASSERT_EQ(LCB_SUCCESS, err);
-    ASSERT_FALSE(instance == NULL);
+    ASSERT_FALSE(instance == nullptr);
 
     // These are all U32
     PairMap ctlMap[] = {{"operation_timeout", LCB_CNTL_OP_TIMEOUT},
@@ -74,7 +77,7 @@ TEST_F(CtlTest, testStringCtls)
                         {"error_thresh_delay", LCB_CNTL_CONFDELAY_THRESH},
                         {"config_total_timeout", LCB_CNTL_CONFIGURATION_TIMEOUT},
                         {"config_node_timeout", LCB_CNTL_CONFIG_NODE_TIMEOUT},
-                        {NULL, 0}};
+                        {nullptr, 0}};
 
     for (PairMap *cur = ctlMap; cur->key; cur++) {
         err = lcb_cntl_string(instance, cur->key, "50");
@@ -108,6 +111,24 @@ TEST_F(CtlTest, testStringCtls)
     ASSERT_EQ(LCB_SUCCESS, err);
     err = lcb_cntl_string(instance, "unsafe_optimize", "0");
     ASSERT_NE(LCB_SUCCESS, err);
+
+    lcb_destroy(instance);
+}
+
+TEST_F(CtlTest, testTimeDurationParsing)
+{
+    lcb_INSTANCE *instance;
+    ASSERT_EQ(LCB_SUCCESS, lcb_create(&instance, nullptr));
+    ASSERT_FALSE(instance == nullptr);
+
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "analytics_timeout", "123.456"));
+    ASSERT_EQ(123456000, instance->settings->analytics_timeout);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "analytics_timeout", "42"));
+    ASSERT_EQ(42000000, instance->settings->analytics_timeout);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "analytics_timeout", "42us"));
+    ASSERT_EQ(42, instance->settings->analytics_timeout);
+    ASSERT_STATUS_EQ(LCB_SUCCESS, lcb_cntl_string(instance, "analytics_timeout", "5s42us"));
+    ASSERT_EQ(5000042, instance->settings->analytics_timeout);
 
     lcb_destroy(instance);
 }

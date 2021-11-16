@@ -30,6 +30,12 @@
  */
 struct lcb_CMDCOUNTER_ {
   public:
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_COUNTER;
+        return name;
+    }
+
     lcb_STATUS expiry(std::uint32_t expiry)
     {
         if (!initialize_if_does_not_exist_) {

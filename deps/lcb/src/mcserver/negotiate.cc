@@ -185,6 +185,7 @@ class lcb::SessionRequestImpl : public SessionRequest
     SessionInfo *info;
     lcb_settings *settings;
     lcb_host_t host_{};
+    bool expecting_error_map{false};
 };
 
 static void handle_read(lcbio_CTX *ioctx, unsigned)
@@ -316,8 +317,9 @@ SessionRequestImpl::MechStatus SessionRequestImpl::set_chosen_mech(std::string &
                         "PLAIN, but using SCRAM methods is strongly recommended over non-encrypted transports.",
                         LOGID(this));
 #else
-                lcb_log(LOGARGS(this, WARN), LOGFMT "SASL PLAIN authentication is not allowed on non-TLS connections",
-                        LOGID(this));
+                lcb_log(LOGARGS(this, WARN),
+                        LOGFMT "SASL PLAIN authentication is not allowed on non-TLS connections (server supports: %s)",
+                        LOGID(this), mechlist.c_str());
                 return MECH_UNAVAILABLE;
 #endif
             }
@@ -642,15 +644,15 @@ GT_NEXT_PACKET:
             }
 
             if (settings->keypath) {
-                completed = !maybe_select_bucket();
+                completed = !expecting_error_map && !maybe_select_bucket();
             }
             break;
         }
 
         case PROTOCOL_BINARY_CMD_GET_ERROR_MAP: {
+            expecting_error_map = false;
             if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
-                if (!update_errmap(resp)) {
-                }
+                update_errmap(resp);
             } else if (isUnsupported(status)) {
                 lcb_log(LOGARGS(this, DEBUG), LOGFMT "Server does not support GET_ERRMAP (0x%x)", LOGID(this), status);
             } else {
@@ -664,18 +666,37 @@ GT_NEXT_PACKET:
         }
 
         case PROTOCOL_BINARY_CMD_SELECT_BUCKET: {
-            if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
-                completed = true;
-                info->selected = true;
-            } else if (status == PROTOCOL_BINARY_RESPONSE_EACCESS) {
-                set_error(LCB_ERR_BUCKET_NOT_FOUND,
-                          "Provided credentials not allowed for bucket or bucket does not exist", &resp);
-            } else if (status == PROTOCOL_BINARY_RESPONSE_KEY_ENOENT) {
-                set_error(LCB_ERR_BUCKET_NOT_FOUND, "Key/Value service is not configured for given node", &resp);
-            } else {
-                lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET", LOGID(this),
-                        status);
-                set_error(LCB_ERR_PROTOCOL_ERROR, "Other auth error", &resp);
+            switch (status) {
+                case PROTOCOL_BINARY_RESPONSE_SUCCESS:
+                    completed = true;
+                    info->selected = true;
+                    break;
+
+                case PROTOCOL_BINARY_RESPONSE_EACCESS:
+                    set_error(LCB_ERR_BUCKET_NOT_FOUND,
+                              "Provided credentials not allowed for bucket or bucket does not exist", &resp);
+                    break;
+
+                case PROTOCOL_BINARY_RESPONSE_KEY_ENOENT:
+                    set_error(LCB_ERR_BUCKET_NOT_FOUND, "Key/Value service is not configured for given node", &resp);
+                    break;
+
+                case PROTOCOL_BINARY_RATE_LIMITED_MAX_COMMANDS:
+                case PROTOCOL_BINARY_RATE_LIMITED_MAX_CONNECTIONS:
+                case PROTOCOL_BINARY_RATE_LIMITED_NETWORK_EGRESS:
+                case PROTOCOL_BINARY_RATE_LIMITED_NETWORK_INGRESS:
+                    set_error(LCB_ERR_RATE_LIMITED, "The tenant has reached rate limit", &resp);
+                    break;
+
+                case PROTOCOL_BINARY_SCOPE_SIZE_LIMIT_EXCEEDED:
+                    set_error(LCB_ERR_QUOTA_LIMITED, "The tenant has reached quota limit", &resp);
+                    break;
+
+                default:
+                    lcb_log(LOGARGS(this, ERROR), LOGFMT "Unexpected status 0x%x received for SELECT_BUCKET",
+                            LOGID(this), status);
+                    set_error(LCB_ERR_PROTOCOL_ERROR, "Other auth error", &resp);
+                    break;
             }
             break;
         }
@@ -744,6 +765,7 @@ void SessionRequestImpl::start(lcbio_SOCKET *sock)
     send_hello();
     if (settings->use_errmap) {
         request_errmap();
+        expecting_error_map = true;
     } else {
         lcb_log(LOGARGS(this, TRACE), LOGFMT "GET_ERRORMAP disabled", LOGID(this));
     }

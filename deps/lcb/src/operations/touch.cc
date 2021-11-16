@@ -158,7 +158,7 @@ static lcb_STATUS touch_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
     hdr.request.cas = 0;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
     hdr.request.opaque = pkt->opaque;
-    hdr.request.bodylen = htonl(hdr.request.extlen + ffextlen + ntohs(hdr.request.keylen));
+    hdr.request.bodylen = htonl(hdr.request.extlen + ffextlen + mcreq_get_key_size(&hdr));
 
     memcpy(SPAN_BUFFER(&pkt->kh_span), &hdr, sizeof(hdr));
     std::size_t offset = sizeof(hdr);
@@ -174,7 +174,7 @@ static lcb_STATUS touch_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
     pkt->u_rdata.reqdata.deadline =
         pkt->u_rdata.reqdata.start +
         cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
-    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_TOUCH, pkt->u_rdata.reqdata.span);
+    pkt->u_rdata.reqdata.span = lcb::trace::start_kv_span(instance->settings, pkt, cmd);
     LCB_SCHED_ADD(instance, pl, pkt);
     TRACE_TOUCH_BEGIN(instance, &hdr, cmd);
     return LCB_SUCCESS;

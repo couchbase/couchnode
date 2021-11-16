@@ -288,6 +288,7 @@ bool Reader::parse(const char* beginDoc,
                    const char* endDoc,
                    Value& root,
                    bool collectComments) {
+  try {
   if (!features_.allowComments_) {
     collectComments = false;
   }
@@ -324,6 +325,21 @@ bool Reader::parse(const char* beginDoc,
     }
   }
   return successful;
+  } catch (const RuntimeError &e) {
+      Token token;
+      token.type_ = tokenError;
+      token.start_ = beginDoc;
+      token.end_ = endDoc;
+      addError(std::string("RuntimeError: ") + e.what(), token);
+      return false;
+  } catch (const LogicError &e) {
+      Token token;
+      token.type_ = tokenError;
+      token.start_ = beginDoc;
+      token.end_ = endDoc;
+      addError(std::string("LogicError: ") + e.what(), token);
+      return false;
+  }
 }
 
 bool Reader::readValue() {
@@ -2356,15 +2372,13 @@ RuntimeError::RuntimeError(std::string const& msg)
 LogicError::LogicError(std::string const& msg)
   : Exception(msg)
 {}
-void throwRuntimeError(std::string const& )
+void throwRuntimeError(std::string const& msg)
 {
-    assert(false);
-//  throw RuntimeError(msg);
+    throw RuntimeError(msg);
 }
-void throwLogicError(std::string const&)
+void throwLogicError(std::string const& msg)
 {
-    assert(false);
-//  throw LogicError(msg);
+    throw LogicError(msg);
 }
 
 // //////////////////////////////////////////////////////////////////

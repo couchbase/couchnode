@@ -133,6 +133,27 @@ typedef enum {
      * users access to the cluster. */
     PROTOCOL_BINARY_RESPONSE_NOT_INITIALIZED = 0x25,
 
+    /**
+     * The tenant exceeded network ingress limit
+     */
+    PROTOCOL_BINARY_RATE_LIMITED_NETWORK_INGRESS = 0x30,
+    /**
+     * The tenant exceeded network egress limit
+     */
+    PROTOCOL_BINARY_RATE_LIMITED_NETWORK_EGRESS = 0x31,
+    /**
+     * The tenant exceeded max number of connections
+     */
+    PROTOCOL_BINARY_RATE_LIMITED_MAX_CONNECTIONS = 0x32,
+    /**
+     * The tenant exceeded max number of commands
+     */
+    PROTOCOL_BINARY_RATE_LIMITED_MAX_COMMANDS = 0x33,
+    /**
+     * There is too much data in the scope
+     */
+    PROTOCOL_BINARY_SCOPE_SIZE_LIMIT_EXCEEDED = 0x34,
+
     /** The server have no idea what this command is for */
     PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND = 0x81,
     /** Not enough memory */

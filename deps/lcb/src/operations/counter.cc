@@ -237,7 +237,7 @@ static lcb_STATUS counter_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_C
     }
     memcpy(SPAN_BUFFER(&packet->kh_span) + offset, &expiry, sizeof(expiry));
 
-    LCBTRACE_KV_START(instance->settings, packet->opaque, cmd, LCBTRACE_OP_COUNTER, rdata->span);
+    rdata->span = lcb::trace::start_kv_span(instance->settings, packet, cmd);
     TRACE_ARITHMETIC_BEGIN(instance, &hdr, cmd);
     LCB_SCHED_ADD(instance, pipeline, packet);
     return LCB_SUCCESS;

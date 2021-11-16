@@ -115,6 +115,32 @@ struct lcb_SEARCH_HANDLE_ : lcb::jsparse::Parser::Actions {
         }
     }
 
+    static lcbtrace_THRESHOLDOPTS service()
+    {
+        return LCBTRACE_THRESHOLD_SEARCH;
+    }
+
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_SEARCH;
+        return name;
+    }
+
+    lcbtrace_SPAN *parent_span() const
+    {
+        return parent_span_;
+    }
+
+    const std::string &client_context_id() const
+    {
+        return client_context_id_;
+    }
+
+    int retries() const
+    {
+        return retries_;
+    }
+
   private:
     const lcb_RESPHTTP *http_response_{nullptr};
     lcb_HTTP_HANDLE *http_request_{nullptr};
@@ -124,9 +150,12 @@ struct lcb_SEARCH_HANDLE_ : lcb::jsparse::Parser::Actions {
     lcb_INSTANCE *instance_{nullptr};
     size_t rows_number_{0};
     lcb_STATUS last_error_{LCB_SUCCESS};
+    lcbtrace_SPAN *parent_span_{nullptr};
     lcbtrace_SPAN *span_{nullptr};
     std::string index_name_;
     std::string error_message_;
+    std::string client_context_id_{};
+    int retries_{0};
 };
 
 #endif // LIBCOUCHBASE_SEARCH_HANDLE_HH

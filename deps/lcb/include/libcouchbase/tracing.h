@@ -406,7 +406,7 @@ lcb_STATUS lcbtrace_span_set_is_dispatch(lcbtrace_SPAN *span, int dispatch);
 /**
  * Bucket name
  */
-#define LCBTRACE_TAG_DB_INSTANCE "db.instance"
+#define LCBTRACE_TAG_DB_INSTANCE "db.name"
 /**
  * The client's identifier string (the 'u' property in the updated HELLO request),
  * the same one that is shared with the server to identify the SDK.
@@ -492,7 +492,7 @@ lcb_STATUS lcbtrace_span_set_is_dispatch(lcbtrace_SPAN *span, int dispatch);
 /**
  * Transport used in trace.
  */
-#define LCBTRACE_TAG_TRANSPORT "db.net.transport"
+#define LCBTRACE_TAG_TRANSPORT "net.transport"
 /**
  * Get ID of the span.
  *

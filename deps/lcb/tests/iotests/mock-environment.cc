@@ -21,6 +21,7 @@
 #include "mock-environment.h"
 #include <sstream>
 #include "internal.h" /* settings from lcb_INSTANCE *for logging */
+#include "testutil.h"
 
 #define LOGARGS(instance, lvl) instance->settings, "tests-ENV", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -288,6 +289,7 @@ void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instan
     }
 
     lcb_createopts_io(&options, io);
+
     lcb_STATUS err = lcb_create(instance, &options);
     ASSERT_EQ(LCB_SUCCESS, err);
     postCreate(*instance);
@@ -302,6 +304,15 @@ void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instan
 {
     lcb_CREATEOPTS *options = nullptr;
     makeConnectParams(options, nullptr);
+
+    if (test_tracer.enabled()) {
+        lcb_createopts_tracer(options, test_tracer.lcb_tracer());
+    }
+
+    if (test_meter.enabled()) {
+        lcb_createopts_meter(options, test_meter.lcb_meter());
+    }
+
     createConnection(handle, instance, options);
     lcb_createopts_destroy(options);
 }
@@ -311,6 +322,7 @@ void MockEnvironment::createConnection(HandleWrap &handle, lcb_INSTANCE **instan
 {
     lcb_CREATEOPTS *options = nullptr;
     makeConnectParams(options, nullptr);
+
     lcb_createopts_credentials(options, username.c_str(), username.size(), password.c_str(), password.size());
     createConnection(handle, instance, options);
     lcb_createopts_destroy(options);
@@ -555,6 +567,9 @@ void MockEnvironment::SetUp()
     featureRegistry.insert("views");
     featureRegistry.insert("replica_read");
     featureRegistry.insert("lock");
+
+    test_tracer = TestTracer();
+    test_meter = TestMeter();
 
     clearAndReset();
 }

@@ -6,7 +6,7 @@ Standards-Version: 3.9.2
 Section: libs
 Homepage: http://www.couchbase.com/develop/c/current
 Vcs-Browser: https://github.com/couchbase/libcouchbase
-Vcs-Git: git://github.com/couchbase/libcouchbase.git
+Vcs-Git: https://github.com/couchbase/libcouchbase.git
 
 Package: libcouchbase3-libevent
 Architecture: any

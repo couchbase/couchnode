@@ -341,6 +341,11 @@ static bool is_fastpath_error(uint16_t rc)
         case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_IN_PROGRESS:
         case PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS:
         case PROTOCOL_BINARY_RESPONSE_LOCKED:
+        case PROTOCOL_BINARY_RATE_LIMITED_NETWORK_INGRESS:
+        case PROTOCOL_BINARY_RATE_LIMITED_NETWORK_EGRESS:
+        case PROTOCOL_BINARY_RATE_LIMITED_MAX_CONNECTIONS:
+        case PROTOCOL_BINARY_RATE_LIMITED_MAX_COMMANDS:
+        case PROTOCOL_BINARY_SCOPE_SIZE_LIMIT_EXCEEDED:
             return true;
         default:
             if (rc >= 0xc0 && rc <= 0xcc) {
@@ -393,10 +398,6 @@ int Server::handle_unknown_error(const mc_PACKET *request, const MemcachedRespon
 
     if (err.hasAttribute(errmap::TEMPORARY)) {
         newerr = LCB_ERR_TEMPORARY_FAILURE;
-    }
-
-    if (err.hasAttribute(errmap::CONSTRAINT_FAILURE)) {
-        newerr = LCB_ERR_CAS_MISMATCH;
     }
 
     if (err.hasAttribute(errmap::AUTH)) {
@@ -754,6 +755,8 @@ static const char *opcode_name(uint8_t code)
             return "subdoc_get_count";
         case PROTOCOL_BINARY_CMD_GET_ERROR_MAP:
             return "get_error_map";
+        case PROTOCOL_BINARY_CMD_GET_META:
+            return "exists";
         default:
             return "unknown";
     }
@@ -816,7 +819,7 @@ void Server::purge_single(mc_PACKET *pkt, lcb_STATUS err)
         std::string msg(Json::FastWriter().write(info));
         if (msg.size() > 1) {
             lcb_log(LOGARGS(instance, WARN), "Failing command with error %s: %.*s", lcb_strerror_short(err),
-                    (int)(msg.size() - 1), msg.c_str());
+                    (int)msg.size(), msg.c_str());
         }
     } else {
         lcb_log(LOGARGS_T(WARN), LOGFMT "Failing command (pkt=%p, opaque=%lu, opcode=0x%x) with error %s", LOGID_T(),

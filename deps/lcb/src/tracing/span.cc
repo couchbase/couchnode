@@ -21,6 +21,8 @@
 #include <sys/timeb.h>
 #endif
 
+#include "n1ql/query_handle.hh"
+
 typedef enum { TAGVAL_STRING, TAGVAL_UINT64, TAGVAL_DOUBLE, TAGVAL_BOOL } tag_type;
 typedef struct tag_value {
     sllist_node slnode;
@@ -129,7 +131,7 @@ void lcbtrace_span_add_tag_bool(lcbtrace_SPAN *span, const char *name, int value
 }
 
 LCB_INTERNAL_API
-void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, lcbtrace_THRESHOLDOPTS svc)
+void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, const lcb_settings *settings, lcbtrace_THRESHOLDOPTS svc)
 {
     if (!span) {
         return;
@@ -138,6 +140,7 @@ void lcbtrace_span_add_system_tags(lcbtrace_SPAN *span, lcb_settings *settings, 
         span->service(svc);
     }
     span->add_tag(LCBTRACE_TAG_SYSTEM, 0, "couchbase", 0);
+    span->add_tag(LCBTRACE_TAG_TRANSPORT, 0, "IP.TCP", 0);
     std::string client_string(LCB_CLIENT_ID);
     if (settings->client_string) {
         client_string += " ";
@@ -156,15 +159,6 @@ lcbtrace_SPAN *lcbtrace_span_get_parent(lcbtrace_SPAN *span)
         return nullptr;
     }
     return span->m_parent;
-}
-
-LCB_INTERNAL_API
-void lcbtrace_span_set_parent(lcbtrace_SPAN *span, lcbtrace_SPAN *parent)
-{
-    if (!span) {
-        return;
-    }
-    span->m_parent = parent;
 }
 
 LIBCOUCHBASE_API
@@ -412,6 +406,38 @@ LIBCOUCHBASE_API lcb_STATUS lcbtrace_span_get_is_encode(lcbtrace_SPAN *span, int
     return LCB_SUCCESS;
 }
 
+namespace lcb
+{
+namespace trace
+{
+void finish_kv_span(const mc_PIPELINE *pipeline, const mc_PACKET *request_pkt,
+                    const lcb::MemcachedResponse *response_pkt)
+{
+    lcbtrace_SPAN *dispatch_span = MCREQ_PKT_RDATA(request_pkt)->span;
+    if (dispatch_span) {
+        if (response_pkt != nullptr) {
+            dispatch_span->increment_server(response_pkt->duration());
+        }
+        auto *server = static_cast<const lcb::Server *>(pipeline);
+        dispatch_span->find_outer_or_this()->add_tag(LCBTRACE_TAG_RETRIES, 0, (uint64_t)request_pkt->retries);
+        lcbtrace_span_add_tag_str_nocopy(dispatch_span, LCBTRACE_TAG_TRANSPORT, "IP.TCP");
+        lcbio_CTX *ctx = server->connctx;
+        if (ctx) {
+            char local_id[34] = {};
+            snprintf(local_id, sizeof(local_id), "%016" PRIx64 "/%016" PRIx64, (uint64_t)server->get_settings()->iid,
+                     (uint64_t)ctx->sock->id);
+            lcbtrace_span_add_tag_str(dispatch_span, LCBTRACE_TAG_LOCAL_ID, local_id);
+            lcbtrace_span_add_host_and_port(dispatch_span, ctx->sock->info);
+        }
+        if (dispatch_span->should_finish()) {
+            lcbtrace_span_finish(dispatch_span, LCBTRACE_NOW);
+        }
+    }
+}
+
+} // namespace trace
+} // namespace lcb
+
 using namespace lcb::trace;
 
 Span::Span(lcbtrace_TRACER *tracer, const char *opname, uint64_t start, lcbtrace_REF_TYPE ref, lcbtrace_SPAN *other,
@@ -598,6 +624,13 @@ void Span::add_tag(const char *name, int copy_key, const char *value, int copy_v
 {
     if (name && value) {
         add_tag(name, copy_key, value, strlen(value), copy_value);
+    }
+}
+
+void Span::add_tag(const char *name, const std::string &value)
+{
+    if (name != nullptr && !value.empty()) {
+        add_tag(name, 0, value.c_str(), value.size(), 1);
     }
 }
 

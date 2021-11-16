@@ -572,7 +572,7 @@ TEST_F(CollectionUnitTest, testDroppedScope)
  *
  * Collection creations are successful
  */
-TEST_F(CollectionUnitTest, testMaxCollectionsPerScope)
+TEST_F(ContaminatingUnitTest, test_CCBC_1483_MaxCollectionsPerScope)
 {
     SKIP_IF_MOCK()
     SKIP_IF_CLUSTER_VERSION_IS_LOWER_THAN(MockEnvironment::VERSION_70)

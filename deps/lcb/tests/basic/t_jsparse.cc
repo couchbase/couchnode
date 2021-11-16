@@ -105,3 +105,11 @@ TEST_F(JsonParseTest, testN1QL)
     ASSERT_TRUE(validateJsonRows(JSON_n1ql_empty, sizeof(JSON_n1ql_empty), Parser::MODE_N1QL));
     ASSERT_TRUE(validateBadParse(JSON_n1ql_bad, sizeof(JSON_n1ql_bad), Parser::MODE_N1QL));
 }
+
+TEST_F(JsonParseTest, testInvalidJSON)
+{
+    std::string input = "503 Service Unavailable";
+    Json::Value meta;
+    ASSERT_TRUE(Json::Reader().parse(input.c_str(), input.c_str() + input.size(), meta));
+    ASSERT_FALSE(Json::Reader(Json::Features::strictMode()).parse(input.c_str(), input.c_str() + input.size(), meta));
+}

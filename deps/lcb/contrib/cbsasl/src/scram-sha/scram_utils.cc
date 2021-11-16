@@ -16,8 +16,8 @@
 
 #include "scram_utils.h"
 #include "config.h"
-#include <time.h>
-#include <ctype.h>
+#include <ctime>
+#include <cctype>
 #include "strcodecs/strcodecs.h"
 
 #ifndef LCB_NO_SSL
@@ -46,9 +46,9 @@ void seed_rand(void)
     // The entropy of these values is not good, but that's enough for generating nonces.
 
 #ifdef LCB_NO_SSL
-    srand(time(NULL));
+    srand(time(nullptr));
 #else
-    time_t current_time = time(NULL);
+    time_t current_time = time(nullptr);
     clock_t clk;
 #ifdef _WIN32
     int pid;
@@ -73,7 +73,7 @@ void seed_rand(void)
  */
 void generate_nonce(char *buffer, int buffer_length)
 {
-    if ((NULL == buffer) || (0 == buffer_length)) {
+    if ((nullptr == buffer) || (0 == buffer_length)) {
         // invalid input arguments
         return;
     }
@@ -88,14 +88,13 @@ void generate_nonce(char *buffer, int buffer_length)
         int aRandom = 0;
         unsigned int aMaxRandBits = 0, aRandRange,
                      aMaxRand = RAND_MAX; // we have to compute how many bits the rand() function can return
-        int i;
         while (aMaxRand >>= 1) {
             aMaxRandBits++;
         }
         aRandRange = aMaxRandBits / 8; // number of bytes we can extract from a rand() value.
         // To avoid generating a new random number for each character, we call rand() only once every 5 characters.
         // A 32-bits integer can give 5 values of 6 bits.
-        for (i = 0; i < buffer_length; ++i) {
+        for (int i = 0; i < buffer_length; ++i) {
             if (i % aRandRange == 0) {
                 // we refill aRandom
                 aRandom = rand();
@@ -115,8 +114,7 @@ void generate_nonce(char *buffer, int buffer_length)
 int compute_special_chars(const char *buffer, int buffer_length)
 {
     int result = 0;
-    int i;
-    for (i = 0; i < buffer_length; ++i) {
+    for (int i = 0; i < buffer_length; ++i) {
         char c = buffer[i];
         if (iscntrl(c)) {
             return -1; // control characters are not allowed
@@ -140,13 +138,12 @@ int compute_special_chars(const char *buffer, int buffer_length)
 void usernmcpy(char *dest, const char *src, size_t n)
 {
     char *newdest = dest;
-    unsigned int i;
 
-    if (NULL == dest || NULL == src || 0 == n) {
+    if (nullptr == dest || nullptr == src || 0 == n) {
         return; // invalid arguments
     }
 
-    for (i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         char c = src[i];
         switch (c) {
             case '=':
@@ -178,7 +175,7 @@ cbsasl_error_t parse_server_challenge(const char *serverin, unsigned int serveri
     const char *oldptr = serverin;
     unsigned int remainlen = serverinlen;
 
-    if (NULL == serverin || 0 == serverinlen) {
+    if (nullptr == serverin || 0 == serverinlen) {
         return SASL_BADPARAM;
     }
 
@@ -186,7 +183,7 @@ cbsasl_error_t parse_server_challenge(const char *serverin, unsigned int serveri
     do {
         unsigned int attrlen; // attribute length
         ptr = static_cast<const char *>(memchr(ptr, ',', remainlen));
-        if (ptr != NULL) {
+        if (ptr != nullptr) {
             // oldptr points to the beginning of the attribute
             // Ex: "r=xxxxx,s=zzzzzz,i=10"
             //      ^      ^
@@ -209,7 +206,7 @@ cbsasl_error_t parse_server_challenge(const char *serverin, unsigned int serveri
         }
         switch (oldptr[0]) {
             case 'r': // nonce
-                if (*nonce != NULL) {
+                if (*nonce != nullptr) {
                     // it looks like we already stored a previous occurrence of the nonce attribute
                     return SASL_BADPARAM;
                 }
@@ -217,7 +214,7 @@ cbsasl_error_t parse_server_challenge(const char *serverin, unsigned int serveri
                 *noncelength = attrlen - 2;
                 break;
             case 's': // salt
-                if (*salt != NULL) {
+                if (*salt != nullptr) {
                     // it looks like we already stored a previous occurrence of the salt attribute
                     return SASL_BADPARAM;
                 }
@@ -244,7 +241,7 @@ cbsasl_error_t parse_server_challenge(const char *serverin, unsigned int serveri
 
         remainlen = remainlen - attrlen - 1;
         oldptr = ptr;
-    } while (ptr != NULL);
+    } while (ptr != nullptr);
 
     return SASL_OK;
 }
@@ -313,17 +310,17 @@ static cbsasl_error_t HMAC_digest(cbsasl_auth_mechanism_t auth_mech, const unsig
 {
     switch (auth_mech) {
         case SASL_AUTH_MECH_SCRAM_SHA1:
-            if (HMAC(EVP_sha1(), key, keylen, data, datalen, digest, digestlen) == NULL) {
+            if (HMAC(EVP_sha1(), key, keylen, data, datalen, digest, digestlen) == nullptr) {
                 return SASL_FAIL;
             }
             break;
         case SASL_AUTH_MECH_SCRAM_SHA256:
-            if (HMAC(EVP_sha256(), key, keylen, data, datalen, digest, digestlen) == NULL) {
+            if (HMAC(EVP_sha256(), key, keylen, data, datalen, digest, digestlen) == nullptr) {
                 return SASL_FAIL;
             }
             break;
         case SASL_AUTH_MECH_SCRAM_SHA512:
-            if (HMAC(EVP_sha512(), key, keylen, data, datalen, digest, digestlen) == NULL) {
+            if (HMAC(EVP_sha512(), key, keylen, data, datalen, digest, digestlen) == nullptr) {
                 return SASL_FAIL;
             }
             break;
@@ -369,19 +366,19 @@ cbsasl_error_t compute_client_proof(cbsasl_auth_mechanism_t auth_mech, const uns
     unsigned int storedkeylen = 0;
     switch (auth_mech) {
         case SASL_AUTH_MECH_SCRAM_SHA1:
-            if (SHA1(clientkeyhmac, hmaclen, storedkey) == NULL) {
+            if (SHA1(clientkeyhmac, hmaclen, storedkey) == nullptr) {
                 return SASL_FAIL;
             }
             storedkeylen = SHA_DIGEST_LENGTH;
             break;
         case SASL_AUTH_MECH_SCRAM_SHA256:
-            if (SHA256(clientkeyhmac, hmaclen, storedkey) == NULL) {
+            if (SHA256(clientkeyhmac, hmaclen, storedkey) == nullptr) {
                 return SASL_FAIL;
             }
             storedkeylen = SHA256_DIGEST_LENGTH;
             break;
         case SASL_AUTH_MECH_SCRAM_SHA512:
-            if (SHA512(clientkeyhmac, hmaclen, storedkey) == NULL) {
+            if (SHA512(clientkeyhmac, hmaclen, storedkey) == nullptr) {
                 return SASL_FAIL;
             }
             storedkeylen = SHA512_DIGEST_LENGTH;
@@ -396,7 +393,7 @@ cbsasl_error_t compute_client_proof(cbsasl_auth_mechanism_t auth_mech, const uns
     //                   client-final-message-without-proof
     unsigned int authmesslen = cfblen + 1 + sfmlen + 1 + cfwplen;
     char *authmess = static_cast<char *>(calloc(authmesslen + 1, 1)); // +1 for the binary zero
-    if (NULL == authmess) {
+    if (nullptr == authmess) {
         return SASL_NOMEM;
     }
     memcpy(authmess, clientfirstbare, cfblen);
@@ -419,8 +416,7 @@ cbsasl_error_t compute_client_proof(cbsasl_auth_mechanism_t auth_mech, const uns
     // final step:
     // ClientProof     := ClientKey XOR ClientSignature
     char clientproof[EVP_MAX_MD_SIZE]; // binary client proof
-    unsigned int i;
-    for (i = 0; i < clientsignlen; ++i) {
+    for (unsigned i = 0; i < clientsignlen; ++i) {
         clientproof[i] = clientkeyhmac[i] ^ clientsign[i];
     }
 

@@ -316,6 +316,10 @@ static std::uint64_t get_manifest_id(lcb_INSTANCE *instance)
     lcb_cmdgetmanifest_destroy(cmd);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 
+    if (result.rc == LCB_ERR_TIMEOUT) {
+        return 0;
+    }
+
     Json::Value payload;
     EXPECT_EQ(LCB_SUCCESS, result.rc);
     EXPECT_FALSE(result.value.empty());
@@ -460,4 +464,168 @@ std::string unique_name(const std::string &prefix)
     std::stringstream ss;
     ss << prefix << lcb_next_rand32();
     return ss.str();
+}
+
+void TestSpan::SetAttribute(std::string key, uint64_t value)
+{
+    int_tags[std::move(key)] = value;
+}
+
+void TestSpan::SetAttribute(std::string key, std::string value)
+{
+    str_tags[std::move(key)] = std::move(value);
+}
+
+void TestSpan::End()
+{
+    finished = true;
+}
+
+TestSpan::TestSpan(std::string span_name)
+{
+    name = std::move(span_name);
+}
+
+std::shared_ptr<TestSpan> TestTracer::StartSpan(std::string name)
+{
+    auto t_span = std::make_shared<TestSpan>(name);
+    spans.push_back(t_span);
+    return t_span;
+}
+
+void TestTracer::reset()
+{
+    spans.clear();
+}
+
+static void *start_span(lcbtrace_TRACER *tracer, const char *name, void *parent)
+{
+    auto test_tracer = static_cast<TestTracer *>(tracer->cookie);
+    if (!test_tracer->enabled()) {
+        return nullptr;
+    }
+    auto test_span = test_tracer->StartSpan(std::string(name));
+    return test_span.get();
+}
+
+static void end_span(void *span)
+{
+    if (span == nullptr) {
+        return;
+    }
+    static_cast<TestSpan *>(span)->End();
+}
+
+static void add_tag_string(void *span, const char *name, const char *value, size_t value_len)
+{
+    if (span == nullptr) {
+        return;
+    }
+    std::string val;
+    val.append(value, value_len);
+    static_cast<TestSpan *>(span)->SetAttribute(std::string(name), val);
+}
+
+static void add_tag_uint64(void *span, const char *name, uint64_t value)
+{
+    if (span == nullptr) {
+        return;
+    }
+    static_cast<TestSpan *>(span)->SetAttribute(name, value);
+}
+
+void TestTracer::create_lcb_tracer()
+{
+    lcbtracer_ = lcbtrace_new(nullptr, LCBTRACE_F_EXTERNAL);
+    lcbtracer_->version = 1;
+    lcbtracer_->v.v1.start_span = start_span;
+    lcbtracer_->v.v1.end_span = end_span;
+    lcbtracer_->v.v1.add_tag_string = add_tag_string;
+    lcbtracer_->v.v1.add_tag_uint64 = add_tag_uint64;
+    lcbtracer_->cookie = static_cast<void *>(this);
+}
+
+void TestTracer::destroy_lcb_tracer()
+{
+    if (lcbtracer_ != nullptr) {
+        lcbtrace_destroy(lcbtracer_);
+        delete lcbtracer_;
+        lcbtracer_ = nullptr;
+    }
+}
+
+TestTracer::~TestTracer()
+{
+    destroy_lcb_tracer();
+}
+
+TestMeter::TestMeter() = default;
+
+void TestMeter::reset()
+{
+    recorders.clear();
+}
+
+void TestValueRecorder::RecordValue(uint64_t value)
+{
+    values.push_back(value);
+}
+
+std::shared_ptr<TestValueRecorder> TestMeter::ValueRecorder(std::string name,
+                                                            std::unordered_map<std::string, std::string> tags)
+{
+    auto key = name + ":" + tags["db.couchbase.service"];
+    auto op = tags["db.operation"];
+    if (!op.empty()) {
+        key = key + ":" + op;
+    }
+    std::shared_ptr<TestValueRecorder> test_recorder;
+    if (recorders.find(key) == recorders.end()) {
+        test_recorder = std::make_shared<TestValueRecorder>();
+        recorders[key] = test_recorder;
+    } else {
+        test_recorder = recorders[key];
+    }
+    return test_recorder;
+}
+
+static void record_callback(const lcbmetrics_VALUERECORDER *recorder, uint64_t value)
+{
+    void *test_recorder;
+    lcbmetrics_valuerecorder_cookie(recorder, &test_recorder);
+    static_cast<TestValueRecorder *>(test_recorder)->RecordValue(value);
+}
+
+static const lcbmetrics_VALUERECORDER *new_recorder(const lcbmetrics_METER *meter, const char *name,
+                                                    const lcbmetrics_TAG *tags, size_t ntags)
+{
+    std::unordered_map<std::string, std::string> recorder_tags;
+    for (int i = 0; i < ntags; i++) {
+        recorder_tags[tags[i].key] = tags[i].value;
+    }
+
+    void *test_meter_;
+    lcbmetrics_meter_cookie(meter, &test_meter_);
+    auto test_meter = static_cast<TestMeter *>(test_meter_);
+    auto test_value_recorder = test_meter->ValueRecorder(std::string(name), recorder_tags);
+
+    lcbmetrics_VALUERECORDER *recorder;
+    lcbmetrics_valuerecorder_create(&recorder, test_value_recorder.get());
+    lcbmetrics_valuerecorder_record_value_callback(recorder, record_callback);
+
+    return recorder;
+}
+
+void TestMeter::create_lcb_meter()
+{
+    lcbmetrics_meter_create(&lcbmeter_, static_cast<void *>(this));
+    lcbmetrics_meter_value_recorder_callback(lcbmeter_, new_recorder);
+}
+
+void TestMeter::destroy_lcb_meter()
+{
+    if (lcbmeter_ != nullptr) {
+        lcbmetrics_meter_destroy(lcbmeter_);
+        lcbmeter_ = nullptr;
+    }
 }

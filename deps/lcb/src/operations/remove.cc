@@ -188,7 +188,7 @@ static lcb_STATUS remove_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
     if (!framing_extras.empty()) {
         memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
     }
-    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_REMOVE, pkt->u_rdata.reqdata.span);
+    pkt->u_rdata.reqdata.span = lcb::trace::start_kv_span(instance->settings, pkt, cmd);
     TRACE_REMOVE_BEGIN(instance, &hdr, cmd);
     LCB_SCHED_ADD(instance, pl, pkt)
     return LCB_SUCCESS;

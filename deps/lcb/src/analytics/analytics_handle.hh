@@ -208,6 +208,32 @@ struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
         return last_error_;
     }
 
+    static lcbtrace_THRESHOLDOPTS service()
+    {
+        return LCBTRACE_THRESHOLD_ANALYTICS;
+    }
+
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_ANALYTICS;
+        return name;
+    }
+
+    lcbtrace_SPAN *parent_span() const
+    {
+        return parent_span_;
+    }
+
+    const std::string &client_context_id() const
+    {
+        return client_context_id_;
+    }
+
+    int retries() const
+    {
+        return retries_;
+    }
+
   private:
     const lcb_RESPHTTP *http_response_{nullptr};
     lcb_HTTP_HANDLE *http_request_{nullptr};
@@ -219,6 +245,7 @@ struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
     lcb_U32 timeout_{0};
     // How many rows were received. Used to avoid parsing the meta
     size_t rows_number_{0};
+    int retries_{0};
 
     /** Request body as received from the application */
     Json::Value json{};
@@ -240,6 +267,7 @@ struct lcb_ANALYTICS_HANDLE_ : lcb::jsparse::Parser::Actions {
     lcb::docreq::Queue *document_queue_{nullptr};
     unsigned refcount{1};
 
+    lcbtrace_SPAN *parent_span_{nullptr};
     lcbtrace_SPAN *span_{nullptr};
     std::string impostor_{};
 };

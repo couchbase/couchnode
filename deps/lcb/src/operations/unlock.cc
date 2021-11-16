@@ -157,7 +157,7 @@ static lcb_STATUS unlock_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
 
     hdr.request.opcode = PROTOCOL_BINARY_CMD_UNLOCK_KEY;
     hdr.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-    hdr.request.bodylen = htonl((lcb_uint32_t)ntohs(hdr.request.keylen));
+    hdr.request.bodylen = htonl(mcreq_get_key_size(&hdr));
     hdr.request.opaque = pkt->opaque;
     hdr.request.cas = lcb_htonll(cmd->cas());
 
@@ -166,7 +166,7 @@ static lcb_STATUS unlock_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
     if (!framing_extras.empty()) {
         memcpy(SPAN_BUFFER(&pkt->kh_span) + offset, framing_extras.data(), framing_extras.size());
     }
-    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd, LCBTRACE_OP_UNLOCK, rd->span);
+    rd->span = lcb::trace::start_kv_span(instance->settings, pkt, cmd);
     LCB_SCHED_ADD(instance, pl, pkt);
     TRACE_UNLOCK_BEGIN(instance, &hdr, cmd);
     return LCB_SUCCESS;

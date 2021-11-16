@@ -219,7 +219,6 @@ int iotssl_maybe_error(lcbio_XSSL *xs, int rv)
  ******************************************************************************/
 static void log_callback(const SSL *ssl, int where, int ret)
 {
-    const char *retstr;
     int should_log = 0;
     lcbio_SOCKET *sock = SSL_get_app_data(ssl);
     /* Ignore low-level SSL stuff */
@@ -238,9 +237,9 @@ static void log_callback(const SSL *ssl, int where, int ret)
         return;
     }
 
-    retstr = SSL_alert_type_string(ret);
-    lcb_log(LOGARGS(ssl, LCB_LOG_TRACE), "sock=%p: ST(0x%x). %s. R(0x%x)%s", (void *)sock, where,
-            SSL_state_string_long(ssl), ret, retstr);
+    lcb_log(LOGARGS(ssl, LCB_LOG_TRACE), "<%s:%s> sock=%p: ST(0x%x). %s. R(0x%x) %s (%s)",
+            sock->info ? sock->info->ep_remote.host : "", sock->info ? sock->info->ep_remote.port : "", (void *)sock,
+            where, SSL_state_string_long(ssl), ret, SSL_alert_type_string_long(ret), SSL_alert_desc_string_long(ret));
 
     if (where == SSL_CB_HANDSHAKE_DONE) {
         lcb_log(LOGARGS(ssl, LCB_LOG_DEBUG), "sock=%p. Using SSL version %s. Cipher=%s", (void *)sock,
@@ -311,11 +310,11 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
         "MD5:RC4-SHA:RC4-MD5:RC4-MD5:EDH-RSA-DES-CBC-SHA:EDH-DSS-DES-CBC-SHA:DES-CBC-SHA:DES-CBC-MD5:EXP-EDH-RSA-DES-"
         "CBC-SHA:EXP-EDH-DSS-DES-CBC-SHA:EXP-DES-CBC-SHA:EXP-RC2-CBC-MD5:EXP-RC2-CBC-MD5:EXP-RC4-MD5:EXP-RC4-MD5";
 
-    const char* cipher_list = getenv("LCB_SSL_CIPHER_LIST");
+    const char *cipher_list = getenv("LCB_SSL_CIPHER_LIST");
 #ifdef HAVE_CIPHERSUITES
-    const char* ciphersuites = getenv("LCB_SSL_CIPHERSUITES");
+    const char *ciphersuites = getenv("LCB_SSL_CIPHERSUITES");
 #endif
-    const char* minimum_tls = getenv("LCB_SSL_MINIMUM_TLS");
+    const char *minimum_tls = getenv("LCB_SSL_MINIMUM_TLS");
 
     if (!cipher_list) {
         cipher_list = default_ssl_cipher_list;

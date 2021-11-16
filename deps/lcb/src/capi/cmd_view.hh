@@ -47,6 +47,12 @@ struct lcb_VIEW_ERROR_CONTEXT_ {
 
 /** @private */
 struct lcb_CMDVIEW_ {
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_VIEW;
+        return name;
+    }
+
     bool view_or_design_document_empty() const
     {
         return view_name_.empty() || design_document_name_.empty();

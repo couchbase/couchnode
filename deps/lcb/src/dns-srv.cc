@@ -105,9 +105,11 @@ lcb_STATUS lcb::dnssrv_query(const char *addr, Hostlist &hs)
     }
 
     for (cur = root; cur; cur = cur->pNext) {
-        // Use the ASCII version of the DNS lookup structure
-        const DNS_SRV_DATAA *srv = &cur->Data.SRV;
-        hs.add(srv->pNameTarget, srv->wPort);
+        if(cur->wType == DNS_TYPE_SRV) {
+            // Use the ASCII version of the DNS lookup structure
+            const DNS_SRV_DATAA *srv = &cur->Data.SRV;
+            hs.add(srv->pNameTarget, srv->wPort);
+        }
     }
     DnsRecordListFree(root, DnsFreeRecordList);
     return LCB_SUCCESS;

@@ -28,6 +28,12 @@
  * @private
  */
 struct lcb_CMDREMOVE_ {
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_REMOVE;
+        return name;
+    }
+
     lcb_STATUS cas(std::uint64_t cas)
     {
         cas_ = cas;

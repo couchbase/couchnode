@@ -201,8 +201,7 @@ lcb_STATUS dispatch_common(lcb_INSTANCE *instance, const void *cookie, lcb_N1XMG
     Json::Value root;
     root["statement"] = ss;
     string reqbuf = Json::FastWriter().write(root);
-    return dispatch_common<T>(instance, cookie, u_callback, i_callback, reqbuf.c_str(), reqbuf.size() - 1 /*newline*/,
-                              obj);
+    return dispatch_common<T>(instance, cookie, u_callback, i_callback, reqbuf.c_str(), reqbuf.size(), obj);
 }
 
 // Class to back the storage for the actual lcb_IXSPEC without doing too much

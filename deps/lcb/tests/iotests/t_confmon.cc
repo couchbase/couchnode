@@ -24,6 +24,9 @@ struct evstop_listener : Listener {
 
     void clconfig_lsn(EventType event, ConfigInfo *)
     {
+        if (event == CLCONFIG_EVENT_PROVIDERS_CYCLED) {
+            return IOT_STOP(io);
+        }
         if (event != CLCONFIG_EVENT_GOT_NEW_CONFIG) {
             return;
         }
@@ -40,7 +43,6 @@ static void listen_callback1(Listener *lsn, EventType event, ConfigInfo *info) {
 
 TEST_F(ConfmonTest, testBasic)
 {
-    SKIP_UNLESS_MOCK();
     HandleWrap hw;
     lcb_INSTANCE *instance;
     MockEnvironment::getInstance()->createConnection(hw, &instance);
@@ -68,8 +70,8 @@ TEST_F(ConfmonTest, testBasic)
     mon->start();
 
     IOT_START(instance->iotable);
-    ASSERT_NE(0, listener.called);
     delete mon;
+    ASSERT_NE(0, listener.called);
 }
 
 struct listener2 : Listener {

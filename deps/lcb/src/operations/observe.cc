@@ -129,7 +129,7 @@ static void handle_observe_callback(mc_PIPELINE *pl, mc_PACKET *pkt, lcb_CALLBAC
     opc->remaining--;
     if (opc->remaining == 0) {
         TRACE_OBSERVE_END(instance, pkt);
-        LCBTRACE_KV_FINISH(pl, pkt, resp, 0);
+        lcb::trace::finish_kv_span(pl, pkt, nullptr);
         delete opc;
     }
 }

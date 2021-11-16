@@ -246,6 +246,32 @@ struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
         return LCB_SUCCESS;
     }
 
+    static lcbtrace_THRESHOLDOPTS service()
+    {
+        return LCBTRACE_THRESHOLD_QUERY;
+    }
+
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_QUERY;
+        return name;
+    }
+
+    lcbtrace_SPAN *parent_span() const
+    {
+        return parent_span_;
+    }
+
+    const std::string &client_context_id() const
+    {
+        return client_context_id_;
+    }
+
+    int retries() const
+    {
+        return retries_;
+    }
+
   private:
     void on_backoff();
 
@@ -269,7 +295,7 @@ struct lcb_QUERY_HANDLE_ : lcb::jsparse::Parser::Actions {
     Json::Value json;
     /** String of the original statement. Cached here to avoid jsoncpp lookups */
     std::string statement_;
-    std::string client_context_id;
+    std::string client_context_id_;
     std::string first_error_message{};
     uint32_t first_error_code{};
 

@@ -20,6 +20,8 @@
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/vbucket.h>
 #include <string>
+#include <memory>
+#include <unordered_map>
 
 #define ASSERT_STATUS_EQ(expected, actual)                                                                             \
     lcb_STATUS GTEST_CONCAT_TOKEN_(actual_code__, __LINE__) = (actual);                                                \
@@ -212,4 +214,113 @@ void drop_scope(lcb_INSTANCE *instance, const std::string &scope, bool wait = tr
 void drop_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection, bool wait = true);
 
 std::string unique_name(const std::string &);
+
+class TestSpan
+{
+  public:
+    explicit TestSpan(std::string name);
+    void SetAttribute(std::string key, std::string value);
+    void SetAttribute(std::string key, uint64_t value);
+    void End();
+
+    std::unordered_map<std::string, std::string> str_tags{};
+    std::unordered_map<std::string, uint64_t> int_tags{};
+    bool finished{false};
+    std::string name{};
+
+    TestSpan *parent{nullptr};
+};
+
+class TestTracer
+{
+  public:
+    TestTracer() = default;
+    ~TestTracer();
+    std::shared_ptr<TestSpan> StartSpan(std::string name);
+
+    std::vector<std::shared_ptr<TestSpan>> spans{};
+
+    void reset();
+
+    bool set_enabled(bool new_value)
+    {
+        bool old_value = enabled_;
+        enabled_ = new_value;
+
+        reset();
+        destroy_lcb_tracer();
+        if (new_value) {
+            create_lcb_tracer();
+        }
+        return old_value;
+    }
+
+    bool enabled() const
+    {
+        return enabled_;
+    }
+
+    lcbtrace_TRACER *lcb_tracer()
+    {
+        return lcbtracer_;
+    }
+
+  private:
+    void create_lcb_tracer();
+    void destroy_lcb_tracer();
+
+    lcbtrace_TRACER *lcbtracer_{nullptr};
+    bool enabled_{false};
+};
+
+class TestValueRecorder
+{
+  public:
+    TestValueRecorder() = default;
+    void RecordValue(uint64_t value);
+
+    std::vector<uint64_t> values{};
+};
+
+class TestMeter
+{
+  public:
+    TestMeter();
+    void reset();
+    std::shared_ptr<TestValueRecorder> ValueRecorder(std::string name,
+                                                     std::unordered_map<std::string, std::string> tags);
+
+    std::unordered_map<std::string, std::shared_ptr<TestValueRecorder>> recorders{};
+
+    bool set_enabled(bool new_value)
+    {
+        bool old_value = enabled_;
+        enabled_ = new_value;
+
+        reset();
+        destroy_lcb_meter();
+        if (new_value) {
+            create_lcb_meter();
+        }
+        return old_value;
+    }
+
+    bool enabled() const
+    {
+        return enabled_;
+    }
+
+    lcbmetrics_METER *lcb_meter()
+    {
+        return lcbmeter_;
+    }
+
+  private:
+    void create_lcb_meter();
+    void destroy_lcb_meter();
+
+    lcbmetrics_METER *lcbmeter_{nullptr};
+    bool enabled_{false};
+};
+
 #endif

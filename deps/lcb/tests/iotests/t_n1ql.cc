@@ -165,6 +165,8 @@ class QueryUnitTest : public MockUnitTest
 
 TEST_F(QueryUnitTest, testSimple)
 {
+    MockEnvironment *mock = MockEnvironment::getInstance();
+    tracing_guard use_tracing;
     lcb_INSTANCE *instance;
     HandleWrap hw;
     if (!createQueryConnection(hw, &instance)) {
@@ -172,12 +174,26 @@ TEST_F(QueryUnitTest, testSimple)
     }
 
     N1QLResult res;
-    makeCommand("SELECT mockrow");
+    const char *query = "SELECT mockrow";
+    makeCommand(query);
+
+    const char *context_id = "context_id";
+    lcb_cmdquery_client_context_id(cmd, context_id, strlen(context_id));
+
     lcb_STATUS rc = lcb_query(instance, &res, cmd);
     ASSERT_STATUS_EQ(LCB_SUCCESS, rc);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     ASSERT_STATUS_EQ(LCB_SUCCESS, res.rc);
     ASSERT_EQ(1, res.rows.size());
+
+    auto spans = mock->getTracer().spans;
+    ASSERT_EQ(1, spans.size());
+    auto span = spans[0];
+    HTTPSpanAssertions assertions;
+    assertions.statement = query;
+    assertions.operation_id = context_id;
+    assertions.service = "query";
+    assert_http_span(span, "query", assertions);
 }
 
 TEST_F(QueryUnitTest, testQueryError)

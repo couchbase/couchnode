@@ -28,6 +28,12 @@
  * @private
  */
 struct lcb_CMDEXISTS_ {
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_EXISTS;
+        return name;
+    }
+
     lcb_STATUS key(std::string key)
     {
         key_ = std::move(key);

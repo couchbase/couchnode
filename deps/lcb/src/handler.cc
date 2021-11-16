@@ -157,6 +157,13 @@ lcb_STATUS lcb_map_error(lcb_INSTANCE *instance, int in)
             return LCB_ERR_DURABILITY_AMBIGUOUS;
         case PROTOCOL_BINARY_RESPONSE_LOCKED:
             return LCB_ERR_DOCUMENT_LOCKED;
+        case PROTOCOL_BINARY_RATE_LIMITED_NETWORK_INGRESS:
+        case PROTOCOL_BINARY_RATE_LIMITED_NETWORK_EGRESS:
+        case PROTOCOL_BINARY_RATE_LIMITED_MAX_CONNECTIONS:
+        case PROTOCOL_BINARY_RATE_LIMITED_MAX_COMMANDS:
+            return LCB_ERR_RATE_LIMITED;
+        case PROTOCOL_BINARY_SCOPE_SIZE_LIMIT_EXCEEDED:
+            return LCB_ERR_QUOTA_LIMITED;
         default:
             if (instance != nullptr) {
                 return instance->callbacks.errmap(instance, in);
@@ -269,20 +276,19 @@ void init_resp(lcb_INSTANCE *instance, mc_PIPELINE *pipeline, const MemcachedRes
         resp->ctx.key.assign(key, key_len);
     }
 
-    auto *server = static_cast<lcb::Server *>(pipeline);
+    const auto *server = static_cast<lcb::Server *>(pipeline);
     const lcb_host_t *remote = server->curhost;
     if (remote) {
-        std::stringstream ss;
+        resp->ctx.endpoint.reserve(sizeof(remote->host) + sizeof(remote->port) + 3);
         if (remote->ipv6) {
-            ss << '[';
+            resp->ctx.endpoint.append("[");
         }
-        ss << remote->host;
+        resp->ctx.endpoint.append(remote->host);
         if (remote->ipv6) {
-            ss << ']';
+            resp->ctx.endpoint.append("]");
         }
-        ss << ':';
-        ss << remote->port;
-        resp->ctx.endpoint = ss.str();
+        resp->ctx.endpoint.append(":");
+        resp->ctx.endpoint.append(remote->port);
     }
 }
 
@@ -421,7 +427,7 @@ static void H_get(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse *
 
     void *freeptr = nullptr;
     maybe_decompress(o, response, &resp, &freeptr);
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
     TRACE_GET_END(o, request, response, &resp);
     record_kv_op_latency("get", o, request);
     if (request->flags & MCREQ_F_REQEXT) {
@@ -455,7 +461,7 @@ static void H_exists(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
             resp.seqno = lcb_ntohll(resp.seqno);
         }
     }
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
     TRACE_EXISTS_END(root, request, response, &resp);
     record_kv_op_latency("exists", root, request);
     invoke_callback(request, root, &resp, LCB_CALLBACK_EXISTS);
@@ -555,7 +561,7 @@ static void H_subdoc(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
             handle_error_info(response, resp);
         }
     }
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
 
     if (cbtype == LCB_CALLBACK_SDLOOKUP) {
         record_kv_op_latency("lookup_in", o, request);
@@ -689,7 +695,7 @@ static void H_delete(mc_PIPELINE *pipeline, mc_PACKET *packet, MemcachedResponse
     init_resp(root, pipeline, response, packet, immerr, &resp);
     handle_error_info(response, resp);
     handle_mutation_token(root, response, packet, &resp.mt);
-    LCBTRACE_KV_FINISH(pipeline, packet, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, packet, response);
     TRACE_REMOVE_END(root, packet, response, &resp);
     record_kv_op_latency("remove", root, packet);
     invoke_callback(packet, root, &resp, LCB_CALLBACK_REMOVE);
@@ -797,7 +803,7 @@ static void H_observe_seqno(mc_PIPELINE *pipeline, mc_PACKET *request, Memcached
         /* Get the server for this command. Note that since this is a successful
          * operation, the server is never a dummy */
     }
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
     invoke_callback(request, root, &resp, LCB_CALLBACK_OBSEQNO);
 }
 
@@ -829,7 +835,7 @@ static void H_store(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse
     resp.rflags |= LCB_RESP_F_EXTDATA | LCB_RESP_F_FINAL;
     handle_mutation_token(root, response, request, &resp.mt);
     TRACE_STORE_END(root, request, response, &resp);
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
     record_kv_op_latency_store(root, request, &resp);
     if (request->flags & MCREQ_F_REQEXT) {
         request->u_rdata.exdata->procs->handler(pipeline, request, LCB_CALLBACK_STORE, immerr, &resp);
@@ -854,7 +860,7 @@ static void H_arithmetic(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRes
     }
     resp.rflags |= LCB_RESP_F_FINAL;
     resp.ctx.cas = response->cas();
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
     TRACE_ARITHMETIC_END(root, request, response, &resp);
     record_kv_op_latency("arithmetic", root, request);
     invoke_callback(request, root, &resp, LCB_CALLBACK_COUNTER);
@@ -941,7 +947,7 @@ static void H_noop(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse 
 {
     lcb_INSTANCE *root = get_instance(pipeline);
     lcb_RESPNOOP resp{};
-    mc_REQDATAEX *exdata = request->u_rdata.exdata;
+    const mc_REQDATAEX *exdata = request->u_rdata.exdata;
 
     make_error(root, &resp, response, immerr, request);
 
@@ -955,7 +961,7 @@ static void H_touch(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedResponse
     init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, resp);
     resp.rflags |= LCB_RESP_F_FINAL;
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
     TRACE_TOUCH_END(root, request, response, &resp);
     record_kv_op_latency("touch", root, request);
     invoke_callback(request, root, &resp, LCB_CALLBACK_TOUCH);
@@ -968,7 +974,7 @@ static void H_unlock(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
     init_resp(root, pipeline, response, request, immerr, &resp);
     handle_error_info(response, resp);
     resp.rflags |= LCB_RESP_F_FINAL;
-    LCBTRACE_KV_FINISH(pipeline, request, resp, response->duration());
+    lcb::trace::finish_kv_span(pipeline, request, response);
     TRACE_UNLOCK_END(root, request, response, &resp);
     record_kv_op_latency("unlock", root, request);
     invoke_callback(request, root, &resp, LCB_CALLBACK_UNLOCK);

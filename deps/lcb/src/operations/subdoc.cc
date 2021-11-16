@@ -853,8 +853,7 @@ static lcb_STATUS subdoc_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CM
         MCREQ_PKT_RDATA(pkt)->start +
         cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
     MCREQ_PKT_RDATA(pkt)->nsubreq = cmd->specs().specs().size();
-    LCBTRACE_KV_START(instance->settings, pkt->opaque, cmd,
-                      ctx.is_mutate() ? LCBTRACE_OP_MUTATEIN : LCBTRACE_OP_LOOKUPIN, MCREQ_PKT_RDATA(pkt)->span);
+    MCREQ_PKT_RDATA(pkt)->span = lcb::trace::start_kv_span(instance->settings, pkt, cmd);
     LCB_SCHED_ADD(instance, pl, pkt)
     return LCB_SUCCESS;
 }

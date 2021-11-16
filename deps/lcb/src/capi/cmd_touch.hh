@@ -28,6 +28,12 @@
  * @private
  */
 struct lcb_CMDTOUCH_ {
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_TOUCH;
+        return name;
+    }
+
     lcb_STATUS expiry(std::uint32_t expiry)
     {
         expiry_ = expiry;

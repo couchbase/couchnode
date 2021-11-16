@@ -243,6 +243,7 @@ TEST_F(ViewsUnitTest, testSimpleView)
 {
     SKIP_UNLESS_MOCK();
     // Requires beer-sample
+    MockEnvironment *mock = MockEnvironment::getInstance();
     HandleWrap hw;
     lcb_INSTANCE *instance;
     connectBeerSample(hw, &instance);

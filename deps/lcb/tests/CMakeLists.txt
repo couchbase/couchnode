@@ -152,8 +152,29 @@ MACRO(DEFINE_MOCKTEST plugin test)
             --tests ${test}
             --verbose
             --
+            --gtest_filter="-ContaminatingUnitTest.*"
+            --gtest_throw_on_failure=1
             --gtest_print_time=1
             --gtest_output=xml:"${PROJECT_BINARY_DIR}/REPORT_${plugin}_${test}.xml")
+    SET_TESTS_PROPERTIES(check-${plugin}-${test} PROPERTIES LABELS "normal" )
+
+    ADD_TEST(
+            NAME
+            check-contaminating-${plugin}-${test}
+            COMMAND
+            $<TARGET_FILE:check-all>
+            --srcdir "${PROJECT_SOURCE_DIR}"
+            --testdir "$<TARGET_FILE_DIR:check-all>"
+            --libdir "$<TARGET_FILE_DIR:couchbase>"
+            --plugins ${plugin}
+            --tests ${test}
+            --verbose
+            --
+            --gtest_filter="ContaminatingUnitTest.*"
+            --gtest_throw_on_failure=1
+            --gtest_print_time=1
+            --gtest_output=xml:"${PROJECT_BINARY_DIR}/REPORT_${plugin}_${test}.xml")
+    SET_TESTS_PROPERTIES(check-contaminating-${plugin}-${test} PROPERTIES LABELS "contaminating" )
 ENDMACRO()
 
 # Since we need a plugin name, we'll use 'select'. However none of these

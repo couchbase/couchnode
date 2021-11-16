@@ -28,6 +28,12 @@
  * @private
  */
 struct lcb_CMDUNLOCK_ {
+    static const std::string &operation_name()
+    {
+        static std::string name = LCBTRACE_OP_UNLOCK;
+        return name;
+    }
+
     lcb_STATUS cas(std::uint64_t cas)
     {
         if (cas == 0) {

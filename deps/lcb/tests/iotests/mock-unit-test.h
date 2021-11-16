@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 #include <libcouchbase/couchbase.h>
 #include "mock-environment.h"
+#include "testutil.h"
 
 class HandleWrap;
 
@@ -44,6 +45,22 @@ class HandleWrap;
         return;                                                                                                        \
     }
 
+struct KVSpanAssertions {
+    lcb_DURABILITY_LEVEL durability_level{LCB_DURABILITYLEVEL_NONE};
+    std::string scope{"_default"};
+    std::string collection{"_default"};
+};
+
+struct HTTPSpanAssertions {
+    std::string statement{};
+    std::string scope{};
+    std::string collection{};
+    std::string bucket{};
+    std::string op{};
+    std::string operation_id{};
+    std::string service{};
+};
+
 class MockUnitTest : public ::testing::Test
 {
   protected:
@@ -56,6 +73,13 @@ class MockUnitTest : public ::testing::Test
     virtual void createClusterConnection(HandleWrap &handle, lcb_INSTANCE **instance);
     virtual lcb_STATUS tryCreateConnection(HandleWrap &hw, lcb_INSTANCE **instance, lcb_CREATEOPTS *&crparams);
 
+    static void assert_kv_span(const std::shared_ptr<TestSpan> &span, const std::string &expectedName,
+                               const KVSpanAssertions &assertions);
+    static void assert_http_span(const std::shared_ptr<TestSpan> &span, const std::string &expectedName,
+                                 const HTTPSpanAssertions &assertions);
+    void assert_kv_metrics(const std::string &metric_name, const std::string &op, uint32_t length, bool at_least_len);
+    void assert_metrics(const std::string &key, uint32_t length, bool at_least_len);
+
     // A mock "Transaction"
     void doMockTxn(MockCommand &cmd)
     {
@@ -64,6 +88,14 @@ class MockUnitTest : public ::testing::Test
         MockEnvironment::getInstance()->getResponse(tmp);
         ASSERT_TRUE(tmp.isOk());
     }
+};
+
+/*
+ * This test class groups tests that might be problematic when executed together with all other tests.
+ * Every test case in this suite must start with Jira ticket number for future.
+ */
+class ContaminatingUnitTest : public MockUnitTest
+{
 };
 
 #endif
