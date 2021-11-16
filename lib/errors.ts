@@ -314,6 +314,30 @@ export class IndexNotFoundError extends CouchbaseError {
 }
 
 /**
+ * Indicates that a rate limit was exceeded while attempting to
+ * execute the operation.
+ *
+ * @category Error Handling
+ */
+export class RateLimitedError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('operation was rate limited', cause, context)
+  }
+}
+
+/**
+ * Indicates that a quota limit was exceeded while attempting to
+ * execute the operation.
+ *
+ * @category Error Handling
+ */
+export class QuotaLimitedError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('operation was quota limited', cause, context)
+  }
+}
+
+/**
  * Indicates that the referenced index already existed, but was expected
  * to not yet exist for the operation.
  *

@@ -206,7 +206,10 @@ export function translateCppError(err: CppError | null): Error | null {
       return new errs.IndexNotFoundError(codeErr, context)
     case binding.LCB_ERR_INDEX_EXISTS:
       return new errs.IndexExistsError(codeErr, context)
-
+    case binding.LCB_ERR_RATE_LIMITED:
+      return new errs.RateLimitedError(codeErr, context)
+    case binding.LCB_ERR_QUOTA_LIMITED:
+      return new errs.QuotaLimitedError(codeErr, context)
     /* KeyValue Error Definitions */
     case binding.LCB_ERR_DOCUMENT_NOT_FOUND:
       return new errs.DocumentNotFoundError(codeErr, context)
