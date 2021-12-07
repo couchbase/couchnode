@@ -33,6 +33,14 @@ export enum ConflictResolutionType {
    * Indicates that the seqno of the document should be used for conflict resolution.
    */
   SequenceNumber = 'seqno',
+
+  /**
+   * Indicates that custom conflict resolution should be used.
+   *
+   * @experimental This mode is only available in Couchbase Server 7.1 with the
+   * "developer-preview" mode enabled.
+   */
+  Custom = 'custom',
 }
 
 /**
