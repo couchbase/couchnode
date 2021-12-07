@@ -58,6 +58,23 @@ export enum BucketType {
 }
 
 /**
+ * Represents the storage backend to use for a bucket.
+ *
+ * @category Management
+ */
+export enum StorageBackend {
+  /**
+   * Indicates the bucket should use the Couchstore storage engine.
+   */
+  Couchstore = 'couchstore',
+
+  /**
+   * Indicates the bucket should use the Magma storage engine.
+   */
+  Magma = 'magma',
+}
+
+/**
  * Represents the eviction policy that should be used for a bucket.
  *
  * @category Management
@@ -149,6 +166,11 @@ export interface IBucketSettings {
   bucketType: BucketType | string
 
   /**
+   * Specifies the storage backend to use for the bucket.
+   */
+  storageBackend: StorageBackend | string
+
+  /**
    * Specifies the ejection method that should be used.
    */
   evictionPolicy: EvictionPolicy | string
@@ -234,6 +256,11 @@ export class BucketSettings implements IBucketSettings {
   bucketType: BucketType
 
   /**
+   * Specifies the storage backend to use for the bucket.
+   */
+  storageBackend: StorageBackend | string
+
+  /**
    * Specifies the ejection method that should be used.
    */
   evictionPolicy: EvictionPolicy
@@ -266,6 +293,7 @@ export class BucketSettings implements IBucketSettings {
     this.numReplicas = data.numReplicas
     this.replicaIndexes = data.replicaIndexes
     this.bucketType = data.bucketType
+    this.storageBackend = data.storageBackend
     this.evictionPolicy = data.evictionPolicy
     this.maxExpiry = data.maxExpiry
     this.compressionMode = data.compressionMode
@@ -317,6 +345,7 @@ export class BucketSettings implements IBucketSettings {
       replicaNumber: data.numReplicas,
       replicaIndexes: data.replicaIndexes,
       bucketType: data.bucketType,
+      storageBackend: data.storageBackend,
       evictionPolicy: data.evictionPolicy,
       maxTTL: data.maxTTL || data.maxExpiry,
       compressionMode: data.compressionMode,
@@ -337,6 +366,7 @@ export class BucketSettings implements IBucketSettings {
       numReplicas: data.replicaNumber,
       replicaIndexes: data.replicaIndexes,
       bucketType: data.bucketType,
+      storageBackend: data.storageBackend,
       evictionPolicy: data.evictionPolicy,
       maxExpiry: data.maxTTL,
       compressionMode: data.compressionMode,
@@ -368,7 +398,8 @@ export interface ICreateBucketSettings extends IBucketSettings {
  */
 class CreateBucketSettings
   extends BucketSettings
-  implements ICreateBucketSettings {
+  implements ICreateBucketSettings
+{
   /**
    * Specifies the conflict resolution mode to use for XDCR of this bucket.
    */
