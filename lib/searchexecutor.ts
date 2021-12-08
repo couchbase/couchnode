@@ -63,6 +63,9 @@ export class SearchExecutor {
     if (options.disableScoring) {
       queryObj.score = 'none'
     }
+    if (options.includeLocations !== undefined) {
+      queryObj.includeLocations = options.includeLocations
+    }
     if (options.consistency) {
       queryObjCtl.consistency = {
         level: options.consistency,

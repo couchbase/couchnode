@@ -51,7 +51,7 @@ export class SearchResult {
  *
  * @category Full Text Search
  */
-enum HighlightStyle {
+export enum HighlightStyle {
   /**
    * Indicates that matches should be highlighted using HTML tags in the result text.
    */
@@ -140,6 +140,13 @@ export interface SearchQueryOptions {
    * impossible to sort based on how well a particular result scored.
    */
   disableScoring?: boolean
+
+  /**
+   * If set to true, will include the locations in the search result.
+   *
+   * @experimental This API is subject to change without notice.
+   */
+  includeLocations?: boolean
 
   /**
    * Specifies the consistency requirements when executing the query.

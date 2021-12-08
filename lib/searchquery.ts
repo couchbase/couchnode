@@ -1,6 +1,24 @@
 /* eslint jsdoc/require-jsdoc: off */
 
 /**
+ * Specifies how the individual match terms should be logically concatenated.
+ *
+ * @experimental This API is subject to change without notice.
+ * @category Full Text Search
+ */
+export enum MatchOperator {
+  /**
+   * Specifies that individual match terms are concatenated with a logical OR - this is the default if not provided.
+   */
+  Or = 'or',
+
+  /**
+   * Specifies that individual match terms are concatenated with a logical AND.
+   */
+  And = 'and',
+}
+
+/**
  * GeoPoint represents a specific coordinate on earth.  We support
  * a number of different variants of geopoints being specified.
  *
@@ -31,9 +49,9 @@ function _parseGeoPoint(v: GeoPoint): [number, number] {
  */
 function _unpackListArgs<T>(args: T[] | T[][]): T[] {
   if (Array.isArray(args[0])) {
-    return (args[0] as any) as T[]
+    return args[0] as any as T[]
   }
-  return (args as any) as T[]
+  return args as any as T[]
 }
 
 /**
@@ -229,6 +247,11 @@ export class MatchSearchQuery extends SearchQuery {
     super({
       match: match,
     })
+  }
+
+  operator(op: MatchOperator): MatchSearchQuery {
+    this._data.operator = op
+    return this
   }
 
   field(field: string): MatchSearchQuery {
