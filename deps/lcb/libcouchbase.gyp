@@ -25,38 +25,6 @@
             }
         },
 
-        'cflags': [
-            '-fno-strict-aliasing',
-            '-Wno-unused-function',
-            '-Wno-missing-braces',
-            '-Wno-missing-field-initializers',
-            '-Wno-sign-compare'
-        ],
-        'cflags_c': [
-            '-std=c99'
-        ],
-        'cflags!': [
-            '-fno-exceptions'
-        ],
-        'cflags_cc!': [
-            '-fno-exceptions'
-        ],
-        'xcode_settings': {
-            'WARNING_CFLAGS': [
-                '-fno-strict-aliasing',
-                '-Wno-unused-function',
-                '-Wno-missing-braces',
-                '-Wno-missing-field-initializers',
-                '-Wno-sign-compare'
-            ],
-            'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
-        },
-        'msvs_settings': {
-            'VCLinkerTool': {
-                'GenerateDebugInformation': 'true',
-            },
-        },
-
         'defines': [
             'LIBCOUCHBASE_INTERNAL=1',
             'LCB_STATIC_SNAPPY=1',
@@ -153,6 +121,15 @@
             'target_name': 'jsoncpp',
             'product_prefix': 'lib',
             'type': 'static_library',
+            'xcode_settings': {
+                'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
+            },
+            'cflags!': [
+                '-fno-exceptions'
+            ],
+            'cflags_cc!': [
+                '-fno-exceptions'
+            ],
             'sources': [
                 'contrib/lcb-jsoncpp/lcb-jsoncpp.cpp'
             ],
@@ -193,6 +170,32 @@
             'target_name': 'couchbase',
             'product_prefix': 'lib',
             'type': 'static_library',
+            'cflags': [
+                '-fno-strict-aliasing',
+                '-Wno-unused-function',
+                '-Wno-missing-braces',
+                '-Wno-missing-field-initializers',
+                '-Wno-sign-compare',
+            ],
+            'cflags_c': [
+                '-std=c99'
+            ],
+            'xcode_settings': {
+                'WARNING_CFLAGS': [
+                    '-fno-strict-aliasing',
+                    '-Wno-unused-function',
+                    '-Wno-missing-braces',
+                    '-Wno-missing-field-initializers',
+                    '-Wno-sign-compare'
+                ],
+                'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
+            },
+            'cflags!': [
+                '-fno-exceptions'
+            ],
+            'cflags_cc!': [
+                '-fno-exceptions'
+            ],
             'defines': [
                 'CBSASL_STATIC'
             ],
