@@ -1,4 +1,5 @@
 #include "instance.h"
+#include "connection.h"
 
 #include "error.h"
 #include "logger.h"
@@ -8,7 +9,8 @@ namespace couchnode
 
 Instance::Instance(lcb_INSTANCE *instance, Logger *logger,
                    RequestTracer *tracer, Meter *meter)
-    : _instance(instance)
+    : _connection(nullptr)
+    , _instance(instance)
     , _logger(logger)
     , _tracer(tracer)
     , _meter(meter)
@@ -73,6 +75,11 @@ Instance::Instance(lcb_INSTANCE *instance, Logger *logger,
 
 Instance::~Instance()
 {
+    if (_connection) {
+        _connection->_instance = nullptr;
+        _connection = nullptr;
+    }
+
     if (_parent) {
         _parent->remove_instance(this);
         _parent = nullptr;

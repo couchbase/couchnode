@@ -84,6 +84,7 @@ public:
                                    const lcb_RESPHTTP *resp);
 
     AddonData *_parent;
+    class Connection *_connection;
     lcb_INSTANCE *_instance;
     Logger *_logger;
     RequestTracer *_tracer;

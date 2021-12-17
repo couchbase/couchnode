@@ -207,6 +207,8 @@ NAN_METHOD(Connection::fnNew)
     Connection *obj = new Connection(inst);
     obj->Wrap(info.This());
 
+    inst->_connection = obj;
+
     info.GetReturnValue().Set(info.This());
 }
 
