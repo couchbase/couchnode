@@ -16,7 +16,9 @@ async function doWork() {
     const bucket = cluster.bucket(workerData.bucketName)
     const coll = bucket.defaultCollection()
 
-    await coll.insert(workerData.testKey, 'bar')
+    // increased timeout for the first operation.  sometimes the connection
+    // isn't available immediately and leads to this failing.
+    await coll.insert(workerData.testKey, 'bar', { timeout: 25000 })
 
     const getRes = await coll.get(workerData.testKey)
     assert.isObject(getRes)
