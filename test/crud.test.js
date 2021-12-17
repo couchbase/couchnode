@@ -305,7 +305,7 @@ function genericTests(collFn) {
         await collFn().remove(testKeyIns)
       })
 
-      it('should insert w/ expiry successfully', async function () {
+      it('should insert w/ expiry successfully (slow)', async function () {
         const testKeyExp = H.genTestKey()
 
         var res = await collFn().insert(testKeyExp, { foo: 14 }, { expiry: 1 })
@@ -321,11 +321,11 @@ function genericTests(collFn) {
     })
 
     describe('#touch', function () {
-      it('should touch a document successfully', async function () {
+      it('should touch a document successfully (slow)', async function () {
         const testKeyTch = H.genTestKey()
 
         // Insert a test document
-        var res = await collFn().insert(testKeyTch, { foo: 14 }, { expiry: 2 })
+        var res = await collFn().insert(testKeyTch, { foo: 14 }, { expiry: 3 })
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
 
@@ -333,32 +333,32 @@ function genericTests(collFn) {
         await collFn().get(testKeyTch)
 
         // Touch the document
-        var tres = await collFn().touch(testKeyTch, 4)
+        var tres = await collFn().touch(testKeyTch, 8)
         assert.isObject(tres)
         assert.isNotEmpty(tres.cas)
 
         // Wait for the first expiry
-        await H.sleep(3000)
+        await H.sleep(4000)
 
         // Ensure the key is still there
         await collFn().get(testKeyTch)
 
         // Wait for it to expire
-        await H.sleep(2000)
+        await H.sleep(5000)
 
         // Ensure the key is gone
         await H.throwsHelper(async () => {
           await collFn().get(testKeyTch)
         })
-      }).timeout(6500)
+      }).timeout(15000)
     })
 
     describe('#getAndTouch', function () {
-      it('should touch a document successfully', async function () {
+      it('should touch a document successfully (slow)', async function () {
         const testKeyGat = H.genTestKey()
 
         // Insert a test document
-        var res = await collFn().insert(testKeyGat, { foo: 14 }, { expiry: 2 })
+        var res = await collFn().insert(testKeyGat, { foo: 14 }, { expiry: 3 })
         assert.isObject(res)
         assert.isNotEmpty(res.cas)
 
@@ -366,7 +366,7 @@ function genericTests(collFn) {
         await collFn().get(testKeyGat)
 
         // Touch the document
-        var tres = await collFn().getAndTouch(testKeyGat, 4)
+        var tres = await collFn().getAndTouch(testKeyGat, 8)
         assert.isObject(tres)
         assert.isNotEmpty(tres.cas)
         assert.deepStrictEqual(tres.value, { foo: 14 })
@@ -376,19 +376,19 @@ function genericTests(collFn) {
         assert.strictEqual(tres.value, tres.content)
 
         // Wait for the first expiry
-        await H.sleep(3000)
+        await H.sleep(4000)
 
         // Ensure the key is still there
         await collFn().get(testKeyGat)
 
         // Wait for it to expire
-        await H.sleep(2000)
+        await H.sleep(5000)
 
         // Ensure the key is gone
         await H.throwsHelper(async () => {
           await collFn().get(testKeyGat)
         })
-      }).timeout(6500)
+      }).timeout(15000)
     })
   })
 
@@ -485,7 +485,7 @@ function genericTests(collFn) {
       await collFn().remove(testKeyLck)
     })
 
-    it('should lock successfully', async function () {
+    it('should lock successfully (slow)', async function () {
       // Try and lock the key
       var res = await collFn().getAndLock(testKeyLck, 2)
       assert.isObject(res)
