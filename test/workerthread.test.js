@@ -10,14 +10,30 @@ async function startWorker(workerData) {
   const worker = require('worker_threads')
 
   return await new Promise((resolve, reject) => {
+    let has_resolved = false
     const work = new worker.Worker('./test/workerthread.worker.js', {
       workerData,
     })
-    work.on('message', resolve)
-    work.on('error', reject)
+    work.on('message', (data) => {
+      // we need to force terminate the worker so it doesn't stay running, but
+      // we mark the handler as resolved so we don't send an error for the terminate
+      has_resolved = true
+      work.terminate().then(() => {
+        resolve(data)
+      })
+    })
+    work.on('error', (err) => {
+      if (!has_resolved) {
+        has_resolved = true
+        reject(err)
+      }
+    })
     work.on('exit', (code) => {
-      if (code !== 0) {
-        reject(new Error(`Worker stopped with exit code ${code}`))
+      if (!has_resolved) {
+        if (code !== 0) {
+          has_resolved = true
+          reject(new Error(`Worker stopped with exit code ${code}`))
+        }
       }
     })
   })
