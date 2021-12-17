@@ -6,6 +6,13 @@ const semver = require('semver')
 const couchbase = require('../lib/couchbase')
 const jcbmock = require('./jcbmock')
 
+try {
+  const SegfaultHandler = require('segfault-handler')
+  SegfaultHandler.registerHandler()
+} catch (e) {
+  // segfault-handler is just a helper, its not required
+}
+
 const ServerFeatures = {
   KeyValue: 'kv',
   Ssl: 'ssl',
