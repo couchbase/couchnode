@@ -116,6 +116,8 @@ export class Connection {
     }
     if (options.kvConnectTimeout) {
       lcbDsnObj.options.config_total_timeout = fmtTmt(options.kvConnectTimeout)
+    } else {
+      lcbDsnObj.options.config_total_timeout = '30s'
     }
     if (options.kvTimeout) {
       lcbDsnObj.options.timeout = fmtTmt(options.kvTimeout)
