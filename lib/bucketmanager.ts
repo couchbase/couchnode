@@ -378,7 +378,7 @@ export class BucketSettings implements IBucketSettings {
       evictionPolicy: data.evictionPolicy,
       maxExpiry: data.maxTTL,
       compressionMode: data.compressionMode,
-      minimumDurabilityLevel: nsServerStrToDuraLevel(data.durabilityMinLevel),
+      minimumDurabilityLevel: nsServerStrToDuraLevel(data.durabilityMinLevel || "none"),
       maxTTL: 0,
       durabilityMinLevel: '',
       ejectionMethod: '',
