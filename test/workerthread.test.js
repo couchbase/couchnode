@@ -54,5 +54,5 @@ describe('#worker-threads', function () {
     if (!res.success) {
       throw res.error
     }
-  }).timeout(30000)
+  }).timeout(45000)
 })

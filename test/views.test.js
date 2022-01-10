@@ -33,7 +33,7 @@ describe('#views', function () {
         `),
     })
     await H.b.viewIndexes().upsertDesignDocument(ddoc)
-  })
+  }).timeout(60000)
 
   it('should successfully publish an index', async function () {
     await H.b.viewIndexes().publishDesignDocument(ddocKey)
