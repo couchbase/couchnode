@@ -1,5 +1,6 @@
 import { Collection } from './collection'
 import { CounterResult, MutationResult } from './crudoptypes'
+import { DurabilityLevel } from './generaltypes'
 import { RequestSpan } from './tracing'
 import { NodeCallback } from './utilities'
 
@@ -18,6 +19,11 @@ export interface IncrementOptions {
    * The expiry time that should be set for the document, expressed in seconds.
    */
   expiry?: number
+
+  /**
+   * Specifies the level of synchronous durability for this operation.
+   */
+  durabilityLevel?: DurabilityLevel
 
   /**
    * The parent tracing span that this operation will be part of.
@@ -47,6 +53,11 @@ export interface DecrementOptions {
   expiry?: number
 
   /**
+   * Specifies the level of synchronous durability for this operation.
+   */
+  durabilityLevel?: DurabilityLevel
+
+  /**
    * The parent tracing span that this operation will be part of.
    */
   parentSpan?: RequestSpan
@@ -62,6 +73,11 @@ export interface DecrementOptions {
  */
 export interface AppendOptions {
   /**
+   * Specifies the level of synchronous durability for this operation.
+   */
+  durabilityLevel?: DurabilityLevel
+
+  /**
    * The parent tracing span that this operation will be part of.
    */
   parentSpan?: RequestSpan
@@ -76,6 +92,11 @@ export interface AppendOptions {
  * @category Key-Value
  */
 export interface PrependOptions {
+  /**
+   * Specifies the level of synchronous durability for this operation.
+   */
+  durabilityLevel?: DurabilityLevel
+
   /**
    * The parent tracing span that this operation will be part of.
    */
