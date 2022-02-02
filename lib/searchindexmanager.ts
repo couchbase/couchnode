@@ -432,7 +432,7 @@ export class SearchIndexManager {
         throw new Error('failed to get search indexed documents count')
       }
 
-      return JSON.parse(res.body.toString())
+      return JSON.parse(res.body.toString()).count
     }, callback)
   }
 
