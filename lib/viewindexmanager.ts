@@ -1,7 +1,6 @@
 import { Bucket } from './bucket'
 import { CouchbaseError, DesignDocumentNotFoundError } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { RequestSpan } from './tracing'
 import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -121,11 +120,6 @@ export class DesignDocument {
  */
 export interface GetAllDesignDocumentOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -135,11 +129,6 @@ export interface GetAllDesignDocumentOptions {
  * @category Management
  */
 export interface GetDesignDocumentOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -151,11 +140,6 @@ export interface GetDesignDocumentOptions {
  */
 export interface UpsertDesignDocumentOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -166,11 +150,6 @@ export interface UpsertDesignDocumentOptions {
  */
 export interface DropDesignDocumentOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -180,11 +159,6 @@ export interface DropDesignDocumentOptions {
  * @category Management
  */
 export interface PublishDesignDocumentOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -207,8 +181,18 @@ export class ViewIndexManager {
     this._bucket = bucket
   }
 
+  /**
+   * @internal
+   */
   private get _http() {
     return new HttpExecutor(this._bucket.conn)
+  }
+
+  /**
+   * @internal
+   */
+  private get _cluster() {
+    return this._bucket.cluster
   }
 
   /**
@@ -229,8 +213,7 @@ export class ViewIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const bucketName = this._bucket.name
@@ -239,7 +222,6 @@ export class ViewIndexManager {
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/pools/default/buckets/${bucketName}/ddocs`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -284,15 +266,15 @@ export class ViewIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
+      const bucketName = this._bucket.name
+
       const res = await this._http.request({
         type: HttpServiceType.Views,
         method: HttpMethod.Get,
-        path: `/_design/${designDocName}`,
-        parentSpan: parentSpan,
+        path: `/${bucketName}/_design/${designDocName}`,
         timeout: timeout,
       })
 
@@ -335,10 +317,11 @@ export class ViewIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
+      const bucketName = this._bucket.name
+
       const designDocData = {
         views: designDoc.views,
       }
@@ -347,10 +330,9 @@ export class ViewIndexManager {
       const res = await this._http.request({
         type: HttpServiceType.Views,
         method: HttpMethod.Put,
-        path: `/_design/${designDoc.name}`,
+        path: `/${bucketName}/_design/${designDoc.name}`,
         contentType: 'application/json',
         body: encodedData,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -386,15 +368,15 @@ export class ViewIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
+      const bucketName = this._bucket.name
+
       const res = await this._http.request({
         type: HttpServiceType.Views,
         method: HttpMethod.Delete,
-        path: `/_design/${designDocName}`,
-        parentSpan: parentSpan,
+        path: `/${bucketName}/_design/${designDocName}`,
         timeout: timeout,
       })
 
@@ -437,13 +419,11 @@ export class ViewIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
     const timer = new CompoundTimeout(timeout)
 
     return PromiseHelper.wrapAsync(async () => {
       const designDoc = await this.getDesignDocument(`dev_${designDocName}`, {
-        parentSpan: parentSpan,
         timeout: timer.left(),
       })
 

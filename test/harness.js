@@ -32,6 +32,7 @@ const ServerFeatures = {
   UserGroupManagement: 'user_group_management',
   PreserveExpiry: 'preserve_expiry',
   Eventing: 'eventing',
+  Transactions: 'transactions',
 }
 
 class ServerVersion {
@@ -347,6 +348,8 @@ class Harness {
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
       case ServerFeatures.Eventing:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
+      case ServerFeatures.Transactions:
+        return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
     }
 
     throw new Error('invalid code for feature checking')
@@ -417,12 +420,12 @@ var harness = new Harness()
 // yet supported on before/after methods yet.
 /* eslint-disable-next-line mocha/no-top-level-hooks */
 before(function (done) {
-  this.timeout(10000)
+  this.timeout(30000)
   harness.prepare().then(done).catch(done)
 })
 /* eslint-disable-next-line mocha/no-top-level-hooks */
 after(function (done) {
-  this.timeout(2000)
+  this.timeout(10000)
   harness.cleanup().then(done).catch(done)
 })
 

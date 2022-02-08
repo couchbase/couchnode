@@ -215,38 +215,6 @@ function genericTests(collFn) {
       })
     })
 
-    describe('#getReplicas', function () {
-      before(function () {
-        H.skipIfMissingFeature(this, H.Features.Replicas)
-      })
-
-      it('should perform basic get all replicas', async function () {
-        var res = await collFn().getAllReplicas(testKeyA)
-
-        assert.isArray(res)
-        assert.isAtLeast(res.length, 1)
-        assert.isBoolean(res[0].isReplica)
-        assert.isNotEmpty(res[0].cas)
-        assert.deepStrictEqual(res[0].content, testObjVal)
-
-        // BUG JSCBC-784: Check to make sure that the value property
-        // returns the same as the content property.
-        assert.strictEqual(res[0].value, res[0].content)
-      })
-
-      it('should perform basic get any replica', async function () {
-        var res = await collFn().getAnyReplica(testKeyA)
-
-        assert.isObject(res)
-        assert.isNotEmpty(res.cas)
-        assert.deepStrictEqual(res.content, testObjVal)
-
-        // BUG JSCBC-784: Check to make sure that the value property
-        // returns the same as the content property.
-        assert.strictEqual(res.value, res.content)
-      })
-    })
-
     describe('#replace', function () {
       it('should replace data correctly', async function () {
         var res = await collFn().replace(testKeyA, { foo: 'baz' })
@@ -493,14 +461,22 @@ function genericTests(collFn) {
       assert.deepStrictEqual(res.value, { foo: 14 })
       var prevCas = res.cas
 
-      // Make sure its actually locked
-      await H.throwsHelper(async function () {
-        await collFn().upsert(testKeyLck, { foo: 9 }, { timeout: 1000 })
-      })
-
       // Ensure we can upsert with the cas
       await collFn().replace(testKeyLck, { foo: 9 }, { cas: prevCas })
-    })
+
+      // Lock it again
+      await collFn().getAndLock(testKeyLck, 3)
+
+      // Make sure its actually locked
+      const stime = new Date().getTime()
+      try {
+        await collFn().upsert(testKeyLck, { foo: 9 }, { timeout: 5000 })
+      } catch (e) {
+        // this is fine in some cases
+      }
+      const etime = new Date().getTime()
+      assert.isAbove(etime - stime, 1000)
+    }).timeout(15000)
 
     it('should unlock successfully', async function () {
       // Lock the key for testing

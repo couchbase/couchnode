@@ -1,7 +1,6 @@
 import { Cluster } from './cluster'
 import { CouchbaseError, GroupNotFoundError, UserNotFoundError } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { RequestSpan } from './tracing'
 import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -491,11 +490,6 @@ export interface GetUserOptions {
   domainName?: string
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -509,11 +503,6 @@ export interface GetAllUsersOptions {
    * The domain to look in for users.
    */
   domainName?: string
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -531,11 +520,6 @@ export interface UpsertUserOptions {
   domainName?: string
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -551,11 +535,6 @@ export interface DropUserOptions {
   domainName?: string
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -565,11 +544,6 @@ export interface DropUserOptions {
  * @category Management
  */
 export interface GetRolesOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -581,11 +555,6 @@ export interface GetRolesOptions {
  */
 export interface GetGroupOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -595,11 +564,6 @@ export interface GetGroupOptions {
  * @category Management
  */
 export interface GetAllGroupsOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -611,11 +575,6 @@ export interface GetAllGroupsOptions {
  */
 export interface UpsertGroupOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -625,11 +584,6 @@ export interface UpsertGroupOptions {
  * @category Management
  */
 export interface DropGroupOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -653,7 +607,7 @@ export class UserManager {
   }
 
   private get _http() {
-    return new HttpExecutor(this._cluster._getClusterConn())
+    return new HttpExecutor(this._cluster.conn)
   }
 
   /**
@@ -677,15 +631,13 @@ export class UserManager {
     }
 
     const domainName = options.domainName || 'local'
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/settings/rbac/users/${domainName}/${username}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -723,15 +675,13 @@ export class UserManager {
     }
 
     const domainName = options.domainName || 'local'
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/settings/rbac/users/${domainName}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -770,8 +720,7 @@ export class UserManager {
     }
 
     const domainName = options.domainName || 'local'
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const userData = User._toNsData(user)
@@ -782,7 +731,6 @@ export class UserManager {
         path: `/settings/rbac/users/${domainName}/${user.username}`,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify(userData),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -815,15 +763,13 @@ export class UserManager {
     }
 
     const domainName = options.domainName || 'local'
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Delete,
         path: `/settings/rbac/users/${domainName}/${username}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -857,15 +803,13 @@ export class UserManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/settings/rbac/roles`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -903,15 +847,13 @@ export class UserManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/settings/rbac/groups/${groupName}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -948,15 +890,13 @@ export class UserManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/settings/rbac/groups`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -994,8 +934,7 @@ export class UserManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const groupData = Group._toNsData(group)
@@ -1006,7 +945,6 @@ export class UserManager {
         path: `/settings/rbac/groups/${group.name}`,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify(groupData),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1038,15 +976,13 @@ export class UserManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Delete,
         path: `/settings/rbac/groups/${groupName}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 

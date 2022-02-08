@@ -5,6 +5,7 @@ import {
   AnalyticsResult,
 } from './analyticstypes'
 import { Bucket } from './bucket'
+import { Cluster } from './cluster'
 import { Collection } from './collection'
 import { Connection } from './connection'
 import { QueryExecutor } from './queryexecutor'
@@ -57,6 +58,13 @@ export class Scope {
   /**
   @internal
   */
+  get cluster(): Cluster {
+    return this._bucket.cluster
+  }
+
+  /**
+  @internal
+  */
   get transcoder(): Transcoder {
     return this._bucket.transcoder
   }
@@ -98,7 +106,7 @@ export class Scope {
     }
 
     const bucket = this.bucket
-    const exec = new QueryExecutor(bucket.conn)
+    const exec = new QueryExecutor(this.cluster)
 
     const options_ = options
     return PromiseHelper.wrapAsync(
@@ -132,7 +140,7 @@ export class Scope {
     }
 
     const bucket = this.bucket
-    const exec = new AnalyticsExecutor(bucket.conn)
+    const exec = new AnalyticsExecutor(this.cluster)
 
     const options_ = options
     return PromiseHelper.wrapAsync(

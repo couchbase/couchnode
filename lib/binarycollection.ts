@@ -1,6 +1,6 @@
 import { Collection } from './collection'
 import { CounterResult, MutationResult } from './crudoptypes'
-import { RequestSpan } from './tracing'
+import { DurabilityLevel } from './generaltypes'
 import { NodeCallback } from './utilities'
 
 /**
@@ -20,9 +20,9 @@ export interface IncrementOptions {
   expiry?: number
 
   /**
-   * The parent tracing span that this operation will be part of.
+   * Specifies the level of synchronous durability for this operation.
    */
-  parentSpan?: RequestSpan
+  durabilityLevel?: DurabilityLevel
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -47,9 +47,9 @@ export interface DecrementOptions {
   expiry?: number
 
   /**
-   * The parent tracing span that this operation will be part of.
+   * Specifies the level of synchronous durability for this operation.
    */
-  parentSpan?: RequestSpan
+  durabilityLevel?: DurabilityLevel
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -62,9 +62,9 @@ export interface DecrementOptions {
  */
 export interface AppendOptions {
   /**
-   * The parent tracing span that this operation will be part of.
+   * Specifies the level of synchronous durability for this operation.
    */
-  parentSpan?: RequestSpan
+  durabilityLevel?: DurabilityLevel
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -77,9 +77,9 @@ export interface AppendOptions {
  */
 export interface PrependOptions {
   /**
-   * The parent tracing span that this operation will be part of.
+   * Specifies the level of synchronous durability for this operation.
    */
-  parentSpan?: RequestSpan
+  durabilityLevel?: DurabilityLevel
 
   /**
    * The timeout for this operation, represented in milliseconds.

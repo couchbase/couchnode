@@ -6,7 +6,6 @@ import {
 } from './errors'
 import { DurabilityLevel } from './generaltypes'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { RequestSpan } from './tracing'
 import {
   cbQsStringify,
   duraLevelToNsServerStr,
@@ -437,11 +436,6 @@ class CreateBucketSettings
  */
 export interface CreateBucketOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -451,11 +445,6 @@ export interface CreateBucketOptions {
  * @category Management
  */
 export interface UpdateBucketOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -467,11 +456,6 @@ export interface UpdateBucketOptions {
  */
 export interface DropBucketOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -481,11 +465,6 @@ export interface DropBucketOptions {
  * @category Management
  */
 export interface GetBucketOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -497,11 +476,6 @@ export interface GetBucketOptions {
  */
 export interface GetAllBucketsOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -511,11 +485,6 @@ export interface GetAllBucketsOptions {
  * @category Management
  */
 export interface FlushBucketOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -539,7 +508,7 @@ export class BucketManager {
   }
 
   private get _http() {
-    return new HttpExecutor(this._cluster._getClusterConn())
+    return new HttpExecutor(this._cluster.conn)
   }
 
   /**
@@ -550,7 +519,7 @@ export class BucketManager {
    * @param callback A node-style callback to be invoked after execution.
    */
   async createBucket(
-    settings: CreateBucketSettings,
+    settings: ICreateBucketSettings,
     options?: CreateBucketOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -562,8 +531,7 @@ export class BucketManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const bucketData = CreateBucketSettings._toNsData(settings)
@@ -574,7 +542,6 @@ export class BucketManager {
         path: `/pools/default/buckets`,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify(bucketData),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -611,8 +578,7 @@ export class BucketManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const bucketData = BucketSettings._toNsData(settings)
@@ -623,7 +589,6 @@ export class BucketManager {
         path: `/pools/default/buckets/${settings.name}`,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify(bucketData),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -660,15 +625,13 @@ export class BucketManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Delete,
         path: `/pools/default/buckets/${bucketName}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -705,15 +668,13 @@ export class BucketManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/pools/default/buckets/${bucketName}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -751,15 +712,13 @@ export class BucketManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Get,
         path: `/pools/default/buckets`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -798,15 +757,13 @@ export class BucketManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Management,
         method: HttpMethod.Post,
         path: `/pools/default/buckets/${bucketName}/controller/doFlush`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 

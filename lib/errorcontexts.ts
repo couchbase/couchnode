@@ -83,16 +83,6 @@ export class KeyValueErrorContext extends ErrorContext {
  */
 export class ViewErrorContext extends ErrorContext {
   /**
-   * The error code of the first error returned by the server.
-   */
-  first_error_code: number
-
-  /**
-   * The error message of the first error returned by the server.
-   */
-  first_error_message: string
-
-  /**
    * The name of the design document that was being operated on.
    */
   design_document: string
@@ -123,8 +113,6 @@ export class ViewErrorContext extends ErrorContext {
   constructor(data: ViewErrorContext) {
     super()
 
-    this.first_error_code = data.first_error_code
-    this.first_error_message = data.first_error_message
     this.design_document = data.design_document
     this.view = data.view
     this.parameters = data.parameters
@@ -139,16 +127,6 @@ export class ViewErrorContext extends ErrorContext {
  * @category Error Handling
  */
 export class QueryErrorContext extends ErrorContext {
-  /**
-   * The error code of the first error returned by the server.
-   */
-  first_error_code: number
-
-  /**
-   * The error message of the first error returned by the server.
-   */
-  first_error_message: string
-
   /**
    * The statement that was being executed when the error occured.
    */
@@ -181,8 +159,6 @@ export class QueryErrorContext extends ErrorContext {
   constructor(data: QueryErrorContext) {
     super()
 
-    this.first_error_code = data.first_error_code
-    this.first_error_message = data.first_error_message
     this.statement = data.statement
     this.client_context_id = data.client_context_id
     this.parameters = data.parameters
@@ -197,11 +173,6 @@ export class QueryErrorContext extends ErrorContext {
  * @category Error Handling
  */
 export class SearchErrorContext extends ErrorContext {
-  /**
-   * The error message which was received from the server.
-   */
-  error_message: string
-
   /**
    * The name of the index which was being operated on.
    */
@@ -233,7 +204,6 @@ export class SearchErrorContext extends ErrorContext {
   constructor(data: SearchErrorContext) {
     super()
 
-    this.error_message = data.error_message
     this.index_name = data.index_name
     this.query = data.query
     this.parameters = data.parameters
@@ -248,16 +218,6 @@ export class SearchErrorContext extends ErrorContext {
  * @category Error Handling
  */
 export class AnalyticsErrorContext extends ErrorContext {
-  /**
-   * The error code of the first error returned by the server.
-   */
-  first_error_code: number
-
-  /**
-   * The error message of the first error returned by the server.
-   */
-  first_error_message: string
-
   /**
    * The statement that was being executed when the error occured.
    */
@@ -290,8 +250,6 @@ export class AnalyticsErrorContext extends ErrorContext {
   constructor(data: QueryErrorContext) {
     super()
 
-    this.first_error_code = data.first_error_code
-    this.first_error_message = data.first_error_message
     this.statement = data.statement
     this.client_context_id = data.client_context_id
     this.parameters = data.parameters

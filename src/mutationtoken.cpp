@@ -1,122 +1,136 @@
-#include "mutationtoken.h"
+#include "mutationtoken.hpp"
+#include "utils.hpp"
+#include <sstream>
 
 namespace couchnode
 {
 
-struct TokenData {
-    lcb_MUTATION_TOKEN token;
+struct MutationTokenData {
+    uint16_t partitionId;
+    uint64_t partitionUuid;
+    uint64_t sequenceNumber;
     char bucketName[256];
 };
 
-NAN_MODULE_INIT(MutationToken::Init)
+void MutationToken::Init(Napi::Env env, Napi::Object exports)
 {
-    Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>();
-    tpl->SetClassName(Nan::New<String>("CbMutationToken").ToLocalChecked());
+    Napi::Function func = DefineClass(
+        env, "MutationToken",
+        {
+            InstanceMethod<&MutationToken::jsToString>("toString"),
+            InstanceMethod<&MutationToken::jsToJSON>("toJSON"),
+            InstanceMethod<&MutationToken::jsInspect>(
+                utils::napiGetSymbol(env, "nodejs.util.inspect.custom")),
+        });
 
-    Nan::SetPrototypeMethod(tpl, "toString", fnToString);
-    Nan::SetPrototypeMethod(tpl, "toJSON", fnToString);
-    Nan::SetPrototypeMethod(tpl, "inspect", fnInspect);
-
-    constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
+    constructor(env) = Napi::Persistent(func);
+    exports.Set("MutationToken", func);
 }
 
-NAN_METHOD(MutationToken::fnToString)
+MutationToken::MutationToken(const Napi::CallbackInfo &info)
+    : Napi::ObjectWrap<MutationToken>(info)
 {
-    Nan::HandleScope scope;
-    lcb_MUTATION_TOKEN token;
-    char bucketName[256];
-    char tokenStr[1024];
-
-    MutationToken::parse(info.This(), &token, bucketName);
-    sprintf(tokenStr, "%hu:%llu:%llu:%s", token.vbid_, token.uuid_,
-            token.seqno_, bucketName);
-    return info.GetReturnValue().Set(
-        Nan::New<String>(tokenStr).ToLocalChecked());
-}
-
-NAN_METHOD(MutationToken::fnInspect)
-{
-    Nan::HandleScope scope;
-    lcb_MUTATION_TOKEN token;
-    char bucketName[256];
-    char tokenStr[1024];
-
-    MutationToken::parse(info.This(), &token, bucketName);
-    sprintf(tokenStr, "CbMutationToken<%hu:%llu:%llu:%s>", token.vbid_,
-            token.uuid_, token.seqno_, bucketName);
-    return info.GetReturnValue().Set(
-        Nan::New<String>(tokenStr).ToLocalChecked());
-}
-
-v8::Local<v8::Value> MutationToken::create(lcb_MUTATION_TOKEN token,
-                                           const char *bucketName)
-{
-    if (!lcb_mutation_token_is_valid(&token) || !bucketName) {
-        return Nan::Undefined();
+    if (info[0].IsBuffer()) {
+        info.This().As<Napi::Object>().Set("raw", info[0]);
+        return;
     }
 
-    Local<Object> ret =
-        Nan::NewInstance(Nan::New<Function>(constructor())).ToLocalChecked();
-
-    TokenData tokenData;
-    tokenData.token = token;
-    strcpy(tokenData.bucketName, bucketName);
-
-    Local<Value> tokenBuf =
-        Nan::CopyBuffer(reinterpret_cast<const char *>(&tokenData),
-                        sizeof(TokenData))
-            .ToLocalChecked();
-    Nan::Set(ret, 0, tokenBuf);
-
-    return ret;
+    auto token = MutationToken::parse(info[0]);
+    auto rawBytesVal = MutationToken::toBuffer(info.Env(), token);
+    info.This().As<Napi::Object>().Set("raw", rawBytesVal);
 }
 
-bool _StrToToken(Local<Value> obj, lcb_MUTATION_TOKEN *token, char *bucketName)
+MutationToken::~MutationToken()
 {
-    if (sscanf(*Nan::Utf8String(
-                   obj->ToString(Nan::GetCurrentContext()).ToLocalChecked()),
-               "%hu:%llu:%llu:%s", &token->vbid_, &token->uuid_, &token->seqno_,
-               bucketName) != 1) {
-        return false;
-    }
-    return true;
 }
 
-bool _ObjToToken(Local<Value> obj, lcb_MUTATION_TOKEN *token, char *bucketName)
+Napi::Value MutationToken::toBuffer(Napi::Env env,
+                                    const couchbase::mutation_token &token)
 {
-    Local<Object> realObj = obj.As<Object>();
-    Local<Value> tokenBuf = Nan::Get(realObj, 0).ToLocalChecked();
-
-    if (!node::Buffer::HasInstance(tokenBuf)) {
-        return false;
-    }
-
-    if (node::Buffer::Length(tokenBuf) != sizeof(TokenData)) {
-        return false;
-    }
-
-    const TokenData *tokenData =
-        reinterpret_cast<const TokenData *>(node::Buffer::Data(tokenBuf));
-
-    memcpy(token, &tokenData->token, sizeof(lcb_MUTATION_TOKEN));
-    strcpy(bucketName, tokenData->bucketName);
-
-    return true;
+    MutationTokenData tokenData;
+    tokenData.partitionId = token.partition_id;
+    tokenData.partitionUuid = token.partition_uuid;
+    tokenData.sequenceNumber = token.sequence_number;
+    memcpy(tokenData.bucketName, token.bucket_name.c_str(),
+           token.bucket_name.size() + 1);
+    return utils::napiDataToBuffer<MutationTokenData>(env, tokenData);
 }
 
-bool MutationToken::parse(Local<Value> obj, lcb_MUTATION_TOKEN *token,
-                          char *bucketName)
+couchbase::mutation_token MutationToken::fromBuffer(Napi::Value val)
 {
-    Nan::HandleScope scope;
+    MutationTokenData tokenData =
+        utils::napiBufferToData<MutationTokenData>(val);
 
-    memset(token, 0, sizeof(lcb_MUTATION_TOKEN));
-    if (obj->IsObject()) {
-        return _ObjToToken(obj, token, bucketName);
-    } else if (obj->IsString()) {
-        return _StrToToken(obj, token, bucketName);
-    } else {
-        return false;
+    couchbase::mutation_token token;
+    token.partition_id = tokenData.partitionId;
+    token.partition_uuid = tokenData.partitionUuid;
+    token.sequence_number = tokenData.sequenceNumber;
+    token.bucket_name = tokenData.bucketName;
+    return token;
+}
+
+Napi::Value MutationToken::create(Napi::Env env,
+                                  const couchbase::mutation_token &token)
+{
+    auto rawBytesVal = MutationToken::toBuffer(env, token);
+    return MutationToken::constructor(env).New({rawBytesVal});
+}
+
+couchbase::mutation_token MutationToken::parse(Napi::Value val)
+{
+    if (val.IsNull()) {
+        return couchbase::mutation_token{};
+    } else if (val.IsUndefined()) {
+        return couchbase::mutation_token{};
+    } else if (val.IsObject()) {
+        auto objVal = val.As<Napi::Object>();
+        auto maybeRawVal = objVal.Get("raw");
+        if (!maybeRawVal.IsEmpty()) {
+            return MutationToken::fromBuffer(maybeRawVal);
+        }
+    } else if (val.IsString()) {
+        // not currently supported
+    } else if (val.IsBuffer()) {
+        return MutationToken::fromBuffer(val);
     }
+
+    return couchbase::mutation_token{};
+}
+
+Napi::Value MutationToken::jsToString(const Napi::CallbackInfo &info)
+{
+    auto token = MutationToken::parse(info.This());
+
+    std::stringstream stream;
+    stream << token.bucket_name << ":" << token.partition_id << ":"
+           << token.partition_uuid << ":" << token.sequence_number;
+    return Napi::String::New(info.Env(), stream.str());
+}
+
+Napi::Value MutationToken::jsToJSON(const Napi::CallbackInfo &info)
+{
+    auto env = info.Env();
+    auto token = MutationToken::parse(info.This());
+
+    auto resObj = Napi::Object::New(env);
+    resObj.Set("bucket_name", Napi::String::New(env, token.bucket_name));
+    resObj.Set("partition_id", Napi::Number::New(env, token.partition_id));
+    resObj.Set("partition_uuid",
+               Napi::String::New(env, std::to_string(token.partition_uuid)));
+    resObj.Set("sequence_number",
+               Napi::String::New(env, std::to_string(token.sequence_number)));
+    return resObj;
+}
+
+Napi::Value MutationToken::jsInspect(const Napi::CallbackInfo &info)
+{
+    auto token = MutationToken::parse(info.This());
+
+    std::stringstream stream;
+    stream << "MutationToken<" << token.bucket_name << ":" << token.partition_id
+           << ":" << token.partition_uuid << ":" << token.sequence_number
+           << ">";
+    return Napi::String::New(info.Env(), stream.str());
 }
 
 } // namespace couchnode

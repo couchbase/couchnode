@@ -14,7 +14,7 @@ describe('#Cluster', function () {
 
     await coll.insert(H.genTestKey(), 'bar')
 
-    cluster.close()
+    await cluster.close()
   })
 
   it('should successfully gc connections', async function () {
@@ -22,25 +22,9 @@ describe('#Cluster', function () {
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
     await coll.insert(H.genTestKey(), 'bar')
-    cluster.close()
+    await cluster.close()
 
     gc()
-  })
-
-  it('should error queued operations after failed connected', async function () {
-    var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
-    var bucket = cluster.bucket('invalid-bucket')
-    var coll = bucket.defaultCollection()
-
-    await H.throwsHelper(async () => {
-      await coll.query('SELECT * FROM default')
-    }, Error)
-
-    await H.throwsHelper(async () => {
-      await coll.insert(H.genTestKey(), 'bar')
-    }, Error)
-
-    cluster.close()
   })
 
   it('should successfully close an unconnected cluster and error ops', async function () {
@@ -48,12 +32,10 @@ describe('#Cluster', function () {
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
 
-    var getProm = coll.insert(H.genTestKey(), 'bar')
-
-    cluster.close()
+    await cluster.close()
 
     await H.throwsHelper(async () => {
-      await getProm
+      await coll.insert(H.genTestKey(), 'bar')
     }, Error)
   })
 
@@ -64,17 +46,17 @@ describe('#Cluster', function () {
 
     await coll.insert(H.genTestKey(), 'bar')
 
-    cluster.close()
-    cluster.close()
-    cluster.close()
-    cluster.close()
+    await cluster.close()
+    await cluster.close()
+    await cluster.close()
+    await cluster.close()
 
     await H.throwsHelper(async () => {
       await coll.insert(H.genTestKey(), 'bar')
     }, Error)
 
-    cluster.close()
-    cluster.close()
+    await cluster.close()
+    await cluster.close()
   })
 
   it('lcbVersion property should work', function () {

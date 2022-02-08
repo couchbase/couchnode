@@ -35,9 +35,7 @@ export class Bucket {
   constructor(cluster: Cluster, bucketName: string) {
     this._cluster = cluster
     this._name = bucketName
-    this._conn = cluster._getConn({
-      bucketName: bucketName,
-    })
+    this._conn = cluster.conn
   }
 
   /**
@@ -143,7 +141,7 @@ export class Bucket {
       options = {}
     }
 
-    const exec = new ViewExecutor(this.conn)
+    const exec = new ViewExecutor(this)
 
     const options_ = options
     return PromiseHelper.wrapAsync(
@@ -172,9 +170,16 @@ export class Bucket {
       options = {}
     }
 
-    const exec = new PingExecutor(this.conn)
+    const exec = new PingExecutor(this._cluster)
 
     const options_ = options
-    return PromiseHelper.wrapAsync(() => exec.ping(options_), callback)
+    return PromiseHelper.wrapAsync(
+      () =>
+        exec.ping({
+          ...options_,
+          bucket: this.name,
+        }),
+      callback
+    )
   }
 }

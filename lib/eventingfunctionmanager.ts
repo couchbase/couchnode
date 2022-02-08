@@ -11,7 +11,6 @@ import {
 } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
 import { QueryScanConsistency } from './querytypes'
-import { RequestSpan } from './tracing'
 import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -1044,11 +1043,6 @@ export class EventingState {
  */
 export interface UpsertFunctionOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1058,11 +1052,6 @@ export interface UpsertFunctionOptions {
  * @category Management
  */
 export interface DropFunctionOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -1074,11 +1063,6 @@ export interface DropFunctionOptions {
  */
 export interface GetAllFunctionsOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1088,11 +1072,6 @@ export interface GetAllFunctionsOptions {
  * @category Management
  */
 export interface GetFunctionOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -1104,11 +1083,6 @@ export interface GetFunctionOptions {
  */
 export interface DeployFunctionOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1118,11 +1092,6 @@ export interface DeployFunctionOptions {
  * @category Management
  */
 export interface UndeployFunctionOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -1134,11 +1103,6 @@ export interface UndeployFunctionOptions {
  */
 export interface PauseFunctionOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1149,11 +1113,6 @@ export interface PauseFunctionOptions {
  */
 export interface ResumeFunctionOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1163,11 +1122,6 @@ export interface ResumeFunctionOptions {
  * @category Management
  */
 export interface FunctionsStatusOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -1192,7 +1146,7 @@ export class EventingFunctionManager {
   }
 
   private get _http() {
-    return new HttpExecutor(this._cluster._getClusterConn())
+    return new HttpExecutor(this._cluster.conn)
   }
 
   /**
@@ -1216,8 +1170,7 @@ export class EventingFunctionManager {
     }
 
     const functionName = functionDefinition.name
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const encodedData = EventingFunction._toEvtData(functionDefinition)
@@ -1228,7 +1181,6 @@ export class EventingFunctionManager {
         path: `/api/v1/functions/${functionName}`,
         contentType: 'application/json',
         body: JSON.stringify(encodedData),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1272,15 +1224,13 @@ export class EventingFunctionManager {
     }
 
     const functionName = name
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Delete,
         path: `/api/v1/functions/${functionName}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1321,15 +1271,13 @@ export class EventingFunctionManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Get,
         path: `/api/v1/functions`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1368,15 +1316,13 @@ export class EventingFunctionManager {
     }
 
     const functionName = name
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Get,
         path: `/api/v1/functions/${functionName}`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1417,15 +1363,13 @@ export class EventingFunctionManager {
     }
 
     const functionName = name
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Post,
         path: `/api/v1/functions/${functionName}/deploy`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1466,15 +1410,13 @@ export class EventingFunctionManager {
     }
 
     const functionName = name
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Post,
         path: `/api/v1/functions/${functionName}/undeploy`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1519,15 +1461,13 @@ export class EventingFunctionManager {
     }
 
     const functionName = name
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Post,
         path: `/api/v1/functions/${functionName}/pause`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1568,15 +1508,13 @@ export class EventingFunctionManager {
     }
 
     const functionName = name
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Post,
         path: `/api/v1/functions/${functionName}/resume`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1614,15 +1552,13 @@ export class EventingFunctionManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Eventing,
         method: HttpMethod.Get,
         path: `/api/v1/status`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 

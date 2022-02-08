@@ -94,7 +94,7 @@ describe('#views', function () {
       assert.isDefined(row.value)
     })
 
-    cluster.close()
+    await cluster.close()
   }).timeout(10000)
 
   it('should successfully drop an index', async function () {

@@ -1,53 +1,6 @@
 /* eslint jsdoc/require-jsdoc: off */
-import binding, {
-  CppConnection,
-  CppLogFunc,
-  CppError,
-  CppTracer,
-  CppMeter,
-} from './binding'
-import { translateCppError } from './bindingutilities'
-import { ConnSpec } from './connspec'
-import { ConnectionClosedError } from './errors'
-import { LogFunc } from './logging'
-import { NoopMeter, LoggingMeter, Meter } from './metrics'
-import { NoopTracer, ThresholdLoggingTracer, RequestTracer } from './tracing'
-
-function getClientString() {
-  // Grab the various versions.  Note that we need to trim them
-  // off as some Node.js versions insert strange characters into
-  // the version identifiers (mainly newlines and such).
-  /* eslint-disable-next-line @typescript-eslint/no-var-requires */
-  const couchnodeVer = require('../package.json').version.trim()
-  const nodeVer = process.versions.node.trim()
-  const v8Ver = process.versions.v8.trim()
-  const sslVer = process.versions.openssl.trim()
-
-  return `couchnode/${couchnodeVer} (node/${nodeVer}; v8/${v8Ver}; ssl/${sslVer})`
-}
-
-export interface ConnectionOptions {
-  connStr: string
-  username?: string
-  password?: string
-  trustStorePath?: string
-  certificatePath?: string
-  keyPath?: string
-  bucketName?: string
-  kvConnectTimeout?: number
-  kvTimeout?: number
-  kvDurableTimeout?: number
-  viewTimeout?: number
-  queryTimeout?: number
-  analyticsTimeout?: number
-  searchTimeout?: number
-  managementTimeout?: number
-  tracer?: RequestTracer
-  meter?: Meter
-  logFunc?: LogFunc
-}
-
-type ErrCallback = (err: Error | null) => void
+import binding, { CppConnection, CppError } from './binding'
+import { errorFromCpp } from './bindingutilities'
 
 // We need this small type-utility to ensure that the labels on the parameter
 // tuple actually get transferred during the merge (typescript bug).
@@ -73,214 +26,33 @@ type CppCbToNew<T extends (...fargs: any[]) => void> = T extends (
     ]
   : never
 
-// BUG(JSCBC-901): We cannot defer HTTP operations inside of libcouchbase and thus
-// need to perform that deferral at the binding level.
-type ConnectWaitFunc = () => void
-
 export class Connection {
   private _inst: CppConnection
-  private _connected: boolean
-  private _opened: boolean
-  private _closed: boolean
-  private _closedErr: Error | null
 
-  // BUG(JSCBC-901)
-  private _connectWaiters: ConnectWaitFunc[]
-
-  constructor(options: ConnectionOptions) {
-    this._closed = false
-    this._closedErr = null
-    this._connected = false
-    this._opened = false
-    this._connectWaiters = []
-
-    const lcbDsnObj = ConnSpec.parse(options.connStr)
-
-    // This function converts a timeout value expressed in milliseconds into
-    // a string for the connection string, represented in seconds.
-    const fmtTmt = (value: number) => {
-      return (value / 1000).toString()
-    }
-
-    if (options.trustStorePath) {
-      lcbDsnObj.options.truststorepath = options.trustStorePath
-    }
-    if (options.certificatePath) {
-      lcbDsnObj.options.certpath = options.certificatePath
-    }
-    if (options.keyPath) {
-      lcbDsnObj.options.keypath = options.keyPath
-    }
-    if (options.bucketName) {
-      lcbDsnObj.bucket = options.bucketName
-    }
-    if (options.kvConnectTimeout) {
-      lcbDsnObj.options.config_total_timeout = fmtTmt(options.kvConnectTimeout)
-    } else {
-      lcbDsnObj.options.config_total_timeout = '30s'
-    }
-    if (options.kvTimeout) {
-      lcbDsnObj.options.timeout = fmtTmt(options.kvTimeout)
-    }
-    if (options.kvDurableTimeout) {
-      lcbDsnObj.options.durability_timeout = fmtTmt(options.kvDurableTimeout)
-    }
-    if (options.viewTimeout) {
-      lcbDsnObj.options.views_timeout = fmtTmt(options.viewTimeout)
-    }
-    if (options.queryTimeout) {
-      lcbDsnObj.options.query_timeout = fmtTmt(options.queryTimeout)
-    }
-    if (options.analyticsTimeout) {
-      lcbDsnObj.options.analytics_timeout = fmtTmt(options.analyticsTimeout)
-    }
-    if (options.searchTimeout) {
-      lcbDsnObj.options.search_timeout = fmtTmt(options.searchTimeout)
-    }
-    if (options.managementTimeout) {
-      lcbDsnObj.options.http_timeout = fmtTmt(options.managementTimeout)
-    }
-
-    let lcbTracer: CppTracer | undefined = undefined
-    if (options.tracer) {
-      if (options.tracer instanceof NoopTracer) {
-        lcbDsnObj.options.enable_tracing = 'off'
-      } else if (options.tracer instanceof ThresholdLoggingTracer) {
-        const tracerOpts = options.tracer._options
-        lcbDsnObj.options.enable_tracing = 'on'
-        if (tracerOpts.emitInterval) {
-          lcbDsnObj.options.tracing_threshold_queue_flush_interval = fmtTmt(
-            tracerOpts.emitInterval
-          )
-        }
-        if (tracerOpts.sampleSize) {
-          lcbDsnObj.options.tracing_threshold_queue_size =
-            tracerOpts.sampleSize.toString()
-        }
-        if (tracerOpts.kvThreshold) {
-          lcbDsnObj.options.tracing_threshold_kv = fmtTmt(
-            tracerOpts.kvThreshold
-          )
-        }
-        if (tracerOpts.queryThreshold) {
-          lcbDsnObj.options.tracing_threshold_query = fmtTmt(
-            tracerOpts.queryThreshold
-          )
-        }
-        if (tracerOpts.viewsThreshold) {
-          lcbDsnObj.options.tracing_threshold_view = fmtTmt(
-            tracerOpts.viewsThreshold
-          )
-        }
-        if (tracerOpts.searchThreshold) {
-          lcbDsnObj.options.tracing_threshold_search = fmtTmt(
-            tracerOpts.searchThreshold
-          )
-        }
-        if (tracerOpts.analyticsThreshold) {
-          lcbDsnObj.options.tracing_threshold_analytics = fmtTmt(
-            tracerOpts.analyticsThreshold
-          )
-        }
-      } else {
-        lcbDsnObj.options.enable_tracing = 'on'
-        lcbTracer = options.tracer
-      }
-    }
-
-    let lcbMeter: CppMeter | undefined = undefined
-    if (options.meter) {
-      if (options.meter instanceof NoopMeter) {
-        lcbDsnObj.options.enable_operation_metrics = 'off'
-      } else if (options.meter instanceof LoggingMeter) {
-        const meterOpts = options.meter._options
-        lcbDsnObj.options.enable_operation_metrics = 'on'
-        if (meterOpts.emitInterval) {
-          lcbDsnObj.options.operation_metrics_flush_interval = fmtTmt(
-            meterOpts.emitInterval
-          )
-        }
-      } else {
-        lcbDsnObj.options.enable_operation_metrics = 'on'
-        lcbMeter = options.meter
-      }
-    }
-
-    lcbDsnObj.options.client_string = getClientString()
-
-    const lcbConnStr = lcbDsnObj.toString()
-
-    let lcbConnType = binding.LCB_TYPE_CLUSTER
-    if (lcbDsnObj.bucket) {
-      lcbConnType = binding.LCB_TYPE_BUCKET
-    }
-
-    // This conversion relies on the LogSeverity and CppLogSeverity enumerations
-    // always being in sync.  There is a test that ensures this.
-    const lcbLogFunc = options.logFunc as any as CppLogFunc
-
-    this._inst = new binding.Connection(
-      lcbConnType,
-      lcbConnStr,
-      options.username,
-      options.password,
-      lcbLogFunc,
-      lcbTracer,
-      lcbMeter
-    )
-
-    // If a bucket name is specified, this connection is immediately marked as
-    // opened, with the assumption that the binding is doing this implicitly.
-    if (lcbDsnObj.bucket) {
-      this._opened = true
-    }
+  constructor() {
+    this._inst = new binding.Connection()
   }
 
-  connect(callback: (err: Error | null) => void): void {
-    this._inst.connect((err) => {
-      if (err) {
-        this._closed = true
-        this._closedErr = translateCppError(err)
-        callback(this._closedErr)
-
-        this._connectWaiters.forEach((waitFn) => waitFn())
-        this._connectWaiters = []
-
-        return
-      }
-
-      this._connected = true
-      callback(null)
-
-      this._connectWaiters.forEach((waitFn) => waitFn())
-      this._connectWaiters = []
-    })
+  get inst(): CppConnection {
+    return this._inst
   }
 
-  selectBucket(
-    bucketName: string,
-    callback: (err: Error | null) => void
-  ): void {
-    this._inst.selectBucket(bucketName, (err) => {
-      if (err) {
-        return callback(translateCppError(err))
-      }
-
-      this._opened = true
-      callback(null)
-    })
+  connect(
+    ...args: CppCbToNew<CppConnection['connect']>
+  ): ReturnType<CppConnection['connect']> {
+    return this._proxyToConn(this._inst, this._inst.connect, ...args)
   }
 
-  close(callback: (err: Error | null) => void): void {
-    if (this._closed) {
-      return
-    }
+  openBucket(
+    ...args: CppCbToNew<CppConnection['openBucket']>
+  ): ReturnType<CppConnection['openBucket']> {
+    return this._proxyToConn(this._inst, this._inst.openBucket, ...args)
+  }
 
-    this._closed = true
-    this._closedErr = new ConnectionClosedError()
-    this._inst.shutdown()
-
-    callback(null)
+  shutdown(
+    ...args: CppCbToNew<CppConnection['shutdown']>
+  ): ReturnType<CppConnection['shutdown']> {
+    return this._proxyToConn(this._inst, this._inst.shutdown, ...args)
   }
 
   get(
@@ -295,16 +67,34 @@ export class Connection {
     return this._proxyToConn(this._inst, this._inst.exists, ...args)
   }
 
-  getReplica(
-    ...args: CppCbToNew<CppConnection['getReplica']>
-  ): ReturnType<CppConnection['getReplica']> {
-    return this._proxyToConn(this._inst, this._inst.getReplica, ...args)
+  getAndLock(
+    ...args: CppCbToNew<CppConnection['getAndLock']>
+  ): ReturnType<CppConnection['getAndLock']> {
+    return this._proxyToConn(this._inst, this._inst.getAndLock, ...args)
   }
 
-  store(
-    ...args: CppCbToNew<CppConnection['store']>
-  ): ReturnType<CppConnection['store']> {
-    return this._proxyToConn(this._inst, this._inst.store, ...args)
+  getAndTouch(
+    ...args: CppCbToNew<CppConnection['getAndTouch']>
+  ): ReturnType<CppConnection['getAndTouch']> {
+    return this._proxyToConn(this._inst, this._inst.getAndTouch, ...args)
+  }
+
+  insert(
+    ...args: CppCbToNew<CppConnection['insert']>
+  ): ReturnType<CppConnection['insert']> {
+    return this._proxyToConn(this._inst, this._inst.insert, ...args)
+  }
+
+  upsert(
+    ...args: CppCbToNew<CppConnection['upsert']>
+  ): ReturnType<CppConnection['upsert']> {
+    return this._proxyToConn(this._inst, this._inst.upsert, ...args)
+  }
+
+  replace(
+    ...args: CppCbToNew<CppConnection['replace']>
+  ): ReturnType<CppConnection['replace']> {
+    return this._proxyToConn(this._inst, this._inst.replace, ...args)
   }
 
   remove(
@@ -325,10 +115,28 @@ export class Connection {
     return this._proxyToConn(this._inst, this._inst.unlock, ...args)
   }
 
-  counter(
-    ...args: CppCbToNew<CppConnection['counter']>
-  ): ReturnType<CppConnection['counter']> {
-    return this._proxyToConn(this._inst, this._inst.counter, ...args)
+  append(
+    ...args: CppCbToNew<CppConnection['append']>
+  ): ReturnType<CppConnection['append']> {
+    return this._proxyToConn(this._inst, this._inst.append, ...args)
+  }
+
+  prepend(
+    ...args: CppCbToNew<CppConnection['prepend']>
+  ): ReturnType<CppConnection['prepend']> {
+    return this._proxyToConn(this._inst, this._inst.prepend, ...args)
+  }
+
+  increment(
+    ...args: CppCbToNew<CppConnection['increment']>
+  ): ReturnType<CppConnection['increment']> {
+    return this._proxyToConn(this._inst, this._inst.increment, ...args)
+  }
+
+  decrement(
+    ...args: CppCbToNew<CppConnection['decrement']>
+  ): ReturnType<CppConnection['decrement']> {
+    return this._proxyToConn(this._inst, this._inst.decrement, ...args)
   }
 
   lookupIn(
@@ -370,38 +178,19 @@ export class Connection {
   httpRequest(
     ...args: CppCbToNew<CppConnection['httpRequest']>
   ): ReturnType<CppConnection['httpRequest']> {
-    return this._proxyOnBootstrap(this._inst, this._inst.httpRequest, ...args)
+    return this._proxyToConn(this._inst, this._inst.httpRequest, ...args)
+  }
+
+  diagnostics(
+    ...args: CppCbToNew<CppConnection['diagnostics']>
+  ): ReturnType<CppConnection['diagnostics']> {
+    return this._proxyToConn(this._inst, this._inst.diagnostics, ...args)
   }
 
   ping(
     ...args: CppCbToNew<CppConnection['ping']>
   ): ReturnType<CppConnection['ping']> {
-    return this._proxyOnBootstrap(this._inst, this._inst.ping, ...args)
-  }
-
-  diag(
-    ...args: CppCbToNew<CppConnection['diag']>
-  ): ReturnType<CppConnection['diag']> {
-    return this._proxyToConn(this._inst, this._inst.diag, ...args)
-  }
-
-  private _proxyOnBootstrap<FArgs extends any[], CbArgs extends any[]>(
-    thisArg: CppConnection,
-    fn: (
-      ...cppArgs: [
-        ...FArgs,
-        (...cppCbArgs: [CppError | null, ...CbArgs]) => void
-      ]
-    ) => void,
-    ...newArgs: [...FArgs, (...newCbArgs: [Error | null, ...CbArgs]) => void]
-  ) {
-    if (this._closed || this._connected) {
-      return this._proxyToConn(thisArg, fn, ...newArgs)
-    } else {
-      this._connectWaiters.push(() => {
-        return this._proxyToConn(thisArg, fn, ...newArgs)
-      })
-    }
+    return this._proxyToConn(this._inst, this._inst.ping, ...args)
   }
 
   private _proxyToConn<FArgs extends any[], CbArgs extends any[]>(
@@ -414,19 +203,20 @@ export class Connection {
     ) => void,
     ...newArgs: [...FArgs, (...newCbArgs: [Error | null, ...CbArgs]) => void]
   ) {
-    const wrappedArgs = newArgs
-    const callback = wrappedArgs.pop() as (
+    const argsManip = newArgs
+    const callback = argsManip.pop() as (
       ...cbArgs: [Error | null, ...CbArgs]
     ) => void
 
-    if (this._closed) {
-      return (callback as any as ErrCallback)(this._closedErr)
-    }
-
-    wrappedArgs.push((err: CppError | null, ...cbArgs: CbArgs) => {
-      const translatedErr = translateCppError(err)
+    argsManip.push((err: CppError | null, ...cbArgs: CbArgs) => {
+      const translatedErr = errorFromCpp(err)
       callback.apply(undefined, [translatedErr, ...cbArgs])
     })
+
+    const wrappedArgs = argsManip as [
+      ...FArgs,
+      (err: CppError | null, ...cbArgs: CbArgs) => void
+    ]
     fn.apply(thisArg, wrappedArgs)
   }
 }

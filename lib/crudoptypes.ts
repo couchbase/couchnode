@@ -106,49 +106,6 @@ export class MutationResult {
 }
 
 /**
- * Contains the results of a get from replica operation.
- *
- * @category Key-Value
- */
-export class GetReplicaResult {
-  /**
-   * The content of the document, as it existed on the replica.
-   */
-  content: any
-
-  /**
-   * The cas of the document, as it is known by the replica.
-   */
-  cas: Cas
-
-  /**
-   * Indicates whether this result came from a replica or the primary.
-   */
-  isReplica: boolean
-
-  /**
-   * @internal
-   */
-  constructor(data: { content: any; cas: Cas; isReplica: boolean }) {
-    this.content = data.content
-    this.cas = data.cas
-    this.isReplica = data.isReplica
-  }
-
-  /**
-   * BUG(JSCBC-784): Previously held the contents of the document.
-   *
-   * @deprecated Use {@link GetReplicaResult.content} instead.
-   */
-  get value(): any {
-    return this.content
-  }
-  set value(v: any) {
-    this.content = v
-  }
-}
-
-/**
  * Contains the results of a specific sub-operation within a lookup-in operation.
  *
  * @category Key-Value

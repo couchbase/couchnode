@@ -5,17 +5,23 @@ import {
   PrependOptions,
   BinaryCollection,
 } from './binarycollection'
-import binding, { CppReplicaMode, CppSdOpFlag } from './binding'
-import { CppStoreOpType } from './binding'
-import { duraLevelToCppDuraMode, translateCppError } from './bindingutilities'
+import binding, { CppMutateInEntry } from './binding'
+import { CppDocumentId, CppLookupInEntry } from './binding'
+import {
+  durabilityToCpp,
+  errorFromCpp,
+  storeSemanticToCpp,
+} from './bindingutilities'
+import { Cluster } from './cluster'
 import { Connection } from './connection'
 import {
   CounterResult,
   ExistsResult,
-  GetReplicaResult,
   GetResult,
   LookupInResult,
+  LookupInResultEntry,
   MutateInResult,
+  MutateInResultEntry,
   MutationResult,
 } from './crudoptypes'
 import {
@@ -24,13 +30,11 @@ import {
   CouchbaseQueue,
   CouchbaseSet,
 } from './datastructures'
-import { PathNotFoundError } from './errors'
+import { DocumentNotFoundError } from './errors'
 import { DurabilityLevel, StoreSemantics } from './generaltypes'
 import { Scope } from './scope'
 import { LookupInMacro, LookupInSpec, MutateInSpec } from './sdspecs'
 import { SdUtils } from './sdutils'
-import { StreamableReplicasPromise } from './streamablepromises'
-import { RequestSpan } from './tracing'
 import { Transcoder } from './transcoders'
 import { NodeCallback, PromiseHelper, Cas } from './utilities'
 
@@ -57,11 +61,6 @@ export interface GetOptions {
   transcoder?: Transcoder
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -71,11 +70,6 @@ export interface GetOptions {
  * @category Key-Value
  */
 export interface ExistsOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -97,28 +91,9 @@ export interface InsertOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
-   * Specifies the number of nodes this operation should be persisted to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityPersistTo?: number
-
-  /**
-   * Specifies the number of nodes this operation should be replicated to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityReplicateTo?: number
-
-  /**
    * Specifies an explicit transcoder to use for this specific operation.
    */
   transcoder?: Transcoder
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -146,28 +121,9 @@ export interface UpsertOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
-   * Specifies the number of nodes this operation should be persisted to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityPersistTo?: number
-
-  /**
-   * Specifies the number of nodes this operation should be replicated to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityReplicateTo?: number
-
-  /**
    * Specifies an explicit transcoder to use for this specific operation.
    */
   transcoder?: Transcoder
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -201,28 +157,9 @@ export interface ReplaceOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
-   * Specifies the number of nodes this operation should be persisted to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityPersistTo?: number
-
-  /**
-   * Specifies the number of nodes this operation should be replicated to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityReplicateTo?: number
-
-  /**
    * Specifies an explicit transcoder to use for this specific operation.
    */
   transcoder?: Transcoder
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -246,65 +183,6 @@ export interface RemoveOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
-   * Specifies the number of nodes this operation should be persisted to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityPersistTo?: number
-
-  /**
-   * Specifies the number of nodes this operation should be replicated to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityReplicateTo?: number
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
-   * The timeout for this operation, represented in milliseconds.
-   */
-  timeout?: number
-}
-
-/**
- * @category Key-Value
- */
-export interface GetAnyReplicaOptions {
-  /**
-   * Specifies an explicit transcoder to use for this specific operation.
-   */
-  transcoder?: Transcoder
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
-   * The timeout for this operation, represented in milliseconds.
-   */
-  timeout?: number
-}
-
-/**
- * @category Key-Value
- */
-export interface GetAllReplicasOptions {
-  /**
-   * Specifies an explicit transcoder to use for this specific operation.
-   */
-  transcoder?: Transcoder
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -318,25 +196,6 @@ export interface TouchOptions {
    * Specifies the level of synchronous durability for this operation.
    */
   durabilityLevel?: DurabilityLevel
-
-  /**
-   * Specifies the number of nodes this operation should be persisted to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityPersistTo?: number
-
-  /**
-   * Specifies the number of nodes this operation should be replicated to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityReplicateTo?: number
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -354,11 +213,6 @@ export interface GetAndTouchOptions {
   transcoder?: Transcoder
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -374,11 +228,6 @@ export interface GetAndLockOptions {
   transcoder?: Transcoder
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -389,11 +238,6 @@ export interface GetAndLockOptions {
  */
 export interface UnlockOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -403,11 +247,6 @@ export interface UnlockOptions {
  * @category Key-Value
  */
 export interface LookupInOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -440,28 +279,9 @@ export interface MutateInOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
-   * Specifies the number of nodes this operation should be persisted to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityPersistTo?: number
-
-  /**
-   * Specifies the number of nodes this operation should be replicated to
-   * before it is considered successful.  Note that this option is mutually
-   * exclusive of {@link durabilityLevel}.
-   */
-  durabilityReplicateTo?: number
-
-  /**
    * Specifies the store semantics to use for this operation.
    */
   storeSemantics?: StoreSemantics
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -514,6 +334,13 @@ export class Collection {
   /**
   @internal
   */
+  get cluster(): Cluster {
+    return this._scope.bucket.cluster
+  }
+
+  /**
+  @internal
+  */
   get scope(): Scope {
     return this._scope
   }
@@ -526,21 +353,36 @@ export class Collection {
   }
 
   /**
+  @internal
+  */
+  _mutationTimeout(durabilityLevel?: DurabilityLevel): number {
+    if (
+      durabilityLevel !== undefined &&
+      durabilityLevel !== null &&
+      durabilityLevel !== DurabilityLevel.None
+    ) {
+      return this.cluster.kvDurableTimeout
+    }
+    return this.cluster.kvTimeout
+  }
+
+  /**
+   * @internal
+   */
+  _cppDocId(key: string): CppDocumentId {
+    return {
+      bucket: this.scope.bucket.name,
+      scope: this.scope.name || '_default',
+      collection: this.name || '_default',
+      key: key,
+    }
+  }
+
+  /**
    * The name of the collection this Collection object references.
    */
   get name(): string {
     return this._name
-  }
-
-  private get _lcbScopeColl(): [string, string] {
-    // BUG(JSCBC-853): There is a bug in libcouchbase which causes non-blank scope
-    // and collection names to fail the collections feature-check when they should not.
-    const scopeName = this.scope.name || '_default'
-    const collectionName = this.name || '_default'
-    if (scopeName === '_default' && collectionName === '_default') {
-      return ['', '']
-    }
-    return [scopeName, collectionName]
   }
 
   /**
@@ -568,19 +410,16 @@ export class Collection {
     }
 
     const transcoder = options.transcoder || this.transcoder
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.get(
-        ...this._lcbScopeColl,
-        key,
-        transcoder,
-        undefined,
-        undefined,
-        parentSpan,
-        lcbTimeout,
-        (err, cas, value) => {
+        {
+          id: this._cppDocId(key),
+          transcoder,
+          timeout,
+        },
+        (err, resp) => {
           if (err) {
             return wrapCallback(err, null)
           }
@@ -588,8 +427,8 @@ export class Collection {
           wrapCallback(
             null,
             new GetResult({
-              content: value,
-              cas: cas,
+              content: resp.content,
+              cas: resp.cas,
             })
           )
         }
@@ -641,7 +480,6 @@ export class Collection {
     return PromiseHelper.wrapAsync(async () => {
       const res = await this.lookupIn(key, spec, {
         ...options,
-        parentSpan: options.parentSpan,
       })
 
       let content: any = null
@@ -701,16 +539,20 @@ export class Collection {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.exists(
-        ...this._lcbScopeColl,
-        key,
-        parentSpan,
-        lcbTimeout,
-        (err, cas, exists) => {
+        {
+          id: this._cppDocId(key),
+          timeout,
+        },
+        (err, resp) => {
+          // BUG(JSCBC-1006): Remove this workaround when the underlying bug is resolved.
+          if (err instanceof DocumentNotFoundError && resp && resp.cas) {
+            err = null
+          }
+
           if (err) {
             return wrapCallback(err, null)
           }
@@ -718,57 +560,13 @@ export class Collection {
           wrapCallback(
             null,
             new ExistsResult({
-              cas,
-              exists,
+              cas: resp.cas,
+              exists: resp.exists,
             })
           )
         }
       )
     }, callback)
-  }
-
-  /**
-   * Retrieves the value of the document from any of the available replicas.  This
-   * will return as soon as the first response is received from any replica node.
-   *
-   * @param key The document key to retrieve.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
-   */
-  getAnyReplica(
-    key: string,
-    options?: GetAnyReplicaOptions,
-    callback?: NodeCallback<GetReplicaResult>
-  ): Promise<GetReplicaResult> {
-    return PromiseHelper.wrapAsync(async () => {
-      const replicas = await this._getReplica(
-        binding.LCB_REPLICA_MODE_ANY,
-        key,
-        options
-      )
-      return replicas[0]
-    }, callback)
-  }
-
-  /**
-   * Retrieves the value of the document from all available replicas.  Note that
-   * as replication is asynchronous, each node may return a different value.
-   *
-   * @param key The document key to retrieve.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
-   */
-  getAllReplicas(
-    key: string,
-    options?: GetAllReplicasOptions,
-    callback?: NodeCallback<GetReplicaResult[]>
-  ): Promise<GetReplicaResult[]> {
-    return this._getReplica(
-      binding.LCB_REPLICA_MODE_ALL,
-      key,
-      options,
-      callback
-    )
   }
 
   /**
@@ -785,7 +583,44 @@ export class Collection {
     options?: InsertOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    return this._store(binding.LCB_STORE_INSERT, key, value, options, callback)
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const expiry = options.expiry
+    const transcoder = options.transcoder || this.transcoder
+    const durabilityLevel = options.durabilityLevel
+    const timeout = this._mutationTimeout(durabilityLevel)
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._conn.insert(
+        {
+          id: this._cppDocId(key),
+          content: value,
+          transcoder,
+          expiry,
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+      )
+    }, callback)
   }
 
   /**
@@ -803,7 +638,46 @@ export class Collection {
     options?: UpsertOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    return this._store(binding.LCB_STORE_UPSERT, key, value, options, callback)
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const expiry = options.expiry
+    const preserve_expiry = options.preserveExpiry
+    const transcoder = options.transcoder || this.transcoder
+    const durabilityLevel = options.durabilityLevel
+    const timeout = this._mutationTimeout(durabilityLevel)
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._conn.upsert(
+        {
+          id: this._cppDocId(key),
+          content: value,
+          transcoder,
+          expiry,
+          preserve_expiry,
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+      )
+    }, callback)
   }
 
   /**
@@ -820,7 +694,48 @@ export class Collection {
     options?: ReplaceOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    return this._store(binding.LCB_STORE_REPLACE, key, value, options, callback)
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const expiry = options.expiry || 0
+    const cas = options.cas
+    const preserve_expiry = options.preserveExpiry
+    const transcoder = options.transcoder || this.transcoder
+    const durabilityLevel = options.durabilityLevel
+    const timeout = this._mutationTimeout(durabilityLevel)
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._conn.replace(
+        {
+          id: this._cppDocId(key),
+          content: value,
+          transcoder,
+          expiry,
+          cas,
+          preserve_expiry,
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+      )
+    }, callback)
   }
 
   /**
@@ -843,24 +758,19 @@ export class Collection {
       options = {}
     }
 
-    const cas = options.cas || null
-    const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const cas = options.cas
+    const durabilityLevel = options.durabilityLevel
+    const timeout = this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.remove(
-        ...this._lcbScopeColl,
-        key,
-        cas,
-        cppDuraMode,
-        persistTo,
-        replicateTo,
-        parentSpan,
-        lcbTimeout,
-        (err, cas) => {
+        {
+          id: this._cppDocId(key),
+          cas,
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
           if (err) {
             return wrapCallback(err, null)
           }
@@ -868,7 +778,7 @@ export class Collection {
           wrapCallback(
             err,
             new MutationResult({
-              cas: cas,
+              cas: resp.cas,
             })
           )
         }
@@ -900,19 +810,17 @@ export class Collection {
     }
 
     const transcoder = options.transcoder || this.transcoder
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.get(
-        ...this._lcbScopeColl,
-        key,
-        transcoder,
-        expiry,
-        undefined,
-        parentSpan,
-        lcbTimeout,
-        (err, cas, value) => {
+      this._conn.getAndTouch(
+        {
+          id: this._cppDocId(key),
+          transcoder,
+          expiry,
+          timeout,
+        },
+        (err, resp) => {
           if (err) {
             return wrapCallback(err, null)
           }
@@ -920,8 +828,8 @@ export class Collection {
           wrapCallback(
             err,
             new GetResult({
-              content: value,
-              cas: cas,
+              content: resp.content,
+              cas: resp.cas,
             })
           )
         }
@@ -951,23 +859,16 @@ export class Collection {
       options = {}
     }
 
-    const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.touch(
-        ...this._lcbScopeColl,
-        key,
-        expiry,
-        cppDuraMode,
-        persistTo,
-        replicateTo,
-        parentSpan,
-        lcbTimeout,
-        (err, cas) => {
+        {
+          id: this._cppDocId(key),
+          expiry,
+          timeout,
+        },
+        (err, resp) => {
           if (err) {
             return wrapCallback(err, null)
           }
@@ -975,7 +876,7 @@ export class Collection {
           wrapCallback(
             err,
             new MutationResult({
-              cas: cas,
+              cas: resp.cas,
             })
           )
         }
@@ -1006,19 +907,17 @@ export class Collection {
     }
 
     const transcoder = options.transcoder || this.transcoder
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.get(
-        ...this._lcbScopeColl,
-        key,
-        transcoder,
-        undefined,
-        lockTime,
-        parentSpan,
-        lcbTimeout,
-        (err, cas, value) => {
+      this._conn.getAndLock(
+        {
+          id: this._cppDocId(key),
+          transcoder,
+          lock_time: lockTime,
+          timeout,
+        },
+        (err, resp) => {
           if (err) {
             return wrapCallback(err, null)
           }
@@ -1026,8 +925,8 @@ export class Collection {
           wrapCallback(
             err,
             new GetResult({
-              cas: cas,
-              content: value,
+              cas: resp.cas,
+              content: resp.content,
             })
           )
         }
@@ -1057,16 +956,15 @@ export class Collection {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.unlock(
-        ...this._lcbScopeColl,
-        key,
-        cas,
-        parentSpan,
-        lcbTimeout,
+        {
+          id: this._cppDocId(key),
+          cas,
+          timeout,
+        },
         (err) => {
           if (err) {
             return wrapCallback(err)
@@ -1101,52 +999,59 @@ export class Collection {
       options = {}
     }
 
-    const flags: CppSdOpFlag = 0
-
-    let cmdData: any = []
+    const cppSpecs: CppLookupInEntry[] = []
     for (let i = 0; i < specs.length; ++i) {
-      cmdData = [...cmdData, specs[i]._op, specs[i]._flags, specs[i]._path]
+      cppSpecs.push({
+        opcode: specs[i]._op,
+        flags: specs[i]._flags,
+        path: specs[i]._path,
+      })
     }
 
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.lookupIn(
-        ...this._lcbScopeColl,
-        key,
-        flags,
-        cmdData,
-        parentSpan,
-        lcbTimeout,
-        (err, res) => {
-          if (res && res.content) {
-            for (let i = 0; i < res.content.length; ++i) {
-              const itemRes = res.content[i]
-              itemRes.error = translateCppError(itemRes.error)
-              if (itemRes.value && itemRes.value.length > 0) {
-                itemRes.value = JSON.parse(itemRes.value)
+        {
+          id: this._cppDocId(key),
+          specs: cppSpecs,
+          timeout,
+        },
+        (err, resp) => {
+          if (resp && resp.fields) {
+            const content: LookupInResultEntry[] = []
+
+            for (let i = 0; i < resp.fields.length; ++i) {
+              const itemRes = resp.fields[i]
+
+              let error = errorFromCpp(itemRes.error)
+
+              let value = itemRes.value
+              if (value && value.length > 0) {
+                value = JSON.parse(value)
               } else {
-                itemRes.value = null
+                value = null
               }
 
-              // TODO(brett19): BUG JSCBC-632 - This conversion logic should not be required,
-              // it is expected that when JSCBC-632 is fixed, this code is removed as well.
-              if (specs[i]._op === binding.LCBX_SDCMD_EXISTS) {
-                if (!itemRes.error) {
-                  itemRes.value = true
-                } else if (itemRes.error instanceof PathNotFoundError) {
-                  itemRes.error = null
-                  itemRes.value = false
-                }
+              // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
+              if (itemRes.opcode === binding.subdoc_opcode.exists) {
+                error = null
+                value = itemRes.exists
               }
+
+              content.push(
+                new LookupInResultEntry({
+                  error,
+                  value,
+                })
+              )
             }
 
             wrapCallback(
               err,
               new LookupInResult({
-                content: res.content,
-                cas: res.cas,
+                content: content,
+                cas: resp.cas,
               })
             )
             return
@@ -1181,67 +1086,64 @@ export class Collection {
       options = {}
     }
 
-    let flags: CppSdOpFlag = 0
-    if (options.storeSemantics === StoreSemantics.Upsert) {
-      flags |= binding.LCBX_SDFLAG_UPSERT_DOC
-    } else if (options.storeSemantics === StoreSemantics.Replace) {
-      // This is the default behaviour
-    } else if (options.storeSemantics === StoreSemantics.Insert) {
-      flags |= binding.LCBX_SDFLAG_INSERT_DOC
-    } else if (options.upsertDocument) {
-      flags |= binding.LCBX_SDFLAG_UPSERT_DOC
-    }
-
-    let cmdData: any = []
+    const cppSpecs: CppMutateInEntry[] = []
     for (let i = 0; i < specs.length; ++i) {
-      cmdData = [
-        ...cmdData,
-        specs[i]._op,
-        specs[i]._flags,
-        specs[i]._path,
-        specs[i]._data,
-      ]
+      cppSpecs.push({
+        opcode: specs[i]._op,
+        flags: specs[i]._flags,
+        path: specs[i]._path,
+        param: specs[i]._data,
+      })
     }
 
-    const expiry = options.preserveExpiry ? -1 : options.expiry
+    const storeSemantics = options.upsertDocument
+      ? StoreSemantics.Upsert
+      : options.storeSemantics
+    const expiry = options.expiry
+    const preserveExpiry = options.preserveExpiry
     const cas = options.cas
-    const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
+    const durabilityLevel = options.durabilityLevel
+    const timeout = this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.mutateIn(
-        ...this._lcbScopeColl,
-        key,
-        expiry,
-        cas,
-        flags,
-        cmdData,
-        cppDuraMode,
-        persistTo,
-        replicateTo,
-        parentSpan,
-        lcbTimeout,
-        (err, res) => {
-          if (res && res.content) {
-            for (let i = 0; i < res.content.length; ++i) {
-              const itemRes = res.content[i]
-              if (itemRes.value && itemRes.value.length > 0) {
-                res.content[i] = {
-                  value: JSON.parse(itemRes.value),
-                }
+        {
+          id: this._cppDocId(key),
+          store_semantics: storeSemanticToCpp(storeSemantics),
+          specs: cppSpecs,
+          expiry,
+          preserve_expiry: preserveExpiry,
+          cas,
+          // access_deleted
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (resp && resp.fields) {
+            const content: MutateInResultEntry[] = []
+
+            for (let i = 0; i < resp.fields.length; ++i) {
+              const itemRes = resp.fields[i]
+
+              let value = itemRes.value
+              if (value && value.length > 0) {
+                value = JSON.parse(value)
               } else {
-                res.content[i] = null
+                value = null
               }
+
+              content.push(
+                new MutateInResultEntry({
+                  value,
+                })
+              )
             }
 
             wrapCallback(
               err,
               new MutateInResult({
-                content: res.content,
-                cas: res.cas,
+                content: content,
+                cas: resp.cas,
               })
             )
             return
@@ -1297,185 +1199,6 @@ export class Collection {
     return new BinaryCollection(this)
   }
 
-  private _getReplica(
-    mode: CppReplicaMode,
-    key: string,
-    options?: {
-      transcoder?: Transcoder
-      parentSpan?: RequestSpan
-      timeout?: number
-    },
-    callback?: NodeCallback<GetReplicaResult[]>
-  ): StreamableReplicasPromise<GetReplicaResult[], GetReplicaResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    const emitter = new StreamableReplicasPromise<
-      GetReplicaResult[],
-      GetReplicaResult
-    >((replicas) => replicas)
-
-    const transcoder = options.transcoder || this.transcoder
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
-
-    this._conn.getReplica(
-      ...this._lcbScopeColl,
-      key,
-      transcoder,
-      mode,
-      options.parentSpan,
-      lcbTimeout,
-      (err, rflags, cas, value) => {
-        if (!err) {
-          emitter.emit(
-            'replica',
-            new GetReplicaResult({
-              content: value,
-              cas: cas,
-              isReplica: true,
-            })
-          )
-        }
-
-        if (!(rflags & binding.LCBX_RESP_F_NONFINAL)) {
-          emitter.emit('end')
-        }
-      }
-    )
-
-    return PromiseHelper.wrapAsync(() => emitter, callback)
-  }
-
-  private _store(
-    opType: CppStoreOpType,
-    key: string,
-    value: any,
-    options?: {
-      expiry?: number
-      preserveExpiry?: boolean
-      cas?: Cas
-      durabilityLevel?: DurabilityLevel
-      durabilityPersistTo?: number
-      durabilityReplicateTo?: number
-      transcoder?: Transcoder
-      parentSpan?: RequestSpan
-      timeout?: number
-    },
-    callback?: NodeCallback<MutationResult>
-  ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    const expiry = options.preserveExpiry ? -1 : options.expiry
-    const cas = options.cas
-    const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const transcoder = options.transcoder || this.transcoder
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
-
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.store(
-        ...this._lcbScopeColl,
-        key,
-        transcoder,
-        value,
-        expiry,
-        cas,
-        cppDuraMode,
-        persistTo,
-        replicateTo,
-        parentSpan,
-        lcbTimeout,
-        opType,
-        (err, cas, token) => {
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: cas,
-              token: token,
-            })
-          )
-        }
-      )
-    }, callback)
-  }
-
-  private _counter(
-    key: string,
-    delta: number,
-    options?: {
-      initial?: number
-      expiry?: number
-      durabilityLevel?: DurabilityLevel
-      durabilityPersistTo?: number
-      durabilityReplicateTo?: number
-      parentSpan?: RequestSpan
-      timeout?: number
-    },
-    callback?: NodeCallback<CounterResult>
-  ): Promise<CounterResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    const initial = options.initial
-    const expiry = options.expiry
-    const cppDuraMode = duraLevelToCppDuraMode(options.durabilityLevel)
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const parentSpan = options.parentSpan
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
-
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.counter(
-        ...this._lcbScopeColl,
-        key,
-        delta,
-        initial,
-        expiry,
-        cppDuraMode,
-        persistTo,
-        replicateTo,
-        parentSpan,
-        lcbTimeout,
-        (err, cas, token, value) => {
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(
-            err,
-            new CounterResult({
-              cas: cas,
-              token: token,
-              value: value,
-            })
-          )
-        }
-      )
-    }, callback)
-  }
-
   /**
    * @internal
    */
@@ -1485,7 +1208,45 @@ export class Collection {
     options?: IncrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {
-    return this._counter(key, +delta, options, callback)
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const initial_value = options.initial
+    const expiry = options.expiry
+    const durabilityLevel = options.durabilityLevel
+    const timeout = options.timeout || this.cluster.kvTimeout
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._conn.increment(
+        {
+          id: this._cppDocId(key),
+          delta,
+          initial_value,
+          expiry,
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            new CounterResult({
+              cas: resp.cas,
+              token: resp.token,
+              value: resp.content,
+            })
+          )
+        }
+      )
+    }, callback)
   }
 
   /**
@@ -1497,7 +1258,45 @@ export class Collection {
     options?: DecrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {
-    return this._counter(key, -delta, options, callback)
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const initial_value = options.initial
+    const expiry = options.expiry
+    const durabilityLevel = options.durabilityLevel
+    const timeout = options.timeout || this.cluster.kvTimeout
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._conn.decrement(
+        {
+          id: this._cppDocId(key),
+          delta,
+          initial_value,
+          expiry,
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            new CounterResult({
+              cas: resp.cas,
+              token: resp.token,
+              value: resp.content,
+            })
+          )
+        }
+      )
+    }, callback)
   }
 
   /**
@@ -1509,14 +1308,40 @@ export class Collection {
     options?: AppendOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    const bufValue = Buffer.from(value)
-    return this._store(
-      binding.LCB_STORE_APPEND,
-      key,
-      bufValue,
-      options,
-      callback
-    )
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const durabilityLevel = options.durabilityLevel
+    const timeout = options.timeout || this.cluster.kvTimeout
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._conn.append(
+        {
+          id: this._cppDocId(key),
+          value: Buffer.from(value),
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+      )
+    }, callback)
   }
 
   /**
@@ -1528,13 +1353,39 @@ export class Collection {
     options?: PrependOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    const bufValue = Buffer.from(value)
-    return this._store(
-      binding.LCB_STORE_PREPEND,
-      key,
-      bufValue,
-      options,
-      callback
-    )
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const durabilityLevel = options.durabilityLevel
+    const timeout = options.timeout || this.cluster.kvTimeout
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._conn.prepend(
+        {
+          id: this._cppDocId(key),
+          value: Buffer.from(value),
+          durability_level: durabilityToCpp(durabilityLevel),
+          timeout,
+        },
+        (err, resp) => {
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+      )
+    }, callback)
   }
 }

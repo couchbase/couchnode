@@ -1,99 +1,97 @@
-#include "cas.h"
+#include "cas.hpp"
+#include "utils.hpp"
+#include <sstream>
 
 namespace couchnode
 {
 
-NAN_MODULE_INIT(Cas::Init)
+void Cas::Init(Napi::Env env, Napi::Object exports)
 {
-    Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>();
-    tpl->SetClassName(Nan::New<String>("CbCas").ToLocalChecked());
+    Napi::Function func =
+        DefineClass(env, "Cas",
+                    {
+                        InstanceMethod<&Cas::jsToString>("toString"),
+                        InstanceMethod<&Cas::jsToString>("toJSON"),
+                        InstanceMethod<&Cas::jsInspect>(utils::napiGetSymbol(
+                            env, "nodejs.util.inspect.custom")),
+                    });
 
-    Nan::SetPrototypeMethod(tpl, "toString", fnToString);
-    Nan::SetPrototypeMethod(tpl, "toJSON", fnToString);
-    Nan::SetPrototypeMethod(tpl, "inspect", fnInspect);
-
-    constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
+    constructor(env) = Napi::Persistent(func);
+    exports.Set("Cas", func);
 }
 
-NAN_METHOD(Cas::fnToString)
+Cas::Cas(const Napi::CallbackInfo &info)
+    : Napi::ObjectWrap<Cas>(info)
 {
-    Nan::HandleScope scope;
-    uint64_t casVal = 0;
-    char casStr[24 + 1] = "";
-
-    Cas::parse(info.This(), &casVal);
-    sprintf(casStr, "%llu", (unsigned long long int)casVal);
-
-    info.GetReturnValue().Set(Nan::New<String>(casStr).ToLocalChecked());
-}
-
-NAN_METHOD(Cas::fnInspect)
-{
-    Nan::HandleScope scope;
-    uint64_t casVal = 0;
-    char casStr[7 + 24 + 1] = "";
-
-    Cas::parse(info.This(), &casVal);
-    sprintf(casStr, "CbCas<%llu>", (unsigned long long int)casVal);
-
-    return info.GetReturnValue().Set(Nan::New<String>(casStr).ToLocalChecked());
-}
-
-Local<Value> Cas::create(uint64_t cas)
-{
-    Local<Object> ret =
-        Nan::NewInstance(Nan::New<Function>(constructor())).ToLocalChecked();
-
-    Local<Value> casData =
-        Nan::CopyBuffer((char *)&cas, sizeof(uint64_t)).ToLocalChecked();
-    Nan::Set(ret, 0, casData);
-
-    return ret;
-}
-
-bool _StrToCas(Local<Value> obj, uint64_t *p)
-{
-    if (sscanf(*Nan::Utf8String(
-                   obj->ToString(Nan::GetCurrentContext()).ToLocalChecked()),
-               "%llu", (unsigned long long int *)p) != 1) {
-        return false;
-    }
-    return true;
-}
-
-bool _ObjToCas(Local<Value> obj, uint64_t *p)
-{
-    Local<Object> realObj = obj.As<Object>();
-    Local<Value> casData = Nan::Get(realObj, 0).ToLocalChecked();
-
-    if (!node::Buffer::HasInstance(casData)) {
-        return false;
+    if (info[0].IsBuffer()) {
+        info.This().As<Napi::Object>().Set("raw", info[0]);
+        return;
     }
 
-    if (node::Buffer::Length(casData) != sizeof(uint64_t)) {
-        return false;
-    }
-
-    memcpy(p, node::Buffer::Data(casData), sizeof(uint64_t));
-
-    return true;
+    couchbase::cas cas = Cas::parse(info[0]);
+    auto rawBytesVal = Cas::toBuffer(info.Env(), cas);
+    info.This().As<Napi::Object>().Set("raw", rawBytesVal);
 }
 
-bool Cas::parse(Local<Value> obj, uint64_t *p)
+Cas::~Cas()
 {
-    Nan::HandleScope scope;
+}
 
-    *p = 0;
-    if (obj->IsNull() || obj->IsUndefined()) {
-        *p = 0;
-        return true;
-    } else if (obj->IsObject()) {
-        return _ObjToCas(obj, p);
-    } else if (obj->IsString()) {
-        return _StrToCas(obj, p);
+Napi::Value Cas::toBuffer(Napi::Env env, couchbase::cas cas)
+{
+    return utils::napiDataToBuffer<couchbase::cas>(env, cas);
+}
+
+couchbase::cas Cas::fromBuffer(Napi::Value val)
+{
+    return utils::napiBufferToData<couchbase::cas>(val);
+}
+
+Napi::Value Cas::create(Napi::Env env, couchbase::cas cas)
+{
+    auto rawBytesVal = Cas::toBuffer(env, cas);
+    return Cas::constructor(env).New({rawBytesVal});
+}
+
+couchbase::cas Cas::parse(Napi::Value val)
+{
+    if (val.IsNull()) {
+        return couchbase::cas{0};
+    } else if (val.IsUndefined()) {
+        return couchbase::cas{0};
+    } else if (val.IsObject()) {
+        auto objVal = val.As<Napi::Object>();
+        auto maybeRawVal = objVal.Get("raw");
+        if (!maybeRawVal.IsEmpty()) {
+            return Cas::fromBuffer(maybeRawVal);
+        }
+    } else if (val.IsString()) {
+        auto textVal = val.ToString().Utf8Value();
+        auto intVal = std::stoull(textVal);
+        return couchbase::cas{intVal};
+    } else if (val.IsBuffer()) {
+        return Cas::fromBuffer(val);
     }
 
-    return false;
+    return couchbase::cas{0};
+}
+
+Napi::Value Cas::jsToString(const Napi::CallbackInfo &info)
+{
+    auto cas = Cas::parse(info.This());
+
+    std::stringstream stream;
+    stream << cas.value;
+    return Napi::String::New(info.Env(), stream.str());
+}
+
+Napi::Value Cas::jsInspect(const Napi::CallbackInfo &info)
+{
+    auto cas = Cas::parse(info.This());
+
+    std::stringstream stream;
+    stream << "Cas<" << cas.value << ">";
+    return Napi::String::New(info.Env(), stream.str());
 }
 
 } // namespace couchnode

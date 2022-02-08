@@ -31,6 +31,11 @@ export enum ServiceType {
    * The analytics service, responsible for analytics querying.
    */
   Analytics = 'analytics',
+
+  /**
+   * The eventing service, responsible for event-driven actions.
+   */
+  Eventing = 'eventing',
 }
 
 /**

@@ -1,7 +1,6 @@
 import { Cluster } from './cluster'
 import { CouchbaseError, IndexExistsError, IndexNotFoundError } from './errors'
 import { HttpExecutor } from './httpexecutor'
-import { RequestSpan } from './tracing'
 import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -87,11 +86,6 @@ export interface CreateQueryIndexOptions {
   deferred?: boolean
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -124,11 +118,6 @@ export interface CreatePrimaryQueryIndexOptions {
   deferred?: boolean
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -143,11 +132,6 @@ export interface DropQueryIndexOptions {
    * determining whether the call was successful.
    */
   ignoreIfNotExists?: boolean
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -171,11 +155,6 @@ export interface DropPrimaryQueryIndexOptions {
   ignoreIfNotExists?: boolean
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -186,11 +165,6 @@ export interface DropPrimaryQueryIndexOptions {
  */
 export interface GetAllQueryIndexesOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -200,11 +174,6 @@ export interface GetAllQueryIndexesOptions {
  * @category Management
  */
 export interface BuildQueryIndexOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -219,11 +188,6 @@ export interface WatchQueryIndexOptions {
    * Specifies whether the primary indexes should be watched as well.
    */
   watchPrimary?: boolean
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 }
 
 /**
@@ -243,7 +207,7 @@ export class QueryIndexManager {
   }
 
   private get _http() {
-    return new HttpExecutor(this._cluster._getClusterConn())
+    return new HttpExecutor(this._cluster.conn)
   }
 
   private async _createIndex(
@@ -254,11 +218,12 @@ export class QueryIndexManager {
       ignoreIfExists?: boolean
       numReplicas?: number
       deferred?: boolean
-      parentSpan?: RequestSpan
       timeout?: number
     },
     callback?: NodeCallback<void>
   ): Promise<void> {
+    const timeout = options.timeout || this._cluster.managementTimeout
+
     let qs = ''
 
     if (!options.fields) {
@@ -302,8 +267,7 @@ export class QueryIndexManager {
     return PromiseHelper.wrapAsync(async () => {
       try {
         await this._cluster.query(qs, {
-          parentSpan: options.parentSpan,
-          timeout: options.timeout,
+          timeout: timeout,
         })
       } catch (err) {
         if (options.ignoreIfExists && err instanceof IndexExistsError) {
@@ -347,7 +311,6 @@ export class QueryIndexManager {
         ignoreIfExists: options.ignoreIfExists,
         numReplicas: options.numReplicas,
         deferred: options.deferred,
-        parentSpan: options.parentSpan,
         timeout: options.timeout,
       },
       callback
@@ -380,7 +343,6 @@ export class QueryIndexManager {
         name: options.name,
         ignoreIfExists: options.ignoreIfExists,
         deferred: options.deferred,
-        parentSpan: options.parentSpan,
         timeout: options.timeout,
       },
       callback
@@ -392,25 +354,23 @@ export class QueryIndexManager {
     options: {
       name?: string
       ignoreIfNotExists?: boolean
-      parentSpan?: RequestSpan
       timeout?: number
     },
     callback?: NodeCallback<void>
   ): Promise<void> {
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
+
+    let qs = ''
+
+    if (!options.name) {
+      qs += 'DROP PRIMARY INDEX `' + bucketName + '`'
+    } else {
+      qs += 'DROP INDEX `' + bucketName + '`.`' + options.name + '`'
+    }
 
     return PromiseHelper.wrapAsync(async () => {
-      let qs = ''
-
-      if (!options.name) {
-        qs += 'DROP PRIMARY INDEX `' + bucketName + '`'
-      } else {
-        qs += 'DROP INDEX `' + bucketName + '`.`' + options.name + '`'
-      }
-
       try {
         await this._cluster.query(qs, {
-          parentSpan: options.parentSpan,
           timeout: timeout,
         })
       } catch (err) {
@@ -450,7 +410,6 @@ export class QueryIndexManager {
       {
         name: indexName,
         ignoreIfNotExists: options.ignoreIfNotExists,
-        parentSpan: options.parentSpan,
         timeout: options.timeout,
       },
       callback
@@ -482,7 +441,6 @@ export class QueryIndexManager {
       {
         name: options.name,
         ignoreIfNotExists: options.ignoreIfNotExists,
-        parentSpan: options.parentSpan,
         timeout: options.timeout,
       },
       callback
@@ -515,12 +473,10 @@ export class QueryIndexManager {
                 OR \`bucket_id\`="${bucketName}"
               ) AND \`using\`="gsi" ORDER BY is_primary DESC, name ASC`
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._cluster.query(qs, {
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -562,13 +518,11 @@ export class QueryIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
     const timer = new CompoundTimeout(timeout)
 
     return PromiseHelper.wrapAsync(async () => {
       const indexes = await this.getAllIndexes(bucketName, {
-        parentSpan: parentSpan,
         timeout: timer.left(),
       })
 
@@ -633,7 +587,6 @@ export class QueryIndexManager {
       indexNames = [...indexNames, '#primary']
     }
 
-    const parentSpan = options.parentSpan
     const timer = new CompoundTimeout(timeout)
 
     return PromiseHelper.wrapAsync(async () => {
@@ -641,7 +594,6 @@ export class QueryIndexManager {
       for (;;) {
         // Get all the indexes that are currently registered
         const foundIdxs = await this.getAllIndexes(bucketName, {
-          parentSpan: parentSpan,
           timeout: timer.left(),
         })
         const onlineIdxs = foundIdxs.filter((idx) => idx.state === 'online')

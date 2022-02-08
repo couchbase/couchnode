@@ -9,7 +9,6 @@ import { NodeCallback } from './utilities'
  * @param connStr The connection string to use to connect to the cluster.
  * @param options Optional parameters for this operation.
  * @param callback A node-style callback to be invoked after execution.
- *
  * @category Core
  */
 export async function connect(
@@ -21,10 +20,18 @@ export async function connect(
 }
 
 /**
- * Exposes the underlying libcouchbase library version that is being used by the
+ * Exposes the underlying couchbase++ library version that is being used by the
+ * SDK to perform I/O with the cluster.
+ *
+ * @deprecated Use {@link cbppVersion} instead.
+ */
+export const lcbVersion: string = binding.cbppVersion
+
+/**
+ * Exposes the underlying couchbase++ library version that is being used by the
  * SDK to perform I/O with the cluster.
  */
-export const lcbVersion: string = binding.lcbVersion
+export const cbppVersion: string = binding.cbppVersion
 
 export * from './analyticsindexmanager'
 export * from './analyticstypes'
@@ -42,8 +49,6 @@ export * from './errorcontexts'
 export * from './errors'
 export * from './eventingfunctionmanager'
 export * from './generaltypes'
-export * from './logging'
-export * from './metrics'
 export * from './mutationstate'
 export * from './queryindexmanager'
 export * from './querytypes'
@@ -55,7 +60,7 @@ export * from './searchquery'
 export * from './searchsort'
 export * from './searchtypes'
 export * from './streamablepromises'
-export * from './tracing'
+export * from './transactions'
 export * from './transcoders'
 export * from './usermanager'
 export * from './viewexecutor'

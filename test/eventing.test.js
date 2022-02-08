@@ -131,17 +131,17 @@ describe('#eventing', function () {
   it('should successfully pause the function', async function () {
     await H.c.eventingFunctions().pauseFunction(testFn)
     await waitForState(H.lib.EventingFunctionStatus.Paused)
-  }).timeout(15000)
+  }).timeout(30000)
 
   it('should successfully resume the function', async function () {
     await H.c.eventingFunctions().resumeFunction(testFn)
     await waitForState(H.lib.EventingFunctionStatus.Deployed)
-  }).timeout(15000)
+  }).timeout(30000)
 
   it('should successfully undeploy the function', async function () {
     await H.c.eventingFunctions().undeployFunction(testFn)
     await waitForState(H.lib.EventingFunctionStatus.Undeployed)
-  }).timeout(15000)
+  }).timeout(30000)
 
   it('should successfully drop the function', async function () {
     await H.c.eventingFunctions().dropFunction(testFn)

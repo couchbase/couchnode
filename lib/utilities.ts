@@ -1,6 +1,4 @@
-import { CppCas } from './binding'
 import { DurabilityLevel } from './generaltypes'
-import parseDuration from 'parse-duration'
 import * as qs from 'querystring'
 
 /**
@@ -9,7 +7,17 @@ import * as qs from 'querystring'
  *
  * @category Key-Value
  */
-export type Cas = CppCas
+export interface Cas {
+  /**
+   * Generates a string representation of this CAS.
+   */
+  toString(): string
+
+  /**
+   * Generates a JSON representation of this CAS.
+   */
+  toJSON(): any
+}
 
 /**
  * Reprents a node-style callback which receives an optional error or result.
@@ -116,33 +124,6 @@ export class CompoundTimeout {
 
     return timeLeft <= 0
   }
-}
-
-/**
- * @internal
- */
-export function msToGoDurationStr(ms?: number): string | undefined {
-  if (ms === undefined) {
-    return undefined
-  }
-
-  return `${ms}ms`
-}
-
-/**
- * @internal
- */
-export function goDurationStrToMs(str?: string): number | undefined {
-  if (str === undefined) {
-    return undefined
-  }
-
-  const duration = parseDuration(str)
-  if (duration === null) {
-    return undefined
-  }
-
-  return duration
 }
 
 /**

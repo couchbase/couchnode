@@ -17,16 +17,16 @@ describe('#diagnostics', function () {
       } catch (e) {
         res = {
           id: '',
-          version: 1,
+          version: 2,
           sdk: '',
-          services: [],
+          services: {},
         }
       }
       assert.isObject(res)
       assert.isString(res.id)
-      assert.equal(res.version, 1)
+      assert.equal(res.version, 2)
       assert.isString(res.sdk)
-      assert.isArray(res.services)
+      assert.isObject(res.services)
 
       await testCluster.close()
     })
@@ -35,9 +35,9 @@ describe('#diagnostics', function () {
       var res = await H.c.diagnostics()
       assert.isObject(res)
       assert.isString(res.id)
-      assert.equal(res.version, 1)
+      assert.equal(res.version, 2)
       assert.isString(res.sdk)
-      assert.isArray(res.services)
+      assert.isObject(res.services)
     })
 
     it('should ping a cluster successfully', async function () {
@@ -46,7 +46,7 @@ describe('#diagnostics', function () {
       })
       assert.isObject(res)
       assert.isString(res.id)
-      assert.equal(res.version, 1)
+      assert.equal(res.version, 2)
       assert.isString(res.sdk)
       assert.isObject(res.services)
     })
@@ -57,7 +57,7 @@ describe('#diagnostics', function () {
       })
       assert.isObject(res)
       assert.isString(res.id)
-      assert.equal(res.version, 1)
+      assert.equal(res.version, 2)
       assert.isString(res.sdk)
       assert.isObject(res.services)
     })
@@ -70,11 +70,11 @@ describe('#diagnostics', function () {
       })
       assert.isObject(res)
       assert.isString(res.id)
-      assert.equal(res.version, 1)
+      assert.equal(res.version, 2)
       assert.isString(res.sdk)
       assert.isObject(res.services)
 
-      cluster.close()
+      await cluster.close()
     })
 
     it('should ping a new bucket successfully', async function () {
@@ -86,11 +86,11 @@ describe('#diagnostics', function () {
       })
       assert.isObject(res)
       assert.isString(res.id)
-      assert.equal(res.version, 1)
+      assert.equal(res.version, 2)
       assert.isString(res.sdk)
       assert.isObject(res.services)
 
-      cluster.close()
+      await cluster.close()
     })
   })
 })

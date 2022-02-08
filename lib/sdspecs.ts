@@ -1,4 +1,8 @@
-import binding, { CppSdCmdType, CppSdSpecFlag } from './binding'
+import binding, {
+  CppLookupInPathFlag,
+  CppMutateInPathFlag,
+  CppSubdocOpcode,
+} from './binding'
 
 /**
  * Represents a macro that can be passed to a lookup-in operation to
@@ -132,7 +136,7 @@ export class LookupInSpec {
   /**
    * @internal
    */
-  _op: CppSdCmdType
+  _op: CppSubdocOpcode
 
   /**
    * @internal
@@ -142,16 +146,20 @@ export class LookupInSpec {
   /**
    * @internal
    */
-  _flags: CppSdSpecFlag
+  _flags: CppLookupInPathFlag
 
-  private constructor(op: CppSdCmdType, path: string, flags: CppSdSpecFlag) {
+  private constructor(
+    op: CppSubdocOpcode,
+    path: string,
+    flags: CppLookupInPathFlag
+  ) {
     this._op = op
     this._path = path
     this._flags = flags
   }
 
   private static _create(
-    op: CppSdCmdType,
+    op: CppSubdocOpcode,
     path: string | LookupInMacro,
     options?: { xattr?: boolean }
   ) {
@@ -159,15 +167,15 @@ export class LookupInSpec {
       options = {}
     }
 
-    let flags: CppSdSpecFlag = 0
+    let flags: CppLookupInPathFlag = 0
 
     if (path instanceof LookupInMacro) {
       path = path._value
-      flags |= binding.LCB_SUBDOCSPECS_F_XATTRPATH
+      flags |= binding.lookup_in_path_flag.xattr
     }
 
     if (options.xattr) {
-      flags |= binding.LCB_SUBDOCSPECS_F_XATTRPATH
+      flags |= binding.lookup_in_path_flag.xattr
     }
 
     return new LookupInSpec(op, path, flags)
@@ -186,7 +194,10 @@ export class LookupInSpec {
     path: string | LookupInMacro,
     options?: { xattr?: boolean }
   ): LookupInSpec {
-    return this._create(binding.LCBX_SDCMD_GET, path, options)
+    if (!path) {
+      return this._create(binding.subdoc_opcode.get_doc, '', options)
+    }
+    return this._create(binding.subdoc_opcode.get, path, options)
   }
 
   /**
@@ -202,7 +213,7 @@ export class LookupInSpec {
     path: string | LookupInMacro,
     options?: { xattr?: boolean }
   ): LookupInSpec {
-    return this._create(binding.LCBX_SDCMD_EXISTS, path, options)
+    return this._create(binding.subdoc_opcode.exists, path, options)
   }
 
   /**
@@ -218,7 +229,7 @@ export class LookupInSpec {
     path: string | LookupInMacro,
     options?: { xattr?: boolean }
   ): LookupInSpec {
-    return this._create(binding.LCBX_SDCMD_GET_COUNT, path, options)
+    return this._create(binding.subdoc_opcode.get_count, path, options)
   }
 }
 
@@ -241,7 +252,7 @@ export class MutateInSpec {
   /**
    * @internal
    */
-  _op: CppSdCmdType
+  _op: CppSubdocOpcode
 
   /**
    * @internal
@@ -251,7 +262,7 @@ export class MutateInSpec {
   /**
    * @internal
    */
-  _flags: CppSdSpecFlag
+  _flags: CppMutateInPathFlag
 
   /**
    * @internal
@@ -259,9 +270,9 @@ export class MutateInSpec {
   _data: any
 
   private constructor(
-    op: CppSdCmdType,
+    op: CppSubdocOpcode,
     path: string,
-    flags: CppSdSpecFlag,
+    flags: CppMutateInPathFlag,
     data: any
   ) {
     this._op = op
@@ -271,7 +282,7 @@ export class MutateInSpec {
   }
 
   private static _create(
-    op: CppSdCmdType,
+    op: CppSubdocOpcode,
     path: string,
     value?: any | MutateInMacro,
     options?: {
@@ -284,19 +295,19 @@ export class MutateInSpec {
       options = {}
     }
 
-    let flags: CppSdSpecFlag = 0
+    let flags: CppMutateInPathFlag = 0
 
     if (value instanceof MutateInMacro) {
       value = value._value
-      flags |= binding.LCB_SUBDOCSPECS_F_XATTR_MACROVALUES
+      flags |= binding.mutate_in_path_flag.expand_macros
     }
 
     if (options.createPath) {
-      flags |= binding.LCB_SUBDOCSPECS_F_MKINTERMEDIATES
+      flags |= binding.mutate_in_path_flag.create_parents
     }
 
     if (options.xattr) {
-      flags |= binding.LCB_SUBDOCSPECS_F_XATTRPATH
+      flags |= binding.mutate_in_path_flag.xattr
     }
 
     if (value !== undefined) {
@@ -336,7 +347,7 @@ export class MutateInSpec {
     value: any,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_DICT_ADD, path, value, options)
+    return this._create(binding.subdoc_opcode.dict_add, path, value, options)
   }
 
   /**
@@ -358,7 +369,10 @@ export class MutateInSpec {
     value: any | MutateInMacro,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_DICT_UPSERT, path, value, options)
+    if (!path) {
+      return this._create(binding.subdoc_opcode.set_doc, '', value, options)
+    }
+    return this._create(binding.subdoc_opcode.dict_upsert, path, value, options)
   }
 
   /**
@@ -377,7 +391,7 @@ export class MutateInSpec {
     value: any | MutateInMacro,
     options?: { xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_REPLACE, path, value, options)
+    return this._create(binding.subdoc_opcode.replace, path, value, options)
   }
 
   /**
@@ -390,7 +404,15 @@ export class MutateInSpec {
    * attributes data for the document.
    */
   static remove(path: string, options?: { xattr?: boolean }): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_REMOVE, path, undefined, options)
+    if (!path) {
+      return this._create(
+        binding.subdoc_opcode.remove_doc,
+        '',
+        undefined,
+        options
+      )
+    }
+    return this._create(binding.subdoc_opcode.remove, path, undefined, options)
   }
 
   /**
@@ -414,7 +436,12 @@ export class MutateInSpec {
     value: any | MutateInMacro,
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_ARRAY_ADD_LAST, path, value, options)
+    return this._create(
+      binding.subdoc_opcode.array_push_last,
+      path,
+      value,
+      options
+    )
   }
 
   /**
@@ -439,7 +466,7 @@ export class MutateInSpec {
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
     return this._create(
-      binding.LCBX_SDCMD_ARRAY_ADD_FIRST,
+      binding.subdoc_opcode.array_push_first,
       path,
       value,
       options
@@ -469,7 +496,12 @@ export class MutateInSpec {
     value: any | MutateInMacro,
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_ARRAY_INSERT, path, value, options)
+    return this._create(
+      binding.subdoc_opcode.array_insert,
+      path,
+      value,
+      options
+    )
   }
 
   /**
@@ -495,7 +527,7 @@ export class MutateInSpec {
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
     return this._create(
-      binding.LCBX_SDCMD_ARRAY_ADD_UNIQUE,
+      binding.subdoc_opcode.array_add_unique,
       path,
       value,
       options
@@ -520,7 +552,7 @@ export class MutateInSpec {
     value: any,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_COUNTER, path, +value, options)
+    return this._create(binding.subdoc_opcode.counter, path, +value, options)
   }
 
   /**
@@ -541,6 +573,6 @@ export class MutateInSpec {
     value: any,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.LCBX_SDCMD_COUNTER, path, +value, options)
+    return this._create(binding.subdoc_opcode.counter, path, +value, options)
   }
 }

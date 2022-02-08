@@ -1,8 +1,12 @@
 /* eslint jsdoc/require-jsdoc: off */
-import { CppSearchQueryFlags } from './binding'
-import binding from './binding'
-import { Connection } from './connection'
+import {
+  mutationStateToCpp,
+  searchHighlightStyleToCpp,
+  searchScanConsistencyToCpp,
+} from './bindingutilities'
+import { Cluster } from './cluster'
 import { SearchQuery } from './searchquery'
+import { SearchSort } from './searchsort'
 import {
   SearchMetaData,
   SearchQueryOptions,
@@ -15,92 +19,23 @@ import { StreamableRowPromise } from './streamablepromises'
  * @internal
  */
 export class SearchExecutor {
-  private _conn: Connection
+  private _cluster: Cluster
 
   /**
    * @internal
    */
-  constructor(conn: Connection) {
-    this._conn = conn
+  constructor(cluster: Cluster) {
+    this._cluster = cluster
   }
 
+  /**
+   * @internal
+   */
   query(
     indexName: string,
     query: SearchQuery,
     options: SearchQueryOptions
   ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
-    const queryObj: any = {}
-    const queryObjCtl: any = {}
-    const queryFlags: CppSearchQueryFlags = 0
-
-    queryObj.indexName = indexName
-    queryObj.query = query
-
-    if (options.skip !== undefined) {
-      queryObj.from = options.skip
-    }
-    if (options.limit !== undefined) {
-      queryObj.size = options.limit
-    }
-    if (options.explain) {
-      queryObj.explain = !!options.explain
-    }
-    if (options.highlight) {
-      queryObj.highlight = options.highlight
-    }
-    if (options.collections) {
-      queryObj.collections = options.collections
-    }
-    if (options.fields) {
-      queryObj.fields = options.fields
-    }
-    if (options.facets) {
-      queryObj.facets = options.facets
-    }
-    if (options.sort) {
-      queryObj.sort = options.sort
-    }
-    if (options.disableScoring) {
-      queryObj.score = 'none'
-    }
-    if (options.includeLocations !== undefined) {
-      queryObj.includeLocations = options.includeLocations
-    }
-    if (options.consistency) {
-      queryObjCtl.consistency = {
-        level: options.consistency,
-      }
-    }
-    if (options.consistentWith) {
-      if (queryObjCtl.consistency) {
-        throw new Error(
-          'cannot specify consistency and consistentWith together'
-        )
-      }
-
-      queryObjCtl.consistency = {
-        level: 'at_plus',
-        vectors: options.consistentWith.toJSON(),
-      }
-    }
-    if (options.timeout) {
-      queryObjCtl.timeout = options.timeout
-    }
-
-    if (options.raw) {
-      for (const i in options.raw) {
-        queryObj[i] = options.raw[i]
-      }
-    }
-
-    // Only inject the `ctl` component if there are ctl's.
-    if (Object.keys(queryObjCtl).length > 0) {
-      queryObj.ctl = queryObjCtl
-    }
-
-    const queryData = JSON.stringify(queryObj)
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
-
     const emitter = new StreamableRowPromise<
       SearchResult,
       SearchRow,
@@ -112,33 +47,68 @@ export class SearchExecutor {
       })
     })
 
-    this._conn.searchQuery(
-      queryData,
-      queryFlags,
-      options.parentSpan,
-      lcbTimeout,
-      (err, flags, data) => {
-        if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
-          if (err) {
-            emitter.emit('error', err)
-            emitter.emit('end')
-            return
-          }
+    const timeout = options.timeout || this._cluster.searchTimeout
 
-          const meta = JSON.parse(data)
-          emitter.emit('meta', meta)
-          emitter.emit('end')
-
-          return
-        }
-
+    this._cluster.conn.searchQuery(
+      {
+        timeout,
+        index_name: indexName,
+        query: JSON.stringify(query),
+        limit: options.limit,
+        skip: options.skip,
+        explain: options.explain,
+        disable_scoring: options.disableScoring,
+        include_locations: options.includeLocations,
+        highlight_style: options.highlight
+          ? searchHighlightStyleToCpp(options.highlight.style)
+          : undefined,
+        highlight_fields: options.highlight
+          ? options.highlight.fields
+          : undefined,
+        fields: options.fields,
+        collections: options.collections,
+        scan_consistency: searchScanConsistencyToCpp(options.consistency),
+        mutation_state: mutationStateToCpp(options.consistentWith),
+        sort_specs: options.sort
+          ? options.sort.map((sort: string | SearchSort) =>
+              JSON.stringify(sort)
+            )
+          : undefined,
+        facets: options.facets
+          ? Object.fromEntries(
+              Object.entries(options.facets).map(([k, v]) => [
+                k,
+                JSON.stringify(v),
+              ])
+            )
+          : undefined,
+        raw: options.raw
+          ? Object.fromEntries(
+              Object.entries(options.raw).map(([k, v]) => [
+                k,
+                JSON.stringify(v),
+              ])
+            )
+          : undefined,
+      },
+      (err, resp) => {
         if (err) {
           emitter.emit('error', err)
+          emitter.emit('end')
           return
         }
 
-        const row = JSON.parse(data)
-        emitter.emit('row', row)
+        resp.rows.forEach((row) => {
+          emitter.emit('row', row)
+        })
+
+        {
+          const metaData = resp.meta
+          emitter.emit('row', metaData)
+        }
+
+        emitter.emit('end')
+        return
       }
     )
 

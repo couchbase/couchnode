@@ -42,7 +42,7 @@ describe('#query', function () {
 
     await cluster.queryIndexes().createIndex(H.b.name, sidxName, ['name'])
 
-    cluster.close()
+    await cluster.close()
   }).timeout(20000)
 
   it('should fail to create a duplicate secondary index', async function () {
@@ -88,7 +88,7 @@ describe('#query', function () {
     assert.lengthOf(res.rows, testdata.docCount())
     assert.isObject(res.meta)
 
-    cluster.close()
+    await cluster.close()
   }).timeout(10000)
 
   it('should stream test data correctly', async function () {
@@ -172,7 +172,7 @@ describe('#query', function () {
         })
       } catch (e) {} // eslint-disable-line no-empty
 
-      if (res.rows.length !== testdata.docCount()) {
+      if (!res || res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
         continue
       }

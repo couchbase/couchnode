@@ -8,7 +8,6 @@ import {
   LinkExistsError,
 } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { RequestSpan } from './tracing'
 import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -161,7 +160,8 @@ export interface ICouchbaseAnalyticsEncryptionSettings {
  * Includes information about an analytics remote links encryption.
  */
 export class CouchbaseAnalyticsEncryptionSettings
-  implements ICouchbaseAnalyticsEncryptionSettings {
+  implements ICouchbaseAnalyticsEncryptionSettings
+{
   /**
    * Specifies what level of encryption should be used.
    */
@@ -310,7 +310,8 @@ export interface ICouchbaseRemoteAnalyticsLink extends IAnalyticsLink {
  */
 export class CouchbaseRemoteAnalyticsLink
   extends AnalyticsLink
-  implements ICouchbaseRemoteAnalyticsLink {
+  implements ICouchbaseRemoteAnalyticsLink
+{
   /**
    * Specifies what type of analytics link this represents.
    */
@@ -481,7 +482,8 @@ export interface IS3ExternalAnalyticsLink extends IAnalyticsLink {
  */
 export class S3ExternalAnalyticsLink
   extends AnalyticsLink
-  implements IS3ExternalAnalyticsLink {
+  implements IS3ExternalAnalyticsLink
+{
   /**
    * Specifies what type of analytics link this represents.
    */
@@ -641,7 +643,8 @@ export interface IAzureExternalAnalyticsLink extends IAnalyticsLink {
  */
 export class AzureExternalAnalyticsLink
   extends AnalyticsLink
-  implements IAzureExternalAnalyticsLink {
+  implements IAzureExternalAnalyticsLink
+{
   /**
    * Specifies what type of analytics link this represents.
    */
@@ -764,11 +767,6 @@ export interface CreateAnalyticsDataverseOptions {
   ignoreIfExists?: boolean
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -783,11 +781,6 @@ export interface DropAnalyticsDataverseOptions {
    * determining whether the call was successful.
    */
   ignoreIfNotExists?: boolean
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -816,11 +809,6 @@ export interface CreateAnalyticsDatasetOptions {
   condition?: string
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -842,11 +830,6 @@ export interface DropAnalyticsDatasetOptions {
   dataverseName?: string
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -856,11 +839,6 @@ export interface DropAnalyticsDatasetOptions {
  * @category Management
  */
 export interface GetAllAnalyticsDatasetsOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -881,11 +859,6 @@ export interface CreateAnalyticsIndexOptions {
    * The name of the dataverse the index should belong to.
    */
   dataverseName?: string
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -909,11 +882,6 @@ export interface DropAnalyticsIndexOptions {
   dataverseName?: string
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -923,11 +891,6 @@ export interface DropAnalyticsIndexOptions {
  * @category Management
  */
 export interface GetAllAnalyticsIndexesOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -939,11 +902,6 @@ export interface GetAllAnalyticsIndexesOptions {
  */
 export interface ConnectAnalyticsLinkOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -953,11 +911,6 @@ export interface ConnectAnalyticsLinkOptions {
  * @category Management
  */
 export interface DisconnectAnalyticsLinkOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -969,11 +922,6 @@ export interface DisconnectAnalyticsLinkOptions {
  */
 export interface GetPendingAnalyticsMutationsOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -983,11 +931,6 @@ export interface GetPendingAnalyticsMutationsOptions {
  * @category Management
  */
 export interface CreateAnalyticsLinkOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -999,11 +942,6 @@ export interface CreateAnalyticsLinkOptions {
  */
 export interface ReplaceAnalyticsLinkOptions {
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1013,11 +951,6 @@ export interface ReplaceAnalyticsLinkOptions {
  * @category Management
  */
 export interface DropAnalyticsLinkOptions {
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -1044,11 +977,6 @@ export interface GetAllAnalyticsLinksOptions {
   linkType?: AnalyticsLinkType
 
   /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
-
-  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1071,7 +999,7 @@ export class AnalyticsIndexManager {
   }
 
   private get _http() {
-    return new HttpExecutor(this._cluster._getClusterConn())
+    return new HttpExecutor(this._cluster.conn)
   }
 
   /**
@@ -1104,13 +1032,11 @@ export class AnalyticsIndexManager {
       qs += ' IF NOT EXISTS'
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       try {
         await this._cluster.analyticsQuery(qs, {
-          parentSpan: parentSpan,
           timeout: timeout,
         })
       } catch (err) {
@@ -1118,7 +1044,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to create dataverse', err)
+        throw new CouchbaseError('failed to create dataverse', err as Error)
       }
     }, callback)
   }
@@ -1153,13 +1079,11 @@ export class AnalyticsIndexManager {
       qs += ' IF EXISTS'
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       try {
         await this._cluster.analyticsQuery(qs, {
-          parentSpan: parentSpan,
           timeout: timeout,
         })
       } catch (err) {
@@ -1167,7 +1091,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to drop dataverse', err)
+        throw new CouchbaseError('failed to drop dataverse', err as Error)
       }
     }, callback)
   }
@@ -1219,13 +1143,11 @@ export class AnalyticsIndexManager {
       qs += ' WHERE ' + options.condition
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       try {
         await this._cluster.analyticsQuery(qs, {
-          parentSpan: parentSpan,
           timeout: timeout,
         })
       } catch (err) {
@@ -1233,7 +1155,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to create dataset', err)
+        throw new CouchbaseError('failed to create dataset', err as Error)
       }
     }, callback)
   }
@@ -1277,13 +1199,11 @@ export class AnalyticsIndexManager {
       qs += ' IF EXISTS'
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       try {
         await this._cluster.analyticsQuery(qs, {
-          parentSpan: parentSpan,
           timeout: timeout,
         })
       } catch (err) {
@@ -1291,7 +1211,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to drop dataset', err)
+        throw new CouchbaseError('failed to drop dataset', err as Error)
       }
     }, callback)
   }
@@ -1317,12 +1237,10 @@ export class AnalyticsIndexManager {
     const qs =
       'SELECT d.* FROM `Metadata`.`Dataset` d WHERE d.DataverseName <> "Metadata"'
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._cluster.analyticsQuery(qs, {
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1393,12 +1311,10 @@ export class AnalyticsIndexManager {
 
     qs += ')'
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       await this._cluster.analyticsQuery(qs, {
-        parentSpan: parentSpan,
         timeout: timeout,
       })
     }, callback)
@@ -1446,12 +1362,10 @@ export class AnalyticsIndexManager {
       qs += ' IF EXISTS'
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       await this._cluster.analyticsQuery(qs, {
-        parentSpan: parentSpan,
         timeout: timeout,
       })
     }, callback)
@@ -1478,11 +1392,9 @@ export class AnalyticsIndexManager {
     const qs =
       'SELECT d.* FROM `Metadata`.`Index` d WHERE d.DataverseName <> "Metadata"'
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._cluster.analyticsQuery(qs, {
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1522,12 +1434,10 @@ export class AnalyticsIndexManager {
 
     const qs = 'CONNECT LINK ' + linkName
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       await this._cluster.analyticsQuery(qs, {
-        parentSpan: parentSpan,
         timeout: timeout,
       })
     }, callback)
@@ -1555,11 +1465,9 @@ export class AnalyticsIndexManager {
 
     const qs = 'DISCONNECT LINK ' + linkName
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
     return PromiseHelper.wrapAsync(async () => {
       await this._cluster.analyticsQuery(qs, {
-        parentSpan: parentSpan,
         timeout: timeout,
       })
     }, callback)
@@ -1583,15 +1491,13 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const res = await this._http.request({
         type: HttpServiceType.Analytics,
         method: HttpMethod.Get,
         path: `/analytics/node/agg/stats/remaining`,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1629,8 +1535,7 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const linkData = AnalyticsLink._toHttpData(link)
@@ -1644,7 +1549,6 @@ export class AnalyticsIndexManager {
           linkData,
           httpPath: undefined,
         }),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1683,8 +1587,7 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       const linkData = AnalyticsLink._toHttpData(link)
@@ -1698,7 +1601,6 @@ export class AnalyticsIndexManager {
           linkData,
           httpPath: undefined,
         }),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1739,8 +1641,7 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       let httpPath
@@ -1763,7 +1664,6 @@ export class AnalyticsIndexManager {
         path: httpPath,
         contentType: 'application/x-www-form-urlencoded',
         body: cbQsStringify(httpParams),
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 
@@ -1803,8 +1703,7 @@ export class AnalyticsIndexManager {
     const dataverseName = options.dataverse
     const linkName = options.name
     const linkType = options.linkType
-    const parentSpan = options.parentSpan
-    const timeout = options.timeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
       let httpPath
@@ -1842,7 +1741,6 @@ export class AnalyticsIndexManager {
         type: HttpServiceType.Analytics,
         method: HttpMethod.Get,
         path: httpPath,
-        parentSpan: parentSpan,
         timeout: timeout,
       })
 

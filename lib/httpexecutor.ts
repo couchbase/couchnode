@@ -2,7 +2,6 @@
 import binding from './binding'
 import { Connection } from './connection'
 import { HttpErrorContext } from './errorcontexts'
-import { RequestSpan } from './tracing'
 import * as events from 'events'
 
 /**
@@ -36,8 +35,7 @@ export interface HttpRequestOptions {
   path: string
   contentType?: string
   body?: string | Buffer
-  parentSpan?: RequestSpan
-  timeout?: number
+  timeout: number
 }
 
 /**
@@ -63,66 +61,80 @@ export class HttpExecutor {
     this._conn = conn
   }
 
+  /**
+   * @internal
+   */
   streamRequest(options: HttpRequestOptions): events.EventEmitter {
     const emitter = new events.EventEmitter()
 
-    let lcbHttpType
+    let cppHttpType
     if (options.type === HttpServiceType.Management) {
-      lcbHttpType = binding.LCB_HTTP_TYPE_MANAGEMENT
+      cppHttpType = binding.service_type.management
     } else if (options.type === HttpServiceType.Views) {
-      lcbHttpType = binding.LCB_HTTP_TYPE_VIEW
+      cppHttpType = binding.service_type.view
     } else if (options.type === HttpServiceType.Query) {
-      lcbHttpType = binding.LCB_HTTP_TYPE_QUERY
+      cppHttpType = binding.service_type.query
     } else if (options.type === HttpServiceType.Search) {
-      lcbHttpType = binding.LCB_HTTP_TYPE_SEARCH
+      cppHttpType = binding.service_type.search
     } else if (options.type === HttpServiceType.Analytics) {
-      lcbHttpType = binding.LCB_HTTP_TYPE_ANALYTICS
+      cppHttpType = binding.service_type.analytics
     } else if (options.type === HttpServiceType.Eventing) {
-      lcbHttpType = binding.LCB_HTTP_TYPE_EVENTING
+      cppHttpType = binding.service_type.eventing
     } else {
       throw new Error('unexpected http request type')
     }
 
-    let lcbHttpMethod
+    let cppHttpMethod
     if (options.method === HttpMethod.Get) {
-      lcbHttpMethod = binding.LCB_HTTP_METHOD_GET
+      cppHttpMethod = 'GET'
     } else if (options.method === HttpMethod.Post) {
-      lcbHttpMethod = binding.LCB_HTTP_METHOD_POST
+      cppHttpMethod = 'POST'
     } else if (options.method === HttpMethod.Put) {
-      lcbHttpMethod = binding.LCB_HTTP_METHOD_PUT
+      cppHttpMethod = 'PUT'
     } else if (options.method === HttpMethod.Delete) {
-      lcbHttpMethod = binding.LCB_HTTP_METHOD_DELETE
+      cppHttpMethod = 'DELETE'
     } else {
       throw new Error('unexpected http request method')
     }
 
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
-    this._conn.httpRequest(
-      lcbHttpType,
-      lcbHttpMethod,
-      options.path,
-      options.contentType,
-      options.body,
-      options.parentSpan,
-      lcbTimeout,
-      (err, flags, data) => {
-        if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
-          if (err) {
-            emitter.emit('error', err)
-            return
-          }
+    const headers: { [key: string]: string } = {}
+    if (options.contentType) {
+      headers['Content-Type'] = options.contentType
+    }
 
-          // data will be an object
-          emitter.emit('end', data)
+    let body = ''
+    if (!options.body) {
+      // empty body is acceptable
+    } else if (options.body instanceof Buffer) {
+      body = options.body.toString()
+    } else if (typeof options.body === 'string') {
+      body = options.body
+    } else {
+      throw new Error('unexpected http body type')
+    }
+
+    this._conn.httpRequest(
+      {
+        type: cppHttpType,
+        method: cppHttpMethod,
+        path: options.path,
+        headers: headers,
+        body: body,
+        timeout: options.timeout,
+      },
+      (err, res) => {
+        if (!res) {
+          emitter.emit('error', err)
           return
         }
 
-        if (err) {
-          throw new Error('unexpected error on non-final callback')
-        }
+        emitter.emit('meta', {
+          statusCode: res.status,
+          headers: res.headers,
+        })
 
-        // data will be a buffer
-        emitter.emit('data', data)
+        emitter.emit('data', Buffer.from(res.body))
+        emitter.emit('end')
       }
     )
 
@@ -142,23 +154,16 @@ export class HttpExecutor {
         dataCache = Buffer.concat([dataCache, data])
       })
 
-      emitter.on('end', (meta) => {
-        const headers: { [key: string]: string } = {}
-        for (let i = 0; i < meta.headers.length; i += 2) {
-          const headerName = meta.headers[i + 0]
-          const headerValue = meta.headers[i + 1]
+      let metaCache: any = null
+      emitter.on('meta', (meta) => {
+        metaCache = meta
+      })
 
-          if (headers[headerName]) {
-            headers[headerName] += ',' + headerValue
-          } else {
-            headers[headerName] = headerValue
-          }
-        }
-
+      emitter.on('end', () => {
         resolve({
           requestOptions: options,
-          statusCode: meta.statusCode,
-          headers: headers,
+          statusCode: metaCache.statusCode,
+          headers: metaCache.headers,
           body: dataCache,
         })
       })

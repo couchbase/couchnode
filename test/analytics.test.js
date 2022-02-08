@@ -26,32 +26,32 @@ describe('#analytics', function () {
 
   it('should successfully create a dataverse', async function () {
     await H.c.analyticsIndexes().createDataverse(dvName)
-  })
+  }).timeout(10000)
 
   it('should successfully upsert a dataverse', async function () {
     await H.c.analyticsIndexes().createDataverse(dvName, {
       ignoreIfExists: true,
     })
-  })
+  }).timeout(10000)
 
   it('should fail to overwrite an existing dataverse', async function () {
     await H.throwsHelper(async () => {
       await H.c.analyticsIndexes().createDataverse(dvName)
     }, H.lib.DataverseExistsError)
-  })
+  }).timeout(10000)
 
   it('should successfully create a dataset', async function () {
     await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
       dataverseName: dvName,
     })
-  })
+  }).timeout(10000)
 
   it('should successfully upsert a dataset', async function () {
     await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
       dataverseName: dvName,
       ignoreIfExists: true,
     })
-  })
+  }).timeout(10000)
 
   it('should fail to overwrite an existing dataset', async function () {
     await H.throwsHelper(async () => {
@@ -59,7 +59,7 @@ describe('#analytics', function () {
         dataverseName: dvName,
       })
     }, H.lib.DatasetExistsError)
-  })
+  }).timeout(10000)
 
   it('should successfully create an index', async function () {
     await H.c.analyticsIndexes().createIndex(
@@ -70,7 +70,7 @@ describe('#analytics', function () {
         dataverseName: dvName,
       }
     )
-  })
+  }).timeout(10000)
 
   it('should successfully upsert an index', async function () {
     await H.c.analyticsIndexes().createIndex(
@@ -82,7 +82,7 @@ describe('#analytics', function () {
         ignoreIfExists: true,
       }
     )
-  })
+  }).timeout(10000)
 
   it('should fail to overwrite an existing index', async function () {
     await H.throwsHelper(async () => {
@@ -95,7 +95,7 @@ describe('#analytics', function () {
         }
       )
     }, H.lib.IndexExistsError)
-  })
+  }).timeout(10000)
 
   it('should successfully connect a link', async function () {
     var targetName = '`' + dvName + '`.Local'

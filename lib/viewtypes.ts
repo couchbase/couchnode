@@ -1,5 +1,3 @@
-import { RequestSpan } from './tracing'
-
 /**
  * Contains the results of a view query.
  *
@@ -34,7 +32,7 @@ export class ViewMetaData {
   /**
    * The total number of rows available in the index that match the query.
    */
-  totalRows: number
+  totalRows?: number
 
   /**
    * Contains various pieces of debug information exposed by the view service.
@@ -44,7 +42,7 @@ export class ViewMetaData {
   /**
    * @internal
    */
-  constructor(data: { totalRows: number; debug?: any }) {
+  constructor(data: { totalRows?: number; debug?: any }) {
     this.totalRows = data.totalRows
     this.debug = data.debug
   }
@@ -55,7 +53,7 @@ export class ViewMetaData {
    *
    * @deprecated Use {@link ViewMetaData.totalRows} instead.
    */
-  get total_rows(): number {
+  get total_rows(): number | undefined {
     return this.totalRows
   }
 }
@@ -233,10 +231,9 @@ export interface ViewQueryOptions {
   order?: ViewOrdering
 
   /**
-   * Specifies a reduction function that should be used for the 'reduce' portion
-   * of map/reduce querying.
+   * Specifies whether reduction should be performed as part of the query.
    */
-  reduce?: string
+  reduce?: boolean
 
   /**
    * Specifies whether the results should be grouped together.
@@ -279,11 +276,6 @@ export interface ViewQueryOptions {
    * Specifies the error-handling behaviour that should be used when an error occurs.
    */
   onError?: ViewErrorMode
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.

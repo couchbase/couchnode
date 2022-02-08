@@ -1,5 +1,4 @@
 import { MutationState } from './mutationstate'
-import { RequestSpan } from './tracing'
 
 /**
  * Represents the status of a query.
@@ -307,6 +306,12 @@ export interface QueryOptions {
   flexIndex?: boolean
 
   /**
+   * Specifies that the query should preserve the existing document expiry times
+   * when mutating documents.
+   */
+  preserveExpiry?: boolean
+
+  /**
    * The returned client context id for this query.
    */
   clientContextId?: string
@@ -331,7 +336,8 @@ export interface QueryOptions {
 
   /**
    * This is an advanced option, see the query service reference for more
-   * information on the proper use and tuning of this option.
+   * information on the proper use and tuning of this option.  Specified
+   * in milliseconds.
    */
   scanWait?: number
 
@@ -369,11 +375,6 @@ export interface QueryOptions {
    * when executing the query.
    */
   raw?: { [key: string]: any }
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.

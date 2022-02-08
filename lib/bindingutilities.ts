@@ -1,149 +1,434 @@
+import { AnalyticsScanConsistency } from './analyticstypes'
 import binding, {
-  CppDurabilityMode,
-  CppReplicaMode,
-  CppStoreOpType,
+  CppAnalyticsScanConsistency,
+  CppDurabilityLevel,
+  CppEndpointState,
+  CppMutationState,
+  CppMutationToken,
+  CppPingState,
+  CppQueryProfileMode,
+  CppQueryScanConsistency,
+  CppSearchHighlightStyle,
+  CppSearchScanConsistency,
+  CppServiceType,
+  CppSubdocStoreSemanticsType,
+  CppTxnExternalException,
+  CppViewScanConsistency,
+  CppViewSortOrder,
 } from './binding'
 import { CppError } from './binding'
+import { EndpointState, PingState } from './diagnosticstypes'
 import { ErrorContext } from './errorcontexts'
 import * as errctxs from './errorcontexts'
 import * as errs from './errors'
-import { DurabilityLevel } from './generaltypes'
+import { DurabilityLevel, ServiceType, StoreSemantics } from './generaltypes'
+import { MutationState } from './mutationstate'
+import { QueryProfileMode, QueryScanConsistency } from './querytypes'
+import { SearchScanConsistency, HighlightStyle } from './searchtypes'
+import { ViewOrdering, ViewScanConsistency } from './viewtypes'
 
 /**
  * @internal
  */
-export function cppStoreOpTypeToOpName(opType: CppStoreOpType): string {
-  switch (opType) {
-    case binding.LCB_STORE_UPSERT:
-      return 'upsert'
-    case binding.LCB_STORE_REPLACE:
-      return 'replace'
-    case binding.LCB_STORE_INSERT:
-      return 'insert'
-    case binding.LCB_STORE_APPEND:
-      return 'append'
-    case binding.LCB_STORE_PREPEND:
-      return 'prepend'
-  }
-
-  throw new Error('invalid store op type')
-}
-
-/**
- * @internal
- */
-export function cppReplicaModeToOpName(replicaMode: CppReplicaMode): string {
-  switch (replicaMode) {
-    case binding.LCB_REPLICA_MODE_ANY:
-      return 'getAnyReplica'
-    case binding.LCB_REPLICA_MODE_ALL:
-      return 'getAllReplicas'
-  }
-
-  throw new Error('invalid store op type')
-}
-
-/**
- * @internal
- */
-export function duraLevelToCppDuraMode(
+export function durabilityToCpp(
   mode: DurabilityLevel | undefined
-): CppDurabilityMode | undefined {
+): CppDurabilityLevel {
   // Unspecified is allowed, and means no sync durability.
   if (mode === null || mode === undefined) {
-    return undefined
+    return binding.durability_level.none
   }
 
   if (mode === DurabilityLevel.None) {
-    return binding.LCB_DURABILITYLEVEL_NONE
+    return binding.durability_level.none
   } else if (mode === DurabilityLevel.Majority) {
-    return binding.LCB_DURABILITYLEVEL_MAJORITY
+    return binding.durability_level.majority
   } else if (mode === DurabilityLevel.MajorityAndPersistOnMaster) {
-    return binding.LCB_DURABILITYLEVEL_MAJORITY_AND_PERSIST_TO_ACTIVE
+    return binding.durability_level.majority_and_persist_to_active
   } else if (mode === DurabilityLevel.PersistToMajority) {
-    return binding.LCB_DURABILITYLEVEL_PERSIST_TO_MAJORITY
+    return binding.durability_level.persist_to_majority
   }
 
   throw new errs.InvalidDurabilityLevel()
 }
 
 /**
- * Wraps an error which has occurred within libcouchbase.
+ * @internal
  */
-export class LibcouchbaseError extends Error {
-  /**
-   * The error code that occurred.
-   */
-  code: number
-
-  /**
-   * @internal
-   */
-  constructor(code: number) {
-    super('libcouchbase error ' + code)
-    this.code = code
+export function storeSemanticToCpp(
+  mode: StoreSemantics | undefined
+): CppSubdocStoreSemanticsType {
+  if (mode === null || mode === undefined) {
+    return binding.subdoc_store_semantics_type.replace
   }
+
+  if (mode === StoreSemantics.Insert) {
+    return binding.subdoc_store_semantics_type.insert
+  } else if (mode === StoreSemantics.Upsert) {
+    return binding.subdoc_store_semantics_type.upsert
+  } else if (mode === StoreSemantics.Replace) {
+    return binding.subdoc_store_semantics_type.replace
+  }
+
+  throw new errs.InvalidArgumentError()
 }
 
 /**
  * @internal
  */
-export function translateCppContext(err: CppError | null): ErrorContext | null {
+export function viewScanConsistencyToCpp(
+  mode: ViewScanConsistency | undefined
+): CppViewScanConsistency {
+  // Unspecified is allowed, and means no sync durability.
+  if (mode === null || mode === undefined) {
+    return binding.view_scan_consistency.not_bounded
+  }
+
+  if (mode === ViewScanConsistency.NotBounded) {
+    return binding.view_scan_consistency.not_bounded
+  } else if (mode === ViewScanConsistency.UpdateAfter) {
+    return binding.view_scan_consistency.update_after
+  } else if (mode === ViewScanConsistency.RequestPlus) {
+    return binding.view_scan_consistency.request_plus
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function viewOrderingToCpp(
+  mode: ViewOrdering | undefined
+): CppViewSortOrder | undefined {
+  // Unspecified is allowed, and means no sync durability.
+  if (mode === null || mode === undefined) {
+    return undefined
+  }
+
+  if (mode === ViewOrdering.Ascending) {
+    return binding.view_sort_order.ascending
+  } else if (mode === ViewOrdering.Descending) {
+    return binding.view_sort_order.descending
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function queryScanConsistencyToCpp(
+  mode: QueryScanConsistency | undefined
+): CppQueryScanConsistency {
+  // Unspecified is allowed, and means no sync durability.
+  if (mode === null || mode === undefined) {
+    return binding.query_scan_consistency.not_bounded
+  }
+
+  if (mode === QueryScanConsistency.NotBounded) {
+    return binding.query_scan_consistency.not_bounded
+  } else if (mode === QueryScanConsistency.RequestPlus) {
+    return binding.query_scan_consistency.request_plus
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function queryProfileModeToCpp(
+  mode: QueryProfileMode | undefined
+): CppQueryProfileMode | undefined {
+  // Unspecified is allowed, and means no sync durability.
+  if (mode === null || mode === undefined) {
+    return binding.query_profile_mode.off
+  }
+
+  if (mode === QueryProfileMode.Off) {
+    return binding.query_profile_mode.off
+  } else if (mode === QueryProfileMode.Phases) {
+    return binding.query_profile_mode.phases
+  } else if (mode === QueryProfileMode.Timings) {
+    return binding.query_profile_mode.timings
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function analyticsScanConsistencyToCpp(
+  mode: AnalyticsScanConsistency | undefined
+): CppAnalyticsScanConsistency {
+  // Unspecified is allowed, and means no sync durability.
+  if (mode === null || mode === undefined) {
+    return binding.analytics_scan_consistency.not_bounded
+  }
+
+  if (mode === AnalyticsScanConsistency.NotBounded) {
+    return binding.analytics_scan_consistency.not_bounded
+  } else if (mode === AnalyticsScanConsistency.RequestPlus) {
+    return binding.analytics_scan_consistency.request_plus
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function searchScanConsistencyToCpp(
+  mode: SearchScanConsistency | undefined
+): CppSearchScanConsistency {
+  // Unspecified is allowed, and means no sync durability.
+  if (mode === null || mode === undefined) {
+    return binding.search_scan_consistency.not_bounded
+  }
+
+  if (mode === SearchScanConsistency.NotBounded) {
+    return binding.search_scan_consistency.not_bounded
+    throw new errs.InvalidArgumentError()
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function searchHighlightStyleToCpp(
+  mode: HighlightStyle | undefined
+): CppSearchHighlightStyle | undefined {
+  // Unspecified is allowed, and means no sync durability.
+  if (mode === null || mode === undefined) {
+    return undefined
+  }
+
+  if (mode === HighlightStyle.ANSI) {
+    return binding.search_highlight_style.ansi
+  } else if (mode === HighlightStyle.HTML) {
+    return binding.search_highlight_style.html
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function mutationStateToCpp(
+  state: MutationState | undefined
+): CppMutationState | undefined {
+  if (state === null || state === undefined) {
+    return undefined
+  }
+
+  const tokens: CppMutationToken[] = []
+  for (const bucketName in state._data) {
+    for (const vbId in state._data[bucketName]) {
+      const token = state._data[bucketName][vbId]
+      tokens.push(token)
+    }
+  }
+
+  return tokens
+}
+
+/**
+ * @internal
+ */
+export function serviceTypeToCpp(service: ServiceType): CppServiceType {
+  if (service === ServiceType.KeyValue) {
+    return binding.service_type.key_value
+  } else if (service === ServiceType.Query) {
+    return binding.service_type.query
+  } else if (service === ServiceType.Analytics) {
+    return binding.service_type.analytics
+  } else if (service === ServiceType.Search) {
+    return binding.service_type.search
+  } else if (service === ServiceType.Views) {
+    return binding.service_type.view
+  } else if (service === ServiceType.Management) {
+    return binding.service_type.management
+  } else if (service === ServiceType.Eventing) {
+    return binding.service_type.eventing
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function serviceTypeFromCpp(service: CppServiceType): ServiceType {
+  if (service === binding.service_type.key_value) {
+    return ServiceType.KeyValue
+  } else if (service === binding.service_type.query) {
+    return ServiceType.Query
+  } else if (service === binding.service_type.analytics) {
+    return ServiceType.Analytics
+  } else if (service === binding.service_type.search) {
+    return ServiceType.Search
+  } else if (service === binding.service_type.view) {
+    return ServiceType.Views
+  } else if (service === binding.service_type.management) {
+    return ServiceType.Management
+  } else if (service === binding.service_type.eventing) {
+    return ServiceType.Eventing
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function endpointStateFromCpp(service: CppEndpointState): EndpointState {
+  if (service === binding.endpoint_state.disconnected) {
+    return EndpointState.Disconnected
+  } else if (service === binding.endpoint_state.connecting) {
+    return EndpointState.Connecting
+  } else if (service === binding.endpoint_state.connected) {
+    return EndpointState.Connected
+  } else if (service === binding.endpoint_state.disconnecting) {
+    return EndpointState.Disconnecting
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function txnExternalExeptionFromCpp(
+  cause: CppTxnExternalException
+): string {
+  if (cause === binding.txn_external_exception.unknown) {
+    return 'unknown'
+  } else if (
+    cause ===
+    binding.txn_external_exception.active_transaction_record_entry_not_found
+  ) {
+    return 'active_transaction_record_entry_not_found'
+  } else if (
+    cause === binding.txn_external_exception.active_transaction_record_full
+  ) {
+    return 'active_transaction_record_full'
+  } else if (
+    cause === binding.txn_external_exception.active_transaction_record_not_found
+  ) {
+    return 'active_transaction_record_not_found'
+  } else if (
+    cause === binding.txn_external_exception.document_already_in_transaction
+  ) {
+    return 'document_already_in_transaction'
+  } else if (
+    cause === binding.txn_external_exception.document_exists_exception
+  ) {
+    return 'document_exists_exception'
+  } else if (
+    cause === binding.txn_external_exception.document_not_found_exception
+  ) {
+    return 'document_not_found_exception'
+  } else if (cause === binding.txn_external_exception.not_set) {
+    return 'not_set'
+  } else if (
+    cause === binding.txn_external_exception.feature_not_available_exception
+  ) {
+    return 'feature_not_available_exception'
+  } else if (
+    cause === binding.txn_external_exception.transaction_aborted_externally
+  ) {
+    return 'transaction_aborted_externally'
+  } else if (
+    cause === binding.txn_external_exception.previous_operation_failed
+  ) {
+    return 'previous_operation_failed'
+  } else if (
+    cause === binding.txn_external_exception.forward_compatibility_failure
+  ) {
+    return 'forward_compatibility_failure'
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function pingStateFromCpp(service: CppPingState): PingState {
+  if (service === binding.ping_state.ok) {
+    return PingState.Ok
+  } else if (service === binding.ping_state.timeout) {
+    return PingState.Timeout
+  } else if (service === binding.ping_state.error) {
+    return PingState.Error
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function contextFromCpp(err: CppError | null): ErrorContext | null {
   if (!err) {
     return null
   }
 
   let context = null
-  if (err.ctxtype === 'kv') {
+  if (err.ctxtype === 'key_value') {
     context = new errctxs.KeyValueErrorContext({
       status_code: err.status_code,
       opaque: err.opaque,
       cas: err.cas,
-      key: err.key,
-      bucket: err.bucket,
-      collection: err.collection,
-      scope: err.scope,
-      context: err.context,
-      ref: err.ref,
+      key: err.id ? err.id.key : '',
+      bucket: err.id ? err.id.bucket : '',
+      collection: err.id ? err.id.collection : '',
+      scope: err.id ? err.id.scope : '',
+      context: err.enhanced_error_info ? err.enhanced_error_info.context : '',
+      ref: err.enhanced_error_info ? err.enhanced_error_info.reference : '',
     })
-  } else if (err.ctxtype === 'views') {
+  } else if (err.ctxtype === 'view') {
     context = new errctxs.ViewErrorContext({
-      first_error_code: err.first_error_code,
-      first_error_message: err.first_error_message,
-      design_document: err.design_document,
-      view: err.view,
-      parameters: err.parameters,
-      http_response_code: err.http_response_code,
-      http_response_body: err.http_response_body,
+      design_document: err.design_document_name,
+      view: err.view_name,
+      parameters: err.query_string,
+      http_response_code: err.http_status,
+      http_response_body: err.http_body,
     })
   } else if (err.ctxtype === 'query') {
     context = new errctxs.QueryErrorContext({
-      first_error_code: err.first_error_code,
-      first_error_message: err.first_error_message,
       statement: err.statement,
       client_context_id: err.client_context_id,
       parameters: err.parameters,
-      http_response_code: err.http_response_code,
-      http_response_body: err.http_response_body,
+      http_response_code: err.http_status,
+      http_response_body: err.http_body,
     })
   } else if (err.ctxtype === 'search') {
     context = new errctxs.SearchErrorContext({
-      error_message: err.error_message,
       index_name: err.index_name,
       query: err.query,
       parameters: err.parameters,
-      http_response_code: err.http_response_code,
-      http_response_body: err.http_response_body,
+      http_response_code: err.http_status,
+      http_response_body: err.http_body,
     })
   } else if (err.ctxtype === 'analytics') {
     context = new errctxs.AnalyticsErrorContext({
-      first_error_code: err.first_error_code,
-      first_error_message: err.first_error_message,
       statement: err.statement,
       client_context_id: err.client_context_id,
       parameters: err.parameters,
-      http_response_code: err.http_response_code,
-      http_response_body: err.http_response_body,
+      http_response_code: err.http_status,
+      http_response_body: err.http_body,
+    })
+  } else if (err.ctxtype === 'http') {
+    context = new errctxs.HttpErrorContext({
+      method: err.method,
+      request_path: err.path,
+      response_code: err.http_status,
+      response_body: err.http_body,
     })
   }
 
@@ -153,156 +438,197 @@ export function translateCppContext(err: CppError | null): ErrorContext | null {
 /**
  * @internal
  */
-export function translateCppError(err: CppError | null): Error | null {
+export function errorFromCpp(err: CppError | null): Error | null {
   if (!err) {
     return null
   }
 
-  const contextOrNull = translateCppContext(err)
-  const context = contextOrNull ? contextOrNull : undefined
+  // BUG(JSCBC-1010): We shouldn't need to special case these.
+  if (err.ctxtype === 'transaction_operation_failed') {
+    return new errs.TransactionOperationFailedError(
+      new Error(txnExternalExeptionFromCpp(err.cause))
+    )
+  } else if (err.ctxtype === 'transaction_exception') {
+    if (err.type === binding.txn_failure_type.fail) {
+      return new errs.TransactionFailedError(
+        new Error(txnExternalExeptionFromCpp(err.cause))
+      )
+    } else if (err.type === binding.txn_failure_type.expiry) {
+      return new errs.TransactionExpiredError(
+        new Error(txnExternalExeptionFromCpp(err.cause))
+      )
+    } else if (err.type === binding.txn_failure_type.commit_ambiguous) {
+      return new errs.TransactionCommitAmbiguousError(
+        new Error(txnExternalExeptionFromCpp(err.cause))
+      )
+    }
 
-  const codeErr = new LibcouchbaseError(err.code)
-
-  switch (err.code) {
-    case binding.LCB_SUCCESS:
-      return null
-
-    /* Shared Error Definitions */
-    case binding.LCB_ERR_TIMEOUT:
-      return new errs.TimeoutError(codeErr, context)
-    case binding.LCB_ERR_REQUEST_CANCELED:
-      return new errs.RequestCanceledError(codeErr, context)
-    case binding.LCB_ERR_INVALID_ARGUMENT:
-      return new errs.InvalidArgumentError(codeErr, context)
-    case binding.LCB_ERR_SERVICE_NOT_AVAILABLE:
-      return new errs.ServiceNotAvailableError(codeErr, context)
-    case binding.LCB_ERR_INTERNAL_SERVER_FAILURE:
-      return new errs.InternalServerFailureError(codeErr, context)
-    case binding.LCB_ERR_AUTHENTICATION_FAILURE:
-      return new errs.AuthenticationFailureError(codeErr, context)
-    case binding.LCB_ERR_TEMPORARY_FAILURE:
-      return new errs.TemporaryFailureError(codeErr, context)
-    case binding.LCB_ERR_PARSING_FAILURE:
-      return new errs.ParsingFailureError(codeErr, context)
-    case binding.LCB_ERR_CAS_MISMATCH:
-      return new errs.CasMismatchError(codeErr, context)
-    case binding.LCB_ERR_BUCKET_NOT_FOUND:
-      return new errs.BucketNotFoundError(codeErr, context)
-    case binding.LCB_ERR_COLLECTION_NOT_FOUND:
-      return new errs.CollectionNotFoundError(codeErr, context)
-    case binding.LCB_ERR_ENCODING_FAILURE:
-      return new errs.EncodingFailureError(codeErr, context)
-    case binding.LCB_ERR_DECODING_FAILURE:
-      return new errs.DecodingFailureError(codeErr, context)
-    case binding.LCB_ERR_UNSUPPORTED_OPERATION:
-      return new errs.UnsupportedOperationError(codeErr, context)
-    case binding.LCB_ERR_AMBIGUOUS_TIMEOUT:
-      return new errs.AmbiguousTimeoutError(codeErr, context)
-    case binding.LCB_ERR_UNAMBIGUOUS_TIMEOUT:
-      return new errs.UnambiguousTimeoutError(codeErr, context)
-    case binding.LCB_ERR_SCOPE_NOT_FOUND:
-      return new errs.ScopeNotFoundError(codeErr, context)
-    case binding.LCB_ERR_INDEX_NOT_FOUND:
-      return new errs.IndexNotFoundError(codeErr, context)
-    case binding.LCB_ERR_INDEX_EXISTS:
-      return new errs.IndexExistsError(codeErr, context)
-    case binding.LCB_ERR_RATE_LIMITED:
-      return new errs.RateLimitedError(codeErr, context)
-    case binding.LCB_ERR_QUOTA_LIMITED:
-      return new errs.QuotaLimitedError(codeErr, context)
-    /* KeyValue Error Definitions */
-    case binding.LCB_ERR_DOCUMENT_NOT_FOUND:
-      return new errs.DocumentNotFoundError(codeErr, context)
-    case binding.LCB_ERR_DOCUMENT_UNRETRIEVABLE:
-      return new errs.DocumentUnretrievableError(codeErr, context)
-    case binding.LCB_ERR_DOCUMENT_LOCKED:
-      return new errs.DocumentLockedError(codeErr, context)
-    case binding.LCB_ERR_VALUE_TOO_LARGE:
-      return new errs.ValueTooLargeError(codeErr, context)
-    case binding.LCB_ERR_DOCUMENT_EXISTS:
-      return new errs.DocumentExistsError(codeErr, context)
-    case binding.LCB_ERR_VALUE_NOT_JSON:
-      return new errs.ValueNotJsonError(codeErr, context)
-    case binding.LCB_ERR_DURABILITY_LEVEL_NOT_AVAILABLE:
-      return new errs.DurabilityLevelNotAvailableError(codeErr, context)
-    case binding.LCB_ERR_DURABILITY_IMPOSSIBLE:
-      return new errs.DurabilityImpossibleError(codeErr, context)
-    case binding.LCB_ERR_DURABILITY_AMBIGUOUS:
-      return new errs.DurabilityAmbiguousError(codeErr, context)
-    case binding.LCB_ERR_DURABLE_WRITE_IN_PROGRESS:
-      return new errs.DurableWriteInProgressError(codeErr, context)
-    case binding.LCB_ERR_DURABLE_WRITE_RE_COMMIT_IN_PROGRESS:
-      return new errs.DurableWriteReCommitInProgressError(codeErr, context)
-    case binding.LCB_ERR_MUTATION_LOST:
-      return new errs.MutationLostError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_PATH_NOT_FOUND:
-      return new errs.PathNotFoundError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_PATH_MISMATCH:
-      return new errs.PathMismatchError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_PATH_INVALID:
-      return new errs.PathInvalidError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_PATH_TOO_BIG:
-      return new errs.PathTooBigError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_PATH_TOO_DEEP:
-      return new errs.PathTooDeepError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_VALUE_TOO_DEEP:
-      return new errs.ValueTooDeepError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_VALUE_INVALID:
-      return new errs.ValueInvalidError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON:
-      return new errs.DocumentNotJsonError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_NUMBER_TOO_BIG:
-      return new errs.NumberTooBigError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_DELTA_INVALID:
-      return new errs.DeltaInvalidError(codeErr, context)
-    case binding.LCB_ERR_SUBDOC_PATH_EXISTS:
-      return new errs.PathExistsError(codeErr, context)
-
-    /* Query Error Definitions */
-    case binding.LCB_ERR_PLANNING_FAILURE:
-      return new errs.PlanningFailureError(codeErr, context)
-    case binding.LCB_ERR_INDEX_FAILURE:
-      return new errs.IndexFailureError(codeErr, context)
-    case binding.LCB_ERR_PREPARED_STATEMENT_FAILURE:
-      return new errs.PreparedStatementFailureError(codeErr, context)
-
-    /* Analytics Error Definitions */
-    case binding.LCB_ERR_COMPILATION_FAILED:
-      return new errs.CompilationFailureError(codeErr, context)
-    case binding.LCB_ERR_JOB_QUEUE_FULL:
-      return new errs.JobQueueFullError(codeErr, context)
-    case binding.LCB_ERR_DATASET_NOT_FOUND:
-      return new errs.DatasetNotFoundError(codeErr, context)
-    case binding.LCB_ERR_DATAVERSE_NOT_FOUND:
-      return new errs.DataverseNotFoundError(codeErr, context)
-    case binding.LCB_ERR_DATASET_EXISTS:
-      return new errs.DatasetExistsError(codeErr, context)
-    case binding.LCB_ERR_DATAVERSE_EXISTS:
-      return new errs.DataverseExistsError(codeErr, context)
-    case binding.LCB_ERR_ANALYTICS_LINK_NOT_FOUND:
-      return new errs.LinkNotFoundError(codeErr, context)
-
-    /* Search Error Definitions */
-    // There are none
-
-    /* View Error Definitions */
-    case binding.LCB_ERR_VIEW_NOT_FOUND:
-      return new errs.ViewNotFoundError(codeErr, context)
-    case binding.LCB_ERR_DESIGN_DOCUMENT_NOT_FOUND:
-      return new errs.DesignDocumentNotFoundError(codeErr, context)
-
-    /* Management API Error Definitions */
-    case binding.LCB_ERR_COLLECTION_ALREADY_EXISTS:
-      return new errs.CollectionExistsError(codeErr, context)
-    case binding.LCB_ERR_SCOPE_EXISTS:
-      return new errs.ScopeExistsError(codeErr, context)
-    case binding.LCB_ERR_USER_NOT_FOUND:
-      return new errs.UserNotFoundError(codeErr, context)
-    case binding.LCB_ERR_GROUP_NOT_FOUND:
-      return new errs.GroupNotFoundError(codeErr, context)
-    case binding.LCB_ERR_BUCKET_ALREADY_EXISTS:
-      return new errs.BucketExistsError(codeErr, context)
+    throw new errs.InvalidArgumentError()
   }
 
-  return err
+  const baseErr = err as any as Error
+  const contextOrNull = contextFromCpp(err)
+  const context = contextOrNull ? contextOrNull : undefined
+
+  switch (err.code) {
+    case binding.common_errc.request_canceled:
+      return new errs.RequestCanceledError(baseErr, context)
+    case binding.common_errc.invalid_argument:
+      return new errs.InvalidArgumentError(baseErr, context)
+    case binding.common_errc.service_not_available:
+      return new errs.ServiceNotAvailableError(baseErr, context)
+    case binding.common_errc.internal_server_failure:
+      return new errs.InternalServerFailureError(baseErr, context)
+    case binding.common_errc.authentication_failure:
+      return new errs.AuthenticationFailureError(baseErr, context)
+    case binding.common_errc.temporary_failure:
+      return new errs.TemporaryFailureError(baseErr, context)
+    case binding.common_errc.parsing_failure:
+      return new errs.ParsingFailureError(baseErr, context)
+    case binding.common_errc.cas_mismatch:
+      return new errs.CasMismatchError(baseErr, context)
+    case binding.common_errc.bucket_not_found:
+      return new errs.BucketNotFoundError(baseErr, context)
+    case binding.common_errc.collection_not_found:
+      return new errs.CollectionNotFoundError(baseErr, context)
+    case binding.common_errc.unsupported_operation:
+      return new errs.UnsupportedOperationError(baseErr, context)
+    case binding.common_errc.unambiguous_timeout:
+      return new errs.UnambiguousTimeoutError(baseErr, context)
+    case binding.common_errc.ambiguous_timeout:
+      return new errs.AmbiguousTimeoutError(baseErr, context)
+    case binding.common_errc.feature_not_available:
+      return new errs.FeatureNotAvailableError(baseErr, context)
+    case binding.common_errc.scope_not_found:
+      return new errs.ScopeNotFoundError(baseErr, context)
+    case binding.common_errc.index_not_found:
+      return new errs.IndexNotFoundError(baseErr, context)
+    case binding.common_errc.index_exists:
+      return new errs.IndexExistsError(baseErr, context)
+    case binding.common_errc.decoding_failure:
+      return new errs.DecodingFailureError(baseErr, context)
+    case binding.common_errc.rate_limited:
+      return new errs.RateLimitedError(baseErr, context)
+    case binding.common_errc.quota_limited:
+      return new errs.QuotaLimitedError(baseErr, context)
+
+    case binding.key_value_errc.document_not_found:
+      return new errs.DocumentNotFoundError(baseErr, context)
+    case binding.key_value_errc.document_irretrievable:
+      return new errs.DocumentUnretrievableError(baseErr, context)
+    case binding.key_value_errc.document_locked:
+      return new errs.DocumentLockedError(baseErr, context)
+    case binding.key_value_errc.value_too_large:
+      return new errs.ValueTooLargeError(baseErr, context)
+    case binding.key_value_errc.document_exists:
+      return new errs.DocumentExistsError(baseErr, context)
+    case binding.key_value_errc.durability_level_not_available:
+      return new errs.DurabilityLevelNotAvailableError(baseErr, context)
+    case binding.key_value_errc.durability_impossible:
+      return new errs.DurabilityImpossibleError(baseErr, context)
+    case binding.key_value_errc.durability_ambiguous:
+      return new errs.DurabilityAmbiguousError(baseErr, context)
+    case binding.key_value_errc.durable_write_in_progress:
+      return new errs.DurableWriteInProgressError(baseErr, context)
+    case binding.key_value_errc.durable_write_re_commit_in_progress:
+      return new errs.DurableWriteReCommitInProgressError(baseErr, context)
+    case binding.key_value_errc.path_not_found:
+      return new errs.PathNotFoundError(baseErr, context)
+    case binding.key_value_errc.path_mismatch:
+      return new errs.PathMismatchError(baseErr, context)
+    case binding.key_value_errc.path_invalid:
+      return new errs.PathInvalidError(baseErr, context)
+    case binding.key_value_errc.path_too_big:
+      return new errs.PathTooBigError(baseErr, context)
+    case binding.key_value_errc.path_too_deep:
+      return new errs.PathTooDeepError(baseErr, context)
+    case binding.key_value_errc.value_too_deep:
+      return new errs.ValueTooDeepError(baseErr, context)
+    case binding.key_value_errc.value_invalid:
+      return new errs.ValueInvalidError(baseErr, context)
+    case binding.key_value_errc.document_not_json:
+      return new errs.DocumentNotJsonError(baseErr, context)
+    case binding.key_value_errc.number_too_big:
+      return new errs.NumberTooBigError(baseErr, context)
+    case binding.key_value_errc.delta_invalid:
+      return new errs.DeltaInvalidError(baseErr, context)
+    case binding.key_value_errc.path_exists:
+      return new errs.PathExistsError(baseErr, context)
+    case binding.key_value_errc.xattr_unknown_macro:
+    case binding.key_value_errc.xattr_invalid_key_combo:
+    case binding.key_value_errc.xattr_unknown_virtual_attribute:
+    case binding.key_value_errc.xattr_cannot_modify_virtual_attribute:
+    case binding.key_value_errc.xattr_no_access:
+    case binding.key_value_errc.cannot_revive_living_document:
+      // These error types are converted into generic ones instead.
+      break
+
+    case binding.query_errc.planning_failure:
+      return new errs.PlanningFailureError(baseErr, context)
+    case binding.query_errc.index_failure:
+      return new errs.IndexFailureError(baseErr, context)
+    case binding.query_errc.prepared_statement_failure:
+      return new errs.PreparedStatementFailureError(baseErr, context)
+    case binding.query_errc.dml_failure:
+      return new errs.DmlFailureError(baseErr, context)
+
+    case binding.analytics_errc.compilation_failure:
+      return new errs.CompilationFailureError(baseErr, context)
+    case binding.analytics_errc.job_queue_full:
+      return new errs.JobQueueFullError(baseErr, context)
+    case binding.analytics_errc.dataset_not_found:
+      return new errs.DatasetNotFoundError(baseErr, context)
+    case binding.analytics_errc.dataverse_not_found:
+      return new errs.DataverseNotFoundError(baseErr, context)
+    case binding.analytics_errc.dataset_exists:
+      return new errs.DatasetExistsError(baseErr, context)
+    case binding.analytics_errc.dataverse_exists:
+      return new errs.DataverseExistsError(baseErr, context)
+    case binding.analytics_errc.link_not_found:
+      return new errs.LinkNotFoundError(baseErr, context)
+    case binding.analytics_errc.link_exists:
+      return new errs.LinkExistsError(baseErr, context)
+
+    case binding.search_errc.index_not_ready:
+      return new errs.IndexNotReadyError(baseErr, context)
+    case binding.search_errc.consistency_mismatch:
+      // These error types are converted into generic ones instead.
+      break
+
+    case binding.view_errc.view_not_found:
+      return new errs.ViewNotFoundError(baseErr, context)
+    case binding.view_errc.design_document_not_found:
+      return new errs.DesignDocumentNotFoundError(baseErr, context)
+
+    case binding.management_errc.collection_exists:
+      return new errs.CollectionExistsError(baseErr, context)
+    case binding.management_errc.scope_exists:
+      return new errs.ScopeExistsError(baseErr, context)
+    case binding.management_errc.user_not_found:
+      return new errs.UserNotFoundError(baseErr, context)
+    case binding.management_errc.group_not_found:
+      return new errs.GroupNotFoundError(baseErr, context)
+    case binding.management_errc.bucket_exists:
+      return new errs.BucketExistsError(baseErr, context)
+    case binding.management_errc.user_exists:
+      return new errs.UserExistsError(baseErr, context)
+    case binding.management_errc.bucket_not_flushable:
+      return new errs.BucketNotFlushableError(baseErr, context)
+    case binding.management_errc.eventing_function_not_found:
+      return new errs.EventingFunctionNotFoundError(baseErr, context)
+    case binding.management_errc.eventing_function_not_deployed:
+      return new errs.EventingFunctionNotDeployedError(baseErr, context)
+    case binding.management_errc.eventing_function_compilation_failure:
+      return new errs.EventingFunctionCompilationFailureError(baseErr, context)
+    case binding.management_errc.eventing_function_identical_keyspace:
+      return new errs.EventingFunctionIdenticalKeyspaceError(baseErr, context)
+    case binding.management_errc.eventing_function_not_bootstrapped:
+      return new errs.EventingFunctionNotBootstrappedError(baseErr, context)
+    case binding.management_errc.eventing_function_deployed:
+      return new errs.EventingFunctionDeployedError(baseErr, context)
+    case binding.management_errc.eventing_function_paused:
+      return new errs.EventingFunctionPausedError(baseErr, context)
+  }
+
+  return baseErr
 }

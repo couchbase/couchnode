@@ -649,6 +649,28 @@ export class PreparedStatementFailureError extends CouchbaseError {
 }
 
 /**
+ * Indicates that a generic DML error occurred with a query.
+ *
+ * @category Error Handling
+ */
+export class DmlFailureError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('generic dml failure', cause, context)
+  }
+}
+
+/**
+ * Indicates that the index was not ready yet.
+ *
+ * @category Error Handling
+ */
+export class IndexNotReadyError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('index not ready', cause, context)
+  }
+}
+
+/**
  * Indicates that an error occurred while compiling a query.
  *
  * @category Error Handling
@@ -910,5 +932,62 @@ export class EventingFunctionNotBootstrappedError extends CouchbaseError {
 export class EventingFunctionDeployedError extends CouchbaseError {
   constructor(cause?: Error, context?: ErrorContext) {
     super('eventing function deployed', cause, context)
+  }
+}
+
+/**
+ * Indicates that an eventing function is paused but the operation expected
+ * that it was not.
+ *
+ * @category Error Handling
+ */
+export class EventingFunctionPausedError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('eventing function paused', cause, context)
+  }
+}
+
+/**
+ * Indicates a transaction operation failed to complete.
+ *
+ * @category Error Handling
+ */
+export class TransactionOperationFailedError extends CouchbaseError {
+  constructor(cause?: Error) {
+    super('transaction operation failed', cause)
+  }
+}
+
+/**
+ * Indicates a transaction failed to complete.
+ *
+ * @category Error Handling
+ */
+export class TransactionFailedError extends CouchbaseError {
+  constructor(cause?: Error) {
+    super('transaction failed', cause)
+  }
+}
+
+/**
+ * Indicates a transaction failed to complete due to expiring.
+ *
+ * @category Error Handling
+ */
+export class TransactionExpiredError extends CouchbaseError {
+  constructor(cause?: Error) {
+    super('transaction expired', cause)
+  }
+}
+
+/**
+ * Indicates the state of a transaction ended as ambiguous and may or
+ * may not have committed successfully.
+ *
+ * @category Error Handling
+ */
+export class TransactionCommitAmbiguousError extends CouchbaseError {
+  constructor(cause?: Error) {
+    super('transaction commit ambiguous', cause)
   }
 }

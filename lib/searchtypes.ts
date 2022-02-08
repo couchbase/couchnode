@@ -1,7 +1,6 @@
 import { MutationState } from './mutationstate'
 import { SearchFacet } from './searchfacet'
 import { SearchSort } from './searchsort'
-import { RequestSpan } from './tracing'
 
 /**
  * SearchMetaData represents the meta-data available from a search query.
@@ -76,14 +75,6 @@ export enum SearchScanConsistency {
    * been performed.
    */
   NotBounded = 'not_bounded',
-
-  /**
-   * Indicates that the results to the query should include all operations that
-   * have occurred up until the query was started.  This incurs a performance
-   * penalty of waiting for the index to catch up to the most recent operations,
-   * but provides the highest level of consistency.
-   */
-  RequestPlus = 'request_plus',
 }
 
 /**
@@ -167,11 +158,6 @@ export interface SearchQueryOptions {
    * when executing the query.
    */
   raw?: { [key: string]: any }
-
-  /**
-   * The parent tracing span that this operation will be part of.
-   */
-  parentSpan?: RequestSpan
 
   /**
    * The timeout for this operation, represented in milliseconds.

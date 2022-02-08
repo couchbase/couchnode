@@ -29,7 +29,7 @@ async function doWork() {
     // connection is correctly cleaned up automatically when the context
     // is destroyed.  Without proper handling, this causes libuv to panic
     // due to handles that are left open.
-    //cluster.close()
+    //await cluster.close()
 
     worker.parentPort.postMessage({
       success: true,

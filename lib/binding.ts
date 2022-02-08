@@ -1,126 +1,198 @@
 /* eslint jsdoc/require-jsdoc: off */
 import bindings from 'bindings'
 
-export enum CppReplicaMode {}
-export enum CppDurabilityMode {}
-export enum CppHttpType {}
-export enum CppHttpMethod {}
-export enum CppStoreOpType {}
-export enum CppServiceType {}
-export enum CppErrType {}
-export enum CppLogSeverity {}
-export enum CppSdCmdType {}
-export enum CppSdOpFlag {}
-export enum CppSdSpecFlag {}
-export enum CppConnType {}
-export enum CppViewQueryFlags {}
-export enum CppQueryFlags {}
-export enum CppSearchQueryFlags {}
-export enum CppAnalyticsQueryFlags {}
-export enum CppViewQueryRespFlags {}
-export enum CppQueryRespFlags {}
-export enum CppSearchQueryRespFlags {}
-export enum CppAnalyticsQueryRespFlags {}
-
-export interface CppLogData {
-  severity: CppLogSeverity
-  srcFile: string
-  srcLine: number
-  subsys: string
-  message: string
-}
-
-export interface CppLogFunc {
-  (data: CppLogData): void
-}
-
-export interface CppValueRecorder {
-  recordValue(value: number): void
-}
-
-export interface CppMeter {
-  valueRecorder(
-    name: string,
-    tags: { [key: string]: string }
-  ): CppValueRecorder | null
-}
-
-export interface CppRequestSpan {
-  addTag(key: string, value: string | number | boolean): void
-  end(): void
-}
-
-export interface CppTracer {
-  requestSpan(name: string, parent: CppRequestSpan | undefined): CppRequestSpan
-}
-
+export type CppMilliseconds = number
+export type CppSeconds = number
 export type CppBytes = string | Buffer
-export type CppTranscoder = any
-export type CppCas = any
-export type CppMutationToken = any
+export type CppDocFlags = number
+export type CppExpiry = number
+export type CppMutationState = CppMutationToken[]
+
+// enums
+export enum CppServiceType {}
+export enum CppDurabilityLevel {}
+export enum CppSubdocStoreSemanticsType {}
+export enum CppSubdocOpcode {}
+export enum CppStatus {}
+export enum CppErrorCode {}
+export enum CppRetryReason {}
+export enum CppViewScanConsistency {}
+export enum CppViewNamespace {}
+export enum CppViewSortOrder {}
+export enum CppQueryScanConsistency {}
+export enum CppQueryProfileMode {}
+export enum CppAnalyticsScanConsistency {}
+export enum CppSearchScanConsistency {}
+export enum CppSearchHighlightStyle {}
+export enum CppEndpointState {}
+export enum CppPingState {}
+export enum CppTxnFailureType {}
+export enum CppTxnExternalException {}
+
+// flags
+export type CppLookupInPathFlag = number
+export type CppMutateInPathFlag = number
+
+// interfaces
+export interface CppTranscoder {
+  encode(value: any): [Buffer, number]
+  decode(bytes: Buffer, flags: number): any
+}
+export interface CppCas {
+  toString(): string
+  toJSON(): any
+}
+export interface CppMutationToken {
+  toString(): string
+  toJSON(): any
+}
+
+export interface CppLookupInEntry {
+  opcode: CppSubdocOpcode
+  flags: CppLookupInPathFlag
+  path: string
+}
+export interface CppLookupInResultEntry {
+  error: CppError
+  opcode: CppSubdocOpcode
+  exists: boolean
+  status: CppStatus
+  path: string
+  value: any
+  original_index: number
+}
+export interface CppMutateInEntry {
+  opcode: CppSubdocOpcode
+  flags: CppMutateInPathFlag
+  path: string
+  param: Buffer
+}
+export interface CppMutateInResultEntry {
+  error: CppError
+  opcode: CppSubdocOpcode
+  status: CppStatus
+  path: string
+  value: any
+  original_index: number
+}
 
 export interface CppErrorBase extends Error {
-  code: number
+  code: CppErrorCode
 }
 
 export interface CppGenericError extends CppErrorBase {
   ctxtype: undefined | null
 }
 
+export interface CppEnhancedErrorInfo {
+  reference: string
+  context: string
+}
+
 export interface CppKeyValueError extends CppErrorBase {
-  ctxtype: 'kv'
-  status_code: number
+  ctxtype: 'key_value'
+  id: CppDocumentId
   opaque: number
   cas: CppCas
-  key: string
-  bucket: string
-  scope: string
-  collection: string
-  context: string
-  ref: string
+  status_code: CppStatus
+  enhanced_error_info: CppEnhancedErrorInfo
+  last_dispatched_to: string
+  last_dispatched_from: string
+  retry_attempts: number
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppViewError extends CppErrorBase {
-  ctxtype: 'views'
-  first_error_code: number
-  first_error_message: string
-  design_document: string
-  view: string
-  parameters: any
-  http_response_code: number
-  http_response_body: string
+  ctxtype: 'view'
+  client_context_id: string
+  design_document_name: string
+  view_name: string
+  query_string: string
+  method: string
+  path: string
+  http_status: number
+  http_body: string
+  last_dispatched_to: string
+  last_dispatched_from: string
+  retry_attempts: number
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppQueryError extends CppErrorBase {
   ctxtype: 'query'
   first_error_code: number
   first_error_message: string
-  statement: string
   client_context_id: string
-  parameters: any
-  http_response_code: number
-  http_response_body: string
+  statement: string
+  parameters: string
+  method: string
+  path: string
+  http_status: number
+  http_body: string
+  last_dispatched_to: string
+  last_dispatched_from: string
+  retry_attempts: number
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppSearchError extends CppErrorBase {
   ctxtype: 'search'
-  error_message: string
+  client_context_id: string
   index_name: string
-  query: any
-  parameters: any
-  http_response_code: number
-  http_response_body: string
+  query: string
+  parameters: string
+  method: string
+  path: string
+  http_status: number
+  http_body: string
+  last_dispatched_to: string
+  last_dispatched_from: string
+  retry_attempts: number
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppAnalyticsError extends CppErrorBase {
   ctxtype: 'analytics'
   first_error_code: number
   first_error_message: string
-  statement: string
   client_context_id: string
-  parameters: any
-  http_response_code: number
-  http_response_body: string
+  statement: string
+  parameters: string
+  method: string
+  path: string
+  http_status: number
+  http_body: string
+  last_dispatched_to: string
+  last_dispatched_from: string
+  retry_attempts: number
+  retry_reasons: CppRetryReason[]
+}
+
+export interface CppHttpError extends CppErrorBase {
+  ctxtype: 'http'
+  client_context_id: string
+  method: string
+  path: string
+  http_status: number
+  http_body: string
+  last_dispatched_to: string
+  last_dispatched_from: string
+  retry_attempts: number
+  retry_reasons: CppRetryReason[]
+}
+
+export interface CppTxnOperationFailed extends CppErrorBase {
+  ctxtype: 'transaction_operation_failed'
+  should_not_retry: boolean
+  should_not_rollback: boolean
+  cause: CppTxnExternalException
+}
+
+export interface CppTxnError extends CppErrorBase {
+  ctxtype: 'transaction_exception'
+  result: CppTransactionResult
+  cause: CppTxnExternalException
+  type: CppTxnFailureType
 }
 
 export type CppError =
@@ -130,466 +202,980 @@ export type CppError =
   | CppQueryError
   | CppSearchError
   | CppAnalyticsError
+  | CppHttpError
+  | CppTxnOperationFailed
+  | CppTxnError
+
+export interface CppDocumentId {
+  bucket: string
+  scope: string
+  collection: string
+  key: string
+}
+
+export interface CppViewResult {
+  meta: {
+    total_rows?: number
+    debug_info?: string
+  }
+  rows: {
+    id?: string
+    key: string
+    value: string
+  }[]
+}
+
+export interface CppQueryResult {
+  meta: {
+    request_id: string
+    client_context_id: string
+    status: string
+    metrics: {
+      elapsed_time: CppMilliseconds
+      execution_time: CppMilliseconds
+      result_count: number
+      result_size: number
+      sort_count: number
+      mutation_count: number
+      error_count: number
+      warning_count: number
+    }
+    signature?: string
+    profile?: string
+    warnings: {
+      code: number
+      message: string
+    }[]
+  }
+  prepared?: string
+  rows: string[]
+}
+
+export interface CppAnalyticsResult {
+  meta: {
+    request_id: string
+    client_context_id: string
+    status: string
+    metrics: {
+      elapsed_time: CppMilliseconds
+      execution_time: CppMilliseconds
+      result_count: number
+      result_size: number
+      error_count: number
+      processed_objects: number
+      warning_count: number
+    }
+    signature?: string
+    warnings: {
+      code: number
+      message: string
+    }[]
+  }
+  rows: string[]
+}
+
+export interface CppSearchResult {
+  status: string
+  meta: {
+    client_context_id: string
+    metrics: {
+      took: number
+      max_score: number
+      success_partition_count: number
+      error_partition_count: number
+    }
+  }
+  rows: {
+    index: string
+    id: string
+    score: number
+    locations: {
+      field: string
+      term: string
+      position: number
+      start_offset: number
+      end_offset: number
+      array_positions?: number[]
+    }[]
+    fragments: { [key: string]: string[] }
+    fields: string[]
+    explanation: string
+  }[]
+  facets: {
+    name: string
+    field: string
+    total: number
+    missing: number
+    other: number
+    terms: {
+      term: string
+      count: number
+    }[]
+    date_ranges: {
+      name: string
+      count: number
+      start: string
+      end: string
+    }[]
+    numeric_ranges: {
+      name: string
+      count: number
+      min?: number
+      max?: number
+    }[]
+  }[]
+}
 
 export interface CppConnection {
-  new (
-    connType: CppConnType,
+  connect(
     connStr: string,
-    username: string | undefined,
-    password: string | undefined,
-    logFn: CppLogFunc,
-    tracer: CppTracer | undefined,
-    meter: CppMeter | undefined
-  ): any
-
-  connect(callback: (err: CppError | null) => void): void
-  shutdown(): void
-  selectBucket(
-    bucketName: string,
+    credentials: {
+      username?: string
+      password?: string
+      certificate_path?: string
+      key_path?: string
+      allowed_sasl_mechanisms?: string[]
+    },
     callback: (err: CppError | null) => void
   ): void
+  shutdown(callback: (err: CppError | null) => void): void
+
+  openBucket(bucketName: string, callback: (err: CppError | null) => void): void
 
   get(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    transcoder: CppTranscoder,
-    expiryTime: number | undefined,
-    lockTime: number | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, cas: CppCas, value: any) => void
-  ): void
-
-  exists(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, cas: CppCas, exists: boolean) => void
-  ): void
-
-  getReplica(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    transcoder: CppTranscoder,
-    mode: CppReplicaMode,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
+    options: {
+      id: CppDocumentId
+      transcoder?: CppTranscoder
+      timeout?: CppMilliseconds
+    },
     callback: (
       err: CppError | null,
-      rflags: number,
-      cas: CppCas,
-      value: any
+      result: {
+        cas: CppCas
+        content: any
+      }
     ) => void
   ): void
 
-  store(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    transcoder: CppTranscoder,
-    value: any,
-    expirySecs: number | undefined,
-    cas: CppCas | undefined,
-    duraMode: CppDurabilityMode | undefined,
-    persistTo: number | undefined,
-    replicateTo: number | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    opType: CppStoreOpType,
+  exists(
+    options: {
+      id: CppDocumentId
+      timeout?: CppMilliseconds
+    },
     callback: (
       err: CppError | null,
-      cas: CppCas,
-      token: CppMutationToken
+      result: {
+        deleted: boolean
+        cas: CppCas
+        flags: CppDocFlags
+        expiry: CppExpiry
+        sequence_number: number
+        datatype: number
+        exists: boolean
+      }
+    ) => void
+  ): void
+
+  getAndLock(
+    options: {
+      id: CppDocumentId
+      lock_time: CppSeconds
+      transcoder?: CppTranscoder
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        content: any
+      }
+    ) => void
+  ): void
+
+  getAndTouch(
+    options: {
+      id: CppDocumentId
+      expiry: CppExpiry
+      transcoder?: CppTranscoder
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        content: any
+      }
+    ) => void
+  ): void
+
+  insert(
+    options: {
+      id: CppDocumentId
+      content: any
+      transcoder: CppTranscoder
+      expiry?: CppExpiry
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        token: CppMutationToken
+      }
+    ) => void
+  ): void
+
+  upsert(
+    options: {
+      id: CppDocumentId
+      content: any
+      transcoder: CppTranscoder
+      expiry?: CppExpiry
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+      preserve_expiry?: boolean
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        token: CppMutationToken
+      }
+    ) => void
+  ): void
+
+  replace(
+    options: {
+      id: CppDocumentId
+      content: any
+      transcoder: CppTranscoder
+      expiry: CppExpiry
+      cas?: CppCas
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+      preserve_expiry?: boolean
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        token: CppMutationToken
+      }
     ) => void
   ): void
 
   remove(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    cas: CppCas | undefined,
-    duraMode: CppDurabilityMode | undefined,
-    persistTo: number | undefined,
-    replicateTo: number | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, cas: CppCas) => void
+    options: {
+      id: CppDocumentId
+      cas?: CppCas
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        token: CppMutationToken
+      }
+    ) => void
   ): void
 
   touch(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    expirySecs: number,
-    duraMode: CppDurabilityMode | undefined,
-    persistTo: number | undefined,
-    replicateTo: number | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, cas: CppCas) => void
+    options: {
+      id: CppDocumentId
+      expiry?: CppExpiry
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+      }
+    ) => void
   ): void
 
   unlock(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    cas: CppCas,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null) => void
-  ): void
-
-  counter(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    delta: number | undefined,
-    initial: number | undefined,
-    expirySecs: number | undefined,
-    duraMode: CppDurabilityMode | undefined,
-    persistTo: number | undefined,
-    replicateTo: number | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
+    options: {
+      id: CppDocumentId
+      cas: CppCas
+      timeout?: CppMilliseconds
+    },
     callback: (
       err: CppError | null,
-      cas: CppCas,
-      token: CppMutationToken,
-      value: number
+      result: {
+        cas: CppCas
+      }
+    ) => void
+  ): void
+
+  append(
+    options: {
+      id: CppDocumentId
+      value: Buffer
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        token: CppMutationToken
+      }
+    ) => void
+  ): void
+
+  prepend(
+    options: {
+      id: CppDocumentId
+      value: Buffer
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        token: CppMutationToken
+      }
+    ) => void
+  ): void
+
+  increment(
+    options: {
+      id: CppDocumentId
+      delta: number
+      expiry?: CppExpiry
+      initial_value?: number
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        content: number
+        cas: CppCas
+        token: CppMutationToken
+      }
+    ) => void
+  ): void
+
+  decrement(
+    options: {
+      id: CppDocumentId
+      delta: number
+      expiry?: CppExpiry
+      initial_value?: number
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        content: number
+        cas: CppCas
+        token: CppMutationToken
+      }
     ) => void
   ): void
 
   lookupIn(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    flags: number,
-    cmds: [
-      optype: number,
-      flags: number,
-      path: string,
-      ..._: any[] // More cmds
-    ],
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, res: any) => void
+    options: {
+      id: CppDocumentId
+      specs: CppLookupInEntry[]
+      access_deleted?: boolean
+      transcoder?: CppTranscoder
+      timeout?: CppMilliseconds
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        fields: CppLookupInResultEntry[]
+        deleted: boolean
+      }
+    ) => void
   ): void
 
   mutateIn(
-    scopeName: string,
-    collectionName: string,
-    key: CppBytes,
-    expirySecs: number | undefined,
-    cas: CppCas | undefined,
-    flags: number,
-    cmds: [
-      optype: number,
-      flags: number,
-      path: string,
-      value: CppBytes,
-      ..._: any[] // More cmds
-    ],
-    duraMode: CppDurabilityMode | undefined,
-    persistTo: number | undefined,
-    replicateTo: number | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, res: any) => void
+    options: {
+      id: CppDocumentId
+      specs: CppMutateInEntry[]
+      store_semantics: CppSubdocStoreSemanticsType
+      cas?: CppCas
+      access_deleted?: boolean
+      expiry?: CppExpiry
+      durability_level?: CppDurabilityLevel
+      durability_timeout?: CppMilliseconds
+      timeout?: CppMilliseconds
+      preserve_expiry?: boolean
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        cas: CppCas
+        token: CppMutationToken
+        fields: CppMutateInResultEntry[]
+        first_error_index: number
+        deleted: boolean
+      }
+    ) => void
   ): void
 
   viewQuery(
-    designDoc: string,
-    viewName: string,
-    queryData: CppBytes,
-    postData: CppBytes | undefined,
-    flags: CppViewQueryFlags,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (
-      err: CppError | null,
-      flags: CppViewQueryRespFlags,
-      data: any,
-      docId: string,
-      key: string
-    ) => void
+    options: {
+      client_context_id?: string
+      timeout: CppMilliseconds
+      bucket_name: string
+      document_name: string
+      view_name: string
+      name_space: CppViewNamespace
+      limit?: number
+      skip?: number
+      consistency?: CppViewScanConsistency
+      keys?: string[]
+      key?: string
+      start_key?: string
+      end_key?: string
+      start_key_doc_id?: string
+      end_key_doc_id?: string
+      inclusive_end?: boolean
+      reduce?: boolean
+      group?: boolean
+      group_level?: number
+      debug?: boolean
+      order?: CppViewSortOrder
+      query_string?: string[]
+    },
+    callback: (err: CppError | null, result: CppViewResult) => void
   ): void
 
   query(
-    queryData: CppBytes,
-    flags: CppQueryFlags,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (
-      err: CppError | null,
-      flags: CppQueryRespFlags,
-      data: any
-    ) => void
+    options: {
+      statement: string
+      client_context_id?: string
+      adhoc?: boolean
+      metrics?: boolean
+      readonly?: boolean
+      flex_index?: boolean
+      preserve_expiry?: boolean
+      max_parallelism?: number
+      scan_cap?: number
+      scan_wait?: CppMilliseconds
+      pipeline_batch?: number
+      pipeline_cap?: number
+      scan_consistency?: CppQueryScanConsistency
+      mutation_state?: CppMutationState
+      timeout: CppMilliseconds
+      bucket_name?: string
+      scope_name?: string
+      scope_qualifier?: string
+      profile?: CppQueryProfileMode
+      raw?: { [key: string]: string }
+      positional_parameters?: string[]
+      named_parameters?: { [key: string]: string }
+    },
+    callback: (err: CppError | null, result: CppQueryResult) => void
   ): void
 
   analyticsQuery(
-    queryData: CppBytes,
-    flags: CppAnalyticsQueryFlags,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (
-      err: CppError | null,
-      flags: CppAnalyticsQueryRespFlags,
-      data: any
-    ) => void
+    options: {
+      statement: string
+      timeout: CppMilliseconds
+      client_context_id?: string
+      readonly?: boolean
+      priority?: boolean
+      bucket_name?: string
+      scope_name?: string
+      scope_qualifier?: string
+      scan_consistency?: CppAnalyticsScanConsistency
+      raw?: { [key: string]: string }
+      positional_parameters?: string[]
+      named_parameters?: { [key: string]: string }
+    },
+    callback: (err: CppError | null, result: CppAnalyticsResult) => void
   ): void
 
   searchQuery(
-    queryData: CppBytes,
-    flags: CppSearchQueryFlags,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (
-      err: CppError | null,
-      flags: CppSearchQueryRespFlags,
-      data: any
-    ) => void
+    options: {
+      client_context_id?: string
+      timeout: CppMilliseconds
+      index_name: string
+      query: string
+      limit?: number
+      skip?: number
+      explain?: boolean
+      disable_scoring?: boolean
+      include_locations?: boolean
+      highlight_style?: CppSearchHighlightStyle
+      highlight_fields?: string[]
+      fields?: string[]
+      scope_name?: string
+      collections?: string[]
+      scan_consistency?: CppSearchScanConsistency
+      mutation_state?: CppMutationState
+      sort_specs?: string[]
+      facets?: { [key: string]: string }
+      raw?: { [key: string]: string }
+    },
+    callback: (err: CppError | null, result: CppSearchResult) => void
   ): void
 
   httpRequest(
-    httpType: CppHttpType,
-    httpMethod: CppHttpMethod,
-    path: string,
-    contentType: string | undefined,
-    body: CppBytes | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, flags: number, data: any) => void
+    options: {
+      type: CppServiceType
+      method: string
+      path: string
+      headers: {
+        [key: string]: string
+      }
+      body: string
+      timeout: CppMilliseconds
+      client_context_id?: string
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        status: number
+        headers: {
+          [key: string]: string
+        }
+        body: string
+      }
+    ) => void
+  ): void
+
+  diagnostics(
+    options: {
+      report_id?: string
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        version: number
+        id: string
+        sdk: string
+        services: {
+          [serviceType: number]: {
+            type: CppServiceType
+            id: string
+            last_activity: number
+            remote: string
+            local: string
+            state: CppEndpointState
+            bucket?: string
+            details?: string
+          }[]
+        }
+      }
+    ) => void
   ): void
 
   ping(
-    reportId: string | undefined,
-    services: CppServiceType | undefined,
-    parentSpan: CppRequestSpan | undefined,
-    timeoutMs: number | undefined,
-    callback: (err: CppError | null, data: string) => void
+    options: {
+      report_id?: string
+      bucket_name?: string
+      services?: CppServiceType[]
+    },
+    callback: (
+      err: CppError | null,
+      result: {
+        version: number
+        id: string
+        sdk: string
+        services: {
+          [serviceType: number]: {
+            type: CppServiceType
+            id: string
+            latency: number
+            remote: string
+            local: string
+            state: CppPingState
+            bucket?: string
+            error?: string
+          }[]
+        }
+      }
+    ) => void
+  ): void
+}
+
+export interface CppTransactionsConfig {
+  durability_level?: CppDurabilityLevel
+  kv_timeout?: CppMilliseconds
+  expiration_time?: CppMilliseconds
+  query_scan_consistency?: CppQueryScanConsistency
+  cleanup_window?: CppMilliseconds
+  cleanup_lost_attempts?: boolean
+  cleanup_client_attempts?: boolean
+}
+
+export interface CppTransactionOptions {
+  durability_level?: CppDurabilityLevel
+  kv_timeout?: CppMilliseconds
+  expiration_time?: CppMilliseconds
+  query_scan_consistency?: CppQueryScanConsistency
+}
+
+export interface CppTransactionLinks {
+  atr_id: string
+  atr_bucket_name: string
+  atr_scope_name: string
+  atr_collection_name: string
+  staged_transaction_id: string
+  staged_attempt_id: string
+  staged_content: string
+  cas_pre_txn: string
+  revid_pre_txn: string
+  exptime_pre_txn: number
+  crc32_of_staging: string
+  op: string
+  forward_compat: string
+  is_deleted: boolean
+}
+
+export interface CppTransactionGetMetaData {
+  cas: string
+  revid: string
+  exptime: number
+  crc32: string
+}
+
+export interface CppTransactionGetResult {
+  id: CppDocumentId
+  cas: CppCas
+  content: any
+  links: CppTransactionLinks
+  metadata: CppTransactionGetMetaData
+}
+
+export interface CppTransactionResult {
+  transaction_id: string
+  unstaging_complete: boolean
+}
+
+export interface CppTransactions {
+  new (conn: CppConnection): any
+
+  close(callback: (err: CppError | null) => void): void
+}
+
+export interface CppTransaction {
+  newAttempt(callback: (err: CppError | null) => void): void
+
+  get(
+    options: {
+      id: CppDocumentId
+    },
+    callback: (
+      err: CppError | null,
+      result: CppTransactionGetResult | null
+    ) => void
   ): void
 
-  diag(
-    reportId: string | undefined,
-    callback: (err: CppError | null, data: string) => void
+  insert(
+    options: {
+      id: CppDocumentId
+      content: any
+    },
+    callback: (
+      err: CppError | null,
+      result: CppTransactionGetResult | null
+    ) => void
   ): void
+
+  replace(
+    options: {
+      doc: CppTransactionGetResult
+      content: any
+    },
+    callback: (
+      err: CppError | null,
+      result: CppTransactionGetResult | null
+    ) => void
+  ): void
+
+  remove(
+    options: {
+      doc: CppTransactionGetResult
+    },
+    callback: (err: CppError | null) => void
+  ): void
+
+  query(
+    statement: string,
+    options: {
+      raw?: { [key: string]: string }
+      ad_hoc?: boolean
+      scan_consistency?: CppQueryScanConsistency
+      profile?: CppQueryProfileMode
+      metrics?: boolean
+      client_context_id?: string
+      scan_wait?: CppMilliseconds
+      readonly?: boolean
+      scan_cap?: number
+      pipeline_batch?: number
+      pipeline_cap?: number
+      max_parallelism?: number
+      positional_parameters?: string[]
+      named_parameters?: { [key: string]: string }
+      bucket_name?: string
+      scope_name?: string
+    },
+    callback: (err: CppError | null, resp: CppQueryResult | null) => void
+  ): void
+
+  commit(
+    callback: (err: CppError | null, resp: CppTransactionResult) => void
+  ): void
+
+  rollback(callback: (err: CppError | null) => void): void
 }
 
 export interface CppBinding {
-  lcbVersion: string
+  cbppVersion: string
 
-  Connection: CppConnection
+  Connection: {
+    new (): CppConnection
+  }
 
-  LCB_SUCCESS: CppErrType
-  LCB_ERR_GENERIC: CppErrType
-  LCB_ERR_TIMEOUT: CppErrType
-  LCB_ERR_REQUEST_CANCELED: CppErrType
-  LCB_ERR_INVALID_ARGUMENT: CppErrType
-  LCB_ERR_SERVICE_NOT_AVAILABLE: CppErrType
-  LCB_ERR_INTERNAL_SERVER_FAILURE: CppErrType
-  LCB_ERR_AUTHENTICATION_FAILURE: CppErrType
-  LCB_ERR_TEMPORARY_FAILURE: CppErrType
-  LCB_ERR_PARSING_FAILURE: CppErrType
-  LCB_ERR_CAS_MISMATCH: CppErrType
-  LCB_ERR_BUCKET_NOT_FOUND: CppErrType
-  LCB_ERR_COLLECTION_NOT_FOUND: CppErrType
-  LCB_ERR_ENCODING_FAILURE: CppErrType
-  LCB_ERR_DECODING_FAILURE: CppErrType
-  LCB_ERR_UNSUPPORTED_OPERATION: CppErrType
-  LCB_ERR_AMBIGUOUS_TIMEOUT: CppErrType
-  LCB_ERR_UNAMBIGUOUS_TIMEOUT: CppErrType
-  LCB_ERR_SCOPE_NOT_FOUND: CppErrType
-  LCB_ERR_INDEX_NOT_FOUND: CppErrType
-  LCB_ERR_INDEX_EXISTS: CppErrType
-  LCB_ERR_RATE_LIMITED: CppErrType
-  LCB_ERR_QUOTA_LIMITED: CppErrType
-  LCB_ERR_DOCUMENT_NOT_FOUND: CppErrType
-  LCB_ERR_DOCUMENT_UNRETRIEVABLE: CppErrType
-  LCB_ERR_DOCUMENT_LOCKED: CppErrType
-  LCB_ERR_VALUE_TOO_LARGE: CppErrType
-  LCB_ERR_DOCUMENT_EXISTS: CppErrType
-  LCB_ERR_VALUE_NOT_JSON: CppErrType
-  LCB_ERR_DURABILITY_LEVEL_NOT_AVAILABLE: CppErrType
-  LCB_ERR_DURABILITY_IMPOSSIBLE: CppErrType
-  LCB_ERR_DURABILITY_AMBIGUOUS: CppErrType
-  LCB_ERR_DURABLE_WRITE_IN_PROGRESS: CppErrType
-  LCB_ERR_DURABLE_WRITE_RE_COMMIT_IN_PROGRESS: CppErrType
-  LCB_ERR_MUTATION_LOST: CppErrType
-  LCB_ERR_SUBDOC_PATH_NOT_FOUND: CppErrType
-  LCB_ERR_SUBDOC_PATH_MISMATCH: CppErrType
-  LCB_ERR_SUBDOC_PATH_INVALID: CppErrType
-  LCB_ERR_SUBDOC_PATH_TOO_BIG: CppErrType
-  LCB_ERR_SUBDOC_PATH_TOO_DEEP: CppErrType
-  LCB_ERR_SUBDOC_VALUE_TOO_DEEP: CppErrType
-  LCB_ERR_SUBDOC_VALUE_INVALID: CppErrType
-  LCB_ERR_SUBDOC_DOCUMENT_NOT_JSON: CppErrType
-  LCB_ERR_SUBDOC_NUMBER_TOO_BIG: CppErrType
-  LCB_ERR_SUBDOC_DELTA_INVALID: CppErrType
-  LCB_ERR_SUBDOC_PATH_EXISTS: CppErrType
-  LCB_ERR_SUBDOC_XATTR_UNKNOWN_MACRO: CppErrType
-  LCB_ERR_SUBDOC_XATTR_INVALID_FLAG_COMBO: CppErrType
-  LCB_ERR_SUBDOC_XATTR_INVALID_KEY_COMBO: CppErrType
-  LCB_ERR_SUBDOC_XATTR_UNKNOWN_VIRTUAL_ATTRIBUTE: CppErrType
-  LCB_ERR_SUBDOC_XATTR_CANNOT_MODIFY_VIRTUAL_ATTRIBUTE: CppErrType
-  LCB_ERR_SUBDOC_XATTR_INVALID_ORDER: CppErrType
-  LCB_ERR_PLANNING_FAILURE: CppErrType
-  LCB_ERR_INDEX_FAILURE: CppErrType
-  LCB_ERR_PREPARED_STATEMENT_FAILURE: CppErrType
-  LCB_ERR_COMPILATION_FAILED: CppErrType
-  LCB_ERR_JOB_QUEUE_FULL: CppErrType
-  LCB_ERR_DATASET_NOT_FOUND: CppErrType
-  LCB_ERR_DATAVERSE_NOT_FOUND: CppErrType
-  LCB_ERR_DATASET_EXISTS: CppErrType
-  LCB_ERR_DATAVERSE_EXISTS: CppErrType
-  LCB_ERR_ANALYTICS_LINK_NOT_FOUND: CppErrType
-  LCB_ERR_VIEW_NOT_FOUND: CppErrType
-  LCB_ERR_DESIGN_DOCUMENT_NOT_FOUND: CppErrType
-  LCB_ERR_COLLECTION_ALREADY_EXISTS: CppErrType
-  LCB_ERR_SCOPE_EXISTS: CppErrType
-  LCB_ERR_USER_NOT_FOUND: CppErrType
-  LCB_ERR_GROUP_NOT_FOUND: CppErrType
-  LCB_ERR_BUCKET_ALREADY_EXISTS: CppErrType
-  LCB_ERR_SSL_INVALID_CIPHERSUITES: CppErrType
-  LCB_ERR_SSL_NO_CIPHERS: CppErrType
-  LCB_ERR_SSL_ERROR: CppErrType
-  LCB_ERR_SSL_CANTVERIFY: CppErrType
-  LCB_ERR_FD_LIMIT_REACHED: CppErrType
-  LCB_ERR_NODE_UNREACHABLE: CppErrType
-  LCB_ERR_CONTROL_UNKNOWN_CODE: CppErrType
-  LCB_ERR_CONTROL_UNSUPPORTED_MODE: CppErrType
-  LCB_ERR_CONTROL_INVALID_ARGUMENT: CppErrType
-  LCB_ERR_DUPLICATE_COMMANDS: CppErrType
-  LCB_ERR_NO_MATCHING_SERVER: CppErrType
-  LCB_ERR_PLUGIN_VERSION_MISMATCH: CppErrType
-  LCB_ERR_INVALID_HOST_FORMAT: CppErrType
-  LCB_ERR_INVALID_CHAR: CppErrType
-  LCB_ERR_BAD_ENVIRONMENT: CppErrType
-  LCB_ERR_NO_MEMORY: CppErrType
-  LCB_ERR_NO_CONFIGURATION: CppErrType
-  LCB_ERR_DLOPEN_FAILED: CppErrType
-  LCB_ERR_DLSYM_FAILED: CppErrType
-  LCB_ERR_CONFIG_CACHE_INVALID: CppErrType
-  LCB_ERR_COLLECTION_MANIFEST_IS_AHEAD: CppErrType
-  LCB_ERR_COLLECTION_NO_MANIFEST: CppErrType
-  LCB_ERR_COLLECTION_CANNOT_APPLY_MANIFEST: CppErrType
-  LCB_ERR_AUTH_CONTINUE: CppErrType
-  LCB_ERR_CONNECTION_REFUSED: CppErrType
-  LCB_ERR_SOCKET_SHUTDOWN: CppErrType
-  LCB_ERR_CONNECTION_RESET: CppErrType
-  LCB_ERR_CANNOT_GET_PORT: CppErrType
-  LCB_ERR_INCOMPLETE_PACKET: CppErrType
-  LCB_ERR_SDK_FEATURE_UNAVAILABLE: CppErrType
-  LCB_ERR_OPTIONS_CONFLICT: CppErrType
-  LCB_ERR_KVENGINE_INVALID_PACKET: CppErrType
-  LCB_ERR_DURABILITY_TOO_MANY: CppErrType
-  LCB_ERR_SHEDULE_FAILURE: CppErrType
-  LCB_ERR_DURABILITY_NO_MUTATION_TOKENS: CppErrType
-  LCB_ERR_SASLMECH_UNAVAILABLE: CppErrType
-  LCB_ERR_TOO_MANY_REDIRECTS: CppErrType
-  LCB_ERR_MAP_CHANGED: CppErrType
-  LCB_ERR_NOT_MY_VBUCKET: CppErrType
-  LCB_ERR_UNKNOWN_SUBDOC_COMMAND: CppErrType
-  LCB_ERR_KVENGINE_UNKNOWN_ERROR: CppErrType
-  LCB_ERR_NAMESERVER: CppErrType
-  LCB_ERR_INVALID_RANGE: CppErrType
-  LCB_ERR_NOT_STORED: CppErrType
-  LCB_ERR_BUSY: CppErrType
-  LCB_ERR_SDK_INTERNAL: CppErrType
-  LCB_ERR_INVALID_DELTA: CppErrType
-  LCB_ERR_NO_COMMANDS: CppErrType
-  LCB_ERR_NETWORK: CppErrType
-  LCB_ERR_UNKNOWN_HOST: CppErrType
-  LCB_ERR_PROTOCOL_ERROR: CppErrType
-  LCB_ERR_CONNECT_ERROR: CppErrType
-  LCB_ERR_EMPTY_KEY: CppErrType
-  LCB_ERR_HTTP: CppErrType
-  LCB_ERR_QUERY: CppErrType
-  LCB_ERR_TOPOLOGY_CHANGE: CppErrType
+  Transactions: {
+    new (conn: CppConnection, config: CppTransactionsConfig): CppTransactions
+  }
 
-  LCB_LOG_TRACE: CppLogSeverity
-  LCB_LOG_DEBUG: CppLogSeverity
-  LCB_LOG_INFO: CppLogSeverity
-  LCB_LOG_WARN: CppLogSeverity
-  LCB_LOG_ERROR: CppLogSeverity
-  LCB_LOG_FATAL: CppLogSeverity
+  Transaction: {
+    new (txns: CppTransactions, options: CppTransactionOptions): CppTransaction
+  }
 
-  LCB_HTTP_TYPE_VIEW: CppHttpType
-  LCB_HTTP_TYPE_MANAGEMENT: CppHttpType
-  LCB_HTTP_TYPE_RAW: CppHttpType
-  LCB_HTTP_TYPE_QUERY: CppHttpType
-  LCB_HTTP_TYPE_SEARCH: CppHttpType
-  LCB_HTTP_TYPE_ANALYTICS: CppHttpType
-  LCB_HTTP_TYPE_EVENTING: CppHttpType
-  LCB_HTTP_METHOD_GET: CppHttpMethod
-  LCB_HTTP_METHOD_POST: CppHttpMethod
-  LCB_HTTP_METHOD_PUT: CppHttpMethod
-  LCB_HTTP_METHOD_DELETE: CppHttpMethod
+  service_type: {
+    key_value: CppServiceType
+    query: CppServiceType
+    analytics: CppServiceType
+    search: CppServiceType
+    view: CppServiceType
+    management: CppServiceType
+    eventing: CppServiceType
+  }
+  endpoint_state: {
+    disconnected: CppEndpointState
+    connecting: CppEndpointState
+    connected: CppEndpointState
+    disconnecting: CppEndpointState
+  }
+  ping_state: {
+    ok: CppPingState
+    timeout: CppPingState
+    error: CppPingState
+  }
+  durability_level: {
+    none: CppDurabilityLevel
+    majority: CppDurabilityLevel
+    majority_and_persist_to_active: CppDurabilityLevel
+    persist_to_majority: CppDurabilityLevel
+  }
+  subdoc_store_semantics_type: {
+    replace: CppSubdocStoreSemanticsType
+    upsert: CppSubdocStoreSemanticsType
+    insert: CppSubdocStoreSemanticsType
+  }
+  subdoc_opcode: {
+    get_doc: CppSubdocOpcode
+    set_doc: CppSubdocOpcode
+    remove_doc: CppSubdocOpcode
+    get: CppSubdocOpcode
+    exists: CppSubdocOpcode
+    dict_add: CppSubdocOpcode
+    dict_upsert: CppSubdocOpcode
+    remove: CppSubdocOpcode
+    replace: CppSubdocOpcode
+    array_push_last: CppSubdocOpcode
+    array_push_first: CppSubdocOpcode
+    array_insert: CppSubdocOpcode
+    array_add_unique: CppSubdocOpcode
+    counter: CppSubdocOpcode
+    get_count: CppSubdocOpcode
+    replace_body_with_xattr: CppSubdocOpcode
+  }
+  lookup_in_path_flag: {
+    xattr: CppLookupInPathFlag
+  }
+  mutate_in_path_flag: {
+    create_parents: CppMutateInPathFlag
+    xattr: CppMutateInPathFlag
+    expand_macros: CppMutateInPathFlag
+  }
+  view_name_space: {
+    development: CppViewNamespace
+    production: CppViewNamespace
+  }
+  view_scan_consistency: {
+    not_bounded: CppViewScanConsistency
+    update_after: CppViewScanConsistency
+    request_plus: CppViewScanConsistency
+  }
+  view_sort_order: {
+    ascending: CppViewSortOrder
+    descending: CppViewSortOrder
+  }
+  query_scan_consistency: {
+    not_bounded: CppQueryScanConsistency
+    request_plus: CppQueryScanConsistency
+  }
+  query_profile_mode: {
+    off: CppQueryProfileMode
+    phases: CppQueryProfileMode
+    timings: CppQueryProfileMode
+  }
+  analytics_scan_consistency: {
+    not_bounded: CppAnalyticsScanConsistency
+    request_plus: CppAnalyticsScanConsistency
+  }
+  search_scan_consistency: {
+    not_bounded: CppSearchScanConsistency
+  }
+  search_highlight_style: {
+    html: CppSearchHighlightStyle
+    ansi: CppSearchHighlightStyle
+  }
 
-  LCB_STORE_UPSERT: CppStoreOpType
-  LCB_STORE_REPLACE: CppStoreOpType
-  LCB_STORE_INSERT: CppStoreOpType
-  LCB_STORE_APPEND: CppStoreOpType
-  LCB_STORE_PREPEND: CppStoreOpType
+  common_errc: {
+    request_canceled: CppErrorCode
+    invalid_argument: CppErrorCode
+    service_not_available: CppErrorCode
+    internal_server_failure: CppErrorCode
+    authentication_failure: CppErrorCode
+    temporary_failure: CppErrorCode
+    parsing_failure: CppErrorCode
+    cas_mismatch: CppErrorCode
+    bucket_not_found: CppErrorCode
+    collection_not_found: CppErrorCode
+    unsupported_operation: CppErrorCode
+    ambiguous_timeout: CppErrorCode
+    unambiguous_timeout: CppErrorCode
+    feature_not_available: CppErrorCode
+    scope_not_found: CppErrorCode
+    index_not_found: CppErrorCode
+    index_exists: CppErrorCode
+    decoding_failure: CppErrorCode
+    rate_limited: CppErrorCode
+    quota_limited: CppErrorCode
+  }
+  key_value_errc: {
+    document_not_found: CppErrorCode
+    document_irretrievable: CppErrorCode
+    document_locked: CppErrorCode
+    value_too_large: CppErrorCode
+    document_exists: CppErrorCode
+    durability_level_not_available: CppErrorCode
+    durability_impossible: CppErrorCode
+    durability_ambiguous: CppErrorCode
+    durable_write_in_progress: CppErrorCode
+    durable_write_re_commit_in_progress: CppErrorCode
+    path_not_found: CppErrorCode
+    path_mismatch: CppErrorCode
+    path_invalid: CppErrorCode
+    path_too_big: CppErrorCode
+    path_too_deep: CppErrorCode
+    value_too_deep: CppErrorCode
+    value_invalid: CppErrorCode
+    document_not_json: CppErrorCode
+    number_too_big: CppErrorCode
+    delta_invalid: CppErrorCode
+    path_exists: CppErrorCode
+    xattr_unknown_macro: CppErrorCode
+    xattr_invalid_key_combo: CppErrorCode
+    xattr_unknown_virtual_attribute: CppErrorCode
+    xattr_cannot_modify_virtual_attribute: CppErrorCode
+    xattr_no_access: CppErrorCode
+    cannot_revive_living_document: CppErrorCode
+  }
+  query_errc: {
+    planning_failure: CppErrorCode
+    index_failure: CppErrorCode
+    prepared_statement_failure: CppErrorCode
+    dml_failure: CppErrorCode
+  }
+  analytics_errc: {
+    compilation_failure: CppErrorCode
+    job_queue_full: CppErrorCode
+    dataset_not_found: CppErrorCode
+    dataverse_not_found: CppErrorCode
+    dataset_exists: CppErrorCode
+    dataverse_exists: CppErrorCode
+    link_not_found: CppErrorCode
+    link_exists: CppErrorCode
+  }
+  search_errc: {
+    index_not_ready: CppErrorCode
+    consistency_mismatch: CppErrorCode
+  }
+  view_errc: {
+    view_not_found: CppErrorCode
+    design_document_not_found: CppErrorCode
+  }
+  management_errc: {
+    collection_exists: CppErrorCode
+    scope_exists: CppErrorCode
+    user_not_found: CppErrorCode
+    group_not_found: CppErrorCode
+    bucket_exists: CppErrorCode
+    user_exists: CppErrorCode
+    bucket_not_flushable: CppErrorCode
+    eventing_function_not_found: CppErrorCode
+    eventing_function_not_deployed: CppErrorCode
+    eventing_function_compilation_failure: CppErrorCode
+    eventing_function_identical_keyspace: CppErrorCode
+    eventing_function_not_bootstrapped: CppErrorCode
+    eventing_function_deployed: CppErrorCode
+    eventing_function_paused: CppErrorCode
+  }
+  field_level_encryption_errc: {
+    generic_cryptography_failure: CppErrorCode
+    encryption_failure: CppErrorCode
+    decryption_failure: CppErrorCode
+    crypto_key_not_found: CppErrorCode
+    invalid_crypto_key: CppErrorCode
+    decrypter_not_found: CppErrorCode
+    encrypter_not_found: CppErrorCode
+    invalid_ciphertext: CppErrorCode
+  }
+  network_errc: {
+    resolve_failure: CppErrorCode
+    no_endpoints_left: CppErrorCode
+    handshake_failure: CppErrorCode
+    protocol_error: CppErrorCode
+    configuration_not_available: CppErrorCode
+  }
 
-  LCBX_SDCMD_GET: CppSdCmdType
-  LCBX_SDCMD_EXISTS: CppSdCmdType
-  LCBX_SDCMD_REPLACE: CppSdCmdType
-  LCBX_SDCMD_DICT_ADD: CppSdCmdType
-  LCBX_SDCMD_DICT_UPSERT: CppSdCmdType
-  LCBX_SDCMD_ARRAY_ADD_FIRST: CppSdCmdType
-  LCBX_SDCMD_ARRAY_ADD_LAST: CppSdCmdType
-  LCBX_SDCMD_ARRAY_ADD_UNIQUE: CppSdCmdType
-  LCBX_SDCMD_ARRAY_INSERT: CppSdCmdType
-  LCBX_SDCMD_REMOVE: CppSdCmdType
-  LCBX_SDCMD_COUNTER: CppSdCmdType
-  LCBX_SDCMD_GET_COUNT: CppSdCmdType
-
-  LCB_REPLICA_MODE_ANY: CppReplicaMode
-  LCB_REPLICA_MODE_ALL: CppReplicaMode
-  LCB_REPLICA_MODE_IDX0: CppReplicaMode
-  LCB_REPLICA_MODE_IDX1: CppReplicaMode
-  LCB_REPLICA_MODE_IDX2: CppReplicaMode
-
-  LCB_DURABILITYLEVEL_NONE: CppDurabilityMode
-  LCB_DURABILITYLEVEL_MAJORITY: CppDurabilityMode
-  LCB_DURABILITYLEVEL_MAJORITY_AND_PERSIST_TO_ACTIVE: CppDurabilityMode
-  LCB_DURABILITYLEVEL_PERSIST_TO_MAJORITY: CppDurabilityMode
-
-  LCBX_SDFLAG_UPSERT_DOC: CppSdOpFlag
-  LCBX_SDFLAG_INSERT_DOC: CppSdOpFlag
-  LCBX_SDFLAG_ACCESS_DELETED: CppSdOpFlag
-
-  LCB_SUBDOCSPECS_F_MKINTERMEDIATES: CppSdSpecFlag
-  LCB_SUBDOCSPECS_F_XATTRPATH: CppSdSpecFlag
-  LCB_SUBDOCSPECS_F_XATTR_MACROVALUES: CppSdSpecFlag
-  LCB_SUBDOCSPECS_F_XATTR_DELETED_OK: CppSdSpecFlag
-
-  LCBX_SERVICETYPE_KEYVALUE: CppServiceType
-  LCBX_SERVICETYPE_MANAGEMENT: CppServiceType
-  LCBX_SERVICETYPE_VIEWS: CppServiceType
-  LCBX_SERVICETYPE_QUERY: CppServiceType
-  LCBX_SERVICETYPE_SEARCH: CppServiceType
-  LCBX_SERVICETYPE_ANALYTICS: CppServiceType
-
-  LCBX_VIEWFLAG_INCLUDEDOCS: CppViewQueryFlags
-
-  LCBX_QUERYFLAG_PREPCACHE: CppQueryFlags
-
-  LCBX_ANALYTICSFLAG_PRIORITY: CppAnalyticsQueryFlags
-
-  LCB_TYPE_BUCKET: CppConnType
-  LCB_TYPE_CLUSTER: CppConnType
-
-  LCBX_RESP_F_NONFINAL:
-    | CppViewQueryRespFlags
-    | CppQueryRespFlags
-    | CppSearchQueryRespFlags
-    | CppAnalyticsQueryRespFlags
+  txn_failure_type: {
+    fail: CppTxnFailureType
+    expiry: CppTxnFailureType
+    commit_ambiguous: CppTxnFailureType
+  }
+  txn_external_exception: {
+    unknown: CppTxnExternalException
+    active_transaction_record_entry_not_found: CppTxnExternalException
+    active_transaction_record_full: CppTxnExternalException
+    active_transaction_record_not_found: CppTxnExternalException
+    document_already_in_transaction: CppTxnExternalException
+    document_exists_exception: CppTxnExternalException
+    document_not_found_exception: CppTxnExternalException
+    not_set: CppTxnExternalException
+    feature_not_available_exception: CppTxnExternalException
+    transaction_aborted_externally: CppTxnExternalException
+    previous_operation_failed: CppTxnExternalException
+    forward_compatibility_failure: CppTxnExternalException
+  }
 }
+
 // Load it with require
 const binding: CppBinding = bindings('couchbase_impl')
 export default binding

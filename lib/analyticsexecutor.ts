@@ -5,70 +5,32 @@ import {
   AnalyticsMetaData,
   AnalyticsWarning,
   AnalyticsMetrics,
+  AnalyticsStatus,
 } from './analyticstypes'
-import binding, { CppAnalyticsQueryFlags } from './binding'
-import { Connection } from './connection'
+import { analyticsScanConsistencyToCpp } from './bindingutilities'
+import { Cluster } from './cluster'
 import { StreamableRowPromise } from './streamablepromises'
-import { goDurationStrToMs } from './utilities'
 
 /**
  * @internal
  */
 export class AnalyticsExecutor {
-  private _conn: Connection
+  private _cluster: Cluster
 
   /**
    * @internal
    */
-  constructor(conn: Connection) {
-    this._conn = conn
+  constructor(cluster: Cluster) {
+    this._cluster = cluster
   }
 
+  /**
+   * @internal
+   */
   query<TRow = any>(
     query: string,
     options: AnalyticsQueryOptions
   ): StreamableRowPromise<AnalyticsResult<TRow>, TRow, AnalyticsMetaData> {
-    const queryObj: any = {}
-    let queryFlags: CppAnalyticsQueryFlags = 0
-
-    queryObj.statement = query.toString()
-
-    if (options.scanConsistency) {
-      queryObj.scan_consistency = options.scanConsistency
-    }
-    if (options.clientContextId) {
-      queryObj.client_context_id = options.clientContextId
-    }
-    if (options.priority === true) {
-      queryFlags |= binding.LCBX_ANALYTICSFLAG_PRIORITY
-    }
-    if (options.readOnly) {
-      queryObj.readonly = !!options.readOnly
-    }
-    if (options.queryContext) {
-      queryObj.query_context = options.queryContext
-    }
-
-    if (options.parameters) {
-      const params = options.parameters
-      if (Array.isArray(params)) {
-        queryObj.args = params
-      } else {
-        Object.entries(params).forEach(([key, value]) => {
-          queryObj['$' + key] = value
-        })
-      }
-    }
-
-    if (options.raw) {
-      for (const i in options.raw) {
-        queryObj[i] = options.raw[i]
-      }
-    }
-
-    const queryData = JSON.stringify(queryObj)
-    const lcbTimeout = options.timeout ? options.timeout * 1000 : undefined
-
     const emitter = new StreamableRowPromise<
       AnalyticsResult<TRow>,
       TRow,
@@ -80,20 +42,47 @@ export class AnalyticsExecutor {
       })
     })
 
-    this._conn.analyticsQuery(
-      queryData,
-      queryFlags,
-      options.parentSpan,
-      lcbTimeout,
-      (err, flags, data) => {
-        if (!(flags & binding.LCBX_RESP_F_NONFINAL)) {
-          if (err) {
-            emitter.emit('error', err)
-            emitter.emit('end')
-            return
-          }
+    const timeout = options.timeout || this._cluster.analyticsTimeout
 
-          const metaData = JSON.parse(data)
+    this._cluster.conn.analyticsQuery(
+      {
+        statement: query,
+        timeout,
+        client_context_id: options.clientContextId,
+        readonly: options.readOnly,
+        priority: options.priority,
+        scope_qualifier: options.queryContext,
+        scan_consistency: analyticsScanConsistencyToCpp(
+          options.scanConsistency
+        ),
+        raw: options.raw
+          ? Object.fromEntries(
+              Object.entries(options.raw).map(([k, v]) => [
+                k,
+                JSON.stringify(v),
+              ])
+            )
+          : undefined,
+        positional_parameters: Array.isArray(options.parameters)
+          ? options.parameters
+          : undefined,
+        named_parameters: !Array.isArray(options.parameters)
+          ? options.parameters
+          : undefined,
+      },
+      (err, resp) => {
+        if (err) {
+          emitter.emit('error', err)
+          emitter.emit('end')
+          return
+        }
+
+        resp.rows.forEach((row) => {
+          emitter.emit('row', JSON.parse(row))
+        })
+
+        {
+          const metaData = resp.meta
 
           let warnings: AnalyticsWarning[]
           if (metaData.warnings) {
@@ -108,38 +97,33 @@ export class AnalyticsExecutor {
             warnings = []
           }
 
-          const metricsData = metaData.metrics || {}
+          const metricsData = metaData.metrics
           const metrics = new AnalyticsMetrics({
-            elapsedTime: goDurationStrToMs(metricsData.elapsedTime) || 0,
-            executionTime: goDurationStrToMs(metricsData.executionTime) || 0,
-            resultCount: metricsData.resultCount || 0,
-            resultSize: metricsData.resultSize || 0,
-            errorCount: metricsData.errorCount || 0,
-            processedObjects: metricsData.processedObjects || 0,
-            warningCount: metricsData.warningCount || 0,
+            elapsedTime: metricsData.elapsed_time,
+            executionTime: metricsData.execution_time,
+            resultCount: metricsData.result_count,
+            resultSize: metricsData.result_size,
+            errorCount: metricsData.error_count,
+            processedObjects: metricsData.processed_objects,
+            warningCount: metricsData.warning_count,
           })
 
           const meta = new AnalyticsMetaData({
-            requestId: metaData.requestID,
-            clientContextId: metaData.clientContextID,
-            status: metaData.status,
-            signature: metaData.signature,
+            requestId: metaData.request_id,
+            clientContextId: metaData.client_context_id,
+            status: metaData.status as AnalyticsStatus,
+            signature: metaData.signature
+              ? JSON.parse(metaData.signature)
+              : undefined,
             warnings: warnings,
             metrics: metrics,
           })
 
           emitter.emit('meta', meta)
-          emitter.emit('end')
-          return
         }
 
-        if (err) {
-          emitter.emit('error', err)
-          return
-        }
-
-        const row = JSON.parse(data)
-        emitter.emit('row', row)
+        emitter.emit('end')
+        return
       }
     )
 
