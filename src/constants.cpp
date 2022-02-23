@@ -131,13 +131,16 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
     exports.Set(
         "mutate_in_path_flag",
         cbppEnumToJs<uint8_t>(
-            env, {
-                     {"xattr", couchbase::protocol::mutate_in_request_body::
-                                   mutate_in_specs::path_flag_xattr},
-
-                 }));
-
-    // design_document::name_space
+            env,
+            {
+                {"create_parents",
+                 couchbase::protocol::mutate_in_request_body::mutate_in_specs::
+                     path_flag_create_parents},
+                {"xattr", couchbase::protocol::mutate_in_request_body::
+                              mutate_in_specs::path_flag_xattr},
+                {"expand_macros", couchbase::protocol::mutate_in_request_body::
+                                      mutate_in_specs::path_flag_expand_macros},
+            }));
 
     exports.Set(
         "view_name_space",
