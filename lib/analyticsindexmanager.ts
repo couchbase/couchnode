@@ -161,7 +161,8 @@ export interface ICouchbaseAnalyticsEncryptionSettings {
  * Includes information about an analytics remote links encryption.
  */
 export class CouchbaseAnalyticsEncryptionSettings
-  implements ICouchbaseAnalyticsEncryptionSettings {
+  implements ICouchbaseAnalyticsEncryptionSettings
+{
   /**
    * Specifies what level of encryption should be used.
    */
@@ -310,7 +311,8 @@ export interface ICouchbaseRemoteAnalyticsLink extends IAnalyticsLink {
  */
 export class CouchbaseRemoteAnalyticsLink
   extends AnalyticsLink
-  implements ICouchbaseRemoteAnalyticsLink {
+  implements ICouchbaseRemoteAnalyticsLink
+{
   /**
    * Specifies what type of analytics link this represents.
    */
@@ -481,7 +483,8 @@ export interface IS3ExternalAnalyticsLink extends IAnalyticsLink {
  */
 export class S3ExternalAnalyticsLink
   extends AnalyticsLink
-  implements IS3ExternalAnalyticsLink {
+  implements IS3ExternalAnalyticsLink
+{
   /**
    * Specifies what type of analytics link this represents.
    */
@@ -641,7 +644,8 @@ export interface IAzureExternalAnalyticsLink extends IAnalyticsLink {
  */
 export class AzureExternalAnalyticsLink
   extends AnalyticsLink
-  implements IAzureExternalAnalyticsLink {
+  implements IAzureExternalAnalyticsLink
+{
   /**
    * Specifies what type of analytics link this represents.
    */
@@ -1118,7 +1122,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to create dataverse', err)
+        throw new CouchbaseError('failed to create dataverse', err as Error)
       }
     }, callback)
   }
@@ -1167,7 +1171,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to drop dataverse', err)
+        throw new CouchbaseError('failed to drop dataverse', err as Error)
       }
     }, callback)
   }
@@ -1233,7 +1237,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to create dataset', err)
+        throw new CouchbaseError('failed to create dataset', err as Error)
       }
     }, callback)
   }
@@ -1291,7 +1295,7 @@ export class AnalyticsIndexManager {
           throw err
         }
 
-        throw new CouchbaseError('failed to drop dataset', err)
+        throw new CouchbaseError('failed to drop dataset', err as Error)
       }
     }, callback)
   }
