@@ -12,6 +12,7 @@
                 'msvs_settings': {
                     'VCCLCompilerTool': {
                         'RuntimeLibrary': 1,  # static debug
+                        'ExceptionHandling': 2
                     },
                 },
             },
@@ -20,6 +21,7 @@
                 'msvs_settings': {
                     'VCCLCompilerTool': {
                         'RuntimeLibrary': 0,  # static release
+                        'ExceptionHandling': 2
                     },
                 },
             }
@@ -160,7 +162,6 @@
             'type': 'static_library',
             'sources': [
                 'contrib/HdrHistogram_c/src/hdr_encoding.c',
-                'contrib/HdrHistogram_c/src/hdr_histogram_log_no_op.c',
                 'contrib/HdrHistogram_c/src/hdr_histogram_log.c',
                 'contrib/HdrHistogram_c/src/hdr_histogram.c',
                 'contrib/HdrHistogram_c/src/hdr_interval_recorder.c',
