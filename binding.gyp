@@ -67,6 +67,11 @@
                     '-pedantic',
                     '-std=gnu99',
                 ]
+            }],
+            ['OS=="linux"', {
+                "libraries": [
+                    '-static-libgcc -static-libstdc++',
+                ]
             }]
         ],
         'sources': [

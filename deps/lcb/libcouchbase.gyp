@@ -64,6 +64,11 @@
                     ]
                 }
             }],
+            ['OS=="linux"', {
+                "libraries": [
+                    '-static-libgcc -static-libstdc++',
+                ]
+            }],
         ]
     },
 
