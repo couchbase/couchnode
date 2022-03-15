@@ -37,6 +37,7 @@ export class CouchbaseError extends Error {
   constructor(message: string, cause?: Error, context?: ErrorContext) {
     super(message)
     this.name = this.constructor.name
+    this.stack = undefined
 
     this.cause = cause
     this.context = context as any
