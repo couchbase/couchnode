@@ -59,7 +59,7 @@ console.log(res.content)
 
 ## Documentation
 
-An extensive documentation is available on the Couchbase website - [https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html) -
+An extensive documentation is available on the Couchbase website - [https://docs.couchbase.com/nodejs-sdk/current/hello-world/start-using-sdk.html](https://docs.couchbase.com/nodejs-sdk/current/hello-world/start-using-sdk.html) -
 including numerous examples and code samples.
 
 Visit our [Couchbase Node.js SDK forum](https://forums.couchbase.com/c/node-js-sdk) for help.
