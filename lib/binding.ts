@@ -709,7 +709,7 @@ export interface CppConnection {
       client_context_id?: string
       timeout: CppMilliseconds
       index_name: string
-      query: string
+      query: any
       limit?: number
       skip?: number
       explain?: boolean

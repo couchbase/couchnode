@@ -11,9 +11,50 @@ import { NodeCallback, PromiseHelper } from './utilities'
  */
 export interface ISearchIndex {
   /**
+   * The UUID of the search index.  Used for updates to ensure consistency.
+   */
+  uuid?: string
+
+  /**
    * The name of the search index.
    */
   name: string
+
+  /**
+   * Name of the source of the data (ie: the bucket name).
+   */
+  sourceName: string
+
+  /**
+   * The type of index to use (fulltext-index or fulltext-alias).
+   */
+  type: string
+
+  /**
+   * Parameters to specify such as the store type and mappins.
+   */
+  params: { [key: string]: any }
+
+  /**
+   * The UUID of the data source.
+   */
+  sourceUuid: string
+
+  /**
+   * Extra parameters for the source.  These are usually things like advanced
+   * connection options and tuning parameters.
+   */
+  sourceParams: { [key: string]: any }
+
+  /**
+   * The type of the source (couchbase or nil).
+   */
+  sourceType: string
+
+  /**
+   * Plan properties such as the number of replicas and number of partitions.
+   */
+  planParams: { [key: string]: any }
 }
 
 /**
@@ -186,8 +227,8 @@ export class SearchIndexManager {
   async getIndex(
     indexName: string,
     options?: GetSearchIndexOptions,
-    callback?: NodeCallback<void>
-  ): Promise<void> {
+    callback?: NodeCallback<SearchIndex>
+  ): Promise<SearchIndex> {
     if (options instanceof Function) {
       callback = arguments[1]
       options = undefined
@@ -210,7 +251,8 @@ export class SearchIndexManager {
         throw new IndexNotFoundError()
       }
 
-      return JSON.parse(res.body.toString())
+      const idxData = JSON.parse(res.body.toString())
+      return idxData.indexDef as SearchIndex
     }, callback)
   }
 
@@ -246,7 +288,8 @@ export class SearchIndexManager {
         throw new Error('failed to fetch search indices')
       }
 
-      return JSON.parse(res.body.toString())
+      const idxsData = JSON.parse(res.body.toString())
+      return Object.values(idxsData.indexDefs.indexDefs) as SearchIndex[]
     }, callback)
   }
 

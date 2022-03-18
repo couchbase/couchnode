@@ -53,7 +53,7 @@ export class SearchExecutor {
       {
         timeout,
         index_name: indexName,
-        query: JSON.stringify(query),
+        query: query,
         limit: options.limit,
         skip: options.skip,
         explain: options.explain,
@@ -104,7 +104,7 @@ export class SearchExecutor {
 
         {
           const metaData = resp.meta
-          emitter.emit('row', metaData)
+          emitter.emit('meta', metaData)
         }
 
         emitter.emit('end')
