@@ -11,7 +11,7 @@ Source - [https://github.com/couchbase/couchnode](https://github.com/couchbase/c
 
 Bug Tracker - [https://www.couchbase.com/issues/browse/JSCBC](https://www.couchbase.com/issues/browse/JSCBC)
 
-Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html)
+Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/current/hello-world/start-using-sdk.html)
 
 Release Notes - [https://docs.couchbase.com/nodejs-sdk/3.0/project-docs/sdk-release-notes.html](https://docs.couchbase.com/nodejs-sdk/3.0/project-docs/sdk-release-notes.html)
 
