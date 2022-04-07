@@ -234,6 +234,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_on_behalf_of(lcb_CMDSTORE *cmd, const c
     return cmd->on_behalf_of(std::string(data, data_len));
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_on_behalf_of_extra_privilege(lcb_CMDSTORE *cmd, const char *privilege,
+                                                                      size_t privilege_len)
+{
+    return cmd->on_behalf_of_add_extra_privilege(std::string(privilege, privilege_len));
+}
+
 struct DurStoreCtx : mc_REQDATAEX {
     lcb_INSTANCE *instance;
     lcb_U16 persist_to;
@@ -399,6 +405,12 @@ static lcb_STATUS store_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
         err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
         if (err != LCB_SUCCESS) {
             return err;
+        }
+        for (const auto &privilege : cmd->extra_privileges()) {
+            err = lcb::flexible_framing_extras::encode_impersonate_users_extra_privilege(privilege, framing_extras);
+            if (err != LCB_SUCCESS) {
+                return err;
+            }
         }
     }
     auto ffextlen = static_cast<std::uint8_t>(framing_extras.size());

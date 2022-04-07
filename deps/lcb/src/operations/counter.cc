@@ -141,6 +141,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_on_behalf_of(lcb_CMDCOUNTER *cmd, con
     return cmd->on_behalf_of(std::string(data, data_len));
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_on_behalf_of_extra_privilege(lcb_CMDCOUNTER *cmd, const char *privilege,
+                                                                        size_t privilege_len)
+{
+    return cmd->on_behalf_of_add_extra_privilege(std::string(privilege, privilege_len));
+}
+
 static lcb_STATUS counter_validate(lcb_INSTANCE *instance, const lcb_CMDCOUNTER *cmd)
 {
     if (cmd->key().empty()) {
@@ -183,6 +189,12 @@ static lcb_STATUS counter_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_C
         err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
         if (err != LCB_SUCCESS) {
             return err;
+        }
+        for (const auto &privilege : cmd->extra_privileges()) {
+            err = lcb::flexible_framing_extras::encode_impersonate_users_extra_privilege(privilege, framing_extras);
+            if (err != LCB_SUCCESS) {
+                return err;
+            }
         }
     }
 

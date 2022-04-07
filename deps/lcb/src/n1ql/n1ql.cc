@@ -52,10 +52,14 @@ static lcb_RETRY_REASON query_code_to_reason(lcb_STATUS err)
     }
 }
 
-lcb_RETRY_ACTION lcb_query_should_retry(const lcb_settings *settings, lcb_QUERY_HANDLE *query, lcb_STATUS err)
+lcb_RETRY_ACTION lcb_query_should_retry(const lcb_settings *settings, lcb_QUERY_HANDLE *query, lcb_STATUS err,
+                                        int retry_attribute)
 {
     lcb_RETRY_ACTION retry_action{};
     lcb_RETRY_REASON retry_reason = query_code_to_reason(err);
+    if (retry_attribute) {
+        retry_reason = LCB_RETRY_REASON_QUERY_ERROR_RETRYABLE;
+    }
     if (err == LCB_ERR_TIMEOUT) {
         /* We can't exceed a timeout for ETIMEDOUT */
         retry_action.should_retry = 0;

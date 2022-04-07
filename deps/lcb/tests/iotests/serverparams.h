@@ -37,10 +37,15 @@ class ServerParams
     void makeConnectParams(lcb_CREATEOPTS *&crst, lcb_io_opt_t io, lcb_INSTANCE_TYPE type = LCB_TYPE_BUCKET)
     {
         lcb_createopts_create(&crst, type);
-        if (host.find("couchbase://") == 0) {
+        if (host.find("couchbase") == 0) {
             connstr = host;
             // deactivate dnssrv and compression, use cccp bootstrap
-            connstr += "?dnssrv=off&bootstrap_on=cccp&compression=off";
+            if (host.find("?") == std::string::npos) {
+                connstr += "?";
+            } else {
+                connstr += "&";
+            }
+            connstr += "dnssrv=off&bootstrap_on=cccp&compression=off";
         } else {
             if (mcNodes.empty() || type == LCB_TYPE_CLUSTER) {
                 connstr = "couchbase://" + host + "=http";

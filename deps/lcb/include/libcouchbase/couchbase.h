@@ -710,6 +710,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_timeout(lcb_CMDGET *cmd, uint32_t timeout
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_on_behalf_of(lcb_CMDGET *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdget_on_behalf_of_extra_privilege(lcb_CMDGET *cmd, const char *privilege,
+                                                                    size_t privilege_len);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_get(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGET *cmd);
 /**@}*/
@@ -816,6 +821,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_timeout(lcb_CMDGETREPLICA *cmd, ui
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_on_behalf_of(lcb_CMDGETREPLICA *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_on_behalf_of_extra_privilege(lcb_CMDGETREPLICA *cmd,
+                                                                           const char *privilege, size_t privilege_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_getreplica(lcb_INSTANCE *instance, void *cookie, const lcb_CMDGETREPLICA *cmd);
 
 /**@}*/
@@ -843,6 +853,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_timeout(lcb_CMDEXISTS *cmd, uint32_t t
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_on_behalf_of(lcb_CMDEXISTS *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdexists_on_behalf_of_extra_privilege(lcb_CMDEXISTS *cmd, const char *privilege,
+                                                                       size_t privilege_len);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_exists(lcb_INSTANCE *instance, void *cookie, const lcb_CMDEXISTS *cmd);
 
@@ -994,6 +1009,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_timeout(lcb_CMDSTORE *cmd, uint32_t tim
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_on_behalf_of(lcb_CMDSTORE *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdstore_on_behalf_of_extra_privilege(lcb_CMDSTORE *cmd, const char *privilege,
+                                                                      size_t privilege_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_store(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSTORE *cmd);
 /**@}*/
 
@@ -1103,6 +1123,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_timeout(lcb_CMDREMOVE *cmd, uint32_t t
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_on_behalf_of(lcb_CMDREMOVE *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdremove_on_behalf_of_extra_privilege(lcb_CMDREMOVE *cmd, const char *privilege,
+                                                                       size_t privilege_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_remove(lcb_INSTANCE *instance, void *cookie, const lcb_CMDREMOVE *cmd);
 
 /**@}*/
@@ -1196,6 +1221,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_timeout(lcb_CMDCOUNTER *cmd, uint32_t
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_on_behalf_of(lcb_CMDCOUNTER *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdcounter_on_behalf_of_extra_privilege(lcb_CMDCOUNTER *cmd, const char *privilege,
+                                                                        size_t privilege_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_counter(lcb_INSTANCE *instance, void *cookie, const lcb_CMDCOUNTER *cmd);
 
 /**@} (Group: Counter) */
@@ -1277,6 +1307,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_timeout(lcb_CMDUNLOCK *cmd, uint32_t t
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_on_behalf_of(lcb_CMDUNLOCK *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdunlock_on_behalf_of_extra_privilege(lcb_CMDUNLOCK *cmd, const char *privilege,
+                                                                       size_t privilege_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_unlock(lcb_INSTANCE *instance, void *cookie, const lcb_CMDUNLOCK *cmd);
 
 /**@} (Group: Unlock) */
@@ -1348,6 +1383,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_timeout(lcb_CMDTOUCH *cmd, uint32_t tim
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_on_behalf_of(lcb_CMDTOUCH *cmd, const char *data, size_t data_len);
+/**
+ * @internal Internal: This should never be used and is not supported.
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_on_behalf_of_extra_privilege(lcb_CMDTOUCH *cmd, const char *privilege,
+                                                                      size_t privilege_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_touch(lcb_INSTANCE *instance, void *cookie, const lcb_CMDTOUCH *cmd);
 
 /**@} (Group: Touch) */
@@ -3070,6 +3110,16 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_option(lcb_CMDQUERY *cmd, const char *n
                                                 size_t value_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_handle(lcb_CMDQUERY *cmd, lcb_QUERY_HANDLE **handle);
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_timeout(lcb_CMDQUERY *cmd, uint32_t timeout);
+ /**
+ * @uncommitted
+ * Indicates that the query engine to preserve expiration values set on any
+ * documents modified by this query.
+ *
+ *
+ * @param cmd the command
+ * @param preserve_expiry if non-zero, the query will preserve expiration values
+ */
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_preserve_expiry(lcb_CMDQUERY *cmd, int preserve_expiry);
 
 /**
  * @internal Internal: This should never be used and is not supported.
@@ -3290,6 +3340,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_timeout(lcb_CMDSUBDOC *cmd, uint32_t t
  * @internal Internal: This should never be used and is not supported.
  */
 LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_on_behalf_of(lcb_CMDSUBDOC *cmd, const char *data, size_t data_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdsubdoc_on_behalf_of_extra_privilege(lcb_CMDSUBDOC *cmd, const char *privilege,
+                                                                       size_t privilege_len);
 
 LIBCOUCHBASE_API lcb_STATUS lcb_subdoc(lcb_INSTANCE *instance, void *cookie, const lcb_CMDSUBDOC *cmd);
 /** @} */

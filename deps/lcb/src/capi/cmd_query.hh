@@ -30,20 +30,22 @@
  */
 struct lcb_QUERY_ERROR_CONTEXT_ {
     lcb_STATUS rc;
-    uint32_t first_error_code;
-    const char *first_error_message;
-    size_t first_error_message_len;
-    const char *statement;
-    size_t statement_len;
-    const char *client_context_id;
-    size_t client_context_id_len;
-    const char *query_params;
-    size_t query_params_len;
-    uint32_t http_response_code;
-    const char *http_response_message;
-    size_t http_response_message_len;
-    const char *endpoint;
-    size_t endpoint_len;
+    uint32_t first_error_code{};
+    const char *first_error_message{};
+    size_t first_error_message_len{};
+    const char *error_response_body{};
+    size_t error_response_body_len{};
+    const char *statement{};
+    size_t statement_len{};
+    const char *client_context_id{};
+    size_t client_context_id_len{};
+    const char *query_params{};
+    size_t query_params_len{};
+    uint32_t http_response_code{};
+    const char *http_response_message{};
+    size_t http_response_message_len{};
+    const char *endpoint{};
+    size_t endpoint_len{};
 };
 
 /**
@@ -200,6 +202,12 @@ struct lcb_CMDQUERY_ {
         auto &vb = root_["scan_vectors"][std::string(keyspace, keyspace_len)][std::to_string(token->vbid_)];
         vb[0] = static_cast<Json::UInt64>(token->seqno_);
         vb[1] = std::to_string(token->uuid_);
+        return LCB_SUCCESS;
+    }
+
+    lcb_STATUS preserve_expiry(bool preserve_expiry)
+    {
+        root_["preserve_expiry"] = preserve_expiry;
         return LCB_SUCCESS;
     }
 

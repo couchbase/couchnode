@@ -250,6 +250,8 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_rc(const lcb_QUERY_ERROR_CONTEXT *c
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_first_error_code(const lcb_QUERY_ERROR_CONTEXT *ctx, uint32_t *code);
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_first_error_message(const lcb_QUERY_ERROR_CONTEXT *ctx,
                                                                  const char **message, size_t *message_len);
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_error_response_body(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **body,
+                                                                 size_t *body_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_statement(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **statement,
                                                        size_t *statement_len);
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_client_context_id(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **id,
@@ -388,7 +390,8 @@ lcb_errmap_callback lcb_set_errmap_callback(lcb_INSTANCE *instance, lcb_errmap_c
     X(LCB_RETRY_REASON_CIRCUIT_BREAKER_OPEN,                 13,     1,                      0)              \
     X(LCB_RETRY_REASON_QUERY_PREPARED_STATEMENT_FAILURE,     14,     1,                      0)              \
     X(LCB_RETRY_REASON_ANALYTICS_TEMPORARY_FAILURE,          15,     1,                      0)              \
-    X(LCB_RETRY_REASON_SEARCH_TOO_MANY_REQUESTS,             16,     1,                      0)
+    X(LCB_RETRY_REASON_SEARCH_TOO_MANY_REQUESTS,             16,     1,                      0)              \
+    X(LCB_RETRY_REASON_QUERY_ERROR_RETRYABLE,                17,     1,                      0)
 /* clang-format on */
 
 typedef enum {

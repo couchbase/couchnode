@@ -660,6 +660,9 @@ GT_NEXT_PACKET:
                         status);
                 set_error(LCB_ERR_PROTOCOL_ERROR, "GET_ERRMAP response unexpected", &resp);
             }
+            if (settings->keypath) {
+                completed = !maybe_select_bucket();
+            }
             // Note, there is no explicit state transition here. LIST_MECHS is
             // pipelined after this request.
             break;

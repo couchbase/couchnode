@@ -214,3 +214,24 @@ lcb_STATUS lcb::flexible_framing_extras::encode_impersonate_user(const std::stri
     }
     return LCB_SUCCESS;
 }
+
+lcb_STATUS lcb::flexible_framing_extras::encode_impersonate_users_extra_privilege(
+    const std::string &privilege, std::vector<std::uint8_t> &flexible_framing_extras)
+{
+    auto privilege_len = privilege.size();
+    if (privilege_len > std::numeric_limits<std::uint8_t>::max() + 0xfU) {
+        return LCB_ERR_INVALID_ARGUMENT;
+    }
+    std::uint8_t frame_id = 0x06;
+    if (privilege_len < 15) {
+        auto frame_size = static_cast<std::uint8_t>(privilege_len);
+        flexible_framing_extras.emplace_back(frame_id << 4U | frame_size);
+    } else {
+        flexible_framing_extras.emplace_back(frame_id << 4U | 0xfU);
+        flexible_framing_extras.emplace_back(privilege_len - 0xfU);
+    }
+    for (const auto byte : privilege) {
+        flexible_framing_extras.emplace_back(byte);
+    }
+    return LCB_SUCCESS;
+}

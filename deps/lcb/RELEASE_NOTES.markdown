@@ -1,5 +1,17 @@
 # Release Notes
 
+## 3.2.5 (2022-02-08)
+
+CCBC-1486: Add support for preserve expiry to query options
+CCBC-1534, CCBC-1411: improve query error handling
+CCBC-1519: pass extra privilege with KV "on-behalf-of".
+CCBC-1521: fix bootstrap process when client cert is used and error map is supported. If client cert auth is used, once
+the error map response has been received, the negotiation is complete.
+CCBC-1529: load authentication certificate as chain file.
+CCBC-1525: remove stringstream in `collection_qualifier`. Constructing a stringstream object every time
+`collection_qualifier` is constructed is very expensive.
+CCBC-1528: update parsing of "quota limit" error for FTS
+
 ## 3.2.4 (2021-11-23)
 
 CCBC-1522: Filter `DnsQuery` results on Windows by type: only use records with `DNS_TYPE_SRV` type.

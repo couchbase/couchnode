@@ -117,6 +117,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_on_behalf_of(lcb_CMDTOUCH *cmd, const c
     return cmd->on_behalf_of(std::string(data, data_len));
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdtouch_on_behalf_of_extra_privilege(lcb_CMDTOUCH *cmd, const char *privilege,
+                                                                      size_t privilege_len)
+{
+    return cmd->on_behalf_of_add_extra_privilege(std::string(privilege, privilege_len));
+}
+
 static lcb_STATUS touch_validate(lcb_INSTANCE *instance, const lcb_CMDTOUCH *cmd)
 {
     if (cmd->key().empty()) {
@@ -141,6 +147,12 @@ static lcb_STATUS touch_schedule(lcb_INSTANCE *instance, std::shared_ptr<lcb_CMD
         err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
         if (err != LCB_SUCCESS) {
             return err;
+        }
+        for (const auto &privilege : cmd->extra_privileges()) {
+            err = lcb::flexible_framing_extras::encode_impersonate_users_extra_privilege(privilege, framing_extras);
+            if (err != LCB_SUCCESS) {
+                return err;
+            }
         }
     }
 

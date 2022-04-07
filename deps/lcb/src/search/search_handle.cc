@@ -97,8 +97,7 @@ void lcb_SEARCH_HANDLE_::invoke_row(lcb_RESPSEARCH *resp)
                     } else if (resp->ctx.http_response_code == 400) {
                         if (error_message_.find("not_found") != std::string::npos) {
                             resp->ctx.rc = LCB_ERR_INDEX_NOT_FOUND;
-                        } else if (error_message_.find("CreateIndex, Prepare failed, err: num_fts_indexes") !=
-                                   std::string::npos) {
+                        } else if (error_message_.find("num_fts_indexes") != std::string::npos) {
                             resp->ctx.rc = LCB_ERR_QUOTA_LIMITED;
                         }
                     } else if (resp->ctx.http_response_code == 429) {

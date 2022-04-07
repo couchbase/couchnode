@@ -323,4 +323,57 @@ class TestMeter
     bool enabled_{false};
 };
 
+struct kv_rate_limits {
+    uint32_t num_connections{0};
+    uint32_t num_ops_per_min{0};
+    uint32_t ingress_mib_per_min{0};
+    uint32_t egress_mib_per_min{0};
+    bool enforce{false};
+};
+
+struct query_rate_limits {
+    uint32_t ingress_mib_per_min{0};
+    uint32_t egress_mib_per_min{0};
+    uint32_t num_concurrent_requests{0};
+    uint32_t num_queries_per_min{0};
+    bool enforce{false};
+};
+
+struct search_rate_limits {
+    uint32_t ingress_mib_per_min{0};
+    uint32_t egress_mib_per_min{0};
+    uint32_t num_concurrent_requests{0};
+    uint32_t num_queries_per_min{0};
+    bool enforce{false};
+};
+
+struct rate_limits {
+    kv_rate_limits kv_limits{};
+    query_rate_limits query_limits{};
+    search_rate_limits search_limits{};
+};
+
+struct kv_scope_rate_limits {
+    uint32_t data_size;
+    bool enforce{false};
+};
+
+struct index_scope_rate_limits {
+    uint32_t num_indexes{0};
+    bool enforce{false};
+};
+
+struct scope_rate_limits {
+    kv_scope_rate_limits kv_scope_limits;
+    index_scope_rate_limits index_scope_limits;
+};
+
+void enforce_rate_limits(lcb_INSTANCE *instance);
+void create_rate_limited_user(lcb_INSTANCE *instance, const std::string &username, const rate_limits &limits);
+void drop_user(lcb_INSTANCE *instance, const std::string &username);
+void create_rate_limited_scope(lcb_INSTANCE *instance, const std::string &bucket, std::string &scope,
+                               const scope_rate_limits &limits);
+void create_search_index(lcb_INSTANCE *instance, const std::string &index_name, const std::string &type,
+                         const std::string &source_type, const std::string &source_name);
+
 #endif

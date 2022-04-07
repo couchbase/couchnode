@@ -268,6 +268,11 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_on_behalf_of(lcb_CMDQUERY *cmd, const c
     return cmd->on_behalf_of(std::string(data, data_len));
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdquery_preserve_expiry(lcb_CMDQUERY *cmd, int preserve_expiry)
+{
+    return cmd->preserve_expiry(preserve_expiry);
+}
+
 LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_rc(const lcb_QUERY_ERROR_CONTEXT *ctx)
 {
     return ctx->rc;
@@ -284,6 +289,14 @@ LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_first_error_message(const lcb_QUERY
 {
     *message = ctx->first_error_message;
     *message_len = ctx->first_error_message_len;
+    return LCB_SUCCESS;
+}
+
+LIBCOUCHBASE_API lcb_STATUS lcb_errctx_query_error_response_body(const lcb_QUERY_ERROR_CONTEXT *ctx, const char **body,
+                                                                 size_t *body_len)
+{
+    *body = ctx->error_response_body;
+    *body_len = ctx->error_response_body_len;
     return LCB_SUCCESS;
 }
 

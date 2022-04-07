@@ -144,6 +144,12 @@ LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_on_behalf_of(lcb_CMDGETREPLICA *cm
     return cmd->on_behalf_of(std::string(data, data_len));
 }
 
+LIBCOUCHBASE_API lcb_STATUS lcb_cmdgetreplica_on_behalf_of_extra_privilege(lcb_CMDGETREPLICA *cmd,
+                                                                           const char *privilege, size_t privilege_len)
+{
+    return cmd->on_behalf_of_add_extra_privilege(std::string(privilege, privilege_len));
+}
+
 struct RGetCookie : mc_REQDATAEX {
     RGetCookie(void *cookie, lcb_INSTANCE *instance, get_replica_mode, int vb);
     void decref()
@@ -349,19 +355,25 @@ static lcb_STATUS get_replica_schedule(lcb_INSTANCE *instance, std::shared_ptr<l
         return LCB_ERR_NO_MATCHING_SERVER;
     }
 
-    /* Initialize the cookie */
-    auto *rck = new RGetCookie(cmd->cookie(), instance, cmd->mode(), vbid);
-    rck->start = cmd->start_time_or_default_in_nanoseconds(gethrtime());
-    rck->deadline =
-        rck->start + cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
-
     std::vector<std::uint8_t> framing_extras;
     if (cmd->want_impersonation()) {
         lcb_STATUS err = lcb::flexible_framing_extras::encode_impersonate_user(cmd->impostor(), framing_extras);
         if (err != LCB_SUCCESS) {
             return err;
         }
+        for (const auto &privilege : cmd->extra_privileges()) {
+            err = lcb::flexible_framing_extras::encode_impersonate_users_extra_privilege(privilege, framing_extras);
+            if (err != LCB_SUCCESS) {
+                return err;
+            }
+        }
     }
+
+    /* Initialize the cookie */
+    auto *rck = new RGetCookie(cmd->cookie(), instance, cmd->mode(), vbid);
+    rck->start = cmd->start_time_or_default_in_nanoseconds(gethrtime());
+    rck->deadline =
+        rck->start + cmd->timeout_or_default_in_nanoseconds(LCB_US2NS(LCBT_SETTING(instance, operation_timeout)));
 
     /* Initialize the packet */
     req.request.magic = framing_extras.empty() ? PROTOCOL_BINARY_REQ : PROTOCOL_BINARY_AREQ;

@@ -138,6 +138,17 @@ struct lcb_CMDTOUCH_ {
         return LCB_SUCCESS;
     }
 
+    lcb_STATUS on_behalf_of_add_extra_privilege(std::string privilege)
+    {
+        extra_privileges_.emplace_back(std::move(privilege));
+        return LCB_SUCCESS;
+    }
+
+    const std::vector<std::string> &extra_privileges() const
+    {
+        return extra_privileges_;
+    }
+
     bool want_impersonation() const
     {
         return !impostor_.empty();
@@ -157,6 +168,7 @@ struct lcb_CMDTOUCH_ {
     void *cookie_{nullptr};
     std::string key_{};
     std::string impostor_{};
+    std::vector<std::string> extra_privileges_{};
 };
 
 /**

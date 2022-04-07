@@ -29,6 +29,9 @@ namespace lcb
 namespace flexible_framing_extras
 {
 lcb_STATUS encode_impersonate_user(const std::string &username, std::vector<std::uint8_t> &flexible_framing_extras);
+
+lcb_STATUS encode_impersonate_users_extra_privilege(const std::string &privilege,
+                                                    std::vector<std::uint8_t> &flexible_framing_extras);
 } // namespace flexible_framing_extras
 } // namespace lcb
 

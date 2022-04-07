@@ -21,7 +21,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <sstream>
 #include <stdexcept>
 
 namespace lcb
@@ -48,11 +47,10 @@ struct collection_qualifier {
         if (collection_name != nullptr && collection_name_len > 0) {
             collection_.assign(collection_name, collection_name_len);
         }
-        std::stringstream ss;
-        ss << (scope_.empty() ? "_default" : scope_);
-        ss << '.';
-        ss << (collection_.empty() ? "_default" : collection_);
-        spec_ = ss.str();
+
+        spec_ = (scope_.empty() ? "_default" : scope_) +
+                '.' +
+                (collection_.empty() ? "_default" : collection_);
     }
 
     const std::string &scope() const

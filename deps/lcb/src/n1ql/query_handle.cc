@@ -95,8 +95,8 @@ static void prepare_rowcb(lcb_INSTANCE *instance, int, const lcb_RESPQUERY *row)
 
 bool lcb_QUERY_HANDLE_::parse_meta(const char *row, size_t row_len, lcb_STATUS &rc)
 {
-    first_error_message.clear();
-    first_error_code = 0;
+    first_error.message.clear();
+    first_error.code = 0;
 
     Json::Value meta;
     if (!Json::Reader(Json::Features::strictMode()).parse(row, row + row_len, meta)) {
@@ -105,21 +105,41 @@ bool lcb_QUERY_HANDLE_::parse_meta(const char *row, size_t row_len, lcb_STATUS &
     const Json::Value &errors = meta["errors"];
     if (errors.isArray() && !errors.empty()) {
         const Json::Value &err = errors[0];
+        if (err.isMember("retry") && err["retry"].isBool()) {
+            first_error.retry = err["retry"].asBool();
+        }
+        if (err.isMember("reason") && err["reason"].isObject()) {
+            const Json::Value &reason = err["reason"];
+            if (reason.isMember("code") && reason["code"].isNumeric()) {
+                first_error.reason_code = reason["code"].asInt();
+            }
+        }
         const Json::Value &msg = err["msg"];
         if (msg.isString()) {
-            first_error_message = msg.asString();
+            first_error.message = msg.asString();
         }
         const Json::Value &code = err["code"];
         if (code.isNumeric()) {
-            first_error_code = code.asUInt();
-            switch (first_error_code) {
+            first_error.code = code.asUInt();
+            switch (first_error.code) {
                 case 3000:
                     rc = LCB_ERR_PARSING_FAILURE;
                     break;
                 case 12009:
                     rc = LCB_ERR_DML_FAILURE;
-                    if (first_error_message.find("CAS mismatch") != std::string::npos) {
+                    if (first_error.message.find("CAS mismatch") != std::string::npos) {
                         rc = LCB_ERR_CAS_MISMATCH;
+                    }
+                    switch (first_error.reason_code) {
+                        case 12033:
+                            rc = LCB_ERR_CAS_MISMATCH;
+                            break;
+                        case 17014:
+                            rc = LCB_ERR_DOCUMENT_NOT_FOUND;
+                            break;
+                        case 17012:
+                            rc = LCB_ERR_DOCUMENT_EXISTS;
+                            break;
                     }
                     break;
                 case 4040:
@@ -132,31 +152,34 @@ bool lcb_QUERY_HANDLE_::parse_meta(const char *row, size_t row_len, lcb_STATUS &
                     break;
                 case 4300:
                     rc = LCB_ERR_PLANNING_FAILURE;
-                    if (!first_error_message.empty()) {
+                    if (!first_error.message.empty()) {
                         std::regex already_exists("index.+already exists");
-                        if (std::regex_search(first_error_message, already_exists)) {
+                        if (std::regex_search(first_error.message, already_exists)) {
                             rc = LCB_ERR_INDEX_EXISTS;
                         }
                     }
                     break;
                 case 5000:
                     rc = LCB_ERR_INTERNAL_SERVER_FAILURE;
-                    if (!first_error_message.empty()) {
+                    if (!first_error.message.empty()) {
                         std::regex already_exists("Index.+already exists"); /* NOTE: case sensitive */
                         std::regex not_found("index.+not found");
-                        if (std::regex_search(first_error_message, already_exists)) {
+                        if (std::regex_search(first_error.message, already_exists)) {
                             rc = LCB_ERR_INDEX_EXISTS;
-                        } else if (std::regex_search(first_error_message, not_found)) {
+                        } else if (std::regex_search(first_error.message, not_found)) {
                             rc = LCB_ERR_INDEX_NOT_FOUND;
-                        } else if (first_error_message.find(
+                        } else if (first_error.message.find(
                                        "Limit for number of indexes that can be created per scope has been reached") !=
                                    std::string::npos) {
                             rc = LCB_ERR_QUOTA_LIMITED;
                         }
                     }
                     break;
-                case 12004:
                 case 12016:
+                    /* see MB-50643 */
+                    first_error.retry = false;
+                    /* fallthrough */
+                case 12004:
                     rc = LCB_ERR_INDEX_NOT_FOUND;
                     break;
                 case 12003:
@@ -177,14 +200,14 @@ bool lcb_QUERY_HANDLE_::parse_meta(const char *row, size_t row_len, lcb_STATUS &
                     break;
 
                 default:
-                    if (first_error_code >= 4000 && first_error_code < 5000) {
+                    if (first_error.code >= 4000 && first_error.code < 5000) {
                         rc = LCB_ERR_PLANNING_FAILURE;
-                    } else if (first_error_code >= 5000 && first_error_code < 6000) {
+                    } else if (first_error.code >= 5000 && first_error.code < 6000) {
                         rc = LCB_ERR_INTERNAL_SERVER_FAILURE;
-                    } else if (first_error_code >= 10000 && first_error_code < 11000) {
+                    } else if (first_error.code >= 10000 && first_error.code < 11000) {
                         rc = LCB_ERR_AUTHENTICATION_FAILURE;
-                    } else if ((first_error_code >= 12000 && first_error_code < 13000) ||
-                               (first_error_code >= 14000 && first_error_code < 15000)) {
+                    } else if ((first_error.code >= 12000 && first_error.code < 13000) ||
+                               (first_error.code >= 14000 && first_error.code < 15000)) {
                         rc = LCB_ERR_INDEX_FAILURE;
                     }
                     break;
@@ -218,11 +241,13 @@ void lcb_QUERY_HANDLE_::invoke_row(lcb_RESPQUERY *resp, bool is_last)
         resp->row = static_cast<const char *>(meta_buf.iov_base);
         resp->nrow = meta_buf.iov_len;
         parse_meta(resp->row, resp->nrow, resp->ctx.rc);
-        if (!first_error_message.empty()) {
-            resp->ctx.first_error_message = first_error_message.c_str();
-            resp->ctx.first_error_message_len = first_error_message.size();
+        resp->ctx.error_response_body = resp->row;
+        resp->ctx.error_response_body_len = resp->nrow;
+        if (!first_error.message.empty()) {
+            resp->ctx.first_error_message = first_error.message.c_str();
+            resp->ctx.first_error_message_len = first_error.message.size();
         }
-        resp->ctx.first_error_code = first_error_code;
+        resp->ctx.first_error_code = first_error.code;
         if (span_ != nullptr) {
             lcb::trace::finish_http_span(span_, this);
             span_ = nullptr;
@@ -358,27 +383,27 @@ lcb_RETRY_ACTION lcb_QUERY_HANDLE_::has_retriable_error(lcb_STATUS &rc)
     const uint32_t default_backoff = 100 /* ms */;
     if (rc == LCB_ERR_PREPARED_STATEMENT_FAILURE) {
         lcb_log(LOGARGS(this, TRACE), LOGFMT "Will retry request. rc: %s, code: %d, msg: %s", LOGID(this),
-                lcb_strerror_short(rc), first_error_code, first_error_message.c_str());
+                lcb_strerror_short(rc), first_error.code, first_error.message.c_str());
         return {1, default_backoff};
     }
-    if (first_error_code == 13014 &&
+    if (first_error.code == 13014 &&
         LCBT_SETTING(instance_, auth)->mode() == LCBAUTH_MODE_DYNAMIC) { // datastore.couchbase.insufficient_credentials
         auto result = request_credentials(LCBAUTH_REASON_AUTHENTICATION_FAILURE);
         bool credentials_found = result == LCBAUTH_RESULT_OK;
         lcb_log(LOGARGS(this, TRACE),
                 LOGFMT "Invalidate credentials and retry request. creds: %s, rc: %s, code: %d, msg: %s", LOGID(this),
-                credentials_found ? "ok" : "not_found", lcb_strerror_short(rc), first_error_code,
-                first_error_message.c_str());
+                credentials_found ? "ok" : "not_found", lcb_strerror_short(rc), first_error.code,
+                first_error.message.c_str());
         return {credentials_found, default_backoff};
     }
-    if (!first_error_message.empty()) {
+    if (!first_error.message.empty()) {
         for (const auto &magic_string : wtf_magic_strings) {
-            if (first_error_message.find(magic_string) != std::string::npos) {
+            if (first_error.message.find(magic_string) != std::string::npos) {
                 lcb_log(LOGARGS(this, TRACE),
                         LOGFMT
                         "Special error message detected. Will retry request. rc: %s (update to %s), code: %d, msg: %s",
                         LOGID(this), lcb_strerror_short(rc), lcb_strerror_short(LCB_ERR_PREPARED_STATEMENT_FAILURE),
-                        first_error_code, first_error_message.c_str());
+                        first_error.code, first_error.message.c_str());
                 rc = LCB_ERR_PREPARED_STATEMENT_FAILURE;
                 return {1, default_backoff};
             }
@@ -388,7 +413,7 @@ lcb_RETRY_ACTION lcb_QUERY_HANDLE_::has_retriable_error(lcb_STATUS &rc)
     if (rc == LCB_SUCCESS) {
         return {0, 0};
     }
-    return lcb_query_should_retry(instance_->settings, this, rc);
+    return lcb_query_should_retry(instance_->settings, this, rc, first_error.retry);
 }
 
 lcb_STATUS lcb_QUERY_HANDLE_::issue_htreq(const std::string &body)

@@ -359,7 +359,7 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
         }
         if (cafile && keyfile) {
             lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Authenticate with key \"%s\", cert \"%s\"", keyfile, cafile);
-            if (!SSL_CTX_use_certificate_file(ret->ctx, cafile, SSL_FILETYPE_PEM)) {
+            if (!SSL_CTX_use_certificate_chain_file(ret->ctx, cafile)) {
                 *errp = LCB_ERR_SSL_ERROR;
                 goto GT_ERR;
             }

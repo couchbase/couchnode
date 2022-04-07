@@ -445,6 +445,17 @@ struct lcb_CMDSUBDOC_ {
         return LCB_SUCCESS;
     }
 
+    lcb_STATUS on_behalf_of_add_extra_privilege(std::string privilege)
+    {
+        extra_privileges_.emplace_back(std::move(privilege));
+        return LCB_SUCCESS;
+    }
+
+    const std::vector<std::string> &extra_privileges() const
+    {
+        return extra_privileges_;
+    }
+
     bool want_impersonation() const
     {
         return !impostor_.empty();
@@ -469,6 +480,7 @@ struct lcb_CMDSUBDOC_ {
     lcb_SUBDOCSPECS_ specs_{};
     bool preserve_expiry_{false};
     std::string impostor_{};
+    std::vector<std::string> extra_privileges_{};
 };
 
 /**
