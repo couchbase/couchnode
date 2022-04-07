@@ -550,7 +550,7 @@ export class BucketManager {
    * @param callback A node-style callback to be invoked after execution.
    */
   async createBucket(
-    settings: CreateBucketSettings,
+    settings: ICreateBucketSettings,
     options?: CreateBucketOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {

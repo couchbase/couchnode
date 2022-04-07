@@ -1,4 +1,3 @@
-import { CppCas } from './binding'
 import { DurabilityLevel } from './generaltypes'
 import parseDuration from 'parse-duration'
 import * as qs from 'querystring'
@@ -9,7 +8,7 @@ import * as qs from 'querystring'
  *
  * @category Key-Value
  */
-export type Cas = CppCas
+export type Cas = any
 
 /**
  * Reprents a node-style callback which receives an optional error or result.
