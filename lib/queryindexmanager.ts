@@ -51,6 +51,24 @@ export class QueryIndex {
   partition?: string
 
   /**
+   * The collection that this index is for.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * The scope that this index is for.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
+  /**
+   * The bucket that this index is for.
+   * Uncommitted: This API may change in the future.
+   */
+  bucketName?: string
+
+  /**
    * @internal
    */
   constructor(data: QueryIndex) {
@@ -62,6 +80,9 @@ export class QueryIndex {
     this.indexKey = data.indexKey
     this.condition = data.condition
     this.partition = data.partition
+    this.collectionName = data.collectionName
+    this.scopeName = data.scopeName
+    this.bucketName = data.bucketName
   }
 }
 
@@ -69,6 +90,18 @@ export class QueryIndex {
  * @category Management
  */
 export interface CreateQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
   /**
    * Whether or not the call should ignore the index already existing when
    * determining whether the call was successful.
@@ -96,6 +129,18 @@ export interface CreateQueryIndexOptions {
  * @category Management
  */
 export interface CreatePrimaryQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
   /**
    * The name of this primary index.
    */
@@ -129,6 +174,18 @@ export interface CreatePrimaryQueryIndexOptions {
  */
 export interface DropQueryIndexOptions {
   /**
+   * Specifies the collection of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
+  /**
    * Whether or not the call should ignore the index already existing when
    * determining whether the call was successful.
    */
@@ -144,6 +201,18 @@ export interface DropQueryIndexOptions {
  * @category Management
  */
 export interface DropPrimaryQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
   /**
    * The name of the primary index to drop.
    */
@@ -166,6 +235,18 @@ export interface DropPrimaryQueryIndexOptions {
  */
 export interface GetAllQueryIndexesOptions {
   /**
+   * Specifies the collection of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -176,6 +257,18 @@ export interface GetAllQueryIndexesOptions {
  */
 export interface BuildQueryIndexOptions {
   /**
+   * Specifies the collection of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -185,6 +278,18 @@ export interface BuildQueryIndexOptions {
  * @category Management
  */
 export interface WatchQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   * Uncommitted: This API may change in the future.
+   */
+  scopeName?: string
+
   /**
    * Specifies whether the primary indexes should be watched as well.
    */
@@ -215,6 +320,8 @@ export class QueryIndexManager {
     bucketName: string,
     isPrimary: boolean,
     options: {
+      collectionName?: string
+      scopeName?: string
       name?: string
       fields?: string[]
       ignoreIfExists?: boolean
@@ -230,8 +337,8 @@ export class QueryIndexManager {
       this._cluster.conn.managementQueryIndexCreate(
         {
           bucket_name: bucketName,
-          scope_name: '',
-          collection_name: '',
+          scope_name: options.scopeName || '',
+          collection_name: options.collectionName || '',
           index_name: options.name || '',
           fields: options.fields || [],
           is_primary: isPrimary,
@@ -281,6 +388,8 @@ export class QueryIndexManager {
       bucketName,
       false,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: indexName,
         fields: fields,
         ignoreIfExists: options.ignoreIfExists,
@@ -316,6 +425,8 @@ export class QueryIndexManager {
       bucketName,
       true,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: options.name,
         ignoreIfExists: options.ignoreIfExists,
         deferred: options.deferred,
@@ -329,6 +440,8 @@ export class QueryIndexManager {
     bucketName: string,
     isPrimary: boolean,
     options: {
+      collectionName?: string
+      scopeName?: string
       name?: string
       ignoreIfNotExists?: boolean
       timeout?: number
@@ -341,8 +454,8 @@ export class QueryIndexManager {
       this._cluster.conn.managementQueryIndexDrop(
         {
           bucket_name: bucketName,
-          scope_name: '',
-          collection_name: '',
+          scope_name: options.scopeName || '',
+          collection_name: options.collectionName || '',
           index_name: options.name || '',
           is_primary: isPrimary,
           ignore_if_does_not_exist: options.ignoreIfNotExists || false,
@@ -386,6 +499,8 @@ export class QueryIndexManager {
       bucketName,
       false,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: indexName,
         ignoreIfNotExists: options.ignoreIfNotExists,
         timeout: options.timeout,
@@ -418,6 +533,8 @@ export class QueryIndexManager {
       bucketName,
       true,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: options.name,
         ignoreIfNotExists: options.ignoreIfNotExists,
         timeout: options.timeout,
@@ -446,12 +563,16 @@ export class QueryIndexManager {
       options = {}
     }
 
+    const collectionName = options.collectionName || ''
+    const scopeName = options.scopeName || ''
     const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._cluster.conn.managementQueryIndexGetAll(
         {
           bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
           timeout,
         },
         (cppErr, resp) => {
@@ -464,6 +585,8 @@ export class QueryIndexManager {
             (row) =>
               new QueryIndex({
                 name: row.name,
+                collectionName: row.collection_name,
+                scopeName: row.scope_id,
                 isPrimary: row.is_primary,
                 type: row.type,
                 state: row.state,
@@ -500,12 +623,16 @@ export class QueryIndexManager {
       options = {}
     }
 
+    const collectionName = options.collectionName || ''
+    const scopeName = options.scopeName || ''
     const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._cluster.conn.managementQueryIndexBuildDeferred(
         {
           bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
           timeout: timeout,
         },
         (cppErr) => {
