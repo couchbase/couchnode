@@ -775,7 +775,7 @@ export class BucketManager {
           throw new BucketNotFoundError(undefined, errCtx)
         }
 
-        throw new CouchbaseError('failed to get bucket', undefined, errCtx)
+        throw new CouchbaseError('failed to flush bucket', undefined, errCtx)
       }
     }, callback)
   }

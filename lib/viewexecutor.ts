@@ -1,6 +1,10 @@
 /* eslint jsdoc/require-jsdoc: off */
 import binding from './binding'
-import { viewOrderingToCpp, viewScanConsistencyToCpp } from './bindingutilities'
+import {
+  errorFromCpp,
+  viewOrderingToCpp,
+  viewScanConsistencyToCpp,
+} from './bindingutilities'
 import { Bucket } from './bucket'
 import { Cluster } from './cluster'
 import { StreamableRowPromise } from './streamablepromises'
@@ -56,19 +60,17 @@ export class ViewExecutor {
 
     const timeout = options.timeout || this._cluster.viewTimeout
 
-    this._cluster.conn.viewQuery(
+    this._cluster.conn.documentView(
       {
         timeout: timeout,
         bucket_name: this._bucket.name,
         document_name: designDoc,
         view_name: viewName,
-        name_space: binding.view_name_space.production,
+        ns: binding.design_document_namespace.production,
         limit: options.limit,
         skip: options.skip,
         consistency: viewScanConsistencyToCpp(options.scanConsistency),
-        keys: options.keys
-          ? options.keys.map((k) => JSON.stringify(k))
-          : undefined,
+        keys: options.keys ? options.keys.map((k) => JSON.stringify(k)) : [],
         key: JSON.stringify(options.key),
         start_key:
           options.range && options.range.start
@@ -91,8 +93,11 @@ export class ViewExecutor {
         group: options.group,
         group_level: options.groupLevel,
         order: viewOrderingToCpp(options.order),
+        debug: false,
+        query_string: [],
       },
-      (err, resp) => {
+      (cppErr, resp) => {
+        const err = errorFromCpp(cppErr)
         if (err) {
           emitter.emit('error', err)
           emitter.emit('end')

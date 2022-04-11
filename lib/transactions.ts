@@ -2,7 +2,7 @@ import {
   CppTransactions,
   CppTransaction,
   CppTransactionGetResult,
-  CppQueryResult,
+  CppQueryResponse,
   CppTransactionLinks,
   CppTransactionGetMetaData,
 } from './binding'
@@ -546,7 +546,7 @@ export class TransactionAttemptContext {
           raw: options.raw,
         },
         (cppErr, resp) => {
-          callback(errorFromCpp(cppErr), resp as CppQueryResult)
+          callback(cppErr, resp as CppQueryResponse)
         }
       )
     })
@@ -611,7 +611,7 @@ export class Transactions {
       config.queryConfig = {}
     }
 
-    const connImpl = cluster.conn.inst
+    const connImpl = cluster.conn
     const txnsImpl = new binding.Transactions(connImpl, {
       durability_level: durabilityToCpp(config.durabilityLevel),
       kv_timeout: config.kvTimeout,

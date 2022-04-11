@@ -10,9 +10,10 @@ import {
   PasswordAuthenticator,
   CertificateAuthenticator,
 } from './authenticators'
+import binding, { CppConnection } from './binding'
+import { errorFromCpp } from './bindingutilities'
 import { Bucket } from './bucket'
 import { BucketManager } from './bucketmanager'
-import { Connection } from './connection'
 import { ConnSpec } from './connspec'
 import { DiagnoticsExecutor, PingExecutor } from './diagnosticsexecutor'
 import {
@@ -160,7 +161,7 @@ export class Cluster {
   private _searchTimeout: number
   private _managementTimeout: number
   private _auth: Authenticator
-  private _conn: Connection
+  private _conn: CppConnection
   private _transcoder: Transcoder
   private _txnConfig: TransactionsConfig
   private _transactions?: Transactions
@@ -169,7 +170,7 @@ export class Cluster {
   /**
    * @internal
    */
-  get conn(): Connection {
+  get conn(): CppConnection {
     return this._conn
   }
 
@@ -288,7 +289,7 @@ export class Cluster {
     }
 
     this._openBuckets = []
-    this._conn = new Connection()
+    this._conn = new binding.Connection()
   }
 
   /**
@@ -538,7 +539,9 @@ export class Cluster {
     }
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.shutdown(wrapCallback)
+      this._conn.shutdown((cppErr) => {
+        wrapCallback(errorFromCpp(cppErr))
+      })
     }, callback)
   }
 

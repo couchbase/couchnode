@@ -1,6 +1,7 @@
 /* eslint jsdoc/require-jsdoc: off */
 import {
   endpointStateFromCpp,
+  errorFromCpp,
   pingStateFromCpp,
   serviceTypeFromCpp,
   serviceTypeToCpp,
@@ -37,7 +38,8 @@ export class DiagnoticsExecutor {
         {
           report_id: options.reportId,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err || !resp) {
             reject(err)
             return
@@ -101,7 +103,8 @@ export class PingExecutor {
             ? options.serviceTypes.map((svc) => serviceTypeToCpp(svc))
             : undefined,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err || !resp) {
             reject(err)
             return

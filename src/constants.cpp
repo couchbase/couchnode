@@ -2,6 +2,8 @@
 #include "jstocbpp.hpp"
 #include <couchbase/cluster.hxx>
 #include <couchbase/errors.hxx>
+#include <couchbase/transactions.hxx>
+#include <couchbase/transactions/internal/exceptions_internal.hxx>
 #include <set>
 #include <vector>
 
@@ -30,68 +32,306 @@ cbppEnumToJs(Napi::Env env,
 
 void Constants::Init(Napi::Env env, Napi::Object exports)
 {
-    exports.Set(
-        "service_type",
-        cbppEnumToJs<couchbase::service_type>(
-            env, {
-                     {"key_value", couchbase::service_type::key_value},
-                     {"query", couchbase::service_type::query},
-                     {"analytics", couchbase::service_type::analytics},
-                     {"search", couchbase::service_type::search},
-                     {"view", couchbase::service_type::view},
-                     {"management", couchbase::service_type::management},
-                     {"eventing", couchbase::service_type::eventing},
-                 }));
+    InitAutogen(env, exports);
 
-    exports.Set(
-        "endpoint_state",
-        cbppEnumToJs<couchbase::diag::endpoint_state>(
-            env,
-            {
-                {"disconnected", couchbase::diag::endpoint_state::disconnected},
-                {"connecting", couchbase::diag::endpoint_state::connecting},
-                {"connected", couchbase::diag::endpoint_state::connected},
-                {"disconnecting",
-                 couchbase::diag::endpoint_state::disconnecting},
-            }));
-
-    exports.Set("ping_state",
-                cbppEnumToJs<couchbase::diag::ping_state>(
+    exports.Set("protocol_lookup_in_request_body_doc_flag",
+                cbppEnumToJs<uint8_t>(
                     env, {
-                             {"ok", couchbase::diag::ping_state::ok},
-                             {"timeout", couchbase::diag::ping_state::timeout},
-                             {"error", couchbase::diag::ping_state::error},
+                             {"access_deleted",
+                              couchbase::protocol::lookup_in_request_body::
+                                  doc_flag_access_deleted},
+
                          }));
 
     exports.Set(
-        "durability_level",
-        cbppEnumToJs<couchbase::protocol::durability_level>(
-            env,
-            {
-                {"none", couchbase::protocol::durability_level::none},
-                {"majority", couchbase::protocol::durability_level::majority},
-                {"majority_and_persist_to_active",
-                 couchbase::protocol::durability_level::
-                     majority_and_persist_to_active},
-                {"persist_to_majority",
-                 couchbase::protocol::durability_level::persist_to_majority},
-            }));
-
-    exports.Set(
-        "subdoc_store_semantics_type",
-        cbppEnumToJs<
-            couchbase::protocol::mutate_in_request_body::store_semantics_type>(
+        "protocol_lookup_in_request_body_lookup_in_specs_path_flag",
+        cbppEnumToJs<uint8_t>(
             env, {
-                     {"replace", couchbase::protocol::mutate_in_request_body::
-                                     store_semantics_type::replace},
-                     {"upsert", couchbase::protocol::mutate_in_request_body::
-                                    store_semantics_type::upsert},
-                     {"insert", couchbase::protocol::mutate_in_request_body::
-                                    store_semantics_type::insert},
+                     {"xattr", couchbase::protocol::lookup_in_request_body::
+                                   lookup_in_specs::path_flag_xattr},
                  }));
 
     exports.Set(
-        "subdoc_opcode",
+        "protocol_mutate_in_request_body_doc_flag",
+        cbppEnumToJs<uint8_t>(
+            env,
+            {
+                {"mkdoc",
+                 couchbase::protocol::mutate_in_request_body::doc_flag_mkdoc},
+                {"add",
+                 couchbase::protocol::mutate_in_request_body::doc_flag_add},
+                {"access_deleted", couchbase::protocol::mutate_in_request_body::
+                                       doc_flag_access_deleted},
+                {"create_as_deleted",
+                 couchbase::protocol::mutate_in_request_body::
+                     doc_flag_create_as_deleted},
+                {"revive_document",
+                 couchbase::protocol::mutate_in_request_body::
+                     doc_flag_revive_document},
+            }));
+
+    exports.Set(
+        "protocol_mutate_in_request_body_mutate_in_specs_path_flag",
+        cbppEnumToJs<uint8_t>(
+            env,
+            {
+                {"create_parents",
+                 couchbase::protocol::mutate_in_request_body::mutate_in_specs::
+                     path_flag_create_parents},
+                {"xattr", couchbase::protocol::mutate_in_request_body::
+                              mutate_in_specs::path_flag_xattr},
+                {"expand_macros", couchbase::protocol::mutate_in_request_body::
+                                      mutate_in_specs::path_flag_expand_macros},
+            }));
+}
+
+void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
+{
+    //#region Autogenerated Constants
+
+    exports.Set(
+        "management_analytics_couchbase_link_encryption_level",
+        cbppEnumToJs<
+            couchbase::management::analytics::couchbase_link_encryption_level>(
+            env, {
+                     {"none", couchbase::management::analytics::
+                                  couchbase_link_encryption_level::none},
+                     {"half", couchbase::management::analytics::
+                                  couchbase_link_encryption_level::half},
+                     {"full", couchbase::management::analytics::
+                                  couchbase_link_encryption_level::full},
+                 }));
+
+    exports.Set(
+        "management_cluster_bucket_type",
+        cbppEnumToJs<couchbase::management::cluster::bucket_type>(
+            env, {
+                     {"unknown",
+                      couchbase::management::cluster::bucket_type::unknown},
+                     {"couchbase",
+                      couchbase::management::cluster::bucket_type::couchbase},
+                     {"memcached",
+                      couchbase::management::cluster::bucket_type::memcached},
+                     {"ephemeral",
+                      couchbase::management::cluster::bucket_type::ephemeral},
+                 }));
+
+    exports.Set(
+        "management_cluster_bucket_compression",
+        cbppEnumToJs<couchbase::management::cluster::bucket_compression>(
+            env,
+            {
+                {"unknown",
+                 couchbase::management::cluster::bucket_compression::unknown},
+                {"off",
+                 couchbase::management::cluster::bucket_compression::off},
+                {"active",
+                 couchbase::management::cluster::bucket_compression::active},
+                {"passive",
+                 couchbase::management::cluster::bucket_compression::passive},
+            }));
+
+    exports.Set(
+        "management_cluster_bucket_eviction_policy",
+        cbppEnumToJs<couchbase::management::cluster::bucket_eviction_policy>(
+            env,
+            {
+                {"unknown", couchbase::management::cluster::
+                                bucket_eviction_policy::unknown},
+                {"full",
+                 couchbase::management::cluster::bucket_eviction_policy::full},
+                {"value_only", couchbase::management::cluster::
+                                   bucket_eviction_policy::value_only},
+                {"no_eviction", couchbase::management::cluster::
+                                    bucket_eviction_policy::no_eviction},
+                {"not_recently_used",
+                 couchbase::management::cluster::bucket_eviction_policy::
+                     not_recently_used},
+            }));
+
+    exports.Set(
+        "management_cluster_bucket_conflict_resolution",
+        cbppEnumToJs<
+            couchbase::management::cluster::bucket_conflict_resolution>(
+            env, {
+                     {"unknown", couchbase::management::cluster::
+                                     bucket_conflict_resolution::unknown},
+                     {"timestamp", couchbase::management::cluster::
+                                       bucket_conflict_resolution::timestamp},
+                     {"sequence_number",
+                      couchbase::management::cluster::
+                          bucket_conflict_resolution::sequence_number},
+                     {"custom", couchbase::management::cluster::
+                                    bucket_conflict_resolution::custom},
+                 }));
+
+    exports.Set(
+        "management_cluster_bucket_storage_backend",
+        cbppEnumToJs<couchbase::management::cluster::bucket_storage_backend>(
+            env,
+            {
+                {"unknown", couchbase::management::cluster::
+                                bucket_storage_backend::unknown},
+                {"couchstore", couchbase::management::cluster::
+                                   bucket_storage_backend::couchstore},
+                {"magma",
+                 couchbase::management::cluster::bucket_storage_backend::magma},
+            }));
+
+    exports.Set(
+        "management_eventing_function_dcp_boundary",
+        cbppEnumToJs<couchbase::management::eventing::function_dcp_boundary>(
+            env, {
+                     {"everything", couchbase::management::eventing::
+                                        function_dcp_boundary::everything},
+                     {"from_now", couchbase::management::eventing::
+                                      function_dcp_boundary::from_now},
+                 }));
+
+    exports.Set(
+        "management_eventing_function_language_compatibility",
+        cbppEnumToJs<
+            couchbase::management::eventing::function_language_compatibility>(
+            env, {
+                     {"version_6_0_0",
+                      couchbase::management::eventing::
+                          function_language_compatibility::version_6_0_0},
+                     {"version_6_5_0",
+                      couchbase::management::eventing::
+                          function_language_compatibility::version_6_5_0},
+                     {"version_6_6_2",
+                      couchbase::management::eventing::
+                          function_language_compatibility::version_6_6_2},
+                 }));
+
+    exports.Set(
+        "management_eventing_function_log_level",
+        cbppEnumToJs<couchbase::management::eventing::function_log_level>(
+            env,
+            {
+                {"info",
+                 couchbase::management::eventing::function_log_level::info},
+                {"error",
+                 couchbase::management::eventing::function_log_level::error},
+                {"warning",
+                 couchbase::management::eventing::function_log_level::warning},
+                {"debug",
+                 couchbase::management::eventing::function_log_level::debug},
+                {"trace",
+                 couchbase::management::eventing::function_log_level::trace},
+            }));
+
+    exports.Set(
+        "management_eventing_function_bucket_access",
+        cbppEnumToJs<couchbase::management::eventing::function_bucket_access>(
+            env, {
+                     {"read_only", couchbase::management::eventing::
+                                       function_bucket_access::read_only},
+                     {"read_write", couchbase::management::eventing::
+                                        function_bucket_access::read_write},
+                 }));
+
+    exports.Set(
+        "management_eventing_function_status",
+        cbppEnumToJs<couchbase::management::eventing::function_status>(
+            env,
+            {
+                {"undeployed",
+                 couchbase::management::eventing::function_status::undeployed},
+                {"undeploying",
+                 couchbase::management::eventing::function_status::undeploying},
+                {"deploying",
+                 couchbase::management::eventing::function_status::deploying},
+                {"deployed",
+                 couchbase::management::eventing::function_status::deployed},
+                {"paused",
+                 couchbase::management::eventing::function_status::paused},
+                {"pausing",
+                 couchbase::management::eventing::function_status::pausing},
+            }));
+
+    exports.Set(
+        "management_eventing_function_deployment_status",
+        cbppEnumToJs<
+            couchbase::management::eventing::function_deployment_status>(
+            env, {
+                     {"deployed", couchbase::management::eventing::
+                                      function_deployment_status::deployed},
+                     {"undeployed", couchbase::management::eventing::
+                                        function_deployment_status::undeployed},
+                 }));
+
+    exports.Set(
+        "management_eventing_function_processing_status",
+        cbppEnumToJs<
+            couchbase::management::eventing::function_processing_status>(
+            env, {
+                     {"running", couchbase::management::eventing::
+                                     function_processing_status::running},
+                     {"paused", couchbase::management::eventing::
+                                    function_processing_status::paused},
+                 }));
+
+    exports.Set(
+        "management_rbac_auth_domain",
+        cbppEnumToJs<couchbase::management::rbac::auth_domain>(
+            env,
+            {
+                {"unknown", couchbase::management::rbac::auth_domain::unknown},
+                {"local", couchbase::management::rbac::auth_domain::local},
+                {"external",
+                 couchbase::management::rbac::auth_domain::external},
+            }));
+
+    exports.Set(
+        "io_retry_reason",
+        cbppEnumToJs<couchbase::io::retry_reason>(
+            env,
+            {
+                {"do_not_retry", couchbase::io::retry_reason::do_not_retry},
+                {"unknown", couchbase::io::retry_reason::unknown},
+                {"socket_not_available",
+                 couchbase::io::retry_reason::socket_not_available},
+                {"service_not_available",
+                 couchbase::io::retry_reason::service_not_available},
+                {"node_not_available",
+                 couchbase::io::retry_reason::node_not_available},
+                {"kv_not_my_vbucket",
+                 couchbase::io::retry_reason::kv_not_my_vbucket},
+                {"kv_collection_outdated",
+                 couchbase::io::retry_reason::kv_collection_outdated},
+                {"kv_error_map_retry_indicated",
+                 couchbase::io::retry_reason::kv_error_map_retry_indicated},
+                {"kv_locked", couchbase::io::retry_reason::kv_locked},
+                {"kv_temporary_failure",
+                 couchbase::io::retry_reason::kv_temporary_failure},
+                {"kv_sync_write_in_progress",
+                 couchbase::io::retry_reason::kv_sync_write_in_progress},
+                {"kv_sync_write_re_commit_in_progress",
+                 couchbase::io::retry_reason::
+                     kv_sync_write_re_commit_in_progress},
+                {"service_response_code_indicated",
+                 couchbase::io::retry_reason::service_response_code_indicated},
+                {"socket_closed_while_in_flight",
+                 couchbase::io::retry_reason::socket_closed_while_in_flight},
+                {"circuit_breaker_open",
+                 couchbase::io::retry_reason::circuit_breaker_open},
+                {"query_prepared_statement_failure",
+                 couchbase::io::retry_reason::query_prepared_statement_failure},
+                {"query_index_not_found",
+                 couchbase::io::retry_reason::query_index_not_found},
+                {"analytics_temporary_failure",
+                 couchbase::io::retry_reason::analytics_temporary_failure},
+                {"search_too_many_requests",
+                 couchbase::io::retry_reason::search_too_many_requests},
+                {"views_temporary_failure",
+                 couchbase::io::retry_reason::views_temporary_failure},
+                {"views_no_active_partition",
+                 couchbase::io::retry_reason::views_no_active_partition},
+            }));
+
+    exports.Set(
+        "protocol_subdoc_opcode",
         cbppEnumToJs<couchbase::protocol::subdoc_opcode>(
             env,
             {
@@ -120,120 +360,158 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
             }));
 
     exports.Set(
-        "lookup_in_path_flag",
-        cbppEnumToJs<uint8_t>(
+        "protocol_mutate_in_request_body_store_semantics_type",
+        cbppEnumToJs<
+            couchbase::protocol::mutate_in_request_body::store_semantics_type>(
             env, {
-                     {"xattr", couchbase::protocol::lookup_in_request_body::
-                                   lookup_in_specs::path_flag_xattr},
-
+                     {"replace", couchbase::protocol::mutate_in_request_body::
+                                     store_semantics_type::replace},
+                     {"upsert", couchbase::protocol::mutate_in_request_body::
+                                    store_semantics_type::upsert},
+                     {"insert", couchbase::protocol::mutate_in_request_body::
+                                    store_semantics_type::insert},
                  }));
 
     exports.Set(
-        "mutate_in_path_flag",
-        cbppEnumToJs<uint8_t>(
+        "protocol_durability_level",
+        cbppEnumToJs<couchbase::protocol::durability_level>(
             env,
             {
-                {"create_parents",
-                 couchbase::protocol::mutate_in_request_body::mutate_in_specs::
-                     path_flag_create_parents},
-                {"xattr", couchbase::protocol::mutate_in_request_body::
-                              mutate_in_specs::path_flag_xattr},
-                {"expand_macros", couchbase::protocol::mutate_in_request_body::
-                                      mutate_in_specs::path_flag_expand_macros},
+                {"none", couchbase::protocol::durability_level::none},
+                {"majority", couchbase::protocol::durability_level::majority},
+                {"majority_and_persist_to_active",
+                 couchbase::protocol::durability_level::
+                     majority_and_persist_to_active},
+                {"persist_to_majority",
+                 couchbase::protocol::durability_level::persist_to_majority},
             }));
 
     exports.Set(
-        "view_name_space",
-        cbppEnumToJs<couchbase::operations::design_document::name_space>(
-            env, {
-                     {"development", couchbase::operations::design_document::
-                                         name_space::development},
-                     {"production", couchbase::operations::design_document::
-                                        name_space::production},
-                 }));
-
-    exports.Set(
-        "view_scan_consistency",
-        cbppEnumToJs<
-            couchbase::operations::document_view_request::scan_consistency>(
+        "protocol_status",
+        cbppEnumToJs<couchbase::protocol::status>(
             env,
             {
-                {"not_bounded", couchbase::operations::document_view_request::
-                                    scan_consistency::not_bounded},
-                {"update_after", couchbase::operations::document_view_request::
-                                     scan_consistency::update_after},
-                {"request_plus", couchbase::operations::document_view_request::
-                                     scan_consistency::request_plus},
+                {"success", couchbase::protocol::status::success},
+                {"not_found", couchbase::protocol::status::not_found},
+                {"exists", couchbase::protocol::status::exists},
+                {"too_big", couchbase::protocol::status::too_big},
+                {"invalid", couchbase::protocol::status::invalid},
+                {"not_stored", couchbase::protocol::status::not_stored},
+                {"delta_bad_value",
+                 couchbase::protocol::status::delta_bad_value},
+                {"not_my_vbucket", couchbase::protocol::status::not_my_vbucket},
+                {"no_bucket", couchbase::protocol::status::no_bucket},
+                {"dcp_stream_not_found",
+                 couchbase::protocol::status::dcp_stream_not_found},
+                {"opaque_no_match",
+                 couchbase::protocol::status::opaque_no_match},
+                {"locked", couchbase::protocol::status::locked},
+                {"auth_stale", couchbase::protocol::status::auth_stale},
+                {"auth_error", couchbase::protocol::status::auth_error},
+                {"auth_continue", couchbase::protocol::status::auth_continue},
+                {"range_error", couchbase::protocol::status::range_error},
+                {"rollback", couchbase::protocol::status::rollback},
+                {"no_access", couchbase::protocol::status::no_access},
+                {"not_initialized",
+                 couchbase::protocol::status::not_initialized},
+                {"rate_limited_network_ingress",
+                 couchbase::protocol::status::rate_limited_network_ingress},
+                {"rate_limited_network_egress",
+                 couchbase::protocol::status::rate_limited_network_egress},
+                {"rate_limited_max_connections",
+                 couchbase::protocol::status::rate_limited_max_connections},
+                {"rate_limited_max_commands",
+                 couchbase::protocol::status::rate_limited_max_commands},
+                {"scope_size_limit_exceeded",
+                 couchbase::protocol::status::scope_size_limit_exceeded},
+                {"unknown_frame_info",
+                 couchbase::protocol::status::unknown_frame_info},
+                {"unknown_command",
+                 couchbase::protocol::status::unknown_command},
+                {"no_memory", couchbase::protocol::status::no_memory},
+                {"not_supported", couchbase::protocol::status::not_supported},
+                {"internal", couchbase::protocol::status::internal},
+                {"busy", couchbase::protocol::status::busy},
+                {"temporary_failure",
+                 couchbase::protocol::status::temporary_failure},
+                {"xattr_invalid", couchbase::protocol::status::xattr_invalid},
+                {"unknown_collection",
+                 couchbase::protocol::status::unknown_collection},
+                {"no_collections_manifest",
+                 couchbase::protocol::status::no_collections_manifest},
+                {"cannot_apply_collections_manifest",
+                 couchbase::protocol::status::
+                     cannot_apply_collections_manifest},
+                {"collections_manifest_is_ahead",
+                 couchbase::protocol::status::collections_manifest_is_ahead},
+                {"unknown_scope", couchbase::protocol::status::unknown_scope},
+                {"dcp_stream_id_invalid",
+                 couchbase::protocol::status::dcp_stream_id_invalid},
+                {"durability_invalid_level",
+                 couchbase::protocol::status::durability_invalid_level},
+                {"durability_impossible",
+                 couchbase::protocol::status::durability_impossible},
+                {"sync_write_in_progress",
+                 couchbase::protocol::status::sync_write_in_progress},
+                {"sync_write_ambiguous",
+                 couchbase::protocol::status::sync_write_ambiguous},
+                {"sync_write_re_commit_in_progress",
+                 couchbase::protocol::status::sync_write_re_commit_in_progress},
+                {"subdoc_path_not_found",
+                 couchbase::protocol::status::subdoc_path_not_found},
+                {"subdoc_path_mismatch",
+                 couchbase::protocol::status::subdoc_path_mismatch},
+                {"subdoc_path_invalid",
+                 couchbase::protocol::status::subdoc_path_invalid},
+                {"subdoc_path_too_big",
+                 couchbase::protocol::status::subdoc_path_too_big},
+                {"subdoc_doc_too_deep",
+                 couchbase::protocol::status::subdoc_doc_too_deep},
+                {"subdoc_value_cannot_insert",
+                 couchbase::protocol::status::subdoc_value_cannot_insert},
+                {"subdoc_doc_not_json",
+                 couchbase::protocol::status::subdoc_doc_not_json},
+                {"subdoc_num_range_error",
+                 couchbase::protocol::status::subdoc_num_range_error},
+                {"subdoc_delta_invalid",
+                 couchbase::protocol::status::subdoc_delta_invalid},
+                {"subdoc_path_exists",
+                 couchbase::protocol::status::subdoc_path_exists},
+                {"subdoc_value_too_deep",
+                 couchbase::protocol::status::subdoc_value_too_deep},
+                {"subdoc_invalid_combo",
+                 couchbase::protocol::status::subdoc_invalid_combo},
+                {"subdoc_multi_path_failure",
+                 couchbase::protocol::status::subdoc_multi_path_failure},
+                {"subdoc_success_deleted",
+                 couchbase::protocol::status::subdoc_success_deleted},
+                {"subdoc_xattr_invalid_flag_combo",
+                 couchbase::protocol::status::subdoc_xattr_invalid_flag_combo},
+                {"subdoc_xattr_invalid_key_combo",
+                 couchbase::protocol::status::subdoc_xattr_invalid_key_combo},
+                {"subdoc_xattr_unknown_macro",
+                 couchbase::protocol::status::subdoc_xattr_unknown_macro},
+                {"subdoc_xattr_unknown_vattr",
+                 couchbase::protocol::status::subdoc_xattr_unknown_vattr},
+                {"subdoc_xattr_cannot_modify_vattr",
+                 couchbase::protocol::status::subdoc_xattr_cannot_modify_vattr},
+                {"subdoc_multi_path_failure_deleted",
+                 couchbase::protocol::status::
+                     subdoc_multi_path_failure_deleted},
+                {"subdoc_invalid_xattr_order",
+                 couchbase::protocol::status::subdoc_invalid_xattr_order},
+                {"subdoc_xattr_unknown_vattr_macro",
+                 couchbase::protocol::status::subdoc_xattr_unknown_vattr_macro},
+                {"subdoc_can_only_revive_deleted_documents",
+                 couchbase::protocol::status::
+                     subdoc_can_only_revive_deleted_documents},
+                {"subdoc_deleted_document_cannot_have_value",
+                 couchbase::protocol::status::
+                     subdoc_deleted_document_cannot_have_value},
             }));
 
     exports.Set(
-        "view_sort_order",
-        cbppEnumToJs<couchbase::operations::document_view_request::sort_order>(
-            env,
-            {
-                {"ascending", couchbase::operations::document_view_request::
-                                  sort_order::ascending},
-                {"descending", couchbase::operations::document_view_request::
-                                   sort_order::descending},
-            }));
-
-    exports.Set(
-        "query_scan_consistency",
-        cbppEnumToJs<
-            couchbase::operations::query_request::scan_consistency_type>(
-            env, {
-                     {"not_bounded", couchbase::operations::query_request::
-                                         scan_consistency_type::not_bounded},
-                     {"request_plus", couchbase::operations::query_request::
-                                          scan_consistency_type::request_plus},
-                 }));
-
-    exports.Set(
-        "query_profile_mode",
-        cbppEnumToJs<couchbase::operations::query_request::profile_mode>(
-            env,
-            {
-                {"off",
-                 couchbase::operations::query_request::profile_mode::off},
-                {"phases",
-                 couchbase::operations::query_request::profile_mode::phases},
-                {"timings",
-                 couchbase::operations::query_request::profile_mode::timings},
-            }));
-
-    exports.Set(
-        "analytics_scan_consistency",
-        cbppEnumToJs<
-            couchbase::operations::analytics_request::scan_consistency_type>(
-            env, {
-                     {"not_bounded", couchbase::operations::analytics_request::
-                                         scan_consistency_type::not_bounded},
-                     {"request_plus", couchbase::operations::analytics_request::
-                                          scan_consistency_type::request_plus},
-                 }));
-
-    exports.Set(
-        "search_scan_consistency",
-        cbppEnumToJs<
-            couchbase::operations::search_request::scan_consistency_type>(
-            env, {
-                     {"not_bounded", couchbase::operations::search_request::
-                                         scan_consistency_type::not_bounded},
-                 }));
-
-    exports.Set(
-        "search_highlight_style",
-        cbppEnumToJs<
-            couchbase::operations::search_request::highlight_style_type>(
-            env, {
-                     {"html", couchbase::operations::search_request::
-                                  highlight_style_type::html},
-                     {"ansi", couchbase::operations::search_request::
-                                  highlight_style_type::ansi},
-                 }));
-
-    exports.Set(
-        "common_errc",
+        "error_common_errc",
         cbppEnumToJs<couchbase::error::common_errc>(
             env,
             {
@@ -269,6 +547,8 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
                 {"index_not_found",
                  couchbase::error::common_errc::index_not_found},
                 {"index_exists", couchbase::error::common_errc::index_exists},
+                {"encoding_failure",
+                 couchbase::error::common_errc::encoding_failure},
                 {"decoding_failure",
                  couchbase::error::common_errc::decoding_failure},
                 {"rate_limited", couchbase::error::common_errc::rate_limited},
@@ -276,7 +556,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
             }));
 
     exports.Set(
-        "key_value_errc",
+        "error_key_value_errc",
         cbppEnumToJs<couchbase::error::key_value_errc>(
             env,
             {
@@ -341,7 +621,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
             }));
 
     exports.Set(
-        "query_errc",
+        "error_query_errc",
         cbppEnumToJs<couchbase::error::query_errc>(
             env,
             {
@@ -354,7 +634,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
             }));
 
     exports.Set(
-        "analytics_errc",
+        "error_analytics_errc",
         cbppEnumToJs<couchbase::error::analytics_errc>(
             env,
             {
@@ -376,7 +656,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
             }));
 
     exports.Set(
-        "search_errc",
+        "error_search_errc",
         cbppEnumToJs<couchbase::error::search_errc>(
             env, {
                      {"index_not_ready",
@@ -386,7 +666,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
                  }));
 
     exports.Set(
-        "view_errc",
+        "error_view_errc",
         cbppEnumToJs<couchbase::error::view_errc>(
             env,
             {
@@ -396,7 +676,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
             }));
 
     exports.Set(
-        "management_errc",
+        "error_management_errc",
         cbppEnumToJs<couchbase::error::management_errc>(
             env,
             {
@@ -434,7 +714,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
                  couchbase::error::management_errc::eventing_function_paused},
             }));
 
-    exports.Set("field_level_encryption_errc",
+    exports.Set("error_field_level_encryption_errc",
                 cbppEnumToJs<couchbase::error::field_level_encryption_errc>(
                     env, {
                              {"generic_cryptography_failure",
@@ -464,7 +744,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
                          }));
 
     exports.Set(
-        "network_errc",
+        "error_network_errc",
         cbppEnumToJs<couchbase::error::network_errc>(
             env,
             {
@@ -478,57 +758,124 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
                  couchbase::error::network_errc::protocol_error},
                 {"configuration_not_available",
                  couchbase::error::network_errc::configuration_not_available},
+                {"cluster_closed",
+                 couchbase::error::network_errc::cluster_closed},
             }));
 
     exports.Set(
-        "txn_failure_type",
-        cbppEnumToJs<couchbase::transactions::failure_type>(
+        "analytics_scan_consistency",
+        cbppEnumToJs<couchbase::analytics_scan_consistency>(
             env, {
-                     {"fail", couchbase::transactions::failure_type::FAIL},
-                     {"expiry", couchbase::transactions::failure_type::EXPIRY},
-                     {"commit_ambiguous",
-                      couchbase::transactions::failure_type::COMMIT_AMBIGUOUS},
+                     {"not_bounded",
+                      couchbase::analytics_scan_consistency::not_bounded},
+                     {"request_plus",
+                      couchbase::analytics_scan_consistency::request_plus},
                  }));
 
     exports.Set(
-        "txn_external_exception",
-        cbppEnumToJs<couchbase::transactions::external_exception>(
+        "design_document_namespace",
+        cbppEnumToJs<couchbase::design_document_namespace>(
             env, {
-                     {"unknown",
-                      couchbase::transactions::external_exception::UNKNOWN},
-                     {"active_transaction_record_entry_not_found",
-                      couchbase::transactions::external_exception::
-                          ACTIVE_TRANSACTION_RECORD_ENTRY_NOT_FOUND},
-                     {"active_transaction_record_full",
-                      couchbase::transactions::external_exception::
-                          ACTIVE_TRANSACTION_RECORD_FULL},
-                     {"active_transaction_record_not_found",
-                      couchbase::transactions::external_exception::
-                          ACTIVE_TRANSACTION_RECORD_NOT_FOUND},
-                     {"document_already_in_transaction",
-                      couchbase::transactions::external_exception::
-                          DOCUMENT_ALREADY_IN_TRANSACTION},
-                     {"document_exists_exception",
-                      couchbase::transactions::external_exception::
-                          DOCUMENT_EXISTS_EXCEPTION},
-                     {"document_not_found_exception",
-                      couchbase::transactions::external_exception::
-                          DOCUMENT_NOT_FOUND_EXCEPTION},
-                     {"not_set",
-                      couchbase::transactions::external_exception::NOT_SET},
-                     {"feature_not_available_exception",
-                      couchbase::transactions::external_exception::
-                          FEATURE_NOT_AVAILABLE_EXCEPTION},
-                     {"transaction_aborted_externally",
-                      couchbase::transactions::external_exception::
-                          TRANSACTION_ABORTED_EXTERNALLY},
-                     {"previous_operation_failed",
-                      couchbase::transactions::external_exception::
-                          PREVIOUS_OPERATION_FAILED},
-                     {"forward_compatibility_failure",
-                      couchbase::transactions::external_exception::
-                          FORWARD_COMPATIBILITY_FAILURE},
+                     {"development",
+                      couchbase::design_document_namespace::development},
+                     {"production",
+                      couchbase::design_document_namespace::production},
                  }));
+
+    exports.Set(
+        "diag_cluster_state",
+        cbppEnumToJs<couchbase::diag::cluster_state>(
+            env, {
+                     {"online", couchbase::diag::cluster_state::online},
+                     {"degraded", couchbase::diag::cluster_state::degraded},
+                     {"offline", couchbase::diag::cluster_state::offline},
+                 }));
+
+    exports.Set(
+        "diag_endpoint_state",
+        cbppEnumToJs<couchbase::diag::endpoint_state>(
+            env,
+            {
+                {"disconnected", couchbase::diag::endpoint_state::disconnected},
+                {"connecting", couchbase::diag::endpoint_state::connecting},
+                {"connected", couchbase::diag::endpoint_state::connected},
+                {"disconnecting",
+                 couchbase::diag::endpoint_state::disconnecting},
+            }));
+
+    exports.Set("diag_ping_state",
+                cbppEnumToJs<couchbase::diag::ping_state>(
+                    env, {
+                             {"ok", couchbase::diag::ping_state::ok},
+                             {"timeout", couchbase::diag::ping_state::timeout},
+                             {"error", couchbase::diag::ping_state::error},
+                         }));
+
+    exports.Set(
+        "query_profile_mode",
+        cbppEnumToJs<couchbase::query_profile_mode>(
+            env, {
+                     {"off", couchbase::query_profile_mode::off},
+                     {"phases", couchbase::query_profile_mode::phases},
+                     {"timings", couchbase::query_profile_mode::timings},
+                 }));
+
+    exports.Set("query_scan_consistency",
+                cbppEnumToJs<couchbase::query_scan_consistency>(
+                    env, {
+                             {"not_bounded",
+                              couchbase::query_scan_consistency::not_bounded},
+                             {"request_plus",
+                              couchbase::query_scan_consistency::request_plus},
+                         }));
+
+    exports.Set("search_highlight_style",
+                cbppEnumToJs<couchbase::search_highlight_style>(
+                    env, {
+                             {"html", couchbase::search_highlight_style::html},
+                             {"ansi", couchbase::search_highlight_style::ansi},
+                         }));
+
+    exports.Set("search_scan_consistency",
+                cbppEnumToJs<couchbase::search_scan_consistency>(
+                    env, {
+                             {"not_bounded",
+                              couchbase::search_scan_consistency::not_bounded},
+                         }));
+
+    exports.Set(
+        "service_type",
+        cbppEnumToJs<couchbase::service_type>(
+            env, {
+                     {"key_value", couchbase::service_type::key_value},
+                     {"query", couchbase::service_type::query},
+                     {"analytics", couchbase::service_type::analytics},
+                     {"search", couchbase::service_type::search},
+                     {"view", couchbase::service_type::view},
+                     {"management", couchbase::service_type::management},
+                     {"eventing", couchbase::service_type::eventing},
+                 }));
+
+    exports.Set("view_scan_consistency",
+                cbppEnumToJs<couchbase::view_scan_consistency>(
+                    env, {
+                             {"not_bounded",
+                              couchbase::view_scan_consistency::not_bounded},
+                             {"update_after",
+                              couchbase::view_scan_consistency::update_after},
+                             {"request_plus",
+                              couchbase::view_scan_consistency::request_plus},
+                         }));
+
+    exports.Set(
+        "view_sort_order",
+        cbppEnumToJs<couchbase::view_sort_order>(
+            env, {
+                     {"ascending", couchbase::view_sort_order::ascending},
+                     {"descending", couchbase::view_sort_order::descending},
+                 }));
+
+    //#endregion Autogenerated Constants
 }
 
 } // namespace couchnode

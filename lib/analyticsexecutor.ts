@@ -7,7 +7,7 @@ import {
   AnalyticsMetrics,
   AnalyticsStatus,
 } from './analyticstypes'
-import { analyticsScanConsistencyToCpp } from './bindingutilities'
+import { analyticsScanConsistencyToCpp, errorFromCpp } from './bindingutilities'
 import { Cluster } from './cluster'
 import { StreamableRowPromise } from './streamablepromises'
 
@@ -44,13 +44,13 @@ export class AnalyticsExecutor {
 
     const timeout = options.timeout || this._cluster.analyticsTimeout
 
-    this._cluster.conn.analyticsQuery(
+    this._cluster.conn.analytics(
       {
         statement: query,
         timeout,
         client_context_id: options.clientContextId,
-        readonly: options.readOnly,
-        priority: options.priority,
+        readonly: options.readOnly || false,
+        priority: options.priority || false,
         scope_qualifier: options.queryContext,
         scan_consistency: analyticsScanConsistencyToCpp(
           options.scanConsistency
@@ -62,15 +62,21 @@ export class AnalyticsExecutor {
                 JSON.stringify(v),
               ])
             )
-          : undefined,
+          : {},
         positional_parameters: Array.isArray(options.parameters)
-          ? options.parameters
-          : undefined,
+          ? options.parameters.map((v) => JSON.stringify(v))
+          : [],
         named_parameters: !Array.isArray(options.parameters)
-          ? options.parameters
-          : undefined,
+          ? Object.fromEntries(
+              Object.entries(options.parameters as { [key: string]: any }).map(
+                ([k, v]) => [k, JSON.stringify(v)]
+              )
+            )
+          : {},
+        body_str: '',
       },
-      (err, resp) => {
+      (cppErr, resp) => {
+        const err = errorFromCpp(cppErr)
         if (err) {
           emitter.emit('error', err)
           emitter.emit('end')
