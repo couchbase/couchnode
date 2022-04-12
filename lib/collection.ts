@@ -668,7 +668,7 @@ export class Collection {
     const expiry = options.expiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._encodeDoc(transcoder, value, (err, bytes, flags) => {
@@ -734,7 +734,7 @@ export class Collection {
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       let bytes, flags
@@ -804,7 +804,7 @@ export class Collection {
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._encodeDoc(transcoder, value, (err, bytes, flags) => {
@@ -867,7 +867,7 @@ export class Collection {
 
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.remove(
@@ -1252,7 +1252,7 @@ export class Collection {
     const preserveExpiry = options.preserveExpiry
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.mutateIn(
