@@ -19,13 +19,13 @@ export class CouchbaseError extends Error {
   /**
    * Specifies the underlying cause of this error, if one is available.
    */
-  cause: Error | undefined
+  cause?: Error | undefined
 
   /**
    * Specifies additional contextual information which is available for this
    * error.  Depending on the service that generated it.
    */
-  context:
+  context?:
     | KeyValueErrorContext
     | ViewErrorContext
     | QueryErrorContext

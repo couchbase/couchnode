@@ -66,10 +66,8 @@ export class ViewExecutor {
         limit: options.limit,
         skip: options.skip,
         consistency: viewScanConsistencyToCpp(options.scanConsistency),
-        keys: options.keys
-          ? options.keys.map((k) => JSON.stringify(k))
-          : undefined,
-        key: JSON.stringify(options.key),
+        keys: options.keys ?? [],
+        key: options.key,
         start_key:
           options.range && options.range.start
             ? JSON.stringify(options.range.start)
