@@ -47,19 +47,16 @@ export class QueryIndex {
 
   /**
    * The collection that this index is for.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * The scope that this index is for.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
   /**
    * The bucket that this index is for.
-   * Uncommitted: This API may change in the future.
    */
   bucketName?: string
 
@@ -86,13 +83,11 @@ export class QueryIndex {
 export interface CreateQueryIndexOptions {
   /**
    * Specifies the collection of this index.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
@@ -125,13 +120,11 @@ export interface CreateQueryIndexOptions {
 export interface CreatePrimaryQueryIndexOptions {
   /**
    * Specifies the collection of this index.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
@@ -169,13 +162,11 @@ export interface CreatePrimaryQueryIndexOptions {
 export interface DropQueryIndexOptions {
   /**
    * Specifies the collection of this index.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
@@ -197,13 +188,11 @@ export interface DropQueryIndexOptions {
 export interface DropPrimaryQueryIndexOptions {
   /**
    * Specifies the collection of this index.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
@@ -230,13 +219,11 @@ export interface DropPrimaryQueryIndexOptions {
 export interface GetAllQueryIndexesOptions {
   /**
    * Specifies the collection of this index.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
@@ -252,13 +239,11 @@ export interface GetAllQueryIndexesOptions {
 export interface BuildQueryIndexOptions {
   /**
    * Specifies the collection of this index.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
@@ -274,13 +259,11 @@ export interface BuildQueryIndexOptions {
 export interface WatchQueryIndexOptions {
   /**
    * Specifies the collection of this index.
-   * Uncommitted: This API may change in the future.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
-   * Uncommitted: This API may change in the future.
    */
   scopeName?: string
 
