@@ -31,11 +31,6 @@ export class QueryIndex {
   state: string
 
   /**
-   * The keyspace which this index covers.
-   */
-  keyspace: string
-
-  /**
    * The keys for this index.
    */
   indexKey: string[]
@@ -76,7 +71,6 @@ export class QueryIndex {
     this.isPrimary = data.isPrimary
     this.type = data.type
     this.state = data.state
-    this.keyspace = data.keyspace
     this.indexKey = data.indexKey
     this.condition = data.condition
     this.partition = data.partition
@@ -584,16 +578,16 @@ export class QueryIndexManager {
           const indexes = resp.indexes.map(
             (row) =>
               new QueryIndex({
-                name: row.name,
-                collectionName: row.collection_name,
-                scopeName: row.scope_id,
                 isPrimary: row.is_primary,
-                type: row.type,
+                name: row.name,
                 state: row.state,
-                keyspace: row.keyspace_id,
+                type: row.type,
                 indexKey: row.index_key,
-                condition: row.condition,
                 partition: row.partition,
+                condition: row.condition,
+                bucketName: row.bucket_name,
+                scopeName: row.scope_name,
+                collectionName: row.collection_name,
               })
           )
 

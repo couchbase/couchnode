@@ -299,6 +299,18 @@ export interface CppManagementSearchIndex {
   source_params_json: string
   plan_params_json: string
 }
+export interface CppManagementQueryIndex {
+  is_primary: boolean
+  name: string
+  state: string
+  type: string
+  index_key: string[]
+  partition?: string
+  condition?: string
+  bucket_name: string
+  scope_name?: string
+  collection_name?: string
+}
 export interface CppTopologyCollectionsManifest {
   id: number[]
   uid: number
@@ -375,7 +387,6 @@ export interface CppPrependRequest {
   partition: number
   opaque: number
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
 }
@@ -428,7 +439,6 @@ export interface CppUpsertRequest {
   flags: number
   expiry: number
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
@@ -444,7 +454,6 @@ export interface CppAppendRequest {
   partition: number
   opaque: number
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
 }
@@ -527,7 +536,6 @@ export interface CppReplaceRequest {
   expiry: number
   cas: CppCas
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
@@ -557,7 +565,6 @@ export interface CppRemoveRequest {
   opaque: number
   cas: CppCas
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
 }
@@ -649,7 +656,6 @@ export interface CppDecrementRequest {
   delta: number
   initial_value?: number
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
@@ -847,7 +853,6 @@ export interface CppInsertRequest {
   flags: number
   expiry: number
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
 }
@@ -878,7 +883,6 @@ export interface CppMutateInRequest {
   store_semantics: CppProtocolMutateInRequestBodyStoreSemanticsType
   specs: CppProtocolMutateInRequestBodyMutateInSpecs
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
@@ -897,7 +901,6 @@ export interface CppIncrementRequest {
   delta: number
   initial_value?: number
   durability_level: CppProtocolDurabilityLevel
-  durability_timeout?: number
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
@@ -923,23 +926,7 @@ export interface CppManagementEventingPauseFunctionRequest {
 export interface CppManagementQueryIndexGetAllResponse {
   // ctx
   status: string
-  indexes: CppManagementQueryIndexGetAllResponseQueryIndex[]
-}
-export interface CppManagementQueryIndexGetAllResponseQueryIndex {
-  is_primary: boolean
-  id: string
-  name: string
-  state: string
-  datastore_id: string
-  keyspace_id: string
-  namespace_id: string
-  collection_name: string
-  type: string
-  index_key: string[]
-  partition?: string
-  condition?: string
-  bucket_id?: string
-  scope_id?: string
+  indexes: CppManagementQueryIndex[]
 }
 export interface CppManagementQueryIndexGetAllRequest {
   bucket_name: string
