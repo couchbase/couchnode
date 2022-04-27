@@ -63,16 +63,18 @@ export class AnalyticsExecutor {
               ])
             )
           : {},
-        positional_parameters: Array.isArray(options.parameters)
-          ? options.parameters.map((v) => JSON.stringify(v))
-          : [],
-        named_parameters: !Array.isArray(options.parameters)
-          ? Object.fromEntries(
-              Object.entries(options.parameters as { [key: string]: any }).map(
-                ([k, v]) => [k, JSON.stringify(v)]
+        positional_parameters:
+          options.parameters && Array.isArray(options.parameters)
+            ? options.parameters.map((v) => JSON.stringify(v))
+            : [],
+        named_parameters:
+          options.parameters && !Array.isArray(options.parameters)
+            ? Object.fromEntries(
+                Object.entries(
+                  options.parameters as { [key: string]: any }
+                ).map(([k, v]) => [k, JSON.stringify(v)])
               )
-            )
-          : {},
+            : {},
         body_str: '',
       },
       (cppErr, resp) => {
