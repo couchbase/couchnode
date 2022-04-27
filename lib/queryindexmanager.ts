@@ -323,7 +323,7 @@ export class QueryIndexManager {
           deferred: options.deferred,
           num_replicas: options.numReplicas,
           timeout: timeout,
-          condition: '',
+          condition: undefined,
         },
         (cppErr) => {
           const err = errorFromCpp(cppErr)
