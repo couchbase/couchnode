@@ -427,6 +427,11 @@ export class QueryIndexManager {
   ): Promise<void> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    // BUG(JSCBC-1066): We need to use a normal drop index for named primary indexes.
+    if (options.name) {
+      isPrimary = false
+    }
+
     return PromiseHelper.wrap((wrapCallback) => {
       this._cluster.conn.managementQueryIndexDrop(
         {
