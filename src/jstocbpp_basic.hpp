@@ -15,19 +15,13 @@ struct js_to_cbpp_t<couchbase::json_string> {
     static inline Napi::Value to_js(Napi::Env env,
                                     const couchbase::json_string &cppObj)
     {
-        Napi::String jsonString = Napi::String::New(env, cppObj.str());
-        Napi::Object json = env.Global().Get("JSON").As<Napi::Object>();
-        Napi::Function parse = json.Get("parse").As<Napi::Function>();
-        return parse.Call(json, {jsonString});
+        return js_to_cbpp_t<std::string>::to_js(env, cppObj.str());
     }
 
     static inline couchbase::json_string from_js(Napi::Value jsVal)
     {
-        Napi::Object json = jsVal.Env().Global().Get("JSON").As<Napi::Object>();
-        Napi::Function stringify = json.Get("stringify").As<Napi::Function>();
-        Napi::String jsonString =
-            stringify.Call(json, {jsVal}).As<Napi::String>();
-        return jsonString.Utf8Value();
+        auto str = js_to_cbpp_t<std::string>::from_js(jsVal);
+        return couchbase::json_string(std::move(str));
     }
 };
 
