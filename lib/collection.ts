@@ -611,7 +611,7 @@ export class Collection {
             return wrapCallback(
               null,
               new ExistsResult({
-                cas: zeroCas,
+                cas: undefined,
                 exists: false,
               })
             )
@@ -625,7 +625,7 @@ export class Collection {
             return wrapCallback(
               null,
               new ExistsResult({
-                cas: zeroCas,
+                cas: undefined,
                 exists: false,
               })
             )

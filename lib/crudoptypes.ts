@@ -69,7 +69,7 @@ export class ExistsResult {
   /**
    * The CAS of the document.
    */
-  cas: Cas
+  cas: Cas | undefined
 
   /**
    * @internal
