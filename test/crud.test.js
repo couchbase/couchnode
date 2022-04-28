@@ -45,7 +45,7 @@ function genericTests(collFn) {
       it('should perform basic upserts', async function () {
         var res = await collFn().upsert(testKeyA, testObjVal)
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
       })
 
       it('should not crash on transcoder errors', async function () {
@@ -90,7 +90,7 @@ function genericTests(collFn) {
       it('should perform basic gets', async function () {
         var res = await collFn().get(testKeyA)
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, testObjVal)
 
         // BUG JSCBC-784: Check to make sure that the value property
@@ -115,7 +115,7 @@ function genericTests(collFn) {
       it('should perform basic gets with callback', function (callback) {
         collFn().get(testKeyA, (err, res) => {
           assert.isObject(res)
-          assert.isNotEmpty(res.cas)
+          assert.isOk(res.cas)
           assert.deepStrictEqual(res.value, testObjVal)
           callback(err)
         })
@@ -134,7 +134,7 @@ function genericTests(collFn) {
           project: ['baz'],
         })
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
         assert.deepStrictEqual(res.content, { baz: 19 })
 
         // BUG JSCBC-784: Check to make sure that the value property
@@ -167,7 +167,7 @@ function genericTests(collFn) {
           withExpiry: true,
         })
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
         assert.isNumber(res.expiry)
         assert.deepStrictEqual(res.content, {
           c: 1,
@@ -201,17 +201,16 @@ function genericTests(collFn) {
 
       it('should successfully perform exists -> true', async function () {
         var res = await collFn().exists(testKeyA)
-
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
-        assert.deepStrictEqual(res.exists, true)
+        assert.strictEqual(res.exists, true)
+        assert.isOk(res.cas)
       })
 
       it('should successfully perform exists -> false', async function () {
         var res = await collFn().exists('a-missing-key')
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
-        assert.deepStrictEqual(res.exists, false)
+        assert.strictEqual(res.exists, false)
+        assert.isNotOk(res.cas)
       })
     })
 
@@ -219,7 +218,7 @@ function genericTests(collFn) {
       it('should replace data correctly', async function () {
         var res = await collFn().replace(testKeyA, { foo: 'baz' })
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
 
         var gres = await collFn().get(testKeyA)
         assert.deepStrictEqual(gres.value, { foo: 'baz' })
@@ -246,7 +245,7 @@ function genericTests(collFn) {
       it('should perform basic removes', async function () {
         var res = await collFn().remove(testKeyA)
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
       })
     })
 
@@ -260,7 +259,7 @@ function genericTests(collFn) {
       it('should perform inserts correctly', async function () {
         var res = await collFn().insert(testKeyIns, { foo: 'bar' })
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
       })
 
       it('should fail to insert a second time', async function () {
@@ -278,7 +277,7 @@ function genericTests(collFn) {
 
         var res = await collFn().insert(testKeyExp, { foo: 14 }, { expiry: 1 })
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
 
         await H.sleep(2000)
 
@@ -295,7 +294,7 @@ function genericTests(collFn) {
         // Insert a test document
         var res = await collFn().insert(testKeyTch, { foo: 14 }, { expiry: 3 })
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
 
         // Ensure the key is there
         await collFn().get(testKeyTch)
@@ -303,7 +302,7 @@ function genericTests(collFn) {
         // Touch the document
         var tres = await collFn().touch(testKeyTch, 8)
         assert.isObject(tres)
-        assert.isNotEmpty(tres.cas)
+        assert.isOk(tres.cas)
 
         // Wait for the first expiry
         await H.sleep(4000)
@@ -328,7 +327,7 @@ function genericTests(collFn) {
         // Insert a test document
         var res = await collFn().insert(testKeyGat, { foo: 14 }, { expiry: 3 })
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
 
         // Ensure the key is there
         await collFn().get(testKeyGat)
@@ -336,7 +335,7 @@ function genericTests(collFn) {
         // Touch the document
         var tres = await collFn().getAndTouch(testKeyGat, 8)
         assert.isObject(tres)
-        assert.isNotEmpty(tres.cas)
+        assert.isOk(tres.cas)
         assert.deepStrictEqual(tres.value, { foo: 14 })
 
         // BUG JSCBC-784: Check to make sure that the value property
@@ -378,7 +377,7 @@ function genericTests(collFn) {
       it('should increment successfully', async function () {
         var res = await collFn().binary().increment(testKeyBin, 3)
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 17)
 
         var gres = await collFn().get(testKeyBin)
@@ -390,7 +389,7 @@ function genericTests(collFn) {
       it('should decrement successfully', async function () {
         var res = await collFn().binary().decrement(testKeyBin, 4)
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 13)
 
         var gres = await collFn().get(testKeyBin)
@@ -402,7 +401,7 @@ function genericTests(collFn) {
       it('should append successfuly', async function () {
         var res = await collFn().binary().append(testKeyBin, 'world')
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
 
         var gres = await collFn().get(testKeyBin)
         assert.isTrue(Buffer.isBuffer(gres.value))
@@ -414,7 +413,7 @@ function genericTests(collFn) {
       it('should prepend successfuly', async function () {
         var res = await collFn().binary().prepend(testKeyBin, 'hello')
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
 
         var gres = await collFn().get(testKeyBin)
         assert.isTrue(Buffer.isBuffer(gres.value))
@@ -431,7 +430,7 @@ function genericTests(collFn) {
 
         var res = await collFn().upsert(testKeyBinVal, valueBytes)
         assert.isObject(res)
-        assert.isNotEmpty(res.cas)
+        assert.isOk(res.cas)
 
         var gres = await collFn().get(testKeyBinVal)
         assert.isTrue(Buffer.isBuffer(gres.value))
@@ -457,7 +456,7 @@ function genericTests(collFn) {
       // Try and lock the key
       var res = await collFn().getAndLock(testKeyLck, 2)
       assert.isObject(res)
-      assert.isNotEmpty(res.cas)
+      assert.isOk(res.cas)
       assert.deepStrictEqual(res.value, { foo: 14 })
       var prevCas = res.cas
 
@@ -516,7 +515,7 @@ function genericTests(collFn) {
         H.lib.LookupInSpec.exists('not-exists'),
       ])
       assert.isObject(res)
-      assert.isNotEmpty(res.cas)
+      assert.isOk(res.cas)
       assert.isArray(res.content)
       assert.strictEqual(res.content.length, 3)
       assert.isNotOk(res.content[0].error)
@@ -547,7 +546,7 @@ function genericTests(collFn) {
         H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
       ])
       assert.isObject(res)
-      assert.isNotEmpty(res.cas)
+      assert.isOk(res.cas)
 
       assert.isUndefined(res.content[0].error)
       assert.strictEqual(res.content[0].value, 5)

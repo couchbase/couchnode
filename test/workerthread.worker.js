@@ -22,7 +22,7 @@ async function doWork() {
 
     const getRes = await coll.get(workerData.testKey)
     assert.isObject(getRes)
-    assert.isNotEmpty(getRes.cas)
+    assert.isOk(getRes.cas)
     assert.deepStrictEqual(getRes.value, 'bar')
 
     // We intentionally omit the call to close here to test that the
