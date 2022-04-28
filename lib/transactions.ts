@@ -336,7 +336,7 @@ function translateGetResult(
 
   return new TransactionGetResult({
     id: cppRes.id,
-    content: cppRes.content,
+    content: cppRes.content ? JSON.parse(cppRes.content) : undefined,
     cas: cppRes.cas,
     _links: cppRes.links,
     _metadata: cppRes.metadata,
@@ -429,7 +429,7 @@ export class TransactionAttemptContext {
       this._impl.insert(
         {
           id,
-          content,
+          content: JSON.stringify(content),
         },
         (cppErr, cppRes) => {
           const err = errorFromCpp(cppErr)
@@ -458,12 +458,12 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: doc.content,
+            content: '',
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,
           },
-          content,
+          content: JSON.stringify(content),
         },
         (cppErr, cppRes) => {
           const err = errorFromCpp(cppErr)
@@ -488,7 +488,7 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: doc.content,
+            content: '',
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,

@@ -2854,7 +2854,7 @@ export interface CppTransactionGetMetaData {
 export interface CppTransactionGetResult {
   id: CppDocumentId
   cas: CppCas
-  content: any
+  content: CppJsonString
   links: CppTransactionLinks
   metadata: CppTransactionGetMetaData
 }
@@ -2886,7 +2886,7 @@ export interface CppTransaction {
   insert(
     options: {
       id: CppDocumentId
-      content: any
+      content: CppJsonString
     },
     callback: (
       err: CppError | null,
@@ -2897,7 +2897,7 @@ export interface CppTransaction {
   replace(
     options: {
       doc: CppTransactionGetResult
-      content: any
+      content: CppJsonString
     },
     callback: (
       err: CppError | null,
@@ -2915,7 +2915,7 @@ export interface CppTransaction {
   query(
     statement: string,
     options: {
-      raw?: { [key: string]: string }
+      raw?: { [key: string]: CppJsonString }
       ad_hoc?: boolean
       scan_consistency?: CppQueryScanConsistency
       profile?: CppQueryProfileMode
@@ -2927,8 +2927,8 @@ export interface CppTransaction {
       pipeline_batch?: number
       pipeline_cap?: number
       max_parallelism?: number
-      positional_parameters?: string[]
-      named_parameters?: { [key: string]: string }
+      positional_parameters?: CppJsonString[]
+      named_parameters?: { [key: string]: CppJsonString }
       bucket_name?: string
       scope_name?: string
     },
