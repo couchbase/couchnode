@@ -5,15 +5,19 @@ import {
   PrependOptions,
   BinaryCollection,
 } from './binarycollection'
-import binding, { CppMutateInEntry } from './binding'
-import { CppDocumentId, CppLookupInEntry } from './binding'
+import binding, {
+  CppDocumentId,
+  CppConnection,
+  zeroCas,
+  CppProtocolLookupInRequestBodyLookupInSpecsEntry,
+  CppProtocolMutateInRequestBodyMutateInSpecsEntry,
+} from './binding'
 import {
   durabilityToCpp,
   errorFromCpp,
   storeSemanticToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
-import { Connection } from './connection'
 import {
   CounterResult,
   ExistsResult,
@@ -313,7 +317,7 @@ export class Collection {
 
   private _scope: Scope
   private _name: string
-  private _conn: Connection
+  private _conn: CppConnection
 
   /**
   @internal
@@ -327,7 +331,7 @@ export class Collection {
   /**
   @internal
   */
-  get conn(): Connection {
+  get conn(): CppConnection {
     return this._conn
   }
 
@@ -379,6 +383,43 @@ export class Collection {
   }
 
   /**
+   * @internal
+   */
+  _encodeDoc(
+    transcoder: Transcoder,
+    value: any,
+    callback: (err: Error | null, bytes: string, flags: number) => void
+  ): void {
+    try {
+      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
+      const [bytesBuf, flagsOut] = transcoder.encode(value)
+      const bytesStr = bytesBuf.toString('binary')
+      callback(null, bytesStr, flagsOut)
+    } catch (e) {
+      return callback(e as Error, '', 0)
+    }
+  }
+
+  /**
+   * @internal
+   */
+  _decodeDoc(
+    transcoder: Transcoder,
+    bytesStr: string,
+    flags: number,
+    callback: (err: Error | null, content: any) => void
+  ): void {
+    try {
+      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
+      const bytes = Buffer.from(bytesStr, 'binary')
+      const content = transcoder.decode(bytes, flags)
+      callback(null, content)
+    } catch (e) {
+      return callback(e as Error, null)
+    }
+  }
+
+  /**
    * The name of the collection this Collection object references.
    */
   get name(): string {
@@ -416,20 +457,33 @@ export class Collection {
       this._conn.get(
         {
           id: this._cppDocId(key),
-          transcoder,
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
 
-          wrapCallback(
-            null,
-            new GetResult({
-              content: resp.content,
-              cas: resp.cas,
-            })
+          this._decodeDoc(
+            transcoder,
+            resp.value,
+            resp.flags,
+            (err, content) => {
+              if (err) {
+                return wrapCallback(err, null)
+              }
+
+              wrapCallback(
+                null,
+                new GetResult({
+                  content: content,
+                  cas: resp.cas,
+                })
+              )
+            }
           )
         }
       )
@@ -545,23 +599,43 @@ export class Collection {
       this._conn.exists(
         {
           id: this._cppDocId(key),
+          partition: 0,
+          opaque: 0,
           timeout,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+
           // BUG(JSCBC-1006): Remove this workaround when the underlying bug is resolved.
-          if (err instanceof DocumentNotFoundError && resp && resp.cas) {
-            err = null
+          if (err instanceof DocumentNotFoundError) {
+            return wrapCallback(
+              null,
+              new ExistsResult({
+                cas: undefined,
+                exists: false,
+              })
+            )
           }
 
           if (err) {
             return wrapCallback(err, null)
           }
 
+          if (resp.deleted) {
+            return wrapCallback(
+              null,
+              new ExistsResult({
+                cas: undefined,
+                exists: false,
+              })
+            )
+          }
+
           wrapCallback(
             null,
             new ExistsResult({
               cas: resp.cas,
-              exists: resp.exists,
+              exists: true,
             })
           )
         }
@@ -594,32 +668,42 @@ export class Collection {
     const expiry = options.expiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.insert(
-        {
-          id: this._cppDocId(key),
-          content: value,
-          transcoder,
-          expiry,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-        },
-        (err, resp) => {
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
+      this._encodeDoc(transcoder, value, (err, bytes, flags) => {
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        this._conn.insert(
+          {
+            id: this._cppDocId(key),
+            value: bytes,
+            flags,
+            expiry: expiry || 0,
+            durability_level: durabilityToCpp(durabilityLevel),
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          (cppErr, resp) => {
+            const err = errorFromCpp(cppErr)
+
+            if (err) {
+              return wrapCallback(err, null)
+            }
+
+            wrapCallback(
+              err,
+              new MutationResult({
+                cas: resp.cas,
+                token: resp.token,
+              })
+            )
+          }
+        )
+      })
     }, callback)
   }
 
@@ -650,20 +734,33 @@ export class Collection {
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
+      let bytes, flags
+      try {
+        // BUG(JSCBC-1054): We should avoid doing buffer conversion.
+        const [bytesStr, flagsOut] = transcoder.encode(value)
+        flags = flagsOut
+        bytes = bytesStr.toString('binary')
+      } catch (e) {
+        return wrapCallback(e as Error, null)
+      }
+
       this._conn.upsert(
         {
           id: this._cppDocId(key),
-          content: value,
-          transcoder,
-          expiry,
-          preserve_expiry,
+          value: bytes,
+          flags,
+          expiry: expiry || 0,
+          preserve_expiry: preserve_expiry || false,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -707,34 +804,44 @@ export class Collection {
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.replace(
-        {
-          id: this._cppDocId(key),
-          content: value,
-          transcoder,
-          expiry,
-          cas,
-          preserve_expiry,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-        },
-        (err, resp) => {
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
+      this._encodeDoc(transcoder, value, (err, bytes, flags) => {
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        this._conn.replace(
+          {
+            id: this._cppDocId(key),
+            value: bytes,
+            flags,
+            expiry,
+            cas: cas || zeroCas,
+            preserve_expiry: preserve_expiry || false,
+            durability_level: durabilityToCpp(durabilityLevel),
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          (cppErr, resp) => {
+            const err = errorFromCpp(cppErr)
+
+            if (err) {
+              return wrapCallback(err, null)
+            }
+
+            wrapCallback(
+              err,
+              new MutationResult({
+                cas: resp.cas,
+                token: resp.token,
+              })
+            )
+          }
+        )
+      })
     }, callback)
   }
 
@@ -760,17 +867,20 @@ export class Collection {
 
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.remove(
         {
           id: this._cppDocId(key),
-          cas,
+          cas: cas || zeroCas,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -816,21 +926,34 @@ export class Collection {
       this._conn.getAndTouch(
         {
           id: this._cppDocId(key),
-          transcoder,
           expiry,
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
 
-          wrapCallback(
-            err,
-            new GetResult({
-              content: resp.content,
-              cas: resp.cas,
-            })
+          this._decodeDoc(
+            transcoder,
+            resp.value,
+            resp.flags,
+            (err, content) => {
+              if (err) {
+                return wrapCallback(err, null)
+              }
+
+              wrapCallback(
+                err,
+                new GetResult({
+                  content: content,
+                  cas: resp.cas,
+                })
+              )
+            }
           )
         }
       )
@@ -867,8 +990,11 @@ export class Collection {
           id: this._cppDocId(key),
           expiry,
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -913,21 +1039,34 @@ export class Collection {
       this._conn.getAndLock(
         {
           id: this._cppDocId(key),
-          transcoder,
           lock_time: lockTime,
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
 
-          wrapCallback(
-            err,
-            new GetResult({
-              cas: resp.cas,
-              content: resp.content,
-            })
+          this._decodeDoc(
+            transcoder,
+            resp.value,
+            resp.flags,
+            (err, content) => {
+              if (err) {
+                return wrapCallback(err, null)
+              }
+
+              wrapCallback(
+                err,
+                new GetResult({
+                  cas: resp.cas,
+                  content: content,
+                })
+              )
+            }
           )
         }
       )
@@ -964,8 +1103,11 @@ export class Collection {
           id: this._cppDocId(key),
           cas,
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err) => {
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err)
           }
@@ -999,12 +1141,13 @@ export class Collection {
       options = {}
     }
 
-    const cppSpecs: CppLookupInEntry[] = []
+    const cppSpecs: CppProtocolLookupInRequestBodyLookupInSpecsEntry[] = []
     for (let i = 0; i < specs.length; ++i) {
       cppSpecs.push({
         opcode: specs[i]._op,
         flags: specs[i]._flags,
         path: specs[i]._path,
+        original_index: i,
       })
     }
 
@@ -1014,27 +1157,32 @@ export class Collection {
       this._conn.lookupIn(
         {
           id: this._cppDocId(key),
-          specs: cppSpecs,
+          specs: {
+            entries: cppSpecs,
+          },
           timeout,
+          partition: 0,
+          opaque: 0,
+          access_deleted: false,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+
           if (resp && resp.fields) {
             const content: LookupInResultEntry[] = []
 
             for (let i = 0; i < resp.fields.length; ++i) {
               const itemRes = resp.fields[i]
 
-              let error = errorFromCpp(itemRes.error)
+              let error = errorFromCpp(itemRes.ec)
 
-              let value = itemRes.value
-              if (value && value.length > 0) {
-                value = JSON.parse(value)
-              } else {
-                value = null
+              let value: any = undefined
+              if (itemRes.value && itemRes.value.length > 0) {
+                value = JSON.parse(itemRes.value)
               }
 
               // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
-              if (itemRes.opcode === binding.subdoc_opcode.exists) {
+              if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
                 error = null
                 value = itemRes.exists
               }
@@ -1086,13 +1234,14 @@ export class Collection {
       options = {}
     }
 
-    const cppSpecs: CppMutateInEntry[] = []
+    const cppSpecs: CppProtocolMutateInRequestBodyMutateInSpecsEntry[] = []
     for (let i = 0; i < specs.length; ++i) {
       cppSpecs.push({
         opcode: specs[i]._op,
         flags: specs[i]._flags,
         path: specs[i]._path,
         param: specs[i]._data,
+        original_index: 0,
       })
     }
 
@@ -1103,33 +1252,38 @@ export class Collection {
     const preserveExpiry = options.preserveExpiry
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
-    const timeout = this._mutationTimeout(durabilityLevel)
+    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.mutateIn(
         {
           id: this._cppDocId(key),
           store_semantics: storeSemanticToCpp(storeSemantics),
-          specs: cppSpecs,
+          specs: {
+            entries: cppSpecs,
+          },
           expiry,
-          preserve_expiry: preserveExpiry,
-          cas,
-          // access_deleted
+          preserve_expiry: preserveExpiry || false,
+          cas: cas || zeroCas,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
+          partition: 0,
+          opaque: 0,
+          access_deleted: false,
+          create_as_deleted: false,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+
           if (resp && resp.fields) {
             const content: MutateInResultEntry[] = []
 
             for (let i = 0; i < resp.fields.length; ++i) {
               const itemRes = resp.fields[i]
 
-              let value = itemRes.value
-              if (value && value.length > 0) {
-                value = JSON.parse(value)
-              } else {
-                value = null
+              let value: any = undefined
+              if (itemRes.value && itemRes.value.length > 0) {
+                value = JSON.parse(itemRes.value)
               }
 
               content.push(
@@ -1227,11 +1381,15 @@ export class Collection {
           id: this._cppDocId(key),
           delta,
           initial_value,
-          expiry,
+          expiry: expiry || 0,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
+          preserve_expiry: false,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -1277,11 +1435,15 @@ export class Collection {
           id: this._cppDocId(key),
           delta,
           initial_value,
-          expiry,
+          expiry: expiry || 0,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
+          preserve_expiry: false,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -1320,14 +1482,20 @@ export class Collection {
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
+      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
+      const bytesStr = value.toString('binary')
+
       this._conn.append(
         {
           id: this._cppDocId(key),
-          value: Buffer.from(value),
+          value: bytesStr,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -1365,14 +1533,20 @@ export class Collection {
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
+      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
+      const bytesStr = value.toString('binary')
+
       this._conn.prepend(
         {
           id: this._cppDocId(key),
-          value: Buffer.from(value),
+          value: bytesStr,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
+          partition: 0,
+          opaque: 0,
         },
-        (err, resp) => {
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
           if (err) {
             return wrapCallback(err, null)
           }

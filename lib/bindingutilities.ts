@@ -1,17 +1,17 @@
 import { AnalyticsScanConsistency } from './analyticstypes'
 import binding, {
   CppAnalyticsScanConsistency,
-  CppDurabilityLevel,
-  CppEndpointState,
+  CppProtocolDurabilityLevel,
+  CppDiagEndpointState,
   CppMutationState,
   CppMutationToken,
-  CppPingState,
+  CppDiagPingState,
   CppQueryProfileMode,
   CppQueryScanConsistency,
   CppSearchHighlightStyle,
   CppSearchScanConsistency,
   CppServiceType,
-  CppSubdocStoreSemanticsType,
+  CppProtocolMutateInRequestBodyStoreSemanticsType,
   CppTxnExternalException,
   CppViewScanConsistency,
   CppViewSortOrder,
@@ -32,20 +32,20 @@ import { ViewOrdering, ViewScanConsistency } from './viewtypes'
  */
 export function durabilityToCpp(
   mode: DurabilityLevel | undefined
-): CppDurabilityLevel {
+): CppProtocolDurabilityLevel {
   // Unspecified is allowed, and means no sync durability.
   if (mode === null || mode === undefined) {
-    return binding.durability_level.none
+    return binding.protocol_durability_level.none
   }
 
   if (mode === DurabilityLevel.None) {
-    return binding.durability_level.none
+    return binding.protocol_durability_level.none
   } else if (mode === DurabilityLevel.Majority) {
-    return binding.durability_level.majority
+    return binding.protocol_durability_level.majority
   } else if (mode === DurabilityLevel.MajorityAndPersistOnMaster) {
-    return binding.durability_level.majority_and_persist_to_active
+    return binding.protocol_durability_level.majority_and_persist_to_active
   } else if (mode === DurabilityLevel.PersistToMajority) {
-    return binding.durability_level.persist_to_majority
+    return binding.protocol_durability_level.persist_to_majority
   }
 
   throw new errs.InvalidDurabilityLevel()
@@ -56,17 +56,17 @@ export function durabilityToCpp(
  */
 export function storeSemanticToCpp(
   mode: StoreSemantics | undefined
-): CppSubdocStoreSemanticsType {
+): CppProtocolMutateInRequestBodyStoreSemanticsType {
   if (mode === null || mode === undefined) {
-    return binding.subdoc_store_semantics_type.replace
+    return binding.protocol_mutate_in_request_body_store_semantics_type.replace
   }
 
   if (mode === StoreSemantics.Insert) {
-    return binding.subdoc_store_semantics_type.insert
+    return binding.protocol_mutate_in_request_body_store_semantics_type.insert
   } else if (mode === StoreSemantics.Upsert) {
-    return binding.subdoc_store_semantics_type.upsert
+    return binding.protocol_mutate_in_request_body_store_semantics_type.upsert
   } else if (mode === StoreSemantics.Replace) {
-    return binding.subdoc_store_semantics_type.replace
+    return binding.protocol_mutate_in_request_body_store_semantics_type.replace
   }
 
   throw new errs.InvalidArgumentError()
@@ -139,7 +139,7 @@ export function queryScanConsistencyToCpp(
  */
 export function queryProfileModeToCpp(
   mode: QueryProfileMode | undefined
-): CppQueryProfileMode | undefined {
+): CppQueryProfileMode {
   // Unspecified is allowed, and means no sync durability.
   if (mode === null || mode === undefined) {
     return binding.query_profile_mode.off
@@ -220,9 +220,9 @@ export function searchHighlightStyleToCpp(
  */
 export function mutationStateToCpp(
   state: MutationState | undefined
-): CppMutationState | undefined {
+): CppMutationState {
   if (state === null || state === undefined) {
-    return undefined
+    return []
   }
 
   const tokens: CppMutationToken[] = []
@@ -285,14 +285,16 @@ export function serviceTypeFromCpp(service: CppServiceType): ServiceType {
 /**
  * @internal
  */
-export function endpointStateFromCpp(service: CppEndpointState): EndpointState {
-  if (service === binding.endpoint_state.disconnected) {
+export function endpointStateFromCpp(
+  service: CppDiagEndpointState
+): EndpointState {
+  if (service === binding.diag_endpoint_state.disconnected) {
     return EndpointState.Disconnected
-  } else if (service === binding.endpoint_state.connecting) {
+  } else if (service === binding.diag_endpoint_state.connecting) {
     return EndpointState.Connecting
-  } else if (service === binding.endpoint_state.connected) {
+  } else if (service === binding.diag_endpoint_state.connected) {
     return EndpointState.Connected
-  } else if (service === binding.endpoint_state.disconnecting) {
+  } else if (service === binding.diag_endpoint_state.disconnecting) {
     return EndpointState.Disconnecting
   }
 
@@ -358,12 +360,12 @@ export function txnExternalExeptionFromCpp(
 /**
  * @internal
  */
-export function pingStateFromCpp(service: CppPingState): PingState {
-  if (service === binding.ping_state.ok) {
+export function pingStateFromCpp(service: CppDiagPingState): PingState {
+  if (service === binding.diag_ping_state.ok) {
     return PingState.Ok
-  } else if (service === binding.ping_state.timeout) {
+  } else if (service === binding.diag_ping_state.timeout) {
     return PingState.Timeout
-  } else if (service === binding.ping_state.error) {
+  } else if (service === binding.diag_ping_state.error) {
     return PingState.Error
   }
 
@@ -471,162 +473,162 @@ export function errorFromCpp(err: CppError | null): Error | null {
   const context = contextOrNull ? contextOrNull : undefined
 
   switch (err.code) {
-    case binding.common_errc.request_canceled:
+    case binding.error_common_errc.request_canceled:
       return new errs.RequestCanceledError(baseErr, context)
-    case binding.common_errc.invalid_argument:
+    case binding.error_common_errc.invalid_argument:
       return new errs.InvalidArgumentError(baseErr, context)
-    case binding.common_errc.service_not_available:
+    case binding.error_common_errc.service_not_available:
       return new errs.ServiceNotAvailableError(baseErr, context)
-    case binding.common_errc.internal_server_failure:
+    case binding.error_common_errc.internal_server_failure:
       return new errs.InternalServerFailureError(baseErr, context)
-    case binding.common_errc.authentication_failure:
+    case binding.error_common_errc.authentication_failure:
       return new errs.AuthenticationFailureError(baseErr, context)
-    case binding.common_errc.temporary_failure:
+    case binding.error_common_errc.temporary_failure:
       return new errs.TemporaryFailureError(baseErr, context)
-    case binding.common_errc.parsing_failure:
+    case binding.error_common_errc.parsing_failure:
       return new errs.ParsingFailureError(baseErr, context)
-    case binding.common_errc.cas_mismatch:
+    case binding.error_common_errc.cas_mismatch:
       return new errs.CasMismatchError(baseErr, context)
-    case binding.common_errc.bucket_not_found:
+    case binding.error_common_errc.bucket_not_found:
       return new errs.BucketNotFoundError(baseErr, context)
-    case binding.common_errc.collection_not_found:
+    case binding.error_common_errc.collection_not_found:
       return new errs.CollectionNotFoundError(baseErr, context)
-    case binding.common_errc.unsupported_operation:
+    case binding.error_common_errc.unsupported_operation:
       return new errs.UnsupportedOperationError(baseErr, context)
-    case binding.common_errc.unambiguous_timeout:
+    case binding.error_common_errc.unambiguous_timeout:
       return new errs.UnambiguousTimeoutError(baseErr, context)
-    case binding.common_errc.ambiguous_timeout:
+    case binding.error_common_errc.ambiguous_timeout:
       return new errs.AmbiguousTimeoutError(baseErr, context)
-    case binding.common_errc.feature_not_available:
+    case binding.error_common_errc.feature_not_available:
       return new errs.FeatureNotAvailableError(baseErr, context)
-    case binding.common_errc.scope_not_found:
+    case binding.error_common_errc.scope_not_found:
       return new errs.ScopeNotFoundError(baseErr, context)
-    case binding.common_errc.index_not_found:
+    case binding.error_common_errc.index_not_found:
       return new errs.IndexNotFoundError(baseErr, context)
-    case binding.common_errc.index_exists:
+    case binding.error_common_errc.index_exists:
       return new errs.IndexExistsError(baseErr, context)
-    case binding.common_errc.decoding_failure:
+    case binding.error_common_errc.decoding_failure:
       return new errs.DecodingFailureError(baseErr, context)
-    case binding.common_errc.rate_limited:
+    case binding.error_common_errc.rate_limited:
       return new errs.RateLimitedError(baseErr, context)
-    case binding.common_errc.quota_limited:
+    case binding.error_common_errc.quota_limited:
       return new errs.QuotaLimitedError(baseErr, context)
 
-    case binding.key_value_errc.document_not_found:
+    case binding.error_key_value_errc.document_not_found:
       return new errs.DocumentNotFoundError(baseErr, context)
-    case binding.key_value_errc.document_irretrievable:
+    case binding.error_key_value_errc.document_irretrievable:
       return new errs.DocumentUnretrievableError(baseErr, context)
-    case binding.key_value_errc.document_locked:
+    case binding.error_key_value_errc.document_locked:
       return new errs.DocumentLockedError(baseErr, context)
-    case binding.key_value_errc.value_too_large:
+    case binding.error_key_value_errc.value_too_large:
       return new errs.ValueTooLargeError(baseErr, context)
-    case binding.key_value_errc.document_exists:
+    case binding.error_key_value_errc.document_exists:
       return new errs.DocumentExistsError(baseErr, context)
-    case binding.key_value_errc.durability_level_not_available:
+    case binding.error_key_value_errc.durability_level_not_available:
       return new errs.DurabilityLevelNotAvailableError(baseErr, context)
-    case binding.key_value_errc.durability_impossible:
+    case binding.error_key_value_errc.durability_impossible:
       return new errs.DurabilityImpossibleError(baseErr, context)
-    case binding.key_value_errc.durability_ambiguous:
+    case binding.error_key_value_errc.durability_ambiguous:
       return new errs.DurabilityAmbiguousError(baseErr, context)
-    case binding.key_value_errc.durable_write_in_progress:
+    case binding.error_key_value_errc.durable_write_in_progress:
       return new errs.DurableWriteInProgressError(baseErr, context)
-    case binding.key_value_errc.durable_write_re_commit_in_progress:
+    case binding.error_key_value_errc.durable_write_re_commit_in_progress:
       return new errs.DurableWriteReCommitInProgressError(baseErr, context)
-    case binding.key_value_errc.path_not_found:
+    case binding.error_key_value_errc.path_not_found:
       return new errs.PathNotFoundError(baseErr, context)
-    case binding.key_value_errc.path_mismatch:
+    case binding.error_key_value_errc.path_mismatch:
       return new errs.PathMismatchError(baseErr, context)
-    case binding.key_value_errc.path_invalid:
+    case binding.error_key_value_errc.path_invalid:
       return new errs.PathInvalidError(baseErr, context)
-    case binding.key_value_errc.path_too_big:
+    case binding.error_key_value_errc.path_too_big:
       return new errs.PathTooBigError(baseErr, context)
-    case binding.key_value_errc.path_too_deep:
+    case binding.error_key_value_errc.path_too_deep:
       return new errs.PathTooDeepError(baseErr, context)
-    case binding.key_value_errc.value_too_deep:
+    case binding.error_key_value_errc.value_too_deep:
       return new errs.ValueTooDeepError(baseErr, context)
-    case binding.key_value_errc.value_invalid:
+    case binding.error_key_value_errc.value_invalid:
       return new errs.ValueInvalidError(baseErr, context)
-    case binding.key_value_errc.document_not_json:
+    case binding.error_key_value_errc.document_not_json:
       return new errs.DocumentNotJsonError(baseErr, context)
-    case binding.key_value_errc.number_too_big:
+    case binding.error_key_value_errc.number_too_big:
       return new errs.NumberTooBigError(baseErr, context)
-    case binding.key_value_errc.delta_invalid:
+    case binding.error_key_value_errc.delta_invalid:
       return new errs.DeltaInvalidError(baseErr, context)
-    case binding.key_value_errc.path_exists:
+    case binding.error_key_value_errc.path_exists:
       return new errs.PathExistsError(baseErr, context)
-    case binding.key_value_errc.xattr_unknown_macro:
-    case binding.key_value_errc.xattr_invalid_key_combo:
-    case binding.key_value_errc.xattr_unknown_virtual_attribute:
-    case binding.key_value_errc.xattr_cannot_modify_virtual_attribute:
-    case binding.key_value_errc.xattr_no_access:
-    case binding.key_value_errc.cannot_revive_living_document:
+    case binding.error_key_value_errc.xattr_unknown_macro:
+    case binding.error_key_value_errc.xattr_invalid_key_combo:
+    case binding.error_key_value_errc.xattr_unknown_virtual_attribute:
+    case binding.error_key_value_errc.xattr_cannot_modify_virtual_attribute:
+    case binding.error_key_value_errc.xattr_no_access:
+    case binding.error_key_value_errc.cannot_revive_living_document:
       // These error types are converted into generic ones instead.
       break
 
-    case binding.query_errc.planning_failure:
+    case binding.error_query_errc.planning_failure:
       return new errs.PlanningFailureError(baseErr, context)
-    case binding.query_errc.index_failure:
+    case binding.error_query_errc.index_failure:
       return new errs.IndexFailureError(baseErr, context)
-    case binding.query_errc.prepared_statement_failure:
+    case binding.error_query_errc.prepared_statement_failure:
       return new errs.PreparedStatementFailureError(baseErr, context)
-    case binding.query_errc.dml_failure:
+    case binding.error_query_errc.dml_failure:
       return new errs.DmlFailureError(baseErr, context)
 
-    case binding.analytics_errc.compilation_failure:
+    case binding.error_analytics_errc.compilation_failure:
       return new errs.CompilationFailureError(baseErr, context)
-    case binding.analytics_errc.job_queue_full:
+    case binding.error_analytics_errc.job_queue_full:
       return new errs.JobQueueFullError(baseErr, context)
-    case binding.analytics_errc.dataset_not_found:
+    case binding.error_analytics_errc.dataset_not_found:
       return new errs.DatasetNotFoundError(baseErr, context)
-    case binding.analytics_errc.dataverse_not_found:
+    case binding.error_analytics_errc.dataverse_not_found:
       return new errs.DataverseNotFoundError(baseErr, context)
-    case binding.analytics_errc.dataset_exists:
+    case binding.error_analytics_errc.dataset_exists:
       return new errs.DatasetExistsError(baseErr, context)
-    case binding.analytics_errc.dataverse_exists:
+    case binding.error_analytics_errc.dataverse_exists:
       return new errs.DataverseExistsError(baseErr, context)
-    case binding.analytics_errc.link_not_found:
+    case binding.error_analytics_errc.link_not_found:
       return new errs.LinkNotFoundError(baseErr, context)
-    case binding.analytics_errc.link_exists:
+    case binding.error_analytics_errc.link_exists:
       return new errs.LinkExistsError(baseErr, context)
 
-    case binding.search_errc.index_not_ready:
+    case binding.error_search_errc.index_not_ready:
       return new errs.IndexNotReadyError(baseErr, context)
-    case binding.search_errc.consistency_mismatch:
+    case binding.error_search_errc.consistency_mismatch:
       // These error types are converted into generic ones instead.
       break
 
-    case binding.view_errc.view_not_found:
+    case binding.error_view_errc.view_not_found:
       return new errs.ViewNotFoundError(baseErr, context)
-    case binding.view_errc.design_document_not_found:
+    case binding.error_view_errc.design_document_not_found:
       return new errs.DesignDocumentNotFoundError(baseErr, context)
 
-    case binding.management_errc.collection_exists:
+    case binding.error_management_errc.collection_exists:
       return new errs.CollectionExistsError(baseErr, context)
-    case binding.management_errc.scope_exists:
+    case binding.error_management_errc.scope_exists:
       return new errs.ScopeExistsError(baseErr, context)
-    case binding.management_errc.user_not_found:
+    case binding.error_management_errc.user_not_found:
       return new errs.UserNotFoundError(baseErr, context)
-    case binding.management_errc.group_not_found:
+    case binding.error_management_errc.group_not_found:
       return new errs.GroupNotFoundError(baseErr, context)
-    case binding.management_errc.bucket_exists:
+    case binding.error_management_errc.bucket_exists:
       return new errs.BucketExistsError(baseErr, context)
-    case binding.management_errc.user_exists:
+    case binding.error_management_errc.user_exists:
       return new errs.UserExistsError(baseErr, context)
-    case binding.management_errc.bucket_not_flushable:
+    case binding.error_management_errc.bucket_not_flushable:
       return new errs.BucketNotFlushableError(baseErr, context)
-    case binding.management_errc.eventing_function_not_found:
+    case binding.error_management_errc.eventing_function_not_found:
       return new errs.EventingFunctionNotFoundError(baseErr, context)
-    case binding.management_errc.eventing_function_not_deployed:
+    case binding.error_management_errc.eventing_function_not_deployed:
       return new errs.EventingFunctionNotDeployedError(baseErr, context)
-    case binding.management_errc.eventing_function_compilation_failure:
+    case binding.error_management_errc.eventing_function_compilation_failure:
       return new errs.EventingFunctionCompilationFailureError(baseErr, context)
-    case binding.management_errc.eventing_function_identical_keyspace:
+    case binding.error_management_errc.eventing_function_identical_keyspace:
       return new errs.EventingFunctionIdenticalKeyspaceError(baseErr, context)
-    case binding.management_errc.eventing_function_not_bootstrapped:
+    case binding.error_management_errc.eventing_function_not_bootstrapped:
       return new errs.EventingFunctionNotBootstrappedError(baseErr, context)
-    case binding.management_errc.eventing_function_deployed:
+    case binding.error_management_errc.eventing_function_deployed:
       return new errs.EventingFunctionDeployedError(baseErr, context)
-    case binding.management_errc.eventing_function_paused:
+    case binding.error_management_errc.eventing_function_paused:
       return new errs.EventingFunctionPausedError(baseErr, context)
   }
 

@@ -1,5 +1,6 @@
 /* eslint jsdoc/require-jsdoc: off */
 import {
+  errorFromCpp,
   mutationStateToCpp,
   searchHighlightStyleToCpp,
   searchScanConsistencyToCpp,
@@ -49,31 +50,32 @@ export class SearchExecutor {
 
     const timeout = options.timeout || this._cluster.searchTimeout
 
-    this._cluster.conn.searchQuery(
+    this._cluster.conn.search(
       {
         timeout,
         index_name: indexName,
-        query: query,
+        query: JSON.stringify(query),
         limit: options.limit,
         skip: options.skip,
-        explain: options.explain,
-        disable_scoring: options.disableScoring,
-        include_locations: options.includeLocations,
+        explain: options.explain || false,
+        disable_scoring: options.disableScoring || false,
+        include_locations: options.includeLocations || false,
         highlight_style: options.highlight
           ? searchHighlightStyleToCpp(options.highlight.style)
           : undefined,
-        highlight_fields: options.highlight
-          ? options.highlight.fields
-          : undefined,
-        fields: options.fields,
-        collections: options.collections,
+        highlight_fields:
+          options.highlight && options.highlight.fields
+            ? options.highlight.fields
+            : [],
+        fields: options.fields || [],
+        collections: options.collections || [],
         scan_consistency: searchScanConsistencyToCpp(options.consistency),
         mutation_state: mutationStateToCpp(options.consistentWith),
         sort_specs: options.sort
           ? options.sort.map((sort: string | SearchSort) =>
               JSON.stringify(sort)
             )
-          : undefined,
+          : [],
         facets: options.facets
           ? Object.fromEntries(
               Object.entries(options.facets).map(([k, v]) => [
@@ -81,7 +83,7 @@ export class SearchExecutor {
                 JSON.stringify(v),
               ])
             )
-          : undefined,
+          : {},
         raw: options.raw
           ? Object.fromEntries(
               Object.entries(options.raw).map(([k, v]) => [
@@ -89,9 +91,11 @@ export class SearchExecutor {
                 JSON.stringify(v),
               ])
             )
-          : undefined,
+          : {},
+        body_str: '',
       },
-      (err, resp) => {
+      (cppErr, resp) => {
+        const err = errorFromCpp(cppErr)
         if (err) {
           emitter.emit('error', err)
           emitter.emit('end')

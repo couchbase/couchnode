@@ -1,6 +1,7 @@
 /* eslint jsdoc/require-jsdoc: off */
 import binding from './binding'
-import { Connection } from './connection'
+import { CppConnection } from './binding'
+import { errorFromCpp } from './bindingutilities'
 import { HttpErrorContext } from './errorcontexts'
 import * as events from 'events'
 
@@ -52,12 +53,12 @@ export interface HttpResponse {
  * @internal
  */
 export class HttpExecutor {
-  private _conn: Connection
+  private _conn: CppConnection
 
   /**
    * @internal
    */
-  constructor(conn: Connection) {
+  constructor(conn: CppConnection) {
     this._conn = conn
   }
 
@@ -113,7 +114,7 @@ export class HttpExecutor {
       throw new Error('unexpected http body type')
     }
 
-    this._conn.httpRequest(
+    this._conn.managementFreeform(
       {
         type: cppHttpType,
         method: cppHttpMethod,
@@ -122,8 +123,9 @@ export class HttpExecutor {
         body: body,
         timeout: options.timeout,
       },
-      (err, res) => {
-        if (!res) {
+      (cppErr, res) => {
+        const err = errorFromCpp(cppErr)
+        if (err) {
           emitter.emit('error', err)
           return
         }

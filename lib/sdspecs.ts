@@ -1,8 +1,4 @@
-import binding, {
-  CppLookupInPathFlag,
-  CppMutateInPathFlag,
-  CppSubdocOpcode,
-} from './binding'
+import binding, { CppProtocolSubdocOpcode } from './binding'
 
 /**
  * Represents a macro that can be passed to a lookup-in operation to
@@ -136,7 +132,7 @@ export class LookupInSpec {
   /**
    * @internal
    */
-  _op: CppSubdocOpcode
+  _op: CppProtocolSubdocOpcode
 
   /**
    * @internal
@@ -146,12 +142,12 @@ export class LookupInSpec {
   /**
    * @internal
    */
-  _flags: CppLookupInPathFlag
+  _flags: number
 
   private constructor(
-    op: CppSubdocOpcode,
+    op: CppProtocolSubdocOpcode,
     path: string,
-    flags: CppLookupInPathFlag
+    flags: number
   ) {
     this._op = op
     this._path = path
@@ -159,7 +155,7 @@ export class LookupInSpec {
   }
 
   private static _create(
-    op: CppSubdocOpcode,
+    op: CppProtocolSubdocOpcode,
     path: string | LookupInMacro,
     options?: { xattr?: boolean }
   ) {
@@ -167,15 +163,17 @@ export class LookupInSpec {
       options = {}
     }
 
-    let flags: CppLookupInPathFlag = 0
+    let flags = 0
 
     if (path instanceof LookupInMacro) {
       path = path._value
-      flags |= binding.lookup_in_path_flag.xattr
+      flags |=
+        binding.protocol_lookup_in_request_body_lookup_in_specs_path_flag.xattr
     }
 
     if (options.xattr) {
-      flags |= binding.lookup_in_path_flag.xattr
+      flags |=
+        binding.protocol_lookup_in_request_body_lookup_in_specs_path_flag.xattr
     }
 
     return new LookupInSpec(op, path, flags)
@@ -195,9 +193,9 @@ export class LookupInSpec {
     options?: { xattr?: boolean }
   ): LookupInSpec {
     if (!path) {
-      return this._create(binding.subdoc_opcode.get_doc, '', options)
+      return this._create(binding.protocol_subdoc_opcode.get_doc, '', options)
     }
-    return this._create(binding.subdoc_opcode.get, path, options)
+    return this._create(binding.protocol_subdoc_opcode.get, path, options)
   }
 
   /**
@@ -213,7 +211,7 @@ export class LookupInSpec {
     path: string | LookupInMacro,
     options?: { xattr?: boolean }
   ): LookupInSpec {
-    return this._create(binding.subdoc_opcode.exists, path, options)
+    return this._create(binding.protocol_subdoc_opcode.exists, path, options)
   }
 
   /**
@@ -229,7 +227,7 @@ export class LookupInSpec {
     path: string | LookupInMacro,
     options?: { xattr?: boolean }
   ): LookupInSpec {
-    return this._create(binding.subdoc_opcode.get_count, path, options)
+    return this._create(binding.protocol_subdoc_opcode.get_count, path, options)
   }
 }
 
@@ -252,7 +250,7 @@ export class MutateInSpec {
   /**
    * @internal
    */
-  _op: CppSubdocOpcode
+  _op: CppProtocolSubdocOpcode
 
   /**
    * @internal
@@ -262,7 +260,7 @@ export class MutateInSpec {
   /**
    * @internal
    */
-  _flags: CppMutateInPathFlag
+  _flags: number
 
   /**
    * @internal
@@ -270,9 +268,9 @@ export class MutateInSpec {
   _data: any
 
   private constructor(
-    op: CppSubdocOpcode,
+    op: CppProtocolSubdocOpcode,
     path: string,
-    flags: CppMutateInPathFlag,
+    flags: number,
     data: any
   ) {
     this._op = op
@@ -282,7 +280,7 @@ export class MutateInSpec {
   }
 
   private static _create(
-    op: CppSubdocOpcode,
+    op: CppProtocolSubdocOpcode,
     path: string,
     value?: any | MutateInMacro,
     options?: {
@@ -295,19 +293,24 @@ export class MutateInSpec {
       options = {}
     }
 
-    let flags: CppMutateInPathFlag = 0
+    let flags = 0
 
     if (value instanceof MutateInMacro) {
       value = value._value
-      flags |= binding.mutate_in_path_flag.expand_macros
+      flags |=
+        binding.protocol_mutate_in_request_body_mutate_in_specs_path_flag
+          .expand_macros
     }
 
     if (options.createPath) {
-      flags |= binding.mutate_in_path_flag.create_parents
+      flags |=
+        binding.protocol_mutate_in_request_body_mutate_in_specs_path_flag
+          .create_parents
     }
 
     if (options.xattr) {
-      flags |= binding.mutate_in_path_flag.xattr
+      flags |=
+        binding.protocol_mutate_in_request_body_mutate_in_specs_path_flag.xattr
     }
 
     if (value !== undefined) {
@@ -347,7 +350,12 @@ export class MutateInSpec {
     value: any,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.subdoc_opcode.dict_add, path, value, options)
+    return this._create(
+      binding.protocol_subdoc_opcode.dict_add,
+      path,
+      value,
+      options
+    )
   }
 
   /**
@@ -370,9 +378,19 @@ export class MutateInSpec {
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
     if (!path) {
-      return this._create(binding.subdoc_opcode.set_doc, '', value, options)
+      return this._create(
+        binding.protocol_subdoc_opcode.set_doc,
+        '',
+        value,
+        options
+      )
     }
-    return this._create(binding.subdoc_opcode.dict_upsert, path, value, options)
+    return this._create(
+      binding.protocol_subdoc_opcode.dict_upsert,
+      path,
+      value,
+      options
+    )
   }
 
   /**
@@ -391,7 +409,12 @@ export class MutateInSpec {
     value: any | MutateInMacro,
     options?: { xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.subdoc_opcode.replace, path, value, options)
+    return this._create(
+      binding.protocol_subdoc_opcode.replace,
+      path,
+      value,
+      options
+    )
   }
 
   /**
@@ -406,13 +429,18 @@ export class MutateInSpec {
   static remove(path: string, options?: { xattr?: boolean }): MutateInSpec {
     if (!path) {
       return this._create(
-        binding.subdoc_opcode.remove_doc,
+        binding.protocol_subdoc_opcode.remove_doc,
         '',
         undefined,
         options
       )
     }
-    return this._create(binding.subdoc_opcode.remove, path, undefined, options)
+    return this._create(
+      binding.protocol_subdoc_opcode.remove,
+      path,
+      undefined,
+      options
+    )
   }
 
   /**
@@ -437,7 +465,7 @@ export class MutateInSpec {
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
     return this._create(
-      binding.subdoc_opcode.array_push_last,
+      binding.protocol_subdoc_opcode.array_push_last,
       path,
       value,
       options
@@ -466,7 +494,7 @@ export class MutateInSpec {
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
     return this._create(
-      binding.subdoc_opcode.array_push_first,
+      binding.protocol_subdoc_opcode.array_push_first,
       path,
       value,
       options
@@ -497,7 +525,7 @@ export class MutateInSpec {
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
     return this._create(
-      binding.subdoc_opcode.array_insert,
+      binding.protocol_subdoc_opcode.array_insert,
       path,
       value,
       options
@@ -527,7 +555,7 @@ export class MutateInSpec {
     options?: { createPath?: boolean; multi?: boolean; xattr?: boolean }
   ): MutateInSpec {
     return this._create(
-      binding.subdoc_opcode.array_add_unique,
+      binding.protocol_subdoc_opcode.array_add_unique,
       path,
       value,
       options
@@ -552,7 +580,12 @@ export class MutateInSpec {
     value: any,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.subdoc_opcode.counter, path, +value, options)
+    return this._create(
+      binding.protocol_subdoc_opcode.counter,
+      path,
+      +value,
+      options
+    )
   }
 
   /**
@@ -573,6 +606,11 @@ export class MutateInSpec {
     value: any,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
-    return this._create(binding.subdoc_opcode.counter, path, +value, options)
+    return this._create(
+      binding.protocol_subdoc_opcode.counter,
+      path,
+      +value,
+      options
+    )
   }
 }

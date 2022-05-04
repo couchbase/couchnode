@@ -1,5 +1,6 @@
+import { errorFromCpp } from './bindingutilities'
 import { Cluster } from './cluster'
-import { CouchbaseError, IndexExistsError, IndexNotFoundError } from './errors'
+import { CouchbaseError } from './errors'
 import { HttpExecutor } from './httpexecutor'
 import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
 
@@ -30,11 +31,6 @@ export class QueryIndex {
   state: string
 
   /**
-   * The keyspace which this index covers.
-   */
-  keyspace: string
-
-  /**
    * The keys for this index.
    */
   indexKey: string[]
@@ -50,6 +46,21 @@ export class QueryIndex {
   partition?: string
 
   /**
+   * The collection that this index is for.
+   */
+  collectionName?: string
+
+  /**
+   * The scope that this index is for.
+   */
+  scopeName?: string
+
+  /**
+   * The bucket that this index is for.
+   */
+  bucketName?: string
+
+  /**
    * @internal
    */
   constructor(data: QueryIndex) {
@@ -57,10 +68,12 @@ export class QueryIndex {
     this.isPrimary = data.isPrimary
     this.type = data.type
     this.state = data.state
-    this.keyspace = data.keyspace
     this.indexKey = data.indexKey
     this.condition = data.condition
     this.partition = data.partition
+    this.collectionName = data.collectionName
+    this.scopeName = data.scopeName
+    this.bucketName = data.bucketName
   }
 }
 
@@ -68,6 +81,16 @@ export class QueryIndex {
  * @category Management
  */
 export interface CreateQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   */
+  scopeName?: string
+
   /**
    * Whether or not the call should ignore the index already existing when
    * determining whether the call was successful.
@@ -95,6 +118,16 @@ export interface CreateQueryIndexOptions {
  * @category Management
  */
 export interface CreatePrimaryQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   */
+  scopeName?: string
+
   /**
    * The name of this primary index.
    */
@@ -128,6 +161,16 @@ export interface CreatePrimaryQueryIndexOptions {
  */
 export interface DropQueryIndexOptions {
   /**
+   * Specifies the collection of this index.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   */
+  scopeName?: string
+
+  /**
    * Whether or not the call should ignore the index already existing when
    * determining whether the call was successful.
    */
@@ -143,6 +186,16 @@ export interface DropQueryIndexOptions {
  * @category Management
  */
 export interface DropPrimaryQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   */
+  scopeName?: string
+
   /**
    * The name of the primary index to drop.
    */
@@ -165,6 +218,16 @@ export interface DropPrimaryQueryIndexOptions {
  */
 export interface GetAllQueryIndexesOptions {
   /**
+   * Specifies the collection of this index.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   */
+  scopeName?: string
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -175,6 +238,16 @@ export interface GetAllQueryIndexesOptions {
  */
 export interface BuildQueryIndexOptions {
   /**
+   * Specifies the collection of this index.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   */
+  scopeName?: string
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -184,6 +257,16 @@ export interface BuildQueryIndexOptions {
  * @category Management
  */
 export interface WatchQueryIndexOptions {
+  /**
+   * Specifies the collection of this index.
+   */
+  collectionName?: string
+
+  /**
+   * Specifies the collection scope of this index.
+   */
+  scopeName?: string
+
   /**
    * Specifies whether the primary indexes should be watched as well.
    */
@@ -212,7 +295,10 @@ export class QueryIndexManager {
 
   private async _createIndex(
     bucketName: string,
+    isPrimary: boolean,
     options: {
+      collectionName?: string
+      scopeName?: string
       name?: string
       fields?: string[]
       ignoreIfExists?: boolean
@@ -224,58 +310,30 @@ export class QueryIndexManager {
   ): Promise<void> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    let qs = ''
-
-    if (!options.fields) {
-      qs += 'CREATE PRIMARY INDEX'
-    } else {
-      qs += 'CREATE INDEX'
-    }
-
-    if (options.name) {
-      qs += ' `' + options.name + '`'
-    }
-
-    qs += ' ON `' + bucketName + '`'
-
-    if (options.fields && options.fields.length > 0) {
-      qs += '('
-      for (let i = 0; i < options.fields.length; ++i) {
-        if (i > 0) {
-          qs += ', '
-        }
-
-        qs += '`' + options.fields[i] + '`'
-      }
-      qs += ')'
-    }
-
-    const withOpts: any = {}
-
-    if (options.deferred) {
-      withOpts.defer_build = true
-    }
-
-    if (options.numReplicas) {
-      withOpts.num_replica = options.numReplicas
-    }
-
-    if (Object.keys(withOpts).length > 0) {
-      qs += ' WITH ' + JSON.stringify(withOpts)
-    }
-
-    return PromiseHelper.wrapAsync(async () => {
-      try {
-        await this._cluster.query(qs, {
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementQueryIndexCreate(
+        {
+          bucket_name: bucketName,
+          scope_name: options.scopeName || '',
+          collection_name: options.collectionName || '',
+          index_name: options.name || '',
+          fields: options.fields || [],
+          is_primary: isPrimary,
+          ignore_if_exists: options.ignoreIfExists || false,
+          deferred: options.deferred,
+          num_replicas: options.numReplicas,
           timeout: timeout,
-        })
-      } catch (err) {
-        if (options.ignoreIfExists && err instanceof IndexExistsError) {
-          // swallow the error if the user wants us to
-        } else {
-          throw err
+          condition: undefined,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(err)
         }
-      }
+      )
     }, callback)
   }
 
@@ -305,7 +363,10 @@ export class QueryIndexManager {
 
     return this._createIndex(
       bucketName,
+      false,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: indexName,
         fields: fields,
         ignoreIfExists: options.ignoreIfExists,
@@ -339,7 +400,10 @@ export class QueryIndexManager {
 
     return this._createIndex(
       bucketName,
+      true,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: options.name,
         ignoreIfExists: options.ignoreIfExists,
         deferred: options.deferred,
@@ -351,7 +415,10 @@ export class QueryIndexManager {
 
   private async _dropIndex(
     bucketName: string,
+    isPrimary: boolean,
     options: {
+      collectionName?: string
+      scopeName?: string
       name?: string
       ignoreIfNotExists?: boolean
       timeout?: number
@@ -360,26 +427,31 @@ export class QueryIndexManager {
   ): Promise<void> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    let qs = ''
-
-    if (!options.name) {
-      qs += 'DROP PRIMARY INDEX `' + bucketName + '`'
-    } else {
-      qs += 'DROP INDEX `' + bucketName + '`.`' + options.name + '`'
+    // BUG(JSCBC-1066): We need to use a normal drop index for named primary indexes.
+    if (options.name) {
+      isPrimary = false
     }
 
-    return PromiseHelper.wrapAsync(async () => {
-      try {
-        await this._cluster.query(qs, {
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementQueryIndexDrop(
+        {
+          bucket_name: bucketName,
+          scope_name: options.scopeName || '',
+          collection_name: options.collectionName || '',
+          index_name: options.name || '',
+          is_primary: isPrimary,
+          ignore_if_does_not_exist: options.ignoreIfNotExists || false,
           timeout: timeout,
-        })
-      } catch (err) {
-        if (options.ignoreIfNotExists && err instanceof IndexNotFoundError) {
-          // swallow the error if the user wants us to
-        } else {
-          throw err
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(err)
         }
-      }
+      )
     }, callback)
   }
 
@@ -407,7 +479,10 @@ export class QueryIndexManager {
 
     return this._dropIndex(
       bucketName,
+      false,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: indexName,
         ignoreIfNotExists: options.ignoreIfNotExists,
         timeout: options.timeout,
@@ -438,7 +513,10 @@ export class QueryIndexManager {
 
     return this._dropIndex(
       bucketName,
+      true,
       {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
         name: options.name,
         ignoreIfNotExists: options.ignoreIfNotExists,
         timeout: options.timeout,
@@ -467,34 +545,43 @@ export class QueryIndexManager {
       options = {}
     }
 
-    const qs = `SELECT idx.* FROM system:indexes AS idx
-              WHERE (
-                (\`bucket_id\` IS MISSING AND \`keyspace_id\`="${bucketName}")
-                OR \`bucket_id\`="${bucketName}"
-              ) AND \`using\`="gsi" ORDER BY is_primary DESC, name ASC`
-
+    const collectionName = options.collectionName || ''
+    const scopeName = options.scopeName || ''
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._cluster.query(qs, {
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementQueryIndexGetAll(
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      const indexes = res.rows.map(
-        (row) =>
-          new QueryIndex({
-            name: row.name,
-            isPrimary: row.is_primary,
-            type: row.using,
-            state: row.state,
-            keyspace: row.keyspace_id,
-            indexKey: row.index_key,
-            condition: row.condition,
-            partition: row.partition,
-          })
+          const indexes = resp.indexes.map(
+            (row) =>
+              new QueryIndex({
+                isPrimary: row.is_primary,
+                name: row.name,
+                state: row.state,
+                type: row.type,
+                indexKey: row.index_key,
+                partition: row.partition,
+                condition: row.condition,
+                bucketName: row.bucket_name,
+                scopeName: row.scope_name,
+                collectionName: row.collection_name,
+              })
+          )
+
+          wrapCallback(null, indexes)
+        }
       )
-
-      return indexes
     }, callback)
   }
 
@@ -518,44 +605,27 @@ export class QueryIndexManager {
       options = {}
     }
 
+    const collectionName = options.collectionName || ''
+    const scopeName = options.scopeName || ''
     const timeout = options.timeout || this._cluster.managementTimeout
-    const timer = new CompoundTimeout(timeout)
 
-    return PromiseHelper.wrapAsync(async () => {
-      const indexes = await this.getAllIndexes(bucketName, {
-        timeout: timer.left(),
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementQueryIndexBuildDeferred(
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      // Filter out the index names that need to be built
-      const deferredList = indexes
-        .filter(
-          (index) => index.state === 'deferred' || index.state === 'pending'
-        )
-        .map((index) => index.name)
-
-      // If there are no deferred indexes, we have nothing to do.
-      if (deferredList.length === 0) {
-        return []
-      }
-
-      let qs = ''
-      qs += 'BUILD INDEX ON `' + bucketName + '` '
-      qs += '('
-      for (let j = 0; j < deferredList.length; ++j) {
-        if (j > 0) {
-          qs += ', '
+          wrapCallback(null, null)
         }
-        qs += '`' + deferredList[j] + '`'
-      }
-      qs += ')'
-
-      // Run our deferred build query
-      await this._cluster.query(qs, {
-        timeout: timer.left(),
-      })
-
-      // Return the list of indices that we built
-      return deferredList
+      )
     }, callback)
   }
 

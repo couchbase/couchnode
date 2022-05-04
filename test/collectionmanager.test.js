@@ -49,10 +49,10 @@ describe('#collectionmanager', function () {
     const scopes = await cmgr.getAllScopes()
 
     const foundScope = scopes.find((v) => v.name === testScope)
-    assert.isNotEmpty(foundScope)
+    assert.isOk(foundScope)
 
     const foundColl = foundScope.collections.find((v) => v.name === testColl)
-    assert.isNotEmpty(foundColl)
+    assert.isOk(foundColl)
   })
 
   it('should successfully drop a collection', async function () {

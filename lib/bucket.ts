@@ -1,7 +1,7 @@
+import { CppConnection } from './binding'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
 import { CollectionManager } from './collectionmanager'
-import { Connection } from './connection'
 import { PingExecutor } from './diagnosticsexecutor'
 import { PingOptions, PingResult } from './diagnosticstypes'
 import { Scope } from './scope'
@@ -27,7 +27,7 @@ import {
 export class Bucket {
   private _cluster: Cluster
   private _name: string
-  private _conn: Connection
+  private _conn: CppConnection
 
   /**
   @internal
@@ -41,7 +41,7 @@ export class Bucket {
   /**
   @internal
   */
-  get conn(): Connection {
+  get conn(): CppConnection {
     return this._conn
   }
 

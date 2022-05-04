@@ -2,7 +2,7 @@ import {
   CppTransactions,
   CppTransaction,
   CppTransactionGetResult,
-  CppQueryResult,
+  CppQueryResponse,
   CppTransactionLinks,
   CppTransactionGetMetaData,
 } from './binding'
@@ -336,7 +336,7 @@ function translateGetResult(
 
   return new TransactionGetResult({
     id: cppRes.id,
-    content: cppRes.content,
+    content: cppRes.content ? JSON.parse(cppRes.content) : undefined,
     cas: cppRes.cas,
     _links: cppRes.links,
     _metadata: cppRes.metadata,
@@ -429,7 +429,7 @@ export class TransactionAttemptContext {
       this._impl.insert(
         {
           id,
-          content,
+          content: JSON.stringify(content),
         },
         (cppErr, cppRes) => {
           const err = errorFromCpp(cppErr)
@@ -458,12 +458,12 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: doc.content,
+            content: '',
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,
           },
-          content,
+          content: JSON.stringify(content),
         },
         (cppErr, cppRes) => {
           const err = errorFromCpp(cppErr)
@@ -488,7 +488,7 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: doc.content,
+            content: '',
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,
@@ -522,14 +522,6 @@ export class TransactionAttemptContext {
       this._impl.query(
         statement,
         {
-          positional_parameters:
-            options.parameters && Array.isArray(options.parameters)
-              ? options.parameters
-              : undefined,
-          named_parameters:
-            options.parameters && !Array.isArray(options.parameters)
-              ? options.parameters
-              : undefined,
           scan_consistency: queryScanConsistencyToCpp(options.scanConsistency),
           ad_hoc: options.adhoc,
           client_context_id: options.clientContextId,
@@ -543,10 +535,29 @@ export class TransactionAttemptContext {
           metrics: options.metrics,
           bucket_name: options.scope ? options.scope.bucket.name : undefined,
           scope_name: options.scope ? options.scope.name : undefined,
-          raw: options.raw,
+          raw: options.raw
+            ? Object.fromEntries(
+                Object.entries(options.raw).map(([k, v]) => [
+                  k,
+                  JSON.stringify(v),
+                ])
+              )
+            : {},
+          positional_parameters:
+            options.parameters && Array.isArray(options.parameters)
+              ? options.parameters.map((v) => JSON.stringify(v))
+              : [],
+          named_parameters:
+            options.parameters && !Array.isArray(options.parameters)
+              ? Object.fromEntries(
+                  Object.entries(
+                    options.parameters as { [key: string]: any }
+                  ).map(([k, v]) => [k, JSON.stringify(v)])
+                )
+              : {},
         },
         (cppErr, resp) => {
-          callback(errorFromCpp(cppErr), resp as CppQueryResult)
+          callback(cppErr, resp as CppQueryResponse)
         }
       )
     })
@@ -611,7 +622,7 @@ export class Transactions {
       config.queryConfig = {}
     }
 
-    const connImpl = cluster.conn.inst
+    const connImpl = cluster.conn
     const txnsImpl = new binding.Transactions(connImpl, {
       durability_level: durabilityToCpp(config.durabilityLevel),
       kv_timeout: config.kvTimeout,

@@ -4,10 +4,10 @@ import {
   AnalyticsQueryOptions,
   AnalyticsResult,
 } from './analyticstypes'
+import { CppConnection } from './binding'
 import { Bucket } from './bucket'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
-import { Connection } from './connection'
 import { QueryExecutor } from './queryexecutor'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
 import { StreamableRowPromise } from './streamablepromises'
@@ -30,7 +30,7 @@ export class Scope {
 
   private _bucket: Bucket
   private _name: string
-  private _conn: Connection
+  private _conn: CppConnection
 
   /**
   @internal
@@ -44,7 +44,7 @@ export class Scope {
   /**
   @internal
   */
-  get conn(): Connection {
+  get conn(): CppConnection {
     return this._conn
   }
 

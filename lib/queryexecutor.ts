@@ -1,5 +1,6 @@
-import { CppQueryResult } from './binding'
+import { CppError, CppQueryResponse } from './binding'
 import {
+  errorFromCpp,
   mutationStateToCpp,
   queryProfileModeToCpp,
   queryScanConsistencyToCpp,
@@ -32,7 +33,9 @@ export class QueryExecutor {
    * @internal
    */
   static execute<TRow = any>(
-    exec: (callback: (err: Error | null, resp: CppQueryResult) => void) => void
+    exec: (
+      callback: (err: CppError | null, resp: CppQueryResponse) => void
+    ) => void
   ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData> {
     const emitter = new StreamableRowPromise<
       QueryResult<TRow>,
@@ -45,7 +48,8 @@ export class QueryExecutor {
       })
     })
 
-    exec((err, resp) => {
+    exec((cppErr, resp) => {
+      const err = errorFromCpp(cppErr)
       if (err) {
         emitter.emit('error', err)
         emitter.emit('end')
@@ -126,11 +130,11 @@ export class QueryExecutor {
         {
           statement: query,
           client_context_id: options.clientContextId,
-          adhoc: options.adhoc,
-          metrics: options.metrics,
-          readonly: options.readOnly,
-          flex_index: options.flexIndex,
-          preserve_expiry: options.preserveExpiry,
+          adhoc: options.adhoc || false,
+          metrics: options.metrics || false,
+          readonly: options.readOnly || false,
+          flex_index: options.flexIndex || false,
+          preserve_expiry: options.preserveExpiry || false,
           max_parallelism: options.maxParallelism,
           scan_cap: options.scanCap,
           scan_wait: options.scanWait,
@@ -148,15 +152,20 @@ export class QueryExecutor {
                   JSON.stringify(v),
                 ])
               )
-            : undefined,
+            : {},
           positional_parameters:
             options.parameters && Array.isArray(options.parameters)
-              ? options.parameters
-              : undefined,
+              ? options.parameters.map((v) => JSON.stringify(v))
+              : [],
           named_parameters:
             options.parameters && !Array.isArray(options.parameters)
-              ? options.parameters
-              : undefined,
+              ? Object.fromEntries(
+                  Object.entries(
+                    options.parameters as { [key: string]: any }
+                  ).map(([k, v]) => [k, JSON.stringify(v)])
+                )
+              : {},
+          body_str: '',
         },
         callback
       )

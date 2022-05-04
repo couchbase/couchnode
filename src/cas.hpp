@@ -1,11 +1,11 @@
 #pragma once
 #include "addondata.hpp"
 #include "napi.h"
-#include <couchbase/protocol/cas.hxx>
+#include <couchbase/cas.hxx>
 
 namespace couchbase
 {
-typedef couchbase::protocol::cas cas;
+typedef couchbase::cas cas;
 }
 
 namespace couchnode
