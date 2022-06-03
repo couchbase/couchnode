@@ -85,6 +85,14 @@ respectively.
 Finally, to build the API reference for the project, run `make docs` from the
 root directory, and a docs folder will be created with the api reference.
 
+# Support & Additional Resources
+
+If you found an issue, please file it in our [JIRA](https://issues.couchbase.com/projects/JSCBC/issues/).
+
+The Couchbase Discord server is a place where you can collaborate about all things Couchbase. Connect with others from the community, learn tips and tricks, and ask questions. [Join Discord and contribute](https://discord.com/invite/sQ5qbPZuTh).
+
+You can ask questions in our [forums](https://forums.couchbase.com/).
+
 ## License
 
 Copyright 2013 Couchbase Inc.
