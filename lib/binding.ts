@@ -658,7 +658,6 @@ export interface CppDecrementRequest {
   durability_level: CppProtocolDurabilityLevel
   timeout?: CppMilliseconds
   // retries
-  preserve_expiry: boolean
 }
 export interface CppSearchResponse {
   // ctx
@@ -903,7 +902,6 @@ export interface CppIncrementRequest {
   durability_level: CppProtocolDurabilityLevel
   timeout?: CppMilliseconds
   // retries
-  preserve_expiry: boolean
 }
 export interface CppManagementGroupUpsertResponse {
   // ctx

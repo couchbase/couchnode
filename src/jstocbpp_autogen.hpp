@@ -2859,7 +2859,6 @@ struct js_to_cbpp_t<couchbase::operations::decrement_request> {
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // retries
-        js_to_cbpp<bool>(cppObj.preserve_expiry, jsObj.Get("preserve_expiry"));
         return cppObj;
     }
     static inline Napi::Value
@@ -2881,8 +2880,6 @@ struct js_to_cbpp_t<couchbase::operations::decrement_request> {
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
         // retries
-        resObj.Set("preserve_expiry",
-                   cbpp_to_js<bool>(env, cppObj.preserve_expiry));
         return resObj;
     }
 };
@@ -4017,7 +4014,6 @@ struct js_to_cbpp_t<couchbase::operations::increment_request> {
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // retries
-        js_to_cbpp<bool>(cppObj.preserve_expiry, jsObj.Get("preserve_expiry"));
         return cppObj;
     }
     static inline Napi::Value
@@ -4039,8 +4035,6 @@ struct js_to_cbpp_t<couchbase::operations::increment_request> {
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
         // retries
-        resObj.Set("preserve_expiry",
-                   cbpp_to_js<bool>(env, cppObj.preserve_expiry));
         return resObj;
     }
 };
@@ -5521,8 +5515,8 @@ struct js_to_cbpp_t<couchbase::operations::management::
         js_to_cbpp<
             std::vector<couchbase::operations::management::analytics_problem>>(
             cppObj.errors, jsObj.Get("errors"));
-        js_to_cbpp<std::map<std::string, std::uint64_t>>(cppObj.stats,
-                                                         jsObj.Get("stats"));
+        js_to_cbpp<std::map<std::string, std::int64_t>>(cppObj.stats,
+                                                        jsObj.Get("stats"));
         return cppObj;
     }
     static inline Napi::Value
@@ -5536,7 +5530,7 @@ struct js_to_cbpp_t<couchbase::operations::management::
                    cbpp_to_js<std::vector<
                        couchbase::operations::management::analytics_problem>>(
                        env, cppObj.errors));
-        resObj.Set("stats", cbpp_to_js<std::map<std::string, std::uint64_t>>(
+        resObj.Set("stats", cbpp_to_js<std::map<std::string, std::int64_t>>(
                                 env, cppObj.stats));
         return resObj;
     }
