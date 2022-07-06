@@ -737,43 +737,39 @@ export class Collection {
     const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
-      let bytes, flags
-      try {
-        // BUG(JSCBC-1054): We should avoid doing buffer conversion.
-        const [bytesStr, flagsOut] = transcoder.encode(value)
-        flags = flagsOut
-        bytes = bytesStr.toString('binary')
-      } catch (e) {
-        return wrapCallback(e as Error, null)
-      }
-
-      this._conn.upsert(
-        {
-          id: this._cppDocId(key),
-          value: bytes,
-          flags,
-          expiry: expiry || 0,
-          preserve_expiry: preserve_expiry || false,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
+      this._encodeDoc(transcoder, value, (err, bytes, flags) => {
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        this._conn.upsert(
+          {
+            id: this._cppDocId(key),
+            value: bytes,
+            flags,
+            expiry: expiry || 0,
+            preserve_expiry: preserve_expiry || false,
+            durability_level: durabilityToCpp(durabilityLevel),
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          (cppErr, resp) => {
+            const err = errorFromCpp(cppErr)
+            if (err) {
+              return wrapCallback(err, null)
+            }
+
+            wrapCallback(
+              err,
+              new MutationResult({
+                cas: resp.cas,
+                token: resp.token,
+              })
+            )
+          }
+        )
+      })
     }, callback)
   }
 
