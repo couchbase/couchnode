@@ -195,6 +195,8 @@ def parse_type_str(typeStr):
         return {"name": "std::error_code"}
     if typeStr == "std::monostate":
         return {"name": "std::monostate"}
+    if typeStr == "std::byte":
+        return {"name": "std::byte"}
     if typeStr == "unsigned long":
         return {"name": "std::size_t"}
     if typeStr == "char":

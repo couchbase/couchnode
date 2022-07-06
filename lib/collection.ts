@@ -388,15 +388,14 @@ export class Collection {
   _encodeDoc(
     transcoder: Transcoder,
     value: any,
-    callback: (err: Error | null, bytes: string, flags: number) => void
+    callback: (err: Error | null, bytes: Buffer, flags: number) => void
   ): void {
     try {
       // BUG(JSCBC-1054): We should avoid doing buffer conversion.
       const [bytesBuf, flagsOut] = transcoder.encode(value)
-      const bytesStr = bytesBuf.toString('binary')
-      callback(null, bytesStr, flagsOut)
+      callback(null, bytesBuf, flagsOut)
     } catch (e) {
-      return callback(e as Error, '', 0)
+      return callback(e as Error, Buffer.alloc(0), 0)
     }
   }
 
@@ -405,13 +404,11 @@ export class Collection {
    */
   _decodeDoc(
     transcoder: Transcoder,
-    bytesStr: string,
+    bytes: Buffer,
     flags: number,
     callback: (err: Error | null, content: any) => void
   ): void {
     try {
-      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
-      const bytes = Buffer.from(bytesStr, 'binary')
       const content = transcoder.decode(bytes, flags)
       callback(null, content)
     } catch (e) {
@@ -1476,13 +1473,14 @@ export class Collection {
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
-      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
-      const bytesStr = value.toString('binary')
+      if (!Buffer.isBuffer(value)) {
+        value = Buffer.from(value)
+      }
 
       this._conn.append(
         {
           id: this._cppDocId(key),
-          value: bytesStr,
+          value,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
           partition: 0,
@@ -1527,13 +1525,14 @@ export class Collection {
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
-      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
-      const bytesStr = value.toString('binary')
+      if (!Buffer.isBuffer(value)) {
+        value = Buffer.from(value)
+      }
 
       this._conn.prepend(
         {
           id: this._cppDocId(key),
-          value: bytesStr,
+          value,
           durability_level: durabilityToCpp(durabilityLevel),
           timeout,
           partition: 0,

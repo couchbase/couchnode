@@ -95,6 +95,7 @@ export class ViewExecutor {
         order: viewOrderingToCpp(options.order),
         debug: false,
         query_string: [],
+        raw: {},
       },
       (cppErr, resp) => {
         const err = errorFromCpp(cppErr)

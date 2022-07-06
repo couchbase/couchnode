@@ -319,6 +319,7 @@ export interface CppTopologyCollectionsManifest {
 export interface CppTopologyCollectionsManifestCollection {
   uid: number
   name: string
+  max_expiry: number
 }
 export interface CppTopologyCollectionsManifestScope {
   uid: number
@@ -383,7 +384,7 @@ export interface CppPrependResponse {
 }
 export interface CppPrependRequest {
   id: CppDocumentId
-  value: string
+  value: Buffer
   partition: number
   opaque: number
   durability_level: CppProtocolDurabilityLevel
@@ -433,7 +434,7 @@ export interface CppUpsertResponse {
 }
 export interface CppUpsertRequest {
   id: CppDocumentId
-  value: string
+  value: Buffer
   partition: number
   opaque: number
   flags: number
@@ -450,7 +451,7 @@ export interface CppAppendResponse {
 }
 export interface CppAppendRequest {
   id: CppDocumentId
-  value: string
+  value: Buffer
   partition: number
   opaque: number
   durability_level: CppProtocolDurabilityLevel
@@ -529,7 +530,7 @@ export interface CppReplaceResponse {
 }
 export interface CppReplaceRequest {
   id: CppDocumentId
-  value: string
+  value: Buffer
   partition: number
   opaque: number
   flags: number
@@ -542,7 +543,7 @@ export interface CppReplaceRequest {
 }
 export interface CppGetAndTouchResponse {
   // ctx
-  value: string
+  value: Buffer
   cas: CppCas
   flags: number
 }
@@ -570,7 +571,7 @@ export interface CppRemoveRequest {
 }
 export interface CppGetResponse {
   // ctx
-  value: string
+  value: Buffer
   cas: CppCas
   flags: number
 }
@@ -626,7 +627,7 @@ export interface CppAnalyticsRequest {
 }
 export interface CppGetProjectedResponse {
   // ctx
-  value: string
+  value: Buffer
   cas: CppCas
   flags: number
   expiry?: number
@@ -819,6 +820,7 @@ export interface CppDocumentViewRequest {
   group?: boolean
   group_level?: number
   debug: boolean
+  raw: { [key: string /*string*/]: string }
   order?: CppViewSortOrder
   query_string: string[]
   // row_callback
@@ -827,7 +829,7 @@ export interface CppDocumentViewRequest {
 }
 export interface CppGetAndLockResponse {
   // ctx
-  value: string
+  value: Buffer
   cas: CppCas
   flags: number
 }
@@ -846,7 +848,7 @@ export interface CppInsertResponse {
 }
 export interface CppInsertRequest {
   id: CppDocumentId
-  value: string
+  value: Buffer
   partition: number
   opaque: number
   flags: number

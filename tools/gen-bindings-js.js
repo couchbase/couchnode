@@ -8,6 +8,11 @@ const CustomDefinedTypes = [
 ]
 
 function getTsType(type, typeDb) {
+  // special case for std::vector<std::byte> which is a Buffer
+  if (type.name === 'std::vector' && type.of.name === 'std::byte') {
+    return 'Buffer'
+  }
+
   switch (type.name) {
     case 'std::string':
       return 'string'

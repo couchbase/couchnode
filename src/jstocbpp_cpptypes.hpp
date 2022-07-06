@@ -369,4 +369,27 @@ struct js_to_cbpp_t<std::variant<Types...>> {
     }
 };
 
+// std::vector<std::byte> type
+template <>
+struct js_to_cbpp_t<std::vector<std::byte>> {
+    static inline Napi::Value to_js(Napi::Env env,
+                                    const std::vector<std::byte> &cppObj)
+    {
+        return Napi::Buffer<std::byte>::Copy(env, cppObj.data(), cppObj.size());
+    }
+
+    static inline std::vector<std::byte> from_js(Napi::Value jsVal)
+    {
+        if (jsVal.IsEmpty() || jsVal.IsNull() || jsVal.IsUndefined()) {
+            return {};
+        }
+
+        auto jsBuf = jsVal.As<Napi::Buffer<std::byte>>();
+        auto bufSize = jsBuf.Length();
+        std::vector<std::byte> cppObj(bufSize);
+        memcpy(cppObj.data(), jsBuf.Data(), bufSize);
+        return cppObj;
+    }
+};
+
 } // namespace couchnode

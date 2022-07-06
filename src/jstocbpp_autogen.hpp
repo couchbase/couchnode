@@ -1295,6 +1295,7 @@ struct js_to_cbpp_t<couchbase::topology::collections_manifest::collection> {
         couchbase::topology::collections_manifest::collection cppObj;
         js_to_cbpp<std::uint64_t>(cppObj.uid, jsObj.Get("uid"));
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::uint32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
         return cppObj;
     }
     static inline Napi::Value
@@ -1304,6 +1305,8 @@ struct js_to_cbpp_t<couchbase::topology::collections_manifest::collection> {
         auto resObj = Napi::Object::New(env);
         resObj.Set("uid", cbpp_to_js<std::uint64_t>(env, cppObj.uid));
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("max_expiry",
+                   cbpp_to_js<std::uint32_t>(env, cppObj.max_expiry));
         return resObj;
     }
 };
@@ -1634,7 +1637,7 @@ struct js_to_cbpp_t<couchbase::operations::prepend_request> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::prepend_request cppObj;
         js_to_cbpp<couchbase::document_id>(cppObj.id, jsObj.Get("id"));
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<couchbase::protocol::durability_level>(
@@ -1649,7 +1652,8 @@ struct js_to_cbpp_t<couchbase::operations::prepend_request> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js<couchbase::document_id>(env, cppObj.id));
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
@@ -1863,7 +1867,7 @@ struct js_to_cbpp_t<couchbase::operations::upsert_request> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::upsert_request cppObj;
         js_to_cbpp<couchbase::document_id>(cppObj.id, jsObj.Get("id"));
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
@@ -1881,7 +1885,8 @@ struct js_to_cbpp_t<couchbase::operations::upsert_request> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js<couchbase::document_id>(env, cppObj.id));
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
@@ -1932,7 +1937,7 @@ struct js_to_cbpp_t<couchbase::operations::append_request> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::append_request cppObj;
         js_to_cbpp<couchbase::document_id>(cppObj.id, jsObj.Get("id"));
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<couchbase::protocol::durability_level>(
@@ -1947,7 +1952,8 @@ struct js_to_cbpp_t<couchbase::operations::append_request> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js<couchbase::document_id>(env, cppObj.id));
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
@@ -2294,7 +2300,7 @@ struct js_to_cbpp_t<couchbase::operations::replace_request> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::replace_request cppObj;
         js_to_cbpp<couchbase::document_id>(cppObj.id, jsObj.Get("id"));
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
@@ -2313,7 +2319,8 @@ struct js_to_cbpp_t<couchbase::operations::replace_request> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js<couchbase::document_id>(env, cppObj.id));
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
@@ -2341,7 +2348,7 @@ struct js_to_cbpp_t<couchbase::operations::get_and_touch_response> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::get_and_touch_response cppObj;
         // ctx
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
         return cppObj;
@@ -2352,7 +2359,8 @@ struct js_to_cbpp_t<couchbase::operations::get_and_touch_response> {
     {
         auto resObj = Napi::Object::New(env);
         // ctx
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("flags", cbpp_to_js<std::uint32_t>(env, cppObj.flags));
         return resObj;
@@ -2462,7 +2470,7 @@ struct js_to_cbpp_t<couchbase::operations::get_response> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::get_response cppObj;
         // ctx
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
         return cppObj;
@@ -2472,7 +2480,8 @@ struct js_to_cbpp_t<couchbase::operations::get_response> {
     {
         auto resObj = Napi::Object::New(env);
         // ctx
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("flags", cbpp_to_js<std::uint32_t>(env, cppObj.flags));
         return resObj;
@@ -2744,7 +2753,7 @@ struct js_to_cbpp_t<couchbase::operations::get_projected_response> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::get_projected_response cppObj;
         // ctx
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
         js_to_cbpp<std::optional<std::uint32_t>>(cppObj.expiry,
@@ -2757,7 +2766,8 @@ struct js_to_cbpp_t<couchbase::operations::get_projected_response> {
     {
         auto resObj = Napi::Object::New(env);
         // ctx
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("flags", cbpp_to_js<std::uint32_t>(env, cppObj.flags));
         resObj.Set("expiry", cbpp_to_js<std::optional<std::uint32_t>>(
@@ -3634,6 +3644,8 @@ struct js_to_cbpp_t<couchbase::operations::document_view_request> {
         js_to_cbpp<std::optional<std::uint32_t>>(cppObj.group_level,
                                                  jsObj.Get("group_level"));
         js_to_cbpp<bool>(cppObj.debug, jsObj.Get("debug"));
+        js_to_cbpp<std::map<std::string, std::string>>(cppObj.raw,
+                                                       jsObj.Get("raw"));
         js_to_cbpp<std::optional<couchbase::view_sort_order>>(
             cppObj.order, jsObj.Get("order"));
         js_to_cbpp<std::vector<std::string>>(cppObj.query_string,
@@ -3684,6 +3696,8 @@ struct js_to_cbpp_t<couchbase::operations::document_view_request> {
         resObj.Set("group_level", cbpp_to_js<std::optional<std::uint32_t>>(
                                       env, cppObj.group_level));
         resObj.Set("debug", cbpp_to_js<bool>(env, cppObj.debug));
+        resObj.Set("raw", cbpp_to_js<std::map<std::string, std::string>>(
+                              env, cppObj.raw));
         resObj.Set("order",
                    cbpp_to_js<std::optional<couchbase::view_sort_order>>(
                        env, cppObj.order));
@@ -3707,7 +3721,7 @@ struct js_to_cbpp_t<couchbase::operations::get_and_lock_response> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::get_and_lock_response cppObj;
         // ctx
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
         return cppObj;
@@ -3718,7 +3732,8 @@ struct js_to_cbpp_t<couchbase::operations::get_and_lock_response> {
     {
         auto resObj = Napi::Object::New(env);
         // ctx
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("flags", cbpp_to_js<std::uint32_t>(env, cppObj.flags));
         return resObj;
@@ -3792,7 +3807,7 @@ struct js_to_cbpp_t<couchbase::operations::insert_request> {
         auto jsObj = jsVal.ToObject();
         couchbase::operations::insert_request cppObj;
         js_to_cbpp<couchbase::document_id>(cppObj.id, jsObj.Get("id"));
-        js_to_cbpp<std::string>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
@@ -3809,7 +3824,8 @@ struct js_to_cbpp_t<couchbase::operations::insert_request> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js<couchbase::document_id>(env, cppObj.id));
-        resObj.Set("value", cbpp_to_js<std::string>(env, cppObj.value));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
