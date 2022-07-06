@@ -12,38 +12,78 @@ const errorTranscoder = {
   },
 }
 
+var testObjVal = {
+  foo: 'bar',
+  baz: 19,
+  c: 1,
+  d: 'str',
+  e: true,
+  f: false,
+  g: 5,
+  h: 6,
+  i: 7,
+  j: 8,
+  k: 9,
+  l: 10,
+  m: 11,
+  n: 12,
+  o: 13,
+  p: 14,
+  q: 15,
+  r: 16,
+  utf8: 'é',
+}
+var testUtf8Val = 'é'
+var testBinVal = Buffer.from(
+  '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+  'hex'
+)
+
 function genericTests(collFn) {
   describe('#basic', function () {
     let testKeyA
+    let testKeyUtf8
+    let testKeyBin
 
     before(function () {
       testKeyA = H.genTestKey()
+      testKeyUtf8 = H.genTestKey()
+      testKeyBin = H.genTestKey()
     })
 
-    var testObjVal = {
-      foo: 'bar',
-      baz: 19,
-      c: 1,
-      d: 'str',
-      e: true,
-      f: false,
-      g: 5,
-      h: 6,
-      i: 7,
-      j: 8,
-      k: 9,
-      l: 10,
-      m: 11,
-      n: 12,
-      o: 13,
-      p: 14,
-      q: 15,
-      r: 16,
-    }
+    after(async function () {
+      try {
+        await collFn().remove(testKeyA)
+      } catch (e) {
+        // nothing
+      }
+      try {
+        await collFn().remove(testKeyUtf8)
+      } catch (e) {
+        // ignore
+      }
+      try {
+        //await collFn().remove(testKeyBin)
+      } catch (e) {
+        // ignore
+      }
+    })
 
     describe('#upsert', function () {
       it('should perform basic upserts', async function () {
         var res = await collFn().upsert(testKeyA, testObjVal)
+        assert.isObject(res)
+        assert.isOk(res.cas)
+      })
+
+      it('should upsert with UTF8 data properly', async function () {
+        var res = await collFn().upsert(testKeyUtf8, testUtf8Val)
+        assert.isObject(res)
+        assert.isOk(res.cas)
+      })
+
+      it('should upsert with binary data properly', async function () {
+        var res = await collFn().upsert(testKeyBin, testBinVal)
         assert.isObject(res)
         assert.isOk(res.cas)
       })
@@ -96,6 +136,20 @@ function genericTests(collFn) {
         // BUG JSCBC-784: Check to make sure that the value property
         // returns the same as the content property.
         assert.strictEqual(res.value, res.content)
+      })
+
+      it('should fetch utf8 documents', async function () {
+        var res = await collFn().get(testKeyUtf8)
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.deepStrictEqual(res.value, testUtf8Val)
+      })
+
+      it('should fetch binary documents', async function () {
+        var res = await collFn().get(testKeyBin)
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.deepStrictEqual(res.value, testBinVal)
       })
 
       it('should not crash on transcoder errors', async function () {
@@ -418,23 +472,6 @@ function genericTests(collFn) {
         var gres = await collFn().get(testKeyBin)
         assert.isTrue(Buffer.isBuffer(gres.value))
         assert.deepStrictEqual(gres.value.toString(), 'hello13world')
-      })
-    })
-
-    describe('#upsert', function () {
-      it('should upsert successfully', async function () {
-        const valueBytes = Buffer.from(
-          '092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
-          'hex'
-        )
-
-        var res = await collFn().upsert(testKeyBinVal, valueBytes)
-        assert.isObject(res)
-        assert.isOk(res.cas)
-
-        var gres = await collFn().get(testKeyBinVal)
-        assert.isTrue(Buffer.isBuffer(gres.value))
-        assert.deepStrictEqual(gres.value, valueBytes)
       })
     })
   })
