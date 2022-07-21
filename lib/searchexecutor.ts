@@ -108,7 +108,10 @@ export class SearchExecutor {
 
         {
           const metaData = resp.meta
-          emitter.emit('meta', metaData)
+          emitter.emit('meta', {
+            facets: Object.fromEntries(Object.values(resp.facets).map((v) => [v.name, v])),
+            ...metaData
+          } as SearchMetaData)
         }
 
         emitter.emit('end')
