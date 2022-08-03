@@ -414,11 +414,10 @@ function genericTests(collFn) {
   })
 
   describe('#binary', function () {
-    let testKeyBin, testKeyBinVal
+    let testKeyBin
 
     before(async function () {
       testKeyBin = H.genTestKey()
-      testKeyBinVal = H.genTestKey()
 
       await collFn().insert(testKeyBin, 14)
     })

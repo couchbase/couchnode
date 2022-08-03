@@ -73,7 +73,7 @@ module.exports = {
     'jsdoc/check-tag-names': [
       'warn',
       {
-        definedTags: ['category', 'internal'],
+        definedTags: ['category', 'internal', 'experimental'],
       },
     ],
 
