@@ -62,7 +62,7 @@
     "native": false
   },
   "scripts": {
-    "install": "prebuild-install || cmake-js compile",
+    "install": "prebuild-install -r napi || cmake-js compile",
     "build": "cmake-js build && tsc",
     "rebuild": "cmake-js rebuild && tsc",
     "prebuild": "prebuild --backend cmake-js --verbose --strip",
@@ -74,5 +74,10 @@
     "cover-fast": "nyc ts-mocha test/*.test.* -ig '(slow)'",
     "lint": "eslint ./lib/ ./test/",
     "check-deps": "ncu"
+  },
+  "binary": {
+    "napi_versions": [
+      6
+    ]
   }
 }
