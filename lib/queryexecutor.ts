@@ -130,7 +130,7 @@ export class QueryExecutor {
         {
           statement: query,
           client_context_id: options.clientContextId,
-          adhoc: options.adhoc || false,
+          adhoc: options.adhoc === false ? false : true,
           metrics: options.metrics || false,
           readonly: options.readOnly || false,
           flex_index: options.flexIndex || false,
