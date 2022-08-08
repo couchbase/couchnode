@@ -175,7 +175,7 @@ function _startMock(mockpath, options, callback) {
       }
     })
     socket.on('error', function (err) {
-      if (socket.closed) {
+      if (socket.userClosed) {
         return
       }
 
@@ -196,7 +196,7 @@ function _startMock(mockpath, options, callback) {
       socket.write(dataOut)
     }
     socket.close = function () {
-      socket.closed = true
+      socket.userClosed = true
       socket.end()
     }
     console.log('got mock server connection')
