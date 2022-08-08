@@ -2994,6 +2994,16 @@ export interface CppBinding extends CppBindingAutogen {
     transaction_aborted_externally: CppTxnExternalException
     previous_operation_failed: CppTxnExternalException
     forward_compatibility_failure: CppTxnExternalException
+    parsing_failure: CppTxnExternalException
+    illegal_state_exception: CppTxnExternalException
+    couchbase_exception: CppTxnExternalException
+    service_not_available_exception: CppTxnExternalException
+    request_canceled_exception: CppTxnExternalException
+    concurrent_operations_detected_on_same_document: CppTxnExternalException
+    commit_not_permitted: CppTxnExternalException
+    rollback_not_permitted: CppTxnExternalException
+    transaction_already_aborted: CppTxnExternalException
+    transaction_already_committed: CppTxnExternalException
   }
 }
 

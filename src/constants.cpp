@@ -83,6 +83,86 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
                 {"expand_macros", couchbase::protocol::mutate_in_request_body::
                                       mutate_in_specs::path_flag_expand_macros},
             }));
+
+    exports.Set(
+        "txn_failure_type",
+        cbppEnumToJs<couchbase::transactions::failure_type>(
+            env, {
+                     {"fail", couchbase::transactions::failure_type::FAIL},
+                     {"expiry", couchbase::transactions::failure_type::EXPIRY},
+                     {"commit_ambiguous",
+                      couchbase::transactions::failure_type::COMMIT_AMBIGUOUS},
+                 }));
+
+    exports.Set(
+        "txn_external_exception",
+        cbppEnumToJs<couchbase::transactions::external_exception>(
+            env,
+            {
+                {"unknown",
+                 couchbase::transactions::external_exception::UNKNOWN},
+                {"active_transaction_record_entry_not_found",
+                 couchbase::transactions::external_exception::
+                     ACTIVE_TRANSACTION_RECORD_ENTRY_NOT_FOUND},
+                {"active_transaction_record_full",
+                 couchbase::transactions::external_exception::
+                     ACTIVE_TRANSACTION_RECORD_FULL},
+                {"active_transaction_record_not_found",
+                 couchbase::transactions::external_exception::
+                     ACTIVE_TRANSACTION_RECORD_NOT_FOUND},
+                {"document_already_in_transaction",
+                 couchbase::transactions::external_exception::
+                     DOCUMENT_ALREADY_IN_TRANSACTION},
+                {"document_exists_exception",
+                 couchbase::transactions::external_exception::
+                     DOCUMENT_EXISTS_EXCEPTION},
+                {"document_not_found_exception",
+                 couchbase::transactions::external_exception::
+                     DOCUMENT_NOT_FOUND_EXCEPTION},
+                {"not_set",
+                 couchbase::transactions::external_exception::NOT_SET},
+                {"feature_not_available_exception",
+                 couchbase::transactions::external_exception::
+                     FEATURE_NOT_AVAILABLE_EXCEPTION},
+                {"transaction_aborted_externally",
+                 couchbase::transactions::external_exception::
+                     TRANSACTION_ABORTED_EXTERNALLY},
+                {"previous_operation_failed",
+                 couchbase::transactions::external_exception::
+                     PREVIOUS_OPERATION_FAILED},
+                {"forward_compatibility_failure",
+                 couchbase::transactions::external_exception::
+                     FORWARD_COMPATIBILITY_FAILURE},
+                {"parsing_failure",
+                 couchbase::transactions::external_exception::PARSING_FAILURE},
+                {"illegal_state_exception",
+                 couchbase::transactions::external_exception::
+                     ILLEGAL_STATE_EXCEPTION},
+                {"couchbase_exception",
+                 couchbase::transactions::external_exception::
+                     COUCHBASE_EXCEPTION},
+                {"service_not_available_exception",
+                 couchbase::transactions::external_exception::
+                     SERVICE_NOT_AVAILABLE_EXCEPTION},
+                {"request_canceled_exception",
+                 couchbase::transactions::external_exception::
+                     REQUEST_CANCELED_EXCEPTION},
+                {"concurrent_operations_detected_on_same_document",
+                 couchbase::transactions::external_exception::
+                     CONCURRENT_OPERATIONS_DETECTED_ON_SAME_DOCUMENT},
+                {"commit_not_permitted",
+                 couchbase::transactions::external_exception::
+                     COMMIT_NOT_PERMITTED},
+                {"rollback_not_permitted",
+                 couchbase::transactions::external_exception::
+                     ROLLBACK_NOT_PERMITTED},
+                {"transaction_already_aborted",
+                 couchbase::transactions::external_exception::
+                     TRANSACTION_ALREADY_ABORTED},
+                {"transaction_already_committed",
+                 couchbase::transactions::external_exception::
+                     TRANSACTION_ALREADY_COMMITTED},
+            }));
 }
 
 void Constants::InitAutogen(Napi::Env env, Napi::Object exports)

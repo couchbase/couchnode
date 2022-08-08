@@ -205,4 +205,30 @@ describe('#transactions', function () {
     var remRes = await H.co.get(testDocRep)
     assert.deepStrictEqual(remRes.content, { foo: 'bar' })
   })
+
+  it('should propagate errors properly', async function () {
+    const testDocIns = H.genTestKey()
+
+    await H.co.insert(testDocIns, { foo: 'bar' })
+
+    let numAttempts = 0
+    await H.throwsHelper(async () => {
+      await H.c.transactions().run(
+        async (attempt) => {
+          numAttempts++
+
+          await H.throwsHelper(async () => {
+            await attempt.insert(H.co, testDocIns, { foo: 'baz' })
+          }, H.lib.TransactionOperationFailedError)
+
+          throw new Error('success')
+        },
+        {
+          timeout: 100,
+        }
+      )
+    }, 'success')
+
+    assert.equal(numAttempts, 1)
+  })
 })

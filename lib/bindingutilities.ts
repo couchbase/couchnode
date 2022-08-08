@@ -352,6 +352,38 @@ export function txnExternalExeptionFromCpp(
     cause === binding.txn_external_exception.forward_compatibility_failure
   ) {
     return 'forward_compatibility_failure'
+  } else if (cause === binding.txn_external_exception.parsing_failure) {
+    return 'parsing_failure'
+  } else if (cause === binding.txn_external_exception.illegal_state_exception) {
+    return 'illegal_state_exception'
+  } else if (cause === binding.txn_external_exception.couchbase_exception) {
+    return 'couchbase_exception'
+  } else if (
+    cause === binding.txn_external_exception.service_not_available_exception
+  ) {
+    return 'service_not_available_exception'
+  } else if (
+    cause === binding.txn_external_exception.request_canceled_exception
+  ) {
+    return 'request_canceled_exception'
+  } else if (
+    cause ===
+    binding.txn_external_exception
+      .concurrent_operations_detected_on_same_document
+  ) {
+    return 'concurrent_operations_detected_on_same_document'
+  } else if (cause === binding.txn_external_exception.commit_not_permitted) {
+    return 'commit_not_permitted'
+  } else if (cause === binding.txn_external_exception.rollback_not_permitted) {
+    return 'rollback_not_permitted'
+  } else if (
+    cause === binding.txn_external_exception.transaction_already_aborted
+  ) {
+    return 'transaction_already_aborted'
+  } else if (
+    cause === binding.txn_external_exception.transaction_already_committed
+  ) {
+    return 'transaction_already_committed'
   }
 
   throw new errs.InvalidArgumentError()
