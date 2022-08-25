@@ -4,7 +4,7 @@ namespace couchnode
 {
 
 Instance::Instance()
-    : _cluster(couchbase::cluster::create(_io))
+    : _cluster(couchbase::core::cluster::create(_io))
 {
     _ioThread = std::thread([this]() { _io.run(); });
 }

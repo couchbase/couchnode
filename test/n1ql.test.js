@@ -8,6 +8,7 @@ const H = require('./harness')
 describe('#query', function () {
   let testUid, idxName, sidxName
   let testDocs
+  let deferredIndexes = []
 
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Query)
@@ -15,12 +16,18 @@ describe('#query', function () {
     testUid = H.genTestKey()
     idxName = H.genTestKey()
     sidxName = H.genTestKey()
+    for (let i = 0; i < 3; i++) {
+      deferredIndexes.push(H.genTestKey())
+    }
 
     testDocs = await testdata.upsertData(H.dco, testUid)
   })
 
   after(async function () {
     await testdata.removeTestData(H.dco, testDocs)
+    for (let i = 0; i < deferredIndexes.length; i++) {
+      await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i])
+    }
   })
 
   it('should successfully create a primary index', async function () {
@@ -269,6 +276,26 @@ describe('#query', function () {
       await H.c.queryIndexes().dropIndex(H.b.name, sidxName)
     }, H.lib.QueryIndexNotFoundError)
   })
+
+  it('should build deferred indexes', async function () {
+    for (let i = 0; i < deferredIndexes.length; i++) {
+      await H.c
+        .queryIndexes()
+        .createIndex(H.b.name, deferredIndexes[i], ['name'], { deferred: true })
+    }
+
+    var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name)
+    var filteredIdxs = idxs.filter((idx) => idx.state === 'deferred')
+    assert.lengthOf(filteredIdxs, deferredIndexes.length)
+
+    await H.c.queryIndexes().buildDeferredIndexes(H.b.name)
+
+    await H.c.queryIndexes().watchIndexes(
+      H.b.name,
+      filteredIdxs.map((f) => f.name),
+      6000
+    )
+  }).timeout(60000)
 
   it('should successfully drop a primary index', async function () {
     await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {

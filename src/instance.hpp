@@ -1,6 +1,6 @@
 #pragma once
 #include <asio/io_context.hpp>
-#include <couchbase/cluster.hxx>
+#include <core/cluster.hxx>
 #include <memory>
 #include <thread>
 
@@ -19,7 +19,7 @@ public:
 
     asio::io_context _io;
     std::thread _ioThread;
-    std::shared_ptr<couchbase::cluster> _cluster;
+    std::shared_ptr<couchbase::core::cluster> _cluster;
 };
 
 } // namespace couchnode

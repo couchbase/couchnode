@@ -91,7 +91,7 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[1].As<Napi::Function>();
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
 
-    auto docId = jsToCbpp<couchbase::document_id>(optsJsObj.Get("id"));
+    auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
 
     _impl->get_optional(
         docId, [this, cookie = std::move(cookie)](
@@ -102,10 +102,10 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
                 // BUG(JSCBC-1024): We should revert to using direct get
                 // operations once the underlying issue has been resolved.
                 if (!err && !res.has_value()) {
-                    callback.Call(
-                        {cbpp_to_js(env, couchbase::error::make_error_code(
-                                             couchbase::error::key_value_errc::
-                                                 document_not_found))});
+                    callback.Call({cbpp_to_js(
+                        env,
+                        couchbase::errc::make_error_code(
+                            couchbase::errc::key_value::document_not_found))});
                     return;
                 }
 
@@ -122,8 +122,9 @@ Napi::Value Transaction::jsInsert(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[1].As<Napi::Function>();
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
 
-    auto docId = jsToCbpp<couchbase::document_id>(optsJsObj.Get("id"));
-    auto content = jsToCbpp<couchbase::json_string>(optsJsObj.Get("content"));
+    auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
+    auto content =
+        jsToCbpp<couchbase::core::json_string>(optsJsObj.Get("content"));
 
     _impl->insert(
         docId, content.str(),
@@ -147,7 +148,8 @@ Napi::Value Transaction::jsReplace(const Napi::CallbackInfo &info)
 
     auto doc = jsToCbpp<couchbase::transactions::transaction_get_result>(
         optsJsObj.Get("doc"));
-    auto content = jsToCbpp<couchbase::json_string>(optsJsObj.Get("content"));
+    auto content =
+        jsToCbpp<couchbase::core::json_string>(optsJsObj.Get("content"));
 
     _impl->replace(
         doc, content.str(),
@@ -194,25 +196,26 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
     auto options =
         jsToCbpp<couchbase::transactions::transaction_query_options>(optsJsObj);
 
-    _impl->query(
-        statement, options,
-        [this, cookie = std::move(cookie)](
-            std::exception_ptr err,
-            std::optional<couchbase::operations::query_response> resp) mutable {
-            cookie.invoke([err = std::move(err), resp = std::move(resp)](
-                              Napi::Env env, Napi::Function callback) mutable {
-                Napi::Value jsErr, jsRes;
-                try {
-                    jsErr = cbpp_to_js(env, err);
-                    jsRes = cbpp_to_js(env, resp);
-                } catch (const Napi::Error &e) {
-                    jsErr = e.Value();
-                    jsRes = env.Null();
-                }
+    _impl->query(statement, options,
+                 [this, cookie = std::move(cookie)](
+                     std::exception_ptr err,
+                     std::optional<couchbase::core::operations::query_response>
+                         resp) mutable {
+                     cookie.invoke(
+                         [err = std::move(err), resp = std::move(resp)](
+                             Napi::Env env, Napi::Function callback) mutable {
+                             Napi::Value jsErr, jsRes;
+                             try {
+                                 jsErr = cbpp_to_js(env, err);
+                                 jsRes = cbpp_to_js(env, resp);
+                             } catch (const Napi::Error &e) {
+                                 jsErr = e.Value();
+                                 jsRes = env.Null();
+                             }
 
-                callback.Call({jsErr, jsRes});
-            });
-        });
+                             callback.Call({jsErr, jsRes});
+                         });
+                 });
 
     return info.Env().Null();
 }

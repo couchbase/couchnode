@@ -50,20 +50,8 @@ export enum CppManagementEventingFunctionStatus {}
 export enum CppManagementEventingFunctionDeploymentStatus {}
 export enum CppManagementEventingFunctionProcessingStatus {}
 export enum CppManagementRbacAuthDomain {}
-export enum CppIoRetryReason {}
+export enum CppRetryReason {}
 export enum CppProtocolSubdocOpcode {}
-export enum CppProtocolMutateInRequestBodyStoreSemanticsType {}
-export enum CppProtocolDurabilityLevel {}
-export enum CppProtocolStatus {}
-export enum CppErrorCommonErrc {}
-export enum CppErrorKeyValueErrc {}
-export enum CppErrorQueryErrc {}
-export enum CppErrorAnalyticsErrc {}
-export enum CppErrorSearchErrc {}
-export enum CppErrorViewErrc {}
-export enum CppErrorManagementErrc {}
-export enum CppErrorFieldLevelEncryptionErrc {}
-export enum CppErrorNetworkErrc {}
 export enum CppAnalyticsScanConsistency {}
 export enum CppDesignDocumentNamespace {}
 export enum CppDiagClusterState {}
@@ -74,8 +62,25 @@ export enum CppQueryScanConsistency {}
 export enum CppSearchHighlightStyle {}
 export enum CppSearchScanConsistency {}
 export enum CppServiceType {}
+export enum CppViewOnError {}
 export enum CppViewScanConsistency {}
 export enum CppViewSortOrder {}
+export enum CppAnalyticsResponseAnalyticsStatus {}
+export enum CppDurabilityLevel {}
+export enum CppErrcCommon {}
+export enum CppErrcKeyValue {}
+export enum CppErrcQuery {}
+export enum CppErrcAnalytics {}
+export enum CppErrcSearch {}
+export enum CppErrcView {}
+export enum CppErrcManagement {}
+export enum CppErrcFieldLevelEncryption {}
+export enum CppErrcNetwork {}
+export enum CppKeyValueStatusCode {}
+export enum CppImplSubdocOpcode {}
+export enum CppStoreSemantics {}
+export enum CppPersistTo {}
+export enum CppReplicateTo {}
 
 export interface CppManagementAnalyticsDataset {
   name: string
@@ -129,7 +134,7 @@ export interface CppManagementClusterBucketSettings {
   ram_quota_mb: number
   max_expiry: number
   compression_mode: CppManagementClusterBucketCompression
-  minimum_durability_level?: CppProtocolDurabilityLevel
+  minimum_durability_level?: CppDurabilityLevel
   num_replicas: number
   replica_indexes: boolean
   flush_enabled: boolean
@@ -326,25 +331,6 @@ export interface CppTopologyCollectionsManifestScope {
   name: string
   collections: CppTopologyCollectionsManifestCollection[]
 }
-export interface CppProtocolLookupInRequestBodyLookupInSpecs {
-  entries: CppProtocolLookupInRequestBodyLookupInSpecsEntry[]
-}
-export interface CppProtocolLookupInRequestBodyLookupInSpecsEntry {
-  opcode: number
-  flags: number
-  path: string
-  original_index: number
-}
-export interface CppProtocolMutateInRequestBodyMutateInSpecs {
-  entries: CppProtocolMutateInRequestBodyMutateInSpecsEntry[]
-}
-export interface CppProtocolMutateInRequestBodyMutateInSpecsEntry {
-  opcode: number
-  flags: number
-  path: string
-  param: string
-  original_index: number
-}
 export interface CppDiagEndpointDiagInfo {
   type: CppServiceType
   id: string
@@ -387,9 +373,21 @@ export interface CppPrependRequest {
   value: Buffer
   partition: number
   opaque: number
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
+  // parent_span
+}
+export interface CppPrependWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  value: Buffer
+  partition: number
+  opaque: number
+  timeout?: CppMilliseconds
+  // retries
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppExistsResponse {
   // ctx
@@ -399,6 +397,7 @@ export interface CppExistsResponse {
   expiry: number
   sequence_number: number
   datatype: number
+  document_exists: boolean
 }
 export interface CppExistsRequest {
   id: CppDocumentId
@@ -406,6 +405,7 @@ export interface CppExistsRequest {
   opaque: number
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppHttpNoopResponse {
   // ctx
@@ -426,6 +426,21 @@ export interface CppUnlockRequest {
   cas: CppCas
   timeout?: CppMilliseconds
   // retries
+  // parent_span
+}
+export interface CppGetAllReplicasResponse {
+  // ctx
+  entries: CppGetAllReplicasResponseEntry[]
+}
+export interface CppGetAllReplicasResponseEntry {
+  value: Buffer
+  cas: CppCas
+  flags: number
+  replica: boolean
+}
+export interface CppGetAllReplicasRequest {
+  id: CppDocumentId
+  timeout?: CppMilliseconds
 }
 export interface CppUpsertResponse {
   // ctx
@@ -439,10 +454,36 @@ export interface CppUpsertRequest {
   opaque: number
   flags: number
   expiry: number
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
+  // parent_span
+}
+export interface CppUpsertWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  value: Buffer
+  partition: number
+  opaque: number
+  flags: number
+  expiry: number
+  timeout?: CppMilliseconds
+  // retries
+  preserve_expiry: boolean
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
+}
+export interface CppGetAnyReplicaResponse {
+  // ctx
+  value: Buffer
+  cas: CppCas
+  flags: number
+  replica: boolean
+}
+export interface CppGetAnyReplicaRequest {
+  id: CppDocumentId
+  timeout?: CppMilliseconds
 }
 export interface CppAppendResponse {
   // ctx
@@ -454,9 +495,21 @@ export interface CppAppendRequest {
   value: Buffer
   partition: number
   opaque: number
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
+  // parent_span
+}
+export interface CppAppendWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  value: Buffer
+  partition: number
+  opaque: number
+  timeout?: CppMilliseconds
+  // retries
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppQueryResponse {
   // ctx
@@ -519,6 +572,7 @@ export interface CppQueryRequest {
   // ctx_
   // extract_encoded_plan_
   body_str: string
+  // parent_span
 }
 export interface CppMcbpNoopResponse {
   // ctx
@@ -536,10 +590,26 @@ export interface CppReplaceRequest {
   flags: number
   expiry: number
   cas: CppCas
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
+  // parent_span
+}
+export interface CppReplaceWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  value: Buffer
+  partition: number
+  opaque: number
+  flags: number
+  expiry: number
+  cas: CppCas
+  timeout?: CppMilliseconds
+  // retries
+  preserve_expiry: boolean
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppGetAndTouchResponse {
   // ctx
@@ -554,6 +624,7 @@ export interface CppGetAndTouchRequest {
   expiry: number
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppRemoveResponse {
   // ctx
@@ -565,9 +636,21 @@ export interface CppRemoveRequest {
   partition: number
   opaque: number
   cas: CppCas
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
+  // parent_span
+}
+export interface CppRemoveWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  partition: number
+  opaque: number
+  cas: CppCas
+  timeout?: CppMilliseconds
+  // retries
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppGetResponse {
   // ctx
@@ -581,6 +664,7 @@ export interface CppGetRequest {
   opaque: number
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppAnalyticsResponse {
   // ctx
@@ -603,7 +687,7 @@ export interface CppAnalyticsResponseAnalyticsProblem {
 export interface CppAnalyticsResponseAnalyticsMetaData {
   request_id: string
   client_context_id: string
-  status: string
+  status: CppAnalyticsResponseAnalyticsStatus
   metrics: CppAnalyticsResponseAnalyticsMetrics
   signature?: string
   errors: CppAnalyticsResponseAnalyticsProblem[]
@@ -624,6 +708,7 @@ export interface CppAnalyticsRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
   body_str: string
+  // parent_span
 }
 export interface CppGetProjectedResponse {
   // ctx
@@ -642,6 +727,7 @@ export interface CppGetProjectedRequest {
   preserve_array_indexes: boolean
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppDecrementResponse {
   // ctx
@@ -656,9 +742,23 @@ export interface CppDecrementRequest {
   expiry: number
   delta: number
   initial_value?: number
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
+  // parent_span
+}
+export interface CppDecrementWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  partition: number
+  opaque: number
+  expiry: number
+  delta: number
+  initial_value?: number
+  timeout?: CppMilliseconds
+  // retries
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppSearchResponse {
   // ctx
@@ -745,6 +845,7 @@ export interface CppSearchRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
   body_str: string
+  // parent_span
 }
 export interface CppTouchResponse {
   // ctx
@@ -757,20 +858,21 @@ export interface CppTouchRequest {
   expiry: number
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppLookupInResponse {
   // ctx
   cas: CppCas
-  fields: CppLookupInResponseField[]
+  fields: CppLookupInResponseEntry[]
   deleted: boolean
 }
-export interface CppLookupInResponseField {
-  opcode: CppProtocolSubdocOpcode
-  exists: boolean
-  status: CppProtocolStatus
+export interface CppLookupInResponseEntry {
   path: string
-  value: string
+  value: Buffer
   original_index: number
+  exists: boolean
+  opcode: CppProtocolSubdocOpcode
+  status: CppKeyValueStatusCode
   ec: CppError
 }
 export interface CppLookupInRequest {
@@ -778,9 +880,10 @@ export interface CppLookupInRequest {
   partition: number
   opaque: number
   access_deleted: boolean
-  specs: CppProtocolLookupInRequestBodyLookupInSpecs
+  specs: CppImplSubdocCommand[]
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppDocumentViewResponse {
   // ctx
@@ -822,10 +925,12 @@ export interface CppDocumentViewRequest {
   debug: boolean
   raw: { [key: string /*string*/]: string }
   order?: CppViewSortOrder
+  on_error?: CppViewOnError
   query_string: string[]
   // row_callback
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppGetAndLockResponse {
   // ctx
@@ -840,6 +945,7 @@ export interface CppGetAndLockRequest {
   lock_time: number
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppInsertResponse {
   // ctx
@@ -853,24 +959,37 @@ export interface CppInsertRequest {
   opaque: number
   flags: number
   expiry: number
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
+  // parent_span
+}
+export interface CppInsertWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  value: Buffer
+  partition: number
+  opaque: number
+  flags: number
+  expiry: number
+  timeout?: CppMilliseconds
+  // retries
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppMutateInResponse {
   // ctx
   cas: CppCas
   token: CppMutationToken
-  fields: CppMutateInResponseField[]
-  first_error_index?: number
+  fields: CppMutateInResponseEntry[]
   deleted: boolean
 }
-export interface CppMutateInResponseField {
-  opcode: CppProtocolSubdocOpcode
-  status: CppProtocolStatus
+export interface CppMutateInResponseEntry {
   path: string
-  value: string
+  value: Buffer
   original_index: number
+  opcode: CppProtocolSubdocOpcode
+  status: CppKeyValueStatusCode
   ec: CppError
 }
 export interface CppMutateInRequest {
@@ -881,12 +1000,30 @@ export interface CppMutateInRequest {
   access_deleted: boolean
   create_as_deleted: boolean
   expiry?: number
-  store_semantics: CppProtocolMutateInRequestBodyStoreSemanticsType
-  specs: CppProtocolMutateInRequestBodyMutateInSpecs
-  durability_level: CppProtocolDurabilityLevel
+  store_semantics: CppStoreSemantics
+  specs: CppImplSubdocCommand[]
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
+  // parent_span
+}
+export interface CppMutateInWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  partition: number
+  opaque: number
+  cas: CppCas
+  access_deleted: boolean
+  create_as_deleted: boolean
+  expiry?: number
+  store_semantics: CppStoreSemantics
+  specs: CppImplSubdocCommand[]
+  timeout?: CppMilliseconds
+  // retries
+  preserve_expiry: boolean
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppIncrementResponse {
   // ctx
@@ -901,9 +1038,23 @@ export interface CppIncrementRequest {
   expiry: number
   delta: number
   initial_value?: number
-  durability_level: CppProtocolDurabilityLevel
+  durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
+  // parent_span
+}
+export interface CppIncrementWithLegacyDurabilityRequest {
+  id: CppDocumentId
+  partition: number
+  opaque: number
+  expiry: number
+  delta: number
+  initial_value?: number
+  timeout?: CppMilliseconds
+  // retries
+  // parent_span
+  persist_to: CppPersistTo
+  replicate_to: CppReplicateTo
 }
 export interface CppManagementGroupUpsertResponse {
   // ctx
@@ -986,8 +1137,8 @@ export interface CppManagementQueryIndexBuildDeferredResponseQueryProblem {
 }
 export interface CppManagementQueryIndexBuildDeferredRequest {
   bucket_name: string
-  scope_name: string
-  collection_name: string
+  scope_name?: string
+  collection_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1119,6 +1270,8 @@ export interface CppManagementQueryIndexCreateRequest {
 export interface CppManagementSearchIndexUpsertResponse {
   // ctx
   status: string
+  name: string
+  uuid: string
   error: string
 }
 export interface CppManagementSearchIndexUpsertRequest {
@@ -1630,6 +1783,35 @@ export interface CppManagementSearchIndexGetRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
 }
+export interface CppManagementQueryIndexGetAllDeferredResponse {
+  // ctx
+  status: string
+  index_names: string[]
+}
+export interface CppManagementQueryIndexGetAllDeferredRequest {
+  bucket_name: string
+  scope_name: string
+  collection_name: string
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
+export interface CppManagementQueryIndexBuildResponse {
+  // ctx
+  status: string
+  errors: CppManagementQueryIndexBuildResponseQueryProblem[]
+}
+export interface CppManagementQueryIndexBuildResponseQueryProblem {
+  code: number
+  message: string
+}
+export interface CppManagementQueryIndexBuildRequest {
+  bucket_name: string
+  scope_name: string
+  collection_name: string
+  index_names: string[]
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
 export interface CppManagementEventingUndeployFunctionResponse {
   // ctx
   error?: CppManagementEventingProblem
@@ -1669,10 +1851,21 @@ export interface CppManagementAnalyticsLinkGetAllRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
 }
+export interface CppImplSubdocCommand {
+  opcode_: number
+  path_: string
+  value_?: Buffer
+  flags_: number
+  original_index_: number
+}
 
 export interface CppConnectionAutogen {
   prepend(
     options: CppPrependRequest,
+    callback: (err: CppError | null, result: CppPrependResponse) => void
+  ): void
+  prependWithLegacyDurability(
+    options: CppPrependWithLegacyDurabilityRequest,
     callback: (err: CppError | null, result: CppPrependResponse) => void
   ): void
   exists(
@@ -1687,12 +1880,28 @@ export interface CppConnectionAutogen {
     options: CppUnlockRequest,
     callback: (err: CppError | null, result: CppUnlockResponse) => void
   ): void
+  getAllReplicas(
+    options: CppGetAllReplicasRequest,
+    callback: (err: CppError | null, result: CppGetAllReplicasResponse) => void
+  ): void
   upsert(
     options: CppUpsertRequest,
     callback: (err: CppError | null, result: CppUpsertResponse) => void
   ): void
+  upsertWithLegacyDurability(
+    options: CppUpsertWithLegacyDurabilityRequest,
+    callback: (err: CppError | null, result: CppUpsertResponse) => void
+  ): void
+  getAnyReplica(
+    options: CppGetAnyReplicaRequest,
+    callback: (err: CppError | null, result: CppGetAnyReplicaResponse) => void
+  ): void
   append(
     options: CppAppendRequest,
+    callback: (err: CppError | null, result: CppAppendResponse) => void
+  ): void
+  appendWithLegacyDurability(
+    options: CppAppendWithLegacyDurabilityRequest,
     callback: (err: CppError | null, result: CppAppendResponse) => void
   ): void
   query(
@@ -1703,12 +1912,20 @@ export interface CppConnectionAutogen {
     options: CppReplaceRequest,
     callback: (err: CppError | null, result: CppReplaceResponse) => void
   ): void
+  replaceWithLegacyDurability(
+    options: CppReplaceWithLegacyDurabilityRequest,
+    callback: (err: CppError | null, result: CppReplaceResponse) => void
+  ): void
   getAndTouch(
     options: CppGetAndTouchRequest,
     callback: (err: CppError | null, result: CppGetAndTouchResponse) => void
   ): void
   remove(
     options: CppRemoveRequest,
+    callback: (err: CppError | null, result: CppRemoveResponse) => void
+  ): void
+  removeWithLegacyDurability(
+    options: CppRemoveWithLegacyDurabilityRequest,
     callback: (err: CppError | null, result: CppRemoveResponse) => void
   ): void
   get(
@@ -1725,6 +1942,10 @@ export interface CppConnectionAutogen {
   ): void
   decrement(
     options: CppDecrementRequest,
+    callback: (err: CppError | null, result: CppDecrementResponse) => void
+  ): void
+  decrementWithLegacyDurability(
+    options: CppDecrementWithLegacyDurabilityRequest,
     callback: (err: CppError | null, result: CppDecrementResponse) => void
   ): void
   search(
@@ -1751,12 +1972,24 @@ export interface CppConnectionAutogen {
     options: CppInsertRequest,
     callback: (err: CppError | null, result: CppInsertResponse) => void
   ): void
+  insertWithLegacyDurability(
+    options: CppInsertWithLegacyDurabilityRequest,
+    callback: (err: CppError | null, result: CppInsertResponse) => void
+  ): void
   mutateIn(
     options: CppMutateInRequest,
     callback: (err: CppError | null, result: CppMutateInResponse) => void
   ): void
+  mutateInWithLegacyDurability(
+    options: CppMutateInWithLegacyDurabilityRequest,
+    callback: (err: CppError | null, result: CppMutateInResponse) => void
+  ): void
   increment(
     options: CppIncrementRequest,
+    callback: (err: CppError | null, result: CppIncrementResponse) => void
+  ): void
+  incrementWithLegacyDurability(
+    options: CppIncrementWithLegacyDurabilityRequest,
     callback: (err: CppError | null, result: CppIncrementResponse) => void
   ): void
   managementGroupUpsert(
@@ -2200,6 +2433,20 @@ export interface CppConnectionAutogen {
       result: CppManagementSearchIndexGetResponse
     ) => void
   ): void
+  managementQueryIndexGetAllDeferred(
+    options: CppManagementQueryIndexGetAllDeferredRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementQueryIndexGetAllDeferredResponse
+    ) => void
+  ): void
+  managementQueryIndexBuild(
+    options: CppManagementQueryIndexBuildRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementQueryIndexBuildResponse
+    ) => void
+  ): void
   managementEventingUndeployFunction(
     options: CppManagementEventingUndeployFunctionRequest,
     callback: (
@@ -2300,28 +2547,28 @@ export interface CppBindingAutogen {
     local: CppManagementRbacAuthDomain
     external: CppManagementRbacAuthDomain
   }
-  io_retry_reason: {
-    do_not_retry: CppIoRetryReason
-    unknown: CppIoRetryReason
-    socket_not_available: CppIoRetryReason
-    service_not_available: CppIoRetryReason
-    node_not_available: CppIoRetryReason
-    kv_not_my_vbucket: CppIoRetryReason
-    kv_collection_outdated: CppIoRetryReason
-    kv_error_map_retry_indicated: CppIoRetryReason
-    kv_locked: CppIoRetryReason
-    kv_temporary_failure: CppIoRetryReason
-    kv_sync_write_in_progress: CppIoRetryReason
-    kv_sync_write_re_commit_in_progress: CppIoRetryReason
-    service_response_code_indicated: CppIoRetryReason
-    socket_closed_while_in_flight: CppIoRetryReason
-    circuit_breaker_open: CppIoRetryReason
-    query_prepared_statement_failure: CppIoRetryReason
-    query_index_not_found: CppIoRetryReason
-    analytics_temporary_failure: CppIoRetryReason
-    search_too_many_requests: CppIoRetryReason
-    views_temporary_failure: CppIoRetryReason
-    views_no_active_partition: CppIoRetryReason
+  retry_reason: {
+    do_not_retry: CppRetryReason
+    unknown: CppRetryReason
+    socket_not_available: CppRetryReason
+    service_not_available: CppRetryReason
+    node_not_available: CppRetryReason
+    kv_not_my_vbucket: CppRetryReason
+    kv_collection_outdated: CppRetryReason
+    kv_error_map_retry_indicated: CppRetryReason
+    kv_locked: CppRetryReason
+    kv_temporary_failure: CppRetryReason
+    kv_sync_write_in_progress: CppRetryReason
+    kv_sync_write_re_commit_in_progress: CppRetryReason
+    service_response_code_indicated: CppRetryReason
+    socket_closed_while_in_flight: CppRetryReason
+    circuit_breaker_open: CppRetryReason
+    query_prepared_statement_failure: CppRetryReason
+    query_index_not_found: CppRetryReason
+    analytics_temporary_failure: CppRetryReason
+    search_too_many_requests: CppRetryReason
+    views_temporary_failure: CppRetryReason
+    views_no_active_partition: CppRetryReason
   }
   protocol_subdoc_opcode: {
     get_doc: CppProtocolSubdocOpcode
@@ -2340,196 +2587,6 @@ export interface CppBindingAutogen {
     counter: CppProtocolSubdocOpcode
     get_count: CppProtocolSubdocOpcode
     replace_body_with_xattr: CppProtocolSubdocOpcode
-  }
-  protocol_mutate_in_request_body_store_semantics_type: {
-    replace: CppProtocolMutateInRequestBodyStoreSemanticsType
-    upsert: CppProtocolMutateInRequestBodyStoreSemanticsType
-    insert: CppProtocolMutateInRequestBodyStoreSemanticsType
-  }
-  protocol_durability_level: {
-    none: CppProtocolDurabilityLevel
-    majority: CppProtocolDurabilityLevel
-    majority_and_persist_to_active: CppProtocolDurabilityLevel
-    persist_to_majority: CppProtocolDurabilityLevel
-  }
-  protocol_status: {
-    success: CppProtocolStatus
-    not_found: CppProtocolStatus
-    exists: CppProtocolStatus
-    too_big: CppProtocolStatus
-    invalid: CppProtocolStatus
-    not_stored: CppProtocolStatus
-    delta_bad_value: CppProtocolStatus
-    not_my_vbucket: CppProtocolStatus
-    no_bucket: CppProtocolStatus
-    dcp_stream_not_found: CppProtocolStatus
-    opaque_no_match: CppProtocolStatus
-    locked: CppProtocolStatus
-    auth_stale: CppProtocolStatus
-    auth_error: CppProtocolStatus
-    auth_continue: CppProtocolStatus
-    range_error: CppProtocolStatus
-    rollback: CppProtocolStatus
-    no_access: CppProtocolStatus
-    not_initialized: CppProtocolStatus
-    rate_limited_network_ingress: CppProtocolStatus
-    rate_limited_network_egress: CppProtocolStatus
-    rate_limited_max_connections: CppProtocolStatus
-    rate_limited_max_commands: CppProtocolStatus
-    scope_size_limit_exceeded: CppProtocolStatus
-    unknown_frame_info: CppProtocolStatus
-    unknown_command: CppProtocolStatus
-    no_memory: CppProtocolStatus
-    not_supported: CppProtocolStatus
-    internal: CppProtocolStatus
-    busy: CppProtocolStatus
-    temporary_failure: CppProtocolStatus
-    xattr_invalid: CppProtocolStatus
-    unknown_collection: CppProtocolStatus
-    no_collections_manifest: CppProtocolStatus
-    cannot_apply_collections_manifest: CppProtocolStatus
-    collections_manifest_is_ahead: CppProtocolStatus
-    unknown_scope: CppProtocolStatus
-    dcp_stream_id_invalid: CppProtocolStatus
-    durability_invalid_level: CppProtocolStatus
-    durability_impossible: CppProtocolStatus
-    sync_write_in_progress: CppProtocolStatus
-    sync_write_ambiguous: CppProtocolStatus
-    sync_write_re_commit_in_progress: CppProtocolStatus
-    subdoc_path_not_found: CppProtocolStatus
-    subdoc_path_mismatch: CppProtocolStatus
-    subdoc_path_invalid: CppProtocolStatus
-    subdoc_path_too_big: CppProtocolStatus
-    subdoc_doc_too_deep: CppProtocolStatus
-    subdoc_value_cannot_insert: CppProtocolStatus
-    subdoc_doc_not_json: CppProtocolStatus
-    subdoc_num_range_error: CppProtocolStatus
-    subdoc_delta_invalid: CppProtocolStatus
-    subdoc_path_exists: CppProtocolStatus
-    subdoc_value_too_deep: CppProtocolStatus
-    subdoc_invalid_combo: CppProtocolStatus
-    subdoc_multi_path_failure: CppProtocolStatus
-    subdoc_success_deleted: CppProtocolStatus
-    subdoc_xattr_invalid_flag_combo: CppProtocolStatus
-    subdoc_xattr_invalid_key_combo: CppProtocolStatus
-    subdoc_xattr_unknown_macro: CppProtocolStatus
-    subdoc_xattr_unknown_vattr: CppProtocolStatus
-    subdoc_xattr_cannot_modify_vattr: CppProtocolStatus
-    subdoc_multi_path_failure_deleted: CppProtocolStatus
-    subdoc_invalid_xattr_order: CppProtocolStatus
-    subdoc_xattr_unknown_vattr_macro: CppProtocolStatus
-    subdoc_can_only_revive_deleted_documents: CppProtocolStatus
-    subdoc_deleted_document_cannot_have_value: CppProtocolStatus
-  }
-  error_common_errc: {
-    request_canceled: CppErrorCommonErrc
-    invalid_argument: CppErrorCommonErrc
-    service_not_available: CppErrorCommonErrc
-    internal_server_failure: CppErrorCommonErrc
-    authentication_failure: CppErrorCommonErrc
-    temporary_failure: CppErrorCommonErrc
-    parsing_failure: CppErrorCommonErrc
-    cas_mismatch: CppErrorCommonErrc
-    bucket_not_found: CppErrorCommonErrc
-    collection_not_found: CppErrorCommonErrc
-    unsupported_operation: CppErrorCommonErrc
-    ambiguous_timeout: CppErrorCommonErrc
-    unambiguous_timeout: CppErrorCommonErrc
-    feature_not_available: CppErrorCommonErrc
-    scope_not_found: CppErrorCommonErrc
-    index_not_found: CppErrorCommonErrc
-    index_exists: CppErrorCommonErrc
-    encoding_failure: CppErrorCommonErrc
-    decoding_failure: CppErrorCommonErrc
-    rate_limited: CppErrorCommonErrc
-    quota_limited: CppErrorCommonErrc
-  }
-  error_key_value_errc: {
-    document_not_found: CppErrorKeyValueErrc
-    document_irretrievable: CppErrorKeyValueErrc
-    document_locked: CppErrorKeyValueErrc
-    value_too_large: CppErrorKeyValueErrc
-    document_exists: CppErrorKeyValueErrc
-    durability_level_not_available: CppErrorKeyValueErrc
-    durability_impossible: CppErrorKeyValueErrc
-    durability_ambiguous: CppErrorKeyValueErrc
-    durable_write_in_progress: CppErrorKeyValueErrc
-    durable_write_re_commit_in_progress: CppErrorKeyValueErrc
-    path_not_found: CppErrorKeyValueErrc
-    path_mismatch: CppErrorKeyValueErrc
-    path_invalid: CppErrorKeyValueErrc
-    path_too_big: CppErrorKeyValueErrc
-    path_too_deep: CppErrorKeyValueErrc
-    value_too_deep: CppErrorKeyValueErrc
-    value_invalid: CppErrorKeyValueErrc
-    document_not_json: CppErrorKeyValueErrc
-    number_too_big: CppErrorKeyValueErrc
-    delta_invalid: CppErrorKeyValueErrc
-    path_exists: CppErrorKeyValueErrc
-    xattr_unknown_macro: CppErrorKeyValueErrc
-    xattr_invalid_key_combo: CppErrorKeyValueErrc
-    xattr_unknown_virtual_attribute: CppErrorKeyValueErrc
-    xattr_cannot_modify_virtual_attribute: CppErrorKeyValueErrc
-    xattr_no_access: CppErrorKeyValueErrc
-    cannot_revive_living_document: CppErrorKeyValueErrc
-  }
-  error_query_errc: {
-    planning_failure: CppErrorQueryErrc
-    index_failure: CppErrorQueryErrc
-    prepared_statement_failure: CppErrorQueryErrc
-    dml_failure: CppErrorQueryErrc
-  }
-  error_analytics_errc: {
-    compilation_failure: CppErrorAnalyticsErrc
-    job_queue_full: CppErrorAnalyticsErrc
-    dataset_not_found: CppErrorAnalyticsErrc
-    dataverse_not_found: CppErrorAnalyticsErrc
-    dataset_exists: CppErrorAnalyticsErrc
-    dataverse_exists: CppErrorAnalyticsErrc
-    link_not_found: CppErrorAnalyticsErrc
-    link_exists: CppErrorAnalyticsErrc
-  }
-  error_search_errc: {
-    index_not_ready: CppErrorSearchErrc
-    consistency_mismatch: CppErrorSearchErrc
-  }
-  error_view_errc: {
-    view_not_found: CppErrorViewErrc
-    design_document_not_found: CppErrorViewErrc
-  }
-  error_management_errc: {
-    collection_exists: CppErrorManagementErrc
-    scope_exists: CppErrorManagementErrc
-    user_not_found: CppErrorManagementErrc
-    group_not_found: CppErrorManagementErrc
-    bucket_exists: CppErrorManagementErrc
-    user_exists: CppErrorManagementErrc
-    bucket_not_flushable: CppErrorManagementErrc
-    eventing_function_not_found: CppErrorManagementErrc
-    eventing_function_not_deployed: CppErrorManagementErrc
-    eventing_function_compilation_failure: CppErrorManagementErrc
-    eventing_function_identical_keyspace: CppErrorManagementErrc
-    eventing_function_not_bootstrapped: CppErrorManagementErrc
-    eventing_function_deployed: CppErrorManagementErrc
-    eventing_function_paused: CppErrorManagementErrc
-  }
-  error_field_level_encryption_errc: {
-    generic_cryptography_failure: CppErrorFieldLevelEncryptionErrc
-    encryption_failure: CppErrorFieldLevelEncryptionErrc
-    decryption_failure: CppErrorFieldLevelEncryptionErrc
-    crypto_key_not_found: CppErrorFieldLevelEncryptionErrc
-    invalid_crypto_key: CppErrorFieldLevelEncryptionErrc
-    decrypter_not_found: CppErrorFieldLevelEncryptionErrc
-    encrypter_not_found: CppErrorFieldLevelEncryptionErrc
-    invalid_ciphertext: CppErrorFieldLevelEncryptionErrc
-  }
-  error_network_errc: {
-    resolve_failure: CppErrorNetworkErrc
-    no_endpoints_left: CppErrorNetworkErrc
-    handshake_failure: CppErrorNetworkErrc
-    protocol_error: CppErrorNetworkErrc
-    configuration_not_available: CppErrorNetworkErrc
-    cluster_closed: CppErrorNetworkErrc
   }
   analytics_scan_consistency: {
     not_bounded: CppAnalyticsScanConsistency
@@ -2580,6 +2637,10 @@ export interface CppBindingAutogen {
     management: CppServiceType
     eventing: CppServiceType
   }
+  view_on_error: {
+    resume: CppViewOnError
+    stop: CppViewOnError
+  }
   view_scan_consistency: {
     not_bounded: CppViewScanConsistency
     update_after: CppViewScanConsistency
@@ -2589,20 +2650,255 @@ export interface CppBindingAutogen {
     ascending: CppViewSortOrder
     descending: CppViewSortOrder
   }
+  analytics_response_analytics_status: {
+    running: CppAnalyticsResponseAnalyticsStatus
+    success: CppAnalyticsResponseAnalyticsStatus
+    errors: CppAnalyticsResponseAnalyticsStatus
+    completed: CppAnalyticsResponseAnalyticsStatus
+    stopped: CppAnalyticsResponseAnalyticsStatus
+    timedout: CppAnalyticsResponseAnalyticsStatus
+    closed: CppAnalyticsResponseAnalyticsStatus
+    fatal: CppAnalyticsResponseAnalyticsStatus
+    aborted: CppAnalyticsResponseAnalyticsStatus
+    unknown: CppAnalyticsResponseAnalyticsStatus
+  }
+  durability_level: {
+    none: CppDurabilityLevel
+    majority: CppDurabilityLevel
+    majority_and_persist_to_active: CppDurabilityLevel
+    persist_to_majority: CppDurabilityLevel
+  }
+  errc_common: {
+    request_canceled: CppErrcCommon
+    invalid_argument: CppErrcCommon
+    service_not_available: CppErrcCommon
+    internal_server_failure: CppErrcCommon
+    authentication_failure: CppErrcCommon
+    temporary_failure: CppErrcCommon
+    parsing_failure: CppErrcCommon
+    cas_mismatch: CppErrcCommon
+    bucket_not_found: CppErrcCommon
+    collection_not_found: CppErrcCommon
+    unsupported_operation: CppErrcCommon
+    ambiguous_timeout: CppErrcCommon
+    unambiguous_timeout: CppErrcCommon
+    feature_not_available: CppErrcCommon
+    scope_not_found: CppErrcCommon
+    index_not_found: CppErrcCommon
+    index_exists: CppErrcCommon
+    encoding_failure: CppErrcCommon
+    decoding_failure: CppErrcCommon
+    rate_limited: CppErrcCommon
+    quota_limited: CppErrcCommon
+  }
+  errc_key_value: {
+    document_not_found: CppErrcKeyValue
+    document_irretrievable: CppErrcKeyValue
+    document_locked: CppErrcKeyValue
+    value_too_large: CppErrcKeyValue
+    document_exists: CppErrcKeyValue
+    durability_level_not_available: CppErrcKeyValue
+    durability_impossible: CppErrcKeyValue
+    durability_ambiguous: CppErrcKeyValue
+    durable_write_in_progress: CppErrcKeyValue
+    durable_write_re_commit_in_progress: CppErrcKeyValue
+    path_not_found: CppErrcKeyValue
+    path_mismatch: CppErrcKeyValue
+    path_invalid: CppErrcKeyValue
+    path_too_big: CppErrcKeyValue
+    path_too_deep: CppErrcKeyValue
+    value_too_deep: CppErrcKeyValue
+    value_invalid: CppErrcKeyValue
+    document_not_json: CppErrcKeyValue
+    number_too_big: CppErrcKeyValue
+    delta_invalid: CppErrcKeyValue
+    path_exists: CppErrcKeyValue
+    xattr_unknown_macro: CppErrcKeyValue
+    xattr_invalid_key_combo: CppErrcKeyValue
+    xattr_unknown_virtual_attribute: CppErrcKeyValue
+    xattr_cannot_modify_virtual_attribute: CppErrcKeyValue
+    xattr_no_access: CppErrcKeyValue
+    cannot_revive_living_document: CppErrcKeyValue
+  }
+  errc_query: {
+    planning_failure: CppErrcQuery
+    index_failure: CppErrcQuery
+    prepared_statement_failure: CppErrcQuery
+    dml_failure: CppErrcQuery
+  }
+  errc_analytics: {
+    compilation_failure: CppErrcAnalytics
+    job_queue_full: CppErrcAnalytics
+    dataset_not_found: CppErrcAnalytics
+    dataverse_not_found: CppErrcAnalytics
+    dataset_exists: CppErrcAnalytics
+    dataverse_exists: CppErrcAnalytics
+    link_not_found: CppErrcAnalytics
+    link_exists: CppErrcAnalytics
+  }
+  errc_search: {
+    index_not_ready: CppErrcSearch
+    consistency_mismatch: CppErrcSearch
+  }
+  errc_view: {
+    view_not_found: CppErrcView
+    design_document_not_found: CppErrcView
+  }
+  errc_management: {
+    collection_exists: CppErrcManagement
+    scope_exists: CppErrcManagement
+    user_not_found: CppErrcManagement
+    group_not_found: CppErrcManagement
+    bucket_exists: CppErrcManagement
+    user_exists: CppErrcManagement
+    bucket_not_flushable: CppErrcManagement
+    eventing_function_not_found: CppErrcManagement
+    eventing_function_not_deployed: CppErrcManagement
+    eventing_function_compilation_failure: CppErrcManagement
+    eventing_function_identical_keyspace: CppErrcManagement
+    eventing_function_not_bootstrapped: CppErrcManagement
+    eventing_function_deployed: CppErrcManagement
+    eventing_function_paused: CppErrcManagement
+  }
+  errc_field_level_encryption: {
+    generic_cryptography_failure: CppErrcFieldLevelEncryption
+    encryption_failure: CppErrcFieldLevelEncryption
+    decryption_failure: CppErrcFieldLevelEncryption
+    crypto_key_not_found: CppErrcFieldLevelEncryption
+    invalid_crypto_key: CppErrcFieldLevelEncryption
+    decrypter_not_found: CppErrcFieldLevelEncryption
+    encrypter_not_found: CppErrcFieldLevelEncryption
+    invalid_ciphertext: CppErrcFieldLevelEncryption
+  }
+  errc_network: {
+    resolve_failure: CppErrcNetwork
+    no_endpoints_left: CppErrcNetwork
+    handshake_failure: CppErrcNetwork
+    protocol_error: CppErrcNetwork
+    configuration_not_available: CppErrcNetwork
+    cluster_closed: CppErrcNetwork
+  }
+  key_value_status_code: {
+    success: CppKeyValueStatusCode
+    not_found: CppKeyValueStatusCode
+    exists: CppKeyValueStatusCode
+    too_big: CppKeyValueStatusCode
+    invalid: CppKeyValueStatusCode
+    not_stored: CppKeyValueStatusCode
+    delta_bad_value: CppKeyValueStatusCode
+    not_my_vbucket: CppKeyValueStatusCode
+    no_bucket: CppKeyValueStatusCode
+    dcp_stream_not_found: CppKeyValueStatusCode
+    opaque_no_match: CppKeyValueStatusCode
+    locked: CppKeyValueStatusCode
+    auth_stale: CppKeyValueStatusCode
+    auth_error: CppKeyValueStatusCode
+    auth_continue: CppKeyValueStatusCode
+    range_error: CppKeyValueStatusCode
+    rollback: CppKeyValueStatusCode
+    no_access: CppKeyValueStatusCode
+    not_initialized: CppKeyValueStatusCode
+    rate_limited_network_ingress: CppKeyValueStatusCode
+    rate_limited_network_egress: CppKeyValueStatusCode
+    rate_limited_max_connections: CppKeyValueStatusCode
+    rate_limited_max_commands: CppKeyValueStatusCode
+    scope_size_limit_exceeded: CppKeyValueStatusCode
+    unknown_frame_info: CppKeyValueStatusCode
+    unknown_command: CppKeyValueStatusCode
+    no_memory: CppKeyValueStatusCode
+    not_supported: CppKeyValueStatusCode
+    internal: CppKeyValueStatusCode
+    busy: CppKeyValueStatusCode
+    temporary_failure: CppKeyValueStatusCode
+    xattr_invalid: CppKeyValueStatusCode
+    unknown_collection: CppKeyValueStatusCode
+    no_collections_manifest: CppKeyValueStatusCode
+    cannot_apply_collections_manifest: CppKeyValueStatusCode
+    collections_manifest_is_ahead: CppKeyValueStatusCode
+    unknown_scope: CppKeyValueStatusCode
+    dcp_stream_id_invalid: CppKeyValueStatusCode
+    durability_invalid_level: CppKeyValueStatusCode
+    durability_impossible: CppKeyValueStatusCode
+    sync_write_in_progress: CppKeyValueStatusCode
+    sync_write_ambiguous: CppKeyValueStatusCode
+    sync_write_re_commit_in_progress: CppKeyValueStatusCode
+    subdoc_path_not_found: CppKeyValueStatusCode
+    subdoc_path_mismatch: CppKeyValueStatusCode
+    subdoc_path_invalid: CppKeyValueStatusCode
+    subdoc_path_too_big: CppKeyValueStatusCode
+    subdoc_doc_too_deep: CppKeyValueStatusCode
+    subdoc_value_cannot_insert: CppKeyValueStatusCode
+    subdoc_doc_not_json: CppKeyValueStatusCode
+    subdoc_num_range_error: CppKeyValueStatusCode
+    subdoc_delta_invalid: CppKeyValueStatusCode
+    subdoc_path_exists: CppKeyValueStatusCode
+    subdoc_value_too_deep: CppKeyValueStatusCode
+    subdoc_invalid_combo: CppKeyValueStatusCode
+    subdoc_multi_path_failure: CppKeyValueStatusCode
+    subdoc_success_deleted: CppKeyValueStatusCode
+    subdoc_xattr_invalid_flag_combo: CppKeyValueStatusCode
+    subdoc_xattr_invalid_key_combo: CppKeyValueStatusCode
+    subdoc_xattr_unknown_macro: CppKeyValueStatusCode
+    subdoc_xattr_unknown_vattr: CppKeyValueStatusCode
+    subdoc_xattr_cannot_modify_vattr: CppKeyValueStatusCode
+    subdoc_multi_path_failure_deleted: CppKeyValueStatusCode
+    subdoc_invalid_xattr_order: CppKeyValueStatusCode
+    subdoc_xattr_unknown_vattr_macro: CppKeyValueStatusCode
+    subdoc_can_only_revive_deleted_documents: CppKeyValueStatusCode
+    subdoc_deleted_document_cannot_have_value: CppKeyValueStatusCode
+  }
+  impl_subdoc_opcode: {
+    get_doc: CppImplSubdocOpcode
+    set_doc: CppImplSubdocOpcode
+    remove_doc: CppImplSubdocOpcode
+    get: CppImplSubdocOpcode
+    exists: CppImplSubdocOpcode
+    dict_add: CppImplSubdocOpcode
+    dict_upsert: CppImplSubdocOpcode
+    remove: CppImplSubdocOpcode
+    replace: CppImplSubdocOpcode
+    array_push_last: CppImplSubdocOpcode
+    array_push_first: CppImplSubdocOpcode
+    array_insert: CppImplSubdocOpcode
+    array_add_unique: CppImplSubdocOpcode
+    counter: CppImplSubdocOpcode
+    get_count: CppImplSubdocOpcode
+    replace_body_with_xattr: CppImplSubdocOpcode
+  }
+  store_semantics: {
+    replace: CppStoreSemantics
+    upsert: CppStoreSemantics
+    insert: CppStoreSemantics
+    revive: CppStoreSemantics
+  }
+  persist_to: {
+    none: CppPersistTo
+    active: CppPersistTo
+    one: CppPersistTo
+    two: CppPersistTo
+    three: CppPersistTo
+    four: CppPersistTo
+  }
+  replicate_to: {
+    none: CppReplicateTo
+    one: CppReplicateTo
+    two: CppReplicateTo
+    three: CppReplicateTo
+  }
 }
 
 //#endregion Autogenerated Bindings
 
 export type CppErrc =
-  | CppErrorCommonErrc
-  | CppErrorKeyValueErrc
-  | CppErrorQueryErrc
-  | CppErrorAnalyticsErrc
-  | CppErrorSearchErrc
-  | CppErrorViewErrc
-  | CppErrorManagementErrc
-  | CppErrorFieldLevelEncryptionErrc
-  | CppErrorNetworkErrc
+  | CppErrcCommon
+  | CppErrcKeyValue
+  | CppErrcQuery
+  | CppErrcAnalytics
+  | CppErrcSearch
+  | CppErrcView
+  | CppErrcManagement
+  | CppErrcFieldLevelEncryption
+  | CppErrcNetwork
 
 export enum CppTxnFailureType {}
 export enum CppTxnExternalException {}
@@ -2627,12 +2923,12 @@ export interface CppKeyValueError extends CppErrorBase {
   id: CppDocumentId
   opaque: number
   cas: CppCas
-  status_code: CppProtocolStatus
+  status_code: CppKeyValueStatusCode
   enhanced_error_info: CppEnhancedErrorInfo
   last_dispatched_to: string
   last_dispatched_from: string
   retry_attempts: number
-  retry_reasons: CppIoRetryReason[]
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppViewError extends CppErrorBase {
@@ -2648,7 +2944,7 @@ export interface CppViewError extends CppErrorBase {
   last_dispatched_to: string
   last_dispatched_from: string
   retry_attempts: number
-  retry_reasons: CppIoRetryReason[]
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppQueryError extends CppErrorBase {
@@ -2665,7 +2961,7 @@ export interface CppQueryError extends CppErrorBase {
   last_dispatched_to: string
   last_dispatched_from: string
   retry_attempts: number
-  retry_reasons: CppIoRetryReason[]
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppSearchError extends CppErrorBase {
@@ -2681,7 +2977,7 @@ export interface CppSearchError extends CppErrorBase {
   last_dispatched_to: string
   last_dispatched_from: string
   retry_attempts: number
-  retry_reasons: CppIoRetryReason[]
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppAnalyticsError extends CppErrorBase {
@@ -2698,7 +2994,7 @@ export interface CppAnalyticsError extends CppErrorBase {
   last_dispatched_to: string
   last_dispatched_from: string
   retry_attempts: number
-  retry_reasons: CppIoRetryReason[]
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppHttpError extends CppErrorBase {
@@ -2711,7 +3007,7 @@ export interface CppHttpError extends CppErrorBase {
   last_dispatched_to: string
   last_dispatched_from: string
   retry_attempts: number
-  retry_reasons: CppIoRetryReason[]
+  retry_reasons: CppRetryReason[]
 }
 
 export interface CppTxnOperationFailed extends CppErrorBase {
@@ -2811,7 +3107,7 @@ export interface CppConnection extends CppConnectionAutogen {
 }
 
 export interface CppTransactionsConfig {
-  durability_level?: CppProtocolDurabilityLevel
+  durability_level?: CppDurabilityLevel
   kv_timeout?: CppMilliseconds
   expiration_time?: CppMilliseconds
   query_scan_consistency?: CppQueryScanConsistency
@@ -2821,7 +3117,7 @@ export interface CppTransactionsConfig {
 }
 
 export interface CppTransactionOptions {
-  durability_level?: CppProtocolDurabilityLevel
+  durability_level?: CppDurabilityLevel
   kv_timeout?: CppMilliseconds
   expiration_time?: CppMilliseconds
   query_scan_consistency?: CppQueryScanConsistency

@@ -7,115 +7,134 @@ import clang.cindex
 
 # configurable part
 
+CLANG_VERSION='13.0.1'
+#   homebrew installs for llvm (brew info llvm gives details):  
+#       x64: /usr/local/opt/llvm/lib
+#       arm64: /opt/homebrew/opt/llvm/lib
 llvmLibPath = "/usr/local/Cellar/llvm/13.0.1_1/lib/"
 
 cxxClientRoot = "../deps/couchbase-cxx-client"
 
 fileList = [
-    "couchbase/management/analytics_dataset.hxx",
-    "couchbase/management/analytics_index.hxx",
-    "couchbase/management/analytics_link_azure_blob_external.hxx",
-    "couchbase/management/analytics_link_couchbase_remote.hxx",
-    "couchbase/management/analytics_link_s3_external.hxx",
-    "couchbase/management/bucket_settings.hxx",
-    "couchbase/management/design_document.hxx",
-    "couchbase/management/eventing_function.hxx",
-    "couchbase/management/eventing_status.hxx",
-    "couchbase/management/rbac.hxx",
-    "couchbase/management/search_index.hxx",
-    "couchbase/management/query_index.hxx",
-    "couchbase/io/retry_reason.hxx",
-    "couchbase/topology/collections_manifest.hxx",
-    "couchbase/protocol/client_opcode.hxx",
-    "couchbase/protocol/cmd_lookup_in.hxx",
-    "couchbase/protocol/cmd_mutate_in.hxx",
-    "couchbase/protocol/durability_level.hxx",
-    "couchbase/protocol/status.hxx",
+    "core/management/analytics_dataset.hxx",
+    "core/management/analytics_index.hxx",
+    "core/management/analytics_link_azure_blob_external.hxx",
+    "core/management/analytics_link_couchbase_remote.hxx",
+    "core/management/analytics_link_s3_external.hxx",
+    "core/management/bucket_settings.hxx",
+    "core/management/design_document.hxx",
+    "core/management/eventing_function.hxx",
+    "core/management/eventing_status.hxx",
+    "core/management/rbac.hxx",
+    "core/management/search_index.hxx",
+    "core/management/query_index.hxx",
+    "couchbase/retry_reason.hxx",
+    "core/topology/collections_manifest.hxx",
+    "core/protocol/client_opcode.hxx",
+    "core/protocol/cmd_lookup_in.hxx",
+    "core/protocol/cmd_mutate_in.hxx",
+    "core/protocol/status.hxx",
+    "core/analytics_scan_consistency.hxx",
+    "core/design_document_namespace.hxx",
+    "core/diagnostics.hxx",
+    "core/document_id.hxx",
+    "core/json_string.hxx",
+    "core/query_profile_mode.hxx",
+    "core/query_scan_consistency.hxx",
+    "core/search_highlight_style.hxx",
+    "core/search_scan_consistency.hxx",
+    "core/service_type.hxx",
+    "core/view_on_error.hxx",
+    "core/view_scan_consistency.hxx",
+    "core/view_sort_order.hxx",
+    "core/operations/*",
+    "core/operations/management/*",
+    "couchbase/durability_level.hxx",
     "couchbase/cas.hxx",
-    "couchbase/errors.hxx",
-    "couchbase/analytics_scan_consistency.hxx",
-    "couchbase/design_document_namespace.hxx",
-    "couchbase/diagnostics.hxx",
-    "couchbase/document_id.hxx",
-    "couchbase/json_string.hxx",
+    "couchbase/error_codes.hxx",
     "couchbase/mutation_token.hxx",
-    "couchbase/query_profile_mode.hxx",
-    "couchbase/query_scan_consistency.hxx",
-    "couchbase/search_highlight_style.hxx",
-    "couchbase/search_scan_consistency.hxx",
-    "couchbase/service_type.hxx",
-    "couchbase/view_scan_consistency.hxx",
-    "couchbase/view_sort_order.hxx",
-    "couchbase/operations/*",
-    "couchbase/operations/management/*",
+    "couchbase/key_value_status_code.hxx",
+    "core/impl/subdoc/opcode.hxx",
+    "core/impl/subdoc/command.hxx",
+    "couchbase/store_semantics.hxx",
+    "couchbase/persist_to.hxx",
+    "couchbase/replicate_to.hxx"
 ]
 
 typeList = [
-    "couchbase::management::analytics::dataset",
-    "couchbase::management::analytics::index",
-    "couchbase::management::analytics::azure_blob_external_link",
-    "couchbase::management::analytics::couchbase_link_encryption_level",
-    "couchbase::management::analytics::couchbase_link_encryption_settings",
-    "couchbase::management::analytics::couchbase_remote_link",
-    "couchbase::management::analytics::s3_external_link",
-    "couchbase::management::cluster::bucket_settings",
-    "couchbase::management::cluster::bucket_type",
-    "couchbase::management::cluster::bucket_compression",
-    "couchbase::management::cluster::bucket_eviction_policy",
-    "couchbase::management::cluster::bucket_conflict_resolution",
-    "couchbase::management::cluster::bucket_storage_backend",
-    "couchbase::management::views::design_document",
-    "couchbase::management::eventing::function",
-    "couchbase::management::eventing::status",
-    "couchbase::management::rbac::role",
-    "couchbase::management::rbac::role_and_description",
-    "couchbase::management::rbac::origin",
-    "couchbase::management::rbac::role_and_origins",
-    "couchbase::management::rbac::user",
-    "couchbase::management::rbac::auth_domain",
-    "couchbase::management::rbac::user_and_metadata",
-    "couchbase::management::rbac::group",
-    "couchbase::management::search::index",
-    "couchbase::management::query::index",
-    "couchbase::io::retry_reason",
-    "couchbase::topology::collections_manifest",
-    "couchbase::protocol::status",
-    "couchbase::protocol::subdoc_opcode",
-    "couchbase::protocol::lookup_in_request_body::lookup_in_specs",
-    "couchbase::protocol::mutate_in_request_body::mutate_in_specs",
-    "couchbase::protocol::mutate_in_request_body::store_semantics_type",
-    "couchbase::protocol::durability_level",
-    "couchbase::error::common_errc",
-    "couchbase::error::key_value_errc",
-    "couchbase::error::query_errc",
-    "couchbase::error::analytics_errc",
-    "couchbase::error::search_errc",
-    "couchbase::error::view_errc",
-    "couchbase::error::management_errc",
-    "couchbase::error::field_level_encryption_errc",
-    "couchbase::error::network_errc",
-    "couchbase::analytics_scan_consistency",
+    "couchbase::core::management::analytics::dataset",
+    "couchbase::core::management::analytics::index",
+    "couchbase::core::management::analytics::azure_blob_external_link",
+    "couchbase::core::management::analytics::couchbase_link_encryption_level",
+    "couchbase::core::management::analytics::couchbase_link_encryption_settings",
+    "couchbase::core::management::analytics::couchbase_remote_link",
+    "couchbase::core::management::analytics::s3_external_link",
+    "couchbase::core::management::cluster::bucket_settings",
+    "couchbase::core::management::cluster::bucket_type",
+    "couchbase::core::management::cluster::bucket_compression",
+    "couchbase::core::management::cluster::bucket_eviction_policy",
+    "couchbase::core::management::cluster::bucket_conflict_resolution",
+    "couchbase::core::management::cluster::bucket_storage_backend",
+    "couchbase::core::management::views::design_document",
+    "couchbase::core::management::eventing::function",
+    "couchbase::core::management::eventing::status",
+    "couchbase::core::management::rbac::role",
+    "couchbase::core::management::rbac::role_and_description",
+    "couchbase::core::management::rbac::origin",
+    "couchbase::core::management::rbac::role_and_origins",
+    "couchbase::core::management::rbac::user",
+    "couchbase::core::management::rbac::auth_domain",
+    "couchbase::core::management::rbac::user_and_metadata",
+    "couchbase::core::management::rbac::group",
+    "couchbase::core::management::search::index",
+    "couchbase::core::management::query::index",
+    "couchbase::retry_reason",
+    "couchbase::core::topology::collections_manifest",
+    "couchbase::core::protocol::status",
+    "couchbase::core::protocol::subdoc_opcode",
+    "couchbase::core::protocol::lookup_in_request_body::lookup_in_specs",
+    "couchbase::core::protocol::mutate_in_request_body::mutate_in_specs",
+    "couchbase::core::protocol::mutate_in_request_body::store_semantics_type",
+    "couchbase::durability_level",
+    "couchbase::errc::common",
+    "couchbase::errc::key_value",
+    "couchbase::errc::query",
+    "couchbase::errc::analytics",
+    "couchbase::errc::search",
+    "couchbase::errc::view",
+    "couchbase::errc::management",
+    "couchbase::errc::field_level_encryption",
+    "couchbase::errc::network",
+    "couchbase::core::analytics_scan_consistency",
     "couchbase::cas",
-    "couchbase::design_document_namespace",
-    "couchbase::diag::cluster_state",
-    "couchbase::diag::endpoint_state",
-    "couchbase::diag::endpoint_diag_info",
-    "couchbase::diag::diagnostics_result",
-    "couchbase::diag::ping_state",
-    "couchbase::diag::endpoint_ping_info",
-    "couchbase::diag::ping_result",
-    "couchbase::document_id",
-    "couchbase::json_string",
+    "couchbase::core::design_document_namespace",
+    "couchbase::core::diag::cluster_state",
+    "couchbase::core::diag::endpoint_state",
+    "couchbase::core::diag::endpoint_diag_info",
+    "couchbase::core::diag::diagnostics_result",
+    "couchbase::core::diag::ping_state",
+    "couchbase::core::diag::endpoint_ping_info",
+    "couchbase::core::diag::ping_result",
+    "couchbase::core::document_id",
+    "couchbase::core::json_string",
     "couchbase::mutation_token",
-    "couchbase::query_profile_mode",
-    "couchbase::query_scan_consistency",
-    "couchbase::search_highlight_style",
-    "couchbase::search_scan_consistency",
-    "couchbase::service_type",
-    "couchbase::view_scan_consistency",
-    "couchbase::view_sort_order",
-    "couchbase::operations::*",
-    "couchbase::operations::management::*",
+    "couchbase::core::query_profile_mode",
+    "couchbase::core::query_scan_consistency",
+    "couchbase::core::search_highlight_style",
+    "couchbase::core::search_scan_consistency",
+    "couchbase::core::service_type",
+    "couchbase::core::view_on_error",
+    "couchbase::core::view_scan_consistency",
+    "couchbase::core::view_sort_order",
+    "couchbase::core::operations::*",
+    "couchbase::core::operations::management::*",
+    "couchbase::core::tracing::request_span",
+    "couchbase::key_value_status_code",
+    "couchbase::core::impl::subdoc::command",
+    "couchbase::core::impl::subdoc::opcode",
+    "couchbase::store_semantics",
+    "couchbase::persist_to",
+    "couchbase::replicate_to"
 ]
 
 # end of configurable part
@@ -164,7 +183,17 @@ fullFileList = list(
 typeListRe = list(map(lambda x: x.replace("*", "(.*)") + "(.*)", typeList))
 
 
-def is_included_type(name):
+def is_included_type(name, with_durability=False):
+    # TODO(brett19): This should be generalized somehow...
+    if "is_compound_operation" in name:
+        return False
+
+    if "replica_context" in name:
+        return False
+
+    if with_durability is True and '_with_legacy_durability' not in name:
+        return False
+
     for x in typeListRe:
         if re.fullmatch(x, name):
             return True
@@ -181,6 +210,8 @@ def parse_type(type):
 
 
 def parse_type_str(typeStr):
+    if typeStr == "std::mutex":
+        return {"name": "std::mutex"}
     if typeStr == "std::string":
         return {"name": "std::string"}
     if typeStr == "std::chrono::duration<long long>":
@@ -274,6 +305,11 @@ def parse_type_str(typeStr):
                 "of": parse_type_str(variantParts[0]),
                 "to": parse_type_str(variantParts[1])
             }
+        if tplClassName == "std::shared_ptr":
+            return {
+                "name": "std::shared_ptr",
+                "of": parse_type_str(tplParams)
+            }
 
     if not typeStr.startswith("couchbase::"):
         print("FAILED TO PARSE STRING TYPE: " + typeStr)
@@ -287,9 +323,10 @@ def traverse(node, namespace, main_file):
     if node.location.file != None and node.location.file.name != main_file:
         return
 
-    if node.kind == clang.cindex.CursorKind.STRUCT_DECL:
+    if node.kind == clang.cindex.CursorKind.STRUCT_DECL or node.kind == clang.cindex.CursorKind.CLASS_DECL:
         fullStructName = "::".join([*namespace, node.displayname])
         if is_included_type(fullStructName):
+
             structFields = []
 
             for child in node.get_children():
@@ -298,11 +335,32 @@ def traverse(node, namespace, main_file):
                         "name": child.displayname,
                         "type": parse_type(child.type),
                     })
+            # replica read changes introduced duplicate get requests
+            if any(map(lambda op: op['name'] == fullStructName, opTypes)):
+                return
 
             opTypes.append({
                 "name": fullStructName,
                 "fields": structFields,
             })
+    if node.kind == clang.cindex.CursorKind.TYPE_ALIAS_DECL:
+        fullStructName = "::".join([*namespace, node.displayname])
+        if is_included_type(fullStructName, with_durability=True):
+            type_ref = next((c for c in node.get_children() if c.kind == clang.cindex.CursorKind.TYPE_REF), None)
+            if type_ref:
+                base_request_name = type_ref.displayname.replace('struct', '').strip()
+                base_request = next((op for op in opTypes if op['name'] == base_request_name), None)
+                if base_request:
+                    new_fields = [f for f in base_request['fields'] if f['name'] != 'durability_level']
+                    new_fields.extend([
+                            {"name":"persist_to", "type":{"name":"couchbase::persist_to"}},
+                            {"name":"replicate_to", "type":{"name":"couchbase::replicate_to"}}
+                        ])
+
+                    opTypes.append({
+                        "name": fullStructName,
+                        "fields": new_fields
+                    })
     if node.kind == clang.cindex.CursorKind.ENUM_DECL:
         fullEnumName = "::".join([*namespace, node.displayname])
         if is_included_type(fullEnumName):
@@ -330,7 +388,6 @@ def traverse(node, namespace, main_file):
     for child in node.get_children():
         traverse(child, namespace, main_file)
 
-
 for headerPath in fullFileList:
     print("processing " + headerPath)
     index = clang.cindex.Index.create()
@@ -340,7 +397,8 @@ for headerPath in fullFileList:
         "-I" + cxxClientRoot + "/third_party/fmt/include",
         "-I" + cxxClientRoot + "/third_party/gsl/include",
         "-I" + cxxClientRoot + "/third_party/json/include",
-        "-I" + "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/13.0.0/include"
+        "-I" + cxxClientRoot + "/third_party/json/external/PEGTL/include",
+        "-I" + f"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/{CLANG_VERSION}/include"
     ]
     translation_unit = index.parse(headerPath, args=args)
 

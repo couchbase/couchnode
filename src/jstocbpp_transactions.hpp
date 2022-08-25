@@ -4,7 +4,7 @@
 #include "jstocbpp_basic.hpp"
 #include "jstocbpp_cpptypes.hpp"
 
-#include <couchbase/cluster.hxx>
+#include <core/cluster.hxx>
 #include <couchbase/transactions.hxx>
 #include <couchbase/transactions/internal/exceptions_internal.hxx>
 
@@ -36,26 +36,25 @@ struct js_to_cbpp_t<cbtxns::transaction_config> {
         cbtxns::transaction_config cppObj;
 
         auto durability_level =
-            js_to_cbpp<std::optional<couchbase::protocol::durability_level>>(
+            js_to_cbpp<std::optional<couchbase::durability_level>>(
                 jsObj.Get("durability_level"));
         if (durability_level.has_value()) {
             // BUG(JSCBC-1012): This translation should not be neccessary.
             switch (durability_level.value()) {
-            case couchbase::protocol::durability_level::none:
+            case couchbase::durability_level::none:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::NONE);
                 break;
-            case couchbase::protocol::durability_level::majority:
+            case couchbase::durability_level::majority:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::MAJORITY);
                 break;
-            case couchbase::protocol::durability_level::
-                majority_and_persist_to_active:
+            case couchbase::durability_level::majority_and_persist_to_active:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::
                         MAJORITY_AND_PERSIST_TO_ACTIVE);
                 break;
-            case couchbase::protocol::durability_level::persist_to_majority:
+            case couchbase::durability_level::persist_to_majority:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::
                         PERSIST_TO_MAJORITY);
@@ -80,7 +79,7 @@ struct js_to_cbpp_t<cbtxns::transaction_config> {
         }
 
         auto query_scan_consistency =
-            js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
+            js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
                 jsObj.Get("query_scan_consistency"));
         if (query_scan_consistency.has_value()) {
             cppObj.scan_consistency(query_scan_consistency.value());
@@ -117,26 +116,25 @@ struct js_to_cbpp_t<cbtxns::per_transaction_config> {
         cbtxns::per_transaction_config cppObj;
 
         auto durability_level =
-            js_to_cbpp<std::optional<couchbase::protocol::durability_level>>(
+            js_to_cbpp<std::optional<couchbase::durability_level>>(
                 jsObj.Get("durability_level"));
         if (durability_level.has_value()) {
             // BUG(JSCBC-1012): This translation should not be neccessary.
             switch (durability_level.value()) {
-            case couchbase::protocol::durability_level::none:
+            case couchbase::durability_level::none:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::NONE);
                 break;
-            case couchbase::protocol::durability_level::majority:
+            case couchbase::durability_level::majority:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::MAJORITY);
                 break;
-            case couchbase::protocol::durability_level::
-                majority_and_persist_to_active:
+            case couchbase::durability_level::majority_and_persist_to_active:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::
                         MAJORITY_AND_PERSIST_TO_ACTIVE);
                 break;
-            case couchbase::protocol::durability_level::persist_to_majority:
+            case couchbase::durability_level::persist_to_majority:
                 cppObj.durability_level(
                     couchbase::transactions::durability_level::
                         PERSIST_TO_MAJORITY);
@@ -161,7 +159,7 @@ struct js_to_cbpp_t<cbtxns::per_transaction_config> {
         }
 
         auto query_scan_consistency =
-            js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
+            js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
                 jsObj.Get("query_scan_consistency"));
         if (query_scan_consistency.has_value()) {
             cppObj.scan_consistency(query_scan_consistency.value());
@@ -254,9 +252,10 @@ struct js_to_cbpp_t<cbtxns::transaction_get_result> {
     {
         auto jsObj = jsVal.ToObject();
         return cbtxns::transaction_get_result(
-            js_to_cbpp<couchbase::document_id>(jsObj.Get("id")),
-            js_to_cbpp<couchbase::json_string>(jsObj.Get("content")).str(),
-            js_to_cbpp<couchbase::cas>(jsObj.Get("cas")).value,
+            js_to_cbpp<couchbase::core::document_id>(jsObj.Get("id")),
+            js_to_cbpp<couchbase::core::json_string>(jsObj.Get("content"))
+                .str(),
+            js_to_cbpp<couchbase::cas>(jsObj.Get("cas")).value(),
             js_to_cbpp<cbtxns::transaction_links>(jsObj.Get("links")),
             js_to_cbpp<std::optional<cbtxns::document_metadata>>(
                 jsObj.Get("metadata")));
@@ -267,7 +266,7 @@ struct js_to_cbpp_t<cbtxns::transaction_get_result> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js(env, res.id()));
-        resObj.Set("content", cbpp_to_js(env, couchbase::json_string(
+        resObj.Set("content", cbpp_to_js(env, couchbase::core::json_string(
                                                   res.content<std::string>())));
         resObj.Set("cas", cbpp_to_js(env, couchbase::cas{res.cas()}));
         resObj.Set("links", cbpp_to_js(env, res.links()));
@@ -284,7 +283,7 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
         cbtxns::transaction_query_options cppObj;
 
         auto raw = js_to_cbpp<
-            std::optional<std::map<std::string, couchbase::json_string>>>(
+            std::optional<std::map<std::string, couchbase::core::json_string>>>(
             jsObj.Get("raw"));
         if (raw.has_value()) {
             for (auto &v : *raw) {
@@ -298,14 +297,15 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
         }
 
         auto scan_consistency =
-            js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
+            js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
                 jsObj.Get("scan_consistency"));
         if (scan_consistency.has_value()) {
             cppObj.scan_consistency(scan_consistency.value());
         }
 
-        auto profile = js_to_cbpp<std::optional<couchbase::query_profile_mode>>(
-            jsObj.Get("profile"));
+        auto profile =
+            js_to_cbpp<std::optional<couchbase::core::query_profile_mode>>(
+                jsObj.Get("profile"));
         if (profile.has_value()) {
             cppObj.profile(profile.value());
         }
@@ -356,15 +356,15 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
             cppObj.max_parallelism(max_parallelism.value());
         }
 
-        auto positional_parameters =
-            js_to_cbpp<std::optional<std::vector<couchbase::json_string>>>(
-                jsObj.Get("positional_parameters"));
+        auto positional_parameters = js_to_cbpp<
+            std::optional<std::vector<couchbase::core::json_string>>>(
+            jsObj.Get("positional_parameters"));
         if (positional_parameters.has_value()) {
             cppObj.positional_parameters(positional_parameters.value());
         }
 
         auto named_parameters = js_to_cbpp<
-            std::optional<std::map<std::string, couchbase::json_string>>>(
+            std::optional<std::map<std::string, couchbase::core::json_string>>>(
             jsObj.Get("named_parameters"));
         if (named_parameters.has_value()) {
             cppObj.named_parameters(named_parameters.value());

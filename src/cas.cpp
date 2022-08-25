@@ -81,7 +81,7 @@ Napi::Value Cas::jsToString(const Napi::CallbackInfo &info)
     auto cas = Cas::parse(info.This());
 
     std::stringstream stream;
-    stream << cas.value;
+    stream << cas.value();
     return Napi::String::New(info.Env(), stream.str());
 }
 
@@ -90,7 +90,7 @@ Napi::Value Cas::jsInspect(const Napi::CallbackInfo &info)
     auto cas = Cas::parse(info.This());
 
     std::stringstream stream;
-    stream << "Cas<" << cas.value << ">";
+    stream << "Cas<" << cas.value() << ">";
     return Napi::String::New(info.Env(), stream.str());
 }
 

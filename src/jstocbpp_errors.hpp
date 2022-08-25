@@ -4,8 +4,8 @@
 #include "jstocbpp_basic.hpp"
 #include "jstocbpp_cpptypes.hpp"
 
-#include <couchbase/cluster.hxx>
-#include <couchbase/operations/management/error_utils.hxx>
+#include <core/cluster.hxx>
+#include <core/operations/management/error_utils.hxx>
 
 namespace couchnode
 {
@@ -34,53 +34,86 @@ struct js_to_cbpp_t<std::error_code> {
 
     static inline std::error_code from_js(Napi::Value jsVal)
     {
-        throw Napi::Error::New(jsVal.Env(), "invalid std::error_code marshal from js");
+        throw Napi::Error::New(jsVal.Env(),
+                               "invalid std::error_code marshal from js");
     }
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::protocol::enhanced_error_info> {
+struct js_to_cbpp_t<couchbase::key_value_extended_error_info> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::protocol::enhanced_error_info &cppObj)
+    to_js(Napi::Env env, const couchbase::key_value_extended_error_info &cppObj)
     {
         auto resObj = Napi::Object::New(env);
-        resObj.Set("reference", cbpp_to_js(env, cppObj.reference));
-        resObj.Set("context", cbpp_to_js(env, cppObj.context));
+        resObj.Set("reference", cbpp_to_js(env, cppObj.reference()));
+        resObj.Set("context", cbpp_to_js(env, cppObj.context()));
         return resObj;
     }
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::error_context::key_value> {
+struct js_to_cbpp_t<couchbase::key_value_error_context> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::error_context::key_value &ctx)
+    to_js(Napi::Env env, const couchbase::key_value_error_context &ctx)
     {
-        if (!ctx.ec) {
+        if (!ctx.ec()) {
             return env.Null();
         }
 
-        Napi::Error err = Napi::Error::New(env, ctx.ec.message());
+        Napi::Error err = Napi::Error::New(env, ctx.ec().message());
         err.Set("ctxtype", Napi::String::New(env, "key_value"));
-        err.Set("code", cbpp_to_js(env, ctx.ec.value()));
-        err.Set("id", cbpp_to_js(env, ctx.id));
-        err.Set("opaque", cbpp_to_js(env, ctx.opaque));
-        err.Set("cas", cbpp_to_js(env, ctx.cas));
-        err.Set("status_code", cbpp_to_js(env, ctx.status_code));
+        err.Set("code", cbpp_to_js(env, ctx.ec().value()));
+        err.Set("id", cbpp_to_js(env, ctx.id()));
+        err.Set("opaque", cbpp_to_js(env, ctx.opaque()));
+        err.Set("cas", cbpp_to_js(env, ctx.cas()));
+        err.Set("status_code", cbpp_to_js(env, ctx.status_code()));
         err.Set("enhanced_error_info",
-                cbpp_to_js(env, ctx.enhanced_error_info));
-        err.Set("last_dispatched_to", cbpp_to_js(env, ctx.last_dispatched_to));
+                cbpp_to_js(env, ctx.extended_error_info()));
+        err.Set("last_dispatched_to",
+                cbpp_to_js(env, ctx.last_dispatched_to()));
         err.Set("last_dispatched_from",
-                cbpp_to_js(env, ctx.last_dispatched_from));
-        err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
-        err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
+                cbpp_to_js(env, ctx.last_dispatched_from()));
+        err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts()));
+        err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons()));
         return err.Value();
     }
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::error_context::view> {
-    static inline Napi::Value to_js(Napi::Env env,
-                                    const couchbase::error_context::view &ctx)
+struct js_to_cbpp_t<couchbase::subdocument_error_context> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::subdocument_error_context &ctx)
+    {
+        if (!ctx.ec()) {
+            return env.Null();
+        }
+
+        Napi::Error err = Napi::Error::New(env, ctx.ec().message());
+        err.Set("ctxtype", Napi::String::New(env, "subdocument"));
+        err.Set("code", cbpp_to_js(env, ctx.ec().value()));
+        err.Set("id", cbpp_to_js(env, ctx.id()));
+        err.Set("opaque", cbpp_to_js(env, ctx.opaque()));
+        err.Set("cas", cbpp_to_js(env, ctx.cas()));
+        err.Set("status_code", cbpp_to_js(env, ctx.status_code()));
+        err.Set("enhanced_error_info",
+                cbpp_to_js(env, ctx.extended_error_info()));
+        err.Set("last_dispatched_to",
+                cbpp_to_js(env, ctx.last_dispatched_to()));
+        err.Set("last_dispatched_from",
+                cbpp_to_js(env, ctx.last_dispatched_from()));
+        err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts()));
+        err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons()));
+        err.Set("first_error_path", cbpp_to_js(env, ctx.first_error_path()));
+        err.Set("first_error_index", cbpp_to_js(env, ctx.first_error_index()));
+        err.Set("deleted", cbpp_to_js(env, ctx.deleted()));
+        return err.Value();
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::error_context::view> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::error_context::view &ctx)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -111,9 +144,9 @@ struct js_to_cbpp_t<couchbase::error_context::view> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::error_context::query> {
-    static inline Napi::Value to_js(Napi::Env env,
-                                    const couchbase::error_context::query &ctx)
+struct js_to_cbpp_t<couchbase::core::error_context::query> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::error_context::query &ctx)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -121,9 +154,9 @@ struct js_to_cbpp_t<couchbase::error_context::query> {
 
         auto ec = ctx.ec;
         if (ec) {
-            auto maybeEc =
-                couchbase::operations::management::translate_query_error_code(
-                    ctx.first_error_code, ctx.first_error_message, 0);
+            auto maybeEc = couchbase::core::operations::management::
+                translate_query_error_code(ctx.first_error_code,
+                                           ctx.first_error_message, 0);
             if (maybeEc.has_value()) {
                 ec = maybeEc.value();
             }
@@ -155,9 +188,9 @@ struct js_to_cbpp_t<couchbase::error_context::query> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::error_context::search> {
-    static inline Napi::Value to_js(Napi::Env env,
-                                    const couchbase::error_context::search &ctx)
+struct js_to_cbpp_t<couchbase::core::error_context::search> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::error_context::search &ctx)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -165,9 +198,8 @@ struct js_to_cbpp_t<couchbase::error_context::search> {
 
         auto ec = ctx.ec;
         if (ec) {
-            auto maybeEc =
-                couchbase::operations::management::translate_search_error_code(
-                    ctx.http_status, ctx.http_body);
+            auto maybeEc = couchbase::core::operations::management::
+                translate_search_error_code(ctx.http_status, ctx.http_body);
             if (maybeEc.has_value()) {
                 ec = maybeEc.value();
             }
@@ -197,9 +229,9 @@ struct js_to_cbpp_t<couchbase::error_context::search> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::error_context::analytics> {
+struct js_to_cbpp_t<couchbase::core::error_context::analytics> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::error_context::analytics &ctx)
+    to_js(Napi::Env env, const couchbase::core::error_context::analytics &ctx)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -207,7 +239,7 @@ struct js_to_cbpp_t<couchbase::error_context::analytics> {
 
         auto ec = ctx.ec;
         if (ec) {
-            auto maybeEc = couchbase::operations::management::
+            auto maybeEc = couchbase::core::operations::management::
                 translate_analytics_error_code(ctx.first_error_code,
                                                ctx.first_error_message);
             if (maybeEc.has_value()) {
@@ -241,9 +273,9 @@ struct js_to_cbpp_t<couchbase::error_context::analytics> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::error_context::http> {
-    static inline Napi::Value to_js(Napi::Env env,
-                                    const couchbase::error_context::http &ctx)
+struct js_to_cbpp_t<couchbase::core::error_context::http> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::error_context::http &ctx)
     {
         if (!ctx.ec) {
             return env.Null();

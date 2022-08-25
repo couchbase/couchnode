@@ -9,8 +9,7 @@ import binding, {
   CppDocumentId,
   CppConnection,
   zeroCas,
-  CppProtocolLookupInRequestBodyLookupInSpecsEntry,
-  CppProtocolMutateInRequestBodyMutateInSpecsEntry,
+  CppImplSubdocCommand,
 } from './binding'
 import {
   durabilityToCpp,
@@ -413,6 +412,26 @@ export class Collection {
       callback(null, content)
     } catch (e) {
       return callback(e as Error, null)
+    }
+  }
+
+  /**
+   * @internal
+   */
+  _subdocEncode(value: any): any {
+    return Buffer.from(value)
+  }
+
+  /**
+   * @internal
+   */
+  _subdocDecode(bytes: Buffer): any {
+    try {
+      return JSON.parse(bytes.toString('utf8'))
+    } catch (e) {
+      // If we encounter a parse error, assume that we need
+      // to return bytes instead of an object.
+      return bytes
     }
   }
 
@@ -1134,13 +1153,13 @@ export class Collection {
       options = {}
     }
 
-    const cppSpecs: CppProtocolLookupInRequestBodyLookupInSpecsEntry[] = []
+    const cppSpecs: CppImplSubdocCommand[] = []
     for (let i = 0; i < specs.length; ++i) {
       cppSpecs.push({
-        opcode: specs[i]._op,
-        flags: specs[i]._flags,
-        path: specs[i]._path,
-        original_index: i,
+        opcode_: specs[i]._op,
+        flags_: specs[i]._flags,
+        path_: specs[i]._path,
+        original_index_: i,
       })
     }
 
@@ -1150,9 +1169,7 @@ export class Collection {
       this._conn.lookupIn(
         {
           id: this._cppDocId(key),
-          specs: {
-            entries: cppSpecs,
-          },
+          specs: cppSpecs,
           timeout,
           partition: 0,
           opaque: 0,
@@ -1171,7 +1188,7 @@ export class Collection {
 
               let value: any = undefined
               if (itemRes.value && itemRes.value.length > 0) {
-                value = JSON.parse(itemRes.value)
+                value = this._subdocDecode(itemRes.value)
               }
 
               // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
@@ -1227,14 +1244,16 @@ export class Collection {
       options = {}
     }
 
-    const cppSpecs: CppProtocolMutateInRequestBodyMutateInSpecsEntry[] = []
+    const cppSpecs: CppImplSubdocCommand[] = []
     for (let i = 0; i < specs.length; ++i) {
       cppSpecs.push({
-        opcode: specs[i]._op,
-        flags: specs[i]._flags,
-        path: specs[i]._path,
-        param: specs[i]._data,
-        original_index: 0,
+        opcode_: specs[i]._op,
+        flags_: specs[i]._flags,
+        path_: specs[i]._path,
+        value_: specs[i]._data
+          ? this._subdocEncode(specs[i]._data)
+          : specs[i]._data,
+        original_index_: 0,
       })
     }
 
@@ -1252,9 +1271,7 @@ export class Collection {
         {
           id: this._cppDocId(key),
           store_semantics: storeSemanticToCpp(storeSemantics),
-          specs: {
-            entries: cppSpecs,
-          },
+          specs: cppSpecs,
           expiry,
           preserve_expiry: preserveExpiry || false,
           cas: cas || zeroCas,
@@ -1276,7 +1293,7 @@ export class Collection {
 
               let value: any = undefined
               if (itemRes.value && itemRes.value.length > 0) {
-                value = JSON.parse(itemRes.value)
+                value = this._subdocDecode(itemRes.value)
               }
 
               content.push(

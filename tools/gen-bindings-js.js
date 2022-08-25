@@ -1,8 +1,8 @@
 const fsp = require('fs/promises')
 
 const CustomDefinedTypes = [
-  'couchbase::json_string',
-  'couchbase::document_id',
+  'couchbase::core::json_string',
+  'couchbase::core::document_id',
   'couchbase::cas',
   'couchbase::mutation_token',
 ]
@@ -33,6 +33,8 @@ function getTsType(type, typeDb) {
     case 'std::int8_t':
       return 'number'
     case 'std::uint8_t':
+      return 'number'
+    case 'std::byte':
       return 'number'
     case 'std::int16_t':
       return 'number'
@@ -74,6 +76,8 @@ function getTsType(type, typeDb) {
     // special cased types
     //case 'couchbase::json_string':
     //  return 'CppJsonString'
+    case 'couchbase::core::impl::subdoc::opcode':
+      return 'number'
   }
 
   const opsStructs = typeDb.op_structs
@@ -131,10 +135,13 @@ function getCppType(type) {
 
 function getUnprefixedName(name) {
   const basePrefix = 'couchbase::'
-  const opsPrefix = 'couchbase::operations::'
+  const corePrefix = 'couchbase::core::'
+  const opsPrefix = 'couchbase::core::operations::'
 
   if (name.startsWith(opsPrefix)) {
     name = name.substr(opsPrefix.length)
+  } else if (name.startsWith(corePrefix)) {
+    name = name.substr(corePrefix.length)
   } else if (name.startsWith(basePrefix)) {
     name = name.substr(basePrefix.length)
   } else {
@@ -143,6 +150,9 @@ function getUnprefixedName(name) {
 
   // replace all namespace separators with underscores
   name = name.replace(/::/g, '_')
+  if (name.includes('_with_legacy_durability')) {
+    name = name.replace('_request_', '_')
+  }
 
   return name
 }
@@ -194,12 +204,18 @@ function getStructTsName(name) {
   return 'Cpp' + uppercaseFirstLetter(getTsNiceName(name))
 }
 
+const StructsWithAllowedPrivateField = [
+  'couchbase::core::impl::subdoc::command',
+]
+
 function isIgnoredField(st, fieldName) {
   if (
     fieldName === 'retries' ||
     fieldName === 'ctx' ||
     fieldName === 'row_callback' ||
-    fieldName.endsWith('_')
+    fieldName === 'parent_span' ||
+    (fieldName.endsWith('_') &&
+      !StructsWithAllowedPrivateField.includes(st.name))
   ) {
     return true
   }
@@ -284,7 +300,7 @@ async function go() {
 
   // filter out mcbp_noop_request because its currently broken...
   opsStructs = opsStructs.filter(
-    (x) => x.name != 'couchbase::operations::mcbp_noop_request'
+    (x) => x.name != 'couchbase::core::operations::mcbp_noop_request'
   )
 
   const opReqTypes = []
@@ -292,6 +308,9 @@ async function go() {
     if (opStruct.name.endsWith('_request')) {
       const opReqName = opStruct.name.substr(0, opStruct.name.length - 8)
       opReqTypes.push(opReqName)
+    }
+    if (opStruct.name.endsWith('_with_legacy_durability')) {
+      opReqTypes.push(opStruct.name)
     }
   })
 
@@ -319,7 +338,9 @@ async function go() {
   }
   */
   opsStructs.forEach((opStruct) => {
-    const jsTypeName = getStructTsName(opStruct.name)
+    const jsTypeName = opStruct.name.endsWith('_with_legacy_durability')
+      ? getStructTsName(opStruct.name + '_request')
+      : getStructTsName(opStruct.name)
 
     outJsAll.write(`export interface ${jsTypeName} {`)
     opStruct.fields.forEach((field) => {
@@ -339,7 +360,14 @@ async function go() {
         const jsFieldName = field.name
         const jsFieldType = getTsType(field.type, ops)
 
-        outJsAll.write(`  ${jsFieldName}: ${jsFieldType}`)
+        if (
+          opStruct.name === 'couchbase::core::impl::subdoc::command' &&
+          field.name === 'value_'
+        ) {
+          outJsAll.write(`  ${jsFieldName}?: ${jsFieldType}`)
+        } else {
+          outJsAll.write(`  ${jsFieldName}: ${jsFieldType}`)
+        }
       }
     })
     outJsAll.write(`}`)
@@ -359,7 +387,9 @@ async function go() {
   opReqTypes.forEach((x) => {
     const jsOpName = getTsNiceName(x)
     const jsReqName = getStructTsName(x + '_request')
-    const jsRespName = getStructTsName(x + '_response')
+    const jsRespName = x.endsWith('_with_legacy_durability')
+      ? getStructTsName(x.substr(0, x.length - 31) + '_response')
+      : getStructTsName(x + '_response')
 
     outJsAll.write(`  ${jsOpName}(`)
     outJsAll.write(`    options: ${jsReqName},`)
@@ -437,7 +467,11 @@ async function go() {
     )
     outCppFuncDefs.write(``)
     outCppFuncDefs.write(`    executeOp("${cppBaseOpName}",`)
-    outCppFuncDefs.write(`              jsToCbpp<${x}_request>(optsJsObj),`)
+    if (x.endsWith('_with_legacy_durability')) {
+      outCppFuncDefs.write(`              jsToCbpp<${x}>(optsJsObj),`)
+    } else {
+      outCppFuncDefs.write(`              jsToCbpp<${x}_request>(optsJsObj),`)
+    }
     outCppFuncDefs.write(`              callbackJsFn);`)
     outCppFuncDefs.write(``)
     outCppFuncDefs.write(`    return info.Env().Null();`)

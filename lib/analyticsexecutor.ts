@@ -5,9 +5,12 @@ import {
   AnalyticsMetaData,
   AnalyticsWarning,
   AnalyticsMetrics,
-  AnalyticsStatus,
 } from './analyticstypes'
-import { analyticsScanConsistencyToCpp, errorFromCpp } from './bindingutilities'
+import {
+  analyticsScanConsistencyToCpp,
+  analyticsStatusFromCpp,
+  errorFromCpp,
+} from './bindingutilities'
 import { Cluster } from './cluster'
 import { StreamableRowPromise } from './streamablepromises'
 
@@ -119,7 +122,7 @@ export class AnalyticsExecutor {
           const meta = new AnalyticsMetaData({
             requestId: metaData.request_id,
             clientContextId: metaData.client_context_id,
-            status: metaData.status as AnalyticsStatus,
+            status: analyticsStatusFromCpp(metaData.status),
             signature: metaData.signature
               ? JSON.parse(metaData.signature)
               : undefined,

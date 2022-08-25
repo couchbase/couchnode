@@ -605,8 +605,8 @@ export class QueryIndexManager {
       options = {}
     }
 
-    const collectionName = options.collectionName || ''
-    const scopeName = options.scopeName || ''
+    const collectionName = options.collectionName || undefined
+    const scopeName = options.scopeName || undefined
     const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {

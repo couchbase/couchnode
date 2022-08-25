@@ -1,7 +1,7 @@
 #pragma once
 #include "addondata.hpp"
 #include "napi.h"
-#include <couchbase/cluster.hxx>
+#include <core/cluster.hxx>
 
 namespace couchnode
 {

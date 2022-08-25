@@ -27,7 +27,7 @@ public:
     Transactions(const Napi::CallbackInfo &info);
     ~Transactions();
 
- Napi::Value jsClose(const Napi::CallbackInfo &info);
+    Napi::Value jsClose(const Napi::CallbackInfo &info);
 
 private:
     std::shared_ptr<cbtxns::transactions> _impl;

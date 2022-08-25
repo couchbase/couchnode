@@ -48,11 +48,11 @@ Napi::Value MutationToken::toBuffer(Napi::Env env,
                                     const couchbase::mutation_token &token)
 {
     MutationTokenData tokenData;
-    tokenData.partitionId = token.partition_id;
-    tokenData.partitionUuid = token.partition_uuid;
-    tokenData.sequenceNumber = token.sequence_number;
-    memcpy(tokenData.bucketName, token.bucket_name.c_str(),
-           token.bucket_name.size() + 1);
+    tokenData.partitionId = token.partition_id();
+    tokenData.partitionUuid = token.partition_uuid();
+    tokenData.sequenceNumber = token.sequence_number();
+    memcpy(tokenData.bucketName, token.bucket_name().c_str(),
+           token.bucket_name().size() + 1);
     return utils::napiDataToBuffer<MutationTokenData>(env, tokenData);
 }
 
@@ -61,12 +61,9 @@ couchbase::mutation_token MutationToken::fromBuffer(Napi::Value val)
     MutationTokenData tokenData =
         utils::napiBufferToData<MutationTokenData>(val);
 
-    couchbase::mutation_token token;
-    token.partition_id = tokenData.partitionId;
-    token.partition_uuid = tokenData.partitionUuid;
-    token.sequence_number = tokenData.sequenceNumber;
-    token.bucket_name = tokenData.bucketName;
-    return token;
+    return couchbase::mutation_token{
+        tokenData.partitionUuid, tokenData.partitionId,
+        static_cast<uint16_t>(tokenData.sequenceNumber), tokenData.bucketName};
 }
 
 Napi::Value MutationToken::create(Napi::Env env,
@@ -102,8 +99,8 @@ Napi::Value MutationToken::jsToString(const Napi::CallbackInfo &info)
     auto token = MutationToken::parse(info.This());
 
     std::stringstream stream;
-    stream << token.bucket_name << ":" << token.partition_id << ":"
-           << token.partition_uuid << ":" << token.sequence_number;
+    stream << token.bucket_name() << ":" << token.partition_id() << ":"
+           << token.partition_uuid() << ":" << token.sequence_number();
     return Napi::String::New(info.Env(), stream.str());
 }
 
@@ -113,12 +110,12 @@ Napi::Value MutationToken::jsToJSON(const Napi::CallbackInfo &info)
     auto token = MutationToken::parse(info.This());
 
     auto resObj = Napi::Object::New(env);
-    resObj.Set("bucket_name", Napi::String::New(env, token.bucket_name));
-    resObj.Set("partition_id", Napi::Number::New(env, token.partition_id));
+    resObj.Set("bucket_name", Napi::String::New(env, token.bucket_name()));
+    resObj.Set("partition_id", Napi::Number::New(env, token.partition_id()));
     resObj.Set("partition_uuid",
-               Napi::String::New(env, std::to_string(token.partition_uuid)));
+               Napi::String::New(env, std::to_string(token.partition_uuid())));
     resObj.Set("sequence_number",
-               Napi::String::New(env, std::to_string(token.sequence_number)));
+               Napi::String::New(env, std::to_string(token.sequence_number())));
     return resObj;
 }
 
@@ -127,9 +124,9 @@ Napi::Value MutationToken::jsInspect(const Napi::CallbackInfo &info)
     auto token = MutationToken::parse(info.This());
 
     std::stringstream stream;
-    stream << "MutationToken<" << token.bucket_name << ":" << token.partition_id
-           << ":" << token.partition_uuid << ":" << token.sequence_number
-           << ">";
+    stream << "MutationToken<" << token.bucket_name() << ":"
+           << token.partition_id() << ":" << token.partition_uuid() << ":"
+           << token.sequence_number() << ">";
     return Napi::String::New(info.Env(), stream.str());
 }
 
