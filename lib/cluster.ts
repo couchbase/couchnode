@@ -235,6 +235,7 @@ export class Cluster {
   @deprecated Use the static sdk-level {@link connect} method instead.
   */
   constructor(connStr: string, options?: ConnectOptions) {
+    
     if (!options) {
       options = {}
     }
@@ -563,7 +564,6 @@ export class Cluster {
           'SCRAM-SHA512',
           'SCRAM-SHA256',
           'SCRAM-SHA1',
-          'PLAIN',
         ],
       }
 
@@ -572,6 +572,10 @@ export class Cluster {
         if (passAuth.username || passAuth.password) {
           authOpts.username = passAuth.username
           authOpts.password = passAuth.password
+
+          if(passAuth.allowed_sasl_mechanisms) {
+            authOpts.allowed_sasl_mechanisms = passAuth.allowed_sasl_mechanisms
+          }
         }
 
         const certAuth = this._auth as CertificateAuthenticator
@@ -580,7 +584,6 @@ export class Cluster {
           authOpts.key_path = certAuth.keyPath
         }
       }
-
       this._conn.connect(connStr, authOpts, (err) => {
         if (err) {
           return reject(err)

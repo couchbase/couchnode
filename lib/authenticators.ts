@@ -14,6 +14,11 @@ export interface IPasswordAuthenticator {
    * The password to autehnticate with.
    */
   password: string
+
+  /**
+   * The sasl mechanisms to authenticate with.
+   */
+  allowed_sasl_mechanisms?: string[]
 }
 
 /**
@@ -50,6 +55,11 @@ export class PasswordAuthenticator implements IPasswordAuthenticator {
    */
   password: string
 
+   /**
+   * The sasl mechanisms to authenticate with.
+   */
+  allowed_sasl_mechanisms?: string[]
+
   /**
    * Constructs this PasswordAuthenticator with the passed username and password.
    *
@@ -59,6 +69,22 @@ export class PasswordAuthenticator implements IPasswordAuthenticator {
   constructor(username: string, password: string) {
     this.username = username
     this.password = password
+    this.allowed_sasl_mechanisms = ['SCRAM-SHA512','SCRAM-SHA256','SCRAM-SHA1']
+  }
+
+  /**
+   * Creates a LDAP compatible password authenticator which is INSECURE if not used with TLS.
+   * <p>
+   * Please note that this is INSECURE and will leak user credentials on the wire to eavesdroppers. 
+   * This should only be enabled in trusted environments.
+   * 
+   * @param username The username to initialize this authenticator with.
+   * @param password The password to initialize this authenticator with.
+   */
+  public static ldapCompatible(username: string, password: string): PasswordAuthenticator {
+    const auth = new PasswordAuthenticator(username, password)
+    auth.allowed_sasl_mechanisms = ['PLAIN']
+    return auth
   }
 }
 
