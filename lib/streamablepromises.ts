@@ -94,3 +94,27 @@ export class StreamableRowPromise<T, TRow, TMeta> extends StreamablePromise<T> {
     })
   }
 }
+
+/**
+ * Provides the ability to be used as both a promise, or an event emitter.  Enabling
+ * an application to easily retrieve all results using async/await, while also enabling
+ * streaming of results by listening for the replica event.
+ */
+export class StreamableReplicasPromise<T, TRep> extends StreamablePromise<T> {
+  constructor(fn: (replicas: TRep[]) => T) {
+    super((emitter, resolve, reject) => {
+      let err: Error | undefined
+      const replicas: TRep[] = []
+
+      emitter.on('replica', (r) => replicas.push(r))
+      emitter.on('error', (e) => (err = e))
+      emitter.on('end', () => {
+        if (err) {
+          return reject(err)
+        }
+
+        resolve(fn(replicas))
+      })
+    })
+  }
+}

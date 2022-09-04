@@ -32,6 +32,7 @@ import { Cluster } from './cluster'
 import {
   CounterResult,
   ExistsResult,
+  GetReplicaResult,
   GetResult,
   LookupInResult,
   LookupInResultEntry,
@@ -50,6 +51,7 @@ import { DurabilityLevel, StoreSemantics } from './generaltypes'
 import { Scope } from './scope'
 import { LookupInMacro, LookupInSpec, MutateInSpec } from './sdspecs'
 import { SdUtils } from './sdutils'
+import { StreamableReplicasPromise } from './streamablepromises'
 import { Transcoder } from './transcoders'
 import { NodeCallback, PromiseHelper, Cas } from './utilities'
 
@@ -252,6 +254,36 @@ export interface RemoveOptions {
    * exclusive of {@link durabilityLevel}.
    */
   durabilityReplicateTo?: number
+
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Key-Value
+ */
+export interface GetAnyReplicaOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
+
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Key-Value
+ */
+export interface GetAllReplicasOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -739,6 +771,156 @@ export class Collection {
         }
       )
     }, callback)
+  }
+
+  /**
+   * @internal
+   */
+  _getReplica(
+    key: string,
+    getAllReplicas: boolean,
+    options?: {
+      transcoder?: Transcoder
+      timeout?: number
+    },
+    callback?: NodeCallback<GetReplicaResult[]>
+  ): StreamableReplicasPromise<GetReplicaResult[], GetReplicaResult> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const emitter = new StreamableReplicasPromise<
+      GetReplicaResult[],
+      GetReplicaResult
+    >((replicas: GetReplicaResult[]) => replicas)
+
+    const transcoder = options.transcoder || this.transcoder
+    const timeout = options.timeout || this.cluster.kvTimeout
+
+    if (getAllReplicas) {
+      this._conn.getAllReplicas(
+        {
+          id: this._cppDocId(key),
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            emitter.emit('error', err)
+            emitter.emit('end')
+            return
+          }
+
+          resp.entries.forEach((replica) => {
+            this._decodeDoc(
+              transcoder,
+              replica.value,
+              replica.flags,
+              (err, content) => {
+                if (err) {
+                  emitter.emit('error', err)
+                  emitter.emit('end')
+                  return
+                }
+
+                emitter.emit(
+                  'replica',
+                  new GetReplicaResult({
+                    content: content,
+                    cas: replica.cas,
+                    isReplica: replica.replica,
+                  })
+                )
+              }
+            )
+          })
+
+          emitter.emit('end')
+          return
+        }
+      )
+    } else {
+      this._conn.getAnyReplica(
+        {
+          id: this._cppDocId(key),
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            emitter.emit('error', err)
+            emitter.emit('end')
+            return
+          }
+
+          this._decodeDoc(
+            transcoder,
+            resp.value,
+            resp.flags,
+            (err, content) => {
+              if (err) {
+                emitter.emit('error', err)
+                emitter.emit('end')
+                return
+              }
+
+              emitter.emit(
+                'replica',
+                new GetReplicaResult({
+                  content: content,
+                  cas: resp.cas,
+                  isReplica: resp.replica,
+                })
+              )
+            }
+          )
+
+          emitter.emit('end')
+          return
+        }
+      )
+    }
+
+    return PromiseHelper.wrapAsync(() => emitter, callback)
+  }
+
+  /**
+   * Retrieves the value of the document from any of the available replicas.  This
+   * will return as soon as the first response is received from any replica node.
+   *
+   * @param key The document key to retrieve.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  getAnyReplica(
+    key: string,
+    options?: GetAnyReplicaOptions,
+    callback?: NodeCallback<GetReplicaResult>
+  ): Promise<GetReplicaResult> {
+    return PromiseHelper.wrapAsync(async () => {
+      const replicas = await this._getReplica(key, false, options)
+      return replicas[0]
+    }, callback)
+  }
+
+  /**
+   * Retrieves the value of the document from all available replicas.  Note that
+   * as replication is asynchronous, each node may return a different value.
+   *
+   * @param key The document key to retrieve.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  getAllReplicas(
+    key: string,
+    options?: GetAllReplicasOptions,
+    callback?: NodeCallback<GetReplicaResult[]>
+  ): Promise<GetReplicaResult[]> {
+    return this._getReplica(key, true, options, callback)
   }
 
   /**

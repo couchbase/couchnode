@@ -559,6 +559,42 @@ function genericTests(collFn) {
     })
   })
 
+  describe('#getReplicas', function () {
+    let replicaTestKey
+
+    before(async function () {
+      H.skipIfMissingFeature(this, H.Features.Replicas)
+      replicaTestKey = H.genTestKey()
+      await collFn().upsert(replicaTestKey, testObjVal)
+    })
+
+    after(async function () {
+      try {
+        await collFn().remove(replicaTestKey)
+      } catch (e) {
+        // nothing
+      }
+    })
+
+    it('should perform basic get all replicas', async function () {
+      var res = await collFn().getAllReplicas(replicaTestKey)
+
+      assert.isArray(res)
+      assert.isAtLeast(res.length, 1)
+      assert.isBoolean(res[0].isReplica)
+      assert.isNotEmpty(res[0].cas)
+      assert.deepStrictEqual(res[0].content, testObjVal)
+    })
+
+    it('should perform basic get any replica', async function () {
+      var res = await collFn().getAnyReplica(replicaTestKey)
+
+      assert.isObject(res)
+      assert.isNotEmpty(res.cas)
+      assert.deepStrictEqual(res.content, testObjVal)
+    })
+  })
+
   describe('#binary', function () {
     let testKeyBin
 
@@ -638,11 +674,9 @@ function genericTests(collFn) {
 
     describe('#increment', function () {
       it('should increment successfully w/ server durability', async function () {
-        var res = await collFn()
-          .binary()
-          .increment(testKeyBin, 3, {
-            durabilityLevel: DurabilityLevel.PersistToMajority,
-          })
+        var res = await collFn().binary().increment(testKeyBin, 3, {
+          durabilityLevel: DurabilityLevel.PersistToMajority,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 17)
@@ -654,11 +688,9 @@ function genericTests(collFn) {
 
     describe('#decrement', function () {
       it('should decrement successfully w/ server durability', async function () {
-        var res = await collFn()
-          .binary()
-          .decrement(testKeyBin, 4, {
-            durabilityLevel: DurabilityLevel.PersistToMajority,
-          })
+        var res = await collFn().binary().decrement(testKeyBin, 4, {
+          durabilityLevel: DurabilityLevel.PersistToMajority,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 13)
@@ -670,11 +702,9 @@ function genericTests(collFn) {
 
     describe('#append', function () {
       it('should append successfuly w/ server durability', async function () {
-        var res = await collFn()
-          .binary()
-          .append(testKeyBin, 'world', {
-            durabilityLevel: DurabilityLevel.PersistToMajority,
-          })
+        var res = await collFn().binary().append(testKeyBin, 'world', {
+          durabilityLevel: DurabilityLevel.PersistToMajority,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
 
@@ -686,11 +716,9 @@ function genericTests(collFn) {
 
     describe('#prepend', function () {
       it('should prepend successfuly w/ server durability', async function () {
-        var res = await collFn()
-          .binary()
-          .prepend(testKeyBin, 'hello', {
-            durabilityLevel: DurabilityLevel.PersistToMajority,
-          })
+        var res = await collFn().binary().prepend(testKeyBin, 'hello', {
+          durabilityLevel: DurabilityLevel.PersistToMajority,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
 
@@ -722,12 +750,10 @@ function genericTests(collFn) {
 
     describe('#increment', function () {
       it('should increment successfully w/ client durability', async function () {
-        var res = await collFn()
-          .binary()
-          .increment(testKeyBin, 3, {
-            durabilityPersistTo: 1,
-            durabilityReplicateTo: numReplicas,
-          })
+        var res = await collFn().binary().increment(testKeyBin, 3, {
+          durabilityPersistTo: 1,
+          durabilityReplicateTo: numReplicas,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 17)
@@ -739,12 +765,10 @@ function genericTests(collFn) {
 
     describe('#decrement', function () {
       it('should decrement successfully w/ client durability', async function () {
-        var res = await collFn()
-          .binary()
-          .decrement(testKeyBin, 4, {
-            durabilityPersistTo: 1,
-            durabilityReplicateTo: numReplicas,
-          })
+        var res = await collFn().binary().decrement(testKeyBin, 4, {
+          durabilityPersistTo: 1,
+          durabilityReplicateTo: numReplicas,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 13)
@@ -756,12 +780,10 @@ function genericTests(collFn) {
 
     describe('#append', function () {
       it('should append successfuly w/ client durability', async function () {
-        var res = await collFn()
-          .binary()
-          .append(testKeyBin, 'world', {
-            durabilityPersistTo: 1,
-            durabilityReplicateTo: numReplicas,
-          })
+        var res = await collFn().binary().append(testKeyBin, 'world', {
+          durabilityPersistTo: 1,
+          durabilityReplicateTo: numReplicas,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
 
@@ -773,12 +795,10 @@ function genericTests(collFn) {
 
     describe('#prepend', function () {
       it('should prepend successfuly w/ client durability', async function () {
-        var res = await collFn()
-          .binary()
-          .prepend(testKeyBin, 'hello', {
-            durabilityPersistTo: 1,
-            durabilityReplicateTo: numReplicas,
-          })
+        var res = await collFn().binary().prepend(testKeyBin, 'hello', {
+          durabilityPersistTo: 1,
+          durabilityReplicateTo: numReplicas,
+        })
         assert.isObject(res)
         assert.isOk(res.cas)
 
