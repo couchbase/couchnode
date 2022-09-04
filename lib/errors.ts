@@ -92,6 +92,28 @@ export class InvalidDurabilityLevel extends CouchbaseError {
 }
 
 /**
+ * Indicates that the specific durabilityPersistTo level was invalid.
+ *
+ * @category Error Handling
+ */
+export class InvalidDurabilityPersistToLevel extends CouchbaseError {
+  constructor() {
+    super('An invalid durability PersistTo level was specified.')
+  }
+}
+
+/**
+ * Indicates that the specific durabilityReplicateTo level was invalid.
+ *
+ * @category Error Handling
+ */
+export class InvalidDurabilityReplicateToLevel extends CouchbaseError {
+  constructor() {
+    super('An invalid durability ReplicateTo level was specified.')
+  }
+}
+
+/**
  * Indicates that the operation timed out.
  *
  * @category Error Handling

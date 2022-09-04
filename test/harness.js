@@ -33,6 +33,7 @@ const ServerFeatures = {
   PreserveExpiry: 'preserve_expiry',
   Eventing: 'eventing',
   Transactions: 'transactions',
+  ServerDurability: 'server_durability',
 }
 
 class ServerVersion {
@@ -341,6 +342,7 @@ class Harness {
         return !this._version.isMock && this._version.isAtLeast(6, 0, 0)
       case ServerFeatures.UserGroupManagement:
       case ServerFeatures.AnalyticsPendingMutations:
+      case ServerFeatures.ServerDurability:
         return !this._version.isMock && this._version.isAtLeast(6, 5, 0)
       case ServerFeatures.Collections:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)

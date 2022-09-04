@@ -25,6 +25,20 @@ export interface IncrementOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -52,6 +66,20 @@ export interface DecrementOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -67,6 +95,20 @@ export interface AppendOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -80,6 +122,20 @@ export interface PrependOptions {
    * Specifies the level of synchronous durability for this operation.
    */
   durabilityLevel?: DurabilityLevel
+
+  /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
 
   /**
    * The timeout for this operation, represented in milliseconds.

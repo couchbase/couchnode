@@ -16,6 +16,8 @@ import binding, {
   CppTxnExternalException,
   CppViewScanConsistency,
   CppViewSortOrder,
+  CppPersistTo,
+  CppReplicateTo,
 } from './binding'
 import { CppError } from './binding'
 import { EndpointState, PingState } from './diagnosticstypes'
@@ -50,6 +52,56 @@ export function durabilityToCpp(
   }
 
   throw new errs.InvalidDurabilityLevel()
+}
+
+/**
+ * @internal
+ */
+export function persistToToCpp(persistTo: number | undefined): CppPersistTo {
+  // Unspecified is allowed, and means no persistTo.
+  if (persistTo === null || persistTo === undefined) {
+    return binding.persist_to.none
+  }
+
+  if (persistTo === 0) {
+    return binding.persist_to.none
+  } else if (persistTo === 1) {
+    return binding.persist_to.active
+  } else if (persistTo === 2) {
+    return binding.persist_to.one
+  } else if (persistTo === 3) {
+    return binding.persist_to.two
+  } else if (persistTo === 4) {
+    return binding.persist_to.three
+  } else if (persistTo === 5) {
+    return binding.persist_to.four
+  }
+
+  throw new errs.InvalidDurabilityPersistToLevel()
+}
+
+/**
+ * @internal
+ */
+export function replicateToToCpp(
+  replicateTo: number | undefined
+): CppReplicateTo {
+  // Unspecified is allowed, and means no persistTo.
+  if (replicateTo === null || replicateTo === undefined) {
+    return binding.replicate_to.none
+  }
+
+  if (replicateTo === 0) {
+    return binding.replicate_to.none
+  } else if (replicateTo === 1) {
+    return binding.replicate_to.one
+  } else if (replicateTo === 2) {
+    return binding.replicate_to.two
+  } else if (replicateTo === 3) {
+    return binding.replicate_to.three
+  }
+
+  throw new errs.InvalidDurabilityReplicateToLevel()
 }
 
 /**

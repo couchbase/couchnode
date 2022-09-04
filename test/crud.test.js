@@ -1,6 +1,7 @@
 'use strict'
 
 const assert = require('chai').assert
+const { DurabilityLevel } = require('../lib/generaltypes')
 const H = require('./harness')
 
 const errorTranscoder = {
@@ -341,6 +342,151 @@ function genericTests(collFn) {
       }).timeout(4000)
     })
 
+    describe('#serverDurability', function () {
+      let testKeyIns
+
+      before(async function () {
+        H.skipIfMissingFeature(this, H.Features.ServerDurability)
+
+        testKeyIns = H.genTestKey()
+      })
+
+      it('should insert w/ server durability', async function () {
+        var res = await collFn().insert(
+          testKeyIns,
+          { foo: 'bar' },
+          { durabilityLevel: DurabilityLevel.PersistToMajority }
+        )
+        assert.isObject(res)
+        assert.isOk(res.cas)
+      })
+
+      it('should upsert data w/ server durability', async function () {
+        var res = await collFn().upsert(
+          testKeyA,
+          { foo: 'baz' },
+          { durabilityLevel: DurabilityLevel.PersistToMajority }
+        )
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyA)
+        assert.deepStrictEqual(gres.value, { foo: 'baz' })
+      })
+
+      it('should replace data correctly w/ server durability', async function () {
+        var res = await collFn().replace(
+          testKeyA,
+          { foo: 'qux' },
+          { durabilityLevel: DurabilityLevel.PersistToMajority }
+        )
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyA)
+        assert.deepStrictEqual(gres.value, { foo: 'qux' })
+      })
+
+      it('should remove the insert test key w/ server durability', async function () {
+        await collFn().remove(testKeyIns, {
+          durabilityLevel: DurabilityLevel.PersistToMajority,
+        })
+      })
+
+      it('should fail w/ InvalidDurabilityLevel', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().insert(
+            testKeyIns,
+            { foo: 'bar' },
+            { durabilityLevel: 5 }
+          )
+        }, H.lib.InvalidDurabilityLevel)
+      })
+    })
+
+    describe('#clientDurability', function () {
+      let testKeyIns
+      let numReplicas
+
+      before(async function () {
+        H.skipIfMissingFeature(this, H.Features.BucketManagement)
+        var bmgr = H.c.buckets()
+        var res = await bmgr.getBucket(H.b.name)
+        numReplicas = res.numReplicas
+        testKeyIns = H.genTestKey()
+      })
+
+      it('should insert w/ client durability', async function () {
+        var res = await collFn().insert(
+          testKeyIns,
+          { foo: 'bar' },
+          { durabilityPersistTo: 1, durabilityReplicateTo: numReplicas }
+        )
+        assert.isObject(res)
+        assert.isOk(res.cas)
+      })
+
+      it('should upsert data w/ client durability', async function () {
+        var res = await collFn().upsert(
+          testKeyA,
+          { foo: 'baz' },
+          { durabilityPersistTo: 1, durabilityReplicateTo: numReplicas }
+        )
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyA)
+        assert.deepStrictEqual(gres.value, { foo: 'baz' })
+      })
+
+      it('should replace data correctly w/ client durability', async function () {
+        var res = await collFn().replace(
+          testKeyA,
+          { foo: 'qux' },
+          { durabilityPersistTo: 1, durabilityReplicateTo: numReplicas }
+        )
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyA)
+        assert.deepStrictEqual(gres.value, { foo: 'qux' })
+      })
+
+      it('should remove the client test key w/ client durability', async function () {
+        await collFn().remove(testKeyIns)
+      })
+
+      it('should fail w/ DurabilityImpossibleError', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().insert(
+            testKeyIns,
+            { foo: 'bar' },
+            { durabilityPersistTo: 1, durabilityReplicateTo: numReplicas + 2 }
+          )
+        }, H.lib.DurabilityImpossibleError)
+      })
+
+      it('should fail w/ InvalidDurabilityPersistToLevel', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().insert(
+            testKeyIns,
+            { foo: 'bar' },
+            { durabilityPersistTo: 6, durabilityReplicateTo: numReplicas }
+          )
+        }, H.lib.InvalidDurabilityPersistToLevel)
+      })
+
+      it('should fail w/ InvalidDurabilityReplicateToLevel', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().insert(
+            testKeyIns,
+            { foo: 'bar' },
+            { durabilityPersistTo: 1, durabilityReplicateTo: 4 }
+          )
+        }, H.lib.InvalidDurabilityReplicateToLevel)
+      })
+    })
+
     describe('#touch', function () {
       it('should touch a document successfully (slow)', async function () {
         const testKeyTch = H.genTestKey()
@@ -465,6 +611,174 @@ function genericTests(collFn) {
     describe('#prepend', function () {
       it('should prepend successfuly', async function () {
         var res = await collFn().binary().prepend(testKeyBin, 'hello')
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.isTrue(Buffer.isBuffer(gres.value))
+        assert.deepStrictEqual(gres.value.toString(), 'hello13world')
+      })
+    })
+  })
+
+  describe('binary server durability', function () {
+    let testKeyBin
+
+    before(async function () {
+      testKeyBin = H.genTestKey()
+
+      await collFn().insert(testKeyBin, 14)
+
+      H.skipIfMissingFeature(this, H.Features.ServerDurability)
+    })
+
+    after(async function () {
+      await collFn().remove(testKeyBin)
+    })
+
+    describe('#increment', function () {
+      it('should increment successfully w/ server durability', async function () {
+        var res = await collFn()
+          .binary()
+          .increment(testKeyBin, 3, {
+            durabilityLevel: DurabilityLevel.PersistToMajority,
+          })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.deepStrictEqual(res.value, 17)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.deepStrictEqual(gres.value, 17)
+      })
+    })
+
+    describe('#decrement', function () {
+      it('should decrement successfully w/ server durability', async function () {
+        var res = await collFn()
+          .binary()
+          .decrement(testKeyBin, 4, {
+            durabilityLevel: DurabilityLevel.PersistToMajority,
+          })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.deepStrictEqual(res.value, 13)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.deepStrictEqual(gres.value, 13)
+      })
+    })
+
+    describe('#append', function () {
+      it('should append successfuly w/ server durability', async function () {
+        var res = await collFn()
+          .binary()
+          .append(testKeyBin, 'world', {
+            durabilityLevel: DurabilityLevel.PersistToMajority,
+          })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.isTrue(Buffer.isBuffer(gres.value))
+        assert.deepStrictEqual(gres.value.toString(), '13world')
+      })
+    })
+
+    describe('#prepend', function () {
+      it('should prepend successfuly w/ server durability', async function () {
+        var res = await collFn()
+          .binary()
+          .prepend(testKeyBin, 'hello', {
+            durabilityLevel: DurabilityLevel.PersistToMajority,
+          })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.isTrue(Buffer.isBuffer(gres.value))
+        assert.deepStrictEqual(gres.value.toString(), 'hello13world')
+      })
+    })
+  })
+
+  describe('binary client durability', function () {
+    let testKeyBin
+    let numReplicas
+
+    before(async function () {
+      testKeyBin = H.genTestKey()
+
+      await collFn().insert(testKeyBin, 14)
+
+      H.skipIfMissingFeature(this, H.Features.BucketManagement)
+      var bmgr = H.c.buckets()
+      var res = await bmgr.getBucket(H.b.name)
+      numReplicas = res.numReplicas
+    })
+
+    after(async function () {
+      await collFn().remove(testKeyBin)
+    })
+
+    describe('#increment', function () {
+      it('should increment successfully w/ client durability', async function () {
+        var res = await collFn()
+          .binary()
+          .increment(testKeyBin, 3, {
+            durabilityPersistTo: 1,
+            durabilityReplicateTo: numReplicas,
+          })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.deepStrictEqual(res.value, 17)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.deepStrictEqual(gres.value, 17)
+      })
+    })
+
+    describe('#decrement', function () {
+      it('should decrement successfully w/ client durability', async function () {
+        var res = await collFn()
+          .binary()
+          .decrement(testKeyBin, 4, {
+            durabilityPersistTo: 1,
+            durabilityReplicateTo: numReplicas,
+          })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.deepStrictEqual(res.value, 13)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.deepStrictEqual(gres.value, 13)
+      })
+    })
+
+    describe('#append', function () {
+      it('should append successfuly w/ client durability', async function () {
+        var res = await collFn()
+          .binary()
+          .append(testKeyBin, 'world', {
+            durabilityPersistTo: 1,
+            durabilityReplicateTo: numReplicas,
+          })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+
+        var gres = await collFn().get(testKeyBin)
+        assert.isTrue(Buffer.isBuffer(gres.value))
+        assert.deepStrictEqual(gres.value.toString(), '13world')
+      })
+    })
+
+    describe('#prepend', function () {
+      it('should prepend successfuly w/ client durability', async function () {
+        var res = await collFn()
+          .binary()
+          .prepend(testKeyBin, 'hello', {
+            durabilityPersistTo: 1,
+            durabilityReplicateTo: numReplicas,
+          })
         assert.isObject(res)
         assert.isOk(res.cas)
 
@@ -608,6 +922,96 @@ function genericTests(collFn) {
           }
         )
       }, H.lib.CasMismatchError)
+    })
+  })
+
+  describe('subdoc server durability', function () {
+    let testKeySd
+
+    before(async function () {
+      testKeySd = H.genTestKey()
+      await collFn().insert(testKeySd, {
+        foo: 14,
+        bar: 2,
+        baz: 'hello',
+        arr: [1, 2, 3],
+      })
+      H.skipIfMissingFeature(this, H.Features.ServerDurability)
+    })
+
+    after(async function () {
+      await collFn().remove(testKeySd)
+    })
+
+    it('should mutateIn successfully w/ server durability', async function () {
+      var res = await collFn().mutateIn(
+        testKeySd,
+        [
+          H.lib.MutateInSpec.increment('bar', 3),
+          H.lib.MutateInSpec.upsert('baz', 'world'),
+          H.lib.MutateInSpec.arrayAppend('arr', 4),
+          H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
+        ],
+        { durabilityLevel: DurabilityLevel.PersistToMajority }
+      )
+      assert.isObject(res)
+      assert.isOk(res.cas)
+
+      assert.isUndefined(res.content[0].error)
+      assert.strictEqual(res.content[0].value, 5)
+
+      var gres = await collFn().get(testKeySd)
+      assert.isOk(gres.value)
+      assert.strictEqual(gres.value.bar, 5)
+      assert.strictEqual(gres.value.baz, 'world')
+      assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
+    })
+  })
+
+  describe('subdoc clientDurability', function () {
+    let testKeySd
+    let numReplicas
+
+    before(async function () {
+      testKeySd = H.genTestKey()
+      await collFn().insert(testKeySd, {
+        foo: 14,
+        bar: 2,
+        baz: 'hello',
+        arr: [1, 2, 3],
+      })
+      H.skipIfMissingFeature(this, H.Features.BucketManagement)
+      var bmgr = H.c.buckets()
+      var res = await bmgr.getBucket(H.b.name)
+      numReplicas = res.numReplicas
+    })
+
+    after(async function () {
+      await collFn().remove(testKeySd)
+    })
+
+    it('should mutateIn successfully w/ client durability', async function () {
+      var res = await collFn().mutateIn(
+        testKeySd,
+        [
+          H.lib.MutateInSpec.increment('bar', 3),
+          H.lib.MutateInSpec.upsert('baz', 'world'),
+          H.lib.MutateInSpec.arrayAppend('arr', 4),
+          H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
+        ],
+        { durabilityPersistTo: 1, durabilityReplicateTo: numReplicas }
+      )
+      assert.isObject(res)
+      assert.isOk(res.cas)
+
+      assert.isUndefined(res.content[0].error)
+      assert.strictEqual(res.content[0].value, 5)
+
+      var gres = await collFn().get(testKeySd)
+      assert.isOk(gres.value)
+      assert.strictEqual(gres.value.bar, 5)
+      assert.strictEqual(gres.value.baz, 'world')
+      assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
     })
   })
 }

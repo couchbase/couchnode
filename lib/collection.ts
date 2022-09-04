@@ -8,12 +8,24 @@ import {
 import binding, {
   CppDocumentId,
   CppConnection,
+  CppError,
   zeroCas,
   CppImplSubdocCommand,
+  CppInsertResponse,
+  CppUpsertResponse,
+  CppRemoveResponse,
+  CppReplaceResponse,
+  CppMutateInResponse,
+  CppAppendResponse,
+  CppPrependResponse,
+  CppIncrementResponse,
+  CppDecrementResponse,
 } from './binding'
 import {
   durabilityToCpp,
   errorFromCpp,
+  persistToToCpp,
+  replicateToToCpp,
   storeSemanticToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
@@ -94,6 +106,20 @@ export interface InsertOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
+
+  /**
    * Specifies an explicit transcoder to use for this specific operation.
    */
   transcoder?: Transcoder
@@ -122,6 +148,20 @@ export interface UpsertOptions {
    * Specifies the level of synchronous durability for this operation.
    */
   durabilityLevel?: DurabilityLevel
+
+  /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
 
   /**
    * Specifies an explicit transcoder to use for this specific operation.
@@ -160,6 +200,20 @@ export interface ReplaceOptions {
   durabilityLevel?: DurabilityLevel
 
   /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
+
+  /**
    * Specifies an explicit transcoder to use for this specific operation.
    */
   transcoder?: Transcoder
@@ -184,6 +238,20 @@ export interface RemoveOptions {
    * Specifies the level of synchronous durability for this operation.
    */
   durabilityLevel?: DurabilityLevel
+
+  /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -280,6 +348,20 @@ export interface MutateInOptions {
    * Specifies the level of synchronous durability for this operation.
    */
   durabilityLevel?: DurabilityLevel
+
+  /**
+   * Specifies the number of nodes this operation should be persisted to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityPersistTo?: number
+
+  /**
+   * Specifies the number of nodes this operation should be replicated to
+   * before it is considered successful.  Note that this option is mutually
+   * exclusive of {@link durabilityLevel}.
+   */
+  durabilityReplicateTo?: number
 
   /**
    * Specifies the store semantics to use for this operation.
@@ -684,6 +766,8 @@ export class Collection {
     const expiry = options.expiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
@@ -692,33 +776,52 @@ export class Collection {
           return wrapCallback(err, null)
         }
 
-        this._conn.insert(
-          {
-            id: this._cppDocId(key),
-            value: bytes,
-            flags,
-            expiry: expiry || 0,
-            durability_level: durabilityToCpp(durabilityLevel),
-            timeout,
-            partition: 0,
-            opaque: 0,
-          },
-          (cppErr, resp) => {
-            const err = errorFromCpp(cppErr)
+        const insertReq = {
+          id: this._cppDocId(key),
+          value: bytes,
+          flags,
+          expiry: expiry || 0,
+          timeout,
+          partition: 0,
+          opaque: 0,
+        }
 
-            if (err) {
-              return wrapCallback(err, null)
-            }
-
-            wrapCallback(
-              err,
-              new MutationResult({
-                cas: resp.cas,
-                token: resp.token,
-              })
-            )
+        const insertCallback = (
+          cppErr: CppError | null,
+          resp: CppInsertResponse
+        ) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
           }
-        )
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+
+        if (persistTo || replicateTo) {
+          this._conn.insertWithLegacyDurability(
+            {
+              ...insertReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            insertCallback
+          )
+        } else {
+          this._conn.insert(
+            {
+              ...insertReq,
+              durability_level: durabilityToCpp(durabilityLevel),
+            },
+            insertCallback
+          )
+        }
       })
     }, callback)
   }
@@ -750,6 +853,8 @@ export class Collection {
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
@@ -758,33 +863,53 @@ export class Collection {
           return wrapCallback(err, null)
         }
 
-        this._conn.upsert(
-          {
-            id: this._cppDocId(key),
-            value: bytes,
-            flags,
-            expiry: expiry || 0,
-            preserve_expiry: preserve_expiry || false,
-            durability_level: durabilityToCpp(durabilityLevel),
-            timeout,
-            partition: 0,
-            opaque: 0,
-          },
-          (cppErr, resp) => {
-            const err = errorFromCpp(cppErr)
-            if (err) {
-              return wrapCallback(err, null)
-            }
+        const upsertReq = {
+          id: this._cppDocId(key),
+          value: bytes,
+          flags,
+          expiry: expiry || 0,
+          preserve_expiry: preserve_expiry || false,
+          timeout,
+          partition: 0,
+          opaque: 0,
+        }
 
-            wrapCallback(
-              err,
-              new MutationResult({
-                cas: resp.cas,
-                token: resp.token,
-              })
-            )
+        const upsertCallback = (
+          cppErr: CppError | null,
+          resp: CppUpsertResponse
+        ) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
           }
-        )
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+
+        if (persistTo || replicateTo) {
+          this._conn.upsertWithLegacyDurability(
+            {
+              ...upsertReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            upsertCallback
+          )
+        } else {
+          this._conn.upsert(
+            {
+              ...upsertReq,
+              durability_level: durabilityToCpp(durabilityLevel),
+            },
+            upsertCallback
+          )
+        }
       })
     }, callback)
   }
@@ -816,6 +941,8 @@ export class Collection {
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
@@ -824,35 +951,54 @@ export class Collection {
           return wrapCallback(err, null)
         }
 
-        this._conn.replace(
-          {
-            id: this._cppDocId(key),
-            value: bytes,
-            flags,
-            expiry,
-            cas: cas || zeroCas,
-            preserve_expiry: preserve_expiry || false,
-            durability_level: durabilityToCpp(durabilityLevel),
-            timeout,
-            partition: 0,
-            opaque: 0,
-          },
-          (cppErr, resp) => {
-            const err = errorFromCpp(cppErr)
+        const replaceReq = {
+          id: this._cppDocId(key),
+          value: bytes,
+          flags,
+          expiry,
+          cas: cas || zeroCas,
+          preserve_expiry: preserve_expiry || false,
+          timeout,
+          partition: 0,
+          opaque: 0,
+        }
 
-            if (err) {
-              return wrapCallback(err, null)
-            }
-
-            wrapCallback(
-              err,
-              new MutationResult({
-                cas: resp.cas,
-                token: resp.token,
-              })
-            )
+        const replaceCallback = (
+          cppErr: CppError | null,
+          resp: CppReplaceResponse
+        ) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
           }
-        )
+
+          wrapCallback(
+            err,
+            new MutationResult({
+              cas: resp.cas,
+              token: resp.token,
+            })
+          )
+        }
+
+        if (persistTo || replicateTo) {
+          this._conn.replaceWithLegacyDurability(
+            {
+              ...replaceReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            replaceCallback
+          )
+        } else {
+          this._conn.replace(
+            {
+              ...replaceReq,
+              durability_level: durabilityToCpp(durabilityLevel),
+            },
+            replaceCallback
+          )
+        }
       })
     }, callback)
   }
@@ -879,32 +1025,55 @@ export class Collection {
 
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.remove(
-        {
-          id: this._cppDocId(key),
-          cas: cas || zeroCas,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const removeReq = {
+        id: this._cppDocId(key),
+        cas: cas || zeroCas,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-            })
-          )
+      const removeCallback = (
+        cppErr: CppError | null,
+        resp: CppRemoveResponse
+      ) => {
+        const err = errorFromCpp(cppErr)
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        wrapCallback(
+          err,
+          new MutationResult({
+            cas: resp.cas,
+            token: resp.token,
+          })
+        )
+      }
+
+      if (persistTo || replicateTo) {
+        this._conn.removeWithLegacyDurability(
+          {
+            ...removeReq,
+            persist_to: persistToToCpp(persistTo),
+            replicate_to: replicateToToCpp(replicateTo),
+          },
+          removeCallback
+        )
+      } else {
+        this._conn.remove(
+          {
+            ...removeReq,
+            durability_level: durabilityToCpp(durabilityLevel),
+          },
+          removeCallback
+        )
+      }
     }, callback)
   }
 
@@ -1264,58 +1433,80 @@ export class Collection {
     const preserveExpiry = options.preserveExpiry
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.mutateIn(
-        {
-          id: this._cppDocId(key),
-          store_semantics: storeSemanticToCpp(storeSemantics),
-          specs: cppSpecs,
-          expiry,
-          preserve_expiry: preserveExpiry || false,
-          cas: cas || zeroCas,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-          partition: 0,
-          opaque: 0,
-          access_deleted: false,
-          create_as_deleted: false,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
+      const mutateInReq = {
+        id: this._cppDocId(key),
+        store_semantics: storeSemanticToCpp(storeSemantics),
+        specs: cppSpecs,
+        expiry,
+        preserve_expiry: preserveExpiry || false,
+        cas: cas || zeroCas,
+        timeout,
+        partition: 0,
+        opaque: 0,
+        access_deleted: false,
+        create_as_deleted: false,
+      }
 
-          if (resp && resp.fields) {
-            const content: MutateInResultEntry[] = []
+      const mutateInCallback = (
+        cppErr: CppError | null,
+        resp: CppMutateInResponse
+      ) => {
+        const err = errorFromCpp(cppErr)
 
-            for (let i = 0; i < resp.fields.length; ++i) {
-              const itemRes = resp.fields[i]
+        if (resp && resp.fields) {
+          const content: MutateInResultEntry[] = []
 
-              let value: any = undefined
-              if (itemRes.value && itemRes.value.length > 0) {
-                value = this._subdocDecode(itemRes.value)
-              }
+          for (let i = 0; i < resp.fields.length; ++i) {
+            const itemRes = resp.fields[i]
 
-              content.push(
-                new MutateInResultEntry({
-                  value,
-                })
-              )
+            let value: any = undefined
+            if (itemRes.value && itemRes.value.length > 0) {
+              value = this._subdocDecode(itemRes.value)
             }
 
-            wrapCallback(
-              err,
-              new MutateInResult({
-                content: content,
-                cas: resp.cas,
+            content.push(
+              new MutateInResultEntry({
+                value,
               })
             )
-            return
           }
 
-          wrapCallback(err, null)
+          wrapCallback(
+            err,
+            new MutateInResult({
+              content: content,
+              cas: resp.cas,
+            })
+          )
+          return
         }
-      )
+
+        wrapCallback(err, null)
+      }
+
+      if (persistTo || replicateTo) {
+        this._conn.mutateInWithLegacyDurability(
+          {
+            ...mutateInReq,
+            persist_to: persistToToCpp(persistTo),
+            replicate_to: replicateToToCpp(replicateTo),
+          },
+          mutateInCallback
+        )
+      } else {
+        this._conn.mutateIn(
+          {
+            ...mutateInReq,
+            durability_level: durabilityToCpp(durabilityLevel),
+          },
+          mutateInCallback
+        )
+      }
     }, callback)
   }
 
@@ -1383,36 +1574,58 @@ export class Collection {
     const initial_value = options.initial
     const expiry = options.expiry
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.increment(
-        {
-          id: this._cppDocId(key),
-          delta,
-          initial_value,
-          expiry: expiry || 0,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const incrementReq = {
+        id: this._cppDocId(key),
+        delta,
+        initial_value,
+        expiry: expiry || 0,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new CounterResult({
-              cas: resp.cas,
-              token: resp.token,
-              value: resp.content,
-            })
-          )
+      const incrementCallback = (
+        cppErr: CppError | null,
+        resp: CppIncrementResponse
+      ) => {
+        const err = errorFromCpp(cppErr)
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        wrapCallback(
+          err,
+          new CounterResult({
+            cas: resp.cas,
+            token: resp.token,
+            value: resp.content,
+          })
+        )
+      }
+
+      if (persistTo || replicateTo) {
+        this._conn.incrementWithLegacyDurability(
+          {
+            ...incrementReq,
+            persist_to: persistToToCpp(persistTo),
+            replicate_to: replicateToToCpp(replicateTo),
+          },
+          incrementCallback
+        )
+      } else {
+        this._conn.increment(
+          {
+            ...incrementReq,
+            durability_level: durabilityToCpp(durabilityLevel),
+          },
+          incrementCallback
+        )
+      }
     }, callback)
   }
 
@@ -1436,36 +1649,58 @@ export class Collection {
     const initial_value = options.initial
     const expiry = options.expiry
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.decrement(
-        {
-          id: this._cppDocId(key),
-          delta,
-          initial_value,
-          expiry: expiry || 0,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const decrementReq = {
+        id: this._cppDocId(key),
+        delta,
+        initial_value,
+        expiry: expiry || 0,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new CounterResult({
-              cas: resp.cas,
-              token: resp.token,
-              value: resp.content,
-            })
-          )
+      const decrementCallback = (
+        cppErr: CppError | null,
+        resp: CppDecrementResponse
+      ) => {
+        const err = errorFromCpp(cppErr)
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        wrapCallback(
+          err,
+          new CounterResult({
+            cas: resp.cas,
+            token: resp.token,
+            value: resp.content,
+          })
+        )
+      }
+
+      if (persistTo || replicateTo) {
+        this._conn.decrementWithLegacyDurability(
+          {
+            ...decrementReq,
+            persist_to: persistToToCpp(persistTo),
+            replicate_to: replicateToToCpp(replicateTo),
+          },
+          decrementCallback
+        )
+      } else {
+        this._conn.decrement(
+          {
+            ...decrementReq,
+            durability_level: durabilityToCpp(durabilityLevel),
+          },
+          decrementCallback
+        )
+      }
     }, callback)
   }
 
@@ -1487,6 +1722,8 @@ export class Collection {
     }
 
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
@@ -1494,30 +1731,50 @@ export class Collection {
         value = Buffer.from(value)
       }
 
-      this._conn.append(
-        {
-          id: this._cppDocId(key),
-          value,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const appendReq = {
+        id: this._cppDocId(key),
+        value,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
+      const appendCallback = (
+        cppErr: CppError | null,
+        resp: CppAppendResponse
+      ) => {
+        const err = errorFromCpp(cppErr)
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        wrapCallback(
+          err,
+          new MutationResult({
+            cas: resp.cas,
+            token: resp.token,
+          })
+        )
+      }
+
+      if (persistTo || replicateTo) {
+        this._conn.appendWithLegacyDurability(
+          {
+            ...appendReq,
+            persist_to: persistToToCpp(persistTo),
+            replicate_to: replicateToToCpp(replicateTo),
+          },
+          appendCallback
+        )
+      } else {
+        this._conn.append(
+          {
+            ...appendReq,
+            durability_level: durabilityToCpp(durabilityLevel),
+          },
+          appendCallback
+        )
+      }
     }, callback)
   }
 
@@ -1539,6 +1796,8 @@ export class Collection {
     }
 
     const durabilityLevel = options.durabilityLevel
+    const persistTo = options.durabilityPersistTo
+    const replicateTo = options.durabilityReplicateTo
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
@@ -1546,30 +1805,50 @@ export class Collection {
         value = Buffer.from(value)
       }
 
-      this._conn.prepend(
-        {
-          id: this._cppDocId(key),
-          value,
-          durability_level: durabilityToCpp(durabilityLevel),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const prependReq = {
+        id: this._cppDocId(key),
+        value,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
+      const prependCallback = (
+        cppErr: CppError | null,
+        resp: CppPrependResponse
+      ) => {
+        const err = errorFromCpp(cppErr)
+        if (err) {
+          return wrapCallback(err, null)
         }
-      )
+
+        wrapCallback(
+          err,
+          new MutationResult({
+            cas: resp.cas,
+            token: resp.token,
+          })
+        )
+      }
+
+      if (persistTo || replicateTo) {
+        this._conn.prependWithLegacyDurability(
+          {
+            ...prependReq,
+            persist_to: persistToToCpp(persistTo),
+            replicate_to: replicateToToCpp(replicateTo),
+          },
+          prependCallback
+        )
+      } else {
+        this._conn.prepend(
+          {
+            ...prependReq,
+            durability_level: durabilityToCpp(durabilityLevel),
+          },
+          prependCallback
+        )
+      }
     }, callback)
   }
 }
