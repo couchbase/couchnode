@@ -62,4 +62,16 @@ describe('#Cluster', function () {
   it('lcbVersion property should work', function () {
     assert(typeof H.lib.lcbVersion === 'string')
   })
+
+  it('should error with AuthenticationFailureError', async function () {
+    if (!H._usingMock) {
+      let connOpts = { ...H.connOpts }
+      connOpts.username = 'wrongUsername'
+      await H.throwsHelper(async () => {
+        await H.lib.Cluster.connect(H.connStr, connOpts)
+      }, H.lib.AuthenticationFailureError)
+    } else {
+      this.skip()
+    }
+  })
 })

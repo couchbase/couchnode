@@ -235,7 +235,6 @@ export class Cluster {
   @deprecated Use the static sdk-level {@link connect} method instead.
   */
   constructor(connStr: string, options?: ConnectOptions) {
-    
     if (!options) {
       options = {}
     }
@@ -560,11 +559,7 @@ export class Cluster {
         password: undefined as string | undefined,
         certificate_path: undefined as string | undefined,
         key_path: undefined as string | undefined,
-        allowed_sasl_mechanisms: [
-          'SCRAM-SHA512',
-          'SCRAM-SHA256',
-          'SCRAM-SHA1',
-        ],
+        allowed_sasl_mechanisms: ['SCRAM-SHA512', 'SCRAM-SHA256', 'SCRAM-SHA1'],
       }
 
       if (this._auth) {
@@ -573,7 +568,7 @@ export class Cluster {
           authOpts.username = passAuth.username
           authOpts.password = passAuth.password
 
-          if(passAuth.allowed_sasl_mechanisms) {
+          if (passAuth.allowed_sasl_mechanisms) {
             authOpts.allowed_sasl_mechanisms = passAuth.allowed_sasl_mechanisms
           }
         }
@@ -584,8 +579,9 @@ export class Cluster {
           authOpts.key_path = certAuth.keyPath
         }
       }
-      this._conn.connect(connStr, authOpts, (err) => {
-        if (err) {
+      this._conn.connect(connStr, authOpts, (cppErr) => {
+        if (cppErr) {
+          const err = errorFromCpp(cppErr)
           return reject(err)
         }
 
