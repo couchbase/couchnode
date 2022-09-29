@@ -55,7 +55,7 @@ export class PasswordAuthenticator implements IPasswordAuthenticator {
    */
   password: string
 
-   /**
+  /**
    * The sasl mechanisms to authenticate with.
    */
   allowed_sasl_mechanisms?: string[]

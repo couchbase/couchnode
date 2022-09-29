@@ -36,7 +36,20 @@ describe('#bucketmanager', function () {
     var bmgr = H.c.buckets()
     var res = await bmgr.getBucket(testBucket)
     assert.isObject(res)
-    assert.equal(res.name, testBucket)
+    const expected = {
+      name: testBucket,
+      flushEnabled: true,
+      ramQuotaMB: 256,
+      numReplicas: 1,
+      replicaIndexes: true,
+      bucketType: 'membase',
+      storageBackend: 'couchstore',
+      evictionPolicy: 'valueOnly',
+      maxExpiry: 0,
+      compressionMode: 'passive',
+      minimumDurabilityLevel: 0,
+    }
+    assert.deepStrictEqual(res, expected)
   })
 
   it('should successfully get all buckets', async function () {
@@ -91,4 +104,33 @@ describe('#bucketmanager', function () {
       await bmgr.dropBucket(testBucket)
     }, H.lib.BucketNotFoundError)
   })
+
+  it('should successfully create a bucket with flush and replicaIndexes disabled', async function () {
+    var bmgr = H.c.buckets()
+    await bmgr.createBucket({
+      name: testBucket,
+      flushEnabled: false,
+      replicaIndexes: false,
+      ramQuotaMB: 256,
+    })
+
+    var res = await bmgr.getBucket(testBucket)
+    assert.isObject(res)
+    const expected = {
+      name: testBucket,
+      flushEnabled: false,
+      ramQuotaMB: 256,
+      numReplicas: 1,
+      replicaIndexes: false,
+      bucketType: 'membase',
+      storageBackend: 'couchstore',
+      evictionPolicy: 'valueOnly',
+      maxExpiry: 0,
+      compressionMode: 'passive',
+      minimumDurabilityLevel: 0,
+    }
+    assert.deepStrictEqual(res, expected)
+
+    await bmgr.dropBucket(testBucket)
+  }).timeout(10 * 1000)
 })

@@ -149,7 +149,7 @@ export interface IBucketSettings {
    * Whether the flush operation (truncating all data in the bucket) should
    * be enabled.
    */
-  flushEnabled: boolean
+  flushEnabled?: boolean
 
   /**
    * The amount of RAM which should be allocated to this bucket, expressed in
@@ -160,52 +160,52 @@ export interface IBucketSettings {
   /**
    * The number of replicas that should exist for this bucket.
    */
-  numReplicas: number
+  numReplicas?: number
 
   /**
    * Whether the indexes on this bucket should be replicated.
    */
-  replicaIndexes: boolean
+  replicaIndexes?: boolean
 
   /**
    * Specifies the type of bucket that should be used.
    */
-  bucketType: BucketType | string
+  bucketType?: BucketType | string
 
   /**
    * Specifies the storage backend to use for the bucket.
    */
-  storageBackend: StorageBackend | string
+  storageBackend?: StorageBackend | string
 
   /**
    * Specifies the ejection method that should be used.
    */
-  evictionPolicy: EvictionPolicy | string
+  evictionPolicy?: EvictionPolicy | string
 
   /**
    * Specifies the maximum expiry time that any document should be permitted
    * to have.  Any documents stored with an expiry configured higher than this
    * will be forced to this number.
    */
-  maxExpiry: number
+  maxExpiry?: number
 
   /**
    * Specifies the compression mode that should be used.
    */
-  compressionMode: CompressionMode | string
+  compressionMode?: CompressionMode | string
 
   /**
    * Specifies the minimum durability level that should be used for any write
    * operations which are performed against this bucket.
    */
-  minimumDurabilityLevel: DurabilityLevel | string
+  minimumDurabilityLevel?: DurabilityLevel | string
 
   /**
    * Same as {@link IBucketSettings.maxExpiry}.
    *
    * @deprecated Use {@link IBucketSettings.maxExpiry} instead.
    */
-  maxTTL: number
+  maxTTL?: number
 
   /**
    * Same as {@link IBucketSettings.minimumDurabilityLevel}, but represented as
@@ -213,7 +213,7 @@ export interface IBucketSettings {
    *
    * @deprecated Use {@link IBucketSettings.minimumDurabilityLevel} instead.
    */
-  durabilityMinLevel: string
+  durabilityMinLevel?: string
 
   /**
    * Same as {@link IBucketSettings.evictionPolicy}, but represented as
@@ -239,7 +239,7 @@ export class BucketSettings implements IBucketSettings {
    * Whether the flush operation (truncating all data in the bucket) should
    * be enabled.
    */
-  flushEnabled: boolean
+  flushEnabled?: boolean
 
   /**
    * The amount of RAM which should be allocated to this bucket, expressed in
@@ -250,45 +250,45 @@ export class BucketSettings implements IBucketSettings {
   /**
    * The number of replicas that should exist for this bucket.
    */
-  numReplicas: number
+  numReplicas?: number
 
   /**
    * Whether the indexes on this bucket should be replicated.
    */
-  replicaIndexes: boolean
+  replicaIndexes?: boolean
 
   /**
    * Specifies the type of bucket that should be used.
    */
-  bucketType: BucketType
+  bucketType?: BucketType
 
   /**
    * Specifies the storage backend to use for the bucket.
    */
-  storageBackend: StorageBackend | string
+  storageBackend?: StorageBackend | string
 
   /**
    * Specifies the ejection method that should be used.
    */
-  evictionPolicy: EvictionPolicy
+  evictionPolicy?: EvictionPolicy
 
   /**
    * Specifies the maximum expiry time that any document should be permitted
    * to have.  Any documents stored with an expiry configured higher than this
    * will be forced to this number.
    */
-  maxExpiry: number
+  maxExpiry?: number
 
   /**
    * Specifies the compression mode that should be used.
    */
-  compressionMode: CompressionMode
+  compressionMode?: CompressionMode
 
   /**
    * Specifies the minimum durability level that should be used for any write
    * operations which are performed against this bucket.
    */
-  minimumDurabilityLevel: DurabilityLevel
+  minimumDurabilityLevel?: DurabilityLevel
 
   /**
    * @internal
@@ -313,7 +313,7 @@ export class BucketSettings implements IBucketSettings {
    * @deprecated Use {@link IBucketSettings.maxExpiry} instead.
    */
   get maxTTL(): number {
-    return this.maxExpiry
+    return this.maxExpiry ?? 0
   }
   set maxTTL(val: number) {
     this.maxExpiry = val
@@ -325,7 +325,7 @@ export class BucketSettings implements IBucketSettings {
    * @deprecated Use {@link IBucketSettings.evictionPolicy} instead.
    */
   get ejectionMethod(): EvictionPolicy | string {
-    return this.evictionPolicy
+    return this.evictionPolicy as string
   }
   set ejectionMethod(val: EvictionPolicy | string) {
     this.evictionPolicy = val as EvictionPolicy
@@ -350,7 +350,7 @@ export class BucketSettings implements IBucketSettings {
       flushEnabled: data.flushEnabled,
       ramQuotaMB: data.ramQuotaMB,
       replicaNumber: data.numReplicas,
-      replicaIndexes: data.replicaIndexes,
+      replicaIndex: data.replicaIndexes,
       bucketType: data.bucketType,
       storageBackend: data.storageBackend,
       evictionPolicy: data.evictionPolicy,
@@ -368,10 +368,10 @@ export class BucketSettings implements IBucketSettings {
   static _fromNsData(data: any): BucketSettings {
     return new BucketSettings({
       name: data.name,
-      flushEnabled: data.controllers && data.controllers.flush,
-      ramQuotaMB: data.ramQuotaMB,
+      flushEnabled: data.controllers && data.controllers.flush ? true : false,
+      ramQuotaMB: data.quota.rawRAM / 1024 / 1024,
       numReplicas: data.replicaNumber,
-      replicaIndexes: data.replicaIndexes,
+      replicaIndexes: data.replicaIndex,
       bucketType: data.bucketType,
       storageBackend: data.storageBackend,
       evictionPolicy: data.evictionPolicy,
@@ -394,7 +394,7 @@ export interface ICreateBucketSettings extends IBucketSettings {
   /**
    * Specifies the conflict resolution mode to use for XDCR of this bucket.
    */
-  conflictResolutionType: ConflictResolutionType | string
+  conflictResolutionType?: ConflictResolutionType | string
 }
 
 /**
@@ -410,7 +410,7 @@ class CreateBucketSettings
   /**
    * Specifies the conflict resolution mode to use for XDCR of this bucket.
    */
-  conflictResolutionType: ConflictResolutionType
+  conflictResolutionType?: ConflictResolutionType
 
   /**
    * @internal
