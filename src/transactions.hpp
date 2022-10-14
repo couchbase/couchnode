@@ -1,10 +1,11 @@
 #pragma once
 #include "addondata.hpp"
-#include <couchbase/transactions.hxx>
+#include <core/transactions.hxx>
 #include <memory>
 #include <napi.h>
 
 namespace cbtxns = couchbase::transactions;
+namespace cbcoretxns = couchbase::core::transactions;
 
 namespace couchnode
 {
@@ -17,7 +18,7 @@ public:
         return AddonData::fromEnv(env)->_transactionsCtor;
     }
 
-    cbtxns::transactions &transactions() const
+    cbcoretxns::transactions &transactions() const
     {
         return *_impl;
     }
@@ -30,7 +31,7 @@ public:
     Napi::Value jsClose(const Napi::CallbackInfo &info);
 
 private:
-    std::shared_ptr<cbtxns::transactions> _impl;
+    std::shared_ptr<cbcoretxns::transactions> _impl;
 };
 
 } // namespace couchnode

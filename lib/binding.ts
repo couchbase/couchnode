@@ -13,7 +13,7 @@ export type CppDocFlags = number
 export type CppExpiry = number
 export type CppMutationState = CppMutationToken[]
 
-export type CppJsonString = string
+export type CppJsonString = string | Buffer
 
 export interface CppDocumentId {
   bucket: string
@@ -57,7 +57,7 @@ export enum CppDesignDocumentNamespace {}
 export enum CppDiagClusterState {}
 export enum CppDiagEndpointState {}
 export enum CppDiagPingState {}
-export enum CppQueryProfileMode {}
+export enum CppQueryProfile {}
 export enum CppQueryScanConsistency {}
 export enum CppSearchHighlightStyle {}
 export enum CppSearchScanConsistency {}
@@ -563,7 +563,7 @@ export interface CppQueryRequest {
   scope_qualifier?: string
   client_context_id?: string
   timeout?: CppMilliseconds
-  profile: CppQueryProfileMode
+  profile: CppQueryProfile
   raw: { [key: string /*string*/]: CppJsonString }
   positional_parameters: CppJsonString[]
   named_parameters: { [key: string /*string*/]: CppJsonString }
@@ -2612,10 +2612,10 @@ export interface CppBindingAutogen {
     timeout: CppDiagPingState
     error: CppDiagPingState
   }
-  query_profile_mode: {
-    off: CppQueryProfileMode
-    phases: CppQueryProfileMode
-    timings: CppQueryProfileMode
+  query_profile: {
+    off: CppQueryProfile
+    phases: CppQueryProfile
+    timings: CppQueryProfile
   }
   query_scan_consistency: {
     not_bounded: CppQueryScanConsistency
@@ -3214,7 +3214,7 @@ export interface CppTransaction {
       raw?: { [key: string]: CppJsonString }
       ad_hoc?: boolean
       scan_consistency?: CppQueryScanConsistency
-      profile?: CppQueryProfileMode
+      profile?: CppQueryProfile
       metrics?: boolean
       client_context_id?: string
       scan_wait?: CppMilliseconds

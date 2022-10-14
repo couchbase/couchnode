@@ -267,7 +267,7 @@ struct js_to_cbpp_t<std::set<T>> {
         }
 
         std::set<T> cppObj;
-        auto jsArr = jsVal.As<Napi::Array>();
+        auto jsArr = jsVal.As<Napi::Array>();   
         for (auto i = 0; i < jsArr.Length(); ++i) {
             cppObj.insert(js_to_cbpp<T>(jsArr.Get(i)));
         }
@@ -276,10 +276,10 @@ struct js_to_cbpp_t<std::set<T>> {
 };
 
 // std::map<string, ...> type
-template <typename T>
-struct js_to_cbpp_t<std::map<std::string, T>> {
+template <typename T, typename... Args>
+struct js_to_cbpp_t<std::map<std::string, T, Args...>> {
     static inline Napi::Value to_js(Napi::Env env,
-                                    const std::map<std::string, T> &cppObj)
+                                    const std::map<std::string, T, Args...> &cppObj)
     {
         auto jsObj = Napi::Object::New(env);
         for (const auto &i : cppObj) {
@@ -288,13 +288,13 @@ struct js_to_cbpp_t<std::map<std::string, T>> {
         return jsObj;
     }
 
-    static inline std::map<std::string, T> from_js(Napi::Value jsVal)
+    static inline std::map<std::string, T, Args...> from_js(Napi::Value jsVal)
     {
         if (jsVal.IsEmpty() || jsVal.IsNull() || jsVal.IsUndefined()) {
             return {};
         }
 
-        std::map<std::string, T> cppObj;
+        std::map<std::string, T, Args...> cppObj;
         auto jsObj = jsVal.As<Napi::Object>();
         auto jsPropNames = jsObj.GetPropertyNames();
         for (auto i = 0; i < jsPropNames.Length(); ++i) {

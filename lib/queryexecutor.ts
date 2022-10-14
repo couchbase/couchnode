@@ -2,7 +2,7 @@ import { CppError, CppQueryResponse } from './binding'
 import {
   errorFromCpp,
   mutationStateToCpp,
-  queryProfileModeToCpp,
+  queryProfileToCpp,
   queryScanConsistencyToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
@@ -144,7 +144,7 @@ export class QueryExecutor {
           mutation_state: mutationStateToCpp(options.consistentWith),
           timeout: timeout,
           scope_qualifier: options.queryContext,
-          profile: queryProfileModeToCpp(options.profile),
+          profile: queryProfileToCpp(options.profile),
           raw: options.raw
             ? Object.fromEntries(
                 Object.entries(options.raw).map(([k, v]) => [

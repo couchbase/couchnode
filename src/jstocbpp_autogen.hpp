@@ -503,7 +503,7 @@ struct js_to_cbpp_t<couchbase::core::management::eventing::function_settings> {
                                                 jsObj.Get("lcb_retry_count"));
         js_to_cbpp<std::optional<std::chrono::seconds>>(
             cppObj.lcb_timeout, jsObj.Get("lcb_timeout"));
-        js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
+        js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
             cppObj.query_consistency, jsObj.Get("query_consistency"));
         js_to_cbpp<std::optional<std::int64_t>>(
             cppObj.num_timer_partitions, jsObj.Get("num_timer_partitions"));
@@ -586,10 +586,9 @@ struct js_to_cbpp_t<couchbase::core::management::eventing::function_settings> {
         resObj.Set("lcb_timeout",
                    cbpp_to_js<std::optional<std::chrono::seconds>>(
                        env, cppObj.lcb_timeout));
-        resObj.Set(
-            "query_consistency",
-            cbpp_to_js<std::optional<couchbase::core::query_scan_consistency>>(
-                env, cppObj.query_consistency));
+        resObj.Set("query_consistency",
+                   cbpp_to_js<std::optional<couchbase::query_scan_consistency>>(
+                       env, cppObj.query_consistency));
         resObj.Set("num_timer_partitions",
                    cbpp_to_js<std::optional<std::int64_t>>(
                        env, cppObj.num_timer_partitions));
@@ -2429,7 +2428,7 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
                                                  jsObj.Get("pipeline_batch"));
         js_to_cbpp<std::optional<std::uint64_t>>(cppObj.pipeline_cap,
                                                  jsObj.Get("pipeline_cap"));
-        js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
+        js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
             cppObj.scan_consistency, jsObj.Get("scan_consistency"));
         js_to_cbpp<std::vector<couchbase::mutation_token>>(
             cppObj.mutation_state, jsObj.Get("mutation_state"));
@@ -2443,13 +2442,15 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
-        js_to_cbpp<couchbase::core::query_profile_mode>(cppObj.profile,
-                                                        jsObj.Get("profile"));
-        js_to_cbpp<std::map<std::string, couchbase::core::json_string>>(
+        js_to_cbpp<couchbase::query_profile>(cppObj.profile,
+                                             jsObj.Get("profile"));
+        js_to_cbpp<
+            std::map<std::string, couchbase::core::json_string, std::less<>>>(
             cppObj.raw, jsObj.Get("raw"));
         js_to_cbpp<std::vector<couchbase::core::json_string>>(
             cppObj.positional_parameters, jsObj.Get("positional_parameters"));
-        js_to_cbpp<std::map<std::string, couchbase::core::json_string>>(
+        js_to_cbpp<
+            std::map<std::string, couchbase::core::json_string, std::less<>>>(
             cppObj.named_parameters, jsObj.Get("named_parameters"));
         // row_callback
         js_to_cbpp<std::optional<std::string>>(cppObj.send_to_node,
@@ -2483,10 +2484,9 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
                                          env, cppObj.pipeline_batch));
         resObj.Set("pipeline_cap", cbpp_to_js<std::optional<std::uint64_t>>(
                                        env, cppObj.pipeline_cap));
-        resObj.Set(
-            "scan_consistency",
-            cbpp_to_js<std::optional<couchbase::core::query_scan_consistency>>(
-                env, cppObj.scan_consistency));
+        resObj.Set("scan_consistency",
+                   cbpp_to_js<std::optional<couchbase::query_scan_consistency>>(
+                       env, cppObj.scan_consistency));
         resObj.Set("mutation_state",
                    cbpp_to_js<std::vector<couchbase::mutation_token>>(
                        env, cppObj.mutation_state));
@@ -2501,19 +2501,19 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
-        resObj.Set("profile", cbpp_to_js<couchbase::core::query_profile_mode>(
-                                  env, cppObj.profile));
+        resObj.Set("profile",
+                   cbpp_to_js<couchbase::query_profile>(env, cppObj.profile));
         resObj.Set(
             "raw",
-            cbpp_to_js<std::map<std::string, couchbase::core::json_string>>(
-                env, cppObj.raw));
+            cbpp_to_js<std::map<std::string, couchbase::core::json_string,
+                                std::less<>>>(env, cppObj.raw));
         resObj.Set("positional_parameters",
                    cbpp_to_js<std::vector<couchbase::core::json_string>>(
                        env, cppObj.positional_parameters));
         resObj.Set(
             "named_parameters",
-            cbpp_to_js<std::map<std::string, couchbase::core::json_string>>(
-                env, cppObj.named_parameters));
+            cbpp_to_js<std::map<std::string, couchbase::core::json_string,
+                                std::less<>>>(env, cppObj.named_parameters));
         // row_callback
         resObj.Set("send_to_node", cbpp_to_js<std::optional<std::string>>(
                                        env, cppObj.send_to_node));

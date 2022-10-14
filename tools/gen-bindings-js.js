@@ -119,6 +119,10 @@ function getCppType(type) {
   } else if (type.name === 'std::map') {
     const ofType = getCppType(type.of)
     const toType = getCppType(type.to)
+    if (type.comparator !== undefined) {
+      const comparatorType = getCppType(type.comparator)
+      return `${type.name}<${ofType}, ${toType}, ${comparatorType}>`
+    }
     return `${type.name}<${ofType}, ${toType}>`
   } else if (type.name === 'std::array') {
     const ofType = getCppType(type.of)

@@ -1,10 +1,11 @@
 #pragma once
 #include "addondata.hpp"
-#include <couchbase/transactions.hxx>
-#include <couchbase/transactions/internal/transaction_context.hxx>
+#include <core/transactions.hxx>
+#include <core/transactions/internal/transaction_context.hxx>
 #include <napi.h>
 
 namespace cbtxns = couchbase::transactions;
+namespace cbcoretxns = couchbase::core::transactions;
 
 namespace couchnode
 {
@@ -33,7 +34,7 @@ public:
     Napi::Value jsRollback(const Napi::CallbackInfo &info);
 
 private:
-    std::shared_ptr<cbtxns::transaction_context> _impl;
+    std::shared_ptr<cbcoretxns::transaction_context> _impl;
 };
 
 } // namespace couchnode

@@ -2,8 +2,8 @@
 #include "connection.hpp"
 #include "jstocbpp.hpp"
 #include "transactions.hpp"
-#include <couchbase/transactions/internal/exceptions_internal.hxx>
-#include <couchbase/transactions/internal/utils.hxx>
+#include <core/transactions/internal/exceptions_internal.hxx>
+#include <core/transactions/internal/utils.hxx>
 #include <type_traits>
 
 namespace couchnode
@@ -61,7 +61,7 @@ Transaction::Transaction(const Napi::CallbackInfo &info)
     auto &transactions = Transactions::Unwrap(txnsJsObj)->transactions();
 
     auto txnConfig = jsToCbpp<cbtxns::per_transaction_config>(configJsObj);
-    _impl.reset(new cbtxns::transaction_context(transactions));
+    _impl.reset(new cbcoretxns::transaction_context(transactions));
 }
 
 Transaction::~Transaction()
@@ -96,7 +96,7 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
     _impl->get_optional(
         docId, [this, cookie = std::move(cookie)](
                    std::exception_ptr err,
-                   std::optional<cbtxns::transaction_get_result> res) mutable {
+                   std::optional<cbcoretxns::transaction_get_result> res) mutable {
             cookie.invoke([err = std::move(err), res = std::move(res)](
                               Napi::Env env, Napi::Function callback) mutable {
                 // BUG(JSCBC-1024): We should revert to using direct get
@@ -124,13 +124,13 @@ Napi::Value Transaction::jsInsert(const Napi::CallbackInfo &info)
 
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
     auto content =
-        jsToCbpp<couchbase::core::json_string>(optsJsObj.Get("content"));
+        jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
 
     _impl->insert(
-        docId, content.str(),
+        docId, content,
         [this, cookie = std::move(cookie)](
             std::exception_ptr err,
-            std::optional<cbtxns::transaction_get_result> res) mutable {
+            std::optional<cbcoretxns::transaction_get_result> res) mutable {
             cookie.invoke([err = std::move(err), res = std::move(res)](
                               Napi::Env env, Napi::Function callback) mutable {
                 callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
@@ -146,16 +146,16 @@ Napi::Value Transaction::jsReplace(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[1].As<Napi::Function>();
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
 
-    auto doc = jsToCbpp<couchbase::transactions::transaction_get_result>(
+    auto doc = jsToCbpp<cbcoretxns::transaction_get_result>(
         optsJsObj.Get("doc"));
     auto content =
-        jsToCbpp<couchbase::core::json_string>(optsJsObj.Get("content"));
+        jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
 
     _impl->replace(
-        doc, content.str(),
+        doc, content,
         [this, cookie = std::move(cookie)](
             std::exception_ptr err,
-            std::optional<cbtxns::transaction_get_result> res) mutable {
+            std::optional<cbcoretxns::transaction_get_result> res) mutable {
             cookie.invoke([err = std::move(err), res = std::move(res)](
                               Napi::Env env, Napi::Function callback) mutable {
                 callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
@@ -171,7 +171,7 @@ Napi::Value Transaction::jsRemove(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[1].As<Napi::Function>();
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
 
-    auto doc = jsToCbpp<couchbase::transactions::transaction_get_result>(
+    auto doc = jsToCbpp<cbcoretxns::transaction_get_result>(
         optsJsObj.Get("doc"));
 
     _impl->remove(doc, [this, cookie = std::move(cookie)](
@@ -194,7 +194,7 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
 
     auto statement = jsToCbpp<std::string>(statementJsStr);
     auto options =
-        jsToCbpp<couchbase::transactions::transaction_query_options>(optsJsObj);
+        jsToCbpp<cbcoretxns::transaction_query_options>(optsJsObj);
 
     _impl->query(statement, options,
                  [this, cookie = std::move(cookie)](
@@ -226,7 +226,7 @@ Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnCommitCallback");
 
     _impl->finalize([this, cookie = std::move(cookie)](
-                        std::optional<cbtxns::transaction_exception> err,
+                        std::optional<cbcoretxns::transaction_exception> err,
                         std::optional<cbtxns::transaction_result> res) mutable {
         cookie.invoke([err = std::move(err), res = std::move(res)](
                           Napi::Env env, Napi::Function callback) mutable {

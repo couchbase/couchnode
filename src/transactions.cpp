@@ -1,7 +1,7 @@
 #include "transactions.hpp"
 #include "connection.hpp"
-#include <couchbase/transactions/internal/exceptions_internal.hxx>
-#include <couchbase/transactions/internal/utils.hxx>
+#include <core/transactions/internal/exceptions_internal.hxx>
+#include <core/transactions/internal/utils.hxx>
 #include <type_traits>
 
 namespace couchnode
@@ -32,7 +32,7 @@ Transactions::Transactions(const Napi::CallbackInfo &info)
     auto cluster = Connection::Unwrap(clusterJsObj)->cluster();
 
     auto txnsConfig = jsToCbpp<cbtxns::transaction_config>(configJsObj);
-    _impl.reset(new cbtxns::transactions(*cluster, txnsConfig));
+    _impl.reset(new cbcoretxns::transactions(cluster, txnsConfig));
 }
 
 Transactions::~Transactions()

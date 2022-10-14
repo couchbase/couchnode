@@ -7,7 +7,7 @@ import binding, {
   CppMutationState,
   CppMutationToken,
   CppDiagPingState,
-  CppQueryProfileMode,
+  CppQueryProfile,
   CppQueryScanConsistency,
   CppSearchHighlightStyle,
   CppSearchScanConsistency,
@@ -190,20 +190,20 @@ export function queryScanConsistencyToCpp(
 /**
  * @internal
  */
-export function queryProfileModeToCpp(
+export function queryProfileToCpp(
   mode: QueryProfileMode | undefined
-): CppQueryProfileMode {
+): CppQueryProfile {
   // Unspecified is allowed, and means no sync durability.
   if (mode === null || mode === undefined) {
-    return binding.query_profile_mode.off
+    return binding.query_profile.off
   }
 
   if (mode === QueryProfileMode.Off) {
-    return binding.query_profile_mode.off
+    return binding.query_profile.off
   } else if (mode === QueryProfileMode.Phases) {
-    return binding.query_profile_mode.phases
+    return binding.query_profile.phases
   } else if (mode === QueryProfileMode.Timings) {
-    return binding.query_profile_mode.timings
+    return binding.query_profile.timings
   }
 
   throw new errs.InvalidArgumentError()

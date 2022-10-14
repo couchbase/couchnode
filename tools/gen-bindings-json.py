@@ -1,3 +1,4 @@
+from logging.config import valid_ident
 import os
 import json
 import re
@@ -39,8 +40,8 @@ fileList = [
     "core/diagnostics.hxx",
     "core/document_id.hxx",
     "core/json_string.hxx",
-    "core/query_profile_mode.hxx",
-    "core/query_scan_consistency.hxx",
+    "couchbase/query_profile.hxx",
+    "couchbase/query_scan_consistency.hxx",
     "core/search_highlight_style.hxx",
     "core/search_scan_consistency.hxx",
     "core/service_type.hxx",
@@ -118,8 +119,8 @@ typeList = [
     "couchbase::core::document_id",
     "couchbase::core::json_string",
     "couchbase::mutation_token",
-    "couchbase::core::query_profile_mode",
-    "couchbase::core::query_scan_consistency",
+    "couchbase::query_profile",
+    "couchbase::query_scan_consistency",
     "couchbase::core::search_highlight_style",
     "couchbase::core::search_scan_consistency",
     "couchbase::core::service_type",
@@ -208,6 +209,7 @@ def parse_type(type):
     typeStr = type.get_canonical().spelling
     return parse_type_str(typeStr)
 
+std_comparators = ["std::less<>", "std::greater<>", "std::less_equal<>", "std::greater_equal<>"]
 
 def parse_type_str(typeStr):
     if typeStr == "std::mutex":
@@ -252,6 +254,10 @@ def parse_type_str(typeStr):
         return {"name": "std::float"}
     if typeStr == "double":
         return {"name": "std::double"}
+    if typeStr == "std::nullptr_t":
+        return {"name": "std::nullptr_t"}
+    if typeStr in std_comparators:
+        return {"name": typeStr}
 
     tplParts = typeStr.split("<", 1)
     if len(tplParts) > 1:
@@ -297,14 +303,24 @@ def parse_type_str(typeStr):
             }
         if tplClassName == "std::map":
             variantParts = tplParams.split(", ")
-            if len(variantParts) != 2:
+            if len(variantParts) < 2 or len(variantParts) > 3:
                 print("FAILED TO PARSE MAP TYPES: " + typeStr)
                 return {"name": "unknown", "str": typeStr}
-            return {
-                "name": "std::map",
-                "of": parse_type_str(variantParts[0]),
-                "to": parse_type_str(variantParts[1])
-            }
+
+            if len(variantParts) == 2:
+                return {
+                    "name": "std::map",
+                    "of": parse_type_str(variantParts[0]),
+                    "to": parse_type_str(variantParts[1])
+                }
+            else:
+                return {
+                    "name": "std::map",
+                    "of": parse_type_str(variantParts[0]),
+                    "to": parse_type_str(variantParts[1]),
+                    "comparator": parse_type_str(variantParts[2])
+                }
+            
         if tplClassName == "std::shared_ptr":
             return {
                 "name": "std::shared_ptr",
@@ -398,6 +414,7 @@ for headerPath in fullFileList:
         "-I" + cxxClientRoot + "/third_party/gsl/include",
         "-I" + cxxClientRoot + "/third_party/json/include",
         "-I" + cxxClientRoot + "/third_party/json/external/PEGTL/include",
+        "-I" + cxxClientRoot + "/third_party/asio/asio/include",
         "-I" + f"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/{CLANG_VERSION}/include"
     ]
     translation_unit = index.parse(headerPath, args=args)

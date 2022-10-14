@@ -21,12 +21,6 @@ set(COUCHBASE_CXX_CLIENT_POST_LINKED_OPENSSL ON CACHE BOOL "" FORCE)
 set(COUCHBASE_CXX_CLIENT_STATIC_STDLIB ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/couchbase-cxx-client)
 
-set(COUCHBASE_TXNS_CXX_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(COUCHBASE_TXNS_CXX_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(COUCHBASE_TXNS_CXX_BUILD_DOC OFF CACHE BOOL "" FORCE)
-set(COUCHBASE_TXNS_CXX_CLIENT_EXTERNAL ON CACHE BOOL "" FORCE)
-add_subdirectory(deps/couchbase-transactions-cxx)
-
 project (couchbase_impl)
 
 file(GLOB SOURCE_FILES "src/*.cpp")
@@ -37,14 +31,12 @@ target_include_directories(${PROJECT_NAME}
   PRIVATE ${CMAKE_JS_INC}
           "${CMAKE_SOURCE_DIR}/node_modules/node-addon-api"
           "deps/couchbase-cxx-client/include"
-          "deps/couchbase-transactions-cxx/include"
           "deps/couchbase-cxx-client/third_party/asio/asio/include")
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 
 target_link_libraries(${PROJECT_NAME}
   ${CMAKE_JS_LIB}
   couchbase_cxx_client
-  transactions_cxx
 )
 
 # Workaround a bug in cmake-js with removal of used references:

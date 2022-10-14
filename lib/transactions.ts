@@ -10,7 +10,7 @@ import binding from './binding'
 import {
   durabilityToCpp,
   errorFromCpp,
-  queryProfileModeToCpp,
+  queryProfileToCpp,
   queryScanConsistencyToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
@@ -336,7 +336,9 @@ function translateGetResult(
 
   return new TransactionGetResult({
     id: cppRes.id,
-    content: cppRes.content ? JSON.parse(cppRes.content) : undefined,
+    content: cppRes.content
+      ? JSON.parse(cppRes.content.toString('utf8'))
+      : undefined,
     cas: cppRes.cas,
     _links: cppRes.links,
     _metadata: cppRes.metadata,
@@ -429,7 +431,7 @@ export class TransactionAttemptContext {
       this._impl.insert(
         {
           id,
-          content: JSON.stringify(content),
+          content: Buffer.from(JSON.stringify(content)),
         },
         (cppErr, cppRes) => {
           const err = errorFromCpp(cppErr)
@@ -458,12 +460,12 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: '',
+            content: Buffer.from(''),
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,
           },
-          content: JSON.stringify(content),
+          content: Buffer.from(JSON.stringify(content)),
         },
         (cppErr, cppRes) => {
           const err = errorFromCpp(cppErr)
@@ -488,7 +490,7 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: '',
+            content: Buffer.from(''),
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,
@@ -531,7 +533,7 @@ export class TransactionAttemptContext {
           scan_wait: options.scanWait,
           scan_cap: options.scanCap,
           readonly: options.readOnly,
-          profile: queryProfileModeToCpp(options.profile),
+          profile: queryProfileToCpp(options.profile),
           metrics: options.metrics,
           bucket_name: options.scope ? options.scope.bucket.name : undefined,
           scope_name: options.scope ? options.scope.name : undefined,

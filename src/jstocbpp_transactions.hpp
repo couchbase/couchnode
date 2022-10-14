@@ -5,26 +5,30 @@
 #include "jstocbpp_cpptypes.hpp"
 
 #include <core/cluster.hxx>
-#include <couchbase/transactions.hxx>
-#include <couchbase/transactions/internal/exceptions_internal.hxx>
+#include <core/transactions.hxx>
+#include <core/transactions/internal/exceptions_internal.hxx>
+#include <core/utils/json.hxx>
 
 namespace cbtxns = couchbase::transactions;
+namespace cbcoretxns = couchbase::core::transactions;
 
 namespace couchnode
 {
 
 // nlohmann::json (used by transactions currently)
 template <>
-struct js_to_cbpp_t<nlohmann::json> {
-    static inline Napi::Value to_js(Napi::Env env, const nlohmann::json &cppObj)
+struct js_to_cbpp_t<tao::json::value> {
+    static inline Napi::Value to_js(Napi::Env env,
+                                    const tao::json::value &cppObj)
     {
-        return Napi::String::New(env, cppObj.dump());
+        return Napi::String::New(
+            env, couchbase::core::utils::json::generate(cppObj));
     }
 
-    static inline nlohmann::json from_js(Napi::Value jsVal)
+    static inline tao::json::value from_js(Napi::Value jsVal)
     {
         auto cppStr = jsVal.As<Napi::String>().Utf8Value();
-        return nlohmann::json::parse(cppStr);
+        return couchbase::core::utils::json::parse(cppStr);
     }
 };
 
@@ -38,31 +42,9 @@ struct js_to_cbpp_t<cbtxns::transaction_config> {
         auto durability_level =
             js_to_cbpp<std::optional<couchbase::durability_level>>(
                 jsObj.Get("durability_level"));
+
         if (durability_level.has_value()) {
-            // BUG(JSCBC-1012): This translation should not be neccessary.
-            switch (durability_level.value()) {
-            case couchbase::durability_level::none:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::NONE);
-                break;
-            case couchbase::durability_level::majority:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::MAJORITY);
-                break;
-            case couchbase::durability_level::majority_and_persist_to_active:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::
-                        MAJORITY_AND_PERSIST_TO_ACTIVE);
-                break;
-            case couchbase::durability_level::persist_to_majority:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::
-                        PERSIST_TO_MAJORITY);
-                break;
-            default:
-                throw Napi::Error::New(
-                    jsVal.Env(), "unexpected transaction durability level");
-            }
+            cppObj.durability_level(durability_level.value());
         }
 
         auto kv_timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -79,7 +61,7 @@ struct js_to_cbpp_t<cbtxns::transaction_config> {
         }
 
         auto query_scan_consistency =
-            js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
+            js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
                 jsObj.Get("query_scan_consistency"));
         if (query_scan_consistency.has_value()) {
             cppObj.scan_consistency(query_scan_consistency.value());
@@ -119,30 +101,7 @@ struct js_to_cbpp_t<cbtxns::per_transaction_config> {
             js_to_cbpp<std::optional<couchbase::durability_level>>(
                 jsObj.Get("durability_level"));
         if (durability_level.has_value()) {
-            // BUG(JSCBC-1012): This translation should not be neccessary.
-            switch (durability_level.value()) {
-            case couchbase::durability_level::none:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::NONE);
-                break;
-            case couchbase::durability_level::majority:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::MAJORITY);
-                break;
-            case couchbase::durability_level::majority_and_persist_to_active:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::
-                        MAJORITY_AND_PERSIST_TO_ACTIVE);
-                break;
-            case couchbase::durability_level::persist_to_majority:
-                cppObj.durability_level(
-                    couchbase::transactions::durability_level::
-                        PERSIST_TO_MAJORITY);
-                break;
-            default:
-                throw Napi::Error::New(
-                    jsVal.Env(), "unexpected transaction durability level");
-            }
+            cppObj.durability_level(durability_level.value());
         }
 
         auto kv_timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -159,7 +118,7 @@ struct js_to_cbpp_t<cbtxns::per_transaction_config> {
         }
 
         auto query_scan_consistency =
-            js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
+            js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
                 jsObj.Get("query_scan_consistency"));
         if (query_scan_consistency.has_value()) {
             cppObj.scan_consistency(query_scan_consistency.value());
@@ -170,11 +129,11 @@ struct js_to_cbpp_t<cbtxns::per_transaction_config> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::transaction_links> {
-    static inline cbtxns::transaction_links from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<cbcoretxns::transaction_links> {
+    static inline cbcoretxns::transaction_links from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        return cbtxns::transaction_links(
+        return cbcoretxns::transaction_links(
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("atr_id")),
             js_to_cbpp<std::optional<std::string>>(
                 jsObj.Get("atr_bucket_name")),
@@ -185,20 +144,21 @@ struct js_to_cbpp_t<cbtxns::transaction_links> {
                 jsObj.Get("staged_transaction_id")),
             js_to_cbpp<std::optional<std::string>>(
                 jsObj.Get("staged_attempt_id")),
-            js_to_cbpp<std::optional<std::string>>(jsObj.Get("staged_content")),
+            js_to_cbpp<std::optional<std::vector<std::byte>>>(
+                jsObj.Get("staged_content")),
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("cas_pre_txn")),
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("revid_pre_txn")),
             js_to_cbpp<std::optional<uint32_t>>(jsObj.Get("exptime_pre_txn")),
             js_to_cbpp<std::optional<std::string>>(
                 jsObj.Get("crc32_of_staging")),
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("op")),
-            js_to_cbpp<std::optional<nlohmann::json>>(
+            js_to_cbpp<std::optional<tao::json::value>>(
                 jsObj.Get("forward_compat")),
             js_to_cbpp<bool>(jsObj.Get("is_deleted")));
     }
 
     static inline Napi::Value to_js(Napi::Env env,
-                                    const cbtxns::transaction_links &res)
+                                    const cbcoretxns::transaction_links &res)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("atr_id", cbpp_to_js(env, res.atr_id()));
@@ -223,11 +183,11 @@ struct js_to_cbpp_t<cbtxns::transaction_links> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::document_metadata> {
-    static inline cbtxns::document_metadata from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<cbcoretxns::document_metadata> {
+    static inline cbcoretxns::document_metadata from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        return cbtxns::document_metadata(
+        return cbcoretxns::document_metadata(
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("cas")),
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("revid")),
             js_to_cbpp<std::optional<uint32_t>>(jsObj.Get("exptime")),
@@ -235,7 +195,7 @@ struct js_to_cbpp_t<cbtxns::document_metadata> {
     }
 
     static inline Napi::Value to_js(Napi::Env env,
-                                    const cbtxns::document_metadata &res)
+                                    const cbcoretxns::document_metadata &res)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("cas", cbpp_to_js(env, res.cas()));
@@ -247,27 +207,26 @@ struct js_to_cbpp_t<cbtxns::document_metadata> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::transaction_get_result> {
-    static inline cbtxns::transaction_get_result from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<cbcoretxns::transaction_get_result> {
+    static inline cbcoretxns::transaction_get_result from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        return cbtxns::transaction_get_result(
+        return cbcoretxns::transaction_get_result(
             js_to_cbpp<couchbase::core::document_id>(jsObj.Get("id")),
-            js_to_cbpp<couchbase::core::json_string>(jsObj.Get("content"))
-                .str(),
+            js_to_cbpp<std::vector<std::byte>>(jsObj.Get("content")),
             js_to_cbpp<couchbase::cas>(jsObj.Get("cas")).value(),
-            js_to_cbpp<cbtxns::transaction_links>(jsObj.Get("links")),
-            js_to_cbpp<std::optional<cbtxns::document_metadata>>(
+            js_to_cbpp<cbcoretxns::transaction_links>(jsObj.Get("links")),
+            js_to_cbpp<std::optional<cbcoretxns::document_metadata>>(
                 jsObj.Get("metadata")));
     }
 
-    static inline Napi::Value to_js(Napi::Env env,
-                                    const cbtxns::transaction_get_result &res)
+    static inline Napi::Value
+    to_js(Napi::Env env, const cbcoretxns::transaction_get_result &res)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js(env, res.id()));
-        resObj.Set("content", cbpp_to_js(env, couchbase::core::json_string(
-                                                  res.content<std::string>())));
+        resObj.Set("content",
+                   cbpp_to_js<std::vector<std::byte>>(env, res.content()));
         resObj.Set("cas", cbpp_to_js(env, couchbase::cas{res.cas()}));
         resObj.Set("links", cbpp_to_js(env, res.links()));
         resObj.Set("metadata", cbpp_to_js(env, res.metadata()));
@@ -276,14 +235,15 @@ struct js_to_cbpp_t<cbtxns::transaction_get_result> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::transaction_query_options> {
-    static inline cbtxns::transaction_query_options from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<cbcoretxns::transaction_query_options> {
+    static inline cbcoretxns::transaction_query_options
+    from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        cbtxns::transaction_query_options cppObj;
+        cbcoretxns::transaction_query_options cppObj;
 
-        auto raw = js_to_cbpp<
-            std::optional<std::map<std::string, couchbase::core::json_string>>>(
+        auto raw = js_to_cbpp<std::optional<
+            std::map<std::string, couchbase::core::json_string, std::less<>>>>(
             jsObj.Get("raw"));
         if (raw.has_value()) {
             for (auto &v : *raw) {
@@ -297,15 +257,14 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
         }
 
         auto scan_consistency =
-            js_to_cbpp<std::optional<couchbase::core::query_scan_consistency>>(
+            js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
                 jsObj.Get("scan_consistency"));
         if (scan_consistency.has_value()) {
             cppObj.scan_consistency(scan_consistency.value());
         }
 
-        auto profile =
-            js_to_cbpp<std::optional<couchbase::core::query_profile_mode>>(
-                jsObj.Get("profile"));
+        auto profile = js_to_cbpp<std::optional<couchbase::query_profile>>(
+            jsObj.Get("profile"));
         if (profile.has_value()) {
             cppObj.profile(profile.value());
         }
@@ -363,8 +322,8 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
             cppObj.positional_parameters(positional_parameters.value());
         }
 
-        auto named_parameters = js_to_cbpp<
-            std::optional<std::map<std::string, couchbase::core::json_string>>>(
+        auto named_parameters = js_to_cbpp<std::optional<
+            std::map<std::string, couchbase::core::json_string, std::less<>>>>(
             jsObj.Get("named_parameters"));
         if (named_parameters.has_value()) {
             cppObj.named_parameters(named_parameters.value());
@@ -387,9 +346,9 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::transaction_operation_failed> {
+struct js_to_cbpp_t<cbcoretxns::transaction_operation_failed> {
     static inline Napi::Value
-    to_js(Napi::Env env, const cbtxns::transaction_operation_failed &err)
+    to_js(Napi::Env env, const cbcoretxns::transaction_operation_failed &err)
     {
         Napi::Error jsErr = Napi::Error::New(env, "transaction_exception");
         jsErr.Set("ctxtype",
@@ -403,9 +362,9 @@ struct js_to_cbpp_t<cbtxns::transaction_operation_failed> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::transaction_exception> {
-    static inline Napi::Value to_js(Napi::Env env,
-                                    const cbtxns::transaction_exception &err)
+struct js_to_cbpp_t<cbcoretxns::transaction_exception> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const cbcoretxns::transaction_exception &err)
     {
         Napi::Error jsErr = Napi::Error::New(env, "transaction_exception");
         jsErr.Set("ctxtype", Napi::String::New(env, "transaction_exception"));
@@ -440,7 +399,7 @@ struct js_to_cbpp_t<std::exception_ptr> {
 
         try {
             std::rethrow_exception(err);
-        } catch (const cbtxns::transaction_operation_failed &err) {
+        } catch (const cbcoretxns::transaction_operation_failed &err) {
             return cbpp_to_js(env, err);
         } catch (const std::exception &err) {
             return cbpp_to_js(env, err);

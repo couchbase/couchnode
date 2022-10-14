@@ -47,7 +47,7 @@ describe('#transactions', function () {
     await H.throwsHelper(async () => {
       await H.co.get(testDocRem)
     })
-  })
+  }).timeout(15000)
 
   it('should work with query', async function () {
     const testKey = H.genTestKey()
