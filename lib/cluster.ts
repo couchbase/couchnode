@@ -99,6 +99,30 @@ export interface SecurityConfig {
 }
 
 /**
+ * Specifies DNS options for the client.
+ *
+ * Volatile: This API is subject to change at any time.
+ *
+ * @category Core
+ */
+export interface DnsConfig {
+  /**
+   * Specifies the nameserver to be used for DNS query when connecting.
+   */
+  nameserver?: string
+
+  /**
+   * Specifies the port to be used for DNS query when connecting.
+   */
+  port?: number
+
+  /**
+   * Specifies the default timeout for DNS SRV operations, specified in millseconds.
+   */
+  dnsSrvTimeout?: number
+}
+
+/**
  * Specifies the options which can be specified when connecting
  * to a cluster.
  *
@@ -142,6 +166,14 @@ export interface ConnectOptions {
    * Specifies the options for transactions.
    */
   transactions?: TransactionsConfig
+
+  /**
+   * Specifies the DNS config for connections of this cluster.
+   *
+   * Volatile: This API is subject to change at any time.
+   *
+   */
+  dnsConfig?: DnsConfig
 }
 
 /**
@@ -167,6 +199,7 @@ export class Cluster {
   private _txnConfig: TransactionsConfig
   private _transactions?: Transactions
   private _openBuckets: string[]
+  private _dnsConfig: DnsConfig | null
 
   /**
    * @internal
@@ -287,6 +320,20 @@ export class Cluster {
         username: '',
         password: '',
       }
+    }
+
+    if (
+      options.dnsConfig &&
+      options.dnsConfig.nameserver &&
+      options.dnsConfig.port
+    ) {
+      this._dnsConfig = {
+        nameserver: options.dnsConfig.nameserver,
+        port: options.dnsConfig.port,
+        dnsSrvTimeout: options.dnsConfig.dnsSrvTimeout || 500,
+      }
+    } else {
+      this._dnsConfig = null
     }
 
     this._openBuckets = []
@@ -614,7 +661,8 @@ export class Cluster {
           authOpts.key_path = certAuth.keyPath
         }
       }
-      this._conn.connect(connStr, authOpts, (cppErr) => {
+
+      this._conn.connect(connStr, authOpts, this._dnsConfig, (cppErr) => {
         if (cppErr) {
           const err = errorFromCpp(cppErr)
           return reject(err)

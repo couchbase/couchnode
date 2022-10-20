@@ -244,11 +244,18 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
 {
     auto connstr = info[0].ToString().Utf8Value();
     auto credentialsJsObj = info[1].As<Napi::Object>();
-    auto callbackJsFn = info[2].As<Napi::Function>();
+    auto callbackJsFn = info[3].As<Napi::Function>();
 
     auto connstrInfo = couchbase::core::utils::parse_connection_string(connstr);
     auto creds =
         jsToCbpp<couchbase::core::cluster_credentials>(credentialsJsObj);
+
+    if (!info[2].IsNull()) {
+        auto dnsConfigJsObj = info[2].As<Napi::Object>();
+        auto cppDnsConfig =
+            jsToCbpp<couchbase::core::io::dns::dns_config>(dnsConfigJsObj);
+        connstrInfo.options.dns_config = cppDnsConfig;
+    }
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "cbConnectCallback");
     this->_instance->_cluster->open(

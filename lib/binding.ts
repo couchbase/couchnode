@@ -3045,6 +3045,11 @@ export interface CppConnection extends CppConnectionAutogen {
       key_path?: string
       allowed_sasl_mechanisms?: string[]
     },
+    dnsOptions: {
+      nameserver?: string
+      port?: number
+      dnsSrvTimeout?: number
+    } | null,
     callback: (err: CppError | null) => void
   ): void
   shutdown(callback: (err: CppError | null) => void): void
