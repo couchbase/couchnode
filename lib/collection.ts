@@ -46,7 +46,6 @@ import {
   CouchbaseQueue,
   CouchbaseSet,
 } from './datastructures'
-import { DocumentNotFoundError } from './errors'
 import { DurabilityLevel, StoreSemantics } from './generaltypes'
 import { Scope } from './scope'
 import { LookupInMacro, LookupInSpec, MutateInSpec } from './sdspecs'
@@ -736,17 +735,6 @@ export class Collection {
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)
 
-          // BUG(JSCBC-1006): Remove this workaround when the underlying bug is resolved.
-          if (err instanceof DocumentNotFoundError) {
-            return wrapCallback(
-              null,
-              new ExistsResult({
-                cas: undefined,
-                exists: false,
-              })
-            )
-          }
-
           if (err) {
             return wrapCallback(err, null)
           }
@@ -765,7 +753,7 @@ export class Collection {
             null,
             new ExistsResult({
               cas: resp.cas,
-              exists: true,
+              exists: resp.document_exists,
             })
           )
         }

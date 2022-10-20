@@ -265,7 +265,8 @@ function genericTests(collFn) {
         var res = await collFn().exists('a-missing-key')
         assert.isObject(res)
         assert.strictEqual(res.exists, false)
-        assert.isNotOk(res.cas)
+        assert.isNotEmpty(res.cas)
+        assert.isNotOk(parseInt(res.cas.toString()))
       })
     })
 
