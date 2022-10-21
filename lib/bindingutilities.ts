@@ -130,10 +130,10 @@ export function storeSemanticToCpp(
  */
 export function viewScanConsistencyToCpp(
   mode: ViewScanConsistency | undefined
-): CppViewScanConsistency {
+): CppViewScanConsistency | undefined {
   // Unspecified is allowed, and means no sync durability.
   if (mode === null || mode === undefined) {
-    return binding.view_scan_consistency.not_bounded
+    return undefined
   }
 
   if (mode === ViewScanConsistency.NotBounded) {
@@ -172,10 +172,10 @@ export function viewOrderingToCpp(
  */
 export function queryScanConsistencyToCpp(
   mode: QueryScanConsistency | undefined
-): CppQueryScanConsistency {
+): CppQueryScanConsistency | undefined {
   // Unspecified is allowed, and means no sync durability.
   if (mode === null || mode === undefined) {
-    return binding.query_scan_consistency.not_bounded
+    return undefined
   }
 
   if (mode === QueryScanConsistency.NotBounded) {
@@ -273,7 +273,6 @@ export function searchScanConsistencyToCpp(
 
   if (mode === SearchScanConsistency.NotBounded) {
     return binding.search_scan_consistency.not_bounded
-    throw new errs.InvalidArgumentError()
   }
 
   throw new errs.InvalidArgumentError()
