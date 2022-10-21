@@ -6,9 +6,9 @@ namespace couchnode
 {
 
 struct MutationTokenData {
-    uint16_t partitionId;
     uint64_t partitionUuid;
     uint64_t sequenceNumber;
+    uint16_t partitionId;
     char bucketName[256];
 };
 
@@ -62,8 +62,8 @@ couchbase::mutation_token MutationToken::fromBuffer(Napi::Value val)
         utils::napiBufferToData<MutationTokenData>(val);
 
     return couchbase::mutation_token{
-        tokenData.partitionUuid, tokenData.partitionId,
-        static_cast<uint16_t>(tokenData.sequenceNumber), tokenData.bucketName};
+        tokenData.partitionUuid, tokenData.sequenceNumber,
+        tokenData.partitionId, tokenData.bucketName};
 }
 
 Napi::Value MutationToken::create(Napi::Env env,

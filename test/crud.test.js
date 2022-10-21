@@ -40,6 +40,14 @@ var testBinVal = Buffer.from(
   'hex'
 )
 
+function validateMutationToken(token) {
+  const mut_token = token.toJSON()
+  assert.isString(mut_token.partition_uuid)
+  assert.isString(mut_token.sequence_number)
+  assert.isNumber(mut_token.partition_id)
+  assert.isString(mut_token.bucket_name)
+}
+
 function genericTests(collFn) {
   describe('#basic', function () {
     let testKeyA
@@ -75,6 +83,7 @@ function genericTests(collFn) {
         var res = await collFn().upsert(testKeyA, testObjVal)
         assert.isObject(res)
         assert.isOk(res.cas)
+        validateMutationToken(res.token)
       })
 
       it('should upsert with UTF8 data properly', async function () {
@@ -275,6 +284,7 @@ function genericTests(collFn) {
         var res = await collFn().replace(testKeyA, { foo: 'baz' })
         assert.isObject(res)
         assert.isOk(res.cas)
+        validateMutationToken(res.token)
 
         var gres = await collFn().get(testKeyA)
         assert.deepStrictEqual(gres.value, { foo: 'baz' })
@@ -302,6 +312,7 @@ function genericTests(collFn) {
         var res = await collFn().remove(testKeyA)
         assert.isObject(res)
         assert.isOk(res.cas)
+        validateMutationToken(res.token)
       })
     })
 
@@ -316,6 +327,7 @@ function genericTests(collFn) {
         var res = await collFn().insert(testKeyIns, { foo: 'bar' })
         assert.isObject(res)
         assert.isOk(res.cas)
+        validateMutationToken(res.token)
       })
 
       it('should fail to insert a second time', async function () {
@@ -615,6 +627,7 @@ function genericTests(collFn) {
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 17)
+        validateMutationToken(res.token)
 
         var gres = await collFn().get(testKeyBin)
         assert.deepStrictEqual(gres.value, 17)
@@ -627,6 +640,7 @@ function genericTests(collFn) {
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 13)
+        validateMutationToken(res.token)
 
         var gres = await collFn().get(testKeyBin)
         assert.deepStrictEqual(gres.value, 13)
@@ -638,6 +652,7 @@ function genericTests(collFn) {
         var res = await collFn().binary().append(testKeyBin, 'world')
         assert.isObject(res)
         assert.isOk(res.cas)
+        validateMutationToken(res.token)
 
         var gres = await collFn().get(testKeyBin)
         assert.isTrue(Buffer.isBuffer(gres.value))
@@ -650,6 +665,7 @@ function genericTests(collFn) {
         var res = await collFn().binary().prepend(testKeyBin, 'hello')
         assert.isObject(res)
         assert.isOk(res.cas)
+        validateMutationToken(res.token)
 
         var gres = await collFn().get(testKeyBin)
         assert.isTrue(Buffer.isBuffer(gres.value))
