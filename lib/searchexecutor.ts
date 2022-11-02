@@ -78,18 +78,16 @@ export class SearchExecutor {
           : [],
         facets: options.facets
           ? Object.fromEntries(
-              Object.entries(options.facets).map(([k, v]) => [
-                k,
-                JSON.stringify(v),
-              ])
+              Object.entries(options.facets)
+                .filter(([, v]) => v !== undefined)
+                .map(([k, v]) => [k, JSON.stringify(v)])
             )
           : {},
         raw: options.raw
           ? Object.fromEntries(
-              Object.entries(options.raw).map(([k, v]) => [
-                k,
-                JSON.stringify(v),
-              ])
+              Object.entries(options.raw)
+                .filter(([, v]) => v !== undefined)
+                .map(([k, v]) => [k, JSON.stringify(v)])
             )
           : {},
         body_str: '',
@@ -109,8 +107,10 @@ export class SearchExecutor {
         {
           const metaData = resp.meta
           emitter.emit('meta', {
-            facets: Object.fromEntries(Object.values(resp.facets).map((v) => [v.name, v])),
-            ...metaData
+            facets: Object.fromEntries(
+              Object.values(resp.facets).map((v) => [v.name, v])
+            ),
+            ...metaData,
           } as SearchMetaData)
         }
 

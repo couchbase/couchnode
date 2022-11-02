@@ -539,22 +539,21 @@ export class TransactionAttemptContext {
           scope_name: options.scope ? options.scope.name : undefined,
           raw: options.raw
             ? Object.fromEntries(
-                Object.entries(options.raw).map(([k, v]) => [
-                  k,
-                  JSON.stringify(v),
-                ])
+                Object.entries(options.raw)
+                  .filter(([, v]) => v !== undefined)
+                  .map(([k, v]) => [k, JSON.stringify(v)])
               )
             : {},
           positional_parameters:
             options.parameters && Array.isArray(options.parameters)
-              ? options.parameters.map((v) => JSON.stringify(v))
+              ? options.parameters.map((v) => JSON.stringify(v ?? null))
               : [],
           named_parameters:
             options.parameters && !Array.isArray(options.parameters)
               ? Object.fromEntries(
-                  Object.entries(
-                    options.parameters as { [key: string]: any }
-                  ).map(([k, v]) => [k, JSON.stringify(v)])
+                  Object.entries(options.parameters as { [key: string]: any })
+                    .filter(([, v]) => v !== undefined)
+                    .map(([k, v]) => [k, JSON.stringify(v)])
                 )
               : {},
         },
