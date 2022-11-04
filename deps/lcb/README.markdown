@@ -6,6 +6,11 @@ This is the C client library for [Couchbase](http://www.couchbase.com)
 It communicates with the cluster and speaks the relevant protocols
 necessary to connect to the cluster and execute data operations.
 
+## Support and Feedback
+
+If you find an issue, please file it in [our JIRA issue tracker](https://couchbase.com/issues/browse/CCBC). Also you are
+always welcome on [our forum](https://forums.couchbase.com/c/c-sdk) and [Discord](https://discord.com/invite/sQ5qbPZuTh).
+
 ## Features
 
 * Can function as either a synchronous or asynchronous library
@@ -109,15 +114,6 @@ servers the spec will look like `couchbase://localhost,default` or `couchbase://
 
 Also tests expecting `beer-sample` bucket loaded. It comes with the server. Look at "Sample buckets" section of Admin
 Console.
-
-## Bugs, Support, Issues
-You may report issues in the library in our issue tracker at
-<https://issues.couchbase.com>. Sign up for an account and file an issue
-against the _Couchbase C Client Library_ project.
-
-The developers of the library hang out in IRC on `#libcouchbase` on
-irc.freenode.net.
-
 
 ## Examples
 

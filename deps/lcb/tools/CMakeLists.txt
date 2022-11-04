@@ -75,7 +75,7 @@ IF(NOT WIN32)
     LIST(APPEND CBC_SUBCOMMANDS
         cat create observe observe-seqno incr decr hash lock
         unlock rm stats version verbosity view n1ql admin ping
-        bucket-create bucket-delete bucket-flush connstr write-config strerror
+        bucket-list bucket-create bucket-delete bucket-flush connstr write-config strerror
         touch role-list user-list user-upsert user-delete watch
         mcversion keygen collection-manifest collection-id
         )

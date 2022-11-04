@@ -106,6 +106,7 @@ void lcb_settings_unref(lcb_settings *settings)
     }
     free(settings->bucket);
     free(settings->sasl_mech_force);
+    free(settings->truststorepath);
     free(settings->certpath);
     free(settings->keypath);
     free(settings->client_string);

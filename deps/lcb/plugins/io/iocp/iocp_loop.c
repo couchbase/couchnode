@@ -209,9 +209,9 @@ static void deque_expired_timers(iocp_t *io, lcb_U64 now)
 /** Maximum amount of time the I/O can hog the loop */
 #define IOCP_IOLOOP_MAXTIME 1000
 
-static int should_yield(lcb_U32 start)
+static int should_yield(uint64_t start)
 {
-    lcb_U32 now = iocp_micros();
+    uint64_t now = iocp_micros();
     return now - start > IOCP_IOLOOP_MAXTIME;
 }
 
@@ -238,7 +238,7 @@ static void iocp_run_loop(lcb_io_opt_t iobase, int is_tick)
 
     do {
         /** To ensure we don't starve pending timers, use an iteration */
-        lcb_U32 usStartTime;
+        uint64_t usStartTime;
 
         if (!now) {
             now = iocp_millis();

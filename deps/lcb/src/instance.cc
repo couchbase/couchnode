@@ -466,6 +466,25 @@ lcb_STATUS lcb_create(lcb_INSTANCE **instance, const lcb_CREATEOPTS *options)
         goto GT_DONE;
     }
 
+    {
+        // Warn users if they attempt to use Capella without TLS being enabled.
+        bool is_capella = false;
+        static std::string suffix = "cloud.couchbase.com";
+        for (auto &node : spec.hosts()) {
+            auto pos = node.hostname.find(suffix);
+            if (pos != std::string::npos && pos + suffix.size() == node.hostname.size()) {
+                is_capella = true;
+                break;
+            }
+        }
+
+        if (is_capella && (spec.sslopts() & LCB_SSL_ENABLED) == 0) {
+            lcb_log(LOGARGS(obj, INFO),
+                    "TLS is required when connecting to Couchbase Capella. Please enable TLS by prefixing "
+                    "the connection string with \"couchbases://\" (note the final 's').");
+        }
+    }
+
     if ((obj = (lcb_INSTANCE *)calloc(1, sizeof(*obj))) == nullptr) {
         err = LCB_ERR_NO_MEMORY;
         goto GT_DONE;

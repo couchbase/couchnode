@@ -458,6 +458,7 @@ class ThreadContext
         lcb_STATUS rc = lcb_query(m_instance, &qctx, m_cmd);
         if (rc != LCB_SUCCESS) {
             log_error(rc, query.payload.c_str(), query.payload.size());
+            lcb_tick_nowait(m_instance);
         } else {
             lcb_wait(m_instance, LCB_WAIT_DEFAULT);
             m_metrics.lock();

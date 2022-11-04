@@ -155,7 +155,7 @@ int iocp_w32err_2errno(DWORD error);
 DWORD iocp_set_last_error(lcb_io_opt_t io, SOCKET sock);
 
 /** Get current timestamp in microseconds */
-lcb_U32 iocp_micros(void);
+uint64_t iocp_micros(void);
 
 /** Get current timestamp in milliseconds */
 #define iocp_millis() (iocp_micros() / 1000)

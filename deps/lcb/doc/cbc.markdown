@@ -20,6 +20,7 @@
 `cbc lock` _KEY_ [_OPTIONS_]<br>
 `cbc unlock` _KEY_ _CAS_ [_OPTIONS_]<br>
 `cbc admin` _-P PASSWORD_ _RESTAPI_ [_OPTIONS_]<br>
+`cbc bucket-list` _-P PASSWORD_ [_OPTIONS_]<br>
 `cbc bucket-create` _-P PASSWORD_ _NAME_ [_OPTIONS_]<br>
 `cbc bucket-delete` _-P PASSWORD_ _NAME_ [_OPTIONS_]<br>
 `cbc bucket-flush` _NAME_ [_OPTIONS_]<br>
@@ -361,6 +362,15 @@ In addition to the [OPTIONS](#OPTIONS) specified above, the following options ar
 * `-X`, `--method`=_GET|PUT|POST|DELETE_:
   Specify the HTTP method to use for the specific request. The default method is
   `GET`.
+
+### bucket-list
+
+List the buckets in the cluster
+
+In addition to the [OPTIONS](#OPTIONS) specified above, the following options are recognized:
+
+* `-r`, `--raw`:
+  Print unformatted server response in JSON form.
 
 ### bucket-create
 

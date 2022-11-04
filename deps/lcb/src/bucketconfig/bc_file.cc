@@ -45,6 +45,7 @@ struct FileProvider : Provider, Listener {
         }
     }
     void write_cache(lcbvb_CONFIG *cfg);
+    void mkcachefile(const char *name, const char *bucket);
 
     /* Overrides */
     ConfigInfo *get_cached() override;
@@ -58,6 +59,7 @@ struct FileProvider : Provider, Listener {
     int last_errno;
     bool is_readonly; /* Whether the config cache should _not_ overwrite the file */
     lcb::io::Timer<FileProvider, &FileProvider::reload_cache> timer;
+    bool do_not_cache_cluster{true};
 };
 
 FileProvider::Status FileProvider::load_cache()
@@ -70,7 +72,9 @@ FileProvider::Status FileProvider::load_cache()
 
     if (!ifs.is_open() || !ifs.good()) {
         int save_errno = last_errno = errno;
-        lcb_log(LOGARGS(this, ERROR), LOGFMT "Couldn't open for reading: %s", LOGID(this), strerror(save_errno));
+        lcb_log(LOGARGS(this, WARN),
+                LOGFMT "Couldn't open config cache for reading (%s). Proceed to next configuration provider.",
+                LOGID(this), strerror(save_errno));
         return CACHE_ERROR;
     }
 
@@ -118,17 +122,26 @@ FileProvider::Status FileProvider::load_cache()
         goto GT_DONE;
     }
 
-    if (lcbvb_get_distmode(vbc) != LCBVB_DIST_VBUCKET) {
+    if (lcbvb_get_distmode(vbc) == LCBVB_DIST_KETAMA) {
         lcb_log(LOGARGS(this, ERROR), LOGFMT "Not applying cached memcached config", LOGID(this));
         goto GT_DONE;
     }
 
-    if (settings().bucket == nullptr) {
-        lcb_log(LOGARGS(this, ERROR), LOGFMT "Bucket name is nullptr", LOGID(this));
+    if (settings().bucket == nullptr && vbc->bname != nullptr) {
+        lcb_log(
+            LOGARGS(this, DEBUG),
+            LOGFMT
+            "The cached configuration has bucket associated, but the connection does not have it. Ignore the cache.",
+            LOGID(this));
         goto GT_DONE;
-    }
-
-    if (strcmp(vbc->bname, settings().bucket) != 0) {
+    } else if (settings().bucket != nullptr && vbc->bname == nullptr) {
+        lcb_log(
+            LOGARGS(this, DEBUG),
+            LOGFMT
+            "The connection has bucket associated, but the cached configuration does not have it. Ignore the cache.",
+            LOGID(this));
+        goto GT_DONE;
+    } else if (settings().bucket != nullptr && vbc->bname != nullptr && strcmp(vbc->bname, settings().bucket) != 0) {
         lcb_log(LOGARGS(this, ERROR), LOGFMT "Bucket name in file is different from the one requested", LOGID(this));
         goto GT_DONE;
     }
@@ -152,7 +165,7 @@ GT_DONE:
 
 void FileProvider::write_cache(lcbvb_CONFIG *cfg)
 {
-    if (filename.empty() || is_readonly || cfg->bname == nullptr || cfg->bname_len == 0) {
+    if (filename.empty() || is_readonly || (do_not_cache_cluster && parent->settings->conntype == LCB_TYPE_CLUSTER)) {
         return;
     }
 
@@ -234,7 +247,7 @@ FileProvider::FileProvider(Confmon *parent_)
     parent->add_listener(this);
 }
 
-static std::string mkcachefile(const char *name, const char *bucket)
+void FileProvider::mkcachefile(const char *name, const char *bucket)
 {
     std::string buffer;
     bool is_dir = false;
@@ -252,22 +265,23 @@ static std::string mkcachefile(const char *name, const char *bucket)
         is_dir = true;
     }
     if (is_dir) {
+        // append bucket name only if we know that cachefile is directory
         if (bucket == nullptr) {
-            return "";
+            buffer += ".cluster";
+            do_not_cache_cluster = false;
+        } else {
+            buffer += bucket;
         }
-        // append bucket name only if we know that
-        // cachefile is directory
-        buffer += bucket;
     }
 
-    return buffer;
+    filename = buffer;
 }
 
 bool lcb::clconfig::file_set_filename(Provider *p, const char *f, bool ro)
 {
     auto *provider = static_cast<FileProvider *>(p);
     provider->enabled = true;
-    provider->filename = mkcachefile(f, p->parent->settings->bucket);
+    provider->mkcachefile(f, p->parent->settings->bucket);
     if (provider->filename.empty()) {
         return false;
     }

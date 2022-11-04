@@ -2023,6 +2023,35 @@ void AdminHandler::run()
     printf("%s\n", resbuf.c_str());
 }
 
+void BucketListHandler::run()
+{
+    fprintf(stderr, "Requesting %s\n", getURI().c_str());
+    HttpBaseHandler::run();
+    if (o_raw.result()) {
+        printf("%s\n", resbuf.c_str());
+    } else {
+        format();
+    }
+}
+
+void BucketListHandler::format()
+{
+    Json::Value json;
+    if (!Json::Reader().parse(resbuf, json)) {
+        fprintf(stderr, "Failed to parse response as JSON, falling back to raw mode\n");
+        printf("%s\n", resbuf.c_str());
+    }
+
+    printf("%-20s%-10s%s\n", "Name", "Type", "Items");
+
+    for (Json::Value::ArrayIndex i = 0; i < json.size(); ++i) {
+        const char *name = json[i]["name"].asString().c_str();
+        const char *bucketType = json[i]["bucketType"].asString().c_str();
+        const int itemCount = json[i]["basicStats"]["itemCount"].asInt();
+        printf("%-20s%-10s%i\n", name, bucketType, itemCount);
+    }
+}
+
 void BucketCreateHandler::run()
 {
     const string &name = getRequiredArg();
@@ -2278,6 +2307,7 @@ static const char *optionsOrder[] = {"help",
                                      "analytics",
                                      "search",
                                      "admin",
+                                     "bucket-list",
                                      "bucket-create",
                                      "bucket-delete",
                                      "bucket-flush",
@@ -2369,6 +2399,7 @@ static void setupHandlers()
     handlers_s["incr"] = new IncrHandler();
     handlers_s["decr"] = new DecrHandler();
     handlers_s["admin"] = new AdminHandler();
+    handlers_s["bucket-list"] = new BucketListHandler();
     handlers_s["bucket-create"] = new BucketCreateHandler();
     handlers_s["bucket-delete"] = new BucketDeleteHandler();
     handlers_s["bucket-flush"] = new BucketFlushHandler();

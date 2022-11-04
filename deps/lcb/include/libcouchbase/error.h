@@ -72,7 +72,7 @@ X(LCB_ERR_REQUEST_CANCELED,         202, LCB_ERROR_TYPE_SHARED, 0, "A request is
 X(LCB_ERR_INVALID_ARGUMENT,         203, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "It is unambiguously determined that the error was caused because of invalid arguments from the user") \
 X(LCB_ERR_SERVICE_NOT_AVAILABLE,    204, LCB_ERROR_TYPE_SHARED, 0, "It was determined from the config unambiguously that the service is not available") \
 X(LCB_ERR_INTERNAL_SERVER_FAILURE,  205, LCB_ERROR_TYPE_SHARED, 0, "Internal server error") \
-X(LCB_ERR_AUTHENTICATION_FAILURE,   206, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "Authentication error") \
+X(LCB_ERR_AUTHENTICATION_FAILURE,   206, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "Authentication error. Possible reasons: incorrect authentication configuration, bucket doesn't exist or bucket may be hibernated.") \
 X(LCB_ERR_TEMPORARY_FAILURE,        207, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_TRANSIENT, "Temporary failure") \
 X(LCB_ERR_PARSING_FAILURE,          208, LCB_ERROR_TYPE_SHARED, 0, "Parsing failed") \
 X(LCB_ERR_CAS_MISMATCH,             209, LCB_ERROR_TYPE_SHARED, LCB_ERROR_FLAG_INPUT, "CAS mismatch") \

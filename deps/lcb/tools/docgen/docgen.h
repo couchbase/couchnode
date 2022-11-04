@@ -18,6 +18,7 @@
 #include "contrib/lcb-jsoncpp/lcb-jsoncpp.h"
 #include "placeholders.h"
 #include <algorithm>
+#include <memory>
 #include <stdexcept>
 
 namespace Pillowfight
@@ -78,8 +79,8 @@ class DocGeneratorBase
      * @param cur_gen The index of the current generator thread
      * @return An opaque state object. This should be deleted by the caller
      */
-    virtual GeneratorState *createState(int total_gens, int cur_gen) const = 0;
-    virtual SubdocGeneratorState *createSubdocState(int, int) const
+    virtual std::unique_ptr<GeneratorState> createState(int total_gens, int cur_gen) const = 0;
+    virtual std::unique_ptr<SubdocGeneratorState> createSubdocState(int, int) const
     {
         return NULL;
     }
@@ -164,9 +165,9 @@ class RawDocGenerator : public DocGeneratorBase
         }
     };
 
-    GeneratorState *createState(int, int) const
+    std::unique_ptr<GeneratorState> createState(int, int) const
     {
-        return new MyState(this);
+        return std::unique_ptr<GeneratorState>(new MyState(this));
     }
 
   private:
@@ -207,9 +208,9 @@ class PresetDocGenerator : public DocGeneratorBase
         const PresetDocGenerator *m_parent;
     };
 
-    GeneratorState *createState(int, int) const
+    std::unique_ptr<GeneratorState> createState(int, int) const
     {
-        return new MyState(this);
+        return std::unique_ptr<GeneratorState>(new MyState(this));
     }
 
   protected:
@@ -371,9 +372,9 @@ class JsonDocGenerator : public PresetDocGenerator
     };
 
   public:
-    virtual SubdocGeneratorState *createSubdocState(int, int) const
+    virtual std::unique_ptr<SubdocGeneratorState> createSubdocState(int, int) const
     {
-        return new SDGenstate(m_docs);
+        return std::unique_ptr<SubdocGeneratorState>(new SDGenstate(m_docs));
     }
 };
 
@@ -424,9 +425,9 @@ class PlaceholderDocGenerator : public DocGeneratorBase
     }
 
   public:
-    GeneratorState *createState(int total, int cur) const
+    std::unique_ptr<GeneratorState> createState(int total, int cur) const
     {
-        return new MyState(this, total, cur);
+        return std::unique_ptr<GeneratorState>(new MyState(this, total, cur));
     }
 
   private:

@@ -44,9 +44,9 @@ DWORD iocp_set_last_error(lcb_io_opt_t io, SOCKET sock)
     return werr;
 }
 
-lcb_uint32_t iocp_micros(void)
+uint64_t iocp_micros(void)
 {
-    return (lcb_uint32_t)(gethrtime() / 1000);
+    return gethrtime() / 1000;
 }
 
 LPFN_CONNECTEX iocp_initialize_connectex(SOCKET sock)

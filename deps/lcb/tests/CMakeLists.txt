@@ -173,7 +173,7 @@ MACRO(DEFINE_MOCKTEST plugin test)
             --gtest_filter="ContaminatingUnitTest.*"
             --gtest_throw_on_failure=1
             --gtest_print_time=1
-            --gtest_output=xml:"${PROJECT_BINARY_DIR}/REPORT_${plugin}_${test}.xml")
+            --gtest_output=xml:"${PROJECT_BINARY_DIR}/REPORT_${plugin}_${test}_contaminating.xml")
     SET_TESTS_PROPERTIES(check-contaminating-${plugin}-${test} PROPERTIES LABELS "contaminating" )
 ENDMACRO()
 

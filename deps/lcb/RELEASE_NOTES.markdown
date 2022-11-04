@@ -1,31 +1,76 @@
 # Release Notes
 
+## 3.3.2 (2022-08-29)
+
+* CCBC-1559: cbc-n1qlback: give time to IO loop in case of failure.
+
+  In schenario where all query nodes suddenly failed over and/or removed
+  from the cluster, all requests in cbc-n1qlback will start failing.
+  Because the libcouchbase knows that the latest config does not have any
+  query nodes, it rejects all queries immediately. The single-threaded
+  nature of libcouchbase does not allow the IO loop to run in background,
+  and the code in the tool does not run `lcb_wait` in case of failure.
+
+  As a fix, we run `lcb_tick_nowait` in case of failure, which is enough
+  for libcouchbase to give IO loop a chance to check for any pending
+  events and invoke corresponding callbacks.
+
+* CCBC-1552: Allow building with external jsoncpp
+
+* CCBC-1544: update feedback links: Jira, Forums and Discord
+
+* CCBC-1556: clarify log messages related to config cache
+
+* CCBC-1557: allow caching cluster-level configurations
+    
+  The library will cache cluster-level configurations only if the
+  `config_cache= connection` string option is set to directory (ends
+  with '/' symbol), otherwise it will cache only buckets configurations
+  (note that in this case the application should use unique cache name for
+  each bucket, otherwise the library will ignore cache if the bucket name
+  will not match).
+
+## 3.3.1 (2022-05-25)
+
+* CCBC-1550: Fixed RPM packages for CentOS 7, now they will require OpenSSL 1.1 during build. Also build script will not
+automatically define `LCB_NO_SSL` option if OpenSSL is not found. For builds without TLS support, this option must be
+explicitly defined.
+
+* CCBC-1546: cbc-pillowfight: add '--rand-space-per-thread' to allow threads to work from different rand numbers.
+
+## 3.3.0 (2022-05-09)
+
+* CCBC-1538: use 64-bit integer to store time in IOCP plugin
+* CCBC-1540: bundle capella ca certificate with SDK
+* CCBC-1526: do not validate length of collection specifier. Length will be checked on the server-side. 
+* CCBC-1527: pillowfight: deallocate all memory during shutdown
+
 ## 3.2.5 (2022-02-08)
 
-CCBC-1486: Add support for preserve expiry to query options
-CCBC-1534, CCBC-1411: improve query error handling
-CCBC-1519: pass extra privilege with KV "on-behalf-of".
-CCBC-1521: fix bootstrap process when client cert is used and error map is supported. If client cert auth is used, once
+* CCBC-1486: Add support for preserve expiry to query options
+* CCBC-1534, CCBC-1411: improve query error handling
+* CCBC-1519: pass extra privilege with KV "on-behalf-of".
+* CCBC-1521: fix bootstrap process when client cert is used and error map is supported. If client cert auth is used, once
 the error map response has been received, the negotiation is complete.
-CCBC-1529: load authentication certificate as chain file.
-CCBC-1525: remove stringstream in `collection_qualifier`. Constructing a stringstream object every time
+* CCBC-1529: load authentication certificate as chain file.
+* CCBC-1525: remove stringstream in `collection_qualifier`. Constructing a stringstream object every time
 `collection_qualifier` is constructed is very expensive.
-CCBC-1528: update parsing of "quota limit" error for FTS
+* CCBC-1528: update parsing of "quota limit" error for FTS
 
 ## 3.2.4 (2021-11-23)
 
-CCBC-1522: Filter `DnsQuery` results on Windows by type: only use records with `DNS_TYPE_SRV` type.
+* CCBC-1522: Filter `DnsQuery` results on Windows by type: only use records with `DNS_TYPE_SRV` type.
 
-CCBC-1521: Fixed bootstrap process when client certificate is used. We always pipeline error map request with `HELLO`
+* CCBC-1521: Fixed bootstrap process when client certificate is used. We always pipeline error map request with `HELLO`
 request, and usually await for `hello`+`error_map` responses, because after that goes SASL authentication (and then
 optional selection of the bucket) which cannot be completely pipelined. But in case of client certificate, we might
 terminate bootstrap process too early if the bootstrap process does not require immediate selection of the bucket.
     
-CCBC-1432: Support for rate limiting error codes: `LCB_ERR_RATE_LIMITED` and `LCB_ERR_QUOTA_LIMITED`.
+* CCBC-1432: Support for rate limiting error codes: `LCB_ERR_RATE_LIMITED` and `LCB_ERR_QUOTA_LIMITED`.
 
-CCBC-1514: Do not translate unknown error with "item-only" attribute into `LCB_ERR_CAS_MISMATCH`.
+* CCBC-1514: Do not translate unknown error with "item-only" attribute into `LCB_ERR_CAS_MISMATCH`.
 
-CCBC-1515: Performance optimization: replace `sstream` with string `append()`. Only if list of IO vectors supplied for
+* CCBC-1515: Performance optimization: replace `sstream` with string `append()`. Only if list of IO vectors supplied for
 value in mutation operations.
 
 ## 3.2.3 (2021-10-20)

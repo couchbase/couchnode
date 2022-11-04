@@ -69,7 +69,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_id(const lcb_RESPPING *resp, siz
         return LCB_ERR_OPTIONS_CONFLICT;
     }
     *endpoint_id = resp->services[index].id;
-    *endpoint_id_len = strlen(*endpoint_id);
+    *endpoint_id_len = *endpoint_id == nullptr ? 0 : strlen(*endpoint_id);
     return LCB_SUCCESS;
 }
 
@@ -100,7 +100,7 @@ LIBCOUCHBASE_API lcb_STATUS lcb_respping_result_local(const lcb_RESPPING *resp, 
         return LCB_ERR_OPTIONS_CONFLICT;
     }
     *address = resp->services[index].local;
-    *address_len = strlen(*address);
+    *address_len = *address == nullptr ? 0 : strlen(*address);
     return LCB_SUCCESS;
 }
 

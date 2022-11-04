@@ -122,9 +122,6 @@ struct collection_qualifier {
             /* nullptr/0 for collection is mapped to default collection */
             return true;
         }
-        if (element_len < 1 || element_len > 30) {
-            return false;
-        }
         for (size_t i = 0; i < element_len; ++i) {
             if (!is_valid_collection_char(element[i])) {
                 return false;

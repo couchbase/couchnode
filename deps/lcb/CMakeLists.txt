@@ -30,7 +30,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 # Couchbase mock path to download
 SET(COUCHBASE_MOCK_VERSION 1.5.25)
 SET(COUCHBASE_MOCK_URL "https://github.com/couchbase/CouchbaseMock/releases/download/${COUCHBASE_MOCK_VERSION}/CouchbaseMock-${COUCHBASE_MOCK_VERSION}.jar")
-project(libcouchbase VERSION 3.2.5 LANGUAGES C CXX)
+project(libcouchbase VERSION 3.3.2 LANGUAGES C CXX)
 
 if (NOT CMAKE_VERSION VERSION_LESS "3.13")
     # CMP0077: option() honors normal variables
@@ -278,20 +278,30 @@ ELSE()
         # and set the appropriate OpenSSL variables
         IF(APPLE)
             IF(NOT OpenSSL_DIR)
-                EXECUTE_PROCESS(COMMAND brew --prefix openssl
+                EXECUTE_PROCESS(COMMAND brew --prefix openssl@1.1
                     OUTPUT_VARIABLE OPENSSL_ROOT_DIR
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
                 MESSAGE(STATUS "Found OpenSSL Prefix: ${OPENSSL_ROOT_DIR}")
             ENDIF()
         ENDIF()
         FIND_PACKAGE(OpenSSL)
+        # If it still not found, try to locate it using pkg-config
+        IF(NOT OPENSSL_FOUND AND UNIX)
+            find_package(PkgConfig)
+            IF(PkgConfig_FOUND)
+                pkg_check_modules(OPENSSL openssl11)
+                IF(OPENSSL_FOUND)
+                    SET(OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIRS})
+                    SET(OPENSSL_LIBRARIES ${OPENSSL_LINK_LIBRARIES})
+                ENDIF()
+            ENDIF()
+        ENDIF()
     ENDIF(NOT OPENSSL_FOUND)
 
     IF(OPENSSL_FOUND)
         MESSAGE(STATUS "SSL Found: ${OPENSSL_VERSION} (${OPENSSL_LIBRARIES})")
     ELSE()
-        MESSAGE(STATUS "SSL Not Found. SSL support will be disabled")
-        ADD_DEFINITIONS(-DLCB_NO_SSL=1)
+        MESSAGE(FATAL_ERROR "SSL Not Found. Use LCB_NO_SSL to produce build without OpenSSL")
     ENDIF()
 ENDIF()
 
@@ -299,7 +309,14 @@ ADD_SUBDIRECTORY(src/vbucket)
 ADD_SUBDIRECTORY(contrib/cbsasl)
 ADD_SUBDIRECTORY(contrib/cliopts)
 ADD_SUBDIRECTORY(src/ssl)
-ADD_SUBDIRECTORY(contrib/lcb-jsoncpp)
+IF(NOT LCB_JSONCPP_LIB)
+    ADD_SUBDIRECTORY(contrib/lcb-jsoncpp)
+ENDIF()
+IF(NOT LCB_JSONCPP_INCLUDE_DIR)
+    INCLUDE_DIRECTORIES(contrib/lcb-jsoncpp)
+ELSE()
+    INCLUDE_DIRECTORIES(${LCB_JSONCPP_INCLUDE_DIR})
+ENDIF()
 IF(NOT LCB_SNAPPY_LIB)
     ADD_SUBDIRECTORY(contrib/snappy)
 ENDIF()
@@ -344,11 +361,13 @@ SET(LCB_CORE_OBJS
     $<TARGET_OBJECTS:lcbcore>
     $<TARGET_OBJECTS:lcbcore-cxx>
     $<TARGET_OBJECTS:lcb_jsparse>
-    $<TARGET_OBJECTS:lcb_jsoncpp>
     ${LCB_DTRACE_OBJECT}
     ${lcb_plat_objs}
     ${lcb_ssl_objs})
 
+IF(NOT LCB_JSONCPP_LIB)
+    LIST (APPEND LCB_CORE_OBJS $<TARGET_OBJECTS:lcb_jsoncpp>)
+ENDIF()
 IF(NOT LCB_SNAPPY_LIB)
     LIST (APPEND LCB_CORE_OBJS $<TARGET_OBJECTS:lcb_snappy>)
 ENDIF()
@@ -399,6 +418,9 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 ENDIF()
 IF(LIBPROFILER)
     SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} ${LIBPROFILER})
+ENDIF()
+IF(LCB_JSONCPP_LIB)
+    SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} ${LCB_JSONCPP_LIB})
 ENDIF()
 IF(LCB_SNAPPY_LIB)
     SET(LCB_LINK_DEPS ${LCB_LINK_DEPS} ${LCB_SNAPPY_LIB})

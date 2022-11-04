@@ -932,12 +932,19 @@ char *lcbvb_save_json(lcbvb_CONFIG *cfg)
     cJSON *tmp = NULL, *nodes = NULL;
     cJSON *root = cJSON_CreateObject();
 
-    if (cfg->dtype == LCBVB_DIST_VBUCKET) {
-        tmp = cJSON_CreateString("vbucket");
-    } else {
-        tmp = cJSON_CreateString("ketama");
+    switch (cfg->dtype) {
+        case  LCBVB_DIST_VBUCKET:
+            tmp = cJSON_CreateString("vbucket");
+            break;
+        case LCBVB_DIST_KETAMA:
+            tmp = cJSON_CreateString("ketama");
+            break;
+        default:
+            break;
     }
-    cJSON_AddItemToObject(root, "nodeLocator", tmp);
+    if (tmp) {
+        cJSON_AddItemToObject(root, "nodeLocator", tmp);
+    }
 
     if (cfg->buuid) {
         tmp = cJSON_CreateString(cfg->buuid);
@@ -951,8 +958,10 @@ char *lcbvb_save_json(lcbvb_CONFIG *cfg)
         tmp = cJSON_CreateInt64(cfg->revid);
         cJSON_AddItemToObject(root, "rev", tmp);
     }
-    tmp = cJSON_CreateString(cfg->bname);
-    cJSON_AddItemToObject(root, "name", tmp);
+    if (cfg->bname != NULL) {
+        tmp = cJSON_CreateString(cfg->bname);
+        cJSON_AddItemToObject(root, "name", tmp);
+    }
 
     nodes = cJSON_CreateArray();
     cJSON_AddItemToObject(root, "nodesExt", nodes);

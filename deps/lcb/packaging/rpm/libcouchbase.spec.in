@@ -15,7 +15,7 @@ BuildRequires: cmake >= 3.5.1
 
 BuildRequires: pkgconfig(libevent) >= 2
 BuildRequires: libev-devel >= 3
-BuildRequires: openssl-devel
+BuildRequires: openssl11-devel
 BuildRequires: systemtap-sdt-devel, systemtap-devel
 URL: https://developer.couchbase.com/server/other-products/release-notes-archives/c-sdk
 Source: https://packages.couchbase.com/clients/c/@TARREDAS@.tar.gz

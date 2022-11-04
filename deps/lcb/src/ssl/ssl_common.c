@@ -32,6 +32,26 @@
 #define LOGARGS(ssl, lvl) ((lcbio_SOCKET *)SSL_get_app_data(ssl))->settings, "SSL", lvl, __FILE__, __LINE__
 static char *global_event = "dummy event for ssl";
 
+static const char *capella_ca_cert = "-----BEGIN CERTIFICATE-----\n"
+                                     "MIIDFTCCAf2gAwIBAgIRANLVkgOvtaXiQJi0V6qeNtswDQYJKoZIhvcNAQELBQAw\n"
+                                     "JDESMBAGA1UECgwJQ291Y2hiYXNlMQ4wDAYDVQQLDAVDbG91ZDAeFw0xOTEyMDYy\n"
+                                     "MjEyNTlaFw0yOTEyMDYyMzEyNTlaMCQxEjAQBgNVBAoMCUNvdWNoYmFzZTEOMAwG\n"
+                                     "A1UECwwFQ2xvdWQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCfvOIi\n"
+                                     "enG4Dp+hJu9asdxEMRmH70hDyMXv5ZjBhbo39a42QwR59y/rC/sahLLQuNwqif85\n"
+                                     "Fod1DkqgO6Ng3vecSAwyYVkj5NKdycQu5tzsZkghlpSDAyI0xlIPSQjoORA/pCOU\n"
+                                     "WOpymA9dOjC1bo6rDyw0yWP2nFAI/KA4Z806XeqLREuB7292UnSsgFs4/5lqeil6\n"
+                                     "rL3ooAw/i0uxr/TQSaxi1l8t4iMt4/gU+W52+8Yol0JbXBTFX6itg62ppb/Eugmn\n"
+                                     "mQRMgL67ccZs7cJ9/A0wlXencX2ohZQOR3mtknfol3FH4+glQFn27Q4xBCzVkY9j\n"
+                                     "KQ20T1LgmGSngBInAgMBAAGjQjBAMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYE\n"
+                                     "FJQOBPvrkU2In1Sjoxt97Xy8+cKNMA4GA1UdDwEB/wQEAwIBhjANBgkqhkiG9w0B\n"
+                                     "AQsFAAOCAQEARgM6XwcXPLSpFdSf0w8PtpNGehmdWijPM3wHb7WZiS47iNen3oq8\n"
+                                     "m2mm6V3Z57wbboPpfI+VEzbhiDcFfVnK1CXMC0tkF3fnOG1BDDvwt4jU95vBiNjY\n"
+                                     "xdzlTP/Z+qr0cnVbGBSZ+fbXstSiRaaAVcqQyv3BRvBadKBkCyPwo+7svQnScQ5P\n"
+                                     "Js7HEHKVms5tZTgKIw1fbmgR2XHleah1AcANB+MAPBCcTgqurqr5G7W2aPSBLLGA\n"
+                                     "fRIiVzm7VFLc7kWbp7ENH39HVG6TZzKnfl9zJYeiklo5vQQhGSMhzBsO70z4RRzi\n"
+                                     "DPFAN/4qZAgD5q3AFNIq2WWADFQGSwVJhg==\n"
+                                     "-----END CERTIFICATE-----\n";
+
 /******************************************************************************
  ******************************************************************************
  ** Boilerplate lcbio_TABLE Wrappers                                         **
@@ -221,6 +241,9 @@ static void log_callback(const SSL *ssl, int where, int ret)
 {
     int should_log = 0;
     lcbio_SOCKET *sock = SSL_get_app_data(ssl);
+    if (sock == NULL) {
+        return;
+    }
     /* Ignore low-level SSL stuff */
 
     if (where & SSL_CB_ALERT) {
@@ -298,6 +321,48 @@ static long decode_ssl_protocol(const char *protocol)
     return disallow;
 }
 
+static lcb_STATUS add_certificate_authority(const lcb_settings *settings, SSL_CTX *ctx, const char *certificate_value,
+                                            int certificate_length)
+{
+    lcb_STATUS rc = LCB_SUCCESS;
+    ERR_clear_error();
+
+    BIO *bio = BIO_new_mem_buf(certificate_value, certificate_length);
+    if (bio) {
+        X509_STORE *store = SSL_CTX_get_cert_store(ctx);
+        if (store) {
+            for (int added = 0;; added = 1) {
+                X509 *cert = PEM_read_bio_X509(bio, 0, 0, 0);
+                if (!cert) {
+                    unsigned long err = ERR_get_error();
+                    if (added && ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE) {
+                        break;
+                    }
+                    lcb_log(LOGARGS_S(settings, LCB_LOG_ERROR),
+                            "Unable to load default certificate: lib=%s, func=%s, reason=%s", ERR_lib_error_string(err),
+                            ERR_func_error_string(err), ERR_reason_error_string(err));
+                    rc = LCB_ERR_SSL_ERROR;
+                    goto GT_CLEANUP;
+                }
+
+                int ok = X509_STORE_add_cert(store, cert);
+                X509_free(cert);
+                if (ok != 1) {
+                    unsigned long err = ERR_get_error();
+                    lcb_log(LOGARGS_S(settings, LCB_LOG_ERROR),
+                            "Unable to add default certificate: lib=%s, func=%s, reason=%s", ERR_lib_error_string(err),
+                            ERR_func_error_string(err), ERR_reason_error_string(err));
+                    rc = LCB_ERR_SSL_ERROR;
+                    goto GT_CLEANUP;
+                }
+            }
+        }
+    }
+GT_CLEANUP:
+    BIO_free(bio);
+    return rc;
+}
+
 lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *keyfile, int noverify, lcb_STATUS *errp,
                             lcb_settings *settings)
 {
@@ -351,28 +416,41 @@ lcbio_pSSLCTX lcbio_ssl_new(const char *tsfile, const char *cafile, const char *
     }
 #endif
 
-    if (cafile || tsfile) {
+    if (tsfile) {
         lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Load verify locations from \"%s\"", tsfile ? tsfile : cafile);
         if (!SSL_CTX_load_verify_locations(ret->ctx, tsfile ? tsfile : cafile, NULL)) {
             *errp = LCB_ERR_SSL_ERROR;
             goto GT_ERR;
         }
-        if (cafile && keyfile) {
-            lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Authenticate with key \"%s\", cert \"%s\"", keyfile, cafile);
-            if (!SSL_CTX_use_certificate_chain_file(ret->ctx, cafile)) {
-                *errp = LCB_ERR_SSL_ERROR;
-                goto GT_ERR;
-            }
-            if (!SSL_CTX_use_PrivateKey_file(ret->ctx, keyfile, SSL_FILETYPE_PEM)) {
-                lcb_log(LOGARGS_S(settings, LCB_LOG_ERROR), "Unable to load private key \"%s\"", keyfile);
-                *errp = LCB_ERR_SSL_ERROR;
-                goto GT_ERR;
-            }
-            if (!SSL_CTX_check_private_key(ret->ctx)) {
-                lcb_log(LOGARGS_S(settings, LCB_LOG_ERROR), "Unable to verify private key \"%s\"", keyfile);
-                *errp = LCB_ERR_SSL_ERROR;
-                goto GT_ERR;
-            }
+    } else {
+        lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Use default CA for TLS verify");
+        if (SSL_CTX_set_default_verify_paths(ret->ctx) != 1) {
+            unsigned long err = ERR_get_error();
+            lcb_log(LOGARGS_S(settings, LCB_LOG_WARN), "Unable to load system certificates: lib=%s, reason=%s",
+                    ERR_lib_error_string(err), ERR_reason_error_string(err));
+        }
+        // add the capella Root CA if no other CA was specified.
+        *errp = add_certificate_authority(settings, ret->ctx, capella_ca_cert, strlen(capella_ca_cert));
+        if (*errp != LCB_SUCCESS) {
+            goto GT_ERR;
+        }
+    }
+
+    if (cafile && keyfile) {
+        lcb_log(LOGARGS_S(settings, LCB_LOG_DEBUG), "Authenticate with key \"%s\", cert \"%s\"", keyfile, cafile);
+        if (!SSL_CTX_use_certificate_chain_file(ret->ctx, cafile)) {
+            *errp = LCB_ERR_SSL_ERROR;
+            goto GT_ERR;
+        }
+        if (!SSL_CTX_use_PrivateKey_file(ret->ctx, keyfile, SSL_FILETYPE_PEM)) {
+            lcb_log(LOGARGS_S(settings, LCB_LOG_ERROR), "Unable to load private key \"%s\"", keyfile);
+            *errp = LCB_ERR_SSL_ERROR;
+            goto GT_ERR;
+        }
+        if (!SSL_CTX_check_private_key(ret->ctx)) {
+            lcb_log(LOGARGS_S(settings, LCB_LOG_ERROR), "Unable to verify private key \"%s\"", keyfile);
+            *errp = LCB_ERR_SSL_ERROR;
+            goto GT_ERR;
         }
     }
 
@@ -422,15 +500,25 @@ GT_ERR:
     return NULL;
 }
 
+struct proto_ctx_ssl {
+    lcbio_PROTOCTX proto;
+    SSL *ssl;
+};
+
 static void noop_dtor(lcbio_PROTOCTX *arg)
 {
-    free(arg);
+    if (!arg) {
+        return;
+    }
+    struct proto_ctx_ssl *sproto = (struct proto_ctx_ssl *)arg;
+    SSL_set_app_data(sproto->ssl, NULL);
+    free(sproto);
 }
 
 lcb_STATUS lcbio_ssl_apply(lcbio_SOCKET *sock, lcbio_pSSLCTX sctx)
 {
     lcbio_pTABLE old_iot = sock->io, new_iot;
-    lcbio_PROTOCTX *sproto;
+    struct proto_ctx_ssl *sproto;
 
     if (old_iot->model == LCB_IOMODEL_EVENT) {
         new_iot = lcbio_Essl_new(old_iot, sock->u.fd, sctx->ctx);
@@ -440,12 +528,13 @@ lcb_STATUS lcbio_ssl_apply(lcbio_SOCKET *sock, lcbio_pSSLCTX sctx)
 
     if (new_iot) {
         sproto = calloc(1, sizeof(*sproto));
-        sproto->id = LCBIO_PROTOCTX_SSL;
-        sproto->dtor = noop_dtor;
-        lcbio_protoctx_add(sock, sproto);
+        sproto->proto.id = LCBIO_PROTOCTX_SSL;
+        sproto->proto.dtor = noop_dtor;
+        lcbio_protoctx_add(sock, &sproto->proto);
         lcbio_table_unref(old_iot);
         sock->io = new_iot;
         /* just for logging */
+        sproto->ssl = ((lcbio_XSSL *)new_iot)->ssl;
         SSL_set_app_data(((lcbio_XSSL *)new_iot)->ssl, sock);
         return LCB_SUCCESS;
 

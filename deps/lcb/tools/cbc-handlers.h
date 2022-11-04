@@ -827,6 +827,45 @@ class UserUpsertHandler : public AdminHandler
     std::string body;
 };
 
+class BucketListHandler : public AdminHandler
+{
+  public:
+    HANDLER_DESCRIPTION("List buckets")
+    HANDLER_USAGE("NAME [OPTIONS ...]")
+    BucketListHandler() : AdminHandler("bucket-list"), o_raw('r', "raw")
+    {
+        o_raw.description("Do not reformat output from server (display JSON response)");
+    }
+
+  protected:
+    void run() override;
+    void format();
+
+    void addOptions() override
+    {
+        AdminHandler::addOptions();
+        parser.addOption(o_raw);
+    }
+
+    std::string getURI() override
+    {
+        return "/pools/default/buckets";
+    }
+
+    std::string getContentType() override
+    {
+        return "application/json";
+    }
+    
+    lcb_HTTP_METHOD getMethod() override
+    {
+        return LCB_HTTP_METHOD_GET;
+    }
+
+  private:
+    cliopts::BoolOption o_raw;
+};
+
 class BucketCreateHandler : public AdminHandler
 {
   public:
