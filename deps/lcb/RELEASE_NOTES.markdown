@@ -1,5 +1,23 @@
 # Release Notes
 
+## 3.3.3 (2022-09-09)
+* CCBC-1565: load system CAs when the trust certificate is not provided
+
+  When the user has not set any root ca provider but is using TLS then we
+  should trust both the system store and the Capella root CA.
+
+* CCBC-1564: update error message for authentication failure
+
+* CCBC-1568: skip logging for closed SSL IO contexts
+
+  OpenSSL might still invoke IO callbacks after the actual context has
+  been closed. This more likely could happen with libuv-style IO.
+
+  This patch ensures that once socket context has been closed, its pointer
+  in SSL object will be erased.
+
+* Added cbc-bucket-list command to list all buckets.
+
 ## 3.3.2 (2022-08-29)
 
 * CCBC-1559: cbc-n1qlback: give time to IO loop in case of failure.
