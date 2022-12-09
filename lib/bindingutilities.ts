@@ -305,7 +305,7 @@ export function mutationStateToCpp(
   state: MutationState | undefined
 ): CppMutationState {
   if (state === null || state === undefined) {
-    return []
+    return { tokens: [] }
   }
 
   const tokens: CppMutationToken[] = []
@@ -316,7 +316,7 @@ export function mutationStateToCpp(
     }
   }
 
-  return tokens
+  return { tokens: tokens }
 }
 
 /**

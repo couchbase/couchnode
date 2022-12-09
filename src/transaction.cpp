@@ -11,6 +11,7 @@ namespace couchnode
 
 // BUG(JSCBC-1022): Remove this once txn++ implements handlers which can
 // properly forward with move semantics.
+// UPDATE 2022.12.09:  kv has been updated, query still uses std::function
 class RefCallCookie
 {
 public:
@@ -60,7 +61,7 @@ Transaction::Transaction(const Napi::CallbackInfo &info)
     }
     auto &transactions = Transactions::Unwrap(txnsJsObj)->transactions();
 
-    auto txnConfig = jsToCbpp<cbtxns::per_transaction_config>(configJsObj);
+    auto txnConfig = jsToCbpp<cbtxns::transaction_options>(configJsObj);
     _impl.reset(new cbcoretxns::transaction_context(transactions));
 }
 
@@ -71,8 +72,7 @@ Transaction::~Transaction()
 Napi::Value Transaction::jsNewAttempt(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
+    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
 
     _impl->new_attempt_context(
         [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {
@@ -89,14 +89,15 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
+    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnGetCallback");
 
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
 
     _impl->get_optional(
-        docId, [this, cookie = std::move(cookie)](
-                   std::exception_ptr err,
-                   std::optional<cbcoretxns::transaction_get_result> res) mutable {
+        docId,
+        [this, cookie = std::move(cookie)](
+            std::exception_ptr err,
+            std::optional<cbcoretxns::transaction_get_result> res) mutable {
             cookie.invoke([err = std::move(err), res = std::move(res)](
                               Napi::Env env, Napi::Function callback) mutable {
                 // BUG(JSCBC-1024): We should revert to using direct get
@@ -120,11 +121,10 @@ Napi::Value Transaction::jsInsert(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
+    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
 
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
-    auto content =
-        jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
+    auto content = jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
 
     _impl->insert(
         docId, content,
@@ -144,12 +144,11 @@ Napi::Value Transaction::jsReplace(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
+    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
 
-    auto doc = jsToCbpp<cbcoretxns::transaction_get_result>(
-        optsJsObj.Get("doc"));
-    auto content =
-        jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
+    auto doc =
+        jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
+    auto content = jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
 
     _impl->replace(
         doc, content,
@@ -169,10 +168,10 @@ Napi::Value Transaction::jsRemove(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
+    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
 
-    auto doc = jsToCbpp<cbcoretxns::transaction_get_result>(
-        optsJsObj.Get("doc"));
+    auto doc =
+        jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
 
     _impl->remove(doc, [this, cookie = std::move(cookie)](
                            std::exception_ptr err) mutable {
@@ -190,11 +189,12 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
     auto statementJsStr = info[0].As<Napi::String>();
     auto optsJsObj = info[1].As<Napi::Object>();
     auto callbackJsFn = info[2].As<Napi::Function>();
+    // BUG(JSCBC-1022): Remove this once txn++ implements handlers which can
+    // properly forward with move semantics.
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnQueryCallback");
 
     auto statement = jsToCbpp<std::string>(statementJsStr);
-    auto options =
-        jsToCbpp<cbcoretxns::transaction_query_options>(optsJsObj);
+    auto options = jsToCbpp<cbtxns::transaction_query_options>(optsJsObj);
 
     _impl->query(statement, options,
                  [this, cookie = std::move(cookie)](
@@ -223,7 +223,7 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
 Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnCommitCallback");
+    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnCommitCallback");
 
     _impl->finalize([this, cookie = std::move(cookie)](
                         std::optional<cbcoretxns::transaction_exception> err,
@@ -240,8 +240,7 @@ Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
 Napi::Value Transaction::jsRollback(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
+    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
 
     _impl->rollback(
         [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {

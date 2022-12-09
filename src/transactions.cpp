@@ -31,7 +31,7 @@ Transactions::Transactions(const Napi::CallbackInfo &info)
     }
     auto cluster = Connection::Unwrap(clusterJsObj)->cluster();
 
-    auto txnsConfig = jsToCbpp<cbtxns::transaction_config>(configJsObj);
+    auto txnsConfig = jsToCbpp<cbtxns::transactions_config>(configJsObj);
     _impl.reset(new cbcoretxns::transactions(cluster, txnsConfig));
 }
 

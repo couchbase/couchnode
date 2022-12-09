@@ -59,7 +59,10 @@ fileList = [
     "core/impl/subdoc/command.hxx",
     "couchbase/store_semantics.hxx",
     "couchbase/persist_to.hxx",
-    "couchbase/replicate_to.hxx"
+    "couchbase/replicate_to.hxx",
+    "core/range_scan_options.hxx",
+    "core/scan_options.hxx",
+    "core/range_scan_orchestrator_options.hxx",
 ]
 
 typeList = [
@@ -135,7 +138,22 @@ typeList = [
     "couchbase::core::impl::subdoc::opcode",
     "couchbase::store_semantics",
     "couchbase::persist_to",
-    "couchbase::replicate_to"
+    "couchbase::replicate_to",
+    "couchbase::core::range_scan_create_options",
+    "couchbase::core::range_scan_continue_options",
+    "couchbase::core::range_scan_cancel_options",
+    "couchbase::core::range_scan_orchestrator_options",
+    "couchbase::core::mutation_state",
+    "couchbase::core::scan_term",
+    "couchbase::core::scan_sort",
+    "couchbase::core::range_scan",
+    "couchbase::core::sampling_scan",
+    "couchbase::core::range_snapshot_requirements",
+    "couchbase::core::range_scan_item_body",
+    "couchbase::core::range_scan_item",
+    "couchbase::core::range_scan_create_result",
+    "couchbase::core::range_scan_continue_result",
+    "couchbase::core::range_scan_cancel_result",
 ]
 
 # end of configurable part
@@ -185,6 +203,7 @@ typeListRe = list(map(lambda x: x.replace("*", "(.*)") + "(.*)", typeList))
 
 
 def is_included_type(name, with_durability=False):
+
     # TODO(brett19): This should be generalized somehow...
     if "is_compound_operation" in name:
         return False
@@ -331,8 +350,12 @@ def parse_type_str(typeStr):
         print("FAILED TO PARSE STRING TYPE: " + typeStr)
         return {"name": "unknown", "str": typeStr}
 
+    if 'unnamed struct' in typeStr:
+        print("WARNING:  Found unnamed struct: " + typeStr)
+
     return {"name": typeStr}
 
+internal_structs = []
 
 def traverse(node, namespace, main_file):
     # only scan the elements of the file we parsed
@@ -341,15 +364,26 @@ def traverse(node, namespace, main_file):
 
     if node.kind == clang.cindex.CursorKind.STRUCT_DECL or node.kind == clang.cindex.CursorKind.CLASS_DECL:
         fullStructName = "::".join([*namespace, node.displayname])
-        if is_included_type(fullStructName):
+        if fullStructName.endswith('::'): 
+            match = next((s for s in internal_structs if fullStructName in s), None)
+            if match:
+                fullStructName = match
 
+        if is_included_type(fullStructName) or fullStructName in internal_structs:
             structFields = []
-
             for child in node.get_children():
                 if child.kind == clang.cindex.CursorKind.FIELD_DECL:
+                    struct_type = parse_type(child.type)
+                    type_str = child.type.get_canonical().spelling
+                    if 'unnamed' in type_str:
+                        name_tokens = type_str.split('::')
+                        name_override = '::'.join(name_tokens[:-1] + [child.displayname])
+                        struct_type['name'] = name_override
+                        internal_structs.append(name_override)
+
                     structFields.append({
                         "name": child.displayname,
-                        "type": parse_type(child.type),
+                        "type": struct_type,
                     })
             # replica read changes introduced duplicate get requests
             if any(map(lambda op: op['name'] == fullStructName, opTypes)):

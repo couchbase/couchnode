@@ -33,11 +33,11 @@ struct js_to_cbpp_t<tao::json::value> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::transaction_config> {
-    static inline cbtxns::transaction_config from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<cbtxns::transactions_config> {
+    static inline cbtxns::transactions_config from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        cbtxns::transaction_config cppObj;
+        cbtxns::transactions_config cppObj;
 
         auto durability_level =
             js_to_cbpp<std::optional<couchbase::durability_level>>(
@@ -64,26 +64,29 @@ struct js_to_cbpp_t<cbtxns::transaction_config> {
             js_to_cbpp<std::optional<couchbase::query_scan_consistency>>(
                 jsObj.Get("query_scan_consistency"));
         if (query_scan_consistency.has_value()) {
-            cppObj.scan_consistency(query_scan_consistency.value());
+            cppObj.query_config().scan_consistency(
+                query_scan_consistency.value());
         }
 
         auto cleanup_window =
             js_to_cbpp<std::optional<std::chrono::milliseconds>>(
                 jsObj.Get("cleanup_window"));
         if (cleanup_window.has_value()) {
-            cppObj.cleanup_window(cleanup_window.value());
+            cppObj.cleanup_config().cleanup_window(cleanup_window.value());
         }
 
         auto cleanup_lost_attempts =
             js_to_cbpp<std::optional<bool>>(jsObj.Get("cleanup_lost_attempts"));
         if (cleanup_lost_attempts.has_value()) {
-            cppObj.cleanup_lost_attempts(cleanup_lost_attempts.value());
+            cppObj.cleanup_config().cleanup_lost_attempts(
+                cleanup_lost_attempts.value());
         }
 
         auto cleanup_client_attempts = js_to_cbpp<std::optional<bool>>(
             jsObj.Get("cleanup_client_attempts"));
         if (cleanup_client_attempts.has_value()) {
-            cppObj.cleanup_client_attempts(cleanup_client_attempts.value());
+            cppObj.cleanup_config().cleanup_client_attempts(
+                cleanup_client_attempts.value());
         }
 
         return cppObj;
@@ -91,11 +94,11 @@ struct js_to_cbpp_t<cbtxns::transaction_config> {
 };
 
 template <>
-struct js_to_cbpp_t<cbtxns::per_transaction_config> {
-    static inline cbtxns::per_transaction_config from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<cbtxns::transaction_options> {
+    static inline cbtxns::transaction_options from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        cbtxns::per_transaction_config cppObj;
+        cbtxns::transaction_options cppObj;
 
         auto durability_level =
             js_to_cbpp<std::optional<couchbase::durability_level>>(
@@ -235,20 +238,16 @@ struct js_to_cbpp_t<cbcoretxns::transaction_get_result> {
 };
 
 template <>
-struct js_to_cbpp_t<cbcoretxns::transaction_query_options> {
-    static inline cbcoretxns::transaction_query_options
-    from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<cbtxns::transaction_query_options> {
+    static inline cbtxns::transaction_query_options from_js(Napi::Value jsVal)
     {
-        auto jsObj = jsVal.ToObject();
-        cbcoretxns::transaction_query_options cppObj;
 
-        auto raw = js_to_cbpp<std::optional<
-            std::map<std::string, couchbase::core::json_string, std::less<>>>>(
-            jsObj.Get("raw"));
-        if (raw.has_value()) {
-            for (auto &v : *raw) {
-                cppObj.raw(v.first, v.second);
-            }
+        auto jsObj = jsVal.ToObject();
+        cbtxns::transaction_query_options cppObj;
+
+        auto raw = js_to_cbpp<std::optional<std::map<std::string, std::vector<std::byte>, std::less<>>>>(jsObj.Get("raw"));
+        if(raw.has_value() && raw.value().size() > 0){
+            cppObj.encoded_raw_options(raw.value());
         }
 
         auto ad_hoc = js_to_cbpp<std::optional<bool>>(jsObj.Get("ad_hoc"));
@@ -296,7 +295,7 @@ struct js_to_cbpp_t<cbcoretxns::transaction_query_options> {
         if (scan_cap.has_value()) {
             cppObj.scan_cap(scan_cap.value());
         }
-
+                
         auto pipeline_batch =
             js_to_cbpp<std::optional<uint64_t>>(jsObj.Get("pipeline_batch"));
         if (pipeline_batch.has_value()) {
@@ -316,29 +315,25 @@ struct js_to_cbpp_t<cbcoretxns::transaction_query_options> {
         }
 
         auto positional_parameters = js_to_cbpp<
-            std::optional<std::vector<couchbase::core::json_string>>>(
+            std::optional<std::vector<std::vector<std::byte>>>>(
             jsObj.Get("positional_parameters"));
-        if (positional_parameters.has_value()) {
-            cppObj.positional_parameters(positional_parameters.value());
+        if (positional_parameters.has_value() && positional_parameters.value().size() > 0) {
+            cppObj.encoded_positional_parameters(positional_parameters.value());
         }
 
         auto named_parameters = js_to_cbpp<std::optional<
-            std::map<std::string, couchbase::core::json_string, std::less<>>>>(
+            std::map<std::string, std::vector<std::byte>, std::less<>>>>(
             jsObj.Get("named_parameters"));
-        if (named_parameters.has_value()) {
-            cppObj.named_parameters(named_parameters.value());
+        if (named_parameters.has_value() && named_parameters.value().size() > 0) {
+            cppObj.encoded_named_parameters(named_parameters.value());
         }
-
+        
         auto bucket_name =
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("bucket_name"));
-        if (bucket_name.has_value()) {
-            cppObj.bucket_name(bucket_name.value());
-        }
-
         auto scope_name =
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("scope_name"));
-        if (scope_name.has_value()) {
-            cppObj.scope_name(scope_name.value());
+        if (bucket_name.has_value() && scope_name.has_value()) {
+            cppObj.scope_qualifier(fmt::format("default:`{}`.`{}`", bucket_name.value(), scope_name.value()));
         }
 
         return cppObj;

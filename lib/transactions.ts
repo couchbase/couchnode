@@ -525,35 +525,35 @@ export class TransactionAttemptContext {
         statement,
         {
           scan_consistency: queryScanConsistencyToCpp(options.scanConsistency),
-          ad_hoc: options.adhoc,
+          ad_hoc: options.adhoc === false ? false : true,
           client_context_id: options.clientContextId,
           pipeline_batch: options.pipelineBatch,
           pipeline_cap: options.pipelineCap,
           max_parallelism: options.maxParallelism,
           scan_wait: options.scanWait,
           scan_cap: options.scanCap,
-          readonly: options.readOnly,
+          readonly: options.readOnly || false,
           profile: queryProfileToCpp(options.profile),
-          metrics: options.metrics,
+          metrics: options.metrics || false,
           bucket_name: options.scope ? options.scope.bucket.name : undefined,
           scope_name: options.scope ? options.scope.name : undefined,
           raw: options.raw
             ? Object.fromEntries(
                 Object.entries(options.raw)
                   .filter(([, v]) => v !== undefined)
-                  .map(([k, v]) => [k, JSON.stringify(v)])
+                  .map(([k, v]) => [k, Buffer.from(JSON.stringify(v))])
               )
             : {},
           positional_parameters:
             options.parameters && Array.isArray(options.parameters)
-              ? options.parameters.map((v) => JSON.stringify(v ?? null))
+              ? options.parameters.map((v) => Buffer.from(JSON.stringify(v ?? null)))
               : [],
           named_parameters:
             options.parameters && !Array.isArray(options.parameters)
               ? Object.fromEntries(
                   Object.entries(options.parameters as { [key: string]: any })
                     .filter(([, v]) => v !== undefined)
-                    .map(([k, v]) => [k, JSON.stringify(v)])
+                    .map(([k, v]) => [k, Buffer.from(JSON.stringify(v))])
                 )
               : {},
         },

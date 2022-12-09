@@ -11,7 +11,6 @@ export type CppSeconds = number
 export type CppBytes = string | Buffer
 export type CppDocFlags = number
 export type CppExpiry = number
-export type CppMutationState = CppMutationToken[]
 
 export type CppJsonString = string | Buffer
 
@@ -81,6 +80,7 @@ export enum CppImplSubdocOpcode {}
 export enum CppStoreSemantics {}
 export enum CppPersistTo {}
 export enum CppReplicateTo {}
+export enum CppScanSort {}
 
 export interface CppManagementAnalyticsDataset {
   name: string
@@ -1383,6 +1383,7 @@ export interface CppManagementBucketDescribeResponseBucketInfo {
   uuid: string
   number_of_nodes: number
   number_of_replicas: number
+  bucket_capabilities: string[]
   storage_backend: CppManagementClusterBucketStorageBackend
 }
 export interface CppManagementBucketDescribeRequest {
@@ -1857,6 +1858,84 @@ export interface CppImplSubdocCommand {
   value_?: Buffer
   flags_: number
   original_index_: number
+}
+export interface CppScanTerm {
+  id: Buffer
+  exclusive: boolean
+}
+export interface CppRangeScan {
+  start_: CppScanTerm
+  end_: CppScanTerm
+}
+export interface CppSamplingScan {
+  limit: number
+  seed?: number
+}
+export interface CppRangeSnapshotRequirements {
+  vbucket_uuid: number
+  sequence_number: number
+  sequence_number_exists: boolean
+}
+export interface CppRangeScanCreateOptions {
+  scope_name: string
+  collection_name: string
+  scan_type_name: string
+  scan_type_value: undefined | CppRangeScan | CppSamplingScan
+  timeout: CppMilliseconds
+  collection_id: number
+  snapshot_requirements?: CppRangeSnapshotRequirements
+  ids_only: boolean
+  // retry_strategy
+  // internal
+}
+export interface CppRangeScanCreateResult {
+  scan_uuid: Buffer
+  ids_only: boolean
+}
+export interface CppRangeScanContinueOptions {
+  batch_item_limit: number
+  batch_byte_limit: number
+  batch_time_limit: CppMilliseconds
+  // retry_strategy
+  ids_only: boolean
+  // internal
+}
+export interface CppRangeScanContinueResult {
+  more: boolean
+  complete: boolean
+  ids_only: boolean
+}
+export interface CppRangeScanCancelOptions {
+  timeout: CppMilliseconds
+  // retry_strategy
+  // internal
+}
+export interface CppRangeScanItemBody {
+  flags: number
+  expiry: number
+  cas: CppCas
+  sequence_number: number
+  datatype: number
+  value: Buffer
+}
+export interface CppRangeScanItem {
+  key: Buffer
+  body?: CppRangeScanItemBody
+}
+export interface CppRangeScanCancelResult {}
+export interface CppMutationState {
+  tokens: CppMutationToken[]
+}
+export interface CppRangeScanOrchestratorOptions {
+  ids_only: boolean
+  consistent_with?: CppMutationState
+  sort: CppScanSort
+  batch_item_limit: number
+  batch_byte_limit: number
+  batch_time_limit: CppMilliseconds
+  // retry_strategy
+  timeout: CppMilliseconds
+  // parent_span
 }
 
 export interface CppConnectionAutogen {
@@ -2553,13 +2632,13 @@ export interface CppBindingAutogen {
     socket_not_available: CppRetryReason
     service_not_available: CppRetryReason
     node_not_available: CppRetryReason
-    kv_not_my_vbucket: CppRetryReason
-    kv_collection_outdated: CppRetryReason
-    kv_error_map_retry_indicated: CppRetryReason
-    kv_locked: CppRetryReason
-    kv_temporary_failure: CppRetryReason
-    kv_sync_write_in_progress: CppRetryReason
-    kv_sync_write_re_commit_in_progress: CppRetryReason
+    key_value_not_my_vbucket: CppRetryReason
+    key_value_collection_outdated: CppRetryReason
+    key_value_error_map_retry_indicated: CppRetryReason
+    key_value_locked: CppRetryReason
+    key_value_temporary_failure: CppRetryReason
+    key_value_sync_write_in_progress: CppRetryReason
+    key_value_sync_write_re_commit_in_progress: CppRetryReason
     service_response_code_indicated: CppRetryReason
     socket_closed_while_in_flight: CppRetryReason
     circuit_breaker_open: CppRetryReason
@@ -2719,6 +2798,9 @@ export interface CppBindingAutogen {
     xattr_cannot_modify_virtual_attribute: CppErrcKeyValue
     xattr_no_access: CppErrcKeyValue
     cannot_revive_living_document: CppErrcKeyValue
+    range_scan_cancelled: CppErrcKeyValue
+    range_scan_vb_uuid_not_equal: CppErrcKeyValue
+    range_scan_completed: CppErrcKeyValue
   }
   errc_query: {
     planning_failure: CppErrcQuery
@@ -2777,6 +2859,13 @@ export interface CppBindingAutogen {
     protocol_error: CppErrcNetwork
     configuration_not_available: CppErrcNetwork
     cluster_closed: CppErrcNetwork
+    end_of_stream: CppErrcNetwork
+    need_more_data: CppErrcNetwork
+    operation_queue_closed: CppErrcNetwork
+    operation_queue_full: CppErrcNetwork
+    request_already_queued: CppErrcNetwork
+    request_cancelled: CppErrcNetwork
+    bucket_closed: CppErrcNetwork
   }
   key_value_status_code: {
     success: CppKeyValueStatusCode
@@ -2846,6 +2935,11 @@ export interface CppBindingAutogen {
     subdoc_xattr_unknown_vattr_macro: CppKeyValueStatusCode
     subdoc_can_only_revive_deleted_documents: CppKeyValueStatusCode
     subdoc_deleted_document_cannot_have_value: CppKeyValueStatusCode
+    range_scan_cancelled: CppKeyValueStatusCode
+    range_scan_more: CppKeyValueStatusCode
+    range_scan_complete: CppKeyValueStatusCode
+    range_scan_vb_uuid_not_equal: CppKeyValueStatusCode
+    unknown: CppKeyValueStatusCode
   }
   impl_subdoc_opcode: {
     get_doc: CppImplSubdocOpcode
@@ -2884,6 +2978,10 @@ export interface CppBindingAutogen {
     one: CppReplicateTo
     two: CppReplicateTo
     three: CppReplicateTo
+  }
+  scan_sort: {
+    none: CppScanSort
+    ascending: CppScanSort
   }
 }
 

@@ -17,6 +17,8 @@
 #include <core/operations/management/search.hxx>
 #include <core/operations/management/user.hxx>
 #include <core/operations/management/view.hxx>
+#include <core/range_scan_orchestrator_options.hxx>
+#include <core/scan_options.hxx>
 
 namespace couchnode
 {
@@ -6775,6 +6777,8 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                 jsObj.Get("number_of_nodes"));
         js_to_cbpp<std::size_t>(cppObj.number_of_replicas,
                                 jsObj.Get("number_of_replicas"));
+        js_to_cbpp<std::vector<std::string>>(cppObj.bucket_capabilities,
+                                             jsObj.Get("bucket_capabilities"));
         js_to_cbpp<
             couchbase::core::management::cluster::bucket_storage_backend>(
             cppObj.storage_backend, jsObj.Get("storage_backend"));
@@ -6791,6 +6795,8 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                    cbpp_to_js<std::size_t>(env, cppObj.number_of_nodes));
         resObj.Set("number_of_replicas",
                    cbpp_to_js<std::size_t>(env, cppObj.number_of_replicas));
+        resObj.Set("bucket_capabilities", cbpp_to_js<std::vector<std::string>>(
+                                              env, cppObj.bucket_capabilities));
         resObj.Set(
             "storage_backend",
             cbpp_to_js<
@@ -9805,6 +9811,417 @@ struct js_to_cbpp_t<couchbase::core::impl::subdoc::command> {
         resObj.Set("flags_", cbpp_to_js<std::byte>(env, cppObj.flags_));
         resObj.Set("original_index_",
                    cbpp_to_js<std::size_t>(env, cppObj.original_index_));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::scan_term> {
+    static inline couchbase::core::scan_term from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::scan_term cppObj;
+        js_to_cbpp<std::vector<std::byte>>(cppObj.id, jsObj.Get("id"));
+        js_to_cbpp<bool>(cppObj.exclusive, jsObj.Get("exclusive"));
+        return cppObj;
+    }
+    static inline Napi::Value to_js(Napi::Env env,
+                                    const couchbase::core::scan_term &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("id", cbpp_to_js<std::vector<std::byte>>(env, cppObj.id));
+        resObj.Set("exclusive", cbpp_to_js<bool>(env, cppObj.exclusive));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan> {
+    static inline couchbase::core::range_scan from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan cppObj;
+        js_to_cbpp<couchbase::core::scan_term>(cppObj.start_,
+                                               jsObj.Get("start_"));
+        js_to_cbpp<couchbase::core::scan_term>(cppObj.end_, jsObj.Get("end_"));
+        return cppObj;
+    }
+    static inline Napi::Value to_js(Napi::Env env,
+                                    const couchbase::core::range_scan &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("start_",
+                   cbpp_to_js<couchbase::core::scan_term>(env, cppObj.start_));
+        resObj.Set("end_",
+                   cbpp_to_js<couchbase::core::scan_term>(env, cppObj.end_));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::sampling_scan> {
+    static inline couchbase::core::sampling_scan from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::sampling_scan cppObj;
+        js_to_cbpp<std::size_t>(cppObj.limit, jsObj.Get("limit"));
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.seed,
+                                                 jsObj.Get("seed"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::sampling_scan &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("limit", cbpp_to_js<std::size_t>(env, cppObj.limit));
+        resObj.Set("seed",
+                   cbpp_to_js<std::optional<std::uint32_t>>(env, cppObj.seed));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_snapshot_requirements> {
+    static inline couchbase::core::range_snapshot_requirements
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_snapshot_requirements cppObj;
+        js_to_cbpp<std::uint64_t>(cppObj.vbucket_uuid,
+                                  jsObj.Get("vbucket_uuid"));
+        js_to_cbpp<std::uint64_t>(cppObj.sequence_number,
+                                  jsObj.Get("sequence_number"));
+        js_to_cbpp<bool>(cppObj.sequence_number_exists,
+                         jsObj.Get("sequence_number_exists"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_snapshot_requirements &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("vbucket_uuid",
+                   cbpp_to_js<std::uint64_t>(env, cppObj.vbucket_uuid));
+        resObj.Set("sequence_number",
+                   cbpp_to_js<std::uint64_t>(env, cppObj.sequence_number));
+        resObj.Set("sequence_number_exists",
+                   cbpp_to_js<bool>(env, cppObj.sequence_number_exists));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_create_options> {
+    static inline couchbase::core::range_scan_create_options
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        auto scan_type_name =
+            jsToCbpp<std::string>(jsObj.Get("scan_type_name"));
+        std::variant<std::monostate, couchbase::core::range_scan,
+                     couchbase::core::sampling_scan>
+            scan_type;
+        if (scan_type_name.compare("range_scan") == 0) {
+            scan_type = js_to_cbpp<couchbase::core::range_scan>(
+                jsObj.Get("scan_type_value"));
+        } else if (scan_type_name.compare("sampling_scan") == 0) {
+            scan_type = js_to_cbpp<couchbase::core::sampling_scan>(
+                jsObj.Get("scan_type_value"));
+        }
+        couchbase::core::range_scan_create_options cppObj;
+        js_to_cbpp<std::string>(cppObj.scope_name, jsObj.Get("scope_name"));
+        js_to_cbpp<std::string>(cppObj.collection_name,
+                                jsObj.Get("collection_name"));
+        cppObj.scan_type = scan_type;
+        js_to_cbpp<std::chrono::milliseconds>(cppObj.timeout,
+                                              jsObj.Get("timeout"));
+        js_to_cbpp<std::uint32_t>(cppObj.collection_id,
+                                  jsObj.Get("collection_id"));
+        js_to_cbpp<std::optional<couchbase::core::range_snapshot_requirements>>(
+            cppObj.snapshot_requirements, jsObj.Get("snapshot_requirements"));
+        js_to_cbpp<bool>(cppObj.ids_only, jsObj.Get("ids_only"));
+        // retry_strategy
+        // internal
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_scan_create_options &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("scope_name",
+                   cbpp_to_js<std::string>(env, cppObj.scope_name));
+        resObj.Set("collection_name",
+                   cbpp_to_js<std::string>(env, cppObj.collection_name));
+        resObj.Set(
+            "scan_type",
+            cbpp_to_js<std::variant<std::monostate, couchbase::core::range_scan,
+                                    couchbase::core::sampling_scan>>(
+                env, cppObj.scan_type));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::chrono::milliseconds>(env, cppObj.timeout));
+        resObj.Set("collection_id",
+                   cbpp_to_js<std::uint32_t>(env, cppObj.collection_id));
+        resObj.Set(
+            "snapshot_requirements",
+            cbpp_to_js<
+                std::optional<couchbase::core::range_snapshot_requirements>>(
+                env, cppObj.snapshot_requirements));
+        resObj.Set("ids_only", cbpp_to_js<bool>(env, cppObj.ids_only));
+        // retry_strategy
+        // internal
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_create_result> {
+    static inline couchbase::core::range_scan_create_result
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_create_result cppObj;
+        js_to_cbpp<std::vector<std::byte>>(cppObj.scan_uuid,
+                                           jsObj.Get("scan_uuid"));
+        js_to_cbpp<bool>(cppObj.ids_only, jsObj.Get("ids_only"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_scan_create_result &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("scan_uuid",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.scan_uuid));
+        resObj.Set("ids_only", cbpp_to_js<bool>(env, cppObj.ids_only));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_continue_options> {
+    static inline couchbase::core::range_scan_continue_options
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_continue_options cppObj;
+        js_to_cbpp<std::uint32_t>(cppObj.batch_item_limit,
+                                  jsObj.Get("batch_item_limit"));
+        js_to_cbpp<std::uint32_t>(cppObj.batch_byte_limit,
+                                  jsObj.Get("batch_byte_limit"));
+        js_to_cbpp<std::chrono::milliseconds>(cppObj.batch_time_limit,
+                                              jsObj.Get("batch_time_limit"));
+        // retry_strategy
+        js_to_cbpp<bool>(cppObj.ids_only, jsObj.Get("ids_only"));
+        // internal
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_scan_continue_options &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("batch_item_limit",
+                   cbpp_to_js<std::uint32_t>(env, cppObj.batch_item_limit));
+        resObj.Set("batch_byte_limit",
+                   cbpp_to_js<std::uint32_t>(env, cppObj.batch_byte_limit));
+        resObj.Set("batch_time_limit", cbpp_to_js<std::chrono::milliseconds>(
+                                           env, cppObj.batch_time_limit));
+        // retry_strategy
+        resObj.Set("ids_only", cbpp_to_js<bool>(env, cppObj.ids_only));
+        // internal
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_continue_result> {
+    static inline couchbase::core::range_scan_continue_result
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_continue_result cppObj;
+        js_to_cbpp<bool>(cppObj.more, jsObj.Get("more"));
+        js_to_cbpp<bool>(cppObj.complete, jsObj.Get("complete"));
+        js_to_cbpp<bool>(cppObj.ids_only, jsObj.Get("ids_only"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_scan_continue_result &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("more", cbpp_to_js<bool>(env, cppObj.more));
+        resObj.Set("complete", cbpp_to_js<bool>(env, cppObj.complete));
+        resObj.Set("ids_only", cbpp_to_js<bool>(env, cppObj.ids_only));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_cancel_options> {
+    static inline couchbase::core::range_scan_cancel_options
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_cancel_options cppObj;
+        js_to_cbpp<std::chrono::milliseconds>(cppObj.timeout,
+                                              jsObj.Get("timeout"));
+        // retry_strategy
+        // internal
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_scan_cancel_options &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("timeout",
+                   cbpp_to_js<std::chrono::milliseconds>(env, cppObj.timeout));
+        // retry_strategy
+        // internal
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_item_body> {
+    static inline couchbase::core::range_scan_item_body
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_item_body cppObj;
+        js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
+        js_to_cbpp<std::uint32_t>(cppObj.expiry, jsObj.Get("expiry"));
+        js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
+        js_to_cbpp<std::uint64_t>(cppObj.sequence_number,
+                                  jsObj.Get("sequence_number"));
+        js_to_cbpp<std::byte>(cppObj.datatype, jsObj.Get("datatype"));
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::range_scan_item_body &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("flags", cbpp_to_js<std::uint32_t>(env, cppObj.flags));
+        resObj.Set("expiry", cbpp_to_js<std::uint32_t>(env, cppObj.expiry));
+        resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
+        resObj.Set("sequence_number",
+                   cbpp_to_js<std::uint64_t>(env, cppObj.sequence_number));
+        resObj.Set("datatype", cbpp_to_js<std::byte>(env, cppObj.datatype));
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_item> {
+    static inline couchbase::core::range_scan_item from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_item cppObj;
+        js_to_cbpp<std::vector<std::byte>>(cppObj.key, jsObj.Get("key"));
+        js_to_cbpp<std::optional<couchbase::core::range_scan_item_body>>(
+            cppObj.body, jsObj.Get("body"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::range_scan_item &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("key", cbpp_to_js<std::vector<std::byte>>(env, cppObj.key));
+        resObj.Set(
+            "body",
+            cbpp_to_js<std::optional<couchbase::core::range_scan_item_body>>(
+                env, cppObj.body));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_cancel_result> {
+    static inline couchbase::core::range_scan_cancel_result
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_cancel_result cppObj;
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_scan_cancel_result &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::mutation_state> {
+    static inline couchbase::core::mutation_state from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::mutation_state cppObj;
+        js_to_cbpp<std::vector<couchbase::mutation_token>>(cppObj.tokens,
+                                                           jsObj.Get("tokens"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::mutation_state &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("tokens", cbpp_to_js<std::vector<couchbase::mutation_token>>(
+                                 env, cppObj.tokens));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::range_scan_orchestrator_options> {
+    static inline couchbase::core::range_scan_orchestrator_options
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::range_scan_orchestrator_options cppObj;
+        js_to_cbpp<bool>(cppObj.ids_only, jsObj.Get("ids_only"));
+        js_to_cbpp<std::optional<couchbase::core::mutation_state>>(
+            cppObj.consistent_with, jsObj.Get("consistent_with"));
+        js_to_cbpp<couchbase::core::scan_sort>(cppObj.sort, jsObj.Get("sort"));
+        js_to_cbpp<std::uint32_t>(cppObj.batch_item_limit,
+                                  jsObj.Get("batch_item_limit"));
+        js_to_cbpp<std::uint32_t>(cppObj.batch_byte_limit,
+                                  jsObj.Get("batch_byte_limit"));
+        js_to_cbpp<std::chrono::milliseconds>(cppObj.batch_time_limit,
+                                              jsObj.Get("batch_time_limit"));
+        // retry_strategy
+        js_to_cbpp<std::chrono::milliseconds>(cppObj.timeout,
+                                              jsObj.Get("timeout"));
+        // parent_span
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::range_scan_orchestrator_options &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("ids_only", cbpp_to_js<bool>(env, cppObj.ids_only));
+        resObj.Set("consistent_with",
+                   cbpp_to_js<std::optional<couchbase::core::mutation_state>>(
+                       env, cppObj.consistent_with));
+        resObj.Set("sort",
+                   cbpp_to_js<couchbase::core::scan_sort>(env, cppObj.sort));
+        resObj.Set("batch_item_limit",
+                   cbpp_to_js<std::uint32_t>(env, cppObj.batch_item_limit));
+        resObj.Set("batch_byte_limit",
+                   cbpp_to_js<std::uint32_t>(env, cppObj.batch_byte_limit));
+        resObj.Set("batch_time_limit", cbpp_to_js<std::chrono::milliseconds>(
+                                           env, cppObj.batch_time_limit));
+        // retry_strategy
+        resObj.Set("timeout",
+                   cbpp_to_js<std::chrono::milliseconds>(env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };

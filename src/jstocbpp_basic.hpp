@@ -51,8 +51,7 @@ struct js_to_cbpp_t<couchbase::core::io::dns::dns_config> {
         auto cppObj = couchbase::core::io::dns::dns_config{
             js_to_cbpp<std::string>(jsObj.Get("nameserver")),
             js_to_cbpp<std::uint16_t>(jsObj.Get("port")),
-            js_to_cbpp<std::chrono::milliseconds>(jsObj.Get("dnsSrvTimeout"))
-        };
+            js_to_cbpp<std::chrono::milliseconds>(jsObj.Get("dnsSrvTimeout"))};
         return cppObj;
     }
 };

@@ -377,19 +377,20 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                  couchbase::retry_reason::service_not_available},
                 {"node_not_available",
                  couchbase::retry_reason::node_not_available},
-                {"kv_not_my_vbucket",
-                 couchbase::retry_reason::kv_not_my_vbucket},
-                {"kv_collection_outdated",
-                 couchbase::retry_reason::kv_collection_outdated},
-                {"kv_error_map_retry_indicated",
-                 couchbase::retry_reason::kv_error_map_retry_indicated},
-                {"kv_locked", couchbase::retry_reason::kv_locked},
-                {"kv_temporary_failure",
-                 couchbase::retry_reason::kv_temporary_failure},
-                {"kv_sync_write_in_progress",
-                 couchbase::retry_reason::kv_sync_write_in_progress},
-                {"kv_sync_write_re_commit_in_progress",
-                 couchbase::retry_reason::kv_sync_write_re_commit_in_progress},
+                {"key_value_not_my_vbucket",
+                 couchbase::retry_reason::key_value_not_my_vbucket},
+                {"key_value_collection_outdated",
+                 couchbase::retry_reason::key_value_collection_outdated},
+                {"key_value_error_map_retry_indicated",
+                 couchbase::retry_reason::key_value_error_map_retry_indicated},
+                {"key_value_locked", couchbase::retry_reason::key_value_locked},
+                {"key_value_temporary_failure",
+                 couchbase::retry_reason::key_value_temporary_failure},
+                {"key_value_sync_write_in_progress",
+                 couchbase::retry_reason::key_value_sync_write_in_progress},
+                {"key_value_sync_write_re_commit_in_progress",
+                 couchbase::retry_reason::
+                     key_value_sync_write_re_commit_in_progress},
                 {"service_response_code_indicated",
                  couchbase::retry_reason::service_response_code_indicated},
                 {"socket_closed_while_in_flight",
@@ -700,6 +701,12 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                  couchbase::errc::key_value::xattr_no_access},
                 {"cannot_revive_living_document",
                  couchbase::errc::key_value::cannot_revive_living_document},
+                {"range_scan_cancelled",
+                 couchbase::errc::key_value::range_scan_cancelled},
+                {"range_scan_vb_uuid_not_equal",
+                 couchbase::errc::key_value::range_scan_vb_uuid_not_equal},
+                {"range_scan_completed",
+                 couchbase::errc::key_value::range_scan_completed},
             }));
 
     exports.Set(
@@ -823,6 +830,17 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                 {"configuration_not_available",
                  couchbase::errc::network::configuration_not_available},
                 {"cluster_closed", couchbase::errc::network::cluster_closed},
+                {"end_of_stream", couchbase::errc::network::end_of_stream},
+                {"need_more_data", couchbase::errc::network::need_more_data},
+                {"operation_queue_closed",
+                 couchbase::errc::network::operation_queue_closed},
+                {"operation_queue_full",
+                 couchbase::errc::network::operation_queue_full},
+                {"request_already_queued",
+                 couchbase::errc::network::request_already_queued},
+                {"request_cancelled",
+                 couchbase::errc::network::request_cancelled},
+                {"bucket_closed", couchbase::errc::network::bucket_closed},
             }));
 
     exports.Set(
@@ -960,6 +978,16 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                 {"subdoc_deleted_document_cannot_have_value",
                  couchbase::key_value_status_code::
                      subdoc_deleted_document_cannot_have_value},
+                {"range_scan_cancelled",
+                 couchbase::key_value_status_code::range_scan_cancelled},
+                {"range_scan_more",
+                 couchbase::key_value_status_code::range_scan_more},
+                {"range_scan_complete",
+                 couchbase::key_value_status_code::range_scan_complete},
+                {"range_scan_vb_uuid_not_equal",
+                 couchbase::key_value_status_code::
+                     range_scan_vb_uuid_not_equal},
+                {"unknown", couchbase::key_value_status_code::unknown},
             }));
 
     exports.Set(
@@ -1021,6 +1049,14 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                              {"two", couchbase::replicate_to::two},
                              {"three", couchbase::replicate_to::three},
                          }));
+
+    exports.Set(
+        "scan_sort",
+        cbppEnumToJs<couchbase::core::scan_sort>(
+            env, {
+                     {"none", couchbase::core::scan_sort::none},
+                     {"ascending", couchbase::core::scan_sort::ascending},
+                 }));
 
     //#endregion Autogenerated Constants
 }

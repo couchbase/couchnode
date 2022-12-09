@@ -70,7 +70,7 @@ export class SearchExecutor {
         fields: options.fields || [],
         collections: options.collections || [],
         scan_consistency: searchScanConsistencyToCpp(options.consistency),
-        mutation_state: mutationStateToCpp(options.consistentWith),
+        mutation_state: mutationStateToCpp(options.consistentWith).tokens,
         sort_specs: options.sort
           ? options.sort.map((sort: string | SearchSort) =>
               JSON.stringify(sort)

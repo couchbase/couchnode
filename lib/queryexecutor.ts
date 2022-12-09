@@ -141,7 +141,7 @@ export class QueryExecutor {
           pipeline_batch: options.pipelineBatch,
           pipeline_cap: options.pipelineCap,
           scan_consistency: queryScanConsistencyToCpp(options.scanConsistency),
-          mutation_state: mutationStateToCpp(options.consistentWith),
+          mutation_state: mutationStateToCpp(options.consistentWith).tokens,
           timeout: timeout,
           scope_qualifier: options.queryContext,
           profile: queryProfileToCpp(options.profile),
