@@ -56,6 +56,50 @@ export class GetResult {
 }
 
 /**
+ * Contains the results of a Range or Sampling Scan operation.
+ *
+ * @category Key-Value
+ */
+export class ScanResult {
+  /**
+   * The content of the document.
+   */
+  id: string
+
+  /**
+   * The content of the document.
+   */
+  content?: any
+
+  /**
+   * The CAS of the document.
+   */
+  cas?: Cas
+
+  /**
+   * The expiry of the document, if it was requested.
+   *
+   * @see {@link GetOptions.withExpiry}
+   */
+  expiryTime?: number
+
+  /**
+   * @internal
+   */
+  constructor(data: {
+    id: string
+    content?: any
+    cas?: Cas
+    expiryTime?: number
+  }) {
+    this.id = data.id
+    this.content = data.content
+    this.cas = data.cas
+    this.expiryTime = data.expiryTime
+  }
+}
+
+/**
  * Contains the results of an exists operation.
  *
  * @category Key-Value

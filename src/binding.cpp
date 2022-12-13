@@ -3,6 +3,7 @@
 #include "connection.hpp"
 #include "constants.hpp"
 #include "mutationtoken.hpp"
+#include "scan_iterator.hpp"
 #include "transaction.hpp"
 #include "transactions.hpp"
 #include <napi.h>
@@ -55,11 +56,13 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     Connection::Init(env, exports);
     Transactions::Init(env, exports);
     Transaction::Init(env, exports);
+    ScanIterator::Init(env, exports);
 
     exports.Set(Napi::String::New(env, "cbppVersion"),
                 Napi::String::New(env, "1.0.0-beta"));
-    exports.Set(Napi::String::New(env, "cbppMetadata"),
-                Napi::String::New(env, couchbase::core::meta::sdk_build_info_json()));
+    exports.Set(
+        Napi::String::New(env, "cbppMetadata"),
+        Napi::String::New(env, couchbase::core::meta::sdk_build_info_json()));
     return exports;
 }
 

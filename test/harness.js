@@ -34,6 +34,7 @@ const ServerFeatures = {
   Eventing: 'eventing',
   Transactions: 'transactions',
   ServerDurability: 'server_durability',
+  RangeScan: 'range_scan',
 }
 
 class ServerVersion {
@@ -352,6 +353,8 @@ class Harness {
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
       case ServerFeatures.Transactions:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
+      case ServerFeatures.RangeScan:
+        return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
     }
 
     throw new Error('invalid code for feature checking')

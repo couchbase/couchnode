@@ -19,6 +19,9 @@ import binding, {
   CppPersistTo,
   CppReplicateTo,
   CppTxnOpException,
+  CppRangeScan,
+  CppSamplingScan,
+  CppPrefixScan,
 } from './binding'
 import { CppError } from './binding'
 import { EndpointState, PingState } from './diagnosticstypes'
@@ -28,6 +31,7 @@ import * as errs from './errors'
 import { DurabilityLevel, ServiceType, StoreSemantics } from './generaltypes'
 import { MutationState } from './mutationstate'
 import { QueryProfileMode, QueryScanConsistency } from './querytypes'
+import { RangeScan, SamplingScan, PrefixScan } from './rangeScan'
 import { SearchScanConsistency, HighlightStyle } from './searchtypes'
 import { ViewOrdering, ViewScanConsistency } from './viewtypes'
 
@@ -792,4 +796,39 @@ export function errorFromCpp(err: CppError | null): Error | null {
   }
 
   return baseErr
+}
+
+/**
+ * @internal
+ */
+export function scanTypeToCpp(
+  scanType: RangeScan | SamplingScan | PrefixScan
+): CppRangeScan | CppSamplingScan | CppPrefixScan {
+  if (scanType instanceof RangeScan) {
+    return {
+      from:
+        scanType.start !== undefined
+          ? {
+              term: scanType.start.term,
+              exclusive: scanType.start?.exclusive ?? false,
+            }
+          : undefined,
+      to:
+        scanType.end !== undefined
+          ? {
+              term: scanType.end.term,
+              exclusive: scanType.end?.exclusive ?? false,
+            }
+          : undefined,
+    }
+  } else if (scanType instanceof SamplingScan) {
+    return {
+      limit: scanType.limit,
+      seed: scanType.seed,
+    }
+  } else {
+    return {
+      prefix: scanType.prefix,
+    }
+  }
 }

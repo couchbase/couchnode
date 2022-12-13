@@ -22,6 +22,7 @@ public:
     Napi::FunctionReference _mutationTokenCtor;
     Napi::FunctionReference _transactionsCtor;
     Napi::FunctionReference _transactionCtor;
+    Napi::FunctionReference _scanIteratorCtor;
 };
 
 } // namespace couchnode

@@ -118,3 +118,33 @@ export class StreamableReplicasPromise<T, TRep> extends StreamablePromise<T> {
     })
   }
 }
+
+export class StreamableScanPromise<T, TRes> extends StreamablePromise<T> {
+  private _cancelRequested: boolean
+
+  constructor(fn: (results: TRes[]) => T) {
+    super((emitter, resolve, reject) => {
+      let err: Error | undefined
+      const results: TRes[] = []
+
+      emitter.on('result', (r) => results.push(r))
+      emitter.on('error', (e) => (err = e))
+      emitter.on('end', () => {
+        if (err) {
+          return reject(err)
+        }
+
+        resolve(fn(results))
+      })
+    })
+    this._cancelRequested = false
+  }
+
+  get cancelRequested(): boolean {
+    return this._cancelRequested
+  }
+
+  cancelStreaming(): void {
+    this._cancelRequested = true
+  }
+}

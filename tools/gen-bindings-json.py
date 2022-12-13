@@ -1,9 +1,6 @@
-from logging.config import valid_ident
 import os
 import json
 import re
-import subprocess
-from unittest import TestCase
 import clang.cindex
 
 # configurable part
@@ -148,6 +145,7 @@ typeList = [
     "couchbase::core::scan_term",
     "couchbase::core::scan_sort",
     "couchbase::core::range_scan",
+    "couchbase::core::prefix_scan",
     "couchbase::core::sampling_scan",
     "couchbase::core::range_snapshot_requirements",
     "couchbase::core::range_scan_item_body",
@@ -341,7 +339,7 @@ def parse_type_str(typeStr):
                     "to": parse_type_str(variantParts[1]),
                     "comparator": parse_type_str(variantParts[2])
                 }
-            
+
         if tplClassName == "std::shared_ptr":
             return {
                 "name": "std::shared_ptr",
@@ -358,6 +356,7 @@ def parse_type_str(typeStr):
     return {"name": typeStr}
 
 internal_structs = []
+UNNAMED_STRUCT_DELIM = '::(unnamed struct'
 
 def traverse(node, namespace, main_file):
     # only scan the elements of the file we parsed
@@ -366,8 +365,9 @@ def traverse(node, namespace, main_file):
 
     if node.kind == clang.cindex.CursorKind.STRUCT_DECL or node.kind == clang.cindex.CursorKind.CLASS_DECL:
         fullStructName = "::".join([*namespace, node.displayname])
-        if fullStructName.endswith('::'): 
-            match = next((s for s in internal_structs if fullStructName in s), None)
+        if fullStructName.endswith('::') or UNNAMED_STRUCT_DELIM in fullStructName:
+            struct_name = fullStructName if fullStructName.endswith('::') else fullStructName.split(UNNAMED_STRUCT_DELIM)[0]
+            match = next((s for s in internal_structs if struct_name in s), None)
             if match:
                 fullStructName = match
 
@@ -451,7 +451,8 @@ for headerPath in fullFileList:
         "-I" + cxxClientRoot + "/third_party/json/include",
         "-I" + cxxClientRoot + "/third_party/json/external/PEGTL/include",
         "-I" + cxxClientRoot + "/third_party/asio/asio/include",
-        "-I" + f"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/{CLANG_VERSION}/include"
+        "-I" + f"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/{CLANG_VERSION}/include",
+        # "-I" + f'/opt/homebrew/Cellar/llvm/{CLANG_VERSION}/lib/clang/{CLANG_VERSION[:2]}/include',
     ]
     translation_unit = index.parse(headerPath, args=args)
 

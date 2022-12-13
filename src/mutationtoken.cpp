@@ -1,4 +1,5 @@
 #include "mutationtoken.hpp"
+#include "jstocbpp.hpp"
 #include "utils.hpp"
 #include <sstream>
 
@@ -81,6 +82,18 @@ couchbase::mutation_token MutationToken::parse(Napi::Value val)
         return couchbase::mutation_token{};
     } else if (val.IsObject()) {
         auto objVal = val.As<Napi::Object>();
+        if (objVal.HasOwnProperty("partition_uuid")) {
+            auto partitionUuid =
+                jsToCbpp<std::uint64_t>(objVal.Get("partition_uuid"));
+            auto sequenceNumber =
+                jsToCbpp<std::uint64_t>(objVal.Get("sequence_number"));
+            auto partitionId =
+                jsToCbpp<std::uint16_t>(objVal.Get("partition_id"));
+            auto bucketName = jsToCbpp<std::string>(objVal.Get("bucket_name"));
+            return couchbase::mutation_token{partitionUuid, sequenceNumber,
+                                             partitionId, bucketName};
+        }
+
         auto maybeRawVal = objVal.Get("raw");
         if (!maybeRawVal.IsEmpty()) {
             return MutationToken::fromBuffer(maybeRawVal);

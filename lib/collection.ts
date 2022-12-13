@@ -20,12 +20,16 @@ import binding, {
   CppPrependResponse,
   CppIncrementResponse,
   CppDecrementResponse,
+  CppScanIterator,
+  CppRangeScanOrchestratorOptions,
 } from './binding'
 import {
   durabilityToCpp,
   errorFromCpp,
+  mutationStateToCpp,
   persistToToCpp,
   replicateToToCpp,
+  scanTypeToCpp,
   storeSemanticToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
@@ -39,6 +43,7 @@ import {
   MutateInResult,
   MutateInResultEntry,
   MutationResult,
+  ScanResult,
 } from './crudoptypes'
 import {
   CouchbaseList,
@@ -46,12 +51,18 @@ import {
   CouchbaseQueue,
   CouchbaseSet,
 } from './datastructures'
+import { InvalidArgumentError } from './errors'
 import { DurabilityLevel, StoreSemantics } from './generaltypes'
+import { MutationState } from './mutationstate'
 import { CollectionQueryIndexManager } from './queryindexmanager'
+import { RangeScan, SamplingScan, PrefixScan } from './rangeScan'
 import { Scope } from './scope'
 import { LookupInMacro, LookupInSpec, MutateInSpec } from './sdspecs'
 import { SdUtils } from './sdutils'
-import { StreamableReplicasPromise } from './streamablepromises'
+import {
+  StreamableReplicasPromise,
+  StreamableScanPromise,
+} from './streamablepromises'
 import { Transcoder } from './transcoders'
 import { NodeCallback, PromiseHelper, Cas } from './utilities'
 
@@ -415,6 +426,52 @@ export interface MutateInOptions {
 }
 
 /**
+ * Volatile: This API is subject to change at any time.
+ *
+ * @category Key-Value
+ */
+export interface ScanOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
+
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+
+  /**
+   * If the scan should only return document ids.
+   */
+  idsOnly?: boolean
+
+  /**
+   * The limit applied to the number of bytes returned from the server
+   * for each partition batch.
+   */
+  batchByteLimit?: number
+
+  /**
+   * The limit applied to the number of items returned from the server
+   * for each partition batch.
+   */
+  batchItemLimit?: number
+
+  /**
+   * Specifies a MutationState which the scan should be consistent with.
+   *
+   * @see {@link MutationState}
+   */
+  consistentWith?: MutationState
+
+  /**
+   * Specifies the number of vBuckets which the client should scan in parallel.
+   */
+  concurrency?: number
+}
+
+/**
  * Exposes the operations which are available to be performed against a collection.
  * Namely the ability to perform KV operations.
  *
@@ -431,6 +488,9 @@ export class Collection {
   private _scope: Scope
   private _name: string
   private _conn: CppConnection
+  private _kvScanTimeout: number
+  private _scanBatchItemLimit: number
+  private _scanBatchByteLimit: number
 
   /**
   @internal
@@ -439,6 +499,9 @@ export class Collection {
     this._scope = scope
     this._name = collectionName
     this._conn = scope.conn
+    this._kvScanTimeout = 75000
+    this._scanBatchByteLimit = 15000
+    this._scanBatchItemLimit = 50
   }
 
   /**
@@ -1472,6 +1535,161 @@ export class Collection {
         }
       )
     }, callback)
+  }
+
+  /**
+   * @internal
+   */
+  _continueScan(
+    iterator: CppScanIterator,
+    transcoder: Transcoder,
+    emitter: StreamableScanPromise<ScanResult[], ScanResult>
+  ): void {
+    iterator.next((cppErr, resp) => {
+      const err = errorFromCpp(cppErr)
+      if (err) {
+        emitter.emit('error', err)
+        emitter.emit('end')
+        return
+      }
+
+      if (typeof resp === 'undefined') {
+        emitter.emit('end')
+        return
+      }
+
+      const key = resp.key
+      if (typeof resp.body !== 'undefined') {
+        const cas = resp.body.cas
+        const expiry = resp.body.expiry
+        this._decodeDoc(
+          transcoder,
+          resp.body.value,
+          resp.body.flags,
+          (err, content) => {
+            if (err) {
+              emitter.emit('error', err)
+              emitter.emit('end')
+              return
+            }
+
+            emitter.emit(
+              'result',
+              new ScanResult({
+                id: key,
+                content: content,
+                cas: cas,
+                expiryTime: expiry,
+              })
+            )
+          }
+        )
+      } else {
+        emitter.emit(
+          'result',
+          new ScanResult({
+            id: key,
+          })
+        )
+      }
+
+      if (emitter.cancelRequested && !iterator.cancelled) {
+        iterator.cancel()
+      }
+
+      this._continueScan(iterator, transcoder, emitter)
+      return
+    })
+  }
+
+  /**
+   * @internal
+   */
+  _doScan(
+    scanType: RangeScan | SamplingScan | PrefixScan,
+    options: CppRangeScanOrchestratorOptions,
+    transcoder: Transcoder,
+    callback?: NodeCallback<ScanResult[]>
+  ): StreamableScanPromise<ScanResult[], ScanResult> {
+    const bucketName = this._scope.bucket.name
+    const scopeName = this._scope.name
+    const collectionName = this._name
+
+    return PromiseHelper.wrapAsync(() => {
+      const { cppErr, result } = this._conn.scan(
+        bucketName,
+        scopeName,
+        collectionName,
+        scanType.getScanType(),
+        scanTypeToCpp(scanType),
+        options
+      )
+
+      const err = errorFromCpp(cppErr)
+      if (err) {
+        throw err
+      }
+
+      const emitter = new StreamableScanPromise<ScanResult[], ScanResult>(
+        (results: ScanResult[]) => results
+      )
+
+      this._continueScan(result, transcoder, emitter)
+
+      return emitter
+    }, callback)
+  }
+  /**
+   * Performs a key-value scan operation.
+   *
+   * Volatile: This API is subject to change at any time.
+   *
+   * @param scanType The type of scan to execute.
+   * @param options Optional parameters for the scan operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  scan(
+    scanType: RangeScan | SamplingScan | PrefixScan,
+    options?: ScanOptions,
+    callback?: NodeCallback<ScanResult[]>
+  ): Promise<ScanResult[]> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const transcoder = options.transcoder || this.transcoder
+    const timeout = options.timeout || this._kvScanTimeout
+    const idsOnly = options.idsOnly || false
+    const batchByteLimit = options.batchByteLimit || this._scanBatchByteLimit
+    const batchItemLimit = options.batchByteLimit || this._scanBatchItemLimit
+
+    if (typeof options.concurrency !== 'undefined' && options.concurrency < 1) {
+      throw new InvalidArgumentError(
+        new Error('Concurrency option must be positive')
+      )
+    }
+    const concurrency = options.concurrency || 1
+
+    if (scanType instanceof SamplingScan && scanType.limit < 1) {
+      throw new InvalidArgumentError(
+        new Error('Sampling scan limit must be positive')
+      )
+    }
+
+    const orchestratorOptions = {
+      ids_only: idsOnly,
+      consistent_with: mutationStateToCpp(options.consistentWith),
+      batch_item_limit: batchItemLimit,
+      batch_byte_limit: batchByteLimit,
+      concurrency: concurrency,
+      timeout: timeout,
+    }
+
+    return this._doScan(scanType, orchestratorOptions, transcoder, callback)
   }
 
   /**
