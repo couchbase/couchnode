@@ -889,6 +889,10 @@ export class Collection {
     options?: GetAnyReplicaOptions,
     callback?: NodeCallback<GetReplicaResult>
   ): Promise<GetReplicaResult> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
     return PromiseHelper.wrapAsync(async () => {
       const replicas = await this._getReplica(key, false, options)
       return replicas[0]
@@ -926,7 +930,7 @@ export class Collection {
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
     if (options instanceof Function) {
-      callback = arguments[3]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {
@@ -1012,7 +1016,7 @@ export class Collection {
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
     if (options instanceof Function) {
-      callback = arguments[3]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {
@@ -1099,7 +1103,7 @@ export class Collection {
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
     if (options instanceof Function) {
-      callback = arguments[3]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {
@@ -1884,7 +1888,7 @@ export class Collection {
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
     if (options instanceof Function) {
-      callback = arguments[3]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {
@@ -1958,7 +1962,7 @@ export class Collection {
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
     if (options instanceof Function) {
-      callback = arguments[3]
+      callback = arguments[2]
       options = undefined
     }
     if (!options) {
