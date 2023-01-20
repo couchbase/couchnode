@@ -1,6 +1,11 @@
 # Release Notes
 
+## 3.3.4 (2023-02-08)
+
+* CCBC-1583: disable collections support if KV does not ack it.
+
 ## 3.3.3 (2022-09-09)
+
 * CCBC-1565: load system CAs when the trust certificate is not provided
 
   When the user has not set any root ca provider but is using TLS then we

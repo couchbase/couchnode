@@ -990,6 +990,11 @@ void Server::handle_connected(lcbio_SOCKET *sock, lcb_STATUS err, lcbio_OSERR sy
         connreq = SessionRequest::start(sock, settings, settings->config_node_timeout, on_connected, this);
         return;
     } else {
+        if (settings->use_collections && !sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_COLLECTIONS)) {
+            settings->use_collections = 0;
+            lcb_log(LOGARGS_T(DEBUG), "<%s:%s> (SRV=%p) Disable collections support as not every node support it",
+                    curhost->host, curhost->port, (void *)this);
+        }
         jsonsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_JSON);
         compsupport = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_SNAPPY);
         mutation_tokens = sessinfo->has_feature(PROTOCOL_BINARY_FEATURE_MUTATION_SEQNO);

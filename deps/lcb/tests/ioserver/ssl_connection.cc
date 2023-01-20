@@ -69,14 +69,16 @@ static void log_callback(const SSL *ssl, int where, int ret)
 }
 }
 
-// http://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openss l
+// http://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
 // http://www.opensource.apple.com/source/OpenSSL/OpenSSL-22/openssl/demos/x509/mkcert.c
 // Note we deviate from the examples by directly setting the certificate.
 
-static void genCertificate(SSL_CTX *ctx)
-{
-    EVP_PKEY *pkey = EVP_PKEY_new();
+static void genCertificate(SSL_CTX *ctx) {
     X509 *x509 = X509_new();
+#if OPENSSL_VERSION_NUMBER >= 0x3000000fL
+    EVP_PKEY *pkey = EVP_RSA_gen(2048);
+#else
+    EVP_PKEY *pkey = EVP_PKEY_new();
     RSA *rsa = RSA_new();
     BIGNUM *exponent = BN_new();
     BN_set_word(exponent, RSA_F4);
@@ -84,6 +86,7 @@ static void genCertificate(SSL_CTX *ctx)
     BN_free(exponent);
 
     EVP_PKEY_assign_RSA(pkey, rsa);
+#endif
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
     X509_gmtime_adj(X509_get_notBefore(x509), 0);
     X509_gmtime_adj(X509_get_notAfter(x509), 31536000L);
@@ -94,7 +97,7 @@ static void genCertificate(SSL_CTX *ctx)
     X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (unsigned char *)"MyCompany Inc.", -1, -1, 0);
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"localhost", -1, -1, 0);
     X509_set_issuer_name(x509, name);
-    X509_sign(x509, pkey, EVP_sha1());
+    X509_sign(x509, pkey, EVP_sha384());
 
     SSL_CTX_use_PrivateKey(ctx, pkey);
     SSL_CTX_use_certificate(ctx, x509);
