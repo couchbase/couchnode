@@ -101,6 +101,10 @@ export class SearchExecutor {
         }
 
         resp.rows.forEach((row) => {
+          row.fields = row.fields ? JSON.parse(row.fields) : undefined
+          row.explanation = row.explanation
+            ? JSON.parse(row.explanation)
+            : undefined
           emitter.emit('row', row)
         })
 

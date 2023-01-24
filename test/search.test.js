@@ -2,12 +2,15 @@
 
 const assert = require('chai').assert
 const testdata = require('./testdata')
+const fs = require('fs')
+const path = require('path')
 
 const H = require('./harness')
 
 describe('#search', function () {
   let testUid, idxName
   let testDocs
+  let indexParams
 
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Search)
@@ -16,6 +19,18 @@ describe('#search', function () {
     idxName = 's_' + H.genTestKey() // prefix with a letter
 
     testDocs = await testdata.upsertData(H.dco, testUid)
+    const indexPath = path.join(
+      process.cwd(),
+      'test',
+      'data',
+      'search_index.json'
+    )
+    const indexData = fs.readFileSync(indexPath)
+    indexParams = JSON.parse(indexData)
+    // need to swap out the type mapping to match the testUid
+    indexParams.mapping.types[`${testUid.substring(0, 8)}`] =
+      indexParams.mapping.types['testIndexUUID']
+    delete indexParams.mapping.types['testIndexUUID']
   })
 
   after(async function () {
@@ -28,6 +43,7 @@ describe('#search', function () {
       sourceName: H.b.name,
       sourceType: 'couchbase',
       type: 'fulltext-index',
+      params: indexParams,
     })
   })
 
@@ -48,7 +64,8 @@ describe('#search', function () {
       try {
         res = await H.c.searchQuery(
           idxName,
-          H.lib.SearchQuery.term(testUid).field('testUid')
+          H.lib.SearchQuery.term(testUid).field('testUid'),
+          { explain: true, fields: ['name'] }
         )
       } catch (e) {} // eslint-disable-line no-empty
 
@@ -60,6 +77,24 @@ describe('#search', function () {
       assert.isArray(res.rows)
       assert.lengthOf(res.rows, testdata.docCount())
       assert.isObject(res.meta)
+
+      res.rows.forEach((row) => {
+        assert.isString(row.index)
+        assert.isString(row.id)
+        assert.isNumber(row.score)
+        if (row.locations) {
+          assert.isArray(row.locations)
+        }
+        if (row.fragments) {
+          assert.isObject(row.fragments)
+        }
+        if (row.fields) {
+          assert.isObject(row.fields)
+        }
+        if (row.explanation) {
+          assert.isObject(row.explanation)
+        }
+      })
 
       break
     }
