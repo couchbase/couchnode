@@ -12,6 +12,8 @@ namespace couchnode
 // BUG(JSCBC-1022): Remove this once txn++ implements handlers which can
 // properly forward with move semantics.
 // UPDATE 2022.12.09:  kv has been updated, query still uses std::function
+// UPDATE 2023.01.30:  Error found in c++ txns, kv reverted back to std::function
+//                     and query still uses std::function
 class RefCallCookie
 {
 public:
@@ -72,7 +74,7 @@ Transaction::~Transaction()
 Napi::Value Transaction::jsNewAttempt(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
 
     _impl->new_attempt_context(
         [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {
@@ -89,7 +91,7 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnGetCallback");
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
 
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
 
@@ -121,7 +123,7 @@ Napi::Value Transaction::jsInsert(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
 
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
     auto content = jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
@@ -144,7 +146,7 @@ Napi::Value Transaction::jsReplace(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
 
     auto doc =
         jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
@@ -168,7 +170,7 @@ Napi::Value Transaction::jsRemove(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
 
     auto doc =
         jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
@@ -189,8 +191,6 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
     auto statementJsStr = info[0].As<Napi::String>();
     auto optsJsObj = info[1].As<Napi::Object>();
     auto callbackJsFn = info[2].As<Napi::Function>();
-    // BUG(JSCBC-1022): Remove this once txn++ implements handlers which can
-    // properly forward with move semantics.
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnQueryCallback");
 
     auto statement = jsToCbpp<std::string>(statementJsStr);
@@ -223,7 +223,7 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
 Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnCommitCallback");
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnCommitCallback");
 
     _impl->finalize([this, cookie = std::move(cookie)](
                         std::optional<cbcoretxns::transaction_exception> err,
@@ -240,7 +240,7 @@ Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
 Napi::Value Transaction::jsRollback(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie = CallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
 
     _impl->rollback(
         [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {
