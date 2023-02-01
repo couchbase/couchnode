@@ -528,6 +528,16 @@ export interface UpsertUserOptions {
 /**
  * @category Management
  */
+export interface ChangePasswordOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Management
+ */
 export interface DropUserOptions {
   /**
    * The domain to drop the user from.
@@ -738,6 +748,52 @@ export class UserManager {
         const errCtx = HttpExecutor.errorContextFromResponse(res)
 
         throw new CouchbaseError('failed to upsert user', undefined, errCtx)
+      }
+    }, callback)
+  }
+
+  /**
+   * Change password for the currently authenticatd user.
+   *
+   * @param newPassword The new password to be applied.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async changePassword(
+    newPassword: string,
+    options?: ChangePasswordOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const timeout = options.timeout || this._cluster.managementTimeout
+
+    return PromiseHelper.wrapAsync(async () => {
+      const passwordData = { "password" : newPassword }
+
+      const res = await this._http.request({
+        type: HttpServiceType.Management,
+        method: HttpMethod.Post,
+        path: `/controller/changePassword`,
+        contentType: 'application/x-www-form-urlencoded',
+        body: cbQsStringify(passwordData),
+        timeout: timeout,
+      })
+
+      if (res.statusCode !== 200) {
+        const errCtx = HttpExecutor.errorContextFromResponse(res)
+
+        if (res.statusCode === 404) {
+          throw new UserNotFoundError(undefined, errCtx)
+        }
+
+        throw new CouchbaseError('failed to change password for the current user', undefined, errCtx)
       }
     }, callback)
   }

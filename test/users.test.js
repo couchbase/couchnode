@@ -41,6 +41,32 @@ describe('#users', function () {
     await H.c.users().dropUser(testUser)
   })
 
+  it('should successfully change current user password', async function () {
+    var changePasswordUsername = "changePasswordUser"
+    var changeUserPassword = "changeUserPassword"
+    var newPassword = "newPassword"
+
+    await H.c.users().upsertUser({
+      username: changePasswordUsername,
+      password: changeUserPassword,
+      roles: ['admin'],
+    })
+
+    var cluster = await H.lib.Cluster.connect(H.connStr, {username : changePasswordUsername, password : changeUserPassword})
+    await cluster.users().changePassword(newPassword)
+
+    //Assert can connect using new password
+    var success_cluster = await H.lib.Cluster.connect(H.connStr, {username : changePasswordUsername, password : newPassword})
+    await success_cluster.close()
+
+    //Assert cannot authenticate using old credentials
+    await H.throwsHelper(async () => {
+      await H.lib.Cluster.connect(H.connStr, {username : changePasswordUsername, password : changeUserPassword})
+    }, H.lib.AuthenticationFailureError)
+
+    await cluster.close()
+  })
+
   it('should fail to drop a missing user', async function () {
     await H.throwsHelper(async () => {
       await H.c.users().dropUser('missing-user-name')
