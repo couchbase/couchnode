@@ -33,13 +33,13 @@ export class WanDevelopmentProfile implements IConfigProfile {
    */
   apply(options: ConnectOptions): void {
     const timeouts = {
-      kvTimeout: 20,
-      kvDurableTimeout: 20,
-      analyticsTimeout: 120,
-      managementTimeout: 120,
-      queryTimeout: 120,
-      searchTimeout: 120,
-      viewTimeout: 120,
+      kvTimeout: 20000,
+      kvDurableTimeout: 20000,
+      analyticsTimeout: 120000,
+      managementTimeout: 120000,
+      queryTimeout: 120000,
+      searchTimeout: 120000,
+      viewTimeout: 120000,
     }
     // the profile should override previously set values
     options.timeouts = { ...options.timeouts, ...timeouts }

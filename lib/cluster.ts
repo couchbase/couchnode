@@ -174,6 +174,14 @@ export interface ConnectOptions {
    *
    */
   dnsConfig?: DnsConfig
+
+  /**
+   * Applies the specified ConfigProfile options to the cluster.
+   *
+   * Volatile: This API is subject to change at any time.
+   *
+   */
+  configProfile?: string
 }
 
 /**
@@ -282,6 +290,10 @@ export class Cluster {
 
     this._connStr = connStr
     this._trustStorePath = options.security.trustStorePath || ''
+
+    if (options.configProfile) {
+      knownProfiles.applyProfile(options.configProfile, options)
+    }
     this._kvTimeout = options.timeouts.kvTimeout || 2500
     this._kvDurableTimeout = options.timeouts.kvDurableTimeout || 10000
     this._viewTimeout = options.timeouts.viewTimeout || 75000
@@ -353,40 +365,6 @@ export class Cluster {
       await cluster._connect()
       return cluster
     }, callback)
-  }
-
-  /**
-  @internal
-  */
-  _setTimeoutOptions(options?: ConnectOptions): void {
-    if (!options) {
-      options = {}
-    }
-
-    if (!options.timeouts) {
-      options.timeouts = {}
-    }
-
-    this._kvTimeout = options.timeouts.kvTimeout || 2500
-    this._kvDurableTimeout = options.timeouts.kvDurableTimeout || 10000
-    this._viewTimeout = options.timeouts.viewTimeout || 75000
-    this._queryTimeout = options.timeouts.queryTimeout || 75000
-    this._analyticsTimeout = options.timeouts.analyticsTimeout || 75000
-    this._searchTimeout = options.timeouts.searchTimeout || 75000
-    this._managementTimeout = options.timeouts.managementTimeout || 75000
-  }
-
-  /**
-   * Applies the specified ConfigProfile options to the cluster.
-   *
-   * Volatile: This API is subject to change at any time.
-   *
-   * @param profileName The name of the ConfigProfile to apply.
-   */
-  applyProfile(profileName: string): void {
-    const options = {}
-    knownProfiles.applyProfile(profileName, options)
-    this._setTimeoutOptions(options)
   }
 
   /**
