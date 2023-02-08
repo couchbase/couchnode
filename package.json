@@ -27,7 +27,7 @@
     "prebuild-install": "^7.1.1"
   },
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^3.4.0",
+    "@trivago/prettier-plugin-sort-imports": "^4.0.0",
     "@tsconfig/node10": "^1.0.9",
     "@types/bindings": "^1.5.1",
     "@types/debug": "^4.1.7",
