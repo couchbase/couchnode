@@ -1252,6 +1252,7 @@ function genericTests(collFn) {
       ])
       assert.isObject(res)
       assert.isOk(res.cas)
+      validateMutationToken(res.token)
 
       assert.isUndefined(res.content[0].error)
       assert.strictEqual(res.content[0].value, 5)
@@ -1311,6 +1312,7 @@ function genericTests(collFn) {
       )
       assert.isObject(res)
       assert.isOk(res.cas)
+      validateMutationToken(res.token)
 
       assert.isUndefined(res.content[0].error)
       assert.strictEqual(res.content[0].value, 5)
@@ -1358,6 +1360,7 @@ function genericTests(collFn) {
       )
       assert.isObject(res)
       assert.isOk(res.cas)
+      validateMutationToken(res.token)
 
       assert.isUndefined(res.content[0].error)
       assert.strictEqual(res.content[0].value, 5)

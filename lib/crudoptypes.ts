@@ -235,11 +235,17 @@ export class MutateInResult {
   cas: Cas
 
   /**
+   * The token representing the mutation performed.
+   */
+  token?: MutationToken
+
+  /**
    * @internal
    */
   constructor(data: MutateInResult) {
     this.content = data.content
     this.cas = data.cas
+    this.token = data.token
   }
 }
 

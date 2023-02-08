@@ -1655,6 +1655,7 @@ export class Collection {
             new MutateInResult({
               content: content,
               cas: resp.cas,
+              token: resp.token,
             })
           )
           return
