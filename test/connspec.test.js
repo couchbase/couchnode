@@ -1,7 +1,11 @@
 'use strict'
 
-var assert = require('assert')
+const assert = require('chai').assert
 var { ConnSpec } = require('../lib/connspec')
+
+const harness = require('./harness')
+
+const H = harness
 
 describe('#ConnSpec', function () {
   describe('stringify', function () {
@@ -64,6 +68,30 @@ describe('#ConnSpec', function () {
       }).toString()
       assert.equal(x, 'couchbase://[2001:4860:4860::8888]:8094/joe')
     })
+
+    it('should correctly stringify a connstr spec with sasl_mech_force', function () {
+      var x = new ConnSpec({
+        scheme: 'couchbase',
+        hosts: [['localhost', 0]],
+        bucket: '',
+        options: {
+          sasl_mech_force: 'PLAIN',
+        },
+      }).toString()
+      assert.equal(x, 'couchbase://localhost?sasl_mech_force=PLAIN')
+    })
+
+    it('should correctly stringify a connstr spec with allowed_sasl_mechanisms', function () {
+      var x = new ConnSpec({
+        scheme: 'couchbase',
+        hosts: [['localhost', 0]],
+        bucket: '',
+        options: {
+          allowed_sasl_mechanisms: 'PLAIN',
+        },
+      }).toString()
+      assert.equal(x, 'couchbase://localhost?allowed_sasl_mechanisms=PLAIN')
+    })
   })
 
   describe('parse', function () {
@@ -104,6 +132,77 @@ describe('#ConnSpec', function () {
         bucket: 'b',
         options: {},
       })
+    })
+
+    it('should parse a string sasl_mech_force in options', function () {
+      var x = ConnSpec.parse('couchbase://localhost?sasl_mech_force=PLAIN')
+      assert.deepEqual(x, {
+        scheme: 'couchbase',
+        hosts: [['localhost', 0]],
+        bucket: '',
+        options: {
+          sasl_mech_force: 'PLAIN',
+        },
+      })
+    })
+
+    it('should parse a multiple strings in sasl_mech_force in options', function () {
+      var x = ConnSpec.parse(
+        'couchbase://localhost?sasl_mech_force=SCRAM-SHA512&sasl_mech_force=SCRAM-SHA256'
+      )
+      assert.deepEqual(x, {
+        scheme: 'couchbase',
+        hosts: [['localhost', 0]],
+        bucket: '',
+        options: {
+          sasl_mech_force: ['SCRAM-SHA512', 'SCRAM-SHA256'],
+        },
+      })
+    })
+
+    it('should parse a string allowed_sasl_mechanisms in options', function () {
+      var x = ConnSpec.parse(
+        'couchbase://localhost?allowed_sasl_mechanisms=PLAIN'
+      )
+      assert.deepEqual(x, {
+        scheme: 'couchbase',
+        hosts: [['localhost', 0]],
+        bucket: '',
+        options: {
+          allowed_sasl_mechanisms: 'PLAIN',
+        },
+      })
+    })
+
+    it('should parse a multiple strings in allowed_sasl_mechanisms in options', function () {
+      var x = ConnSpec.parse(
+        'couchbase://localhost?allowed_sasl_mechanisms=SCRAM-SHA512&allowed_sasl_mechanisms=SCRAM-SHA256'
+      )
+      assert.deepEqual(x, {
+        scheme: 'couchbase',
+        hosts: [['localhost', 0]],
+        bucket: '',
+        options: {
+          allowed_sasl_mechanisms: ['SCRAM-SHA512', 'SCRAM-SHA256'],
+        },
+      })
+    })
+  })
+
+  describe('#passwordauthenticator', function () {
+    it('Should have empty allowed_sasl_mechanisms by default', async function () {
+      const authenticator = new H.lib.PasswordAuthenticator('user', 'password')
+      assert.isUndefined(authenticator.allowed_sasl_mechanisms)
+    })
+
+    it('should only enable PLAIN when ldap compatible', async function () {
+      const authenticator = H.lib.PasswordAuthenticator.ldapCompatible(
+        'user',
+        'password'
+      )
+
+      assert.strictEqual(1, authenticator.allowed_sasl_mechanisms.length)
+      assert.strictEqual('PLAIN', authenticator.allowed_sasl_mechanisms[0])
     })
   })
 })

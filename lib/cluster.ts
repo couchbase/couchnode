@@ -619,7 +619,20 @@ export class Cluster {
         password: undefined as string | undefined,
         certificate_path: undefined as string | undefined,
         key_path: undefined as string | undefined,
-        allowed_sasl_mechanisms: ['SCRAM-SHA512', 'SCRAM-SHA256', 'SCRAM-SHA1'],
+        allowed_sasl_mechanisms: undefined as string[] | undefined,
+      }
+
+      // lets allow `allowed_sasl_mechanisms` to override legacy connstr option
+      for (const saslKey of ['sasl_mech_force', 'allowed_sasl_mechanisms']) {
+        if (!(saslKey in dsnObj.options)) {
+          continue
+        }
+        if (typeof dsnObj.options[saslKey] === 'string') {
+          authOpts.allowed_sasl_mechanisms = [dsnObj.options[saslKey] as string]
+        } else {
+          authOpts.allowed_sasl_mechanisms = dsnObj.options[saslKey] as string[]
+        }
+        delete dsnObj.options[saslKey]
       }
 
       if (this._auth) {
