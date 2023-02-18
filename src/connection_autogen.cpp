@@ -769,6 +769,22 @@ Connection::jsManagementCollectionsManifestGet(const Napi::CallbackInfo &info)
     return info.Env().Null();
 }
 
+Napi::Value
+Connection::jsManagementChangePassword(const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp(
+        "managementChangePassword",
+        jsToCbpp<
+            couchbase::core::operations::management::change_password_request>(
+            optsJsObj),
+        callbackJsFn);
+
+    return info.Env().Null();
+}
+
 Napi::Value Connection::jsManagementClusterDeveloperPreviewEnable(
     const Napi::CallbackInfo &info)
 {

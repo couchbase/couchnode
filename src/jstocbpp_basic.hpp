@@ -6,6 +6,7 @@
 #include "mutationtoken.hpp"
 
 #include <core/cluster.hxx>
+#include <core/query_context.hxx>
 
 namespace couchnode
 {
@@ -104,6 +105,29 @@ struct js_to_cbpp_t<couchbase::mutation_token> {
     static inline couchbase::mutation_token from_js(Napi::Value jsVal)
     {
         return MutationToken::parse(jsVal);
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::query_context> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::query_context &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("bucket_name", cbpp_to_js(env, cppObj.bucket_name()));
+        resObj.Set("scope_name", cbpp_to_js(env, cppObj.scope_name()));
+        return resObj;
+    }
+
+    static inline couchbase::core::query_context from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        auto bucket_name = js_to_cbpp<std::string>(jsObj.Get("bucket_name"));
+        auto scope_name = js_to_cbpp<std::string>(jsObj.Get("scope_name"));
+        if (!bucket_name.empty() || !scope_name.empty()) {
+            return couchbase::core::query_context(bucket_name, scope_name);
+        }
+        return couchbase::core::query_context();
     }
 };
 

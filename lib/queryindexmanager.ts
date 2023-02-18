@@ -1,7 +1,8 @@
+import { CppQueryContext } from './binding'
 import { errorFromCpp } from './bindingutilities'
 import { Cluster } from './cluster'
+import { Collection } from './collection'
 import { CouchbaseError } from './errors'
-import { HttpExecutor } from './httpexecutor'
 import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -83,11 +84,15 @@ export class QueryIndex {
 export interface CreateQueryIndexOptions {
   /**
    * Specifies the collection of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   scopeName?: string
 
@@ -120,11 +125,15 @@ export interface CreateQueryIndexOptions {
 export interface CreatePrimaryQueryIndexOptions {
   /**
    * Specifies the collection of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   scopeName?: string
 
@@ -162,11 +171,15 @@ export interface CreatePrimaryQueryIndexOptions {
 export interface DropQueryIndexOptions {
   /**
    * Specifies the collection of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   scopeName?: string
 
@@ -188,11 +201,15 @@ export interface DropQueryIndexOptions {
 export interface DropPrimaryQueryIndexOptions {
   /**
    * Specifies the collection of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   scopeName?: string
 
@@ -219,11 +236,15 @@ export interface DropPrimaryQueryIndexOptions {
 export interface GetAllQueryIndexesOptions {
   /**
    * Specifies the collection of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   scopeName?: string
 
@@ -239,11 +260,15 @@ export interface GetAllQueryIndexesOptions {
 export interface BuildQueryIndexOptions {
   /**
    * Specifies the collection of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   scopeName?: string
 
@@ -259,11 +284,15 @@ export interface BuildQueryIndexOptions {
 export interface WatchQueryIndexOptions {
   /**
    * Specifies the collection of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   collectionName?: string
 
   /**
    * Specifies the collection scope of this index.
+   *
+   * @deprecated Use {@link CollectionQueryIndexManager} instead.
    */
   scopeName?: string
 
@@ -274,26 +303,27 @@ export interface WatchQueryIndexOptions {
 }
 
 /**
- * QueryIndexManager provides an interface for managing the
- * query indexes on the cluster.
- *
- * @category Management
+ * @internal
  */
-export class QueryIndexManager {
+class InternalQueryIndexManager {
   private _cluster: Cluster
+  private _queryContext: CppQueryContext
 
   /**
    * @internal
    */
   constructor(cluster: Cluster) {
     this._cluster = cluster
+    this._queryContext = {
+      bucket_name: '',
+      scope_name: '',
+    }
   }
 
-  private get _http() {
-    return new HttpExecutor(this._cluster.conn)
-  }
-
-  private async _createIndex(
+  /**
+   * @internal
+   */
+  async createIndex(
     bucketName: string,
     isPrimary: boolean,
     options: {
@@ -305,6 +335,7 @@ export class QueryIndexManager {
       numReplicas?: number
       deferred?: boolean
       timeout?: number
+      queryContext?: CppQueryContext
     },
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -318,6 +349,7 @@ export class QueryIndexManager {
           collection_name: options.collectionName || '',
           index_name: options.name || '',
           fields: options.fields || [],
+          query_ctx: options.queryContext || this._queryContext,
           is_primary: isPrimary,
           ignore_if_exists: options.ignoreIfExists || false,
           deferred: options.deferred,
@@ -338,82 +370,9 @@ export class QueryIndexManager {
   }
 
   /**
-   * Creates a new query index.
-   *
-   * @param bucketName The name of the bucket this index is for.
-   * @param indexName The name of the new index.
-   * @param fields The fields which this index should cover.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
+   * @internal
    */
-  async createIndex(
-    bucketName: string,
-    indexName: string,
-    fields: string[],
-    options?: CreateQueryIndexOptions,
-    callback?: NodeCallback<void>
-  ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    return this._createIndex(
-      bucketName,
-      false,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: indexName,
-        fields: fields,
-        ignoreIfExists: options.ignoreIfExists,
-        numReplicas: options.numReplicas,
-        deferred: options.deferred,
-        timeout: options.timeout,
-      },
-      callback
-    )
-  }
-
-  /**
-   * Creates a new primary query index.
-   *
-   * @param bucketName The name of the bucket this index is for.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
-   */
-  async createPrimaryIndex(
-    bucketName: string,
-    options?: CreatePrimaryQueryIndexOptions,
-    callback?: NodeCallback<void>
-  ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    return this._createIndex(
-      bucketName,
-      true,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: options.name,
-        ignoreIfExists: options.ignoreIfExists,
-        deferred: options.deferred,
-        timeout: options.timeout,
-      },
-      callback
-    )
-  }
-
-  private async _dropIndex(
+  async dropIndex(
     bucketName: string,
     isPrimary: boolean,
     options: {
@@ -422,6 +381,7 @@ export class QueryIndexManager {
       name?: string
       ignoreIfNotExists?: boolean
       timeout?: number
+      queryContext?: CppQueryContext
     },
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -439,6 +399,7 @@ export class QueryIndexManager {
           scope_name: options.scopeName || '',
           collection_name: options.collectionName || '',
           index_name: options.name || '',
+          query_ctx: options.queryContext || this._queryContext,
           is_primary: isPrimary,
           ignore_if_does_not_exist: options.ignoreIfNotExists || false,
           timeout: timeout,
@@ -456,106 +417,28 @@ export class QueryIndexManager {
   }
 
   /**
-   * Drops an existing query index.
-   *
-   * @param bucketName The name of the bucket containing the index to drop.
-   * @param indexName The name of the index to drop.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
-   */
-  async dropIndex(
-    bucketName: string,
-    indexName: string,
-    options?: DropQueryIndexOptions,
-    callback?: NodeCallback<void>
-  ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    return this._dropIndex(
-      bucketName,
-      false,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: indexName,
-        ignoreIfNotExists: options.ignoreIfNotExists,
-        timeout: options.timeout,
-      },
-      callback
-    )
-  }
-
-  /**
-   * Drops an existing primary index.
-   *
-   * @param bucketName The name of the bucket containing the primary index to drop.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
-   */
-  async dropPrimaryIndex(
-    bucketName: string,
-    options?: DropPrimaryQueryIndexOptions,
-    callback?: NodeCallback<void>
-  ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    return this._dropIndex(
-      bucketName,
-      true,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: options.name,
-        ignoreIfNotExists: options.ignoreIfNotExists,
-        timeout: options.timeout,
-      },
-      callback
-    )
-  }
-
-  /**
-   * Returns a list of indexes for a specific bucket.
-   *
-   * @param bucketName The name of the bucket to fetch indexes for.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
+   * @internal
    */
   async getAllIndexes(
     bucketName: string,
-    options?: GetAllQueryIndexesOptions,
+    options: {
+      collectionName?: string
+      scopeName?: string
+      timeout?: number
+      queryContext?: CppQueryContext
+    },
     callback?: NodeCallback<QueryIndex[]>
   ): Promise<QueryIndex[]> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    const collectionName = options.collectionName || ''
-    const scopeName = options.scopeName || ''
     const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._cluster.conn.managementQueryIndexGetAll(
         {
           bucket_name: bucketName,
-          scope_name: scopeName,
-          collection_name: collectionName,
-          timeout,
+          scope_name: options.scopeName || '',
+          collection_name: options.collectionName || '',
+          query_ctx: options.queryContext || this._queryContext,
+          timeout: timeout,
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)
@@ -586,35 +469,27 @@ export class QueryIndexManager {
   }
 
   /**
-   * Starts building any indexes which were previously created with deferred=true.
-   *
-   * @param bucketName The name of the bucket to perform the build on.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
+   * @internal
    */
   async buildDeferredIndexes(
     bucketName: string,
-    options?: BuildQueryIndexOptions,
+    options: {
+      collectionName?: string
+      scopeName?: string
+      timeout?: number
+      queryContext?: CppQueryContext
+    },
     callback?: NodeCallback<string[]>
   ): Promise<string[]> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
-    const collectionName = options.collectionName || undefined
-    const scopeName = options.scopeName || undefined
     const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._cluster.conn.managementQueryIndexBuildDeferred(
         {
           bucket_name: bucketName,
-          scope_name: scopeName,
-          collection_name: collectionName,
+          scope_name: options.scopeName || '',
+          collection_name: options.collectionName || '',
+          query_ctx: options.queryContext || this._queryContext,
           timeout: timeout,
         },
         (cppErr) => {
@@ -630,29 +505,19 @@ export class QueryIndexManager {
   }
 
   /**
-   * Waits for a number of indexes to finish creation and be ready to use.
-   *
-   * @param bucketName The name of the bucket to watch for indexes on.
-   * @param indexNames The names of the indexes to watch.
-   * @param timeout The maximum time to wait for the index, expressed in milliseconds.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
+   * @internal
    */
   async watchIndexes(
     bucketName: string,
     indexNames: string[],
     timeout: number,
-    options?: WatchQueryIndexOptions,
+    options: {
+      collectionName?: string
+      scopeName?: string
+      watchPrimary?: boolean
+    },
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
     if (options.watchPrimary) {
       indexNames = [...indexNames, '#primary']
     }
@@ -701,5 +566,521 @@ export class QueryIndexManager {
         )
       }
     }, callback)
+  }
+}
+
+/**
+ * CollectionQueryIndexManager provides an interface for managing the
+ * query indexes on the collection.
+ *
+ * @category Management
+ */
+export class CollectionQueryIndexManager {
+  private _bucketName: string
+  private _collectionName: string
+  private _manager: InternalQueryIndexManager
+  private _scopeName: string
+
+  /**
+   * @internal
+   */
+  constructor(collection: Collection) {
+    this._bucketName = collection.scope.bucket.name
+    this._collectionName = collection.name
+    this._scopeName = collection.scope.name
+    this._manager = new InternalQueryIndexManager(collection.cluster)
+  }
+
+  /**
+   * Creates a new query index.
+   *
+   * @param indexName The name of the new index.
+   * @param fields The fields which this index should cover.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async createIndex(
+    indexName: string,
+    fields: string[],
+    options?: CreateQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.createIndex(
+      this._bucketName,
+      false,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: indexName,
+        fields: fields,
+        ignoreIfExists: options.ignoreIfExists,
+        numReplicas: options.numReplicas,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Creates a new primary query index.
+   *
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async createPrimaryIndex(
+    options?: CreatePrimaryQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.createIndex(
+      this._bucketName,
+      true,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: options.name,
+        ignoreIfExists: options.ignoreIfExists,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Drops an existing query index.
+   *
+   * @param indexName The name of the index to drop.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async dropIndex(
+    indexName: string,
+    options?: DropQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.dropIndex(
+      this._bucketName,
+      false,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: indexName,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Drops an existing primary index.
+   *
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async dropPrimaryIndex(
+    options?: DropPrimaryQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.dropIndex(
+      this._bucketName,
+      true,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: options.name,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Returns a list of indexes for a specific bucket.
+   *
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async getAllIndexes(
+    options?: GetAllQueryIndexesOptions,
+    callback?: NodeCallback<QueryIndex[]>
+  ): Promise<QueryIndex[]> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.getAllIndexes(
+      this._bucketName,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Starts building any indexes which were previously created with deferred=true.
+   *
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async buildDeferredIndexes(
+    options?: BuildQueryIndexOptions,
+    callback?: NodeCallback<string[]>
+  ): Promise<string[]> {
+    if (options instanceof Function) {
+      callback = arguments[0]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.buildDeferredIndexes(
+      this._bucketName,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Waits for a number of indexes to finish creation and be ready to use.
+   *
+   * @param indexNames The names of the indexes to watch.
+   * @param timeout The maximum time to wait for the index, expressed in milliseconds.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async watchIndexes(
+    indexNames: string[],
+    timeout: number,
+    options?: WatchQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.watchIndexes(
+      this._bucketName,
+      indexNames,
+      timeout,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        watchPrimary: options.watchPrimary,
+      },
+      callback
+    )
+  }
+}
+
+/**
+ * QueryIndexManager provides an interface for managing the
+ * query indexes on the cluster.
+ *
+ * @category Management
+ */
+export class QueryIndexManager {
+  private _manager: InternalQueryIndexManager
+
+  /**
+   * @internal
+   */
+  constructor(cluster: Cluster) {
+    this._manager = new InternalQueryIndexManager(cluster)
+  }
+
+  /**
+   * Creates a new query index.
+   *
+   * @param bucketName The name of the bucket this index is for.
+   * @param indexName The name of the new index.
+   * @param fields The fields which this index should cover.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async createIndex(
+    bucketName: string,
+    indexName: string,
+    fields: string[],
+    options?: CreateQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.createIndex(
+      bucketName,
+      false,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: indexName,
+        fields: fields,
+        ignoreIfExists: options.ignoreIfExists,
+        numReplicas: options.numReplicas,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Creates a new primary query index.
+   *
+   * @param bucketName The name of the bucket this index is for.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async createPrimaryIndex(
+    bucketName: string,
+    options?: CreatePrimaryQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.createIndex(
+      bucketName,
+      true,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: options.name,
+        ignoreIfExists: options.ignoreIfExists,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Drops an existing query index.
+   *
+   * @param bucketName The name of the bucket containing the index to drop.
+   * @param indexName The name of the index to drop.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async dropIndex(
+    bucketName: string,
+    indexName: string,
+    options?: DropQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.dropIndex(
+      bucketName,
+      false,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: indexName,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Drops an existing primary index.
+   *
+   * @param bucketName The name of the bucket containing the primary index to drop.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async dropPrimaryIndex(
+    bucketName: string,
+    options?: DropPrimaryQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.dropIndex(
+      bucketName,
+      true,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: options.name,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Returns a list of indexes for a specific bucket.
+   *
+   * @param bucketName The name of the bucket to fetch indexes for.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async getAllIndexes(
+    bucketName: string,
+    options?: GetAllQueryIndexesOptions,
+    callback?: NodeCallback<QueryIndex[]>
+  ): Promise<QueryIndex[]> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.getAllIndexes(
+      bucketName,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Starts building any indexes which were previously created with deferred=true.
+   *
+   * @param bucketName The name of the bucket to perform the build on.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async buildDeferredIndexes(
+    bucketName: string,
+    options?: BuildQueryIndexOptions,
+    callback?: NodeCallback<string[]>
+  ): Promise<string[]> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.buildDeferredIndexes(
+      bucketName,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        timeout: options.timeout,
+      },
+      callback
+    )
+  }
+
+  /**
+   * Waits for a number of indexes to finish creation and be ready to use.
+   *
+   * @param bucketName The name of the bucket to watch for indexes on.
+   * @param indexNames The names of the indexes to watch.
+   * @param timeout The maximum time to wait for the index, expressed in milliseconds.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async watchIndexes(
+    bucketName: string,
+    indexNames: string[],
+    timeout: number,
+    options?: WatchQueryIndexOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    return this._manager.watchIndexes(
+      bucketName,
+      indexNames,
+      timeout,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        watchPrimary: options.watchPrimary,
+      },
+      callback
+    )
   }
 }

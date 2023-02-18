@@ -127,6 +127,8 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
                 "managementAnalyticsLinkConnect"),
             InstanceMethod<&Connection::jsManagementCollectionsManifestGet>(
                 "managementCollectionsManifestGet"),
+            InstanceMethod<&Connection::jsManagementChangePassword>(
+                "managementChangePassword"),
             InstanceMethod<
                 &Connection::jsManagementClusterDeveloperPreviewEnable>(
                 "managementClusterDeveloperPreviewEnable"),

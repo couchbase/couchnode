@@ -327,14 +327,6 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
         if (named_parameters.has_value() && named_parameters.value().size() > 0) {
             cppObj.encoded_named_parameters(named_parameters.value());
         }
-        
-        auto bucket_name =
-            js_to_cbpp<std::optional<std::string>>(jsObj.Get("bucket_name"));
-        auto scope_name =
-            js_to_cbpp<std::optional<std::string>>(jsObj.Get("scope_name"));
-        if (bucket_name.has_value() && scope_name.has_value()) {
-            cppObj.scope_qualifier(fmt::format("default:`{}`.`{}`", bucket_name.value(), scope_name.value()));
-        }
 
         return cppObj;
     }

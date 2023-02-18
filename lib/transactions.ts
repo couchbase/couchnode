@@ -535,8 +535,6 @@ export class TransactionAttemptContext {
           readonly: options.readOnly || false,
           profile: queryProfileToCpp(options.profile),
           metrics: options.metrics || false,
-          bucket_name: options.scope ? options.scope.bucket.name : undefined,
-          scope_name: options.scope ? options.scope.name : undefined,
           raw: options.raw
             ? Object.fromEntries(
                 Object.entries(options.raw)
@@ -546,7 +544,9 @@ export class TransactionAttemptContext {
             : {},
           positional_parameters:
             options.parameters && Array.isArray(options.parameters)
-              ? options.parameters.map((v) => Buffer.from(JSON.stringify(v ?? null)))
+              ? options.parameters.map((v) =>
+                  Buffer.from(JSON.stringify(v ?? null))
+                )
               : [],
           named_parameters:
             options.parameters && !Array.isArray(options.parameters)

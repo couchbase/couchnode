@@ -143,7 +143,7 @@ export class QueryExecutor {
           scan_consistency: queryScanConsistencyToCpp(options.scanConsistency),
           mutation_state: mutationStateToCpp(options.consistentWith).tokens,
           timeout: timeout,
-          scope_qualifier: options.queryContext,
+          query_context: options.queryContext,
           profile: queryProfileToCpp(options.profile),
           raw: options.raw
             ? Object.fromEntries(

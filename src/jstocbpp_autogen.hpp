@@ -1256,12 +1256,11 @@ struct js_to_cbpp_t<couchbase::core::management::search::index> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::core::management::query::index> {
-    static inline couchbase::core::management::query::index
-    from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<couchbase::management::query::index> {
+    static inline couchbase::management::query::index from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        couchbase::core::management::query::index cppObj;
+        couchbase::management::query::index cppObj;
         js_to_cbpp<bool>(cppObj.is_primary, jsObj.Get("is_primary"));
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
         js_to_cbpp<std::string>(cppObj.state, jsObj.Get("state"));
@@ -1280,8 +1279,7 @@ struct js_to_cbpp_t<couchbase::core::management::query::index> {
         return cppObj;
     }
     static inline Napi::Value
-    to_js(Napi::Env env,
-          const couchbase::core::management::query::index &cppObj)
+    to_js(Napi::Env env, const couchbase::management::query::index &cppObj)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("is_primary", cbpp_to_js<bool>(env, cppObj.is_primary));
@@ -2434,12 +2432,8 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
             cppObj.scan_consistency, jsObj.Get("scan_consistency"));
         js_to_cbpp<std::vector<couchbase::mutation_token>>(
             cppObj.mutation_state, jsObj.Get("mutation_state"));
-        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
-                                               jsObj.Get("bucket_name"));
-        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
-                                               jsObj.Get("scope_name"));
-        js_to_cbpp<std::optional<std::string>>(cppObj.scope_qualifier,
-                                               jsObj.Get("scope_qualifier"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.query_context,
+                                               jsObj.Get("query_context"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -2492,12 +2486,8 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
         resObj.Set("mutation_state",
                    cbpp_to_js<std::vector<couchbase::mutation_token>>(
                        env, cppObj.mutation_state));
-        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
-                                      env, cppObj.bucket_name));
-        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
-                                     env, cppObj.scope_name));
-        resObj.Set("scope_qualifier", cbpp_to_js<std::optional<std::string>>(
-                                          env, cppObj.scope_qualifier));
+        resObj.Set("query_context", cbpp_to_js<std::optional<std::string>>(
+                                        env, cppObj.query_context));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -4893,7 +4883,7 @@ struct js_to_cbpp_t<
             cppObj;
         // ctx
         js_to_cbpp<std::string>(cppObj.status, jsObj.Get("status"));
-        js_to_cbpp<std::vector<couchbase::core::management::query::index>>(
+        js_to_cbpp<std::vector<couchbase::management::query::index>>(
             cppObj.indexes, jsObj.Get("indexes"));
         return cppObj;
     }
@@ -4904,10 +4894,9 @@ struct js_to_cbpp_t<
         auto resObj = Napi::Object::New(env);
         // ctx
         resObj.Set("status", cbpp_to_js<std::string>(env, cppObj.status));
-        resObj.Set(
-            "indexes",
-            cbpp_to_js<std::vector<couchbase::core::management::query::index>>(
-                env, cppObj.indexes));
+        resObj.Set("indexes",
+                   cbpp_to_js<std::vector<couchbase::management::query::index>>(
+                       env, cppObj.indexes));
         return resObj;
     }
 };
@@ -4926,6 +4915,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.scope_name, jsObj.Get("scope_name"));
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
+        js_to_cbpp<couchbase::core::query_context>(cppObj.query_ctx,
+                                                   jsObj.Get("query_ctx"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -4943,6 +4934,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::string>(env, cppObj.scope_name));
         resObj.Set("collection_name",
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
+        resObj.Set("query_ctx", cbpp_to_js<couchbase::core::query_context>(
+                                    env, cppObj.query_ctx));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -5281,6 +5274,8 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.collection_name,
                                                jsObj.Get("collection_name"));
+        js_to_cbpp<couchbase::core::query_context>(cppObj.query_ctx,
+                                                   jsObj.Get("query_ctx"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -5298,6 +5293,8 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                      env, cppObj.scope_name));
         resObj.Set("collection_name", cbpp_to_js<std::optional<std::string>>(
                                           env, cppObj.collection_name));
+        resObj.Set("query_ctx", cbpp_to_js<couchbase::core::query_context>(
+                                    env, cppObj.query_ctx));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -5683,6 +5680,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
+        js_to_cbpp<couchbase::core::query_context>(cppObj.query_ctx,
+                                                   jsObj.Get("query_ctx"));
         js_to_cbpp<bool>(cppObj.is_primary, jsObj.Get("is_primary"));
         js_to_cbpp<bool>(cppObj.ignore_if_does_not_exist,
                          jsObj.Get("ignore_if_does_not_exist"));
@@ -5706,6 +5705,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
+        resObj.Set("query_ctx", cbpp_to_js<couchbase::core::query_context>(
+                                    env, cppObj.query_ctx));
         resObj.Set("is_primary", cbpp_to_js<bool>(env, cppObj.is_primary));
         resObj.Set("ignore_if_does_not_exist",
                    cbpp_to_js<bool>(env, cppObj.ignore_if_does_not_exist));
@@ -6005,6 +6006,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<std::vector<std::string>>(cppObj.fields,
                                              jsObj.Get("fields"));
+        js_to_cbpp<couchbase::core::query_context>(cppObj.query_ctx,
+                                                   jsObj.Get("query_ctx"));
         js_to_cbpp<bool>(cppObj.is_primary, jsObj.Get("is_primary"));
         js_to_cbpp<bool>(cppObj.ignore_if_exists,
                          jsObj.Get("ignore_if_exists"));
@@ -6034,6 +6037,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("fields",
                    cbpp_to_js<std::vector<std::string>>(env, cppObj.fields));
+        resObj.Set("query_ctx", cbpp_to_js<couchbase::core::query_context>(
+                                    env, cppObj.query_ctx));
         resObj.Set("is_primary", cbpp_to_js<bool>(env, cppObj.is_primary));
         resObj.Set("ignore_if_exists",
                    cbpp_to_js<bool>(env, cppObj.ignore_if_exists));
@@ -6579,6 +6584,63 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
         // retries
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::change_password_response> {
+    static inline couchbase::core::operations::management::
+        change_password_response
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::change_password_response
+            cppObj;
+        // ctx
+        return cppObj;
+    }
+    static inline Napi::Value to_js(
+        Napi::Env env,
+        const couchbase::core::operations::management::change_password_response
+            &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        // ctx
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::change_password_request> {
+    static inline couchbase::core::operations::management::
+        change_password_request
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::change_password_request cppObj;
+        js_to_cbpp<std::string>(cppObj.newPassword, jsObj.Get("newPassword"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::operations::management::change_password_request
+              &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("newPassword",
+                   cbpp_to_js<std::string>(env, cppObj.newPassword));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
         return resObj;
     }
 };
@@ -9407,6 +9469,8 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         js_to_cbpp<std::string>(cppObj.scope_name, jsObj.Get("scope_name"));
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
+        js_to_cbpp<couchbase::core::query_context>(cppObj.query_ctx,
+                                                   jsObj.Get("query_ctx"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -9424,6 +9488,8 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                    cbpp_to_js<std::string>(env, cppObj.scope_name));
         resObj.Set("collection_name",
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
+        resObj.Set("query_ctx", cbpp_to_js<couchbase::core::query_context>(
+                                    env, cppObj.query_ctx));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -9506,6 +9572,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.scope_name, jsObj.Get("scope_name"));
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
+        js_to_cbpp<couchbase::core::query_context>(cppObj.query_ctx,
+                                                   jsObj.Get("query_ctx"));
         js_to_cbpp<std::vector<std::string>>(cppObj.index_names,
                                              jsObj.Get("index_names"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
@@ -9526,6 +9594,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::string>(env, cppObj.scope_name));
         resObj.Set("collection_name",
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
+        resObj.Set("query_ctx", cbpp_to_js<couchbase::core::query_context>(
+                                    env, cppObj.query_ctx));
         resObj.Set("index_names", cbpp_to_js<std::vector<std::string>>(
                                       env, cppObj.index_names));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(

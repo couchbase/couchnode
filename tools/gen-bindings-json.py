@@ -28,7 +28,7 @@ fileList = [
     "core/management/eventing_status.hxx",
     "core/management/rbac.hxx",
     "core/management/search_index.hxx",
-    "core/management/query_index.hxx",
+    "couchbase/management/query_index.hxx",
     "couchbase/retry_reason.hxx",
     "core/topology/collections_manifest.hxx",
     "core/protocol/client_opcode.hxx",
@@ -63,6 +63,7 @@ fileList = [
     "core/range_scan_options.hxx",
     "core/scan_options.hxx",
     "core/range_scan_orchestrator_options.hxx",
+    "core/query_context.hxx",
 ]
 
 typeList = [
@@ -91,7 +92,7 @@ typeList = [
     "couchbase::core::management::rbac::user_and_metadata",
     "couchbase::core::management::rbac::group",
     "couchbase::core::management::search::index",
-    "couchbase::core::management::query::index",
+    "couchbase::management::query::index",
     "couchbase::retry_reason",
     "couchbase::core::topology::collections_manifest",
     "couchbase::core::protocol::status",
@@ -154,6 +155,7 @@ typeList = [
     "couchbase::core::range_scan_create_result",
     "couchbase::core::range_scan_continue_result",
     "couchbase::core::range_scan_cancel_result",
+    "couchbase::core::query_context",
 ]
 
 # end of configurable part

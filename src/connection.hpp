@@ -139,6 +139,7 @@ public:
     jsManagementAnalyticsLinkConnect(const Napi::CallbackInfo &info);
     Napi::Value
     jsManagementCollectionsManifestGet(const Napi::CallbackInfo &info);
+    Napi::Value jsManagementChangePassword(const Napi::CallbackInfo &info);
     Napi::Value
     jsManagementClusterDeveloperPreviewEnable(const Napi::CallbackInfo &info);
     Napi::Value jsManagementAnalyticsLinkDrop(const Napi::CallbackInfo &info);

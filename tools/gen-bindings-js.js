@@ -6,6 +6,7 @@ const CustomDefinedTypes = [
   'couchbase::cas',
   'couchbase::mutation_token',
   'couchbase::retry_strategy',
+  'couchbase::core::query_context',
 ]
 
 const handleJsVariant = {

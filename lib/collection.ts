@@ -47,6 +47,7 @@ import {
   CouchbaseSet,
 } from './datastructures'
 import { DurabilityLevel, StoreSemantics } from './generaltypes'
+import { CollectionQueryIndexManager } from './queryindexmanager'
 import { Scope } from './scope'
 import { LookupInMacro, LookupInSpec, MutateInSpec } from './sdspecs'
 import { SdUtils } from './sdutils'
@@ -2025,5 +2026,13 @@ export class Collection {
         )
       }
     }, callback)
+  }
+
+  /**
+   * Returns a CollectionQueryIndexManager which can be used to manage the query indexes
+   * of this collection.
+   */
+  queryIndexes(): CollectionQueryIndexManager {
+    return new CollectionQueryIndexManager(this)
   }
 }
