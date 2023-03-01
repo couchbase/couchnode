@@ -268,7 +268,7 @@ describe('N1QL', function () {
     it('should fail watching when some indexes are missing', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().watchIndexes(H.b.name, ['invalid-index'], 2000)
-      }, H.lib.CouchbaseError)
+      }, H.lib.IndexNotFoundError)
     }).timeout(3000)
   
     it('should successfully drop a secondary index', async function () {
@@ -608,7 +608,7 @@ describe('N1QL', function () {
             collectionName: H.co.name,
             scopeName: H.s.name,
           })
-      }, H.lib.CouchbaseError)
+      }, H.lib.IndexNotFoundError)
     }).timeout(3000)
   
     it('should successfully drop a secondary index', async function () {
@@ -740,7 +740,7 @@ function genericTests(collFn) {
     it('should fail watching when some indexes are missing', async function () {
       await H.throwsHelper(async () => {
         await collFn().queryIndexes().watchIndexes(['invalid-index'], 2000)
-      }, H.lib.CouchbaseError)
+      }, H.lib.IndexNotFoundError)
     }).timeout(3000)
   
     it('should successfully drop a secondary index', async function () {

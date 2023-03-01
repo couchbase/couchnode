@@ -2,7 +2,7 @@ import { CppQueryContext } from './binding'
 import { errorFromCpp } from './bindingutilities'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
-import { CouchbaseError } from './errors'
+import { CouchbaseError, IndexNotFoundError } from './errors'
 import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -531,12 +531,18 @@ class InternalQueryIndexManager {
         const foundIdxs = await this.getAllIndexes(bucketName, {
           timeout: timer.left(),
         })
+        const foundIndexNames = foundIdxs.map((idx) => idx.name)
         const onlineIdxs = foundIdxs.filter((idx) => idx.state === 'online')
         const onlineIdxNames = onlineIdxs.map((idx) => idx.name)
 
         // Check if all the indexes we want are online
         let allOnline = true
         indexNames.forEach((indexName) => {
+          if (!foundIndexNames.includes(indexName)) {
+            throw new IndexNotFoundError(
+              new Error(`Cannot find index with name ${indexName}`)
+            )
+          }
           allOnline = allOnline && onlineIdxNames.indexOf(indexName) !== -1
         })
 
