@@ -10,7 +10,7 @@ import {
   PasswordAuthenticator,
   CertificateAuthenticator,
 } from './authenticators'
-import binding, { CppConnection } from './binding'
+import binding, { CppClusterCredentials, CppConnection } from './binding'
 import { errorFromCpp } from './bindingutilities'
 import { Bucket } from './bucket'
 import { BucketManager } from './bucketmanager'
@@ -614,13 +614,7 @@ export class Cluster {
 
       const connStr = dsnObj.toString()
 
-      const authOpts = {
-        username: undefined as string | undefined,
-        password: undefined as string | undefined,
-        certificate_path: undefined as string | undefined,
-        key_path: undefined as string | undefined,
-        allowed_sasl_mechanisms: undefined as string[] | undefined,
-      }
+      const authOpts: CppClusterCredentials = {}
 
       // lets allow `allowed_sasl_mechanisms` to override legacy connstr option
       for (const saslKey of ['sasl_mech_force', 'allowed_sasl_mechanisms']) {
@@ -658,7 +652,6 @@ export class Cluster {
           const err = errorFromCpp(cppErr)
           return reject(err)
         }
-
         resolve(null)
       })
     })

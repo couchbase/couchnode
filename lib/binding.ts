@@ -14,6 +14,20 @@ export type CppExpiry = number
 
 export type CppJsonString = string | Buffer
 
+export interface CppClusterCredentials {
+  username?: string
+  password?: string
+  certificate_path?: string
+  key_path?: string
+  allowed_sasl_mechanisms?: string[]
+}
+
+export interface CppDnsConfig {
+  nameserver?: string
+  port?: number
+  dnsSrvTimeout?: number
+}
+
 export interface CppDocumentId {
   bucket: string
   scope: string
@@ -3160,18 +3174,8 @@ export type CppError =
 export interface CppConnection extends CppConnectionAutogen {
   connect(
     connStr: string,
-    credentials: {
-      username?: string
-      password?: string
-      certificate_path?: string
-      key_path?: string
-      allowed_sasl_mechanisms?: string[]
-    },
-    dnsOptions: {
-      nameserver?: string
-      port?: number
-      dnsSrvTimeout?: number
-    } | null,
+    credentials: CppClusterCredentials,
+    dnsOptions: CppDnsConfig | null,
     callback: (err: CppError | null) => void
   ): void
   shutdown(callback: (err: CppError | null) => void): void
