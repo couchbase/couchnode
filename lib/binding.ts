@@ -3,7 +3,7 @@ eslint
 jsdoc/require-jsdoc: off,
 @typescript-eslint/no-empty-interface: off
 */
-import bindings from 'bindings'
+import path from 'path'
 
 // TODO(Brett19): Check which of these is actually needed...
 export type CppMilliseconds = number
@@ -3452,5 +3452,6 @@ export interface CppBinding extends CppBindingAutogen {
 }
 
 // Load it with require
-const binding: CppBinding = bindings('couchbase_impl')
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const binding: CppBinding = require('../scripts/prebuilds').loadPrebuild(path.resolve(__dirname, '..'))
 export default binding

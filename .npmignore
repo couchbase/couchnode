@@ -36,6 +36,7 @@ config.json
 /benchmarks/
 /.nyc_output/
 /prebuilds/
+/prebuildsDebug/
 *.tar.gz
 
 # Extra stuff

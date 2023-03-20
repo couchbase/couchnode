@@ -20,10 +20,8 @@
   "license": "Apache-2.0",
   "name": "couchbase",
   "dependencies": {
-    "bindings": "^1.5.0",
-    "cmake-js": "^6.3.2",
-    "node-addon-api": "^5.0.0",
-    "prebuild-install": "^7.1.1"
+    "cmake-js": "^7.2.0",
+    "node-addon-api": "^5.0.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.1.0",
@@ -62,11 +60,12 @@
     "native": false
   },
   "scripts": {
-    "install": "prebuild-install -r napi || cmake-js compile",
+    "install": "node ./scripts/install.js",
     "build": "cmake-js build && tsc",
     "rebuild": "cmake-js rebuild && tsc",
     "prebuild": "prebuild --backend cmake-js --verbose --strip",
     "prepare": "tsc",
+    "help-prune": "node ./scripts/prune.js",
     "build-docs": "typedoc",
     "test": "ts-mocha test/*.test.*",
     "test-fast": "ts-mocha test/*.test.* -ig '(slow)'",
@@ -79,5 +78,6 @@
     "napi_versions": [
       6
     ]
-  }
+  },
+  "optionalDependencies": {}
 }
