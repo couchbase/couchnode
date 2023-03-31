@@ -188,6 +188,41 @@ struct js_to_cbpp_t<couchbase::core::error_context::query> {
 };
 
 template <>
+struct js_to_cbpp_t<couchbase::query_error_context> {
+    static inline Napi::Value to_js(Napi::Env env,
+                                    const couchbase::query_error_context &ctx)
+    {
+        if (!ctx.ec()) {
+            return env.Null();
+        }
+
+        Napi::Error err = Napi::Error::New(env, ctx.ec().message());
+        err.Set("ctxtype", Napi::String::New(env, "query"));
+        err.Set("code", cbpp_to_js(env, ctx.ec().value()));
+
+        err.Set("first_error_code", cbpp_to_js(env, ctx.first_error_code()));
+        err.Set("first_error_message",
+                cbpp_to_js(env, ctx.first_error_message()));
+        err.Set("client_context_id", cbpp_to_js(env, ctx.client_context_id()));
+        err.Set("statement", cbpp_to_js(env, ctx.statement()));
+        err.Set("parameters", cbpp_to_js(env, ctx.parameters()));
+
+        err.Set("method", cbpp_to_js(env, ctx.method()));
+        err.Set("path", cbpp_to_js(env, ctx.path()));
+        err.Set("http_status", cbpp_to_js(env, ctx.http_status()));
+        err.Set("http_body", cbpp_to_js(env, ctx.http_body()));
+
+        err.Set("last_dispatched_to",
+                cbpp_to_js(env, ctx.last_dispatched_to()));
+        err.Set("last_dispatched_from",
+                cbpp_to_js(env, ctx.last_dispatched_from()));
+        err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts()));
+        err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons()));
+        return err.Value();
+    }
+};
+
+template <>
 struct js_to_cbpp_t<couchbase::core::error_context::search> {
     static inline Napi::Value
     to_js(Napi::Env env, const couchbase::core::error_context::search &ctx)

@@ -18,6 +18,7 @@ import binding, {
   CppViewSortOrder,
   CppPersistTo,
   CppReplicateTo,
+  CppTxnOpException,
 } from './binding'
 import { CppError } from './binding'
 import { EndpointState, PingState } from './diagnosticstypes'
@@ -387,7 +388,7 @@ export function endpointStateFromCpp(
 /**
  * @internal
  */
-export function txnExternalExeptionFromCpp(
+export function txnExternalExceptionStringFromCpp(
   cause: CppTxnExternalException
 ): string {
   if (cause === binding.txn_external_exception.unknown) {
@@ -470,6 +471,43 @@ export function txnExternalExeptionFromCpp(
   }
 
   throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function txnOpExeptionFromCpp(
+  err: CppTxnOpException | null,
+  ctx: ErrorContext | null
+): Error | null {
+  if (!err) {
+    return null
+  }
+
+  const context = ctx ? ctx : undefined
+  if (err.cause === binding.txn_external_exception.document_exists_exception) {
+    return new errs.DocumentExistsError(
+      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      context
+    )
+  } else if (
+    err.cause === binding.txn_external_exception.document_not_found_exception
+  ) {
+    return new errs.DocumentNotFoundError(
+      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      context
+    )
+  } else if (err.cause === binding.txn_external_exception.parsing_failure) {
+    return new errs.ParsingFailureError(
+      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      context
+    )
+  } else if (err.cause === binding.txn_external_exception.couchbase_exception) {
+    const cause = txnExternalExceptionStringFromCpp(err.cause)
+    return new errs.CouchbaseError(cause, new Error(cause), context)
+  }
+
+  return err as any as Error
 }
 
 /**
@@ -563,20 +601,26 @@ export function errorFromCpp(err: CppError | null): Error | null {
   // BUG(JSCBC-1010): We shouldn't need to special case these.
   if (err.ctxtype === 'transaction_operation_failed') {
     return new errs.TransactionOperationFailedError(
-      new Error(txnExternalExeptionFromCpp(err.cause))
+      new Error(txnExternalExceptionStringFromCpp(err.cause))
     )
+  } else if (err.ctxtype === 'transaction_op_exception') {
+    let txnContext: ErrorContext | null = null
+    if (err.ctx?.cause) {
+      txnContext = contextFromCpp(err.ctx.cause)
+    }
+    return txnOpExeptionFromCpp(err, txnContext)
   } else if (err.ctxtype === 'transaction_exception') {
     if (err.type === binding.txn_failure_type.fail) {
       return new errs.TransactionFailedError(
-        new Error(txnExternalExeptionFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause))
       )
     } else if (err.type === binding.txn_failure_type.expiry) {
       return new errs.TransactionExpiredError(
-        new Error(txnExternalExeptionFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause))
       )
     } else if (err.type === binding.txn_failure_type.commit_ambiguous) {
       return new errs.TransactionCommitAmbiguousError(
-        new Error(txnExternalExeptionFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause))
       )
     }
 

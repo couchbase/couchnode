@@ -851,7 +851,6 @@ export interface CppSearchRequest {
   highlight_style?: CppSearchHighlightStyle
   highlight_fields: string[]
   fields: string[]
-  scope_name?: string
   collections: string[]
   scan_consistency?: CppSearchScanConsistency
   mutation_state: CppMutationToken[]
@@ -3148,8 +3147,15 @@ export interface CppHttpError extends CppErrorBase {
 
 export interface CppTxnOperationFailed extends CppErrorBase {
   ctxtype: 'transaction_operation_failed'
+  ctx: CppTransactionErrorContext
   should_not_retry: boolean
   should_not_rollback: boolean
+  cause: CppTxnExternalException
+}
+
+export interface CppTxnOpException extends CppErrorBase {
+  ctxtype: 'transaction_op_exception'
+  ctx: CppTransactionOpErrorContext | undefined
   cause: CppTxnExternalException
 }
 
@@ -3158,6 +3164,16 @@ export interface CppTxnError extends CppErrorBase {
   result: CppTransactionResult
   cause: CppTxnExternalException
   type: CppTxnFailureType
+}
+
+export interface CppTransactionErrorContext {
+  code: CppErrc
+  cause: CppErrc
+}
+
+export interface CppTransactionOpErrorContext {
+  code: CppErrc
+  cause: CppKeyValueError | CppQueryError | undefined
 }
 
 export type CppError =
@@ -3169,6 +3185,7 @@ export type CppError =
   | CppAnalyticsError
   | CppHttpError
   | CppTxnOperationFailed
+  | CppTxnOpException
   | CppTxnError
 
 export interface CppConnection extends CppConnectionAutogen {
@@ -3261,6 +3278,7 @@ export interface CppTransactionLinks {
   atr_collection_name: string
   staged_transaction_id: string
   staged_attempt_id: string
+  staged_operation_id: string
   staged_content: string
   cas_pre_txn: string
   revid_pre_txn: string

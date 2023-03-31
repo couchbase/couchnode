@@ -976,8 +976,8 @@ export class EventingFunctionPausedError extends CouchbaseError {
  * @category Error Handling
  */
 export class TransactionOperationFailedError extends CouchbaseError {
-  constructor(cause?: Error) {
-    super('transaction operation failed', cause)
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('transaction operation failed', cause, context)
   }
 }
 
@@ -987,8 +987,8 @@ export class TransactionOperationFailedError extends CouchbaseError {
  * @category Error Handling
  */
 export class TransactionFailedError extends CouchbaseError {
-  constructor(cause?: Error) {
-    super('transaction failed', cause)
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('transaction failed', cause, context)
   }
 }
 

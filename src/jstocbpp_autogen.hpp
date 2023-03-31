@@ -3733,8 +3733,6 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                                              jsObj.Get("highlight_fields"));
         js_to_cbpp<std::vector<std::string>>(cppObj.fields,
                                              jsObj.Get("fields"));
-        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
-                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::vector<std::string>>(cppObj.collections,
                                              jsObj.Get("collections"));
         js_to_cbpp<std::optional<couchbase::core::search_scan_consistency>>(
@@ -3782,8 +3780,6 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                                            env, cppObj.highlight_fields));
         resObj.Set("fields",
                    cbpp_to_js<std::vector<std::string>>(env, cppObj.fields));
-        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
-                                     env, cppObj.scope_name));
         resObj.Set("collections", cbpp_to_js<std::vector<std::string>>(
                                       env, cppObj.collections));
         resObj.Set(

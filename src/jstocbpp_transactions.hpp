@@ -147,6 +147,8 @@ struct js_to_cbpp_t<cbcoretxns::transaction_links> {
                 jsObj.Get("staged_transaction_id")),
             js_to_cbpp<std::optional<std::string>>(
                 jsObj.Get("staged_attempt_id")),
+            js_to_cbpp<std::optional<std::string>>(
+                jsObj.Get("staged_operation_id")),
             js_to_cbpp<std::optional<std::vector<std::byte>>>(
                 jsObj.Get("staged_content")),
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("cas_pre_txn")),
@@ -173,6 +175,8 @@ struct js_to_cbpp_t<cbcoretxns::transaction_links> {
                    cbpp_to_js(env, res.staged_transaction_id()));
         resObj.Set("staged_attempt_id",
                    cbpp_to_js(env, res.staged_attempt_id()));
+        resObj.Set("staged_operation_id",
+                   cbpp_to_js(env, res.staged_operation_id()));
         resObj.Set("staged_content", cbpp_to_js(env, res.staged_content()));
         resObj.Set("cas_pre_txn", cbpp_to_js(env, res.cas_pre_txn()));
         resObj.Set("revid_pre_txn", cbpp_to_js(env, res.revid_pre_txn()));
@@ -245,8 +249,10 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
         auto jsObj = jsVal.ToObject();
         cbtxns::transaction_query_options cppObj;
 
-        auto raw = js_to_cbpp<std::optional<std::map<std::string, std::vector<std::byte>, std::less<>>>>(jsObj.Get("raw"));
-        if(raw.has_value() && raw.value().size() > 0){
+        auto raw = js_to_cbpp<std::optional<
+            std::map<std::string, std::vector<std::byte>, std::less<>>>>(
+            jsObj.Get("raw"));
+        if (raw.has_value() && raw.value().size() > 0) {
             cppObj.encoded_raw_options(raw.value());
         }
 
@@ -295,7 +301,7 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
         if (scan_cap.has_value()) {
             cppObj.scan_cap(scan_cap.value());
         }
-                
+
         auto pipeline_batch =
             js_to_cbpp<std::optional<uint64_t>>(jsObj.Get("pipeline_batch"));
         if (pipeline_batch.has_value()) {
@@ -314,17 +320,19 @@ struct js_to_cbpp_t<cbtxns::transaction_query_options> {
             cppObj.max_parallelism(max_parallelism.value());
         }
 
-        auto positional_parameters = js_to_cbpp<
-            std::optional<std::vector<std::vector<std::byte>>>>(
-            jsObj.Get("positional_parameters"));
-        if (positional_parameters.has_value() && positional_parameters.value().size() > 0) {
+        auto positional_parameters =
+            js_to_cbpp<std::optional<std::vector<std::vector<std::byte>>>>(
+                jsObj.Get("positional_parameters"));
+        if (positional_parameters.has_value() &&
+            positional_parameters.value().size() > 0) {
             cppObj.encoded_positional_parameters(positional_parameters.value());
         }
 
         auto named_parameters = js_to_cbpp<std::optional<
             std::map<std::string, std::vector<std::byte>, std::less<>>>>(
             jsObj.Get("named_parameters"));
-        if (named_parameters.has_value() && named_parameters.value().size() > 0) {
+        if (named_parameters.has_value() &&
+            named_parameters.value().size() > 0) {
             cppObj.encoded_named_parameters(named_parameters.value());
         }
 
@@ -355,7 +363,9 @@ struct js_to_cbpp_t<cbcoretxns::transaction_exception> {
     {
         Napi::Error jsErr = Napi::Error::New(env, "transaction_exception");
         jsErr.Set("ctxtype", Napi::String::New(env, "transaction_exception"));
-        jsErr.Set("result", cbpp_to_js(env, err.get_transaction_result()));
+        auto txn_result = err.get_transaction_result();
+        jsErr.Set("ctx", cbpp_to_js(env, txn_result.first));
+        jsErr.Set("result", cbpp_to_js(env, txn_result.second));
         jsErr.Set("cause", cbpp_to_js(env, err.cause()));
         jsErr.Set("type", cbpp_to_js(env, err.type()));
         return jsErr.Value();
@@ -376,6 +386,46 @@ struct js_to_cbpp_t<cbtxns::transaction_result> {
 };
 
 template <>
+struct js_to_cbpp_t<couchbase::transaction_error_context> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::transaction_error_context &res)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("code", cbpp_to_js(env, res.ec()));
+        resObj.Set("cause", cbpp_to_js(env, res.cause()));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<cbcoretxns::op_exception> {
+    static inline Napi::Value to_js(Napi::Env env,
+                                    const cbcoretxns::op_exception &err)
+    {
+        Napi::Error jsErr = Napi::Error::New(env, "transaction_exception");
+        jsErr.Set("ctxtype", Napi::String::New(env, "transaction_op_exception"));
+        jsErr.Set("ctx", cbpp_to_js(env, err.ctx()));
+        jsErr.Set("cause", cbpp_to_js(env, err.cause()));
+        return jsErr.Value();
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::transaction_op_error_context> {
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::transaction_op_error_context &res)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("code", cbpp_to_js(env, res.ec()));
+        resObj.Set("cause",
+                   cbpp_to_js<std::variant<couchbase::key_value_error_context,
+                                           couchbase::query_error_context>>(
+                       env, res.cause()));
+        return resObj;
+    }
+};
+
+template <>
 struct js_to_cbpp_t<std::exception_ptr> {
     static inline Napi::Value to_js(Napi::Env env,
                                     const std::exception_ptr &err)
@@ -387,6 +437,8 @@ struct js_to_cbpp_t<std::exception_ptr> {
         try {
             std::rethrow_exception(err);
         } catch (const cbcoretxns::transaction_operation_failed &err) {
+            return cbpp_to_js(env, err);
+        } catch (const cbcoretxns::op_exception &err) {
             return cbpp_to_js(env, err);
         } catch (const std::exception &err) {
             return cbpp_to_js(env, err);

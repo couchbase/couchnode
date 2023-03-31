@@ -15,6 +15,10 @@ import {
 } from './bindingutilities'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
+import {
+  TransactionFailedError,
+  TransactionOperationFailedError,
+} from './errors'
 import { DurabilityLevel } from './generaltypes'
 import { QueryExecutor } from './queryexecutor'
 import {
@@ -679,7 +683,10 @@ export class Transactions {
         await logicFn(txn)
       } catch (e) {
         await txn._rollback()
-        throw e
+        if (e instanceof TransactionOperationFailedError) {
+          throw new TransactionFailedError(e.cause, e.context)
+        }
+        throw new TransactionFailedError(e as Error)
       }
 
       try {
