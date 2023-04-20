@@ -58,6 +58,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
 
     exports.Set(Napi::String::New(env, "cbppVersion"),
                 Napi::String::New(env, "1.0.0-beta"));
+    exports.Set(Napi::String::New(env, "cbppMetadata"),
+                Napi::String::New(env, couchbase::core::meta::sdk_build_info_json()));
     return exports;
 }
 

@@ -32,6 +32,7 @@ export const lcbVersion: string = binding.cbppVersion
  * SDK to perform I/O with the cluster.
  */
 export const cbppVersion: string = binding.cbppVersion
+export const cbppMetadata: string = binding.cbppMetadata
 
 export * from './analyticsindexmanager'
 export * from './analyticstypes'

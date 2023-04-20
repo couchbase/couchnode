@@ -3387,6 +3387,7 @@ export interface CppTransaction {
 
 export interface CppBinding extends CppBindingAutogen {
   cbppVersion: string
+  cbppMetadata: string
 
   Connection: {
     new (): CppConnection
