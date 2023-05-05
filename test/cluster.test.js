@@ -105,6 +105,9 @@ describe('#Cluster', function () {
     assert.strictEqual(cluster.queryTimeout, 120000)
     assert.strictEqual(cluster.searchTimeout, 120000)
     assert.strictEqual(cluster.viewTimeout, 120000)
+    assert.strictEqual(cluster.bootstrapTimeout, 120000)
+    assert.strictEqual(cluster.connectTimeout, 20000)
+    assert.strictEqual(cluster.resolveTimeout, 20000)
   })
 
   it('should error when config profile is not registered', function () {

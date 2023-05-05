@@ -32,17 +32,23 @@ export class WanDevelopmentProfile implements IConfigProfile {
    * @param options The Connect options the ConfigProfile should be applied toward.
    */
   apply(options: ConnectOptions): void {
-    const timeouts = {
-      kvTimeout: 20000,
-      kvDurableTimeout: 20000,
-      analyticsTimeout: 120000,
-      managementTimeout: 120000,
-      queryTimeout: 120000,
-      searchTimeout: 120000,
-      viewTimeout: 120000,
-    }
     // the profile should override previously set values
-    options.timeouts = { ...options.timeouts, ...timeouts }
+    options.timeouts = {
+      ...options.timeouts,
+      ...{
+        kvTimeout: 20000,
+        kvDurableTimeout: 20000,
+        analyticsTimeout: 120000,
+        managementTimeout: 120000,
+        queryTimeout: 120000,
+        searchTimeout: 120000,
+        viewTimeout: 120000,
+        bootstrapTimeout: 120000,
+        connectTimeout: 20000,
+        resolveTimeout: 20000,
+      },
+    }
+    options.dnsConfig = { ...options.dnsConfig, ...{ dnsSrvTimeout: 20000 } }
   }
 }
 

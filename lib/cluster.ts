@@ -83,6 +83,21 @@ export interface TimeoutConfig {
    * Specifies the default timeout for management operations, specified in millseconds.
    */
   managementTimeout?: number
+
+  /**
+   * Specifies the default timeout allocated to complete bootstrap, specified in millseconds.
+   */
+  bootstrapTimeout?: number
+
+  /**
+   * Specifies the default timeout for attempting to connect to a node’s KV service via a socket, specified in millseconds.
+   */
+  connectTimeout?: number
+
+  /**
+   * Specifies the default timeout to resolve DNS name of the node to IP address, specified in millseconds.
+   */
+  resolveTimeout?: number
 }
 
 /**
@@ -201,6 +216,9 @@ export class Cluster {
   private _analyticsTimeout: number
   private _searchTimeout: number
   private _managementTimeout: number
+  private _connectTimeout: number | undefined
+  private _bootstrapTimeout: number | undefined
+  private _resolveTimeout: number | undefined
   private _auth: Authenticator
   private _conn: CppConnection
   private _transcoder: Transcoder
@@ -274,6 +292,27 @@ export class Cluster {
 
   /**
   @internal
+  */
+  get bootstrapTimeout(): number | undefined {
+    return this._bootstrapTimeout
+  }
+
+  /**
+  @internal
+  */
+  get connectTimeout(): number | undefined {
+    return this._connectTimeout
+  }
+
+  /**
+  @internal
+  */
+  get resolveTimeout(): number | undefined {
+    return this._resolveTimeout
+  }
+
+  /**
+  @internal
   @deprecated Use the static sdk-level {@link connect} method instead.
   */
   constructor(connStr: string, options?: ConnectOptions) {
@@ -301,6 +340,9 @@ export class Cluster {
     this._analyticsTimeout = options.timeouts.analyticsTimeout || 75000
     this._searchTimeout = options.timeouts.searchTimeout || 75000
     this._managementTimeout = options.timeouts.managementTimeout || 75000
+    this._bootstrapTimeout = options.timeouts?.bootstrapTimeout
+    this._connectTimeout = options.timeouts?.connectTimeout
+    this._resolveTimeout = options.timeouts?.resolveTimeout
 
     if (options.transcoder) {
       this._transcoder = options.transcoder
@@ -336,8 +378,9 @@ export class Cluster {
 
     if (
       options.dnsConfig &&
-      options.dnsConfig.nameserver &&
-      options.dnsConfig.port
+      (options.dnsConfig.nameserver ||
+        options.dnsConfig.port ||
+        options.dnsConfig.dnsSrvTimeout)
     ) {
       this._dnsConfig = {
         nameserver: options.dnsConfig.nameserver,
@@ -611,6 +654,15 @@ export class Cluster {
 
       dsnObj.options.user_agent_extra = generateClientString()
       dsnObj.options.trust_certificate = this._trustStorePath
+      if (this.bootstrapTimeout) {
+        dsnObj.options['bootstrap_timeout'] = this.bootstrapTimeout.toString()
+      }
+      if (this.connectTimeout) {
+        dsnObj.options['kv_connect_timeout'] = this.connectTimeout.toString()
+      }
+      if (this.resolveTimeout) {
+        dsnObj.options['resolve_timeout'] = this.resolveTimeout.toString()
+      }
 
       const connStr = dsnObj.toString()
 
