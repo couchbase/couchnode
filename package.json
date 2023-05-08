@@ -26,17 +26,17 @@
     "prebuild-install": "^7.1.1"
   },
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^3.3.0",
+    "@trivago/prettier-plugin-sort-imports": "^4.1.0",
     "@types/bindings": "^1.5.1",
     "@types/debug": "^4.1.7",
-    "@types/node": "^18.6.3",
+    "@types/node": "^20.1.0",
     "@tsconfig/node12": "^1.0.11",
     "@typescript-eslint/eslint-plugin": "^5.32.0",
     "@typescript-eslint/parser": "^5.32.0",
     "chai": "^4.3.6",
     "eslint": "^8.21.0",
     "eslint-config-prettier": "^8.5.0",
-    "eslint-plugin-jsdoc": "^39.3.4",
+    "eslint-plugin-jsdoc": "^41.1.0",
     "eslint-plugin-mocha": "^10.1.0",
     "eslint-plugin-node": "^11.1.0",
     "expose-gc": "^1.0.0",
@@ -49,9 +49,9 @@
     "semver": "^7.3.7",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.1",
-    "typedoc": "^0.23.10",
+    "typedoc": "^0.24.1",
     "typescript": "^4.7.4",
-    "uuid": "^8.3.2"
+    "uuid": "^9.0.0"
   },
   "repository": {
     "type": "git",
