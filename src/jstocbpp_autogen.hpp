@@ -3723,7 +3723,7 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                                                  jsObj.Get("limit"));
         js_to_cbpp<std::optional<std::uint32_t>>(cppObj.skip,
                                                  jsObj.Get("skip"));
-        js_to_cbpp<bool>(cppObj.explain, jsObj.Get("explain"));
+        js_to_cbpp<std::optional<bool>>(cppObj.explain, jsObj.Get("explain"));
         js_to_cbpp<bool>(cppObj.disable_scoring, jsObj.Get("disable_scoring"));
         js_to_cbpp<bool>(cppObj.include_locations,
                          jsObj.Get("include_locations"));
@@ -3767,7 +3767,8 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                    cbpp_to_js<std::optional<std::uint32_t>>(env, cppObj.limit));
         resObj.Set("skip",
                    cbpp_to_js<std::optional<std::uint32_t>>(env, cppObj.skip));
-        resObj.Set("explain", cbpp_to_js<bool>(env, cppObj.explain));
+        resObj.Set("explain",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.explain));
         resObj.Set("disable_scoring",
                    cbpp_to_js<bool>(env, cppObj.disable_scoring));
         resObj.Set("include_locations",

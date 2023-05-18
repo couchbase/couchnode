@@ -845,7 +845,7 @@ export interface CppSearchRequest {
   query: CppJsonString
   limit?: number
   skip?: number
-  explain: boolean
+  explain?: boolean
   disable_scoring: boolean
   include_locations: boolean
   highlight_style?: CppSearchHighlightStyle
