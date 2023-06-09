@@ -49,15 +49,9 @@ struct js_to_cbpp_t<couchbase::core::io::dns::dns_config> {
     from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        auto nameserver = js_to_cbpp<std::string>(jsObj.Get("nameserver"));
-        auto jsPort = jsObj.Get("port");
         auto cppObj = couchbase::core::io::dns::dns_config{
-            nameserver.empty()
-                ? couchbase::core::io::dns::dns_config::default_nameserver
-                : nameserver,
-            jsPort.IsNull() || jsPort.IsUndefined()
-                ? couchbase::core::io::dns::dns_config::default_port
-                : js_to_cbpp<std::uint16_t>(jsPort),
+            js_to_cbpp<std::string>(jsObj.Get("nameserver")),
+            js_to_cbpp<std::uint16_t>(jsObj.Get("port")),
             js_to_cbpp<std::chrono::milliseconds>(jsObj.Get("dnsSrvTimeout"))};
         return cppObj;
     }

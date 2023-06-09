@@ -257,9 +257,30 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
         jsToCbpp<couchbase::core::cluster_credentials>(credentialsJsObj);
 
     if (!info[2].IsNull()) {
-        auto dnsConfigJsObj = info[2].As<Napi::Object>();
+        auto jsDnsConfigObj = info[2].As<Napi::Object>();
+        auto jsNameserver = jsDnsConfigObj.Get("nameserver");
+        if (jsNameserver.IsNull() || jsNameserver.IsUndefined() ||
+            jsNameserver.IsEmpty()) {
+            jsDnsConfigObj.Set(
+                "nameserver",
+                cbpp_to_js<std::string>(
+                    info.Env(), connstrInfo.options.dns_config.nameserver()));
+        }
+        auto jsPort = jsDnsConfigObj.Get("port");
+        if (jsPort.IsNull() || jsPort.IsUndefined()) {
+            jsDnsConfigObj.Set(
+                "port", cbpp_to_js<std::uint16_t>(
+                            info.Env(), connstrInfo.options.dns_config.port()));
+        }
+        auto jsTimeout = jsDnsConfigObj.Get("dnsSrvTimeout");
+        if (jsTimeout.IsNull() || jsTimeout.IsUndefined()) {
+            jsDnsConfigObj.Set(
+                "dnsSrvTimeout",
+                cbpp_to_js<std::chrono::milliseconds>(
+                    info.Env(), connstrInfo.options.dns_config.timeout()));
+        }
         auto cppDnsConfig =
-            jsToCbpp<couchbase::core::io::dns::dns_config>(dnsConfigJsObj);
+            jsToCbpp<couchbase::core::io::dns::dns_config>(jsDnsConfigObj);
         connstrInfo.options.dns_config = cppDnsConfig;
     }
 
