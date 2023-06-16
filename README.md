@@ -42,15 +42,16 @@ Here is a simple example of instantiating a connection, adding a new document
 into the bucket and then retrieving its contents:
 
 ```javascript
-import { Cluster } from 'couchbase'
+import { connect } from 'couchbase'
 
-const cluster = await couchbase.connect(
+const cluster = await connect(
   'couchbase://127.0.0.1',
   {
     username: 'username',
     password: 'password',
   })
 
+const coll = cluster.bucket('bucketName').defaultCollection()
 await coll.upsert('testdoc', { name: 'Frank' })
 
 const res = await coll.get('testdoc')
