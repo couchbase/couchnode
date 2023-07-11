@@ -41,20 +41,92 @@ successfully established.
 Here is a simple example of instantiating a connection, adding a new document
 into the bucket and then retrieving its contents:
 
+**Javascript:**
 ```javascript
-import { Cluster } from 'couchbase'
+const couchbase = require('couchbase')
 
-const cluster = await couchbase.connect(
-  'couchbase://127.0.0.1',
-  {
-    username: 'username',
-    password: 'password',
+async function main() {
+  const cluster = await couchbase.connect(
+    'couchbase://127.0.0.1',
+    {
+      username: 'username',
+      password: 'password',
+    })
+
+  const bucket = cluster.bucket('default')
+  const coll = bucket.defaultCollection()
+  await coll.upsert('testdoc', { foo: 'bar' })
+
+  const res = await coll.get('testdoc')
+  console.log(res.content)
+}
+
+// Run the main function
+main()
+  .then((_) => {
+    console.log ('Success!')
   })
+  .catch((err) => {
+    console.log('ERR:', err)
+  })
+```
 
-await coll.upsert('testdoc', { name: 'Frank' })
+**Typescript:**
+```javascript
+import {
+  Bucket,
+  Cluster,
+  Collection,
+  connect,
+  GetResult,
+} from 'couchbase'
 
-const res = await coll.get('testdoc')
-console.log(res.content)
+async function main() {
+  const cluster: Cluster = await connect(
+    'couchbase://127.0.0.1',
+    {
+      username: 'username',
+      password: 'password',
+    })
+
+  const bucket: Bucket = cluster.bucket('default')
+  const coll: Collection = bucket.defaultCollection()
+  await coll.upsert('testdoc', { foo: 'bar' })
+
+  const res: GetResult = await coll.get('testdoc')
+  console.log(res.content)
+}
+
+// Run the main function
+main()
+  .then((_) => {
+    console.log ('Success!')
+  })
+  .catch((err) => {
+    console.log('ERR:', err)
+  })
+```
+
+## AWS Lambda
+
+Version 4.2.5 of the SDK significantly reduces the size of the prebuilt binary provided with the SDK on supported platforms. The reduction
+enables the SDK to meet the [minimum size requirements](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html) for an AWS lambda deployment package without extra steps for reducing the size of the package.  However, if further size reduction is desired, the SDK provides a script to provide recommendations for size reduction.
+
+**Script:**
+```bash
+npm explore couchbase -- npm run help-prune
+```
+
+**Example output:**
+```bash
+Checking for platform packages in /tmp/couchnode-test/node_modules/@couchbase that do not match the expected platform package (couchbase-linux-x64-openssl1).
+Found mismatch: Path=/tmp/couchnode-test/node_modules/@couchbase/couchbase-linuxmusl-x64-openssl1
+
+Recommendations for pruning:
+
+Removing mismatched platform=couchbase-linuxmusl-x64-openssl1 (path=/tmp/couchnode-test/node_modules/@couchbase/couchbase-linuxmusl-x64-openssl1) saves ~13.31 MB on disk.
+Removing Couchbase deps/ (path=/tmp/couchnode-test/node_modules/couchbase/deps) saves ~45.51 MB on disk.
+Removing Couchbase src/ (path=/tmp/couchnode-test/node_modules/couchbase/src) saves ~0.61 MB on disk.
 ```
 
 ## Documentation
