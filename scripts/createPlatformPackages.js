@@ -53,10 +53,7 @@ try {
       fs.renameSync(oldPath, path.join(newPath, newPrebuildName))
       const platformPackage = `@${packageName}/${platPkg}`
       // build the platform package files: package.json, README and index.js
-      const engines = { node: `>=16.0.0` }
-      if (runtime === 'napi') {
-        engines.node = nodeVersion >= 18 ? '>=18.0.0' : '<18'
-      }
+      const engines = { node: nodeVersion >= 18 ? '>=18' : '<18' }
       fs.writeFileSync(
         path.join(newPath, 'package.json'),
         JSON.stringify(
