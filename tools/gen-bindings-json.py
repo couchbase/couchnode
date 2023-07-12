@@ -6,7 +6,7 @@ import clang.cindex
 # configurable part
 
 CLANG_VERSION='13.0.1'
-#   homebrew installs for llvm (brew info llvm gives details):  
+#   homebrew installs for llvm (brew info llvm gives details):
 #       x64: /usr/local/opt/llvm/lib
 #       arm64: /opt/homebrew/opt/llvm/lib
 llvmLibPath = "/usr/local/Cellar/llvm/13.0.1_1/lib/"

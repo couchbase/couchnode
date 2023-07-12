@@ -354,6 +354,14 @@ export interface QueryOptions {
   readOnly?: boolean
 
   /**
+   * Uncommitted: This API is subject to change in the future.
+   * 
+   * Specifies whether the query engine should use replica nodes for kv fetches,
+   * if the active node is down.
+   */
+  useReplica?: boolean
+
+  /**
    * Specifies the level of profiling that should be used for the query.
    */
   profile?: QueryProfileMode

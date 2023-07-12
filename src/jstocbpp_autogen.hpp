@@ -2418,6 +2418,8 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
         js_to_cbpp<bool>(cppObj.readonly, jsObj.Get("readonly"));
         js_to_cbpp<bool>(cppObj.flex_index, jsObj.Get("flex_index"));
         js_to_cbpp<bool>(cppObj.preserve_expiry, jsObj.Get("preserve_expiry"));
+        js_to_cbpp<std::optional<bool>>(cppObj.use_replica,
+                                        jsObj.Get("use_replica"));
         js_to_cbpp<std::optional<std::uint64_t>>(cppObj.max_parallelism,
                                                  jsObj.Get("max_parallelism"));
         js_to_cbpp<std::optional<std::uint64_t>>(cppObj.scan_cap,
@@ -2469,6 +2471,8 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
         resObj.Set("flex_index", cbpp_to_js<bool>(env, cppObj.flex_index));
         resObj.Set("preserve_expiry",
                    cbpp_to_js<bool>(env, cppObj.preserve_expiry));
+        resObj.Set("use_replica",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.use_replica));
         resObj.Set("max_parallelism", cbpp_to_js<std::optional<std::uint64_t>>(
                                           env, cppObj.max_parallelism));
         resObj.Set("scan_cap", cbpp_to_js<std::optional<std::uint64_t>>(

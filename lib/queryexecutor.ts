@@ -135,6 +135,7 @@ export class QueryExecutor {
           readonly: options.readOnly || false,
           flex_index: options.flexIndex || false,
           preserve_expiry: options.preserveExpiry || false,
+          use_replica: options.useReplica,
           max_parallelism: options.maxParallelism,
           scan_cap: options.scanCap,
           scan_wait: options.scanWait,

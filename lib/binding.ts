@@ -580,6 +580,7 @@ export interface CppQueryRequest {
   readonly: boolean
   flex_index: boolean
   preserve_expiry: boolean
+  use_replica?: boolean
   max_parallelism?: number
   scan_cap?: number
   scan_wait?: CppMilliseconds
