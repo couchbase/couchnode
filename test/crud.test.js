@@ -1281,6 +1281,157 @@ function genericTests(collFn) {
     })
   })
 
+  describe('subdoc replica', function () {
+    let testKeySd
+
+    before(async function () {
+      H.skipIfMissingFeature(this, H.Features.SubdocReadReplica)
+      H.skipIfMissingFeature(this, H.Features.Replicas)
+      testKeySd = H.genTestKey()
+      await collFn().insert(testKeySd, {
+        foo: 14,
+        bar: 2,
+        baz: 'hello',
+        arr: [1, 2, 3],
+      },
+        {
+          durabilityLevel: DurabilityLevel.MajorityAndPersistOnMaster
+        })
+    })
+
+    after(async function () {
+      try {
+        await collFn().remove(testKeySd)
+      } catch (e) {
+        // nothing
+      }
+    })
+
+    it('should lookupInAnyReplica successfully', async function () {
+      var res = await collFn().lookupInAnyReplica(testKeySd, [
+        H.lib.LookupInSpec.get('baz'),
+        H.lib.LookupInSpec.get('bar'),
+        H.lib.LookupInSpec.exists('not-exists'),
+      ])
+      assert.isObject(res)
+      assert.isOk(res.cas)
+      assert.isBoolean(res.isReplica)
+      assert.isArray(res.content)
+      assert.strictEqual(res.content.length, 3)
+      assert.isNotOk(res.content[0].error)
+      assert.deepStrictEqual(res.content[0].value, 'hello')
+      assert.isNotOk(res.content[1].error)
+      assert.deepStrictEqual(res.content[1].value, 2)
+      assert.isNotOk(res.content[2].error)
+      assert.deepStrictEqual(res.content[2].value, false)
+    })
+
+    it('should lookupInAllReplicas successfully', async function () {
+      var res = await collFn().lookupInAllReplicas(testKeySd, [
+        H.lib.LookupInSpec.get('baz'),
+        H.lib.LookupInSpec.get('bar'),
+        H.lib.LookupInSpec.exists('not-exists'),
+      ])
+      assert.isArray(res)
+      let activeCount = 0;
+      res.forEach((replica) => {
+        if (!replica.isReplica) {
+          activeCount++;
+        }
+        assert.isOk(replica.cas)
+        assert.isArray(replica.content)
+        assert.strictEqual(replica.content.length, 3)
+        assert.isNotOk(replica.content[0].error)
+        assert.deepStrictEqual(replica.content[0].value, 'hello')
+        assert.isNotOk(replica.content[1].error)
+        assert.deepStrictEqual(replica.content[1].value, 2)
+        assert.isNotOk(replica.content[2].error)
+        assert.deepStrictEqual(replica.content[2].value, false)
+      })
+      assert.strictEqual(activeCount, 1)
+    })
+
+    it('should stream lookupInAllReplicas correctly', async function () {
+      const streamLookupInReplica = (id, specs) => {
+        return new Promise((resolve, reject) => {
+          let resultsOut = []
+          collFn()
+            .lookupInAllReplicas(id, specs)
+            .on('replica', (res) => {
+              resultsOut.push(res)
+            })
+            .on('end', () => {
+              resolve({
+                results: resultsOut,
+              })
+            })
+            .on('error', (err) => {
+              reject(err)
+            })
+        })
+      }
+      const specs = [
+        H.lib.LookupInSpec.get('baz'),
+        H.lib.LookupInSpec.get('bar'),
+        H.lib.LookupInSpec.exists('not-exists'),
+      ]
+      const res = await streamLookupInReplica(testKeySd, specs)
+      assert.isArray(res.results)
+      let activeCount = 0;
+      res.results.forEach((replica) => {
+        if (!replica.isReplica) {
+          activeCount++;
+        }
+        assert.isOk(replica.cas)
+        assert.isArray(replica.content)
+        assert.strictEqual(replica.content.length, 3)
+        assert.isNotOk(replica.content[0].error)
+        assert.deepStrictEqual(replica.content[0].value, 'hello')
+        assert.isNotOk(replica.content[1].error)
+        assert.deepStrictEqual(replica.content[1].value, 2)
+        assert.isNotOk(replica.content[2].error)
+        assert.deepStrictEqual(replica.content[2].value, false)
+      })
+      assert.strictEqual(activeCount, 1)
+    })
+
+    it('should successfully run lookupInAllReplicas with a callback', function (callback) {
+      collFn().lookupInAllReplicas(testKeySd, [H.lib.LookupInSpec.get('baz')], (err, res) => {
+          assert.isAtLeast(res.length, 1)
+          assert.isBoolean(res[0].isReplica)
+          assert.isNotEmpty(res[0].cas)
+          assert.deepStrictEqual(res[0].content[0].value, 'hello')
+          callback(err)
+        })
+    })
+
+    it ('should successfully run lookupInAnyReplica with a callback', function (callback) {
+      collFn().lookupInAnyReplica(testKeySd, [H.lib.LookupInSpec.get('baz')], (err, res) => {
+          assert.isObject(res)
+          assert.isNotEmpty(res.cas)
+          assert.isBoolean(res.isReplica)
+          assert.deepStrictEqual(res.content[0].value, 'hello')
+          callback(err)
+        })
+    })
+
+    it('should doc-not-found for missing doc lookupInAllReplicas', async function () {
+      await H.throwsHelper(async () => {
+        await collFn().lookupInAllReplicas('some-document-which-does-not-exist', [
+          H.lib.LookupInSpec.get('baz'),
+        ])
+      }, H.lib.DocumentNotFoundError)
+    })
+
+    it('should doc-irretrievable for missing doc lookupInAnyReplica', async function () {
+      await H.throwsHelper(async () => {
+        await collFn().lookupInAnyReplica('some-document-which-does-not-exist', [
+          H.lib.LookupInSpec.get('baz'),
+        ])
+      }, H.lib.DocumentUnretrievableError)
+    })
+  })
+
   describe('subdoc server durability', function () {
     let testKeySd
 

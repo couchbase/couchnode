@@ -35,6 +35,7 @@ const ServerFeatures = {
   Transactions: 'transactions',
   ServerDurability: 'server_durability',
   RangeScan: 'range_scan',
+  SubdocReadReplica: 'subdoc_read_replica'
 }
 
 class ServerVersion {
@@ -354,6 +355,8 @@ class Harness {
       case ServerFeatures.Transactions:
         return !this._version.isMock && this._version.isAtLeast(7, 0, 0)
       case ServerFeatures.RangeScan:
+        return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
+      case ServerFeatures.SubdocReadReplica:
         return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
     }
 

@@ -91,6 +91,7 @@ public:
     Napi::Value jsRemove(const Napi::CallbackInfo &info);
     Napi::Value jsRemoveWithLegacyDurability(const Napi::CallbackInfo &info);
     Napi::Value jsGet(const Napi::CallbackInfo &info);
+    Napi::Value jsLookupInAllReplicas(const Napi::CallbackInfo &info);
     Napi::Value jsAnalytics(const Napi::CallbackInfo &info);
     Napi::Value jsGetProjected(const Napi::CallbackInfo &info);
     Napi::Value jsDecrement(const Napi::CallbackInfo &info);
@@ -102,6 +103,7 @@ public:
     Napi::Value jsGetAndLock(const Napi::CallbackInfo &info);
     Napi::Value jsInsert(const Napi::CallbackInfo &info);
     Napi::Value jsInsertWithLegacyDurability(const Napi::CallbackInfo &info);
+    Napi::Value jsLookupInAnyReplica(const Napi::CallbackInfo &info);
     Napi::Value jsMutateIn(const Napi::CallbackInfo &info);
     Napi::Value jsMutateInWithLegacyDurability(const Napi::CallbackInfo &info);
     Napi::Value jsIncrement(const Napi::CallbackInfo &info);

@@ -694,6 +694,31 @@ export interface CppGetRequest {
   // retries
   // parent_span
 }
+export interface CppLookupInAllReplicasResponse {
+  // ctx
+  entries: CppLookupInAllReplicasResponseEntry[]
+}
+export interface CppLookupInAllReplicasResponseEntry {
+  fields: CppLookupInAllReplicasResponseEntryLookupInEntry[]
+  cas: CppCas
+  deleted: boolean
+  is_replica: boolean
+}
+export interface CppLookupInAllReplicasResponseEntryLookupInEntry {
+  path: string
+  value: Buffer
+  original_index: number
+  exists: boolean
+  opcode: CppProtocolSubdocOpcode
+  status: CppKeyValueStatusCode
+  ec: CppError
+}
+export interface CppLookupInAllReplicasRequest {
+  id: CppDocumentId
+  specs: CppImplSubdocCommand[]
+  timeout?: CppMilliseconds
+  // parent_span
+}
 export interface CppAnalyticsResponse {
   // ctx
   meta: CppAnalyticsResponseAnalyticsMetaData
@@ -1003,6 +1028,28 @@ export interface CppInsertWithLegacyDurabilityRequest {
   // parent_span
   persist_to: CppPersistTo
   replicate_to: CppReplicateTo
+}
+export interface CppLookupInAnyReplicaResponse {
+  // ctx
+  cas: CppCas
+  fields: CppLookupInAnyReplicaResponseEntry[]
+  deleted: boolean
+  is_replica: boolean
+}
+export interface CppLookupInAnyReplicaResponseEntry {
+  path: string
+  value: Buffer
+  original_index: number
+  exists: boolean
+  opcode: CppProtocolSubdocOpcode
+  status: CppKeyValueStatusCode
+  ec: CppError
+}
+export interface CppLookupInAnyReplicaRequest {
+  id: CppDocumentId
+  specs: CppImplSubdocCommand[]
+  timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppMutateInResponse {
   // ctx
@@ -2054,6 +2101,10 @@ export interface CppConnectionAutogen {
     options: CppGetRequest,
     callback: (err: CppError | null, result: CppGetResponse) => void
   ): void
+  lookupInAllReplicas(
+    options: CppLookupInAllReplicasRequest,
+    callback: (err: CppError | null, result: CppLookupInAllReplicasResponse) => void
+  ): void
   analytics(
     options: CppAnalyticsRequest,
     callback: (err: CppError | null, result: CppAnalyticsResponse) => void
@@ -2097,6 +2148,10 @@ export interface CppConnectionAutogen {
   insertWithLegacyDurability(
     options: CppInsertWithLegacyDurabilityRequest,
     callback: (err: CppError | null, result: CppInsertResponse) => void
+  ): void
+  lookupInAnyReplica(
+    options: CppLookupInAnyReplicaRequest,
+    callback: (err: CppError | null, result: CppLookupInAnyReplicaResponse) => void
   ): void
   mutateIn(
     options: CppMutateInRequest,

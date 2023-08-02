@@ -65,6 +65,8 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
             InstanceMethod<&Connection::jsRemoveWithLegacyDurability>(
                 "removeWithLegacyDurability"),
             InstanceMethod<&Connection::jsGet>("get"),
+            InstanceMethod<&Connection::jsLookupInAllReplicas>(
+                "lookupInAllReplicas"),
             InstanceMethod<&Connection::jsAnalytics>("analytics"),
             InstanceMethod<&Connection::jsGetProjected>("getProjected"),
             InstanceMethod<&Connection::jsDecrement>("decrement"),
@@ -78,6 +80,8 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
             InstanceMethod<&Connection::jsInsert>("insert"),
             InstanceMethod<&Connection::jsInsertWithLegacyDurability>(
                 "insertWithLegacyDurability"),
+            InstanceMethod<&Connection::jsLookupInAnyReplica>(
+                "lookupInAnyReplica"),
             InstanceMethod<&Connection::jsMutateIn>("mutateIn"),
             InstanceMethod<&Connection::jsMutateInWithLegacyDurability>(
                 "mutateInWithLegacyDurability"),

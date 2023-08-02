@@ -242,6 +242,20 @@ Napi::Value Connection::jsGet(const Napi::CallbackInfo &info)
     return info.Env().Null();
 }
 
+Napi::Value Connection::jsLookupInAllReplicas(const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp(
+        "lookupInAllReplicas",
+        jsToCbpp<couchbase::core::operations::lookup_in_all_replicas_request>(
+            optsJsObj),
+        callbackJsFn);
+
+    return info.Env().Null();
+}
+
 Napi::Value Connection::jsAnalytics(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
@@ -380,6 +394,20 @@ Connection::jsInsertWithLegacyDurability(const Napi::CallbackInfo &info)
         "insertWithLegacyDurability",
         jsToCbpp<
             couchbase::core::operations::insert_request_with_legacy_durability>(
+            optsJsObj),
+        callbackJsFn);
+
+    return info.Env().Null();
+}
+
+Napi::Value Connection::jsLookupInAnyReplica(const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp(
+        "lookupInAnyReplica",
+        jsToCbpp<couchbase::core::operations::lookup_in_any_replica_request>(
             optsJsObj),
         callbackJsFn);
 

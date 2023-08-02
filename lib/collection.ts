@@ -40,6 +40,7 @@ import {
   GetResult,
   LookupInResult,
   LookupInResultEntry,
+  LookupInReplicaResult,
   MutateInResult,
   MutateInResultEntry,
   MutationResult,
@@ -361,6 +362,26 @@ export interface UnlockOptions {
  * @category Key-Value
  */
 export interface LookupInOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Key-Value
+ */
+export interface LookupInAnyReplicaOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
+ * @category Key-Value
+ */
+export interface LookupInAllReplicasOptions {
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -1781,6 +1802,199 @@ export class Collection {
         }
       )
     }, callback)
+  }
+
+  /**
+   * @internal
+   */
+  _lookupInReplica(
+    key: string,
+    lookupInAllReplicas: boolean,
+    specs: LookupInSpec[],
+    options?: {
+      timeout?: number
+    },
+    callback?: NodeCallback<LookupInReplicaResult[]>
+  ): StreamableReplicasPromise<LookupInReplicaResult[], LookupInReplicaResult> {
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const emitter = new StreamableReplicasPromise<
+      LookupInReplicaResult[],
+      LookupInReplicaResult
+      >((replicas: LookupInReplicaResult[]) => replicas)
+
+    const cppSpecs: CppImplSubdocCommand[] = []
+    for (let i = 0; i < specs.length; ++i) {
+      cppSpecs.push({
+        opcode_: specs[i]._op,
+        flags_: specs[i]._flags,
+        path_: specs[i]._path,
+        original_index_: i,
+      })
+    }
+
+    const timeout = options.timeout || this.cluster.kvTimeout
+
+    if (lookupInAllReplicas) {
+      this._conn.lookupInAllReplicas(
+        {
+          id: this._cppDocId(key),
+          specs: cppSpecs,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            emitter.emit('error', err)
+            emitter.emit('end')
+            return
+          }
+
+          resp.entries.forEach((replica) => {
+            const content: LookupInResultEntry[] = []
+
+            for (let i = 0; i < replica.fields.length; ++i) {
+              const itemRes = replica.fields[i]
+
+              let error = errorFromCpp(itemRes.ec)
+
+              let value: any = undefined
+              if (itemRes.value && itemRes.value.length > 0) {
+                value = this._subdocDecode(itemRes.value)
+              }
+
+              // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
+              if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
+                error = null
+                value = itemRes.exists
+              }
+
+              content.push(
+                new LookupInResultEntry({
+                  error,
+                  value,
+                })
+              )
+            }
+            emitter.emit(
+              'replica',
+              new LookupInReplicaResult(({
+                content: content,
+                cas: replica.cas,
+                isReplica: replica.is_replica
+              }))
+            )
+          })
+
+          emitter.emit('end')
+          return
+        }
+      )
+    } else {
+      this._conn.lookupInAnyReplica(
+        {
+          id: this._cppDocId(key),
+          specs: cppSpecs,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            emitter.emit('error', err)
+            emitter.emit('end')
+            return
+          }
+
+          const content: LookupInResultEntry[] = []
+
+          for (let i = 0; i < resp.fields.length; ++i) {
+            const itemRes = resp.fields[i]
+
+            let error = errorFromCpp(itemRes.ec)
+
+            let value: any = undefined
+            if (itemRes.value && itemRes.value.length > 0) {
+              value = this._subdocDecode(itemRes.value)
+            }
+
+            // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
+            if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
+              error = null
+              value = itemRes.exists
+            }
+
+            content.push(
+              new LookupInResultEntry({
+                error,
+                value,
+              })
+            )
+          }
+          emitter.emit(
+            'replica',
+            new GetReplicaResult({
+              content: content,
+              cas: resp.cas,
+              isReplica: resp.is_replica,
+            })
+          )
+          emitter.emit('end')
+          return
+        }
+      )
+    }
+    return PromiseHelper.wrapAsync(() => emitter, callback)
+  }
+
+  /**
+   * Performs a lookup-in operation against a document, fetching individual fields or
+   * information about specific fields inside the document value from any of the available
+   * replicas in the cluster.
+   *
+   * @param key The document key to look in.
+   * @param specs A list of specs describing the data to fetch from the document.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  lookupInAnyReplica(
+    key: string,
+    specs: LookupInSpec[],
+    options?: LookupInOptions,
+    callback?: NodeCallback<LookupInReplicaResult>
+  ): Promise<LookupInReplicaResult> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    return PromiseHelper.wrapAsync(async () => {
+      const replicas = await this._lookupInReplica(key, false, specs, options)
+      return replicas[0]
+    }, callback)
+  }
+
+  /**
+   * Performs a lookup-in operation against a document, fetching individual fields or
+   * information about specific fields inside the document value from all available replicas.
+   * Note that as replication is asynchronous, each node may return a different value.
+   *
+   * @param key The document key to look in.
+   * @param specs A list of specs describing the data to fetch from the document.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  lookupInAllReplicas(
+    key: string,
+    specs: LookupInSpec[],
+    options?: LookupInOptions,
+    callback?: NodeCallback<LookupInReplicaResult[]>
+  ): Promise<LookupInReplicaResult[]> {
+    return this._lookupInReplica(key, true, specs, options, callback)
   }
 
   /**

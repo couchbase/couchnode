@@ -242,6 +242,33 @@ export class LookupInResult {
 }
 
 /**
+ * Contains the results of a lookup-in replica operation.
+ *
+ * @category Key-Value
+ */
+export class LookupInReplicaResult {
+  /**
+   * A list of result entries for each sub-operation performed.
+   */
+  content: LookupInResultEntry[]
+  /**
+   * The cas of the document.
+   */
+  cas: Cas
+
+  /**
+   * Indicates whether this result came from a replica or the primary.
+   */
+  isReplica: boolean
+
+  constructor(data: { content: LookupInResultEntry[]; cas: Cas; isReplica: boolean }) {
+    this.content = data.content
+    this.cas = data.cas
+    this.isReplica = data.isReplica
+  }
+}
+
+/**
  * Contains the results of a specific sub-operation within a mutate-in operation.
  *
  * @category Key-Value
