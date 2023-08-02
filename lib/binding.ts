@@ -3405,6 +3405,8 @@ export interface CppTransaction {
 export interface CppBinding extends CppBindingAutogen {
   cbppVersion: string
   cbppMetadata: string
+  enableProtocolLogger: (filename: string) => void
+  shutdownLogger: () => void
 
   Connection: {
     new (): CppConnection

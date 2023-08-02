@@ -34,6 +34,29 @@ export const lcbVersion: string = binding.cbppVersion
 export const cbppVersion: string = binding.cbppVersion
 export const cbppMetadata: string = binding.cbppMetadata
 
+/**
+ * Volatile: This API is subject to change at any time.
+ *
+ * Exposes the underlying couchbase++ library protocol logger.  This method is for
+ * logging/debugging purposes and must be used with caution as network details will
+ * be logged to the provided file.
+ */
+export function enableProtocolLoggerToSaveNetworkTrafficToFile(
+  filename: string
+): void {
+  binding.enableProtocolLogger(filename)
+}
+
+/**
+ * Volatile: This API is subject to change at any time.
+ *
+ * Shutdowns the underlying couchbase++ logger.
+ *
+ */
+export function shutdownLogger(): void {
+  binding.shutdownLogger()
+}
+
 export * from './analyticsindexmanager'
 export * from './analyticstypes'
 export * from './authenticators'

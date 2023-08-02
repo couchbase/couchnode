@@ -6,11 +6,35 @@
 #include "scan_iterator.hpp"
 #include "transaction.hpp"
 #include "transactions.hpp"
+#include <core/logger/configuration.hxx>
 #include <napi.h>
 #include <spdlog/spdlog.h>
 
 namespace couchnode
 {
+
+Napi::Value enable_protocol_logger(const Napi::CallbackInfo &info)
+{
+    try {
+        auto filename = info[0].ToString().Utf8Value();
+        couchbase::core::logger::configuration configuration{};
+        configuration.filename = filename;
+        couchbase::core::logger::create_protocol_logger(configuration);
+    } catch (...) {
+        return Napi::Error::New(info.Env(), "Unexpected C++ error").Value();
+    }
+    return info.Env().Null();
+}
+
+Napi::Value shutdown_logger(const Napi::CallbackInfo &info)
+{
+    try {
+        couchbase::core::logger::shutdown();
+    } catch (...) {
+        return Napi::Error::New(info.Env(), "Unexpected C++ error").Value();
+    }
+    return info.Env().Null();
+}
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
@@ -63,6 +87,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     exports.Set(
         Napi::String::New(env, "cbppMetadata"),
         Napi::String::New(env, couchbase::core::meta::sdk_build_info_json()));
+    exports.Set(Napi::String::New(env, "enableProtocolLogger"),
+                Napi::Function::New<enable_protocol_logger>(env));
+    exports.Set(Napi::String::New(env, "shutdownLogger"),
+                Napi::Function::New<shutdown_logger>(env));
     return exports;
 }
 
