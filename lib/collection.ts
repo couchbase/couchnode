@@ -366,6 +366,13 @@ export interface LookupInOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * For internal use only - allows access to deleted documents that are in 'tombstone' form
+   *
+   * @internal
+   */
+  accessDeleted?: boolean
 }
 
 /**
@@ -1747,6 +1754,7 @@ export class Collection {
     }
 
     const timeout = options.timeout || this.cluster.kvTimeout
+    const accessDeleted = options.accessDeleted || false
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.lookupIn(
@@ -1756,7 +1764,7 @@ export class Collection {
           timeout,
           partition: 0,
           opaque: 0,
-          access_deleted: false,
+          access_deleted: accessDeleted,
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)

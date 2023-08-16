@@ -1243,6 +1243,26 @@ function genericTests(collFn) {
       }, H.lib.DocumentNotFoundError)
     })
 
+    it('should lookupIn with accessDeleted successfully', async function () {
+      H.skipIfMissingFeature(this, H.Features.Xattr)
+
+      const testKeyDeleted = H.genTestKey()
+      var upsertRes = await collFn().upsert(testKeyDeleted, testObjVal)
+      assert.isOk(upsertRes.cas)
+
+      var removeRes = await collFn().remove(testKeyDeleted)
+      assert.isOk(removeRes.cas)
+
+      var res = await collFn().lookupIn(testKeyDeleted,
+        [H.lib.LookupInSpec.exists('$document.revid', { xattr: true })],
+        {
+          accessDeleted: true
+        })
+
+      assert.isNull(res.content[0].error)
+      assert.strictEqual(res.content[0].value, true)
+    })
+
     it('should mutateIn successfully', async function () {
       var res = await collFn().mutateIn(testKeySd, [
         H.lib.MutateInSpec.increment('bar', 3),
