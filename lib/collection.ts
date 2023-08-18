@@ -1775,16 +1775,14 @@ export class Collection {
             for (let i = 0; i < resp.fields.length; ++i) {
               const itemRes = resp.fields[i]
 
-              let error = errorFromCpp(itemRes.ec)
+              const error = errorFromCpp(itemRes.ec)
 
               let value: any = undefined
               if (itemRes.value && itemRes.value.length > 0) {
                 value = this._subdocDecode(itemRes.value)
               }
 
-              // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
               if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
-                error = null
                 value = itemRes.exists
               }
 
@@ -1870,16 +1868,14 @@ export class Collection {
             for (let i = 0; i < replica.fields.length; ++i) {
               const itemRes = replica.fields[i]
 
-              let error = errorFromCpp(itemRes.ec)
+              const error = errorFromCpp(itemRes.ec)
 
               let value: any = undefined
               if (itemRes.value && itemRes.value.length > 0) {
                 value = this._subdocDecode(itemRes.value)
               }
 
-              // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
               if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
-                error = null
                 value = itemRes.exists
               }
 
@@ -1924,16 +1920,14 @@ export class Collection {
           for (let i = 0; i < resp.fields.length; ++i) {
             const itemRes = resp.fields[i]
 
-            let error = errorFromCpp(itemRes.ec)
+            const error = errorFromCpp(itemRes.ec)
 
             let value: any = undefined
             if (itemRes.value && itemRes.value.length > 0) {
               value = this._subdocDecode(itemRes.value)
             }
 
-            // BUG(JSCBC-1016): Should remove this workaround when the underlying bug is resolved.
             if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
-              error = null
               value = itemRes.exists
             }
 
