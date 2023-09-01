@@ -653,7 +653,20 @@ export class Cluster {
       const dsnObj = ConnSpec.parse(this._connStr)
 
       dsnObj.options.user_agent_extra = generateClientString()
-      dsnObj.options.trust_certificate = this._trustStorePath
+
+      //trust_store_path is legacy, C++ SDK expects trust_certificate
+      if (
+        'trust_store_path' in dsnObj.options &&
+        !('trust_certificate' in dsnObj.options)
+      ) {
+        dsnObj.options.trust_certificate = dsnObj.options.trust_store_path
+        delete dsnObj.options['trust_store_path']
+      }
+      //if trust store was passed in via `SecurityConfig` override connstr
+      if (this._trustStorePath) {
+        dsnObj.options.trust_certificate = this._trustStorePath
+      }
+
       if (this.bootstrapTimeout) {
         dsnObj.options['bootstrap_timeout'] = this.bootstrapTimeout.toString()
       }
