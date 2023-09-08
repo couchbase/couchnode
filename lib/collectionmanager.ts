@@ -1,14 +1,10 @@
-import { Bucket } from './bucket'
 import {
-  CollectionExistsError,
-  CollectionNotFoundError,
-  CouchbaseError,
-  FeatureNotAvailableError,
-  ScopeExistsError,
-  ScopeNotFoundError,
-} from './errors'
-import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
+  CppTopologyCollectionsManifestCollection,
+  CppTopologyCollectionsManifestScope,
+} from './binding'
+import { errorFromCpp } from './bindingutilities'
+import { Bucket } from './bucket'
+import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
  * Provides options for configuring a collection.
@@ -17,7 +13,7 @@ import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
  */
 export interface ICollectionSpec {
   /**
-   * The name of the scope.
+   * The name of the collection.
    */
   name: string
 
@@ -32,6 +28,14 @@ export interface ICollectionSpec {
    * @see {@link IBucketSettings.maxExpiry}
    */
   maxExpiry?: number
+
+  /**
+   * The history retention override setting in this collection.
+   * Only supported on Magma Buckets.
+   *
+   * @see {@link StorageBackend.Magma}.
+   */
+  history?: boolean
 }
 
 /**
@@ -58,33 +62,36 @@ export class CollectionSpec {
   maxExpiry: number
 
   /**
+   * The history retention override setting in this collection.
+   * Only supported on Magma Buckets.
+   *
+   * @see {@link StorageBackend.Magma}.
+   */
+  history?: boolean
+
+  /**
    * @internal
    */
   constructor(data: CollectionSpec) {
     this.name = data.name
     this.scopeName = data.scopeName
     this.maxExpiry = data.maxExpiry
+    this.history = data.history
   }
 
   /**
    * @internal
    */
-  static _fromNsData(scopeName: string, data: any): CollectionSpec {
+  static _fromCppData(
+    scopeName: string,
+    data: CppTopologyCollectionsManifestCollection
+  ): CollectionSpec {
     return new CollectionSpec({
       name: data.name,
       scopeName: scopeName,
-      maxExpiry: data.maxTTL,
+      maxExpiry: data.max_expiry,
+      history: data.history,
     })
-  }
-
-  /**
-   * @internal
-   */
-  static _toNsData(data: ICollectionSpec): any {
-    return {
-      name: data.name,
-      maxTTL: data.maxExpiry,
-    }
   }
 }
 
@@ -115,12 +122,13 @@ export class ScopeSpec {
   /**
    * @internal
    */
-  static _fromNsData(data: any): ScopeSpec {
+  static _fromCppData(data: CppTopologyCollectionsManifestScope): ScopeSpec {
     let collections: CollectionSpec[]
-    if (data.collections) {
+    if (data.collections.length > 0) {
       const scopeName = data.name
-      collections = data.collections.map((collectionData: any) =>
-        CollectionSpec._fromNsData(scopeName, collectionData)
+      collections = data.collections.map(
+        (collectionData: CppTopologyCollectionsManifestCollection) =>
+          CollectionSpec._fromCppData(scopeName, collectionData)
       )
     } else {
       collections = []
@@ -131,6 +139,50 @@ export class ScopeSpec {
       collections: collections,
     })
   }
+}
+
+/**
+ * The settings to use when creating the collection.
+ *
+ * @category Management
+ */
+export interface CreateCollectionSettings {
+  /**
+   * The maximum expiry for documents in this collection.
+   *
+   * @see {@link IBucketSettings.maxExpiry}
+   */
+  maxExpiry?: number
+
+  /**
+   * The history retention override setting in this collection.
+   * Only supported on Magma Buckets.
+   *
+   * @see {@link StorageBackend.Magma}.
+   */
+  history?: boolean
+}
+
+/**
+ * The settings which should be updated on the collection.
+ *
+ * @category Management
+ */
+export interface UpdateCollectionSettings {
+  /**
+   * The maximum expiry for documents in this collection.
+   *
+   * @see {@link IBucketSettings.maxExpiry}
+   */
+  maxExpiry?: number
+
+  /**
+   * The history retention override setting in this collection.
+   * Only supported on Magma Buckets.
+   *
+   * @see {@link StorageBackend.Magma}.
+   */
+  history?: boolean
 }
 
 /**
@@ -184,6 +236,16 @@ export interface DropScopeOptions {
 }
 
 /**
+ * @category Management
+ */
+export interface UpdateCollectionOptions {
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+}
+
+/**
  * CollectionManager allows the management of collections within a Bucket.
  *
  * @category Management
@@ -200,10 +262,6 @@ export class CollectionManager {
 
   private get _cluster() {
     return this._bucket.cluster
-  }
-
-  private get _http() {
-    return new HttpExecutor(this._bucket.conn)
   }
 
   /**
@@ -227,40 +285,44 @@ export class CollectionManager {
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/pools/default/buckets/${bucketName}/scopes`,
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementScopeGetAll(
+        {
+          bucket_name: bucketName,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
+          const scopes = resp.manifest.scopes.map((scopeData) =>
+            ScopeSpec._fromCppData(scopeData)
+          )
 
-        const errText = res.body.toString().toLowerCase()
-        if (
-          errText.includes('not allowed on this version of cluster') ||
-          res.statusCode === 404
-        ) {
-          throw new FeatureNotAvailableError(undefined, errCtx)
+          wrapCallback(null, scopes)
         }
-
-        throw new CouchbaseError('failed to get scopes', undefined, errCtx)
-      }
-
-      const scopesData = JSON.parse(res.body.toString())
-      const scopes = scopesData.scopes.map((scopeData: any) =>
-        ScopeSpec._fromNsData(scopeData)
       )
-      return scopes
     }, callback)
   }
 
   /**
    * Creates a collection in a scope.
    *
+   * @param collectionSpec Specifies the settings for the new collection.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
    * @deprecated Use the other overload instead.
+   */
+  async createCollection(
+    collectionSpec: ICollectionSpec,
+    options?: CreateCollectionOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void>
+
+  /**
+   * Creates a collection in a scope.
    */
   async createCollection(
     collectionName: string,
@@ -272,12 +334,16 @@ export class CollectionManager {
   /**
    * Creates a collection in a scope.
    *
-   * @param collectionSpec Specifies the settings for the new collection.
+   * @param collectionName The name of the collection.
+   * @param scopeName The name of the scope containing this collection.
+   * @param settings The settings to use on creating the collection.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
   async createCollection(
-    collectionSpec: ICollectionSpec,
+    collectionName: string,
+    scopeName: string,
+    settings?: CreateCollectionSettings,
     options?: CreateCollectionOptions,
     callback?: NodeCallback<void>
   ): Promise<void>
@@ -286,69 +352,69 @@ export class CollectionManager {
    * @internal
    */
   async createCollection(): Promise<void> {
-    let collectionSpec: ICollectionSpec = arguments[0]
-    let options: CreateCollectionOptions | undefined = arguments[1]
-    let callback: NodeCallback<void> | undefined = arguments[2]
+    let collectionName: string = arguments[0]
+    let scopeName: string = arguments[1]
+    let settings: CreateCollectionSettings | undefined = arguments[2]
+    let options: CreateCollectionOptions | undefined = arguments[3]
+    let callback: NodeCallback<void> | undefined = arguments[4]
 
-    // Deprecated usage conversion for (name, scopeName, options, callback)
-    if (typeof collectionSpec === 'string') {
-      collectionSpec = {
-        name: arguments[0],
-        scopeName: arguments[1],
+    // Deprecated usage conversion for (CollectionSpec, options, callback)
+    if (typeof collectionName === 'object') {
+      const spec = collectionName as CollectionSpec
+      collectionName = spec.name
+      scopeName = spec.scopeName
+      settings = {
+        maxExpiry: spec.maxExpiry,
+        history: spec.history,
       }
-      options = arguments[2]
-      callback = arguments[3]
+      options = arguments[1]
+      callback = arguments[2]
+      if (options instanceof Function) {
+        callback = arguments[1]
+        options = undefined
+      }
     }
-
-    if (options instanceof Function) {
-      callback = arguments[1]
+    // Handling of callbacks for alternative overloads
+    if (settings instanceof Function) {
+      callback = arguments[2]
+      settings = undefined
+    } else if (options instanceof Function) {
+      callback = arguments[3]
       options = undefined
     }
+
     if (!options) {
       options = {}
     }
 
+    if (!settings) {
+      settings = {}
+    }
+
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
+    const maxExpiry = settings.maxExpiry || 0
+    const history = settings.history || undefined
 
-    return PromiseHelper.wrapAsync(async () => {
-      const collectionData = CollectionSpec._toNsData(collectionSpec)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementCollectionCreate(
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          max_expiry: maxExpiry,
+          history: history,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Post,
-        path: `/pools/default/buckets/${bucketName}/scopes/${collectionSpec.scopeName}/collections`,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(collectionData),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (
-          errText.includes('already exists') &&
-          errText.includes('collection')
-        ) {
-          throw new CollectionExistsError(undefined, errCtx)
+          wrapCallback(err)
         }
-        if (errText.includes('not found') && errText.includes('scope')) {
-          throw new ScopeNotFoundError(undefined, errCtx)
-        }
-        if (
-          errText.includes('not allowed on this version of cluster') ||
-          res.statusCode === 404
-        ) {
-          throw new FeatureNotAvailableError(undefined, errCtx)
-        }
-
-        throw new CouchbaseError(
-          'failed to create collection',
-          undefined,
-          errCtx
-        )
-      }
+      )
     }, callback)
   }
 
@@ -377,33 +443,71 @@ export class CollectionManager {
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Delete,
-        path: `/pools/default/buckets/${bucketName}/scopes/${scopeName}/collections/${collectionName}`,
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementCollectionDrop(
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
+          wrapCallback(err)
+        }
+      )
+    }, callback)
+  }
 
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('not found') && errText.includes('collection')) {
-          throw new CollectionNotFoundError(undefined, errCtx)
-        }
-        if (errText.includes('not found') && errText.includes('scope')) {
-          throw new ScopeNotFoundError(undefined, errCtx)
-        }
-        if (
-          errText.includes('not allowed on this version of cluster') ||
-          res.statusCode === 404
-        ) {
-          throw new FeatureNotAvailableError(undefined, errCtx)
-        }
+  /**
+   * Updates a collection in a scope.
+   *
+   * @param collectionName The name of the collection to update.
+   * @param scopeName The name of the scope containing the collection.
+   * @param settings The settings to update on the collection.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async updateCollection(
+    collectionName: string,
+    scopeName: string,
+    settings: UpdateCollectionSettings,
+    options?: UpdateCollectionOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[3]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
 
-        throw new CouchbaseError('failed to drop collection', undefined, errCtx)
-      }
+    const bucketName = this._bucket.name
+    const timeout = options.timeout || this._cluster.managementTimeout
+
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementCollectionUpdate(
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          max_expiry: settings.maxExpiry,
+          history: settings.history,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
+        }
+      )
     }, callback)
   }
 
@@ -430,34 +534,22 @@ export class CollectionManager {
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Post,
-        path: `/pools/default/buckets/${bucketName}/scopes`,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify({
-          name: scopeName,
-        }),
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementScopeCreate(
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('already exists') && errText.includes('scope')) {
-          throw new ScopeExistsError(undefined, errCtx)
+          wrapCallback(err)
         }
-        if (
-          errText.includes('not allowed on this version of cluster') ||
-          res.statusCode === 404
-        ) {
-          throw new FeatureNotAvailableError(undefined, errCtx)
-        }
-
-        throw new CouchbaseError('failed to create scope', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 
@@ -484,30 +576,22 @@ export class CollectionManager {
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Delete,
-        path: `/pools/default/buckets/${bucketName}/scopes/${scopeName}`,
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementScopeDrop(
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('not found') && errText.includes('scope')) {
-          throw new ScopeNotFoundError(undefined, errCtx)
+          wrapCallback(err)
         }
-        if (
-          errText.includes('not allowed on this version of cluster') ||
-          res.statusCode === 404
-        ) {
-          throw new FeatureNotAvailableError(undefined, errCtx)
-        }
-
-        throw new CouchbaseError('failed to drop scope', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 }

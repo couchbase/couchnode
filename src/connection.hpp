@@ -146,6 +146,7 @@ public:
     Napi::Value
     jsManagementClusterDeveloperPreviewEnable(const Napi::CallbackInfo &info);
     Napi::Value jsManagementAnalyticsLinkDrop(const Napi::CallbackInfo &info);
+    Napi::Value jsManagementCollectionUpdate(const Napi::CallbackInfo &info);
     Napi::Value jsManagementBucketDescribe(const Napi::CallbackInfo &info);
     Napi::Value
     jsManagementEventingUpsertFunction(const Napi::CallbackInfo &info);

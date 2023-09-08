@@ -1,13 +1,21 @@
+import { CppManagementClusterBucketSettings } from './binding'
+import {
+  bucketTypeToCpp,
+  bucketCompressionModeToCpp,
+  bucketEvictionPolicyToCpp,
+  bucketStorageBackendToCpp,
+  durabilityToCpp,
+  errorFromCpp,
+  bucketConflictResolutionTypeToCpp,
+  bucketTypeFromCpp,
+  bucketStorageBackendFromCpp,
+  bucketEvictionPolicyFromCpp,
+  bucketCompressionModeFromCpp,
+  durabilityFromCpp,
+} from './bindingutilities'
 import { Cluster } from './cluster'
-import {
-  BucketExistsError,
-  BucketNotFoundError,
-  CouchbaseError,
-} from './errors'
 import { DurabilityLevel } from './generaltypes'
-import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
 import {
-  cbQsStringify,
   duraLevelToNsServerStr,
   NodeCallback,
   nsServerStrToDuraLevel,
@@ -201,6 +209,31 @@ export interface IBucketSettings {
   minimumDurabilityLevel?: DurabilityLevel | string
 
   /**
+   * Uncommitted: This API is subject to change in the future.
+   *
+   * Specifies the default history retention on all collections in this bucket.
+   * Only available on Magma Buckets.
+   *
+   * @see {@link StorageBackend.Magma}.
+   */
+  historyRetentionCollectionDefault?: boolean
+
+  /**
+   * Uncommitted: This API is subject to change in the future.
+   *
+   * Specifies the maximum history retention in bytes on all collections in this bucket.
+   */
+  historyRetentionBytes?: number
+
+  /**
+   * Uncommitted: This API is subject to change in the future.
+   *
+   * Specifies the maximum duration in seconds to be covered by the change history that is written
+   * to disk for all collections in this bucket.
+   */
+  historyRetentionDuration?: number
+
+  /**
    * Same as {@link IBucketSettings.maxExpiry}.
    *
    * @deprecated Use {@link IBucketSettings.maxExpiry} instead.
@@ -225,7 +258,7 @@ export interface IBucketSettings {
 }
 
 /**
- * Represents the the configured options for a bucket.
+ * Represents the configured options for a bucket.
  *
  * @category Management
  */
@@ -291,6 +324,31 @@ export class BucketSettings implements IBucketSettings {
   minimumDurabilityLevel?: DurabilityLevel
 
   /**
+   * Uncommitted: This API is subject to change in the future.
+   *
+   * Specifies the default history retention on all collections in this bucket.
+   * Only available on Magma Buckets.
+   *
+   * @see {@link StorageBackend.Magma}.
+   */
+  historyRetentionCollectionDefault?: boolean
+
+  /**
+   * Uncommitted: This API is subject to change in the future.
+   *
+   * Specifies the maximum history retention in bytes on all collections in this bucket.
+   */
+  historyRetentionBytes?: number
+
+  /**
+   * Uncommitted: This API is subject to change in the future.
+   *
+   * Specifies the maximum duration in seconds to be covered by the change history that is written
+   * to disk for all collections in this bucket.
+   */
+  historyRetentionDuration?: number
+
+  /**
    * @internal
    */
   constructor(data: BucketSettings) {
@@ -305,6 +363,10 @@ export class BucketSettings implements IBucketSettings {
     this.maxExpiry = data.maxExpiry
     this.compressionMode = data.compressionMode
     this.minimumDurabilityLevel = data.minimumDurabilityLevel
+    this.historyRetentionCollectionDefault =
+      data.historyRetentionCollectionDefault
+    this.historyRetentionDuration = data.historyRetentionDuration
+    this.historyRetentionBytes = data.historyRetentionBytes
   }
 
   /**
@@ -344,40 +406,50 @@ export class BucketSettings implements IBucketSettings {
   /**
    * @internal
    */
-  static _toNsData(data: IBucketSettings): any {
+  static _toCppData(data: IBucketSettings): any {
     return {
       name: data.name,
-      flushEnabled: data.flushEnabled,
-      ramQuotaMB: data.ramQuotaMB,
-      replicaNumber: data.numReplicas,
-      replicaIndex: data.replicaIndexes,
-      bucketType: data.bucketType,
-      storageBackend: data.storageBackend,
-      evictionPolicy: data.evictionPolicy,
-      maxTTL: data.maxTTL || data.maxExpiry,
-      compressionMode: data.compressionMode,
-      durabilityMinLevel:
-        data.durabilityMinLevel ||
-        duraLevelToNsServerStr(data.minimumDurabilityLevel),
+      bucket_type: bucketTypeToCpp(data.bucketType),
+      ram_quota_mb: data.ramQuotaMB,
+      max_expiry: data.maxTTL || data.maxExpiry,
+      compression_mode: bucketCompressionModeToCpp(data.compressionMode),
+      minimum_durability_level:
+        durabilityToCpp(nsServerStrToDuraLevel(data.durabilityMinLevel)) ||
+        durabilityToCpp(data.minimumDurabilityLevel),
+      num_replicas: data.numReplicas,
+      replica_indexes: data.replicaIndexes,
+      flush_enabled: data.flushEnabled,
+      eviction_policy: bucketEvictionPolicyToCpp(data.evictionPolicy),
+      storage_backend: bucketStorageBackendToCpp(data.storageBackend),
+      history_retention_collection_default:
+        data.historyRetentionCollectionDefault,
+      history_retention_bytes: data.historyRetentionBytes,
+      history_retention_duration: data.historyRetentionDuration,
     }
   }
 
   /**
    * @internal
    */
-  static _fromNsData(data: any): BucketSettings {
+  static _fromCppData(
+    data: CppManagementClusterBucketSettings
+  ): BucketSettings {
     return new BucketSettings({
       name: data.name,
-      flushEnabled: data.controllers && data.controllers.flush ? true : false,
-      ramQuotaMB: data.quota.rawRAM / 1024 / 1024,
-      numReplicas: data.replicaNumber,
-      replicaIndexes: data.replicaIndex,
-      bucketType: data.bucketType,
-      storageBackend: data.storageBackend,
-      evictionPolicy: data.evictionPolicy,
-      maxExpiry: data.maxTTL,
-      compressionMode: data.compressionMode,
-      minimumDurabilityLevel: nsServerStrToDuraLevel(data.durabilityMinLevel),
+      flushEnabled: data.flush_enabled,
+      ramQuotaMB: data.ram_quota_mb,
+      numReplicas: data.num_replicas,
+      replicaIndexes: data.replica_indexes,
+      bucketType: bucketTypeFromCpp(data.bucket_type),
+      storageBackend: bucketStorageBackendFromCpp(data.storage_backend),
+      evictionPolicy: bucketEvictionPolicyFromCpp(data.eviction_policy),
+      maxExpiry: data.max_expiry,
+      compressionMode: bucketCompressionModeFromCpp(data.compression_mode),
+      historyRetentionCollectionDefault:
+        data.history_retention_collection_default,
+      historyRetentionBytes: data.history_retention_bytes,
+      historyRetentionDuration: data.history_retention_duration,
+      minimumDurabilityLevel: durabilityFromCpp(data.minimum_durability_level),
       maxTTL: 0,
       durabilityMinLevel: '',
       ejectionMethod: '',
@@ -423,10 +495,12 @@ class CreateBucketSettings
   /**
    * @internal
    */
-  static _toNsData(data: ICreateBucketSettings): any {
+  static _toCppData(data: ICreateBucketSettings): any {
     return {
-      ...BucketSettings._toNsData(data),
-      conflictResolutionType: data.conflictResolutionType,
+      ...BucketSettings._toCppData(data),
+      conflict_resolution_type: bucketConflictResolutionTypeToCpp(
+        data.conflictResolutionType
+      ),
     }
   }
 }
@@ -507,10 +581,6 @@ export class BucketManager {
     this._cluster = cluster
   }
 
-  private get _http() {
-    return new HttpExecutor(this._cluster.conn)
-  }
-
   /**
    * Creates a new bucket.
    *
@@ -530,31 +600,24 @@ export class BucketManager {
     if (!options) {
       options = {}
     }
-
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const bucketData = CreateBucketSettings._toNsData(settings)
+    return PromiseHelper.wrap((wrapCallback) => {
+      const bucketData = CreateBucketSettings._toCppData(settings)
 
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Post,
-        path: `/pools/default/buckets`,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(bucketData),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 202) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('already exists')) {
-          throw new BucketExistsError(undefined, errCtx)
+      this._cluster.conn.managementBucketCreate(
+        {
+          bucket: bucketData,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to create bucket', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 
@@ -580,28 +643,22 @@ export class BucketManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const bucketData = BucketSettings._toNsData(settings)
+    return PromiseHelper.wrap((wrapCallback) => {
+      const bucketData = BucketSettings._toCppData(settings)
+      this._cluster.conn.managementBucketUpdate(
+        {
+          bucket: bucketData,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Post,
-        path: `/pools/default/buckets/${settings.name}`,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(bucketData),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('not found')) {
-          throw new BucketNotFoundError(undefined, errCtx)
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to update bucket', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 
@@ -627,24 +684,21 @@ export class BucketManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Delete,
-        path: `/pools/default/buckets/${bucketName}`,
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementBucketDrop(
+        {
+          name: bucketName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('not found')) {
-          throw new BucketNotFoundError(undefined, errCtx)
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to drop bucket', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 
@@ -670,27 +724,23 @@ export class BucketManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/pools/default/buckets/${bucketName}`,
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementBucketGet(
+        {
+          name: bucketName,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
+          const bucket = BucketSettings._fromCppData(resp.bucket)
 
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('not found')) {
-          throw new BucketNotFoundError(undefined, errCtx)
+          wrapCallback(null, bucket)
         }
-
-        throw new CouchbaseError('failed to get bucket', undefined, errCtx)
-      }
-
-      const bucketData = JSON.parse(res.body.toString())
-      return BucketSettings._fromNsData(bucketData)
+      )
     }, callback)
   }
 
@@ -714,26 +764,24 @@ export class BucketManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/pools/default/buckets`,
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementBucketGetAll(
+        {
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
+          const buckets = resp.buckets.map((bucketData: any) =>
+            BucketSettings._fromCppData(bucketData)
+          )
 
-        throw new CouchbaseError('failed to get buckets', undefined, errCtx)
-      }
-
-      const bucketsData = JSON.parse(res.body.toString())
-      const buckets = bucketsData.map((bucketData: any) =>
-        BucketSettings._fromNsData(bucketData)
+          wrapCallback(null, buckets)
+        }
       )
-
-      return buckets
     }, callback)
   }
 
@@ -759,24 +807,21 @@ export class BucketManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Post,
-        path: `/pools/default/buckets/${bucketName}/controller/doFlush`,
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementBucketFlush(
+        {
+          name: bucketName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
 
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('not found')) {
-          throw new BucketNotFoundError(undefined, errCtx)
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to flush bucket', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 }

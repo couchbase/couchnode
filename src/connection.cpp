@@ -142,6 +142,8 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
                 "managementClusterDeveloperPreviewEnable"),
             InstanceMethod<&Connection::jsManagementAnalyticsLinkDrop>(
                 "managementAnalyticsLinkDrop"),
+            InstanceMethod<&Connection::jsManagementCollectionUpdate>(
+                "managementCollectionUpdate"),
             InstanceMethod<&Connection::jsManagementBucketDescribe>(
                 "managementBucketDescribe"),
             InstanceMethod<&Connection::jsManagementEventingUpsertFunction>(

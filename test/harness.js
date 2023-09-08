@@ -35,7 +35,9 @@ const ServerFeatures = {
   Transactions: 'transactions',
   ServerDurability: 'server_durability',
   RangeScan: 'range_scan',
-  SubdocReadReplica: 'subdoc_read_replica'
+  SubdocReadReplica: 'subdoc_read_replica',
+  BucketDedup: 'bucket_dedup',
+  UpdateCollectionMaxExpiry: 'update_collection_max_expiry',
 }
 
 class ServerVersion {
@@ -357,6 +359,10 @@ class Harness {
       case ServerFeatures.RangeScan:
         return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
       case ServerFeatures.SubdocReadReplica:
+        return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
+      case ServerFeatures.BucketDedup:
+        return !this._version.isMock && this._version.isAtLeast(7, 2, 0)
+      case ServerFeatures.UpdateCollectionMaxExpiry:
         return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
     }
 

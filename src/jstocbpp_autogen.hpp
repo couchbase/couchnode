@@ -263,20 +263,23 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
         couchbase::core::management::cluster::bucket_settings cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
         js_to_cbpp<std::string>(cppObj.uuid, jsObj.Get("uuid"));
-        js_to_cbpp<couchbase::core::management::cluster::bucket_type>(
-            cppObj.bucket_type, jsObj.Get("bucket_type"));
         js_to_cbpp<std::uint64_t>(cppObj.ram_quota_mb,
                                   jsObj.Get("ram_quota_mb"));
-        js_to_cbpp<std::uint32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
+        js_to_cbpp<couchbase::core::management::cluster::bucket_type>(
+            cppObj.bucket_type, jsObj.Get("bucket_type"));
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.max_expiry,
+                                                 jsObj.Get("max_expiry"));
         js_to_cbpp<couchbase::core::management::cluster::bucket_compression>(
             cppObj.compression_mode, jsObj.Get("compression_mode"));
         js_to_cbpp<std::optional<couchbase::durability_level>>(
             cppObj.minimum_durability_level,
             jsObj.Get("minimum_durability_level"));
-        js_to_cbpp<std::uint32_t>(cppObj.num_replicas,
-                                  jsObj.Get("num_replicas"));
-        js_to_cbpp<bool>(cppObj.replica_indexes, jsObj.Get("replica_indexes"));
-        js_to_cbpp<bool>(cppObj.flush_enabled, jsObj.Get("flush_enabled"));
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.num_replicas,
+                                                 jsObj.Get("num_replicas"));
+        js_to_cbpp<std::optional<bool>>(cppObj.replica_indexes,
+                                        jsObj.Get("replica_indexes"));
+        js_to_cbpp<std::optional<bool>>(cppObj.flush_enabled,
+                                        jsObj.Get("flush_enabled"));
         js_to_cbpp<
             couchbase::core::management::cluster::bucket_eviction_policy>(
             cppObj.eviction_policy, jsObj.Get("eviction_policy"));
@@ -284,6 +287,15 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
             couchbase::core::management::cluster::bucket_conflict_resolution>(
             cppObj.conflict_resolution_type,
             jsObj.Get("conflict_resolution_type"));
+        js_to_cbpp<std::optional<bool>>(
+            cppObj.history_retention_collection_default,
+            jsObj.Get("history_retention_collection_default"));
+        js_to_cbpp<std::optional<std::uint32_t>>(
+            cppObj.history_retention_bytes,
+            jsObj.Get("history_retention_bytes"));
+        js_to_cbpp<std::optional<std::uint32_t>>(
+            cppObj.history_retention_duration,
+            jsObj.Get("history_retention_duration"));
         js_to_cbpp<
             couchbase::core::management::cluster::bucket_storage_backend>(
             cppObj.storage_backend, jsObj.Get("storage_backend"));
@@ -301,14 +313,14 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
         resObj.Set("uuid", cbpp_to_js<std::string>(env, cppObj.uuid));
+        resObj.Set("ram_quota_mb",
+                   cbpp_to_js<std::uint64_t>(env, cppObj.ram_quota_mb));
         resObj.Set(
             "bucket_type",
             cbpp_to_js<couchbase::core::management::cluster::bucket_type>(
                 env, cppObj.bucket_type));
-        resObj.Set("ram_quota_mb",
-                   cbpp_to_js<std::uint64_t>(env, cppObj.ram_quota_mb));
-        resObj.Set("max_expiry",
-                   cbpp_to_js<std::uint32_t>(env, cppObj.max_expiry));
+        resObj.Set("max_expiry", cbpp_to_js<std::optional<std::uint32_t>>(
+                                     env, cppObj.max_expiry));
         resObj.Set(
             "compression_mode",
             cbpp_to_js<
@@ -317,12 +329,12 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
         resObj.Set("minimum_durability_level",
                    cbpp_to_js<std::optional<couchbase::durability_level>>(
                        env, cppObj.minimum_durability_level));
-        resObj.Set("num_replicas",
-                   cbpp_to_js<std::uint32_t>(env, cppObj.num_replicas));
-        resObj.Set("replica_indexes",
-                   cbpp_to_js<bool>(env, cppObj.replica_indexes));
+        resObj.Set("num_replicas", cbpp_to_js<std::optional<std::uint32_t>>(
+                                       env, cppObj.num_replicas));
+        resObj.Set("replica_indexes", cbpp_to_js<std::optional<bool>>(
+                                          env, cppObj.replica_indexes));
         resObj.Set("flush_enabled",
-                   cbpp_to_js<bool>(env, cppObj.flush_enabled));
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.flush_enabled));
         resObj.Set(
             "eviction_policy",
             cbpp_to_js<
@@ -332,6 +344,15 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
                    cbpp_to_js<couchbase::core::management::cluster::
                                   bucket_conflict_resolution>(
                        env, cppObj.conflict_resolution_type));
+        resObj.Set("history_retention_collection_default",
+                   cbpp_to_js<std::optional<bool>>(
+                       env, cppObj.history_retention_collection_default));
+        resObj.Set("history_retention_bytes",
+                   cbpp_to_js<std::optional<std::uint32_t>>(
+                       env, cppObj.history_retention_bytes));
+        resObj.Set("history_retention_duration",
+                   cbpp_to_js<std::optional<std::uint32_t>>(
+                       env, cppObj.history_retention_duration));
         resObj.Set(
             "storage_backend",
             cbpp_to_js<
@@ -1343,6 +1364,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::uint64_t>(cppObj.uid, jsObj.Get("uid"));
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
         js_to_cbpp<std::uint32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
+        js_to_cbpp<std::optional<bool>>(cppObj.history, jsObj.Get("history"));
         return cppObj;
     }
     static inline Napi::Value
@@ -1355,6 +1377,8 @@ struct js_to_cbpp_t<
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
         resObj.Set("max_expiry",
                    cbpp_to_js<std::uint32_t>(env, cppObj.max_expiry));
+        resObj.Set("history",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.history));
         return resObj;
     }
 };
@@ -5248,6 +5272,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
         js_to_cbpp<std::uint32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
+        js_to_cbpp<std::optional<bool>>(cppObj.history, jsObj.Get("history"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -5268,6 +5293,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
         resObj.Set("max_expiry",
                    cbpp_to_js<std::uint32_t>(env, cppObj.max_expiry));
+        resObj.Set("history",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.history));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -7046,6 +7073,79 @@ struct js_to_cbpp_t<
         resObj.Set("link_name", cbpp_to_js<std::string>(env, cppObj.link_name));
         resObj.Set("dataverse_name",
                    cbpp_to_js<std::string>(env, cppObj.dataverse_name));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::collection_update_response> {
+    static inline couchbase::core::operations::management::
+        collection_update_response
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::collection_update_response
+            cppObj;
+        // ctx
+        js_to_cbpp<std::uint64_t>(cppObj.uid, jsObj.Get("uid"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::operations::management::
+                             collection_update_response &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        // ctx
+        resObj.Set("uid", cbpp_to_js<std::uint64_t>(env, cppObj.uid));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::collection_update_request> {
+    static inline couchbase::core::operations::management::
+        collection_update_request
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::collection_update_request
+            cppObj;
+        js_to_cbpp<std::string>(cppObj.bucket_name, jsObj.Get("bucket_name"));
+        js_to_cbpp<std::string>(cppObj.scope_name, jsObj.Get("scope_name"));
+        js_to_cbpp<std::string>(cppObj.collection_name,
+                                jsObj.Get("collection_name"));
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.max_expiry,
+                                                 jsObj.Get("max_expiry"));
+        js_to_cbpp<std::optional<bool>>(cppObj.history, jsObj.Get("history"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value to_js(
+        Napi::Env env,
+        const couchbase::core::operations::management::collection_update_request
+            &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("bucket_name",
+                   cbpp_to_js<std::string>(env, cppObj.bucket_name));
+        resObj.Set("scope_name",
+                   cbpp_to_js<std::string>(env, cppObj.scope_name));
+        resObj.Set("collection_name",
+                   cbpp_to_js<std::string>(env, cppObj.collection_name));
+        resObj.Set("max_expiry", cbpp_to_js<std::optional<std::uint32_t>>(
+                                     env, cppObj.max_expiry));
+        resObj.Set("history",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.history));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",

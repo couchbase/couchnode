@@ -842,6 +842,22 @@ Connection::jsManagementAnalyticsLinkDrop(const Napi::CallbackInfo &info)
 }
 
 Napi::Value
+Connection::jsManagementCollectionUpdate(const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp(
+        "managementCollectionUpdate",
+        jsToCbpp<
+            couchbase::core::operations::management::collection_update_request>(
+            optsJsObj),
+        callbackJsFn);
+
+    return info.Env().Null();
+}
+
+Napi::Value
 Connection::jsManagementBucketDescribe(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();

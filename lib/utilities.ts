@@ -156,7 +156,9 @@ export function duraLevelToNsServerStr(
 /**
  * @internal
  */
-export function nsServerStrToDuraLevel(level: string): DurabilityLevel {
+export function nsServerStrToDuraLevel(
+  level: string | undefined
+): DurabilityLevel {
   if (level === undefined) {
     return DurabilityLevel.None
   }

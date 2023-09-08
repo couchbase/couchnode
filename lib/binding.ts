@@ -159,16 +159,19 @@ export interface CppManagementAnalyticsS3ExternalLink {
 export interface CppManagementClusterBucketSettings {
   name: string
   uuid: string
-  bucket_type: CppManagementClusterBucketType
   ram_quota_mb: number
-  max_expiry: number
+  bucket_type: CppManagementClusterBucketType
+  max_expiry?: number
   compression_mode: CppManagementClusterBucketCompression
   minimum_durability_level?: CppDurabilityLevel
-  num_replicas: number
-  replica_indexes: boolean
-  flush_enabled: boolean
+  num_replicas?: number
+  replica_indexes?: boolean
+  flush_enabled?: boolean
   eviction_policy: CppManagementClusterBucketEvictionPolicy
   conflict_resolution_type: CppManagementClusterBucketConflictResolution
+  history_retention_collection_default?: boolean
+  history_retention_bytes?: number
+  history_retention_duration?: number
   storage_backend: CppManagementClusterBucketStorageBackend
   capabilities: string[]
   nodes: CppManagementClusterBucketSettingsNode[]
@@ -354,6 +357,7 @@ export interface CppTopologyCollectionsManifestCollection {
   uid: number
   name: string
   max_expiry: number
+  history?: boolean
 }
 export interface CppTopologyCollectionsManifestScope {
   uid: number
@@ -1170,6 +1174,7 @@ export interface CppManagementCollectionCreateRequest {
   scope_name: string
   collection_name: string
   max_expiry: number
+  history?: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1457,6 +1462,19 @@ export interface CppManagementAnalyticsLinkDropResponseProblem {
 export interface CppManagementAnalyticsLinkDropRequest {
   link_name: string
   dataverse_name: string
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
+export interface CppManagementCollectionUpdateResponse {
+  // ctx
+  uid: number
+}
+export interface CppManagementCollectionUpdateRequest {
+  bucket_name: string
+  scope_name: string
+  collection_name: string
+  max_expiry?: number
+  history?: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -2103,7 +2121,10 @@ export interface CppConnectionAutogen {
   ): void
   lookupInAllReplicas(
     options: CppLookupInAllReplicasRequest,
-    callback: (err: CppError | null, result: CppLookupInAllReplicasResponse) => void
+    callback: (
+      err: CppError | null,
+      result: CppLookupInAllReplicasResponse
+    ) => void
   ): void
   analytics(
     options: CppAnalyticsRequest,
@@ -2151,7 +2172,10 @@ export interface CppConnectionAutogen {
   ): void
   lookupInAnyReplica(
     options: CppLookupInAnyReplicaRequest,
-    callback: (err: CppError | null, result: CppLookupInAnyReplicaResponse) => void
+    callback: (
+      err: CppError | null,
+      result: CppLookupInAnyReplicaResponse
+    ) => void
   ): void
   mutateIn(
     options: CppMutateInRequest,
@@ -2349,6 +2373,13 @@ export interface CppConnectionAutogen {
     callback: (
       err: CppError | null,
       result: CppManagementAnalyticsLinkDropResponse
+    ) => void
+  ): void
+  managementCollectionUpdate(
+    options: CppManagementCollectionUpdateRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementCollectionUpdateResponse
     ) => void
   ): void
   managementBucketDescribe(

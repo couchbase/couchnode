@@ -1,49 +1,66 @@
 import { AnalyticsScanConsistency, AnalyticsStatus } from './analyticstypes'
 import binding, {
-  CppAnalyticsScanConsistency,
   CppAnalyticsResponseAnalyticsStatus,
-  CppDurabilityLevel,
+  CppAnalyticsScanConsistency,
   CppDiagEndpointState,
+  CppDiagPingState,
+  CppDurabilityLevel,
+  CppError,
+  CppManagementClusterBucketCompression,
+  CppManagementClusterBucketConflictResolution,
+  CppManagementClusterBucketEvictionPolicy,
+  CppManagementClusterBucketStorageBackend,
+  CppManagementClusterBucketType,
   CppMutationState,
   CppMutationToken,
-  CppDiagPingState,
+  CppPersistTo,
+  CppPrefixScan,
   CppQueryProfile,
   CppQueryScanConsistency,
+  CppRangeScan,
+  CppReplicateTo,
+  CppSamplingScan,
   CppSearchHighlightStyle,
   CppSearchScanConsistency,
   CppServiceType,
   CppStoreSemantics,
   CppTxnExternalException,
+  CppTxnOpException,
   CppViewScanConsistency,
   CppViewSortOrder,
-  CppPersistTo,
-  CppReplicateTo,
-  CppTxnOpException,
-  CppRangeScan,
-  CppSamplingScan,
-  CppPrefixScan,
 } from './binding'
-import { CppError } from './binding'
+import {
+  BucketType,
+  CompressionMode,
+  ConflictResolutionType,
+  EvictionPolicy,
+  StorageBackend,
+} from './bucketmanager'
 import { EndpointState, PingState } from './diagnosticstypes'
-import { ErrorContext } from './errorcontexts'
 import * as errctxs from './errorcontexts'
+import { ErrorContext } from './errorcontexts'
 import * as errs from './errors'
 import { DurabilityLevel, ServiceType, StoreSemantics } from './generaltypes'
 import { MutationState } from './mutationstate'
 import { QueryProfileMode, QueryScanConsistency } from './querytypes'
-import { RangeScan, SamplingScan, PrefixScan } from './rangeScan'
-import { SearchScanConsistency, HighlightStyle } from './searchtypes'
+import { PrefixScan, RangeScan, SamplingScan } from './rangeScan'
+import { HighlightStyle, SearchScanConsistency } from './searchtypes'
+import { nsServerStrToDuraLevel } from './utilities'
 import { ViewOrdering, ViewScanConsistency } from './viewtypes'
 
 /**
  * @internal
  */
 export function durabilityToCpp(
-  mode: DurabilityLevel | undefined
+  mode: DurabilityLevel | string | undefined
 ): CppDurabilityLevel {
   // Unspecified is allowed, and means no sync durability.
   if (mode === null || mode === undefined) {
     return binding.durability_level.none
+  }
+
+  if (typeof mode === 'string') {
+    mode = nsServerStrToDuraLevel(mode)
   }
 
   if (mode === DurabilityLevel.None) {
@@ -54,6 +71,29 @@ export function durabilityToCpp(
     return binding.durability_level.majority_and_persist_to_active
   } else if (mode === DurabilityLevel.PersistToMajority) {
     return binding.durability_level.persist_to_majority
+  }
+
+  throw new errs.InvalidDurabilityLevel()
+}
+
+/**
+ * @internal
+ */
+export function durabilityFromCpp(
+  mode: CppDurabilityLevel | undefined
+): DurabilityLevel | undefined {
+  if (mode === null || mode === undefined) {
+    return undefined
+  }
+
+  if (mode === binding.durability_level.none) {
+    return DurabilityLevel.None
+  } else if (mode === binding.durability_level.majority) {
+    return DurabilityLevel.Majority
+  } else if (mode === binding.durability_level.majority_and_persist_to_active) {
+    return DurabilityLevel.MajorityAndPersistOnMaster
+  } else if (mode === binding.durability_level.persist_to_majority) {
+    return DurabilityLevel.PersistToMajority
   }
 
   throw new errs.InvalidDurabilityLevel()
@@ -831,4 +871,228 @@ export function scanTypeToCpp(
       prefix: scanType.prefix,
     }
   }
+}
+
+/**
+ * @internal
+ */
+export function bucketTypeToCpp(
+  type: BucketType | string | undefined
+): CppManagementClusterBucketType {
+  if (type === null || type === undefined) {
+    return binding.management_cluster_bucket_type.couchbase
+  }
+
+  if (type === BucketType.Couchbase) {
+    return binding.management_cluster_bucket_type.couchbase
+  } else if (type === BucketType.Ephemeral) {
+    return binding.management_cluster_bucket_type.ephemeral
+  } else if (type === BucketType.Memcached) {
+    return binding.management_cluster_bucket_type.memcached
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketTypeFromCpp(
+  type: CppManagementClusterBucketType
+): BucketType | undefined {
+  if (type === binding.management_cluster_bucket_type.couchbase) {
+    return BucketType.Couchbase
+  } else if (type === binding.management_cluster_bucket_type.ephemeral) {
+    return BucketType.Ephemeral
+  } else if (type === binding.management_cluster_bucket_type.memcached) {
+    return BucketType.Memcached
+  } else if (type === binding.management_cluster_bucket_type.unknown) {
+    return undefined
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketCompressionModeToCpp(
+  mode: CompressionMode | string | undefined
+): CppManagementClusterBucketCompression {
+  if (mode === null || mode === undefined) {
+    return binding.management_cluster_bucket_compression.unknown
+  }
+
+  if (mode === CompressionMode.Active) {
+    return binding.management_cluster_bucket_compression.active
+  } else if (mode === CompressionMode.Passive) {
+    return binding.management_cluster_bucket_compression.passive
+  } else if (mode === CompressionMode.Off) {
+    return binding.management_cluster_bucket_compression.off
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketCompressionModeFromCpp(
+  mode: CppManagementClusterBucketCompression
+): CompressionMode | undefined {
+  if (mode === binding.management_cluster_bucket_compression.active) {
+    return CompressionMode.Active
+  } else if (mode === binding.management_cluster_bucket_compression.passive) {
+    return CompressionMode.Passive
+  } else if (mode === binding.management_cluster_bucket_compression.off) {
+    return CompressionMode.Off
+  } else if (mode === binding.management_cluster_bucket_compression.unknown) {
+    return undefined
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketEvictionPolicyToCpp(
+  policy: EvictionPolicy | string | undefined
+): CppManagementClusterBucketEvictionPolicy {
+  if (policy === null || policy === undefined) {
+    return binding.management_cluster_bucket_eviction_policy.unknown
+  }
+
+  if (policy === EvictionPolicy.FullEviction) {
+    return binding.management_cluster_bucket_eviction_policy.full
+  } else if (policy === EvictionPolicy.ValueOnly) {
+    return binding.management_cluster_bucket_eviction_policy.value_only
+  } else if (policy === EvictionPolicy.NotRecentlyUsed) {
+    return binding.management_cluster_bucket_eviction_policy.not_recently_used
+  } else if (policy === EvictionPolicy.NoEviction) {
+    return binding.management_cluster_bucket_eviction_policy.no_eviction
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketEvictionPolicyFromCpp(
+  policy: CppManagementClusterBucketEvictionPolicy
+): EvictionPolicy | undefined {
+  if (policy === binding.management_cluster_bucket_eviction_policy.full) {
+    return EvictionPolicy.FullEviction
+  } else if (
+    policy === binding.management_cluster_bucket_eviction_policy.value_only
+  ) {
+    return EvictionPolicy.ValueOnly
+  } else if (
+    policy ===
+    binding.management_cluster_bucket_eviction_policy.not_recently_used
+  ) {
+    return EvictionPolicy.NotRecentlyUsed
+  } else if (
+    policy === binding.management_cluster_bucket_eviction_policy.no_eviction
+  ) {
+    return EvictionPolicy.NoEviction
+  } else if (
+    policy === binding.management_cluster_bucket_eviction_policy.unknown
+  ) {
+    return undefined
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketStorageBackendToCpp(
+  backend: StorageBackend | string | undefined
+): CppManagementClusterBucketStorageBackend {
+  if (backend === null || backend === undefined) {
+    return binding.management_cluster_bucket_storage_backend.unknown
+  }
+
+  if (backend === StorageBackend.Couchstore) {
+    return binding.management_cluster_bucket_storage_backend.couchstore
+  } else if (backend === StorageBackend.Magma) {
+    return binding.management_cluster_bucket_storage_backend.magma
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketStorageBackendFromCpp(
+  backend: CppManagementClusterBucketStorageBackend
+): StorageBackend | undefined {
+  if (
+    backend === binding.management_cluster_bucket_storage_backend.couchstore
+  ) {
+    return StorageBackend.Couchstore
+  } else if (
+    backend === binding.management_cluster_bucket_storage_backend.magma
+  ) {
+    return StorageBackend.Magma
+  } else if (
+    backend === binding.management_cluster_bucket_storage_backend.unknown
+  ) {
+    return undefined
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketConflictResolutionTypeToCpp(
+  type: ConflictResolutionType | string | undefined
+): CppManagementClusterBucketConflictResolution {
+  if (type === null || type === undefined) {
+    return binding.management_cluster_bucket_conflict_resolution.unknown
+  }
+
+  if (type === ConflictResolutionType.SequenceNumber) {
+    return binding.management_cluster_bucket_conflict_resolution.sequence_number
+  } else if (type === ConflictResolutionType.Timestamp) {
+    return binding.management_cluster_bucket_conflict_resolution.timestamp
+  } else if (type === ConflictResolutionType.Custom) {
+    return binding.management_cluster_bucket_conflict_resolution.custom
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function bucketConflictResolutionTypeFromCpp(
+  type: CppManagementClusterBucketConflictResolution
+): ConflictResolutionType | undefined {
+  if (
+    type ===
+    binding.management_cluster_bucket_conflict_resolution.sequence_number
+  ) {
+    return ConflictResolutionType.SequenceNumber
+  } else if (
+    type === binding.management_cluster_bucket_conflict_resolution.timestamp
+  ) {
+    return ConflictResolutionType.Timestamp
+  } else if (
+    type === binding.management_cluster_bucket_conflict_resolution.custom
+  ) {
+    return ConflictResolutionType.Custom
+  } else if (
+    type === binding.management_cluster_bucket_conflict_resolution.unknown
+  ) {
+    return undefined
+  }
+
+  throw new errs.InvalidArgumentError()
 }
