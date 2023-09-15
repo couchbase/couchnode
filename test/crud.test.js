@@ -1442,7 +1442,7 @@ function genericTests(collFn) {
       assert.isAbove(etime - stime, 1000)
     }).timeout(15000)
 
-    it('should unlock successfully', async function () {
+    it('should unlock successfully w/ default CAS', async function () {
       // Lock the key for testing
       var res = await collFn().getAndLock(testKeyLck, 1)
       var prevCas = res.cas
@@ -1452,6 +1452,46 @@ function genericTests(collFn) {
 
       // Make sure our get works now
       await collFn().upsert(testKeyLck, { foo: 14 })
+    })
+
+    it('should unlock successfully w/ CAS as string', async function () {
+      // Lock the key for testing
+      var res = await collFn().getAndLock(testKeyLck, 1)
+      var prevCas = res.cas.toString()
+
+      // Manually unlock the key
+      await collFn().unlock(testKeyLck, prevCas)
+
+      // Make sure our get works now
+      await collFn().upsert(testKeyLck, { foo: 15 })
+    })
+
+    it('should unlock successfully w/ CAS as buffer', async function () {
+      // Lock the key for testing
+      var res = await collFn().getAndLock(testKeyLck, 1)
+      let casInt = BigInt(res.cas.toString())
+      const casBuff = Buffer.allocUnsafe(8)
+      casBuff.writeBigUInt64LE(casInt)
+
+      // Manually unlock the key
+      await collFn().unlock(testKeyLck, casBuff)
+
+      // Make sure our get works now
+      await collFn().upsert(testKeyLck, { foo: 16 })
+    })
+
+    it('should unlock successfully w/ CAS as object w/ raw buffer', async function () {
+      // Lock the key for testing
+      var res = await collFn().getAndLock(testKeyLck, 1)
+      let casInt = BigInt(res.cas.toString())
+      const casObj = { raw: Buffer.allocUnsafe(8) }
+      casObj.raw.writeBigUInt64LE(casInt)
+
+      // Manually unlock the key
+      await collFn().unlock(testKeyLck, casObj)
+
+      // Make sure our get works now
+      await collFn().upsert(testKeyLck, { foo: 17 })
     })
 
     it('should raise DocumentNotLockedError on unlock if document not locked', async function () {
@@ -2106,6 +2146,124 @@ function genericTests(collFn) {
       assert.strictEqual(gres.value.baz, 'world')
       assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
     })
+  })
+
+  describe('#CAS', function () {
+    // NOTE: CppCas(binding)/Cas(Node.js) is represented by Record<'raw', Buffer>
+    it('should allow default CAS', async function () {
+      const testKey = H.genTestKey()
+      const upRes = await collFn().upsert(testKey, {
+        id: testKey,
+        foo: 'bar',
+        type: 'upsert',
+      })
+      assert.isObject(upRes)
+      assert.isOk(upRes.cas)
+
+      const repRes = await collFn().replace(
+        testKey,
+        { id: testKey, foo: 'baz', type: 'replace' },
+        { cas: upRes.cas }
+      )
+      assert.isObject(repRes)
+      assert.isOk(repRes.cas)
+      assert.notEqual(upRes.cas.toString(), repRes.cas.toString())
+
+      const mutRes = await collFn().mutateIn(
+        testKey,
+        [H.lib.MutateInSpec.replace('type', 'mutate-in')],
+        { cas: repRes.cas }
+      )
+      assert.isObject(mutRes)
+      assert.isOk(mutRes.cas)
+      assert.notEqual(repRes.cas.toString(), mutRes.cas.toString())
+
+      const remRes = await collFn().remove(testKey, { cas: mutRes.cas })
+      assert.isObject(remRes)
+      assert.isOk(remRes.cas)
+      assert.notEqual(mutRes.cas.toString(), remRes.cas.toString())
+    }).timeout(3500)
+
+    it('should allow CAS as string', async function () {
+      const testKey = H.genTestKey()
+      const upRes = await collFn().upsert(testKey, {
+        id: testKey,
+        foo: 'bar',
+        type: 'upsert',
+      })
+      assert.isObject(upRes)
+      assert.isOk(upRes.cas)
+
+      const repRes = await collFn().replace(
+        testKey,
+        { id: testKey, foo: 'baz', type: 'replace' },
+        { cas: upRes.cas.toString() }
+      )
+      assert.isObject(repRes)
+      assert.isOk(repRes.cas)
+      assert.notEqual(upRes.cas.toString(), repRes.cas.toString())
+
+      const mutRes = await collFn().mutateIn(
+        testKey,
+        [H.lib.MutateInSpec.replace('type', 'mutate-in')],
+        { cas: repRes.cas.toString() }
+      )
+      assert.isObject(mutRes)
+      assert.isOk(mutRes.cas)
+      assert.notEqual(repRes.cas.toString(), mutRes.cas.toString())
+
+      const remRes = await collFn().remove(testKey, {
+        cas: mutRes.cas.toString(),
+      })
+      assert.isObject(remRes)
+      assert.isOk(remRes.cas)
+      assert.notEqual(mutRes.cas.toString(), remRes.cas.toString())
+    }).timeout(3500)
+
+    it('should allow CAS as Buffer', async function () {
+      const testKey = H.genTestKey()
+      const upRes = await collFn().upsert(testKey, {
+        id: testKey,
+        foo: 'bar',
+        type: 'upsert',
+      })
+      assert.isObject(upRes)
+      assert.isOk(upRes.cas)
+      let casInt = BigInt(upRes.cas.toString())
+      const casBuff = Buffer.allocUnsafe(8)
+      casBuff.writeBigUInt64LE(casInt)
+
+      const repRes = await collFn().replace(
+        testKey,
+        { id: testKey, foo: 'baz', type: 'replace' },
+        { cas: casBuff }
+      )
+      assert.isObject(repRes)
+      assert.isOk(repRes.cas)
+      assert.notEqual(upRes.cas.toString(), repRes.cas.toString())
+      casInt = BigInt(repRes.cas.toString())
+      // reset CAS
+      casBuff.fill('\u0222')
+      casBuff.writeBigUInt64LE(casInt)
+
+      const mutRes = await collFn().mutateIn(
+        testKey,
+        [H.lib.MutateInSpec.replace('type', 'mutate-in')],
+        { cas: casBuff }
+      )
+      assert.isObject(mutRes)
+      assert.isOk(mutRes.cas)
+      assert.notEqual(repRes.cas.toString(), mutRes.cas.toString())
+      casInt = BigInt(mutRes.cas.toString())
+      // reset CAS
+      casBuff.fill('\u0222')
+      casBuff.writeBigUInt64LE(casInt)
+
+      const remRes = await collFn().remove(testKey, { cas: casBuff })
+      assert.isObject(remRes)
+      assert.isOk(remRes.cas)
+      assert.notEqual(mutRes.cas.toString(), remRes.cas.toString())
+    }).timeout(3500)
   })
 }
 

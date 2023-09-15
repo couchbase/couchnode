@@ -59,18 +59,18 @@ couchbase::cas Cas::parse(Napi::Value val)
         return couchbase::cas{0};
     } else if (val.IsUndefined()) {
         return couchbase::cas{0};
-    } else if (val.IsObject()) {
-        auto objVal = val.As<Napi::Object>();
-        auto maybeRawVal = objVal.Get("raw");
-        if (!maybeRawVal.IsEmpty()) {
-            return Cas::fromBuffer(maybeRawVal);
-        }
     } else if (val.IsString()) {
         auto textVal = val.ToString().Utf8Value();
         auto intVal = std::stoull(textVal);
         return couchbase::cas{intVal};
     } else if (val.IsBuffer()) {
         return Cas::fromBuffer(val);
+    } else if (val.IsObject()) {
+        auto objVal = val.As<Napi::Object>();
+        auto maybeRawVal = objVal.Get("raw");
+        if (!maybeRawVal.IsEmpty()) {
+            return Cas::fromBuffer(maybeRawVal);
+        }
     }
 
     return couchbase::cas{0};

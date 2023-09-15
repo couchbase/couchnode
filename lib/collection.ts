@@ -65,7 +65,7 @@ import {
   StreamableScanPromise,
 } from './streamablepromises'
 import { Transcoder } from './transcoders'
-import { NodeCallback, PromiseHelper, Cas } from './utilities'
+import { NodeCallback, PromiseHelper, CasInput } from './utilities'
 
 /**
  * @category Key-Value
@@ -206,7 +206,7 @@ export interface ReplaceOptions {
    * If specified, indicates that operation should be failed if the CAS
    * has changed from this value, indicating that the document has changed.
    */
-  cas?: Cas
+  cas?: CasInput
 
   /**
    * Specifies the level of synchronous durability for this operation.
@@ -246,7 +246,7 @@ export interface RemoveOptions {
    * If specified, indicates that operation should be failed if the CAS
    * has changed from this value, indicating that the document has changed.
    */
-  cas?: Cas
+  cas?: CasInput
 
   /**
    * Specifies the level of synchronous durability for this operation.
@@ -413,7 +413,7 @@ export interface MutateInOptions {
    * If specified, indicates that operation should be failed if the CAS
    * has changed from this value, indicating that the document has changed.
    */
-  cas?: Cas
+  cas?: CasInput
 
   /**
    * Specifies the level of synchronous durability for this operation.
@@ -1528,7 +1528,7 @@ export class Collection {
    */
   unlock(
     key: string,
-    cas: Cas,
+    cas: CasInput,
     options?: UnlockOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {

@@ -20,6 +20,14 @@ export interface Cas {
 }
 
 /**
+ * CasIn represents the supported types that can be provided to an operation
+ * that receive a CAS.
+ *
+ * @category Key-Value
+ */
+export type CasInput = Cas | string | Buffer
+
+/**
  * Reprents a node-style callback which receives an optional error or result.
  *
  * @category Utilities

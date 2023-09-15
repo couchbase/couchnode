@@ -388,6 +388,8 @@ async function go() {
         ) {
           outJsAll.write(`  ${jsFieldName}_name: string`)
           outJsAll.write(`  ${jsFieldName}_value: ${jsFieldType}`)
+        } else if (jsFieldType === 'CppCas' && jsTypeName.endsWith('Request')) {
+          outJsAll.write(`  ${jsFieldName}: CppCasInput`)
         } else {
           outJsAll.write(`  ${jsFieldName}: ${jsFieldType}`)
         }

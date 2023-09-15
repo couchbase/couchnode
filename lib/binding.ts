@@ -42,6 +42,8 @@ export interface CppCas {
 
 export const zeroCas = 0 as any as CppCas
 
+export type CppCasInput = CppCas | string | Buffer
+
 export interface CppMutationToken {
   toString(): string
   toJSON(): any
@@ -457,7 +459,7 @@ export interface CppUnlockRequest {
   id: CppDocumentId
   partition: number
   opaque: number
-  cas: CppCas
+  cas: CppCasInput
   timeout?: CppMilliseconds
   // retries
   // parent_span
@@ -619,7 +621,7 @@ export interface CppReplaceRequest {
   opaque: number
   flags: number
   expiry: number
-  cas: CppCas
+  cas: CppCasInput
   durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
@@ -633,7 +635,7 @@ export interface CppReplaceWithLegacyDurabilityRequest {
   opaque: number
   flags: number
   expiry: number
-  cas: CppCas
+  cas: CppCasInput
   timeout?: CppMilliseconds
   // retries
   preserve_expiry: boolean
@@ -665,7 +667,7 @@ export interface CppRemoveRequest {
   id: CppDocumentId
   partition: number
   opaque: number
-  cas: CppCas
+  cas: CppCasInput
   durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
@@ -675,7 +677,7 @@ export interface CppRemoveWithLegacyDurabilityRequest {
   id: CppDocumentId
   partition: number
   opaque: number
-  cas: CppCas
+  cas: CppCasInput
   timeout?: CppMilliseconds
   // retries
   // parent_span
@@ -1080,7 +1082,7 @@ export interface CppMutateInRequest {
   id: CppDocumentId
   partition: number
   opaque: number
-  cas: CppCas
+  cas: CppCasInput
   access_deleted: boolean
   create_as_deleted: boolean
   expiry?: number
@@ -1096,7 +1098,7 @@ export interface CppMutateInWithLegacyDurabilityRequest {
   id: CppDocumentId
   partition: number
   opaque: number
-  cas: CppCas
+  cas: CppCasInput
   access_deleted: boolean
   create_as_deleted: boolean
   expiry?: number
