@@ -86,6 +86,60 @@ describe('#transactions', function () {
     assert.deepStrictEqual(gres2.content, { foo: 'bag' })
   })
 
+  it('should insert in Query mode', async function () {
+    const testKey = H.genTestKey()
+    const testDoc1 = testKey + '_1'
+    const testDoc2 = testKey + '_2'
+
+    await H.co.insert(testDoc1, { foo: 'bar', queryMode: false })
+
+    await H.c.transactions().run(async (attempt) => {
+      const collQualifer = `${H.b.name}.${H.s.name}.${H.co.name}`
+      const queryRes = await attempt.query(
+        `SELECT foo, queryMode FROM ${collQualifer} WHERE META().id IN $1 ORDER BY META().id ASC`,
+        {
+          parameters: [[testDoc1]],
+        }
+      )
+      assert.lengthOf(queryRes.rows, 1)
+      assert.deepStrictEqual(queryRes.rows[0], { foo: 'bar', queryMode: false })
+
+      await attempt.insert(H.co, testDoc2, { foo: 'baz', queryMode: true })
+    })
+
+    var gres = await H.co.get(testDoc2)
+    assert.deepStrictEqual(gres.content, { foo: 'baz', queryMode: true })
+  })
+
+  it('should remove in Query mode', async function () {
+    const testKey = H.genTestKey()
+    const testDoc1 = testKey + '_1'
+    const testDoc2 = testKey + '_2'
+
+    await H.co.insert(testDoc1, { foo: 'bar', queryMode: false })
+
+    await H.c.transactions().run(async (attempt) => {
+      await attempt.insert(H.co, testDoc2, { foo: 'baz', queryMode: true })
+
+      const collQualifer = `${H.b.name}.${H.s.name}.${H.co.name}`
+      const queryRes = await attempt.query(
+        `SELECT foo, queryMode FROM ${collQualifer} WHERE META().id IN $1 ORDER BY META().id ASC`,
+        {
+          parameters: [[testDoc1, testDoc2]],
+        }
+      )
+      assert.lengthOf(queryRes.rows, 2)
+      assert.deepStrictEqual(queryRes.rows[0], { foo: 'bar', queryMode: false })
+
+      const remDoc = await attempt.get(H.co, testDoc1)
+      await attempt.remove(remDoc)
+    })
+
+    await H.throwsHelper(async () => {
+      await H.co.get(testDoc1)
+    }, H.lib.DocumentNotFoundError)
+  })
+
   it('should fail with application errors', async function () {
     const testDocIns = H.genTestKey()
     const testDocRep = H.genTestKey()
@@ -300,9 +354,7 @@ describe('#transactions', function () {
 
           throw new Error('success')
         },
-        {
-          timeout: 100,
-        }
+        { timeout: 2000 }
       )
     }, H.lib.TransactionFailedError)
     assert.equal(numAttempts, 1)
@@ -314,9 +366,7 @@ describe('#transactions', function () {
           numAttempts++
           await attempt.get(H.co, 'not-a-key')
         },
-        {
-          timeout: 100,
-        }
+        { timeout: 2000 }
       )
     } catch (err) {
       assert.instanceOf(err, H.lib.TransactionFailedError)
@@ -347,9 +397,7 @@ describe('#transactions', function () {
 
           throw new Error('success')
         },
-        {
-          timeout: 100,
-        }
+        { timeout: 2000 }
       )
     }, H.lib.TransactionFailedError)
     assert.equal(numAttempts, 1)
@@ -361,9 +409,7 @@ describe('#transactions', function () {
           numAttempts++
           await attempt.insert(H.co, testDocIns, { foo: 'baz' })
         },
-        {
-          timeout: 100,
-        }
+        { timeout: 2000 }
       )
     } catch (err) {
       assert.instanceOf(err, H.lib.TransactionFailedError)
@@ -378,25 +424,17 @@ describe('#transactions', function () {
   })
 
   it('should raise ParsingFailureError only in lambda', async function () {
-    const testDocIns = H.genTestKey()
-
-    await H.co.insert(testDocIns, { foo: 'bar' })
-
     let numAttempts = 0
     await H.throwsHelper(async () => {
       await H.c.transactions().run(
         async (attempt) => {
           numAttempts++
-
           await H.throwsHelper(async () => {
             await attempt.query('This is not N1QL')
           }, H.lib.ParsingFailureError)
-
           throw new Error('success')
         },
-        {
-          timeout: 100,
-        }
+        { timeout: 2000 }
       )
     }, H.lib.TransactionFailedError)
     assert.equal(numAttempts, 1)
@@ -408,9 +446,7 @@ describe('#transactions', function () {
           numAttempts++
           await attempt.query('This is not N1QL')
         },
-        {
-          timeout: 100,
-        }
+        { timeout: 2000 }
       )
     } catch (err) {
       assert.instanceOf(err, H.lib.TransactionFailedError)

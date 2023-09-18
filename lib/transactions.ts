@@ -340,9 +340,10 @@ function translateGetResult(
 
   return new TransactionGetResult({
     id: cppRes.id,
-    content: cppRes.content
-      ? JSON.parse(cppRes.content.toString('utf8'))
-      : undefined,
+    content:
+      cppRes.content && cppRes.content.length > 0
+        ? JSON.parse(cppRes.content.toString('utf8'))
+        : undefined,
     cas: cppRes.cas,
     _links: cppRes.links,
     _metadata: cppRes.metadata,
