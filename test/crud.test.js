@@ -87,33 +87,53 @@ function genericTests(collFn) {
         validateMutationToken(res.token)
       })
 
-      it('should perform basic upserts with callback', function (callback) {
+      it('should perform basic upserts with callback', function (done) {
         collFn().upsert(testKeyA, testObjVal, (err, res) => {
-          assert.isObject(res)
-          assert.isOk(res.cas)
-          validateMutationToken(res.token)
-          callback(err)
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isOk(res.cas)
+            validateMutationToken(res.token)
+            done(err)
+          } catch (e) {
+            done(e)
+          }
         })
       })
 
-      it('should upsert successfully using options and callback', function (callback) {
+      it('should upsert successfully using options and callback', function (done) {
         const testKeyOpts = H.genTestKey()
 
         const validate = () => {
           collFn().get(testKeyOpts, (err, res) => {
-            res
-            assert.isOk(err)
-            callback(null)
+            try {
+              assert.isNull(res)
+              assert.isOk(err)
+              done(null)
+            } catch(e) {
+              done(e)
+            }
           })
         }
 
         // Upsert a test document
         collFn().upsert(testKeyOpts, { foo: 14 }, { expiry: 1 }, (err, res) => {
-          assert.isObject(res)
-          assert.isNull(err)
-          setTimeout(validate, 2000)
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isNull(err)
+            setTimeout(validate, 2000)
+          } catch(e) {
+            done(e)
+          }
         })
       }).timeout(3500)
+
+
 
       it('should upsert with UTF8 data properly', async function () {
         var res = await collFn().upsert(testKeyUtf8, testUtf8Val)
@@ -205,20 +225,31 @@ function genericTests(collFn) {
         )
       })
 
-      it('should perform basic gets with callback', function (callback) {
+      it('should perform basic gets with callback', function (done) {
         collFn().get(testKeyA, (err, res) => {
-          assert.isObject(res)
-          assert.isOk(res.cas)
-          assert.deepStrictEqual(res.value, testObjVal)
-          callback(err)
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isOk(res.cas)
+            assert.deepStrictEqual(res.value, testObjVal)
+            done(null)
+          } catch(e) {
+            done(e)
+          }
         })
       })
 
-      it('should perform errored gets with callback', function (callback) {
+      it('should perform errored gets with callback', function (done) {
         collFn().get('invalid-key', (err, res) => {
-          res
-          assert.isOk(err)
-          callback(null)
+          try {
+            assert.isNull(res)
+            assert.isOk(err)
+            done(null)
+          } catch(e) {
+            done(e)
+          }
         })
       })
 
@@ -235,12 +266,19 @@ function genericTests(collFn) {
         assert.strictEqual(res.value, res.content)
       })
 
-      it('should perform projected gets with callback', function (callback) {
+      it('should perform projected gets with callback', function (done) {
         collFn().get(testKeyA, { project: ['baz'] }, (err, res) => {
-          assert.isObject(res)
-          assert.isOk(res.cas)
-          assert.deepStrictEqual(res.content, { baz: 19 })
-          callback(err)
+          if (err) {
+            done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isOk(res.cas)
+            assert.deepStrictEqual(res.content, { baz: 19 })
+            done(null)
+          } catch(e) {
+            done(e)
+          }
         })
       })
 
@@ -316,27 +354,45 @@ function genericTests(collFn) {
         assert.isNotOk(parseInt(res.cas.toString()))
       })
 
-      it('should perform basic exists with callback', function (callback) {
+      it('should perform basic exists with callback', function (done) {
         collFn().exists(testKeyA, (err, res) => {
-          assert.isObject(res)
-          assert.strictEqual(res.exists, true)
-          callback(err)
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.strictEqual(res.exists, true)
+            done(null)
+          } catch(e) {
+            done(e)
+          }
         })
       })
 
-      it('should perform basic exists with options and callback', function (callback) {
-        collFn().exists(testKeyA, { timeout: 5 }, (err, res) => {
-          assert.isObject(res)
-          assert.strictEqual(res.exists, true)
-          callback(err)
+      it('should perform basic exists with options and callback', function (done) {
+        collFn().exists(testKeyA, { timeout: 2000 }, (err, res) => {
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.strictEqual(res.exists, true)
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         })
       })
 
-      it('should perform errored exists with callback', function (callback) {
+      it('should perform errored exists with callback', function (done) {
         collFn().get('a-missing-key', (err, res) => {
-          res
-          assert.isOk(err)
-          callback(null)
+          try {
+            assert.isNull(res)
+            assert.isOk(err)
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         })
       })
     })
@@ -352,34 +408,62 @@ function genericTests(collFn) {
         assert.deepStrictEqual(gres.value, { foo: 'baz' })
       })
 
-      it('should perform replace with callback', function (callback) {
+      it('should perform replace with callback', function (done) {
         collFn().replace(testKeyA, { foo: 'qux' }, (err, res) => {
-          assert.isObject(res)
-          assert.isOk(res.cas)
-          assert.isNull(err)
-          validateMutationToken(res.token)
-          collFn().get(testKeyA, (err, res) => {
-            assert.deepStrictEqual(res.value, { foo: 'qux' })
-            callback(err)
-          })
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isOk(res.cas)
+            assert.isNull(err)
+            validateMutationToken(res.token)
+            collFn().get(testKeyA, (err, res) => {
+              if (err) {
+                return done(err)
+              }
+              try {
+                assert.deepStrictEqual(res.value, { foo: 'qux' })
+                done(null)
+              } catch (e) {
+                done(e)
+              }
+            })
+          } catch(e) {
+            done(e)
+          }
         })
       })
 
-      it('should perform replace with options and callback', function (callback) {
+      it('should perform replace with options and callback', function (done) {
         const tc = new DefaultTranscoder()
         collFn().replace(
           testKeyA,
           { foo: 'qux' },
           { transcoder: tc },
           (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.isNull(err)
-            validateMutationToken(res.token)
-            collFn().get(testKeyA, (err, res) => {
-              assert.deepStrictEqual(res.value, { foo: 'qux' })
-              callback(err)
-            })
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
+              assert.isNull(err)
+              validateMutationToken(res.token)
+              collFn().get(testKeyA, (err, res) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.deepStrictEqual(res.value, { foo: 'qux' })
+                  done(null)
+                } catch(e) {
+                  done(e)
+                }
+              })
+            } catch(e) {
+              done(e)
+            }
           }
         )
       })
@@ -409,12 +493,16 @@ function genericTests(collFn) {
         validateMutationToken(res.token)
       })
 
-      it('should perform basic remove with options and callback', function (callback) {
-        collFn().remove(testKeyA, { timeout: 5 }, (err, res) => {
-          assert.isNull(res)
-          assert.isOk(err)
-          assert.isTrue(err instanceof H.lib.DocumentNotFoundError)
-          callback(null)
+      it('should perform basic remove with options and callback', function (done) {
+        collFn().remove(testKeyA, { timeout: 2000 }, (err, res) => {
+          try {
+            assert.isNull(res)
+            assert.isOk(err)
+            assert.isTrue(err instanceof H.lib.DocumentNotFoundError)
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         })
       })
     })
@@ -443,45 +531,75 @@ function genericTests(collFn) {
         await collFn().remove(testKeyIns)
       })
 
-      it('should perform inserts with callback', function (callback) {
+      it('should perform inserts with callback', function (done) {
         collFn().insert(testKeyIns, { foo: 'bar' }, (err, res) => {
-          assert.isObject(res)
-          assert.isOk(res.cas)
-          validateMutationToken(res.token)
-          callback(err)
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isOk(res.cas)
+            validateMutationToken(res.token)
+            done(null)
+          } catch(e) {
+            done(e)
+          }
         })
       })
 
-      it('should insert successfully using options and callback', function (callback) {
+      it('should insert successfully using options and callback', function (done) {
         const testKeyOpts = H.genTestKey()
 
         const validate = () => {
           collFn().get(testKeyOpts, (err, res) => {
-            res
-            assert.isOk(err)
-            callback(null)
+            try {
+              assert.isNull(res)
+              assert.isOk(err)
+              done(null)
+            } catch (e) {
+              done(e)
+            }
+
           })
         }
 
         collFn().insert(testKeyOpts, { foo: 14 }, { expiry: 1 }, (err, res) => {
-          assert.isObject(res)
-          assert.isNull(err)
-          setTimeout(validate, 2000)
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isNull(err)
+            setTimeout(validate, 2000)
+          } catch(e) {
+            done(e)
+          }
         })
       }).timeout(3500)
 
-      it('should fail to insert a second time with callback', function (callback) {
+      it('should fail to insert a second time with callback', function (done) {
         collFn().insert(testKeyIns, { foo: 'bar' }, (err, res) => {
-          assert.isOk(err)
-          assert.isNull(res)
-          callback(null)
+          try {
+            assert.isOk(err)
+            assert.isNull(res)
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         })
       })
 
-      it('should remove the insert test key with callback', function (callback) {
+      it('should remove the insert test key with callback', function (done) {
         collFn().remove(testKeyIns, (err, res) => {
-          assert.isOk(res.cas)
-          callback(err)
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isOk(res.cas)
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         })
       })
 
@@ -744,29 +862,43 @@ function genericTests(collFn) {
       assert.deepStrictEqual(res[0].content, testObjVal)
     })
 
-    it('should perform basic get all replicas with callback', function (callback) {
+    it('should perform basic get all replicas with callback', function (done) {
       collFn().getAllReplicas(replicaTestKey, (err, res) => {
-        assert.isArray(res)
-        assert.isAtLeast(res.length, 1)
-        assert.isBoolean(res[0].isReplica)
-        assert.isNotEmpty(res[0].cas)
-        assert.deepStrictEqual(res[0].content, testObjVal)
-        callback(err)
-      })
-    })
-
-    it('should perform basic get all replicas with options and callback', function (callback) {
-      const tc = new DefaultTranscoder()
-      collFn().getAllReplicas(
-        replicaTestKey,
-        { transcoder: tc },
-        (err, res) => {
+        if (err) {
+          return done(err)
+        }
+        try {
           assert.isArray(res)
           assert.isAtLeast(res.length, 1)
           assert.isBoolean(res[0].isReplica)
           assert.isNotEmpty(res[0].cas)
           assert.deepStrictEqual(res[0].content, testObjVal)
-          callback(err)
+          done(null)
+        } catch (e) {
+          done(e)
+        }
+      })
+    })
+
+    it('should perform basic get all replicas with options and callback', function (done) {
+      const tc = new DefaultTranscoder()
+      collFn().getAllReplicas(
+        replicaTestKey,
+        { transcoder: tc },
+        (err, res) => {
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isArray(res)
+            assert.isAtLeast(res.length, 1)
+            assert.isBoolean(res[0].isReplica)
+            assert.isNotEmpty(res[0].cas)
+            assert.deepStrictEqual(res[0].content, testObjVal)
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         }
       )
     })
@@ -779,22 +911,36 @@ function genericTests(collFn) {
       assert.deepStrictEqual(res.content, testObjVal)
     })
 
-    it('should perform basic get any replica with callback', function (callback) {
+    it('should perform basic get any replica with callback', function (done) {
       collFn().getAnyReplica(replicaTestKey, (err, res) => {
-        assert.isObject(res)
-        assert.isNotEmpty(res.cas)
-        assert.deepStrictEqual(res.content, testObjVal)
-        callback(err)
+        if (err) {
+          return done(err)
+        }
+        try {
+          assert.isObject(res)
+          assert.isNotEmpty(res.cas)
+          assert.deepStrictEqual(res.content, testObjVal)
+          done(null)
+        } catch (e) {
+          done(e)
+        }
       })
     })
 
-    it('should perform basic get any replica with options and callback', function (callback) {
+    it('should perform basic get any replica with options and callback', function (done) {
       const tc = new DefaultTranscoder()
       collFn().getAnyReplica(replicaTestKey, { transcoder: tc }, (err, res) => {
-        assert.isObject(res)
-        assert.isNotEmpty(res.cas)
-        assert.deepStrictEqual(res.content, testObjVal)
-        callback(err)
+        if (err) {
+          return done(err)
+        }
+        try {
+          assert.isObject(res)
+          assert.isNotEmpty(res.cas)
+          assert.deepStrictEqual(res.content, testObjVal)
+          done(null)
+        } catch (e) {
+          done(e)
+        }
       })
     })
   })
@@ -824,33 +970,61 @@ function genericTests(collFn) {
         assert.deepStrictEqual(gres.value, 17)
       })
 
-      it('should increment successfully with callback', function (callback) {
+      it('should increment successfully with callback', function (done) {
         collFn()
           .binary()
           .increment(testKeyBin, 3, (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.deepStrictEqual(res.value, 20)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
               assert.deepStrictEqual(res.value, 20)
-              callback(err)
-            })
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, res) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.deepStrictEqual(res.value, 20)
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+              })
+            } catch (e) {
+              done(e)
+            }
           })
       })
 
-      it('should increment successfully with options and callback', function (callback) {
+      it('should increment successfully with options and callback', function (done) {
         collFn()
           .binary()
-          .increment(testKeyBin, 3, { timeout: 5 }, (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.deepStrictEqual(res.value, 23)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, res) => {
+          .increment(testKeyBin, 3, { timeout: 2000 }, (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
               assert.deepStrictEqual(res.value, 23)
-              callback(err)
-            })
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, res) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.deepStrictEqual(res.value, 23)
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+              })
+            } catch (e) {
+              done(e)
+            }
           })
       })
     })
@@ -867,33 +1041,62 @@ function genericTests(collFn) {
         assert.deepStrictEqual(gres.value, 19)
       })
 
-      it('should decrement successfully with callback', function (callback) {
+      it('should decrement successfully with callback', function (done) {
         collFn()
           .binary()
           .decrement(testKeyBin, 3, (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.deepStrictEqual(res.value, 16)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
               assert.deepStrictEqual(res.value, 16)
-              callback(err)
-            })
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, res) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.deepStrictEqual(res.value, 16)
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+              })
+            } catch (e) {
+              done(e)
+            }
           })
       })
 
-      it('should decrement successfully with options and callback', function (callback) {
+      it('should decrement successfully with options and callback', function (done) {
         collFn()
           .binary()
-          .decrement(testKeyBin, 3, { timeout: 5 }, (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.deepStrictEqual(res.value, 13)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, res) => {
+          .decrement(testKeyBin, 3, { timeout: 2000 }, (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
               assert.deepStrictEqual(res.value, 13)
-              callback(err)
-            })
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, res) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.deepStrictEqual(res.value, 13)
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+
+              })
+            } catch (e) {
+              done(e)
+            }
           })
       })
     })
@@ -910,35 +1113,65 @@ function genericTests(collFn) {
         assert.deepStrictEqual(gres.value.toString(), '13world')
       })
 
-      it('should append successfully with callback', function (callback) {
+      it('should append successfully with callback', function (done) {
         collFn()
           .binary()
           .append(testKeyBin, '!', (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.isNull(err)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, gres) => {
-              assert.isTrue(Buffer.isBuffer(gres.value))
-              assert.deepStrictEqual(gres.value.toString(), '13world!')
-              callback(err)
-            })
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
+              assert.isNull(err)
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, gres) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.isTrue(Buffer.isBuffer(gres.value))
+                  assert.deepStrictEqual(gres.value.toString(), '13world!')
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+              })
+            } catch (e) {
+              done(e)
+            }
           })
       })
 
-      it('should append successfully with options and callback', function (callback) {
+      it('should append successfully with options and callback', function (done) {
         collFn()
           .binary()
           .append(testKeyBin, '!', (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.isNull(err)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, gres) => {
-              assert.isTrue(Buffer.isBuffer(gres.value))
-              assert.deepStrictEqual(gres.value.toString(), '13world!!')
-              callback(err)
-            })
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
+              assert.isNull(err)
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, gres) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.isTrue(Buffer.isBuffer(gres.value))
+                  assert.deepStrictEqual(gres.value.toString(), '13world!!')
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+
+              })
+            } catch (e) {
+              done(e)
+            }
+
           })
       })
     })
@@ -955,38 +1188,67 @@ function genericTests(collFn) {
         assert.deepStrictEqual(gres.value.toString(), 'big13world!!')
       })
 
-      it('should prepend successfully with callback', function (callback) {
+      it('should prepend successfully with callback', function (done) {
         collFn()
           .binary()
           .prepend(testKeyBin, 'hello', (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.isNull(err)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, gres) => {
-              assert.isTrue(Buffer.isBuffer(gres.value))
-              assert.deepStrictEqual(gres.value.toString(), 'hellobig13world!!')
-              callback(err)
-            })
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
+              assert.isNull(err)
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, gres) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.isTrue(Buffer.isBuffer(gres.value))
+                  assert.deepStrictEqual(gres.value.toString(), 'hellobig13world!!')
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+
+              })
+            } catch (e) {
+              done(e)
+            }
           })
       })
 
-      it('should prepend successfully with options and callback', function (callback) {
+      it('should prepend successfully with options and callback', function (done) {
         collFn()
           .binary()
-          .prepend(testKeyBin, 'the', { timeout: 5 }, (err, res) => {
-            assert.isObject(res)
-            assert.isOk(res.cas)
-            assert.isNull(err)
-            validateMutationToken(res.token)
-            collFn().get(testKeyBin, (err, gres) => {
-              assert.isTrue(Buffer.isBuffer(gres.value))
-              assert.deepStrictEqual(
-                gres.value.toString(),
-                'thehellobig13world!!'
-              )
-              callback(err)
-            })
+          .prepend(testKeyBin, 'the', { timeout: 2000 }, (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isOk(res.cas)
+              assert.isNull(err)
+              validateMutationToken(res.token)
+              collFn().get(testKeyBin, (err, gres) => {
+                if (err) {
+                  return done(err)
+                }
+                try {
+                  assert.isTrue(Buffer.isBuffer(gres.value))
+                  assert.deepStrictEqual(
+                    gres.value.toString(),
+                    'thehellobig13world!!'
+                  )
+                  done(null)
+                } catch (e) {
+                  done(e)
+                }
+              })
+            } catch (e) {
+              done(e)
+            }
           })
       })
     })
@@ -1415,23 +1677,37 @@ function genericTests(collFn) {
       assert.strictEqual(activeCount, 1)
     })
 
-    it('should successfully run lookupInAllReplicas with a callback', function (callback) {
+    it('should successfully run lookupInAllReplicas with a callback', function (done) {
       collFn().lookupInAllReplicas(testKeySd, [H.lib.LookupInSpec.get('baz')], (err, res) => {
+        if (err) {
+          return done(err)
+        }
+        try {
           assert.isAtLeast(res.length, 1)
           assert.isBoolean(res[0].isReplica)
           assert.isNotEmpty(res[0].cas)
           assert.deepStrictEqual(res[0].content[0].value, 'hello')
-          callback(err)
+          done(null)
+        } catch (e) {
+          done(e)
+        }
         })
     })
 
-    it ('should successfully run lookupInAnyReplica with a callback', function (callback) {
+    it ('should successfully run lookupInAnyReplica with a callback', function (done) {
       collFn().lookupInAnyReplica(testKeySd, [H.lib.LookupInSpec.get('baz')], (err, res) => {
+        if (err) {
+          return done(err)
+        }
+        try {
           assert.isObject(res)
           assert.isNotEmpty(res.cas)
           assert.isBoolean(res.isReplica)
           assert.deepStrictEqual(res.content[0].value, 'hello')
-          callback(err)
+          done(null)
+        } catch (e) {
+          done(e)
+        }
         })
     })
 
