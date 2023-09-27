@@ -40,6 +40,8 @@ export const cbppMetadata: string = binding.cbppMetadata
  * Exposes the underlying couchbase++ library protocol logger.  This method is for
  * logging/debugging purposes and must be used with caution as network details will
  * be logged to the provided file.
+ *
+ * @param filename Name of file protocol logger will save logging details.
  */
 export function enableProtocolLoggerToSaveNetworkTrafficToFile(
   filename: string

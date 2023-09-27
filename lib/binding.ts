@@ -3556,9 +3556,12 @@ export interface CppBinding extends CppBindingAutogen {
   }
 }
 
-// Load it with require
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const binding: CppBinding = require('../scripts/prebuilds').loadPrebuild(
-  path.resolve(__dirname, '..')
-)
+// CN_PREBUILD_PATH_OVERRIDE is meant to help for webpack scenarios.  Webpack's EnvironmentPlugin
+// can be used to set the path of the desired prebuild which will allow the node-loader package
+// to pull in the corresponding prebuild.
+const binding: CppBinding = process.env.CN_PREBUILD_PATH_OVERRIDE
+  ? // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(process.env.CN_PREBUILD_PATH_OVERRIDE)
+  : // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require('../scripts/prebuilds').loadPrebuild(path.resolve(__dirname, '..'))
 export default binding

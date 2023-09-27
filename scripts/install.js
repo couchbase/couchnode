@@ -1,7 +1,4 @@
-#!/usr/bin/env node
-
 const path = require('path')
-var proc = require('child_process')
 const prebuilds = require('./prebuilds')
 
 if (hasLocalPrebuild()) {
@@ -28,18 +25,11 @@ function hasLocalPrebuild() {
 
 function installPrebuild() {
   try {
-    prebuilds.resolvePrebuild(path.resolve(__dirname, '..'), false)
+    prebuilds.resolvePrebuild(path.resolve(__dirname, '..'), {
+      runtimeResolve: false,
+    })
     process.exit(0)
   } catch (err) {
-    const cmakejs = path.join(
-      require.resolve('cmake-js/package.json'),
-      '..',
-      require('cmake-js/package.json').bin['cmake-js']
-    )
-    // @TODO: is spawning sync a problem? Seemed to be easiest way to get Ctrl-C to kill the whole build process
-    const cmakejsProc = proc.spawnSync(process.execPath, [cmakejs, 'compile'], {
-      stdio: 'inherit',
-    })
-    process.exit(cmakejsProc.status)
+    prebuilds.buildBinary()
   }
 }
