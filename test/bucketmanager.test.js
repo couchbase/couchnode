@@ -54,6 +54,9 @@ describe('#bucketmanager', function () {
       historyRetentionBytes: undefined,
       historyRetentionDuration: undefined,
     }
+    if (!H.supportsFeature(H.Features.StorageBackend)) {
+      expected.storageBackend = undefined
+    }
     assert.deepStrictEqual(res, expected)
   })
 
@@ -150,6 +153,9 @@ describe('#bucketmanager', function () {
       historyRetentionCollectionDefault: undefined,
       historyRetentionBytes: undefined,
       historyRetentionDuration: undefined,
+    }
+    if (!H.supportsFeature(H.Features.StorageBackend)) {
+      expected.storageBackend = undefined
     }
     assert.deepStrictEqual(res, expected)
 

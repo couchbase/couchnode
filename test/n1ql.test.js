@@ -13,17 +13,17 @@ describe('N1QL', function () {
   describe('#query - cluster level', function () {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Query)
-  
+
       testUid = H.genTestKey()
       idxName = H.genTestKey()
       sidxName = H.genTestKey()
       for (let i = 0; i < 3; i++) {
         deferredIndexes.push(H.genTestKey())
       }
-  
+
       testDocs = await testdata.upsertData(H.dco, testUid)
     })
-  
+
     after(async function () {
       await testdata.removeTestData(H.dco, testDocs)
       for (let i = 0; i < deferredIndexes.length; i++) {
@@ -36,7 +36,7 @@ describe('N1QL', function () {
         name: idxName,
       })
     }).timeout(60000)
-  
+
     it('should fail to create a duplicate primary index', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().createPrimaryIndex(H.b.name, {
@@ -44,26 +44,26 @@ describe('N1QL', function () {
         })
       }, H.lib.IndexExistsError)
     })
-  
+
     it('should successfully create a secondary index (using a new connection)', async function () {
       var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
-  
+
       await cluster.queryIndexes().createIndex(H.b.name, sidxName, ['name'])
-  
+
       await cluster.close()
     }).timeout(20000)
-  
+
     it('should fail to create a duplicate secondary index', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().createIndex(H.b.name, sidxName, ['name'])
       }, H.lib.IndexExistsError)
     })
-  
+
     it('should successfully get all indexes', async function () {
       var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name)
       assert.isAtLeast(idxs.length, 1)
     })
-  
+
     it('should see test data correctly', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -72,33 +72,33 @@ describe('N1QL', function () {
           var qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`
           res = await H.c.query(qs)
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should see test data correctly with a new connection', async function () {
       var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
-  
+
       const qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`
       const res = await cluster.query(qs)
-  
+
       assert.isArray(res.rows)
       assert.lengthOf(res.rows, testdata.docCount())
       assert.isObject(res.meta)
-  
+
       await cluster.close()
     }).timeout(10000)
-  
+
     it('should stream test data correctly', async function () {
       const streamQuery = (qs) => {
         return new Promise((resolve, reject) => {
@@ -123,7 +123,7 @@ describe('N1QL', function () {
             })
         })
       }
-  
+
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
@@ -131,20 +131,20 @@ describe('N1QL', function () {
           var qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`
           res = await streamQuery(qs)
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should work with parameters correctly', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -155,20 +155,20 @@ describe('N1QL', function () {
             parameters: [undefined, testUid],
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should work with named parameters correctly', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -181,20 +181,20 @@ describe('N1QL', function () {
             },
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should filter undefined named parameters', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -208,20 +208,20 @@ describe('N1QL', function () {
             },
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should work with lots of options specified', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -241,12 +241,12 @@ describe('N1QL', function () {
             metrics: true,
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
@@ -256,57 +256,59 @@ describe('N1QL', function () {
         assert.isObject(res.meta.signature)
         assert.isObject(res.meta.metrics)
         assert.isObject(res.meta.profile)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should wait till all indexes are online', async function () {
       await H.c.queryIndexes().watchIndexes(H.b.name, [idxName, sidxName], 2000)
     }).timeout(3000)
-  
+
     it('should fail watching when some indexes are missing', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().watchIndexes(H.b.name, ['invalid-index'], 2000)
       }, H.lib.IndexNotFoundError)
     }).timeout(3000)
-  
+
     it('should successfully drop a secondary index', async function () {
       await H.c.queryIndexes().dropIndex(H.b.name, sidxName)
     })
-  
+
     it('should fail to drop a missing secondary index', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().dropIndex(H.b.name, sidxName)
       }, H.lib.QueryIndexNotFoundError)
     })
-  
+
     it('should build deferred indexes', async function () {
       for (let i = 0; i < deferredIndexes.length; i++) {
         await H.c
           .queryIndexes()
-          .createIndex(H.b.name, deferredIndexes[i], ['name'], { deferred: true })
+          .createIndex(H.b.name, deferredIndexes[i], ['name'], {
+            deferred: true,
+          })
       }
-  
+
       var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name)
       var filteredIdxs = idxs.filter((idx) => idx.state === 'deferred')
       assert.lengthOf(filteredIdxs, deferredIndexes.length)
-  
+
       await H.c.queryIndexes().buildDeferredIndexes(H.b.name)
-  
+
       await H.c.queryIndexes().watchIndexes(
         H.b.name,
         filteredIdxs.map((f) => f.name),
         6000
       )
     }).timeout(60000)
-  
+
     it('should successfully drop a primary index', async function () {
       await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
         name: idxName,
       })
     })
-  
+
     it('should fail to drop a missing primary index', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
@@ -320,25 +322,28 @@ describe('N1QL', function () {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Collections)
       H.skipIfMissingFeature(this, H.Features.Query)
-  
+
       testUid = H.genTestKey()
       idxName = H.genTestKey()
       sidxName = H.genTestKey()
       for (let i = 0; i < 3; i++) {
         deferredIndexes.push(H.genTestKey())
       }
-  
+
       testDocs = await testdata.upsertData(H.co, testUid)
     })
-  
+
     after(async function () {
-      await testdata.removeTestData(H.co, testDocs)
-      for (let i = 0; i < deferredIndexes.length; i++) {
-        await H.c.queryIndexes().dropIndex(H.b.name,
-          deferredIndexes[i], { 
-            collectionName: H.co.name, 
+      try {
+        await testdata.removeTestData(H.co, testDocs)
+        for (let i = 0; i < deferredIndexes.length; i++) {
+          await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i], {
+            collectionName: H.co.name,
             scopeName: H.s.name,
           })
+        }
+      } catch (e) {
+        // Do nothing
       }
     })
 
@@ -359,31 +364,27 @@ describe('N1QL', function () {
         })
       }, H.lib.IndexExistsError)
     })
-  
+
     it('should successfully create a secondary index (using a new connection)', async function () {
       var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
-  
-      await cluster.queryIndexes().createIndex(H.b.name,
-        sidxName,
-        ['name'], {
+
+      await cluster.queryIndexes().createIndex(H.b.name, sidxName, ['name'], {
+        collectionName: H.co.name,
+        scopeName: H.s.name,
+      })
+
+      await cluster.close()
+    }).timeout(20000)
+
+    it('should fail to create a duplicate secondary index', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.queryIndexes().createIndex(H.b.name, sidxName, ['name'], {
           collectionName: H.co.name,
           scopeName: H.s.name,
         })
-  
-      await cluster.close()
-    }).timeout(20000)
-  
-    it('should fail to create a duplicate secondary index', async function () {
-      await H.throwsHelper(async () => {
-        await H.c.queryIndexes().createIndex(H.b.name,
-          sidxName,
-          ['name'], {
-            collectionName: H.co.name,
-            scopeName: H.s.name,
-          })
       }, H.lib.IndexExistsError)
     })
-  
+
     it('should successfully get all indexes', async function () {
       var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name, {
         collectionName: H.co.name,
@@ -391,7 +392,7 @@ describe('N1QL', function () {
       })
       assert.isAtLeast(idxs.length, 1)
     })
-  
+
     it('should see test data correctly', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -400,16 +401,16 @@ describe('N1QL', function () {
           var qs = `SELECT * FROM ${H.co.name} WHERE testUid='${testUid}'`
           res = await H.s.query(qs)
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
@@ -418,17 +419,17 @@ describe('N1QL', function () {
       const cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
       const bucket = cluster.bucket(H.b.name)
       const scope = bucket.scope(H.s.name)
-  
+
       const qs = `SELECT * FROM ${H.co.name} WHERE testUid='${testUid}'`
       const res = await scope.query(qs)
-  
+
       assert.isArray(res.rows)
       assert.lengthOf(res.rows, testdata.docCount())
       assert.isObject(res.meta)
-  
+
       await cluster.close()
     }).timeout(10000)
-  
+
     it('should stream test data correctly', async function () {
       const streamQuery = (qs) => {
         return new Promise((resolve, reject) => {
@@ -453,7 +454,7 @@ describe('N1QL', function () {
             })
         })
       }
-  
+
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
@@ -461,16 +462,16 @@ describe('N1QL', function () {
           var qs = `SELECT * FROM ${H.co.name} WHERE testUid='${testUid}'`
           res = await streamQuery(qs)
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
@@ -485,20 +486,20 @@ describe('N1QL', function () {
             parameters: [undefined, testUid],
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should work with named parameters correctly', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -511,20 +512,20 @@ describe('N1QL', function () {
             },
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should filter undefined named parameters', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -538,20 +539,20 @@ describe('N1QL', function () {
             },
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should work with lots of options specified', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
@@ -571,12 +572,12 @@ describe('N1QL', function () {
             metrics: true,
           })
         } catch (e) {} // eslint-disable-line no-empty
-  
+
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
           continue
         }
-  
+
         assert.isArray(res.rows)
         assert.lengthOf(res.rows, testdata.docCount())
         assert.isObject(res.meta)
@@ -586,85 +587,81 @@ describe('N1QL', function () {
         assert.isObject(res.meta.signature)
         assert.isObject(res.meta.metrics)
         assert.isObject(res.meta.profile)
-  
+
         break
       }
     }).timeout(10000)
-  
+
     it('should wait till all indexes are online', async function () {
-      await H.c.queryIndexes().watchIndexes(H.b.name,
-        [idxName, sidxName],
-        2000, {
+      await H.c
+        .queryIndexes()
+        .watchIndexes(H.b.name, [idxName, sidxName], 2000, {
           collectionName: H.co.name,
           scopeName: H.s.name,
         })
     }).timeout(3000)
-  
+
     it('should fail watching when some indexes are missing', async function () {
       await H.throwsHelper(async () => {
-        await H.c.queryIndexes().watchIndexes(H.b.name,
-          ['invalid-index'],
-          2000, {
+        await H.c
+          .queryIndexes()
+          .watchIndexes(H.b.name, ['invalid-index'], 2000, {
             collectionName: H.co.name,
             scopeName: H.s.name,
           })
       }, H.lib.IndexNotFoundError)
     }).timeout(3000)
-  
+
     it('should successfully drop a secondary index', async function () {
-      await H.c.queryIndexes().dropIndex(H.b.name,
-        sidxName, {
+      await H.c.queryIndexes().dropIndex(H.b.name, sidxName, {
+        collectionName: H.co.name,
+        scopeName: H.s.name,
+      })
+    })
+
+    it('should fail to drop a missing secondary index', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.queryIndexes().dropIndex(H.b.name, sidxName, {
           collectionName: H.co.name,
           scopeName: H.s.name,
         })
-    })
-  
-    it('should fail to drop a missing secondary index', async function () {
-      await H.throwsHelper(async () => {
-        await H.c.queryIndexes().dropIndex(H.b.name,
-          sidxName, {
-            collectionName: H.co.name,
-            scopeName: H.s.name,
-          })
       }, H.lib.QueryIndexNotFoundError)
     })
-  
+
     it('should build deferred indexes', async function () {
       for (let i = 0; i < deferredIndexes.length; i++) {
         await H.c
           .queryIndexes()
-          .createIndex(H.b.name,
-            deferredIndexes[i], 
-            ['name'],
-            { 
-              deferred: true,
-              collectionName: H.co.name,
-              scopeName: H.s.name,
-            })
+          .createIndex(H.b.name, deferredIndexes[i], ['name'], {
+            deferred: true,
+            collectionName: H.co.name,
+            scopeName: H.s.name,
+          })
       }
-  
+
       var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name, {
         collectionName: H.co.name,
         scopeName: H.s.name,
       })
       var filteredIdxs = idxs.filter((idx) => idx.state === 'deferred')
       assert.lengthOf(filteredIdxs, deferredIndexes.length)
-  
+
       await H.c.queryIndexes().buildDeferredIndexes(H.b.name, {
         collectionName: H.co.name,
         scopeName: H.s.name,
       })
-  
+
       await H.c.queryIndexes().watchIndexes(
         H.b.name,
         filteredIdxs.map((f) => f.name),
-        6000, {
+        6000,
+        {
           collectionName: H.co.name,
           scopeName: H.s.name,
         }
       )
     }).timeout(60000)
-  
+
     it('should successfully drop a primary index', async function () {
       await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
         name: idxName,
@@ -672,7 +669,7 @@ describe('N1QL', function () {
         scopeName: H.s.name,
       })
     })
-  
+
     it('should fail to drop a missing primary index', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
@@ -682,7 +679,6 @@ describe('N1QL', function () {
         })
       }, H.lib.QueryIndexNotFoundError)
     })
-
   })
 })
 
@@ -693,17 +689,18 @@ function genericTests(collFn) {
   describe('#QueryIndexManagement', function () {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Query)
-  
+      H.skipIfMissingFeature(this, H.Features.Collections)
+
       testUid = H.genTestKey()
       idxName = H.genTestKey()
       sidxName = H.genTestKey()
       for (let i = 0; i < 3; i++) {
         deferredIndexes.push(H.genTestKey())
       }
-  
+
       testDocs = await testdata.upsertData(collFn(), testUid)
     })
-  
+
     after(async function () {
       await testdata.removeTestData(collFn(), testDocs)
       for (let i = 0; i < deferredIndexes.length; i++) {
@@ -717,17 +714,16 @@ function genericTests(collFn) {
       })
     }).timeout(60000)
 
-    it('should successfully create a secondary index', async function () {  
+    it('should successfully create a secondary index', async function () {
       await collFn().queryIndexes().createIndex(sidxName, ['name'])
-
     }).timeout(20000)
-  
+
     it('should fail to create a duplicate secondary index', async function () {
       await H.throwsHelper(async () => {
         await collFn().queryIndexes().createIndex(sidxName, ['name'])
       }, H.lib.IndexExistsError)
     })
-  
+
     it('should successfully get all indexes', async function () {
       var idxs = await collFn().queryIndexes().getAllIndexes()
       assert.isAtLeast(idxs.length, 1)
@@ -736,48 +732,50 @@ function genericTests(collFn) {
     it('should wait till all indexes are online', async function () {
       await collFn().queryIndexes().watchIndexes([idxName, sidxName], 2000)
     }).timeout(3000)
-  
+
     it('should fail watching when some indexes are missing', async function () {
       await H.throwsHelper(async () => {
         await collFn().queryIndexes().watchIndexes(['invalid-index'], 2000)
       }, H.lib.IndexNotFoundError)
     }).timeout(3000)
-  
+
     it('should successfully drop a secondary index', async function () {
       await collFn().queryIndexes().dropIndex(sidxName)
     })
-  
+
     it('should fail to drop a missing secondary index', async function () {
       await H.throwsHelper(async () => {
         await collFn().queryIndexes().dropIndex(sidxName)
       }, H.lib.QueryIndexNotFoundError)
     })
-  
+
     it('should build deferred indexes', async function () {
       for (let i = 0; i < deferredIndexes.length; i++) {
         await collFn()
           .queryIndexes()
           .createIndex(deferredIndexes[i], ['name'], { deferred: true })
       }
-  
+
       var idxs = await collFn().queryIndexes().getAllIndexes()
       var filteredIdxs = idxs.filter((idx) => idx.state === 'deferred')
       assert.lengthOf(filteredIdxs, deferredIndexes.length)
-  
+
       await collFn().queryIndexes().buildDeferredIndexes()
-  
-      await collFn().queryIndexes().watchIndexes(
-        filteredIdxs.map((f) => f.name),
-        6000
-      )
+
+      await collFn()
+        .queryIndexes()
+        .watchIndexes(
+          filteredIdxs.map((f) => f.name),
+          6000
+        )
     }).timeout(60000)
-  
+
     it('should successfully drop a primary index', async function () {
       await collFn().queryIndexes().dropPrimaryIndex({
         name: idxName,
       })
     })
-  
+
     it('should fail to drop a missing primary index', async function () {
       await H.throwsHelper(async () => {
         await collFn().queryIndexes().dropPrimaryIndex({
@@ -792,7 +790,6 @@ describe('#CollectionQueryIndexManager - default', function () {
   /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
-
 
 describe('#CollectionQueryIndexManager - named', function () {
   /* eslint-disable-next-line mocha/no-setup-in-describe */
