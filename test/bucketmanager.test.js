@@ -22,6 +22,7 @@ describe('#bucketmanager', function () {
       flushEnabled: true,
       ramQuotaMB: 256,
     })
+    await H.consistencyUtils.waitUntilBucketPresent(testBucket)
   }).timeout(10 * 1000)
 
   it('should emit the correct error on duplicate buckets', async function () {
@@ -118,6 +119,7 @@ describe('#bucketmanager', function () {
   it('should successfully drop a bucket', async function () {
     var bmgr = H.c.buckets()
     await bmgr.dropBucket(testBucket)
+    await H.consistencyUtils.waitUntilBucketDropped(testBucket)
   })
 
   it('should fail to drop a missing bucket', async function () {
@@ -135,6 +137,7 @@ describe('#bucketmanager', function () {
       replicaIndexes: false,
       ramQuotaMB: 256,
     })
+    await H.consistencyUtils.waitUntilBucketPresent(testBucket)
 
     var res = await bmgr.getBucket(testBucket)
     assert.isObject(res)
@@ -174,6 +177,7 @@ describe('#bucketmanager', function () {
       historyRetentionBytes: 2147483648,
       historyRetentionDuration: 13000,
     })
+    await H.consistencyUtils.waitUntilBucketPresent(magmaBucket)
 
     var res = await bmgr.getBucket(magmaBucket)
     assert.isObject(res)

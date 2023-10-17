@@ -33,13 +33,14 @@ describe('#views', function () {
         `),
     })
     await H.b.viewIndexes().upsertDesignDocument(ddoc)
+    await H.consistencyUtils.waitUntilDesignDocumentPresent(H.bucketName, `dev_${ddocKey}`)
   }).timeout(60000)
 
   it('should successfully publish an index', async function () {
     await H.b.viewIndexes().publishDesignDocument(ddocKey)
   })
 
-  it('should fail to publish a non-existant index', async function () {
+  it('should fail to publish a non-existent index', async function () {
     await H.throwsHelper(async () => {
       await H.b.viewIndexes().publishDesignDocument('missing-index-name')
     }, H.lib.DesignDocumentNotFoundError)
@@ -99,9 +100,10 @@ describe('#views', function () {
 
   it('should successfully drop an index', async function () {
     await H.b.viewIndexes().dropDesignDocument(ddocKey)
+    await H.consistencyUtils.waitUntilDesignDocumentDropped(H.bucketName, ddocKey)
   })
 
-  it('should fail to drop a non-existance index', async function () {
+  it('should fail to drop a non-existent index', async function () {
     await H.throwsHelper(async () => {
       await H.b.viewIndexes().dropDesignDocument('missing-index-name')
     }, H.lib.DesignDocumentNotFoundError)

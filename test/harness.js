@@ -5,6 +5,7 @@ const uuid = require('uuid')
 const semver = require('semver')
 const couchbase = require('../lib/couchbase')
 const jcbmock = require('./jcbmock')
+const consistencyutil = require('./consistencyutil')
 
 try {
   const SegfaultHandler = require('segfault-handler')
@@ -184,6 +185,13 @@ class Harness {
     }
   }
 
+  get consistencyUtils() {
+    if (!this._consistencyutil) {
+      return true
+    }
+    return this._consistencyutil
+  }
+
   async throwsHelper(fn) {
     var assertArgs = Array.from(arguments).slice(1)
 
@@ -265,12 +273,22 @@ class Harness {
     var scope = bucket.defaultScope()
     var coll = bucket.collection(this._coll)
     var dcoll = bucket.defaultCollection()
+    var consistencyutils = await this.initializeConsistencyUtils()
 
     this._testCluster = cluster
     this._testBucket = bucket
     this._testScope = scope
     this._testColl = coll
     this._testDColl = dcoll
+    this._consistencyutil = consistencyutils
+  }
+
+  async initializeConsistencyUtils() {
+    const auth = `${this.connOpts.username}:${this.connOpts.password}`
+    const hostname = this._usingMock ? "" : new URL(this.connStr).hostname.split(',')[0]
+    const utils = new consistencyutil(hostname, auth)
+    await utils.waitForConfig(this._usingMock)
+    return utils
   }
 
   async newCluster(options) {

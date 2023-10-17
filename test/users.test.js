@@ -24,6 +24,7 @@ describe('#users', function () {
       password: 'password',
       roles: ['ro_admin'],
     })
+    await H.consistencyUtils.waitUntilUserPresent(testUser)
   })
 
   it('should successfully get user', async function () {
@@ -37,8 +38,9 @@ describe('#users', function () {
     }, H.lib.UserNotFoundError)
   })
 
-  it('should fail to drop a user', async function () {
+  it('should successfully drop a user', async function () {
     await H.c.users().dropUser(testUser)
+    await H.consistencyUtils.waitUntilUserDropped(testUser)
   })
 
   it('should successfully change current user password', async function () {
@@ -51,6 +53,7 @@ describe('#users', function () {
       password: changeUserPassword,
       roles: ['admin'],
     })
+    await H.consistencyUtils.waitUntilUserPresent(changePasswordUsername)
 
     var cluster = await H.lib.Cluster.connect(H.connStr, {username : changePasswordUsername, password : changeUserPassword})
     await cluster.users().changePassword(newPassword)
@@ -88,6 +91,7 @@ describe('#user-groups', function () {
       name: testGroup,
       roles: ['ro_admin'],
     })
+    await H.consistencyUtils.waitUntilGroupPresent(testGroup)
   })
 
   it('should successfully get a group', async function () {
@@ -109,6 +113,7 @@ describe('#user-groups', function () {
 
   it('should successfully drop a group', async function () {
     await H.c.users().dropGroup(testGroup)
+    await H.consistencyUtils.waitUntilGroupDropped(testGroup)
   })
 
   it('should fail to drop a missing group', async function () {

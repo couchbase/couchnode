@@ -18,14 +18,19 @@ describe('#eventing', function () {
     testFn = H.genTestKey()
 
     await H.b.collections().createScope(testScope)
+    await H.consistencyUtils.waitUntilScopePresent(H.bucketName, testScope)
+
     await H.b.collections().createCollection({
       name: 'source',
       scopeName: testScope,
     })
+    await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, 'source')
+
     await H.b.collections().createCollection({
       name: 'meta',
       scopeName: testScope,
     })
+    await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, 'meta')
 
     await H.sleep(2500)
 
