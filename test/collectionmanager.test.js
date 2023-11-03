@@ -5,15 +5,22 @@ const H = require('./harness')
 const { StorageBackend } = require('../lib/bucketmanager')
 
 describe('#collectionmanager', function () {
-  let testScope, testColl, magmaTestBucket, couchstoreTestBucket
+  let testScope, testColl, magmaTestBucket, couchstoreTestBucket, testCluster
 
-  before(function () {
+  before(async function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
 
     testScope = H.genTestKey()
     testColl = H.genTestKey()
     magmaTestBucket = H.genTestKey()
     couchstoreTestBucket = H.genTestKey()
+    testCluster = await H.newCluster()
+  })
+
+  after(async function () {
+    if (typeof testCluster !== 'undefined') {
+      await testCluster.close()
+    }
   })
 
   it('should successfully create a scope', async function () {
@@ -32,7 +39,11 @@ describe('#collectionmanager', function () {
   it('should successfully create a collection', async function () {
     var cmgr = H.b.collections()
     await cmgr.createCollection(testColl, testScope, { timeout: 4000 })
-    await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, testColl)
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      testColl
+    )
   })
 
   it('should emit the correct error on duplicate collections', async function () {
@@ -63,7 +74,11 @@ describe('#collectionmanager', function () {
   it('should successfully drop a collection', async function () {
     var cmgr = H.b.collections()
     await cmgr.dropCollection(testColl, testScope)
-    await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, testColl)
+    await H.consistencyUtils.waitUntilCollectionDropped(
+      H.bucketName,
+      testScope,
+      testColl
+    )
   })
 
   it('should fail to drop a collection from a missing scope', async function () {
@@ -86,25 +101,46 @@ describe('#collectionmanager', function () {
       { name: testColl, scopeName: testScope, maxExpiry: 3 },
       { timeout: 4000 }
     )
-    await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, testColl)
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      testColl
+    )
 
     await cmgr.dropCollection(testColl, testScope)
-    await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, testColl)
+    await H.consistencyUtils.waitUntilCollectionDropped(
+      H.bucketName,
+      testScope,
+      testColl
+    )
   })
 
   it('should should successfully create a collection with callback', function (done) {
     var cmgr = H.b.collections()
     const localTestColl = H.genTestKey()
-    cmgr.createCollection(localTestColl, testScope, { maxExpiry: 3 }, async (err) => {
-      if (err) {
-        done(err)
-      } else {
-        await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, localTestColl)
-        await cmgr.dropCollection(localTestColl, testScope)
-        await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, localTestColl)
-        done()
+    cmgr.createCollection(
+      localTestColl,
+      testScope,
+      { maxExpiry: 3 },
+      async (err) => {
+        if (err) {
+          done(err)
+        } else {
+          await H.consistencyUtils.waitUntilCollectionPresent(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
+          await cmgr.dropCollection(localTestColl, testScope)
+          await H.consistencyUtils.waitUntilCollectionDropped(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
+          done()
+        }
       }
-    })
+    )
   })
 
   it('should should successfully create a collection with callback and options', function (done) {
@@ -119,9 +155,17 @@ describe('#collectionmanager', function () {
         if (err) {
           done(err)
         } else {
-          await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionPresent(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           await cmgr.dropCollection(localTestColl, testScope)
-          await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionDropped(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           done()
         }
       }
@@ -139,9 +183,17 @@ describe('#collectionmanager', function () {
         if (err) {
           done(err)
         } else {
-          await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionPresent(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           await cmgr.dropCollection(localTestColl, testScope)
-          await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionDropped(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           done()
         }
       }
@@ -155,9 +207,17 @@ describe('#collectionmanager', function () {
       if (err) {
         done(err)
       } else {
-        await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, localTestColl)
+        await H.consistencyUtils.waitUntilCollectionPresent(
+          H.bucketName,
+          testScope,
+          localTestColl
+        )
         await cmgr.dropCollection(localTestColl, testScope)
-        await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, localTestColl)
+        await H.consistencyUtils.waitUntilCollectionDropped(
+          H.bucketName,
+          testScope,
+          localTestColl
+        )
         done()
       }
     })
@@ -172,9 +232,17 @@ describe('#collectionmanager', function () {
         if (err) {
           done(err)
         } else {
-          await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionPresent(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           await cmgr.dropCollection(localTestColl, testScope)
-          await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionDropped(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           done()
         }
       }
@@ -191,9 +259,17 @@ describe('#collectionmanager', function () {
         if (err) {
           done(err)
         } else {
-          await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionPresent(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           await cmgr.dropCollection(localTestColl, testScope)
-          await H.consistencyUtils.waitUntilCollectionDropped(H.bucketName, testScope, localTestColl)
+          await H.consistencyUtils.waitUntilCollectionDropped(
+            H.bucketName,
+            testScope,
+            localTestColl
+          )
           done()
         }
       }
@@ -203,7 +279,11 @@ describe('#collectionmanager', function () {
   it('should successfully create a collection with settings', async function () {
     var cmgr = H.b.collections()
     await cmgr.createCollection(testColl, testScope, { maxExpiry: 3 })
-    await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, testColl)
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      testColl
+    )
     const scopes = await cmgr.getAllScopes()
 
     const foundScope = scopes.find((v) => v.name === testScope)
@@ -245,7 +325,7 @@ describe('#collectionmanager', function () {
   it('should fail to create a collection with history on a couchstore bucket', async function () {
     H.skipIfMissingFeature(this, H.Features.BucketDedup)
 
-    var bmgr = H.c.buckets()
+    var bmgr = testCluster.buckets()
     await bmgr.createBucket({
       name: couchstoreTestBucket,
       ramQuotaMB: 128,
@@ -256,10 +336,13 @@ describe('#collectionmanager', function () {
     var bucket = await bmgr.getBucket(couchstoreTestBucket)
     assert.isOk(bucket)
 
-    var cmgr = H.c.bucket(couchstoreTestBucket).collections()
+    var cmgr = testCluster.bucket(couchstoreTestBucket).collections()
 
     await cmgr.createScope(testScope)
-    await H.consistencyUtils.waitUntilScopePresent(couchstoreTestBucket, testScope)
+    await H.consistencyUtils.waitUntilScopePresent(
+      couchstoreTestBucket,
+      testScope
+    )
 
     await H.throwsHelper(async () => {
       await cmgr.createCollection(testColl, testScope, { history: true })
@@ -268,23 +351,27 @@ describe('#collectionmanager', function () {
 
   it('should fail to update a collection with history on a couchstore bucket', async function () {
     H.skipIfMissingFeature(this, H.Features.BucketDedup)
-    var cmgr = H.c.bucket(couchstoreTestBucket).collections()
+    var cmgr = testCluster.bucket(couchstoreTestBucket).collections()
 
     await cmgr.createCollection(testColl, testScope)
-    await H.consistencyUtils.waitUntilCollectionPresent(couchstoreTestBucket, testScope, testColl)
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      couchstoreTestBucket,
+      testScope,
+      testColl
+    )
 
     await H.throwsHelper(async () => {
       await cmgr.updateCollection(testColl, testScope, { history: true })
     }, H.lib.FeatureNotAvailableError)
 
-    await H.c.buckets().dropBucket(couchstoreTestBucket)
+    await testCluster.buckets().dropBucket(couchstoreTestBucket)
     await H.consistencyUtils.waitUntilBucketDropped(couchstoreTestBucket)
   })
 
   it('should successfully create a collection with history', async function () {
     H.skipIfMissingFeature(this, H.Features.BucketDedup)
 
-    var bmgr = H.c.buckets()
+    var bmgr = testCluster.buckets()
     await bmgr.createBucket({
       name: magmaTestBucket,
       ramQuotaMB: 1024,
@@ -295,13 +382,17 @@ describe('#collectionmanager', function () {
     var bucket = await bmgr.getBucket(magmaTestBucket)
     assert.isOk(bucket)
 
-    var cmgr = H.c.bucket(magmaTestBucket).collections()
+    var cmgr = testCluster.bucket(magmaTestBucket).collections()
 
     await cmgr.createScope(testScope)
     await H.consistencyUtils.waitUntilScopePresent(magmaTestBucket, testScope)
 
     await cmgr.createCollection(testColl, testScope, { history: true })
-    await H.consistencyUtils.waitUntilCollectionPresent(magmaTestBucket, testScope, testColl)
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      magmaTestBucket,
+      testScope,
+      testColl
+    )
 
     var scopes = await cmgr.getAllScopes()
 
@@ -316,7 +407,7 @@ describe('#collectionmanager', function () {
   it('should successfully update a collection with history', async function () {
     H.skipIfMissingFeature(this, H.Features.BucketDedup)
 
-    var cmgr = H.c.bucket(magmaTestBucket).collections()
+    var cmgr = testCluster.bucket(magmaTestBucket).collections()
 
     await cmgr.updateCollection(testColl, testScope, { history: false })
 
@@ -329,7 +420,7 @@ describe('#collectionmanager', function () {
     assert.isOk(foundColl)
     assert.isFalse(foundColl.history)
 
-    await H.c.buckets().dropBucket(magmaTestBucket)
+    await testCluster.buckets().dropBucket(magmaTestBucket)
     await H.consistencyUtils.waitUntilBucketDropped(magmaTestBucket)
   })
 })
