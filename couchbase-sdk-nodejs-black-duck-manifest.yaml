@@ -1,2 +1,2 @@
 include-projects:
-  couchbase-sdk-cxx
+  - couchbase-sdk-cxx
