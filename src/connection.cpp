@@ -8,6 +8,7 @@
 #include <core/agent_group.hxx>
 #include <core/operations/management/freeform.hxx>
 #include <core/range_scan_orchestrator.hxx>
+#include <core/utils/connection_string.hxx>
 #include <type_traits>
 
 namespace couchnode
@@ -189,8 +190,8 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
             InstanceMethod<
                 &Connection::jsManagementSearchIndexControlPlanFreeze>(
                 "managementSearchIndexControlPlanFreeze"),
-            InstanceMethod<&Connection::jsManagementSearchIndexStats>(
-                "managementSearchIndexStats"),
+            InstanceMethod<&Connection::jsManagementSearchGetStats>(
+                "managementSearchGetStats"),
             InstanceMethod<&Connection::jsManagementUserDrop>(
                 "managementUserDrop"),
             InstanceMethod<&Connection::jsManagementAnalyticsDataverseCreate>(
@@ -291,7 +292,7 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
     }
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "cbConnectCallback");
-    this->_instance->_cluster->open(
+    this->_instance->_cluster.open(
         couchbase::core::origin(creds, connstrInfo),
         [cookie = std::move(cookie)](std::error_code ec) mutable {
             cookie.invoke([ec](Napi::Env env, Napi::Function callback) {
@@ -307,7 +308,7 @@ Napi::Value Connection::jsShutdown(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[0].As<Napi::Function>();
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "cbShutdownCallback");
-    this->_instance->_cluster->close([cookie = std::move(cookie)]() mutable {
+    this->_instance->_cluster.close([cookie = std::move(cookie)]() mutable {
         cookie.invoke([](Napi::Env env, Napi::Function callback) {
             callback.Call({env.Null()});
         });
@@ -322,7 +323,7 @@ Napi::Value Connection::jsOpenBucket(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[1].As<Napi::Function>();
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "cbOpenBucketCallback");
-    this->_instance->_cluster->open_bucket(
+    this->_instance->_cluster.open_bucket(
         bucketName, [cookie = std::move(cookie)](std::error_code ec) mutable {
             cookie.invoke([ec](Napi::Env env, Napi::Function callback) {
                 callback.Call({cbpp_to_js(env, ec)});
@@ -341,7 +342,7 @@ Napi::Value Connection::jsDiagnostics(const Napi::CallbackInfo &info)
         jsToCbpp<std::optional<std::string>>(optsJsObj.Get("report_id"));
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "diagnostics");
-    this->_instance->_cluster->diagnostics(
+    this->_instance->_cluster.diagnostics(
         reportId, [cookie = std::move(cookie)](
                       couchbase::core::diag::diagnostics_result resp) mutable {
             cookie.invoke([resp = std::move(resp)](
@@ -373,10 +374,12 @@ Napi::Value Connection::jsPing(const Napi::CallbackInfo &info)
         jsToCbpp<std::optional<std::string>>(optsJsObj.Get("bucket_name"));
     auto services = jsToCbpp<std::set<couchbase::core::service_type>>(
         optsJsObj.Get("services"));
+    auto timeout = jsToCbpp<std::optional<std::chrono::milliseconds>>(
+        optsJsObj.Get("timeout"));
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "ping");
-    this->_instance->_cluster->ping(
-        reportId, bucketName, services,
+    this->_instance->_cluster.ping(
+        reportId, bucketName, services, timeout,
         [cookie = std::move(cookie)](
             couchbase::core::diag::ping_result resp) mutable {
             cookie.invoke([resp = std::move(resp)](
@@ -413,7 +416,7 @@ Napi::Value Connection::jsScan(const Napi::CallbackInfo &info)
         tl::expected<couchbase::core::topology::configuration::vbucket_map,
                      std::error_code>>>();
     auto f = barrier->get_future();
-    this->_instance->_cluster->with_bucket_configuration(
+    this->_instance->_cluster.with_bucket_configuration(
         bucketName,
         [barrier](
             std::error_code ec,

@@ -47,17 +47,9 @@ struct js_to_cbpp_t<cbtxns::transactions_config> {
             cppObj.durability_level(durability_level.value());
         }
 
-        auto kv_timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(
-            jsObj.Get("kv_timeout"));
-        if (kv_timeout.has_value()) {
-            cppObj.kv_timeout(kv_timeout.value());
-        }
-
-        auto expiration_time =
-            js_to_cbpp<std::optional<std::chrono::milliseconds>>(
-                jsObj.Get("expiration_time"));
-        if (expiration_time.has_value()) {
-            cppObj.expiration_time(expiration_time.value());
+        auto timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(jsObj.Get("timeout"));
+        if (timeout.has_value()) {
+            cppObj.timeout(timeout.value());
         }
 
         auto query_scan_consistency =
@@ -107,17 +99,9 @@ struct js_to_cbpp_t<cbtxns::transaction_options> {
             cppObj.durability_level(durability_level.value());
         }
 
-        auto kv_timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(
-            jsObj.Get("kv_timeout"));
-        if (kv_timeout.has_value()) {
-            cppObj.kv_timeout(kv_timeout.value());
-        }
-
-        auto expiration_time =
-            js_to_cbpp<std::optional<std::chrono::milliseconds>>(
-                jsObj.Get("expiration_time"));
-        if (expiration_time.has_value()) {
-            cppObj.expiration_time(expiration_time.value());
+        auto timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(jsObj.Get("timeout"));
+        if (timeout.has_value()) {
+            cppObj.timeout(timeout.value());
         }
 
         auto query_scan_consistency =

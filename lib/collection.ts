@@ -1833,7 +1833,7 @@ export class Collection {
     const emitter = new StreamableReplicasPromise<
       LookupInReplicaResult[],
       LookupInReplicaResult
-      >((replicas: LookupInReplicaResult[]) => replicas)
+    >((replicas: LookupInReplicaResult[]) => replicas)
 
     const cppSpecs: CppImplSubdocCommand[] = []
     for (let i = 0; i < specs.length; ++i) {
@@ -1888,11 +1888,11 @@ export class Collection {
             }
             emitter.emit(
               'replica',
-              new LookupInReplicaResult(({
+              new LookupInReplicaResult({
                 content: content,
                 cas: replica.cas,
-                isReplica: replica.is_replica
-              }))
+                isReplica: replica.is_replica,
+              })
             )
           })
 

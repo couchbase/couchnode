@@ -7,6 +7,7 @@
 #include "transaction.hpp"
 #include "transactions.hpp"
 #include <core/logger/configuration.hxx>
+#include <core/meta/version.hxx>
 #include <napi.h>
 #include <spdlog/spdlog.h>
 

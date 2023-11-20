@@ -59,7 +59,7 @@ public:
     Connection(const Napi::CallbackInfo &info);
     ~Connection();
 
-    std::shared_ptr<couchbase::core::cluster> cluster() const
+    couchbase::core::cluster cluster() const
     {
         return _instance->_cluster;
     }
@@ -174,7 +174,7 @@ public:
     Napi::Value jsManagementSearchIndexDrop(const Napi::CallbackInfo &info);
     Napi::Value
     jsManagementSearchIndexControlPlanFreeze(const Napi::CallbackInfo &info);
-    Napi::Value jsManagementSearchIndexStats(const Napi::CallbackInfo &info);
+    Napi::Value jsManagementSearchGetStats(const Napi::CallbackInfo &info);
     Napi::Value jsManagementUserDrop(const Napi::CallbackInfo &info);
     Napi::Value
     jsManagementAnalyticsDataverseCreate(const Napi::CallbackInfo &info);
@@ -215,7 +215,7 @@ private:
         using response_type = typename Request::response_type;
 
         auto cookie = CallCookie(jsCallback.Env(), jsCallback, opName);
-        this->_instance->_cluster->execute(
+        this->_instance->_cluster.execute(
             req, [cookie = std::move(cookie),
                   handler = std::move(handler)](response_type resp) mutable {
                 cookie.invoke(

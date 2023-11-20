@@ -2,6 +2,7 @@
 #include "addondata.hpp"
 #include "napi.h"
 #include <core/cluster.hxx>
+#include <couchbase/mutation_token.hxx>
 
 namespace couchnode
 {

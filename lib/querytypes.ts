@@ -355,7 +355,7 @@ export interface QueryOptions {
 
   /**
    * Uncommitted: This API is subject to change in the future.
-   * 
+   *
    * Specifies whether the query engine should use replica nodes for kv fetches,
    * if the active node is down.
    */

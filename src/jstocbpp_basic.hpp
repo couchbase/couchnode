@@ -6,6 +6,8 @@
 #include "mutationtoken.hpp"
 
 #include <core/cluster.hxx>
+#include <core/document_id.hxx>
+#include <core/json_string.hxx>
 #include <core/query_context.hxx>
 
 namespace couchnode

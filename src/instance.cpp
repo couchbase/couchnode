@@ -4,7 +4,7 @@ namespace couchnode
 {
 
 Instance::Instance()
-    : _cluster(couchbase::core::cluster::create(_io))
+    : _cluster(couchbase::core::cluster(_io))
 {
     _ioThread = std::thread([this]() { _io.run(); });
 }
@@ -15,7 +15,7 @@ Instance::~Instance()
 
 void Instance::asyncDestroy()
 {
-    _cluster->close([this]() mutable {
+    _cluster.close([this]() mutable {
         // We have to run this on a separate thread since the callback itself is
         // actually running from within the io context.
         std::thread([this]() {

@@ -5,6 +5,7 @@
 #include "jstocbpp_cpptypes.hpp"
 
 #include <core/cluster.hxx>
+#include <core/operations.hxx>
 #include <core/operations/management/analytics.hxx>
 #include <core/operations/management/bucket.hxx>
 #include <core/operations/management/bucket_describe.hxx>
@@ -1277,11 +1278,11 @@ struct js_to_cbpp_t<couchbase::core::management::search::index> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::management::query::index> {
-    static inline couchbase::management::query::index from_js(Napi::Value jsVal)
+struct js_to_cbpp_t<couchbase::management::query_index> {
+    static inline couchbase::management::query_index from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        couchbase::management::query::index cppObj;
+        couchbase::management::query_index cppObj;
         js_to_cbpp<bool>(cppObj.is_primary, jsObj.Get("is_primary"));
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
         js_to_cbpp<std::string>(cppObj.state, jsObj.Get("state"));
@@ -1300,7 +1301,7 @@ struct js_to_cbpp_t<couchbase::management::query::index> {
         return cppObj;
     }
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::management::query::index &cppObj)
+    to_js(Napi::Env env, const couchbase::management::query_index &cppObj)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("is_primary", cbpp_to_js<bool>(env, cppObj.is_primary));
@@ -2541,26 +2542,6 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
         // extract_encoded_plan_
         resObj.Set("body_str", cbpp_to_js<std::string>(env, cppObj.body_str));
         // parent_span
-        return resObj;
-    }
-};
-
-template <>
-struct js_to_cbpp_t<couchbase::core::operations::mcbp_noop_response> {
-    static inline couchbase::core::operations::mcbp_noop_response
-    from_js(Napi::Value jsVal)
-    {
-        auto jsObj = jsVal.ToObject();
-        couchbase::core::operations::mcbp_noop_response cppObj;
-        // ctx
-        return cppObj;
-    }
-    static inline Napi::Value
-    to_js(Napi::Env env,
-          const couchbase::core::operations::mcbp_noop_response &cppObj)
-    {
-        auto resObj = Napi::Object::New(env);
-        // ctx
         return resObj;
     }
 };
@@ -5170,7 +5151,7 @@ struct js_to_cbpp_t<
             cppObj;
         // ctx
         js_to_cbpp<std::string>(cppObj.status, jsObj.Get("status"));
-        js_to_cbpp<std::vector<couchbase::management::query::index>>(
+        js_to_cbpp<std::vector<couchbase::management::query_index>>(
             cppObj.indexes, jsObj.Get("indexes"));
         return cppObj;
     }
@@ -5182,7 +5163,7 @@ struct js_to_cbpp_t<
         // ctx
         resObj.Set("status", cbpp_to_js<std::string>(env, cppObj.status));
         resObj.Set("indexes",
-                   cbpp_to_js<std::vector<couchbase::management::query::index>>(
+                   cbpp_to_js<std::vector<couchbase::management::query_index>>(
                        env, cppObj.indexes));
         return resObj;
     }
@@ -8707,21 +8688,22 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
 
 template <>
 struct js_to_cbpp_t<
-    couchbase::core::operations::management::search_index_stats_response> {
+    couchbase::core::operations::management::search_get_stats_response> {
     static inline couchbase::core::operations::management::
-        search_index_stats_response
+        search_get_stats_response
         from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        couchbase::core::operations::management::search_index_stats_response
+        couchbase::core::operations::management::search_get_stats_response
             cppObj;
         // ctx
         js_to_cbpp<std::string>(cppObj.stats, jsObj.Get("stats"));
         return cppObj;
     }
-    static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::operations::management::
-                             search_index_stats_response &cppObj)
+    static inline Napi::Value to_js(
+        Napi::Env env,
+        const couchbase::core::operations::management::search_get_stats_response
+            &cppObj)
     {
         auto resObj = Napi::Object::New(env);
         // ctx
@@ -8732,13 +8714,13 @@ struct js_to_cbpp_t<
 
 template <>
 struct js_to_cbpp_t<
-    couchbase::core::operations::management::search_index_stats_request> {
+    couchbase::core::operations::management::search_get_stats_request> {
     static inline couchbase::core::operations::management::
-        search_index_stats_request
+        search_get_stats_request
         from_js(Napi::Value jsVal)
     {
         auto jsObj = jsVal.ToObject();
-        couchbase::core::operations::management::search_index_stats_request
+        couchbase::core::operations::management::search_get_stats_request
             cppObj;
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
@@ -8746,9 +8728,10 @@ struct js_to_cbpp_t<
             cppObj.timeout, jsObj.Get("timeout"));
         return cppObj;
     }
-    static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::operations::management::
-                             search_index_stats_request &cppObj)
+    static inline Napi::Value to_js(
+        Napi::Env env,
+        const couchbase::core::operations::management::search_get_stats_request
+            &cppObj)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(

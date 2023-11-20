@@ -6,6 +6,7 @@
 
 #include <core/cluster.hxx>
 #include <core/operations/management/error_utils.hxx>
+#include <couchbase/query_error_context.hxx>
 
 namespace couchnode
 {

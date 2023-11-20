@@ -11,7 +11,16 @@ CLANG_VERSION='13.0.1'
 #       arm64: /opt/homebrew/opt/llvm/lib
 llvmLibPath = "/usr/local/Cellar/llvm/13.0.1_1/lib/"
 
-cxxClientRoot = "../deps/couchbase-cxx-client"
+cxx_client_root = "../deps/couchbase-cxx-client"
+cxx_client_cache = "../deps/couchbase-cxx-cache"
+cxx_deps_include_paths = {
+    'asio': ['-I{0}/asio/{1}/asio/asio/include'],
+    'fmt': ['-I{0}/fmt/{1}/fmt/include'],
+    'gsl': ['-I{0}/gsl/{1}/gsl/include'],
+    'json': ['-I{0}/json/{1}/json/include',
+             '-I{0}/json/{1}/json/external/PEGTL/include'
+             ],
+}
 
 fileList = [
     "core/management/analytics_dataset.hxx",
@@ -89,7 +98,7 @@ typeList = [
     "couchbase::core::management::rbac::user_and_metadata",
     "couchbase::core::management::rbac::group",
     "couchbase::core::management::search::index",
-    "couchbase::management::query::index",
+    "couchbase::management::query_index",
     "couchbase::retry_reason",
     "couchbase::core::topology::collections_manifest",
     "couchbase::core::protocol::status",
@@ -160,6 +169,15 @@ typeList = [
 
 clang.cindex.Config.set_library_path(llvmLibPath)
 
+def set_cxx_deps_include_paths(dep, includes):
+    cpm_path = os.path.join(cxx_client_cache, dep)
+    dir_pattern = r'[0-9a-z]{40}'
+    cpm_hash_dir = next((d for d in os.listdir(cpm_path)
+                         if os.path.isdir(os.path.join(cpm_path, d)) and re.match(dir_pattern, d)),
+                         None)
+    if not cpm_hash_dir:
+        raise Exception(f'Unable to find CPM hash directory for path: {cpm_path}.')
+    return list(map(lambda p: p.format(cxx_client_cache, cpm_hash_dir), includes))
 
 def list_headers_in_dir(path):
     # enumerates a folder but keeps the full pathing for the files returned
@@ -184,11 +202,11 @@ for filePath in fileList:
             # if there is still a wildcard, we have an issue...
             raise NotImplementedError(
                 "wildcard only supported at end of file path")
-        files = list_headers_in_dir(os.path.join(cxxClientRoot, basePath))
+        files = list_headers_in_dir(os.path.join(cxx_client_root, basePath))
         fullFileList = fullFileList + files
     else:
         # normal path
-        fullFileList.append(os.path.join(cxxClientRoot, filePath))
+        fullFileList.append(os.path.join(cxx_client_root, filePath))
 
 # exclude _json.hxx files
 fullFileList = list(
@@ -440,20 +458,17 @@ def traverse(node, namespace, main_file):
     for child in node.get_children():
         traverse(child, namespace, main_file)
 
+include_paths = [
+    f'-I{cxx_client_root}/',
+    f'-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/{CLANG_VERSION}/include',
+]
+for dep, inc in cxx_deps_include_paths.items():
+    include_paths.extend(set_cxx_deps_include_paths(dep, inc))
+
 for headerPath in fullFileList:
     print("processing " + headerPath)
     index = clang.cindex.Index.create()
-    args = [
-        '-std=c++17',
-        "-I" + cxxClientRoot + "/",
-        "-I" + cxxClientRoot + "/third_party/fmt/include",
-        "-I" + cxxClientRoot + "/third_party/gsl/include",
-        "-I" + cxxClientRoot + "/third_party/json/include",
-        "-I" + cxxClientRoot + "/third_party/json/external/PEGTL/include",
-        "-I" + cxxClientRoot + "/third_party/asio/asio/include",
-        "-I" + f"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/{CLANG_VERSION}/include",
-        # "-I" + f'/opt/homebrew/Cellar/llvm/{CLANG_VERSION}/lib/clang/{CLANG_VERSION[:2]}/include',
-    ]
+    args = ['-std=c++17'] + include_paths
     translation_unit = index.parse(headerPath, args=args)
 
     # output clang compiler diagnostics information (for debugging)

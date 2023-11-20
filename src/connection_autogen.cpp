@@ -1176,15 +1176,17 @@ Napi::Value Connection::jsManagementSearchIndexControlPlanFreeze(
 }
 
 Napi::Value
-Connection::jsManagementSearchIndexStats(const Napi::CallbackInfo &info)
+Connection::jsManagementSearchGetStats(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementSearchIndexStats",
-              jsToCbpp<couchbase::core::operations::management::
-                           search_index_stats_request>(optsJsObj),
-              callbackJsFn);
+    executeOp(
+        "managementSearchGetStats",
+        jsToCbpp<
+            couchbase::core::operations::management::search_get_stats_request>(
+            optsJsObj),
+        callbackJsFn);
 
     return info.Env().Null();
 }

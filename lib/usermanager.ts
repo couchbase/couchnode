@@ -775,7 +775,7 @@ export class UserManager {
     const timeout = options.timeout || this._cluster.managementTimeout
 
     return PromiseHelper.wrapAsync(async () => {
-      const passwordData = { "password" : newPassword }
+      const passwordData = { password: newPassword }
 
       const res = await this._http.request({
         type: HttpServiceType.Management,
@@ -793,7 +793,11 @@ export class UserManager {
           throw new UserNotFoundError(undefined, errCtx)
         }
 
-        throw new CouchbaseError('failed to change password for the current user', undefined, errCtx)
+        throw new CouchbaseError(
+          'failed to change password for the current user',
+          undefined,
+          errCtx
+        )
       }
     }, callback)
   }

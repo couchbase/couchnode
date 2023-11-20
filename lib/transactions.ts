@@ -111,6 +111,8 @@ export interface TransactionsConfig {
 
   /**
    * Specifies the default timeout for KV operations, specified in millseconds.
+   *
+   * @deprecated Currently a no-op.  CXXCBC-391: Adds support for ExtSDKIntegration which uses KV durable timeout internally.
    */
   kvTimeout?: number
 
@@ -367,7 +369,7 @@ export class TransactionAttemptContext {
     }
     this._impl = new binding.Transaction(txns.impl, {
       durability_level: durabilityToCpp(config.durabilityLevel),
-      expiration_time: config.timeout,
+      timeout: config.timeout,
       query_scan_consistency: queryScanConsistencyToCpp(undefined),
     })
   }
@@ -631,8 +633,7 @@ export class Transactions {
     const connImpl = cluster.conn
     const txnsImpl = new binding.Transactions(connImpl, {
       durability_level: durabilityToCpp(config.durabilityLevel),
-      kv_timeout: config.kvTimeout,
-      expiration_time: config.timeout,
+      timeout: config.timeout,
       query_scan_consistency: queryScanConsistencyToCpp(
         config.queryConfig.scanConsistency
       ),

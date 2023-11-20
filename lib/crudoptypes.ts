@@ -261,7 +261,11 @@ export class LookupInReplicaResult {
    */
   isReplica: boolean
 
-  constructor(data: { content: LookupInResultEntry[]; cas: Cas; isReplica: boolean }) {
+  constructor(data: {
+    content: LookupInResultEntry[]
+    cas: Cas
+    isReplica: boolean
+  }) {
     this.content = data.content
     this.cas = data.cas
     this.isReplica = data.isReplica

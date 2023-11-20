@@ -19,7 +19,7 @@ public:
 
     asio::io_context _io;
     std::thread _ioThread;
-    std::shared_ptr<couchbase::core::cluster> _cluster;
+    couchbase::core::cluster _cluster;
 };
 
 } // namespace couchnode

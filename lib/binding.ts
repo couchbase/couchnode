@@ -606,9 +606,6 @@ export interface CppQueryRequest {
   body_str: string
   // parent_span
 }
-export interface CppMcbpNoopResponse {
-  // ctx
-}
 export interface CppReplaceResponse {
   // ctx
   cas: CppCas
@@ -1720,11 +1717,11 @@ export interface CppManagementSearchIndexControlPlanFreezeRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
 }
-export interface CppManagementSearchIndexStatsResponse {
+export interface CppManagementSearchGetStatsResponse {
   // ctx
   stats: string
 }
-export interface CppManagementSearchIndexStatsRequest {
+export interface CppManagementSearchGetStatsRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -2536,11 +2533,11 @@ export interface CppConnectionAutogen {
       result: CppManagementSearchIndexControlPlanFreezeResponse
     ) => void
   ): void
-  managementSearchIndexStats(
-    options: CppManagementSearchIndexStatsRequest,
+  managementSearchGetStats(
+    options: CppManagementSearchGetStatsRequest,
     callback: (
       err: CppError | null,
-      result: CppManagementSearchIndexStatsResponse
+      result: CppManagementSearchGetStatsResponse
     ) => void
   ): void
   managementUserDrop(
@@ -3359,8 +3356,7 @@ export interface CppConnection extends CppConnectionAutogen {
 
 export interface CppTransactionsConfig {
   durability_level?: CppDurabilityLevel
-  kv_timeout?: CppMilliseconds
-  expiration_time?: CppMilliseconds
+  timeout?: CppMilliseconds
   query_scan_consistency?: CppQueryScanConsistency
   cleanup_window?: CppMilliseconds
   cleanup_lost_attempts?: boolean
@@ -3369,8 +3365,7 @@ export interface CppTransactionsConfig {
 
 export interface CppTransactionOptions {
   durability_level?: CppDurabilityLevel
-  kv_timeout?: CppMilliseconds
-  expiration_time?: CppMilliseconds
+  timeout?: CppMilliseconds
   query_scan_consistency?: CppQueryScanConsistency
 }
 
