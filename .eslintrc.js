@@ -100,6 +100,28 @@ module.exports = {
     'jsdoc/require-returns': 'off',
     'jsdoc/require-param-type': 'off',
 
+    'jsdoc/tag-lines': [
+      'warn',
+      'any',
+      {
+        startLines: 1,
+      },
+    ],
+
+    'jsdoc/no-undefined-types': [
+      'warn',
+      {
+        definedTypes: [
+          'durabilityLevel',
+          'effectiveRoles',
+          'GetOptions',
+          'IBucketSettings',
+          'MutationState',
+          'StorageBackend',
+        ],
+      },
+    ],
+
     // We intentionally use `any` in a few places for user values.
     '@typescript-eslint/no-explicit-any': 'off',
 
