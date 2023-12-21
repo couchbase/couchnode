@@ -407,6 +407,18 @@ export class DocumentLockedError extends CouchbaseError {
 }
 
 /**
+ * Indicates that the referenced document is not locked.  Generally raised when an unlock
+ * operation is performed.
+ *
+ * @category Error Handling
+ */
+export class DocumentNotLockedError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('document not locked', cause, context)
+  }
+}
+
+/**
  * Indicates that a value could not be stored as it was too large.
  *
  * @category Error Handling

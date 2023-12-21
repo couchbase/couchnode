@@ -2930,6 +2930,7 @@ export interface CppBindingAutogen {
     xattr_unknown_virtual_attribute: CppErrcKeyValue
     xattr_cannot_modify_virtual_attribute: CppErrcKeyValue
     xattr_no_access: CppErrcKeyValue
+    document_not_locked: CppErrcKeyValue
     cannot_revive_living_document: CppErrcKeyValue
     mutation_token_outdated: CppErrcKeyValue
     range_scan_completed: CppErrcKeyValue
@@ -3012,6 +3013,7 @@ export interface CppBindingAutogen {
     dcp_stream_not_found: CppKeyValueStatusCode
     opaque_no_match: CppKeyValueStatusCode
     locked: CppKeyValueStatusCode
+    not_locked: CppKeyValueStatusCode
     auth_stale: CppKeyValueStatusCode
     auth_error: CppKeyValueStatusCode
     auth_continue: CppKeyValueStatusCode

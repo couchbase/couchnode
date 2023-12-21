@@ -3,6 +3,8 @@ import json
 import re
 import clang.cindex
 
+from functools import reduce
+
 # configurable part
 
 CLANG_VERSION='13.0.1'
@@ -246,7 +248,11 @@ def parse_type(type):
     typeStr = type.get_canonical().spelling
     return parse_type_str(typeStr)
 
-std_comparators = ["std::less<>", "std::greater<>", "std::less_equal<>", "std::greater_equal<>"]
+std_comparator_templates = ["std::less<{0}>", "std::greater<{0}>", "std::less_equal<{0}>", "std::greater_equal<{0}>"]
+# flatten the list of lists
+std_comparators = list(reduce(lambda a, b: a + b,
+                              list(map(lambda c: [c.format(s) for s in ['', 'void']], std_comparator_templates)),
+                              []))
 
 def parse_type_str(typeStr):
     if typeStr == "std::mutex":
@@ -294,6 +300,8 @@ def parse_type_str(typeStr):
     if typeStr == "std::nullptr_t":
         return {"name": "std::nullptr_t"}
     if typeStr in std_comparators:
+        if 'void' in typeStr:
+            return {"name": typeStr.replace("void", "")}
         return {"name": typeStr}
 
     tplParts = typeStr.split("<", 1)

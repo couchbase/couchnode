@@ -112,7 +112,7 @@ function genericTests(collFn) {
               assert.isNull(res)
               assert.isOk(err)
               done(null)
-            } catch(e) {
+            } catch (e) {
               done(e)
             }
           })
@@ -127,13 +127,11 @@ function genericTests(collFn) {
             assert.isObject(res)
             assert.isNull(err)
             setTimeout(validate, 2000)
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
       }).timeout(3500)
-
-
 
       it('should upsert with UTF8 data properly', async function () {
         var res = await collFn().upsert(testKeyUtf8, testUtf8Val)
@@ -235,7 +233,7 @@ function genericTests(collFn) {
             assert.isOk(res.cas)
             assert.deepStrictEqual(res.value, testObjVal)
             done(null)
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
@@ -247,7 +245,7 @@ function genericTests(collFn) {
             assert.isNull(res)
             assert.isOk(err)
             done(null)
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
@@ -276,7 +274,7 @@ function genericTests(collFn) {
             assert.isOk(res.cas)
             assert.deepStrictEqual(res.content, { baz: 19 })
             done(null)
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
@@ -363,7 +361,7 @@ function genericTests(collFn) {
             assert.isObject(res)
             assert.strictEqual(res.exists, true)
             done(null)
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
@@ -429,7 +427,7 @@ function genericTests(collFn) {
                 done(e)
               }
             })
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
@@ -457,11 +455,11 @@ function genericTests(collFn) {
                 try {
                   assert.deepStrictEqual(res.value, { foo: 'qux' })
                   done(null)
-                } catch(e) {
+                } catch (e) {
                   done(e)
                 }
               })
-            } catch(e) {
+            } catch (e) {
               done(e)
             }
           }
@@ -541,7 +539,7 @@ function genericTests(collFn) {
             assert.isOk(res.cas)
             validateMutationToken(res.token)
             done(null)
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
@@ -559,7 +557,6 @@ function genericTests(collFn) {
             } catch (e) {
               done(e)
             }
-
           })
         }
 
@@ -571,7 +568,7 @@ function genericTests(collFn) {
             assert.isObject(res)
             assert.isNull(err)
             setTimeout(validate, 2000)
-          } catch(e) {
+          } catch (e) {
             done(e)
           }
         })
@@ -1092,7 +1089,6 @@ function genericTests(collFn) {
                 } catch (e) {
                   done(e)
                 }
-
               })
             } catch (e) {
               done(e)
@@ -1166,12 +1162,10 @@ function genericTests(collFn) {
                 } catch (e) {
                   done(e)
                 }
-
               })
             } catch (e) {
               done(e)
             }
-
           })
       })
     })
@@ -1206,12 +1200,14 @@ function genericTests(collFn) {
                 }
                 try {
                   assert.isTrue(Buffer.isBuffer(gres.value))
-                  assert.deepStrictEqual(gres.value.toString(), 'hellobig13world!!')
+                  assert.deepStrictEqual(
+                    gres.value.toString(),
+                    'hellobig13world!!'
+                  )
                   done(null)
                 } catch (e) {
                   done(e)
                 }
-
               })
             } catch (e) {
               done(e)
@@ -1455,6 +1451,21 @@ function genericTests(collFn) {
       // Make sure our get works now
       await collFn().upsert(testKeyLck, { foo: 14 })
     })
+
+    it('should raise DocumentNotLockedError on unlock if document not locked', async function () {
+      H.skipIfMissingFeature(this, H.Features.NotLockedKVStatus)
+      // Lock the key for testing
+      var res = await collFn().getAndLock(testKeyLck, 1)
+      var prevCas = res.cas
+
+      // Manually unlock the key
+      await collFn().unlock(testKeyLck, prevCas)
+
+      // Make sure we get the expected error
+      await H.throwsHelper(async () => {
+        await collFn().unlock(testKeyLck, prevCas)
+      }, H.lib.DocumentNotLockedError)
+    })
   })
 
   describe('subdoc', function () {
@@ -1515,11 +1526,13 @@ function genericTests(collFn) {
       var removeRes = await collFn().remove(testKeyDeleted)
       assert.isOk(removeRes.cas)
 
-      var res = await collFn().lookupIn(testKeyDeleted,
+      var res = await collFn().lookupIn(
+        testKeyDeleted,
         [H.lib.LookupInSpec.exists('$document.revid', { xattr: true })],
         {
-          accessDeleted: true
-        })
+          accessDeleted: true,
+        }
+      )
 
       assert.isNull(res.content[0].error)
       assert.strictEqual(res.content[0].value, true)
@@ -1570,15 +1583,18 @@ function genericTests(collFn) {
       H.skipIfMissingFeature(this, H.Features.SubdocReadReplica)
       H.skipIfMissingFeature(this, H.Features.Replicas)
       testKeySd = H.genTestKey()
-      await collFn().insert(testKeySd, {
-        foo: 14,
-        bar: 2,
-        baz: 'hello',
-        arr: [1, 2, 3],
-      },
+      await collFn().insert(
+        testKeySd,
         {
-          durabilityLevel: DurabilityLevel.MajorityAndPersistOnMaster
-        })
+          foo: 14,
+          bar: 2,
+          baz: 'hello',
+          arr: [1, 2, 3],
+        },
+        {
+          durabilityLevel: DurabilityLevel.MajorityAndPersistOnMaster,
+        }
+      )
     })
 
     after(async function () {
@@ -1615,10 +1631,10 @@ function genericTests(collFn) {
         H.lib.LookupInSpec.exists('not-exists'),
       ])
       assert.isArray(res)
-      let activeCount = 0;
+      let activeCount = 0
       res.forEach((replica) => {
         if (!replica.isReplica) {
-          activeCount++;
+          activeCount++
         }
         assert.isOk(replica.cas)
         assert.isArray(replica.content)
@@ -1659,10 +1675,10 @@ function genericTests(collFn) {
       ]
       const res = await streamLookupInReplica(testKeySd, specs)
       assert.isArray(res.results)
-      let activeCount = 0;
+      let activeCount = 0
       res.results.forEach((replica) => {
         if (!replica.isReplica) {
-          activeCount++;
+          activeCount++
         }
         assert.isOk(replica.cas)
         assert.isArray(replica.content)
@@ -1678,52 +1694,62 @@ function genericTests(collFn) {
     })
 
     it('should successfully run lookupInAllReplicas with a callback', function (done) {
-      collFn().lookupInAllReplicas(testKeySd, [H.lib.LookupInSpec.get('baz')], (err, res) => {
-        if (err) {
-          return done(err)
+      collFn().lookupInAllReplicas(
+        testKeySd,
+        [H.lib.LookupInSpec.get('baz')],
+        (err, res) => {
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isAtLeast(res.length, 1)
+            assert.isBoolean(res[0].isReplica)
+            assert.isNotEmpty(res[0].cas)
+            assert.deepStrictEqual(res[0].content[0].value, 'hello')
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         }
-        try {
-          assert.isAtLeast(res.length, 1)
-          assert.isBoolean(res[0].isReplica)
-          assert.isNotEmpty(res[0].cas)
-          assert.deepStrictEqual(res[0].content[0].value, 'hello')
-          done(null)
-        } catch (e) {
-          done(e)
-        }
-        })
+      )
     })
 
-    it ('should successfully run lookupInAnyReplica with a callback', function (done) {
-      collFn().lookupInAnyReplica(testKeySd, [H.lib.LookupInSpec.get('baz')], (err, res) => {
-        if (err) {
-          return done(err)
+    it('should successfully run lookupInAnyReplica with a callback', function (done) {
+      collFn().lookupInAnyReplica(
+        testKeySd,
+        [H.lib.LookupInSpec.get('baz')],
+        (err, res) => {
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isObject(res)
+            assert.isNotEmpty(res.cas)
+            assert.isBoolean(res.isReplica)
+            assert.deepStrictEqual(res.content[0].value, 'hello')
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         }
-        try {
-          assert.isObject(res)
-          assert.isNotEmpty(res.cas)
-          assert.isBoolean(res.isReplica)
-          assert.deepStrictEqual(res.content[0].value, 'hello')
-          done(null)
-        } catch (e) {
-          done(e)
-        }
-        })
+      )
     })
 
     it('should doc-not-found for missing doc lookupInAllReplicas', async function () {
       await H.throwsHelper(async () => {
-        await collFn().lookupInAllReplicas('some-document-which-does-not-exist', [
-          H.lib.LookupInSpec.get('baz'),
-        ])
+        await collFn().lookupInAllReplicas(
+          'some-document-which-does-not-exist',
+          [H.lib.LookupInSpec.get('baz')]
+        )
       }, H.lib.DocumentNotFoundError)
     })
 
     it('should doc-irretrievable for missing doc lookupInAnyReplica', async function () {
       await H.throwsHelper(async () => {
-        await collFn().lookupInAnyReplica('some-document-which-does-not-exist', [
-          H.lib.LookupInSpec.get('baz'),
-        ])
+        await collFn().lookupInAnyReplica(
+          'some-document-which-does-not-exist',
+          [H.lib.LookupInSpec.get('baz')]
+        )
       }, H.lib.DocumentUnretrievableError)
     })
   })

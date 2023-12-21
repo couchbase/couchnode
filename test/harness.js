@@ -40,6 +40,7 @@ const ServerFeatures = {
   BucketDedup: 'bucket_dedup',
   UpdateCollectionMaxExpiry: 'update_collection_max_expiry',
   StorageBackend: 'storage_backend',
+  NotLockedKVStatus: 'kv_not_locked',
 }
 
 class ServerVersion {
@@ -202,11 +203,14 @@ class Harness {
       savedErr = err
     }
 
-    assert.throws(() => {
-      if (savedErr) {
-        throw savedErr
-      }
-    }, ...assertArgs)
+    assert.throws(
+      () => {
+        if (savedErr) {
+          throw savedErr
+        }
+      },
+      ...assertArgs
+    )
   }
 
   genTestKey() {
@@ -385,6 +389,8 @@ class Harness {
         return !this._version.isMock && this._version.isAtLeast(7, 2, 0)
       case ServerFeatures.UpdateCollectionMaxExpiry:
         return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
+      case ServerFeatures.NotLockedKVStatus:
+        return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
     }
 
     throw new Error('invalid code for feature checking')

@@ -723,6 +723,8 @@ export function errorFromCpp(err: CppError | null): Error | null {
       return new errs.DocumentUnretrievableError(baseErr, context)
     case binding.errc_key_value.document_locked:
       return new errs.DocumentLockedError(baseErr, context)
+    case binding.errc_key_value.document_not_locked:
+      return new errs.DocumentNotLockedError(baseErr, context)
     case binding.errc_key_value.value_too_large:
       return new errs.ValueTooLargeError(baseErr, context)
     case binding.errc_key_value.document_exists:
